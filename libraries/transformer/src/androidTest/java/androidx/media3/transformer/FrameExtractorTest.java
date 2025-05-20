@@ -18,6 +18,7 @@ package androidx.media3.transformer;
 import static androidx.media3.common.PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND;
 import static androidx.media3.common.PlaybackException.ERROR_CODE_SETUP_REQUIRED;
 import static androidx.media3.exoplayer.SeekParameters.CLOSEST_SYNC;
+import static androidx.media3.exoplayer.SeekParameters.NEXT_SYNC;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.maybeSaveTestBitmap;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmap;
 import static androidx.media3.test.utils.TestUtil.assertBitmapsAreSimilar;
@@ -301,6 +302,33 @@ public class FrameExtractorTest {
                 .get(TIMEOUT_SECONDS, SECONDS)
                 .renderedOutputBufferCount)
         .isEqualTo(6);
+  }
+
+  @Test
+  public void extractFrameWithSeekParameters_randomAccess_returnsCorrectFrames() throws Exception {
+    frameExtractor =
+        new ExperimentalFrameExtractor(
+            context, new ExperimentalFrameExtractor.Configuration.Builder().build());
+    frameExtractor.setMediaItem(MediaItem.fromUri(FILE_PATH), /* effects= */ ImmutableList.of());
+
+    ListenableFuture<Frame> frame5 = frameExtractor.getFrame(/* positionMs= */ 5_000);
+    ListenableFuture<Frame> frame3 = frameExtractor.getFrame(/* positionMs= */ 3_000, CLOSEST_SYNC);
+    ListenableFuture<Frame> frame7 = frameExtractor.getFrame(/* positionMs= */ 7_000);
+    ListenableFuture<Frame> frame2 = frameExtractor.getFrame(/* positionMs= */ 2_000, NEXT_SYNC);
+    ListenableFuture<Frame> frame8 = frameExtractor.getFrame(/* positionMs= */ 8_000, CLOSEST_SYNC);
+
+    assertThat(frame5.get(TIMEOUT_SECONDS, SECONDS).presentationTimeMs).isEqualTo(5_032);
+    assertThat(frame3.get(TIMEOUT_SECONDS, SECONDS).presentationTimeMs).isEqualTo(0);
+    assertThat(frame7.get(TIMEOUT_SECONDS, SECONDS).presentationTimeMs).isEqualTo(7_031);
+    assertThat(frame2.get(TIMEOUT_SECONDS, SECONDS).presentationTimeMs).isEqualTo(8_331);
+    assertThat(frame8.get(TIMEOUT_SECONDS, SECONDS).presentationTimeMs).isEqualTo(8_331);
+    // The last two frames resolve to the same position - only 5 frames are rendered.
+    assertThat(
+            frameExtractor
+                .getDecoderCounters()
+                .get(TIMEOUT_SECONDS, SECONDS)
+                .renderedOutputBufferCount)
+        .isEqualTo(5);
   }
 
   @Test

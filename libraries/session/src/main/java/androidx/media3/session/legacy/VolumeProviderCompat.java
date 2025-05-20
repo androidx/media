@@ -55,13 +55,13 @@ public abstract class VolumeProviderCompat {
    */
   public static final int VOLUME_CONTROL_ABSOLUTE = 2;
 
-  private final int mControlType;
-  private final int mMaxVolume;
-  @Nullable private final String mControlId;
-  private int mCurrentVolume;
-  @Nullable private Callback mCallback;
+  private final int controlType;
+  private final int maxVolume;
+  @Nullable private final String controlId;
+  private int currentVolume;
+  @Nullable private Callback callback;
 
-  @Nullable private VolumeProvider mVolumeProviderFwk;
+  @Nullable private VolumeProvider volumeProviderFwk;
 
   /**
    * Create a new volume provider for handling volume events. You must specify the type of volume
@@ -89,10 +89,10 @@ public abstract class VolumeProviderCompat {
       int maxVolume,
       int currentVolume,
       @Nullable String volumeControlId) {
-    mControlType = volumeControl;
-    mMaxVolume = maxVolume;
-    mCurrentVolume = currentVolume;
-    mControlId = volumeControlId;
+    controlType = volumeControl;
+    this.maxVolume = maxVolume;
+    this.currentVolume = currentVolume;
+    controlId = volumeControlId;
   }
 
   /**
@@ -101,7 +101,7 @@ public abstract class VolumeProviderCompat {
    * @return The max allowed volume.
    */
   public final int getMaxVolume() {
-    return mMaxVolume;
+    return maxVolume;
   }
 
   /**
@@ -110,11 +110,11 @@ public abstract class VolumeProviderCompat {
    * @param currentVolume The current volume of the output.
    */
   public final void setCurrentVolume(int currentVolume) {
-    mCurrentVolume = currentVolume;
+    this.currentVolume = currentVolume;
     VolumeProvider volumeProviderFwk = (VolumeProvider) getVolumeProvider();
     volumeProviderFwk.setCurrentVolume(currentVolume);
-    if (mCallback != null) {
-      mCallback.onVolumeChanged(this);
+    if (callback != null) {
+      callback.onVolumeChanged(this);
     }
   }
 
@@ -138,7 +138,7 @@ public abstract class VolumeProviderCompat {
    * <p>Used internally by the support library.
    */
   public void setCallback(@Nullable Callback callback) {
-    mCallback = callback;
+    this.callback = callback;
   }
 
   /**
@@ -149,10 +149,10 @@ public abstract class VolumeProviderCompat {
    * @return An equivalent {@link android.media.VolumeProvider} object, or null if none.
    */
   public Object getVolumeProvider() {
-    if (mVolumeProviderFwk == null) {
+    if (volumeProviderFwk == null) {
       if (Build.VERSION.SDK_INT >= 30) {
-        mVolumeProviderFwk =
-            new VolumeProvider(mControlType, mMaxVolume, mCurrentVolume, mControlId) {
+        volumeProviderFwk =
+            new VolumeProvider(controlType, maxVolume, currentVolume, controlId) {
               @Override
               public void onSetVolumeTo(int volume) {
                 VolumeProviderCompat.this.onSetVolumeTo(volume);
@@ -164,8 +164,8 @@ public abstract class VolumeProviderCompat {
               }
             };
       } else {
-        mVolumeProviderFwk =
-            new VolumeProvider(mControlType, mMaxVolume, mCurrentVolume) {
+        volumeProviderFwk =
+            new VolumeProvider(controlType, maxVolume, currentVolume) {
               @Override
               public void onSetVolumeTo(int volume) {
                 VolumeProviderCompat.this.onSetVolumeTo(volume);
@@ -178,7 +178,7 @@ public abstract class VolumeProviderCompat {
             };
       }
     }
-    return mVolumeProviderFwk;
+    return volumeProviderFwk;
   }
 
   /** Listens for changes to the volume. */

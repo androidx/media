@@ -24,6 +24,7 @@ import androidx.media3.session.IMediaController;
  */
 // Note: Keep this interface oneway. Otherwise a malicious app may make a blocking call to make
 // session service frozen.
+@JavaPassthrough(annotation="@androidx.annotation.RestrictTo(androidx.annotation.RestrictTo.Scope.LIBRARY)")
 oneway interface IMediaSessionService {
 
   // Id < 3000 is reserved to avoid potential collision with media2 1.x.

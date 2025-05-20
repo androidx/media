@@ -109,7 +109,7 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
  * </ul>
  */
 @UnstableApi
-public final class Mp4Muxer implements AutoCloseable {
+public final class Mp4Muxer implements Muxer {
   /** Parameters for {@link #FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION}. */
   public static final class Mp4AtFileParameters {
     /** Provides temporary cache files to be used by the muxer. */
@@ -426,7 +426,7 @@ public final class Mp4Muxer implements AutoCloseable {
   }
 
   /**
-   * Adds a track of the given media format.
+   * {@inheritDoc}
    *
    * <p>Tracks can be added at any point before the muxer is closed, even after writing samples to
    * other tracks.
@@ -438,6 +438,7 @@ public final class Mp4Muxer implements AutoCloseable {
    *     #writeSampleData}.
    * @throws MuxerException If an error occurs while adding track.
    */
+  @Override
   public int addTrack(Format format) throws MuxerException {
     return addTrack(/* sortKey= */ 1, format);
   }
@@ -483,7 +484,7 @@ public final class Mp4Muxer implements AutoCloseable {
   }
 
   /**
-   * Writes encoded sample data.
+   * {@inheritDoc}
    *
    * @param trackId The track id for which this sample is being written.
    * @param byteBuffer The encoded sample. The muxer takes ownership of the buffer if {@link
@@ -492,6 +493,7 @@ public final class Mp4Muxer implements AutoCloseable {
    * @param bufferInfo The {@link BufferInfo} related to this sample.
    * @throws MuxerException If an error occurs while writing data to the output file.
    */
+  @Override
   public void writeSampleData(int trackId, ByteBuffer byteBuffer, BufferInfo bufferInfo)
       throws MuxerException {
     Track track = trackIdToTrack.get(trackId);
@@ -512,7 +514,7 @@ public final class Mp4Muxer implements AutoCloseable {
   }
 
   /**
-   * Adds {@linkplain Metadata.Entry metadata} about the output file.
+   * {@inheritDoc}
    *
    * <p>List of supported {@linkplain Metadata.Entry metadata entries}:
    *
@@ -530,18 +532,12 @@ public final class Mp4Muxer implements AutoCloseable {
    *     IllegalArgumentException} is thrown if the {@linkplain Metadata.Entry metadata} is not
    *     supported.
    */
+  @Override
   public void addMetadataEntry(Metadata.Entry metadataEntry) {
     checkArgument(isMetadataSupported(metadataEntry), "Unsupported metadata");
     metadataCollector.addMetadata(metadataEntry);
   }
 
-  /**
-   * Closes the file.
-   *
-   * <p>The muxer cannot be used anymore once this method returns.
-   *
-   * @throws MuxerException If the muxer fails to finish writing the output.
-   */
   @Override
   public void close() throws MuxerException {
     @Nullable MuxerException exception = null;

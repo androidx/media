@@ -398,6 +398,8 @@ public final class NalUnitUtil {
     public final int seqParameterSetId;
     public final int width;
     public final int height;
+    public final int decodedWidth;
+    public final int decodedHeight;
     public final float pixelWidthHeightRatio;
     public final int maxNumReorderPics;
     public final @C.ColorSpace int colorSpace;
@@ -414,6 +416,8 @@ public final class NalUnitUtil {
         int seqParameterSetId,
         int width,
         int height,
+        int decodedWidth,
+        int decodedHeight,
         float pixelWidthHeightRatio,
         int maxNumReorderPics,
         @C.ColorSpace int colorSpace,
@@ -433,6 +437,8 @@ public final class NalUnitUtil {
       this.colorSpace = colorSpace;
       this.colorRange = colorRange;
       this.colorTransfer = colorTransfer;
+      this.decodedWidth = decodedWidth;
+      this.decodedHeight = decodedHeight;
     }
   }
 
@@ -1558,6 +1564,8 @@ public final class NalUnitUtil {
     int chromaFormatIdc = 0;
     int frameWidth = 0;
     int frameHeight = 0;
+    int decodedWidth = 0;
+    int decodedHeight = 0;
     int bitDepthLumaMinus8 = 0;
     int bitDepthChromaMinus8 = 0;
     int spsRepFormatIdx = C.INDEX_UNSET;
@@ -1573,8 +1581,10 @@ public final class NalUnitUtil {
             && vpsData.repFormatsAndIndices.repFormats.size() > spsRepFormatIdx) {
           H265RepFormat repFormat = vpsData.repFormatsAndIndices.repFormats.get(spsRepFormatIdx);
           chromaFormatIdc = repFormat.chromaFormatIdc;
-          frameWidth = repFormat.width;
-          frameHeight = repFormat.height;
+          decodedWidth = repFormat.width;
+          decodedHeight = repFormat.height;
+          frameWidth = decodedWidth;
+          frameHeight = decodedHeight;
           bitDepthLumaMinus8 = repFormat.bitDepthLumaMinus8;
           bitDepthChromaMinus8 = repFormat.bitDepthChromaMinus8;
         }
@@ -1584,8 +1594,8 @@ public final class NalUnitUtil {
       if (chromaFormatIdc == 3) {
         data.skipBit(); // separate_colour_plane_flag
       }
-      frameWidth = data.readUnsignedExpGolombCodedInt();
-      frameHeight = data.readUnsignedExpGolombCodedInt();
+      decodedWidth = data.readUnsignedExpGolombCodedInt();
+      decodedHeight = data.readUnsignedExpGolombCodedInt();
       if (data.readBit()) { // conformance_window_flag
         int confWinLeftOffset = data.readUnsignedExpGolombCodedInt();
         int confWinRightOffset = data.readUnsignedExpGolombCodedInt();
@@ -1593,10 +1603,13 @@ public final class NalUnitUtil {
         int confWinBottomOffset = data.readUnsignedExpGolombCodedInt();
         frameWidth =
             applyConformanceWindowToWidth(
-                frameWidth, chromaFormatIdc, confWinLeftOffset, confWinRightOffset);
+                decodedWidth, chromaFormatIdc, confWinLeftOffset, confWinRightOffset);
         frameHeight =
             applyConformanceWindowToHeight(
-                frameHeight, chromaFormatIdc, confWinTopOffset, confWinBottomOffset);
+                decodedHeight, chromaFormatIdc, confWinTopOffset, confWinBottomOffset);
+      } else {
+        frameWidth = decodedWidth;
+        frameHeight = decodedHeight;
       }
       bitDepthLumaMinus8 = data.readUnsignedExpGolombCodedInt();
       bitDepthChromaMinus8 = data.readUnsignedExpGolombCodedInt();
@@ -1714,6 +1727,8 @@ public final class NalUnitUtil {
         seqParameterSetId,
         frameWidth,
         frameHeight,
+        decodedWidth,
+        decodedHeight,
         pixelWidthHeightRatio,
         maxNumReorderPics,
         colorSpace,

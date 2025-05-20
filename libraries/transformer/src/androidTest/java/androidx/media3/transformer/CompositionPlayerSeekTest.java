@@ -56,7 +56,6 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Before;
@@ -96,26 +95,19 @@ public class CompositionPlayerSeekTest {
 
   private final Context applicationContext =
       getInstrumentation().getContext().getApplicationContext();
-  private final PlayerTestListener playerTestListener = new PlayerTestListener(TEST_TIMEOUT_MS);
 
-  private CompositionPlayer compositionPlayer;
+  private PlayerTestListener playerTestListener;
   private SurfaceView surfaceView;
 
   @Before
   public void setUp() {
+    playerTestListener = new PlayerTestListener(TEST_TIMEOUT_MS);
     rule.getScenario().onActivity(activity -> surfaceView = activity.getSurfaceView());
   }
 
   @After
   public void tearDown() {
     rule.getScenario().close();
-    getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              if (compositionPlayer != null) {
-                compositionPlayer.release();
-              }
-            });
   }
 
   @Test
@@ -748,6 +740,29 @@ public class CompositionPlayerSeekTest {
   }
 
   @Test
+  public void seekToVideo_atTransitionBetweenImages_completes() throws Exception {
+    ImmutableList<MediaItemConfig> mediaItems =
+        ImmutableList.of(IMAGE_MEDIA_ITEM, IMAGE_MEDIA_ITEM, VIDEO_MEDIA_ITEM);
+    int numberOfFramesBeforeSeeking = 2;
+    long seekTimeMs = 2 * Util.usToMs(IMAGE_DURATION_US) + 200;
+    ImmutableList<Long> expectedTimestampsUs =
+        new ImmutableList.Builder<Long>()
+            // Play the first 2 frames of the first image
+            .addAll(
+                Iterables.limit(IMAGE_TIMESTAMPS_US, /* limitSize= */ numberOfFramesBeforeSeeking))
+            .addAll(
+                transform(
+                    Iterables.skip(VIDEO_TIMESTAMPS_US, /* numberToSkip= */ 6),
+                    timestampUs -> (2 * IMAGE_DURATION_US + timestampUs)))
+            .build();
+
+    ImmutableList<Long> actualTimestampsUs =
+        playSequenceAndGetTimestampsUs(mediaItems, numberOfFramesBeforeSeeking, seekTimeMs);
+
+    assertThat(actualTimestampsUs).isEqualTo(expectedTimestampsUs);
+  }
+
+  @Test
   public void seekToImage_duringPlayingFirstImageInSequenceOfVideoAndImage() throws Exception {
     assumeFalse(
         "Skipped due to failing audio decoder on API 31 emulator",
@@ -846,10 +861,10 @@ public class CompositionPlayerSeekTest {
       long seekTimeMs,
       boolean videoPrewarmingEnabled)
       throws Exception {
-    ResettableCountDownLatch frameCountBeforeBlockLatch =
-        new ResettableCountDownLatch(numberOfFramesBeforeSeeking);
+    CountDownLatch waitUntilNumberOfFramesOrError = new CountDownLatch(1);
     InputTimestampRecordingShaderProgram inputTimestampRecordingShaderProgram =
-        createInputTimestampRecordingShaderProgram(frameCountBeforeBlockLatch);
+        createInputTimestampRecordingShaderProgram(
+            numberOfFramesBeforeSeeking, waitUntilNumberOfFramesOrError);
     CountDownLatch videoGraphEnded = new CountDownLatch(1);
     AtomicReference<@NullableType PlaybackException> playbackException = new AtomicReference<>();
 
@@ -861,46 +876,56 @@ public class CompositionPlayerSeekTest {
               /* videoEffect= */ (GlEffect)
                   (context, useHdr) -> inputTimestampRecordingShaderProgram));
     }
+    AtomicReference<CompositionPlayer> compositionPlayer = new AtomicReference<>();
 
     getInstrumentation()
         .runOnMainSync(
             () -> {
-              compositionPlayer =
+              compositionPlayer.set(
                   new CompositionPlayer.Builder(applicationContext)
                       .setVideoGraphFactory(new ListenerCapturingVideoGraphFactory(videoGraphEnded))
                       .setVideoPrewarmingEnabled(videoPrewarmingEnabled)
-                      .build();
+                      .build());
               // Set a surface on the player even though there is no UI on this test. We need a
               // surface otherwise the player will skip/drop video frames.
-              compositionPlayer.setVideoSurfaceView(surfaceView);
-              compositionPlayer.addListener(playerTestListener);
-              compositionPlayer.addListener(
-                  new Player.Listener() {
-                    @Override
-                    public void onPlayerError(PlaybackException error) {
-                      playbackException.set(error);
-                      frameCountBeforeBlockLatch.unblock();
-                    }
-                  });
-              compositionPlayer.setComposition(
-                  new Composition.Builder(
-                          new EditedMediaItemSequence.Builder(editedMediaItems).build())
-                      .build());
-              compositionPlayer.prepare();
-              compositionPlayer.play();
+              compositionPlayer.get().setVideoSurfaceView(surfaceView);
+              compositionPlayer.get().addListener(playerTestListener);
+              compositionPlayer
+                  .get()
+                  .addListener(
+                      new Player.Listener() {
+                        @Override
+                        public void onPlayerError(PlaybackException error) {
+                          playbackException.set(error);
+                          waitUntilNumberOfFramesOrError.countDown();
+                        }
+                      });
+              compositionPlayer
+                  .get()
+                  .setComposition(
+                      new Composition.Builder(
+                              new EditedMediaItemSequence.Builder(editedMediaItems).build())
+                          .build());
+              compositionPlayer.get().prepare();
+              compositionPlayer.get().play();
             });
 
     // Wait until the number of frames are received, block further input on the shader program.
     assertWithMessage("Timeout reached while waiting for frames.")
-        .that(frameCountBeforeBlockLatch.await())
+        .that(waitUntilNumberOfFramesOrError.await(TEST_TIMEOUT_MS, MILLISECONDS))
         .isTrue();
     if (playbackException.get() != null) {
       throw playbackException.get();
     }
-    getInstrumentation().runOnMainSync(() -> compositionPlayer.seekTo(seekTimeMs));
+    getInstrumentation().runOnMainSync(() -> compositionPlayer.get().seekTo(seekTimeMs));
     playerTestListener.waitUntilPlayerEnded();
 
     assertThat(videoGraphEnded.await(VIDEO_GRAPH_END_TIMEOUT_MS, MILLISECONDS)).isTrue();
+
+    getInstrumentation().runOnMainSync(() -> compositionPlayer.get().release());
+    if (playbackException.get() != null) {
+      throw playbackException.get();
+    }
     return inputTimestampRecordingShaderProgram.getInputTimestampsUs();
   }
 
@@ -938,49 +963,60 @@ public class CompositionPlayerSeekTest {
                   (context, useHdr) -> inputTimestampRecordingShaderProgram));
     }
 
+    AtomicReference<CompositionPlayer> compositionPlayer = new AtomicReference<>();
+
     getInstrumentation()
         .runOnMainSync(
             () -> {
-              compositionPlayer =
+              compositionPlayer.set(
                   new CompositionPlayer.Builder(applicationContext)
                       .setVideoGraphFactory(new ListenerCapturingVideoGraphFactory(videoGraphEnded))
-                      .build();
+                      .build());
               // Set a surface on the player even though there is no UI on this test. We need a
               // surface otherwise the player will skip/drop video frames.
-              compositionPlayer.setVideoSurfaceView(surfaceView);
-              compositionPlayer.addListener(playerTestListener);
-              compositionPlayer.addListener(
-                  new Player.Listener() {
-                    @Override
-                    public void onPlayerError(PlaybackException error) {
-                      playbackException.set(error);
-                    }
-                  });
-              compositionPlayer.setComposition(
-                  new Composition.Builder(
-                          new EditedMediaItemSequence.Builder(editedMediaItems).build())
-                      .build());
-              compositionPlayer.prepare();
-              compositionPlayer.play();
+              compositionPlayer.get().setVideoSurfaceView(surfaceView);
+              compositionPlayer.get().addListener(playerTestListener);
+              compositionPlayer
+                  .get()
+                  .addListener(
+                      new Player.Listener() {
+                        @Override
+                        public void onPlayerError(PlaybackException error) {
+                          playbackException.set(error);
+                        }
+                      });
+              compositionPlayer
+                  .get()
+                  .setComposition(
+                      new Composition.Builder(
+                              new EditedMediaItemSequence.Builder(editedMediaItems).build())
+                          .build());
+              compositionPlayer.get().prepare();
+              compositionPlayer.get().play();
             });
     playerTestListener.waitUntilPlayerEnded();
     playerTestListener.resetStatus();
-    getInstrumentation().runOnMainSync(() -> compositionPlayer.seekTo(seekTimeMs));
+    getInstrumentation().runOnMainSync(() -> compositionPlayer.get().seekTo(seekTimeMs));
     playerTestListener.waitUntilPlayerEnded();
 
+    getInstrumentation().runOnMainSync(() -> compositionPlayer.get().release());
+    if (playbackException.get() != null) {
+      throw playbackException.get();
+    }
     return inputTimestampRecordingShaderProgram.getInputTimestampsUs();
   }
 
   /**
-   * Creates an {@link InputTimestampRecordingShaderProgram} that blocks input after receiving the
-   * number of frames specified by the provided {@link ResettableCountDownLatch}.
+   * Creates an {@link InputTimestampRecordingShaderProgram} that signals the provided {@link
+   * CountDownLatch} and blocks input after receiving the number of frames specified.
    *
    * <p>Input is unblocked when the shader program is flushed.
    */
   private static InputTimestampRecordingShaderProgram createInputTimestampRecordingShaderProgram(
-      ResettableCountDownLatch frameCountBeforeBlockLatch) {
-    AtomicBoolean shaderProgramShouldBlockInput = new AtomicBoolean();
+      int numberOfFramesBeforeSeeking, CountDownLatch waitUntilNumberOfFrames) {
     return new InputTimestampRecordingShaderProgram() {
+      private int framesQueued;
+      private boolean seekCompleted;
 
       @Override
       public void queueInputFrame(
@@ -988,9 +1024,9 @@ public class CompositionPlayerSeekTest {
           GlTextureInfo inputTexture,
           long presentationTimeUs) {
         super.queueInputFrame(glObjectsProvider, inputTexture, presentationTimeUs);
-        frameCountBeforeBlockLatch.countDown();
-        if (frameCountBeforeBlockLatch.getCount() == 0) {
-          shaderProgramShouldBlockInput.set(true);
+        framesQueued += 1;
+        if (areEnoughFramesQueued()) {
+          waitUntilNumberOfFrames.countDown();
         }
       }
 
@@ -998,7 +1034,7 @@ public class CompositionPlayerSeekTest {
       public void releaseOutputFrame(GlTextureInfo outputTexture) {
         // The input listener capacity is reported in the super method, block input by skip
         // reporting input capacity.
-        if (shaderProgramShouldBlockInput.get()) {
+        if (!seekCompleted && areEnoughFramesQueued()) {
           return;
         }
         super.releaseOutputFrame(outputTexture);
@@ -1007,13 +1043,16 @@ public class CompositionPlayerSeekTest {
       @Override
       public void flush() {
         super.flush();
-        if (frameCountBeforeBlockLatch.getCount() == 0) {
+        if (areEnoughFramesQueued()) {
           // The flush is caused by the seek operation. We do this check because the shader
           // program can be flushed for other reasons, for example at the transition between 2
           // renderers.
-          shaderProgramShouldBlockInput.set(false);
-          frameCountBeforeBlockLatch.reset(Integer.MAX_VALUE);
+          seekCompleted = true;
         }
+      }
+
+      private boolean areEnoughFramesQueued() {
+        return framesQueued >= numberOfFramesBeforeSeeking;
       }
     };
   }
@@ -1098,37 +1137,6 @@ public class CompositionPlayerSeekTest {
     @Override
     public boolean supportsMultipleInputs() {
       return singleInputVideoGraphFactory.supportsMultipleInputs();
-    }
-  }
-
-  private static final class ResettableCountDownLatch {
-
-    private CountDownLatch latch;
-
-    public ResettableCountDownLatch(int count) {
-      latch = new CountDownLatch(count);
-    }
-
-    public boolean await() throws InterruptedException {
-      return latch.await(TEST_TIMEOUT_MS, MILLISECONDS);
-    }
-
-    public void countDown() {
-      latch.countDown();
-    }
-
-    public long getCount() {
-      return latch.getCount();
-    }
-
-    public void unblock() {
-      while (latch.getCount() > 0) {
-        latch.countDown();
-      }
-    }
-
-    public void reset(int count) {
-      latch = new CountDownLatch(count);
     }
   }
 

@@ -72,7 +72,8 @@ public final class TransformerUtilTest {
             new NoOpMuxerListenerImpl(),
             MUXER_MODE_DEFAULT,
             /* dropSamplesBeforeFirstVideoSample= */ false,
-            /* appendVideoFormat= */ null);
+            /* appendVideoFormat= */ null,
+            /* writeNegativeTimestampsToEditList= */ false);
 
     assertThat(
             shouldTranscodeVideo(
@@ -106,7 +107,8 @@ public final class TransformerUtilTest {
             new NoOpMuxerListenerImpl(),
             MUXER_MODE_DEFAULT,
             /* dropSamplesBeforeFirstVideoSample= */ false,
-            /* appendVideoFormat= */ null);
+            /* appendVideoFormat= */ null,
+            /* writeNegativeTimestampsToEditList= */ false);
 
     assertThat(
             shouldTranscodeVideo(

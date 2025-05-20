@@ -17,6 +17,7 @@ package androidx.media3.exoplayer.hls.offline;
 
 import android.net.Uri;
 import androidx.annotation.Nullable;
+import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.UriUtil;
@@ -100,7 +101,8 @@ public final class HlsDownloader extends SegmentDownloader<HlsPlaylist> {
     @Override
     @CanIgnoreReturnValue
     public Factory setExecutor(Executor executor) {
-      return (Factory) super.setExecutor(executor);
+      super.setExecutor(executor);
+      return this;
     }
 
     /**
@@ -112,7 +114,33 @@ public final class HlsDownloader extends SegmentDownloader<HlsPlaylist> {
     @Override
     @CanIgnoreReturnValue
     public Factory setMaxMergedSegmentStartTimeDiffMs(long maxMergedSegmentStartTimeDiffMs) {
-      return (Factory) super.setMaxMergedSegmentStartTimeDiffMs(maxMergedSegmentStartTimeDiffMs);
+      super.setMaxMergedSegmentStartTimeDiffMs(maxMergedSegmentStartTimeDiffMs);
+      return this;
+    }
+
+    /**
+     * Sets the start position in microseconds that the download should start from.
+     *
+     * @return This factory, for convenience.
+     */
+    @Override
+    @CanIgnoreReturnValue
+    public Factory setStartPositionUs(long startPositionUs) {
+      super.setStartPositionUs(startPositionUs);
+      return this;
+    }
+
+    /**
+     * Sets the duration in microseconds from the {@code startPositionUs} to be downloaded, or
+     * {@link C#TIME_UNSET} if the media should be downloaded to the end.
+     *
+     * @return This factory, for convenience.
+     */
+    @Override
+    @CanIgnoreReturnValue
+    public Factory setDurationUs(long durationUs) {
+      super.setDurationUs(durationUs);
+      return this;
     }
 
     /** Creates {@linkplain HlsDownloader HLS downloaders}. */
@@ -123,7 +151,9 @@ public final class HlsDownloader extends SegmentDownloader<HlsPlaylist> {
           manifestParser,
           cacheDataSourceFactory,
           executor,
-          maxMergedSegmentStartTimeDiffMs);
+          maxMergedSegmentStartTimeDiffMs,
+          startPositionUs,
+          durationUs);
     }
   }
 
@@ -146,7 +176,9 @@ public final class HlsDownloader extends SegmentDownloader<HlsPlaylist> {
         new HlsPlaylistParser(),
         cacheDataSourceFactory,
         executor,
-        DEFAULT_MAX_MERGED_SEGMENT_START_TIME_DIFF_MS);
+        DEFAULT_MAX_MERGED_SEGMENT_START_TIME_DIFF_MS,
+        /* startPositionUs= */ 0,
+        /* durationUs= */ C.TIME_UNSET);
   }
 
   /**
@@ -162,19 +194,26 @@ public final class HlsDownloader extends SegmentDownloader<HlsPlaylist> {
    * @param maxMergedSegmentStartTimeDiffMs The maximum difference of the start time of two
    *     segments, up to which the segments (of the same URI) should be merged into a single
    *     download segment, in milliseconds.
+   * @param startPositionUs The start position in microseconds that the download should start from.
+   * @param durationUs The duration in microseconds from the {@code startPositionUs} to be
+   *     downloaded, or {@link C#TIME_UNSET} if the media should be downloaded to the end.
    */
   private HlsDownloader(
       MediaItem mediaItem,
       Parser<HlsPlaylist> manifestParser,
       CacheDataSource.Factory cacheDataSourceFactory,
       Executor executor,
-      long maxMergedSegmentStartTimeDiffMs) {
+      long maxMergedSegmentStartTimeDiffMs,
+      long startPositionUs,
+      long durationUs) {
     super(
         mediaItem,
         manifestParser,
         cacheDataSourceFactory,
         executor,
-        maxMergedSegmentStartTimeDiffMs);
+        maxMergedSegmentStartTimeDiffMs,
+        startPositionUs,
+        durationUs);
   }
 
   @Override
@@ -205,8 +244,19 @@ public final class HlsDownloader extends SegmentDownloader<HlsPlaylist> {
       }
       @Nullable HlsMediaPlaylist.Segment lastInitSegment = null;
       List<HlsMediaPlaylist.Segment> hlsSegments = mediaPlaylist.segments;
+      long startPositionUs = removing ? 0 : this.startPositionUs;
+      long durationUs = removing ? C.TIME_UNSET : this.durationUs;
       for (int i = 0; i < hlsSegments.size(); i++) {
         HlsMediaPlaylist.Segment segment = hlsSegments.get(i);
+        long segmentStartTimeUs = mediaPlaylist.startTimeUs + segment.relativeStartTimeUs;
+        if (segmentStartTimeUs + segment.durationUs <= startPositionUs) {
+          // The current segment is before the start position.
+          continue;
+        }
+        if (durationUs != C.TIME_UNSET && segmentStartTimeUs >= startPositionUs + durationUs) {
+          // The current segment is after the end position.
+          break;
+        }
         HlsMediaPlaylist.Segment initSegment = segment.initializationSegment;
         if (initSegment != null && initSegment != lastInitSegment) {
           lastInitSegment = initSegment;

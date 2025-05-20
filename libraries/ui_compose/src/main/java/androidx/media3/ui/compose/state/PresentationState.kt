@@ -17,6 +17,7 @@
 package androidx.media3.ui.compose.state
 
 import androidx.annotation.Nullable
+import androidx.annotation.VisibleForTesting
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -33,14 +34,23 @@ import androidx.media3.common.util.UnstableApi
 
 /**
  * Remembers the value of [PresentationState] created based on the passed [Player] and launches a
- * coroutine to listen to [Player's][Player] changes. If the [Player] instance changes between
- * compositions, produces and remembers a new value.
+ * coroutine to listen to [Player's][Player] changes.
+ *
+ * Note that if the [Player] instance changes between compositions, the method will not produce a
+ * new value. The same object will be reused and subscribe to the [Player.Events] of the new player.
+ *
+ * @param[player] the Player whose [PresentationState] will be controlled.
+ * @param[keepContentOnReset] whether the currently displayed video frame or media artwork is kept
+ *   visible when tracks change or player changes. Defaults to false.
  */
 @UnstableApi
 @Composable
-fun rememberPresentationState(player: Player): PresentationState {
-  val presentationState = remember(player) { PresentationState(player) }
-  LaunchedEffect(player) { presentationState.observe() }
+fun rememberPresentationState(
+  player: Player?,
+  keepContentOnReset: Boolean = false,
+): PresentationState {
+  val presentationState = remember { PresentationState(keepContentOnReset) }
+  LaunchedEffect(player) { presentationState.observe(player) }
   return presentationState
 }
 
@@ -48,6 +58,8 @@ fun rememberPresentationState(player: Player): PresentationState {
  * State that holds information to correctly deal with UI components related to the rendering of
  * frames to a surface.
  *
+ * @param[keepContentOnReset] whether the currently displayed video frame or media artwork is kept
+ *   visible when tracks change or player changes. Defaults to false.
  * @property[videoSizeDp] wraps [Player.getVideoSize] in Compose's [Size], becomes `null` when
  *   either height or width of the video is zero. Takes into account
  *   [VideoSize.pixelWidthHeightRatio] to return a Size in [Dp][androidx.compose.ui.unit.Dp], i.e.
@@ -58,22 +70,24 @@ fun rememberPresentationState(player: Player): PresentationState {
  * @property[coverSurface] set to false when the Player emits [Player.EVENT_RENDERED_FIRST_FRAME]
  *   and reset back to true on [Player.EVENT_TRACKS_CHANGED] depending on the number and type of
  *   tracks.
- * @property[keepContentOnReset] whether the currently displayed video frame or media artwork is
- *   kept visible when tracks change. Defaults to false.
  */
 @UnstableApi
-class PresentationState(private val player: Player) {
-  var videoSizeDp: Size? by mutableStateOf(getVideoSizeDp(player))
+class PresentationState(keepContentOnReset: Boolean = false) {
+  var videoSizeDp: Size? by mutableStateOf(null)
     private set
 
   var coverSurface by mutableStateOf(true)
     private set
 
-  var keepContentOnReset: Boolean = false
+  var keepContentOnReset: Boolean = keepContentOnReset
     set(value) {
-      field = value
-      maybeHideSurface(player)
+      if (value != field) {
+        field = value
+        maybeHideSurface(player)
+      }
     }
+
+  @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE) var player: Player? = null
 
   private var lastPeriodUidWithTracks: Any? = null
 
@@ -83,24 +97,35 @@ class PresentationState(private val player: Player) {
    * * [Player.EVENT_RENDERED_FIRST_FRAME] and [Player.EVENT_TRACKS_CHANGED]to determine whether the
    *   surface is ready to be shown
    */
-  suspend fun observe(): Nothing =
-    player.listen { events ->
-      if (events.contains(Player.EVENT_VIDEO_SIZE_CHANGED)) {
-        if (videoSize != VideoSize.UNKNOWN && playbackState != Player.STATE_IDLE) {
-          this@PresentationState.videoSizeDp = getVideoSizeDp(player)
+  suspend fun observe(player: Player?) {
+    try {
+      this@PresentationState.player = player
+      videoSizeDp = getVideoSizeDp(player)
+      maybeHideSurface(player)
+      player?.listen { events ->
+        if (events.contains(Player.EVENT_VIDEO_SIZE_CHANGED)) {
+          if (videoSize != VideoSize.UNKNOWN && playbackState != Player.STATE_IDLE) {
+            this@PresentationState.videoSizeDp = getVideoSizeDp(player)
+          }
+        }
+        if (events.contains(Player.EVENT_RENDERED_FIRST_FRAME)) {
+          // open shutter, video available
+          coverSurface = false
+        }
+        if (events.contains(Player.EVENT_TRACKS_CHANGED)) {
+          if (!shouldKeepSurfaceVisible(player)) {
+            maybeHideSurface(player)
+          }
         }
       }
-      if (events.contains(Player.EVENT_RENDERED_FIRST_FRAME)) {
-        // open shutter, video available
-        coverSurface = false
-      }
-      if (events.contains(Player.EVENT_TRACKS_CHANGED)) {
-        maybeHideSurface(player)
-      }
+    } finally {
+      this@PresentationState.player = null
     }
+  }
 
   @Nullable
-  private fun getVideoSizeDp(player: Player): Size? {
+  private fun getVideoSizeDp(player: Player?): Size? {
+    player ?: return null
     var videoSize = Size(player.videoSize.width.toFloat(), player.videoSize.height.toFloat())
     if (videoSize.width == 0f || videoSize.height == 0f) return null
 
@@ -113,16 +138,18 @@ class PresentationState(private val player: Player) {
     return videoSize
   }
 
-  private fun maybeHideSurface(player: Player) {
-    val hasTracks =
-      player.isCommandAvailable(Player.COMMAND_GET_TRACKS) && !player.currentTracks.isEmpty
-    if (!shouldKeepSurfaceVisible(player)) {
+  private fun maybeHideSurface(player: Player?) {
+    if (player != null) {
+      val hasTracks =
+        player.isCommandAvailable(Player.COMMAND_GET_TRACKS) && !player.currentTracks.isEmpty
       if (!keepContentOnReset && !hasTracks) {
         coverSurface = true
       }
-      if (hasTracks && !hasSelectedVideoTrack()) {
+      if (hasTracks && !hasSelectedVideoTrack(player)) {
         coverSurface = true
       }
+    } else {
+      coverSurface = coverSurface || !keepContentOnReset
     }
   }
 
@@ -159,8 +186,7 @@ class PresentationState(private val player: Player) {
     return false
   }
 
-  private fun hasSelectedVideoTrack(): Boolean {
-    return player.isCommandAvailable(Player.COMMAND_GET_TRACKS) &&
+  private fun hasSelectedVideoTrack(player: Player): Boolean =
+    player.isCommandAvailable(Player.COMMAND_GET_TRACKS) &&
       player.currentTracks.isTypeSelected(C.TRACK_TYPE_VIDEO)
-  }
 }

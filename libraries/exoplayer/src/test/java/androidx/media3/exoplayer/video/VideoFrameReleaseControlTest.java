@@ -254,43 +254,7 @@ public class VideoFrameReleaseControlTest {
   }
 
   @Test
-  public void getFrameReleaseAction_secondFrameAndNotStarted_returnsTryAgainLater()
-      throws ExoPlaybackException {
-    VideoFrameReleaseControl.FrameReleaseInfo frameReleaseInfo =
-        new VideoFrameReleaseControl.FrameReleaseInfo();
-    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ false);
-    VideoFrameReleaseControl videoFrameReleaseControl = createVideoFrameReleaseControl();
-    videoFrameReleaseControl.setClock(clock);
-    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
-
-    // First frame released.
-    assertThat(
-            videoFrameReleaseControl.getFrameReleaseAction(
-                /* presentationTimeUs= */ 0,
-                /* positionUs= */ 0,
-                /* elapsedRealtimeUs= */ 0,
-                /* outputStreamStartPositionUs= */ 0,
-                /* isDecodeOnlyFrame= */ false,
-                /* isLastFrame= */ false,
-                frameReleaseInfo))
-        .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_IMMEDIATELY);
-    videoFrameReleaseControl.onFrameReleasedIsFirstFrame();
-
-    // Second frame
-    assertThat(
-            videoFrameReleaseControl.getFrameReleaseAction(
-                /* presentationTimeUs= */ 1_000,
-                /* positionUs= */ 0,
-                /* elapsedRealtimeUs= */ 0,
-                /* outputStreamStartPositionUs= */ 0,
-                /* isDecodeOnlyFrame= */ false,
-                /* isLastFrame= */ false,
-                frameReleaseInfo))
-        .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_TRY_AGAIN_LATER);
-  }
-
-  @Test
-  public void getFrameReleaseAction_secondFrameAndStarted_returnsScheduled()
+  public void getFrameReleaseAction_secondFrameWhileStartedAndPositionAdvancing_returnsScheduled()
       throws ExoPlaybackException {
     VideoFrameReleaseControl.FrameReleaseInfo frameReleaseInfo =
         new VideoFrameReleaseControl.FrameReleaseInfo();
@@ -313,12 +277,135 @@ public class VideoFrameReleaseControlTest {
         .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_IMMEDIATELY);
     videoFrameReleaseControl.onFrameReleasedIsFirstFrame();
 
-    // Second frame
+    // Second frame, advancing position.
     assertThat(
             videoFrameReleaseControl.getFrameReleaseAction(
                 /* presentationTimeUs= */ 1_000,
-                /* positionUs= */ 1,
+                /* positionUs= */ 500,
                 /* elapsedRealtimeUs= */ 1,
+                /* outputStreamStartPositionUs= */ 0,
+                /* isDecodeOnlyFrame= */ false,
+                /* isLastFrame= */ false,
+                frameReleaseInfo))
+        .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_SCHEDULED);
+  }
+
+  @Test
+  public void getFrameReleaseAction_secondFrameWhileNotStarted_returnsTryAgainLater()
+      throws ExoPlaybackException {
+    VideoFrameReleaseControl.FrameReleaseInfo frameReleaseInfo =
+        new VideoFrameReleaseControl.FrameReleaseInfo();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ false);
+    VideoFrameReleaseControl videoFrameReleaseControl = createVideoFrameReleaseControl();
+    videoFrameReleaseControl.setClock(clock);
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
+
+    // First frame released.
+    assertThat(
+            videoFrameReleaseControl.getFrameReleaseAction(
+                /* presentationTimeUs= */ 0,
+                /* positionUs= */ 0,
+                /* elapsedRealtimeUs= */ 0,
+                /* outputStreamStartPositionUs= */ 0,
+                /* isDecodeOnlyFrame= */ false,
+                /* isLastFrame= */ false,
+                frameReleaseInfo))
+        .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_IMMEDIATELY);
+    videoFrameReleaseControl.onFrameReleasedIsFirstFrame();
+
+    // Second frame, advancing position.
+    assertThat(
+            videoFrameReleaseControl.getFrameReleaseAction(
+                /* presentationTimeUs= */ 1_000,
+                /* positionUs= */ 500,
+                /* elapsedRealtimeUs= */ 0,
+                /* outputStreamStartPositionUs= */ 0,
+                /* isDecodeOnlyFrame= */ false,
+                /* isLastFrame= */ false,
+                frameReleaseInfo))
+        .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_TRY_AGAIN_LATER);
+  }
+
+  @Test
+  public void getFrameReleaseAction_secondFrameWhilePositionNotAdvancing_returnsTryAgainLater()
+      throws ExoPlaybackException {
+    VideoFrameReleaseControl.FrameReleaseInfo frameReleaseInfo =
+        new VideoFrameReleaseControl.FrameReleaseInfo();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ false);
+    VideoFrameReleaseControl videoFrameReleaseControl = createVideoFrameReleaseControl();
+    videoFrameReleaseControl.setClock(clock);
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
+    videoFrameReleaseControl.onStarted();
+
+    // First frame released.
+    assertThat(
+            videoFrameReleaseControl.getFrameReleaseAction(
+                /* presentationTimeUs= */ 0,
+                /* positionUs= */ 0,
+                /* elapsedRealtimeUs= */ 0,
+                /* outputStreamStartPositionUs= */ 0,
+                /* isDecodeOnlyFrame= */ false,
+                /* isLastFrame= */ false,
+                frameReleaseInfo))
+        .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_IMMEDIATELY);
+    videoFrameReleaseControl.onFrameReleasedIsFirstFrame();
+
+    // Second frame, without advancing position.
+    assertThat(
+            videoFrameReleaseControl.getFrameReleaseAction(
+                /* presentationTimeUs= */ 1_000,
+                /* positionUs= */ 0,
+                /* elapsedRealtimeUs= */ 1,
+                /* outputStreamStartPositionUs= */ 0,
+                /* isDecodeOnlyFrame= */ false,
+                /* isLastFrame= */ false,
+                frameReleaseInfo))
+        .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_TRY_AGAIN_LATER);
+  }
+
+  @Test
+  public void
+      getFrameReleaseAction_secondFrameWhileStatedButPositionAlreadyAdvanced_returnsTryAgainLaterUntilAdvancing()
+          throws ExoPlaybackException {
+    VideoFrameReleaseControl.FrameReleaseInfo frameReleaseInfo =
+        new VideoFrameReleaseControl.FrameReleaseInfo();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ false);
+    VideoFrameReleaseControl videoFrameReleaseControl = createVideoFrameReleaseControl();
+    videoFrameReleaseControl.setClock(clock);
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
+
+    // First frame released.
+    assertThat(
+            videoFrameReleaseControl.getFrameReleaseAction(
+                /* presentationTimeUs= */ 0,
+                /* positionUs= */ 0,
+                /* elapsedRealtimeUs= */ 0,
+                /* outputStreamStartPositionUs= */ 0,
+                /* isDecodeOnlyFrame= */ false,
+                /* isLastFrame= */ false,
+                frameReleaseInfo))
+        .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_IMMEDIATELY);
+    videoFrameReleaseControl.onFrameReleasedIsFirstFrame();
+
+    // Second frame, position already advanced when started.
+    videoFrameReleaseControl.onStarted();
+    assertThat(
+            videoFrameReleaseControl.getFrameReleaseAction(
+                /* presentationTimeUs= */ 1_000,
+                /* positionUs= */ 500,
+                /* elapsedRealtimeUs= */ 1,
+                /* outputStreamStartPositionUs= */ 0,
+                /* isDecodeOnlyFrame= */ false,
+                /* isLastFrame= */ false,
+                frameReleaseInfo))
+        .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_TRY_AGAIN_LATER);
+
+    // Advancing position while started.
+    assertThat(
+            videoFrameReleaseControl.getFrameReleaseAction(
+                /* presentationTimeUs= */ 1_000,
+                /* positionUs= */ 600,
+                /* elapsedRealtimeUs= */ 2,
                 /* outputStreamStartPositionUs= */ 0,
                 /* isDecodeOnlyFrame= */ false,
                 /* isLastFrame= */ false,
@@ -363,6 +450,245 @@ public class VideoFrameReleaseControlTest {
                 /* isLastFrame= */ false,
                 frameReleaseInfo))
         .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_TRY_AGAIN_LATER);
+  }
+
+  @Test
+  public void
+      getFrameReleaseAction_forceReleaseWhileStartedAndPositionAdvancing_returnsReleaseImmediately()
+          throws ExoPlaybackException {
+    VideoFrameReleaseControl.FrameReleaseInfo frameReleaseInfo =
+        new VideoFrameReleaseControl.FrameReleaseInfo();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ false);
+    VideoFrameReleaseControl videoFrameReleaseControl =
+        new VideoFrameReleaseControl(
+            ApplicationProvider.getApplicationContext(),
+            new TestFrameTimingEvaluator(
+                /* shouldForceRelease= */ true,
+                /* shouldDropFrame= */ false,
+                /* shouldIgnoreFrame= */ false),
+            /* allowedJoiningTimeMs= */ 0);
+    videoFrameReleaseControl.setOutputSurface(surface);
+    videoFrameReleaseControl.setClock(clock);
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
+    videoFrameReleaseControl.onStarted();
+
+    // First frame released.
+    assertThat(
+            videoFrameReleaseControl.getFrameReleaseAction(
+                /* presentationTimeUs= */ 0,
+                /* positionUs= */ 0,
+                /* elapsedRealtimeUs= */ 0,
+                /* outputStreamStartPositionUs= */ 0,
+                /* isDecodeOnlyFrame= */ false,
+                /* isLastFrame= */ false,
+                frameReleaseInfo))
+        .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_IMMEDIATELY);
+    videoFrameReleaseControl.onFrameReleasedIsFirstFrame();
+
+    // New frame, advancing position.
+    assertThat(
+            videoFrameReleaseControl.getFrameReleaseAction(
+                /* presentationTimeUs= */ 1_000,
+                /* positionUs= */ 500,
+                /* elapsedRealtimeUs= */ 1,
+                /* outputStreamStartPositionUs= */ 0,
+                /* isDecodeOnlyFrame= */ false,
+                /* isLastFrame= */ false,
+                frameReleaseInfo))
+        .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_IMMEDIATELY);
+  }
+
+  @Test
+  public void getFrameReleaseAction_forceReleaseWhileNotStarted_returnsTryAgainLater()
+      throws ExoPlaybackException {
+    VideoFrameReleaseControl.FrameReleaseInfo frameReleaseInfo =
+        new VideoFrameReleaseControl.FrameReleaseInfo();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ false);
+    VideoFrameReleaseControl videoFrameReleaseControl =
+        new VideoFrameReleaseControl(
+            ApplicationProvider.getApplicationContext(),
+            new TestFrameTimingEvaluator(
+                /* shouldForceRelease= */ true,
+                /* shouldDropFrame= */ false,
+                /* shouldIgnoreFrame= */ false),
+            /* allowedJoiningTimeMs= */ 0);
+    videoFrameReleaseControl.setOutputSurface(surface);
+    videoFrameReleaseControl.setClock(clock);
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
+
+    // First frame released.
+    assertThat(
+            videoFrameReleaseControl.getFrameReleaseAction(
+                /* presentationTimeUs= */ 0,
+                /* positionUs= */ 0,
+                /* elapsedRealtimeUs= */ 0,
+                /* outputStreamStartPositionUs= */ 0,
+                /* isDecodeOnlyFrame= */ false,
+                /* isLastFrame= */ false,
+                frameReleaseInfo))
+        .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_IMMEDIATELY);
+    videoFrameReleaseControl.onFrameReleasedIsFirstFrame();
+
+    // Second frame, position advancing.
+    assertThat(
+            videoFrameReleaseControl.getFrameReleaseAction(
+                /* presentationTimeUs= */ 1_000,
+                /* positionUs= */ 500,
+                /* elapsedRealtimeUs= */ 1,
+                /* outputStreamStartPositionUs= */ 0,
+                /* isDecodeOnlyFrame= */ false,
+                /* isLastFrame= */ false,
+                frameReleaseInfo))
+        .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_TRY_AGAIN_LATER);
+  }
+
+  @Test
+  public void getFrameReleaseAction_forceReleaseWhilePositionNotAdvancing_returnsTryAgainLater()
+      throws ExoPlaybackException {
+    VideoFrameReleaseControl.FrameReleaseInfo frameReleaseInfo =
+        new VideoFrameReleaseControl.FrameReleaseInfo();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ false);
+    VideoFrameReleaseControl videoFrameReleaseControl =
+        new VideoFrameReleaseControl(
+            ApplicationProvider.getApplicationContext(),
+            new TestFrameTimingEvaluator(
+                /* shouldForceRelease= */ true,
+                /* shouldDropFrame= */ false,
+                /* shouldIgnoreFrame= */ false),
+            /* allowedJoiningTimeMs= */ 0);
+    videoFrameReleaseControl.setOutputSurface(surface);
+    videoFrameReleaseControl.setClock(clock);
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
+    videoFrameReleaseControl.onStarted();
+
+    // First frame released.
+    assertThat(
+            videoFrameReleaseControl.getFrameReleaseAction(
+                /* presentationTimeUs= */ 0,
+                /* positionUs= */ 0,
+                /* elapsedRealtimeUs= */ 0,
+                /* outputStreamStartPositionUs= */ 0,
+                /* isDecodeOnlyFrame= */ false,
+                /* isLastFrame= */ false,
+                frameReleaseInfo))
+        .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_IMMEDIATELY);
+    videoFrameReleaseControl.onFrameReleasedIsFirstFrame();
+
+    // New frame, but same position as before.
+    assertThat(
+            videoFrameReleaseControl.getFrameReleaseAction(
+                /* presentationTimeUs= */ 1_000,
+                /* positionUs= */ 0,
+                /* elapsedRealtimeUs= */ 1,
+                /* outputStreamStartPositionUs= */ 0,
+                /* isDecodeOnlyFrame= */ false,
+                /* isLastFrame= */ false,
+                frameReleaseInfo))
+        .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_TRY_AGAIN_LATER);
+  }
+
+  @Test
+  public void
+      getFrameReleaseAction_withExperimentalDisableAdvancingTimestampCheckAndForceReleaseWhilePositionNotAdvancing_returnsReleaseImmediately()
+          throws ExoPlaybackException {
+    VideoFrameReleaseControl.FrameReleaseInfo frameReleaseInfo =
+        new VideoFrameReleaseControl.FrameReleaseInfo();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ false);
+    VideoFrameReleaseControl videoFrameReleaseControl =
+        new VideoFrameReleaseControl(
+            ApplicationProvider.getApplicationContext(),
+            new TestFrameTimingEvaluator(
+                /* shouldForceRelease= */ true,
+                /* shouldDropFrame= */ false,
+                /* shouldIgnoreFrame= */ false),
+            /* allowedJoiningTimeMs= */ 0);
+    videoFrameReleaseControl.setOutputSurface(surface);
+    videoFrameReleaseControl.setClock(clock);
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
+    videoFrameReleaseControl.onStarted();
+    // First frame released.
+    assertThat(
+            videoFrameReleaseControl.getFrameReleaseAction(
+                /* presentationTimeUs= */ 0,
+                /* positionUs= */ 0,
+                /* elapsedRealtimeUs= */ 0,
+                /* outputStreamStartPositionUs= */ 0,
+                /* isDecodeOnlyFrame= */ false,
+                /* isLastFrame= */ false,
+                frameReleaseInfo))
+        .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_IMMEDIATELY);
+    videoFrameReleaseControl.onFrameReleasedIsFirstFrame();
+
+    // New frame, but same position as before.
+    videoFrameReleaseControl.experimentalDisableAdvancingTimestampChecks();
+    assertThat(
+            videoFrameReleaseControl.getFrameReleaseAction(
+                /* presentationTimeUs= */ 1_000,
+                /* positionUs= */ 0,
+                /* elapsedRealtimeUs= */ 1,
+                /* outputStreamStartPositionUs= */ 0,
+                /* isDecodeOnlyFrame= */ false,
+                /* isLastFrame= */ false,
+                frameReleaseInfo))
+        .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_IMMEDIATELY);
+  }
+
+  @Test
+  public void
+      getFrameReleaseAction_forceReleaseWhileStartedButPositionAlreadyAdvanced_returnsTryAgainLaterUntilAdvancing()
+          throws ExoPlaybackException {
+    VideoFrameReleaseControl.FrameReleaseInfo frameReleaseInfo =
+        new VideoFrameReleaseControl.FrameReleaseInfo();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ false);
+    VideoFrameReleaseControl videoFrameReleaseControl =
+        new VideoFrameReleaseControl(
+            ApplicationProvider.getApplicationContext(),
+            new TestFrameTimingEvaluator(
+                /* shouldForceRelease= */ true,
+                /* shouldDropFrame= */ false,
+                /* shouldIgnoreFrame= */ false),
+            /* allowedJoiningTimeMs= */ 0);
+    videoFrameReleaseControl.setOutputSurface(surface);
+    videoFrameReleaseControl.setClock(clock);
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
+
+    // First frame released.
+    assertThat(
+            videoFrameReleaseControl.getFrameReleaseAction(
+                /* presentationTimeUs= */ 0,
+                /* positionUs= */ 0,
+                /* elapsedRealtimeUs= */ 0,
+                /* outputStreamStartPositionUs= */ 0,
+                /* isDecodeOnlyFrame= */ false,
+                /* isLastFrame= */ false,
+                frameReleaseInfo))
+        .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_IMMEDIATELY);
+    videoFrameReleaseControl.onFrameReleasedIsFirstFrame();
+
+    // New frame, position already advanced when started.
+    videoFrameReleaseControl.onStarted();
+    assertThat(
+            videoFrameReleaseControl.getFrameReleaseAction(
+                /* presentationTimeUs= */ 1_000,
+                /* positionUs= */ 500,
+                /* elapsedRealtimeUs= */ 1,
+                /* outputStreamStartPositionUs= */ 0,
+                /* isDecodeOnlyFrame= */ false,
+                /* isLastFrame= */ false,
+                frameReleaseInfo))
+        .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_TRY_AGAIN_LATER);
+
+    // Advancing position while started.
+    assertThat(
+            videoFrameReleaseControl.getFrameReleaseAction(
+                /* presentationTimeUs= */ 1_000,
+                /* positionUs= */ 600,
+                /* elapsedRealtimeUs= */ 1,
+                /* outputStreamStartPositionUs= */ 0,
+                /* isDecodeOnlyFrame= */ false,
+                /* isLastFrame= */ false,
+                frameReleaseInfo))
+        .isEqualTo(VideoFrameReleaseControl.FRAME_RELEASE_IMMEDIATELY);
   }
 
   @Test

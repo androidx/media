@@ -15,13 +15,14 @@
  */
 package androidx.media3.exoplayer.audio;
 
+import static androidx.media3.common.util.Util.sampleCountToDurationUs;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.media.AudioTimestamp;
 import android.media.AudioTrack;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.util.Util;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -31,16 +32,11 @@ import java.lang.annotation.Target;
  * Polls the {@link AudioTrack} timestamp, if the platform supports it, taking care of polling at
  * the appropriate rate to detect when the timestamp starts to advance.
  *
- * <p>When the audio track isn't paused, call {@link #maybePollTimestamp(long)} regularly to check
- * for timestamp updates. If it returns {@code true}, call {@link #getTimestampPositionFrames()} and
- * {@link #getTimestampSystemTimeUs()} to access the updated timestamp, then call {@link
- * #acceptTimestamp()} or {@link #rejectTimestamp()} to accept or reject it.
+ * <p>When the audio track isn't paused, call {@link #maybePollTimestamp} regularly to check for
+ * timestamp updates.
  *
- * <p>If {@link #hasTimestamp()} returns {@code true}, call {@link #getTimestampSystemTimeUs()} to
- * get the system time at which the latest timestamp was sampled and {@link
- * #getTimestampPositionFrames()} to get its position in frames. If {@link #hasAdvancingTimestamp()}
- * returns {@code true}, the caller should assume that the timestamp has been increasing in real
- * time since it was sampled. Otherwise, it may be stationary.
+ * <p>If {@link #hasAdvancingTimestamp()} returns {@code true}, call {@link
+ * #getTimestampPositionUs(long, float)} to get its position.
  *
  * <p>Call {@link #reset()} when pausing or resuming the track.
  */
@@ -91,50 +87,80 @@ import java.lang.annotation.Target;
    */
   private static final int INITIALIZING_DURATION_US = 500_000;
 
-  @Nullable private final AudioTimestampWrapper audioTimestamp;
+  /**
+   * The maximum difference in calculated current position between two reported timestamps to
+   * consider the timestamps advancing correctly.
+   */
+  private static final long MAX_POSITION_DRIFT_ADVANCING_TIMESTAMP_US = 1000;
+
+  /**
+   * The minimum duration to remain in {@link #STATE_INITIALIZING} and {@link #STATE_TIMESTAMP} if
+   * no correctly advancing timestamp is returned before transitioning to {@link #STATE_ERROR}.
+   */
+  private static final int WAIT_FOR_ADVANCE_DURATION_US = 2_000_000;
+
+  /**
+   * AudioTrack timestamps are deemed spurious if they are offset from the system clock by more than
+   * this amount.
+   *
+   * <p>This is a fail safe that should not be required on correctly functioning devices.
+   */
+  private static final long MAX_AUDIO_TIMESTAMP_OFFSET_US = 5 * C.MICROS_PER_SECOND;
+
+  private final AudioTimestampWrapper audioTimestamp;
+  private final int sampleRate;
+  private final AudioTrackPositionTracker.Listener errorListener;
 
   private @State int state;
   private long initializeSystemTimeUs;
   private long sampleIntervalUs;
   private long lastTimestampSampleTimeUs;
   private long initialTimestampPositionFrames;
+  private long initialTimestampSystemTimeUs;
 
   /**
    * Creates a new audio timestamp poller.
    *
    * @param audioTrack The audio track that will provide timestamps.
+   * @param errorListener The {@link AudioTrackPositionTracker.Listener} for timestamp errors.
    */
-  public AudioTimestampPoller(AudioTrack audioTrack) {
-    audioTimestamp = new AudioTimestampWrapper(audioTrack);
+  public AudioTimestampPoller(
+      AudioTrack audioTrack, AudioTrackPositionTracker.Listener errorListener) {
+    this.audioTimestamp = new AudioTimestampWrapper(audioTrack);
+    this.sampleRate = audioTrack.getSampleRate();
+    this.errorListener = errorListener;
     reset();
   }
 
   /**
-   * Polls the timestamp if required and returns whether it was updated. If {@code true}, the latest
-   * timestamp is available via {@link #getTimestampSystemTimeUs()} and {@link
-   * #getTimestampPositionFrames()}, and the caller should call {@link #acceptTimestamp()} if the
-   * timestamp was valid, or {@link #rejectTimestamp()} otherwise. The values returned by {@link
-   * #hasTimestamp()} and {@link #hasAdvancingTimestamp()} may be updated.
+   * Polls and updates the timestamp if required.
+   *
+   * <p>The value of {@link #hasAdvancingTimestamp()} may have changed after calling this method.
    *
    * @param systemTimeUs The current system time, in microseconds.
-   * @return Whether the timestamp was updated.
+   * @param audioTrackPlaybackSpeed The playback speed of the audio track.
+   * @param playbackHeadPositionEstimateUs The current position estimate using the playback head
+   *     position, in microseconds.
    */
-  public boolean maybePollTimestamp(long systemTimeUs) {
-    if (audioTimestamp == null || (systemTimeUs - lastTimestampSampleTimeUs) < sampleIntervalUs) {
-      return false;
+  public void maybePollTimestamp(
+      long systemTimeUs, float audioTrackPlaybackSpeed, long playbackHeadPositionEstimateUs) {
+    if ((systemTimeUs - lastTimestampSampleTimeUs) < sampleIntervalUs) {
+      return;
     }
     lastTimestampSampleTimeUs = systemTimeUs;
     boolean updatedTimestamp = audioTimestamp.maybeUpdateTimestamp();
+    if (updatedTimestamp) {
+      checkTimestampIsPlausibleAndUpdateErrorState(
+          systemTimeUs, audioTrackPlaybackSpeed, playbackHeadPositionEstimateUs);
+    }
     switch (state) {
       case STATE_INITIALIZING:
         if (updatedTimestamp) {
           if (audioTimestamp.getTimestampSystemTimeUs() >= initializeSystemTimeUs) {
             // We have an initial timestamp, but don't know if it's advancing yet.
             initialTimestampPositionFrames = audioTimestamp.getTimestampPositionFrames();
+            initialTimestampSystemTimeUs = audioTimestamp.getTimestampSystemTimeUs();
             updateState(STATE_TIMESTAMP);
-          } else {
-            // Drop the timestamp, as it was sampled before the last reset.
-            updatedTimestamp = false;
           }
         } else if (systemTimeUs - initializeSystemTimeUs > INITIALIZING_DURATION_US) {
           // We haven't received a timestamp for a while, so they probably aren't available for the
@@ -146,9 +172,16 @@ import java.lang.annotation.Target;
         break;
       case STATE_TIMESTAMP:
         if (updatedTimestamp) {
-          long timestampPositionFrames = audioTimestamp.getTimestampPositionFrames();
-          if (timestampPositionFrames > initialTimestampPositionFrames) {
+          if (isTimestampAdvancingFromInitialTimestamp(systemTimeUs, audioTrackPlaybackSpeed)) {
             updateState(STATE_TIMESTAMP_ADVANCING);
+          } else if (systemTimeUs - initializeSystemTimeUs > WAIT_FOR_ADVANCE_DURATION_US) {
+            // Failed to find a correctly advancing timestamp. Only try again later after waiting
+            // for SLOW_POLL_INTERVAL_US.
+            updateState(STATE_NO_TIMESTAMP);
+          } else {
+            // Not yet advancing, try again with the latest timestamp as the initial one.
+            initialTimestampPositionFrames = audioTimestamp.getTimestampPositionFrames();
+            initialTimestampSystemTimeUs = audioTimestamp.getTimestampSystemTimeUs();
           }
         } else {
           reset();
@@ -172,68 +205,39 @@ import java.lang.annotation.Target;
       default:
         throw new IllegalStateException();
     }
-    return updatedTimestamp;
-  }
-
-  /**
-   * Rejects the timestamp last polled in {@link #maybePollTimestamp(long)}. The instance will enter
-   * the error state and poll timestamps infrequently until the next call to {@link
-   * #acceptTimestamp()}.
-   */
-  public void rejectTimestamp() {
-    updateState(STATE_ERROR);
-  }
-
-  /**
-   * Accepts the timestamp last polled in {@link #maybePollTimestamp(long)}. If the instance is in
-   * the error state, it will begin to poll timestamps frequently again.
-   */
-  public void acceptTimestamp() {
-    if (state == STATE_ERROR) {
-      reset();
-    }
-  }
-
-  /**
-   * Returns whether this instance has a timestamp that can be used to calculate the audio track
-   * position. If {@code true}, call {@link #getTimestampSystemTimeUs()} and {@link
-   * #getTimestampSystemTimeUs()} to access the timestamp.
-   */
-  public boolean hasTimestamp() {
-    return state == STATE_TIMESTAMP || state == STATE_TIMESTAMP_ADVANCING;
   }
 
   /**
    * Returns whether this instance has an advancing timestamp. If {@code true}, call {@link
-   * #getTimestampSystemTimeUs()} and {@link #getTimestampSystemTimeUs()} to access the timestamp. A
-   * current position for the track can be extrapolated based on elapsed real time since the system
-   * time at which the timestamp was sampled.
+   * #getTimestampPositionUs(long, float)} to access the current timestamp.
    */
   public boolean hasAdvancingTimestamp() {
     return state == STATE_TIMESTAMP_ADVANCING;
   }
 
+  /**
+   * Returns whether this instance is waiting for an advancing timestamp. If {@code false}, there
+   * either won't be a timestamp, an error occurred or there already is an {@linkplain
+   * #hasAdvancingTimestamp() advancing timestamp}.
+   */
+  public boolean isWaitingForAdvancingTimestamp() {
+    return state == STATE_INITIALIZING || state == STATE_TIMESTAMP;
+  }
+
   /** Resets polling. Should be called whenever the audio track is paused or resumed. */
   public void reset() {
-    if (audioTimestamp != null) {
-      updateState(STATE_INITIALIZING);
-    }
+    updateState(STATE_INITIALIZING);
   }
 
   /**
-   * If {@link #maybePollTimestamp(long)} or {@link #hasTimestamp()} returned {@code true}, returns
-   * the system time at which the latest timestamp was sampled, in microseconds.
+   * If {@link #hasAdvancingTimestamp()} returns {@code true}, returns the latest timestamp position
+   * in microseconds.
+   *
+   * @param systemTimeUs The current system time, in microseconds.
+   * @param audioTrackPlaybackSpeed The playback speed of the audio track.
    */
-  public long getTimestampSystemTimeUs() {
-    return audioTimestamp != null ? audioTimestamp.getTimestampSystemTimeUs() : C.TIME_UNSET;
-  }
-
-  /**
-   * If {@link #maybePollTimestamp(long)} or {@link #hasTimestamp()} returned {@code true}, returns
-   * the latest timestamp's position in frames.
-   */
-  public long getTimestampPositionFrames() {
-    return audioTimestamp != null ? audioTimestamp.getTimestampPositionFrames() : C.INDEX_UNSET;
+  public long getTimestampPositionUs(long systemTimeUs, float audioTrackPlaybackSpeed) {
+    return computeTimestampPositionUs(systemTimeUs, audioTrackPlaybackSpeed);
   }
 
   /**
@@ -241,9 +245,7 @@ import java.lang.annotation.Target;
    * transition and reusing of the {@link AudioTrack}.
    */
   public void expectTimestampFramePositionReset() {
-    if (audioTimestamp != null) {
-      audioTimestamp.expectTimestampFramePositionReset();
-    }
+    audioTimestamp.expectTimestampFramePositionReset();
   }
 
   private void updateState(@State int state) {
@@ -253,6 +255,7 @@ import java.lang.annotation.Target;
         // Force polling a timestamp immediately, and poll quickly.
         lastTimestampSampleTimeUs = 0;
         initialTimestampPositionFrames = C.INDEX_UNSET;
+        initialTimestampSystemTimeUs = C.TIME_UNSET;
         initializeSystemTimeUs = System.nanoTime() / 1000;
         sampleIntervalUs = FAST_POLL_INTERVAL_US;
         break;
@@ -268,6 +271,69 @@ import java.lang.annotation.Target;
         break;
       default:
         throw new IllegalStateException();
+    }
+  }
+
+  private boolean isTimestampAdvancingFromInitialTimestamp(
+      long systemTimeUs, float audioTrackPlaybackSpeed) {
+    if (audioTimestamp.getTimestampPositionFrames() <= initialTimestampPositionFrames) {
+      // Reported timestamp hasn't been updated.
+      return false;
+    }
+    long positionEstimateUsingInitialTimestampUs =
+        computeTimestampPositionUs(
+            initialTimestampPositionFrames,
+            initialTimestampSystemTimeUs,
+            systemTimeUs,
+            audioTrackPlaybackSpeed);
+    long positionEstimateUsingCurrentTimestampUs =
+        computeTimestampPositionUs(systemTimeUs, audioTrackPlaybackSpeed);
+    long positionDriftUs =
+        Math.abs(positionEstimateUsingCurrentTimestampUs - positionEstimateUsingInitialTimestampUs);
+    return positionDriftUs < MAX_POSITION_DRIFT_ADVANCING_TIMESTAMP_US;
+  }
+
+  private long computeTimestampPositionUs(long systemTimeUs, float audioTrackPlaybackSpeed) {
+    return computeTimestampPositionUs(
+        audioTimestamp.getTimestampPositionFrames(),
+        audioTimestamp.getTimestampSystemTimeUs(),
+        systemTimeUs,
+        audioTrackPlaybackSpeed);
+  }
+
+  private long computeTimestampPositionUs(
+      long timestampPositionFrames,
+      long timestampSystemTimeUs,
+      long systemTimeUs,
+      float audioTrackPlaybackSpeed) {
+    long timestampPositionUs = sampleCountToDurationUs(timestampPositionFrames, sampleRate);
+    long elapsedSinceTimestampUs = systemTimeUs - timestampSystemTimeUs;
+    elapsedSinceTimestampUs =
+        Util.getMediaDurationForPlayoutDuration(elapsedSinceTimestampUs, audioTrackPlaybackSpeed);
+    return timestampPositionUs + elapsedSinceTimestampUs;
+  }
+
+  private void checkTimestampIsPlausibleAndUpdateErrorState(
+      long systemTimeUs, float audioTrackPlaybackSpeed, long playbackHeadPositionEstimateUs) {
+    long timestampSystemTimeUs = audioTimestamp.getTimestampSystemTimeUs();
+    long timestampPositionUs = computeTimestampPositionUs(systemTimeUs, audioTrackPlaybackSpeed);
+    if (Math.abs(timestampSystemTimeUs - systemTimeUs) > MAX_AUDIO_TIMESTAMP_OFFSET_US) {
+      errorListener.onSystemTimeUsMismatch(
+          audioTimestamp.getTimestampPositionFrames(),
+          timestampSystemTimeUs,
+          systemTimeUs,
+          playbackHeadPositionEstimateUs);
+      updateState(STATE_ERROR);
+    } else if (Math.abs(timestampPositionUs - playbackHeadPositionEstimateUs)
+        > MAX_AUDIO_TIMESTAMP_OFFSET_US) {
+      errorListener.onPositionFramesMismatch(
+          audioTimestamp.getTimestampPositionFrames(),
+          timestampSystemTimeUs,
+          systemTimeUs,
+          playbackHeadPositionEstimateUs);
+      updateState(STATE_ERROR);
+    } else if (state == STATE_ERROR) {
+      reset();
     }
   }
 

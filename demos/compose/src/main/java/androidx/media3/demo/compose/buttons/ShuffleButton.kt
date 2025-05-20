@@ -34,9 +34,9 @@ internal fun ShuffleButton(player: Player, modifier: Modifier = Modifier) {
   val icon = if (state.shuffleOn) Icons.Default.ShuffleOn else Icons.Default.Shuffle
   val contentDescription =
     if (state.shuffleOn) {
-      stringResource(R.string.shuffle_button_shuffle_on_description)
+      stringResource(R.string.shuffle_button_shuffle_on)
     } else {
-      stringResource(R.string.shuffle_button_shuffle_off_description)
+      stringResource(R.string.shuffle_button_shuffle_off)
     }
   IconButton(onClick = state::onClick, modifier = modifier, enabled = state.isEnabled) {
     Icon(icon, contentDescription = contentDescription, modifier = modifier)

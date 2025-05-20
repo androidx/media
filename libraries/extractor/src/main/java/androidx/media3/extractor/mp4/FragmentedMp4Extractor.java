@@ -161,7 +161,7 @@ public class FragmentedMp4Extractor implements Extractor {
    */
   public static final int FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES_H265 = 1 << 7;
 
-  /** Flag to enables reading and merging of all sidx boxes before continuing extraction. */
+  /** Flag to enable reading and merging of all sidx boxes before continuing extraction. */
   public static final int FLAG_MERGE_FRAGMENTED_SIDX = 1 << 8;
 
   /**
@@ -596,7 +596,7 @@ public class FragmentedMp4Extractor implements Extractor {
           "Atom size less than header length (unsupported).");
     }
 
-    if (seekPositionBeforeSidxProcessing != -1) {
+    if (seekPositionBeforeSidxProcessing != C.INDEX_UNSET) {
       if (atomType == Mp4Box.TYPE_sidx) {
         scratch.reset((int) atomSize);
         System.arraycopy(atomHeader.getData(), 0, scratch.getData(), 0, Mp4Box.HEADER_SIZE);

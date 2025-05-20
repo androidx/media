@@ -9,7 +9,7 @@
   <string name="exo_controls_fullscreen_enter_description">Entrar no modo de tela cheia</string>
   <string name="exo_controls_fullscreen_exit_description">Sair do modo de tela cheia</string>
   <string name="exo_controls_previous_description">Anterior</string>
-  <string name="exo_controls_next_description">Próxima</string>
+  <string name="exo_controls_next_description">Avançar</string>
   <string name="exo_controls_pause_description">Pausar</string>
   <string name="exo_controls_play_description">Reproduzir</string>
   <string name="exo_controls_stop_description">Parar</string>

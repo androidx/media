@@ -276,6 +276,8 @@ public final class H265Reader implements ElementaryStreamReader {
         .setCodecs(codecs)
         .setWidth(spsData.width)
         .setHeight(spsData.height)
+        .setDecodedWidth(spsData.decodedWidth)
+        .setDecodedHeight(spsData.decodedHeight)
         .setColorInfo(
             new ColorInfo.Builder()
                 .setColorSpace(spsData.colorSpace)

@@ -33,6 +33,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /** Utilities for muxer test cases. */
 /* package */ class MuxerTestUtil {
@@ -80,26 +81,31 @@ import java.util.List;
     return new Pair<>(sampleDirectBuffer, bufferInfo);
   }
 
-  public static void feedInputDataToMp4Muxer(Context context, Mp4Muxer muxer, String inputFileName)
+  public static void feedInputDataToMuxer(Context context, Muxer muxer, String inputFileName)
       throws IOException, MuxerException {
-    feedInputDataToMp4Muxer(context, muxer, inputFileName, /* removeInitializationData= */ false);
+    feedInputDataToMuxer(context, muxer, inputFileName, /* removeInitializationData= */ false);
   }
 
-  public static void feedInputDataToMp4Muxer(
-      Context context, Mp4Muxer muxer, String inputFileName, boolean removeInitializationData)
+  public static void feedInputDataToMuxer(
+      Context context, Muxer muxer, String inputFileName, boolean removeInitializationData)
       throws IOException, MuxerException {
     MediaExtractorCompat extractor = new MediaExtractorCompat(context);
     Uri fileUri = Uri.parse(MP4_FILE_ASSET_DIRECTORY + inputFileName);
     extractor.setDataSource(fileUri, /* offset= */ 0);
 
-    List<Integer> addedTracks = new ArrayList<>();
+    List<Integer> trackMapping = new ArrayList<>();
     for (int i = 0; i < extractor.getTrackCount(); i++) {
       Format format = MediaFormatUtil.createFormatFromMediaFormat(extractor.getTrackFormat(i));
       if (removeInitializationData && MimeTypes.isVideo(format.sampleMimeType)) {
         format = format.buildUpon().setInitializationData(null).build();
       }
+      // Skip ID3 tracks as AacMuxer does not handle them.
+      if (Objects.equals(format.sampleMimeType, MimeTypes.APPLICATION_ID3)) {
+        trackMapping.add(-1); // We are not adding this track, mapping to -1.
+        continue;
+      }
       int trackId = muxer.addTrack(format);
-      addedTracks.add(trackId);
+      trackMapping.add(trackId);
       extractor.selectTrack(i);
     }
 
@@ -115,9 +121,14 @@ import java.util.List;
       extractor.readSampleData(sampleBuffer, /* offset= */ 0);
 
       sampleBuffer.rewind();
-
-      muxer.writeSampleData(
-          addedTracks.get(extractor.getSampleTrackIndex()), sampleBuffer, bufferInfo);
+      int trackIndex = extractor.getSampleTrackIndex();
+      Format format =
+          MediaFormatUtil.createFormatFromMediaFormat(extractor.getTrackFormat(trackIndex));
+      if (Objects.equals(format.sampleMimeType, MimeTypes.APPLICATION_ID3)) {
+        // Skip sample data for ID3 tracks.
+        continue;
+      }
+      muxer.writeSampleData(trackMapping.get(trackIndex), sampleBuffer, bufferInfo);
     } while (extractor.advance());
 
     extractor.release();

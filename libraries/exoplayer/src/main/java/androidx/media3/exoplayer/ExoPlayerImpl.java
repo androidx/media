@@ -448,6 +448,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
       videoSize = VideoSize.UNKNOWN;
       surfaceSize = Size.UNKNOWN;
 
+      internalPlayer.setScrubbingModeParameters(scrubbingModeParameters);
       internalPlayer.setAudioAttributes(audioAttributes, builder.handleAudioFocus);
       sendRendererMessage(TRACK_TYPE_AUDIO, MSG_SET_AUDIO_ATTRIBUTES, audioAttributes);
       sendRendererMessage(TRACK_TYPE_VIDEO, MSG_SET_SCALING_MODE, videoScalingMode);
@@ -1625,6 +1626,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
     }
     ScrubbingModeParameters previousParameters = this.scrubbingModeParameters;
     this.scrubbingModeParameters = scrubbingModeParameters;
+    internalPlayer.setScrubbingModeParameters(scrubbingModeParameters);
     if (scrubbingModeEnabled
         && trackSelector.isSetParametersSupported()
         && !previousParameters.disabledTrackTypes.equals(
@@ -3197,6 +3199,13 @@ import java.util.concurrent.CopyOnWriteArraySet;
     @Override
     public void onAudioTrackReleased(AudioSink.AudioTrackConfig audioTrackConfig) {
       analyticsCollector.onAudioTrackReleased(audioTrackConfig);
+    }
+
+    @Override
+    public void onAudioSessionIdChanged(int audioSessionId) {
+      audioSessionIdState.updateStateAsync(
+          /* placeholderState= */ previousId -> audioSessionId,
+          /* backgroundStateUpdate= */ previousId -> audioSessionId);
     }
 
     // TextOutput implementation

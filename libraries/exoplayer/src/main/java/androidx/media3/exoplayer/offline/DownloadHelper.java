@@ -217,6 +217,27 @@ public final class DownloadHelper {
               : new UnreleaseableRendererCapabilitiesList(new RendererCapabilities[0]),
           debugLoggingEnabled);
     }
+
+    /**
+     * Creates a new {@link DownloadHelper}.
+     *
+     * @param mediaSource A {@link MediaSource} to be prepared.
+     * @throws IllegalStateException If the corresponding module is missing for DASH, HLS or
+     *     SmoothStreaming media items.
+     * @throws IllegalArgumentException If the {@code dataSourceFactory} is null for adaptive
+     *     streams.
+     */
+    public DownloadHelper create(MediaSource mediaSource) {
+      return new DownloadHelper(
+          mediaSource.getMediaItem(),
+          mediaSource,
+          trackSelectionParameters,
+          renderersFactory != null
+              ? new DefaultRendererCapabilitiesList.Factory(renderersFactory)
+                  .createRendererCapabilitiesList()
+              : new UnreleaseableRendererCapabilitiesList(new RendererCapabilities[0]),
+          debugLoggingEnabled);
+    }
   }
 
   /** Default track selection parameters for downloading. */
@@ -493,8 +514,8 @@ public final class DownloadHelper {
    * Creates download helper.
    *
    * @param mediaItem The media item.
-   * @param mediaSource A {@link MediaSource} for which tracks are selected, or null if no track
-   *     selection needs to be made.
+   * @param mediaSource A {@link MediaSource} to be prepared, or null if no preparation needs to be
+   *     done.
    * @param trackSelectionParameters {@link TrackSelectionParameters} for selecting tracks for
    *     downloading.
    * @param rendererCapabilities The {@link RendererCapabilitiesList} of the renderers for which

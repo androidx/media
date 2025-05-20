@@ -22,7 +22,6 @@ import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.E
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.oneByteSample;
 import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLooperUntil;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
-import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.playUntilPosition;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.runUntilPendingCommandsAreFullyHandled;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.runUntilPlaybackState;
 import static com.google.common.truth.Truth.assertThat;
@@ -681,14 +680,15 @@ public final class ServerSideAdInsertionMediaSourceTest {
     player.addAnalyticsListener(listener);
     player.setMediaSource(mediaSourceRef.get());
     player.prepare();
+    player.play();
     // Play to the first content part, then seek past the midroll.
-    playUntilPosition(player, /* mediaItemIndex= */ 0, /* positionMs= */ 150);
+    advance(player).untilPositionAtLeast(150);
     player.seekTo(/* positionMs= */ 1_600);
-    runUntilPendingCommandsAreFullyHandled(player);
+    advance(player).untilPendingCommandsAreFullyHandled();
     long positionAfterSeekMs = player.getCurrentPosition();
     long contentPositionAfterSeekMs = player.getContentPosition();
     player.play();
-    runUntilPlaybackState(player, Player.STATE_ENDED);
+    advance(player).untilState(Player.STATE_ENDED);
     player.release();
     surface.release();
 

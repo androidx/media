@@ -926,6 +926,7 @@ public final class CmcdData {
 
       /** Creates a new instance with default values. */
       public Builder() {
+        this.playbackRate = C.RATE_UNSET;
         this.customDataList = ImmutableList.of();
       }
 

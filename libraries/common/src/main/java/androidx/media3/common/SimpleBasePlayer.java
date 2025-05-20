@@ -1327,7 +1327,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
    * like {@link MediaItem} and dynamic data that is generally read from the media like the
    * duration.
    */
-  protected static final class MediaItemData {
+  public static final class MediaItemData {
 
     /** A builder for {@link MediaItemData} objects. */
     public static final class Builder {
@@ -1923,7 +1923,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
   }
 
   /** Data describing the properties of a period inside a {@link MediaItemData}. */
-  protected static final class PeriodData {
+  public static final class PeriodData {
 
     /** A builder for {@link PeriodData} objects. */
     public static final class Builder {
@@ -2087,7 +2087,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
    *       example after a position discontinuity.
    * </ul>
    */
-  protected interface PositionSupplier {
+  public interface PositionSupplier {
 
     /** An instance returning a constant position of zero. */
     PositionSupplier ZERO = getConstant(/* positionMs= */ 0);
@@ -2128,7 +2128,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
    * position source becomes invalid, for example when handling a position discontinuity, call
    * {@link #disconnect} with the final position that will be returned for all future invocations.
    */
-  protected static final class LivePositionSupplier implements PositionSupplier {
+  public static final class LivePositionSupplier implements PositionSupplier {
 
     private final PositionSupplier livePosition;
 
@@ -3302,7 +3302,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
    */
   @ForOverride
   protected ListenableFuture<?> handleSetDeviceVolume(
-      @IntRange(from = 0) int deviceVolume, int flags) {
+      @IntRange(from = 0) int deviceVolume, @C.VolumeFlags int flags) {
     throw new IllegalStateException(
         "Missing implementation to handle COMMAND_SET_DEVICE_VOLUME or"
             + " COMMAND_SET_DEVICE_VOLUME_WITH_FLAGS");

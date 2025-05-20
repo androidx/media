@@ -477,4 +477,80 @@ public class CmcdDataTest {
                 .setObjectType(CmcdData.OBJECT_TYPE_MANIFEST)
                 .createCmcdData());
   }
+
+  @Test
+  public void createInstance_noKeysAllowed_setsCorrectHttpHeaders() {
+    CmcdConfiguration.Factory cmcdConfigurationFactory =
+        mediaItem ->
+            new CmcdConfiguration(
+                "sessionId",
+                mediaItem.mediaId,
+                new CmcdConfiguration.RequestConfig() {
+                  @Override
+                  public boolean isKeyAllowed(@CmcdConfiguration.CmcdKey String key) {
+                    return false;
+                  }
+                });
+    MediaItem mediaItem = new MediaItem.Builder().setMediaId("mediaId").build();
+    CmcdConfiguration cmcdConfiguration =
+        cmcdConfigurationFactory.createCmcdConfiguration(mediaItem);
+    ExoTrackSelection trackSelection = mock(ExoTrackSelection.class);
+    Format format =
+        new Format.Builder().setPeakBitrate(840_000).setSampleMimeType(MimeTypes.AUDIO_AC4).build();
+    when(trackSelection.getSelectedFormat()).thenReturn(format);
+    when(trackSelection.getTrackGroup())
+        .thenReturn(new TrackGroup(format, new Format.Builder().setPeakBitrate(1_000_000).build()));
+    when(trackSelection.getLatestBitrateEstimate()).thenReturn(500_000L);
+    DataSpec dataSpec = new DataSpec.Builder().setUri(Uri.EMPTY).build();
+    CmcdData cmcdData =
+        new CmcdData.Factory(cmcdConfiguration, CmcdData.STREAMING_FORMAT_DASH)
+            .setTrackSelection(trackSelection)
+            .setBufferedDurationUs(1_760_000)
+            .setPlaybackRate(2.0f)
+            .setChunkDurationUs(3_000_000)
+            .createCmcdData();
+
+    dataSpec = cmcdData.addToDataSpec(dataSpec);
+
+    assertThat(dataSpec.httpRequestHeaders).isEmpty();
+  }
+
+  @Test
+  public void createInstance_noKeysAllowed_setsCorrectQueryParameters() {
+    CmcdConfiguration.Factory cmcdConfigurationFactory =
+        mediaItem ->
+            new CmcdConfiguration(
+                "sessionId",
+                mediaItem.mediaId,
+                new CmcdConfiguration.RequestConfig() {
+                  @Override
+                  public boolean isKeyAllowed(@CmcdConfiguration.CmcdKey String key) {
+                    return false;
+                  }
+                },
+                CmcdConfiguration.MODE_QUERY_PARAMETER);
+    MediaItem mediaItem = new MediaItem.Builder().setMediaId("mediaId").build();
+    CmcdConfiguration cmcdConfiguration =
+        cmcdConfigurationFactory.createCmcdConfiguration(mediaItem);
+    ExoTrackSelection trackSelection = mock(ExoTrackSelection.class);
+    Format format =
+        new Format.Builder().setPeakBitrate(840_000).setSampleMimeType(MimeTypes.AUDIO_AC4).build();
+    when(trackSelection.getSelectedFormat()).thenReturn(format);
+    when(trackSelection.getTrackGroup())
+        .thenReturn(new TrackGroup(format, new Format.Builder().setPeakBitrate(1_000_000).build()));
+    when(trackSelection.getLatestBitrateEstimate()).thenReturn(500_000L);
+    DataSpec dataSpec = new DataSpec.Builder().setUri(Uri.EMPTY).build();
+    CmcdData cmcdData =
+        new CmcdData.Factory(cmcdConfiguration, CmcdData.STREAMING_FORMAT_DASH)
+            .setTrackSelection(trackSelection)
+            .setBufferedDurationUs(1_760_000)
+            .setPlaybackRate(2.0f)
+            .setChunkDurationUs(3_000_000)
+            .createCmcdData();
+
+    dataSpec = cmcdData.addToDataSpec(dataSpec);
+
+    assertThat(dataSpec.uri.getQueryParameter(CmcdConfiguration.CMCD_QUERY_PARAMETER_KEY))
+        .isEmpty();
+  }
 }

@@ -149,12 +149,17 @@ import java.util.concurrent.TimeoutException;
   /** Converts {@link PlaybackStateCompat} to {@link PlaybackException}. */
   @Nullable
   public static PlaybackException convertToPlaybackException(
-      @Nullable PlaybackStateCompat playbackStateCompat) {
+      @Nullable PlaybackStateCompat playbackStateCompat, Context context) {
     if (playbackStateCompat == null
         || playbackStateCompat.getState() != PlaybackStateCompat.STATE_ERROR) {
       return null;
     }
     @Nullable CharSequence errorMessage = playbackStateCompat.getErrorMessage();
+    if (errorMessage == null) {
+      errorMessage =
+          getSessionErrorMessage(
+              convertToSessionErrorCode(playbackStateCompat.getErrorCode()), context);
+    }
     @Nullable Bundle playbackStateCompatExtras = playbackStateCompat.getExtras();
     return new PlaybackException(
         errorMessage != null ? errorMessage.toString() : null,

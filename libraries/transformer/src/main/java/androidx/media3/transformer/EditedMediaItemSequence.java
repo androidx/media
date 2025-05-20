@@ -275,6 +275,20 @@ public final class EditedMediaItemSequence {
     return new Builder(this);
   }
 
+  /**
+   * Gets the {@link EditedMediaItem} of a given {@code index}.
+   *
+   * <p>The index could be greater than {@link EditedMediaItemSequence#editedMediaItems} because the
+   * sequence might be {@linkplain EditedMediaItemSequence#isLooping looping}.
+   */
+  /* package */ static EditedMediaItem getRepeatedEditedMediaItem(
+      EditedMediaItemSequence sequence, int index) {
+    if (sequence.isLooping) {
+      index %= sequence.editedMediaItems.size();
+    }
+    return sequence.editedMediaItems.get(index);
+  }
+
   private EditedMediaItemSequence(EditedMediaItemSequence.Builder builder) {
     this.editedMediaItems = builder.items.build();
     checkArgument(

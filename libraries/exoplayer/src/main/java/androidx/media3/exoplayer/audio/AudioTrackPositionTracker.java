@@ -19,6 +19,7 @@ import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Util.castNonNull;
 import static androidx.media3.common.util.Util.durationUsToSampleCount;
+import static androidx.media3.common.util.Util.getMediaDurationForPlayoutDuration;
 import static androidx.media3.common.util.Util.msToUs;
 import static androidx.media3.common.util.Util.sampleCountToDurationUs;
 import static java.lang.Math.max;
@@ -29,6 +30,7 @@ import android.media.AudioTimestamp;
 import android.media.AudioTrack;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.Util;
@@ -137,22 +139,20 @@ import java.lang.reflect.Method;
   private static final int PLAYSTATE_PLAYING = AudioTrack.PLAYSTATE_PLAYING;
 
   /**
-   * AudioTrack timestamps are deemed spurious if they are offset from the system clock by more than
-   * this amount.
-   *
-   * <p>This is a fail safe that should not be required on correctly functioning devices.
-   */
-  private static final long MAX_AUDIO_TIMESTAMP_OFFSET_US = 5 * C.MICROS_PER_SECOND;
-
-  /**
    * AudioTrack latencies are deemed impossibly large if they are greater than this amount.
    *
    * <p>This is a fail safe that should not be required on correctly functioning devices.
    */
   private static final long MAX_LATENCY_US = 5 * C.MICROS_PER_SECOND;
 
-  /** The duration of time used to smooth over an adjustment between position sampling modes. */
-  private static final long MODE_SWITCH_SMOOTHING_DURATION_US = C.MICROS_PER_SECOND;
+  /**
+   * The maximum offset between the expected position and the reported position to attempt
+   * smoothing.
+   */
+  private static final long MAX_POSITION_DRIFT_FOR_SMOOTHING_US = C.MICROS_PER_SECOND;
+
+  /** The maximum allowed speed change to smooth out position drift in percent. */
+  private static final int MAX_POSITION_SMOOTHING_SPEED_CHANGE_PERCENT = 10;
 
   /** Minimum update interval for getting the raw playback head position, in milliseconds. */
   private static final long RAW_PLAYBACK_HEAD_POSITION_UPDATE_INTERVAL_MS = 5;
@@ -167,14 +167,14 @@ import java.lang.reflect.Method;
   private final long[] playheadOffsets;
 
   @Nullable private AudioTrack audioTrack;
-  private int outputPcmFrameSize;
   private int bufferSize;
   @Nullable private AudioTimestampPoller audioTimestampPoller;
   private int outputSampleRate;
   private boolean needsPassthroughWorkarounds;
   private long bufferSizeUs;
   private float audioTrackPlaybackSpeed;
-  private boolean notifiedPositionIncreasing;
+  private long onPositionAdvancingFromPositionUs;
+  private int lastUnderrunCount;
 
   private long smoothedPlayheadOffsetUs;
   private long lastPlayheadSampleTimeUs;
@@ -199,11 +199,6 @@ import java.lang.reflect.Method;
   // Results from the previous call to getCurrentPositionUs.
   private long lastPositionUs;
   private long lastSystemTimeUs;
-  private boolean lastSampleUsedGetTimestampMode;
-
-  // Results from the last call to getCurrentPositionUs that used a different sample mode.
-  private long previousModePositionUs;
-  private long previousModeSystemTimeUs;
 
   /**
    * Whether to expect a raw playback head reset.
@@ -231,6 +226,8 @@ import java.lang.reflect.Method;
       // There's no guarantee this method exists. Do nothing.
     }
     playheadOffsets = new long[MAX_PLAYHEAD_OFFSET_COUNT];
+    lastSystemTimeUs = C.TIME_UNSET;
+    lastPositionUs = C.TIME_UNSET;
     clock = Clock.DEFAULT;
   }
 
@@ -252,9 +249,8 @@ import java.lang.reflect.Method;
       int outputPcmFrameSize,
       int bufferSize) {
     this.audioTrack = audioTrack;
-    this.outputPcmFrameSize = outputPcmFrameSize;
     this.bufferSize = bufferSize;
-    audioTimestampPoller = new AudioTimestampPoller(audioTrack);
+    audioTimestampPoller = new AudioTimestampPoller(audioTrack, listener);
     outputSampleRate = audioTrack.getSampleRate();
     needsPassthroughWorkarounds = isPassthrough && needsPassthroughWorkarounds(outputEncoding);
     isOutputPcm = Util.isEncodingLinearPcm(outputEncoding);
@@ -273,6 +269,8 @@ import java.lang.reflect.Method;
     lastLatencySampleTimeUs = 0;
     latencyUs = 0;
     audioTrackPlaybackSpeed = 1f;
+    lastUnderrunCount = 0;
+    onPositionAdvancingFromPositionUs = C.TIME_UNSET;
   }
 
   public void setAudioTrackPlaybackSpeed(float audioTrackPlaybackSpeed) {
@@ -294,77 +292,54 @@ import java.lang.reflect.Method;
     // If the device supports it, use the playback timestamp from AudioTrack.getTimestamp.
     // Otherwise, derive a smoothed position by sampling the track's frame position.
     long systemTimeUs = clock.nanoTime() / 1000;
-    long positionUs;
     AudioTimestampPoller audioTimestampPoller = checkNotNull(this.audioTimestampPoller);
     boolean useGetTimestampMode = audioTimestampPoller.hasAdvancingTimestamp();
-    if (useGetTimestampMode) {
-      // Calculate the speed-adjusted position using the timestamp (which may be in the future).
-      long timestampPositionFrames = audioTimestampPoller.getTimestampPositionFrames();
-      long timestampPositionUs = sampleCountToDurationUs(timestampPositionFrames, outputSampleRate);
-      long elapsedSinceTimestampUs = systemTimeUs - audioTimestampPoller.getTimestampSystemTimeUs();
-      elapsedSinceTimestampUs =
-          Util.getMediaDurationForPlayoutDuration(elapsedSinceTimestampUs, audioTrackPlaybackSpeed);
-      positionUs = timestampPositionUs + elapsedSinceTimestampUs;
-    } else {
-      if (playheadOffsetCount == 0) {
-        // The AudioTrack has started, but we don't have any samples to compute a smoothed position.
-        positionUs =
-            stopTimestampUs != C.TIME_UNSET
-                ? sampleCountToDurationUs(
-                    getSimulatedPlaybackHeadPositionAfterStop(), outputSampleRate)
-                : getPlaybackHeadPositionUs();
-      } else {
-        // getPlaybackHeadPositionUs() only has a granularity of ~20 ms, so we base the position off
-        // the system clock (and a smoothed offset between it and the playhead position) so as to
-        // prevent jitter in the reported positions.
-        positionUs =
-            Util.getMediaDurationForPlayoutDuration(
-                systemTimeUs + smoothedPlayheadOffsetUs, audioTrackPlaybackSpeed);
+    long positionUs =
+        useGetTimestampMode
+            ? audioTimestampPoller.getTimestampPositionUs(systemTimeUs, audioTrackPlaybackSpeed)
+            : getPlaybackHeadPositionEstimateUs(systemTimeUs);
+
+    if (audioTrack.getPlayState() == PLAYSTATE_PLAYING) {
+      if (onPositionAdvancingFromPositionUs != C.TIME_UNSET
+          && positionUs >= onPositionAdvancingFromPositionUs
+          && (useGetTimestampMode || !audioTimestampPoller.isWaitingForAdvancingTimestamp())) {
+        // Assume the new position is reliable to estimate the playout start time once we have an
+        // advancing timestamp from the AudioTimestampPoller, or we stopped waiting for it.
+        long mediaDurationSinceResumeUs = positionUs - onPositionAdvancingFromPositionUs;
+        long playoutDurationSinceLastPositionUs =
+            Util.getPlayoutDurationForMediaDuration(
+                mediaDurationSinceResumeUs, audioTrackPlaybackSpeed);
+        long playoutStartSystemTimeMs =
+            clock.currentTimeMillis() - Util.usToMs(playoutDurationSinceLastPositionUs);
+        onPositionAdvancingFromPositionUs = C.TIME_UNSET;
+        listener.onPositionAdvancing(playoutStartSystemTimeMs);
       }
 
-      positionUs = max(0, positionUs - latencyUs);
-      if (stopTimestampUs != C.TIME_UNSET) {
-        positionUs =
-            min(sampleCountToDurationUs(endPlaybackHeadPosition, outputSampleRate), positionUs);
+      if (lastSystemTimeUs != C.TIME_UNSET) {
+        // Only try to smooth if actively playing and having a previous sample to compare with.
+        long elapsedSystemTimeUs = systemTimeUs - lastSystemTimeUs;
+        long positionDiffUs = positionUs - lastPositionUs;
+        long expectedPositionDiffUs =
+            getMediaDurationForPlayoutDuration(elapsedSystemTimeUs, audioTrackPlaybackSpeed);
+        long expectedPositionUs = lastPositionUs + expectedPositionDiffUs;
+        long positionDriftUs = Math.abs(expectedPositionUs - positionUs);
+        if (positionDiffUs != 0 && positionDriftUs < MAX_POSITION_DRIFT_FOR_SMOOTHING_US) {
+          // Ignore updates without moving position (e.g. stuck audio, not yet started audio). Also
+          // ignore updates where the smoothing would take too long and it's preferable to jump to
+          // the new timestamp immediately.
+          long maxAllowedDriftUs =
+              expectedPositionDiffUs * MAX_POSITION_SMOOTHING_SPEED_CHANGE_PERCENT / 100;
+          positionUs =
+              Util.constrainValue(
+                  positionUs,
+                  expectedPositionUs - maxAllowedDriftUs,
+                  expectedPositionUs + maxAllowedDriftUs);
+        }
       }
-    }
 
-    if (lastSampleUsedGetTimestampMode != useGetTimestampMode) {
-      // We've switched sampling mode.
-      previousModeSystemTimeUs = lastSystemTimeUs;
-      previousModePositionUs = lastPositionUs;
+      lastSystemTimeUs = systemTimeUs;
+      lastPositionUs = positionUs;
     }
-    long elapsedSincePreviousModeUs = systemTimeUs - previousModeSystemTimeUs;
-    if (elapsedSincePreviousModeUs < MODE_SWITCH_SMOOTHING_DURATION_US) {
-      // Use a ramp to smooth between the old mode and the new one to avoid introducing a sudden
-      // jump if the two modes disagree.
-      long previousModeProjectedPositionUs =
-          previousModePositionUs
-              + Util.getMediaDurationForPlayoutDuration(
-                  elapsedSincePreviousModeUs, audioTrackPlaybackSpeed);
-      // A ramp consisting of 1000 points distributed over MODE_SWITCH_SMOOTHING_DURATION_US.
-      long rampPoint = (elapsedSincePreviousModeUs * 1000) / MODE_SWITCH_SMOOTHING_DURATION_US;
-      positionUs *= rampPoint;
-      positionUs += (1000 - rampPoint) * previousModeProjectedPositionUs;
-      positionUs /= 1000;
-    }
-
-    if (!notifiedPositionIncreasing
-        && positionUs > lastPositionUs
-        && audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING) {
-      notifiedPositionIncreasing = true;
-      long mediaDurationSinceLastPositionUs = Util.usToMs(positionUs - lastPositionUs);
-      long playoutDurationSinceLastPositionUs =
-          Util.getPlayoutDurationForMediaDuration(
-              mediaDurationSinceLastPositionUs, audioTrackPlaybackSpeed);
-      long playoutStartSystemTimeMs =
-          clock.currentTimeMillis() - Util.usToMs(playoutDurationSinceLastPositionUs);
-      listener.onPositionAdvancing(playoutStartSystemTimeMs);
-    }
-
-    lastSystemTimeUs = systemTimeUs;
-    lastPositionUs = positionUs;
-    lastSampleUsedGetTimestampMode = useGetTimestampMode;
 
     return positionUs;
   }
@@ -374,6 +349,7 @@ import java.lang.reflect.Method;
     if (stopTimestampUs != C.TIME_UNSET) {
       stopTimestampUs = msToUs(clock.elapsedRealtime());
     }
+    onPositionAdvancingFromPositionUs = getPlaybackHeadPositionUs();
     checkNotNull(audioTimestampPoller).reset();
   }
 
@@ -408,27 +384,21 @@ import java.lang.reflect.Method;
       }
     }
 
-    boolean hadData = hasData;
-    hasData = hasPendingData(writtenFrames);
-    if (hadData && !hasData && playState != PLAYSTATE_STOPPED) {
+    boolean emitUnderrun;
+    if (SDK_INT >= 24) {
+      emitUnderrun = hasPendingAudioTrackUnderruns();
+    } else {
+      boolean hadData = hasData;
+      hasData = hasPendingData(writtenFrames);
+      // For API 23- AudioTrack has no underrun API so we need to infer underruns heuristically.
+      emitUnderrun = hadData && !hasData && playState != PLAYSTATE_STOPPED;
+    }
+
+    if (emitUnderrun) {
       listener.onUnderrun(bufferSize, Util.usToMs(bufferSizeUs));
     }
 
     return true;
-  }
-
-  /**
-   * Returns an estimate of the number of additional bytes that can be written to the audio track's
-   * buffer without running out of space.
-   *
-   * <p>May only be called if the output encoding is one of the PCM encodings.
-   *
-   * @param writtenBytes The number of bytes written to the audio track so far.
-   * @return An estimate of the number of bytes that can be written.
-   */
-  public int getAvailableBufferSize(long writtenBytes) {
-    int bytesPending = (int) (writtenBytes - (getPlaybackHeadPosition() * outputPcmFrameSize));
-    return bufferSize - bytesPending;
   }
 
   /** Returns whether the track is in an invalid state and must be recreated. */
@@ -510,6 +480,21 @@ import java.lang.reflect.Method;
     this.clock = clock;
   }
 
+  /**
+   * Returns whether {@link #audioTrack} has reported one or more underruns since the last call to
+   * this method.
+   */
+  @RequiresApi(24)
+  private boolean hasPendingAudioTrackUnderruns() {
+    int underrunCount = checkNotNull(audioTrack).getUnderrunCount();
+    boolean result = underrunCount > lastUnderrunCount;
+
+    // If the AudioTrack unexpectedly resets the underrun count, we should update it silently.
+    lastUnderrunCount = underrunCount;
+
+    return result;
+  }
+
   private void maybeSampleSyncParams() {
     long systemTimeUs = clock.nanoTime() / 1000;
     if (systemTimeUs - lastPlayheadSampleTimeUs >= MIN_PLAYHEAD_OFFSET_SAMPLE_INTERVAL_US) {
@@ -539,33 +524,11 @@ import java.lang.reflect.Method;
       return;
     }
 
-    maybePollAndCheckTimestamp(systemTimeUs);
     maybeUpdateLatency(systemTimeUs);
-  }
 
-  private void maybePollAndCheckTimestamp(long systemTimeUs) {
-    AudioTimestampPoller audioTimestampPoller = checkNotNull(this.audioTimestampPoller);
-    if (!audioTimestampPoller.maybePollTimestamp(systemTimeUs)) {
-      return;
-    }
-
-    // Check the timestamp and accept/reject it.
-    long timestampSystemTimeUs = audioTimestampPoller.getTimestampSystemTimeUs();
-    long timestampPositionFrames = audioTimestampPoller.getTimestampPositionFrames();
-    long playbackPositionUs = getPlaybackHeadPositionUs();
-    if (Math.abs(timestampSystemTimeUs - systemTimeUs) > MAX_AUDIO_TIMESTAMP_OFFSET_US) {
-      listener.onSystemTimeUsMismatch(
-          timestampPositionFrames, timestampSystemTimeUs, systemTimeUs, playbackPositionUs);
-      audioTimestampPoller.rejectTimestamp();
-    } else if (Math.abs(
-            sampleCountToDurationUs(timestampPositionFrames, outputSampleRate) - playbackPositionUs)
-        > MAX_AUDIO_TIMESTAMP_OFFSET_US) {
-      listener.onPositionFramesMismatch(
-          timestampPositionFrames, timestampSystemTimeUs, systemTimeUs, playbackPositionUs);
-      audioTimestampPoller.rejectTimestamp();
-    } else {
-      audioTimestampPoller.acceptTimestamp();
-    }
+    checkNotNull(this.audioTimestampPoller)
+        .maybePollTimestamp(
+            systemTimeUs, audioTrackPlaybackSpeed, getPlaybackHeadPositionEstimateUs(systemTimeUs));
   }
 
   private void maybeUpdateLatency(long systemTimeUs) {
@@ -593,14 +556,39 @@ import java.lang.reflect.Method;
     }
   }
 
+  private long getPlaybackHeadPositionEstimateUs(long systemTimeUs) {
+    long positionUs;
+    if (playheadOffsetCount == 0) {
+      // The AudioTrack has started, but we don't have any samples to compute a smoothed position.
+      positionUs =
+          stopTimestampUs != C.TIME_UNSET
+              ? sampleCountToDurationUs(
+                  getSimulatedPlaybackHeadPositionAfterStop(), outputSampleRate)
+              : getPlaybackHeadPositionUs();
+    } else {
+      // getPlaybackHeadPositionUs() only has a granularity of ~20 ms, so we base the position off
+      // the system clock (and a smoothed offset between it and the playhead position) so as to
+      // prevent jitter in the reported positions.
+      positionUs =
+          Util.getMediaDurationForPlayoutDuration(
+              systemTimeUs + smoothedPlayheadOffsetUs, audioTrackPlaybackSpeed);
+    }
+
+    positionUs = max(0, positionUs - latencyUs);
+    if (stopTimestampUs != C.TIME_UNSET) {
+      positionUs =
+          min(sampleCountToDurationUs(endPlaybackHeadPosition, outputSampleRate), positionUs);
+    }
+    return positionUs;
+  }
+
   private void resetSyncParams() {
     smoothedPlayheadOffsetUs = 0;
     playheadOffsetCount = 0;
     nextPlayheadOffsetIndex = 0;
     lastPlayheadSampleTimeUs = 0;
-    lastSystemTimeUs = 0;
-    previousModeSystemTimeUs = 0;
-    notifiedPositionIncreasing = false;
+    lastPositionUs = C.TIME_UNSET;
+    lastSystemTimeUs = C.TIME_UNSET;
   }
 
   /**

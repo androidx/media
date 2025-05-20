@@ -29,7 +29,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.graphics.Rect;
-import android.media.MediaCodec;
 import android.media.projection.MediaProjection;
 import android.media.projection.MediaProjectionManager;
 import android.os.Build;
@@ -42,6 +41,8 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.Presentation;
+import androidx.media3.muxer.BufferInfo;
+import androidx.media3.muxer.Muxer;
 import androidx.media3.muxer.MuxerException;
 import androidx.test.core.app.ActivityScenario;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -192,8 +193,7 @@ public final class MediaProjectionAssetLoaderTest {
   private static final class InterceptingMuxerFactory implements Muxer.Factory {
 
     public interface WriteSampleDataCallback {
-      void onWriteSampleData(
-          Format format, ByteBuffer byteBuffer, MediaCodec.BufferInfo bufferInfo);
+      void onWriteSampleData(Format format, ByteBuffer byteBuffer, BufferInfo bufferInfo);
     }
 
     private final WriteSampleDataCallback writeSampleDataCallback;
@@ -217,8 +217,7 @@ public final class MediaProjectionAssetLoaderTest {
         }
 
         @Override
-        public void writeSampleData(
-            int trackId, ByteBuffer byteBuffer, MediaCodec.BufferInfo bufferInfo)
+        public void writeSampleData(int trackId, ByteBuffer byteBuffer, BufferInfo bufferInfo)
             throws MuxerException {
           writeSampleDataCallback.onWriteSampleData(
               formatByTrackId.get(trackId), byteBuffer, bufferInfo);

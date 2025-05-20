@@ -15,16 +15,23 @@
  */
 package androidx.media3.exoplayer.drm;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assume.assumeTrue;
 
+import android.content.Context;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.ConditionVariable;
+import androidx.media3.exoplayer.DecoderCounters;
+import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.ImmutableList;
 import java.util.concurrent.atomic.AtomicReference;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
@@ -96,5 +103,79 @@ public final class DrmPlaybackTest {
     getInstrumentation().runOnMainSync(() -> player.get().release());
     getInstrumentation().waitForIdleSync();
     assertThat(playbackException.get()).isNull();
+  }
+
+  @Test
+  public void clearkeyPlayback_withLateThresholdToDropDecoderInput_dropsInputBuffers()
+      throws Exception {
+    // The API 21 emulator doesn't have a secure decoder. Due to b/18678462 MediaCodecUtil pretends
+    // that there is a secure decoder so we must only run this test on API 21 - i.e. we cannot
+    // assumeTrue() on getDecoderInfos.
+    assumeTrue(SDK_INT > 21);
+    Context context = getInstrumentation().getContext();
+    MockWebServer mockWebServer = new MockWebServer();
+    mockWebServer.enqueue(new MockResponse().setResponseCode(200).setBody(CLEARKEY_RESPONSE));
+    mockWebServer.start();
+
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri("asset:///media/drm/sample_fragmented_clearkey.mp4")
+            .setDrmConfiguration(
+                new MediaItem.DrmConfiguration.Builder(C.CLEARKEY_UUID)
+                    .setLicenseUri(mockWebServer.url("license").toString())
+                    .build())
+            .build();
+    AtomicReference<ExoPlayer> player = new AtomicReference<>();
+    ConditionVariable playbackComplete = new ConditionVariable();
+    AtomicReference<PlaybackException> playbackException = new AtomicReference<>();
+    AtomicReference<DecoderCounters> decoderCountersAtomicReference = new AtomicReference<>();
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              player.set(
+                  new ExoPlayer.Builder(
+                          context,
+                          new DefaultRenderersFactory(context)
+                              .experimentalSetLateThresholdToDropDecoderInputUs(-100_000_000L),
+                          new DefaultMediaSourceFactory(context)
+                              .experimentalSetCodecsToParseWithinGopSampleDependencies(
+                                  C.VIDEO_CODEC_FLAG_H264))
+                      .build());
+              player
+                  .get()
+                  .addListener(
+                      new Player.Listener() {
+                        @Override
+                        public void onPlaybackStateChanged(@Player.State int playbackState) {
+                          if (playbackState == Player.STATE_ENDED) {
+                            decoderCountersAtomicReference.set(
+                                player.get().getVideoDecoderCounters());
+                            playbackComplete.open();
+                          }
+                        }
+
+                        @Override
+                        public void onPlayerError(PlaybackException error) {
+                          playbackException.set(error);
+                          playbackComplete.open();
+                        }
+                      });
+              // One copy of this mediaItem is around 1-second long which is close to
+              // MediaCodecVideoRenderer's
+              // OFFSET_FROM_RESET_POSITION_TO_ALLOW_INPUT_BUFFER_DROPPING_US. Play two copies of
+              // the media item to artificially increase the duration of the played media.
+              // TODO: b/161996553 - change this test to play only one copy of the media item.
+              player.get().setMediaItems(ImmutableList.of(mediaItem, mediaItem));
+              player.get().prepare();
+              player.get().play();
+            });
+
+    playbackComplete.block();
+    getInstrumentation().runOnMainSync(() -> player.get().release());
+    getInstrumentation().waitForIdleSync();
+    assertThat(playbackException.get()).isNull();
+    // Which input buffers are dropped first depends on the number of MediaCodec buffer slots.
+    // This means the asserts cannot be isEqualTo.
+    assertThat(decoderCountersAtomicReference.get().droppedInputBufferCount).isAtLeast(1);
   }
 }

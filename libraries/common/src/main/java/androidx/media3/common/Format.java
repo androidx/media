@@ -97,6 +97,8 @@ import java.util.UUID;
  * <ul>
  *   <li>{@link #width}
  *   <li>{@link #height}
+ *   <li>{@link #decodedWidth}
+ *   <li>{@link #decodedHeight}
  *   <li>{@link #frameRate}
  *   <li>{@link #rotationDegrees}
  *   <li>{@link #pixelWidthHeightRatio}
@@ -174,6 +176,8 @@ public final class Format {
 
     private int width;
     private int height;
+    private int decodedWidth;
+    private int decodedHeight;
     private float frameRate;
     private int rotationDegrees;
     private float pixelWidthHeightRatio;
@@ -216,6 +220,8 @@ public final class Format {
       // Video specific.
       width = NO_VALUE;
       height = NO_VALUE;
+      decodedWidth = NO_VALUE;
+      decodedHeight = NO_VALUE;
       frameRate = NO_VALUE;
       pixelWidthHeightRatio = 1.0f;
       stereoMode = NO_VALUE;
@@ -265,6 +271,8 @@ public final class Format {
       // Video specific.
       this.width = format.width;
       this.height = format.height;
+      this.decodedWidth = format.decodedWidth;
+      this.decodedHeight = format.decodedHeight;
       this.frameRate = format.frameRate;
       this.rotationDegrees = format.rotationDegrees;
       this.pixelWidthHeightRatio = format.pixelWidthHeightRatio;
@@ -585,6 +593,30 @@ public final class Format {
     @CanIgnoreReturnValue
     public Builder setHeight(int height) {
       this.height = height;
+      return this;
+    }
+
+    /**
+     * Sets {@link Format#decodedWidth}. The default value is {@link #NO_VALUE}.
+     *
+     * @param decodedWidth The {@link Format#decodedWidth}.
+     * @return The builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setDecodedWidth(int decodedWidth) {
+      this.decodedWidth = decodedWidth;
+      return this;
+    }
+
+    /**
+     * Sets {@link Format#decodedHeight}. The default value is {@link #NO_VALUE}.
+     *
+     * @param decodedHeight The {@link Format#decodedHeight}.
+     * @return The builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setDecodedHeight(int decodedHeight) {
+      this.decodedHeight = decodedHeight;
       return this;
     }
 
@@ -1000,6 +1032,22 @@ public final class Format {
   /** The height of the video in pixels, or {@link #NO_VALUE} if unknown or not applicable. */
   public final int height;
 
+  /**
+   * The width of the video decoded picture in pixels, or {@link #NO_VALUE} if unknown or not
+   * applicable.
+   *
+   * <p>May be larger than {@link #width} if cropping is applied before display.
+   */
+  @UnstableApi public final int decodedWidth;
+
+  /**
+   * The height of the video decoded picture in pixels, or {@link #NO_VALUE} if unknown or not
+   * applicable.
+   *
+   * <p>May be larger than {@link #height} if cropping is applied before display.
+   */
+  @UnstableApi public final int decodedHeight;
+
   /** The frame rate in frames per second, or {@link #NO_VALUE} if unknown or not applicable. */
   public final float frameRate;
 
@@ -1145,6 +1193,8 @@ public final class Format {
     // Video specific.
     width = builder.width;
     height = builder.height;
+    decodedWidth = builder.decodedWidth;
+    decodedHeight = builder.decodedHeight;
     frameRate = builder.frameRate;
     rotationDegrees = builder.rotationDegrees == NO_VALUE ? 0 : builder.rotationDegrees;
     pixelWidthHeightRatio =
@@ -1329,6 +1379,8 @@ public final class Format {
       // Video specific.
       result = 31 * result + width;
       result = 31 * result + height;
+      result = 31 * result + decodedWidth;
+      result = 31 * result + decodedHeight;
       result = 31 * result + Float.floatToIntBits(frameRate);
       result = 31 * result + rotationDegrees;
       result = 31 * result + Float.floatToIntBits(pixelWidthHeightRatio);
@@ -1376,6 +1428,8 @@ public final class Format {
         && subsampleOffsetUs == other.subsampleOffsetUs
         && width == other.width
         && height == other.height
+        && decodedWidth == other.decodedWidth
+        && decodedHeight == other.decodedHeight
         && rotationDegrees == other.rotationDegrees
         && stereoMode == other.stereoMode
         && maxSubLayers == other.maxSubLayers
@@ -1471,6 +1525,13 @@ public final class Format {
     if (format.width != NO_VALUE && format.height != NO_VALUE) {
       builder.append(", res=").append(format.width).append("x").append(format.height);
     }
+    if (format.decodedWidth != NO_VALUE && format.decodedHeight != NO_VALUE) {
+      builder
+          .append(", decRes=")
+          .append(format.decodedWidth)
+          .append("x")
+          .append(format.decodedHeight);
+    }
     if (!fuzzyEquals(format.pixelWidthHeightRatio, 1, 0.001)) {
       builder.append(", par=").append(Util.formatInvariant("%.3f", format.pixelWidthHeightRatio));
     }
@@ -1555,6 +1616,8 @@ public final class Format {
   private static final String FIELD_LABELS = Util.intToStringMaxRadix(32);
   private static final String FIELD_AUXILIARY_TRACK_TYPE = Util.intToStringMaxRadix(33);
   private static final String FIELD_MAX_SUB_LAYERS = Util.intToStringMaxRadix(34);
+  private static final String FIELD_DECODED_WIDTH = Util.intToStringMaxRadix(35);
+  private static final String FIELD_DECODED_HEIGHT = Util.intToStringMaxRadix(36);
 
   /**
    * Returns a {@link Bundle} representing the information stored in this object. If {@code
@@ -1592,6 +1655,8 @@ public final class Format {
     // Video specific.
     bundle.putInt(FIELD_WIDTH, width);
     bundle.putInt(FIELD_HEIGHT, height);
+    bundle.putInt(FIELD_DECODED_WIDTH, decodedWidth);
+    bundle.putInt(FIELD_DECODED_HEIGHT, decodedHeight);
     bundle.putFloat(FIELD_FRAME_RATE, frameRate);
     bundle.putInt(FIELD_ROTATION_DEGREES, rotationDegrees);
     bundle.putFloat(FIELD_PIXEL_WIDTH_HEIGHT_RATIO, pixelWidthHeightRatio);
@@ -1663,6 +1728,8 @@ public final class Format {
         // Video specific.
         .setWidth(bundle.getInt(FIELD_WIDTH, DEFAULT.width))
         .setHeight(bundle.getInt(FIELD_HEIGHT, DEFAULT.height))
+        .setDecodedWidth(bundle.getInt(FIELD_DECODED_WIDTH, DEFAULT.decodedWidth))
+        .setDecodedHeight(bundle.getInt(FIELD_DECODED_HEIGHT, DEFAULT.decodedHeight))
         .setFrameRate(bundle.getFloat(FIELD_FRAME_RATE, DEFAULT.frameRate))
         .setRotationDegrees(bundle.getInt(FIELD_ROTATION_DEGREES, DEFAULT.rotationDegrees))
         .setPixelWidthHeightRatio(

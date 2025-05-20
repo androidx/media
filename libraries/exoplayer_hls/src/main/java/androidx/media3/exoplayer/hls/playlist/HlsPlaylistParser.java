@@ -138,18 +138,28 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
 
   private static final String ATTR_CLOSED_CAPTIONS_NONE = "CLOSED-CAPTIONS=NONE";
 
+  /** Regex to match a quoted-string attribute value, as defined in RFC 8216 Section 4.2. */
+  // The additional \f matching is required due to https://issuetracker.google.com/417657093.
+  private static final String ATTR_QUOTED_STRING_VALUE_PATTERN = "\"((?:.|\f)+?)\"";
+
   private static final Pattern REGEX_AVERAGE_BANDWIDTH =
       Pattern.compile("AVERAGE-BANDWIDTH=(\\d+)\\b");
-  private static final Pattern REGEX_VIDEO = Pattern.compile("VIDEO=\"(.+?)\"");
-  private static final Pattern REGEX_AUDIO = Pattern.compile("AUDIO=\"(.+?)\"");
-  private static final Pattern REGEX_SUBTITLES = Pattern.compile("SUBTITLES=\"(.+?)\"");
-  private static final Pattern REGEX_CLOSED_CAPTIONS = Pattern.compile("CLOSED-CAPTIONS=\"(.+?)\"");
+  private static final Pattern REGEX_VIDEO =
+      Pattern.compile("VIDEO=" + ATTR_QUOTED_STRING_VALUE_PATTERN);
+  private static final Pattern REGEX_AUDIO =
+      Pattern.compile("AUDIO=" + ATTR_QUOTED_STRING_VALUE_PATTERN);
+  private static final Pattern REGEX_SUBTITLES =
+      Pattern.compile("SUBTITLES=" + ATTR_QUOTED_STRING_VALUE_PATTERN);
+  private static final Pattern REGEX_CLOSED_CAPTIONS =
+      Pattern.compile("CLOSED-CAPTIONS=" + ATTR_QUOTED_STRING_VALUE_PATTERN);
   private static final Pattern REGEX_BANDWIDTH = Pattern.compile("[^-]BANDWIDTH=(\\d+)\\b");
-  private static final Pattern REGEX_CHANNELS = Pattern.compile("CHANNELS=\"(.+?)\"");
+  private static final Pattern REGEX_CHANNELS =
+      Pattern.compile("CHANNELS=" + ATTR_QUOTED_STRING_VALUE_PATTERN);
   private static final Pattern REGEX_VIDEO_RANGE = Pattern.compile("VIDEO-RANGE=(SDR|PQ|HLG)");
-  private static final Pattern REGEX_CODECS = Pattern.compile("CODECS=\"(.+?)\"");
+  private static final Pattern REGEX_CODECS =
+      Pattern.compile("CODECS=" + ATTR_QUOTED_STRING_VALUE_PATTERN);
   private static final Pattern REGEX_SUPPLEMENTAL_CODECS =
-      Pattern.compile("SUPPLEMENTAL-CODECS=\"(.+?)\"");
+      Pattern.compile("SUPPLEMENTAL-CODECS=" + ATTR_QUOTED_STRING_VALUE_PATTERN);
   private static final Pattern REGEX_RESOLUTION = Pattern.compile("RESOLUTION=(\\d+x\\d+)");
   private static final Pattern REGEX_FRAME_RATE = Pattern.compile("FRAME-RATE=([\\d\\.]+)\\b");
   private static final Pattern REGEX_TARGET_DURATION =
@@ -203,10 +213,12 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
               + METHOD_SAMPLE_AES_CTR
               + ")"
               + "\\s*(?:,|$)");
-  private static final Pattern REGEX_KEYFORMAT = Pattern.compile("KEYFORMAT=\"(.+?)\"");
+  private static final Pattern REGEX_KEYFORMAT =
+      Pattern.compile("KEYFORMAT=" + ATTR_QUOTED_STRING_VALUE_PATTERN);
   private static final Pattern REGEX_KEYFORMATVERSIONS =
-      Pattern.compile("KEYFORMATVERSIONS=\"(.+?)\"");
-  private static final Pattern REGEX_URI = Pattern.compile("URI=\"(.+?)\"");
+      Pattern.compile("KEYFORMATVERSIONS=" + ATTR_QUOTED_STRING_VALUE_PATTERN);
+  private static final Pattern REGEX_URI =
+      Pattern.compile("URI=" + ATTR_QUOTED_STRING_VALUE_PATTERN);
   private static final Pattern REGEX_IV = Pattern.compile("IV=([^,.*]+)");
   private static final Pattern REGEX_TYPE =
       Pattern.compile(
@@ -221,10 +233,14 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
               + ")");
   private static final Pattern REGEX_PRELOAD_HINT_TYPE =
       Pattern.compile("TYPE=(" + TYPE_PART + "|" + TYPE_MAP + ")");
-  private static final Pattern REGEX_LANGUAGE = Pattern.compile("LANGUAGE=\"(.+?)\"");
-  private static final Pattern REGEX_NAME = Pattern.compile("NAME=\"(.+?)\"");
-  private static final Pattern REGEX_GROUP_ID = Pattern.compile("GROUP-ID=\"(.+?)\"");
-  private static final Pattern REGEX_CHARACTERISTICS = Pattern.compile("CHARACTERISTICS=\"(.+?)\"");
+  private static final Pattern REGEX_LANGUAGE =
+      Pattern.compile("LANGUAGE=" + ATTR_QUOTED_STRING_VALUE_PATTERN);
+  private static final Pattern REGEX_NAME =
+      Pattern.compile("NAME=" + ATTR_QUOTED_STRING_VALUE_PATTERN);
+  private static final Pattern REGEX_GROUP_ID =
+      Pattern.compile("GROUP-ID=" + ATTR_QUOTED_STRING_VALUE_PATTERN);
+  private static final Pattern REGEX_CHARACTERISTICS =
+      Pattern.compile("CHARACTERISTICS=" + ATTR_QUOTED_STRING_VALUE_PATTERN);
   private static final Pattern REGEX_INSTREAM_ID =
       Pattern.compile("INSTREAM-ID=\"((?:CC|SERVICE)\\d+)\"");
   private static final Pattern REGEX_AUTOSELECT = compileBooleanAttrPattern("AUTOSELECT");
@@ -233,24 +249,35 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
   private static final Pattern REGEX_INDEPENDENT = compileBooleanAttrPattern("INDEPENDENT");
   private static final Pattern REGEX_GAP = compileBooleanAttrPattern("GAP");
   private static final Pattern REGEX_PRECISE = compileBooleanAttrPattern("PRECISE");
-  private static final Pattern REGEX_VALUE = Pattern.compile("VALUE=\"(.+?)\"");
-  private static final Pattern REGEX_IMPORT = Pattern.compile("IMPORT=\"(.+?)\"");
-  private static final Pattern REGEX_ID = Pattern.compile("[:,]ID=\"(.+?)\"");
-  private static final Pattern REGEX_CLASS = Pattern.compile("CLASS=\"(.+?)\"");
-  private static final Pattern REGEX_START_DATE = Pattern.compile("START-DATE=\"(.+?)\"");
-  private static final Pattern REGEX_CUE = Pattern.compile("CUE=\"(.+?)\"");
-  private static final Pattern REGEX_END_DATE = Pattern.compile("END-DATE=\"(.+?)\"");
+  private static final Pattern REGEX_VALUE =
+      Pattern.compile("VALUE=" + ATTR_QUOTED_STRING_VALUE_PATTERN);
+  private static final Pattern REGEX_IMPORT =
+      Pattern.compile("IMPORT=" + ATTR_QUOTED_STRING_VALUE_PATTERN);
+  private static final Pattern REGEX_ID =
+      Pattern.compile("[:,]ID=" + ATTR_QUOTED_STRING_VALUE_PATTERN);
+  private static final Pattern REGEX_CLASS =
+      Pattern.compile("CLASS=" + ATTR_QUOTED_STRING_VALUE_PATTERN);
+  private static final Pattern REGEX_START_DATE =
+      Pattern.compile("START-DATE=" + ATTR_QUOTED_STRING_VALUE_PATTERN);
+  private static final Pattern REGEX_CUE =
+      Pattern.compile("CUE=" + ATTR_QUOTED_STRING_VALUE_PATTERN);
+  private static final Pattern REGEX_END_DATE =
+      Pattern.compile("END-DATE=" + ATTR_QUOTED_STRING_VALUE_PATTERN);
   private static final Pattern REGEX_PLANNED_DURATION =
       Pattern.compile("PLANNED-DURATION=([\\d\\.]+)\\b");
   private static final Pattern REGEX_END_ON_NEXT = compileBooleanAttrPattern("END-ON-NEXT");
-  private static final Pattern REGEX_ASSET_URI = Pattern.compile("X-ASSET-URI=\"(.+?)\"");
-  private static final Pattern REGEX_ASSET_LIST_URI = Pattern.compile("X-ASSET-LIST=\"(.+?)\"");
+  private static final Pattern REGEX_ASSET_URI =
+      Pattern.compile("X-ASSET-URI=" + ATTR_QUOTED_STRING_VALUE_PATTERN);
+  private static final Pattern REGEX_ASSET_LIST_URI =
+      Pattern.compile("X-ASSET-LIST=" + ATTR_QUOTED_STRING_VALUE_PATTERN);
   private static final Pattern REGEX_RESUME_OFFSET =
       Pattern.compile("X-RESUME-OFFSET=(-?[\\d\\.]+)\\b");
   private static final Pattern REGEX_PLAYOUT_LIMIT =
       Pattern.compile("X-PLAYOUT-LIMIT=([\\d\\.]+)\\b");
-  private static final Pattern REGEX_SNAP = Pattern.compile("X-SNAP=\"(.+?)\"");
-  private static final Pattern REGEX_RESTRICT = Pattern.compile("X-RESTRICT=\"(.+?)\"");
+  private static final Pattern REGEX_SNAP =
+      Pattern.compile("X-SNAP=" + ATTR_QUOTED_STRING_VALUE_PATTERN);
+  private static final Pattern REGEX_RESTRICT =
+      Pattern.compile("X-RESTRICT=" + ATTR_QUOTED_STRING_VALUE_PATTERN);
   private static final Pattern REGEX_VARIABLE_REFERENCE =
       Pattern.compile("\\{\\$([a-zA-Z0-9\\-_]+)\\}");
   private static final Pattern REGEX_CLIENT_DEFINED_ATTRIBUTE_PREFIX =
@@ -1485,7 +1512,7 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
         attributes.substring(valueBeginIndex, valueBeginIndex + valueBeginMaxLength);
     if (valueBegin.startsWith("\"")) {
       // a quoted string value
-      Pattern pattern = Pattern.compile(clientAttribute + "=\"(.+?)\"");
+      Pattern pattern = Pattern.compile(clientAttribute + "=" + ATTR_QUOTED_STRING_VALUE_PATTERN);
       String value = parseStringAttr(attributes, pattern, variableDefinitions);
       return new HlsMediaPlaylist.ClientDefinedAttribute(
           clientAttribute, value, HlsMediaPlaylist.ClientDefinedAttribute.TYPE_TEXT);

@@ -65,12 +65,15 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
     protected Parser<M> manifestParser;
     protected Executor executor;
     protected long maxMergedSegmentStartTimeDiffMs;
+    protected long startPositionUs;
+    protected long durationUs;
 
     public BaseFactory(CacheDataSource.Factory cacheDataSourceFactory, Parser<M> manifestParser) {
       this.cacheDataSourceFactory = cacheDataSourceFactory;
       this.manifestParser = manifestParser;
       this.executor = Runnable::run;
       this.maxMergedSegmentStartTimeDiffMs = DEFAULT_MAX_MERGED_SEGMENT_START_TIME_DIFF_MS;
+      this.durationUs = C.TIME_UNSET;
     }
 
     @Override
@@ -84,6 +87,20 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
     @CanIgnoreReturnValue
     public BaseFactory<M> setMaxMergedSegmentStartTimeDiffMs(long maxMergedSegmentStartTimeDiffMs) {
       this.maxMergedSegmentStartTimeDiffMs = maxMergedSegmentStartTimeDiffMs;
+      return this;
+    }
+
+    @Override
+    @CanIgnoreReturnValue
+    public BaseFactory<M> setStartPositionUs(long startPositionUs) {
+      this.startPositionUs = startPositionUs;
+      return this;
+    }
+
+    @Override
+    @CanIgnoreReturnValue
+    public BaseFactory<M> setDurationUs(long durationUs) {
+      this.durationUs = durationUs;
       return this;
     }
   }
@@ -105,13 +122,16 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
 
     @Override
     public int compareTo(Segment other) {
-      return Util.compareLong(startTimeUs, other.startTimeUs);
+      return Long.compare(startTimeUs, other.startTimeUs);
     }
   }
 
   public static final long DEFAULT_MAX_MERGED_SEGMENT_START_TIME_DIFF_MS = 20 * C.MILLIS_PER_SECOND;
 
   private static final int BUFFER_SIZE_BYTES = 128 * 1024;
+
+  public final long startPositionUs;
+  public final long durationUs;
 
   private final DataSpec manifestDataSpec;
   private final Parser<M> manifestParser;
@@ -141,12 +161,47 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
       CacheDataSource.Factory cacheDataSourceFactory,
       Executor executor,
       long maxMergedSegmentStartTimeDiffMs) {
+    this(
+        mediaItem,
+        manifestParser,
+        cacheDataSourceFactory,
+        executor,
+        maxMergedSegmentStartTimeDiffMs,
+        /* startPositionUs= */ 0,
+        /* durationUs= */ C.TIME_UNSET);
+  }
+
+  /**
+   * @param mediaItem The {@link MediaItem} to be downloaded.
+   * @param manifestParser A parser for manifests belonging to the media to be downloaded.
+   * @param cacheDataSourceFactory A {@link CacheDataSource.Factory} for the cache into which the
+   *     download will be written.
+   * @param executor An {@link Executor} used to make requests for the media being downloaded.
+   *     Providing an {@link Executor} that uses multiple threads will speed up the download by
+   *     allowing parts of it to be executed in parallel.
+   * @param maxMergedSegmentStartTimeDiffMs The maximum difference of the start time of two
+   *     segments, up to which the segments (of the same URI) should be merged into a single
+   *     download segment, in milliseconds.
+   * @param startPositionUs The start position in microseconds that the download should start from.
+   * @param durationUs The duration in microseconds from the {@code startPositionUs} to be
+   *     downloaded, or {@link C#TIME_UNSET} if the media should be downloaded to the end.
+   */
+  public SegmentDownloader(
+      MediaItem mediaItem,
+      Parser<M> manifestParser,
+      CacheDataSource.Factory cacheDataSourceFactory,
+      Executor executor,
+      long maxMergedSegmentStartTimeDiffMs,
+      long startPositionUs,
+      long durationUs) {
     checkNotNull(mediaItem.localConfiguration);
     this.manifestDataSpec = getCompressibleDataSpec(mediaItem.localConfiguration.uri);
     this.manifestParser = manifestParser;
     this.streamKeys = new ArrayList<>(mediaItem.localConfiguration.streamKeys);
     this.cacheDataSourceFactory = cacheDataSourceFactory;
     this.executor = executor;
+    this.startPositionUs = startPositionUs;
+    this.durationUs = durationUs;
     cache = Assertions.checkNotNull(cacheDataSourceFactory.getCache());
     cacheKeyFactory = cacheDataSourceFactory.getCacheKeyFactory();
     priorityTaskManager = cacheDataSourceFactory.getUpstreamPriorityTaskManager();

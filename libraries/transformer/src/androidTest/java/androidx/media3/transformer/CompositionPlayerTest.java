@@ -19,11 +19,17 @@ import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.transformer.AndroidTestUtil.JPG_SINGLE_PIXEL_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static org.junit.Assert.assertThrows;
 
 import android.app.Instrumentation;
 import android.content.Context;
+import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.opengl.EGLContext;
+import android.opengl.EGLDisplay;
+import android.opengl.EGLSurface;
 import android.util.Pair;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
@@ -32,9 +38,11 @@ import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DebugViewProvider;
 import androidx.media3.common.Effect;
-import androidx.media3.common.Format;
+import androidx.media3.common.GlObjectsProvider;
+import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.PlaybackException;
 import androidx.media3.common.VideoCompositorSettings;
 import androidx.media3.common.VideoGraph;
 import androidx.media3.common.audio.AudioProcessor;
@@ -45,9 +53,8 @@ import androidx.media3.datasource.DataSourceUtil;
 import androidx.media3.datasource.DataSpec;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.SingleInputVideoGraph;
-import androidx.media3.exoplayer.RendererCapabilities;
-import androidx.media3.exoplayer.image.BitmapFactoryImageDecoder;
-import androidx.media3.exoplayer.image.ImageDecoder;
+import androidx.media3.exoplayer.image.ExternallyLoadedImageDecoder;
+import androidx.media3.exoplayer.image.ExternallyLoadedImageDecoder.ExternalImageRequest;
 import androidx.media3.exoplayer.image.ImageDecoderException;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.exoplayer.source.ExternalLoader;
@@ -58,6 +65,7 @@ import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListenableFuture;
 import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.Executor;
@@ -273,7 +281,9 @@ public class CompositionPlayerTest {
           compositionPlayer =
               new CompositionPlayer.Builder(applicationContext)
                   .setMediaSourceFactory(mediaSourceFactory)
-                  .setImageDecoderFactory(new TestImageDecoderFactory())
+                  .setImageDecoderFactory(
+                      new ExternallyLoadedImageDecoder.Factory(
+                          new TestExternallyLoadedBitmapResolver()))
                   .build();
           // Set a surface on the player even though there is no UI on this test. We need a surface
           // otherwise the player will skip/drop video frames.
@@ -450,6 +460,66 @@ public class CompositionPlayerTest {
   }
 
   @Test
+  public void setGlObjectsProvider_withFailingImplementation_throws() {
+    PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
+    EditedMediaItem video =
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
+            .setDurationUs(MP4_ASSET.videoDurationUs)
+            .build();
+
+    instrumentation.runOnMainSync(
+        () -> {
+          compositionPlayer =
+              new CompositionPlayer.Builder(applicationContext)
+                  .setGlObjectsProvider(
+                      new GlObjectsProvider() {
+                        @Override
+                        public EGLContext createEglContext(
+                            EGLDisplay eglDisplay, int openGlVersion, int[] configAttributes) {
+                          throw new UnsupportedOperationException();
+                        }
+
+                        @Override
+                        public EGLSurface createEglSurface(
+                            EGLDisplay eglDisplay,
+                            Object surface,
+                            @C.ColorTransfer int colorTransfer,
+                            boolean isEncoderInputSurface) {
+                          throw new UnsupportedOperationException();
+                        }
+
+                        @Override
+                        public EGLSurface createFocusedPlaceholderEglSurface(
+                            EGLContext eglContext, EGLDisplay eglDisplay) {
+                          throw new UnsupportedOperationException();
+                        }
+
+                        @Override
+                        public GlTextureInfo createBuffersForTexture(
+                            int texId, int width, int height) {
+                          throw new UnsupportedOperationException();
+                        }
+
+                        @Override
+                        public void release(EGLDisplay eglDisplay) {
+                          throw new UnsupportedOperationException();
+                        }
+                      })
+                  .build();
+          // Set a surface on the player even though there is no UI on this test. We need a surface
+          // otherwise the player will skip/drop video frames.
+          compositionPlayer.setVideoSurfaceView(surfaceView);
+          compositionPlayer.addListener(listener);
+          compositionPlayer.setComposition(
+              new Composition.Builder(new EditedMediaItemSequence.Builder(video).build()).build());
+          compositionPlayer.prepare();
+          compositionPlayer.play();
+        });
+
+    assertThrows(PlaybackException.class, listener::waitUntilPlayerEnded);
+  }
+
+  @Test
   public void release_videoGraphWrapperFailsDuringRelease_playerDoesNotRaiseError()
       throws Exception {
     PlayerTestListener playerTestListener = new PlayerTestListener(TEST_TIMEOUT_MS);
@@ -502,33 +572,20 @@ public class CompositionPlayerTest {
     instrumentation.runOnMainSync(compositionPlayer::release);
   }
 
-  private static final class TestImageDecoderFactory implements ImageDecoder.Factory {
-
+  private static final class TestExternallyLoadedBitmapResolver
+      implements ExternallyLoadedImageDecoder.BitmapResolver {
     @Override
-    public @RendererCapabilities.Capabilities int supportsFormat(Format format) {
-      return format.sampleMimeType != null
-              && format.sampleMimeType.equals(MimeTypes.APPLICATION_EXTERNALLY_LOADED_IMAGE)
-          ? RendererCapabilities.create(C.FORMAT_HANDLED)
-          : RendererCapabilities.create(C.FORMAT_UNSUPPORTED_TYPE);
-    }
-
-    @Override
-    public ImageDecoder createImageDecoder() {
-      return new BitmapFactoryImageDecoder.Factory(
-              /* bitmapDecoder= */ (data, length) -> {
-                try {
-                  // The test serializes the image URI string to a byte array.
-                  String assetPath = new String(data);
-                  AssetDataSource assetDataSource =
-                      new AssetDataSource(ApplicationProvider.getApplicationContext());
-                  assetDataSource.open(new DataSpec.Builder().setUri(assetPath).build());
-                  byte[] imageData = DataSourceUtil.readToEnd(assetDataSource);
-                  return BitmapFactory.decodeByteArray(imageData, 0, imageData.length);
-                } catch (IOException e) {
-                  throw new ImageDecoderException(e);
-                }
-              })
-          .createImageDecoder();
+    public ListenableFuture<Bitmap> resolve(ExternalImageRequest request) {
+      try {
+        // The test serializes the image URI string to a byte array.
+        AssetDataSource assetDataSource =
+            new AssetDataSource(ApplicationProvider.getApplicationContext());
+        assetDataSource.open(new DataSpec.Builder().setUri(request.uri).build());
+        byte[] imageData = DataSourceUtil.readToEnd(assetDataSource);
+        return immediateFuture(BitmapFactory.decodeByteArray(imageData, 0, imageData.length));
+      } catch (IOException e) {
+        return immediateFailedFuture(new ImageDecoderException(e));
+      }
     }
   }
 

@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.trackselection;
 
+import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 
 import android.content.Context;
@@ -141,6 +142,7 @@ public abstract class TrackSelector {
    */
   @CallSuper
   public void init(InvalidationListener listener, BandwidthMeter bandwidthMeter) {
+    checkState(this.listener == null);
     this.listener = listener;
     this.bandwidthMeter = bandwidthMeter;
   }

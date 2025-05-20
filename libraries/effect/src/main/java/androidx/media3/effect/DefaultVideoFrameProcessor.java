@@ -563,7 +563,11 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
               listenerExecutor.execute(listener::onEnded);
               DebugTraceUtil.logEvent(COMPONENT_VFP, EVENT_SIGNAL_ENDED, C.TIME_END_OF_SOURCE);
             } else {
-              DefaultVideoFrameProcessor.this.submitPendingInputStream();
+              // TODO: b/417680219 - do not submit to the GL thread as we're already on the GL
+              // thread. The code here is a workaround for a race condition in GlShaderProgram
+              // release calls.
+              videoFrameProcessingTaskExecutor.submit(
+                  DefaultVideoFrameProcessor.this::configurePendingInputStream);
             }
           }
 
@@ -848,11 +852,14 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
       videoFrameProcessingTaskExecutor.submit(finalShaderProgramWrapper::flush);
       latch.await();
       textureManager.setOnFlushCompleteListener(null);
+      // Block until configurePendingInputStream returns. Ensures that any pending configuration is
+      // actually submitted if the pending tasks on videoFrameProcessingTaskExecutor are flushed
+      // before the configuration has a chance to take place.
+      videoFrameProcessingTaskExecutor.invoke(this::configurePendingInputStream);
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
+      listenerExecutor.execute(() -> listener.onError(new VideoFrameProcessingException(e)));
     }
-    // Make sure any pending input stream is not swallowed.
-    submitPendingInputStream();
   }
 
   @Override
@@ -888,18 +895,22 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
     }
   }
 
-  private void submitPendingInputStream() {
+  // Methods that must be called on the GL thread.
+
+  private void configurePendingInputStream() throws VideoFrameProcessingException {
+    videoFrameProcessingTaskExecutor.verifyVideoFrameProcessingThread();
+    @Nullable InputStreamInfo pendingInputStreamInfo = null;
+    // Release the lock before calling configure.
     synchronized (lock) {
-      if (pendingInputStreamInfo != null) {
-        InputStreamInfo pendingInputStreamInfo = this.pendingInputStreamInfo;
-        videoFrameProcessingTaskExecutor.submit(
-            () -> configure(pendingInputStreamInfo, /* forceReconfigure= */ false));
+      if (this.pendingInputStreamInfo != null) {
+        pendingInputStreamInfo = this.pendingInputStreamInfo;
         this.pendingInputStreamInfo = null;
       }
     }
+    if (pendingInputStreamInfo != null) {
+      configure(pendingInputStreamInfo, /* forceReconfigure= */ false);
+    }
   }
-
-  // Methods that must be called on the GL thread.
 
   /**
    * Creates the OpenGL context, surfaces, textures, and frame buffers, initializes {@link

@@ -1696,8 +1696,17 @@ public class MediaSession {
      * play without a current {@link MediaItem}.
      *
      * <p>This happens, for example, if <a
-     * href="https://developer.android.com/guide/topics/media/session/mediasession#resumption">playback
+     * href="https://developer.android.com/media/media3/session/background-playback#resumption">playback
      * resumption</a> is requested from a media button receiver or the System UI notification.
+     *
+     * <p>Use {@link MediaMetadata#artworkData} or {@link MediaMetadata#artworkUri} with a content
+     * URI to set locally available artwork data for the System UI notification after reboot of the
+     * device. Note that network access may not be available when this method is called during boot
+     * time.
+     *
+     * <p>Use {@link MediaConstants#EXTRAS_KEY_COMPLETION_STATUS} and {@link
+     * MediaConstants#EXTRAS_KEY_COMPLETION_PERCENTAGE} to statically indicate the completion
+     * status.
      *
      * <p>The method will only be called if the {@link Player} has {@link
      * Player#COMMAND_GET_CURRENT_MEDIA_ITEM} and either {@link Player#COMMAND_SET_MEDIA_ITEM} or

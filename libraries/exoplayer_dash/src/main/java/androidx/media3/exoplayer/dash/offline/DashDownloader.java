@@ -18,6 +18,7 @@ package androidx.media3.exoplayer.dash.offline;
 import static androidx.media3.common.util.Util.castNonNull;
 
 import androidx.annotation.Nullable;
+import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.RunnableFutureTask;
@@ -110,7 +111,8 @@ public final class DashDownloader extends SegmentDownloader<DashManifest> {
     @Override
     @CanIgnoreReturnValue
     public Factory setExecutor(Executor executor) {
-      return (Factory) super.setExecutor(executor);
+      super.setExecutor(executor);
+      return this;
     }
 
     /**
@@ -122,7 +124,33 @@ public final class DashDownloader extends SegmentDownloader<DashManifest> {
     @Override
     @CanIgnoreReturnValue
     public Factory setMaxMergedSegmentStartTimeDiffMs(long maxMergedSegmentStartTimeDiffMs) {
-      return (Factory) super.setMaxMergedSegmentStartTimeDiffMs(maxMergedSegmentStartTimeDiffMs);
+      super.setMaxMergedSegmentStartTimeDiffMs(maxMergedSegmentStartTimeDiffMs);
+      return this;
+    }
+
+    /**
+     * Sets the start position in microseconds that the download should start from.
+     *
+     * @return This factory, for convenience.
+     */
+    @Override
+    @CanIgnoreReturnValue
+    public Factory setStartPositionUs(long startPositionUs) {
+      super.setStartPositionUs(startPositionUs);
+      return this;
+    }
+
+    /**
+     * Sets the duration in microseconds from the {@code startPositionUs} to be downloaded, or
+     * {@link C#TIME_UNSET} if the media should be downloaded to the end.
+     *
+     * @return This factory, for convenience.
+     */
+    @Override
+    @CanIgnoreReturnValue
+    public Factory setDurationUs(long durationUs) {
+      super.setDurationUs(durationUs);
+      return this;
     }
 
     /** Creates {@linkplain DashDownloader DASH downloaders}. */
@@ -133,7 +161,9 @@ public final class DashDownloader extends SegmentDownloader<DashManifest> {
           manifestParser,
           cacheDataSourceFactory,
           executor,
-          maxMergedSegmentStartTimeDiffMs);
+          maxMergedSegmentStartTimeDiffMs,
+          startPositionUs,
+          durationUs);
     }
   }
 
@@ -144,7 +174,7 @@ public final class DashDownloader extends SegmentDownloader<DashManifest> {
    */
   @Deprecated
   public DashDownloader(MediaItem mediaItem, CacheDataSource.Factory cacheDataSourceFactory) {
-    this(mediaItem, cacheDataSourceFactory, Runnable::run);
+    this(mediaItem, cacheDataSourceFactory, /* executor= */ Runnable::run);
   }
 
   /**
@@ -158,7 +188,9 @@ public final class DashDownloader extends SegmentDownloader<DashManifest> {
         new DashManifestParser(),
         cacheDataSourceFactory,
         executor,
-        DEFAULT_MAX_MERGED_SEGMENT_START_TIME_DIFF_MS);
+        DEFAULT_MAX_MERGED_SEGMENT_START_TIME_DIFF_MS,
+        /* startPositionUs= */ 0,
+        /* durationUs= */ C.TIME_UNSET);
   }
 
   /**
@@ -174,19 +206,26 @@ public final class DashDownloader extends SegmentDownloader<DashManifest> {
    * @param maxMergedSegmentStartTimeDiffMs The maximum difference of the start time of two
    *     segments, up to which the segments (of the same URI) should be merged into a single
    *     download segment, in milliseconds.
+   * @param startPositionUs The start position in microseconds that the download should start from.
+   * @param durationUs The duration in microseconds from the {@code startPositionUs} to be
+   *     downloaded, or {@link C#TIME_UNSET} if the media should be downloaded to the end.
    */
   private DashDownloader(
       MediaItem mediaItem,
       Parser<DashManifest> manifestParser,
       CacheDataSource.Factory cacheDataSourceFactory,
       Executor executor,
-      long maxMergedSegmentStartTimeDiffMs) {
+      long maxMergedSegmentStartTimeDiffMs,
+      long startPositionUs,
+      long durationUs) {
     super(
         mediaItem,
         manifestParser,
         cacheDataSourceFactory,
         executor,
-        maxMergedSegmentStartTimeDiffMs);
+        maxMergedSegmentStartTimeDiffMs,
+        startPositionUs,
+        durationUs);
     baseUrlExclusionList = new BaseUrlExclusionList();
   }
 
@@ -199,6 +238,12 @@ public final class DashDownloader extends SegmentDownloader<DashManifest> {
       Period period = manifest.getPeriod(i);
       long periodStartUs = Util.msToUs(period.startMs);
       long periodDurationUs = manifest.getPeriodDurationUs(i);
+      if (periodDurationUs != C.TIME_UNSET && periodStartUs + periodDurationUs <= startPositionUs) {
+        continue;
+      }
+      if (durationUs != C.TIME_UNSET && periodStartUs >= startPositionUs + durationUs) {
+        break;
+      }
       List<AdaptationSet> adaptationSets = period.adaptationSets;
       for (int j = 0; j < adaptationSets.size(); j++) {
         addSegmentsForAdaptationSet(
@@ -247,8 +292,19 @@ public final class DashDownloader extends SegmentDownloader<DashManifest> {
       if (indexUri != null) {
         out.add(createSegment(representation, baseUrl, periodStartUs, indexUri));
       }
-      long firstSegmentNum = index.getFirstSegmentNum();
-      long lastSegmentNum = firstSegmentNum + segmentCount - 1;
+      long startPositionInPeriodUs = startPositionUs - periodStartUs;
+      long endPositionInPeriodUs =
+          durationUs != C.TIME_UNSET ? startPositionInPeriodUs + durationUs : C.TIME_UNSET;
+      long firstSegmentNum =
+          removing || startPositionInPeriodUs <= 0
+              ? index.getFirstSegmentNum()
+              : index.getSegmentNum(startPositionInPeriodUs, periodDurationUs);
+      long lastSegmentNum =
+          endPositionInPeriodUs == C.TIME_UNSET
+                  || removing
+                  || endPositionInPeriodUs >= periodStartUs + periodDurationUs
+              ? index.getFirstSegmentNum() + segmentCount - 1
+              : index.getSegmentNum(endPositionInPeriodUs, periodDurationUs);
       for (long j = firstSegmentNum; j <= lastSegmentNum; j++) {
         out.add(
             createSegment(

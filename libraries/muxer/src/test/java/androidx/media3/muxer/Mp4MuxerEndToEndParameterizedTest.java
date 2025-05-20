@@ -16,7 +16,7 @@
 package androidx.media3.muxer;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.muxer.MuxerTestUtil.feedInputDataToMp4Muxer;
+import static androidx.media3.muxer.MuxerTestUtil.feedInputDataToMuxer;
 
 import android.content.Context;
 import androidx.annotation.Nullable;
@@ -123,7 +123,7 @@ public class Mp4MuxerEndToEndParameterizedTest {
           new Mp4TimestampData(
               /* creationTimestampSeconds= */ 100_000_000L,
               /* modificationTimestampSeconds= */ 500_000_000L));
-      feedInputDataToMp4Muxer(context, mp4Muxer, checkNotNull(inputFile));
+      feedInputDataToMuxer(context, mp4Muxer, checkNotNull(inputFile));
     } finally {
       if (mp4Muxer != null) {
         mp4Muxer.close();

@@ -29,7 +29,6 @@ import android.graphics.SurfaceTexture;
 import android.view.Surface;
 import androidx.media3.common.Timeline;
 import androidx.media3.exoplayer.ExoPlayer;
-import androidx.media3.exoplayer.drm.DrmSessionManager;
 import androidx.media3.exoplayer.video.VideoFrameMetadataListener;
 import androidx.media3.test.utils.FakeMediaPeriod.TrackDataFactory;
 import androidx.media3.test.utils.FakeTimeline.TimelineWindowDefinition;
@@ -56,15 +55,16 @@ public final class FakeVideoRendererTest {
     player.setVideoFrameMetadataListener(mockVideoFrameMetadataListener);
 
     player.setMediaSource(
-        new FakeMediaSource(
-            timeline,
-            DrmSessionManager.DRM_UNSUPPORTED,
-            TrackDataFactory.samplesWithRateDurationAndKeyframeInterval(
-                /* initialSampleTimeUs= */ 0,
-                /* sampleRate= */ 30,
-                /* durationUs= */ DEFAULT_WINDOW_DURATION_US,
-                /* keyFrameInterval= */ 60),
-            ExoPlayerTestRunner.VIDEO_FORMAT));
+        new FakeMediaSource.Builder()
+            .setTimeline(timeline)
+            .setTrackDataFactory(
+                TrackDataFactory.samplesWithRateDurationAndKeyframeInterval(
+                    /* initialSampleTimeUs= */ 0,
+                    /* sampleRate= */ 30,
+                    /* durationUs= */ DEFAULT_WINDOW_DURATION_US,
+                    /* keyFrameInterval= */ 60))
+            .setFormats(ExoPlayerTestRunner.VIDEO_FORMAT)
+            .build());
     player.prepare();
     player.play();
 

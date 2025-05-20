@@ -60,6 +60,7 @@ import androidx.media3.common.util.Util;
 import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
+import androidx.media3.muxer.Muxer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -112,6 +113,7 @@ public final class Transformer {
     private boolean removeAudio;
     private boolean removeVideo;
     private boolean trimOptimizationEnabled;
+    private boolean mp4EditListTrimEnabled;
     private ImmutableList<Integer> allowedEncodingRotationDegrees;
     private boolean fileStartsOnVideoFrameEnabled;
     private boolean usePlatformDiagnostics;
@@ -167,6 +169,7 @@ public final class Transformer {
       this.removeAudio = transformer.removeAudio;
       this.removeVideo = transformer.removeVideo;
       this.trimOptimizationEnabled = transformer.trimOptimizationEnabled;
+      this.mp4EditListTrimEnabled = transformer.mp4EditListTrimEnabled;
       this.allowedEncodingRotationDegrees = transformer.allowedEncodingRotationDegrees;
       this.fileStartsOnVideoFrameEnabled = transformer.fileStartsOnVideoFrameEnabled;
       this.usePlatformDiagnostics = transformer.usePlatformDiagnostics;
@@ -277,6 +280,42 @@ public final class Transformer {
     }
 
     /**
+     * Sets whether to use an MP4 edit list for trimming, to instruct players to ignore frames
+     * between the key frame before the trim start point, and the trim start point.
+     *
+     * <p>This optimization has the following limitations, and will throw an {@link
+     * IllegalStateException} if they are not met:
+     *
+     * <ul>
+     *   <li>Transformer is configured with any {@link Muxer.Factory} where {@link
+     *       Muxer.Factory#supportsWritingNegativeTimestampsInEditList()} is false. It is
+     *       recommended to use {@link InAppMp4Muxer.Factory}.
+     *   <li>Transformer has to transcode for any reason while trimming (such as if any video
+     *       effects, apart from 90, 180 and 270 degree rotations are applied while trimming).
+     * </ul>
+     *
+     * <p>This optimization will be ignored in the following cases:
+     *
+     * <ul>
+     *   <li>Transformer input contains multiple assets (i.e. there is more than one {@link
+     *       EditedMediaItem} in the {@link Composition}).
+     *   <li>Transformer input contains a single {@link MediaItem} but the {@linkplain
+     *       MediaItem#clippingConfiguration clipping configuration} is not set.
+     * </ul>
+     *
+     * <p>If players do not respect the edit list the output file will be played from the key frame
+     * before the trim start point rather than the requested trim start point.
+     *
+     * @param enabled Whether to enable mp4 edit list trimming.
+     * @return This builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder experimentalSetMp4EditListTrimEnabled(boolean enabled) {
+      mp4EditListTrimEnabled = enabled;
+      return this;
+    }
+
+    /**
      * Sets whether to encode portrait videos in portrait orientation.
      *
      * <p>The default value is {@code false}. In this case, portrait videos will be rotated by 90
@@ -325,8 +364,8 @@ public final class Transformer {
      * make the output of trimming operations more compatible with player implementations that don't
      * show the first video frame until its presentation timestamp.
      *
-     * <p>Ignored when {@linkplain #experimentalSetTrimOptimizationEnabled trim optimization} is
-     * set.
+     * <p>Ignored when {@linkplain #experimentalSetTrimOptimizationEnabled trim optimization} or
+     * {@linkplain #experimentalSetMp4EditListTrimEnabled trimming with MP4 edit list} is set.
      *
      * @param enabled Whether to ensure that the file starts on a video frame.
      * @return This builder.
@@ -574,6 +613,9 @@ public final class Transformer {
      *     would not contain any samples).
      * @throws IllegalStateException If the muxer doesn't support the requested audio/video MIME
      *     type.
+     * @throws IllegalStateException If {@link #experimentalSetMp4EditListTrimEnabled(boolean
+     *     enabled)} is enabled but the {@link Muxer.Factory} does not support writing negative
+     *     timestamps to an edit list.
      */
     public Transformer build() {
       TransformationRequest.Builder transformationRequestBuilder =
@@ -593,6 +635,11 @@ public final class Transformer {
       if (transformationRequest.videoMimeType != null) {
         checkSampleMimeType(transformationRequest.videoMimeType);
       }
+      checkState(
+          !mp4EditListTrimEnabled || muxerFactory.supportsWritingNegativeTimestampsInEditList(),
+          String.format(
+              "Muxer.Factory %s does not support writing negative timestamps to an edit list.",
+              muxerFactory));
       return new Transformer(
           context,
           transformationRequest,
@@ -601,6 +648,7 @@ public final class Transformer {
           removeAudio,
           removeVideo,
           trimOptimizationEnabled,
+          mp4EditListTrimEnabled,
           allowedEncodingRotationDegrees,
           fileStartsOnVideoFrameEnabled,
           usePlatformDiagnostics,
@@ -787,6 +835,7 @@ public final class Transformer {
   private final boolean removeAudio;
   private final boolean removeVideo;
   private final boolean trimOptimizationEnabled;
+  private final boolean mp4EditListTrimEnabled;
   private final ImmutableList<Integer> allowedEncodingRotationDegrees;
   private final boolean fileStartsOnVideoFrameEnabled;
   private final boolean usePlatformDiagnostics;
@@ -829,6 +878,7 @@ public final class Transformer {
       boolean removeAudio,
       boolean removeVideo,
       boolean trimOptimizationEnabled,
+      boolean mp4EditListTrimEnabled,
       ImmutableList<Integer> allowedEncodingRotationDegrees,
       boolean fileStartsOnVideoFrameEnabled,
       boolean usePlatformDiagnostics,
@@ -852,6 +902,7 @@ public final class Transformer {
     this.removeAudio = removeAudio;
     this.removeVideo = removeVideo;
     this.trimOptimizationEnabled = trimOptimizationEnabled;
+    this.mp4EditListTrimEnabled = mp4EditListTrimEnabled;
     this.allowedEncodingRotationDegrees = allowedEncodingRotationDegrees;
     this.fileStartsOnVideoFrameEnabled = fileStartsOnVideoFrameEnabled;
     this.usePlatformDiagnostics = usePlatformDiagnostics;
@@ -977,7 +1028,7 @@ public final class Transformer {
   public void start(Composition composition, String path) {
     verifyApplicationThread();
     initialize(composition, path);
-    if (shouldOptimizeForTrimming()) {
+    if (trimOptimizationEnabled && isSingleAssetTrimming()) {
       processMediaBeforeFirstSyncSampleAfterTrimStartTime();
     } else {
       startInternal(
@@ -988,7 +1039,8 @@ public final class Transformer {
               componentListener,
               MuxerWrapper.MUXER_MODE_DEFAULT,
               /* dropSamplesBeforeFirstVideoSample= */ fileStartsOnVideoFrameEnabled,
-              /* appendVideoFormat= */ null),
+              /* appendVideoFormat= */ null,
+              /* writeNegativeTimestampsToEditList= */ shouldApplyMp4EditListTrim()),
           componentListener,
           /* initialTimestampOffsetUs= */ 0,
           /* useDefaultAssetLoaderFactory= */ false);
@@ -1102,7 +1154,7 @@ public final class Transformer {
         : transformerInternal.getProgress(progressHolder);
   }
 
-  private boolean shouldOptimizeForTrimming() {
+  private boolean isSingleAssetTrimming() {
     if (isMultiAsset()) {
       return false;
     }
@@ -1115,11 +1167,11 @@ public final class Transformer {
             .get(0)
             .mediaItem
             .clippingConfiguration;
-    if (clippingConfiguration.equals(MediaItem.ClippingConfiguration.UNSET)) {
-      return false;
-    }
+    return !clippingConfiguration.equals(MediaItem.ClippingConfiguration.UNSET);
+  }
 
-    return trimOptimizationEnabled;
+  private boolean shouldApplyMp4EditListTrim() {
+    return mp4EditListTrimEnabled && isSingleAssetTrimming();
   }
 
   private boolean isExportResumed() {
@@ -1299,7 +1351,8 @@ public final class Transformer {
             componentListener,
             MuxerWrapper.MUXER_MODE_DEFAULT,
             /* dropSamplesBeforeFirstVideoSample= */ false,
-            /* appendVideoFormat= */ null),
+            /* appendVideoFormat= */ null,
+            /* writeNegativeTimestampsToEditList= */ false),
         componentListener,
         /* initialTimestampOffsetUs= */ 0,
         /* useDefaultAssetLoaderFactory= */ false);
@@ -1332,7 +1385,8 @@ public final class Transformer {
                     componentListener,
                     MuxerWrapper.MUXER_MODE_MUX_PARTIAL,
                     /* dropSamplesBeforeFirstVideoSample= */ false,
-                    /* appendVideoFormat= */ resumeMetadata.videoFormat);
+                    /* appendVideoFormat= */ resumeMetadata.videoFormat,
+                    /* writeNegativeTimestampsToEditList= */ false);
 
             startInternal(
                 TransmuxTranscodeHelper.createVideoOnlyComposition(
@@ -1383,7 +1437,8 @@ public final class Transformer {
             componentListener,
             MuxerWrapper.MUXER_MODE_DEFAULT,
             /* dropSamplesBeforeFirstVideoSample= */ false,
-            /* appendVideoFormat= */ null);
+            /* appendVideoFormat= */ null,
+            /* writeNegativeTimestampsToEditList= */ shouldApplyMp4EditListTrim());
 
     startInternal(
         TransmuxTranscodeHelper.createAudioTranscodeAndVideoTransmuxComposition(
@@ -1457,8 +1512,8 @@ public final class Transformer {
             if (mp4Info.firstSyncSampleTimestampUsAfterTimeUs
                 == mp4Info.firstVideoSampleTimestampUs) {
               // The video likely includes an edit list. For example, an edit list adds 1_000ms to
-              // each video sample and the trim position is from 100ms, the first sample would be at
-              // 1_000ms, the first sync sample after 100ms would also be at 1_000ms; but in this
+              // each video sample and the trim position is from 100ms, the first sample would be
+              // at 1_000ms, the first sync sample after 100ms would also be at 1_000ms; but in this
               // case processing should start from 100ms rather than 1_000ms. The resulting video
               // should be 100ms shorter than the original video, and the first video timestamp
               // should have timestamp at 900ms.
@@ -1500,7 +1555,8 @@ public final class Transformer {
                     componentListener,
                     MuxerWrapper.MUXER_MODE_MUX_PARTIAL,
                     /* dropSamplesBeforeFirstVideoSample= */ false,
-                    mp4Info.videoFormat);
+                    mp4Info.videoFormat,
+                    /* writeNegativeTimestampsToEditList= */ false);
             if (shouldTranscodeVideo(
                     checkNotNull(mp4Info.videoFormat),
                     composition,
@@ -1652,7 +1708,8 @@ public final class Transformer {
             debugViewProvider,
             clock,
             initialTimestampOffsetUs,
-            logSessionId);
+            logSessionId,
+            shouldApplyMp4EditListTrim());
     transformerInternal.start();
   }
 

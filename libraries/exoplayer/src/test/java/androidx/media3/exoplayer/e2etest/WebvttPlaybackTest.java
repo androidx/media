@@ -331,9 +331,7 @@ public class WebvttPlaybackTest {
   private static void playUntilCuesArrived(ExoPlayer player, long cuesTimeUs, boolean cuesEmpty)
       throws Exception {
     AtomicBoolean cuesFound = createCuesCondition(player, cuesTimeUs, cuesEmpty);
-    play(player)
-        .untilBackgroundThreadCondition(
-            () -> player.getCurrentPosition() >= Util.usToMs(cuesTimeUs));
+    play(player).untilPositionAtLeast(Util.usToMs(cuesTimeUs));
     player.pause();
     stallPlayerUntilCondition(player, cuesFound);
   }

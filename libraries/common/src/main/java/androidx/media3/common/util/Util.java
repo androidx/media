@@ -1541,17 +1541,25 @@ public final class Util {
     return stayInBounds ? min(list.size() - 1, index) : index;
   }
 
+  /** Returns whether {@code values} is sorted in ascending order. */
+  @UnstableApi
+  public static boolean isSorted(long[] values) {
+    for (int i = 0; i < values.length - 1; i++) {
+      if (values[i] > values[i + 1]) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   /**
-   * Compares two long values and returns the same value as {@code Long.compare(long, long)}.
-   *
-   * @param left The left operand.
-   * @param right The right operand.
-   * @return 0, if left == right, a negative value if left &lt; right, or a positive value if left
-   *     &gt; right.
+   * @deprecated Use {@link Long#compare(long, long)}.
    */
   @UnstableApi
+  @Deprecated
+  @InlineMe(replacement = "Long.compare(left, right)")
   public static int compareLong(long left, long right) {
-    return left < right ? -1 : left == right ? 0 : 1;
+    return Long.compare(left, right);
   }
 
   /**
@@ -3449,6 +3457,50 @@ public final class Util {
     return elapsedRealtimeEpochOffsetMs == C.TIME_UNSET
         ? System.currentTimeMillis()
         : SystemClock.elapsedRealtime() + elapsedRealtimeEpochOffsetMs;
+  }
+
+  /**
+   * Returns the sign-extended 24-bit integer value at {@code index}.
+   *
+   * @param buffer The buffer from which to read the 24-bit integer.
+   * @param index The index of the 24-bit integer.
+   */
+  @UnstableApi
+  public static int getInt24(ByteBuffer buffer, int index) {
+    byte component1 = buffer.get(buffer.order() == ByteOrder.BIG_ENDIAN ? index : index + 2);
+    byte component2 = buffer.get(index + 1);
+    byte component3 = buffer.get(buffer.order() == ByteOrder.BIG_ENDIAN ? index + 2 : index);
+    return ((component1 << 24) & 0xff000000
+            | (component2 << 16) & 0xff0000
+            | (component3 << 8) & 0xff00)
+        >> 8;
+  }
+
+  /**
+   * Writes a 24-bit integer value to a buffer at its current {@link ByteBuffer#position()}.
+   *
+   * <p>This is a relative operation that affects the buffer's position.
+   *
+   * @param buffer The buffer on which to write the integer.
+   * @param value The integer value to write.
+   * @throws IllegalArgumentException If {@code value} is out of range for a 24-bit integer.
+   */
+  @UnstableApi
+  public static void putInt24(ByteBuffer buffer, int value) {
+    checkArgument(
+        (value & ~0xffffff) == 0 || (value & ~0x7fffff) == 0xff800000,
+        "Value out of range of 24-bit integer: " + Integer.toHexString(value));
+    checkArgument(buffer.remaining() >= 3);
+    byte component1 =
+        buffer.order() == ByteOrder.BIG_ENDIAN
+            ? (byte) ((value & 0xFF0000) >> 16)
+            : (byte) (value & 0xFF);
+    byte component2 = (byte) ((value & 0xFF00) >> 8);
+    byte component3 =
+        buffer.order() == ByteOrder.BIG_ENDIAN
+            ? (byte) (value & 0xFF)
+            : (byte) ((value & 0xFF0000) >> 16);
+    buffer.put(component1).put(component2).put(component3);
   }
 
   /**

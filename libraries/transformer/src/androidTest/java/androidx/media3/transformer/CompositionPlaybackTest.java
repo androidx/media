@@ -35,11 +35,14 @@ import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.effect.GlEffect;
+import androidx.media3.exoplayer.audio.AudioSink;
+import androidx.media3.exoplayer.audio.DefaultAudioSink;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.After;
@@ -502,6 +505,45 @@ public class CompositionPlaybackTest {
 
     assertThat(inputTimestampRecordingShaderProgram.getInputTimestampsUs())
         .isEqualTo(expectedTimestampsUs);
+  }
+
+  @Test
+  public void playback_singleAssetAudioSequence_doesNotUnderrun()
+      throws PlaybackException, TimeoutException {
+    EditedMediaItem clip =
+        new EditedMediaItem.Builder(MediaItem.fromUri(AndroidTestUtil.WAV_ASSET.uri))
+            .setDurationUs(1_000_000L)
+            .build();
+    Composition composition =
+        new Composition.Builder(new EditedMediaItemSequence.Builder(clip).build()).build();
+    AtomicInteger underrunCount = new AtomicInteger();
+    AudioSink.Listener sinkListener =
+        new AudioSink.Listener() {
+          @Override
+          public void onPositionDiscontinuity() {}
+
+          @Override
+          public void onUnderrun(int bufferSize, long bufferSizeMs, long elapsedSinceLastFeedMs) {
+            underrunCount.addAndGet(1);
+          }
+
+          @Override
+          public void onSkipSilenceEnabledChanged(boolean skipSilenceEnabled) {}
+        };
+    AudioSink sink = new DefaultAudioSink.Builder(context).build();
+    sink.setListener(sinkListener);
+
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              player = new CompositionPlayer.Builder(context).setAudioSink(sink).build();
+              player.addListener(playerTestListener);
+              player.setComposition(composition);
+              player.prepare();
+              player.play();
+            });
+    playerTestListener.waitUntilPlayerEnded();
+    assertThat(underrunCount.get()).isEqualTo(0);
   }
 
   private void runCompositionPlayer(Composition composition)

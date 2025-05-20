@@ -171,6 +171,9 @@ public final class MediaConstants {
    * {@link Bundle} value used in {@link MediaMetadata#extras} to indicate that the corresponding
    * {@link MediaItem} has been partially played by the user.
    *
+   * <p>{@link #EXTRAS_KEY_COMPLETION_PERCENTAGE} must be specified to indicate how far the item has
+   * been played.
+   *
    * @see MediaMetadata.Builder#setExtras(Bundle)
    * @see MediaMetadata#extras
    * @see #EXTRAS_KEY_COMPLETION_STATUS

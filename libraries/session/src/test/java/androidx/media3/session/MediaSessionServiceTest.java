@@ -92,7 +92,7 @@ public class MediaSessionServiceTest {
   }
 
   @Test
-  public void service_sessionIdleWithMedia_createsNotification() {
+  public void service_sessionIdleWithMedia_createsNoNotification() {
     ExoPlayer player = new TestExoPlayerBuilder(context).build();
     MediaSession session = new MediaSession.Builder(context, player).build();
     ServiceController<TestService> serviceController = Robolectric.buildService(TestService.class);
@@ -109,7 +109,64 @@ public class MediaSessionServiceTest {
     player.setMediaItem(MediaItem.fromUri("asset:///media/mp4/sample.mp4"));
     ShadowLooper.idleMainLooper();
 
+    assertThat(getStatusBarNotification(2000)).isNull();
+
+    session.release();
+    player.release();
+    serviceController.destroy();
+  }
+
+  @Test
+  public void service_sessionIdleAfterNonIdleWithMedia_createsNotification() {
+    ExoPlayer player = new TestExoPlayerBuilder(context).build();
+    MediaSession session = new MediaSession.Builder(context, player).build();
+    ServiceController<TestService> serviceController = Robolectric.buildService(TestService.class);
+    TestService service = serviceController.create().get();
+    service.setMediaNotificationProvider(
+        new DefaultMediaNotificationProvider(
+            service,
+            /* notificationIdProvider= */ unused -> 2000,
+            DefaultMediaNotificationProvider.DEFAULT_CHANNEL_ID,
+            DefaultMediaNotificationProvider.DEFAULT_CHANNEL_NAME_RESOURCE_ID));
+    service.addSession(session);
+
+    // Add media and give the service a chance to create a notification and then stop the player.
+    player.setMediaItem(MediaItem.fromUri("asset:///media/mp4/sample.mp4"));
+    player.prepare();
+    ShadowLooper.idleMainLooper();
+    player.stop();
+    ShadowLooper.idleMainLooper();
+
     assertThat(getStatusBarNotification(2000)).isNotNull();
+
+    session.release();
+    player.release();
+    serviceController.destroy();
+  }
+
+  @Test
+  public void service_sessionIdleAfterNonIdleWithoutMedia_clearsNotification() {
+    ExoPlayer player = new TestExoPlayerBuilder(context).build();
+    MediaSession session = new MediaSession.Builder(context, player).build();
+    ServiceController<TestService> serviceController = Robolectric.buildService(TestService.class);
+    TestService service = serviceController.create().get();
+    service.setMediaNotificationProvider(
+        new DefaultMediaNotificationProvider(
+            service,
+            /* notificationIdProvider= */ unused -> 2000,
+            DefaultMediaNotificationProvider.DEFAULT_CHANNEL_ID,
+            DefaultMediaNotificationProvider.DEFAULT_CHANNEL_NAME_RESOURCE_ID));
+    service.addSession(session);
+
+    // Add media and give the service a chance to create a notification and then clear the playlist.
+    player.setMediaItem(MediaItem.fromUri("asset:///media/mp4/sample.mp4"));
+    player.prepare();
+    ShadowLooper.idleMainLooper();
+    player.stop();
+    player.clearMediaItems();
+    ShadowLooper.idleMainLooper();
+
+    assertThat(getStatusBarNotification(2000)).isNull();
 
     session.release();
     player.release();

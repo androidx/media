@@ -99,6 +99,8 @@ public final class HevcConfig {
       int bufferPosition = 0;
       int width = Format.NO_VALUE;
       int height = Format.NO_VALUE;
+      int decodedWidth = Format.NO_VALUE;
+      int decodedHeight = Format.NO_VALUE;
       int bitdepthLuma = Format.NO_VALUE;
       int bitdepthChroma = Format.NO_VALUE;
       @C.ColorSpace int colorSpace = Format.NO_VALUE;
@@ -135,6 +137,8 @@ public final class HevcConfig {
             maxSubLayers = spsData.maxSubLayersMinus1 + 1;
             width = spsData.width;
             height = spsData.height;
+            decodedWidth = spsData.decodedWidth;
+            decodedHeight = spsData.decodedHeight;
             bitdepthLuma = spsData.bitDepthLumaMinus8 + 8;
             bitdepthChroma = spsData.bitDepthChromaMinus8 + 8;
             colorSpace = spsData.colorSpace;
@@ -177,6 +181,8 @@ public final class HevcConfig {
           maxSubLayers,
           width,
           height,
+          decodedWidth,
+          decodedHeight,
           bitdepthLuma,
           bitdepthChroma,
           colorSpace,
@@ -206,11 +212,17 @@ public final class HevcConfig {
   /** The {@code sps_max_sub_layers_minus1 + 1} value: the number of temporal sub-layers. */
   public final int maxSubLayers;
 
-  /** The width of each decoded frame, or {@link Format#NO_VALUE} if unknown. */
+  /** The width of each cropped decoded picture, or {@link Format#NO_VALUE} if unknown. */
   public final int width;
 
-  /** The height of each decoded frame, or {@link Format#NO_VALUE} if unknown. */
+  /** The height of each cropped decoded picture, or {@link Format#NO_VALUE} if unknown. */
   public final int height;
+
+  /** The width of each decoded picture, or {@link Format#NO_VALUE} if unknown. */
+  public final int decodedWidth;
+
+  /** The height of each decoded picture, or {@link Format#NO_VALUE} if unknown. */
+  public final int decodedHeight;
 
   /** The bit depth of the luma samples, or {@link Format#NO_VALUE} if unknown. */
   public final int bitdepthLuma;
@@ -267,6 +279,8 @@ public final class HevcConfig {
       int maxSubLayers,
       int width,
       int height,
+      int decodedWidth,
+      int decodedHeight,
       int bitdepthLuma,
       int bitdepthChroma,
       @C.ColorSpace int colorSpace,
@@ -282,6 +296,8 @@ public final class HevcConfig {
     this.maxSubLayers = maxSubLayers;
     this.width = width;
     this.height = height;
+    this.decodedWidth = decodedWidth;
+    this.decodedHeight = decodedHeight;
     this.bitdepthLuma = bitdepthLuma;
     this.bitdepthChroma = bitdepthChroma;
     this.colorSpace = colorSpace;

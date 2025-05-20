@@ -111,11 +111,8 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
     private final Context context;
     private final VideoFrameReleaseControl videoFrameReleaseControl;
     private VideoGraph.@MonotonicNonNull Factory videoGraphFactory;
-    private List<Effect> compositionEffects;
-    private VideoCompositorSettings compositorSettings;
     private boolean enablePlaylistMode;
     private Clock clock;
-    private boolean requestOpenGlToneMapping;
     private boolean built;
     private boolean enableReplayableCache;
 
@@ -123,8 +120,6 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
     public Builder(Context context, VideoFrameReleaseControl videoFrameReleaseControl) {
       this.context = context.getApplicationContext();
       this.videoFrameReleaseControl = videoFrameReleaseControl;
-      compositionEffects = ImmutableList.of();
-      compositorSettings = VideoCompositorSettings.DEFAULT;
       clock = Clock.DEFAULT;
     }
 
@@ -140,30 +135,6 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
     @CanIgnoreReturnValue
     public Builder setVideoGraphFactory(VideoGraph.Factory videoGraphFactory) {
       this.videoGraphFactory = videoGraphFactory;
-      return this;
-    }
-
-    /**
-     * Sets the {@linkplain Effect effects} to apply after compositing the sinks' data.
-     *
-     * @param compositionEffects The composition {@linkplain Effect effects}.
-     * @return This builder, for convenience.
-     */
-    @CanIgnoreReturnValue
-    public Builder setCompositionEffects(List<Effect> compositionEffects) {
-      this.compositionEffects = compositionEffects;
-      return this;
-    }
-
-    /**
-     * Sets the {@link VideoCompositorSettings}.
-     *
-     * @param compositorSettings The {@link VideoCompositorSettings}.
-     * @return This builder, for convenience.
-     */
-    @CanIgnoreReturnValue
-    public Builder setCompositorSettings(VideoCompositorSettings compositorSettings) {
-      this.compositorSettings = compositorSettings;
       return this;
     }
 
@@ -208,20 +179,6 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
     @CanIgnoreReturnValue
     public Builder setClock(Clock clock) {
       this.clock = clock;
-      return this;
-    }
-
-    /**
-     * Sets whether to tone map the input video with OpenGL.
-     *
-     * <p>By default, the input is not tone mapped.
-     *
-     * @param requestOpenGlToneMapping Whether tone mapping is requested.
-     * @return This builder, for convenience.
-     */
-    @CanIgnoreReturnValue
-    public Builder setRequestOpenGlToneMapping(boolean requestOpenGlToneMapping) {
-      this.requestOpenGlToneMapping = requestOpenGlToneMapping;
       return this;
     }
 
@@ -277,14 +234,11 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
 
   private final VideoGraph.Factory videoGraphFactory;
   private final SparseArray<InputVideoSink> inputVideoSinks;
-  private final List<Effect> compositionEffects;
-  private final VideoCompositorSettings compositorSettings;
   private final boolean enablePlaylistMode;
   private final VideoSink defaultVideoSink;
   private final VideoSink.VideoFrameHandler videoFrameHandler;
   private final Clock clock;
   private final CopyOnWriteArraySet<PlaybackVideoGraphWrapper.Listener> listeners;
-  private final boolean requestOpenGlToneMapping;
 
   /**
    * A queue of unprocessed stream changes. Each stream change is associated with the timestamp from
@@ -293,9 +247,12 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
   private TimedValueQueue<StreamChangeInfo> pendingStreamChanges;
 
   private Format videoGraphOutputFormat;
+  private VideoCompositorSettings compositorSettings;
+  private ImmutableList<Effect> compositionEffects;
   private @MonotonicNonNull HandlerWrapper handler;
   private @MonotonicNonNull VideoGraph videoGraph;
   private @MonotonicNonNull VideoFrameMetadataListener videoFrameMetadataListener;
+  private boolean requestOpenGlToneMapping;
   private long outputStreamStartPositionUs;
   private @VideoSink.FirstFrameReleaseInstruction int outputStreamFirstFrameReleaseInstruction;
   @Nullable private Pair<Surface, Size> currentSurfaceAndSize;
@@ -321,8 +278,8 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
     pendingStreamChanges = new TimedValueQueue<>();
     videoGraphFactory = checkStateNotNull(builder.videoGraphFactory);
     inputVideoSinks = new SparseArray<>();
-    compositionEffects = builder.compositionEffects;
-    compositorSettings = builder.compositorSettings;
+    compositionEffects = ImmutableList.of();
+    compositorSettings = VideoCompositorSettings.DEFAULT;
     enablePlaylistMode = builder.enablePlaylistMode;
     clock = builder.clock;
     defaultVideoSink = new DefaultVideoSink(builder.videoFrameReleaseControl, clock);
@@ -339,7 +296,6 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
           }
         };
     listeners = new CopyOnWriteArraySet<>();
-    requestOpenGlToneMapping = builder.requestOpenGlToneMapping;
     videoGraphOutputFormat = new Format.Builder().build();
     outputStreamStartPositionUs = C.TIME_UNSET;
     lastOutputFramePresentationTimeUs = C.TIME_UNSET;
@@ -419,7 +375,21 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
     defaultVideoSink.stopRendering();
   }
 
-  /** Releases the sink provider. */
+  /** Sets the {@link VideoCompositorSettings}. */
+  public void setCompositorSettings(VideoCompositorSettings compositorSettings) {
+    this.compositorSettings = compositorSettings;
+  }
+
+  /** Sets the {@linkplain Effect effects} to apply after compositing the frames from sequences. */
+  public void setCompositionEffects(List<Effect> compositionEffects) {
+    this.compositionEffects = ImmutableList.copyOf(compositionEffects);
+  }
+
+  /** Sets whether to tone map the input video with OpenGL. */
+  public void setRequestOpenGlToneMapping(boolean requestOpenGlToneMapping) {
+    this.requestOpenGlToneMapping = requestOpenGlToneMapping;
+  }
+
   public void release() {
     if (state == STATE_RELEASED) {
       return;

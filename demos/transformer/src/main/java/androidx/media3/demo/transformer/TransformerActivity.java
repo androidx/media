@@ -406,6 +406,14 @@ public final class TransformerActivity extends AppCompatActivity {
         transformerBuilder.setDebugViewProvider(new DemoDebugViewProvider());
       }
 
+      if (bundle.getBoolean(ConfigurationActivity.ENABLE_TRIM_OPTIMIZATION)) {
+        transformerBuilder.experimentalSetTrimOptimizationEnabled(true);
+      }
+
+      if (bundle.getBoolean(ConfigurationActivity.ENABLE_MP4_EDIT_LIST_TRIMMING)) {
+        transformerBuilder.experimentalSetMp4EditListTrimEnabled(true);
+      }
+
       if (bundle.getBoolean(ConfigurationActivity.ENABLE_ANALYZER_MODE)) {
         return ExperimentalAnalyzerModeFactory.buildAnalyzer(
             this.getApplicationContext(), transformerBuilder.build());

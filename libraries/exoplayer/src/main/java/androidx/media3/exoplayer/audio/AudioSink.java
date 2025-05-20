@@ -155,6 +155,9 @@ public interface AudioSink {
 
     /** Called when a period of silence has been skipped. */
     default void onSilenceSkipped() {}
+
+    /** Called when the audio session ID changed. */
+    default void onAudioSessionIdChanged(int audioSessionId) {}
   }
 
   /** Configuration parameters used for an {@link AudioTrack}. */

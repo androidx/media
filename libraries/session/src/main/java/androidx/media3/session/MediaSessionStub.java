@@ -129,7 +129,6 @@ import java.util.concurrent.ExecutionException;
   public static final int UNKNOWN_SEQUENCE_NUMBER = Integer.MIN_VALUE;
 
   private final WeakReference<MediaSessionImpl> sessionImpl;
-  private final MediaSessionManager sessionManager;
   private final ConnectedControllersManager<IBinder> connectedControllersManager;
   private final Set<ControllerInfo> pendingControllers;
 
@@ -139,7 +138,6 @@ import java.util.concurrent.ExecutionException;
   public MediaSessionStub(MediaSessionImpl sessionImpl) {
     // Initialize members with params.
     this.sessionImpl = new WeakReference<>(sessionImpl);
-    sessionManager = MediaSessionManager.getSessionManager(sessionImpl.getContext());
     connectedControllersManager = new ConnectedControllersManager<>(sessionImpl);
     // ConcurrentHashMap has a bug in APIs 21-22 that can result in lost updates.
     pendingControllers = Collections.synchronizedSet(new HashSet<>());
@@ -584,6 +582,7 @@ import java.util.concurrent.ExecutionException;
   public void release() {
     List<ControllerInfo> controllers = connectedControllersManager.getConnectedControllers();
     for (ControllerInfo controller : controllers) {
+      connectedControllersManager.removeController(controller);
       ControllerCb cb = controller.getControllerCb();
       if (cb != null) {
         try {
@@ -603,6 +602,8 @@ import java.util.concurrent.ExecutionException;
         }
       }
     }
+    pendingControllers.clear();
+    sessionImpl.clear();
   }
 
   //////////////////////////////////////////////////////////////////////////////////////////////
@@ -634,12 +635,17 @@ import java.util.concurrent.ExecutionException;
 
       MediaSessionManager.RemoteUserInfo remoteUserInfo =
           new MediaSessionManager.RemoteUserInfo(request.packageName, pid, uid);
+      @Nullable MediaSessionImpl sessionImpl = this.sessionImpl.get();
+      boolean isTrustedForMediaControl =
+          sessionImpl != null
+              && MediaSessionManager.getSessionManager(sessionImpl.getContext())
+                  .isTrustedForMediaControl(remoteUserInfo);
       ControllerInfo controllerInfo =
           new ControllerInfo(
               remoteUserInfo,
               request.libraryVersion,
               request.controllerInterfaceVersion,
-              sessionManager.isTrustedForMediaControl(remoteUserInfo),
+              isTrustedForMediaControl,
               new MediaSessionStub.Controller2Cb(caller, request.controllerInterfaceVersion),
               request.connectionHints,
               request.maxCommandsForMediaItems);

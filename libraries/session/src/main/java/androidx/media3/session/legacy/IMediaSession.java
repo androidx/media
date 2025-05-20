@@ -72,88 +72,88 @@ public interface IMediaSession extends android.os.IInterface {
         case TRANSACTION_sendCommand:
           {
             data.enforceInterface(descriptor);
-            String _arg0;
-            _arg0 = data.readString();
-            android.os.Bundle _arg1;
+            String arg0;
+            arg0 = data.readString();
+            android.os.Bundle arg1;
             if ((0 != data.readInt())) {
-              _arg1 = android.os.Bundle.CREATOR.createFromParcel(data);
+              arg1 = android.os.Bundle.CREATOR.createFromParcel(data);
             } else {
-              _arg1 = null;
+              arg1 = null;
             }
-            MediaSessionCompat.ResultReceiverWrapper _arg2;
+            MediaSessionCompat.ResultReceiverWrapper arg2;
             if ((0 != data.readInt())) {
-              _arg2 = MediaSessionCompat.ResultReceiverWrapper.CREATOR.createFromParcel(data);
+              arg2 = MediaSessionCompat.ResultReceiverWrapper.CREATOR.createFromParcel(data);
             } else {
-              _arg2 = null;
+              arg2 = null;
             }
-            this.sendCommand(_arg0, _arg1, _arg2);
+            this.sendCommand(arg0, arg1, arg2);
             checkNotNull(reply).writeNoException();
             return true;
           }
         case TRANSACTION_sendMediaButton:
           {
             data.enforceInterface(descriptor);
-            android.view.KeyEvent _arg0;
+            android.view.KeyEvent arg0;
             if ((0 != data.readInt())) {
-              _arg0 = android.view.KeyEvent.CREATOR.createFromParcel(data);
+              arg0 = android.view.KeyEvent.CREATOR.createFromParcel(data);
             } else {
-              _arg0 = null;
+              arg0 = null;
             }
-            boolean _result = this.sendMediaButton(_arg0);
+            boolean result = this.sendMediaButton(arg0);
             checkNotNull(reply).writeNoException();
-            checkNotNull(reply).writeInt(((_result) ? (1) : (0)));
+            checkNotNull(reply).writeInt(((result) ? (1) : (0)));
             return true;
           }
         case TRANSACTION_registerCallbackListener:
           {
             data.enforceInterface(descriptor);
-            IMediaControllerCallback _arg0;
-            _arg0 = IMediaControllerCallback.Stub.asInterface(data.readStrongBinder());
-            this.registerCallbackListener(_arg0);
+            IMediaControllerCallback arg0;
+            arg0 = IMediaControllerCallback.Stub.asInterface(data.readStrongBinder());
+            this.registerCallbackListener(arg0);
             checkNotNull(reply).writeNoException();
             return true;
           }
         case TRANSACTION_unregisterCallbackListener:
           {
             data.enforceInterface(descriptor);
-            IMediaControllerCallback _arg0;
-            _arg0 = IMediaControllerCallback.Stub.asInterface(data.readStrongBinder());
-            this.unregisterCallbackListener(_arg0);
+            IMediaControllerCallback arg0;
+            arg0 = IMediaControllerCallback.Stub.asInterface(data.readStrongBinder());
+            this.unregisterCallbackListener(arg0);
             checkNotNull(reply).writeNoException();
             return true;
           }
         case TRANSACTION_isTransportControlEnabled:
           {
             data.enforceInterface(descriptor);
-            boolean _result = this.isTransportControlEnabled();
+            boolean result = this.isTransportControlEnabled();
             checkNotNull(reply).writeNoException();
-            checkNotNull(reply).writeInt(((_result) ? (1) : (0)));
+            checkNotNull(reply).writeInt(((result) ? (1) : (0)));
             return true;
           }
         case TRANSACTION_getPackageName:
           {
             data.enforceInterface(descriptor);
-            String _result = this.getPackageName();
+            String result = this.getPackageName();
             checkNotNull(reply).writeNoException();
-            checkNotNull(reply).writeString(_result);
+            checkNotNull(reply).writeString(result);
             return true;
           }
         case TRANSACTION_getTag:
           {
             data.enforceInterface(descriptor);
-            String _result = this.getTag();
+            String result = this.getTag();
             checkNotNull(reply).writeNoException();
-            checkNotNull(reply).writeString(_result);
+            checkNotNull(reply).writeString(result);
             return true;
           }
         case TRANSACTION_getLaunchPendingIntent:
           {
             data.enforceInterface(descriptor);
-            android.app.PendingIntent _result = this.getLaunchPendingIntent();
+            android.app.PendingIntent result = this.getLaunchPendingIntent();
             checkNotNull(reply).writeNoException();
-            if ((_result != null)) {
+            if ((result != null)) {
               checkNotNull(reply).writeInt(1);
-              _result.writeToParcel(reply, android.os.Parcelable.PARCELABLE_WRITE_RETURN_VALUE);
+              result.writeToParcel(reply, android.os.Parcelable.PARCELABLE_WRITE_RETURN_VALUE);
             } else {
               checkNotNull(reply).writeInt(0);
             }
@@ -162,19 +162,19 @@ public interface IMediaSession extends android.os.IInterface {
         case TRANSACTION_getFlags:
           {
             data.enforceInterface(descriptor);
-            long _result = this.getFlags();
+            long result = this.getFlags();
             checkNotNull(reply).writeNoException();
-            checkNotNull(reply).writeLong(_result);
+            checkNotNull(reply).writeLong(result);
             return true;
           }
         case TRANSACTION_getVolumeAttributes:
           {
             data.enforceInterface(descriptor);
-            ParcelableVolumeInfo _result = this.getVolumeAttributes();
+            ParcelableVolumeInfo result = this.getVolumeAttributes();
             checkNotNull(reply).writeNoException();
-            if ((_result != null)) {
+            if ((result != null)) {
               checkNotNull(reply).writeInt(1);
-              _result.writeToParcel(reply, android.os.Parcelable.PARCELABLE_WRITE_RETURN_VALUE);
+              result.writeToParcel(reply, android.os.Parcelable.PARCELABLE_WRITE_RETURN_VALUE);
             } else {
               checkNotNull(reply).writeInt(0);
             }
@@ -183,37 +183,37 @@ public interface IMediaSession extends android.os.IInterface {
         case TRANSACTION_adjustVolume:
           {
             data.enforceInterface(descriptor);
-            int _arg0;
-            _arg0 = data.readInt();
-            int _arg1;
-            _arg1 = data.readInt();
-            String _arg2;
-            _arg2 = data.readString();
-            this.adjustVolume(_arg0, _arg1, _arg2);
+            int arg0;
+            arg0 = data.readInt();
+            int arg1;
+            arg1 = data.readInt();
+            String arg2;
+            arg2 = data.readString();
+            this.adjustVolume(arg0, arg1, arg2);
             checkNotNull(reply).writeNoException();
             return true;
           }
         case TRANSACTION_setVolumeTo:
           {
             data.enforceInterface(descriptor);
-            int _arg0;
-            _arg0 = data.readInt();
-            int _arg1;
-            _arg1 = data.readInt();
-            String _arg2;
-            _arg2 = data.readString();
-            this.setVolumeTo(_arg0, _arg1, _arg2);
+            int arg0;
+            arg0 = data.readInt();
+            int arg1;
+            arg1 = data.readInt();
+            String arg2;
+            arg2 = data.readString();
+            this.setVolumeTo(arg0, arg1, arg2);
             checkNotNull(reply).writeNoException();
             return true;
           }
         case TRANSACTION_getMetadata:
           {
             data.enforceInterface(descriptor);
-            MediaMetadataCompat _result = this.getMetadata();
+            MediaMetadataCompat result = this.getMetadata();
             checkNotNull(reply).writeNoException();
-            if ((_result != null)) {
+            if ((result != null)) {
               checkNotNull(reply).writeInt(1);
-              _result.writeToParcel(reply, android.os.Parcelable.PARCELABLE_WRITE_RETURN_VALUE);
+              result.writeToParcel(reply, android.os.Parcelable.PARCELABLE_WRITE_RETURN_VALUE);
             } else {
               checkNotNull(reply).writeInt(0);
             }
@@ -222,11 +222,11 @@ public interface IMediaSession extends android.os.IInterface {
         case TRANSACTION_getPlaybackState:
           {
             data.enforceInterface(descriptor);
-            PlaybackStateCompat _result = this.getPlaybackState();
+            PlaybackStateCompat result = this.getPlaybackState();
             checkNotNull(reply).writeNoException();
-            if ((_result != null)) {
+            if ((result != null)) {
               checkNotNull(reply).writeInt(1);
-              _result.writeToParcel(reply, android.os.Parcelable.PARCELABLE_WRITE_RETURN_VALUE);
+              result.writeToParcel(reply, android.os.Parcelable.PARCELABLE_WRITE_RETURN_VALUE);
             } else {
               checkNotNull(reply).writeInt(0);
             }
@@ -235,20 +235,20 @@ public interface IMediaSession extends android.os.IInterface {
         case TRANSACTION_getQueue:
           {
             data.enforceInterface(descriptor);
-            java.util.List<MediaSessionCompat.QueueItem> _result = this.getQueue();
+            java.util.List<MediaSessionCompat.QueueItem> result = this.getQueue();
             checkNotNull(reply).writeNoException();
-            checkNotNull(reply).writeTypedList(_result);
+            checkNotNull(reply).writeTypedList(result);
             return true;
           }
         case TRANSACTION_getQueueTitle:
           {
             data.enforceInterface(descriptor);
-            CharSequence _result = this.getQueueTitle();
+            CharSequence result = this.getQueueTitle();
             checkNotNull(reply).writeNoException();
-            if (_result != null) {
+            if (result != null) {
               checkNotNull(reply).writeInt(1);
               android.text.TextUtils.writeToParcel(
-                  _result, reply, android.os.Parcelable.PARCELABLE_WRITE_RETURN_VALUE);
+                  result, reply, android.os.Parcelable.PARCELABLE_WRITE_RETURN_VALUE);
             } else {
               checkNotNull(reply).writeInt(0);
             }
@@ -257,11 +257,11 @@ public interface IMediaSession extends android.os.IInterface {
         case TRANSACTION_getExtras:
           {
             data.enforceInterface(descriptor);
-            android.os.Bundle _result = this.getExtras();
+            android.os.Bundle result = this.getExtras();
             checkNotNull(reply).writeNoException();
-            if ((_result != null)) {
+            if ((result != null)) {
               checkNotNull(reply).writeInt(1);
-              _result.writeToParcel(reply, android.os.Parcelable.PARCELABLE_WRITE_RETURN_VALUE);
+              result.writeToParcel(reply, android.os.Parcelable.PARCELABLE_WRITE_RETURN_VALUE);
             } else {
               checkNotNull(reply).writeInt(0);
             }
@@ -270,101 +270,101 @@ public interface IMediaSession extends android.os.IInterface {
         case TRANSACTION_getRatingType:
           {
             data.enforceInterface(descriptor);
-            int _result = this.getRatingType();
+            int result = this.getRatingType();
             checkNotNull(reply).writeNoException();
-            checkNotNull(reply).writeInt(_result);
+            checkNotNull(reply).writeInt(result);
             return true;
           }
         case TRANSACTION_isCaptioningEnabled:
           {
             data.enforceInterface(descriptor);
-            boolean _result = this.isCaptioningEnabled();
+            boolean result = this.isCaptioningEnabled();
             checkNotNull(reply).writeNoException();
-            checkNotNull(reply).writeInt(((_result) ? (1) : (0)));
+            checkNotNull(reply).writeInt(((result) ? (1) : (0)));
             return true;
           }
         case TRANSACTION_getRepeatMode:
           {
             data.enforceInterface(descriptor);
-            int _result = this.getRepeatMode();
+            int result = this.getRepeatMode();
             checkNotNull(reply).writeNoException();
-            checkNotNull(reply).writeInt(_result);
+            checkNotNull(reply).writeInt(result);
             return true;
           }
         case TRANSACTION_isShuffleModeEnabledRemoved:
           {
             data.enforceInterface(descriptor);
-            boolean _result = this.isShuffleModeEnabledRemoved();
+            boolean result = this.isShuffleModeEnabledRemoved();
             checkNotNull(reply).writeNoException();
-            checkNotNull(reply).writeInt(((_result) ? (1) : (0)));
+            checkNotNull(reply).writeInt(((result) ? (1) : (0)));
             return true;
           }
         case TRANSACTION_getShuffleMode:
           {
             data.enforceInterface(descriptor);
-            int _result = this.getShuffleMode();
+            int result = this.getShuffleMode();
             checkNotNull(reply).writeNoException();
-            checkNotNull(reply).writeInt(_result);
+            checkNotNull(reply).writeInt(result);
             return true;
           }
         case TRANSACTION_addQueueItem:
           {
             data.enforceInterface(descriptor);
-            MediaDescriptionCompat _arg0;
+            MediaDescriptionCompat arg0;
             if ((0 != data.readInt())) {
-              _arg0 = MediaDescriptionCompat.CREATOR.createFromParcel(data);
+              arg0 = MediaDescriptionCompat.CREATOR.createFromParcel(data);
             } else {
-              _arg0 = null;
+              arg0 = null;
             }
-            this.addQueueItem(_arg0);
+            this.addQueueItem(arg0);
             checkNotNull(reply).writeNoException();
             return true;
           }
         case TRANSACTION_addQueueItemAt:
           {
             data.enforceInterface(descriptor);
-            MediaDescriptionCompat _arg0;
+            MediaDescriptionCompat arg0;
             if ((0 != data.readInt())) {
-              _arg0 = MediaDescriptionCompat.CREATOR.createFromParcel(data);
+              arg0 = MediaDescriptionCompat.CREATOR.createFromParcel(data);
             } else {
-              _arg0 = null;
+              arg0 = null;
             }
-            int _arg1;
-            _arg1 = data.readInt();
-            this.addQueueItemAt(_arg0, _arg1);
+            int arg1;
+            arg1 = data.readInt();
+            this.addQueueItemAt(arg0, arg1);
             checkNotNull(reply).writeNoException();
             return true;
           }
         case TRANSACTION_removeQueueItem:
           {
             data.enforceInterface(descriptor);
-            MediaDescriptionCompat _arg0;
+            MediaDescriptionCompat arg0;
             if ((0 != data.readInt())) {
-              _arg0 = MediaDescriptionCompat.CREATOR.createFromParcel(data);
+              arg0 = MediaDescriptionCompat.CREATOR.createFromParcel(data);
             } else {
-              _arg0 = null;
+              arg0 = null;
             }
-            this.removeQueueItem(_arg0);
+            this.removeQueueItem(arg0);
             checkNotNull(reply).writeNoException();
             return true;
           }
         case TRANSACTION_removeQueueItemAt:
           {
             data.enforceInterface(descriptor);
-            int _arg0;
-            _arg0 = data.readInt();
-            this.removeQueueItemAt(_arg0);
+            int arg0;
+            arg0 = data.readInt();
+            this.removeQueueItemAt(arg0);
             checkNotNull(reply).writeNoException();
             return true;
           }
         case TRANSACTION_getSessionInfo:
           {
             data.enforceInterface(descriptor);
-            android.os.Bundle _result = this.getSessionInfo();
+            android.os.Bundle result = this.getSessionInfo();
             checkNotNull(reply).writeNoException();
-            if ((_result != null)) {
+            if ((result != null)) {
               checkNotNull(reply).writeInt(1);
-              _result.writeToParcel(reply, android.os.Parcelable.PARCELABLE_WRITE_RETURN_VALUE);
+              result.writeToParcel(reply, android.os.Parcelable.PARCELABLE_WRITE_RETURN_VALUE);
             } else {
               checkNotNull(reply).writeInt(0);
             }
@@ -380,49 +380,49 @@ public interface IMediaSession extends android.os.IInterface {
         case TRANSACTION_prepareFromMediaId:
           {
             data.enforceInterface(descriptor);
-            String _arg0;
-            _arg0 = data.readString();
-            android.os.Bundle _arg1;
+            String arg0;
+            arg0 = data.readString();
+            android.os.Bundle arg1;
             if ((0 != data.readInt())) {
-              _arg1 = android.os.Bundle.CREATOR.createFromParcel(data);
+              arg1 = android.os.Bundle.CREATOR.createFromParcel(data);
             } else {
-              _arg1 = null;
+              arg1 = null;
             }
-            this.prepareFromMediaId(_arg0, _arg1);
+            this.prepareFromMediaId(arg0, arg1);
             checkNotNull(reply).writeNoException();
             return true;
           }
         case TRANSACTION_prepareFromSearch:
           {
             data.enforceInterface(descriptor);
-            String _arg0;
-            _arg0 = data.readString();
-            android.os.Bundle _arg1;
+            String arg0;
+            arg0 = data.readString();
+            android.os.Bundle arg1;
             if ((0 != data.readInt())) {
-              _arg1 = android.os.Bundle.CREATOR.createFromParcel(data);
+              arg1 = android.os.Bundle.CREATOR.createFromParcel(data);
             } else {
-              _arg1 = null;
+              arg1 = null;
             }
-            this.prepareFromSearch(_arg0, _arg1);
+            this.prepareFromSearch(arg0, arg1);
             checkNotNull(reply).writeNoException();
             return true;
           }
         case TRANSACTION_prepareFromUri:
           {
             data.enforceInterface(descriptor);
-            android.net.Uri _arg0;
+            android.net.Uri arg0;
             if ((0 != data.readInt())) {
-              _arg0 = android.net.Uri.CREATOR.createFromParcel(data);
+              arg0 = android.net.Uri.CREATOR.createFromParcel(data);
             } else {
-              _arg0 = null;
+              arg0 = null;
             }
-            android.os.Bundle _arg1;
+            android.os.Bundle arg1;
             if ((0 != data.readInt())) {
-              _arg1 = android.os.Bundle.CREATOR.createFromParcel(data);
+              arg1 = android.os.Bundle.CREATOR.createFromParcel(data);
             } else {
-              _arg1 = null;
+              arg1 = null;
             }
-            this.prepareFromUri(_arg0, _arg1);
+            this.prepareFromUri(arg0, arg1);
             checkNotNull(reply).writeNoException();
             return true;
           }
@@ -436,58 +436,58 @@ public interface IMediaSession extends android.os.IInterface {
         case TRANSACTION_playFromMediaId:
           {
             data.enforceInterface(descriptor);
-            String _arg0;
-            _arg0 = data.readString();
-            android.os.Bundle _arg1;
+            String arg0;
+            arg0 = data.readString();
+            android.os.Bundle arg1;
             if ((0 != data.readInt())) {
-              _arg1 = android.os.Bundle.CREATOR.createFromParcel(data);
+              arg1 = android.os.Bundle.CREATOR.createFromParcel(data);
             } else {
-              _arg1 = null;
+              arg1 = null;
             }
-            this.playFromMediaId(_arg0, _arg1);
+            this.playFromMediaId(arg0, arg1);
             checkNotNull(reply).writeNoException();
             return true;
           }
         case TRANSACTION_playFromSearch:
           {
             data.enforceInterface(descriptor);
-            String _arg0;
-            _arg0 = data.readString();
-            android.os.Bundle _arg1;
+            String arg0;
+            arg0 = data.readString();
+            android.os.Bundle arg1;
             if ((0 != data.readInt())) {
-              _arg1 = android.os.Bundle.CREATOR.createFromParcel(data);
+              arg1 = android.os.Bundle.CREATOR.createFromParcel(data);
             } else {
-              _arg1 = null;
+              arg1 = null;
             }
-            this.playFromSearch(_arg0, _arg1);
+            this.playFromSearch(arg0, arg1);
             checkNotNull(reply).writeNoException();
             return true;
           }
         case TRANSACTION_playFromUri:
           {
             data.enforceInterface(descriptor);
-            android.net.Uri _arg0;
+            android.net.Uri arg0;
             if ((0 != data.readInt())) {
-              _arg0 = android.net.Uri.CREATOR.createFromParcel(data);
+              arg0 = android.net.Uri.CREATOR.createFromParcel(data);
             } else {
-              _arg0 = null;
+              arg0 = null;
             }
-            android.os.Bundle _arg1;
+            android.os.Bundle arg1;
             if ((0 != data.readInt())) {
-              _arg1 = android.os.Bundle.CREATOR.createFromParcel(data);
+              arg1 = android.os.Bundle.CREATOR.createFromParcel(data);
             } else {
-              _arg1 = null;
+              arg1 = null;
             }
-            this.playFromUri(_arg0, _arg1);
+            this.playFromUri(arg0, arg1);
             checkNotNull(reply).writeNoException();
             return true;
           }
         case TRANSACTION_skipToQueueItem:
           {
             data.enforceInterface(descriptor);
-            long _arg0;
-            _arg0 = data.readLong();
-            this.skipToQueueItem(_arg0);
+            long arg0;
+            arg0 = data.readLong();
+            this.skipToQueueItem(arg0);
             checkNotNull(reply).writeNoException();
             return true;
           }
@@ -536,101 +536,101 @@ public interface IMediaSession extends android.os.IInterface {
         case TRANSACTION_seekTo:
           {
             data.enforceInterface(descriptor);
-            long _arg0;
-            _arg0 = data.readLong();
-            this.seekTo(_arg0);
+            long arg0;
+            arg0 = data.readLong();
+            this.seekTo(arg0);
             checkNotNull(reply).writeNoException();
             return true;
           }
         case TRANSACTION_rate:
           {
             data.enforceInterface(descriptor);
-            RatingCompat _arg0;
+            RatingCompat arg0;
             if ((0 != data.readInt())) {
-              _arg0 = RatingCompat.CREATOR.createFromParcel(data);
+              arg0 = RatingCompat.CREATOR.createFromParcel(data);
             } else {
-              _arg0 = null;
+              arg0 = null;
             }
-            this.rate(_arg0);
+            this.rate(arg0);
             checkNotNull(reply).writeNoException();
             return true;
           }
         case TRANSACTION_rateWithExtras:
           {
             data.enforceInterface(descriptor);
-            RatingCompat _arg0;
+            RatingCompat arg0;
             if ((0 != data.readInt())) {
-              _arg0 = RatingCompat.CREATOR.createFromParcel(data);
+              arg0 = RatingCompat.CREATOR.createFromParcel(data);
             } else {
-              _arg0 = null;
+              arg0 = null;
             }
-            android.os.Bundle _arg1;
+            android.os.Bundle arg1;
             if ((0 != data.readInt())) {
-              _arg1 = android.os.Bundle.CREATOR.createFromParcel(data);
+              arg1 = android.os.Bundle.CREATOR.createFromParcel(data);
             } else {
-              _arg1 = null;
+              arg1 = null;
             }
-            this.rateWithExtras(_arg0, _arg1);
+            this.rateWithExtras(arg0, arg1);
             checkNotNull(reply).writeNoException();
             return true;
           }
         case TRANSACTION_setPlaybackSpeed:
           {
             data.enforceInterface(descriptor);
-            float _arg0;
-            _arg0 = data.readFloat();
-            this.setPlaybackSpeed(_arg0);
+            float arg0;
+            arg0 = data.readFloat();
+            this.setPlaybackSpeed(arg0);
             checkNotNull(reply).writeNoException();
             return true;
           }
         case TRANSACTION_setCaptioningEnabled:
           {
             data.enforceInterface(descriptor);
-            boolean _arg0;
-            _arg0 = (0 != data.readInt());
-            this.setCaptioningEnabled(_arg0);
+            boolean arg0;
+            arg0 = (0 != data.readInt());
+            this.setCaptioningEnabled(arg0);
             checkNotNull(reply).writeNoException();
             return true;
           }
         case TRANSACTION_setRepeatMode:
           {
             data.enforceInterface(descriptor);
-            int _arg0;
-            _arg0 = data.readInt();
-            this.setRepeatMode(_arg0);
+            int arg0;
+            arg0 = data.readInt();
+            this.setRepeatMode(arg0);
             checkNotNull(reply).writeNoException();
             return true;
           }
         case TRANSACTION_setShuffleModeEnabledRemoved:
           {
             data.enforceInterface(descriptor);
-            boolean _arg0;
-            _arg0 = (0 != data.readInt());
-            this.setShuffleModeEnabledRemoved(_arg0);
+            boolean arg0;
+            arg0 = (0 != data.readInt());
+            this.setShuffleModeEnabledRemoved(arg0);
             checkNotNull(reply).writeNoException();
             return true;
           }
         case TRANSACTION_setShuffleMode:
           {
             data.enforceInterface(descriptor);
-            int _arg0;
-            _arg0 = data.readInt();
-            this.setShuffleMode(_arg0);
+            int arg0;
+            arg0 = data.readInt();
+            this.setShuffleMode(arg0);
             checkNotNull(reply).writeNoException();
             return true;
           }
         case TRANSACTION_sendCustomAction:
           {
             data.enforceInterface(descriptor);
-            String _arg0;
-            _arg0 = data.readString();
-            android.os.Bundle _arg1;
+            String arg0;
+            arg0 = data.readString();
+            android.os.Bundle arg1;
             if ((0 != data.readInt())) {
-              _arg1 = android.os.Bundle.CREATOR.createFromParcel(data);
+              arg1 = android.os.Bundle.CREATOR.createFromParcel(data);
             } else {
-              _arg1 = null;
+              arg1 = null;
             }
-            this.sendCustomAction(_arg0, _arg1);
+            this.sendCustomAction(arg0, arg1);
             checkNotNull(reply).writeNoException();
             return true;
           }
@@ -642,15 +642,15 @@ public interface IMediaSession extends android.os.IInterface {
     }
 
     private static class Proxy implements IMediaSession {
-      private android.os.IBinder mRemote;
+      private android.os.IBinder remote;
 
       Proxy(android.os.IBinder remote) {
-        mRemote = remote;
+        this.remote = remote;
       }
 
       @Override
       public android.os.IBinder asBinder() {
-        return mRemote;
+        return remote;
       }
 
       public String getInterfaceDescriptor() {
@@ -665,81 +665,81 @@ public interface IMediaSession extends android.os.IInterface {
           @Nullable android.os.Bundle args,
           @Nullable MediaSessionCompat.ResultReceiverWrapper cb)
           throws android.os.RemoteException {
-        android.os.Parcel _data = android.os.Parcel.obtain();
-        android.os.Parcel _reply = android.os.Parcel.obtain();
+        android.os.Parcel data = android.os.Parcel.obtain();
+        android.os.Parcel reply = android.os.Parcel.obtain();
         try {
-          _data.writeInterfaceToken(DESCRIPTOR);
-          _data.writeString(command);
+          data.writeInterfaceToken(DESCRIPTOR);
+          data.writeString(command);
           if ((args != null)) {
-            _data.writeInt(1);
-            args.writeToParcel(_data, 0);
+            data.writeInt(1);
+            args.writeToParcel(data, 0);
           } else {
-            _data.writeInt(0);
+            data.writeInt(0);
           }
           if ((cb != null)) {
-            _data.writeInt(1);
-            cb.writeToParcel(_data, 0);
+            data.writeInt(1);
+            cb.writeToParcel(data, 0);
           } else {
-            _data.writeInt(0);
+            data.writeInt(0);
           }
-          boolean _status = mRemote.transact(Stub.TRANSACTION_sendCommand, _data, _reply, 0);
-          if (!_status && getDefaultImpl() != null) {
+          boolean status = remote.transact(Stub.TRANSACTION_sendCommand, data, reply, 0);
+          if (!status && getDefaultImpl() != null) {
             checkNotNull(getDefaultImpl()).sendCommand(command, args, cb);
             return;
           }
-          _reply.readException();
+          reply.readException();
         } finally {
-          _reply.recycle();
-          _data.recycle();
+          reply.recycle();
+          data.recycle();
         }
       }
 
       @Override
       public boolean sendMediaButton(@Nullable android.view.KeyEvent mediaButton)
           throws android.os.RemoteException {
-        android.os.Parcel _data = android.os.Parcel.obtain();
-        android.os.Parcel _reply = android.os.Parcel.obtain();
-        boolean _result;
+        android.os.Parcel data = android.os.Parcel.obtain();
+        android.os.Parcel reply = android.os.Parcel.obtain();
+        boolean result;
         try {
-          _data.writeInterfaceToken(DESCRIPTOR);
+          data.writeInterfaceToken(DESCRIPTOR);
           if ((mediaButton != null)) {
-            _data.writeInt(1);
-            mediaButton.writeToParcel(_data, 0);
+            data.writeInt(1);
+            mediaButton.writeToParcel(data, 0);
           } else {
-            _data.writeInt(0);
+            data.writeInt(0);
           }
-          boolean _status = mRemote.transact(Stub.TRANSACTION_sendMediaButton, _data, _reply, 0);
-          if (!_status && getDefaultImpl() != null) {
+          boolean status = remote.transact(Stub.TRANSACTION_sendMediaButton, data, reply, 0);
+          if (!status && getDefaultImpl() != null) {
             return checkNotNull(getDefaultImpl()).sendMediaButton(mediaButton);
           }
-          _reply.readException();
-          _result = (0 != _reply.readInt());
+          reply.readException();
+          result = (0 != reply.readInt());
         } finally {
-          _reply.recycle();
-          _data.recycle();
+          reply.recycle();
+          data.recycle();
         }
-        return _result;
+        return result;
       }
 
       @SuppressWarnings("argument.type.incompatible") // writeStrongBinder not annotated correctly
       @Override
       public void registerCallbackListener(@Nullable IMediaControllerCallback cb)
           throws android.os.RemoteException {
-        android.os.Parcel _data = android.os.Parcel.obtain();
-        android.os.Parcel _reply = android.os.Parcel.obtain();
+        android.os.Parcel data = android.os.Parcel.obtain();
+        android.os.Parcel reply = android.os.Parcel.obtain();
         try {
-          _data.writeInterfaceToken(DESCRIPTOR);
-          _data.writeStrongBinder((((cb != null)) ? (cb.asBinder()) : (null)));
-          boolean _status =
-              mRemote.transact(Stub.TRANSACTION_registerCallbackListener, _data, _reply, 0);
-          if (!_status && getDefaultImpl() != null) {
+          data.writeInterfaceToken(DESCRIPTOR);
+          data.writeStrongBinder((((cb != null)) ? (cb.asBinder()) : (null)));
+          boolean status =
+              remote.transact(Stub.TRANSACTION_registerCallbackListener, data, reply, 0);
+          if (!status && getDefaultImpl() != null) {
             checkNotNull(getDefaultImpl()).registerCallbackListener(cb);
             return;
           }
-          _reply.readException();
+          reply.readException();
         } finally {
-          _reply.recycle();
-          _data.recycle();
+          reply.recycle();
+          data.recycle();
         }
       }
 
@@ -747,1077 +747,1073 @@ public interface IMediaSession extends android.os.IInterface {
       @Override
       public void unregisterCallbackListener(@Nullable IMediaControllerCallback cb)
           throws android.os.RemoteException {
-        android.os.Parcel _data = android.os.Parcel.obtain();
-        android.os.Parcel _reply = android.os.Parcel.obtain();
+        android.os.Parcel data = android.os.Parcel.obtain();
+        android.os.Parcel reply = android.os.Parcel.obtain();
         try {
-          _data.writeInterfaceToken(DESCRIPTOR);
-          _data.writeStrongBinder((((cb != null)) ? (cb.asBinder()) : (null)));
-          boolean _status =
-              mRemote.transact(Stub.TRANSACTION_unregisterCallbackListener, _data, _reply, 0);
-          if (!_status && getDefaultImpl() != null) {
+          data.writeInterfaceToken(DESCRIPTOR);
+          data.writeStrongBinder((((cb != null)) ? (cb.asBinder()) : (null)));
+          boolean status =
+              remote.transact(Stub.TRANSACTION_unregisterCallbackListener, data, reply, 0);
+          if (!status && getDefaultImpl() != null) {
             checkNotNull(getDefaultImpl()).unregisterCallbackListener(cb);
             return;
           }
-          _reply.readException();
+          reply.readException();
         } finally {
-          _reply.recycle();
-          _data.recycle();
+          reply.recycle();
+          data.recycle();
         }
       }
 
       @Override
       public boolean isTransportControlEnabled() throws android.os.RemoteException {
-        android.os.Parcel _data = android.os.Parcel.obtain();
-        android.os.Parcel _reply = android.os.Parcel.obtain();
-        boolean _result;
+        android.os.Parcel data = android.os.Parcel.obtain();
+        android.os.Parcel reply = android.os.Parcel.obtain();
+        boolean result;
         try {
-          _data.writeInterfaceToken(DESCRIPTOR);
-          boolean _status =
-              mRemote.transact(Stub.TRANSACTION_isTransportControlEnabled, _data, _reply, 0);
-          if (!_status && getDefaultImpl() != null) {
+          data.writeInterfaceToken(DESCRIPTOR);
+          boolean status =
+              remote.transact(Stub.TRANSACTION_isTransportControlEnabled, data, reply, 0);
+          if (!status && getDefaultImpl() != null) {
             return checkNotNull(getDefaultImpl()).isTransportControlEnabled();
           }
-          _reply.readException();
-          _result = (0 != _reply.readInt());
+          reply.readException();
+          result = (0 != reply.readInt());
         } finally {
-          _reply.recycle();
-          _data.recycle();
+          reply.recycle();
+          data.recycle();
         }
-        return _result;
+        return result;
       }
 
       @Nullable
       @Override
       public String getPackageName() throws android.os.RemoteException {
-        android.os.Parcel _data = android.os.Parcel.obtain();
-        android.os.Parcel _reply = android.os.Parcel.obtain();
-        String _result;
+        android.os.Parcel data = android.os.Parcel.obtain();
+        android.os.Parcel reply = android.os.Parcel.obtain();
+        String result;
         try {
-          _data.writeInterfaceToken(DESCRIPTOR);
-          boolean _status = mRemote.transact(Stub.TRANSACTION_getPackageName, _data, _reply, 0);
-          if (!_status && getDefaultImpl() != null) {
+          data.writeInterfaceToken(DESCRIPTOR);
+          boolean status = remote.transact(Stub.TRANSACTION_getPackageName, data, reply, 0);
+          if (!status && getDefaultImpl() != null) {
             return checkNotNull(getDefaultImpl()).getPackageName();
           }
-          _reply.readException();
-          _result = _reply.readString();
+          reply.readException();
+          result = reply.readString();
         } finally {
-          _reply.recycle();
-          _data.recycle();
+          reply.recycle();
+          data.recycle();
         }
-        return _result;
+        return result;
       }
 
       @Nullable
       @Override
       public String getTag() throws android.os.RemoteException {
-        android.os.Parcel _data = android.os.Parcel.obtain();
-        android.os.Parcel _reply = android.os.Parcel.obtain();
-        String _result;
+        android.os.Parcel data = android.os.Parcel.obtain();
+        android.os.Parcel reply = android.os.Parcel.obtain();
+        String result;
         try {
-          _data.writeInterfaceToken(DESCRIPTOR);
-          boolean _status = mRemote.transact(Stub.TRANSACTION_getTag, _data, _reply, 0);
-          if (!_status && getDefaultImpl() != null) {
+          data.writeInterfaceToken(DESCRIPTOR);
+          boolean status = remote.transact(Stub.TRANSACTION_getTag, data, reply, 0);
+          if (!status && getDefaultImpl() != null) {
             return checkNotNull(getDefaultImpl()).getTag();
           }
-          _reply.readException();
-          _result = _reply.readString();
+          reply.readException();
+          result = reply.readString();
         } finally {
-          _reply.recycle();
-          _data.recycle();
+          reply.recycle();
+          data.recycle();
         }
-        return _result;
+        return result;
       }
 
       @Nullable
       @Override
       public android.app.PendingIntent getLaunchPendingIntent() throws android.os.RemoteException {
-        android.os.Parcel _data = android.os.Parcel.obtain();
-        android.os.Parcel _reply = android.os.Parcel.obtain();
-        android.app.PendingIntent _result;
+        android.os.Parcel data = android.os.Parcel.obtain();
+        android.os.Parcel reply = android.os.Parcel.obtain();
+        android.app.PendingIntent result;
         try {
-          _data.writeInterfaceToken(DESCRIPTOR);
-          boolean _status =
-              mRemote.transact(Stub.TRANSACTION_getLaunchPendingIntent, _data, _reply, 0);
-          if (!_status && getDefaultImpl() != null) {
+          data.writeInterfaceToken(DESCRIPTOR);
+          boolean status = remote.transact(Stub.TRANSACTION_getLaunchPendingIntent, data, reply, 0);
+          if (!status && getDefaultImpl() != null) {
             return checkNotNull(getDefaultImpl()).getLaunchPendingIntent();
           }
-          _reply.readException();
-          if ((0 != _reply.readInt())) {
-            _result = android.app.PendingIntent.CREATOR.createFromParcel(_reply);
+          reply.readException();
+          if ((0 != reply.readInt())) {
+            result = android.app.PendingIntent.CREATOR.createFromParcel(reply);
           } else {
-            _result = null;
+            result = null;
           }
         } finally {
-          _reply.recycle();
-          _data.recycle();
+          reply.recycle();
+          data.recycle();
         }
-        return _result;
+        return result;
       }
 
       @Override
       public long getFlags() throws android.os.RemoteException {
-        android.os.Parcel _data = android.os.Parcel.obtain();
-        android.os.Parcel _reply = android.os.Parcel.obtain();
-        long _result;
+        android.os.Parcel data = android.os.Parcel.obtain();
+        android.os.Parcel reply = android.os.Parcel.obtain();
+        long result;
         try {
-          _data.writeInterfaceToken(DESCRIPTOR);
-          boolean _status = mRemote.transact(Stub.TRANSACTION_getFlags, _data, _reply, 0);
-          if (!_status && getDefaultImpl() != null) {
+          data.writeInterfaceToken(DESCRIPTOR);
+          boolean status = remote.transact(Stub.TRANSACTION_getFlags, data, reply, 0);
+          if (!status && getDefaultImpl() != null) {
             return checkNotNull(getDefaultImpl()).getFlags();
           }
-          _reply.readException();
-          _result = _reply.readLong();
+          reply.readException();
+          result = reply.readLong();
         } finally {
-          _reply.recycle();
-          _data.recycle();
+          reply.recycle();
+          data.recycle();
         }
-        return _result;
+        return result;
       }
 
       @Nullable
       @Override
       public ParcelableVolumeInfo getVolumeAttributes() throws android.os.RemoteException {
-        android.os.Parcel _data = android.os.Parcel.obtain();
-        android.os.Parcel _reply = android.os.Parcel.obtain();
-        ParcelableVolumeInfo _result;
+        android.os.Parcel data = android.os.Parcel.obtain();
+        android.os.Parcel reply = android.os.Parcel.obtain();
+        ParcelableVolumeInfo result;
         try {
-          _data.writeInterfaceToken(DESCRIPTOR);
-          boolean _status =
-              mRemote.transact(Stub.TRANSACTION_getVolumeAttributes, _data, _reply, 0);
-          if (!_status && getDefaultImpl() != null) {
+          data.writeInterfaceToken(DESCRIPTOR);
+          boolean status = remote.transact(Stub.TRANSACTION_getVolumeAttributes, data, reply, 0);
+          if (!status && getDefaultImpl() != null) {
             return checkNotNull(getDefaultImpl()).getVolumeAttributes();
           }
-          _reply.readException();
-          if ((0 != _reply.readInt())) {
-            _result = ParcelableVolumeInfo.CREATOR.createFromParcel(_reply);
+          reply.readException();
+          if ((0 != reply.readInt())) {
+            result = ParcelableVolumeInfo.CREATOR.createFromParcel(reply);
           } else {
-            _result = null;
+            result = null;
           }
         } finally {
-          _reply.recycle();
-          _data.recycle();
+          reply.recycle();
+          data.recycle();
         }
-        return _result;
+        return result;
       }
 
       @Override
       public void adjustVolume(int direction, int flags, @Nullable String packageName)
           throws android.os.RemoteException {
-        android.os.Parcel _data = android.os.Parcel.obtain();
-        android.os.Parcel _reply = android.os.Parcel.obtain();
+        android.os.Parcel data = android.os.Parcel.obtain();
+        android.os.Parcel reply = android.os.Parcel.obtain();
         try {
-          _data.writeInterfaceToken(DESCRIPTOR);
-          _data.writeInt(direction);
-          _data.writeInt(flags);
-          _data.writeString(packageName);
-          boolean _status = mRemote.transact(Stub.TRANSACTION_adjustVolume, _data, _reply, 0);
-          if (!_status && getDefaultImpl() != null) {
+          data.writeInterfaceToken(DESCRIPTOR);
+          data.writeInt(direction);
+          data.writeInt(flags);
+          data.writeString(packageName);
+          boolean status = remote.transact(Stub.TRANSACTION_adjustVolume, data, reply, 0);
+          if (!status && getDefaultImpl() != null) {
             checkNotNull(getDefaultImpl()).adjustVolume(direction, flags, packageName);
             return;
           }
-          _reply.readException();
+          reply.readException();
         } finally {
-          _reply.recycle();
-          _data.recycle();
+          reply.recycle();
+          data.recycle();
         }
       }
 
       @Override
       public void setVolumeTo(int value, int flags, @Nullable String packageName)
           throws android.os.RemoteException {
-        android.os.Parcel _data = android.os.Parcel.obtain();
-        android.os.Parcel _reply = android.os.Parcel.obtain();
+        android.os.Parcel data = android.os.Parcel.obtain();
+        android.os.Parcel reply = android.os.Parcel.obtain();
         try {
-          _data.writeInterfaceToken(DESCRIPTOR);
-          _data.writeInt(value);
-          _data.writeInt(flags);
-          _data.writeString(packageName);
-          boolean _status = mRemote.transact(Stub.TRANSACTION_setVolumeTo, _data, _reply, 0);
-          if (!_status && getDefaultImpl() != null) {
+          data.writeInterfaceToken(DESCRIPTOR);
+          data.writeInt(value);
+          data.writeInt(flags);
+          data.writeString(packageName);
+          boolean status = remote.transact(Stub.TRANSACTION_setVolumeTo, data, reply, 0);
+          if (!status && getDefaultImpl() != null) {
             checkNotNull(getDefaultImpl()).setVolumeTo(value, flags, packageName);
             return;
           }
-          _reply.readException();
+          reply.readException();
         } finally {
-          _reply.recycle();
-          _data.recycle();
+          reply.recycle();
+          data.recycle();
         }
       }
 
       @Nullable
       @Override
       public MediaMetadataCompat getMetadata() throws android.os.RemoteException {
-        android.os.Parcel _data = android.os.Parcel.obtain();
-        android.os.Parcel _reply = android.os.Parcel.obtain();
-        MediaMetadataCompat _result;
+        android.os.Parcel data = android.os.Parcel.obtain();
+        android.os.Parcel reply = android.os.Parcel.obtain();
+        MediaMetadataCompat result;
         try {
-          _data.writeInterfaceToken(DESCRIPTOR);
-          boolean _status = mRemote.transact(Stub.TRANSACTION_getMetadata, _data, _reply, 0);
-          if (!_status && getDefaultImpl() != null) {
+          data.writeInterfaceToken(DESCRIPTOR);
+          boolean status = remote.transact(Stub.TRANSACTION_getMetadata, data, reply, 0);
+          if (!status && getDefaultImpl() != null) {
             return checkNotNull(getDefaultImpl()).getMetadata();
           }
-          _reply.readException();
-          if ((0 != _reply.readInt())) {
-            _result = MediaMetadataCompat.CREATOR.createFromParcel(_reply);
+          reply.readException();
+          if ((0 != reply.readInt())) {
+            result = MediaMetadataCompat.CREATOR.createFromParcel(reply);
           } else {
-            _result = null;
+            result = null;
           }
         } finally {
-          _reply.recycle();
-          _data.recycle();
+          reply.recycle();
+          data.recycle();
         }
-        return _result;
+        return result;
       }
 
       @Nullable
       @Override
       public PlaybackStateCompat getPlaybackState() throws android.os.RemoteException {
-        android.os.Parcel _data = android.os.Parcel.obtain();
-        android.os.Parcel _reply = android.os.Parcel.obtain();
-        PlaybackStateCompat _result;
+        android.os.Parcel data = android.os.Parcel.obtain();
+        android.os.Parcel reply = android.os.Parcel.obtain();
+        PlaybackStateCompat result;
         try {
-          _data.writeInterfaceToken(DESCRIPTOR);
-          boolean _status = mRemote.transact(Stub.TRANSACTION_getPlaybackState, _data, _reply, 0);
-          if (!_status && getDefaultImpl() != null) {
+          data.writeInterfaceToken(DESCRIPTOR);
+          boolean status = remote.transact(Stub.TRANSACTION_getPlaybackState, data, reply, 0);
+          if (!status && getDefaultImpl() != null) {
             return checkNotNull(getDefaultImpl()).getPlaybackState();
           }
-          _reply.readException();
-          if ((0 != _reply.readInt())) {
-            _result = PlaybackStateCompat.CREATOR.createFromParcel(_reply);
+          reply.readException();
+          if ((0 != reply.readInt())) {
+            result = PlaybackStateCompat.CREATOR.createFromParcel(reply);
           } else {
-            _result = null;
+            result = null;
           }
         } finally {
-          _reply.recycle();
-          _data.recycle();
+          reply.recycle();
+          data.recycle();
         }
-        return _result;
+        return result;
       }
 
       @Nullable
       @Override
       public java.util.List<MediaSessionCompat.QueueItem> getQueue()
           throws android.os.RemoteException {
-        android.os.Parcel _data = android.os.Parcel.obtain();
-        android.os.Parcel _reply = android.os.Parcel.obtain();
-        java.util.List<MediaSessionCompat.QueueItem> _result;
+        android.os.Parcel data = android.os.Parcel.obtain();
+        android.os.Parcel reply = android.os.Parcel.obtain();
+        java.util.List<MediaSessionCompat.QueueItem> result;
         try {
-          _data.writeInterfaceToken(DESCRIPTOR);
-          boolean _status = mRemote.transact(Stub.TRANSACTION_getQueue, _data, _reply, 0);
-          if (!_status && getDefaultImpl() != null) {
+          data.writeInterfaceToken(DESCRIPTOR);
+          boolean status = remote.transact(Stub.TRANSACTION_getQueue, data, reply, 0);
+          if (!status && getDefaultImpl() != null) {
             return checkNotNull(getDefaultImpl()).getQueue();
           }
-          _reply.readException();
-          _result = _reply.createTypedArrayList(MediaSessionCompat.QueueItem.CREATOR);
+          reply.readException();
+          result = reply.createTypedArrayList(MediaSessionCompat.QueueItem.CREATOR);
         } finally {
-          _reply.recycle();
-          _data.recycle();
+          reply.recycle();
+          data.recycle();
         }
-        return _result;
+        return result;
       }
 
       @Nullable
       @Override
       public CharSequence getQueueTitle() throws android.os.RemoteException {
-        android.os.Parcel _data = android.os.Parcel.obtain();
-        android.os.Parcel _reply = android.os.Parcel.obtain();
-        CharSequence _result;
+        android.os.Parcel data = android.os.Parcel.obtain();
+        android.os.Parcel reply = android.os.Parcel.obtain();
+        CharSequence result;
         try {
-          _data.writeInterfaceToken(DESCRIPTOR);
-          boolean _status = mRemote.transact(Stub.TRANSACTION_getQueueTitle, _data, _reply, 0);
-          if (!_status && getDefaultImpl() != null) {
+          data.writeInterfaceToken(DESCRIPTOR);
+          boolean status = remote.transact(Stub.TRANSACTION_getQueueTitle, data, reply, 0);
+          if (!status && getDefaultImpl() != null) {
             return checkNotNull(getDefaultImpl()).getQueueTitle();
           }
-          _reply.readException();
-          if (0 != _reply.readInt()) {
-            _result = android.text.TextUtils.CHAR_SEQUENCE_CREATOR.createFromParcel(_reply);
+          reply.readException();
+          if (0 != reply.readInt()) {
+            result = android.text.TextUtils.CHAR_SEQUENCE_CREATOR.createFromParcel(reply);
           } else {
-            _result = null;
+            result = null;
           }
         } finally {
-          _reply.recycle();
-          _data.recycle();
+          reply.recycle();
+          data.recycle();
         }
-        return _result;
+        return result;
       }
 
       @Nullable
       @Override
       public android.os.Bundle getExtras() throws android.os.RemoteException {
-        android.os.Parcel _data = android.os.Parcel.obtain();
-        android.os.Parcel _reply = android.os.Parcel.obtain();
-        android.os.Bundle _result;
+        android.os.Parcel data = android.os.Parcel.obtain();
+        android.os.Parcel reply = android.os.Parcel.obtain();
+        android.os.Bundle result;
         try {
-          _data.writeInterfaceToken(DESCRIPTOR);
-          boolean _status = mRemote.transact(Stub.TRANSACTION_getExtras, _data, _reply, 0);
-          if (!_status && getDefaultImpl() != null) {
+          data.writeInterfaceToken(DESCRIPTOR);
+          boolean status = remote.transact(Stub.TRANSACTION_getExtras, data, reply, 0);
+          if (!status && getDefaultImpl() != null) {
             return checkNotNull(getDefaultImpl()).getExtras();
           }
-          _reply.readException();
-          if ((0 != _reply.readInt())) {
-            _result = android.os.Bundle.CREATOR.createFromParcel(_reply);
+          reply.readException();
+          if ((0 != reply.readInt())) {
+            result = android.os.Bundle.CREATOR.createFromParcel(reply);
           } else {
-            _result = null;
+            result = null;
           }
         } finally {
-          _reply.recycle();
-          _data.recycle();
+          reply.recycle();
+          data.recycle();
         }
-        return _result;
+        return result;
       }
 
       @Override
       public int getRatingType() throws android.os.RemoteException {
-        android.os.Parcel _data = android.os.Parcel.obtain();
-        android.os.Parcel _reply = android.os.Parcel.obtain();
-        int _result;
+        android.os.Parcel data = android.os.Parcel.obtain();
+        android.os.Parcel reply = android.os.Parcel.obtain();
+        int result;
         try {
-          _data.writeInterfaceToken(DESCRIPTOR);
-          boolean _status = mRemote.transact(Stub.TRANSACTION_getRatingType, _data, _reply, 0);
-          if (!_status && getDefaultImpl() != null) {
+          data.writeInterfaceToken(DESCRIPTOR);
+          boolean status = remote.transact(Stub.TRANSACTION_getRatingType, data, reply, 0);
+          if (!status && getDefaultImpl() != null) {
             return checkNotNull(getDefaultImpl()).getRatingType();
           }
-          _reply.readException();
-          _result = _reply.readInt();
+          reply.readException();
+          result = reply.readInt();
         } finally {
-          _reply.recycle();
-          _data.recycle();
+          reply.recycle();
+          data.recycle();
         }
-        return _result;
+        return result;
       }
 
       @Override
       public boolean isCaptioningEnabled() throws android.os.RemoteException {
-        android.os.Parcel _data = android.os.Parcel.obtain();
-        android.os.Parcel _reply = android.os.Parcel.obtain();
-        boolean _result;
+        android.os.Parcel data = android.os.Parcel.obtain();
+        android.os.Parcel reply = android.os.Parcel.obtain();
+        boolean result;
         try {
-          _data.writeInterfaceToken(DESCRIPTOR);
-          boolean _status =
-              mRemote.transact(Stub.TRANSACTION_isCaptioningEnabled, _data, _reply, 0);
-          if (!_status && getDefaultImpl() != null) {
+          data.writeInterfaceToken(DESCRIPTOR);
+          boolean status = remote.transact(Stub.TRANSACTION_isCaptioningEnabled, data, reply, 0);
+          if (!status && getDefaultImpl() != null) {
             return checkNotNull(getDefaultImpl()).isCaptioningEnabled();
           }
-          _reply.readException();
-          _result = (0 != _reply.readInt());
+          reply.readException();
+          result = (0 != reply.readInt());
         } finally {
-          _reply.recycle();
-          _data.recycle();
+          reply.recycle();
+          data.recycle();
         }
-        return _result;
+        return result;
       }
 
       @Override
       public int getRepeatMode() throws android.os.RemoteException {
-        android.os.Parcel _data = android.os.Parcel.obtain();
-        android.os.Parcel _reply = android.os.Parcel.obtain();
-        int _result;
+        android.os.Parcel data = android.os.Parcel.obtain();
+        android.os.Parcel reply = android.os.Parcel.obtain();
+        int result;
         try {
-          _data.writeInterfaceToken(DESCRIPTOR);
-          boolean _status = mRemote.transact(Stub.TRANSACTION_getRepeatMode, _data, _reply, 0);
-          if (!_status && getDefaultImpl() != null) {
+          data.writeInterfaceToken(DESCRIPTOR);
+          boolean status = remote.transact(Stub.TRANSACTION_getRepeatMode, data, reply, 0);
+          if (!status && getDefaultImpl() != null) {
             return checkNotNull(getDefaultImpl()).getRepeatMode();
           }
-          _reply.readException();
-          _result = _reply.readInt();
+          reply.readException();
+          result = reply.readInt();
         } finally {
-          _reply.recycle();
-          _data.recycle();
+          reply.recycle();
+          data.recycle();
         }
-        return _result;
+        return result;
       }
 
       @Override
       public boolean isShuffleModeEnabledRemoved() throws android.os.RemoteException {
-        android.os.Parcel _data = android.os.Parcel.obtain();
-        android.os.Parcel _reply = android.os.Parcel.obtain();
-        boolean _result;
+        android.os.Parcel data = android.os.Parcel.obtain();
+        android.os.Parcel reply = android.os.Parcel.obtain();
+        boolean result;
         try {
-          _data.writeInterfaceToken(DESCRIPTOR);
-          boolean _status =
-              mRemote.transact(Stub.TRANSACTION_isShuffleModeEnabledRemoved, _data, _reply, 0);
-          if (!_status && getDefaultImpl() != null) {
+          data.writeInterfaceToken(DESCRIPTOR);
+          boolean status =
+              remote.transact(Stub.TRANSACTION_isShuffleModeEnabledRemoved, data, reply, 0);
+          if (!status && getDefaultImpl() != null) {
             return checkNotNull(getDefaultImpl()).isShuffleModeEnabledRemoved();
           }
-          _reply.readException();
-          _result = (0 != _reply.readInt());
+          reply.readException();
+          result = (0 != reply.readInt());
         } finally {
-          _reply.recycle();
-          _data.recycle();
+          reply.recycle();
+          data.recycle();
         }
-        return _result;
+        return result;
       }
 
       @Override
       public int getShuffleMode() throws android.os.RemoteException {
-        android.os.Parcel _data = android.os.Parcel.obtain();
-        android.os.Parcel _reply = android.os.Parcel.obtain();
-        int _result;
+        android.os.Parcel data = android.os.Parcel.obtain();
+        android.os.Parcel reply = android.os.Parcel.obtain();
+        int result;
         try {
-          _data.writeInterfaceToken(DESCRIPTOR);
-          boolean _status = mRemote.transact(Stub.TRANSACTION_getShuffleMode, _data, _reply, 0);
-          if (!_status && getDefaultImpl() != null) {
+          data.writeInterfaceToken(DESCRIPTOR);
+          boolean status = remote.transact(Stub.TRANSACTION_getShuffleMode, data, reply, 0);
+          if (!status && getDefaultImpl() != null) {
             return checkNotNull(getDefaultImpl()).getShuffleMode();
           }
-          _reply.readException();
-          _result = _reply.readInt();
+          reply.readException();
+          result = reply.readInt();
         } finally {
-          _reply.recycle();
-          _data.recycle();
+          reply.recycle();
+          data.recycle();
         }
-        return _result;
+        return result;
       }
 
       @Override
       public void addQueueItem(@Nullable MediaDescriptionCompat description)
           throws android.os.RemoteException {
-        android.os.Parcel _data = android.os.Parcel.obtain();
-        android.os.Parcel _reply = android.os.Parcel.obtain();
+        android.os.Parcel data = android.os.Parcel.obtain();
+        android.os.Parcel reply = android.os.Parcel.obtain();
         try {
-          _data.writeInterfaceToken(DESCRIPTOR);
+          data.writeInterfaceToken(DESCRIPTOR);
           if ((description != null)) {
-            _data.writeInt(1);
-            description.writeToParcel(_data, 0);
+            data.writeInt(1);
+            description.writeToParcel(data, 0);
           } else {
-            _data.writeInt(0);
+            data.writeInt(0);
           }
-          boolean _status = mRemote.transact(Stub.TRANSACTION_addQueueItem, _data, _reply, 0);
-          if (!_status && getDefaultImpl() != null) {
+          boolean status = remote.transact(Stub.TRANSACTION_addQueueItem, data, reply, 0);
+          if (!status && getDefaultImpl() != null) {
             checkNotNull(getDefaultImpl()).addQueueItem(description);
             return;
           }
-          _reply.readException();
+          reply.readException();
         } finally {
-          _reply.recycle();
-          _data.recycle();
+          reply.recycle();
+          data.recycle();
         }
       }
 
       @Override
       public void addQueueItemAt(@Nullable MediaDescriptionCompat description, int index)
           throws android.os.RemoteException {
-        android.os.Parcel _data = android.os.Parcel.obtain();
-        android.os.Parcel _reply = android.os.Parcel.obtain();
+        android.os.Parcel data = android.os.Parcel.obtain();
+        android.os.Parcel reply = android.os.Parcel.obtain();
         try {
-          _data.writeInterfaceToken(DESCRIPTOR);
+          data.writeInterfaceToken(DESCRIPTOR);
           if ((description != null)) {
-            _data.writeInt(1);
-            description.writeToParcel(_data, 0);
+            data.writeInt(1);
+            description.writeToParcel(data, 0);
           } else {
-            _data.writeInt(0);
+            data.writeInt(0);
           }
-          _data.writeInt(index);
-          boolean _status = mRemote.transact(Stub.TRANSACTION_addQueueItemAt, _data, _reply, 0);
-          if (!_status && getDefaultImpl() != null) {
+          data.writeInt(index);
+          boolean status = remote.transact(Stub.TRANSACTION_addQueueItemAt, data, reply, 0);
+          if (!status && getDefaultImpl() != null) {
             checkNotNull(getDefaultImpl()).addQueueItemAt(description, index);
             return;
           }
-          _reply.readException();
+          reply.readException();
         } finally {
-          _reply.recycle();
-          _data.recycle();
+          reply.recycle();
+          data.recycle();
         }
       }
 
       @Override
       public void removeQueueItem(@Nullable MediaDescriptionCompat description)
           throws android.os.RemoteException {
-        android.os.Parcel _data = android.os.Parcel.obtain();
-        android.os.Parcel _reply = android.os.Parcel.obtain();
+        android.os.Parcel data = android.os.Parcel.obtain();
+        android.os.Parcel reply = android.os.Parcel.obtain();
         try {
-          _data.writeInterfaceToken(DESCRIPTOR);
+          data.writeInterfaceToken(DESCRIPTOR);
           if ((description != null)) {
-            _data.writeInt(1);
-            description.writeToParcel(_data, 0);
+            data.writeInt(1);
+            description.writeToParcel(data, 0);
           } else {
-            _data.writeInt(0);
+            data.writeInt(0);
           }
-          boolean _status = mRemote.transact(Stub.TRANSACTION_removeQueueItem, _data, _reply, 0);
-          if (!_status && getDefaultImpl() != null) {
+          boolean status = remote.transact(Stub.TRANSACTION_removeQueueItem, data, reply, 0);
+          if (!status && getDefaultImpl() != null) {
             checkNotNull(getDefaultImpl()).removeQueueItem(description);
             return;
           }
-          _reply.readException();
+          reply.readException();
         } finally {
-          _reply.recycle();
-          _data.recycle();
+          reply.recycle();
+          data.recycle();
         }
       }
 
       @Override
       public void removeQueueItemAt(int index) throws android.os.RemoteException {
-        android.os.Parcel _data = android.os.Parcel.obtain();
-        android.os.Parcel _reply = android.os.Parcel.obtain();
+        android.os.Parcel data = android.os.Parcel.obtain();
+        android.os.Parcel reply = android.os.Parcel.obtain();
         try {
-          _data.writeInterfaceToken(DESCRIPTOR);
-          _data.writeInt(index);
-          boolean _status = mRemote.transact(Stub.TRANSACTION_removeQueueItemAt, _data, _reply, 0);
-          if (!_status && getDefaultImpl() != null) {
+          data.writeInterfaceToken(DESCRIPTOR);
+          data.writeInt(index);
+          boolean status = remote.transact(Stub.TRANSACTION_removeQueueItemAt, data, reply, 0);
+          if (!status && getDefaultImpl() != null) {
             checkNotNull(getDefaultImpl()).removeQueueItemAt(index);
             return;
           }
-          _reply.readException();
+          reply.readException();
         } finally {
-          _reply.recycle();
-          _data.recycle();
+          reply.recycle();
+          data.recycle();
         }
       }
 
       @Nullable
       @Override
       public android.os.Bundle getSessionInfo() throws android.os.RemoteException {
-        android.os.Parcel _data = android.os.Parcel.obtain();
-        android.os.Parcel _reply = android.os.Parcel.obtain();
-        android.os.Bundle _result;
+        android.os.Parcel data = android.os.Parcel.obtain();
+        android.os.Parcel reply = android.os.Parcel.obtain();
+        android.os.Bundle result;
         try {
-          _data.writeInterfaceToken(DESCRIPTOR);
-          boolean _status = mRemote.transact(Stub.TRANSACTION_getSessionInfo, _data, _reply, 0);
-          if (!_status && getDefaultImpl() != null) {
+          data.writeInterfaceToken(DESCRIPTOR);
+          boolean status = remote.transact(Stub.TRANSACTION_getSessionInfo, data, reply, 0);
+          if (!status && getDefaultImpl() != null) {
             return checkNotNull(getDefaultImpl()).getSessionInfo();
           }
-          _reply.readException();
-          if ((0 != _reply.readInt())) {
-            _result = android.os.Bundle.CREATOR.createFromParcel(_reply);
+          reply.readException();
+          if ((0 != reply.readInt())) {
+            result = android.os.Bundle.CREATOR.createFromParcel(reply);
           } else {
-            _result = null;
+            result = null;
           }
         } finally {
-          _reply.recycle();
-          _data.recycle();
+          reply.recycle();
+          data.recycle();
         }
-        return _result;
+        return result;
       }
 
       // These commands are for the TransportControls
 
       @Override
       public void prepare() throws android.os.RemoteException {
-        android.os.Parcel _data = android.os.Parcel.obtain();
-        android.os.Parcel _reply = android.os.Parcel.obtain();
+        android.os.Parcel data = android.os.Parcel.obtain();
+        android.os.Parcel reply = android.os.Parcel.obtain();
         try {
-          _data.writeInterfaceToken(DESCRIPTOR);
-          boolean _status = mRemote.transact(Stub.TRANSACTION_prepare, _data, _reply, 0);
-          if (!_status && getDefaultImpl() != null) {
+          data.writeInterfaceToken(DESCRIPTOR);
+          boolean status = remote.transact(Stub.TRANSACTION_prepare, data, reply, 0);
+          if (!status && getDefaultImpl() != null) {
             checkNotNull(getDefaultImpl()).prepare();
             return;
           }
-          _reply.readException();
+          reply.readException();
         } finally {
-          _reply.recycle();
-          _data.recycle();
+          reply.recycle();
+          data.recycle();
         }
       }
 
       @Override
       public void prepareFromMediaId(@Nullable String uri, @Nullable android.os.Bundle extras)
           throws android.os.RemoteException {
-        android.os.Parcel _data = android.os.Parcel.obtain();
-        android.os.Parcel _reply = android.os.Parcel.obtain();
+        android.os.Parcel data = android.os.Parcel.obtain();
+        android.os.Parcel reply = android.os.Parcel.obtain();
         try {
-          _data.writeInterfaceToken(DESCRIPTOR);
-          _data.writeString(uri);
+          data.writeInterfaceToken(DESCRIPTOR);
+          data.writeString(uri);
           if ((extras != null)) {
-            _data.writeInt(1);
-            extras.writeToParcel(_data, 0);
+            data.writeInt(1);
+            extras.writeToParcel(data, 0);
           } else {
-            _data.writeInt(0);
+            data.writeInt(0);
           }
-          boolean _status = mRemote.transact(Stub.TRANSACTION_prepareFromMediaId, _data, _reply, 0);
-          if (!_status && getDefaultImpl() != null) {
+          boolean status = remote.transact(Stub.TRANSACTION_prepareFromMediaId, data, reply, 0);
+          if (!status && getDefaultImpl() != null) {
             checkNotNull(getDefaultImpl()).prepareFromMediaId(uri, extras);
             return;
           }
-          _reply.readException();
+          reply.readException();
         } finally {
-          _reply.recycle();
-          _data.recycle();
+          reply.recycle();
+          data.recycle();
         }
       }
 
       @Override
       public void prepareFromSearch(@Nullable String string, @Nullable android.os.Bundle extras)
           throws android.os.RemoteException {
-        android.os.Parcel _data = android.os.Parcel.obtain();
-        android.os.Parcel _reply = android.os.Parcel.obtain();
+        android.os.Parcel data = android.os.Parcel.obtain();
+        android.os.Parcel reply = android.os.Parcel.obtain();
         try {
-          _data.writeInterfaceToken(DESCRIPTOR);
-          _data.writeString(string);
+          data.writeInterfaceToken(DESCRIPTOR);
+          data.writeString(string);
           if ((extras != null)) {
-            _data.writeInt(1);
-            extras.writeToParcel(_data, 0);
+            data.writeInt(1);
+            extras.writeToParcel(data, 0);
           } else {
-            _data.writeInt(0);
+            data.writeInt(0);
           }
-          boolean _status = mRemote.transact(Stub.TRANSACTION_prepareFromSearch, _data, _reply, 0);
-          if (!_status && getDefaultImpl() != null) {
+          boolean status = remote.transact(Stub.TRANSACTION_prepareFromSearch, data, reply, 0);
+          if (!status && getDefaultImpl() != null) {
             checkNotNull(getDefaultImpl()).prepareFromSearch(string, extras);
             return;
           }
-          _reply.readException();
+          reply.readException();
         } finally {
-          _reply.recycle();
-          _data.recycle();
+          reply.recycle();
+          data.recycle();
         }
       }
 
       @Override
       public void prepareFromUri(@Nullable android.net.Uri uri, @Nullable android.os.Bundle extras)
           throws android.os.RemoteException {
-        android.os.Parcel _data = android.os.Parcel.obtain();
-        android.os.Parcel _reply = android.os.Parcel.obtain();
+        android.os.Parcel data = android.os.Parcel.obtain();
+        android.os.Parcel reply = android.os.Parcel.obtain();
         try {
-          _data.writeInterfaceToken(DESCRIPTOR);
+          data.writeInterfaceToken(DESCRIPTOR);
           if ((uri != null)) {
-            _data.writeInt(1);
-            uri.writeToParcel(_data, 0);
+            data.writeInt(1);
+            uri.writeToParcel(data, 0);
           } else {
-            _data.writeInt(0);
+            data.writeInt(0);
           }
           if ((extras != null)) {
-            _data.writeInt(1);
-            extras.writeToParcel(_data, 0);
+            data.writeInt(1);
+            extras.writeToParcel(data, 0);
           } else {
-            _data.writeInt(0);
+            data.writeInt(0);
           }
-          boolean _status = mRemote.transact(Stub.TRANSACTION_prepareFromUri, _data, _reply, 0);
-          if (!_status && getDefaultImpl() != null) {
+          boolean status = remote.transact(Stub.TRANSACTION_prepareFromUri, data, reply, 0);
+          if (!status && getDefaultImpl() != null) {
             checkNotNull(getDefaultImpl()).prepareFromUri(uri, extras);
             return;
           }
-          _reply.readException();
+          reply.readException();
         } finally {
-          _reply.recycle();
-          _data.recycle();
+          reply.recycle();
+          data.recycle();
         }
       }
 
       @Override
       public void play() throws android.os.RemoteException {
-        android.os.Parcel _data = android.os.Parcel.obtain();
-        android.os.Parcel _reply = android.os.Parcel.obtain();
+        android.os.Parcel data = android.os.Parcel.obtain();
+        android.os.Parcel reply = android.os.Parcel.obtain();
         try {
-          _data.writeInterfaceToken(DESCRIPTOR);
-          boolean _status = mRemote.transact(Stub.TRANSACTION_play, _data, _reply, 0);
-          if (!_status && getDefaultImpl() != null) {
+          data.writeInterfaceToken(DESCRIPTOR);
+          boolean status = remote.transact(Stub.TRANSACTION_play, data, reply, 0);
+          if (!status && getDefaultImpl() != null) {
             checkNotNull(getDefaultImpl()).play();
             return;
           }
-          _reply.readException();
+          reply.readException();
         } finally {
-          _reply.recycle();
-          _data.recycle();
+          reply.recycle();
+          data.recycle();
         }
       }
 
       @Override
       public void playFromMediaId(@Nullable String uri, @Nullable android.os.Bundle extras)
           throws android.os.RemoteException {
-        android.os.Parcel _data = android.os.Parcel.obtain();
-        android.os.Parcel _reply = android.os.Parcel.obtain();
+        android.os.Parcel data = android.os.Parcel.obtain();
+        android.os.Parcel reply = android.os.Parcel.obtain();
         try {
-          _data.writeInterfaceToken(DESCRIPTOR);
-          _data.writeString(uri);
+          data.writeInterfaceToken(DESCRIPTOR);
+          data.writeString(uri);
           if ((extras != null)) {
-            _data.writeInt(1);
-            extras.writeToParcel(_data, 0);
+            data.writeInt(1);
+            extras.writeToParcel(data, 0);
           } else {
-            _data.writeInt(0);
+            data.writeInt(0);
           }
-          boolean _status = mRemote.transact(Stub.TRANSACTION_playFromMediaId, _data, _reply, 0);
-          if (!_status && getDefaultImpl() != null) {
+          boolean status = remote.transact(Stub.TRANSACTION_playFromMediaId, data, reply, 0);
+          if (!status && getDefaultImpl() != null) {
             checkNotNull(getDefaultImpl()).playFromMediaId(uri, extras);
             return;
           }
-          _reply.readException();
+          reply.readException();
         } finally {
-          _reply.recycle();
-          _data.recycle();
+          reply.recycle();
+          data.recycle();
         }
       }
 
       @Override
       public void playFromSearch(@Nullable String string, @Nullable android.os.Bundle extras)
           throws android.os.RemoteException {
-        android.os.Parcel _data = android.os.Parcel.obtain();
-        android.os.Parcel _reply = android.os.Parcel.obtain();
+        android.os.Parcel data = android.os.Parcel.obtain();
+        android.os.Parcel reply = android.os.Parcel.obtain();
         try {
-          _data.writeInterfaceToken(DESCRIPTOR);
-          _data.writeString(string);
+          data.writeInterfaceToken(DESCRIPTOR);
+          data.writeString(string);
           if ((extras != null)) {
-            _data.writeInt(1);
-            extras.writeToParcel(_data, 0);
+            data.writeInt(1);
+            extras.writeToParcel(data, 0);
           } else {
-            _data.writeInt(0);
+            data.writeInt(0);
           }
-          boolean _status = mRemote.transact(Stub.TRANSACTION_playFromSearch, _data, _reply, 0);
-          if (!_status && getDefaultImpl() != null) {
+          boolean status = remote.transact(Stub.TRANSACTION_playFromSearch, data, reply, 0);
+          if (!status && getDefaultImpl() != null) {
             checkNotNull(getDefaultImpl()).playFromSearch(string, extras);
             return;
           }
-          _reply.readException();
+          reply.readException();
         } finally {
-          _reply.recycle();
-          _data.recycle();
+          reply.recycle();
+          data.recycle();
         }
       }
 
       @Override
       public void playFromUri(@Nullable android.net.Uri uri, @Nullable android.os.Bundle extras)
           throws android.os.RemoteException {
-        android.os.Parcel _data = android.os.Parcel.obtain();
-        android.os.Parcel _reply = android.os.Parcel.obtain();
+        android.os.Parcel data = android.os.Parcel.obtain();
+        android.os.Parcel reply = android.os.Parcel.obtain();
         try {
-          _data.writeInterfaceToken(DESCRIPTOR);
+          data.writeInterfaceToken(DESCRIPTOR);
           if ((uri != null)) {
-            _data.writeInt(1);
-            uri.writeToParcel(_data, 0);
+            data.writeInt(1);
+            uri.writeToParcel(data, 0);
           } else {
-            _data.writeInt(0);
+            data.writeInt(0);
           }
           if ((extras != null)) {
-            _data.writeInt(1);
-            extras.writeToParcel(_data, 0);
+            data.writeInt(1);
+            extras.writeToParcel(data, 0);
           } else {
-            _data.writeInt(0);
+            data.writeInt(0);
           }
-          boolean _status = mRemote.transact(Stub.TRANSACTION_playFromUri, _data, _reply, 0);
-          if (!_status && getDefaultImpl() != null) {
+          boolean status = remote.transact(Stub.TRANSACTION_playFromUri, data, reply, 0);
+          if (!status && getDefaultImpl() != null) {
             checkNotNull(getDefaultImpl()).playFromUri(uri, extras);
             return;
           }
-          _reply.readException();
+          reply.readException();
         } finally {
-          _reply.recycle();
-          _data.recycle();
+          reply.recycle();
+          data.recycle();
         }
       }
 
       @Override
       public void skipToQueueItem(long id) throws android.os.RemoteException {
-        android.os.Parcel _data = android.os.Parcel.obtain();
-        android.os.Parcel _reply = android.os.Parcel.obtain();
+        android.os.Parcel data = android.os.Parcel.obtain();
+        android.os.Parcel reply = android.os.Parcel.obtain();
         try {
-          _data.writeInterfaceToken(DESCRIPTOR);
-          _data.writeLong(id);
-          boolean _status = mRemote.transact(Stub.TRANSACTION_skipToQueueItem, _data, _reply, 0);
-          if (!_status && getDefaultImpl() != null) {
+          data.writeInterfaceToken(DESCRIPTOR);
+          data.writeLong(id);
+          boolean status = remote.transact(Stub.TRANSACTION_skipToQueueItem, data, reply, 0);
+          if (!status && getDefaultImpl() != null) {
             checkNotNull(getDefaultImpl()).skipToQueueItem(id);
             return;
           }
-          _reply.readException();
+          reply.readException();
         } finally {
-          _reply.recycle();
-          _data.recycle();
+          reply.recycle();
+          data.recycle();
         }
       }
 
       @Override
       public void pause() throws android.os.RemoteException {
-        android.os.Parcel _data = android.os.Parcel.obtain();
-        android.os.Parcel _reply = android.os.Parcel.obtain();
+        android.os.Parcel data = android.os.Parcel.obtain();
+        android.os.Parcel reply = android.os.Parcel.obtain();
         try {
-          _data.writeInterfaceToken(DESCRIPTOR);
-          boolean _status = mRemote.transact(Stub.TRANSACTION_pause, _data, _reply, 0);
-          if (!_status && getDefaultImpl() != null) {
+          data.writeInterfaceToken(DESCRIPTOR);
+          boolean status = remote.transact(Stub.TRANSACTION_pause, data, reply, 0);
+          if (!status && getDefaultImpl() != null) {
             checkNotNull(getDefaultImpl()).pause();
             return;
           }
-          _reply.readException();
+          reply.readException();
         } finally {
-          _reply.recycle();
-          _data.recycle();
+          reply.recycle();
+          data.recycle();
         }
       }
 
       @Override
       public void stop() throws android.os.RemoteException {
-        android.os.Parcel _data = android.os.Parcel.obtain();
-        android.os.Parcel _reply = android.os.Parcel.obtain();
+        android.os.Parcel data = android.os.Parcel.obtain();
+        android.os.Parcel reply = android.os.Parcel.obtain();
         try {
-          _data.writeInterfaceToken(DESCRIPTOR);
-          boolean _status = mRemote.transact(Stub.TRANSACTION_stop, _data, _reply, 0);
-          if (!_status && getDefaultImpl() != null) {
+          data.writeInterfaceToken(DESCRIPTOR);
+          boolean status = remote.transact(Stub.TRANSACTION_stop, data, reply, 0);
+          if (!status && getDefaultImpl() != null) {
             checkNotNull(getDefaultImpl()).stop();
             return;
           }
-          _reply.readException();
+          reply.readException();
         } finally {
-          _reply.recycle();
-          _data.recycle();
+          reply.recycle();
+          data.recycle();
         }
       }
 
       @Override
       public void next() throws android.os.RemoteException {
-        android.os.Parcel _data = android.os.Parcel.obtain();
-        android.os.Parcel _reply = android.os.Parcel.obtain();
+        android.os.Parcel data = android.os.Parcel.obtain();
+        android.os.Parcel reply = android.os.Parcel.obtain();
         try {
-          _data.writeInterfaceToken(DESCRIPTOR);
-          boolean _status = mRemote.transact(Stub.TRANSACTION_next, _data, _reply, 0);
-          if (!_status && getDefaultImpl() != null) {
+          data.writeInterfaceToken(DESCRIPTOR);
+          boolean status = remote.transact(Stub.TRANSACTION_next, data, reply, 0);
+          if (!status && getDefaultImpl() != null) {
             checkNotNull(getDefaultImpl()).next();
             return;
           }
-          _reply.readException();
+          reply.readException();
         } finally {
-          _reply.recycle();
-          _data.recycle();
+          reply.recycle();
+          data.recycle();
         }
       }
 
       @Override
       public void previous() throws android.os.RemoteException {
-        android.os.Parcel _data = android.os.Parcel.obtain();
-        android.os.Parcel _reply = android.os.Parcel.obtain();
+        android.os.Parcel data = android.os.Parcel.obtain();
+        android.os.Parcel reply = android.os.Parcel.obtain();
         try {
-          _data.writeInterfaceToken(DESCRIPTOR);
-          boolean _status = mRemote.transact(Stub.TRANSACTION_previous, _data, _reply, 0);
-          if (!_status && getDefaultImpl() != null) {
+          data.writeInterfaceToken(DESCRIPTOR);
+          boolean status = remote.transact(Stub.TRANSACTION_previous, data, reply, 0);
+          if (!status && getDefaultImpl() != null) {
             checkNotNull(getDefaultImpl()).previous();
             return;
           }
-          _reply.readException();
+          reply.readException();
         } finally {
-          _reply.recycle();
-          _data.recycle();
+          reply.recycle();
+          data.recycle();
         }
       }
 
       @Override
       public void fastForward() throws android.os.RemoteException {
-        android.os.Parcel _data = android.os.Parcel.obtain();
-        android.os.Parcel _reply = android.os.Parcel.obtain();
+        android.os.Parcel data = android.os.Parcel.obtain();
+        android.os.Parcel reply = android.os.Parcel.obtain();
         try {
-          _data.writeInterfaceToken(DESCRIPTOR);
-          boolean _status = mRemote.transact(Stub.TRANSACTION_fastForward, _data, _reply, 0);
-          if (!_status && getDefaultImpl() != null) {
+          data.writeInterfaceToken(DESCRIPTOR);
+          boolean status = remote.transact(Stub.TRANSACTION_fastForward, data, reply, 0);
+          if (!status && getDefaultImpl() != null) {
             checkNotNull(getDefaultImpl()).fastForward();
             return;
           }
-          _reply.readException();
+          reply.readException();
         } finally {
-          _reply.recycle();
-          _data.recycle();
+          reply.recycle();
+          data.recycle();
         }
       }
 
       @Override
       public void rewind() throws android.os.RemoteException {
-        android.os.Parcel _data = android.os.Parcel.obtain();
-        android.os.Parcel _reply = android.os.Parcel.obtain();
+        android.os.Parcel data = android.os.Parcel.obtain();
+        android.os.Parcel reply = android.os.Parcel.obtain();
         try {
-          _data.writeInterfaceToken(DESCRIPTOR);
-          boolean _status = mRemote.transact(Stub.TRANSACTION_rewind, _data, _reply, 0);
-          if (!_status && getDefaultImpl() != null) {
+          data.writeInterfaceToken(DESCRIPTOR);
+          boolean status = remote.transact(Stub.TRANSACTION_rewind, data, reply, 0);
+          if (!status && getDefaultImpl() != null) {
             checkNotNull(getDefaultImpl()).rewind();
             return;
           }
-          _reply.readException();
+          reply.readException();
         } finally {
-          _reply.recycle();
-          _data.recycle();
+          reply.recycle();
+          data.recycle();
         }
       }
 
       @Override
       public void seekTo(long pos) throws android.os.RemoteException {
-        android.os.Parcel _data = android.os.Parcel.obtain();
-        android.os.Parcel _reply = android.os.Parcel.obtain();
+        android.os.Parcel data = android.os.Parcel.obtain();
+        android.os.Parcel reply = android.os.Parcel.obtain();
         try {
-          _data.writeInterfaceToken(DESCRIPTOR);
-          _data.writeLong(pos);
-          boolean _status = mRemote.transact(Stub.TRANSACTION_seekTo, _data, _reply, 0);
-          if (!_status && getDefaultImpl() != null) {
+          data.writeInterfaceToken(DESCRIPTOR);
+          data.writeLong(pos);
+          boolean status = remote.transact(Stub.TRANSACTION_seekTo, data, reply, 0);
+          if (!status && getDefaultImpl() != null) {
             checkNotNull(getDefaultImpl()).seekTo(pos);
             return;
           }
-          _reply.readException();
+          reply.readException();
         } finally {
-          _reply.recycle();
-          _data.recycle();
+          reply.recycle();
+          data.recycle();
         }
       }
 
       @Override
       public void rate(@Nullable RatingCompat rating) throws android.os.RemoteException {
-        android.os.Parcel _data = android.os.Parcel.obtain();
-        android.os.Parcel _reply = android.os.Parcel.obtain();
+        android.os.Parcel data = android.os.Parcel.obtain();
+        android.os.Parcel reply = android.os.Parcel.obtain();
         try {
-          _data.writeInterfaceToken(DESCRIPTOR);
+          data.writeInterfaceToken(DESCRIPTOR);
           if ((rating != null)) {
-            _data.writeInt(1);
-            rating.writeToParcel(_data, 0);
+            data.writeInt(1);
+            rating.writeToParcel(data, 0);
           } else {
-            _data.writeInt(0);
+            data.writeInt(0);
           }
-          boolean _status = mRemote.transact(Stub.TRANSACTION_rate, _data, _reply, 0);
-          if (!_status && getDefaultImpl() != null) {
+          boolean status = remote.transact(Stub.TRANSACTION_rate, data, reply, 0);
+          if (!status && getDefaultImpl() != null) {
             checkNotNull(getDefaultImpl()).rate(rating);
             return;
           }
-          _reply.readException();
+          reply.readException();
         } finally {
-          _reply.recycle();
-          _data.recycle();
+          reply.recycle();
+          data.recycle();
         }
       }
 
       @Override
       public void rateWithExtras(@Nullable RatingCompat rating, @Nullable android.os.Bundle extras)
           throws android.os.RemoteException {
-        android.os.Parcel _data = android.os.Parcel.obtain();
-        android.os.Parcel _reply = android.os.Parcel.obtain();
+        android.os.Parcel data = android.os.Parcel.obtain();
+        android.os.Parcel reply = android.os.Parcel.obtain();
         try {
-          _data.writeInterfaceToken(DESCRIPTOR);
+          data.writeInterfaceToken(DESCRIPTOR);
           if ((rating != null)) {
-            _data.writeInt(1);
-            rating.writeToParcel(_data, 0);
+            data.writeInt(1);
+            rating.writeToParcel(data, 0);
           } else {
-            _data.writeInt(0);
+            data.writeInt(0);
           }
           if ((extras != null)) {
-            _data.writeInt(1);
-            extras.writeToParcel(_data, 0);
+            data.writeInt(1);
+            extras.writeToParcel(data, 0);
           } else {
-            _data.writeInt(0);
+            data.writeInt(0);
           }
-          boolean _status = mRemote.transact(Stub.TRANSACTION_rateWithExtras, _data, _reply, 0);
-          if (!_status && getDefaultImpl() != null) {
+          boolean status = remote.transact(Stub.TRANSACTION_rateWithExtras, data, reply, 0);
+          if (!status && getDefaultImpl() != null) {
             checkNotNull(getDefaultImpl()).rateWithExtras(rating, extras);
             return;
           }
-          _reply.readException();
+          reply.readException();
         } finally {
-          _reply.recycle();
-          _data.recycle();
+          reply.recycle();
+          data.recycle();
         }
       }
 
       @Override
       public void setPlaybackSpeed(float speed) throws android.os.RemoteException {
-        android.os.Parcel _data = android.os.Parcel.obtain();
-        android.os.Parcel _reply = android.os.Parcel.obtain();
+        android.os.Parcel data = android.os.Parcel.obtain();
+        android.os.Parcel reply = android.os.Parcel.obtain();
         try {
-          _data.writeInterfaceToken(DESCRIPTOR);
-          _data.writeFloat(speed);
-          boolean _status = mRemote.transact(Stub.TRANSACTION_setPlaybackSpeed, _data, _reply, 0);
-          if (!_status && getDefaultImpl() != null) {
+          data.writeInterfaceToken(DESCRIPTOR);
+          data.writeFloat(speed);
+          boolean status = remote.transact(Stub.TRANSACTION_setPlaybackSpeed, data, reply, 0);
+          if (!status && getDefaultImpl() != null) {
             checkNotNull(getDefaultImpl()).setPlaybackSpeed(speed);
             return;
           }
-          _reply.readException();
+          reply.readException();
         } finally {
-          _reply.recycle();
-          _data.recycle();
+          reply.recycle();
+          data.recycle();
         }
       }
 
       @Override
       public void setCaptioningEnabled(boolean enabled) throws android.os.RemoteException {
-        android.os.Parcel _data = android.os.Parcel.obtain();
-        android.os.Parcel _reply = android.os.Parcel.obtain();
+        android.os.Parcel data = android.os.Parcel.obtain();
+        android.os.Parcel reply = android.os.Parcel.obtain();
         try {
-          _data.writeInterfaceToken(DESCRIPTOR);
-          _data.writeInt(((enabled) ? (1) : (0)));
-          boolean _status =
-              mRemote.transact(Stub.TRANSACTION_setCaptioningEnabled, _data, _reply, 0);
-          if (!_status && getDefaultImpl() != null) {
+          data.writeInterfaceToken(DESCRIPTOR);
+          data.writeInt(((enabled) ? (1) : (0)));
+          boolean status = remote.transact(Stub.TRANSACTION_setCaptioningEnabled, data, reply, 0);
+          if (!status && getDefaultImpl() != null) {
             checkNotNull(getDefaultImpl()).setCaptioningEnabled(enabled);
             return;
           }
-          _reply.readException();
+          reply.readException();
         } finally {
-          _reply.recycle();
-          _data.recycle();
+          reply.recycle();
+          data.recycle();
         }
       }
 
       @Override
       public void setRepeatMode(int repeatMode) throws android.os.RemoteException {
-        android.os.Parcel _data = android.os.Parcel.obtain();
-        android.os.Parcel _reply = android.os.Parcel.obtain();
+        android.os.Parcel data = android.os.Parcel.obtain();
+        android.os.Parcel reply = android.os.Parcel.obtain();
         try {
-          _data.writeInterfaceToken(DESCRIPTOR);
-          _data.writeInt(repeatMode);
-          boolean _status = mRemote.transact(Stub.TRANSACTION_setRepeatMode, _data, _reply, 0);
-          if (!_status && getDefaultImpl() != null) {
+          data.writeInterfaceToken(DESCRIPTOR);
+          data.writeInt(repeatMode);
+          boolean status = remote.transact(Stub.TRANSACTION_setRepeatMode, data, reply, 0);
+          if (!status && getDefaultImpl() != null) {
             checkNotNull(getDefaultImpl()).setRepeatMode(repeatMode);
             return;
           }
-          _reply.readException();
+          reply.readException();
         } finally {
-          _reply.recycle();
-          _data.recycle();
+          reply.recycle();
+          data.recycle();
         }
       }
 
       @Override
       public void setShuffleModeEnabledRemoved(boolean shuffleMode)
           throws android.os.RemoteException {
-        android.os.Parcel _data = android.os.Parcel.obtain();
-        android.os.Parcel _reply = android.os.Parcel.obtain();
+        android.os.Parcel data = android.os.Parcel.obtain();
+        android.os.Parcel reply = android.os.Parcel.obtain();
         try {
-          _data.writeInterfaceToken(DESCRIPTOR);
-          _data.writeInt(((shuffleMode) ? (1) : (0)));
-          boolean _status =
-              mRemote.transact(Stub.TRANSACTION_setShuffleModeEnabledRemoved, _data, _reply, 0);
-          if (!_status && getDefaultImpl() != null) {
+          data.writeInterfaceToken(DESCRIPTOR);
+          data.writeInt(((shuffleMode) ? (1) : (0)));
+          boolean status =
+              remote.transact(Stub.TRANSACTION_setShuffleModeEnabledRemoved, data, reply, 0);
+          if (!status && getDefaultImpl() != null) {
             checkNotNull(getDefaultImpl()).setShuffleModeEnabledRemoved(shuffleMode);
             return;
           }
-          _reply.readException();
+          reply.readException();
         } finally {
-          _reply.recycle();
-          _data.recycle();
+          reply.recycle();
+          data.recycle();
         }
       }
 
       @Override
       public void setShuffleMode(int shuffleMode) throws android.os.RemoteException {
-        android.os.Parcel _data = android.os.Parcel.obtain();
-        android.os.Parcel _reply = android.os.Parcel.obtain();
+        android.os.Parcel data = android.os.Parcel.obtain();
+        android.os.Parcel reply = android.os.Parcel.obtain();
         try {
-          _data.writeInterfaceToken(DESCRIPTOR);
-          _data.writeInt(shuffleMode);
-          boolean _status = mRemote.transact(Stub.TRANSACTION_setShuffleMode, _data, _reply, 0);
-          if (!_status && getDefaultImpl() != null) {
+          data.writeInterfaceToken(DESCRIPTOR);
+          data.writeInt(shuffleMode);
+          boolean status = remote.transact(Stub.TRANSACTION_setShuffleMode, data, reply, 0);
+          if (!status && getDefaultImpl() != null) {
             checkNotNull(getDefaultImpl()).setShuffleMode(shuffleMode);
             return;
           }
-          _reply.readException();
+          reply.readException();
         } finally {
-          _reply.recycle();
-          _data.recycle();
+          reply.recycle();
+          data.recycle();
         }
       }
 
       @Override
       public void sendCustomAction(@Nullable String action, @Nullable android.os.Bundle args)
           throws android.os.RemoteException {
-        android.os.Parcel _data = android.os.Parcel.obtain();
-        android.os.Parcel _reply = android.os.Parcel.obtain();
+        android.os.Parcel data = android.os.Parcel.obtain();
+        android.os.Parcel reply = android.os.Parcel.obtain();
         try {
-          _data.writeInterfaceToken(DESCRIPTOR);
-          _data.writeString(action);
+          data.writeInterfaceToken(DESCRIPTOR);
+          data.writeString(action);
           if ((args != null)) {
-            _data.writeInt(1);
-            args.writeToParcel(_data, 0);
+            data.writeInt(1);
+            args.writeToParcel(data, 0);
           } else {
-            _data.writeInt(0);
+            data.writeInt(0);
           }
-          boolean _status = mRemote.transact(Stub.TRANSACTION_sendCustomAction, _data, _reply, 0);
-          if (!_status && getDefaultImpl() != null) {
+          boolean status = remote.transact(Stub.TRANSACTION_sendCustomAction, data, reply, 0);
+          if (!status && getDefaultImpl() != null) {
             checkNotNull(getDefaultImpl()).sendCustomAction(action, args);
             return;
           }
-          _reply.readException();
+          reply.readException();
         } finally {
-          _reply.recycle();
-          _data.recycle();
+          reply.recycle();
+          data.recycle();
         }
       }
 
-      @Nullable public static IMediaSession sDefaultImpl;
+      @Nullable public static IMediaSession defaultImpl;
     }
 
     static final int TRANSACTION_sendCommand = (android.os.IBinder.FIRST_CALL_TRANSACTION + 0);
@@ -1891,11 +1887,11 @@ public interface IMediaSession extends android.os.IInterface {
       // Only one user of this interface can use this function
       // at a time. This is a heuristic to detect if two different
       // users in the same process use this function.
-      if (Proxy.sDefaultImpl != null) {
+      if (Proxy.defaultImpl != null) {
         throw new IllegalStateException("setDefaultImpl() called twice");
       }
       if (impl != null) {
-        Proxy.sDefaultImpl = impl;
+        Proxy.defaultImpl = impl;
         return true;
       }
       return false;
@@ -1903,7 +1899,7 @@ public interface IMediaSession extends android.os.IInterface {
 
     @Nullable
     public static IMediaSession getDefaultImpl() {
-      return Proxy.sDefaultImpl;
+      return Proxy.defaultImpl;
     }
   }
 

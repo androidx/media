@@ -133,7 +133,7 @@ private fun MediaPlayerScreen(player: Player, modifier: Modifier = Modifier) {
 
     if (showControls) {
       // drawn on top of a potential shutter
-      MinimalControls(player, Modifier.align(Alignment.Center))
+      MinimalControls(player, scaledModifier.fillMaxWidth().align(Alignment.Center))
       ExtraControls(
         player,
         Modifier.fillMaxWidth()

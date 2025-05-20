@@ -20,6 +20,7 @@ import static androidx.media3.common.util.Assertions.checkNotEmpty;
 import static androidx.media3.common.util.Assertions.checkState;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
+import android.annotation.SuppressLint;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.SystemClock;
@@ -242,6 +243,7 @@ public final class LibraryResult<V> {
    *
    * @param errorCode The error code.
    */
+  @SuppressLint("WrongConstant") // Setting Code on SessionError.Code.
   public static <V> LibraryResult<V> ofError(@Code int errorCode) {
     return ofError(new SessionError(errorCode, SessionError.DEFAULT_ERROR_MESSAGE, Bundle.EMPTY));
   }
@@ -258,6 +260,7 @@ public final class LibraryResult<V> {
    * @param errorCode The error code.
    * @param params The optional parameters to describe the error.
    */
+  @SuppressLint("WrongConstant") // Setting Code on SessionError.Code.
   public static <V> LibraryResult<V> ofError(@Code int errorCode, @Nullable LibraryParams params) {
     return new LibraryResult<>(
         /* resultCode= */ errorCode,
@@ -274,6 +277,7 @@ public final class LibraryResult<V> {
    *
    * @param sessionError The {@link SessionError}.
    */
+  @SuppressLint("WrongConstant") // Setting Code on SessionError.Code.
   @UnstableApi
   public static <V> LibraryResult<V> ofError(SessionError sessionError) {
     return new LibraryResult<>(
@@ -293,6 +297,7 @@ public final class LibraryResult<V> {
    * @param sessionError The {@link SessionError}.
    * @param params The {@link LibraryParams} sent by the browser.
    */
+  @SuppressLint("WrongConstant") // Setting Code on SessionError.Code.
   @UnstableApi
   public static <V> LibraryResult<V> ofError(SessionError sessionError, LibraryParams params) {
     return new LibraryResult<>(

@@ -35,7 +35,6 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
 import android.media.Image;
-import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.metrics.LogSessionId;
 import android.opengl.EGLContext;
@@ -73,6 +72,8 @@ import androidx.media3.exoplayer.video.MediaCodecVideoRenderer;
 import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
 import androidx.media3.exoplayer.video.VideoFrameReleaseControl;
 import androidx.media3.extractor.ExtractorOutput;
+import androidx.media3.muxer.BufferInfo;
+import androidx.media3.muxer.Muxer;
 import androidx.media3.muxer.MuxerException;
 import androidx.media3.test.utils.BitmapPixelTestUtil;
 import androidx.media3.test.utils.FakeExtractorOutput;
@@ -311,15 +312,19 @@ public final class AndroidTestUtil {
                   .build())
           .build();
 
-  /** This file contains an edit lists that subtacts 1 second to all video frames. */
-  public static final AssetInfo MP4_NEGATIVE_SHIFT_EDIT_LIST =
-      new AssetInfo.Builder("asset:///media/mp4/edit_list_negative_shift.mp4")
+  /**
+   * This file has been edited to show a visual stopwatch to make it easier to know when frames were
+   * presented in the original video.
+   */
+  public static final AssetInfo MP4_VISUAL_TIMESTAMPS =
+      new AssetInfo.Builder(
+              "asset:///media/mp4/internal_emulator_transformer_output_visual_timestamps.mp4")
           .setVideoFormat(
               new Format.Builder()
                   .setSampleMimeType(VIDEO_H264)
-                  .setWidth(1920)
-                  .setHeight(1080)
-                  .setFrameRate(30.f)
+                  .setWidth(1280)
+                  .setHeight(720)
+                  .setFrameRate(29.97f)
                   .build())
           .build();
 
@@ -1430,7 +1435,7 @@ public final class AndroidTestUtil {
     }
 
     @Override
-    public void writeSampleData(int trackId, ByteBuffer data, MediaCodec.BufferInfo bufferInfo)
+    public void writeSampleData(int trackId, ByteBuffer data, BufferInfo bufferInfo)
         throws MuxerException {
       if (trackId == videoTrackId
           && bufferInfo.presentationTimeUs >= presentationTimeUsToBlockFrame) {

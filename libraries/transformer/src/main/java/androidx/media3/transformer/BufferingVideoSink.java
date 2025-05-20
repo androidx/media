@@ -112,7 +112,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Override
   public boolean isInitialized() {
-    return isInitialized;
+    return isInitialized || (videoSink != null && videoSink.isInitialized());
   }
 
   @Override
@@ -122,7 +122,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Override
   public void flush(boolean resetPosition) {
-    executeOrDelay(videoSink -> videoSink.flush(resetPosition));
+    // We should only flush videoSink during seeking. Flushing the videoSink during regular playback
+    // will cause unwanted stutter (b/414990914).
+    if (videoSink != null) {
+      videoSink.flush(resetPosition);
+    }
   }
 
   /**

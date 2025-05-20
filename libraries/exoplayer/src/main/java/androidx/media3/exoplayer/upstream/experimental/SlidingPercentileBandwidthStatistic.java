@@ -19,7 +19,6 @@ import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.exoplayer.upstream.experimental.BandwidthEstimator.ESTIMATE_NOT_AVAILABLE;
 
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import java.util.ArrayDeque;
 import java.util.TreeSet;
 
@@ -138,7 +137,7 @@ public class SlidingPercentileBandwidthStatistic implements BandwidthStatistic {
 
     @Override
     public int compareTo(Sample other) {
-      return Util.compareLong(this.bitrate, other.bitrate);
+      return Long.compare(this.bitrate, other.bitrate);
     }
   }
 }

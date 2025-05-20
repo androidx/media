@@ -42,6 +42,8 @@ dependencies {
     testImplementation project(modulePrefix + 'test-data')
     testImplementation 'com.squareup.okhttp3:mockwebserver:' + okhttpVersion
     testImplementation 'org.robolectric:robolectric:' + robolectricVersion
+    androidTestImplementation project(modulePrefix + 'test-utils')
+    androidTestImplementation 'androidx.test:runner:' + androidxTestRunnerVersion
 }
 
 ext {

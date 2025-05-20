@@ -18,6 +18,7 @@ package androidx.media3.test.utils;
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
+import static androidx.media3.common.util.Util.putInt24;
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -82,6 +83,7 @@ import java.lang.reflect.Modifier;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
+import java.nio.IntBuffer;
 import java.nio.ShortBuffer;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -96,6 +98,7 @@ import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.NonNull;
+import org.junit.function.ThrowingRunnable;
 import org.mockito.Mockito;
 
 /** Utility methods for tests. */
@@ -173,11 +176,37 @@ public class TestUtil {
     return array;
   }
 
+  /** Gets the underlying data of the {@link ByteBuffer} as a {@code byte[]}. */
+  public static byte[] createByteArray(ByteBuffer byteBuffer) {
+    byte[] content = new byte[byteBuffer.remaining()];
+    byteBuffer.get(content);
+    return content;
+  }
+
   /** Gets the underlying data of the {@link ByteBuffer} as a {@code float[]}. */
   public static float[] createFloatArray(ByteBuffer byteBuffer) {
     FloatBuffer buffer = byteBuffer.asFloatBuffer();
     float[] content = new float[buffer.remaining()];
     buffer.get(content);
+    return content;
+  }
+
+  /** Gets the underlying data of the {@link ByteBuffer} as a {@code int[]}. */
+  public static int[] createIntArray(ByteBuffer byteBuffer) {
+    IntBuffer buffer = byteBuffer.asIntBuffer();
+    int[] content = new int[buffer.remaining()];
+    buffer.get(content);
+    return content;
+  }
+
+  /**
+   * Gets the underlying data of the {@link ByteBuffer} as 24-bit integer values in {@code int[]}.
+   */
+  public static int[] createInt24Array(ByteBuffer byteBuffer) {
+    int[] content = new int[byteBuffer.remaining() / 3];
+    for (int i = 0; i < content.length; i++) {
+      content[i] = Util.getInt24(byteBuffer, byteBuffer.position() + i * 3);
+    }
     return content;
   }
 
@@ -198,9 +227,34 @@ public class TestUtil {
   }
 
   /** Creates a {@link ByteBuffer} containing the {@code data}. */
+  public static ByteBuffer createByteBuffer(int[] data) {
+    ByteBuffer buffer = ByteBuffer.allocateDirect(data.length * 4).order(ByteOrder.nativeOrder());
+    buffer.asIntBuffer().put(data);
+    return buffer;
+  }
+
+  /** Creates a {@link ByteBuffer} containing the {@code data}. */
   public static ByteBuffer createByteBuffer(short[] data) {
     ByteBuffer buffer = ByteBuffer.allocateDirect(data.length * 2).order(ByteOrder.nativeOrder());
     buffer.asShortBuffer().put(data);
+    return buffer;
+  }
+
+  /** Creates a {@link ByteBuffer} containing the {@code data}. */
+  public static ByteBuffer createByteBuffer(byte[] data) {
+    ByteBuffer buffer = ByteBuffer.allocateDirect(data.length).order(ByteOrder.nativeOrder());
+    buffer.put(data);
+    buffer.rewind();
+    return buffer;
+  }
+
+  /** Creates a {@link ByteBuffer} with the contents of {@code data} as 24-bit integers. */
+  public static ByteBuffer createInt24ByteBuffer(int[] data) {
+    ByteBuffer buffer = ByteBuffer.allocateDirect(data.length * 3).order(ByteOrder.nativeOrder());
+    for (int i : data) {
+      putInt24(buffer, i);
+    }
+    buffer.rewind();
     return buffer;
   }
 
@@ -957,6 +1011,29 @@ public class TestUtil {
     InstrumentationRegistry.getInstrumentation()
         .runOnMainSync(() -> surfaceView.set(new SurfaceView(context)));
     return surfaceView.get();
+  }
+
+  /**
+   * Repeats the potentially flaky test multiple times if needed.
+   *
+   * <p>Only use this method for tests with inherent randomness or systems-under-test that are not
+   * fully controllable, and where the reason for the the flakiness can be explained. Don't use this
+   * method if the test should always pass reliably.
+   *
+   * @param maxRepetitions The maximum number of repetitions before failing the test.
+   * @param testImpl The test implementation.
+   */
+  public static void repeatFlakyTest(int maxRepetitions, ThrowingRunnable testImpl) {
+    for (int i = 0; i < maxRepetitions; i++) {
+      try {
+        testImpl.run();
+        break;
+      } catch (Throwable e) {
+        if (i == maxRepetitions - 1) {
+          Util.sneakyThrow(e);
+        }
+      }
+    }
   }
 
   private static final class NoUidOrShufflingTimeline extends Timeline {

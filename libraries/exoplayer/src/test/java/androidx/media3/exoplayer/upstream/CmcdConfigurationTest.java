@@ -18,6 +18,7 @@ package androidx.media3.exoplayer.upstream;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -133,5 +134,17 @@ public class CmcdConfigurationTest {
             cmcdConfiguration.requestConfig.getRequestedMaximumThroughputKbps(
                 /* throughputKbps= */ 100))
         .isEqualTo(200);
+  }
+
+  @Test
+  public void customFactory_returnsNull() {
+    CmcdConfiguration.Factory cmcdConfigurationFactory = mediaItem -> null;
+    MediaItem mediaItem = new MediaItem.Builder().setMediaId(TEST_MEDIA_ID).build();
+
+    @Nullable
+    CmcdConfiguration cmcdConfiguration =
+        cmcdConfigurationFactory.createCmcdConfiguration(mediaItem);
+
+    assertThat(cmcdConfiguration).isNull();
   }
 }

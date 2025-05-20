@@ -16,7 +16,6 @@
 package androidx.media3.test.utils;
 
 import android.content.Context;
-import android.media.MediaCodec;
 import android.os.Looper;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -25,14 +24,17 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import androidx.media3.muxer.BufferInfo;
+import androidx.media3.muxer.Muxer;
 import androidx.media3.muxer.MuxerException;
 import androidx.media3.transformer.AssetLoader;
 import androidx.media3.transformer.Codec;
+import androidx.media3.transformer.Composition;
 import androidx.media3.transformer.DefaultAssetLoaderFactory;
 import androidx.media3.transformer.DefaultDecoderFactory;
 import androidx.media3.transformer.DefaultEncoderFactory;
 import androidx.media3.transformer.DefaultMuxer;
-import androidx.media3.transformer.Muxer;
+import androidx.media3.transformer.ExportResult;
 import androidx.media3.transformer.Transformer;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -59,6 +61,7 @@ public final class TestTransformerBuilder {
 
   private @MonotonicNonNull String audioMimeType;
   private boolean trimOptimizationEnabled;
+  private boolean mp4EditListTrimEnabled;
   private long maxDelayBetweenMuxerSamplesMs;
   private AssetLoader.Factory assetLoaderFactory;
   private Muxer.Factory muxerFactory;
@@ -106,6 +109,19 @@ public final class TestTransformerBuilder {
   public TestTransformerBuilder experimentalSetTrimOptimizationEnabled(
       boolean trimOptimizationEnabled) {
     this.trimOptimizationEnabled = trimOptimizationEnabled;
+    return this;
+  }
+
+  /**
+   * Sets whether to use an MP4 edit list for trimming.
+   *
+   * @param enabled Whether to enable the trim optimization.
+   * @return This builder.
+   * @see Transformer.Builder#experimentalSetMp4EditListTrimEnabled(boolean)
+   */
+  @CanIgnoreReturnValue
+  public TestTransformerBuilder experimentalSetMp4EditListTrimEnabled(boolean enabled) {
+    this.mp4EditListTrimEnabled = enabled;
     return this;
   }
 
@@ -217,6 +233,7 @@ public final class TestTransformerBuilder {
     Transformer.Builder transformerBuilder =
         new Transformer.Builder(context)
             .experimentalSetTrimOptimizationEnabled(trimOptimizationEnabled)
+            .experimentalSetMp4EditListTrimEnabled(mp4EditListTrimEnabled)
             .setMaxDelayBetweenMuxerSamplesMs(maxDelayBetweenMuxerSamplesMs)
             .setAssetLoaderFactory(assetLoaderFactory)
             .setMuxerFactory(
@@ -267,8 +284,7 @@ public final class TestTransformerBuilder {
     }
 
     @Override
-    public void writeSampleData(
-        int trackId, ByteBuffer byteBuffer, MediaCodec.BufferInfo bufferInfo)
+    public void writeSampleData(int trackId, ByteBuffer byteBuffer, BufferInfo bufferInfo)
         throws MuxerException {
       throw new MuxerException("Failed to write sample data", new RuntimeException());
     }

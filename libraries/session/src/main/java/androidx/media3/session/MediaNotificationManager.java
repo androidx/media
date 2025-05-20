@@ -461,6 +461,9 @@ import java.util.concurrent.TimeoutException;
 
     public ControllerInfo(ListenableFuture<MediaController> controllerFuture) {
       this.controllerFuture = controllerFuture;
+      // Start in the 'dismissed' state to wait for an explicit prepare or play signal to show the
+      // first notification.
+      wasNotificationDismissed = true;
     }
   }
 

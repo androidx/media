@@ -80,6 +80,15 @@ import java.util.Objects;
      * @return The playback position relative to the start of playback, in microseconds.
      */
     long getCurrentPositionUs(boolean sourceEnded);
+
+    /**
+     * Returns whether this sink should {@linkplain AudioGraphInputAudioSink#hasPendingData()
+     * return} that it has pending data that has not been consumed.
+     *
+     * <p>Normally, this signal corresponds to whether the last item in the audio pipeline has
+     * pending frames waiting to be output.
+     */
+    boolean hasPendingData();
   }
 
   private final Controller controller;
@@ -203,7 +212,7 @@ import java.util.Objects;
 
   @Override
   public boolean hasPendingData() {
-    return false;
+    return controller.hasPendingData();
   }
 
   @Override

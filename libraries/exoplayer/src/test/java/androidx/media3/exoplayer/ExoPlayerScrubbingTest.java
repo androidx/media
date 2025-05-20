@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer;
 
+import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.test.utils.FakeTimeline.TimelineWindowDefinition.DEFAULT_WINDOW_DURATION_US;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
 import static com.google.common.truth.Truth.assertThat;
@@ -27,12 +28,17 @@ import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import android.graphics.SurfaceTexture;
+import android.media.MediaFormat;
+import android.os.Bundle;
 import android.view.Surface;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
+import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.Player;
 import androidx.media3.common.Player.PositionInfo;
@@ -40,10 +46,12 @@ import androidx.media3.common.Timeline;
 import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.exoplayer.analytics.AnalyticsListener;
-import androidx.media3.exoplayer.drm.DrmSessionManager;
+import androidx.media3.exoplayer.mediacodec.ForwardingMediaCodecAdapter;
+import androidx.media3.exoplayer.mediacodec.MediaCodecAdapter;
 import androidx.media3.exoplayer.video.VideoFrameMetadataListener;
 import androidx.media3.test.utils.ExoPlayerTestRunner;
 import androidx.media3.test.utils.FakeAudioRenderer;
+import androidx.media3.test.utils.FakeClock;
 import androidx.media3.test.utils.FakeMediaPeriod.TrackDataFactory;
 import androidx.media3.test.utils.FakeMediaSource;
 import androidx.media3.test.utils.FakeRenderer;
@@ -51,9 +59,13 @@ import androidx.media3.test.utils.FakeTimeline;
 import androidx.media3.test.utils.FakeTimeline.TimelineWindowDefinition;
 import androidx.media3.test.utils.FakeVideoRenderer;
 import androidx.media3.test.utils.TestExoPlayerBuilder;
+import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableSet;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
@@ -62,6 +74,10 @@ import org.mockito.InOrder;
 /** Tests for {@linkplain ExoPlayer#setScrubbingModeEnabled(boolean) scrubbing mode}. */
 @RunWith(AndroidJUnit4.class)
 public final class ExoPlayerScrubbingTest {
+
+  @Rule
+  public ShadowMediaCodecConfig shadowMediaCodecConfig =
+      ShadowMediaCodecConfig.withAllDefaultSupportedCodecs();
 
   @Test
   public void scrubbingMode_getterWorks() throws Exception {
@@ -88,7 +104,7 @@ public final class ExoPlayerScrubbingTest {
         new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT));
     player.prepare();
     player.play();
-    advance(player).untilPosition(0, 2000);
+    advance(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 2000);
 
     player.setScrubbingModeEnabled(true);
     verify(mockListener)
@@ -113,18 +129,19 @@ public final class ExoPlayerScrubbingTest {
     Player.Listener mockListener = mock(Player.Listener.class);
     player.addListener(mockListener);
     player.setMediaSource(
-        new FakeMediaSource(
-            timeline,
-            DrmSessionManager.DRM_UNSUPPORTED,
-            TrackDataFactory.samplesWithRateDurationAndKeyframeInterval(
-                /* initialSampleTimeUs= */ 0,
-                /* sampleRate= */ 30,
-                /* durationUs= */ DEFAULT_WINDOW_DURATION_US,
-                /* keyFrameInterval= */ 60),
-            ExoPlayerTestRunner.VIDEO_FORMAT));
+        new FakeMediaSource.Builder()
+            .setTimeline(timeline)
+            .setTrackDataFactory(
+                TrackDataFactory.samplesWithRateDurationAndKeyframeInterval(
+                    /* initialSampleTimeUs= */ 0,
+                    /* sampleRate= */ 30,
+                    /* durationUs= */ DEFAULT_WINDOW_DURATION_US,
+                    /* keyFrameInterval= */ 60))
+            .setFormats(ExoPlayerTestRunner.VIDEO_FORMAT)
+            .build());
     player.prepare();
     player.play();
-    advance(player).untilPosition(0, 1000);
+    advance(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 1000);
     VideoFrameMetadataListener mockVideoFrameMetadataListener =
         mock(VideoFrameMetadataListener.class);
     player.setVideoFrameMetadataListener(mockVideoFrameMetadataListener);
@@ -135,14 +152,14 @@ public final class ExoPlayerScrubbingTest {
     player.seekTo(3000);
     player.seekTo(3500);
     // Allow the 2500 and 3500 seeks to complete (the 3000 seek should be dropped).
-    advance(player).untilPendingCommandsAreFullyHandled();
+    advance(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 3500);
 
     player.seekTo(4000);
     player.seekTo(4500);
     // Disabling scrubbing mode should immediately execute the last received seek (pre-empting a
     // previous one), so we expect the 4500 seek to be resolved and the 4000 seek to be dropped.
     player.setScrubbingModeEnabled(false);
-    advance(player).untilPendingCommandsAreFullyHandled();
+    advance(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 4500);
     player.clearVideoFrameMetadataListener(mockVideoFrameMetadataListener);
     advance(player).untilState(Player.STATE_ENDED);
     player.release();
@@ -180,7 +197,7 @@ public final class ExoPlayerScrubbingTest {
             timeline, ExoPlayerTestRunner.VIDEO_FORMAT, ExoPlayerTestRunner.AUDIO_FORMAT));
     player.prepare();
     player.play();
-    advance(player).untilPosition(0, 1000);
+    advance(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 1000);
     TrackSelectionParameters trackSelectionParametersBeforeScrubbingMode =
         player.getTrackSelectionParameters();
     AnalyticsListener mockAnalyticsListener = mock(AnalyticsListener.class);
@@ -225,7 +242,7 @@ public final class ExoPlayerScrubbingTest {
             timeline, ExoPlayerTestRunner.VIDEO_FORMAT, ExoPlayerTestRunner.AUDIO_FORMAT));
     player.prepare();
     player.play();
-    advance(player).untilPosition(0, 1000);
+    advance(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 1000);
     AnalyticsListener mockAnalyticsListener = mock(AnalyticsListener.class);
     player.addAnalyticsListener(mockAnalyticsListener);
 
@@ -306,7 +323,7 @@ public final class ExoPlayerScrubbingTest {
             textFormat));
     player.prepare();
     player.play();
-    advance(player).untilPosition(0, 1000);
+    advance(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 1000);
     AnalyticsListener mockAnalyticsListener = mock(AnalyticsListener.class);
     player.addAnalyticsListener(mockAnalyticsListener);
 
@@ -349,7 +366,7 @@ public final class ExoPlayerScrubbingTest {
   }
 
   @Test
-  public void customizeParameters_beforeScrubbingModeEnabled() throws Exception {
+  public void customizeDisabledTracks_beforeScrubbingModeEnabled() throws Exception {
     Timeline timeline = new FakeTimeline();
     ExoPlayer player =
         new TestExoPlayerBuilder(ApplicationProvider.getApplicationContext()).build();
@@ -365,7 +382,7 @@ public final class ExoPlayerScrubbingTest {
             timeline, ExoPlayerTestRunner.VIDEO_FORMAT, ExoPlayerTestRunner.AUDIO_FORMAT));
     player.prepare();
     player.play();
-    advance(player).untilPosition(0, 1000);
+    advance(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 1000);
     AnalyticsListener mockAnalyticsListener = mock(AnalyticsListener.class);
     player.addAnalyticsListener(mockAnalyticsListener);
 
@@ -381,7 +398,7 @@ public final class ExoPlayerScrubbingTest {
   }
 
   @Test
-  public void customizeParameters_duringScrubbingMode() throws Exception {
+  public void customizeDisabledTracks_duringScrubbingMode() throws Exception {
     Timeline timeline = new FakeTimeline();
     ExoPlayer player =
         new TestExoPlayerBuilder(ApplicationProvider.getApplicationContext()).build();
@@ -392,7 +409,7 @@ public final class ExoPlayerScrubbingTest {
             timeline, ExoPlayerTestRunner.VIDEO_FORMAT, ExoPlayerTestRunner.AUDIO_FORMAT));
     player.prepare();
     player.play();
-    advance(player).untilPosition(0, 1000);
+    advance(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 1000);
     AnalyticsListener mockAnalyticsListener = mock(AnalyticsListener.class);
     player.addAnalyticsListener(mockAnalyticsListener);
 
@@ -411,5 +428,157 @@ public final class ExoPlayerScrubbingTest {
 
     player.release();
     surface.release();
+  }
+
+  @Test
+  public void fractionalSeekTolerance_isPropagated() throws Exception {
+    Timeline timeline =
+        new FakeTimeline(
+            new TimelineWindowDefinition.Builder().setWindowPositionInFirstPeriodUs(0).build());
+    ExoPlayer player =
+        new TestExoPlayerBuilder(ApplicationProvider.getApplicationContext()).build();
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
+    Player.Listener mockListener = mock(Player.Listener.class);
+    player.addListener(mockListener);
+    player.setScrubbingModeParameters(
+        new ScrubbingModeParameters.Builder()
+            .setFractionalSeekTolerance(/* toleranceBefore= */ 0.1, /* toleranceAfter= */ 0.1)
+            .build());
+    player.setMediaSource(
+        new FakeMediaSource.Builder()
+            .setTimeline(timeline)
+            .setTrackDataFactory(
+                TrackDataFactory.samplesWithRateDurationAndKeyframeInterval(
+                    /* initialSampleTimeUs= */ 0,
+                    /* sampleRate= */ 30,
+                    /* durationUs= */ DEFAULT_WINDOW_DURATION_US,
+                    /* keyFrameInterval= */ 60))
+            .setSyncSampleTimesUs(new long[] {0, 2_000_000, 4_000_000, 6_000_000, 8_000_000})
+            .setFormats(ExoPlayerTestRunner.VIDEO_FORMAT)
+            .build());
+    player.prepare();
+    player.play();
+    advance(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 1000);
+    VideoFrameMetadataListener mockVideoFrameMetadataListener =
+        mock(VideoFrameMetadataListener.class);
+    player.setVideoFrameMetadataListener(mockVideoFrameMetadataListener);
+
+    player.setScrubbingModeEnabled(true);
+    advance(player).untilPendingCommandsAreFullyHandled();
+    player.seekTo(2500);
+    advance(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 2000);
+    player.setScrubbingModeEnabled(false);
+    player.clearVideoFrameMetadataListener(mockVideoFrameMetadataListener);
+    advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+    surface.release();
+
+    verify(mockVideoFrameMetadataListener)
+        .onVideoFrameAboutToBeRendered(eq(2_000_000L), anyLong(), any(), any());
+  }
+
+  @Test
+  public void operatingRateOverride_propagatedToMediaCodec() throws Exception {
+    AtomicReference<MediaCodecAdapter> spyVideoMediaCodecAdapter = new AtomicReference<>();
+    DefaultRenderersFactory renderersFactory =
+        new DefaultRenderersFactory(ApplicationProvider.getApplicationContext()) {
+          @Override
+          protected MediaCodecAdapter.Factory getCodecAdapterFactory() {
+            MediaCodecAdapter.Factory codecAdapterFactory = super.getCodecAdapterFactory();
+            return configuration -> {
+              MediaCodecAdapter codecAdapter = codecAdapterFactory.createAdapter(configuration);
+              if (MimeTypes.isVideo(configuration.codecInfo.mimeType)) {
+                codecAdapter = spy(new ForwardingMediaCodecAdapter(codecAdapter));
+                checkState(
+                    spyVideoMediaCodecAdapter.compareAndSet(
+                        /* expectedValue= */ null, /* newValue= */ codecAdapter));
+              }
+              return codecAdapter;
+            };
+          }
+        };
+    // This test needs to include MCVR, so we don't use TestExoPlayerBuilder (which uses
+    // FakeVideoRenderer).
+    ExoPlayer player =
+        new ExoPlayer.Builder(ApplicationProvider.getApplicationContext(), renderersFactory)
+            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .build();
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
+    player.setMediaItem(MediaItem.fromUri("asset:///media/mp4/sample.mp4"));
+    player.prepare();
+    player.play();
+    advance(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 300);
+    player.setScrubbingModeEnabled(true);
+    advance(player).untilPendingCommandsAreFullyHandled();
+    player.seekTo(/* mediaItemIndex= */ 0, /* positionMs= */ 800);
+    advance(player).untilPosition(0, 800);
+    player.setScrubbingModeEnabled(false);
+    advance(player).untilPendingCommandsAreFullyHandled();
+    player.release();
+    surface.release();
+
+    ArgumentCaptor<Bundle> codecParametersCaptor = ArgumentCaptor.forClass(Bundle.class);
+    verify(spyVideoMediaCodecAdapter.get(), times(2))
+        .setParameters(codecParametersCaptor.capture());
+    List<Bundle> mediaCodecParameters = codecParametersCaptor.getAllValues();
+    assertThat(mediaCodecParameters.get(0).containsKey(MediaFormat.KEY_OPERATING_RATE)).isTrue();
+    assertThat(mediaCodecParameters.get(0).getFloat(MediaFormat.KEY_OPERATING_RATE)).isEqualTo(960);
+    assertThat(mediaCodecParameters.get(1).containsKey(MediaFormat.KEY_OPERATING_RATE)).isTrue();
+    assertThat(mediaCodecParameters.get(1).getFloat(MediaFormat.KEY_OPERATING_RATE))
+        .isWithin(0.01f)
+        .of(29.97f);
+  }
+
+  @Test
+  public void operatingRateIncreaseDisabled() throws Exception {
+    AtomicReference<MediaCodecAdapter> spyVideoMediaCodecAdapter = new AtomicReference<>();
+    DefaultRenderersFactory renderersFactory =
+        new DefaultRenderersFactory(ApplicationProvider.getApplicationContext()) {
+          @Override
+          protected MediaCodecAdapter.Factory getCodecAdapterFactory() {
+            MediaCodecAdapter.Factory codecAdapterFactory = super.getCodecAdapterFactory();
+            return configuration -> {
+              MediaCodecAdapter codecAdapter = codecAdapterFactory.createAdapter(configuration);
+              if (MimeTypes.isVideo(configuration.codecInfo.mimeType)) {
+                codecAdapter = spy(new ForwardingMediaCodecAdapter(codecAdapter));
+                checkState(
+                    spyVideoMediaCodecAdapter.compareAndSet(
+                        /* expectedValue= */ null, /* newValue= */ codecAdapter));
+              }
+              return codecAdapter;
+            };
+          }
+        };
+    // This test needs to include MCVR, so we don't use TestExoPlayerBuilder (which uses
+    // FakeVideoRenderer).
+    ExoPlayer player =
+        new ExoPlayer.Builder(ApplicationProvider.getApplicationContext(), renderersFactory)
+            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .build();
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
+    player.setMediaItem(MediaItem.fromUri("asset:///media/mp4/sample.mp4"));
+    player.setScrubbingModeParameters(
+        player
+            .getScrubbingModeParameters()
+            .buildUpon()
+            .setShouldIncreaseCodecOperatingRate(false)
+            .build());
+    player.prepare();
+    player.play();
+    advance(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 300);
+    player.setScrubbingModeEnabled(true);
+    advance(player).untilPendingCommandsAreFullyHandled();
+    player.seekTo(/* mediaItemIndex= */ 0, /* positionMs= */ 800);
+    advance(player).untilPosition(0, 800);
+    player.setScrubbingModeEnabled(false);
+    advance(player).untilPendingCommandsAreFullyHandled();
+    player.release();
+    surface.release();
+
+    verify(spyVideoMediaCodecAdapter.get(), never())
+        .setParameters(argThat(b -> b.containsKey(MediaFormat.KEY_OPERATING_RATE)));
   }
 }

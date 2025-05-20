@@ -31,15 +31,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
- * Provides a dedicated drawing [Surface] for media playbacks using a [Player].
+ * Provides a dedicated drawing [android.view.Surface] for media playbacks using a [Player].
  *
  * The player's video output is displayed with either a [android.view.SurfaceView] or a
  * [android.view.TextureView].
  *
- * [Player] takes care of attaching the rendered output to the [Surface] and clearing it, when it is
- * destroyed.
+ * [Player] takes care of attaching the rendered output to the [android.view.Surface] and clearing
+ * it, when it is destroyed.
  *
  * See
  * [Choosing a surface type](https://developer.android.com/media/media3/ui/playerview#surfacetype)
@@ -48,7 +50,7 @@ import androidx.media3.common.util.UnstableApi
 @UnstableApi
 @Composable
 fun PlayerSurface(
-  player: Player,
+  player: Player?,
   modifier: Modifier = Modifier,
   surfaceType: @SurfaceType Int = SURFACE_TYPE_SURFACE_VIEW,
 ) {
@@ -75,7 +77,7 @@ fun PlayerSurface(
 
 @Composable
 private fun <T : View> PlayerSurfaceInternal(
-  player: Player,
+  player: Player?,
   modifier: Modifier,
   createView: (Context) -> T,
   setVideoView: Player.(T) -> Unit,
@@ -83,17 +85,33 @@ private fun <T : View> PlayerSurfaceInternal(
 ) {
   var view by remember { mutableStateOf<T?>(null) }
   var registeredPlayer by remember { mutableStateOf<Player?>(null) }
+
   AndroidView(factory = { createView(it).apply { view = this } }, onReset = {}, modifier = modifier)
+
   view?.let { view ->
     LaunchedEffect(view, player) {
-      registeredPlayer?.let { previousPlayer ->
-        if (previousPlayer.isCommandAvailable(Player.COMMAND_SET_VIDEO_SURFACE))
-          previousPlayer.clearVideoView(view)
-        registeredPlayer = null
-      }
-      if (player.isCommandAvailable(Player.COMMAND_SET_VIDEO_SURFACE)) {
-        player.setVideoView(view)
-        registeredPlayer = player
+      if (player != null) {
+        registeredPlayer?.let { previousPlayer ->
+          if (previousPlayer.isCommandAvailable(Player.COMMAND_SET_VIDEO_SURFACE))
+            previousPlayer.clearVideoView(view)
+          registeredPlayer = null
+        }
+        if (player.isCommandAvailable(Player.COMMAND_SET_VIDEO_SURFACE)) {
+          player.setVideoView(view)
+          registeredPlayer = player
+        }
+      } else {
+        // Now that our player got null'd, we are not in a rush to get the old view from the
+        // previous player. Instead, we schedule clearing of the view for later on the main thread,
+        // since that player might have a new view attached to it in the meantime. This will avoid
+        // unnecessarily creating a Surface placeholder.
+        withContext(Dispatchers.Main) {
+          registeredPlayer?.let { previousPlayer ->
+            if (previousPlayer.isCommandAvailable(Player.COMMAND_SET_VIDEO_SURFACE))
+              previousPlayer.clearVideoView(view)
+            registeredPlayer = null
+          }
+        }
       }
     }
   }

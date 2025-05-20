@@ -197,6 +197,72 @@ public class DefaultVideoFrameProcessorTest {
   }
 
   @Test
+  public void registerInputStream_andFlushTwice_onInputStreamRegisteredIsInvokedCorrectly()
+      throws Exception {
+    AtomicReference<Exception> videoFrameProcessingException = new AtomicReference<>();
+    CountDownLatch countDownLatch = new CountDownLatch(3);
+    Queue<InputStreamInfo> registeredInputStreamInfoWidths = new ConcurrentLinkedQueue<>();
+    defaultVideoFrameProcessor =
+        createDefaultVideoFrameProcessor(
+            new VideoFrameProcessor.Listener() {
+              @Override
+              public void onInputStreamRegistered(
+                  @VideoFrameProcessor.InputType int inputType,
+                  Format format,
+                  List<Effect> effects) {
+                registeredInputStreamInfoWidths.add(
+                    new InputStreamInfo(inputType, format, effects));
+                countDownLatch.countDown();
+              }
+
+              @Override
+              public void onError(VideoFrameProcessingException exception) {
+                videoFrameProcessingException.set(exception);
+              }
+            });
+
+    InputStreamInfo stream1 =
+        new InputStreamInfo(
+            VideoFrameProcessor.INPUT_TYPE_BITMAP,
+            new Format.Builder()
+                .setColorInfo(ColorInfo.SRGB_BT709_FULL)
+                .setWidth(100)
+                .setHeight(100)
+                .build(),
+            ImmutableList.of());
+    InputStreamInfo stream2 =
+        new InputStreamInfo(
+            VideoFrameProcessor.INPUT_TYPE_BITMAP,
+            new Format.Builder()
+                .setColorInfo(ColorInfo.SRGB_BT709_FULL)
+                .setWidth(200)
+                .setHeight(200)
+                .build(),
+            ImmutableList.of(new Contrast(.5f)));
+    InputStreamInfo stream3 =
+        new InputStreamInfo(
+            VideoFrameProcessor.INPUT_TYPE_BITMAP,
+            new Format.Builder()
+                .setColorInfo(ColorInfo.SRGB_BT709_FULL)
+                .setWidth(300)
+                .setHeight(300)
+                .build(),
+            ImmutableList.of());
+
+    registerInputStream(defaultVideoFrameProcessor, stream1);
+    registerInputStream(defaultVideoFrameProcessor, stream2);
+    defaultVideoFrameProcessor.flush();
+    defaultVideoFrameProcessor.flush();
+    registerInputStream(defaultVideoFrameProcessor, stream3);
+
+    assertThat(countDownLatch.await(INPUT_REGISTRATION_TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(videoFrameProcessingException.get()).isNull();
+    assertThat(registeredInputStreamInfoWidths)
+        .containsExactly(stream1, stream2, stream3)
+        .inOrder();
+  }
+
+  @Test
   public void
       registerInputStream_withManualFrameRendering_configuresTheSecondStreamAfterRenderingAllFramesFromTheFirst()
           throws Exception {

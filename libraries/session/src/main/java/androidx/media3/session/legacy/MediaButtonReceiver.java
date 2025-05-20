@@ -166,27 +166,27 @@ public class MediaButtonReceiver extends BroadcastReceiver {
   }
 
   private static class MediaButtonConnectionCallback extends MediaBrowserCompat.ConnectionCallback {
-    private final Context mContext;
-    private final Intent mIntent;
-    private final PendingResult mPendingResult;
+    private final Context context;
+    private final Intent intent;
+    private final PendingResult pendingResult;
 
-    @Nullable private MediaBrowserCompat mMediaBrowser;
+    @Nullable private MediaBrowserCompat mediaBrowser;
 
     MediaButtonConnectionCallback(Context context, Intent intent, PendingResult pendingResult) {
-      mContext = context;
-      mIntent = intent;
-      mPendingResult = pendingResult;
+      this.context = context;
+      this.intent = intent;
+      this.pendingResult = pendingResult;
     }
 
     void setMediaBrowser(MediaBrowserCompat mediaBrowser) {
-      mMediaBrowser = mediaBrowser;
+      this.mediaBrowser = mediaBrowser;
     }
 
     @Override
     public void onConnected() {
       MediaControllerCompat mediaController =
-          new MediaControllerCompat(mContext, checkNotNull(mMediaBrowser).getSessionToken());
-      KeyEvent ke = mIntent.getParcelableExtra(Intent.EXTRA_KEY_EVENT);
+          new MediaControllerCompat(context, checkNotNull(mediaBrowser).getSessionToken());
+      KeyEvent ke = intent.getParcelableExtra(Intent.EXTRA_KEY_EVENT);
       mediaController.dispatchMediaButtonEvent(ke);
       finish();
     }
@@ -202,8 +202,8 @@ public class MediaButtonReceiver extends BroadcastReceiver {
     }
 
     private void finish() {
-      checkNotNull(mMediaBrowser).disconnect();
-      mPendingResult.finish();
+      checkNotNull(mediaBrowser).disconnect();
+      pendingResult.finish();
     }
   }
 

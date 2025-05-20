@@ -553,7 +553,7 @@ DECODER_FUNC(jlong, gav1Init, jint threads) {
   const jclass outputBufferClass =
       env->FindClass("androidx/media3/decoder/VideoDecoderOutputBuffer");
   context->decoder_private_field =
-      env->GetFieldID(outputBufferClass, "decoderPrivate", "I");
+      env->GetFieldID(outputBufferClass, "decoderPrivate", "J");
   context->output_mode_field = env->GetFieldID(outputBufferClass, "mode", "I");
   context->data_field =
       env->GetFieldID(outputBufferClass, "data", "Ljava/nio/ByteBuffer;");
@@ -664,7 +664,7 @@ DECODER_FUNC(jint, gav1GetFrame, jlong jContext, jobject jOutputBuffer,
       // Exception is thrown in Java when returning from the native call.
       return kStatusError;
     }
-    env->SetIntField(jOutputBuffer, context->decoder_private_field, buffer_id);
+    env->SetLongField(jOutputBuffer, context->decoder_private_field, buffer_id);
   }
 
   return kStatusOk;
@@ -674,7 +674,7 @@ DECODER_FUNC(jint, gav1RenderFrame, jlong jContext, jobject jSurface,
              jobject jOutputBuffer) {
   JniContext* const context = reinterpret_cast<JniContext*>(jContext);
   const int buffer_id =
-      env->GetIntField(jOutputBuffer, context->decoder_private_field);
+      env->GetLongField(jOutputBuffer, context->decoder_private_field);
   JniFrameBuffer* const jni_buffer =
       context->buffer_manager.GetBuffer(buffer_id);
 
@@ -749,8 +749,8 @@ DECODER_FUNC(jint, gav1RenderFrame, jlong jContext, jobject jSurface,
 DECODER_FUNC(void, gav1ReleaseFrame, jlong jContext, jobject jOutputBuffer) {
   JniContext* const context = reinterpret_cast<JniContext*>(jContext);
   const int buffer_id =
-      env->GetIntField(jOutputBuffer, context->decoder_private_field);
-  env->SetIntField(jOutputBuffer, context->decoder_private_field, -1);
+      env->GetLongField(jOutputBuffer, context->decoder_private_field);
+  env->SetLongField(jOutputBuffer, context->decoder_private_field, -1);
   context->jni_status_code = context->buffer_manager.ReleaseBuffer(buffer_id);
   if (context->jni_status_code != kJniStatusOk) {
     LOGE("%s", GetJniErrorMessage(context->jni_status_code));

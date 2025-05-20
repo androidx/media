@@ -30,5 +30,6 @@ public final class ScrubbingModeParametersTest {
   public void defaultValues() {
     assertThat(ScrubbingModeParameters.DEFAULT.disabledTrackTypes)
         .containsExactly(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_METADATA);
+    assertThat(ScrubbingModeParameters.DEFAULT.isMediaCodecFlushEnabled).isFalse();
   }
 }

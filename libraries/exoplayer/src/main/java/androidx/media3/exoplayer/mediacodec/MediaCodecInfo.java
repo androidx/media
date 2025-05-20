@@ -154,6 +154,11 @@ public final class MediaCodecInfo {
 
   private final boolean isVideo;
 
+  // Memoization for getMaxSupportedFrameRate
+  private int maxFrameRateWidth;
+  private int maxFrameRateHeight;
+  private float maxFrameRate;
+
   /**
    * Creates an instance.
    *
@@ -222,6 +227,9 @@ public final class MediaCodecInfo {
     this.secure = secure;
     this.detachedSurfaceSupported = detachedSurfaceSupported;
     isVideo = MimeTypes.isVideo(mimeType);
+    maxFrameRate = C.RATE_UNSET;
+    maxFrameRateWidth = C.LENGTH_UNSET;
+    maxFrameRateHeight = C.LENGTH_UNSET;
   }
 
   @Override
@@ -436,8 +444,9 @@ public final class MediaCodecInfo {
       if (oldFormat.rotationDegrees != newFormat.rotationDegrees) {
         discardReasons |= DISCARD_REASON_VIDEO_ROTATION_CHANGED;
       }
-      if (!adaptive
-          && (oldFormat.width != newFormat.width || oldFormat.height != newFormat.height)) {
+      boolean resolutionChanged =
+          oldFormat.width != newFormat.width || oldFormat.height != newFormat.height;
+      if (!adaptive && resolutionChanged) {
         discardReasons |= DISCARD_REASON_VIDEO_RESOLUTION_CHANGED;
       }
       if ((!ColorInfo.isEquivalentToAssumedSdrDefault(oldFormat.colorInfo)
@@ -448,6 +457,17 @@ public final class MediaCodecInfo {
       }
       if (needsAdaptationReconfigureWorkaround(name)
           && !oldFormat.initializationDataEquals(newFormat)) {
+        discardReasons |= DISCARD_REASON_WORKAROUND;
+      }
+
+      if (oldFormat.decodedWidth != Format.NO_VALUE
+          && oldFormat.decodedHeight != Format.NO_VALUE
+          && oldFormat.decodedWidth == newFormat.decodedWidth
+          && oldFormat.decodedHeight == newFormat.decodedHeight
+          && resolutionChanged) {
+        // Work around a bug where MediaCodec fails to adapt between formats if the compressed
+        // picture dimensions match but the cropped region for display differs.
+        // See b/409036359.
         discardReasons |= DISCARD_REASON_WORKAROUND;
       }
 
@@ -557,6 +577,44 @@ public final class MediaCodecInfo {
       logAssumedSupport("sizeAndRate.rotated, " + width + "x" + height + "@" + frameRate);
     }
     return true;
+  }
+
+  /**
+   * Returns the max video frame rate that this codec can support at the provided resolution, or
+   * {@link C#RATE_UNSET} if this is not a video codec.
+   */
+  public float getMaxSupportedFrameRate(int width, int height) {
+    if (!isVideo) {
+      return C.RATE_UNSET;
+    }
+    if (maxFrameRate != C.RATE_UNSET
+        && maxFrameRateWidth == width
+        && maxFrameRateHeight == height) {
+      return maxFrameRate;
+    }
+    maxFrameRate = computeMaxSupportedFrameRate(width, height);
+    maxFrameRateWidth = width;
+    maxFrameRateHeight = height;
+    return maxFrameRate;
+  }
+
+  private float computeMaxSupportedFrameRate(int width, int height) {
+    // TODO: b/400765670 - Use the PerformancePoint API for this when it's available. Without
+    // that API, we binary search instead.
+    float maxFrameRate = 1024;
+    float minFrameRate = 0;
+    if (isVideoSizeAndRateSupportedV21(width, height, maxFrameRate)) {
+      return maxFrameRate;
+    }
+    while (Math.abs(maxFrameRate - minFrameRate) > 5f) {
+      float testFrameRate = minFrameRate + (maxFrameRate - minFrameRate) / 2;
+      if (isVideoSizeAndRateSupportedV21(width, height, testFrameRate)) {
+        minFrameRate = testFrameRate;
+      } else {
+        maxFrameRate = testFrameRate;
+      }
+    }
+    return minFrameRate;
   }
 
   /**

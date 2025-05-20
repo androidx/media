@@ -19,6 +19,7 @@ import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_DISABLED;
 import static androidx.media3.common.TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_REQUIRED;
 import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.exoplayer.RendererCapabilities.AUDIO_OFFLOAD_GAPLESS_SUPPORTED;
 import static androidx.media3.exoplayer.RendererCapabilities.AUDIO_OFFLOAD_NOT_SUPPORTED;
@@ -2403,6 +2404,10 @@ public class DefaultTrackSelector extends MappingTrackSelector
   @GuardedBy("lock")
   private Parameters parameters;
 
+  @GuardedBy("lock")
+  @Nullable
+  private Thread playbackThread;
+
   @Nullable private SpatializerWrapperV32 spatializer;
   private AudioAttributes audioAttributes;
 
@@ -2483,8 +2488,16 @@ public class DefaultTrackSelector extends MappingTrackSelector
 
   @Override
   public void release() {
+    synchronized (lock) {
+      if (playbackThread != null) {
+        checkState(
+            playbackThread == Thread.currentThread(),
+            "DefaultTrackSelector is accessed on the wrong thread.");
+      }
+    }
     if (SDK_INT >= 32 && spatializer != null) {
       spatializer.release();
+      spatializer = null;
     }
     super.release();
   }
@@ -2590,6 +2603,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
           throws ExoPlaybackException {
     Parameters parameters;
     synchronized (lock) {
+      playbackThread = Thread.currentThread();
       parameters = this.parameters;
     }
     if (parameters.constrainAudioChannelCountToDeviceCapabilities

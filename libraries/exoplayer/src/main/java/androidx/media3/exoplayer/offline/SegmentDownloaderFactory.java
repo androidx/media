@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.offline;
 
+import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.UnstableApi;
 import java.util.concurrent.Executor;
@@ -35,6 +36,15 @@ import java.util.concurrent.Executor;
    * same URI) should be merged into a single download segment, in milliseconds.
    */
   SegmentDownloaderFactory setMaxMergedSegmentStartTimeDiffMs(long maxMergedSegmentStartTimeDiffMs);
+
+  /** Sets the start position in microseconds that the download should start from. */
+  SegmentDownloaderFactory setStartPositionUs(long startPositionUs);
+
+  /**
+   * Sets the duration in microseconds from the {@code startPositionUs} to be downloaded, or {@link
+   * C#TIME_UNSET} if the media should be downloaded to the end.
+   */
+  SegmentDownloaderFactory setDurationUs(long durationUs);
 
   /**
    * Creates the segment downloader.

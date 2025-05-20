@@ -53,12 +53,12 @@ public class BufferingVideoSinkTest {
     BufferingVideoSink bufferingVideoSink = new BufferingVideoSink(context);
     VideoSink videoSinkMock = mock(VideoSink.class);
     bufferingVideoSink.startRendering();
-    bufferingVideoSink.flush(/* resetPosition= */ true);
+    bufferingVideoSink.signalEndOfCurrentInputStream();
     bufferingVideoSink.setVideoSink(videoSinkMock);
 
     InOrder inOrder = Mockito.inOrder(videoSinkMock);
     inOrder.verify(videoSinkMock).startRendering();
-    inOrder.verify(videoSinkMock).flush(/* resetPosition= */ true);
+    inOrder.verify(videoSinkMock).signalEndOfCurrentInputStream();
   }
 
   @Test
@@ -87,5 +87,23 @@ public class BufferingVideoSinkTest {
 
     verify(videoSinkMock, never()).startRendering();
     verify(videoSinkMock, never()).flush(/* resetPosition= */ true);
+  }
+
+  @Test
+  public void flush_withNullVideoSink_doesNotQueuePendingFlush() {
+    BufferingVideoSink bufferingVideoSink = new BufferingVideoSink(context);
+    VideoSink videoSinkMock = mock(VideoSink.class);
+    bufferingVideoSink.flush(/* resetPosition= */ true);
+    bufferingVideoSink.setVideoSink(videoSinkMock);
+    verify(videoSinkMock, never()).flush(/* resetPosition= */ true);
+  }
+
+  @Test
+  public void flush_withNonNullVideoSink_callsFlushImmediately() {
+    BufferingVideoSink bufferingVideoSink = new BufferingVideoSink(context);
+    VideoSink videoSinkMock = mock(VideoSink.class);
+    bufferingVideoSink.setVideoSink(videoSinkMock);
+    bufferingVideoSink.flush(/* resetPosition= */ true);
+    verify(videoSinkMock).flush(/* resetPosition= */ true);
   }
 }

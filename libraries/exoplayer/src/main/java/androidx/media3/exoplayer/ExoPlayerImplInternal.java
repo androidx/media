@@ -76,7 +76,9 @@ import androidx.media3.exoplayer.trackselection.TrackSelectorResult;
 import androidx.media3.exoplayer.upstream.BandwidthMeter;
 import androidx.media3.exoplayer.video.VideoFrameMetadataListener;
 import com.google.common.collect.ImmutableList;
+import com.google.common.math.DoubleMath;
 import java.io.IOException;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -173,6 +175,7 @@ import java.util.Objects;
   private static final int MSG_SET_VIDEO_FRAME_METADATA_LISTENER = 35;
   private static final int MSG_SET_SCRUBBING_MODE_ENABLED = 36;
   private static final int MSG_SEEK_COMPLETED_IN_SCRUBBING_MODE = 37;
+  private static final int MSG_SET_SCRUBBING_MODE_PARAMETERS = 38;
 
   private static final long BUFFERING_MAXIMUM_INTERVAL_MS =
       Util.usToMs(Renderer.DEFAULT_DURATION_TO_PROGRESS_US);
@@ -221,6 +224,8 @@ import java.util.Objects;
   private final boolean hasSecondaryRenderers;
   private final AudioFocusManager audioFocusManager;
   private SeekParameters seekParameters;
+  private ScrubbingModeParameters scrubbingModeParameters;
+  @Nullable private SeekParameters scrubbingModeSeekParameters;
   private boolean scrubbingModeEnabled;
   private boolean seekIsPendingWhileScrubbing;
   @Nullable private SeekPosition queuedSeekWhileScrubbing;
@@ -293,6 +298,7 @@ import java.util.Objects;
     this.preloadConfiguration = preloadConfiguration;
     this.analyticsCollector = analyticsCollector;
     this.volume = 1f;
+    this.scrubbingModeParameters = ScrubbingModeParameters.DEFAULT;
 
     playbackMaybeBecameStuckAtMs = C.TIME_UNSET;
     lastRebufferRealtimeMs = C.TIME_UNSET;
@@ -425,6 +431,12 @@ import java.util.Objects;
 
   public void setScrubbingModeEnabled(boolean scrubbingModeEnabled) {
     handler.obtainMessage(MSG_SET_SCRUBBING_MODE_ENABLED, scrubbingModeEnabled).sendToTarget();
+  }
+
+  public void setScrubbingModeParameters(ScrubbingModeParameters scrubbingModeParameters) {
+    handler
+        .obtainMessage(MSG_SET_SCRUBBING_MODE_PARAMETERS, scrubbingModeParameters)
+        .sendToTarget();
   }
 
   public void stop() {
@@ -701,6 +713,9 @@ import java.util.Objects;
           break;
         case MSG_SET_SCRUBBING_MODE_ENABLED:
           setScrubbingModeEnabledInternal((Boolean) msg.obj);
+          break;
+        case MSG_SET_SCRUBBING_MODE_PARAMETERS:
+          setScrubbingModeParametersInternal((ScrubbingModeParameters) msg.obj);
           break;
         case MSG_SET_FOREGROUND_MODE:
           setForegroundModeInternal(
@@ -1589,7 +1604,7 @@ import java.util.Objects;
               && newPeriodPositionUs != 0) {
             newPeriodPositionUs =
                 playingPeriodHolder.mediaPeriod.getAdjustedSeekPositionUs(
-                    newPeriodPositionUs, seekParameters);
+                    newPeriodPositionUs, getSeekParameters(window.durationUs));
           }
           if (Util.usToMs(newPeriodPositionUs) == Util.usToMs(playbackInfo.positionUs)
               && (playbackInfo.playbackState == Player.STATE_BUFFERING
@@ -1625,6 +1640,27 @@ import java.util.Objects;
               /* reportDiscontinuity= */ seekPositionAdjusted,
               Player.DISCONTINUITY_REASON_SEEK_ADJUSTMENT);
     }
+  }
+
+  private SeekParameters getSeekParameters(long durationUs) {
+    if (!scrubbingModeEnabled
+        || durationUs == C.TIME_UNSET
+        || scrubbingModeParameters.fractionalSeekToleranceBefore == null
+        || scrubbingModeParameters.fractionalSeekToleranceAfter == null) {
+      return seekParameters;
+    }
+    long toleranceBeforeUs =
+        DoubleMath.roundToLong(
+            scrubbingModeParameters.fractionalSeekToleranceBefore * durationUs, RoundingMode.FLOOR);
+    long toleranceAfterUs =
+        DoubleMath.roundToLong(
+            scrubbingModeParameters.fractionalSeekToleranceAfter * durationUs, RoundingMode.FLOOR);
+    if (scrubbingModeSeekParameters == null
+        || scrubbingModeSeekParameters.toleranceBeforeUs != toleranceBeforeUs
+        || scrubbingModeSeekParameters.toleranceAfterUs != toleranceAfterUs) {
+      scrubbingModeSeekParameters = new SeekParameters(toleranceBeforeUs, toleranceAfterUs);
+    }
+    return scrubbingModeSeekParameters;
   }
 
   private long seekToPeriodPosition(
@@ -1732,7 +1768,6 @@ import java.util.Objects;
 
   private void setScrubbingModeEnabledInternal(boolean scrubbingModeEnabled)
       throws ExoPlaybackException {
-    this.scrubbingModeEnabled = scrubbingModeEnabled;
     if (!scrubbingModeEnabled) {
       seekIsPendingWhileScrubbing = false;
       handler.removeMessages(MSG_SEEK_COMPLETED_IN_SCRUBBING_MODE);
@@ -1741,6 +1776,21 @@ import java.util.Objects;
         seekToInternal(queuedSeekWhileScrubbing, /* incrementAcks= */ false);
         queuedSeekWhileScrubbing = null;
       }
+    }
+    this.scrubbingModeEnabled = scrubbingModeEnabled;
+    applyScrubbingModeParameters();
+    // TODO: b/351775500 - Work out how to keep the boosted op rate until the final seek completes.
+  }
+
+  private void setScrubbingModeParametersInternal(ScrubbingModeParameters scrubbingModeParameters)
+      throws ExoPlaybackException {
+    this.scrubbingModeParameters = scrubbingModeParameters;
+    applyScrubbingModeParameters();
+  }
+
+  private void applyScrubbingModeParameters() throws ExoPlaybackException {
+    for (RendererHolder renderer : renderers) {
+      renderer.setScrubbingMode(scrubbingModeEnabled ? scrubbingModeParameters : null);
     }
   }
 
@@ -3886,7 +3936,7 @@ import java.util.Objects;
       if (comparePeriodIndex != 0) {
         return comparePeriodIndex;
       }
-      return Util.compareLong(resolvedPeriodTimeUs, other.resolvedPeriodTimeUs);
+      return Long.compare(resolvedPeriodTimeUs, other.resolvedPeriodTimeUs);
     }
   }
 

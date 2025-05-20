@@ -1135,7 +1135,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       PlayerWrapper playerWrapper = sessionImpl.getPlayerWrapper();
       playerWrapper.setLegacyExtras(sessionExtras);
       sessionCompat.setExtras(playerWrapper.getLegacyExtras());
-      sessionCompat.setPlaybackState(sessionImpl.getPlayerWrapper().createPlaybackStateCompat());
+      updateLegacySessionPlaybackState(sessionImpl.getPlayerWrapper());
     }
 
     @Override
@@ -1365,8 +1365,8 @@ import org.checkerframework.checker.initialization.qual.Initialized;
           currentMediaItem != null ? currentMediaItem.mediaId : MediaItem.DEFAULT_MEDIA_ID;
       @Nullable
       Uri newMediaUri =
-          currentMediaItem != null && currentMediaItem.localConfiguration != null
-              ? currentMediaItem.localConfiguration.uri
+          currentMediaItem != null && currentMediaItem.requestMetadata.mediaUri != null
+              ? currentMediaItem.requestMetadata.mediaUri
               : null;
 
       if (Objects.equals(lastMediaMetadata, newMediaMetadata)

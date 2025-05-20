@@ -370,6 +370,22 @@ public interface Player {
           adIndexInAdGroup);
     }
 
+    @Override
+    public String toString() {
+      String positionInfoString =
+          "mediaItem=" + mediaItemIndex + ", period=" + periodIndex + ", pos=" + positionMs;
+      if (adGroupIndex == C.INDEX_UNSET) {
+        return positionInfoString;
+      }
+      return positionInfoString
+          + ", contentPos="
+          + contentPositionMs
+          + ", adGroup="
+          + adGroupIndex
+          + ", ad="
+          + adIndexInAdGroup;
+    }
+
     /**
      * Returns whether this position info and the other position info would result in the same
      * {@link #toBundle() Bundle}.

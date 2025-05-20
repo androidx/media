@@ -103,6 +103,11 @@ public class DefaultDownloaderFactory implements DownloaderFactory {
             .setStreamKeys(request.streamKeys)
             .setCustomCacheKey(request.customCacheKey)
             .build();
+    if (request.timeRange != null) {
+      downloaderFactory
+          .setStartPositionUs(request.timeRange.startPositionUs)
+          .setDurationUs(request.timeRange.durationUs);
+    }
     return downloaderFactory.setExecutor(executor).create(mediaItem);
   }
 

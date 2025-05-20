@@ -34,6 +34,7 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.media.AudioManager;
+import android.net.Uri;
 import android.os.Bundle;
 import android.support.v4.media.MediaDescriptionCompat;
 import android.support.v4.media.MediaMetadataCompat;
@@ -1619,6 +1620,45 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
     assertThat(description.getMediaUri()).isEqualTo(mediaItem.requestMetadata.mediaUri);
     assertThat(description.getIconBitmap()).isNotNull();
     assertThat(TestUtils.equals(description.getExtras(), mediaItem.mediaMetadata.extras)).isTrue();
+  }
+
+  @Test
+  public void playlistChange_withRequestMetadataUri_setsCompatQueueAndMetadataUris()
+      throws Exception {
+    AtomicReference<Uri> uriFromQueueRef = new AtomicReference<>();
+    AtomicReference<Uri> uriFromMetadataRef = new AtomicReference<>();
+    CountDownLatch latch = new CountDownLatch(2);
+    MediaControllerCompat.Callback callback =
+        new MediaControllerCompat.Callback() {
+          @Override
+          public void onQueueChanged(List<QueueItem> queue) {
+            uriFromQueueRef.set(queue.get(0).getDescription().getMediaUri());
+            latch.countDown();
+          }
+
+          @Override
+          public void onMetadataChanged(MediaMetadataCompat metadata) {
+            uriFromMetadataRef.set(
+                Uri.parse(metadata.getString(MediaMetadataCompat.METADATA_KEY_MEDIA_URI)));
+            latch.countDown();
+          }
+        };
+    controllerCompat.registerCallback(callback, handler);
+    Uri testUri = Uri.parse("http://test.test");
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setMediaId("mediaId")
+            .setRequestMetadata(
+                new MediaItem.RequestMetadata.Builder().setMediaUri(testUri).build())
+            .build();
+    Timeline timeline = new PlaylistTimeline(ImmutableList.of(mediaItem));
+
+    session.getMockPlayer().setTimeline(timeline);
+    session.getMockPlayer().notifyTimelineChanged(Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(uriFromQueueRef.get()).isEqualTo(testUri);
+    assertThat(uriFromMetadataRef.get()).isEqualTo(testUri);
   }
 
   @Test

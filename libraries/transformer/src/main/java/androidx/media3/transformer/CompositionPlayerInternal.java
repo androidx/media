@@ -47,6 +47,7 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
   }
 
   private static final String TAG = "CompPlayerInternal";
+  private static final int MSG_SET_COMPOSITION = 0;
   private static final int MSG_START_RENDERING = 1;
   private static final int MSG_STOP_RENDERING = 2;
   private static final int MSG_SET_VOLUME = 3;
@@ -96,6 +97,10 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
   }
 
   // Public methods
+
+  public void setComposition(Composition composition) {
+    handler.obtainMessage(MSG_SET_COMPOSITION, composition).sendToTarget();
+  }
 
   public void startRendering() {
     handler.sendEmptyMessage(MSG_START_RENDERING);
@@ -181,6 +186,9 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
         case MSG_RELEASE:
           releaseInternal(/* conditionVariable= */ (ConditionVariable) message.obj);
           break;
+        case MSG_SET_COMPOSITION:
+          setCompositionInternal((Composition) message.obj);
+          break;
         default:
           maybeRaiseError(
               /* message= */ "Unknown message",
@@ -197,6 +205,14 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
   }
 
   // Internal methods
+
+  private void setCompositionInternal(Composition composition) {
+    playbackAudioGraphWrapper.setAudioProcessors(composition.effects.audioProcessors);
+    playbackVideoGraphWrapper.setCompositionEffects(composition.effects.videoEffects);
+    playbackVideoGraphWrapper.setCompositorSettings(composition.videoCompositorSettings);
+    playbackVideoGraphWrapper.setRequestOpenGlToneMapping(
+        composition.hdrMode == Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL);
+  }
 
   private void releaseInternal(ConditionVariable conditionVariable) {
     try {
