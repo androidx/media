@@ -622,6 +622,8 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
     public static final class Builder {
 
       private final String id;
+      private final Map<String, ClientDefinedAttribute> clientDefinedAttributes;
+
       @Nullable private Uri assetUri;
       @Nullable private Uri assetListUri;
       private long startDateUnixUs;
@@ -634,7 +636,6 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
       private long playoutLimitUs;
       private List<@Interstitial.SnapType String> snapTypes;
       private List<@Interstitial.NavigationRestriction String> restrictions;
-      private Map<String, ClientDefinedAttribute> clientDefinedAttributes;
 
       /**
        * Creates the builder.
@@ -643,20 +644,21 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
        */
       public Builder(String id) {
         this.id = id;
-        this.startDateUnixUs = C.TIME_UNSET;
-        this.endDateUnixUs = C.TIME_UNSET;
-        this.durationUs = C.TIME_UNSET;
-        this.plannedDurationUs = C.TIME_UNSET;
-        this.cue = new ArrayList<>();
-        this.resumeOffsetUs = C.TIME_UNSET;
-        this.playoutLimitUs = C.TIME_UNSET;
-        this.snapTypes = new ArrayList<>();
-        this.restrictions = new ArrayList<>();
-        this.clientDefinedAttributes = new HashMap<>();
+        startDateUnixUs = C.TIME_UNSET;
+        endDateUnixUs = C.TIME_UNSET;
+        durationUs = C.TIME_UNSET;
+        plannedDurationUs = C.TIME_UNSET;
+        cue = new ArrayList<>();
+        resumeOffsetUs = C.TIME_UNSET;
+        playoutLimitUs = C.TIME_UNSET;
+        snapTypes = new ArrayList<>();
+        restrictions = new ArrayList<>();
+        clientDefinedAttributes = new HashMap<>();
       }
 
       /** Sets the {@code assetUri}. */
-      public Builder setAssetUri(@Nullable Uri assetUri) {
+      @CanIgnoreReturnValue
+      public Builder setAssetUri(@Nullable Uri a1ssetUri) {
         if (assetUri == null) {
           return this;
         }
@@ -670,6 +672,7 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
       }
 
       /** Sets the {@code assetListUri}. */
+      @CanIgnoreReturnValue
       public Builder setAssetListUri(@Nullable Uri assetListUri) {
         if (assetListUri == null) {
           return this;
@@ -701,6 +704,7 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
       }
 
       /** Sets the {@code endDateUnixUs}. */
+      @CanIgnoreReturnValue
       public Builder setEndDateUnixUs(long endDateUnixUs) {
         if (endDateUnixUs == C.TIME_UNSET) {
           return this;
