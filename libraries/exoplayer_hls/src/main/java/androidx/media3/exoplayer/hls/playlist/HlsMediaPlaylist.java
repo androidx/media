@@ -613,31 +613,29 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
           clientDefinedAttributes);
     }
 
-    // If a Playlist contains two EXT-X-DATERANGE tags with the same ID
-    // attribute value, then any AttributeName that appears in both tags
-    // MUST have the same AttributeValue.  A Server MAY augment a Date Range
-    // with additional attributes by adding subsequent EXT-X-DATERANGE tags
-    // with the same ID attribute to a Playlist.  The client is responsible
-    // for consolidating the tags.  The subsequent EXT-X-DATERANGE tags can
-    // appear in a subsequent playlist update, in the case of live or event
-    // streams.
-    /** Builder for {@link Interstitial}. */
+
+    /**
+     * Builder for {@link Interstitial}.
+     *
+     * <p>See RFC 8216bis, section 4.4.5.1 for how to consolidate multiple interstitials with
+     * the same {@linkplain HlsMediaPlaylist.Interstitial#id ID}.
+     */
     public static final class Builder {
 
       private final String id;
       @Nullable private Uri assetUri;
       @Nullable private Uri assetListUri;
-      private long startDateUnixUs = C.TIME_UNSET;
-      private long endDateUnixUs = C.TIME_UNSET;
-      private long durationUs = C.TIME_UNSET;
-      private long plannedDurationUs = C.TIME_UNSET;
-      private List<@Interstitial.CueTriggerType String> cue = new ArrayList<>();
+      private long startDateUnixUs;
+      private long endDateUnixUs;
+      private long durationUs;
+      private long plannedDurationUs;
+      private List<@Interstitial.CueTriggerType String> cue;
       private boolean endOnNext;
-      private long resumeOffsetUs = C.TIME_UNSET;
-      private long playoutLimitUs = C.TIME_UNSET;
-      private List<@Interstitial.SnapType String> snapTypes = new ArrayList<>();
-      private List<@Interstitial.NavigationRestriction String> restrictions = new ArrayList<>();
-      private List<ClientDefinedAttribute> clientDefinedAttributes = new ArrayList<>();
+      private long resumeOffsetUs;
+      private long playoutLimitUs;
+      private List<@Interstitial.SnapType String> snapTypes;
+      private List<@Interstitial.NavigationRestriction String> restrictions;
+      private List<ClientDefinedAttribute> clientDefinedAttributes;
 
       /**
        * Creates the builder.
@@ -646,13 +644,25 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
        */
       public Builder(String id) {
         this.id = id;
+        this.startDateUnixUs = C.TIME_UNSET;
+        this.endDateUnixUs = C.TIME_UNSET;
+        this.durationUs = C.TIME_UNSET;
+        this.plannedDurationUs = C.TIME_UNSET;
+        this.cue = new ArrayList<>();
+        this.resumeOffsetUs = C.TIME_UNSET;
+        this.playoutLimitUs = C.TIME_UNSET;
+        this.snapTypes = new ArrayList<>();
+        this.restrictions = new ArrayList<>();
+        this.clientDefinedAttributes = new ArrayList<>();
       }
 
       /** Sets the {@code assetUri}. */
       public Builder setAssetUri(@Nullable Uri assetUri) {
-        if (assetUri == null) return this;
+        if (assetUri == null) {
+          return this;
+        }
         if (this.assetUri != null) {
-          Assertions.checkArgument(!this.assetUri.equals(assetUri),
+          checkArgument(this.assetUri.equals(assetUri),
               "Can't change assetUri from " + this.assetUri + " to " + assetUri);
         }
         this.assetUri = assetUri;
@@ -661,9 +671,11 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
 
       /** Sets the {@code assetListUri}. */
       public Builder setAssetListUri(@Nullable Uri assetListUri) {
-        if (assetListUri == null) return this;
+        if (assetListUri == null) {
+          return this;
+        }
         if (this.assetListUri != null) {
-          Assertions.checkArgument(!this.assetListUri.equals(assetListUri),
+          checkArgument(this.assetListUri.equals(assetListUri),
               "Can't change assetListUri from " + this.assetListUri + " to " + assetListUri);
         }
         this.assetListUri = assetListUri;
@@ -672,9 +684,11 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
 
       /** Sets the {@code startDateUnixUs}. */
       public Builder setStartDateUnixUs(long startDateUnixUs) {
-        if (startDateUnixUs == C.TIME_UNSET) return this;
+        if (startDateUnixUs == C.TIME_UNSET) {
+          return this;
+        }
         if (this.startDateUnixUs != C.TIME_UNSET) {
-          Assertions.checkArgument(this.startDateUnixUs != startDateUnixUs,
+          checkArgument(this.startDateUnixUs == startDateUnixUs,
               "Can't change startDateUnixUs from " + this.startDateUnixUs + " to " + startDateUnixUs);
         }
         this.startDateUnixUs = startDateUnixUs;
@@ -683,9 +697,11 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
 
       /** Sets the {@code endDateUnixUs}. */
       public Builder setEndDateUnixUs(long endDateUnixUs) {
-        if (endDateUnixUs == C.TIME_UNSET) return this;
+        if (endDateUnixUs == C.TIME_UNSET) {
+          return this;
+        }
         if (this.endDateUnixUs != C.TIME_UNSET) {
-          Assertions.checkArgument(this.endDateUnixUs != endDateUnixUs,
+          checkArgument(this.endDateUnixUs == endDateUnixUs,
               "Can't change endDateUnixUs from " + this.endDateUnixUs + " to " + endDateUnixUs);
         }
         this.endDateUnixUs = endDateUnixUs;
@@ -694,9 +710,11 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
 
       /** Sets the {@code durationUs}. */
       public Builder setDurationUs(long durationUs) {
-        if (durationUs == C.TIME_UNSET) return this;
+        if (durationUs == C.TIME_UNSET) {
+          return this;
+        }
         if (this.durationUs != C.TIME_UNSET) {
-          Assertions.checkArgument(this.durationUs != durationUs,
+          checkArgument(this.durationUs == durationUs,
               "Can't change durationUs from " + this.durationUs + " to " + durationUs);
         }
         this.durationUs = durationUs;
@@ -705,9 +723,11 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
 
       /** Sets the {@code plannedDurationUs}. */
       public Builder setPlannedDurationUs(long plannedDurationUs) {
-        if (plannedDurationUs == C.TIME_UNSET) return this;
+        if (plannedDurationUs == C.TIME_UNSET) {
+          return this;
+        }
         if (this.plannedDurationUs != C.TIME_UNSET) {
-          Assertions.checkArgument(this.plannedDurationUs != plannedDurationUs,
+          checkArgument(this.plannedDurationUs == plannedDurationUs,
               "Can't change plannedDurationUs from " + this.plannedDurationUs + " to " + plannedDurationUs);
         }
         this.plannedDurationUs = plannedDurationUs;
@@ -716,9 +736,11 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
 
       /** Sets the trigger {@code cue} types. */
       public Builder setCue(List<@Interstitial.CueTriggerType String> cue) {
-        if (cue.isEmpty()) return this;
+        if (cue.isEmpty()) {
+          return this;
+        }
         if (!this.cue.isEmpty()) {
-          Assertions.checkArgument(!this.cue.equals(cue),
+          checkArgument(this.cue.equals(cue),
               "Can't change cue from " + String.join(", ", this.cue) + " to " + String.join(", ", cue));
         }
         this.cue = cue;
@@ -727,16 +749,20 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
 
       /** Sets whether the interstitial {@code endOnNext}. */
       public Builder setEndOnNext(boolean endOnNext) {
-        if (!endOnNext) return this;
+        if (!endOnNext) {
+          return this;
+        }
         this.endOnNext = endOnNext;
         return this;
       }
 
       /** Sets the {@code resumeOffsetUs}. */
       public Builder setResumeOffsetUs(long resumeOffsetUs) {
-        if (resumeOffsetUs == C.TIME_UNSET) return this;
+        if (resumeOffsetUs == C.TIME_UNSET) {
+          return this;
+        }
         if (this.resumeOffsetUs != C.TIME_UNSET) {
-          Assertions.checkArgument(this.resumeOffsetUs != resumeOffsetUs,
+          checkArgument(this.resumeOffsetUs == resumeOffsetUs,
               "Can't change resumeOffsetUs from " + this.resumeOffsetUs + " to " + resumeOffsetUs);
         }
         this.resumeOffsetUs = resumeOffsetUs;
@@ -745,9 +771,11 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
 
       /** Sets the {@code playoutLimitUs}. */
       public Builder setPlayoutLimitUs(long playoutLimitUs) {
-        if (playoutLimitUs == C.TIME_UNSET) return this;
+        if (playoutLimitUs == C.TIME_UNSET) {
+          return this;
+        }
         if (this.playoutLimitUs != C.TIME_UNSET) {
-          Assertions.checkArgument(this.playoutLimitUs != playoutLimitUs,
+          checkArgument(this.playoutLimitUs == playoutLimitUs,
               "Can't change playoutLimitUs from " + this.playoutLimitUs + " to " + playoutLimitUs);
         }
         this.playoutLimitUs = playoutLimitUs;
@@ -756,9 +784,11 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
 
       /** Sets the {@code snapTypes}. */
       public Builder setSnapTypes(List<@Interstitial.SnapType String> snapTypes) {
-        if (snapTypes.isEmpty()) return this;
+        if (snapTypes.isEmpty()) {
+          return this;
+        }
         if (!this.snapTypes.isEmpty()) {
-          Assertions.checkArgument(!this.snapTypes.equals(snapTypes),
+          checkArgument(this.snapTypes.equals(snapTypes),
               "Can't change snapTypes from " + String.join(", ", this.snapTypes) + " to " + String.join(", ", snapTypes));
         }
         this.snapTypes = snapTypes;
@@ -767,9 +797,11 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
 
       /** Sets the {@code NavigationRestriction}. */
       public Builder setRestrictions(List<@Interstitial.NavigationRestriction String> restrictions) {
-        if (restrictions.isEmpty()) return this;
+        if (restrictions.isEmpty()) {
+          return this;
+        }
         if (!this.restrictions.isEmpty()) {
-          Assertions.checkArgument(!this.restrictions.equals(restrictions),
+          checkArgument(this.restrictions.equals(restrictions),
               "Can't change restrictions from " + String.join(", ", this.restrictions) + " to " + String.join(", ", restrictions));
         }
         this.restrictions = restrictions;
@@ -779,9 +811,11 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
       /** Sets the {@code clientDefinedAttributes}. */
       public Builder setClientDefinedAttributes(
           List<HlsMediaPlaylist.ClientDefinedAttribute> clientDefinedAttributes) {
-        if (clientDefinedAttributes.isEmpty()) return this;
+        if (clientDefinedAttributes.isEmpty()) {
+          return this;
+        }
         if (!this.clientDefinedAttributes.isEmpty()) {
-          Assertions.checkArgument(!this.clientDefinedAttributes.equals(clientDefinedAttributes));
+          checkArgument(this.clientDefinedAttributes.equals(clientDefinedAttributes));
         }
         this.clientDefinedAttributes = clientDefinedAttributes;
         return this;
