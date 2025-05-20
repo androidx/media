@@ -529,10 +529,12 @@ public class FragmentedMp4Extractor implements Extractor {
     while (true) {
       switch (parserState) {
         case STATE_READING_ATOM_HEADER:
-          if (!readAtomHeader(input, /* skipPayloadParsing= */ false)) {
+          if (!readAtomHeader(input)) {
             if (seekPositionBeforeSidxProcessing != C.INDEX_UNSET) {
               seekPosition.position = seekPositionBeforeSidxProcessing;
               seekPositionBeforeSidxProcessing = C.INDEX_UNSET;
+              extractorOutput.seekMap(chunkIndexMerger.merge());
+              haveOutputSeekMapFromMultipleSidx = true;
               return Extractor.RESULT_SEEK;
             } else {
               reorderingBufferQueue.flush();
@@ -559,8 +561,7 @@ public class FragmentedMp4Extractor implements Extractor {
     atomHeaderBytesRead = 0;
   }
 
-  private boolean readAtomHeader(ExtractorInput input, boolean skipPayloadParsing)
-      throws IOException {
+  private boolean readAtomHeader(ExtractorInput input) throws IOException {
     if (atomHeaderBytesRead == 0) {
       // Read the standard length atom header.
       if (!input.readFully(atomHeader.getData(), 0, Mp4Box.HEADER_SIZE, true)) {
@@ -595,7 +596,20 @@ public class FragmentedMp4Extractor implements Extractor {
           "Atom size less than header length (unsupported).");
     }
 
-    if (skipPayloadParsing) {
+    if (seekPositionBeforeSidxProcessing != -1) {
+      if (atomType == Mp4Box.TYPE_sidx) {
+        scratch.reset((int) atomSize);
+        System.arraycopy(atomHeader.getData(), 0, scratch.getData(), 0, Mp4Box.HEADER_SIZE);
+        input.readFully(
+            scratch.getData(), Mp4Box.HEADER_SIZE, (int) (atomSize - atomHeaderBytesRead));
+
+        LeafBox sidxBox = new LeafBox(Mp4Box.TYPE_sidx, scratch);
+        Pair<Long, ChunkIndex> result = parseSidx(sidxBox.data, input.getPeekPosition());
+        chunkIndexMerger.add(result.second);
+      } else {
+        input.skipFully((int) (atomSize - atomHeaderBytesRead), /* allowEndOfInput= */ true);
+      }
+      enterReadingAtomHeaderState();
       return true;
     }
 
@@ -683,8 +697,7 @@ public class FragmentedMp4Extractor implements Extractor {
     if (!containerAtoms.isEmpty()) {
       containerAtoms.peek().add(leaf);
     } else if (leaf.type == Mp4Box.TYPE_sidx) {
-      long inputPosition = input.getPosition();
-      Pair<Long, ChunkIndex> result = parseSidx(leaf.data, inputPosition);
+      Pair<Long, ChunkIndex> result = parseSidx(leaf.data, input.getPosition());
       chunkIndexMerger.add(result.second);
       if (!haveOutputSeekMap) {
         segmentIndexEarliestPresentationTimeUs = result.first;
@@ -693,35 +706,10 @@ public class FragmentedMp4Extractor implements Extractor {
       } else if ((flags & FLAG_MERGE_FRAGMENTED_SIDX) != 0
           && !haveOutputSeekMapFromMultipleSidx
           && chunkIndexMerger.size() > 1) {
-        try {
-          processRemainingSidxAtoms(input);
-          seekPositionBeforeSidxProcessing = inputPosition;
-          haveOutputSeekMapFromMultipleSidx = true;
-        } finally {
-          extractorOutput.seekMap(chunkIndexMerger.merge());
-        }
+        seekPositionBeforeSidxProcessing = input.getPosition();
       }
     } else if (leaf.type == Mp4Box.TYPE_emsg) {
       onEmsgLeafAtomRead(leaf.data);
-    }
-  }
-
-  private void processRemainingSidxAtoms(ExtractorInput input) throws IOException {
-    enterReadingAtomHeaderState();
-    while (readAtomHeader(input, /* skipPayloadParsing= */ true)) {
-      if (atomType == Mp4Box.TYPE_sidx) {
-        scratch.reset((int) atomSize);
-        System.arraycopy(atomHeader.getData(), 0, scratch.getData(), 0, Mp4Box.HEADER_SIZE);
-        input.readFully(
-            scratch.getData(), Mp4Box.HEADER_SIZE, (int) (atomSize - atomHeaderBytesRead));
-
-        LeafBox sidxBox = new LeafBox(Mp4Box.TYPE_sidx, scratch);
-        Pair<Long, ChunkIndex> result = parseSidx(sidxBox.data, input.getPeekPosition());
-        chunkIndexMerger.add(result.second);
-      } else {
-        input.skipFully((int) (atomSize - atomHeaderBytesRead), /* allowEndOfInput= */ true);
-      }
-      enterReadingAtomHeaderState();
     }
   }
 
