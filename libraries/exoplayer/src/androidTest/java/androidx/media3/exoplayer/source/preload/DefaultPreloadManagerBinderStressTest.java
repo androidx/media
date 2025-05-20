@@ -15,7 +15,7 @@
  */
 package androidx.media3.exoplayer.source.preload;
 
-import static androidx.media3.exoplayer.source.preload.DefaultPreloadManager.Status.STAGE_SOURCE_PREPARED;
+import static androidx.media3.common.util.Assertions.checkNotNull;
 
 import android.content.Context;
 import android.view.SurfaceView;
@@ -52,8 +52,7 @@ public class DefaultPreloadManagerBinderStressTest {
         /* systemUnderTest= */ () -> {
           DefaultPreloadManager.Builder builder =
               new DefaultPreloadManager.Builder(
-                      context,
-                      rankingData -> new DefaultPreloadManager.Status(STAGE_SOURCE_PREPARED))
+                      context, rankingData -> DefaultPreloadManager.PreloadStatus.SOURCE_PREPARED)
                   .setBandwidthMeter(new DefaultBandwidthMeter.Builder(context).build());
           MediaItem mediaItem = MediaItem.fromUri("http://test.test");
 
@@ -79,7 +78,7 @@ public class DefaultPreloadManagerBinderStressTest {
           player.setDeviceVolume(/* volume= */ 1, C.VOLUME_FLAG_SHOW_UI);
           player.setAudioSessionId(C.AUDIO_SESSION_ID_UNSET);
           player.setVideoSurfaceView(surfaceView);
-          player.setMediaSource(preloadManager.getMediaSource(mediaItem));
+          player.setMediaSource(checkNotNull(preloadManager.getMediaSource(mediaItem)));
           player.prepare();
           player.play();
 

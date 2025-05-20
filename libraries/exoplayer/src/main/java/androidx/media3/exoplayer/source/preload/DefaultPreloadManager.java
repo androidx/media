@@ -61,10 +61,11 @@ import java.util.Comparator;
  * the {@link SampleQueue}.
  */
 @UnstableApi
-public final class DefaultPreloadManager extends BasePreloadManager<Integer> {
+public final class DefaultPreloadManager
+    extends BasePreloadManager<Integer, DefaultPreloadManager.PreloadStatus> {
 
   /** A builder for {@link DefaultPreloadManager} instances. */
-  public static final class Builder extends BuilderBase<Integer> {
+  public static final class Builder extends BuilderBase<Integer, PreloadStatus> {
 
     private final Context context;
     private PlaybackLooperProvider preloadLooperProvider;
@@ -79,10 +80,12 @@ public final class DefaultPreloadManager extends BasePreloadManager<Integer> {
      * Creates a builder.
      *
      * @param context A {@link Context}.
-     * @param targetPreloadStatusControl A {@link TargetPreloadStatusControl<Integer>}.
+     * @param targetPreloadStatusControl A {@link TargetPreloadStatusControl<Integer,
+     *     PreloadStatus>}.
      */
     public Builder(
-        Context context, TargetPreloadStatusControl<Integer> targetPreloadStatusControl) {
+        Context context,
+        TargetPreloadStatusControl<Integer, PreloadStatus> targetPreloadStatusControl) {
       super(
           new RankingDataComparator(),
           targetPreloadStatusControl,
@@ -269,25 +272,17 @@ public final class DefaultPreloadManager extends BasePreloadManager<Integer> {
     }
   }
 
-  /**
-   * An implementation of {@link TargetPreloadStatusControl.PreloadStatus} that describes the
-   * preload status of the {@link PreloadMediaSource}.
-   */
-  public static class Status implements TargetPreloadStatusControl.PreloadStatus {
+  /** Defines the preload status for the {@link DefaultPreloadManager}. */
+  public static final class PreloadStatus {
 
     /**
      * Stages for the preload status. One of {@link #STAGE_SOURCE_PREPARED}, {@link
-     * #STAGE_TRACKS_SELECTED} or {@link #STAGE_LOADED_FOR_DURATION_MS}.
+     * #STAGE_TRACKS_SELECTED} or {@link #STAGE_SPECIFIED_RANGE_LOADED}.
      */
     @Documented
     @Retention(RetentionPolicy.SOURCE)
     @Target(TYPE_USE)
-    @IntDef(
-        value = {
-          STAGE_SOURCE_PREPARED,
-          STAGE_TRACKS_SELECTED,
-          STAGE_LOADED_FOR_DURATION_MS,
-        })
+    @IntDef(value = {STAGE_SOURCE_PREPARED, STAGE_TRACKS_SELECTED, STAGE_SPECIFIED_RANGE_LOADED})
     public @interface Stage {}
 
     /** The {@link PreloadMediaSource} has completed preparation. */
@@ -297,31 +292,60 @@ public final class DefaultPreloadManager extends BasePreloadManager<Integer> {
     public static final int STAGE_TRACKS_SELECTED = 1;
 
     /**
-     * The {@link PreloadMediaSource} is loaded for a specific duration from the default start
-     * position, in milliseconds.
+     * The {@link PreloadMediaSource} has been loaded for a specific range defined by {@code
+     * startPositionMs} and {@code durationMs}.
      */
-    public static final int STAGE_LOADED_FOR_DURATION_MS = 2;
+    public static final int STAGE_SPECIFIED_RANGE_LOADED = 2;
 
-    private final @Stage int stage;
-    private final long value;
+    /** A {@link PreloadStatus} indicating that the source has completed preparation. */
+    public static final PreloadStatus SOURCE_PREPARED =
+        new PreloadStatus(
+            STAGE_SOURCE_PREPARED, /* startPositionMs= */ C.TIME_UNSET, /* durationMs= */ 0);
 
-    public Status(@Stage int stage, long value) {
+    /** A {@link PreloadStatus} indicating that the source has tracks selected. */
+    public static final PreloadStatus TRACKS_SELECTED =
+        new PreloadStatus(
+            STAGE_TRACKS_SELECTED, /* startPositionMs= */ C.TIME_UNSET, /* durationMs= */ 0);
+
+    /** The stage for the preload status. */
+    public final @Stage int stage;
+
+    /**
+     * The start position in milliseconds from which the source should be loaded, or {@link
+     * C#TIME_UNSET} to indicate the default start position.
+     */
+    public final long startPositionMs;
+
+    /**
+     * The duration in milliseconds for which the source should be loaded from the {@code
+     * startPositionMs}, or {@link C#TIME_UNSET} to indicate that the source should be loaded to end
+     * of source.
+     */
+    public final long durationMs;
+
+    private PreloadStatus(@Stage int stage, long startPositionMs, long durationMs) {
+      checkArgument(startPositionMs == C.TIME_UNSET || startPositionMs >= 0);
+      checkArgument(durationMs == C.TIME_UNSET || durationMs >= 0);
       this.stage = stage;
-      this.value = value;
+      this.startPositionMs = startPositionMs;
+      this.durationMs = durationMs;
     }
 
-    public Status(@Stage int stage) {
-      this(stage, C.TIME_UNSET);
+    /**
+     * Returns a {@link PreloadStatus} indicating to load the source from the default start position
+     * and for the specified duration.
+     */
+    public static PreloadStatus specifiedRangeLoaded(long durationMs) {
+      return new PreloadStatus(
+          STAGE_SPECIFIED_RANGE_LOADED, /* startPositionMs= */ C.TIME_UNSET, durationMs);
     }
 
-    @Override
-    public @Stage int getStage() {
-      return stage;
-    }
-
-    @Override
-    public long getValue() {
-      return value;
+    /**
+     * Returns a {@link PreloadStatus} indicating to load the source from the specified start
+     * position and for the specified duration.
+     */
+    public static PreloadStatus specifiedRangeLoaded(long startPositionMs, long durationMs) {
+      return new PreloadStatus(STAGE_SPECIFIED_RANGE_LOADED, startPositionMs, durationMs);
     }
   }
 
@@ -363,7 +387,7 @@ public final class DefaultPreloadManager extends BasePreloadManager<Integer> {
    */
   @Deprecated
   public DefaultPreloadManager(
-      TargetPreloadStatusControl<Integer> targetPreloadStatusControl,
+      TargetPreloadStatusControl<Integer, PreloadStatus> targetPreloadStatusControl,
       MediaSource.Factory mediaSourceFactory,
       TrackSelector trackSelector,
       BandwidthMeter bandwidthMeter,
@@ -406,9 +430,17 @@ public final class DefaultPreloadManager extends BasePreloadManager<Integer> {
   }
 
   @Override
-  protected void preloadSourceInternal(MediaSource mediaSource, long startPositionsUs) {
+  protected void preloadSourceInternal(
+      MediaSource mediaSource, @Nullable PreloadStatus targetPreloadStatus) {
     checkArgument(mediaSource instanceof PreloadMediaSource);
-    ((PreloadMediaSource) mediaSource).preload(startPositionsUs);
+    PreloadMediaSource preloadMediaSource = (PreloadMediaSource) mediaSource;
+    if (targetPreloadStatus == null) {
+      preloadMediaSource.clear();
+      onPreloadSkipped(preloadMediaSource);
+    } else {
+      long startPositionUs = Util.msToUs(targetPreloadStatus.startPositionMs);
+      preloadMediaSource.preload(startPositionUs);
+    }
   }
 
   @Override
@@ -460,7 +492,7 @@ public final class DefaultPreloadManager extends BasePreloadManager<Integer> {
       return continueOrCompletePreloading(
           mediaSource,
           /* continueLoadingPredicate= */ status ->
-              status.getStage() > Status.STAGE_SOURCE_PREPARED,
+              status.stage > PreloadStatus.STAGE_SOURCE_PREPARED,
           /* clearExceededDataFromTargetPreloadStatus= */ true);
     }
 
@@ -471,7 +503,7 @@ public final class DefaultPreloadManager extends BasePreloadManager<Integer> {
       return continueOrCompletePreloading(
           mediaSource,
           /* continueLoadingPredicate= */ status ->
-              status.getStage() > Status.STAGE_TRACKS_SELECTED,
+              status.stage > PreloadStatus.STAGE_TRACKS_SELECTED,
           /* clearExceededDataFromTargetPreloadStatus= */ false);
     }
 
@@ -479,12 +511,13 @@ public final class DefaultPreloadManager extends BasePreloadManager<Integer> {
     public boolean onContinueLoadingRequested(
         PreloadMediaSource mediaSource, long bufferedDurationUs) {
       // Set `clearExceededDataFromTargetPreloadStatus` to `false` as clearing the exceeded data
-      // from the status STAGE_LOADED_FOR_DURATION_MS is not supported.
+      // from the status STAGE_SPECIFIED_RANGE_LOADED is not supported.
       return continueOrCompletePreloading(
           mediaSource,
           /* continueLoadingPredicate= */ status ->
-              status.getStage() == Status.STAGE_LOADED_FOR_DURATION_MS
-                  && status.getValue() > Util.usToMs(bufferedDurationUs),
+              status.stage == PreloadStatus.STAGE_SPECIFIED_RANGE_LOADED
+                  && status.durationMs != C.TIME_UNSET
+                  && status.durationMs > Util.usToMs(bufferedDurationUs),
           /* clearExceededDataFromTargetPreloadStatus= */ false);
     }
 
@@ -505,14 +538,11 @@ public final class DefaultPreloadManager extends BasePreloadManager<Integer> {
 
     private boolean continueOrCompletePreloading(
         PreloadMediaSource mediaSource,
-        Predicate<Status> continueLoadingPredicate,
+        Predicate<PreloadStatus> continueLoadingPredicate,
         boolean clearExceededDataFromTargetPreloadStatus) {
-      @Nullable
-      TargetPreloadStatusControl.PreloadStatus targetPreloadStatus =
-          getTargetPreloadStatus(mediaSource);
+      @Nullable PreloadStatus targetPreloadStatus = getTargetPreloadStatus(mediaSource);
       if (targetPreloadStatus != null) {
-        Status status = (Status) targetPreloadStatus;
-        if (continueLoadingPredicate.apply(checkNotNull(status))) {
+        if (continueLoadingPredicate.apply(checkNotNull(targetPreloadStatus))) {
           return true;
         }
         if (clearExceededDataFromTargetPreloadStatus) {

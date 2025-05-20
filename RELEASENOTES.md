@@ -82,6 +82,8 @@ This release includes the following changes since [1.6.1](#161-2025-04-14):
         ([#2417](https://github.com/androidx/media/issues/2417)).
     *   Add `PreCacheHelper` that allows apps to pre-cache a single media with
         specified start position and duration.
+    *   Add support of preloading from specified position in
+        `DefaultPreloadManager`.
 *   Transformer:
     *   Filling an initial gap (added via `addGap()`) with silent audio now
         requires explicitly setting `experimentalSetForceAudioTrack(true)` in
