@@ -613,12 +613,11 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
           clientDefinedAttributes);
     }
 
-
     /**
      * Builder for {@link Interstitial}.
      *
-     * <p>See RFC 8216bis, section 4.4.5.1 for how to consolidate multiple interstitials with
-     * the same {@linkplain HlsMediaPlaylist.Interstitial#id ID}.
+     * <p>See RFC 8216bis, section 4.4.5.1 for how to consolidate multiple interstitials with the
+     * same {@linkplain HlsMediaPlaylist.Interstitial#id ID}.
      */
     public static final class Builder {
 
@@ -662,7 +661,8 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
           return this;
         }
         if (this.assetUri != null) {
-          checkArgument(this.assetUri.equals(assetUri),
+          checkArgument(
+              this.assetUri.equals(assetUri),
               "Can't change assetUri from " + this.assetUri + " to " + assetUri);
         }
         this.assetUri = assetUri;
@@ -675,7 +675,8 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
           return this;
         }
         if (this.assetListUri != null) {
-          checkArgument(this.assetListUri.equals(assetListUri),
+          checkArgument(
+              this.assetListUri.equals(assetListUri),
               "Can't change assetListUri from " + this.assetListUri + " to " + assetListUri);
         }
         this.assetListUri = assetListUri;
@@ -688,8 +689,12 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
           return this;
         }
         if (this.startDateUnixUs != C.TIME_UNSET) {
-          checkArgument(this.startDateUnixUs == startDateUnixUs,
-              "Can't change startDateUnixUs from " + this.startDateUnixUs + " to " + startDateUnixUs);
+          checkArgument(
+              this.startDateUnixUs == startDateUnixUs,
+              "Can't change startDateUnixUs from "
+                  + this.startDateUnixUs
+                  + " to "
+                  + startDateUnixUs);
         }
         this.startDateUnixUs = startDateUnixUs;
         return this;
@@ -701,7 +706,8 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
           return this;
         }
         if (this.endDateUnixUs != C.TIME_UNSET) {
-          checkArgument(this.endDateUnixUs == endDateUnixUs,
+          checkArgument(
+              this.endDateUnixUs == endDateUnixUs,
               "Can't change endDateUnixUs from " + this.endDateUnixUs + " to " + endDateUnixUs);
         }
         this.endDateUnixUs = endDateUnixUs;
@@ -714,7 +720,8 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
           return this;
         }
         if (this.durationUs != C.TIME_UNSET) {
-          checkArgument(this.durationUs == durationUs,
+          checkArgument(
+              this.durationUs == durationUs,
               "Can't change durationUs from " + this.durationUs + " to " + durationUs);
         }
         this.durationUs = durationUs;
@@ -727,8 +734,12 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
           return this;
         }
         if (this.plannedDurationUs != C.TIME_UNSET) {
-          checkArgument(this.plannedDurationUs == plannedDurationUs,
-              "Can't change plannedDurationUs from " + this.plannedDurationUs + " to " + plannedDurationUs);
+          checkArgument(
+              this.plannedDurationUs == plannedDurationUs,
+              "Can't change plannedDurationUs from "
+                  + this.plannedDurationUs
+                  + " to "
+                  + plannedDurationUs);
         }
         this.plannedDurationUs = plannedDurationUs;
         return this;
@@ -740,8 +751,12 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
           return this;
         }
         if (!this.cue.isEmpty()) {
-          checkArgument(this.cue.equals(cue),
-              "Can't change cue from " + String.join(", ", this.cue) + " to " + String.join(", ", cue));
+          checkArgument(
+              this.cue.equals(cue),
+              "Can't change cue from "
+                  + String.join(", ", this.cue)
+                  + " to "
+                  + String.join(", ", cue));
         }
         this.cue = cue;
         return this;
@@ -762,7 +777,8 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
           return this;
         }
         if (this.resumeOffsetUs != C.TIME_UNSET) {
-          checkArgument(this.resumeOffsetUs == resumeOffsetUs,
+          checkArgument(
+              this.resumeOffsetUs == resumeOffsetUs,
               "Can't change resumeOffsetUs from " + this.resumeOffsetUs + " to " + resumeOffsetUs);
         }
         this.resumeOffsetUs = resumeOffsetUs;
@@ -775,7 +791,8 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
           return this;
         }
         if (this.playoutLimitUs != C.TIME_UNSET) {
-          checkArgument(this.playoutLimitUs == playoutLimitUs,
+          checkArgument(
+              this.playoutLimitUs == playoutLimitUs,
               "Can't change playoutLimitUs from " + this.playoutLimitUs + " to " + playoutLimitUs);
         }
         this.playoutLimitUs = playoutLimitUs;
@@ -788,21 +805,30 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
           return this;
         }
         if (!this.snapTypes.isEmpty()) {
-          checkArgument(this.snapTypes.equals(snapTypes),
-              "Can't change snapTypes from " + String.join(", ", this.snapTypes) + " to " + String.join(", ", snapTypes));
+          checkArgument(
+              this.snapTypes.equals(snapTypes),
+              "Can't change snapTypes from "
+                  + String.join(", ", this.snapTypes)
+                  + " to "
+                  + String.join(", ", snapTypes));
         }
         this.snapTypes = snapTypes;
         return this;
       }
 
       /** Sets the {@code NavigationRestriction}. */
-      public Builder setRestrictions(List<@Interstitial.NavigationRestriction String> restrictions) {
+      public Builder setRestrictions(
+          List<@Interstitial.NavigationRestriction String> restrictions) {
         if (restrictions.isEmpty()) {
           return this;
         }
         if (!this.restrictions.isEmpty()) {
-          checkArgument(this.restrictions.equals(restrictions),
-              "Can't change restrictions from " + String.join(", ", this.restrictions) + " to " + String.join(", ", restrictions));
+          checkArgument(
+              this.restrictions.equals(restrictions),
+              "Can't change restrictions from "
+                  + String.join(", ", this.restrictions)
+                  + " to "
+                  + String.join(", ", restrictions));
         }
         this.restrictions = restrictions;
         return this;
@@ -814,17 +840,26 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
         if (clientDefinedAttributes.isEmpty()) {
           return this;
         }
-        for (Map.Entry<String, HlsMediaPlaylist.ClientDefinedAttribute> newEntry : clientDefinedAttributes.entrySet()) {
+        for (Map.Entry<String, HlsMediaPlaylist.ClientDefinedAttribute> newEntry :
+            clientDefinedAttributes.entrySet()) {
           String newKey = newEntry.getKey();
           HlsMediaPlaylist.ClientDefinedAttribute newValue = newEntry.getValue();
           if (this.clientDefinedAttributes.containsKey(newKey)) {
-            HlsMediaPlaylist.ClientDefinedAttribute existingValue = this.clientDefinedAttributes.get(newKey);
+            HlsMediaPlaylist.ClientDefinedAttribute existingValue =
+                this.clientDefinedAttributes.get(newKey);
             if (existingValue != null) {
               checkArgument(
                   existingValue.equals(newValue),
-                  "Can't change " + newKey + " from "
-                      + existingValue.textValue + " " + existingValue.doubleValue + " to "
-                      + newValue.textValue + " " + newValue.doubleValue);
+                  "Can't change "
+                      + newKey
+                      + " from "
+                      + existingValue.textValue
+                      + " "
+                      + existingValue.doubleValue
+                      + " to "
+                      + newValue.textValue
+                      + " "
+                      + newValue.doubleValue);
             }
           }
           this.clientDefinedAttributes.put(newKey, newValue);
@@ -834,8 +869,7 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
 
       public @Nullable Interstitial build() {
         if ((assetListUri == null && assetUri != null)
-            || (assetListUri != null && assetUri == null)
-            && startDateUnixUs != C.TIME_UNSET) {
+            || (assetListUri != null && assetUri == null) && startDateUnixUs != C.TIME_UNSET) {
           return new Interstitial(
               this.id,
               this.assetUri,
@@ -850,8 +884,7 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
               this.playoutLimitUs,
               this.snapTypes,
               this.restrictions,
-              new ArrayList<>(this.clientDefinedAttributes.values())
-          );
+              new ArrayList<>(this.clientDefinedAttributes.values()));
         }
         return null;
       }

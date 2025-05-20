@@ -50,7 +50,6 @@ import androidx.media3.exoplayer.hls.playlist.HlsMultivariantPlaylist.Rendition;
 import androidx.media3.exoplayer.hls.playlist.HlsMultivariantPlaylist.Variant;
 import androidx.media3.exoplayer.upstream.ParsingLoadable;
 import androidx.media3.extractor.mp4.PsshAtomUtil;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -1193,22 +1192,24 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
           }
         }
 
-        Interstitial.Builder interstitialBuilder = (interstitialBuilderMap.containsKey(id) ?
-            interstitialBuilderMap.get(id) : new Interstitial.Builder(id))
-              .setAssetUri(assetUri)
-              .setAssetListUri(assetListUri)
-              .setStartDateUnixUs(startDateUnixUs)
-              .setEndDateUnixUs(endDateUnixUs)
-              .setDurationUs(durationUs)
-              .setPlannedDurationUs(plannedDurationUs)
-              .setCue(cue)
-              .setEndOnNext(endOnNext)
-              .setResumeOffsetUs(resumeOffsetUs)
-              .setPlayoutLimitUs(playoutLimitUs)
-              .setSnapTypes(snapTypes)
-              .setRestrictions(restrictions)
-              .setClientDefinedAttributes(clientDefinedAttributes);
-          interstitialBuilderMap.put(id, interstitialBuilder);
+        Interstitial.Builder interstitialBuilder =
+            (interstitialBuilderMap.containsKey(id)
+                    ? interstitialBuilderMap.get(id)
+                    : new Interstitial.Builder(id))
+                .setAssetUri(assetUri)
+                .setAssetListUri(assetListUri)
+                .setStartDateUnixUs(startDateUnixUs)
+                .setEndDateUnixUs(endDateUnixUs)
+                .setDurationUs(durationUs)
+                .setPlannedDurationUs(plannedDurationUs)
+                .setCue(cue)
+                .setEndOnNext(endOnNext)
+                .setResumeOffsetUs(resumeOffsetUs)
+                .setPlayoutLimitUs(playoutLimitUs)
+                .setSnapTypes(snapTypes)
+                .setRestrictions(restrictions)
+                .setClientDefinedAttributes(clientDefinedAttributes);
+        interstitialBuilderMap.put(id, interstitialBuilder);
       } else if (!line.startsWith("#")) {
         @Nullable
         String segmentEncryptionIV =

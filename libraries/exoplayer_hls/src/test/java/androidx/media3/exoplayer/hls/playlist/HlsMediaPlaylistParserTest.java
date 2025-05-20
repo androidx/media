@@ -1445,8 +1445,7 @@ public class HlsMediaPlaylistParserTest {
   }
 
   @Test
-  public void parseMediaPlaylist_interstitialWithoutStartDate_ignored()
-      throws IOException {
+  public void parseMediaPlaylist_interstitialWithoutStartDate_ignored() throws IOException {
     Uri playlistUri = Uri.parse("https://example.com/test.m3u8");
     String playlistString =
         "#EXTM3U\n"
@@ -1612,9 +1611,7 @@ public class HlsMediaPlaylistParserTest {
   }
 
   @Test
-  public void
-  parseMediaPlaylist_withInterstitialWithUpdatingDateRange()
-      throws IOException {
+  public void parseMediaPlaylist_withInterstitialWithUpdatingDateRange() throws IOException {
     Uri playlistUri = Uri.parse("https://example.com/test.m3u8");
     String playlistString =
         "#EXTM3U\n"
@@ -1649,7 +1646,7 @@ public class HlsMediaPlaylistParserTest {
 
   @Test
   public void
-  parseMediaPlaylist_withInterstitiaStartDateInvalidUpdate_throwsIllegalArgumentException() {
+      parseMediaPlaylist_withInterstitiaStartDateInvalidUpdate_throwsIllegalArgumentException() {
     Uri playlistUri = Uri.parse("https://example.com/test.m3u8");
     String playlistString =
         "#EXTM3U\n"
