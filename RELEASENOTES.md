@@ -9,6 +9,10 @@
 *   Transformer:
 *   Track Selection:
 *   Extractors:
+    *   Add support for seeking in fragmented MP4 with multiple `sidx` atoms.
+        This behavior can be enabled using the `FLAG_MERGE_FRAGMENTED_SIDX` flag
+        on `FragmentedMp4Extractor`
+        ([#9373](https://github.com/google/ExoPlayer/issues/9373)).
 *   DataSource:
 *   Audio:
     *   Add support for all linear PCM sample formats in
