@@ -29,7 +29,6 @@ import androidx.annotation.StringDef;
 import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.StreamKey;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -39,6 +38,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -635,7 +635,7 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
       private long playoutLimitUs;
       private List<@Interstitial.SnapType String> snapTypes;
       private List<@Interstitial.NavigationRestriction String> restrictions;
-      private List<ClientDefinedAttribute> clientDefinedAttributes;
+      private Map<String, ClientDefinedAttribute> clientDefinedAttributes;
 
       /**
        * Creates the builder.
@@ -653,7 +653,7 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
         this.playoutLimitUs = C.TIME_UNSET;
         this.snapTypes = new ArrayList<>();
         this.restrictions = new ArrayList<>();
-        this.clientDefinedAttributes = new ArrayList<>();
+        this.clientDefinedAttributes = new HashMap<>();
       }
 
       /** Sets the {@code assetUri}. */
@@ -810,14 +810,25 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
 
       /** Sets the {@code clientDefinedAttributes}. */
       public Builder setClientDefinedAttributes(
-          List<HlsMediaPlaylist.ClientDefinedAttribute> clientDefinedAttributes) {
+          Map<String, HlsMediaPlaylist.ClientDefinedAttribute> clientDefinedAttributes) {
         if (clientDefinedAttributes.isEmpty()) {
           return this;
         }
-        if (!this.clientDefinedAttributes.isEmpty()) {
-          checkArgument(this.clientDefinedAttributes.equals(clientDefinedAttributes));
+        for (Map.Entry<String, HlsMediaPlaylist.ClientDefinedAttribute> newEntry : clientDefinedAttributes.entrySet()) {
+          String newKey = newEntry.getKey();
+          HlsMediaPlaylist.ClientDefinedAttribute newValue = newEntry.getValue();
+          if (this.clientDefinedAttributes.containsKey(newKey)) {
+            HlsMediaPlaylist.ClientDefinedAttribute existingValue = this.clientDefinedAttributes.get(newKey);
+            if (existingValue != null) {
+              checkArgument(
+                  existingValue.equals(newValue),
+                  "Can't change " + newKey + " from "
+                      + existingValue.textValue + " " + existingValue.doubleValue + " to "
+                      + newValue.textValue + " " + newValue.doubleValue);
+            }
+          }
+          this.clientDefinedAttributes.put(newKey, newValue);
         }
-        this.clientDefinedAttributes = clientDefinedAttributes;
         return this;
       }
 
@@ -839,7 +850,7 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
               this.playoutLimitUs,
               this.snapTypes,
               this.restrictions,
-              this.clientDefinedAttributes
+              new ArrayList<>(this.clientDefinedAttributes.values())
           );
         }
         return null;

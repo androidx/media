@@ -1167,8 +1167,8 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
           }
         }
 
-        ImmutableList.Builder<HlsMediaPlaylist.ClientDefinedAttribute> clientDefinedAttributes =
-            new ImmutableList.Builder<>();
+        Map<String, HlsMediaPlaylist.ClientDefinedAttribute> clientDefinedAttributes =
+            new HashMap<>();
         String attributes = line.substring("#EXT-X-DATERANGE:".length());
         Matcher matcher = REGEX_CLIENT_DEFINED_ATTRIBUTE_PREFIX.matcher(attributes);
         while (matcher.find()) {
@@ -1183,7 +1183,8 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
               // ignore interstitial attributes
               break;
             default:
-              clientDefinedAttributes.add(
+              clientDefinedAttributes.put(
+                  attributePrefix,
                   parseClientDefinedAttribute(
                       attributes,
                       attributePrefix.substring(0, attributePrefix.length() - 1),
@@ -1206,7 +1207,7 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
               .setPlayoutLimitUs(playoutLimitUs)
               .setSnapTypes(snapTypes)
               .setRestrictions(restrictions)
-              .setClientDefinedAttributes(clientDefinedAttributes.build());
+              .setClientDefinedAttributes(clientDefinedAttributes);
           interstitialBuilderMap.put(id, interstitialBuilder);
       } else if (!line.startsWith("#")) {
         @Nullable
