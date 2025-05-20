@@ -421,7 +421,6 @@ public final class CompositionPlayer extends SimpleBasePlayer
   public void setComposition(Composition composition) {
     verifyApplicationThread();
     checkArgument(!composition.sequences.isEmpty());
-    checkArgument(!composition.hasGaps());
     checkState(this.composition == null);
     composition = deactivateSpeedAdjustingVideoEffects(composition);
 
@@ -695,6 +694,8 @@ public final class CompositionPlayer extends SimpleBasePlayer
       newSequences.add(
           new EditedMediaItemSequence.Builder(newEditedMediaItems)
               .setIsLooping(sequence.isLooping)
+              .experimentalSetForceAudioTrack(sequence.forceAudioTrack)
+              .experimentalSetForceVideoTrack(sequence.forceVideoTrack)
               .build());
     }
     return composition.buildUpon().setSequences(newSequences).build();
@@ -893,14 +894,18 @@ public final class CompositionPlayer extends SimpleBasePlayer
 
   private static MediaSource createMediaSourceWithSilence(
       MediaSource.Factory mediaSourceFactory, EditedMediaItem editedMediaItem) {
-    // The MediaSource that loads the MediaItem
-    MediaSource mainMediaSource = mediaSourceFactory.createMediaSource(editedMediaItem.mediaItem);
     MediaSource silenceMediaSource =
         new ClippingMediaSource.Builder(new SilenceMediaSource(editedMediaItem.durationUs))
             .setStartPositionUs(editedMediaItem.mediaItem.clippingConfiguration.startPositionUs)
             .setEndPositionUs(editedMediaItem.mediaItem.clippingConfiguration.endPositionUs)
             .build();
 
+    if (editedMediaItem.isGap()) {
+      return silenceMediaSource;
+    }
+
+    // The MediaSource that loads the MediaItem
+    MediaSource mainMediaSource = mediaSourceFactory.createMediaSource(editedMediaItem.mediaItem);
     return new MergingMediaSource(mainMediaSource, silenceMediaSource);
   }
 

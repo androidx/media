@@ -23,6 +23,7 @@ import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.common.util.Util.usToMs;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.PNG_ASSET;
+import static androidx.media3.transformer.AndroidTestUtil.WAV_ASSET;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -511,7 +512,7 @@ public class CompositionPlaybackTest {
   public void playback_singleAssetAudioSequence_doesNotUnderrun()
       throws PlaybackException, TimeoutException {
     EditedMediaItem clip =
-        new EditedMediaItem.Builder(MediaItem.fromUri(AndroidTestUtil.WAV_ASSET.uri))
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
             .setDurationUs(1_000_000L)
             .build();
     Composition composition =
@@ -544,6 +545,59 @@ public class CompositionPlaybackTest {
             });
     playerTestListener.waitUntilPlayerEnded();
     assertThat(underrunCount.get()).isEqualTo(0);
+  }
+
+  @Test
+  public void playback_audioSequenceWithMiddleGap_doesNotCrash()
+      throws PlaybackException, TimeoutException {
+    EditedMediaItem clip =
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
+            .setDurationUs(1_000_000L)
+            .build();
+    EditedMediaItemSequence sequence =
+        new EditedMediaItemSequence.Builder(clip).addGap(500_000).addItem(clip).build();
+    Composition composition = new Composition.Builder(sequence).build();
+
+    runCompositionPlayer(composition);
+  }
+
+  @Test
+  public void playback_audioSequenceWithStartGap_doesNotCrash()
+      throws PlaybackException, TimeoutException {
+    EditedMediaItem clip =
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
+            .setDurationUs(1_000_000L)
+            .build();
+    EditedMediaItemSequence sequence =
+        new EditedMediaItemSequence.Builder()
+            .addGap(500_000)
+            .addItem(clip)
+            .experimentalSetForceAudioTrack(true)
+            .build();
+    Composition composition = new Composition.Builder(sequence).build();
+
+    runCompositionPlayer(composition);
+  }
+
+  @Test
+  public void playback_audioSequenceWithMiddleGapAndVideoSequence_doesNotCrash()
+      throws PlaybackException, TimeoutException {
+    EditedMediaItem audioClip =
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
+            .setDurationUs(1_000_000L)
+            .build();
+    EditedMediaItemSequence audioSequence =
+        new EditedMediaItemSequence.Builder()
+            .addGap(500_000)
+            .addItem(audioClip)
+            .experimentalSetForceAudioTrack(true)
+            .build();
+    EditedMediaItem videoClip =
+        new EditedMediaItem.Builder(VIDEO_MEDIA_ITEM).setDurationUs(VIDEO_DURATION_US).build();
+    EditedMediaItemSequence videoSequence = new EditedMediaItemSequence.Builder(videoClip).build();
+    Composition composition = new Composition.Builder(videoSequence, audioSequence).build();
+
+    runCompositionPlayer(composition);
   }
 
   private void runCompositionPlayer(Composition composition)

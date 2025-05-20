@@ -15,6 +15,7 @@
  */
 package androidx.media3.transformer;
 
+import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.transformer.TestUtil.ASSET_URI_PREFIX;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_RAW;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_RAW_STEREO_48000KHZ;
@@ -34,6 +35,8 @@ import androidx.media3.test.utils.FakeClock;
 import androidx.media3.test.utils.robolectric.TestPlayerRunHelper;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import java.io.IOException;
+import java.util.concurrent.TimeoutException;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -365,6 +368,62 @@ public final class CompositionPlayerAudioPlaybackTest {
     player.prepare();
 
     assertThat(player.getDuration()).isEqualTo(348);
+  }
+
+  @Test
+  public void play_audioSequenceWithMiddleGap_outputsCorrectSamples()
+      throws TimeoutException, IOException {
+    CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
+    EditedMediaItem clip =
+        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW))
+            .setDurationUs(1_000_000L)
+            .build();
+    EditedMediaItemSequence sequence =
+        new EditedMediaItemSequence.Builder(clip).addGap(500_000L).addItem(clip).build();
+    Composition composition = new Composition.Builder(sequence).build();
+    player.setComposition(composition);
+    player.prepare();
+    checkState(player.getDuration() == 2_500L);
+
+    player.play();
+    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+    player.release();
+
+    DumpFileAsserts.assertOutput(
+        context,
+        capturingAudioSink,
+        PREVIEW_DUMP_FILE_EXTENSION
+            + "wav/sequencePlayback_withMiddleGap_outputsCorrectSamples.dump");
+  }
+
+  @Test
+  public void play_audioSequenceWithStartGap_outputsCorrectSamples()
+      throws TimeoutException, IOException {
+    CompositionPlayer player = createCompositionPlayer(context, capturingAudioSink);
+    EditedMediaItem clip =
+        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW))
+            .setDurationUs(1_000_000L)
+            .build();
+    EditedMediaItemSequence sequence =
+        new EditedMediaItemSequence.Builder()
+            .addGap(500_000L)
+            .addItem(clip)
+            .experimentalSetForceAudioTrack(true)
+            .build();
+    Composition composition = new Composition.Builder(sequence).build();
+    player.setComposition(composition);
+    player.prepare();
+    checkState(player.getDuration() == 1_500L);
+
+    player.play();
+    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+    player.release();
+
+    DumpFileAsserts.assertOutput(
+        context,
+        capturingAudioSink,
+        PREVIEW_DUMP_FILE_EXTENSION
+            + "wav/sequencePlayback_withStartGap_outputsCorrectSamples.dump");
   }
 
   @Test
