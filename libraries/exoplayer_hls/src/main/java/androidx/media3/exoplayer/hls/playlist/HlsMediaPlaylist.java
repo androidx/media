@@ -33,6 +33,7 @@ import androidx.media3.common.util.UnstableApi;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -687,6 +688,7 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
       }
 
       /** Sets the {@code startDateUnixUs}. */
+      @CanIgnoreReturnValue
       public Builder setStartDateUnixUs(long startDateUnixUs) {
         if (startDateUnixUs == C.TIME_UNSET) {
           return this;
@@ -719,6 +721,7 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
       }
 
       /** Sets the {@code durationUs}. */
+      @CanIgnoreReturnValue
       public Builder setDurationUs(long durationUs) {
         if (durationUs == C.TIME_UNSET) {
           return this;
@@ -733,6 +736,7 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
       }
 
       /** Sets the {@code plannedDurationUs}. */
+      @CanIgnoreReturnValue
       public Builder setPlannedDurationUs(long plannedDurationUs) {
         if (plannedDurationUs == C.TIME_UNSET) {
           return this;
@@ -750,6 +754,7 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
       }
 
       /** Sets the trigger {@code cue} types. */
+      @CanIgnoreReturnValue
       public Builder setCue(List<@Interstitial.CueTriggerType String> cue) {
         if (cue.isEmpty()) {
           return this;
@@ -767,6 +772,7 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
       }
 
       /** Sets whether the interstitial {@code endOnNext}. */
+      @CanIgnoreReturnValue
       public Builder setEndOnNext(boolean endOnNext) {
         if (!endOnNext) {
           return this;
@@ -776,6 +782,7 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
       }
 
       /** Sets the {@code resumeOffsetUs}. */
+      @CanIgnoreReturnValue
       public Builder setResumeOffsetUs(long resumeOffsetUs) {
         if (resumeOffsetUs == C.TIME_UNSET) {
           return this;
@@ -790,6 +797,7 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
       }
 
       /** Sets the {@code playoutLimitUs}. */
+      @CanIgnoreReturnValue
       public Builder setPlayoutLimitUs(long playoutLimitUs) {
         if (playoutLimitUs == C.TIME_UNSET) {
           return this;
@@ -804,6 +812,7 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
       }
 
       /** Sets the {@code snapTypes}. */
+      @CanIgnoreReturnValue
       public Builder setSnapTypes(List<@Interstitial.SnapType String> snapTypes) {
         if (snapTypes.isEmpty()) {
           return this;
@@ -821,6 +830,7 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
       }
 
       /** Sets the {@code NavigationRestriction}. */
+      @CanIgnoreReturnValue
       public Builder setRestrictions(
           List<@Interstitial.NavigationRestriction String> restrictions) {
         if (restrictions.isEmpty()) {
@@ -839,6 +849,7 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
       }
 
       /** Sets the {@code clientDefinedAttributes}. */
+      @CanIgnoreReturnValue
       public Builder setClientDefinedAttributes(
           Map<String, HlsMediaPlaylist.ClientDefinedAttribute> clientDefinedAttributes) {
         if (clientDefinedAttributes.isEmpty()) {
@@ -875,20 +886,20 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
         if ((assetListUri == null && assetUri != null)
             || (assetListUri != null && assetUri == null) && startDateUnixUs != C.TIME_UNSET) {
           return new Interstitial(
-              this.id,
-              this.assetUri,
-              this.assetListUri,
-              this.startDateUnixUs,
-              this.endDateUnixUs,
-              this.durationUs,
-              this.plannedDurationUs,
-              this.cue,
-              this.endOnNext,
-              this.resumeOffsetUs,
-              this.playoutLimitUs,
-              this.snapTypes,
-              this.restrictions,
-              new ArrayList<>(this.clientDefinedAttributes.values()));
+              id,
+              assetUri,
+              assetListUri,
+              startDateUnixUs,
+              endDateUnixUs,
+              durationUs,
+              plannedDurationUs,
+              cue,
+              endOnNext,
+              resumeOffsetUs,
+              playoutLimitUs,
+              snapTypes,
+              restrictions,
+              new ArrayList<>(clientDefinedAttributes.values()));
         }
         return null;
       }
