@@ -990,7 +990,7 @@ public final class CastPlayer extends BasePlayer {
             ? getCurrentTimeline().getPeriod(oldWindowIndex, period, /* setIds= */ true).uid
             : null;
     updatePlayerStateAndNotifyIfChanged(/* resultCallback= */ null);
-    updateVolumeAndNotifyIfChanged();
+    updateDeviceVolumeAndNotifyIfChanged();
     updateRepeatModeAndNotifyIfChanged(/* resultCallback= */ null);
     updateVolumeAndNotifyIfChanged(/* resultCallback= */ null);
     updatePlaybackRateAndNotifyIfChanged(/* resultCallback= */ null);
@@ -1101,18 +1101,10 @@ public final class CastPlayer extends BasePlayer {
   }
 
   @RequiresNonNull("castSession")
-  private void updateVolumeAndNotifyIfChanged() {
+  private void updateDeviceVolumeAndNotifyIfChanged() {
     if (castSession != null) {
       int deviceVolume = VOLUME_RANGE.clamp((int) Math.round(castSession.getVolume() * MAX_VOLUME));
       setDeviceVolumeAndNotifyIfChanged(deviceVolume, castSession.isMute());
-    }
-  }
-
-  @RequiresNonNull("remoteMediaClient")
-  private void updateRepeatModeAndNotifyIfChanged(@Nullable ResultCallback<?> resultCallback) {
-    if (repeatMode.acceptsUpdate(resultCallback)) {
-      setRepeatModeAndNotifyIfChanged(fetchRepeatMode(remoteMediaClient));
-      repeatMode.clearPendingResultCallback();
     }
   }
 
@@ -1121,6 +1113,14 @@ public final class CastPlayer extends BasePlayer {
     if (volume.acceptsUpdate(resultCallback)) {
       setVolumeAndNotifyIfChanged(fetchVolume(remoteMediaClient));
       volume.clearPendingResultCallback();
+    }
+  }
+
+  @RequiresNonNull("remoteMediaClient")
+  private void updateRepeatModeAndNotifyIfChanged(@Nullable ResultCallback<?> resultCallback) {
+    if (repeatMode.acceptsUpdate(resultCallback)) {
+      setRepeatModeAndNotifyIfChanged(fetchRepeatMode(remoteMediaClient));
+      repeatMode.clearPendingResultCallback();
     }
   }
 
@@ -1527,7 +1527,6 @@ public final class CastPlayer extends BasePlayer {
   private static float fetchVolume(RemoteMediaClient remoteMediaClient) {
     MediaStatus mediaStatus = remoteMediaClient.getMediaStatus();
     if (mediaStatus == null) {
-      // No media session active, yet.
       return 1f;
     }
     return (float) mediaStatus.getStreamVolume();
@@ -1797,7 +1796,6 @@ public final class CastPlayer extends BasePlayer {
         // There's only one remote routing controller. It's safe to assume it's the Cast routing
         // controller.
         RoutingController remoteController = controllers.get(1);
-        // TODO b/364580007 - Populate min volume information.
         return new DeviceInfo.Builder(DeviceInfo.PLAYBACK_TYPE_REMOTE)
             .setMaxVolume(MAX_VOLUME)
             .setRoutingControllerId(remoteController.getId())
@@ -1836,7 +1834,7 @@ public final class CastPlayer extends BasePlayer {
 
     @Override
     public void onVolumeChanged() {
-      updateVolumeAndNotifyIfChanged();
+      updateDeviceVolumeAndNotifyIfChanged();
       listeners.flushEvents();
     }
   }

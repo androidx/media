@@ -229,8 +229,7 @@ This release includes the following changes since [1.6.1](#161-2025-04-14):
         ([#2357](https://github.com/androidx/media/issues/2357)).
 *   Cast extension:
     *   Add support for `getDeviceVolume()`, `setDeviceVolume()`,
-        `increaseDeviceVolume()`, `decreaseDeviceVolume()`,
-        `isDeviceMuted()`, and `setDeviceMuted()`
+        `getDeviceMuted()`, and `setDeviceMuted()`
         ([#2089](https://github.com/androidx/media/issues/2089)).
 *   Test Utilities:
     *   Removed `transformer.TestUtil.addAudioDecoders(String...)`,
