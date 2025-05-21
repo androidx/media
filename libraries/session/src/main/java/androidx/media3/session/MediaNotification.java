@@ -170,12 +170,15 @@ public final class MediaNotification {
      * @param onNotificationChangedCallback A callback that the provider needs to notify when the
      *     notification has changed and needs to be posted again, for example after a bitmap has
      *     been loaded asynchronously.
+     * @param reason Reason why the notification is being (re)created, useful for metrics or
+     *     advanced customization.
      */
     MediaNotification createNotification(
         MediaSession mediaSession,
         ImmutableList<CommandButton> mediaButtonPreferences,
         ActionFactory actionFactory,
-        Callback onNotificationChangedCallback);
+        Callback onNotificationChangedCallback,
+        @MediaSessionService.NotificationUpdate int reason);
 
     /**
      * Handles a notification's custom command.
