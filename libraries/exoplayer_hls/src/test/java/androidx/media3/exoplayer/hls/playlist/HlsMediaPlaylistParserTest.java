@@ -1638,7 +1638,7 @@ public class HlsMediaPlaylistParserTest {
             new HlsPlaylistParser()
                 .parse(playlistUri, new ByteArrayInputStream(Util.getUtf8Bytes(playlistString)));
 
-    assertThat(playlist.interstitials.size()).isEqualTo(1);
+    assertThat(playlist.interstitials).hasSize(1);
     assertThat(playlist.interstitials.get(0).resumeOffsetUs).isEqualTo(24953741L);
     assertThat(playlist.interstitials.get(0).endDateUnixUs).isEqualTo(1726846189006000L);
     assertThat(playlist.interstitials.get(0).playoutLimitUs).isEqualTo(24953741L);
@@ -1737,10 +1737,10 @@ public class HlsMediaPlaylistParserTest {
             new HlsPlaylistParser()
                 .parse(playlistUri, new ByteArrayInputStream(Util.getUtf8Bytes(playlistString)));
 
-    assertThat(playlist.interstitials.size()).isEqualTo(1);
+    assertThat(playlist.interstitials).hasSize(1);
     ImmutableList<HlsMediaPlaylist.ClientDefinedAttribute> clientDefinedAttributes =
         playlist.interstitials.get(0).clientDefinedAttributes;
-    assertThat(clientDefinedAttributes.size()).isEqualTo(1);
+    assertThat(clientDefinedAttributes).hasSize(1);
     HlsMediaPlaylist.ClientDefinedAttribute clientDefinedAttribute = clientDefinedAttributes.get(0);
     assertThat(clientDefinedAttribute.name).isEqualTo("X-CONTENT-MAY-VARY");
     assertThat(clientDefinedAttribute.getTextValue()).isEqualTo("YES");

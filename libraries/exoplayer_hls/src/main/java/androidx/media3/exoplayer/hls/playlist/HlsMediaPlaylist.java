@@ -663,7 +663,7 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
       /** Sets the {@code assetUri}. */
       @CanIgnoreReturnValue
       public Builder setAssetUri(@Nullable Uri assetUri) {
-        if (assetUri == null) { 
+        if (assetUri == null) {
           return this;
         }
         if (this.assetUri != null) {
@@ -780,7 +780,7 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
         if (!endOnNext) {
           return this;
         }
-        this.endOnNext = endOnNext;
+        this.endOnNext = true;
         return this;
       }
 
@@ -881,9 +881,10 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
         return this;
       }
 
-      public @Nullable Interstitial build() {
-        if ((assetListUri == null && assetUri != null)
-            || (assetListUri != null && assetUri == null) && startDateUnixUs != C.TIME_UNSET) {
+      @Nullable
+      public Interstitial build() {
+        if (((assetListUri == null && assetUri != null)
+            || (assetListUri != null && assetUri == null)) && startDateUnixUs != C.TIME_UNSET) {
           return new Interstitial(
               id,
               assetUri,
