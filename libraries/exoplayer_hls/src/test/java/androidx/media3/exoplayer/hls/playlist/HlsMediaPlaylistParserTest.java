@@ -1620,18 +1620,26 @@ public class HlsMediaPlaylistParserTest {
             + "#EXT-X-MEDIA-SEQUENCE:0\n"
             + "#EXT-X-PROGRAM-DATE-TIME:2024-09-20T15:29:20.000Z\n"
             + "#EXTINF:10.007800,\n"
-            + "audio0000.ts\n"
+            + "audio0000.ts"
+            + "\n"
             + "#EXT-X-DATERANGE:ID=\"15943\","
             + "CLASS=\"com.apple.hls.interstitial\","
-            + "START-DATE=\"2024-09-20T15:29:24.006Z\",PLANNED-DURATION=25,"
+            + "START-DATE=\"2024-09-20T15:29:24.006Z\","
+            + "PLANNED-DURATION=25,"
             + "X-ASSET-LIST=\"myapp://interstitial/req?_HLS_interstitial_id=15943\","
-            + "X-SNAP=\"OUT,IN\",X-TIMELINE-OCCUPIES=\"RANGE\","
-            + "X-TIMELINE-STYLE=\"HIGHLIGHT\",X-CONTENT-MAY-VARY=\"YES\"\n"
+            + "X-SNAP=\"OUT,IN\","
+            + "X-TIMELINE-OCCUPIES=\"RANGE\","
+            + "X-TIMELINE-STYLE=\"HIGHLIGHT\","
+            + "X-CONTENT-MAY-VARY=\"YES\""
+            + "\n"
             + "#EXTINF:10.007800,\n"
-            + "audio0001.ts\n"
-            + "#EXT-X-DATERANGE:ID=\"15943\",CLASS=\"com.apple.hls.interstitial\","
-            + "END-DATE=\"2024-09-20T15:29:49.006Z\",X-PLAYOUT-LIMIT=24.953741497,"
-            + "X-RESUME-OFFSET=24.953741497";
+            + "audio0001.ts"
+            + "\n"
+            + "#EXT-X-DATERANGE:ID=\"15943\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "END-DATE=\"2024-09-20T15:29:49.006Z\","
+            + "X-PLAYOUT-LIMIT=24.953741497,"
+            + "X-RESUME-OFFSET=24.953741497\n";
 
     HlsMediaPlaylist playlist =
         (HlsMediaPlaylist)
@@ -1646,7 +1654,7 @@ public class HlsMediaPlaylistParserTest {
 
   @Test
   public void
-      parseMediaPlaylist_withInterstitiaStartDateInvalidUpdate_throwsIllegalArgumentException() {
+      parseMediaPlaylist_withInterstitialStartDateInvalidUpdate_throwsIllegalArgumentException() {
     Uri playlistUri = Uri.parse("https://example.com/test.m3u8");
     String playlistString =
         "#EXTM3U\n"
@@ -1655,20 +1663,27 @@ public class HlsMediaPlaylistParserTest {
             + "#EXT-X-MEDIA-SEQUENCE:0\n"
             + "#EXT-X-PROGRAM-DATE-TIME:2024-09-20T15:29:20.000Z\n"
             + "#EXTINF:10.007800,\n"
-            + "audio0000.ts\n"
+            + "audio0000.ts"
+            + "\n"
             + "#EXT-X-DATERANGE:ID=\"15943\","
             + "CLASS=\"com.apple.hls.interstitial\","
-            + "START-DATE=\"2024-09-20T15:29:24.006Z\",PLANNED-DURATION=25,"
+            + "START-DATE=\"2024-09-20T15:29:24.006Z\","
+            + "PLANNED-DURATION=25,"
             + "X-ASSET-LIST=\"myapp://interstitial/req?_HLS_interstitial_id=15943\","
-            + "X-SNAP=\"OUT,IN\",X-TIMELINE-OCCUPIES=\"RANGE\","
-            + "X-TIMELINE-STYLE=\"HIGHLIGHT\",X-CONTENT-MAY-VARY=\"YES\"\n"
+            + "X-SNAP=\"OUT,IN\","
+            + "X-TIMELINE-OCCUPIES=\"RANGE\","
+            + "X-TIMELINE-STYLE=\"HIGHLIGHT\","
+            + "X-CONTENT-MAY-VARY=\"YES\""
+            + "\n"
             + "#EXTINF:10.007800,\n"
-            + "audio0001.ts\n"
-            + "#EXT-X-DATERANGE:ID=\"15943\",CLASS=\"com.apple.hls.interstitial\","
+            + "audio0001.ts"
+            + "\n"
+            + "#EXT-X-DATERANGE:ID=\"15943\","
+            + "CLASS=\"com.apple.hls.interstitial\","
             + "START-DATE=\"2024-09-20T15:29:25.006Z\","
-            + "END-DATE=\"2024-09-20T15:29:49.006Z\",X-PLAYOUT-LIMIT=24.953741497,"
-            + "X-RESUME-OFFSET=24.953741497";
-
+            + "END-DATE=\"2024-09-20T15:29:49.006Z\","
+            + "X-PLAYOUT-LIMIT=24.953741497,"
+            + "X-RESUME-OFFSET=24.953741497\n";
     HlsPlaylistParser hlsPlaylistParser = new HlsPlaylistParser();
     ByteArrayInputStream inputStream = new ByteArrayInputStream(Util.getUtf8Bytes(playlistString));
 
@@ -1687,20 +1702,27 @@ public class HlsMediaPlaylistParserTest {
             + "#EXT-X-MEDIA-SEQUENCE:0\n"
             + "#EXT-X-PROGRAM-DATE-TIME:2024-09-20T15:29:20.000Z\n"
             + "#EXTINF:10.007800,\n"
-            + "audio0000.ts\n"
+            + "audio0000.ts"
+            + "\n"
             + "#EXT-X-DATERANGE:ID=\"15943\","
             + "CLASS=\"com.apple.hls.interstitial\","
-            + "START-DATE=\"2024-09-20T15:29:24.006Z\",PLANNED-DURATION=25,"
+            + "START-DATE=\"2024-09-20T15:29:24.006Z\","
+            + "PLANNED-DURATION=25,"
             + "X-ASSET-LIST=\"myapp://interstitial/req?_HLS_interstitial_id=15943\","
-            + "X-SNAP=\"OUT,IN\",X-TIMELINE-OCCUPIES=\"RANGE\","
-            + "X-TIMELINE-STYLE=\"HIGHLIGHT\",X-CONTENT-MAY-VARY=\"YES\"\n"
+            + "X-SNAP=\"OUT,IN\","
+            + "X-TIMELINE-OCCUPIES=\"RANGE\","
+            + "X-TIMELINE-STYLE=\"HIGHLIGHT\","
+            + "X-CONTENT-MAY-VARY=\"YES\""
+            + "\n"
             + "#EXTINF:10.007800,\n"
-            + "audio0001.ts\n"
-            + "#EXT-X-DATERANGE:ID=\"15943\",CLASS=\"com.apple.hls.interstitial\","
-            + "END-DATE=\"2024-09-20T15:29:49.006Z\",X-PLAYOUT-LIMIT=24.953741497,"
+            + "audio0001.ts"
+            + "\n"
+            + "#EXT-X-DATERANGE:ID=\"15943\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "END-DATE=\"2024-09-20T15:29:49.006Z\","
+            + "X-PLAYOUT-LIMIT=24.953741497,"
             + "X-CONTENT-MAY-VARY=\"NO\","
-            + "X-RESUME-OFFSET=24.953741497";
-
+            + "X-RESUME-OFFSET=24.953741497\n";
     HlsPlaylistParser hlsPlaylistParser = new HlsPlaylistParser();
     ByteArrayInputStream inputStream = new ByteArrayInputStream(Util.getUtf8Bytes(playlistString));
 
@@ -1721,16 +1743,21 @@ public class HlsMediaPlaylistParserTest {
             + "audio0000.ts\n"
             + "#EXT-X-DATERANGE:ID=\"15943\","
             + "CLASS=\"com.apple.hls.interstitial\","
-            + "START-DATE=\"2024-09-20T15:29:24.006Z\",PLANNED-DURATION=25,"
+            + "START-DATE=\"2024-09-20T15:29:24.006Z\","
+            + "PLANNED-DURATION=25,"
             + "X-ASSET-LIST=\"myapp://interstitial/req?_HLS_interstitial_id=15943\","
             + "X-SNAP=\"OUT,IN\","
-            + "X-CONTENT-MAY-VARY=\"YES\"\n"
+            + "X-CONTENT-MAY-VARY=\"YES\""
+            + "\n"
             + "#EXTINF:10.007800,\n"
-            + "audio0001.ts\n"
-            + "#EXT-X-DATERANGE:ID=\"15943\",CLASS=\"com.apple.hls.interstitial\","
-            + "END-DATE=\"2024-09-20T15:29:49.006Z\",X-PLAYOUT-LIMIT=24.953741497,"
+            + "audio0001.ts"
+            + "\n"
+            + "#EXT-X-DATERANGE:ID=\"15943\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "END-DATE=\"2024-09-20T15:29:49.006Z\","
+            + "X-PLAYOUT-LIMIT=24.953741497,"
             + "X-CONTENT-MAY-VARY=\"YES\","
-            + "X-RESUME-OFFSET=24.953741497";
+            + "X-RESUME-OFFSET=24.953741497\n";
 
     HlsMediaPlaylist playlist =
         (HlsMediaPlaylist)
