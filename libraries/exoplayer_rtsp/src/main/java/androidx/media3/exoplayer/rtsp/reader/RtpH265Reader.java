@@ -203,12 +203,11 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
     // Since sprop-max-don-diff != 0 is not supported, DONL won't present in the packet.
 
-    int endOfData = data.bytesLeft();
     data.setPosition(2); // skipping payload header (2 bytes)
     do {
       short nalUnitSize = data.readShort(); // 2 bytes of NAL unit size
       int nalHeaderType = (data.getData()[data.getPosition()] >> 1) & 0x3F;
-      if (data.getPosition() + nalUnitSize > endOfData) {
+      if (data.bytesLeft() < nalUnitSize) {
         throw ParserException.createForMalformedManifest(
             "Malformed Aggregation Packet. NAL unit size exceeds packet size.",
             /* cause= */ null
