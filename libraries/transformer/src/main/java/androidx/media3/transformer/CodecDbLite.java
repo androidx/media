@@ -54,62 +54,6 @@ public final class CodecDbLite {
   private static final ImmutableListMultimap<Chipset, VideoEncoderEntry> ENCODER_DATASET =
       ImmutableListMultimap.<Chipset, VideoEncoderEntry>builder()
           .put(
-              new Chipset("QTI", "SM6375"),
-              new VideoEncoderEntry(
-                  MimeTypes.VIDEO_H265,
-                  /* maxBFrames= */ 0,
-                  /* bFrameResolutionCutoff= */ 0,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
-          .put(
-              new Chipset("QTI", "SM6375"),
-              new VideoEncoderEntry(
-                  MimeTypes.VIDEO_H264,
-                  /* maxBFrames= */ 0,
-                  /* bFrameResolutionCutoff= */ 0,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
-          .put(
-              new Chipset("QTI", "SM8350"),
-              new VideoEncoderEntry(
-                  MimeTypes.VIDEO_H265,
-                  /* maxBFrames= */ 0,
-                  /* bFrameResolutionCutoff= */ 0,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
-          .put(
-              new Chipset("QTI", "SM8350"),
-              new VideoEncoderEntry(
-                  MimeTypes.VIDEO_H264,
-                  /* maxBFrames= */ 0,
-                  /* bFrameResolutionCutoff= */ 0,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
-          .put(
-              new Chipset("Mediatek", "MT6769T"),
-              new VideoEncoderEntry(
-                  MimeTypes.VIDEO_H265,
-                  /* maxBFrames= */ 1,
-                  /* bFrameResolutionCutoff= */ 497664000,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
-          .put(
-              new Chipset("Mediatek", "MT6769T"),
-              new VideoEncoderEntry(
-                  MimeTypes.VIDEO_H264,
-                  /* maxBFrames= */ 0,
-                  /* bFrameResolutionCutoff= */ 0,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
-          .put(
-              new Chipset("Google", "Tensor G3"),
-              new VideoEncoderEntry(
-                  MimeTypes.VIDEO_H265,
-                  /* maxBFrames= */ 3,
-                  /* bFrameResolutionCutoff= */ 38122738,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
-          .put(
-              new Chipset("Google", "Tensor G3"),
-              new VideoEncoderEntry(
-                  MimeTypes.VIDEO_H264,
-                  /* maxBFrames= */ 1,
-                  /* bFrameResolutionCutoff= */ 33874065,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
-          .put(
               new Chipset("Mediatek", "MT6762"),
               new VideoEncoderEntry(
                   MimeTypes.VIDEO_H264,
@@ -117,18 +61,18 @@ public final class CodecDbLite {
                   /* bFrameResolutionCutoff= */ 0,
                   VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
           .put(
-              new Chipset("QTI", "SM6225"),
+              new Chipset("Google", "Tensor G3"),
               new VideoEncoderEntry(
                   MimeTypes.VIDEO_H265,
-                  /* maxBFrames= */ 0,
-                  /* bFrameResolutionCutoff= */ 0,
+                  /* maxBFrames= */ 1,
+                  /* bFrameResolutionCutoff= */ 37538350,
                   VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
           .put(
-              new Chipset("QTI", "SM6225"),
+              new Chipset("Google", "Tensor G3"),
               new VideoEncoderEntry(
                   MimeTypes.VIDEO_H264,
-                  /* maxBFrames= */ 0,
-                  /* bFrameResolutionCutoff= */ 0,
+                  /* maxBFrames= */ 1,
+                  /* bFrameResolutionCutoff= */ 32750593,
                   VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
           .put(
               new Chipset("QTI", "SM8475"),
@@ -142,16 +86,151 @@ public final class CodecDbLite {
               new Chipset("QTI", "SM8475"),
               new VideoEncoderEntry(
                   MimeTypes.VIDEO_H264,
-                  /* maxBFrames= */ 3,
+                  /* maxBFrames= */ 1,
                   /* bFrameResolutionCutoff= */ 497664000,
                   VideoEncoderEntry.FormatOptimization
                       .FORMAT_OPTIMIZATION_SET_TEMPORAL_LAYERING_FOR_B_FRAMES))
+          .put(
+              new Chipset("QTI", "SM6225"),
+              new VideoEncoderEntry(
+                  MimeTypes.VIDEO_H265,
+                  /* maxBFrames= */ 0,
+                  /* bFrameResolutionCutoff= */ 0,
+                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
+          .put(
+              new Chipset("QTI", "SM6225"),
+              new VideoEncoderEntry(
+                  MimeTypes.VIDEO_H264,
+                  /* maxBFrames= */ 0,
+                  /* bFrameResolutionCutoff= */ 0,
+                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
+          .put(
+              new Chipset("Mediatek", "MT6769T"),
+              new VideoEncoderEntry(
+                  MimeTypes.VIDEO_H265,
+                  /* maxBFrames= */ 0,
+                  /* bFrameResolutionCutoff= */ 0,
+                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
+          .put(
+              new Chipset("Mediatek", "MT6769T"),
+              new VideoEncoderEntry(
+                  MimeTypes.VIDEO_H264,
+                  /* maxBFrames= */ 0,
+                  /* bFrameResolutionCutoff= */ 0,
+                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
+          .put(
+              new Chipset("QTI", "SM8350"),
+              new VideoEncoderEntry(
+                  MimeTypes.VIDEO_H265,
+                  /* maxBFrames= */ 0,
+                  /* bFrameResolutionCutoff= */ 0,
+                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
+          .put(
+              new Chipset("QTI", "SM8350"),
+              new VideoEncoderEntry(
+                  MimeTypes.VIDEO_H264,
+                  /* maxBFrames= */ 0,
+                  /* bFrameResolutionCutoff= */ 0,
+                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
+          .put(
+              new Chipset("QTI", "SM6375"),
+              new VideoEncoderEntry(
+                  MimeTypes.VIDEO_H265,
+                  /* maxBFrames= */ 0,
+                  /* bFrameResolutionCutoff= */ 0,
+                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
+          .put(
+              new Chipset("QTI", "SM6375"),
+              new VideoEncoderEntry(
+                  MimeTypes.VIDEO_H264,
+                  /* maxBFrames= */ 0,
+                  /* bFrameResolutionCutoff= */ 0,
+                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
+          .put(
+              new Chipset("Mediatek", "MT6789V/CD"),
+              new VideoEncoderEntry(
+                  MimeTypes.VIDEO_H265,
+                  /* maxBFrames= */ 0,
+                  /* bFrameResolutionCutoff= */ 0,
+                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
+          .put(
+              new Chipset("Mediatek", "MT6789V/CD"),
+              new VideoEncoderEntry(
+                  MimeTypes.VIDEO_H264,
+                  /* maxBFrames= */ 0,
+                  /* bFrameResolutionCutoff= */ 0,
+                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
+          .put(
+              new Chipset("Mediatek", "MT6765"),
+              new VideoEncoderEntry(
+                  MimeTypes.VIDEO_H264,
+                  /* maxBFrames= */ 0,
+                  /* bFrameResolutionCutoff= */ 0,
+                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
+          .put(
+              new Chipset("Google", "Tensor G2"),
+              new VideoEncoderEntry(
+                  MimeTypes.VIDEO_H265,
+                  /* maxBFrames= */ 1,
+                  /* bFrameResolutionCutoff= */ 37538929,
+                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
+          .put(
+              new Chipset("Google", "Tensor G2"),
+              new VideoEncoderEntry(
+                  MimeTypes.VIDEO_H264,
+                  /* maxBFrames= */ 1,
+                  /* bFrameResolutionCutoff= */ 32739600,
+                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
+          .put(
+              new Chipset("QTI", "SM8250"),
+              new VideoEncoderEntry(
+                  MimeTypes.VIDEO_H265,
+                  /* maxBFrames= */ 0,
+                  /* bFrameResolutionCutoff= */ 0,
+                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
+          .put(
+              new Chipset("QTI", "SM8250"),
+              new VideoEncoderEntry(
+                  MimeTypes.VIDEO_H264,
+                  /* maxBFrames= */ 0,
+                  /* bFrameResolutionCutoff= */ 0,
+                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
+          .put(
+              new Chipset("QTI", "SM8450"),
+              new VideoEncoderEntry(
+                  MimeTypes.VIDEO_H265,
+                  /* maxBFrames= */ 1,
+                  /* bFrameResolutionCutoff= */ 497664000,
+                  VideoEncoderEntry.FormatOptimization
+                      .FORMAT_OPTIMIZATION_SET_TEMPORAL_LAYERING_FOR_B_FRAMES))
+          .put(
+              new Chipset("QTI", "SM8450"),
+              new VideoEncoderEntry(
+                  MimeTypes.VIDEO_H264,
+                  /* maxBFrames= */ 1,
+                  /* bFrameResolutionCutoff= */ 497664000,
+                  VideoEncoderEntry.FormatOptimization
+                      .FORMAT_OPTIMIZATION_SET_TEMPORAL_LAYERING_FOR_B_FRAMES))
+          .put(
+              new Chipset("Spreadtrum", "SC9863A"),
+              new VideoEncoderEntry(
+                  MimeTypes.VIDEO_H264,
+                  /* maxBFrames= */ 0,
+                  /* bFrameResolutionCutoff= */ 0,
+                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
+          .put(
+              new Chipset("Spreadtrum", "SC9863A"),
+              new VideoEncoderEntry(
+                  MimeTypes.VIDEO_H265,
+                  /* maxBFrames= */ 0,
+                  /* bFrameResolutionCutoff= */ 0,
+                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
           .put(
               new Chipset("Mediatek", "MT6893"),
               new VideoEncoderEntry(
                   MimeTypes.VIDEO_H265,
                   /* maxBFrames= */ 1,
-                  /* bFrameResolutionCutoff= */ 34433979,
+                  /* bFrameResolutionCutoff= */ 34028841,
                   VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
           .put(
               new Chipset("Mediatek", "MT6893"),
@@ -161,143 +240,6 @@ public final class CodecDbLite {
                   /* bFrameResolutionCutoff= */ 457499715,
                   VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
           .put(
-              new Chipset("Spreadtrum", "SC9863A"),
-              new VideoEncoderEntry(
-                  MimeTypes.VIDEO_H264,
-                  /* maxBFrames= */ 0,
-                  /* bFrameResolutionCutoff= */ 0,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
-          .put(
-              new Chipset("Spreadtrum", "SC9863A"),
-              new VideoEncoderEntry(
-                  MimeTypes.VIDEO_H265,
-                  /* maxBFrames= */ 1,
-                  /* bFrameResolutionCutoff= */ 497664000,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
-          .put(
-              new Chipset("QTI", "SM8450"),
-              new VideoEncoderEntry(
-                  MimeTypes.VIDEO_H265,
-                  /* maxBFrames= */ 2,
-                  /* bFrameResolutionCutoff= */ 497664000,
-                  VideoEncoderEntry.FormatOptimization
-                      .FORMAT_OPTIMIZATION_SET_TEMPORAL_LAYERING_FOR_B_FRAMES))
-          .put(
-              new Chipset("QTI", "SM8450"),
-              new VideoEncoderEntry(
-                  MimeTypes.VIDEO_H264,
-                  /* maxBFrames= */ 2,
-                  /* bFrameResolutionCutoff= */ 497664000,
-                  VideoEncoderEntry.FormatOptimization
-                      .FORMAT_OPTIMIZATION_SET_TEMPORAL_LAYERING_FOR_B_FRAMES))
-          .put(
-              new Chipset("Mediatek", "MT6765"),
-              new VideoEncoderEntry(
-                  MimeTypes.VIDEO_H264,
-                  /* maxBFrames= */ 0,
-                  /* bFrameResolutionCutoff= */ 0,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
-          .put(
-              new Chipset("Mediatek", "MT6789V/CD"),
-              new VideoEncoderEntry(
-                  MimeTypes.VIDEO_H265,
-                  /* maxBFrames= */ 0,
-                  /* bFrameResolutionCutoff= */ 0,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
-          .put(
-              new Chipset("Mediatek", "MT6789V/CD"),
-              new VideoEncoderEntry(
-                  MimeTypes.VIDEO_H264,
-                  /* maxBFrames= */ 3,
-                  /* bFrameResolutionCutoff= */ 497664000,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
-          .put(
-              new Chipset("QTI", "SM8250"),
-              new VideoEncoderEntry(
-                  MimeTypes.VIDEO_H265,
-                  /* maxBFrames= */ 0,
-                  /* bFrameResolutionCutoff= */ 0,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
-          .put(
-              new Chipset("QTI", "SM8250"),
-              new VideoEncoderEntry(
-                  MimeTypes.VIDEO_H264,
-                  /* maxBFrames= */ 0,
-                  /* bFrameResolutionCutoff= */ 0,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
-          .put(
-              new Chipset("Google", "Tensor G2"),
-              new VideoEncoderEntry(
-                  MimeTypes.VIDEO_H265,
-                  /* maxBFrames= */ 3,
-                  /* bFrameResolutionCutoff= */ 38123374,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
-          .put(
-              new Chipset("Google", "Tensor G2"),
-              new VideoEncoderEntry(
-                  MimeTypes.VIDEO_H264,
-                  /* maxBFrames= */ 1,
-                  /* bFrameResolutionCutoff= */ 33865154,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
-          .put(
-              new Chipset("Mediatek", "MT6983"),
-              new VideoEncoderEntry(
-                  MimeTypes.VIDEO_H265,
-                  /* maxBFrames= */ 1,
-                  /* bFrameResolutionCutoff= */ 36578565,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
-          .put(
-              new Chipset("Mediatek", "MT6983"),
-              new VideoEncoderEntry(
-                  MimeTypes.VIDEO_H264,
-                  /* maxBFrames= */ 1,
-                  /* bFrameResolutionCutoff= */ 191700562,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
-          .put(
-              new Chipset("Mediatek", "MT6769Z"),
-              new VideoEncoderEntry(
-                  MimeTypes.VIDEO_H265,
-                  /* maxBFrames= */ 0,
-                  /* bFrameResolutionCutoff= */ 0,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
-          .put(
-              new Chipset("Mediatek", "MT6769Z"),
-              new VideoEncoderEntry(
-                  MimeTypes.VIDEO_H264,
-                  /* maxBFrames= */ 1,
-                  /* bFrameResolutionCutoff= */ 497664000,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
-          .put(
-              new Chipset("Samsung", "Exynos 850"),
-              new VideoEncoderEntry(
-                  MimeTypes.VIDEO_H265,
-                  /* maxBFrames= */ 2,
-                  /* bFrameResolutionCutoff= */ 497664000,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
-          .put(
-              new Chipset("Samsung", "Exynos 850"),
-              new VideoEncoderEntry(
-                  MimeTypes.VIDEO_H264,
-                  /* maxBFrames= */ 2,
-                  /* bFrameResolutionCutoff= */ 382383657,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
-          .put(
-              new Chipset("QTI", "SM8650"),
-              new VideoEncoderEntry(
-                  MimeTypes.VIDEO_H265,
-                  /* maxBFrames= */ 3,
-                  /* bFrameResolutionCutoff= */ 36220874,
-                  VideoEncoderEntry.FormatOptimization
-                      .FORMAT_OPTIMIZATION_SET_TEMPORAL_LAYERING_FOR_B_FRAMES))
-          .put(
-              new Chipset("QTI", "SM8650"),
-              new VideoEncoderEntry(
-                  MimeTypes.VIDEO_H264,
-                  /* maxBFrames= */ 1,
-                  /* bFrameResolutionCutoff= */ 133915770,
-                  VideoEncoderEntry.FormatOptimization
-                      .FORMAT_OPTIMIZATION_SET_TEMPORAL_LAYERING_FOR_B_FRAMES))
-          .put(
               new Chipset("QTI", "SDM450"),
               new VideoEncoderEntry(
                   MimeTypes.VIDEO_H264,
@@ -305,105 +247,132 @@ public final class CodecDbLite {
                   /* bFrameResolutionCutoff= */ 0,
                   VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
           .put(
-              new Chipset("Spreadtrum", "T606"),
-              new VideoEncoderEntry(
-                  MimeTypes.VIDEO_H264,
-                  /* maxBFrames= */ 0,
-                  /* bFrameResolutionCutoff= */ 0,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
-          .put(
-              new Chipset("Spreadtrum", "T606"),
+              new Chipset("QTI", "SM8650"),
               new VideoEncoderEntry(
                   MimeTypes.VIDEO_H265,
-                  /* maxBFrames= */ 2,
-                  /* bFrameResolutionCutoff= */ 497664000,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
-          .put(
-              new Chipset("Samsung", "s5e9925"),
-              new VideoEncoderEntry(
-                  MimeTypes.VIDEO_H265,
-                  /* maxBFrames= */ 2,
-                  /* bFrameResolutionCutoff= */ 53079134,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
-          .put(
-              new Chipset("Samsung", "s5e9925"),
-              new VideoEncoderEntry(
-                  MimeTypes.VIDEO_H264,
-                  /* maxBFrames= */ 3,
-                  /* bFrameResolutionCutoff= */ 42097387,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
-          .put(
-              new Chipset("QTI", "SM8550"),
-              new VideoEncoderEntry(
-                  MimeTypes.VIDEO_H265,
-                  /* maxBFrames= */ 3,
-                  /* bFrameResolutionCutoff= */ 497664000,
+                  /* maxBFrames= */ 1,
+                  /* bFrameResolutionCutoff= */ 34344411,
                   VideoEncoderEntry.FormatOptimization
                       .FORMAT_OPTIMIZATION_SET_TEMPORAL_LAYERING_FOR_B_FRAMES))
           .put(
-              new Chipset("QTI", "SM8550"),
-              new VideoEncoderEntry(
-                  MimeTypes.VIDEO_H264,
-                  /* maxBFrames= */ 2,
-                  /* bFrameResolutionCutoff= */ 111631556,
-                  VideoEncoderEntry.FormatOptimization
-                      .FORMAT_OPTIMIZATION_SET_TEMPORAL_LAYERING_FOR_B_FRAMES))
-          .put(
-              new Chipset("QTI", "SM4350"),
-              new VideoEncoderEntry(
-                  MimeTypes.VIDEO_H265,
-                  /* maxBFrames= */ 3,
-                  /* bFrameResolutionCutoff= */ 497664000,
-                  VideoEncoderEntry.FormatOptimization
-                      .FORMAT_OPTIMIZATION_SET_TEMPORAL_LAYERING_FOR_B_FRAMES))
-          .put(
-              new Chipset("QTI", "SM4350"),
-              new VideoEncoderEntry(
-                  MimeTypes.VIDEO_H264,
-                  /* maxBFrames= */ 0,
-                  /* bFrameResolutionCutoff= */ 0,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
-          .put(
-              new Chipset("Samsung", "s5e8825"),
-              new VideoEncoderEntry(
-                  MimeTypes.VIDEO_H265,
-                  /* maxBFrames= */ 3,
-                  /* bFrameResolutionCutoff= */ 158953606,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
-          .put(
-              new Chipset("Samsung", "s5e8825"),
+              new Chipset("QTI", "SM8650"),
               new VideoEncoderEntry(
                   MimeTypes.VIDEO_H264,
                   /* maxBFrames= */ 1,
-                  /* bFrameResolutionCutoff= */ 497664000,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
+                  /* bFrameResolutionCutoff= */ 132451675,
+                  VideoEncoderEntry.FormatOptimization
+                      .FORMAT_OPTIMIZATION_SET_TEMPORAL_LAYERING_FOR_B_FRAMES))
           .put(
-              new Chipset("QTI", "SM6125"),
+              new Chipset("Samsung", "s5e9925"),
               new VideoEncoderEntry(
                   MimeTypes.VIDEO_H265,
-                  /* maxBFrames= */ 0,
-                  /* bFrameResolutionCutoff= */ 0,
+                  /* maxBFrames= */ 1,
+                  /* bFrameResolutionCutoff= */ 51506898,
                   VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
           .put(
-              new Chipset("QTI", "SM6125"),
+              new Chipset("Samsung", "s5e9925"),
               new VideoEncoderEntry(
                   MimeTypes.VIDEO_H264,
-                  /* maxBFrames= */ 0,
-                  /* bFrameResolutionCutoff= */ 0,
-                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
-          .put(
-              new Chipset("Mediatek", "MT6833V/NZA"),
-              new VideoEncoderEntry(
-                  MimeTypes.VIDEO_H265,
                   /* maxBFrames= */ 2,
-                  /* bFrameResolutionCutoff= */ 38006844,
+                  /* bFrameResolutionCutoff= */ 40856748,
+                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
+          .put(
+              new Chipset("Spreadtrum", "T606"),
+              new VideoEncoderEntry(
+                  MimeTypes.VIDEO_H264,
+                  /* maxBFrames= */ 0,
+                  /* bFrameResolutionCutoff= */ 0,
+                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
+          .put(
+              new Chipset("Spreadtrum", "T606"),
+              new VideoEncoderEntry(
+                  MimeTypes.VIDEO_H265,
+                  /* maxBFrames= */ 0,
+                  /* bFrameResolutionCutoff= */ 0,
+                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
+          .put(
+              new Chipset("Samsung", "Exynos 850"),
+              new VideoEncoderEntry(
+                  MimeTypes.VIDEO_H265,
+                  /* maxBFrames= */ 0,
+                  /* bFrameResolutionCutoff= */ 0,
+                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
+          .put(
+              new Chipset("Samsung", "Exynos 850"),
+              new VideoEncoderEntry(
+                  MimeTypes.VIDEO_H264,
+                  /* maxBFrames= */ 0,
+                  /* bFrameResolutionCutoff= */ 0,
+                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
+          .put(
+              new Chipset("Mediatek", "MT6769Z"),
+              new VideoEncoderEntry(
+                  MimeTypes.VIDEO_H265,
+                  /* maxBFrames= */ 0,
+                  /* bFrameResolutionCutoff= */ 0,
+                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
+          .put(
+              new Chipset("Mediatek", "MT6769Z"),
+              new VideoEncoderEntry(
+                  MimeTypes.VIDEO_H264,
+                  /* maxBFrames= */ 0,
+                  /* bFrameResolutionCutoff= */ 0,
+                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
+          .put(
+              new Chipset("Mediatek", "MT6983"),
+              new VideoEncoderEntry(
+                  MimeTypes.VIDEO_H265,
+                  /* maxBFrames= */ 1,
+                  /* bFrameResolutionCutoff= */ 36134374,
+                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
+          .put(
+              new Chipset("Mediatek", "MT6983"),
+              new VideoEncoderEntry(
+                  MimeTypes.VIDEO_H264,
+                  /* maxBFrames= */ 1,
+                  /* bFrameResolutionCutoff= */ 189533581,
+                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
+          .put(
+              new Chipset("Mediatek", "MT6833V/NZA"),
+              new VideoEncoderEntry(
+                  MimeTypes.VIDEO_H265,
+                  /* maxBFrames= */ 0,
+                  /* bFrameResolutionCutoff= */ 0,
                   VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
           .put(
               new Chipset("Mediatek", "MT6833V/NZA"),
               new VideoEncoderEntry(
                   MimeTypes.VIDEO_H264,
-                  /* maxBFrames= */ 3,
-                  /* bFrameResolutionCutoff= */ 497664000,
+                  /* maxBFrames= */ 0,
+                  /* bFrameResolutionCutoff= */ 0,
+                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
+          .put(
+              new Chipset("QTI", "SM6125"),
+              new VideoEncoderEntry(
+                  MimeTypes.VIDEO_H265,
+                  /* maxBFrames= */ 0,
+                  /* bFrameResolutionCutoff= */ 0,
+                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
+          .put(
+              new Chipset("QTI", "SM6125"),
+              new VideoEncoderEntry(
+                  MimeTypes.VIDEO_H264,
+                  /* maxBFrames= */ 0,
+                  /* bFrameResolutionCutoff= */ 0,
+                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
+          .put(
+              new Chipset("Mediatek", "MT6785"),
+              new VideoEncoderEntry(
+                  MimeTypes.VIDEO_H265,
+                  /* maxBFrames= */ 0,
+                  /* bFrameResolutionCutoff= */ 0,
+                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
+          .put(
+              new Chipset("Mediatek", "MT6785"),
+              new VideoEncoderEntry(
+                  MimeTypes.VIDEO_H264,
+                  /* maxBFrames= */ 0,
+                  /* bFrameResolutionCutoff= */ 0,
                   VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
           .put(
               new Chipset("Mediatek", "MT6761"),
@@ -413,19 +382,49 @@ public final class CodecDbLite {
                   /* bFrameResolutionCutoff= */ 0,
                   VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
           .put(
-              new Chipset("Mediatek", "MT6785"),
+              new Chipset("Samsung", "s5e8825"),
               new VideoEncoderEntry(
                   MimeTypes.VIDEO_H265,
-                  /* maxBFrames= */ 2,
-                  /* bFrameResolutionCutoff= */ 497664000,
+                  /* maxBFrames= */ 0,
+                  /* bFrameResolutionCutoff= */ 0,
                   VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
           .put(
-              new Chipset("Mediatek", "MT6785"),
+              new Chipset("Samsung", "s5e8825"),
               new VideoEncoderEntry(
                   MimeTypes.VIDEO_H264,
                   /* maxBFrames= */ 0,
                   /* bFrameResolutionCutoff= */ 0,
                   VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
+          .put(
+              new Chipset("QTI", "SM4350"),
+              new VideoEncoderEntry(
+                  MimeTypes.VIDEO_H265,
+                  /* maxBFrames= */ 0,
+                  /* bFrameResolutionCutoff= */ 0,
+                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
+          .put(
+              new Chipset("QTI", "SM4350"),
+              new VideoEncoderEntry(
+                  MimeTypes.VIDEO_H264,
+                  /* maxBFrames= */ 0,
+                  /* bFrameResolutionCutoff= */ 0,
+                  VideoEncoderEntry.FormatOptimization.FORMAT_OPTIMIZATION_NONE))
+          .put(
+              new Chipset("QTI", "SM8550"),
+              new VideoEncoderEntry(
+                  MimeTypes.VIDEO_H265,
+                  /* maxBFrames= */ 1,
+                  /* bFrameResolutionCutoff= */ 497664000,
+                  VideoEncoderEntry.FormatOptimization
+                      .FORMAT_OPTIMIZATION_SET_TEMPORAL_LAYERING_FOR_B_FRAMES))
+          .put(
+              new Chipset("QTI", "SM8550"),
+              new VideoEncoderEntry(
+                  MimeTypes.VIDEO_H264,
+                  /* maxBFrames= */ 1,
+                  /* bFrameResolutionCutoff= */ 110196681,
+                  VideoEncoderEntry.FormatOptimization
+                      .FORMAT_OPTIMIZATION_SET_TEMPORAL_LAYERING_FOR_B_FRAMES))
           .build();
 
   private static final VideoEncoderEntry ENCODER_DEFAULT =

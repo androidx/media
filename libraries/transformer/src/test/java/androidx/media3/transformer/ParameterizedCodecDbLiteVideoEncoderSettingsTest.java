@@ -129,7 +129,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setHeight(720)
                 .setFrameRate(30.00f)
                 .build(),
-            new VideoEncoderSettings.Builder().setMaxBFrames(3).build()),
+            new VideoEncoderSettings.Builder().setMaxBFrames(1).build()),
         new TestParameters(
             "Google",
             "Tensor G3",
@@ -139,7 +139,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setHeight(540)
                 .setFrameRate(30.00f)
                 .build(),
-            new VideoEncoderSettings.Builder().setMaxBFrames(3).build()),
+            new VideoEncoderSettings.Builder().setMaxBFrames(1).build()),
         new TestParameters(
             "Google",
             "Tensor G3",
@@ -149,7 +149,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setHeight(480)
                 .setFrameRate(30.00f)
                 .build(),
-            new VideoEncoderSettings.Builder().setMaxBFrames(3).build()),
+            new VideoEncoderSettings.Builder().setMaxBFrames(1).build()),
         new TestParameters(
             "Google",
             "Tensor G3",
@@ -159,7 +159,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setHeight(360)
                 .setFrameRate(30.00f)
                 .build(),
-            new VideoEncoderSettings.Builder().setMaxBFrames(3).build()),
+            new VideoEncoderSettings.Builder().setMaxBFrames(1).build()),
         new TestParameters(
             "QTI",
             "SM8650",
@@ -270,7 +270,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setFrameRate(30.00f)
                 .build(),
             new VideoEncoderSettings.Builder()
-                .setMaxBFrames(3)
+                .setMaxBFrames(1)
                 .setTemporalLayers(
                     /* numNonBidirectionalLayers= */ 1, /* numBidirectionalLayers= */ 2)
                 .build()),
@@ -284,7 +284,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setFrameRate(30.00f)
                 .build(),
             new VideoEncoderSettings.Builder()
-                .setMaxBFrames(3)
+                .setMaxBFrames(1)
                 .setTemporalLayers(
                     /* numNonBidirectionalLayers= */ 1, /* numBidirectionalLayers= */ 2)
                 .build()),
@@ -298,7 +298,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setFrameRate(30.00f)
                 .build(),
             new VideoEncoderSettings.Builder()
-                .setMaxBFrames(3)
+                .setMaxBFrames(1)
                 .setTemporalLayers(
                     /* numNonBidirectionalLayers= */ 1, /* numBidirectionalLayers= */ 2)
                 .build()),
@@ -312,7 +312,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
                 .setFrameRate(30.00f)
                 .build(),
             new VideoEncoderSettings.Builder()
-                .setMaxBFrames(3)
+                .setMaxBFrames(1)
                 .setTemporalLayers(
                     /* numNonBidirectionalLayers= */ 1, /* numBidirectionalLayers= */ 2)
                 .build()),
@@ -461,66 +461,6 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
             "s5e9925",
             new Format.Builder()
                 .setSampleMimeType(MimeTypes.VIDEO_H264)
-                .setWidth(1280)
-                .setHeight(720)
-                .setFrameRate(30.00f)
-                .build(),
-            new VideoEncoderSettings.Builder().setMaxBFrames(3).build()),
-        new TestParameters(
-            "Samsung",
-            "s5e9925",
-            new Format.Builder()
-                .setSampleMimeType(MimeTypes.VIDEO_H264)
-                .setWidth(960)
-                .setHeight(540)
-                .setFrameRate(30.00f)
-                .build(),
-            new VideoEncoderSettings.Builder().setMaxBFrames(3).build()),
-        new TestParameters(
-            "Samsung",
-            "s5e9925",
-            new Format.Builder()
-                .setSampleMimeType(MimeTypes.VIDEO_H264)
-                .setWidth(854)
-                .setHeight(480)
-                .setFrameRate(30.00f)
-                .build(),
-            new VideoEncoderSettings.Builder().setMaxBFrames(3).build()),
-        new TestParameters(
-            "Samsung",
-            "s5e9925",
-            new Format.Builder()
-                .setSampleMimeType(MimeTypes.VIDEO_H264)
-                .setWidth(640)
-                .setHeight(360)
-                .setFrameRate(30.00f)
-                .build(),
-            new VideoEncoderSettings.Builder().setMaxBFrames(3).build()),
-        new TestParameters(
-            "Samsung",
-            "s5e9925",
-            new Format.Builder()
-                .setSampleMimeType(MimeTypes.VIDEO_H265)
-                .setWidth(3840)
-                .setHeight(2160)
-                .setFrameRate(30.00f)
-                .build(),
-            VideoEncoderSettings.DEFAULT),
-        new TestParameters(
-            "Samsung",
-            "s5e9925",
-            new Format.Builder()
-                .setSampleMimeType(MimeTypes.VIDEO_H265)
-                .setWidth(1920)
-                .setHeight(1080)
-                .setFrameRate(30.00f)
-                .build(),
-            VideoEncoderSettings.DEFAULT),
-        new TestParameters(
-            "Samsung",
-            "s5e9925",
-            new Format.Builder()
-                .setSampleMimeType(MimeTypes.VIDEO_H265)
                 .setWidth(1280)
                 .setHeight(720)
                 .setFrameRate(30.00f)
@@ -530,7 +470,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
             "Samsung",
             "s5e9925",
             new Format.Builder()
-                .setSampleMimeType(MimeTypes.VIDEO_H265)
+                .setSampleMimeType(MimeTypes.VIDEO_H264)
                 .setWidth(960)
                 .setHeight(540)
                 .setFrameRate(30.00f)
@@ -540,7 +480,7 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
             "Samsung",
             "s5e9925",
             new Format.Builder()
-                .setSampleMimeType(MimeTypes.VIDEO_H265)
+                .setSampleMimeType(MimeTypes.VIDEO_H264)
                 .setWidth(854)
                 .setHeight(480)
                 .setFrameRate(30.00f)
@@ -550,12 +490,72 @@ public class ParameterizedCodecDbLiteVideoEncoderSettingsTest {
             "Samsung",
             "s5e9925",
             new Format.Builder()
-                .setSampleMimeType(MimeTypes.VIDEO_H265)
+                .setSampleMimeType(MimeTypes.VIDEO_H264)
                 .setWidth(640)
                 .setHeight(360)
                 .setFrameRate(30.00f)
                 .build(),
             new VideoEncoderSettings.Builder().setMaxBFrames(2).build()),
+        new TestParameters(
+            "Samsung",
+            "s5e9925",
+            new Format.Builder()
+                .setSampleMimeType(MimeTypes.VIDEO_H265)
+                .setWidth(3840)
+                .setHeight(2160)
+                .setFrameRate(30.00f)
+                .build(),
+            VideoEncoderSettings.DEFAULT),
+        new TestParameters(
+            "Samsung",
+            "s5e9925",
+            new Format.Builder()
+                .setSampleMimeType(MimeTypes.VIDEO_H265)
+                .setWidth(1920)
+                .setHeight(1080)
+                .setFrameRate(30.00f)
+                .build(),
+            VideoEncoderSettings.DEFAULT),
+        new TestParameters(
+            "Samsung",
+            "s5e9925",
+            new Format.Builder()
+                .setSampleMimeType(MimeTypes.VIDEO_H265)
+                .setWidth(1280)
+                .setHeight(720)
+                .setFrameRate(30.00f)
+                .build(),
+            new VideoEncoderSettings.Builder().setMaxBFrames(1).build()),
+        new TestParameters(
+            "Samsung",
+            "s5e9925",
+            new Format.Builder()
+                .setSampleMimeType(MimeTypes.VIDEO_H265)
+                .setWidth(960)
+                .setHeight(540)
+                .setFrameRate(30.00f)
+                .build(),
+            new VideoEncoderSettings.Builder().setMaxBFrames(1).build()),
+        new TestParameters(
+            "Samsung",
+            "s5e9925",
+            new Format.Builder()
+                .setSampleMimeType(MimeTypes.VIDEO_H265)
+                .setWidth(854)
+                .setHeight(480)
+                .setFrameRate(30.00f)
+                .build(),
+            new VideoEncoderSettings.Builder().setMaxBFrames(1).build()),
+        new TestParameters(
+            "Samsung",
+            "s5e9925",
+            new Format.Builder()
+                .setSampleMimeType(MimeTypes.VIDEO_H265)
+                .setWidth(640)
+                .setHeight(360)
+                .setFrameRate(30.00f)
+                .build(),
+            new VideoEncoderSettings.Builder().setMaxBFrames(1).build()),
         new TestParameters(
             "Unknown",
             "Chipset",
