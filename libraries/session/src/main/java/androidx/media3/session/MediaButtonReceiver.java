@@ -107,8 +107,36 @@ public class MediaButtonReceiver extends BroadcastReceiver {
     MediaSessionService.SERVICE_INTERFACE
   };
 
+  /**
+   * {@inheritDoc}
+   *
+   * <p>Apps can override this method if the default behaviour doesn't match their needs. When doing
+   * that, an app would eventually call {@link #handleIntentAndMaybeStartTheService(Context,
+   * Intent)} to continue the process to start the service. If you are not calling this method, then
+   * using this class probably is not needed. Instead, a custom implementation of {@link
+   * BroadcastReceiver} can be provided in the manifest for the action {@link
+   * Intent#ACTION_MEDIA_BUTTON}.
+   *
+   * <p>The recommended approach is to use this receiver without overriding this method, but instead
+   * use {@link #shouldStartForegroundService(Context, Intent)} to indicate whether to start the
+   * service or not. When overriding this method, we can't provide further support because the
+   * strongly recommended way to handle the intent is using the default implementation.
+   */
   @Override
-  public final void onReceive(Context context, @Nullable Intent intent) {
+  public void onReceive(Context context, @Nullable Intent intent) {
+    handleIntentAndMaybeStartTheService(context, intent);
+  }
+
+  /**
+   * Handles the intent and starts the service if {@link #shouldStartForegroundService} indicates to
+   * do so.
+   *
+   * @param context The context.
+   * @param intent The intent.
+   */
+  @UnstableApi
+  protected final void handleIntentAndMaybeStartTheService(
+      Context context, @Nullable Intent intent) {
     if (intent == null
         || !Objects.equals(intent.getAction(), Intent.ACTION_MEDIA_BUTTON)
         || !intent.hasExtra(Intent.EXTRA_KEY_EVENT)) {
