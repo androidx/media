@@ -1121,6 +1121,44 @@ public class MediaSession {
   }
 
   /**
+   * Sets the playback exception for the given controller.
+   *
+   * <p>When setting a non-null instance, the original player state is overridden. When the player
+   * is not in an error state, the exception is used to modify the player state and send it to the
+   * controller. If the player is already in an error state, then this exception replaces the
+   * original exception and sends the updated player state to the controller.
+   *
+   * <p>An exception set for a given controller can be removed by setting null.
+   *
+   * <p>Passing in a playback exception that has {@link
+   * PlaybackException#areErrorInfosEqual(PlaybackException, PlaybackException) equal error info} to
+   * the previously set exception for the given controller, results in a no-op.
+   *
+   * @param controllerInfo The controller for which to set the playback exception.
+   * @param playbackException The {@link PlaybackException} or null.
+   */
+  @UnstableApi
+  public final void setPlaybackException(
+      ControllerInfo controllerInfo, @Nullable PlaybackException playbackException) {
+    impl.setPlaybackException(controllerInfo, playbackException);
+  }
+
+  /**
+   * Sets the playback exception for all connected controllers.
+   *
+   * <p>The exception set for controllers can be removed by passing null. This also resets any
+   * exception that may have been set for a specific controller with {@linkplain
+   * #setPlaybackException(ControllerInfo, PlaybackException)}.
+   *
+   * @param playbackException The {@link PlaybackException} or null.
+   * @see #setPlaybackException(ControllerInfo, PlaybackException)
+   */
+  @UnstableApi
+  public final void setPlaybackException(@Nullable PlaybackException playbackException) {
+    impl.setPlaybackException(playbackException);
+  }
+
+  /**
    * Sets the new available commands for the controller.
    *
    * <p>This is a synchronous call. Changes in the available commands take effect immediately

@@ -54,7 +54,9 @@ public class PlayerWrapperTest {
             /* mediaButtonPreferences= */ ImmutableList.of(),
             SessionCommands.EMPTY,
             Player.Commands.EMPTY,
-            /* legacyExtras= */ Bundle.EMPTY);
+            /* playbackException= */ null,
+            /* playerCommandsForErrorState= */ null,
+            Bundle.EMPTY);
     when(player.isCommandAvailable(anyInt())).thenReturn(true);
     when(player.getApplicationLooper()).thenReturn(Looper.myLooper());
   }

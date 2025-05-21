@@ -334,7 +334,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         intent);
   }
 
-  private void maybeUpdateFlags(PlayerWrapper playerWrapper) {
+  /* package */ void maybeUpdateFlags(PlayerWrapper playerWrapper) {
     int newFlags =
         playerWrapper.isCommandAvailable(COMMAND_CHANGE_MEDIA_ITEMS)
             ? MediaSessionCompat.FLAG_HANDLES_QUEUE_COMMANDS
@@ -1047,8 +1047,21 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       lastDurationMs = C.TIME_UNSET;
     }
 
+    /**
+     * Returns whether to skip updates of the {@linkplain android.media.session.PlaybackState
+     * playback state} of the platform session to leave the playback state unchanged.
+     *
+     * @return True if updates should be skipped.
+     */
+    public boolean skipLegacySessionPlaybackStateUpdates() {
+      return sessionImpl.getPlayerWrapper().isInCustomPlaybackExceptionState();
+    }
+
     @Override
     public void onAvailableCommandsChangedFromPlayer(int seq, Player.Commands availableCommands) {
+      if (skipLegacySessionPlaybackStateUpdates()) {
+        return;
+      }
       PlayerWrapper playerWrapper = sessionImpl.getPlayerWrapper();
       maybeUpdateFlags(playerWrapper);
       updateLegacySessionPlaybackState(playerWrapper);
@@ -1107,7 +1120,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         // Note: This will update both PlaybackStateCompat and metadata.
         onMediaItemTransition(
             seq, newMediaItem, Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED);
-      } else {
+      } else if (!skipLegacySessionPlaybackStateUpdates()) {
         // If PlaybackStateCompat isn't updated by above if-statement, forcefully update
         // PlaybackStateCompat to tell the latest position and its event
         // time. This would also update playback speed, buffering state, player state, and error.
@@ -1117,6 +1130,9 @@ import org.checkerframework.checker.initialization.qual.Initialized;
 
     @Override
     public void onPlayerError(int seq, @Nullable PlaybackException playerError) {
+      if (skipLegacySessionPlaybackStateUpdates()) {
+        return;
+      }
       updateLegacySessionPlaybackState(sessionImpl.getPlayerWrapper());
     }
 
@@ -1151,9 +1167,11 @@ import org.checkerframework.checker.initialization.qual.Initialized;
           LegacyConversions.convertToLegacyErrorCode(sessionError.code),
           sessionError.message,
           sessionError.extras);
-      sessionCompat.setPlaybackState(playerWrapper.createPlaybackStateCompat());
-      playerWrapper.clearLegacyErrorStatus();
-      sessionCompat.setPlaybackState(playerWrapper.createPlaybackStateCompat());
+      if (!skipLegacySessionPlaybackStateUpdates()) {
+        sessionCompat.setPlaybackState(playerWrapper.createPlaybackStateCompat());
+        playerWrapper.clearLegacyErrorStatus();
+        sessionCompat.setPlaybackState(playerWrapper.createPlaybackStateCompat());
+      }
     }
 
     @Override
@@ -1163,28 +1181,38 @@ import org.checkerframework.checker.initialization.qual.Initialized;
 
     @Override
     public void onPlayWhenReadyChanged(
-        int seq, boolean playWhenReady, @Player.PlaybackSuppressionReason int reason)
-        throws RemoteException {
+        int seq, boolean playWhenReady, @Player.PlaybackSuppressionReason int reason) {
+      if (skipLegacySessionPlaybackStateUpdates()) {
+        return;
+      }
       // Note: This method does not use any of the given arguments.
       updateLegacySessionPlaybackState(sessionImpl.getPlayerWrapper());
     }
 
     @Override
     public void onPlaybackSuppressionReasonChanged(
-        int seq, @Player.PlaybackSuppressionReason int reason) throws RemoteException {
+        int seq, @Player.PlaybackSuppressionReason int reason) {
+      if (skipLegacySessionPlaybackStateUpdates()) {
+        return;
+      }
       updateLegacySessionPlaybackState(sessionImpl.getPlayerWrapper());
     }
 
     @Override
     public void onPlaybackStateChanged(
-        int seq, @Player.State int state, @Nullable PlaybackException playerError)
-        throws RemoteException {
+        int seq, @Player.State int state, @Nullable PlaybackException playerError) {
+      if (skipLegacySessionPlaybackStateUpdates()) {
+        return;
+      }
       // Note: This method does not use any of the given arguments.
       updateLegacySessionPlaybackState(sessionImpl.getPlayerWrapper());
     }
 
     @Override
-    public void onIsPlayingChanged(int seq, boolean isPlaying) throws RemoteException {
+    public void onIsPlayingChanged(int seq, boolean isPlaying) {
+      if (skipLegacySessionPlaybackStateUpdates()) {
+        return;
+      }
       updateLegacySessionPlaybackState(sessionImpl.getPlayerWrapper());
     }
 
@@ -1193,23 +1221,29 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         int seq,
         PositionInfo oldPosition,
         PositionInfo newPosition,
-        @DiscontinuityReason int reason)
-        throws RemoteException {
+        @DiscontinuityReason int reason) {
+      if (skipLegacySessionPlaybackStateUpdates()) {
+        return;
+      }
       // Note: This method does not use any of the given arguments.
       updateLegacySessionPlaybackState(sessionImpl.getPlayerWrapper());
     }
 
     @Override
-    public void onPlaybackParametersChanged(int seq, PlaybackParameters playbackParameters)
-        throws RemoteException {
+    public void onPlaybackParametersChanged(int seq, PlaybackParameters playbackParameters) {
+      if (skipLegacySessionPlaybackStateUpdates()) {
+        return;
+      }
       // Note: This method does not use any of the given arguments.
       updateLegacySessionPlaybackState(sessionImpl.getPlayerWrapper());
     }
 
     @Override
     public void onMediaItemTransition(
-        int seq, @Nullable MediaItem mediaItem, @Player.MediaItemTransitionReason int reason)
-        throws RemoteException {
+        int seq, @Nullable MediaItem mediaItem, @Player.MediaItemTransitionReason int reason) {
+      if (skipLegacySessionPlaybackStateUpdates()) {
+        return;
+      }
       // MediaMetadataCompat needs to be updated when the media ID or URI of the media item changes.
       updateMetadataIfChanged();
       if (mediaItem == null) {
@@ -1223,13 +1257,18 @@ import org.checkerframework.checker.initialization.qual.Initialized;
 
     @Override
     public void onMediaMetadataChanged(int seq, MediaMetadata mediaMetadata) {
+      if (skipLegacySessionPlaybackStateUpdates()) {
+        return;
+      }
       updateMetadataIfChanged();
     }
 
     @Override
     public void onTimelineChanged(
-        int seq, Timeline timeline, @Player.TimelineChangeReason int reason)
-        throws RemoteException {
+        int seq, Timeline timeline, @Player.TimelineChangeReason int reason) {
+      if (skipLegacySessionPlaybackStateUpdates()) {
+        return;
+      }
       updateQueue(timeline);
       // Duration might be unknown at onMediaItemTransition and become available afterward.
       updateMetadataIfChanged();
@@ -1289,8 +1328,11 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     }
 
     @Override
-    public void onPlaylistMetadataChanged(int seq, MediaMetadata playlistMetadata)
-        throws RemoteException {
+    public void onPlaylistMetadataChanged(int seq, MediaMetadata playlistMetadata) {
+      if (skipLegacySessionPlaybackStateUpdates()) {
+        // Don't update when player is in custom error state for the framework session.
+        return;
+      }
       // Since there is no 'queue metadata', only set title of the queue.
       @Nullable CharSequence queueTitle = sessionCompat.getController().getQueueTitle();
       @Nullable CharSequence newTitle = playlistMetadata.title;
@@ -1300,8 +1342,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     }
 
     @Override
-    public void onShuffleModeEnabledChanged(int seq, boolean shuffleModeEnabled)
-        throws RemoteException {
+    public void onShuffleModeEnabledChanged(int seq, boolean shuffleModeEnabled) {
       sessionCompat.setShuffleMode(
           LegacyConversions.convertToPlaybackStateCompatShuffleMode(shuffleModeEnabled));
     }
@@ -1348,9 +1389,10 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         SessionPositionInfo unusedSessionPositionInfo,
         boolean unusedCanAccessCurrentMediaItem,
         boolean unusedCanAccessTimeline,
-        int controllerInterfaceVersion)
-        throws RemoteException {
-      updateLegacySessionPlaybackState(sessionImpl.getPlayerWrapper());
+        int controllerInterfaceVersion) {
+      if (!skipLegacySessionPlaybackStateUpdates()) {
+        updateLegacySessionPlaybackState(sessionImpl.getPlayerWrapper());
+      }
     }
 
     private void updateMetadataIfChanged() {

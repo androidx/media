@@ -30,13 +30,14 @@ interface IRemoteMediaSession {
   void broadcastCustomCommand(String sessionId, in Bundle command, in Bundle args);
   void sendCustomCommand(String sessionId, in Bundle command, in Bundle args);
   void release(String sessionId);
-  void setAvailableCommands(String sessionId, in Bundle sessionCommands, in Bundle playerCommands);
+  void setAvailableCommands(String sessionId, String controllerKey, in Bundle sessionCommands, in Bundle playerCommands);
   void setCustomLayout(String sessionId, in List<Bundle> layout);
   void setMediaButtonPreferences(String sessionId, in List<Bundle> mediaButtonPreferences);
   void setSessionExtras(String sessionId, in Bundle extras);
   void setSessionExtrasForController(String sessionId, in String controllerKey, in Bundle extras);
   void sendError(String sessionId, String controllerKey, in Bundle SessionError);
   void setSessionActivity(String sessionId, String controllerKey, in PendingIntent sessionActivity);
+  void setPlaybackException(String sessionId, String controllerKey, in Bundle playerErrorBundle);
 
   // Player Methods
   void setPlayWhenReady(String sessionId, boolean playWhenReady, int reason);

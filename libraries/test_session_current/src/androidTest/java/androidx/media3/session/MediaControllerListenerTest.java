@@ -15,6 +15,18 @@
  */
 package androidx.media3.session;
 
+import static androidx.media3.common.Player.COMMAND_CHANGE_MEDIA_ITEMS;
+import static androidx.media3.common.Player.COMMAND_GET_DEVICE_VOLUME;
+import static androidx.media3.common.Player.COMMAND_GET_TIMELINE;
+import static androidx.media3.common.Player.COMMAND_PREPARE;
+import static androidx.media3.common.Player.COMMAND_RELEASE;
+import static androidx.media3.common.Player.COMMAND_SEEK_BACK;
+import static androidx.media3.common.Player.EVENT_AVAILABLE_COMMANDS_CHANGED;
+import static androidx.media3.common.Player.EVENT_IS_PLAYING_CHANGED;
+import static androidx.media3.common.Player.EVENT_PLAYBACK_STATE_CHANGED;
+import static androidx.media3.common.Player.EVENT_PLAYER_ERROR;
+import static androidx.media3.common.Player.EVENT_PLAY_WHEN_READY_CHANGED;
+import static androidx.media3.common.Player.EVENT_RENDERED_FIRST_FRAME;
 import static androidx.media3.session.MediaTestUtils.createTimeline;
 import static androidx.media3.session.MediaUtils.createPlayerCommandsWith;
 import static androidx.media3.session.MediaUtils.createPlayerCommandsWithout;
@@ -32,6 +44,7 @@ import static androidx.media3.test.session.common.TestUtils.NO_RESPONSE_TIMEOUT_
 import static androidx.media3.test.session.common.TestUtils.TIMEOUT_MS;
 import static androidx.media3.test.session.common.TestUtils.getEventsAsList;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.junit.Assert.assertThrows;
 
@@ -39,12 +52,14 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.RemoteException;
 import android.text.SpannedString;
 import androidx.annotation.Nullable;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.DeviceInfo;
+import androidx.media3.common.FlagSet;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaLibraryInfo;
@@ -64,13 +79,13 @@ import androidx.media3.common.text.CueGroup;
 import androidx.media3.session.RemoteMediaSession.RemoteMockPlayer;
 import androidx.media3.test.session.common.HandlerThreadTestRule;
 import androidx.media3.test.session.common.MainLooperTestRule;
+import androidx.media3.test.session.common.MediaSessionConstants;
 import androidx.media3.test.session.common.SurfaceActivity;
 import androidx.media3.test.session.common.TestUtils;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.LargeTest;
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import java.util.ArrayList;
 import java.util.List;
@@ -310,7 +325,516 @@ public class MediaControllerListenerTest {
     assertThat(TestUtils.equals(playerErrorParamRef.get(), testPlayerError)).isTrue();
     assertThat(TestUtils.equals(playerErrorGetterRef.get(), testPlayerError)).isTrue();
     assertThat(TestUtils.equals(playerErrorOnEventsRef.get(), testPlayerError)).isTrue();
-    assertThat(getEventsAsList(eventsRef.get())).containsExactly(Player.EVENT_PLAYER_ERROR);
+    assertThat(getEventsAsList(eventsRef.get())).containsExactly(EVENT_PLAYER_ERROR);
+  }
+
+  @Test
+  public void setPlaybackException_sessionAndControllerException_onPlayerErrorChangedCalled()
+      throws Exception {
+    ArrayList<PlaybackException> playerErrors = new ArrayList<>();
+    ArrayList<PlaybackException> playerErrorsChanged = new ArrayList<>();
+    ArrayList<Integer> playbackStates = new ArrayList<>();
+    Bundle errorBundle1 = new Bundle();
+    errorBundle1.putString("key-1", "value-1");
+    PlaybackException testPlayerError1 =
+        new PlaybackException(
+            "error 1",
+            /* cause= */ null,
+            PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW,
+            errorBundle1);
+    Bundle errorBundle2 = new Bundle();
+    errorBundle2.putString("key-2", "value-2");
+    PlaybackException testPlayerError2 =
+        new PlaybackException(
+            "error 2",
+            /* cause= */ null,
+            PlaybackException.ERROR_CODE_DECODER_INIT_FAILED,
+            errorBundle2);
+    remoteSession.getMockPlayer().notifyPlaybackStateChanged(Player.STATE_READY);
+    Bundle connectionHints = new Bundle();
+    connectionHints.putString(KEY_CONTROLLER, "ctrl-1");
+    MediaController controller =
+        controllerTestRule.createController(
+            remoteSession.getToken(), connectionHints, /* listener= */ null);
+    CountDownLatch latch = new CountDownLatch(/* count= */ 6);
+    threadTestRule
+        .getHandler()
+        .postAndSync(
+            () ->
+                controller.addListener(
+                    new Player.Listener() {
+
+                      @Override
+                      public void onPlayerError(PlaybackException error) {
+                        playerErrors.add(error);
+                        latch.countDown();
+                      }
+
+                      @Override
+                      public void onPlayerErrorChanged(@Nullable PlaybackException error) {
+                        playerErrorsChanged.add(error);
+                        playbackStates.add(controller.getPlaybackState());
+                        latch.countDown();
+                      }
+                    }));
+
+    remoteSession.setPlaybackException("ctrl-1", testPlayerError1);
+    remoteSession.setPlaybackException("ctrl-1", null);
+    remoteSession.setPlaybackException(/* controllerKey= */ null, testPlayerError2);
+    remoteSession.setPlaybackException(/* controllerKey= */ null, /* playerError= */ null);
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    // asserting onPlayerError
+    assertThat(playerErrors).hasSize(2);
+    assertThat(TestUtils.equals(playerErrors.get(0), testPlayerError1)).isTrue();
+    assertThat(playerErrors.get(0).extras.getString("key-1")).isEqualTo("value-1");
+    assertThat(playerErrors.get(1).extras.getString("key-2")).isEqualTo("value-2");
+    assertThat(TestUtils.equals(playerErrors.get(1), testPlayerError2)).isTrue();
+    // asserting onPlayerErrorChanged
+    assertThat(playerErrorsChanged).hasSize(4);
+    assertThat(TestUtils.equals(playerErrorsChanged.get(0), testPlayerError1)).isTrue();
+    assertThat(playerErrorsChanged.get(1)).isNull();
+    assertThat(TestUtils.equals(playerErrorsChanged.get(2), testPlayerError2)).isTrue();
+    assertThat(playerErrorsChanged.get(3)).isNull();
+    // assert reported playback states
+    assertThat(playbackStates)
+        .containsExactly(
+            Player.STATE_IDLE, Player.STATE_READY, Player.STATE_IDLE, Player.STATE_READY)
+        .inOrder();
+  }
+
+  @Test
+  public void setPlaybackException_sessionAndControllerException_correctPriority()
+      throws Exception {
+    ArrayList<PlaybackException> playerErrorsChanged = new ArrayList<>();
+    ArrayList<Integer> playbackStates = new ArrayList<>();
+    ArrayList<Player.Events> receivedEvents = new ArrayList<>();
+    PlaybackException controllerPlaybackException =
+        new PlaybackException(
+            "controller error", /* cause= */ null, PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW);
+    PlaybackException sessionPlaybackException =
+        new PlaybackException(
+            "session error", /* cause= */ null, PlaybackException.ERROR_CODE_DECODER_INIT_FAILED);
+    remoteSession.getMockPlayer().notifyPlaybackStateChanged(Player.STATE_READY);
+    Bundle connectionHints = new Bundle();
+    connectionHints.putString(KEY_CONTROLLER, "ctrl-1");
+    MediaController controller =
+        controllerTestRule.createController(
+            remoteSession.getToken(), connectionHints, /* listener= */ null);
+    CountDownLatch latch = new CountDownLatch(/* count= */ 5);
+    threadTestRule
+        .getHandler()
+        .postAndSync(
+            () ->
+                controller.addListener(
+                    new Player.Listener() {
+                      @Override
+                      public void onPlayerErrorChanged(@Nullable PlaybackException error) {
+                        playerErrorsChanged.add(error);
+                      }
+
+                      @Override
+                      public void onEvents(Player player, Player.Events events) {
+                        receivedEvents.add(events);
+                        playbackStates.add(player.getPlaybackState());
+                        latch.countDown();
+                      }
+                    }));
+
+    remoteSession.setPlaybackException(/* controllerKey= */ null, sessionPlaybackException);
+    remoteSession
+        .getMockPlayer()
+        .notifyPlayWhenReadyChanged(
+            /* playWhenReady= */ true,
+            Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
+            Player.PLAYBACK_SUPPRESSION_REASON_NONE);
+    remoteSession.setPlaybackException("ctrl-1", controllerPlaybackException);
+    remoteSession.setPlaybackException(/* controllerKey= */ null, /* playerError= */ null);
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(playerErrorsChanged).hasSize(3);
+    assertThat(TestUtils.equals(playerErrorsChanged.get(0), sessionPlaybackException)).isTrue();
+    assertThat(TestUtils.equals(playerErrorsChanged.get(1), controllerPlaybackException)).isTrue();
+    assertThat(playerErrorsChanged.get(2)).isNull();
+    assertThat(playbackStates)
+        .containsExactly(
+            Player.STATE_READY,
+            Player.STATE_IDLE,
+            Player.STATE_IDLE,
+            Player.STATE_IDLE,
+            Player.STATE_READY)
+        .inOrder();
+    assertThat(receivedEvents)
+        .containsExactly(
+            events(EVENT_AVAILABLE_COMMANDS_CHANGED),
+            events(EVENT_PLAYER_ERROR, EVENT_PLAYBACK_STATE_CHANGED),
+            events(EVENT_PLAYER_ERROR, EVENT_PLAY_WHEN_READY_CHANGED),
+            events(EVENT_AVAILABLE_COMMANDS_CHANGED),
+            events(EVENT_PLAYER_ERROR, EVENT_IS_PLAYING_CHANGED, EVENT_PLAYBACK_STATE_CHANGED))
+        .inOrder();
+  }
+
+  @Test
+  public void setPlaybackException_availableCommandsSetDuringErrorState_correctPlayerCommands()
+      throws Exception {
+    ArrayList<Commands> playerCommandsFromParameter = new ArrayList<>();
+    ArrayList<Commands> playerCommandsFromController = new ArrayList<>();
+    PlaybackException testPlayerError =
+        new PlaybackException(
+            "error 1", /* cause= */ null, PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW);
+    Commands expectedCommandsInErrorState =
+        Commands.EMPTY.buildUpon().addAll(COMMAND_GET_DEVICE_VOLUME, COMMAND_RELEASE).build();
+    remoteSession.getMockPlayer().notifyPlaybackStateChanged(Player.STATE_READY);
+    Commands declaredCommands =
+        new Commands.Builder()
+            .addAll(COMMAND_SEEK_BACK, COMMAND_GET_DEVICE_VOLUME, COMMAND_RELEASE)
+            .build();
+    Commands commandsUpdatedDuringErrorState1 =
+        new Commands.Builder().addAll(COMMAND_CHANGE_MEDIA_ITEMS, COMMAND_RELEASE).build();
+    Commands commandsUpdatedDuringErrorState2 =
+        new Commands.Builder().addAll(COMMAND_PREPARE, COMMAND_RELEASE).build();
+    MediaController controller = controllerTestRule.createController(remoteSession.getToken());
+    CountDownLatch latch = new CountDownLatch(/* count= */ 3);
+    threadTestRule
+        .getHandler()
+        .postAndSync(
+            () ->
+                controller.addListener(
+                    new Player.Listener() {
+                      @Override
+                      public void onAvailableCommandsChanged(Commands availableCommands) {
+                        playerCommandsFromParameter.add(availableCommands);
+                        playerCommandsFromController.add(controller.getAvailableCommands());
+                        latch.countDown();
+                      }
+                    }));
+
+    remoteSession.setAvailableCommands(SessionCommands.EMPTY, declaredCommands);
+    remoteSession.setPlaybackException(/* controllerKey= */ null, testPlayerError);
+    remoteSession.setAvailableCommands(SessionCommands.EMPTY, commandsUpdatedDuringErrorState1);
+    remoteSession.setAvailableCommands(SessionCommands.EMPTY, commandsUpdatedDuringErrorState2);
+    remoteSession
+        .getMockPlayer()
+        .notifyPlayWhenReadyChanged(
+            /* playWhenReady= */ true,
+            Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
+            Player.PLAYBACK_SUPPRESSION_REASON_NONE);
+    remoteSession.setPlaybackException(/* controllerKey= */ null, /* playerError= */ null);
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(playerCommandsFromController).isEqualTo(playerCommandsFromParameter);
+    assertThat(playerCommandsFromController)
+        .containsExactly(
+            declaredCommands, expectedCommandsInErrorState, commandsUpdatedDuringErrorState2)
+        .inOrder();
+  }
+
+  @Test
+  public void setPlaybackException_controllerInErrorState_noFurtherUpdates() throws Exception {
+    ArrayList<Integer> controller1PlaybackStates = new ArrayList<>();
+    ArrayList<Integer> controller2PlaybackStates = new ArrayList<>();
+    ArrayList<Player.Events> controller1Events = new ArrayList<>();
+    ArrayList<Player.Events> controller2Events = new ArrayList<>();
+    PlaybackException testPlayerError1 =
+        new PlaybackException(
+            "error 1", /* cause= */ null, PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW);
+    Bundle connectionHints1 = new Bundle();
+    connectionHints1.putString(KEY_CONTROLLER, "ctrl-1");
+    MediaController controller1 =
+        controllerTestRule.createController(
+            remoteSession.getToken(), connectionHints1, /* listener= */ null);
+    MediaController controller2 = controllerTestRule.createController(remoteSession.getToken());
+    CountDownLatch latch = new CountDownLatch(/* count= */ 13);
+    threadTestRule
+        .getHandler()
+        .postAndSync(
+            () -> {
+              controller1.addListener(
+                  new Player.Listener() {
+                    @Override
+                    public void onEvents(Player player, Player.Events events) {
+                      controller1Events.add(events);
+                      controller1PlaybackStates.add(player.getPlaybackState());
+                      latch.countDown();
+                    }
+                  });
+
+              controller2.addListener(
+                  new Player.Listener() {
+                    @Override
+                    public void onEvents(Player player, Player.Events events) {
+                      controller2Events.add(events);
+                      controller2PlaybackStates.add(player.getPlaybackState());
+                      latch.countDown();
+                    }
+                  });
+            });
+
+    remoteSession.getMockPlayer().notifyPlaybackStateChanged(Player.STATE_READY);
+    remoteSession.setPlaybackException("ctrl-1", testPlayerError1);
+    remoteSession.getMockPlayer().notifyPlaybackStateChanged(Player.STATE_ENDED);
+    remoteSession.getMockPlayer().notifyPlaybackStateChanged(Player.STATE_READY);
+    remoteSession
+        .getMockPlayer()
+        .notifyPlayWhenReadyChanged(
+            /* playWhenReady= */ true,
+            Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
+            Player.PLAYBACK_SUPPRESSION_REASON_NONE);
+    remoteSession.setPlaybackException("ctrl-1", /* playerError= */ null);
+    remoteSession.getMockPlayer().notifyPlaybackStateChanged(Player.STATE_BUFFERING);
+    remoteSession.getMockPlayer().notifyPlaybackStateChanged(Player.STATE_READY);
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(controller1Events)
+        .containsExactly(
+            events(EVENT_PLAYBACK_STATE_CHANGED),
+            events(EVENT_AVAILABLE_COMMANDS_CHANGED),
+            events(EVENT_PLAYER_ERROR, EVENT_PLAYBACK_STATE_CHANGED),
+            events(EVENT_AVAILABLE_COMMANDS_CHANGED),
+            events(
+                EVENT_PLAYER_ERROR,
+                EVENT_PLAYBACK_STATE_CHANGED,
+                EVENT_IS_PLAYING_CHANGED,
+                EVENT_PLAY_WHEN_READY_CHANGED),
+            events(EVENT_PLAYBACK_STATE_CHANGED, EVENT_IS_PLAYING_CHANGED),
+            events(EVENT_PLAYBACK_STATE_CHANGED, EVENT_IS_PLAYING_CHANGED))
+        .inOrder();
+    assertThat(controller1PlaybackStates)
+        .containsExactly(
+            Player.STATE_READY,
+            Player.STATE_READY,
+            Player.STATE_IDLE,
+            Player.STATE_IDLE,
+            Player.STATE_READY,
+            Player.STATE_BUFFERING,
+            Player.STATE_READY)
+        .inOrder();
+    assertThat(controller2Events)
+        .containsExactly(
+            events(EVENT_PLAYBACK_STATE_CHANGED),
+            events(EVENT_PLAYBACK_STATE_CHANGED),
+            events(EVENT_PLAYBACK_STATE_CHANGED),
+            events(EVENT_IS_PLAYING_CHANGED, EVENT_PLAY_WHEN_READY_CHANGED),
+            events(EVENT_PLAYBACK_STATE_CHANGED, EVENT_IS_PLAYING_CHANGED),
+            events(EVENT_PLAYBACK_STATE_CHANGED, EVENT_IS_PLAYING_CHANGED))
+        .inOrder();
+    assertThat(controller2PlaybackStates)
+        .containsExactly(
+            Player.STATE_READY,
+            Player.STATE_ENDED,
+            Player.STATE_READY,
+            Player.STATE_READY,
+            Player.STATE_BUFFERING,
+            Player.STATE_READY)
+        .inOrder();
+  }
+
+  @Test
+  public void setPlaybackException_controllerInErrorStatePlayerRendersFirstFrame_callbackNotCalled()
+      throws Exception {
+    ArrayList<Integer> controller1PlaybackStates = new ArrayList<>();
+    ArrayList<Integer> controller2PlaybackStates = new ArrayList<>();
+    ArrayList<Player.Events> controller1Events = new ArrayList<>();
+    ArrayList<Player.Events> controller2Events = new ArrayList<>();
+    PlaybackException testPlayerError1 =
+        new PlaybackException(
+            "error 1", /* cause= */ null, PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW);
+    Bundle connectionHints1 = new Bundle();
+    connectionHints1.putString(KEY_CONTROLLER, "ctrl-1");
+    MediaController controller1 =
+        controllerTestRule.createController(
+            remoteSession.getToken(), connectionHints1, /* listener= */ null);
+    MediaController controller2 = controllerTestRule.createController(remoteSession.getToken());
+    CountDownLatch latch = new CountDownLatch(/* count= */ 9);
+    threadTestRule
+        .getHandler()
+        .postAndSync(
+            () -> {
+              controller1.addListener(
+                  new Player.Listener() {
+                    @Override
+                    public void onEvents(Player player, Player.Events events) {
+                      controller1Events.add(events);
+                      controller1PlaybackStates.add(player.getPlaybackState());
+                      latch.countDown();
+                    }
+                  });
+
+              controller2.addListener(
+                  new Player.Listener() {
+                    @Override
+                    public void onEvents(Player player, Player.Events events) {
+                      controller2Events.add(events);
+                      controller2PlaybackStates.add(player.getPlaybackState());
+                      latch.countDown();
+                    }
+                  });
+            });
+
+    remoteSession.getMockPlayer().notifyPlaybackStateChanged(Player.STATE_READY);
+    remoteSession.setPlaybackException("ctrl-1", testPlayerError1);
+    remoteSession.getMockPlayer().notifyRenderedFirstFrame();
+    remoteSession.setPlaybackException("ctrl-1", null);
+    remoteSession.getMockPlayer().notifyPlaybackStateChanged(Player.STATE_ENDED);
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(controller1Events)
+        .containsExactly(
+            events(EVENT_PLAYBACK_STATE_CHANGED),
+            events(EVENT_AVAILABLE_COMMANDS_CHANGED),
+            events(EVENT_PLAYER_ERROR, EVENT_PLAYBACK_STATE_CHANGED),
+            events(EVENT_AVAILABLE_COMMANDS_CHANGED),
+            events(EVENT_PLAYER_ERROR, EVENT_PLAYBACK_STATE_CHANGED),
+            events(EVENT_PLAYBACK_STATE_CHANGED))
+        .inOrder();
+    assertThat(controller1PlaybackStates)
+        .containsExactly(
+            Player.STATE_READY,
+            Player.STATE_READY,
+            Player.STATE_IDLE,
+            Player.STATE_IDLE,
+            Player.STATE_READY,
+            Player.STATE_ENDED)
+        .inOrder();
+    assertThat(controller2Events)
+        .containsExactly(
+            events(EVENT_PLAYBACK_STATE_CHANGED),
+            events(EVENT_RENDERED_FIRST_FRAME),
+            events(EVENT_PLAYBACK_STATE_CHANGED))
+        .inOrder();
+    assertThat(controller2PlaybackStates)
+        .containsExactly(Player.STATE_READY, Player.STATE_READY, Player.STATE_ENDED)
+        .inOrder();
+  }
+
+  @Test
+  public void setPlaybackException_controllerInErrorState_currentPositionUnchanged()
+      throws Exception {
+    List<Long> controller1Positions = new ArrayList<>();
+    List<Long> controller2Positions = new ArrayList<>();
+    PlaybackException testPlayerError1 =
+        new PlaybackException(
+            "error 1", /* cause= */ null, PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW);
+    Bundle connectionHints1 = new Bundle();
+    connectionHints1.putString(KEY_CONTROLLER, "ctrl-1");
+    MediaController controller1 =
+        controllerTestRule.createController(
+            remoteSession.getToken(), connectionHints1, /* listener= */ null);
+    MediaController controller2 = controllerTestRule.createController(remoteSession.getToken());
+    remoteSession.getMockPlayer().notifyPlaybackStateChanged(Player.STATE_READY);
+    remoteSession
+        .getMockPlayer()
+        .notifyPlayWhenReadyChanged(
+            /* playWhenReady= */ true,
+            Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
+            Player.PLAYBACK_SUPPRESSION_REASON_NONE);
+    CountDownLatch latch = new CountDownLatch(/* count= */ 2);
+
+    remoteSession.setPlaybackException("ctrl-1", testPlayerError1);
+    postDelayedUntilLatchCountedDown(
+        threadTestRule.getHandler(),
+        () -> {
+          controller1Positions.add(controller1.getCurrentPosition());
+          controller2Positions.add(controller2.getCurrentPosition());
+        },
+        latch,
+        /* intervalMs= */ 100L);
+
+    assertThat(latch.await(240L, MILLISECONDS)).isTrue();
+    assertThat(controller1Positions).containsExactly(0L, 0L);
+    assertThat(controller2Positions.get(0)).isAtLeast(90L);
+    assertThat(controller2Positions.get(1)).isAtLeast(180L);
+  }
+
+  @Test
+  public void setPlaybackException_controllerInErrorState_bufferedPositionUnchanged()
+      throws Exception {
+    List<Long> controller1Positions = new ArrayList<>();
+    List<Long> controller2Positions = new ArrayList<>();
+    PlaybackException testPlayerError1 =
+        new PlaybackException(
+            "error 1", /* cause= */ null, PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW);
+    Bundle connectionHints1 = new Bundle();
+    connectionHints1.putString(KEY_CONTROLLER, "ctrl-1");
+    MediaController controller1 =
+        controllerTestRule.createController(
+            remoteSession.getToken(), connectionHints1, /* listener= */ null);
+    MediaController controller2 = controllerTestRule.createController(remoteSession.getToken());
+    remoteSession.getMockPlayer().notifyPlaybackStateChanged(Player.STATE_READY);
+    remoteSession
+        .getMockPlayer()
+        .notifyPlayWhenReadyChanged(
+            /* playWhenReady= */ true,
+            Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
+            Player.PLAYBACK_SUPPRESSION_REASON_NONE);
+    CountDownLatch latch = new CountDownLatch(/* count= */ 2);
+    remoteSession.setSessionPositionUpdateDelayMs(80L);
+    remoteSession.getMockPlayer().notifyIsLoadingChanged(/* isLoading= */ true);
+
+    remoteSession.setPlaybackException("ctrl-1", testPlayerError1);
+    postDelayedUntilLatchCountedDown(
+        threadTestRule.getHandler(),
+        () -> {
+          controller1Positions.add(controller1.getBufferedPosition());
+          controller2Positions.add(controller2.getBufferedPosition());
+          try {
+            remoteSession.getMockPlayer().setBufferedPosition(100L);
+          } catch (RemoteException e) {
+            // ignored
+          }
+        },
+        latch,
+        /* intervalMs= */ 100L);
+
+    assertThat(latch.await(300L, MILLISECONDS)).isTrue();
+    assertThat(controller1Positions).containsExactly(0L, 0L);
+    assertThat(controller2Positions).containsExactly(0L, 100L).inOrder();
+  }
+
+  @Test
+  public void setPlaybackException_controllerInErrorState_canSendAndReceiveCustomCommands()
+      throws Exception {
+    Bundle args = new Bundle();
+    args.putString("a-key", "a-value");
+    PlaybackException testPlayerError =
+        new PlaybackException(
+            "error 1", /* cause= */ null, PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW);
+    SessionCommand bouncingCustomCommand =
+        new SessionCommand(MediaSessionConstants.BOUNCING_CUSTOM_COMMAND, Bundle.EMPTY);
+    CountDownLatch customCommandLatch = new CountDownLatch(/* count= */ 1);
+    AtomicReference<Bundle> bouncedArgs = new AtomicReference<>();
+    MediaController controller =
+        controllerTestRule.createController(
+            remoteSession.getToken(),
+            /* connectionHints= */ null,
+            new MediaController.Listener() {
+              @Override
+              public ListenableFuture<SessionResult> onCustomCommand(
+                  MediaController controller, SessionCommand command, Bundle args) {
+                bouncedArgs.set(args);
+                customCommandLatch.countDown();
+                return immediateFuture(new SessionResult(SessionResult.RESULT_SUCCESS));
+              }
+            });
+    CountDownLatch errorLatch = new CountDownLatch(/* count= */ 1);
+    controller.addListener(
+        new Player.Listener() {
+          @Override
+          public void onPlayerErrorChanged(@Nullable PlaybackException error) {
+            errorLatch.countDown();
+          }
+        });
+    remoteSession.setPlaybackException(/* controllerKey= */ null, testPlayerError);
+    assertThat(errorLatch.await(1_000, MILLISECONDS)).isTrue();
+
+    ListenableFuture<SessionResult> future =
+        threadTestRule
+            .getHandler()
+            .postAndSync(() -> controller.sendCustomCommand(bouncingCustomCommand, args));
+
+    assertThat(customCommandLatch.await(1_000, MILLISECONDS)).isTrue();
+    assertThat(future.get().resultCode).isEqualTo(SessionResult.RESULT_SUCCESS);
+    assertThat(bouncedArgs.get().getString("a-key")).isEqualTo("a-value");
   }
 
   @Test
@@ -1465,7 +1989,7 @@ public class MediaControllerListenerTest {
     assertThat(onEventsPlaybackSuppressionReasonRef.get()).isEqualTo(testSuppressionReason);
     assertThat(getEventsAsList(eventsRef.get()))
         .containsExactly(
-            Player.EVENT_PLAY_WHEN_READY_CHANGED, Player.EVENT_PLAYBACK_SUPPRESSION_REASON_CHANGED);
+            EVENT_PLAY_WHEN_READY_CHANGED, Player.EVENT_PLAYBACK_SUPPRESSION_REASON_CHANGED);
   }
 
   @Test
@@ -1609,7 +2133,7 @@ public class MediaControllerListenerTest {
     assertThat(onEventsCurrentLiveOffsetMsRef.get()).isEqualTo(testCurrentLiveOffsetMs);
     assertThat(contentBufferedPositionMsRef.get()).isEqualTo(testContentBufferedPositionMs);
     assertThat(onEventsContentBufferedPositionMsRef.get()).isEqualTo(testContentBufferedPositionMs);
-    assertThat(getEventsAsList(eventsRef.get())).contains(Player.EVENT_PLAY_WHEN_READY_CHANGED);
+    assertThat(getEventsAsList(eventsRef.get())).contains(EVENT_PLAY_WHEN_READY_CHANGED);
   }
 
   @Test
@@ -1757,7 +2281,7 @@ public class MediaControllerListenerTest {
 
   @Test
   public void onPlaybackStateChanged_isNotified() throws Exception {
-    @Player.State int testPlaybackState = Player.EVENT_PLAYER_ERROR;
+    @Player.State int testPlaybackState = EVENT_PLAYER_ERROR;
     remoteSession.getMockPlayer().notifyPlaybackStateChanged(Player.STATE_IDLE);
     MediaController controller = controllerTestRule.createController(remoteSession.getToken());
     CountDownLatch latch = new CountDownLatch(2);
@@ -1789,13 +2313,12 @@ public class MediaControllerListenerTest {
     assertThat(playbackStateParamRef.get()).isEqualTo(testPlaybackState);
     assertThat(playbackStateGetterRef.get()).isEqualTo(testPlaybackState);
     assertThat(playbackStateOnEventsRef.get()).isEqualTo(testPlaybackState);
-    assertThat(getEventsAsList(eventsRef.get()))
-        .containsExactly(Player.EVENT_PLAYBACK_STATE_CHANGED);
+    assertThat(getEventsAsList(eventsRef.get())).containsExactly(EVENT_PLAYBACK_STATE_CHANGED);
   }
 
   @Test
   public void onPlaybackStateChanged_updatesGetters() throws Exception {
-    @Player.State int testPlaybackState = Player.EVENT_PLAYER_ERROR;
+    @Player.State int testPlaybackState = EVENT_PLAYER_ERROR;
     long testCurrentPositionMs = 11;
     long testContentPositionMs = testCurrentPositionMs; // Not playing an ad
     long testBufferedPositionMs = 100;
@@ -1883,8 +2406,7 @@ public class MediaControllerListenerTest {
     assertThat(onEventsCurrentLiveOffsetMsRef.get()).isEqualTo(testCurrentLiveOffsetMs);
     assertThat(contentBufferedPositionMsRef.get()).isEqualTo(testContentBufferedPositionMs);
     assertThat(onEventsContentBufferedPositionMsRef.get()).isEqualTo(testContentBufferedPositionMs);
-    assertThat(getEventsAsList(eventsRef.get()))
-        .containsExactly(Player.EVENT_PLAYBACK_STATE_CHANGED);
+    assertThat(getEventsAsList(eventsRef.get())).containsExactly(EVENT_PLAYBACK_STATE_CHANGED);
   }
 
   @Test
@@ -1922,7 +2444,7 @@ public class MediaControllerListenerTest {
     assertThat(isPlayingParamRef.get()).isTrue();
     assertThat(isPlayingGetterRef.get()).isTrue();
     assertThat(isPlayingOnEventsRef.get()).isTrue();
-    assertThat(getEventsAsList(eventsRef.get())).contains(Player.EVENT_IS_PLAYING_CHANGED);
+    assertThat(getEventsAsList(eventsRef.get())).contains(EVENT_IS_PLAYING_CHANGED);
   }
 
   @Test
@@ -1990,7 +2512,7 @@ public class MediaControllerListenerTest {
     assertThat(totalBufferedDurationMsRef.get()).isEqualTo(testTotalBufferedDurationMs);
     assertThat(currentLiveOffsetMsRef.get()).isEqualTo(testCurrentLiveOffsetMs);
     assertThat(contentBufferedPositionMsRef.get()).isEqualTo(testContentBufferedPositionMs);
-    assertThat(getEventsAsList(eventsRef.get())).contains(Player.EVENT_IS_PLAYING_CHANGED);
+    assertThat(getEventsAsList(eventsRef.get())).contains(EVENT_IS_PLAYING_CHANGED);
   }
 
   @Test
@@ -2266,14 +2788,11 @@ public class MediaControllerListenerTest {
     remoteSession.getMockPlayer().notifyAvailableCommandsChanged(commandsWithSetRepeat);
 
     Commands expectedCommands =
-        new Commands.Builder()
-            .addAll(Player.COMMAND_SET_REPEAT_MODE, Player.COMMAND_RELEASE)
-            .build();
+        new Commands.Builder().addAll(Player.COMMAND_SET_REPEAT_MODE, COMMAND_RELEASE).build();
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(availableCommandsFromParamRef.get()).isEqualTo(expectedCommands);
     assertThat(availableCommandsFromGetterRef.get()).isEqualTo(expectedCommands);
-    assertThat(getEventsAsList(eventsRef.get()))
-        .containsExactly(Player.EVENT_AVAILABLE_COMMANDS_CHANGED);
+    assertThat(getEventsAsList(eventsRef.get())).containsExactly(EVENT_AVAILABLE_COMMANDS_CHANGED);
   }
 
   @Test
@@ -2310,7 +2829,7 @@ public class MediaControllerListenerTest {
         };
     controller.addListener(listener);
 
-    Commands commandsWithoutGetTimeline = createPlayerCommandsWithout(Player.COMMAND_GET_TIMELINE);
+    Commands commandsWithoutGetTimeline = createPlayerCommandsWithout(COMMAND_GET_TIMELINE);
     remoteSession.getMockPlayer().notifyAvailableCommandsChanged(commandsWithoutGetTimeline);
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
@@ -2319,7 +2838,7 @@ public class MediaControllerListenerTest {
     assertThat(isCurrentMediaItemNullRef.get()).isFalse();
     assertThat(eventsList).hasSize(2);
     assertThat(getEventsAsList(eventsList.get(0)))
-        .containsExactly(Player.EVENT_AVAILABLE_COMMANDS_CHANGED);
+        .containsExactly(EVENT_AVAILABLE_COMMANDS_CHANGED);
     assertThat(getEventsAsList(eventsList.get(1))).containsExactly(Player.EVENT_TIMELINE_CHANGED);
   }
 
@@ -2357,7 +2876,7 @@ public class MediaControllerListenerTest {
         };
     controller.addListener(listener);
 
-    Commands commandsWithoutGetTimeline = createPlayerCommandsWithout(Player.COMMAND_GET_TIMELINE);
+    Commands commandsWithoutGetTimeline = createPlayerCommandsWithout(COMMAND_GET_TIMELINE);
     remoteSession.setAvailableCommands(SessionCommands.EMPTY, commandsWithoutGetTimeline);
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
@@ -2366,7 +2885,7 @@ public class MediaControllerListenerTest {
     assertThat(isCurrentMediaItemNullRef.get()).isFalse();
     assertThat(eventsList).hasSize(2);
     assertThat(getEventsAsList(eventsList.get(0)))
-        .containsExactly(Player.EVENT_AVAILABLE_COMMANDS_CHANGED);
+        .containsExactly(EVENT_AVAILABLE_COMMANDS_CHANGED);
     assertThat(getEventsAsList(eventsList.get(1))).containsExactly(Player.EVENT_TIMELINE_CHANGED);
   }
 
@@ -2405,15 +2924,12 @@ public class MediaControllerListenerTest {
     remoteSession.setAvailableCommands(SessionCommands.EMPTY, commandsWithSetRepeat);
 
     Commands expectedCommands =
-        new Commands.Builder()
-            .addAll(Player.COMMAND_SET_REPEAT_MODE, Player.COMMAND_RELEASE)
-            .build();
+        new Commands.Builder().addAll(Player.COMMAND_SET_REPEAT_MODE, COMMAND_RELEASE).build();
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(availableCommandsFromParamRef.get()).isEqualTo(expectedCommands);
     assertThat(availableCommandsFromGetterRef.get()).isEqualTo(expectedCommands);
     assertThat(availableCommandsFromOnEventsRef.get()).isEqualTo(expectedCommands);
-    assertThat(getEventsAsList(eventsRef.get()))
-        .containsExactly(Player.EVENT_AVAILABLE_COMMANDS_CHANGED);
+    assertThat(getEventsAsList(eventsRef.get())).containsExactly(EVENT_AVAILABLE_COMMANDS_CHANGED);
   }
 
   @Test
@@ -2431,7 +2947,7 @@ public class MediaControllerListenerTest {
             assertThat(command).isEqualTo(testCommand);
             assertThat(TestUtils.equals(testArgs, args)).isTrue();
             latch.countDown();
-            return Futures.immediateFuture(new SessionResult(SessionResult.RESULT_SUCCESS));
+            return immediateFuture(new SessionResult(SessionResult.RESULT_SUCCESS));
           }
         };
     controllerTestRule.createController(
@@ -2485,7 +3001,7 @@ public class MediaControllerListenerTest {
               receivedIconResIds.add(button.iconResId);
             }
             latch.countDown();
-            return Futures.immediateFuture(new SessionResult(SessionResult.RESULT_SUCCESS));
+            return immediateFuture(new SessionResult(SessionResult.RESULT_SUCCESS));
           }
         };
     RemoteMediaSession session = createRemoteMediaSession(TEST_WITH_CUSTOM_COMMANDS);
@@ -2876,7 +3392,7 @@ public class MediaControllerListenerTest {
     assertThat(onEventsCues).hasSize(2);
     assertThat(onEventsCues.get(1).cues).hasSize(0);
     assertThat(getEventsAsList(eventsList.get(0)))
-        .containsExactly(Player.EVENT_AVAILABLE_COMMANDS_CHANGED);
+        .containsExactly(EVENT_AVAILABLE_COMMANDS_CHANGED);
     assertThat(getEventsAsList(eventsList.get(1))).containsExactly(Player.EVENT_CUES);
   }
 
@@ -3509,7 +4025,7 @@ public class MediaControllerListenerTest {
     remoteSession.getMockPlayer().notifyRenderedFirstFrame();
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
-    assertThat(getEventsAsList(eventsRef.get())).containsExactly(Player.EVENT_RENDERED_FIRST_FRAME);
+    assertThat(getEventsAsList(eventsRef.get())).containsExactly(EVENT_RENDERED_FIRST_FRAME);
   }
 
   @Test
@@ -3590,5 +4106,22 @@ public class MediaControllerListenerTest {
     RemoteMediaSession session = new RemoteMediaSession(id, context, /* tokenExtras= */ null);
     sessions.add(session);
     return session;
+  }
+
+  private static Player.Events events(@Player.Event int... events) {
+    return new Player.Events(new FlagSet.Builder().addAll(events).build());
+  }
+
+  private static void postDelayedUntilLatchCountedDown(
+      Handler handler, Runnable runnable, CountDownLatch latch, long intervalMs) {
+    handler.postDelayed(
+        () -> {
+          runnable.run();
+          latch.countDown();
+          if (latch.getCount() > 0) {
+            postDelayedUntilLatchCountedDown(handler, runnable, latch, intervalMs);
+          }
+        },
+        intervalMs);
   }
 }

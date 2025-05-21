@@ -91,6 +91,8 @@ import java.util.List;
   private ImmutableList<CommandButton> mediaButtonPreferences;
   private SessionCommands availableSessionCommands;
   private Commands availablePlayerCommands;
+  @Nullable private PlaybackException playbackException;
+  @Nullable private Commands playerCommandsForErrorState;
 
   public PlayerWrapper(
       Player player,
@@ -99,6 +101,8 @@ import java.util.List;
       ImmutableList<CommandButton> mediaButtonPreferences,
       SessionCommands availableSessionCommands,
       Commands availablePlayerCommands,
+      @Nullable PlaybackException playbackException,
+      @Nullable Commands playerCommandsForErrorState,
       Bundle legacyExtras) {
     super(player);
     this.playIfSuppressed = playIfSuppressed;
@@ -106,6 +110,8 @@ import java.util.List;
     this.mediaButtonPreferences = mediaButtonPreferences;
     this.availableSessionCommands = availableSessionCommands;
     this.availablePlayerCommands = availablePlayerCommands;
+    this.playbackException = playbackException;
+    this.playerCommandsForErrorState = playerCommandsForErrorState;
     this.legacyExtras = new Bundle(legacyExtras);
     if (!mediaButtonPreferences.isEmpty()) {
       updateCustomLayoutAndLegacyExtrasForMediaButtonPreferences();
@@ -185,6 +191,30 @@ import java.util.List;
 
   /* package */ ImmutableList<CommandButton> getMediaButtonPreferences() {
     return mediaButtonPreferences;
+  }
+
+  /* package */ void setPlaybackException(
+      @Nullable PlaybackException playbackException,
+      @Nullable Commands playerCommandsForErrorState) {
+    checkArgument(
+        (playbackException == null && playerCommandsForErrorState == null)
+            || (playbackException != null && playerCommandsForErrorState != null));
+    this.playbackException = playbackException;
+    this.playerCommandsForErrorState = playerCommandsForErrorState;
+  }
+
+  @Nullable
+  /* package */ PlaybackException getPlaybackException() {
+    return playbackException;
+  }
+
+  /* package */ boolean isInCustomPlaybackExceptionState() {
+    return playbackException != null;
+  }
+
+  @Nullable
+  /* package */ Commands getAvailablePlayerCommandsForErrorState() {
+    return playerCommandsForErrorState;
   }
 
   public void setLegacyExtras(Bundle extras) {
@@ -1029,8 +1059,12 @@ import java.util.List;
   }
 
   public PlaybackStateCompat createPlaybackStateCompat() {
+    // Error intentionally set by the app.
+    @Nullable PlaybackException playerError = playbackException;
     LegacyError legacyError = this.legacyError;
-    if (legacyError != null && legacyError.isFatal) {
+    if (playerError == null && legacyError != null && legacyError.isFatal) {
+      // A fatal legacy error automatically set by Media3 upon a calling
+      // MediaLibrarySession.Callback according to the configured LibraryErrorReplicationMode.
       Bundle extras = new Bundle(legacyError.extras);
       extras.putAll(legacyExtras);
       return new PlaybackStateCompat.Builder()
@@ -1046,14 +1080,23 @@ import java.util.List;
           .setExtras(legacyError.extras)
           .build();
     }
-    @Nullable PlaybackException playerError = getPlayerError();
-    boolean shouldShowPlayButton = Util.shouldShowPlayButton(/* player= */ this, playIfSuppressed);
+    if (playerError == null) {
+      // The actual error from the player, if any.
+      playerError = getPlayerError();
+    }
+    boolean shouldShowPlayButton =
+        playerError != null || Util.shouldShowPlayButton(/* player= */ this, playIfSuppressed);
     int state =
-        LegacyConversions.convertToPlaybackStateCompatState(
-            /* player= */ this, shouldShowPlayButton);
+        playerError != null
+            ? PlaybackStateCompat.STATE_ERROR
+            : LegacyConversions.convertToPlaybackStateCompatState(
+                /* player= */ this, shouldShowPlayButton);
     // Always advertise ACTION_SET_RATING.
     long actions = PlaybackStateCompat.ACTION_SET_RATING;
-    Commands availableCommands = intersect(availablePlayerCommands, getAvailableCommands());
+    Commands availableCommands =
+        playerCommandsForErrorState != null
+            ? intersect(playerCommandsForErrorState, getAvailableCommands())
+            : intersect(availablePlayerCommands, getAvailableCommands());
     for (int i = 0; i < availableCommands.size(); i++) {
       actions |=
           convertCommandToPlaybackStateActions(availableCommands.get(i), shouldShowPlayButton);
@@ -1072,14 +1115,17 @@ import java.util.List;
             : MediaSessionCompat.QueueItem.UNKNOWN_ID;
     float playbackSpeed = getPlaybackParameters().speed;
     float sessionPlaybackSpeed = isPlaying() ? playbackSpeed : 0f;
-    Bundle extras = legacyError != null ? new Bundle(legacyError.extras) : new Bundle();
+    Bundle extras = playerError != null ? new Bundle(playerError.extras) : new Bundle();
+    if (playerError == null && legacyError != null) {
+      extras.putAll(legacyError.extras);
+    }
     extras.putAll(legacyExtras);
     extras.putFloat(EXTRAS_KEY_PLAYBACK_SPEED_COMPAT, playbackSpeed);
     @Nullable MediaItem currentMediaItem = getCurrentMediaItemWithCommandCheck();
     if (currentMediaItem != null && !MediaItem.DEFAULT_MEDIA_ID.equals(currentMediaItem.mediaId)) {
       extras.putString(EXTRAS_KEY_MEDIA_ID_COMPAT, currentMediaItem.mediaId);
     }
-    boolean canReadPositions = isCommandAvailable(Player.COMMAND_GET_CURRENT_MEDIA_ITEM);
+    boolean canReadPositions = isCommandAvailable(COMMAND_GET_CURRENT_MEDIA_ITEM);
     long compatPosition =
         canReadPositions ? getCurrentPosition() : PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN;
     long compatBufferedPosition = canReadPositions ? getBufferedPosition() : 0;
@@ -1297,7 +1343,11 @@ import java.util.List;
   private void updateCustomLayoutAndLegacyExtrasForMediaButtonPreferences() {
     ImmutableList<CommandButton> mediaButtonPreferencesWithUnavailableButtonsDisabled =
         CommandButton.copyWithUnavailableButtonsDisabled(
-            mediaButtonPreferences, availableSessionCommands, availablePlayerCommands);
+            mediaButtonPreferences,
+            availableSessionCommands,
+            playerCommandsForErrorState != null
+                ? playerCommandsForErrorState
+                : availablePlayerCommands);
     customLayout =
         CommandButton.getCustomLayoutFromMediaButtonPreferences(
             mediaButtonPreferencesWithUnavailableButtonsDisabled,

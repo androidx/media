@@ -251,6 +251,8 @@ import org.checkerframework.checker.initialization.qual.Initialized;
             mediaButtonPreferences,
             connectionResult.availableSessionCommands,
             connectionResult.availablePlayerCommands,
+            /* playbackException= */ null,
+            /* playerCommandsForErrorState= */ null,
             sessionExtras);
     this.playerWrapper = playerWrapper;
     postOrRun(
@@ -278,6 +280,8 @@ import org.checkerframework.checker.initialization.qual.Initialized;
             playerWrapper.getMediaButtonPreferences(),
             playerWrapper.getAvailableSessionCommands(),
             playerWrapper.getAvailablePlayerCommands(),
+            playerWrapper.getPlaybackException(),
+            playerWrapper.getAvailablePlayerCommandsForErrorState(),
             playerWrapper.getLegacyExtras()));
   }
 
@@ -544,6 +548,85 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         (controller, seq) -> controller.setMediaButtonPreferences(seq, mediaButtonPreferences));
   }
 
+  public void setPlaybackException(
+      ControllerInfo controllerInfo, @Nullable PlaybackException playbackException) {
+    ConnectedControllersManager<IBinder> controllerManager =
+        sessionStub.getConnectedControllersManager();
+    PlaybackException oldPlaybackException = controllerManager.getPlaybackException(controllerInfo);
+    if (!controllerManager.isConnected(controllerInfo)
+        || PlaybackException.areErrorInfosEqual(playbackException, oldPlaybackException)) {
+      return;
+    }
+    Player.Commands originalPlayerCommands =
+        oldPlaybackException == null
+            ? controllerManager.getAvailablePlayerCommands(controllerInfo)
+            : controllerManager.getPlayerCommandsBeforePlaybackException(controllerInfo);
+    if (isMediaNotificationController(controllerInfo)) {
+      playerWrapper.setPlaybackException(
+          playbackException,
+          playbackException != null
+              ? createPlayerCommandsForCustomErrorState(originalPlayerCommands)
+              : null);
+      if (playbackException != null) {
+        sessionLegacyStub.updateLegacySessionPlaybackState(playerWrapper);
+        sessionLegacyStub.maybeUpdateFlags(playerWrapper);
+      }
+    }
+    Player.Commands commands =
+        playbackException != null
+            ? createPlayerCommandsForCustomErrorState(originalPlayerCommands)
+            : controllerManager.getPlayerCommandsBeforePlaybackException(controllerInfo);
+    SessionCommands sessionCommands = controllerManager.getAvailableSessionCommands(controllerInfo);
+    if (commands != null && sessionCommands != null) {
+      controllerManager.resetPlaybackException(controllerInfo);
+      setAvailableCommands(controllerInfo, sessionCommands, commands);
+      if (playbackException != null) {
+        controllerManager.setPlaybackException(
+            controllerInfo, playbackException, checkNotNull(originalPlayerCommands));
+      }
+    }
+  }
+
+  public void setPlaybackException(@Nullable PlaybackException playbackException) {
+    ImmutableList<ControllerInfo> connectedControllers =
+        sessionStub.getConnectedControllersManager().getConnectedControllers();
+    for (int i = 0; i < connectedControllers.size(); i++) {
+      setPlaybackException(connectedControllers.get(i), playbackException);
+    }
+  }
+
+  @Nullable
+  private static Player.Commands createPlayerCommandsForCustomErrorState(
+      @Nullable Player.Commands playerCommandsBeforeException) {
+    if (playerCommandsBeforeException == null) {
+      // This may happen when the controller is already disconnected.
+      return null;
+    }
+    Player.Commands.Builder commandsDuringErrorState = Player.Commands.EMPTY.buildUpon();
+    if (playerCommandsBeforeException.contains(Player.COMMAND_GET_CURRENT_MEDIA_ITEM)) {
+      commandsDuringErrorState.add(Player.COMMAND_GET_CURRENT_MEDIA_ITEM);
+    }
+    if (playerCommandsBeforeException.contains(Player.COMMAND_GET_TIMELINE)) {
+      commandsDuringErrorState.add(Player.COMMAND_GET_TIMELINE);
+    }
+    if (playerCommandsBeforeException.contains(Player.COMMAND_GET_METADATA)) {
+      commandsDuringErrorState.add(Player.COMMAND_GET_METADATA);
+    }
+    if (playerCommandsBeforeException.contains(Player.COMMAND_GET_AUDIO_ATTRIBUTES)) {
+      commandsDuringErrorState.add(Player.COMMAND_GET_AUDIO_ATTRIBUTES);
+    }
+    if (playerCommandsBeforeException.contains(Player.COMMAND_GET_VOLUME)) {
+      commandsDuringErrorState.add(Player.COMMAND_GET_VOLUME);
+    }
+    if (playerCommandsBeforeException.contains(Player.COMMAND_GET_DEVICE_VOLUME)) {
+      commandsDuringErrorState.add(Player.COMMAND_GET_DEVICE_VOLUME);
+    }
+    if (playerCommandsBeforeException.contains(Player.COMMAND_GET_TRACKS)) {
+      commandsDuringErrorState.add(Player.COMMAND_GET_TRACKS);
+    }
+    return commandsDuringErrorState.build();
+  }
+
   /** Returns the custom layout. */
   public ImmutableList<CommandButton> getCustomLayout() {
     return customLayout;
@@ -605,13 +688,19 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       sessionStub
           .getConnectedControllersManager()
           .updateCommandsFromSession(controller, sessionCommands, playerCommands);
-      dispatchRemoteControllerTaskWithoutReturn(
-          controller,
-          (callback, seq) ->
-              callback.onAvailableCommandsChangedFromSession(seq, sessionCommands, playerCommands));
-      onPlayerInfoChangedHandler.sendPlayerInfoChangedMessage(
-          /* excludeTimeline= */ false, /* excludeTracks= */ false);
-    } else {
+      // Read the available player commands from the manager again after update.
+      Player.Commands availablePlayerCommands =
+          sessionStub.getConnectedControllersManager().getAvailablePlayerCommands(controller);
+      if (availablePlayerCommands != null) {
+        dispatchRemoteControllerTaskWithoutReturn(
+            controller,
+            (callback, seq) ->
+                callback.onAvailableCommandsChangedFromSession(
+                    seq, sessionCommands, availablePlayerCommands));
+        onPlayerInfoChangedHandler.sendPlayerInfoChangedMessage(
+            /* excludeTimeline= */ false, /* excludeTracks= */ false);
+      }
+    } else if (controller.getControllerVersion() == ControllerInfo.LEGACY_CONTROLLER_VERSION) {
       sessionLegacyStub
           .getConnectedControllersManager()
           .updateCommandsFromSession(controller, sessionCommands, playerCommands);
@@ -644,13 +733,34 @@ import org.checkerframework.checker.initialization.qual.Initialized;
           // 0 is OK for legacy controllers, because they didn't have sequence numbers.
           seq = 0;
         }
+        PlayerInfo playerInfoInErrorStateForController =
+            controllersManager.getPlayerInfoForPlaybackException(controller);
+        if (playerInfoInErrorStateForController != null) {
+          // Don't update controller already in error state.
+          continue;
+        }
+        PlaybackException playbackExceptionForController =
+            controllersManager.getPlaybackException(controller);
+        if (playbackExceptionForController != null) {
+          playerInfoInErrorStateForController =
+              createPlayerInfoForCustomPlaybackException(
+                  playerInfo, playbackExceptionForController);
+          controllersManager.setPlayerInfoForPlaybackException(
+              controller, playerInfoInErrorStateForController);
+        }
         Player.Commands intersectedCommands =
             MediaUtils.intersect(
                 controllersManager.getAvailablePlayerCommands(controller),
                 getPlayerWrapper().getAvailableCommands());
         checkStateNotNull(controller.getControllerCb())
             .onPlayerInfoChanged(
-                seq, playerInfo, intersectedCommands, excludeTimeline, excludeTracks);
+                seq,
+                playerInfoInErrorStateForController == null
+                    ? playerInfo
+                    : playerInfoInErrorStateForController,
+                intersectedCommands,
+                excludeTimeline,
+                excludeTracks);
       } catch (DeadObjectException e) {
         onDeadObjectException(controller);
       } catch (RemoteException e) {
@@ -662,6 +772,24 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         Log.w(TAG, "Exception in " + controller.toString(), e);
       }
     }
+  }
+
+  private static PlayerInfo createPlayerInfoForCustomPlaybackException(
+      PlayerInfo playerInfo, PlaybackException playbackException) {
+    return playerInfo
+        .copyWithPlaybackState(Player.STATE_IDLE, playbackException)
+        .copyWithSessionPositionInfo(
+            new SessionPositionInfo(
+                playerInfo.sessionPositionInfo.positionInfo,
+                playerInfo.sessionPositionInfo.isPlayingAd,
+                playerInfo.sessionPositionInfo.eventTimeMs,
+                playerInfo.sessionPositionInfo.durationMs,
+                /* bufferedPositionMs= */ 0,
+                /* bufferedPercentage= */ 0,
+                /* totalBufferedDurationMs= */ 0,
+                playerInfo.sessionPositionInfo.currentLiveOffsetMs,
+                playerInfo.sessionPositionInfo.contentDurationMs,
+                /* contentBufferedPositionMs= */ 0));
   }
 
   public ListenableFuture<SessionResult> sendCustomCommand(
@@ -1051,6 +1179,9 @@ import org.checkerframework.checker.initialization.qual.Initialized;
 
   private void setAvailableFrameworkControllerCommands(
       SessionCommands sessionCommands, Player.Commands playerCommands) {
+    if (playerWrapper.isInCustomPlaybackExceptionState()) {
+      return;
+    }
     boolean commandGetTimelineChanged =
         playerWrapper.getAvailablePlayerCommands().contains(Player.COMMAND_GET_TIMELINE)
             != playerCommands.contains(Player.COMMAND_GET_TIMELINE);
@@ -1077,10 +1208,12 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       SessionPositionInfo sessionPositionInfo) {
     ConnectedControllersManager<IBinder> controllersManager =
         sessionStub.getConnectedControllersManager();
-    List<ControllerInfo> controllers =
-        sessionStub.getConnectedControllersManager().getConnectedControllers();
+    ImmutableList<ControllerInfo> controllers = controllersManager.getConnectedControllers();
     for (int i = 0; i < controllers.size(); i++) {
       ControllerInfo controller = controllers.get(i);
+      if (controllersManager.getPlaybackException(controller) != null) {
+        continue;
+      }
       boolean canAccessCurrentMediaItem =
           controllersManager.isPlayerCommandAvailable(
               controller, Player.COMMAND_GET_CURRENT_MEDIA_ITEM);
@@ -1872,7 +2005,16 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         return;
       }
       session.verifyApplicationThread();
-      session.dispatchRemoteControllerTaskWithoutReturn(ControllerCb::onRenderedFirstFrame);
+      ConnectedControllersManager<IBinder> controllerManager =
+          session.sessionStub.getConnectedControllersManager();
+      ImmutableList<ControllerInfo> controllers = controllerManager.getConnectedControllers();
+      for (int i = 0; i < controllers.size(); i++) {
+        ControllerInfo controller = controllers.get(i);
+        if (controllerManager.getPlaybackException(controller) == null) {
+          session.dispatchRemoteControllerTaskWithoutReturn(
+              controller, ControllerCb::onRenderedFirstFrame);
+        }
+      }
     }
 
     @Override

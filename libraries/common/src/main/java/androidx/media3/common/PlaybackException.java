@@ -540,7 +540,8 @@ public class PlaybackException extends Exception {
    * Returns whether the error data associated to this exception equals the error data associated to
    * {@code other}.
    *
-   * <p>Note that this method does not compare the exceptions' stacktraces.
+   * <p>Note that this method does not compare the exceptions' stack traces and {@linkplain
+   * #extras}.
    */
   @CallSuper
   public boolean errorInfoEquals(@Nullable PlaybackException other) {
@@ -566,6 +567,20 @@ public class PlaybackException extends Exception {
     return errorCode == other.errorCode
         && Objects.equals(getMessage(), other.getMessage())
         && timestampMs == other.timestampMs;
+  }
+
+  /**
+   * Returns true if both {@link PlaybackException} instances have {@linkplain
+   * PlaybackException#errorInfoEquals(PlaybackException) the same error info} or both are null.
+   */
+  @UnstableApi
+  public static boolean areErrorInfosEqual(
+      @Nullable PlaybackException playbackException1,
+      @Nullable PlaybackException playbackException2) {
+    if (playbackException1 != null) {
+      return playbackException1.errorInfoEquals(playbackException2);
+    }
+    return playbackException2 == null;
   }
 
   private static final String FIELD_INT_ERROR_CODE = Util.intToStringMaxRadix(0);
