@@ -926,6 +926,38 @@ public class Mp4MuxerEndToEndTest {
             "sample_batching_and_attempt_streamable_output_disabled_" + H265_HDR10_MP4));
   }
 
+  @Test
+  public void
+      writeMp4File_withSomeFreeSpaceAfterFileTypeBoxAndAttemptStreamableOutputDisabled_reservesExpectedFreeSpace()
+          throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+    Mp4Muxer muxer =
+        new Mp4Muxer.Builder(new FileOutputStream(outputFilePath))
+            .experimentalSetFreeSpaceAfterFileTypeBox(500)
+            .setAttemptStreamableOutputEnabled(false)
+            .build();
+    Pair<ByteBuffer, BufferInfo> sampleAndSampleInfo =
+        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 0L);
+
+    try {
+      muxer.addMetadataEntry(
+          new Mp4TimestampData(
+              /* creationTimestampSeconds= */ 1_000_000L,
+              /* modificationTimestampSeconds= */ 5_000_000L));
+      int trackId = muxer.addTrack(FAKE_VIDEO_FORMAT);
+      muxer.writeSampleData(trackId, sampleAndSampleInfo.first, sampleAndSampleInfo.second);
+    } finally {
+      muxer.close();
+    }
+
+    DumpableMp4Box dumpableBox =
+        new DumpableMp4Box(ByteBuffer.wrap(TestUtil.getByteArrayFromFilePath(outputFilePath)));
+    DumpFileAsserts.assertOutput(
+        context,
+        dumpableBox,
+        MuxerTestUtil.getExpectedDumpFilePath("mp4_with_some_free_space_after_ftyp.mp4"));
+  }
+
   private static void writeFakeSamples(Mp4Muxer muxer, int trackId, int sampleCount)
       throws MuxerException {
     for (int i = 0; i < sampleCount; i++) {

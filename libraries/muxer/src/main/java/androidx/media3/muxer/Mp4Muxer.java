@@ -208,6 +208,7 @@ public final class Mp4Muxer implements Muxer {
     private boolean attemptStreamableOutputEnabled;
     private @FileFormat int outputFileFormat;
     @Nullable private Mp4AtFileParameters mp4AtFileParameters;
+    private int freeSpaceAfterFtypInBytes;
 
     /**
      * Creates a {@link Builder} instance with default values.
@@ -326,6 +327,27 @@ public final class Mp4Muxer implements Muxer {
       return this;
     }
 
+    /**
+     * Sets the amount of free space (in bytes) to be reserved immediately after the {@code ftyp}
+     * box (File Type box) in the MP4 file.
+     *
+     * <p>The {@code moov} box (Movie Box) is written in the reserved space if {@link
+     * #setAttemptStreamableOutputEnabled(boolean)} is set to {@code true}, and the size of the
+     * {@code moov} box is not greater than {@code bytes}. Otherwise, a {@code free} box of the
+     * requested size is written.
+     *
+     * <p>By default 400_000 bytes are reserved if {@link
+     * #setAttemptStreamableOutputEnabled(boolean)} is set to {@code true}.
+     *
+     * <p>This method is experimental and will be renamed or removed in a future release.
+     */
+    @CanIgnoreReturnValue
+    public Mp4Muxer.Builder experimentalSetFreeSpaceAfterFileTypeBox(int bytes) {
+      checkArgument(bytes >= 0);
+      this.freeSpaceAfterFtypInBytes = bytes;
+      return this;
+    }
+
     /** Builds an {@link Mp4Muxer} instance. */
     public Mp4Muxer build() {
       checkArgument(
@@ -341,7 +363,8 @@ public final class Mp4Muxer implements Muxer {
           sampleBatchingEnabled,
           attemptStreamableOutputEnabled,
           outputFileFormat,
-          mp4AtFileParameters);
+          mp4AtFileParameters,
+          freeSpaceAfterFtypInBytes);
     }
   }
 
@@ -379,6 +402,7 @@ public final class Mp4Muxer implements Muxer {
   private final boolean sampleCopyEnabled;
   private final boolean sampleBatchingEnabled;
   private final boolean attemptStreamableOutputEnabled;
+  private final int freeSpaceAfterFtypInBytes;
   private final @FileFormat int outputFileFormat;
   @Nullable private final Mp4AtFileParameters mp4AtFileParameters;
   private final MetadataCollector metadataCollector;
@@ -401,7 +425,8 @@ public final class Mp4Muxer implements Muxer {
       boolean sampleBatchingEnabled,
       boolean attemptStreamableOutputEnabled,
       @FileFormat int outputFileFormat,
-      @Nullable Mp4AtFileParameters mp4AtFileParameters) {
+      @Nullable Mp4AtFileParameters mp4AtFileParameters,
+      int freeSpaceAfterFtypInBytes) {
     this.outputStream = outputStream;
     outputChannel = outputStream.getChannel();
     this.lastSampleDurationBehavior = lastFrameDurationBehavior;
@@ -411,6 +436,7 @@ public final class Mp4Muxer implements Muxer {
     this.attemptStreamableOutputEnabled = attemptStreamableOutputEnabled;
     this.outputFileFormat = outputFileFormat;
     this.mp4AtFileParameters = mp4AtFileParameters;
+    this.freeSpaceAfterFtypInBytes = freeSpaceAfterFtypInBytes;
     metadataCollector = new MetadataCollector();
     mp4Writer =
         new Mp4Writer(
@@ -420,7 +446,8 @@ public final class Mp4Muxer implements Muxer {
             lastFrameDurationBehavior,
             sampleCopyEnabled,
             sampleBatchingEnabled,
-            attemptStreamableOutputEnabled);
+            attemptStreamableOutputEnabled,
+            freeSpaceAfterFtypInBytes);
     trackIdToTrack = new ArrayList<>();
     auxiliaryTracks = new ArrayList<>();
   }
@@ -588,7 +615,8 @@ public final class Mp4Muxer implements Muxer {
               lastSampleDurationBehavior,
               sampleCopyEnabled,
               sampleBatchingEnabled,
-              attemptStreamableOutputEnabled);
+              attemptStreamableOutputEnabled,
+              freeSpaceAfterFtypInBytes);
     }
   }
 

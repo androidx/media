@@ -60,6 +60,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
   private final List<Track> auxiliaryTracks;
   private final AtomicBoolean hasWrittenSamples;
   private final LinearByteBufferAllocator linearByteBufferAllocator;
+  private final int freeSpaceAfterFtypInBytes;
 
   // Stores location of the space reserved for the moov box at the beginning of the file (after ftyp
   // box)
@@ -88,6 +89,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
    * @param sampleCopyEnabled Whether sample copying is enabled.
    * @param sampleBatchingEnabled Whether sample batching is enabled.
    * @param attemptStreamableOutputEnabled Whether to attempt to write a streamable output.
+   * @param freeSpaceAfterFtypInBytes Free space to be reserved (in bytes) after the ftyp box.
    */
   public Mp4Writer(
       FileChannel fileChannel,
@@ -96,13 +98,18 @@ import java.util.concurrent.atomic.AtomicBoolean;
       @Mp4Muxer.LastSampleDurationBehavior int lastSampleDurationBehavior,
       boolean sampleCopyEnabled,
       boolean sampleBatchingEnabled,
-      boolean attemptStreamableOutputEnabled) {
+      boolean attemptStreamableOutputEnabled,
+      int freeSpaceAfterFtypInBytes) {
     this.outputFileChannel = fileChannel;
     this.metadataCollector = metadataCollector;
     this.annexBToAvccConverter = annexBToAvccConverter;
     this.lastSampleDurationBehavior = lastSampleDurationBehavior;
     this.sampleCopyEnabled = sampleCopyEnabled;
     this.sampleBatchingEnabled = sampleBatchingEnabled;
+    this.freeSpaceAfterFtypInBytes =
+        freeSpaceAfterFtypInBytes > 0
+            ? freeSpaceAfterFtypInBytes
+            : (attemptStreamableOutputEnabled ? DEFAULT_MOOV_BOX_SIZE_BYTES : 0);
     tracks = new ArrayList<>();
     auxiliaryTracks = new ArrayList<>();
     hasWrittenSamples = new AtomicBoolean(false);
@@ -308,11 +315,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
     outputFileChannel.position(0L);
     outputFileChannel.write(Boxes.ftyp());
 
-    if (canWriteMoovAtStart) {
-      // Reserve some space for moov box by adding a free box.
+    if (freeSpaceAfterFtypInBytes > 0) {
       reservedMoovSpaceStart = outputFileChannel.position();
       outputFileChannel.write(
-          BoxUtils.wrapIntoBox(FREE_BOX_TYPE, ByteBuffer.allocate(DEFAULT_MOOV_BOX_SIZE_BYTES)));
+          BoxUtils.wrapIntoBox(FREE_BOX_TYPE, ByteBuffer.allocate(freeSpaceAfterFtypInBytes)));
       reservedMoovSpaceEnd = outputFileChannel.position();
     }
 
