@@ -63,6 +63,8 @@
         `TestPlayerRunHelper` in order to advance the player until a specified
         position is reached. In most cases, these methods are more reliable than
         the existing `untilPosition` and `untilStartOfMediaItem` methods.
+    *   Move `FakeDownloader` to `test-utils-robolectric` module for reuse in
+        other tests.
 *   Remove deprecated symbols:
 
 ## 1.8

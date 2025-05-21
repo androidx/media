@@ -15,29 +15,26 @@
  */
 package androidx.media3.exoplayer.offline;
 
-import static androidx.media3.test.utils.robolectric.RobolectricUtil.createRobolectricConditionVariable;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.Arrays.asList;
 
 import android.net.Uri;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
-import androidx.media3.common.C;
 import androidx.media3.common.StreamKey;
 import androidx.media3.common.util.Assertions;
-import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.exoplayer.scheduler.Requirements;
 import androidx.media3.test.utils.DownloadBuilder;
 import androidx.media3.test.utils.DummyMainThread;
 import androidx.media3.test.utils.DummyMainThread.TestRunnable;
 import androidx.media3.test.utils.TestUtil;
+import androidx.media3.test.utils.robolectric.FakeDownloader;
 import androidx.media3.test.utils.robolectric.TestDownloadManagerListener;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Before;
@@ -910,127 +907,6 @@ public class DownloadManagerTest {
         downloaders.notifyAll();
       }
       return fakeDownloader;
-    }
-  }
-
-  private static final class FakeDownloader implements Downloader {
-
-    private final DownloadRequest request;
-    private final ConditionVariable downloadStarted;
-    private final ConditionVariable removeStarted;
-    private final ConditionVariable finished;
-    private final ConditionVariable blocker;
-    private final AtomicInteger startCount;
-    private final AtomicInteger bytesDownloaded;
-
-    private volatile boolean canceled;
-    private volatile boolean enableDownloadIOException;
-
-    private FakeDownloader(DownloadRequest request) {
-      this.request = request;
-      downloadStarted = createRobolectricConditionVariable();
-      removeStarted = createRobolectricConditionVariable();
-      finished = createRobolectricConditionVariable();
-      blocker = createRobolectricConditionVariable();
-      startCount = new AtomicInteger();
-      bytesDownloaded = new AtomicInteger();
-    }
-
-    @Override
-    public void cancel() {
-      canceled = true;
-      blocker.open();
-    }
-
-    @Override
-    public void download(ProgressListener listener) throws IOException {
-      startCount.incrementAndGet();
-      downloadStarted.open();
-      try {
-        block();
-        if (canceled) {
-          return;
-        }
-        int bytesDownloaded = this.bytesDownloaded.get();
-        if (listener != null && bytesDownloaded > 0) {
-          listener.onProgress(C.LENGTH_UNSET, bytesDownloaded, C.PERCENTAGE_UNSET);
-        }
-        if (enableDownloadIOException) {
-          enableDownloadIOException = false;
-          throw new IOException();
-        }
-      } finally {
-        finished.open();
-      }
-    }
-
-    @Override
-    public void remove() {
-      startCount.incrementAndGet();
-      removeStarted.open();
-      try {
-        block();
-      } finally {
-        finished.open();
-      }
-    }
-
-    /** Finishes the {@link #download} or {@link #remove} without an error. */
-    public void finish() throws InterruptedException {
-      blocker.open();
-      blockUntilFinished();
-    }
-
-    /** Fails {@link #download} or {@link #remove} with an error. */
-    public void fail() throws InterruptedException {
-      enableDownloadIOException = true;
-      blocker.open();
-      blockUntilFinished();
-    }
-
-    /** Increments the number of bytes that the fake downloader has downloaded. */
-    public void incrementBytesDownloaded() {
-      bytesDownloaded.incrementAndGet();
-    }
-
-    public void assertId(String id) {
-      assertThat(request.id).isEqualTo(id);
-    }
-
-    public void assertStreamKeys(StreamKey... streamKeys) {
-      assertThat(request.streamKeys).containsExactlyElementsIn(streamKeys);
-    }
-
-    public void assertDownloadStarted() throws InterruptedException {
-      assertThat(downloadStarted.block(TIMEOUT_MS)).isTrue();
-      downloadStarted.close();
-    }
-
-    public void assertRemoveStarted() throws InterruptedException {
-      assertThat(removeStarted.block(TIMEOUT_MS)).isTrue();
-      removeStarted.close();
-    }
-
-    public void assertCanceled() throws InterruptedException {
-      blockUntilFinished();
-      assertThat(canceled).isTrue();
-    }
-
-    // Internal methods.
-
-    private void block() {
-      try {
-        blocker.block();
-      } catch (InterruptedException e) {
-        throw new IllegalStateException(e); // Never happens.
-      } finally {
-        blocker.close();
-      }
-    }
-
-    private void blockUntilFinished() throws InterruptedException {
-      assertThat(finished.block(TIMEOUT_MS)).isTrue();
-      finished.close();
     }
   }
 }
