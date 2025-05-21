@@ -30,6 +30,8 @@
 *   DRM:
 *   Effect:
 *   Muxers:
+    *   Fix a bug where correct sample flags were not set for audio samples in
+        fragmented MP4.
 *   IMA extension:
 *   Session:
     *   Fix bug where calling `setSessionExtras` from the main thread when

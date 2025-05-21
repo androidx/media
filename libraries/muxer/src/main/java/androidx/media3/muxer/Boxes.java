@@ -15,6 +15,7 @@
  */
 package androidx.media3.muxer;
 
+import static androidx.media3.common.MimeTypes.allSamplesAreSyncSamples;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
@@ -1249,7 +1250,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
 
   /** Returns a track fragment run (trun) box. */
   public static ByteBuffer trun(
-      List<SampleMetadata> samplesMetadata, int dataOffset, boolean hasBFrame) {
+      Format trackFormat, List<SampleMetadata> samplesMetadata, int dataOffset, boolean hasBFrame) {
     ByteBuffer contents =
         ByteBuffer.allocate(getTrunBoxContentSize(samplesMetadata.size(), hasBFrame));
 
@@ -1270,14 +1271,15 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     contents.putInt(versionAndFlags);
     contents.putInt(samplesMetadata.size()); // An unsigned int(32)
     contents.putInt(dataOffset); // A signed int(32)
+    boolean allSamplesAreSyncSamples =
+        allSamplesAreSyncSamples(trackFormat.sampleMimeType, trackFormat.codecs);
     for (int i = 0; i < samplesMetadata.size(); i++) {
       SampleMetadata currentSampleMetadata = samplesMetadata.get(i);
       contents.putInt(currentSampleMetadata.durationVu); // An unsigned int(32)
       contents.putInt(currentSampleMetadata.size); // An unsigned int(32)
-      contents.putInt(
-          (currentSampleMetadata.flags & C.BUFFER_FLAG_KEY_FRAME) != 0
-              ? TRUN_BOX_SYNC_SAMPLE_FLAGS
-              : TRUN_BOX_NON_SYNC_SAMPLE_FLAGS);
+      boolean isSyncSample =
+          (currentSampleMetadata.flags & C.BUFFER_FLAG_KEY_FRAME) != 0 || allSamplesAreSyncSamples;
+      contents.putInt(isSyncSample ? TRUN_BOX_SYNC_SAMPLE_FLAGS : TRUN_BOX_NON_SYNC_SAMPLE_FLAGS);
       if (hasBFrame) {
         contents.putInt(currentSampleMetadata.compositionTimeOffsetVu);
       }
@@ -1286,7 +1288,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     return BoxUtils.wrapIntoBox("trun", contents);
   }
 
-  /** Returns the size required for {@link #trun(List, int, boolean)} box content. */
+  /** Returns the size required for {@link #trun(int, List, int, boolean)} box content. */
   public static int getTrunBoxContentSize(int sampleCount, boolean hasBFrame) {
     int trunBoxFixedSize = 3 * BYTES_PER_INTEGER;
     int intWrittenPerSample = hasBFrame ? 4 : 3;

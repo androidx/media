@@ -861,11 +861,36 @@ public class BoxesTest {
     }
 
     ByteBuffer trunBox =
-        Boxes.trun(samplesMetadata, /* dataOffset= */ 1_000, /* hasBFrame= */ false);
+        Boxes.trun(
+            FAKE_VIDEO_FORMAT, samplesMetadata, /* dataOffset= */ 1_000, /* hasBFrame= */ false);
 
     DumpableMp4Box dumpableBox = new DumpableMp4Box(trunBox);
     DumpFileAsserts.assertOutput(
         context, dumpableBox, MuxerTestUtil.getExpectedDumpFilePath("trun_box"));
+  }
+
+  @Test
+  public void createTrunBox_withAllSyncSamples_matchesExpected() throws IOException {
+    int sampleCount = 5;
+    List<SampleMetadata> samplesMetadata = new ArrayList<>(sampleCount);
+    for (int i = 0; i < sampleCount; i++) {
+      samplesMetadata.add(
+          new SampleMetadata(
+              /* durationsVu= */ 2_000,
+              /* size= */ 5_000,
+              /* flags= */ 0,
+              /* compositionTimeOffsetVu= */ 0));
+    }
+
+    ByteBuffer trunBox =
+        Boxes.trun(
+            FAKE_AUDIO_FORMAT, samplesMetadata, /* dataOffset= */ 1_000, /* hasBFrame= */ false);
+
+    DumpableMp4Box dumpableBox = new DumpableMp4Box(trunBox);
+    DumpFileAsserts.assertOutput(
+        context,
+        dumpableBox,
+        MuxerTestUtil.getExpectedDumpFilePath("trun_box_with_all_sync_samples"));
   }
 
   @Test
@@ -882,7 +907,8 @@ public class BoxesTest {
     }
 
     ByteBuffer trunBox =
-        Boxes.trun(samplesMetadata, /* dataOffset= */ 1_000, /* hasBFrame= */ true);
+        Boxes.trun(
+            FAKE_VIDEO_FORMAT, samplesMetadata, /* dataOffset= */ 1_000, /* hasBFrame= */ true);
 
     DumpableMp4Box dumpableBox = new DumpableMp4Box(trunBox);
     DumpFileAsserts.assertOutput(

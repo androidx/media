@@ -44,6 +44,7 @@ import java.util.Objects;
   public static final Format FAKE_AUDIO_FORMAT =
       new Format.Builder()
           .setSampleMimeType(AUDIO_AAC)
+          .setCodecs("mp4a.40.2")
           .setSampleRate(40000)
           .setChannelCount(2)
           .build();
@@ -83,17 +84,27 @@ import java.util.Objects;
 
   public static void feedInputDataToMuxer(Context context, Muxer muxer, String inputFileName)
       throws IOException, MuxerException {
-    feedInputDataToMuxer(context, muxer, inputFileName, /* removeInitializationData= */ false);
+    feedInputDataToMuxer(
+        context,
+        muxer,
+        inputFileName,
+        /* removeInitializationData= */ false,
+        /* removeAudioSampleFlags= */ false);
   }
 
   public static void feedInputDataToMuxer(
-      Context context, Muxer muxer, String inputFileName, boolean removeInitializationData)
+      Context context,
+      Muxer muxer,
+      String inputFileName,
+      boolean removeInitializationData,
+      boolean removeAudioSampleFlags)
       throws IOException, MuxerException {
     MediaExtractorCompat extractor = new MediaExtractorCompat(context);
     Uri fileUri = Uri.parse(MP4_FILE_ASSET_DIRECTORY + inputFileName);
     extractor.setDataSource(fileUri, /* offset= */ 0);
 
     List<Integer> trackMapping = new ArrayList<>();
+    int audioTrackIndex = C.INDEX_UNSET;
     for (int i = 0; i < extractor.getTrackCount(); i++) {
       Format format = MediaFormatUtil.createFormatFromMediaFormat(extractor.getTrackFormat(i));
       if (removeInitializationData && MimeTypes.isVideo(format.sampleMimeType)) {
@@ -104,31 +115,33 @@ import java.util.Objects;
         trackMapping.add(-1); // We are not adding this track, mapping to -1.
         continue;
       }
-      int trackId = muxer.addTrack(format);
-      trackMapping.add(trackId);
+      if (MimeTypes.isAudio(format.sampleMimeType)) {
+        audioTrackIndex = i;
+      }
+      trackMapping.add(muxer.addTrack(format));
       extractor.selectTrack(i);
     }
 
     do {
       int sampleSize = (int) extractor.getSampleSize();
-      BufferInfo bufferInfo =
-          new BufferInfo(
-              extractor.getSampleTime(),
-              sampleSize,
-              getBufferFlagsFromMediaCodecFlags(extractor.getSampleFlags()));
+      int sampleTrackIndex = extractor.getSampleTrackIndex();
+      @C.BufferFlags
+      int sampleFlags =
+          (sampleTrackIndex == audioTrackIndex && removeAudioSampleFlags)
+              ? 0
+              : getBufferFlagsFromMediaCodecFlags(extractor.getSampleFlags());
+      BufferInfo bufferInfo = new BufferInfo(extractor.getSampleTime(), sampleSize, sampleFlags);
 
       ByteBuffer sampleBuffer = ByteBuffer.allocateDirect(sampleSize);
       extractor.readSampleData(sampleBuffer, /* offset= */ 0);
-
       sampleBuffer.rewind();
-      int trackIndex = extractor.getSampleTrackIndex();
       Format format =
-          MediaFormatUtil.createFormatFromMediaFormat(extractor.getTrackFormat(trackIndex));
+          MediaFormatUtil.createFormatFromMediaFormat(extractor.getTrackFormat(sampleTrackIndex));
       if (Objects.equals(format.sampleMimeType, MimeTypes.APPLICATION_ID3)) {
         // Skip sample data for ID3 tracks.
         continue;
       }
-      muxer.writeSampleData(trackMapping.get(trackIndex), sampleBuffer, bufferInfo);
+      muxer.writeSampleData(trackMapping.get(sampleTrackIndex), sampleBuffer, bufferInfo);
     } while (extractor.advance());
 
     extractor.release();

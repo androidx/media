@@ -129,7 +129,12 @@ public class Mp4MuxerEndToEndTest {
           new Mp4TimestampData(
               /* creationTimestampSeconds= */ 100_000_000L,
               /* modificationTimestampSeconds= */ 500_000_000L));
-      feedInputDataToMuxer(context, mp4Muxer, AV1_MP4, /* removeInitializationData= */ true);
+      feedInputDataToMuxer(
+          context,
+          mp4Muxer,
+          AV1_MP4,
+          /* removeInitializationData= */ true,
+          /* removeAudioSampleFlags= */ false);
     } finally {
       if (mp4Muxer != null) {
         mp4Muxer.close();

@@ -209,7 +209,12 @@ public class FragmentedMp4MuxerEndToEndTest {
           new Mp4TimestampData(
               /* creationTimestampSeconds= */ 100_000_000L,
               /* modificationTimestampSeconds= */ 500_000_000L));
-      feedInputDataToMuxer(context, mp4Muxer, AV1_MP4, /* removeInitializationData= */ true);
+      feedInputDataToMuxer(
+          context,
+          mp4Muxer,
+          AV1_MP4,
+          /* removeInitializationData= */ true,
+          /* removeAudioSampleFlags= */ false);
     } finally {
       if (mp4Muxer != null) {
         mp4Muxer.close();
@@ -224,5 +229,40 @@ public class FragmentedMp4MuxerEndToEndTest {
         context,
         fakeExtractorOutput,
         MuxerTestUtil.getExpectedDumpFilePath(AV1_MP4 + "_fragmented"));
+  }
+
+  @Test
+  public void createFragmentedMp4File_withoutAudioSampleFlags_writesAudioSamplesAsSyncSamples()
+      throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+    FragmentedMp4Muxer mp4Muxer =
+        new FragmentedMp4Muxer.Builder(new FileOutputStream(outputFilePath)).build();
+
+    try {
+      mp4Muxer.addMetadataEntry(
+          new Mp4TimestampData(
+              /* creationTimestampSeconds= */ 100_000_000L,
+              /* modificationTimestampSeconds= */ 500_000_000L));
+      feedInputDataToMuxer(
+          context,
+          mp4Muxer,
+          H264_MP4,
+          /* removeInitializationData= */ false,
+          /* removeAudioSampleFlags= */ true);
+    } finally {
+      if (mp4Muxer != null) {
+        mp4Muxer.close();
+      }
+    }
+
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(
+            new FragmentedMp4Extractor(new DefaultSubtitleParserFactory()),
+            checkNotNull(outputFilePath));
+    // The dump file should be same as before when audio sample flags were set.
+    DumpFileAsserts.assertOutput(
+        context,
+        fakeExtractorOutput,
+        MuxerTestUtil.getExpectedDumpFilePath(H264_MP4 + "_fragmented"));
   }
 }

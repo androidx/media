@@ -213,6 +213,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           Boxes.traf(
               Boxes.tfhd(currentTrackInfo.trackId, /* baseDataOffset= */ moofBoxStartPosition),
               Boxes.trun(
+                  currentTrackInfo.trackFormat,
                   currentTrackInfo.pendingSamplesMetadata,
                   dataOffset,
                   currentTrackInfo.hasBFrame)));
@@ -403,6 +404,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     return new ProcessedTrackInfo(
         trackId,
+        track.format,
         totalSamplesSize,
         hasBFrame,
         pendingSamplesByteBuffer.build(),
@@ -411,6 +413,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   private static class ProcessedTrackInfo {
     public final int trackId;
+    public final Format trackFormat;
     public final int totalSamplesSize;
     public final boolean hasBFrame;
     public final ImmutableList<ByteBuffer> pendingSamplesByteBuffer;
@@ -418,11 +421,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     public ProcessedTrackInfo(
         int trackId,
+        Format trackFormat,
         int totalSamplesSize,
         boolean hasBFrame,
         ImmutableList<ByteBuffer> pendingSamplesByteBuffer,
         ImmutableList<SampleMetadata> pendingSamplesMetadata) {
       this.trackId = trackId;
+      this.trackFormat = trackFormat;
       this.totalSamplesSize = totalSamplesSize;
       this.hasBFrame = hasBFrame;
       this.pendingSamplesByteBuffer = pendingSamplesByteBuffer;
