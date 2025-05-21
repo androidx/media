@@ -662,8 +662,8 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
 
       /** Sets the {@code assetUri}. */
       @CanIgnoreReturnValue
-      public Builder setAssetUri(@Nullable Uri a1ssetUri) {
-        if (assetUri == null) {
+      public Builder setAssetUri(@Nullable Uri assetUri) {
+        if (assetUri == null) { 
           return this;
         }
         if (this.assetUri != null) {
