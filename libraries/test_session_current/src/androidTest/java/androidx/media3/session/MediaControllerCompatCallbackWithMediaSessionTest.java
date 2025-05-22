@@ -38,6 +38,8 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.Typeface;
 import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Bundle;
@@ -49,7 +51,10 @@ import android.support.v4.media.RatingCompat;
 import android.support.v4.media.session.MediaControllerCompat;
 import android.support.v4.media.session.MediaSessionCompat.QueueItem;
 import android.support.v4.media.session.PlaybackStateCompat;
+import android.text.SpannableString;
+import android.text.Spanned;
 import android.text.TextUtils;
+import android.text.style.StyleSpan;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.DeviceInfo;
@@ -1855,6 +1860,62 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
         .isEqualTo(testDisplayTitle);
     assertThat(getterMetadataCompat.getString(MediaMetadataCompat.METADATA_KEY_DISPLAY_TITLE))
         .isEqualTo(testDisplayTitle);
+  }
+
+  @Test
+  public void onMediaMetadataChanged_withCustomExtras_updatesLegacyMetadataWithPlainTypeExtras()
+      throws Exception {
+    Bundle extras = new Bundle();
+    extras.putByte("byteKey", (byte) 12);
+    extras.putShort("shortKey", (short) 1234);
+    extras.putInt("intKey", 5432);
+    extras.putLong("longKey", 1234567890987654321L);
+    extras.putString("stringKey", "testtest");
+    SpannableString spannableString = new SpannableString("chars");
+    spannableString.setSpan(
+        new StyleSpan(Typeface.BOLD), /* start= */ 0, /* end= */ 1, /* flags= */ 0);
+    extras.putCharSequence("charSequenceKey", spannableString);
+    extras.putString("nullStringKey", null);
+    extras.putBundle("bundleKey", new Bundle());
+    extras.putParcelable(
+        "bitmapKey",
+        Bitmap.createBitmap(/* width= */ 100, /* height= */ 100, Bitmap.Config.ALPHA_8));
+    MediaMetadata testMediaMetadata = new MediaMetadata.Builder().setExtras(extras).build();
+    session
+        .getMockPlayer()
+        .notifyAvailableCommandsChanged(
+            new Player.Commands.Builder().addAll(Player.COMMAND_GET_METADATA).build());
+    CountDownLatch latchForMetadata = new CountDownLatch(1);
+    MediaControllerCompat.Callback callback =
+        new MediaControllerCompat.Callback() {
+          @Override
+          public void onMetadataChanged(MediaMetadataCompat metadata) {
+            latchForMetadata.countDown();
+          }
+        };
+    controllerCompat.registerCallback(callback, handler);
+
+    session.getMockPlayer().notifyMediaMetadataChanged(testMediaMetadata);
+
+    assertThat(latchForMetadata.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    MediaMetadataCompat metadataCompat = controllerCompat.getMetadata();
+    assertThat(metadataCompat.getLong("byteKey")).isEqualTo(12);
+    assertThat(metadataCompat.getLong("shortKey")).isEqualTo(1234);
+    assertThat(metadataCompat.getLong("intKey")).isEqualTo(5432);
+    assertThat(metadataCompat.getLong("longKey")).isEqualTo(1234567890987654321L);
+    assertThat(metadataCompat.getString("stringKey")).isEqualTo("testtest");
+    assertThat(metadataCompat.getString("charSequenceKey")).isEqualTo("chars");
+    assertThat(metadataCompat.getText("stringKey").toString()).isEqualTo("testtest");
+    assertThat(metadataCompat.getText("charSequenceKey").toString()).isEqualTo("chars");
+    assertThat(
+            ((Spanned) metadataCompat.getText("charSequenceKey"))
+                .getSpans(/* start= */ 0, /* end= */ 1, StyleSpan.class))
+        .isNotEmpty();
+    assertThat(metadataCompat.getText("nullStringKey")).isNull();
+    assertThat(metadataCompat.getBundle().containsKey("nullStringKey")).isTrue();
+    // Assert that complex types are not kept
+    assertThat(metadataCompat.getBundle().containsKey("complexTypeKey")).isFalse();
+    assertThat(metadataCompat.getBundle().containsKey("bitmapKey")).isFalse();
   }
 
   @Test

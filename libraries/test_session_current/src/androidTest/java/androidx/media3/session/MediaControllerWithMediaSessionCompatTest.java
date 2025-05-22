@@ -49,6 +49,7 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.graphics.Typeface;
 import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Bundle;
@@ -59,7 +60,10 @@ import android.support.v4.media.session.MediaSessionCompat;
 import android.support.v4.media.session.MediaSessionCompat.QueueItem;
 import android.support.v4.media.session.PlaybackStateCompat;
 import android.support.v4.media.session.PlaybackStateCompat.CustomAction;
+import android.text.SpannableString;
+import android.text.Spanned;
 import android.text.TextUtils;
+import android.text.style.StyleSpan;
 import androidx.annotation.Nullable;
 import androidx.media.VolumeProviderCompat;
 import androidx.media3.common.DeviceInfo;
@@ -893,6 +897,39 @@ public class MediaControllerWithMediaSessionCompatTest {
         threadTestRule.getHandler().postAndSync(controller::getMediaMetadata);
 
     assertThat(mediaMetadata.artist.toString()).isEqualTo("artist");
+  }
+
+  @Test
+  public void
+      getMediaMetadata_withMediaMetadataCompatCustomPlainTypeValues_returnsConvertedMediaMetadataWithExtras()
+          throws Exception {
+    SpannableString spannableString = new SpannableString("chars");
+    spannableString.setSpan(
+        new StyleSpan(Typeface.BOLD), /* start= */ 0, /* end= */ 1, /* flags= */ 0);
+    MediaMetadataCompat testMediaMetadataCompat =
+        new MediaMetadataCompat.Builder()
+            .putLong("longKey", 1234567890987654321L)
+            .putString("stringKey", "abcdef")
+            .putText("textKey", spannableString)
+            // Explicitly not test setBitmap and setRating as we don't want to transfer custom
+            // values of these types.
+            .build();
+    session.setMetadata(testMediaMetadataCompat);
+    MediaController controller = controllerTestRule.createController(session.getSessionToken());
+
+    MediaMetadata mediaMetadata =
+        threadTestRule.getHandler().postAndSync(controller::getMediaMetadata);
+
+    assertThat(mediaMetadata.extras).isNotNull();
+    assertThat(mediaMetadata.extras.getLong("longKey", /* defaultValue= */ 0))
+        .isEqualTo(1234567890987654321L);
+    assertThat(mediaMetadata.extras.getString("stringKey")).isEqualTo("abcdef");
+    assertThat(mediaMetadata.extras.getCharSequence("stringKey").toString()).isEqualTo("abcdef");
+    assertThat(mediaMetadata.extras.getCharSequence("textKey").toString()).isEqualTo("chars");
+    assertThat(
+            ((Spanned) mediaMetadata.extras.getCharSequence("textKey"))
+                .getSpans(/* start= */ 0, /* end= */ 1, StyleSpan.class))
+        .isNotEmpty();
   }
 
   @Test
