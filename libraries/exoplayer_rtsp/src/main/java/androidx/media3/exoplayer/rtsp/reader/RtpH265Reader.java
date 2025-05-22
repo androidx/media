@@ -167,7 +167,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   }
 
   /**
-   * Processes Single NAL Unit packet (RFC7798 Section 4.4.2).
+   * Processes Aggregation packet (RFC7798 Section 4.4.2).
    *
    * <p>Outputs 2 or more NAL Unit (with start code prepended) to {@link #trackOutput}. Sets {@link
    * #bufferFlags} and {@link #fragmentedSampleSizeBytes} accordingly.
