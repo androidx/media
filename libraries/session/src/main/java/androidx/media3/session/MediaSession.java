@@ -1745,6 +1745,17 @@ public class MediaSession {
     }
 
     /**
+     * @deprecated Override {@link MediaSession.Callback#onPlaybackResumption(MediaSession,
+     *     ControllerInfo, boolean)} instead.
+     */
+    @Deprecated
+    @UnstableApi
+    default ListenableFuture<MediaItemsWithStartPosition> onPlaybackResumption(
+        MediaSession mediaSession, ControllerInfo controller) {
+      return Futures.immediateFailedFuture(new UnsupportedOperationException());
+    }
+
+    /**
      * Returns the playlist with which the player should be prepared when a controller requests to
      * play without a current {@link MediaItem}.
      *
@@ -1765,16 +1776,24 @@ public class MediaSession {
      * Player#COMMAND_GET_CURRENT_MEDIA_ITEM} and either {@link Player#COMMAND_SET_MEDIA_ITEM} or
      * {@link Player#COMMAND_CHANGE_MEDIA_ITEMS} available.
      *
+     * <p>If {@code isForPlayback} is true, {@link ManuallyHandlePlaybackResumption} may be set on
+     * the future to manually handle playback resumption. Refer to the {@link
+     * ManuallyHandlePlaybackResumption} javadoc for more details.
+     *
      * @param mediaSession The media session for which playback resumption is requested.
      * @param controller The {@linkplain ControllerInfo controller} that requests the playback
      *     resumption. This may be a short living controller created only for issuing a play command
      *     for resuming playback.
+     * @param isForPlayback Whether playback is going to be started as a result of the future being
+     *     completed. If false, SystemUI is querying for media item data in order to build and
+     *     display the resumption notification at boot time.
      * @return The {@linkplain MediaItemsWithStartPosition playlist} to resume playback with.
      */
     @UnstableApi
+    @SuppressWarnings("deprecation") // calling deprecated API for backwards compatibility
     default ListenableFuture<MediaItemsWithStartPosition> onPlaybackResumption(
-        MediaSession mediaSession, ControllerInfo controller) {
-      return Futures.immediateFailedFuture(new UnsupportedOperationException());
+        MediaSession mediaSession, ControllerInfo controller, boolean isForPlayback) {
+      return onPlaybackResumption(mediaSession, controller);
     }
 
     /**
@@ -1889,6 +1908,25 @@ public class MediaSession {
       return result;
     }
   }
+
+  /**
+   * Exception that may be set to the future in {@link
+   * MediaSession.Callback#onPlaybackResumption(MediaSession, ControllerInfo, boolean)} if the
+   * parameter {@code isForPlayback} is true, in order to signal that the app wishes to handle this
+   * resumption itself. This means the app is responsible for restoring a playlist, setting it to
+   * the player, and starting playback.
+   *
+   * <p>Do note this has various pitfalls and needs to be used carefully:<br>
+   * - {@link MediaSession.Callback#onPlayerInteractionFinished(MediaSession, ControllerInfo,
+   * Player.Commands)} will NOT be called for the resumption command.<br>
+   * - If playback is not actually resumed in this method, the resumption notification will end up
+   * non-functional, but will keep being displayed. This is not a suitable way to disable playback
+   * resumption, do not attempt to disable it this way.<br>
+   * - If the app takes too long to go into foreground, the grant to go into foreground may have
+   * expired.
+   */
+  @UnstableApi
+  public static class ManuallyHandlePlaybackResumption extends Exception {}
 
   /**
    * A result for {@link Callback#onConnect(MediaSession, ControllerInfo)} to denote the set of
