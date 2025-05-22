@@ -78,6 +78,31 @@ public class FlacExtractorTest {
   }
 
   @Test
+  public void sampleWithNoSeekTable_usesBinarySeeker() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        FlacExtractor::new,
+        "media/flac/bear_no_seek_table.flac",
+        new AssertionConfig.Builder()
+            .setDumpFilesPrefix("extractordumps/flac/bear_binary_seeking_flac")
+            .build(),
+        simulationConfig);
+  }
+
+  // https://github.com/androidx/media/issues/2327
+  @Test
+  public void sampleWithEmptySeekTable_usesBinarySeeker() throws Exception {
+    // This test asserts that a file with an effectively empty seek table is handled
+    // the same way as a file with no seek table.
+    ExtractorAsserts.assertBehavior(
+        FlacExtractor::new,
+        "media/flac/bear_placeholder_seek_point_only.flac",
+        new AssertionConfig.Builder()
+            .setDumpFilesPrefix("extractordumps/flac/bear_binary_seeking_flac")
+            .build(),
+        simulationConfig);
+  }
+
+  @Test
   public void sampleUnseekable() throws Exception {
     ExtractorAsserts.assertBehavior(
         FlacExtractor::new,

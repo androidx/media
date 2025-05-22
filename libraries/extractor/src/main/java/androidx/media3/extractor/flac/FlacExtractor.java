@@ -329,7 +329,8 @@ public final class FlacExtractor implements Extractor {
 
   private SeekMap getSeekMap(long firstFramePosition, long streamLength) {
     Assertions.checkNotNull(flacStreamMetadata);
-    if (flacStreamMetadata.seekTable != null) {
+    if (flacStreamMetadata.seekTable != null
+        && flacStreamMetadata.seekTable.pointSampleNumbers.length > 0) {
       return new FlacSeekTableSeekMap(flacStreamMetadata, firstFramePosition);
     } else if (streamLength != C.LENGTH_UNSET && flacStreamMetadata.totalSamples > 0) {
       binarySearchSeeker =

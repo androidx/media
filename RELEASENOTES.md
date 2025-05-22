@@ -15,6 +15,10 @@
         This behavior can be enabled using the `FLAG_MERGE_FRAGMENTED_SIDX` flag
         on `FragmentedMp4Extractor`
         ([#9373](https://github.com/google/ExoPlayer/issues/9373)).
+    *   Ignore empty seek tables in FLAC files (including those containing only
+        placeholder seek points), and fall back to binary search seeking if the
+        duration of the file is known
+        ([#2327]()https://github.com/androidx/media/issues/2327).
 *   DataSource:
 *   Audio:
     *   Add support for all linear PCM sample formats in
