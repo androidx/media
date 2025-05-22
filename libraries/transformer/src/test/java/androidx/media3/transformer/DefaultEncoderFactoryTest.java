@@ -38,6 +38,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadows.MediaCodecInfoBuilder;
+import org.robolectric.shadows.ShadowBuild;
 import org.robolectric.shadows.ShadowMediaCodec;
 import org.robolectric.shadows.ShadowMediaCodecList;
 
@@ -505,6 +506,80 @@ public class DefaultEncoderFactoryTest {
                 .setVideoEncoderSelector((mimeType) -> ImmutableList.of())
                 .build()
                 .createForVideoEncoding(requestedVideoFormat, /* logSessionId= */ null));
+  }
+
+  @Test
+  @Config(sdk = 31)
+  public void createForVideoEncoding_withCodecDbLiteEnabled_configuresEncoderWithCodecDbLite()
+      throws Exception {
+    ShadowBuild.setSystemOnChipManufacturer("QTI");
+    ShadowBuild.setSystemOnChipModel("SM8550");
+
+    Format requestedVideoFormat = createVideoFormat(MimeTypes.VIDEO_H264, 1920, 1080, 30);
+
+    DefaultCodec videoEncoder =
+        new DefaultEncoderFactory.Builder(context)
+            .setEnableCodecDbLite(true)
+            .build()
+            .createForVideoEncoding(requestedVideoFormat, /* logSessionId= */ null);
+    assertThat(videoEncoder.getConfigurationMediaFormat().getInteger(MediaFormat.KEY_MAX_B_FRAMES))
+        .isEqualTo(1);
+    assertThat(
+            videoEncoder.getConfigurationMediaFormat().getString(MediaFormat.KEY_TEMPORAL_LAYERING))
+        .isEqualTo("android.generic.1+2");
+  }
+
+  // TODO: b/419347899 - Update CodecDB Lite tests once hardware identification on pre-API 31
+  // devices is supported for greater coverage across media3-supported devices.
+  @Test
+  @Config(sdk = 31)
+  public void createForVideoEncoding_withCodecDbLiteEnabled_doesNotOverwriteUserRequestedSettings()
+      throws Exception {
+    ShadowBuild.setSystemOnChipManufacturer("QTI");
+    ShadowBuild.setSystemOnChipModel("SM8550");
+
+    Format requestedVideoFormat = createVideoFormat(MimeTypes.VIDEO_H264, 1920, 1080, 30);
+
+    DefaultCodec videoEncoder =
+        new DefaultEncoderFactory.Builder(context)
+            .setRequestedVideoEncoderSettings(
+                new VideoEncoderSettings.Builder()
+                    .setMaxBFrames(0)
+                    .setTemporalLayers(
+                        /* numNonBidirectionalLayers= */ 0, /* numBidirectionalLayers= */ 0)
+                    .build())
+            .setEnableCodecDbLite(true)
+            .build()
+            .createForVideoEncoding(requestedVideoFormat, /* logSessionId= */ null);
+    assertThat(videoEncoder.getConfigurationMediaFormat().getInteger(MediaFormat.KEY_MAX_B_FRAMES))
+        .isEqualTo(0);
+    assertThat(
+            videoEncoder.getConfigurationMediaFormat().getString(MediaFormat.KEY_TEMPORAL_LAYERING))
+        .isEqualTo("none");
+  }
+
+  @Test
+  @Config(sdk = 31)
+  public void createForVideoEncoding_withCodecDbLiteDisabled_doesNotUseCodecDbLite()
+      throws Exception {
+    ShadowBuild.setSystemOnChipManufacturer("QTI");
+    ShadowBuild.setSystemOnChipModel("SM8550");
+
+    Format requestedVideoFormat = createVideoFormat(MimeTypes.VIDEO_H264, 1920, 1080, 30);
+
+    DefaultCodec videoEncoder =
+        new DefaultEncoderFactory.Builder(context)
+            .setEnableCodecDbLite(false)
+            .build()
+            .createForVideoEncoding(requestedVideoFormat, /* logSessionId= */ null);
+
+    assertThat(videoEncoder.getConfigurationMediaFormat().containsKey(MediaFormat.KEY_MAX_B_FRAMES))
+        .isFalse();
+    assertThat(
+            videoEncoder
+                .getConfigurationMediaFormat()
+                .containsKey(MediaFormat.KEY_TEMPORAL_LAYERING))
+        .isFalse();
   }
 
   @Test

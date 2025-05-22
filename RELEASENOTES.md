@@ -9,6 +9,9 @@
 *   Transformer:
     *   Add `CodecDbLite` that enables chipset specific optimizations of video
         encoding settings.
+    *   Add `setEnableCodecDbLite` flag to the `DefaultEncoderFactory` to enable
+        CodecDB Lite settings optimization. By default, this flag is set to
+        false.
 *   Track Selection:
 *   Extractors:
     *   Add support for seeking in fragmented MP4 with multiple `sidx` atoms.

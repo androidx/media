@@ -67,6 +67,7 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
     private VideoEncoderSettings requestedVideoEncoderSettings;
     private AudioEncoderSettings requestedAudioEncoderSettings;
     private boolean enableFallback;
+    private boolean enableCodecDbLite;
     private @C.Priority int codecPriority;
 
     /** Creates a new {@link Builder}. */
@@ -76,6 +77,7 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
       requestedVideoEncoderSettings = VideoEncoderSettings.DEFAULT;
       requestedAudioEncoderSettings = AudioEncoderSettings.DEFAULT;
       enableFallback = true;
+      enableCodecDbLite = false;
       codecPriority = C.PRIORITY_PROCESSING_FOREGROUND;
     }
 
@@ -146,6 +148,17 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
     }
 
     /**
+     * Sets whether to use {@linkplain CodecDbLite} to recommend video encoder settings.
+     *
+     * <p>The default value is {@code false}.
+     */
+    @CanIgnoreReturnValue
+    public Builder setEnableCodecDbLite(boolean enableCodecDbLite) {
+      this.enableCodecDbLite = enableCodecDbLite;
+      return this;
+    }
+
+    /**
      * Sets the codec priority.
      *
      * <p>Specifying codec priority allows the resource manager in the platform to reclaim less
@@ -179,6 +192,7 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
   private final VideoEncoderSettings requestedVideoEncoderSettings;
   private final AudioEncoderSettings requestedAudioEncoderSettings;
   private final boolean enableFallback;
+  private final boolean enableCodecDbLite;
   private final @C.Priority int codecPriority;
 
   private DefaultEncoderFactory(Builder builder) {
@@ -187,6 +201,7 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
     this.requestedVideoEncoderSettings = builder.requestedVideoEncoderSettings;
     this.requestedAudioEncoderSettings = builder.requestedAudioEncoderSettings;
     this.enableFallback = builder.enableFallback;
+    this.enableCodecDbLite = builder.enableCodecDbLite;
     this.codecPriority = builder.codecPriority;
   }
 
@@ -289,6 +304,30 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
         encoderAndClosestFormatSupport.supportedEncoderSettings;
 
     String mimeType = checkNotNull(encoderSupportedFormat.sampleMimeType);
+
+    if (enableCodecDbLite) {
+      VideoEncoderSettings recommendedVideoEncoderSettings =
+          CodecDbLite.getRecommendedVideoEncoderSettings(format);
+
+      VideoEncoderSettings.Builder supportedVideoEncoderSettingsBuilder =
+          supportedVideoEncoderSettings.buildUpon();
+
+      if (supportedVideoEncoderSettings.maxBFrames == VideoEncoderSettings.NO_VALUE) {
+        supportedVideoEncoderSettingsBuilder.setMaxBFrames(
+            recommendedVideoEncoderSettings.maxBFrames);
+      }
+
+      if (supportedVideoEncoderSettings.numNonBidirectionalTemporalLayers
+              == VideoEncoderSettings.NO_VALUE
+          && supportedVideoEncoderSettings.numBidirectionalTemporalLayers
+              == VideoEncoderSettings.NO_VALUE) {
+        supportedVideoEncoderSettingsBuilder.setTemporalLayers(
+            recommendedVideoEncoderSettings.numNonBidirectionalTemporalLayers,
+            recommendedVideoEncoderSettings.numBidirectionalTemporalLayers);
+      }
+
+      supportedVideoEncoderSettings = supportedVideoEncoderSettingsBuilder.build();
+    }
 
     int finalBitrate;
     if (enableFallback) {
@@ -405,7 +444,7 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
         supportedVideoEncoderSettings.numNonBidirectionalTemporalLayers;
     int numBidirectionalTemporalLayers =
         supportedVideoEncoderSettings.numBidirectionalTemporalLayers;
-    if (SDK_INT >= 25 && numNonBidirectionalTemporalLayers >= 0) {
+    if (SDK_INT >= 29 && numNonBidirectionalTemporalLayers >= 0) {
       String temporalSchema;
       if (numNonBidirectionalTemporalLayers == 0) {
         temporalSchema = "none";
