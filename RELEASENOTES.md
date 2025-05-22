@@ -71,7 +71,7 @@
 
 ### 1.8.0-alpha01 (2025-05-19)
 
-This release includes the following changes since [1.6.1](#161-2025-04-14):
+This release includes the following changes since [1.7.1](#171-2025-05-16):
 
 *   ExoPlayer:
     *   Add `ExoPlayer.setScrubbingModeEnabled(boolean)` method. This optimizes
