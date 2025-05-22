@@ -102,8 +102,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     if (payloadType >= 0 && payloadType < RTP_PACKET_TYPE_AP) {
       processSingleNalUnitPacket(data);
     } else if (payloadType == RTP_PACKET_TYPE_AP) {
-      // TODO: Support AggregationPacket mode.
-      throw new UnsupportedOperationException("need to implement processAggregationPacket");
+      processAggregationPacket(data);
     } else if (payloadType == RTP_PACKET_TYPE_FU) {
       processFragmentationUnitPacket(data, sequenceNumber);
     } else {
@@ -165,6 +164,58 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
     int nalHeaderType = (data.getData()[0] >> 1) & 0x3F;
     bufferFlags = getBufferFlagsFromNalType(nalHeaderType);
+  }
+
+  /**
+   * Processes Aggregation packet (RFC7798 Section 4.4.2).
+   *
+   * <p>Outputs 2 or more NAL Unit (with start code prepended) to {@link #trackOutput}. Sets {@link
+   * #bufferFlags} and {@link #fragmentedSampleSizeBytes} accordingly.
+   */
+  @RequiresNonNull("trackOutput")
+  private void processAggregationPacket(ParsableByteArray data) throws ParserException {
+    //  The structure of an Aggregation Packet.
+    //    0                   1                   2                   3
+    //    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+    //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    //   |    PayloadHdr (Type=48)       |                               |
+    //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+                               |
+    //   |                                                               |
+    //   |             two or more aggregation units                     |
+    //   |                                                               |
+    //   |                               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    //   |                               :...OPTIONAL RTP padding        |
+    //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+    // The structure of aggregation unit
+    //   0                   1                   2                   3
+    //   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+    //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    //                   :       DONL (conditional)      |   NALU size   |
+    //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    //   |   NALU size   |                                               |
+    //   +-+-+-+-+-+-+-+-+         NAL unit                              |
+    //   |                                                               |
+    //   |                               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    //   |                               :
+    //   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+    // Since sprop-max-don-diff != 0 is not supported, DONL won't present in the packet.
+
+    data.setPosition(2); // skipping payload header (2 bytes)
+    do {
+      short nalUnitSize = data.readShort(); // 2 bytes of NAL unit size
+      int nalHeaderType = (data.getData()[data.getPosition()] >> 1) & 0x3F;
+      if (data.bytesLeft() < nalUnitSize) {
+        throw ParserException.createForMalformedManifest(
+            "Malformed Aggregation Packet. NAL unit size exceeds packet size.", /* cause= */ null);
+      }
+
+      fragmentedSampleSizeBytes += writeStartCode();
+      trackOutput.sampleData(data, nalUnitSize);
+      fragmentedSampleSizeBytes += nalUnitSize;
+      bufferFlags = getBufferFlagsFromNalType(nalHeaderType);
+    } while (data.bytesLeft() > 0);
   }
 
   /**
