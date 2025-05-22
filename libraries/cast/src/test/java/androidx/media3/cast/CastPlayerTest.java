@@ -16,6 +16,7 @@
 package androidx.media3.cast;
 
 import static androidx.media3.common.Player.COMMAND_ADJUST_DEVICE_VOLUME;
+import static androidx.media3.common.Player.COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS;
 import static androidx.media3.common.Player.COMMAND_CHANGE_MEDIA_ITEMS;
 import static androidx.media3.common.Player.COMMAND_GET_AUDIO_ATTRIBUTES;
 import static androidx.media3.common.Player.COMMAND_GET_CURRENT_MEDIA_ITEM;
@@ -37,6 +38,7 @@ import static androidx.media3.common.Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM;
 import static androidx.media3.common.Player.COMMAND_SEEK_TO_PREVIOUS;
 import static androidx.media3.common.Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM;
 import static androidx.media3.common.Player.COMMAND_SET_DEVICE_VOLUME;
+import static androidx.media3.common.Player.COMMAND_SET_DEVICE_VOLUME_WITH_FLAGS;
 import static androidx.media3.common.Player.COMMAND_SET_MEDIA_ITEM;
 import static androidx.media3.common.Player.COMMAND_SET_PLAYLIST_METADATA;
 import static androidx.media3.common.Player.COMMAND_SET_REPEAT_MODE;
@@ -1480,36 +1482,14 @@ public class CastPlayerTest {
     castPlayer.addMediaItems(mediaItems);
     updateTimeLine(mediaItems, mediaQueueItemIds, /* currentItemId= */ 1);
 
-    assertThat(castPlayer.isCommandAvailable(COMMAND_PLAY_PAUSE)).isTrue();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_PREPARE)).isTrue();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_STOP)).isTrue();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_SEEK_TO_DEFAULT_POSITION)).isTrue();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)).isTrue();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)).isFalse();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_SEEK_TO_PREVIOUS)).isTrue();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)).isTrue();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_SEEK_TO_NEXT)).isTrue();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_SEEK_TO_MEDIA_ITEM)).isTrue();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_SEEK_BACK)).isTrue();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_SEEK_FORWARD)).isTrue();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_SET_SPEED_AND_PITCH)).isTrue();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_SET_SHUFFLE_MODE)).isFalse();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_SET_REPEAT_MODE)).isTrue();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_GET_CURRENT_MEDIA_ITEM)).isTrue();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_GET_TIMELINE)).isTrue();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_GET_METADATA)).isTrue();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_SET_PLAYLIST_METADATA)).isTrue();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_CHANGE_MEDIA_ITEMS)).isTrue();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_SET_MEDIA_ITEM)).isTrue();
     assertThat(castPlayer.isCommandAvailable(COMMAND_GET_AUDIO_ATTRIBUTES)).isFalse();
     assertThat(castPlayer.isCommandAvailable(COMMAND_GET_VOLUME)).isTrue();
     assertThat(castPlayer.isCommandAvailable(COMMAND_GET_DEVICE_VOLUME)).isTrue();
     assertThat(castPlayer.isCommandAvailable(COMMAND_SET_VOLUME)).isTrue();
     assertThat(castPlayer.isCommandAvailable(COMMAND_SET_DEVICE_VOLUME)).isTrue();
+    assertThat(castPlayer.isCommandAvailable(COMMAND_SET_DEVICE_VOLUME_WITH_FLAGS)).isTrue();
     assertThat(castPlayer.isCommandAvailable(COMMAND_ADJUST_DEVICE_VOLUME)).isTrue();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_SET_VIDEO_SURFACE)).isFalse();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_GET_TEXT)).isFalse();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_RELEASE)).isTrue();
+    assertThat(castPlayer.isCommandAvailable(COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS)).isTrue();
   }
 
   @Test

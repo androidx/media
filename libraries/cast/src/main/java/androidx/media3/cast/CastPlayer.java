@@ -113,7 +113,8 @@ public final class CastPlayer extends BasePlayer {
   public static final DeviceInfo DEVICE_INFO_REMOTE_EMPTY =
       new DeviceInfo.Builder(DeviceInfo.PLAYBACK_TYPE_REMOTE).setMaxVolume(MAX_VOLUME).build();
 
-  private static final Range<Integer> VOLUME_RANGE = new Range<>(0, MAX_VOLUME);
+  private static final Range<Integer> RANGE_DEVICE_VOLUME = new Range<>(0, MAX_VOLUME);
+  private static final Range<Float> RANGE_VOLUME = new Range<>(0.f, 1.f);
 
   static {
     MediaLibraryInfo.registerModule("media3.cast");
@@ -791,6 +792,7 @@ public final class CastPlayer extends BasePlayer {
     // We update the local state and send the message to the receiver app, which will cause the
     // operation to be perceived as synchronous by the user. When the operation reports a result,
     // the local state will be updated to reflect the state reported by the Cast SDK.
+    volume = RANGE_VOLUME.clamp(volume);
     setVolumeAndNotifyIfChanged(volume);
     listeners.flushEvents();
     PendingResult<MediaChannelResult> pendingResult = remoteMediaClient.setStreamVolume(volume);
@@ -901,7 +903,7 @@ public final class CastPlayer extends BasePlayer {
     if (castSession == null) {
       return;
     }
-    volume = VOLUME_RANGE.clamp(volume);
+    volume = RANGE_DEVICE_VOLUME.clamp(volume);
     try {
       // See [Internal ref: b/399691860] for context on why we don't use
       // RemoteMediaClient.setStreamVolume.
@@ -1103,7 +1105,8 @@ public final class CastPlayer extends BasePlayer {
   @RequiresNonNull("castSession")
   private void updateDeviceVolumeAndNotifyIfChanged() {
     if (castSession != null) {
-      int deviceVolume = VOLUME_RANGE.clamp((int) Math.round(castSession.getVolume() * MAX_VOLUME));
+      int deviceVolume =
+          RANGE_DEVICE_VOLUME.clamp((int) Math.round(castSession.getVolume() * MAX_VOLUME));
       setDeviceVolumeAndNotifyIfChanged(deviceVolume, castSession.isMute());
     }
   }
@@ -1111,7 +1114,8 @@ public final class CastPlayer extends BasePlayer {
   @RequiresNonNull("remoteMediaClient")
   private void updateVolumeAndNotifyIfChanged(@Nullable ResultCallback<?> resultCallback) {
     if (volume.acceptsUpdate(resultCallback)) {
-      setVolumeAndNotifyIfChanged(fetchVolume(remoteMediaClient));
+      float remoteVolume = RANGE_VOLUME.clamp(fetchVolume(remoteMediaClient));
+      setVolumeAndNotifyIfChanged(remoteVolume);
       volume.clearPendingResultCallback();
     }
   }
