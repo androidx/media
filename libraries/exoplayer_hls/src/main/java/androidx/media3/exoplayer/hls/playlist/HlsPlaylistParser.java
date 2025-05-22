@@ -50,7 +50,6 @@ import androidx.media3.exoplayer.hls.playlist.HlsMultivariantPlaylist.Rendition;
 import androidx.media3.exoplayer.hls.playlist.HlsMultivariantPlaylist.Variant;
 import androidx.media3.exoplayer.upstream.ParsingLoadable;
 import androidx.media3.extractor.mp4.PsshAtomUtil;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -62,6 +61,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -758,7 +758,7 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
     @Nullable Part preloadPart = null;
     List<RenditionReport> renditionReports = new ArrayList<>();
     List<String> tags = new ArrayList<>();
-    List<Interstitial> interstitials = new ArrayList<>();
+    LinkedHashMap<String, Interstitial.Builder> interstitialBuilderMap = new LinkedHashMap<>();
 
     long segmentDurationUs = 0;
     String segmentTitle = "";
@@ -1079,8 +1079,13 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
         if (assetListUriString != null) {
           assetListUri = Uri.parse(assetListUriString);
         }
-        long startDateUnixUs =
-            msToUs(parseXsDateTime(parseStringAttr(line, REGEX_START_DATE, variableDefinitions)));
+        long startDateUnixUs = C.TIME_UNSET;
+        @Nullable
+        String startDateUnixMsString =
+            parseOptionalStringAttr(line, REGEX_START_DATE, variableDefinitions);
+        if (startDateUnixMsString != null) {
+          startDateUnixUs = msToUs(parseXsDateTime(startDateUnixMsString));
+        }
         long endDateUnixUs = C.TIME_UNSET;
         @Nullable
         String endDateUnixMsString =
@@ -1161,8 +1166,7 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
           }
         }
 
-        ImmutableList.Builder<HlsMediaPlaylist.ClientDefinedAttribute> clientDefinedAttributes =
-            new ImmutableList.Builder<>();
+        List<HlsMediaPlaylist.ClientDefinedAttribute> clientDefinedAttributes = new ArrayList<>();
         String attributes = line.substring("#EXT-X-DATERANGE:".length());
         Matcher matcher = REGEX_CLIENT_DEFINED_ATTRIBUTE_PREFIX.matcher(attributes);
         while (matcher.find()) {
@@ -1185,25 +1189,25 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
               break;
           }
         }
-        if ((assetListUri == null && assetUri != null)
-            || (assetListUri != null && assetUri == null)) {
-          interstitials.add(
-              new Interstitial(
-                  id,
-                  assetUri,
-                  assetListUri,
-                  startDateUnixUs,
-                  endDateUnixUs,
-                  durationUs,
-                  plannedDurationUs,
-                  cue,
-                  endOnNext,
-                  resumeOffsetUs,
-                  playoutLimitUs,
-                  snapTypes,
-                  restrictions,
-                  clientDefinedAttributes.build()));
-        }
+
+        Interstitial.Builder interstitialBuilder =
+            (interstitialBuilderMap.containsKey(id)
+                    ? interstitialBuilderMap.get(id)
+                    : new Interstitial.Builder(id))
+                .setAssetUri(assetUri)
+                .setAssetListUri(assetListUri)
+                .setStartDateUnixUs(startDateUnixUs)
+                .setEndDateUnixUs(endDateUnixUs)
+                .setDurationUs(durationUs)
+                .setPlannedDurationUs(plannedDurationUs)
+                .setCue(cue)
+                .setEndOnNext(endOnNext)
+                .setResumeOffsetUs(resumeOffsetUs)
+                .setPlayoutLimitUs(playoutLimitUs)
+                .setSnapTypes(snapTypes)
+                .setRestrictions(restrictions)
+                .setClientDefinedAttributes(clientDefinedAttributes);
+        interstitialBuilderMap.put(id, interstitialBuilder);
       } else if (!line.startsWith("#")) {
         @Nullable
         String segmentEncryptionIV =
@@ -1287,6 +1291,14 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
 
     if (preloadPart != null) {
       trailingParts.add(preloadPart);
+    }
+
+    List<Interstitial> interstitials = new ArrayList<>();
+    for (Interstitial.Builder interstitialBuilder : interstitialBuilderMap.values()) {
+      Interstitial interstitial = interstitialBuilder.build();
+      if (interstitial != null) {
+        interstitials.add(interstitial);
+      }
     }
 
     return new HlsMediaPlaylist(

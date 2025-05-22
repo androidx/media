@@ -55,6 +55,8 @@
     *   Fix playlist parsing to accept `\f` (form feed) in quoted string
         attribute values
         ([#2420](https://github.com/androidx/media/issues/2420)).
+    *   Support updating interstitials with the same ID
+        ([#2427](https://github.com/androidx/media/pull/2427)).
 *   DASH extension:
 *   Smooth Streaming extension:
 *   RTSP extension:
