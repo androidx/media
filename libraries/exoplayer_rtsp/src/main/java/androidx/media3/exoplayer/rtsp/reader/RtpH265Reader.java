@@ -173,8 +173,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
    * #bufferFlags} and {@link #fragmentedSampleSizeBytes} accordingly.
    */
   @RequiresNonNull("trackOutput")
-  private void processAggregationPacket(ParsableByteArray data)
-      throws ParserException {
+  private void processAggregationPacket(ParsableByteArray data) throws ParserException {
     //  The structure of an Aggregation Packet.
     //    0                   1                   2                   3
     //    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -209,9 +208,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       int nalHeaderType = (data.getData()[data.getPosition()] >> 1) & 0x3F;
       if (data.bytesLeft() < nalUnitSize) {
         throw ParserException.createForMalformedManifest(
-            "Malformed Aggregation Packet. NAL unit size exceeds packet size.",
-            /* cause= */ null
-        );
+            "Malformed Aggregation Packet. NAL unit size exceeds packet size.", /* cause= */ null);
       }
 
       fragmentedSampleSizeBytes += writeStartCode();
