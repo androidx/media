@@ -571,9 +571,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               sessionInfoListener.onSessionTimelineRequestFailed(
                   "Redirection without new location.", /* cause= */ null);
             } else {
-              Uri redirectionUri = Uri.parse(redirectionUriString);
-              RtspClient.this.uri = RtspMessageUtil.removeUserInfo(redirectionUri);
-              RtspClient.this.rtspAuthUserInfo = RtspMessageUtil.parseUserInfo(redirectionUri);
+              RtspClient.this.uri = Uri.parse(redirectionUriString);
+              RtspAuthUserInfo redirectRtspAuthUserInfo =
+                  RtspMessageUtil.parseUserInfo(RtspClient.this.uri);
+              if (redirectRtspAuthUserInfo != null) {
+                RtspClient.this.rtspAuthUserInfo = redirectRtspAuthUserInfo;
+              }
               messageSender.sendDescribeRequest(RtspClient.this.uri, RtspClient.this.sessionId);
             }
             return;

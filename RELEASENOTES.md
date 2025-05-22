@@ -54,6 +54,9 @@
 *   DASH extension:
 *   Smooth Streaming extension:
 *   RTSP extension:
+    *   Fix `RtspClient` to use the location uri as provided when processing an
+        HTTP 302 response
+        ([#2398](https://github.com/androidx/media/issues/2398)).
 *   Decoder extensions (FFmpeg, VP9, AV1, etc.):
 *   MIDI extension:
 *   Leanback extension:
