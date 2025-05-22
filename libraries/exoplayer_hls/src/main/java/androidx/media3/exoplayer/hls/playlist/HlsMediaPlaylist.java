@@ -43,6 +43,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** Represents an HLS media playlist. */
 @UnstableApi
@@ -628,8 +629,8 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
       private final String id;
       private final Map<String, ClientDefinedAttribute> clientDefinedAttributes;
 
-      @Nullable private Uri assetUri;
-      @Nullable private Uri assetListUri;
+      private @MonotonicNonNull Uri assetUri;
+      private @MonotonicNonNull Uri assetListUri;
       private long startDateUnixUs;
       private long endDateUnixUs;
       private long durationUs;
@@ -648,6 +649,7 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
        */
       public Builder(String id) {
         this.id = id;
+        clientDefinedAttributes = new HashMap<>();
         startDateUnixUs = C.TIME_UNSET;
         endDateUnixUs = C.TIME_UNSET;
         durationUs = C.TIME_UNSET;
@@ -657,10 +659,14 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
         playoutLimitUs = C.TIME_UNSET;
         snapTypes = new ArrayList<>();
         restrictions = new ArrayList<>();
-        clientDefinedAttributes = new HashMap<>();
       }
 
-      /** Sets the {@code assetUri}. */
+      /**
+       * Sets the asset URI.
+       *
+       * @throws IllegalArgumentException if called with a non-null value that is different to the
+       *     value previously set.
+       */
       @CanIgnoreReturnValue
       public Builder setAssetUri(@Nullable Uri assetUri) {
         if (assetUri == null) {
@@ -675,7 +681,12 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
         return this;
       }
 
-      /** Sets the {@code assetListUri}. */
+      /**
+       * Sets the asset list URI.
+       *
+       * @throws IllegalArgumentException if called with a non-null value that is different to the
+       *     value previously set.
+       */
       @CanIgnoreReturnValue
       public Builder setAssetListUri(@Nullable Uri assetListUri) {
         if (assetListUri == null) {
@@ -690,7 +701,12 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
         return this;
       }
 
-      /** Sets the {@code startDateUnixUs}. */
+      /**
+       * Sets the start date as a unix epoch timestamp, in microseconds.
+       *
+       * @throws IllegalArgumentException if called with a value different to {@link C#TIME_UNSET}
+       *     and different to the value previously set.
+       */
       @CanIgnoreReturnValue
       public Builder setStartDateUnixUs(long startDateUnixUs) {
         if (startDateUnixUs == C.TIME_UNSET) {
@@ -708,7 +724,12 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
         return this;
       }
 
-      /** Sets the {@code endDateUnixUs}. */
+      /**
+       * Sets the end date as a unix epoch timestamp, in microseconds.
+       *
+       * @throws IllegalArgumentException if called with a value different to {@link C#TIME_UNSET}
+       *     and different to the value previously set.
+       */
       @CanIgnoreReturnValue
       public Builder setEndDateUnixUs(long endDateUnixUs) {
         if (endDateUnixUs == C.TIME_UNSET) {
@@ -723,7 +744,12 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
         return this;
       }
 
-      /** Sets the {@code durationUs}. */
+      /**
+       * Sets the duration, in microseconds.
+       *
+       * @throws IllegalArgumentException if called with a value different to {@link C#TIME_UNSET}
+       *     and different to the value previously set.
+       */
       @CanIgnoreReturnValue
       public Builder setDurationUs(long durationUs) {
         if (durationUs == C.TIME_UNSET) {
@@ -738,7 +764,12 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
         return this;
       }
 
-      /** Sets the {@code plannedDurationUs}. */
+      /**
+       * Sets the planned duration, in microseconds.
+       *
+       * @throws IllegalArgumentException if called with a value different to {@link C#TIME_UNSET}
+       *     and different to the value previously set.
+       */
       @CanIgnoreReturnValue
       public Builder setPlannedDurationUs(long plannedDurationUs) {
         if (plannedDurationUs == C.TIME_UNSET) {
@@ -756,7 +787,12 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
         return this;
       }
 
-      /** Sets the trigger {@code cue} types. */
+      /**
+       * Sets the {@linkplain Interstitial.CueTriggerType cue trigger types}.
+       *
+       * @throws IllegalArgumentException if called with a value different to {@link C#TIME_UNSET}
+       *     and different to the value previously set.
+       */
       @CanIgnoreReturnValue
       public Builder setCue(List<@Interstitial.CueTriggerType String> cue) {
         if (cue.isEmpty()) {
@@ -774,7 +810,11 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
         return this;
       }
 
-      /** Sets whether the interstitial {@code endOnNext}. */
+      /**
+       * Sets whether the interstitial ends on the start time of the next interstitial.
+       *
+       * <p>Once set to true, it can't be reset to false and doing so would be ignored.
+       */
       @CanIgnoreReturnValue
       public Builder setEndOnNext(boolean endOnNext) {
         if (!endOnNext) {
@@ -784,7 +824,12 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
         return this;
       }
 
-      /** Sets the {@code resumeOffsetUs}. */
+      /**
+       * Sets the resume offset, in microseconds.
+       *
+       * @throws IllegalArgumentException if called with a value different to {@link C#TIME_UNSET}
+       *     and different to the value previously set.
+       */
       @CanIgnoreReturnValue
       public Builder setResumeOffsetUs(long resumeOffsetUs) {
         if (resumeOffsetUs == C.TIME_UNSET) {
@@ -799,7 +844,12 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
         return this;
       }
 
-      /** Sets the {@code playoutLimitUs}. */
+      /**
+       * Sets the play out limit, in microseconds.
+       *
+       * @throws IllegalArgumentException if called with a value different to {@link C#TIME_UNSET}
+       *     and different to the value previously set.
+       */
       @CanIgnoreReturnValue
       public Builder setPlayoutLimitUs(long playoutLimitUs) {
         if (playoutLimitUs == C.TIME_UNSET) {
@@ -814,7 +864,12 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
         return this;
       }
 
-      /** Sets the {@code snapTypes}. */
+      /**
+       * Sets the {@linkplain Interstitial.SnapType snap types}.
+       *
+       * @throws IllegalArgumentException if called with a non-empty list of snap types that is not
+       *     equal to the non-empty list that was previously set.
+       */
       @CanIgnoreReturnValue
       public Builder setSnapTypes(List<@Interstitial.SnapType String> snapTypes) {
         if (snapTypes.isEmpty()) {
@@ -832,7 +887,12 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
         return this;
       }
 
-      /** Sets the {@code NavigationRestriction}. */
+      /**
+       * Sets the {@link NavigationRestriction navigation restrictions}.
+       *
+       * @throws IllegalArgumentException if called with a non-empty list of restrictions that is
+       *     not equal to the non-empty list that was previously set.
+       */
       @CanIgnoreReturnValue
       public Builder setRestrictions(
           List<@Interstitial.NavigationRestriction String> restrictions) {
@@ -851,7 +911,15 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
         return this;
       }
 
-      /** Sets the {@code clientDefinedAttributes}. */
+      /**
+       * Sets the {@linkplain ClientDefinedAttribute client defined attributes}.
+       *
+       * <p>Equal duplicates are ignored, new attributes are added to those already set.
+       *
+       * @throws IllegalArgumentException if called with a list containing a client defined
+       *     attribute that is not equal with an attribute previously set with the same {@linkplain
+       *     ClientDefinedAttribute#name name}.
+       */
       @CanIgnoreReturnValue
       public Builder setClientDefinedAttributes(
           List<HlsMediaPlaylist.ClientDefinedAttribute> clientDefinedAttributes) {
@@ -881,10 +949,16 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
         return this;
       }
 
+      /**
+       * Builds and returns a new {@link Interstitial} instance or null if validation of the
+       * properties fails. The properties are considered invalid, if the start date is missing or
+       * both asset URI and asset list URI are set at the same time.
+       */
       @Nullable
       public Interstitial build() {
         if (((assetListUri == null && assetUri != null)
-            || (assetListUri != null && assetUri == null)) && startDateUnixUs != C.TIME_UNSET) {
+                || (assetListUri != null && assetUri == null))
+            && startDateUnixUs != C.TIME_UNSET) {
           return new Interstitial(
               id,
               assetUri,
