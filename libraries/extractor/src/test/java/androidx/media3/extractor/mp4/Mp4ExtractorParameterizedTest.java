@@ -228,6 +228,12 @@ public final class Mp4ExtractorParameterizedTest {
     assertExtractorBehavior("media/mp4/sample_iamf.mp4");
   }
 
+  // https://github.com/androidx/media/issues/2456
+  @Test
+  public void mp4SampleWithUnrecognizedHevcSeiType() throws Exception {
+    assertExtractorBehavior("media/mp4/sample_unrecognized_hevc_sei.mp4");
+  }
+
   @Test
   public void mp4SampleWithMvHevc8bit() throws Exception {
     assertExtractorBehavior("media/mp4/water_180_mvhevc_5frames.mov");
