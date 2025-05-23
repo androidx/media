@@ -22,6 +22,8 @@
         placeholder seek points), and fall back to binary search seeking if the
         duration of the file is known
         ([#2327]()https://github.com/androidx/media/issues/2327).
+    *   Fix parsing of H.265 SEI units to fully skip unrecognized SEI types
+        ([#2456]()https://github.com/androidx/media/issues/2456).
 *   DataSource:
 *   Audio:
     *   Add support for all linear PCM sample formats in
