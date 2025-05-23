@@ -3470,9 +3470,9 @@ public final class Util {
     byte component1 = buffer.get(buffer.order() == ByteOrder.BIG_ENDIAN ? index : index + 2);
     byte component2 = buffer.get(index + 1);
     byte component3 = buffer.get(buffer.order() == ByteOrder.BIG_ENDIAN ? index + 2 : index);
-    return ((component1 << 24) & 0xff000000
-            | (component2 << 16) & 0xff0000
-            | (component3 << 8) & 0xff00)
+    return (((component1 << 24) & 0xff000000)
+            | ((component2 << 16) & 0xff0000)
+            | ((component3 << 8) & 0xff00))
         >> 8;
   }
 
