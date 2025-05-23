@@ -304,13 +304,16 @@ public class DefaultGainProviderTest {
         new DefaultGainProvider.Builder(/* defaultGain= */ 1f)
             .addFadeAt(
                 /* positionUs= */ C.MICROS_PER_SECOND,
-                /* durationUs= */ C.MICROS_PER_SECOND,
+                /* durationUs= */ 2 * C.MICROS_PER_SECOND,
                 FADE_OUT_LINEAR)
             .build();
+    // Fade does not start until second 1.
     assertThat(provider.isUnityUntil(/* samplePosition= */ 0, SAMPLE_RATE)).isEqualTo(SAMPLE_RATE);
+    // Fade out starts with gain factor of 1f on first processed sample.
     assertThat(provider.isUnityUntil(/* samplePosition= */ SAMPLE_RATE, SAMPLE_RATE))
-        .isEqualTo(C.TIME_UNSET);
-    assertThat(provider.isUnityUntil(/* samplePosition= */ 2 * SAMPLE_RATE, SAMPLE_RATE))
+        .isEqualTo(SAMPLE_RATE + 1);
+    // After end of fade, default gain of 1f is set until the end.
+    assertThat(provider.isUnityUntil(/* samplePosition= */ 3 * SAMPLE_RATE, SAMPLE_RATE))
         .isEqualTo(C.TIME_END_OF_SOURCE);
   }
 }

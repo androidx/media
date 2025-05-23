@@ -206,9 +206,14 @@ public final class DefaultGainProvider implements GainProvider {
     long positionUs = sampleCountToDurationUs(samplePosition, sampleRate);
     Entry<Range<Long>, Function<Pair<Long, Integer>, Float>> entry =
         checkNotNull(gainMap.getEntry(positionUs));
+    float gainFactor = entry.getValue().apply(Pair.create(samplePosition, sampleRate));
 
-    if (defaultGain != 1f
-        || entry.getValue().apply(Pair.create(samplePosition, sampleRate)) != GAIN_UNSET) {
+    // If the gain has been manually set to unity, we do not know how long the unity region is.
+    if (gainFactor == 1f) {
+      return samplePosition + 1;
+    }
+
+    if (defaultGain != 1f || gainFactor != GAIN_UNSET) {
       return C.TIME_UNSET;
     }
 

@@ -43,6 +43,12 @@ public class GainProcessorTest {
               /* positionUs= */ 0L, /* durationUs= */ 100, DefaultGainProvider.FADE_IN_LINEAR)
           .build();
 
+  private static final DefaultGainProvider HUNDRED_US_FADE_OUT_PROVIDER =
+      new DefaultGainProvider.Builder(/* defaultGain= */ 1f)
+          .addFadeAt(
+              /* positionUs= */ 0L, /* durationUs= */ 100, DefaultGainProvider.FADE_OUT_LINEAR)
+          .build();
+
   private static final AudioFormat MONO_50KHZ_16BIT_FORMAT =
       new AudioFormat(/* sampleRate= */ 50000, /* channelCount= */ 1, C.ENCODING_PCM_16BIT);
   private static final AudioFormat MONO_100KHZ_16BIT_FORMAT =
@@ -81,6 +87,20 @@ public class GainProcessorTest {
 
     short[] outputSamples = createShortArray(output);
     assertThat(outputSamples).isEqualTo(new short[] {0, 20, 40, 60, 80, 100, 100});
+  }
+
+  @Test
+  public void applyGain_withFadeOut_returnsScaledSamples() throws UnhandledAudioFormatException {
+    GainProcessor processor = new GainProcessor(HUNDRED_US_FADE_OUT_PROVIDER);
+    processor.configure(MONO_50KHZ_16BIT_FORMAT);
+    processor.flush();
+
+    ByteBuffer input = createByteBuffer(new short[] {100, 100, 100, 100, 100, 100});
+    processor.queueInput(input);
+    ByteBuffer output = processor.getOutput();
+
+    short[] outputSamples = createShortArray(output);
+    assertThat(outputSamples).isEqualTo(new short[] {100, 80, 60, 40, 20, 100});
   }
 
   @Test
