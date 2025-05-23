@@ -1868,6 +1868,8 @@ public final class NalUnitUtil {
             mantissaRefDisplayWidth,
             exponentRefViewingDist,
             mantissaRefViewingDist);
+      } else {
+        data.skipBits(payloadSize * 8);
       }
     }
     return null;
