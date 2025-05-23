@@ -301,7 +301,8 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
       MediaSession mediaSession,
       ImmutableList<CommandButton> mediaButtonPreferences,
       MediaNotification.ActionFactory actionFactory,
-      Callback onNotificationChangedCallback) {
+      Callback onNotificationChangedCallback,
+      @MediaSessionService.NotificationUpdate int reason) {
     ensureNotificationChannel();
 
     ImmutableList.Builder<CommandButton> mediaButtonPreferencesWithEnabledCommandButtonsOnly =
@@ -354,7 +355,7 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
         } else {
           pendingOnBitmapLoadedFutureCallback =
               new OnBitmapLoadedFutureCallback(
-                  notificationId, builder, onNotificationChangedCallback);
+                  notificationId, builder, onNotificationChangedCallback, reason);
           Futures.addCallback(
               bitmapFuture,
               pendingOnBitmapLoadedFutureCallback,
@@ -387,7 +388,7 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
             .setOngoing(false)
             .setGroup(GROUP_KEY)
             .build();
-    return new MediaNotification(notificationId, notification);
+    return createMediaNotification(notificationId, notification, reason, false);
   }
 
   @Override
@@ -406,6 +407,32 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
    */
   public final void setSmallIcon(@DrawableRes int smallIconResourceId) {
     this.smallIconResourceId = smallIconResourceId;
+  }
+
+  /**
+   * Create a {@link MediaNotification} instance.
+   *
+   * <p>This method is called each time a new notification is built, and when the large icon
+   * finishes loading.
+   *
+   * <p>Subclasses may override this method to intercept the created {@link Notification} object or
+   * its ID.
+   *
+   * @param notificationId Constructor parameter of {@link MediaNotification}
+   * @param notification Constructor parameter of {@link MediaNotification}
+   * @param reason Reason why the notification is being (re)created, useful for metrics or advanced
+   *     customization.
+   * @param isRebuild true if the notification is being recreated because the album art finished
+   *     loading
+   * @see MediaNotification#MediaNotification(int, Notification)
+   * @return The created instance.
+   */
+  protected MediaNotification createMediaNotification(
+      int notificationId,
+      Notification notification,
+      @MediaSessionService.NotificationUpdate int reason,
+      boolean isRebuild) {
+    return new MediaNotification(notificationId, notification);
   }
 
   /**
@@ -640,20 +667,23 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
     }
   }
 
-  private static class OnBitmapLoadedFutureCallback implements FutureCallback<Bitmap> {
+  private class OnBitmapLoadedFutureCallback implements FutureCallback<Bitmap> {
     private final int notificationId;
     private final NotificationCompat.Builder builder;
     private final Callback onNotificationChangedCallback;
+    private final @MediaSessionService.NotificationUpdate int reason;
 
     private boolean discarded;
 
     public OnBitmapLoadedFutureCallback(
         int notificationId,
         NotificationCompat.Builder builder,
-        Callback onNotificationChangedCallback) {
+        Callback onNotificationChangedCallback,
+        @MediaSessionService.NotificationUpdate int reason) {
       this.notificationId = notificationId;
       this.builder = builder;
       this.onNotificationChangedCallback = onNotificationChangedCallback;
+      this.reason = reason;
     }
 
     public void discardIfPending() {
@@ -665,7 +695,7 @@ public class DefaultMediaNotificationProvider implements MediaNotification.Provi
       if (!discarded) {
         builder.setLargeIcon(result);
         onNotificationChangedCallback.onNotificationChanged(
-            new MediaNotification(notificationId, builder.build()));
+            createMediaNotification(notificationId, builder.build(), reason, true));
       }
     }
 

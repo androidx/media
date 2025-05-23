@@ -20,6 +20,7 @@ import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.postOrRun;
+import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.app.Activity;
 import android.app.ForegroundServiceStartNotAllowedException;
@@ -36,6 +37,7 @@ import android.os.Looper;
 import android.os.RemoteException;
 import androidx.annotation.CallSuper;
 import androidx.annotation.GuardedBy;
+import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.collection.ArrayMap;
@@ -47,6 +49,11 @@ import androidx.media3.common.util.Util;
 import androidx.media3.session.MediaSession.ControllerInfo;
 import androidx.media3.session.legacy.MediaBrowserServiceCompat;
 import androidx.media3.session.legacy.MediaSessionManager;
+import com.google.common.collect.ImmutableList;
+import java.lang.annotation.Documented;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -165,6 +172,76 @@ public abstract class MediaSessionService extends Service {
    * stopped, failed or ended.
    */
   @UnstableApi public static final long DEFAULT_FOREGROUND_SERVICE_TIMEOUT_MS = 600_000;
+
+  /**
+   * Reason why notification was updated. One of {@link #NOTIFICATION_UPDATE_CONNECTED}, {@link
+   * #NOTIFICATION_UPDATE_SESSION_PLAY_REQUESTED}, {@link
+   * #NOTIFICATION_UPDATE_SESSION_REFRESH_REQUIRED}, {@link #NOTIFICATION_UPDATE_ENGAGED_TIMEOUT},
+   * {@link #NOTIFICATION_UPDATE_ENGAGED_TIMEOUT_DISABLED}, {@link
+   * #NOTIFICATION_UPDATE_BUTTON_PREFERENCES_CHANGED}, {@link
+   * #NOTIFICATION_UPDATE_SESSION_COMMANDS_CHANGED}, {@link #NOTIFICATION_UPDATE_DISCONNECTED},
+   * {@link #NOTIFICATION_UPDATE_PLAYER_EVENT} or {@link #NOTIFICATION_UPDATE_MANUAL}.
+   */
+  @UnstableApi
+  @Documented
+  @Retention(RetentionPolicy.SOURCE)
+  @Target(TYPE_USE)
+  @IntDef({
+    NOTIFICATION_UPDATE_CONNECTED,
+    NOTIFICATION_UPDATE_SESSION_PLAY_REQUESTED,
+    NOTIFICATION_UPDATE_SESSION_REFRESH_REQUIRED,
+    NOTIFICATION_UPDATE_ENGAGED_TIMEOUT,
+    NOTIFICATION_UPDATE_ENGAGED_TIMEOUT_DISABLED,
+    NOTIFICATION_UPDATE_BUTTON_PREFERENCES_CHANGED,
+    NOTIFICATION_UPDATE_SESSION_COMMANDS_CHANGED,
+    NOTIFICATION_UPDATE_DISCONNECTED,
+    NOTIFICATION_UPDATE_PLAYER_EVENT,
+    NOTIFICATION_UPDATE_MANUAL,
+  })
+  public @interface NotificationUpdate {}
+
+  /** The MediaNotificationManager controller connected to the session and has data to display. */
+  @UnstableApi public static final int NOTIFICATION_UPDATE_CONNECTED = 0;
+
+  /**
+   * The service is trying to go into foreground because {@link
+   * MediaSession.Listener#onPlayRequested(MediaSession)} was called.
+   */
+  @UnstableApi public static final int NOTIFICATION_UPDATE_SESSION_PLAY_REQUESTED = 1;
+
+  /** See {@link MediaSession.Listener#onNotificationRefreshRequired(MediaSession)} */
+  @UnstableApi public static final int NOTIFICATION_UPDATE_SESSION_REFRESH_REQUIRED = 2;
+
+  /** The user engagement timeout expired while the player is paused. */
+  @UnstableApi public static final int NOTIFICATION_UPDATE_ENGAGED_TIMEOUT = 3;
+
+  /** The user engagement timeout was disabled in order to stop the service instantly. */
+  @UnstableApi public static final int NOTIFICATION_UPDATE_ENGAGED_TIMEOUT_DISABLED = 4;
+
+  /**
+   * The MediaNotificationManager controller got a {@link
+   * MediaController.Listener#onMediaButtonPreferencesChanged(MediaController, List)} call.
+   */
+  @UnstableApi public static final int NOTIFICATION_UPDATE_BUTTON_PREFERENCES_CHANGED = 5;
+
+  /**
+   * The MediaNotificationManager controller got a {@link
+   * MediaController.Listener#onAvailableSessionCommandsChanged(MediaController, SessionCommands)}
+   * call.
+   */
+  @UnstableApi public static final int NOTIFICATION_UPDATE_SESSION_COMMANDS_CHANGED = 6;
+
+  /** The MediaNotificationManager controller was disconnected from the session. */
+  @UnstableApi public static final int NOTIFICATION_UPDATE_DISCONNECTED = 7;
+
+  /**
+   * The MediaNotificationManager controller got a relevant {@link Player.Listener#onEvents(Player,
+   * Player.Events)} call.
+   */
+  @UnstableApi public static final int NOTIFICATION_UPDATE_PLAYER_EVENT = 8;
+
+  /** The update was triggered by calling {@link #manuallyUpdateMediaNotification(MediaSession)} */
+  @UnstableApi public static final int NOTIFICATION_UPDATE_MANUAL = 9;
 
   private static final String TAG = "MSessionService";
 
@@ -583,11 +660,20 @@ public abstract class MediaSessionService extends Service {
   }
 
   /**
-   * @deprecated Use {@link #onUpdateNotification(MediaSession, boolean)} instead.
+   * @deprecated Use {@link #onUpdateNotification(MediaSession, boolean, int)} instead.
    */
   @Deprecated
   public void onUpdateNotification(MediaSession session) {
     defaultMethodCalled = true;
+  }
+
+  /**
+   * @deprecated Use {@link #onUpdateNotification(MediaSession, boolean, int)} instead.
+   */
+  @Deprecated
+  @SuppressWarnings("deprecation") // Calling deprecated method.
+  public void onUpdateNotification(MediaSession session, boolean startInForegroundRequired) {
+    onUpdateNotification(session);
   }
 
   /**
@@ -616,12 +702,16 @@ public abstract class MediaSessionService extends Service {
    *
    * @param session A session that needs notification update.
    * @param startInForegroundRequired Whether the service is required to start in the foreground.
+   * @param reason The reason why the notification is being updated, useful for metrics or advanced
+   *     customization.
    */
   @SuppressWarnings("deprecation") // Calling deprecated method.
-  public void onUpdateNotification(MediaSession session, boolean startInForegroundRequired) {
-    onUpdateNotification(session);
+  public void onUpdateNotification(
+      MediaSession session, boolean startInForegroundRequired, @NotificationUpdate int reason) {
+    defaultMethodCalled = false;
+    onUpdateNotification(session, startInForegroundRequired);
     if (defaultMethodCalled) {
-      getMediaNotificationManager().updateNotification(session, startInForegroundRequired);
+      getMediaNotificationManager().updateNotification(session, startInForegroundRequired, reason);
     }
   }
 
@@ -652,11 +742,11 @@ public abstract class MediaSessionService extends Service {
    * <p>This method will be called on the main thread.
    */
   /* package */ boolean onUpdateNotificationInternal(
-      MediaSession session, boolean startInForegroundWhenPaused) {
+      MediaSession session, boolean startInForegroundWhenPaused, @NotificationUpdate int reason) {
     try {
       boolean startInForegroundRequired =
           getMediaNotificationManager().shouldRunInForeground(startInForegroundWhenPaused);
-      onUpdateNotification(session, startInForegroundRequired);
+      onUpdateNotification(session, startInForegroundRequired, reason);
     } catch (/* ForegroundServiceStartNotAllowedException */ IllegalStateException e) {
       if ((SDK_INT >= 31) && Api31.instanceOfForegroundServiceStartNotAllowedException(e)) {
         Log.e(TAG, "Failed to start foreground", e);
@@ -666,6 +756,16 @@ public abstract class MediaSessionService extends Service {
       throw e;
     }
     return true;
+  }
+
+  /**
+   * Manually trigger a call to {@link MediaNotification.Provider#createNotification(MediaSession,
+   * ImmutableList, MediaNotification.ActionFactory, MediaNotification.Provider.Callback, int)} with
+   * the reason set to {@link #NOTIFICATION_UPDATE_MANUAL}
+   */
+  @UnstableApi
+  public void manuallyUpdateMediaNotification(MediaSession session) {
+    onUpdateNotificationInternal(session, false, NOTIFICATION_UPDATE_MANUAL);
   }
 
   private MediaNotificationManager getMediaNotificationManager() {
@@ -729,7 +829,9 @@ public abstract class MediaSessionService extends Service {
     @Override
     public void onNotificationRefreshRequired(MediaSession session) {
       MediaSessionService.this.onUpdateNotificationInternal(
-          session, /* startInForegroundWhenPaused= */ false);
+          session,
+          /* startInForegroundWhenPaused= */ false,
+          NOTIFICATION_UPDATE_SESSION_REFRESH_REQUIRED);
     }
 
     @Override
@@ -739,7 +841,10 @@ public abstract class MediaSessionService extends Service {
       }
       // Check if service can start foreground successfully on Android 12 and 12L.
       if (!getMediaNotificationManager().isStartedInForeground()) {
-        return onUpdateNotificationInternal(session, /* startInForegroundWhenPaused= */ true);
+        return onUpdateNotificationInternal(
+            session,
+            /* startInForegroundWhenPaused= */ true,
+            NOTIFICATION_UPDATE_SESSION_PLAY_REQUESTED);
       }
       return true;
     }
