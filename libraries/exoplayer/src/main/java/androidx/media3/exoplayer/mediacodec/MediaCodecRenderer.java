@@ -2029,7 +2029,9 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
    * @return False if codec release and re-initialization was triggered due to the need to apply a
    *     flush workaround. True in all other cases.
    */
-  @TargetApi(23) // Only called when SDK_INT >= 23, but lint isn't clever enough to know.
+  // Only called when SDK_INT >= 23, but lint isn't clever enough to know.
+  @SuppressWarnings("UseRequiresApi")
+  @TargetApi(23)
   private boolean drainAndUpdateCodecDrmSessionV23() throws ExoPlaybackException {
     if (codecReceivedBuffers) {
       codecDrainState = DRAIN_STATE_SIGNAL_END_OF_STREAM;
@@ -2287,6 +2289,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
    * @throws ExoPlaybackException If an error occurs processing the signal.
    */
   // codecDrainAction == DRAIN_ACTION_FLUSH_AND_UPDATE_DRM_SESSION implies SDK_INT >= 23.
+  @SuppressWarnings("UseRequiresApi")
   @TargetApi(23)
   private void processEndOfStream() throws ExoPlaybackException {
     switch (codecDrainAction) {
@@ -2698,6 +2701,8 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
    * @return True if the decoder is known to handle {@link MediaCodec#BUFFER_FLAG_END_OF_STREAM}
    *     propagation incorrectly on the host device. False otherwise.
    */
+  // TODO: b/416719590 - Remove this suppression when the false positive is fixed.
+  @SuppressWarnings("ObsoleteSdkInt")
   private static boolean codecNeedsEosPropagationWorkaround(MediaCodecInfo codecInfo) {
     String name = codecInfo.name;
     return (SDK_INT <= 25 && "OMX.rk.video_decoder.avc".equals(name))
