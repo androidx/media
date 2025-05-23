@@ -23,6 +23,7 @@ import static androidx.media3.container.ObuParser.OBU_TEMPORAL_DELIMITER;
 import static androidx.media3.container.ObuParser.split;
 
 import androidx.annotation.Nullable;
+import androidx.media3.common.util.UnstableApi;
 import androidx.media3.container.ObuParser;
 import androidx.media3.container.ObuParser.FrameHeader;
 import androidx.media3.container.ObuParser.SequenceHeader;
@@ -30,7 +31,8 @@ import java.nio.ByteBuffer;
 import java.util.List;
 
 /** An AV1 bitstream parser that identifies frames that are not depended on. */
-/* package */ final class Av1SampleDependencyParser {
+@UnstableApi
+public final class Av1SampleDependencyParser {
   /**
    * When {@link #sampleLimitAfterSkippingNonReferenceFrame(ByteBuffer, boolean)} partially skips a
    * temporal unit, the decoder input buffer is left with extra reference frames that need to be
