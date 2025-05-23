@@ -117,6 +117,14 @@ import java.util.ArrayDeque;
         return outputBuffer;
       }
 
+      // Cater for buffers out of sequence
+      CeaInputBuffer next = queuedInputBuffers.peek();
+      if (next != null &&  next.timeUs < inputBuffer.timeUs) {
+        queuedInputBuffers.poll(); // remove next from queue
+        queuedInputBuffers.addFirst(inputBuffer);
+        inputBuffer = next;
+      }
+
       decode(inputBuffer);
 
       if (isNewSubtitleDataAvailable()) {
