@@ -72,6 +72,8 @@
 *   MIDI extension:
 *   Leanback extension:
 *   Cast extension:
+    *   Add support for `setVolume()`, and `getVolume()`
+        ([#2279](https://github.com/androidx/media/pull/2279)).
 *   Test Utilities:
     *   Add `advance(player).untilPositionAtLeast` and `untilMediaItemIndex` to
         `TestPlayerRunHelper` in order to advance the player until a specified
