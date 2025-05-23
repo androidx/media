@@ -32,6 +32,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.DrmInitData.SchemeData;
 import androidx.media3.common.Format;
+import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.Log;
@@ -499,7 +500,7 @@ public class FragmentedMp4Extractor implements Extractor {
                   /* duration= */ 0,
                   /* size= */ 0,
                   /* flags= */ 0),
-              getContainerMimeType(sideloadedTrack.format));
+              sideloadedTrack.format);
       trackBundles.put(0, bundle);
       extractorOutput.endTracks();
     }
@@ -743,11 +744,27 @@ public class FragmentedMp4Extractor implements Extractor {
       }
     }
 
+    @Nullable Metadata mdtaMetadata = null;
+    @Nullable Mp4Box.ContainerBox meta = moov.getContainerBoxOfType(Mp4Box.TYPE_meta);
+    if (meta != null) {
+      mdtaMetadata = BoxParser.parseMdtaFromMeta(meta);
+    }
+    GaplessInfoHolder gaplessInfoHolder = new GaplessInfoHolder();
+    @Nullable Metadata udtaMetadata = null;
+    @Nullable Mp4Box.LeafBox udta = moov.getLeafBoxOfType(Mp4Box.TYPE_udta);
+    if (udta != null) {
+      udtaMetadata = BoxParser.parseUdta(udta);
+      gaplessInfoHolder.setFromMetadata(udtaMetadata);
+    }
+    Metadata mvhdMetadata =
+        new Metadata(
+            BoxParser.parseMvhd(checkNotNull(moov.getLeafBoxOfType(Mp4Box.TYPE_mvhd)).data));
+
     // Construction of tracks and sample tables.
     List<TrackSampleTable> sampleTables =
         parseTraks(
             moov,
-            new GaplessInfoHolder(),
+            gaplessInfoHolder,
             duration,
             drmInitData,
             /* ignoreEditLists= */ (flags & FLAG_WORKAROUND_IGNORE_EDIT_LISTS) != 0,
@@ -763,12 +780,22 @@ public class FragmentedMp4Extractor implements Extractor {
         Track track = sampleTable.track;
         TrackOutput output = extractorOutput.track(i, track.type);
         output.durationUs(track.durationUs);
+        Format.Builder formatBuilder = track.format.buildUpon();
+        formatBuilder.setContainerMimeType(containerMimeType);
+        MetadataUtil.setFormatGaplessInfo(track.type, gaplessInfoHolder, formatBuilder);
+        MetadataUtil.setFormatMetadata(
+            track.type,
+            mdtaMetadata,
+            formatBuilder,
+            track.format.metadata,
+            udtaMetadata,
+            mvhdMetadata);
         TrackBundle trackBundle =
             new TrackBundle(
                 output,
                 sampleTable,
                 getDefaultSampleValues(defaultSampleValuesArray, track.id),
-                containerMimeType);
+                formatBuilder.build());
         trackBundles.put(track.id, trackBundle);
         durationUs = max(durationUs, track.durationUs);
       }
@@ -1900,7 +1927,9 @@ public class FragmentedMp4Extractor implements Extractor {
         || atom == Mp4Box.TYPE_sgpd
         || atom == Mp4Box.TYPE_elst
         || atom == Mp4Box.TYPE_mehd
-        || atom == Mp4Box.TYPE_emsg;
+        || atom == Mp4Box.TYPE_emsg
+        || atom == Mp4Box.TYPE_udta
+        || atom == Mp4Box.TYPE_ilst;
   }
 
   /** Returns whether the extractor should decode a container atom with type {@code atom}. */
@@ -1913,7 +1942,8 @@ public class FragmentedMp4Extractor implements Extractor {
         || atom == Mp4Box.TYPE_moof
         || atom == Mp4Box.TYPE_traf
         || atom == Mp4Box.TYPE_mvex
-        || atom == Mp4Box.TYPE_edts;
+        || atom == Mp4Box.TYPE_edts
+        || atom == Mp4Box.TYPE_meta;
   }
 
   /** Holds data corresponding to a metadata sample. */
@@ -1946,7 +1976,7 @@ public class FragmentedMp4Extractor implements Extractor {
     public int currentTrackRunIndex;
     public int firstSampleToOutputIndex;
 
-    private final String containerMimeType;
+    private final Format baseFormat;
     private final ParsableByteArray encryptionSignalByte;
     private final ParsableByteArray defaultInitializationVector;
 
@@ -1956,11 +1986,11 @@ public class FragmentedMp4Extractor implements Extractor {
         TrackOutput output,
         TrackSampleTable moovSampleTable,
         DefaultSampleValues defaultSampleValues,
-        String containerMimeType) {
+        Format baseFormat) {
       this.output = output;
       this.moovSampleTable = moovSampleTable;
       this.defaultSampleValues = defaultSampleValues;
-      this.containerMimeType = containerMimeType;
+      this.baseFormat = baseFormat;
       fragment = new TrackFragment();
       scratch = new ParsableByteArray();
       encryptionSignalByte = new ParsableByteArray(1);
@@ -1971,9 +2001,7 @@ public class FragmentedMp4Extractor implements Extractor {
     public void reset(TrackSampleTable moovSampleTable, DefaultSampleValues defaultSampleValues) {
       this.moovSampleTable = moovSampleTable;
       this.defaultSampleValues = defaultSampleValues;
-      Format format =
-          moovSampleTable.track.format.buildUpon().setContainerMimeType(containerMimeType).build();
-      output.format(format);
+      output.format(baseFormat);
       resetFragmentInfo();
     }
 
@@ -1984,14 +2012,7 @@ public class FragmentedMp4Extractor implements Extractor {
               castNonNull(fragment.header).sampleDescriptionIndex);
       @Nullable String schemeType = encryptionBox != null ? encryptionBox.schemeType : null;
       DrmInitData updatedDrmInitData = drmInitData.copyWithSchemeType(schemeType);
-      Format format =
-          moovSampleTable
-              .track
-              .format
-              .buildUpon()
-              .setContainerMimeType(containerMimeType)
-              .setDrmInitData(updatedDrmInitData)
-              .build();
+      Format format = baseFormat.buildUpon().setDrmInitData(updatedDrmInitData).build();
       output.format(format);
     }
 
