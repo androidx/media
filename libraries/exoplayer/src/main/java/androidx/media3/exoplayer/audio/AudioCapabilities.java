@@ -657,18 +657,10 @@ public final class AudioCapabilities {
     @Nullable
     public static AudioDeviceInfoApi23 getDefaultRoutedDeviceForAttributes(
         AudioManager audioManager, AudioAttributes audioAttributes) {
-      List<AudioDeviceInfo> audioDevices;
-      try {
-        audioDevices =
-            checkNotNull(audioManager)
-                .getAudioDevicesForAttributes(
-                    audioAttributes.getAudioAttributesV21().audioAttributes);
-      } catch (RuntimeException e) {
-        // Audio manager failed to retrieve devices.
-        // TODO: b/306324391 - Remove once https://github.com/robolectric/robolectric/commit/442dff
-        //  is released.
-        return null;
-      }
+      List<AudioDeviceInfo> audioDevices =
+          checkNotNull(audioManager)
+              .getAudioDevicesForAttributes(
+                  audioAttributes.getAudioAttributesV21().audioAttributes);
       if (audioDevices.isEmpty()) {
         // Can't find current device.
         return null;
