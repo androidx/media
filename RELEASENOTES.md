@@ -160,6 +160,8 @@ This release includes the following changes since [1.7.1](#171-2025-05-16):
     *   Fix bug that `AnalyticsListener.onAudioPositionAdvancing` was not
         reporting the time when the audio started advancing but the time of the
         first measurement.
+    *   Fix recovery to multichannel audio after fallback to stereo audio on
+        some devices ([#2258](https://github.com/androidx/media/issues/2258)).
 *   Video:
     *   Add experimental `ExoPlayer` API to include the
         `MediaCodec.BUFFER_FLAG_DECODE_ONLY` flag when queuing decode-only input

@@ -117,6 +117,16 @@ public final class AudioCapabilitiesReceiver {
   }
 
   /**
+   * Overrides the reported audio capabilities until the next event that triggers a new evaluation
+   * of the capabilities.
+   *
+   * @param audioCapabilities The {@link AudioCapabilities}.
+   */
+  public void overrideCapabilities(AudioCapabilities audioCapabilities) {
+    onNewAudioCapabilities(audioCapabilities);
+  }
+
+  /**
    * Updates the {@link AudioAttributes} used by this instance.
    *
    * @param audioAttributes The {@link AudioAttributes}.
