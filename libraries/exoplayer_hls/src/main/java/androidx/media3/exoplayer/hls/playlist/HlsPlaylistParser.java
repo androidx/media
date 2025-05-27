@@ -278,6 +278,12 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
       Pattern.compile("X-SNAP=" + ATTR_QUOTED_STRING_VALUE_PATTERN);
   private static final Pattern REGEX_RESTRICT =
       Pattern.compile("X-RESTRICT=" + ATTR_QUOTED_STRING_VALUE_PATTERN);
+  private static final Pattern REGEX_CONTENT_MAY_VARY =
+      Pattern.compile("X-CONTENT-MAY-VARY=" + ATTR_QUOTED_STRING_VALUE_PATTERN);
+  private static final Pattern REGEX_TIMELINE_OCCUPIES =
+      Pattern.compile("X-TIMELINE-OCCUPIES=" + ATTR_QUOTED_STRING_VALUE_PATTERN);
+  private static final Pattern REGEX_TIMELINE_STYLE =
+      Pattern.compile("X-TIMELINE-STYLE=" + ATTR_QUOTED_STRING_VALUE_PATTERN);
   private static final Pattern REGEX_VARIABLE_REFERENCE =
       Pattern.compile("\\{\\$([a-zA-Z0-9\\-_]+)\\}");
   private static final Pattern REGEX_CLIENT_DEFINED_ATTRIBUTE_PREFIX =
@@ -1166,6 +1172,35 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
           }
         }
 
+        @Nullable Boolean contentMayVary = null;
+        String contentMayVaryString =
+            parseOptionalStringAttr(line, REGEX_CONTENT_MAY_VARY, variableDefinitions);
+        if (contentMayVaryString != null) {
+          contentMayVary = !contentMayVaryString.equals(BOOLEAN_FALSE); // default is true
+        }
+
+        @Nullable String timelineOccupies = null;
+        String timelineOccupiesString =
+            parseOptionalStringAttr(line, REGEX_TIMELINE_OCCUPIES, variableDefinitions);
+        if (timelineOccupiesString != null) {
+          if (timelineOccupiesString.equals(Interstitial.TIMELINE_OCCUPIES_RANGE)) {
+            timelineOccupies = Interstitial.TIMELINE_OCCUPIES_RANGE;
+          } else if (timelineOccupiesString.equals(Interstitial.TIMELINE_OCCUPIES_POINT)) {
+            timelineOccupies = Interstitial.TIMELINE_OCCUPIES_POINT;
+          }
+        }
+
+        @Nullable String timelineStyle = null;
+        String timelineStyleString =
+            parseOptionalStringAttr(line, REGEX_TIMELINE_STYLE, variableDefinitions);
+        if (timelineStyleString != null) {
+          if (timelineStyleString.equals(Interstitial.TIMELINE_STYLE_PRIMARY)) {
+            timelineStyle = Interstitial.TIMELINE_STYLE_PRIMARY;
+          } else if (timelineStyleString.equals(Interstitial.TIMELINE_STYLE_HIGHLIGHT)) {
+            timelineStyle = Interstitial.TIMELINE_STYLE_HIGHLIGHT;
+          }
+        }
+
         List<HlsMediaPlaylist.ClientDefinedAttribute> clientDefinedAttributes = new ArrayList<>();
         String attributes = line.substring("#EXT-X-DATERANGE:".length());
         Matcher matcher = REGEX_CLIENT_DEFINED_ATTRIBUTE_PREFIX.matcher(attributes);
@@ -1178,6 +1213,9 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
             case "X-PLAYOUT-LIMIT=": // fall through
             case "X-SNAP=": // fall through
             case "X-RESTRICT=": // fall through
+            case "X-CONTENT-MAY-VARY=": // fall through
+            case "X-TIMELINE-OCCUPIES=": // fall through
+            case "X-TIMELINE-STYLE=": // fall through
               // ignore interstitial attributes
               break;
             default:
@@ -1206,7 +1244,10 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
                 .setPlayoutLimitUs(playoutLimitUs)
                 .setSnapTypes(snapTypes)
                 .setRestrictions(restrictions)
-                .setClientDefinedAttributes(clientDefinedAttributes);
+                .setClientDefinedAttributes(clientDefinedAttributes)
+                .setContentMayVary(contentMayVary)
+                .setTimelineOccupies(timelineOccupies)
+                .setTimelineStyle(timelineStyle);
         interstitialBuilderMap.put(id, interstitialBuilder);
       } else if (!line.startsWith("#")) {
         @Nullable

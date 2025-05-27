@@ -488,6 +488,47 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
      */
     public static final String NAVIGATION_RESTRICTION_JUMP = "JUMP";
 
+    /**
+     * The timeline occupies identifier. One of {@link #TIMELINE_OCCUPIES_POINT} or {@link
+     * #TIMELINE_OCCUPIES_RANGE}.
+     *
+     * <p>See RFC 8216bis, appendix D.2.
+     */
+    @Retention(RetentionPolicy.SOURCE)
+    @StringDef({TIMELINE_OCCUPIES_POINT, TIMELINE_OCCUPIES_RANGE})
+    @Documented
+    @Target(TYPE_USE)
+    public @interface TimelineOccupiesType {}
+
+    /** Timeline occupies identifier indicating to present the interstitial as a single point. */
+    public static final String TIMELINE_OCCUPIES_POINT = "POINT";
+
+    /** Timeline occupies identifier indicating to present the interstitial as a range. */
+    public static final String TIMELINE_OCCUPIES_RANGE = "RANGE";
+
+    /**
+     * The timeline style identifier. One of {@link #TIMELINE_STYLE_HIGHLIGHT} or {@link
+     * #TIMELINE_STYLE_PRIMARY}.
+     *
+     * <p>See RFC 8216bis, appendix D.2.
+     */
+    @Retention(RetentionPolicy.SOURCE)
+    @StringDef({TIMELINE_STYLE_HIGHLIGHT, TIMELINE_STYLE_PRIMARY})
+    @Documented
+    @Target(TYPE_USE)
+    public @interface TimelineStyleType {}
+
+    /**
+     * Timeline style identifier indicating to present the interstitial as distinct from the
+     * content.
+     */
+    public static final String TIMELINE_STYLE_HIGHLIGHT = "HIGHLIGHT";
+
+    /**
+     * Timeline style identifier indicating not to differentiate the interstitial from the content.
+     */
+    public static final String TIMELINE_STYLE_PRIMARY = "PRIMARY";
+
     /** The required ID. */
     public final String id;
 
@@ -537,6 +578,15 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
     /** The attributes defined by a client. For informational purpose only. */
     public final ImmutableList<ClientDefinedAttribute> clientDefinedAttributes;
 
+    /** Whether the content may vary between clients. */
+    public final boolean contentMayVary;
+
+    /** The timeline occupies type. */
+    public final @TimelineOccupiesType String timelineOccupies;
+
+    /** The timeline style type. */
+    public final @TimelineStyleType String timelineStyle;
+
     /** Creates an instance. */
     public Interstitial(
         String id,
@@ -552,7 +602,10 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
         long playoutLimitUs,
         List<@SnapType String> snapTypes,
         List<@NavigationRestriction String> restrictions,
-        List<ClientDefinedAttribute> clientDefinedAttributes) {
+        List<ClientDefinedAttribute> clientDefinedAttributes,
+        boolean contentMayVary,
+        @TimelineOccupiesType String timelineOccupies,
+        @TimelineStyleType String timelineStyle) {
       checkArgument(
           (assetUri == null || assetListUri == null) && (assetUri != null || assetListUri != null));
       this.id = id;
@@ -572,6 +625,9 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
       this.clientDefinedAttributes =
           ImmutableList.sortedCopyOf(
               (o1, o2) -> o1.name.compareTo(o2.name), clientDefinedAttributes);
+      this.contentMayVary = contentMayVary;
+      this.timelineOccupies = timelineOccupies;
+      this.timelineStyle = timelineStyle;
     }
 
     @Override
@@ -590,13 +646,16 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
           && endOnNext == that.endOnNext
           && resumeOffsetUs == that.resumeOffsetUs
           && playoutLimitUs == that.playoutLimitUs
+          && contentMayVary == that.contentMayVary
           && Objects.equals(id, that.id)
           && Objects.equals(assetUri, that.assetUri)
           && Objects.equals(assetListUri, that.assetListUri)
           && Objects.equals(cue, that.cue)
           && Objects.equals(snapTypes, that.snapTypes)
           && Objects.equals(restrictions, that.restrictions)
-          && Objects.equals(clientDefinedAttributes, that.clientDefinedAttributes);
+          && Objects.equals(clientDefinedAttributes, that.clientDefinedAttributes)
+          && Objects.equals(timelineOccupies, that.timelineOccupies)
+          && Objects.equals(timelineStyle, that.timelineStyle);
     }
 
     @Override
@@ -615,7 +674,10 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
           playoutLimitUs,
           snapTypes,
           restrictions,
-          clientDefinedAttributes);
+          clientDefinedAttributes,
+          contentMayVary,
+          timelineOccupies,
+          timelineStyle);
     }
 
     /**
@@ -641,6 +703,9 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
       private long playoutLimitUs;
       private List<@Interstitial.SnapType String> snapTypes;
       private List<@Interstitial.NavigationRestriction String> restrictions;
+      private @MonotonicNonNull Boolean contentMayVary;
+      private @MonotonicNonNull @Interstitial.TimelineOccupiesType String timelineOccupies;
+      private @MonotonicNonNull @Interstitial.TimelineStyleType String timelineStyle;
 
       /**
        * Creates the builder.
@@ -950,6 +1015,78 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
       }
 
       /**
+       * Sets whether the content may vary between clients.
+       *
+       * <p>The default value is {@code true} .
+       *
+       * @param contentMayVary Whether the content may vary.
+       * @return This builder.
+       * @throws IllegalArgumentException if attempting to change a value that is already set to a
+       *     different value.
+       */
+      @CanIgnoreReturnValue
+      public Builder setContentMayVary(@Nullable Boolean contentMayVary) {
+        if (contentMayVary == null) {
+          return this;
+        }
+        if (this.contentMayVary != null) {
+          checkArgument(
+              this.contentMayVary.equals(contentMayVary),
+              "Can't change contentMayVary from " + this.contentMayVary + " to " + contentMayVary);
+        }
+        this.contentMayVary = contentMayVary;
+        return this;
+      }
+
+      /**
+       * Sets the {@linkplain Interstitial.TimelineOccupiesType timeline occupies type}.
+       *
+       * <p>The default value is {@link Interstitial#TIMELINE_OCCUPIES_POINT}.
+       *
+       * @throws IllegalArgumentException if attempting to change a value that is already set to a
+       *     different value.
+       */
+      @CanIgnoreReturnValue
+      public Builder setTimelineOccupies(
+          @Nullable @Interstitial.TimelineOccupiesType String timelineOccupies) {
+        if (timelineOccupies == null) {
+          return this;
+        }
+        if (this.timelineOccupies != null) {
+          checkArgument(
+              this.timelineOccupies.equals(timelineOccupies),
+              "Can't change timelineOccupies from "
+                  + this.timelineOccupies
+                  + " to "
+                  + timelineOccupies);
+        }
+        this.timelineOccupies = timelineOccupies;
+        return this;
+      }
+
+      /**
+       * Sets the {@linkplain Interstitial.TimelineStyleType timeline style type}. The default value
+       * is {@link Interstitial#TIMELINE_STYLE_HIGHLIGHT}.
+       *
+       * @throws IllegalArgumentException if attempting to change from a non-default value to a
+       *     different non-default value.
+       */
+      @CanIgnoreReturnValue
+      public Builder setTimelineStyle(
+          @Nullable @Interstitial.TimelineStyleType String timelineStyle) {
+        if (timelineStyle == null) {
+          return this;
+        }
+        if (this.timelineStyle != null) {
+          checkArgument(
+              this.timelineStyle.equals(timelineStyle),
+              "Can't change timelineStyle from " + this.timelineStyle + " to " + timelineStyle);
+        }
+        this.timelineStyle = timelineStyle;
+        return this;
+      }
+
+      /**
        * Builds and returns a new {@link Interstitial} instance or null if validation of the
        * properties fails. The properties are considered invalid, if the start date is missing or
        * both asset URI and asset list URI are set at the same time.
@@ -973,7 +1110,10 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
               playoutLimitUs,
               snapTypes,
               restrictions,
-              new ArrayList<>(clientDefinedAttributes.values()));
+              new ArrayList<>(clientDefinedAttributes.values()),
+              contentMayVary == null || contentMayVary,
+              timelineOccupies != null ? timelineOccupies : TIMELINE_OCCUPIES_POINT,
+              timelineStyle != null ? timelineStyle : TIMELINE_STYLE_HIGHLIGHT);
         }
         return null;
       }
