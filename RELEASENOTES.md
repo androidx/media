@@ -135,7 +135,7 @@ This release includes the following changes since the
 *   Video:
     *   Improve smooth video frame release at startup when audio samples don't
         start at exactly the requested position.
-    *   Extend detached surface workaround to "realme" devices
+    *   Extend detached surface workaround to "realme", "lenovo", "motorola" devices
         ([#2059](https://github.com/androidx/media/issues/2059)).
 *   Text:
     *   Fix a playback stall when a subtitle segment initially fails to load and
