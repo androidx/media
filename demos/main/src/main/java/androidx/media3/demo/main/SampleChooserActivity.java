@@ -377,6 +377,7 @@ public class SampleChooserActivity extends AppCompatActivity
     private PlaylistHolder readEntry(JsonReader reader, boolean insidePlaylist) throws IOException {
       Uri uri = null;
       String extension = null;
+      String mimeType = null;
       String title = null;
       ArrayList<PlaylistHolder> children = null;
       Uri subtitleUri = null;
@@ -404,6 +405,9 @@ public class SampleChooserActivity extends AppCompatActivity
             break;
           case "extension":
             extension = reader.nextString();
+            break;
+          case "mime_type":
+            mimeType = reader.nextString();
             break;
           case "clip_start_position_ms":
             clippingConfiguration.setStartPositionMs(reader.nextLong());
@@ -474,16 +478,20 @@ public class SampleChooserActivity extends AppCompatActivity
         }
         return new PlaylistHolder(title, mediaItems);
       } else {
-        @Nullable
-        String adaptiveMimeType =
-            Util.getAdaptiveMimeTypeForContentType(
-                TextUtils.isEmpty(extension)
-                    ? Util.inferContentType(uri)
-                    : Util.inferContentTypeForExtension(extension));
+        if (!TextUtils.isEmpty(mimeType)) {
+          checkState(
+              TextUtils.isEmpty(extension), "Only one of mime_type or extension should be set");
+          mediaItem.setMimeType(mimeType);
+        } else {
+          mediaItem.setMimeType(
+              Util.getAdaptiveMimeTypeForContentType(
+                  TextUtils.isEmpty(extension)
+                      ? Util.inferContentType(uri)
+                      : Util.inferContentTypeForExtension(extension)));
+        }
         mediaItem
             .setUri(uri)
             .setMediaMetadata(new MediaMetadata.Builder().setTitle(title).build())
-            .setMimeType(adaptiveMimeType)
             .setClippingConfiguration(clippingConfiguration.build());
         if (drmUuid != null) {
           mediaItem.setDrmConfiguration(
