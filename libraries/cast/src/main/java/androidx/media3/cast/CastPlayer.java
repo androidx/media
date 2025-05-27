@@ -449,7 +449,11 @@ public final class CastPlayer extends BasePlayer {
 
   @Override
   public @Player.State int getPlaybackState() {
-    return playbackState;
+    // The Player interface requires the state to be idle when the timeline is empty. However, the
+    // CastSDK will sometimes enter buffering state before the queue is populated. To prevent
+    // clients from observing this discrepancy, we only transition out of idle once the timeline is
+    // populated.
+    return getCurrentTimeline().isEmpty() ? STATE_IDLE : playbackState;
   }
 
   @Override

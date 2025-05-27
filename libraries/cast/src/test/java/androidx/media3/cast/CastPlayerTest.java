@@ -49,6 +49,7 @@ import static androidx.media3.common.Player.COMMAND_SET_VOLUME;
 import static androidx.media3.common.Player.COMMAND_STOP;
 import static androidx.media3.common.Player.DISCONTINUITY_REASON_REMOVE;
 import static androidx.media3.common.Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED;
+import static androidx.media3.common.Player.STATE_IDLE;
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
@@ -278,6 +279,16 @@ public class CastPlayerTest {
 
     assertThat(castPlayer.getPlaybackParameters()).isEqualTo(PlaybackParameters.DEFAULT);
     verifyNoMoreInteractions(mockListener);
+  }
+
+  @Test
+  public void getPlaybackState_whileTimelineIsEmpty_isNotIdle() {
+    when(mockRemoteMediaClient.getMediaStatus()).thenReturn(null);
+    when(mockRemoteMediaClient.getPlayerState()).thenReturn(MediaStatus.PLAYER_STATE_BUFFERING);
+    remoteMediaClientCallback.onStatusUpdated();
+
+    assertThat(castPlayer.getCurrentTimeline().isEmpty()).isTrue();
+    assertThat(castPlayer.getPlaybackState()).isEqualTo(STATE_IDLE);
   }
 
   @Test
