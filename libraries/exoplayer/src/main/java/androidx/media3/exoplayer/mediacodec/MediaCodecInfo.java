@@ -943,7 +943,7 @@ public final class MediaCodecInfo {
     return manufacturer.equals("xiaomi")
         || manufacturer.equals("oppo")
         || manufacturer.equals("motorola")
-        || manufacturer.equals("realmi")
+        || manufacturer.equals("realme")
         || manufacturer.equals("lenovo");
   }
 }
