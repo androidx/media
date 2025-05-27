@@ -94,6 +94,7 @@ import java.text.SimpleDateFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Set;
 import java.util.TimeZone;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -728,15 +729,18 @@ public final class DashMediaSource extends BaseMediaSource {
 
     synchronized (manifestUriLock) {
       // Checks whether replaceManifestUri(Uri) was called to manually replace the URI between the
-      // start and end of this load. If it was then isSameUriInstance evaluates to false, and we
+      // start and end of this load. If it was then useUriFromPreviousRequest evaluates to false, and we
       // prefer the manual replacement to one derived from the previous request.
+      // If CMCD is enabled in query parameter mode, then a new URI instance was created.
       @SuppressWarnings("ReferenceEquality")
-      boolean isSameUriInstance = loadable.dataSpec.uri == manifestUri;
-      if (isSameUriInstance) {
+      boolean useUriFromPreviousRequest = loadable.dataSpec.uri == manifestUri ||
+          (cmcdConfiguration != null && removeCmcdQueryParameter(loadable.dataSpec.uri).equals(manifestUri));
+
+      if (useUriFromPreviousRequest) {
         // Replace the manifest URI with one specified by a manifest Location element (if present),
         // or with the final (possibly redirected) URI. This follows the recommendation in
         // DASH-IF-IOP 4.3, section 3.2.15.3. See: https://dashif.org/docs/DASH-IF-IOP-v4.3.pdf.
-        manifestUri = manifest.location != null ? manifest.location : loadable.getUri();
+        manifestUri = manifest.location != null ? manifest.location : removeCmcdQueryParameter(loadable.getUri());
       }
     }
 
@@ -750,6 +754,23 @@ public final class DashMediaSource extends BaseMediaSource {
     } else {
       processManifest(true);
     }
+  }
+
+  private static Uri removeCmcdQueryParameter(Uri uri) {
+    Set<String> queryParameterNames = uri.getQueryParameterNames();
+    if(!queryParameterNames.contains(CmcdConfiguration.CMCD_QUERY_PARAMETER_KEY)) {
+      return uri;
+    }
+    Uri.Builder builder = uri.buildUpon();
+    builder.clearQuery();
+    for (String key : queryParameterNames) {
+      if (!key.equals(CmcdConfiguration.CMCD_QUERY_PARAMETER_KEY)) {
+        for (String value : uri.getQueryParameters(key)) {
+          builder.appendQueryParameter(key, value);
+        }
+      }
+    }
+    return builder.build();
   }
 
   /* package */ LoadErrorAction onManifestLoadError(
