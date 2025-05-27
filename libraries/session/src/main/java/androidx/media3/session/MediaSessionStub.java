@@ -44,6 +44,8 @@ import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.postOrRun;
 import static androidx.media3.common.util.Util.postOrRunWithCompletion;
 import static androidx.media3.common.util.Util.transformFutureAsync;
+import static androidx.media3.session.MediaSessionImpl.createPlayerCommandsForCustomErrorState;
+import static androidx.media3.session.MediaSessionImpl.createPlayerInfoForCustomPlaybackException;
 import static androidx.media3.session.SessionCommand.COMMAND_CODE_CUSTOM;
 import static androidx.media3.session.SessionCommand.COMMAND_CODE_LIBRARY_GET_CHILDREN;
 import static androidx.media3.session.SessionCommand.COMMAND_CODE_LIBRARY_GET_ITEM;
@@ -75,6 +77,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.MediaMetadata;
+import androidx.media3.common.PlaybackException;
 import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.Player;
 import androidx.media3.common.Rating;
@@ -519,7 +522,25 @@ import java.util.concurrent.ExecutionException;
             // It's needed because we cannot call synchronous calls between
             // session/controller.
             PlayerWrapper playerWrapper = sessionImpl.getPlayerWrapper();
+
+            Player.Commands controllerPlayerCommands;
             PlayerInfo playerInfo = playerWrapper.createPlayerInfoForBundling();
+            @Nullable
+            PlaybackException sessionPlaybackException = sessionImpl.getPlaybackException();
+            if (sessionPlaybackException == null) {
+              controllerPlayerCommands = connectionResult.availablePlayerCommands;
+            } else {
+              connectedControllersManager.setPlaybackException(
+                  controllerInfo,
+                  sessionPlaybackException,
+                  connectionResult.availablePlayerCommands);
+              playerInfo =
+                  createPlayerInfoForCustomPlaybackException(playerInfo, sessionPlaybackException);
+              controllerPlayerCommands =
+                  checkNotNull(
+                      createPlayerCommandsForCustomErrorState(
+                          connectionResult.availablePlayerCommands));
+            }
             playerInfo = generateAndCacheUniqueTrackGroupIds(playerInfo);
             Token platformToken =
                 (Token) sessionImpl.getSessionCompat().getSessionToken().getToken();
@@ -539,7 +560,7 @@ import java.util.concurrent.ExecutionException;
                         : sessionImpl.getMediaButtonPreferences(),
                     sessionImpl.getCommandButtonsForMediaItems(),
                     connectionResult.availableSessionCommands,
-                    connectionResult.availablePlayerCommands,
+                    controllerPlayerCommands,
                     playerWrapper.getAvailableCommands(),
                     sessionImpl.getToken().getExtras(),
                     connectionResult.sessionExtras != null

@@ -153,6 +153,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   private ImmutableList<CommandButton> customLayout;
   private ImmutableList<CommandButton> mediaButtonPreferences;
   private Bundle sessionExtras;
+  @Nullable private PlaybackException playbackException;
 
   @SuppressWarnings("argument.type.incompatible") // Using this in System.identityHashCode
   public MediaSessionImpl(
@@ -588,6 +589,9 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   }
 
   public void setPlaybackException(@Nullable PlaybackException playbackException) {
+    // Do not check for equality and return as a no-op if equal. Some controller may have a
+    // different exception set individually that we want to override.
+    this.playbackException = playbackException;
     ImmutableList<ControllerInfo> connectedControllers =
         sessionStub.getConnectedControllersManager().getConnectedControllers();
     for (int i = 0; i < connectedControllers.size(); i++) {
@@ -596,7 +600,12 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   }
 
   @Nullable
-  private static Player.Commands createPlayerCommandsForCustomErrorState(
+  public PlaybackException getPlaybackException() {
+    return playbackException;
+  }
+
+  @Nullable
+  /* package */ static Player.Commands createPlayerCommandsForCustomErrorState(
       @Nullable Player.Commands playerCommandsBeforeException) {
     if (playerCommandsBeforeException == null) {
       // This may happen when the controller is already disconnected.
@@ -623,6 +632,9 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     }
     if (playerCommandsBeforeException.contains(Player.COMMAND_GET_TRACKS)) {
       commandsDuringErrorState.add(Player.COMMAND_GET_TRACKS);
+    }
+    if (playerCommandsBeforeException.contains(Player.COMMAND_RELEASE)) {
+      commandsDuringErrorState.add(Player.COMMAND_RELEASE);
     }
     return commandsDuringErrorState.build();
   }
@@ -774,7 +786,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     }
   }
 
-  private static PlayerInfo createPlayerInfoForCustomPlaybackException(
+  /* package */ static PlayerInfo createPlayerInfoForCustomPlaybackException(
       PlayerInfo playerInfo, PlaybackException playbackException) {
     return playerInfo
         .copyWithPlaybackState(Player.STATE_IDLE, playbackException)

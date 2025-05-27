@@ -1980,6 +1980,38 @@ public class MediaControllerTest {
   }
 
   @Test
+  public void isConnected_duringSessionInErrorState_hasErrorAndIdleState() throws Exception {
+    PlaybackException sessionPlaybackException =
+        new PlaybackException(
+            "session error",
+            /* cause= */ null,
+            PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED);
+    remoteSession.getMockPlayer().notifyPlaybackStateChanged(Player.STATE_READY);
+    remoteSession.setPlaybackException(/* controllerKey= */ null, sessionPlaybackException);
+    AtomicInteger playbackStateAfterConnection = new AtomicInteger();
+    AtomicReference<PlaybackException> playerErrorAfterConnection = new AtomicReference<>();
+    AtomicReference<Player.Commands> availableCommandsAfterConnection = new AtomicReference<>();
+    MediaController controller = controllerTestRule.createController(remoteSession.getToken());
+
+    threadTestRule
+        .getHandler()
+        .postAndSync(
+            () -> {
+              playbackStateAfterConnection.set(controller.getPlaybackState());
+              playerErrorAfterConnection.set(controller.getPlayerError());
+              availableCommandsAfterConnection.set(controller.getAvailableCommands());
+            });
+
+    Player.Commands expectedCommandsInErrorState =
+        MediaSessionImpl.createPlayerCommandsForCustomErrorState(
+            new Player.Commands.Builder().addAllCommands().build());
+    assertThat(playbackStateAfterConnection.get()).isEqualTo(Player.STATE_IDLE);
+    assertThat(TestUtils.equals(playerErrorAfterConnection.get(), sessionPlaybackException))
+        .isTrue();
+    assertThat(availableCommandsAfterConnection.get()).isEqualTo(expectedCommandsInErrorState);
+  }
+
+  @Test
   public void close_twice() throws Exception {
     MediaController controller = controllerTestRule.createController(remoteSession.getToken());
     threadTestRule.getHandler().postAndSync(controller::release);
