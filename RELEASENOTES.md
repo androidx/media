@@ -75,6 +75,10 @@
         HTTP 302 response
         ([#2398](https://github.com/androidx/media/issues/2398)).
 *   Decoder extensions (FFmpeg, VP9, AV1, etc.):
+    *   Fix bug where
+        `DefaultTrackSelector.setAllowInvalidateSelectionsOnRendererCapabilitiesChange`
+        has no effect for audio decoder extensions
+        ([#2258](https://github.com/androidx/media/issues/2258)).
 *   MIDI extension:
 *   Leanback extension:
 *   Cast extension:

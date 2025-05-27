@@ -940,6 +940,11 @@ public abstract class DecoderAudioRenderer<
     public void onAudioSessionIdChanged(int audioSessionId) {
       eventDispatcher.audioSessionIdChanged(audioSessionId);
     }
+
+    @Override
+    public void onAudioCapabilitiesChanged() {
+      DecoderAudioRenderer.this.onRendererCapabilitiesChanged();
+    }
   }
 
   @RequiresApi(23)
