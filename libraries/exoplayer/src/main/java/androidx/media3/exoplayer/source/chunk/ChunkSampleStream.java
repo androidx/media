@@ -747,9 +747,13 @@ public class ChunkSampleStream<T extends ChunkSource>
       // No data beyond new duration that needs to be clipped.
       return;
     }
-    primarySampleQueue.discardUpstreamFrom(clippedDurationUs);
+    long minDiscardPositionUs =
+        max(clippedDurationUs, primarySampleQueue.getLargestReadTimestampUs() + 1);
+    primarySampleQueue.discardUpstreamFrom(minDiscardPositionUs);
     for (SampleQueue embeddedSampleQueue : embeddedSampleQueues) {
-      embeddedSampleQueue.discardUpstreamFrom(clippedDurationUs);
+      minDiscardPositionUs =
+          max(clippedDurationUs, embeddedSampleQueue.getLargestReadTimestampUs() + 1);
+      embeddedSampleQueue.discardUpstreamFrom(minDiscardPositionUs);
     }
     mediaSourceEventDispatcher.upstreamDiscarded(
         primaryTrackType, clippedDurationUs, largestQueuedTimestampUs);

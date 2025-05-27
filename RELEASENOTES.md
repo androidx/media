@@ -65,6 +65,10 @@
     *   Support updating interstitials with the same ID
         ([#2427](https://github.com/androidx/media/pull/2427)).
 *   DASH extension:
+    *   Fix bug where shortening a DASH period duration can throw an exception
+        when samples beyond the new duration have already been read by the
+        rendering pipeline
+        ([#2440](https://github.com/androidx/media/issues/2440)).
 *   Smooth Streaming extension:
 *   RTSP extension:
     *   Fix `RtspClient` to use the location uri as provided when processing an
