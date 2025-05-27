@@ -939,6 +939,8 @@ public final class MediaCodecInfo {
 
   /** Returns whether the device is known to have issues with the detached surface mode. */
   private static boolean needsDetachedSurfaceUnsupportedWorkaround() {
-    return Build.MANUFACTURER.equals("Xiaomi") || Build.MANUFACTURER.equals("OPPO");
+    return Build.MANUFACTURER.equals("Xiaomi")
+        || Build.MANUFACTURER.equals("OPPO")
+        || Build.MANUFACTURER.equals("realme");
   }
 }

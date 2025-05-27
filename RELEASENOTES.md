@@ -32,6 +32,8 @@
 *   Video:
     *   Improve smooth video frame release at startup when audio samples don't
         start at exactly the requested position.
+    *   Extend detached surface workaround to "realme" devices
+        ([#2059](https://github.com/androidx/media/issues/2059)).
 *   Text:
 *   Metadata:
 *   Image:
