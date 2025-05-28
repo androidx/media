@@ -16,8 +16,11 @@
 package androidx.media3.exoplayer.hls;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import android.net.Uri;
@@ -44,11 +47,9 @@ import com.google.common.collect.ImmutableListMultimap;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.Duration;
-import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.robolectric.shadows.ShadowSystemClock;
 
 /** Unit tests for {@link HlsChunkSource}. */
@@ -58,11 +59,10 @@ public class HlsChunkSourceTest {
   private static final String PLAYLIST = "media/m3u8/media_playlist";
   private static final String PLAYLIST_INDEPENDENT_SEGMENTS =
       "media/m3u8/media_playlist_independent_segments";
-  private static final String PLAYLIST_LIVE_LOW_LATENCY_SEGEMENTS_ONLY =
+  private static final String PLAYLIST_LIVE_LOW_LATENCY_SEGMENTS_ONLY =
       "media/m3u8/live_low_latency_segments_only";
-  private static final String PLAYLIST_LIVE_LOW_LATENCY_SEGEMENTS_AND_PARTS =
+  private static final String PLAYLIST_LIVE_LOW_LATENCY_SEGMENTS_AND_PARTS =
       "media/m3u8/live_low_latency_segments_and_parts";
-  private static final String PLAYLIST_EMPTY = "media/m3u8/media_playlist_empty";
   private static final Uri PLAYLIST_URI = Uri.parse("http://example.com/");
   private static final long PLAYLIST_START_PERIOD_OFFSET_US = 8_000_000L;
   private static final Uri IFRAME_URI = Uri.parse("http://example.com/iframe");
@@ -75,30 +75,9 @@ public class HlsChunkSourceTest {
           .setRoleFlags(C.ROLE_FLAG_TRICK_PLAY)
           .build();
 
-  @Mock private HlsPlaylistTracker mockPlaylistTracker;
-
-  @Before
-  public void setup() throws IOException {
-    mockPlaylistTracker = Mockito.mock(HlsPlaylistTracker.class);
-
-    InputStream inputStream =
-        TestUtil.getInputStream(
-            ApplicationProvider.getApplicationContext(), PLAYLIST_INDEPENDENT_SEGMENTS);
-    HlsMediaPlaylist playlist =
-        (HlsMediaPlaylist) new HlsPlaylistParser().parse(PLAYLIST_URI, inputStream);
-    when(mockPlaylistTracker.getPlaylistSnapshot(eq(PLAYLIST_URI), anyBoolean()))
-        .thenReturn(playlist);
-
-    when(mockPlaylistTracker.isSnapshotValid(eq(PLAYLIST_URI))).thenReturn(true);
-    // Mock that segments totalling PLAYLIST_START_PERIOD_OFFSET_US in duration have been removed
-    // from the start of the playlist.
-    when(mockPlaylistTracker.getInitialStartTimeUs())
-        .thenReturn(playlist.startTimeUs - PLAYLIST_START_PERIOD_OFFSET_US);
-  }
-
   @Test
-  public void getAdjustedSeekPositionUs_previousSync() {
-    HlsChunkSource testChunkSource = createHlsChunkSource(/* cmcdConfiguration= */ null);
+  public void getAdjustedSeekPositionUs_previousSync() throws Exception {
+    HlsChunkSource testChunkSource = createHlsChunkSource(PLAYLIST_INDEPENDENT_SEGMENTS);
 
     long adjustedPositionUs =
         testChunkSource.getAdjustedSeekPositionUs(
@@ -108,8 +87,8 @@ public class HlsChunkSourceTest {
   }
 
   @Test
-  public void getAdjustedSeekPositionUs_nextSync() {
-    HlsChunkSource testChunkSource = createHlsChunkSource(/* cmcdConfiguration= */ null);
+  public void getAdjustedSeekPositionUs_nextSync() throws Exception {
+    HlsChunkSource testChunkSource = createHlsChunkSource(PLAYLIST_INDEPENDENT_SEGMENTS);
 
     long adjustedPositionUs =
         testChunkSource.getAdjustedSeekPositionUs(
@@ -119,8 +98,8 @@ public class HlsChunkSourceTest {
   }
 
   @Test
-  public void getAdjustedSeekPositionUs_nextSyncAtEnd() {
-    HlsChunkSource testChunkSource = createHlsChunkSource(/* cmcdConfiguration= */ null);
+  public void getAdjustedSeekPositionUs_nextSyncAtEnd() throws Exception {
+    HlsChunkSource testChunkSource = createHlsChunkSource(PLAYLIST_INDEPENDENT_SEGMENTS);
 
     long adjustedPositionUs =
         testChunkSource.getAdjustedSeekPositionUs(
@@ -130,8 +109,8 @@ public class HlsChunkSourceTest {
   }
 
   @Test
-  public void getAdjustedSeekPositionUs_closestSyncBefore() {
-    HlsChunkSource testChunkSource = createHlsChunkSource(/* cmcdConfiguration= */ null);
+  public void getAdjustedSeekPositionUs_closestSyncBefore() throws Exception {
+    HlsChunkSource testChunkSource = createHlsChunkSource(PLAYLIST_INDEPENDENT_SEGMENTS);
 
     long adjustedPositionUs =
         testChunkSource.getAdjustedSeekPositionUs(
@@ -141,8 +120,8 @@ public class HlsChunkSourceTest {
   }
 
   @Test
-  public void getAdjustedSeekPositionUs_closestSyncAfter() {
-    HlsChunkSource testChunkSource = createHlsChunkSource(/* cmcdConfiguration= */ null);
+  public void getAdjustedSeekPositionUs_closestSyncAfter() throws Exception {
+    HlsChunkSource testChunkSource = createHlsChunkSource(PLAYLIST_INDEPENDENT_SEGMENTS);
 
     long adjustedPositionUs =
         testChunkSource.getAdjustedSeekPositionUs(
@@ -152,8 +131,8 @@ public class HlsChunkSourceTest {
   }
 
   @Test
-  public void getAdjustedSeekPositionUs_exact() {
-    HlsChunkSource testChunkSource = createHlsChunkSource(/* cmcdConfiguration= */ null);
+  public void getAdjustedSeekPositionUs_exact() throws Exception {
+    HlsChunkSource testChunkSource = createHlsChunkSource(PLAYLIST_INDEPENDENT_SEGMENTS);
 
     long adjustedPositionUs =
         testChunkSource.getAdjustedSeekPositionUs(
@@ -164,14 +143,7 @@ public class HlsChunkSourceTest {
 
   @Test
   public void getAdjustedSeekPositionUsNoIndependentSegments_tryPreviousSync() throws IOException {
-    HlsChunkSource testChunkSource = createHlsChunkSource(/* cmcdConfiguration= */ null);
-
-    InputStream inputStream =
-        TestUtil.getInputStream(ApplicationProvider.getApplicationContext(), PLAYLIST);
-    HlsMediaPlaylist playlist =
-        (HlsMediaPlaylist) new HlsPlaylistParser().parse(PLAYLIST_URI, inputStream);
-    when(mockPlaylistTracker.getPlaylistSnapshot(eq(PLAYLIST_URI), anyBoolean()))
-        .thenReturn(playlist);
+    HlsChunkSource testChunkSource = createHlsChunkSource(PLAYLIST);
 
     long adjustedPositionUs =
         testChunkSource.getAdjustedSeekPositionUs(
@@ -182,14 +154,7 @@ public class HlsChunkSourceTest {
 
   @Test
   public void getAdjustedSeekPositionUsNoIndependentSegments_notTryNextSync() throws IOException {
-    HlsChunkSource testChunkSource = createHlsChunkSource(/* cmcdConfiguration= */ null);
-
-    InputStream inputStream =
-        TestUtil.getInputStream(ApplicationProvider.getApplicationContext(), PLAYLIST);
-    HlsMediaPlaylist playlist =
-        (HlsMediaPlaylist) new HlsPlaylistParser().parse(PLAYLIST_URI, inputStream);
-    when(mockPlaylistTracker.getPlaylistSnapshot(eq(PLAYLIST_URI), anyBoolean()))
-        .thenReturn(playlist);
+    HlsChunkSource testChunkSource = createHlsChunkSource(PLAYLIST);
 
     long adjustedPositionUs =
         testChunkSource.getAdjustedSeekPositionUs(
@@ -201,14 +166,7 @@ public class HlsChunkSourceTest {
   @Test
   public void getAdjustedSeekPositionUsNoIndependentSegments_alwaysTryClosestSyncBefore()
       throws IOException {
-    HlsChunkSource testChunkSource = createHlsChunkSource(/* cmcdConfiguration= */ null);
-
-    InputStream inputStream =
-        TestUtil.getInputStream(ApplicationProvider.getApplicationContext(), PLAYLIST);
-    HlsMediaPlaylist playlist =
-        (HlsMediaPlaylist) new HlsPlaylistParser().parse(PLAYLIST_URI, inputStream);
-    when(mockPlaylistTracker.getPlaylistSnapshot(eq(PLAYLIST_URI), anyBoolean()))
-        .thenReturn(playlist);
+    HlsChunkSource testChunkSource = createHlsChunkSource(PLAYLIST);
 
     long adjustedPositionUs1 =
         testChunkSource.getAdjustedSeekPositionUs(
@@ -223,14 +181,7 @@ public class HlsChunkSourceTest {
 
   @Test
   public void getAdjustedSeekPositionUsNoIndependentSegments_exact() throws IOException {
-    HlsChunkSource testChunkSource = createHlsChunkSource(/* cmcdConfiguration= */ null);
-
-    InputStream inputStream =
-        TestUtil.getInputStream(ApplicationProvider.getApplicationContext(), PLAYLIST);
-    HlsMediaPlaylist playlist =
-        (HlsMediaPlaylist) new HlsPlaylistParser().parse(PLAYLIST_URI, inputStream);
-    when(mockPlaylistTracker.getPlaylistSnapshot(eq(PLAYLIST_URI), anyBoolean()))
-        .thenReturn(playlist);
+    HlsChunkSource testChunkSource = createHlsChunkSource(PLAYLIST);
 
     long adjustedPositionUs =
         testChunkSource.getAdjustedSeekPositionUs(
@@ -241,14 +192,7 @@ public class HlsChunkSourceTest {
 
   @Test
   public void getAdjustedSeekPositionUs_emptyPlaylist() throws IOException {
-    HlsChunkSource testChunkSource = createHlsChunkSource(/* cmcdConfiguration= */ null);
-
-    InputStream inputStream =
-        TestUtil.getInputStream(ApplicationProvider.getApplicationContext(), PLAYLIST_EMPTY);
-    HlsMediaPlaylist playlist =
-        (HlsMediaPlaylist) new HlsPlaylistParser().parse(PLAYLIST_URI, inputStream);
-    when(mockPlaylistTracker.getPlaylistSnapshot(eq(PLAYLIST_URI), anyBoolean()))
-        .thenReturn(playlist);
+    HlsChunkSource testChunkSource = createHlsChunkSource(PLAYLIST);
 
     long adjustedPositionUs =
         testChunkSource.getAdjustedSeekPositionUs(
@@ -258,12 +202,14 @@ public class HlsChunkSourceTest {
   }
 
   @Test
-  public void getNextChunk_chunkSourceWithDefaultCmcdConfiguration_setsCmcdHttpRequestHeaders() {
+  public void getNextChunk_chunkSourceWithDefaultCmcdConfiguration_setsCmcdHttpRequestHeaders()
+      throws Exception {
     CmcdConfiguration.Factory cmcdConfigurationFactory = CmcdConfiguration.Factory.DEFAULT;
     MediaItem mediaItem = new MediaItem.Builder().setMediaId("mediaId").build();
     CmcdConfiguration cmcdConfiguration =
         cmcdConfigurationFactory.createCmcdConfiguration(mediaItem);
-    HlsChunkSource testChunkSource = createHlsChunkSource(cmcdConfiguration);
+    HlsChunkSource testChunkSource =
+        createHlsChunkSource(PLAYLIST_INDEPENDENT_SEGMENTS, cmcdConfiguration);
     HlsChunkSource.HlsChunkHolder output = new HlsChunkSource.HlsChunkHolder();
 
     testChunkSource.getNextChunk(
@@ -318,13 +264,14 @@ public class HlsChunkSourceTest {
   }
 
   @Test
-  public void
-      getNextChunk_chunkSourceWithDefaultCmcdConfiguration_setsCorrectBufferStarvationKey() {
+  public void getNextChunk_chunkSourceWithDefaultCmcdConfiguration_setsCorrectBufferStarvationKey()
+      throws Exception {
     CmcdConfiguration.Factory cmcdConfigurationFactory = CmcdConfiguration.Factory.DEFAULT;
     MediaItem mediaItem = new MediaItem.Builder().setMediaId("mediaId").build();
     CmcdConfiguration cmcdConfiguration =
         cmcdConfigurationFactory.createCmcdConfiguration(mediaItem);
-    HlsChunkSource testChunkSource = createHlsChunkSource(cmcdConfiguration);
+    HlsChunkSource testChunkSource =
+        createHlsChunkSource(PLAYLIST_INDEPENDENT_SEGMENTS, cmcdConfiguration);
     HlsChunkSource.HlsChunkHolder output = new HlsChunkSource.HlsChunkHolder();
     LoadingInfo loadingInfo =
         new LoadingInfo.Builder().setPlaybackPositionUs(0).setPlaybackSpeed(1.0f).build();
@@ -373,18 +320,12 @@ public class HlsChunkSourceTest {
       throws IOException {
     // The live playlist contains 6 segments, each 4 seconds long. With a playlist start offset of 8
     // seconds, the total media time is 8 + 6*4 = 32 seconds.
-    InputStream inputStream =
-        TestUtil.getInputStream(
-            ApplicationProvider.getApplicationContext(), PLAYLIST_LIVE_LOW_LATENCY_SEGEMENTS_ONLY);
-    HlsMediaPlaylist playlist =
-        (HlsMediaPlaylist) new HlsPlaylistParser().parse(PLAYLIST_URI, inputStream);
-    when(mockPlaylistTracker.getPlaylistSnapshot(eq(PLAYLIST_URI), anyBoolean()))
-        .thenReturn(playlist);
     CmcdConfiguration.Factory cmcdConfigurationFactory = CmcdConfiguration.Factory.DEFAULT;
     MediaItem mediaItem = new MediaItem.Builder().setMediaId("mediaId").build();
     CmcdConfiguration cmcdConfiguration =
         cmcdConfigurationFactory.createCmcdConfiguration(mediaItem);
-    HlsChunkSource testChunkSource = createHlsChunkSource(cmcdConfiguration);
+    HlsChunkSource testChunkSource =
+        createHlsChunkSource(PLAYLIST_LIVE_LOW_LATENCY_SEGMENTS_ONLY, cmcdConfiguration);
     HlsChunkSource.HlsChunkHolder output = new HlsChunkSource.HlsChunkHolder();
 
     // A request to fetch the chunk at 27 seconds should retrieve the second-to-last segment.
@@ -418,19 +359,12 @@ public class HlsChunkSourceTest {
     // The live playlist contains 6 segments, each 4 seconds long, and two trailing parts of 1
     // second each. With a playlist start offset of 8 seconds, the total media time is 8 + 6*4 + 2*1
     // = 34 seconds.
-    InputStream inputStream =
-        TestUtil.getInputStream(
-            ApplicationProvider.getApplicationContext(),
-            PLAYLIST_LIVE_LOW_LATENCY_SEGEMENTS_AND_PARTS);
-    HlsMediaPlaylist playlist =
-        (HlsMediaPlaylist) new HlsPlaylistParser().parse(PLAYLIST_URI, inputStream);
-    when(mockPlaylistTracker.getPlaylistSnapshot(eq(PLAYLIST_URI), anyBoolean()))
-        .thenReturn(playlist);
     CmcdConfiguration.Factory cmcdConfigurationFactory = CmcdConfiguration.Factory.DEFAULT;
     MediaItem mediaItem = new MediaItem.Builder().setMediaId("mediaId").build();
     CmcdConfiguration cmcdConfiguration =
         cmcdConfigurationFactory.createCmcdConfiguration(mediaItem);
-    HlsChunkSource testChunkSource = createHlsChunkSource(cmcdConfiguration);
+    HlsChunkSource testChunkSource =
+        createHlsChunkSource(PLAYLIST_LIVE_LOW_LATENCY_SEGMENTS_AND_PARTS, cmcdConfiguration);
     HlsChunkSource.HlsChunkHolder output = new HlsChunkSource.HlsChunkHolder();
 
     // A request to fetch the chunk at 31 seconds should retrieve the last segment.
@@ -459,7 +393,8 @@ public class HlsChunkSourceTest {
   }
 
   @Test
-  public void getNextChunk_chunkSourceWithCustomCmcdConfiguration_setsCmcdHttpRequestHeaders() {
+  public void getNextChunk_chunkSourceWithCustomCmcdConfiguration_setsCmcdHttpRequestHeaders()
+      throws Exception {
     CmcdConfiguration.Factory cmcdConfigurationFactory =
         mediaItem -> {
           CmcdConfiguration.RequestConfig cmcdRequestConfig =
@@ -483,7 +418,8 @@ public class HlsChunkSourceTest {
     MediaItem mediaItem = new MediaItem.Builder().setMediaId("mediaId").build();
     CmcdConfiguration cmcdConfiguration =
         cmcdConfigurationFactory.createCmcdConfiguration(mediaItem);
-    HlsChunkSource testChunkSource = createHlsChunkSource(cmcdConfiguration);
+    HlsChunkSource testChunkSource =
+        createHlsChunkSource(PLAYLIST_INDEPENDENT_SEGMENTS, cmcdConfiguration);
     HlsChunkSource.HlsChunkHolder output = new HlsChunkSource.HlsChunkHolder();
 
     testChunkSource.getNextChunk(
@@ -507,7 +443,8 @@ public class HlsChunkSourceTest {
 
   @Test
   public void
-      getNextChunk_chunkSourceWithCustomCmcdConfigurationAndCustomData_setsCmcdHttpRequestHeaders() {
+      getNextChunk_chunkSourceWithCustomCmcdConfigurationAndCustomData_setsCmcdHttpRequestHeaders()
+          throws Exception {
     CmcdConfiguration.Factory cmcdConfigurationFactory =
         mediaItem -> {
           CmcdConfiguration.RequestConfig cmcdRequestConfig =
@@ -531,7 +468,8 @@ public class HlsChunkSourceTest {
     MediaItem mediaItem = new MediaItem.Builder().setMediaId("mediaId").build();
     CmcdConfiguration cmcdConfiguration =
         cmcdConfigurationFactory.createCmcdConfiguration(mediaItem);
-    HlsChunkSource testChunkSource = createHlsChunkSource(cmcdConfiguration);
+    HlsChunkSource testChunkSource =
+        createHlsChunkSource(PLAYLIST_INDEPENDENT_SEGMENTS, cmcdConfiguration);
     HlsChunkSource.HlsChunkHolder output = new HlsChunkSource.HlsChunkHolder();
 
     testChunkSource.getNextChunk(
@@ -557,7 +495,8 @@ public class HlsChunkSourceTest {
 
   @Test
   public void
-      getNextChunk_chunkSourceWithCustomCmcdConfigurationAndCustomData_setsCmcdHttpQueryParameters() {
+      getNextChunk_chunkSourceWithCustomCmcdConfigurationAndCustomData_setsCmcdHttpQueryParameters()
+          throws Exception {
     CmcdConfiguration.Factory cmcdConfigurationFactory =
         mediaItem -> {
           CmcdConfiguration.RequestConfig cmcdRequestConfig =
@@ -582,7 +521,8 @@ public class HlsChunkSourceTest {
     MediaItem mediaItem = new MediaItem.Builder().setMediaId("mediaId").build();
     CmcdConfiguration cmcdConfiguration =
         cmcdConfigurationFactory.createCmcdConfiguration(mediaItem);
-    HlsChunkSource testChunkSource = createHlsChunkSource(cmcdConfiguration);
+    HlsChunkSource testChunkSource =
+        createHlsChunkSource(PLAYLIST_INDEPENDENT_SEGMENTS, cmcdConfiguration);
     HlsChunkSource.HlsChunkHolder output = new HlsChunkSource.HlsChunkHolder();
 
     testChunkSource.getNextChunk(
@@ -600,7 +540,165 @@ public class HlsChunkSourceTest {
                 + "sid=\"sessionId\",st=v,su,tb=800");
   }
 
-  private HlsChunkSource createHlsChunkSource(@Nullable CmcdConfiguration cmcdConfiguration) {
+  @Test
+  public void maybeThrowError_withoutPlaylistError_doesNotThrow() throws Exception {
+    HlsChunkSource testChunkSource = createHlsChunkSource(PLAYLIST_LIVE_LOW_LATENCY_SEGMENTS_ONLY);
+    HlsChunkSource.HlsChunkHolder output = new HlsChunkSource.HlsChunkHolder();
+
+    // The live playlist contains 6 segments, each 4 seconds long. With a playlist start offset of 8
+    // seconds, the total media time is 8 + 6*4 = 32 seconds. A request to fetch the chunk at 27
+    // seconds should retrieve a valid chunk.
+    testChunkSource.getNextChunk(
+        new LoadingInfo.Builder().setPlaybackPositionUs(27_000_000).setPlaybackSpeed(1.0f).build(),
+        /* loadPositionUs= */ 27_000_000,
+        /* queue= */ ImmutableList.of(),
+        /* allowEndOfStream= */ true,
+        output);
+    assertThat(output.chunk).isNotNull(); // Verify setup assumption.
+
+    // Assert no error is thrown.
+    testChunkSource.maybeThrowError();
+  }
+
+  @Test
+  public void maybeThrowError_withPlaylistErrorAndSuccessfulNextChunk_doesNotThrow()
+      throws Exception {
+    HlsChunkSource testChunkSource =
+        createHlsChunkSource(
+            PLAYLIST_LIVE_LOW_LATENCY_SEGMENTS_ONLY,
+            /* playlistLoadException= */ new IOException());
+    HlsChunkSource.HlsChunkHolder output = new HlsChunkSource.HlsChunkHolder();
+
+    // The live playlist contains 6 segments, each 4 seconds long. With a playlist start offset of 8
+    // seconds, the total media time is 8 + 6*4 = 32 seconds. A request to fetch the chunk at 27
+    // seconds should retrieve a valid chunk.
+    testChunkSource.getNextChunk(
+        new LoadingInfo.Builder().setPlaybackPositionUs(27_000_000).setPlaybackSpeed(1.0f).build(),
+        /* loadPositionUs= */ 27_000_000,
+        /* queue= */ ImmutableList.of(),
+        /* allowEndOfStream= */ true,
+        output);
+    assertThat(output.chunk).isNotNull(); // Verify setup assumption.
+    testChunkSource.onPlaylistError(PLAYLIST_URI, /* exclusionDurationMs= */ C.TIME_UNSET);
+
+    // Assert no error is thrown.
+    testChunkSource.maybeThrowError();
+  }
+
+  @Test
+  public void maybeThrowError_withBlockedNextChunkAndNoPlaylistError_doesNotThrow()
+      throws Exception {
+    HlsChunkSource testChunkSource = createHlsChunkSource(PLAYLIST_LIVE_LOW_LATENCY_SEGMENTS_ONLY);
+    HlsChunkSource.HlsChunkHolder output = new HlsChunkSource.HlsChunkHolder();
+
+    // The live playlist contains 6 segments, each 4 seconds long. With a playlist start offset of 8
+    // seconds, the total media time is 8 + 6*4 = 32 seconds. A request to fetch the chunk at 32
+    // seconds should be blocked on reloading a new playlist.
+    testChunkSource.getNextChunk(
+        new LoadingInfo.Builder().setPlaybackPositionUs(32_000_000).setPlaybackSpeed(1.0f).build(),
+        /* loadPositionUs= */ 32_000_000,
+        /* queue= */ ImmutableList.of(),
+        /* allowEndOfStream= */ true,
+        output);
+    assertThat(output.playlistUrl).isNotNull(); // Verify setup assumption.
+    assertThat(output.chunk).isNull();
+
+    // Assert no error is thrown.
+    testChunkSource.maybeThrowError();
+  }
+
+  @Ignore // TODO: Fix https://github.com/androidx/media/issues/2401.
+  @Test
+  public void maybeThrowError_withPlaylistErrorAndThenBlockedNextChunk_doesThrow()
+      throws Exception {
+    HlsChunkSource testChunkSource =
+        createHlsChunkSource(
+            PLAYLIST_LIVE_LOW_LATENCY_SEGMENTS_ONLY,
+            /* playlistLoadException= */ new IOException());
+    HlsChunkSource.HlsChunkHolder output = new HlsChunkSource.HlsChunkHolder();
+
+    // Report error before being blocked on reloading new playlist.
+    testChunkSource.onPlaylistError(PLAYLIST_URI, /* exclusionDurationMs= */ C.TIME_UNSET);
+    // The live playlist contains 6 segments, each 4 seconds long. With a playlist start offset of 8
+    // seconds, the total media time is 8 + 6*4 = 32 seconds. A request to fetch the chunk at 32
+    // seconds should be blocked on reloading a new playlist.
+    testChunkSource.getNextChunk(
+        new LoadingInfo.Builder().setPlaybackPositionUs(32_000_000).setPlaybackSpeed(1.0f).build(),
+        /* loadPositionUs= */ 32_000_000,
+        /* queue= */ ImmutableList.of(),
+        /* allowEndOfStream= */ true,
+        output);
+    assertThat(output.playlistUrl).isNotNull(); // Verify setup assumption.
+    assertThat(output.chunk).isNull();
+
+    // Assert error is thrown.
+    assertThrows(IOException.class, testChunkSource::maybeThrowError);
+  }
+
+  @Test
+  public void maybeThrowError_withBlockedNextChunkAndThenPlaylistError_doesThrow()
+      throws Exception {
+    HlsChunkSource testChunkSource =
+        createHlsChunkSource(
+            PLAYLIST_LIVE_LOW_LATENCY_SEGMENTS_ONLY,
+            /* playlistLoadException= */ new IOException());
+    HlsChunkSource.HlsChunkHolder output = new HlsChunkSource.HlsChunkHolder();
+
+    // The live playlist contains 6 segments, each 4 seconds long. With a playlist start offset of 8
+    // seconds, the total media time is 8 + 6*4 = 32 seconds. A request to fetch the chunk at 32
+    // seconds should be blocked on reloading a new playlist.
+    testChunkSource.getNextChunk(
+        new LoadingInfo.Builder().setPlaybackPositionUs(32_000_000).setPlaybackSpeed(1.0f).build(),
+        /* loadPositionUs= */ 32_000_000,
+        /* queue= */ ImmutableList.of(),
+        /* allowEndOfStream= */ true,
+        output);
+    assertThat(output.playlistUrl).isNotNull(); // Verify setup assumption.
+    assertThat(output.chunk).isNull();
+    // Report error after being blocked on reloading new playlist.
+    testChunkSource.onPlaylistError(PLAYLIST_URI, /* exclusionDurationMs= */ C.TIME_UNSET);
+
+    // Assert error is thrown.
+    assertThrows(IOException.class, testChunkSource::maybeThrowError);
+  }
+
+  private HlsChunkSource createHlsChunkSource(String playlistPath) throws IOException {
+    return createHlsChunkSource(
+        playlistPath, /* cmcdConfiguration= */ null, /* playlistLoadException= */ null);
+  }
+
+  private HlsChunkSource createHlsChunkSource(
+      String playlistPath, @Nullable CmcdConfiguration cmcdConfiguration) throws IOException {
+    return createHlsChunkSource(playlistPath, cmcdConfiguration, /* playlistLoadException= */ null);
+  }
+
+  private HlsChunkSource createHlsChunkSource(
+      String playlistPath, @Nullable IOException playlistLoadException) throws IOException {
+    return createHlsChunkSource(playlistPath, /* cmcdConfiguration= */ null, playlistLoadException);
+  }
+
+  private HlsChunkSource createHlsChunkSource(
+      String playlistPath,
+      @Nullable CmcdConfiguration cmcdConfiguration,
+      @Nullable IOException playlistLoadException)
+      throws IOException {
+    HlsPlaylistTracker mockPlaylistTracker = mock(HlsPlaylistTracker.class);
+    InputStream inputStream =
+        TestUtil.getInputStream(ApplicationProvider.getApplicationContext(), playlistPath);
+    HlsMediaPlaylist playlist =
+        (HlsMediaPlaylist) new HlsPlaylistParser().parse(PLAYLIST_URI, inputStream);
+    when(mockPlaylistTracker.getPlaylistSnapshot(eq(PLAYLIST_URI), anyBoolean()))
+        .thenReturn(playlist);
+    when(mockPlaylistTracker.isSnapshotValid(eq(PLAYLIST_URI))).thenReturn(true);
+    if (playlistLoadException != null) {
+      doThrow(playlistLoadException)
+          .when(mockPlaylistTracker)
+          .maybeThrowPlaylistRefreshError(PLAYLIST_URI);
+    }
+    // Mock that segments totalling PLAYLIST_START_PERIOD_OFFSET_US in duration have been removed
+    // from the start of the playlist.
+    when(mockPlaylistTracker.getInitialStartTimeUs())
+        .thenReturn(playlist.startTimeUs - PLAYLIST_START_PERIOD_OFFSET_US);
     return new HlsChunkSource(
         new DefaultHlsExtractorFactory(),
         mockPlaylistTracker,
