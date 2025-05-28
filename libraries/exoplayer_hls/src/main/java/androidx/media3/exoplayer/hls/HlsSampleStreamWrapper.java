@@ -19,6 +19,7 @@ import static androidx.media3.exoplayer.hls.HlsChunkSource.CHUNK_PUBLICATION_STA
 import static androidx.media3.exoplayer.hls.HlsChunkSource.CHUNK_PUBLICATION_STATE_PUBLISHED;
 import static androidx.media3.exoplayer.hls.HlsChunkSource.CHUNK_PUBLICATION_STATE_REMOVED;
 import static androidx.media3.exoplayer.trackselection.TrackSelectionUtil.createFallbackOptions;
+import static com.google.common.collect.Iterables.getLast;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
@@ -73,7 +74,6 @@ import androidx.media3.extractor.metadata.emsg.EventMessage;
 import androidx.media3.extractor.metadata.emsg.EventMessageDecoder;
 import androidx.media3.extractor.metadata.id3.PrivFrame;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.common.primitives.Ints;
 import java.io.EOFException;
 import java.io.IOException;
@@ -544,7 +544,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     if (mediaChunks.isEmpty()) {
       return;
     }
-    HlsMediaChunk lastMediaChunk = Iterables.getLast(mediaChunks);
+    HlsMediaChunk lastMediaChunk = getLast(mediaChunks);
     @HlsChunkSource.ChunkPublicationState
     int chunkState = chunkSource.getChunkPublicationState(lastMediaChunk);
     if (chunkState == CHUNK_PUBLICATION_STATE_PUBLISHED) {
@@ -713,7 +713,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     int skipCount = sampleQueue.getSkipCount(positionUs, loadingFinished);
 
     // Ensure we don't skip into preload chunks until we can be sure they are permanently published.
-    @Nullable HlsMediaChunk lastChunk = Iterables.getLast(mediaChunks, /* defaultValue= */ null);
+    @Nullable HlsMediaChunk lastChunk = getLast(mediaChunks, /* defaultValue= */ null);
     if (lastChunk != null && !lastChunk.isPublished()) {
       int readIndex = sampleQueue.getReadIndex();
       int firstSampleIndex = lastChunk.getFirstSampleIndex(sampleQueueIndex);
@@ -811,6 +811,11 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     }
 
     if (isMediaChunk(loadable)) {
+      if (!chunkQueue.isEmpty() && !getLast(chunkQueue).isPublished()) {
+        // Switching chunks to a new playlist and the last chunk of the previous playlist has an
+        // unknown publication status, so we have to discard it.
+        discardUpstream(/* preferredQueueSize= */ chunkQueue.size() - 1);
+      }
       initMediaChunkLoad((HlsMediaChunk) loadable);
     }
     loadingChunk = loadable;
@@ -1004,7 +1009,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
         if (mediaChunks.isEmpty()) {
           pendingResetPositionUs = lastSeekPositionUs;
         } else {
-          Iterables.getLast(mediaChunks).invalidateExtractor();
+          getLast(mediaChunks).invalidateExtractor();
         }
       }
       loadErrorAction = Loader.DONT_RETRY;
@@ -1088,7 +1093,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     if (mediaChunks.isEmpty()) {
       pendingResetPositionUs = lastSeekPositionUs;
     } else {
-      Iterables.getLast(mediaChunks).invalidateExtractor();
+      getLast(mediaChunks).invalidateExtractor();
     }
     loadingFinished = false;
 
