@@ -704,6 +704,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
     Timeline oldTimeline = getCurrentTimeline();
     pendingOperationAcks++;
     Util.moveItems(mediaSourceHolderSnapshots, fromIndex, toIndex, newFromIndex);
+    shuffleOrder = shuffleOrder.cloneAndMove(fromIndex, toIndex, newFromIndex);
     Timeline newTimeline = createMaskingTimeline();
     PlaybackInfo newPlaybackInfo =
         maskTimelineAndPosition(
