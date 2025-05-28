@@ -804,7 +804,7 @@ import java.util.List;
   }
 
   public float getVolumeWithCommandCheck() {
-    return isCommandAvailable(COMMAND_GET_VOLUME) ? getVolume() : 0;
+    return isCommandAvailable(COMMAND_GET_VOLUME) ? getVolume() : 1;
   }
 
   @Override
