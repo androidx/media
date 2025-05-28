@@ -150,9 +150,11 @@ import androidx.media3.exoplayer.audio.AudioRendererEventListener;
 import androidx.media3.exoplayer.audio.AudioSink;
 import androidx.media3.exoplayer.audio.DefaultAudioSink;
 import androidx.media3.exoplayer.audio.DefaultAudioTrackProvider;
+import androidx.media3.exoplayer.audio.MediaCodecAudioRenderer;
 import androidx.media3.exoplayer.drm.DrmSessionEventListener;
 import androidx.media3.exoplayer.drm.DrmSessionManager;
 import androidx.media3.exoplayer.mediacodec.MediaCodecRenderer;
+import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.media3.exoplayer.metadata.MetadataOutput;
 import androidx.media3.exoplayer.source.ClippingMediaSource;
 import androidx.media3.exoplayer.source.ConcatenatingMediaSource;
@@ -11568,9 +11570,11 @@ public final class ExoPlayerTest {
   public void play_withDynamicSchedulingEnabled_usesRendererDurationSchedulingInterval()
       throws Exception {
     AtomicInteger renderCounter = new AtomicInteger();
-    FakeDurationToProgressRenderer fakeRenderer =
-        new FakeDurationToProgressRenderer(
-            C.TRACK_TYPE_AUDIO, /* durationToProgressUs= */ 150_000L, renderCounter);
+    ForwardingDurationToProgressRenderer fakeRenderer =
+        new ForwardingDurationToProgressRenderer(
+            new FakeRenderer(C.TRACK_TYPE_AUDIO),
+            /* durationToProgressUs= */ 150_000L,
+            renderCounter);
     FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     ExoPlayer player =
         new TestExoPlayerBuilder(context)
@@ -11596,9 +11600,11 @@ public final class ExoPlayerTest {
   @Test
   public void play_withDynamicSchedulingDisabled_usesDefaultSchedulingInterval() throws Exception {
     AtomicInteger renderCounter = new AtomicInteger();
-    FakeDurationToProgressRenderer fakeRenderer =
-        new FakeDurationToProgressRenderer(
-            C.TRACK_TYPE_AUDIO, /* durationToProgressUs= */ 150_000L, renderCounter);
+    ForwardingDurationToProgressRenderer fakeRenderer =
+        new ForwardingDurationToProgressRenderer(
+            new FakeRenderer(C.TRACK_TYPE_AUDIO),
+            /* durationToProgressUs= */ 150_000L,
+            renderCounter);
     FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     ExoPlayer player =
         new TestExoPlayerBuilder(context).setClock(clock).setRenderers(fakeRenderer).build();
@@ -11621,13 +11627,17 @@ public final class ExoPlayerTest {
   public void
       play_withDynamicSchedulingEnabledAndMultipleRenderers_usesMinimumDurationSchedulingInterval()
           throws Exception {
-    AtomicInteger renderCounter = new AtomicInteger();
-    FakeDurationToProgressRenderer fakeAudioRenderer =
-        new FakeDurationToProgressRenderer(
-            C.TRACK_TYPE_AUDIO, /* durationToProgressUs= */ 150_000L, renderCounter);
-    FakeDurationToProgressRenderer fakeVideoRenderer =
-        new FakeDurationToProgressRenderer(
-            C.TRACK_TYPE_VIDEO, /* durationToProgressUs= */ 30_000L, /* renderCounter= */ null);
+    AtomicInteger audioRenderCounter = new AtomicInteger();
+    ForwardingDurationToProgressRenderer fakeAudioRenderer =
+        new ForwardingDurationToProgressRenderer(
+            new FakeRenderer(C.TRACK_TYPE_AUDIO),
+            /* durationToProgressUs= */ 150_000L,
+            audioRenderCounter);
+    ForwardingDurationToProgressRenderer fakeVideoRenderer =
+        new ForwardingDurationToProgressRenderer(
+            new FakeRenderer(C.TRACK_TYPE_VIDEO),
+            /* durationToProgressUs= */ 30_000L,
+            /* renderCounter= */ new AtomicInteger());
     FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     ExoPlayer player =
         new TestExoPlayerBuilder(context)
@@ -11645,10 +11655,10 @@ public final class ExoPlayerTest {
     runUntilPlaybackState(player, Player.STATE_READY);
 
     advance(player).untilBackgroundThreadCondition(() -> clock.currentTimeMillis() >= 500);
-    renderCounter.set(0);
+    audioRenderCounter.set(0);
     advance(player).untilBackgroundThreadCondition(() -> clock.currentTimeMillis() >= 800);
 
-    assertThat(renderCounter.get()).isEqualTo(10);
+    assertThat(audioRenderCounter.get()).isEqualTo(10);
 
     player.release();
   }
@@ -11657,9 +11667,11 @@ public final class ExoPlayerTest {
   public void prepareOnly_withDynamicSchedulingEnabled_usesDefaultIdleSchedulingInterval()
       throws Exception {
     AtomicInteger renderCounter = new AtomicInteger();
-    FakeDurationToProgressRenderer fakeRenderer =
-        new FakeDurationToProgressRenderer(
-            C.TRACK_TYPE_AUDIO, /* durationToProgressUs= */ 150_000L, renderCounter);
+    ForwardingDurationToProgressRenderer fakeRenderer =
+        new ForwardingDurationToProgressRenderer(
+            new FakeRenderer(C.TRACK_TYPE_AUDIO),
+            /* durationToProgressUs= */ 150_000L,
+            renderCounter);
     FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     ExoPlayer player =
         new TestExoPlayerBuilder(context)
@@ -11685,15 +11697,17 @@ public final class ExoPlayerTest {
       throws Exception {
     AtomicInteger renderCounter = new AtomicInteger();
     AtomicBoolean allowStreamRead = new AtomicBoolean();
-    FakeDurationToProgressRenderer fakeRenderer =
-        new FakeDurationToProgressRenderer(
-            C.TRACK_TYPE_AUDIO, /* durationToProgressUs= */ 150_000L, renderCounter) {
+    ForwardingDurationToProgressRenderer fakeRenderer =
+        new ForwardingDurationToProgressRenderer(
+            new FakeRenderer(C.TRACK_TYPE_AUDIO),
+
+            /* durationToProgressUs= */ 150_000L,
+            renderCounter) {
           @Override
           public boolean isReady() {
             // Always return false so player will stay in a buffering state.
             return false;
           }
-          ;
         };
     FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     ExoPlayer player =
@@ -11716,6 +11730,59 @@ public final class ExoPlayerTest {
     advance(player).untilBackgroundThreadCondition(() -> clock.currentTimeMillis() >= 500);
 
     assertThat(renderCounter.get()).isEqualTo(30);
+
+    player.release();
+  }
+
+  @Test
+  @Config(minSdk = 31)
+  public void play_withDynamicSchedulingEnabled_wakesUpExoPlayerForWork() throws Exception {
+    AtomicInteger renderCounter = new AtomicInteger();
+    RenderersFactory renderersFactory =
+        new DefaultRenderersFactory(context) {
+          @Override
+          protected void buildAudioRenderers(
+              Context context,
+              @ExtensionRendererMode int extensionRendererMode,
+              MediaCodecSelector mediaCodecSelector,
+              boolean enableDecoderFallback,
+              AudioSink audioSink,
+              Handler eventHandler,
+              AudioRendererEventListener eventListener,
+              ArrayList<Renderer> out) {
+            MediaCodecAudioRenderer audioRenderer =
+                new MediaCodecAudioRenderer(
+                    context,
+                    getCodecAdapterFactory(),
+                    mediaCodecSelector,
+                    enableDecoderFallback,
+                    eventHandler,
+                    eventListener,
+                    audioSink);
+            out.add(
+                new ForwardingDurationToProgressRenderer(
+                    audioRenderer, /* durationToProgressUs= */ Long.MAX_VALUE, renderCounter));
+          }
+        };
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
+    ExoPlayer player =
+        new TestExoPlayerBuilder(context)
+            .setRenderersFactory(renderersFactory)
+            .setDynamicSchedulingEnabled(true)
+            .setClock(clock)
+            .build();
+    player.setMediaSource(
+        new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.AUDIO_FORMAT));
+    player.prepare();
+    player.play();
+    runUntilPlaybackState(player, Player.STATE_READY);
+    renderCounter.set(0);
+
+    TestPlayerRunHelper.advance(player)
+        .untilBackgroundThreadCondition(() -> clock.currentTimeMillis() >= 500L);
+
+    assertThat(renderCounter.get()).isNotEqualTo(0);
+    assertThat(renderCounter.get()).isLessThan(10);
 
     player.release();
   }
@@ -17154,17 +17221,16 @@ public final class ExoPlayerTest {
   }
 
   /**
-   * {@link FakeRenderer} that supports dynamic scheduling through its capability to return how much
-   * playback time must advance before additional renderer progress can be made.
+   * Forwarding renderer that supports dynamic scheduling through its capability to designate how
+   * much playback clock time must pass before additional renderer progress can be made.
    */
-  private static class FakeDurationToProgressRenderer extends FakeRenderer {
+  private static class ForwardingDurationToProgressRenderer extends ForwardingRenderer {
     private final long durationToProgressUs;
-    @Nullable private final AtomicInteger renderCounter;
+    private final AtomicInteger renderCounter;
 
-    public FakeDurationToProgressRenderer(
-        int trackType, long durationToProgressUs, @Nullable AtomicInteger renderCounter) {
-      super(trackType);
-
+    public ForwardingDurationToProgressRenderer(
+        Renderer renderer, long durationToProgressUs, AtomicInteger renderCounter) {
+      super(renderer);
       this.durationToProgressUs = durationToProgressUs;
       this.renderCounter = renderCounter;
     }
@@ -17177,9 +17243,7 @@ public final class ExoPlayerTest {
     @Override
     public void render(long positionUs, long elapsedRealtimeUs) throws ExoPlaybackException {
       super.render(positionUs, elapsedRealtimeUs);
-      if (renderCounter != null) {
-        renderCounter.getAndIncrement();
-      }
+      renderCounter.getAndIncrement();
     }
   }
 
