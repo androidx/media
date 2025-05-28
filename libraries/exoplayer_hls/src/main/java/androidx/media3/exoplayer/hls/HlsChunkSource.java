@@ -667,7 +667,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * @param playlistUrl The {@link Uri} of the playlist whose load encountered an error.
    * @param exclusionDurationMs The duration for which the playlist should be excluded. Or {@link
    *     C#TIME_UNSET} if the playlist should not be excluded.
-   * @return True if excluding did not encounter errors. False otherwise.
+   * @return Whether the playlist will be excluded from future loads.
    */
   public boolean onPlaylistError(Uri playlistUrl, long exclusionDurationMs) {
     int trackGroupIndex = C.INDEX_UNSET;
@@ -685,9 +685,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       return true;
     }
     seenExpectedPlaylistError |= playlistUrl.equals(expectedPlaylistUrl);
-    return exclusionDurationMs == C.TIME_UNSET
-        || (trackSelection.excludeTrack(trackSelectionIndex, exclusionDurationMs)
-            && playlistTracker.excludeMediaPlaylist(playlistUrl, exclusionDurationMs));
+    return exclusionDurationMs != C.TIME_UNSET
+        && trackSelection.excludeTrack(trackSelectionIndex, exclusionDurationMs)
+        && playlistTracker.excludeMediaPlaylist(playlistUrl, exclusionDurationMs);
   }
 
   /**

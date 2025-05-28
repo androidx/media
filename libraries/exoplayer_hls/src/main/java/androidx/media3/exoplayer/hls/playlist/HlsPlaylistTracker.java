@@ -81,7 +81,7 @@ public interface HlsPlaylistTracker {
      * @param url The loaded url that caused the error.
      * @param loadErrorInfo The load error info.
      * @param forceRetry Whether retry should be forced without considering exclusion.
-     * @return True if excluding did not encounter errors. False otherwise.
+     * @return Whether the playlist will be excluded from future loads.
      */
     boolean onPlaylistError(
         Uri url, LoadErrorHandlingPolicy.LoadErrorInfo loadErrorInfo, boolean forceRetry);
