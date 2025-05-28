@@ -1500,10 +1500,10 @@ import java.util.Objects;
   private void scheduleNextWork(long thisOperationStartTimeMs) {
     long wakeUpTimeIntervalMs =
         playbackInfo.playbackState == Player.STATE_READY
-                && (dynamicSchedulingEnabled || !shouldPlayWhenReady())
+                && (isDynamicSchedulingEnabled() || !shouldPlayWhenReady())
             ? READY_MAXIMUM_INTERVAL_MS
             : BUFFERING_MAXIMUM_INTERVAL_MS;
-    if (dynamicSchedulingEnabled && shouldPlayWhenReady()) {
+    if (isDynamicSchedulingEnabled() && shouldPlayWhenReady()) {
       for (RendererHolder rendererHolder : renderers) {
         wakeUpTimeIntervalMs =
             min(
@@ -3249,7 +3249,7 @@ import java.util.Objects;
 
           @Override
           public void onWakeup() {
-            if (dynamicSchedulingEnabled || offloadSchedulingEnabled) {
+            if (isDynamicSchedulingEnabled() || offloadSchedulingEnabled) {
               handler.sendEmptyMessage(MSG_DO_SOME_WORK);
             }
           }
@@ -3393,6 +3393,11 @@ import java.util.Objects;
       }
     }
     return false;
+  }
+
+  private boolean isDynamicSchedulingEnabled() {
+    return dynamicSchedulingEnabled
+        || (scrubbingModeEnabled && scrubbingModeParameters.shouldEnableDynamicScheduling);
   }
 
   private static PositionUpdateForPlaylistChange resolvePositionForPlaylistChange(

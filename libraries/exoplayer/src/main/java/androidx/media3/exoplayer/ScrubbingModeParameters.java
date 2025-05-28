@@ -52,11 +52,13 @@ public final class ScrubbingModeParameters {
     @Nullable private Double fractionalSeekToleranceAfter;
     private boolean shouldIncreaseCodecOperatingRate;
     private boolean isMediaCodecFlushEnabled;
+    private boolean shouldEnableDynamicScheduling;
 
     /** Creates an instance. */
     public Builder() {
       this.disabledTrackTypes = ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_METADATA);
       shouldIncreaseCodecOperatingRate = true;
+      shouldEnableDynamicScheduling = true;
     }
 
     private Builder(ScrubbingModeParameters scrubbingModeParameters) {
@@ -66,6 +68,7 @@ public final class ScrubbingModeParameters {
       this.shouldIncreaseCodecOperatingRate =
           scrubbingModeParameters.shouldIncreaseCodecOperatingRate;
       this.isMediaCodecFlushEnabled = scrubbingModeParameters.isMediaCodecFlushEnabled;
+      this.shouldEnableDynamicScheduling = scrubbingModeParameters.shouldEnableDynamicScheduling;
     }
 
     /**
@@ -134,6 +137,30 @@ public final class ScrubbingModeParameters {
     }
 
     /**
+     * Sets whether ExoPlayer's {@linkplain
+     * ExoPlayer.Builder#experimentalSetDynamicSchedulingEnabled(boolean) dynamic scheduling} should
+     * be enabled in scrubbing mode.
+     *
+     * <p>When used with {@link MediaCodec} in async mode, this can result in available output
+     * buffers being handled more quickly when seeking.
+     *
+     * <p>If dynamic scheduling is enabled for all playback in {@link ExoPlayer.Builder} (which may
+     * become the default in a future release), this method is a no-op (i.e. you cannot disable
+     * dynamic scheduling when scrubbing using this method).
+     *
+     * <p>Defaults to {@code true} (this may change in a future release).
+     *
+     * @param shouldEnableDynamicScheduling Whether dynamic scheduling should be enabled in
+     *     scrubbing mode.
+     * @return This builder for convenience.
+     */
+    @CanIgnoreReturnValue
+    public Builder setShouldEnableDynamicScheduling(boolean shouldEnableDynamicScheduling) {
+      this.shouldEnableDynamicScheduling = shouldEnableDynamicScheduling;
+      return this;
+    }
+
+    /**
      * Sets whether the decoder is flushed in scrubbing mode.
      *
      * <p>Setting this to {@code false} will disable flushing the decoder when a new seek starts
@@ -196,12 +223,20 @@ public final class ScrubbingModeParameters {
    */
   public final boolean isMediaCodecFlushEnabled;
 
+  /**
+   * Whether to enable ExoPlayer's {@linkplain
+   * ExoPlayer.Builder#experimentalSetDynamicSchedulingEnabled(boolean) dynamic scheduling} in
+   * scrubbing mode.
+   */
+  public final boolean shouldEnableDynamicScheduling;
+
   private ScrubbingModeParameters(Builder builder) {
     this.disabledTrackTypes = builder.disabledTrackTypes;
     this.fractionalSeekToleranceBefore = builder.fractionalSeekToleranceBefore;
     this.fractionalSeekToleranceAfter = builder.fractionalSeekToleranceAfter;
     this.shouldIncreaseCodecOperatingRate = builder.shouldIncreaseCodecOperatingRate;
     this.isMediaCodecFlushEnabled = builder.isMediaCodecFlushEnabled;
+    this.shouldEnableDynamicScheduling = builder.shouldEnableDynamicScheduling;
   }
 
   /** Returns a {@link Builder} initialized with the values from this instance. */
@@ -219,7 +254,8 @@ public final class ScrubbingModeParameters {
         && isMediaCodecFlushEnabled == that.isMediaCodecFlushEnabled
         && Objects.equals(fractionalSeekToleranceBefore, that.fractionalSeekToleranceBefore)
         && Objects.equals(fractionalSeekToleranceAfter, that.fractionalSeekToleranceAfter)
-        && shouldIncreaseCodecOperatingRate == that.shouldIncreaseCodecOperatingRate;
+        && shouldIncreaseCodecOperatingRate == that.shouldIncreaseCodecOperatingRate
+        && shouldEnableDynamicScheduling == that.shouldEnableDynamicScheduling;
   }
 
   @Override
@@ -229,6 +265,7 @@ public final class ScrubbingModeParameters {
         fractionalSeekToleranceBefore,
         fractionalSeekToleranceAfter,
         shouldIncreaseCodecOperatingRate,
-        isMediaCodecFlushEnabled);
+        isMediaCodecFlushEnabled,
+        shouldEnableDynamicScheduling);
   }
 }
