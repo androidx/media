@@ -362,6 +362,108 @@ public class DefaultVideoFrameProcessorTest {
   }
 
   @Test
+  public void
+      registerInputStream_withManualFrameRenderingAndPassthroughShader_configuresTheSecondStreamAfterRenderingAllFramesFromTheFirst()
+          throws Exception {
+    AtomicReference<Exception> videoFrameProcessingException = new AtomicReference<>();
+    AtomicLong firstStreamLastFrameAvailableTimeMs = new AtomicLong();
+    AtomicLong secondStreamConfigurationTimeMs = new AtomicLong();
+    ConditionVariable inputStreamRegisteredCondition = new ConditionVariable();
+    CountDownLatch frameProcessorEnded = new CountDownLatch(1);
+    defaultVideoFrameProcessor =
+        factory.create(
+            getApplicationContext(),
+            DebugViewProvider.NONE,
+            /* outputColorInfo= */ ColorInfo.SDR_BT709_LIMITED,
+            /* renderFramesAutomatically= */ false,
+            Util.newSingleThreadExecutor("DVFPTest"),
+            new VideoFrameProcessor.Listener() {
+
+              int outputFrameCount = 0;
+
+              @Override
+              public void onInputStreamRegistered(
+                  @VideoFrameProcessor.InputType int inputType,
+                  Format format,
+                  List<Effect> effects) {
+                inputStreamRegisteredCondition.open();
+              }
+
+              @Override
+              public void onOutputFrameAvailableForRendering(
+                  long presentationTimeUs, boolean isRedrawnFrame) {
+                outputFrameCount++;
+                if (outputFrameCount == 30) {
+                  firstStreamLastFrameAvailableTimeMs.set(SystemClock.DEFAULT.elapsedRealtime());
+                }
+                defaultVideoFrameProcessor.renderOutputFrame(
+                    /* renderTimeNs= */ SystemClock.DEFAULT.nanoTime());
+              }
+
+              @Override
+              public void onError(VideoFrameProcessingException exception) {
+                videoFrameProcessingException.set(exception);
+              }
+
+              @Override
+              public void onEnded() {
+                frameProcessorEnded.countDown();
+              }
+            });
+
+    Bitmap bitmap1 = readBitmapUnpremultipliedAlpha(ORIGINAL_PNG_ASSET_PATH);
+    // Needs a different bitmap as the bitmap is recycled after single use.
+    Bitmap bitmap2 = readBitmapUnpremultipliedAlpha(ORIGINAL_PNG_ASSET_PATH);
+
+    // First image
+    inputStreamRegisteredCondition.close();
+    defaultVideoFrameProcessor.registerInputStream(
+        VideoFrameProcessor.INPUT_TYPE_BITMAP,
+        new Format.Builder()
+            .setColorInfo(ColorInfo.SRGB_BT709_FULL)
+            .setWidth(bitmap1.getWidth())
+            .setHeight(bitmap1.getHeight())
+            .build(),
+        ImmutableList.of(
+            (GlEffect) (context, useHdr) -> new PassthroughShaderProgram(),
+            (GlEffect) (context, useHdr) -> new PassthroughShaderProgram(),
+            (GlEffect) (context, useHdr) -> new PassthroughShaderProgram()),
+        /* offsetToAddUs= */ 0);
+    inputStreamRegisteredCondition.block();
+    defaultVideoFrameProcessor.queueInputBitmap(
+        bitmap1, new ConstantRateTimestampIterator(C.MICROS_PER_SECOND, 30.f));
+
+    // Second image
+    inputStreamRegisteredCondition.close();
+    defaultVideoFrameProcessor.registerInputStream(
+        VideoFrameProcessor.INPUT_TYPE_BITMAP,
+        new Format.Builder()
+            .setColorInfo(ColorInfo.SRGB_BT709_FULL)
+            .setWidth(bitmap2.getWidth())
+            .setHeight(bitmap2.getHeight())
+            .build(),
+        ImmutableList.of(
+            (GlEffect)
+                (context, useHdr) -> {
+                  secondStreamConfigurationTimeMs.set(SystemClock.DEFAULT.elapsedRealtime());
+                  return new PassthroughShaderProgram();
+                }),
+        /* offsetToAddUs= */ 1_000_000_000L);
+    inputStreamRegisteredCondition.block();
+    defaultVideoFrameProcessor.queueInputBitmap(
+        bitmap2, new ConstantRateTimestampIterator(C.MICROS_PER_SECOND, 30.f));
+
+    defaultVideoFrameProcessor.signalEndOfInput();
+
+    if (!frameProcessorEnded.await(TEST_TIMEOUT_MS, MILLISECONDS)) {
+      throw new IllegalStateException("Test timeout", videoFrameProcessingException.get());
+    }
+
+    assertThat(secondStreamConfigurationTimeMs.get())
+        .isAtLeast(firstStreamLastFrameAvailableTimeMs.get());
+  }
+
+  @Test
   public void registerInputStreamWithAutomaticFrameRegistration_succeeds() throws Exception {
     CountDownLatch inputStreamRegisteredCountDownLatch = new CountDownLatch(1);
     ConditionVariable outputFrameAvailableConditionVariable = new ConditionVariable();
