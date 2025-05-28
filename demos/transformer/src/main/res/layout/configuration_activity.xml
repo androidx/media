@@ -282,6 +282,15 @@
             android:id="@+id/enable_mp4_edit_list_trimming"
             android:layout_gravity="end"/>
       </TableRow>
+      <TableRow
+          android:layout_weight="1">
+        <TextView
+            android:layout_gravity="center_vertical"
+            android:text="@string/enable_codecdb_lite" />
+        <CheckBox
+            android:id="@+id/enable_codecdb_lite"
+            android:layout_gravity="end"/>
+      </TableRow>
     </TableLayout>
   </androidx.core.widget.NestedScrollView>
   <Button

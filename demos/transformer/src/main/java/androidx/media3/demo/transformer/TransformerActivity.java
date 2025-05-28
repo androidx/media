@@ -443,6 +443,7 @@ public final class TransformerActivity extends AppCompatActivity {
     transformerBuilder.setEncoderFactory(
         new DefaultEncoderFactory.Builder(this.getApplicationContext())
             .setEnableFallback(bundle.getBoolean(ConfigurationActivity.ENABLE_FALLBACK))
+            .setEnableCodecDbLite(bundle.getBoolean(ConfigurationActivity.ENABLE_CODECDB_LITE))
             .setRequestedVideoEncoderSettings(videoEncoderSettings)
             .build());
 
