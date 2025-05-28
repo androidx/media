@@ -29,7 +29,6 @@ import androidx.media3.exoplayer.DecoderCounters;
 import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.Renderer;
-import androidx.media3.exoplayer.analytics.AnalyticsListener;
 import androidx.media3.exoplayer.audio.AudioRendererEventListener;
 import androidx.media3.exoplayer.mediacodec.MediaCodecAdapter;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
@@ -104,14 +103,6 @@ public class ParseAv1SampleDependenciesPlaybackTest {
         new ExoPlayer.Builder(applicationContext, renderersFactory)
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
             .build();
-    player.addAnalyticsListener(
-        new AnalyticsListener() {
-          @Override
-          public void onDroppedVideoFrames(EventTime eventTime, int droppedFrames, long elapsedMs) {
-            // Input buffers near the reset position should not be dropped.
-            assertThat(eventTime.currentPlaybackPositionMs).isAtLeast(200);
-          }
-        });
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
     player.setMediaItem(MediaItem.fromUri(TEST_MP4_URI));

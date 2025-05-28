@@ -156,25 +156,13 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   private static final long OFFSET_FROM_PERIOD_END_TO_TREAT_AS_LAST_US = 100_000L;
 
   /**
-   * The offset from {@link #getLastResetPositionUs()} in microseconds, before which input buffers
-   * are not allowed to be dropped.
-   *
-   * <p>This value must be greater than the pre-roll distance used by common audio codecs, such as
-   * 80ms used by Opus <a
-   * href="https://opus-codec.org/docs/opus_in_isobmff.html#4.3.6.2">Encapsulation of Opus in ISO
-   * Base Media File Format</a>
-   */
-  private static final long OFFSET_FROM_RESET_POSITION_TO_ALLOW_INPUT_BUFFER_DROPPING_US = 200_000L;
-
-  /**
    * The maximum number of consecutive dropped input buffers that allow discarding frame headers.
    *
    * <p>Discarding input buffers of type {@link ObuParser#OBU_FRAME_HEADER} speeds up decoding by
    * not showing already-decoded frames. This is less beneficial than discarding {@link
    * ObuParser#OBU_FRAME} which reduces the total number of decoded frames.
    *
-   * <p>Dropping too many consecutive input buffers reduces the update frequency of {@link
-   * #shouldDropDecoderInputBuffers}, and can harm user experience.
+   * <p>Dropping too many consecutive input buffers can harm user experience.
    */
   private static final int MAX_CONSECUTIVE_DROPPED_INPUT_BUFFERS_COUNT_TO_DISCARD_HEADER = 0;
 
@@ -194,6 +182,8 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
    * The earliest time threshold, in microseconds, after which decoder input buffers may be dropped.
    */
   private final long minEarlyUsToDropDecoderInput;
+
+  @Nullable private final VideoFrameReleaseEarlyTimeForecaster videoFrameReleaseEarlyTimeForecaster;
 
   private final PriorityQueue<Long> droppedDecoderInputBufferTimestamps;
   private final boolean enableMediaCodecBufferDecodeOnlyFlag;
@@ -232,7 +222,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   private long periodDurationUs;
   private boolean pendingVideoSinkInputStreamChange;
 
-  private boolean shouldDropDecoderInputBuffers;
   private int consecutiveDroppedInputBufferCount;
 
   /** A builder to create {@link MediaCodecVideoRenderer} instances. */
@@ -602,10 +591,14 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     av1SampleDependencyParser =
         builder.parseAv1SampleDependencies ? new Av1SampleDependencyParser() : null;
     droppedDecoderInputBufferTimestamps = new PriorityQueue<>();
-    minEarlyUsToDropDecoderInput =
-        builder.lateThresholdToDropDecoderInputUs != C.TIME_UNSET
-            ? -builder.lateThresholdToDropDecoderInputUs
-            : C.TIME_UNSET;
+    if (builder.lateThresholdToDropDecoderInputUs != C.TIME_UNSET) {
+      minEarlyUsToDropDecoderInput = -builder.lateThresholdToDropDecoderInputUs;
+      videoFrameReleaseEarlyTimeForecaster =
+          new VideoFrameReleaseEarlyTimeForecaster(/* playbackSpeed= */ 1f);
+    } else {
+      minEarlyUsToDropDecoderInput = C.TIME_UNSET;
+      videoFrameReleaseEarlyTimeForecaster = null;
+    }
     enableMediaCodecBufferDecodeOnlyFlag = builder.enableMediaCodecBufferDecodeOnlyFlag;
     scrubbingModeParameters = null;
   }
@@ -634,18 +627,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       // When using PlaybackVideoGraphWrapper, positionUs is shifted by the buffer timestamp
       // adjustment. Shift it back to the player position.
       positionUs -= getBufferTimestampAdjustmentUs();
-    }
-    if (minEarlyUsToDropDecoderInput != C.TIME_UNSET) {
-      // TODO: b/161996553 - Remove the isAwayFromLastResetPosition check when audio pre-rolling
-      // is implemented correctly. Audio codecs such as Opus require pre-roll samples to be decoded
-      // and discarded on a seek. Depending on the audio decoder, the positionUs may jump forward
-      // by the pre-roll duration. Do not drop more frames than necessary when this happens.
-      boolean isAwayFromLastResetPosition =
-          positionUs
-              > getLastResetPositionUs()
-                  + OFFSET_FROM_RESET_POSITION_TO_ALLOW_INPUT_BUFFER_DROPPING_US;
-      shouldDropDecoderInputBuffers =
-          isAwayFromLastResetPosition && earlyUs < minEarlyUsToDropDecoderInput;
     }
     return shouldDropBuffersToKeyframe(earlyUs, elapsedRealtimeUs, isLastFrame)
         && maybeDropBuffersToKeyframe(positionUs, treatDroppedBuffersAsSkipped);
@@ -1065,6 +1046,9 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     } else {
       videoFrameReleaseControl.onStarted();
     }
+    if (videoFrameReleaseEarlyTimeForecaster != null) {
+      videoFrameReleaseEarlyTimeForecaster.reset();
+    }
   }
 
   @Override
@@ -1329,7 +1313,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   protected void resetCodecStateForFlush() {
     super.resetCodecStateForFlush();
     droppedDecoderInputBufferTimestamps.clear();
-    shouldDropDecoderInputBuffers = false;
     buffersInCodecCount = 0;
     consecutiveDroppedInputBufferCount = 0;
     isFlushRequired = false;
@@ -1346,6 +1329,9 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       videoSink.setPlaybackSpeed(currentPlaybackSpeed);
     } else {
       videoFrameReleaseControl.setPlaybackSpeed(currentPlaybackSpeed);
+    }
+    if (videoFrameReleaseEarlyTimeForecaster != null) {
+      videoFrameReleaseEarlyTimeForecaster.setPlaybackSpeed(currentPlaybackSpeed);
     }
   }
 
@@ -1588,7 +1574,13 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       return false;
     }
     boolean shouldSkipDecoderInputBuffer = isBufferBeforeStartTime(buffer);
-    if (!shouldSkipDecoderInputBuffer && !shouldDropDecoderInputBuffers) {
+    boolean shouldDropDecoderInputBuffer = false;
+    if (videoFrameReleaseEarlyTimeForecaster != null) {
+      long predictedEarlyUs = videoFrameReleaseEarlyTimeForecaster.predictEarlyUs(buffer.timeUs);
+      shouldDropDecoderInputBuffer =
+          predictedEarlyUs != C.TIME_UNSET && predictedEarlyUs < minEarlyUsToDropDecoderInput;
+    }
+    if (!shouldSkipDecoderInputBuffer && !shouldDropDecoderInputBuffer) {
       return false;
     }
     if (buffer.hasSupplementalData()) {
@@ -1598,7 +1590,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       buffer.clear();
       if (shouldSkipDecoderInputBuffer) {
         decoderCounters.skippedInputBufferCount += 1;
-      } else if (shouldDropDecoderInputBuffers) {
+      } else {
         droppedDecoderInputBufferTimestamps.add(buffer.timeUs);
         consecutiveDroppedInputBufferCount += 1;
       }
@@ -1624,7 +1616,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         checkNotNull(buffer.data).position(sampleLimitAfterSkippingNonReferenceFrames);
         if (shouldSkipDecoderInputBuffer) {
           decoderCounters.skippedInputBufferCount += 1;
-        } else if (shouldDropDecoderInputBuffers) {
+        } else {
           droppedDecoderInputBufferTimestamps.add(buffer.timeUs);
           consecutiveDroppedInputBufferCount += 1;
         }
@@ -1816,6 +1808,12 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
             isDecodeOnlyBuffer,
             isLastBuffer,
             videoFrameReleaseInfo);
+    if (videoFrameReleaseEarlyTimeForecaster != null
+        && frameReleaseAction != VideoFrameReleaseControl.FRAME_RELEASE_TRY_AGAIN_LATER
+        && frameReleaseAction != VideoFrameReleaseControl.FRAME_RELEASE_IGNORE) {
+      videoFrameReleaseEarlyTimeForecaster.onVideoFrameProcessed(
+          bufferPresentationTimeUs, videoFrameReleaseInfo.getEarlyUs());
+    }
     switch (frameReleaseAction) {
       case VideoFrameReleaseControl.FRAME_RELEASE_IMMEDIATELY:
         long releaseTimeNs = getClock().nanoTime();
