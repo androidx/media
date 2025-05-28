@@ -23,7 +23,12 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HttpHeaders;
+import java.net.CookieHandler;
+import java.net.URI;
+import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -127,5 +132,61 @@ public final class HttpUtil {
       }
     }
     return contentLength;
+  }
+
+  /**
+   * Stores the cookie headers from the response in the provided {@link CookieHandler}.
+   *
+   * @param url The URL of the response.
+   * @param headers The headers of the response.
+   * @param cookieHandler The {@link CookieHandler} to store the cookies in. If null, no cookies
+   *     will be stored.
+   */
+  public static void storeCookiesFromHeaders(
+      String url, Map<String, List<String>> headers, @Nullable CookieHandler cookieHandler) {
+    if (cookieHandler == null) {
+      return;
+    }
+
+    try {
+      cookieHandler.put(new URI(url), headers);
+    } catch (Exception e) {
+      Log.w(TAG, "Failed to store cookies in CookieHandler", e);
+    }
+  }
+
+  /**
+   * Returns the stored cookie header for the given response URL and headers.
+   *
+   * @param url The URL of the response.
+   * @param headers The headers of the response.
+   * @param cookieHandler The {@link CookieHandler} to store the cookies in. If null, no cookies
+   *     will be available.
+   * @return The cookie header string that can be added to requests with {@link HttpHeaders#COOKIE}.
+   */
+  public static String getCookieHeader(
+      String url, Map<String, List<String>> headers, @Nullable CookieHandler cookieHandler) {
+    if (cookieHandler == null) {
+      return "";
+    }
+
+    Map<String, List<String>> cookieHeaders = ImmutableMap.of();
+    try {
+      cookieHeaders = cookieHandler.get(new URI(url), headers);
+    } catch (Exception e) {
+      Log.w(TAG, "Failed to read cookies from CookieHandler", e);
+    }
+
+    // This maps Set-Cookie2 (RFC 2965) to Cookie just like CookieManager does.
+    StringBuilder cookies = new StringBuilder();
+    if (cookieHeaders.containsKey(HttpHeaders.COOKIE)) {
+      List<String> cookiesList = cookieHeaders.get(HttpHeaders.COOKIE);
+      if (cookiesList != null) {
+        for (String cookie : cookiesList) {
+          cookies.append(cookie).append("; ");
+        }
+      }
+    }
+    return cookies.toString().stripTrailing();
   }
 }

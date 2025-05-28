@@ -58,6 +58,8 @@
 *   Downloads:
 *   OkHttp extension:
 *   Cronet extension:
+    *   Add automatic cookie handling
+        ([#5975](https://github.com/google/ExoPlayer/issues/5975)).
 *   RTMP extension:
 *   HLS extension:
     *   Fix playlist parsing to accept `\f` (form feed) in quoted string

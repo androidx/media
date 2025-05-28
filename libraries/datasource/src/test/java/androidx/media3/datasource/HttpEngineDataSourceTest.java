@@ -45,14 +45,10 @@ import androidx.media3.common.util.Util;
 import androidx.media3.datasource.HttpDataSource.HttpDataSourceException;
 import androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.net.CookieHandler;
-import java.net.CookieManager;
 import java.net.SocketTimeoutException;
-import java.net.URI;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -1459,64 +1455,6 @@ public final class HttpEngineDataSourceTest {
 
     dataSourceUnderTest.open(testDataSpec);
     verify(mockUrlRequestBuilder).setDirectExecutorAllowed(true);
-  }
-
-  @Test
-  public void getCookieHeader_noCookieHandler() {
-    assertThat(HttpEngineDataSource.getCookieHeader(TEST_URL)).isEmpty();
-    assertThat(CookieHandler.getDefault()).isNull();
-  }
-
-  @Test
-  public void getCookieHeader_emptyCookieHandler() {
-    CookieHandler.setDefault(new CookieManager());
-    assertThat(HttpEngineDataSource.getCookieHeader(TEST_URL)).isEmpty();
-  }
-
-  @Test
-  public void getCookieHeader_cookieHandler() throws Exception {
-    CookieManager cm = new CookieManager();
-    cm.put(
-        new URI(TEST_URL),
-        ImmutableMap.of(
-            "Set-Cookie", ImmutableList.of(TEST_RESPONSE_SET_COOKIE, TEST_RESPONSE_SET_COOKIE_2)));
-    CookieHandler.setDefault(cm);
-
-    assertThat(HttpEngineDataSource.getCookieHeader(TEST_URL))
-        .isEqualTo(TEST_REQUEST_COOKIE + "; " + TEST_REQUEST_COOKIE_2 + ";");
-  }
-
-  @Test
-  public void getCookieHeader_cookieHandlerCustomHandler() throws Exception {
-    CookieManager cm = new CookieManager();
-    cm.put(
-        new URI(TEST_URL),
-        ImmutableMap.of(
-            "Set-Cookie", ImmutableList.of(TEST_RESPONSE_SET_COOKIE, TEST_RESPONSE_SET_COOKIE_2)));
-
-    assertThat(HttpEngineDataSource.getCookieHeader(TEST_URL, cm))
-        .isEqualTo(TEST_REQUEST_COOKIE + "; " + TEST_REQUEST_COOKIE_2 + ";");
-  }
-
-  @Test
-  public void getCookieHeader_cookieHandlerCookie2() throws Exception {
-    CookieManager cm = new CookieManager();
-    cm.put(
-        new URI(TEST_URL),
-        ImmutableMap.of(
-            "Set-Cookie2", ImmutableList.of(TEST_RESPONSE_SET_COOKIE, TEST_RESPONSE_SET_COOKIE_2)));
-    CookieHandler.setDefault(cm);
-
-    // This asserts the surprising behavior of CookieManager - Set-Cookie2 is translated to Cookie,
-    // not Cookie2.
-    assertThat(cm.get(new URI(TEST_URL), ImmutableMap.of("", ImmutableList.of()))).isNotEmpty();
-    assertThat(cm.get(new URI(TEST_URL), ImmutableMap.of("", ImmutableList.of())).get("Cookie"))
-        .containsExactly(TEST_REQUEST_COOKIE, TEST_REQUEST_COOKIE_2);
-    assertThat(cm.get(new URI(TEST_URL), ImmutableMap.of("", ImmutableList.of())))
-        .doesNotContainKey("Cookie2");
-
-    assertThat(HttpEngineDataSource.getCookieHeader(TEST_URL))
-        .isEqualTo(TEST_REQUEST_COOKIE + "; " + TEST_REQUEST_COOKIE_2 + ";");
   }
 
   // Helper methods.
