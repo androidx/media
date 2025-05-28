@@ -64,6 +64,9 @@
         ([#2420](https://github.com/androidx/media/issues/2420)).
     *   Support updating interstitials with the same ID
         ([#2427](https://github.com/androidx/media/pull/2427)).
+    *   Fix bug where playlist load errors are sometimes not propagated once a
+        live stream runs out of segments to load
+        ([#2401]()https://github.com/androidx/media/issues/2401).
 *   DASH extension:
     *   Fix bug where shortening a DASH period duration can throw an exception
         when samples beyond the new duration have already been read by the

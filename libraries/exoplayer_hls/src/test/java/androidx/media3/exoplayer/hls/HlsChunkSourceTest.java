@@ -47,7 +47,6 @@ import com.google.common.collect.ImmutableListMultimap;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.Duration;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.shadows.ShadowSystemClock;
@@ -607,7 +606,6 @@ public class HlsChunkSourceTest {
     testChunkSource.maybeThrowError();
   }
 
-  @Ignore // TODO: Fix https://github.com/androidx/media/issues/2401.
   @Test
   public void maybeThrowError_withPlaylistErrorAndThenBlockedNextChunk_doesThrow()
       throws Exception {

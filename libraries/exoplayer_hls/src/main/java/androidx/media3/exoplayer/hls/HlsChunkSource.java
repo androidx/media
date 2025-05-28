@@ -142,7 +142,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private boolean isPrimaryTimestampSource;
   private byte[] scratchSpace;
   @Nullable private IOException fatalError;
-  @Nullable private Uri expectedPlaylistUrl;
+  @Nullable private Uri lastPlaylistErrorUrl;
+  @Nullable private Uri nextChunkStuckOnPlaylistUrl;
   private boolean independentSegments;
 
   // Note: The track group in the selection is typically *not* equal to trackGroup. This is due to
@@ -150,7 +151,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   // in ExoTrackSelection to avoid unexpected behavior.
   private ExoTrackSelection trackSelection;
   private long liveEdgeInPeriodTimeUs;
-  private boolean seenExpectedPlaylistError;
 
   /**
    * The time at which the last {@link #getNextChunk(LoadingInfo, long, List, boolean,
@@ -232,8 +232,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     if (fatalError != null) {
       throw fatalError;
     }
-    if (expectedPlaylistUrl != null && seenExpectedPlaylistError) {
-      playlistTracker.maybeThrowPlaylistRefreshError(expectedPlaylistUrl);
+    if (lastPlaylistErrorUrl != null && lastPlaylistErrorUrl.equals(nextChunkStuckOnPlaylistUrl)) {
+      playlistTracker.maybeThrowPlaylistRefreshError(lastPlaylistErrorUrl);
     }
   }
 
@@ -427,8 +427,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     Uri selectedPlaylistUrl = playlistUrls[selectedTrackIndex];
     if (!playlistTracker.isSnapshotValid(selectedPlaylistUrl)) {
       out.playlistUrl = selectedPlaylistUrl;
-      seenExpectedPlaylistError &= selectedPlaylistUrl.equals(expectedPlaylistUrl);
-      expectedPlaylistUrl = selectedPlaylistUrl;
+      nextChunkStuckOnPlaylistUrl = selectedPlaylistUrl;
       // Retry when playlist is refreshed.
       return;
     }
@@ -489,8 +488,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       if (!playlist.hasEndTag) {
         // Reload the playlist in case of a live stream.
         out.playlistUrl = selectedPlaylistUrl;
-        seenExpectedPlaylistError &= selectedPlaylistUrl.equals(expectedPlaylistUrl);
-        expectedPlaylistUrl = selectedPlaylistUrl;
+        nextChunkStuckOnPlaylistUrl = selectedPlaylistUrl;
         return;
       } else if (allowEndOfStream || playlist.segments.isEmpty()) {
         out.endOfStream = true;
@@ -505,8 +503,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
 
     // We have a valid media segment, we can discard any playlist errors at this point.
-    seenExpectedPlaylistError = false;
-    expectedPlaylistUrl = null;
+    nextChunkStuckOnPlaylistUrl = null;
 
     @Nullable CmcdData.Factory cmcdDataFactory = null;
     if (cmcdConfiguration != null) {
@@ -684,7 +681,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     if (trackSelectionIndex == C.INDEX_UNSET) {
       return true;
     }
-    seenExpectedPlaylistError |= playlistUrl.equals(expectedPlaylistUrl);
+    lastPlaylistErrorUrl = playlistUrl;
     return exclusionDurationMs != C.TIME_UNSET
         && trackSelection.excludeTrack(trackSelectionIndex, exclusionDurationMs)
         && playlistTracker.excludeMediaPlaylist(playlistUrl, exclusionDurationMs);
