@@ -548,7 +548,9 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     @HlsChunkSource.ChunkPublicationState
     int chunkState = chunkSource.getChunkPublicationState(lastMediaChunk);
     if (chunkState == CHUNK_PUBLICATION_STATE_PUBLISHED) {
-      lastMediaChunk.publish();
+      if (!lastMediaChunk.isPublished()) {
+        lastMediaChunk.publish(chunkSource.getPublishedPartDurationUs(lastMediaChunk));
+      }
     } else if (chunkState == CHUNK_PUBLICATION_STATE_PRELOAD) {
       handler.post(() -> callback.onPlaylistRefreshRequired(lastMediaChunk.playlistUrl));
     } else if (chunkState == CHUNK_PUBLICATION_STATE_REMOVED
@@ -775,10 +777,14 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     } else {
       chunkQueue = readOnlyMediaChunks;
       HlsMediaChunk lastMediaChunk = getLastMediaChunk();
-      loadPositionUs =
-          lastMediaChunk.isLoadCompleted()
-              ? lastMediaChunk.endTimeUs
-              : max(lastSeekPositionUs, lastMediaChunk.startTimeUs);
+      if (!lastMediaChunk.isLoadCompleted() || !lastMediaChunk.isPublished()) {
+        // When reloading a failed or canceled chunk, or continuing to load at an unpublished
+        // preload chunk, request the new chunk at its start position.
+        loadPositionUs = max(lastSeekPositionUs, lastMediaChunk.startTimeUs);
+      } else {
+        // Load the next chunk after one with a published duration.
+        loadPositionUs = lastMediaChunk.getPublishedEndTimeUs();
+      }
     }
     nextChunkHolder.clear();
     chunkSource.getNextChunk(

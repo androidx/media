@@ -24,6 +24,4 @@ fileSequence14.ts
 #EXT-X-PART:DURATION=1.00000,URI="fileSequence15.3.ts"
 #EXTINF:4.00000,
 fileSequence15.ts
-#EXT-X-PART:DURATION=1.00000,URI="fileSequence16.0.ts"
-#EXT-X-PART:DURATION=1.00000,URI="fileSequence16.1.ts"
-#EXT-X-PRELOAD-HINT:TYPE=PART,URI="fileSequence16.2.ts"
+#EXT-X-PRELOAD-HINT:TYPE=PART,URI="fileSequence16.0.ts"

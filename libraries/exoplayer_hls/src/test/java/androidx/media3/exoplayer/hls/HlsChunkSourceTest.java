@@ -62,6 +62,8 @@ public class HlsChunkSourceTest {
       "media/m3u8/live_low_latency_segments_only";
   private static final String PLAYLIST_LIVE_LOW_LATENCY_SEGMENTS_AND_PARTS =
       "media/m3u8/live_low_latency_segments_and_parts";
+  private static final String PLAYLIST_LIVE_LOW_LATENCY_SEGMENTS_AND_SINGLE_PRELOAD_PART =
+      "media/m3u8/live_low_latency_segments_and_single_preload_part";
   private static final Uri PLAYLIST_URI = Uri.parse("http://example.com/");
   private static final long PLAYLIST_START_PERIOD_OFFSET_US = 8_000_000L;
   private static final Uri IFRAME_URI = Uri.parse("http://example.com/iframe");
@@ -537,6 +539,60 @@ public class HlsChunkSourceTest {
             "bl=0,br=800,cid=\"mediaId\",com.example.test-key-1=1,d=4000,dl=0,"
                 + "key-2=\"stringValue\",nor=\"..%2F3.mp4\",nrr=\"0-\",ot=v,sf=h,"
                 + "sid=\"sessionId\",st=v,su,tb=800");
+  }
+
+  @Test
+  public void getNextChunk_reloadingCurrentPreloadPartAfterPublication_returnsShouldSpliceIn()
+      throws Exception {
+    HlsChunkSource chunkSource =
+        createHlsChunkSource(PLAYLIST_LIVE_LOW_LATENCY_SEGMENTS_AND_SINGLE_PRELOAD_PART);
+    HlsChunkSource.HlsChunkHolder output = new HlsChunkSource.HlsChunkHolder();
+    // The live playlist contains 6 finished segments, each 4 seconds long. With a playlist start
+    // offset of 8 seconds, the total media time of these segments is 8 + 6*4 = 32 seconds. A
+    // request to fetch the chunk at 34 seconds should return the preload part.
+    chunkSource.getNextChunk(
+        new LoadingInfo.Builder().setPlaybackPositionUs(34_000_000).setPlaybackSpeed(1.0f).build(),
+        /* loadPositionUs= */ 34_000_000,
+        /* queue= */ ImmutableList.of(),
+        /* allowEndOfStream= */ true,
+        output);
+    // Verify setup.
+    HlsMediaChunk hlsMediaChunk = (HlsMediaChunk) output.chunk;
+    assertThat(hlsMediaChunk.isPublished()).isFalse();
+
+    // Request the same part again after the playlist is updated and its duration is known.
+    chunkSource = createHlsChunkSource(PLAYLIST_LIVE_LOW_LATENCY_SEGMENTS_AND_PARTS);
+    hlsMediaChunk.publish(/* publishedDurationUs= */ 1_000_000);
+    chunkSource.getNextChunk(
+        new LoadingInfo.Builder().setPlaybackPositionUs(34_000_000).setPlaybackSpeed(1.0f).build(),
+        /* loadPositionUs= */ 34_000_000,
+        /* queue= */ ImmutableList.of(hlsMediaChunk),
+        /* allowEndOfStream= */ true,
+        output);
+
+    assertThat(((HlsMediaChunk) output.chunk).shouldSpliceIn).isTrue();
+  }
+
+  @Test
+  public void getPublishedPartDurationUs_returnsExpectedPartDuration() throws Exception {
+    HlsChunkSource chunkSource = createHlsChunkSource(PLAYLIST_LIVE_LOW_LATENCY_SEGMENTS_AND_PARTS);
+    HlsChunkSource.HlsChunkHolder output = new HlsChunkSource.HlsChunkHolder();
+    // The live playlist contains 6 finished segments, each 4 seconds long. With a playlist start
+    // offset of 8 seconds, the total media time of these segments is 8 + 6*4 = 32 seconds. A
+    // request to fetch the chunk at 34 seconds should return the first trailing part.
+    chunkSource.getNextChunk(
+        new LoadingInfo.Builder().setPlaybackPositionUs(34_000_000).setPlaybackSpeed(1.0f).build(),
+        /* loadPositionUs= */ 34_000_000,
+        /* queue= */ ImmutableList.of(),
+        /* allowEndOfStream= */ true,
+        output);
+    // Verify setup.
+    assertThat(output.chunk).isInstanceOf(HlsMediaChunk.class);
+    assertThat(((HlsMediaChunk) output.chunk).partIndex).isNotEqualTo(C.INDEX_UNSET);
+
+    long durationUs = chunkSource.getPublishedPartDurationUs((HlsMediaChunk) output.chunk);
+
+    assertThat(durationUs).isEqualTo(1_000_000L);
   }
 
   @Test

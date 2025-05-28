@@ -219,6 +219,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
    *
    * @param previousChunk The previous existing media chunk, or null if the new chunk is the first
    *     in the queue.
+   * @param bufferedPositionUs The position in the sample stream in microseconds since the start of
+   *     the period up to which data is already buffered.
    * @param playlistUrl The URL of the playlist from which the new chunk will be obtained.
    * @param mediaPlaylist The {@link HlsMediaPlaylist} containing the new chunk.
    * @param segmentBaseHolder The {@link HlsChunkSource.SegmentBaseHolder} with information about
@@ -228,6 +230,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
    */
   public static boolean shouldSpliceIn(
       @Nullable HlsMediaChunk previousChunk,
+      long bufferedPositionUs,
       Uri playlistUrl,
       HlsMediaPlaylist mediaPlaylist,
       HlsChunkSource.SegmentBaseHolder segmentBaseHolder,
@@ -246,7 +249,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     long segmentStartTimeInPeriodUs =
         startOfPlaylistInPeriodUs + segmentBaseHolder.segmentBase.relativeStartTimeUs;
     return !isIndependent(segmentBaseHolder, mediaPlaylist)
-        || segmentStartTimeInPeriodUs < previousChunk.endTimeUs;
+        || segmentStartTimeInPeriodUs < bufferedPositionUs;
   }
 
   public static final String PRIV_TIMESTAMP_FRAME_OWNER =
@@ -296,7 +299,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   private boolean loadCompleted;
   private ImmutableList<Integer> sampleQueueFirstSampleIndices;
   private boolean extractorInvalidated;
-  private boolean isPublished;
+  private long publishedDurationUs;
 
   private HlsMediaChunk(
       HlsExtractorFactory extractorFactory,
@@ -338,7 +341,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
         chunkMediaSequence);
     this.mediaSegmentEncrypted = mediaSegmentEncrypted;
     this.partIndex = partIndex;
-    this.isPublished = isPublished;
+    this.publishedDurationUs = isPublished ? endTimeUs - startTimeUs : C.TIME_UNSET;
     this.discontinuitySequenceNumber = discontinuitySequenceNumber;
     this.initDataSpec = initDataSpec;
     this.initDataSource = initDataSource;
@@ -429,15 +432,28 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
    * playlist updates.
    */
   public boolean isPublished() {
-    return isPublished;
+    return publishedDurationUs != C.TIME_UNSET;
+  }
+
+  /**
+   * Returns the end time of a segment or part if it's fully published, or {@link C#TIME_UNSET} if
+   * it's an unpublished preload hint.
+   *
+   * <p>Note that this value can differ from {@link #endTimeUs} for preload parts that have been
+   * loaded before the duration was known.
+   */
+  public long getPublishedEndTimeUs() {
+    return publishedDurationUs != C.TIME_UNSET ? startTimeUs + publishedDurationUs : C.TIME_UNSET;
   }
 
   /**
    * Sets the publish flag of the media chunk to indicate that it is not based on a part that is a
    * preload hint in the playlist.
+   *
+   * @param publishedDurationUs The final published duration of the part in microseconds.
    */
-  public void publish() {
-    isPublished = true;
+  public void publish(long publishedDurationUs) {
+    this.publishedDurationUs = publishedDurationUs;
   }
 
   // Internal methods.

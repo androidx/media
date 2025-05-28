@@ -16,6 +16,7 @@
 package androidx.media3.exoplayer.hls;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.common.util.Assertions.checkState;
 import static java.lang.Math.max;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
@@ -378,6 +379,30 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   /**
+   * Returns the duration of a newly published part.
+   *
+   * @param mediaChunk The media chunk of a yet unpublished part for which to evaluate the duration.
+   * @return The duration in microseconds.
+   */
+  public long getPublishedPartDurationUs(HlsMediaChunk mediaChunk) {
+    checkState(mediaChunk.partIndex != C.INDEX_UNSET);
+    Uri playlistUrl = playlistUrls[trackGroup.indexOf(mediaChunk.trackFormat)];
+    HlsMediaPlaylist mediaPlaylist =
+        checkNotNull(playlistTracker.getPlaylistSnapshot(playlistUrl, /* isForPlayback= */ false));
+    int segmentIndexInPlaylist = (int) (mediaChunk.chunkIndex - mediaPlaylist.mediaSequence);
+    if (segmentIndexInPlaylist < 0) {
+      // The parent segment of the previous chunk is not in the current playlist anymore.
+      return 0;
+    }
+    List<HlsMediaPlaylist.Part> partsInCurrentPlaylist =
+        segmentIndexInPlaylist < mediaPlaylist.segments.size()
+            ? mediaPlaylist.segments.get(segmentIndexInPlaylist).parts
+            : mediaPlaylist.trailingParts;
+    HlsMediaPlaylist.Part part = partsInCurrentPlaylist.get(mediaChunk.partIndex);
+    return part.durationUs;
+  }
+
+  /**
    * Returns the next chunk to load.
    *
    * <p>If a chunk is available then {@link HlsChunkHolder#chunk} is set. If the end of the stream
@@ -563,7 +588,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     boolean shouldSpliceIn =
         HlsMediaChunk.shouldSpliceIn(
-            previous, selectedPlaylistUrl, playlist, segmentBaseHolder, startOfPlaylistInPeriodUs);
+            previous,
+            loadPositionUs,
+            selectedPlaylistUrl,
+            playlist,
+            segmentBaseHolder,
+            startOfPlaylistInPeriodUs);
     if (shouldSpliceIn && segmentBaseHolder.isPreload) {
       // We don't support discarding spliced-in segments [internal: b/159904763], but preload
       // parts may need to be discarded if they are removed before becoming permanently published.
