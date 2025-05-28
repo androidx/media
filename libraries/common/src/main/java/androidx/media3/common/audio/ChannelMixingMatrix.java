@@ -65,7 +65,6 @@ public final class ChannelMixingMatrix {
    *     input and output channel counts.
    * @deprecated Use {@link #createForConstantGain} instead.
    */
-  // TODO(b/399861060): Remove in Media3 1.8.
   @Deprecated
   public static ChannelMixingMatrix create(
       @IntRange(from = 1, to = 2) int inputChannelCount,

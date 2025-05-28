@@ -177,7 +177,6 @@ public final class ShadowMediaCodecConfig extends ExternalResource {
   /**
    * @deprecated Use {@link ShadowMediaCodecConfig#withAllDefaultSupportedCodecs()} instead.
    */
-  // TODO(b/406437316): Remove in Media3 1.8.
   @Deprecated
   public static ShadowMediaCodecConfig forAllSupportedMimeTypes() {
     return withAllDefaultSupportedCodecs();
@@ -198,7 +197,6 @@ public final class ShadowMediaCodecConfig extends ExternalResource {
   /**
    * @deprecated Use {@link ShadowMediaCodecConfig#withNoDefaultSupportedCodecs()} instead.
    */
-  // TODO(b/406437316): Remove in Media3 1.8.
   @Deprecated
   public static ShadowMediaCodecConfig withNoDefaultSupportedMimeTypes() {
     return withNoDefaultSupportedCodecs();
