@@ -34,6 +34,7 @@ import androidx.media3.exoplayer.audio.AudioRendererEventListener;
 import androidx.media3.exoplayer.audio.AudioSink;
 import androidx.media3.exoplayer.audio.DefaultAudioSink;
 import androidx.media3.exoplayer.audio.MediaCodecAudioRenderer;
+import androidx.media3.exoplayer.image.BitmapFactoryImageDecoder;
 import androidx.media3.exoplayer.image.ImageDecoder;
 import androidx.media3.exoplayer.image.ImageRenderer;
 import androidx.media3.exoplayer.mediacodec.DefaultMediaCodecAdapterFactory;
@@ -48,6 +49,7 @@ import androidx.media3.exoplayer.video.MediaCodecVideoRenderer;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
 import androidx.media3.exoplayer.video.spherical.CameraMotionRenderer;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.errorprone.annotations.ForOverride;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -400,7 +402,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
         extensionRendererMode,
         renderersList);
     buildCameraMotionRenderers(context, extensionRendererMode, renderersList);
-    buildImageRenderers(renderersList);
+    buildImageRenderers(context, renderersList);
     buildMiscellaneousRenderers(context, eventHandler, extensionRendererMode, renderersList);
     return renderersList.toArray(new Renderer[0]);
   }
@@ -774,15 +776,24 @@ public class DefaultRenderersFactory implements RenderersFactory {
   }
 
   /**
+   * @deprecated Override {@link #buildImageRenderers(Context, ArrayList)} instead.
+   */
+  @Deprecated
+  protected void buildImageRenderers(ArrayList<Renderer> out) {
+    out.add(new ImageRenderer(getImageDecoderFactory(context), /* imageOutput= */ null));
+  }
+
+  /**
    * Builds image renderers for use by the player.
    *
    * <p>The {@link ImageRenderer} is built with {@code ImageOutput} set to null and {@link
    * ImageDecoder.Factory} set to {@code ImageDecoder.Factory.DEFAULT} by default.
    *
+   * @param context The {@link Context} associated with the player.
    * @param out An array to which the built renderers should be appended.
    */
-  protected void buildImageRenderers(ArrayList<Renderer> out) {
-    out.add(new ImageRenderer(getImageDecoderFactory(), /* imageOutput= */ null));
+  protected void buildImageRenderers(Context context, ArrayList<Renderer> out) {
+    buildImageRenderers(out);
   }
 
   /**
@@ -908,7 +919,8 @@ public class DefaultRenderersFactory implements RenderersFactory {
   }
 
   /** Returns the {@link ImageDecoder.Factory} used to build the image renderer. */
-  protected ImageDecoder.Factory getImageDecoderFactory() {
-    return ImageDecoder.Factory.DEFAULT;
+  @ForOverride
+  protected ImageDecoder.Factory getImageDecoderFactory(Context context) {
+    return new BitmapFactoryImageDecoder.Factory(context);
   }
 }

@@ -20,9 +20,12 @@ import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.isBitmapFactorySupportedMimeType;
 import static androidx.media3.decoder.DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_NORMAL;
+import static java.lang.Math.max;
 
+import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Point;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
@@ -30,6 +33,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.common.util.Util;
 import androidx.media3.datasource.BitmapUtil;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.decoder.SimpleDecoder;
@@ -69,10 +73,23 @@ public final class BitmapFactoryImageDecoder
   /** A factory for {@link BitmapFactoryImageDecoder} instances. */
   public static final class Factory implements ImageDecoder.Factory {
 
+    // TODO: Remove @Nullable from this field (and all related null checks) when the deprecated
+    // zero-args constructor is removed.
+    @Nullable private final Context context;
     @Nullable private final BitmapDecoder bitmapDecoder;
 
-    /** Creates an instance. */
+    /**
+     * @deprecated Use {@link Factory#Factory(Context)} instead.
+     */
+    @Deprecated
     public Factory() {
+      this.context = null;
+      this.bitmapDecoder = null;
+    }
+
+    /** Creates an instance. */
+    public Factory(Context context) {
+      this.context = context;
       this.bitmapDecoder = null;
     }
 
@@ -81,6 +98,7 @@ public final class BitmapFactoryImageDecoder
      */
     @Deprecated
     public Factory(BitmapDecoder bitmapDecoder) {
+      this.context = null;
       this.bitmapDecoder = bitmapDecoder;
     }
 
@@ -96,14 +114,17 @@ public final class BitmapFactoryImageDecoder
 
     @Override
     public BitmapFactoryImageDecoder createImageDecoder() {
-      return new BitmapFactoryImageDecoder(bitmapDecoder);
+      return new BitmapFactoryImageDecoder(context, bitmapDecoder);
     }
   }
 
+  @Nullable private final Context context;
   @Nullable private final BitmapDecoder bitmapDecoder;
 
-  private BitmapFactoryImageDecoder(@Nullable BitmapDecoder bitmapDecoder) {
+  private BitmapFactoryImageDecoder(
+      @Nullable Context context, @Nullable BitmapDecoder bitmapDecoder) {
     super(new DecoderInputBuffer[1], new ImageOutputBuffer[1]);
+    this.context = context;
     this.bitmapDecoder = bitmapDecoder;
   }
 
@@ -147,12 +168,24 @@ public final class BitmapFactoryImageDecoder
       }
     } else {
       try {
+        int maxSize;
+        if (context != null) {
+          Point currentDisplayModeSize = Util.getCurrentDisplayModeSize(context);
+          // BitmapUtil.decode can only downscale in powers of 2, so nearly doubling the screen size
+          // ensures that an image is never downscaled to be smaller than the screen.
+          maxSize = max(currentDisplayModeSize.x, currentDisplayModeSize.y) * 2 - 1;
+        } else {
+          // If we can't get the display size, limit the output size to 4k, which is large enough
+          // for most displays.
+          maxSize = 4096;
+        }
+
         outputBuffer.bitmap =
             BitmapUtil.decode(
                 inputData.array(),
                 inputData.remaining(),
                 /* options= */ null,
-                /* maximumOutputDimension= */ C.LENGTH_UNSET);
+                /* maximumOutputDimension= */ maxSize);
       } catch (ParserException e) {
         return new ImageDecoderException("Could not decode image data with BitmapFactory.", e);
       } catch (IOException e) {

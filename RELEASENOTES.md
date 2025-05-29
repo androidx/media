@@ -38,6 +38,13 @@
 *   Text:
 *   Metadata:
 *   Image:
+    *   Limit decoded bitmaps to the display size in
+        `BitmapFactoryImageDecoder`, to avoid an app crashing with `Canvas:
+        trying to draw too large bitmap.` from `PlayerView` when trying to
+        display very large (e.g. 50MP) images.
+    *   Change the signature of
+        `DefaultRenderersFactory.getImageDecoderFactory()` to take a `Context`
+        parameter.
 *   DataSource:
 *   DRM:
 *   Effect:

@@ -20,6 +20,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.robolectric.annotation.GraphicsMode.Mode.NATIVE;
 
+import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
@@ -32,6 +33,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.annotation.Config;
 import org.robolectric.annotation.GraphicsMode;
 
 /** Unit tests for {@link BitmapFactoryImageDecoder}. */
@@ -48,7 +50,9 @@ public class BitmapFactoryImageDecoderTest {
 
   @Before
   public void setUp() {
-    decoder = new BitmapFactoryImageDecoder.Factory().createImageDecoder();
+    decoder =
+        new BitmapFactoryImageDecoder.Factory((Context) ApplicationProvider.getApplicationContext())
+            .createImageDecoder();
     inputBuffer = decoder.createInputBuffer();
     outputBuffer = decoder.createOutputBuffer();
   }
@@ -72,6 +76,23 @@ public class BitmapFactoryImageDecoderTest {
   }
 
   @Test
+  @Config(qualifiers = "w320dp-h470dp")
+  public void decode_downscalesToScreenSize() throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    byte[] imageData = TestUtil.getByteArray(context, JPEG_TEST_IMAGE_PATH);
+
+    Bitmap bitmap = decode(imageData);
+
+    // The downscaling only operates on powers of 2, so we just check it's larger than the screen's
+    // largest dimension and smaller than double that.
+    assertThat(bitmap.getHeight()).isGreaterThan(470);
+    assertThat(bitmap.getHeight()).isLessThan(940);
+  }
+
+  @Test
+  // Configure a device with a screen large enough to display the test JPEG without downscaling,
+  // so the Bitmap.sameAs test below passes.
+  @Config(qualifiers = "w4500dp-h3200dp")
   public void decode_jpegWithExifRotation_loadsCorrectData() throws Exception {
     byte[] imageData =
         TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), JPEG_TEST_IMAGE_PATH);
