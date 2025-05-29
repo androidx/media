@@ -138,17 +138,7 @@ public final class ExoPlayerScrubbingTest {
     player.setVideoSurface(surface);
     Player.Listener mockListener = mock(Player.Listener.class);
     player.addListener(mockListener);
-    player.setMediaSource(
-        new FakeMediaSource.Builder()
-            .setTimeline(timeline)
-            .setTrackDataFactory(
-                TrackDataFactory.samplesWithRateDurationAndKeyframeInterval(
-                    /* initialSampleTimeUs= */ 0,
-                    /* sampleRate= */ 30,
-                    /* durationUs= */ DEFAULT_WINDOW_DURATION_US,
-                    /* keyFrameInterval= */ 60))
-            .setFormats(ExoPlayerTestRunner.VIDEO_FORMAT)
-            .build());
+    player.setMediaSource(create30Fps2sGop10sDurationVideoSource());
     player.prepare();
     player.play();
     advance(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 1000);
@@ -455,18 +445,7 @@ public final class ExoPlayerScrubbingTest {
         new ScrubbingModeParameters.Builder()
             .setFractionalSeekTolerance(/* toleranceBefore= */ 0.1, /* toleranceAfter= */ 0.1)
             .build());
-    player.setMediaSource(
-        new FakeMediaSource.Builder()
-            .setTimeline(timeline)
-            .setTrackDataFactory(
-                TrackDataFactory.samplesWithRateDurationAndKeyframeInterval(
-                    /* initialSampleTimeUs= */ 0,
-                    /* sampleRate= */ 30,
-                    /* durationUs= */ DEFAULT_WINDOW_DURATION_US,
-                    /* keyFrameInterval= */ 60))
-            .setSyncSampleTimesUs(new long[] {0, 2_000_000, 4_000_000, 6_000_000, 8_000_000})
-            .setFormats(ExoPlayerTestRunner.VIDEO_FORMAT)
-            .build());
+    player.setMediaSource(create30Fps2sGop10sDurationVideoSource());
     player.prepare();
     player.play();
     advance(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 1000);
@@ -644,21 +623,7 @@ public final class ExoPlayerScrubbingTest {
             .setDynamicSchedulingEnabled(false)
             .setClock(clock)
             .build();
-    player.setMediaSource(
-        new FakeMediaSource.Builder()
-            .setTimeline(
-                new FakeTimeline(
-                    new TimelineWindowDefinition.Builder()
-                        .setWindowPositionInFirstPeriodUs(0)
-                        .build()))
-            .setFormats(ExoPlayerTestRunner.VIDEO_FORMAT)
-            .setTrackDataFactory(
-                TrackDataFactory.samplesWithRateDurationAndKeyframeInterval(
-                    /* initialSampleTimeUs= */ 0,
-                    /* sampleRate= */ 30,
-                    /* durationUs= */ DEFAULT_WINDOW_DURATION_US,
-                    /* keyFrameInterval= */ 60))
-            .build());
+    player.setMediaSource(create30Fps2sGop10sDurationVideoSource());
     Surface surface = new Surface(new SurfaceTexture(1));
     player.setVideoSurface(surface);
     player.prepare();
@@ -740,21 +705,7 @@ public final class ExoPlayerScrubbingTest {
             .setDynamicSchedulingEnabled(false)
             .setClock(clock)
             .build();
-    player.setMediaSource(
-        new FakeMediaSource.Builder()
-            .setTimeline(
-                new FakeTimeline(
-                    new TimelineWindowDefinition.Builder()
-                        .setWindowPositionInFirstPeriodUs(0)
-                        .build()))
-            .setFormats(ExoPlayerTestRunner.VIDEO_FORMAT)
-            .setTrackDataFactory(
-                TrackDataFactory.samplesWithRateDurationAndKeyframeInterval(
-                    /* initialSampleTimeUs= */ 0,
-                    /* sampleRate= */ 30,
-                    /* durationUs= */ DEFAULT_WINDOW_DURATION_US,
-                    /* keyFrameInterval= */ 60))
-            .build());
+    player.setMediaSource(create30Fps2sGop10sDurationVideoSource());
     Surface surface = new Surface(new SurfaceTexture(1));
     player.setVideoSurface(surface);
     player.setScrubbingModeParameters(
@@ -784,6 +735,22 @@ public final class ExoPlayerScrubbingTest {
 
     player.release();
     surface.release();
+  }
+
+  private static FakeMediaSource create30Fps2sGop10sDurationVideoSource() {
+    return new FakeMediaSource.Builder()
+        .setTimeline(
+            new FakeTimeline(
+                new TimelineWindowDefinition.Builder().setWindowPositionInFirstPeriodUs(0).build()))
+        .setFormats(ExoPlayerTestRunner.VIDEO_FORMAT)
+        .setTrackDataFactory(
+            TrackDataFactory.samplesWithRateDurationAndKeyframeInterval(
+                /* initialSampleTimeUs= */ 0,
+                /* sampleRate= */ 30,
+                /* durationUs= */ DEFAULT_WINDOW_DURATION_US,
+                /* keyFrameInterval= */ 60))
+        .setSyncSampleTimesUs(new long[] {0, 2_000_000, 4_000_000, 6_000_000, 8_000_000})
+        .build();
   }
 
   private static class RenderCountingRenderer extends ForwardingRenderer {
