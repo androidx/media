@@ -77,6 +77,9 @@
     *   Fix bug where playlist load errors are sometimes not propagated once a
         live stream runs out of segments to load
         ([#2401]()https://github.com/androidx/media/issues/2401).
+    *   Fix bug where track selection changes after loading low-latency parts
+        and preload hints can cause playback to get stuck or freeze
+        ([#2299](https://github.com/androidx/media/issues/2299)).
 *   DASH extension:
     *   Fix bug where shortening a DASH period duration can throw an exception
         when samples beyond the new duration have already been read by the

@@ -768,9 +768,11 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
     List<HlsMediaChunk> chunkQueue;
     long loadPositionUs;
+    long largestReadPositionUs;
     if (isPendingReset()) {
       chunkQueue = Collections.emptyList();
       loadPositionUs = pendingResetPositionUs;
+      largestReadPositionUs = pendingResetPositionUs;
       for (SampleQueue sampleQueue : sampleQueues) {
         sampleQueue.setStartTimeUs(pendingResetPositionUs);
       }
@@ -785,11 +787,19 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
         // Load the next chunk after one with a published duration.
         loadPositionUs = lastMediaChunk.getPublishedEndTimeUs();
       }
+      largestReadPositionUs = lastSeekPositionUs;
+      if (sampleQueuesBuilt) {
+        for (SampleQueue sampleQueue : sampleQueues) {
+          largestReadPositionUs =
+              max(largestReadPositionUs, sampleQueue.getLargestReadTimestampUs());
+        }
+      }
     }
     nextChunkHolder.clear();
     chunkSource.getNextChunk(
         loadingInfo,
         loadPositionUs,
+        largestReadPositionUs,
         chunkQueue,
         /* allowEndOfStream= */ prepared || !chunkQueue.isEmpty(),
         nextChunkHolder);

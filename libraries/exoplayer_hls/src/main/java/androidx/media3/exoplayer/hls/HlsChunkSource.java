@@ -154,7 +154,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private long liveEdgeInPeriodTimeUs;
 
   /**
-   * The time at which the last {@link #getNextChunk(LoadingInfo, long, List, boolean,
+   * The time at which the last {@link #getNextChunk(LoadingInfo, long, long, List, boolean,
    * HlsChunkHolder)} method was called, as measured by {@link SystemClock#elapsedRealtime}.
    */
   private long lastChunkRequestRealtimeMs;
@@ -411,7 +411,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * contain the {@link Uri} that refers to the playlist that needs refreshing.
    *
    * @param loadingInfo The {@link LoadingInfo} when loading request is made.
-   * @param loadPositionUs The current load position relative to the period start in microseconds.
+   * @param loadPositionUs The load position in microseconds since the start of the period at which
+   *     to provide new samples.
+   * @param largestReadPositionUs The largest position up to which samples have been consumed
+   *     already.
    * @param queue The queue of buffered {@link HlsMediaChunk}s.
    * @param allowEndOfStream Whether {@link HlsChunkHolder#endOfStream} is allowed to be set for
    *     non-empty media playlists. If {@code false}, the last available chunk is returned instead.
@@ -421,6 +424,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   public void getNextChunk(
       LoadingInfo loadingInfo,
       long loadPositionUs,
+      long largestReadPositionUs,
       List<HlsMediaChunk> queue,
       boolean allowEndOfStream,
       HlsChunkHolder out) {
@@ -472,9 +476,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             previous, switchingTrack, playlist, startOfPlaylistInPeriodUs, loadPositionUs);
     long chunkMediaSequence = nextMediaSequenceAndPartIndex.first;
     int partIndex = nextMediaSequenceAndPartIndex.second;
-    if (chunkMediaSequence < playlist.mediaSequence && previous != null && switchingTrack) {
-      // We try getting the next chunk without adapting in case that's the reason for falling
-      // behind the live window.
+    boolean shouldForceKeepCurrentTrackSelection =
+        shouldForceKeepCurrentTrackSelection(
+            switchingTrack,
+            playlist,
+            chunkMediaSequence,
+            partIndex,
+            previous,
+            startOfPlaylistInPeriodUs,
+            largestReadPositionUs);
+    if (shouldForceKeepCurrentTrackSelection) {
       selectedTrackIndex = oldTrackIndex;
       selectedPlaylistUrl = playlistUrls[selectedTrackIndex];
       playlist =
@@ -912,6 +923,44 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                 : previous.chunkIndex,
             previous.partIndex == C.INDEX_UNSET ? C.INDEX_UNSET : previous.partIndex + 1)
         : new Pair<>(previous.chunkIndex, previous.partIndex));
+  }
+
+  private static boolean shouldForceKeepCurrentTrackSelection(
+      boolean switchingTrack,
+      HlsMediaPlaylist playlist,
+      long mediaSequence,
+      int part,
+      @Nullable HlsMediaChunk previousChunk,
+      long startOfPlaylistInPeriodUs,
+      long largestReadPositionUs) {
+    if (!switchingTrack) {
+      // We are already keeping the current selection.
+      return false;
+    }
+    if (previousChunk == null) {
+      // This is the first chunk, we can select any track.
+      return false;
+    }
+    if (mediaSequence < playlist.mediaSequence) {
+      // Falling behind the live edge. We should keep the current selection to rescue playback.
+      return true;
+    }
+    // Find segment/part data in playlist.
+    @Nullable
+    SegmentBaseHolder segmentBaseHolder = getNextSegmentHolder(playlist, mediaSequence, part);
+    if (segmentBaseHolder == null) {
+      // Can't even resolve segment or part data, will be handled elsewhere.
+      return false;
+    }
+    long startTimeInPeriodUs =
+        startOfPlaylistInPeriodUs + segmentBaseHolder.segmentBase.relativeStartTimeUs;
+    if (startTimeInPeriodUs < largestReadPositionUs) {
+      // Switching to this track will result a stuck playback because we already read past its start
+      // position and we can no longer append or splice in the samples successfully.
+      return true;
+    }
+    // No reason to ignore the new track selection.
+    return false;
   }
 
   private long resolveTimeToLiveEdgeUs(long playbackPositionUs) {

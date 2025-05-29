@@ -30,23 +30,37 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.TrackGroup;
+import androidx.media3.common.util.TimestampAdjuster;
 import androidx.media3.exoplayer.LoadingInfo;
 import androidx.media3.exoplayer.SeekParameters;
 import androidx.media3.exoplayer.analytics.PlayerId;
+import androidx.media3.exoplayer.drm.DrmSessionEventListener;
+import androidx.media3.exoplayer.drm.DrmSessionManager;
 import androidx.media3.exoplayer.hls.playlist.HlsMediaPlaylist;
 import androidx.media3.exoplayer.hls.playlist.HlsPlaylistParser;
 import androidx.media3.exoplayer.hls.playlist.HlsPlaylistTracker;
+import androidx.media3.exoplayer.source.MediaSourceEventListener;
+import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.CmcdConfiguration;
+import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
+import androidx.media3.extractor.ExtractorInput;
+import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.test.utils.ExoPlayerTestRunner;
+import androidx.media3.test.utils.FakeDataSet;
 import androidx.media3.test.utils.FakeDataSource;
+import androidx.media3.test.utils.FakeTrackSelection;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.Duration;
+import java.util.List;
+import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.shadows.ShadowSystemClock;
@@ -65,6 +79,7 @@ public class HlsChunkSourceTest {
   private static final String PLAYLIST_LIVE_LOW_LATENCY_SEGMENTS_AND_SINGLE_PRELOAD_PART =
       "media/m3u8/live_low_latency_segments_and_single_preload_part";
   private static final Uri PLAYLIST_URI = Uri.parse("http://example.com/");
+  private static final Uri PLAYLIST_URI_2 = Uri.parse("http://example2.com/");
   private static final long PLAYLIST_START_PERIOD_OFFSET_US = 8_000_000L;
   private static final Uri IFRAME_URI = Uri.parse("http://example.com/iframe");
   private static final Format IFRAME_FORMAT =
@@ -216,6 +231,7 @@ public class HlsChunkSourceTest {
     testChunkSource.getNextChunk(
         new LoadingInfo.Builder().setPlaybackPositionUs(0).setPlaybackSpeed(1.0f).build(),
         /* loadPositionUs= */ 0,
+        /* largestReadPositionUs= */ 0,
         /* queue= */ ImmutableList.of(),
         /* allowEndOfStream= */ true,
         output);
@@ -232,6 +248,7 @@ public class HlsChunkSourceTest {
     testChunkSource.getNextChunk(
         new LoadingInfo.Builder().setPlaybackPositionUs(3_000_000).setPlaybackSpeed(1.25f).build(),
         /* loadPositionUs= */ 4_000_000,
+        /* largestReadPositionUs= */ 0,
         /* queue= */ ImmutableList.of((HlsMediaChunk) output.chunk),
         /* allowEndOfStream= */ true,
         output);
@@ -249,6 +266,7 @@ public class HlsChunkSourceTest {
     testChunkSource.getNextChunk(
         new LoadingInfo.Builder().setPlaybackPositionUs(5_000_000).setPlaybackSpeed(1.25f).build(),
         /* loadPositionUs= */ 4_000_000,
+        /* largestReadPositionUs= */ 0,
         /* queue= */ ImmutableList.of((HlsMediaChunk) output.chunk),
         /* allowEndOfStream= */ true,
         output);
@@ -280,6 +298,7 @@ public class HlsChunkSourceTest {
     testChunkSource.getNextChunk(
         loadingInfo,
         /* loadPositionUs= */ 0,
+        /* largestReadPositionUs= */ 0,
         /* queue= */ ImmutableList.of(),
         /* allowEndOfStream= */ true,
         output);
@@ -297,6 +316,7 @@ public class HlsChunkSourceTest {
     testChunkSource.getNextChunk(
         loadingInfo,
         /* loadPositionUs= */ 4_000_000,
+        /* largestReadPositionUs= */ 0,
         /* queue= */ ImmutableList.of(),
         /* allowEndOfStream= */ true,
         output);
@@ -309,6 +329,7 @@ public class HlsChunkSourceTest {
     testChunkSource.getNextChunk(
         loadingInfo,
         /* loadPositionUs= */ 8_000_000,
+        /* largestReadPositionUs= */ 0,
         /* queue= */ ImmutableList.of(),
         /* allowEndOfStream= */ true,
         output);
@@ -333,6 +354,7 @@ public class HlsChunkSourceTest {
     testChunkSource.getNextChunk(
         new LoadingInfo.Builder().setPlaybackPositionUs(27_000_000).setPlaybackSpeed(1.0f).build(),
         /* loadPositionUs= */ 27_000_000,
+        /* largestReadPositionUs= */ 0,
         /* queue= */ ImmutableList.of(),
         /* allowEndOfStream= */ true,
         output);
@@ -345,6 +367,7 @@ public class HlsChunkSourceTest {
     testChunkSource.getNextChunk(
         new LoadingInfo.Builder().setPlaybackPositionUs(31_000_000).setPlaybackSpeed(1.0f).build(),
         /* loadPositionUs= */ 31_000_000,
+        /* largestReadPositionUs= */ 0,
         /* queue= */ ImmutableList.of(),
         /* allowEndOfStream= */ true,
         output);
@@ -372,6 +395,7 @@ public class HlsChunkSourceTest {
     testChunkSource.getNextChunk(
         new LoadingInfo.Builder().setPlaybackPositionUs(31_000_000).setPlaybackSpeed(1.0f).build(),
         /* loadPositionUs= */ 31_000_000,
+        /* largestReadPositionUs= */ 0,
         /* queue= */ ImmutableList.of(),
         /* allowEndOfStream= */ true,
         output);
@@ -384,6 +408,7 @@ public class HlsChunkSourceTest {
     testChunkSource.getNextChunk(
         new LoadingInfo.Builder().setPlaybackPositionUs(34_000_000).setPlaybackSpeed(1.0f).build(),
         /* loadPositionUs= */ 34_000_000,
+        /* largestReadPositionUs= */ 0,
         /* queue= */ ImmutableList.of(),
         /* allowEndOfStream= */ true,
         output);
@@ -426,6 +451,7 @@ public class HlsChunkSourceTest {
     testChunkSource.getNextChunk(
         new LoadingInfo.Builder().setPlaybackPositionUs(0).setPlaybackSpeed(1.0f).build(),
         /* loadPositionUs= */ 0,
+        /* largestReadPositionUs= */ 0,
         /* queue= */ ImmutableList.of(),
         /* allowEndOfStream= */ true,
         output);
@@ -476,6 +502,7 @@ public class HlsChunkSourceTest {
     testChunkSource.getNextChunk(
         new LoadingInfo.Builder().setPlaybackPositionUs(0).setPlaybackSpeed(1.0f).build(),
         /* loadPositionUs= */ 0,
+        /* largestReadPositionUs= */ 0,
         /* queue= */ ImmutableList.of(),
         /* allowEndOfStream= */ true,
         output);
@@ -529,6 +556,7 @@ public class HlsChunkSourceTest {
     testChunkSource.getNextChunk(
         new LoadingInfo.Builder().setPlaybackPositionUs(0).setPlaybackSpeed(1.0f).build(),
         /* loadPositionUs= */ 0,
+        /* largestReadPositionUs= */ 0,
         /* queue= */ ImmutableList.of(),
         /* allowEndOfStream= */ true,
         output);
@@ -553,6 +581,7 @@ public class HlsChunkSourceTest {
     chunkSource.getNextChunk(
         new LoadingInfo.Builder().setPlaybackPositionUs(34_000_000).setPlaybackSpeed(1.0f).build(),
         /* loadPositionUs= */ 34_000_000,
+        /* largestReadPositionUs= */ 0,
         /* queue= */ ImmutableList.of(),
         /* allowEndOfStream= */ true,
         output);
@@ -566,11 +595,158 @@ public class HlsChunkSourceTest {
     chunkSource.getNextChunk(
         new LoadingInfo.Builder().setPlaybackPositionUs(34_000_000).setPlaybackSpeed(1.0f).build(),
         /* loadPositionUs= */ 34_000_000,
+        /* largestReadPositionUs= */ 0,
         /* queue= */ ImmutableList.of(hlsMediaChunk),
         /* allowEndOfStream= */ true,
         output);
 
     assertThat(((HlsMediaChunk) output.chunk).shouldSpliceIn).isTrue();
+  }
+
+  @Test
+  public void
+      getNextChunk_changedTrackSelectionWithNonOverlappingSegments_returnsShouldSpliceInFalse()
+          throws Exception {
+    HlsChunkSource chunkSource =
+        createHlsChunkSource(
+            ImmutableMap.of(
+                PLAYLIST_URI,
+                PLAYLIST_INDEPENDENT_SEGMENTS,
+                PLAYLIST_URI_2,
+                PLAYLIST_INDEPENDENT_SEGMENTS));
+    TrackGroup trackGroup = chunkSource.getTrackGroup();
+    FakeTrackSelection trackSelection1 = new FakeTrackSelection(trackGroup, /* selectedIndex= */ 0);
+    trackSelection1.enable();
+    FakeTrackSelection trackSelection2 = new FakeTrackSelection(trackGroup, /* selectedIndex= */ 1);
+    trackSelection2.enable();
+    chunkSource.setTrackSelection(trackSelection1);
+    HlsChunkSource.HlsChunkHolder output = new HlsChunkSource.HlsChunkHolder();
+
+    // Select first chunk, starting at exactly 16 seconds.
+    chunkSource.getNextChunk(
+        new LoadingInfo.Builder().setPlaybackPositionUs(8_000_000).setPlaybackSpeed(1.0f).build(),
+        /* loadPositionUs= */ 16_000_000,
+        /* largestReadPositionUs= */ 8_000_000,
+        /* queue= */ ImmutableList.of(),
+        /* allowEndOfStream= */ true,
+        output);
+    HlsMediaChunk firstChunk = (HlsMediaChunk) output.chunk;
+    loadMediaChunk(firstChunk, chunkSource);
+    // Update track selection with a load position (20 seconds) matching the start of the next
+    // chunk, so that there is no overlap.
+    chunkSource.setTrackSelection(trackSelection2);
+    chunkSource.getNextChunk(
+        new LoadingInfo.Builder().setPlaybackPositionUs(8_000_000).setPlaybackSpeed(1.0f).build(),
+        /* loadPositionUs= */ 20_000_000,
+        /* largestReadPositionUs= */ 8_000_000,
+        /* queue= */ ImmutableList.of(firstChunk),
+        /* allowEndOfStream= */ true,
+        output);
+    HlsMediaChunk secondChunk = (HlsMediaChunk) output.chunk;
+
+    assertThat(firstChunk.playlistUrl).isEqualTo(PLAYLIST_URI);
+    assertThat(firstChunk.shouldSpliceIn).isFalse();
+    assertThat(firstChunk.startTimeUs).isEqualTo(16_000_000);
+    assertThat(secondChunk.playlistUrl).isEqualTo(PLAYLIST_URI_2);
+    assertThat(secondChunk.shouldSpliceIn).isFalse();
+    assertThat(secondChunk.startTimeUs).isEqualTo(20_000_000);
+  }
+
+  @Test
+  public void getNextChunk_changedTrackSelectionWithOverlappingSegments_returnsShouldSpliceInTrue()
+      throws Exception {
+    HlsChunkSource chunkSource =
+        createHlsChunkSource(
+            ImmutableMap.of(
+                PLAYLIST_URI,
+                PLAYLIST_INDEPENDENT_SEGMENTS,
+                PLAYLIST_URI_2,
+                PLAYLIST_INDEPENDENT_SEGMENTS));
+    TrackGroup trackGroup = chunkSource.getTrackGroup();
+    FakeTrackSelection trackSelection1 = new FakeTrackSelection(trackGroup, /* selectedIndex= */ 0);
+    trackSelection1.enable();
+    FakeTrackSelection trackSelection2 = new FakeTrackSelection(trackGroup, /* selectedIndex= */ 1);
+    trackSelection2.enable();
+    chunkSource.setTrackSelection(trackSelection1);
+    HlsChunkSource.HlsChunkHolder output = new HlsChunkSource.HlsChunkHolder();
+
+    // Select first chunk, starting at exactly 16 seconds.
+    chunkSource.getNextChunk(
+        new LoadingInfo.Builder().setPlaybackPositionUs(8_000_000).setPlaybackSpeed(1.0f).build(),
+        /* loadPositionUs= */ 16_000_000,
+        /* largestReadPositionUs= */ 8_000_000,
+        /* queue= */ ImmutableList.of(),
+        /* allowEndOfStream= */ true,
+        output);
+    HlsMediaChunk firstChunk = (HlsMediaChunk) output.chunk;
+    loadMediaChunk(firstChunk, chunkSource);
+    // Update track selection with a load position (18 seconds) beyond the start of the chunk (16
+    // seconds), so that the data will overlap.
+    chunkSource.setTrackSelection(trackSelection2);
+    chunkSource.getNextChunk(
+        new LoadingInfo.Builder().setPlaybackPositionUs(8_000_000).setPlaybackSpeed(1.0f).build(),
+        /* loadPositionUs= */ 18_000_000,
+        /* largestReadPositionUs= */ 8_000_000,
+        /* queue= */ ImmutableList.of(firstChunk),
+        /* allowEndOfStream= */ true,
+        output);
+    HlsMediaChunk secondChunk = (HlsMediaChunk) output.chunk;
+
+    assertThat(firstChunk.playlistUrl).isEqualTo(PLAYLIST_URI);
+    assertThat(firstChunk.shouldSpliceIn).isFalse();
+    assertThat(firstChunk.startTimeUs).isEqualTo(16_000_000);
+    assertThat(secondChunk.playlistUrl).isEqualTo(PLAYLIST_URI_2);
+    assertThat(secondChunk.shouldSpliceIn).isTrue();
+    assertThat(secondChunk.startTimeUs).isEqualTo(16_000_000);
+  }
+
+  @Test
+  public void
+      getNextChunk_changedTrackSelectionWithOverlappingSegmentsStartingBeforeReadPosition_forcesCurrentSelection()
+          throws Exception {
+    HlsChunkSource chunkSource =
+        createHlsChunkSource(
+            ImmutableMap.of(
+                PLAYLIST_URI,
+                PLAYLIST_INDEPENDENT_SEGMENTS,
+                PLAYLIST_URI_2,
+                PLAYLIST_INDEPENDENT_SEGMENTS));
+    TrackGroup trackGroup = chunkSource.getTrackGroup();
+    FakeTrackSelection trackSelection1 = new FakeTrackSelection(trackGroup, /* selectedIndex= */ 0);
+    trackSelection1.enable();
+    FakeTrackSelection trackSelection2 = new FakeTrackSelection(trackGroup, /* selectedIndex= */ 1);
+    trackSelection2.enable();
+    chunkSource.setTrackSelection(trackSelection1);
+    HlsChunkSource.HlsChunkHolder output = new HlsChunkSource.HlsChunkHolder();
+
+    // Select first chunk, starting at exactly 16 seconds.
+    chunkSource.getNextChunk(
+        new LoadingInfo.Builder().setPlaybackPositionUs(8_000_000).setPlaybackSpeed(1.0f).build(),
+        /* loadPositionUs= */ 16_000_000,
+        /* largestReadPositionUs= */ 8_000_000,
+        /* queue= */ ImmutableList.of(),
+        /* allowEndOfStream= */ true,
+        output);
+    HlsMediaChunk firstChunk = (HlsMediaChunk) output.chunk;
+    loadMediaChunk(firstChunk, chunkSource);
+    // Update track selection with a load position (18 seconds) beyond the start of the chunk (16
+    // seconds), so that the data will overlap. Also simulate reading into this range already.
+    chunkSource.setTrackSelection(trackSelection2);
+    chunkSource.getNextChunk(
+        new LoadingInfo.Builder().setPlaybackPositionUs(8_000_000).setPlaybackSpeed(1.0f).build(),
+        /* loadPositionUs= */ 18_000_000,
+        /* largestReadPositionUs= */ 16_000_001,
+        /* queue= */ ImmutableList.of(firstChunk),
+        /* allowEndOfStream= */ true,
+        output);
+    HlsMediaChunk secondChunk = (HlsMediaChunk) output.chunk;
+
+    assertThat(firstChunk.playlistUrl).isEqualTo(PLAYLIST_URI);
+    assertThat(firstChunk.shouldSpliceIn).isFalse();
+    assertThat(firstChunk.startTimeUs).isEqualTo(16_000_000);
+    assertThat(secondChunk.playlistUrl).isEqualTo(PLAYLIST_URI);
+    assertThat(secondChunk.shouldSpliceIn).isFalse();
+    assertThat(secondChunk.startTimeUs).isEqualTo(20_000_000);
   }
 
   @Test
@@ -583,6 +759,7 @@ public class HlsChunkSourceTest {
     chunkSource.getNextChunk(
         new LoadingInfo.Builder().setPlaybackPositionUs(34_000_000).setPlaybackSpeed(1.0f).build(),
         /* loadPositionUs= */ 34_000_000,
+        /* largestReadPositionUs= */ 0,
         /* queue= */ ImmutableList.of(),
         /* allowEndOfStream= */ true,
         output);
@@ -606,6 +783,7 @@ public class HlsChunkSourceTest {
     testChunkSource.getNextChunk(
         new LoadingInfo.Builder().setPlaybackPositionUs(27_000_000).setPlaybackSpeed(1.0f).build(),
         /* loadPositionUs= */ 27_000_000,
+        /* largestReadPositionUs= */ 0,
         /* queue= */ ImmutableList.of(),
         /* allowEndOfStream= */ true,
         output);
@@ -630,6 +808,7 @@ public class HlsChunkSourceTest {
     testChunkSource.getNextChunk(
         new LoadingInfo.Builder().setPlaybackPositionUs(27_000_000).setPlaybackSpeed(1.0f).build(),
         /* loadPositionUs= */ 27_000_000,
+        /* largestReadPositionUs= */ 0,
         /* queue= */ ImmutableList.of(),
         /* allowEndOfStream= */ true,
         output);
@@ -652,6 +831,7 @@ public class HlsChunkSourceTest {
     testChunkSource.getNextChunk(
         new LoadingInfo.Builder().setPlaybackPositionUs(32_000_000).setPlaybackSpeed(1.0f).build(),
         /* loadPositionUs= */ 32_000_000,
+        /* largestReadPositionUs= */ 0,
         /* queue= */ ImmutableList.of(),
         /* allowEndOfStream= */ true,
         output);
@@ -679,6 +859,7 @@ public class HlsChunkSourceTest {
     testChunkSource.getNextChunk(
         new LoadingInfo.Builder().setPlaybackPositionUs(32_000_000).setPlaybackSpeed(1.0f).build(),
         /* loadPositionUs= */ 32_000_000,
+        /* largestReadPositionUs= */ 0,
         /* queue= */ ImmutableList.of(),
         /* allowEndOfStream= */ true,
         output);
@@ -704,6 +885,7 @@ public class HlsChunkSourceTest {
     testChunkSource.getNextChunk(
         new LoadingInfo.Builder().setPlaybackPositionUs(32_000_000).setPlaybackSpeed(1.0f).build(),
         /* loadPositionUs= */ 32_000_000,
+        /* largestReadPositionUs= */ 0,
         /* queue= */ ImmutableList.of(),
         /* allowEndOfStream= */ true,
         output);
@@ -716,55 +898,154 @@ public class HlsChunkSourceTest {
     assertThrows(IOException.class, testChunkSource::maybeThrowError);
   }
 
-  private HlsChunkSource createHlsChunkSource(String playlistPath) throws IOException {
+  private static HlsChunkSource createHlsChunkSource(String playlistPath) throws IOException {
     return createHlsChunkSource(
-        playlistPath, /* cmcdConfiguration= */ null, /* playlistLoadException= */ null);
+        ImmutableMap.of(PLAYLIST_URI, playlistPath),
+        /* cmcdConfiguration= */ null,
+        /* playlistLoadException= */ null);
   }
 
-  private HlsChunkSource createHlsChunkSource(
+  private static HlsChunkSource createHlsChunkSource(
       String playlistPath, @Nullable CmcdConfiguration cmcdConfiguration) throws IOException {
-    return createHlsChunkSource(playlistPath, cmcdConfiguration, /* playlistLoadException= */ null);
+    return createHlsChunkSource(
+        ImmutableMap.of(PLAYLIST_URI, playlistPath),
+        cmcdConfiguration,
+        /* playlistLoadException= */ null);
   }
 
-  private HlsChunkSource createHlsChunkSource(
+  private static HlsChunkSource createHlsChunkSource(
       String playlistPath, @Nullable IOException playlistLoadException) throws IOException {
-    return createHlsChunkSource(playlistPath, /* cmcdConfiguration= */ null, playlistLoadException);
+    return createHlsChunkSource(
+        ImmutableMap.of(PLAYLIST_URI, playlistPath),
+        /* cmcdConfiguration= */ null,
+        playlistLoadException);
   }
 
-  private HlsChunkSource createHlsChunkSource(
-      String playlistPath,
+  private static HlsChunkSource createHlsChunkSource(Map<Uri, String> playlistUrisToPaths)
+      throws IOException {
+    return createHlsChunkSource(
+        playlistUrisToPaths, /* cmcdConfiguration= */ null, /* playlistLoadException= */ null);
+  }
+
+  private static HlsChunkSource createHlsChunkSource(
+      Map<Uri, String> playlistUrisToPaths,
       @Nullable CmcdConfiguration cmcdConfiguration,
       @Nullable IOException playlistLoadException)
       throws IOException {
     HlsPlaylistTracker mockPlaylistTracker = mock(HlsPlaylistTracker.class);
-    InputStream inputStream =
-        TestUtil.getInputStream(ApplicationProvider.getApplicationContext(), playlistPath);
-    HlsMediaPlaylist playlist =
-        (HlsMediaPlaylist) new HlsPlaylistParser().parse(PLAYLIST_URI, inputStream);
-    when(mockPlaylistTracker.getPlaylistSnapshot(eq(PLAYLIST_URI), anyBoolean()))
-        .thenReturn(playlist);
-    when(mockPlaylistTracker.isSnapshotValid(eq(PLAYLIST_URI))).thenReturn(true);
-    if (playlistLoadException != null) {
-      doThrow(playlistLoadException)
-          .when(mockPlaylistTracker)
-          .maybeThrowPlaylistRefreshError(PLAYLIST_URI);
+    long playlistStartTimeUs = 0;
+    Format[] playlistFormats = new Format[playlistUrisToPaths.size() + 1];
+    Uri[] playlistUris = new Uri[playlistUrisToPaths.size() + 1];
+    playlistFormats[0] = IFRAME_FORMAT;
+    playlistUris[0] = IFRAME_URI;
+    int playlistArrayIndex = 1;
+    for (Map.Entry<Uri, String> playlistUriAndPath : playlistUrisToPaths.entrySet()) {
+      Uri playlistUri = playlistUriAndPath.getKey();
+      String playlistPath = playlistUriAndPath.getValue();
+      InputStream inputStream =
+          TestUtil.getInputStream(ApplicationProvider.getApplicationContext(), playlistPath);
+      HlsMediaPlaylist playlist =
+          (HlsMediaPlaylist) new HlsPlaylistParser().parse(playlistUri, inputStream);
+      when(mockPlaylistTracker.getPlaylistSnapshot(eq(playlistUri), anyBoolean()))
+          .thenReturn(playlist);
+      when(mockPlaylistTracker.isSnapshotValid(eq(playlistUri))).thenReturn(true);
+      if (playlistLoadException != null) {
+        doThrow(playlistLoadException)
+            .when(mockPlaylistTracker)
+            .maybeThrowPlaylistRefreshError(playlistUri);
+      }
+      playlistStartTimeUs = playlist.startTimeUs;
+      playlistFormats[playlistArrayIndex] =
+          ExoPlayerTestRunner.VIDEO_FORMAT.buildUpon().setId(playlistArrayIndex).build();
+      playlistUris[playlistArrayIndex] = playlistUri;
+      playlistArrayIndex++;
     }
     // Mock that segments totalling PLAYLIST_START_PERIOD_OFFSET_US in duration have been removed
     // from the start of the playlist.
     when(mockPlaylistTracker.getInitialStartTimeUs())
-        .thenReturn(playlist.startTimeUs - PLAYLIST_START_PERIOD_OFFSET_US);
-    return new HlsChunkSource(
-        new DefaultHlsExtractorFactory(),
-        mockPlaylistTracker,
-        new Uri[] {IFRAME_URI, PLAYLIST_URI},
-        new Format[] {IFRAME_FORMAT, ExoPlayerTestRunner.VIDEO_FORMAT},
-        new DefaultHlsDataSourceFactory(new FakeDataSource.Factory()),
-        /* mediaTransferListener= */ null,
-        new TimestampAdjusterProvider(),
-        /* timestampAdjusterInitializationTimeoutMs= */ 0,
-        /* muxedCaptionFormats= */ null,
-        PlayerId.UNSET,
-        cmcdConfiguration);
+        .thenReturn(playlistStartTimeUs - PLAYLIST_START_PERIOD_OFFSET_US);
+    HlsChunkSource chunkSource =
+        new HlsChunkSource(
+            createPlaceholderExtractorFactory(),
+            mockPlaylistTracker,
+            playlistUris,
+            playlistFormats,
+            new DefaultHlsDataSourceFactory(
+                new FakeDataSource.Factory()
+                    .setFakeDataSet(
+                        new FakeDataSet().newDefaultData().appendReadData(1).endData())),
+            /* mediaTransferListener= */ null,
+            new TimestampAdjusterProvider(),
+            /* timestampAdjusterInitializationTimeoutMs= */ 0,
+            /* muxedCaptionFormats= */ null,
+            PlayerId.UNSET,
+            cmcdConfiguration);
+    chunkSource.setIsPrimaryTimestampSource(true);
+    return chunkSource;
+  }
+
+  private static HlsExtractorFactory createPlaceholderExtractorFactory() {
+    return new HlsExtractorFactory() {
+      @Override
+      public HlsMediaChunkExtractor createExtractor(
+          Uri uri,
+          Format format,
+          @Nullable List<Format> muxedCaptionFormats,
+          TimestampAdjuster timestampAdjuster,
+          Map<String, List<String>> responseHeaders,
+          ExtractorInput sniffingExtractorInput,
+          PlayerId playerId)
+          throws IOException {
+        return new HlsMediaChunkExtractor() {
+          @Override
+          public void init(ExtractorOutput extractorOutput) {}
+
+          @Override
+          public boolean read(ExtractorInput extractorInput) {
+            return false;
+          }
+
+          @Override
+          public boolean isPackedAudioExtractor() {
+            return false;
+          }
+
+          @Override
+          public boolean isReusable() {
+            return true;
+          }
+
+          @Override
+          public HlsMediaChunkExtractor recreate() {
+            return this;
+          }
+
+          @Override
+          public void onTruncatedSegmentParsed() {}
+        };
+      }
+    };
+  }
+
+  private static void loadMediaChunk(HlsMediaChunk mediaChunk, HlsChunkSource chunkSource)
+      throws IOException {
+    HlsSampleStreamWrapper sampleStreamWrapper =
+        new HlsSampleStreamWrapper(
+            /* uid= */ "",
+            C.TRACK_TYPE_VIDEO,
+            mock(HlsSampleStreamWrapper.Callback.class),
+            chunkSource,
+            /* overridingDrmInitData= */ ImmutableMap.of(),
+            mock(Allocator.class),
+            /* positionUs= */ 0,
+            /* muxedAudioFormat= */ null,
+            mock(DrmSessionManager.class),
+            mock(DrmSessionEventListener.EventDispatcher.class),
+            mock(LoadErrorHandlingPolicy.class),
+            mock(MediaSourceEventListener.EventDispatcher.class),
+            /* metadataType= */ HlsMediaSource.METADATA_TYPE_ID3);
+    mediaChunk.init(sampleStreamWrapper, ImmutableList.of());
+    mediaChunk.load();
   }
 
   private static long playlistTimeToPeriodTimeUs(long playlistTimeUs) {
