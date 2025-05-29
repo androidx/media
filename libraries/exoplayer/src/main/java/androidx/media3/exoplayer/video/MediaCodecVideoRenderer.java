@@ -1726,8 +1726,10 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         videoEffectsToApply);
   }
 
+  // codecHandlesHdr10PlusOutOfBandMetadata is false if Util.SDK_INT < 29
+  @SuppressWarnings("UseRequiresApi")
+  @TargetApi(29)
   @Override
-  @TargetApi(29) // codecHandlesHdr10PlusOutOfBandMetadata is false if Util.SDK_INT < 29
   protected void handleInputBufferSupplementalData(DecoderInputBuffer buffer)
       throws ExoPlaybackException {
     if (!codecHandlesHdr10PlusOutOfBandMetadata) {
