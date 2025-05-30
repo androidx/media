@@ -531,13 +531,17 @@ public final class CmcdData {
     }
   }
 
-  /** Removes Common Media Client Data (CMCD) related information from the provided {@link DataSpec}
-   * object. */
+  /**
+   * Removes Common Media Client Data (CMCD) related information from the provided {@link DataSpec}
+   * object.
+   */
   @CheckResult
   public static DataSpec removeFromDataSpec(DataSpec dataSpec) {
     if (dataSpec.uri.getQueryParameter(CmcdConfiguration.CMCD_QUERY_PARAMETER_KEY) != null) {
-      dataSpec = dataSpec.withUri(
-          UriUtil.removeQueryParameter(dataSpec.uri, CmcdConfiguration.CMCD_QUERY_PARAMETER_KEY));
+      dataSpec =
+          dataSpec.withUri(
+              UriUtil.removeQueryParameter(
+                  dataSpec.uri, CmcdConfiguration.CMCD_QUERY_PARAMETER_KEY));
     }
     if (dataSpec.httpRequestHeaders.containsKey(CmcdConfiguration.KEY_CMCD_OBJECT)
         || dataSpec.httpRequestHeaders.containsKey(CmcdConfiguration.KEY_CMCD_REQUEST)
