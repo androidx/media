@@ -94,7 +94,6 @@ import java.text.SimpleDateFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
-import java.util.Set;
 import java.util.TimeZone;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -734,7 +733,7 @@ public final class DashMediaSource extends BaseMediaSource {
       boolean useUriFromPreviousRequest =
           loadable.dataSpec.uri.equals(manifestUri)
               || (cmcdConfiguration != null
-                  && CmcdData.removeFromDataSpec(loadable.dataSpec).uri.equals(manifestUri));
+                  && CmcdData.removeFromUri(loadable.dataSpec.uri).equals(manifestUri));
 
       if (useUriFromPreviousRequest) {
         // Replace the manifest URI with one specified by a manifest Location element (if present),
@@ -743,7 +742,7 @@ public final class DashMediaSource extends BaseMediaSource {
         manifestUri =
             manifest.location != null
                 ? manifest.location
-                : removeCmcdQueryParameter(loadable.getUri());
+                : CmcdData.removeFromUri(loadable.getUri());
       }
     }
 
@@ -757,23 +756,6 @@ public final class DashMediaSource extends BaseMediaSource {
     } else {
       processManifest(true);
     }
-  }
-
-  private static Uri removeCmcdQueryParameter(Uri uri) {
-    Set<String> queryParameterNames = uri.getQueryParameterNames();
-    if (!queryParameterNames.contains(CmcdConfiguration.CMCD_QUERY_PARAMETER_KEY)) {
-      return uri;
-    }
-    Uri.Builder builder = uri.buildUpon();
-    builder.clearQuery();
-    for (String key : queryParameterNames) {
-      if (!key.equals(CmcdConfiguration.CMCD_QUERY_PARAMETER_KEY)) {
-        for (String value : uri.getQueryParameters(key)) {
-          builder.appendQueryParameter(key, value);
-        }
-      }
-    }
-    return builder.build();
   }
 
   /* package */ LoadErrorAction onManifestLoadError(
