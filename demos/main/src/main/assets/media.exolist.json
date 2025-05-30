@@ -650,6 +650,12 @@
         "uri": "https://storage.googleapis.com/wvmedia/2019/cenc/av1/24/webm/llama_av1_480p_400.webm",
         "drm_scheme": "widevine",
         "drm_license_uri": "https://proxy.uat.widevine.com/proxy?video_id=GTS_HW_SECURE_ALL&provider=widevine_test"
+      },
+      {
+        "name": "HD (DASH, Widevine cenc, L3, SVT-AV1)",
+        "uri": "https://storage.googleapis.com/exoplayer-test-media-1/widevine/av1/dash_manifest.mpd",
+        "drm_scheme": "widevine",
+        "drm_license_uri": "https://proxy.uat.widevine.com/proxy?provider=widevine_test"
       }
     ]
   },
