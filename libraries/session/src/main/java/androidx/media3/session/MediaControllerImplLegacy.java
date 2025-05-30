@@ -94,6 +94,8 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
 
   private static final String TAG = "MCImplLegacy";
 
+  private static final long WAIT_TIME_MS_FOR_COMPAT_EXTRA_BINDER = 500;
+
   /* package */ final Context context;
   private final MediaController instance;
 
@@ -1405,18 +1407,19 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
               controllerCompat.registerCallback(
                   controllerCompatCallback, getInstance().applicationHandler);
             });
-    // Post a runnable to prevent callbacks from being called by onConnected()
-    // before the constructor returns (b/196941334).
+    // Post a delayed runnable to mark session as connected if we are working with a framework
+    // session.
     getInstance()
         .applicationHandler
-        .post(
+        .postDelayed(
             () -> {
-              if (!controllerCompat.isSessionReady()) {
-                // If the session not ready here, then call onConnected() immediately. The session
-                // may be a framework MediaSession and we cannot know whether it can be ready later.
+              if (!released && !controllerCompat.isSessionReady()) {
+                // If the session not ready here, then call onConnected() and assume that the
+                // session is a framework MediaSession.
                 onConnected();
               }
-            });
+            },
+            WAIT_TIME_MS_FOR_COMPAT_EXTRA_BINDER);
   }
 
   private void connectToService() {

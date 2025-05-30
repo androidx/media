@@ -43,6 +43,7 @@ import static androidx.media3.test.session.common.TestUtils.TIMEOUT_MS;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.junit.Assert.assertThrows;
 
 import android.annotation.SuppressLint;
 import android.app.PendingIntent;
@@ -94,6 +95,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -209,24 +211,40 @@ public class MediaControllerWithMediaSessionCompatTest {
   }
 
   @Test
-  public void disconnected_bySessionRelease() throws Exception {
-    CountDownLatch latch = new CountDownLatch(1);
-    MediaController controller =
-        controllerTestRule.createController(
-            session.getSessionToken(),
-            new MediaController.Listener() {
-              @Override
-              public void onDisconnected(MediaController controller) {
-                latch.countDown();
-              }
-            });
+  public void
+      createController_alreadyReleasedSession_throwsSecurityExceptionWithoutCallingOnDisconnected()
+          throws Exception {
     session.release();
-    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
-    assertThat(controller.isConnected()).isFalse();
+    AtomicBoolean onDisconnectedCalled = new AtomicBoolean();
+
+    ExecutionException exception =
+        assertThrows(
+            ExecutionException.class,
+            () ->
+                controllerTestRule.createController(
+                    session.getSessionToken(),
+                    new MediaController.Listener() {
+                      @Override
+                      public void onDisconnected(MediaController controller) {
+                        onDisconnectedCalled.set(true);
+                      }
+                    }));
+
+    assertThat(exception).hasCauseThat().isInstanceOf(SecurityException.class);
+    assertThat(onDisconnectedCalled.get()).isFalse();
   }
 
   @Test
-  public void disconnected_byControllerRelease() throws Exception {
+  public void isConnected_afterSuccessfulConnection_returnsTrue() throws Exception {
+    MediaController controller =
+        controllerTestRule.createController(session.getSessionToken(), /* listener= */ null);
+
+    assertThat(controller.isConnected()).isTrue();
+  }
+
+  @Test
+  public void isConnected_afterSessionReleased_returnsFalseAndCallsOnDisconnected()
+      throws Exception {
     CountDownLatch latch = new CountDownLatch(1);
     MediaController controller =
         controllerTestRule.createController(
@@ -237,13 +255,37 @@ public class MediaControllerWithMediaSessionCompatTest {
                 latch.countDown();
               }
             });
-    threadTestRule.getHandler().postAndSync(controller::release);
+
+    session.release();
+
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(controller.isConnected()).isFalse();
   }
 
   @Test
-  public void disconnected_byControllerReleaseRightAfterCreated() throws Exception {
+  public void isConnected_afterControllerRelease_returnsFalseAndCallsOnDisconnected()
+      throws Exception {
+    CountDownLatch latch = new CountDownLatch(1);
+    MediaController controller =
+        controllerTestRule.createController(
+            session.getSessionToken(),
+            new MediaController.Listener() {
+              @Override
+              public void onDisconnected(MediaController controller) {
+                latch.countDown();
+              }
+            });
+
+    threadTestRule.getHandler().postAndSync(controller::release);
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(controller.isConnected()).isFalse();
+  }
+
+  @Test
+  public void
+      isConnected_afterControllerReleaseRightAfterCreated_returnsFalseAndCallsOnDisconnected()
+          throws Exception {
     CountDownLatch latch = new CountDownLatch(1);
     AtomicReference<Exception> exception = new AtomicReference<>();
     MediaController controller =
@@ -263,13 +305,14 @@ public class MediaControllerWithMediaSessionCompatTest {
                 exception.set(e);
               }
             });
+
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(exception.get()).isNull();
     assertThat(controller.isConnected()).isFalse();
   }
 
   @Test
-  public void close_twice_doesNotCrash() throws Exception {
+  public void release_twice_doesNotCrash() throws Exception {
     MediaController controller = controllerTestRule.createController(session.getSessionToken());
     threadTestRule.getHandler().postAndSync(controller::release);
     threadTestRule.getHandler().postAndSync(controller::release);

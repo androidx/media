@@ -32,6 +32,7 @@ import static androidx.media3.test.session.common.TestUtils.TIMEOUT_MS;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.junit.Assert.assertThrows;
 
 import android.annotation.SuppressLint;
 import android.app.PendingIntent;
@@ -76,12 +77,12 @@ import com.google.common.util.concurrent.ListenableFuture;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Rule;
@@ -1917,13 +1918,38 @@ public class MediaControllerTest {
   }
 
   @Test
-  public void isConnected_afterConnection_returnsTrue() throws Exception {
+  public void createController_alreadyReleasedSession_throwsSecurityException() throws Exception {
+    remoteSession.release();
+    AtomicBoolean onDisconnectedCalled = new AtomicBoolean();
+
+    ExecutionException exception =
+        assertThrows(
+            ExecutionException.class,
+            () ->
+                controllerTestRule.createController(
+                    remoteSession.getToken(),
+                    /* connectionHints= */ null,
+                    new MediaController.Listener() {
+                      @Override
+                      public void onDisconnected(MediaController controller) {
+                        onDisconnectedCalled.set(true);
+                      }
+                    }));
+
+    assertThat(exception).hasCauseThat().isInstanceOf(SecurityException.class);
+    assertThat(onDisconnectedCalled.get()).isFalse();
+  }
+
+  @Test
+  public void isConnected_afterSuccessfulConnection_returnsTrue() throws Exception {
     MediaController controller = controllerTestRule.createController(remoteSession.getToken());
+
     assertThat(controller.isConnected()).isTrue();
   }
 
   @Test
-  public void isConnected_afterDisconnectionBySessionRelease_returnsFalse() throws Exception {
+  public void isConnected_afterDisconnectionBySessionRelease_returnsFalseAndCallsOnDisconnected()
+      throws Exception {
     CountDownLatch disconnectedLatch = new CountDownLatch(1);
     MediaController controller =
         controllerTestRule.createController(
@@ -1935,6 +1961,7 @@ public class MediaControllerTest {
                 disconnectedLatch.countDown();
               }
             });
+
     remoteSession.release();
 
     assertThat(disconnectedLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
@@ -1942,7 +1969,8 @@ public class MediaControllerTest {
   }
 
   @Test
-  public void isConnected_afterDisconnectionByControllerRelease_returnsFalse() throws Exception {
+  public void isConnected_afterDisconnectionByControllerRelease_returnsFalseAndCallsOnDisconnected()
+      throws Exception {
     CountDownLatch latch = new CountDownLatch(1);
     MediaController controller =
         controllerTestRule.createController(
@@ -1954,14 +1982,17 @@ public class MediaControllerTest {
                 latch.countDown();
               }
             });
+
     threadTestRule.getHandler().postAndSync(controller::release);
+
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(controller.isConnected()).isFalse();
   }
 
   @Test
-  public void isConnected_afterDisconnectionByControllerReleaseRightAfterCreated_returnsFalse()
-      throws Exception {
+  public void
+      isConnected_afterDisconnectionByControllerReleaseRightAfterCreated_returnsFalseAndCallsOnDisconnected()
+          throws Exception {
     CountDownLatch latch = new CountDownLatch(1);
     MediaController controller =
         controllerTestRule.createController(
@@ -1975,6 +2006,7 @@ public class MediaControllerTest {
             },
             /* controllerCreationListener= */ MediaController::release,
             /* maxCommandsForMediaItems= */ 0);
+
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(controller.isConnected()).isFalse();
   }
@@ -2012,7 +2044,7 @@ public class MediaControllerTest {
   }
 
   @Test
-  public void close_twice() throws Exception {
+  public void release_twice_doesNotCrash() throws Exception {
     MediaController controller = controllerTestRule.createController(remoteSession.getToken());
     threadTestRule.getHandler().postAndSync(controller::release);
     threadTestRule.getHandler().postAndSync(controller::release);
@@ -3197,7 +3229,7 @@ public class MediaControllerTest {
             MediaItem.fromUri("http://www.google.com/2"),
             MediaItem.fromUri("http://www.google.com/3"));
 
-    Assert.assertThrows(
+    assertThrows(
         IllegalSeekPositionException.class,
         () ->
             threadTestRule
