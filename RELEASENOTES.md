@@ -95,6 +95,8 @@
         when samples beyond the new duration have already been read by the
         rendering pipeline
         ([#2440](https://github.com/androidx/media/issues/2440)).
+    *   Fix bug where redirect wasn't followed when using CMCD query parameters
+        ([#2475](https://github.com/androidx/media/issues/2475)).
 *   Smooth Streaming extension:
 *   RTSP extension:
     *   Fix `RtspClient` to use the location uri as provided when processing an

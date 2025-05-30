@@ -581,8 +581,7 @@ public class CmcdDataTest {
 
     assertThat(updatedDataSpec.uri.toString())
         .isEqualTo("https://test.test/test.mp4?key=value&key2=value2");
-    assertThat(updatedDataSpec.httpRequestHeaders)
-        .isEqualTo(ImmutableMap.of("headerKey1", "headerValue1"));
+    assertThat(updatedDataSpec.httpRequestHeaders).containsExactly("headerKey1", "headerValue1");
   }
 
   @Test
@@ -610,7 +609,7 @@ public class CmcdDataTest {
 
     assertThat(updatedDataSpec.uri.toString()).isEqualTo("https://test.test/test.mp4");
     assertThat(updatedDataSpec.httpRequestHeaders)
-        .isEqualTo(ImmutableMap.of("headerKey1", "headerValue1", "headerKey2", "headerValue2"));
+        .containsExactly("headerKey1", "headerValue1", "headerKey2", "headerValue2");
   }
 
   @Test

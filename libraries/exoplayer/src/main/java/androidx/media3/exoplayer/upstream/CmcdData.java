@@ -553,7 +553,7 @@ public final class CmcdData {
           httpRequestHeaders.put(header);
         }
       }
-      dataSpec = dataSpec.withRequestHeaders(httpRequestHeaders.build());
+      dataSpec = dataSpec.withRequestHeaders(httpRequestHeaders.buildOrThrow());
     }
     return dataSpec;
   }
