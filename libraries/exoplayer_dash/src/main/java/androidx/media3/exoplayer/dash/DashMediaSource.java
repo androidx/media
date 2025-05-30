@@ -731,14 +731,19 @@ public final class DashMediaSource extends BaseMediaSource {
       // Checks whether replaceManifestUri(Uri) was called to manually replace the URI between the
       // start and end of this load. If it was then useUriFromPreviousRequest evaluates to false,
       // and we prefer the manual replacement to one derived from the previous request.
-      boolean useUriFromPreviousRequest = loadable.dataSpec.uri.equals(manifestUri) ||
-          (cmcdConfiguration != null && CmcdData.removeFromDataSpec(loadable.dataSpec).uri.equals(manifestUri));
+      boolean useUriFromPreviousRequest =
+          loadable.dataSpec.uri.equals(manifestUri)
+              || (cmcdConfiguration != null
+                  && CmcdData.removeFromDataSpec(loadable.dataSpec).uri.equals(manifestUri));
 
       if (useUriFromPreviousRequest) {
         // Replace the manifest URI with one specified by a manifest Location element (if present),
         // or with the final (possibly redirected) URI. This follows the recommendation in
         // DASH-IF-IOP 4.3, section 3.2.15.3. See: https://dashif.org/docs/DASH-IF-IOP-v4.3.pdf.
-        manifestUri = manifest.location != null ? manifest.location : removeCmcdQueryParameter(loadable.getUri());
+        manifestUri =
+            manifest.location != null
+                ? manifest.location
+                : removeCmcdQueryParameter(loadable.getUri());
       }
     }
 
@@ -756,7 +761,7 @@ public final class DashMediaSource extends BaseMediaSource {
 
   private static Uri removeCmcdQueryParameter(Uri uri) {
     Set<String> queryParameterNames = uri.getQueryParameterNames();
-    if(!queryParameterNames.contains(CmcdConfiguration.CMCD_QUERY_PARAMETER_KEY)) {
+    if (!queryParameterNames.contains(CmcdConfiguration.CMCD_QUERY_PARAMETER_KEY)) {
       return uri;
     }
     Uri.Builder builder = uri.buildUpon();
