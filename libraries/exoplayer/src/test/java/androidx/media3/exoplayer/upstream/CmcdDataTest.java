@@ -612,4 +612,24 @@ public class CmcdDataTest {
     assertThat(updatedDataSpec.httpRequestHeaders)
         .isEqualTo(ImmutableMap.of("headerKey1", "headerValue1", "headerKey2", "headerValue2"));
   }
+
+  @Test
+  public void removeFromUri_noCmcdData_returnsUnmodifiedUri() {
+    Uri uri = Uri.parse("https://test.test/test.mp4?key=value&cMcD=test&key2=value2");
+
+    Uri updatedUri = CmcdData.removeFromUri(uri);
+
+    assertThat(updatedUri).isEqualTo(uri);
+  }
+
+  @Test
+  public void removeFromUri_cmcdDataQueryParameter_removesQueryParameter() {
+    Uri uri =
+        Uri.parse(
+            "https://test.test/test.mp4?key=value&CMCD=bl%3D1800%2Cbr%3D840%2Cbs&key2=value2");
+
+    Uri updatedUri = CmcdData.removeFromUri(uri);
+
+    assertThat(updatedUri.toString()).isEqualTo("https://test.test/test.mp4?key=value&key2=value2");
+  }
 }
