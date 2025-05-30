@@ -212,6 +212,8 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
     playbackVideoGraphWrapper.setCompositorSettings(composition.videoCompositorSettings);
     playbackVideoGraphWrapper.setRequestOpenGlToneMapping(
         composition.hdrMode == Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL);
+    playbackVideoGraphWrapper.setIsInputSdrToneMapped(
+        composition.hdrMode == Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC);
   }
 
   private void releaseInternal(ConditionVariable conditionVariable) {

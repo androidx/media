@@ -19,7 +19,6 @@ import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_IMME
 import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -28,6 +27,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.content.Context;
+import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DebugViewProvider;
 import androidx.media3.common.Effect;
@@ -100,9 +100,98 @@ public final class PlaybackVideoGraphWrapperTest {
         startPositionUs,
         RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED,
         ImmutableList.of());
-    testVideoGraphFactory.verifyRegisteredEffectsMatches(/* invocationTimes= */ 3);
+    testVideoGraphFactory.verifyRegisterInputStream(/* invocationTimes= */ 3);
     assertThat(testVideoGraphFactory.getCapturedEffects())
         .isEqualTo(ImmutableList.of(firstEffects, secondEffects, ImmutableList.of()));
+  }
+
+  @Test
+  public void onInputStreamChanged_withNoToneMapping_initializesGraphWithInputColorInfo()
+      throws VideoSink.VideoSinkException {
+    TestVideoGraphFactory testVideoGraphFactory = new TestVideoGraphFactory();
+    PlaybackVideoGraphWrapper playbackVideoGraphWrapper =
+        createPlaybackVideoGraphWrapper(testVideoGraphFactory);
+    ColorInfo hlgColorInfo =
+        new ColorInfo.Builder()
+            .setColorRange(C.COLOR_RANGE_FULL)
+            .setColorSpace(C.COLOR_SPACE_BT2020)
+            .setColorTransfer(C.COLOR_TRANSFER_HLG)
+            .build();
+    Format inputFormat = new Format.Builder().setColorInfo(hlgColorInfo).build();
+    long startPositionUs = 0;
+    VideoSink sink = playbackVideoGraphWrapper.getSink(/* inputIndex= */ 0);
+
+    sink.initialize(inputFormat);
+    sink.onInputStreamChanged(
+        VideoSink.INPUT_TYPE_SURFACE,
+        inputFormat,
+        startPositionUs,
+        RELEASE_FIRST_FRAME_IMMEDIATELY,
+        /* videoEffects= */ ImmutableList.of());
+
+    testVideoGraphFactory.verifyRegisterInputStream(/* invocationTimes= */ 1);
+    assertThat(testVideoGraphFactory.getCapturedFormats()).containsExactly(inputFormat);
+  }
+
+  @Test
+  public void onInputStreamChanged_withInputSdrToneMapped_initializesGraphWithBt709Input()
+      throws VideoSink.VideoSinkException {
+    TestVideoGraphFactory testVideoGraphFactory = new TestVideoGraphFactory();
+    PlaybackVideoGraphWrapper playbackVideoGraphWrapper =
+        createPlaybackVideoGraphWrapper(testVideoGraphFactory);
+    ColorInfo hlgColorInfo =
+        new ColorInfo.Builder()
+            .setColorRange(C.COLOR_RANGE_FULL)
+            .setColorSpace(C.COLOR_SPACE_BT2020)
+            .setColorTransfer(C.COLOR_TRANSFER_HLG)
+            .build();
+    Format inputFormat = new Format.Builder().setColorInfo(hlgColorInfo).build();
+    long startPositionUs = 0;
+    VideoSink sink = playbackVideoGraphWrapper.getSink(/* inputIndex= */ 0);
+
+    playbackVideoGraphWrapper.setIsInputSdrToneMapped(true);
+    sink.initialize(inputFormat);
+    sink.onInputStreamChanged(
+        VideoSink.INPUT_TYPE_SURFACE,
+        inputFormat,
+        startPositionUs,
+        RELEASE_FIRST_FRAME_IMMEDIATELY,
+        /* videoEffects= */ ImmutableList.of());
+
+    testVideoGraphFactory.verifyRegisterInputStream(/* invocationTimes= */ 1);
+    Format bt709ColorInfoInputFormat =
+        inputFormat.buildUpon().setColorInfo(ColorInfo.SDR_BT709_LIMITED).build();
+    assertThat(testVideoGraphFactory.getCapturedFormats())
+        .containsExactly(bt709ColorInfoInputFormat);
+  }
+
+  @Test
+  public void onInputStreamChanged_withOpenGlToneMapping_initializesGraphWithInputColorInfo()
+      throws VideoSink.VideoSinkException {
+    TestVideoGraphFactory testVideoGraphFactory = new TestVideoGraphFactory();
+    PlaybackVideoGraphWrapper playbackVideoGraphWrapper =
+        createPlaybackVideoGraphWrapper(testVideoGraphFactory);
+    ColorInfo hlgColorInfo =
+        new ColorInfo.Builder()
+            .setColorRange(C.COLOR_RANGE_FULL)
+            .setColorSpace(C.COLOR_SPACE_BT2020)
+            .setColorTransfer(C.COLOR_TRANSFER_HLG)
+            .build();
+    Format inputFormat = new Format.Builder().setColorInfo(hlgColorInfo).build();
+    long startPositionUs = 0;
+    VideoSink sink = playbackVideoGraphWrapper.getSink(/* inputIndex= */ 0);
+
+    playbackVideoGraphWrapper.setRequestOpenGlToneMapping(true);
+    sink.initialize(inputFormat);
+    sink.onInputStreamChanged(
+        VideoSink.INPUT_TYPE_SURFACE,
+        inputFormat,
+        startPositionUs,
+        RELEASE_FIRST_FRAME_IMMEDIATELY,
+        /* videoEffects= */ ImmutableList.of());
+
+    testVideoGraphFactory.verifyRegisterInputStream(/* invocationTimes= */ 1);
+    assertThat(testVideoGraphFactory.getCapturedFormats()).containsExactly(inputFormat);
   }
 
   private static PlaybackVideoGraphWrapper createPlaybackVideoGraphWrapper(
@@ -150,6 +239,8 @@ public final class PlaybackVideoGraphWrapperTest {
     @SuppressWarnings("unchecked")
     private final ArgumentCaptor<List<Effect>> effectsCaptor = ArgumentCaptor.forClass(List.class);
 
+    private final ArgumentCaptor<Format> formatCaptor = ArgumentCaptor.forClass(Format.class);
+
     @Override
     public VideoGraph create(
         Context context,
@@ -171,18 +262,22 @@ public final class PlaybackVideoGraphWrapperTest {
       return false;
     }
 
-    public void verifyRegisteredEffectsMatches(int invocationTimes) {
+    public void verifyRegisterInputStream(int invocationTimes) {
       verify(videoGraph, times(invocationTimes))
           .registerInputStream(
               /* inputIndex= */ anyInt(),
               /* inputType= */ eq(VideoSink.INPUT_TYPE_SURFACE),
-              /* format= */ any(),
+              formatCaptor.capture(),
               effectsCaptor.capture(),
               /* offsetToAddUs= */ anyLong());
     }
 
     public List<List<Effect>> getCapturedEffects() {
       return effectsCaptor.getAllValues();
+    }
+
+    public List<Format> getCapturedFormats() {
+      return formatCaptor.getAllValues();
     }
   }
 }

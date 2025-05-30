@@ -253,6 +253,7 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
   private @MonotonicNonNull VideoGraph videoGraph;
   private @MonotonicNonNull VideoFrameMetadataListener videoFrameMetadataListener;
   private boolean requestOpenGlToneMapping;
+  private boolean isInputSdrToneMapped;
   private long outputStreamStartPositionUs;
   private @VideoSink.FirstFrameReleaseInstruction int outputStreamFirstFrameReleaseInstruction;
   @Nullable private Pair<Surface, Size> currentSurfaceAndSize;
@@ -388,6 +389,11 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
   /** Sets whether to tone map the input video with OpenGL. */
   public void setRequestOpenGlToneMapping(boolean requestOpenGlToneMapping) {
     this.requestOpenGlToneMapping = requestOpenGlToneMapping;
+  }
+
+  /** Sets whether the input should be treated as if it has been tone mapped to SDR. */
+  public void setIsInputSdrToneMapped(boolean isInputSdrToneMapped) {
+    this.isInputSdrToneMapped = isInputSdrToneMapped;
   }
 
   public void release() {
@@ -642,8 +648,8 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
         && totalVideoInputCount == registeredVideoInputCount;
   }
 
-  private static ColorInfo getAdjustedInputColorInfo(@Nullable ColorInfo inputColorInfo) {
-    if (inputColorInfo == null || !inputColorInfo.isDataSpaceValid()) {
+  private ColorInfo getAdjustedInputColorInfo(@Nullable ColorInfo inputColorInfo) {
+    if (inputColorInfo == null || !inputColorInfo.isDataSpaceValid() || isInputSdrToneMapped) {
       return ColorInfo.SDR_BT709_LIMITED;
     }
 
