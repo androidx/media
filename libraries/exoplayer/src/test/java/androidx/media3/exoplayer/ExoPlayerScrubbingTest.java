@@ -129,9 +129,6 @@ public final class ExoPlayerScrubbingTest {
 
   @Test
   public void scrubbingMode_pendingSeekIsNotPreempted() throws Exception {
-    Timeline timeline =
-        new FakeTimeline(
-            new TimelineWindowDefinition.Builder().setWindowPositionInFirstPeriodUs(0).build());
     ExoPlayer player =
         new TestExoPlayerBuilder(ApplicationProvider.getApplicationContext()).build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
@@ -432,9 +429,6 @@ public final class ExoPlayerScrubbingTest {
 
   @Test
   public void fractionalSeekTolerance_isPropagated() throws Exception {
-    Timeline timeline =
-        new FakeTimeline(
-            new TimelineWindowDefinition.Builder().setWindowPositionInFirstPeriodUs(0).build());
     ExoPlayer player =
         new TestExoPlayerBuilder(ApplicationProvider.getApplicationContext()).build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
