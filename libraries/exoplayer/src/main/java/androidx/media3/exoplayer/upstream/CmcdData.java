@@ -24,6 +24,7 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.net.Uri;
 import android.text.TextUtils;
+import androidx.annotation.CheckResult;
 import androidx.annotation.Nullable;
 import androidx.annotation.StringDef;
 import androidx.media3.common.C;
@@ -32,6 +33,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.common.util.UriUtil;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSpec;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
@@ -49,6 +51,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Pattern;
 
@@ -496,6 +499,7 @@ public final class CmcdData {
    * Adds Common Media Client Data (CMCD) related information to the provided {@link DataSpec}
    * object.
    */
+  @CheckResult
   public DataSpec addToDataSpec(DataSpec dataSpec) {
     ArrayListMultimap<String, String> cmcdDataMap = ArrayListMultimap.create();
     cmcdObject.populateCmcdDataMap(cmcdDataMap);
@@ -525,6 +529,32 @@ public final class CmcdData {
                   CmcdConfiguration.CMCD_QUERY_PARAMETER_KEY, COMMA_JOINER.join(keyValuePairs));
       return dataSpec.buildUpon().setUri(uriBuilder.build()).build();
     }
+  }
+
+  /** Removes Common Media Client Data (CMCD) related information from the provided {@link DataSpec}
+   * object. */
+  @CheckResult
+  public static DataSpec removeFromDataSpec(DataSpec dataSpec) {
+    if (dataSpec.uri.getQueryParameter(CmcdConfiguration.CMCD_QUERY_PARAMETER_KEY) != null) {
+      dataSpec = dataSpec.withUri(
+          UriUtil.removeQueryParameter(dataSpec.uri, CmcdConfiguration.CMCD_QUERY_PARAMETER_KEY));
+    }
+    if (dataSpec.httpRequestHeaders.containsKey(CmcdConfiguration.KEY_CMCD_OBJECT)
+        || dataSpec.httpRequestHeaders.containsKey(CmcdConfiguration.KEY_CMCD_REQUEST)
+        || dataSpec.httpRequestHeaders.containsKey(CmcdConfiguration.KEY_CMCD_STATUS)
+        || dataSpec.httpRequestHeaders.containsKey(CmcdConfiguration.KEY_CMCD_SESSION)) {
+      ImmutableMap.Builder<String, String> httpRequestHeaders = ImmutableMap.builder();
+      for (Map.Entry<String, String> header : dataSpec.httpRequestHeaders.entrySet()) {
+        if (!header.getKey().equals(CmcdConfiguration.KEY_CMCD_OBJECT)
+            && !header.getKey().equals(CmcdConfiguration.KEY_CMCD_REQUEST)
+            && !header.getKey().equals(CmcdConfiguration.KEY_CMCD_STATUS)
+            && !header.getKey().equals(CmcdConfiguration.KEY_CMCD_SESSION)) {
+          httpRequestHeaders.put(header);
+        }
+      }
+      dataSpec = dataSpec.withRequestHeaders(httpRequestHeaders.build());
+    }
+    return dataSpec;
   }
 
   /**
