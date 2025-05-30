@@ -1133,7 +1133,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       @Nullable
       ListenableFuture<MediaItemsWithStartPosition> future =
           checkNotNull(
-              callback.onPlaybackResumption(instance, controllerForRequest),
+              callback.onPlaybackResumption(instance, controllerForRequest, true),
               "Callback.onPlaybackResumption must return a non-null future");
       Futures.addCallback(
           future,
@@ -1163,6 +1163,9 @@ import org.checkerframework.checker.initialization.qual.Initialized;
                         + " media button receiver to your manifest or if you implement the recent"
                         + " media item contract with your MediaLibraryService.",
                     t);
+              } else if (t instanceof MediaSession.ManuallyHandlePlaybackResumption) {
+                // See ManuallyHandlePlaybackResumption javadoc for details.
+                return;
               } else {
                 Log.e(
                     TAG,
