@@ -55,7 +55,7 @@ android {
 
 protobuf {
     protoc {
-        artifact = 'com.google.protobuf:protoc:3.0.0'
+        artifact = 'com.google.protobuf:protoc:4.31.1'
     }
     generateProtoTasks {
         all().forEach { task ->
@@ -71,7 +71,7 @@ dependencies {
     implementation 'androidx.appcompat:appcompat:' + androidxAppCompatVersion
     implementation 'androidx.datastore:datastore:1.1.5'
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-guava:1.9.0'
-    implementation 'com.google.protobuf:protobuf-java:3.24.4'
+    implementation 'com.google.protobuf:protobuf-java:4.31.1'
     implementation project(modulePrefix + 'lib-common-ktx')
     implementation project(modulePrefix + 'lib-exoplayer')
     implementation project(modulePrefix + 'lib-exoplayer-dash')
