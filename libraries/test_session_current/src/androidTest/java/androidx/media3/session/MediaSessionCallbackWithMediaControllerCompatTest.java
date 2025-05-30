@@ -222,6 +222,76 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
   }
 
   @Test
+  public void onPostConnect_afterConnected_calledWithSameController() throws Exception {
+    CountDownLatch latch = new CountDownLatch(1);
+    AtomicReference<ControllerInfo> controllerInOnConnect = new AtomicReference<>();
+    AtomicReference<ControllerInfo> controllerInOnPostConnect = new AtomicReference<>();
+    MediaSession.Callback callback =
+        new MediaSession.Callback() {
+          @Override
+          public MediaSession.ConnectionResult onConnect(
+              MediaSession session, ControllerInfo controller) {
+            controllerInOnConnect.set(controller);
+            return MediaSession.Callback.super.onConnect(session, controller);
+          }
+
+          @Override
+          public void onPostConnect(MediaSession session, ControllerInfo controller) {
+            controllerInOnPostConnect.set(controller);
+            latch.countDown();
+          }
+        };
+    session =
+        new MediaSession.Builder(context, player)
+            .setCallback(callback)
+            .setId("testOnPostConnect_afterConnected")
+            .build();
+
+    controller =
+        new RemoteMediaControllerCompat(
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
+    controller.getTransportControls().prepare();
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(controllerInOnConnect.get()).isEqualTo(controllerInOnPostConnect.get());
+    assertThat(controllerInOnConnect.get().getControllerVersion()).isLessThan(1000000);
+  }
+
+  @Test
+  public void onPostConnect_afterConnectionRejected_isNotCalled() throws Exception {
+    CountDownLatch latch = new CountDownLatch(1);
+    MediaSession.Callback callback =
+        new MediaSession.Callback() {
+          @Override
+          public MediaSession.ConnectionResult onConnect(
+              MediaSession session, ControllerInfo controller) {
+            return MediaSession.ConnectionResult.reject();
+          }
+
+          @Override
+          public void onPostConnect(MediaSession session, ControllerInfo controller) {
+            latch.countDown();
+          }
+        };
+    session =
+        new MediaSession.Builder(context, player)
+            .setCallback(callback)
+            .setId("testOnPostConnect_afterConnectionRejected")
+            .build();
+
+    controller =
+        new RemoteMediaControllerCompat(
+            context,
+            MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
+            /* waitForConnection= */ true);
+    controller.getTransportControls().prepare();
+
+    assertThat(latch.await(NO_RESPONSE_TIMEOUT_MS, MILLISECONDS)).isFalse();
+  }
+
+  @Test
   public void play_whileReady_callsPlay() throws Exception {
     player.playbackState = STATE_READY;
     session =

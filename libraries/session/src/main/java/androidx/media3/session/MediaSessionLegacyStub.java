@@ -808,6 +808,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
           controller,
           connectionResult.availableSessionCommands,
           connectionResult.availablePlayerCommands);
+      sessionImpl.onPostConnectOnHandler(controller);
     }
     // Reset disconnect timeout.
     connectionTimeoutHandler.disconnectControllerAfterTimeout(controller, connectionTimeoutMs);
