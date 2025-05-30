@@ -729,12 +729,10 @@ public final class DashMediaSource extends BaseMediaSource {
 
     synchronized (manifestUriLock) {
       // Checks whether replaceManifestUri(Uri) was called to manually replace the URI between the
-      // start and end of this load. If it was then useUriFromPreviousRequest evaluates to false, and we
-      // prefer the manual replacement to one derived from the previous request.
-      // If CMCD is enabled in query parameter mode, then a new URI instance was created.
-      @SuppressWarnings("ReferenceEquality")
-      boolean useUriFromPreviousRequest = loadable.dataSpec.uri == manifestUri ||
-          (cmcdConfiguration != null && removeCmcdQueryParameter(loadable.dataSpec.uri).equals(manifestUri));
+      // start and end of this load. If it was then useUriFromPreviousRequest evaluates to false,
+      // and we prefer the manual replacement to one derived from the previous request.
+      boolean useUriFromPreviousRequest = loadable.dataSpec.uri.equals(manifestUri) ||
+          (cmcdConfiguration != null && CmcdData.removeFromDataSpec(loadable.dataSpec).uri.equals(manifestUri));
 
       if (useUriFromPreviousRequest) {
         // Replace the manifest URI with one specified by a manifest Location element (if present),
