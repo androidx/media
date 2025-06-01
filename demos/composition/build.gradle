@@ -69,7 +69,6 @@ dependencies {
     implementation project(modulePrefix + 'lib-ui')
     implementation project(modulePrefix + 'lib-ui-compose')
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
-    implementation 'androidx.lifecycle:lifecycle-livedata:' + androidxLifecycleVersion
     implementation 'androidx.lifecycle:lifecycle-viewmodel:' + androidxLifecycleVersion
     implementation 'androidx.activity:activity-compose:1.9.0'
     implementation platform('androidx.compose:compose-bom:2024.12.01')
