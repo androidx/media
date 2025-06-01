@@ -24,7 +24,6 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.media3.common.Effect
@@ -79,7 +78,7 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
     var applyEffects: MutableState<Boolean>,
   )
 
-  var toastMessage = MutableLiveData<String?>(null)
+  var snackbarMessage by mutableStateOf<String?>(null)
 
   var compositionPlayer by mutableStateOf(createCompositionPlayer())
 
@@ -143,7 +142,7 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
 
   fun addItem(index: Int) {
     selectedMediaItems.add(mediaItemOptions[index].copy(applyEffects = mutableStateOf(false)))
-    toastMessage.value = "Added item: ${mediaItemOptions[index].title}"
+    snackbarMessage = "Added item: ${mediaItemOptions[index].title}"
   }
 
   fun removeItem(index: Int) {
@@ -173,7 +172,7 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
       outputFile =
         createExternalCacheFile("composition-preview-" + Clock.DEFAULT.elapsedRealtime() + ".mp4")
     } catch (e: IOException) {
-      toastMessage.value = "Aborting export! Unable to create output file: $e"
+      snackbarMessage = "Aborting export! Unable to create output file: $e"
       Log.e(TAG, "Aborting export! Unable to create output file: ", e)
       return
     }
@@ -234,7 +233,7 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
               exportException: ExportException,
             ) {
               exportStopwatch.stop()
-              toastMessage.value = "Export error: $exportException"
+              snackbarMessage = "Export error: $exportException"
               Log.e(TAG, "Export error", exportException)
               Log.d(TAG, DebugTraceUtil.generateTraceSummary())
               exportResultInformation = EXPORT_ERROR_MESSAGE
@@ -410,7 +409,7 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
     player.addListener(
       object : Player.Listener {
         override fun onPlayerError(error: PlaybackException) {
-          toastMessage.value = "Preview error: $error"
+          snackbarMessage = "Preview error: $error"
           Log.e(TAG, "Preview error", error)
         }
       }
