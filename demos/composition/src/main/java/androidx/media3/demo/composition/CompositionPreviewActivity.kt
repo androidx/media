@@ -20,7 +20,6 @@ import android.os.Build.VERSION.SDK_INT
 import android.os.Bundle
 import android.os.LocaleList
 import android.util.Log
-import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -61,6 +60,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
@@ -71,6 +72,7 @@ import androidx.compose.material3.adaptive.layout.ThreePaneScaffoldRole
 import androidx.compose.material3.adaptive.layout.ThreePaneScaffoldScope
 import androidx.compose.material3.adaptive.navigation.rememberSupportingPaneScaffoldNavigator
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -124,17 +126,22 @@ class CompositionPreviewActivity : AppCompatActivity() {
       CompositionPreviewViewModelFactory(application, compositionLayout)
     }
 
-    // TODO(b/417361559): Replace Toast with Snackbar
-    viewModel.toastMessage.observe(this) { newMessage ->
-      newMessage?.let {
-        viewModel.toastMessage.value = null
-        Toast.makeText(this, it, Toast.LENGTH_SHORT).show()
-      }
-    }
-
     setContent {
+      val snackbarHostState = remember { SnackbarHostState() }
+      val snackbarMessage = viewModel.snackbarMessage
+
+      LaunchedEffect(snackbarMessage) {
+        if (snackbarMessage != null) {
+          snackbarHostState.showSnackbar(snackbarMessage)
+          viewModel.snackbarMessage = null
+        }
+      }
+
       CompositionDemoTheme {
-        Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+        Scaffold(
+          modifier = Modifier.fillMaxSize(),
+          snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+        ) { innerPadding ->
           val navigator = rememberSupportingPaneScaffoldNavigator()
 
           BackHandler(navigator.canNavigateBack()) { navigator.navigateBack() }
