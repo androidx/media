@@ -276,17 +276,28 @@ public final class EditedMediaItemSequence {
   }
 
   /**
+   * Converts the given {@code index} into the equivalent {@code mediaItemIndex}.
+   *
+   * <p>The index could be greater than {@link EditedMediaItemSequence#editedMediaItems} because the
+   * sequence might be {@linkplain EditedMediaItemSequence#isLooping looping}.
+   */
+  /* package */ static int getEditedMediaItemIndex(EditedMediaItemSequence sequence, int index) {
+    if (sequence.isLooping) {
+      return index % sequence.editedMediaItems.size();
+    }
+    return index;
+  }
+
+  /**
    * Gets the {@link EditedMediaItem} of a given {@code index}.
    *
    * <p>The index could be greater than {@link EditedMediaItemSequence#editedMediaItems} because the
    * sequence might be {@linkplain EditedMediaItemSequence#isLooping looping}.
    */
-  /* package */ static EditedMediaItem getRepeatedEditedMediaItem(
+  /* package */ static EditedMediaItem getEditedMediaItem(
       EditedMediaItemSequence sequence, int index) {
-    if (sequence.isLooping) {
-      index %= sequence.editedMediaItems.size();
-    }
-    return sequence.editedMediaItems.get(index);
+    int mediaItemIndex = getEditedMediaItemIndex(sequence, index);
+    return sequence.editedMediaItems.get(mediaItemIndex);
   }
 
   private EditedMediaItemSequence(EditedMediaItemSequence.Builder builder) {

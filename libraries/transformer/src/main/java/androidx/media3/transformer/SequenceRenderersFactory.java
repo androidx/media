@@ -27,7 +27,7 @@ import static androidx.media3.exoplayer.DefaultRenderersFactory.MAX_DROPPED_VIDE
 import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_IMMEDIATELY;
 import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED;
 import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_WHEN_STARTED;
-import static androidx.media3.transformer.EditedMediaItemSequence.getRepeatedEditedMediaItem;
+import static androidx.media3.transformer.EditedMediaItemSequence.getEditedMediaItem;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import android.content.Context;
@@ -189,16 +189,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           sequence.editedMediaItems.get(0).mediaItem.clippingConfiguration.startPositionUs;
     }
     for (int i = 0; i < mediaItemIndex; i++) {
-      offsetToCompositionTimeUs +=
-          getRepeatedEditedMediaItem(sequence, i).getPresentationDurationUs();
+      offsetToCompositionTimeUs += getEditedMediaItem(sequence, i).getPresentationDurationUs();
     }
     return offsetToCompositionTimeUs;
   }
 
   private static boolean isLastInSequence(
       Timeline timeline, EditedMediaItemSequence sequence, EditedMediaItem mediaItem) {
+    // TODO: b/419479048 - Investigate whether this should always be false for looping sequences.
     int lastEditedMediaItemIndex = timeline.getPeriodCount() - 1;
-    return mediaItem == getRepeatedEditedMediaItem(sequence, lastEditedMediaItemIndex);
+    return mediaItem == getEditedMediaItem(sequence, lastEditedMediaItemIndex);
   }
 
   @ChecksSdkIntAtLeast(api = 23)
@@ -256,12 +256,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       // TODO: b/331392198 - Repeat only looping sequences, after sequences can be of arbitrary
       //  length.
       // The media item might have been repeated in the sequence.
-      int mediaItemIndex = getTimeline().getIndexOfPeriod(mediaPeriodId.periodUid);
+      int periodIndex = getTimeline().getIndexOfPeriod(mediaPeriodId.periodUid);
       // We must first update the pending media item state before calling super.onStreamChanged()
       // because the super method will call onProcessedStreamChange()
-      pendingEditedMediaItem = getRepeatedEditedMediaItem(sequence, mediaItemIndex);
+      pendingEditedMediaItem = getEditedMediaItem(sequence, periodIndex);
       pendingOffsetToCompositionTimeUs =
-          getOffsetToCompositionTimeUs(sequence, mediaItemIndex, offsetUs);
+          getOffsetToCompositionTimeUs(sequence, periodIndex, offsetUs);
       super.onStreamChanged(formats, startPositionUs, offsetUs, mediaPeriodId);
     }
 
@@ -356,12 +356,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         throws ExoPlaybackException {
       checkState(getTimeline().getWindowCount() == 1);
       // The media item might have been repeated in the sequence.
-      int mediaItemIndex = getTimeline().getIndexOfPeriod(mediaPeriodId.periodUid);
+      int periodIndex = getTimeline().getIndexOfPeriod(mediaPeriodId.periodUid);
       // The renderer has started processing this item, VideoGraph might still be processing the
       // previous one.
-      currentEditedMediaItem = getRepeatedEditedMediaItem(sequence, mediaItemIndex);
-      offsetToCompositionTimeUs = getOffsetToCompositionTimeUs(sequence, mediaItemIndex, offsetUs);
-      pendingEffects = sequence.editedMediaItems.get(mediaItemIndex).effects.videoEffects;
+      currentEditedMediaItem = getEditedMediaItem(sequence, periodIndex);
+      offsetToCompositionTimeUs = getOffsetToCompositionTimeUs(sequence, periodIndex, offsetUs);
+      pendingEffects = checkNotNull(currentEditedMediaItem).effects.videoEffects;
       super.onStreamChanged(formats, startPositionUs, offsetUs, mediaPeriodId);
     }
 
@@ -582,13 +582,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       checkState(getTimeline().getWindowCount() == 1);
       streamStartPositionUs = startPositionUs;
       // The media item might have been repeated in the sequence.
-      int mediaItemIndex = getTimeline().getIndexOfPeriod(mediaPeriodId.periodUid);
-      currentEditedMediaItem = sequence.editedMediaItems.get(mediaItemIndex);
+      int periodIndex = getTimeline().getIndexOfPeriod(mediaPeriodId.periodUid);
+      currentEditedMediaItem = getEditedMediaItem(sequence, periodIndex);
       long offsetToCompositionTimeUs =
-          getOffsetToCompositionTimeUs(sequence, mediaItemIndex, offsetUs);
+          getOffsetToCompositionTimeUs(sequence, periodIndex, offsetUs);
       videoSink.setBufferTimestampAdjustmentUs(offsetToCompositionTimeUs);
       timestampIterator = createTimestampIterator(/* positionUs= */ startPositionUs);
-      videoEffects = currentEditedMediaItem.effects.videoEffects;
+      videoEffects = checkNotNull(currentEditedMediaItem).effects.videoEffects;
       inputStreamPending = true;
       super.onStreamChanged(formats, startPositionUs, offsetUs, mediaPeriodId);
     }

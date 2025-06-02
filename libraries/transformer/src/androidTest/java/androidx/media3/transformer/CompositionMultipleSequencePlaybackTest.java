@@ -198,6 +198,71 @@ public class CompositionMultipleSequencePlaybackTest {
         .isEqualTo(expectedTimestampsUs);
   }
 
+  @Test
+  @Ignore("TODO: b/419479048 - Re-enable after fixing looping video sequences")
+  public void playback_loopingImageSequence_effectsReceiveCorrectTimestamps() throws Exception {
+    Composition composition =
+        new Composition.Builder(
+                new EditedMediaItemSequence.Builder(
+                        IMAGE_EDITED_MEDIA_ITEM, IMAGE_EDITED_MEDIA_ITEM, IMAGE_EDITED_MEDIA_ITEM)
+                    .build(),
+                new EditedMediaItemSequence.Builder(IMAGE_EDITED_MEDIA_ITEM)
+                    .setIsLooping(true)
+                    .build())
+            .setEffects(
+                new Effects(
+                    /* audioProcessors= */ ImmutableList.of(),
+                    /* videoEffects= */ ImmutableList.of(
+                        (GlEffect) (context, useHdr) -> inputTimestampRecordingShaderProgram)))
+            .build();
+    ImmutableList<Long> expectedTimestampsUs =
+        new ImmutableList.Builder<Long>()
+            .addAll(IMAGE_TIMESTAMPS_US)
+            .addAll(
+                Iterables.transform(
+                    IMAGE_TIMESTAMPS_US, timestampUs -> IMAGE_DURATION_US + timestampUs))
+            .addAll(
+                Iterables.transform(
+                    IMAGE_TIMESTAMPS_US, timestampUs -> 2 * IMAGE_DURATION_US + timestampUs))
+            .build();
+
+    runCompositionPlayer(composition);
+
+    assertThat(inputTimestampRecordingShaderProgram.getInputTimestampsUs())
+        .isEqualTo(expectedTimestampsUs);
+  }
+
+  @Test
+  @Ignore("TODO: b/419479048 - Re-enable after fixing looping video sequences")
+  public void playback_loopingVideoSequence_effectsReceiveCorrectTimestamps() throws Exception {
+    Composition composition =
+        new Composition.Builder(
+                new EditedMediaItemSequence.Builder(
+                        VIDEO_EDITED_MEDIA_ITEM, VIDEO_EDITED_MEDIA_ITEM)
+                    .build(),
+                new EditedMediaItemSequence.Builder(VIDEO_EDITED_MEDIA_ITEM)
+                    .setIsLooping(true)
+                    .build())
+            .setEffects(
+                new Effects(
+                    /* audioProcessors= */ ImmutableList.of(),
+                    /* videoEffects= */ ImmutableList.of(
+                        (GlEffect) (context, useHdr) -> inputTimestampRecordingShaderProgram)))
+            .build();
+    ImmutableList<Long> expectedTimestampsUs =
+        new ImmutableList.Builder<Long>()
+            .addAll(VIDEO_TIMESTAMPS_US)
+            .addAll(
+                Iterables.transform(
+                    VIDEO_TIMESTAMPS_US, timestampUs -> VIDEO_DURATION_US + timestampUs))
+            .build();
+
+    runCompositionPlayer(composition);
+
+    assertThat(inputTimestampRecordingShaderProgram.getInputTimestampsUs())
+        .isEqualTo(expectedTimestampsUs);
+  }
+
   private void runCompositionPlayer(Composition composition)
       throws PlaybackException, TimeoutException {
     getInstrumentation()
