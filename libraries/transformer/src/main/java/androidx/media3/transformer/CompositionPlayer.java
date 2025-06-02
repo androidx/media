@@ -24,6 +24,7 @@ import static androidx.media3.common.util.Util.usToMs;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.os.HandlerThread;
 import android.os.Looper;
@@ -346,7 +347,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
   private final Context context;
   private final Clock clock;
   private final HandlerWrapper applicationHandler;
-  private final List<ExoPlayer> players;
+  private final List<SequencePlayerHolder> playerHolders;
   private final AudioSink finalAudioSink;
   private final MediaSource.Factory mediaSourceFactory;
   private final ImageDecoder.Factory imageDecoderFactory;
@@ -400,7 +401,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
     compositionInternalListenerHandler = clock.createHandler(builder.looper, /* callback= */ null);
     this.enableReplayableCache = builder.enableReplayableCache;
     videoTracksSelected = new SparseBooleanArray();
-    players = new ArrayList<>();
+    playerHolders = new ArrayList<>();
     compositionDurationUs = C.TIME_UNSET;
     playbackState = STATE_IDLE;
     volume = 1.0f;
@@ -421,7 +422,6 @@ public final class CompositionPlayer extends SimpleBasePlayer
   public void setComposition(Composition composition) {
     verifyApplicationThread();
     checkArgument(!composition.sequences.isEmpty());
-    checkState(this.composition == null);
     composition = deactivateSpeedAdjustingVideoEffects(composition);
 
     if (composition.sequences.size() > 1 && !videoGraphFactory.supportsMultipleInputs()) {
@@ -545,8 +545,8 @@ public final class CompositionPlayer extends SimpleBasePlayer
       // The player has been prepared already.
       return Futures.immediateVoidFuture();
     }
-    for (int i = 0; i < players.size(); i++) {
-      players.get(i).prepare();
+    for (int i = 0; i < playerHolders.size(); i++) {
+      playerHolders.get(i).player.prepare();
     }
     return Futures.immediateVoidFuture();
   }
@@ -561,8 +561,8 @@ public final class CompositionPlayer extends SimpleBasePlayer
       } else {
         checkStateNotNull(compositionPlayerInternal).stopRendering();
       }
-      for (int i = 0; i < players.size(); i++) {
-        players.get(i).setPlayWhenReady(playWhenReady);
+      for (int i = 0; i < playerHolders.size(); i++) {
+        playerHolders.get(i).player.setPlayWhenReady(playWhenReady);
       }
     } // else, wait until all players are ready.
     return Futures.immediateVoidFuture();
@@ -578,8 +578,8 @@ public final class CompositionPlayer extends SimpleBasePlayer
 
   @Override
   protected ListenableFuture<?> handleStop() {
-    for (int i = 0; i < players.size(); i++) {
-      players.get(i).stop();
+    for (int i = 0; i < playerHolders.size(); i++) {
+      playerHolders.get(i).player.stop();
     }
     return Futures.immediateVoidFuture();
   }
@@ -592,8 +592,8 @@ public final class CompositionPlayer extends SimpleBasePlayer
 
     checkState(checkStateNotNull(playbackThread).isAlive());
     // Release the players first so that they stop rendering.
-    for (int i = 0; i < players.size(); i++) {
-      players.get(i).release();
+    for (int i = 0; i < playerHolders.size(); i++) {
+      playerHolders.get(i).player.release();
     }
     checkStateNotNull(compositionPlayerInternal).release();
     removeSurfaceCallbacks();
@@ -645,8 +645,8 @@ public final class CompositionPlayer extends SimpleBasePlayer
     CompositionPlayerInternal compositionPlayerInternal =
         checkStateNotNull(this.compositionPlayerInternal);
     compositionPlayerInternal.startSeek(positionMs);
-    for (int i = 0; i < players.size(); i++) {
-      players.get(i).seekTo(positionMs);
+    for (int i = 0; i < playerHolders.size(); i++) {
+      playerHolders.get(i).player.seekTo(positionMs);
     }
     compositionPlayerInternal.endSeek();
     return Futures.immediateVoidFuture();
@@ -654,11 +654,11 @@ public final class CompositionPlayer extends SimpleBasePlayer
 
   /** Sets the {@link VideoFrameMetadataListener}. */
   public void setVideoFrameMetadataListener(VideoFrameMetadataListener videoFrameMetadataListener) {
-    if (players.isEmpty()) {
+    if (playerHolders.isEmpty()) {
       pendingVideoFrameMetadatListener = videoFrameMetadataListener;
       return;
     }
-    players.get(0).setVideoFrameMetadataListener(videoFrameMetadataListener);
+    playerHolders.get(0).player.setVideoFrameMetadataListener(videoFrameMetadataListener);
   }
 
   // CompositionPlayerInternal.Listener methods
@@ -702,7 +702,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
   }
 
   private void updatePlaybackState() {
-    if (players.isEmpty() || playbackException != null) {
+    if (playerHolders.isEmpty() || playbackException != null) {
       playbackState = STATE_IDLE;
       return;
     }
@@ -712,8 +712,8 @@ public final class CompositionPlayer extends SimpleBasePlayer
     int idleCount = 0;
     int bufferingCount = 0;
     int endedCount = 0;
-    for (int i = 0; i < players.size(); i++) {
-      @Player.State int playbackState = players.get(i).getPlaybackState();
+    for (int i = 0; i < playerHolders.size(); i++) {
+      @Player.State int playbackState = playerHolders.get(i).player.getPlaybackState();
       switch (playbackState) {
         case STATE_IDLE:
           idleCount++;
@@ -737,19 +737,19 @@ public final class CompositionPlayer extends SimpleBasePlayer
       playbackState = STATE_BUFFERING;
       if (oldPlaybackState == STATE_READY && playWhenReady) {
         // We were playing but a player got in buffering state, pause the players.
-        for (int i = 0; i < players.size(); i++) {
-          players.get(i).setPlayWhenReady(false);
+        for (int i = 0; i < playerHolders.size(); i++) {
+          playerHolders.get(i).player.setPlayWhenReady(false);
         }
         checkStateNotNull(compositionPlayerInternal).stopRendering();
       }
-    } else if (endedCount == players.size()) {
+    } else if (endedCount == playerHolders.size()) {
       playbackState = STATE_ENDED;
       checkStateNotNull(compositionPlayerInternal).stopRendering();
     } else {
       playbackState = STATE_READY;
       if (oldPlaybackState != STATE_READY && playWhenReady) {
-        for (int i = 0; i < players.size(); i++) {
-          players.get(i).setPlayWhenReady(true);
+        for (int i = 0; i < playerHolders.size(); i++) {
+          playerHolders.get(i).player.setPlayWhenReady(true);
         }
         checkStateNotNull(compositionPlayerInternal).startRendering();
       }
@@ -797,56 +797,38 @@ public final class CompositionPlayer extends SimpleBasePlayer
     compositionPlayerInternalPrepared = true;
   }
 
-  @SuppressWarnings("VisibleForTests") // Calls ExoPlayer.Builder.setClock()
   private void setCompositionInternal(Composition composition) {
     prepareCompositionPlayerInternal();
     checkNotNull(compositionPlayerInternal).setComposition(composition);
-
     compositionDurationUs = getCompositionDurationUs(composition);
     long primarySequenceDurationUs =
         getSequenceDurationUs(checkNotNull(composition.sequences.get(0)));
     for (int i = 0; i < composition.sequences.size(); i++) {
       EditedMediaItemSequence editedMediaItemSequence = composition.sequences.get(i);
-      SequenceRenderersFactory sequenceRenderersFactory =
-          SequenceRenderersFactory.create(
-              context,
-              editedMediaItemSequence,
-              checkNotNull(playbackAudioGraphWrapper),
-              checkNotNull(playbackVideoGraphWrapper).getSink(/* inputIndex= */ i),
-              imageDecoderFactory,
-              /* inputIndex= */ i,
-              /* requestToneMapping= */ composition.hdrMode
-                  == Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC,
-              videoPrewarmingEnabled);
 
-      ExoPlayer.Builder playerBuilder =
-          new ExoPlayer.Builder(context)
-              .setLooper(getApplicationLooper())
-              .setPlaybackLooper(checkNotNull(playbackThread).getLooper())
-              .setRenderersFactory(sequenceRenderersFactory)
-              .setHandleAudioBecomingNoisy(true)
-              .setClock(clock)
-              // Use dynamic scheduling to show the first video/image frame more promptly when the
-              // player is paused (which is common in editing applications).
-              .experimentalSetDynamicSchedulingEnabled(true);
-
-      boolean disableVideoPlayback = false;
-      for (int j = 0; j < editedMediaItemSequence.editedMediaItems.size(); j++) {
-        if (editedMediaItemSequence.editedMediaItems.get(j).removeVideo) {
-          disableVideoPlayback = true;
-          break;
-        }
+      if (playerHolders.size() <= i) {
+        playerHolders.add(
+            new SequencePlayerHolder(
+                context,
+                getApplicationLooper(),
+                checkStateNotNull(playbackThread).getLooper(),
+                clock,
+                SequenceRenderersFactory.create(
+                    context,
+                    checkStateNotNull(playbackAudioGraphWrapper),
+                    checkStateNotNull(playbackVideoGraphWrapper).getSink(/* inputIndex= */ i),
+                    imageDecoderFactory,
+                    /* inputIndex= */ i,
+                    videoPrewarmingEnabled),
+                /* inputIndex= */ i));
       }
-      CompositionTrackSelector compositionTrackSelector =
-          new CompositionTrackSelector(
-              context,
-              /* listener= */ this::onVideoTrackSelection,
-              /* sequenceIndex= */ i,
-              disableVideoPlayback);
-      compositionTrackSelector.setSequence(editedMediaItemSequence);
-      playerBuilder.setTrackSelector(compositionTrackSelector);
 
-      ExoPlayer player = playerBuilder.build();
+      SequencePlayerHolder sequencePlayerHolder = playerHolders.get(i);
+      sequencePlayerHolder.setSequence(editedMediaItemSequence);
+      sequencePlayerHolder.renderersFactory.setRequestMediaCodecToneMapping(
+          composition.hdrMode == Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC);
+
+      ExoPlayer player = sequencePlayerHolder.player;
       player.addListener(new PlayerListener(i));
       player.addAnalyticsListener(new EventLogger(TAG + "-" + i));
       player.setPauseAtEndOfMediaItems(true);
@@ -860,7 +842,6 @@ public final class CompositionPlayer extends SimpleBasePlayer
         setSecondaryPlayerSequence(player, editedMediaItemSequence, primarySequenceDurationUs);
       }
 
-      players.add(player);
       if (i == 0) {
         // Invalidate the player state before initializing the playlist to force SimpleBasePlayer
         // to collect a state while the playlist is null. Consequently, once the playlist is
@@ -868,6 +849,11 @@ public final class CompositionPlayer extends SimpleBasePlayer
         // TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED.
         invalidateState();
         playlist = createPlaylist();
+      }
+
+      if (playbackState != STATE_IDLE) {
+        player.stop();
+        player.prepare();
       }
     }
   }
@@ -1043,27 +1029,29 @@ public final class CompositionPlayer extends SimpleBasePlayer
   }
 
   private long getContentPositionMs() {
-    if (players.isEmpty()) {
+    if (playerHolders.isEmpty()) {
       return 0;
     }
 
     long lastContentPositionMs = 0;
-    for (int i = 0; i < players.size(); i++) {
-      lastContentPositionMs = max(lastContentPositionMs, players.get(i).getContentPosition());
+    for (int i = 0; i < playerHolders.size(); i++) {
+      lastContentPositionMs =
+          max(lastContentPositionMs, playerHolders.get(i).player.getContentPosition());
     }
     return lastContentPositionMs;
   }
 
   private long getBufferedPositionMs() {
-    if (players.isEmpty()) {
+    if (playerHolders.isEmpty()) {
       return 0;
     }
     // Return the minimum buffered position among players.
     long minBufferedPositionMs = Integer.MAX_VALUE;
-    for (int i = 0; i < players.size(); i++) {
-      @Player.State int playbackState = players.get(i).getPlaybackState();
+    for (int i = 0; i < playerHolders.size(); i++) {
+      @Player.State int playbackState = playerHolders.get(i).player.getPlaybackState();
       if (playbackState == STATE_READY || playbackState == STATE_BUFFERING) {
-        minBufferedPositionMs = min(minBufferedPositionMs, players.get(i).getBufferedPosition());
+        minBufferedPositionMs =
+            min(minBufferedPositionMs, playerHolders.get(i).player.getBufferedPosition());
       }
     }
     return minBufferedPositionMs == Integer.MAX_VALUE
@@ -1073,16 +1061,16 @@ public final class CompositionPlayer extends SimpleBasePlayer
   }
 
   private long getTotalBufferedDurationMs() {
-    if (players.isEmpty()) {
+    if (playerHolders.isEmpty()) {
       return 0;
     }
     // Return the minimum total buffered duration among players.
     long minTotalBufferedDurationMs = Integer.MAX_VALUE;
-    for (int i = 0; i < players.size(); i++) {
-      @Player.State int playbackState = players.get(i).getPlaybackState();
+    for (int i = 0; i < playerHolders.size(); i++) {
+      @Player.State int playbackState = playerHolders.get(i).player.getPlaybackState();
       if (playbackState == STATE_READY || playbackState == STATE_BUFFERING) {
         minTotalBufferedDurationMs =
-            min(minTotalBufferedDurationMs, players.get(i).getTotalBufferedDuration());
+            min(minTotalBufferedDurationMs, playerHolders.get(i).player.getTotalBufferedDuration());
       }
     }
     return minTotalBufferedDurationMs == Integer.MAX_VALUE
@@ -1101,8 +1089,8 @@ public final class CompositionPlayer extends SimpleBasePlayer
       String errorMessage, Exception cause, @PlaybackException.ErrorCode int errorCode) {
     if (playbackException == null) {
       playbackException = new PlaybackException(errorMessage, cause, errorCode);
-      for (int i = 0; i < players.size(); i++) {
-        players.get(i).stop();
+      for (int i = 0; i < playerHolders.size(); i++) {
+        playerHolders.get(i).player.stop();
       }
       updatePlaybackState();
       // Invalidate the parent class state.
@@ -1299,6 +1287,46 @@ public final class CompositionPlayer extends SimpleBasePlayer
       }
 
       checkNotNull(playbackVideoGraphWrapper).setTotalVideoInputCount(selectedVideoTracks);
+    }
+  }
+
+  private final class SequencePlayerHolder {
+    public final ExoPlayer player;
+    public final SequenceRenderersFactory renderersFactory;
+    public final CompositionTrackSelector trackSelector;
+
+    private SequencePlayerHolder(
+        Context context,
+        Looper applicationLooper,
+        Looper playbackLooper,
+        Clock clock,
+        SequenceRenderersFactory renderersFactory,
+        int inputIndex) {
+      trackSelector =
+          new CompositionTrackSelector(
+              context,
+              /* listener= */ CompositionPlayer.this::onVideoTrackSelection,
+              /* sequenceIndex= */ inputIndex);
+
+      @SuppressLint("VisibleForTests") // Calls ExoPlayer.Builder.setClock()
+      ExoPlayer.Builder playerBuilder =
+          new ExoPlayer.Builder(context)
+              .setLooper(applicationLooper)
+              .setPlaybackLooper(playbackLooper)
+              .setRenderersFactory(renderersFactory)
+              .setHandleAudioBecomingNoisy(true)
+              .setClock(clock)
+              // Use dynamic scheduling to show the first video/image frame more promptly when the
+              // player is paused (which is common in editing applications).
+              .experimentalSetDynamicSchedulingEnabled(true);
+      playerBuilder.setTrackSelector(trackSelector);
+      player = playerBuilder.build();
+      this.renderersFactory = renderersFactory;
+    }
+
+    public void setSequence(EditedMediaItemSequence sequence) {
+      renderersFactory.setSequence(sequence);
+      trackSelector.setSequence(sequence);
     }
   }
 }

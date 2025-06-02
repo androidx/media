@@ -52,6 +52,7 @@ import androidx.media3.datasource.AssetDataSource;
 import androidx.media3.datasource.DataSourceUtil;
 import androidx.media3.datasource.DataSpec;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
+import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.SingleInputVideoGraph;
 import androidx.media3.exoplayer.image.ExternallyLoadedImageDecoder;
 import androidx.media3.exoplayer.image.ExternallyLoadedImageDecoder.ExternalImageRequest;
@@ -65,6 +66,7 @@ import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
 import java.io.IOException;
 import java.util.List;
@@ -399,6 +401,49 @@ public class CompositionPlayerTest {
         });
 
     listener.waitUntilPlayerEnded();
+  }
+
+  @Test
+  public void composition_changeComposition() throws Exception {
+    PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
+    InputTimestampRecordingShaderProgram timestampRecordingShaderProgram =
+        new InputTimestampRecordingShaderProgram();
+    EditedMediaItem video =
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
+            .setDurationUs(MP4_ASSET.videoDurationUs)
+            .setEffects(
+                new Effects(
+                    ImmutableList.of(),
+                    ImmutableList.of(
+                        (GlEffect) (context, useHdr) -> timestampRecordingShaderProgram)))
+            .build();
+
+    instrumentation.runOnMainSync(
+        () -> {
+          compositionPlayer = new CompositionPlayer.Builder(applicationContext).build();
+          // Set a surface on the player even though there is no UI on this test. We need a surface
+          // otherwise the player will skip/drop video frames.
+          compositionPlayer.setVideoSurfaceView(surfaceView);
+          compositionPlayer.addListener(listener);
+          compositionPlayer.setComposition(
+              new Composition.Builder(new EditedMediaItemSequence.Builder(video).build()).build());
+          compositionPlayer.prepare();
+          compositionPlayer.play();
+        });
+    listener.waitUntilFirstFrameRendered();
+    instrumentation.runOnMainSync(
+        () ->
+            compositionPlayer.setComposition(
+                new Composition.Builder(new EditedMediaItemSequence.Builder(video).build())
+                    .build()));
+
+    listener.waitUntilPlayerEnded();
+    // Played two compositions so should render two frames of timestamp zero.
+    assertThat(
+            Iterables.filter(
+                timestampRecordingShaderProgram.getInputTimestampsUs(),
+                timestamp -> timestamp == 0))
+        .hasSize(2);
   }
 
   @Test

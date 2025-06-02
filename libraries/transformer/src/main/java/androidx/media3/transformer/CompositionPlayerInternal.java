@@ -21,6 +21,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.view.Surface;
+import androidx.media3.common.C;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ConditionVariable;
@@ -69,6 +70,7 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
   private final Listener listener;
   private final HandlerWrapper listenerHandler;
 
+  private boolean hasSetComposition;
   private boolean released;
 
   /**
@@ -207,7 +209,17 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
   // Internal methods
 
   private void setCompositionInternal(Composition composition) {
-    playbackAudioGraphWrapper.setAudioProcessors(composition.effects.audioProcessors);
+    if (!hasSetComposition) {
+      // TODO: b/412585856 - Allow setting Composition-level effect on AudioGraph.
+      playbackAudioGraphWrapper.setAudioProcessors(composition.effects.audioProcessors);
+      hasSetComposition = true;
+    }
+
+    // Resets the position of the AudioGraph, or the AudioGraph retains its location in the previous
+    // Composition
+    playbackAudioGraphWrapper.startSeek(/* positionUs= */ C.TIME_UNSET);
+    playbackAudioGraphWrapper.endSeek();
+
     playbackVideoGraphWrapper.setCompositionEffects(composition.effects.videoEffects);
     playbackVideoGraphWrapper.setCompositorSettings(composition.videoCompositorSettings);
     playbackVideoGraphWrapper.setRequestOpenGlToneMapping(

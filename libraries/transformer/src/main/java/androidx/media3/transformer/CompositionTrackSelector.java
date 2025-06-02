@@ -48,14 +48,17 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private @MonotonicNonNull EditedMediaItemSequence sequence;
   private @MonotonicNonNull EditedMediaItem currentEditedMediaItem;
 
-  public CompositionTrackSelector(
-      Context context, Listener listener, int sequenceIndex, boolean disableVideoPlayback) {
-    trackSelectorInternal =
-        new TrackSelectorInternal(context, listener, sequenceIndex, disableVideoPlayback);
+  public CompositionTrackSelector(Context context, Listener listener, int sequenceIndex) {
+    trackSelectorInternal = new TrackSelectorInternal(context, listener, sequenceIndex);
   }
 
   public void setSequence(EditedMediaItemSequence sequence) {
     this.sequence = sequence;
+    boolean disableVideoPlayback = false;
+    for (int j = 0; j < sequence.editedMediaItems.size(); j++) {
+      disableVideoPlayback |= sequence.editedMediaItems.get(j).removeVideo;
+    }
+    trackSelectorInternal.setDisableVideoPlayback(disableVideoPlayback);
   }
 
   @Override
@@ -91,16 +94,15 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final class TrackSelectorInternal extends DefaultTrackSelector {
 
     private static final String SILENCE_AUDIO_TRACK_GROUP_ID = "1:";
-    private final boolean disableVideoPlayback;
     private final Listener listener;
     private final int sequenceIndex;
 
-    public TrackSelectorInternal(
-        Context context, Listener listener, int sequenceIndex, boolean disableVideoPlayback) {
+    private boolean disableVideoPlayback;
+
+    public TrackSelectorInternal(Context context, Listener listener, int sequenceIndex) {
       super(context);
       this.sequenceIndex = sequenceIndex;
       this.listener = listener;
-      this.disableVideoPlayback = disableVideoPlayback;
     }
 
     @Nullable
@@ -210,6 +212,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       // Images are treated as video tracks.
       listener.onVideoTrackSelection(/* selected= */ trackSelection != null, sequenceIndex);
       return trackSelection;
+    }
+
+    public void setDisableVideoPlayback(boolean disableVideoPlayback) {
+      this.disableVideoPlayback = disableVideoPlayback;
     }
   }
 }

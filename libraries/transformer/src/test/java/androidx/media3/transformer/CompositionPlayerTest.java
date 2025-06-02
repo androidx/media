@@ -252,18 +252,6 @@ public class CompositionPlayerTest {
   }
 
   @Test
-  public void setComposition_calledTwice_throws() {
-    Composition composition = buildComposition();
-    CompositionPlayer player = buildCompositionPlayer();
-
-    player.setComposition(composition);
-
-    assertThrows(IllegalStateException.class, () -> player.setComposition(composition));
-
-    player.release();
-  }
-
-  @Test
   public void prepare_withoutCompositionSet_throws() {
     CompositionPlayer player = buildCompositionPlayer();
 

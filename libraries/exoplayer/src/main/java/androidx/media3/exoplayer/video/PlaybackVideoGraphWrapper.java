@@ -512,6 +512,7 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
       }
       handler = clock.createHandler(checkStateNotNull(Looper.myLooper()), /* callback= */ null);
       try {
+        // TODO: b/412585856 - Allow setting CompositorSetting and CompositionEffects dynamically.
         videoGraph =
             videoGraphFactory.create(
                 context,
