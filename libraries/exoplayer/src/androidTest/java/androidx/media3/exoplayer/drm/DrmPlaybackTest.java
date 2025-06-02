@@ -16,8 +16,10 @@
 package androidx.media3.exoplayer.drm;
 
 import static android.os.Build.VERSION.SDK_INT;
+import static androidx.media3.common.MimeTypes.VIDEO_AV1;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
@@ -29,11 +31,14 @@ import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.exoplayer.DecoderCounters;
 import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import java.io.IOException;
 import java.util.concurrent.atomic.AtomicReference;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -55,19 +60,28 @@ public final class DrmPlaybackTest {
           + "}],"
           + "\"type\":\"temporary\"}";
 
-  @Test
-  public void clearkeyPlayback() throws Exception {
-    MockWebServer mockWebServer = new MockWebServer();
+  private final Context context = getInstrumentation().getContext();
+
+  private MockWebServer mockWebServer;
+  private MediaItem.DrmConfiguration drmConfiguration;
+
+  @Before
+  public void setUpDrmConfiguration() throws IOException {
+    mockWebServer = new MockWebServer();
     mockWebServer.enqueue(new MockResponse().setResponseCode(200).setBody(CLEARKEY_RESPONSE));
     mockWebServer.start();
+    drmConfiguration =
+        new MediaItem.DrmConfiguration.Builder(C.CLEARKEY_UUID)
+            .setLicenseUri(mockWebServer.url("license").toString())
+            .build();
+  }
 
+  @Test
+  public void clearkeyPlayback() throws Exception {
     MediaItem mediaItem =
         new MediaItem.Builder()
             .setUri("asset:///media/drm/sample_fragmented_clearkey.mp4")
-            .setDrmConfiguration(
-                new MediaItem.DrmConfiguration.Builder(C.CLEARKEY_UUID)
-                    .setLicenseUri(mockWebServer.url("license").toString())
-                    .build())
+            .setDrmConfiguration(drmConfiguration)
             .build();
     AtomicReference<ExoPlayer> player = new AtomicReference<>();
     ConditionVariable playbackComplete = new ConditionVariable();
@@ -75,7 +89,7 @@ public final class DrmPlaybackTest {
     getInstrumentation()
         .runOnMainSync(
             () -> {
-              player.set(new ExoPlayer.Builder(getInstrumentation().getContext()).build());
+              player.set(new ExoPlayer.Builder(context).build());
               player
                   .get()
                   .addListener(
@@ -111,18 +125,10 @@ public final class DrmPlaybackTest {
     // that there is a secure decoder so we must only run this test on API 21 - i.e. we cannot
     // assumeTrue() on getDecoderInfos.
     assumeTrue(SDK_INT > 21);
-    Context context = getInstrumentation().getContext();
-    MockWebServer mockWebServer = new MockWebServer();
-    mockWebServer.enqueue(new MockResponse().setResponseCode(200).setBody(CLEARKEY_RESPONSE));
-    mockWebServer.start();
-
     MediaItem mediaItem =
         new MediaItem.Builder()
             .setUri("asset:///media/drm/sample_fragmented_clearkey.mp4")
-            .setDrmConfiguration(
-                new MediaItem.DrmConfiguration.Builder(C.CLEARKEY_UUID)
-                    .setLicenseUri(mockWebServer.url("license").toString())
-                    .build())
+            .setDrmConfiguration(drmConfiguration)
             .build();
     AtomicReference<ExoPlayer> player = new AtomicReference<>();
     ConditionVariable playbackComplete = new ConditionVariable();
@@ -167,9 +173,76 @@ public final class DrmPlaybackTest {
     playbackComplete.block();
     getInstrumentation().runOnMainSync(() -> player.get().release());
     getInstrumentation().waitForIdleSync();
+
     assertThat(playbackException.get()).isNull();
     // Which input buffers are dropped first depends on the number of MediaCodec buffer slots.
     // This means the asserts cannot be isEqualTo.
     assertThat(decoderCountersAtomicReference.get().droppedInputBufferCount).isAtLeast(1);
+  }
+
+  @Test
+  public void clearkeyPlayback_parseAv1SampleDependencies_skipsOnlyFullFrames() throws Exception {
+    // Only run this test if any AV1 decoder is present. Accept non-secure decoders that likely
+    // produce corrupted visual output, as this test asserts only on decoder counters.
+    assumeFalse(
+        MediaCodecSelector.DEFAULT
+            .getDecoderInfos(
+                VIDEO_AV1,
+                /* requiresSecureDecoder= */ false,
+                /* requiresTunnelingDecoder= */ false)
+            .isEmpty());
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri("asset:///media/drm/sample_av1c_fragmented_clearkey.mp4")
+            .setDrmConfiguration(drmConfiguration)
+            .setClippingConfiguration(
+                new MediaItem.ClippingConfiguration.Builder()
+                    .setAllowUnseekableMedia(true)
+                    .setStartPositionMs(200)
+                    .build())
+            .build();
+    AtomicReference<ExoPlayer> player = new AtomicReference<>();
+    ConditionVariable playbackComplete = new ConditionVariable();
+    AtomicReference<PlaybackException> playbackException = new AtomicReference<>();
+    AtomicReference<DecoderCounters> decoderCountersAtomicReference = new AtomicReference<>();
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              player.set(
+                  new ExoPlayer.Builder(
+                          context,
+                          new DefaultRenderersFactory(context)
+                              .experimentalSetParseAv1SampleDependencies(true))
+                      .build());
+              player
+                  .get()
+                  .addListener(
+                      new Player.Listener() {
+                        @Override
+                        public void onPlaybackStateChanged(@Player.State int playbackState) {
+                          if (playbackState == Player.STATE_ENDED) {
+                            decoderCountersAtomicReference.set(
+                                player.get().getVideoDecoderCounters());
+                            playbackComplete.open();
+                          }
+                        }
+
+                        @Override
+                        public void onPlayerError(PlaybackException error) {
+                          playbackException.set(error);
+                          playbackComplete.open();
+                        }
+                      });
+              player.get().setMediaItem(mediaItem);
+              player.get().prepare();
+              player.get().play();
+            });
+
+    playbackComplete.block();
+    getInstrumentation().runOnMainSync(() -> player.get().release());
+    getInstrumentation().waitForIdleSync();
+
+    assertThat(playbackException.get()).isNull();
+    assertThat(decoderCountersAtomicReference.get().skippedInputBufferCount).isEqualTo(3);
   }
 }

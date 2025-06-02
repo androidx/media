@@ -1586,17 +1586,11 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     if (buffer.hasSupplementalData()) {
       return false;
     }
+    boolean bufferDiscarded = false;
     if (buffer.notDependedOn()) {
+      bufferDiscarded = true;
       buffer.clear();
-      if (shouldSkipDecoderInputBuffer) {
-        decoderCounters.skippedInputBufferCount += 1;
-      } else {
-        droppedDecoderInputBufferTimestamps.add(buffer.timeUs);
-        consecutiveDroppedInputBufferCount += 1;
-      }
-      return true;
-    }
-    if (av1SampleDependencyParser != null
+    } else if (av1SampleDependencyParser != null
         && checkNotNull(getCodecInfo()).mimeType.equals(MimeTypes.VIDEO_AV1)
         && buffer.data != null) {
       boolean skipFrameHeaders =
@@ -1608,23 +1602,29 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       int sampleLimitAfterSkippingNonReferenceFrames =
           av1SampleDependencyParser.sampleLimitAfterSkippingNonReferenceFrame(
               readOnlySample, skipFrameHeaders);
-      boolean hasSpaceForNextFrame =
-          sampleLimitAfterSkippingNonReferenceFrames + checkNotNull(codecMaxValues).inputSize
-              < readOnlySample.capacity();
-      if (sampleLimitAfterSkippingNonReferenceFrames != readOnlySample.limit()
-          && hasSpaceForNextFrame) {
-        checkNotNull(buffer.data).position(sampleLimitAfterSkippingNonReferenceFrames);
-        if (shouldSkipDecoderInputBuffer) {
-          decoderCounters.skippedInputBufferCount += 1;
-        } else {
-          droppedDecoderInputBufferTimestamps.add(buffer.timeUs);
-          consecutiveDroppedInputBufferCount += 1;
+      if (sampleLimitAfterSkippingNonReferenceFrames == 0) {
+        buffer.clear();
+        bufferDiscarded = true;
+      } else if (sampleLimitAfterSkippingNonReferenceFrames != readOnlySample.limit()) {
+        boolean hasSpaceForNextFrame =
+            sampleLimitAfterSkippingNonReferenceFrames + checkNotNull(codecMaxValues).inputSize
+                < readOnlySample.capacity();
+        // An encrypted buffer cannot be partially discarded.
+        if (hasSpaceForNextFrame && !buffer.isEncrypted()) {
+          checkNotNull(buffer.data).position(sampleLimitAfterSkippingNonReferenceFrames);
+          bufferDiscarded = true;
         }
-        return true;
       }
-      return false;
     }
-    return false;
+    if (bufferDiscarded) {
+      if (shouldSkipDecoderInputBuffer) {
+        decoderCounters.skippedInputBufferCount += 1;
+      } else {
+        droppedDecoderInputBufferTimestamps.add(buffer.timeUs);
+        consecutiveDroppedInputBufferCount += 1;
+      }
+    }
+    return bufferDiscarded;
   }
 
   private boolean isBufferProbablyLastSample(DecoderInputBuffer buffer) {
