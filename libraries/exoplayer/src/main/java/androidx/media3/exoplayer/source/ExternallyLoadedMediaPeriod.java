@@ -34,6 +34,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -50,6 +51,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final byte[] sampleData;
   private final AtomicBoolean loadingFinished;
   private final AtomicReference<Throwable> loadingThrowable;
+  private final ArrayList<SampleStreamImpl> sampleStreams;
   private @MonotonicNonNull ListenableFuture<?> loadingFuture;
 
   public ExternallyLoadedMediaPeriod(Uri uri, String mimeType, ExternalLoader externalLoader) {
@@ -60,6 +62,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     sampleData = uri.toString().getBytes(StandardCharsets.UTF_8);
     loadingFinished = new AtomicBoolean();
     loadingThrowable = new AtomicReference<>();
+    sampleStreams = new ArrayList<>();
   }
 
   @Override
@@ -101,10 +104,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       long positionUs) {
     for (int i = 0; i < selections.length; i++) {
       if (streams[i] != null && (selections[i] == null || !mayRetainStreamFlags[i])) {
+        sampleStreams.remove(streams[i]);
         streams[i] = null;
       }
       if (streams[i] == null && selections[i] != null) {
         SampleStreamImpl stream = new SampleStreamImpl();
+        sampleStreams.add(stream);
         streams[i] = stream;
         streamResetFlags[i] = true;
       }
@@ -124,6 +129,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Override
   public long seekToUs(long positionUs) {
+    for (int i = 0; i < sampleStreams.size(); i++) {
+      sampleStreams.get(i).reset();
+    }
     return positionUs;
   }
 
@@ -172,6 +180,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     public SampleStreamImpl() {
       streamState = STREAM_STATE_SEND_FORMAT;
+    }
+
+    public void reset() {
+      if (streamState == STREAM_STATE_END_OF_STREAM) {
+        streamState = STREAM_STATE_SEND_SAMPLE;
+      }
     }
 
     @Override
