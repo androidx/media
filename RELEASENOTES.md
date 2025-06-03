@@ -25,6 +25,8 @@
         ([#2327]()https://github.com/androidx/media/issues/2327).
     *   Fix parsing of H.265 SEI units to fully skip unrecognized SEI types
         ([#2456]()https://github.com/androidx/media/issues/2456).
+    *   Update `WavExtractor` to use the header extension's SubFormat data for
+        the audio format when parsing a `WAVE_FORMAT_EXTENSIBLE` type file.
 *   DataSource:
 *   Audio:
     *   Add support for all linear PCM sample formats in
