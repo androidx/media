@@ -166,7 +166,7 @@ public final class ScrubbingModeParameters {
      * <p>Setting this to {@code false} will disable flushing the decoder when a new seek starts
      * decoding from a key-frame.
      *
-     * <p>Defaults to {@code false}.
+     * <p>Defaults to {@code false} (this may change in a future release).
      *
      * @param isMediaCodecFlushEnabled Whether to enable flushing of decoder in scrubbing mode.
      * @return This builder for convenience.
