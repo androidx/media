@@ -241,7 +241,8 @@ public final class SessionToken {
    * #TYPE_SESSION}. Otherwise, it returns {@code 0}.
    *
    * <p>It will be the same as {@link MediaLibraryInfo#VERSION_INT} of the session, or less than
-   * {@code 1000000} if the session is a legacy session.
+   * {@code 1000000} if the session is a platform {@link android.media.session.MediaSession} or
+   * legacy {@code android.support.v4.media.session.MediaSessionCompat}.
    */
   public int getSessionVersion() {
     return impl.getLibraryVersion();

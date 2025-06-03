@@ -90,7 +90,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  *   <li><a href="#ControllerLifeCycle">Controller Lifecycle</a>
  *   <li><a href="#ThreadingModel">Threading Model</a>
  *   <li><a href="#PackageVisibilityFilter">Package Visibility Filter</a>
- *   <li><a href="#BackwardCompatibility">Backward Compatibility with legacy media sessions</a>
+ *   <li><a href="#BackwardCompatibility">Backward Compatibility with platform and legacy media
+ *       sessions</a>
  * </ol>
  *
  * <h2 id="ControllerLifeCycle">Controller Lifecycle</h2>
@@ -140,10 +141,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * <package android:name="package_name_of_the_other_app" />
  * }</pre>
  *
- * <h2 id="BackwardCompatibility">Backward Compatibility with legacy media sessions</h2>
+ * <h2 id="BackwardCompatibility">Backward Compatibility with platform and legacy media sessions
+ * </h2>
  *
- * <p>In addition to {@link MediaSession}, the controller also supports connecting to a legacy media
- * session - {@link android.media.session.MediaSession} and {@code
+ * <p>In addition to {@link MediaSession}, the controller also supports connecting to a platform or
+ * legacy media session - {@link android.media.session.MediaSession} and {@code
  * android.support.v4.media.session.MediaSessionCompat}.
  *
  * <p>To request legacy sessions to play media, use one of the {@link #setMediaItem} methods and set
