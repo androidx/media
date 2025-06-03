@@ -17,6 +17,7 @@ package androidx.media3.exoplayer.source.ads;
 
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AdPlaybackState;
+import androidx.media3.common.C;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.exoplayer.source.ForwardingTimeline;
@@ -50,7 +51,7 @@ public final class MultiPeriodAdTimeline extends ForwardingTimeline {
       timeline.getPeriod(periodIndex, period);
       final long periodDurationUs = period.durationUs;
       adPlaybackStates[periodIndex] = forPeriod(adPlaybackState, periodStartOffsetUs,
-          periodDurationUs);
+          periodDurationUs, periodIndex == periodCount - 1);
       periodStartOffsetUs += periodDurationUs;
     }
   }
@@ -74,23 +75,30 @@ public final class MultiPeriodAdTimeline extends ForwardingTimeline {
    * @param adPlaybackState     original state is immutable always new modified copy is created
    * @param periodStartOffsetUs period start time offset from start of timeline (microseconds)
    * @param periodDurationUs    period duration (microseconds)
+   * @param isLast              true if this is the last period
    * @return adPlaybackState modified for period
    */
   private AdPlaybackState forPeriod(
       AdPlaybackState adPlaybackState,
       long periodStartOffsetUs,
-      long periodDurationUs
-  ) {
+      long periodDurationUs,
+      boolean isLast) {
     final long periodEndUs = periodStartOffsetUs + periodDurationUs;
     for (int adGroupIndex = 0; adGroupIndex < adPlaybackState.adGroupCount; adGroupIndex++) {
       final long adGroupTimeUs = adPlaybackState.getAdGroup(adGroupIndex).timeUs;
-      if (periodEndUs < adGroupTimeUs) {
-        // this cue point belongs to next periods
-        adPlaybackState = adPlaybackState.withSkippedAdGroup(adGroupIndex);
+      if (adGroupTimeUs == C.TIME_END_OF_SOURCE) {
+        if (!isLast) {
+          adPlaybackState = adPlaybackState.withSkippedAdGroup(adGroupIndex);
+        }
+      } else {
+        if (periodEndUs < adGroupTimeUs) {
+          // this cue point belongs to next periods
+          adPlaybackState = adPlaybackState.withSkippedAdGroup(adGroupIndex);
+        }
+        // start time relative to period start
+        adPlaybackState = adPlaybackState.withAdGroupTimeUs(adGroupIndex,
+            adGroupTimeUs - periodStartOffsetUs);
       }
-      // start time relative to period start
-      adPlaybackState = adPlaybackState.withAdGroupTimeUs(adGroupIndex,
-          adGroupTimeUs - periodStartOffsetUs);
     }
     return adPlaybackState;
   }
