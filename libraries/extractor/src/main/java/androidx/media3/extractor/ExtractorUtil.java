@@ -169,7 +169,9 @@ public final class ExtractorUtil {
       case C.ENCODING_PCM_32BIT_BIG_ENDIAN:
       case C.ENCODING_PCM_8BIT:
       case C.ENCODING_PCM_FLOAT:
+      case C.ENCODING_PCM_DOUBLE:
       case C.ENCODING_AAC_ER_BSAC:
+      case C.ENCODING_DSD:
       case C.ENCODING_INVALID:
       case Format.NO_VALUE:
       default:
