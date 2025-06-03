@@ -17,8 +17,10 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
+import static androidx.media3.common.util.Util.usToMs;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.PNG_ASSET;
+import static androidx.media3.transformer.AndroidTestUtil.WAV_ASSET;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 import static com.google.common.truth.Truth.assertThat;
 
@@ -57,6 +59,15 @@ public class CompositionMultipleSequencePlaybackTest {
   private static final ImmutableList<Long> IMAGE_TIMESTAMPS_US =
       ImmutableList.of(0L, 33_333L, 66_667L, 100_000L, 133_333L, 166_667L);
 
+  private static final long AUDIO_DURATION_US = 1_000_000L;
+  private static final MediaItem AUDIO_MEDIA_ITEM =
+      new MediaItem.Builder()
+          .setUri(WAV_ASSET.uri)
+          .setImageDurationMs(usToMs(AUDIO_DURATION_US))
+          .build();
+  private static final EditedMediaItem AUDIO_EDITED_MEDIA_ITEM =
+      new EditedMediaItem.Builder(AUDIO_MEDIA_ITEM).build();
+
   private final Context context = getInstrumentation().getContext().getApplicationContext();
   private final PlayerTestListener playerTestListener = new PlayerTestListener(TEST_TIMEOUT_MS);
 
@@ -93,6 +104,9 @@ public class CompositionMultipleSequencePlaybackTest {
                     /* videoEffects= */ ImmutableList.of(
                         (GlEffect) (context, useHdr) -> inputTimestampRecordingShaderProgram)))
             .build();
+
+    runCompositionPlayer(composition);
+
     ImmutableList<Long> expectedTimestampsUs =
         new ImmutableList.Builder<Long>()
             .addAll(VIDEO_TIMESTAMPS_US)
@@ -100,11 +114,9 @@ public class CompositionMultipleSequencePlaybackTest {
                 Iterables.transform(
                     VIDEO_TIMESTAMPS_US, timestampUs -> VIDEO_DURATION_US + timestampUs))
             .build();
-
-    runCompositionPlayer(composition);
-
     assertThat(inputTimestampRecordingShaderProgram.getInputTimestampsUs())
-        .isEqualTo(expectedTimestampsUs);
+        .containsExactlyElementsIn(expectedTimestampsUs)
+        .inOrder();
   }
 
   @Test
@@ -120,6 +132,9 @@ public class CompositionMultipleSequencePlaybackTest {
                     /* videoEffects= */ ImmutableList.of(
                         (GlEffect) (context, useHdr) -> inputTimestampRecordingShaderProgram)))
             .build();
+
+    runCompositionPlayer(composition);
+
     ImmutableList<Long> expectedTimestampsUs =
         new ImmutableList.Builder<Long>()
             .addAll(IMAGE_TIMESTAMPS_US)
@@ -127,11 +142,9 @@ public class CompositionMultipleSequencePlaybackTest {
                 Iterables.transform(
                     IMAGE_TIMESTAMPS_US, timestampUs -> IMAGE_DURATION_US + timestampUs))
             .build();
-
-    runCompositionPlayer(composition);
-
     assertThat(inputTimestampRecordingShaderProgram.getInputTimestampsUs())
-        .isEqualTo(expectedTimestampsUs);
+        .containsExactlyElementsIn(expectedTimestampsUs)
+        .inOrder();
   }
 
   @Test
@@ -151,6 +164,9 @@ public class CompositionMultipleSequencePlaybackTest {
                     /* videoEffects= */ ImmutableList.of(
                         (GlEffect) (context, useHdr) -> inputTimestampRecordingShaderProgram)))
             .build();
+
+    runCompositionPlayer(composition);
+
     ImmutableList<Long> expectedTimestampsUs =
         new ImmutableList.Builder<Long>()
             .addAll(VIDEO_TIMESTAMPS_US)
@@ -158,11 +174,9 @@ public class CompositionMultipleSequencePlaybackTest {
                 Iterables.transform(
                     VIDEO_TIMESTAMPS_US, timestampUs -> VIDEO_DURATION_US + timestampUs))
             .build();
-
-    runCompositionPlayer(composition);
-
     assertThat(inputTimestampRecordingShaderProgram.getInputTimestampsUs())
-        .isEqualTo(expectedTimestampsUs);
+        .containsExactlyElementsIn(expectedTimestampsUs)
+        .inOrder();
   }
 
   @Test
@@ -181,6 +195,9 @@ public class CompositionMultipleSequencePlaybackTest {
                     /* videoEffects= */ ImmutableList.of(
                         (GlEffect) (context, useHdr) -> inputTimestampRecordingShaderProgram)))
             .build();
+
+    runCompositionPlayer(composition);
+
     ImmutableList<Long> expectedTimestampsUs =
         new ImmutableList.Builder<Long>()
             .addAll(IMAGE_TIMESTAMPS_US)
@@ -191,11 +208,76 @@ public class CompositionMultipleSequencePlaybackTest {
                 Iterables.transform(
                     IMAGE_TIMESTAMPS_US, timestampUs -> 2 * IMAGE_DURATION_US + timestampUs))
             .build();
+    assertThat(inputTimestampRecordingShaderProgram.getInputTimestampsUs())
+        .containsExactlyElementsIn(expectedTimestampsUs)
+        .inOrder();
+  }
+
+  @Test
+  public void playback_imageLoopingAudioSequence_effectsReceiveCorrectTimestamps()
+      throws Exception {
+    Composition composition =
+        new Composition.Builder(
+                new EditedMediaItemSequence.Builder(
+                        IMAGE_EDITED_MEDIA_ITEM, IMAGE_EDITED_MEDIA_ITEM, IMAGE_EDITED_MEDIA_ITEM)
+                    .build(),
+                new EditedMediaItemSequence.Builder(AUDIO_EDITED_MEDIA_ITEM)
+                    .setIsLooping(true)
+                    .build())
+            .setEffects(
+                new Effects(
+                    /* audioProcessors= */ ImmutableList.of(),
+                    /* videoEffects= */ ImmutableList.of(
+                        (GlEffect) (context, useHdr) -> inputTimestampRecordingShaderProgram)))
+            .build();
 
     runCompositionPlayer(composition);
 
+    ImmutableList<Long> expectedTimestampsUs =
+        new ImmutableList.Builder<Long>()
+            .addAll(IMAGE_TIMESTAMPS_US)
+            .addAll(
+                Iterables.transform(
+                    IMAGE_TIMESTAMPS_US, timestampUs -> IMAGE_DURATION_US + timestampUs))
+            .addAll(
+                Iterables.transform(
+                    IMAGE_TIMESTAMPS_US, timestampUs -> 2 * IMAGE_DURATION_US + timestampUs))
+            .build();
     assertThat(inputTimestampRecordingShaderProgram.getInputTimestampsUs())
-        .isEqualTo(expectedTimestampsUs);
+        .containsExactlyElementsIn(expectedTimestampsUs)
+        .inOrder();
+  }
+
+  @Test
+  public void playback_videoLoopingAudioSequence_effectsReceiveCorrectTimestamps()
+      throws Exception {
+    Composition composition =
+        new Composition.Builder(
+                new EditedMediaItemSequence.Builder(
+                        VIDEO_EDITED_MEDIA_ITEM, VIDEO_EDITED_MEDIA_ITEM)
+                    .build(),
+                new EditedMediaItemSequence.Builder(AUDIO_EDITED_MEDIA_ITEM)
+                    .setIsLooping(true)
+                    .build())
+            .setEffects(
+                new Effects(
+                    /* audioProcessors= */ ImmutableList.of(),
+                    /* videoEffects= */ ImmutableList.of(
+                        (GlEffect) (context, useHdr) -> inputTimestampRecordingShaderProgram)))
+            .build();
+
+    runCompositionPlayer(composition);
+
+    ImmutableList<Long> expectedTimestampsUs =
+        new ImmutableList.Builder<Long>()
+            .addAll(VIDEO_TIMESTAMPS_US)
+            .addAll(
+                Iterables.transform(
+                    VIDEO_TIMESTAMPS_US, timestampUs -> VIDEO_DURATION_US + timestampUs))
+            .build();
+    assertThat(inputTimestampRecordingShaderProgram.getInputTimestampsUs())
+        .containsExactlyElementsIn(expectedTimestampsUs)
+        .inOrder();
   }
 
   @Test
@@ -215,6 +297,9 @@ public class CompositionMultipleSequencePlaybackTest {
                     /* videoEffects= */ ImmutableList.of(
                         (GlEffect) (context, useHdr) -> inputTimestampRecordingShaderProgram)))
             .build();
+
+    runCompositionPlayer(composition);
+
     ImmutableList<Long> expectedTimestampsUs =
         new ImmutableList.Builder<Long>()
             .addAll(IMAGE_TIMESTAMPS_US)
@@ -225,11 +310,9 @@ public class CompositionMultipleSequencePlaybackTest {
                 Iterables.transform(
                     IMAGE_TIMESTAMPS_US, timestampUs -> 2 * IMAGE_DURATION_US + timestampUs))
             .build();
-
-    runCompositionPlayer(composition);
-
     assertThat(inputTimestampRecordingShaderProgram.getInputTimestampsUs())
-        .isEqualTo(expectedTimestampsUs);
+        .containsExactlyElementsIn(expectedTimestampsUs)
+        .inOrder();
   }
 
   @Test

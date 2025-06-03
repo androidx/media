@@ -28,6 +28,7 @@ import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_IMME
 import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED;
 import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_WHEN_STARTED;
 import static androidx.media3.transformer.EditedMediaItemSequence.getEditedMediaItem;
+import static androidx.media3.transformer.EditedMediaItemSequence.getEditedMediaItemIndex;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import android.content.Context;
@@ -227,6 +228,20 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     return videoPrewarmingEnabled && SDK_INT >= 23;
   }
 
+  private void onVideoRendererDisabled(int lastDisabledPeriodIndex) {
+    // Renderers can be enabled out of order during normal playback, when seeking or switching
+    // between video and image playback. Check the index of the last disabled renderer to ensure
+    // that this renderer should be the next one to start processing before activating the
+    // bufferingVideoSink.
+    int nextPeriodIndex = lastDisabledPeriodIndex + 1;
+    if (primaryVideoRenderer != null) {
+      primaryVideoRenderer.maybeActivateBufferingVideoSink(nextPeriodIndex);
+    }
+    if (secondaryVideoRenderer != null) {
+      secondaryVideoRenderer.maybeActivateBufferingVideoSink(nextPeriodIndex);
+    }
+  }
+
   private static final class SequenceAudioRenderer extends MediaCodecAudioRenderer {
     private final AudioGraphInputAudioSink audioSink;
     private final PlaybackAudioGraphWrapper playbackAudioGraphWrapper;
@@ -322,6 +337,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     private @MonotonicNonNull EditedMediaItemSequence sequence;
     private long offsetToCompositionTimeUs;
     private boolean requestMediaCodecToneMapping;
+    public int currentPeriodIndex;
+    public boolean isEnabled;
 
     public SequenceVideoRenderer(
         Context context,
@@ -341,6 +358,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               .setVideoSink(bufferingVideoSink));
       this.bufferingVideoSink = bufferingVideoSink;
       this.pendingEffects = ImmutableList.of();
+      this.currentPeriodIndex = C.INDEX_UNSET;
     }
 
     public void setSequence(EditedMediaItemSequence sequence) {
@@ -354,6 +372,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     @Override
     protected void onEnabled(boolean joining, boolean mayRenderStartOfStream)
         throws ExoPlaybackException {
+      isEnabled = true;
       if (mayRenderStartOfStream) {
         // Activate the BufferingVideoSink before calling super.onEnabled(), so that it points to a
         // VideoSink when executing the super method.
@@ -372,8 +391,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     @Override
     protected void onDisabled() {
+      isEnabled = false;
       super.onDisabled();
       deactivateBufferingVideoSink();
+      if (currentPeriodIndex != C.INDEX_UNSET) {
+        SequenceRenderersFactory.this.onVideoRendererDisabled(currentPeriodIndex);
+        currentPeriodIndex = C.INDEX_UNSET;
+      }
     }
 
     @Override
@@ -386,11 +410,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       checkStateNotNull(sequence);
       checkState(getTimeline().getWindowCount() == 1);
       // The media item might have been repeated in the sequence.
-      int periodIndex = getTimeline().getIndexOfPeriod(mediaPeriodId.periodUid);
+      currentPeriodIndex = getTimeline().getIndexOfPeriod(mediaPeriodId.periodUid);
       // The renderer has started processing this item, VideoGraph might still be processing the
       // previous one.
-      currentEditedMediaItem = getEditedMediaItem(sequence, periodIndex);
-      offsetToCompositionTimeUs = getOffsetToCompositionTimeUs(sequence, periodIndex, offsetUs);
+      currentEditedMediaItem = getEditedMediaItem(sequence, currentPeriodIndex);
+      offsetToCompositionTimeUs =
+          getOffsetToCompositionTimeUs(sequence, currentPeriodIndex, offsetUs);
       pendingEffects = checkNotNull(currentEditedMediaItem).effects.videoEffects;
       super.onStreamChanged(formats, startPositionUs, offsetUs, mediaPeriodId);
     }
@@ -468,6 +493,17 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           pendingEffects);
     }
 
+    private void maybeActivateBufferingVideoSink(int nextPeriodIndex) {
+      // Compare media item indices rather than period indices to handle looping sequences, where
+      // the period index may be different but the media item index is identical.
+      if (isEnabled
+          && sequence != null
+          && getEditedMediaItemIndex(sequence, currentPeriodIndex)
+              == getEditedMediaItemIndex(sequence, nextPeriodIndex)) {
+        activateBufferingVideoSink();
+      }
+    }
+
     private void activateBufferingVideoSink() {
       if (bufferingVideoSink.getVideoSink() != null) {
         return;
@@ -505,7 +541,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
   }
 
-  private static final class SequenceImageRenderer extends ImageRenderer {
+  private final class SequenceImageRenderer extends ImageRenderer {
 
     private final VideoSink videoSink;
 
@@ -517,6 +553,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     private boolean inputStreamPending;
     private long streamStartPositionUs;
     private boolean mayRenderStartOfStream;
+    private int currentPeriodIndex;
     private @VideoSink.FirstFrameReleaseInstruction int nextFirstFrameReleaseInstruction;
     private @MonotonicNonNull WakeupListener wakeupListener;
 
@@ -525,6 +562,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       this.videoSink = videoSink;
       videoEffects = ImmutableList.of();
       streamStartPositionUs = C.TIME_UNSET;
+      currentPeriodIndex = C.INDEX_UNSET;
     }
 
     public void setSequence(EditedMediaItemSequence sequence) {
@@ -553,6 +591,15 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             }
           },
           directExecutor());
+    }
+
+    @Override
+    protected void onDisabled() {
+      super.onDisabled();
+      if (currentPeriodIndex != C.INDEX_UNSET) {
+        SequenceRenderersFactory.this.onVideoRendererDisabled(currentPeriodIndex);
+        currentPeriodIndex = C.INDEX_UNSET;
+      }
     }
 
     @Override
@@ -614,10 +661,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       checkState(getTimeline().getWindowCount() == 1);
       streamStartPositionUs = startPositionUs;
       // The media item might have been repeated in the sequence.
-      int periodIndex = getTimeline().getIndexOfPeriod(mediaPeriodId.periodUid);
-      currentEditedMediaItem = getEditedMediaItem(sequence, periodIndex);
+      currentPeriodIndex = getTimeline().getIndexOfPeriod(mediaPeriodId.periodUid);
+      currentEditedMediaItem = getEditedMediaItem(sequence, currentPeriodIndex);
       long offsetToCompositionTimeUs =
-          getOffsetToCompositionTimeUs(sequence, periodIndex, offsetUs);
+          getOffsetToCompositionTimeUs(sequence, currentPeriodIndex, offsetUs);
       videoSink.setBufferTimestampAdjustmentUs(offsetToCompositionTimeUs);
       timestampIterator = createTimestampIterator(/* positionUs= */ startPositionUs);
       videoEffects = checkNotNull(currentEditedMediaItem).effects.videoEffects;

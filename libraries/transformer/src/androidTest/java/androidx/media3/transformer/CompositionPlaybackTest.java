@@ -174,11 +174,12 @@ public class CompositionPlaybackTest {
   }
 
   @Test
-  public void playback_sequenceOfVideoAndImage_effectsReceiveCorrectTimestamps() throws Exception {
+  public void playback_sequenceOfVideoImageVideo_effectsReceiveCorrectTimestamps()
+      throws Exception {
     InputTimestampRecordingShaderProgram inputTimestampRecordingShaderProgram =
         new InputTimestampRecordingShaderProgram();
     Effect videoEffect = (GlEffect) (context, useHdr) -> inputTimestampRecordingShaderProgram;
-    EditedMediaItem videoEditedMediaItem =
+    EditedMediaItem videoEditedMediaItem1 =
         new EditedMediaItem.Builder(VIDEO_MEDIA_ITEM)
             .setDurationUs(VIDEO_DURATION_US)
             .setEffects(
@@ -193,9 +194,18 @@ public class CompositionPlaybackTest {
                     /* audioProcessors= */ ImmutableList.of(),
                     /* videoEffects= */ ImmutableList.of(videoEffect)))
             .build();
+    EditedMediaItem videoEditedMediaItem2 =
+        new EditedMediaItem.Builder(VIDEO_MEDIA_ITEM)
+            .setDurationUs(VIDEO_DURATION_US)
+            .setEffects(
+                new Effects(
+                    /* audioProcessors= */ ImmutableList.of(),
+                    /* videoEffects= */ ImmutableList.of(videoEffect)))
+            .build();
     Composition composition =
         new Composition.Builder(
-                new EditedMediaItemSequence.Builder(videoEditedMediaItem, imageEditedMediaItem)
+                new EditedMediaItemSequence.Builder(
+                        videoEditedMediaItem1, imageEditedMediaItem, videoEditedMediaItem2)
                     .build())
             .build();
     ImmutableList<Long> expectedTimestampsUs =
@@ -204,6 +214,10 @@ public class CompositionPlaybackTest {
             .addAll(
                 Iterables.transform(
                     IMAGE_TIMESTAMPS_US, timestampUs -> (VIDEO_DURATION_US + timestampUs)))
+            .addAll(
+                Iterables.transform(
+                    VIDEO_TIMESTAMPS_US,
+                    timestampUs -> (VIDEO_DURATION_US + IMAGE_DURATION_US + timestampUs)))
             .build();
 
     runCompositionPlayer(composition);
@@ -213,14 +227,15 @@ public class CompositionPlaybackTest {
   }
 
   @Test
-  public void playback_sequenceOfImageAndVideo_effectsReceiveCorrectTimestamps() throws Exception {
+  public void playback_sequenceOfImageVideoImage_effectsReceiveCorrectTimestamps()
+      throws Exception {
     // The MediaCodec decoder's output surface is sometimes dropping frames on emulator despite
     // using MediaFormat.KEY_ALLOW_FRAME_DROP.
     assumeFalse("Skipped on emulator due to surface dropping frames", isRunningOnEmulator());
     InputTimestampRecordingShaderProgram inputTimestampRecordingShaderProgram =
         new InputTimestampRecordingShaderProgram();
     Effect videoEffect = (GlEffect) (context, useHdr) -> inputTimestampRecordingShaderProgram;
-    EditedMediaItem imageEditedMediaItem =
+    EditedMediaItem imageEditedMediaItem1 =
         new EditedMediaItem.Builder(IMAGE_MEDIA_ITEM)
             .setEffects(
                 new Effects(
@@ -235,9 +250,17 @@ public class CompositionPlaybackTest {
                     /* audioProcessors= */ ImmutableList.of(),
                     /* videoEffects= */ ImmutableList.of(videoEffect)))
             .build();
+    EditedMediaItem imageEditedMediaItem2 =
+        new EditedMediaItem.Builder(IMAGE_MEDIA_ITEM)
+            .setEffects(
+                new Effects(
+                    /* audioProcessors= */ ImmutableList.of(),
+                    /* videoEffects= */ ImmutableList.of(videoEffect)))
+            .build();
     Composition composition =
         new Composition.Builder(
-                new EditedMediaItemSequence.Builder(imageEditedMediaItem, videoEditedMediaItem)
+                new EditedMediaItemSequence.Builder(
+                        imageEditedMediaItem1, videoEditedMediaItem, imageEditedMediaItem2)
                     .build())
             .build();
     ImmutableList<Long> expectedTimestampsUs =
@@ -246,6 +269,10 @@ public class CompositionPlaybackTest {
             .addAll(
                 Iterables.transform(
                     VIDEO_TIMESTAMPS_US, timestampUs -> (IMAGE_DURATION_US + timestampUs)))
+            .addAll(
+                Iterables.transform(
+                    IMAGE_TIMESTAMPS_US,
+                    timestampUs -> (IMAGE_DURATION_US + VIDEO_DURATION_US + timestampUs)))
             .build();
 
     runCompositionPlayer(composition);
