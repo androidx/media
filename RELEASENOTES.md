@@ -59,7 +59,9 @@
         ([#2265](https://github.com/androidx/media/pull/2265)).
     *   Don't automatically show a notification if a player is set up with media
         items without preparing or playing them
-        ([#2423]()https://github.com/androidx/media/issues/2423).
+        ([#2423]()https://github.com/androidx/media/issues/2423). This behavior
+        is configurable via
+        `MediaSessionService.setShowNotificationForIdlePlayer`.
     *   Add custom `PlaybackException` for all or selected controllers.
 *   UI:
 *   Downloads:

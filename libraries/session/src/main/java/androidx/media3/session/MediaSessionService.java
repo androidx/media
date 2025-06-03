@@ -20,6 +20,7 @@ import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.postOrRun;
+import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.app.Activity;
 import android.app.ForegroundServiceStartNotAllowedException;
@@ -36,6 +37,7 @@ import android.os.Looper;
 import android.os.RemoteException;
 import androidx.annotation.CallSuper;
 import androidx.annotation.GuardedBy;
+import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.collection.ArrayMap;
@@ -47,6 +49,10 @@ import androidx.media3.common.util.Util;
 import androidx.media3.session.MediaSession.ControllerInfo;
 import androidx.media3.session.legacy.MediaBrowserServiceCompat;
 import androidx.media3.session.legacy.MediaSessionManager;
+import java.lang.annotation.Documented;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -165,6 +171,41 @@ public abstract class MediaSessionService extends Service {
    * stopped, failed or ended.
    */
   @UnstableApi public static final long DEFAULT_FOREGROUND_SERVICE_TIMEOUT_MS = 600_000;
+
+  /**
+   * The behavior for showing notifications when the {@link Player} is in {@link Player#STATE_IDLE}.
+   *
+   * <p>One of {@link #SHOW_NOTIFICATION_FOR_IDLE_PLAYER_ALWAYS}, {@link
+   * #SHOW_NOTIFICATION_FOR_IDLE_PLAYER_NEVER}, {@link
+   * #SHOW_NOTIFICATION_FOR_IDLE_PLAYER_AFTER_STOP_OR_ERROR}.
+   *
+   * <p>The default value is {@link #SHOW_NOTIFICATION_FOR_IDLE_PLAYER_AFTER_STOP_OR_ERROR}.
+   */
+  @UnstableApi
+  @Documented
+  @Retention(RetentionPolicy.SOURCE)
+  @Target(TYPE_USE)
+  @IntDef({
+    SHOW_NOTIFICATION_FOR_IDLE_PLAYER_ALWAYS,
+    SHOW_NOTIFICATION_FOR_IDLE_PLAYER_NEVER,
+    SHOW_NOTIFICATION_FOR_IDLE_PLAYER_AFTER_STOP_OR_ERROR
+  })
+  public @interface ShowNotificationForIdlePlayerMode {}
+
+  /**
+   * Always show a notification when the {@link Player} is in {@link Player#STATE_IDLE}, has media,
+   * and the notification wasn't explicitly dismissed.
+   */
+  @UnstableApi public static final int SHOW_NOTIFICATION_FOR_IDLE_PLAYER_ALWAYS = 1;
+
+  /** Never show a notification when the {@link Player} is in {@link Player#STATE_IDLE}. */
+  @UnstableApi public static final int SHOW_NOTIFICATION_FOR_IDLE_PLAYER_NEVER = 2;
+
+  /**
+   * Shows a notification when the {@link Player} is in {@link Player#STATE_IDLE} due to {@link
+   * Player#stop} or an error, has media, and the notification wasn't explicitly dismissed.
+   */
+  @UnstableApi public static final int SHOW_NOTIFICATION_FOR_IDLE_PLAYER_AFTER_STOP_OR_ERROR = 3;
 
   private static final String TAG = "MSessionService";
 
@@ -488,6 +529,19 @@ public abstract class MediaSessionService extends Service {
                 foregroundServiceTimeoutMs,
                 /* min= */ 0,
                 /* max= */ DEFAULT_FOREGROUND_SERVICE_TIMEOUT_MS));
+  }
+
+  /**
+   * Sets whether and when a notification for a {@link Player} in {@link Player#STATE_IDLE} should
+   * be shown.
+   *
+   * @param showNotificationForIdlePlayerMode The {@link ShowNotificationForIdlePlayerMode}.
+   */
+  @UnstableApi
+  public final void setShowNotificationForIdlePlayer(
+      @ShowNotificationForIdlePlayerMode int showNotificationForIdlePlayerMode) {
+    getMediaNotificationManager()
+        .setShowNotificationForIdlePlayer(showNotificationForIdlePlayerMode);
   }
 
   /**

@@ -36,6 +36,7 @@ import androidx.core.content.ContextCompat;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
+import androidx.media3.session.MediaSessionService.ShowNotificationForIdlePlayerMode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -76,6 +77,7 @@ import java.util.concurrent.TimeoutException;
   private boolean isUserEngaged;
   private boolean isUserEngagedTimeoutEnabled;
   private long userEngagedTimeoutMs;
+  @ShowNotificationForIdlePlayerMode int showNotificationForIdlePlayerMode;
 
   public MediaNotificationManager(
       MediaSessionService mediaSessionService,
@@ -92,6 +94,8 @@ import java.util.concurrent.TimeoutException;
     startedInForeground = false;
     isUserEngagedTimeoutEnabled = true;
     userEngagedTimeoutMs = MediaSessionService.DEFAULT_FOREGROUND_SERVICE_TIMEOUT_MS;
+    showNotificationForIdlePlayerMode =
+        MediaSessionService.SHOW_NOTIFICATION_FOR_IDLE_PLAYER_AFTER_STOP_OR_ERROR;
   }
 
   public void addSession(MediaSession session) {
@@ -195,6 +199,16 @@ import java.util.concurrent.TimeoutException;
 
   public void setUserEngagedTimeoutMs(long userEngagedTimeoutMs) {
     this.userEngagedTimeoutMs = userEngagedTimeoutMs;
+  }
+
+  public void setShowNotificationForIdlePlayer(
+      @ShowNotificationForIdlePlayerMode int showNotificationForIdlePlayerMode) {
+    this.showNotificationForIdlePlayerMode = showNotificationForIdlePlayerMode;
+    List<MediaSession> sessions = mediaSessionService.getSessions();
+    for (int i = 0; i < sessions.size(); i++) {
+      mediaSessionService.onUpdateNotificationInternal(
+          sessions.get(i), /* startInForegroundWhenPaused= */ false);
+    }
   }
 
   @Override
@@ -313,10 +327,21 @@ import java.util.concurrent.TimeoutException;
     }
     ControllerInfo controllerInfo = checkNotNull(controllerMap.get(session));
     if (controller.getPlaybackState() != Player.STATE_IDLE) {
-      // Playback restarted, reset previous notification dismissed flag.
+      // Playback first prepared or restarted, reset previous notification dismissed flag.
       controllerInfo.wasNotificationDismissed = false;
+      controllerInfo.hasBeenPrepared = true;
+      return true;
     }
-    return !controllerInfo.wasNotificationDismissed;
+    switch (showNotificationForIdlePlayerMode) {
+      case MediaSessionService.SHOW_NOTIFICATION_FOR_IDLE_PLAYER_ALWAYS:
+        return !controllerInfo.wasNotificationDismissed;
+      case MediaSessionService.SHOW_NOTIFICATION_FOR_IDLE_PLAYER_NEVER:
+        return false;
+      case MediaSessionService.SHOW_NOTIFICATION_FOR_IDLE_PLAYER_AFTER_STOP_OR_ERROR:
+        return !controllerInfo.wasNotificationDismissed && controllerInfo.hasBeenPrepared;
+      default:
+        throw new IllegalStateException();
+    }
   }
 
   @Nullable
@@ -459,11 +484,11 @@ import java.util.concurrent.TimeoutException;
     /** Indicates whether the user actively dismissed the notification. */
     public boolean wasNotificationDismissed;
 
+    /** Indicated whether the player has ever been prepared. */
+    public boolean hasBeenPrepared;
+
     public ControllerInfo(ListenableFuture<MediaController> controllerFuture) {
       this.controllerFuture = controllerFuture;
-      // Start in the 'dismissed' state to wait for an explicit prepare or play signal to show the
-      // first notification.
-      wasNotificationDismissed = true;
     }
   }
 
