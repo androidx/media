@@ -1995,9 +1995,11 @@ package androidx.media3.session {
     method public int getSessionVersion();
     method @androidx.media3.session.SessionToken.TokenType public int getType();
     method public int getUid();
+    field public static final int PLATFORM_SESSION_VERSION = 0; // 0x0
     field public static final int TYPE_LIBRARY_SERVICE = 2; // 0x2
     field public static final int TYPE_SESSION = 0; // 0x0
     field public static final int TYPE_SESSION_SERVICE = 1; // 0x1
+    field public static final int UNKNOWN_SESSION_VERSION = 1000000; // 0xf4240
   }
 
   @IntDef({androidx.media3.session.SessionToken.TYPE_SESSION, androidx.media3.session.SessionToken.TYPE_SESSION_SERVICE, androidx.media3.session.SessionToken.TYPE_LIBRARY_SERVICE}) @java.lang.annotation.Documented @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.SOURCE) @java.lang.annotation.Target(java.lang.annotation.ElementType.TYPE_USE) public static @interface SessionToken.TokenType {

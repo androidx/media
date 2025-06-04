@@ -55,8 +55,8 @@ import java.util.Objects;
     this(
         uid,
         type,
-        /* libraryVersion= */ 0,
-        /* interfaceVersion= */ 0,
+        SessionToken.UNKNOWN_SESSION_VERSION,
+        SessionToken.UNKNOWN_INTERFACE_VERSION,
         checkNotNull(serviceComponent).getPackageName(),
         /* serviceName= */ serviceComponent.getClassName(),
         /* componentName= */ serviceComponent,
@@ -257,8 +257,12 @@ import java.util.Objects;
     int uid = bundle.getInt(FIELD_UID);
     checkArgument(bundle.containsKey(FIELD_TYPE), "type should be set.");
     int type = bundle.getInt(FIELD_TYPE);
-    int libraryVersion = bundle.getInt(FIELD_LIBRARY_VERSION, /* defaultValue= */ 0);
-    int interfaceVersion = bundle.getInt(FIELD_INTERFACE_VERSION, /* defaultValue= */ 0);
+    int libraryVersion =
+        bundle.getInt(
+            FIELD_LIBRARY_VERSION, /* defaultValue= */ SessionToken.UNKNOWN_SESSION_VERSION);
+    int interfaceVersion =
+        bundle.getInt(
+            FIELD_INTERFACE_VERSION, /* defaultValue= */ SessionToken.UNKNOWN_INTERFACE_VERSION);
     String packageName =
         checkNotEmpty(bundle.getString(FIELD_PACKAGE_NAME), "package name should be set.");
     String serviceName = bundle.getString(FIELD_SERVICE_NAME, /* defaultValue= */ "");

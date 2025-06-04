@@ -573,8 +573,8 @@ public class MediaSession {
     /**
      * Returns the library version of the controller.
      *
-     * <p>It will be the same as {@link MediaLibraryInfo#VERSION_INT} of the controller, or less
-     * than {@code 1000000} if the controller is a platform {@link
+     * <p>It will be the same as {@link MediaLibraryInfo#VERSION_INT} of the controller, or {@link
+     * #LEGACY_CONTROLLER_VERSION} if the controller is a platform {@link
      * android.media.session.MediaController} or legacy {@code
      * android.support.v4.media.session.MediaControllerCompat}.
      */
@@ -583,7 +583,8 @@ public class MediaSession {
     }
 
     /**
-     * Returns the interface version of the controller, or 0 if the controller is a platform {@link
+     * Returns the interface version of the controller, or {@link
+     * #LEGACY_CONTROLLER_INTERFACE_VERSION} if the controller is a platform {@link
      * android.media.session.MediaController} or legacy {@code
      * android.support.v4.media.session.MediaControllerCompat}.
      */

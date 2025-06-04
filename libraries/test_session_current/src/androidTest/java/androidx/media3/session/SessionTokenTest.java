@@ -64,6 +64,14 @@ public class SessionTokenTest {
   }
 
   @Test
+  public void unknownSessionVersion_isAtLeastOneMillion() {
+    // Previous releases of Media3 defined that session versions below one million are platform or
+    // legacy sessions, so the constant for an unknown Media3 session should be at least that to
+    // avoid confusion.
+    assertThat(SessionToken.UNKNOWN_SESSION_VERSION).isAtLeast(1_000_000);
+  }
+
+  @Test
   public void constructor_sessionService() {
     SessionToken token =
         new SessionToken(
@@ -74,8 +82,8 @@ public class SessionTokenTest {
     assertThat(token.getPackageName()).isEqualTo(context.getPackageName());
     assertThat(token.getUid()).isEqualTo(Process.myUid());
     assertThat(token.getType()).isEqualTo(SessionToken.TYPE_SESSION_SERVICE);
-    assertThat(token.getInterfaceVersion()).isEqualTo(0);
-    assertThat(token.getSessionVersion()).isEqualTo(0);
+    assertThat(token.getInterfaceVersion()).isEqualTo(SessionToken.UNKNOWN_INTERFACE_VERSION);
+    assertThat(token.getSessionVersion()).isEqualTo(SessionToken.UNKNOWN_SESSION_VERSION);
   }
 
   @Test
@@ -90,8 +98,8 @@ public class SessionTokenTest {
     assertThat(token.getUid()).isEqualTo(Process.myUid());
     assertThat(token.getType()).isEqualTo(SessionToken.TYPE_LIBRARY_SERVICE);
     assertThat(token.getServiceName()).isEqualTo(testComponentName.getClassName());
-    assertThat(token.getInterfaceVersion()).isEqualTo(0);
-    assertThat(token.getSessionVersion()).isEqualTo(0);
+    assertThat(token.getInterfaceVersion()).isEqualTo(SessionToken.UNKNOWN_INTERFACE_VERSION);
+    assertThat(token.getSessionVersion()).isEqualTo(SessionToken.UNKNOWN_SESSION_VERSION);
   }
 
   @Test
@@ -126,6 +134,12 @@ public class SessionTokenTest {
             .get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
 
     assertThat(token.isLegacySession()).isTrue();
+    assertThat(token.getPackageName()).isEqualTo(context.getPackageName());
+    assertThat(token.getUid()).isEqualTo(Process.myUid());
+    assertThat(token.getType()).isEqualTo(SessionToken.TYPE_SESSION);
+    assertThat(token.getSessionVersion()).isEqualTo(SessionToken.PLATFORM_SESSION_VERSION);
+    assertThat(token.getInterfaceVersion()).isEqualTo(SessionToken.UNKNOWN_INTERFACE_VERSION);
+    assertThat(token.getServiceName()).isEmpty();
   }
 
   @Test

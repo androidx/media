@@ -150,12 +150,12 @@ import java.util.Objects;
 
   @Override
   public int getLibraryVersion() {
-    return 0;
+    return SessionToken.PLATFORM_SESSION_VERSION;
   }
 
   @Override
   public int getInterfaceVersion() {
-    return 0;
+    return SessionToken.UNKNOWN_INTERFACE_VERSION;
   }
 
   @Override
