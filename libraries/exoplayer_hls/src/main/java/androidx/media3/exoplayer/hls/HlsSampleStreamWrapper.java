@@ -1540,7 +1540,10 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       if (chunk != null) {
         seekInsideQueue = sampleQueue.seekTo(chunk.getFirstSampleIndex(i));
       } else {
-        seekInsideQueue = sampleQueue.seekTo(positionUs, /* allowTimeBeyondBuffer= */ false);
+        long nextLoadPositionUs = getNextLoadPositionUs();
+        boolean allowTimeBeyondBuffer =
+            nextLoadPositionUs == C.TIME_END_OF_SOURCE || positionUs < nextLoadPositionUs;
+        seekInsideQueue = sampleQueue.seekTo(positionUs, allowTimeBeyondBuffer);
       }
       // If we have AV tracks then an in-queue seek is successful if the seek into every AV queue
       // is successful. We ignore whether seeks within non-AV queues are successful in this case, as

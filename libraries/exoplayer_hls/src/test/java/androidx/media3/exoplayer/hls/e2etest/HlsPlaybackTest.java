@@ -17,11 +17,13 @@
 package androidx.media3.exoplayer.hls.e2etest;
 
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
+import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.play;
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import android.content.Context;
@@ -497,6 +499,29 @@ public final class HlsPlaybackTest {
         applicationContext,
         playbackOutput,
         "playbackdumps/hls/standalone-webvtt-optimized-seek.dump");
+  }
+
+  @Test
+  public void seekToEnd_afterLoadingFinished_doesNotLoadAgain() throws Exception {
+    Context applicationContext = ApplicationProvider.getApplicationContext();
+    ExoPlayer player =
+        new ExoPlayer.Builder(applicationContext)
+            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .build();
+    Player.Listener listener = mock(Player.Listener.class);
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
+    player.setMediaItem(MediaItem.fromUri("asset:///media/hls/cea608/manifest.m3u8"));
+    player.prepare();
+    advance(player).untilFullyBuffered();
+
+    player.addListener(listener);
+    player.seekTo(player.getDuration());
+    play(player).untilState(Player.STATE_ENDED);
+    player.release();
+    surface.release();
+
+    verify(listener, never()).onIsLoadingChanged(true);
   }
 
   private static class AnalyticsListenerImpl implements AnalyticsListener {

@@ -983,7 +983,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       boolean seekInsideQueue =
           isSingleSample
               ? sampleQueue.seekTo(sampleQueue.getFirstIndex())
-              : sampleQueue.seekTo(positionUs, /* allowTimeBeyondBuffer= */ false);
+              : sampleQueue.seekTo(positionUs, /* allowTimeBeyondBuffer= */ loadingFinished);
       // If we have AV tracks then an in-buffer seek is successful if the seek into every AV queue
       // is successful. We ignore whether seeks within non-AV queues are successful in this case, as
       // they may be sparse or poorly interleaved. If we only have non-AV tracks then a seek is
