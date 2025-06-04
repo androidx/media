@@ -24,7 +24,15 @@ import androidx.media3.exoplayer.source.ForwardingTimeline;
 
 
 /**
- * A custom {@link Timeline} for sources that have AdPlaybackState split among multiple periods.
+ * A custom {@link Timeline} for sources that have {@link AdPlaybackState} split among multiple periods.
+ * <br/>
+ * For each period a modified {@link AdPlaybackState} is created for each period:
+ * <ul>
+ * <li> ad group time is offset relative to period start time </li>
+ * <li> ad groups after period end time are marked as skipped </li>
+ * <li> post-roll ad group is kept only for last period </li>
+ * <li> ad group count and indices are kept unchanged </li>
+ * </ul>
  */
 @VisibleForTesting(otherwise = VisibleForTesting.PACKAGE_PRIVATE)
 public final class MultiPeriodAdTimeline extends ForwardingTimeline {
