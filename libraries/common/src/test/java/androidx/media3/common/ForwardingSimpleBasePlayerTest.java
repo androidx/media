@@ -23,6 +23,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -42,8 +43,10 @@ import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.List;
@@ -1582,6 +1585,410 @@ public final class ForwardingSimpleBasePlayerTest {
     assertThat(playWhenReady2).isFalse();
     verify(listener, never()).onPlaybackStateChanged(anyInt());
     verify(listener).onPlayWhenReadyChanged(false, Player.PLAY_WHEN_READY_CHANGE_REASON_REMOTE);
+  }
+
+  @SuppressWarnings("deprecation") // Verifying deprecated listener call.
+  @Test
+  public void setPlayer_identicalStates_doesNotReportStateChanges() {
+    Object mediaItemUid0 = new Object();
+    MediaItem mediaItem0 = new MediaItem.Builder().setMediaId("0").build();
+    SimpleBasePlayer.MediaItemData mediaItemData0 =
+        new SimpleBasePlayer.MediaItemData.Builder(mediaItemUid0).setMediaItem(mediaItem0).build();
+    SimpleBasePlayer.State state =
+        new SimpleBasePlayer.State.Builder()
+            .setAvailableCommands(
+                new Player.Commands.Builder()
+                    .addAllCommands()
+                    .remove(Player.COMMAND_SET_MEDIA_ITEM)
+                    .build())
+            .setPlayWhenReady(
+                /* playWhenReady= */ true,
+                /* playWhenReadyChangeReason= */ Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
+            .setPlaybackState(Player.STATE_READY)
+            .setPlaybackSuppressionReason(Player.PLAYBACK_SUPPRESSION_REASON_NONE)
+            .setPlayerError(null)
+            .setRepeatMode(Player.REPEAT_MODE_ONE)
+            .setShuffleModeEnabled(false)
+            .setIsLoading(true)
+            .setSeekBackIncrementMs(7000)
+            .setSeekForwardIncrementMs(2000)
+            .setMaxSeekToPreviousPositionMs(8000)
+            .setPlaybackParameters(PlaybackParameters.DEFAULT)
+            .setTrackSelectionParameters(TrackSelectionParameters.DEFAULT)
+            .setAudioAttributes(AudioAttributes.DEFAULT)
+            .setVolume(1f)
+            .setVideoSize(VideoSize.UNKNOWN)
+            .setCurrentCues(CueGroup.EMPTY_TIME_ZERO)
+            .setDeviceInfo(DeviceInfo.UNKNOWN)
+            .setDeviceVolume(0)
+            .setIsDeviceMuted(false)
+            .setPlaylist(ImmutableList.of(mediaItemData0))
+            .setPlaylistMetadata(MediaMetadata.EMPTY)
+            .setCurrentMediaItemIndex(0)
+            .setContentPositionMs(8_000)
+            .build();
+    SimpleBasePlayer player1 =
+        new SimpleBasePlayer(Looper.myLooper()) {
+          @Override
+          protected State getState() {
+            return state;
+          }
+        };
+    SimpleBasePlayer player2 =
+        new SimpleBasePlayer(Looper.myLooper()) {
+          @Override
+          protected State getState() {
+            return state;
+          }
+        };
+    ForwardingSimpleBasePlayer forwardingPlayer = new ForwardingSimpleBasePlayer(player1);
+    Player.Listener listener = mock(Player.Listener.class);
+    forwardingPlayer.addListener(listener);
+    // Ensures the internal state is initialized.
+    assertThat(forwardingPlayer.getPlayWhenReady()).isTrue();
+
+    forwardingPlayer.setPlayer(player2);
+
+    verify(listener).onPositionDiscontinuity(Player.DISCONTINUITY_REASON_INTERNAL);
+    verify(listener)
+        .onPositionDiscontinuity(
+            /* oldPosition= */ new Player.PositionInfo(
+                mediaItemUid0,
+                /* mediaItemIndex= */ 0,
+                mediaItem0,
+                /* periodUid= */ mediaItemUid0,
+                /* periodIndex= */ 0,
+                /* positionMs= */ 8_000,
+                /* contentPositionMs= */ 8_000,
+                /* adGroupIndex= */ C.INDEX_UNSET,
+                /* adIndexInAdGroup= */ C.INDEX_UNSET),
+            /* newPosition= */ new Player.PositionInfo(
+                mediaItemUid0,
+                /* mediaItemIndex= */ 0,
+                mediaItem0,
+                /* periodUid= */ mediaItemUid0,
+                /* periodIndex= */ 0,
+                /* positionMs= */ 8_000,
+                /* contentPositionMs= */ 8_000,
+                /* adGroupIndex= */ C.INDEX_UNSET,
+                /* adIndexInAdGroup= */ C.INDEX_UNSET),
+            Player.DISCONTINUITY_REASON_INTERNAL);
+    ShadowLooper.idleMainLooper(); // Needed for onEvents to be called.
+    verify(listener)
+        .onEvents(
+            forwardingPlayer,
+            new Player.Events(
+                new FlagSet.Builder().addAll(Player.EVENT_POSITION_DISCONTINUITY).build()));
+  }
+
+  /**
+   * This test checks that calling {@link ForwardingSimpleBasePlayer#setPlayer} triggers the
+   * relevant state changes.
+   *
+   * <p>Only parts of the state available through a getter are deemed relevant in this case. So, for
+   * example, this doesn't include {@link Player.Listener#onMetadata timed metadata}. You can find
+   * the full list at the end of the test. One exception to this is discontinuities, which are not
+   * obtainable through a setter but calling {@link ForwardingSimpleBasePlayer#setPlayer} should
+   * trigger one, if changing the player instance.
+   */
+  @SuppressWarnings("deprecation") // Verifying deprecated listener call.
+  @Test
+  public void setPlayer_differentStates_reportsStateChanges()
+      throws InvocationTargetException, IllegalAccessException {
+    Object mediaItemUid0 = new Object();
+    MediaItem mediaItem0 = new MediaItem.Builder().setMediaId("0").build();
+    SimpleBasePlayer.MediaItemData mediaItemData0 =
+        new SimpleBasePlayer.MediaItemData.Builder(mediaItemUid0).setMediaItem(mediaItem0).build();
+    SimpleBasePlayer.State state1 =
+        new SimpleBasePlayer.State.Builder()
+            .setAvailableCommands(
+                new Player.Commands.Builder()
+                    .addAllCommands()
+                    .remove(Player.COMMAND_SET_MEDIA_ITEM)
+                    .build())
+            .setPlayWhenReady(
+                /* playWhenReady= */ true,
+                /* playWhenReadyChangeReason= */ Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
+            .setPlaybackState(Player.STATE_READY)
+            .setPlaybackSuppressionReason(Player.PLAYBACK_SUPPRESSION_REASON_NONE)
+            .setPlayerError(null)
+            .setRepeatMode(Player.REPEAT_MODE_ONE)
+            .setShuffleModeEnabled(false)
+            .setIsLoading(true)
+            .setSeekBackIncrementMs(7000)
+            .setSeekForwardIncrementMs(2000)
+            .setMaxSeekToPreviousPositionMs(8000)
+            .setPlaybackParameters(PlaybackParameters.DEFAULT)
+            .setTrackSelectionParameters(TrackSelectionParameters.DEFAULT)
+            .setAudioAttributes(AudioAttributes.DEFAULT)
+            .setVolume(1f)
+            .setVideoSize(VideoSize.UNKNOWN)
+            .setCurrentCues(CueGroup.EMPTY_TIME_ZERO)
+            .setDeviceInfo(DeviceInfo.UNKNOWN)
+            .setDeviceVolume(0)
+            .setIsDeviceMuted(false)
+            .setPlaylist(ImmutableList.of(mediaItemData0))
+            .setPlaylistMetadata(MediaMetadata.EMPTY)
+            .setCurrentMediaItemIndex(0)
+            .setContentPositionMs(8_000)
+            .build();
+    SimpleBasePlayer player1 =
+        new SimpleBasePlayer(Looper.myLooper()) {
+          @Override
+          protected State getState() {
+            return state1;
+          }
+        };
+    Object mediaItemUid1 = new Object();
+    MediaItem mediaItem1 = new MediaItem.Builder().setMediaId("1").build();
+    MediaMetadata mediaMetadata = new MediaMetadata.Builder().setTitle("title").build();
+    Player.Commands commands =
+        new Player.Commands.Builder()
+            .addAllCommands()
+            .remove(Player.COMMAND_SET_DEVICE_VOLUME_WITH_FLAGS)
+            .build();
+    Tracks tracks =
+        new Tracks(
+            ImmutableList.of(
+                new Tracks.Group(
+                    new TrackGroup(new Format.Builder().build()),
+                    /* adaptiveSupported= */ true,
+                    /* trackSupport= */ new int[] {C.FORMAT_HANDLED},
+                    /* trackSelected= */ new boolean[] {true})));
+    SimpleBasePlayer.MediaItemData mediaItemData1 =
+        new SimpleBasePlayer.MediaItemData.Builder(mediaItemUid1)
+            .setMediaItem(mediaItem1)
+            .setMediaMetadata(mediaMetadata)
+            .setTracks(tracks)
+            .build();
+    PlaybackException error =
+        new PlaybackException(
+            /* message= */ null, /* cause= */ null, PlaybackException.ERROR_CODE_DECODING_FAILED);
+    PlaybackParameters playbackParameters = new PlaybackParameters(/* speed= */ 2f);
+    TrackSelectionParameters trackSelectionParameters =
+        TrackSelectionParameters.DEFAULT.buildUpon().setMaxVideoBitrate(1000).build();
+    AudioAttributes audioAttributes =
+        new AudioAttributes.Builder().setContentType(C.AUDIO_CONTENT_TYPE_MOVIE).build();
+    VideoSize videoSize = new VideoSize(/* width= */ 200, /* height= */ 400);
+    CueGroup cueGroup =
+        new CueGroup(
+            ImmutableList.of(new Cue.Builder().setText("text").build()),
+            /* presentationTimeUs= */ 123);
+    Metadata timedMetadata =
+        new Metadata(/* presentationTimeUs= */ 42, new FakeMetadataEntry("data"));
+    Size surfaceSize = new Size(480, 360);
+    DeviceInfo deviceInfo =
+        new DeviceInfo.Builder(DeviceInfo.PLAYBACK_TYPE_LOCAL).setMaxVolume(7).build();
+    MediaMetadata playlistMetadata = new MediaMetadata.Builder().setArtist("artist").build();
+    SimpleBasePlayer.State state2 =
+        new SimpleBasePlayer.State.Builder()
+            .setAvailableCommands(commands)
+            .setPlayWhenReady(
+                /* playWhenReady= */ false,
+                /* playWhenReadyChangeReason= */ Player
+                    .PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS)
+            .setPlaybackState(Player.STATE_IDLE)
+            .setPlaybackSuppressionReason(
+                Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS)
+            .setPlayerError(error)
+            .setRepeatMode(Player.REPEAT_MODE_ALL)
+            .setShuffleModeEnabled(true)
+            .setIsLoading(false)
+            .setSeekBackIncrementMs(5000)
+            .setSeekForwardIncrementMs(4000)
+            .setMaxSeekToPreviousPositionMs(3000)
+            .setPlaybackParameters(playbackParameters)
+            .setTrackSelectionParameters(trackSelectionParameters)
+            .setAudioAttributes(audioAttributes)
+            .setVolume(0.5f)
+            .setVideoSize(videoSize)
+            .setCurrentCues(cueGroup)
+            .setDeviceInfo(deviceInfo)
+            .setDeviceVolume(5)
+            .setIsDeviceMuted(true)
+            .setSurfaceSize(surfaceSize)
+            .setNewlyRenderedFirstFrame(true)
+            .setTimedMetadata(timedMetadata)
+            .setPlaylist(ImmutableList.of(mediaItemData0, mediaItemData1))
+            .setPlaylistMetadata(playlistMetadata)
+            .setCurrentMediaItemIndex(1)
+            .setContentPositionMs(12_000)
+            .build();
+    SimpleBasePlayer player2 =
+        new SimpleBasePlayer(Looper.myLooper()) {
+          @Override
+          protected State getState() {
+            return state2;
+          }
+        };
+    ForwardingSimpleBasePlayer forwardingPlayer = new ForwardingSimpleBasePlayer(player1);
+    Player.Listener listener = mock(Player.Listener.class);
+    forwardingPlayer.addListener(listener);
+    // Ensure state1 is used.
+    assertThat(forwardingPlayer.getPlayWhenReady()).isTrue();
+
+    forwardingPlayer.setPlayer(player2);
+
+    verify(listener).onAvailableCommandsChanged(commands);
+    // setPlayer uses USER_REQUEST as the play when ready change reason.
+    verify(listener)
+        .onPlayWhenReadyChanged(
+            /* playWhenReady= */ false, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST);
+    verify(listener)
+        .onPlayerStateChanged(/* playWhenReady= */ false, /* playbackState= */ Player.STATE_IDLE);
+    verify(listener).onPlaybackStateChanged(Player.STATE_IDLE);
+    verify(listener)
+        .onPlaybackSuppressionReasonChanged(
+            Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS);
+    verify(listener).onIsPlayingChanged(false);
+    verify(listener).onPlayerError(error);
+    verify(listener).onPlayerErrorChanged(error);
+    verify(listener).onRepeatModeChanged(Player.REPEAT_MODE_ALL);
+    verify(listener).onShuffleModeEnabledChanged(true);
+    verify(listener).onLoadingChanged(false);
+    verify(listener).onIsLoadingChanged(false);
+    verify(listener).onSeekBackIncrementChanged(5000);
+    verify(listener).onSeekForwardIncrementChanged(4000);
+    verify(listener).onMaxSeekToPreviousPositionChanged(3000);
+    verify(listener).onPlaybackParametersChanged(playbackParameters);
+    verify(listener).onTrackSelectionParametersChanged(trackSelectionParameters);
+    verify(listener).onAudioAttributesChanged(audioAttributes);
+    verify(listener).onVolumeChanged(0.5f);
+    verify(listener).onVideoSizeChanged(videoSize);
+    verify(listener).onCues(cueGroup.cues);
+    verify(listener).onCues(cueGroup);
+    verify(listener).onDeviceInfoChanged(deviceInfo);
+    verify(listener).onDeviceVolumeChanged(/* volume= */ 5, /* muted= */ true);
+    verify(listener)
+        .onTimelineChanged(state2.timeline, Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);
+    verify(listener).onMediaMetadataChanged(mediaMetadata);
+    verify(listener).onTracksChanged(tracks);
+    verify(listener).onPlaylistMetadataChanged(playlistMetadata);
+    verify(listener).onSurfaceSizeChanged(surfaceSize.getWidth(), surfaceSize.getHeight());
+    verify(listener).onPositionDiscontinuity(Player.DISCONTINUITY_REASON_INTERNAL);
+    verify(listener)
+        .onPositionDiscontinuity(
+            /* oldPosition= */ new Player.PositionInfo(
+                mediaItemUid0,
+                /* mediaItemIndex= */ 0,
+                mediaItem0,
+                /* periodUid= */ mediaItemUid0,
+                /* periodIndex= */ 0,
+                /* positionMs= */ 8_000,
+                /* contentPositionMs= */ 8_000,
+                /* adGroupIndex= */ C.INDEX_UNSET,
+                /* adIndexInAdGroup= */ C.INDEX_UNSET),
+            /* newPosition= */ new Player.PositionInfo(
+                mediaItemUid1,
+                /* mediaItemIndex= */ 1,
+                mediaItem1,
+                /* periodUid= */ mediaItemUid1,
+                /* periodIndex= */ 1,
+                /* positionMs= */ 12_000,
+                /* contentPositionMs= */ 12_000,
+                /* adGroupIndex= */ C.INDEX_UNSET,
+                /* adIndexInAdGroup= */ C.INDEX_UNSET),
+            Player.DISCONTINUITY_REASON_INTERNAL);
+    verify(listener)
+        .onMediaItemTransition(mediaItem1, Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED);
+    ShadowLooper.idleMainLooper(); // Needed for onEvents to be called.
+    verify(listener)
+        .onEvents(
+            forwardingPlayer,
+            new Player.Events(
+                new FlagSet.Builder()
+                    .addAll(
+                        Player.EVENT_TIMELINE_CHANGED,
+                        Player.EVENT_MEDIA_ITEM_TRANSITION,
+                        Player.EVENT_TRACKS_CHANGED,
+                        Player.EVENT_IS_LOADING_CHANGED,
+                        Player.EVENT_PLAYBACK_STATE_CHANGED,
+                        Player.EVENT_PLAY_WHEN_READY_CHANGED,
+                        Player.EVENT_PLAYBACK_SUPPRESSION_REASON_CHANGED,
+                        Player.EVENT_IS_PLAYING_CHANGED,
+                        Player.EVENT_REPEAT_MODE_CHANGED,
+                        Player.EVENT_SHUFFLE_MODE_ENABLED_CHANGED,
+                        Player.EVENT_PLAYER_ERROR,
+                        Player.EVENT_POSITION_DISCONTINUITY,
+                        Player.EVENT_PLAYBACK_PARAMETERS_CHANGED,
+                        Player.EVENT_AVAILABLE_COMMANDS_CHANGED,
+                        Player.EVENT_MEDIA_METADATA_CHANGED,
+                        Player.EVENT_PLAYLIST_METADATA_CHANGED,
+                        Player.EVENT_SEEK_BACK_INCREMENT_CHANGED,
+                        Player.EVENT_SEEK_FORWARD_INCREMENT_CHANGED,
+                        Player.EVENT_MAX_SEEK_TO_PREVIOUS_POSITION_CHANGED,
+                        Player.EVENT_TRACK_SELECTION_PARAMETERS_CHANGED,
+                        Player.EVENT_AUDIO_ATTRIBUTES_CHANGED,
+                        Player.EVENT_VOLUME_CHANGED,
+                        Player.EVENT_SURFACE_SIZE_CHANGED,
+                        Player.EVENT_VIDEO_SIZE_CHANGED,
+                        Player.EVENT_CUES,
+                        Player.EVENT_DEVICE_INFO_CHANGED,
+                        Player.EVENT_DEVICE_VOLUME_CHANGED)
+                    .build()));
+    verifyNoMoreInteractions(listener);
+    // Assert that we actually called all listeners. This guards against forgetting a State setter
+    // when forwarding state in ForwardingSimpleBasePlayer.getState().
+    ImmutableSet<String> unexpectedMethodCalls =
+        ImmutableSet.of(
+            "onAudioSessionIdChanged",
+            "onSkipSilenceEnabledChanged",
+            "onRenderedFirstFrame",
+            "onMetadata");
+    for (Method method : TestUtil.getPublicMethods(Player.Listener.class)) {
+      if (unexpectedMethodCalls.contains(method.getName())) {
+        // Skip listeners that we are not expecting.
+        continue;
+      }
+      method.invoke(verify(listener), getAnyArguments(method));
+    }
+  }
+
+  @Test
+  public void setPlayer_afterReplacement_playerCallsForwardedToNewPlayer() {
+    SimpleBasePlayer.State state =
+        new SimpleBasePlayer.State.Builder()
+            .setAvailableCommands(
+                new Player.Commands.Builder().add(Player.COMMAND_SET_REPEAT_MODE).build())
+            .build();
+    // We need the ForwardingPlayer to allow the mockito spy because setRepeatMode is final in
+    // SimpleBasePlayer, but not in ForwardingPlayer.
+    Player player1 =
+        spy(
+            new ForwardingPlayer(
+                new SimpleBasePlayer(Looper.myLooper()) {
+                  @Override
+                  protected State getState() {
+                    return state;
+                  }
+
+                  @Override
+                  protected ListenableFuture<?> handleSetRepeatMode(int repeatMode) {
+                    return Futures.immediateVoidFuture();
+                  }
+                }));
+    Player player2 =
+        spy(
+            new ForwardingPlayer(
+                new SimpleBasePlayer(Looper.myLooper()) {
+                  @Override
+                  protected State getState() {
+                    return state;
+                  }
+
+                  @Override
+                  protected ListenableFuture<?> handleSetRepeatMode(int repeatMode) {
+                    return Futures.immediateVoidFuture();
+                  }
+                }));
+    ForwardingSimpleBasePlayer forwardingPlayer = new ForwardingSimpleBasePlayer(player1);
+
+    forwardingPlayer.setPlayer(player2);
+
+    reset(player1);
+    forwardingPlayer.setRepeatMode(Player.REPEAT_MODE_ONE);
+    verifyNoMoreInteractions(player1);
+    verify(player2).setRepeatMode(Player.REPEAT_MODE_ONE);
   }
 
   private static Object[] getAnyArguments(Method method) {

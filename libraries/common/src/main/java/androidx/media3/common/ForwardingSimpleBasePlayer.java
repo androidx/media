@@ -24,6 +24,8 @@ import androidx.media3.common.util.UnstableApi;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import java.util.List;
+import org.checkerframework.checker.initialization.qual.UnknownInitialization;
+import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 
 /**
  * A {@link SimpleBasePlayer} that forwards all calls to another {@link Player} instance.
@@ -57,8 +59,9 @@ import java.util.List;
 @UnstableApi
 public class ForwardingSimpleBasePlayer extends SimpleBasePlayer {
 
-  private final Player player;
+  private final Player.Listener playerListener;
 
+  private Player player;
   private LivePositionSuppliers livePositionSuppliers;
   private Metadata lastTimedMetadata;
   private @Player.PlayWhenReadyChangeReason int playWhenReadyChangeReason;
@@ -73,46 +76,34 @@ public class ForwardingSimpleBasePlayer extends SimpleBasePlayer {
    */
   public ForwardingSimpleBasePlayer(Player player) {
     super(player.getApplicationLooper());
-    this.player = player;
-    this.lastTimedMetadata = new Metadata(/* presentationTimeUs= */ C.TIME_UNSET);
-    this.playWhenReadyChangeReason = Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST;
-    this.pendingDiscontinuityReason = Player.DISCONTINUITY_REASON_INTERNAL;
-    this.livePositionSuppliers = new LivePositionSuppliers(player);
-    player.addListener(
-        new Listener() {
-          @Override
-          public void onMetadata(Metadata metadata) {
-            lastTimedMetadata = metadata;
-          }
+    initializeForwardingState(player);
+    playerListener = new PlayerListener();
+    player.addListener(playerListener);
+  }
 
-          @Override
-          public void onPlayWhenReadyChanged(
-              boolean playWhenReady, @Player.PlayWhenReadyChangeReason int reason) {
-            playWhenReadyChangeReason = reason;
-          }
-
-          @Override
-          public void onPositionDiscontinuity(
-              PositionInfo oldPosition,
-              PositionInfo newPosition,
-              @Player.DiscontinuityReason int reason) {
-            pendingDiscontinuityReason = reason;
-            pendingPositionDiscontinuityNewPositionMs = newPosition.positionMs;
-            livePositionSuppliers.disconnect(oldPosition.positionMs, oldPosition.contentPositionMs);
-            livePositionSuppliers = new LivePositionSuppliers(player);
-          }
-
-          @Override
-          public void onRenderedFirstFrame() {
-            pendingFirstFrameRendered = true;
-          }
-
-          @SuppressWarnings("method.invocation.invalid") // Calling method from constructor.
-          @Override
-          public void onEvents(Player player, Events events) {
-            invalidateState();
-          }
-        });
+  /**
+   * Replaces the {@link Player} to forward with the given one.
+   *
+   * <p>Besides triggering listener calls due to any differences in the states of the old and the
+   * new player, changing the forwarded player using this method also triggers a position
+   * discontinuity with reason {@link #DISCONTINUITY_REASON_INTERNAL}.
+   *
+   * @throws IllegalArgumentException If the provided player's {@link Player#getApplicationLooper()}
+   *     does not match the looper of the existing player.
+   */
+  protected final void setPlayer(Player newPlayer) {
+    Player oldPlayer = this.player;
+    if (oldPlayer == newPlayer) {
+      return;
+    }
+    if (newPlayer.getApplicationLooper() != oldPlayer.getApplicationLooper()) {
+      throw new IllegalArgumentException("Trying to swap players with non-matching loopers.");
+    }
+    oldPlayer.removeListener(playerListener);
+    newPlayer.addListener(playerListener);
+    initializeForwardingState(newPlayer);
+    this.pendingPositionDiscontinuityNewPositionMs = newPlayer.getCurrentPosition();
+    invalidateState();
   }
 
   /** Returns the wrapped player. */
@@ -444,6 +435,22 @@ public class ForwardingSimpleBasePlayer extends SimpleBasePlayer {
     return Futures.immediateVoidFuture();
   }
 
+  @EnsuresNonNull({
+    "player",
+    "lastTimedMetadata",
+    "playWhenReadyChangeReason",
+    "pendingDiscontinuityReason",
+    "livePositionSuppliers"
+  })
+  private void initializeForwardingState(
+      @UnknownInitialization ForwardingSimpleBasePlayer this, Player player) {
+    this.player = player;
+    lastTimedMetadata = new Metadata(/* presentationTimeUs= */ C.TIME_UNSET);
+    playWhenReadyChangeReason = Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST;
+    pendingDiscontinuityReason = Player.DISCONTINUITY_REASON_INTERNAL;
+    livePositionSuppliers = new LivePositionSuppliers(player);
+  }
+
   /**
    * Forwards to the changing position values of the wrapped player until the forwarding is
    * deactivated with constant values.
@@ -471,6 +478,41 @@ public class ForwardingSimpleBasePlayer extends SimpleBasePlayer {
       contentPositionSupplier.disconnect(contentPositionMs);
       contentBufferedPositionSupplier.disconnect(contentPositionMs);
       totalBufferedPositionSupplier.disconnect(/* finalValue= */ 0);
+    }
+  }
+
+  private class PlayerListener implements Listener {
+    @Override
+    public void onMetadata(Metadata metadata) {
+      lastTimedMetadata = metadata;
+    }
+
+    @Override
+    public void onPlayWhenReadyChanged(
+        boolean playWhenReady, @Player.PlayWhenReadyChangeReason int reason) {
+      playWhenReadyChangeReason = reason;
+    }
+
+    @Override
+    public void onPositionDiscontinuity(
+        PositionInfo oldPosition,
+        PositionInfo newPosition,
+        @Player.DiscontinuityReason int reason) {
+      pendingDiscontinuityReason = reason;
+      pendingPositionDiscontinuityNewPositionMs = newPosition.positionMs;
+      livePositionSuppliers.disconnect(oldPosition.positionMs, oldPosition.contentPositionMs);
+      livePositionSuppliers = new LivePositionSuppliers(player);
+    }
+
+    @Override
+    public void onRenderedFirstFrame() {
+      pendingFirstFrameRendered = true;
+    }
+
+    @SuppressWarnings("method.invocation.invalid") // Calling method from constructor.
+    @Override
+    public void onEvents(Player player, Events events) {
+      invalidateState();
     }
   }
 }

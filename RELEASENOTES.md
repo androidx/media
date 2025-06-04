@@ -3,6 +3,7 @@
 ### Unreleased changes
 
 *   Common Library:
+    *   Add support for replacing the player in `ForwardingSimpleBasePlayer`.
 *   ExoPlayer:
     *   Add support for using the virtual device ID from the `Context` passed to
         `ExoPlayer.Builder`.
