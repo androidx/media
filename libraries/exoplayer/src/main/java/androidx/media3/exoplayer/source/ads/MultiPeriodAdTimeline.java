@@ -75,19 +75,19 @@ public final class MultiPeriodAdTimeline extends ForwardingTimeline {
    * @param adPlaybackState     original state is immutable always new modified copy is created
    * @param periodStartOffsetUs period start time offset from start of timeline (microseconds)
    * @param periodDurationUs    period duration (microseconds)
-   * @param isLast              true if this is the last period
+   * @param isLastPeriod        true if this is the last period
    * @return adPlaybackState modified for period
    */
   private AdPlaybackState forPeriod(
       AdPlaybackState adPlaybackState,
       long periodStartOffsetUs,
       long periodDurationUs,
-      boolean isLast) {
+      boolean isLastPeriod) {
     final long periodEndUs = periodStartOffsetUs + periodDurationUs;
     for (int adGroupIndex = 0; adGroupIndex < adPlaybackState.adGroupCount; adGroupIndex++) {
       final long adGroupTimeUs = adPlaybackState.getAdGroup(adGroupIndex).timeUs;
       if (adGroupTimeUs == C.TIME_END_OF_SOURCE) {
-        if (!isLast) {
+        if (!isLastPeriod) {
           adPlaybackState = adPlaybackState.withSkippedAdGroup(adGroupIndex);
         }
       } else {
