@@ -484,7 +484,7 @@ public final class Cue {
      * @see Cue#text
      */
     @CanIgnoreReturnValue
-    public Builder setText(CharSequence text) {
+    public Builder setText(@Nullable CharSequence text) {
       this.text = text;
       return this;
     }
