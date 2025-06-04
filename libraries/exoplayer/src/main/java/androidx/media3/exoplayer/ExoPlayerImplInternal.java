@@ -1499,11 +1499,19 @@ import java.util.Objects;
 
   private void scheduleNextWork(long thisOperationStartTimeMs) {
     long wakeUpTimeIntervalMs =
+        isDynamicSchedulingEnabled()
+            ? getDynamicSchedulingWakeUpIntervalMs()
+            : getStaticSchedulingWakeUpIntervalMs();
+    handler.sendEmptyMessageAtTime(
+        MSG_DO_SOME_WORK, thisOperationStartTimeMs + wakeUpTimeIntervalMs);
+  }
+
+  private long getDynamicSchedulingWakeUpIntervalMs() {
+    long wakeUpTimeIntervalMs =
         playbackInfo.playbackState == Player.STATE_READY
-                && (isDynamicSchedulingEnabled() || !shouldPlayWhenReady())
             ? READY_MAXIMUM_INTERVAL_MS
             : BUFFERING_MAXIMUM_INTERVAL_MS;
-    if (isDynamicSchedulingEnabled() && shouldPlayWhenReady()) {
+    if (shouldPlayWhenReady()) {
       for (RendererHolder rendererHolder : renderers) {
         wakeUpTimeIntervalMs =
             min(
@@ -1523,8 +1531,13 @@ import java.util.Objects;
         wakeUpTimeIntervalMs = min(wakeUpTimeIntervalMs, BUFFERING_MAXIMUM_INTERVAL_MS);
       }
     }
-    handler.sendEmptyMessageAtTime(
-        MSG_DO_SOME_WORK, thisOperationStartTimeMs + wakeUpTimeIntervalMs);
+    return wakeUpTimeIntervalMs;
+  }
+
+  private long getStaticSchedulingWakeUpIntervalMs() {
+    return playbackInfo.playbackState == Player.STATE_READY && !shouldPlayWhenReady()
+        ? READY_MAXIMUM_INTERVAL_MS
+        : BUFFERING_MAXIMUM_INTERVAL_MS;
   }
 
   private void seekToInternal(SeekPosition seekPosition, boolean incrementAcks)
