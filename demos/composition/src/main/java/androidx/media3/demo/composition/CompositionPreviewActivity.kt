@@ -185,7 +185,10 @@ class CompositionPreviewActivity : AppCompatActivity() {
         )
         AndroidView(
           factory = { context -> PlayerView(context) },
-          update = { playerView -> playerView.player = viewModel.compositionPlayer },
+          update = { playerView ->
+            playerView.player = viewModel.compositionPlayer
+            playerView.setTimeBarScrubbingEnabled(true)
+          },
           modifier = Modifier.heightIn(max = 250.dp),
         )
         HorizontalDivider(

@@ -15,6 +15,7 @@
  */
 package androidx.media3.transformer;
 
+import static androidx.media3.common.Player.PLAYBACK_SUPPRESSION_REASON_SCRUBBING;
 import static androidx.media3.transformer.TestUtil.ASSET_URI_PREFIX;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_RAW;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_RAW_STEREO_48000KHZ;
@@ -828,6 +829,41 @@ public class CompositionPlayerTest {
     player.seekTo(/* positionMs= */ 1100);
     TestPlayerRunHelper.advance(player).untilState(Player.STATE_ENDED);
     player.release();
+  }
+
+  @Test
+  public void isScrubbingModeEnabled_defaultsFalse() {
+    CompositionPlayer player = buildCompositionPlayer();
+
+    assertThat(player.isScrubbingModeEnabled()).isFalse();
+  }
+
+  @Test
+  public void setScrubbingModeEnabled_updatesIsScrubbingModeEnabled() {
+    CompositionPlayer player = buildCompositionPlayer();
+
+    player.setScrubbingModeEnabled(true);
+
+    assertThat(player.isScrubbingModeEnabled()).isTrue();
+  }
+
+  @Test
+  public void setScrubbingModeEnabled_updatesPlaybackSuppressionReason() throws TimeoutException {
+    CompositionPlayer player = buildCompositionPlayer();
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW))
+            .setDurationUs(1_000_000L)
+            .build();
+    EditedMediaItemSequence sequence = new EditedMediaItemSequence.Builder(editedMediaItem).build();
+    Composition composition = new Composition.Builder(sequence).build();
+    player.setComposition(composition);
+    player.prepare();
+
+    player.setScrubbingModeEnabled(true);
+    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_READY);
+
+    assertThat(player.getPlaybackSuppressionReason())
+        .isEqualTo(PLAYBACK_SUPPRESSION_REASON_SCRUBBING);
   }
 
   private static CompositionPlayer buildCompositionPlayer() {

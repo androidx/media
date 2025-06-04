@@ -25,6 +25,7 @@ import android.util.Pair;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Timeline;
+import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.RendererCapabilities;
 import androidx.media3.exoplayer.source.MediaSource;
@@ -85,6 +86,21 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @Override
   public void onSelectionActivated(@Nullable Object info) {
     trackSelectorInternal.onSelectionActivated(info);
+  }
+
+  @Override
+  public TrackSelectionParameters getParameters() {
+    return trackSelectorInternal.getParameters();
+  }
+
+  @Override
+  public void setParameters(TrackSelectionParameters parameters) {
+    trackSelectorInternal.setParameters(parameters);
+  }
+
+  @Override
+  public boolean isSetParametersSupported() {
+    return true;
   }
 
   /**

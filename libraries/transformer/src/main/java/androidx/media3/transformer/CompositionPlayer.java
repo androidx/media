@@ -378,6 +378,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
   @Nullable private Object videoOutput;
   @Nullable private PlaybackException playbackException;
   private @Player.State int playbackState;
+  private @PlaybackSuppressionReason int playbackSuppressionReason;
   @Nullable private SurfaceHolder surfaceHolder;
   @Nullable private Surface displaySurface;
   private boolean repeatingCompositionSeekInProgress;
@@ -385,6 +386,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
   private LivePositionSupplier bufferedPositionSupplier;
   private LivePositionSupplier totalBufferedDurationSupplier;
   private boolean compositionPlayerInternalPrepared;
+  private boolean scrubbingModeEnabled;
 
   // "this" reference for position suppliers.
   @SuppressWarnings("initialization:methodref.receiver.bound.invalid")
@@ -432,6 +434,33 @@ public final class CompositionPlayer extends SimpleBasePlayer
     // Update the composition field at the end after everything else has been set.
     this.composition = composition;
     maybeSetVideoOutput();
+  }
+
+  /**
+   * Sets whether to optimize the player for scrubbing (many frequent seeks).
+   *
+   * <p>The player may consume more resources in this mode, so it should only be used for short
+   * periods of time in response to user interaction (e.g. dragging on a progress bar UI element).
+   *
+   * <p>During scrubbing mode playback is {@linkplain Player#getPlaybackSuppressionReason()
+   * suppressed} with {@link Player#PLAYBACK_SUPPRESSION_REASON_SCRUBBING}.
+   *
+   * @param scrubbingModeEnabled Whether scrubbing mode should be enabled.
+   */
+  public void setScrubbingModeEnabled(boolean scrubbingModeEnabled) {
+    this.scrubbingModeEnabled = scrubbingModeEnabled;
+    for (int i = 0; i < playerHolders.size(); i++) {
+      playerHolders.get(i).player.setScrubbingModeEnabled(scrubbingModeEnabled);
+    }
+  }
+
+  /**
+   * Returns whether the player is optimized for scrubbing (many frequent seeks).
+   *
+   * <p>See {@link #setScrubbingModeEnabled(boolean)}.
+   */
+  public boolean isScrubbingModeEnabled() {
+    return scrubbingModeEnabled;
   }
 
   /**
@@ -524,7 +553,8 @@ public final class CompositionPlayer extends SimpleBasePlayer
             .setContentPositionMs(positionSupplier)
             .setContentBufferedPositionMs(bufferedPositionSupplier)
             .setTotalBufferedDurationMs(totalBufferedDurationSupplier)
-            .setNewlyRenderedFirstFrame(getRenderedFirstFrameAndReset());
+            .setNewlyRenderedFirstFrame(getRenderedFirstFrameAndReset())
+            .setPlaybackSuppressionReason(playbackSuppressionReason);
     if (repeatingCompositionSeekInProgress) {
       state.setPositionDiscontinuity(DISCONTINUITY_REASON_AUTO_TRANSITION, C.TIME_UNSET);
       repeatingCompositionSeekInProgress = false;
@@ -712,7 +742,13 @@ public final class CompositionPlayer extends SimpleBasePlayer
     int idleCount = 0;
     int bufferingCount = 0;
     int endedCount = 0;
+    playbackSuppressionReason = PLAYBACK_SUPPRESSION_REASON_NONE;
     for (int i = 0; i < playerHolders.size(); i++) {
+      // TODO: b/422124120 - Determine playbackSuppressionReason by inspecting all players.
+      if (playerHolders.get(i).player.getPlaybackSuppressionReason()
+          != PLAYBACK_SUPPRESSION_REASON_NONE) {
+        playbackSuppressionReason = playerHolders.get(i).player.getPlaybackSuppressionReason();
+      }
       @Player.State int playbackState = playerHolders.get(i).player.getPlaybackState();
       switch (playbackState) {
         case STATE_IDLE:

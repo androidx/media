@@ -300,6 +300,7 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
  */
 @UnstableApi
 public class PlayerControlView extends FrameLayout {
+  // TODO: b/422411856 - Add tests for PlayerControlView.
 
   static {
     MediaLibraryInfo.registerModule("media3.ui");
@@ -383,6 +384,9 @@ public class PlayerControlView extends FrameLayout {
   @Nullable private final Class<?> exoplayerClazz;
   @Nullable private final Method setScrubbingModeEnabledMethod;
   @Nullable private final Method isScrubbingModeEnabledMethod;
+  @Nullable private final Class<?> compositionPlayerClazz;
+  @Nullable private final Method compositionPlayerSetScrubbingModeEnabledMethod;
+  @Nullable private final Method compositionPlayerIsScrubbingModeEnabledMethod;
 
   @SuppressWarnings("deprecation") // Using the deprecated type for now.
   private final CopyOnWriteArrayList<VisibilityListener> visibilityListeners;
@@ -618,6 +622,7 @@ public class PlayerControlView extends FrameLayout {
     extraPlayedAdGroups = new boolean[0];
     updateProgressAction = this::updateProgress;
 
+    // TODO: b/422124120 - Make scrubbing mode part of BasePlayer or Player.
     Class<?> exoplayerClazz = null;
     Method setScrubbingModeEnabledMethod = null;
     Method isScrubbingModeEnabledMethod = null;
@@ -632,6 +637,24 @@ public class PlayerControlView extends FrameLayout {
     this.exoplayerClazz = exoplayerClazz;
     this.setScrubbingModeEnabledMethod = setScrubbingModeEnabledMethod;
     this.isScrubbingModeEnabledMethod = isScrubbingModeEnabledMethod;
+
+    Class<?> compositionPlayerClazz = null;
+    Method compositionPlayerSetScrubbingModeEnabledMethod = null;
+    Method compositionPlayerIsScrubbingModeEnabledMethod = null;
+    try {
+      compositionPlayerClazz = Class.forName("androidx.media3.transformer.CompositionPlayer");
+      compositionPlayerSetScrubbingModeEnabledMethod =
+          compositionPlayerClazz.getMethod("setScrubbingModeEnabled", boolean.class);
+      compositionPlayerIsScrubbingModeEnabledMethod =
+          compositionPlayerClazz.getMethod("isScrubbingModeEnabled");
+    } catch (ClassNotFoundException | NoSuchMethodException e) {
+      // Expected if transformer module not available.
+    }
+    this.compositionPlayerClazz = compositionPlayerClazz;
+    this.compositionPlayerSetScrubbingModeEnabledMethod =
+        compositionPlayerSetScrubbingModeEnabledMethod;
+    this.compositionPlayerIsScrubbingModeEnabledMethod =
+        compositionPlayerIsScrubbingModeEnabledMethod;
 
     durationView = findViewById(R.id.exo_duration);
     positionView = findViewById(R.id.exo_position);
@@ -1905,11 +1928,17 @@ public class PlayerControlView extends FrameLayout {
           } catch (IllegalAccessException | InvocationTargetException e) {
             throw new RuntimeException(e);
           }
+        } else if (isCompositionPlayer(player)) {
+          try {
+            checkNotNull(compositionPlayerSetScrubbingModeEnabledMethod).invoke(player, true);
+          } catch (IllegalAccessException | InvocationTargetException e) {
+            throw new RuntimeException(e);
+          }
         } else {
           Log.w(
               TAG,
-              "Time bar scrubbing is enabled, but player is not an ExoPlayer instance, so ignoring"
-                  + " (because we can't enable scrubbing mode). player.class="
+              "Time bar scrubbing is enabled, but player is not an ExoPlayer or CompositionPlayer"
+                  + " instance, so ignoring (because we can't enable scrubbing mode). player.class="
                   + checkNotNull(player).getClass());
         }
       }
@@ -1923,9 +1952,14 @@ public class PlayerControlView extends FrameLayout {
       boolean isScrubbingModeEnabled;
       try {
         isScrubbingModeEnabled =
-            isExoPlayer(player)
-                && (boolean)
-                    checkNotNull(checkNotNull(isScrubbingModeEnabledMethod).invoke(player));
+            (isExoPlayer(player)
+                    && (boolean)
+                        checkNotNull(checkNotNull(isScrubbingModeEnabledMethod).invoke(player)))
+                || (isCompositionPlayer(player)
+                    && (boolean)
+                        checkNotNull(
+                            checkNotNull(compositionPlayerIsScrubbingModeEnabledMethod)
+                                .invoke(player)));
       } catch (IllegalAccessException | InvocationTargetException e) {
         throw new RuntimeException(e);
       }
@@ -1947,6 +1981,12 @@ public class PlayerControlView extends FrameLayout {
           } catch (IllegalAccessException | InvocationTargetException e) {
             throw new RuntimeException(e);
           }
+        } else if (isCompositionPlayer(player)) {
+          try {
+            checkNotNull(compositionPlayerSetScrubbingModeEnabledMethod).invoke(player, false);
+          } catch (IllegalAccessException | InvocationTargetException e) {
+            throw new RuntimeException(e);
+          }
         }
       }
       controlViewLayoutManager.resetHideCallbacks();
@@ -1957,6 +1997,13 @@ public class PlayerControlView extends FrameLayout {
       return player != null
           && exoplayerClazz != null
           && exoplayerClazz.isAssignableFrom(player.getClass());
+    }
+
+    @EnsuresNonNullIf(result = true, expression = "#1")
+    private boolean isCompositionPlayer(@Nullable Player player) {
+      return player != null
+          && compositionPlayerClazz != null
+          && compositionPlayerClazz.isAssignableFrom(player.getClass());
     }
 
     @Override
