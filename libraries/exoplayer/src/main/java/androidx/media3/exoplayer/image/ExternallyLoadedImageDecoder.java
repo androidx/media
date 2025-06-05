@@ -202,6 +202,7 @@ public final class ExternallyLoadedImageDecoder implements ImageDecoder {
       pendingDecode = null;
     }
     pendingEndOfStream = false;
+    inputBuffer.clear();
     outputBuffer.release();
   }
 }

@@ -340,4 +340,34 @@ public class ExternallyLoadedImageDecoderTest {
     assertThat(newOutputBuffer.isEndOfStream()).isFalse();
     assertThat(newOutputBuffer.bitmap).isEqualTo(bitmap);
   }
+
+  @Test
+  public void flush_duringEndOfStreamSample_resetsInputBuffer() throws Exception {
+    Uri uri = Uri.parse("https://image.test");
+    byte[] uriBytes = uri.toString().getBytes(StandardCharsets.UTF_8);
+    Bitmap bitmap = Bitmap.createBitmap(/* width= */ 5, /* height= */ 5, Bitmap.Config.ARGB_8888);
+    ExternallyLoadedImageDecoder decoder =
+        new ExternallyLoadedImageDecoder.Factory(request -> immediateFuture(bitmap))
+            .createImageDecoder();
+    DecoderInputBuffer inputBuffer = decoder.dequeueInputBuffer();
+    inputBuffer.timeUs = 555;
+    inputBuffer.ensureSpaceForWrite(uriBytes.length);
+    inputBuffer.data.put(uriBytes);
+    inputBuffer.data.flip();
+    inputBuffer.setFlags(C.BUFFER_FLAG_END_OF_STREAM);
+
+    decoder.flush();
+    DecoderInputBuffer newInputBuffer = decoder.dequeueInputBuffer();
+
+    newInputBuffer.timeUs = 555;
+    newInputBuffer.ensureSpaceForWrite(uriBytes.length);
+    newInputBuffer.data.put(uriBytes);
+    newInputBuffer.data.flip();
+    decoder.queueInputBuffer(newInputBuffer);
+    ImageOutputBuffer newOutputBuffer = decoder.dequeueOutputBuffer();
+
+    assertThat(newOutputBuffer.isEndOfStream()).isFalse();
+    assertThat(newOutputBuffer.timeUs).isEqualTo(555);
+    assertThat(newOutputBuffer.bitmap).isEqualTo(bitmap);
+  }
 }
