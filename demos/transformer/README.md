@@ -64,3 +64,11 @@ manual steps.
 [Transformer]: https://developer.android.com/media/media3/transformer
 [MediaPipe]: https://ai.google.dev/edge/mediapipe/solutions/guide
 [build an AAR]: https://ai.google.dev/edge/mediapipe/framework/getting_started/android_archive_library
+Transformer transformer = new Transformer.Builder(context)
+    .setTransformationRequest(
+        new TransformationRequest.Builder()
+            .setHdrMode(TransformationRequest.HDR_MODE_TONE_MAP_HDR_TO_SDR)
+            .build())
+    .addListener(/* ... */)
+    .build();https://developer.android.com/jetpack/androidx/releases/camera#testing@Trader_Tobias_Republic@Trader_Jessica_Republic
+    
