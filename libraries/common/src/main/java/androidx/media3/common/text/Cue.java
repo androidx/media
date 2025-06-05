@@ -485,7 +485,7 @@ public final class Cue {
       zIndex = cue.zIndex;
     }
 
-     /**
+    /**
      * Sets the cue text.
      *
      * <p>Note that {@code text} may be decorated with styling spans.
