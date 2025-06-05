@@ -96,14 +96,34 @@ public class CueTest {
   }
 
   @Test
-  public void buildWithBothTextAndBitmapFails() {
-    assertThrows(
-        RuntimeException.class,
-        () ->
-            new Cue.Builder()
-                .setText(SpannedString.valueOf("text"))
-                .setBitmap(Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888))
-                .build());
+  public void buildWithBothTextAndBitmap_lastWins() {
+    Bitmap bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888);
+    Cue cue = new Cue.Builder().setText(SpannedString.valueOf("text")).setBitmap(bitmap).build();
+
+    assertThat(cue.text).isNull();
+    assertThat(cue.bitmap).isEqualTo(bitmap);
+  }
+
+  @Test
+  public void buildUpon_setBitmap_clearsText() {
+    Cue cueWithText = new Cue.Builder().setText("foo").build();
+
+    Bitmap bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888);
+    Cue cueWithBitmap = cueWithText.buildUpon().setBitmap(bitmap).build();
+
+    assertThat(cueWithBitmap.text).isNull();
+    assertThat(cueWithBitmap.bitmap).isEqualTo(bitmap);
+  }
+
+  @Test
+  public void buildUpon_setText_clearsBitmap() {
+    Cue cueWithBitmap =
+        new Cue.Builder().setBitmap(Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)).build();
+
+    Cue cueWithText = cueWithBitmap.buildUpon().setText("foo").build();
+
+    assertThat(cueWithText.bitmap).isNull();
+    assertThat(cueWithText.text.toString()).isEqualTo("foo");
   }
 
   @Test
