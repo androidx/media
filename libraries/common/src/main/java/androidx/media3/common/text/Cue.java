@@ -490,11 +490,14 @@ public final class Cue {
      *
      * <p>Note that {@code text} may be decorated with styling spans.
      *
+     * <p>Note that this will also set the {@code bitmap} to null.
+     *
      * @see Cue#text
      */
     @CanIgnoreReturnValue
     public Builder setText(CharSequence text) {
       this.text = text;
+      this.bitmap = null;
       return this;
     }
 
@@ -512,11 +515,14 @@ public final class Cue {
     /**
      * Sets the cue image.
      *
+     * <p>Note that this will also set the {@code text} to null.
+     *
      * @see Cue#bitmap
      */
     @CanIgnoreReturnValue
     public Builder setBitmap(Bitmap bitmap) {
       this.bitmap = bitmap;
+      this.text = null;
       return this;
     }
 
