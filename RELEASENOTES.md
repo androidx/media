@@ -9,6 +9,7 @@
         `ExoPlayer.Builder`.
     *   Enable dynamic scheduling by default in scrubbing mode.
     *   Avoid unnecessary reload of a source when seeking to the end of an item.
+    *   Use `MediaCodec.BUFFER_FLAG_DECODE_ONLY` by default in scrubbing mode.
 *   Transformer:
     *   Add `CodecDbLite` that enables chipset specific optimizations of video
         encoding settings.

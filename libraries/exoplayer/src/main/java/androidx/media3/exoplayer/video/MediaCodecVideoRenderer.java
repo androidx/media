@@ -1556,7 +1556,9 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   @Override
   protected int getCodecBufferFlags(DecoderInputBuffer buffer) {
     if (SDK_INT >= 34
-        && (enableMediaCodecBufferDecodeOnlyFlag || tunneling)
+        && (enableMediaCodecBufferDecodeOnlyFlag
+            || (scrubbingModeParameters != null && scrubbingModeParameters.useDecodeOnlyFlag)
+            || tunneling)
         && isBufferBeforeStartTime(buffer)) {
       // The buffer likely needs to be dropped because its timestamp is less than the start time.
       // If tunneling, we can't decide to do this after decoding because we won't get the buffer

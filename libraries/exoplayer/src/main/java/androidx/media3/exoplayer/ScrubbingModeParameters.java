@@ -24,6 +24,7 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.C.TrackType;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.exoplayer.video.MediaCodecVideoRenderer;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Objects;
@@ -53,12 +54,14 @@ public final class ScrubbingModeParameters {
     private boolean shouldIncreaseCodecOperatingRate;
     private boolean isMediaCodecFlushEnabled;
     private boolean shouldEnableDynamicScheduling;
+    private boolean useDecodeOnlyFlag;
 
     /** Creates an instance. */
     public Builder() {
       this.disabledTrackTypes = ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_METADATA);
       shouldIncreaseCodecOperatingRate = true;
       shouldEnableDynamicScheduling = true;
+      useDecodeOnlyFlag = true;
     }
 
     private Builder(ScrubbingModeParameters scrubbingModeParameters) {
@@ -69,6 +72,7 @@ public final class ScrubbingModeParameters {
           scrubbingModeParameters.shouldIncreaseCodecOperatingRate;
       this.isMediaCodecFlushEnabled = scrubbingModeParameters.isMediaCodecFlushEnabled;
       this.shouldEnableDynamicScheduling = scrubbingModeParameters.shouldEnableDynamicScheduling;
+      this.useDecodeOnlyFlag = scrubbingModeParameters.useDecodeOnlyFlag;
     }
 
     /**
@@ -177,6 +181,26 @@ public final class ScrubbingModeParameters {
       return this;
     }
 
+    /**
+     * Sets whether to use {@link MediaCodec#BUFFER_FLAG_DECODE_ONLY} in scrubbing mode.
+     *
+     * <p>When playback is using {@link MediaCodec} on API 34+, this flag can speed up seeking by
+     * signalling that the decoded output of buffers between the previous keyframe and the target
+     * frame is not needed by the player.
+     *
+     * <p>If the decode-only flag is {@linkplain
+     * MediaCodecVideoRenderer.Builder#experimentalSetEnableMediaCodecBufferDecodeOnlyFlag enabled}
+     * (which may become the default in a future release), this method is a no-op (i.e. you cannot
+     * disable usage of the decode-only flag when scrubbing using this method).
+     *
+     * <p>Defaults to {@code true} (this may change in a future release).
+     */
+    @CanIgnoreReturnValue
+    public Builder setUseDecodeOnlyFlag(boolean useDecodeOnlyFlag) {
+      this.useDecodeOnlyFlag = useDecodeOnlyFlag;
+      return this;
+    }
+
     /** Returns the built {@link ScrubbingModeParameters}. */
     public ScrubbingModeParameters build() {
       return new ScrubbingModeParameters(this);
@@ -230,6 +254,13 @@ public final class ScrubbingModeParameters {
    */
   public final boolean shouldEnableDynamicScheduling;
 
+  /**
+   * Whether to use {@link MediaCodec#BUFFER_FLAG_DECODE_ONLY} in scrubbing mode.
+   *
+   * <p>This only has an effect on API 34+ when playback is using {@link MediaCodec} for decoding.
+   */
+  public final boolean useDecodeOnlyFlag;
+
   private ScrubbingModeParameters(Builder builder) {
     this.disabledTrackTypes = builder.disabledTrackTypes;
     this.fractionalSeekToleranceBefore = builder.fractionalSeekToleranceBefore;
@@ -237,6 +268,7 @@ public final class ScrubbingModeParameters {
     this.shouldIncreaseCodecOperatingRate = builder.shouldIncreaseCodecOperatingRate;
     this.isMediaCodecFlushEnabled = builder.isMediaCodecFlushEnabled;
     this.shouldEnableDynamicScheduling = builder.shouldEnableDynamicScheduling;
+    this.useDecodeOnlyFlag = builder.useDecodeOnlyFlag;
   }
 
   /** Returns a {@link Builder} initialized with the values from this instance. */
@@ -255,7 +287,8 @@ public final class ScrubbingModeParameters {
         && Objects.equals(fractionalSeekToleranceBefore, that.fractionalSeekToleranceBefore)
         && Objects.equals(fractionalSeekToleranceAfter, that.fractionalSeekToleranceAfter)
         && shouldIncreaseCodecOperatingRate == that.shouldIncreaseCodecOperatingRate
-        && shouldEnableDynamicScheduling == that.shouldEnableDynamicScheduling;
+        && shouldEnableDynamicScheduling == that.shouldEnableDynamicScheduling
+        && useDecodeOnlyFlag == that.useDecodeOnlyFlag;
   }
 
   @Override
@@ -266,6 +299,7 @@ public final class ScrubbingModeParameters {
         fractionalSeekToleranceAfter,
         shouldIncreaseCodecOperatingRate,
         isMediaCodecFlushEnabled,
-        shouldEnableDynamicScheduling);
+        shouldEnableDynamicScheduling,
+        useDecodeOnlyFlag);
   }
 }
