@@ -759,10 +759,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     outputStreamEnded = false;
     pendingOutputEndOfStream = false;
     if (bypassEnabled) {
-      bypassBatchBuffer.clear();
-      bypassSampleBuffer.clear();
-      bypassSampleBufferPending = false;
-      oggOpusAudioPacketizer.reset();
+      resetBypassState();
     } else {
       flushOrReinitializeCodec();
     }
@@ -789,7 +786,11 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     inputFormat = null;
     setOutputStreamInfo(OutputStreamInfo.UNSET);
     pendingOutputStreamChanges.clear();
-    flushOrReleaseCodec();
+    if (bypassEnabled) {
+      disableBypass();
+    } else {
+      flushOrReleaseCodec();
+    }
   }
 
   @Override
@@ -803,11 +804,16 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   }
 
   private void disableBypass() {
+    bypassEnabled = false;
+    resetBypassState();
+  }
+
+  private void resetBypassState() {
+    resetCommonStateForFlush();
     bypassDrainAndReinitialize = false;
     bypassBatchBuffer.clear();
     bypassSampleBuffer.clear();
     bypassSampleBufferPending = false;
-    bypassEnabled = false;
     oggOpusAudioPacketizer.reset();
   }
 
@@ -1025,11 +1031,19 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     }
   }
 
+  /** Resets the renderer internal state used by both bypass and codec modes. */
+  private void resetCommonStateForFlush() {
+    largestQueuedPresentationTimeUs = C.TIME_UNSET;
+    lastBufferInStreamPresentationTimeUs = C.TIME_UNSET;
+    lastProcessedOutputBufferTimeUs = C.TIME_UNSET;
+  }
+
   /** Resets the renderer internal state after a codec flush. */
   @CallSuper
   protected void resetCodecStateForFlush() {
     resetInputBuffer();
     resetOutputBuffer();
+    resetCommonStateForFlush();
     codecHotswapDeadlineMs = C.TIME_UNSET;
     codecReceivedEos = false;
     lastOutputBufferProcessedRealtimeMs = C.TIME_UNSET;
@@ -1038,9 +1052,6 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     shouldSkipAdaptationWorkaroundOutputBuffer = false;
     isDecodeOnlyOutputBuffer = false;
     isLastOutputBuffer = false;
-    largestQueuedPresentationTimeUs = C.TIME_UNSET;
-    lastBufferInStreamPresentationTimeUs = C.TIME_UNSET;
-    lastProcessedOutputBufferTimeUs = C.TIME_UNSET;
     codecDrainState = DRAIN_STATE_NONE;
     codecDrainAction = DRAIN_ACTION_NONE;
     // Reconfiguration data sent shortly before the flush may not have been processed by the

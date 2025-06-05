@@ -27,6 +27,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 
 import android.media.MediaCodec;
 import android.media.MediaCrypto;
@@ -386,6 +387,103 @@ public class MediaCodecRendererTest {
   }
 
   @Test
+  public void render_withReplaceStreamInBypassMode_triggersOutputCallbacksInCorrectOrder()
+      throws Exception {
+    Format format1 =
+        new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_RAW).setAverageBitrate(1000).build();
+    Format format2 =
+        new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_RAW).setAverageBitrate(1500).build();
+    FakeSampleStream fakeSampleStream1 =
+        createFakeSampleStream(format1, /* sampleTimesUs...= */ 0, 100, 200);
+    FakeSampleStream fakeSampleStream2 =
+        createFakeSampleStream(format2, /* sampleTimesUs...= */ 0, 100, 200, 300, 400);
+    MediaSource.MediaPeriodId mediaPeriodId1 = new MediaSource.MediaPeriodId(new Object());
+    MediaSource.MediaPeriodId mediaPeriodId2 = new MediaSource.MediaPeriodId(new Object());
+    MediaCodecRenderer renderer =
+        spy(
+            new TestRenderer() {
+              @Override
+              protected boolean shouldUseBypass(Format format) {
+                return true;
+              }
+            });
+    renderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
+    // Enable renderer on the second media period.
+    renderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {format2},
+        fakeSampleStream2,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        mediaPeriodId2);
+    renderer.start();
+    long positionUs = 0;
+    while (!renderer.hasReadStreamToEnd()) {
+      renderer.render(positionUs, SystemClock.elapsedRealtime());
+      positionUs += 200;
+    }
+    // Seek to first media period and reset second media period/sample stream.
+    renderer.stop();
+    positionUs = 100;
+    renderer.disable();
+    fakeSampleStream2 =
+        createFakeSampleStream(format2, /* sampleTimesUs...= */ 0, 100, 200, 300, 400);
+    renderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {format1},
+        fakeSampleStream1,
+        /* positionUs= */ positionUs,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ positionUs,
+        /* offsetUs= */ 0,
+        mediaPeriodId1);
+    fakeSampleStream1.seekToUs(positionUs, true);
+    renderer.resetPosition(positionUs);
+    renderer.start();
+    while (!renderer.hasReadStreamToEnd()) {
+      renderer.render(positionUs, SystemClock.elapsedRealtime());
+      positionUs += 200;
+    }
+    renderer.replaceStream(
+        new Format[] {format2},
+        fakeSampleStream2,
+        /* startPositionUs= */ 300,
+        /* offsetUs= */ 300,
+        mediaPeriodId2);
+    renderer.setCurrentStreamFinal();
+    while (!renderer.isEnded()) {
+      renderer.render(positionUs, SystemClock.elapsedRealtime());
+      positionUs += 200;
+    }
+
+    InOrder inOrder = inOrder(renderer);
+    inOrder.verify(renderer).onOutputStreamOffsetUsChanged(0);
+    inOrder.verify(renderer).onProcessedStreamChange();
+    inOrder.verify(renderer).onOutputFormatChanged(eq(format2), any());
+    inOrder.verify(renderer).onProcessedOutputBuffer(0);
+    inOrder.verify(renderer).onProcessedOutputBuffer(100);
+    inOrder.verify(renderer).onProcessedOutputBuffer(200);
+    inOrder.verify(renderer).onProcessedOutputBuffer(300);
+    inOrder.verify(renderer).onProcessedOutputBuffer(400);
+    inOrder.verify(renderer).onOutputStreamOffsetUsChanged(0);
+    inOrder.verify(renderer, times(2)).onPositionReset(100, false);
+    inOrder.verify(renderer).onOutputFormatChanged(eq(format1), any());
+    inOrder.verify(renderer).onProcessedOutputBuffer(100);
+    inOrder.verify(renderer).onProcessedOutputBuffer(200);
+    inOrder.verify(renderer).onOutputStreamOffsetUsChanged(300);
+    inOrder.verify(renderer).onProcessedStreamChange();
+    inOrder.verify(renderer).onOutputFormatChanged(eq(format2), any());
+    inOrder.verify(renderer).onProcessedOutputBuffer(300);
+    inOrder.verify(renderer).onProcessedOutputBuffer(400);
+    inOrder.verify(renderer).onProcessedOutputBuffer(500);
+    inOrder.verify(renderer).onProcessedOutputBuffer(600);
+  }
+
+  @Test
   public void render_afterEnableWithStartPositionUs_skipsSamplesBeforeStartPositionUs()
       throws Exception {
     Format format =
@@ -657,7 +755,9 @@ public class MediaCodecRendererTest {
       if (bufferPresentationTimeUs <= positionUs) {
         // Only release buffers when the position advances far enough for realistic behavior where
         // input of buffers to the codec is faster than output.
-        codec.releaseOutputBuffer(bufferIndex, /* render= */ true);
+        if (codec != null) {
+          codec.releaseOutputBuffer(bufferIndex, /* render= */ true);
+        }
         return true;
       }
       return false;
