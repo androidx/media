@@ -20,6 +20,7 @@ import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 
 import android.net.Uri;
+import androidx.annotation.GuardedBy;
 import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
@@ -39,6 +40,7 @@ import androidx.media3.exoplayer.source.MediaSourceFactory;
 import androidx.media3.exoplayer.source.SinglePeriodTimeline;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
+import com.google.common.base.Ascii;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import javax.net.SocketFactory;
@@ -161,7 +163,6 @@ public final class RtspMediaSource extends BaseMediaSource {
     /** Does nothing. {@link RtspMediaSource} does not support error handling policies. */
     @Override
     public Factory setLoadErrorHandlingPolicy(LoadErrorHandlingPolicy loadErrorHandlingPolicy) {
-      // TODO(internal b/172331505): Implement support.
       return this;
     }
 
@@ -182,12 +183,20 @@ public final class RtspMediaSource extends BaseMediaSource {
       checkNotNull(mediaItem.localConfiguration);
       return new RtspMediaSource(
           mediaItem,
-          forceUseRtpTcp
+          shouldForceUseRtpTcp(mediaItem)
               ? new TransferRtpDataChannelFactory(timeoutMs)
               : new UdpDataSourceRtpDataChannelFactory(timeoutMs),
           userAgent,
           socketFactory,
           debugLoggingEnabled);
+    }
+
+    private boolean shouldForceUseRtpTcp(MediaItem mediaItem) {
+      if (forceUseRtpTcp) {
+        return true;
+      }
+      @Nullable String scheme = checkNotNull(mediaItem.localConfiguration).uri.getScheme();
+      return scheme != null && Ascii.equalsIgnoreCase("rtspt", scheme);
     }
   }
 
@@ -213,7 +222,6 @@ public final class RtspMediaSource extends BaseMediaSource {
     }
   }
 
-  private final MediaItem mediaItem;
   private final RtpDataChannel.Factory rtpDataChannelFactory;
   private final String userAgent;
   private final Uri uri;
@@ -225,6 +233,9 @@ public final class RtspMediaSource extends BaseMediaSource {
   private boolean timelineIsLive;
   private boolean timelineIsPlaceholder;
 
+  @GuardedBy("this")
+  private MediaItem mediaItem;
+
   @VisibleForTesting
   /* package */ RtspMediaSource(
       MediaItem mediaItem,
@@ -235,7 +246,7 @@ public final class RtspMediaSource extends BaseMediaSource {
     this.mediaItem = mediaItem;
     this.rtpDataChannelFactory = rtpDataChannelFactory;
     this.userAgent = userAgent;
-    this.uri = checkNotNull(this.mediaItem.localConfiguration).uri;
+    this.uri = maybeConvertRtsptUriScheme(checkNotNull(mediaItem.localConfiguration).uri);
     this.socketFactory = socketFactory;
     this.debugLoggingEnabled = debugLoggingEnabled;
     this.timelineDurationUs = C.TIME_UNSET;
@@ -253,8 +264,20 @@ public final class RtspMediaSource extends BaseMediaSource {
   }
 
   @Override
-  public MediaItem getMediaItem() {
+  public synchronized MediaItem getMediaItem() {
     return mediaItem;
+  }
+
+  @Override
+  public boolean canUpdateMediaItem(MediaItem mediaItem) {
+    @Nullable MediaItem.LocalConfiguration newConfiguration = mediaItem.localConfiguration;
+    return newConfiguration != null
+        && maybeConvertRtsptUriScheme(newConfiguration.uri).equals(this.uri);
+  }
+
+  @Override
+  public synchronized void updateMediaItem(MediaItem mediaItem) {
+    this.mediaItem = mediaItem;
   }
 
   @Override
@@ -296,6 +319,14 @@ public final class RtspMediaSource extends BaseMediaSource {
 
   // Internal methods.
 
+  private static Uri maybeConvertRtsptUriScheme(Uri uri) {
+    @Nullable String scheme = uri.getScheme();
+    if (scheme == null || !Ascii.equalsIgnoreCase("rtspt", scheme)) {
+      return uri;
+    }
+    return Uri.parse("rtsp" + uri.toString().substring(5));
+  }
+
   private void notifySourceInfoRefreshed() {
     Timeline timeline =
         new SinglePeriodTimeline(
@@ -304,7 +335,7 @@ public final class RtspMediaSource extends BaseMediaSource {
             /* isDynamic= */ false,
             /* useLiveConfiguration= */ timelineIsLive,
             /* manifest= */ null,
-            mediaItem);
+            getMediaItem());
     if (timelineIsPlaceholder) {
       timeline =
           new ForwardingTimeline(timeline) {

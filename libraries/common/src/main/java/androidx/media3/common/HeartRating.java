@@ -21,7 +21,7 @@ import android.os.Bundle;
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
-import com.google.common.base.Objects;
+import java.util.Objects;
 
 /**
  * A rating expressed as "heart" or "no heart". It can be used to indicate whether the content is a
@@ -60,7 +60,7 @@ public final class HeartRating extends Rating {
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(rated, isHeart);
+    return Objects.hash(rated, isHeart);
   }
 
   @Override
@@ -71,8 +71,6 @@ public final class HeartRating extends Rating {
     HeartRating other = (HeartRating) obj;
     return isHeart == other.isHeart && rated == other.rated;
   }
-
-  // Bundleable implementation.
 
   private static final @RatingType int TYPE = RATING_TYPE_HEART;
 
@@ -89,10 +87,9 @@ public final class HeartRating extends Rating {
     return bundle;
   }
 
-  /** Object that can restore a {@link HeartRating} from a {@link Bundle}. */
-  @UnstableApi public static final Creator<HeartRating> CREATOR = HeartRating::fromBundle;
-
-  private static HeartRating fromBundle(Bundle bundle) {
+  /** Restores a {@code HeartRating} from a {@link Bundle}. */
+  @UnstableApi
+  public static HeartRating fromBundle(Bundle bundle) {
     checkArgument(bundle.getInt(FIELD_RATING_TYPE, /* defaultValue= */ RATING_TYPE_UNSET) == TYPE);
     boolean isRated = bundle.getBoolean(FIELD_RATED, /* defaultValue= */ false);
     return isRated

@@ -38,7 +38,6 @@ import android.support.v4.media.session.MediaControllerCompat;
 import android.support.v4.media.session.MediaSessionCompat;
 import android.support.v4.media.session.PlaybackStateCompat;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.test.session.common.IRemoteMediaControllerCompat;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -49,8 +48,9 @@ import java.util.concurrent.CountDownLatch;
  *
  * <p>Users can run {@link MediaControllerCompat} methods remotely with this object.
  */
-@UnstableApi
 public class RemoteMediaControllerCompat {
+
+  public static final int QUEUE_IS_NULL = -1;
   static final String TAG = "RMediaControllerCompat";
 
   final String controllerId;
@@ -106,6 +106,10 @@ public class RemoteMediaControllerCompat {
 
   public void removeQueueItem(MediaDescriptionCompat description) throws RemoteException {
     binder.removeQueueItem(controllerId, createBundleWithParcelable(description));
+  }
+
+  public int getQueueSize() throws RemoteException {
+    return binder.getQueueSize(controllerId);
   }
 
   public void setVolumeTo(int value, int flags) throws RemoteException {

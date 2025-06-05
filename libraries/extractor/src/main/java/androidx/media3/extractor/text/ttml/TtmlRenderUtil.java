@@ -17,6 +17,7 @@ package androidx.media3.extractor.text.ttml;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
 
+import android.annotation.SuppressLint;
 import android.text.Spannable;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
@@ -80,6 +81,7 @@ import java.util.Map;
     return style;
   }
 
+  @SuppressLint("WrongConstant")
   public static void applyStylesToSpan(
       Spannable builder,
       int start,
@@ -198,8 +200,8 @@ import java.util.Map;
             new RubySpan(rubyText, rubyPosition), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         break;
       case TtmlStyle.RUBY_TYPE_DELIMITER:
-        // TODO: Add support for this when RubySpan supports parenthetical text. For now, just
-        // fall through and delete the text.
+      // TODO: Add support for this when RubySpan supports parenthetical text. For now, just
+      // fall through and delete the text.
       case TtmlStyle.RUBY_TYPE_TEXT:
         // We can't just remove the text directly from `builder` here because TtmlNode has fixed
         // ideas of where every node starts and ends (nodeStartsByRegion and nodeEndsByRegion) so
@@ -239,12 +241,8 @@ import java.util.Map;
             Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         break;
       case TtmlStyle.FONT_SIZE_UNIT_PERCENT:
-        SpanUtil.addOrReplaceSpan(
-            builder,
-            new RelativeSizeSpan(style.getFontSize() / 100),
-            start,
-            end,
-            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        SpanUtil.addInheritedRelativeSizeSpan(
+            builder, style.getFontSize() / 100, start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         break;
       case TtmlStyle.UNSPECIFIED:
         // Do nothing.

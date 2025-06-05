@@ -9,6 +9,7 @@ track 330:
   format 0:
     peakBitrate = 128000
     id = 1031/330
+    containerMimeType = video/mp2t
     sampleMimeType = audio/eac3
     channelCount = 2
     sampleRate = 48000
@@ -93,6 +94,7 @@ track 370:
   total output bytes = 1413
   sample count = 3
   format 0:
+    containerMimeType = video/mp2t
     sampleMimeType = application/vnd.dvb.ait
     subsampleOffsetUs = -43622564033
   sample 0:

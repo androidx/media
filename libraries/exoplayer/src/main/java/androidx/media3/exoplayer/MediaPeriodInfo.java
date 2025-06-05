@@ -18,17 +18,19 @@ package androidx.media3.exoplayer;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.Assertions;
-import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.source.MediaPeriod;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
+import java.util.Objects;
 
 /** Stores the information required to load and play a {@link MediaPeriod}. */
 /* package */ final class MediaPeriodInfo {
 
   /** The media period's identifier. */
   public final MediaPeriodId id;
+
   /** The start position of the media to play within the media period, in microseconds. */
   public final long startPositionUs;
+
   /**
    * The requested next start position for the current timeline period, in microseconds, or {@link
    * C#TIME_UNSET} if the period was requested to start at its default position.
@@ -37,6 +39,7 @@ import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
    * suspended content.
    */
   public final long requestedContentPositionUs;
+
   /**
    * The end position to which the media period's content is clipped in order to play a following ad
    * group or to terminate a server side ad inserted stream before a played postroll, in
@@ -45,25 +48,36 @@ import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
    * of this content media period.
    */
   public final long endPositionUs;
+
   /**
    * The duration of the media period, like {@link #endPositionUs} but with {@link
    * C#TIME_END_OF_SOURCE} and {@link C#TIME_UNSET} resolved to the timeline period duration if
    * known.
    */
   public final long durationUs;
+
+  /**
+   * Whether this media period is preceded by another media period of the same server-side inserted
+   * as stream.
+   */
+  public final boolean isPrecededByTransitionFromSameStream;
+
   /**
    * Whether this media period is followed by a transition to another media period of the same
    * server-side inserted ad stream. If true, {@link #isLastInTimelinePeriod}, {@link
    * #isLastInTimelineWindow} and {@link #isFinal} will all be false.
    */
   public final boolean isFollowedByTransitionToSameStream;
+
   /**
    * Whether this is the last media period in its timeline period (e.g., a postroll ad, or a media
    * period corresponding to a timeline period without ads).
    */
   public final boolean isLastInTimelinePeriod;
+
   /** Whether this is the last media period in its timeline window. */
   public final boolean isLastInTimelineWindow;
+
   /**
    * Whether this is the last media period in the entire timeline. If true, {@link
    * #isLastInTimelinePeriod} will also be true.
@@ -76,6 +90,7 @@ import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
       long requestedContentPositionUs,
       long endPositionUs,
       long durationUs,
+      boolean isPrecededByTransitionFromSameStream,
       boolean isFollowedByTransitionToSameStream,
       boolean isLastInTimelinePeriod,
       boolean isLastInTimelineWindow,
@@ -90,6 +105,7 @@ import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
     this.requestedContentPositionUs = requestedContentPositionUs;
     this.endPositionUs = endPositionUs;
     this.durationUs = durationUs;
+    this.isPrecededByTransitionFromSameStream = isPrecededByTransitionFromSameStream;
     this.isFollowedByTransitionToSameStream = isFollowedByTransitionToSameStream;
     this.isLastInTimelinePeriod = isLastInTimelinePeriod;
     this.isLastInTimelineWindow = isLastInTimelineWindow;
@@ -109,6 +125,7 @@ import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
             requestedContentPositionUs,
             endPositionUs,
             durationUs,
+            isPrecededByTransitionFromSameStream,
             isFollowedByTransitionToSameStream,
             isLastInTimelinePeriod,
             isLastInTimelineWindow,
@@ -128,6 +145,7 @@ import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
             requestedContentPositionUs,
             endPositionUs,
             durationUs,
+            isPrecededByTransitionFromSameStream,
             isFollowedByTransitionToSameStream,
             isLastInTimelinePeriod,
             isLastInTimelineWindow,
@@ -147,11 +165,12 @@ import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
         && requestedContentPositionUs == that.requestedContentPositionUs
         && endPositionUs == that.endPositionUs
         && durationUs == that.durationUs
+        && isPrecededByTransitionFromSameStream == that.isPrecededByTransitionFromSameStream
         && isFollowedByTransitionToSameStream == that.isFollowedByTransitionToSameStream
         && isLastInTimelinePeriod == that.isLastInTimelinePeriod
         && isLastInTimelineWindow == that.isLastInTimelineWindow
         && isFinal == that.isFinal
-        && Util.areEqual(id, that.id);
+        && Objects.equals(id, that.id);
   }
 
   @Override
@@ -162,6 +181,7 @@ import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
     result = 31 * result + (int) requestedContentPositionUs;
     result = 31 * result + (int) endPositionUs;
     result = 31 * result + (int) durationUs;
+    result = 31 * result + (isPrecededByTransitionFromSameStream ? 1 : 0);
     result = 31 * result + (isFollowedByTransitionToSameStream ? 1 : 0);
     result = 31 * result + (isLastInTimelinePeriod ? 1 : 0);
     result = 31 * result + (isLastInTimelineWindow ? 1 : 0);

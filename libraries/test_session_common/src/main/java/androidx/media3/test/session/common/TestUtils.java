@@ -16,6 +16,7 @@
 package androidx.media3.test.session.common;
 
 import static android.content.Context.KEYGUARD_SERVICE;
+import static android.os.Build.VERSION.SDK_INT;
 import static java.lang.Math.min;
 
 import android.app.Activity;
@@ -29,16 +30,14 @@ import android.view.WindowManager;
 import androidx.annotation.Nullable;
 import androidx.annotation.UiThread;
 import androidx.media3.common.Player;
-import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import com.google.common.collect.ImmutableList;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Locale;
+import java.util.Objects;
 
 /** Provides utility methods for testing purpose. */
-@UnstableApi
 public class TestUtils {
 
   public static final long TIMEOUT_MS = 5_000;
@@ -96,7 +95,7 @@ public class TestUtils {
       return false;
     }
     for (String key : b.keySet()) {
-      if (!Util.areEqual(a.get(key), b.get(key))) {
+      if (!Objects.equals(a.get(key), b.get(key))) {
         return false;
       }
     }
@@ -121,7 +120,7 @@ public class TestUtils {
 
   @UiThread
   static void setKeepScreenOn(Activity activity) {
-    if (Util.SDK_INT >= 27) {
+    if (SDK_INT >= 27) {
       activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
       activity.setTurnScreenOn(true);
       activity.setShowWhenLocked(true);

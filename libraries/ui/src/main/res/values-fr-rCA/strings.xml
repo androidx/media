@@ -41,12 +41,11 @@
     <item>1,5x</item>
     <item>2x</item>
   </string-array>
-  <string name="exo_track_selection_title_video">Vidéo</string>
   <string name="exo_track_selection_title_audio">Audio</string>
-  <string name="exo_track_selection_title_text">Texte</string>
   <string name="exo_track_selection_none">Aucun</string>
   <string name="exo_track_selection_auto">Auto</string>
   <string name="exo_track_unknown">Inconnu</string>
+  <string name="exo_track_unknown_name">Inconnu (%1$s)</string>
   <string name="exo_track_resolution">%1$d × %2$d</string>
   <string name="exo_track_mono">Mono</string>
   <string name="exo_track_stereo">Stéréo</string>

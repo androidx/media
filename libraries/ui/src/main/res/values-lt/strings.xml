@@ -45,12 +45,11 @@
     <item>1,5 k.</item>
     <item>2 k.</item>
   </string-array>
-  <string name="exo_track_selection_title_video">Vaizdo įrašas</string>
   <string name="exo_track_selection_title_audio">Garso įrašas</string>
-  <string name="exo_track_selection_title_text">Tekstas</string>
   <string name="exo_track_selection_none">Nėra</string>
   <string name="exo_track_selection_auto">Automatinė</string>
   <string name="exo_track_unknown">Nežinomas</string>
+  <string name="exo_track_unknown_name">Nežinoma (%1$s)</string>
   <string name="exo_track_resolution">%1$d × %2$d</string>
   <string name="exo_track_mono">Monofoninis</string>
   <string name="exo_track_stereo">Stereofoninis</string>

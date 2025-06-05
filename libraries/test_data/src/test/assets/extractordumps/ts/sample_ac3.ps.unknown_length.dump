@@ -10,6 +10,7 @@ track 189:
     averageBitrate = 96000
     peakBitrate = 96000
     id = 189
+    containerMimeType = video/mp2p
     sampleMimeType = audio/ac3
     channelCount = 1
     sampleRate = 44100

@@ -22,9 +22,9 @@ import androidx.media3.session.IMediaController;
  *
  * <p>It's for internal use only, not intended to be used by library users.
  */
-// TODO(b/191643508): Hide the generated classes from javadoc.
 // Note: Keep this interface oneway. Otherwise a malicious app may make a blocking call to make
 // session service frozen.
+@JavaPassthrough(annotation="@androidx.annotation.RestrictTo(androidx.annotation.RestrictTo.Scope.LIBRARY)")
 oneway interface IMediaSessionService {
 
   // Id < 3000 is reserved to avoid potential collision with media2 1.x.

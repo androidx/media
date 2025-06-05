@@ -22,12 +22,25 @@ import static com.google.common.truth.Truth.assertThat;
 
 import androidx.media3.common.C;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import java.net.CookieHandler;
+import java.net.CookieManager;
+import java.net.URI;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-/** Unit tests for {@link DefaultHttpDataSource}. */
+/** Unit tests for {@link HttpUtil}. */
 @RunWith(AndroidJUnit4.class)
 public class HttpUtilTest {
+
+  private static final String TEST_URL = "http://google.com/video/";
+  private static final String TEST_REQUEST_COOKIE = "foo=bar";
+  private static final String TEST_REQUEST_COOKIE_2 = "baz=qux";
+  private static final String TEST_RESPONSE_SET_COOKIE =
+      TEST_REQUEST_COOKIE + ";path=/video; expires 31-12-2099 23:59:59 GMT";
+  private static final String TEST_RESPONSE_SET_COOKIE_2 =
+      TEST_REQUEST_COOKIE_2 + ";path=/; expires 31-12-2099 23:59:59 GMT";
 
   @Test
   public void buildRangeRequestHeader_buildsHeader() {
@@ -96,5 +109,76 @@ public class HttpUtilTest {
   public void getDocumentSize_ignoresUnhandledRangeUnits() {
     assertThat(getDocumentSize("unhandled */20")).isEqualTo(C.LENGTH_UNSET);
     assertThat(getDocumentSize("unhandled 0-4/20")).isEqualTo(C.LENGTH_UNSET);
+  }
+
+  @Test
+  public void getCookieHeader_noCookieHandler() {
+    CookieHandler.setDefault(null);
+
+    assertThat(
+            HttpUtil.getCookieHeader(
+                TEST_URL, /* headers= */ ImmutableMap.of(), CookieHandler.getDefault()))
+        .isEmpty();
+    assertThat(CookieHandler.getDefault()).isNull();
+  }
+
+  @Test
+  public void getCookieHeader_emptyCookieHandler() {
+    CookieHandler.setDefault(new CookieManager());
+
+    assertThat(
+            HttpUtil.getCookieHeader(
+                TEST_URL, /* headers= */ ImmutableMap.of(), CookieHandler.getDefault()))
+        .isEmpty();
+  }
+
+  @Test
+  public void getCookieHeader_cookieHandler() throws Exception {
+    CookieManager cm = new CookieManager();
+    cm.put(
+        new URI(TEST_URL),
+        ImmutableMap.of(
+            "Set-Cookie", ImmutableList.of(TEST_RESPONSE_SET_COOKIE, TEST_RESPONSE_SET_COOKIE_2)));
+    CookieHandler.setDefault(cm);
+
+    assertThat(
+            HttpUtil.getCookieHeader(
+                TEST_URL, /* headers= */ ImmutableMap.of(), CookieHandler.getDefault()))
+        .isEqualTo(TEST_REQUEST_COOKIE + "; " + TEST_REQUEST_COOKIE_2 + ";");
+  }
+
+  @Test
+  public void getCookieHeader_cookieHandlerCustomHandler() throws Exception {
+    CookieManager cm = new CookieManager();
+    cm.put(
+        new URI(TEST_URL),
+        ImmutableMap.of(
+            "Set-Cookie", ImmutableList.of(TEST_RESPONSE_SET_COOKIE, TEST_RESPONSE_SET_COOKIE_2)));
+
+    assertThat(HttpUtil.getCookieHeader(TEST_URL, /* headers= */ ImmutableMap.of(), cm))
+        .isEqualTo(TEST_REQUEST_COOKIE + "; " + TEST_REQUEST_COOKIE_2 + ";");
+  }
+
+  @Test
+  public void getCookieHeader_cookieHandlerCookie2() throws Exception {
+    CookieManager cm = new CookieManager();
+    cm.put(
+        new URI(TEST_URL),
+        ImmutableMap.of(
+            "Set-Cookie2", ImmutableList.of(TEST_RESPONSE_SET_COOKIE, TEST_RESPONSE_SET_COOKIE_2)));
+    CookieHandler.setDefault(cm);
+
+    // This asserts the surprising behavior of CookieManager - Set-Cookie2 is translated to Cookie,
+    // not Cookie2.
+    assertThat(cm.get(new URI(TEST_URL), ImmutableMap.of("", ImmutableList.of()))).isNotEmpty();
+    assertThat(cm.get(new URI(TEST_URL), ImmutableMap.of("", ImmutableList.of())).get("Cookie"))
+        .containsExactly(TEST_REQUEST_COOKIE, TEST_REQUEST_COOKIE_2);
+    assertThat(cm.get(new URI(TEST_URL), ImmutableMap.of("", ImmutableList.of())))
+        .doesNotContainKey("Cookie2");
+
+    assertThat(
+            HttpUtil.getCookieHeader(
+                TEST_URL, /* headers= */ ImmutableMap.of(), CookieHandler.getDefault()))
+        .isEqualTo(TEST_REQUEST_COOKIE + "; " + TEST_REQUEST_COOKIE_2 + ";");
   }
 }

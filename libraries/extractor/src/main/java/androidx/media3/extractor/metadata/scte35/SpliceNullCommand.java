@@ -15,31 +15,8 @@
  */
 package androidx.media3.extractor.metadata.scte35;
 
-import android.os.Parcel;
 import androidx.media3.common.util.UnstableApi;
 
 /** Represents a splice null command as defined in SCTE35, Section 9.3.1. */
 @UnstableApi
-public final class SpliceNullCommand extends SpliceCommand {
-
-  // Parcelable implementation.
-
-  @Override
-  public void writeToParcel(Parcel dest, int flags) {
-    // Do nothing.
-  }
-
-  public static final Creator<SpliceNullCommand> CREATOR =
-      new Creator<SpliceNullCommand>() {
-
-        @Override
-        public SpliceNullCommand createFromParcel(Parcel in) {
-          return new SpliceNullCommand();
-        }
-
-        @Override
-        public SpliceNullCommand[] newArray(int size) {
-          return new SpliceNullCommand[size];
-        }
-      };
-}
+public final class SpliceNullCommand extends SpliceCommand {}

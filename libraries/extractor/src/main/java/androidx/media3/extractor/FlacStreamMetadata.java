@@ -33,17 +33,14 @@ import java.util.List;
 /**
  * Holder for FLAC metadata.
  *
- * <p>See the following spec references:
+ * <p>See the following sections of RFC 9639:
  *
  * <ul>
- *   <li><a href="https://xiph.org/flac/format.html#metadata_block_streaminfo">FLAC format
- *       METADATA_BLOCK_STREAMINFO</a>
- *   <li><a href="https://xiph.org/flac/format.html#metadata_block_seektable">FLAC format
- *       METADATA_BLOCK_SEEKTABLE</a>
- *   <li><a href="https://xiph.org/flac/format.html#metadata_block_vorbis_comment">FLAC format
- *       METADATA_BLOCK_VORBIS_COMMENT</a>
- *   <li><a href="https://xiph.org/flac/format.html#metadata_block_picture">FLAC format
- *       METADATA_BLOCK_PICTURE</a>
+ *   <li><a href="https://www.rfc-editor.org/rfc/rfc9639.html#name-streaminfo">8.2 Streaminfo</a>
+ *   <li><a href="https://www.rfc-editor.org/rfc/rfc9639.html#name-seek-table">8.5 Seek Table</a>
+ *   <li><a href="https://www.rfc-editor.org/rfc/rfc9639.html#name-vorbis-comment">8.6 Vorbis
+ *       Comment</a>
+ *   <li><a href="https://www.rfc-editor.org/rfc/rfc9639.html#name-picture">8.8 Picture</a>
  * </ul>
  */
 @UnstableApi
@@ -53,6 +50,7 @@ public final class FlacStreamMetadata {
   public static class SeekTable {
     /** Seek points sample numbers. */
     public final long[] pointSampleNumbers;
+
     /** Seek points byte offsets from the first frame. */
     public final long[] pointOffsets;
 
@@ -69,14 +67,19 @@ public final class FlacStreamMetadata {
 
   /** Minimum number of samples per block. */
   public final int minBlockSizeSamples;
+
   /** Maximum number of samples per block. */
   public final int maxBlockSizeSamples;
+
   /** Minimum frame size in bytes, or 0 if the value is unknown. */
   public final int minFrameSize;
+
   /** Maximum frame size in bytes, or 0 if the value is unknown. */
   public final int maxFrameSize;
+
   /** Sample rate in Hertz. */
   public final int sampleRate;
+
   /**
    * Lookup key corresponding to the stream sample rate, or {@link #NOT_IN_LOOKUP_TABLE} if it is
    * not in the lookup table.
@@ -86,10 +89,13 @@ public final class FlacStreamMetadata {
    * <p>The sample rate lookup table is described in https://xiph.org/flac/format.html#frame_header.
    */
   public final int sampleRateLookupKey;
+
   /** Number of audio channels. */
   public final int channels;
+
   /** Number of bits per sample. */
   public final int bitsPerSample;
+
   /**
    * Lookup key corresponding to the number of bits per sample of the stream, or {@link
    * #NOT_IN_LOOKUP_TABLE} if it is not in the lookup table.
@@ -100,10 +106,13 @@ public final class FlacStreamMetadata {
    * <p>The sample size lookup table is described in https://xiph.org/flac/format.html#frame_header.
    */
   public final int bitsPerSampleLookupKey;
+
   /** Total number of samples, or 0 if the value is unknown. */
   public final long totalSamples;
+
   /** Seek table, or {@code null} if it is not provided. */
   @Nullable public final SeekTable seekTable;
+
   /** Content metadata, or {@code null} if it is not provided. */
   @Nullable private final Metadata metadata;
 
@@ -248,6 +257,7 @@ public final class FlacStreamMetadata {
         .setMaxInputSize(maxInputSize)
         .setChannelCount(channels)
         .setSampleRate(sampleRate)
+        .setPcmEncoding(Util.getPcmEncoding(bitsPerSample))
         .setInitializationData(Collections.singletonList(streamMarkerAndInfoBlock))
         .setMetadata(metadataWithId3)
         .build();
@@ -352,6 +362,7 @@ public final class FlacStreamMetadata {
     }
   }
 
+  /** Return the frame header representation of bit depth, as defined in RFC 9639 section 9.1.4. */
   private static int getBitsPerSampleLookupKey(int bitsPerSample) {
     switch (bitsPerSample) {
       case 8:
@@ -364,6 +375,8 @@ public final class FlacStreamMetadata {
         return 5;
       case 24:
         return 6;
+      case 32:
+        return 7;
       default:
         return NOT_IN_LOOKUP_TABLE;
     }

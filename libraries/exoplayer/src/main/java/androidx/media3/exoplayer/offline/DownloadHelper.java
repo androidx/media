@@ -16,18 +16,23 @@
 package androidx.media3.exoplayer.offline;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.castNonNull;
+import static androidx.media3.common.util.Util.getFormatSupportString;
+import static java.lang.Math.min;
+import static java.lang.annotation.ElementType.TYPE_USE;
+import static java.lang.annotation.RetentionPolicy.SOURCE;
 
 import android.content.Context;
-import android.net.Uri;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Message;
 import android.util.SparseIntArray;
+import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
-import androidx.media3.common.MimeTypes;
 import androidx.media3.common.StreamKey;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.TrackGroup;
@@ -35,22 +40,28 @@ import androidx.media3.common.TrackSelectionOverride;
 import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.Tracks;
 import androidx.media3.common.util.Assertions;
+import androidx.media3.common.util.Log;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.TransferListener;
+import androidx.media3.datasource.cache.Cache;
+import androidx.media3.datasource.cache.CacheDataSource;
+import androidx.media3.exoplayer.DefaultRendererCapabilitiesList;
 import androidx.media3.exoplayer.ExoPlaybackException;
-import androidx.media3.exoplayer.Renderer;
+import androidx.media3.exoplayer.LoadingInfo;
 import androidx.media3.exoplayer.RendererCapabilities;
+import androidx.media3.exoplayer.RendererCapabilitiesList;
 import androidx.media3.exoplayer.RenderersFactory;
 import androidx.media3.exoplayer.analytics.PlayerId;
-import androidx.media3.exoplayer.audio.AudioRendererEventListener;
 import androidx.media3.exoplayer.drm.DrmSessionManager;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.exoplayer.source.MediaPeriod;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import androidx.media3.exoplayer.source.MediaSource.MediaSourceCaller;
+import androidx.media3.exoplayer.source.ProgressiveMediaSource;
 import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.exoplayer.source.chunk.MediaChunk;
 import androidx.media3.exoplayer.source.chunk.MediaChunkIterator;
@@ -64,13 +75,17 @@ import androidx.media3.exoplayer.trackselection.TrackSelectorResult;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.BandwidthMeter;
 import androidx.media3.exoplayer.upstream.DefaultAllocator;
-import androidx.media3.exoplayer.video.VideoRendererEventListener;
 import androidx.media3.extractor.ExtractorsFactory;
+import androidx.media3.extractor.SeekMap;
+import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
+import java.lang.annotation.Documented;
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import org.checkerframework.checker.nullness.compatqual.NullableType;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
@@ -97,30 +112,170 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 @UnstableApi
 public final class DownloadHelper {
 
-  /**
-   * Default track selection parameters for downloading, but without any {@link Context}
-   * constraints.
-   *
-   * <p>If possible, use {@link #getDefaultTrackSelectorParameters(Context)} instead.
-   *
-   * @see DefaultTrackSelector.Parameters#DEFAULT_WITHOUT_CONTEXT
-   */
-  public static final DefaultTrackSelector.Parameters
-      DEFAULT_TRACK_SELECTOR_PARAMETERS_WITHOUT_CONTEXT =
-          DefaultTrackSelector.Parameters.DEFAULT_WITHOUT_CONTEXT
-              .buildUpon()
-              .setForceHighestSupportedBitrate(true)
-              .setConstrainAudioChannelCountToDeviceCapabilities(false)
-              .build();
+  /** A factory of {@link DownloadHelper}. */
+  public static final class Factory {
+    @Nullable private DataSource.Factory dataSourceFactory;
+    @Nullable private RenderersFactory renderersFactory;
+    private TrackSelectionParameters trackSelectionParameters;
+    @Nullable private DrmSessionManager drmSessionManager;
+    private boolean debugLoggingEnabled;
 
-  /** Returns the default parameters used for track selection for downloading. */
-  public static DefaultTrackSelector.Parameters getDefaultTrackSelectorParameters(Context context) {
-    return DefaultTrackSelector.Parameters.getDefaults(context)
-        .buildUpon()
-        .setForceHighestSupportedBitrate(true)
-        .setConstrainAudioChannelCountToDeviceCapabilities(false)
-        .build();
+    /** Creates a {@link Factory}. */
+    public Factory() {
+      this.trackSelectionParameters = DEFAULT_TRACK_SELECTOR_PARAMETERS;
+    }
+
+    /**
+     * Sets a {@link DataSource.Factory} used to load the manifest for adaptive streams or the
+     * {@link SeekMap} for progressive streams. The default is {@code null}.
+     *
+     * <p>A {@link DataSource.Factory} is required for adaptive streams or when requesting partial
+     * downloads for progressive streams. In the latter case, this has to be a {@link
+     * CacheDataSource.Factory} for the {@link Cache} into which downloads will be written.
+     *
+     * @return This factory, for convenience.
+     */
+    @CanIgnoreReturnValue
+    public Factory setDataSourceFactory(@Nullable DataSource.Factory dataSourceFactory) {
+      this.dataSourceFactory = dataSourceFactory;
+      return this;
+    }
+
+    /**
+     * Sets a {@link RenderersFactory} creating the renderers for which tracks are selected. The
+     * default is {@code null}.
+     *
+     * <p>This is only used for adaptive streams.
+     *
+     * @return This factory, for convenience.
+     */
+    @CanIgnoreReturnValue
+    public Factory setRenderersFactory(@Nullable RenderersFactory renderersFactory) {
+      this.renderersFactory = renderersFactory;
+      return this;
+    }
+
+    /**
+     * Sets a {@link TrackSelectionParameters} for selecting tracks for downloading. The default is
+     * {@link #DEFAULT_TRACK_SELECTOR_PARAMETERS}.
+     *
+     * <p>This is only used for adaptive streams.
+     *
+     * @return This factory, for convenience.
+     */
+    @CanIgnoreReturnValue
+    public Factory setTrackSelectionParameters(TrackSelectionParameters trackSelectionParameters) {
+      this.trackSelectionParameters = trackSelectionParameters;
+      return this;
+    }
+
+    /**
+     * Sets a {@link DrmSessionManager}. Used to help determine which tracks can be selected. The
+     * default is {@code null}.
+     *
+     * @return This factory, for convenience.
+     */
+    @CanIgnoreReturnValue
+    public Factory setDrmSessionManager(@Nullable DrmSessionManager drmSessionManager) {
+      this.drmSessionManager = drmSessionManager;
+      return this;
+    }
+
+    /**
+     * Sets whether to log debug information. The default is {@code false}.
+     *
+     * @return This factory, for convenience.
+     */
+    @CanIgnoreReturnValue
+    public Factory setDebugLoggingEnabled(boolean debugLoggingEnabled) {
+      this.debugLoggingEnabled = debugLoggingEnabled;
+      return this;
+    }
+
+    /**
+     * Creates a new {@link DownloadHelper}.
+     *
+     * @param mediaItem The {@link MediaItem} to download.
+     * @throws IllegalStateException If the corresponding module is missing for DASH, HLS or
+     *     SmoothStreaming media items.
+     * @throws IllegalArgumentException If the {@code dataSourceFactory} is null for adaptive
+     *     streams.
+     */
+    public DownloadHelper create(MediaItem mediaItem) {
+      boolean isProgressive = isProgressive(checkNotNull(mediaItem.localConfiguration));
+      Assertions.checkArgument(isProgressive || dataSourceFactory != null);
+      return new DownloadHelper(
+          mediaItem,
+          isProgressive && dataSourceFactory == null
+              ? null
+              : createMediaSourceInternal(
+                  mediaItem, castNonNull(dataSourceFactory), drmSessionManager),
+          trackSelectionParameters,
+          renderersFactory != null
+              ? new DefaultRendererCapabilitiesList.Factory(renderersFactory)
+                  .createRendererCapabilitiesList()
+              : new UnreleaseableRendererCapabilitiesList(new RendererCapabilities[0]),
+          debugLoggingEnabled);
+    }
+
+    /**
+     * Creates a new {@link DownloadHelper}.
+     *
+     * @param mediaSource A {@link MediaSource} to be prepared.
+     * @throws IllegalStateException If the corresponding module is missing for DASH, HLS or
+     *     SmoothStreaming media items.
+     * @throws IllegalArgumentException If the {@code dataSourceFactory} is null for adaptive
+     *     streams.
+     */
+    public DownloadHelper create(MediaSource mediaSource) {
+      return new DownloadHelper(
+          mediaSource.getMediaItem(),
+          mediaSource,
+          trackSelectionParameters,
+          renderersFactory != null
+              ? new DefaultRendererCapabilitiesList.Factory(renderersFactory)
+                  .createRendererCapabilitiesList()
+              : new UnreleaseableRendererCapabilitiesList(new RendererCapabilities[0]),
+          debugLoggingEnabled);
+    }
   }
+
+  /** Default track selection parameters for downloading. */
+  public static final DefaultTrackSelector.Parameters DEFAULT_TRACK_SELECTOR_PARAMETERS =
+      DefaultTrackSelector.Parameters.DEFAULT
+          .buildUpon()
+          .setForceHighestSupportedBitrate(true)
+          .setConstrainAudioChannelCountToDeviceCapabilities(false)
+          .build();
+
+  /**
+   * @deprecated Use {@link #DEFAULT_TRACK_SELECTOR_PARAMETERS} instead.
+   */
+  @Deprecated
+  public static final DefaultTrackSelector.Parameters
+      DEFAULT_TRACK_SELECTOR_PARAMETERS_WITHOUT_CONTEXT = DEFAULT_TRACK_SELECTOR_PARAMETERS;
+
+  /**
+   * @deprecated Use {@link #DEFAULT_TRACK_SELECTOR_PARAMETERS} instead.
+   */
+  @Deprecated
+  public static DefaultTrackSelector.Parameters getDefaultTrackSelectorParameters(Context context) {
+    return DEFAULT_TRACK_SELECTOR_PARAMETERS;
+  }
+
+  @Documented
+  @Retention(SOURCE)
+  @Target(TYPE_USE)
+  @IntDef({
+    MODE_NOT_PREPARE,
+    MODE_PREPARE_PROGRESSIVE_SOURCE,
+    MODE_PREPARE_NON_PROGRESSIVE_SOURCE_AND_SELECT_TRACKS
+  })
+  private @interface Mode {}
+
+  private static final int MODE_NOT_PREPARE = 0;
+  private static final int MODE_PREPARE_PROGRESSIVE_SOURCE = 1;
+  private static final int MODE_PREPARE_NON_PROGRESSIVE_SOURCE_AND_SELECT_TRACKS = 2;
 
   /** A callback to be notified when the {@link DownloadHelper} is prepared. */
   public interface Callback {
@@ -129,8 +284,9 @@ public final class DownloadHelper {
      * Called when preparation completes.
      *
      * @param helper The reporting {@link DownloadHelper}.
+     * @param tracksInfoAvailable Whether tracks information is available.
      */
-    void onPrepared(DownloadHelper helper);
+    void onPrepared(DownloadHelper helper, boolean tracksInfoAvailable);
 
     /**
      * Called when preparation fails.
@@ -145,285 +301,140 @@ public final class DownloadHelper {
   public static class LiveContentUnsupportedException extends IOException {}
 
   /**
-   * Extracts renderer capabilities for the renderers created by the provided renderers factory.
-   *
-   * @param renderersFactory A {@link RenderersFactory}.
-   * @return The {@link RendererCapabilities} for each renderer created by the {@code
-   *     renderersFactory}.
-   */
-  public static RendererCapabilities[] getRendererCapabilities(RenderersFactory renderersFactory) {
-    Renderer[] renderers =
-        renderersFactory.createRenderers(
-            Util.createHandlerForCurrentOrMainLooper(),
-            new VideoRendererEventListener() {},
-            new AudioRendererEventListener() {},
-            (cues) -> {},
-            (metadata) -> {});
-    RendererCapabilities[] capabilities = new RendererCapabilities[renderers.length];
-    for (int i = 0; i < renderers.length; i++) {
-      capabilities[i] = renderers[i].getCapabilities();
-    }
-    return capabilities;
-  }
-
-  /**
-   * @deprecated Use {@link #forMediaItem(Context, MediaItem)}
+   * @deprecated Use {@link Factory#create(MediaItem)} instead.
    */
   @Deprecated
-  public static DownloadHelper forProgressive(Context context, Uri uri) {
-    return forMediaItem(context, new MediaItem.Builder().setUri(uri).build());
-  }
-
-  /**
-   * @deprecated Use {@link #forMediaItem(Context, MediaItem)}
-   */
-  @Deprecated
-  public static DownloadHelper forProgressive(Context context, Uri uri, @Nullable String cacheKey) {
-    return forMediaItem(
-        context, new MediaItem.Builder().setUri(uri).setCustomCacheKey(cacheKey).build());
-  }
-
-  /**
-   * @deprecated Use {@link #forMediaItem(MediaItem, TrackSelectionParameters, RenderersFactory,
-   *     DataSource.Factory)} instead.
-   */
-  @SuppressWarnings("deprecation")
-  @Deprecated
-  public static DownloadHelper forDash(
-      Context context,
-      Uri uri,
-      DataSource.Factory dataSourceFactory,
-      RenderersFactory renderersFactory) {
-    return forDash(
-        uri,
-        dataSourceFactory,
-        renderersFactory,
-        /* drmSessionManager= */ null,
-        getDefaultTrackSelectorParameters(context));
-  }
-
-  /**
-   * @deprecated Use {@link #forMediaItem(MediaItem, TrackSelectionParameters, RenderersFactory,
-   *     DataSource.Factory, DrmSessionManager)} instead.
-   */
-  @Deprecated
-  public static DownloadHelper forDash(
-      Uri uri,
-      DataSource.Factory dataSourceFactory,
-      RenderersFactory renderersFactory,
-      @Nullable DrmSessionManager drmSessionManager,
-      TrackSelectionParameters trackSelectionParameters) {
-    return forMediaItem(
-        new MediaItem.Builder().setUri(uri).setMimeType(MimeTypes.APPLICATION_MPD).build(),
-        trackSelectionParameters,
-        renderersFactory,
-        dataSourceFactory,
-        drmSessionManager);
-  }
-
-  /**
-   * @deprecated Use {@link #forMediaItem(MediaItem, TrackSelectionParameters, RenderersFactory,
-   *     DataSource.Factory)} instead.
-   */
-  @SuppressWarnings("deprecation")
-  @Deprecated
-  public static DownloadHelper forHls(
-      Context context,
-      Uri uri,
-      DataSource.Factory dataSourceFactory,
-      RenderersFactory renderersFactory) {
-    return forHls(
-        uri,
-        dataSourceFactory,
-        renderersFactory,
-        /* drmSessionManager= */ null,
-        getDefaultTrackSelectorParameters(context));
-  }
-
-  /**
-   * @deprecated Use {@link #forMediaItem(MediaItem, TrackSelectionParameters, RenderersFactory,
-   *     DataSource.Factory, DrmSessionManager)} instead.
-   */
-  @Deprecated
-  public static DownloadHelper forHls(
-      Uri uri,
-      DataSource.Factory dataSourceFactory,
-      RenderersFactory renderersFactory,
-      @Nullable DrmSessionManager drmSessionManager,
-      TrackSelectionParameters trackSelectionParameters) {
-    return forMediaItem(
-        new MediaItem.Builder().setUri(uri).setMimeType(MimeTypes.APPLICATION_M3U8).build(),
-        trackSelectionParameters,
-        renderersFactory,
-        dataSourceFactory,
-        drmSessionManager);
-  }
-
-  /**
-   * @deprecated Use {@link #forMediaItem(MediaItem, TrackSelectionParameters, RenderersFactory,
-   *     DataSource.Factory)} instead.
-   */
-  @SuppressWarnings("deprecation")
-  @Deprecated
-  public static DownloadHelper forSmoothStreaming(
-      Uri uri, DataSource.Factory dataSourceFactory, RenderersFactory renderersFactory) {
-    return forSmoothStreaming(
-        uri,
-        dataSourceFactory,
-        renderersFactory,
-        /* drmSessionManager= */ null,
-        DEFAULT_TRACK_SELECTOR_PARAMETERS_WITHOUT_CONTEXT);
-  }
-
-  /**
-   * @deprecated Use {@link #forMediaItem(MediaItem, TrackSelectionParameters, RenderersFactory,
-   *     DataSource.Factory)} instead.
-   */
-  @SuppressWarnings("deprecation")
-  @Deprecated
-  public static DownloadHelper forSmoothStreaming(
-      Context context,
-      Uri uri,
-      DataSource.Factory dataSourceFactory,
-      RenderersFactory renderersFactory) {
-    return forSmoothStreaming(
-        uri,
-        dataSourceFactory,
-        renderersFactory,
-        /* drmSessionManager= */ null,
-        getDefaultTrackSelectorParameters(context));
-  }
-
-  /**
-   * @deprecated Use {@link #forMediaItem(MediaItem, TrackSelectionParameters, RenderersFactory,
-   *     DataSource.Factory, DrmSessionManager)} instead.
-   */
-  @Deprecated
-  public static DownloadHelper forSmoothStreaming(
-      Uri uri,
-      DataSource.Factory dataSourceFactory,
-      RenderersFactory renderersFactory,
-      @Nullable DrmSessionManager drmSessionManager,
-      TrackSelectionParameters trackSelectionParameters) {
-    return forMediaItem(
-        new MediaItem.Builder().setUri(uri).setMimeType(MimeTypes.APPLICATION_SS).build(),
-        trackSelectionParameters,
-        renderersFactory,
-        dataSourceFactory,
-        drmSessionManager);
-  }
-
-  /**
-   * Creates a {@link DownloadHelper} for the given progressive media item.
-   *
-   * @param context The context.
-   * @param mediaItem A {@link MediaItem}.
-   * @return A {@link DownloadHelper} for progressive streams.
-   * @throws IllegalStateException If the media item is of type DASH, HLS or SmoothStreaming.
-   */
   public static DownloadHelper forMediaItem(Context context, MediaItem mediaItem) {
     Assertions.checkArgument(isProgressive(checkNotNull(mediaItem.localConfiguration)));
-    return forMediaItem(
-        mediaItem,
-        getDefaultTrackSelectorParameters(context),
-        /* renderersFactory= */ null,
-        /* dataSourceFactory= */ null,
-        /* drmSessionManager= */ null);
+    return new DownloadHelper.Factory().create(mediaItem);
   }
 
   /**
-   * Creates a {@link DownloadHelper} for the given media item.
-   *
-   * @param context The context.
-   * @param mediaItem A {@link MediaItem}.
-   * @param renderersFactory A {@link RenderersFactory} creating the renderers for which tracks are
-   *     selected.
-   * @param dataSourceFactory A {@link DataSource.Factory} used to load the manifest for adaptive
-   *     streams. This argument is required for adaptive streams and ignored for progressive
-   *     streams.
-   * @return A {@link DownloadHelper}.
-   * @throws IllegalStateException If the corresponding module is missing for DASH, HLS or
-   *     SmoothStreaming media items.
-   * @throws IllegalArgumentException If the {@code dataSourceFactory} is null for adaptive streams.
+   * @deprecated Use {@link Factory#create(MediaItem)} instead.
    */
+  @Deprecated
+  public static DownloadHelper forMediaItem(
+      Context context, MediaItem mediaItem, DataSource.Factory dataSourceFactory) {
+    return new DownloadHelper.Factory().setDataSourceFactory(dataSourceFactory).create(mediaItem);
+  }
+
+  /**
+   * @deprecated Use {@link Factory#create(MediaItem)} instead.
+   */
+  @Deprecated
+  public static DownloadHelper forMediaItem(
+      Context context,
+      MediaItem mediaItem,
+      DataSource.Factory dataSourceFactory,
+      boolean debugLoggingEnabled) {
+    return new DownloadHelper.Factory()
+        .setDataSourceFactory(dataSourceFactory)
+        .setDebugLoggingEnabled(debugLoggingEnabled)
+        .create(mediaItem);
+  }
+
+  /**
+   * @deprecated Use {@link Factory#create(MediaItem)} instead.
+   */
+  @Deprecated
   public static DownloadHelper forMediaItem(
       Context context,
       MediaItem mediaItem,
       @Nullable RenderersFactory renderersFactory,
       @Nullable DataSource.Factory dataSourceFactory) {
-    return forMediaItem(
-        mediaItem,
-        getDefaultTrackSelectorParameters(context),
-        renderersFactory,
-        dataSourceFactory,
-        /* drmSessionManager= */ null);
+    return new DownloadHelper.Factory()
+        .setDataSourceFactory(dataSourceFactory)
+        .setRenderersFactory(renderersFactory)
+        .create(mediaItem);
   }
 
   /**
-   * Creates a {@link DownloadHelper} for the given media item.
-   *
-   * @param mediaItem A {@link MediaItem}.
-   * @param renderersFactory A {@link RenderersFactory} creating the renderers for which tracks are
-   *     selected.
-   * @param trackSelectionParameters {@link TrackSelectionParameters} for selecting tracks for
-   *     downloading.
-   * @param dataSourceFactory A {@link DataSource.Factory} used to load the manifest for adaptive
-   *     streams. This argument is required for adaptive streams and ignored for progressive
-   *     streams.
-   * @return A {@link DownloadHelper}.
-   * @throws IllegalStateException If the corresponding module is missing for DASH, HLS or
-   *     SmoothStreaming media items.
-   * @throws IllegalArgumentException If the {@code dataSourceFactory} is null for adaptive streams.
+   * @deprecated Use {@link Factory#create(MediaItem)} instead.
    */
+  @Deprecated
+  public static DownloadHelper forMediaItem(
+      Context context,
+      MediaItem mediaItem,
+      @Nullable RenderersFactory renderersFactory,
+      @Nullable DataSource.Factory dataSourceFactory,
+      boolean debugLoggingEnabled) {
+    return new DownloadHelper.Factory()
+        .setDataSourceFactory(dataSourceFactory)
+        .setRenderersFactory(renderersFactory)
+        .setDebugLoggingEnabled(debugLoggingEnabled)
+        .create(mediaItem);
+  }
+
+  /**
+   * @deprecated Use {@link Factory#create(MediaItem)} instead.
+   */
+  @Deprecated
   public static DownloadHelper forMediaItem(
       MediaItem mediaItem,
       TrackSelectionParameters trackSelectionParameters,
       @Nullable RenderersFactory renderersFactory,
       @Nullable DataSource.Factory dataSourceFactory) {
-    return forMediaItem(
-        mediaItem,
-        trackSelectionParameters,
-        renderersFactory,
-        dataSourceFactory,
-        /* drmSessionManager= */ null);
+    return new DownloadHelper.Factory()
+        .setDataSourceFactory(dataSourceFactory)
+        .setTrackSelectionParameters(trackSelectionParameters)
+        .setRenderersFactory(renderersFactory)
+        .create(mediaItem);
   }
 
   /**
-   * Creates a {@link DownloadHelper} for the given media item.
-   *
-   * @param mediaItem A {@link MediaItem}.
-   * @param renderersFactory A {@link RenderersFactory} creating the renderers for which tracks are
-   *     selected.
-   * @param trackSelectionParameters {@link TrackSelectionParameters} for selecting tracks for
-   *     downloading.
-   * @param dataSourceFactory A {@link DataSource.Factory} used to load the manifest for adaptive
-   *     streams. This argument is required for adaptive streams and ignored for progressive
-   *     streams.
-   * @param drmSessionManager An optional {@link DrmSessionManager}. Used to help determine which
-   *     tracks can be selected.
-   * @return A {@link DownloadHelper}.
-   * @throws IllegalStateException If the corresponding module is missing for DASH, HLS or
-   *     SmoothStreaming media items.
-   * @throws IllegalArgumentException If the {@code dataSourceFactory} is null for adaptive streams.
+   * @deprecated Use {@link Factory#create(MediaItem)} instead.
    */
+  @Deprecated
+  public static DownloadHelper forMediaItem(
+      MediaItem mediaItem,
+      TrackSelectionParameters trackSelectionParameters,
+      @Nullable RenderersFactory renderersFactory,
+      @Nullable DataSource.Factory dataSourceFactory,
+      boolean debugLoggingEnabled) {
+    return new DownloadHelper.Factory()
+        .setDataSourceFactory(dataSourceFactory)
+        .setTrackSelectionParameters(trackSelectionParameters)
+        .setRenderersFactory(renderersFactory)
+        .setDebugLoggingEnabled(debugLoggingEnabled)
+        .create(mediaItem);
+  }
+
+  /**
+   * @deprecated Use {@link Factory#create(MediaItem)} instead.
+   */
+  @Deprecated
   public static DownloadHelper forMediaItem(
       MediaItem mediaItem,
       TrackSelectionParameters trackSelectionParameters,
       @Nullable RenderersFactory renderersFactory,
       @Nullable DataSource.Factory dataSourceFactory,
       @Nullable DrmSessionManager drmSessionManager) {
-    boolean isProgressive = isProgressive(checkNotNull(mediaItem.localConfiguration));
-    Assertions.checkArgument(isProgressive || dataSourceFactory != null);
-    return new DownloadHelper(
-        mediaItem,
-        isProgressive
-            ? null
-            : createMediaSourceInternal(
-                mediaItem, castNonNull(dataSourceFactory), drmSessionManager),
-        trackSelectionParameters,
-        renderersFactory != null
-            ? getRendererCapabilities(renderersFactory)
-            : new RendererCapabilities[0]);
+    return new DownloadHelper.Factory()
+        .setDataSourceFactory(dataSourceFactory)
+        .setTrackSelectionParameters(trackSelectionParameters)
+        .setRenderersFactory(renderersFactory)
+        .setDrmSessionManager(drmSessionManager)
+        .create(mediaItem);
+  }
+
+  /**
+   * @deprecated Use {@link Factory#create(MediaItem)} instead.
+   */
+  @Deprecated
+  public static DownloadHelper forMediaItem(
+      MediaItem mediaItem,
+      TrackSelectionParameters trackSelectionParameters,
+      @Nullable RenderersFactory renderersFactory,
+      @Nullable DataSource.Factory dataSourceFactory,
+      @Nullable DrmSessionManager drmSessionManager,
+      boolean debugLoggingEnabled) {
+    return new DownloadHelper.Factory()
+        .setDataSourceFactory(dataSourceFactory)
+        .setTrackSelectionParameters(trackSelectionParameters)
+        .setRenderersFactory(renderersFactory)
+        .setDrmSessionManager(drmSessionManager)
+        .setDebugLoggingEnabled(debugLoggingEnabled)
+        .create(mediaItem);
   }
 
   /**
@@ -453,15 +464,20 @@ public final class DownloadHelper {
         downloadRequest.toMediaItem(), dataSourceFactory, drmSessionManager);
   }
 
+  private static final String TAG = "DownloadHelper";
+
   private final MediaItem.LocalConfiguration localConfiguration;
   @Nullable private final MediaSource mediaSource;
+  private final @Mode int mode;
   private final DefaultTrackSelector trackSelector;
-  private final RendererCapabilities[] rendererCapabilities;
+  private final RendererCapabilitiesList rendererCapabilities;
+  private final boolean debugLoggingEnabled;
   private final SparseIntArray scratchSet;
   private final Handler callbackHandler;
   private final Timeline.Window window;
 
   private boolean isPreparedWithMedia;
+  private boolean areTracksSelected;
   private @MonotonicNonNull Callback callback;
   private @MonotonicNonNull MediaPreparer mediaPreparer;
   private TrackGroupArray @MonotonicNonNull [] trackGroupArrays;
@@ -478,19 +494,52 @@ public final class DownloadHelper {
    *     selection needs to be made.
    * @param trackSelectionParameters {@link TrackSelectionParameters} for selecting tracks for
    *     downloading.
-   * @param rendererCapabilities The {@link RendererCapabilities} of the renderers for which tracks
-   *     are selected.
+   * @param rendererCapabilities The {@link RendererCapabilitiesList} of the renderers for which
+   *     tracks are selected.
    */
   public DownloadHelper(
       MediaItem mediaItem,
       @Nullable MediaSource mediaSource,
       TrackSelectionParameters trackSelectionParameters,
-      RendererCapabilities[] rendererCapabilities) {
+      RendererCapabilitiesList rendererCapabilities) {
+    this(
+        mediaItem,
+        mediaSource,
+        trackSelectionParameters,
+        rendererCapabilities,
+        /* debugLoggingEnabled= */ false);
+  }
+
+  /**
+   * Creates download helper.
+   *
+   * @param mediaItem The media item.
+   * @param mediaSource A {@link MediaSource} to be prepared, or null if no preparation needs to be
+   *     done.
+   * @param trackSelectionParameters {@link TrackSelectionParameters} for selecting tracks for
+   *     downloading.
+   * @param rendererCapabilities The {@link RendererCapabilitiesList} of the renderers for which
+   *     tracks are selected.
+   * @param debugLoggingEnabled Whether to log debug information.
+   */
+  public DownloadHelper(
+      MediaItem mediaItem,
+      @Nullable MediaSource mediaSource,
+      TrackSelectionParameters trackSelectionParameters,
+      RendererCapabilitiesList rendererCapabilities,
+      boolean debugLoggingEnabled) {
     this.localConfiguration = checkNotNull(mediaItem.localConfiguration);
     this.mediaSource = mediaSource;
+    this.mode =
+        (mediaSource == null)
+            ? MODE_NOT_PREPARE
+            : (mediaSource instanceof ProgressiveMediaSource)
+                ? MODE_PREPARE_PROGRESSIVE_SOURCE
+                : MODE_PREPARE_NON_PROGRESSIVE_SOURCE_AND_SELECT_TRACKS;
     this.trackSelector =
         new DefaultTrackSelector(trackSelectionParameters, new DownloadTrackSelection.Factory());
     this.rendererCapabilities = rendererCapabilities;
+    this.debugLoggingEnabled = debugLoggingEnabled;
     this.scratchSet = new SparseIntArray();
     trackSelector.init(/* listener= */ () -> {}, new FakeBandwidthMeter());
     callbackHandler = Util.createHandlerForCurrentOrMainLooper();
@@ -506,10 +555,10 @@ public final class DownloadHelper {
   public void prepare(Callback callback) {
     Assertions.checkState(this.callback == null);
     this.callback = callback;
-    if (mediaSource != null) {
-      mediaPreparer = new MediaPreparer(mediaSource, /* downloadHelper= */ this);
+    if (mode != MODE_NOT_PREPARE) {
+      mediaPreparer = new MediaPreparer(checkNotNull(mediaSource), /* downloadHelper= */ this);
     } else {
-      callbackHandler.post(() -> callback.onPrepared(this));
+      callbackHandler.post(() -> callback.onPrepared(this, /* tracksInfoAvailable= */ false));
     }
   }
 
@@ -519,15 +568,16 @@ public final class DownloadHelper {
       mediaPreparer.release();
     }
     trackSelector.release();
+    rendererCapabilities.release();
   }
 
   /**
-   * Returns the manifest, or null if no manifest is loaded. Must not be called until after
-   * preparation completes.
+   * Returns the manifest, or null if no manifest is loaded. Must not be called until {@link
+   * Callback#onPrepared(DownloadHelper, boolean)} is triggered.
    */
   @Nullable
   public Object getManifest() {
-    if (mediaSource == null) {
+    if (mode == MODE_NOT_PREPARE) {
       return null;
     }
     assertPreparedWithMedia();
@@ -537,34 +587,36 @@ public final class DownloadHelper {
   }
 
   /**
-   * Returns the number of periods for which media is available. Must not be called until after
-   * preparation completes.
+   * Returns the number of periods for which media is available. Must not be called until {@link
+   * Callback#onPrepared(DownloadHelper, boolean)} is triggered.
    */
   public int getPeriodCount() {
-    if (mediaSource == null) {
+    if (mode == MODE_NOT_PREPARE) {
       return 0;
     }
     assertPreparedWithMedia();
-    return trackGroupArrays.length;
+    return mediaPreparer.mediaPeriods.length;
   }
 
   /**
-   * Returns {@link Tracks} for the given period. Must not be called until after preparation
-   * completes.
+   * Returns {@link Tracks} for the given period. Must not be called until {@link
+   * Callback#onPrepared(DownloadHelper, boolean)} is triggered and the passed {@code
+   * tracksInfoAvailable} is {@code true}.
    *
    * @param periodIndex The period index.
    * @return The {@link Tracks} for the period. May be {@link Tracks#EMPTY} for single stream
    *     content.
    */
   public Tracks getTracks(int periodIndex) {
-    assertPreparedWithMedia();
+    assertPreparedWithNonProgressiveSourceAndTracksSelected();
     return TrackSelectionUtil.buildTracks(
         mappedTrackInfos[periodIndex], immutableTrackSelectionsByPeriodAndRenderer[periodIndex]);
   }
 
   /**
-   * Returns the track groups for the given period. Must not be called until after preparation
-   * completes.
+   * Returns the track groups for the given period. Must not be called until {@link
+   * Callback#onPrepared(DownloadHelper, boolean)} is triggered and the passed {@code
+   * tracksInfoAvailable} is {@code true}.
    *
    * <p>Use {@link #getMappedTrackInfo(int)} to get the track groups mapped to renderers.
    *
@@ -573,51 +625,55 @@ public final class DownloadHelper {
    *     content.
    */
   public TrackGroupArray getTrackGroups(int periodIndex) {
-    assertPreparedWithMedia();
+    assertPreparedWithNonProgressiveSourceAndTracksSelected();
     return trackGroupArrays[periodIndex];
   }
 
   /**
-   * Returns the mapped track info for the given period. Must not be called until after preparation
-   * completes.
+   * Returns the mapped track info for the given period. Must not be called until {@link
+   * Callback#onPrepared(DownloadHelper, boolean)} is triggered and the passed {@code
+   * tracksInfoAvailable} is {@code true}.
    *
    * @param periodIndex The period index.
    * @return The {@link MappedTrackInfo} for the period.
    */
   public MappedTrackInfo getMappedTrackInfo(int periodIndex) {
-    assertPreparedWithMedia();
+    assertPreparedWithNonProgressiveSourceAndTracksSelected();
     return mappedTrackInfos[periodIndex];
   }
 
   /**
    * Returns all {@link ExoTrackSelection track selections} for a period and renderer. Must not be
-   * called until after preparation completes.
+   * called until {@link Callback#onPrepared(DownloadHelper, boolean)} is triggered and the passed
+   * {@code tracksInfoAvailable} is {@code true}.
    *
    * @param periodIndex The period index.
    * @param rendererIndex The renderer index.
    * @return A list of selected {@link ExoTrackSelection track selections}.
    */
   public List<ExoTrackSelection> getTrackSelections(int periodIndex, int rendererIndex) {
-    assertPreparedWithMedia();
+    assertPreparedWithNonProgressiveSourceAndTracksSelected();
     return immutableTrackSelectionsByPeriodAndRenderer[periodIndex][rendererIndex];
   }
 
   /**
-   * Clears the selection of tracks for a period. Must not be called until after preparation
-   * completes.
+   * Clears the selection of tracks for a period. Must not be called until {@link
+   * Callback#onPrepared(DownloadHelper, boolean)} is triggered and the passed {@code
+   * tracksInfoAvailable} is {@code true}.
    *
    * @param periodIndex The period index for which track selections are cleared.
    */
   public void clearTrackSelections(int periodIndex) {
-    assertPreparedWithMedia();
-    for (int i = 0; i < rendererCapabilities.length; i++) {
+    assertPreparedWithNonProgressiveSourceAndTracksSelected();
+    for (int i = 0; i < rendererCapabilities.size(); i++) {
       trackSelectionsByPeriodAndRenderer[periodIndex][i].clear();
     }
   }
 
   /**
-   * Replaces a selection of tracks to be downloaded. Must not be called until after preparation
-   * completes.
+   * Replaces a selection of tracks to be downloaded. Must not be called until {@link
+   * Callback#onPrepared(DownloadHelper, boolean)} is triggered and the passed {@code
+   * tracksInfoAvailable} is {@code true}.
    *
    * @param periodIndex The period index for which the track selection is replaced.
    * @param trackSelectionParameters The {@link TrackSelectionParameters} to obtain the new
@@ -626,7 +682,7 @@ public final class DownloadHelper {
   public void replaceTrackSelections(
       int periodIndex, TrackSelectionParameters trackSelectionParameters) {
     try {
-      assertPreparedWithMedia();
+      assertPreparedWithNonProgressiveSourceAndTracksSelected();
       clearTrackSelections(periodIndex);
       addTrackSelectionInternal(periodIndex, trackSelectionParameters);
     } catch (ExoPlaybackException e) {
@@ -635,8 +691,9 @@ public final class DownloadHelper {
   }
 
   /**
-   * Adds a selection of tracks to be downloaded. Must not be called until after preparation
-   * completes.
+   * Adds a selection of tracks to be downloaded. Must not be called until {@link
+   * Callback#onPrepared(DownloadHelper, boolean)} is triggered and the passed {@code
+   * tracksInfoAvailable} is {@code true}.
    *
    * @param periodIndex The period index this track selection is added for.
    * @param trackSelectionParameters The {@link TrackSelectionParameters} to obtain the new
@@ -645,7 +702,7 @@ public final class DownloadHelper {
   public void addTrackSelection(
       int periodIndex, TrackSelectionParameters trackSelectionParameters) {
     try {
-      assertPreparedWithMedia();
+      assertPreparedWithNonProgressiveSourceAndTracksSelected();
       addTrackSelectionInternal(periodIndex, trackSelectionParameters);
     } catch (ExoPlaybackException e) {
       throw new IllegalStateException(e);
@@ -655,21 +712,22 @@ public final class DownloadHelper {
   /**
    * Convenience method to add selections of tracks for all specified audio languages. If an audio
    * track in one of the specified languages is not available, the default fallback audio track is
-   * used instead. Must not be called until after preparation completes.
+   * used instead. Must not be called until {@link Callback#onPrepared(DownloadHelper, boolean)} is
+   * triggered and the passed {@code tracksInfoAvailable} is {@code true}.
    *
    * @param languages A list of audio languages for which tracks should be added to the download
    *     selection, as IETF BCP 47 conformant tags.
    */
   public void addAudioLanguagesToSelection(String... languages) {
     try {
-      assertPreparedWithMedia();
+      assertPreparedWithNonProgressiveSourceAndTracksSelected();
 
       TrackSelectionParameters.Builder parametersBuilder =
-          DEFAULT_TRACK_SELECTOR_PARAMETERS_WITHOUT_CONTEXT.buildUpon();
+          DEFAULT_TRACK_SELECTOR_PARAMETERS.buildUpon();
       // Prefer highest supported bitrate for downloads.
       parametersBuilder.setForceHighestSupportedBitrate(true);
       // Disable all non-audio track types supported by the renderers.
-      for (RendererCapabilities capabilities : rendererCapabilities) {
+      for (RendererCapabilities capabilities : rendererCapabilities.getRendererCapabilities()) {
         @C.TrackType int trackType = capabilities.getTrackType();
         parametersBuilder.setTrackTypeDisabled(
             trackType, /* disabled= */ trackType != C.TRACK_TYPE_AUDIO);
@@ -691,7 +749,8 @@ public final class DownloadHelper {
 
   /**
    * Convenience method to add selections of tracks for all specified text languages. Must not be
-   * called until after preparation completes.
+   * called until {@link Callback#onPrepared(DownloadHelper, boolean)} is triggered and the passed
+   * {@code tracksInfoAvailable} is {@code true}.
    *
    * @param selectUndeterminedTextLanguage Whether a text track with undetermined language should be
    *     selected for downloading if no track with one of the specified {@code languages} is
@@ -702,15 +761,15 @@ public final class DownloadHelper {
   public void addTextLanguagesToSelection(
       boolean selectUndeterminedTextLanguage, String... languages) {
     try {
-      assertPreparedWithMedia();
+      assertPreparedWithNonProgressiveSourceAndTracksSelected();
 
       TrackSelectionParameters.Builder parametersBuilder =
-          DEFAULT_TRACK_SELECTOR_PARAMETERS_WITHOUT_CONTEXT.buildUpon();
+          DEFAULT_TRACK_SELECTOR_PARAMETERS.buildUpon();
       parametersBuilder.setSelectUndeterminedTextLanguage(selectUndeterminedTextLanguage);
       // Prefer highest supported bitrate for downloads.
       parametersBuilder.setForceHighestSupportedBitrate(true);
       // Disable all non-text track types supported by the renderers.
-      for (RendererCapabilities capabilities : rendererCapabilities) {
+      for (RendererCapabilities capabilities : rendererCapabilities.getRendererCapabilities()) {
         @C.TrackType int trackType = capabilities.getTrackType();
         parametersBuilder.setTrackTypeDisabled(
             trackType, /* disabled= */ trackType != C.TRACK_TYPE_TEXT);
@@ -732,7 +791,8 @@ public final class DownloadHelper {
 
   /**
    * Convenience method to add a selection of tracks to be downloaded for a single renderer. Must
-   * not be called until after preparation completes.
+   * not be called until {@link Callback#onPrepared(DownloadHelper, boolean)} is triggered and the
+   * passed {@code tracksInfoAvailable} is {@code true}.
    *
    * @param periodIndex The period index the track selection is added for.
    * @param rendererIndex The renderer index the track selection is added for.
@@ -747,7 +807,7 @@ public final class DownloadHelper {
       DefaultTrackSelector.Parameters trackSelectorParameters,
       List<SelectionOverride> overrides) {
     try {
-      assertPreparedWithMedia();
+      assertPreparedWithNonProgressiveSourceAndTracksSelected();
       DefaultTrackSelector.Parameters.Builder builder = trackSelectorParameters.buildUpon();
       for (int i = 0; i < mappedTrackInfos[periodIndex].getRendererCount(); i++) {
         builder.setRendererDisabled(/* rendererIndex= */ i, /* disabled= */ i != rendererIndex);
@@ -772,10 +832,29 @@ public final class DownloadHelper {
    * after preparation completes. The uri of the {@link DownloadRequest} will be used as content id.
    *
    * @param data Application provided data to store in {@link DownloadRequest#data}.
-   * @return The built {@link DownloadRequest}.
    */
   public DownloadRequest getDownloadRequest(@Nullable byte[] data) {
     return getDownloadRequest(localConfiguration.uri.toString(), data);
+  }
+
+  /**
+   * Builds a {@link DownloadRequest} for downloading the selected tracks and time range. Must not
+   * be called until preparation completes.
+   *
+   * <p>This method is only supported for progressive streams.
+   *
+   * @param data Application provided data to store in {@link DownloadRequest#data}.
+   * @param startPositionMs The start position (in milliseconds) of the media that download should
+   *     cover from, or {@link C#TIME_UNSET} if the download should cover from the default start
+   *     position.
+   * @param durationMs The end position (in milliseconds) of the media that download should cover
+   *     to, or {@link C#TIME_UNSET} if the download should cover to the end of the media. If the
+   *     {@code endPositionMs} is larger than the duration of the media, then the download will
+   *     cover to the end of the media.
+   */
+  public DownloadRequest getDownloadRequest(
+      @Nullable byte[] data, long startPositionMs, long durationMs) {
+    return getDownloadRequest(localConfiguration.uri.toString(), data, startPositionMs, durationMs);
   }
 
   /**
@@ -784,9 +863,36 @@ public final class DownloadHelper {
    *
    * @param id The unique content id.
    * @param data Application provided data to store in {@link DownloadRequest#data}.
-   * @return The built {@link DownloadRequest}.
    */
   public DownloadRequest getDownloadRequest(String id, @Nullable byte[] data) {
+    return getDownloadRequestBuilder(id, data).build();
+  }
+
+  /**
+   * Builds a {@link DownloadRequest} for downloading the selected tracks and time range. Must not
+   * be called until preparation completes.
+   *
+   * <p>This method is only supported for progressive streams.
+   *
+   * @param id The unique content id.
+   * @param data Application provided data to store in {@link DownloadRequest#data}.
+   * @param startPositionMs The start position (in milliseconds) of the media that download should
+   *     cover from, or {@link C#TIME_UNSET} if the download should cover from the default start
+   *     position.
+   * @param durationMs The duration (in milliseconds) of the media that download should cover, or
+   *     {@link C#TIME_UNSET} if the download should cover to the end of the media. If the end
+   *     position resolved from {@code startPositionMs} and {@code durationMs} is beyond the
+   *     duration of the media, then the download will just cover to the end of the media.
+   */
+  public DownloadRequest getDownloadRequest(
+      String id, @Nullable byte[] data, long startPositionMs, long durationMs) {
+    DownloadRequest.Builder builder = getDownloadRequestBuilder(id, data);
+    assertPreparedWithMedia();
+    populateDownloadRequestBuilderWithDownloadRange(builder, startPositionMs, durationMs);
+    return builder.build();
+  }
+
+  private DownloadRequest.Builder getDownloadRequestBuilder(String id, @Nullable byte[] data) {
     DownloadRequest.Builder requestBuilder =
         new DownloadRequest.Builder(id, localConfiguration.uri)
             .setMimeType(localConfiguration.mimeType)
@@ -796,22 +902,103 @@ public final class DownloadHelper {
                     : null)
             .setCustomCacheKey(localConfiguration.customCacheKey)
             .setData(data);
-    if (mediaSource == null) {
-      return requestBuilder.build();
-    }
-    assertPreparedWithMedia();
-    List<StreamKey> streamKeys = new ArrayList<>();
-    List<ExoTrackSelection> allSelections = new ArrayList<>();
-    int periodCount = trackSelectionsByPeriodAndRenderer.length;
-    for (int periodIndex = 0; periodIndex < periodCount; periodIndex++) {
-      allSelections.clear();
-      int rendererCount = trackSelectionsByPeriodAndRenderer[periodIndex].length;
-      for (int rendererIndex = 0; rendererIndex < rendererCount; rendererIndex++) {
-        allSelections.addAll(trackSelectionsByPeriodAndRenderer[periodIndex][rendererIndex]);
+    if (mode == MODE_PREPARE_NON_PROGRESSIVE_SOURCE_AND_SELECT_TRACKS) {
+      assertPreparedWithNonProgressiveSourceAndTracksSelected();
+      List<StreamKey> streamKeys = new ArrayList<>();
+      List<ExoTrackSelection> allSelections = new ArrayList<>();
+      int periodCount = trackSelectionsByPeriodAndRenderer.length;
+      for (int periodIndex = 0; periodIndex < periodCount; periodIndex++) {
+        allSelections.clear();
+        int rendererCount = trackSelectionsByPeriodAndRenderer[periodIndex].length;
+        for (int rendererIndex = 0; rendererIndex < rendererCount; rendererIndex++) {
+          allSelections.addAll(trackSelectionsByPeriodAndRenderer[periodIndex][rendererIndex]);
+        }
+        streamKeys.addAll(mediaPreparer.mediaPeriods[periodIndex].getStreamKeys(allSelections));
       }
-      streamKeys.addAll(mediaPreparer.mediaPeriods[periodIndex].getStreamKeys(allSelections));
+      requestBuilder.setStreamKeys(streamKeys);
     }
-    return requestBuilder.setStreamKeys(streamKeys).build();
+    return requestBuilder;
+  }
+
+  private void populateDownloadRequestBuilderWithDownloadRange(
+      DownloadRequest.Builder requestBuilder, long startPositionMs, long durationMs) {
+    switch (mode) {
+      case MODE_PREPARE_PROGRESSIVE_SOURCE:
+        populateDownloadRequestBuilderWithByteRange(requestBuilder, startPositionMs, durationMs);
+        break;
+      case MODE_PREPARE_NON_PROGRESSIVE_SOURCE_AND_SELECT_TRACKS:
+        populateDownloadRequestBuilderWithTimeRange(requestBuilder, startPositionMs, durationMs);
+        break;
+      default:
+        break;
+    }
+  }
+
+  private void populateDownloadRequestBuilderWithByteRange(
+      DownloadRequest.Builder requestBuilder, long startPositionMs, long durationMs) {
+    assertPreparedWithProgressiveSource();
+    Timeline timeline = mediaPreparer.timeline;
+    Timeline.Window window = new Timeline.Window();
+    Timeline.Period period = new Timeline.Period();
+    long periodStartPositionUs =
+        timeline.getPeriodPositionUs(
+                window,
+                period,
+                /* windowIndex= */ 0,
+                /* windowPositionUs= */ Util.msToUs(startPositionMs))
+            .second;
+
+    long periodEndPositionUs = C.TIME_UNSET;
+    if (durationMs != C.TIME_UNSET) {
+      periodEndPositionUs = periodStartPositionUs + Util.msToUs(durationMs);
+      if (period.durationUs != C.TIME_UNSET) {
+        periodEndPositionUs = min(periodEndPositionUs, period.durationUs - 1);
+      }
+    }
+
+    // SeekMap should be available for prepared progressive media.
+    SeekMap seekMap = mediaPreparer.seekMap;
+    if (seekMap.isSeekable()) {
+      long byteRangeStartPositionOffset =
+          seekMap.getSeekPoints(periodStartPositionUs).first.position;
+      long byteRangeLength = C.LENGTH_UNSET;
+      if (periodEndPositionUs != C.TIME_UNSET) {
+        long byteRangeEndPositionOffset =
+            seekMap.getSeekPoints(periodEndPositionUs).second.position;
+        // When the start and end positions are after the last seek point, they will both have only
+        // that one mapped seek point. Then we should download from that seek point to the end of
+        // the media, otherwise nothing will be downloaded as the resolved length is 0.
+        boolean areStartAndEndPositionsAfterTheLastSeekPoint =
+            periodStartPositionUs != periodEndPositionUs
+                && byteRangeStartPositionOffset == byteRangeEndPositionOffset;
+        byteRangeLength =
+            !areStartAndEndPositionsAfterTheLastSeekPoint
+                ? byteRangeEndPositionOffset - byteRangeStartPositionOffset
+                : C.LENGTH_UNSET;
+      }
+      requestBuilder.setByteRange(byteRangeStartPositionOffset, byteRangeLength);
+    } else {
+      Log.w(TAG, "Cannot set download byte range for progressive stream that is unseekable");
+    }
+  }
+
+  private void populateDownloadRequestBuilderWithTimeRange(
+      DownloadRequest.Builder requestBuilder, long startPositionMs, long durationMs) {
+    assertPreparedWithNonProgressiveSourceAndTracksSelected();
+    Timeline timeline = mediaPreparer.timeline;
+    Timeline.Window window = timeline.getWindow(0, new Timeline.Window());
+
+    long startPositionUs =
+        startPositionMs == C.TIME_UNSET
+            ? window.getDefaultPositionUs()
+            : Util.msToUs(startPositionMs);
+    long windowDurationUs = window.getDurationUs();
+    long durationUs = durationMs == C.TIME_UNSET ? windowDurationUs : Util.msToUs(durationMs);
+    if (windowDurationUs != C.TIME_UNSET) {
+      startPositionUs = min(startPositionUs, windowDurationUs);
+      durationUs = min(durationUs, windowDurationUs - startPositionUs);
+    }
+    requestBuilder.setTimeRange(startPositionUs, durationUs);
   }
 
   @RequiresNonNull({
@@ -841,29 +1028,39 @@ public final class DownloadHelper {
     checkNotNull(mediaPreparer);
     checkNotNull(mediaPreparer.mediaPeriods);
     checkNotNull(mediaPreparer.timeline);
-    int periodCount = mediaPreparer.mediaPeriods.length;
-    int rendererCount = rendererCapabilities.length;
-    trackSelectionsByPeriodAndRenderer =
-        (List<ExoTrackSelection>[][]) new List<?>[periodCount][rendererCount];
-    immutableTrackSelectionsByPeriodAndRenderer =
-        (List<ExoTrackSelection>[][]) new List<?>[periodCount][rendererCount];
-    for (int i = 0; i < periodCount; i++) {
-      for (int j = 0; j < rendererCount; j++) {
-        trackSelectionsByPeriodAndRenderer[i][j] = new ArrayList<>();
-        immutableTrackSelectionsByPeriodAndRenderer[i][j] =
-            Collections.unmodifiableList(trackSelectionsByPeriodAndRenderer[i][j]);
+    boolean tracksInfoAvailable;
+    if (mode == MODE_PREPARE_NON_PROGRESSIVE_SOURCE_AND_SELECT_TRACKS) {
+      int periodCount = mediaPreparer.mediaPeriods.length;
+      int rendererCount = rendererCapabilities.size();
+      trackSelectionsByPeriodAndRenderer =
+          (List<ExoTrackSelection>[][]) new List<?>[periodCount][rendererCount];
+      immutableTrackSelectionsByPeriodAndRenderer =
+          (List<ExoTrackSelection>[][]) new List<?>[periodCount][rendererCount];
+      for (int i = 0; i < periodCount; i++) {
+        for (int j = 0; j < rendererCount; j++) {
+          trackSelectionsByPeriodAndRenderer[i][j] = new ArrayList<>();
+          immutableTrackSelectionsByPeriodAndRenderer[i][j] =
+              Collections.unmodifiableList(trackSelectionsByPeriodAndRenderer[i][j]);
+        }
       }
+      trackGroupArrays = new TrackGroupArray[periodCount];
+      mappedTrackInfos = new MappedTrackInfo[periodCount];
+      for (int i = 0; i < periodCount; i++) {
+        trackGroupArrays[i] = mediaPreparer.mediaPeriods[i].getTrackGroups();
+        TrackSelectorResult trackSelectorResult = runTrackSelection(/* periodIndex= */ i);
+        trackSelector.onSelectionActivated(trackSelectorResult.info);
+        mappedTrackInfos[i] = checkNotNull(trackSelector.getCurrentMappedTrackInfo());
+      }
+      tracksInfoAvailable = true;
+      setPreparedWithNonProgressiveSourceAndTracksSelected();
+    } else {
+      checkState(mode == MODE_PREPARE_PROGRESSIVE_SOURCE);
+      checkNotNull(mediaPreparer.seekMap);
+      tracksInfoAvailable = false;
+      setPreparedWithProgressiveSource();
     }
-    trackGroupArrays = new TrackGroupArray[periodCount];
-    mappedTrackInfos = new MappedTrackInfo[periodCount];
-    for (int i = 0; i < periodCount; i++) {
-      trackGroupArrays[i] = mediaPreparer.mediaPeriods[i].getTrackGroups();
-      TrackSelectorResult trackSelectorResult = runTrackSelection(/* periodIndex= */ i);
-      trackSelector.onSelectionActivated(trackSelectorResult.info);
-      mappedTrackInfos[i] = checkNotNull(trackSelector.getCurrentMappedTrackInfo());
-    }
-    setPreparedWithMedia();
-    checkNotNull(callbackHandler).post(() -> checkNotNull(callback).onPrepared(this));
+    checkNotNull(callbackHandler)
+        .post(() -> checkNotNull(callback).onPrepared(this, tracksInfoAvailable));
   }
 
   private void onMediaPreparationFailed(IOException error) {
@@ -879,8 +1076,26 @@ public final class DownloadHelper {
     "mediaPreparer.timeline",
     "mediaPreparer.mediaPeriods"
   })
-  private void setPreparedWithMedia() {
+  private void setPreparedWithNonProgressiveSourceAndTracksSelected() {
     isPreparedWithMedia = true;
+    areTracksSelected = true;
+  }
+
+  @RequiresNonNull({
+    "mediaPreparer",
+    "mediaPreparer.timeline",
+    "mediaPreparer.seekMap",
+    "mediaPreparer.mediaPeriods"
+  })
+  private void setPreparedWithProgressiveSource() {
+    isPreparedWithMedia = true;
+  }
+
+  @EnsuresNonNull({"mediaPreparer", "mediaPreparer.timeline", "mediaPreparer.mediaPeriods"})
+  @SuppressWarnings("nullness:contracts.postcondition")
+  private void assertPreparedWithMedia() {
+    Assertions.checkState(mode != MODE_NOT_PREPARE);
+    Assertions.checkState(isPreparedWithMedia);
   }
 
   @EnsuresNonNull({
@@ -893,7 +1108,21 @@ public final class DownloadHelper {
     "mediaPreparer.mediaPeriods"
   })
   @SuppressWarnings("nullness:contracts.postcondition")
-  private void assertPreparedWithMedia() {
+  private void assertPreparedWithNonProgressiveSourceAndTracksSelected() {
+    Assertions.checkState(mode == MODE_PREPARE_NON_PROGRESSIVE_SOURCE_AND_SELECT_TRACKS);
+    Assertions.checkState(isPreparedWithMedia);
+    Assertions.checkState(areTracksSelected);
+  }
+
+  @EnsuresNonNull({
+    "mediaPreparer",
+    "mediaPreparer.timeline",
+    "mediaPreparer.seekMap",
+    "mediaPreparer.mediaPeriods"
+  })
+  @SuppressWarnings("nullness:contracts.postcondition")
+  private void assertPreparedWithProgressiveSource() {
+    Assertions.checkState(mode == MODE_PREPARE_PROGRESSIVE_SOURCE);
     Assertions.checkState(isPreparedWithMedia);
   }
 
@@ -910,7 +1139,7 @@ public final class DownloadHelper {
   private TrackSelectorResult runTrackSelection(int periodIndex) throws ExoPlaybackException {
     TrackSelectorResult trackSelectorResult =
         trackSelector.selectTracks(
-            rendererCapabilities,
+            rendererCapabilities.getRendererCapabilities(),
             trackGroupArrays[periodIndex],
             new MediaPeriodId(mediaPreparer.timeline.getUidOfPeriod(periodIndex)),
             mediaPreparer.timeline);
@@ -947,6 +1176,9 @@ public final class DownloadHelper {
         existingSelectionList.add(newSelection);
       }
     }
+    if (debugLoggingEnabled) {
+      logTrackSelectorResult(periodIndex, trackSelectorResult);
+    }
     return trackSelectorResult;
   }
 
@@ -954,8 +1186,10 @@ public final class DownloadHelper {
       MediaItem mediaItem,
       DataSource.Factory dataSourceFactory,
       @Nullable DrmSessionManager drmSessionManager) {
-    DefaultMediaSourceFactory mediaSourceFactory =
-        new DefaultMediaSourceFactory(dataSourceFactory, ExtractorsFactory.EMPTY);
+    MediaSource.Factory mediaSourceFactory =
+        isProgressive(checkNotNull(mediaItem.localConfiguration))
+            ? new ProgressiveMediaSource.Factory(dataSourceFactory)
+            : new DefaultMediaSourceFactory(dataSourceFactory, ExtractorsFactory.EMPTY);
     if (drmSessionManager != null) {
       mediaSourceFactory.setDrmSessionManagerProvider(unusedMediaItem -> drmSessionManager);
     }
@@ -968,16 +1202,45 @@ public final class DownloadHelper {
         == C.CONTENT_TYPE_OTHER;
   }
 
+  private static void logTrackSelectorResult(
+      int periodIndex, TrackSelectorResult trackSelectorResult) {
+    Log.d(TAG, "Track selections changed, period index: " + periodIndex + ", tracks [");
+    ImmutableList<Tracks.Group> trackGroups = trackSelectorResult.tracks.getGroups();
+    for (int groupIndex = 0; groupIndex < trackGroups.size(); groupIndex++) {
+      Tracks.Group trackGroup = trackGroups.get(groupIndex);
+      Log.d(TAG, "  group [");
+      for (int trackIndex = 0; trackIndex < trackGroup.length; trackIndex++) {
+        String status = trackGroup.isTrackSelected(trackIndex) ? "[X]" : "[ ]";
+        String formatSupport = getFormatSupportString(trackGroup.getTrackSupport(trackIndex));
+        Log.d(
+            TAG,
+            "    "
+                + status
+                + " Track:"
+                + trackIndex
+                + ", "
+                + Format.toLogString(trackGroup.getTrackFormat(trackIndex))
+                + ", supported="
+                + formatSupport);
+      }
+      Log.d(TAG, "  ]");
+    }
+    Log.d(TAG, "]");
+  }
+
   private static final class MediaPreparer
-      implements MediaSourceCaller, MediaPeriod.Callback, Handler.Callback {
+      implements MediaSourceCaller,
+          ProgressiveMediaSource.Listener,
+          MediaPeriod.Callback,
+          Handler.Callback {
 
-    private static final int MESSAGE_PREPARE_SOURCE = 0;
-    private static final int MESSAGE_CHECK_FOR_FAILURE = 1;
-    private static final int MESSAGE_CONTINUE_LOADING = 2;
-    private static final int MESSAGE_RELEASE = 3;
+    private static final int MESSAGE_PREPARE_SOURCE = 1;
+    private static final int MESSAGE_CHECK_FOR_FAILURE = 2;
+    private static final int MESSAGE_CONTINUE_LOADING = 3;
+    private static final int MESSAGE_RELEASE = 4;
 
-    private static final int DOWNLOAD_HELPER_CALLBACK_MESSAGE_PREPARED = 0;
-    private static final int DOWNLOAD_HELPER_CALLBACK_MESSAGE_FAILED = 1;
+    private static final int DOWNLOAD_HELPER_CALLBACK_MESSAGE_PREPARED = 1;
+    private static final int DOWNLOAD_HELPER_CALLBACK_MESSAGE_FAILED = 2;
 
     private final MediaSource mediaSource;
     private final DownloadHelper downloadHelper;
@@ -988,6 +1251,7 @@ public final class DownloadHelper {
     private final Handler mediaSourceHandler;
 
     public @MonotonicNonNull Timeline timeline;
+    public @MonotonicNonNull SeekMap seekMap;
     public MediaPeriod @MonotonicNonNull [] mediaPeriods;
 
     private boolean released;
@@ -1021,6 +1285,9 @@ public final class DownloadHelper {
     public boolean handleMessage(Message msg) {
       switch (msg.what) {
         case MESSAGE_PREPARE_SOURCE:
+          if (mediaSource instanceof ProgressiveMediaSource) {
+            ((ProgressiveMediaSource) mediaSource).setListener(this);
+          }
           mediaSource.prepareSource(
               /* caller= */ this, /* mediaTransferListener= */ null, PlayerId.UNSET);
           mediaSourceHandler.sendEmptyMessage(MESSAGE_CHECK_FOR_FAILURE);
@@ -1045,7 +1312,7 @@ public final class DownloadHelper {
         case MESSAGE_CONTINUE_LOADING:
           MediaPeriod mediaPeriod = (MediaPeriod) msg.obj;
           if (pendingMediaPeriods.contains(mediaPeriod)) {
-            mediaPeriod.continueLoading(/* positionUs= */ 0);
+            mediaPeriod.continueLoading(new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
           }
           return true;
         case MESSAGE_RELEASE:
@@ -1053,6 +1320,9 @@ public final class DownloadHelper {
             for (MediaPeriod period : mediaPeriods) {
               mediaSource.releasePeriod(period);
             }
+          }
+          if (mediaSource instanceof ProgressiveMediaSource) {
+            ((ProgressiveMediaSource) mediaSource).clearListener();
           }
           mediaSource.releaseSource(this);
           mediaSourceHandler.removeCallbacksAndMessages(null);
@@ -1093,6 +1363,13 @@ public final class DownloadHelper {
       for (MediaPeriod mediaPeriod : mediaPeriods) {
         mediaPeriod.prepare(/* callback= */ this, /* positionUs= */ 0);
       }
+    }
+
+    // ProgressiveMediaSource.Listener implementation.
+
+    @Override
+    public void onSeekMap(MediaSource source, SeekMap seekMap) {
+      this.seekMap = seekMap;
     }
 
     // MediaPeriod.Callback implementation.
@@ -1213,5 +1490,28 @@ public final class DownloadHelper {
     public void removeEventListener(EventListener eventListener) {
       // Do nothing.
     }
+  }
+
+  private static final class UnreleaseableRendererCapabilitiesList
+      implements RendererCapabilitiesList {
+
+    private final RendererCapabilities[] rendererCapabilities;
+
+    private UnreleaseableRendererCapabilitiesList(RendererCapabilities[] rendererCapabilities) {
+      this.rendererCapabilities = rendererCapabilities;
+    }
+
+    @Override
+    public RendererCapabilities[] getRendererCapabilities() {
+      return rendererCapabilities;
+    }
+
+    @Override
+    public int size() {
+      return rendererCapabilities.length;
+    }
+
+    @Override
+    public void release() {}
   }
 }

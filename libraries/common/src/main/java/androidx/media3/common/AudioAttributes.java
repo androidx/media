@@ -15,8 +15,10 @@
  */
 package androidx.media3.common;
 
+import static android.os.Build.VERSION.SDK_INT;
+
+import android.annotation.SuppressLint;
 import android.os.Bundle;
-import androidx.annotation.DoNotInline;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.util.UnstableApi;
@@ -34,23 +36,23 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
  * <p>This class is based on {@link android.media.AudioAttributes}, but can be used on all supported
  * API versions.
  */
-public final class AudioAttributes implements Bundleable {
+public final class AudioAttributes {
 
   /** A direct wrapper around {@link android.media.AudioAttributes}. */
-  @RequiresApi(21)
   public static final class AudioAttributesV21 {
     public final android.media.AudioAttributes audioAttributes;
 
     private AudioAttributesV21(AudioAttributes audioAttributes) {
+      @SuppressLint("WrongConstant") // Setting C.AudioContentType and C.AudioUsage to platform API.
       android.media.AudioAttributes.Builder builder =
           new android.media.AudioAttributes.Builder()
               .setContentType(audioAttributes.contentType)
               .setFlags(audioAttributes.flags)
               .setUsage(audioAttributes.usage);
-      if (Util.SDK_INT >= 29) {
+      if (SDK_INT >= 29) {
         Api29.setAllowedCapturePolicy(builder, audioAttributes.allowedCapturePolicy);
       }
-      if (Util.SDK_INT >= 32) {
+      if (SDK_INT >= 32) {
         Api32.setSpatializationBehavior(builder, audioAttributes.spatializationBehavior);
       }
       this.audioAttributes = builder.build();
@@ -131,12 +133,16 @@ public final class AudioAttributes implements Bundleable {
 
   /** The {@link C.AudioContentType}. */
   public final @C.AudioContentType int contentType;
+
   /** The {@link C.AudioFlags}. */
   public final @C.AudioFlags int flags;
+
   /** The {@link C.AudioUsage}. */
   public final @C.AudioUsage int usage;
+
   /** The {@link C.AudioAllowedCapturePolicy}. */
   public final @C.AudioAllowedCapturePolicy int allowedCapturePolicy;
+
   /** The {@link C.SpatializationBehavior}. */
   public final @C.SpatializationBehavior int spatializationBehavior;
 
@@ -161,12 +167,48 @@ public final class AudioAttributes implements Bundleable {
    * <p>Some fields are ignored if the corresponding {@link android.media.AudioAttributes.Builder}
    * setter is not available on the current API level.
    */
-  @RequiresApi(21)
   public AudioAttributesV21 getAudioAttributesV21() {
     if (audioAttributesV21 == null) {
       audioAttributesV21 = new AudioAttributesV21(this);
     }
     return audioAttributesV21;
+  }
+
+  /** Returns the {@link C.StreamType} corresponding to these audio attributes. */
+  @UnstableApi
+  public @C.StreamType int getStreamType() {
+    // Flags to stream type mapping
+    if ((flags & C.FLAG_AUDIBILITY_ENFORCED) == C.FLAG_AUDIBILITY_ENFORCED) {
+      return C.STREAM_TYPE_SYSTEM;
+    }
+    // Usage to stream type mapping
+    switch (usage) {
+      case C.USAGE_ASSISTANCE_SONIFICATION:
+        return C.STREAM_TYPE_SYSTEM;
+      case C.USAGE_VOICE_COMMUNICATION:
+        return C.STREAM_TYPE_VOICE_CALL;
+      case C.USAGE_VOICE_COMMUNICATION_SIGNALLING:
+        return C.STREAM_TYPE_DTMF;
+      case C.USAGE_ALARM:
+        return C.STREAM_TYPE_ALARM;
+      case C.USAGE_NOTIFICATION_RINGTONE:
+        return C.STREAM_TYPE_RING;
+      case C.USAGE_NOTIFICATION:
+      case C.USAGE_NOTIFICATION_COMMUNICATION_REQUEST:
+      case C.USAGE_NOTIFICATION_COMMUNICATION_INSTANT:
+      case C.USAGE_NOTIFICATION_COMMUNICATION_DELAYED:
+      case C.USAGE_NOTIFICATION_EVENT:
+        return C.STREAM_TYPE_NOTIFICATION;
+      case C.USAGE_ASSISTANCE_ACCESSIBILITY:
+        return C.STREAM_TYPE_ACCESSIBILITY;
+      case C.USAGE_MEDIA:
+      case C.USAGE_GAME:
+      case C.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE:
+      case C.USAGE_ASSISTANT:
+      case C.USAGE_UNKNOWN:
+      default:
+        return C.STREAM_TYPE_MUSIC;
+    }
   }
 
   @Override
@@ -196,8 +238,6 @@ public final class AudioAttributes implements Bundleable {
     return result;
   }
 
-  // Bundleable implementation.
-
   private static final String FIELD_CONTENT_TYPE = Util.intToStringMaxRadix(0);
   private static final String FIELD_FLAGS = Util.intToStringMaxRadix(1);
   private static final String FIELD_USAGE = Util.intToStringMaxRadix(2);
@@ -205,7 +245,6 @@ public final class AudioAttributes implements Bundleable {
   private static final String FIELD_SPATIALIZATION_BEHAVIOR = Util.intToStringMaxRadix(4);
 
   @UnstableApi
-  @Override
   public Bundle toBundle() {
     Bundle bundle = new Bundle();
     bundle.putInt(FIELD_CONTENT_TYPE, contentType);
@@ -216,32 +255,32 @@ public final class AudioAttributes implements Bundleable {
     return bundle;
   }
 
-  /** Object that can restore {@link AudioAttributes} from a {@link Bundle}. */
+  /** Restores a {@code AudioAttributes} from a {@link Bundle}. */
   @UnstableApi
-  public static final Creator<AudioAttributes> CREATOR =
-      bundle -> {
-        Builder builder = new Builder();
-        if (bundle.containsKey(FIELD_CONTENT_TYPE)) {
-          builder.setContentType(bundle.getInt(FIELD_CONTENT_TYPE));
-        }
-        if (bundle.containsKey(FIELD_FLAGS)) {
-          builder.setFlags(bundle.getInt(FIELD_FLAGS));
-        }
-        if (bundle.containsKey(FIELD_USAGE)) {
-          builder.setUsage(bundle.getInt(FIELD_USAGE));
-        }
-        if (bundle.containsKey(FIELD_ALLOWED_CAPTURE_POLICY)) {
-          builder.setAllowedCapturePolicy(bundle.getInt(FIELD_ALLOWED_CAPTURE_POLICY));
-        }
-        if (bundle.containsKey(FIELD_SPATIALIZATION_BEHAVIOR)) {
-          builder.setSpatializationBehavior(bundle.getInt(FIELD_SPATIALIZATION_BEHAVIOR));
-        }
-        return builder.build();
-      };
+  public static AudioAttributes fromBundle(Bundle bundle) {
+    Builder builder = new Builder();
+    if (bundle.containsKey(FIELD_CONTENT_TYPE)) {
+      builder.setContentType(bundle.getInt(FIELD_CONTENT_TYPE));
+    }
+    if (bundle.containsKey(FIELD_FLAGS)) {
+      builder.setFlags(bundle.getInt(FIELD_FLAGS));
+    }
+    if (bundle.containsKey(FIELD_USAGE)) {
+      builder.setUsage(bundle.getInt(FIELD_USAGE));
+    }
+    if (bundle.containsKey(FIELD_ALLOWED_CAPTURE_POLICY)) {
+      builder.setAllowedCapturePolicy(bundle.getInt(FIELD_ALLOWED_CAPTURE_POLICY));
+    }
+    if (bundle.containsKey(FIELD_SPATIALIZATION_BEHAVIOR)) {
+      builder.setSpatializationBehavior(bundle.getInt(FIELD_SPATIALIZATION_BEHAVIOR));
+    }
+    return builder.build();
+  }
+  ;
 
   @RequiresApi(29)
   private static final class Api29 {
-    @DoNotInline
+    @SuppressLint("WrongConstant") // Setting C.AudioAllowedCapturePolicy to platform API.
     public static void setAllowedCapturePolicy(
         android.media.AudioAttributes.Builder builder,
         @C.AudioAllowedCapturePolicy int allowedCapturePolicy) {
@@ -251,7 +290,7 @@ public final class AudioAttributes implements Bundleable {
 
   @RequiresApi(32)
   private static final class Api32 {
-    @DoNotInline
+    @SuppressLint("WrongConstant") // Setting C.SpatializationBehavior to platform API.
     public static void setSpatializationBehavior(
         android.media.AudioAttributes.Builder builder,
         @C.SpatializationBehavior int spatializationBehavior) {

@@ -1,0 +1,271 @@
+/*
+ * Copyright 2025 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package androidx.media3.exoplayer;
+
+import static androidx.media3.common.util.Assertions.checkArgument;
+
+import android.media.MediaCodec;
+import android.media.MediaFormat;
+import androidx.annotation.FloatRange;
+import androidx.annotation.Nullable;
+import androidx.media3.common.C;
+import androidx.media3.common.C.TrackType;
+import androidx.media3.common.util.UnstableApi;
+import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.Objects;
+import java.util.Set;
+
+/**
+ * Parameters to control the behavior of {@linkplain ExoPlayer#setScrubbingModeEnabled scrubbing
+ * mode}.
+ */
+@UnstableApi
+public final class ScrubbingModeParameters {
+
+  /** An instance which defines sensible default values for many scrubbing use-cases. */
+  public static final ScrubbingModeParameters DEFAULT =
+      new ScrubbingModeParameters.Builder().build();
+
+  /**
+   * Builder for {@link ScrubbingModeParameters} instances.
+   *
+   * <p>This builder defines some defaults that may change in future releases of the library, and
+   * new properties may be added that default to enabled.
+   */
+  public static final class Builder {
+    private ImmutableSet<@TrackType Integer> disabledTrackTypes;
+    @Nullable private Double fractionalSeekToleranceBefore;
+    @Nullable private Double fractionalSeekToleranceAfter;
+    private boolean shouldIncreaseCodecOperatingRate;
+    private boolean isMediaCodecFlushEnabled;
+    private boolean shouldEnableDynamicScheduling;
+
+    /** Creates an instance. */
+    public Builder() {
+      this.disabledTrackTypes = ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_METADATA);
+      shouldIncreaseCodecOperatingRate = true;
+      shouldEnableDynamicScheduling = true;
+    }
+
+    private Builder(ScrubbingModeParameters scrubbingModeParameters) {
+      this.disabledTrackTypes = scrubbingModeParameters.disabledTrackTypes;
+      this.fractionalSeekToleranceBefore = scrubbingModeParameters.fractionalSeekToleranceBefore;
+      this.fractionalSeekToleranceAfter = scrubbingModeParameters.fractionalSeekToleranceAfter;
+      this.shouldIncreaseCodecOperatingRate =
+          scrubbingModeParameters.shouldIncreaseCodecOperatingRate;
+      this.isMediaCodecFlushEnabled = scrubbingModeParameters.isMediaCodecFlushEnabled;
+      this.shouldEnableDynamicScheduling = scrubbingModeParameters.shouldEnableDynamicScheduling;
+    }
+
+    /**
+     * Sets which track types should be disabled in scrubbing mode.
+     *
+     * <p>Defaults to {@link C#TRACK_TYPE_AUDIO} and {@link C#TRACK_TYPE_METADATA} (this may change
+     * in a future release).
+     *
+     * <p>See {@link ScrubbingModeParameters#disabledTrackTypes}.
+     *
+     * @param disabledTrackTypes The track types to disable in scrubbing mode.
+     * @return This builder for convenience.
+     */
+    @CanIgnoreReturnValue
+    public Builder setDisabledTrackTypes(Set<@TrackType Integer> disabledTrackTypes) {
+      this.disabledTrackTypes = ImmutableSet.copyOf(disabledTrackTypes);
+      return this;
+    }
+
+    /**
+     * Sets the fraction of the media duration to use for {@link SeekParameters#toleranceBeforeUs}
+     * and {@link SeekParameters#toleranceAfterUs} when scrubbing.
+     *
+     * <p>Pass {@code null} for both values to use the {@linkplain ExoPlayer#getSeekParameters()
+     * player-level seek parameters} when scrubbing.
+     *
+     * <p>Defaults to {code null} for both values, so all seeks are exact (this may change in a
+     * future release).
+     *
+     * <p>See {@link ScrubbingModeParameters#fractionalSeekToleranceBefore} and {@link
+     * ScrubbingModeParameters#fractionalSeekToleranceAfter}.
+     *
+     * @param toleranceBefore The fraction of the media duration to use for {@link
+     *     SeekParameters#toleranceBeforeUs}, or null to use the player-level seek parameters.
+     * @param toleranceAfter The fraction of the media duration to use for {@link
+     *     SeekParameters#toleranceAfterUs}, or null to use the player-level seek parameters.
+     * @return This builder for convenience.
+     */
+    @CanIgnoreReturnValue
+    public Builder setFractionalSeekTolerance(
+        @Nullable @FloatRange(from = 0, to = 1) Double toleranceBefore,
+        @Nullable @FloatRange(from = 0, to = 1) Double toleranceAfter) {
+      checkArgument((toleranceBefore == null) == (toleranceAfter == null));
+      checkArgument(toleranceBefore == null || (toleranceBefore >= 0 && toleranceBefore <= 1));
+      checkArgument(toleranceAfter == null || (toleranceAfter >= 0 && toleranceAfter <= 1));
+      this.fractionalSeekToleranceBefore = toleranceBefore;
+      this.fractionalSeekToleranceAfter = toleranceAfter;
+      return this;
+    }
+
+    /**
+     * Sets whether the codec operating rate should be increased in scrubbing mode.
+     *
+     * <p>Defaults to {@code true} (this may change in a future release).
+     *
+     * <p>See {@link ScrubbingModeParameters#shouldIncreaseCodecOperatingRate}.
+     *
+     * @param shouldIncreaseCodecOperatingRate whether the codec operating rate should be increased
+     *     in scrubbing mode.
+     * @return This builder for convenience.
+     */
+    @CanIgnoreReturnValue
+    public Builder setShouldIncreaseCodecOperatingRate(boolean shouldIncreaseCodecOperatingRate) {
+      this.shouldIncreaseCodecOperatingRate = shouldIncreaseCodecOperatingRate;
+      return this;
+    }
+
+    /**
+     * Sets whether ExoPlayer's {@linkplain
+     * ExoPlayer.Builder#experimentalSetDynamicSchedulingEnabled(boolean) dynamic scheduling} should
+     * be enabled in scrubbing mode.
+     *
+     * <p>When used with {@link MediaCodec} in async mode, this can result in available output
+     * buffers being handled more quickly when seeking.
+     *
+     * <p>If dynamic scheduling is enabled for all playback in {@link ExoPlayer.Builder} (which may
+     * become the default in a future release), this method is a no-op (i.e. you cannot disable
+     * dynamic scheduling when scrubbing using this method).
+     *
+     * <p>Defaults to {@code true} (this may change in a future release).
+     *
+     * @param shouldEnableDynamicScheduling Whether dynamic scheduling should be enabled in
+     *     scrubbing mode.
+     * @return This builder for convenience.
+     */
+    @CanIgnoreReturnValue
+    public Builder setShouldEnableDynamicScheduling(boolean shouldEnableDynamicScheduling) {
+      this.shouldEnableDynamicScheduling = shouldEnableDynamicScheduling;
+      return this;
+    }
+
+    /**
+     * Sets whether the decoder is flushed in scrubbing mode.
+     *
+     * <p>Setting this to {@code false} will disable flushing the decoder when a new seek starts
+     * decoding from a key-frame.
+     *
+     * <p>Defaults to {@code false} (this may change in a future release).
+     *
+     * @param isMediaCodecFlushEnabled Whether to enable flushing of decoder in scrubbing mode.
+     * @return This builder for convenience.
+     */
+    @CanIgnoreReturnValue
+    public Builder setIsMediaCodecFlushEnabled(boolean isMediaCodecFlushEnabled) {
+      this.isMediaCodecFlushEnabled = isMediaCodecFlushEnabled;
+      return this;
+    }
+
+    /** Returns the built {@link ScrubbingModeParameters}. */
+    public ScrubbingModeParameters build() {
+      return new ScrubbingModeParameters(this);
+    }
+  }
+
+  /** Which track types will be disabled in scrubbing mode. */
+  public final ImmutableSet<@TrackType Integer> disabledTrackTypes;
+
+  /**
+   * The fraction of the media duration to use for {@link SeekParameters#toleranceBeforeUs} when
+   * scrubbing.
+   *
+   * <p>If this is {@code null} or the media duration is not known then the {@linkplain
+   * ExoPlayer#getSeekParameters()} non-scrubbing seek parameters} are used.
+   */
+  @Nullable
+  @FloatRange(from = 0, to = 1)
+  public final Double fractionalSeekToleranceBefore;
+
+  /**
+   * The fraction of the media duration to use for {@link SeekParameters#toleranceAfterUs} when
+   * scrubbing.
+   *
+   * <p>If this is {@code null} or the media duration is not known then the {@linkplain
+   * ExoPlayer#getSeekParameters()} non-scrubbing seek parameters} are used.
+   */
+  @Nullable
+  @FloatRange(from = 0, to = 1)
+  public final Double fractionalSeekToleranceAfter;
+
+  /**
+   * Whether the codec operating rate should be increased in scrubbing mode.
+   *
+   * <p>If using {@link MediaCodec} for video decoding, {@link MediaFormat#KEY_OPERATING_RATE} will
+   * be set to an increased value in scrubbing mode.
+   */
+  public final boolean shouldIncreaseCodecOperatingRate;
+
+  /**
+   * Whether the decoder is flushed in scrubbing mode.
+   *
+   * <p>Defaults to {@code false}.
+   */
+  public final boolean isMediaCodecFlushEnabled;
+
+  /**
+   * Whether to enable ExoPlayer's {@linkplain
+   * ExoPlayer.Builder#experimentalSetDynamicSchedulingEnabled(boolean) dynamic scheduling} in
+   * scrubbing mode.
+   */
+  public final boolean shouldEnableDynamicScheduling;
+
+  private ScrubbingModeParameters(Builder builder) {
+    this.disabledTrackTypes = builder.disabledTrackTypes;
+    this.fractionalSeekToleranceBefore = builder.fractionalSeekToleranceBefore;
+    this.fractionalSeekToleranceAfter = builder.fractionalSeekToleranceAfter;
+    this.shouldIncreaseCodecOperatingRate = builder.shouldIncreaseCodecOperatingRate;
+    this.isMediaCodecFlushEnabled = builder.isMediaCodecFlushEnabled;
+    this.shouldEnableDynamicScheduling = builder.shouldEnableDynamicScheduling;
+  }
+
+  /** Returns a {@link Builder} initialized with the values from this instance. */
+  public Builder buildUpon() {
+    return new Builder(this);
+  }
+
+  @Override
+  public boolean equals(@Nullable Object o) {
+    if (!(o instanceof ScrubbingModeParameters)) {
+      return false;
+    }
+    ScrubbingModeParameters that = (ScrubbingModeParameters) o;
+    return disabledTrackTypes.equals(that.disabledTrackTypes)
+        && isMediaCodecFlushEnabled == that.isMediaCodecFlushEnabled
+        && Objects.equals(fractionalSeekToleranceBefore, that.fractionalSeekToleranceBefore)
+        && Objects.equals(fractionalSeekToleranceAfter, that.fractionalSeekToleranceAfter)
+        && shouldIncreaseCodecOperatingRate == that.shouldIncreaseCodecOperatingRate
+        && shouldEnableDynamicScheduling == that.shouldEnableDynamicScheduling;
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(
+        disabledTrackTypes,
+        fractionalSeekToleranceBefore,
+        fractionalSeekToleranceAfter,
+        shouldIncreaseCodecOperatingRate,
+        isMediaCodecFlushEnabled,
+        shouldEnableDynamicScheduling);
+  }
+}

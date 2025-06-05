@@ -1,0 +1,125 @@
+seekMap:
+  isSeekable = false
+  duration = UNSET TIME
+  getPosition(0) = [[timeUs=0, position=0]]
+numberOfTracks = 2
+track 0:
+  total output bytes = 13201
+  sample count = 25
+  format 0:
+    id = 0
+    containerMimeType = audio/mp4a-latm
+    sampleMimeType = audio/mp4a-latm
+    codecs = mp4a.40.2
+    channelCount = 1
+    sampleRate = 8000
+    initializationData:
+      data = length 2, hash 5D4
+  sample 0:
+    time = 0
+    flags = 1
+    data = length 570, hash 54DDF07
+  sample 1:
+    time = 128000
+    flags = 1
+    data = length 520, hash 807F5FD6
+  sample 2:
+    time = 256000
+    flags = 1
+    data = length 481, hash 58254D05
+  sample 3:
+    time = 384000
+    flags = 1
+    data = length 478, hash AFF934F5
+  sample 4:
+    time = 512000
+    flags = 1
+    data = length 497, hash B392F699
+  sample 5:
+    time = 640000
+    flags = 1
+    data = length 488, hash DB5456A2
+  sample 6:
+    time = 768000
+    flags = 1
+    data = length 575, hash 533E809E
+  sample 7:
+    time = 896000
+    flags = 1
+    data = length 556, hash A073F381
+  sample 8:
+    time = 1024000
+    flags = 1
+    data = length 570, hash 3C8F9B8
+  sample 9:
+    time = 1152000
+    flags = 1
+    data = length 573, hash 366C7EC7
+  sample 10:
+    time = 1280000
+    flags = 1
+    data = length 640, hash 703205A6
+  sample 11:
+    time = 1408000
+    flags = 1
+    data = length 664, hash 11BD7B5E
+  sample 12:
+    time = 1536000
+    flags = 1
+    data = length 650, hash 17787927
+  sample 13:
+    time = 1664000
+    flags = 1
+    data = length 630, hash 1BD34CB8
+  sample 14:
+    time = 1792000
+    flags = 1
+    data = length 590, hash 525BB120
+  sample 15:
+    time = 1920000
+    flags = 1
+    data = length 595, hash 45E59317
+  sample 16:
+    time = 2048000
+    flags = 1
+    data = length 550, hash 35774C13
+  sample 17:
+    time = 2176000
+    flags = 1
+    data = length 455, hash C2E13909
+  sample 18:
+    time = 2304000
+    flags = 1
+    data = length 451, hash 218C96A0
+  sample 19:
+    time = 2432000
+    flags = 1
+    data = length 446, hash 4A3BDF0B
+  sample 20:
+    time = 2560000
+    flags = 1
+    data = length 459, hash 39352FF8
+  sample 21:
+    time = 2688000
+    flags = 1
+    data = length 461, hash C8719B11
+  sample 22:
+    time = 2816000
+    flags = 1
+    data = length 428, hash 445F5285
+  sample 23:
+    time = 2944000
+    flags = 1
+    data = length 459, hash 6AF47E54
+  sample 24:
+    time = 3072000
+    flags = 1
+    data = length 415, hash 4A8DB2DF
+track 1:
+  total output bytes = 0
+  sample count = 0
+  format 0:
+    id = 1
+    containerMimeType = audio/mp4a-latm
+    sampleMimeType = application/id3
+tracksEnded = true

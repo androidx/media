@@ -17,7 +17,7 @@ package androidx.media3.exoplayer.dash.manifest;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
-import com.google.common.base.Objects;
+import java.util.Objects;
 
 /** A base URL, as defined by ISO 23009-1, 2nd edition, 5.6. and ETSI TS 103 285 V1.2.1, 10.8.2.1 */
 @UnstableApi
@@ -25,17 +25,22 @@ public final class BaseUrl {
 
   /** The default weight. */
   public static final int DEFAULT_WEIGHT = 1;
+
   /** The default priority. */
   public static final int DEFAULT_DVB_PRIORITY = 1;
+
   /** Constant representing an unset priority in a manifest that does not declare a DVB profile. */
   public static final int PRIORITY_UNSET = Integer.MIN_VALUE;
 
   /** The URL. */
   public final String url;
+
   /** The service location. */
   public final String serviceLocation;
+
   /** The priority. */
   public final int priority;
+
   /** The weight. */
   public final int weight;
 
@@ -66,12 +71,12 @@ public final class BaseUrl {
     BaseUrl baseUrl = (BaseUrl) o;
     return priority == baseUrl.priority
         && weight == baseUrl.weight
-        && Objects.equal(url, baseUrl.url)
-        && Objects.equal(serviceLocation, baseUrl.serviceLocation);
+        && Objects.equals(url, baseUrl.url)
+        && Objects.equals(serviceLocation, baseUrl.serviceLocation);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(url, serviceLocation, priority, weight);
+    return Objects.hash(url, serviceLocation, priority, weight);
   }
 }

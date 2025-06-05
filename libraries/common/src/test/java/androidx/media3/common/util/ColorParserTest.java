@@ -79,6 +79,7 @@ public final class ColorParserTest {
   @Test
   public void rgbColorParsingRgbValuesOutOfBounds() {
     int outOfBounds = ColorParser.parseTtmlColor("rgb(999, 999, 999)");
+    @SuppressWarnings("Range") // Deliberately testing invalid values
     int color = Color.rgb(999, 999, 999);
     // Behave like the framework does.
     assertThat(outOfBounds).isEqualTo(color);

@@ -19,6 +19,7 @@ import static android.media.MediaParser.PARAMETER_TS_IGNORE_AAC_STREAM;
 import static android.media.MediaParser.PARAMETER_TS_IGNORE_AVC_STREAM;
 import static android.media.MediaParser.PARAMETER_TS_IGNORE_SPLICE_INFO_STREAM;
 import static android.media.MediaParser.PARAMETER_TS_MODE;
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.exoplayer.source.mediaparser.MediaParserUtil.PARAMETER_EAGERLY_EXPOSE_TRACK_TYPE;
 import static androidx.media3.exoplayer.source.mediaparser.MediaParserUtil.PARAMETER_EXPOSE_CAPTION_FORMATS;
 import static androidx.media3.exoplayer.source.mediaparser.MediaParserUtil.PARAMETER_IGNORE_TIMESTAMP_OFFSET;
@@ -38,13 +39,13 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.source.mediaparser.InputReaderAdapterV30;
 import androidx.media3.exoplayer.source.mediaparser.MediaParserUtil;
 import androidx.media3.exoplayer.source.mediaparser.OutputConsumerAdapterV30;
 import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.ExtractorOutput;
+import androidx.media3.extractor.text.SubtitleParser;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 
@@ -70,7 +71,13 @@ public final class MediaParserHlsMediaChunkExtractor implements HlsMediaChunkExt
           // The segment contains WebVTT. MediaParser does not support WebVTT parsing, so we use the
           // bundled extractor.
           return new BundledHlsMediaChunkExtractor(
-              new WebvttExtractor(format.language, timestampAdjuster), format, timestampAdjuster);
+              new WebvttExtractor(
+                  format.language,
+                  timestampAdjuster,
+                  SubtitleParser.Factory.UNSUPPORTED,
+                  /* parseSubtitlesDuringExtraction= */ false),
+              format,
+              timestampAdjuster);
         }
 
         boolean overrideInBandCaptionDeclarations = muxedCaptionFormats != null;
@@ -263,7 +270,7 @@ public final class MediaParserHlsMediaChunkExtractor implements HlsMediaChunkExt
         mediaParser.setParameter(PARAMETER_TS_IGNORE_AVC_STREAM, true);
       }
     }
-    if (Util.SDK_INT >= 31) {
+    if (SDK_INT >= 31) {
       MediaParserUtil.setLogSessionIdOnMediaParser(mediaParser, playerId);
     }
     return mediaParser;

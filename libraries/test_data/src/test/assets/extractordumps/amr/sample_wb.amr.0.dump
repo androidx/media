@@ -7,6 +7,7 @@ track 0:
   total output bytes = 4056
   sample count = 169
   format 0:
+    containerMimeType = audio/amr-wb
     sampleMimeType = audio/amr-wb
     maxInputSize = 61
     channelCount = 1

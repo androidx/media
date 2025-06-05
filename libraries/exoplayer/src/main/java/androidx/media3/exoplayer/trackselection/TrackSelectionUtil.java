@@ -15,12 +15,15 @@
  */
 package androidx.media3.exoplayer.trackselection;
 
+import android.graphics.Point;
 import android.os.SystemClock;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.Tracks;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.RendererCapabilities;
 import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector.SelectionOverride;
@@ -29,7 +32,6 @@ import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
 import com.google.common.collect.ImmutableList;
 import java.util.Arrays;
 import java.util.List;
-import org.checkerframework.checker.nullness.compatqual.NullableType;
 
 /** Track selection related utility methods. */
 @UnstableApi
@@ -82,16 +84,10 @@ public final class TrackSelectionUtil {
   }
 
   /**
-   * Updates {@link DefaultTrackSelector.Parameters} with an override.
-   *
-   * @param parameters The current {@link DefaultTrackSelector.Parameters} to build upon.
-   * @param rendererIndex The renderer index to update.
-   * @param trackGroupArray The {@link TrackGroupArray} of the renderer.
-   * @param isDisabled Whether the renderer should be set disabled.
-   * @param override An optional override for the renderer. If null, no override will be set and an
-   *     existing override for this renderer will be cleared.
-   * @return The updated {@link DefaultTrackSelector.Parameters}.
+   * @deprecated Use {@link DefaultTrackSelector.Parameters.Builder#addOverride} instead.
    */
+  @SuppressWarnings("deprecation") // Forwarding to deprecated methods
+  @Deprecated
   public static DefaultTrackSelector.Parameters updateParametersWithOverride(
       DefaultTrackSelector.Parameters parameters,
       int rendererIndex,
@@ -123,7 +119,7 @@ public final class TrackSelectionUtil {
     int numberOfTracks = trackSelection.length();
     int numberOfExcludedTracks = 0;
     for (int i = 0; i < numberOfTracks; i++) {
-      if (trackSelection.isBlacklisted(i, nowMs)) {
+      if (trackSelection.isTrackExcluded(i, nowMs)) {
         numberOfExcludedTracks++;
       }
     }
@@ -208,5 +204,31 @@ public final class TrackSelectionUtil {
           new Tracks.Group(trackGroup, /* adaptiveSupported= */ false, trackSupport, selected));
     }
     return new Tracks(trackGroups.build());
+  }
+
+  /**
+   * Given viewport dimensions and video dimensions, computes the maximum size of the video as it
+   * will be rendered to fit inside of the viewport.
+   */
+  public static Point getMaxVideoSizeInViewport(
+      boolean orientationMayChange,
+      int viewportWidth,
+      int viewportHeight,
+      int videoWidth,
+      int videoHeight) {
+    if (orientationMayChange && (videoWidth > videoHeight) != (viewportWidth > viewportHeight)) {
+      // Rotation is allowed, and the video will be larger in the rotated viewport.
+      int tempViewportWidth = viewportWidth;
+      viewportWidth = viewportHeight;
+      viewportHeight = tempViewportWidth;
+    }
+
+    if (videoWidth * viewportHeight >= videoHeight * viewportWidth) {
+      // Horizontal letter-boxing along top and bottom.
+      return new Point(viewportWidth, Util.ceilDivide(viewportWidth * videoHeight, videoWidth));
+    } else {
+      // Vertical letter-boxing along edges.
+      return new Point(Util.ceilDivide(viewportHeight * videoWidth, videoHeight), viewportHeight);
+    }
   }
 }

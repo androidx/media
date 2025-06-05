@@ -9,11 +9,14 @@ numberOfTracks = 1
 track 0:
   total output bytes = 3829
   sample count = 2
+  track duration = 2741000
   format 0:
+    containerMimeType = audio/flac
     sampleMimeType = audio/flac
     maxInputSize = 5776
     channelCount = 2
     sampleRate = 48000
+    pcmEncoding = 2
     initializationData:
       data = length 42, hash 83F6895
   sample 0:

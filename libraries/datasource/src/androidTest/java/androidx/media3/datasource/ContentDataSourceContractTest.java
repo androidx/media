@@ -28,6 +28,7 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public final class ContentDataSourceContractTest extends DataSourceContractTest {
 
+  private static final String AUTHORITY = "androidx.media3.datasource.test.AssetContentProvider";
   private static final String DATA_PATH = "media/mp3/1024_incrementing_bytes.mp3";
 
   @Override
@@ -42,18 +43,18 @@ public final class ContentDataSourceContractTest extends DataSourceContractTest 
     return ImmutableList.of(
         new TestResource.Builder()
             .setName("simple (pipe=false)")
-            .setUri(AssetContentProvider.buildUri(DATA_PATH, /* pipeMode= */ false))
+            .setUri(AssetContentProvider.buildUri(AUTHORITY, DATA_PATH, /* pipeMode= */ false))
             .setExpectedBytes(completeData)
             .build(),
         new TestResource.Builder()
             .setName("simple (pipe=true)")
-            .setUri(AssetContentProvider.buildUri(DATA_PATH, /* pipeMode= */ true))
+            .setUri(AssetContentProvider.buildUri(AUTHORITY, DATA_PATH, /* pipeMode= */ true))
             .setExpectedBytes(completeData)
             .build());
   }
 
   @Override
   protected Uri getNotFoundUri() {
-    return AssetContentProvider.buildUri("not/a/real/path", /* pipeMode= */ false);
+    return AssetContentProvider.buildUri(AUTHORITY, "not/a/real/path", /* pipeMode= */ false);
   }
 }

@@ -15,6 +15,7 @@
  */
 package androidx.media3.session;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static android.view.KeyEvent.KEYCODE_MEDIA_FAST_FORWARD;
 import static android.view.KeyEvent.KEYCODE_MEDIA_NEXT;
 import static android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE;
@@ -43,11 +44,8 @@ import androidx.annotation.RequiresApi;
 import androidx.core.app.NotificationCompat;
 import androidx.core.graphics.drawable.IconCompat;
 import androidx.media3.common.Player;
-import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 
 /** The default {@link MediaNotification.ActionFactory}. */
-@UnstableApi
 /* package */ final class DefaultActionFactory implements MediaNotification.ActionFactory {
 
   private static final String ACTION_CUSTOM = "androidx.media3.session.CUSTOM_NOTIFICATION_ACTION";
@@ -55,6 +53,19 @@ import androidx.media3.common.util.Util;
       "androidx.media3.session.EXTRAS_KEY_CUSTOM_NOTIFICATION_ACTION";
   public static final String EXTRAS_KEY_ACTION_CUSTOM_EXTRAS =
       "androidx.media3.session.EXTRAS_KEY_CUSTOM_NOTIFICATION_ACTION_EXTRAS";
+
+  /**
+   * Returns the {@link KeyEvent} that was included in the media action, or {@code null} if no
+   * {@link KeyEvent} is found in the {@code intent}.
+   */
+  @Nullable
+  public static KeyEvent getKeyEvent(Intent intent) {
+    @Nullable Bundle extras = intent.getExtras();
+    if (extras != null && extras.containsKey(Intent.EXTRA_KEY_EVENT)) {
+      return extras.getParcelable(Intent.EXTRA_KEY_EVENT);
+    }
+    return null;
+  }
 
   private final Service service;
 
@@ -97,15 +108,13 @@ import androidx.media3.common.util.Util;
             mediaSession, customCommand.customAction, customCommand.customExtras));
   }
 
+  @SuppressWarnings("PendingIntentMutability") // We can't use SaferPendingIntent
   @Override
   public PendingIntent createMediaActionPendingIntent(
       MediaSession mediaSession, @Player.Command long command) {
     int keyCode = toKeyCode(command);
-    Intent intent = new Intent(Intent.ACTION_MEDIA_BUTTON);
-    intent.setData(mediaSession.getImpl().getUri());
-    intent.setComponent(new ComponentName(service, service.getClass()));
-    intent.putExtra(Intent.EXTRA_KEY_EVENT, new KeyEvent(KeyEvent.ACTION_DOWN, keyCode));
-    if (Util.SDK_INT >= 26
+    Intent intent = getMediaButtonIntent(mediaSession, keyCode);
+    if (SDK_INT >= 26
         && command == COMMAND_PLAY_PAUSE
         && !mediaSession.getPlayer().getPlayWhenReady()) {
       return Api26.createForegroundServicePendingIntent(service, keyCode, intent);
@@ -114,8 +123,28 @@ import androidx.media3.common.util.Util;
           service,
           /* requestCode= */ keyCode,
           intent,
-          Util.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0);
+          SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0);
     }
+  }
+
+  @Override
+  public PendingIntent createNotificationDismissalIntent(MediaSession mediaSession) {
+    Intent intent =
+        getMediaButtonIntent(mediaSession, KEYCODE_MEDIA_STOP)
+            .putExtra(MediaNotification.NOTIFICATION_DISMISSED_EVENT_KEY, true);
+    return PendingIntent.getService(
+        service,
+        /* requestCode= */ KEYCODE_MEDIA_STOP,
+        intent,
+        SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0);
+  }
+
+  private Intent getMediaButtonIntent(MediaSession mediaSession, int mediaKeyCode) {
+    Intent intent = new Intent(Intent.ACTION_MEDIA_BUTTON);
+    intent.setData(mediaSession.getImpl().getUri());
+    intent.setComponent(new ComponentName(service, service.getClass()));
+    intent.putExtra(Intent.EXTRA_KEY_EVENT, new KeyEvent(KeyEvent.ACTION_DOWN, mediaKeyCode));
+    return intent;
   }
 
   private int toKeyCode(@Player.Command long action) {
@@ -136,6 +165,7 @@ import androidx.media3.common.util.Util;
     return KEYCODE_UNKNOWN;
   }
 
+  @SuppressWarnings("PendingIntentMutability") // We can't use SaferPendingIntent
   private PendingIntent createCustomActionPendingIntent(
       MediaSession mediaSession, String action, Bundle extras) {
     Intent intent = new Intent(ACTION_CUSTOM);
@@ -148,8 +178,7 @@ import androidx.media3.common.util.Util;
         service,
         /* requestCode= */ ++customActionPendingIntentRequestCode,
         intent,
-        PendingIntent.FLAG_UPDATE_CURRENT
-            | (Util.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0));
+        PendingIntent.FLAG_UPDATE_CURRENT | (SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0));
   }
 
   /** Returns whether {@code intent} was part of a {@link #createMediaAction media action}. */
@@ -160,19 +189,6 @@ import androidx.media3.common.util.Util;
   /** Returns whether {@code intent} was part of a {@link #createCustomAction custom action }. */
   public boolean isCustomAction(Intent intent) {
     return ACTION_CUSTOM.equals(intent.getAction());
-  }
-
-  /**
-   * Returns the {@link KeyEvent} that was included in the media action, or {@code null} if no
-   * {@link KeyEvent} is found in the {@code intent}.
-   */
-  @Nullable
-  public KeyEvent getKeyEvent(Intent intent) {
-    @Nullable Bundle extras = intent.getExtras();
-    if (extras != null && extras.containsKey(Intent.EXTRA_KEY_EVENT)) {
-      return extras.getParcelable(Intent.EXTRA_KEY_EVENT);
-    }
-    return null;
   }
 
   /**
@@ -201,6 +217,7 @@ import androidx.media3.common.util.Util;
   private static final class Api26 {
     private Api26() {}
 
+    @SuppressWarnings("PendingIntentMutability") // We can't use SaferPendingIntent
     public static PendingIntent createForegroundServicePendingIntent(
         Service service, int keyCode, Intent intent) {
       return PendingIntent.getForegroundService(

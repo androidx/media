@@ -15,6 +15,7 @@
  */
 package androidx.media3.extractor.ts;
 
+import static androidx.media3.common.util.Assertions.checkState;
 import static java.lang.Math.min;
 
 import androidx.annotation.Nullable;
@@ -43,6 +44,8 @@ public final class MpegAudioReader implements ElementaryStreamReader {
   private final ParsableByteArray headerScratch;
   private final MpegAudioUtil.Header header;
   @Nullable private final String language;
+  private final @C.RoleFlags int roleFlags;
+  private final String containerMimeType;
 
   private @MonotonicNonNull TrackOutput output;
   private @MonotonicNonNull String formatId;
@@ -61,11 +64,12 @@ public final class MpegAudioReader implements ElementaryStreamReader {
   // The timestamp to attach to the next sample in the current packet.
   private long timeUs;
 
-  public MpegAudioReader() {
-    this(null);
+  public MpegAudioReader(String containerMimeType) {
+    this(null, /* roleFlags= */ 0, containerMimeType);
   }
 
-  public MpegAudioReader(@Nullable String language) {
+  public MpegAudioReader(
+      @Nullable String language, @C.RoleFlags int roleFlags, String containerMimeType) {
     state = STATE_FINDING_HEADER;
     // The first byte of an MPEG Audio frame header is always 0xFF.
     headerScratch = new ParsableByteArray(4);
@@ -73,6 +77,8 @@ public final class MpegAudioReader implements ElementaryStreamReader {
     header = new MpegAudioUtil.Header();
     timeUs = C.TIME_UNSET;
     this.language = language;
+    this.roleFlags = roleFlags;
+    this.containerMimeType = containerMimeType;
   }
 
   @Override
@@ -92,9 +98,7 @@ public final class MpegAudioReader implements ElementaryStreamReader {
 
   @Override
   public void packetStarted(long pesTimeUs, @TsPayloadReader.Flags int flags) {
-    if (pesTimeUs != C.TIME_UNSET) {
-      timeUs = pesTimeUs;
-    }
+    timeUs = pesTimeUs;
   }
 
   @Override
@@ -118,7 +122,7 @@ public final class MpegAudioReader implements ElementaryStreamReader {
   }
 
   @Override
-  public void packetFinished() {
+  public void packetFinished(boolean isEndOfInput) {
     // Do nothing.
   }
 
@@ -196,11 +200,13 @@ public final class MpegAudioReader implements ElementaryStreamReader {
       Format format =
           new Format.Builder()
               .setId(formatId)
+              .setContainerMimeType(containerMimeType)
               .setSampleMimeType(header.mimeType)
               .setMaxInputSize(MpegAudioUtil.MAX_FRAME_SIZE_BYTES)
               .setChannelCount(header.channels)
               .setSampleRate(header.sampleRate)
               .setLanguage(language)
+              .setRoleFlags(roleFlags)
               .build();
       output.format(format);
       hasOutputFormat = true;
@@ -233,10 +239,10 @@ public final class MpegAudioReader implements ElementaryStreamReader {
       return;
     }
 
-    if (timeUs != C.TIME_UNSET) {
-      output.sampleMetadata(timeUs, C.BUFFER_FLAG_KEY_FRAME, frameSize, 0, null);
-      timeUs += frameDurationUs;
-    }
+    // packetStarted method must be called before consuming samples.
+    checkState(timeUs != C.TIME_UNSET);
+    output.sampleMetadata(timeUs, C.BUFFER_FLAG_KEY_FRAME, frameSize, 0, null);
+    timeUs += frameDurationUs;
     frameBytesRead = 0;
     state = STATE_FINDING_HEADER;
   }

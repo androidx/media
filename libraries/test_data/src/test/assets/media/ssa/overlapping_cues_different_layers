@@ -1,0 +1,7 @@
+[Script Info]
+Title: SomeTitle
+
+[Events]
+Format: Layer, Start, End, Text
+Dialogue: 2,0:00:01.00,0:00:04.23,First subtitle - end overlaps second
+Dialogue: 1,0:00:02.00,0:00:05.23,Second subtitle - beginning overlaps first

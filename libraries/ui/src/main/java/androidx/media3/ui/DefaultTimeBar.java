@@ -15,6 +15,8 @@
  */
 package androidx.media3.ui;
 
+import static android.os.Build.VERSION.SDK_INT;
+
 import android.animation.ValueAnimator;
 import android.content.Context;
 import android.content.res.Resources;
@@ -131,38 +133,55 @@ public class DefaultTimeBar extends View implements TimeBar {
 
   /** Default height for the time bar, in dp. */
   public static final int DEFAULT_BAR_HEIGHT_DP = 4;
+
   /** Default height for the touch target, in dp. */
   public static final int DEFAULT_TOUCH_TARGET_HEIGHT_DP = 26;
+
   /** Default width for ad markers, in dp. */
   public static final int DEFAULT_AD_MARKER_WIDTH_DP = 4;
+
   /** Default diameter for the scrubber when enabled, in dp. */
   public static final int DEFAULT_SCRUBBER_ENABLED_SIZE_DP = 12;
+
   /** Default diameter for the scrubber when disabled, in dp. */
   public static final int DEFAULT_SCRUBBER_DISABLED_SIZE_DP = 0;
+
   /** Default diameter for the scrubber when dragged, in dp. */
   public static final int DEFAULT_SCRUBBER_DRAGGED_SIZE_DP = 16;
+
   /** Default color for the played portion of the time bar. */
   public static final int DEFAULT_PLAYED_COLOR = 0xFFFFFFFF;
+
   /** Default color for the unplayed portion of the time bar. */
   public static final int DEFAULT_UNPLAYED_COLOR = 0x33FFFFFF;
+
   /** Default color for the buffered portion of the time bar. */
   public static final int DEFAULT_BUFFERED_COLOR = 0xCCFFFFFF;
+
   /** Default color for the scrubber handle. */
   public static final int DEFAULT_SCRUBBER_COLOR = 0xFFFFFFFF;
+
   /** Default color for ad markers. */
   public static final int DEFAULT_AD_MARKER_COLOR = 0xB2FFFF00;
+
   /** Default color for played ad markers. */
   public static final int DEFAULT_PLAYED_AD_MARKER_COLOR = 0x33FFFF00;
 
+  // LINT.IfChange
   /** Vertical gravity for progress bar to be located at the center in the view. */
   public static final int BAR_GRAVITY_CENTER = 0;
+
   /** Vertical gravity for progress bar to be located at the bottom in the view. */
   public static final int BAR_GRAVITY_BOTTOM = 1;
 
+  // LINT.ThenChange(../../../../res/values/attrs.xml)
+
   /** The threshold in dps above the bar at which touch events trigger fine scrub mode. */
   private static final int FINE_SCRUB_Y_THRESHOLD_DP = -50;
+
   /** The ratio by which times are reduced in fine scrub mode. */
   private static final int FINE_SCRUB_RATIO = 3;
+
   /**
    * The time after which the scrubbing listener is notified that scrubbing has stopped after
    * performing an incremental scrub using key input.
@@ -633,7 +652,7 @@ public class DefaultTimeBar extends View implements TimeBar {
       switch (keyCode) {
         case KeyEvent.KEYCODE_DPAD_LEFT:
           positionIncrement = -positionIncrement;
-          // Fall through.
+        // Fall through.
         case KeyEvent.KEYCODE_DPAD_RIGHT:
           if (scrubIncrementally(positionIncrement)) {
             removeCallbacks(stopScrubbingRunnable);
@@ -715,7 +734,7 @@ public class DefaultTimeBar extends View implements TimeBar {
         progressBarY,
         seekBounds.right - scrubberPadding,
         progressBarY + barHeight);
-    if (Util.SDK_INT >= 29) {
+    if (SDK_INT >= 29) {
       setSystemGestureExclusionRectsV29(width, height);
     }
     update();
@@ -745,13 +764,8 @@ public class DefaultTimeBar extends View implements TimeBar {
     if (duration <= 0) {
       return;
     }
-    if (Util.SDK_INT >= 21) {
-      info.addAction(AccessibilityAction.ACTION_SCROLL_FORWARD);
-      info.addAction(AccessibilityAction.ACTION_SCROLL_BACKWARD);
-    } else {
-      info.addAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD);
-      info.addAction(AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD);
-    }
+    info.addAction(AccessibilityAction.ACTION_SCROLL_FORWARD);
+    info.addAction(AccessibilityAction.ACTION_SCROLL_BACKWARD);
   }
 
   @Override
@@ -971,11 +985,11 @@ public class DefaultTimeBar extends View implements TimeBar {
   }
 
   private boolean setDrawableLayoutDirection(Drawable drawable) {
-    return Util.SDK_INT >= 23 && setDrawableLayoutDirection(drawable, getLayoutDirection());
+    return SDK_INT >= 23 && setDrawableLayoutDirection(drawable, getLayoutDirection());
   }
 
   private static boolean setDrawableLayoutDirection(Drawable drawable, int layoutDirection) {
-    return Util.SDK_INT >= 23 && drawable.setLayoutDirection(layoutDirection);
+    return SDK_INT >= 23 && drawable.setLayoutDirection(layoutDirection);
   }
 
   private static int dpToPx(float density, int dps) {

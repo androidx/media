@@ -33,6 +33,7 @@ import androidx.media3.datasource.DataSpec;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.hls.playlist.HlsMediaPlaylist;
 import androidx.media3.exoplayer.source.chunk.MediaChunk;
+import androidx.media3.exoplayer.upstream.CmcdData;
 import androidx.media3.extractor.DefaultExtractorInput;
 import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.metadata.id3.Id3Decoder;
@@ -44,6 +45,7 @@ import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.math.BigInteger;
 import java.util.List;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -67,14 +69,18 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
    *     information is available in the multivariant playlist.
    * @param trackSelectionReason See {@link #trackSelectionReason}.
    * @param trackSelectionData See {@link #trackSelectionData}.
-   * @param isMasterTimestampSource True if the chunk can initialize the timestamp adjuster.
+   * @param isPrimaryTimestampSource True if the chunk can initialize the timestamp adjuster.
    * @param timestampAdjusterProvider The provider from which to obtain the {@link
    *     TimestampAdjuster}.
+   * @param timestampAdjusterInitializationTimeoutMs The timeout for the loading thread to wait for
+   *     the timestamp adjuster to initialize, in milliseconds. A timeout of zero is interpreted as
+   *     an infinite timeout.
    * @param previousChunk The {@link HlsMediaChunk} that preceded this one. May be null.
    * @param mediaSegmentKey The media segment decryption key, if fully encrypted. Null otherwise.
    * @param initSegmentKey The initialization segment decryption key, if fully encrypted. Null
    *     otherwise.
    * @param shouldSpliceIn Whether samples for this chunk should be spliced into existing samples.
+   * @param cmcdDataFactory The {@link CmcdData.Factory} for generating {@link CmcdData}.
    */
   public static HlsMediaChunk createInstance(
       HlsExtractorFactory extractorFactory,
@@ -87,13 +93,15 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       @Nullable List<Format> muxedCaptionFormats,
       @C.SelectionReason int trackSelectionReason,
       @Nullable Object trackSelectionData,
-      boolean isMasterTimestampSource,
+      boolean isPrimaryTimestampSource,
       TimestampAdjusterProvider timestampAdjusterProvider,
+      long timestampAdjusterInitializationTimeoutMs,
       @Nullable HlsMediaChunk previousChunk,
       @Nullable byte[] mediaSegmentKey,
       @Nullable byte[] initSegmentKey,
       boolean shouldSpliceIn,
-      PlayerId playerId) {
+      PlayerId playerId,
+      @Nullable CmcdData.Factory cmcdDataFactory) {
     // Media segment.
     HlsMediaPlaylist.SegmentBase mediaSegment = segmentBaseHolder.segmentBase;
     DataSpec dataSpec =
@@ -103,6 +111,11 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
             .setLength(mediaSegment.byteRangeLength)
             .setFlags(segmentBaseHolder.isPreload ? FLAG_MIGHT_NOT_USE_FULL_NETWORK_SPEED : 0)
             .build();
+    if (cmcdDataFactory != null) {
+      CmcdData cmcdData = cmcdDataFactory.createCmcdData();
+      dataSpec = cmcdData.addToDataSpec(dataSpec);
+    }
+
     boolean mediaSegmentEncrypted = mediaSegmentKey != null;
     @Nullable
     byte[] mediaSegmentIv =
@@ -125,7 +138,17 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
               : null;
       Uri initSegmentUri = UriUtil.resolveToUri(mediaPlaylist.baseUri, initSegment.url);
       initDataSpec =
-          new DataSpec(initSegmentUri, initSegment.byteRangeOffset, initSegment.byteRangeLength);
+          new DataSpec.Builder()
+              .setUri(initSegmentUri)
+              .setPosition(initSegment.byteRangeOffset)
+              .setLength(initSegment.byteRangeLength)
+              .build();
+      if (cmcdDataFactory != null) {
+        CmcdData cmcdData =
+            cmcdDataFactory.setObjectType(CmcdData.OBJECT_TYPE_INIT_SEGMENT).createCmcdData();
+        initDataSpec = cmcdData.addToDataSpec(initDataSpec);
+      }
+
       initDataSource = buildDataSource(dataSource, initSegmentKey, initSegmentIv);
     }
 
@@ -180,8 +203,9 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
         /* isPublished= */ !segmentBaseHolder.isPreload,
         discontinuitySequenceNumber,
         mediaSegment.hasGapTag,
-        isMasterTimestampSource,
+        isPrimaryTimestampSource,
         /* timestampAdjuster= */ timestampAdjusterProvider.getAdjuster(discontinuitySequenceNumber),
+        timestampAdjusterInitializationTimeoutMs,
         mediaSegment.drmInitData,
         previousExtractor,
         id3Decoder,
@@ -195,6 +219,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
    *
    * @param previousChunk The previous existing media chunk, or null if the new chunk is the first
    *     in the queue.
+   * @param bufferedPositionUs The position in the sample stream in microseconds since the start of
+   *     the period up to which data is already buffered.
    * @param playlistUrl The URL of the playlist from which the new chunk will be obtained.
    * @param mediaPlaylist The {@link HlsMediaPlaylist} containing the new chunk.
    * @param segmentBaseHolder The {@link HlsChunkSource.SegmentBaseHolder} with information about
@@ -204,6 +230,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
    */
   public static boolean shouldSpliceIn(
       @Nullable HlsMediaChunk previousChunk,
+      long bufferedPositionUs,
       Uri playlistUrl,
       HlsMediaPlaylist mediaPlaylist,
       HlsChunkSource.SegmentBaseHolder segmentBaseHolder,
@@ -222,7 +249,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     long segmentStartTimeInPeriodUs =
         startOfPlaylistInPeriodUs + segmentBaseHolder.segmentBase.relativeStartTimeUs;
     return !isIndependent(segmentBaseHolder, mediaPlaylist)
-        || segmentStartTimeInPeriodUs < previousChunk.endTimeUs;
+        || segmentStartTimeInPeriodUs < bufferedPositionUs;
   }
 
   public static final String PRIV_TIMESTAMP_FRAME_OWNER =
@@ -249,7 +276,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   @Nullable private final DataSpec initDataSpec;
   @Nullable private final HlsMediaChunkExtractor previousExtractor;
 
-  private final boolean isMasterTimestampSource;
+  private final boolean isPrimaryTimestampSource;
   private final boolean hasGapTag;
   private final TimestampAdjuster timestampAdjuster;
   private final HlsExtractorFactory extractorFactory;
@@ -260,6 +287,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   private final boolean mediaSegmentEncrypted;
   private final boolean initSegmentEncrypted;
   private final PlayerId playerId;
+  private final long timestampAdjusterInitializationTimeoutMs;
 
   private @MonotonicNonNull HlsMediaChunkExtractor extractor;
   private @MonotonicNonNull HlsSampleStreamWrapper output;
@@ -271,7 +299,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   private boolean loadCompleted;
   private ImmutableList<Integer> sampleQueueFirstSampleIndices;
   private boolean extractorInvalidated;
-  private boolean isPublished;
+  private long publishedDurationUs;
 
   private HlsMediaChunk(
       HlsExtractorFactory extractorFactory,
@@ -293,8 +321,9 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       boolean isPublished,
       int discontinuitySequenceNumber,
       boolean hasGapTag,
-      boolean isMasterTimestampSource,
+      boolean isPrimaryTimestampSource,
       TimestampAdjuster timestampAdjuster,
+      long timestampAdjusterInitializationTimeoutMs,
       @Nullable DrmInitData drmInitData,
       @Nullable HlsMediaChunkExtractor previousExtractor,
       Id3Decoder id3Decoder,
@@ -312,15 +341,16 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
         chunkMediaSequence);
     this.mediaSegmentEncrypted = mediaSegmentEncrypted;
     this.partIndex = partIndex;
-    this.isPublished = isPublished;
+    this.publishedDurationUs = isPublished ? endTimeUs - startTimeUs : C.TIME_UNSET;
     this.discontinuitySequenceNumber = discontinuitySequenceNumber;
     this.initDataSpec = initDataSpec;
     this.initDataSource = initDataSource;
     this.initDataLoadRequired = initDataSpec != null;
     this.initSegmentEncrypted = initSegmentEncrypted;
     this.playlistUrl = playlistUrl;
-    this.isMasterTimestampSource = isMasterTimestampSource;
+    this.isPrimaryTimestampSource = isPrimaryTimestampSource;
     this.timestampAdjuster = timestampAdjuster;
+    this.timestampAdjusterInitializationTimeoutMs = timestampAdjusterInitializationTimeoutMs;
     this.hasGapTag = hasGapTag;
     this.extractorFactory = extractorFactory;
     this.muxedCaptionFormats = muxedCaptionFormats;
@@ -402,15 +432,28 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
    * playlist updates.
    */
   public boolean isPublished() {
-    return isPublished;
+    return publishedDurationUs != C.TIME_UNSET;
+  }
+
+  /**
+   * Returns the end time of a segment or part if it's fully published, or {@link C#TIME_UNSET} if
+   * it's an unpublished preload hint.
+   *
+   * <p>Note that this value can differ from {@link #endTimeUs} for preload parts that have been
+   * loaded before the duration was known.
+   */
+  public long getPublishedEndTimeUs() {
+    return publishedDurationUs != C.TIME_UNSET ? startTimeUs + publishedDurationUs : C.TIME_UNSET;
   }
 
   /**
    * Sets the publish flag of the media chunk to indicate that it is not based on a part that is a
    * preload hint in the playlist.
+   *
+   * @param publishedDurationUs The final published duration of the part in microseconds.
    */
-  public void publish() {
-    isPublished = true;
+  public void publish(long publishedDurationUs) {
+    this.publishedDurationUs = publishedDurationUs;
   }
 
   // Internal methods.
@@ -495,9 +538,12 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     long bytesToRead = dataSource.open(dataSpec);
     if (initializeTimestampAdjuster) {
       try {
-        timestampAdjuster.sharedInitializeOrWait(isMasterTimestampSource, startTimeUs);
+        timestampAdjuster.sharedInitializeOrWait(
+            isPrimaryTimestampSource, startTimeUs, timestampAdjusterInitializationTimeoutMs);
       } catch (InterruptedException e) {
         throw new InterruptedIOException();
+      } catch (TimeoutException e) {
+        throw new IOException(e);
       }
     }
     DefaultExtractorInput extractorInput =

@@ -29,18 +29,38 @@ public final class MpegAudioUtil {
 
     /** MPEG audio header version. */
     public int version;
-    /** The mime type. */
+
+    /** The MIME type. */
     @Nullable public String mimeType;
+
     /** Size of the frame associated with this header, in bytes. */
     public int frameSize;
+
     /** Sample rate in samples per second. */
     public int sampleRate;
+
     /** Number of audio channels in the frame. */
     public int channels;
+
     /** Bitrate of the frame in bit/s. */
     public int bitrate;
+
     /** Number of samples stored in the frame. */
     public int samplesPerFrame;
+
+    /** Constructs an empty instance. */
+    public Header() {}
+
+    /** Constructs an instance with values from {@code header}. */
+    public Header(Header header) {
+      this.version = header.version;
+      this.mimeType = header.mimeType;
+      this.frameSize = header.frameSize;
+      this.sampleRate = header.sampleRate;
+      this.channels = header.channels;
+      this.bitrate = header.bitrate;
+      this.samplesPerFrame = header.samplesPerFrame;
+    }
 
     /**
      * Populates the fields in this instance to reflect the MPEG audio header in {@code headerData},

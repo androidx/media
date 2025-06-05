@@ -14,8 +14,8 @@
         <layout>
             <region xml:id="region_0" tts:extent="51% 12%" tts:origin="24% 78%"/>
             <region xml:id="region_1" tts:extent="57% 6%" tts:origin="21% 85%"/>
-            <region xml:id="region_2" tts:extent="51% 12%" tts:origin="24% 28%"/>
-            <region xml:id="region_3" tts:extent="57% 6%" tts:origin="21% 35%"/>
+            <region xml:id="region_2" tts:extent="51% 12%" tts:origin="-24.2% 28.5%"/>
+            <region xml:id="region_3" tts:extent="57% 6%" tts:origin="21% +35%"/>
         </layout>
     </head>
     <body>

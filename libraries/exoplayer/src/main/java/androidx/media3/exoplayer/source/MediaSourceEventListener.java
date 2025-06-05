@@ -16,6 +16,7 @@
 package androidx.media3.exoplayer.source;
 
 import static androidx.media3.common.util.Util.postOrRun;
+import static androidx.media3.common.util.Util.usToMs;
 
 import android.os.Handler;
 import androidx.annotation.CheckResult;
@@ -25,8 +26,8 @@ import androidx.media3.common.C.DataType;
 import androidx.media3.common.Format;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.Assertions;
+import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import java.io.IOException;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -45,12 +46,15 @@ public interface MediaSourceEventListener {
    *     LoadEventInfo#uri} won't reflect potential redirection yet and {@link
    *     LoadEventInfo#responseHeaders} will be empty.
    * @param mediaLoadData The {@link MediaLoadData} defining the data being loaded.
+   * @param retryCount The number of failed attempts since this method was first called (this is
+   *     zero for the first load attempt).
    */
   default void onLoadStarted(
       int windowIndex,
       @Nullable MediaPeriodId mediaPeriodId,
       LoadEventInfo loadEventInfo,
-      MediaLoadData mediaLoadData) {}
+      MediaLoadData mediaLoadData,
+      int retryCount) {}
 
   /**
    * Called when a load ends.
@@ -60,8 +64,7 @@ public interface MediaSourceEventListener {
    *     belong to a specific media period.
    * @param loadEventInfo The {@link LoadEventInfo} corresponding to the event. The values of {@link
    *     LoadEventInfo#elapsedRealtimeMs} and {@link LoadEventInfo#bytesLoaded} are relative to the
-   *     corresponding {@link #onLoadStarted(int, MediaPeriodId, LoadEventInfo, MediaLoadData)}
-   *     event.
+   *     corresponding {@link #onLoadStarted} event.
    * @param mediaLoadData The {@link MediaLoadData} defining the data being loaded.
    */
   default void onLoadCompleted(
@@ -78,8 +81,7 @@ public interface MediaSourceEventListener {
    *     belong to a specific media period.
    * @param loadEventInfo The {@link LoadEventInfo} corresponding to the event. The values of {@link
    *     LoadEventInfo#elapsedRealtimeMs} and {@link LoadEventInfo#bytesLoaded} are relative to the
-   *     corresponding {@link #onLoadStarted(int, MediaPeriodId, LoadEventInfo, MediaLoadData)}
-   *     event.
+   *     corresponding {@link #onLoadStarted} event.
    * @param mediaLoadData The {@link MediaLoadData} defining the data being loaded.
    */
   default void onLoadCanceled(
@@ -107,8 +109,7 @@ public interface MediaSourceEventListener {
    *     belong to a specific media period.
    * @param loadEventInfo The {@link LoadEventInfo} corresponding to the event. The values of {@link
    *     LoadEventInfo#elapsedRealtimeMs} and {@link LoadEventInfo#bytesLoaded} are relative to the
-   *     corresponding {@link #onLoadStarted(int, MediaPeriodId, LoadEventInfo, MediaLoadData)}
-   *     event.
+   *     corresponding {@link #onLoadStarted} event.
    * @param mediaLoadData The {@link MediaLoadData} defining the data being loaded.
    * @param error The load error.
    * @param wasCanceled Whether the load was canceled as a result of the error.
@@ -148,30 +149,27 @@ public interface MediaSourceEventListener {
 
     /** The timeline window index reported with the events. */
     public final int windowIndex;
+
     /** The {@link MediaPeriodId} reported with the events. */
     @Nullable public final MediaPeriodId mediaPeriodId;
 
     private final CopyOnWriteArrayList<ListenerAndHandler> listenerAndHandlers;
-    private final long mediaTimeOffsetMs;
 
     /** Creates an event dispatcher. */
     public EventDispatcher() {
       this(
           /* listenerAndHandlers= */ new CopyOnWriteArrayList<>(),
           /* windowIndex= */ 0,
-          /* mediaPeriodId= */ null,
-          /* mediaTimeOffsetMs= */ 0);
+          /* mediaPeriodId= */ null);
     }
 
     private EventDispatcher(
         CopyOnWriteArrayList<ListenerAndHandler> listenerAndHandlers,
         int windowIndex,
-        @Nullable MediaPeriodId mediaPeriodId,
-        long mediaTimeOffsetMs) {
+        @Nullable MediaPeriodId mediaPeriodId) {
       this.listenerAndHandlers = listenerAndHandlers;
       this.windowIndex = windowIndex;
       this.mediaPeriodId = mediaPeriodId;
-      this.mediaTimeOffsetMs = mediaTimeOffsetMs;
     }
 
     /**
@@ -180,14 +178,24 @@ public interface MediaSourceEventListener {
      *
      * @param windowIndex The timeline window index to be reported with the events.
      * @param mediaPeriodId The {@link MediaPeriodId} to be reported with the events.
-     * @param mediaTimeOffsetMs The offset to be added to all media times, in milliseconds.
      * @return A view of the event dispatcher with the pre-configured parameters.
      */
     @CheckResult
+    public EventDispatcher withParameters(int windowIndex, @Nullable MediaPeriodId mediaPeriodId) {
+      return new EventDispatcher(listenerAndHandlers, windowIndex, mediaPeriodId);
+    }
+
+    /**
+     * Note: The {@code mediaTimeOffsetMs} passed to this method is ignored and not added to media
+     * times in any way.
+     *
+     * @deprecated Use {@link #withParameters(int, MediaPeriodId)} instead.
+     */
+    @Deprecated
+    @CheckResult
     public EventDispatcher withParameters(
         int windowIndex, @Nullable MediaPeriodId mediaPeriodId, long mediaTimeOffsetMs) {
-      return new EventDispatcher(
-          listenerAndHandlers, windowIndex, mediaPeriodId, mediaTimeOffsetMs);
+      return new EventDispatcher(listenerAndHandlers, windowIndex, mediaPeriodId);
     }
 
     /**
@@ -215,8 +223,17 @@ public interface MediaSourceEventListener {
       }
     }
 
-    /** Dispatches {@link #onLoadStarted(int, MediaPeriodId, LoadEventInfo, MediaLoadData)}. */
+    /**
+     * @deprecated Use {link {@link #loadStarted(LoadEventInfo, int, int)} instead to pass {@code
+     *     retryCount}.
+     */
+    @Deprecated
     public void loadStarted(LoadEventInfo loadEventInfo, @DataType int dataType) {
+      loadStarted(loadEventInfo, dataType, /* retryCount= */ 0);
+    }
+
+    /** Dispatches {@link #onLoadStarted(int, MediaPeriodId, LoadEventInfo, MediaLoadData, int)}. */
+    public void loadStarted(LoadEventInfo loadEventInfo, @DataType int dataType, int retryCount) {
       loadStarted(
           loadEventInfo,
           dataType,
@@ -225,10 +242,15 @@ public interface MediaSourceEventListener {
           /* trackSelectionReason= */ C.SELECTION_REASON_UNKNOWN,
           /* trackSelectionData= */ null,
           /* mediaStartTimeUs= */ C.TIME_UNSET,
-          /* mediaEndTimeUs= */ C.TIME_UNSET);
+          /* mediaEndTimeUs= */ C.TIME_UNSET,
+          retryCount);
     }
 
-    /** Dispatches {@link #onLoadStarted(int, MediaPeriodId, LoadEventInfo, MediaLoadData)}. */
+    /**
+     * @deprecated Use {link {@link #loadStarted(LoadEventInfo, int, int, Format, int, Object, long,
+     *     long, int)} )} instead to pass {@code retryCount}.
+     */
+    @Deprecated
     public void loadStarted(
         LoadEventInfo loadEventInfo,
         @DataType int dataType,
@@ -246,18 +268,50 @@ public interface MediaSourceEventListener {
               trackFormat,
               trackSelectionReason,
               trackSelectionData,
-              adjustMediaTime(mediaStartTimeUs),
-              adjustMediaTime(mediaEndTimeUs)));
+              usToMs(mediaStartTimeUs),
+              usToMs(mediaEndTimeUs)));
     }
 
-    /** Dispatches {@link #onLoadStarted(int, MediaPeriodId, LoadEventInfo, MediaLoadData)}. */
+    /** Dispatches {@link #onLoadStarted(int, MediaPeriodId, LoadEventInfo, MediaLoadData, int)}. */
+    public void loadStarted(
+        LoadEventInfo loadEventInfo,
+        @DataType int dataType,
+        @C.TrackType int trackType,
+        @Nullable Format trackFormat,
+        @C.SelectionReason int trackSelectionReason,
+        @Nullable Object trackSelectionData,
+        long mediaStartTimeUs,
+        long mediaEndTimeUs,
+        int retryCount) {
+      loadStarted(
+          loadEventInfo,
+          new MediaLoadData(
+              dataType,
+              trackType,
+              trackFormat,
+              trackSelectionReason,
+              trackSelectionData,
+              usToMs(mediaStartTimeUs),
+              usToMs(mediaEndTimeUs)),
+          retryCount);
+    }
+
+    /**
+     * @deprecated Use {link {@link #loadStarted(LoadEventInfo, MediaLoadData, int)} instead to pass
+     *     {@code retryCount}.
+     */
+    @Deprecated
     public void loadStarted(LoadEventInfo loadEventInfo, MediaLoadData mediaLoadData) {
-      for (ListenerAndHandler listenerAndHandler : listenerAndHandlers) {
-        MediaSourceEventListener listener = listenerAndHandler.listener;
-        postOrRun(
-            listenerAndHandler.handler,
-            () -> listener.onLoadStarted(windowIndex, mediaPeriodId, loadEventInfo, mediaLoadData));
-      }
+      loadStarted(loadEventInfo, mediaLoadData, /* retryCount= */ 0);
+    }
+
+    /** Dispatches {@link #onLoadStarted(int, MediaPeriodId, LoadEventInfo, MediaLoadData, int)}. */
+    public void loadStarted(
+        LoadEventInfo loadEventInfo, MediaLoadData mediaLoadData, int retryCount) {
+      dispatchEvent(
+          (listener) ->
+              listener.onLoadStarted(
+                  windowIndex, mediaPeriodId, loadEventInfo, mediaLoadData, retryCount));
     }
 
     /** Dispatches {@link #onLoadCompleted(int, MediaPeriodId, LoadEventInfo, MediaLoadData)}. */
@@ -291,19 +345,15 @@ public interface MediaSourceEventListener {
               trackFormat,
               trackSelectionReason,
               trackSelectionData,
-              adjustMediaTime(mediaStartTimeUs),
-              adjustMediaTime(mediaEndTimeUs)));
+              usToMs(mediaStartTimeUs),
+              usToMs(mediaEndTimeUs)));
     }
 
     /** Dispatches {@link #onLoadCompleted(int, MediaPeriodId, LoadEventInfo, MediaLoadData)}. */
     public void loadCompleted(LoadEventInfo loadEventInfo, MediaLoadData mediaLoadData) {
-      for (ListenerAndHandler listenerAndHandler : listenerAndHandlers) {
-        MediaSourceEventListener listener = listenerAndHandler.listener;
-        postOrRun(
-            listenerAndHandler.handler,
-            () ->
-                listener.onLoadCompleted(windowIndex, mediaPeriodId, loadEventInfo, mediaLoadData));
-      }
+      dispatchEvent(
+          (listener) ->
+              listener.onLoadCompleted(windowIndex, mediaPeriodId, loadEventInfo, mediaLoadData));
     }
 
     /** Dispatches {@link #onLoadCanceled(int, MediaPeriodId, LoadEventInfo, MediaLoadData)}. */
@@ -337,19 +387,15 @@ public interface MediaSourceEventListener {
               trackFormat,
               trackSelectionReason,
               trackSelectionData,
-              adjustMediaTime(mediaStartTimeUs),
-              adjustMediaTime(mediaEndTimeUs)));
+              usToMs(mediaStartTimeUs),
+              usToMs(mediaEndTimeUs)));
     }
 
     /** Dispatches {@link #onLoadCanceled(int, MediaPeriodId, LoadEventInfo, MediaLoadData)}. */
     public void loadCanceled(LoadEventInfo loadEventInfo, MediaLoadData mediaLoadData) {
-      for (ListenerAndHandler listenerAndHandler : listenerAndHandlers) {
-        MediaSourceEventListener listener = listenerAndHandler.listener;
-        postOrRun(
-            listenerAndHandler.handler,
-            () ->
-                listener.onLoadCanceled(windowIndex, mediaPeriodId, loadEventInfo, mediaLoadData));
-      }
+      dispatchEvent(
+          (listener) ->
+              listener.onLoadCanceled(windowIndex, mediaPeriodId, loadEventInfo, mediaLoadData));
     }
 
     /**
@@ -397,8 +443,8 @@ public interface MediaSourceEventListener {
               trackFormat,
               trackSelectionReason,
               trackSelectionData,
-              adjustMediaTime(mediaStartTimeUs),
-              adjustMediaTime(mediaEndTimeUs)),
+              usToMs(mediaStartTimeUs),
+              usToMs(mediaEndTimeUs)),
           error,
           wasCanceled);
     }
@@ -412,14 +458,10 @@ public interface MediaSourceEventListener {
         MediaLoadData mediaLoadData,
         IOException error,
         boolean wasCanceled) {
-      for (ListenerAndHandler listenerAndHandler : listenerAndHandlers) {
-        MediaSourceEventListener listener = listenerAndHandler.listener;
-        postOrRun(
-            listenerAndHandler.handler,
-            () ->
-                listener.onLoadError(
-                    windowIndex, mediaPeriodId, loadEventInfo, mediaLoadData, error, wasCanceled));
-      }
+      dispatchEvent(
+          (listener) ->
+              listener.onLoadError(
+                  windowIndex, mediaPeriodId, loadEventInfo, mediaLoadData, error, wasCanceled));
     }
 
     /** Dispatches {@link #onUpstreamDiscarded(int, MediaPeriodId, MediaLoadData)}. */
@@ -431,19 +473,15 @@ public interface MediaSourceEventListener {
               /* trackFormat= */ null,
               C.SELECTION_REASON_ADAPTIVE,
               /* trackSelectionData= */ null,
-              adjustMediaTime(mediaStartTimeUs),
-              adjustMediaTime(mediaEndTimeUs)));
+              usToMs(mediaStartTimeUs),
+              usToMs(mediaEndTimeUs)));
     }
 
     /** Dispatches {@link #onUpstreamDiscarded(int, MediaPeriodId, MediaLoadData)}. */
     public void upstreamDiscarded(MediaLoadData mediaLoadData) {
       MediaPeriodId mediaPeriodId = Assertions.checkNotNull(this.mediaPeriodId);
-      for (ListenerAndHandler listenerAndHandler : listenerAndHandlers) {
-        MediaSourceEventListener listener = listenerAndHandler.listener;
-        postOrRun(
-            listenerAndHandler.handler,
-            () -> listener.onUpstreamDiscarded(windowIndex, mediaPeriodId, mediaLoadData));
-      }
+      dispatchEvent(
+          (listener) -> listener.onUpstreamDiscarded(windowIndex, mediaPeriodId, mediaLoadData));
     }
 
     /** Dispatches {@link #onDownstreamFormatChanged(int, MediaPeriodId, MediaLoadData)}. */
@@ -460,23 +498,23 @@ public interface MediaSourceEventListener {
               trackFormat,
               trackSelectionReason,
               trackSelectionData,
-              adjustMediaTime(mediaTimeUs),
+              usToMs(mediaTimeUs),
               /* mediaEndTimeMs= */ C.TIME_UNSET));
     }
 
     /** Dispatches {@link #onDownstreamFormatChanged(int, MediaPeriodId, MediaLoadData)}. */
     public void downstreamFormatChanged(MediaLoadData mediaLoadData) {
-      for (ListenerAndHandler listenerAndHandler : listenerAndHandlers) {
-        MediaSourceEventListener listener = listenerAndHandler.listener;
-        postOrRun(
-            listenerAndHandler.handler,
-            () -> listener.onDownstreamFormatChanged(windowIndex, mediaPeriodId, mediaLoadData));
-      }
+      dispatchEvent(
+          (listener) ->
+              listener.onDownstreamFormatChanged(windowIndex, mediaPeriodId, mediaLoadData));
     }
 
-    private long adjustMediaTime(long mediaTimeUs) {
-      long mediaTimeMs = Util.usToMs(mediaTimeUs);
-      return mediaTimeMs == C.TIME_UNSET ? C.TIME_UNSET : mediaTimeOffsetMs + mediaTimeMs;
+    /** Dispatches to a function that supplies a {@link MediaSourceEventListener}. */
+    public void dispatchEvent(Consumer<MediaSourceEventListener> event) {
+      for (ListenerAndHandler listenerAndHandler : listenerAndHandlers) {
+        MediaSourceEventListener listener = listenerAndHandler.listener;
+        postOrRun(listenerAndHandler.handler, () -> event.accept(listener));
+      }
     }
 
     private static final class ListenerAndHandler {

@@ -15,11 +15,8 @@
  */
 package androidx.media3.extractor.metadata.scte35;
 
-import android.os.Parcel;
-import android.os.Parcelable;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 
 /** Represents a private command as defined in SCTE35, Section 9.3.6. */
 @UnstableApi
@@ -27,8 +24,10 @@ public final class PrivateCommand extends SpliceCommand {
 
   /** The {@code pts_adjustment} as defined in SCTE35, Section 9.2. */
   public final long ptsAdjustment;
+
   /** The identifier as defined in SCTE35, Section 9.3.6. */
   public final long identifier;
+
   /** The private bytes as defined in SCTE35, Section 9.3.6. */
   public final byte[] commandBytes;
 
@@ -36,12 +35,6 @@ public final class PrivateCommand extends SpliceCommand {
     this.ptsAdjustment = ptsAdjustment;
     this.identifier = identifier;
     this.commandBytes = commandBytes;
-  }
-
-  private PrivateCommand(Parcel in) {
-    ptsAdjustment = in.readLong();
-    identifier = in.readLong();
-    commandBytes = Util.castNonNull(in.createByteArray());
   }
 
   /* package */ static PrivateCommand parseFromSection(
@@ -52,26 +45,12 @@ public final class PrivateCommand extends SpliceCommand {
     return new PrivateCommand(identifier, privateBytes, ptsAdjustment);
   }
 
-  // Parcelable implementation.
-
   @Override
-  public void writeToParcel(Parcel dest, int flags) {
-    dest.writeLong(ptsAdjustment);
-    dest.writeLong(identifier);
-    dest.writeByteArray(commandBytes);
+  public String toString() {
+    return "SCTE-35 PrivateCommand { ptsAdjustment="
+        + ptsAdjustment
+        + ", identifier= "
+        + identifier
+        + " }";
   }
-
-  public static final Parcelable.Creator<PrivateCommand> CREATOR =
-      new Parcelable.Creator<PrivateCommand>() {
-
-        @Override
-        public PrivateCommand createFromParcel(Parcel in) {
-          return new PrivateCommand(in);
-        }
-
-        @Override
-        public PrivateCommand[] newArray(int size) {
-          return new PrivateCommand[size];
-        }
-      };
 }

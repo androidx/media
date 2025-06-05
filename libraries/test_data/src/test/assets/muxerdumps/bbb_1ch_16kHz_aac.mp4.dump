@@ -1,0 +1,93 @@
+seekMap:
+  isSeekable = false
+  duration = UNSET TIME
+  getPosition(0) = [[timeUs=0, position=0]]
+numberOfTracks = 2
+track 0:
+  total output bytes = 8459
+  sample count = 17
+  format 0:
+    id = 0
+    containerMimeType = audio/mp4a-latm
+    sampleMimeType = audio/mp4a-latm
+    codecs = mp4a.40.2
+    channelCount = 1
+    sampleRate = 16000
+    initializationData:
+      data = length 2, hash 635
+  sample 0:
+    time = 0
+    flags = 1
+    data = length 493, hash A9A13B7
+  sample 1:
+    time = 64000
+    flags = 1
+    data = length 474, hash 5EE5D14A
+  sample 2:
+    time = 128000
+    flags = 1
+    data = length 448, hash D8BFCE10
+  sample 3:
+    time = 192000
+    flags = 1
+    data = length 461, hash C234AD51
+  sample 4:
+    time = 256000
+    flags = 1
+    data = length 480, hash B382D5A4
+  sample 5:
+    time = 320000
+    flags = 1
+    data = length 542, hash DDBAE893
+  sample 6:
+    time = 384000
+    flags = 1
+    data = length 485, hash 1857D43F
+  sample 7:
+    time = 448000
+    flags = 1
+    data = length 550, hash 4F4E6D05
+  sample 8:
+    time = 512000
+    flags = 1
+    data = length 543, hash 8EB9265A
+  sample 9:
+    time = 576000
+    flags = 1
+    data = length 532, hash 8F4CA1B2
+  sample 10:
+    time = 640000
+    flags = 1
+    data = length 520, hash 767A56DC
+  sample 11:
+    time = 704000
+    flags = 1
+    data = length 521, hash 6CC927DC
+  sample 12:
+    time = 768000
+    flags = 1
+    data = length 499, hash AECEF51E
+  sample 13:
+    time = 832000
+    flags = 1
+    data = length 468, hash F5A44CA2
+  sample 14:
+    time = 896000
+    flags = 1
+    data = length 472, hash E973268B
+  sample 15:
+    time = 960000
+    flags = 1
+    data = length 488, hash 46CF40E7
+  sample 16:
+    time = 1024000
+    flags = 1
+    data = length 483, hash 32576072
+track 1:
+  total output bytes = 0
+  sample count = 0
+  format 0:
+    id = 1
+    containerMimeType = audio/mp4a-latm
+    sampleMimeType = application/id3
+tracksEnded = true

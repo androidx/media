@@ -19,7 +19,6 @@ package androidx.media3.transformer;
 import static android.media.MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR;
 import static android.media.MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR;
 import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkState;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.annotation.SuppressLint;
@@ -27,7 +26,6 @@ import android.media.MediaCodecInfo;
 import android.media.MediaFormat;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
-import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.UnstableApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -42,6 +40,13 @@ public final class VideoEncoderSettings {
 
   /** A value for various fields to indicate that the field's value is unknown or not applicable. */
   public static final int NO_VALUE = Format.NO_VALUE;
+
+  /**
+   * A value for {@link Builder#setEncoderPerformanceParameters(int, int)} to disable setting
+   * performance parameters.
+   */
+  public static final int RATE_UNSET = NO_VALUE - 1;
+
   /** The default I-frame interval in seconds. */
   public static final float DEFAULT_I_FRAME_INTERVAL_SECONDS = 1.0f;
 
@@ -75,7 +80,10 @@ public final class VideoEncoderSettings {
     private float iFrameIntervalSeconds;
     private int operatingRate;
     private int priority;
-    private boolean enableHighQualityTargeting;
+    private long repeatPreviousFrameIntervalUs;
+    private int maxBFrames;
+    private int numNonBidirectionalTemporalLayers;
+    private int numBidirectionalTemporalLayers;
 
     /** Creates a new instance. */
     public Builder() {
@@ -86,6 +94,10 @@ public final class VideoEncoderSettings {
       this.iFrameIntervalSeconds = DEFAULT_I_FRAME_INTERVAL_SECONDS;
       this.operatingRate = NO_VALUE;
       this.priority = NO_VALUE;
+      this.repeatPreviousFrameIntervalUs = NO_VALUE;
+      this.maxBFrames = NO_VALUE;
+      this.numNonBidirectionalTemporalLayers = NO_VALUE;
+      this.numBidirectionalTemporalLayers = NO_VALUE;
     }
 
     private Builder(VideoEncoderSettings videoEncoderSettings) {
@@ -96,15 +108,17 @@ public final class VideoEncoderSettings {
       this.iFrameIntervalSeconds = videoEncoderSettings.iFrameIntervalSeconds;
       this.operatingRate = videoEncoderSettings.operatingRate;
       this.priority = videoEncoderSettings.priority;
-      this.enableHighQualityTargeting = videoEncoderSettings.enableHighQualityTargeting;
+      this.repeatPreviousFrameIntervalUs = videoEncoderSettings.repeatPreviousFrameIntervalUs;
+      this.maxBFrames = videoEncoderSettings.maxBFrames;
+      this.numNonBidirectionalTemporalLayers =
+          videoEncoderSettings.numNonBidirectionalTemporalLayers;
+      this.numBidirectionalTemporalLayers = videoEncoderSettings.numBidirectionalTemporalLayers;
     }
 
     /**
      * Sets {@link VideoEncoderSettings#bitrate}. The default value is {@link #NO_VALUE}.
      *
-     * <p>Can not be set if enabling {@link #setEnableHighQualityTargeting(boolean)}.
-     *
-     * @param bitrate The {@link VideoEncoderSettings#bitrate}.
+     * @param bitrate The {@link VideoEncoderSettings#bitrate} in bits per second.
      * @return This builder.
      */
     @CanIgnoreReturnValue
@@ -136,8 +150,8 @@ public final class VideoEncoderSettings {
      * <p>The value must be one of the values defined in {@link MediaCodecInfo.CodecProfileLevel},
      * or {@link #NO_VALUE}.
      *
-     * <p>Profile and level settings will be ignored when using {@link DefaultEncoderFactory} and
-     * encoding to H264.
+     * <p>Profile settings will be ignored when using {@link DefaultEncoderFactory} and encoding to
+     * H264.
      *
      * @param encodingProfile The {@link VideoEncoderSettings#profile}.
      * @param encodingLevel The {@link VideoEncoderSettings#level}.
@@ -167,12 +181,15 @@ public final class VideoEncoderSettings {
      * Sets encoding operating rate and priority. The default values are {@link #NO_VALUE}, which is
      * treated as configuring the encoder for maximum throughput.
      *
-     * @param operatingRate The {@link MediaFormat#KEY_OPERATING_RATE operating rate}.
+     * <p>To disable the configuration for either operating rate or priority, use {@link
+     * #RATE_UNSET} for that argument.
+     *
+     * @param operatingRate The {@link MediaFormat#KEY_OPERATING_RATE operating rate} in frames per
+     *     second.
      * @param priority The {@link MediaFormat#KEY_PRIORITY priority}.
      * @return This builder.
      */
     @CanIgnoreReturnValue
-    @VisibleForTesting
     public Builder setEncoderPerformanceParameters(int operatingRate, int priority) {
       this.operatingRate = operatingRate;
       this.priority = priority;
@@ -180,28 +197,58 @@ public final class VideoEncoderSettings {
     }
 
     /**
-     * Sets whether to enable automatic adjustment of the bitrate to target a high quality encoding.
+     * Sets the threshold duration between input frames beyond which to repeat the previous frame if
+     * no new frame has been received, in microseconds. The default value is {@link #NO_VALUE},
+     * which means that frames are not automatically repeated.
      *
-     * <p>Default value is {@code false}.
-     *
-     * <p>Requires {@link android.media.MediaCodecInfo.EncoderCapabilities#BITRATE_MODE_VBR}.
-     *
-     * <p>Can not be enabled alongside setting a custom bitrate with {@link #setBitrate(int)}.
+     * @param repeatPreviousFrameIntervalUs The {@linkplain
+     *     MediaFormat#KEY_REPEAT_PREVIOUS_FRAME_AFTER frame repeat interval}, in microseconds.
+     * @return This builder.
      */
     @CanIgnoreReturnValue
-    public Builder setEnableHighQualityTargeting(boolean enableHighQualityTargeting) {
-      this.enableHighQualityTargeting = enableHighQualityTargeting;
+    public Builder setRepeatPreviousFrameIntervalUs(long repeatPreviousFrameIntervalUs) {
+      this.repeatPreviousFrameIntervalUs = repeatPreviousFrameIntervalUs;
+      return this;
+    }
+
+    /**
+     * Sets the maximum number of B frames allowed between I or P frames in the produced video. The
+     * default value is {@link #NO_VALUE} which means that B frame encoding is disabled.
+     *
+     * @param maxBFrames the {@linkplain MediaFormat#KEY_MAX_B_FRAMES maximum number of B frames}
+     *     allowed.
+     * @return This builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setMaxBFrames(int maxBFrames) {
+      this.maxBFrames = maxBFrames;
+      return this;
+    }
+
+    /**
+     * Sets the number of temporal layers to request from the video encoder.
+     *
+     * <p>The default value for both parameters is {@link #NO_VALUE} which indicates that no
+     * {@linkplain MediaFormat#KEY_TEMPORAL_LAYERING temporal layering schema} will be set for the
+     * encoder.
+     *
+     * @param numNonBidirectionalLayers the number of predictive layers to have. This value must be
+     *     stricly positive. A value of '0' explicitly requests no temporal layers from the encoder,
+     *     regardless of the requested 'numBidirectionalLayers'.
+     * @param numBidirectionalLayers the number of bi-directional layers to have. This value must be
+     *     greater than or equal to zero. A value greater than 1 constructs a hierarchical-B coding
+     *     structure.
+     * @return This builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setTemporalLayers(int numNonBidirectionalLayers, int numBidirectionalLayers) {
+      this.numNonBidirectionalTemporalLayers = numNonBidirectionalLayers;
+      this.numBidirectionalTemporalLayers = numBidirectionalLayers;
       return this;
     }
 
     /** Builds the instance. */
     public VideoEncoderSettings build() {
-      checkState(
-          !enableHighQualityTargeting || bitrate == NO_VALUE,
-          "Bitrate can not be set if enabling high quality targeting.");
-      checkState(
-          !enableHighQualityTargeting || bitrateMode == BITRATE_MODE_VBR,
-          "Bitrate mode must be VBR if enabling high quality targeting.");
       return new VideoEncoderSettings(
           bitrate,
           bitrateMode,
@@ -210,26 +257,51 @@ public final class VideoEncoderSettings {
           iFrameIntervalSeconds,
           operatingRate,
           priority,
-          enableHighQualityTargeting);
+          repeatPreviousFrameIntervalUs,
+          maxBFrames,
+          numNonBidirectionalTemporalLayers,
+          numBidirectionalTemporalLayers);
     }
   }
 
-  /** The encoding bitrate. */
+  /** The encoding bitrate in bits per second. */
   public final int bitrate;
+
   /** One of {@linkplain BitrateMode}. */
   public final @BitrateMode int bitrateMode;
+
   /** The encoding profile. */
   public final int profile;
+
   /** The encoding level. */
   public final int level;
+
   /** The encoding I-Frame interval in seconds. */
   public final float iFrameIntervalSeconds;
-  /** The encoder {@link MediaFormat#KEY_OPERATING_RATE operating rate}. */
+
+  /** The encoder {@link MediaFormat#KEY_OPERATING_RATE operating rate} in frames per second. */
   public final int operatingRate;
+
   /** The encoder {@link MediaFormat#KEY_PRIORITY priority}. */
   public final int priority;
-  /** Whether the encoder should automatically set the bitrate to target a high quality encoding. */
-  public final boolean enableHighQualityTargeting;
+
+  /**
+   * The {@linkplain MediaFormat#KEY_REPEAT_PREVIOUS_FRAME_AFTER frame repeat interval}, in
+   * microseconds.
+   */
+  public final long repeatPreviousFrameIntervalUs;
+
+  /**
+   * The {@linkplain MediaFormat#KEY_MAX_B_FRAMES maximum number of B frames} allowed between I and
+   * P frames in the produced encoded video.
+   */
+  public final int maxBFrames;
+
+  /** The requested number of non-bidirectional temporal layers requested from the encoder. */
+  public final int numNonBidirectionalTemporalLayers;
+
+  /** The requested number of bidirectional temporal layers requested from the encoder. */
+  public final int numBidirectionalTemporalLayers;
 
   private VideoEncoderSettings(
       int bitrate,
@@ -239,7 +311,10 @@ public final class VideoEncoderSettings {
       float iFrameIntervalSeconds,
       int operatingRate,
       int priority,
-      boolean enableHighQualityTargeting) {
+      long repeatPreviousFrameIntervalUs,
+      int maxBFrames,
+      int numNonBidirectionalTemporalLayers,
+      int numBidirectionalTemporalLayers) {
     this.bitrate = bitrate;
     this.bitrateMode = bitrateMode;
     this.profile = profile;
@@ -247,7 +322,10 @@ public final class VideoEncoderSettings {
     this.iFrameIntervalSeconds = iFrameIntervalSeconds;
     this.operatingRate = operatingRate;
     this.priority = priority;
-    this.enableHighQualityTargeting = enableHighQualityTargeting;
+    this.repeatPreviousFrameIntervalUs = repeatPreviousFrameIntervalUs;
+    this.maxBFrames = maxBFrames;
+    this.numNonBidirectionalTemporalLayers = numNonBidirectionalTemporalLayers;
+    this.numBidirectionalTemporalLayers = numBidirectionalTemporalLayers;
   }
 
   /**
@@ -273,7 +351,10 @@ public final class VideoEncoderSettings {
         && iFrameIntervalSeconds == that.iFrameIntervalSeconds
         && operatingRate == that.operatingRate
         && priority == that.priority
-        && enableHighQualityTargeting == that.enableHighQualityTargeting;
+        && repeatPreviousFrameIntervalUs == that.repeatPreviousFrameIntervalUs
+        && maxBFrames == that.maxBFrames
+        && numNonBidirectionalTemporalLayers == that.numNonBidirectionalTemporalLayers
+        && numBidirectionalTemporalLayers == that.numBidirectionalTemporalLayers;
   }
 
   @Override
@@ -286,7 +367,40 @@ public final class VideoEncoderSettings {
     result = 31 * result + Float.floatToIntBits(iFrameIntervalSeconds);
     result = 31 * result + operatingRate;
     result = 31 * result + priority;
-    result = 31 * result + (enableHighQualityTargeting ? 1 : 0);
+    result =
+        31 * result
+            + (int) (repeatPreviousFrameIntervalUs ^ (repeatPreviousFrameIntervalUs >>> 32));
+    result = 31 * result + maxBFrames;
+    result = 31 * result + numNonBidirectionalTemporalLayers;
+    result = 31 * result + numBidirectionalTemporalLayers;
     return result;
+  }
+
+  @Override
+  public String toString() {
+    return "VideoEncoderSettings{"
+        + "bitrate="
+        + bitrate
+        + ", bitrateMode="
+        + bitrateMode
+        + ", profile="
+        + profile
+        + ", level="
+        + level
+        + ", iFrameIntervalSeconds="
+        + iFrameIntervalSeconds
+        + ", operatingRate="
+        + operatingRate
+        + ", priority="
+        + priority
+        + ", repeatPreviousFrameIntervalUs="
+        + repeatPreviousFrameIntervalUs
+        + ", maxBFrames="
+        + maxBFrames
+        + ", numNonBidirectionalTemporalLayers="
+        + numNonBidirectionalTemporalLayers
+        + ", numBidirectionalTemporalLayers="
+        + numBidirectionalTemporalLayers
+        + '}';
   }
 }

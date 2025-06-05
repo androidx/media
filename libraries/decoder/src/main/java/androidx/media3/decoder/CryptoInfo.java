@@ -15,12 +15,13 @@
  */
 package androidx.media3.decoder;
 
+import static android.os.Build.VERSION.SDK_INT;
+
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 
 /**
  * Metadata describing the structure of an encrypted input sample.
@@ -37,18 +38,21 @@ public final class CryptoInfo {
    * @see android.media.MediaCodec.CryptoInfo#iv
    */
   @Nullable public byte[] iv;
+
   /**
    * The 16 byte key id.
    *
    * @see android.media.MediaCodec.CryptoInfo#key
    */
   @Nullable public byte[] key;
+
   /**
    * The type of encryption that has been applied. Must be one of the {@link C.CryptoMode} values.
    *
    * @see android.media.MediaCodec.CryptoInfo#mode
    */
   public @C.CryptoMode int mode;
+
   /**
    * The number of leading unencrypted bytes in each sub-sample. If null, all bytes are treated as
    * encrypted and {@link #numBytesOfEncryptedData} must be specified.
@@ -56,6 +60,7 @@ public final class CryptoInfo {
    * @see android.media.MediaCodec.CryptoInfo#numBytesOfClearData
    */
   @Nullable public int[] numBytesOfClearData;
+
   /**
    * The number of trailing encrypted bytes in each sub-sample. If null, all bytes are treated as
    * clear and {@link #numBytesOfClearData} must be specified.
@@ -63,16 +68,19 @@ public final class CryptoInfo {
    * @see android.media.MediaCodec.CryptoInfo#numBytesOfEncryptedData
    */
   @Nullable public int[] numBytesOfEncryptedData;
+
   /**
    * The number of subSamples that make up the buffer's contents.
    *
    * @see android.media.MediaCodec.CryptoInfo#numSubSamples
    */
   public int numSubSamples;
+
   /**
    * @see android.media.MediaCodec.CryptoInfo.Pattern
    */
   public int encryptedBlocks;
+
   /**
    * @see android.media.MediaCodec.CryptoInfo.Pattern
    */
@@ -83,7 +91,7 @@ public final class CryptoInfo {
 
   public CryptoInfo() {
     frameworkCryptoInfo = new android.media.MediaCodec.CryptoInfo();
-    patternHolder = Util.SDK_INT >= 24 ? new PatternHolderV24(frameworkCryptoInfo) : null;
+    patternHolder = SDK_INT >= 24 ? new PatternHolderV24(frameworkCryptoInfo) : null;
   }
 
   /**
@@ -114,7 +122,7 @@ public final class CryptoInfo {
     frameworkCryptoInfo.key = key;
     frameworkCryptoInfo.iv = iv;
     frameworkCryptoInfo.mode = mode;
-    if (Util.SDK_INT >= 24) {
+    if (SDK_INT >= 24) {
       Assertions.checkNotNull(patternHolder).set(encryptedBlocks, clearBlocks);
     }
   }

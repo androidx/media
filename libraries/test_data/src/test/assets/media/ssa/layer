@@ -1,0 +1,7 @@
+[Script Info]
+Title: SomeTitle
+
+[Events]
+Format: Layer, Start, End, Style, Name, Text
+Dialogue: 1,0:00:02.34,0:00:03.45,Default,Olly,Layer positive.
+Dialogue: -1,0:00:13:56,0:00:15:90,Default,Olly,Layer negative.

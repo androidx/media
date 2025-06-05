@@ -1,0 +1,14 @@
+AudioSink:
+  buffer count = 2
+  config:
+    pcmEncoding = 2
+    channelCount = 2
+    sampleRate = 48000
+  buffer #0:
+    time = 1200000
+    channel[0] = -629060931
+    channel[1] = -1194598665
+  buffer #1:
+    time = 1300000
+    channel[0] = 1765730518
+    channel[1] = -1846944677

@@ -23,7 +23,7 @@ import static org.junit.Assert.assertThrows;
 import androidx.media3.datasource.DataSpec;
 import androidx.media3.datasource.HttpDataSource;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import com.google.common.base.Charsets;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import okhttp3.Headers;
@@ -118,7 +118,7 @@ public class OkHttpDataSourceTest {
             () -> okHttpDataSource.open(dataSpec));
 
     assertThat(exception.responseCode).isEqualTo(404);
-    assertThat(exception.responseBody).isEqualTo("failure msg".getBytes(Charsets.UTF_8));
+    assertThat(exception.responseBody).isEqualTo("failure msg".getBytes(StandardCharsets.UTF_8));
   }
 
   @Test

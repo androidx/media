@@ -1,0 +1,1112 @@
+AudioSink:
+  buffer count = 138
+  discontinuity:
+  config:
+    pcmEncoding = 2
+    channelCount = 6
+    sampleRate = 48000
+    outputChannels = [0, 2, 1, 5, 3, 4]
+  buffer #0:
+    time = 1000000000000
+    channel[0] = -73481110
+    channel[1] = 1136654231
+    channel[2] = 974396625
+    channel[3] = 1333328044
+    channel[4] = 1057447796
+    channel[5] = 1709256160
+  buffer #1:
+    time = 1000000021000
+    channel[0] = 1511356472
+    channel[1] = 1464120973
+    channel[2] = 1995149668
+    channel[3] = -1473808556
+    channel[4] = -432025176
+    channel[5] = 493230454
+  buffer #2:
+    time = 1000000041000
+    channel[0] = 514245629
+    channel[1] = 1338525046
+    channel[2] = -1882590669
+    channel[3] = -1807661753
+    channel[4] = 78187876
+    channel[5] = -459510216
+  buffer #3:
+    time = 1000000061000
+    channel[0] = 781156182
+    channel[1] = -831531702
+    channel[2] = 707087905
+    channel[3] = 1959099830
+    channel[4] = -503566461
+    channel[5] = -1126584312
+  buffer #4:
+    time = 1000000081000
+    channel[0] = 1068454791
+    channel[1] = 621949340
+    channel[2] = -269267428
+    channel[3] = 2106462467
+    channel[4] = -577385301
+    channel[5] = -1724631802
+  buffer #5:
+    time = 1000000101000
+    channel[0] = -1385409700
+    channel[1] = -517404913
+    channel[2] = -1110613195
+    channel[3] = -1521989000
+    channel[4] = 2009212503
+    channel[5] = 2024297672
+  buffer #6:
+    time = 1000000121000
+    channel[0] = 1225176860
+    channel[1] = -1011298284
+    channel[2] = 1993748038
+    channel[3] = 546805938
+    channel[4] = -64069903
+    channel[5] = 1480247797
+  buffer #7:
+    time = 1000000141000
+    channel[0] = 534659881
+    channel[1] = -1848923057
+    channel[2] = 486025536
+    channel[3] = -503982529
+    channel[4] = -1549186296
+    channel[5] = -2132373112
+  buffer #8:
+    time = 1000000161000
+    channel[0] = 20331515
+    channel[1] = 456716544
+    channel[2] = -252600538
+    channel[3] = 1406833107
+    channel[4] = -2033085242
+    channel[5] = -305354063
+  buffer #9:
+    time = 1000000181000
+    channel[0] = 491968596
+    channel[1] = 1510409009
+    channel[2] = -597446476
+    channel[3] = -364422126
+    channel[4] = -490528825
+    channel[5] = 1903313193
+  buffer #10:
+    time = 1000000201000
+    channel[0] = 889567342
+    channel[1] = -1743243590
+    channel[2] = 994985789
+    channel[3] = 795561491
+    channel[4] = 180181840
+    channel[5] = -505618452
+  buffer #11:
+    time = 1000000221000
+    channel[0] = 1141631593
+    channel[1] = 789283100
+    channel[2] = -1444201382
+    channel[3] = -1826373342
+    channel[4] = -857414684
+    channel[5] = -567569477
+  buffer #12:
+    time = 1000000241000
+    channel[0] = 1618020390
+    channel[1] = -1873067324
+    channel[2] = -738563199
+    channel[3] = -639540252
+    channel[4] = 307372714
+    channel[5] = -334548066
+  buffer #13:
+    time = 1000000261000
+    channel[0] = -1272680574
+    channel[1] = 2075054391
+    channel[2] = -637041826
+    channel[3] = 440763752
+    channel[4] = -1261151568
+    channel[5] = 1346814321
+  buffer #14:
+    time = 1000000281000
+    channel[0] = 1422929715
+    channel[1] = 1969450042
+    channel[2] = 1860070250
+    channel[3] = 27670907
+    channel[4] = 1651341877
+    channel[5] = -1331692290
+  buffer #15:
+    time = 1000000301000
+    channel[0] = -21909217
+    channel[1] = -214241049
+    channel[2] = 870033264
+    channel[3] = -1898073940
+    channel[4] = -223034857
+    channel[5] = 1032215554
+  buffer #16:
+    time = 1000000321000
+    channel[0] = -479306070
+    channel[1] = -612134365
+    channel[2] = 777639070
+    channel[3] = 849584143
+    channel[4] = -668198504
+    channel[5] = 96177851
+  buffer #17:
+    time = 1000000341000
+    channel[0] = 319647685
+    channel[1] = 268659580
+    channel[2] = -987661295
+    channel[3] = -922773942
+    channel[4] = 636836019
+    channel[5] = 739122474
+  buffer #18:
+    time = 1000000361000
+    channel[0] = -854926327
+    channel[1] = -552194420
+    channel[2] = 196523818
+    channel[3] = -2084298789
+    channel[4] = 1307529902
+    channel[5] = 810476782
+  buffer #19:
+    time = 1000000381000
+    channel[0] = 796929923
+    channel[1] = 1517953019
+    channel[2] = -297889932
+    channel[3] = 1816253202
+    channel[4] = -1665303107
+    channel[5] = 121668547
+  buffer #20:
+    time = 1000000401000
+    channel[0] = -974713239
+    channel[1] = -774753752
+    channel[2] = 1254803542
+    channel[3] = 1155592078
+    channel[4] = 982998161
+    channel[5] = 1700198902
+  buffer #21:
+    time = 1000000421000
+    channel[0] = -444866329
+    channel[1] = -51752391
+    channel[2] = 1129230473
+    channel[3] = -1403149489
+    channel[4] = 1055055005
+    channel[5] = 847079641
+  buffer #22:
+    time = 1000000441000
+    channel[0] = -191136102
+    channel[1] = -402618701
+    channel[2] = -1330003230
+    channel[3] = 451102267
+    channel[4] = -2022037075
+    channel[5] = -812491895
+  buffer #23:
+    time = 1000000461000
+    channel[0] = 53645696
+    channel[1] = 1916964901
+    channel[2] = -745497136
+    channel[3] = 425872981
+    channel[4] = 316832514
+    channel[5] = -1554211926
+  buffer #24:
+    time = 1000000481000
+    channel[0] = -377521884
+    channel[1] = 2144799434
+    channel[2] = -619032927
+    channel[3] = -385204720
+    channel[4] = -1157818270
+    channel[5] = 1718123678
+  buffer #25:
+    time = 1000000501000
+    channel[0] = -71723027
+    channel[1] = -1865100211
+    channel[2] = -114065016
+    channel[3] = -282785287
+    channel[4] = -1059383712
+    channel[5] = 1307257430
+  buffer #26:
+    time = 1000000521000
+    channel[0] = 625054311
+    channel[1] = 664039968
+    channel[2] = 536026375
+    channel[3] = 534181491
+    channel[4] = 1655546312
+    channel[5] = 247277137
+  buffer #27:
+    time = 1000000541000
+    channel[0] = 818624109
+    channel[1] = -282221330
+    channel[2] = 1496149913
+    channel[3] = -1343671064
+    channel[4] = -1503256154
+    channel[5] = 468421301
+  buffer #28:
+    time = 1000000561000
+    channel[0] = -2025656110
+    channel[1] = 899679785
+    channel[2] = -573316569
+    channel[3] = -407053993
+    channel[4] = 1846239111
+    channel[5] = -893118817
+  buffer #29:
+    time = 1000000581000
+    channel[0] = 1243385744
+    channel[1] = -1956719883
+    channel[2] = -1937261043
+    channel[3] = -1178415475
+    channel[4] = -738830097
+    channel[5] = 105902859
+  buffer #30:
+    time = 1000000601000
+    channel[0] = -1504556123
+    channel[1] = -628071947
+    channel[2] = -1881396210
+    channel[3] = -601930810
+    channel[4] = -161687879
+    channel[5] = -228916293
+  buffer #31:
+    time = 1000000621000
+    channel[0] = 1868715409
+    channel[1] = 717898558
+    channel[2] = -661018256
+    channel[3] = 850004604
+    channel[4] = 2026153508
+    channel[5] = -1926869651
+  buffer #32:
+    time = 1000000641000
+    channel[0] = -222147290
+    channel[1] = -1242445274
+    channel[2] = -1923668989
+    channel[3] = 1590358621
+    channel[4] = -839888942
+    channel[5] = -451452348
+  buffer #33:
+    time = 1000000661000
+    channel[0] = -741116295
+    channel[1] = -978545906
+    channel[2] = 64041460
+    channel[3] = -484574384
+    channel[4] = -2116272340
+    channel[5] = 644269614
+  buffer #34:
+    time = 1000000681000
+    channel[0] = -693761716
+    channel[1] = 855483607
+    channel[2] = 1043660517
+    channel[3] = -1101828567
+    channel[4] = -1182101404
+    channel[5] = -675017539
+  buffer #35:
+    time = 1000000701000
+    channel[0] = 537983340
+    channel[1] = 2035113613
+    channel[2] = -1411780043
+    channel[3] = 108856989
+    channel[4] = -871546283
+    channel[5] = 1408982070
+  buffer #36:
+    time = 1000000721000
+    channel[0] = -1503136653
+    channel[1] = -1965140987
+    channel[2] = 905846243
+    channel[3] = 38937653
+    channel[4] = 449804561
+    channel[5] = 409487036
+  buffer #37:
+    time = 1000000741000
+    channel[0] = -546428693
+    channel[1] = -1798002343
+    channel[2] = 1883024341
+    channel[3] = 1670563835
+    channel[4] = -1186023248
+    channel[5] = -1647757068
+  buffer #38:
+    time = 1000000761000
+    channel[0] = 176926434
+    channel[1] = 1451710218
+    channel[2] = 5745206
+    channel[3] = -1852703578
+    channel[4] = 1866658117
+    channel[5] = -1811712790
+  buffer #39:
+    time = 1000000781000
+    channel[0] = -45697520
+    channel[1] = 696825944
+    channel[2] = -291383713
+    channel[3] = 740904663
+    channel[4] = -1297282288
+    channel[5] = 861726827
+  buffer #40:
+    time = 1000000801000
+    channel[0] = -1465152931
+    channel[1] = -530603959
+    channel[2] = -1678558534
+    channel[3] = 606083168
+    channel[4] = 1474109461
+    channel[5] = -1750934105
+  buffer #41:
+    time = 1000000821000
+    channel[0] = 581257619
+    channel[1] = 1027571085
+    channel[2] = 102490083
+    channel[3] = 221291244
+    channel[4] = 1737516030
+    channel[5] = 914693897
+  buffer #42:
+    time = 1000000841000
+    channel[0] = 1031383876
+    channel[1] = 1239555043
+    channel[2] = -944583113
+    channel[3] = -2134774454
+    channel[4] = -1442207451
+    channel[5] = -2012106279
+  buffer #43:
+    time = 1000000861000
+    channel[0] = 408287874
+    channel[1] = 1096875390
+    channel[2] = 1627848532
+    channel[3] = 1874371156
+    channel[4] = -751357917
+    channel[5] = -555382926
+  buffer #44:
+    time = 1000000881000
+    channel[0] = 845663814
+    channel[1] = -795085904
+    channel[2] = -947924213
+    channel[3] = -1143947602
+    channel[4] = 1741699965
+    channel[5] = -475107762
+  buffer #45:
+    time = 1000000901000
+    channel[0] = 1121731133
+    channel[1] = 1891126662
+    channel[2] = 699204310
+    channel[3] = -1211108787
+    channel[4] = 362452288
+    channel[5] = -1674168007
+  buffer #46:
+    time = 1000000921000
+    channel[0] = 92604362
+    channel[1] = 652156347
+    channel[2] = -655372785
+    channel[3] = -1037751677
+    channel[4] = -1673548546
+    channel[5] = -2043942640
+  buffer #47:
+    time = 1000000941000
+    channel[0] = 32162868
+    channel[1] = -1803567596
+    channel[2] = -1502186102
+    channel[3] = -786723809
+    channel[4] = -1444978047
+    channel[5] = -319963508
+  buffer #48:
+    time = 1000000961000
+    channel[0] = 769618874
+    channel[1] = -652411273
+    channel[2] = -394555499
+    channel[3] = -1346993658
+    channel[4] = 658786686
+    channel[5] = 473682097
+  buffer #49:
+    time = 1000000981000
+    channel[0] = 656941538
+    channel[1] = 1221000298
+    channel[2] = 1924996688
+    channel[3] = -1017666989
+    channel[4] = -1583780692
+    channel[5] = 1520915553
+  buffer #50:
+    time = 1000001001000
+    channel[0] = 1971331152
+    channel[1] = -1632500571
+    channel[2] = -482023660
+    channel[3] = 1679006755
+    channel[4] = -411840414
+    channel[5] = -2013244432
+  buffer #51:
+    time = 1000001021000
+    channel[0] = 135739587
+    channel[1] = -1814152325
+    channel[2] = -1806604779
+    channel[3] = 1791155454
+    channel[4] = -999104265
+    channel[5] = -1264414799
+  buffer #52:
+    time = 1000001041000
+    channel[0] = 659593696
+    channel[1] = -653216965
+    channel[2] = 132956566
+    channel[3] = -1979322908
+    channel[4] = 8407660
+    channel[5] = -455442195
+  buffer #53:
+    time = 1000001061000
+    channel[0] = 939976545
+    channel[1] = -1170555711
+    channel[2] = -1405773996
+    channel[3] = 1116544197
+    channel[4] = -105469495
+    channel[5] = -1155421496
+  buffer #54:
+    time = 1000001081000
+    channel[0] = 1415630491
+    channel[1] = 414492972
+    channel[2] = -1314725173
+    channel[3] = 1330664879
+    channel[4] = -693030243
+    channel[5] = -981484799
+  buffer #55:
+    time = 1000001101000
+    channel[0] = 1684734557
+    channel[1] = -1376890801
+    channel[2] = 15037829
+    channel[3] = -2142541324
+    channel[4] = 1070151873
+    channel[5] = -2013584527
+  buffer #56:
+    time = 1000001121000
+    channel[0] = -988955844
+    channel[1] = 1256489074
+    channel[2] = -1428680833
+    channel[3] = -2045311433
+    channel[4] = -1103403116
+    channel[5] = 1456588466
+  buffer #57:
+    time = 1000001141000
+    channel[0] = 1306850676
+    channel[1] = 819435837
+    channel[2] = 1163975102
+    channel[3] = -1829905504
+    channel[4] = 587662443
+    channel[5] = -1498194727
+  buffer #58:
+    time = 1000001161000
+    channel[0] = 287992176
+    channel[1] = 1816532714
+    channel[2] = 1750873750
+    channel[3] = -1823208259
+    channel[4] = 1736045075
+    channel[5] = -555495636
+  buffer #59:
+    time = 1000001181000
+    channel[0] = 1922314136
+    channel[1] = 165562624
+    channel[2] = 820321165
+    channel[3] = -1487393755
+    channel[4] = 540266848
+    channel[5] = 1369900588
+  buffer #60:
+    time = 1000001201000
+    channel[0] = 2049212530
+    channel[1] = -458037050
+    channel[2] = -431904051
+    channel[3] = -1042622189
+    channel[4] = 729779607
+    channel[5] = -634187324
+  buffer #61:
+    time = 1000001221000
+    channel[0] = 380828519
+    channel[1] = -956056764
+    channel[2] = 1370964533
+    channel[3] = 1482375255
+    channel[4] = -610194440
+    channel[5] = -1975841101
+  buffer #62:
+    time = 1000001241000
+    channel[0] = 2041624955
+    channel[1] = -1190625546
+    channel[2] = 217054357
+    channel[3] = 1191481836
+    channel[4] = 802780314
+    channel[5] = -1472446466
+  buffer #63:
+    time = 1000001261000
+    channel[0] = -1871231138
+    channel[1] = -578123465
+    channel[2] = -127021058
+    channel[3] = -1966804719
+    channel[4] = -1047878118
+    channel[5] = -368485762
+  buffer #64:
+    time = 1000001281000
+    channel[0] = 1170424731
+    channel[1] = 1302899373
+    channel[2] = 700801869
+    channel[3] = 1095626730
+    channel[4] = 2113726138
+    channel[5] = -1186290067
+  buffer #65:
+    time = 1000001301000
+    channel[0] = -671064340
+    channel[1] = -1520543467
+    channel[2] = 1178321776
+    channel[3] = -632702248
+    channel[4] = -1034125539
+    channel[5] = 875419084
+  buffer #66:
+    time = 1000001321000
+    channel[0] = -462597381
+    channel[1] = 962004797
+    channel[2] = -85277804
+    channel[3] = 1754141737
+    channel[4] = -2061446912
+    channel[5] = -1672868204
+  buffer #67:
+    time = 1000001341000
+    channel[0] = 461036198
+    channel[1] = 1600607255
+    channel[2] = -121097278
+    channel[3] = 916760731
+    channel[4] = 1948383422
+    channel[5] = -138741510
+  buffer #68:
+    time = 1000001361000
+    channel[0] = -1638999443
+    channel[1] = -73816656
+    channel[2] = -803960562
+    channel[3] = -985159165
+    channel[4] = -843309552
+    channel[5] = -1899816264
+  buffer #69:
+    time = 1000001381000
+    channel[0] = -121123003
+    channel[1] = 1520512718
+    channel[2] = 1516650563
+    channel[3] = -1223593323
+    channel[4] = 655577791
+    channel[5] = 1763018091
+  buffer #70:
+    time = 1000001401000
+    channel[0] = 621169430
+    channel[1] = 1238168211
+    channel[2] = -286931733
+    channel[3] = 2039414217
+    channel[4] = -1448733480
+    channel[5] = -64242572
+  buffer #71:
+    time = 1000001421000
+    channel[0] = 601871428
+    channel[1] = -1124017722
+    channel[2] = 829543600
+    channel[3] = -1485752477
+    channel[4] = -360437670
+    channel[5] = -1587351188
+  buffer #72:
+    time = 1000001441000
+    channel[0] = -625084081
+    channel[1] = -718906678
+    channel[2] = -285059533
+    channel[3] = -875639576
+    channel[4] = -2068642939
+    channel[5] = -1909619570
+  buffer #73:
+    time = 1000001461000
+    channel[0] = 1756761306
+    channel[1] = 973134488
+    channel[2] = 1387771245
+    channel[3] = -1658421554
+    channel[4] = 1690995768
+    channel[5] = 1912356741
+  buffer #74:
+    time = 1000001481000
+    channel[0] = 285158655
+    channel[1] = -98632555
+    channel[2] = 2042716954
+    channel[3] = 1301573461
+    channel[4] = 379528000
+    channel[5] = 486004936
+  buffer #75:
+    time = 1000001501000
+    channel[0] = -1424936350
+    channel[1] = 2137415512
+    channel[2] = -1433376947
+    channel[3] = -1577260798
+    channel[4] = 2081259341
+    channel[5] = -1911856035
+  buffer #76:
+    time = 1000001521000
+    channel[0] = -1105699850
+    channel[1] = 109858143
+    channel[2] = 1847821856
+    channel[3] = 1707128782
+    channel[4] = -376694190
+    channel[5] = -796125962
+  buffer #77:
+    time = 1000001541000
+    channel[0] = -633693673
+    channel[1] = 208128944
+    channel[2] = -847643101
+    channel[3] = 233548544
+    channel[4] = 1650226634
+    channel[5] = -380340863
+  buffer #78:
+    time = 1000001561000
+    channel[0] = -606014294
+    channel[1] = 1008658917
+    channel[2] = 1812531729
+    channel[3] = 746255797
+    channel[4] = -660089644
+    channel[5] = 1879314975
+  buffer #79:
+    time = 1000001581000
+    channel[0] = 953245878
+    channel[1] = 1714867791
+    channel[2] = 393313219
+    channel[3] = -33285060
+    channel[4] = 34530741
+    channel[5] = -1529838664
+  buffer #80:
+    time = 1000001601000
+    channel[0] = -1985337021
+    channel[1] = -1097033463
+    channel[2] = 1810520815
+    channel[3] = -92265727
+    channel[4] = -982421951
+    channel[5] = -1301405397
+  buffer #81:
+    time = 1000001621000
+    channel[0] = 981788170
+    channel[1] = -787334080
+    channel[2] = -212048436
+    channel[3] = 2082777846
+    channel[4] = -1111074171
+    channel[5] = 1288518780
+  buffer #82:
+    time = 1000001641000
+    channel[0] = 498624490
+    channel[1] = 1151837464
+    channel[2] = 1274029029
+    channel[3] = 660151633
+    channel[4] = -243197124
+    channel[5] = 2074205254
+  buffer #83:
+    time = 1000001661000
+    channel[0] = 53582565
+    channel[1] = 1831703638
+    channel[2] = -1721996530
+    channel[3] = -1166858191
+    channel[4] = -2015680366
+    channel[5] = -1625529254
+  buffer #84:
+    time = 1000001681000
+    channel[0] = 779115422
+    channel[1] = -1838295994
+    channel[2] = -1341297571
+    channel[3] = 1788262613
+    channel[4] = -2064732521
+    channel[5] = 528044783
+  buffer #85:
+    time = 1000001701000
+    channel[0] = -202761408
+    channel[1] = -628685408
+    channel[2] = -1414502770
+    channel[3] = 269628713
+    channel[4] = 1407867903
+    channel[5] = 963725872
+  buffer #86:
+    time = 1000001721000
+    channel[0] = 308389902
+    channel[1] = 1263596453
+    channel[2] = -99131878
+    channel[3] = -306703569
+    channel[4] = 1966859090
+    channel[5] = -1854678614
+  buffer #87:
+    time = 1000001741000
+    channel[0] = 790360068
+    channel[1] = -176877639
+    channel[2] = -586758889
+    channel[3] = 1581196664
+    channel[4] = 1514348540
+    channel[5] = 1709089141
+  buffer #88:
+    time = 1000001761000
+    channel[0] = -988638678
+    channel[1] = -1312923935
+    channel[2] = -799087212
+    channel[3] = 1811181994
+    channel[4] = -1120986064
+    channel[5] = -1125355374
+  buffer #89:
+    time = 1000001781000
+    channel[0] = 1138105933
+    channel[1] = 1432394922
+    channel[2] = 1480635479
+    channel[3] = -1762566114
+    channel[4] = 1235086532
+    channel[5] = -775568103
+  buffer #90:
+    time = 1000001801000
+    channel[0] = -411981943
+    channel[1] = 1510374487
+    channel[2] = -162788141
+    channel[3] = -2115053534
+    channel[4] = -1108888145
+    channel[5] = -1708161785
+  buffer #91:
+    time = 1000001821000
+    channel[0] = 1500952305
+    channel[1] = -1238921395
+    channel[2] = 1912069326
+    channel[3] = 523315261
+    channel[4] = 1561458777
+    channel[5] = -1719336562
+  buffer #92:
+    time = 1000001841000
+    channel[0] = -1327812285
+    channel[1] = -1549457886
+    channel[2] = 1086977052
+    channel[3] = 1679242010
+    channel[4] = -2029316716
+    channel[5] = -497520956
+  buffer #93:
+    time = 1000001861000
+    channel[0] = -25954256
+    channel[1] = 1510798874
+    channel[2] = -1622086905
+    channel[3] = 454502151
+    channel[4] = -1877161133
+    channel[5] = -89353505
+  buffer #94:
+    time = 1000001881000
+    channel[0] = 323712315
+    channel[1] = -946679794
+    channel[2] = 592103978
+    channel[3] = -506148549
+    channel[4] = -818060540
+    channel[5] = -1389661515
+  buffer #95:
+    time = 1000001901000
+    channel[0] = 1576613522
+    channel[1] = -1829144203
+    channel[2] = 2020461326
+    channel[3] = -1882817200
+    channel[4] = -953656179
+    channel[5] = 220113775
+  buffer #96:
+    time = 1000001921000
+    channel[0] = -767443953
+    channel[1] = -1454422692
+    channel[2] = 2128241158
+    channel[3] = -1116689451
+    channel[4] = -379496328
+    channel[5] = 918130671
+  buffer #97:
+    time = 1000001941000
+    channel[0] = -1935587510
+    channel[1] = 1180190511
+    channel[2] = -1696728040
+    channel[3] = 1026438502
+    channel[4] = 1230576348
+    channel[5] = 984627538
+  buffer #98:
+    time = 1000001961000
+    channel[0] = 1469704320
+    channel[1] = 2004240002
+    channel[2] = 578705961
+    channel[3] = 1435451573
+    channel[4] = 1806763668
+    channel[5] = 234172943
+  buffer #99:
+    time = 1000001981000
+    channel[0] = 152807738
+    channel[1] = -1279549441
+    channel[2] = -775951588
+    channel[3] = -71914003
+    channel[4] = -92893564
+    channel[5] = 1350339028
+  buffer #100:
+    time = 1000002001000
+    channel[0] = -1011134531
+    channel[1] = 1415874580
+    channel[2] = -1227916991
+    channel[3] = -136065369
+    channel[4] = 194552397
+    channel[5] = 128499790
+  buffer #101:
+    time = 1000002021000
+    channel[0] = 1218700369
+    channel[1] = -68974687
+    channel[2] = 568867780
+    channel[3] = 1133857048
+    channel[4] = 636704503
+    channel[5] = -1618993132
+  buffer #102:
+    time = 1000002041000
+    channel[0] = -1840418320
+    channel[1] = 166504514
+    channel[2] = -891788608
+    channel[3] = -362877473
+    channel[4] = 502202775
+    channel[5] = 465535928
+  buffer #103:
+    time = 1000002061000
+    channel[0] = -817167290
+    channel[1] = -398811406
+    channel[2] = -66987460
+    channel[3] = 148265815
+    channel[4] = -1216109039
+    channel[5] = -1964477976
+  buffer #104:
+    time = 1000002081000
+    channel[0] = -2082477864
+    channel[1] = -1603277129
+    channel[2] = -815262119
+    channel[3] = -1809979596
+    channel[4] = -768946368
+    channel[5] = -1522971566
+  buffer #105:
+    time = 1000002101000
+    channel[0] = -244187553
+    channel[1] = 444116980
+    channel[2] = 642287656
+    channel[3] = 665588634
+    channel[4] = 1900692621
+    channel[5] = 1503554382
+  buffer #106:
+    time = 1000002121000
+    channel[0] = -120558123
+    channel[1] = 1606564731
+    channel[2] = 2068310295
+    channel[3] = 211288850
+    channel[4] = -2144560323
+    channel[5] = -1188628830
+  buffer #107:
+    time = 1000002141000
+    channel[0] = -1858158897
+    channel[1] = 1523033491
+    channel[2] = 65435888
+    channel[3] = -896209510
+    channel[4] = -811818816
+    channel[5] = -1928645953
+  buffer #108:
+    time = 1000002161000
+    channel[0] = -762934124
+    channel[1] = 1035453648
+    channel[2] = -1995813544
+    channel[3] = -1756297248
+    channel[4] = 307146292
+    channel[5] = 1063374030
+  buffer #109:
+    time = 1000002181000
+    channel[0] = -1068888068
+    channel[1] = 118857679
+    channel[2] = -704775963
+    channel[3] = 2040642831
+    channel[4] = 1125008713
+    channel[5] = -884818448
+  buffer #110:
+    time = 1000002201000
+    channel[0] = 1379918921
+    channel[1] = 1411066251
+    channel[2] = 1677359486
+    channel[3] = -1243574634
+    channel[4] = 1857920452
+    channel[5] = -2122722053
+  buffer #111:
+    time = 1000002221000
+    channel[0] = 58410036
+    channel[1] = 844391761
+    channel[2] = -1824372833
+    channel[3] = -1916032066
+    channel[4] = 1279797763
+    channel[5] = -501749158
+  buffer #112:
+    time = 1000002241000
+    channel[0] = 134966175
+    channel[1] = 45993537
+    channel[2] = 108632858
+    channel[3] = -1395918993
+    channel[4] = -2134267189
+    channel[5] = 610212302
+  buffer #113:
+    time = 1000002261000
+    channel[0] = 1567775898
+    channel[1] = -2088064438
+    channel[2] = 1681600934
+    channel[3] = 1351462128
+    channel[4] = -1229039519
+    channel[5] = 1253614928
+  buffer #114:
+    time = 1000002281000
+    channel[0] = -734630467
+    channel[1] = -1420131780
+    channel[2] = -486835032
+    channel[3] = -1830502894
+    channel[4] = -259973965
+    channel[5] = 1353712874
+  buffer #115:
+    time = 1000002301000
+    channel[0] = 1105889930
+    channel[1] = 519614479
+    channel[2] = 1382311712
+    channel[3] = 775797707
+    channel[4] = -777934221
+    channel[5] = -605553608
+  buffer #116:
+    time = 1000002321000
+    channel[0] = 52932249
+    channel[1] = 150283521
+    channel[2] = 1746241083
+    channel[3] = -107875656
+    channel[4] = -2097941980
+    channel[5] = -913451541
+  buffer #117:
+    time = 1000002341000
+    channel[0] = 1327738970
+    channel[1] = 195651095
+    channel[2] = 1716185039
+    channel[3] = 1842394321
+    channel[4] = -803148123
+    channel[5] = -449006448
+  buffer #118:
+    time = 1000002361000
+    channel[0] = 323305945
+    channel[1] = 806194600
+    channel[2] = -591042170
+    channel[3] = 2063698452
+    channel[4] = 1776417158
+    channel[5] = 369662864
+  buffer #119:
+    time = 1000002381000
+    channel[0] = -357929303
+    channel[1] = 245338797
+    channel[2] = -1615905674
+    channel[3] = 189185023
+    channel[4] = -388887856
+    channel[5] = -157807505
+  buffer #120:
+    time = 1000002401000
+    channel[0] = 1276357907
+    channel[1] = -1080876811
+    channel[2] = 28319562
+    channel[3] = 1049628196
+    channel[4] = 1766220141
+    channel[5] = 476478017
+  buffer #121:
+    time = 1000002421000
+    channel[0] = -1444298656
+    channel[1] = 1535438767
+    channel[2] = -263055909
+    channel[3] = -1266052944
+    channel[4] = -1627771087
+    channel[5] = 1977489722
+  buffer #122:
+    time = 1000002441000
+    channel[0] = -1069127471
+    channel[1] = -1971493666
+    channel[2] = -685593172
+    channel[3] = -913208579
+    channel[4] = 1288930971
+    channel[5] = 1168053390
+  buffer #123:
+    time = 1000002461000
+    channel[0] = -1585286996
+    channel[1] = -783974377
+    channel[2] = 1579637380
+    channel[3] = 844443447
+    channel[4] = -735376234
+    channel[5] = -1108404427
+  buffer #124:
+    time = 1000002481000
+    channel[0] = -2019447652
+    channel[1] = -918994238
+    channel[2] = 2085133622
+    channel[3] = 987712321
+    channel[4] = 2141688231
+    channel[5] = 4538991
+  buffer #125:
+    time = 1000002501000
+    channel[0] = 1501452382
+    channel[1] = -633559900
+    channel[2] = 369726733
+    channel[3] = 1691006378
+    channel[4] = -379330685
+    channel[5] = -1422489034
+  buffer #126:
+    time = 1000002521000
+    channel[0] = -35741626
+    channel[1] = 1018954074
+    channel[2] = 46347828
+    channel[3] = 1780365855
+    channel[4] = 39731010
+    channel[5] = -1894317654
+  buffer #127:
+    time = 1000002541000
+    channel[0] = 1215279959
+    channel[1] = -1772749622
+    channel[2] = 1528190647
+    channel[3] = -1586678538
+    channel[4] = 1407495335
+    channel[5] = 449793460
+  buffer #128:
+    time = 1000002561000
+    channel[0] = -323929315
+    channel[1] = -1822451564
+    channel[2] = 279408621
+    channel[3] = -825424408
+    channel[4] = 2065469460
+    channel[5] = -882576307
+  buffer #129:
+    time = 1000002581000
+    channel[0] = 1464736205
+    channel[1] = 370510798
+    channel[2] = -644444740
+    channel[3] = -590341011
+    channel[4] = -1849404628
+    channel[5] = -755345730
+  buffer #130:
+    time = 1000002601000
+    channel[0] = 1193935411
+    channel[1] = -569383453
+    channel[2] = 1842606933
+    channel[3] = 1449979691
+    channel[4] = 2066816258
+    channel[5] = -2118618989
+  buffer #131:
+    time = 1000002621000
+    channel[0] = -1314608050
+    channel[1] = 1515435936
+    channel[2] = 1006626784
+    channel[3] = 850364658
+    channel[4] = -232191673
+    channel[5] = 1722655463
+  buffer #132:
+    time = 1000002641000
+    channel[0] = -500786887
+    channel[1] = 1152757244
+    channel[2] = -1617191827
+    channel[3] = 766508082
+    channel[4] = 1565470743
+    channel[5] = -1966281980
+  buffer #133:
+    time = 1000002661000
+    channel[0] = 1013550993
+    channel[1] = -1453877675
+    channel[2] = -1921759709
+    channel[3] = 937144502
+    channel[4] = 1406968675
+    channel[5] = -2040754216
+  buffer #134:
+    time = 1000002681000
+    channel[0] = 1927578266
+    channel[1] = 1383952139
+    channel[2] = 1018093644
+    channel[3] = -1050422788
+    channel[4] = 327742997
+    channel[5] = 1278618670
+  buffer #135:
+    time = 1000002701000
+    channel[0] = -913257048
+    channel[1] = -1646573034
+    channel[2] = -1738637077
+    channel[3] = 648948267
+    channel[4] = 165286828
+    channel[5] = -1872923756
+  buffer #136:
+    time = 1000002721000
+    channel[0] = -465404155
+    channel[1] = -736480851
+    channel[2] = 1899893630
+    channel[3] = -1627981403
+    channel[4] = 1809233828
+    channel[5] = -312659011
+  buffer #137:
+    time = 1000002741000
+    channel[0] = 952522854
+    channel[1] = 1778779272
+    channel[2] = -1175220346
+    channel[3] = -331236254
+    channel[4] = -760412648
+    channel[5] = -1871361845

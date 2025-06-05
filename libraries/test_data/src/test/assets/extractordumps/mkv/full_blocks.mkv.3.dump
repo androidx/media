@@ -11,8 +11,9 @@ track 1:
   sample count = 3
   format 0:
     id = 1
+    containerMimeType = video/x-matroska
     sampleMimeType = application/x-subrip
-    selectionFlags = 1
+    selectionFlags = [default]
     language = und
   sample 0:
     time = 0

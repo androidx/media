@@ -14,7 +14,9 @@
 # limitations under the License.
 #
 
+# LINT.IfChange
 cmake_minimum_required(VERSION 3.21.0 FATAL_ERROR)
+# LINT.ThenChange(../../../build.gradle)
 
 set(CMAKE_CXX_STANDARD 11)
 
@@ -60,4 +62,8 @@ target_link_libraries(gav1JNI
                       PRIVATE cpu_features
                       PRIVATE libgav1_static
                       PRIVATE ${android_log_lib})
+
+# Enable 16 KB ELF alignment.
+target_link_options(gav1JNI
+                    PRIVATE "-Wl,-z,max-page-size=16384")
 

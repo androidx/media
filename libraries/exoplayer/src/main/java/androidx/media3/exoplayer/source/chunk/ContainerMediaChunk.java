@@ -18,6 +18,8 @@ package androidx.media3.exoplayer.source.chunk;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
+import androidx.media3.common.MimeTypes;
+import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DataSourceUtil;
@@ -26,6 +28,8 @@ import androidx.media3.exoplayer.source.chunk.ChunkExtractor.TrackOutputProvider
 import androidx.media3.extractor.DefaultExtractorInput;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorInput;
+import androidx.media3.extractor.TrackOutput;
+import com.google.errorprone.annotations.ForOverride;
 import java.io.IOException;
 
 /** A {@link BaseMediaChunk} that uses an {@link Extractor} to decode sample data. */
@@ -109,9 +113,9 @@ public class ContainerMediaChunk extends BaseMediaChunk {
   @SuppressWarnings("NonAtomicVolatileUpdate")
   @Override
   public final void load() throws IOException {
+    BaseMediaChunkOutput output = getOutput();
     if (nextLoadPosition == 0) {
       // Configure the output and set it as the target for the extractor wrapper.
-      BaseMediaChunkOutput output = getOutput();
       output.setSampleOffsetUs(sampleOffsetUs);
       chunkExtractor.init(
           getTrackOutputProvider(output),
@@ -127,10 +131,12 @@ public class ContainerMediaChunk extends BaseMediaChunk {
       // Load and decode the sample data.
       try {
         while (!loadCanceled && chunkExtractor.read(input)) {}
+        maybeWriteEmptySamples(output);
       } finally {
         nextLoadPosition = input.getPosition() - dataSpec.position;
       }
     } finally {
+      onLoadEnded();
       DataSourceUtil.closeQuietly(dataSource);
     }
     loadCompleted = !loadCanceled;
@@ -145,5 +151,44 @@ public class ContainerMediaChunk extends BaseMediaChunk {
    */
   protected TrackOutputProvider getTrackOutputProvider(BaseMediaChunkOutput baseMediaChunkOutput) {
     return baseMediaChunkOutput;
+  }
+
+  /**
+   * Method that is called to signal that a {@link #load()} has concluded. This is called in both
+   * successful and error scenarios before the {@link DataSource} is closed.
+   */
+  @ForOverride
+  protected void onLoadEnded() {}
+
+  /** Returns whether the current chunk's load has been canceled from {@link #cancelLoad()}. */
+  public final boolean isLoadCanceled() {
+    return loadCanceled;
+  }
+
+  /** Returns the next position to load in the chunk on a {@link #load()}. */
+  public final long getNextLoadPosition() {
+    return nextLoadPosition;
+  }
+
+  private void maybeWriteEmptySamples(BaseMediaChunkOutput output) {
+    if (!MimeTypes.isImage(trackFormat.containerMimeType)) {
+      return;
+    }
+    if ((trackFormat.tileCountHorizontal <= 1 && trackFormat.tileCountVertical <= 1)
+        || trackFormat.tileCountHorizontal == Format.NO_VALUE
+        || trackFormat.tileCountVertical == Format.NO_VALUE) {
+      return;
+    }
+
+    TrackOutput trackOutput = output.track(/* id= */ 0, C.TRACK_TYPE_IMAGE);
+    int tileCount = trackFormat.tileCountHorizontal * trackFormat.tileCountVertical;
+    long tileDurationUs = (endTimeUs - startTimeUs) / tileCount;
+
+    for (int i = 1; i < tileCount; ++i) {
+      long tileStartTimeUs = i * tileDurationUs;
+      trackOutput.sampleData(new ParsableByteArray(), /* length= */ 0);
+      trackOutput.sampleMetadata(
+          tileStartTimeUs, /* flags= */ 0, /* size= */ 0, /* offset= */ 0, /* cryptoData= */ null);
+    }
   }
 }

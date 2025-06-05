@@ -55,6 +55,7 @@ public final class FlacExtractor implements Extractor {
   /** Factory that returns one extractor which is a {@link FlacExtractor}. */
   public static final ExtractorsFactory FACTORY = () -> new Extractor[] {new FlacExtractor()};
 
+  // LINT.IfChange
   /*
    * Flags in the two FLAC extractors should be kept in sync. If we ever change this then
    * DefaultExtractorsFactory will need modifying, because it currently assumes this is the case.
@@ -77,6 +78,8 @@ public final class FlacExtractor implements Extractor {
    */
   public static final int FLAG_DISABLE_ID3_METADATA =
       androidx.media3.extractor.flac.FlacExtractor.FLAG_DISABLE_ID3_METADATA;
+
+  // LINT.ThenChange(../../../../../../../../extractor/src/main/java/androidx/media3/extractor/flac/FlacExtractor.java)
 
   private final ParsableByteArray outputBuffer;
   private final boolean id3MetadataDisabled;
@@ -222,6 +225,7 @@ public final class FlacExtractor implements Extractor {
       @Nullable
       Metadata metadata = streamMetadata.getMetadataCopyWithAppendedEntriesFrom(id3Metadata);
       outputFormat(streamMetadata, metadata, trackOutput);
+      trackOutput.durationUs(streamMetadata.getDurationUs());
     }
   }
 
@@ -274,6 +278,7 @@ public final class FlacExtractor implements Extractor {
       FlacStreamMetadata streamMetadata, @Nullable Metadata metadata, TrackOutput output) {
     Format mediaFormat =
         new Format.Builder()
+            .setContainerMimeType(MimeTypes.AUDIO_FLAC)
             .setSampleMimeType(MimeTypes.AUDIO_RAW)
             .setAverageBitrate(streamMetadata.getDecodedBitrate())
             .setPeakBitrate(streamMetadata.getDecodedBitrate())

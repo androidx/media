@@ -15,53 +15,52 @@
  */
 package androidx.media3.extractor;
 
-import static java.lang.Math.min;
-
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.DataReader;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
-import java.io.EOFException;
 import java.io.IOException;
 
-/** A fake {@link TrackOutput} implementation. */
+/**
+ * @deprecated Use {@link DiscardingTrackOutput} instead.
+ */
 @UnstableApi
+@Deprecated
 public final class DummyTrackOutput implements TrackOutput {
 
-  // Even though read data is discarded, data source implementations could be making use of the
-  // buffer contents. For example, caches. So we cannot use a static field for this which could be
-  // shared between different threads.
-  private final byte[] readBuffer;
+  private final DiscardingTrackOutput discardingTrackOutput;
 
   public DummyTrackOutput() {
-    readBuffer = new byte[4096];
+    discardingTrackOutput = new DiscardingTrackOutput();
   }
 
   @Override
   public void format(Format format) {
-    // Do nothing.
+    discardingTrackOutput.format(format);
+  }
+
+  @Override
+  public int sampleData(DataReader input, int length, boolean allowEndOfInput) throws IOException {
+    return discardingTrackOutput.sampleData(input, length, allowEndOfInput);
+  }
+
+  @Override
+  public void sampleData(ParsableByteArray data, int length) {
+    discardingTrackOutput.sampleData(data, length);
   }
 
   @Override
   public int sampleData(
       DataReader input, int length, boolean allowEndOfInput, @SampleDataPart int sampleDataPart)
       throws IOException {
-    int bytesToSkipByReading = min(readBuffer.length, length);
-    int bytesSkipped = input.read(readBuffer, /* offset= */ 0, bytesToSkipByReading);
-    if (bytesSkipped == C.RESULT_END_OF_INPUT) {
-      if (allowEndOfInput) {
-        return C.RESULT_END_OF_INPUT;
-      }
-      throw new EOFException();
-    }
-    return bytesSkipped;
+    return discardingTrackOutput.sampleData(input, length, allowEndOfInput, sampleDataPart);
   }
 
   @Override
   public void sampleData(ParsableByteArray data, int length, @SampleDataPart int sampleDataPart) {
-    data.skipBytes(length);
+    discardingTrackOutput.sampleData(data, length, sampleDataPart);
   }
 
   @Override
@@ -71,6 +70,6 @@ public final class DummyTrackOutput implements TrackOutput {
       int size,
       int offset,
       @Nullable CryptoData cryptoData) {
-    // Do nothing.
+    discardingTrackOutput.sampleMetadata(timeUs, flags, size, offset, cryptoData);
   }
 }

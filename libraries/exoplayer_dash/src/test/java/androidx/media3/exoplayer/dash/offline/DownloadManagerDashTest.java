@@ -55,7 +55,6 @@ import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.MockitoAnnotations;
-import org.robolectric.shadows.ShadowLog;
 
 /** Tests {@link DownloadManager}. */
 @RunWith(AndroidJUnit4.class)
@@ -75,7 +74,6 @@ public class DownloadManagerDashTest {
 
   @Before
   public void setUp() throws Exception {
-    ShadowLog.stream = System.out;
     testThread = new DummyMainThread();
     Context context = ApplicationProvider.getApplicationContext();
     tempFolder = Util.createTempDirectory(context, "ExoPlayerTest");
@@ -167,7 +165,7 @@ public class DownloadManagerDashTest {
   }
 
   @Test
-  public void handleDownloadRequest_withInferringRequest_success() throws Throwable {
+  public void handleDownloadRequest_withInterferingRequest_success() throws Throwable {
     fakeDataSet
         .newData("audio_segment_2")
         .appendReadAction(() -> handleDownloadRequest(fakeStreamKey2))

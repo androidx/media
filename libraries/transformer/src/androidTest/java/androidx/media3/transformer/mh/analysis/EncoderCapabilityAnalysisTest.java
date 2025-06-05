@@ -20,6 +20,7 @@ import static android.media.MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR;
 import static android.media.MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR_FD;
 import static android.media.MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CQ;
 import static android.media.MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR;
+import static android.os.Build.VERSION.SDK_INT;
 
 import android.media.CamcorderProfile;
 import android.media.MediaCodecInfo;
@@ -27,6 +28,7 @@ import android.util.Pair;
 import android.util.Range;
 import android.util.Size;
 import androidx.annotation.Nullable;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Util;
 import androidx.media3.transformer.AndroidTestUtil;
 import androidx.media3.transformer.EncoderUtil;
@@ -34,16 +36,21 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.json.JSONObject;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /** An analysis test to log encoder capabilities on a device. */
 @RunWith(AndroidJUnit4.class)
+@Ignore(
+    "Analysis tests are not used for confirming Transformer is running properly, and not configured"
+        + " for this use as they're missing skip checks for unsupported devices.")
 public class EncoderCapabilityAnalysisTest {
 
   private static final String CAMCORDER_FORMAT_STRING = "%dx%d@%dfps:%dkbps";
@@ -86,7 +93,9 @@ public class EncoderCapabilityAnalysisTest {
 
   @Test
   public void logEncoderCapabilities() throws Exception {
-    ImmutableSet<String> supportedVideoMimeTypes = EncoderUtil.getSupportedVideoMimeTypes();
+    ImmutableSet<String> supportedVideoMimeTypes =
+        ImmutableSet.copyOf(
+            Iterables.filter(EncoderUtil.getSupportedMimeTypes(), MimeTypes::isVideo));
 
     // Map from MIME type to a list of maps from capability name to value.
     LinkedHashMap<String, List<Map<String, Object>>> mimeTypeToEncoderInfo = new LinkedHashMap<>();
@@ -143,23 +152,23 @@ public class EncoderCapabilityAnalysisTest {
 
         capabilities.put(
             "max_supported_instances",
-            Util.SDK_INT >= 23 ? EncoderUtil.getMaxSupportedInstances(encoderInfo, mimeType) : -1);
+            SDK_INT >= 23 ? EncoderUtil.getMaxSupportedInstances(encoderInfo, mimeType) : -1);
 
         capabilities.put(
             "supports_qp_bounds",
-            Util.SDK_INT >= 31
+            SDK_INT >= 31
                 && EncoderUtil.isFeatureSupported(
                     encoderInfo, mimeType, MediaCodecInfo.CodecCapabilities.FEATURE_QpBounds));
 
         capabilities.put(
             "supports_hdr_editing",
-            Util.SDK_INT >= 33
+            SDK_INT >= 33
                 && EncoderUtil.isFeatureSupported(
                     encoderInfo, mimeType, MediaCodecInfo.CodecCapabilities.FEATURE_HdrEditing));
 
         capabilities.put(
             "supports_encoding_statistics",
-            Util.SDK_INT >= 33
+            SDK_INT >= 33
                 && EncoderUtil.isFeatureSupported(
                     encoderInfo,
                     mimeType,

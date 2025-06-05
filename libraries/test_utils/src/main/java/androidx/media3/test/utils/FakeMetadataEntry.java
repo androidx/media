@@ -15,10 +15,6 @@
  */
 package androidx.media3.test.utils;
 
-import static androidx.media3.common.util.Util.castNonNull;
-
-import android.os.Parcel;
-import android.os.Parcelable;
 import androidx.annotation.Nullable;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.UnstableApi;
@@ -31,15 +27,6 @@ public final class FakeMetadataEntry implements Metadata.Entry {
 
   public FakeMetadataEntry(String data) {
     this.data = data;
-  }
-
-  /* package */ FakeMetadataEntry(Parcel in) {
-    data = castNonNull(in.readString());
-  }
-
-  @Override
-  public int describeContents() {
-    return 0;
   }
 
   @Override
@@ -58,23 +45,4 @@ public final class FakeMetadataEntry implements Metadata.Entry {
   public int hashCode() {
     return data.hashCode();
   }
-
-  @Override
-  public void writeToParcel(Parcel dest, int flags) {
-    dest.writeString(data);
-  }
-
-  public static final Parcelable.Creator<FakeMetadataEntry> CREATOR =
-      new Parcelable.Creator<FakeMetadataEntry>() {
-
-        @Override
-        public FakeMetadataEntry createFromParcel(Parcel in) {
-          return new FakeMetadataEntry(in);
-        }
-
-        @Override
-        public FakeMetadataEntry[] newArray(int size) {
-          return new FakeMetadataEntry[size];
-        }
-      };
 }

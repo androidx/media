@@ -44,10 +44,11 @@ import java.util.List;
  * to the one in the override. Conversely, disabling a track type will prevent selection of tracks
  * of that type for all media.
  */
-public final class TrackSelectionOverride implements Bundleable {
+public final class TrackSelectionOverride {
 
   /** The media {@link TrackGroup} whose {@link #trackIndices} are forced to be selected. */
   public final TrackGroup mediaTrackGroup;
+
   /** The indices of tracks in a {@link TrackGroup} to be selected. */
   public final ImmutableList<Integer> trackIndices;
 
@@ -102,10 +103,7 @@ public final class TrackSelectionOverride implements Bundleable {
     return mediaTrackGroup.hashCode() + 31 * trackIndices.hashCode();
   }
 
-  // Bundleable implementation
-
   @UnstableApi
-  @Override
   public Bundle toBundle() {
     Bundle bundle = new Bundle();
     bundle.putBundle(FIELD_TRACK_GROUP, mediaTrackGroup.toBundle());
@@ -113,13 +111,12 @@ public final class TrackSelectionOverride implements Bundleable {
     return bundle;
   }
 
-  /** Object that can restore {@code TrackSelectionOverride} from a {@link Bundle}. */
+  /** Restores a {@code TrackSelectionOverride} from a {@link Bundle}. */
   @UnstableApi
-  public static final Creator<TrackSelectionOverride> CREATOR =
-      bundle -> {
-        Bundle trackGroupBundle = checkNotNull(bundle.getBundle(FIELD_TRACK_GROUP));
-        TrackGroup mediaTrackGroup = TrackGroup.CREATOR.fromBundle(trackGroupBundle);
-        int[] tracks = checkNotNull(bundle.getIntArray(FIELD_TRACKS));
-        return new TrackSelectionOverride(mediaTrackGroup, Ints.asList(tracks));
-      };
+  public static TrackSelectionOverride fromBundle(Bundle bundle) {
+    Bundle trackGroupBundle = checkNotNull(bundle.getBundle(FIELD_TRACK_GROUP));
+    TrackGroup mediaTrackGroup = TrackGroup.fromBundle(trackGroupBundle);
+    int[] tracks = checkNotNull(bundle.getIntArray(FIELD_TRACKS));
+    return new TrackSelectionOverride(mediaTrackGroup, Ints.asList(tracks));
+  }
 }

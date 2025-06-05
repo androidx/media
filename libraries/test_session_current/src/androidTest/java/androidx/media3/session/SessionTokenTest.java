@@ -20,15 +20,14 @@ import static androidx.media3.test.session.common.CommonConstants.MOCK_MEDIA3_SE
 import static androidx.media3.test.session.common.CommonConstants.SUPPORT_APP_PACKAGE_NAME;
 import static androidx.media3.test.session.common.TestUtils.TIMEOUT_MS;
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assume.assumeTrue;
 
 import android.content.ComponentName;
 import android.content.Context;
+import android.media.session.MediaSession.Token;
 import android.os.Bundle;
 import android.os.Process;
 import android.support.v4.media.session.MediaSessionCompat;
 import androidx.media3.common.MediaLibraryInfo;
-import androidx.media3.common.util.Util;
 import androidx.media3.test.session.common.HandlerThreadTestRule;
 import androidx.media3.test.session.common.MainLooperTestRule;
 import androidx.media3.test.session.common.TestUtils;
@@ -37,6 +36,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SmallTest;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Rule;
@@ -64,6 +64,14 @@ public class SessionTokenTest {
   }
 
   @Test
+  public void unknownSessionVersion_isAtLeastOneMillion() {
+    // Previous releases of Media3 defined that session versions below one million are platform or
+    // legacy sessions, so the constant for an unknown Media3 session should be at least that to
+    // avoid confusion.
+    assertThat(SessionToken.UNKNOWN_SESSION_VERSION).isAtLeast(1_000_000);
+  }
+
+  @Test
   public void constructor_sessionService() {
     SessionToken token =
         new SessionToken(
@@ -74,8 +82,8 @@ public class SessionTokenTest {
     assertThat(token.getPackageName()).isEqualTo(context.getPackageName());
     assertThat(token.getUid()).isEqualTo(Process.myUid());
     assertThat(token.getType()).isEqualTo(SessionToken.TYPE_SESSION_SERVICE);
-    assertThat(token.getInterfaceVersion()).isEqualTo(0);
-    assertThat(token.getSessionVersion()).isEqualTo(0);
+    assertThat(token.getInterfaceVersion()).isEqualTo(SessionToken.UNKNOWN_INTERFACE_VERSION);
+    assertThat(token.getSessionVersion()).isEqualTo(SessionToken.UNKNOWN_SESSION_VERSION);
   }
 
   @Test
@@ -90,8 +98,8 @@ public class SessionTokenTest {
     assertThat(token.getUid()).isEqualTo(Process.myUid());
     assertThat(token.getType()).isEqualTo(SessionToken.TYPE_LIBRARY_SERVICE);
     assertThat(token.getServiceName()).isEqualTo(testComponentName.getClassName());
-    assertThat(token.getInterfaceVersion()).isEqualTo(0);
-    assertThat(token.getSessionVersion()).isEqualTo(0);
+    assertThat(token.getInterfaceVersion()).isEqualTo(SessionToken.UNKNOWN_INTERFACE_VERSION);
+    assertThat(token.getSessionVersion()).isEqualTo(SessionToken.UNKNOWN_SESSION_VERSION);
   }
 
   @Test
@@ -117,20 +125,21 @@ public class SessionTokenTest {
   @Test
   public void createSessionToken_withPlatformTokenFromMedia1Session_returnsTokenForLegacySession()
       throws Exception {
-    assumeTrue(Util.SDK_INT >= 21);
-
     MediaSessionCompat sessionCompat =
         sessionTestRule.ensureReleaseAfterTest(
             new MediaSessionCompat(context, "createSessionToken_withLegacyToken"));
 
     SessionToken token =
-        SessionToken.createSessionToken(
-                context,
-                (android.media.session.MediaSession.Token)
-                    sessionCompat.getSessionToken().getToken())
+        SessionToken.createSessionToken(context, (Token) sessionCompat.getSessionToken().getToken())
             .get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
 
     assertThat(token.isLegacySession()).isTrue();
+    assertThat(token.getPackageName()).isEqualTo(context.getPackageName());
+    assertThat(token.getUid()).isEqualTo(Process.myUid());
+    assertThat(token.getType()).isEqualTo(SessionToken.TYPE_SESSION);
+    assertThat(token.getSessionVersion()).isEqualTo(SessionToken.PLATFORM_SESSION_VERSION);
+    assertThat(token.getInterfaceVersion()).isEqualTo(SessionToken.UNKNOWN_INTERFACE_VERSION);
+    assertThat(token.getServiceName()).isEmpty();
   }
 
   @Test
@@ -152,19 +161,27 @@ public class SessionTokenTest {
       throws Exception {
     // TODO(b/194458970): Make the callback of session and controller on the same thread work and
     //  remove the threadTestRule
+    AtomicReference<Token> platformToken = new AtomicReference<>();
     MediaSession session =
         threadTestRule
             .getHandler()
             .postAndSync(
-                () ->
-                    sessionTestRule.ensureReleaseAfterTest(
-                        new MediaSession.Builder(context, new MockPlayer.Builder().build())
-                            .setId(TAG)
-                            .build()));
+                () -> {
+                  MediaSession mediaSession =
+                      new MediaSession.Builder(context, new MockPlayer.Builder().build())
+                          .setId(TAG)
+                          .build();
+                  platformToken.set(mediaSession.getPlatformToken());
+                  return sessionTestRule.ensureReleaseAfterTest(mediaSession);
+                });
+
     SessionToken token =
-        SessionToken.createSessionToken(context, session.getSessionCompatToken())
+        SessionToken.createSessionToken(
+                context, MediaSessionCompat.Token.fromToken(session.getPlatformToken()))
             .get(TIMEOUT_MS, TimeUnit.MILLISECONDS);
+
     assertThat(token.isLegacySession()).isFalse();
+    assertThat(token.getPlatformToken()).isEqualTo(platformToken.get());
   }
 
   @Test

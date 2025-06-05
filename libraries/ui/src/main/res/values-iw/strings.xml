@@ -25,9 +25,9 @@
     <item quantity="two">הרצה %d שניות קדימה</item>
     <item quantity="other">הרצה %d שניות קדימה</item>
   </plurals>
-  <string name="exo_controls_repeat_off_description">המצב הנוכחי: ללא חזרה. לחצן להחלפת מצב החזרה.</string>
-  <string name="exo_controls_repeat_one_description">המצב הנוכחי: חזרה על פריט אחד. לחצן להחלפת מצב החזרה.</string>
-  <string name="exo_controls_repeat_all_description">המצב הנוכחי: חזרה על כל הפריטים. לחצן להחלפת מצב החזרה.</string>
+  <string name="exo_controls_repeat_off_description">המצב הנוכחי: ללא חזרה. כפתור להחלפת מצב החזרה.</string>
+  <string name="exo_controls_repeat_one_description">המצב הנוכחי: חזרה על פריט אחד. כפתור להחלפת מצב החזרה.</string>
+  <string name="exo_controls_repeat_all_description">המצב הנוכחי: חזרה על כל הפריטים. כפתור להחלפת מצב החזרה.</string>
   <string name="exo_controls_shuffle_on_description">השבתת מצב ההפעלה האקראית</string>
   <string name="exo_controls_shuffle_off_description">הפעלת מצב ההפעלה האקראית</string>
   <string name="exo_controls_vr_description">מצב VR</string>
@@ -43,12 +43,11 @@
     <item>1.5x</item>
     <item>2x</item>
   </string-array>
-  <string name="exo_track_selection_title_video">סרטון</string>
   <string name="exo_track_selection_title_audio">אודיו</string>
-  <string name="exo_track_selection_title_text">טקסט</string>
   <string name="exo_track_selection_none">ללא</string>
   <string name="exo_track_selection_auto">אוטומטי</string>
   <string name="exo_track_unknown">לא ידוע</string>
+  <string name="exo_track_unknown_name">לא ידוע (%1$s)</string>
   <string name="exo_track_resolution">%1$d × %2$d</string>
   <string name="exo_track_mono">מונו</string>
   <string name="exo_track_stereo">סטריאו</string>

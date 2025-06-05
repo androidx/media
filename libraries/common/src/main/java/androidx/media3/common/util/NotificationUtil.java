@@ -15,6 +15,7 @@
  */
 package androidx.media3.common.util;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
@@ -54,26 +55,32 @@ public final class NotificationUtil {
     IMPORTANCE_HIGH
   })
   public @interface Importance {}
+
   /**
    * @see NotificationManager#IMPORTANCE_UNSPECIFIED
    */
   public static final int IMPORTANCE_UNSPECIFIED = NotificationManager.IMPORTANCE_UNSPECIFIED;
+
   /**
    * @see NotificationManager#IMPORTANCE_NONE
    */
   public static final int IMPORTANCE_NONE = NotificationManager.IMPORTANCE_NONE;
+
   /**
    * @see NotificationManager#IMPORTANCE_MIN
    */
   public static final int IMPORTANCE_MIN = NotificationManager.IMPORTANCE_MIN;
+
   /**
    * @see NotificationManager#IMPORTANCE_LOW
    */
   public static final int IMPORTANCE_LOW = NotificationManager.IMPORTANCE_LOW;
+
   /**
    * @see NotificationManager#IMPORTANCE_DEFAULT
    */
   public static final int IMPORTANCE_DEFAULT = NotificationManager.IMPORTANCE_DEFAULT;
+
   /**
    * @see NotificationManager#IMPORTANCE_HIGH
    */
@@ -107,10 +114,11 @@ public final class NotificationUtil {
       @StringRes int nameResourceId,
       @StringRes int descriptionResourceId,
       @Importance int importance) {
-    if (Util.SDK_INT >= 26) {
+    if (SDK_INT >= 26) {
       NotificationManager notificationManager =
           checkNotNull(
               (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE));
+      @SuppressLint("WrongConstant") // Setting NotificationUtil.Importance on platform API.
       NotificationChannel channel =
           new NotificationChannel(id, context.getString(nameResourceId), importance);
       if (descriptionResourceId != 0) {

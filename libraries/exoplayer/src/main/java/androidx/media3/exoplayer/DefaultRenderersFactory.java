@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.content.Context;
@@ -24,13 +25,18 @@ import android.os.Handler;
 import android.os.Looper;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
+import androidx.media3.common.C;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.exoplayer.audio.AudioCapabilities;
 import androidx.media3.exoplayer.audio.AudioRendererEventListener;
 import androidx.media3.exoplayer.audio.AudioSink;
 import androidx.media3.exoplayer.audio.DefaultAudioSink;
 import androidx.media3.exoplayer.audio.MediaCodecAudioRenderer;
+import androidx.media3.exoplayer.image.BitmapFactoryImageDecoder;
+import androidx.media3.exoplayer.image.ImageDecoder;
+import androidx.media3.exoplayer.image.ImageRenderer;
 import androidx.media3.exoplayer.mediacodec.DefaultMediaCodecAdapterFactory;
 import androidx.media3.exoplayer.mediacodec.MediaCodecAdapter;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
@@ -43,6 +49,7 @@ import androidx.media3.exoplayer.video.MediaCodecVideoRenderer;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
 import androidx.media3.exoplayer.video.spherical.CameraMotionRenderer;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.errorprone.annotations.ForOverride;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -69,8 +76,10 @@ public class DefaultRenderersFactory implements RenderersFactory {
   @Target(TYPE_USE)
   @IntDef({EXTENSION_RENDERER_MODE_OFF, EXTENSION_RENDERER_MODE_ON, EXTENSION_RENDERER_MODE_PREFER})
   public @interface ExtensionRendererMode {}
+
   /** Do not allow use of extension renderers. */
   public static final int EXTENSION_RENDERER_MODE_OFF = 0;
+
   /**
    * Allow use of extension renderers. Extension renderers are indexed after core renderers of the
    * same type. A {@link TrackSelector} that prefers the first suitable renderer will therefore
@@ -78,6 +87,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
    * given track.
    */
   public static final int EXTENSION_RENDERER_MODE_ON = 1;
+
   /**
    * Allow use of extension renderers. Extension renderers are indexed before core renderers of the
    * same type. A {@link TrackSelector} that prefers the first suitable renderer will therefore
@@ -102,17 +112,21 @@ public class DefaultRenderersFactory implements RenderersFactory {
   private MediaCodecSelector mediaCodecSelector;
   private boolean enableFloatOutput;
   private boolean enableAudioTrackPlaybackParams;
-  private boolean enableOffload;
+  private boolean enableMediaCodecVideoRendererPrewarming;
+  private boolean parseAv1SampleDependencies;
+  private long lateThresholdToDropDecoderInputUs;
+  private boolean enableMediaCodecBufferDecodeOnlyFlag;
 
   /**
    * @param context A {@link Context}.
    */
   public DefaultRenderersFactory(Context context) {
     this.context = context;
-    codecAdapterFactory = new DefaultMediaCodecAdapterFactory();
+    codecAdapterFactory = new DefaultMediaCodecAdapterFactory(context);
     extensionRendererMode = EXTENSION_RENDERER_MODE_OFF;
     allowedVideoJoiningTimeMs = DEFAULT_ALLOWED_VIDEO_JOINING_TIME_MS;
     mediaCodecSelector = MediaCodecSelector.DEFAULT;
+    lateThresholdToDropDecoderInputUs = C.TIME_UNSET;
   }
 
   /**
@@ -126,7 +140,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
    * @return This factory, for convenience.
    */
   @CanIgnoreReturnValue
-  public DefaultRenderersFactory setExtensionRendererMode(
+  public final DefaultRenderersFactory setExtensionRendererMode(
       @ExtensionRendererMode int extensionRendererMode) {
     this.extensionRendererMode = extensionRendererMode;
     return this;
@@ -142,7 +156,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
    * @return This factory, for convenience.
    */
   @CanIgnoreReturnValue
-  public DefaultRenderersFactory forceEnableMediaCodecAsynchronousQueueing() {
+  public final DefaultRenderersFactory forceEnableMediaCodecAsynchronousQueueing() {
     codecAdapterFactory.forceEnableAsynchronous();
     return this;
   }
@@ -155,24 +169,22 @@ public class DefaultRenderersFactory implements RenderersFactory {
    * @return This factory, for convenience.
    */
   @CanIgnoreReturnValue
-  public DefaultRenderersFactory forceDisableMediaCodecAsynchronousQueueing() {
+  public final DefaultRenderersFactory forceDisableMediaCodecAsynchronousQueueing() {
     codecAdapterFactory.forceDisableAsynchronous();
     return this;
   }
 
   /**
-   * Enable synchronizing codec interactions with asynchronous buffer queueing.
+   * Sets whether to enable {@link MediaCodec#CONFIGURE_FLAG_USE_CRYPTO_ASYNC} on API 34 and above
+   * when operating the codec in asynchronous mode.
    *
-   * <p>This method is experimental, and will be renamed or removed in a future release.
-   *
-   * @param enabled Whether codec interactions will be synchronized with asynchronous buffer
-   *     queueing.
-   * @return This factory, for convenience.
+   * <p>This method is experimental. Its default value may change, or it may be renamed or removed
+   * in a future release.
    */
   @CanIgnoreReturnValue
-  public DefaultRenderersFactory experimentalSetSynchronizeCodecInteractionsWithQueueingEnabled(
-      boolean enabled) {
-    codecAdapterFactory.experimentalSetSynchronizeCodecInteractionsWithQueueingEnabled(enabled);
+  public final DefaultRenderersFactory experimentalSetMediaCodecAsyncCryptoFlagEnabled(
+      boolean enableAsyncCryptoFlag) {
+    codecAdapterFactory.experimentalSetAsyncCryptoFlagEnabled(enableAsyncCryptoFlag);
     return this;
   }
 
@@ -185,7 +197,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
    * @return This factory, for convenience.
    */
   @CanIgnoreReturnValue
-  public DefaultRenderersFactory setEnableDecoderFallback(boolean enableDecoderFallback) {
+  public final DefaultRenderersFactory setEnableDecoderFallback(boolean enableDecoderFallback) {
     this.enableDecoderFallback = enableDecoderFallback;
     return this;
   }
@@ -199,7 +211,8 @@ public class DefaultRenderersFactory implements RenderersFactory {
    * @return This factory, for convenience.
    */
   @CanIgnoreReturnValue
-  public DefaultRenderersFactory setMediaCodecSelector(MediaCodecSelector mediaCodecSelector) {
+  public final DefaultRenderersFactory setMediaCodecSelector(
+      MediaCodecSelector mediaCodecSelector) {
     this.mediaCodecSelector = mediaCodecSelector;
     return this;
   }
@@ -216,31 +229,8 @@ public class DefaultRenderersFactory implements RenderersFactory {
    * @return This factory, for convenience.
    */
   @CanIgnoreReturnValue
-  public DefaultRenderersFactory setEnableAudioFloatOutput(boolean enableFloatOutput) {
+  public final DefaultRenderersFactory setEnableAudioFloatOutput(boolean enableFloatOutput) {
     this.enableFloatOutput = enableFloatOutput;
-    return this;
-  }
-
-  /**
-   * Sets whether audio should be played using the offload path.
-   *
-   * <p>Audio offload disables ExoPlayer audio processing, but significantly reduces the energy
-   * consumption of the playback when {@link
-   * ExoPlayer#experimentalSetOffloadSchedulingEnabled(boolean) offload scheduling} is enabled.
-   *
-   * <p>Most Android devices can only support one offload {@link android.media.AudioTrack} at a time
-   * and can invalidate it at any time. Thus an app can never be guaranteed that it will be able to
-   * play in offload.
-   *
-   * <p>The default value is {@code false}.
-   *
-   * @param enableOffload Whether to enable use of audio offload for supported formats, if
-   *     available.
-   * @return This factory, for convenience.
-   */
-  @CanIgnoreReturnValue
-  public DefaultRenderersFactory setEnableAudioOffload(boolean enableOffload) {
-    this.enableOffload = enableOffload;
     return this;
   }
 
@@ -263,9 +253,73 @@ public class DefaultRenderersFactory implements RenderersFactory {
    * @return This factory, for convenience.
    */
   @CanIgnoreReturnValue
-  public DefaultRenderersFactory setEnableAudioTrackPlaybackParams(
+  public final DefaultRenderersFactory setEnableAudioTrackPlaybackParams(
       boolean enableAudioTrackPlaybackParams) {
     this.enableAudioTrackPlaybackParams = enableAudioTrackPlaybackParams;
+    return this;
+  }
+
+  /**
+   * Sets whether a secondary {@link MediaCodecVideoRenderer} will be created through {@link
+   * #buildSecondaryVideoRenderer} for use by {@link ExoPlayer} for pre-warming.
+   *
+   * <p>If enabled, {@link ExoPlayer} will pre-process the video of consecutive media items during
+   * playback to reduce media item transition latency.
+   *
+   * <p>If {@link #buildVideoRenderers} is overridden to provide custom video renderers then to
+   * still enable pre-warming,{@link #buildSecondaryVideoRenderer} must also be overridden to
+   * provide matching secondary custom video renderers.
+   *
+   * <p>This method is experimental. Its default value may change, or it may be renamed or removed
+   * in a future release.
+   *
+   * @param enableMediaCodecVideoRendererPrewarming Whether to enable {@link
+   *     #buildSecondaryVideoRenderer} to provide a secondary {@link MediaCodecVideoRenderer} for
+   *     pre-warming.
+   * @return This factory, for convenience.
+   */
+  @CanIgnoreReturnValue
+  public final DefaultRenderersFactory experimentalSetEnableMediaCodecVideoRendererPrewarming(
+      boolean enableMediaCodecVideoRendererPrewarming) {
+    this.enableMediaCodecVideoRendererPrewarming = enableMediaCodecVideoRendererPrewarming;
+    return this;
+  }
+
+  /**
+   * Sets whether {@link MimeTypes#VIDEO_AV1} bitstream parsing for sample dependency information is
+   * enabled. Knowing which input frames are not depended on can speed up seeking and reduce dropped
+   * frames.
+   *
+   * <p>Defaults to {@code false}.
+   *
+   * <p>This method is experimental and will be renamed or removed in a future release.
+   *
+   * @param parseAv1SampleDependencies Whether bitstream parsing is enabled.
+   */
+  @CanIgnoreReturnValue
+  public final DefaultRenderersFactory experimentalSetParseAv1SampleDependencies(
+      boolean parseAv1SampleDependencies) {
+    this.parseAv1SampleDependencies = parseAv1SampleDependencies;
+    return this;
+  }
+
+  /**
+   * Sets whether the {@link MediaCodec#BUFFER_FLAG_DECODE_ONLY} flag will be included when queuing
+   * decode-only input buffers to the decoder.
+   *
+   * <p>If {@code false}, then only if the decoder is set up in tunneling mode will the decode-only
+   * input buffers be queued with the {@link MediaCodec#BUFFER_FLAG_DECODE_ONLY} flag. The default
+   * value is {@code false}.
+   *
+   * <p>Requires API 34.
+   *
+   * <p>This method is experimental and will be renamed or removed in a future release.
+   */
+  @RequiresApi(34)
+  @CanIgnoreReturnValue
+  public DefaultRenderersFactory experimentalSetEnableMediaCodecBufferDecodeOnlyFlag(
+      boolean enableMediaCodecBufferDecodeOnlyFlag) {
+    this.enableMediaCodecBufferDecodeOnlyFlag = enableMediaCodecBufferDecodeOnlyFlag;
     return this;
   }
 
@@ -280,8 +334,27 @@ public class DefaultRenderersFactory implements RenderersFactory {
    * @return This factory, for convenience.
    */
   @CanIgnoreReturnValue
-  public DefaultRenderersFactory setAllowedVideoJoiningTimeMs(long allowedVideoJoiningTimeMs) {
+  public final DefaultRenderersFactory setAllowedVideoJoiningTimeMs(
+      long allowedVideoJoiningTimeMs) {
     this.allowedVideoJoiningTimeMs = allowedVideoJoiningTimeMs;
+    return this;
+  }
+
+  /**
+   * Sets the late threshold for rendered output buffers, in microseconds, after which decoder input
+   * buffers may be dropped.
+   *
+   * <p>The default value is {@link C#TIME_UNSET} and therefore no input buffers will be dropped due
+   * to this logic.
+   *
+   * <p>This method is experimental and will be renamed or removed in a future release.
+   *
+   * @param lateThresholdToDropDecoderInputUs The threshold.
+   */
+  @CanIgnoreReturnValue
+  public final DefaultRenderersFactory experimentalSetLateThresholdToDropDecoderInputUs(
+      long lateThresholdToDropDecoderInputUs) {
+    this.lateThresholdToDropDecoderInputUs = lateThresholdToDropDecoderInputUs;
     return this;
   }
 
@@ -304,7 +377,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
         renderersList);
     @Nullable
     AudioSink audioSink =
-        buildAudioSink(context, enableFloatOutput, enableAudioTrackPlaybackParams, enableOffload);
+        buildAudioSink(context, enableFloatOutput, enableAudioTrackPlaybackParams);
     if (audioSink != null) {
       buildAudioRenderers(
           context,
@@ -329,6 +402,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
         extensionRendererMode,
         renderersList);
     buildCameraMotionRenderers(context, extensionRendererMode, renderersList);
+    buildImageRenderers(context, renderersList);
     buildMiscellaneousRenderers(context, eventHandler, extensionRendererMode, renderersList);
     return renderersList.toArray(new Renderer[0]);
   }
@@ -357,17 +431,23 @@ public class DefaultRenderersFactory implements RenderersFactory {
       VideoRendererEventListener eventListener,
       long allowedVideoJoiningTimeMs,
       ArrayList<Renderer> out) {
-    MediaCodecVideoRenderer videoRenderer =
-        new MediaCodecVideoRenderer(
-            context,
-            getCodecAdapterFactory(),
-            mediaCodecSelector,
-            allowedVideoJoiningTimeMs,
-            enableDecoderFallback,
-            eventHandler,
-            eventListener,
-            MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY);
-    out.add(videoRenderer);
+    MediaCodecVideoRenderer.Builder videoRendererBuilder =
+        new MediaCodecVideoRenderer.Builder(context)
+            .setCodecAdapterFactory(getCodecAdapterFactory())
+            .setMediaCodecSelector(mediaCodecSelector)
+            .setAllowedJoiningTimeMs(allowedVideoJoiningTimeMs)
+            .setEnableDecoderFallback(enableDecoderFallback)
+            .setEventHandler(eventHandler)
+            .setEventListener(eventListener)
+            .setMaxDroppedFramesToNotify(MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY)
+            .experimentalSetParseAv1SampleDependencies(parseAv1SampleDependencies)
+            .experimentalSetLateThresholdToDropDecoderInputUs(lateThresholdToDropDecoderInputUs);
+    if (SDK_INT >= 34) {
+      videoRendererBuilder =
+          videoRendererBuilder.experimentalSetEnableMediaCodecBufferDecodeOnlyFlag(
+              enableMediaCodecBufferDecodeOnlyFlag);
+    }
+    out.add(videoRendererBuilder.build());
 
     if (extensionRendererMode == EXTENSION_RENDERER_MODE_OFF) {
       return;
@@ -378,14 +458,18 @@ public class DefaultRenderersFactory implements RenderersFactory {
     }
 
     try {
-      // Full class names used for constructor args so the LINT rule triggers if any of them move.
+      // LINT.IfChange
       Class<?> clazz = Class.forName("androidx.media3.decoder.vp9.LibvpxVideoRenderer");
+      // Full class names used for media3 constructor args so the LINT rule triggers if any of them
+      // move.
+      @SuppressWarnings("UnnecessarilyFullyQualified")
       Constructor<?> constructor =
           clazz.getConstructor(
               long.class,
-              android.os.Handler.class,
+              Handler.class,
               androidx.media3.exoplayer.video.VideoRendererEventListener.class,
               int.class);
+      // LINT.ThenChange(../../../../../../proguard-rules.txt)
       Renderer renderer =
           (Renderer)
               constructor.newInstance(
@@ -399,18 +483,51 @@ public class DefaultRenderersFactory implements RenderersFactory {
       // Expected if the app was built without the extension.
     } catch (Exception e) {
       // The extension is present, but instantiation failed.
-      throw new RuntimeException("Error instantiating VP9 extension", e);
+      throw new IllegalStateException("Error instantiating VP9 extension", e);
     }
 
     try {
-      // Full class names used for constructor args so the LINT rule triggers if any of them move.
-      Class<?> clazz = Class.forName("androidx.media3.decoder.av1.Libgav1VideoRenderer");
+      // LINT.IfChange
+      Class<?> clazz = Class.forName("androidx.media3.decoder.dav1d.Libdav1dVideoRenderer");
+      // Full class names used for media3 constructor args so the LINT rule triggers if any of them
+      // move.
+      @SuppressWarnings("UnnecessarilyFullyQualified")
       Constructor<?> constructor =
           clazz.getConstructor(
               long.class,
-              android.os.Handler.class,
+              Handler.class,
               androidx.media3.exoplayer.video.VideoRendererEventListener.class,
               int.class);
+      // LINT.ThenChange(../../../../../../proguard-rules.txt)
+      Renderer renderer =
+          (Renderer)
+              constructor.newInstance(
+                  allowedVideoJoiningTimeMs,
+                  eventHandler,
+                  eventListener,
+                  MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY);
+      out.add(extensionRendererIndex++, renderer);
+      Log.i(TAG, "Loaded Libdav1dVideoRenderer.");
+    } catch (ClassNotFoundException e) {
+      // Expected if the app was built without the extension.
+    } catch (Exception e) {
+      // The extension is present, but instantiation failed.
+      throw new IllegalStateException("Error instantiating dav1d AV1 extension", e);
+    }
+
+    try {
+      // LINT.IfChange
+      Class<?> clazz = Class.forName("androidx.media3.decoder.av1.Libgav1VideoRenderer");
+      // Full class names used for media3 constructor args so the LINT rule triggers if any of them
+      // move.
+      @SuppressWarnings("UnnecessarilyFullyQualified")
+      Constructor<?> constructor =
+          clazz.getConstructor(
+              long.class,
+              Handler.class,
+              androidx.media3.exoplayer.video.VideoRendererEventListener.class,
+              int.class);
+      // LINT.ThenChange(../../../../../../proguard-rules.txt)
       Renderer renderer =
           (Renderer)
               constructor.newInstance(
@@ -424,7 +541,37 @@ public class DefaultRenderersFactory implements RenderersFactory {
       // Expected if the app was built without the extension.
     } catch (Exception e) {
       // The extension is present, but instantiation failed.
-      throw new RuntimeException("Error instantiating AV1 extension", e);
+      throw new IllegalStateException("Error instantiating AV1 extension", e);
+    }
+
+    try {
+      // LINT.IfChange
+      Class<?> clazz =
+          Class.forName("androidx.media3.decoder.ffmpeg.ExperimentalFfmpegVideoRenderer");
+      // Full class names used for media3 constructor args so the LINT rule triggers if any of them
+      // move.
+      @SuppressWarnings("UnnecessarilyFullyQualified")
+      Constructor<?> constructor =
+          clazz.getConstructor(
+              long.class,
+              Handler.class,
+              androidx.media3.exoplayer.video.VideoRendererEventListener.class,
+              int.class);
+      // LINT.ThenChange(../../../../../../proguard-rules.txt)
+      Renderer renderer =
+          (Renderer)
+              constructor.newInstance(
+                  allowedVideoJoiningTimeMs,
+                  eventHandler,
+                  eventListener,
+                  MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY);
+      out.add(extensionRendererIndex++, renderer);
+      Log.i(TAG, "Loaded FfmpegVideoRenderer.");
+    } catch (ClassNotFoundException e) {
+      // Expected if the app was built without the extension.
+    } catch (Exception e) {
+      // The extension is present, but instantiation failed.
+      throw new IllegalStateException("Error instantiating FFmpeg extension", e);
     }
   }
 
@@ -471,26 +618,41 @@ public class DefaultRenderersFactory implements RenderersFactory {
     }
 
     try {
+      // LINT.IfChange
       Class<?> clazz = Class.forName("androidx.media3.decoder.midi.MidiRenderer");
-      Constructor<?> constructor = clazz.getConstructor();
-      Renderer renderer = (Renderer) constructor.newInstance();
+      // Full class names used for media3 constructor args so the LINT rule triggers if any of them
+      // move.
+      @SuppressWarnings("UnnecessarilyFullyQualified")
+      Constructor<?> constructor =
+          clazz.getConstructor(
+              Context.class,
+              Handler.class,
+              androidx.media3.exoplayer.audio.AudioRendererEventListener.class,
+              androidx.media3.exoplayer.audio.AudioSink.class);
+      // LINT.ThenChange(../../../../../../proguard-rules.txt)
+      Renderer renderer =
+          (Renderer) constructor.newInstance(context, eventHandler, eventListener, audioSink);
       out.add(extensionRendererIndex++, renderer);
       Log.i(TAG, "Loaded MidiRenderer.");
     } catch (ClassNotFoundException e) {
       // Expected if the app was built without the extension.
     } catch (Exception e) {
       // The extension is present, but instantiation failed.
-      throw new RuntimeException("Error instantiating MIDI extension", e);
+      throw new IllegalStateException("Error instantiating MIDI extension", e);
     }
 
     try {
-      // Full class names used for constructor args so the LINT rule triggers if any of them move.
+      // LINT.IfChange
       Class<?> clazz = Class.forName("androidx.media3.decoder.opus.LibopusAudioRenderer");
+      // Full class names used for media3 constructor args so the LINT rule triggers if any of them
+      // move.
+      @SuppressWarnings("UnnecessarilyFullyQualified")
       Constructor<?> constructor =
           clazz.getConstructor(
-              android.os.Handler.class,
+              Handler.class,
               androidx.media3.exoplayer.audio.AudioRendererEventListener.class,
               androidx.media3.exoplayer.audio.AudioSink.class);
+      // LINT.ThenChange(../../../../../../proguard-rules.txt)
       Renderer renderer =
           (Renderer) constructor.newInstance(eventHandler, eventListener, audioSink);
       out.add(extensionRendererIndex++, renderer);
@@ -499,17 +661,21 @@ public class DefaultRenderersFactory implements RenderersFactory {
       // Expected if the app was built without the extension.
     } catch (Exception e) {
       // The extension is present, but instantiation failed.
-      throw new RuntimeException("Error instantiating Opus extension", e);
+      throw new IllegalStateException("Error instantiating Opus extension", e);
     }
 
     try {
-      // Full class names used for constructor args so the LINT rule triggers if any of them move.
+      // LINT.IfChange
       Class<?> clazz = Class.forName("androidx.media3.decoder.flac.LibflacAudioRenderer");
+      // Full class names used for media3 constructor args so the LINT rule triggers if any of them
+      // move.
+      @SuppressWarnings("UnnecessarilyFullyQualified")
       Constructor<?> constructor =
           clazz.getConstructor(
-              android.os.Handler.class,
+              Handler.class,
               androidx.media3.exoplayer.audio.AudioRendererEventListener.class,
               androidx.media3.exoplayer.audio.AudioSink.class);
+      // LINT.ThenChange(../../../../../../proguard-rules.txt)
       Renderer renderer =
           (Renderer) constructor.newInstance(eventHandler, eventListener, audioSink);
       out.add(extensionRendererIndex++, renderer);
@@ -518,17 +684,21 @@ public class DefaultRenderersFactory implements RenderersFactory {
       // Expected if the app was built without the extension.
     } catch (Exception e) {
       // The extension is present, but instantiation failed.
-      throw new RuntimeException("Error instantiating FLAC extension", e);
+      throw new IllegalStateException("Error instantiating FLAC extension", e);
     }
 
     try {
-      // Full class names used for constructor args so the LINT rule triggers if any of them move.
+      // LINT.IfChange
       Class<?> clazz = Class.forName("androidx.media3.decoder.ffmpeg.FfmpegAudioRenderer");
+      // Full class names used for media3 constructor args so the LINT rule triggers if any of them
+      // move.
+      @SuppressWarnings("UnnecessarilyFullyQualified")
       Constructor<?> constructor =
           clazz.getConstructor(
-              android.os.Handler.class,
+              Handler.class,
               androidx.media3.exoplayer.audio.AudioRendererEventListener.class,
               androidx.media3.exoplayer.audio.AudioSink.class);
+      // LINT.ThenChange(../../../../../../proguard-rules.txt)
       Renderer renderer =
           (Renderer) constructor.newInstance(eventHandler, eventListener, audioSink);
       out.add(extensionRendererIndex++, renderer);
@@ -537,7 +707,51 @@ public class DefaultRenderersFactory implements RenderersFactory {
       // Expected if the app was built without the extension.
     } catch (Exception e) {
       // The extension is present, but instantiation failed.
-      throw new RuntimeException("Error instantiating FFmpeg extension", e);
+      throw new IllegalStateException("Error instantiating FFmpeg extension", e);
+    }
+
+    try {
+      // Full class names used for constructor args so the LINT rule triggers if any of them move.
+      // LINT.IfChange
+      Class<?> clazz = Class.forName("androidx.media3.decoder.iamf.LibiamfAudioRenderer");
+      // Full class names used for media3 constructor args so the LINT rule triggers if any of them
+      // move.
+      @SuppressWarnings("UnnecessarilyFullyQualified")
+      Constructor<?> constructor =
+          clazz.getConstructor(
+              Context.class,
+              Handler.class,
+              androidx.media3.exoplayer.audio.AudioRendererEventListener.class,
+              androidx.media3.exoplayer.audio.AudioSink.class);
+      // LINT.ThenChange(../../../../../../proguard-rules.txt)
+      Renderer renderer =
+          (Renderer) constructor.newInstance(context, eventHandler, eventListener, audioSink);
+      out.add(extensionRendererIndex++, renderer);
+      Log.i(TAG, "Loaded LibiamfAudioRenderer.");
+    } catch (ClassNotFoundException e) {
+      // Expected if the app was built without the extension.
+    } catch (Exception e) {
+      // The extension is present, but instantiation failed.
+      throw new IllegalStateException("Error instantiating IAMF extension", e);
+    }
+
+    try {
+      // Full class names used for constructor args so the LINT rule triggers if any of them move.
+      Class<?> clazz = Class.forName("androidx.media3.decoder.mpegh.MpeghAudioRenderer");
+      Constructor<?> constructor =
+          clazz.getConstructor(
+              Handler.class,
+              androidx.media3.exoplayer.audio.AudioRendererEventListener.class,
+              androidx.media3.exoplayer.audio.AudioSink.class);
+      Renderer renderer =
+          (Renderer) constructor.newInstance(eventHandler, eventListener, audioSink);
+      out.add(extensionRendererIndex++, renderer);
+      Log.i(TAG, "Loaded MpeghAudioRenderer.");
+    } catch (ClassNotFoundException e) {
+      // Expected if the app was built without the extension.
+    } catch (Exception e) {
+      // The extension is present, but instantiation failed.
+      throw new IllegalStateException("Error instantiating MPEG-H extension", e);
     }
   }
 
@@ -575,6 +789,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
       @ExtensionRendererMode int extensionRendererMode,
       ArrayList<Renderer> out) {
     out.add(new MetadataRenderer(output, outputLooper));
+    out.add(new MetadataRenderer(output, outputLooper));
   }
 
   /**
@@ -587,6 +802,27 @@ public class DefaultRenderersFactory implements RenderersFactory {
   protected void buildCameraMotionRenderers(
       Context context, @ExtensionRendererMode int extensionRendererMode, ArrayList<Renderer> out) {
     out.add(new CameraMotionRenderer());
+  }
+
+  /**
+   * @deprecated Override {@link #buildImageRenderers(Context, ArrayList)} instead.
+   */
+  @Deprecated
+  protected void buildImageRenderers(ArrayList<Renderer> out) {
+    out.add(new ImageRenderer(getImageDecoderFactory(context), /* imageOutput= */ null));
+  }
+
+  /**
+   * Builds image renderers for use by the player.
+   *
+   * <p>The {@link ImageRenderer} is built with {@code ImageOutput} set to null and {@link
+   * ImageDecoder.Factory} set to {@code ImageDecoder.Factory.DEFAULT} by default.
+   *
+   * @param context The {@link Context} associated with the player.
+   * @param out An array to which the built renderers should be appended.
+   */
+  protected void buildImageRenderers(Context context, ArrayList<Renderer> out) {
+    buildImageRenderers(out);
   }
 
   /**
@@ -612,27 +848,95 @@ public class DefaultRenderersFactory implements RenderersFactory {
    * @param enableFloatOutput Whether to enable use of floating point audio output, if available.
    * @param enableAudioTrackPlaybackParams Whether to enable setting playback speed using {@link
    *     android.media.AudioTrack#setPlaybackParams(PlaybackParams)}, if supported.
-   * @param enableOffload Whether to enable use of audio offload for supported formats, if
-   *     available.
    * @return The {@link AudioSink} to which the audio renderers will output. May be {@code null} if
    *     no audio renderers are required. If {@code null} is returned then {@link
    *     #buildAudioRenderers} will not be called.
    */
   @Nullable
   protected AudioSink buildAudioSink(
-      Context context,
-      boolean enableFloatOutput,
-      boolean enableAudioTrackPlaybackParams,
-      boolean enableOffload) {
-    return new DefaultAudioSink.Builder()
-        .setAudioCapabilities(AudioCapabilities.getCapabilities(context))
+      Context context, boolean enableFloatOutput, boolean enableAudioTrackPlaybackParams) {
+    return new DefaultAudioSink.Builder(context)
         .setEnableFloatOutput(enableFloatOutput)
         .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
-        .setOffloadMode(
-            enableOffload
-                ? DefaultAudioSink.OFFLOAD_MODE_ENABLED_GAPLESS_REQUIRED
-                : DefaultAudioSink.OFFLOAD_MODE_DISABLED)
         .build();
+  }
+
+  @Override
+  @Nullable
+  public Renderer createSecondaryRenderer(
+      Renderer renderer,
+      Handler eventHandler,
+      VideoRendererEventListener videoRendererEventListener,
+      AudioRendererEventListener audioRendererEventListener,
+      TextOutput textRendererOutput,
+      MetadataOutput metadataRendererOutput) {
+    if (renderer.getTrackType() == C.TRACK_TYPE_VIDEO) {
+      return buildSecondaryVideoRenderer(
+          renderer,
+          context,
+          extensionRendererMode,
+          mediaCodecSelector,
+          enableDecoderFallback,
+          eventHandler,
+          videoRendererEventListener,
+          allowedVideoJoiningTimeMs);
+    }
+    return null;
+  }
+
+  /**
+   * Builds a secondary video renderer for an {@link ExoPlayer} instance to use for pre-warming.
+   *
+   * <p>The created secondary video {@code Renderer} should match its primary {@link Renderer} in
+   * reported track type support and {@link RendererCapabilities}.
+   *
+   * <p>If {@link #buildVideoRenderers} is overridden to provide custom video renderers, then this
+   * method must also be overridden to supply corresponding custom secondary video renderers.
+   *
+   * @param renderer The primary {@link Renderer} for which to create the secondary.
+   * @param context The {@link Context} associated with the player.
+   * @param extensionRendererMode The extension renderer mode.
+   * @param mediaCodecSelector A decoder selector.
+   * @param enableDecoderFallback Whether to enable fallback to lower-priority decoders if decoder
+   *     initialization fails. This may result in using a decoder that is slower/less efficient than
+   *     the primary decoder.
+   * @param eventHandler A handler associated with the main thread's looper.
+   * @param eventListener An event listener.
+   * @param allowedVideoJoiningTimeMs The maximum duration for which video renderers can attempt to
+   *     seamlessly join an ongoing playback, in milliseconds.
+   * @return The created secondary {@link Renderer renderer instance}.
+   */
+  @Nullable
+  protected Renderer buildSecondaryVideoRenderer(
+      Renderer renderer,
+      Context context,
+      @ExtensionRendererMode int extensionRendererMode,
+      MediaCodecSelector mediaCodecSelector,
+      boolean enableDecoderFallback,
+      Handler eventHandler,
+      VideoRendererEventListener eventListener,
+      long allowedVideoJoiningTimeMs) {
+    if (enableMediaCodecVideoRendererPrewarming
+        && renderer.getClass() == MediaCodecVideoRenderer.class) {
+      MediaCodecVideoRenderer.Builder builder =
+          new MediaCodecVideoRenderer.Builder(context)
+              .setCodecAdapterFactory(getCodecAdapterFactory())
+              .setMediaCodecSelector(mediaCodecSelector)
+              .setAllowedJoiningTimeMs(allowedVideoJoiningTimeMs)
+              .setEnableDecoderFallback(enableDecoderFallback)
+              .setEventHandler(eventHandler)
+              .setEventListener(eventListener)
+              .setMaxDroppedFramesToNotify(MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY)
+              .experimentalSetParseAv1SampleDependencies(parseAv1SampleDependencies)
+              .experimentalSetLateThresholdToDropDecoderInputUs(lateThresholdToDropDecoderInputUs);
+      if (SDK_INT >= 34) {
+        builder =
+            builder.experimentalSetEnableMediaCodecBufferDecodeOnlyFlag(
+                enableMediaCodecBufferDecodeOnlyFlag);
+      }
+      return builder.build();
+    }
+    return null;
   }
 
   /**
@@ -641,5 +945,11 @@ public class DefaultRenderersFactory implements RenderersFactory {
    */
   protected MediaCodecAdapter.Factory getCodecAdapterFactory() {
     return codecAdapterFactory;
+  }
+
+  /** Returns the {@link ImageDecoder.Factory} used to build the image renderer. */
+  @ForOverride
+  protected ImageDecoder.Factory getImageDecoderFactory(Context context) {
+    return new BitmapFactoryImageDecoder.Factory(context);
   }
 }

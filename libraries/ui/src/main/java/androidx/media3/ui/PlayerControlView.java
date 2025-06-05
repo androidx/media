@@ -15,15 +15,13 @@
  */
 package androidx.media3.ui;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.Player.COMMAND_GET_CURRENT_MEDIA_ITEM;
 import static androidx.media3.common.Player.COMMAND_GET_TIMELINE;
 import static androidx.media3.common.Player.COMMAND_GET_TRACKS;
-import static androidx.media3.common.Player.COMMAND_PLAY_PAUSE;
-import static androidx.media3.common.Player.COMMAND_PREPARE;
 import static androidx.media3.common.Player.COMMAND_SEEK_BACK;
 import static androidx.media3.common.Player.COMMAND_SEEK_FORWARD;
 import static androidx.media3.common.Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM;
-import static androidx.media3.common.Player.COMMAND_SEEK_TO_DEFAULT_POSITION;
 import static androidx.media3.common.Player.COMMAND_SEEK_TO_MEDIA_ITEM;
 import static androidx.media3.common.Player.COMMAND_SEEK_TO_NEXT;
 import static androidx.media3.common.Player.COMMAND_SEEK_TO_PREVIOUS;
@@ -63,10 +61,10 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
+import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.PopupWindow;
 import android.widget.TextView;
-import androidx.annotation.DrawableRes;
 import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
 import androidx.core.content.res.ResourcesCompat;
@@ -75,19 +73,21 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.Player;
 import androidx.media3.common.Player.Events;
-import androidx.media3.common.Player.State;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.TrackSelectionOverride;
 import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.Tracks;
 import androidx.media3.common.util.Assertions;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.RepeatModeUtil;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import com.google.common.collect.ImmutableList;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -95,12 +95,14 @@ import java.util.Formatter;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.CopyOnWriteArrayList;
+import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
 
 /**
  * A view for controlling {@link Player} instances.
  *
  * <p>A {@code PlayerControlView} can be customized by setting attributes (or calling corresponding
- * methods), or overriding drawables.
+ * methods), or overriding drawables. Note that {@code PlayerControlView} is not intended to be used
+ * a standalone component outside of {@link PlayerView}.
  *
  * <h2>Attributes</h2>
  *
@@ -158,6 +160,14 @@ import java.util.concurrent.CopyOnWriteArrayList;
  *         <li>Corresponding method: {@link #setAnimationEnabled(boolean)}
  *         <li>Default: true
  *       </ul>
+ *   <li><b>{@code time_bar_scrubbing_enabled}</b> - Whether the time bar should {@linkplain
+ *       Player#seekTo seek} immediately as the user drags the scrubber around (true), or only seek
+ *       when the user releases the scrubber (false). This can only be used if the {@linkplain
+ *       #setPlayer connected player} is an instance of {@code androidx.media3.exoplayer.ExoPlayer}.
+ *       <ul>
+ *         <li>Corresponding method: {@link #setTimeBarScrubbingEnabled(boolean)}
+ *         <li>Default: {@code false}
+ *       </ul>
  *   <li><b>{@code time_bar_min_update_interval}</b> - Specifies the minimum interval between time
  *       bar position updates.
  *       <ul>
@@ -168,10 +178,12 @@ import java.util.concurrent.CopyOnWriteArrayList;
  *       PlayerControlView}, and will be propagated to the inflated {@link DefaultTimeBar}.
  * </ul>
  *
- * <h2>Overriding drawables</h2>
+ * <h2>Overriding drawables globally</h2>
  *
  * The drawables used by {@code PlayerControlView} can be overridden by drawables with the same
- * names defined in your application. The drawables that can be overridden are:
+ * names defined in your application. Note that these icons will be the same across all usages of
+ * {@code PlayerView}/{@code PlayerControlView} in your app. The drawables that can be overridden
+ * are:
  *
  * <ul>
  *   <li><b>{@code exo_styled_controls_play}</b> - The play icon.
@@ -190,10 +202,105 @@ import java.util.concurrent.CopyOnWriteArrayList;
  *       disabled.
  *   <li><b>{@code exo_styled_controls_shuffle_on}</b> - The shuffle icon when shuffling is enabled.
  *   <li><b>{@code exo_styled_controls_vr}</b> - The VR icon.
+ *   <li><b>{@code exo_styled_controls_fullscreen_enter}</b> - The fullscreen icon for when the
+ *       player is minimized.
+ *   <li><b>{@code exo_styled_controls_fullscreen_exit}</b> - The fullscreen icon for when the
+ *       player is in fullscreen mode.
+ * </ul>
+ *
+ * <h2>Overriding drawables locally</h2>
+ *
+ * If you want to customize drawable per PlayerView instance, you can use the following attributes:
+ * {@code PlayerView}/{@code PlayerControlView} in your app. The drawables that can be overridden
+ * are:
+ *
+ * <ul>
+ *   <li><b>{@code play_icon}</b> - The drawable resource ID for the play/pause button when play is
+ *       shown.
+ *       <ul>
+ *         <li>Default: <b>{@code @drawable/exo_styled_controls_play}</b>
+ *       </ul>
+ *   <li><b>{@code pause_icon}</b> - The drawable resource ID for the play/pause button when pause
+ *       is shown.
+ *       <ul>
+ *         <li>Default: <b>{@code @drawable/exo_styled_controls_pause}</b>
+ *       </ul>
+ *   <li><b>{@code fastforward_icon}</b> - The drawable resource ID for the simple fast forward
+ *       button without the seek-forward amount. The ID of the {@linkplain ImageButton image button}
+ *       in such case should be {@code exo_ffwd}, specified in the {@code
+ *       exo_player_control_ffwd_button} layout.
+ *       <ul>
+ *         <li>Default: <b>{@code @drawable/exo_styled_controls_simple_fastforward}</b>
+ *       </ul>
+ *   <li><b>{@code rewind_icon}</b> - The drawable resource ID for the simple rewind button without
+ *       the seek-back amount. The ID of the {@linkplain ImageButton image button} in such case
+ *       should be {@code exo_rew}, specified in the {@code exo_player_control_rewind_button}
+ *       layout.
+ *       <ul>
+ *         <li>Default: <b>{@code @drawable/exo_styled_controls_simple_rewind}</b>
+ *       </ul>
+ *   <li><b>{@code previous_icon}</b> - The drawable resource ID for the previous button.
+ *       <ul>
+ *         <li>Default: <b>{@code @drawable/exo_styled_controls_previous}</b>
+ *       </ul>
+ *   <li><b>{@code next_icon}</b> - The drawable resource ID for the next button.
+ *       <ul>
+ *         <li>Default: <b>{@code @drawable/exo_styled_controls_next}</b>
+ *       </ul>
+ *   <li><b>{@code repeat_off_icon}</b> - The drawable resource ID for the repeat button when the
+ *       mode is {@code none}.
+ *       <ul>
+ *         <li>Default: <b>{@code @drawable/exo_styled_controls_repeat_off}</b>
+ *       </ul>
+ *   <li><b>{@code repeat_one_icon}</b> - The drawable resource ID for the repeat button when the
+ *       mode is {@code one}.
+ *       <ul>
+ *         <li>Default: <b>{@code @drawable/exo_styled_controls_repeat_one}</b>
+ *       </ul>
+ *   <li><b>{@code repeat_all_icon}</b> - The drawable resource ID for the repeat button when the
+ *       mode is {@code all}.
+ *       <ul>
+ *         <li>Default: <b>{@code @drawable/exo_styled_controls_repeat_all}</b>
+ *       </ul>
+ *   <li><b>{@code shuffle_on_icon}</b> - The drawable resource ID for the repeat button when the
+ *       mode is {@code one}.
+ *       <ul>
+ *         <li>Default: <b>{@code @drawable/exo_styled_controls_shuffle_on}</b>
+ *       </ul>
+ *   <li><b>{@code shuffle_off_icon}</b> - The drawable resource ID for the repeat button when the
+ *       mode is {@code all}.
+ *       <ul>
+ *         <li>Default: <b>{@code @drawable/exo_styled_controls_shuffle_off}</b>
+ *       </ul>
+ *   <li><b>{@code subtitle_on_icon}</b> - The drawable resource ID for the subtitle button when the
+ *       text track is on.
+ *       <ul>
+ *         <li>Default: <b>{@code @drawable/exo_styled_controls_subtitle_on}</b>
+ *       </ul>
+ *   <li><b>{@code subtitle_off_icon}</b> - The drawable resource ID for the subtitle button when
+ *       the text track is off.
+ *       <ul>
+ *         <li>Default: <b>{@code @drawable/exo_styled_controls_subtitle_off}</b>
+ *       </ul>
+ *   <li><b>{@code vr_icon}</b> - The drawable resource ID for the VR button.
+ *       <ul>
+ *         <li>Default: <b>{@code @drawable/exo_styled_controls_vr}</b>
+ *       </ul>
+ *   <li><b>{@code fullscreen_enter_icon}</b> - The drawable resource ID for the fullscreen button
+ *       when the player is minimized.
+ *       <ul>
+ *         <li>Default: <b>{@code @drawable/exo_styled_controls_fullscreen_enter}</b>
+ *       </ul>
+ *   <li><b>{@code fullscreen_exit_icon}</b> - The drawable resource ID for the fullscreen button
+ *       when the player is in fullscreen mode.
+ *       <ul>
+ *         <li>Default: <b>{@code @drawable/exo_styled_controls_fullscreen_exit}</b>
+ *       </ul>
  * </ul>
  */
 @UnstableApi
 public class PlayerControlView extends FrameLayout {
+  // TODO: b/422411856 - Add tests for PlayerControlView.
 
   static {
     MediaLibraryInfo.registerModule("media3.ui");
@@ -247,18 +354,26 @@ public class PlayerControlView extends FrameLayout {
 
   /** The default show timeout, in milliseconds. */
   public static final int DEFAULT_SHOW_TIMEOUT_MS = 5_000;
+
   /** The default repeat toggle modes. */
   public static final @RepeatModeUtil.RepeatToggleModes int DEFAULT_REPEAT_TOGGLE_MODES =
       RepeatModeUtil.REPEAT_TOGGLE_MODE_NONE;
+
   /** The default minimum interval between time bar position updates. */
   public static final int DEFAULT_TIME_BAR_MIN_UPDATE_INTERVAL_MS = 200;
+
   /** The maximum number of windows that can be shown in a multi-window time bar. */
   public static final int MAX_WINDOWS_FOR_MULTI_WINDOW_TIME_BAR = 100;
+
+  private static final String TAG = "PlayerControlView";
+
   /** The maximum interval between time bar position updates. */
   private static final int MAX_UPDATE_INTERVAL_MS = 1_000;
+
   // LINT.IfChange(playback_speeds)
   private static final float[] PLAYBACK_SPEEDS =
       new float[] {0.25f, 0.5f, 0.75f, 1f, 1.25f, 1.5f, 2f};
+  // LINT.ThenChange("../../../../res/values/strings.xml:playback_speeds")
 
   private static final int SETTINGS_PLAYBACK_SPEED_POSITION = 0;
   private static final int SETTINGS_AUDIO_TRACK_SELECTION_POSITION = 1;
@@ -266,6 +381,12 @@ public class PlayerControlView extends FrameLayout {
   private final PlayerControlViewLayoutManager controlViewLayoutManager;
   private final Resources resources;
   private final ComponentListener componentListener;
+  @Nullable private final Class<?> exoplayerClazz;
+  @Nullable private final Method setScrubbingModeEnabledMethod;
+  @Nullable private final Method isScrubbingModeEnabledMethod;
+  @Nullable private final Class<?> compositionPlayerClazz;
+  @Nullable private final Method compositionPlayerSetScrubbingModeEnabledMethod;
+  @Nullable private final Method compositionPlayerIsScrubbingModeEnabledMethod;
 
   @SuppressWarnings("deprecation") // Using the deprecated type for now.
   private final CopyOnWriteArrayList<VisibilityListener> visibilityListeners;
@@ -280,19 +401,19 @@ public class PlayerControlView extends FrameLayout {
   private final PopupWindow settingsWindow;
   private final int settingsWindowMargin;
 
-  @Nullable private final View previousButton;
-  @Nullable private final View nextButton;
-  @Nullable private final View playPauseButton;
+  @Nullable private final ImageView previousButton;
+  @Nullable private final ImageView nextButton;
+  @Nullable private final ImageView playPauseButton;
   @Nullable private final View fastForwardButton;
   @Nullable private final View rewindButton;
   @Nullable private final TextView fastForwardButtonTextView;
   @Nullable private final TextView rewindButtonTextView;
   @Nullable private final ImageView repeatToggleButton;
   @Nullable private final ImageView shuffleButton;
-  @Nullable private final View vrButton;
+  @Nullable private final ImageView vrButton;
   @Nullable private final ImageView subtitleButton;
-  @Nullable private final ImageView fullScreenButton;
-  @Nullable private final ImageView minimalFullScreenButton;
+  @Nullable private final ImageView fullscreenButton;
+  @Nullable private final ImageView minimalFullscreenButton;
   @Nullable private final View settingsButton;
   @Nullable private final View playbackSpeedButton;
   @Nullable private final View audioTrackButton;
@@ -305,6 +426,8 @@ public class PlayerControlView extends FrameLayout {
   private final Timeline.Window window;
   private final Runnable updateProgressAction;
 
+  private final Drawable playButtonDrawable;
+  private final Drawable pauseButtonDrawable;
   private final Drawable repeatOffButtonDrawable;
   private final Drawable repeatOneButtonDrawable;
   private final Drawable repeatAllButtonDrawable;
@@ -321,21 +444,26 @@ public class PlayerControlView extends FrameLayout {
   private final Drawable subtitleOffButtonDrawable;
   private final String subtitleOnContentDescription;
   private final String subtitleOffContentDescription;
-  private final Drawable fullScreenExitDrawable;
-  private final Drawable fullScreenEnterDrawable;
-  private final String fullScreenExitContentDescription;
-  private final String fullScreenEnterContentDescription;
+  private final Drawable fullscreenExitDrawable;
+  private final Drawable fullscreenEnterDrawable;
+  private final String fullscreenExitContentDescription;
+  private final String fullscreenEnterContentDescription;
 
   @Nullable private Player player;
   @Nullable private ProgressUpdateListener progressUpdateListener;
 
-  @Nullable private OnFullScreenModeChangedListener onFullScreenModeChangedListener;
-  private boolean isFullScreen;
+  @SuppressWarnings("deprecation") // Supporting deprecated listener
+  @Nullable
+  private OnFullScreenModeChangedListener onFullScreenModeChangedListener;
+
+  private boolean isFullscreen;
   private boolean isAttachedToWindow;
   private boolean showMultiWindowTimeBar;
+  private boolean showPlayButtonIfSuppressed;
   private boolean multiWindowTimeBar;
   private boolean scrubbing;
   private int showTimeoutMs;
+  private boolean timeBarScrubbingEnabled;
   private int timeBarMinUpdateIntervalMs;
   private @RepeatModeUtil.RepeatToggleModes int repeatToggleModes;
   private long[] adGroupTimesMs;
@@ -358,7 +486,10 @@ public class PlayerControlView extends FrameLayout {
     this(context, attrs, defStyleAttr, attrs);
   }
 
+  // TODO: b/301602565 - See if there's a reasonable non-null root view group we could use below to
+  //  resolve InflateParams lint.
   @SuppressWarnings({
+    "InflateParams",
     "nullness:argument",
     "nullness:assignment",
     "nullness:method.invocation",
@@ -371,6 +502,24 @@ public class PlayerControlView extends FrameLayout {
       @Nullable AttributeSet playbackAttrs) {
     super(context, attrs, defStyleAttr);
     int controllerLayoutId = R.layout.exo_player_control_view;
+    int playDrawableResId = R.drawable.exo_styled_controls_play;
+    int pauseDrawableResId = R.drawable.exo_styled_controls_pause;
+    int nextDrawableResId = R.drawable.exo_styled_controls_next;
+    int fastForwardDrawableResId = R.drawable.exo_styled_controls_simple_fastforward;
+    int previousDrawableResId = R.drawable.exo_styled_controls_previous;
+    int rewindDrawableResId = R.drawable.exo_styled_controls_simple_rewind;
+    int fullscreenExitDrawableResId = R.drawable.exo_styled_controls_fullscreen_exit;
+    int fullscreenEnterDrawableResId = R.drawable.exo_styled_controls_fullscreen_enter;
+    int repeatOffDrawableResId = R.drawable.exo_styled_controls_repeat_off;
+    int repeatOneDrawableResId = R.drawable.exo_styled_controls_repeat_one;
+    int repeatAllDrawableResId = R.drawable.exo_styled_controls_repeat_all;
+    int shuffleOnDrawableResId = R.drawable.exo_styled_controls_shuffle_on;
+    int shuffleOffDrawableResId = R.drawable.exo_styled_controls_shuffle_off;
+    int subtitleOnDrawableResId = R.drawable.exo_styled_controls_subtitle_on;
+    int subtitleOffDrawableResId = R.drawable.exo_styled_controls_subtitle_off;
+    int vrDrawableResId = R.drawable.exo_styled_controls_vr;
+
+    showPlayButtonIfSuppressed = true;
     showTimeoutMs = DEFAULT_SHOW_TIMEOUT_MS;
     repeatToggleModes = DEFAULT_REPEAT_TOGGLE_MODES;
     timeBarMinUpdateIntervalMs = DEFAULT_TIME_BAR_MIN_UPDATE_INTERVAL_MS;
@@ -392,6 +541,43 @@ public class PlayerControlView extends FrameLayout {
       try {
         controllerLayoutId =
             a.getResourceId(R.styleable.PlayerControlView_controller_layout_id, controllerLayoutId);
+        playDrawableResId =
+            a.getResourceId(R.styleable.PlayerControlView_play_icon, playDrawableResId);
+        pauseDrawableResId =
+            a.getResourceId(R.styleable.PlayerControlView_pause_icon, pauseDrawableResId);
+        nextDrawableResId =
+            a.getResourceId(R.styleable.PlayerControlView_next_icon, nextDrawableResId);
+        fastForwardDrawableResId =
+            a.getResourceId(
+                R.styleable.PlayerControlView_fastforward_icon, fastForwardDrawableResId);
+        previousDrawableResId =
+            a.getResourceId(R.styleable.PlayerControlView_previous_icon, previousDrawableResId);
+        rewindDrawableResId =
+            a.getResourceId(R.styleable.PlayerControlView_rewind_icon, rewindDrawableResId);
+        fullscreenExitDrawableResId =
+            a.getResourceId(
+                R.styleable.PlayerControlView_fullscreen_exit_icon, fullscreenExitDrawableResId);
+        fullscreenEnterDrawableResId =
+            a.getResourceId(
+                R.styleable.PlayerControlView_fullscreen_enter_icon, fullscreenEnterDrawableResId);
+        repeatOffDrawableResId =
+            a.getResourceId(R.styleable.PlayerControlView_repeat_off_icon, repeatOffDrawableResId);
+        repeatOneDrawableResId =
+            a.getResourceId(R.styleable.PlayerControlView_repeat_one_icon, repeatOneDrawableResId);
+        repeatAllDrawableResId =
+            a.getResourceId(R.styleable.PlayerControlView_repeat_all_icon, repeatAllDrawableResId);
+        shuffleOnDrawableResId =
+            a.getResourceId(R.styleable.PlayerControlView_shuffle_on_icon, shuffleOnDrawableResId);
+        shuffleOffDrawableResId =
+            a.getResourceId(
+                R.styleable.PlayerControlView_shuffle_off_icon, shuffleOffDrawableResId);
+        subtitleOnDrawableResId =
+            a.getResourceId(
+                R.styleable.PlayerControlView_subtitle_on_icon, subtitleOnDrawableResId);
+        subtitleOffDrawableResId =
+            a.getResourceId(
+                R.styleable.PlayerControlView_subtitle_off_icon, subtitleOffDrawableResId);
+        vrDrawableResId = a.getResourceId(R.styleable.PlayerControlView_vr_icon, vrDrawableResId);
         showTimeoutMs = a.getInt(R.styleable.PlayerControlView_show_timeout, showTimeoutMs);
         repeatToggleModes = getRepeatToggleModes(a, repeatToggleModes);
         showRewindButton =
@@ -408,6 +594,8 @@ public class PlayerControlView extends FrameLayout {
         showSubtitleButton =
             a.getBoolean(R.styleable.PlayerControlView_show_subtitle_button, showSubtitleButton);
         showVrButton = a.getBoolean(R.styleable.PlayerControlView_show_vr_button, showVrButton);
+        timeBarScrubbingEnabled =
+            a.getBoolean(R.styleable.PlayerControlView_time_bar_scrubbing_enabled, false);
         setTimeBarMinUpdateInterval(
             a.getInt(
                 R.styleable.PlayerControlView_time_bar_min_update_interval,
@@ -434,6 +622,40 @@ public class PlayerControlView extends FrameLayout {
     extraPlayedAdGroups = new boolean[0];
     updateProgressAction = this::updateProgress;
 
+    // TODO: b/422124120 - Make scrubbing mode part of BasePlayer or Player.
+    Class<?> exoplayerClazz = null;
+    Method setScrubbingModeEnabledMethod = null;
+    Method isScrubbingModeEnabledMethod = null;
+    try {
+      exoplayerClazz = Class.forName("androidx.media3.exoplayer.ExoPlayer");
+      setScrubbingModeEnabledMethod =
+          exoplayerClazz.getMethod("setScrubbingModeEnabled", boolean.class);
+      isScrubbingModeEnabledMethod = exoplayerClazz.getMethod("isScrubbingModeEnabled");
+    } catch (ClassNotFoundException | NoSuchMethodException e) {
+      // Expected if ExoPlayer module not available.
+    }
+    this.exoplayerClazz = exoplayerClazz;
+    this.setScrubbingModeEnabledMethod = setScrubbingModeEnabledMethod;
+    this.isScrubbingModeEnabledMethod = isScrubbingModeEnabledMethod;
+
+    Class<?> compositionPlayerClazz = null;
+    Method compositionPlayerSetScrubbingModeEnabledMethod = null;
+    Method compositionPlayerIsScrubbingModeEnabledMethod = null;
+    try {
+      compositionPlayerClazz = Class.forName("androidx.media3.transformer.CompositionPlayer");
+      compositionPlayerSetScrubbingModeEnabledMethod =
+          compositionPlayerClazz.getMethod("setScrubbingModeEnabled", boolean.class);
+      compositionPlayerIsScrubbingModeEnabledMethod =
+          compositionPlayerClazz.getMethod("isScrubbingModeEnabled");
+    } catch (ClassNotFoundException | NoSuchMethodException e) {
+      // Expected if transformer module not available.
+    }
+    this.compositionPlayerClazz = compositionPlayerClazz;
+    this.compositionPlayerSetScrubbingModeEnabledMethod =
+        compositionPlayerSetScrubbingModeEnabledMethod;
+    this.compositionPlayerIsScrubbingModeEnabledMethod =
+        compositionPlayerIsScrubbingModeEnabledMethod;
+
     durationView = findViewById(R.id.exo_duration);
     positionView = findViewById(R.id.exo_position);
 
@@ -442,10 +664,10 @@ public class PlayerControlView extends FrameLayout {
       subtitleButton.setOnClickListener(componentListener);
     }
 
-    fullScreenButton = findViewById(R.id.exo_fullscreen);
-    initializeFullScreenButton(fullScreenButton, this::onFullScreenButtonClicked);
-    minimalFullScreenButton = findViewById(R.id.exo_minimal_fullscreen);
-    initializeFullScreenButton(minimalFullScreenButton, this::onFullScreenButtonClicked);
+    fullscreenButton = findViewById(R.id.exo_fullscreen);
+    initializeFullscreenButton(fullscreenButton, this::onFullscreenButtonClicked);
+    minimalFullscreenButton = findViewById(R.id.exo_minimal_fullscreen);
+    initializeFullscreenButton(minimalFullscreenButton, this::onFullscreenButtonClicked);
 
     settingsButton = findViewById(R.id.exo_settings);
     if (settingsButton != null) {
@@ -485,34 +707,57 @@ public class PlayerControlView extends FrameLayout {
       timeBar.addListener(componentListener);
     }
 
+    resources = context.getResources();
     playPauseButton = findViewById(R.id.exo_play_pause);
     if (playPauseButton != null) {
       playPauseButton.setOnClickListener(componentListener);
     }
     previousButton = findViewById(R.id.exo_prev);
     if (previousButton != null) {
+      previousButton.setImageDrawable(getDrawable(context, resources, previousDrawableResId));
       previousButton.setOnClickListener(componentListener);
     }
     nextButton = findViewById(R.id.exo_next);
     if (nextButton != null) {
+      nextButton.setImageDrawable(getDrawable(context, resources, nextDrawableResId));
       nextButton.setOnClickListener(componentListener);
     }
     Typeface typeface = ResourcesCompat.getFont(context, R.font.roboto_medium_numbers);
-    View rewButton = findViewById(R.id.exo_rew);
-    rewindButtonTextView = rewButton == null ? findViewById(R.id.exo_rew_with_amount) : null;
-    if (rewindButtonTextView != null) {
-      rewindButtonTextView.setTypeface(typeface);
+    ImageView rewButton = findViewById(R.id.exo_rew);
+    TextView rewButtonWithAmount = findViewById(R.id.exo_rew_with_amount);
+    if (rewButton != null) {
+      // For a simple rewind button without seek-back increment value
+      rewButton.setImageDrawable(getDrawable(context, resources, rewindDrawableResId));
+      rewindButton = rewButton;
+      rewindButtonTextView = null;
+    } else if (rewButtonWithAmount != null) {
+      // For a circular rewind button with the amount in the middle
+      rewButtonWithAmount.setTypeface(typeface);
+      rewindButtonTextView = rewButtonWithAmount;
+      rewindButton = rewindButtonTextView;
+    } else {
+      rewindButtonTextView = null;
+      rewindButton = null;
     }
-    rewindButton = rewButton == null ? rewindButtonTextView : rewButton;
     if (rewindButton != null) {
       rewindButton.setOnClickListener(componentListener);
     }
-    View ffwdButton = findViewById(R.id.exo_ffwd);
-    fastForwardButtonTextView = ffwdButton == null ? findViewById(R.id.exo_ffwd_with_amount) : null;
-    if (fastForwardButtonTextView != null) {
-      fastForwardButtonTextView.setTypeface(typeface);
+    ImageView ffwdButton = findViewById(R.id.exo_ffwd);
+    TextView ffwdButtonWithAmount = findViewById(R.id.exo_ffwd_with_amount);
+    if (ffwdButton != null) {
+      // For a simple fast forward button without seek-forward increment value
+      ffwdButton.setImageDrawable(getDrawable(context, resources, fastForwardDrawableResId));
+      fastForwardButton = ffwdButton;
+      fastForwardButtonTextView = null;
+    } else if (ffwdButtonWithAmount != null) {
+      // For a circular fastforward button with the amount in the middle
+      ffwdButtonWithAmount.setTypeface(typeface);
+      fastForwardButtonTextView = ffwdButtonWithAmount;
+      fastForwardButton = fastForwardButtonTextView;
+    } else {
+      fastForwardButtonTextView = null;
+      fastForwardButton = null;
     }
-    fastForwardButton = ffwdButton == null ? fastForwardButtonTextView : ffwdButton;
     if (fastForwardButton != null) {
       fastForwardButton.setOnClickListener(componentListener);
     }
@@ -525,7 +770,6 @@ public class PlayerControlView extends FrameLayout {
       shuffleButton.setOnClickListener(componentListener);
     }
 
-    resources = context.getResources();
     buttonAlphaEnabled =
         (float) resources.getInteger(R.integer.exo_media_button_opacity_percentage_enabled) / 100;
     buttonAlphaDisabled =
@@ -533,6 +777,7 @@ public class PlayerControlView extends FrameLayout {
 
     vrButton = findViewById(R.id.exo_vr);
     if (vrButton != null) {
+      vrButton.setImageDrawable(getDrawable(context, resources, vrDrawableResId));
       updateButton(/* enabled= */ false, vrButton);
     }
 
@@ -559,7 +804,7 @@ public class PlayerControlView extends FrameLayout {
     settingsView.setLayoutManager(new LinearLayoutManager(getContext()));
     settingsWindow =
         new PopupWindow(settingsView, LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT, true);
-    if (Util.SDK_INT < 23) {
+    if (SDK_INT < 23) {
       // Work around issue where tapping outside of the menu area or pressing the back button
       // doesn't dismiss the menu as expected. See: https://github.com/google/ExoPlayer/issues/8272.
       settingsWindow.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
@@ -568,10 +813,8 @@ public class PlayerControlView extends FrameLayout {
     needToHideBars = true;
 
     trackNameProvider = new DefaultTrackNameProvider(getResources());
-    subtitleOnButtonDrawable =
-        getDrawable(context, resources, R.drawable.exo_styled_controls_subtitle_on);
-    subtitleOffButtonDrawable =
-        getDrawable(context, resources, R.drawable.exo_styled_controls_subtitle_off);
+    subtitleOnButtonDrawable = getDrawable(context, resources, subtitleOnDrawableResId);
+    subtitleOffButtonDrawable = getDrawable(context, resources, subtitleOffDrawableResId);
     subtitleOnContentDescription =
         resources.getString(R.string.exo_controls_cc_enabled_description);
     subtitleOffContentDescription =
@@ -582,23 +825,18 @@ public class PlayerControlView extends FrameLayout {
         new PlaybackSpeedAdapter(
             resources.getStringArray(R.array.exo_controls_playback_speeds), PLAYBACK_SPEEDS);
 
-    fullScreenExitDrawable =
-        getDrawable(context, resources, R.drawable.exo_styled_controls_fullscreen_exit);
-    fullScreenEnterDrawable =
-        getDrawable(context, resources, R.drawable.exo_styled_controls_fullscreen_enter);
-    repeatOffButtonDrawable =
-        getDrawable(context, resources, R.drawable.exo_styled_controls_repeat_off);
-    repeatOneButtonDrawable =
-        getDrawable(context, resources, R.drawable.exo_styled_controls_repeat_one);
-    repeatAllButtonDrawable =
-        getDrawable(context, resources, R.drawable.exo_styled_controls_repeat_all);
-    shuffleOnButtonDrawable =
-        getDrawable(context, resources, R.drawable.exo_styled_controls_shuffle_on);
-    shuffleOffButtonDrawable =
-        getDrawable(context, resources, R.drawable.exo_styled_controls_shuffle_off);
-    fullScreenExitContentDescription =
+    playButtonDrawable = getDrawable(context, resources, playDrawableResId);
+    pauseButtonDrawable = getDrawable(context, resources, pauseDrawableResId);
+    fullscreenExitDrawable = getDrawable(context, resources, fullscreenExitDrawableResId);
+    fullscreenEnterDrawable = getDrawable(context, resources, fullscreenEnterDrawableResId);
+    repeatOffButtonDrawable = getDrawable(context, resources, repeatOffDrawableResId);
+    repeatOneButtonDrawable = getDrawable(context, resources, repeatOneDrawableResId);
+    repeatAllButtonDrawable = getDrawable(context, resources, repeatAllDrawableResId);
+    shuffleOnButtonDrawable = getDrawable(context, resources, shuffleOnDrawableResId);
+    shuffleOffButtonDrawable = getDrawable(context, resources, shuffleOffDrawableResId);
+    fullscreenExitContentDescription =
         resources.getString(R.string.exo_controls_fullscreen_exit_description);
-    fullScreenEnterContentDescription =
+    fullscreenEnterContentDescription =
         resources.getString(R.string.exo_controls_fullscreen_enter_description);
     repeatOffButtonContentDescription =
         resources.getString(R.string.exo_controls_repeat_off_description);
@@ -659,16 +897,27 @@ public class PlayerControlView extends FrameLayout {
   }
 
   /**
-   * Sets whether the time bar should show all windows, as opposed to just the current one. If the
-   * timeline has a period with unknown duration or more than {@link
-   * #MAX_WINDOWS_FOR_MULTI_WINDOW_TIME_BAR} windows the time bar will fall back to showing a single
-   * window.
-   *
-   * @param showMultiWindowTimeBar Whether the time bar should show all windows.
+   * @deprecated Replace multi-window time bar display by merging source windows together instead,
+   *     for example using ExoPlayer's {@code ConcatenatingMediaSource2}.
    */
+  @Deprecated
   public void setShowMultiWindowTimeBar(boolean showMultiWindowTimeBar) {
     this.showMultiWindowTimeBar = showMultiWindowTimeBar;
     updateTimeline();
+  }
+
+  /**
+   * Sets whether a play button is shown if playback is {@linkplain
+   * Player#getPlaybackSuppressionReason() suppressed}.
+   *
+   * <p>The default is {@code true}.
+   *
+   * @param showPlayButtonIfSuppressed Whether to show a play button if playback is {@linkplain
+   *     Player#getPlaybackSuppressionReason() suppressed}.
+   */
+  public void setShowPlayButtonIfPlaybackIsSuppressed(boolean showPlayButtonIfSuppressed) {
+    this.showPlayButtonIfSuppressed = showPlayButtonIfSuppressed;
+    updatePlayPauseButton();
   }
 
   /**
@@ -898,6 +1147,17 @@ public class PlayerControlView extends FrameLayout {
   }
 
   /**
+   * Sets whether the time bar should {@linkplain Player#seekTo seek} immediately as the user drags
+   * the scrubber around (true), or only seek when the user releases the scrubber (false).
+   *
+   * <p>This can only be used if the {@linkplain #setPlayer connected player} is an instance of
+   * {@code androidx.media3.exoplayer.ExoPlayer}.
+   */
+  public void setTimeBarScrubbingEnabled(boolean timeBarScrubbingEnabled) {
+    this.timeBarScrubbingEnabled = timeBarScrubbingEnabled;
+  }
+
+  /**
    * Sets the minimum interval between time bar position updates.
    *
    * <p>Note that smaller intervals, e.g. 33ms, will result in a smooth movement but will use more
@@ -924,8 +1184,8 @@ public class PlayerControlView extends FrameLayout {
   public void setOnFullScreenModeChangedListener(
       @Nullable OnFullScreenModeChangedListener listener) {
     onFullScreenModeChangedListener = listener;
-    updateFullScreenButtonVisibility(fullScreenButton, listener != null);
-    updateFullScreenButtonVisibility(minimalFullScreenButton, listener != null);
+    updateFullscreenButtonVisibility(fullscreenButton, listener != null);
+    updateFullscreenButtonVisibility(minimalFullscreenButton, listener != null);
   }
 
   /**
@@ -978,22 +1238,17 @@ public class PlayerControlView extends FrameLayout {
       return;
     }
     if (playPauseButton != null) {
-      boolean shouldShowPauseButton = shouldShowPauseButton();
-      @DrawableRes
-      int drawableRes =
-          shouldShowPauseButton
-              ? R.drawable.exo_styled_controls_pause
-              : R.drawable.exo_styled_controls_play;
+      boolean shouldShowPlayButton = Util.shouldShowPlayButton(player, showPlayButtonIfSuppressed);
+      Drawable drawable = shouldShowPlayButton ? playButtonDrawable : pauseButtonDrawable;
       @StringRes
       int stringRes =
-          shouldShowPauseButton
-              ? R.string.exo_controls_pause_description
-              : R.string.exo_controls_play_description;
-      ((ImageView) playPauseButton)
-          .setImageDrawable(getDrawable(getContext(), resources, drawableRes));
+          shouldShowPlayButton
+              ? R.string.exo_controls_play_description
+              : R.string.exo_controls_pause_description;
+      playPauseButton.setImageDrawable(drawable);
       playPauseButton.setContentDescription(resources.getString(stringRes));
 
-      boolean enablePlayPause = shouldEnablePlayPauseButton();
+      boolean enablePlayPause = Util.shouldEnablePlayPauseButton(player);
       updateButton(enablePlayPause, playPauseButton);
     }
   }
@@ -1389,30 +1644,45 @@ public class PlayerControlView extends FrameLayout {
     updateProgress();
   }
 
-  private void onFullScreenButtonClicked(View v) {
-    if (onFullScreenModeChangedListener == null) {
+  private void onFullscreenButtonClicked(View v) {
+    updateIsFullscreen(!isFullscreen);
+  }
+
+  /**
+   * Updates whether the controller is in fullscreen, changing its fullscreen icon and reports it to
+   * to the listener.
+   *
+   * <p>For {@code isFullscreen} equals {@code true} the icon will be set to
+   * {@code @drawable/exo_styled_controls_fullscreen_exit} or else
+   * {@code @drawable/exo_styled_controls_fullscreen_enter}.
+   *
+   * @param isFullscreen If the view is in full screen.
+   */
+  public void updateIsFullscreen(boolean isFullscreen) {
+    if (this.isFullscreen == isFullscreen) {
       return;
     }
 
-    isFullScreen = !isFullScreen;
-    updateFullScreenButtonForState(fullScreenButton, isFullScreen);
-    updateFullScreenButtonForState(minimalFullScreenButton, isFullScreen);
+    this.isFullscreen = isFullscreen;
+    updateFullscreenButtonForState(fullscreenButton, isFullscreen);
+    updateFullscreenButtonForState(minimalFullscreenButton, isFullscreen);
+
     if (onFullScreenModeChangedListener != null) {
-      onFullScreenModeChangedListener.onFullScreenModeChanged(isFullScreen);
+      onFullScreenModeChangedListener.onFullScreenModeChanged(isFullscreen);
     }
   }
 
-  private void updateFullScreenButtonForState(
-      @Nullable ImageView fullScreenButton, boolean isFullScreen) {
-    if (fullScreenButton == null) {
+  private void updateFullscreenButtonForState(
+      @Nullable ImageView fullscreenButton, boolean isFullscreen) {
+    if (fullscreenButton == null) {
       return;
     }
-    if (isFullScreen) {
-      fullScreenButton.setImageDrawable(fullScreenExitDrawable);
-      fullScreenButton.setContentDescription(fullScreenExitContentDescription);
+    if (isFullscreen) {
+      fullscreenButton.setImageDrawable(fullscreenExitDrawable);
+      fullscreenButton.setContentDescription(fullscreenExitContentDescription);
     } else {
-      fullScreenButton.setImageDrawable(fullScreenEnterDrawable);
-      fullScreenButton.setContentDescription(fullScreenEnterContentDescription);
+      fullscreenButton.setImageDrawable(fullscreenEnterDrawable);
+      fullscreenButton.setContentDescription(fullscreenEnterContentDescription);
     }
   }
 
@@ -1477,13 +1747,13 @@ public class PlayerControlView extends FrameLayout {
         switch (keyCode) {
           case KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE:
           case KeyEvent.KEYCODE_HEADSETHOOK:
-            dispatchPlayPause(player);
+            Util.handlePlayPauseButtonAction(player, showPlayButtonIfSuppressed);
             break;
           case KeyEvent.KEYCODE_MEDIA_PLAY:
-            dispatchPlay(player);
+            Util.handlePlayButtonAction(player);
             break;
           case KeyEvent.KEYCODE_MEDIA_PAUSE:
-            dispatchPause(player);
+            Util.handlePauseButtonAction(player);
             break;
           case KeyEvent.KEYCODE_MEDIA_NEXT:
             if (player.isCommandAvailable(COMMAND_SEEK_TO_NEXT)) {
@@ -1532,48 +1802,6 @@ public class PlayerControlView extends FrameLayout {
     }
   }
 
-  private boolean shouldEnablePlayPauseButton() {
-    return player != null
-        && player.isCommandAvailable(COMMAND_PLAY_PAUSE)
-        && (!player.isCommandAvailable(COMMAND_GET_TIMELINE)
-            || !player.getCurrentTimeline().isEmpty());
-  }
-
-  private boolean shouldShowPauseButton() {
-    return player != null
-        && player.getPlaybackState() != Player.STATE_ENDED
-        && player.getPlaybackState() != Player.STATE_IDLE
-        && player.getPlayWhenReady();
-  }
-
-  private void dispatchPlayPause(Player player) {
-    @State int state = player.getPlaybackState();
-    if (state == Player.STATE_IDLE || state == Player.STATE_ENDED || !player.getPlayWhenReady()) {
-      dispatchPlay(player);
-    } else {
-      dispatchPause(player);
-    }
-  }
-
-  private void dispatchPlay(Player player) {
-    @State int state = player.getPlaybackState();
-    if (state == Player.STATE_IDLE && player.isCommandAvailable(COMMAND_PREPARE)) {
-      player.prepare();
-    } else if (state == Player.STATE_ENDED
-        && player.isCommandAvailable(COMMAND_SEEK_TO_DEFAULT_POSITION)) {
-      player.seekToDefaultPosition();
-    }
-    if (player.isCommandAvailable(COMMAND_PLAY_PAUSE)) {
-      player.play();
-    }
-  }
-
-  private void dispatchPause(Player player) {
-    if (player.isCommandAvailable(COMMAND_PLAY_PAUSE)) {
-      player.pause();
-    }
-  }
-
   @SuppressLint("InlinedApi")
   private static boolean isHandledMediaKey(int keyCode) {
     return keyCode == KeyEvent.KEYCODE_MEDIA_FAST_FORWARD
@@ -1610,23 +1838,23 @@ public class PlayerControlView extends FrameLayout {
     return true;
   }
 
-  private static void initializeFullScreenButton(View fullScreenButton, OnClickListener listener) {
-    if (fullScreenButton == null) {
+  private static void initializeFullscreenButton(View fullscreenButton, OnClickListener listener) {
+    if (fullscreenButton == null) {
       return;
     }
-    fullScreenButton.setVisibility(GONE);
-    fullScreenButton.setOnClickListener(listener);
+    fullscreenButton.setVisibility(GONE);
+    fullscreenButton.setOnClickListener(listener);
   }
 
-  private static void updateFullScreenButtonVisibility(
-      @Nullable View fullScreenButton, boolean visible) {
-    if (fullScreenButton == null) {
+  private static void updateFullscreenButtonVisibility(
+      @Nullable View fullscreenButton, boolean visible) {
+    if (fullscreenButton == null) {
       return;
     }
     if (visible) {
-      fullScreenButton.setVisibility(VISIBLE);
+      fullscreenButton.setVisibility(VISIBLE);
     } else {
-      fullScreenButton.setVisibility(GONE);
+      fullscreenButton.setVisibility(GONE);
     }
   }
 
@@ -1693,6 +1921,27 @@ public class PlayerControlView extends FrameLayout {
         positionView.setText(Util.getStringForTime(formatBuilder, formatter, position));
       }
       controlViewLayoutManager.removeHideCallbacks();
+      if (player != null && timeBarScrubbingEnabled) {
+        if (isExoPlayer(player)) {
+          try {
+            checkNotNull(setScrubbingModeEnabledMethod).invoke(player, true);
+          } catch (IllegalAccessException | InvocationTargetException e) {
+            throw new RuntimeException(e);
+          }
+        } else if (isCompositionPlayer(player)) {
+          try {
+            checkNotNull(compositionPlayerSetScrubbingModeEnabledMethod).invoke(player, true);
+          } catch (IllegalAccessException | InvocationTargetException e) {
+            throw new RuntimeException(e);
+          }
+        } else {
+          Log.w(
+              TAG,
+              "Time bar scrubbing is enabled, but player is not an ExoPlayer or CompositionPlayer"
+                  + " instance, so ignoring (because we can't enable scrubbing mode). player.class="
+                  + checkNotNull(player).getClass());
+        }
+      }
     }
 
     @Override
@@ -1700,15 +1949,61 @@ public class PlayerControlView extends FrameLayout {
       if (positionView != null) {
         positionView.setText(Util.getStringForTime(formatBuilder, formatter, position));
       }
+      boolean isScrubbingModeEnabled;
+      try {
+        isScrubbingModeEnabled =
+            (isExoPlayer(player)
+                    && (boolean)
+                        checkNotNull(checkNotNull(isScrubbingModeEnabledMethod).invoke(player)))
+                || (isCompositionPlayer(player)
+                    && (boolean)
+                        checkNotNull(
+                            checkNotNull(compositionPlayerIsScrubbingModeEnabledMethod)
+                                .invoke(player)));
+      } catch (IllegalAccessException | InvocationTargetException e) {
+        throw new RuntimeException(e);
+      }
+      if (isScrubbingModeEnabled) {
+        seekToTimeBarPosition(checkNotNull(player), position);
+      }
     }
 
     @Override
     public void onScrubStop(TimeBar timeBar, long position, boolean canceled) {
       scrubbing = false;
-      if (!canceled && player != null) {
-        seekToTimeBarPosition(player, position);
+      if (player != null) {
+        if (!canceled) {
+          seekToTimeBarPosition(player, position);
+        }
+        if (isExoPlayer(player)) {
+          try {
+            checkNotNull(setScrubbingModeEnabledMethod).invoke(player, false);
+          } catch (IllegalAccessException | InvocationTargetException e) {
+            throw new RuntimeException(e);
+          }
+        } else if (isCompositionPlayer(player)) {
+          try {
+            checkNotNull(compositionPlayerSetScrubbingModeEnabledMethod).invoke(player, false);
+          } catch (IllegalAccessException | InvocationTargetException e) {
+            throw new RuntimeException(e);
+          }
+        }
       }
       controlViewLayoutManager.resetHideCallbacks();
+    }
+
+    @EnsuresNonNullIf(result = true, expression = "#1")
+    private boolean isExoPlayer(@Nullable Player player) {
+      return player != null
+          && exoplayerClazz != null
+          && exoplayerClazz.isAssignableFrom(player.getClass());
+    }
+
+    @EnsuresNonNullIf(result = true, expression = "#1")
+    private boolean isCompositionPlayer(@Nullable Player player) {
+      return player != null
+          && compositionPlayerClazz != null
+          && compositionPlayerClazz.isAssignableFrom(player.getClass());
     }
 
     @Override
@@ -1743,7 +2038,7 @@ public class PlayerControlView extends FrameLayout {
           player.seekBack();
         }
       } else if (playPauseButton == view) {
-        dispatchPlayPause(player);
+        Util.handlePlayPauseButtonAction(player, showPlayButtonIfSuppressed);
       } else if (repeatToggleButton == view) {
         if (player.isCommandAvailable(COMMAND_SET_REPEAT_MODE)) {
           player.setRepeatMode(
@@ -1857,14 +2152,14 @@ public class PlayerControlView extends FrameLayout {
 
     public SettingViewHolder(View itemView) {
       super(itemView);
-      if (Util.SDK_INT < 26) {
+      if (SDK_INT < 26) {
         // Workaround for https://github.com/google/ExoPlayer/issues/9061.
         itemView.setFocusable(true);
       }
       mainTextView = itemView.findViewById(R.id.exo_main_text);
       subTextView = itemView.findViewById(R.id.exo_sub_text);
       iconView = itemView.findViewById(R.id.exo_icon);
-      itemView.setOnClickListener(v -> onSettingViewClicked(getAdapterPosition()));
+      itemView.setOnClickListener(v -> onSettingViewClicked(getBindingAdapterPosition()));
     }
   }
 
@@ -1971,7 +2266,8 @@ public class PlayerControlView extends FrameLayout {
 
     @Override
     public void onBindViewHolderAtZeroPosition(SubSettingViewHolder holder) {
-      // CC options include "Off" at the first position, which disables text rendering.
+      // CC options include "None" at the zero position, which disables text rendering except for
+      // forced text tracks that can't be disabled (and are also not shown in the selection list).
       holder.textView.setText(R.string.exo_track_selection_none);
       boolean isTrackSelectionOff = true;
       for (int i = 0; i < tracks.size(); i++) {
@@ -1992,6 +2288,8 @@ public class PlayerControlView extends FrameLayout {
                       .buildUpon()
                       .clearOverridesOfType(C.TRACK_TYPE_TEXT)
                       .setIgnoredTextSelectionFlags(~C.SELECTION_FLAG_FORCED)
+                      .setPreferredTextLanguage(null)
+                      .setPreferredTextRoleFlags(0)
                       .build());
               settingsWindow.dismiss();
             }
@@ -2165,7 +2463,7 @@ public class PlayerControlView extends FrameLayout {
 
     public SubSettingViewHolder(View itemView) {
       super(itemView);
-      if (Util.SDK_INT < 26) {
+      if (SDK_INT < 26) {
         // Workaround for https://github.com/google/ExoPlayer/issues/9061.
         itemView.setFocusable(true);
       }

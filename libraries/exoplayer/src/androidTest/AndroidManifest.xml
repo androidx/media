@@ -20,13 +20,17 @@
 
   <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
   <uses-permission android:name="android.permission.INTERNET"/>
+  <uses-permission android:name="android.permission.WAKE_LOCK"/>
   <uses-sdk/>
 
   <application
-      android:name="androidx.multidex.MultiDexApplication"
-      android:allowBackup="false"
-      tools:ignore="MissingApplicationIcon,HardcodedDebugMode"
-      android:usesCleartextTraffic="true"/>
+    android:allowBackup="false"
+    tools:ignore="MissingApplicationIcon,HardcodedDebugMode"
+    android:usesCleartextTraffic="true">
+    <provider
+      android:authorities="androidx.media3.exoplayer.test.AssetContentProvider"
+      android:name="androidx.media3.test.utils.AssetContentProvider"/>
+  </application>
 
   <instrumentation
       android:targetPackage="androidx.media3.exoplayer.test"

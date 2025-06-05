@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.audio;
 
+import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.constrainValue;
 import static androidx.media3.exoplayer.audio.DefaultAudioSink.OUTPUT_MODE_OFFLOAD;
 import static androidx.media3.exoplayer.audio.DefaultAudioSink.OUTPUT_MODE_PASSTHROUGH;
@@ -28,12 +29,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.audio.DefaultAudioSink.OutputMode;
-import androidx.media3.extractor.AacUtil;
-import androidx.media3.extractor.Ac3Util;
-import androidx.media3.extractor.Ac4Util;
-import androidx.media3.extractor.DtsUtil;
-import androidx.media3.extractor.MpegAudioUtil;
-import androidx.media3.extractor.OpusUtil;
+import androidx.media3.extractor.ExtractorUtil;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.math.RoundingMode;
 
@@ -44,19 +40,29 @@ public class DefaultAudioTrackBufferSizeProvider
 
   /** Default minimum length for the {@link AudioTrack} buffer, in microseconds. */
   private static final int MIN_PCM_BUFFER_DURATION_US = 250_000;
+
   /** Default maximum length for the {@link AudioTrack} buffer, in microseconds. */
   private static final int MAX_PCM_BUFFER_DURATION_US = 750_000;
+
   /** Default multiplication factor to apply to the minimum buffer size requested. */
   private static final int PCM_BUFFER_MULTIPLICATION_FACTOR = 4;
+
   /** Default length for passthrough {@link AudioTrack} buffers, in microseconds. */
   private static final int PASSTHROUGH_BUFFER_DURATION_US = 250_000;
+
   /** Default length for offload {@link AudioTrack} buffers, in microseconds. */
   private static final int OFFLOAD_BUFFER_DURATION_US = 50_000_000;
+
   /**
    * Default multiplication factor to apply to AC3 passthrough buffer to avoid underruns on some
    * devices (e.g., Broadcom 7271).
    */
   private static final int AC3_BUFFER_MULTIPLICATION_FACTOR = 2;
+
+  /**
+   * Default multiplication factor to apply to DTS Express passthrough buffer to avoid underruns.
+   */
+  private static final int DTSHD_BUFFER_MULTIPLICATION_FACTOR = 4;
 
   /** A builder to create {@link DefaultAudioTrackBufferSizeProvider} instances. */
   public static class Builder {
@@ -67,6 +73,7 @@ public class DefaultAudioTrackBufferSizeProvider
     private int passthroughBufferDurationUs;
     private int offloadBufferDurationUs;
     private int ac3BufferMultiplicationFactor;
+    private int dtshdBufferMultiplicationFactor;
 
     /** Creates a new builder. */
     public Builder() {
@@ -76,6 +83,7 @@ public class DefaultAudioTrackBufferSizeProvider
       passthroughBufferDurationUs = PASSTHROUGH_BUFFER_DURATION_US;
       offloadBufferDurationUs = OFFLOAD_BUFFER_DURATION_US;
       ac3BufferMultiplicationFactor = AC3_BUFFER_MULTIPLICATION_FACTOR;
+      dtshdBufferMultiplicationFactor = DTSHD_BUFFER_MULTIPLICATION_FACTOR;
     }
 
     /**
@@ -138,6 +146,16 @@ public class DefaultAudioTrackBufferSizeProvider
       return this;
     }
 
+    /**
+     * Sets the multiplication factor to apply to the passthrough buffer for DTS-HD (DTS Express) to
+     * avoid underruns. Default is {@link #DTSHD_BUFFER_MULTIPLICATION_FACTOR}.
+     */
+    @CanIgnoreReturnValue
+    public Builder setDtshdBufferMultiplicationFactor(int dtshdBufferMultiplicationFactor) {
+      this.dtshdBufferMultiplicationFactor = dtshdBufferMultiplicationFactor;
+      return this;
+    }
+
     /** Build the {@link DefaultAudioTrackBufferSizeProvider}. */
     public DefaultAudioTrackBufferSizeProvider build() {
       return new DefaultAudioTrackBufferSizeProvider(this);
@@ -146,19 +164,30 @@ public class DefaultAudioTrackBufferSizeProvider
 
   /** The minimum length for PCM {@link AudioTrack} buffers, in microseconds. */
   protected final int minPcmBufferDurationUs;
+
   /** The maximum length for PCM {@link AudioTrack} buffers, in microseconds. */
   protected final int maxPcmBufferDurationUs;
+
   /** The multiplication factor to apply to the minimum buffer size requested. */
   protected final int pcmBufferMultiplicationFactor;
+
   /** The length for passthrough {@link AudioTrack} buffers, in microseconds. */
   protected final int passthroughBufferDurationUs;
+
   /** The length for offload {@link AudioTrack} buffers, in microseconds. */
   protected final int offloadBufferDurationUs;
+
   /**
    * The multiplication factor to apply to AC3 passthrough buffer to avoid underruns on some devices
    * (e.g., Broadcom 7271).
    */
   public final int ac3BufferMultiplicationFactor;
+
+  /**
+   * The multiplication factor to apply to DTS-HD (DTS Express) passthrough buffer to avoid
+   * underruns.
+   */
+  public final int dtshdBufferMultiplicationFactor;
 
   protected DefaultAudioTrackBufferSizeProvider(Builder builder) {
     minPcmBufferDurationUs = builder.minPcmBufferDurationUs;
@@ -167,6 +196,7 @@ public class DefaultAudioTrackBufferSizeProvider
     passthroughBufferDurationUs = builder.passthroughBufferDurationUs;
     offloadBufferDurationUs = builder.offloadBufferDurationUs;
     ac3BufferMultiplicationFactor = builder.ac3BufferMultiplicationFactor;
+    dtshdBufferMultiplicationFactor = builder.dtshdBufferMultiplicationFactor;
   }
 
   @Override
@@ -222,17 +252,23 @@ public class DefaultAudioTrackBufferSizeProvider
     int bufferSizeUs = passthroughBufferDurationUs;
     if (encoding == C.ENCODING_AC3) {
       bufferSizeUs *= ac3BufferMultiplicationFactor;
+    } else if (encoding == C.ENCODING_DTS_HD) {
+      // DTS-HD (DTS Express) for streaming uses a frame size (number of audio samples per channel
+      // per frame) of 4096. This requires a higher multiple for the buffersize computation.
+      // Otherwise, there will be buffer underflow during DASH playback.
+      bufferSizeUs *= dtshdBufferMultiplicationFactor;
     }
+
     int byteRate =
         bitrate != Format.NO_VALUE
             ? divide(bitrate, 8, RoundingMode.CEILING)
-            : getMaximumEncodedRateBytesPerSecond(encoding);
+            : getNonPcmMaximumEncodedRateBytesPerSecond(encoding);
     return checkedCast((long) bufferSizeUs * byteRate / C.MICROS_PER_SECOND);
   }
 
   /** Returns the buffer size for offload playback. */
   protected int getOffloadBufferSizeInBytes(@C.Encoding int encoding) {
-    int maxByteRate = getMaximumEncodedRateBytesPerSecond(encoding);
+    int maxByteRate = getNonPcmMaximumEncodedRateBytesPerSecond(encoding);
     return checkedCast((long) offloadBufferDurationUs * maxByteRate / C.MICROS_PER_SECOND);
   }
 
@@ -240,46 +276,9 @@ public class DefaultAudioTrackBufferSizeProvider
     return checkedCast((long) durationUs * samplingRate * frameSize / C.MICROS_PER_SECOND);
   }
 
-  protected static int getMaximumEncodedRateBytesPerSecond(@C.Encoding int encoding) {
-    switch (encoding) {
-      case C.ENCODING_MP3:
-        return MpegAudioUtil.MAX_RATE_BYTES_PER_SECOND;
-      case C.ENCODING_AAC_LC:
-        return AacUtil.AAC_LC_MAX_RATE_BYTES_PER_SECOND;
-      case C.ENCODING_AAC_HE_V1:
-        return AacUtil.AAC_HE_V1_MAX_RATE_BYTES_PER_SECOND;
-      case C.ENCODING_AAC_HE_V2:
-        return AacUtil.AAC_HE_V2_MAX_RATE_BYTES_PER_SECOND;
-      case C.ENCODING_AAC_XHE:
-        return AacUtil.AAC_XHE_MAX_RATE_BYTES_PER_SECOND;
-      case C.ENCODING_AAC_ELD:
-        return AacUtil.AAC_ELD_MAX_RATE_BYTES_PER_SECOND;
-      case C.ENCODING_AC3:
-        return Ac3Util.AC3_MAX_RATE_BYTES_PER_SECOND;
-      case C.ENCODING_E_AC3:
-      case C.ENCODING_E_AC3_JOC:
-        return Ac3Util.E_AC3_MAX_RATE_BYTES_PER_SECOND;
-      case C.ENCODING_AC4:
-        return Ac4Util.MAX_RATE_BYTES_PER_SECOND;
-      case C.ENCODING_DTS:
-        return DtsUtil.DTS_MAX_RATE_BYTES_PER_SECOND;
-      case C.ENCODING_DTS_HD:
-        return DtsUtil.DTS_HD_MAX_RATE_BYTES_PER_SECOND;
-      case C.ENCODING_DOLBY_TRUEHD:
-        return Ac3Util.TRUEHD_MAX_RATE_BYTES_PER_SECOND;
-      case C.ENCODING_OPUS:
-        return OpusUtil.MAX_BYTES_PER_SECOND;
-      case C.ENCODING_PCM_16BIT:
-      case C.ENCODING_PCM_16BIT_BIG_ENDIAN:
-      case C.ENCODING_PCM_24BIT:
-      case C.ENCODING_PCM_32BIT:
-      case C.ENCODING_PCM_8BIT:
-      case C.ENCODING_PCM_FLOAT:
-      case C.ENCODING_AAC_ER_BSAC:
-      case C.ENCODING_INVALID:
-      case Format.NO_VALUE:
-      default:
-        throw new IllegalArgumentException();
-    }
+  private static int getNonPcmMaximumEncodedRateBytesPerSecond(@C.Encoding int encoding) {
+    int rate = ExtractorUtil.getMaximumEncodedRateBytesPerSecond(encoding);
+    checkState(rate != C.RATE_UNSET_INT);
+    return rate;
   }
 }
