@@ -165,6 +165,53 @@ public class VideoDecoderOutputBuffer extends DecoderOutputBuffer {
     return true;
   }
 
+  public boolean initForOffsetFrames(
+      int offset,
+      int width,
+      int height,
+      int yStride,
+      int uvStride,
+      int colorspace,
+      int alignedHeight) {
+
+    if (yuvPlanes == null) {
+      yuvPlanes = new ByteBuffer[3];
+    }
+
+    // Data should be allocated in the native code.
+    if (data == null) {
+      return false;
+    }
+
+    this.width = width;
+    this.height = height;
+    this.colorspace = colorspace;
+    ByteBuffer[] yuvPlanes = this.yuvPlanes;
+    ByteBuffer data = this.data;
+
+    int yLength = yStride * height;
+    int uvLength = uvStride * (height >> 1);
+    int alignedYLength = yStride * alignedHeight;
+    int alignedUvLength = uvStride * (alignedHeight >> 1);
+    data.position(offset);
+    yuvPlanes[0] = data.slice();
+    yuvPlanes[0].limit(yLength);
+    data.position(alignedYLength + offset);
+    yuvPlanes[1] = data.slice();
+    yuvPlanes[1].limit(uvLength);
+    data.position(alignedYLength + alignedUvLength + offset);
+    yuvPlanes[2] = data.slice();
+    yuvPlanes[2].limit(uvLength);
+
+    if (yuvStrides == null) {
+      yuvStrides = new int[3];
+    }
+    yuvStrides[0] = yStride;
+    yuvStrides[1] = uvStride;
+    yuvStrides[2] = uvStride;
+    return true;
+  }
+
   /**
    * Configures the buffer for the given frame dimensions when passing actual frame data via {@link
    * #decoderPrivate}. Called via JNI after decoding completes.
