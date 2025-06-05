@@ -475,17 +475,41 @@ public final class MediaMetadataCompat implements Parcelable {
    *
    * @return An equivalent {@link android.media.MediaMetadata} object.
    */
+  @SuppressWarnings("nullness") // MediaMetadata.Builder accepts null values but is not annotated.
   public MediaMetadata getMediaMetadata() {
     if (metadataFwk == null) {
-      Parcel p = Parcel.obtain();
-      try {
-        writeToParcel(p, 0);
-        p.setDataPosition(0);
-        metadataFwk = MediaMetadata.CREATOR.createFromParcel(p);
-        return metadataFwk;
-      } finally {
-        p.recycle();
+      MediaMetadata.Builder builder = new MediaMetadata.Builder();
+      for (String key : bundle.keySet()) {
+        Integer type = METADATA_KEYS_TYPE.get(key);
+        if (type == null) {
+          type = -1;
+        }
+        switch (type) {
+          case METADATA_TYPE_TEXT:
+            builder.putText(key, bundle.getString(key));
+            break;
+          case METADATA_TYPE_LONG:
+            builder.putLong(key, bundle.getLong(key));
+            break;
+          case METADATA_TYPE_BITMAP:
+            builder.putBitmap(key, bundle.getParcelable(key));
+            break;
+          case METADATA_TYPE_RATING:
+            builder.putRating(key, bundle.getParcelable(key));
+            break;
+          default:
+            Object value = bundle.get(key);
+            if (value == null || value instanceof CharSequence) {
+              builder.putText(key, (CharSequence) value);
+            } else if (value instanceof Long) {
+              builder.putLong(key, (Long) value);
+            } else {
+              // values of complex types are not preserved.
+            }
+            break;
+        }
       }
+      metadataFwk = builder.build();
     }
     return metadataFwk;
   }
