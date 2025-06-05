@@ -53,7 +53,6 @@ import android.media.MediaCodecInfo.CodecCapabilities;
 import android.media.MediaCodecInfo.CodecProfileLevel;
 import android.media.MediaFormat;
 import android.os.Handler;
-import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.SystemClock;
 import android.view.Display;
@@ -78,7 +77,6 @@ import androidx.media3.exoplayer.ScrubbingModeParameters;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.drm.DrmSessionEventListener;
 import androidx.media3.exoplayer.drm.DrmSessionManager;
-import androidx.media3.exoplayer.mediacodec.DefaultMediaCodecAdapterFactory;
 import androidx.media3.exoplayer.mediacodec.ForwardingMediaCodecAdapter;
 import androidx.media3.exoplayer.mediacodec.MediaCodecAdapter;
 import androidx.media3.exoplayer.mediacodec.MediaCodecInfo;
@@ -97,6 +95,7 @@ import androidx.media3.exoplayer.upstream.DefaultAllocator;
 import androidx.media3.test.utils.FakeMediaPeriod;
 import androidx.media3.test.utils.FakeSampleStream;
 import androidx.media3.test.utils.FakeTimeline;
+import androidx.media3.test.utils.robolectric.IdlingMediaCodecAdapterFactory;
 import androidx.media3.test.utils.robolectric.RobolectricUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -175,8 +174,7 @@ public class MediaCodecVideoRendererTest {
   private Surface surface;
   private MediaCodecVideoRenderer mediaCodecVideoRenderer;
   private MediaCodecSelector mediaCodecSelector;
-  @Nullable private HandlerThread callbackThread;
-  @Nullable private HandlerThread queueingThread;
+  private IdlingMediaCodecAdapterFactory codecAdapterFactory;
   @Nullable private Format currentOutputFormat;
 
   @Mock private VideoRendererEventListener eventListener;
@@ -184,6 +182,8 @@ public class MediaCodecVideoRendererTest {
   @Before
   public void setUp() throws Exception {
     testMainLooper = Looper.getMainLooper();
+    codecAdapterFactory =
+        new IdlingMediaCodecAdapterFactory(ApplicationProvider.getApplicationContext());
     mediaCodecSelector =
         (mimeType, requiresSecureDecoder, requiresTunnelingDecoder) ->
             Collections.singletonList(
@@ -200,17 +200,7 @@ public class MediaCodecVideoRendererTest {
     mediaCodecVideoRenderer =
         new MediaCodecVideoRenderer(
             new MediaCodecVideoRenderer.Builder(ApplicationProvider.getApplicationContext())
-                .setCodecAdapterFactory(
-                    new DefaultMediaCodecAdapterFactory(
-                        ApplicationProvider.getApplicationContext(),
-                        () -> {
-                          callbackThread = new HandlerThread("MCVRTest:MediaCodecAsyncAdapter");
-                          return callbackThread;
-                        },
-                        () -> {
-                          queueingThread = new HandlerThread("MCVRTest:MediaCodecQueueingThread");
-                          return queueingThread;
-                        }))
+                .setCodecAdapterFactory(codecAdapterFactory)
                 .setMediaCodecSelector(mediaCodecSelector)
                 .setAllowedJoiningTimeMs(0)
                 .setEnableDecoderFallback(false)
@@ -270,13 +260,13 @@ public class MediaCodecVideoRendererTest {
     mediaCodecVideoRenderer.render(0, SystemClock.elapsedRealtime() * 1000);
     for (int i = 0; i < 5; i++) {
       mediaCodecVideoRenderer.render(40_000, SystemClock.elapsedRealtime() * 1000);
-      maybeIdleAsynchronousMediaCodecAdapterThreads();
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
     }
     mediaCodecVideoRenderer.setCurrentStreamFinal();
     int posUs = 80_001; // Ensures buffer will be 30_001us late.
     while (!mediaCodecVideoRenderer.isEnded()) {
       mediaCodecVideoRenderer.render(posUs, SystemClock.elapsedRealtime() * 1000);
-      maybeIdleAsynchronousMediaCodecAdapterThreads();
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
       posUs += 40_000;
     }
     shadowOf(testMainLooper).idle();
@@ -374,7 +364,7 @@ public class MediaCodecVideoRendererTest {
     mediaCodecVideoRenderer.setCurrentStreamFinal();
     for (int i = 0; i < 5; i++) {
       mediaCodecVideoRenderer.render(0, SystemClock.elapsedRealtime() * 1000);
-      maybeIdleAsynchronousMediaCodecAdapterThreads();
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
     }
     int posUs = 20_001; // Ensures buffer will be 29_999us early.
     mediaCodecVideoRenderer.render(posUs, SystemClock.elapsedRealtime() * 1000);
@@ -414,7 +404,7 @@ public class MediaCodecVideoRendererTest {
     mediaCodecVideoRenderer.setCurrentStreamFinal();
     for (int i = 0; i < 5; i++) {
       mediaCodecVideoRenderer.render(0, SystemClock.elapsedRealtime() * 1000);
-      maybeIdleAsynchronousMediaCodecAdapterThreads();
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
     }
     int posUs = 20_001; // Ensures buffer will be 29_999us early.
     for (int i = 0; i < 3; i++) {
@@ -971,7 +961,7 @@ public class MediaCodecVideoRendererTest {
     do {
       ShadowSystemClock.advanceBy(2, TimeUnit.MILLISECONDS);
       mediaCodecVideoRenderer.render(positionUs, msToUs(SystemClock.elapsedRealtime()));
-      maybeIdleAsynchronousMediaCodecAdapterThreads();
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
       positionUs += 2_000;
     } while (!mediaCodecVideoRenderer.isEnded());
     shadowOf(testMainLooper).idle();
@@ -1047,17 +1037,7 @@ public class MediaCodecVideoRendererTest {
     mediaCodecVideoRenderer =
         new MediaCodecVideoRenderer(
             new MediaCodecVideoRenderer.Builder(ApplicationProvider.getApplicationContext())
-                .setCodecAdapterFactory(
-                    new DefaultMediaCodecAdapterFactory(
-                        ApplicationProvider.getApplicationContext(),
-                        () -> {
-                          callbackThread = new HandlerThread("MCVRTest:MediaCodecAsyncAdapter");
-                          return callbackThread;
-                        },
-                        () -> {
-                          queueingThread = new HandlerThread("MCVRTest:MediaCodecQueueingThread");
-                          return queueingThread;
-                        }))
+                .setCodecAdapterFactory(codecAdapterFactory)
                 .setMediaCodecSelector(mediaCodecSelector)
                 .setAllowedJoiningTimeMs(0)
                 .setEnableDecoderFallback(false)
@@ -1162,17 +1142,7 @@ public class MediaCodecVideoRendererTest {
     mediaCodecVideoRenderer =
         new MediaCodecVideoRenderer(
             new MediaCodecVideoRenderer.Builder(ApplicationProvider.getApplicationContext())
-                .setCodecAdapterFactory(
-                    new DefaultMediaCodecAdapterFactory(
-                        ApplicationProvider.getApplicationContext(),
-                        () -> {
-                          callbackThread = new HandlerThread("MCVRTest:MediaCodecAsyncAdapter");
-                          return callbackThread;
-                        },
-                        () -> {
-                          queueingThread = new HandlerThread("MCVRTest:MediaCodecQueueingThread");
-                          return queueingThread;
-                        }))
+                .setCodecAdapterFactory(codecAdapterFactory)
                 .setMediaCodecSelector(mediaCodecSelector)
                 .setAllowedJoiningTimeMs(0)
                 .setEnableDecoderFallback(false)
@@ -1262,17 +1232,7 @@ public class MediaCodecVideoRendererTest {
     mediaCodecVideoRenderer =
         new MediaCodecVideoRenderer(
             new MediaCodecVideoRenderer.Builder(ApplicationProvider.getApplicationContext())
-                .setCodecAdapterFactory(
-                    new DefaultMediaCodecAdapterFactory(
-                        ApplicationProvider.getApplicationContext(),
-                        () -> {
-                          callbackThread = new HandlerThread("MCVRTest:MediaCodecAsyncAdapter");
-                          return callbackThread;
-                        },
-                        () -> {
-                          queueingThread = new HandlerThread("MCVRTest:MediaCodecQueueingThread");
-                          return queueingThread;
-                        }))
+                .setCodecAdapterFactory(codecAdapterFactory)
                 .setMediaCodecSelector(mediaCodecSelector)
                 .setAllowedJoiningTimeMs(0)
                 .setEnableDecoderFallback(false)
@@ -1327,10 +1287,10 @@ public class MediaCodecVideoRendererTest {
     // Render until the new keyframe has been processed and then increase time to reach the end.
     while (decoderCounters.renderedOutputBufferCount < 2) {
       mediaCodecVideoRenderer.render(posUs, SystemClock.elapsedRealtime() * 1000);
-      maybeIdleAsynchronousMediaCodecAdapterThreads();
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
     }
     while (!mediaCodecVideoRenderer.isEnded()) {
-      maybeIdleAsynchronousMediaCodecAdapterThreads();
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
       mediaCodecVideoRenderer.render(posUs, SystemClock.elapsedRealtime() * 1000);
       posUs += 1_000;
     }
@@ -1411,7 +1371,7 @@ public class MediaCodecVideoRendererTest {
     // Render until the frame at time 300_000 us is displayed.
     int posUs = 300_000;
     while (decoderCounters.renderedOutputBufferCount < 2) {
-      maybeIdleAsynchronousMediaCodecAdapterThreads();
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
       mediaCodecVideoRenderer.render(posUs, SystemClock.elapsedRealtime() * 1000);
     }
     fakeSampleStream.append(
@@ -1427,10 +1387,10 @@ public class MediaCodecVideoRendererTest {
     while (decoderCounters.renderedOutputBufferCount + decoderCounters.skippedOutputBufferCount
         < 3) {
       mediaCodecVideoRenderer.render(posUs, SystemClock.elapsedRealtime() * 1000);
-      maybeIdleAsynchronousMediaCodecAdapterThreads();
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
     }
     while (!mediaCodecVideoRenderer.isEnded()) {
-      maybeIdleAsynchronousMediaCodecAdapterThreads();
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
       mediaCodecVideoRenderer.render(posUs, SystemClock.elapsedRealtime() * 1000);
       posUs += 1_000;
     }
@@ -1783,7 +1743,7 @@ public class MediaCodecVideoRendererTest {
     mediaCodecVideoRenderer.render(0, SystemClock.elapsedRealtime() * 1000);
     for (int i = 0; i < 5; i++) {
       mediaCodecVideoRenderer.render(40_000, SystemClock.elapsedRealtime() * 1000);
-      maybeIdleAsynchronousMediaCodecAdapterThreads();
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
     }
 
     // Set scrubbing mode but with flushing enabled.
@@ -1794,7 +1754,7 @@ public class MediaCodecVideoRendererTest {
 
     for (int i = 0; i < 5; i++) {
       mediaCodecVideoRenderer.render(200_000, SystemClock.elapsedRealtime() * 1000);
-      maybeIdleAsynchronousMediaCodecAdapterThreads();
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
     }
     shadowOf(testMainLooper).idle();
 
@@ -1839,7 +1799,7 @@ public class MediaCodecVideoRendererTest {
     mediaCodecVideoRenderer.render(0, SystemClock.elapsedRealtime() * 1000);
     for (int i = 0; i < 5; i++) {
       mediaCodecVideoRenderer.render(40_000, SystemClock.elapsedRealtime() * 1000);
-      maybeIdleAsynchronousMediaCodecAdapterThreads();
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
     }
 
     // Disable flushing so that the seek will skip the 50_000 us sample.
@@ -1849,7 +1809,7 @@ public class MediaCodecVideoRendererTest {
 
     for (int i = 0; i < 5; i++) {
       mediaCodecVideoRenderer.render(200_000, SystemClock.elapsedRealtime() * 1000);
-      maybeIdleAsynchronousMediaCodecAdapterThreads();
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
     }
     shadowOf(testMainLooper).idle();
 
@@ -1894,7 +1854,7 @@ public class MediaCodecVideoRendererTest {
     mediaCodecVideoRenderer.start();
     for (int i = 0; i < 10; i++) {
       mediaCodecVideoRenderer.render(150_000, SystemClock.elapsedRealtime() * 1000);
-      maybeIdleAsynchronousMediaCodecAdapterThreads();
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
     }
 
     mediaCodecVideoRenderer.handleMessage(
@@ -1903,7 +1863,7 @@ public class MediaCodecVideoRendererTest {
 
     for (int i = 0; i < 7; i++) {
       mediaCodecVideoRenderer.render(100_000, SystemClock.elapsedRealtime() * 1000);
-      maybeIdleAsynchronousMediaCodecAdapterThreads();
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
     }
     shadowOf(testMainLooper).idle();
 
@@ -1949,7 +1909,7 @@ public class MediaCodecVideoRendererTest {
     mediaCodecVideoRenderer.start();
     for (int i = 0; i < 8; i++) {
       mediaCodecVideoRenderer.render(100_000, SystemClock.elapsedRealtime() * 1000);
-      maybeIdleAsynchronousMediaCodecAdapterThreads();
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
     }
 
     mediaCodecVideoRenderer.handleMessage(
@@ -1959,7 +1919,7 @@ public class MediaCodecVideoRendererTest {
 
     for (int i = 0; i < 4; i++) {
       mediaCodecVideoRenderer.render(150_000, SystemClock.elapsedRealtime() * 1000);
-      maybeIdleAsynchronousMediaCodecAdapterThreads();
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
     }
     shadowOf(testMainLooper).idle();
 
@@ -2016,7 +1976,7 @@ public class MediaCodecVideoRendererTest {
     mediaCodecVideoRenderer.render(150_000, SystemClock.elapsedRealtime() * 1000);
     for (int i = 0; i < 10; i++) {
       mediaCodecVideoRenderer.render(150_000, SystemClock.elapsedRealtime() * 1000);
-      maybeIdleAsynchronousMediaCodecAdapterThreads();
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
     }
 
     mediaCodecVideoRenderer.handleMessage(
@@ -2025,7 +1985,7 @@ public class MediaCodecVideoRendererTest {
 
     for (int i = 0; i < 7; i++) {
       mediaCodecVideoRenderer.render(100_000, SystemClock.elapsedRealtime() * 1000);
-      maybeIdleAsynchronousMediaCodecAdapterThreads();
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
     }
     shadowOf(testMainLooper).idle();
 
@@ -2071,7 +2031,7 @@ public class MediaCodecVideoRendererTest {
     mediaCodecVideoRenderer.start();
     for (int i = 0; i < 12; i++) {
       mediaCodecVideoRenderer.render(200_000, SystemClock.elapsedRealtime() * 1000);
-      maybeIdleAsynchronousMediaCodecAdapterThreads();
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
     }
 
     // Disable flushing and seek should be ready to process the 150_000 us sample.
@@ -2080,14 +2040,14 @@ public class MediaCodecVideoRendererTest {
     seekToUs(mediaCodecVideoRenderer, fakeSampleStream, /* positionUs= */ 150_000);
     for (int i = 0; i < 4; i++) {
       mediaCodecVideoRenderer.render(150_000, SystemClock.elapsedRealtime() * 1000);
-      maybeIdleAsynchronousMediaCodecAdapterThreads();
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
     }
 
     // Seek should skip 200_000 us sample.
     seekToUs(mediaCodecVideoRenderer, fakeSampleStream, /* positionUs= */ 50_000);
     for (int i = 0; i < 6; i++) {
       mediaCodecVideoRenderer.render(50_000, SystemClock.elapsedRealtime() * 1000);
-      maybeIdleAsynchronousMediaCodecAdapterThreads();
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
     }
     shadowOf(testMainLooper).idle();
 
@@ -2145,7 +2105,7 @@ public class MediaCodecVideoRendererTest {
     mediaCodecVideoRenderer.start();
     for (int i = 0; i < 12; i++) {
       mediaCodecVideoRenderer.render(200_000, SystemClock.elapsedRealtime() * 1000);
-      maybeIdleAsynchronousMediaCodecAdapterThreads();
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
     }
 
     // Disable flushing and seek should be ready to process the 150_000 us sample.
@@ -2156,7 +2116,7 @@ public class MediaCodecVideoRendererTest {
     blockReadDataPositionUs.getAndSet(150_000);
     for (int i = 0; i < 4; i++) {
       mediaCodecVideoRenderer.render(150_000, SystemClock.elapsedRealtime() * 1000);
-      maybeIdleAsynchronousMediaCodecAdapterThreads();
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
     }
     blockReadDataPositionUs.getAndSet(Integer.MAX_VALUE);
 
@@ -2168,7 +2128,7 @@ public class MediaCodecVideoRendererTest {
 
     for (int i = 0; i < 6; i++) {
       mediaCodecVideoRenderer.render(50_000, SystemClock.elapsedRealtime() * 1000);
-      maybeIdleAsynchronousMediaCodecAdapterThreads();
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
     }
     shadowOf(testMainLooper).idle();
 
@@ -2226,7 +2186,7 @@ public class MediaCodecVideoRendererTest {
     mediaCodecVideoRenderer.start();
     for (int i = 0; i < 12; i++) {
       mediaCodecVideoRenderer.render(200_000, SystemClock.elapsedRealtime() * 1000);
-      maybeIdleAsynchronousMediaCodecAdapterThreads();
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
     }
 
     // Disable flushing and seek should be ready to process the 150_000 us sample.
@@ -2238,7 +2198,7 @@ public class MediaCodecVideoRendererTest {
     blockReadDataPositionUs.getAndSet(200_000);
     for (int i = 0; i < 4; i++) {
       mediaCodecVideoRenderer.render(160_000, SystemClock.elapsedRealtime() * 1000);
-      maybeIdleAsynchronousMediaCodecAdapterThreads();
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
     }
     blockReadDataPositionUs.getAndSet(Integer.MAX_VALUE);
 
@@ -2250,7 +2210,7 @@ public class MediaCodecVideoRendererTest {
 
     for (int i = 0; i < 6; i++) {
       mediaCodecVideoRenderer.render(50_000, SystemClock.elapsedRealtime() * 1000);
-      maybeIdleAsynchronousMediaCodecAdapterThreads();
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
     }
     shadowOf(testMainLooper).idle();
 
@@ -2293,7 +2253,7 @@ public class MediaCodecVideoRendererTest {
     mediaCodecVideoRenderer.render(200_000, SystemClock.elapsedRealtime() * 1000);
     for (int i = 0; i < 10; i++) {
       mediaCodecVideoRenderer.render(200_000, SystemClock.elapsedRealtime() * 1000);
-      maybeIdleAsynchronousMediaCodecAdapterThreads();
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
     }
 
     assertThat(mediaCodecVideoRenderer.hasReadStreamToEnd()).isTrue();
@@ -2305,7 +2265,7 @@ public class MediaCodecVideoRendererTest {
 
     for (int i = 0; i < 8; i++) {
       mediaCodecVideoRenderer.render(100_000, SystemClock.elapsedRealtime() * 1000);
-      maybeIdleAsynchronousMediaCodecAdapterThreads();
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
     }
     shadowOf(testMainLooper).idle();
 
@@ -2348,7 +2308,7 @@ public class MediaCodecVideoRendererTest {
     mediaCodecVideoRenderer.start();
     for (int i = 0; i < 12; i++) {
       mediaCodecVideoRenderer.render(200_000, SystemClock.elapsedRealtime() * 1000);
-      maybeIdleAsynchronousMediaCodecAdapterThreads();
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
     }
 
     assertThat(mediaCodecVideoRenderer.hasReadStreamToEnd()).isTrue();
@@ -2360,7 +2320,7 @@ public class MediaCodecVideoRendererTest {
 
     for (int i = 0; i < 8; i++) {
       mediaCodecVideoRenderer.render(100_000, SystemClock.elapsedRealtime() * 1000);
-      maybeIdleAsynchronousMediaCodecAdapterThreads();
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
     }
     shadowOf(testMainLooper).idle();
 
@@ -2405,7 +2365,7 @@ public class MediaCodecVideoRendererTest {
     mediaCodecVideoRenderer.render(0, SystemClock.elapsedRealtime() * 1000);
     for (int i = 0; i < 5; i++) {
       mediaCodecVideoRenderer.render(40_000, SystemClock.elapsedRealtime() * 1000);
-      maybeIdleAsynchronousMediaCodecAdapterThreads();
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
     }
 
     // Disable flushing so that the seek will skip the 50_000 us sample.
@@ -2415,7 +2375,7 @@ public class MediaCodecVideoRendererTest {
 
     for (int i = 0; i < 7; i++) {
       mediaCodecVideoRenderer.render(300_000, SystemClock.elapsedRealtime() * 1000);
-      maybeIdleAsynchronousMediaCodecAdapterThreads();
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
     }
     shadowOf(testMainLooper).idle();
 
@@ -2464,7 +2424,7 @@ public class MediaCodecVideoRendererTest {
     mediaCodecVideoRenderer.render(0, SystemClock.elapsedRealtime() * 1000);
     for (int i = 0; i < 5; i++) {
       mediaCodecVideoRenderer.render(40_000, SystemClock.elapsedRealtime() * 1000);
-      maybeIdleAsynchronousMediaCodecAdapterThreads();
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
     }
 
     // Disable flushing so that the seek will skip the 50_000 us sample.
@@ -2478,7 +2438,7 @@ public class MediaCodecVideoRendererTest {
 
     for (int i = 0; i < 5; i++) {
       mediaCodecVideoRenderer.render(350_000, SystemClock.elapsedRealtime() * 1000);
-      maybeIdleAsynchronousMediaCodecAdapterThreads();
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
     }
     shadowOf(testMainLooper).idle();
 
@@ -2527,7 +2487,7 @@ public class MediaCodecVideoRendererTest {
     mediaCodecVideoRenderer.render(0, SystemClock.elapsedRealtime() * 1000);
     for (int i = 0; i < 5; i++) {
       mediaCodecVideoRenderer.render(40_000, SystemClock.elapsedRealtime() * 1000);
-      maybeIdleAsynchronousMediaCodecAdapterThreads();
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
     }
 
     // Enable flushing so that new seek will flush the 50_000 us sample.
@@ -2543,7 +2503,7 @@ public class MediaCodecVideoRendererTest {
 
     for (int i = 0; i < 5; i++) {
       mediaCodecVideoRenderer.render(350_000, SystemClock.elapsedRealtime() * 1000);
-      maybeIdleAsynchronousMediaCodecAdapterThreads();
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
     }
     shadowOf(testMainLooper).idle();
 
@@ -2577,7 +2537,7 @@ public class MediaCodecVideoRendererTest {
         new MediaSource.MediaPeriodId(new Object()));
     for (int i = 0; i < 10; i++) {
       mediaCodecVideoRenderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
-      maybeIdleAsynchronousMediaCodecAdapterThreads();
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
     }
 
     shadowOf(testMainLooper).idle();
@@ -2611,7 +2571,7 @@ public class MediaCodecVideoRendererTest {
         new MediaSource.MediaPeriodId(new Object()));
     for (int i = 0; i < 10; i++) {
       mediaCodecVideoRenderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
-      maybeIdleAsynchronousMediaCodecAdapterThreads();
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
     }
     shadowOf(testMainLooper).idle();
 
@@ -2643,7 +2603,7 @@ public class MediaCodecVideoRendererTest {
     mediaCodecVideoRenderer.start();
     for (int i = 0; i < 10; i++) {
       mediaCodecVideoRenderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
-      maybeIdleAsynchronousMediaCodecAdapterThreads();
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
     }
     shadowOf(testMainLooper).idle();
 
@@ -2677,7 +2637,7 @@ public class MediaCodecVideoRendererTest {
         new MediaSource.MediaPeriodId(new Object()));
     for (int i = 0; i < 10; i++) {
       mediaCodecVideoRenderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
-      maybeIdleAsynchronousMediaCodecAdapterThreads();
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
     }
     shadowOf(testMainLooper).idle();
 
@@ -2727,7 +2687,7 @@ public class MediaCodecVideoRendererTest {
     for (int i = 0; i < 10; i++) {
       mediaCodecVideoRenderer.render(
           /* positionUs= */ i * 10, SystemClock.elapsedRealtime() * 1000);
-      maybeIdleAsynchronousMediaCodecAdapterThreads();
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
       if (!replacedStream && mediaCodecVideoRenderer.hasReadStreamToEnd()) {
         mediaCodecVideoRenderer.replaceStream(
             new Format[] {VIDEO_H264},
@@ -2792,7 +2752,7 @@ public class MediaCodecVideoRendererTest {
     for (int i = 0; i < 10; i++) {
       mediaCodecVideoRenderer.render(
           /* positionUs= */ i * 10, SystemClock.elapsedRealtime() * 1000);
-      maybeIdleAsynchronousMediaCodecAdapterThreads();
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
       if (!replacedStream && mediaCodecVideoRenderer.hasReadStreamToEnd()) {
         mediaCodecVideoRenderer.replaceStream(
             new Format[] {VIDEO_H264},
@@ -2841,7 +2801,7 @@ public class MediaCodecVideoRendererTest {
     // Render at the original start position.
     for (int i = 0; i < 10; i++) {
       mediaCodecVideoRenderer.render(/* positionUs= */ 1000, SystemClock.elapsedRealtime() * 1000);
-      maybeIdleAsynchronousMediaCodecAdapterThreads();
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
     }
 
     // Reset the position to before the original start position and render at this position.
@@ -2851,7 +2811,7 @@ public class MediaCodecVideoRendererTest {
     fakeSampleStream.writeData(/* startPositionUs= */ 500);
     for (int i = 0; i < 10; i++) {
       mediaCodecVideoRenderer.render(/* positionUs= */ 500, SystemClock.elapsedRealtime() * 1000);
-      maybeIdleAsynchronousMediaCodecAdapterThreads();
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
     }
 
     // Assert that we rendered the first frame after the reset.
@@ -3217,15 +3177,6 @@ public class MediaCodecVideoRendererTest {
     }
     fakeSampleStream.seekToUs(positionUs, true);
     mediaCodecVideoRenderer.resetPosition(positionUs);
-  }
-
-  private void maybeIdleAsynchronousMediaCodecAdapterThreads() {
-    if (queueingThread != null) {
-      shadowOf(queueingThread.getLooper()).idle();
-    }
-    if (callbackThread != null) {
-      shadowOf(callbackThread.getLooper()).idle();
-    }
   }
 
   private static CodecCapabilities createCodecCapabilities(int profile, int level) {

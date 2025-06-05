@@ -31,14 +31,12 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.robolectric.Shadows.shadowOf;
 
 import android.content.Context;
 import android.graphics.SurfaceTexture;
 import android.media.MediaFormat;
 import android.os.Bundle;
 import android.os.Handler;
-import android.os.HandlerThread;
 import android.view.Surface;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -50,7 +48,6 @@ import androidx.media3.common.Timeline;
 import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.exoplayer.analytics.AnalyticsListener;
-import androidx.media3.exoplayer.mediacodec.DefaultMediaCodecAdapterFactory;
 import androidx.media3.exoplayer.mediacodec.ForwardingMediaCodecAdapter;
 import androidx.media3.exoplayer.mediacodec.MediaCodecAdapter;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
@@ -67,6 +64,7 @@ import androidx.media3.test.utils.FakeTimeline;
 import androidx.media3.test.utils.FakeTimeline.TimelineWindowDefinition;
 import androidx.media3.test.utils.FakeVideoRenderer;
 import androidx.media3.test.utils.TestExoPlayerBuilder;
+import androidx.media3.test.utils.robolectric.IdlingMediaCodecAdapterFactory;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -569,21 +567,9 @@ public final class ExoPlayerScrubbingTest {
   public void dynamicSchedulingInScrubbingMode_renderCalledMoreFrequentlyThan10ms()
       throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
-    AtomicReference<HandlerThread> callbackThread = new AtomicReference<>();
-    AtomicReference<HandlerThread> queueingThread = new AtomicReference<>();
-    MediaCodecAdapter.Factory codecAdapterFactory =
-        new DefaultMediaCodecAdapterFactory(
-            context,
-            /* callbackThreadSupplier= */ () -> {
-              checkState(
-                  callbackThread.compareAndSet(null, new HandlerThread("TestCallbackThread")));
-              return callbackThread.get();
-            },
-            /* queueingThreadSupplier= */ () -> {
-              checkState(
-                  queueingThread.compareAndSet(null, new HandlerThread("TestQueueingThread")));
-              return queueingThread.get();
-            });
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
+    IdlingMediaCodecAdapterFactory codecAdapterFactory =
+        new IdlingMediaCodecAdapterFactory(context, clock);
     AtomicInteger renderCounter = new AtomicInteger();
     RenderersFactory renderersFactory =
         new DefaultRenderersFactory(context) {
@@ -610,7 +596,6 @@ public final class ExoPlayerScrubbingTest {
           }
         };
 
-    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     ExoPlayer player =
         new TestExoPlayerBuilder(context)
             .setRenderersFactory(renderersFactory)
@@ -633,12 +618,7 @@ public final class ExoPlayerScrubbingTest {
     player.seekTo(3950);
 
     advance(player)
-        .untilBackgroundThreadCondition(
-            () -> {
-              shadowOf(queueingThread.get().getLooper()).idle();
-              shadowOf(callbackThread.get().getLooper()).idle();
-              return clock.currentTimeMillis() - playerReadyTimeMs >= 500;
-            });
+        .untilBackgroundThreadCondition(() -> clock.currentTimeMillis() - playerReadyTimeMs >= 500);
 
     // With dynamic scheduling enabled, and lots of decoding work to do for the seeks, we should
     // be triggering the renderer more frequently than every 10ms.
@@ -651,21 +631,9 @@ public final class ExoPlayerScrubbingTest {
   @Test
   public void dynamicSchedulingDisabledInScrubbingMode_renderCalledEvery10ms() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
-    AtomicReference<HandlerThread> callbackThread = new AtomicReference<>();
-    AtomicReference<HandlerThread> queueingThread = new AtomicReference<>();
-    MediaCodecAdapter.Factory codecAdapterFactory =
-        new DefaultMediaCodecAdapterFactory(
-            context,
-            /* callbackThreadSupplier= */ () -> {
-              checkState(
-                  callbackThread.compareAndSet(null, new HandlerThread("TestCallbackThread")));
-              return callbackThread.get();
-            },
-            /* queueingThreadSupplier= */ () -> {
-              checkState(
-                  queueingThread.compareAndSet(null, new HandlerThread("TestQueueingThread")));
-              return queueingThread.get();
-            });
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
+    IdlingMediaCodecAdapterFactory codecAdapterFactory =
+        new IdlingMediaCodecAdapterFactory(context, clock);
     AtomicInteger renderCounter = new AtomicInteger();
     RenderersFactory renderersFactory =
         new DefaultRenderersFactory(context) {
@@ -692,7 +660,6 @@ public final class ExoPlayerScrubbingTest {
           }
         };
 
-    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     ExoPlayer player =
         new TestExoPlayerBuilder(context)
             .setRenderersFactory(renderersFactory)
@@ -717,12 +684,7 @@ public final class ExoPlayerScrubbingTest {
     player.seekTo(3950);
 
     advance(player)
-        .untilBackgroundThreadCondition(
-            () -> {
-              shadowOf(queueingThread.get().getLooper()).idle();
-              shadowOf(callbackThread.get().getLooper()).idle();
-              return clock.currentTimeMillis() - playerReadyTimeMs >= 500;
-            });
+        .untilBackgroundThreadCondition(() -> clock.currentTimeMillis() - playerReadyTimeMs >= 500);
 
     // Expect about one render call every 10ms.
     assertThat(renderCounter.get()).isWithin(5).of(50);
