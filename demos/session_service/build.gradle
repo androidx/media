@@ -68,7 +68,6 @@ protobuf {
 
 dependencies {
     implementation 'androidx.core:core-ktx:' + androidxCoreVersion
-    implementation 'androidx.appcompat:appcompat:' + androidxAppCompatVersion
     implementation 'androidx.datastore:datastore:1.1.5'
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-guava:1.9.0'
     implementation 'com.google.protobuf:protobuf-java:4.31.1'

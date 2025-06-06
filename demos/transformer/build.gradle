@@ -75,7 +75,6 @@ dependencies {
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
     implementation 'androidx.appcompat:appcompat:' + androidxAppCompatVersion
     implementation 'androidx.constraintlayout:constraintlayout:' + androidxConstraintLayoutVersion
-    implementation 'androidx.recyclerview:recyclerview:' + androidxRecyclerViewVersion
     implementation 'androidx.window:window:' + androidxWindowVersion
     implementation 'com.google.android.material:material:' + androidxMaterialVersion
     implementation project(modulePrefix + 'lib-effect')
