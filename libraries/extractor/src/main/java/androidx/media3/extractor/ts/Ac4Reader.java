@@ -19,6 +19,7 @@ import static androidx.media3.common.util.Assertions.checkState;
 import static java.lang.Math.min;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
+import android.media.AudioPresentation;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -37,6 +38,7 @@ import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import java.util.List;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
@@ -59,6 +61,7 @@ public final class Ac4Reader implements ElementaryStreamReader {
   @Nullable private final String language;
   private final @C.RoleFlags int roleFlags;
   private final String containerMimeType;
+  @Nullable private final List<AudioPresentation> audioPresentations;
 
   private @MonotonicNonNull String formatId;
   private @MonotonicNonNull TrackOutput output;
@@ -84,7 +87,7 @@ public final class Ac4Reader implements ElementaryStreamReader {
    * @param containerMimeType The MIME type of the container holding the stream.
    */
   public Ac4Reader(String containerMimeType) {
-    this(null, /* roleFlags= */ 0, containerMimeType);
+    this(null, /* roleFlags= */ 0, containerMimeType, null);
   }
 
   /**
@@ -93,9 +96,11 @@ public final class Ac4Reader implements ElementaryStreamReader {
    * @param language Track language.
    * @param roleFlags Track role flags.
    * @param containerMimeType The MIME type of the container holding the stream.
+   * @param audioPresentations Track audio presentations.
    */
   public Ac4Reader(
-      @Nullable String language, @C.RoleFlags int roleFlags, String containerMimeType) {
+      @Nullable String language, @C.RoleFlags int roleFlags, String containerMimeType,
+      @Nullable List<AudioPresentation> audioPresentations) {
     headerScratchBits = new ParsableBitArray(new byte[Ac4Util.HEADER_SIZE_FOR_PARSER]);
     headerScratchBytes = new ParsableByteArray(headerScratchBits.data);
     state = STATE_FINDING_SYNC;
@@ -106,6 +111,7 @@ public final class Ac4Reader implements ElementaryStreamReader {
     this.language = language;
     this.roleFlags = roleFlags;
     this.containerMimeType = containerMimeType;
+    this.audioPresentations = audioPresentations;
   }
 
   @Override
@@ -230,6 +236,7 @@ public final class Ac4Reader implements ElementaryStreamReader {
               .setSampleRate(frameInfo.sampleRate)
               .setLanguage(language)
               .setRoleFlags(roleFlags)
+              .setAudioPresentations(audioPresentations)
               .build();
       output.format(format);
     }
