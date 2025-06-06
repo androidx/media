@@ -876,12 +876,15 @@ public final class CompositionPlayer extends SimpleBasePlayer
       player.setPauseAtEndOfMediaItems(true);
 
       if (i == 0) {
-        setPrimaryPlayerSequence(player, editedMediaItemSequence);
+        player.setMediaSource(
+            createPrimarySequenceMediaSource(editedMediaItemSequence, mediaSourceFactory));
         if (pendingVideoFrameMetadatListener != null) {
           player.setVideoFrameMetadataListener(pendingVideoFrameMetadatListener);
         }
       } else {
-        setSecondaryPlayerSequence(player, editedMediaItemSequence, primarySequenceDurationUs);
+        player.setMediaSource(
+            createSecondarySequenceMediaSource(
+                editedMediaItemSequence, mediaSourceFactory, primarySequenceDurationUs));
       }
 
       if (i == 0) {
@@ -900,7 +903,8 @@ public final class CompositionPlayer extends SimpleBasePlayer
     }
   }
 
-  private void setPrimaryPlayerSequence(ExoPlayer player, EditedMediaItemSequence sequence) {
+  private static MediaSource createPrimarySequenceMediaSource(
+      EditedMediaItemSequence sequence, MediaSource.Factory mediaSourceFactory) {
     ConcatenatingMediaSource2.Builder mediaSourceBuilder = new ConcatenatingMediaSource2.Builder();
 
     for (int i = 0; i < sequence.editedMediaItems.size(); i++) {
@@ -917,7 +921,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
       mediaSourceBuilder.add(
           itemMediaSource, /* initialPlaceholderDurationMs= */ usToMs(durationUs));
     }
-    player.setMediaSource(mediaSourceBuilder.build());
+    return mediaSourceBuilder.build();
   }
 
   private static MediaSource createMediaSourceWithSilence(
@@ -937,11 +941,11 @@ public final class CompositionPlayer extends SimpleBasePlayer
     return new MergingMediaSource(mainMediaSource, silenceMediaSource);
   }
 
-  private void setSecondaryPlayerSequence(
-      ExoPlayer player, EditedMediaItemSequence sequence, long primarySequenceDurationUs) {
-
+  private static MediaSource createSecondarySequenceMediaSource(
+      EditedMediaItemSequence sequence,
+      MediaSource.Factory mediaSourceFactory,
+      long primarySequenceDurationUs) {
     ConcatenatingMediaSource2.Builder mediaSourceBuilder = new ConcatenatingMediaSource2.Builder();
-
     if (!sequence.isLooping) {
       for (int i = 0; i < sequence.editedMediaItems.size(); i++) {
         EditedMediaItem editedMediaItem = sequence.editedMediaItems.get(i);
@@ -950,8 +954,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
             /* initialPlaceholderDurationMs= */ usToMs(
                 editedMediaItem.getPresentationDurationUs()));
       }
-      player.setMediaSource(mediaSourceBuilder.build());
-      return;
+      return mediaSourceBuilder.build();
     }
 
     long accumulatedDurationUs = 0;
@@ -974,7 +977,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
       }
       i = (i + 1) % sequence.editedMediaItems.size();
     }
-    player.setMediaSource(mediaSourceBuilder.build());
+    return mediaSourceBuilder.build();
   }
 
   private static EditedMediaItem clipToDuration(EditedMediaItem editedMediaItem, long durationUs) {
@@ -995,7 +998,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
         .build();
   }
 
-  private MediaSource wrapWithVideoEffectsBasedMediaSources(
+  private static MediaSource wrapWithVideoEffectsBasedMediaSources(
       MediaSource mediaSource, ImmutableList<Effect> videoEffects, long durationUs) {
     MediaSource newMediaSource = mediaSource;
     for (Effect videoEffect : videoEffects) {
@@ -1010,7 +1013,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
     return newMediaSource;
   }
 
-  private MediaSource wrapWithSpeedChangingMediaSource(
+  private static MediaSource wrapWithSpeedChangingMediaSource(
       MediaSource mediaSource, SpeedProvider speedProvider, long durationUs) {
     return new WrappingMediaSource(mediaSource) {
 
