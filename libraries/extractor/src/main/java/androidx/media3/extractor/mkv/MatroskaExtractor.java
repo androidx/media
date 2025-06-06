@@ -46,6 +46,7 @@ import androidx.media3.container.NalUnitUtil;
 import androidx.media3.extractor.AacUtil;
 import androidx.media3.extractor.AvcConfig;
 import androidx.media3.extractor.ChunkIndex;
+import androidx.media3.extractor.DtsUtil;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.ExtractorOutput;
@@ -1564,6 +1565,53 @@ public class MatroskaExtractor implements Extractor {
       return finishWriteSampleData();
     }
 
+    if (CODEC_ID_DTS.equals(track.codecId) && !track.dtsAnalyzed) {
+      long remaining = input.getLength() - input.getPosition();
+      // Limit the peek ahead to be up to the max frame size (16383) plus the
+      // sync word of the second frame
+      int scanLength = (int)Math.min(16383 + 95, remaining);
+      byte[] buf = new byte[scanLength];
+      track.dtsAnalyzed = true;
+
+      input.advancePeekPosition(0);
+      input.peekFully(buf, 0, buf.length);
+      input.resetPeekPosition();
+
+      final ByteBuffer bb = ByteBuffer.wrap(buf);
+      for (int idx = 0; idx + 4 <= buf.length; idx += 4) {
+        int word = bb.getInt(idx);
+
+        if (DtsUtil.getFrameType(word) == DtsUtil.FRAME_TYPE_CORE) {
+          // header starts immediately after the 4‐byte sync
+          int headerStart = idx + 4;
+          if (headerStart + 10 > buf.length) {
+            break;
+          }
+
+          bb.mark();
+          bb.position(headerStart);
+          byte[] header = new byte[10];
+          bb.get(header);
+          bb.reset();
+          int fsize = DtsUtil.getDtsFrameSize(header);
+          if (fsize <= 0 || idx + fsize + 4 > buf.length) {
+            break;
+          }
+
+          word = bb.getInt(idx + fsize);
+
+          if (DtsUtil.getFrameType(word) == DtsUtil.FRAME_TYPE_EXTENSION_SUBSTREAM) {
+            track.formatBuilder.setSampleMimeType(MimeTypes.AUDIO_DTS_HD);
+            track.output.format(track.formatBuilder.build());
+          }
+
+          // After finding a valid DTS core frame we can break the loop, there is no
+          // need to evaluate the rest of the buffer.
+          break;
+        }
+      }
+   }
+
     TrackOutput output = track.output;
     if (!sampleEncodingHandled) {
       if (track.hasContentEncryption) {
@@ -2135,6 +2183,7 @@ public class MatroskaExtractor implements Extractor {
     public long codecDelayNs = 0;
     public long seekPreRollNs = 0;
     public @MonotonicNonNull TrueHdSampleRechunker trueHdSampleRechunker;
+    public boolean dtsAnalyzed = false;
 
     // Text elements.
     public boolean flagForced;
@@ -2143,6 +2192,7 @@ public class MatroskaExtractor implements Extractor {
 
     // Set when the output is initialized. nalUnitLengthFieldLength is only set for H264/H265.
     public @MonotonicNonNull TrackOutput output;
+    public Format.Builder formatBuilder;
     public int nalUnitLengthFieldLength;
 
     /** Initializes the track with an output. */
@@ -2369,7 +2419,7 @@ public class MatroskaExtractor implements Extractor {
       selectionFlags |= flagForced ? C.SELECTION_FLAG_FORCED : 0;
 
       int type;
-      Format.Builder formatBuilder = new Format.Builder();
+      formatBuilder = new Format.Builder();
       // TODO: Consider reading the name elements of the tracks and, if present, incorporating them
       // into the trackId passed when creating the formats.
       if (MimeTypes.isAudio(mimeType)) {
