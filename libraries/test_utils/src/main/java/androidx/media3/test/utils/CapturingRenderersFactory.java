@@ -32,6 +32,7 @@ import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.RenderersFactory;
 import androidx.media3.exoplayer.audio.AudioRendererEventListener;
 import androidx.media3.exoplayer.audio.MediaCodecAudioRenderer;
+import androidx.media3.exoplayer.image.BitmapFactoryImageDecoder;
 import androidx.media3.exoplayer.image.ImageDecoder;
 import androidx.media3.exoplayer.image.ImageOutput;
 import androidx.media3.exoplayer.image.ImageRenderer;
@@ -95,7 +96,7 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
     this.mediaCodecAdapterFactory = new CapturingMediaCodecAdapter.Factory(context);
     this.audioSink = capturingAudioSink;
     this.imageOutput = new CapturingImageOutput();
-    this.imageDecoderFactory = ImageDecoder.Factory.DEFAULT;
+    this.imageDecoderFactory = new BitmapFactoryImageDecoder.Factory(context);
     this.textRendererFactory = TextRenderer::new;
   }
 
@@ -109,6 +110,10 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
       ImageDecoder.Factory imageDecoderFactory) {
     this.imageDecoderFactory = imageDecoderFactory;
     return this;
+  }
+
+  protected final ImageDecoder.Factory getImageDecoderFactory() {
+    return imageDecoderFactory;
   }
 
   /**

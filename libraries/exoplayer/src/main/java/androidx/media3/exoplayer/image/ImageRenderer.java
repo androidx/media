@@ -481,6 +481,7 @@ public class ImageRenderer extends BaseRenderer {
             (inputBuffer.data != null && inputBuffer.data.remaining() > 0)
                 || checkStateNotNull(inputBuffer).isEndOfStream();
         if (shouldQueueBuffer) {
+          checkStateNotNull(inputBuffer).format = inputFormat;
           checkStateNotNull(decoder).queueInputBuffer(checkStateNotNull(inputBuffer));
           currentTileIndex = 0;
         }

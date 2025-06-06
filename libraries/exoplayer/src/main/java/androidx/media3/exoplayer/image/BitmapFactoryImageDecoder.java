@@ -197,9 +197,19 @@ public final class BitmapFactoryImageDecoder
           maxSize = maxOutputSize;
         } else if (context != null) {
           Point currentDisplayModeSize = Util.getCurrentDisplayModeSize(context);
-          // BitmapUtil.decode can only downscale in powers of 2, so nearly doubling the screen size
-          // ensures that an image is never downscaled to be smaller than the screen.
-          maxSize = max(currentDisplayModeSize.x, currentDisplayModeSize.y) * 2 - 1;
+          int maxWidth = currentDisplayModeSize.x;
+          int maxHeight = currentDisplayModeSize.y;
+          if (inputBuffer.format != null) {
+            if (inputBuffer.format.tileCountHorizontal != Format.NO_VALUE) {
+              maxWidth *= inputBuffer.format.tileCountHorizontal;
+            }
+            if (inputBuffer.format.tileCountVertical != Format.NO_VALUE) {
+              maxHeight *= inputBuffer.format.tileCountVertical;
+            }
+          }
+          // BitmapUtil.decode can only downscale in powers of 2, so nearly doubling the max size
+          // ensures that an image is never downscaled to be smaller than the max size.
+          maxSize = max(maxWidth, maxHeight) * 2 - 1;
         } else {
           // If we can't get the display size, fallback to a sensible default.
           maxSize = GlUtil.MAX_BITMAP_DECODING_SIZE;

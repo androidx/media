@@ -27,7 +27,6 @@ import androidx.media3.common.Player;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.audio.AudioRendererEventListener;
-import androidx.media3.exoplayer.image.ImageDecoder;
 import androidx.media3.exoplayer.image.ImageRenderer;
 import androidx.media3.exoplayer.metadata.MetadataOutput;
 import androidx.media3.exoplayer.text.TextOutput;
@@ -364,7 +363,7 @@ public class PrewarmingRendererPlaybackTest {
       if (renderer.getClass().getSuperclass() == MediaCodecVideoRenderer.class) {
         return createMediaCodecVideoRenderer(eventHandler, videoRendererEventListener);
       } else if (renderer.getClass() == ImageRenderer.class) {
-        return new ImageRenderer(ImageDecoder.Factory.DEFAULT, /* imageOutput= */ null);
+        return new ImageRenderer(getImageDecoderFactory(), /* imageOutput= */ null);
       }
       return null;
     }

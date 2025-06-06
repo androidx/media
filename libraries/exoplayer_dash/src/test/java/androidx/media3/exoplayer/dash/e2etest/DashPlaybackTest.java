@@ -70,6 +70,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
+import org.robolectric.annotation.Config;
 
 /** End-to-end tests using DASH samples. */
 @RunWith(AndroidJUnit4.class)
@@ -550,6 +551,9 @@ public final class DashPlaybackTest {
    * and not present some images. That will cause the test to fail.
    */
   @Test
+  // Set the screen size equal to the size of a single thumbnail, to check the whole grid is not
+  // scaled down to match the screen size.
+  @Config(qualifiers = "w256dp-h144dp")
   public void playThumbnailGrid() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
     CapturingRenderersFactory capturingRenderersFactory =
@@ -571,6 +575,9 @@ public final class DashPlaybackTest {
   }
 
   @Test
+  // Set the screen size equal to the size of a single thumbnail, to check the whole grid is not
+  // scaled down to match the screen size.
+  @Config(qualifiers = "w256dp-h144dp")
   public void playThumbnailGrid_withSeekAfterEoS() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
     CapturingRenderersFactory capturingRenderersFactory =
