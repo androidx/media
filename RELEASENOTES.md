@@ -10,6 +10,9 @@
     *   Enable dynamic scheduling by default in scrubbing mode.
     *   Avoid unnecessary reload of a source when seeking to the end of an item.
     *   Use `MediaCodec.BUFFER_FLAG_DECODE_ONLY` by default in scrubbing mode.
+    *   Throw `IllegalStateException` when `PreloadMediaSource` is played by an
+        `ExoPlayer` with a playback thread that is different than the preload
+        thread ([#2495](https://github.com/androidx/media/issues/2495)).
 *   Transformer:
     *   Add `CodecDbLite` that enables chipset specific optimizations of video
         encoding settings.

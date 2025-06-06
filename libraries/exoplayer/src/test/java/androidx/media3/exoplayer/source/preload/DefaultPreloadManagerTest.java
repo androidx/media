@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.source.preload;
 
+import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.test.utils.FakeMediaSourceFactory.DEFAULT_WINDOW_UID;
 import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLooperUntil;
 import static com.google.common.truth.Truth.assertThat;
@@ -338,10 +339,14 @@ public class DefaultPreloadManagerTest {
 
     PreloadMediaSource preloadMediaSource0 =
         (PreloadMediaSource) preloadManager.getMediaSource(mediaItem0);
-    preloadMediaSource0.prepareSource(
-        (source, timeline) -> {},
-        DefaultBandwidthMeter.getSingletonInstance(context).getTransferListener(),
-        PlayerId.UNSET);
+    Handler playbackHandler = new Handler(preloadThread.getLooper());
+    playbackHandler.post(
+        () ->
+            checkNotNull(preloadMediaSource0)
+                .prepareSource(
+                    (source, timeline) -> {},
+                    DefaultBandwidthMeter.getSingletonInstance(context).getTransferListener(),
+                    PlayerId.UNSET));
     wrappedMediaSource0.setAllowPreparation(true);
     wrappedMediaSource1.setAllowPreparation(true);
     shadowOf(preloadThread.getLooper()).idle();
@@ -662,13 +667,18 @@ public class DefaultPreloadManagerTest {
     assertThat(releasedPreloadingPeriodMediaIds).isEmpty();
 
     targetPreloadStatusControlCallStates.clear();
+    // Simulate that preloadMediaSource4 is using by the player.
     PreloadMediaSource preloadMediaSource4 =
         (PreloadMediaSource) preloadManager.getMediaSource(mediaItem4);
-    // Simulate that preloadMediaSource4 is using by the player.
-    preloadMediaSource4.prepareSource(
-        (source, timeline) -> {},
-        DefaultBandwidthMeter.getSingletonInstance(context).getTransferListener(),
-        PlayerId.UNSET);
+    Handler playbackHandler = new Handler(preloadThread.getLooper());
+    playbackHandler.post(
+        () ->
+            checkNotNull(preloadMediaSource4)
+                .prepareSource(
+                    (source, timeline) -> {},
+                    DefaultBandwidthMeter.getSingletonInstance(context).getTransferListener(),
+                    PlayerId.UNSET));
+    shadowOf(preloadThread.getLooper()).idle();
     currentPlayingIndex.set(4);
     preloadManager.setCurrentPlayingIndex(4);
 

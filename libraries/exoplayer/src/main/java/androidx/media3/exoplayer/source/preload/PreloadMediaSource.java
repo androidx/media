@@ -16,6 +16,7 @@
 package androidx.media3.exoplayer.source.preload;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.postOrRun;
 
 import android.os.Handler;
@@ -293,6 +294,7 @@ public final class PreloadMediaSource extends WrappingMediaSource {
 
   @Override
   protected void prepareSourceInternal() {
+    checkState(Looper.myLooper() == preloadHandler.getLooper());
     if (isUsedByPlayer() && !onUsedByPlayerNotified) {
       onUsedByPlayer();
     }

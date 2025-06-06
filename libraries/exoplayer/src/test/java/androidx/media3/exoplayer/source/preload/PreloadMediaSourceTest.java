@@ -17,6 +17,7 @@ package androidx.media3.exoplayer.source.preload;
 
 import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLooperUntil;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doAnswer;
@@ -27,6 +28,7 @@ import static org.mockito.Mockito.when;
 import static org.robolectric.Shadows.shadowOf;
 
 import android.net.Uri;
+import android.os.HandlerThread;
 import android.os.Looper;
 import android.util.Pair;
 import androidx.annotation.Nullable;
@@ -570,6 +572,60 @@ public final class PreloadMediaSourceTest {
     assertThat(preloadControl.onTrackSelectedCalled).isTrue();
     assertThat(preloadControl.onContinueLoadingRequestedCalled).isFalse();
     assertThat(preloadControl.onUsedByPlayerCalled).isFalse();
+  }
+
+  @Test
+  public void prepareSourceNotOnPreloadThread_beforePreloadCalled_throwsIllegalStateException() {
+    HandlerThread preloadThread = new HandlerThread("preload");
+    preloadThread.start();
+    TrackSelector trackSelector = new FakeTrackSelector();
+    trackSelector.init(() -> {}, bandwidthMeter);
+    PreloadMediaSource.Factory preloadMediaSourceFactory =
+        new PreloadMediaSource.Factory(
+            new FakeMediaSourceFactory(),
+            new TestPreloadControl(),
+            trackSelector,
+            bandwidthMeter,
+            getRendererCapabilities(renderersFactory),
+            allocator,
+            preloadThread.getLooper());
+    PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
+
+    assertThrows(
+        IllegalStateException.class,
+        () ->
+            preloadMediaSource.prepareSource(
+                (source, timeline) -> {}, bandwidthMeter.getTransferListener(), PlayerId.UNSET));
+
+    preloadThread.quit();
+  }
+
+  @Test
+  public void prepareSourceNotOnPreloadThread_afterPreloadCalled_throwsIllegalStateException() {
+    HandlerThread preloadThread = new HandlerThread("preload");
+    preloadThread.start();
+    TrackSelector trackSelector = new FakeTrackSelector();
+    trackSelector.init(() -> {}, bandwidthMeter);
+    PreloadMediaSource.Factory preloadMediaSourceFactory =
+        new PreloadMediaSource.Factory(
+            new FakeMediaSourceFactory(),
+            new TestPreloadControl(),
+            trackSelector,
+            bandwidthMeter,
+            getRendererCapabilities(renderersFactory),
+            allocator,
+            preloadThread.getLooper());
+    PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
+    preloadMediaSource.preload(/* startPositionUs= */ C.TIME_UNSET);
+    shadowOf(preloadThread.getLooper()).idle();
+
+    assertThrows(
+        IllegalStateException.class,
+        () ->
+            preloadMediaSource.prepareSource(
+                (source, timeline) -> {}, bandwidthMeter.getTransferListener(), PlayerId.UNSET));
+
+    preloadThread.quit();
   }
 
   @Test
