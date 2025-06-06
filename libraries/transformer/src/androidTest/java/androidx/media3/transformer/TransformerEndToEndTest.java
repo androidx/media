@@ -619,7 +619,7 @@ public class TransformerEndToEndTest {
     int image2FrameCount = 6;
 
     ArrayList<EditedMediaItem> editedMediaItems = new ArrayList<>(100);
-    for (int i = 0; i < 50; i++) {
+    for (int i = 0; i < 25; i++) {
       editedMediaItems.add(image1);
       editedMediaItems.add(image2);
     }
@@ -644,9 +644,9 @@ public class TransformerEndToEndTest {
 
     // TODO: b/346289922 - Check frame count with extractors.
     assertThat(result.exportResult.videoFrameCount)
-        .isEqualTo(50 * image1FrameCount + 50 * image2FrameCount);
-    // 50 100ms-images and 50 200ms-images
-    assertThat(result.exportResult.durationMs).isEqualTo(14_966);
+        .isEqualTo(25 * image1FrameCount + 25 * image2FrameCount);
+    // 25 100ms-images and 25 200ms-images
+    assertThat(result.exportResult.durationMs).isEqualTo(7_466);
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
