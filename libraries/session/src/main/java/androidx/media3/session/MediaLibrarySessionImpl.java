@@ -166,10 +166,10 @@ import java.util.concurrent.Future;
       if (!canResumePlaybackOnStart()) {
         return Futures.immediateFuture(LibraryResult.ofError(ERROR_NOT_SUPPORTED));
       }
-      // Advertise support for playback resumption. If STATE_IDLE, the request arrives at boot time
-      // to get the full item data to build a notification. If not STATE_IDLE we don't need to
-      // deliver the full media item, so we do the minimal viable effort.
-      return getPlayerWrapper().getPlaybackState() == Player.STATE_IDLE
+      // Advertise support for playback resumption. If we're not playing, the request probably
+      // arrived at boot time to get the full item data to build a notification. If we're playing,
+      // we don't need to deliver the full media item, so we do the minimal viable effort.
+      return !getPlayerWrapper().getPlayWhenReady()
           ? getRecentMediaItemAtDeviceBootTime(browser, params)
           : Futures.immediateFuture(
               LibraryResult.ofItemList(
@@ -470,7 +470,7 @@ import java.util.concurrent.Future;
             ? checkNotNull(getMediaNotificationControllerInfo())
             : controller;
     ListenableFuture<MediaSession.MediaItemsWithStartPosition> future =
-        callback.onPlaybackResumption(instance, controller);
+        callback.onPlaybackResumption(instance, controller, false);
     Futures.addCallback(
         future,
         new FutureCallback<MediaSession.MediaItemsWithStartPosition>() {
