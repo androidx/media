@@ -18,6 +18,7 @@ package androidx.media3.common.util;
 import static android.opengl.EGL14.EGL_CONTEXT_CLIENT_VERSION;
 import static android.opengl.GLU.gluErrorString;
 import static android.os.Build.VERSION.SDK_INT;
+import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkState;
 
@@ -38,6 +39,7 @@ import android.os.Build;
 import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
+import androidx.annotation.RestrictTo;
 import androidx.media3.common.C;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -62,6 +64,17 @@ public final class GlUtil {
 
   /** Number of elements in a 3d homogeneous coordinate vector describing a vertex. */
   public static final int HOMOGENEOUS_COORDINATE_VECTOR_SIZE = 4;
+
+  /**
+   * A max size to use when decoding bitmaps.
+   *
+   * <p>This should be large enough for most image to video transcode operations, and smaller than
+   * {@link GLES20#GL_MAX_TEXTURE_SIZE} for most devices.
+   */
+  // TODO: b/356072337 - Consider reading this from GL_MAX_TEXTURE_SIZE. This requires an active
+  //  OpenGL context.
+  @RestrictTo(LIBRARY_GROUP)
+  public static final int MAX_BITMAP_DECODING_SIZE = 4096;
 
   /** Length of the normalized device coordinate (NDC) space, which spans from -1 to 1. */
   public static final float LENGTH_NDC = 2f;

@@ -32,12 +32,14 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
+import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.BitmapUtil;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.decoder.SimpleDecoder;
 import androidx.media3.exoplayer.RendererCapabilities;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
@@ -77,20 +79,19 @@ public final class BitmapFactoryImageDecoder
     // zero-args constructor is removed.
     @Nullable private final Context context;
     @Nullable private final BitmapDecoder bitmapDecoder;
+    private int maxOutputSize;
 
     /**
      * @deprecated Use {@link Factory#Factory(Context)} instead.
      */
     @Deprecated
     public Factory() {
-      this.context = null;
-      this.bitmapDecoder = null;
+      this(/* context= */ null, /* bitmapDecoder= */ null);
     }
 
     /** Creates an instance. */
     public Factory(Context context) {
-      this.context = context;
-      this.bitmapDecoder = null;
+      this(context, /* bitmapDecoder= */ null);
     }
 
     /**
@@ -98,8 +99,29 @@ public final class BitmapFactoryImageDecoder
      */
     @Deprecated
     public Factory(BitmapDecoder bitmapDecoder) {
-      this.context = null;
+      this(/* context= */ null, bitmapDecoder);
+    }
+
+    private Factory(@Nullable Context context, @Nullable BitmapDecoder bitmapDecoder) {
+      this.context = context;
       this.bitmapDecoder = bitmapDecoder;
+      this.maxOutputSize = C.LENGTH_UNSET;
+    }
+
+    /**
+     * Sets the maximum size of {@link Bitmap} instances decoded by decoders produced by this
+     * factory.
+     *
+     * <p>This overrides any maximum size derived from the display via {@link Context}. Passing
+     * {@link C#LENGTH_UNSET} clears any max output size set.
+     *
+     * @return This factory, for convenience.
+     */
+    @CanIgnoreReturnValue
+    public Factory setMaxOutputSize(int maxOutputSize) {
+      checkArgument(maxOutputSize == C.LENGTH_UNSET || maxOutputSize > 0);
+      this.maxOutputSize = maxOutputSize;
+      return this;
     }
 
     @Override
@@ -114,18 +136,20 @@ public final class BitmapFactoryImageDecoder
 
     @Override
     public BitmapFactoryImageDecoder createImageDecoder() {
-      return new BitmapFactoryImageDecoder(context, bitmapDecoder);
+      return new BitmapFactoryImageDecoder(context, bitmapDecoder, maxOutputSize);
     }
   }
 
   @Nullable private final Context context;
   @Nullable private final BitmapDecoder bitmapDecoder;
+  private final int maxOutputSize;
 
   private BitmapFactoryImageDecoder(
-      @Nullable Context context, @Nullable BitmapDecoder bitmapDecoder) {
+      @Nullable Context context, @Nullable BitmapDecoder bitmapDecoder, int maxOutputSize) {
     super(new DecoderInputBuffer[1], new ImageOutputBuffer[1]);
     this.context = context;
     this.bitmapDecoder = bitmapDecoder;
+    this.maxOutputSize = maxOutputSize;
   }
 
   @Override
@@ -169,15 +193,16 @@ public final class BitmapFactoryImageDecoder
     } else {
       try {
         int maxSize;
-        if (context != null) {
+        if (this.maxOutputSize != C.LENGTH_UNSET) {
+          maxSize = maxOutputSize;
+        } else if (context != null) {
           Point currentDisplayModeSize = Util.getCurrentDisplayModeSize(context);
           // BitmapUtil.decode can only downscale in powers of 2, so nearly doubling the screen size
           // ensures that an image is never downscaled to be smaller than the screen.
           maxSize = max(currentDisplayModeSize.x, currentDisplayModeSize.y) * 2 - 1;
         } else {
-          // If we can't get the display size, limit the output size to 4k, which is large enough
-          // for most displays.
-          maxSize = 4096;
+          // If we can't get the display size, fallback to a sensible default.
+          maxSize = GlUtil.MAX_BITMAP_DECODING_SIZE;
         }
 
         outputBuffer.bitmap =

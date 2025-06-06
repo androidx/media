@@ -30,6 +30,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.common.util.Clock;
+import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DataSourceBitmapLoader;
 import androidx.media3.datasource.DefaultDataSource;
@@ -45,12 +46,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
 
   private static final String TAG = "DefaultAssetLoaderFact";
-
-  // Limit decoded images to 4096x4096 - should be large enough for most image to video
-  // transcode operations, and smaller than GL_MAX_TEXTURE_SIZE for most devices.
-  // TODO: b/356072337 - Consider reading this from GL_MAX_TEXTURE_SIZE. This requires an
-  //   active OpenGL context.
-  private static final int MAXIMUM_BITMAP_OUTPUT_DIMENSION = 4096;
 
   private final Context context;
   private final Codec.DecoderFactory decoderFactory;
@@ -100,7 +95,7 @@ public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
             MoreExecutors.listeningDecorator(Executors.newSingleThreadExecutor()),
             new DefaultDataSource.Factory(context),
             options,
-            MAXIMUM_BITMAP_OUTPUT_DIMENSION);
+            GlUtil.MAX_BITMAP_DECODING_SIZE);
   }
 
   /**

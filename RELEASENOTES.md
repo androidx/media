@@ -50,6 +50,9 @@
     *   Change the signature of
         `DefaultRenderersFactory.getImageDecoderFactory()` to take a `Context`
         parameter.
+    *   Align the max bitmap output size used in `CompositionPlayer` with that
+        already used in `Transformer` (meaning `CompositionPlayer` does not
+        consider the display size when decoding bitmaps, unlike `ExoPlayer`).
 *   DataSource:
 *   DRM:
 *   Effect:

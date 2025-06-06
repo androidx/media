@@ -90,6 +90,26 @@ public class BitmapFactoryImageDecoderTest {
   }
 
   @Test
+  @Config(qualifiers = "w320dp-h470dp")
+  public void decode_withExplicitMaxSize_ignoresScreenSize() throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    byte[] imageData = TestUtil.getByteArray(context, JPEG_TEST_IMAGE_PATH);
+
+    BitmapFactoryImageDecoder decoder =
+        new BitmapFactoryImageDecoder.Factory((Context) ApplicationProvider.getApplicationContext())
+            .setMaxOutputSize(2048)
+            .createImageDecoder();
+    inputBuffer.data = ByteBuffer.wrap(imageData);
+    assertThat(decoder.decode(inputBuffer, outputBuffer, /* reset= */ false)).isNull();
+    Bitmap bitmap = outputBuffer.bitmap;
+
+    // The downscaling only operates on powers of 2, so we just check it's smaller than the
+    // requested max, and larger than half that.
+    assertThat(bitmap.getHeight()).isGreaterThan(1024);
+    assertThat(bitmap.getHeight()).isLessThan(2048);
+  }
+
+  @Test
   // Configure a device with a screen large enough to display the test JPEG without downscaling,
   // so the Bitmap.sameAs test below passes.
   @Config(qualifiers = "w4500dp-h3200dp")

@@ -49,6 +49,7 @@ import androidx.media3.common.VideoGraph;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.audio.SpeedProvider;
 import androidx.media3.common.util.Clock;
+import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Size;
@@ -63,6 +64,7 @@ import androidx.media3.exoplayer.analytics.AnalyticsCollector;
 import androidx.media3.exoplayer.analytics.DefaultAnalyticsCollector;
 import androidx.media3.exoplayer.audio.AudioSink;
 import androidx.media3.exoplayer.audio.DefaultAudioSink;
+import androidx.media3.exoplayer.image.BitmapFactoryImageDecoder;
 import androidx.media3.exoplayer.image.ImageDecoder;
 import androidx.media3.exoplayer.source.ClippingMediaSource;
 import androidx.media3.exoplayer.source.ConcatenatingMediaSource2;
@@ -136,7 +138,9 @@ public final class CompositionPlayer extends SimpleBasePlayer
     public Builder(Context context) {
       this.context = context.getApplicationContext();
       mediaSourceFactory = new DefaultMediaSourceFactory(context);
-      imageDecoderFactory = ImageDecoder.Factory.DEFAULT;
+      imageDecoderFactory =
+          new BitmapFactoryImageDecoder.Factory(context)
+              .setMaxOutputSize(GlUtil.MAX_BITMAP_DECODING_SIZE);
       videoPrewarmingEnabled = true;
       clock = Clock.DEFAULT;
     }
@@ -191,7 +195,9 @@ public final class CompositionPlayer extends SimpleBasePlayer
      * Sets an {@link ImageDecoder.Factory} that will create the {@link ImageDecoder} instances to
      * decode images.
      *
-     * <p>By default, {@link ImageDecoder.Factory#DEFAULT} is used.
+     * <p>By default, an instance of {@link BitmapFactoryImageDecoder.Factory} is used, with a
+     * {@linkplain BitmapFactoryImageDecoder.Factory#setMaxOutputSize(int) max output size} set to
+     * be consistent with {@link Transformer}.
      *
      * @param imageDecoderFactory The {@link ImageDecoder.Factory}.
      * @return This builder, for convenience.
