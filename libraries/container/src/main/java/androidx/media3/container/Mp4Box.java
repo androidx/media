@@ -467,6 +467,15 @@ public abstract class Mp4Box {
   @SuppressWarnings("ConstantCaseForConstants")
   public static final int TYPE_axte = 0x61787465;
 
+  @SuppressWarnings({"ConstantCaseForConstants", "IdentifierName"})
+  public static final int TYPE_ipcm = 0x6970636d;
+
+  @SuppressWarnings({"ConstantCaseForConstants", "IdentifierName"})
+  public static final int TYPE_fpcm = 0x6670636d;
+
+  @SuppressWarnings({"ConstantCaseForConstants", "IdentifierName"})
+  public static final int TYPE_pcmC = 0x70636d43;
+
   public final int type;
 
   // private to only allow sub-classing from within this file.

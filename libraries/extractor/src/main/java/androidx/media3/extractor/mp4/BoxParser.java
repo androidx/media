@@ -19,6 +19,8 @@ import static androidx.media3.common.MimeTypes.getMimeTypeFromMp4ObjectType;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Util.castNonNull;
 import static java.lang.Math.max;
+import static java.nio.ByteOrder.BIG_ENDIAN;
+import static java.nio.ByteOrder.LITTLE_ENDIAN;
 
 import android.util.Pair;
 import androidx.annotation.Nullable;
@@ -1137,7 +1139,9 @@ public final class BoxParser {
           || childAtomType == Mp4Box.TYPE_ulaw
           || childAtomType == Mp4Box.TYPE_Opus
           || childAtomType == Mp4Box.TYPE_fLaC
-          || childAtomType == Mp4Box.TYPE_iamf) {
+          || childAtomType == Mp4Box.TYPE_iamf
+          || childAtomType == Mp4Box.TYPE_ipcm
+          || childAtomType == Mp4Box.TYPE_fpcm) {
         parseAudioSampleEntry(
             stsd,
             childAtomType,
@@ -2197,6 +2201,23 @@ public final class BoxParser {
         byte[] initializationDataBytes = new byte[configObusSize];
         parent.readBytes(initializationDataBytes, /* offset= */ 0, configObusSize);
         initializationData = ImmutableList.of(initializationDataBytes);
+      } else if (childAtomType == Mp4Box.TYPE_pcmC) {
+        // See ISO 23003-5 for the definition of the pcmC box.
+        parent.setPosition(childPosition + Mp4Box.FULL_HEADER_SIZE);
+        int formatFlags = parent.readUnsignedByte();
+        ByteOrder byteOrder = (formatFlags & 0x1) != 0 ? LITTLE_ENDIAN : BIG_ENDIAN;
+        int sampleSize = parent.readUnsignedByte();
+        if (atomType == Mp4Box.TYPE_ipcm) {
+          pcmEncoding = Util.getPcmEncoding(sampleSize, byteOrder);
+        } else if (atomType == Mp4Box.TYPE_fpcm
+            && sampleSize == 32
+            && byteOrder.equals(LITTLE_ENDIAN)) {
+          // Only single-width little-endian floating point PCM is supported.
+          pcmEncoding = C.ENCODING_PCM_FLOAT;
+        }
+        if (pcmEncoding != Format.NO_VALUE) {
+          mimeType = MimeTypes.AUDIO_RAW;
+        }
       }
       childPosition += childAtomSize;
     }

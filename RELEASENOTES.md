@@ -33,6 +33,8 @@
         ([#2456]()https://github.com/androidx/media/issues/2456).
     *   Update `WavExtractor` to use the header extension's SubFormat data for
         the audio format when parsing a `WAVE_FORMAT_EXTENSIBLE` type file.
+    *   MP4: Add support for `ipcm` and `fpcm` boxes defining raw PCM audio
+        tracks (64-bit floating point PCM is not supported).
 *   DataSource:
 *   Audio:
     *   Add support for all linear PCM sample formats in

@@ -38,6 +38,7 @@ import static androidx.media3.common.util.Assertions.checkNotNull;
 import static java.lang.Math.abs;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static java.nio.ByteOrder.LITTLE_ENDIAN;
 
 import android.Manifest.permission;
 import android.annotation.SuppressLint;
@@ -2220,7 +2221,7 @@ public final class Util {
   }
 
   /**
-   * Converts a sample bit depth to a corresponding PCM encoding constant.
+   * Converts a sample bit depth to a corresponding little-endian integer PCM encoding constant.
    *
    * @param bitDepth The bit depth. Supported values are 8, 16, 24 and 32.
    * @return The corresponding encoding. One of {@link C#ENCODING_PCM_8BIT}, {@link
@@ -2229,15 +2230,35 @@ public final class Util {
    */
   @UnstableApi
   public static @C.PcmEncoding int getPcmEncoding(int bitDepth) {
+    return getPcmEncoding(bitDepth, LITTLE_ENDIAN);
+  }
+
+  /**
+   * Converts a sample bit depth and byte order to a corresponding integer PCM encoding constant.
+   *
+   * @param bitDepth The bit depth. Supported values are 8, 16, 24 and 32.
+   * @param byteOrder The byte order.
+   * @return The corresponding integer PCM encoding. If the bit depth is unsupported then {@link
+   *     C#ENCODING_INVALID} is returned.
+   */
+  @UnstableApi
+  public static @C.PcmEncoding int getPcmEncoding(int bitDepth, ByteOrder byteOrder) {
     switch (bitDepth) {
       case 8:
+        // Byte order has no effect for single-byte encodings.
         return C.ENCODING_PCM_8BIT;
       case 16:
-        return C.ENCODING_PCM_16BIT;
+        return byteOrder.equals(LITTLE_ENDIAN)
+            ? C.ENCODING_PCM_16BIT
+            : C.ENCODING_PCM_16BIT_BIG_ENDIAN;
       case 24:
-        return C.ENCODING_PCM_24BIT;
+        return byteOrder.equals(LITTLE_ENDIAN)
+            ? C.ENCODING_PCM_24BIT
+            : C.ENCODING_PCM_24BIT_BIG_ENDIAN;
       case 32:
-        return C.ENCODING_PCM_32BIT;
+        return byteOrder.equals(LITTLE_ENDIAN)
+            ? C.ENCODING_PCM_32BIT
+            : C.ENCODING_PCM_32BIT_BIG_ENDIAN;
       default:
         return C.ENCODING_INVALID;
     }

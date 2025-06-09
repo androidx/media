@@ -271,6 +271,21 @@ public final class Mp4ExtractorParameterizedTest {
     assertExtractorBehavior("media/mp4/sample_with_btrt.mp4");
   }
 
+  @Test
+  public void mp4SampleWith24leIpcm() throws Exception {
+    assertExtractorBehavior("media/mp4/sample_ipcm_24le.mp4");
+  }
+
+  @Test
+  public void mp4SampleWith16beIpcm() throws Exception {
+    assertExtractorBehavior("media/mp4/sample_ipcm_16be.mp4");
+  }
+
+  @Test
+  public void mp4SampleWith32leFpcm() throws Exception {
+    assertExtractorBehavior("media/mp4/sample_fpcm_32le.mp4");
+  }
+
   private void assertExtractorBehavior(String file) throws IOException {
     ExtractorAsserts.AssertionConfig.Builder assertionConfigBuilder =
         new ExtractorAsserts.AssertionConfig.Builder();
