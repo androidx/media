@@ -255,7 +255,7 @@ public class EventLogger implements AnalyticsListener {
     ImmutableList<Tracks.Group> trackGroups = tracks.getGroups();
     for (int groupIndex = 0; groupIndex < trackGroups.size(); groupIndex++) {
       Tracks.Group trackGroup = trackGroups.get(groupIndex);
-      logd("  group [");
+      logd("  group [ id=" + trackGroup.getMediaTrackGroup().id);
       for (int trackIndex = 0; trackIndex < trackGroup.length; trackIndex++) {
         String status = getTrackStatusString(trackGroup.isTrackSelected(trackIndex));
         String formatSupport = getFormatSupportString(trackGroup.getTrackSupport(trackIndex));
