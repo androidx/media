@@ -13,6 +13,8 @@
     *   Throw `IllegalStateException` when `PreloadMediaSource` is played by an
         `ExoPlayer` with a playback thread that is different than the preload
         thread ([#2495](https://github.com/androidx/media/issues/2495)).
+    *   Add `cloneAndMove` to `ShuffleMode` with a default implementation
+        ([#2226](https://github.com/androidx/media/pull/2226)).
 *   Transformer:
     *   Add `CodecDbLite` that enables chipset specific optimizations of video
         encoding settings.
