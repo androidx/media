@@ -95,6 +95,9 @@
     *   Fix bug where track selection changes after loading low-latency parts
         and preload hints can cause playback to get stuck or freeze
         ([#2299](https://github.com/androidx/media/issues/2299)).
+    *   Group subtitle renditions by NAME tag, similar to how audio renditions
+        are grouped already
+        ([#1666](https://github.com/androidx/media/issues/1666)).
 *   DASH extension:
     *   Fix bug where shortening a DASH period duration can throw an exception
         when samples beyond the new duration have already been read by the

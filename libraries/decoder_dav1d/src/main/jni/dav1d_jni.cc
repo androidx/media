@@ -58,16 +58,16 @@
 #define LOGE(...) \
   ((void)__android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__))
 
-#define DECODER_FUNC(RETURN_TYPE, NAME, ...)                                 \
-  extern "C" {                                                               \
-  JNIEXPORT RETURN_TYPE                                                      \
-      Java_androidx_media3_decoder_dav1d_Dav1dDecoder_##NAME(JNIEnv* env,    \
-                                                             jobject thiz,   \
-                                                             ##__VA_ARGS__); \
-  }                                                                          \
-  JNIEXPORT RETURN_TYPE                                                      \
-      Java_androidx_media3_decoder_dav1d_Dav1dDecoder_##NAME(                \
-          JNIEnv* env, jobject thiz, ##__VA_ARGS__)
+#define DECODER_FUNC(RETURN_TYPE, NAME, ...)                             \
+  extern "C" {                                                           \
+  JNIEXPORT RETURN_TYPE                                                  \
+  Java_androidx_media3_decoder_dav1d_Dav1dDecoder_##NAME(JNIEnv* env,    \
+                                                         jobject thiz,   \
+                                                         ##__VA_ARGS__); \
+  }                                                                      \
+  JNIEXPORT RETURN_TYPE                                                  \
+  Java_androidx_media3_decoder_dav1d_Dav1dDecoder_##NAME(                \
+      JNIEnv* env, jobject thiz, ##__VA_ARGS__)
 
 // If ANDROID_NATIVE_LIB_MERGING is set, rename JNI_OnLoad to
 // JNI_OnLoad_libdav1dJNI. The suffix has to be the same as "lib<rule_name>"
