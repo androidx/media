@@ -542,8 +542,7 @@ import java.util.concurrent.ExecutionException;
                           connectionResult.availablePlayerCommands));
             }
             playerInfo = generateAndCacheUniqueTrackGroupIds(playerInfo);
-            Token platformToken =
-                (Token) sessionImpl.getSessionCompat().getSessionToken().getToken();
+            Token platformToken = sessionImpl.getPlatformToken();
             ConnectionState state =
                 new ConnectionState(
                     MediaLibraryInfo.VERSION_INT,

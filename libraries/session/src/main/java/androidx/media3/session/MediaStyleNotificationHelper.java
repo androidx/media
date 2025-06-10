@@ -190,13 +190,8 @@ public class MediaStyleNotificationHelper {
 
     @Override
     public void apply(NotificationBuilderWithBuilderAccessor builder) {
-      // Avoid ambiguity with androidx.media3.session.Session.Token
-      @SuppressWarnings("UnnecessarilyFullyQualified")
       Notification.MediaStyle style =
-          new Notification.MediaStyle()
-              .setMediaSession(
-                  (android.media.session.MediaSession.Token)
-                      session.getSessionCompat().getSessionToken().getToken());
+          new Notification.MediaStyle().setMediaSession(session.getPlatformToken());
       if (actionsToShowInCompact != null) {
         style.setShowActionsInCompactView(actionsToShowInCompact);
       }

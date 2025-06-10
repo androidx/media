@@ -44,6 +44,7 @@ import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Looper;
 import android.os.RemoteException;
 import android.support.v4.media.MediaDescriptionCompat;
 import android.support.v4.media.MediaMetadataCompat;
@@ -113,6 +114,16 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
         MediaSessionProviderService.KEY_ENABLE_FAKE_MEDIA_NOTIFICATION_MANAGER_CONTROLLER, true);
     session = new RemoteMediaSession(SESSION_ID, context, tokenExtras);
     controllerCompat = new MediaControllerCompat(context, session.getCompatToken());
+    CountDownLatch sessionReady = new CountDownLatch(1);
+    controllerCompat.registerCallback(
+        new MediaControllerCompat.Callback() {
+          @Override
+          public void onSessionReady() {
+            sessionReady.countDown();
+          }
+        },
+        new Handler(Looper.getMainLooper()));
+    sessionReady.await(TIMEOUT_MS, MILLISECONDS);
   }
 
   @After

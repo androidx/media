@@ -961,12 +961,17 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     sessionStub.connect(caller, controllerInfo);
   }
 
-  public MediaSessionCompat getSessionCompat() {
-    return sessionLegacyStub.getSessionCompat();
+  @SuppressWarnings("UnnecessarilyFullyQualified") // Avoiding confusion by just using "Token"
+  public android.media.session.MediaSession.Token getPlatformToken() {
+    return sessionLegacyStub.getSessionCompat().getSessionToken().getToken();
   }
 
   public void setLegacyControllerConnectionTimeoutMs(long timeoutMs) {
     sessionLegacyStub.setLegacyControllerDisconnectTimeoutMs(timeoutMs);
+  }
+
+  protected MediaSessionLegacyStub getMediaSessionLegacyStub() {
+    return sessionLegacyStub;
   }
 
   protected Context getContext() {
@@ -1028,7 +1033,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     synchronized (lock) {
       if (browserServiceLegacyStub == null) {
         browserServiceLegacyStub =
-            createLegacyBrowserService(instance.getSessionCompat().getSessionToken());
+            createLegacyBrowserService(sessionLegacyStub.getSessionCompat().getSessionToken());
       }
       legacyStub = browserServiceLegacyStub;
     }

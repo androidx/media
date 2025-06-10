@@ -25,6 +25,7 @@ import android.annotation.SuppressLint;
 import android.app.Notification;
 import android.content.Intent;
 import android.content.pm.ServiceInfo;
+import android.media.session.MediaSession.Token;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -291,8 +292,7 @@ import java.util.concurrent.TimeoutException;
       MediaNotification mediaNotification,
       boolean startInForegroundRequired) {
     // Call Notification.MediaStyle#setMediaSession() indirectly.
-    android.media.session.MediaSession.Token fwkToken =
-        session.getSessionCompat().getSessionToken().getToken();
+    Token fwkToken = session.getPlatformToken();
     mediaNotification.notification.extras.putParcelable(Notification.EXTRA_MEDIA_SESSION, fwkToken);
     this.mediaNotification = mediaNotification;
     if (startInForegroundRequired) {

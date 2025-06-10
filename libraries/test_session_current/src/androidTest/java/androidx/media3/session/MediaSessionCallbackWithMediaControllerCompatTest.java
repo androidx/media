@@ -853,8 +853,10 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             MediaSessionCompat.Token.fromToken(session.get().getPlatformToken()),
             /* waitForConnection= */ true);
     KeyEvent keyEvent = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY);
+    MediaSessionCompat.Token compatToken =
+        MediaSessionCompat.Token.fromToken(session.get().getPlatformToken());
 
-    session.get().getSessionCompat().getController().dispatchMediaButtonEvent(keyEvent);
+    new MediaControllerCompat(context, compatToken).dispatchMediaButtonEvent(keyEvent);
 
     player.awaitMethodCalled(MockPlayer.METHOD_PLAY, TIMEOUT_MS);
     assertThat(player.hasMethodBeenCalled(MockPlayer.METHOD_SET_MEDIA_ITEMS_WITH_START_INDEX))
@@ -885,8 +887,10 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
             /* waitForConnection= */ true);
     KeyEvent keyEvent = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY);
+    MediaSessionCompat.Token compatToken =
+        MediaSessionCompat.Token.fromToken(session.getPlatformToken());
 
-    session.getSessionCompat().getController().dispatchMediaButtonEvent(keyEvent);
+    new MediaControllerCompat(context, compatToken).dispatchMediaButtonEvent(keyEvent);
     player.awaitMethodCalled(MockPlayer.METHOD_PLAY, TIMEOUT_MS);
 
     assertThat(player.hasMethodBeenCalled(MockPlayer.METHOD_PREPARE)).isTrue();
@@ -911,8 +915,10 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
             /* waitForConnection= */ true);
     KeyEvent keyEvent = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY);
+    MediaSessionCompat.Token compatToken =
+        MediaSessionCompat.Token.fromToken(session.getPlatformToken());
 
-    session.getSessionCompat().getController().dispatchMediaButtonEvent(keyEvent);
+    new MediaControllerCompat(context, compatToken).dispatchMediaButtonEvent(keyEvent);
     player.awaitMethodCalled(MockPlayer.METHOD_PLAY, TIMEOUT_MS);
 
     assertThat(player.hasMethodBeenCalled(MockPlayer.METHOD_PREPARE)).isTrue();
@@ -952,8 +958,10 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
             /* waitForConnection= */ true);
     KeyEvent keyEvent = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY);
+    MediaSessionCompat.Token compatToken =
+        MediaSessionCompat.Token.fromToken(session.getPlatformToken());
 
-    session.getSessionCompat().getController().dispatchMediaButtonEvent(keyEvent);
+    new MediaControllerCompat(context, compatToken).dispatchMediaButtonEvent(keyEvent);
     player.awaitMethodCalled(MockPlayer.METHOD_PLAY, TIMEOUT_MS);
 
     assertThat(player.hasMethodBeenCalled(MockPlayer.METHOD_PREPARE)).isTrue();
@@ -1000,8 +1008,10 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
         .setConnectionHints(connectionHints)
         .buildAsync()
         .get();
+    MediaSessionCompat.Token compatToken =
+        MediaSessionCompat.Token.fromToken(session.get().getPlatformToken());
 
-    session.get().getSessionCompat().getController().dispatchMediaButtonEvent(keyEvent);
+    new MediaControllerCompat(context, compatToken).dispatchMediaButtonEvent(keyEvent);
 
     player.awaitMethodCalled(MockPlayer.METHOD_PLAY, TIMEOUT_MS);
     assertThat(player.hasMethodBeenCalled(MockPlayer.METHOD_SET_MEDIA_ITEMS_WITH_START_INDEX))
@@ -1042,8 +1052,10 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
             /* waitForConnection= */ true);
     KeyEvent keyEvent = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY);
+    MediaSessionCompat.Token compatToken =
+        MediaSessionCompat.Token.fromToken(session.getPlatformToken());
 
-    session.getSessionCompat().getController().dispatchMediaButtonEvent(keyEvent);
+    new MediaControllerCompat(context, compatToken).dispatchMediaButtonEvent(keyEvent);
     player.awaitMethodCalled(MockPlayer.METHOD_PLAY, TIMEOUT_MS);
 
     assertThat(player.hasMethodBeenCalled(MockPlayer.METHOD_PREPARE)).isTrue();
@@ -1074,8 +1086,10 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             context,
             MediaSessionCompat.Token.fromToken(session.get().getPlatformToken()),
             /* waitForConnection= */ true);
+    MediaSessionCompat.Token compatToken =
+        MediaSessionCompat.Token.fromToken(session.get().getPlatformToken());
 
-    session.get().getSessionCompat().getController().dispatchMediaButtonEvent(keyEvent);
+    new MediaControllerCompat(context, compatToken).dispatchMediaButtonEvent(keyEvent);
     player.awaitMethodCalled(MockPlayer.METHOD_PLAY, TIMEOUT_MS);
 
     assertThat(player.hasMethodBeenCalled(MockPlayer.METHOD_PREPARE)).isTrue();
@@ -1116,8 +1130,10 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             context,
             MediaSessionCompat.Token.fromToken(session.get().getPlatformToken()),
             /* waitForConnection= */ true);
+    MediaSessionCompat.Token compatToken =
+        MediaSessionCompat.Token.fromToken(session.get().getPlatformToken());
 
-    session.get().getSessionCompat().getController().dispatchMediaButtonEvent(keyEvent);
+    new MediaControllerCompat(context, compatToken).dispatchMediaButtonEvent(keyEvent);
 
     player.awaitMethodCalled(MockPlayer.METHOD_PLAY, TIMEOUT_MS);
     assertThat(player.mediaItems).hasSize(3);

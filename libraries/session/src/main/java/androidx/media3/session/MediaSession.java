@@ -61,7 +61,6 @@ import androidx.media3.datasource.DataSourceBitmapLoader;
 import androidx.media3.session.MediaLibraryService.LibraryParams;
 import androidx.media3.session.MediaLibraryService.MediaLibrarySession;
 import androidx.media3.session.legacy.MediaControllerCompat;
-import androidx.media3.session.legacy.MediaSessionCompat;
 import androidx.media3.session.legacy.MediaSessionManager.RemoteUserInfo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Longs;
@@ -1373,10 +1372,6 @@ public class MediaSession {
     impl.sendError(sessionError);
   }
 
-  /* package */ final MediaSessionCompat getSessionCompat() {
-    return impl.getSessionCompat();
-  }
-
   /**
    * Returns the platform {@link android.media.session.MediaSession.Token} of the {@link
    * android.media.session.MediaSession} created internally by this session.
@@ -1384,8 +1379,7 @@ public class MediaSession {
   @SuppressWarnings("UnnecessarilyFullyQualified") // Avoiding clash with Media3 token.
   @UnstableApi
   public final android.media.session.MediaSession.Token getPlatformToken() {
-    return (android.media.session.MediaSession.Token)
-        impl.getSessionCompat().getSessionToken().getToken();
+    return impl.getPlatformToken();
   }
 
   /**

@@ -85,6 +85,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.RemoteException;
+import android.support.v4.media.session.MediaSessionCompat;
 import android.text.TextUtils;
 import androidx.annotation.Nullable;
 import androidx.media3.common.AudioAttributes;
@@ -487,7 +488,7 @@ public class MediaSessionProviderService extends Service {
       return runOnHandler(
           () -> {
             MediaSession session = sessionMap.get(sessionId);
-            return session.getSessionCompat().getSessionToken().toBundle();
+            return MediaSessionCompat.Token.fromToken(session.getPlatformToken()).toBundle();
           });
     }
 

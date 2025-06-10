@@ -131,7 +131,7 @@ import java.util.concurrent.Future;
     PlayerWrapper playerWrapper = getPlayerWrapper();
     if (playerWrapper.getLegacyError() != null) {
       playerWrapper.clearLegacyErrorStatus();
-      getSessionCompat().setPlaybackState(playerWrapper.createPlaybackStateCompat());
+      getMediaSessionLegacyStub().updateLegacySessionPlaybackState(playerWrapper);
     }
   }
 
@@ -383,7 +383,7 @@ import java.util.concurrent.Future;
     PlayerWrapper playerWrapper = getPlayerWrapper();
     if (setLegacyErrorState(result)) {
       // Sync playback state if legacy error state changed.
-      getSessionCompat().setPlaybackState(playerWrapper.createPlaybackStateCompat());
+      getMediaSessionLegacyStub().updateLegacySessionPlaybackState(playerWrapper);
     } else if (result.resultCode == RESULT_SUCCESS) {
       clearReplicatedLibraryError();
     }
