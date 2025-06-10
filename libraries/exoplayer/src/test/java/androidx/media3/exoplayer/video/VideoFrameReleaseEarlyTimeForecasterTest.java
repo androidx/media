@@ -28,6 +28,7 @@ import org.junit.runner.RunWith;
 public class VideoFrameReleaseEarlyTimeForecasterTest {
 
   @Test
+  @SuppressWarnings("Range") // Deliberately testing invalid value
   public void predictEarlyUs_withNonPositiveSpeed_throws() {
     assertThrows(
         IllegalArgumentException.class,
