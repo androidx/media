@@ -349,7 +349,7 @@ public final class DefaultAudioSinkTest {
         .isEqualTo(SINK_FORMAT_SUPPORTED_WITH_TRANSCODING);
   }
 
-  @Config(minSdk = 21)
+  @Config(minSdk = Config.OLDEST_SDK)
   @Test
   public void floatOutputSupportedIfFloatOutputEnabledFromApi21() {
     defaultAudioSink = new DefaultAudioSink.Builder().setEnableFloatOutput(true).build();
@@ -488,7 +488,8 @@ public final class DefaultAudioSinkTest {
   }
 
   @Test
-  @Config(minSdk = 21) // AudioManager.ACTION_HDMI_AUDIO_PLUG is supported from API 21.
+  @Config(
+      minSdk = Config.OLDEST_SDK) // AudioManager.ACTION_HDMI_AUDIO_PLUG is supported from API 21.
   public void hdmiDeviceAddedAndRemoved_audioCapabilitiesUpdated() {
     // Set UI mode to TV.
     getShadowUiModeManager().currentModeType = Configuration.UI_MODE_TYPE_TELEVISION;
@@ -688,7 +689,8 @@ public final class DefaultAudioSinkTest {
   }
 
   @Test
-  @Config(minSdk = 21) // AudioManager.ACTION_HDMI_AUDIO_PLUG is supported from API 21.
+  @Config(
+      minSdk = Config.OLDEST_SDK) // AudioManager.ACTION_HDMI_AUDIO_PLUG is supported from API 21.
   public void afterRelease_hdmiDeviceAdded_audioCapabilitiesShouldNotBeUpdated() {
     // Set UI mode to TV.
     getShadowUiModeManager().currentModeType = Configuration.UI_MODE_TYPE_TELEVISION;
