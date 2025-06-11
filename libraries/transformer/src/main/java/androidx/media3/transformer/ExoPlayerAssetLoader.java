@@ -353,7 +353,7 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
                 assetLoaderListener,
                 logSessionId));
       }
-      return renderers.toArray(new Renderer[renderers.size()]);
+      return renderers.toArray(new Renderer[0]);
     }
   }
 

@@ -17,7 +17,6 @@ package androidx.media3.common.util;
 
 import static androidx.media3.test.utils.TestUtil.createByteArray;
 import static com.google.common.truth.Truth.assertThat;
-import static java.nio.charset.Charset.forName;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.nio.charset.StandardCharsets.UTF_16;
 import static java.nio.charset.StandardCharsets.UTF_16BE;
@@ -30,6 +29,7 @@ import androidx.media3.test.utils.TestUtil;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.primitives.Bytes;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -466,7 +466,7 @@ public final class ParsableByteArrayTest {
     byte[] data = new byte[] {'t', 'e', 's', 't'};
     ParsableByteArray testArray = new ParsableByteArray(data);
 
-    assertThat(testArray.readString(data.length, forName("US-ASCII"))).isEqualTo("test");
+    assertThat(testArray.readString(data.length, StandardCharsets.US_ASCII)).isEqualTo("test");
     assertThat(testArray.getPosition()).isEqualTo(data.length);
   }
 

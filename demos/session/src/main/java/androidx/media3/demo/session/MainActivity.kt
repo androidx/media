@@ -175,7 +175,7 @@ class MainActivity : AppCompatActivity() {
 
   private fun popPathStack() {
     treePathStack.removeLast()
-    if (treePathStack.size == 0) {
+    if (treePathStack.isEmpty()) {
       finish()
       return
     }

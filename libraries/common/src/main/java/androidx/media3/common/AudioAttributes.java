@@ -276,7 +276,6 @@ public final class AudioAttributes {
     }
     return builder.build();
   }
-  ;
 
   @RequiresApi(29)
   private static final class Api29 {

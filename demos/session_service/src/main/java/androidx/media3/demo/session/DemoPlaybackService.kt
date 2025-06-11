@@ -161,11 +161,9 @@ open class DemoPlaybackService : MediaLibraryService() {
           // The media session always supports skip, except at the start and end of the playlist.
           // Reserve the space for the skip action in these cases to avoid custom actions jumping
           // around when the user skips.
-          mediaLibrarySession.setSessionExtras(
-            bundleOf(
-              MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV to true,
-              MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_NEXT to true,
-            )
+          mediaLibrarySession.sessionExtras = bundleOf(
+            MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_PREV to true,
+            MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_NEXT to true,
           )
         }
   }
