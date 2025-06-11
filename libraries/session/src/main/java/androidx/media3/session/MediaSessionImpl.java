@@ -223,11 +223,25 @@ import org.checkerframework.checker.initialization.qual.Initialized;
             .appendPath(String.valueOf(SystemClock.elapsedRealtime()))
             .build();
 
+    // For MediaSessionLegacyStub, use the same default commands as the proxy controller gets when
+    // the app doesn't overrides the default commands in `onConnect`. When the default is overridden
+    // by the app in `onConnect`, the default set here will be overridden with these values.
+    MediaSession.ConnectionResult connectionResult =
+        new MediaSession.ConnectionResult.AcceptedResultBuilder(instance).build();
     sessionLegacyStub =
         new MediaSessionLegacyStub(
-            /* session= */ thisRef, sessionUri, applicationHandler, tokenExtras);
+            /* session= */ thisRef,
+            sessionUri,
+            applicationHandler,
+            tokenExtras,
+            playIfSuppressed,
+            customLayout,
+            mediaButtonPreferences,
+            connectionResult.availableSessionCommands,
+            connectionResult.availablePlayerCommands,
+            sessionExtras);
 
-    Token platformToken = (Token) sessionLegacyStub.getSessionCompat().getSessionToken().getToken();
+    Token platformToken = sessionLegacyStub.getSessionCompat().getSessionToken().getToken();
     sessionToken =
         new SessionToken(
             Process.myUid(),
@@ -239,22 +253,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
             tokenExtras,
             platformToken);
 
-    // For PlayerWrapper, use the same default commands as the proxy controller gets when the app
-    // doesn't overrides the default commands in `onConnect`. When the default is overridden by the
-    // app in `onConnect`, the default set here will be overridden with these values.
-    MediaSession.ConnectionResult connectionResult =
-        new MediaSession.ConnectionResult.AcceptedResultBuilder(instance).build();
-    PlayerWrapper playerWrapper =
-        new PlayerWrapper(
-            player,
-            playIfSuppressed,
-            customLayout,
-            mediaButtonPreferences,
-            connectionResult.availableSessionCommands,
-            connectionResult.availablePlayerCommands,
-            /* playbackException= */ null,
-            /* playerCommandsForErrorState= */ null,
-            sessionExtras);
+    PlayerWrapper playerWrapper = new PlayerWrapper(player);
     this.playerWrapper = playerWrapper;
     postOrRun(
         applicationHandler,
@@ -272,18 +271,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     if (player == playerWrapper.getWrappedPlayer()) {
       return;
     }
-    setPlayerInternal(
-        /* oldPlayerWrapper= */ playerWrapper,
-        new PlayerWrapper(
-            player,
-            playIfSuppressed,
-            playerWrapper.getCustomLayout(),
-            playerWrapper.getMediaButtonPreferences(),
-            playerWrapper.getAvailableSessionCommands(),
-            playerWrapper.getAvailablePlayerCommands(),
-            playerWrapper.getPlaybackException(),
-            playerWrapper.getAvailablePlayerCommandsForErrorState(),
-            playerWrapper.getLegacyExtras()));
+    setPlayerInternal(/* oldPlayerWrapper= */ playerWrapper, new PlayerWrapper(player));
   }
 
   private void setPlayerInternal(
@@ -505,7 +493,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   public ListenableFuture<SessionResult> setCustomLayout(
       ControllerInfo controller, ImmutableList<CommandButton> customLayout) {
     if (isMediaNotificationController(controller)) {
-      playerWrapper.setCustomLayout(customLayout);
+      sessionLegacyStub.setPlatformCustomLayout(customLayout);
       sessionLegacyStub.updateLegacySessionPlaybackState(playerWrapper);
     }
     return dispatchRemoteControllerTask(
@@ -515,7 +503,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   /** Sets the custom layout of the session and sends the custom layout to all controllers. */
   public void setCustomLayout(ImmutableList<CommandButton> customLayout) {
     this.customLayout = customLayout;
-    playerWrapper.setCustomLayout(customLayout);
+    sessionLegacyStub.setPlatformCustomLayout(customLayout);
     dispatchRemoteControllerTaskWithoutReturn(
         (controller, seq) -> controller.setCustomLayout(seq, customLayout));
   }
@@ -530,7 +518,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   public ListenableFuture<SessionResult> setMediaButtonPreferences(
       ControllerInfo controller, ImmutableList<CommandButton> mediaButtonPreferences) {
     if (isMediaNotificationController(controller)) {
-      setLegacyMediaButtonPreferences(mediaButtonPreferences);
+      sessionLegacyStub.setPlatformMediaButtonPreferences(mediaButtonPreferences);
       sessionLegacyStub.updateLegacySessionPlaybackState(playerWrapper);
     }
     return dispatchRemoteControllerTask(
@@ -544,7 +532,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
    */
   public void setMediaButtonPreferences(ImmutableList<CommandButton> mediaButtonPreferences) {
     this.mediaButtonPreferences = mediaButtonPreferences;
-    setLegacyMediaButtonPreferences(mediaButtonPreferences);
+    sessionLegacyStub.setPlatformMediaButtonPreferences(mediaButtonPreferences);
     dispatchRemoteControllerTaskWithoutReturn(
         (controller, seq) -> controller.setMediaButtonPreferences(seq, mediaButtonPreferences));
   }
@@ -563,15 +551,11 @@ import org.checkerframework.checker.initialization.qual.Initialized;
             ? controllerManager.getAvailablePlayerCommands(controllerInfo)
             : controllerManager.getPlayerCommandsBeforePlaybackException(controllerInfo);
     if (isMediaNotificationController(controllerInfo)) {
-      playerWrapper.setPlaybackException(
+      sessionLegacyStub.setPlaybackException(
           playbackException,
           playbackException != null
               ? createPlayerCommandsForCustomErrorState(originalPlayerCommands)
               : null);
-      if (playbackException != null) {
-        sessionLegacyStub.updateLegacySessionPlaybackState(playerWrapper);
-        sessionLegacyStub.maybeUpdateFlags(playerWrapper);
-      }
     }
     Player.Commands commands =
         playbackException != null
@@ -687,7 +671,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       ControllerInfo controller, SessionCommands sessionCommands, Player.Commands playerCommands) {
     if (sessionStub.getConnectedControllersManager().isConnected(controller)) {
       if (isMediaNotificationController(controller)) {
-        setAvailableFrameworkControllerCommands(sessionCommands, playerCommands);
+        sessionLegacyStub.setAvailableCommands(sessionCommands, playerCommands);
         ControllerInfo systemUiControllerInfo = getSystemUiControllerInfo();
         if (systemUiControllerInfo != null) {
           // Set the available commands of the proxy controller to the ConnectedControllerRecord of
@@ -848,12 +832,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   public MediaSession.ConnectionResult onConnectOnHandler(ControllerInfo controller) {
     if (isMediaNotificationControllerConnected && isSystemUiController(controller)) {
       // Hide System UI and provide the connection result from the `PlayerWrapper` state.
-      return new MediaSession.ConnectionResult.AcceptedResultBuilder(instance)
-          .setAvailableSessionCommands(playerWrapper.getAvailableSessionCommands())
-          .setAvailablePlayerCommands(playerWrapper.getAvailablePlayerCommands())
-          .setCustomLayout(playerWrapper.getCustomLayout())
-          .setMediaButtonPreferences(playerWrapper.getMediaButtonPreferences())
-          .build();
+      return sessionLegacyStub.getPlatformConnectionResult(instance);
     }
     MediaSession.ConnectionResult connectionResult =
         checkNotNull(
@@ -866,14 +845,14 @@ import org.checkerframework.checker.initialization.qual.Initialized;
               ? connectionResult.mediaButtonPreferences
               : instance.getMediaButtonPreferences();
       if (mediaButtonPreferences.isEmpty()) {
-        playerWrapper.setCustomLayout(
+        sessionLegacyStub.setPlatformCustomLayout(
             connectionResult.customLayout != null
                 ? connectionResult.customLayout
                 : instance.getCustomLayout());
       } else {
-        setLegacyMediaButtonPreferences(mediaButtonPreferences);
+        sessionLegacyStub.setPlatformMediaButtonPreferences(mediaButtonPreferences);
       }
-      setAvailableFrameworkControllerCommands(
+      sessionLegacyStub.setAvailableCommands(
           connectionResult.availableSessionCommands, connectionResult.availablePlayerCommands);
     }
     return connectionResult;
@@ -1183,33 +1162,6 @@ import org.checkerframework.checker.initialization.qual.Initialized;
             }
           },
           this::postOrRunOnApplicationHandler);
-    }
-  }
-
-  private void setLegacyMediaButtonPreferences(
-      ImmutableList<CommandButton> mediaButtonPreferences) {
-    boolean extrasChanged = playerWrapper.setMediaButtonPreferences(mediaButtonPreferences);
-    if (extrasChanged) {
-      sessionLegacyStub.getSessionCompat().setExtras(playerWrapper.getLegacyExtras());
-    }
-  }
-
-  private void setAvailableFrameworkControllerCommands(
-      SessionCommands sessionCommands, Player.Commands playerCommands) {
-    if (playerWrapper.isInCustomPlaybackExceptionState()) {
-      return;
-    }
-    boolean commandGetTimelineChanged =
-        playerWrapper.getAvailablePlayerCommands().contains(Player.COMMAND_GET_TIMELINE)
-            != playerCommands.contains(Player.COMMAND_GET_TIMELINE);
-    boolean extrasChanged = playerWrapper.setAvailableCommands(sessionCommands, playerCommands);
-    if (extrasChanged) {
-      sessionLegacyStub.getSessionCompat().setExtras(playerWrapper.getLegacyExtras());
-    }
-    if (commandGetTimelineChanged) {
-      sessionLegacyStub.updateLegacySessionPlaybackStateAndQueue(playerWrapper);
-    } else {
-      sessionLegacyStub.updateLegacySessionPlaybackState(playerWrapper);
     }
   }
 
