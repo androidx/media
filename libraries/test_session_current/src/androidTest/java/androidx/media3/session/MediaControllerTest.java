@@ -2875,9 +2875,6 @@ public class MediaControllerTest {
       remoteSession.getMockPlayer().setCurrentMediaItemIndex(i - 1);
       remoteSession
           .getMockPlayer()
-          .notifyTimelineChanged(Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);
-      remoteSession
-          .getMockPlayer()
           .notifyMediaItemTransition(
               /* index= */ i - 1, Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED);
     }

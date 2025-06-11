@@ -96,7 +96,7 @@ public class PlayerWrapperTest {
   }
 
   @Test
-  public void createSessionPositionInfoForBundling() {
+  public void createSessionPositionInfo() {
     int testAdGroupIndex = 12;
     int testAdIndexInAdGroup = 99;
     boolean testIsPlayingAd = true;
@@ -126,7 +126,7 @@ public class PlayerWrapperTest {
     when(player.getCurrentMediaItemIndex()).thenReturn(testmediaItemIndex);
     when(player.getCurrentPeriodIndex()).thenReturn(testPeriodIndex);
 
-    SessionPositionInfo sessionPositionInfo = playerWrapper.createSessionPositionInfoForBundling();
+    SessionPositionInfo sessionPositionInfo = playerWrapper.createSessionPositionInfo();
 
     assertThat(sessionPositionInfo.positionInfo.positionMs).isEqualTo(testCurrentPositionMs);
     assertThat(sessionPositionInfo.positionInfo.contentPositionMs).isEqualTo(testContentPositionMs);

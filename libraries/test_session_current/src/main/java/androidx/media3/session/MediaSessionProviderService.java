@@ -1162,6 +1162,7 @@ public class MediaSessionProviderService extends Service {
             player.mediaItems.clear();
             player.mediaItems.addAll(mediaItems);
             player.timeline = new PlaylistTimeline(mediaItems);
+            player.notifyTimelineChanged(Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);
           });
     }
 

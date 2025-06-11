@@ -847,11 +847,11 @@ import java.util.List;
   }
 
   /**
-   * Creates a {@link PositionInfo} of this player for Bundling.
+   * Creates a {@link PositionInfo} of this player.
    *
    * <p>This excludes window uid and period uid that wouldn't be preserved when bundling.
    */
-  public PositionInfo createPositionInfoForBundling() {
+  public PositionInfo createPositionInfo() {
     boolean canAccessCurrentMediaItem = isCommandAvailable(COMMAND_GET_CURRENT_MEDIA_ITEM);
     boolean canAccessTimeline = isCommandAvailable(COMMAND_GET_TIMELINE);
     return new PositionInfo(
@@ -867,14 +867,14 @@ import java.util.List;
   }
 
   /**
-   * Creates a {@link SessionPositionInfo} of this player for Bundling.
+   * Creates a {@link SessionPositionInfo} of this player.
    *
    * <p>This excludes window uid and period uid that wouldn't be preserved when bundling.
    */
-  public SessionPositionInfo createSessionPositionInfoForBundling() {
+  public SessionPositionInfo createSessionPositionInfo() {
     boolean canAccessCurrentMediaItem = isCommandAvailable(COMMAND_GET_CURRENT_MEDIA_ITEM);
     return new SessionPositionInfo(
-        createPositionInfoForBundling(),
+        createPositionInfo(),
         canAccessCurrentMediaItem && isPlayingAd(),
         /* eventTimeMs= */ SystemClock.elapsedRealtime(),
         canAccessCurrentMediaItem ? getDuration() : C.TIME_UNSET,
@@ -886,13 +886,17 @@ import java.util.List;
         canAccessCurrentMediaItem ? getContentBufferedPosition() : 0);
   }
 
-  public PlayerInfo createPlayerInfoForBundling() {
+  /**
+   * Creates the initial {@link PlayerInfo} from this player, filling in defaults for fields that
+   * can't be obtained from the player directly (e.g. change reasons).
+   */
+  public PlayerInfo createInitialPlayerInfo() {
     return new PlayerInfo(
         getPlayerError(),
         PlayerInfo.MEDIA_ITEM_TRANSITION_REASON_DEFAULT,
-        createSessionPositionInfoForBundling(),
-        createPositionInfoForBundling(),
-        createPositionInfoForBundling(),
+        createSessionPositionInfo(),
+        createPositionInfo(),
+        createPositionInfo(),
         PlayerInfo.DISCONTINUITY_REASON_DEFAULT,
         getPlaybackParameters(),
         getRepeatMode(),

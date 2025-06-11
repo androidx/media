@@ -1423,9 +1423,6 @@ public class MediaControllerListenerTest {
     int windowCount = 5_000;
 
     remoteSession.getMockPlayer().createAndSetFakeTimeline(windowCount);
-    remoteSession
-        .getMockPlayer()
-        .notifyTimelineChanged(Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);
 
     assertThat(latch.await(LONG_TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(timelineFromParamRef.get().getWindowCount()).isEqualTo(windowCount);
@@ -1937,7 +1934,10 @@ public class MediaControllerListenerTest {
     int testSuppressionReason = Player.PLAYBACK_SUPPRESSION_REASON_NONE;
     remoteSession
         .getMockPlayer()
-        .setPlayWhenReady(false, Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS);
+        .notifyPlayWhenReadyChanged(
+            /* playWhenReady= */ false,
+            Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
+            Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS);
     MediaController controller = controllerTestRule.createController(remoteSession.getToken());
     CountDownLatch latch = new CountDownLatch(3);
     AtomicBoolean playWhenReadyParamRef = new AtomicBoolean();

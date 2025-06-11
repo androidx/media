@@ -294,7 +294,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       sessionLegacyStub.start();
     }
 
-    playerInfo = newPlayerWrapper.createPlayerInfoForBundling();
+    playerInfo = newPlayerWrapper.createInitialPlayerInfo();
     handleAvailablePlayerCommandsChanged(newPlayerWrapper.getAvailableCommands());
   }
 
@@ -621,6 +621,11 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       commandsDuringErrorState.add(Player.COMMAND_RELEASE);
     }
     return commandsDuringErrorState.build();
+  }
+
+  /** Returns the current {@link PlayerInfo}. */
+  public PlayerInfo getPlayerInfo() {
+    return playerInfo;
   }
 
   /** Returns the custom layout. */
@@ -1316,7 +1321,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         return;
       }
     }
-    SessionPositionInfo sessionPositionInfo = playerWrapper.createSessionPositionInfoForBundling();
+    SessionPositionInfo sessionPositionInfo = playerWrapper.createSessionPositionInfo();
     if (!onPlayerInfoChangedHandler.hasPendingPlayerInfoChangedUpdate()
         && MediaUtils.areSessionPositionInfosInSamePeriodOrAd(
             sessionPositionInfo, playerInfo.sessionPositionInfo)) {
@@ -1744,7 +1749,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       }
       session.playerInfo =
           session.playerInfo.copyWithTimelineAndSessionPositionInfo(
-              timeline, player.createSessionPositionInfoForBundling(), reason);
+              timeline, player.createSessionPositionInfo(), reason);
       session.onPlayerInfoChangedHandler.sendPlayerInfoChangedMessage(
           /* excludeTimeline= */ false, /* excludeTracks= */ true);
       session.dispatchRemoteControllerTaskToLegacyStub(
@@ -2081,7 +2086,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         playerInfo =
             playerInfo.copyWithTimelineAndSessionPositionInfo(
                 getPlayerWrapper().getCurrentTimelineWithCommandCheck(),
-                getPlayerWrapper().createSessionPositionInfoForBundling(),
+                getPlayerWrapper().createSessionPositionInfo(),
                 playerInfo.timelineChangeReason);
         dispatchOnPlayerInfoChanged(playerInfo, excludeTimeline, excludeTracks);
         excludeTimeline = true;

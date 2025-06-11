@@ -524,7 +524,7 @@ import java.util.concurrent.ExecutionException;
             PlayerWrapper playerWrapper = sessionImpl.getPlayerWrapper();
 
             Player.Commands controllerPlayerCommands;
-            PlayerInfo playerInfo = playerWrapper.createPlayerInfoForBundling();
+            PlayerInfo playerInfo = sessionImpl.getPlayerInfo();
             @Nullable
             PlaybackException sessionPlaybackException = sessionImpl.getPlaybackException();
             if (sessionPlaybackException == null) {

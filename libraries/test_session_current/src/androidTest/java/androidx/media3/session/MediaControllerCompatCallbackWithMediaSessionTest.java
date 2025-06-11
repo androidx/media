@@ -1977,7 +1977,6 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
     int listSize = 5_000;
 
     session.getMockPlayer().createAndSetFakeTimeline(listSize);
-    session.getMockPlayer().notifyTimelineChanged(Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);
 
     assertThat(latch.await(LONG_TIMEOUT_MS, MILLISECONDS)).isTrue();
     List<QueueItem> queueFromParam = queueRef.get();
