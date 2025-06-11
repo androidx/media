@@ -267,6 +267,24 @@ public interface ShuffleOrder {
   ShuffleOrder cloneAndInsert(int insertionIndex, int insertionCount);
 
   /**
+   * Returns a copy of the shuffle order to be used after a move.
+   *
+   * <p>The default implementation is a no-op. Custom implementation can choose to re-shuffle when
+   * items are moved.
+   *
+   * @param indexFrom The starting index in the unshuffled order of the range to move, from before
+   *     the move occurs.
+   * @param indexToExclusive The smallest index (must be greater or equal to {@code indexFrom}) that
+   *     is not included in the range of elements moved, from before the move occurs.
+   * @param newIndexFrom The starting index in the unshuffled order of the range to move, from after
+   *     the move occurs.
+   * @return A copy of this {@link ShuffleOrder} with the elements moved.
+   */
+  default ShuffleOrder cloneAndMove(int indexFrom, int indexToExclusive, int newIndexFrom) {
+    return this;
+  }
+
+  /**
    * Returns a copy of the shuffle order with a range of elements removed.
    *
    * @param indexFrom The starting index in the unshuffled order of the range to remove.
