@@ -78,6 +78,8 @@
         is configurable via
         `MediaSessionService.setShowNotificationForIdlePlayer`.
     *   Add custom `PlaybackException` for all or selected controllers.
+    *   Fix bug where seeking in a live stream on a `MediaController` can cause
+        an `IllegalArgumentException`.
 *   UI:
 *   Downloads:
 *   OkHttp extension:

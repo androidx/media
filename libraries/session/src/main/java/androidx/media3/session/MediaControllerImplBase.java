@@ -3165,6 +3165,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     timeline.getPeriod(newPeriodIndex, newPeriod);
     Window newWindow = new Window();
     timeline.getWindow(newPeriod.windowIndex, newWindow);
+    long positionInWindowMs = usToMs(newPeriod.positionInWindowUs + newPositionUs);
     PositionInfo newPositionInfo =
         new PositionInfo(
             /* windowUid= */ null,
@@ -3172,8 +3173,8 @@ import org.checkerframework.checker.nullness.qual.NonNull;
             newWindow.mediaItem,
             /* periodUid= */ null,
             newPeriodIndex,
-            /* positionMs= */ usToMs(newPeriod.positionInWindowUs + newPositionUs),
-            /* contentPositionMs= */ usToMs(newPeriod.positionInWindowUs + newPositionUs),
+            /* positionMs= */ positionInWindowMs,
+            /* contentPositionMs= */ positionInWindowMs,
             /* adGroupIndex= */ C.INDEX_UNSET,
             /* adIndexInAdGroup= */ C.INDEX_UNSET);
     playerInfo =
@@ -3189,16 +3190,13 @@ import org.checkerframework.checker.nullness.qual.NonNull;
                   /* isPlayingAd= */ false,
                   /* eventTimeMs= */ SystemClock.elapsedRealtime(),
                   newWindow.getDurationMs(),
-                  /* bufferedPositionMs= */ usToMs(newPeriod.positionInWindowUs + newPositionUs),
+                  /* bufferedPositionMs= */ positionInWindowMs,
                   /* bufferedPercentage= */ calculateBufferedPercentage(
-                      /* bufferedPositionMs= */ usToMs(
-                          newPeriod.positionInWindowUs + newPositionUs),
-                      newWindow.getDurationMs()),
+                      positionInWindowMs, newWindow.getDurationMs()),
                   /* totalBufferedDurationMs= */ 0,
                   /* currentLiveOffsetMs= */ C.TIME_UNSET,
                   /* contentDurationMs= */ C.TIME_UNSET,
-                  /* contentBufferedPositionMs= */ usToMs(
-                      newPeriod.positionInWindowUs + newPositionUs)));
+                  /* contentBufferedPositionMs= */ positionInWindowMs));
     } else {
       // A forward seek within the playing period (timeline did not change).
       long maskedTotalBufferedDurationUs =
@@ -3206,7 +3204,8 @@ import org.checkerframework.checker.nullness.qual.NonNull;
               0,
               Util.msToUs(playerInfo.sessionPositionInfo.totalBufferedDurationMs)
                   - (newPositionUs - oldPositionUs));
-      long maskedBufferedPositionUs = newPositionUs + maskedTotalBufferedDurationUs;
+      long maskedBufferedPositionInWindowMs =
+          usToMs(newPeriod.positionInWindowUs + newPositionUs + maskedTotalBufferedDurationUs);
 
       playerInfo =
           playerInfo.copyWithSessionPositionInfo(
@@ -3215,13 +3214,13 @@ import org.checkerframework.checker.nullness.qual.NonNull;
                   /* isPlayingAd= */ false,
                   /* eventTimeMs= */ SystemClock.elapsedRealtime(),
                   newWindow.getDurationMs(),
-                  /* bufferedPositionMs= */ usToMs(maskedBufferedPositionUs),
+                  /* bufferedPositionMs= */ maskedBufferedPositionInWindowMs,
                   /* bufferedPercentage= */ calculateBufferedPercentage(
-                      usToMs(maskedBufferedPositionUs), newWindow.getDurationMs()),
+                      maskedBufferedPositionInWindowMs, newWindow.getDurationMs()),
                   /* totalBufferedDurationMs= */ usToMs(maskedTotalBufferedDurationUs),
                   /* currentLiveOffsetMs= */ C.TIME_UNSET,
                   /* contentDurationMs= */ C.TIME_UNSET,
-                  /* contentBufferedPositionMs= */ usToMs(maskedBufferedPositionUs)));
+                  /* contentBufferedPositionMs= */ maskedBufferedPositionInWindowMs));
     }
     return playerInfo;
   }

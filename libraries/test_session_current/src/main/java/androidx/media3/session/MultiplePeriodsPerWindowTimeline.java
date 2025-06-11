@@ -63,7 +63,7 @@ public class MultiplePeriodsPerWindowTimeline extends PlaylistTimeline {
         /* durationUs= */ Util.msToUs(defaultPeriodDurationMs * periodSizesPerWindow[windowIndex]),
         firstPeriodIndex,
         firstPeriodIndex + periodSizesPerWindow[windowIndex] - 1,
-        /* positionInFirstPeriodUs= */ 0);
+        /* positionInFirstPeriodUs= */ WINDOW_POSITION_IN_PERIOD_US);
     return window;
   }
 
@@ -80,13 +80,15 @@ public class MultiplePeriodsPerWindowTimeline extends PlaylistTimeline {
   public Period getPeriod(int periodIndex, Period period, boolean setIds) {
     checkArgument(periodIndex < getPeriodCount());
     int windowIndex = getWindowIndex(periodIndex);
+    int periodIndexInWindow = periodIndex - getFirstPeriodIndex(windowIndex);
     period.set(
         /* id= */ null,
         /* uid= */ null,
         windowIndex,
         /* durationUs= */ Util.msToUs(defaultPeriodDurationMs),
-        /* positionInWindowUs= */ (periodIndex - getFirstPeriodIndex(windowIndex))
-            * Util.msToUs(defaultPeriodDurationMs));
+        /* positionInWindowUs= */ periodIndexInWindow == 0
+            ? -WINDOW_POSITION_IN_PERIOD_US
+            : periodIndexInWindow * Util.msToUs(defaultPeriodDurationMs));
     return period;
   }
 
