@@ -1000,6 +1000,9 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     if (videoSink == null) {
       videoFrameReleaseControl.reset();
     }
+    if (videoFrameReleaseEarlyTimeForecaster != null) {
+      videoFrameReleaseEarlyTimeForecaster.reset();
+    }
     if (joining) {
       // Don't render next frame immediately to let the codec catch up with the playback position
       // first. This prevents a stuttering effect caused by showing the first frame and then
@@ -1045,9 +1048,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       videoSink.startRendering();
     } else {
       videoFrameReleaseControl.onStarted();
-    }
-    if (videoFrameReleaseEarlyTimeForecaster != null) {
-      videoFrameReleaseEarlyTimeForecaster.reset();
     }
   }
 

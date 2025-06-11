@@ -1500,9 +1500,7 @@ public class MediaCodecVideoRendererTest {
   }
 
   @Test
-  public void
-      render_afterSeekWithLateBufferAndOutOfOrderSamplesWithoutDependencies_rendersFramesAsExpected()
-          throws Exception {
+  public void render_afterSeek_samplesWithoutDependencies_doesNotDropFrames() throws Exception {
     FakeTimeline fakeTimeline =
         new FakeTimeline(
             new FakeTimeline.TimelineWindowDefinition.Builder().setDurationUs(1_000_000).build());
@@ -1514,9 +1512,14 @@ public class MediaCodecVideoRendererTest {
             new DrmSessionEventListener.EventDispatcher(),
             /* initialFormat= */ VIDEO_H264,
             ImmutableList.of(
-                oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME), // First buffer.
-                oneByteSample(
-                    /* timeUs= */ 20_000))); // Late buffer triggers input buffer dropping.
+                oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME),
+                oneByteSample(/* timeUs= */ 100_000, C.BUFFER_FLAG_NOT_DEPENDED_ON),
+                oneByteSample(/* timeUs= */ 200_000, C.BUFFER_FLAG_NOT_DEPENDED_ON),
+                oneByteSample(/* timeUs= */ 300_000, C.BUFFER_FLAG_NOT_DEPENDED_ON),
+                oneByteSample(/* timeUs= */ 400_000, C.BUFFER_FLAG_NOT_DEPENDED_ON),
+                oneByteSample(/* timeUs= */ 500_000, C.BUFFER_FLAG_NOT_DEPENDED_ON),
+                oneByteSample(/* timeUs= */ 600_000, C.BUFFER_FLAG_NOT_DEPENDED_ON),
+                END_OF_STREAM_ITEM));
     fakeSampleStream.writeData(/* startPositionUs= */ 0);
     mediaCodecVideoRenderer =
         new MediaCodecVideoRenderer(
@@ -1556,48 +1559,28 @@ public class MediaCodecVideoRendererTest {
         ArgumentCaptor.forClass(DecoderCounters.class);
     verify(eventListener).onVideoEnabled(argumentDecoderCounters.capture());
     DecoderCounters decoderCounters = argumentDecoderCounters.getValue();
+    mediaCodecVideoRenderer.setCurrentStreamFinal();
 
     mediaCodecVideoRenderer.start();
-    mediaCodecVideoRenderer.render(offsetUs, SystemClock.elapsedRealtime() * 1000);
-    while (decoderCounters.renderedOutputBufferCount == 0) {
-      mediaCodecVideoRenderer.render(offsetUs + 10_000, SystemClock.elapsedRealtime() * 1000);
-    }
-    // Ensure existing buffer will be ~280ms late and new (not yet read) buffers are available
-    // to be dropped.
-    // The last two processed buffers have (pts, early) = [(0, -10_000), (20_000, -280_000)]
-    // VideoFrameReleaseEarlyTimeForecaster will compute the rate of change as
-    // SMOOTHING_FACTOR * 0 + (1 - SMOOTHING_FACTOR) * 1 = 0.8
-    // VideoFrameReleaseEarlyTimeForecaster assumes realtime processing, so the predicted earlyUs
-    // will be on a line passing through (20_000, -280_000) with slope 0.8.
-    // That is, earlyUs(X) = -280_000 + (x - 20_000) * 0.8;
-    // earlyUs(330_000) = -32_000
-    long posUs = offsetUs + 300_000;
-    // Seek without flushing the decoder to reset forecaster state.
-    mediaCodecVideoRenderer.handleMessage(
-        Renderer.MSG_SET_SCRUBBING_MODE, ScrubbingModeParameters.DEFAULT);
-    seekToUs(mediaCodecVideoRenderer, fakeSampleStream, /* positionUs= */ offsetUs + 10_000);
-    mediaCodecVideoRenderer.start();
-    mediaCodecVideoRenderer.handleMessage(Renderer.MSG_SET_SCRUBBING_MODE, null);
-    fakeSampleStream.append(
-        ImmutableList.of(
-            oneByteSample(/* timeUs= */ 300_000), // Render.
-            oneByteSample(/* timeUs= */ 320_000), // Render.
-            oneByteSample(/* timeUs= */ 310_000, C.BUFFER_FLAG_NOT_DEPENDED_ON), // Render.
-            oneByteSample(/* timeUs= */ 330_000, C.BUFFER_FLAG_NOT_DEPENDED_ON), // Render.
-            // Last buffer is always rendered.
-            oneByteSample(/* timeUs= */ 500_000, C.BUFFER_FLAG_NOT_DEPENDED_ON),
-            END_OF_STREAM_ITEM));
-    fakeSampleStream.writeData(/* startPositionUs= */ 0);
-    mediaCodecVideoRenderer.setCurrentStreamFinal();
-    // Render until the first frame is reached and then increase time to reach the end.
-    while (decoderCounters.renderedOutputBufferCount < 2) {
-      mediaCodecVideoRenderer.render(posUs, SystemClock.elapsedRealtime() * 1000);
-    }
+    long posUs = offsetUs;
     while (!mediaCodecVideoRenderer.isEnded()) {
       mediaCodecVideoRenderer.render(posUs, SystemClock.elapsedRealtime() * 1000);
       posUs += 2_000;
     }
-    shadowOf(testMainLooper).idle();
+    // Seek to the beginning.
+    seekToUs(mediaCodecVideoRenderer, fakeSampleStream, /* positionUs= */ offsetUs);
+    mediaCodecVideoRenderer.setCurrentStreamFinal();
+    posUs = offsetUs;
+    // Output one more frame before starting the renderer.
+    while (decoderCounters.renderedOutputBufferCount + decoderCounters.skippedOutputBufferCount
+        == 7) {
+      mediaCodecVideoRenderer.render(posUs, SystemClock.elapsedRealtime() * 1000);
+    }
+    mediaCodecVideoRenderer.start();
+    while (!mediaCodecVideoRenderer.isEnded()) {
+      mediaCodecVideoRenderer.render(posUs, SystemClock.elapsedRealtime() * 1000);
+      posUs += 2_000;
+    }
 
     assertThat(decoderCounters.droppedInputBufferCount).isEqualTo(0);
     assertThat(decoderCounters.droppedBufferCount).isEqualTo(0);
