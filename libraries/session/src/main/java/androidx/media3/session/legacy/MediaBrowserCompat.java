@@ -991,7 +991,7 @@ public final class MediaBrowserCompat {
               optionsList.remove(i);
             }
           }
-          if (callbacks.size() == 0) {
+          if (callbacks.isEmpty()) {
             browserFwk.unsubscribe(parentId);
           }
         }

@@ -443,9 +443,7 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
       this.configuration = configuration;
       mediaSourceResources = new HashMap<>();
       adPlaybackStateMap = new HashMap<>();
-      for (Map.Entry<String, AdPlaybackState> entry : state.adPlaybackStates.entrySet()) {
-        adPlaybackStateMap.put(entry.getKey(), entry.getValue());
-      }
+      adPlaybackStateMap.putAll(state.adPlaybackStates);
     }
 
     /**

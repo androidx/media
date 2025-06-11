@@ -307,7 +307,7 @@ public final class LegacyConversionsTest {
 
   @Test
   public void convertToMediaMetadata_withoutTitle() {
-    assertThat(LegacyConversions.convertToMediaMetadata((CharSequence) null))
+    assertThat(LegacyConversions.convertToMediaMetadata(null))
         .isEqualTo(MediaMetadata.EMPTY);
   }
 
@@ -321,7 +321,7 @@ public final class LegacyConversionsTest {
   public void convertToMediaMetadata_withCustomKey() {
     MediaMetadataCompat.Builder builder = new MediaMetadataCompat.Builder();
     builder.putString(MediaMetadataCompat.METADATA_KEY_TITLE, "title");
-    builder.putLong(EXTRAS_KEY_MEDIA_TYPE_COMPAT, (long) MediaMetadata.MEDIA_TYPE_MUSIC);
+    builder.putLong(EXTRAS_KEY_MEDIA_TYPE_COMPAT, MediaMetadata.MEDIA_TYPE_MUSIC);
     builder.putString("custom_key", "value");
     MediaMetadataCompat testMediaMetadataCompat = builder.build();
 

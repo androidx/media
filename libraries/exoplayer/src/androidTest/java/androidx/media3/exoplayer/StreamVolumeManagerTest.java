@@ -318,7 +318,6 @@ public class StreamVolumeManagerTest {
           assertThat(streamVolumeManager.getVolume()).isEqualTo(testStreamVolume);
         });
   }
-  ;
 
   @Test
   public void onStreamVolumeChanged_isCalled_whenAudioManagerChangesIt() throws Exception {

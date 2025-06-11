@@ -1623,7 +1623,7 @@ public abstract class MediaBrowserServiceCompat extends Service {
             iter.remove();
           }
         }
-        if (callbackList.size() == 0) {
+        if (callbackList.isEmpty()) {
           connection.subscriptions.remove(id);
         }
       }

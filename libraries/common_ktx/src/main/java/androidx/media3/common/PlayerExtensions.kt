@@ -81,7 +81,7 @@ suspend fun Player.listen(onEvents: Player.(Player.Events) -> Unit): Nothing {
 private suspend fun Player.listenImpl(onEvents: Player.(Player.Events) -> Unit): Nothing {
   lateinit var listener: PlayerListener
   try {
-    suspendCancellableCoroutine<Nothing> { continuation ->
+    suspendCancellableCoroutine { continuation ->
       listener = PlayerListener(onEvents, continuation)
       continuation.invokeOnCancellation { listener.isCancelled.set(true) }
       addListener(listener)
