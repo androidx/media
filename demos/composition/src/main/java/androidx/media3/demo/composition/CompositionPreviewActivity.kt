@@ -68,13 +68,13 @@ import androidx.compose.material3.adaptive.layout.AnimatedPane
 import androidx.compose.material3.adaptive.layout.PaneAdaptedValue
 import androidx.compose.material3.adaptive.layout.SupportingPaneScaffold
 import androidx.compose.material3.adaptive.layout.ThreePaneScaffoldRole
-import androidx.compose.material3.adaptive.layout.ThreePaneScaffoldScope
 import androidx.compose.material3.adaptive.navigation.rememberSupportingPaneScaffoldNavigator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -102,6 +102,7 @@ import androidx.media3.ui.PlayerView
 import java.util.Locale
 import kotlin.time.DurationUnit
 import kotlin.time.toDuration
+import kotlinx.coroutines.launch
 
 /**
  * An Activity ([AppCompatActivity]) that previews compositions, using
@@ -135,29 +136,34 @@ class CompositionPreviewActivity : AppCompatActivity() {
     setContent {
       CompositionDemoTheme {
         Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+          val scope = rememberCoroutineScope()
           val navigator = rememberSupportingPaneScaffoldNavigator()
 
-          BackHandler(navigator.canNavigateBack()) { navigator.navigateBack() }
+          BackHandler(navigator.canNavigateBack()) { scope.launch { navigator.navigateBack() } }
 
           SupportingPaneScaffold(
             directive = navigator.scaffoldDirective,
             value = navigator.scaffoldValue,
             mainPane = {
-              CompositionPreviewPane(
-                shouldShowSupportingPaneButton =
-                  navigator.scaffoldValue.secondary == PaneAdaptedValue.Hidden,
-                onNavigateToSupportingPane = {
-                  navigator.navigateTo(ThreePaneScaffoldRole.Secondary)
-                },
-                viewModel,
-              )
+              AnimatedPane {
+                CompositionPreviewPane(
+                  shouldShowSupportingPaneButton =
+                    navigator.scaffoldValue.secondary == PaneAdaptedValue.Hidden,
+                  onNavigateToSupportingPane = {
+                    scope.launch { navigator.navigateTo(ThreePaneScaffoldRole.Secondary) }
+                  },
+                  viewModel,
+                )
+              }
             },
             supportingPane = {
-              ExportOptionsPane(
-                viewModel,
-                shouldShowBackButton = navigator.scaffoldValue.primary == PaneAdaptedValue.Hidden,
-                onBack = { navigator.navigateBack() },
-              )
+              AnimatedPane {
+                ExportOptionsPane(
+                  viewModel,
+                  shouldShowBackButton = navigator.scaffoldValue.primary == PaneAdaptedValue.Hidden,
+                  onBack = { scope.launch { navigator.navigateBack() } },
+                )
+              }
             },
             modifier =
               Modifier.padding(innerPadding)
@@ -170,65 +176,63 @@ class CompositionPreviewActivity : AppCompatActivity() {
 
   @OptIn(ExperimentalMaterial3AdaptiveApi::class)
   @Composable
-  fun ThreePaneScaffoldScope.CompositionPreviewPane(
+  fun CompositionPreviewPane(
     shouldShowSupportingPaneButton: Boolean,
     onNavigateToSupportingPane: () -> Unit,
     viewModel: CompositionPreviewViewModel,
     modifier: Modifier = Modifier,
   ) {
-    AnimatedPane {
-      val scrollState = rememberScrollState()
-      Column {
-        Text(
-          text = "${viewModel.compositionLayout} ${stringResource(R.string.preview_composition)}",
-          fontWeight = FontWeight.Bold,
-        )
-        AndroidView(
-          factory = { context -> PlayerView(context) },
-          update = { playerView ->
-            playerView.player = viewModel.compositionPlayer
-            playerView.setTimeBarScrubbingEnabled(true)
-          },
-          modifier = Modifier.heightIn(max = 250.dp),
-        )
-        HorizontalDivider(
-          thickness = 2.dp,
-          modifier = Modifier.padding(0.dp, MaterialTheme.spacing.mini),
-        )
-        Column(
-          verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.mini),
-          modifier = modifier.weight(1f).verticalScroll(scrollState),
+    val scrollState = rememberScrollState()
+    Column {
+      Text(
+        text = "${viewModel.compositionLayout} ${stringResource(R.string.preview_composition)}",
+        fontWeight = FontWeight.Bold,
+      )
+      AndroidView(
+        factory = { context -> PlayerView(context) },
+        update = { playerView ->
+          playerView.player = viewModel.compositionPlayer
+          playerView.setTimeBarScrubbingEnabled(true)
+        },
+        modifier = Modifier.heightIn(max = 250.dp),
+      )
+      HorizontalDivider(
+        thickness = 2.dp,
+        modifier = Modifier.padding(0.dp, MaterialTheme.spacing.mini),
+      )
+      Column(
+        verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.mini),
+        modifier = modifier.weight(1f).verticalScroll(scrollState),
+      ) {
+        VideoSequenceList(viewModel)
+        Row(
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.SpaceBetween,
+          modifier = Modifier.fillMaxWidth(),
         ) {
-          VideoSequenceList(viewModel)
-          Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-            modifier = Modifier.fillMaxWidth(),
-          ) {
-            Text(
-              text = stringResource(R.string.add_background_audio),
-              modifier = Modifier.textPadding(),
-            )
-            Switch(
-              viewModel.includeBackgroundAudioTrack,
-              { checked -> viewModel.includeBackgroundAudioTrack = checked },
-            )
-          }
-          OutputSettings(viewModel)
+          Text(
+            text = stringResource(R.string.add_background_audio),
+            modifier = Modifier.textPadding(),
+          )
+          Switch(
+            viewModel.includeBackgroundAudioTrack,
+            { checked -> viewModel.includeBackgroundAudioTrack = checked },
+          )
         }
-        HorizontalDivider(
-          thickness = 2.dp,
-          modifier = Modifier.padding(0.dp, MaterialTheme.spacing.mini),
-        )
-        Row(modifier = Modifier.fillMaxWidth().padding(MaterialTheme.spacing.small, 0.dp)) {
-          Button(onClick = { viewModel.previewComposition() }) {
-            Text(text = stringResource(R.string.preview))
-          }
-          Spacer(Modifier.weight(1f))
-          if (shouldShowSupportingPaneButton) {
-            Button(onClick = onNavigateToSupportingPane) {
-              Text(text = stringResource(R.string.export_settings))
-            }
+        OutputSettings(viewModel)
+      }
+      HorizontalDivider(
+        thickness = 2.dp,
+        modifier = Modifier.padding(0.dp, MaterialTheme.spacing.mini),
+      )
+      Row(modifier = Modifier.fillMaxWidth().padding(MaterialTheme.spacing.small, 0.dp)) {
+        Button(onClick = { viewModel.previewComposition() }) {
+          Text(text = stringResource(R.string.preview))
+        }
+        Spacer(Modifier.weight(1f))
+        if (shouldShowSupportingPaneButton) {
+          Button(onClick = onNavigateToSupportingPane) {
+            Text(text = stringResource(R.string.export_settings))
           }
         }
       }
@@ -237,7 +241,7 @@ class CompositionPreviewActivity : AppCompatActivity() {
 
   @OptIn(ExperimentalMaterial3AdaptiveApi::class)
   @Composable
-  fun ThreePaneScaffoldScope.ExportOptionsPane(
+  fun ExportOptionsPane(
     viewModel: CompositionPreviewViewModel,
     shouldShowBackButton: Boolean,
     onBack: () -> Unit,
@@ -245,108 +249,105 @@ class CompositionPreviewActivity : AppCompatActivity() {
   ) {
     var isAudioTypeExpanded by remember { mutableStateOf(false) }
     var isVideoTypeExpanded by remember { mutableStateOf(false) }
-
-    AnimatedPane {
-      Column(
-        verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.mini),
-        modifier = modifier,
+    Column(
+      verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.mini),
+      modifier = modifier,
+    ) {
+      Text(text = stringResource(R.string.export_settings), fontWeight = FontWeight.Bold)
+      Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+        modifier = Modifier.fillMaxWidth(),
       ) {
-        Text(text = stringResource(R.string.export_settings), fontWeight = FontWeight.Bold)
-        Row(
-          verticalAlignment = Alignment.CenterVertically,
-          horizontalArrangement = Arrangement.SpaceBetween,
-          modifier = Modifier.fillMaxWidth(),
-        ) {
-          Text(
-            text = stringResource(R.string.output_audio_mime_type),
-            modifier = Modifier.textPadding(),
-          )
-          DropDownSpinner(
-            isDropDownOpen = isAudioTypeExpanded,
-            selectedOption = viewModel.outputAudioMimeType,
-            dropDownOptions =
-              listOf(
-                SAME_AS_INPUT_OPTION,
-                MimeTypes.AUDIO_AAC,
-                MimeTypes.AUDIO_AMR_NB,
-                MimeTypes.AUDIO_AMR_WB,
-              ),
-            changeDropDownOpen = { expanded -> isAudioTypeExpanded = expanded },
-            changeSelectedOption = { selection -> viewModel.outputAudioMimeType = selection },
-          )
-        }
-        Row(
-          verticalAlignment = Alignment.CenterVertically,
-          horizontalArrangement = Arrangement.SpaceBetween,
-          modifier = Modifier.fillMaxWidth(),
-        ) {
-          Text(
-            text = stringResource(R.string.output_video_mime_type),
-            modifier = Modifier.textPadding(),
-          )
-          DropDownSpinner(
-            isDropDownOpen = isVideoTypeExpanded,
-            selectedOption = viewModel.outputVideoMimeType,
-            dropDownOptions =
-              listOf(
-                SAME_AS_INPUT_OPTION,
-                MimeTypes.VIDEO_H263,
-                MimeTypes.VIDEO_H264,
-                MimeTypes.VIDEO_H265,
-                MimeTypes.VIDEO_MP4V,
-                MimeTypes.VIDEO_AV1,
-              ),
-            changeDropDownOpen = { expanded -> isVideoTypeExpanded = expanded },
-            changeSelectedOption = { selection -> viewModel.outputVideoMimeType = selection },
-          )
-        }
-        Row(
-          verticalAlignment = Alignment.CenterVertically,
-          horizontalArrangement = Arrangement.SpaceBetween,
-          modifier = Modifier.fillMaxWidth(),
-        ) {
-          Text(
-            text = stringResource(R.string.enable_debug_tracing),
-            modifier = Modifier.textPadding(),
-          )
-          val debugTracingEnabled by viewModel.enableDebugTracing.collectAsState()
-          Switch(debugTracingEnabled, { checked -> viewModel.enableDebugTracing(checked) })
-        }
-        Column(Modifier.selectableGroup()) {
-          MUXER_OPTIONS.forEach { text ->
-            Row(
-              horizontalArrangement = Arrangement.SpaceBetween,
-              modifier =
-                Modifier.selectable(
-                    selected = text == viewModel.muxerOption,
-                    onClick = { viewModel.muxerOption = text },
-                    role = Role.RadioButton,
-                  )
-                  .fillMaxWidth(),
-            ) {
-              Text(text = text, modifier = Modifier.textPadding())
-              RadioButton(selected = (text == viewModel.muxerOption), onClick = null)
-            }
+        Text(
+          text = stringResource(R.string.output_audio_mime_type),
+          modifier = Modifier.textPadding(),
+        )
+        DropDownSpinner(
+          isDropDownOpen = isAudioTypeExpanded,
+          selectedOption = viewModel.outputAudioMimeType,
+          dropDownOptions =
+            listOf(
+              SAME_AS_INPUT_OPTION,
+              MimeTypes.AUDIO_AAC,
+              MimeTypes.AUDIO_AMR_NB,
+              MimeTypes.AUDIO_AMR_WB,
+            ),
+          changeDropDownOpen = { expanded -> isAudioTypeExpanded = expanded },
+          changeSelectedOption = { selection -> viewModel.outputAudioMimeType = selection },
+        )
+      }
+      Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+        modifier = Modifier.fillMaxWidth(),
+      ) {
+        Text(
+          text = stringResource(R.string.output_video_mime_type),
+          modifier = Modifier.textPadding(),
+        )
+        DropDownSpinner(
+          isDropDownOpen = isVideoTypeExpanded,
+          selectedOption = viewModel.outputVideoMimeType,
+          dropDownOptions =
+            listOf(
+              SAME_AS_INPUT_OPTION,
+              MimeTypes.VIDEO_H263,
+              MimeTypes.VIDEO_H264,
+              MimeTypes.VIDEO_H265,
+              MimeTypes.VIDEO_MP4V,
+              MimeTypes.VIDEO_AV1,
+            ),
+          changeDropDownOpen = { expanded -> isVideoTypeExpanded = expanded },
+          changeSelectedOption = { selection -> viewModel.outputVideoMimeType = selection },
+        )
+      }
+      Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+        modifier = Modifier.fillMaxWidth(),
+      ) {
+        Text(
+          text = stringResource(R.string.enable_debug_tracing),
+          modifier = Modifier.textPadding(),
+        )
+        val debugTracingEnabled by viewModel.enableDebugTracing.collectAsState()
+        Switch(debugTracingEnabled, { checked -> viewModel.enableDebugTracing(checked) })
+      }
+      Column(Modifier.selectableGroup()) {
+        MUXER_OPTIONS.forEach { text ->
+          Row(
+            horizontalArrangement = Arrangement.SpaceBetween,
+            modifier =
+              Modifier.selectable(
+                  selected = text == viewModel.muxerOption,
+                  onClick = { viewModel.muxerOption = text },
+                  role = Role.RadioButton,
+                )
+                .fillMaxWidth(),
+          ) {
+            Text(text = text, modifier = Modifier.textPadding())
+            RadioButton(selected = (text == viewModel.muxerOption), onClick = null)
           }
         }
+      }
+      HorizontalDivider(
+        thickness = 2.dp,
+        modifier = Modifier.padding(0.dp, MaterialTheme.spacing.mini),
+      )
+      Row(modifier = Modifier.fillMaxWidth().padding(MaterialTheme.spacing.small, 0.dp)) {
+        if (shouldShowBackButton) {
+          OutlinedButton({ onBack() }) { Text(text = stringResource(R.string.cancel)) }
+        }
+        Spacer(Modifier.weight(1f))
+        Button({ viewModel.exportComposition() }) { Text(text = stringResource(R.string.export)) }
+      }
+      viewModel.exportResultInformation?.let {
         HorizontalDivider(
           thickness = 2.dp,
           modifier = Modifier.padding(0.dp, MaterialTheme.spacing.mini),
         )
-        Row(modifier = Modifier.fillMaxWidth().padding(MaterialTheme.spacing.small, 0.dp)) {
-          if (shouldShowBackButton) {
-            OutlinedButton({ onBack() }) { Text(text = stringResource(R.string.cancel)) }
-          }
-          Spacer(Modifier.weight(1f))
-          Button({ viewModel.exportComposition() }) { Text(text = stringResource(R.string.export)) }
-        }
-        viewModel.exportResultInformation?.let {
-          HorizontalDivider(
-            thickness = 2.dp,
-            modifier = Modifier.padding(0.dp, MaterialTheme.spacing.mini),
-          )
-          Text(text = it)
-        }
+        Text(text = it)
       }
     }
   }
