@@ -556,13 +556,11 @@ public final class DashPlaybackTest {
   @Config(qualifiers = "w256dp-h144dp")
   public void playThumbnailGrid() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
-    CapturingRenderersFactory capturingRenderersFactory =
-        new CapturingRenderersFactory(applicationContext);
     ExoPlayer player =
-        new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
+        new ExoPlayer.Builder(applicationContext)
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
             .build();
-    PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
+    PlaybackOutput playbackOutput = PlaybackOutput.registerWithoutRendererCapture(player);
 
     player.setMediaItem(MediaItem.fromUri("asset:///media/dash/thumbnails/sample.mpd"));
     player.prepare();
@@ -580,13 +578,11 @@ public final class DashPlaybackTest {
   @Config(qualifiers = "w256dp-h144dp")
   public void playThumbnailGrid_withSeekAfterEoS() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
-    CapturingRenderersFactory capturingRenderersFactory =
-        new CapturingRenderersFactory(applicationContext);
     ExoPlayer player =
-        new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
+        new ExoPlayer.Builder(applicationContext)
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
             .build();
-    PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
+    PlaybackOutput playbackOutput = PlaybackOutput.registerWithoutRendererCapture(player);
     player.setMediaItem(MediaItem.fromUri("asset:///media/dash/thumbnails/sample.mpd"));
     player.seekTo(55_000L);
     player.prepare();

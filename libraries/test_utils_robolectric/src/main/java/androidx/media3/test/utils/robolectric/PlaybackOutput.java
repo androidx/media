@@ -15,6 +15,7 @@
  */
 package androidx.media3.test.utils.robolectric;
 
+import static androidx.media3.common.util.Assertions.checkNotNull;
 import static java.lang.Math.max;
 
 import android.graphics.Bitmap;
@@ -63,7 +64,7 @@ import java.util.List;
 @UnstableApi
 public final class PlaybackOutput implements Dumper.Dumpable {
 
-  private final CapturingRenderersFactory capturingRenderersFactory;
+  @Nullable private final CapturingRenderersFactory capturingRenderersFactory;
 
   private final CapturingImageOutput capturingImageOutput;
   private final List<Metadata> metadatas;
@@ -71,7 +72,8 @@ public final class PlaybackOutput implements Dumper.Dumpable {
   private final List<CueGroup> subtitles;
   private final List<List<Cue>> subtitlesFromDeprecatedTextOutput;
 
-  private PlaybackOutput(ExoPlayer player, CapturingRenderersFactory capturingRenderersFactory) {
+  private PlaybackOutput(
+      ExoPlayer player, @Nullable CapturingRenderersFactory capturingRenderersFactory) {
     this.capturingRenderersFactory = capturingRenderersFactory;
 
     capturingImageOutput = new CapturingImageOutput();
@@ -109,7 +111,22 @@ public final class PlaybackOutput implements Dumper.Dumpable {
   }
 
   /**
-   * Create an instance that captures the metadata, image and text output from {@code player}, and
+   * Creates an instance that captures only the metadata, image and text output from {@code player}.
+   *
+   * <p>This instance will not capture any audio or video data.
+   *
+   * <p>Must be called <b>before</b> playback to ensure metadata, image and text output is captured
+   * correctly.
+   *
+   * @param player The {@link ExoPlayer} to capture metadata, image and text output from.
+   * @return A new instance that can be used to dump the playback output.
+   */
+  public static PlaybackOutput registerWithoutRendererCapture(ExoPlayer player) {
+    return new PlaybackOutput(player, /* capturingRenderersFactory= */ null);
+  }
+
+  /**
+   * Creates an instance that captures the metadata, image and text output from {@code player}, and
    * the audio and video output via {@code capturingRenderersFactory}.
    *
    * <p>Must be called <b>before</b> playback to ensure metadata, image and text output is captured
@@ -122,12 +139,14 @@ public final class PlaybackOutput implements Dumper.Dumpable {
    */
   public static PlaybackOutput register(
       ExoPlayer player, CapturingRenderersFactory capturingRenderersFactory) {
-    return new PlaybackOutput(player, capturingRenderersFactory);
+    return new PlaybackOutput(player, checkNotNull(capturingRenderersFactory));
   }
 
   @Override
   public void dump(Dumper dumper) {
-    capturingRenderersFactory.dump(dumper);
+    if (capturingRenderersFactory != null) {
+      capturingRenderersFactory.dump(dumper);
+    }
     capturingImageOutput.dump(dumper);
 
     dumpMetadata(dumper);

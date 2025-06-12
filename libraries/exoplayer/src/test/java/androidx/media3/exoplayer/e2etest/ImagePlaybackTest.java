@@ -21,7 +21,6 @@ import android.content.Context;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
 import androidx.media3.exoplayer.ExoPlayer;
-import androidx.media3.test.utils.CapturingRenderersFactory;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.FakeClock;
 import androidx.media3.test.utils.robolectric.PlaybackOutput;
@@ -41,12 +40,11 @@ public class ImagePlaybackTest {
   @Test
   public void playImagePlaylist_withSeek_rendersExpectedImages() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
-    CapturingRenderersFactory renderersFactory = new CapturingRenderersFactory(applicationContext);
     ExoPlayer player =
-        new ExoPlayer.Builder(applicationContext, renderersFactory)
+        new ExoPlayer.Builder(applicationContext)
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
             .build();
-    PlaybackOutput playbackOutput = PlaybackOutput.register(player, renderersFactory);
+    PlaybackOutput playbackOutput = PlaybackOutput.registerWithoutRendererCapture(player);
     MediaItem mediaItem1 =
         new MediaItem.Builder()
             .setUri("asset:///media/png/media3test.png")

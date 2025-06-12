@@ -34,9 +34,12 @@ import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.datasource.AssetDataSource;
 import androidx.media3.datasource.DataSourceUtil;
 import androidx.media3.datasource.DataSpec;
+import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.exoplayer.RenderersFactory;
 import androidx.media3.exoplayer.image.ExternallyLoadedImageDecoder;
+import androidx.media3.exoplayer.image.ImageDecoder;
 import androidx.media3.exoplayer.image.ImageDecoderException;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.exoplayer.source.MediaSource;
@@ -193,11 +196,14 @@ public final class ExternallyLoadedImagePlaybackTest {
     Context applicationContext = ApplicationProvider.getApplicationContext();
     ListeningExecutorService listeningExecutorService =
         MoreExecutors.listeningDecorator(Executors.newSingleThreadExecutor());
-    CapturingRenderersFactory renderersFactory =
-        new CapturingRenderersFactory(applicationContext)
-            .setImageDecoderFactory(
-                new ExternallyLoadedImageDecoder.Factory(
-                    request -> listeningExecutorService.submit(() -> decode(request.uri))));
+    RenderersFactory renderersFactory =
+        new DefaultRenderersFactory(applicationContext) {
+          @Override
+          protected ImageDecoder.Factory getImageDecoderFactory(Context context) {
+            return new ExternallyLoadedImageDecoder.Factory(
+                request -> listeningExecutorService.submit(() -> decode(request.uri)));
+          }
+        };
     Clock clock = new FakeClock(/* isAutoAdvancing= */ true);
     ArrayList<Uri> externalLoaderUris = new ArrayList<>();
     MediaSource.Factory mediaSourceFactory =
@@ -210,7 +216,7 @@ public final class ExternallyLoadedImagePlaybackTest {
             .setClock(clock)
             .setMediaSourceFactory(mediaSourceFactory)
             .build();
-    PlaybackOutput playbackOutput = PlaybackOutput.register(player, renderersFactory);
+    PlaybackOutput playbackOutput = PlaybackOutput.registerWithoutRendererCapture(player);
     long durationMs1 = 5 * C.MILLIS_PER_SECOND;
     long durationMs2 = 7 * C.MILLIS_PER_SECOND;
     MediaItem mediaItem1 =
