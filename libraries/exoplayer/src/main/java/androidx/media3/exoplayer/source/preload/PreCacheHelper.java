@@ -15,9 +15,13 @@
  */
 package androidx.media3.exoplayer.source.preload;
 
+import static androidx.media3.common.util.Assertions.checkState;
+import static java.lang.Math.min;
+
 import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
+import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
@@ -42,7 +46,7 @@ import androidx.media3.exoplayer.source.MediaSource;
 import com.google.common.base.Supplier;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
-import java.io.InterruptedIOException;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.Executor;
 
 /** A helper for pre-caching a single media. */
@@ -103,10 +107,10 @@ public final class PreCacheHelper {
   public static final class Factory {
     private final Cache cache;
     private final Looper preCacheLooper;
-    private final Supplier<DataSource.Factory> upstreamDataSourceFactorySupplier;
-    private final Supplier<RenderersFactory> renderersFactorySupplier;
+    private final DataSource.Factory upstreamDataSourceFactory;
+    private final RenderersFactory renderersFactory;
     private TrackSelectionParameters trackSelectionParameters;
-    private Supplier<Executor> downloadExecutorSupplier;
+    private Executor downloadExecutor;
     @Nullable private Listener listener;
 
     /**
@@ -120,11 +124,10 @@ public final class PreCacheHelper {
     public Factory(Context context, Cache cache, Looper preCacheLooper) {
       this.cache = cache;
       this.preCacheLooper = preCacheLooper;
-      this.upstreamDataSourceFactorySupplier = () -> new DefaultDataSource.Factory(context);
+      this.upstreamDataSourceFactory = new DefaultDataSource.Factory(context);
       this.trackSelectionParameters = TrackSelectionParameters.DEFAULT;
-      this.renderersFactorySupplier = () -> new DefaultRenderersFactory(context);
-      this.downloadExecutorSupplier =
-          () -> Util.newSingleThreadScheduledExecutor(PRECACHE_DOWNLOADER_THREAD_NAME);
+      this.renderersFactory = new DefaultRenderersFactory(context);
+      this.downloadExecutor = Runnable::run;
     }
 
     /**
@@ -141,11 +144,10 @@ public final class PreCacheHelper {
         Context context, Cache cache, RenderersFactory renderersFactory, Looper preCacheLooper) {
       this.cache = cache;
       this.preCacheLooper = preCacheLooper;
-      this.upstreamDataSourceFactorySupplier = () -> new DefaultDataSource.Factory(context);
+      this.upstreamDataSourceFactory = new DefaultDataSource.Factory(context);
       this.trackSelectionParameters = TrackSelectionParameters.DEFAULT;
-      this.renderersFactorySupplier = () -> renderersFactory;
-      this.downloadExecutorSupplier =
-          () -> Util.newSingleThreadScheduledExecutor(PRECACHE_DOWNLOADER_THREAD_NAME);
+      this.renderersFactory = renderersFactory;
+      this.downloadExecutor = Runnable::run;
     }
 
     /**
@@ -165,11 +167,10 @@ public final class PreCacheHelper {
         Looper preCacheLooper) {
       this.cache = cache;
       this.preCacheLooper = preCacheLooper;
-      this.upstreamDataSourceFactorySupplier = () -> upstreamDataSourceFactory;
+      this.upstreamDataSourceFactory = upstreamDataSourceFactory;
       this.trackSelectionParameters = TrackSelectionParameters.DEFAULT;
-      this.renderersFactorySupplier = () -> new DefaultRenderersFactory(context);
-      this.downloadExecutorSupplier =
-          () -> Util.newSingleThreadScheduledExecutor(PRECACHE_DOWNLOADER_THREAD_NAME);
+      this.renderersFactory = new DefaultRenderersFactory(context);
+      this.downloadExecutor = Runnable::run;
     }
 
     /**
@@ -190,11 +191,10 @@ public final class PreCacheHelper {
         Looper preCacheLooper) {
       this.cache = cache;
       this.preCacheLooper = preCacheLooper;
-      this.upstreamDataSourceFactorySupplier = () -> upstreamDataSourceFactory;
+      this.upstreamDataSourceFactory = upstreamDataSourceFactory;
       this.trackSelectionParameters = TrackSelectionParameters.DEFAULT;
-      this.renderersFactorySupplier = () -> renderersFactory;
-      this.downloadExecutorSupplier =
-          () -> Util.newSingleThreadScheduledExecutor(PRECACHE_DOWNLOADER_THREAD_NAME);
+      this.renderersFactory = renderersFactory;
+      this.downloadExecutor = Runnable::run;
     }
 
     /**
@@ -216,7 +216,7 @@ public final class PreCacheHelper {
     /**
      * Sets an {@link Executor} used to download data.
      *
-     * <p>The default is a single threaded scheduled executor.
+     * <p>The default is {@code Runnable::run}.
      *
      * <p>Passing {@code Runnable::run} will cause each download task to download data on its own
      * thread. Passing an {@link Executor} that uses multiple threads will speed up download tasks
@@ -226,7 +226,7 @@ public final class PreCacheHelper {
      */
     @CanIgnoreReturnValue
     public PreCacheHelper.Factory setDownloadExecutor(Executor downloadExecutor) {
-      this.downloadExecutorSupplier = () -> downloadExecutor;
+      this.downloadExecutor = downloadExecutor;
       return this;
     }
 
@@ -247,39 +247,28 @@ public final class PreCacheHelper {
      * @param mediaItem The {@link MediaItem} to pre-cache.
      */
     public PreCacheHelper create(MediaItem mediaItem) {
+      CacheDataSource.Factory cacheDataSourceFactory =
+          new CacheDataSource.Factory()
+              .setUpstreamDataSourceFactory(upstreamDataSourceFactory)
+              .setCache(cache);
+      DownloadHelper.Factory downloadHelperFactory =
+          new DownloadHelper.Factory()
+              .setDataSourceFactory(cacheDataSourceFactory)
+              .setRenderersFactory(renderersFactory)
+              .setTrackSelectionParameters(trackSelectionParameters);
+      DownloaderFactory downloaderFactory =
+          new DefaultDownloaderFactory(cacheDataSourceFactory, downloadExecutor);
       return new PreCacheHelper(
           mediaItem,
-          /* mediaSource= */ null,
-          upstreamDataSourceFactorySupplier.get(),
-          trackSelectionParameters,
-          renderersFactorySupplier.get(),
-          cache,
+          /* mediaSourceFactory= */ null,
+          downloadHelperFactory,
+          downloaderFactory,
           preCacheLooper,
-          downloadExecutorSupplier.get(),
-          listener);
-    }
-
-    /**
-     * Creates a {@link PreCacheHelper} instance.
-     *
-     * @param mediaSource The {@link MediaSource} to pre-cache.
-     */
-    /* package */ PreCacheHelper create(MediaSource mediaSource) {
-      return new PreCacheHelper(
-          mediaSource.getMediaItem(),
-          mediaSource,
-          upstreamDataSourceFactorySupplier.get(),
-          trackSelectionParameters,
-          renderersFactorySupplier.get(),
-          cache,
-          preCacheLooper,
-          downloadExecutorSupplier.get(),
           listener);
     }
   }
 
-  @VisibleForTesting
-  /* package */ static final String PRECACHE_DOWNLOADER_THREAD_NAME = "PreCacheHelper:Downloader";
+  @VisibleForTesting /* package */ static final int DEFAULT_MIN_RETRY_COUNT = 5;
 
   private final MediaItem mediaItem;
   private final Supplier<DownloadHelper> downloadHelperSupplier;
@@ -287,47 +276,25 @@ public final class PreCacheHelper {
   @Nullable private final Listener listener;
   private final Handler preCacheHandler;
   private final Handler applicationHandler;
+  @Nullable private DownloadCallback currentDownloadCallback;
 
-  private long startPositionMs;
-  private long durationMs;
-  private MediaItem updatedMediaItem;
-  @Nullable private DownloadHelper downloadHelper;
-  @Nullable private Downloader downloader;
-  private boolean stopped;
-
-  private PreCacheHelper(
+  /* package */ PreCacheHelper(
       MediaItem mediaItem,
-      @Nullable MediaSource mediaSource,
-      DataSource.Factory upstreamDataSourceFactory,
-      TrackSelectionParameters trackSelectionParameters,
-      RenderersFactory renderersFactory,
-      Cache cache,
+      @Nullable MediaSource.Factory mediaSourceFactory,
+      DownloadHelper.Factory downloadHelperFactory,
+      DownloaderFactory downloaderFactory,
       Looper preCacheLooper,
-      Executor downloadExecutor,
       @Nullable Listener listener) {
     this.mediaItem = mediaItem;
-    CacheDataSource.Factory cacheDataSourceFactory =
-        new CacheDataSource.Factory()
-            .setUpstreamDataSourceFactory(upstreamDataSourceFactory)
-            .setCache(cache);
-    DownloadHelper.Factory downloadHelperFactory =
-        new DownloadHelper.Factory()
-            .setDataSourceFactory(cacheDataSourceFactory)
-            .setRenderersFactory(renderersFactory)
-            .setTrackSelectionParameters(trackSelectionParameters);
     this.downloadHelperSupplier =
         () ->
-            mediaSource != null
-                ? downloadHelperFactory.create(mediaSource)
+            mediaSourceFactory != null
+                ? downloadHelperFactory.create(mediaSourceFactory.createMediaSource(mediaItem))
                 : downloadHelperFactory.create(mediaItem);
-    this.downloaderFactory = new DefaultDownloaderFactory(cacheDataSourceFactory, downloadExecutor);
+    this.downloaderFactory = downloaderFactory;
     this.listener = listener;
-    this.preCacheHandler = Util.createHandler(preCacheLooper, null);
+    this.preCacheHandler = Util.createHandler(preCacheLooper, /* callback= */ null);
     this.applicationHandler = Util.createHandlerForCurrentOrMainLooper();
-
-    startPositionMs = C.TIME_UNSET;
-    durationMs = C.TIME_UNSET;
-    updatedMediaItem = mediaItem;
   }
 
   /**
@@ -342,11 +309,13 @@ public final class PreCacheHelper {
   public void preCache(long startPositionMs, long durationMs) {
     preCacheHandler.post(
         () -> {
-          this.stopped = false;
-          this.startPositionMs = startPositionMs;
-          this.durationMs = durationMs;
-          downloadHelper = downloadHelperSupplier.get();
-          downloadHelper.prepare(new DownloadHelperCallback());
+          if (currentDownloadCallback != null
+              && currentDownloadCallback.isReusable(startPositionMs, durationMs)) {
+            return;
+          } else if (currentDownloadCallback != null) {
+            currentDownloadCallback.cancel(/* removeCachedContent= */ false);
+          }
+          currentDownloadCallback = new DownloadCallback(startPositionMs, durationMs);
         });
   }
 
@@ -354,84 +323,252 @@ public final class PreCacheHelper {
    * Stops the pre-caching.
    *
    * <p>Can be called from any thread.
-   *
-   * @param removeCachedContent Whether the cached content should be removed.
    */
-  public void stop(boolean removeCachedContent) {
+  public void stop() {
     preCacheHandler.post(
         () -> {
-          if (downloader != null) {
-            downloader.cancel();
-            if (removeCachedContent) {
-              downloader.remove();
-            }
-            downloader = null;
+          if (currentDownloadCallback != null) {
+            currentDownloadCallback.cancel(/* removeCachedContent= */ false);
           }
-          releaseDownloadHelper();
-          preCacheHandler.removeCallbacksAndMessages(null);
-          this.stopped = true;
         });
   }
 
-  private void releaseDownloadHelper() {
-    if (downloadHelper != null) {
-      downloadHelper.release();
-      downloadHelper = null;
-    }
-  }
-
-  private void notifyListeners(Consumer<Listener> callable) {
-    applicationHandler.post(
+  /**
+   * Releases the {@link PreCacheHelper}.
+   *
+   * <p>Can be called from any thread.
+   *
+   * @param removeCachedContent Whether the cached content should be removed. If {@code true}, the
+   *     {@link PreCacheHelper} will create a new thread to remove the cached content.
+   */
+  public void release(boolean removeCachedContent) {
+    preCacheHandler.post(
         () -> {
-          if (listener != null) {
-            callable.accept(listener);
+          if (currentDownloadCallback != null) {
+            currentDownloadCallback.cancel(removeCachedContent);
+            currentDownloadCallback = null;
           }
+          preCacheHandler.removeCallbacksAndMessages(null);
         });
   }
 
-  private final class DownloadHelperCallback implements DownloadHelper.Callback {
+  private final class DownloadCallback implements DownloadHelper.Callback {
+
+    private final Object lock;
+    private final long startPositionMs;
+    private final long durationMs;
+    private final DownloadHelper downloadHelper;
+
+    private boolean isPreparationOngoing;
+    @Nullable private Downloader downloader;
+    @Nullable private Task downloaderTask;
+
+    @GuardedBy("lock")
+    private boolean isCanceled;
+
+    public DownloadCallback(long startPositionMs, long durationMs) {
+      checkState(Looper.myLooper() == preCacheHandler.getLooper());
+      this.lock = new Object();
+      this.startPositionMs = startPositionMs;
+      this.durationMs = durationMs;
+      this.downloadHelper = downloadHelperSupplier.get();
+      this.isPreparationOngoing = true;
+      this.downloadHelper.prepare(this);
+    }
 
     @Override
     public void onPrepared(DownloadHelper helper, boolean tracksInfoAvailable) {
-      if (stopped) {
-        return;
-      }
+      checkState(Looper.myLooper() == preCacheHandler.getLooper());
+      checkState(helper == this.downloadHelper);
+      isPreparationOngoing = false;
       DownloadRequest downloadRequest =
-          helper.getDownloadRequest(null, startPositionMs, durationMs);
-      updatedMediaItem = downloadRequest.toMediaItem(mediaItem.buildUpon());
+          helper.getDownloadRequest(/* data= */ null, startPositionMs, durationMs);
+      downloadHelper.release();
+      MediaItem updatedMediaItem = downloadRequest.toMediaItem(mediaItem.buildUpon());
       notifyListeners(listener -> listener.onPrepared(mediaItem, updatedMediaItem));
-      releaseDownloadHelper();
-      if (downloader == null) {
-        downloader = downloaderFactory.createDownloader(downloadRequest);
-      }
-      try {
-        downloader.download(new DownloaderProgressListener());
-      } catch (InterruptedException e) {
-        notifyListeners(
-            listener -> listener.onDownloadError(mediaItem, new InterruptedIOException()));
-      } catch (IOException e) {
-        notifyListeners(listener -> listener.onDownloadError(mediaItem, e));
-      }
+      downloader = downloaderFactory.createDownloader(downloadRequest);
+      downloaderTask =
+          new Task(
+              downloader,
+              /* isRemove= */ false,
+              DEFAULT_MIN_RETRY_COUNT,
+              /* downloadCallback= */ this);
+      downloaderTask.start();
     }
 
     @Override
     public void onPrepareError(DownloadHelper helper, IOException e) {
-      if (stopped) {
-        return;
-      }
-      releaseDownloadHelper();
+      checkState(Looper.myLooper() == preCacheHandler.getLooper());
+      checkState(helper == this.downloadHelper);
+      isPreparationOngoing = false;
+      downloadHelper.release();
       notifyListeners(listener -> listener.onPrepareError(mediaItem, e));
+    }
+
+    public void onDownloadStopped(Task task) {
+      preCacheHandler.post(
+          () -> {
+            if (task != downloaderTask) {
+              return;
+            }
+            downloaderTask = null;
+            @Nullable IOException finalException = task.finalException;
+            if (!task.isRemove && finalException != null) {
+              notifyListeners(listener -> listener.onDownloadError(mediaItem, finalException));
+            }
+          });
+    }
+
+    public void onDownloadProgress(Task task) {
+      preCacheHandler.post(
+          () -> {
+            if (task != downloaderTask) {
+              return;
+            }
+            notifyListeners(
+                listener ->
+                    listener.onPreCacheProgress(
+                        mediaItem,
+                        task.contentLength,
+                        task.bytesDownloaded,
+                        task.percentDownloaded));
+          });
+    }
+
+    public void cancel(boolean removeCachedContent) {
+      checkState(Looper.myLooper() == preCacheHandler.getLooper());
+      synchronized (lock) {
+        isCanceled = true;
+      }
+      downloadHelper.release();
+      if (downloaderTask != null && downloaderTask.isRemove) {
+        return;
+      } else if (downloaderTask != null) {
+        downloaderTask.cancel();
+      }
+      if (removeCachedContent && downloader != null) {
+        downloaderTask =
+            new Task(
+                downloader,
+                /* isRemove= */ true,
+                DEFAULT_MIN_RETRY_COUNT,
+                /* downloadCallback= */ this);
+        downloaderTask.start();
+      }
+    }
+
+    public boolean isReusable(long startPositionMs, long durationMs) {
+      checkState(Looper.myLooper() == preCacheHandler.getLooper());
+      synchronized (lock) {
+        return !isCanceled
+            && startPositionMs == this.startPositionMs
+            && durationMs == this.durationMs
+            && (isPreparationOngoing || (downloaderTask != null && !downloaderTask.isRemove));
+      }
+    }
+
+    private void notifyListeners(Consumer<Listener> callable) {
+      applicationHandler.post(
+          () -> {
+            synchronized (lock) {
+              if (isCanceled) {
+                return;
+              }
+              if (listener != null) {
+                callable.accept(listener);
+              }
+            }
+          });
     }
   }
 
-  private final class DownloaderProgressListener implements Downloader.ProgressListener {
+  private static class Task extends Thread implements Downloader.ProgressListener {
+    private final Downloader downloader;
+    private final boolean isRemove;
+    private final int minRetryCount;
+
+    @Nullable private DownloadCallback downloadCallback;
+    private volatile boolean isCanceled;
+    @Nullable private volatile IOException finalException;
+    private volatile long contentLength;
+    private volatile long bytesDownloaded;
+    private volatile float percentDownloaded;
+
+    private Task(
+        Downloader downloader,
+        boolean isRemove,
+        int minRetryCount,
+        DownloadCallback downloadCallback) {
+      this.downloader = downloader;
+      this.isRemove = isRemove;
+      this.minRetryCount = minRetryCount;
+      this.downloadCallback = downloadCallback;
+      this.contentLength = C.LENGTH_UNSET;
+    }
+
+    @SuppressWarnings("nullness:assignment")
+    public void cancel() {
+      downloadCallback = null;
+      if (!isCanceled) {
+        isCanceled = true;
+        downloader.cancel();
+        interrupt();
+      }
+    }
+
+    // Methods running on download thread.
+
+    @Override
+    public void run() {
+      try {
+        if (isRemove) {
+          downloader.remove();
+        } else {
+          int errorCount = 0;
+          long errorPosition = C.LENGTH_UNSET;
+          while (!isCanceled) {
+            try {
+              downloader.download(/* progressListener= */ this);
+              break;
+            } catch (IOException e) {
+              if (!isCanceled) {
+                if (this.bytesDownloaded != errorPosition) {
+                  errorPosition = this.bytesDownloaded;
+                  errorCount = 0;
+                }
+                if (++errorCount > minRetryCount) {
+                  throw e;
+                }
+                Thread.sleep(getRetryDelayMillis(errorCount));
+              }
+            }
+          }
+        }
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+      } catch (CancellationException e) {
+        // Do nothing.
+      } catch (IOException e) {
+        finalException = e;
+      }
+
+      if (downloadCallback != null) {
+        downloadCallback.onDownloadStopped(this);
+      }
+    }
 
     @Override
     public void onProgress(long contentLength, long bytesDownloaded, float percentDownloaded) {
-      notifyListeners(
-          listener ->
-              listener.onPreCacheProgress(
-                  mediaItem, contentLength, bytesDownloaded, percentDownloaded));
+      this.contentLength = contentLength;
+      this.bytesDownloaded = bytesDownloaded;
+      this.percentDownloaded = percentDownloaded;
+      if (downloadCallback != null) {
+        downloadCallback.onDownloadProgress(this);
+      }
+    }
+
+    private static int getRetryDelayMillis(int errorCount) {
+      return min((errorCount - 1) * 1000, 5000);
     }
   }
 }

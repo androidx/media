@@ -38,9 +38,11 @@ public class FakeDownloader implements Downloader {
   private final DownloadRequest request;
   private final ConditionVariable downloadStarted;
   private final ConditionVariable removeStarted;
+  private final ConditionVariable cancelStarted;
   private final ConditionVariable finished;
   private final ConditionVariable blocker;
-  private final AtomicInteger startCount;
+  private final AtomicInteger downloadStartCount;
+  private final AtomicInteger removeStartCount;
   private final AtomicInteger bytesDownloaded;
 
   private volatile boolean canceled;
@@ -55,21 +57,24 @@ public class FakeDownloader implements Downloader {
     this.request = request;
     downloadStarted = createRobolectricConditionVariable();
     removeStarted = createRobolectricConditionVariable();
+    cancelStarted = createRobolectricConditionVariable();
     finished = createRobolectricConditionVariable();
     blocker = createRobolectricConditionVariable();
-    startCount = new AtomicInteger();
+    downloadStartCount = new AtomicInteger();
+    removeStartCount = new AtomicInteger();
     bytesDownloaded = new AtomicInteger();
   }
 
   @Override
   public void cancel() {
+    cancelStarted.open();
     canceled = true;
     blocker.open();
   }
 
   @Override
   public void download(@Nullable ProgressListener progressListener) throws IOException {
-    startCount.incrementAndGet();
+    downloadStartCount.incrementAndGet();
     downloadStarted.open();
     try {
       block();
@@ -91,7 +96,7 @@ public class FakeDownloader implements Downloader {
 
   @Override
   public void remove() {
-    startCount.incrementAndGet();
+    removeStartCount.incrementAndGet();
     removeStarted.open();
     try {
       block();
@@ -136,16 +141,25 @@ public class FakeDownloader implements Downloader {
     downloadStarted.close();
   }
 
-  /** Asserts that {@link #remove} has started. */
-  public void assertRemoveStarted() throws InterruptedException {
-    assertThat(removeStarted.block(TIMEOUT_MS)).isTrue();
-    removeStarted.close();
+  /** Asserts that {@link #remove} has started or not started. */
+  public void assertRemoveStarted(boolean started) throws InterruptedException {
+    if (started) {
+      assertThat(removeStarted.block(TIMEOUT_MS)).isTrue();
+      removeStarted.close();
+    } else {
+      assertThat(removeStarted.block(TIMEOUT_MS)).isFalse();
+    }
   }
 
-  /** Asserts that {@link #download} or {@link #remove} has been cancelled. */
-  public void assertCanceled() throws InterruptedException {
-    blockUntilFinished();
-    assertThat(canceled).isTrue();
+  /** Asserts that {@link #download} or {@link #remove} has been canceled or not canceled. */
+  public void assertCanceled(boolean canceled) throws InterruptedException {
+    if (canceled) {
+      assertThat(cancelStarted.block(TIMEOUT_MS)).isTrue();
+      blockUntilFinished();
+      cancelStarted.close();
+    } else {
+      assertThat(cancelStarted.block(TIMEOUT_MS)).isFalse();
+    }
   }
 
   // Internal methods.
