@@ -890,7 +890,6 @@ public final class DefaultAudioSink implements AudioSink {
       Api31.setLogSessionIdOnAudioTrack(audioTrack, playerId);
     }
     int newAudioSessionId = audioTrack.getAudioSessionId();
-    boolean audioSessionIdChanged = newAudioSessionId != audioSessionId;
     audioSessionId = newAudioSessionId;
     audioTrackPositionTracker.setAudioTrack(
         audioTrack,
@@ -919,9 +918,7 @@ public final class DefaultAudioSink implements AudioSink {
 
     if (listener != null) {
       listener.onAudioTrackInitialized(configuration.buildAudioTrackConfig());
-      if (audioSessionIdChanged) {
-        listener.onAudioSessionIdChanged(audioSessionId);
-      }
+      // TODO: b/420380940 - Report audio session id change back to the rest of the player
     }
 
     return true;

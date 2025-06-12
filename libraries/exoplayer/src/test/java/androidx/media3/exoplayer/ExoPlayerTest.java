@@ -228,6 +228,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -16763,6 +16764,7 @@ public final class ExoPlayerTest {
     verify(listener).onAudioSessionIdChanged(audioSessionId);
   }
 
+  @Ignore // TODO: b/420380940 - Renable test once audio session id is propagated from audio sink
   @Test
   public void audioSessionIdChangeInTheAudioSink_propagatesToOtherRenderersGetterAndListener()
       throws Exception {
