@@ -80,6 +80,11 @@
     *   Add custom `PlaybackException` for all or selected controllers.
     *   Fix bug where seeking in a live stream on a `MediaController` can cause
         an `IllegalArgumentException`.
+    *   For live streams, stop publishing a playback position and the ability to
+        seek in the current item for platform media controllers, to avoid
+        position artefacts in the Android Auto UI (and other controllers using
+        this information from the platform media session)
+        ([#1758](https://github.com/androidx/media/issues/1758)).
 *   UI:
 *   Downloads:
 *   OkHttp extension:

@@ -73,6 +73,7 @@ import androidx.media3.test.session.common.PollingCheck;
 import androidx.media3.test.session.common.SurfaceActivity;
 import androidx.media3.test.session.common.TestHandler;
 import androidx.media3.test.session.common.TestUtils;
+import androidx.media3.test.utils.FakeTimeline;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.LargeTest;
@@ -93,6 +94,7 @@ import org.junit.runner.RunWith;
 /** Tests for {@link MediaControllerCompat.Callback} with {@link MediaSession}. */
 @RunWith(AndroidJUnit4.class)
 @LargeTest
+@SuppressWarnings("deprecation") // Tests behavior of deprecated MediaControllerCompat.Callback
 public class MediaControllerCompatCallbackWithMediaSessionTest {
 
   private static final String SESSION_ID =
@@ -1412,6 +1414,49 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
   }
 
   @Test
+  public void playbackStateChange_forLiveStream_notifiesUnsetPositionSpeedAndNoSeekAction()
+      throws Exception {
+    AtomicReference<PlaybackStateCompat> playbackStateRef = new AtomicReference<>();
+    CountDownLatch latch = new CountDownLatch(1);
+    MediaControllerCompat.Callback callback =
+        new MediaControllerCompat.Callback() {
+          @Override
+          public void onPlaybackStateChanged(PlaybackStateCompat state) {
+            playbackStateRef.set(state);
+            latch.countDown();
+          }
+        };
+    controllerCompat.registerCallback(callback, handler);
+    session
+        .getMockPlayer()
+        .setTimeline(
+            new FakeTimeline(
+                new FakeTimeline.TimelineWindowDefinition.Builder().setLive(true).build()));
+    session.getMockPlayer().setCurrentPosition(5000);
+    session.getMockPlayer().setBufferedPosition(6000);
+
+    session.getMockPlayer().notifyPlaybackStateChanged(STATE_READY);
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    PlaybackStateCompat parameterPlaybackStateCompat = playbackStateRef.get();
+    PlaybackStateCompat getterPlaybackStateCompat = controllerCompat.getPlaybackState();
+    assertThat(parameterPlaybackStateCompat.getPosition())
+        .isEqualTo(PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN);
+    assertThat(getterPlaybackStateCompat.getPosition())
+        .isEqualTo(PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN);
+    assertThat(parameterPlaybackStateCompat.getBufferedPosition())
+        .isEqualTo(PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN);
+    assertThat(getterPlaybackStateCompat.getBufferedPosition())
+        .isEqualTo(PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN);
+    assertThat(parameterPlaybackStateCompat.getPlaybackSpeed()).isEqualTo(0f);
+    assertThat(getterPlaybackStateCompat.getPlaybackSpeed()).isEqualTo(0f);
+    assertThat(parameterPlaybackStateCompat.getActions() & PlaybackStateCompat.ACTION_SEEK_TO)
+        .isEqualTo(0);
+    assertThat(getterPlaybackStateCompat.getActions() & PlaybackStateCompat.ACTION_SEEK_TO)
+        .isEqualTo(0);
+  }
+
+  @Test
   public void setCustomLayout_onPlaybackStateCompatChangedCalled() throws Exception {
     Bundle extras1 = new Bundle();
     extras1.putString("key", "value-1");
@@ -1927,6 +1972,44 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
     // Assert that complex types are not kept
     assertThat(metadataCompat.getBundle().containsKey("complexTypeKey")).isFalse();
     assertThat(metadataCompat.getBundle().containsKey("bitmapKey")).isFalse();
+  }
+
+  @Test
+  public void onMediaMetadataChanged_forLiveStream_updatesLegacyMetadataWithNegativeDuration()
+      throws Exception {
+    session
+        .getMockPlayer()
+        .notifyAvailableCommandsChanged(
+            new Player.Commands.Builder()
+                .addAll(Player.COMMAND_GET_METADATA, Player.COMMAND_GET_CURRENT_MEDIA_ITEM)
+                .build());
+    session
+        .getMockPlayer()
+        .setTimeline(
+            new FakeTimeline(
+                new FakeTimeline.TimelineWindowDefinition.Builder().setLive(true).build()));
+    session.getMockPlayer().setDuration(5000);
+    AtomicReference<MediaMetadataCompat> metadataRef = new AtomicReference<>();
+    CountDownLatch latchForMetadata = new CountDownLatch(1);
+    MediaControllerCompat.Callback callback =
+        new MediaControllerCompat.Callback() {
+          @Override
+          public void onMetadataChanged(MediaMetadataCompat metadata) {
+            metadataRef.set(metadata);
+            latchForMetadata.countDown();
+          }
+        };
+    controllerCompat.registerCallback(callback, handler);
+
+    session
+        .getMockPlayer()
+        .notifyMediaMetadataChanged(new MediaMetadata.Builder().setTitle("title").build());
+
+    assertThat(latchForMetadata.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    MediaMetadataCompat parameterMetadataCompat = metadataRef.get();
+    MediaMetadataCompat getterMetadataCompat = controllerCompat.getMetadata();
+    assertThat(parameterMetadataCompat.getLong(METADATA_KEY_DURATION)).isLessThan(0);
+    assertThat(getterMetadataCompat.getLong(METADATA_KEY_DURATION)).isLessThan(0);
   }
 
   @Test

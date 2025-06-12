@@ -1783,6 +1783,9 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       // The actual error from the player, if any.
       playbackException = player.getPlayerError();
     }
+    boolean canReadPositions =
+        player.isCommandAvailable(Player.COMMAND_GET_CURRENT_MEDIA_ITEM)
+            && !player.isCurrentMediaItemLive();
     boolean shouldShowPlayButton =
         playbackException != null || Util.shouldShowPlayButton(player, playIfSuppressed);
     int state =
@@ -1808,12 +1811,15 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         && !legacyExtras.getBoolean(MediaConstants.EXTRAS_KEY_SLOT_RESERVATION_SEEK_TO_NEXT)) {
       actions &= ~PlaybackStateCompat.ACTION_SKIP_TO_NEXT;
     }
+    if (!canReadPositions) {
+      actions &= ~PlaybackStateCompat.ACTION_SEEK_TO;
+    }
     long queueItemId =
         player.isCommandAvailable(Player.COMMAND_GET_TIMELINE)
             ? LegacyConversions.convertToQueueItemId(player.getCurrentMediaItemIndex())
             : MediaSessionCompat.QueueItem.UNKNOWN_ID;
     float playbackSpeed = player.getPlaybackParameters().speed;
-    float sessionPlaybackSpeed = player.isPlaying() ? playbackSpeed : 0f;
+    float sessionPlaybackSpeed = player.isPlaying() && canReadPositions ? playbackSpeed : 0f;
     Bundle extras = playbackException != null ? new Bundle(playbackException.extras) : new Bundle();
     if (playbackException == null && legacyError != null) {
       extras.putAll(legacyError.extras);
@@ -1824,12 +1830,14 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     if (currentMediaItem != null && !MediaItem.DEFAULT_MEDIA_ID.equals(currentMediaItem.mediaId)) {
       extras.putString(EXTRAS_KEY_MEDIA_ID_COMPAT, currentMediaItem.mediaId);
     }
-    boolean canReadPositions = player.isCommandAvailable(Player.COMMAND_GET_CURRENT_MEDIA_ITEM);
     long compatPosition =
         canReadPositions
             ? player.getCurrentPosition()
             : PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN;
-    long compatBufferedPosition = canReadPositions ? player.getBufferedPosition() : 0;
+    long compatBufferedPosition =
+        canReadPositions
+            ? player.getBufferedPosition()
+            : PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN;
     PlaybackStateCompat.Builder builder =
         new PlaybackStateCompat.Builder()
             .setState(state, compatPosition, sessionPlaybackSpeed, SystemClock.elapsedRealtime())

@@ -790,9 +790,9 @@ import java.util.concurrent.TimeoutException;
       // If the actual media duration is unknown, use the manually declared value if available.
       durationMs = metadata.durationMs;
     }
-    if (durationMs != C.TIME_UNSET) {
-      builder.putLong(MediaMetadataCompat.METADATA_KEY_DURATION, durationMs);
-    }
+    // METADATA_KEY_DURATION expects any negative value if unknown.
+    builder.putLong(
+        MediaMetadataCompat.METADATA_KEY_DURATION, durationMs != C.TIME_UNSET ? durationMs : -1);
 
     @Nullable RatingCompat userRatingCompat = convertToRatingCompat(metadata.userRating);
     if (userRatingCompat != null) {
