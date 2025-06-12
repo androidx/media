@@ -70,7 +70,6 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
   private final Context context;
   private final CapturingMediaCodecAdapter.Factory mediaCodecAdapterFactory;
   private final CapturingAudioSink audioSink;
-  private final CapturingImageOutput imageOutput;
 
   private ImageDecoder.Factory imageDecoderFactory;
   private TextRendererFactory textRendererFactory;
@@ -95,7 +94,6 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
     this.context = context;
     this.mediaCodecAdapterFactory = new CapturingMediaCodecAdapter.Factory(context);
     this.audioSink = capturingAudioSink;
-    this.imageOutput = new CapturingImageOutput();
     this.imageDecoderFactory = new BitmapFactoryImageDecoder.Factory(context);
     this.textRendererFactory = TextRenderer::new;
   }
@@ -166,7 +164,7 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
             audioSink));
     renderers.add(textRendererFactory.create(textRendererOutput, eventHandler.getLooper()));
     renderers.add(new MetadataRenderer(metadataRendererOutput, eventHandler.getLooper()));
-    renderers.add(new ImageRenderer(imageDecoderFactory, imageOutput));
+    renderers.add(new ImageRenderer(imageDecoderFactory, /* imageOutput= */ null));
 
     return renderers.toArray(new Renderer[] {});
   }
@@ -175,7 +173,6 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
   public void dump(Dumper dumper) {
     mediaCodecAdapterFactory.dump(dumper);
     audioSink.dump(dumper);
-    imageOutput.dump(dumper);
   }
 
   /** A factory for {@link Renderer} instances that handle {@link C#TRACK_TYPE_TEXT} tracks. */

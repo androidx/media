@@ -45,6 +45,7 @@ import androidx.media3.extractor.metadata.mp4.SlowMotionData;
 import androidx.media3.extractor.metadata.mp4.SmtaMetadataEntry;
 import androidx.media3.extractor.metadata.scte35.SpliceCommand;
 import androidx.media3.extractor.metadata.vorbis.VorbisComment;
+import androidx.media3.test.utils.CapturingImageOutput;
 import androidx.media3.test.utils.CapturingRenderersFactory;
 import androidx.media3.test.utils.Dumper;
 import com.google.common.collect.ImmutableList;
@@ -64,6 +65,7 @@ public final class PlaybackOutput implements Dumper.Dumpable {
 
   private final CapturingRenderersFactory capturingRenderersFactory;
 
+  private final CapturingImageOutput capturingImageOutput;
   private final List<Metadata> metadatas;
   private final List<MediaMetadata> mediaMetadatas;
   private final List<CueGroup> subtitles;
@@ -72,10 +74,12 @@ public final class PlaybackOutput implements Dumper.Dumpable {
   private PlaybackOutput(ExoPlayer player, CapturingRenderersFactory capturingRenderersFactory) {
     this.capturingRenderersFactory = capturingRenderersFactory;
 
+    capturingImageOutput = new CapturingImageOutput();
     metadatas = Collections.synchronizedList(new ArrayList<>());
     mediaMetadatas = Collections.synchronizedList(new ArrayList<>());
     subtitles = Collections.synchronizedList(new ArrayList<>());
     subtitlesFromDeprecatedTextOutput = Collections.synchronizedList(new ArrayList<>());
+    player.setImageOutput(capturingImageOutput);
     // TODO: Consider passing playback position into MetadataOutput. Calling
     // player.getCurrentPosition() inside onMetadata will likely be non-deterministic
     // because renderer-thread != playback-thread.
@@ -105,13 +109,13 @@ public final class PlaybackOutput implements Dumper.Dumpable {
   }
 
   /**
-   * Create an instance that captures the metadata and text output from {@code player} and the audio
-   * and video output via {@code capturingRenderersFactory}.
+   * Create an instance that captures the metadata, image and text output from {@code player}, and
+   * the audio and video output via {@code capturingRenderersFactory}.
    *
-   * <p>Must be called <b>before</b> playback to ensure metadata and text output is captured
+   * <p>Must be called <b>before</b> playback to ensure metadata, image and text output is captured
    * correctly.
    *
-   * @param player The {@link ExoPlayer} to capture metadata and text output from.
+   * @param player The {@link ExoPlayer} to capture metadata, image and text output from.
    * @param capturingRenderersFactory The {@link CapturingRenderersFactory} to capture audio and
    *     video output from.
    * @return A new instance that can be used to dump the playback output.
@@ -124,6 +128,7 @@ public final class PlaybackOutput implements Dumper.Dumpable {
   @Override
   public void dump(Dumper dumper) {
     capturingRenderersFactory.dump(dumper);
+    capturingImageOutput.dump(dumper);
 
     dumpMetadata(dumper);
     dumpMediaMetadata(dumper);
