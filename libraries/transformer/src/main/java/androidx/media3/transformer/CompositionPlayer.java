@@ -43,11 +43,9 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.SimpleBasePlayer;
-import androidx.media3.common.Timeline;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoGraph;
 import androidx.media3.common.VideoSize;
-import androidx.media3.common.audio.SpeedProvider;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.HandlerWrapper;
@@ -69,13 +67,9 @@ import androidx.media3.exoplayer.image.ImageDecoder;
 import androidx.media3.exoplayer.source.ClippingMediaSource;
 import androidx.media3.exoplayer.source.ConcatenatingMediaSource2;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
-import androidx.media3.exoplayer.source.ForwardingTimeline;
-import androidx.media3.exoplayer.source.MediaPeriod;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.MergingMediaSource;
 import androidx.media3.exoplayer.source.SilenceMediaSource;
-import androidx.media3.exoplayer.source.WrappingMediaSource;
-import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.util.EventLogger;
 import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
 import androidx.media3.exoplayer.video.VideoFrameMetadataListener;
@@ -1004,54 +998,13 @@ public final class CompositionPlayer extends SimpleBasePlayer
     for (Effect videoEffect : videoEffects) {
       if (videoEffect instanceof InactiveTimestampAdjustment) {
         newMediaSource =
-            wrapWithSpeedChangingMediaSource(
+            new SpeedChangingMediaSource(
                 newMediaSource,
                 ((InactiveTimestampAdjustment) videoEffect).speedProvider,
                 durationUs);
       }
     }
     return newMediaSource;
-  }
-
-  private static MediaSource wrapWithSpeedChangingMediaSource(
-      MediaSource mediaSource, SpeedProvider speedProvider, long durationUs) {
-    return new WrappingMediaSource(mediaSource) {
-
-      @Override
-      public MediaPeriod createPeriod(MediaPeriodId id, Allocator allocator, long startPositionUs) {
-        return new SpeedProviderMediaPeriod(
-            super.createPeriod(id, allocator, startPositionUs), speedProvider);
-      }
-
-      @Override
-      public void releasePeriod(MediaPeriod mediaPeriod) {
-        MediaPeriod wrappedPeriod = ((SpeedProviderMediaPeriod) mediaPeriod).mediaPeriod;
-        super.releasePeriod(wrappedPeriod);
-      }
-
-      @Override
-      protected void onChildSourceInfoRefreshed(Timeline newTimeline) {
-        Timeline timeline =
-            new ForwardingTimeline(newTimeline) {
-              @Override
-              public Window getWindow(
-                  int windowIndex, Window window, long defaultPositionProjectionUs) {
-                Window wrappedWindow =
-                    newTimeline.getWindow(windowIndex, window, defaultPositionProjectionUs);
-                wrappedWindow.durationUs = durationUs;
-                return wrappedWindow;
-              }
-
-              @Override
-              public Period getPeriod(int periodIndex, Period period, boolean setIds) {
-                Period wrappedPeriod = newTimeline.getPeriod(periodIndex, period, setIds);
-                wrappedPeriod.durationUs = durationUs;
-                return wrappedPeriod;
-              }
-            };
-        super.onChildSourceInfoRefreshed(timeline);
-      }
-    };
   }
 
   private ListenableFuture<?> maybeSetVideoOutput() {
