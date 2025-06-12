@@ -935,6 +935,9 @@ import java.util.Objects;
       if (state != Player.STATE_BUFFERING) {
         playbackMaybeBecameStuckAtMs = C.TIME_UNSET;
       }
+      if (state != Player.STATE_READY && playbackInfo.sleepingForOffload) {
+        playbackInfo = playbackInfo.copyWithSleepingForOffload(false);
+      }
       playbackInfo = playbackInfo.copyWithPlaybackState(state);
     }
   }
@@ -1109,6 +1112,9 @@ import java.util.Objects;
     if (!shouldPlayWhenReady()) {
       stopRenderers();
       updatePlaybackPositions();
+      if (playbackInfo.sleepingForOffload) {
+        playbackInfo = playbackInfo.copyWithSleepingForOffload(false);
+      }
       queue.reevaluateBuffer(rendererPositionUs);
     } else {
       if (playbackInfo.playbackState == Player.STATE_READY) {
