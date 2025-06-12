@@ -26,6 +26,7 @@ import static org.junit.Assert.assertThrows;
 
 import android.content.Context;
 import android.media.MediaCodec;
+import android.media.MediaCodecInfo;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.media.metrics.LogSessionId;
@@ -1136,6 +1137,31 @@ public class MediaExtractorCompatTest {
     for (int i = 0; i < buffer.remaining(); i++) {
       assertThat(buffer.get()).isEqualTo(sampleData[i]);
     }
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 23)
+  public void getTrackFormat_withProfileAndLevelInCodecString_returnsExpectedProfileAndLevel()
+      throws IOException {
+    fakeExtractor.addReadAction(
+        (input, seekPosition) -> {
+          TrackOutput output = extractorOutput.track(/* id= */ 0, C.TRACK_TYPE_VIDEO);
+          extractorOutput.endTracks();
+          output.format(
+              new Format.Builder()
+                  .setSampleMimeType(MimeTypes.VIDEO_H264)
+                  .setCodecs("avc1.122.10")
+                  .build());
+          return Extractor.RESULT_CONTINUE;
+        });
+    mediaExtractorCompat.setDataSource(PLACEHOLDER_URI, /* offset= */ 0);
+
+    MediaFormat mediaFormat = mediaExtractorCompat.getTrackFormat(/* trackIndex= */ 0);
+
+    assertThat(mediaFormat.getInteger(MediaFormat.KEY_PROFILE))
+        .isEqualTo(MediaCodecInfo.CodecProfileLevel.AVCProfileHigh422);
+    assertThat(mediaFormat.getInteger(MediaFormat.KEY_LEVEL))
+        .isEqualTo(MediaCodecInfo.CodecProfileLevel.AVCLevel1);
   }
 
   // Internal methods.

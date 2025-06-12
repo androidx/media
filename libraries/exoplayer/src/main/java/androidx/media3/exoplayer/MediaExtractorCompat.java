@@ -33,6 +33,7 @@ import android.media.MediaFormat;
 import android.media.metrics.LogSessionId;
 import android.net.Uri;
 import android.os.PersistableBundle;
+import android.util.Pair;
 import android.util.SparseArray;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
@@ -43,6 +44,7 @@ import androidx.media3.common.DrmInitData;
 import androidx.media3.common.Format;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.Assertions;
+import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.MediaFormatUtil;
 import androidx.media3.common.util.UnstableApi;
@@ -1005,6 +1007,12 @@ public final class MediaExtractorCompat {
           mediaFormatResult.removeKey(MediaFormat.KEY_CODECS_STRING);
         }
         mediaFormatResult.setString(MediaFormat.KEY_MIME, compatibilityTrackMimeType);
+      }
+      Pair<Integer, Integer> profileAndLevel =
+          CodecSpecificDataUtil.getCodecProfileAndLevel(format);
+      if (profileAndLevel != null && SDK_INT >= 23) {
+        mediaFormatResult.setInteger(MediaFormat.KEY_PROFILE, profileAndLevel.first);
+        mediaFormatResult.setInteger(MediaFormat.KEY_LEVEL, profileAndLevel.second);
       }
       return mediaFormatResult;
     }
