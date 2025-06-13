@@ -234,9 +234,10 @@ public class TestExoPlayerBuilder {
   }
 
   /**
-   * Sets the {@link Looper} to be used by the player.
+   * Sets the {@link Looper} to be used for all calls to the player and for calling listeners.
    *
-   * @param looper The {@link Looper} to be used by the player.
+   * @param looper The {@link Looper} to be used for all calls to the player and for calling
+   *     listeners.
    * @return This builder.
    */
   @CanIgnoreReturnValue

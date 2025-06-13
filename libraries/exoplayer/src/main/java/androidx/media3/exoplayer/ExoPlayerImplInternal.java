@@ -1868,6 +1868,7 @@ import java.util.Objects;
       trackSelector.release();
       setState(Player.STATE_IDLE);
     } finally {
+      handler.removeCallbacksAndMessages(null);
       playbackLooperProvider.releaseLooper();
       processedCondition.open();
     }
