@@ -67,6 +67,7 @@ import org.junit.runner.RunWith;
 /** Tests for {@link MediaSessionCompat.Callback} with {@link MediaController}. */
 @RunWith(AndroidJUnit4.class)
 @SmallTest
+@SuppressWarnings("deprecation") // Tests behavior of deprecated MediaSessionCompat.Callback
 public class MediaSessionCompatCallbackWithMediaControllerTest {
   private static final String TAG = "MediaControllerTest";
 

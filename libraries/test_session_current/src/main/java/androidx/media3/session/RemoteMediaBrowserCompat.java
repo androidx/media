@@ -38,6 +38,7 @@ import java.util.concurrent.CountDownLatch;
  * Represents remote {@link MediaBrowserCompat} the client app's MediaBrowserCompatProviderService.
  * Users can run {@link MediaBrowserCompat} methods remotely with this object.
  */
+@SuppressWarnings("deprecation") // Test utils for deprecated MediaBrowserCompat
 public class RemoteMediaBrowserCompat {
 
   private static final String TAG = "RMediaBrowserCompat";

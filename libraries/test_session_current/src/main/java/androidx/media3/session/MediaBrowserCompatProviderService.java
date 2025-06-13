@@ -43,6 +43,7 @@ import java.util.concurrent.Executor;
  * A Service that creates {@link MediaBrowserCompat} and calls its methods according to the service
  * app's requests.
  */
+@SuppressWarnings("deprecation") // Test utils for deprecated MediaBrowserCompat
 public class MediaBrowserCompatProviderService extends Service {
 
   private static final String TAG = "MBCompatProviderService";

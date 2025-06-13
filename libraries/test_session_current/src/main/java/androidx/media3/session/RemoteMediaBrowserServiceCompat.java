@@ -30,6 +30,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 
 /** A client to control service app's MockMediaBrowserServiceCompat remotely. */
+@SuppressWarnings("deprecation") // Test utils for deprecated MediaBrowserServiceCompat
 public class RemoteMediaBrowserServiceCompat {
 
   private final Context context;

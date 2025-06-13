@@ -64,6 +64,7 @@ import java.util.Collections;
 import java.util.List;
 
 /** Mock implementation of the media browser service. */
+@SuppressWarnings("deprecation") // Test utils for deprecated MediaBrowserServiceCompat
 public class MockMediaBrowserServiceCompat extends MediaBrowserServiceCompat {
 
   /**

@@ -48,6 +48,7 @@ import java.util.concurrent.CountDownLatch;
  *
  * <p>Users can run {@link MediaControllerCompat} methods remotely with this object.
  */
+@SuppressWarnings("deprecation") // Test utils for deprecated MediaControllerCompat
 public class RemoteMediaControllerCompat {
 
   public static final int QUEUE_IS_NULL = -1;

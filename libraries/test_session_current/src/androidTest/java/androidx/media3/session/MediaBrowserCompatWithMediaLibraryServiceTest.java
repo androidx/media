@@ -100,6 +100,7 @@ import org.junit.runner.RunWith;
 /** Tests for {@link MediaBrowserCompat} with {@link MediaLibraryService}. */
 @RunWith(AndroidJUnit4.class)
 @LargeTest
+@SuppressWarnings("deprecation") // Tests behavior of deprecated MediaBrowserCompat
 public class MediaBrowserCompatWithMediaLibraryServiceTest
     extends MediaBrowserCompatWithMediaSessionServiceTest {
 

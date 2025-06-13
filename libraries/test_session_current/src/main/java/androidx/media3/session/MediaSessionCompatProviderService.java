@@ -46,6 +46,7 @@ import java.util.concurrent.Executor;
  * A Service that creates {@link MediaSessionCompat} and calls its methods according to the client
  * app's requests.
  */
+@SuppressWarnings("deprecation") // Test utils for deprecated MediaSessionCompat
 public class MediaSessionCompatProviderService extends Service {
 
   public static final String METHOD_ON_PREPARE_FROM_MEDIA_ID = "onPrepareFromMediaId";

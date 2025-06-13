@@ -71,6 +71,7 @@ import org.junit.runner.RunWith;
  */
 @RunWith(AndroidJUnit4.class)
 @LargeTest
+@SuppressWarnings("deprecation") // Tests behavior of deprecated MediaControllerCompat
 public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest {
 
   private static final String TAG = "MCCPSActionWithMS3";
