@@ -973,6 +973,9 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       throws ExoPlaybackException {
     super.onStreamChanged(formats, startPositionUs, offsetUs, mediaPeriodId);
     updatePeriodDurationUs(mediaPeriodId);
+    if (videoFrameReleaseEarlyTimeForecaster != null) {
+      videoFrameReleaseEarlyTimeForecaster.reset();
+    }
   }
 
   private void updatePeriodDurationUs(MediaSource.MediaPeriodId mediaPeriodId) {
@@ -1059,6 +1062,9 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       videoSink.stopRendering();
     } else {
       videoFrameReleaseControl.onStopped();
+    }
+    if (videoFrameReleaseEarlyTimeForecaster != null) {
+      videoFrameReleaseEarlyTimeForecaster.reset();
     }
     super.onStopped();
   }
@@ -1520,6 +1526,12 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       throws ExoPlaybackException {
     @Nullable DecoderReuseEvaluation evaluation = super.onInputFormatChanged(formatHolder);
     eventDispatcher.inputFormatChanged(checkNotNull(formatHolder.format), evaluation);
+    if (videoFrameReleaseEarlyTimeForecaster != null) {
+      // A change in input format is likely to affect decoding speed, making predictions from
+      // the forecaster invalid.
+      // TODO: b/412588892 - Handle the transition when input and output format are different.
+      videoFrameReleaseEarlyTimeForecaster.reset();
+    }
     return evaluation;
   }
 
