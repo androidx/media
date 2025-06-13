@@ -113,6 +113,9 @@ public final class ChannelMappingAudioProcessor extends BaseAudioProcessor {
           case C.ENCODING_PCM_FLOAT:
             buffer.putFloat(inputBuffer.getFloat(inputIndex));
             break;
+          case C.ENCODING_PCM_DOUBLE:
+            buffer.putDouble(inputBuffer.getDouble(inputIndex));
+            break;
           default:
             throw new IllegalStateException("Unexpected encoding: " + inputAudioFormat.encoding);
         }
