@@ -170,7 +170,8 @@ public final class DefaultTsPayloadReaderFactory implements TsPayloadReader.Fact
             new Ac3Reader(esInfo.language, esInfo.getRoleFlags(), MimeTypes.VIDEO_MP2T));
       case TsExtractor.TS_STREAM_TYPE_AC4:
         return new PesReader(
-            new Ac4Reader(esInfo.language, esInfo.getRoleFlags(), MimeTypes.VIDEO_MP2T));
+            new Ac4Reader(esInfo.language, esInfo.getRoleFlags(), MimeTypes.VIDEO_MP2T,
+            esInfo.audioPresentations));
       case TsExtractor.TS_STREAM_TYPE_HDMV_DTS:
         if (!isSet(FLAG_ENABLE_HDMV_DTS_AUDIO_STREAMS)) {
           return null;
