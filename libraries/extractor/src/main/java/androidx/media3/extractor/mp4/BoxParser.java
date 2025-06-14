@@ -960,13 +960,17 @@ public final class BoxParser {
     int a10 = tkhd.readInt();
     int a11 = tkhd.readInt();
 
+    // Matrices which imply reflection are resolved to a correct rotation, without handling the
+    // reflection (because reflection is not currently supported by MediaCodec). This means
+    // the video ends the right way up, but incorrectly reflected in the Y axis.
+    // TODO: b/390422593 - Add richer transformation matrix support.
     int rotationDegrees;
     int fixedOne = 65536;
-    if (a00 == 0 && a01 == fixedOne && a10 == -fixedOne && a11 == 0) {
+    if (a00 == 0 && a01 == fixedOne && (a10 == -fixedOne || a10 == fixedOne) && a11 == 0) {
       rotationDegrees = 90;
-    } else if (a00 == 0 && a01 == -fixedOne && a10 == fixedOne && a11 == 0) {
+    } else if (a00 == 0 && a01 == -fixedOne && (a10 == fixedOne || a10 == -fixedOne) && a11 == 0) {
       rotationDegrees = 270;
-    } else if (a00 == -fixedOne && a01 == 0 && a10 == 0 && a11 == -fixedOne) {
+    } else if ((a00 == -fixedOne || a00 == fixedOne) && a01 == 0 && a10 == 0 && a11 == -fixedOne) {
       rotationDegrees = 180;
     } else {
       // Only 0, 90, 180 and 270 are supported. Treat anything else as 0.

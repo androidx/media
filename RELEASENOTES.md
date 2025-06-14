@@ -37,6 +37,11 @@
         the audio format when parsing a `WAVE_FORMAT_EXTENSIBLE` type file.
     *   MP4: Add support for `ipcm` and `fpcm` boxes defining raw PCM audio
         tracks (64-bit floating point PCM is not supported).
+    *   MP4: Handle the rotation part of `tkhd` transformation matrices that
+        both rotate and reflect the video. This ensures that reflected videos
+        taken by the iPhone front facing camera display the right way up, but
+        incorrectly reflected in the y-axis
+        ([#2012]()https://github.com/androidx/media/issues/2012).
 *   DataSource:
 *   Audio:
     *   Add support for all linear PCM sample formats in

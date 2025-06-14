@@ -286,6 +286,13 @@ public final class Mp4ExtractorParameterizedTest {
     assertExtractorBehavior("media/mp4/sample_fpcm_32le.mp4");
   }
 
+  // Only the rotation part of the transformation matrix is resolved (b/390422593 tracks supporting
+  // reflection too).
+  @Test
+  public void mp4SampleWithRotationAndReflection() throws Exception {
+    assertExtractorBehavior("media/mp4/sample_rotate_and_reflect.mp4");
+  }
+
   private void assertExtractorBehavior(String file) throws IOException {
     ExtractorAsserts.AssertionConfig.Builder assertionConfigBuilder =
         new ExtractorAsserts.AssertionConfig.Builder();
