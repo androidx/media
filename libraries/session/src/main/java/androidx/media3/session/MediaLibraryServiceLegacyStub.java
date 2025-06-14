@@ -631,7 +631,7 @@ import java.util.concurrent.atomic.AtomicReference;
             this.searchRequests.remove(i);
           }
         }
-        if (searchRequests.size() == 0) {
+        if (searchRequests.isEmpty()) {
           return;
         }
       }

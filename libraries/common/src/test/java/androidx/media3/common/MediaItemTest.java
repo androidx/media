@@ -27,7 +27,6 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -209,7 +208,7 @@ public class MediaItemTest {
             .setUri(URI_STRING)
             .setDrmUuid(C.WIDEVINE_UUID)
             .setDrmLicenseUri(licenseUri)
-            .setDrmSessionForClearTypes(Arrays.asList(C.TRACK_TYPE_AUDIO))
+            .setDrmSessionForClearTypes(Collections.singletonList(C.TRACK_TYPE_AUDIO))
             .setDrmSessionForClearPeriods(true)
             .build();
 

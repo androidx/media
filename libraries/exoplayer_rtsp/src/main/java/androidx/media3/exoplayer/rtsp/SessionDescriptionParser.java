@@ -85,7 +85,7 @@ import java.util.regex.Pattern;
     for (String line : RtspMessageUtil.splitRtspMessageBody(sdpString)) {
       line = line.trim();
 
-      if ("".equals(line)) {
+      if (line.isEmpty()) {
         continue;
       }
 

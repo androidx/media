@@ -148,7 +148,7 @@ class BrowseMediaItemsAdapter(
 
   override fun getItemCount(): Int {
     // Leave one item for message if nodes or items are empty.
-    if (nodes.size == 0 || items.isEmpty()) return 1
+    if (nodes.isEmpty() || items.isEmpty()) return 1
     return items.size
   }
 

@@ -207,7 +207,7 @@ class MediaAppListAdapter(val mediaAppSelectedListener: MediaAppSelectedListener
   }
 
   override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-    val type: ViewType = ViewType.values()[viewType]
+    val type: ViewType = ViewType.entries[viewType]
     val itemLayout: View = LayoutInflater.from(parent.context).inflate(type.layoutId, parent, false)
     return type.create(itemLayout)
   }
