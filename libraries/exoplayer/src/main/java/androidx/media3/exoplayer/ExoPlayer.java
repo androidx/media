@@ -1382,6 +1382,15 @@ public interface ExoPlayer extends Player {
   void setShuffleOrder(ShuffleOrder shuffleOrder);
 
   /**
+   * Gets the shuffle order.
+   *
+   * <p>The {@link ShuffleOrder} returned will have the same length as the current playlist ({@link
+   * Player#getMediaItemCount()}).
+   */
+  @UnstableApi
+  ShuffleOrder getShuffleOrder();
+
+  /**
    * Sets the {@linkplain PreloadConfiguration preload configuration} to configure playlist
    * preloading.
    *
