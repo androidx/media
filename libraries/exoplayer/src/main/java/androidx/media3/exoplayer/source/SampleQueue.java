@@ -22,6 +22,7 @@ import static androidx.media3.exoplayer.source.SampleStream.FLAG_PEEK;
 import static androidx.media3.exoplayer.source.SampleStream.FLAG_REQUIRE_FORMAT;
 import static java.lang.Math.max;
 
+import android.media.AudioPresentation;
 import android.os.Looper;
 import androidx.annotation.CallSuper;
 import androidx.annotation.GuardedBy;
@@ -50,6 +51,7 @@ import androidx.media3.exoplayer.source.SampleStream.ReadFlags;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.extractor.TrackOutput;
 import java.io.IOException;
+import java.util.List;
 import java.util.Objects;
 
 /** A queue of media samples. */
@@ -67,6 +69,17 @@ public class SampleQueue implements TrackOutput {
     void onUpstreamFormatChanged(Format format);
   }
 
+  /** A listener for changes to the upstream audio presentations. */
+  public interface UpstreamAudioPresentationsChangedListener {
+
+    /**
+     * Called on the loading thread when an upstream audio presentation change occurs.
+     *
+     * @param audioPresentations The new upstream audio presentations.
+     */
+    void onUpstreamAudioPresentationsChanged(List<AudioPresentation> audioPresentations);
+  }
+
   @VisibleForTesting /* package */ static final int SAMPLE_CAPACITY_INCREMENT = 1000;
   private static final String TAG = "SampleQueue";
 
@@ -76,6 +89,8 @@ public class SampleQueue implements TrackOutput {
   @Nullable private final DrmSessionManager drmSessionManager;
   @Nullable private final DrmSessionEventListener.EventDispatcher drmEventDispatcher;
   @Nullable private UpstreamFormatChangedListener upstreamFormatChangeListener;
+  @Nullable private UpstreamAudioPresentationsChangedListener
+        upstreamAudioPresentationsChangeListener;
 
   @Nullable private Format downstreamFormat;
   @Nullable private DrmSession currentDrmSession;
@@ -582,6 +597,16 @@ public class SampleQueue implements TrackOutput {
     upstreamFormatChangeListener = listener;
   }
 
+  /**
+   * Sets a listener to be notified of changes to the upstream audio presentations.
+   *
+   * @param listener The listener.
+   */
+  public final void setUpstreamAudioPresentationsChangeListener(
+      @Nullable UpstreamAudioPresentationsChangedListener listener) {
+    upstreamAudioPresentationsChangeListener = listener;
+  }
+
   // TrackOutput implementation. Called by the loading thread.
 
   @Override
@@ -589,9 +614,20 @@ public class SampleQueue implements TrackOutput {
     Format adjustedUpstreamFormat = getAdjustedUpstreamFormat(format);
     upstreamFormatAdjustmentRequired = false;
     unadjustedUpstreamFormat = format;
+    boolean audioPresentationsChanged = false;
+    if (format.sampleMimeType != null &&
+        MimeTypes.getTrackType(format.sampleMimeType) == C.TRACK_TYPE_AUDIO) {
+      audioPresentationsChanged =
+          upstreamFormat == null ? !format.audioPresentations.isEmpty() :
+          !format.audioPresentations.equals(upstreamFormat.audioPresentations);
+    }
     boolean upstreamFormatChanged = setUpstreamFormat(adjustedUpstreamFormat);
     if (upstreamFormatChangeListener != null && upstreamFormatChanged) {
       upstreamFormatChangeListener.onUpstreamFormatChanged(adjustedUpstreamFormat);
+    }
+    if (upstreamAudioPresentationsChangeListener != null && audioPresentationsChanged) {
+      upstreamAudioPresentationsChangeListener.onUpstreamAudioPresentationsChanged(
+            upstreamFormat.audioPresentations);
     }
   }
 
