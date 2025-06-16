@@ -17,6 +17,7 @@ package androidx.media3.extractor.mp4;
 
 import static androidx.media3.common.MimeTypes.getMimeTypeFromMp4ObjectType;
 import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.castNonNull;
 import static java.lang.Math.max;
 import static java.nio.ByteOrder.BIG_ENDIAN;
@@ -54,7 +55,9 @@ import androidx.media3.extractor.GaplessInfoHolder;
 import androidx.media3.extractor.HevcConfig;
 import androidx.media3.extractor.OpusUtil;
 import androidx.media3.extractor.VorbisUtil;
+import androidx.media3.extractor.text.vobsub.VobsubParser;
 import com.google.common.base.Function;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import java.math.RoundingMode;
@@ -367,13 +370,7 @@ public final class BoxParser {
       throw ParserException.createForMalformedContainer(
           "Malformed sample table (stbl) missing sample description (stsd)", /* cause= */ null);
     }
-    StsdData stsdData =
-        parseStsd(
-            stsd.data,
-            tkhdData,
-            mdhdData.language,
-            drmInitData,
-            isQuickTime);
+    StsdData stsdData = parseStsd(stsd.data, tkhdData, mdhdData.language, drmInitData, isQuickTime);
     @Nullable long[] editListDurations = null;
     @Nullable long[] editListMediaTimes = null;
     if (!ignoreEditLists) {
@@ -1005,8 +1002,11 @@ public final class BoxParser {
       return C.TRACK_TYPE_AUDIO;
     } else if (hdlr == TYPE_vide) {
       return C.TRACK_TYPE_VIDEO;
-    } else if (hdlr == TYPE_text || hdlr == TYPE_sbtl || hdlr == TYPE_subt
-        || hdlr == TYPE_clcp || hdlr == TYPE_subp) {
+    } else if (hdlr == TYPE_text
+        || hdlr == TYPE_sbtl
+        || hdlr == TYPE_subt
+        || hdlr == TYPE_clcp
+        || hdlr == TYPE_subp) {
       return C.TRACK_TYPE_TEXT;
     } else if (hdlr == TYPE_meta) {
       return C.TRACK_TYPE_METADATA;
@@ -1200,7 +1200,7 @@ public final class BoxParser {
     @Nullable ImmutableList<byte[]> initializationData = null;
     long subsampleOffsetUs = Format.OFFSET_SAMPLE_RELATIVE;
 
-    String mimeType;
+    @Nullable String mimeType = null;
     if (atomType == Mp4Box.TYPE_TTML) {
       mimeType = MimeTypes.APPLICATION_TTML;
     } else if (atomType == Mp4Box.TYPE_tx3g) {
@@ -1220,15 +1220,15 @@ public final class BoxParser {
       out.requiredSampleTransformation = Track.TRANSFORMATION_CEA608_CDAT;
     } else if (atomType == Mp4Box.TYPE_mp4s) {
       int pos = parent.getPosition();
-      mimeType = MimeTypes.APPLICATION_VOBSUB;
-      int childAtomSize = parent.readInt();
+      parent.skipBytes(4); // child atom size
       int childAtomType = parent.readInt();
       if (childAtomType == Mp4Box.TYPE_esds) {
         EsdsData esds = parseEsdsFromParent(parent, pos);
-        String idx = formatVobsubIdx(esds.initializationData,
-            tkhdData.width, tkhdData.height);
-        if (idx == null)
+        if (esds.initializationData == null || esds.initializationData.length != 64) {
           return;
+        }
+        mimeType = MimeTypes.APPLICATION_VOBSUB;
+        String idx = formatVobsubIdx(esds.initializationData, tkhdData.width, tkhdData.height);
         initializationData = ImmutableList.of(Util.getUtf8Bytes(idx));
       }
     } else {
@@ -1236,46 +1236,50 @@ public final class BoxParser {
       throw new IllegalStateException();
     }
 
-    out.format =
-        new Format.Builder()
-            .setId(tkhdData.id)
-            .setSampleMimeType(mimeType)
-            .setLanguage(language)
-            .setSubsampleOffsetUs(subsampleOffsetUs)
-            .setInitializationData(initializationData)
-            .build();
-  }
-
-  private static int yuvToRgb(int yuv) {
-    int y, u, v;
-    int r,g,b;
-    y = (yuv >> 16) & 0xFF;
-    v = (yuv >> 8)  & 0xFF;
-    u =  yuv        & 0xFF;
-
-    r = Util.constrainValue(y + 14075 * (v - 128) / 10000, 0, 255);
-    g = Util.constrainValue(
-        y - 3455 * (u - 128) / 10000 - 7169 * (v - 128) / 10000, 0, 255);
-    b = Util.constrainValue(y + 17790 * (u - 128) / 10000, 0, 255);
-
-    return (r << 16) | (g << 8) | b;
-  }
-
-  static String formatVobsubIdx(byte[] src, int width, int height)  {
-    if (src.length != 64)
-      return null;
-    ParsableByteArray input  = new ParsableByteArray((src));
-    StringBuilder buf = new StringBuilder(
-        "size: "+width+"x"+height+"\npalette: ");
-    for (int i = 0; i < 16; i++) {
-      int yuv = input.readInt();
-      int rgba = yuvToRgb(yuv);
-      if (i > 0)
-        buf.append(", ");
-      buf.append(String.format("%06x",rgba));
+    if (mimeType != null) {
+      out.format =
+          new Format.Builder()
+              .setId(tkhdData.id)
+              .setSampleMimeType(mimeType)
+              .setLanguage(language)
+              .setSubsampleOffsetUs(subsampleOffsetUs)
+              .setInitializationData(initializationData)
+              .build();
     }
-    buf.append("\n");
-    return buf.toString();
+  }
+
+  /**
+   * Format {@link EsdsData#initializationData} as a VobSub IDX string for consumption by {@link
+   * VobsubParser}.
+   */
+  private static String formatVobsubIdx(byte[] src, int width, int height) {
+    checkState(src.length == 64);
+    List<String> palette = new ArrayList<>(16);
+    for (int i = 0; i < src.length - 3; i += 4) {
+      int yuv = Ints.fromBytes(src[i], src[i + 1], src[i + 2], src[i + 3]);
+      palette.add(String.format("%06x", vobsubYuvToRgb(yuv)));
+    }
+    return "size: " + width + "x" + height + "\npalette: " + Joiner.on(", ").join(palette) + "\n";
+  }
+
+  /**
+   * Convert a VobSub YUV palette color (as stored in {@link EsdsData#initializationData}) to RGB
+   * (as consumed by {@link VobsubParser}).
+   *
+   * <p>This uses conversion coefficients derived from BT.601.
+   */
+  private static int vobsubYuvToRgb(int yuv) {
+    int y = (yuv >> 16) & 0xFF;
+    int v = (yuv >> 8) & 0xFF;
+    int u = yuv & 0xFF;
+
+    int r = y + 14075 * (v - 128) / 10000;
+    int g = y - 3455 * (u - 128) / 10000 - 7169 * (v - 128) / 10000;
+    int b = y + 17790 * (u - 128) / 10000;
+
+    return (Util.constrainValue(r, 0, 255) << 16)
+        | (Util.constrainValue(g, 0, 255) << 8)
+        | Util.constrainValue(b, 0, 255);
   }
 
   // hdrStaticInfo is allocated using allocate() in allocateHdrStaticInfo().
@@ -2670,8 +2674,8 @@ public final class BoxParser {
     private final int width;
     private final int height;
 
-    public TkhdData(int id, long duration, int alternateGroup, int rotationDegrees,
-        int width, int height) {
+    public TkhdData(
+        int id, long duration, int alternateGroup, int rotationDegrees, int width, int height) {
       this.id = id;
       this.duration = duration;
       this.alternateGroup = alternateGroup;

@@ -58,6 +58,8 @@
     *   Fix a playback stall when a subtitle segment initially fails to load and
         later loads successfully, followed by several empty subtitle segments
         ([#2517](https://github.com/androidx/media/issues/2517)).
+    *   Add support for VobSub tracks in MP4 files
+        ([#2510](https://github.com/androidx/media/issues/2510)).
 *   Metadata:
 *   Image:
     *   Limit decoded bitmaps to the display size in

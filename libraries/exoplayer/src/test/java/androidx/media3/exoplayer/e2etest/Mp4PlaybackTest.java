@@ -18,6 +18,7 @@ package androidx.media3.exoplayer.e2etest;
 import android.content.Context;
 import android.graphics.SurfaceTexture;
 import android.view.Surface;
+import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
 import androidx.media3.exoplayer.ExoPlayer;
@@ -41,38 +42,39 @@ import org.robolectric.ParameterizedRobolectricTestRunner.Parameters;
 public class Mp4PlaybackTest {
 
   @Parameters(name = "{0}")
-  public static ImmutableList<String> mediaSamples() {
+  public static ImmutableList<Sample> mediaSamples() {
     return ImmutableList.of(
-        "midroll-5s.mp4",
-        "postroll-5s.mp4",
-        "preroll-5s.mp4",
-        "pixel-motion-photo-2-hevc-tracks.mp4",
-        "sample_ac3_fragmented.mp4",
-        "sample_ac3.mp4",
-        "sample_ac4_fragmented.mp4",
-        "sample_ac4.mp4",
-        "sample_android_slow_motion.mp4",
-        "sample_eac3_fragmented.mp4",
-        "sample_eac3.mp4",
-        "sample_eac3joc_fragmented.mp4",
-        "sample_eac3joc.mp4",
-        "sample_fragmented.mp4",
-        "sample_fragmented_seekable.mp4",
-        "sample_fragmented_large_bitrates.mp4",
-        "sample_fragmented_sei.mp4",
-        "sample_mdat_too_long.mp4",
-        "sample.mp4",
-        "sample_with_metadata.mp4",
-        "sample_with_numeric_genre.mp4",
-        "sample_opus_fragmented.mp4",
-        "sample_opus.mp4",
-        "sample_partially_fragmented.mp4",
-        "testvid_1022ms.mp4",
-        "sample_edit_list.mp4",
-        "sample_edit_list_no_sync_frame_before_edit.mp4");
+        Sample.forFile("midroll-5s.mp4"),
+        Sample.forFile("postroll-5s.mp4"),
+        Sample.forFile("preroll-5s.mp4"),
+        Sample.forFile("pixel-motion-photo-2-hevc-tracks.mp4"),
+        Sample.forFile("sample_ac3_fragmented.mp4"),
+        Sample.forFile("sample_ac3.mp4"),
+        Sample.forFile("sample_ac4_fragmented.mp4"),
+        Sample.forFile("sample_ac4.mp4"),
+        Sample.forFile("sample_android_slow_motion.mp4"),
+        Sample.forFile("sample_eac3_fragmented.mp4"),
+        Sample.forFile("sample_eac3.mp4"),
+        Sample.forFile("sample_eac3joc_fragmented.mp4"),
+        Sample.forFile("sample_eac3joc.mp4"),
+        Sample.forFile("sample_fragmented.mp4"),
+        Sample.forFile("sample_fragmented_seekable.mp4"),
+        Sample.forFile("sample_fragmented_large_bitrates.mp4"),
+        Sample.forFile("sample_fragmented_sei.mp4"),
+        Sample.forFile("sample_mdat_too_long.mp4"),
+        Sample.forFile("sample.mp4"),
+        Sample.forFile("sample_with_metadata.mp4"),
+        Sample.forFile("sample_with_numeric_genre.mp4"),
+        Sample.forFile("sample_opus_fragmented.mp4"),
+        Sample.forFile("sample_opus.mp4"),
+        Sample.forFile("sample_partially_fragmented.mp4"),
+        Sample.withSubtitles("sample_with_vobsub.mp4", "eng"),
+        Sample.forFile("testvid_1022ms.mp4"),
+        Sample.forFile("sample_edit_list.mp4"),
+        Sample.forFile("sample_edit_list_no_sync_frame_before_edit.mp4"));
   }
 
-  @Parameter public String inputFile;
+  @Parameter public Sample sample;
 
   @Rule
   public ShadowMediaCodecConfig mediaCodecConfig =
@@ -86,12 +88,20 @@ public class Mp4PlaybackTest {
         new ExoPlayer.Builder(applicationContext, renderersFactory)
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
             .build();
+    if (sample.subtitleLanguageToSelect != null) {
+      player.setTrackSelectionParameters(
+          player
+              .getTrackSelectionParameters()
+              .buildUpon()
+              .setPreferredTextLanguage(sample.subtitleLanguageToSelect)
+              .build());
+    }
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
 
     PlaybackOutput playbackOutput = PlaybackOutput.register(player, renderersFactory);
 
-    player.setMediaItem(MediaItem.fromUri("asset:///media/mp4/" + inputFile));
+    player.setMediaItem(MediaItem.fromUri("asset:///media/mp4/" + sample.filename));
     player.prepare();
     player.play();
     TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
@@ -99,6 +109,29 @@ public class Mp4PlaybackTest {
     surface.release();
 
     DumpFileAsserts.assertOutput(
-        applicationContext, playbackOutput, "playbackdumps/mp4/" + inputFile + ".dump");
+        applicationContext, playbackOutput, "playbackdumps/mp4/" + sample.filename + ".dump");
+  }
+
+  private static final class Sample {
+    public final String filename;
+    @Nullable public final String subtitleLanguageToSelect;
+
+    private Sample(String filename, @Nullable String subtitleLanguageToSelect) {
+      this.filename = filename;
+      this.subtitleLanguageToSelect = subtitleLanguageToSelect;
+    }
+
+    public static Sample forFile(String filename) {
+      return new Sample(filename, /* subtitleLanguageToSelect= */ null);
+    }
+
+    public static Sample withSubtitles(String filename, String subtitleLanguageToSelect) {
+      return new Sample(filename, /* enableSubtitles= */ subtitleLanguageToSelect);
+    }
+
+    @Override
+    public String toString() {
+      return filename;
+    }
   }
 }
