@@ -185,10 +185,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         () -> {
           externalShaderProgramInputCapacity = 0;
           this.externalShaderProgram = (ExternalShaderProgram) samplingGlShaderProgram;
-        },
-        // Ensures the sampling shader program is set even if the task executor is flushed
-        // before the submitted task is executed.
-        /* isCancellable= */ false);
+        });
   }
 
   @Override
