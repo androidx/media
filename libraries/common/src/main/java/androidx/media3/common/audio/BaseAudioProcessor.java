@@ -95,7 +95,8 @@ public abstract class BaseAudioProcessor implements AudioProcessor {
 
   @Override
   public final void reset() {
-    flush();
+    outputBuffer = EMPTY_BUFFER;
+    inputEnded = false;
     buffer = EMPTY_BUFFER;
     pendingInputAudioFormat = AudioFormat.NOT_SET;
     pendingOutputAudioFormat = AudioFormat.NOT_SET;
@@ -135,7 +136,7 @@ public abstract class BaseAudioProcessor implements AudioProcessor {
     // Do nothing.
   }
 
-  /** Called when the processor is flushed, directly or as part of resetting. */
+  /** Called when the processor is flushed. */
   protected void onFlush() {
     // Do nothing.
   }

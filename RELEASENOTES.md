@@ -47,6 +47,8 @@
     *   Add support for all linear PCM sample formats in
         `ChannelMappingAudioProcessor` and `TrimmingAudioProcessor`.
     *   Add support for audio gaps in `CompositionPlayer`.
+    *   Remove spurious call to `BaseAudioProcessor#flush()` from
+        `BaseAudioProcessor#reset()`.
 *   Video:
     *   Improve smooth video frame release at startup when audio samples don't
         start at exactly the requested position.
