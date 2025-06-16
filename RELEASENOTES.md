@@ -53,6 +53,9 @@
     *   Extend detached surface workaround to "realme" devices
         ([#2059](https://github.com/androidx/media/issues/2059)).
 *   Text:
+    *   Fix a playback stall when a subtitle segment initially fails to load and
+        later loads successfully, followed by several empty subtitle segments
+        ([#2517](https://github.com/androidx/media/issues/2517)).
 *   Metadata:
 *   Image:
     *   Limit decoded bitmaps to the display size in

@@ -124,7 +124,6 @@ public final class TextRenderer extends BaseRenderer implements Callback {
   private long lastRendererPositionUs;
   private long finalStreamEndPositionUs;
   private boolean legacyDecodingEnabled;
-  @Nullable private IOException streamError;
 
   /**
    * @param output The output.
@@ -208,7 +207,6 @@ public final class TextRenderer extends BaseRenderer implements Callback {
       long offsetUs,
       MediaSource.MediaPeriodId mediaPeriodId) {
     streamFormat = formats[0];
-    streamError = null;
     if (!isCuesWithTiming(streamFormat)) {
       assertLegacyDecodingEnabledIfRequired();
       if (subtitleDecoder != null) {
@@ -461,7 +459,6 @@ public final class TextRenderer extends BaseRenderer implements Callback {
   @Override
   protected void onDisabled() {
     streamFormat = null;
-    streamError = null;
     finalStreamEndPositionUs = C.TIME_UNSET;
     clearOutput();
     lastRendererPositionUs = C.TIME_UNSET;
@@ -480,35 +477,35 @@ public final class TextRenderer extends BaseRenderer implements Callback {
     if (streamFormat == null) {
       return true;
     }
-    if (streamError == null) {
-      try {
-        maybeThrowStreamError();
-      } catch (IOException e) {
-        streamError = e;
-      }
-    }
 
-    if (streamError != null) {
-      if (isCuesWithTiming(checkNotNull(streamFormat))) {
-        return checkNotNull(cuesResolver).getNextCueChangeTimeUs(lastRendererPositionUs)
-            != C.TIME_END_OF_SOURCE;
+    // We don't block playback whilst subtitles are loading.
+    // Note: To change this behavior, it will be necessary to consider [Internal: b/12949941].
+    if (isCuesWithTiming(checkNotNull(streamFormat))) {
+      if (checkNotNull(cuesResolver).getNextCueChangeTimeUs(lastRendererPositionUs)
+          != C.TIME_END_OF_SOURCE) {
+        // We have a cue change loaded in the future.
+        return true;
       } else {
-        if (outputStreamEnded
-            || (inputStreamEnded
-                && hasNoEventsAfter(subtitle, lastRendererPositionUs)
-                && hasNoEventsAfter(nextSubtitle, lastRendererPositionUs)
-                && nextSubtitleInputBuffer != null)) {
+        // We don't have any future cues, so let's see if there's a loading error, and return
+        // ready=false if so.
+        try {
+          maybeThrowStreamError();
+          return true;
+        } catch (IOException e) {
           return false;
         }
       }
+    } else {
+      return !outputStreamEnded
+          && (!inputStreamEnded
+              || hasEventsAfter(subtitle, lastRendererPositionUs)
+              || hasEventsAfter(nextSubtitle, lastRendererPositionUs)
+              || nextSubtitleInputBuffer == null);
     }
-    // Don't block playback whilst subtitles are loading.
-    // Note: To change this behavior, it will be necessary to consider [Internal: b/12949941].
-    return true;
   }
 
-  private static boolean hasNoEventsAfter(@Nullable Subtitle subtitle, long timeUs) {
-    return subtitle == null || subtitle.getEventTime(subtitle.getEventTimeCount() - 1) <= timeUs;
+  private static boolean hasEventsAfter(@Nullable Subtitle subtitle, long timeUs) {
+    return subtitle != null && subtitle.getEventTime(subtitle.getEventTimeCount() - 1) > timeUs;
   }
 
   private void releaseSubtitleBuffers() {
