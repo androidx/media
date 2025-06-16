@@ -97,6 +97,9 @@ public final class BoxParser {
   private static final int TYPE_subt = 0x73756274;
 
   @SuppressWarnings("ConstantCaseForConstants")
+  private static final int TYPE_subp = 0x73756270;
+
+  @SuppressWarnings("ConstantCaseForConstants")
   private static final int TYPE_text = 0x74657874;
 
   @SuppressWarnings("ConstantCaseForConstants")
@@ -367,8 +370,7 @@ public final class BoxParser {
     StsdData stsdData =
         parseStsd(
             stsd.data,
-            tkhdData.id,
-            tkhdData.rotationDegrees,
+            tkhdData,
             mdhdData.language,
             drmInitData,
             isQuickTime);
@@ -976,8 +978,14 @@ public final class BoxParser {
       // Only 0, 90, 180 and 270 are supported. Treat anything else as 0.
       rotationDegrees = 0;
     }
+    // skip remaining 4 matrix entries
+    tkhd.skipBytes(16);
+    // ignore fractional part of width and height
+    int width = tkhd.readShort();
+    tkhd.skipBytes(2);
+    int height = tkhd.readShort();
 
-    return new TkhdData(trackId, duration, alternateGroup, rotationDegrees);
+    return new TkhdData(trackId, duration, alternateGroup, rotationDegrees, width, height);
   }
 
   /**
@@ -997,7 +1005,8 @@ public final class BoxParser {
       return C.TRACK_TYPE_AUDIO;
     } else if (hdlr == TYPE_vide) {
       return C.TRACK_TYPE_VIDEO;
-    } else if (hdlr == TYPE_text || hdlr == TYPE_sbtl || hdlr == TYPE_subt || hdlr == TYPE_clcp) {
+    } else if (hdlr == TYPE_text || hdlr == TYPE_sbtl || hdlr == TYPE_subt
+        || hdlr == TYPE_clcp || hdlr == TYPE_subp) {
       return C.TRACK_TYPE_TEXT;
     } else if (hdlr == TYPE_meta) {
       return C.TRACK_TYPE_METADATA;
@@ -1066,8 +1075,7 @@ public final class BoxParser {
    * Parses a stsd atom (defined in ISO/IEC 14496-12).
    *
    * @param stsd The stsd atom to decode.
-   * @param trackId The track's identifier in its container.
-   * @param rotationDegrees The rotation of the track in degrees.
+   * @param tkhdData The track header data from the tkhd box.
    * @param language The language of the track, or {@code null} if unset.
    * @param drmInitData {@link DrmInitData} to be included in the format, or {@code null}.
    * @param isQuickTime True for QuickTime media. False otherwise.
@@ -1075,8 +1083,7 @@ public final class BoxParser {
    */
   private static StsdData parseStsd(
       ParsableByteArray stsd,
-      int trackId,
-      int rotationDegrees,
+      TkhdData tkhdData,
       @Nullable String language,
       @Nullable DrmInitData drmInitData,
       boolean isQuickTime)
@@ -1112,9 +1119,9 @@ public final class BoxParser {
             childAtomType,
             childStartPosition,
             childAtomSize,
-            trackId,
+            tkhdData.id,
             language,
-            rotationDegrees,
+            tkhdData.rotationDegrees,
             drmInitData,
             out,
             i);
@@ -1151,7 +1158,7 @@ public final class BoxParser {
             childAtomType,
             childStartPosition,
             childAtomSize,
-            trackId,
+            tkhdData.id,
             language,
             isQuickTime,
             drmInitData,
@@ -1161,15 +1168,16 @@ public final class BoxParser {
           || childAtomType == Mp4Box.TYPE_tx3g
           || childAtomType == Mp4Box.TYPE_wvtt
           || childAtomType == Mp4Box.TYPE_stpp
-          || childAtomType == Mp4Box.TYPE_c608) {
+          || childAtomType == Mp4Box.TYPE_c608
+          || childAtomType == Mp4Box.TYPE_mp4s) {
         parseTextSampleEntry(
-            stsd, childAtomType, childStartPosition, childAtomSize, trackId, language, out);
+            stsd, childAtomType, childStartPosition, childAtomSize, tkhdData, language, out);
       } else if (childAtomType == Mp4Box.TYPE_mett) {
-        parseMetaDataSampleEntry(stsd, childAtomType, childStartPosition, trackId, out);
+        parseMetaDataSampleEntry(stsd, childAtomType, childStartPosition, tkhdData.id, out);
       } else if (childAtomType == Mp4Box.TYPE_camm) {
         out.format =
             new Format.Builder()
-                .setId(trackId)
+                .setId(tkhdData.id)
                 .setSampleMimeType(MimeTypes.APPLICATION_CAMERA_MOTION)
                 .build();
       }
@@ -1183,7 +1191,7 @@ public final class BoxParser {
       int atomType,
       int position,
       int atomSize,
-      int trackId,
+      TkhdData tkhdData,
       @Nullable String language,
       StsdData out) {
     parent.setPosition(position + Mp4Box.HEADER_SIZE + StsdData.STSD_HEADER_SIZE);
@@ -1210,6 +1218,19 @@ public final class BoxParser {
       // Defined by the QuickTime File Format specification.
       mimeType = MimeTypes.APPLICATION_MP4CEA608;
       out.requiredSampleTransformation = Track.TRANSFORMATION_CEA608_CDAT;
+    } else if (atomType == Mp4Box.TYPE_mp4s) {
+      int pos = parent.getPosition();
+      mimeType = MimeTypes.APPLICATION_VOBSUB;
+      int childAtomSize = parent.readInt();
+      int childAtomType = parent.readInt();
+      if (childAtomType == Mp4Box.TYPE_esds) {
+        EsdsData esds = parseEsdsFromParent(parent, pos);
+        String idx = formatVobsubIdx(esds.initializationData,
+            tkhdData.width, tkhdData.height);
+        if (idx == null)
+          return;
+        initializationData = ImmutableList.of(Util.getUtf8Bytes(idx));
+      }
     } else {
       // Never happens.
       throw new IllegalStateException();
@@ -1217,12 +1238,44 @@ public final class BoxParser {
 
     out.format =
         new Format.Builder()
-            .setId(trackId)
+            .setId(tkhdData.id)
             .setSampleMimeType(mimeType)
             .setLanguage(language)
             .setSubsampleOffsetUs(subsampleOffsetUs)
             .setInitializationData(initializationData)
             .build();
+  }
+
+  private static int yuvToRgb(int yuv) {
+    int y, u, v;
+    int r,g,b;
+    y = (yuv >> 16) & 0xFF;
+    v = (yuv >> 8)  & 0xFF;
+    u =  yuv        & 0xFF;
+
+    r = Util.constrainValue(y + 14075 * (v - 128) / 10000, 0, 255);
+    g = Util.constrainValue(
+        y - 3455 * (u - 128) / 10000 - 7169 * (v - 128) / 10000, 0, 255);
+    b = Util.constrainValue(y + 17790 * (u - 128) / 10000, 0, 255);
+
+    return (r << 16) | (g << 8) | b;
+  }
+
+  static String formatVobsubIdx(byte[] src, int width, int height)  {
+    if (src.length != 64)
+      return null;
+    ParsableByteArray input  = new ParsableByteArray((src));
+    StringBuilder buf = new StringBuilder(
+        "size: "+width+"x"+height+"\npalette: ");
+    for (int i = 0; i < 16; i++) {
+      int yuv = input.readInt();
+      int rgba = yuvToRgb(yuv);
+      if (i > 0)
+        buf.append(", ");
+      buf.append(String.format("%06x",rgba));
+    }
+    buf.append("\n");
+    return buf.toString();
   }
 
   // hdrStaticInfo is allocated using allocate() in allocateHdrStaticInfo().
@@ -2614,12 +2667,17 @@ public final class BoxParser {
     private final long duration;
     private final int alternateGroup;
     private final int rotationDegrees;
+    private final int width;
+    private final int height;
 
-    public TkhdData(int id, long duration, int alternateGroup, int rotationDegrees) {
+    public TkhdData(int id, long duration, int alternateGroup, int rotationDegrees,
+        int width, int height) {
       this.id = id;
       this.duration = duration;
       this.alternateGroup = alternateGroup;
       this.rotationDegrees = rotationDegrees;
+      this.width = width;
+      this.height = height;
     }
   }
 
