@@ -505,7 +505,9 @@ public final class TextRenderer extends BaseRenderer implements Callback {
   }
 
   private static boolean hasEventsAfter(@Nullable Subtitle subtitle, long timeUs) {
-    return subtitle != null && subtitle.getEventTime(subtitle.getEventTimeCount() - 1) > timeUs;
+    return subtitle != null
+        && subtitle.getEventTimeCount() > 0
+        && subtitle.getEventTime(subtitle.getEventTimeCount() - 1) > timeUs;
   }
 
   private void releaseSubtitleBuffers() {
