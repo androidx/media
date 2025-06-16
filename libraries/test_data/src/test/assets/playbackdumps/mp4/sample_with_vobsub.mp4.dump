@@ -529,7 +529,7 @@ TextOutput:
   Subtitle[1]:
     presentationTimeUs = 0
     Cue[0]:
-      bitmap = length 296960, hash B7D4981
+      bitmap = length 296960, hash 6C5C74A1
       line = 0.88611114
       lineType = 0
       lineAnchor = 0
