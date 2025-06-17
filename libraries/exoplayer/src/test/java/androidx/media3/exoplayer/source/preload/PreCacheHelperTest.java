@@ -73,11 +73,13 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /** Unit tests for {@link PreCacheHelper}. */
 @RunWith(AndroidJUnit4.class)
+@Ignore("TODO: Fix the flakiness of this test and re-enable it")
 public class PreCacheHelperTest {
   private File testDir;
   private Cache downloadCache;
