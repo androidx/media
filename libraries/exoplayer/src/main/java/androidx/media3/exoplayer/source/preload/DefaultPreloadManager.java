@@ -355,6 +355,7 @@ public final class DefaultPreloadManager
   private final PreloadMediaSource.Factory preloadMediaSourceFactory;
   private final Handler preloadHandler;
   private final boolean deprecatedConstructorCalled;
+  private boolean releaseCalled;
 
   private DefaultPreloadManager(Builder builder) {
     super(
@@ -432,6 +433,9 @@ public final class DefaultPreloadManager
   @Override
   protected void preloadSourceInternal(
       MediaSource mediaSource, @Nullable PreloadStatus targetPreloadStatus) {
+    if (releaseCalled) {
+      return;
+    }
     checkArgument(mediaSource instanceof PreloadMediaSource);
     PreloadMediaSource preloadMediaSource = (PreloadMediaSource) mediaSource;
     if (targetPreloadStatus == null) {
@@ -445,18 +449,25 @@ public final class DefaultPreloadManager
 
   @Override
   protected void clearSourceInternal(MediaSource mediaSource) {
+    if (releaseCalled) {
+      return;
+    }
     checkArgument(mediaSource instanceof PreloadMediaSource);
     ((PreloadMediaSource) mediaSource).clear();
   }
 
   @Override
   protected void releaseSourceInternal(MediaSource mediaSource) {
+    if (releaseCalled) {
+      return;
+    }
     checkArgument(mediaSource instanceof PreloadMediaSource);
     ((PreloadMediaSource) mediaSource).releasePreloadMediaSource();
   }
 
   @Override
   protected void releaseInternal() {
+    releaseCalled = true;
     preloadHandler.post(
         () -> {
           rendererCapabilitiesList.release();

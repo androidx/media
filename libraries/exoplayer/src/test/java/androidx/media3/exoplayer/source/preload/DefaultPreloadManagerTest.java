@@ -70,7 +70,6 @@ import com.google.common.collect.Iterables;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
@@ -258,8 +257,6 @@ public class DefaultPreloadManagerTest {
     ProgressiveMediaSource.Factory mediaSourceFactory =
         new ProgressiveMediaSource.Factory(
             new DefaultDataSource.Factory(ApplicationProvider.getApplicationContext()));
-    HandlerThread preloadThread = new HandlerThread("preload");
-    preloadThread.start();
     DefaultPreloadManager preloadManager =
         new DefaultPreloadManager.Builder(context, targetPreloadStatusControl)
             .setMediaSourceFactory(mediaSourceFactory)
@@ -298,8 +295,6 @@ public class DefaultPreloadManagerTest {
     assertThat(preloadManagerListener.onCompletedMediaItemRecords)
         .containsExactly(mediaItem2, mediaItem1, mediaItem0)
         .inOrder();
-
-    preloadThread.quit();
   }
 
   @Test
@@ -313,8 +308,6 @@ public class DefaultPreloadManagerTest {
               return DefaultPreloadManager.PreloadStatus.SOURCE_PREPARED;
             };
     FakeMediaSourceFactory fakeMediaSourceFactory = new FakeMediaSourceFactory();
-    HandlerThread preloadThread = new HandlerThread("preload");
-    preloadThread.start();
     DefaultPreloadManager preloadManager =
         new DefaultPreloadManager.Builder(context, targetPreloadStatusControl)
             .setMediaSourceFactory(fakeMediaSourceFactory)
@@ -354,8 +347,6 @@ public class DefaultPreloadManagerTest {
 
     assertThat(targetPreloadStatusControlCallStates).containsExactly(0, 1).inOrder();
     assertThat(preloadManagerListener.onCompletedMediaItemRecords).containsExactly(mediaItem1);
-
-    preloadThread.quit();
   }
 
   @Test
@@ -369,8 +360,6 @@ public class DefaultPreloadManagerTest {
               return DefaultPreloadManager.PreloadStatus.SOURCE_PREPARED;
             };
     FakeMediaSourceFactory fakeMediaSourceFactory = new FakeMediaSourceFactory();
-    HandlerThread preloadThread = new HandlerThread("preload");
-    preloadThread.start();
     DefaultPreloadManager preloadManager =
         new DefaultPreloadManager.Builder(context, targetPreloadStatusControl)
             .setMediaSourceFactory(fakeMediaSourceFactory)
@@ -422,8 +411,6 @@ public class DefaultPreloadManagerTest {
     assertThat(preloadManagerListener.onCompletedMediaItemRecords)
         .containsExactly(mediaItem2, mediaItem1, mediaItem0)
         .inOrder();
-
-    preloadThread.quit();
   }
 
   @Test
@@ -441,8 +428,6 @@ public class DefaultPreloadManagerTest {
     ProgressiveMediaSource.Factory mediaSourceFactory =
         new ProgressiveMediaSource.Factory(
             new DefaultDataSource.Factory(ApplicationProvider.getApplicationContext()));
-    HandlerThread preloadThread = new HandlerThread("preload");
-    preloadThread.start();
     DefaultPreloadManager preloadManager =
         new DefaultPreloadManager.Builder(context, targetPreloadStatusControl)
             .setMediaSourceFactory(mediaSourceFactory)
@@ -471,8 +456,6 @@ public class DefaultPreloadManagerTest {
 
     assertThat(targetPreloadStatusControlCallStates).containsExactly(0, 1);
     assertThat(preloadManagerListener.onCompletedMediaItemRecords).containsExactly(mediaItem1);
-
-    preloadThread.quit();
   }
 
   @Test
@@ -537,8 +520,6 @@ public class DefaultPreloadManagerTest {
             return mediaSource;
           }
         };
-    HandlerThread preloadThread = new HandlerThread("preload");
-    preloadThread.start();
     DefaultPreloadManager preloadManager =
         new DefaultPreloadManager.Builder(context, targetPreloadStatusControl)
             .setMediaSourceFactory(mediaSourceFactory)
@@ -559,8 +540,6 @@ public class DefaultPreloadManagerTest {
         .hasCauseThat()
         .isEqualTo(causeException);
     assertThat(preloadManagerListener.onCompletedMediaItemRecords).containsExactly(mediaItem1);
-
-    preloadThread.quit();
   }
 
   @Test
@@ -746,6 +725,71 @@ public class DefaultPreloadManagerTest {
   }
 
   @Test
+  public void invalidateThenRelease_doNotPreloadNextSource() {
+    AtomicReference<DefaultPreloadManager> preloadManagerReference = new AtomicReference<>();
+    TargetPreloadStatusControl<Integer, DefaultPreloadManager.PreloadStatus>
+        targetPreloadStatusControl =
+            new TargetPreloadStatusControl<Integer, DefaultPreloadManager.PreloadStatus>() {
+              @Nullable
+              @Override
+              public DefaultPreloadManager.PreloadStatus getTargetPreloadStatus(
+                  Integer rankingData) {
+                if (rankingData == 2) {
+                  // When DefaultPreloadManager is about to preload the second item, release it.
+                  checkNotNull(preloadManagerReference.get()).release();
+                  shadowOf(preloadThread.getLooper()).idle();
+                }
+                return DefaultPreloadManager.PreloadStatus.SOURCE_PREPARED;
+              }
+            };
+    MediaSource.Factory mockMediaSourceFactory = mock(MediaSource.Factory.class);
+    ArrayList<String> preparedMediaId = new ArrayList<>();
+    when(mockMediaSourceFactory.createMediaSource(any()))
+        .thenAnswer(
+            invocation -> {
+              MediaItem mediaItem = invocation.getArgument(0);
+              return new FakeMediaSource() {
+                @Override
+                public synchronized void prepareSourceInternal(
+                    @Nullable TransferListener mediaTransferListener) {
+                  preparedMediaId.add(mediaItem.mediaId);
+                  super.prepareSourceInternal(mediaTransferListener);
+                }
+
+                @Override
+                public MediaItem getMediaItem() {
+                  return mediaItem;
+                }
+              };
+            });
+    DefaultPreloadManager preloadManager =
+        new DefaultPreloadManager.Builder(context, targetPreloadStatusControl)
+            .setMediaSourceFactory(mockMediaSourceFactory)
+            .setRenderersFactory(renderersFactory)
+            .setPreloadLooper(preloadThread.getLooper())
+            .build();
+    preloadManagerReference.set(preloadManager);
+    MediaItem.Builder mediaItemBuilder = new MediaItem.Builder();
+    MediaItem mediaItem1 =
+        mediaItemBuilder.setMediaId("mediaId1").setUri("http://exoplayer.dev/video1").build();
+    MediaItem mediaItem2 =
+        mediaItemBuilder.setMediaId("mediaId2").setUri("http://exoplayer.dev/video2").build();
+    preloadManager.add(mediaItem1, /* rankingData= */ 1);
+    preloadManager.add(mediaItem2, /* rankingData= */ 2);
+
+    // Call `invalidate()` and then call `release()` in the `TargetPreloadStatusControl` to
+    // simulate the situation that the preload manager is released during the transition of the
+    // sources.
+    preloadManager.invalidate();
+    shadowOf(preloadThread.getLooper()).idle();
+    shadowOf(Util.getCurrentOrMainLooper()).idle();
+
+    // The preload of second media source shouldn't start as the preload manager has already been
+    // released.
+    assertThat(preparedMediaId).containsExactly("mediaId1");
+  }
+
+  @Test
   public void removeByMediaItems_correspondingHeldSourceRemovedAndReleased() {
     TargetPreloadStatusControl<Integer, DefaultPreloadManager.PreloadStatus>
         targetPreloadStatusControl =
@@ -851,8 +895,7 @@ public class DefaultPreloadManagerTest {
   }
 
   @Test
-  public void reset_returnZeroCount_sourcesButNotRendererCapabilitiesListReleased()
-      throws TimeoutException {
+  public void reset_returnZeroCount_sourcesButNotRendererCapabilitiesListReleased() {
     TargetPreloadStatusControl<Integer, DefaultPreloadManager.PreloadStatus>
         targetPreloadStatusControl =
             rankingData -> DefaultPreloadManager.PreloadStatus.SOURCE_PREPARED;
@@ -946,8 +989,6 @@ public class DefaultPreloadManagerTest {
           underlyingRenderers.add(fakeAudioRenderer);
           return underlyingRenderers.toArray(new Renderer[2]);
         };
-    HandlerThread preloadThread = new HandlerThread("preload");
-    preloadThread.start();
     DefaultPreloadManager preloadManager =
         new DefaultPreloadManager.Builder(context, targetPreloadStatusControl)
             .setMediaSourceFactory(mockMediaSourceFactory)
@@ -991,8 +1032,6 @@ public class DefaultPreloadManagerTest {
     for (FakeRenderer renderer : underlyingRenderers) {
       assertThat(renderer.isReleased).isTrue();
     }
-
-    preloadThread.quit();
   }
 
   private void simulatePlayerPrepareSource(
