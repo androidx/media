@@ -156,7 +156,14 @@ public interface AudioSink {
     /** Called when a period of silence has been skipped. */
     default void onSilenceSkipped() {}
 
-    /** Called when the audio session ID changed. */
+    /**
+     * Called when the audio session ID changed internally.
+     *
+     * <p>The audio sink will ignore new externally set audio session IDs until this ID has been
+     * acknowledged with {@link #setAudioSessionId(int)}.
+     *
+     * @param audioSessionId The new audio session ID.
+     */
     default void onAudioSessionIdChanged(int audioSessionId) {}
   }
 

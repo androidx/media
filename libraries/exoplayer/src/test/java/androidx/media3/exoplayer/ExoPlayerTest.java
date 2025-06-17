@@ -16803,7 +16803,7 @@ public final class ExoPlayerTest {
 
   @Ignore // TODO: b/420380940 - Renable test once audio session id is propagated from audio sink
   @Test
-  public void audioSessionIdChangeInTheAudioSink_propagatesToOtherRenderersGetterAndListener()
+  public void audioSessionIdChangeInTheAudioSink_propagatesToRenderersAndListener()
       throws Exception {
     AtomicInteger lastConfiguredAudioSessionIdOnVideoRenderer = new AtomicInteger();
     RenderersFactory renderersFactory =
@@ -16862,6 +16862,211 @@ public final class ExoPlayerTest {
     assertThat(audioSessionIdAtEnd).isEqualTo(1234);
     assertThat(lastConfiguredAudioSessionIdOnVideoRenderer.get()).isEqualTo(1234);
     verify(listener).onAudioSessionIdChanged(1234);
+  }
+
+  @Test
+  public void multipleAudioSessionIdChangesOnPlayer_propagatesToRenderersAndListener()
+      throws Exception {
+    ArrayList<Integer> configuredAudioSessionIdsOnVideoRenderer = new ArrayList<>();
+    RenderersFactory renderersFactory =
+        new DefaultRenderersFactory(context) {
+          @Override
+          protected void buildMiscellaneousRenderers(
+              Context context,
+              Handler eventHandler,
+              @ExtensionRendererMode int extensionRendererMode,
+              ArrayList<Renderer> out) {
+            out.add(
+                new FakeRenderer(C.TRACK_TYPE_VIDEO) {
+                  @Override
+                  public void handleMessage(@MessageType int messageType, @Nullable Object message)
+                      throws ExoPlaybackException {
+                    if (messageType == Renderer.MSG_SET_AUDIO_SESSION_ID) {
+                      configuredAudioSessionIdsOnVideoRenderer.add((int) message);
+                    }
+                    super.handleMessage(messageType, message);
+                  }
+                });
+          }
+        };
+    ExoPlayer player =
+        new TestExoPlayerBuilder(context).setRenderersFactory(renderersFactory).build();
+    advance(player).untilPendingCommandsAreFullyHandled();
+    configuredAudioSessionIdsOnVideoRenderer.clear(); // Clear initial audio session id from list.
+    MediaSource source =
+        new FakeMediaSource(
+            new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT, ExoPlayerTestRunner.AUDIO_FORMAT);
+    Player.Listener listener = mock(Player.Listener.class);
+    player.addListener(listener);
+    player.setMediaSource(source);
+    player.play();
+
+    player.prepare();
+    player.setAudioSessionId(12);
+    player.setAudioSessionId(34);
+    player.setAudioSessionId(56);
+    advance(player).untilState(Player.STATE_ENDED);
+    int audioSessionIdAtEnd = player.getAudioSessionId();
+
+    assertThat(audioSessionIdAtEnd).isEqualTo(56);
+    assertThat(configuredAudioSessionIdsOnVideoRenderer).containsExactly(12, 34, 56).inOrder();
+    ArgumentCaptor<Integer> listenerIds = ArgumentCaptor.forClass(Integer.class);
+    verify(listener, times(3)).onAudioSessionIdChanged(listenerIds.capture());
+    assertThat(listenerIds.getAllValues()).containsExactly(12, 34, 56).inOrder();
+  }
+
+  @Test
+  public void multipleAudioSessionIdChangesOnAudioRenderer_propagatesToRenderersAndListener()
+      throws Exception {
+    ArrayList<Integer> configuredAudioSessionIdsOnAudioRenderer = new ArrayList<>();
+    ArrayList<Integer> configuredAudioSessionIdsOnVideoRenderer = new ArrayList<>();
+    RenderersFactory renderersFactory =
+        new DefaultRenderersFactory(context) {
+          @Override
+          protected void buildAudioRenderers(
+              Context context,
+              @ExtensionRendererMode int extensionRendererMode,
+              MediaCodecSelector mediaCodecSelector,
+              boolean enableDecoderFallback,
+              AudioSink audioSink,
+              Handler eventHandler,
+              AudioRendererEventListener eventListener,
+              ArrayList<Renderer> out) {
+            out.add(
+                new FakeRenderer(C.TRACK_TYPE_AUDIO) {
+                  @Override
+                  public void handleMessage(@MessageType int messageType, @Nullable Object message)
+                      throws ExoPlaybackException {
+                    if (messageType == Renderer.MSG_SET_AUDIO_SESSION_ID) {
+                      configuredAudioSessionIdsOnAudioRenderer.add((int) message);
+                    }
+                    super.handleMessage(messageType, message);
+                  }
+
+                  @Override
+                  protected void onEnabled(boolean joining, boolean mayRenderStartOfStream)
+                      throws ExoPlaybackException {
+                    super.onEnabled(joining, mayRenderStartOfStream);
+                    eventHandler.post(() -> eventListener.onAudioSessionIdChanged(12));
+                    eventHandler.post(() -> eventListener.onAudioSessionIdChanged(34));
+                    eventHandler.post(() -> eventListener.onAudioSessionIdChanged(56));
+                  }
+                });
+          }
+
+          @Override
+          protected void buildVideoRenderers(
+              Context context,
+              @ExtensionRendererMode int extensionRendererMode,
+              MediaCodecSelector mediaCodecSelector,
+              boolean enableDecoderFallback,
+              Handler eventHandler,
+              VideoRendererEventListener eventListener,
+              long allowedVideoJoiningTimeMs,
+              ArrayList<Renderer> out) {
+            out.add(
+                new FakeRenderer(C.TRACK_TYPE_VIDEO) {
+                  @Override
+                  public void handleMessage(@MessageType int messageType, @Nullable Object message)
+                      throws ExoPlaybackException {
+                    if (messageType == Renderer.MSG_SET_AUDIO_SESSION_ID) {
+                      configuredAudioSessionIdsOnVideoRenderer.add((int) message);
+                    }
+                    super.handleMessage(messageType, message);
+                  }
+                });
+          }
+        };
+    ExoPlayer player =
+        new TestExoPlayerBuilder(context).setRenderersFactory(renderersFactory).build();
+    advance(player).untilPendingCommandsAreFullyHandled();
+    // Clear initial audio session id from output lists.
+    configuredAudioSessionIdsOnAudioRenderer.clear();
+    configuredAudioSessionIdsOnVideoRenderer.clear();
+    MediaSource source =
+        new FakeMediaSource(
+            new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT, ExoPlayerTestRunner.AUDIO_FORMAT);
+    Player.Listener listener = mock(Player.Listener.class);
+    player.addListener(listener);
+    player.setMediaSource(source);
+    player.play();
+
+    player.prepare();
+    advance(player).untilState(Player.STATE_ENDED);
+    int audioSessionIdAtEnd = player.getAudioSessionId();
+
+    assertThat(audioSessionIdAtEnd).isEqualTo(56);
+    assertThat(configuredAudioSessionIdsOnVideoRenderer).containsExactly(12, 34, 56).inOrder();
+    assertThat(configuredAudioSessionIdsOnAudioRenderer).containsExactly(12, 34, 56).inOrder();
+    ArgumentCaptor<Integer> listenerIds = ArgumentCaptor.forClass(Integer.class);
+    verify(listener, times(3)).onAudioSessionIdChanged(listenerIds.capture());
+    assertThat(listenerIds.getAllValues()).containsExactly(12, 34, 56).inOrder();
+  }
+
+  @Test
+  public void audioSessionIdChangeInDefaultAudioSinkAndPlayer_onlyCreatesAudioTrackOnce()
+      throws Exception {
+    AtomicInteger audioTrackCreateCount = new AtomicInteger();
+    RenderersFactory renderersFactory =
+        new DefaultRenderersFactory(context) {
+          @Override
+          protected AudioSink buildAudioSink(
+              Context context, boolean enableFloatOutput, boolean enableAudioTrackPlaybackParams) {
+            return new DefaultAudioSink.Builder(context)
+                .setAudioTrackProvider(
+                    new DefaultAudioTrackProvider() {
+                      @Override
+                      protected AudioTrack.Builder customizeAudioTrackBuilder(
+                          AudioTrack.Builder audioTrackBuilder) {
+                        audioTrackCreateCount.incrementAndGet();
+                        // Create an AudioTrackProvider that ignores the player-provided audio
+                        // session ID and always sets up playback with its own custom ID.
+                        return audioTrackBuilder.setSessionId(1234);
+                      }
+                    })
+                .build();
+          }
+        };
+    ExoPlayer player =
+        new TestExoPlayerBuilder(context).setRenderersFactory(renderersFactory).build();
+    advance(player).untilPendingCommandsAreFullyHandled();
+    FakeTimeline timeline = new FakeTimeline();
+    long firstSampleTimeUs =
+        timeline.getWindow(/* windowIndex= */ 0, new Window()).positionInFirstPeriodUs;
+    // Use more than one sample so the audio track actually needs to be re-created if the audio
+    // session id propagation doesn't work correctly.
+    MediaSource source =
+        new FakeMediaSource.Builder()
+            .setTimeline(timeline)
+            .setTrackDataFactory(
+                (format, mediaPeriodId) ->
+                    ImmutableList.of(
+                        oneByteSample(firstSampleTimeUs, C.BUFFER_FLAG_KEY_FRAME),
+                        oneByteSample(firstSampleTimeUs + 10),
+                        oneByteSample(firstSampleTimeUs + 20),
+                        END_OF_STREAM_ITEM))
+            .setFormats(ExoPlayerTestRunner.VIDEO_FORMAT, ExoPlayerTestRunner.AUDIO_FORMAT)
+            .build();
+    Player.Listener listener = mock(Player.Listener.class);
+    player.addListener(listener);
+    player.setMediaSource(source);
+    player.play();
+
+    player.prepare();
+    // Wait until the new internal audio session id is created and attempt to set a different id on
+    // the player at the same time. The one created in the audio sink should be kept as it arrives
+    // later at the source-of-truth in ExoPlayerImpl.
+    runMainLooperUntil(() -> audioTrackCreateCount.get() == 1);
+    player.setAudioSessionId(5678);
+    player.setAudioSessionId(910);
+    advance(player).untilState(Player.STATE_ENDED);
+    int audioSessionIdAtEnd = player.getAudioSessionId();
+
+    assertThat(audioSessionIdAtEnd).isEqualTo(1234);
+    assertThat(audioTrackCreateCount.get()).isEqualTo(1);
+    ArgumentCaptor<Integer> listenerIds = ArgumentCaptor.forClass(Integer.class);
+    verify(listener, times(3)).onAudioSessionIdChanged(listenerIds.capture());
+    assertThat(listenerIds.getAllValues()).containsExactly(5678, 910, 1234).inOrder();
   }
 
   @Test
