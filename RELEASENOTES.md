@@ -59,6 +59,13 @@
         later loads successfully, followed by several empty subtitle segments
         ([#2517](https://github.com/androidx/media/issues/2517)).
 *   Metadata:
+    *   Added support for retrieving media duration and `Timeline` to
+        `MetadataRetriever` and migrated it to an instance-based,
+        `AutoCloseable` API. Use the new `Builder` to create an instance for a
+        `MediaItem`, then call `retrieveTrackGroups()`, `retrieveTimeline()`,
+        and `retrieveDurationUs()` to get `ListenableFuture`s for the metadata.
+        The previous static methods are now deprecated
+        ([#2462](https://github.com/androidx/media/issues/2462)).
 *   Image:
     *   Limit decoded bitmaps to the display size in
         `BitmapFactoryImageDecoder`, to avoid an app crashing with `Canvas:

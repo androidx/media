@@ -465,13 +465,16 @@ public class TestUtil {
       Context context, String fileUri, @C.TrackType int trackType)
       throws ExecutionException, InterruptedException {
     checkState(new File(fileUri).length() > 0);
-    TrackGroupArray trackGroupArray;
-    trackGroupArray = MetadataRetriever.retrieveMetadata(context, MediaItem.fromUri(fileUri)).get();
-    for (int i = 0; i < trackGroupArray.length; i++) {
-      TrackGroup trackGroup = trackGroupArray.get(i);
-      if (trackGroup.type == trackType) {
-        checkState(trackGroup.length == 1);
-        return trackGroup.getFormat(0);
+
+    try (MetadataRetriever retriever =
+        new MetadataRetriever.Builder(context, MediaItem.fromUri(fileUri)).build()) {
+      TrackGroupArray trackGroups = retriever.retrieveTrackGroups().get();
+      for (int i = 0; i < trackGroups.length; i++) {
+        TrackGroup trackGroup = trackGroups.get(i);
+        if (trackGroup.type == trackType) {
+          checkState(trackGroup.length == 1);
+          return trackGroup.getFormat(0);
+        }
       }
     }
     throw new IllegalStateException("Couldn't find track");
