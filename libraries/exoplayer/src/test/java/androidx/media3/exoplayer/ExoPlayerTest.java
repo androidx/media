@@ -11705,11 +11705,14 @@ public final class ExoPlayerTest {
   public void prepareOnly_withDynamicSchedulingEnabled_usesDefaultIdleSchedulingInterval()
       throws Exception {
     AtomicInteger renderCounter = new AtomicInteger();
-    ForwardingDurationToProgressRenderer fakeRenderer =
-        new ForwardingDurationToProgressRenderer(
-            new FakeRenderer(C.TRACK_TYPE_AUDIO),
-            /* durationToProgressUs= */ 150_000L,
-            renderCounter);
+    FakeRenderer fakeRenderer =
+        new FakeRenderer(C.TRACK_TYPE_AUDIO) {
+          @Override
+          public void render(long positionUs, long elapsedRealtimeUs) throws ExoPlaybackException {
+            renderCounter.incrementAndGet();
+            super.render(positionUs, elapsedRealtimeUs);
+          }
+        };
     FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     ExoPlayer player =
         new TestExoPlayerBuilder(context)
@@ -17274,6 +17277,58 @@ public final class ExoPlayerTest {
     player.prepare();
     // Assert the prepare error is reported.
     advance(player).untilPlayerError();
+  }
+
+  @Test
+  public void rendererReadToEndButNotReady_whilePaused_keepsCallingRenderFrequently()
+      throws Exception {
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
+    AtomicLong lastRenderTimeMs = new AtomicLong();
+    FakeRenderer fakeRenderer =
+        new FakeRenderer(C.TRACK_TYPE_AUDIO) {
+          @Override
+          public boolean isReady() {
+            return false;
+          }
+
+          @Override
+          public boolean isEnded() {
+            return false;
+          }
+
+          @Override
+          public void render(long positionUs, long elapsedRealtimeUs) throws ExoPlaybackException {
+            lastRenderTimeMs.set(clock.elapsedRealtime());
+            super.render(positionUs, elapsedRealtimeUs);
+          }
+        };
+    ExoPlayer player =
+        new ExoPlayer.Builder(context)
+            .setClock(clock)
+            .setRenderersFactory(
+                (eventHandler,
+                    videoRendererEventListener,
+                    audioRendererEventListener,
+                    textRendererOutput,
+                    metadataRendererOutput) -> new Renderer[] {fakeRenderer})
+            .experimentalSetDynamicSchedulingEnabled(true)
+            .build();
+    player.setMediaSource(
+        new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.AUDIO_FORMAT));
+    player.prepare();
+
+    advance(player).untilBackgroundThreadCondition(fakeRenderer::hasReadStreamToEnd);
+    long renderTime1Ms = lastRenderTimeMs.get();
+    advance(player).untilBackgroundThreadCondition(() -> lastRenderTimeMs.get() != renderTime1Ms);
+    long renderTime2Ms = lastRenderTimeMs.get();
+    advance(player).untilBackgroundThreadCondition(() -> lastRenderTimeMs.get() != renderTime2Ms);
+    long renderTime3Ms = lastRenderTimeMs.get();
+    player.release();
+
+    // 50ms is a slightly arbitrary, but render() should be called fairly often to make progress if
+    // not ready. Regression test for b/420963056 where render() was delayed by a full second.
+    assertThat(renderTime2Ms).isWithin(50).of(renderTime1Ms);
+    assertThat(renderTime3Ms).isWithin(50).of(renderTime2Ms);
   }
 
   // Internal methods.

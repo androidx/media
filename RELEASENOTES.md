@@ -15,6 +15,11 @@
         thread ([#2495](https://github.com/androidx/media/issues/2495)).
     *   Add `cloneAndMove` to `ShuffleMode` with a default implementation
         ([#2226](https://github.com/androidx/media/pull/2226)).
+    *   Change default behavior of `Renderer.getMinDurationToProgressUs` to
+        return a larger value if no call to `render` is required.
+    *   Fix bug where internal scheduling delayed last frame when seeking to the
+        end while paused. For now, the bug fix only takes effect if
+        `ExoPlayer.Builder.experimentalSetDynamicSchedulingEnabled` is enabled.
 *   Transformer:
     *   Add `CodecDbLite` that enables chipset specific optimizations of video
         encoding settings.

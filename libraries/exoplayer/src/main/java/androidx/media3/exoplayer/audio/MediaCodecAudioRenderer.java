@@ -522,15 +522,19 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
   @Override
   protected long getDurationToProgressUs(
       long positionUs, long elapsedRealtimeUs, boolean isOnBufferAvailableListenerRegistered) {
-    if (nextBufferToWritePresentationTimeUs == C.TIME_UNSET) {
-      return super.getDurationToProgressUs(
-          positionUs, elapsedRealtimeUs, isOnBufferAvailableListenerRegistered);
+    boolean audioSinkBufferFull = nextBufferToWritePresentationTimeUs != C.TIME_UNSET;
+    if (!isStarted) {
+      // When not started we can only make further progress if the audio track buffer isn't filled
+      // yet and there is more data to fill it.
+      return audioSinkBufferFull || super.isEnded()
+          ? DEFAULT_IDLE_DURATION_TO_PROGRESS_US
+          : DEFAULT_DURATION_TO_PROGRESS_US;
     }
     long audioTrackBufferDurationUs = audioSink.getAudioTrackBufferSizeUs();
-    // Return default if getAudioTrackBufferSizeUs is unsupported.
-    if (audioTrackBufferDurationUs == C.TIME_UNSET) {
-      return super.getDurationToProgressUs(
-          positionUs, elapsedRealtimeUs, isOnBufferAvailableListenerRegistered);
+    if (!audioSinkBufferFull || audioTrackBufferDurationUs == C.TIME_UNSET) {
+      // If the AudioSink buffer is not yet full or getting the audio track buffer size is
+      // unsupported, continue calling with default duration to progress.
+      return DEFAULT_DURATION_TO_PROGRESS_US;
     }
     // Compare written, yet-to-play content duration against the audio track buffer size.
     long writtenDurationUs = (nextBufferToWritePresentationTimeUs - positionUs);
@@ -540,10 +544,8 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
             (bufferedDurationUs
                 / (getPlaybackParameters() != null ? getPlaybackParameters().speed : 1.0f)
                 / 2);
-    if (isStarted) {
-      // Account for the elapsed time since the start of this iteration of the rendering loop.
-      bufferedDurationUs -= Util.msToUs(getClock().elapsedRealtime()) - elapsedRealtimeUs;
-    }
+    // Account for the elapsed time since the start of this iteration of the rendering loop.
+    bufferedDurationUs -= Util.msToUs(getClock().elapsedRealtime()) - elapsedRealtimeUs;
     return max(DEFAULT_DURATION_TO_PROGRESS_US, bufferedDurationUs);
   }
 

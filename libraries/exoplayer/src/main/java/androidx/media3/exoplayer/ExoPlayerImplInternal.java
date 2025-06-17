@@ -1517,17 +1517,16 @@ import java.util.Objects;
         playbackInfo.playbackState == Player.STATE_READY
             ? READY_MAXIMUM_INTERVAL_MS
             : BUFFERING_MAXIMUM_INTERVAL_MS;
-    if (shouldPlayWhenReady()) {
-      for (RendererHolder rendererHolder : renderers) {
-        wakeUpTimeIntervalMs =
-            min(
-                wakeUpTimeIntervalMs,
-                Util.usToMs(
-                    rendererHolder.getMinDurationToProgressUs(
-                        rendererPositionUs, rendererPositionElapsedRealtimeUs)));
-      }
-
-      // Do not schedule next doSomeWork past the playing period transition point.
+    for (RendererHolder rendererHolder : renderers) {
+      wakeUpTimeIntervalMs =
+          min(
+              wakeUpTimeIntervalMs,
+              Util.usToMs(
+                  rendererHolder.getMinDurationToProgressUs(
+                      rendererPositionUs, rendererPositionElapsedRealtimeUs)));
+    }
+    // Do not schedule next doSomeWork past the playing period transition point.
+    if (playbackInfo.isPlaying()) {
       MediaPeriodHolder nextPlayingPeriodHolder =
           queue.getPlayingPeriod() != null ? queue.getPlayingPeriod().getNext() : null;
       if (nextPlayingPeriodHolder != null

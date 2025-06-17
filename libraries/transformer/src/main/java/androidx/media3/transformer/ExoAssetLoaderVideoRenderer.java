@@ -74,6 +74,9 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
    */
   @Override
   public long getDurationToProgressUs(long positionUs, long elapsedRealtimeUs) {
+    if (getState() == STATE_ENABLED) {
+      return DEFAULT_IDLE_DURATION_TO_PROGRESS_US;
+    }
     if (maxDecoderPendingFrameCount == C.INDEX_UNSET) {
       return DEFAULT_DURATION_TO_PROGRESS_US;
     }
