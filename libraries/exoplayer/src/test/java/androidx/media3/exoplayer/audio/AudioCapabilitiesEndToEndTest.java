@@ -443,7 +443,7 @@ public class AudioCapabilitiesEndToEndTest {
             (UiModeManager)
                 ApplicationProvider.getApplicationContext()
                     .getSystemService(Context.UI_MODE_SERVICE));
-    shadowUiModeManager.currentModeType = Configuration.UI_MODE_TYPE_TELEVISION;
+    shadowUiModeManager.setCurrentModeType(Configuration.UI_MODE_TYPE_TELEVISION);
   }
 
   private void addDirectPlaybackSupportForAC3() {

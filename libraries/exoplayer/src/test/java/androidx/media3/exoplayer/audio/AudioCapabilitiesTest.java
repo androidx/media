@@ -80,7 +80,7 @@ public class AudioCapabilitiesTest {
             (UiModeManager)
                 ApplicationProvider.getApplicationContext()
                     .getSystemService(Context.UI_MODE_SERVICE));
-    shadowUiModeManager.currentModeType = Configuration.UI_MODE_TYPE_TELEVISION;
+    shadowUiModeManager.setCurrentModeType(Configuration.UI_MODE_TYPE_TELEVISION);
     int[] channelMasks =
         new int[] {
           AudioFormat.CHANNEL_OUT_MONO,
@@ -379,7 +379,7 @@ public class AudioCapabilitiesTest {
   public void
       getEncodingAndChannelConfigForPassthrough_forEAc3JocAndSingleSupportedConfig_returnsCorrectEncodingAndChannelConfig() {
     // Set UI mode to TV.
-    shadowOf(uiModeManager).currentModeType = Configuration.UI_MODE_TYPE_TELEVISION;
+    shadowOf(uiModeManager).setCurrentModeType(Configuration.UI_MODE_TYPE_TELEVISION);
     Format format =
         new Format.Builder()
             .setSampleMimeType(MimeTypes.AUDIO_E_AC3_JOC)
@@ -414,7 +414,7 @@ public class AudioCapabilitiesTest {
   public void
       getEncodingAndChannelConfigForPassthrough_forDifferentAudioAttributes_returnsUnsupported() {
     // Set UI mode to TV.
-    shadowOf(uiModeManager).currentModeType = Configuration.UI_MODE_TYPE_TELEVISION;
+    shadowOf(uiModeManager).setCurrentModeType(Configuration.UI_MODE_TYPE_TELEVISION);
     Format format =
         new Format.Builder()
             .setSampleMimeType(MimeTypes.AUDIO_E_AC3_JOC)

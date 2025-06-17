@@ -396,7 +396,7 @@ public final class DefaultAudioSinkTest {
   @Config(minSdk = 23)
   public void audioSinkWithNonNullContext_audioCapabilitiesObtainedFromContext() {
     // Set UI mode to TV.
-    getShadowUiModeManager().currentModeType = Configuration.UI_MODE_TYPE_TELEVISION;
+    getShadowUiModeManager().setCurrentModeType(Configuration.UI_MODE_TYPE_TELEVISION);
     addHdmiDevice();
 
     DefaultAudioSink audioSink =
@@ -449,7 +449,7 @@ public final class DefaultAudioSinkTest {
   @Config(minSdk = 23) // AudioManager.TYPE_BLUETOOTH_A2DP is supported from API 23.
   public void bluetoothDeviceAddedAndRemoved_audioCapabilitiesUpdated() {
     // Set UI mode to TV.
-    getShadowUiModeManager().currentModeType = Configuration.UI_MODE_TYPE_TELEVISION;
+    getShadowUiModeManager().setCurrentModeType(Configuration.UI_MODE_TYPE_TELEVISION);
     // Initially setup the audio sink with HDMI device connected.
     addHdmiDevice();
     DefaultAudioSink audioSink =
@@ -492,7 +492,7 @@ public final class DefaultAudioSinkTest {
       minSdk = Config.OLDEST_SDK) // AudioManager.ACTION_HDMI_AUDIO_PLUG is supported from API 21.
   public void hdmiDeviceAddedAndRemoved_audioCapabilitiesUpdated() {
     // Set UI mode to TV.
-    getShadowUiModeManager().currentModeType = Configuration.UI_MODE_TYPE_TELEVISION;
+    getShadowUiModeManager().setCurrentModeType(Configuration.UI_MODE_TYPE_TELEVISION);
     // Initially setup the audio sink.
     DefaultAudioSink audioSink =
         new DefaultAudioSink.Builder(ApplicationProvider.getApplicationContext()).build();
@@ -661,7 +661,7 @@ public final class DefaultAudioSinkTest {
   @Config(minSdk = 23) // AudioManager.TYPE_BLUETOOTH_A2DP is supported from API 23.
   public void afterRelease_bluetoothDeviceAdded_audioCapabilitiesShouldNotBeUpdated() {
     // Set UI mode to TV.
-    getShadowUiModeManager().currentModeType = Configuration.UI_MODE_TYPE_TELEVISION;
+    getShadowUiModeManager().setCurrentModeType(Configuration.UI_MODE_TYPE_TELEVISION);
     // Initially setup the audio sink with HDMI device connected.
     addHdmiDevice();
     DefaultAudioSink audioSink =
@@ -693,7 +693,7 @@ public final class DefaultAudioSinkTest {
       minSdk = Config.OLDEST_SDK) // AudioManager.ACTION_HDMI_AUDIO_PLUG is supported from API 21.
   public void afterRelease_hdmiDeviceAdded_audioCapabilitiesShouldNotBeUpdated() {
     // Set UI mode to TV.
-    getShadowUiModeManager().currentModeType = Configuration.UI_MODE_TYPE_TELEVISION;
+    getShadowUiModeManager().setCurrentModeType(Configuration.UI_MODE_TYPE_TELEVISION);
     // Initially setup the audio sink.
     DefaultAudioSink audioSink =
         new DefaultAudioSink.Builder(ApplicationProvider.getApplicationContext()).build();
