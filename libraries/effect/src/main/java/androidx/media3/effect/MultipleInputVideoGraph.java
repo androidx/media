@@ -57,9 +57,9 @@ import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.TimestampIterator;
 import androidx.media3.common.util.UnstableApi;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.MoreExecutors;
 import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.Executor;
@@ -94,8 +94,6 @@ public final class MultipleInputVideoGraph implements VideoGraph {
         DebugViewProvider debugViewProvider,
         Listener listener,
         Executor listenerExecutor,
-        VideoCompositorSettings videoCompositorSettings,
-        List<Effect> compositionEffects,
         long initialTimestampOffsetUs,
         boolean renderFramesAutomatically) {
       return new MultipleInputVideoGraph(
@@ -105,8 +103,6 @@ public final class MultipleInputVideoGraph implements VideoGraph {
           debugViewProvider,
           listener,
           listenerExecutor,
-          videoCompositorSettings,
-          compositionEffects,
           renderFramesAutomatically);
     }
 
@@ -124,24 +120,21 @@ public final class MultipleInputVideoGraph implements VideoGraph {
   private static final int COMPOSITOR_TEXTURE_OUTPUT_CAPACITY = 1;
 
   private final Context context;
-
   private final ColorInfo outputColorInfo;
   private final GlObjectsProvider glObjectsProvider;
   private final DebugViewProvider debugViewProvider;
-  private final VideoGraph.Listener listener;
+  private final Listener listener;
   private final Executor listenerExecutor;
-  private final VideoCompositorSettings videoCompositorSettings;
-  private final List<Effect> compositionEffects;
   private final SparseArray<VideoFrameProcessor> preProcessors;
-
   private final ExecutorService sharedExecutorService;
-
   private final DefaultVideoFrameProcessor.Factory videoFrameProcessorFactory;
   private final Queue<TimedGlTextureInfo> compositorOutputTextures;
   private final SparseArray<CompositorOutputTextureRelease> compositorOutputTextureReleases;
 
   private final boolean renderFramesAutomatically;
 
+  private List<Effect> compositionEffects;
+  private VideoCompositorSettings videoCompositorSettings;
   @Nullable private VideoFrameProcessor compositionVideoFrameProcessor;
   @Nullable private VideoCompositor videoCompositor;
   private Size compositorOutputSize;
@@ -159,8 +152,6 @@ public final class MultipleInputVideoGraph implements VideoGraph {
       DebugViewProvider debugViewProvider,
       Listener listener,
       Executor listenerExecutor,
-      VideoCompositorSettings videoCompositorSettings,
-      List<Effect> compositionEffects,
       boolean renderFramesAutomatically) {
     checkArgument(videoFrameProcessorFactory instanceof DefaultVideoFrameProcessor.Factory);
     this.context = context;
@@ -168,8 +159,6 @@ public final class MultipleInputVideoGraph implements VideoGraph {
     this.debugViewProvider = debugViewProvider;
     this.listener = listener;
     this.listenerExecutor = listenerExecutor;
-    this.videoCompositorSettings = videoCompositorSettings;
-    this.compositionEffects = new ArrayList<>(compositionEffects);
     this.renderFramesAutomatically = renderFramesAutomatically;
     lastRenderedPresentationTimeUs = C.TIME_UNSET;
     preProcessors = new SparseArray<>();
@@ -185,6 +174,8 @@ public final class MultipleInputVideoGraph implements VideoGraph {
     compositorOutputTextures = new ArrayDeque<>();
     compositorOutputTextureReleases = new SparseArray<>();
     compositorOutputSize = Size.UNKNOWN;
+    compositionEffects = ImmutableList.of();
+    videoCompositorSettings = VideoCompositorSettings.DEFAULT;
   }
 
   /**
@@ -261,7 +252,6 @@ public final class MultipleInputVideoGraph implements VideoGraph {
         new DefaultVideoCompositor(
             context,
             glObjectsProvider,
-            videoCompositorSettings,
             sharedExecutorService,
             new VideoCompositor.Listener() {
               // All of this listener's methods are called on the sharedExecutorService.
@@ -277,6 +267,7 @@ public final class MultipleInputVideoGraph implements VideoGraph {
             },
             /* textureOutputListener= */ this::processCompositorOutputTexture,
             COMPOSITOR_TEXTURE_OUTPUT_CAPACITY);
+    videoCompositor.setVideoCompositorSettings(videoCompositorSettings);
   }
 
   @Override
@@ -362,6 +353,20 @@ public final class MultipleInputVideoGraph implements VideoGraph {
       List<Effect> effects,
       long offsetToAddUs) {
     getProcessor(inputIndex).registerInputStream(inputType, format, effects, offsetToAddUs);
+  }
+
+  @Override
+  public void setCompositionEffects(List<Effect> compositionEffects) {
+    // TODO: b/412585856 - Support dynamic changing composition effects.
+    this.compositionEffects = compositionEffects;
+  }
+
+  @Override
+  public void setCompositorSettings(VideoCompositorSettings videoCompositorSettings) {
+    this.videoCompositorSettings = videoCompositorSettings;
+    if (videoCompositor != null) {
+      videoCompositor.setVideoCompositorSettings(videoCompositorSettings);
+    }
   }
 
   @Override

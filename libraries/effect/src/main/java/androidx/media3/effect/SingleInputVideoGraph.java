@@ -16,6 +16,7 @@
 
 package androidx.media3.effect;
 
+import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 
@@ -51,11 +52,11 @@ public class SingleInputVideoGraph implements VideoGraph {
   private final Listener listener;
   private final DebugViewProvider debugViewProvider;
   private final Executor listenerExecutor;
-  private final List<Effect> compositionEffects;
   private final boolean renderFramesAutomatically;
 
   @Nullable private VideoFrameProcessor videoFrameProcessor;
   @Nullable private SurfaceInfo outputSurfaceInfo;
+  private ImmutableList<Effect> compositionEffects;
   private boolean released;
   private volatile boolean hasProducedFrameWithTimestampZero;
   private int inputIndex;
@@ -83,8 +84,6 @@ public class SingleInputVideoGraph implements VideoGraph {
         DebugViewProvider debugViewProvider,
         Listener listener,
         Executor listenerExecutor,
-        VideoCompositorSettings videoCompositorSettings,
-        List<Effect> compositionEffects,
         long initialTimestampOffsetUs,
         boolean renderFramesAutomatically) {
       return new SingleInputVideoGraph(
@@ -92,10 +91,8 @@ public class SingleInputVideoGraph implements VideoGraph {
           videoFrameProcessorFactory,
           outputColorInfo,
           listener,
-          compositionEffects,
           debugViewProvider,
           listenerExecutor,
-          videoCompositorSettings,
           renderFramesAutomatically);
     }
 
@@ -115,22 +112,16 @@ public class SingleInputVideoGraph implements VideoGraph {
       VideoFrameProcessor.Factory videoFrameProcessorFactory,
       ColorInfo outputColorInfo,
       Listener listener,
-      List<Effect> compositionEffects,
       DebugViewProvider debugViewProvider,
       Executor listenerExecutor,
-      VideoCompositorSettings videoCompositorSettings,
       boolean renderFramesAutomatically) {
-    checkState(
-        VideoCompositorSettings.DEFAULT.equals(videoCompositorSettings),
-        "SingleInputVideoGraph does not use VideoCompositor, and therefore cannot apply"
-            + " VideoCompositorSettings");
     this.context = context;
     this.videoFrameProcessorFactory = videoFrameProcessorFactory;
     this.outputColorInfo = outputColorInfo;
     this.listener = listener;
     this.debugViewProvider = debugViewProvider;
     this.listenerExecutor = listenerExecutor;
-    this.compositionEffects = compositionEffects;
+    this.compositionEffects = ImmutableList.of();
     this.renderFramesAutomatically = renderFramesAutomatically;
     this.inputIndex = C.INDEX_UNSET;
   }
@@ -259,6 +250,19 @@ public class SingleInputVideoGraph implements VideoGraph {
         format,
         new ImmutableList.Builder<Effect>().addAll(effects).addAll(compositionEffects).build(),
         offsetToAddUs);
+  }
+
+  @Override
+  public void setCompositionEffects(List<Effect> compositionEffects) {
+    this.compositionEffects = ImmutableList.copyOf(compositionEffects);
+  }
+
+  @Override
+  public void setCompositorSettings(VideoCompositorSettings videoCompositorSettings) {
+    checkArgument(
+        videoCompositorSettings.equals(VideoCompositorSettings.DEFAULT),
+        "SingleInputVideoGraph does not use VideoCompositor, and therefore cannot apply"
+            + " VideoCompositorSettings");
   }
 
   @Override

@@ -538,10 +538,10 @@ import org.checkerframework.dataflow.qual.Pure;
               debugViewProvider,
               /* listener= */ thisRef,
               /* listenerExecutor= */ directExecutor(),
-              videoCompositorSettings,
-              compositionEffects,
               initialTimestampOffsetUs,
               renderFramesAutomatically);
+      videoGraph.setCompositionEffects(compositionEffects);
+      videoGraph.setCompositorSettings(videoCompositorSettings);
     }
 
     public void initialize() throws VideoFrameProcessingException {

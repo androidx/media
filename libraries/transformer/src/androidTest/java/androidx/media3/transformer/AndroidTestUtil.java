@@ -44,13 +44,11 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DebugViewProvider;
-import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
-import androidx.media3.common.VideoCompositorSettings;
 import androidx.media3.common.VideoGraph;
 import androidx.media3.common.VideoGraph.Listener;
 import androidx.media3.common.util.GlRect;
@@ -1150,8 +1148,6 @@ public final class AndroidTestUtil {
         DebugViewProvider debugViewProvider,
         Listener listener,
         Executor listenerExecutor,
-        VideoCompositorSettings videoCompositorSettings,
-        List<Effect> compositionEffects,
         long initialTimestampOffsetUs,
         boolean renderFramesAutomatically) {
       this.outputColorInfo = outputColorInfo;
@@ -1161,8 +1157,6 @@ public final class AndroidTestUtil {
           debugViewProvider,
           listener,
           listenerExecutor,
-          videoCompositorSettings,
-          compositionEffects,
           initialTimestampOffsetUs,
           renderFramesAutomatically);
     }

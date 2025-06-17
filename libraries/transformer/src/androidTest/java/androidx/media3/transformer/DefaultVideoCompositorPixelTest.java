@@ -673,7 +673,6 @@ public final class DefaultVideoCompositorPixelTest {
           new DefaultVideoCompositor(
               getApplicationContext(),
               glObjectsProvider,
-              videoCompositorSettings,
               sharedExecutorService,
               new VideoCompositor.Listener() {
                 @Override
@@ -698,6 +697,7 @@ public final class DefaultVideoCompositorPixelTest {
                 outputTextureProducer.releaseOutputTexture(presentationTimeUs);
               },
               /* textureOutputCapacity= */ 1);
+      videoCompositor.setVideoCompositorSettings(videoCompositorSettings);
       inputBitmapReaders = new ArrayList<>();
       inputVideoFrameProcessorTestRunners = new ArrayList<>();
       for (int i = 0; i < inputEffectLists.size(); i++) {

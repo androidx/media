@@ -82,7 +82,6 @@ public final class DefaultVideoCompositor implements VideoCompositor {
   private final VideoCompositor.Listener listener;
   private final GlTextureProducer.Listener textureOutputListener;
   private final GlObjectsProvider glObjectsProvider;
-  private final VideoCompositorSettings settings;
   private final CompositorGlProgram compositorGlProgram;
   private final VideoFrameProcessingTaskExecutor videoFrameProcessingTaskExecutor;
 
@@ -95,6 +94,8 @@ public final class DefaultVideoCompositor implements VideoCompositor {
   private final TexturePool outputTexturePool;
   private final LongArrayQueue outputTextureTimestamps; // Synchronized with outputTexturePool.
   private final LongArrayQueue syncObjects; // Synchronized with outputTexturePool.
+
+  private VideoCompositorSettings videoCompositorSettings;
 
   private @MonotonicNonNull ColorInfo configuredColorInfo;
 
@@ -112,7 +113,6 @@ public final class DefaultVideoCompositor implements VideoCompositor {
   public DefaultVideoCompositor(
       Context context,
       GlObjectsProvider glObjectsProvider,
-      VideoCompositorSettings settings,
       ExecutorService executorService,
       VideoCompositor.Listener listener,
       GlTextureProducer.Listener textureOutputListener,
@@ -120,7 +120,6 @@ public final class DefaultVideoCompositor implements VideoCompositor {
     this.listener = listener;
     this.textureOutputListener = textureOutputListener;
     this.glObjectsProvider = glObjectsProvider;
-    this.settings = settings;
     this.compositorGlProgram = new CompositorGlProgram(context);
     primaryInputIndex = C.INDEX_UNSET;
 
@@ -129,6 +128,7 @@ public final class DefaultVideoCompositor implements VideoCompositor {
         new TexturePool(/* useHighPrecisionColorComponents= */ false, textureOutputCapacity);
     outputTextureTimestamps = new LongArrayQueue(textureOutputCapacity);
     syncObjects = new LongArrayQueue(textureOutputCapacity);
+    videoCompositorSettings = VideoCompositorSettings.DEFAULT;
 
     videoFrameProcessingTaskExecutor =
         new VideoFrameProcessingTaskExecutor(
@@ -148,6 +148,11 @@ public final class DefaultVideoCompositor implements VideoCompositor {
     if (primaryInputIndex == C.INDEX_UNSET) {
       primaryInputIndex = inputIndex;
     }
+  }
+
+  @Override
+  public void setVideoCompositorSettings(VideoCompositorSettings videoCompositorSettings) {
+    this.videoCompositorSettings = videoCompositorSettings;
   }
 
   @Override
@@ -202,7 +207,7 @@ public final class DefaultVideoCompositor implements VideoCompositor {
         new InputFrameInfo(
             textureProducer,
             new TimedGlTextureInfo(inputTexture, presentationTimeUs),
-            settings.getOverlaySettings(inputIndex, presentationTimeUs));
+            videoCompositorSettings.getOverlaySettings(inputIndex, presentationTimeUs));
     inputSource.frameInfos.add(inputFrameInfo);
 
     if (inputIndex == primaryInputIndex) {
@@ -306,7 +311,7 @@ public final class DefaultVideoCompositor implements VideoCompositor {
       GlTextureInfo texture = framesToComposite.get(i).timedGlTextureInfo.glTextureInfo;
       inputSizes.add(new Size(texture.width, texture.height));
     }
-    Size outputSize = settings.getOutputSize(inputSizes.build());
+    Size outputSize = videoCompositorSettings.getOutputSize(inputSizes.build());
     outputTexturePool.ensureConfigured(
         glObjectsProvider, outputSize.getWidth(), outputSize.getHeight());
 

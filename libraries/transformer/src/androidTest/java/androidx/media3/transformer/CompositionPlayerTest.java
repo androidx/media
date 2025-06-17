@@ -43,7 +43,6 @@ import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackException;
-import androidx.media3.common.VideoCompositorSettings;
 import androidx.media3.common.VideoGraph;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.util.SystemClock;
@@ -69,7 +68,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
 import java.io.IOException;
-import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
@@ -492,8 +490,6 @@ public class CompositionPlayerTest {
                             DebugViewProvider debugViewProvider,
                             VideoGraph.Listener listener,
                             Executor listenerExecutor,
-                            VideoCompositorSettings videoCompositorSettings,
-                            List<Effect> compositionEffects,
                             long initialTimestampOffsetUs,
                             boolean renderFramesAutomatically) {
                           return new FailingReleaseVideoGraph(
@@ -502,7 +498,6 @@ public class CompositionPlayerTest {
                               debugViewProvider,
                               listener,
                               listenerExecutor,
-                              videoCompositorSettings,
                               renderFramesAutomatically);
                         }
 
@@ -548,17 +543,14 @@ public class CompositionPlayerTest {
         DebugViewProvider debugViewProvider,
         Listener listener,
         Executor listenerExecutor,
-        VideoCompositorSettings videoCompositorSettings,
         boolean renderFramesAutomatically) {
       super(
           context,
           new DefaultVideoFrameProcessor.Factory.Builder().build(),
           outputColorInfo,
           listener,
-          /* compositionEffects= */ ImmutableList.of(),
           debugViewProvider,
           listenerExecutor,
-          videoCompositorSettings,
           renderFramesAutomatically);
     }
 

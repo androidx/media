@@ -32,7 +32,6 @@ import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DebugViewProvider;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
-import androidx.media3.common.VideoCompositorSettings;
 import androidx.media3.common.VideoGraph;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -248,8 +247,6 @@ public final class PlaybackVideoGraphWrapperTest {
         DebugViewProvider debugViewProvider,
         VideoGraph.Listener listener,
         Executor listenerExecutor,
-        VideoCompositorSettings videoCompositorSettings,
-        List<Effect> compositionEffects,
         long initialTimestampOffsetUs,
         boolean renderFramesAutomatically) {
 

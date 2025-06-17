@@ -41,9 +41,6 @@ public interface VideoGraph {
      * @param debugViewProvider A {@link DebugViewProvider}.
      * @param listener A {@link Listener}.
      * @param listenerExecutor The {@link Executor} on which the {@code listener} is invoked.
-     * @param videoCompositorSettings The {@link VideoCompositorSettings} to apply to the
-     *     composition.
-     * @param compositionEffects A list of {@linkplain Effect effects} to apply to the composition.
      * @param initialTimestampOffsetUs The timestamp offset for the first frame, in microseconds.
      * @param renderFramesAutomatically If {@code true}, the instance will render output frames to
      *     the {@linkplain VideoGraph#setOutputSurfaceInfo(SurfaceInfo) output surface}
@@ -58,8 +55,6 @@ public interface VideoGraph {
         DebugViewProvider debugViewProvider,
         Listener listener,
         Executor listenerExecutor,
-        VideoCompositorSettings videoCompositorSettings,
-        List<Effect> compositionEffects,
         long initialTimestampOffsetUs,
         boolean renderFramesAutomatically);
 
@@ -166,6 +161,27 @@ public interface VideoGraph {
 
   /** Sets the {@link OnInputFrameProcessedListener} at {@code inputIndex}. */
   void setOnInputFrameProcessedListener(int inputIndex, OnInputFrameProcessedListener listener);
+
+  /**
+   * Sets the Composition-level video effects that are applied after the effects on single
+   * {@linkplain #registerInputStream input stream}.
+   *
+   * <p>This method should be called before {@link #registerInputStream} to set the desired
+   * composition level {@link Effect effects}.
+   */
+  void setCompositionEffects(List<Effect> compositionEffects);
+
+  /**
+   * Sets the {@link VideoCompositorSettings}.
+   *
+   * <p>This method should be called before {@link #registerInputStream} to set the desired
+   * composition level {@link VideoCompositorSettings}.
+   *
+   * <p>Setting a custom {@link VideoCompositorSettings} where {@link
+   * Factory#supportsMultipleInputs()} returns {@code false} throws an {@link
+   * IllegalArgumentException}.
+   */
+  void setCompositorSettings(VideoCompositorSettings videoCompositorSettings);
 
   /**
    * Informs the graph that a new input stream will be queued to the graph input corresponding to

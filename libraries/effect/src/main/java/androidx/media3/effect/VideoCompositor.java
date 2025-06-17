@@ -17,6 +17,7 @@ package androidx.media3.effect;
 
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.GlTextureInfo;
+import androidx.media3.common.VideoCompositorSettings;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.UnstableApi;
 
@@ -54,6 +55,9 @@ public interface VideoCompositor extends GlTextureProducer {
    *     GlTextureInfo, ColorInfo, long) queueing} textures.
    */
   void registerInputSource(int inputIndex);
+
+  /** Sets the {@link VideoCompositorSettings} to apply to inputs. */
+  void setVideoCompositorSettings(VideoCompositorSettings videoCompositorSettings);
 
   /**
    * Signals that no more frames will come from the upstream {@link GlTextureProducer.Listener}.

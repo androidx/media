@@ -376,14 +376,20 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
     defaultVideoSink.stopRendering();
   }
 
-  /** Sets the {@link VideoCompositorSettings}. */
-  public void setCompositorSettings(VideoCompositorSettings compositorSettings) {
-    this.compositorSettings = compositorSettings;
-  }
-
   /** Sets the {@linkplain Effect effects} to apply after compositing the frames from sequences. */
   public void setCompositionEffects(List<Effect> compositionEffects) {
     this.compositionEffects = ImmutableList.copyOf(compositionEffects);
+    if (videoGraph != null) {
+      videoGraph.setCompositionEffects(compositionEffects);
+    }
+  }
+
+  /** Sets the {@link VideoCompositorSettings} for frame composition. */
+  public void setCompositorSettings(VideoCompositorSettings compositorSettings) {
+    this.compositorSettings = compositorSettings;
+    if (videoGraph != null) {
+      videoGraph.setCompositorSettings(compositorSettings);
+    }
   }
 
   /** Sets whether to tone map the input video with OpenGL. */
@@ -520,10 +526,10 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
                 DebugViewProvider.NONE,
                 /* listener= */ this,
                 /* listenerExecutor= */ handler::post,
-                compositorSettings,
-                compositionEffects,
                 /* initialTimestampOffsetUs= */ 0,
                 /* renderFramesAutomatically= */ false);
+        videoGraph.setCompositionEffects(compositionEffects);
+        videoGraph.setCompositorSettings(compositorSettings);
         videoGraph.initialize();
       } catch (VideoFrameProcessingException e) {
         throw new VideoSink.VideoSinkException(e, sourceFormat);
@@ -1151,8 +1157,6 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
         DebugViewProvider debugViewProvider,
         VideoGraph.Listener listener,
         Executor listenerExecutor,
-        VideoCompositorSettings videoCompositorSettings,
-        List<Effect> compositionEffects,
         long initialTimestampOffsetUs,
         boolean renderFramesAutomatically) {
       VideoGraph.Factory factory;
@@ -1177,8 +1181,6 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
           debugViewProvider,
           listener,
           listenerExecutor,
-          videoCompositorSettings,
-          compositionEffects,
           initialTimestampOffsetUs,
           renderFramesAutomatically);
     }
