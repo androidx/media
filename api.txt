@@ -1570,8 +1570,10 @@ package androidx.media3.session {
     field public static final int ICON_VOLUME_OFF = 57423; // 0xe04f
     field public static final int ICON_VOLUME_UP = 57424; // 0xe050
     field public final CharSequence displayName;
+    field public final android.os.Bundle extras;
     field @androidx.media3.session.CommandButton.Icon public final int icon;
     field @DrawableRes public final int iconResId;
+    field @Nullable public final android.net.Uri iconUri;
     field public final boolean isEnabled;
     field @androidx.media3.common.Player.Command public final int playerCommand;
     field @Nullable public final androidx.media3.session.SessionCommand sessionCommand;
@@ -1586,6 +1588,7 @@ package androidx.media3.session {
     method public androidx.media3.session.CommandButton.Builder setEnabled(boolean);
     method public androidx.media3.session.CommandButton.Builder setExtras(android.os.Bundle);
     method @Deprecated public androidx.media3.session.CommandButton.Builder setIconResId(@DrawableRes int);
+    method public androidx.media3.session.CommandButton.Builder setIconUri(android.net.Uri);
     method public androidx.media3.session.CommandButton.Builder setPlayerCommand(@androidx.media3.common.Player.Command int);
     method public androidx.media3.session.CommandButton.Builder setSessionCommand(androidx.media3.session.SessionCommand);
   }

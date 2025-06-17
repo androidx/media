@@ -588,7 +588,6 @@ public final class CommandButton {
      * @param uri The uri to an icon.
      * @return This builder for chaining.
      */
-    @UnstableApi
     @CanIgnoreReturnValue
     public Builder setIconUri(Uri uri) {
       checkArgument(
@@ -1117,7 +1116,7 @@ public final class CommandButton {
    * <p>Note that this value can be used in addition to {@link #iconResId} for consumers that are
    * capable of loading the content or resource {@link Uri}.
    */
-  @UnstableApi @Nullable public final Uri iconUri;
+  @Nullable public final Uri iconUri;
 
   /**
    * The display name of the button. Can be empty if the command is predefined and a custom name
@@ -1129,7 +1128,7 @@ public final class CommandButton {
    * The extra {@link Bundle} of the button. It's private information between session and
    * controller.
    */
-  @UnstableApi public final Bundle extras;
+  public final Bundle extras;
 
   /**
    * The allowed {@link Slot} positions for this button.
