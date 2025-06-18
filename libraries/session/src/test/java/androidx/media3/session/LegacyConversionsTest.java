@@ -307,8 +307,7 @@ public final class LegacyConversionsTest {
 
   @Test
   public void convertToMediaMetadata_withoutTitle() {
-    assertThat(LegacyConversions.convertToMediaMetadata(null))
-        .isEqualTo(MediaMetadata.EMPTY);
+    assertThat(LegacyConversions.convertToMediaMetadata(null)).isEqualTo(MediaMetadata.EMPTY);
   }
 
   @Test
