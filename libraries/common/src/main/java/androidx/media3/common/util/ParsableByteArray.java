@@ -659,7 +659,8 @@ public final class ParsableByteArray {
   }
 
   /**
-   * Reads a little endian long of variable length.
+   * Reads an unsigned variable-length <a href="https://en.wikipedia.org/wiki/LEB128">LEB128</a>
+   * value into a long.
    *
    * @throws IllegalStateException if the byte to be read is over the limit of the parsable byte
    *     array
@@ -683,7 +684,8 @@ public final class ParsableByteArray {
   }
 
   /**
-   * Reads a little endian integer of variable length.
+   * Reads an unsigned variable-length <a href="https://en.wikipedia.org/wiki/LEB128">LEB128</a>
+   * value into an int.
    *
    * @throws IllegalArgumentException if the read value is greater than {@link Integer#MAX_VALUE} or
    *     less than {@link Integer#MIN_VALUE}
@@ -691,6 +693,11 @@ public final class ParsableByteArray {
    */
   public int readUnsignedLeb128ToInt() {
     return Ints.checkedCast(readUnsignedLeb128ToLong());
+  }
+
+  /** Skips a variable-length <a href="https://en.wikipedia.org/wiki/LEB128">LEB128</a> value. */
+  public void skipLeb128() {
+    while ((readUnsignedByte() & 0x80) != 0) {}
   }
 
   /**
