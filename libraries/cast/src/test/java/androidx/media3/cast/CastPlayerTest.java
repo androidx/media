@@ -104,6 +104,8 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 
 /** Tests for {@link CastPlayer}. */
+// TODO: b/419816002 - Rename this class to be RemoteCastPlayerTest once CastPlayer supports local
+// playback.
 @RunWith(AndroidJUnit4.class)
 public class CastPlayerTest {
 
@@ -2160,7 +2162,7 @@ public class CastPlayerTest {
   private static Player.Commands createWithDefaultCommands(
       boolean isTimelineEmpty, @Player.Command int... additionalCommands) {
     Player.Commands.Builder builder = new Player.Commands.Builder();
-    builder.addAll(CastPlayer.PERMANENT_AVAILABLE_COMMANDS);
+    builder.addAll(RemoteCastPlayer.PERMANENT_AVAILABLE_COMMANDS);
     if (!isTimelineEmpty) {
       builder.add(COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM);
       builder.add(COMMAND_SEEK_TO_PREVIOUS);
