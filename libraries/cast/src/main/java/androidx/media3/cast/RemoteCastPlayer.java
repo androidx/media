@@ -54,6 +54,7 @@ import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.Tracks;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.text.CueGroup;
+import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ListenerSet;
 import androidx.media3.common.util.Log;
@@ -75,6 +76,7 @@ import com.google.android.gms.cast.framework.media.RemoteMediaClient.MediaChanne
 import com.google.android.gms.common.api.PendingResult;
 import com.google.android.gms.common.api.ResultCallback;
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.InlineMe;
 import java.io.IOException;
 import java.util.List;
@@ -96,6 +98,121 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
  */
 @UnstableApi
 public final class RemoteCastPlayer extends BasePlayer {
+
+  /**
+   * A builder for {@link RemoteCastPlayer} instances.
+   *
+   * <p>See {@link #Builder(Context)} for the list of default values.
+   */
+  @UnstableApi
+  public static final class Builder {
+
+    private final Context context;
+    private MediaItemConverter mediaItemConverter;
+    private long seekBackIncrementMs;
+    private long seekForwardIncrementMs;
+    private long maxSeekToPreviousPositionMs;
+    private boolean buildCalled;
+
+    /**
+     * Creates a builder.
+     *
+     * <p>The builder uses the following default values:
+     *
+     * <ul>
+     *   <li>{@link MediaItemConverter}: {@link DefaultMediaItemConverter}.
+     *   <li>{@link #setSeekBackIncrementMs}: {@link C#DEFAULT_SEEK_BACK_INCREMENT_MS}.
+     *   <li>{@link #setSeekForwardIncrementMs}: {@link C#DEFAULT_SEEK_FORWARD_INCREMENT_MS}.
+     *   <li>{@link #setMaxSeekToPreviousPositionMs}: {@link
+     *       C#DEFAULT_MAX_SEEK_TO_PREVIOUS_POSITION_MS}.
+     * </ul>
+     *
+     * @param context A {@link Context}.
+     */
+    public Builder(Context context) {
+      this.context = context;
+      mediaItemConverter = new DefaultMediaItemConverter();
+      seekBackIncrementMs = C.DEFAULT_SEEK_BACK_INCREMENT_MS;
+      seekForwardIncrementMs = C.DEFAULT_SEEK_FORWARD_INCREMENT_MS;
+      maxSeekToPreviousPositionMs = C.DEFAULT_MAX_SEEK_TO_PREVIOUS_POSITION_MS;
+    }
+
+    /**
+     * Sets the {@link MediaItemConverter} that will be used by the player to convert {@link
+     * MediaItem MediaItems}.
+     *
+     * @param mediaItemConverter A {@link MediaItemConverter}.
+     * @return This builder.
+     * @throws IllegalStateException If {@link #build()} has already been called.
+     */
+    @CanIgnoreReturnValue
+    public Builder setMediaItemConverter(MediaItemConverter mediaItemConverter) {
+      Assertions.checkState(!buildCalled);
+      this.mediaItemConverter = Assertions.checkNotNull(mediaItemConverter);
+      return this;
+    }
+
+    /**
+     * Sets the {@link #seekBack()} increment.
+     *
+     * @param seekBackIncrementMs The seek back increment, in milliseconds.
+     * @return This builder.
+     * @throws IllegalArgumentException If {@code seekBackIncrementMs} is non-positive.
+     * @throws IllegalStateException If {@link #build()} has already been called.
+     */
+    @CanIgnoreReturnValue
+    public Builder setSeekBackIncrementMs(@IntRange(from = 1) long seekBackIncrementMs) {
+      Assertions.checkArgument(seekBackIncrementMs > 0);
+      Assertions.checkState(!buildCalled);
+      this.seekBackIncrementMs = seekBackIncrementMs;
+      return this;
+    }
+
+    /**
+     * Sets the {@link #seekForward()} increment.
+     *
+     * @param seekForwardIncrementMs The seek forward increment, in milliseconds.
+     * @return This builder.
+     * @throws IllegalArgumentException If {@code seekForwardIncrementMs} is non-positive.
+     * @throws IllegalStateException If {@link #build()} has already been called.
+     */
+    @CanIgnoreReturnValue
+    public Builder setSeekForwardIncrementMs(@IntRange(from = 1) long seekForwardIncrementMs) {
+      Assertions.checkArgument(seekForwardIncrementMs > 0);
+      Assertions.checkState(!buildCalled);
+      this.seekForwardIncrementMs = seekForwardIncrementMs;
+      return this;
+    }
+
+    /**
+     * Sets the maximum position for which {@link #seekToPrevious()} seeks to the previous {@link
+     * MediaItem}.
+     *
+     * @param maxSeekToPreviousPositionMs The maximum position, in milliseconds.
+     * @return This builder.
+     * @throws IllegalArgumentException If {@code maxSeekToPreviousPositionMs} is negative.
+     * @throws IllegalStateException If {@link #build()} has already been called.
+     */
+    @CanIgnoreReturnValue
+    public Builder setMaxSeekToPreviousPositionMs(
+        @IntRange(from = 0) long maxSeekToPreviousPositionMs) {
+      Assertions.checkArgument(maxSeekToPreviousPositionMs >= 0L);
+      Assertions.checkState(!buildCalled);
+      this.maxSeekToPreviousPositionMs = maxSeekToPreviousPositionMs;
+      return this;
+    }
+
+    /**
+     * Builds and returns a {@link RemoteCastPlayer} instance.
+     *
+     * @throws IllegalStateException If this method has already been called.
+     */
+    public RemoteCastPlayer build() {
+      Assertions.checkState(!buildCalled);
+      buildCalled = true;
+      return new RemoteCastPlayer(this);
+    }
+  }
 
   /**
    * Maximum volume to use for {@link #getDeviceVolume()} and {@link #setDeviceVolume}.
@@ -196,6 +313,16 @@ public final class RemoteCastPlayer extends BasePlayer {
   private MediaMetadata mediaMetadata;
   private MediaMetadata playlistMetadata;
   private DeviceInfo deviceInfo;
+
+  private RemoteCastPlayer(Builder builder) {
+    this(
+        builder.context,
+        CastContext.getSharedInstance(builder.context),
+        builder.mediaItemConverter,
+        builder.seekBackIncrementMs,
+        builder.seekForwardIncrementMs,
+        builder.maxSeekToPreviousPositionMs);
+  }
 
   /**
    * Constructor.
