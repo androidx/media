@@ -680,7 +680,7 @@ public final class LegacyConversionsTest {
         .isTrue();
   }
 
-  @Config(minSdk = Config.OLDEST_SDK)
+  @Config(minSdk = 21)
   @Test
   public void convertToSessionCommands_whenSessionIsNotReadyOnSdk21_disallowsRating() {
     SessionCommands sessionCommands =

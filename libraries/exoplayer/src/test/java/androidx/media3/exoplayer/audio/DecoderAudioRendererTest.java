@@ -81,7 +81,7 @@ public class DecoderAudioRendererTest {
     audioRenderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
   }
 
-  @Config(sdk = Config.OLDEST_SDK)
+  @Config(sdk = 21)
   @Test
   public void supportsFormatAtApi21() {
     // From API 21, tunneling is supported.

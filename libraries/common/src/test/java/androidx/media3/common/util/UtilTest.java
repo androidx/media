@@ -1623,10 +1623,7 @@ public class UtilTest {
   }
 
   @Test
-  @Config(
-      minSdk =
-          Config.OLDEST_SDK) // Specifies the minimum SDK to enforce the test to run with all API
-  // levels.
+  @Config(minSdk = 21) // Specifies the minimum SDK to enforce the test to run with all API levels.
   public void contentEquals_sparseArraysWithEqualContent_returnsTrue() {
     SparseArray<Integer> sparseArray1 = new SparseArray<>();
     sparseArray1.put(1, 2);
@@ -1639,10 +1636,7 @@ public class UtilTest {
   }
 
   @Test
-  @Config(
-      minSdk =
-          Config.OLDEST_SDK) // Specifies the minimum SDK to enforce the test to run with all API
-  // levels.
+  @Config(minSdk = 21) // Specifies the minimum SDK to enforce the test to run with all API levels.
   public void contentEquals_sparseArraysWithDifferentContents_returnsFalse() {
     SparseArray<Integer> sparseArray1 = new SparseArray<>();
     sparseArray1.put(1, 2);
@@ -1658,10 +1652,7 @@ public class UtilTest {
   }
 
   @Test
-  @Config(
-      minSdk =
-          Config.OLDEST_SDK) // Specifies the minimum SDK to enforce the test to run with all API
-  // levels.
+  @Config(minSdk = 21) // Specifies the minimum SDK to enforce the test to run with all API levels.
   public void contentHashCode_sparseArraysWithEqualContent_returnsEqualContentHashCode() {
     SparseArray<Integer> sparseArray1 = new SparseArray<>();
     sparseArray1.put(1, 2);
@@ -1674,10 +1665,7 @@ public class UtilTest {
   }
 
   @Test
-  @Config(
-      minSdk =
-          Config.OLDEST_SDK) // Specifies the minimum SDK to enforce the test to run with all API
-  // levels.
+  @Config(minSdk = 21) // Specifies the minimum SDK to enforce the test to run with all API levels.
   public void contentHashCode_sparseArraysWithDifferentContent_returnsDifferentContentHashCode() {
     // In theory this is not guaranteed though, adding this test to ensure a sensible
     // contentHashCode implementation.
