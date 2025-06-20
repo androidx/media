@@ -209,6 +209,16 @@ public abstract class TrackSelector {
     return false;
   }
 
+  /**
+   * Returns if this {@code TrackSelector} supports {@link
+   * #setAudioPresentation(AudioPresentation)}.
+   *
+   * <p>The same value is always returned for a given {@code TrackSelector} instance.
+   */
+  public boolean isSetAudioPresentationSupported() {
+    return false;
+  }
+
   /** Called by the player to set the {@link AudioAttributes} that will be used for playback. */
   public void setAudioAttributes(AudioAttributes audioAttributes) {
     // Default implementation is no-op.

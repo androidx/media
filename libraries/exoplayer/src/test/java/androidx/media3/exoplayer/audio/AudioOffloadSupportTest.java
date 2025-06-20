@@ -42,9 +42,10 @@ public final class AudioOffloadSupportTest {
             .setIsFormatSupported(true)
             .setIsGaplessSupported(true)
             .setIsSpeedChangeSupported(true)
+            .setIsPresentationSelectionSupported(true)
             .build();
 
-    assertThat(audioOffloadSupport.hashCode()).isEqualTo(7);
+    assertThat(audioOffloadSupport.hashCode()).isEqualTo(15);
   }
 
   @Test

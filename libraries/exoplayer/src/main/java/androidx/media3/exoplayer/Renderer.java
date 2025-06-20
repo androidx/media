@@ -17,6 +17,7 @@ package androidx.media3.exoplayer;
 
 import static java.lang.annotation.ElementType.TYPE_USE;
 
+import android.media.AudioPresentation;
 import android.media.MediaCodec;
 import android.view.Surface;
 import androidx.annotation.IntDef;
@@ -195,8 +196,9 @@ public interface Renderer extends PlayerMessage.Target {
    * #MSG_SET_AUX_EFFECT_INFO}, {@link #MSG_SET_VIDEO_FRAME_METADATA_LISTENER}, {@link
    * #MSG_SET_CAMERA_MOTION_LISTENER}, {@link #MSG_SET_SKIP_SILENCE_ENABLED}, {@link
    * #MSG_SET_AUDIO_SESSION_ID}, {@link #MSG_SET_WAKEUP_LISTENER}, {@link #MSG_SET_VIDEO_EFFECTS},
-   * {@link #MSG_SET_VIDEO_OUTPUT_RESOLUTION} or {@link #MSG_SET_IMAGE_OUTPUT}. May also be an
-   * app-defined value (see {@link #MSG_CUSTOM_BASE}).
+   * {@link #MSG_SET_VIDEO_OUTPUT_RESOLUTION}, {@link #MSG_SET_IMAGE_OUTPUT} or
+   * {@link #MSG_SET_AUDIO_PRESENTATION}. May also be an app-defined value
+   * (see {@link #MSG_CUSTOM_BASE}).
    */
   @Documented
   @Retention(RetentionPolicy.SOURCE)
@@ -220,7 +222,8 @@ public interface Renderer extends PlayerMessage.Target {
         MSG_SET_IMAGE_OUTPUT,
         MSG_SET_PRIORITY,
         MSG_TRANSFER_RESOURCES,
-        MSG_SET_SCRUBBING_MODE
+        MSG_SET_SCRUBBING_MODE,
+        MSG_SET_AUDIO_PRESENTATION
       })
   public @interface MessageType {}
 
@@ -371,6 +374,13 @@ public interface Renderer extends PlayerMessage.Target {
    * enable or {@code null} to disable scrubbing mode.
    */
   int MSG_SET_SCRUBBING_MODE = 18;
+
+  /**
+   * The type of message that can be passed to an audio renderer to set a desired audio
+   * presentation. The message object should be an {@link AudioPresentation} instance that will
+   * configure the underlying audio track.
+   */
+  int MSG_SET_AUDIO_PRESENTATION = 19;
 
   /**
    * Applications or extensions may define custom {@code MSG_*} constants that can be passed to
