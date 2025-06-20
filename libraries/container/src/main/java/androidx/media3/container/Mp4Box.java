@@ -336,6 +336,9 @@ public abstract class Mp4Box {
   public static final int TYPE_mp4v = 0x6d703476;
 
   @SuppressWarnings("ConstantCaseForConstants")
+  public static final int TYPE_mp4s = 0x6D703473;
+
+  @SuppressWarnings("ConstantCaseForConstants")
   public static final int TYPE_stts = 0x73747473;
 
   @SuppressWarnings("ConstantCaseForConstants")
