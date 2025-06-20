@@ -34,6 +34,7 @@ public class AudioAttributesTest {
             .setUsage(C.USAGE_ALARM)
             .setAllowedCapturePolicy(C.ALLOW_CAPTURE_BY_SYSTEM)
             .setSpatializationBehavior(C.SPATIALIZATION_BEHAVIOR_NEVER)
+            .setIsContentSpatialized(true)
             .build();
 
     assertThat(AudioAttributes.fromBundle(audioAttributes.toBundle())).isEqualTo(audioAttributes);
