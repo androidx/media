@@ -59,6 +59,7 @@ import androidx.media3.exoplayer.metadata.MetadataOutput;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.text.TextOutput;
 import androidx.media3.exoplayer.video.MediaCodecVideoRenderer;
+import androidx.media3.exoplayer.video.VideoFrameMetadataListener;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
 import androidx.media3.exoplayer.video.VideoSink;
 import com.google.common.collect.ImmutableList;
@@ -675,10 +676,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     @Override
     public void handleMessage(@MessageType int messageType, @Nullable Object message)
         throws ExoPlaybackException {
-      if (messageType == MSG_SET_WAKEUP_LISTENER) {
-        this.wakeupListener = (WakeupListener) checkNotNull(message);
-      } else {
-        super.handleMessage(messageType, message);
+      switch (messageType) {
+        case MSG_SET_WAKEUP_LISTENER:
+          this.wakeupListener = (WakeupListener) checkNotNull(message);
+          break;
+        case MSG_SET_VIDEO_FRAME_METADATA_LISTENER:
+          videoSink.setVideoFrameMetadataListener(
+              (VideoFrameMetadataListener) checkNotNull(message));
+          break;
+        default:
+          super.handleMessage(messageType, message);
       }
     }
 
