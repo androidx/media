@@ -61,12 +61,11 @@ public final class MediaMetadataCompatTest {
     MediaMetadata mediaMetadata = testMediaMetadataCompat.getMediaMetadata();
 
     // Verify that the long/text/string/rating values are set correctly.
-    assertThat(mediaMetadata.getLong(MediaMetadataCompat.METADATA_KEY_DURATION)).isEqualTo(1000);
-    assertThat(mediaMetadata.getText(MediaMetadataCompat.METADATA_KEY_ARTIST).toString())
+    assertThat(mediaMetadata.getLong(MediaMetadata.METADATA_KEY_DURATION)).isEqualTo(1000);
+    assertThat(mediaMetadata.getText(MediaMetadata.METADATA_KEY_ARTIST).toString())
         .isEqualTo("artist");
-    assertThat(mediaMetadata.getString(MediaMetadataCompat.METADATA_KEY_TITLE)).isEqualTo("title");
-    assertThat(mediaMetadata.getRating(MediaMetadataCompat.METADATA_KEY_RATING).hasHeart())
-        .isTrue();
+    assertThat(mediaMetadata.getString(MediaMetadata.METADATA_KEY_TITLE)).isEqualTo("title");
+    assertThat(mediaMetadata.getRating(MediaMetadata.METADATA_KEY_RATING).hasHeart()).isTrue();
 
     // Verify that the bitmap instances are the same as the original.
     Bitmap bitmap = mediaMetadata.getBitmap(MediaMetadata.METADATA_KEY_ART);
