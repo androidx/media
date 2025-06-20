@@ -73,8 +73,6 @@ include modulePrefix + 'lib-decoder'
 project(modulePrefix + 'lib-decoder').projectDir = new File(rootDir, 'libraries/decoder')
 include modulePrefix + 'lib-decoder-av1'
 project(modulePrefix + 'lib-decoder-av1').projectDir = new File(rootDir, 'libraries/decoder_av1')
-include modulePrefix + 'lib-decoder-dav1d'
-project(modulePrefix + 'lib-decoder-dav1d').projectDir = new File(rootDir, 'libraries/decoder_dav1d')
 include modulePrefix + 'lib-decoder-ffmpeg'
 project(modulePrefix + 'lib-decoder-ffmpeg').projectDir = new File(rootDir, 'libraries/decoder_ffmpeg')
 include modulePrefix + 'lib-decoder-flac'
