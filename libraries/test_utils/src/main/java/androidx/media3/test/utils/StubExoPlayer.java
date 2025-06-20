@@ -177,6 +177,11 @@ public class StubExoPlayer extends StubPlayer implements ExoPlayer {
   }
 
   @Override
+  public ShuffleOrder getShuffleOrder() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
   public void setAudioAttributes(AudioAttributes audioAttributes, boolean handleAudioFocus) {
     throw new UnsupportedOperationException();
   }
