@@ -31,7 +31,6 @@ import static androidx.media3.session.legacy.MediaBrowserProtocol.DATA_CUSTOM_AC
 import static androidx.media3.session.legacy.MediaBrowserProtocol.DATA_CUSTOM_ACTION_EXTRAS;
 import static androidx.media3.session.legacy.MediaBrowserProtocol.DATA_MEDIA_ITEM_ID;
 import static androidx.media3.session.legacy.MediaBrowserProtocol.DATA_MEDIA_ITEM_LIST;
-import static androidx.media3.session.legacy.MediaBrowserProtocol.DATA_MEDIA_SESSION_TOKEN;
 import static androidx.media3.session.legacy.MediaBrowserProtocol.DATA_NOTIFY_CHILDREN_CHANGED_OPTIONS;
 import static androidx.media3.session.legacy.MediaBrowserProtocol.DATA_OPTIONS;
 import static androidx.media3.session.legacy.MediaBrowserProtocol.DATA_PACKAGE_NAME;
@@ -44,8 +43,6 @@ import static androidx.media3.session.legacy.MediaBrowserProtocol.EXTRA_CLIENT_V
 import static androidx.media3.session.legacy.MediaBrowserProtocol.EXTRA_MESSENGER_BINDER;
 import static androidx.media3.session.legacy.MediaBrowserProtocol.EXTRA_SERVICE_VERSION;
 import static androidx.media3.session.legacy.MediaBrowserProtocol.EXTRA_SESSION_BINDER;
-import static androidx.media3.session.legacy.MediaBrowserProtocol.SERVICE_MSG_ON_CONNECT;
-import static androidx.media3.session.legacy.MediaBrowserProtocol.SERVICE_MSG_ON_CONNECT_FAILED;
 import static androidx.media3.session.legacy.MediaBrowserProtocol.SERVICE_MSG_ON_LOAD_CHILDREN;
 import static androidx.media3.session.legacy.MediaBrowserProtocol.SERVICE_VERSION_2;
 
@@ -844,14 +841,6 @@ public final class MediaBrowserCompat {
   }
 
   interface MediaBrowserServiceCallbackImpl {
-    void onServiceConnected(
-        Messenger callback,
-        @Nullable String root,
-        @Nullable MediaSessionCompat.Token session,
-        @Nullable Bundle extra);
-
-    void onConnectionFailed(Messenger callback);
-
     void onLoadChildren(
         Messenger callback,
         @Nullable String parentId,
@@ -1201,20 +1190,6 @@ public final class MediaBrowserCompat {
     }
 
     @Override
-    public void onServiceConnected(
-        final Messenger callback,
-        @Nullable final String root,
-        @Nullable final MediaSessionCompat.Token session,
-        @Nullable Bundle extra) {
-      // This method will not be called.
-    }
-
-    @Override
-    public void onConnectionFailed(Messenger callback) {
-      // This method will not be called.
-    }
-
-    @Override
     @SuppressWarnings({"ReferenceEquality"})
     public void onLoadChildren(
         Messenger callback,
@@ -1394,23 +1369,6 @@ public final class MediaBrowserCompat {
 
       try {
         switch (msg.what) {
-          case SERVICE_MSG_ON_CONNECT:
-            {
-              Bundle rootHints = data.getBundle(DATA_ROOT_HINTS);
-              MediaSessionCompat.ensureClassLoader(rootHints);
-
-              serviceCallback.onServiceConnected(
-                  callbacksMessenger,
-                  data.getString(DATA_MEDIA_ITEM_ID),
-                  LegacyParcelableUtil.convert(
-                      data.getParcelable(DATA_MEDIA_SESSION_TOKEN),
-                      MediaSessionCompat.Token.CREATOR),
-                  rootHints);
-              break;
-            }
-          case SERVICE_MSG_ON_CONNECT_FAILED:
-            serviceCallback.onConnectionFailed(callbacksMessenger);
-            break;
           case SERVICE_MSG_ON_LOAD_CHILDREN:
             {
               Bundle options = data.getBundle(DATA_OPTIONS);
@@ -1442,10 +1400,6 @@ public final class MediaBrowserCompat {
       } catch (BadParcelableException e) {
         // Do not print the exception here, since it is already done by the Parcel class.
         Log.e(TAG, "Could not unparcel the data.");
-        // If an error happened while connecting, disconnect from the service.
-        if (msg.what == SERVICE_MSG_ON_CONNECT) {
-          serviceCallback.onConnectionFailed(callbacksMessenger);
-        }
       }
     }
 
