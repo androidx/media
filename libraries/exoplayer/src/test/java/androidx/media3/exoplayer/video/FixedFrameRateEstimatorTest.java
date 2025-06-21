@@ -202,7 +202,7 @@ public final class FixedFrameRateEstimatorTest {
     }
   }
 
-  private static final long getNsWithMsPrecision(long presentationTimeNs) {
+  private static long getNsWithMsPrecision(long presentationTimeNs) {
     return (presentationTimeNs / 1000000) * 1000000;
   }
 }

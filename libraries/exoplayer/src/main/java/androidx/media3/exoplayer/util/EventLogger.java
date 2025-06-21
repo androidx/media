@@ -456,7 +456,7 @@ public class EventLogger implements AnalyticsListener {
     StringBuilder description =
         new StringBuilder("w=" + videoSize.width + ", h=" + videoSize.height);
     if (videoSize.pixelWidthHeightRatio != 1.0f) {
-      description.append(", par=" + videoSize.pixelWidthHeightRatio);
+      description.append(", par=").append(videoSize.pixelWidthHeightRatio);
     }
     logd(eventTime, "videoSize", description.toString());
   }

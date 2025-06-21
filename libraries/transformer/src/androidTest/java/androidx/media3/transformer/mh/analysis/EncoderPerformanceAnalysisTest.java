@@ -186,12 +186,9 @@ public class EncoderPerformanceAnalysisTest {
     }
 
     public String getTestId() {
-      StringBuilder testIdBuilder = new StringBuilder();
-      testIdBuilder.append(
-          String.format(
-              "analyzePerformance_%s_Fallback_%d_OpRate_%d_Priority_%d_Profile_%d_Level_%d",
-              getFilename(), enableFallback ? 1 : 0, operatingRate, priority, profile, level));
-      return testIdBuilder.toString();
+      return String.format(
+          "analyzePerformance_%s_Fallback_%d_OpRate_%d_Priority_%d_Profile_%d_Level_%d",
+          getFilename(), enableFallback ? 1 : 0, operatingRate, priority, profile, level);
     }
 
     public Map<String, Object> getInputValues() {

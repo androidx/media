@@ -368,7 +368,7 @@ public final class DefaultDownloadIndex implements WritableDownloadIndex {
             /* selectionArgs= */ null,
             /* groupBy= */ null,
             /* having= */ null,
-            /* orderBy= */ null); ) {
+            /* orderBy= */ null)) {
       while (cursor.moveToNext()) {
         downloads.add(getDownloadForCurrentRowV2(cursor));
       }

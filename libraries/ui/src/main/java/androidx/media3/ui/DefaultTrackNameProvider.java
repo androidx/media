@@ -56,7 +56,7 @@ public class DefaultTrackNameProvider implements TrackNameProvider {
     } else {
       trackName = buildLanguageOrLabelString(format);
     }
-    if (trackName.length() != 0) {
+    if (!trackName.isEmpty()) {
       return trackName;
     }
     @Nullable String language = format.language;
@@ -153,7 +153,7 @@ public class DefaultTrackNameProvider implements TrackNameProvider {
   private String joinWithSeparator(String... items) {
     String itemList = "";
     for (String item : items) {
-      if (item.length() > 0) {
+      if (!item.isEmpty()) {
         if (TextUtils.isEmpty(itemList)) {
           itemList = item;
         } else {
