@@ -27,10 +27,12 @@ import android.graphics.Paint;
 import android.graphics.Paint.Join;
 import android.graphics.Paint.Style;
 import android.graphics.Rect;
+import android.text.BidiFormatter;
 import android.text.Layout.Alignment;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
 import android.text.StaticLayout;
+import android.text.TextDirectionHeuristics;
 import android.text.TextPaint;
 import android.text.TextUtils;
 import android.text.style.AbsoluteSizeSpan;
@@ -191,7 +193,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       return;
     }
 
-    this.cueText = cue.text;
+    this.cueText = containsRTL(cue.text) ? wrapBidiText(cue.text) : cue.text;
     this.cueTextAlignment = cue.textAlignment;
     this.cueBitmap = cue.bitmap;
     this.cueLine = cue.line;
@@ -470,5 +472,68 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     // Some CharSequence implementations don't perform a cheap referential equality check in their
     // equals methods, so we perform one explicitly here.
     return first == second || (first != null && first.equals(second));
+  }
+
+  /**
+   * Checks whether the given {@link CharSequence} contains any characters
+   * with right-to-left (RTL) directionality.
+   * <p>
+   * This method inspects each character's Unicode directionality and returns {@code true}
+   * if at least one character is classified as RTL. This includes characters with the following
+   * directionalities:
+   * <ul>
+   *     <li>{@link Character#DIRECTIONALITY_RIGHT_TO_LEFT}</li>
+   *     <li>{@link Character#DIRECTIONALITY_RIGHT_TO_LEFT_ARABIC}</li>
+   *     <li>{@link Character#DIRECTIONALITY_RIGHT_TO_LEFT_EMBEDDING}</li>
+   *     <li>{@link Character#DIRECTIONALITY_RIGHT_TO_LEFT_OVERRIDE}</li>
+   * </ul>
+   *
+   * @param input the input {@link CharSequence} to analyze
+   * @return {@code true} if the input contains at least one RTL character; {@code false} otherwise
+   */
+  private static boolean containsRTL(@Nullable CharSequence input) {
+    if (input == null) {
+      return false;
+    }
+    for (int i = 0; i < input.length(); i++) {
+      char ch = input.charAt(i);
+      byte dir = Character.getDirectionality(ch);
+      if (dir == Character.DIRECTIONALITY_RIGHT_TO_LEFT ||
+          dir == Character.DIRECTIONALITY_RIGHT_TO_LEFT_ARABIC ||
+          dir == Character.DIRECTIONALITY_RIGHT_TO_LEFT_EMBEDDING ||
+          dir == Character.DIRECTIONALITY_RIGHT_TO_LEFT_OVERRIDE) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Applies bidirectional (bidi) Unicode wrapping to each line of the given {@link CharSequence}.
+   * <p>
+   * This method ensures that text containing both left-to-right (LTR) and right-to-left (RTL)
+   * scripts is displayed correctly by wrapping each line using {@link BidiFormatter#unicodeWrap}.
+   * It forces LTR context for wrapping and preserves line breaks.
+   *
+   * @param input the input text as a {@link CharSequence}, possibly containing mixed-direction text
+   * @return a {@link CharSequence} with each line wrapped for proper bidi rendering
+   */
+  public static CharSequence wrapBidiText(CharSequence input) {
+    BidiFormatter bidiFormatter = BidiFormatter.getInstance();
+    String[] lines = input.toString().split("\n");
+    StringBuilder wrapped = new StringBuilder();
+
+    for (int i = 0; i < lines.length; i++) {
+      wrapped.append(bidiFormatter.unicodeWrap(
+          lines[i],
+          TextDirectionHeuristics.LTR,
+          true
+      ));
+      if (i < lines.length - 1) {
+        wrapped.append("\n");
+      }
+    }
+
+    return wrapped;
   }
 }
