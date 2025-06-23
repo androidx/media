@@ -60,6 +60,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       disableVideoPlayback |= sequence.editedMediaItems.get(j).removeVideo;
     }
     trackSelectorInternal.setDisableVideoPlayback(disableVideoPlayback);
+
+    // Triggers new track selection.
+    invalidate();
   }
 
   @Override

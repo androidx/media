@@ -20,7 +20,9 @@ import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static androidx.media3.common.util.Util.msToUs;
 import static androidx.media3.common.util.Util.usToMs;
+import static androidx.media3.transformer.CompositionUtil.shouldRePreparePlayer;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
@@ -835,53 +837,54 @@ public final class CompositionPlayer extends SimpleBasePlayer
 
   private void setCompositionInternal(Composition composition) {
     prepareCompositionPlayerInternal();
-    checkNotNull(compositionPlayerInternal).setComposition(composition);
     compositionDurationUs = getCompositionDurationUs(composition);
     long primarySequenceDurationUs =
         getSequenceDurationUs(checkNotNull(composition.sequences.get(0)));
     for (int i = 0; i < composition.sequences.size(); i++) {
-      EditedMediaItemSequence editedMediaItemSequence = composition.sequences.get(i);
+      setSequenceInternal(composition, /* sequenceIndex= */ i, primarySequenceDurationUs);
+    }
+  }
 
-      if (playerHolders.size() <= i) {
-        playerHolders.add(
-            new SequencePlayerHolder(
-                context,
-                getApplicationLooper(),
-                checkStateNotNull(playbackThread).getLooper(),
-                clock,
-                SequenceRenderersFactory.create(
-                    context,
-                    checkStateNotNull(playbackAudioGraphWrapper),
-                    checkStateNotNull(playbackVideoGraphWrapper).getSink(/* inputIndex= */ i),
-                    imageDecoderFactory,
-                    /* inputIndex= */ i,
-                    videoPrewarmingEnabled),
-                /* inputIndex= */ i));
-      }
+  private void setSequenceInternal(
+      Composition newComposition, int sequenceIndex, long primarySequenceDurationUs) {
+    EditedMediaItemSequence newSequence = newComposition.sequences.get(sequenceIndex);
+    @Nullable
+    EditedMediaItemSequence oldSequence =
+        composition == null || composition.sequences.size() <= sequenceIndex
+            ? null
+            : composition.sequences.get(sequenceIndex);
 
-      SequencePlayerHolder sequencePlayerHolder = playerHolders.get(i);
-      sequencePlayerHolder.setSequence(editedMediaItemSequence);
-      sequencePlayerHolder.renderersFactory.setRequestMediaCodecToneMapping(
-          composition.hdrMode == Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC);
+    SequencePlayerHolder playerHolder;
+    if (playerHolders.size() <= sequenceIndex) {
+      playerHolder =
+          createSequencePlayer(
+              sequenceIndex,
+              newComposition.hdrMode == Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC);
+      playerHolders.add(playerHolder);
+    } else {
+      playerHolder = playerHolders.get(sequenceIndex);
+    }
+    playerHolder.setSequence(newSequence);
+    ExoPlayer player = playerHolder.player;
 
-      ExoPlayer player = sequencePlayerHolder.player;
-      player.addListener(new PlayerListener(i));
-      player.addAnalyticsListener(new EventLogger(TAG + "-" + i));
-      player.setPauseAtEndOfMediaItems(true);
-
-      if (i == 0) {
-        player.setMediaSource(
-            createPrimarySequenceMediaSource(editedMediaItemSequence, mediaSourceFactory));
+    if (shouldRePreparePlayer(oldSequence, newSequence)) {
+      // Starts from zero - internal player will discard current progress, re-preparing it by
+      // setting new media sources.
+      // TODO: b/412585856 - Optimize for the case where we can keep some of the MediaSources.
+      if (sequenceIndex == 0) {
+        player.setMediaSource(createPrimarySequenceMediaSource(newSequence, mediaSourceFactory));
         if (pendingVideoFrameMetadatListener != null) {
           player.setVideoFrameMetadataListener(pendingVideoFrameMetadatListener);
         }
       } else {
         player.setMediaSource(
             createSecondarySequenceMediaSource(
-                editedMediaItemSequence, mediaSourceFactory, primarySequenceDurationUs));
+                newSequence, mediaSourceFactory, primarySequenceDurationUs));
       }
+      checkNotNull(compositionPlayerInternal)
+          .setComposition(newComposition, /* startPositionUs= */ C.TIME_UNSET);
 
-      if (i == 0) {
+      if (sequenceIndex == 0) {
         // Invalidate the player state before initializing the playlist to force SimpleBasePlayer
         // to collect a state while the playlist is null. Consequently, once the playlist is
         // initialized, SimpleBasePlayer will raise a timeline change callback with reason
@@ -894,7 +897,36 @@ public final class CompositionPlayer extends SimpleBasePlayer
         player.stop();
         player.prepare();
       }
+    } else {
+      // Start from current position
+      checkNotNull(compositionPlayerInternal)
+          .setComposition(
+              newComposition, /* startPositionUs= */ msToUs(player.getCurrentPosition()));
     }
+  }
+
+  private SequencePlayerHolder createSequencePlayer(
+      int sequenceIndex, boolean requestMediaCodecToneMapping) {
+    SequencePlayerHolder playerHolder =
+        new SequencePlayerHolder(
+            context,
+            getApplicationLooper(),
+            checkStateNotNull(playbackThread).getLooper(),
+            clock,
+            SequenceRenderersFactory.create(
+                context,
+                checkStateNotNull(playbackAudioGraphWrapper),
+                checkStateNotNull(playbackVideoGraphWrapper)
+                    .getSink(/* inputIndex= */ sequenceIndex),
+                imageDecoderFactory,
+                /* inputIndex= */ sequenceIndex,
+                videoPrewarmingEnabled),
+            /* inputIndex= */ sequenceIndex);
+    playerHolder.player.addListener(new PlayerListener(sequenceIndex));
+    playerHolder.player.addAnalyticsListener(new EventLogger(TAG + "-" + sequenceIndex));
+    playerHolder.player.setPauseAtEndOfMediaItems(true);
+    playerHolder.renderersFactory.setRequestMediaCodecToneMapping(requestMediaCodecToneMapping);
+    return playerHolder;
   }
 
   private static MediaSource createPrimarySequenceMediaSource(

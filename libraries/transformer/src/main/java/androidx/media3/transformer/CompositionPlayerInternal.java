@@ -20,8 +20,8 @@ import static androidx.media3.common.util.Assertions.checkState;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
+import android.util.Pair;
 import android.view.Surface;
-import androidx.media3.common.C;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ConditionVariable;
@@ -100,8 +100,10 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
 
   // Public methods
 
-  public void setComposition(Composition composition) {
-    handler.obtainMessage(MSG_SET_COMPOSITION, composition).sendToTarget();
+  public void setComposition(Composition composition, long startPositionUs) {
+    handler
+        .obtainMessage(MSG_SET_COMPOSITION, Pair.create(composition, startPositionUs))
+        .sendToTarget();
   }
 
   public void startRendering() {
@@ -157,6 +159,7 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
 
   // Handler.Callback methods
 
+  @SuppressWarnings("unchecked")
   @Override
   public boolean handleMessage(Message message) {
     try {
@@ -189,7 +192,7 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
           releaseInternal(/* conditionVariable= */ (ConditionVariable) message.obj);
           break;
         case MSG_SET_COMPOSITION:
-          setCompositionInternal((Composition) message.obj);
+          setCompositionInternal((Pair<Composition, Long>) message.obj);
           break;
         default:
           maybeRaiseError(
@@ -208,7 +211,9 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
 
   // Internal methods
 
-  private void setCompositionInternal(Composition composition) {
+  private void setCompositionInternal(Pair<Composition, Long> compositionAndStartTimeUs) {
+    Composition composition = compositionAndStartTimeUs.first;
+    long startTimeUs = compositionAndStartTimeUs.second;
     if (!hasSetComposition) {
       // TODO: b/412585856 - Allow setting Composition-level effect on AudioGraph.
       playbackAudioGraphWrapper.setAudioProcessors(composition.effects.audioProcessors);
@@ -217,7 +222,8 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
 
     // Resets the position of the AudioGraph, or the AudioGraph retains its location in the previous
     // Composition
-    playbackAudioGraphWrapper.startSeek(/* positionUs= */ C.TIME_UNSET);
+
+    playbackAudioGraphWrapper.startSeek(/* positionUs= */ startTimeUs);
     playbackAudioGraphWrapper.endSeek();
 
     playbackVideoGraphWrapper.setCompositionEffects(composition.effects.videoEffects);
