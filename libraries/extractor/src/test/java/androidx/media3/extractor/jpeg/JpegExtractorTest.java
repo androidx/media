@@ -86,6 +86,14 @@ public final class JpegExtractorTest {
   }
 
   @Test
+  public void samplePixelMotionPhotoWithoutExifShortened_extractMotionPhoto() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        JpegMotionPhotoExtractor::new,
+        "media/jpeg/pixel-motion-photo-without-exif-shortened.jpg",
+        simulationConfig);
+  }
+
+  @Test
   public void sampleSsMotionPhotoShortened_extractMotionPhoto() throws Exception {
     ExtractorAsserts.assertBehavior(
         JpegMotionPhotoExtractor::new,
