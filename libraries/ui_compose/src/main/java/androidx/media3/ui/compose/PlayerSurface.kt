@@ -84,21 +84,27 @@ private fun <T : View> PlayerSurfaceInternal(
   clearVideoView: Player.(T) -> Unit,
 ) {
   var view by remember { mutableStateOf<T?>(null) }
-  var registeredPlayer by remember { mutableStateOf<Player?>(null) }
 
-  AndroidView(factory = { createView(it).apply { view = this } }, onReset = {}, modifier = modifier)
+  AndroidView(
+    modifier = modifier,
+    factory = { createView(it) },
+    onReset = {},
+    update = { view = it },
+  )
 
   view?.let { view ->
     LaunchedEffect(view, player) {
       if (player != null) {
-        registeredPlayer?.let { previousPlayer ->
-          if (previousPlayer.isCommandAvailable(Player.COMMAND_SET_VIDEO_SURFACE))
+        view.attachedPlayer?.let { previousPlayer ->
+          if (
+            previousPlayer != player &&
+              previousPlayer.isCommandAvailable(Player.COMMAND_SET_VIDEO_SURFACE)
+          )
             previousPlayer.clearVideoView(view)
-          registeredPlayer = null
         }
         if (player.isCommandAvailable(Player.COMMAND_SET_VIDEO_SURFACE)) {
           player.setVideoView(view)
-          registeredPlayer = player
+          view.attachedPlayer = player
         }
       } else {
         // Now that our player got null'd, we are not in a rush to get the old view from the
@@ -106,16 +112,22 @@ private fun <T : View> PlayerSurfaceInternal(
         // since that player might have a new view attached to it in the meantime. This will avoid
         // unnecessarily creating a Surface placeholder.
         withContext(Dispatchers.Main) {
-          registeredPlayer?.let { previousPlayer ->
+          view.attachedPlayer?.let { previousPlayer ->
             if (previousPlayer.isCommandAvailable(Player.COMMAND_SET_VIDEO_SURFACE))
               previousPlayer.clearVideoView(view)
-            registeredPlayer = null
+            view.attachedPlayer = null
           }
         }
       }
     }
   }
 }
+
+private var View.attachedPlayer: Player?
+  get() = tag as? Player
+  set(player) {
+    tag = player
+  }
 
 /**
  * The type of surface used for media playbacks. One of [SURFACE_TYPE_SURFACE_VIEW] or

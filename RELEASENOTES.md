@@ -22,6 +22,9 @@
 *   IMA extension:
 *   Session:
 *   UI:
+    *   Fix bug where `PlayerSurface` inside re-usable components like
+        `LazyColumn` didn't work correctly
+        ([#2493](https://github.com/androidx/media/issues/2493)).
 *   Downloads:
 *   OkHttp extension:
 *   Cronet extension:
