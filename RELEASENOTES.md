@@ -35,9 +35,9 @@
     *   Ignore empty seek tables in FLAC files (including those containing only
         placeholder seek points), and fall back to binary search seeking if the
         duration of the file is known
-        ([#2327]()https://github.com/androidx/media/issues/2327).
+        ([#2327](https://github.com/androidx/media/issues/2327)).
     *   Fix parsing of H.265 SEI units to fully skip unrecognized SEI types
-        ([#2456]()https://github.com/androidx/media/issues/2456).
+        ([#2456](https://github.com/androidx/media/issues/2456)).
     *   Update `WavExtractor` to use the header extension's SubFormat data for
         the audio format when parsing a `WAVE_FORMAT_EXTENSIBLE` type file.
     *   MP4: Add support for `ipcm` and `fpcm` boxes defining raw PCM audio
@@ -46,7 +46,7 @@
         both rotate and reflect the video. This ensures that reflected videos
         taken by the iPhone front facing camera display the right way up, but
         incorrectly reflected in the y-axis
-        ([#2012]()https://github.com/androidx/media/issues/2012).
+        ([#2012](https://github.com/androidx/media/issues/2012)).
 *   DataSource:
 *   Audio:
     *   Add support for all linear PCM sample formats in
