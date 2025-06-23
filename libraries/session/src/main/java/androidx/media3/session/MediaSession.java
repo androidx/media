@@ -622,9 +622,18 @@ public class MediaSession {
     }
 
     /**
-     * Returns if the controller has been granted {@code android.permission.MEDIA_CONTENT_CONTROL}
-     * or has an enabled notification listener so it can be trusted to accept connection and
-     * incoming command requests.
+     * Returns whether one or more of the following is true:
+     *
+     * <ul>
+     *   <li>the controller's app UID is in the same UID as the current process
+     *   <li>the controller's app UID is the system UID
+     *   <li>the controller has been granted {@code android.permission.MEDIA_CONTENT_CONTROL}
+     *   <li>the controller has been granted {@code android.permission.STATUS_BAR_SERVICE}
+     *   <li>the controller has an enabled notification listener
+     * </ul>
+     *
+     * to determine if the controller can be trusted to accept connection and incoming command
+     * requests.
      */
     @UnstableApi
     public boolean isTrusted() {
