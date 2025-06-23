@@ -264,6 +264,7 @@ public final class MediaSessionManager {
       return isPermissionGranted(userInfo, PERMISSION_STATUS_BAR_SERVICE)
           || isPermissionGranted(userInfo, PERMISSION_MEDIA_CONTENT_CONTROL)
           || userInfo.getUid() == Process.SYSTEM_UID
+          || userInfo.getUid() == Process.myUid()
           || isEnabledNotificationListener(userInfo);
     }
 
