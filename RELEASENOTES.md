@@ -47,6 +47,8 @@
         taken by the iPhone front facing camera display the right way up, but
         incorrectly reflected in the y-axis
         ([#2012](https://github.com/androidx/media/issues/2012)).
+    *   JPEG: Support motion photos that don't have an Exif segment at the start
+        ([#2552](https://github.com/androidx/media/issues/2552)).
 *   DataSource:
 *   Audio:
     *   Add support for all linear PCM sample formats in
