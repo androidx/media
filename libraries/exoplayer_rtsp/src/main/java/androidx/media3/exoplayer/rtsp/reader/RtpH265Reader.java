@@ -206,7 +206,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     data.setPosition(2); // skipping payload header (2 bytes)
     while (data.bytesLeft() > 2) {
       short nalUnitSize = data.readShort(); // 2 bytes of NAL unit size
-      int nalHeaderType = (data.getData()[data.getPosition()] >> 1) & 0x3F;
+      int nalHeaderType = NalUnitUtil.getH265NalUnitType(data.getData(), data.getPosition() - 3);
       if (data.bytesLeft() < nalUnitSize) {
         throw ParserException.createForMalformedManifest(
             "Malformed Aggregation Packet. NAL unit size exceeds packet size.", /* cause= */ null);
