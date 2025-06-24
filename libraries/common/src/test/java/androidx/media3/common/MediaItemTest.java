@@ -208,7 +208,7 @@ public class MediaItemTest {
             .setUri(URI_STRING)
             .setDrmUuid(C.WIDEVINE_UUID)
             .setDrmLicenseUri(licenseUri)
-            .setDrmSessionForClearTypes(Collections.singletonList(C.TRACK_TYPE_AUDIO))
+            .setDrmSessionForClearTypes(ImmutableList.of(C.TRACK_TYPE_AUDIO))
             .setDrmSessionForClearPeriods(true)
             .build();
 

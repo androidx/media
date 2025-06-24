@@ -29,7 +29,6 @@ import androidx.media3.test.utils.TestUtil;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.primitives.Bytes;
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -466,7 +465,7 @@ public final class ParsableByteArrayTest {
     byte[] data = new byte[] {'t', 'e', 's', 't'};
     ParsableByteArray testArray = new ParsableByteArray(data);
 
-    assertThat(testArray.readString(data.length, StandardCharsets.US_ASCII)).isEqualTo("test");
+    assertThat(testArray.readString(data.length, US_ASCII)).isEqualTo("test");
     assertThat(testArray.getPosition()).isEqualTo(data.length);
   }
 

@@ -91,7 +91,7 @@ public class SessionCommandTest {
                     + " in "
                     + PREFIX_COMMAND_CODES.get(i))
             .that(values.get(j))
-            .isEqualTo((values.get(j - 1)) + 1);
+            .isEqualTo(values.get(j - 1) + 1);
       }
     }
   }
