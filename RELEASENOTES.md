@@ -118,9 +118,6 @@ This release includes the following changes since the
     *   Fix bug where playlist load errors are sometimes not propagated once a
         live stream runs out of segments to load
         ([#2401]()https://github.com/androidx/media/issues/2401).
-    *   Fix bug where track selection changes after loading low-latency parts
-        and preload hints can cause playback to get stuck or freeze
-        ([#2299](https://github.com/androidx/media/issues/2299)).
     *   Group subtitle renditions by NAME tag, similar to how audio renditions
         are grouped already
         ([#1666](https://github.com/androidx/media/issues/1666)).
