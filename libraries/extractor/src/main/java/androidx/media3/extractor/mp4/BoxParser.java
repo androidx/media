@@ -2261,6 +2261,7 @@ public final class BoxParser {
         int configObusSize = parent.readUnsignedLeb128ToInt();
         byte[] initializationDataBytes = new byte[configObusSize];
         parent.readBytes(initializationDataBytes, /* offset= */ 0, configObusSize);
+        codecs = CodecSpecificDataUtil.buildIamfCodecString(initializationDataBytes);
         initializationData = ImmutableList.of(initializationDataBytes);
       } else if (childAtomType == Mp4Box.TYPE_pcmC) {
         // See ISO 23003-5 for the definition of the pcmC box.
