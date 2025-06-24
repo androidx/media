@@ -115,11 +115,11 @@ public final class BackgroundThreadStateHandler<T extends @NonNull Object> {
       Function<T, T> placeholderState, Function<T, T> backgroundStateUpdate) {
     checkState(Looper.myLooper() == foregroundHandler.getLooper());
     pendingOperations++;
-    backgroundHandler.post(
+    runInBackground(
         () -> {
           backgroundState = backgroundStateUpdate.apply(backgroundState);
           T newState = backgroundState;
-          foregroundHandler.post(
+          runInForeground(
               () -> {
                 if (--pendingOperations == 0) {
                   updateStateInForeground(newState);
@@ -139,7 +139,7 @@ public final class BackgroundThreadStateHandler<T extends @NonNull Object> {
    */
   public void setStateInBackground(T newState) {
     backgroundState = newState;
-    foregroundHandler.post(
+    runInForeground(
         () -> {
           if (pendingOperations == 0) {
             updateStateInForeground(newState);
@@ -159,7 +159,19 @@ public final class BackgroundThreadStateHandler<T extends @NonNull Object> {
    * @param runnable The {@link Runnable} to be called on the background thread.
    */
   public void runInBackground(Runnable runnable) {
+    if (!backgroundHandler.getLooper().getThread().isAlive()) {
+      // Avoid sending messages on dead thread.
+      return;
+    }
     backgroundHandler.post(runnable);
+  }
+
+  private void runInForeground(Runnable runnable) {
+    if (!foregroundHandler.getLooper().getThread().isAlive()) {
+      // Avoid sending messages on dead thread.
+      return;
+    }
+    foregroundHandler.post(runnable);
   }
 
   private void updateStateInForeground(T newState) {
