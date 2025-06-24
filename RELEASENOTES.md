@@ -3,6 +3,53 @@
 ### Unreleased changes
 
 *   Common Library:
+*   ExoPlayer:
+*   Transformer:
+*   Track Selection:
+*   Extractors:
+    *   JPEG: Support motion photos that don't have an Exif segment at the start
+        ([#2552](https://github.com/androidx/media/issues/2552)).
+*   DataSource:
+*   Audio:
+*   Video:
+*   Text:
+    *   Add support for VobSub tracks in MP4 files
+        ([#2510](https://github.com/androidx/media/issues/2510)).
+*   Metadata:
+*   Image:
+*   DataSource:
+*   DRM:
+*   Effect:
+*   Muxers:
+*   IMA extension:
+*   Session:
+*   UI:
+    *   Fix bug where `PlayerSurface` inside re-usable components like
+        `LazyColumn` didn't work correctly
+        ([#2493](https://github.com/androidx/media/issues/2493)).
+*   Downloads:
+*   OkHttp extension:
+*   Cronet extension:
+*   RTMP extension:
+*   HLS extension:
+*   DASH extension:
+*   Smooth Streaming extension:
+*   RTSP extension:
+*   Decoder extensions (FFmpeg, VP9, AV1, etc.):
+*   MIDI extension:
+*   Leanback extension:
+*   Cast extension:
+*   Test Utilities:
+*   Remove deprecated symbols:
+
+## 1.8
+
+### 1.8.0-beta01 (2025-06-24)
+
+This release includes the following changes since the
+[1.8.0-alpha01 release](#180-alpha01-2025-05-19):
+
+*   Common Library:
     *   Add support for replacing the player in `ForwardingSimpleBasePlayer`.
 *   ExoPlayer:
     *   Add support for using the virtual device ID from the `Context` passed to
@@ -26,7 +73,6 @@
     *   Add `setEnableCodecDbLite` flag to the `DefaultEncoderFactory` to enable
         CodecDB Lite settings optimization. By default, this flag is set to
         false.
-*   Track Selection:
 *   Extractors:
     *   Add support for seeking in fragmented MP4 with multiple `sidx` atoms.
         This behavior can be enabled using the `FLAG_MERGE_FRAGMENTED_SIDX` flag
@@ -47,9 +93,6 @@
         taken by the iPhone front facing camera display the right way up, but
         incorrectly reflected in the y-axis
         ([#2012](https://github.com/androidx/media/issues/2012)).
-    *   JPEG: Support motion photos that don't have an Exif segment at the start
-        ([#2552](https://github.com/androidx/media/issues/2552)).
-*   DataSource:
 *   Audio:
     *   Add support for all linear PCM sample formats in
         `ChannelMappingAudioProcessor` and `TrimmingAudioProcessor`.
@@ -65,8 +108,6 @@
     *   Fix a playback stall when a subtitle segment initially fails to load and
         later loads successfully, followed by several empty subtitle segments
         ([#2517](https://github.com/androidx/media/issues/2517)).
-    *   Add support for VobSub tracks in MP4 files
-        ([#2510](https://github.com/androidx/media/issues/2510)).
 *   Metadata:
     *   Added support for retrieving media duration and `Timeline` to
         `MetadataRetriever` and migrated it to an instance-based,
@@ -86,13 +127,9 @@
     *   Align the max bitmap output size used in `CompositionPlayer` with that
         already used in `Transformer` (meaning `CompositionPlayer` does not
         consider the display size when decoding bitmaps, unlike `ExoPlayer`).
-*   DataSource:
-*   DRM:
-*   Effect:
 *   Muxers:
     *   Fix a bug where correct sample flags were not set for audio samples in
         fragmented MP4.
-*   IMA extension:
 *   Session:
     *   Fix bug where calling `setSessionExtras` from the main thread when
         running the player from a different application thread then the main
@@ -111,16 +148,9 @@
         position artefacts in the Android Auto UI (and other controllers using
         this information from the platform media session)
         ([#1758](https://github.com/androidx/media/issues/1758)).
-*   UI:
-    *   Fix bug where `PlayerSurface` inside re-usable components like
-        `LazyColumn` didn't work correctly
-        ([#2493](https://github.com/androidx/media/issues/2493)).
-*   Downloads:
-*   OkHttp extension:
 *   Cronet extension:
     *   Add automatic cookie handling
         ([#5975](https://github.com/google/ExoPlayer/issues/5975)).
-*   RTMP extension:
 *   HLS extension:
     *   Fix playlist parsing to accept `\f` (form feed) in quoted string
         attribute values
@@ -143,7 +173,6 @@
         ([#2440](https://github.com/androidx/media/issues/2440)).
     *   Fix bug where redirect wasn't followed when using CMCD query parameters
         ([#2475](https://github.com/androidx/media/issues/2475)).
-*   Smooth Streaming extension:
 *   RTSP extension:
     *   Fix `RtspClient` to use the location uri as provided when processing an
         HTTP 302 response
@@ -153,8 +182,6 @@
         `DefaultTrackSelector.setAllowInvalidateSelectionsOnRendererCapabilitiesChange`
         has no effect for audio decoder extensions
         ([#2258](https://github.com/androidx/media/issues/2258)).
-*   MIDI extension:
-*   Leanback extension:
 *   Cast extension:
     *   Add support for `setVolume()`, and `getVolume()`
         ([#2279](https://github.com/androidx/media/pull/2279)).
@@ -167,9 +194,6 @@
         the existing `untilPosition` and `untilStartOfMediaItem` methods.
     *   Move `FakeDownloader` to `test-utils-robolectric` module for reuse in
         other tests.
-*   Remove deprecated symbols:
-
-## 1.8
 
 ### 1.8.0-alpha01 (2025-05-19)
 
