@@ -2030,6 +2030,63 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
     assertThat(actions2 & PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS).isNotEqualTo(0);
   }
 
+  @Test
+  public void
+      playerWithMediaButtonPreferences_commandButtonCustomIconUri_playbackStateChangedWithIconUriInExtras()
+          throws Exception {
+    Player player = createDefaultPlayer();
+    SessionCommand command = new SessionCommand("command1", Bundle.EMPTY);
+    ImmutableList<CommandButton> mediaButtonPreferences =
+        ImmutableList.of(
+            new CommandButton.Builder(CommandButton.ICON_PLAY)
+                .setDisplayName("button")
+                .setSessionCommand(command)
+                .setIconUri(Uri.parse("content://my_icon"))
+                .setSlots(CommandButton.SLOT_OVERFLOW)
+                .build());
+    MediaSession.Callback callback =
+        new MediaSession.Callback() {
+          @Override
+          public ConnectionResult onConnect(
+              MediaSession session, MediaSession.ControllerInfo controller) {
+            return new ConnectionResult.AcceptedResultBuilder(session)
+                .setAvailableSessionCommands(
+                    ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon().add(command).build())
+                .build();
+          }
+        };
+    MediaSession mediaSession = createMediaSession(player, callback);
+    connectMediaNotificationController(mediaSession);
+    MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
+    AtomicReference<List<PlaybackStateCompat.CustomAction>> reportedCustomActions =
+        new AtomicReference<>();
+    CountDownLatch latch = new CountDownLatch(1);
+    controllerCompat.registerCallback(
+        new MediaControllerCompat.Callback() {
+          @Override
+          public void onPlaybackStateChanged(PlaybackStateCompat state) {
+            reportedCustomActions.set(state.getCustomActions());
+            latch.countDown();
+          }
+        },
+        threadTestRule.getHandler());
+
+    getInstrumentation()
+        .runOnMainSync(() -> mediaSession.setMediaButtonPreferences(mediaButtonPreferences));
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(reportedCustomActions.get()).hasSize(1);
+    assertThat(
+            reportedCustomActions
+                .get()
+                .get(0)
+                .getExtras()
+                .getString(MediaConstants.EXTRAS_KEY_COMMAND_BUTTON_ICON_URI_COMPAT))
+        .isEqualTo("content://my_icon");
+    mediaSession.release();
+    releasePlayer(player);
+  }
+
   /**
    * Connect a controller that mimics the media notification controller that is connected by {@link
    * MediaNotificationManager} when the session is running in the service.

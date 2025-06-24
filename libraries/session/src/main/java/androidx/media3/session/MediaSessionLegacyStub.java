@@ -1853,11 +1853,20 @@ import org.checkerframework.checker.initialization.qual.Initialized;
           && sessionCommand.commandCode == SessionCommand.COMMAND_CODE_CUSTOM
           && CommandButton.isButtonCommandAvailable(
               commandButton, availableSessionCommands, availableCommands)) {
-        Bundle actionExtras = sessionCommand.customExtras;
-        if (commandButton.icon != CommandButton.ICON_UNDEFINED) {
-          actionExtras = new Bundle(sessionCommand.customExtras);
+        boolean hasIcon = commandButton.icon != CommandButton.ICON_UNDEFINED;
+        boolean hasIconUri = commandButton.iconUri != null;
+        Bundle actionExtras =
+            hasIcon || hasIconUri
+                ? new Bundle(sessionCommand.customExtras)
+                : sessionCommand.customExtras;
+        if (hasIcon) {
           actionExtras.putInt(
               MediaConstants.EXTRAS_KEY_COMMAND_BUTTON_ICON_COMPAT, commandButton.icon);
+        }
+        if (hasIconUri) {
+          actionExtras.putString(
+              MediaConstants.EXTRAS_KEY_COMMAND_BUTTON_ICON_URI_COMPAT,
+              checkNotNull(commandButton.iconUri).toString());
         }
         builder.addCustomAction(
             new PlaybackStateCompat.CustomAction.Builder(

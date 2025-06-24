@@ -50,6 +50,7 @@ import static java.lang.Math.max;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.annotation.SuppressLint;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.media.AudioManager;
@@ -95,6 +96,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeoutException;
@@ -1538,13 +1540,25 @@ import java.util.concurrent.TimeoutException;
                   MediaConstants.EXTRAS_KEY_COMMAND_BUTTON_ICON_COMPAT,
                   /* defaultValue= */ CommandButton.ICON_UNDEFINED)
               : CommandButton.ICON_UNDEFINED;
-      CommandButton button =
+      CommandButton.Builder button =
           new CommandButton.Builder(icon, customAction.getIcon())
               .setSessionCommand(new SessionCommand(action, extras == null ? Bundle.EMPTY : extras))
               .setDisplayName(customAction.getName())
-              .setEnabled(true)
-              .build();
-      customLayout.add(button);
+              .setEnabled(true);
+      @Nullable
+      String iconUriString =
+          extras != null
+              ? extras.getString(MediaConstants.EXTRAS_KEY_COMMAND_BUTTON_ICON_URI_COMPAT)
+              : null;
+      if (iconUriString != null) {
+        Uri iconUri = Uri.parse(iconUriString);
+        @Nullable String scheme = iconUri.getScheme();
+        if (Objects.equals(scheme, ContentResolver.SCHEME_CONTENT)
+            || Objects.equals(scheme, ContentResolver.SCHEME_ANDROID_RESOURCE)) {
+          button.setIconUri(iconUri);
+        }
+      }
+      customLayout.add(button.build());
     }
     return CommandButton.getMediaButtonPreferencesFromCustomLayout(
         customLayout.build(), availablePlayerCommands, sessionExtras);

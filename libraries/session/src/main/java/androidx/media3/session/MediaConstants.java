@@ -480,13 +480,21 @@ public final class MediaConstants {
       "androidx.media3.session.EXTRAS_KEY_MEDIA_TYPE_COMPAT";
 
   /**
-   * {@link Bundle} key used to indicate the {@link CommandButton.Icon} in the extras of the legacy
-   * {@link PlaybackStateCompat.CustomAction}. The corresponding value should be one of the {@code
-   * CommandButton.ICON_} integer constants.
+   * {@link Bundle} key used to indicate the {@link CommandButton.Icon} in the extras of the
+   * platform {@link android.media.session.PlaybackState.CustomAction}. The corresponding value
+   * should be one of the {@code CommandButton.ICON_} integer constants.
    */
   @UnstableApi
   public static final String EXTRAS_KEY_COMMAND_BUTTON_ICON_COMPAT =
       "androidx.media3.session.EXTRAS_KEY_COMMAND_BUTTON_ICON_COMPAT";
+
+  /**
+   * {@link Bundle} key used to indicate the custom icon Uri of a {@link CommandButton} in the
+   * extras of the platform {@link android.media.session.PlaybackState.CustomAction}.
+   */
+  @UnstableApi
+  public static final String EXTRAS_KEY_COMMAND_BUTTON_ICON_URI_COMPAT =
+      "androidx.media3.session.EXTRAS_KEY_COMMAND_BUTTON_ICON_URI_COMPAT";
 
   /**
    * {@link Bundle} key used to store the title in case there was a display title that was given
