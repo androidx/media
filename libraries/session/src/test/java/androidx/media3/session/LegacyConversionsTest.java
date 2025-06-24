@@ -16,6 +16,7 @@
 package androidx.media3.session;
 
 import static androidx.media3.session.MediaConstants.EXTRAS_KEY_COMMAND_BUTTON_ICON_COMPAT;
+import static androidx.media3.session.MediaConstants.EXTRAS_KEY_COMMAND_BUTTON_ICON_URI_COMPAT;
 import static androidx.media3.session.MediaConstants.EXTRAS_KEY_COMPLETION_STATUS;
 import static androidx.media3.session.MediaConstants.EXTRAS_KEY_MEDIA_TYPE_COMPAT;
 import static androidx.media3.session.MediaConstants.EXTRAS_VALUE_COMPLETION_STATUS_PARTIALLY_PLAYED;
@@ -1176,12 +1177,13 @@ public final class LegacyConversionsTest {
   }
 
   @Test
-  public void convertToMediaButtonPreferences_withIconConstantInExtras() {
+  public void convertToMediaButtonPreferences_withIconConstantAndUriInExtras() {
     String actionStr = "action";
     String displayName = "display_name";
     int iconRes = 21;
     Bundle extras = new Bundle();
     extras.putInt(EXTRAS_KEY_COMMAND_BUTTON_ICON_COMPAT, CommandButton.ICON_FAST_FORWARD);
+    extras.putString(EXTRAS_KEY_COMMAND_BUTTON_ICON_URI_COMPAT, "content://my_icon");
     PlaybackStateCompat.CustomAction action =
         new PlaybackStateCompat.CustomAction.Builder(actionStr, displayName, iconRes)
             .setExtras(extras)
@@ -1207,6 +1209,7 @@ public final class LegacyConversionsTest {
     assertThat(button.iconResId).isEqualTo(iconRes);
     assertThat(button.sessionCommand.customAction).isEqualTo(actionStr);
     assertThat(button.icon).isEqualTo(CommandButton.ICON_FAST_FORWARD);
+    assertThat(button.iconUri).isEqualTo(Uri.parse("content://my_icon"));
   }
 
   @Test

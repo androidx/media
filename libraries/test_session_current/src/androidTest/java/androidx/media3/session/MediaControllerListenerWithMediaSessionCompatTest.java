@@ -24,6 +24,7 @@ import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
 import android.media.AudioManager;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.RemoteException;
 import android.support.v4.media.session.MediaControllerCompat;
@@ -574,6 +575,7 @@ public class MediaControllerListenerWithMediaSessionCompatTest {
             .setSessionCommand(new SessionCommand("command2", Bundle.EMPTY))
             .setEnabled(true)
             .setSlots(CommandButton.SLOT_FORWARD, CommandButton.SLOT_OVERFLOW)
+            .setIconUri(Uri.parse("content://my_icon"))
             .build();
     ConditionVariable onMediaButtonPreferencesChangedCalled = new ConditionVariable();
     List<List<CommandButton>> onMediaButtonPreferencesChangedArguments = new ArrayList<>();
@@ -600,6 +602,8 @@ public class MediaControllerListenerWithMediaSessionCompatTest {
     extras2.putString("key", "value-2");
     extras2.putInt(
         MediaConstants.EXTRAS_KEY_COMMAND_BUTTON_ICON_COMPAT, CommandButton.ICON_FAST_FORWARD);
+    extras2.putString(
+        MediaConstants.EXTRAS_KEY_COMMAND_BUTTON_ICON_URI_COMPAT, "content://my_icon");
     PlaybackStateCompat.CustomAction customAction2 =
         new PlaybackStateCompat.CustomAction.Builder(
                 "command2", "button2", /* icon= */ R.drawable.media3_icon_fast_forward)
