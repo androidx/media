@@ -1669,17 +1669,24 @@ public final class C {
   @UnstableApi public static final int FORMAT_UNSUPPORTED_DRM = 0b010;
 
   /**
-   * Formats with the same top-level type are generally supported, but not this format or any other
-   * format with the same MIME type because the sub-type is not supported.
+   * Formats with the same type of media (e.g. video, audio, image or text) are generally supported,
+   * but not this format.
    *
-   * <p>Example: The player supports audio and the format's MIME type matches audio/[subtype], but
-   * there does not exist a suitable decoder for [subtype].
+   * <p>Example: The player supports audio and the format's {@linkplain MimeTypes#isAudio(String)
+   * MIME type is for audio}, but there does not exist a suitable decoder for this format's MIME
+   * type.
+   *
+   * @see MimeTypes#isAudio(String)
+   * @see MimeTypes#isVideo(String)
+   * @see MimeTypes#isImage(String)
+   * @see MimeTypes#isText(String)
    */
   @UnstableApi public static final int FORMAT_UNSUPPORTED_SUBTYPE = 0b001;
 
   /**
-   * The format is unsupported, because no formats with the same top-level type are supported or
-   * there is only specialized support for different MIME types of the same top-level type.
+   * The format is unsupported, because no formats with the same type of media (e.g. video, audio,
+   * image or text) are supported or there is only specialized support for different MIME types of
+   * the same type.
    *
    * <p>Example 1: The player is a general purpose audio player, but the format has a video MIME
    * type.
