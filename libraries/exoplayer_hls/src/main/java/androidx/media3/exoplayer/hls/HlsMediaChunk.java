@@ -80,6 +80,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
    * @param initSegmentKey The initialization segment decryption key, if fully encrypted. Null
    *     otherwise.
    * @param shouldSpliceIn Whether samples for this chunk should be spliced into existing samples.
+   * @param isIndependent Whether the chunk starts with a keyframe.
    * @param cmcdDataFactory The {@link CmcdData.Factory} for generating {@link CmcdData}.
    */
   public static HlsMediaChunk createInstance(
@@ -100,6 +101,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       @Nullable byte[] mediaSegmentKey,
       @Nullable byte[] initSegmentKey,
       boolean shouldSpliceIn,
+      boolean isIndependent,
       PlayerId playerId,
       @Nullable CmcdData.Factory cmcdDataFactory) {
     // Media segment.
@@ -211,6 +213,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
         id3Decoder,
         scratchId3Data,
         shouldSpliceIn,
+        isIndependent,
         playerId);
   }
 
@@ -222,7 +225,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
    * @param bufferedPositionUs The position in the sample stream in microseconds since the start of
    *     the period up to which data is already buffered.
    * @param playlistUrl The URL of the playlist from which the new chunk will be obtained.
-   * @param mediaPlaylist The {@link HlsMediaPlaylist} containing the new chunk.
+   * @param isIndependent Whether the new chunk is independent (i.e, starts with a keyframe).
    * @param segmentBaseHolder The {@link HlsChunkSource.SegmentBaseHolder} with information about
    *     the new chunk.
    * @param startOfPlaylistInPeriodUs The start time of the playlist in the period, in microseconds.
@@ -232,7 +235,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       @Nullable HlsMediaChunk previousChunk,
       long bufferedPositionUs,
       Uri playlistUrl,
-      HlsMediaPlaylist mediaPlaylist,
+      boolean isIndependent,
       HlsChunkSource.SegmentBaseHolder segmentBaseHolder,
       long startOfPlaylistInPeriodUs) {
     if (previousChunk == null) {
@@ -248,8 +251,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     // non-overlapping segments to avoid the splice.
     long segmentStartTimeInPeriodUs =
         startOfPlaylistInPeriodUs + segmentBaseHolder.segmentBase.relativeStartTimeUs;
-    return !isIndependent(segmentBaseHolder, mediaPlaylist)
-        || segmentStartTimeInPeriodUs < bufferedPositionUs;
+    return !isIndependent || segmentStartTimeInPeriodUs < bufferedPositionUs;
   }
 
   public static final String PRIV_TIMESTAMP_FRAME_OWNER =
@@ -266,8 +268,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   /** The url of the playlist from which this chunk was obtained. */
   public final Uri playlistUrl;
 
-  /** Whether samples for this chunk should be spliced into existing samples. */
-  public final boolean shouldSpliceIn;
+  /** Whether the chunk is independent, meaning it starts with a keyframe. */
+  public final boolean isIndependent;
 
   /** The part index or {@link C#INDEX_UNSET} if the chunk is a full segment */
   public final int partIndex;
@@ -300,6 +302,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   private ImmutableList<Integer> sampleQueueFirstSampleIndices;
   private boolean extractorInvalidated;
   private long publishedDurationUs;
+  private boolean shouldSpliceIn;
 
   private HlsMediaChunk(
       HlsExtractorFactory extractorFactory,
@@ -329,6 +332,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       Id3Decoder id3Decoder,
       ParsableByteArray scratchId3Data,
       boolean shouldSpliceIn,
+      boolean isIndependent,
       PlayerId playerId) {
     super(
         mediaDataSource,
@@ -359,6 +363,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     this.id3Decoder = id3Decoder;
     this.scratchId3Data = scratchId3Data;
     this.shouldSpliceIn = shouldSpliceIn;
+    this.isIndependent = isIndependent;
     this.playerId = playerId;
     sampleQueueFirstSampleIndices = ImmutableList.of();
     uid = uidSource.getAndIncrement();
@@ -396,6 +401,20 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   /** Prevents the extractor from being reused by a following media chunk. */
   public void invalidateExtractor() {
     extractorInvalidated = true;
+  }
+
+  /** Returns whether samples for this chunk should be spliced into existing samples. */
+  @SuppressWarnings("UngroupedOverloads") // Ungrouped static method with same name
+  public boolean shouldSpliceIn() {
+    return shouldSpliceIn;
+  }
+
+  /**
+   * Clears the {@linkplain #shouldSpliceIn() flag} that indicates if this chunk should be spliced
+   * into existing samples.
+   */
+  public void clearShouldSpliceIn() {
+    shouldSpliceIn = false;
   }
 
   @Override
@@ -672,14 +691,5 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       return new Aes128DataSource(dataSource, fullSegmentEncryptionKey, encryptionIv);
     }
     return dataSource;
-  }
-
-  private static boolean isIndependent(
-      HlsChunkSource.SegmentBaseHolder segmentBaseHolder, HlsMediaPlaylist mediaPlaylist) {
-    if (segmentBaseHolder.segmentBase instanceof HlsMediaPlaylist.Part) {
-      return ((HlsMediaPlaylist.Part) segmentBaseHolder.segmentBase).isIndependent
-          || (segmentBaseHolder.partIndex == 0 && mediaPlaylist.hasIndependentSegments);
-    }
-    return mediaPlaylist.hasIndependentSegments;
   }
 }

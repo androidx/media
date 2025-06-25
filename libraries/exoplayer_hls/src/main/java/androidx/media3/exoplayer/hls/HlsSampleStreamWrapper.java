@@ -821,17 +821,41 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     }
 
     if (isMediaChunk(loadable)) {
-      if (!chunkQueue.isEmpty() && !getLast(chunkQueue).isPublished()) {
-        // Switching chunks to a new playlist and the last chunk of the previous playlist has an
-        // unknown publication status, so we have to discard it.
-        discardUpstream(/* preferredQueueSize= */ chunkQueue.size() - 1);
-      }
+      maybeDiscardUpstreamForNewMediaChunk((HlsMediaChunk) loadable);
       initMediaChunkLoad((HlsMediaChunk) loadable);
     }
     loadingChunk = loadable;
     loader.startLoading(
         loadable, this, loadErrorHandlingPolicy.getMinimumLoadableRetryCount(loadable.type));
     return true;
+  }
+
+  private void maybeDiscardUpstreamForNewMediaChunk(HlsMediaChunk newChunk) {
+    if (mediaChunks.isEmpty()) {
+      return;
+    }
+    if (!getLastMediaChunk().isPublished()) {
+      // Switching chunks to a new playlist and the last chunk of the previous playlist has an
+      // unknown publication status, so we have to discard it.
+      discardUpstream(/* preferredQueueSize= */ mediaChunks.size() - 1);
+    }
+    if (newChunk.isIndependent && newChunk.shouldSpliceIn()) {
+      // Attempting to splice in an independent chunk. See if that can be avoided by cleanly
+      // discarding existing chunks starting from the same position.
+      for (int i = mediaChunks.size() - 1; i >= 0; i--) {
+        long existingChunkStartTimeUs = mediaChunks.get(i).startTimeUs;
+        if (existingChunkStartTimeUs < newChunk.startTimeUs) {
+          // Before new start time, this is the existing chunk we need to splice into.
+          break;
+        } else if (existingChunkStartTimeUs == newChunk.startTimeUs
+            && canDiscardUpstreamMediaChunksFromIndex(i)) {
+          // Exact match, assume we can just replace the chunk entirely.
+          discardUpstream(/* preferredQueueSize= */ i);
+          newChunk.clearShouldSpliceIn();
+          break;
+        }
+      }
+    }
   }
 
   @Override
@@ -1078,7 +1102,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     chunk.init(/* output= */ this, sampleQueueWriteIndicesBuilder.build());
     for (HlsSampleQueue sampleQueue : sampleQueues) {
       sampleQueue.setSourceChunk(chunk);
-      if (chunk.shouldSpliceIn) {
+      if (chunk.shouldSpliceIn()) {
         sampleQueue.splice();
       }
     }
@@ -1307,7 +1331,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
   private boolean canDiscardUpstreamMediaChunksFromIndex(int mediaChunkIndex) {
     for (int i = mediaChunkIndex; i < mediaChunks.size(); i++) {
-      if (mediaChunks.get(i).shouldSpliceIn) {
+      if (mediaChunks.get(i).shouldSpliceIn()) {
         // Discarding not possible because a spliced-in chunk potentially removed sample metadata
         // from the previous chunks.
         // TODO: Keep sample metadata to allow restoring these chunks [internal b/159904763].
