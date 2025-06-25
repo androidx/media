@@ -652,8 +652,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
   protected ListenableFuture<?> handleSetVideoOutput(Object videoOutput) {
     if (!(videoOutput instanceof SurfaceHolder || videoOutput instanceof SurfaceView)) {
       throw new UnsupportedOperationException(
-          videoOutput.getClass().toString()
-              + ". Use CompositionPlayer.setVideoSurface() for Surface output.");
+          videoOutput.getClass() + ". Use CompositionPlayer.setVideoSurface() for Surface output.");
     }
     this.videoOutput = videoOutput;
     return maybeSetVideoOutput();

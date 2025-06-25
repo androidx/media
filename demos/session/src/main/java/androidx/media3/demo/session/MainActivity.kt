@@ -116,7 +116,7 @@ class MainActivity : AppCompatActivity() {
   override fun onRequestPermissionsResult(
     requestCode: Int,
     permissions: Array<out String>,
-    grantResults: IntArray
+    grantResults: IntArray,
   ) {
     super.onRequestPermissionsResult(requestCode, permissions, grantResults)
     if (grantResults.isEmpty()) {
@@ -134,7 +134,7 @@ class MainActivity : AppCompatActivity() {
     browserFuture =
       MediaBrowser.Builder(
           this,
-          SessionToken(this, ComponentName(this, PlaybackService::class.java))
+          SessionToken(this, ComponentName(this, PlaybackService::class.java)),
         )
         .buildAsync()
     browserFuture.addListener({ pushRoot() }, ContextCompat.getMainExecutor(this))
@@ -153,7 +153,7 @@ class MainActivity : AppCompatActivity() {
         mediaItem.mediaId,
         /* page= */ 0,
         /* pageSize= */ Int.MAX_VALUE,
-        /* params= */ null
+        /* params= */ null,
       )
 
     subItemMediaList.clear()
@@ -164,7 +164,7 @@ class MainActivity : AppCompatActivity() {
         subItemMediaList.addAll(children)
         mediaListAdapter.notifyDataSetChanged()
       },
-      ContextCompat.getMainExecutor(this)
+      ContextCompat.getMainExecutor(this),
     )
   }
 
@@ -175,7 +175,7 @@ class MainActivity : AppCompatActivity() {
 
   private fun popPathStack() {
     treePathStack.removeLast()
-    if (treePathStack.size == 0) {
+    if (treePathStack.isEmpty()) {
       finish()
       return
     }
@@ -197,14 +197,14 @@ class MainActivity : AppCompatActivity() {
         val root: MediaItem = result.value!!
         pushPathStack(root)
       },
-      ContextCompat.getMainExecutor(this)
+      ContextCompat.getMainExecutor(this),
     )
   }
 
   private class FolderMediaItemArrayAdapter(
     context: Context,
     viewID: Int,
-    mediaItemList: List<MediaItem>
+    mediaItemList: List<MediaItem>,
   ) : ArrayAdapter<MediaItem>(context, viewID, mediaItemList) {
     override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
       val mediaItem = getItem(position)!!

@@ -587,7 +587,7 @@ public class MockMediaLibraryService extends MediaLibraryService {
   private List<MediaItem> getPaginatedResult(List<String> items, int page, int pageSize) {
     if (items == null) {
       return null;
-    } else if (items.size() == 0) {
+    } else if (items.isEmpty()) {
       return new ArrayList<>();
     }
 

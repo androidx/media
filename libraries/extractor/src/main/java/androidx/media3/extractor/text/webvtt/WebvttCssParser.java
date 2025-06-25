@@ -168,7 +168,7 @@ import java.util.regex.Pattern;
       ParsableByteArray input, WebvttCssStyle style, StringBuilder stringBuilder) {
     skipWhitespaceAndComments(input);
     String property = parseIdentifier(input, stringBuilder);
-    if ("".equals(property)) {
+    if (property.isEmpty()) {
       return;
     }
     if (!":".equals(parseNextToken(input, stringBuilder))) {
@@ -176,7 +176,7 @@ import java.util.regex.Pattern;
     }
     skipWhitespaceAndComments(input);
     String value = parsePropertyValue(input, stringBuilder);
-    if (value == null || "".equals(value)) {
+    if (value == null || value.isEmpty()) {
       return;
     }
     int position = input.getPosition();
@@ -240,7 +240,7 @@ import java.util.regex.Pattern;
       return null;
     }
     String identifier = parseIdentifier(input, stringBuilder);
-    if (!"".equals(identifier)) {
+    if (!identifier.isEmpty()) {
       return identifier;
     }
     // We found a delimiter.
@@ -373,7 +373,7 @@ import java.util.regex.Pattern;
    * ::cue(tag#id.class1.class2[voice="someone"]}, where every element is optional.
    */
   private void applySelectorToStyle(WebvttCssStyle style, String selector) {
-    if ("".equals(selector)) {
+    if (selector.isEmpty()) {
       return; // Universal selector.
     }
     int voiceStartIndex = selector.indexOf('[');

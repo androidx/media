@@ -411,7 +411,7 @@ public final class SessionToken {
             // Remove timeout callback.
             handler.removeCallbacksAndMessages(null);
             try {
-              future.set(SessionToken.fromBundle(resultData, (Token) compatToken.getToken()));
+              future.set(SessionToken.fromBundle(resultData, compatToken.getToken()));
             } catch (RuntimeException e) {
               // Fallback to a legacy token if we receive an unexpected result, e.g. a legacy
               // session acknowledging commands by a success callback.

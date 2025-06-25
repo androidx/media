@@ -440,7 +440,7 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
         addExtractorsForFileType(fileType, extractors);
       }
     }
-    return extractors.toArray(new Extractor[extractors.size()]);
+    return extractors.toArray(new Extractor[0]);
   }
 
   private void addExtractorsForFileType(@FileTypes.Type int fileType, List<Extractor> extractors) {

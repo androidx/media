@@ -38,7 +38,7 @@ import java.util.Stack
 /** Helper class that enables navigation on tree in MediaBrowser. */
 class BrowseMediaItemsAdapter(
   private val activity: Activity,
-  private val mediaBrowser: MediaBrowser
+  private val mediaBrowser: MediaBrowser,
 ) : RecyclerView.Adapter<BrowseMediaItemsAdapter.ViewHolder>() {
   private var items: List<MediaItem> = emptyList()
   // Stack that holds ancestors of current item.
@@ -86,7 +86,7 @@ class BrowseMediaItemsAdapter(
           val result: LibraryResult<MediaItem> = libraryResult.get()
           result.value?.let { setRoot(it.mediaId) }
         },
-        ContextCompat.getMainExecutor(activity)
+        ContextCompat.getMainExecutor(activity),
       )
     }
   }
@@ -122,7 +122,7 @@ class BrowseMediaItemsAdapter(
           BitmapFactory.decodeByteArray(
             mediaMetadata.artworkData,
             0,
-            mediaMetadata.artworkData!!.size
+            mediaMetadata.artworkData!!.size,
           )
         holder.icon.setImageBitmap(bitmap)
       }
@@ -148,7 +148,7 @@ class BrowseMediaItemsAdapter(
 
   override fun getItemCount(): Int {
     // Leave one item for message if nodes or items are empty.
-    if (nodes.size == 0 || items.isEmpty()) return 1
+    if (nodes.isEmpty() || items.isEmpty()) return 1
     return items.size
   }
 

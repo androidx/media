@@ -4286,7 +4286,6 @@ public class DefaultTrackSelector extends MappingTrackSelector
       @Nullable
       AudioManager audioManager =
           context == null ? null : AudioManagerCompat.getAudioManager(context);
-      ;
       if (audioManager == null || Util.isTv(checkNotNull(context))) {
         spatializer = null;
         spatializationSupported = false;
