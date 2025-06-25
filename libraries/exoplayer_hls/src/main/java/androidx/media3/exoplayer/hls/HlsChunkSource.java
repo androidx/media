@@ -597,12 +597,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       return;
     }
 
+    boolean isIndependent = isIndependent(segmentBaseHolder, playlist);
     boolean shouldSpliceIn =
         HlsMediaChunk.shouldSpliceIn(
             previous,
             loadPositionUs,
             selectedPlaylistUrl,
-            playlist,
+            isIndependent,
             segmentBaseHolder,
             startOfPlaylistInPeriodUs);
     if (shouldSpliceIn && segmentBaseHolder.isPreload) {
@@ -632,8 +633,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             /* mediaSegmentKey= */ keyCache.get(mediaSegmentKeyUri),
             /* initSegmentKey= */ keyCache.get(initSegmentKeyUri),
             shouldSpliceIn,
+            isIndependent,
             playerId,
             cmcdDataFactory);
+  }
+
+  private static boolean isIndependent(
+      HlsChunkSource.SegmentBaseHolder segmentBaseHolder, HlsMediaPlaylist mediaPlaylist) {
+    if (segmentBaseHolder.segmentBase instanceof HlsMediaPlaylist.Part) {
+      return ((HlsMediaPlaylist.Part) segmentBaseHolder.segmentBase).isIndependent
+          || (segmentBaseHolder.partIndex == 0 && mediaPlaylist.hasIndependentSegments);
+    }
+    return mediaPlaylist.hasIndependentSegments;
   }
 
   @Nullable
