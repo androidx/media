@@ -484,6 +484,8 @@ public class FragmentedMp4Extractor implements Extractor {
     enterReadingAtomHeaderState();
     initExtraTracks();
     if (sideloadedTrack != null) {
+      Format.Builder formatBuilder = sideloadedTrack.format.buildUpon();
+      formatBuilder.setContainerMimeType(getContainerMimeType(sideloadedTrack.format));
       TrackBundle bundle =
           new TrackBundle(
               extractorOutput.track(0, sideloadedTrack.type),
@@ -500,7 +502,7 @@ public class FragmentedMp4Extractor implements Extractor {
                   /* duration= */ 0,
                   /* size= */ 0,
                   /* flags= */ 0),
-              sideloadedTrack.format);
+              formatBuilder.build());
       trackBundles.put(0, bundle);
       extractorOutput.endTracks();
     }
