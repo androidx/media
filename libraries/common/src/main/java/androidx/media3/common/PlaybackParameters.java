@@ -143,5 +143,4 @@ public final class PlaybackParameters {
     float pitch = bundle.getFloat(FIELD_PITCH, /* defaultValue= */ 1f);
     return new PlaybackParameters(speed, pitch);
   }
-  ;
 }

@@ -172,7 +172,7 @@ import java.util.Objects;
   @Nullable
   @Override
   public MediaSession.Token getPlatformToken() {
-    return legacyToken == null ? null : (MediaSession.Token) legacyToken.getToken();
+    return legacyToken == null ? null : legacyToken.getToken();
   }
 
   private static final String FIELD_LEGACY_TOKEN = Util.intToStringMaxRadix(0);

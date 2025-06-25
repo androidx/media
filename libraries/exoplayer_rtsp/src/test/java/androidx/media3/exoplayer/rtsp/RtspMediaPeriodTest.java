@@ -48,7 +48,6 @@ public final class RtspMediaPeriodTest {
   private static final long DEFAULT_TIMEOUT_MS = 8000;
 
   private final AtomicReference<TrackGroup> trackGroupAtomicReference = new AtomicReference<>();
-  ;
   private final MediaPeriod.Callback mediaPeriodCallback =
       new MediaPeriod.Callback() {
         @Override

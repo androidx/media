@@ -90,8 +90,8 @@ public class SessionCommandTest {
                     + (values.get(j - 1) + 1)
                     + " in "
                     + PREFIX_COMMAND_CODES.get(i))
-            .that((int) values.get(j))
-            .isEqualTo(((int) values.get(j - 1)) + 1);
+            .that(values.get(j))
+            .isEqualTo(values.get(j - 1) + 1);
       }
     }
   }

@@ -112,7 +112,7 @@ public final class SubripParser implements SubtitleParser {
             : null;
     @Nullable String currentLine;
     while ((currentLine = parsableByteArray.readLine(charset)) != null) {
-      if (currentLine.length() == 0) {
+      if (currentLine.isEmpty()) {
         // Skip blank lines.
         continue;
       }

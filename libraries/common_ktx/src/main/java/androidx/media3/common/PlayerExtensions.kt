@@ -23,8 +23,6 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.android.asCoroutineDispatcher
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 
@@ -67,21 +65,22 @@ suspend fun Player.listen(onEvents: Player.(Player.Events) -> Unit): Nothing {
  * * marking the listener as cancelled using `AtomicBoolean` to ensure that this value will be
  *   visible immediately on any non-calling thread due to a memory barrier.
  *
- * A note on [callbackFlow] vs [suspendCancellableCoroutine]:
+ * A note on [kotlinx.coroutines.flow.callbackFlow] vs [suspendCancellableCoroutine]:
  *
- * Despite [callbackFlow] being recommended for a multi-shot API (like [Player]'s), a
- * [suspendCancellableCoroutine] is a lower-level construct that allows us to overcome the
- * limitations of [Flow]'s buffered dispatch. In our case, we will not be waiting for a particular
- * callback to resume the continuation (i.e. the common single-shot use of
- * [suspendCancellableCoroutine]), but rather handle incoming Events indefinitely. This approach
- * controls the timing of dispatching events to the caller more tightly than [Flow]s. Such timing
- * guarantees are critical for responding to events with frame-perfect timing and become more
- * relevant in the context of front-end UI development (e.g. using Compose).
+ * Despite [kotlinx.coroutines.flow.callbackFlow] being recommended for a multi-shot API (like
+ * [Player]'s), a [suspendCancellableCoroutine] is a lower-level construct that allows us to
+ * overcome the limitations of [kotlinx.coroutines.flow.Flow]'s buffered dispatch. In our case, we
+ * will not be waiting for a particular callback to resume the continuation (i.e. the common
+ * single-shot use of [suspendCancellableCoroutine]), but rather handle incoming Events
+ * indefinitely. This approach controls the timing of dispatching events to the caller more tightly
+ * than [kotlinx.coroutines.flow.Flow]s. Such timing guarantees are critical for responding to
+ * events with frame-perfect timing and become more relevant in the context of front-end UI
+ * development (e.g. using Compose).
  */
 private suspend fun Player.listenImpl(onEvents: Player.(Player.Events) -> Unit): Nothing {
   lateinit var listener: PlayerListener
   try {
-    suspendCancellableCoroutine<Nothing> { continuation ->
+    suspendCancellableCoroutine { continuation ->
       listener = PlayerListener(onEvents, continuation)
       continuation.invokeOnCancellation { listener.isCancelled.set(true) }
       addListener(listener)
