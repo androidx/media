@@ -7,6 +7,8 @@
 *   Transformer:
 *   Track Selection:
 *   Extractors:
+    *   Parse metadata from fragmented MP4 files
+        ([#2084](https://github.com/androidx/media/issues/2084)).
     *   JPEG: Support motion photos that don't have an Exif segment at the start
         ([#2552](https://github.com/androidx/media/issues/2552)).
 *   DataSource:
