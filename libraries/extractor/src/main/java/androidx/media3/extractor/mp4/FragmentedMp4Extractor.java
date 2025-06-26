@@ -645,6 +645,9 @@ public class FragmentedMp4Extractor implements Extractor {
 
     if (shouldParseContainerAtom(atomType)) {
       long endPosition = input.getPosition() + atomSize - Mp4Box.HEADER_SIZE;
+      if (atomSize != atomHeaderBytesRead && atomType == Mp4Box.TYPE_meta) {
+        maybeSkipRemainingMetaAtomHeaderBytes(input);
+      }
       containerAtoms.push(new ContainerBox(atomType, endPosition));
       if (atomSize == atomHeaderBytesRead) {
         processAtomEnded(endPosition);
@@ -675,6 +678,14 @@ public class FragmentedMp4Extractor implements Extractor {
     }
 
     return true;
+  }
+
+  private void maybeSkipRemainingMetaAtomHeaderBytes(ExtractorInput input) throws IOException {
+    scratch.reset(Mp4Box.HEADER_SIZE);
+    input.peekFully(scratch.getData(), 0, Mp4Box.HEADER_SIZE);
+    BoxParser.maybeSkipRemainingMetaBoxHeaderBytes(scratch);
+    input.skipFully(scratch.getPosition());
+    input.resetPeekPosition();
   }
 
   private void readAtomPayload(ExtractorInput input) throws IOException {
@@ -1931,6 +1942,7 @@ public class FragmentedMp4Extractor implements Extractor {
         || atom == Mp4Box.TYPE_mehd
         || atom == Mp4Box.TYPE_emsg
         || atom == Mp4Box.TYPE_udta
+        || atom == Mp4Box.TYPE_keys
         || atom == Mp4Box.TYPE_ilst;
   }
 
