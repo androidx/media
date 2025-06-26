@@ -203,7 +203,8 @@ public final class DefaultAssetLoaderFactory implements AssetLoader.Factory {
               clock,
               mediaSourceFactory,
               trackSelectorFactory,
-              logSessionId);
+              logSessionId,
+              /* loadControl= */ null);
     }
     return exoPlayerAssetLoaderFactory.createAssetLoader(
         editedMediaItem, looper, listener, compositionSettings);

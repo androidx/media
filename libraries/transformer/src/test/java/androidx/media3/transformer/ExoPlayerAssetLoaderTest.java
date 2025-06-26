@@ -178,7 +178,8 @@ public class ExoPlayerAssetLoaderTest {
             clock,
             /* mediaSourceFactory= */ null,
             trackSelectorFactory,
-            /* logSessionId= */ null)
+            /* logSessionId= */ null,
+            /* loadControl= */ null)
         .createAssetLoader(
             editedMediaItem,
             Looper.myLooper(),

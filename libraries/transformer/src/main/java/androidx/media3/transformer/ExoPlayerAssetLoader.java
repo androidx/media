@@ -47,6 +47,7 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.DefaultLoadControl;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.ExoTimeoutException;
+import androidx.media3.exoplayer.LoadControl;
 import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.RenderersFactory;
 import androidx.media3.exoplayer.audio.AudioRendererEventListener;
@@ -75,6 +76,7 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
     @Nullable private final MediaSource.Factory mediaSourceFactory;
     @Nullable private final TrackSelector.Factory trackSelectorFactory;
     @Nullable private final LogSessionId logSessionId;
+    @Nullable private final LoadControl loadControl;
 
     /**
      * Creates an instance using a {@link DefaultMediaSourceFactory}.
@@ -93,7 +95,34 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
           clock,
           /* mediaSourceFactory= */ null,
           /* trackSelectorFactory= */ null,
-          /* logSessionId= */ null);
+          /* logSessionId= */ null,
+          /* loadControl= */ null);
+    }
+
+    /**
+     * Creates an instance using a {@link DefaultMediaSourceFactory}.
+     *
+     * @param context The {@link Context}.
+     * @param decoderFactory The {@link Codec.DecoderFactory} to use to decode the samples (if
+     *     necessary).
+     * @param clock The {@link Clock} to use. It should always be {@link Clock#DEFAULT}, except for
+     *     testing.
+     * @param loadControl The {@link LoadControl} to use in the underlying {@link ExoPlayer}.
+     */
+    public Factory(
+        Context context,
+        Codec.DecoderFactory decoderFactory,
+        Clock clock,
+        LoadControl loadControl) {
+      // TODO: b/381519379 - Deprecate this constructor and replace with a builder.
+      this(
+          context,
+          decoderFactory,
+          clock,
+          /* mediaSourceFactory= */ null,
+          /* trackSelectorFactory= */ null,
+          /* logSessionId= */ null,
+          loadControl);
     }
 
     /**
@@ -119,7 +148,8 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
           clock,
           mediaSourceFactory,
           /* trackSelectorFactory= */ null,
-          /* logSessionId= */ null);
+          /* logSessionId= */ null,
+          /* loadControl= */ null);
     }
 
     /**
@@ -136,6 +166,7 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
      *     to transform.
      * @param logSessionId The optional {@link LogSessionId} of the {@link
      *     android.media.metrics.EditingSession}.
+     * @param loadControl The {@link LoadControl} to use in the underlying {@link ExoPlayer}.
      */
     public Factory(
         Context context,
@@ -143,7 +174,8 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
         Clock clock,
         @Nullable MediaSource.Factory mediaSourceFactory,
         @Nullable TrackSelector.Factory trackSelectorFactory,
-        @Nullable LogSessionId logSessionId) {
+        @Nullable LogSessionId logSessionId,
+        @Nullable LoadControl loadControl) {
       // TODO: b/381519379 - Deprecate this constructor and replace with a builder.
       this.context = context;
       this.decoderFactory = decoderFactory;
@@ -151,6 +183,7 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
       this.mediaSourceFactory = mediaSourceFactory;
       this.trackSelectorFactory = trackSelectorFactory;
       this.logSessionId = logSessionId;
+      this.loadControl = loadControl;
     }
 
     @Override
@@ -181,6 +214,19 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
               return trackSelector;
             };
       }
+      @Nullable LoadControl loadControl = this.loadControl;
+      if (loadControl == null) {
+        // Arbitrarily decrease buffers for playback so that samples start being sent earlier to the
+        // exporters (rebuffers are less problematic for the export use case).
+        loadControl =
+            new DefaultLoadControl.Builder()
+                .setBufferDurationsMs(
+                    DEFAULT_MIN_BUFFER_MS,
+                    DEFAULT_MAX_BUFFER_MS,
+                    DEFAULT_BUFFER_FOR_PLAYBACK_MS / 10,
+                    DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS / 10)
+                .build();
+      }
       return new ExoPlayerAssetLoader(
           context,
           editedMediaItem,
@@ -191,7 +237,8 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
           listener,
           clock,
           trackSelectorFactory,
-          logSessionId);
+          logSessionId,
+          loadControl);
     }
   }
 
@@ -214,22 +261,13 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
       Listener listener,
       Clock clock,
       TrackSelector.Factory trackSelectorFactory,
-      @Nullable LogSessionId logSessionId) {
+      @Nullable LogSessionId logSessionId,
+      LoadControl loadControl) {
     this.context = context;
     this.editedMediaItem = editedMediaItem;
     this.decoderFactory = new CapturingDecoderFactory(decoderFactory);
 
     TrackSelector trackSelector = trackSelectorFactory.createTrackSelector(context);
-    // Arbitrarily decrease buffers for playback so that samples start being sent earlier to the
-    // exporters (rebuffers are less problematic for the export use case).
-    DefaultLoadControl loadControl =
-        new DefaultLoadControl.Builder()
-            .setBufferDurationsMs(
-                DEFAULT_MIN_BUFFER_MS,
-                DEFAULT_MAX_BUFFER_MS,
-                DEFAULT_BUFFER_FOR_PLAYBACK_MS / 10,
-                DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS / 10)
-            .build();
     ExoPlayer.Builder playerBuilder =
         new ExoPlayer.Builder(
                 context,
