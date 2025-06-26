@@ -92,6 +92,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
  * A default {@link TrackSelector} suitable for most use cases.
@@ -2410,6 +2411,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
 
   @Nullable private SpatializerWrapperV32 spatializer;
   private AudioAttributes audioAttributes;
+  private @MonotonicNonNull Boolean deviceIsTV;
 
   /**
    * @param context Any {@link Context}.
@@ -2606,10 +2608,14 @@ public class DefaultTrackSelector extends MappingTrackSelector
       playbackThread = Thread.currentThread();
       parameters = this.parameters;
     }
+    if (deviceIsTV == null && context != null) {
+      deviceIsTV = Util.isTv(context);
+    }
     if (parameters.constrainAudioChannelCountToDeviceCapabilities
         && SDK_INT >= 32
         && spatializer == null) {
-      spatializer = new SpatializerWrapperV32(context, /* defaultTrackSelector= */ this);
+      spatializer =
+          new SpatializerWrapperV32(context, /* defaultTrackSelector= */ this, deviceIsTV);
     }
     int rendererCount = mappedTrackInfo.getRendererCount();
     ExoTrackSelection.@NullableType Definition[] definitions =
@@ -2881,6 +2887,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
   private boolean isAudioFormatWithinAudioChannelCountConstraints(
       Format format, Parameters parameters) {
     return !parameters.constrainAudioChannelCountToDeviceCapabilities
+        || (deviceIsTV != null && deviceIsTV)
         || (format.channelCount == Format.NO_VALUE || format.channelCount <= 2)
         || (isDolbyAudio(format)
             && (SDK_INT < 32 || spatializer == null || !spatializer.isSpatializationSupported()))
@@ -4282,11 +4289,13 @@ public class DefaultTrackSelector extends MappingTrackSelector
     @Nullable private final Spatializer.OnSpatializerStateChangedListener listener;
 
     public SpatializerWrapperV32(
-        @Nullable Context context, DefaultTrackSelector defaultTrackSelector) {
+        @Nullable Context context,
+        DefaultTrackSelector defaultTrackSelector,
+        @Nullable Boolean deviceIsTv) {
       @Nullable
       AudioManager audioManager =
           context == null ? null : AudioManagerCompat.getAudioManager(context);
-      if (audioManager == null || Util.isTv(checkNotNull(context))) {
+      if (audioManager == null || (deviceIsTv != null && deviceIsTv)) {
         spatializer = null;
         spatializationSupported = false;
         handler = null;
