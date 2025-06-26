@@ -4,6 +4,8 @@
 
 *   Common Library:
 *   ExoPlayer:
+    *   Fix bug where non-stereo audio formats on TVs may be marked as
+        unsupported by `DefaultTrackSelector`.
 *   Transformer:
 *   Track Selection:
 *   Extractors:
