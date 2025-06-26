@@ -33,6 +33,8 @@
 *   DASH extension:
 *   Smooth Streaming extension:
 *   RTSP extension:
+    *   Add support for RTP Aggregation Packet for H265 in accordance with RFC
+        7798#4.4.2 ([#2413](https://github.com/androidx/media/pull/2413)).
 *   Decoder extensions (FFmpeg, VP9, AV1, etc.):
 *   MIDI extension:
 *   Leanback extension:
