@@ -205,7 +205,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     int nalUnitsCount = 0;
     data.setPosition(2); // skipping payload header (2 bytes)
     while (data.bytesLeft() > 2) {
-      short nalUnitSize = data.readShort(); // 2 bytes of NAL unit size
+      int nalUnitSize = data.readUnsignedShort(); // 2 bytes of NAL unit size
       int nalHeaderType = NalUnitUtil.getH265NalUnitType(data.getData(), data.getPosition() - 3);
       if (data.bytesLeft() < nalUnitSize) {
         throw ParserException.createForMalformedManifest(
@@ -215,20 +215,16 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       fragmentedSampleSizeBytes += writeStartCode();
       trackOutput.sampleData(data, nalUnitSize);
       fragmentedSampleSizeBytes += nalUnitSize;
-      bufferFlags = getBufferFlagsFromNalType(nalHeaderType);
+      bufferFlags |= getBufferFlagsFromNalType(nalHeaderType);
       nalUnitsCount++;
     }
     if (data.bytesLeft() > 0) {
       throw ParserException.createForMalformedManifest(
-          "Malformed Aggregation Packet. Packet size exceeds NAL unit size.",
-          /* cause= */ null
-      );
+          "Malformed Aggregation Packet. Packet size exceeds NAL unit size.", /* cause= */ null);
     }
     if (nalUnitsCount < 2) {
       throw ParserException.createForMalformedManifest(
-          "Aggregation Packet must contain at least 2 NAL units.",
-          /* cause= */ null
-      );
+          "Aggregation Packet must contain at least 2 NAL units.", /* cause= */ null);
     }
   }
 
