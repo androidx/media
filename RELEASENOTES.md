@@ -23,6 +23,8 @@
 *   Muxers:
 *   IMA extension:
 *   Session:
+    *   Fix bug where some controller changes that are not handled by the
+        session may cause `IllegalStateExceptions`.
 *   UI:
     *   Fix bug where `PlayerSurface` inside re-usable components like
         `LazyColumn` didn't work correctly

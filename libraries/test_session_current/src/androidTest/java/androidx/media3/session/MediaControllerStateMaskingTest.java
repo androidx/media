@@ -58,6 +58,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.RuleChain;
@@ -3189,8 +3190,6 @@ public class MediaControllerStateMaskingTest {
           }
         };
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
-
-    // Step 1: Report a discontinuity from item 0 to item 1 in the session.
     PositionInfo oldPositionInfo =
         new PositionInfo(
             /* windowUid= */ timeline.getWindow(/* windowIndex= */ 0, new Window()).uid,
@@ -3217,13 +3216,24 @@ public class MediaControllerStateMaskingTest {
             /* contentPositionMs= */ 0,
             /* adGroupIndex= */ C.INDEX_UNSET,
             /* adIndexInAdGroup= */ C.INDEX_UNSET);
-    remoteSession.getMockPlayer().setCurrentMediaItemIndex(1);
-    remoteSession
-        .getMockPlayer()
-        .notifyPositionDiscontinuity(
-            oldPositionInfo, newPositionInfo, Player.DISCONTINUITY_REASON_AUTO_TRANSITION);
-    // Step 2: Before step 1 can be handled by the controller, remove item 1.
-    threadTestRule.getHandler().postAndSync(() -> controller.removeMediaItem(/* index= */ 1));
+
+    threadTestRule
+        .getHandler()
+        .postAndSync(
+            () -> {
+              // Step 1: Report a discontinuity from item 0 to item 1 in the session.
+              remoteSession.getMockPlayer().setCurrentMediaItemIndex(1);
+              remoteSession
+                  .getMockPlayer()
+                  .notifyPositionDiscontinuity(
+                      oldPositionInfo,
+                      newPositionInfo,
+                      Player.DISCONTINUITY_REASON_AUTO_TRANSITION);
+              // Step 2: Before step 1 can be handled by the controller, remove item 1.
+              controller.removeMediaItem(/* index= */ 1);
+            });
+    Thread.sleep(100); // TODO: b/428144538 - Remove sleep once we are guaranteed to get an update
+    // Send player updates for item removal.
     remoteSession.getMockPlayer().setCurrentMediaItemIndex(0);
     remoteSession.getMockPlayer().setTimeline(MediaTestUtils.createTimeline(/* windowCount= */ 1));
     remoteSession.getMockPlayer().notifyPlaybackStateChanged(Player.STATE_ENDED);
@@ -3233,6 +3243,98 @@ public class MediaControllerStateMaskingTest {
 
     assertThat(positionDiscontinuityReported.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(reportedStateChangeToEndedAtSameTimeAsDiscontinuity.get()).isTrue();
+  }
+
+  @Ignore // TODO: b/428144538 - Fix the logic to make this test possible
+  @Test
+  public void timelineUpdatesDuringMasking_withNoPlayerInfoUpdateFromSession_areResolvedCorrectly()
+      throws Exception {
+    Timeline timeline = MediaTestUtils.createTimeline(/* windowCount= */ 5);
+    remoteSession.getMockPlayer().setTimeline(timeline);
+    remoteSession.getMockPlayer().setCurrentMediaItemIndex(4);
+    remoteSession
+        .getMockPlayer()
+        .notifyTimelineChanged(Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);
+    MediaController controller = controllerTestRule.createController(remoteSession.getToken());
+    CountDownLatch timelineChangeReported = new CountDownLatch(2);
+    ArrayList<Timeline> reportedTimelineChanges = new ArrayList<>();
+    ArrayList<Integer> reportedCurrentIndex = new ArrayList<>();
+    Player.Listener listener =
+        new Player.Listener() {
+          @Override
+          public void onEvents(Player player, Player.Events events) {
+            if (events.contains(Player.EVENT_TIMELINE_CHANGED)) {
+              reportedTimelineChanges.add(player.getCurrentTimeline());
+              reportedCurrentIndex.add(player.getCurrentMediaItemIndex());
+              timelineChangeReported.countDown();
+            }
+          }
+        };
+    threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
+
+    // Change masked Timeline in controller by assigning new single item, but don't change Timeline
+    // of the remote session. This means the timeline change needs to be reversed once the update is
+    // handled even if the remote session doesn't send any further update.
+    threadTestRule
+        .getHandler()
+        .postAndSync(
+            () ->
+                controller.setMediaItem(
+                    new MediaItem.Builder().setMediaId("placeholder_id").build()));
+
+    assertThat(timelineChangeReported.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(reportedTimelineChanges.get(0).getWindowCount()).isEqualTo(1);
+    assertThat(reportedTimelineChanges.get(1).getWindowCount()).isEqualTo(5);
+    assertThat(reportedCurrentIndex.get(0)).isEqualTo(0);
+    assertThat(reportedCurrentIndex.get(1)).isEqualTo(4);
+  }
+
+  @Test
+  public void
+      timelineUpdatesDuringMasking_withPlayerInfoUpdateExcludingTimeline_areResolvedCorrectly()
+          throws Exception {
+    Timeline timeline = MediaTestUtils.createTimeline(/* windowCount= */ 5);
+    remoteSession.getMockPlayer().setPlaybackState(Player.STATE_READY);
+    remoteSession.getMockPlayer().setTimeline(timeline);
+    remoteSession.getMockPlayer().setCurrentMediaItemIndex(4);
+    remoteSession
+        .getMockPlayer()
+        .notifyTimelineChanged(Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);
+    MediaController controller = controllerTestRule.createController(remoteSession.getToken());
+    CountDownLatch timelineChangeReported = new CountDownLatch(2);
+    ArrayList<Timeline> reportedTimelineChanges = new ArrayList<>();
+    ArrayList<Integer> reportedCurrentIndex = new ArrayList<>();
+    Player.Listener listener =
+        new Player.Listener() {
+          @Override
+          public void onEvents(Player player, Player.Events events) {
+            if (events.contains(Player.EVENT_TIMELINE_CHANGED)) {
+              reportedTimelineChanges.add(player.getCurrentTimeline());
+              reportedCurrentIndex.add(player.getCurrentMediaItemIndex());
+              timelineChangeReported.countDown();
+            }
+          }
+        };
+    threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
+
+    // Change masked Timeline in controller by assigning new single item, but don't change Timeline
+    // of the remote session. This means the timeline change needs to be reversed once the update is
+    // handled even if the remote session doesn't send any further Timeline updates.
+    threadTestRule
+        .getHandler()
+        .postAndSync(
+            () ->
+                controller.setMediaItem(
+                    new MediaItem.Builder().setMediaId("placeholder_id").build()));
+    Thread.sleep(100); // TODO: b/428144538 - Remove sleep once we are guaranteed to get an update
+    // Update session with new PlayerInfo, without changing Timeline.
+    remoteSession.getMockPlayer().notifyPlaybackStateChanged(Player.STATE_BUFFERING);
+
+    assertThat(timelineChangeReported.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(reportedTimelineChanges.get(0).getWindowCount()).isEqualTo(1);
+    assertThat(reportedTimelineChanges.get(1).getWindowCount()).isEqualTo(5);
+    assertThat(reportedCurrentIndex.get(0)).isEqualTo(0);
+    assertThat(reportedCurrentIndex.get(1)).isEqualTo(4);
   }
 
   @Test

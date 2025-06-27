@@ -46,7 +46,6 @@ import android.os.Message;
 import android.os.Process;
 import android.os.RemoteException;
 import android.os.SystemClock;
-import android.util.Pair;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
@@ -144,7 +143,6 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   private long currentPositionMs;
   private long lastSetPlayWhenReadyCalledTimeMs;
   @Nullable private PlayerInfo pendingPlayerInfo;
-  @Nullable private BundlingExclusions pendingBundlingExclusions;
   private Bundle sessionExtras;
 
   public MediaControllerImplBase(
@@ -386,6 +384,10 @@ import org.checkerframework.checker.nullness.qual.NonNull;
               new SessionResult(SessionResult.RESULT_INFO_SKIPPED));
       int sequenceNumber = result.getSequenceNumber();
       if (addToPendingMaskingOperations) {
+        if (pendingMaskingSequencedFutureNumbers.isEmpty()) {
+          // First pending operation, start masking PlayerInfo.
+          pendingPlayerInfo = playerInfo;
+        }
         pendingMaskingSequencedFutureNumbers.add(sequenceNumber);
       }
       try {
@@ -2765,36 +2767,29 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     if (!isConnected()) {
       return;
     }
-    if (pendingPlayerInfo != null && pendingBundlingExclusions != null) {
-      Pair<PlayerInfo, BundlingExclusions> mergedPlayerInfoUpdate =
+    if (pendingPlayerInfo != null) {
+      pendingPlayerInfo =
           mergePlayerInfo(
-              pendingPlayerInfo,
-              pendingBundlingExclusions,
-              newPlayerInfo,
-              bundlingExclusions,
-              intersectedPlayerCommands);
-      newPlayerInfo = mergedPlayerInfoUpdate.first;
-      bundlingExclusions = mergedPlayerInfoUpdate.second;
-    }
-    pendingPlayerInfo = null;
-    pendingBundlingExclusions = null;
-    if (!pendingMaskingSequencedFutureNumbers.isEmpty()) {
-      // We are still waiting for all pending masking operations to be handled.
-      pendingPlayerInfo = newPlayerInfo;
-      pendingBundlingExclusions = bundlingExclusions;
-      return;
+              pendingPlayerInfo, newPlayerInfo, bundlingExclusions, intersectedPlayerCommands);
+      if (pendingMaskingSequencedFutureNumbers.isEmpty()) {
+        // Finish masking.
+        newPlayerInfo = pendingPlayerInfo;
+        bundlingExclusions = BundlingExclusions.NONE;
+        pendingPlayerInfo = null;
+      } else {
+        // We are still waiting for all pending masking operations to be handled.
+        return;
+      }
     }
     PlayerInfo oldPlayerInfo = playerInfo;
     // Assigning class variable now so that all getters called from listeners see the updated value.
     // But we need to use a local final variable to ensure listeners get consistent parameters.
     playerInfo =
         mergePlayerInfo(
-                oldPlayerInfo,
-                /* oldBundlingExclusions= */ BundlingExclusions.NONE,
-                newPlayerInfo,
-                /* newBundlingExclusions= */ bundlingExclusions,
-                intersectedPlayerCommands)
-            .first;
+            oldPlayerInfo,
+            newPlayerInfo,
+            /* newBundlingExclusions= */ bundlingExclusions,
+            intersectedPlayerCommands);
     PlayerInfo finalPlayerInfo = playerInfo;
 
     @Nullable
