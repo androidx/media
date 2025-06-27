@@ -181,11 +181,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @Override
   public void setSamplingGlShaderProgram(GlShaderProgram samplingGlShaderProgram) {
     checkState(samplingGlShaderProgram instanceof ExternalShaderProgram);
-    videoFrameProcessingTaskExecutor.submit(
-        () -> {
-          externalShaderProgramInputCapacity = 0;
-          this.externalShaderProgram = (ExternalShaderProgram) samplingGlShaderProgram;
-        });
+    // This method is called on the GL thread. Run it immediately to make sure any EOS signled
+    // after setting the shader program is propagated through the pipeline.
+    externalShaderProgramInputCapacity = 0;
+    this.externalShaderProgram = (ExternalShaderProgram) samplingGlShaderProgram;
   }
 
   @Override
@@ -200,8 +199,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Override
   public void onReadyToAcceptInputFrame() {
+    ExternalShaderProgram shaderProgramPendingCapacityIncrement = externalShaderProgram;
     videoFrameProcessingTaskExecutor.submit(
         () -> {
+          if (shaderProgramPendingCapacityIncrement != this.externalShaderProgram) {
+            // TODO: b/428173453 - Revise threading model.
+            // It could happen that this method is scheduled to run after the externalShaderProgram
+            // is switched in setSamplingGlShaderProgram. If we don't check this, the capacity
+            // increment from the old sampling shader will be counted towards the new one.
+            return;
+          }
           externalShaderProgramInputCapacity++;
           maybeQueueFrameToExternalShaderProgram();
         });
