@@ -35,6 +35,7 @@ import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.exoplayer.audio.AudioSink;
 import java.nio.ByteBuffer;
 import java.util.Objects;
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
  * An {@link AudioSink} implementation that feeds an {@link AudioGraphInput}.
@@ -93,13 +94,14 @@ import java.util.Objects;
 
   private final Controller controller;
 
-  @Nullable private AudioGraphInput outputGraphInput;
+  private @MonotonicNonNull AudioGraphInput outputGraphInput;
   @Nullable private Format currentInputFormat;
   private boolean inputStreamEnded;
   private boolean signalledEndOfStream;
   @Nullable private EditedMediaItemInfo currentEditedMediaItemInfo;
   private long offsetToCompositionTimeUs;
   private long inputPositionUs;
+  private boolean isConfigurationPending;
 
   public AudioGraphInputAudioSink(Controller controller) {
     this.controller = controller;
@@ -126,17 +128,10 @@ import java.util.Objects;
   public void configure(Format inputFormat, int specifiedBufferSize, @Nullable int[] outputChannels)
       throws ConfigurationException {
     checkArgument(supportsFormat(inputFormat));
-    EditedMediaItem editedMediaItem = checkStateNotNull(currentEditedMediaItemInfo).editedMediaItem;
     // TODO: b/303029969 - Evaluate throwing vs ignoring for null outputChannels.
     checkArgument(outputChannels == null);
     currentInputFormat = inputFormat;
-
-    // During playback, AudioGraphInput doesn't know the full media duration upfront due to seeking.
-    // Pass in C.TIME_UNSET to AudioGraphInput.onMediaItemChanged.
-    if (outputGraphInput != null) {
-      outputGraphInput.onMediaItemChanged(
-          editedMediaItem, /* durationUs= */ C.TIME_UNSET, currentInputFormat, /* isLast= */ false);
-    }
+    isConfigurationPending = true;
   }
 
   @Override
@@ -172,10 +167,18 @@ import java.util.Objects;
       if (outputGraphInput == null) {
         return false;
       }
-
       this.outputGraphInput = outputGraphInput;
+      isConfigurationPending = true;
+    }
+
+    if (isConfigurationPending) {
+      // During playback, AudioGraphInput doesn't know the full media duration upfront due to
+      // seeking.
+      // TODO: b/406185875 - Propagate media duration after implementing handling for seeks in
+      //  transitions.
       this.outputGraphInput.onMediaItemChanged(
           editedMediaItem, /* durationUs= */ C.TIME_UNSET, currentInputFormat, /* isLast= */ false);
+      isConfigurationPending = false;
     }
 
     return handleBufferInternal(buffer, presentationTimeUs, /* flags= */ 0);
@@ -240,6 +243,7 @@ import java.util.Objects;
     flush();
     currentInputFormat = null;
     currentEditedMediaItemInfo = null;
+    isConfigurationPending = false;
   }
 
   // Unsupported interface functionality.
