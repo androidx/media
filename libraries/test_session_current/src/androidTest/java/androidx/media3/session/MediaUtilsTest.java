@@ -20,27 +20,21 @@ import static androidx.media3.common.MimeTypes.VIDEO_H264;
 import static androidx.media3.common.MimeTypes.VIDEO_H265;
 import static com.google.common.truth.Truth.assertThat;
 
-import android.content.Context;
 import android.os.Bundle;
 import android.os.Parcel;
-import android.util.Pair;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.Tracks;
-import androidx.media3.common.util.BitmapLoader;
-import androidx.media3.datasource.DataSourceBitmapLoader;
 import androidx.media3.session.PlayerInfo.BundlingExclusions;
-import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SmallTest;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -48,15 +42,6 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 @SmallTest
 public final class MediaUtilsTest {
-
-  private Context context;
-  private BitmapLoader bitmapLoader;
-
-  @Before
-  public void setUp() {
-    context = ApplicationProvider.getApplicationContext();
-    bitmapLoader = new CacheBitmapLoader(new DataSourceBitmapLoader(context));
-  }
 
   @Test
   public void truncateListBySize() {
@@ -108,19 +93,16 @@ public final class MediaUtilsTest {
             .add(Player.COMMAND_GET_TRACKS)
             .build();
 
-    Pair<PlayerInfo, BundlingExclusions> mergeResult =
+    PlayerInfo mergeResult =
         MediaUtils.mergePlayerInfo(
             oldPlayerInfo,
-            BundlingExclusions.NONE,
             newPlayerInfo,
             new BundlingExclusions(
                 /* isTimelineExcluded= */ true, /* areCurrentTracksExcluded= */ true),
             availableCommands);
 
-    assertThat(mergeResult.first.timeline).isSameInstanceAs(oldPlayerInfo.timeline);
-    assertThat(mergeResult.first.currentTracks).isSameInstanceAs(oldPlayerInfo.currentTracks);
-    assertThat(mergeResult.second.isTimelineExcluded).isFalse();
-    assertThat(mergeResult.second.areCurrentTracksExcluded).isFalse();
+    assertThat(mergeResult.timeline).isSameInstanceAs(oldPlayerInfo.timeline);
+    assertThat(mergeResult.currentTracks).isSameInstanceAs(oldPlayerInfo.currentTracks);
   }
 
   @Test
@@ -151,19 +133,16 @@ public final class MediaUtilsTest {
     Player.Commands availableCommands =
         Player.Commands.EMPTY.buildUpon().add(Player.COMMAND_GET_TRACKS).build();
 
-    Pair<PlayerInfo, BundlingExclusions> mergeResult =
+    PlayerInfo mergeResult =
         MediaUtils.mergePlayerInfo(
             oldPlayerInfo,
-            BundlingExclusions.NONE,
             newPlayerInfo,
             new BundlingExclusions(
                 /* isTimelineExcluded= */ true, /* areCurrentTracksExcluded= */ true),
             availableCommands);
 
-    assertThat(mergeResult.first.timeline).isSameInstanceAs(Timeline.EMPTY);
-    assertThat(mergeResult.first.currentTracks).isSameInstanceAs(oldPlayerInfo.currentTracks);
-    assertThat(mergeResult.second.isTimelineExcluded).isTrue();
-    assertThat(mergeResult.second.areCurrentTracksExcluded).isFalse();
+    assertThat(mergeResult.timeline).isSameInstanceAs(Timeline.EMPTY);
+    assertThat(mergeResult.currentTracks).isSameInstanceAs(oldPlayerInfo.currentTracks);
   }
 
   @Test
@@ -194,18 +173,15 @@ public final class MediaUtilsTest {
     Player.Commands availableCommands =
         Player.Commands.EMPTY.buildUpon().add(Player.COMMAND_GET_TIMELINE).build();
 
-    Pair<PlayerInfo, BundlingExclusions> mergeResult =
+    PlayerInfo mergeResult =
         MediaUtils.mergePlayerInfo(
             oldPlayerInfo,
-            BundlingExclusions.NONE,
             newPlayerInfo,
             new BundlingExclusions(
                 /* isTimelineExcluded= */ true, /* areCurrentTracksExcluded= */ true),
             availableCommands);
 
-    assertThat(mergeResult.first.timeline).isSameInstanceAs(oldPlayerInfo.timeline);
-    assertThat(mergeResult.first.currentTracks).isSameInstanceAs(Tracks.EMPTY);
-    assertThat(mergeResult.second.isTimelineExcluded).isFalse();
-    assertThat(mergeResult.second.areCurrentTracksExcluded).isTrue();
+    assertThat(mergeResult.timeline).isSameInstanceAs(oldPlayerInfo.timeline);
+    assertThat(mergeResult.currentTracks).isSameInstanceAs(Tracks.EMPTY);
   }
 }
