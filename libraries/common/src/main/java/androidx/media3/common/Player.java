@@ -21,6 +21,7 @@ import static java.lang.annotation.ElementType.METHOD;
 import static java.lang.annotation.ElementType.PARAMETER;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
+import android.media.AudioPresentation;
 import android.os.Bundle;
 import android.os.Looper;
 import android.view.Surface;
@@ -554,6 +555,7 @@ public interface Player {
         COMMAND_ADJUST_DEVICE_VOLUME,
         COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS,
         COMMAND_SET_AUDIO_ATTRIBUTES,
+        COMMAND_SET_AUDIO_PRESENTATION,
         COMMAND_SET_VIDEO_SURFACE,
         COMMAND_GET_TEXT,
         COMMAND_SET_TRACK_SELECTION_PARAMETERS,
@@ -1685,6 +1687,7 @@ public interface Player {
    *   <li>{@link #COMMAND_ADJUST_DEVICE_VOLUME}
    *   <li>{@link #COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS}
    *   <li>{@link #COMMAND_SET_AUDIO_ATTRIBUTES}
+   *   <li>{@link #COMMAND_SET_AUDIO_PRESENTATION}
    *   <li>{@link #COMMAND_SET_VIDEO_SURFACE}
    *   <li>{@link #COMMAND_GET_TEXT}
    *   <li>{@link #COMMAND_SET_TRACK_SELECTION_PARAMETERS}
@@ -1732,6 +1735,7 @@ public interface Player {
     COMMAND_ADJUST_DEVICE_VOLUME,
     COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS,
     COMMAND_SET_AUDIO_ATTRIBUTES,
+    COMMAND_SET_AUDIO_PRESENTATION,
     COMMAND_SET_VIDEO_SURFACE,
     COMMAND_GET_TEXT,
     COMMAND_SET_TRACK_SELECTION_PARAMETERS,
@@ -2091,6 +2095,14 @@ public interface Player {
    * command is {@linkplain #isCommandAvailable(int) available}.
    */
   int COMMAND_SET_AUDIO_ATTRIBUTES = 35;
+
+  /**
+   * Command to set the player's audio presentation.
+   *
+   * <p>The {@link #setAudioPresentation(AudioPresentation presentation)} method must only
+   * be called if this command is {@linkplain #isCommandAvailable(int) available}.
+   */
+  int COMMAND_SET_AUDIO_PRESENTATION = 36;
 
   /**
    * Command to set and clear the surface on which to render the video.
@@ -3508,4 +3520,18 @@ public interface Player {
    * @param handleAudioFocus True if the player should handle audio focus, false otherwise.
    */
   void setAudioAttributes(AudioAttributes audioAttributes, boolean handleAudioFocus);
+
+  /**
+   * Sets the {@link AudioPresentation} to be selected in the audio renderer on an active audio
+   * track. This audio presentation will be decoded by the supported audio decoders.
+   *
+   * <p>This method is supported only for direct/offload playback modes and on devices running a
+   * build platform API version 29 onwards.
+   *
+   * <p>This method must only be called if {@link #COMMAND_SET_AUDIO_PRESENTATION} is {@linkplain
+   * #getAvailableCommands() available}.
+   *
+   * @param presentation The audio presentation to select.
+   */
+  default void setAudioPresentation(AudioPresentation presentation) {}
 }
