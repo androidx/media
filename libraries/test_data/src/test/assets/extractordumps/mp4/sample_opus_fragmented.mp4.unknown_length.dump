@@ -12,6 +12,7 @@ track 0:
     sampleMimeType = audio/opus
     channelCount = 2
     sampleRate = 16000
+    metadata = entries=[Mp4Timestamp: creation time=0, modification time=0, timescale=1000000]
     initializationData:
       data = length 19, hash 4034F23B
       data = length 8, hash 94446F01

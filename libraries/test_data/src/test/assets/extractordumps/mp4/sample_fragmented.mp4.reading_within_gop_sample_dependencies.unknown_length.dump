@@ -18,6 +18,7 @@ track 0:
       lumaBitdepth = 8
       chromaBitdepth = 8
     language = und
+    metadata = entries=[TSSE: description=null: values=[Lavf54.20.4], Mp4Timestamp: creation time=3547558895, modification time=3547558895, timescale=1000]
     initializationData:
       data = length 29, hash 4746B5D9
       data = length 10, hash 7A0D0F2B
@@ -153,7 +154,7 @@ track 1:
     channelCount = 1
     sampleRate = 44100
     language = und
-    metadata = entries=[Mp4AlternateGroup: 1]
+    metadata = entries=[Mp4AlternateGroup: 1, TSSE: description=null: values=[Lavf54.20.4], Mp4Timestamp: creation time=3547558895, modification time=3547558895, timescale=1000]
     initializationData:
       data = length 5, hash 2B7623A
   sample 0:

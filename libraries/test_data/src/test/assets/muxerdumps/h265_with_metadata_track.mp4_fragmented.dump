@@ -10,6 +10,7 @@ track 0:
     id = 1
     containerMimeType = video/mp4
     sampleMimeType = application/meta
+    metadata = entries=[Mp4Timestamp: creation time=100000000, modification time=500000000, timescale=10000]
   sample 0:
     time = 0
     flags = 1
@@ -34,6 +35,7 @@ track 1:
     codecs = mp4a.40.2
     channelCount = 2
     sampleRate = 48000
+    metadata = entries=[Mp4Timestamp: creation time=100000000, modification time=500000000, timescale=10000]
     initializationData:
       data = length 2, hash 560
   sample 0:
@@ -68,6 +70,7 @@ track 2:
       colorTransfer = 3
       lumaBitdepth = 8
       chromaBitdepth = 8
+    metadata = entries=[Mp4Timestamp: creation time=100000000, modification time=500000000, timescale=10000]
     initializationData:
       data = length 85, hash 6F3CAA16
   sample 0:

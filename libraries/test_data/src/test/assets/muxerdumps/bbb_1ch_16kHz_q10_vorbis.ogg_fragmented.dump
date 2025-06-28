@@ -13,6 +13,7 @@ track 0:
     sampleMimeType = audio/vorbis
     channelCount = 1
     sampleRate = 16000
+    metadata = entries=[Mp4Timestamp: creation time=100000000, modification time=500000000, timescale=10000]
     initializationData:
       data = length 30, hash C22462B1
       data = length 3539, hash F8106892

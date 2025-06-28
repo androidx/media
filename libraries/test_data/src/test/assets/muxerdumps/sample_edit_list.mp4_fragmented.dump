@@ -24,6 +24,7 @@ track 0:
       lumaBitdepth = 10
       chromaBitdepth = 10
     language = und
+    metadata = entries=[Mp4Timestamp: creation time=100000000, modification time=500000000, timescale=10000]
     initializationData:
       data = length 97, hash 32FB3D18
       data = length 24, hash A31E9935
@@ -388,6 +389,7 @@ track 1:
       lumaBitdepth = 10
       chromaBitdepth = 10
     language = und
+    metadata = entries=[Mp4Timestamp: creation time=100000000, modification time=500000000, timescale=10000]
     initializationData:
       data = length 97, hash 32FB3D18
   sample 0:
@@ -743,6 +745,7 @@ track 2:
     channelCount = 2
     sampleRate = 44100
     language = und
+    metadata = entries=[Mp4Timestamp: creation time=100000000, modification time=500000000, timescale=10000]
     initializationData:
       data = length 2, hash 5FF
   sample 0:

@@ -19,6 +19,7 @@ track 0:
     sampleRate = 48000
     language = und
     drmInitData = -1683793742
+    metadata = entries=[Mp4Timestamp: creation time=3661481125, modification time=3661481125, timescale=48000]
   sample 0:
     time = 480000
     flags = 1073741825
