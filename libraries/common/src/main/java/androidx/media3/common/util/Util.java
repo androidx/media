@@ -2789,6 +2789,19 @@ public final class Util {
   }
 
   /**
+   * Returns the specified millisecond time formatted as a string.
+   *
+   * @param timeMs The time to format as a string, in milliseconds.
+   * @return The time formatted as a string.
+   */
+  @UnstableApi
+  public static String getStringForTime(long timeMs) {
+    StringBuilder builder = new StringBuilder();
+    Formatter formatter = new Formatter(builder, Locale.getDefault());
+    return getStringForTime(builder, formatter, timeMs);
+  }
+
+  /**
    * Escapes a string so that it's safe for use as a file or directory name on at least FAT32
    * filesystems. FAT32 is the most restrictive of all filesystems still commonly used today.
    *

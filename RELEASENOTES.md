@@ -31,6 +31,10 @@
     *   Fix bug where `PlayerSurface` inside re-usable components like
         `LazyColumn` didn't work correctly
         ([#2493](https://github.com/androidx/media/issues/2493)).
+    *   Add `ProgressStateWithTickInterval` class and the corresponding
+        `rememberProgressStateWithTickInterval` Composable to
+        `media3-ui-compose` module. This state holder is used in `demo-compose`
+        to display the current position and duration in text form.
 *   Downloads:
 *   OkHttp extension:
 *   Cronet extension:

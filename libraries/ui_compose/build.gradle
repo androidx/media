@@ -56,6 +56,7 @@ dependencies {
     // Remove the version number once b/385138624 is fixed, GMaven doesn't resolve the BOM above
     api 'androidx.compose.foundation:foundation:1.7.6'
 
+    testImplementation 'androidx.compose.ui:ui-test-android:1.8.2'
     testImplementation 'androidx.compose.ui:ui-test'
     testImplementation 'androidx.compose.ui:ui-test-junit4'
     testImplementation project(modulePrefix + 'test-utils')
