@@ -216,8 +216,8 @@ public class MediaButtonReceiver extends BroadcastReceiver {
    *
    * @param context The {@link Context} that {@linkplain #onReceive(Context, Intent) was received by
    *     the media button event receiver}.
-   * @param intent The intent that would be used {@linkplain Context#startForegroundService(Intent)
-   *     for starting the foreground service}.
+   * @param intent The intent that will be used by {@linkplain
+   *     Context#startForegroundService(Intent) for starting the foreground service}.
    * @return true if the service should be {@linkplain ContextCompat#startForegroundService(Context,
    *     Intent) started as a foreground service}. If false is returned the service is not started
    *     and the receiver call is a no-op.
