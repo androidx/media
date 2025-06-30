@@ -35,6 +35,9 @@
 *   RTMP extension:
 *   HLS extension:
 *   DASH extension:
+    *   Fix issue where trick-play adaptation set is merged with its main
+        adaptation set to form an invalid `TrackGroup`
+        ([#2148](https://github.com/androidx/media/issues/2148)).
 *   Smooth Streaming extension:
 *   RTSP extension:
     *   Add support for RTP Aggregation Packet for H265 in accordance with RFC

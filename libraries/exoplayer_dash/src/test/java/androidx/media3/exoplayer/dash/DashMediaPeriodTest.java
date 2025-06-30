@@ -144,6 +144,32 @@ public final class DashMediaPeriodTest {
   }
 
   @Test
+  public void trickPlayProperty_withIncompatibleFormats_mergesOnlyCompatibleTrackGroups()
+      throws IOException {
+    DashManifest manifest = parseManifest("media/mpd/sample_mpd_trick_play_property_incompatible");
+    DashMediaPeriod dashMediaPeriod = createDashMediaPeriod(manifest, 0);
+    List<AdaptationSet> adaptationSets = manifest.getPeriod(0).adaptationSets;
+
+    // We expect the trick play adaptation sets to be merged with the ones to which they refer,
+    // retaining representations in their original order, except when their properties differ.
+    TrackGroupArray expectedTrackGroups =
+        new TrackGroupArray(
+            new TrackGroup(
+                /* id= */ "3000000000",
+                adaptationSets.get(0).representations.get(0).format,
+                adaptationSets.get(0).representations.get(1).format,
+                adaptationSets.get(1).representations.get(0).format),
+            new TrackGroup(
+                /* id= */ "3000000002",
+                adaptationSets.get(2).representations.get(0).format,
+                adaptationSets.get(2).representations.get(1).format),
+            new TrackGroup(
+                /* id= */ "3000000003", adaptationSets.get(3).representations.get(0).format));
+
+    MediaPeriodAsserts.assertTrackGroups(dashMediaPeriod, expectedTrackGroups);
+  }
+
+  @Test
   public void adaptationSetSwitchingProperty_andTrickPlayProperty_mergesTrackGroups()
       throws IOException {
     DashManifest manifest = parseManifest("media/mpd/sample_mpd_switching_and_trick_play_property");

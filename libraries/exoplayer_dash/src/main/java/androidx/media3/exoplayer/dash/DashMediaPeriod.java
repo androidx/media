@@ -608,7 +608,8 @@ import java.util.regex.Pattern;
       if (trickPlayProperty != null) {
         long mainAdaptationSetId = Long.parseLong(trickPlayProperty.value);
         @Nullable Integer mainAdaptationSetIndex = adaptationSetIdToIndex.get(mainAdaptationSetId);
-        if (mainAdaptationSetIndex != null) {
+        if (mainAdaptationSetIndex != null
+            && canMergeAdaptationSets(adaptationSet, adaptationSets.get(mainAdaptationSetIndex))) {
           mergedGroupIndex = mainAdaptationSetIndex;
         }
       }
@@ -663,8 +664,10 @@ import java.util.regex.Pattern;
     }
     Format format1 = adaptationSet1.representations.get(0).format;
     Format format2 = adaptationSet2.representations.get(0).format;
+    int format1RoleFlagsExcludingTrickPlay = format1.roleFlags & ~C.ROLE_FLAG_TRICK_PLAY;
+    int format2RoleFlagsExcludingTrickPlay = format2.roleFlags & ~C.ROLE_FLAG_TRICK_PLAY;
     return Objects.equals(format1.language, format2.language)
-        && format1.roleFlags == format2.roleFlags;
+        && format1RoleFlagsExcludingTrickPlay == format2RoleFlagsExcludingTrickPlay;
   }
 
   /**
