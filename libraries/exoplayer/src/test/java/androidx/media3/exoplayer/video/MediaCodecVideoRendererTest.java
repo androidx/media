@@ -2023,7 +2023,7 @@ public class MediaCodecVideoRendererTest {
     // Set scrubbing mode but with flushing enabled.
     mediaCodecVideoRenderer.handleMessage(
         Renderer.MSG_SET_SCRUBBING_MODE,
-        new ScrubbingModeParameters.Builder().setIsMediaCodecFlushEnabled(true).build());
+        new ScrubbingModeParameters.Builder().setAllowSkippingMediaCodecFlush(false).build());
     seekToUs(mediaCodecVideoRenderer, fakeSampleStream, /* positionUs= */ 200_000);
 
     for (int i = 0; i < 5; i++) {
@@ -2083,7 +2083,7 @@ public class MediaCodecVideoRendererTest {
     // Set scrubbing mode with flushing disabled.
     mediaCodecVideoRenderer.handleMessage(
         Renderer.MSG_SET_SCRUBBING_MODE,
-        new ScrubbingModeParameters.Builder().setIsMediaCodecFlushEnabled(false).build());
+        new ScrubbingModeParameters.Builder().setAllowSkippingMediaCodecFlush(true).build());
     seekToUs(mediaCodecVideoRenderer, fakeSampleStream, /* positionUs= */ 200_000);
 
     for (int i = 0; i < 5; i++) {
@@ -2827,7 +2827,7 @@ public class MediaCodecVideoRendererTest {
     // Enable flushing so that new seek will flush the 50_000 us sample.
     mediaCodecVideoRenderer.handleMessage(
         Renderer.MSG_SET_SCRUBBING_MODE,
-        new ScrubbingModeParameters.Builder().setIsMediaCodecFlushEnabled(true).build());
+        new ScrubbingModeParameters.Builder().setAllowSkippingMediaCodecFlush(false).build());
     seekToUs(mediaCodecVideoRenderer, fakeSampleStream, /* positionUs= */ 200_000);
 
     // Disable flushing but there should be zero samples to drop with the seek.
