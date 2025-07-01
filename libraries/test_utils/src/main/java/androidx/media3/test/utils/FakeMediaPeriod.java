@@ -414,7 +414,7 @@ public class FakeMediaPeriod implements MediaPeriod {
     boolean seekedInsideStreams = true;
     for (FakeSampleStream sampleStream : sampleStreams) {
       seekedInsideStreams &=
-          sampleStream.seekToUs(seekPositionUs, /* allowTimeBeyondBuffer= */ false);
+          sampleStream.seekToUs(seekPositionUs, /* allowTimeBeyondBuffer= */ isLoadingFinished());
     }
     if (!seekedInsideStreams) {
       for (FakeSampleStream sampleStream : sampleStreams) {

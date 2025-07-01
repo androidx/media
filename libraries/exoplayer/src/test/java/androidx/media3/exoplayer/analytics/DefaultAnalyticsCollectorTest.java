@@ -911,7 +911,7 @@ public final class DefaultAnalyticsCollectorTest {
             period1Seq0 /* PLAYLIST_CHANGED (sources in playlist moved) */)
         .inOrder();
     assertThat(listener.getEvents(EVENT_IS_LOADING_CHANGED))
-        .containsExactly(window0Period1Seq0, window0Period1Seq0, period1Seq0, period1Seq0);
+        .containsExactly(window0Period1Seq0, window0Period1Seq0);
     assertThat(listener.getEvents(EVENT_TRACKS_CHANGED)).containsExactly(window0Period1Seq0);
     assertThat(listener.getEvents(EVENT_LOAD_STARTED))
         .containsExactly(
