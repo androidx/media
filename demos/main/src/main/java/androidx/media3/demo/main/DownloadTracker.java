@@ -409,10 +409,8 @@ public class DownloadTracker {
               () -> {
                 OfflineLicenseHelper offlineLicenseHelper =
                     OfflineLicenseHelper.newWidevineInstance(
-                        drmConfiguration.licenseUri.toString(),
-                        drmConfiguration.forceDefaultLicenseUri,
+                        drmConfiguration,
                         dataSourceFactory,
-                        drmConfiguration.licenseRequestHeaders,
                         new DrmSessionEventListener.EventDispatcher());
                 try {
                   keySetId = offlineLicenseHelper.downloadLicense(format);
