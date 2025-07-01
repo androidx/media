@@ -111,37 +111,16 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 public final class Mp4Muxer implements Muxer {
   /** Parameters for {@link #FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION}. */
   public static final class Mp4AtFileParameters {
-    // TODO: b/412587106 - Replace it with MuxerOutputFactory#getCacheFilePath.
-    /** Provides temporary cache files to be used by the muxer. */
-    public interface CacheFileProvider {
-
-      /**
-       * Returns a cache file path.
-       *
-       * <p>Every call to this method should return a new cache file.
-       *
-       * <p>The app is responsible for deleting the cache file after {@linkplain Mp4Muxer#close()
-       * closing} the muxer.
-       */
-      String getCacheFilePath();
-    }
-
     public final boolean shouldInterleaveSamples;
-    @Nullable public final CacheFileProvider cacheFileProvider;
 
     /**
      * Creates an instance.
      *
      * @param shouldInterleaveSamples Whether to interleave auxiliary track samples with primary
      *     track samples.
-     * @param cacheFileProvider A {@link CacheFileProvider}. Required only when {@code
-     *     shouldInterleaveSamples} is set to {@code false}, can be {@code null} otherwise.
      */
-    public Mp4AtFileParameters(
-        boolean shouldInterleaveSamples, @Nullable CacheFileProvider cacheFileProvider) {
-      checkArgument(shouldInterleaveSamples || cacheFileProvider != null);
+    public Mp4AtFileParameters(boolean shouldInterleaveSamples) {
       this.shouldInterleaveSamples = shouldInterleaveSamples;
-      this.cacheFileProvider = cacheFileProvider;
     }
   }
 
@@ -415,6 +394,7 @@ public final class Mp4Muxer implements Muxer {
 
   private static final String TAG = "Mp4Muxer";
 
+  private final MuxerOutputFactory muxerOutputFactory;
   private final SeekableMuxerOutput muxerOutput;
   private final @LastSampleDurationBehavior int lastSampleDurationBehavior;
   private final AnnexBToAvccConverter annexBToAvccConverter;
@@ -446,6 +426,7 @@ public final class Mp4Muxer implements Muxer {
       @FileFormat int outputFileFormat,
       @Nullable Mp4AtFileParameters mp4AtFileParameters,
       int freeSpaceAfterFtypInBytes) {
+    this.muxerOutputFactory = muxerOutputFactory;
     this.muxerOutput = muxerOutputFactory.getSeekableMuxerOutput();
     this.lastSampleDurationBehavior = lastFrameDurationBehavior;
     this.annexBToAvccConverter = annexBToAvccConverter;
@@ -621,8 +602,7 @@ public final class Mp4Muxer implements Muxer {
   @EnsuresNonNull({"auxiliaryTracksMp4Writer"})
   private void ensureSetupForAuxiliaryTracks() throws FileNotFoundException {
     if (auxiliaryTracksMp4Writer == null) {
-      cacheFilePath =
-          checkNotNull(checkNotNull(mp4AtFileParameters).cacheFileProvider).getCacheFilePath();
+      cacheFilePath = muxerOutputFactory.getCacheFilePath();
       cacheMuxerOutput = SeekableMuxerOutput.of(cacheFilePath);
       auxiliaryTracksMetadataCollector = new MetadataCollector();
       auxiliaryTracksMp4Writer =
