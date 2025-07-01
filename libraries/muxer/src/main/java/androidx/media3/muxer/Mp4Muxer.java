@@ -111,6 +111,7 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 public final class Mp4Muxer implements Muxer {
   /** Parameters for {@link #FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION}. */
   public static final class Mp4AtFileParameters {
+    // TODO: b/412587106 - Replace it with MuxerOutputFactory#getCacheFilePath.
     /** Provides temporary cache files to be used by the muxer. */
     public interface CacheFileProvider {
 
@@ -198,7 +199,7 @@ public final class Mp4Muxer implements Muxer {
 
   /** A builder for {@link Mp4Muxer} instances. */
   public static final class Builder {
-    private final FileOutputStream outputStream;
+    private final MuxerOutputFactory muxerOutputFactory;
 
     private @LastSampleDurationBehavior int lastSampleDurationBehavior;
     @Nullable private AnnexBToAvccConverter annexBToAvccConverter;
@@ -210,13 +211,33 @@ public final class Mp4Muxer implements Muxer {
     private int freeSpaceAfterFtypInBytes;
 
     /**
-     * Creates a {@link Builder} instance with default values.
-     *
-     * @param outputStream The {@link FileOutputStream} to write the media data to. This stream will
-     *     be automatically closed by the muxer when {@link Mp4Muxer#close()} is called.
+     * @deprecated Use {@link Mp4Muxer.Builder#Builder(MuxerOutputFactory)} instead.
      */
+    @Deprecated
     public Builder(FileOutputStream outputStream) {
-      this.outputStream = outputStream;
+      this(
+          new MuxerOutputFactory() {
+            @Override
+            public SeekableMuxerOutput getSeekableMuxerOutput() {
+              return SeekableMuxerOutput.of(outputStream);
+            }
+
+            @Override
+            public String getCacheFilePath() {
+              throw new UnsupportedOperationException(
+                  "Cache file is not supported with Muxer#Builder(FileOutputStream) builder, use"
+                      + " Muxer#Builder(MuxerOutputFactory) instead");
+            }
+          });
+    }
+
+    /**
+     * Creates an instance.
+     *
+     * @param muxerOutputFactory A {@link MuxerOutputFactory} to provide output destinations.
+     */
+    public Builder(MuxerOutputFactory muxerOutputFactory) {
+      this.muxerOutputFactory = muxerOutputFactory;
       lastSampleDurationBehavior =
           LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER_OR_DUPLICATE_PREVIOUS;
       attemptStreamableOutputEnabled = true;
@@ -355,7 +376,7 @@ public final class Mp4Muxer implements Muxer {
               : mp4AtFileParameters == null,
           "Mp4AtFileParameters must be set for FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION");
       return new Mp4Muxer(
-          SeekableMuxerOutput.of(outputStream),
+          muxerOutputFactory,
           lastSampleDurationBehavior,
           annexBToAvccConverter == null ? AnnexBToAvccConverter.DEFAULT : annexBToAvccConverter,
           sampleCopyEnabled,
@@ -416,7 +437,7 @@ public final class Mp4Muxer implements Muxer {
   private int nextTrackId;
 
   private Mp4Muxer(
-      SeekableMuxerOutput muxerOutput,
+      MuxerOutputFactory muxerOutputFactory,
       @LastSampleDurationBehavior int lastFrameDurationBehavior,
       AnnexBToAvccConverter annexBToAvccConverter,
       boolean sampleCopyEnabled,
@@ -425,7 +446,7 @@ public final class Mp4Muxer implements Muxer {
       @FileFormat int outputFileFormat,
       @Nullable Mp4AtFileParameters mp4AtFileParameters,
       int freeSpaceAfterFtypInBytes) {
-    this.muxerOutput = muxerOutput;
+    this.muxerOutput = muxerOutputFactory.getSeekableMuxerOutput();
     this.lastSampleDurationBehavior = lastFrameDurationBehavior;
     this.annexBToAvccConverter = annexBToAvccConverter;
     this.sampleCopyEnabled = sampleBatchingEnabled && sampleCopyEnabled;

@@ -29,6 +29,8 @@
         ([#2169](https://github.com/androidx/media/issues/2169)).
 *   Effect:
 *   Muxers:
+    *   Deprecate `Mp4Muxer#Builder(FileOutputStream)` constructor. Use
+        `Mp4Muxer#Builder(MuxerOutputFactory)` instead.
     *   Deprecate `FragmentedMp4Muxer#Builder(OutputStream)` constructor. Use
         `FragmentedMp4Muxer#Builder(WritableByteChannel)` instead.
 *   IMA extension:
