@@ -2039,6 +2039,66 @@ public class MediaCodecVideoRendererTest {
   }
 
   @Test
+  public void
+      render_afterSeekWithFlushingDisabledAndNonZeroMaxNumReorderSamples_rendersFramesAsExpected()
+          throws Exception {
+    Format h264FormatWithNonZeroMaxNumReorderSamples =
+        VIDEO_H264.buildUpon().setMaxNumReorderSamples(2).build();
+    ArgumentCaptor<DecoderCounters> argumentDecoderCounters =
+        ArgumentCaptor.forClass(DecoderCounters.class);
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ h264FormatWithNonZeroMaxNumReorderSamples,
+            ImmutableList.of(
+                oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME),
+                oneByteSample(/* timeUs= */ 50_000),
+                oneByteSample(/* timeUs= */ 100_000),
+                oneByteSample(/* timeUs= */ 150_000, C.BUFFER_FLAG_KEY_FRAME),
+                oneByteSample(/* timeUs= */ 200_000),
+                oneByteSample(/* timeUs= */ 250_000),
+                END_OF_STREAM_ITEM));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    mediaCodecVideoRenderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {h264FormatWithNonZeroMaxNumReorderSamples},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        /* mediaPeriodId= */ new MediaSource.MediaPeriodId(new Object()));
+    // Render first sample and decode the second.
+    mediaCodecVideoRenderer.start();
+    mediaCodecVideoRenderer.render(0, SystemClock.elapsedRealtime() * 1000);
+    for (int i = 0; i < 5; i++) {
+      mediaCodecVideoRenderer.render(40_000, SystemClock.elapsedRealtime() * 1000);
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
+    }
+
+    // Set scrubbing mode with flushing disabled.
+    mediaCodecVideoRenderer.handleMessage(
+        Renderer.MSG_SET_SCRUBBING_MODE,
+        new ScrubbingModeParameters.Builder().setIsMediaCodecFlushEnabled(false).build());
+    seekToUs(mediaCodecVideoRenderer, fakeSampleStream, /* positionUs= */ 200_000);
+
+    for (int i = 0; i < 5; i++) {
+      mediaCodecVideoRenderer.render(200_000, SystemClock.elapsedRealtime() * 1000);
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
+    }
+    shadowOf(testMainLooper).idle();
+
+    verify(eventListener).onVideoEnabled(argumentDecoderCounters.capture());
+
+    assertThat(argumentDecoderCounters.getValue().skippedOutputBufferCount).isEqualTo(1);
+    assertThat(argumentDecoderCounters.getValue().renderedOutputBufferCount).isEqualTo(2);
+  }
+
+  @Test
   public void render_afterSeekWithFlushingDisabled_rendersFramesAsExpected() throws Exception {
     ArgumentCaptor<DecoderCounters> argumentDecoderCounters =
         ArgumentCaptor.forClass(DecoderCounters.class);
