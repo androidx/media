@@ -35,9 +35,7 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Util;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.nio.ByteBuffer;
-import java.nio.channels.Channels;
 import java.nio.channels.WritableByteChannel;
 import java.util.ArrayList;
 import java.util.List;
@@ -64,52 +62,40 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
   }
 
-  /** An {@link OutputStream} that tracks the number of bytes written to the stream. */
-  private static class PositionTrackingOutputStream extends OutputStream {
-    private final OutputStream outputStream;
+  /** A {@link WritableByteChannel} that tracks the number of bytes written to the stream. */
+  private static class PositionTrackingOutputChannel implements WritableByteChannel {
+    private final WritableByteChannel outputChannel;
     private long position;
 
-    public PositionTrackingOutputStream(OutputStream outputStream) {
-      this.outputStream = outputStream;
+    public PositionTrackingOutputChannel(WritableByteChannel outputChannel) {
+      this.outputChannel = outputChannel;
       this.position = 0;
     }
 
     @Override
-    public void write(int b) throws IOException {
-      position++;
-      outputStream.write(b);
+    public int write(ByteBuffer src) throws IOException {
+      int bytesWritten = outputChannel.write(src);
+      position += bytesWritten;
+      return bytesWritten;
     }
 
     @Override
-    public void write(byte[] b) throws IOException {
-      position += b.length;
-      outputStream.write(b);
-    }
-
-    @Override
-    public void write(byte[] b, int off, int len) throws IOException {
-      position += len;
-      outputStream.write(b, off, len);
-    }
-
-    @Override
-    public void flush() throws IOException {
-      outputStream.flush();
+    public boolean isOpen() {
+      return outputChannel.isOpen();
     }
 
     @Override
     public void close() throws IOException {
-      outputStream.close();
+      outputChannel.close();
     }
 
-    /** Returns the number of bytes written to the stream. */
+    /** Returns the number of bytes written to the channel. */
     public long getPosition() {
       return position;
     }
   }
 
-  private final PositionTrackingOutputStream outputStream;
-  private final WritableByteChannel outputChannel;
+  private final PositionTrackingOutputChannel outputChannel;
   private final MetadataCollector metadataCollector;
   private final AnnexBToAvccConverter annexBToAvccConverter;
   private final long fragmentDurationUs;
@@ -128,7 +114,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   /**
    * Creates an instance.
    *
-   * @param outputStream The {@link OutputStream} to write the data to.
+   * @param outputChannel The {@link WritableByteChannel} to write the data to.
    * @param metadataCollector A {@link MetadataCollector}.
    * @param annexBToAvccConverter The {@link AnnexBToAvccConverter} to be used to convert H.264 and
    *     H.265 NAL units from the Annex-B format (using start codes to delineate NAL units) to the
@@ -137,13 +123,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * @param sampleCopyEnabled Whether sample copying is enabled.
    */
   public FragmentedMp4Writer(
-      OutputStream outputStream,
+      WritableByteChannel outputChannel,
       MetadataCollector metadataCollector,
       AnnexBToAvccConverter annexBToAvccConverter,
       long fragmentDurationMs,
       boolean sampleCopyEnabled) {
-    this.outputStream = new PositionTrackingOutputStream(outputStream);
-    this.outputChannel = Channels.newChannel(this.outputStream);
+    this.outputChannel = new PositionTrackingOutputChannel(outputChannel);
     this.metadataCollector = metadataCollector;
     this.annexBToAvccConverter = annexBToAvccConverter;
     this.fragmentDurationUs = fragmentDurationMs * 1_000;
@@ -195,7 +180,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       createFragment();
     } finally {
       outputChannel.close();
-      outputStream.close();
     }
   }
 
@@ -290,7 +274,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
      */
     ImmutableList<ProcessedTrackInfo> trackInfos = processAllTracks();
     ImmutableList<ByteBuffer> trafBoxes =
-        createTrafBoxes(trackInfos, /* moofBoxStartPosition= */ outputStream.getPosition());
+        createTrafBoxes(trackInfos, /* moofBoxStartPosition= */ outputChannel.getPosition());
     if (trafBoxes.isEmpty()) {
       return;
     }

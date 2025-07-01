@@ -29,6 +29,8 @@
         ([#2169](https://github.com/androidx/media/issues/2169)).
 *   Effect:
 *   Muxers:
+    *   Deprecate `FragmentedMp4Muxer#Builder(OutputStream)` constructor. Use
+        `FragmentedMp4Muxer#Builder(WritableByteChannel)` instead.
 *   IMA extension:
 *   Session:
     *   Fix bug where some controller changes that are not handled by the

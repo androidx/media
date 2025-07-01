@@ -122,7 +122,8 @@ public class FragmentedMp4MuxerEndToEndTest {
     @Nullable FragmentedMp4Muxer fragmentedMp4Muxer = null;
 
     try {
-      fragmentedMp4Muxer = new FragmentedMp4Muxer.Builder(checkNotNull(outputStream)).build();
+      fragmentedMp4Muxer =
+          new FragmentedMp4Muxer.Builder(checkNotNull(outputStream).getChannel()).build();
       fragmentedMp4Muxer.addMetadataEntry(
           new Mp4TimestampData(
               /* creationTimestampSeconds= */ 100_000_000L,
@@ -149,7 +150,8 @@ public class FragmentedMp4MuxerEndToEndTest {
     @Nullable FragmentedMp4Muxer fragmentedMp4Muxer = null;
 
     try {
-      fragmentedMp4Muxer = new FragmentedMp4Muxer.Builder(checkNotNull(outputStream)).build();
+      fragmentedMp4Muxer =
+          new FragmentedMp4Muxer.Builder(checkNotNull(outputStream).getChannel()).build();
       fragmentedMp4Muxer.addMetadataEntry(
           new Mp4TimestampData(
               /* creationTimestampSeconds= */ 100_000_000L,
@@ -176,7 +178,8 @@ public class FragmentedMp4MuxerEndToEndTest {
     @Nullable FragmentedMp4Muxer fragmentedMp4Muxer = null;
 
     try {
-      fragmentedMp4Muxer = new FragmentedMp4Muxer.Builder(checkNotNull(outputStream)).build();
+      fragmentedMp4Muxer =
+          new FragmentedMp4Muxer.Builder(checkNotNull(outputStream).getChannel()).build();
       fragmentedMp4Muxer.addMetadataEntry(
           new Mp4TimestampData(
               /* creationTimestampSeconds= */ 100_000_000L,
@@ -202,7 +205,7 @@ public class FragmentedMp4MuxerEndToEndTest {
   public void createAv1FragmentedMp4File_withoutCsd_matchesExpected() throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
     FragmentedMp4Muxer mp4Muxer =
-        new FragmentedMp4Muxer.Builder(new FileOutputStream(outputFilePath)).build();
+        new FragmentedMp4Muxer.Builder(new FileOutputStream(outputFilePath).getChannel()).build();
 
     try {
       mp4Muxer.addMetadataEntry(
@@ -236,7 +239,7 @@ public class FragmentedMp4MuxerEndToEndTest {
       throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
     FragmentedMp4Muxer mp4Muxer =
-        new FragmentedMp4Muxer.Builder(new FileOutputStream(outputFilePath)).build();
+        new FragmentedMp4Muxer.Builder(new FileOutputStream(outputFilePath).getChannel()).build();
 
     try {
       mp4Muxer.addMetadataEntry(
