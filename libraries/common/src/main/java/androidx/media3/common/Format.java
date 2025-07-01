@@ -19,10 +19,13 @@ import static androidx.media3.common.util.Assertions.checkState;
 import static com.google.common.math.DoubleMath.fuzzyEquals;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
+import android.media.AudioPresentation;
+import android.os.Build;
 import android.os.Bundle;
 import android.text.TextUtils;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.media3.common.util.BundleCollectionUtil;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -42,6 +45,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.IntStream;
 
 /**
  * Represents a media format.
@@ -116,6 +120,7 @@ import java.util.UUID;
  *   <li>{@link #pcmEncoding}
  *   <li>{@link #encoderDelay}
  *   <li>{@link #encoderPadding}
+ *   <li>{@link #audioPresentations}
  * </ul>
  *
  * <h2 id="text-formats">Fields relevant to text formats</h2>
@@ -193,6 +198,7 @@ public final class Format {
     private @C.PcmEncoding int pcmEncoding;
     private int encoderDelay;
     private int encoderPadding;
+    private List<AudioPresentation> audioPresentations;
 
     // Text specific.
 
@@ -239,6 +245,7 @@ public final class Format {
       // Provided by the source.
       cryptoType = C.CRYPTO_TYPE_NONE;
       auxiliaryTrackType = C.AUXILIARY_TRACK_TYPE_UNDEFINED;
+      audioPresentations = ImmutableList.of();
     }
 
     /**
@@ -286,6 +293,7 @@ public final class Format {
       this.pcmEncoding = format.pcmEncoding;
       this.encoderDelay = format.encoderDelay;
       this.encoderPadding = format.encoderPadding;
+      this.audioPresentations = format.audioPresentations;
       // Text specific.
       this.accessibilityChannel = format.accessibilityChannel;
       this.cueReplacementBehavior = format.cueReplacementBehavior;
@@ -766,6 +774,18 @@ public final class Format {
       return this;
     }
 
+    /**
+     * Sets {@link AudioPresentation}. The default value is {@code null}.
+     *
+     * @param presentations The {@link Format#audioPresentations}.
+     * @return The builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setAudioPresentations(List<AudioPresentation> presentations) {
+      this.audioPresentations = ImmutableList.copyOf(presentations);
+      return this;
+    }
+
     // Text specific.
 
     /**
@@ -1104,6 +1124,11 @@ public final class Format {
    */
   @UnstableApi public final int encoderPadding;
 
+  /** The audio presentations. Will not be null, but may be empty if audio presentations are not
+   * included in the container.
+   */
+  public final List<AudioPresentation> audioPresentations;
+
   // Text specific.
 
   /** The Accessibility channel, or {@link #NO_VALUE} if not known or applicable. */
@@ -1209,6 +1234,7 @@ public final class Format {
     pcmEncoding = builder.pcmEncoding;
     encoderDelay = builder.encoderDelay == NO_VALUE ? 0 : builder.encoderDelay;
     encoderPadding = builder.encoderPadding == NO_VALUE ? 0 : builder.encoderPadding;
+    audioPresentations = builder.audioPresentations;
     // Text specific.
     accessibilityChannel = builder.accessibilityChannel;
     cueReplacementBehavior = builder.cueReplacementBehavior;
@@ -1348,6 +1374,8 @@ public final class Format {
         + channelCount
         + ", "
         + sampleRate
+        + ", "
+        + audioPresentations
         + "])";
   }
 
@@ -1394,6 +1422,7 @@ public final class Format {
       result = 31 * result + pcmEncoding;
       result = 31 * result + encoderDelay;
       result = 31 * result + encoderPadding;
+      // [Omitted audioPresentations]
       // Text specific.
       result = 31 * result + accessibilityChannel;
       // Image specific.
@@ -1618,6 +1647,7 @@ public final class Format {
   private static final String FIELD_MAX_SUB_LAYERS = Util.intToStringMaxRadix(34);
   private static final String FIELD_DECODED_WIDTH = Util.intToStringMaxRadix(35);
   private static final String FIELD_DECODED_HEIGHT = Util.intToStringMaxRadix(36);
+  private static final String FIELD_AUDIO_PRESENTATIONS = Util.intToStringMaxRadix(37);
 
   /**
    * Returns a {@link Bundle} representing the information stored in this object. If {@code
@@ -1672,6 +1702,11 @@ public final class Format {
     bundle.putInt(FIELD_PCM_ENCODING, pcmEncoding);
     bundle.putInt(FIELD_ENCODER_DELAY, encoderDelay);
     bundle.putInt(FIELD_ENCODER_PADDING, encoderPadding);
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+      for (int i = 0; i < audioPresentations.size(); i++) {
+         bundle.putParcelable(keyForAudioPresentations(i), audioPresentations.get(i));
+      }
+    }
     // Text specific.
     bundle.putInt(FIELD_ACCESSIBILITY_CHANNEL, accessibilityChannel);
     // Image specific.
@@ -1742,12 +1777,23 @@ public final class Format {
       builder.setColorInfo(ColorInfo.fromBundle(colorInfoBundle));
     }
     // Audio specific.
+    List<AudioPresentation> presentations = new ArrayList<>();
+    int i = 0;
+    AudioPresentation data;
+    do {
+      data = bundle.getParcelable(keyForAudioPresentations(i++));
+      if (data != null) {
+        presentations.add(data);
+      }
+    } while (data != null);
+
     builder
         .setChannelCount(bundle.getInt(FIELD_CHANNEL_COUNT, DEFAULT.channelCount))
         .setSampleRate(bundle.getInt(FIELD_SAMPLE_RATE, DEFAULT.sampleRate))
         .setPcmEncoding(bundle.getInt(FIELD_PCM_ENCODING, DEFAULT.pcmEncoding))
         .setEncoderDelay(bundle.getInt(FIELD_ENCODER_DELAY, DEFAULT.encoderDelay))
         .setEncoderPadding(bundle.getInt(FIELD_ENCODER_PADDING, DEFAULT.encoderPadding))
+        .setAudioPresentations(presentations)
         // Text specific.
         .setAccessibilityChannel(
             bundle.getInt(FIELD_ACCESSIBILITY_CHANNEL, DEFAULT.accessibilityChannel))
@@ -1765,6 +1811,12 @@ public final class Format {
     return FIELD_INITIALIZATION_DATA
         + "_"
         + Integer.toString(initialisationDataIndex, Character.MAX_RADIX);
+  }
+
+  private static String keyForAudioPresentations(int audioPresentationsIndex) {
+    return FIELD_AUDIO_PRESENTATIONS
+        + "_"
+        + Integer.toString(audioPresentationsIndex, Character.MAX_RADIX);
   }
 
   /**

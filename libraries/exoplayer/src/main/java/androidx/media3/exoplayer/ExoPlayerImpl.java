@@ -45,6 +45,7 @@ import android.content.Context;
 import android.graphics.Rect;
 import android.graphics.SurfaceTexture;
 import android.media.AudioDeviceInfo;
+import android.media.AudioPresentation;
 import android.media.MediaFormat;
 import android.os.Handler;
 import android.os.Looper;
@@ -352,6 +353,9 @@ import java.util.concurrent.CopyOnWriteArraySet;
           playbackInfoUpdate ->
               playbackInfoUpdateHandler.post(() -> handlePlaybackInfo(playbackInfoUpdate));
       playbackInfo = PlaybackInfo.createDummy(emptyTrackSelectorResult);
+      ExoPlayerImplInternal.AudioPresentationsChangeListener audioPresentationsChangeListener =
+          audioPresentations -> playbackInfoUpdateHandler.post(() ->
+              handleAudioPresentationsChange(audioPresentations));
       analyticsCollector.setPlayer(this.wrappingPlayer, applicationLooper);
       PlayerId playerId = new PlayerId(builder.playerName);
       internalPlayer =
@@ -377,7 +381,8 @@ import java.util.concurrent.CopyOnWriteArraySet;
               playerId,
               builder.playbackLooperProvider,
               preloadConfiguration,
-              frameMetadataListener);
+              frameMetadataListener,
+              audioPresentationsChangeListener);
       Looper playbackLooper = internalPlayer.getPlaybackLooper();
 
       volume = 1;
@@ -461,6 +466,12 @@ import java.util.concurrent.CopyOnWriteArraySet;
     } finally {
       constructorFinished.open();
     }
+  }
+
+  private void handleAudioPresentationsChange(List<AudioPresentation> audioPresentations) {
+    listeners.queueEvent(
+        Player.EVENT_AUDIO_PRESENTATIONS_CHANGED,
+        listener -> listener.onAudioPresentationsChanged(audioPresentations));
   }
 
   @Override
