@@ -49,6 +49,9 @@
     *   Fix bug where track selection changes after loading low-latency parts
         and preload hints can cause playback to get stuck or freeze
         ([#2299](https://github.com/androidx/media/issues/2299)).
+    *   Prevent excessive reloads by waiting for half the target duration when
+        `CAN-BLOCK-RELOAD=YES` is not honored by the server
+        ([#2317](https://github.com/androidx/media/pull/2317)).
 *   DASH extension:
     *   Fix issue where trick-play adaptation set is merged with its main
         adaptation set to form an invalid `TrackGroup`
