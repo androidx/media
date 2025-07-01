@@ -1512,10 +1512,12 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
 
   @Override
   protected final boolean shouldFlushCodec() {
+    Format inputFormat = getCodecInputFormat();
     return scrubbingModeParameters == null
         ? super.shouldFlushCodec()
         : scrubbingModeParameters.isMediaCodecFlushEnabled
             || isFlushRequired
+            || (inputFormat != null && inputFormat.maxNumReorderSamples > 0)
             || hasSkippedFlushAndWaitingForEarlierFrame()
             || getLastBufferInStreamPresentationTimeUs() != C.TIME_UNSET;
   }
