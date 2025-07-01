@@ -17,6 +17,8 @@
 *   Audio:
 *   Video:
 *   Text:
+    *   Add support for VobSub tracks in MP4 files
+        ([#2510](https://github.com/androidx/media/issues/2510)).
 *   Metadata:
 *   Image:
 *   DataSource:
@@ -40,6 +42,9 @@
 *   Cronet extension:
 *   RTMP extension:
 *   HLS extension:
+    *   Prevent excessive reloads by waiting for half the target duration when
+        `CAN-BLOCK-RELOAD=YES` is not honored by the server
+        ([#2317](https://github.com/androidx/media/pull/2317)).
 *   DASH extension:
     *   Fix issue where trick-play adaptation set is merged with its main
         adaptation set to form an invalid `TrackGroup`
@@ -121,8 +126,6 @@ This release includes the following changes since the
     *   Fix a playback stall when a subtitle segment initially fails to load and
         later loads successfully, followed by several empty subtitle segments
         ([#2517](https://github.com/androidx/media/issues/2517)).
-    *   Add support for VobSub tracks in MP4 files
-        ([#2510](https://github.com/androidx/media/issues/2510)).
 *   Metadata:
     *   Added support for retrieving media duration and `Timeline` to
         `MetadataRetriever` and migrated it to an instance-based,
