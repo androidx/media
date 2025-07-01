@@ -87,7 +87,7 @@ public class ScrubbingPlaybackTest {
     player.release();
     surface.release();
 
-    assertThat(player.getScrubbingModeParameters().isMediaCodecFlushEnabled).isFalse();
+    assertThat(player.getScrubbingModeParameters().allowSkippingMediaCodecFlush).isTrue();
     DumpFileAsserts.assertOutput(
         applicationContext,
         playbackOutput,
@@ -125,7 +125,7 @@ public class ScrubbingPlaybackTest {
     player.release();
     surface.release();
 
-    assertThat(player.getScrubbingModeParameters().isMediaCodecFlushEnabled).isFalse();
+    assertThat(player.getScrubbingModeParameters().allowSkippingMediaCodecFlush).isTrue();
     DumpFileAsserts.assertOutput(
         applicationContext,
         playbackOutput,
@@ -163,7 +163,7 @@ public class ScrubbingPlaybackTest {
     player.release();
     surface.release();
 
-    assertThat(player.getScrubbingModeParameters().isMediaCodecFlushEnabled).isFalse();
+    assertThat(player.getScrubbingModeParameters().allowSkippingMediaCodecFlush).isTrue();
     DumpFileAsserts.assertOutput(
         applicationContext,
         playbackOutput,
@@ -194,7 +194,11 @@ public class ScrubbingPlaybackTest {
     play(player).untilBackgroundThreadCondition(hasReceivedOutputBufferPastBlockTime::get);
     player.setScrubbingModeEnabled(true);
     player.setScrubbingModeParameters(
-        player.getScrubbingModeParameters().buildUpon().setIsMediaCodecFlushEnabled(true).build());
+        player
+            .getScrubbingModeParameters()
+            .buildUpon()
+            .setAllowSkippingMediaCodecFlush(false)
+            .build());
     player.seekTo(500);
 
     // End blocking in renderer.
@@ -205,7 +209,7 @@ public class ScrubbingPlaybackTest {
     player.release();
     surface.release();
 
-    assertThat(player.getScrubbingModeParameters().isMediaCodecFlushEnabled).isTrue();
+    assertThat(player.getScrubbingModeParameters().allowSkippingMediaCodecFlush).isFalse();
     DumpFileAsserts.assertOutput(
         applicationContext,
         playbackOutput,

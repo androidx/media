@@ -1515,7 +1515,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     Format inputFormat = getCodecInputFormat();
     return scrubbingModeParameters == null
         ? super.shouldFlushCodec()
-        : scrubbingModeParameters.isMediaCodecFlushEnabled
+        : !scrubbingModeParameters.allowSkippingMediaCodecFlush
             || isFlushRequired
             || (inputFormat != null && inputFormat.maxNumReorderSamples > 0)
             || hasSkippedFlushAndWaitingForEarlierFrame()
