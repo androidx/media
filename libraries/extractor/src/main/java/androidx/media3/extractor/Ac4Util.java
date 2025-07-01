@@ -25,6 +25,7 @@ import androidx.media3.common.DrmInitData;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ParsableBitArray;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
@@ -117,6 +118,8 @@ public final class Ac4Util {
 
   /** Maximum rate for an AC-4 audio stream, in bytes per second. */
   public static final int MAX_RATE_BYTES_PER_SECOND = 2688 * 1000 / 8;
+
+  private static final String TAG = "Ac4Util";
 
   /** The channel count of AC-4 stream. */
   // TODO: Parse AC-4 stream channel count.
@@ -415,28 +418,61 @@ public final class Ac4Util {
               ac4Presentation.hasBackChannels,
               ac4Presentation.topChannelPairs);
     } else {
-      // The ETSI TS 103 190-2 V1.2.1 (2018-02) specification defines the parameter
-      // n_umx_objects_minus1 in Annex E (E.11.11) to specify the number of fullband objects. While
-      // the elementary stream specification (section 6.3.2.8.1 and 6.3.2.10.4) provides information
-      // about the presence of an LFE channel within the set of dynamic objects, this detail is not
-      // explicitly stated in the ISO Base Media File Format (Annex E). However, current
-      // implementation practices consistently include the LFE channel when creating an object-based
-      // substream. As a result, it has been decided that when interpreting the ISO Base Media File
-      // Format, the LFE channel should always be counted as part of the total channel count.
-      int lfeChannelCount = 1;
-      channelCount = ac4Presentation.numOfUmxObjects + lfeChannelCount;
-      // TODO: There is a bug in ETSI TS 103 190-2 V1.2.1 (2018-02), E.11.11
-      // For AC-4 level 4 stream, the intention is to set 19 to n_umx_objects_minus1 but it is
-      // equal to 15 based on current specification. Dolby has filed a bug report to ETSI.
-      // The following sentence should be deleted after ETSI specification error is fixed.
-      if (ac4Presentation.level == 4) {
-        channelCount = channelCount == 17 ? 21 : channelCount;
+      if (ac4Presentation.numOfUmxObjects > 0) {
+        // The ETSI TS 103 190-2 V1.2.1 (2018-02) specification defines the parameter
+        // n_umx_objects_minus1 in Annex E (E.11.11) to specify the number of fullband objects.
+        // While the elementary stream specification (section 6.3.2.8.1 and 6.3.2.10.4) provides
+        // information about the presence of an LFE channel within the set of dynamic objects, this
+        // detail is not explicitly stated in the ISO Base Media File Format (Annex E). However,
+        // current implementation practices consistently include the LFE channel when creating an
+        // object-based substream. As a result, it has been decided that when interpreting the ISO
+        // Base Media File Format, the LFE channel should always be counted as part of the total
+        // channel count.
+        int lfeChannelCount = 1;
+        channelCount = ac4Presentation.numOfUmxObjects + lfeChannelCount;
+        // TODO: There is a bug in ETSI TS 103 190-2 V1.2.1 (2018-02), E.11.11
+        // For AC-4 level 4 stream, the intention is to set 19 to n_umx_objects_minus1 but it is
+        // equal to 15 based on current specification. Dolby has filed a bug report to ETSI.
+        // The following sentence should be deleted after ETSI specification error is fixed.
+        if (ac4Presentation.level == 4) {
+          channelCount = channelCount == 17 ? 21 : channelCount;
+        }
+      } else {
+        // This presentation includes a substream with discrete objects. Due to limitations in the
+        // current AC-4 specification (ETSI TS 103 190-2 V1.2.1 (2018-02)), discrete object number
+        // information is not explicitly stated in the ISO Base Media File Format (Annex E). To
+        // prevent exceptions, "Maximum number of tracks if audio presentation includes object
+        // audio" in table 77 of ETSI TS 103 190-2 V1.2.1 (2018-02) is used as the channel count.
+        switch (ac4Presentation.level) {
+          case 0:
+            // This should not happen because level 0 is always channel coded.
+            channelCount = 2;
+            break;
+          case 1:
+            channelCount = 6;
+            break;
+          case 2:
+            channelCount = 8;
+            break;
+          case 3:
+            channelCount = 10;
+            break;
+          case 4:
+            channelCount = 12;
+            break;
+          default:
+            // For forward-compatibility, default to 2 channels for unknown future AC-4 levels
+            // rather than throwing an exception. This allows the device to attempt playback.
+            Log.w(TAG, "AC-4 level " + ac4Presentation.level + " has not been defined.");
+            channelCount = 2;
+            break;
+        }
       }
     }
 
     if (channelCount <= 0) {
       throw ParserException.createForUnsupportedContainerFeature(
-          "Can't determine channel count of presentation.");
+          "Cannot determine channel count of presentation.");
     }
 
     String codecString =
