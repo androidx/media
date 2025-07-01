@@ -15,6 +15,9 @@
  */
 package androidx.media3.exoplayer.drm;
 
+import static androidx.media3.common.util.Assertions.checkArgument;
+import static androidx.media3.common.util.Assertions.checkNotNull;
+
 import android.media.MediaDrm;
 import android.os.ConditionVariable;
 import android.os.Handler;
@@ -22,8 +25,10 @@ import android.os.HandlerThread;
 import android.os.Looper;
 import android.util.Pair;
 import androidx.annotation.Nullable;
+import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.Format;
+import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
@@ -48,6 +53,32 @@ public final class OfflineLicenseHelper {
   private final HandlerThread handlerThread;
   private final Handler handler;
   private final DrmSessionEventListener.EventDispatcher eventDispatcher;
+
+  /**
+   * Instantiates a new instance which uses Widevine CDM. Call {@link #release()} when the instance
+   * is no longer required.
+   *
+   * @param drmConfiguration The {@link MediaItem.DrmConfiguration} specifying the request details.
+   *     Must use {@link C#WIDEVINE_UUID} as {@link MediaItem.DrmConfiguration#scheme} and contain a
+   *     non-null {@link MediaItem.DrmConfiguration#licenseUri}.
+   * @param dataSourceFactory A factory from which to obtain {@link DataSource} instances.
+   * @param eventDispatcher A {@link DrmSessionEventListener.EventDispatcher} used to distribute
+   *     DRM-related events.
+   * @return A new instance which uses Widevine CDM.
+   */
+  public static OfflineLicenseHelper newWidevineInstance(
+      MediaItem.DrmConfiguration drmConfiguration,
+      DataSource.Factory dataSourceFactory,
+      DrmSessionEventListener.EventDispatcher eventDispatcher) {
+    checkArgument(drmConfiguration.scheme.equals(C.WIDEVINE_UUID));
+    return newWidevineInstance(
+        checkNotNull(drmConfiguration.licenseUri).toString(),
+        drmConfiguration.forceDefaultLicenseUri,
+        drmConfiguration.licenseRequestHeaders,
+        dataSourceFactory,
+        /* optionalKeyRequestParameters= */ null,
+        eventDispatcher);
+  }
 
   /**
    * Instantiates a new instance which uses Widevine CDM. Call {@link #release()} when the instance
@@ -116,12 +147,33 @@ public final class OfflineLicenseHelper {
       DataSource.Factory dataSourceFactory,
       @Nullable Map<String, String> optionalKeyRequestParameters,
       DrmSessionEventListener.EventDispatcher eventDispatcher) {
+    return newWidevineInstance(
+        defaultLicenseUrl,
+        forceDefaultLicenseUrl,
+        /* optionalKeyRequestHeaders= */ null,
+        dataSourceFactory,
+        optionalKeyRequestParameters,
+        eventDispatcher);
+  }
+
+  private static OfflineLicenseHelper newWidevineInstance(
+      String defaultLicenseUrl,
+      boolean forceDefaultLicenseUrl,
+      @Nullable Map<String, String> optionalKeyRequestHeaders,
+      DataSource.Factory dataSourceFactory,
+      @Nullable Map<String, String> optionalKeyRequestParameters,
+      DrmSessionEventListener.EventDispatcher eventDispatcher) {
+    HttpMediaDrmCallback httpDrmCallback =
+        new HttpMediaDrmCallback(defaultLicenseUrl, forceDefaultLicenseUrl, dataSourceFactory);
+    if (optionalKeyRequestHeaders != null) {
+      for (Map.Entry<String, String> entry : optionalKeyRequestHeaders.entrySet()) {
+        httpDrmCallback.setKeyRequestProperty(entry.getKey(), entry.getValue());
+      }
+    }
     return new OfflineLicenseHelper(
         new DefaultDrmSessionManager.Builder()
             .setKeyRequestParameters(optionalKeyRequestParameters)
-            .build(
-                new HttpMediaDrmCallback(
-                    defaultLicenseUrl, forceDefaultLicenseUrl, dataSourceFactory)),
+            .build(httpDrmCallback),
         eventDispatcher);
   }
 
@@ -176,7 +228,7 @@ public final class OfflineLicenseHelper {
    * @throws DrmSessionException Thrown when a DRM session error occurs.
    */
   public synchronized byte[] downloadLicense(Format format) throws DrmSessionException {
-    Assertions.checkArgument(format.drmInitData != null);
+    checkArgument(format.drmInitData != null);
     return acquireSessionAndGetOfflineLicenseKeySetIdOnHandlerThread(
         DefaultDrmSessionManager.MODE_DOWNLOAD, /* offlineLicenseKeySetId= */ null, format);
   }

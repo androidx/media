@@ -23,6 +23,10 @@
 *   Image:
 *   DataSource:
 *   DRM:
+    *   Add new overload of `OfflineLicenseHelper.newWidevineInstance` accepting
+        a `MediaItem.DrmConfiguration` so that HTTP request headers can be
+        applied correctly
+        ([#2169](https://github.com/androidx/media/issues/2169)).
 *   Effect:
 *   Muxers:
 *   IMA extension:
