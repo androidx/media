@@ -911,7 +911,9 @@ public class MediaSessionServiceTest {
                     @Override
                     public ListenableFuture<MediaSession.MediaItemsWithStartPosition>
                         onPlaybackResumption(
-                            MediaSession mediaSession, MediaSession.ControllerInfo controller) {
+                            MediaSession mediaSession,
+                            MediaSession.ControllerInfo controller,
+                            boolean isForPlayback) {
                       // Automatic playback resumption is expected to be called only from the media
                       // notification controller. So we call it here only if the callback is
                       // actually called from the media notification controller (or a fake of it).
