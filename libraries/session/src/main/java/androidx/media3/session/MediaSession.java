@@ -1763,30 +1763,41 @@ public class MediaSession {
      * href="https://developer.android.com/media/media3/session/background-playback#resumption">playback
      * resumption</a> is requested from a media button receiver or the System UI notification.
      *
-     * <p>Use {@link MediaMetadata#artworkData} or {@link MediaMetadata#artworkUri} with a content
-     * URI to set locally available artwork data for the System UI notification after reboot of the
-     * device. Note that network access may not be available when this method is called during boot
-     * time.
+     * <p>If {@code isForPlayback} is {@code false}, the controller only requests metadata about the
+     * item that will be played once playback resumption is requested without an immediate intention
+     * to start playback. For example, this may happen immediately after reboot of the device for
+     * System UI to populate its playback resumption notification. In these cases, only one {@link
+     * MediaItem} is needed and it's useful to provide additional metadata to allow System UI to
+     * generate the notification:
      *
-     * <p>Use {@link MediaConstants#EXTRAS_KEY_COMPLETION_STATUS} and {@link
-     * MediaConstants#EXTRAS_KEY_COMPLETION_PERCENTAGE} to statically indicate the completion
-     * status.
+     * <ul>
+     *   <li>Use {@link MediaMetadata#artworkData} or {@link MediaMetadata#artworkUri} with a
+     *       content URI to set locally available artwork data for the playback resumption
+     *       notification. Note that network access may not be available when this method is called
+     *       during boot time.
+     *   <li>Use {@link MediaConstants#EXTRAS_KEY_COMPLETION_STATUS} and {@link
+     *       MediaConstants#EXTRAS_KEY_COMPLETION_PERCENTAGE} to statically indicate the completion
+     *       status.
+     * </ul>
+     *
+     * <p>If {@code isForPlayback} is {@code true}, return the initial playlist for the {@link
+     * Player} and the intended start position. {@link Player#setMediaItem}, {@link
+     * Player#setMediaItems}, {@link Player#prepare} and {@link Player#play} will be called
+     * automatically as required. Any additional initial setup like setting playback speed, repeat
+     * mode or shuffle mode can be done from within this callback.
      *
      * <p>The method will only be called if the {@link Player} has {@link
      * Player#COMMAND_GET_CURRENT_MEDIA_ITEM} and either {@link Player#COMMAND_SET_MEDIA_ITEM} or
      * {@link Player#COMMAND_CHANGE_MEDIA_ITEMS} available.
      *
-     * <p>If {@code isForPlayback} is true, {@link ManuallyHandlePlaybackResumption} may be set on
-     * the future to manually handle playback resumption. Refer to the {@link
-     * ManuallyHandlePlaybackResumption} javadoc for more details.
-     *
      * @param mediaSession The media session for which playback resumption is requested.
      * @param controller The {@linkplain ControllerInfo controller} that requests the playback
      *     resumption. This may be a short living controller created only for issuing a play command
      *     for resuming playback.
-     * @param isForPlayback Whether playback is going to be started as a result of the future being
-     *     completed. If false, SystemUI is querying for media item data in order to build and
-     *     display the resumption notification at boot time.
+     * @param isForPlayback Whether playback is intended to start after this callback. If false, the
+     *     controller only requests metadata about the item that will be played once playback
+     *     resumption is requested. If true, playback will be started automatically with the
+     *     provided {@link MediaItemsWithStartPosition}.
      * @return The {@linkplain MediaItemsWithStartPosition playlist} to resume playback with.
      */
     @UnstableApi
@@ -1908,25 +1919,6 @@ public class MediaSession {
       return result;
     }
   }
-
-  /**
-   * Exception that may be set to the future in {@link
-   * MediaSession.Callback#onPlaybackResumption(MediaSession, ControllerInfo, boolean)} if the
-   * parameter {@code isForPlayback} is true, in order to signal that the app wishes to handle this
-   * resumption itself. This means the app is responsible for restoring a playlist, setting it to
-   * the player, and starting playback.
-   *
-   * <p>Do note this has various pitfalls and needs to be used carefully:<br>
-   * - {@link MediaSession.Callback#onPlayerInteractionFinished(MediaSession, ControllerInfo,
-   * Player.Commands)} will NOT be called for the resumption command.<br>
-   * - If playback is not actually resumed in this method, the resumption notification will end up
-   * non-functional, but will keep being displayed. This is not a suitable way to disable playback
-   * resumption, do not attempt to disable it this way.<br>
-   * - If the app takes too long to go into foreground, the grant to go into foreground may have
-   * expired.
-   */
-  @UnstableApi
-  public static class ManuallyHandlePlaybackResumption extends Exception {}
 
   /**
    * A result for {@link Callback#onConnect(MediaSession, ControllerInfo)} to denote the set of
