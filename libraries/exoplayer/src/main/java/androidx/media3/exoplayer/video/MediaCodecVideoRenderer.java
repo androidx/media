@@ -1517,6 +1517,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         ? super.shouldFlushCodec()
         : !scrubbingModeParameters.allowSkippingMediaCodecFlush
             || isFlushRequired
+            || tunneling
             || (inputFormat != null && inputFormat.maxNumReorderSamples > 0)
             || hasSkippedFlushAndWaitingForEarlierFrame()
             || getLastBufferInStreamPresentationTimeUs() != C.TIME_UNSET;
