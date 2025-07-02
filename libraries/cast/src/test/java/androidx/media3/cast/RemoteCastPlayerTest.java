@@ -103,13 +103,11 @@ import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 
-/** Tests for {@link CastPlayer}. */
-// TODO: b/419816002 - Rename this class to be RemoteCastPlayerTest once CastPlayer supports local
-// playback.
+/** Tests for {@link RemoteCastPlayer}. */
 @RunWith(AndroidJUnit4.class)
-public class CastPlayerTest {
+public class RemoteCastPlayerTest {
 
-  private CastPlayer castPlayer;
+  private RemoteCastPlayer remoteCastPlayer;
   private DefaultMediaItemConverter mediaItemConverter;
   private Cast.Listener castListener;
   private RemoteMediaClient.Callback remoteMediaClientCallback;
@@ -149,8 +147,15 @@ public class CastPlayerTest {
     when(mockMediaStatus.getStreamVolume()).thenReturn(1.0);
     when(mockMediaStatus.getPlaybackRate()).thenReturn(1.0d);
     mediaItemConverter = new DefaultMediaItemConverter();
-    castPlayer = new CastPlayer(mockCastContext, mediaItemConverter);
-    castPlayer.addListener(mockListener);
+    remoteCastPlayer =
+        new RemoteCastPlayer(
+            /* context= */ null,
+            mockCastContext,
+            mediaItemConverter,
+            C.DEFAULT_SEEK_BACK_INCREMENT_MS,
+            C.DEFAULT_SEEK_FORWARD_INCREMENT_MS,
+            C.DEFAULT_MAX_SEEK_TO_PREVIOUS_POSITION_MS);
+    remoteCastPlayer.addListener(mockListener);
     verify(mockCastSession).addCastListener(castListenerArgumentCaptor.capture());
     castListener = castListenerArgumentCaptor.getValue();
     verify(mockRemoteMediaClient).registerCallback(callbackArgumentCaptor.capture());
@@ -165,11 +170,11 @@ public class CastPlayerTest {
     remoteMediaClientCallback.onStatusUpdated();
     reset(mockListener);
     when(mockRemoteMediaClient.play()).thenReturn(mockPendingResult);
-    assertThat(castPlayer.getPlayWhenReady()).isFalse();
+    assertThat(remoteCastPlayer.getPlayWhenReady()).isFalse();
 
-    castPlayer.play();
+    remoteCastPlayer.play();
     verify(mockPendingResult).setResultCallback(setResultCallbackArgumentCaptor.capture());
-    assertThat(castPlayer.getPlayWhenReady()).isTrue();
+    assertThat(remoteCastPlayer.getPlayWhenReady()).isTrue();
     verify(mockListener).onPlayerStateChanged(true, Player.STATE_READY);
     verify(mockListener).onIsPlayingChanged(true);
     verify(mockListener)
@@ -195,11 +200,11 @@ public class CastPlayerTest {
     remoteMediaClientCallback.onStatusUpdated();
     reset(mockListener);
     when(mockRemoteMediaClient.play()).thenReturn(mockPendingResult);
-    assertThat(castPlayer.getPlayWhenReady()).isFalse();
+    assertThat(remoteCastPlayer.getPlayWhenReady()).isFalse();
 
-    castPlayer.play();
+    remoteCastPlayer.play();
     verify(mockPendingResult).setResultCallback(setResultCallbackArgumentCaptor.capture());
-    assertThat(castPlayer.getPlayWhenReady()).isTrue();
+    assertThat(remoteCastPlayer.getPlayWhenReady()).isTrue();
     verify(mockListener).onIsPlayingChanged(true);
     verify(mockListener).onPlayerStateChanged(true, Player.STATE_READY);
     verify(mockListener)
@@ -212,7 +217,7 @@ public class CastPlayerTest {
     verify(mockListener).onPlayerStateChanged(false, Player.STATE_READY);
     verify(mockListener).onIsPlayingChanged(false);
     verify(mockListener).onPlayWhenReadyChanged(false, Player.PLAY_WHEN_READY_CHANGE_REASON_REMOTE);
-    assertThat(castPlayer.getPlayWhenReady()).isFalse();
+    assertThat(remoteCastPlayer.getPlayWhenReady()).isFalse();
     verifyNoMoreInteractions(mockListener);
   }
 
@@ -226,15 +231,15 @@ public class CastPlayerTest {
     when(mockRemoteMediaClient.play()).thenReturn(mockPendingResult);
     when(mockRemoteMediaClient.pause()).thenReturn(mockPendingResult);
 
-    castPlayer.play();
-    assertThat(castPlayer.getPlayWhenReady()).isTrue();
+    remoteCastPlayer.play();
+    assertThat(remoteCastPlayer.getPlayWhenReady()).isTrue();
     verify(mockListener).onIsPlayingChanged(true);
     verify(mockListener).onPlayerStateChanged(true, Player.STATE_READY);
     verify(mockListener)
         .onPlayWhenReadyChanged(true, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST);
 
-    castPlayer.pause();
-    assertThat(castPlayer.getPlayWhenReady()).isFalse();
+    remoteCastPlayer.pause();
+    assertThat(remoteCastPlayer.getPlayWhenReady()).isFalse();
     verify(mockListener).onIsPlayingChanged(false);
     verify(mockListener)
         .onPlayWhenReadyChanged(false, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST);
@@ -246,20 +251,20 @@ public class CastPlayerTest {
   @Test
   public void playWhenReady_changesOnStatusUpdates() {
     when(mockRemoteMediaClient.getPlayerState()).thenReturn(MediaStatus.PLAYER_STATE_PLAYING);
-    assertThat(castPlayer.getPlayWhenReady()).isFalse();
+    assertThat(remoteCastPlayer.getPlayWhenReady()).isFalse();
     when(mockRemoteMediaClient.isPaused()).thenReturn(false);
     remoteMediaClientCallback.onStatusUpdated();
     verify(mockListener).onPlayerStateChanged(true, Player.STATE_READY);
     verify(mockListener).onPlaybackStateChanged(Player.STATE_READY);
     verify(mockListener).onPlayWhenReadyChanged(true, Player.PLAY_WHEN_READY_CHANGE_REASON_REMOTE);
-    assertThat(castPlayer.getPlayWhenReady()).isTrue();
+    assertThat(remoteCastPlayer.getPlayWhenReady()).isTrue();
     verify(mockListener).onIsPlayingChanged(true);
     verifyNoMoreInteractions(mockListener);
   }
 
   @Test
   public void playbackParameters_defaultPlaybackSpeed_isUnitSpeed() {
-    assertThat(castPlayer.getPlaybackParameters()).isEqualTo(PlaybackParameters.DEFAULT);
+    assertThat(remoteCastPlayer.getPlaybackParameters()).isEqualTo(PlaybackParameters.DEFAULT);
   }
 
   @Test
@@ -269,7 +274,7 @@ public class CastPlayerTest {
 
     remoteMediaClientCallback.onStatusUpdated();
 
-    assertThat(castPlayer.getPlaybackParameters()).isEqualTo(expectedPlaybackParameters);
+    assertThat(remoteCastPlayer.getPlaybackParameters()).isEqualTo(expectedPlaybackParameters);
     verify(mockListener).onPlaybackParametersChanged(expectedPlaybackParameters);
   }
 
@@ -279,7 +284,7 @@ public class CastPlayerTest {
 
     remoteMediaClientCallback.onStatusUpdated();
 
-    assertThat(castPlayer.getPlaybackParameters()).isEqualTo(PlaybackParameters.DEFAULT);
+    assertThat(remoteCastPlayer.getPlaybackParameters()).isEqualTo(PlaybackParameters.DEFAULT);
     verifyNoMoreInteractions(mockListener);
   }
 
@@ -289,8 +294,8 @@ public class CastPlayerTest {
     when(mockRemoteMediaClient.getPlayerState()).thenReturn(MediaStatus.PLAYER_STATE_BUFFERING);
     remoteMediaClientCallback.onStatusUpdated();
 
-    assertThat(castPlayer.getCurrentTimeline().isEmpty()).isTrue();
-    assertThat(castPlayer.getPlaybackState()).isEqualTo(STATE_IDLE);
+    assertThat(remoteCastPlayer.getCurrentTimeline().isEmpty()).isTrue();
+    assertThat(remoteCastPlayer.getPlaybackState()).isEqualTo(STATE_IDLE);
   }
 
   @Test
@@ -301,9 +306,9 @@ public class CastPlayerTest {
     PlaybackParameters expectedMinValuePlaybackParameters =
         new PlaybackParameters(/* speed= */ 0.5f);
 
-    castPlayer.setPlaybackParameters(new PlaybackParameters(/* speed= */ 2.001f));
+    remoteCastPlayer.setPlaybackParameters(new PlaybackParameters(/* speed= */ 2.001f));
     verify(mockListener).onPlaybackParametersChanged(expectedMaxValuePlaybackParameters);
-    castPlayer.setPlaybackParameters(new PlaybackParameters(/* speed= */ 0.499f));
+    remoteCastPlayer.setPlaybackParameters(new PlaybackParameters(/* speed= */ 0.499f));
     verify(mockListener).onPlaybackParametersChanged(expectedMinValuePlaybackParameters);
   }
 
@@ -313,23 +318,23 @@ public class CastPlayerTest {
     when(mockRemoteMediaClient.setPlaybackRate(eq((double) 1.234f), any()))
         .thenReturn(mockPendingResult);
 
-    castPlayer.setPlaybackParameters(playbackParameters);
+    remoteCastPlayer.setPlaybackParameters(playbackParameters);
 
     verify(mockPendingResult).setResultCallback(setResultCallbackArgumentCaptor.capture());
-    assertThat(castPlayer.getPlaybackParameters().speed).isEqualTo(1.234f);
+    assertThat(remoteCastPlayer.getPlaybackParameters().speed).isEqualTo(1.234f);
     verify(mockListener).onPlaybackParametersChanged(playbackParameters);
 
     // Simulate a status update while the update is pending that must not override the masked speed.
     when(mockMediaStatus.getPlaybackRate()).thenReturn(99.0d);
     remoteMediaClientCallback.onStatusUpdated();
-    assertThat(castPlayer.getPlaybackParameters().speed).isEqualTo(1.234f);
+    assertThat(remoteCastPlayer.getPlaybackParameters().speed).isEqualTo(1.234f);
 
     // Call the captured result callback when the device responds. The listener must not be called.
     when(mockMediaStatus.getPlaybackRate()).thenReturn(1.234d);
     setResultCallbackArgumentCaptor
         .getValue()
         .onResult(mock(RemoteMediaClient.MediaChannelResult.class));
-    assertThat(castPlayer.getPlaybackParameters().speed).isEqualTo(1.234f);
+    assertThat(remoteCastPlayer.getPlaybackParameters().speed).isEqualTo(1.234f);
     verifyNoMoreInteractions(mockListener);
   }
 
@@ -340,7 +345,7 @@ public class CastPlayerTest {
     PlaybackParameters playbackParameters = new PlaybackParameters(/* speed= */ 1.234f);
 
     // Change the playback speed and and capture the result callback.
-    castPlayer.setPlaybackParameters(playbackParameters);
+    remoteCastPlayer.setPlaybackParameters(playbackParameters);
     verify(mockPendingResult).setResultCallback(setResultCallbackArgumentCaptor.capture());
     verify(mockListener).onPlaybackParametersChanged(new PlaybackParameters(/* speed= */ 1.234f));
 
@@ -349,7 +354,7 @@ public class CastPlayerTest {
     setResultCallbackArgumentCaptor
         .getValue()
         .onResult(mock(RemoteMediaClient.MediaChannelResult.class));
-    assertThat(castPlayer.getPlaybackParameters()).isEqualTo(PlaybackParameters.DEFAULT);
+    assertThat(remoteCastPlayer.getPlaybackParameters()).isEqualTo(PlaybackParameters.DEFAULT);
     verify(mockListener).onPlaybackParametersChanged(PlaybackParameters.DEFAULT);
     verifyNoMoreInteractions(mockListener);
   }
@@ -357,11 +362,11 @@ public class CastPlayerTest {
   @Test
   public void setRepeatMode_masksRemoteState() {
     when(mockRemoteMediaClient.queueSetRepeatMode(anyInt(), any())).thenReturn(mockPendingResult);
-    assertThat(castPlayer.getRepeatMode()).isEqualTo(Player.REPEAT_MODE_OFF);
+    assertThat(remoteCastPlayer.getRepeatMode()).isEqualTo(Player.REPEAT_MODE_OFF);
 
-    castPlayer.setRepeatMode(Player.REPEAT_MODE_ONE);
+    remoteCastPlayer.setRepeatMode(Player.REPEAT_MODE_ONE);
     verify(mockPendingResult).setResultCallback(setResultCallbackArgumentCaptor.capture());
-    assertThat(castPlayer.getRepeatMode()).isEqualTo(Player.REPEAT_MODE_ONE);
+    assertThat(remoteCastPlayer.getRepeatMode()).isEqualTo(Player.REPEAT_MODE_ONE);
     verify(mockListener).onRepeatModeChanged(Player.REPEAT_MODE_ONE);
 
     // There is a status update in the middle, which should be hidden by masking.
@@ -381,9 +386,9 @@ public class CastPlayerTest {
   public void setRepeatMode_updatesUponResultChange() {
     when(mockRemoteMediaClient.queueSetRepeatMode(anyInt(), any())).thenReturn(mockPendingResult);
 
-    castPlayer.setRepeatMode(Player.REPEAT_MODE_ONE);
+    remoteCastPlayer.setRepeatMode(Player.REPEAT_MODE_ONE);
     verify(mockPendingResult).setResultCallback(setResultCallbackArgumentCaptor.capture());
-    assertThat(castPlayer.getRepeatMode()).isEqualTo(Player.REPEAT_MODE_ONE);
+    assertThat(remoteCastPlayer.getRepeatMode()).isEqualTo(Player.REPEAT_MODE_ONE);
     verify(mockListener).onRepeatModeChanged(Player.REPEAT_MODE_ONE);
 
     // There is a status update in the middle, which should be hidden by masking.
@@ -396,26 +401,26 @@ public class CastPlayerTest {
         .getValue()
         .onResult(mock(RemoteMediaClient.MediaChannelResult.class));
     verify(mockListener).onRepeatModeChanged(Player.REPEAT_MODE_ALL);
-    assertThat(castPlayer.getRepeatMode()).isEqualTo(Player.REPEAT_MODE_ALL);
+    assertThat(remoteCastPlayer.getRepeatMode()).isEqualTo(Player.REPEAT_MODE_ALL);
   }
 
   @Test
   public void repeatMode_changesOnStatusUpdates() {
-    assertThat(castPlayer.getRepeatMode()).isEqualTo(Player.REPEAT_MODE_OFF);
+    assertThat(remoteCastPlayer.getRepeatMode()).isEqualTo(Player.REPEAT_MODE_OFF);
     when(mockMediaStatus.getQueueRepeatMode()).thenReturn(MediaStatus.REPEAT_MODE_REPEAT_SINGLE);
     remoteMediaClientCallback.onStatusUpdated();
     verify(mockListener).onRepeatModeChanged(Player.REPEAT_MODE_ONE);
-    assertThat(castPlayer.getRepeatMode()).isEqualTo(Player.REPEAT_MODE_ONE);
+    assertThat(remoteCastPlayer.getRepeatMode()).isEqualTo(Player.REPEAT_MODE_ONE);
   }
 
   @Test
   public void setVolume_masksRemoteState() {
     when(mockRemoteMediaClient.setStreamVolume(anyDouble())).thenReturn(mockPendingResult);
-    assertThat(castPlayer.getVolume()).isEqualTo(1f);
+    assertThat(remoteCastPlayer.getVolume()).isEqualTo(1f);
 
-    castPlayer.setVolume(0.5f);
+    remoteCastPlayer.setVolume(0.5f);
     verify(mockPendingResult).setResultCallback(setResultCallbackArgumentCaptor.capture());
-    assertThat(castPlayer.getVolume()).isEqualTo(0.5f);
+    assertThat(remoteCastPlayer.getVolume()).isEqualTo(0.5f);
     verify(mockListener).onVolumeChanged(0.5f);
 
     // There is a status update in the middle, which should be hidden by masking.
@@ -435,9 +440,9 @@ public class CastPlayerTest {
   public void setVolume_updatesUponResultChange() {
     when(mockRemoteMediaClient.setStreamVolume(anyDouble())).thenReturn(mockPendingResult);
 
-    castPlayer.setVolume(0.5f);
+    remoteCastPlayer.setVolume(0.5f);
     verify(mockPendingResult).setResultCallback(setResultCallbackArgumentCaptor.capture());
-    assertThat(castPlayer.getVolume()).isEqualTo(0.5f);
+    assertThat(remoteCastPlayer.getVolume()).isEqualTo(0.5f);
     verify(mockListener).onVolumeChanged(0.5f);
 
     // There is a status update in the middle, which should be hidden by masking.
@@ -450,16 +455,16 @@ public class CastPlayerTest {
         .getValue()
         .onResult(mock(RemoteMediaClient.MediaChannelResult.class));
     verify(mockListener).onVolumeChanged(0.75f);
-    assertThat(castPlayer.getVolume()).isEqualTo(0.75f);
+    assertThat(remoteCastPlayer.getVolume()).isEqualTo(0.75f);
   }
 
   @Test
   public void volume_changesOnStatusUpdates() {
-    assertThat(castPlayer.getVolume()).isEqualTo(1f);
+    assertThat(remoteCastPlayer.getVolume()).isEqualTo(1f);
     when(mockMediaStatus.getStreamVolume()).thenReturn(0.75);
     remoteMediaClientCallback.onStatusUpdated();
     verify(mockListener).onVolumeChanged(0.75f);
-    assertThat(castPlayer.getVolume()).isEqualTo(0.75f);
+    assertThat(remoteCastPlayer.getVolume()).isEqualTo(0.75f);
   }
 
   @Test
@@ -472,7 +477,7 @@ public class CastPlayerTest {
     mediaItems.add(
         new MediaItem.Builder().setUri(uri2).setMimeType(MimeTypes.APPLICATION_MP4).build());
 
-    castPlayer.setMediaItems(mediaItems, /* startIndex= */ 1, /* startPositionMs= */ 2000L);
+    remoteCastPlayer.setMediaItems(mediaItems, /* startIndex= */ 1, /* startPositionMs= */ 2000L);
 
     verify(mockRemoteMediaClient)
         .queueLoad(queueItemsArgumentCaptor.capture(), eq(1), anyInt(), eq(2000L), any());
@@ -492,7 +497,7 @@ public class CastPlayerTest {
     int startWindowIndex = C.INDEX_UNSET;
     long startPositionMs = 2000L;
 
-    castPlayer.setMediaItems(mediaItems, startWindowIndex, startPositionMs);
+    remoteCastPlayer.setMediaItems(mediaItems, startWindowIndex, startPositionMs);
 
     verify(mockRemoteMediaClient)
         .queueLoad(queueItemsArgumentCaptor.capture(), eq(0), anyInt(), eq(0L), any());
@@ -518,11 +523,13 @@ public class CastPlayerTest {
                 .setMimeType(MimeTypes.APPLICATION_MPD)
                 .build());
 
-    castPlayer.setMediaItems(firstPlaylist, /* startIndex= */ 1, /* startPositionMs= */ 2000L);
+    remoteCastPlayer.setMediaItems(
+        firstPlaylist, /* startIndex= */ 1, /* startPositionMs= */ 2000L);
     updateTimeLine(
         firstPlaylist, /* mediaQueueItemIds= */ new int[] {1, 2}, /* currentItemId= */ 2);
     // Replacing existing playlist.
-    castPlayer.setMediaItems(secondPlaylist, /* startIndex= */ 0, /* startPositionMs= */ 1000L);
+    remoteCastPlayer.setMediaItems(
+        secondPlaylist, /* startIndex= */ 0, /* startPositionMs= */ 1000L);
     updateTimeLine(secondPlaylist, /* mediaQueueItemIds= */ new int[] {3}, /* currentItemId= */ 3);
 
     InOrder inOrder = Mockito.inOrder(mockListener);
@@ -554,7 +561,8 @@ public class CastPlayerTest {
                 .setMimeType(MimeTypes.APPLICATION_MPD)
                 .build());
 
-    castPlayer.setMediaItems(firstPlaylist, /* startIndex= */ 1, /* startPositionMs= */ 2000L);
+    remoteCastPlayer.setMediaItems(
+        firstPlaylist, /* startIndex= */ 1, /* startPositionMs= */ 2000L);
     updateTimeLine(
         firstPlaylist,
         /* mediaQueueItemIds= */ new int[] {1, 2},
@@ -565,7 +573,8 @@ public class CastPlayerTest {
         /* durationsMs= */ new long[] {20_000, 20_000},
         /* positionMs= */ 2000L);
     // Replacing existing playlist.
-    castPlayer.setMediaItems(secondPlaylist, /* startIndex= */ 0, /* startPositionMs= */ 1000L);
+    remoteCastPlayer.setMediaItems(
+        secondPlaylist, /* startIndex= */ 0, /* startPositionMs= */ 1000L);
     updateTimeLine(
         secondPlaylist,
         /* mediaQueueItemIds= */ new int[] {3},
@@ -614,7 +623,7 @@ public class CastPlayerTest {
     mediaItems.add(builder.setUri(uri1).setMimeType(MimeTypes.APPLICATION_MPD).build());
     mediaItems.add(builder.setUri(uri2).setMimeType(MimeTypes.APPLICATION_MP4).build());
 
-    castPlayer.addMediaItems(mediaItems);
+    remoteCastPlayer.addMediaItems(mediaItems);
 
     verify(mockRemoteMediaClient)
         .queueInsertItems(
@@ -637,7 +646,7 @@ public class CastPlayerTest {
     List<MediaItem> newPlaylist = Collections.singletonList(anotherMediaItem);
 
     // Add another on position 1
-    castPlayer.addMediaItems(index, newPlaylist);
+    remoteCastPlayer.addMediaItems(index, newPlaylist);
     updateTimeLine(newPlaylist, /* mediaQueueItemIds= */ new int[] {123}, /* currentItemId= */ 1);
 
     verify(mockRemoteMediaClient, times(2))
@@ -645,9 +654,9 @@ public class CastPlayerTest {
     assertThat(queueItemsArgumentCaptor.getAllValues().get(1)[0])
         .isEqualTo(mediaItemConverter.toMediaQueueItem(anotherMediaItem));
     Timeline.Window currentWindow =
-        castPlayer
+        remoteCastPlayer
             .getCurrentTimeline()
-            .getWindow(castPlayer.getCurrentMediaItemIndex(), new Timeline.Window());
+            .getWindow(remoteCastPlayer.getCurrentMediaItemIndex(), new Timeline.Window());
     assertThat(currentWindow.uid).isEqualTo(123);
     assertThat(currentWindow.mediaItem).isEqualTo(anotherMediaItem);
   }
@@ -658,7 +667,7 @@ public class CastPlayerTest {
     List<MediaItem> mediaItems = createMediaItems(mediaQueueItemIds);
     addMediaItemsAndUpdateTimeline(mediaItems, mediaQueueItemIds);
 
-    castPlayer.moveMediaItem(/* currentIndex= */ 1, /* newIndex= */ 2);
+    remoteCastPlayer.moveMediaItem(/* currentIndex= */ 1, /* newIndex= */ 2);
 
     verify(mockRemoteMediaClient)
         .queueReorderItems(new int[] {2}, /* insertBeforeItemId= */ 4, /* customData= */ null);
@@ -670,7 +679,7 @@ public class CastPlayerTest {
     List<MediaItem> mediaItems = createMediaItems(mediaQueueItemIds);
     addMediaItemsAndUpdateTimeline(mediaItems, mediaQueueItemIds);
 
-    castPlayer.moveMediaItem(/* currentIndex= */ 1, /* newIndex= */ 0);
+    remoteCastPlayer.moveMediaItem(/* currentIndex= */ 1, /* newIndex= */ 0);
 
     verify(mockRemoteMediaClient)
         .queueReorderItems(new int[] {2}, /* insertBeforeItemId= */ 1, /* customData= */ null);
@@ -682,7 +691,7 @@ public class CastPlayerTest {
     List<MediaItem> mediaItems = createMediaItems(mediaQueueItemIds);
     addMediaItemsAndUpdateTimeline(mediaItems, mediaQueueItemIds);
 
-    castPlayer.moveMediaItem(/* currentIndex= */ 1, /* newIndex= */ 4);
+    remoteCastPlayer.moveMediaItem(/* currentIndex= */ 1, /* newIndex= */ 4);
 
     verify(mockRemoteMediaClient)
         .queueReorderItems(
@@ -697,7 +706,7 @@ public class CastPlayerTest {
     List<MediaItem> mediaItems = createMediaItems(mediaQueueItemIds);
     addMediaItemsAndUpdateTimeline(mediaItems, mediaQueueItemIds);
 
-    castPlayer.moveMediaItems(/* fromIndex= */ 0, /* toIndex= */ 3, /* newIndex= */ 1);
+    remoteCastPlayer.moveMediaItems(/* fromIndex= */ 0, /* toIndex= */ 3, /* newIndex= */ 1);
 
     verify(mockRemoteMediaClient)
         .queueReorderItems(
@@ -710,7 +719,7 @@ public class CastPlayerTest {
     List<MediaItem> mediaItems = createMediaItems(mediaQueueItemIds);
     addMediaItemsAndUpdateTimeline(mediaItems, mediaQueueItemIds);
 
-    castPlayer.moveMediaItems(/* fromIndex= */ 1, /* toIndex= */ 4, /* newIndex= */ 0);
+    remoteCastPlayer.moveMediaItems(/* fromIndex= */ 1, /* toIndex= */ 4, /* newIndex= */ 0);
 
     verify(mockRemoteMediaClient)
         .queueReorderItems(
@@ -723,7 +732,7 @@ public class CastPlayerTest {
     List<MediaItem> mediaItems = createMediaItems(mediaQueueItemIds);
     addMediaItemsAndUpdateTimeline(mediaItems, mediaQueueItemIds);
 
-    castPlayer.moveMediaItems(/* fromIndex= */ 0, /* toIndex= */ 2, /* newIndex= */ 3);
+    remoteCastPlayer.moveMediaItems(/* fromIndex= */ 0, /* toIndex= */ 2, /* newIndex= */ 3);
 
     verify(mockRemoteMediaClient)
         .queueReorderItems(
@@ -738,7 +747,7 @@ public class CastPlayerTest {
     List<MediaItem> mediaItems = createMediaItems(mediaQueueItemIds);
     addMediaItemsAndUpdateTimeline(mediaItems, mediaQueueItemIds);
 
-    castPlayer.moveMediaItems(/* fromIndex= */ 1, /* toIndex= */ 1, /* newIndex= */ 0);
+    remoteCastPlayer.moveMediaItems(/* fromIndex= */ 1, /* toIndex= */ 1, /* newIndex= */ 0);
 
     verify(mockRemoteMediaClient, never()).queueReorderItems(any(), anyInt(), any());
   }
@@ -749,7 +758,7 @@ public class CastPlayerTest {
     List<MediaItem> mediaItems = createMediaItems(mediaQueueItemIds);
     addMediaItemsAndUpdateTimeline(mediaItems, mediaQueueItemIds);
 
-    castPlayer.moveMediaItems(/* fromIndex= */ 1, /* toIndex= */ 3, /* newIndex= */ 1);
+    remoteCastPlayer.moveMediaItems(/* fromIndex= */ 1, /* toIndex= */ 3, /* newIndex= */ 1);
 
     verify(mockRemoteMediaClient, never()).queueReorderItems(any(), anyInt(), any());
   }
@@ -760,7 +769,7 @@ public class CastPlayerTest {
     List<MediaItem> mediaItems = createMediaItems(mediaQueueItemIds);
     addMediaItemsAndUpdateTimeline(mediaItems, mediaQueueItemIds);
 
-    castPlayer.removeMediaItems(/* fromIndex= */ 1, /* toIndex= */ 4);
+    remoteCastPlayer.removeMediaItems(/* fromIndex= */ 1, /* toIndex= */ 4);
 
     verify(mockRemoteMediaClient).queueRemoveItems(new int[] {2, 3, 4}, /* customData= */ null);
   }
@@ -771,7 +780,7 @@ public class CastPlayerTest {
     List<MediaItem> mediaItems = createMediaItems(mediaQueueItemIds);
     addMediaItemsAndUpdateTimeline(mediaItems, mediaQueueItemIds);
 
-    castPlayer.clearMediaItems();
+    remoteCastPlayer.clearMediaItems();
 
     verify(mockRemoteMediaClient)
         .queueRemoveItems(new int[] {1, 2, 3, 4, 5}, /* customData= */ null);
@@ -789,7 +798,7 @@ public class CastPlayerTest {
     ImmutableList<MediaItem> newPlaylist = ImmutableList.of(mediaItems.get(0), anotherMediaItem);
 
     // Replace item at position 1.
-    castPlayer.replaceMediaItems(
+    remoteCastPlayer.replaceMediaItems(
         /* fromIndex= */ 1, /* toIndex= */ 2, ImmutableList.of(anotherMediaItem));
     updateTimeLine(
         newPlaylist,
@@ -802,9 +811,9 @@ public class CastPlayerTest {
     assertThat(queueItemsArgumentCaptor.getAllValues().get(1)[0])
         .isEqualTo(mediaItemConverter.toMediaQueueItem(anotherMediaItem));
     Timeline.Window currentWindow =
-        castPlayer
+        remoteCastPlayer
             .getCurrentTimeline()
-            .getWindow(castPlayer.getCurrentMediaItemIndex(), new Timeline.Window());
+            .getWindow(remoteCastPlayer.getCurrentMediaItemIndex(), new Timeline.Window());
     assertThat(currentWindow.uid).isEqualTo(123);
     assertThat(currentWindow.mediaItem).isEqualTo(anotherMediaItem);
   }
@@ -818,7 +827,7 @@ public class CastPlayerTest {
 
     addMediaItemsAndUpdateTimeline(mediaItems, mediaQueueItemIds);
 
-    Timeline currentTimeline = castPlayer.getCurrentTimeline();
+    Timeline currentTimeline = remoteCastPlayer.getCurrentTimeline();
     for (int i = 0; i < mediaItems.size(); i++) {
       assertThat(currentTimeline.getWindow(/* windowIndex= */ i, window).mediaItem)
           .isEqualTo(mediaItems.get(i));
@@ -831,7 +840,7 @@ public class CastPlayerTest {
     List<MediaItem> mediaItems = ImmutableList.of(mediaItem);
     int[] mediaQueueItemIds = new int[] {1};
 
-    castPlayer.addMediaItems(mediaItems);
+    remoteCastPlayer.addMediaItems(mediaItems);
     updateTimeLine(mediaItems, mediaQueueItemIds, /* currentItemId= */ 1);
 
     InOrder inOrder = Mockito.inOrder(mockListener);
@@ -847,9 +856,9 @@ public class CastPlayerTest {
     int[] mediaQueueItemIds = new int[] {1, 2};
     List<MediaItem> mediaItems = createMediaItems(mediaQueueItemIds);
 
-    castPlayer.addMediaItems(mediaItems);
+    remoteCastPlayer.addMediaItems(mediaItems);
     updateTimeLine(mediaItems, mediaQueueItemIds, /* currentItemId= */ 1);
-    castPlayer.clearMediaItems();
+    remoteCastPlayer.clearMediaItems();
     updateTimeLine(
         /* mediaItems= */ ImmutableList.of(),
         /* mediaQueueItemIds= */ new int[0],
@@ -873,7 +882,7 @@ public class CastPlayerTest {
     int[] mediaQueueItemIds = new int[] {1, 2};
     List<MediaItem> mediaItems = createMediaItems(mediaQueueItemIds);
 
-    castPlayer.addMediaItems(mediaItems);
+    remoteCastPlayer.addMediaItems(mediaItems);
     updateTimeLine(
         mediaItems,
         mediaQueueItemIds,
@@ -881,7 +890,7 @@ public class CastPlayerTest {
         new int[] {MediaInfo.STREAM_TYPE_BUFFERED, MediaInfo.STREAM_TYPE_BUFFERED},
         /* durationsMs= */ new long[] {20_000L, 30_000L},
         /* positionMs= */ 1234);
-    castPlayer.clearMediaItems();
+    remoteCastPlayer.clearMediaItems();
     updateTimeLine(
         /* mediaItems= */ ImmutableList.of(),
         /* mediaQueueItemIds= */ new int[0],
@@ -929,9 +938,9 @@ public class CastPlayerTest {
     List<MediaItem> mediaItems = ImmutableList.of(mediaItem1, mediaItem2);
     int[] mediaQueueItemIds = new int[] {1, 2};
 
-    castPlayer.addMediaItems(mediaItems);
+    remoteCastPlayer.addMediaItems(mediaItems);
     updateTimeLine(mediaItems, mediaQueueItemIds, /* currentItemId= */ 1);
-    castPlayer.removeMediaItem(/* index= */ 0);
+    remoteCastPlayer.removeMediaItem(/* index= */ 0);
     // Update with the new timeline after removal.
     updateTimeLine(
         ImmutableList.of(mediaItem2),
@@ -956,7 +965,7 @@ public class CastPlayerTest {
     List<MediaItem> mediaItems = ImmutableList.of(mediaItem1, mediaItem2);
     int[] mediaQueueItemIds = new int[] {1, 2};
 
-    castPlayer.addMediaItems(mediaItems);
+    remoteCastPlayer.addMediaItems(mediaItems);
     updateTimeLine(
         mediaItems,
         mediaQueueItemIds,
@@ -964,7 +973,7 @@ public class CastPlayerTest {
         new int[] {MediaInfo.STREAM_TYPE_BUFFERED, MediaInfo.STREAM_TYPE_BUFFERED},
         /* durationsMs= */ new long[] {20_000L, 30_000L},
         /* positionMs= */ 1234);
-    castPlayer.removeMediaItem(/* index= */ 0);
+    remoteCastPlayer.removeMediaItem(/* index= */ 0);
     // Update with the new timeline after removal.
     updateTimeLine(
         ImmutableList.of(mediaItem2),
@@ -1012,7 +1021,7 @@ public class CastPlayerTest {
     MediaItem mediaItem2 = createMediaItem(/* mediaQueueItemId= */ 2);
     List<MediaItem> mediaItems = ImmutableList.of(mediaItem1, mediaItem2);
 
-    castPlayer.addMediaItems(mediaItems);
+    remoteCastPlayer.addMediaItems(mediaItems);
     updateTimeLine(mediaItems, new int[] {1, 2}, /* currentItemId= */ 1);
     // Update with the new timeline after removal on the device.
     updateTimeLine(
@@ -1038,7 +1047,7 @@ public class CastPlayerTest {
     MediaItem mediaItem2 = createMediaItem(/* mediaQueueItemId= */ 2);
     List<MediaItem> mediaItems = ImmutableList.of(mediaItem1, mediaItem2);
 
-    castPlayer.addMediaItems(mediaItems);
+    remoteCastPlayer.addMediaItems(mediaItems);
     updateTimeLine(
         mediaItems,
         new int[] {1, 2},
@@ -1094,9 +1103,9 @@ public class CastPlayerTest {
     List<MediaItem> mediaItems = ImmutableList.of(mediaItem1, mediaItem2);
     int[] mediaQueueItemIds = new int[] {1, 2};
 
-    castPlayer.addMediaItems(mediaItems);
+    remoteCastPlayer.addMediaItems(mediaItems);
     updateTimeLine(mediaItems, mediaQueueItemIds, /* currentItemId= */ 1);
-    castPlayer.removeMediaItem(/* index= */ 1);
+    remoteCastPlayer.removeMediaItem(/* index= */ 1);
     updateTimeLine(
         ImmutableList.of(mediaItem1),
         /* mediaQueueItemIds= */ new int[] {1},
@@ -1118,9 +1127,9 @@ public class CastPlayerTest {
     List<MediaItem> mediaItems = ImmutableList.of(mediaItem1, mediaItem2);
     int[] mediaQueueItemIds = new int[] {1, 2};
 
-    castPlayer.addMediaItems(mediaItems);
+    remoteCastPlayer.addMediaItems(mediaItems);
     updateTimeLine(mediaItems, mediaQueueItemIds, /* currentItemId= */ 1);
-    castPlayer.removeMediaItem(/* index= */ 1);
+    remoteCastPlayer.removeMediaItem(/* index= */ 1);
     updateTimeLine(
         ImmutableList.of(mediaItem1),
         /* mediaQueueItemIds= */ new int[] {1},
@@ -1139,11 +1148,11 @@ public class CastPlayerTest {
     List<MediaItem> mediaItems = ImmutableList.of(mediaItem1, mediaItem2);
     int[] mediaQueueItemIds = new int[] {1, 2};
 
-    castPlayer.addMediaItems(mediaItems);
+    remoteCastPlayer.addMediaItems(mediaItems);
     updateTimeLine(mediaItems, mediaQueueItemIds, /* currentItemId= */ 1);
-    MediaMetadata firstMediaMetadata = castPlayer.getMediaMetadata();
-    castPlayer.seekTo(/* mediaItemIndex= */ 1, /* positionMs= */ 1234);
-    MediaMetadata secondMediaMetadata = castPlayer.getMediaMetadata();
+    MediaMetadata firstMediaMetadata = remoteCastPlayer.getMediaMetadata();
+    remoteCastPlayer.seekTo(/* mediaItemIndex= */ 1, /* positionMs= */ 1234);
+    MediaMetadata secondMediaMetadata = remoteCastPlayer.getMediaMetadata();
 
     InOrder inOrder = Mockito.inOrder(mockListener);
     inOrder
@@ -1168,9 +1177,9 @@ public class CastPlayerTest {
     List<MediaItem> mediaItems = ImmutableList.of(mediaItem1, mediaItem2);
     int[] mediaQueueItemIds = new int[] {1, 2};
 
-    castPlayer.addMediaItems(mediaItems);
+    remoteCastPlayer.addMediaItems(mediaItems);
     updateTimeLine(mediaItems, mediaQueueItemIds, /* currentItemId= */ 1);
-    castPlayer.seekTo(/* mediaItemIndex= */ 1, /* positionMs= */ 1234);
+    remoteCastPlayer.seekTo(/* mediaItemIndex= */ 1, /* positionMs= */ 1234);
 
     Player.PositionInfo oldPosition =
         new Player.PositionInfo(
@@ -1211,9 +1220,9 @@ public class CastPlayerTest {
     int[] mediaQueueItemIds = new int[] {1, 2};
     List<MediaItem> mediaItems = createMediaItems(mediaQueueItemIds);
 
-    castPlayer.addMediaItems(mediaItems);
+    remoteCastPlayer.addMediaItems(mediaItems);
     updateTimeLine(mediaItems, mediaQueueItemIds, /* currentItemId= */ 1);
-    castPlayer.seekTo(/* mediaItemIndex= */ 0, /* positionMs= */ 1234);
+    remoteCastPlayer.seekTo(/* mediaItemIndex= */ 0, /* positionMs= */ 1234);
 
     InOrder inOrder = Mockito.inOrder(mockListener);
     inOrder
@@ -1230,9 +1239,9 @@ public class CastPlayerTest {
     int[] mediaQueueItemIds = new int[] {1, 2};
     List<MediaItem> mediaItems = createMediaItems(mediaQueueItemIds);
 
-    castPlayer.addMediaItems(mediaItems);
+    remoteCastPlayer.addMediaItems(mediaItems);
     updateTimeLine(mediaItems, mediaQueueItemIds, /* currentItemId= */ 1);
-    castPlayer.seekTo(/* mediaItemIndex= */ 0, /* positionMs= */ 1234);
+    remoteCastPlayer.seekTo(/* mediaItemIndex= */ 0, /* positionMs= */ 1234);
 
     Player.PositionInfo oldPosition =
         new Player.PositionInfo(
@@ -1273,7 +1282,7 @@ public class CastPlayerTest {
     // delivers the duration for that media item which updates the timeline accordingly.
     List<MediaItem> mediaItems = createMediaItems(mediaQueueItemIds);
 
-    castPlayer.addMediaItems(mediaItems);
+    remoteCastPlayer.addMediaItems(mediaItems);
     updateTimeLine(mediaItems, mediaQueueItemIds, /* currentItemId= */ 1);
     updateTimeLine(mediaItems, mediaQueueItemIds, /* currentItemId= */ 2);
 
@@ -1299,7 +1308,7 @@ public class CastPlayerTest {
     long[] durationsSecondMs = {12500, 22000};
     List<MediaItem> mediaItems = createMediaItems(mediaQueueItemIds);
 
-    castPlayer.addMediaItems(mediaItems);
+    remoteCastPlayer.addMediaItems(mediaItems);
     updateTimeLine(
         mediaItems,
         mediaQueueItemIds,
@@ -1360,10 +1369,10 @@ public class CastPlayerTest {
     long[] durationsMs = new long[] {3 * C.DEFAULT_SEEK_BACK_INCREMENT_MS};
     long positionMs = 2 * C.DEFAULT_SEEK_BACK_INCREMENT_MS;
 
-    castPlayer.addMediaItems(mediaItems);
+    remoteCastPlayer.addMediaItems(mediaItems);
     updateTimeLine(
         mediaItems, mediaQueueItemIds, currentItemId, streamTypes, durationsMs, positionMs);
-    castPlayer.seekBack();
+    remoteCastPlayer.seekBack();
 
     Player.PositionInfo oldPosition =
         new Player.PositionInfo(
@@ -1408,10 +1417,10 @@ public class CastPlayerTest {
     long[] durationsMs = new long[] {2 * C.DEFAULT_SEEK_FORWARD_INCREMENT_MS};
     long positionMs = 0;
 
-    castPlayer.addMediaItems(mediaItems);
+    remoteCastPlayer.addMediaItems(mediaItems);
     updateTimeLine(
         mediaItems, mediaQueueItemIds, currentItemId, streamTypes, durationsMs, positionMs);
-    castPlayer.seekForward();
+    remoteCastPlayer.seekForward();
 
     Player.PositionInfo oldPosition =
         new Player.PositionInfo(
@@ -1450,39 +1459,39 @@ public class CastPlayerTest {
     int[] mediaQueueItemIds = new int[] {1, 2};
     List<MediaItem> mediaItems = createMediaItems(mediaQueueItemIds);
 
-    castPlayer.addMediaItems(mediaItems);
+    remoteCastPlayer.addMediaItems(mediaItems);
     updateTimeLine(mediaItems, mediaQueueItemIds, /* currentItemId= */ 1);
 
-    assertThat(castPlayer.isCommandAvailable(COMMAND_PLAY_PAUSE)).isTrue();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_PREPARE)).isTrue();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_STOP)).isTrue();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_SEEK_TO_DEFAULT_POSITION)).isTrue();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)).isTrue();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)).isFalse();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_SEEK_TO_PREVIOUS)).isTrue();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)).isTrue();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_SEEK_TO_NEXT)).isTrue();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_SEEK_TO_MEDIA_ITEM)).isTrue();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_SEEK_BACK)).isTrue();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_SEEK_FORWARD)).isTrue();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_SET_SPEED_AND_PITCH)).isTrue();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_SET_SHUFFLE_MODE)).isFalse();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_SET_REPEAT_MODE)).isTrue();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_GET_CURRENT_MEDIA_ITEM)).isTrue();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_GET_TIMELINE)).isTrue();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_GET_METADATA)).isTrue();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_SET_PLAYLIST_METADATA)).isTrue();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_CHANGE_MEDIA_ITEMS)).isTrue();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_SET_MEDIA_ITEM)).isTrue();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_GET_AUDIO_ATTRIBUTES)).isFalse();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_GET_VOLUME)).isFalse();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_GET_DEVICE_VOLUME)).isTrue();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_SET_VOLUME)).isFalse();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_SET_DEVICE_VOLUME)).isTrue();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_ADJUST_DEVICE_VOLUME)).isTrue();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_SET_VIDEO_SURFACE)).isFalse();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_GET_TEXT)).isFalse();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_RELEASE)).isTrue();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_PLAY_PAUSE)).isTrue();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_PREPARE)).isTrue();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_STOP)).isTrue();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_SEEK_TO_DEFAULT_POSITION)).isTrue();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)).isTrue();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)).isFalse();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_SEEK_TO_PREVIOUS)).isTrue();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)).isTrue();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_SEEK_TO_NEXT)).isTrue();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_SEEK_TO_MEDIA_ITEM)).isTrue();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_SEEK_BACK)).isTrue();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_SEEK_FORWARD)).isTrue();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_SET_SPEED_AND_PITCH)).isTrue();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_SET_SHUFFLE_MODE)).isFalse();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_SET_REPEAT_MODE)).isTrue();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_GET_CURRENT_MEDIA_ITEM)).isTrue();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_GET_TIMELINE)).isTrue();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_GET_METADATA)).isTrue();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_SET_PLAYLIST_METADATA)).isTrue();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_CHANGE_MEDIA_ITEMS)).isTrue();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_SET_MEDIA_ITEM)).isTrue();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_GET_AUDIO_ATTRIBUTES)).isFalse();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_GET_VOLUME)).isFalse();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_GET_DEVICE_VOLUME)).isTrue();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_SET_VOLUME)).isFalse();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_SET_DEVICE_VOLUME)).isTrue();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_ADJUST_DEVICE_VOLUME)).isTrue();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_SET_VIDEO_SURFACE)).isFalse();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_GET_TEXT)).isFalse();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_RELEASE)).isTrue();
   }
 
   @Test
@@ -1492,17 +1501,18 @@ public class CastPlayerTest {
     int[] mediaQueueItemIds = new int[] {1, 2};
     List<MediaItem> mediaItems = createMediaItems(mediaQueueItemIds);
 
-    castPlayer.addMediaItems(mediaItems);
+    remoteCastPlayer.addMediaItems(mediaItems);
     updateTimeLine(mediaItems, mediaQueueItemIds, /* currentItemId= */ 1);
 
-    assertThat(castPlayer.isCommandAvailable(COMMAND_GET_AUDIO_ATTRIBUTES)).isFalse();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_GET_VOLUME)).isTrue();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_GET_DEVICE_VOLUME)).isTrue();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_SET_VOLUME)).isTrue();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_SET_DEVICE_VOLUME)).isTrue();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_SET_DEVICE_VOLUME_WITH_FLAGS)).isTrue();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_ADJUST_DEVICE_VOLUME)).isTrue();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS)).isTrue();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_GET_AUDIO_ATTRIBUTES)).isFalse();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_GET_VOLUME)).isTrue();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_GET_DEVICE_VOLUME)).isTrue();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_SET_VOLUME)).isTrue();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_SET_DEVICE_VOLUME)).isTrue();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_SET_DEVICE_VOLUME_WITH_FLAGS)).isTrue();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_ADJUST_DEVICE_VOLUME)).isTrue();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_ADJUST_DEVICE_VOLUME_WITH_FLAGS))
+        .isTrue();
   }
 
   @Test
@@ -1513,7 +1523,7 @@ public class CastPlayerTest {
     int[] streamTypes = new int[] {MediaInfo.STREAM_TYPE_LIVE};
     long[] durationsMs = new long[] {C.TIME_UNSET};
 
-    castPlayer.addMediaItem(mediaItem);
+    remoteCastPlayer.addMediaItem(mediaItem);
     updateTimeLine(
         mediaItems,
         mediaQueueItemIds,
@@ -1522,9 +1532,9 @@ public class CastPlayerTest {
         durationsMs,
         /* positionMs= */ C.TIME_UNSET);
 
-    assertThat(castPlayer.isCommandAvailable(COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)).isFalse();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_SEEK_BACK)).isFalse();
-    assertThat(castPlayer.isCommandAvailable(COMMAND_SEEK_FORWARD)).isFalse();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)).isFalse();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_SEEK_BACK)).isFalse();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_SEEK_FORWARD)).isFalse();
   }
 
   @Test
@@ -1535,7 +1545,7 @@ public class CastPlayerTest {
     int[] streamTypes = new int[] {MediaInfo.STREAM_TYPE_LIVE};
     long[] durationsMs = new long[] {C.TIME_UNSET};
 
-    castPlayer.addMediaItem(mediaItem);
+    remoteCastPlayer.addMediaItem(mediaItem);
     updateTimeLine(
         mediaItems,
         mediaQueueItemIds,
@@ -1544,7 +1554,7 @@ public class CastPlayerTest {
         durationsMs,
         /* positionMs= */ C.TIME_UNSET);
 
-    assertThat(castPlayer.isCommandAvailable(COMMAND_SEEK_TO_PREVIOUS)).isFalse();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_SEEK_TO_PREVIOUS)).isFalse();
   }
 
   @Test
@@ -1555,7 +1565,7 @@ public class CastPlayerTest {
     int[] streamTypes = new int[] {MediaInfo.STREAM_TYPE_BUFFERED, MediaInfo.STREAM_TYPE_LIVE};
     long[] durationsMs = new long[] {10_000, C.TIME_UNSET};
 
-    castPlayer.addMediaItems(mediaItems);
+    remoteCastPlayer.addMediaItems(mediaItems);
     updateTimeLine(
         mediaItems,
         mediaQueueItemIds,
@@ -1564,7 +1574,7 @@ public class CastPlayerTest {
         durationsMs,
         /* positionMs= */ C.TIME_UNSET);
 
-    assertThat(castPlayer.isCommandAvailable(COMMAND_SEEK_TO_PREVIOUS)).isTrue();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_SEEK_TO_PREVIOUS)).isTrue();
   }
 
   @Test
@@ -1575,7 +1585,7 @@ public class CastPlayerTest {
     int[] streamTypes = new int[] {MediaInfo.STREAM_TYPE_LIVE};
     long[] durationsMs = new long[] {C.TIME_UNSET};
 
-    castPlayer.addMediaItem(mediaItem);
+    remoteCastPlayer.addMediaItem(mediaItem);
     updateTimeLine(
         mediaItems,
         mediaQueueItemIds,
@@ -1584,7 +1594,7 @@ public class CastPlayerTest {
         durationsMs,
         /* positionMs= */ C.TIME_UNSET);
 
-    assertThat(castPlayer.isCommandAvailable(COMMAND_SEEK_TO_NEXT)).isTrue();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_SEEK_TO_NEXT)).isTrue();
   }
 
   @Test
@@ -1603,20 +1613,20 @@ public class CastPlayerTest {
     int[] mediaQueueItemIds = new int[] {1, 2, 3, 4};
     List<MediaItem> mediaItems = createMediaItems(mediaQueueItemIds);
 
-    castPlayer.addMediaItems(mediaItems);
+    remoteCastPlayer.addMediaItems(mediaItems);
     updateTimeLine(mediaItems, mediaQueueItemIds, /* currentItemId= */ 1);
     verify(mockListener).onAvailableCommandsChanged(commandsWithSeekToNextWindow);
     // Check that there were no other calls to onAvailableCommandsChanged.
     verify(mockListener).onAvailableCommandsChanged(any());
 
-    castPlayer.seekTo(/* mediaItemIndex= */ 1, /* positionMs= */ 0);
+    remoteCastPlayer.seekTo(/* mediaItemIndex= */ 1, /* positionMs= */ 0);
     verify(mockListener).onAvailableCommandsChanged(commandsWithSeekToPreviousAndNextWindow);
     verify(mockListener, times(2)).onAvailableCommandsChanged(any());
 
-    castPlayer.seekTo(/* mediaItemIndex= */ 2, /* positionMs= */ 0);
+    remoteCastPlayer.seekTo(/* mediaItemIndex= */ 2, /* positionMs= */ 0);
     verify(mockListener, times(2)).onAvailableCommandsChanged(any());
 
-    castPlayer.seekTo(/* mediaItemIndex= */ 3, /* positionMs= */ 0);
+    remoteCastPlayer.seekTo(/* mediaItemIndex= */ 3, /* positionMs= */ 0);
     verify(mockListener).onAvailableCommandsChanged(commandsWithSeekToPreviousWindow);
     verify(mockListener, times(3)).onAvailableCommandsChanged(any());
   }
@@ -1637,20 +1647,20 @@ public class CastPlayerTest {
     int[] mediaQueueItemIds = new int[] {1, 2, 3, 4};
     List<MediaItem> mediaItems = createMediaItems(mediaQueueItemIds);
 
-    castPlayer.addMediaItems(mediaItems);
+    remoteCastPlayer.addMediaItems(mediaItems);
     updateTimeLine(mediaItems, mediaQueueItemIds, /* currentItemId= */ 4);
     verify(mockListener).onAvailableCommandsChanged(commandsWithSeekToPreviousWindow);
     // Check that there were no other calls to onAvailableCommandsChanged.
     verify(mockListener).onAvailableCommandsChanged(any());
 
-    castPlayer.seekTo(/* mediaItemIndex= */ 2, /* positionMs= */ 0);
+    remoteCastPlayer.seekTo(/* mediaItemIndex= */ 2, /* positionMs= */ 0);
     verify(mockListener).onAvailableCommandsChanged(commandsWithSeekToPreviousAndNextWindow);
     verify(mockListener, times(2)).onAvailableCommandsChanged(any());
 
-    castPlayer.seekTo(/* mediaItemIndex= */ 1, /* positionMs= */ 0);
+    remoteCastPlayer.seekTo(/* mediaItemIndex= */ 1, /* positionMs= */ 0);
     verify(mockListener, times(2)).onAvailableCommandsChanged(any());
 
-    castPlayer.seekTo(/* mediaItemIndex= */ 0, /* positionMs= */ 0);
+    remoteCastPlayer.seekTo(/* mediaItemIndex= */ 0, /* positionMs= */ 0);
     verify(mockListener).onAvailableCommandsChanged(commandsWithSeekToNextWindow);
     verify(mockListener, times(3)).onAvailableCommandsChanged(any());
   }
@@ -1663,12 +1673,12 @@ public class CastPlayerTest {
     int[] mediaQueueItemIds = new int[] {1};
     List<MediaItem> mediaItems = createMediaItems(mediaQueueItemIds);
 
-    castPlayer.addMediaItems(mediaItems);
+    remoteCastPlayer.addMediaItems(mediaItems);
     updateTimeLine(mediaItems, mediaQueueItemIds, /* currentItemId= */ 1);
     verify(mockListener).onAvailableCommandsChanged(defaultCommands);
 
-    castPlayer.seekTo(/* mediaItemIndex= */ 0, /* positionMs= */ 200);
-    castPlayer.seekTo(/* mediaItemIndex= */ 0, /* positionMs= */ 100);
+    remoteCastPlayer.seekTo(/* mediaItemIndex= */ 0, /* positionMs= */ 200);
+    remoteCastPlayer.seekTo(/* mediaItemIndex= */ 0, /* positionMs= */ 100);
     // Check that there were no other calls to onAvailableCommandsChanged.
     verify(mockListener).onAvailableCommandsChanged(any());
   }
@@ -1682,7 +1692,7 @@ public class CastPlayerTest {
     MediaItem mediaItem2 = createMediaItem(/* mediaQueueItemId= */ 2);
     MediaItem mediaItem3 = createMediaItem(/* mediaQueueItemId= */ 3);
 
-    castPlayer.addMediaItem(mediaItem1);
+    remoteCastPlayer.addMediaItem(mediaItem1);
     updateTimeLine(
         ImmutableList.of(mediaItem1),
         /* mediaQueueItemIds= */ new int[] {1},
@@ -1691,7 +1701,7 @@ public class CastPlayerTest {
     // Check that there were no other calls to onAvailableCommandsChanged.
     verify(mockListener).onAvailableCommandsChanged(any());
 
-    castPlayer.addMediaItem(mediaItem2);
+    remoteCastPlayer.addMediaItem(mediaItem2);
     updateTimeLine(
         ImmutableList.of(mediaItem1, mediaItem2),
         /* mediaQueueItemIds= */ new int[] {1, 2},
@@ -1699,7 +1709,7 @@ public class CastPlayerTest {
     verify(mockListener).onAvailableCommandsChanged(commandsWithSeekToNextWindow);
     verify(mockListener, times(2)).onAvailableCommandsChanged(any());
 
-    castPlayer.addMediaItem(mediaItem3);
+    remoteCastPlayer.addMediaItem(mediaItem3);
     updateTimeLine(
         ImmutableList.of(mediaItem1, mediaItem2, mediaItem3),
         /* mediaQueueItemIds= */ new int[] {1, 2, 3},
@@ -1716,7 +1726,7 @@ public class CastPlayerTest {
     MediaItem mediaItem2 = createMediaItem(/* mediaQueueItemId= */ 2);
     MediaItem mediaItem3 = createMediaItem(/* mediaQueueItemId= */ 3);
 
-    castPlayer.addMediaItem(mediaItem1);
+    remoteCastPlayer.addMediaItem(mediaItem1);
     updateTimeLine(
         ImmutableList.of(mediaItem1),
         /* mediaQueueItemIds= */ new int[] {1},
@@ -1725,7 +1735,7 @@ public class CastPlayerTest {
     // Check that there were no other calls to onAvailableCommandsChanged.
     verify(mockListener).onAvailableCommandsChanged(any());
 
-    castPlayer.addMediaItem(/* index= */ 0, mediaItem2);
+    remoteCastPlayer.addMediaItem(/* index= */ 0, mediaItem2);
     updateTimeLine(
         ImmutableList.of(mediaItem2, mediaItem1),
         /* mediaQueueItemIds= */ new int[] {2, 1},
@@ -1733,7 +1743,7 @@ public class CastPlayerTest {
     verify(mockListener).onAvailableCommandsChanged(commandsWithSeekToPreviousWindow);
     verify(mockListener, times(2)).onAvailableCommandsChanged(any());
 
-    castPlayer.addMediaItem(/* index= */ 0, mediaItem3);
+    remoteCastPlayer.addMediaItem(/* index= */ 0, mediaItem3);
     updateTimeLine(
         ImmutableList.of(mediaItem3, mediaItem2, mediaItem1),
         /* mediaQueueItemIds= */ new int[] {3, 2, 1},
@@ -1751,7 +1761,7 @@ public class CastPlayerTest {
     MediaItem mediaItem2 = createMediaItem(/* mediaQueueItemId= */ 2);
     MediaItem mediaItem3 = createMediaItem(/* mediaQueueItemId= */ 3);
 
-    castPlayer.addMediaItems(ImmutableList.of(mediaItem1, mediaItem2, mediaItem3));
+    remoteCastPlayer.addMediaItems(ImmutableList.of(mediaItem1, mediaItem2, mediaItem3));
     updateTimeLine(
         ImmutableList.of(mediaItem1, mediaItem2, mediaItem3),
         /* mediaQueueItemIds= */ new int[] {1, 2, 3},
@@ -1760,14 +1770,14 @@ public class CastPlayerTest {
     // Check that there were no other calls to onAvailableCommandsChanged.
     verify(mockListener).onAvailableCommandsChanged(any());
 
-    castPlayer.removeMediaItem(/* index= */ 2);
+    remoteCastPlayer.removeMediaItem(/* index= */ 2);
     updateTimeLine(
         ImmutableList.of(mediaItem1, mediaItem2),
         /* mediaQueueItemIds= */ new int[] {1, 2},
         /* currentItemId= */ 1);
     verify(mockListener).onAvailableCommandsChanged(any());
 
-    castPlayer.removeMediaItem(/* index= */ 1);
+    remoteCastPlayer.removeMediaItem(/* index= */ 1);
     updateTimeLine(
         ImmutableList.of(mediaItem1),
         /* mediaQueueItemIds= */ new int[] {1},
@@ -1775,7 +1785,7 @@ public class CastPlayerTest {
     verify(mockListener).onAvailableCommandsChanged(defaultCommands);
     verify(mockListener, times(2)).onAvailableCommandsChanged(any());
 
-    castPlayer.removeMediaItem(/* index= */ 0);
+    remoteCastPlayer.removeMediaItem(/* index= */ 0);
     updateTimeLine(
         ImmutableList.of(),
         /* mediaQueueItemIds= */ new int[0],
@@ -1796,7 +1806,7 @@ public class CastPlayerTest {
     MediaItem mediaItem2 = createMediaItem(/* mediaQueueItemId= */ 2);
     MediaItem mediaItem3 = createMediaItem(/* mediaQueueItemId= */ 3);
 
-    castPlayer.addMediaItems(ImmutableList.of(mediaItem1, mediaItem2, mediaItem3));
+    remoteCastPlayer.addMediaItems(ImmutableList.of(mediaItem1, mediaItem2, mediaItem3));
     updateTimeLine(
         ImmutableList.of(mediaItem1, mediaItem2, mediaItem3),
         /* mediaQueueItemIds= */ new int[] {1, 2, 3},
@@ -1805,14 +1815,14 @@ public class CastPlayerTest {
     // Check that there were no other calls to onAvailableCommandsChanged.
     verify(mockListener).onAvailableCommandsChanged(any());
 
-    castPlayer.removeMediaItem(/* index= */ 0);
+    remoteCastPlayer.removeMediaItem(/* index= */ 0);
     updateTimeLine(
         ImmutableList.of(mediaItem2, mediaItem3),
         /* mediaQueueItemIds= */ new int[] {2, 3},
         /* currentItemId= */ 3);
     verify(mockListener).onAvailableCommandsChanged(any());
 
-    castPlayer.removeMediaItem(/* index= */ 0);
+    remoteCastPlayer.removeMediaItem(/* index= */ 0);
     updateTimeLine(
         ImmutableList.of(mediaItem3),
         /* mediaQueueItemIds= */ new int[] {3},
@@ -1820,7 +1830,7 @@ public class CastPlayerTest {
     verify(mockListener).onAvailableCommandsChanged(defaultCommands);
     verify(mockListener, times(2)).onAvailableCommandsChanged(any());
 
-    castPlayer.removeMediaItem(/* index= */ 0);
+    remoteCastPlayer.removeMediaItem(/* index= */ 0);
     updateTimeLine(
         ImmutableList.of(),
         /* mediaQueueItemIds= */ new int[0],
@@ -1837,7 +1847,7 @@ public class CastPlayerTest {
     MediaItem mediaItem1 = createMediaItem(/* mediaQueueItemId= */ 1);
     MediaItem mediaItem2 = createMediaItem(/* mediaQueueItemId= */ 2);
 
-    castPlayer.addMediaItems(ImmutableList.of(mediaItem1, mediaItem2));
+    remoteCastPlayer.addMediaItems(ImmutableList.of(mediaItem1, mediaItem2));
     updateTimeLine(
         ImmutableList.of(mediaItem1, mediaItem2),
         /* mediaQueueItemIds= */ new int[] {1, 2},
@@ -1846,7 +1856,7 @@ public class CastPlayerTest {
     // Check that there were no other calls to onAvailableCommandsChanged.
     verify(mockListener).onAvailableCommandsChanged(any());
 
-    castPlayer.removeMediaItem(/* index= */ 0);
+    remoteCastPlayer.removeMediaItem(/* index= */ 0);
     updateTimeLine(
         ImmutableList.of(mediaItem2),
         /* mediaQueueItemIds= */ new int[] {2},
@@ -1868,13 +1878,13 @@ public class CastPlayerTest {
     int[] mediaQueueItemIds = new int[] {1};
     List<MediaItem> mediaItems = createMediaItems(mediaQueueItemIds);
 
-    castPlayer.addMediaItems(mediaItems);
+    remoteCastPlayer.addMediaItems(mediaItems);
     updateTimeLine(mediaItems, mediaQueueItemIds, /* currentItemId= */ 1);
     verify(mockListener).onAvailableCommandsChanged(defaultCommands);
     // Check that there were no other calls to onAvailableCommandsChanged.
     verify(mockListener).onAvailableCommandsChanged(any());
 
-    castPlayer.setRepeatMode(Player.REPEAT_MODE_ALL);
+    remoteCastPlayer.setRepeatMode(Player.REPEAT_MODE_ALL);
     verify(mockListener).onAvailableCommandsChanged(commandsWithSeekToPreviousAndNextWindow);
     verify(mockListener, times(2)).onAvailableCommandsChanged(any());
   }
@@ -1887,13 +1897,13 @@ public class CastPlayerTest {
     int[] mediaQueueItemIds = new int[] {1};
     List<MediaItem> mediaItems = createMediaItems(mediaQueueItemIds);
 
-    castPlayer.addMediaItems(mediaItems);
+    remoteCastPlayer.addMediaItems(mediaItems);
     updateTimeLine(mediaItems, mediaQueueItemIds, /* currentItemId= */ 1);
     verify(mockListener).onAvailableCommandsChanged(defaultCommands);
     // Check that there were no other calls to onAvailableCommandsChanged.
     verify(mockListener).onAvailableCommandsChanged(any());
 
-    castPlayer.setRepeatMode(Player.REPEAT_MODE_ONE);
+    remoteCastPlayer.setRepeatMode(Player.REPEAT_MODE_ONE);
     verify(mockListener).onAvailableCommandsChanged(any());
   }
 
@@ -1923,19 +1933,20 @@ public class CastPlayerTest {
                 .setMimeType(MimeTypes.APPLICATION_MP4)
                 .setMediaMetadata(new MediaMetadata.Builder().setArtist("foobar").build())
                 .build());
-    castPlayer.addListener(mockListener);
+    remoteCastPlayer.addListener(mockListener);
 
-    MediaMetadata initialMetadata = castPlayer.getMediaMetadata();
-    castPlayer.setMediaItems(firstPlaylist, /* startIndex= */ 0, /* startPositionMs= */ 2000L);
+    MediaMetadata initialMetadata = remoteCastPlayer.getMediaMetadata();
+    remoteCastPlayer.setMediaItems(
+        firstPlaylist, /* startIndex= */ 0, /* startPositionMs= */ 2000L);
     updateTimeLine(firstPlaylist, /* mediaQueueItemIds= */ new int[] {1}, /* currentItemId= */ 1);
-    MediaMetadata firstMetadata = castPlayer.getMediaMetadata();
+    MediaMetadata firstMetadata = remoteCastPlayer.getMediaMetadata();
     // Replacing existing playlist.
-    castPlayer.setMediaItems(secondPlaylist, /* startIndex= */ 1, /* startPositionMs= */ 0L);
+    remoteCastPlayer.setMediaItems(secondPlaylist, /* startIndex= */ 1, /* startPositionMs= */ 0L);
     updateTimeLine(
         secondPlaylist, /* mediaQueueItemIds= */ new int[] {2, 3}, /* currentItemId= */ 3);
-    MediaMetadata secondMetadata = castPlayer.getMediaMetadata();
-    castPlayer.seekTo(/* mediaItemIndex= */ 0, /* positionMs= */ 0);
-    MediaMetadata thirdMetadata = castPlayer.getMediaMetadata();
+    MediaMetadata secondMetadata = remoteCastPlayer.getMediaMetadata();
+    remoteCastPlayer.seekTo(/* mediaItemIndex= */ 0, /* positionMs= */ 0);
+    MediaMetadata thirdMetadata = remoteCastPlayer.getMediaMetadata();
 
     verify(mockListener, times(3)).onMediaItemTransition(mediaItemCaptor.capture(), anyInt());
     assertThat(mediaItemCaptor.getAllValues())
@@ -1983,14 +1994,15 @@ public class CastPlayerTest {
                 .setMimeType(MimeTypes.APPLICATION_MP4)
                 .setTag(3)
                 .build());
-    castPlayer.addListener(mockListener);
+    remoteCastPlayer.addListener(mockListener);
 
-    castPlayer.setMediaItems(firstPlaylist, /* startIndex= */ 0, /* startPositionMs= */ 2000L);
+    remoteCastPlayer.setMediaItems(
+        firstPlaylist, /* startIndex= */ 0, /* startPositionMs= */ 2000L);
     updateTimeLine(firstPlaylist, /* mediaQueueItemIds= */ new int[] {1}, /* currentItemId= */ 1);
-    castPlayer.setMediaItems(secondPlaylist, /* startIndex= */ 1, /* startPositionMs= */ 0L);
+    remoteCastPlayer.setMediaItems(secondPlaylist, /* startIndex= */ 1, /* startPositionMs= */ 0L);
     updateTimeLine(
         secondPlaylist, /* mediaQueueItemIds= */ new int[] {2, 3}, /* currentItemId= */ 3);
-    castPlayer.seekTo(/* mediaItemIndex= */ 0, /* positionMs= */ 0);
+    remoteCastPlayer.seekTo(/* mediaItemIndex= */ 0, /* positionMs= */ 0);
 
     verify(mockListener, times(3)).onMediaItemTransition(any(), anyInt());
     verify(mockListener, never()).onMediaMetadataChanged(any());
@@ -1998,36 +2010,36 @@ public class CastPlayerTest {
 
   @Test
   public void setPlaylistMetadata_doesNotifyOnPlaylistMetadataChanged() {
-    castPlayer.addListener(mockListener);
+    remoteCastPlayer.addListener(mockListener);
 
     MediaMetadata metadata = new MediaMetadata.Builder().setArtist("foo").build();
 
-    assertThat(castPlayer.getPlaylistMetadata()).isEqualTo(MediaMetadata.EMPTY);
+    assertThat(remoteCastPlayer.getPlaylistMetadata()).isEqualTo(MediaMetadata.EMPTY);
 
-    castPlayer.setPlaylistMetadata(metadata);
+    remoteCastPlayer.setPlaylistMetadata(metadata);
 
-    assertThat(castPlayer.getPlaylistMetadata()).isEqualTo(metadata);
+    assertThat(remoteCastPlayer.getPlaylistMetadata()).isEqualTo(metadata);
 
     verify(mockListener).onPlaylistMetadataChanged(metadata);
   }
 
   @Test
   public void setPlaylistMetadata_equalMetadata_doesNotNotifyOnPlaylistMetadataChanged() {
-    castPlayer.addListener(mockListener);
+    remoteCastPlayer.addListener(mockListener);
 
     MediaMetadata metadata = new MediaMetadata.Builder().setArtist("foo").build();
 
-    castPlayer.setPlaylistMetadata(metadata);
-    castPlayer.setPlaylistMetadata(metadata);
+    remoteCastPlayer.setPlaylistMetadata(metadata);
+    remoteCastPlayer.setPlaylistMetadata(metadata);
 
-    assertThat(castPlayer.getPlaylistMetadata()).isEqualTo(metadata);
+    assertThat(remoteCastPlayer.getPlaylistMetadata()).isEqualTo(metadata);
 
     verify(mockListener).onPlaylistMetadataChanged(metadata);
   }
 
   @Test
   public void getDeviceInfo_returnsCorrectDeviceInfoWithPlaybackTypeRemote() {
-    DeviceInfo deviceInfo = castPlayer.getDeviceInfo();
+    DeviceInfo deviceInfo = remoteCastPlayer.getDeviceInfo();
 
     assertThat(deviceInfo).isEqualTo(CastPlayer.DEVICE_INFO_REMOTE_EMPTY);
     assertThat(deviceInfo.playbackType).isEqualTo(DeviceInfo.PLAYBACK_TYPE_REMOTE);
@@ -2035,35 +2047,35 @@ public class CastPlayerTest {
 
   @Test
   public void setDeviceVolume_updatesCastSessionVolume() throws IOException {
-    int maxVolume = castPlayer.getDeviceInfo().maxVolume;
+    int maxVolume = remoteCastPlayer.getDeviceInfo().maxVolume;
     int volumeToSet = 10;
-    castPlayer.addListener(mockListener);
-    castPlayer.setDeviceVolume(volumeToSet, /* flags= */ 0);
+    remoteCastPlayer.addListener(mockListener);
+    remoteCastPlayer.setDeviceVolume(volumeToSet, /* flags= */ 0);
 
     verify(mockListener).onDeviceVolumeChanged(volumeToSet, /* muted= */ false);
     verify(mockCastSession).setVolume((double) volumeToSet / maxVolume);
-    assertThat(castPlayer.getDeviceVolume()).isEqualTo(volumeToSet);
+    assertThat(remoteCastPlayer.getDeviceVolume()).isEqualTo(volumeToSet);
 
     double newCastSessionVolume = .25;
     int expectedDeviceVolume = (int) (newCastSessionVolume * maxVolume);
     when(mockCastSession.getVolume()).thenReturn(newCastSessionVolume);
     castListener.onVolumeChanged();
-    assertThat(castPlayer.getDeviceVolume()).isEqualTo(expectedDeviceVolume);
+    assertThat(remoteCastPlayer.getDeviceVolume()).isEqualTo(expectedDeviceVolume);
     verify(mockListener).onDeviceVolumeChanged(volumeToSet, /* muted= */ false);
   }
 
   @Test
   public void setDeviceMuted_mutesCastSession() throws IOException {
-    castPlayer.addListener(mockListener);
-    castPlayer.setDeviceMuted(true, /* flags= */ 0);
+    remoteCastPlayer.addListener(mockListener);
+    remoteCastPlayer.setDeviceMuted(true, /* flags= */ 0);
 
     verify(mockListener).onDeviceVolumeChanged(0, /* muted= */ true);
     verify(mockCastSession).setMute(true);
-    assertThat(castPlayer.isDeviceMuted()).isTrue();
+    assertThat(remoteCastPlayer.isDeviceMuted()).isTrue();
 
     when(mockCastSession.isMute()).thenReturn(false);
     castListener.onVolumeChanged();
-    assertThat(castPlayer.isDeviceMuted()).isFalse();
+    assertThat(remoteCastPlayer.isDeviceMuted()).isFalse();
     verify(mockListener).onDeviceVolumeChanged(0, /* muted= */ false);
   }
 
@@ -2094,7 +2106,7 @@ public class CastPlayerTest {
 
   private void addMediaItemsAndUpdateTimeline(List<MediaItem> mediaItems, int[] mediaQueueItemIds) {
     Assertions.checkState(mediaItems.size() == mediaQueueItemIds.length);
-    castPlayer.addMediaItems(mediaItems);
+    remoteCastPlayer.addMediaItems(mediaItems);
     updateTimeLine(mediaItems, mediaQueueItemIds, /* currentItemId= */ 1);
   }
 
