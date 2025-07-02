@@ -423,6 +423,7 @@ public final class MetadataRetriever implements AutoCloseable {
       private @MonotonicNonNull MediaSource mediaSource;
       private @MonotonicNonNull MediaPeriod mediaPeriod;
       private @MonotonicNonNull Timeline timeline;
+      private boolean released;
 
       public MediaSourceHandlerCallback() {
         mediaSourceCaller = new MediaSourceCaller();
@@ -430,6 +431,9 @@ public final class MetadataRetriever implements AutoCloseable {
 
       @Override
       public boolean handleMessage(Message msg) {
+        if (released) {
+          return true;
+        }
         switch (msg.what) {
           case MESSAGE_PREPARE_SOURCE:
             MediaItem mediaItem = (MediaItem) msg.obj;
@@ -465,6 +469,7 @@ public final class MetadataRetriever implements AutoCloseable {
             }
             mediaSourceHandler.removeCallbacksAndMessages(/* token= */ null);
             SHARED_WORKER_THREAD.removeWorker();
+            released = true;
             return true;
           default:
             return false;
