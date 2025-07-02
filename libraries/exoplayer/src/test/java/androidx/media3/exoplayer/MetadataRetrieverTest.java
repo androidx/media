@@ -42,6 +42,7 @@ import androidx.media3.extractor.metadata.mp4.SlowMotionData;
 import androidx.media3.extractor.metadata.mp4.SmtaMetadataEntry;
 import androidx.media3.test.utils.FakeClock;
 import androidx.media3.test.utils.FakeMediaSource;
+import androidx.media3.test.utils.FakeTimeline;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
@@ -612,6 +613,7 @@ public class MetadataRetrieverTest {
   @Test
   public void retrieveUsingInstance_releasesMediaSource_afterCancellation() throws Exception {
     FakeMediaSource fakeMediaSource = new FakeMediaSource();
+    fakeMediaSource.setAllowPreparation(false);
     MediaSource.Factory mediaSourceFactory = mock(MediaSource.Factory.class);
     when(mediaSourceFactory.createMediaSource(any(MediaItem.class))).thenReturn(fakeMediaSource);
     MediaItem mediaItem =
@@ -651,20 +653,33 @@ public class MetadataRetrieverTest {
 
   @Test
   public void retrieveUsingInstance_cancelOneFuture_doesNotAffectOthers() throws Exception {
+    Timeline timeline =
+        new FakeTimeline(
+            new FakeTimeline.TimelineWindowDefinition.Builder().setPeriodCount(1).build());
+    FakeMediaSource fakeMediaSource = new FakeMediaSource(timeline);
+    fakeMediaSource.setAllowPreparation(false);
+    MediaSource.Factory mediaSourceFactory = mock(MediaSource.Factory.class);
+    when(mediaSourceFactory.createMediaSource(any(MediaItem.class))).thenReturn(fakeMediaSource);
     MediaItem mediaItem =
         MediaItem.fromUri(Uri.parse("asset://android_asset/media/mp4/sample.mp4"));
 
     try (MetadataRetriever retriever =
-        new MetadataRetriever.Builder(context, mediaItem).setClock(clock).build()) {
+        new MetadataRetriever.Builder(context, mediaItem)
+            .setClock(clock)
+            .setMediaSourceFactory(mediaSourceFactory)
+            .build()) {
       ListenableFuture<TrackGroupArray> trackGroupsFuture = retriever.retrieveTrackGroups();
       ListenableFuture<Timeline> timelineFuture = retriever.retrieveTimeline();
 
+      assertThat(trackGroupsFuture.isDone()).isFalse();
+      assertThat(timelineFuture.isDone()).isFalse();
       assertThat(trackGroupsFuture.cancel(true)).isTrue();
       assertThrows(CancellationException.class, trackGroupsFuture::get);
+      fakeMediaSource.setAllowPreparation(true);
       // The other future should still complete successfully.
-      Timeline timeline = timelineFuture.get(TEST_TIMEOUT_SEC, TimeUnit.SECONDS);
-      assertThat(timeline).isNotNull();
-      assertThat(timeline.getWindowCount()).isEqualTo(1);
+      Timeline retrievedTimeline = timelineFuture.get(TEST_TIMEOUT_SEC, TimeUnit.SECONDS);
+      assertThat(retrievedTimeline).isNotNull();
+      assertThat(retrievedTimeline.getPeriodCount()).isEqualTo(1);
     }
   }
 
