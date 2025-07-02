@@ -123,7 +123,7 @@ import java.util.concurrent.ExecutionException;
   private static final String TAG = "MediaSessionStub";
 
   /** The version of the IMediaSession interface. */
-  public static final int VERSION_INT = 4;
+  public static final int VERSION_INT = 5;
 
   /**
    * Sequence number used when a controller method is triggered on the sesison side that wasn't
@@ -152,9 +152,16 @@ import java.util.concurrent.ExecutionException;
   }
 
   private static void sendSessionResult(
-      ControllerInfo controller, int sequenceNumber, SessionResult result) {
+      MediaSessionImpl sessionImpl,
+      ControllerInfo controller,
+      int sequenceNumber,
+      SessionResult result) {
     try {
       checkStateNotNull(controller.getControllerCb()).onSessionResult(sequenceNumber, result);
+      // Make sure the session sends out a new PlayerInfo update in any case, even if the controller
+      // command we just handled didn't change anything. This is needed to end any masking states
+      // in the controllers waiting to acknowledge this command.
+      sessionImpl.triggerPlayerInfoUpdate();
     } catch (RemoteException e) {
       Log.w(TAG, "Failed to send result to controller " + controller, e);
     }
@@ -174,7 +181,7 @@ import java.util.concurrent.ExecutionException;
       }
       task.run(sessionImpl.getPlayerWrapper(), controller);
       sendSessionResult(
-          controller, sequenceNumber, new SessionResult(SessionResult.RESULT_SUCCESS));
+          sessionImpl, controller, sequenceNumber, new SessionResult(SessionResult.RESULT_SUCCESS));
       return Futures.immediateVoidFuture();
     };
   }
@@ -203,7 +210,7 @@ import java.util.concurrent.ExecutionException;
                             ? ERROR_NOT_SUPPORTED
                             : ERROR_UNKNOWN);
               }
-              sendSessionResult(controller, sequenceNumber, result);
+              sendSessionResult(sessionImpl, controller, sequenceNumber, result);
             });
   }
 
@@ -319,15 +326,16 @@ import java.util.concurrent.ExecutionException;
           sessionImpl.getApplicationHandler(),
           () -> {
             if (!connectedControllersManager.isPlayerCommandAvailable(controller, command)) {
-              sendSessionResult(
-                  controller, sequenceNumber, new SessionResult(ERROR_PERMISSION_DENIED));
+              SessionResult deniedResult = new SessionResult(ERROR_PERMISSION_DENIED);
+              sendSessionResult(sessionImpl, controller, sequenceNumber, deniedResult);
               return;
             }
             @SessionResult.Code
             int resultCode = sessionImpl.onPlayerCommandRequestOnHandler(controller, command);
             if (resultCode != SessionResult.RESULT_SUCCESS) {
               // Don't run rejected command.
-              sendSessionResult(controller, sequenceNumber, new SessionResult(resultCode));
+              sendSessionResult(
+                  sessionImpl, controller, sequenceNumber, new SessionResult(resultCode));
               return;
             }
             if (command == COMMAND_SET_VIDEO_SURFACE) {
@@ -396,14 +404,14 @@ import java.util.concurrent.ExecutionException;
             if (sessionCommand != null) {
               if (!connectedControllersManager.isSessionCommandAvailable(
                   controller, sessionCommand)) {
-                sendSessionResult(
-                    controller, sequenceNumber, new SessionResult(ERROR_PERMISSION_DENIED));
+                SessionResult deniedResult = new SessionResult(ERROR_PERMISSION_DENIED);
+                sendSessionResult(sessionImpl, controller, sequenceNumber, deniedResult);
                 return;
               }
             } else {
               if (!connectedControllersManager.isSessionCommandAvailable(controller, commandCode)) {
-                sendSessionResult(
-                    controller, sequenceNumber, new SessionResult(ERROR_PERMISSION_DENIED));
+                SessionResult deniedResult = new SessionResult(ERROR_PERMISSION_DENIED);
+                sendSessionResult(sessionImpl, controller, sequenceNumber, deniedResult);
                 return;
               }
             }

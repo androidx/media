@@ -119,6 +119,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   private final ListenerSet<Listener> listeners;
   private final FlushCommandQueueHandler flushCommandQueueHandler;
   private final ArraySet<Integer> pendingMaskingSequencedFutureNumbers;
+  private final Handler fallbackPlaybackInfoUpdateHandler;
 
   @Nullable private SessionToken connectedToken;
   @Nullable private SessionServiceConnection serviceConnection;
@@ -170,6 +171,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
             applicationLooper,
             Clock.DEFAULT,
             (listener, flags) -> listener.onEvents(getInstance(), new Events(flags)));
+    fallbackPlaybackInfoUpdateHandler = new Handler(applicationLooper);
 
     // Initialize members
     this.instance = instance;
@@ -281,6 +283,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     }
     released = true;
     connectedToken = null;
+    fallbackPlaybackInfoUpdateHandler.removeCallbacksAndMessages(null);
     flushCommandQueueHandler.release();
     this.iSession = null;
     if (iSession != null) {
@@ -2644,7 +2647,24 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     // masking operation on the application looper to ensure it's executed in order with other
     // updates sent to the application looper.
     sequencedFutureManager.setFutureResult(seq, futureResult);
-    getInstance().runOnApplicationLooper(() -> pendingMaskingSequencedFutureNumbers.remove(seq));
+    getInstance()
+        .runOnApplicationLooper(
+            () -> {
+              pendingMaskingSequencedFutureNumbers.remove(seq);
+              if (connectedToken != null
+                  && connectedToken.getInterfaceVersion() < 5
+                  && pendingMaskingSequencedFutureNumbers.isEmpty()) {
+                // Older session versions didn't reliably send a final PlayerInfo update. As a
+                // fallback, assume no actual final update is coming after 500ms.
+                fallbackPlaybackInfoUpdateHandler.postDelayed(
+                    () -> {
+                      if (pendingPlayerInfo != null) {
+                        onPlayerInfoChanged(pendingPlayerInfo, BundlingExclusions.NONE);
+                      }
+                    },
+                    500);
+              }
+            });
   }
 
   void onConnected(ConnectionState result) {
