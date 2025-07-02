@@ -35,6 +35,8 @@
         session may cause `IllegalStateExceptions`.
     *   Fix bug where controller actions that are not handled by the session may
         leave the controller in an invalid state.
+    *   Fix StrictMode unsafe launch violation warning
+        ([#2330](https://github.com/androidx/media/pull/2330)).
 *   UI:
     *   Fix bug where `PlayerSurface` inside re-usable components like
         `LazyColumn` didn't work correctly
@@ -168,8 +170,6 @@ This release includes the following changes since the
         position artefacts in the Android Auto UI (and other controllers using
         this information from the platform media session)
         ([#1758](https://github.com/androidx/media/issues/1758)).
-    *   Fix StrictMode unsafe launch violation warning
-        ([#2330](https://github.com/androidx/media/pull/2330)).
 *   Cronet extension:
     *   Add automatic cookie handling
         ([#5975](https://github.com/google/ExoPlayer/issues/5975)).
