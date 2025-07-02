@@ -821,8 +821,15 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
         } else {
           contentPositionUs = msToUs(player.getContentPosition());
         }
+        int adGroupIndex =
+            adPlaybackState.getAdGroupIndexForPositionUs(contentPositionUs, window.durationUs);
         maybeExecuteOrSetNextAssetListResolutionMessage(
-            adsId, timeline, /* windowIndex= */ 0, contentPositionUs);
+            adsId,
+            timeline,
+            /* windowIndex= */ 0,
+            adGroupIndex != C.INDEX_UNSET
+                ? adPlaybackState.getAdGroup(adGroupIndex).timeUs
+                : contentPositionUs);
       }
     }
     boolean adPlaybackStateUpdated = putAndNotifyAdPlaybackStateUpdate(adsId, adPlaybackState);

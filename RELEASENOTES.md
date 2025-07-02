@@ -49,6 +49,9 @@
     *   Prevent excessive reloads by waiting for half the target duration when
         `CAN-BLOCK-RELOAD=YES` is not honored by the server
         ([#2317](https://github.com/androidx/media/pull/2317)).
+    *   Fix bug where playback was stalled when starting an interstitials stream
+        before a mid roll and asset list resolution was attempted for the wrong
+        ad ([#2558](https://github.com/androidx/media/issues/2558)).
 *   DASH extension:
     *   Fix issue where trick-play adaptation set is merged with its main
         adaptation set to form an invalid `TrackGroup`
