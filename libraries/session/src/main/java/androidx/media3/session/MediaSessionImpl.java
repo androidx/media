@@ -1170,6 +1170,11 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     }
   }
 
+  /* package */ void triggerPlayerInfoUpdate() {
+    onPlayerInfoChangedHandler.sendPlayerInfoChangedMessage(
+        /* excludeTimeline= */ true, /* excludeTracks= */ true);
+  }
+
   private void dispatchRemoteControllerTaskToLegacyStub(RemoteControllerTask task) {
     try {
       task.run(sessionLegacyStub.getControllerLegacyCbForBroadcast(), /* seq= */ 0);

@@ -37,6 +37,8 @@
 *   Session:
     *   Fix bug where some controller changes that are not handled by the
         session may cause `IllegalStateExceptions`.
+    *   Fix bug where controller actions that are not handled by the session may
+        leave the controller in an invalid state.
 *   UI:
     *   Fix bug where `PlayerSurface` inside re-usable components like
         `LazyColumn` didn't work correctly
