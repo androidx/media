@@ -2472,6 +2472,53 @@ public class HlsInterstitialsAdsLoaderTest {
   }
 
   @Test
+  public void
+      handleContentTimelineChanged_startPositionAfterMidRollTimeUs_resolvesAndSchedulesMidRoll()
+          throws IOException, TimeoutException {
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:30\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:00:00.000Z\n"
+            + "#EXTINF:30,\n"
+            + "main0.ts\n"
+            + "#EXTINF:30,\n"
+            + "main1.ts\n"
+            + "#EXTINF:30,\n"
+            + "main2.ts\n"
+            + "#EXTINF:30,\n"
+            + "main3.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad0-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:00:00.000Z\","
+            + "CUE=\"PRE\","
+            + "X-ASSET-LIST=\"http://example.com/assetlist-0-0.json\""
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad1-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:00:15.000Z\","
+            + "X-ASSET-LIST=\"http://example.com/assetlist-1-0.json\""
+            + "\n";
+    when(mockPlayer.getContentPosition()).thenReturn(52_000L);
+
+    callHandleContentTimelineChangedAndCaptureAdPlaybackState(
+        playlistString,
+        adsLoader,
+        /* windowIndex= */ 0,
+        /* windowPositionInPeriodUs= */ 0L,
+        /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE);
+
+    runMainLooperUntil(assetListLoadingListener::completed, TIMEOUT_MS, Clock.DEFAULT);
+    verify(mockAdsLoaderListener)
+        .onAssetListLoadStarted(eq(contentMediaItem), eq("adsId"), eq(1), eq(0));
+    verify(mockAdsLoaderListener)
+        .onAssetListLoadCompleted(eq(contentMediaItem), eq("adsId"), eq(1), eq(0), any());
+  }
+
+  @Test
   public void handleContentTimelineChanged_assetListWithMultipleAssets_resolvesAndExpandsAdGroup()
       throws IOException, TimeoutException {
     String playlistString =
@@ -2714,7 +2761,7 @@ public class HlsInterstitialsAdsLoaderTest {
             + "ID=\"ad1-0\","
             + "CLASS=\"com.apple.hls.interstitial\","
             + "DURATION=3.246,"
-            + "START-DATE=\"2020-01-02T21:00:30.000Z\","
+            + "START-DATE=\"2020-01-02T21:00:15.000Z\","
             + "X-ASSET-LIST=\"http://example.com/assetlist-1-0.json\""
             + "\n"
             + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:00:00.000Z\n"
@@ -2729,7 +2776,7 @@ public class HlsInterstitialsAdsLoaderTest {
             .setPlaceholder(true)
             .setDynamic(true)
             .setLive(true)
-            .setDefaultPositionUs(29_999_999L)
+            .setDefaultPositionUs(15_000_000L)
             .build();
 
     callHandleContentTimelineChangedAndCaptureAdPlaybackState(
