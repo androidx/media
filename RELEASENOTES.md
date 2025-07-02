@@ -16,6 +16,8 @@
 *   DataSource:
 *   Audio:
 *   Video:
+    *   Extend detached surface workaround to "lenovo" and "motorola" devices
+        ([#2059](https://github.com/androidx/media/issues/2059)).
 *   Text:
     *   Add support for VobSub tracks in MP4 files
         ([#2510](https://github.com/androidx/media/issues/2510)).
@@ -135,7 +137,7 @@ This release includes the following changes since the
 *   Video:
     *   Improve smooth video frame release at startup when audio samples don't
         start at exactly the requested position.
-    *   Extend detached surface workaround to "realme", "lenovo", "motorola" devices
+    *   Extend detached surface workaround to "realme" devices
         ([#2059](https://github.com/androidx/media/issues/2059)).
 *   Text:
     *   Fix a playback stall when a subtitle segment initially fails to load and
