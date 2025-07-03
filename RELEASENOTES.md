@@ -6,6 +6,8 @@
 *   ExoPlayer:
     *   Fix bug where non-stereo audio formats on TVs may be marked as
         unsupported by `DefaultTrackSelector`.
+    *   Ensure the last frame is correctly rendered when using MediaCodec's
+        `DECODE_ONLY` flag (which is enabled by default in scrubbing mode).
 *   Transformer:
 *   Track Selection:
 *   Extractors:

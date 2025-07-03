@@ -1574,7 +1574,8 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         && (enableMediaCodecBufferDecodeOnlyFlag
             || (scrubbingModeParameters != null && scrubbingModeParameters.useDecodeOnlyFlag)
             || tunneling)
-        && isBufferBeforeStartTime(buffer)) {
+        && isBufferBeforeStartTime(buffer)
+        && !isBufferProbablyLastSample(buffer)) {
       // The buffer likely needs to be dropped because its timestamp is less than the start time.
       // If tunneling, we can't decide to do this after decoding because we won't get the buffer
       // back from the codec in tunneling mode. This may not work perfectly, e.g. when the codec is
