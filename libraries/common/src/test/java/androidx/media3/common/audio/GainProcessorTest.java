@@ -24,6 +24,7 @@ import static org.junit.Assert.assertThrows;
 
 import androidx.media3.common.C;
 import androidx.media3.common.audio.AudioProcessor.AudioFormat;
+import androidx.media3.common.audio.AudioProcessor.StreamMetadata;
 import androidx.media3.common.audio.AudioProcessor.UnhandledAudioFormatException;
 import androidx.media3.common.audio.DefaultGainProvider.FadeProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -63,7 +64,7 @@ public class GainProcessorTest {
     GainProcessor processor =
         new GainProcessor(new DefaultGainProvider.Builder(/* defaultGain= */ 0f).build());
     processor.configure(MONO_50KHZ_16BIT_FORMAT);
-    processor.flush();
+    processor.flush(StreamMetadata.DEFAULT);
 
     ByteBuffer input = createByteBuffer(new short[] {1, 1, 1, 1, 1, 1, 1, 1, 1, 1});
     processor.queueInput(input);
@@ -79,7 +80,7 @@ public class GainProcessorTest {
   public void applyGain_withFadeIn_returnsScaledSamples() throws UnhandledAudioFormatException {
     GainProcessor processor = new GainProcessor(HUNDRED_US_FADE_IN_PROVIDER);
     processor.configure(MONO_50KHZ_16BIT_FORMAT);
-    processor.flush();
+    processor.flush(StreamMetadata.DEFAULT);
 
     ByteBuffer input = createByteBuffer(new short[] {100, 100, 100, 100, 100, 100, 100});
     processor.queueInput(input);
@@ -93,7 +94,7 @@ public class GainProcessorTest {
   public void applyGain_withFadeOut_returnsScaledSamples() throws UnhandledAudioFormatException {
     GainProcessor processor = new GainProcessor(HUNDRED_US_FADE_OUT_PROVIDER);
     processor.configure(MONO_50KHZ_16BIT_FORMAT);
-    processor.flush();
+    processor.flush(StreamMetadata.DEFAULT);
 
     ByteBuffer input = createByteBuffer(new short[] {100, 100, 100, 100, 100, 100});
     processor.queueInput(input);
@@ -108,7 +109,7 @@ public class GainProcessorTest {
       throws UnhandledAudioFormatException {
     GainProcessor processor = new GainProcessor(HUNDRED_US_FADE_IN_PROVIDER);
     processor.configure(MONO_50KHZ_FLOAT_FORMAT);
-    processor.flush();
+    processor.flush(StreamMetadata.DEFAULT);
 
     ByteBuffer input = createByteBuffer(new float[] {1, 1, 1, 1, 1, 1, 1});
     processor.queueInput(input);
@@ -122,7 +123,7 @@ public class GainProcessorTest {
   public void applyGain_afterSampleRateChange_stretchesFade() throws UnhandledAudioFormatException {
     GainProcessor processor = new GainProcessor(HUNDRED_US_FADE_IN_PROVIDER);
     processor.configure(MONO_50KHZ_16BIT_FORMAT);
-    processor.flush();
+    processor.flush(StreamMetadata.DEFAULT);
 
     ByteBuffer input = createByteBuffer(new short[] {100, 100, 100, 100, 100, 100, 100});
     processor.queueInput(input);
@@ -132,7 +133,7 @@ public class GainProcessorTest {
     assertThat(outputSamples).isEqualTo(new short[] {0, 20, 40, 60, 80, 100, 100});
 
     processor.configure(MONO_100KHZ_16BIT_FORMAT);
-    processor.flush();
+    processor.flush(StreamMetadata.DEFAULT);
     input.rewind();
     processor.queueInput(input);
     output.clear();
@@ -151,7 +152,7 @@ public class GainProcessorTest {
                 .addFadeAt(/* positionUs= */ 100, /* durationUs= */ 100, CONSTANT_VALUE_FADE)
                 .build());
     processor.configure(MONO_50KHZ_16BIT_FORMAT);
-    processor.flush();
+    processor.flush(StreamMetadata.DEFAULT);
 
     ByteBuffer input = createByteBuffer(new short[] {100, 100, 100, 100, 100});
     processor.queueInput(input);
@@ -186,7 +187,7 @@ public class GainProcessorTest {
                 .addFadeAt(/* positionUs= */ 100, /* durationUs= */ 100, CONSTANT_VALUE_FADE)
                 .build());
     processor.configure(MONO_50KHZ_16BIT_FORMAT);
-    processor.flush();
+    processor.flush(StreamMetadata.DEFAULT);
 
     // 15 mono frames set to 100.
     ByteBuffer input =
@@ -209,7 +210,7 @@ public class GainProcessorTest {
       throws UnhandledAudioFormatException {
     GainProcessor processor = new GainProcessor(HUNDRED_US_FADE_IN_PROVIDER);
     processor.configure(MONO_50KHZ_16BIT_FORMAT);
-    processor.flush();
+    processor.flush(StreamMetadata.DEFAULT);
 
     ByteBuffer input = createByteBuffer(new short[] {100, 100, 100, 100, 100, 100, 100});
     processor.queueInput(input);
@@ -271,7 +272,46 @@ public class GainProcessorTest {
     GainProcessor processor =
         new GainProcessor(new DefaultGainProvider.Builder(/* defaultGain= */ 1).build());
     processor.configure(MONO_50KHZ_FLOAT_FORMAT);
-    processor.flush();
+    processor.flush(StreamMetadata.DEFAULT);
     assertThat(processor.isActive()).isFalse();
+  }
+
+  @Test
+  public void applyGain_afterFlushWithOffset_adjustsFadePosition()
+      throws UnhandledAudioFormatException {
+    GainProcessor processor =
+        new GainProcessor(
+            new DefaultGainProvider.Builder(/* defaultGain= */ 1f)
+                .addFadeAt(
+                    /* positionUs= */ 0, /* durationUs= */ 100, DefaultGainProvider.FADE_IN_LINEAR)
+                .addFadeAt(
+                    /* positionUs= */ 200,
+                    /* durationUs= */ 100,
+                    DefaultGainProvider.FADE_OUT_LINEAR)
+                .build());
+    processor.configure(MONO_50KHZ_16BIT_FORMAT);
+    processor.flush(StreamMetadata.DEFAULT);
+
+    // 15 mono frames set to 100.
+    ByteBuffer input =
+        createByteBuffer(
+            new short[] {
+              100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100
+            });
+    processor.queueInput(input);
+    ByteBuffer output = processor.getOutput();
+
+    assertThat(createShortArray(output))
+        .isEqualTo(new short[] {0, 20, 40, 60, 80, 100, 100, 100, 100, 100, 100, 80, 60, 40, 20});
+
+    input.rewind();
+    // Flush to frame position 5 (1 sample = 20us).
+    processor.flush(new StreamMetadata(/* positionOffsetUs= */ 100L));
+    processor.queueInput(input);
+
+    // Check that we skip first 5 frames.
+    assertThat(createShortArray(output))
+        .isEqualTo(
+            new short[] {100, 100, 100, 100, 100, 100, 80, 60, 40, 20, 100, 100, 100, 100, 100});
   }
 }
