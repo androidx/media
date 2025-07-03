@@ -18,6 +18,7 @@ package androidx.media3.transformer;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem;
+import com.google.common.collect.Iterables;
 
 /* package */ final class CompositionUtil {
 
@@ -67,6 +68,18 @@ import androidx.media3.common.MediaItem;
 
       if (!oldEditedMediaItem.effects.audioProcessors.equals(
           newEditedMediaItem.effects.audioProcessors)) {
+        return true;
+      }
+
+      // TimestampAdjustment change needs to be handled separately. Player needs to be re-prepared
+      // if the timestamp adjustments change.
+      if (!Iterables.elementsEqual(
+          // Old timestamp adjustments
+          Iterables.filter(
+              oldEditedMediaItem.effects.videoEffects, InactiveTimestampAdjustment.class),
+          // New timestamp adjustments
+          Iterables.filter(
+              newEditedMediaItem.effects.videoEffects, InactiveTimestampAdjustment.class))) {
         return true;
       }
     }

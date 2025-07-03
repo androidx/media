@@ -23,13 +23,22 @@ import static com.google.common.truth.Truth.assertThat;
 
 import android.app.Instrumentation;
 import android.content.Context;
+import android.util.Pair;
 import android.view.SurfaceView;
+import androidx.media3.common.C;
+import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.Player;
+import androidx.media3.common.Timeline;
+import androidx.media3.common.audio.AudioProcessor;
+import androidx.media3.common.audio.SpeedProvider;
 import androidx.media3.effect.GlEffect;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.After;
@@ -145,6 +154,55 @@ public class CompositionPlayerSetCompositionTest {
     playerTestListener.waitUntilPlayerEnded();
   }
 
+  @Test
+  public void setComposition_withChangedSpeed_playbackCompletes() throws Exception {
+    EditedMediaItem fastMediaItem = createEditedMediaItemWithSpeed(MP4_ASSET, 3.f);
+    EditedMediaItem slowMediaItem = createEditedMediaItemWithSpeed(MP4_ASSET, 1 / 3.f);
+
+    AtomicBoolean firstTimelineUpdated = new AtomicBoolean();
+    CopyOnWriteArrayList<Long> playerDurations = new CopyOnWriteArrayList<>();
+
+    instrumentation.runOnMainSync(
+        () -> {
+          compositionPlayer = new CompositionPlayer.Builder(context).build();
+          compositionPlayer.setVideoSurfaceView(surfaceView);
+          compositionPlayer.addListener(playerTestListener);
+          compositionPlayer.addListener(
+              new Player.Listener() {
+                @Override
+                public void onTimelineChanged(Timeline timeline, int reason) {
+                  playerDurations.add(
+                      timeline.getWindow(/* windowIndex= */ 0, new Timeline.Window()).durationUs);
+                  if (!firstTimelineUpdated.get()) {
+                    compositionPlayer.setComposition(
+                        createSingleSequenceComposition(slowMediaItem));
+                    compositionPlayer.play();
+                    firstTimelineUpdated.set(true);
+                  }
+                }
+              });
+          compositionPlayer.setComposition(createSingleSequenceComposition(fastMediaItem));
+          compositionPlayer.prepare();
+        });
+
+    playerTestListener.waitUntilPlayerEnded();
+    // 1024ms scaled by 3 and 1/3.
+    assertThat(playerDurations).containsExactly(341333L, 3071999L).inOrder();
+  }
+
+  private static EditedMediaItem createEditedMediaItemWithSpeed(
+      AndroidTestUtil.AssetInfo assetInfo, float speed) {
+    Pair<AudioProcessor, Effect> speedChangingEffect =
+        Effects.createExperimentalSpeedChangingEffect(new SimpleSpeedProvider(speed));
+    return new EditedMediaItem.Builder(MediaItem.fromUri(assetInfo.uri))
+        .setDurationUs(assetInfo.videoDurationUs)
+        .setEffects(
+            new Effects(
+                /* audioProcessors= */ ImmutableList.of(speedChangingEffect.first),
+                /* videoEffects= */ ImmutableList.of(speedChangingEffect.second)))
+        .build();
+  }
+
   private static Composition createSingleSequenceComposition(
       EditedMediaItem editedMediaItem, EditedMediaItem... moreEditedMediaItems) {
     return new Composition.Builder(
@@ -155,5 +213,25 @@ public class CompositionPlayerSetCompositionTest {
                         .build())
                 .build())
         .build();
+  }
+
+  private static final class SimpleSpeedProvider implements SpeedProvider {
+
+    private final float speed;
+
+    public SimpleSpeedProvider(float speed) {
+      this.speed = speed;
+    }
+
+    @Override
+    public float getSpeed(long timeUs) {
+      return speed;
+    }
+
+    @Override
+    public long getNextSpeedChangeTimeUs(long timeUs) {
+      // Adjust speed for all timestamps.
+      return C.TIME_UNSET;
+    }
   }
 }
