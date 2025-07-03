@@ -103,13 +103,11 @@ public final class DefaultAudioOffloadSupportProvider
     if (SDK_INT >= 31) {
       return Api31.getOffloadedPlaybackSupport(
           audioFormat,
-          audioAttributes.getAudioAttributesV21().audioAttributes,
+          audioAttributes.getPlatformAudioAttributes(),
           isOffloadVariableRateSupported);
     }
     return Api29.getOffloadedPlaybackSupport(
-        audioFormat,
-        audioAttributes.getAudioAttributesV21().audioAttributes,
-        isOffloadVariableRateSupported);
+        audioFormat, audioAttributes.getPlatformAudioAttributes(), isOffloadVariableRateSupported);
   }
 
   private boolean isOffloadVariableRateSupported(@Nullable Context context) {

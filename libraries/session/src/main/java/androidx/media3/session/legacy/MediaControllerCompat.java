@@ -42,6 +42,7 @@ import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
+import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.session.legacy.MediaSessionCompat.QueueItem;
 import androidx.media3.session.legacy.PlaybackStateCompat.CustomAction;
@@ -784,7 +785,7 @@ public final class MediaControllerCompat {
           callback.onAudioInfoChanged(
               new PlaybackInfo(
                   info.getPlaybackType(),
-                  AudioAttributesCompat.wrap(info.getAudioAttributes()),
+                  AudioAttributes.fromPlatformAudioAttributes(info.getAudioAttributes()),
                   info.getVolumeControl(),
                   info.getMaxVolume(),
                   info.getCurrentVolume()));
@@ -1135,14 +1136,14 @@ public final class MediaControllerCompat {
     public static final int PLAYBACK_TYPE_REMOTE = 2;
 
     private final int playbackType;
-    private final AudioAttributesCompat audioAttrsCompat;
+    private final AudioAttributes audioAttributes;
     private final int volumeControl;
     private final int maxVolume;
     private final int currentVolume;
 
-    PlaybackInfo(int type, AudioAttributesCompat attrsCompat, int control, int max, int current) {
+    PlaybackInfo(int type, AudioAttributes audioAttributes, int control, int max, int current) {
       playbackType = type;
-      audioAttrsCompat = attrsCompat;
+      this.audioAttributes = audioAttributes;
       volumeControl = control;
       maxVolume = max;
       currentVolume = current;
@@ -1163,26 +1164,14 @@ public final class MediaControllerCompat {
     }
 
     /**
-     * Gets the stream this is currently controlling volume on. When the volume type is {@link
-     * PlaybackInfo#PLAYBACK_TYPE_REMOTE} this value does not have meaning and should be ignored.
-     *
-     * @deprecated Use {@link PlaybackInfo#getAudioAttributes()} instead.
-     * @return The stream this session is playing on.
-     */
-    @Deprecated
-    public int getAudioStream() {
-      return audioAttrsCompat.getLegacyStreamType();
-    }
-
-    /**
      * Get the audio attributes for this session. The attributes will affect volume handling for the
      * session. When the volume type is {@link PlaybackInfo#PLAYBACK_TYPE_REMOTE} these may be
      * ignored by the remote volume handler.
      *
      * @return The attributes for this session.
      */
-    public AudioAttributesCompat getAudioAttributes() {
-      return audioAttrsCompat;
+    public AudioAttributes getAudioAttributes() {
+      return audioAttributes;
     }
 
     /**
@@ -1521,7 +1510,7 @@ public final class MediaControllerCompat {
       return volumeInfoFwk != null
           ? new PlaybackInfo(
               volumeInfoFwk.getPlaybackType(),
-              AudioAttributesCompat.wrap(volumeInfoFwk.getAudioAttributes()),
+              AudioAttributes.fromPlatformAudioAttributes(volumeInfoFwk.getAudioAttributes()),
               volumeInfoFwk.getVolumeControl(),
               volumeInfoFwk.getMaxVolume(),
               volumeInfoFwk.getCurrentVolume())

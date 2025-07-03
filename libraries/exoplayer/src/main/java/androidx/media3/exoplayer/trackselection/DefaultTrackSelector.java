@@ -4367,8 +4367,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
         builder.setSampleRate(format.sampleRate);
       }
       return checkNotNull(spatializer)
-          .canBeSpatialized(
-              audioAttributes.getAudioAttributesV21().audioAttributes, builder.build());
+          .canBeSpatialized(audioAttributes.getPlatformAudioAttributes(), builder.build());
     }
 
     public void release() {

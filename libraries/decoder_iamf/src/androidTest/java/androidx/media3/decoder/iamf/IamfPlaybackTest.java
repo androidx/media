@@ -117,7 +117,7 @@ public class IamfPlaybackTest {
                       && spatializer.isAvailable()
                       && spatializer.isEnabled()
                       && spatializer.canBeSpatialized(
-                          AudioAttributes.DEFAULT.getAudioAttributesV21().audioAttributes,
+                          AudioAttributes.DEFAULT.getPlatformAudioAttributes(),
                           audioFormat.build()))
               .isFalse();
         }

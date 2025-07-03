@@ -113,7 +113,7 @@ public class DefaultAudioTrackProvider implements DefaultAudioSink.AudioTrackPro
     if (tunneling) {
       return getAudioTrackTunnelingAttributesV21();
     } else {
-      return audioAttributes.getAudioAttributesV21().audioAttributes;
+      return audioAttributes.getPlatformAudioAttributes();
     }
   }
 

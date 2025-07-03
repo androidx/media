@@ -461,7 +461,7 @@ public class AudioCapabilitiesTest {
   private void setDefaultRoutedDevice(AudioAttributes audioAttributes, int type) {
     shadowOf(audioManager)
         .setAudioDevicesForAttributes(
-            audioAttributes.getAudioAttributesV21().audioAttributes,
+            audioAttributes.getPlatformAudioAttributes(),
             ImmutableList.of(AudioDeviceInfoBuilder.newBuilder().setType(type).build()));
   }
 
@@ -479,14 +479,14 @@ public class AudioCapabilitiesTest {
             .setSampleRate(48_000)
             .setChannelMask(AudioFormat.CHANNEL_OUT_STEREO)
             .build(),
-        audioAttributes.getAudioAttributesV21().audioAttributes);
+        audioAttributes.getPlatformAudioAttributes());
     ShadowAudioTrack.addDirectPlaybackSupport(
         new AudioFormat.Builder()
             .setEncoding(encoding)
             .setSampleRate(48_000)
             .setChannelMask(channelMask)
             .build(),
-        audioAttributes.getAudioAttributesV21().audioAttributes);
+        audioAttributes.getPlatformAudioAttributes());
     AudioDeviceInfoBuilder deviceInfoBuilder =
         AudioDeviceInfoBuilder.newBuilder().setType(AudioDeviceInfo.TYPE_HDMI);
     if (SDK_INT >= 33) {

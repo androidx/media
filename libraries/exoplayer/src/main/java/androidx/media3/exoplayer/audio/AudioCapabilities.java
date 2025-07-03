@@ -605,7 +605,7 @@ public final class AudioCapabilities {
                 .setEncoding(encoding)
                 .setSampleRate(DEFAULT_SAMPLE_RATE_HZ)
                 .build(),
-            audioAttributes.getAudioAttributesV21().audioAttributes)) {
+            audioAttributes.getPlatformAudioAttributes())) {
           supportedEncodingsListBuilder.add(encoding);
         }
       }
@@ -633,7 +633,7 @@ public final class AudioCapabilities {
                 .setChannelMask(channelConfig)
                 .build();
         if (AudioTrack.isDirectPlaybackSupported(
-            audioFormat, audioAttributes.getAudioAttributesV21().audioAttributes)) {
+            audioFormat, audioAttributes.getPlatformAudioAttributes())) {
           return channelCount;
         }
       }
@@ -649,8 +649,7 @@ public final class AudioCapabilities {
     public static AudioCapabilities getCapabilitiesInternalForDirectPlayback(
         AudioManager audioManager, AudioAttributes audioAttributes) {
       List<android.media.AudioProfile> directAudioProfiles =
-          audioManager.getDirectProfilesForAttributes(
-              audioAttributes.getAudioAttributesV21().audioAttributes);
+          audioManager.getDirectProfilesForAttributes(audioAttributes.getPlatformAudioAttributes());
       return new AudioCapabilities(getAudioProfiles(directAudioProfiles));
     }
 
@@ -659,8 +658,7 @@ public final class AudioCapabilities {
         AudioManager audioManager, AudioAttributes audioAttributes) {
       List<AudioDeviceInfo> audioDevices =
           checkNotNull(audioManager)
-              .getAudioDevicesForAttributes(
-                  audioAttributes.getAudioAttributesV21().audioAttributes);
+              .getAudioDevicesForAttributes(audioAttributes.getPlatformAudioAttributes());
       if (audioDevices.isEmpty()) {
         // Can't find current device.
         return null;

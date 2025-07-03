@@ -35,7 +35,7 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public class AudioTrackPositionTrackerTest {
   private static final android.media.AudioAttributes AUDIO_ATTRIBUTES =
-      AudioAttributes.DEFAULT.getAudioAttributesV21().audioAttributes;
+      AudioAttributes.DEFAULT.getPlatformAudioAttributes();
   private static final int BYTES_PER_FRAME_16_BIT = 2;
   private static final int CHANNEL_COUNT_STEREO = 2;
   private static final int OUTPUT_PCM_FRAME_SIZE =

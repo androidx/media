@@ -67,7 +67,7 @@ public final class AudioFocusRequestCompat {
     if (SDK_INT >= 26) {
       this.frameworkAudioFocusRequest =
           new AudioFocusRequest.Builder(focusGain)
-              .setAudioAttributes(audioAttributes.getAudioAttributesV21().audioAttributes)
+              .setAudioAttributes(audioAttributes.getPlatformAudioAttributes())
               .setWillPauseWhenDucked(pauseOnDuck)
               .setOnAudioFocusChangeListener(onAudioFocusChangeListener, focusChangeHandler)
               .build();

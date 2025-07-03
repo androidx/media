@@ -26,7 +26,9 @@ package androidx.media3.common {
   }
 
   public final class AudioAttributes {
-    method public androidx.media3.common.AudioAttributes.AudioAttributesV21 getAudioAttributesV21();
+    method public static androidx.media3.common.AudioAttributes fromPlatformAudioAttributes(android.media.AudioAttributes);
+    method @Deprecated public androidx.media3.common.AudioAttributes.AudioAttributesV21 getAudioAttributesV21();
+    method public android.media.AudioAttributes getPlatformAudioAttributes();
     field public static final androidx.media3.common.AudioAttributes DEFAULT;
     field @androidx.media3.common.C.AudioAllowedCapturePolicy public final int allowedCapturePolicy;
     field @androidx.media3.common.C.AudioContentType public final int contentType;
@@ -35,8 +37,8 @@ package androidx.media3.common {
     field @androidx.media3.common.C.AudioUsage public final int usage;
   }
 
-  public static final class AudioAttributes.AudioAttributesV21 {
-    field public final android.media.AudioAttributes audioAttributes;
+  @Deprecated public static final class AudioAttributes.AudioAttributesV21 {
+    field @Deprecated public final android.media.AudioAttributes audioAttributes;
   }
 
   public static final class AudioAttributes.Builder {

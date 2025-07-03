@@ -2165,7 +2165,9 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
     PlaybackParameters playbackParameters =
         LegacyConversions.convertToPlaybackParameters(newLegacyPlayerInfo.playbackStateCompat);
     AudioAttributes audioAttributes =
-        LegacyConversions.convertToAudioAttributes(newLegacyPlayerInfo.playbackInfoCompat);
+        newLegacyPlayerInfo.playbackInfoCompat == null
+            ? AudioAttributes.DEFAULT
+            : newLegacyPlayerInfo.playbackInfoCompat.getAudioAttributes();
     boolean playWhenReady =
         LegacyConversions.convertToPlayWhenReady(newLegacyPlayerInfo.playbackStateCompat);
     @Player.State int playbackState;

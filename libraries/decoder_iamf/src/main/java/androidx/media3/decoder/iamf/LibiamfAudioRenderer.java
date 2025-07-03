@@ -109,6 +109,6 @@ public class LibiamfAudioRenderer extends DecoderAudioRenderer<IamfDecoder> {
         && spatializer.isAvailable()
         && spatializer.isEnabled()
         && spatializer.canBeSpatialized(
-            AudioAttributes.DEFAULT.getAudioAttributesV21().audioAttributes, audioFormat);
+            AudioAttributes.DEFAULT.getPlatformAudioAttributes(), audioFormat);
   }
 }
