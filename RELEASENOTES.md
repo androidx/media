@@ -20,6 +20,8 @@
     *   Make `AudioProcessor` instances aware of seeking.
     *   Handle seeks in `GainProcessor`.
 *   Video:
+    *   Extend detached surface workaround to "lenovo" and "motorola" devices
+        ([#2059](https://github.com/androidx/media/issues/2059)).
 *   Text:
     *   Add support for VobSub tracks in MP4 files
         ([#2510](https://github.com/androidx/media/issues/2510)).

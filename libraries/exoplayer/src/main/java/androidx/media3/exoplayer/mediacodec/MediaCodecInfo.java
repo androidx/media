@@ -941,6 +941,8 @@ public final class MediaCodecInfo {
   private static boolean needsDetachedSurfaceUnsupportedWorkaround() {
     return Build.MANUFACTURER.equals("Xiaomi")
         || Build.MANUFACTURER.equals("OPPO")
-        || Build.MANUFACTURER.equals("realme");
+        || Build.MANUFACTURER.equals("realme")
+        || Build.MANUFACTURER.equals("motorola")
+        || Build.MANUFACTURER.equals("LENOVO");
   }
 }
