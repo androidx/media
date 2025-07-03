@@ -2205,19 +2205,6 @@ public class MediaSessionCompat {
       }
 
       @Override
-      public void sendCommand(
-          @Nullable String command, @Nullable Bundle args, @Nullable ResultReceiverWrapper cb) {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public boolean sendMediaButton(@Nullable KeyEvent mediaButton) {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
       public void registerCallbackListener(@Nullable IMediaControllerCallback cb) {
         MediaSessionImplApi21 mediaSessionImpl = mediaSessionImplRef.get();
         if (mediaSessionImpl == null || cb == null) {
@@ -2254,12 +2241,6 @@ public class MediaSessionCompat {
         }
       }
 
-      @Override
-      public String getPackageName() {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
       @Nullable
       @Override
       public Bundle getSessionInfo() {
@@ -2267,192 +2248,6 @@ public class MediaSessionCompat {
         return mediaSessionImpl != null && mediaSessionImpl.sessionInfo != null
             ? new Bundle(mediaSessionImpl.sessionInfo)
             : null;
-      }
-
-      @Override
-      public String getTag() {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public PendingIntent getLaunchPendingIntent() {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      @SessionFlags
-      public long getFlags() {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public ParcelableVolumeInfo getVolumeAttributes() {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void adjustVolume(int direction, int flags, @Nullable String packageName) {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void setVolumeTo(int value, int flags, @Nullable String packageName) {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void prepare() {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void prepareFromMediaId(@Nullable String mediaId, @Nullable Bundle extras) {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void prepareFromSearch(@Nullable String query, @Nullable Bundle extras) {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void prepareFromUri(@Nullable Uri uri, @Nullable Bundle extras) {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void play() {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void playFromMediaId(@Nullable String mediaId, @Nullable Bundle extras) {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void playFromSearch(@Nullable String query, @Nullable Bundle extras) {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void playFromUri(@Nullable Uri uri, @Nullable Bundle extras) {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void skipToQueueItem(long id) {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void pause() {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void stop() {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void next() {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void previous() {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void fastForward() {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void rewind() {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void seekTo(long pos) {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void rate(@Nullable RatingCompat rating) {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void rateWithExtras(@Nullable RatingCompat rating, @Nullable Bundle extras) {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void setPlaybackSpeed(float speed) {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void setCaptioningEnabled(boolean enabled) {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void setRepeatMode(int repeatMode) {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void setShuffleModeEnabledRemoved(boolean enabled) {
-        // Do nothing.
-      }
-
-      @Override
-      public void setShuffleMode(int shuffleMode) {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void sendCustomAction(@Nullable String action, @Nullable Bundle args) {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public MediaMetadataCompat getMetadata() {
-        // Will not be called.
-        throw new AssertionError();
       }
 
       @Nullable
@@ -2465,49 +2260,6 @@ public class MediaSessionCompat {
         } else {
           return null;
         }
-      }
-
-      @Nullable
-      @Override
-      public List<QueueItem> getQueue() {
-        // Will not be called.
-        return null;
-      }
-
-      @Override
-      public void addQueueItem(@Nullable MediaDescriptionCompat descriptionCompat) {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void addQueueItemAt(@Nullable MediaDescriptionCompat descriptionCompat, int index) {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void removeQueueItem(@Nullable MediaDescriptionCompat description) {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void removeQueueItemAt(int index) {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public CharSequence getQueueTitle() {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public Bundle getExtras() {
-        // Will not be called.
-        throw new AssertionError();
       }
 
       @Override
@@ -2533,23 +2285,12 @@ public class MediaSessionCompat {
       }
 
       @Override
-      public boolean isShuffleModeEnabledRemoved() {
-        return false;
-      }
-
-      @Override
       @PlaybackStateCompat.ShuffleMode
       public int getShuffleMode() {
         MediaSessionImplApi21 mediaSessionImpl = mediaSessionImplRef.get();
         return mediaSessionImpl != null
             ? mediaSessionImpl.shuffleMode
             : PlaybackStateCompat.SHUFFLE_MODE_INVALID;
-      }
-
-      @Override
-      public boolean isTransportControlEnabled() {
-        // Will not be called.
-        throw new AssertionError();
       }
     }
   }

@@ -87,12 +87,6 @@ public interface IMediaControllerCallback extends android.os.IInterface {
             this.onEvent(arg0, arg1);
             return true;
           }
-        case TRANSACTION_onSessionDestroyed:
-          {
-            data.enforceInterface(descriptor);
-            this.onSessionDestroyed();
-            return true;
-          }
         case TRANSACTION_onPlaybackStateChanged:
           {
             data.enforceInterface(descriptor);
@@ -105,76 +99,12 @@ public interface IMediaControllerCallback extends android.os.IInterface {
             this.onPlaybackStateChanged(arg0);
             return true;
           }
-        case TRANSACTION_onMetadataChanged:
-          {
-            data.enforceInterface(descriptor);
-            MediaMetadataCompat arg0;
-            if ((0 != data.readInt())) {
-              arg0 = MediaMetadataCompat.CREATOR.createFromParcel(data);
-            } else {
-              arg0 = null;
-            }
-            this.onMetadataChanged(arg0);
-            return true;
-          }
-        case TRANSACTION_onQueueChanged:
-          {
-            data.enforceInterface(descriptor);
-            java.util.List<MediaSessionCompat.QueueItem> arg0;
-            arg0 = data.createTypedArrayList(MediaSessionCompat.QueueItem.CREATOR);
-            this.onQueueChanged(arg0);
-            return true;
-          }
-        case TRANSACTION_onQueueTitleChanged:
-          {
-            data.enforceInterface(descriptor);
-            CharSequence arg0;
-            if (0 != data.readInt()) {
-              arg0 = android.text.TextUtils.CHAR_SEQUENCE_CREATOR.createFromParcel(data);
-            } else {
-              arg0 = null;
-            }
-            this.onQueueTitleChanged(arg0);
-            return true;
-          }
-        case TRANSACTION_onExtrasChanged:
-          {
-            data.enforceInterface(descriptor);
-            android.os.Bundle arg0;
-            if ((0 != data.readInt())) {
-              arg0 = android.os.Bundle.CREATOR.createFromParcel(data);
-            } else {
-              arg0 = null;
-            }
-            this.onExtrasChanged(arg0);
-            return true;
-          }
-        case TRANSACTION_onVolumeInfoChanged:
-          {
-            data.enforceInterface(descriptor);
-            ParcelableVolumeInfo arg0;
-            if ((0 != data.readInt())) {
-              arg0 = ParcelableVolumeInfo.CREATOR.createFromParcel(data);
-            } else {
-              arg0 = null;
-            }
-            this.onVolumeInfoChanged(arg0);
-            return true;
-          }
         case TRANSACTION_onRepeatModeChanged:
           {
             data.enforceInterface(descriptor);
             int arg0;
             arg0 = data.readInt();
             this.onRepeatModeChanged(arg0);
-            return true;
-          }
-        case TRANSACTION_onShuffleModeChangedRemoved:
-          {
-            data.enforceInterface(descriptor);
-            boolean arg0;
-            arg0 = (0 != data.readInt());
-            this.onShuffleModeChangedRemoved(arg0);
             return true;
           }
         case TRANSACTION_onCaptioningEnabledChanged:
@@ -246,23 +176,6 @@ public interface IMediaControllerCallback extends android.os.IInterface {
         }
       }
 
-      @Override
-      public void onSessionDestroyed() throws android.os.RemoteException {
-        android.os.Parcel data = android.os.Parcel.obtain();
-        try {
-          data.writeInterfaceToken(DESCRIPTOR);
-          boolean status =
-              remote.transact(
-                  Stub.TRANSACTION_onSessionDestroyed, data, null, android.os.IBinder.FLAG_ONEWAY);
-          if (!status && getDefaultImpl() != null) {
-            checkNotNull(getDefaultImpl()).onSessionDestroyed();
-            return;
-          }
-        } finally {
-          data.recycle();
-        }
-      }
-
       // These callbacks are for the TransportController
 
       @Override
@@ -293,121 +206,6 @@ public interface IMediaControllerCallback extends android.os.IInterface {
       }
 
       @Override
-      public void onMetadataChanged(@Nullable MediaMetadataCompat metadata)
-          throws android.os.RemoteException {
-        android.os.Parcel data = android.os.Parcel.obtain();
-        try {
-          data.writeInterfaceToken(DESCRIPTOR);
-          if ((metadata != null)) {
-            data.writeInt(1);
-            metadata.writeToParcel(data, 0);
-          } else {
-            data.writeInt(0);
-          }
-          boolean status =
-              remote.transact(
-                  Stub.TRANSACTION_onMetadataChanged, data, null, android.os.IBinder.FLAG_ONEWAY);
-          if (!status && getDefaultImpl() != null) {
-            checkNotNull(getDefaultImpl()).onMetadataChanged(metadata);
-            return;
-          }
-        } finally {
-          data.recycle();
-        }
-      }
-
-      @Override
-      public void onQueueChanged(@Nullable java.util.List<MediaSessionCompat.QueueItem> queue)
-          throws android.os.RemoteException {
-        android.os.Parcel data = android.os.Parcel.obtain();
-        try {
-          data.writeInterfaceToken(DESCRIPTOR);
-          data.writeTypedList(queue);
-          boolean status =
-              remote.transact(
-                  Stub.TRANSACTION_onQueueChanged, data, null, android.os.IBinder.FLAG_ONEWAY);
-          if (!status && getDefaultImpl() != null) {
-            checkNotNull(getDefaultImpl()).onQueueChanged(queue);
-            return;
-          }
-        } finally {
-          data.recycle();
-        }
-      }
-
-      @Override
-      public void onQueueTitleChanged(@Nullable CharSequence title)
-          throws android.os.RemoteException {
-        android.os.Parcel data = android.os.Parcel.obtain();
-        try {
-          data.writeInterfaceToken(DESCRIPTOR);
-          if (title != null) {
-            data.writeInt(1);
-            android.text.TextUtils.writeToParcel(title, data, 0);
-          } else {
-            data.writeInt(0);
-          }
-          boolean status =
-              remote.transact(
-                  Stub.TRANSACTION_onQueueTitleChanged, data, null, android.os.IBinder.FLAG_ONEWAY);
-          if (!status && getDefaultImpl() != null) {
-            checkNotNull(getDefaultImpl()).onQueueTitleChanged(title);
-            return;
-          }
-        } finally {
-          data.recycle();
-        }
-      }
-
-      @Override
-      public void onExtrasChanged(@Nullable android.os.Bundle extras)
-          throws android.os.RemoteException {
-        android.os.Parcel data = android.os.Parcel.obtain();
-        try {
-          data.writeInterfaceToken(DESCRIPTOR);
-          if ((extras != null)) {
-            data.writeInt(1);
-            extras.writeToParcel(data, 0);
-          } else {
-            data.writeInt(0);
-          }
-          boolean status =
-              remote.transact(
-                  Stub.TRANSACTION_onExtrasChanged, data, null, android.os.IBinder.FLAG_ONEWAY);
-          if (!status && getDefaultImpl() != null) {
-            checkNotNull(getDefaultImpl()).onExtrasChanged(extras);
-            return;
-          }
-        } finally {
-          data.recycle();
-        }
-      }
-
-      @Override
-      public void onVolumeInfoChanged(@Nullable ParcelableVolumeInfo info)
-          throws android.os.RemoteException {
-        android.os.Parcel data = android.os.Parcel.obtain();
-        try {
-          data.writeInterfaceToken(DESCRIPTOR);
-          if ((info != null)) {
-            data.writeInt(1);
-            info.writeToParcel(data, 0);
-          } else {
-            data.writeInt(0);
-          }
-          boolean status =
-              remote.transact(
-                  Stub.TRANSACTION_onVolumeInfoChanged, data, null, android.os.IBinder.FLAG_ONEWAY);
-          if (!status && getDefaultImpl() != null) {
-            checkNotNull(getDefaultImpl()).onVolumeInfoChanged(info);
-            return;
-          }
-        } finally {
-          data.recycle();
-        }
-      }
-
-      @Override
       public void onRepeatModeChanged(int repeatMode) throws android.os.RemoteException {
         android.os.Parcel data = android.os.Parcel.obtain();
         try {
@@ -418,27 +216,6 @@ public interface IMediaControllerCallback extends android.os.IInterface {
                   Stub.TRANSACTION_onRepeatModeChanged, data, null, android.os.IBinder.FLAG_ONEWAY);
           if (!status && getDefaultImpl() != null) {
             checkNotNull(getDefaultImpl()).onRepeatModeChanged(repeatMode);
-            return;
-          }
-        } finally {
-          data.recycle();
-        }
-      }
-
-      @Override
-      public void onShuffleModeChangedRemoved(boolean enabled) throws android.os.RemoteException {
-        android.os.Parcel data = android.os.Parcel.obtain();
-        try {
-          data.writeInterfaceToken(DESCRIPTOR);
-          data.writeInt(((enabled) ? (1) : (0)));
-          boolean status =
-              remote.transact(
-                  Stub.TRANSACTION_onShuffleModeChangedRemoved,
-                  data,
-                  null,
-                  android.os.IBinder.FLAG_ONEWAY);
-          if (!status && getDefaultImpl() != null) {
-            checkNotNull(getDefaultImpl()).onShuffleModeChangedRemoved(enabled);
             return;
           }
         } finally {
@@ -509,22 +286,10 @@ public interface IMediaControllerCallback extends android.os.IInterface {
     }
 
     static final int TRANSACTION_onEvent = (android.os.IBinder.FIRST_CALL_TRANSACTION + 0);
-    static final int TRANSACTION_onSessionDestroyed =
-        (android.os.IBinder.FIRST_CALL_TRANSACTION + 1);
     static final int TRANSACTION_onPlaybackStateChanged =
         (android.os.IBinder.FIRST_CALL_TRANSACTION + 2);
-    static final int TRANSACTION_onMetadataChanged =
-        (android.os.IBinder.FIRST_CALL_TRANSACTION + 3);
-    static final int TRANSACTION_onQueueChanged = (android.os.IBinder.FIRST_CALL_TRANSACTION + 4);
-    static final int TRANSACTION_onQueueTitleChanged =
-        (android.os.IBinder.FIRST_CALL_TRANSACTION + 5);
-    static final int TRANSACTION_onExtrasChanged = (android.os.IBinder.FIRST_CALL_TRANSACTION + 6);
-    static final int TRANSACTION_onVolumeInfoChanged =
-        (android.os.IBinder.FIRST_CALL_TRANSACTION + 7);
     static final int TRANSACTION_onRepeatModeChanged =
         (android.os.IBinder.FIRST_CALL_TRANSACTION + 8);
-    static final int TRANSACTION_onShuffleModeChangedRemoved =
-        (android.os.IBinder.FIRST_CALL_TRANSACTION + 9);
     static final int TRANSACTION_onCaptioningEnabledChanged =
         (android.os.IBinder.FIRST_CALL_TRANSACTION + 10);
     static final int TRANSACTION_onShuffleModeChanged =
@@ -554,29 +319,12 @@ public interface IMediaControllerCallback extends android.os.IInterface {
   public void onEvent(@Nullable String event, @Nullable android.os.Bundle extras)
       throws android.os.RemoteException;
 
-  public void onSessionDestroyed() throws android.os.RemoteException;
-
   // These callbacks are for the TransportController
 
   public void onPlaybackStateChanged(@Nullable PlaybackStateCompat state)
       throws android.os.RemoteException;
 
-  public void onMetadataChanged(@Nullable MediaMetadataCompat metadata)
-      throws android.os.RemoteException;
-
-  public void onQueueChanged(@Nullable java.util.List<MediaSessionCompat.QueueItem> queue)
-      throws android.os.RemoteException;
-
-  public void onQueueTitleChanged(@Nullable CharSequence title) throws android.os.RemoteException;
-
-  public void onExtrasChanged(@Nullable android.os.Bundle extras) throws android.os.RemoteException;
-
-  public void onVolumeInfoChanged(@Nullable ParcelableVolumeInfo info)
-      throws android.os.RemoteException;
-
   public void onRepeatModeChanged(int repeatMode) throws android.os.RemoteException;
-
-  public void onShuffleModeChangedRemoved(boolean enabled) throws android.os.RemoteException;
 
   public void onCaptioningEnabledChanged(boolean enabled) throws android.os.RemoteException;
 

@@ -792,10 +792,10 @@ public final class MediaControllerCompat {
       }
     }
 
-    private static class StubCompat extends IMediaControllerCallback.Stub {
+    private static class CallbackStub extends IMediaControllerCallback.Stub {
       private final WeakReference<MediaControllerCompat.Callback> callback;
 
-      StubCompat(MediaControllerCompat.Callback callback) {
+      CallbackStub(MediaControllerCompat.Callback callback) {
         this.callback = new WeakReference<>(callback);
       }
 
@@ -808,42 +808,10 @@ public final class MediaControllerCompat {
       }
 
       @Override
-      public void onSessionDestroyed() {
-        MediaControllerCompat.Callback callback = this.callback.get();
-        if (callback != null) {
-          callback.postToHandler(MessageHandler.MSG_DESTROYED, null, null);
-        }
-      }
-
-      @Override
       public void onPlaybackStateChanged(@Nullable PlaybackStateCompat state) {
         MediaControllerCompat.Callback callback = this.callback.get();
         if (callback != null) {
           callback.postToHandler(MessageHandler.MSG_UPDATE_PLAYBACK_STATE, state, null);
-        }
-      }
-
-      @Override
-      public void onMetadataChanged(@Nullable MediaMetadataCompat metadata) {
-        MediaControllerCompat.Callback callback = this.callback.get();
-        if (callback != null) {
-          callback.postToHandler(MessageHandler.MSG_UPDATE_METADATA, metadata, null);
-        }
-      }
-
-      @Override
-      public void onQueueChanged(@Nullable List<QueueItem> queue) {
-        MediaControllerCompat.Callback callback = this.callback.get();
-        if (callback != null) {
-          callback.postToHandler(MessageHandler.MSG_UPDATE_QUEUE, queue, null);
-        }
-      }
-
-      @Override
-      public void onQueueTitleChanged(@Nullable CharSequence title) {
-        MediaControllerCompat.Callback callback = this.callback.get();
-        if (callback != null) {
-          callback.postToHandler(MessageHandler.MSG_UPDATE_QUEUE_TITLE, title, null);
         }
       }
 
@@ -864,41 +832,10 @@ public final class MediaControllerCompat {
       }
 
       @Override
-      public void onShuffleModeChangedRemoved(boolean enabled) {
-        // Do nothing.
-      }
-
-      @Override
       public void onShuffleModeChanged(int shuffleMode) {
         MediaControllerCompat.Callback callback = this.callback.get();
         if (callback != null) {
           callback.postToHandler(MessageHandler.MSG_UPDATE_SHUFFLE_MODE, shuffleMode, null);
-        }
-      }
-
-      @Override
-      public void onExtrasChanged(@Nullable Bundle extras) {
-        MediaControllerCompat.Callback callback = this.callback.get();
-        if (callback != null) {
-          callback.postToHandler(MessageHandler.MSG_UPDATE_EXTRAS, extras, null);
-        }
-      }
-
-      @Override
-      public void onVolumeInfoChanged(@Nullable ParcelableVolumeInfo info) {
-        MediaControllerCompat.Callback callback = this.callback.get();
-        if (callback != null) {
-          PlaybackInfo pi = null;
-          if (info != null) {
-            pi =
-                new PlaybackInfo(
-                    info.volumeType,
-                    info.audioStream,
-                    info.controlType,
-                    info.maxVolume,
-                    info.currentVolume);
-          }
-          callback.postToHandler(MessageHandler.MSG_UPDATE_VOLUME, pi, null);
         }
       }
 
@@ -1203,15 +1140,6 @@ public final class MediaControllerCompat {
     private final int maxVolume;
     private final int currentVolume;
 
-    PlaybackInfo(int type, int stream, int control, int max, int current) {
-      this(
-          type,
-          new AudioAttributesCompat.Builder().setLegacyStreamType(stream).build(),
-          control,
-          max,
-          current);
-    }
-
     PlaybackInfo(int type, AudioAttributesCompat attrsCompat, int control, int max, int current) {
       playbackType = type;
       audioAttrsCompat = attrsCompat;
@@ -1362,7 +1290,7 @@ public final class MediaControllerCompat {
     @GuardedBy("lock")
     private final List<Callback> pendingCallbacks = new ArrayList<>();
 
-    private final HashMap<Callback, ExtraCallback> callbackMap = new HashMap<>();
+    private final HashMap<Callback, Callback.CallbackStub> callbackMap = new HashMap<>();
 
     @Nullable protected Bundle sessionInfo;
 
@@ -1384,11 +1312,11 @@ public final class MediaControllerCompat {
       synchronized (lock) {
         IMediaSession extraBinder = sessionToken.getExtraBinder();
         if (extraBinder != null) {
-          ExtraCallback extraCallback = new ExtraCallback(callback);
-          callbackMap.put(callback, extraCallback);
-          callback.iControllerCallback = extraCallback;
+          Callback.CallbackStub callbackStub = new Callback.CallbackStub(callback);
+          callbackMap.put(callback, callbackStub);
+          callback.iControllerCallback = callbackStub;
           try {
-            extraBinder.registerCallbackListener(extraCallback);
+            extraBinder.registerCallbackListener(callbackStub);
             callback.postToHandler(Callback.MessageHandler.MSG_SESSION_READY, null, null);
           } catch (RemoteException | SecurityException e) {
             Log.e(TAG, "Dead object in registerCallback.", e);
@@ -1407,10 +1335,10 @@ public final class MediaControllerCompat {
         IMediaSession extraBinder = sessionToken.getExtraBinder();
         if (extraBinder != null) {
           try {
-            ExtraCallback extraCallback = callbackMap.remove(callback);
-            if (extraCallback != null) {
+            Callback.CallbackStub callbackStub = callbackMap.remove(callback);
+            if (callbackStub != null) {
               callback.iControllerCallback = null;
-              extraBinder.unregisterCallbackListener(extraCallback);
+              extraBinder.unregisterCallbackListener(callbackStub);
             }
           } catch (RemoteException | SecurityException e) {
             Log.e(TAG, "Dead object in unregisterCallback.", e);
@@ -1668,11 +1596,11 @@ public final class MediaControllerCompat {
         return;
       }
       for (Callback callback : pendingCallbacks) {
-        ExtraCallback extraCallback = new ExtraCallback(callback);
-        callbackMap.put(callback, extraCallback);
-        callback.iControllerCallback = extraCallback;
+        Callback.CallbackStub callbackStub = new Callback.CallbackStub(callback);
+        callbackMap.put(callback, callbackStub);
+        callback.iControllerCallback = callbackStub;
         try {
-          extraBinder.registerCallbackListener(extraCallback);
+          extraBinder.registerCallbackListener(callbackStub);
         } catch (RemoteException | SecurityException e) {
           Log.e(TAG, "Dead object in registerCallback.", e);
           break;
@@ -1705,48 +1633,6 @@ public final class MediaControllerCompat {
                   resultData, MediaSessionCompat.KEY_SESSION2_TOKEN));
           mediaControllerImpl.processPendingCallbacksLocked();
         }
-      }
-    }
-
-    private static class ExtraCallback extends Callback.StubCompat {
-      ExtraCallback(Callback callback) {
-        super(callback);
-      }
-
-      @Override
-      public void onSessionDestroyed() {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void onMetadataChanged(@Nullable MediaMetadataCompat metadata) {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void onQueueChanged(@Nullable List<QueueItem> queue) {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void onQueueTitleChanged(@Nullable CharSequence title) {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void onExtrasChanged(@Nullable Bundle extras) {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void onVolumeInfoChanged(@Nullable ParcelableVolumeInfo info) {
-        // Will not be called.
-        throw new AssertionError();
       }
     }
   }
