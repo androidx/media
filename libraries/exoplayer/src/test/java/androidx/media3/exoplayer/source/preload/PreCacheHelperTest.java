@@ -74,7 +74,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -113,7 +112,6 @@ public class PreCacheHelperTest {
   }
 
   @Test
-  @Ignore("TODO: Fix the flakiness of this test and re-enable it")
   public void preCache_succeeds() throws Exception {
     PreCacheHelper preCacheHelper =
         new PreCacheHelper.Factory(
@@ -931,7 +929,7 @@ public class PreCacheHelperTest {
     PreCacheHelper preCacheHelper =
         new PreCacheHelper(
             mediaItem,
-            /* mediaSourceFactory= */ null,
+            /* testMediaSourceFactory= */ null,
             downloadHelperFactory,
             fakeDownloaderFactory,
             preCacheLooper,
@@ -965,7 +963,7 @@ public class PreCacheHelperTest {
     PreCacheHelper preCacheHelper =
         new PreCacheHelper(
             mediaItem,
-            /* mediaSourceFactory= */ null,
+            /* testMediaSourceFactory= */ null,
             downloadHelperFactory,
             fakeDownloaderFactory,
             preCacheLooper,
