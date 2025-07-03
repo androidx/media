@@ -20,12 +20,15 @@ import static java.lang.Math.min;
 
 import androidx.media3.common.C;
 import androidx.media3.common.audio.AudioProcessor.AudioFormat;
+import androidx.media3.common.audio.AudioProcessor.StreamMetadata;
+import androidx.media3.common.audio.AudioProcessor.UnhandledAudioFormatException;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -198,6 +201,91 @@ public final class AudioProcessingPipelineTest {
     // "consume" the buffer
     outputBuffer.position(outputBuffer.limit());
     assertThat(audioProcessingPipeline.isEnded()).isTrue();
+  }
+
+  @Test
+  public void flushWithPositionOffset_propagatesOffsetToProcessor()
+      throws UnhandledAudioFormatException {
+    AtomicLong lastPositionOffsetUs = new AtomicLong(C.TIME_UNSET);
+    FakeAudioProcessor processor =
+        new FakeAudioProcessor(true) {
+          @Override
+          protected void onFlush(StreamMetadata streamMetadata) {
+            lastPositionOffsetUs.set(streamMetadata.positionOffsetUs);
+          }
+        };
+    AudioProcessingPipeline pipeline = new AudioProcessingPipeline(ImmutableList.of(processor));
+    pipeline.configure(AUDIO_FORMAT);
+    pipeline.flush(new StreamMetadata(/* positionOffsetUs= */ 0));
+    assertThat(lastPositionOffsetUs.get()).isEqualTo(0);
+  }
+
+  @Test
+  @SuppressWarnings("deprecation") // Testing behaviour of deprecated method.
+  public void flushWithNoParams_propagatesDefaultPositionToProcessor()
+      throws UnhandledAudioFormatException {
+    AtomicLong lastPositionOffsetUs = new AtomicLong(0);
+    FakeAudioProcessor processor =
+        new FakeAudioProcessor(true) {
+          @Override
+          protected void onFlush(StreamMetadata streamMetadata) {
+            lastPositionOffsetUs.set(streamMetadata.positionOffsetUs);
+          }
+        };
+    AudioProcessingPipeline pipeline = new AudioProcessingPipeline(ImmutableList.of(processor));
+    pipeline.configure(AUDIO_FORMAT);
+    pipeline.flush();
+    assertThat(lastPositionOffsetUs.get()).isEqualTo(0);
+  }
+
+  @Test
+  public void
+      flushWithPositionOffset_withMultipleProcessors_propagatesOffsetWithDurationAdjustment()
+          throws UnhandledAudioFormatException {
+    AtomicLong firstProcessorLastPositionOffset = new AtomicLong(C.TIME_UNSET);
+    FakeAudioProcessor firstProcessor =
+        new FakeAudioProcessor(true) {
+          @Override
+          public long getDurationAfterProcessorApplied(long durationUs) {
+            return durationUs / 2;
+          }
+
+          @Override
+          protected void onFlush(StreamMetadata streamMetadata) {
+            firstProcessorLastPositionOffset.set(streamMetadata.positionOffsetUs);
+          }
+        };
+    AtomicLong secondProcessorLastPositionOffset = new AtomicLong(C.TIME_UNSET);
+    FakeAudioProcessor secondProcessor =
+        new FakeAudioProcessor(true) {
+          @Override
+          public long getDurationAfterProcessorApplied(long durationUs) {
+            return durationUs / 4;
+          }
+
+          @Override
+          protected void onFlush(StreamMetadata streamMetadata) {
+            secondProcessorLastPositionOffset.set(streamMetadata.positionOffsetUs);
+          }
+        };
+    AtomicLong thirdProcessorLastPositionOffset = new AtomicLong(C.TIME_UNSET);
+    FakeAudioProcessor thirdProcessor =
+        new FakeAudioProcessor(true) {
+          @Override
+          protected void onFlush(StreamMetadata streamMetadata) {
+            thirdProcessorLastPositionOffset.set(streamMetadata.positionOffsetUs);
+          }
+        };
+    AudioProcessingPipeline pipeline =
+        new AudioProcessingPipeline(
+            ImmutableList.of(firstProcessor, secondProcessor, thirdProcessor));
+    pipeline.configure(AUDIO_FORMAT);
+    pipeline.flush(new StreamMetadata(/* positionOffsetUs= */ 1_000_000));
+    assertThat(firstProcessorLastPositionOffset.get()).isEqualTo(/* positionOffsetUs */ 1_000_000);
+    // The first AudioProcessor doubles the speed of the input stream, so the offset needs to adjust
+    // accordingly.
+    assertThat(secondProcessorLastPositionOffset.get()).isEqualTo(/* positionOffsetUs */ 500_000);
+    assertThat(thirdProcessorLastPositionOffset.get()).isEqualTo(/* positionOffsetUs */ 125_000);
   }
 
   @Test

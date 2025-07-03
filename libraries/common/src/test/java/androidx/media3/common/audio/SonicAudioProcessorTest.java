@@ -21,6 +21,7 @@ import static org.junit.Assert.fail;
 
 import androidx.media3.common.C;
 import androidx.media3.common.audio.AudioProcessor.AudioFormat;
+import androidx.media3.common.audio.AudioProcessor.StreamMetadata;
 import androidx.media3.common.audio.AudioProcessor.UnhandledAudioFormatException;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import org.junit.Before;
@@ -82,7 +83,7 @@ public final class SonicAudioProcessorTest {
   public void isActiveWithSpeedChange() throws Exception {
     sonicAudioProcessor.setSpeed(1.5f);
     sonicAudioProcessor.configure(AUDIO_FORMAT_44100_HZ);
-    sonicAudioProcessor.flush();
+    sonicAudioProcessor.flush(StreamMetadata.DEFAULT);
     assertThat(sonicAudioProcessor.isActive()).isTrue();
   }
 
@@ -104,7 +105,7 @@ public final class SonicAudioProcessorTest {
   public void queueEndOfStream_withOutputFrameCountUnderflow_setsIsEndedToTrue() throws Exception {
     sonicAudioProcessor.setSpeed(0.95f);
     sonicAudioProcessor.configure(AUDIO_FORMAT_48000_HZ);
-    sonicAudioProcessor.flush();
+    sonicAudioProcessor.flush(StreamMetadata.DEFAULT);
 
     // Multiply by channel count.
     sonicAudioProcessor.queueInput(

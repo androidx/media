@@ -430,7 +430,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         /* decodedFormat= */ (editedMediaItem.isGap() && trackType == C.TRACK_TYPE_AUDIO)
             ? null
             : outputFormat,
-        /* isLast= */ isLastMediaItemInSequence());
+        /* isLast= */ isLastMediaItemInSequence(),
+        /* positionOffsetUs */ 0);
   }
 
   // Methods called from any thread.

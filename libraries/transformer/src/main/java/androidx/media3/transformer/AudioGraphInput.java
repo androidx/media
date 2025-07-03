@@ -24,6 +24,7 @@ import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.decoder.DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_DIRECT;
 import static androidx.media3.transformer.AudioGraph.isInputAudioFormatValid;
 
+import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -31,6 +32,7 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.audio.AudioProcessingPipeline;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.AudioProcessor.AudioFormat;
+import androidx.media3.common.audio.AudioProcessor.StreamMetadata;
 import androidx.media3.common.audio.AudioProcessor.UnhandledAudioFormatException;
 import androidx.media3.common.audio.ChannelMixingAudioProcessor;
 import androidx.media3.common.audio.ChannelMixingMatrix;
@@ -49,7 +51,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * Processes a single sequential stream of PCM audio samples.
  *
  * <p>Supports changes to the input {@link Format} and {@link Effects} on {@linkplain
- * #onMediaItemChanged item boundaries}.
+ * OnMediaItemChangedListener#onMediaItemChanged item boundaries}.
  *
  * <p>Class has thread-safe support for input and processing happening on different threads. In that
  * case, one is the upstream SampleConsumer "input" thread, and the other is the main internal
@@ -63,6 +65,13 @@ import java.util.concurrent.atomic.AtomicLong;
   private final Queue<DecoderInputBuffer> availableInputBuffers;
   private final Queue<DecoderInputBuffer> pendingInputBuffers;
   private final Queue<MediaItemChange> pendingMediaItemChanges;
+
+  /**
+   * Position offset in microseconds relative to the overall {@link AudioGraph} output.
+   *
+   * <p>This is different from {@link MediaItemChange#positionOffsetUs}, where the position is
+   * relative to the input stream.
+   */
   private final AtomicLong startTimeUs;
 
   // silentAudioGenerator.audioFormat must match the current media item's input format.
@@ -107,7 +116,7 @@ import java.util.concurrent.atomic.AtomicLong;
         configureProcessing(
             editedMediaItem, inputFormat, inputAudioFormat, requestedOutputAudioFormat);
     // APP configuration not active until flush called. getOutputAudioFormat based on active config.
-    audioProcessingPipeline.flush();
+    audioProcessingPipeline.flush(StreamMetadata.DEFAULT);
     outputAudioFormat = audioProcessingPipeline.getOutputAudioFormat();
     checkArgument(
         outputAudioFormat.encoding == C.ENCODING_PCM_16BIT, /* errorMessage= */ outputAudioFormat);
@@ -155,7 +164,10 @@ import java.util.concurrent.atomic.AtomicLong;
       EditedMediaItem editedMediaItem,
       long durationUs,
       @Nullable Format decodedFormat,
-      boolean isLast) {
+      boolean isLast,
+      @IntRange(from = 0) long positionOffsetUs) {
+    checkArgument(positionOffsetUs >= 0);
+
     if (decodedFormat == null) {
       checkState(
           durationUs != C.TIME_UNSET,
@@ -166,7 +178,7 @@ import java.util.concurrent.atomic.AtomicLong;
       checkState(isInputAudioFormatValid(audioFormat), /* errorMessage= */ audioFormat);
     }
     pendingMediaItemChanges.add(
-        new MediaItemChange(editedMediaItem, durationUs, decodedFormat, isLast));
+        new MediaItemChange(editedMediaItem, durationUs, decodedFormat, isLast, positionOffsetUs));
   }
 
   /**
@@ -201,7 +213,10 @@ import java.util.concurrent.atomic.AtomicLong;
     return true;
   }
 
-  /** Returns the stream start time in microseconds, or {@link C#TIME_UNSET} if unknown. */
+  /**
+   * Returns the stream start time in microseconds relative to the {@link AudioGraph} output
+   * position, or {@link C#TIME_UNSET} if unknown.
+   */
   public long getStartTimeUs() {
     return startTimeUs.get();
   }
@@ -225,14 +240,22 @@ import java.util.concurrent.atomic.AtomicLong;
   }
 
   /**
-   * Clears any pending data.
+   * Clears any pending data and prepares the {@link AudioGraphInput} to start receiving buffers
+   * from a new position.
+   *
+   * <p><b>Note:</b> The new position is relative to the input stream and not to the overall {@link
+   * AudioGraph} output position.
    *
    * <p>If an {@linkplain #getInputBuffer() input buffer} has been retrieved without being queued,
    * it shouldn't be used after calling this method.
    *
    * <p>Should only be called if the input thread and processing thread are the same.
+   *
+   * @param positionOffsetUs The new position in microseconds from which this component will start
+   *     receiving input buffers after the flush.
    */
-  public void flush() {
+  public void flush(@IntRange(from = 0) long positionOffsetUs) {
+    checkArgument(positionOffsetUs >= 0);
     pendingMediaItemChanges.clear();
     processedFirstMediaItemChange = true;
     if (!availableInputBuffers.isEmpty()) {
@@ -249,7 +272,7 @@ import java.util.concurrent.atomic.AtomicLong;
     }
     checkState(availableInputBuffers.size() == MAX_INPUT_BUFFER_COUNT);
     silentAudioGenerator.flush();
-    audioProcessingPipeline.flush();
+    audioProcessingPipeline.flush(new StreamMetadata(positionOffsetUs));
     receivedEndOfStreamFromInput = false;
     queueEndOfStreamAfterSilence = false;
     startTimeUs.set(C.TIME_UNSET);
@@ -431,7 +454,8 @@ import java.util.concurrent.atomic.AtomicLong;
   }
 
   /**
-   * Configures the graph based on the pending {@linkplain #onMediaItemChanged media item change}.
+   * Configures the graph based on the pending {@linkplain
+   * OnMediaItemChangedListener#onMediaItemChanged media item change}.
    *
    * <p>Before configuration, all {@linkplain #hasDataToOutput() pending data} must be consumed
    * through {@link #getOutput()}.
@@ -473,7 +497,7 @@ import java.util.concurrent.atomic.AtomicLong;
               pendingAudioFormat,
               /* requiredOutputAudioFormat= */ outputAudioFormat);
     }
-    audioProcessingPipeline.flush();
+    audioProcessingPipeline.flush(new StreamMetadata(pendingChange.positionOffsetUs));
     receivedEndOfStreamFromInput = false;
     processedFirstMediaItemChange = true;
   }
@@ -565,13 +589,19 @@ import java.util.concurrent.atomic.AtomicLong;
     public final long durationUs;
     @Nullable public final Format format;
     public final boolean isLast;
+    public final long positionOffsetUs;
 
     public MediaItemChange(
-        EditedMediaItem editedMediaItem, long durationUs, @Nullable Format format, boolean isLast) {
+        EditedMediaItem editedMediaItem,
+        long durationUs,
+        @Nullable Format format,
+        boolean isLast,
+        @IntRange(from = 0) long positionOffsetUs) {
       this.editedMediaItem = editedMediaItem;
       this.durationUs = durationUs;
       this.format = format;
       this.isLast = isLast;
+      this.positionOffsetUs = positionOffsetUs;
     }
   }
 }

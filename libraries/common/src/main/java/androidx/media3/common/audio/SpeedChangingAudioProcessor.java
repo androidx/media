@@ -202,19 +202,19 @@ public final class SpeedChangingAudioProcessor implements AudioProcessor {
   }
 
   @Override
-  public void flush() {
+  public void flush(StreamMetadata streamMetadata) {
     inputEnded = false;
     resetInternalState(/* shouldResetSpeed= */ false);
     synchronized (lock) {
       inputAudioFormat = pendingInputAudioFormat;
-      sonicAudioProcessor.flush();
+      sonicAudioProcessor.flush(streamMetadata);
       processPendingCallbacks();
     }
   }
 
   @Override
   public void reset() {
-    flush();
+    flush(StreamMetadata.DEFAULT);
     pendingInputAudioFormat = AudioFormat.NOT_SET;
     pendingOutputAudioFormat = AudioFormat.NOT_SET;
     synchronized (lock) {
@@ -361,7 +361,7 @@ public final class SpeedChangingAudioProcessor implements AudioProcessor {
       sonicAudioProcessor.setSpeed(newSpeed);
       sonicAudioProcessor.setPitch(newSpeed);
       // Invalidate any previously created buffers in SonicAudioProcessor and the base class.
-      sonicAudioProcessor.flush();
+      sonicAudioProcessor.flush(StreamMetadata.DEFAULT);
       endOfStreamQueuedToSonic = false;
     }
   }

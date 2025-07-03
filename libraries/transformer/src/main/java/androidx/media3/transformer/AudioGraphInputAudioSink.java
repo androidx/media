@@ -101,7 +101,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @Nullable private EditedMediaItemInfo currentEditedMediaItemInfo;
   private long offsetToCompositionTimeUs;
   private long inputPositionUs;
+  private long outputStreamOffsetUs;
   private boolean isConfigurationPending;
+  private boolean isFlushPending;
 
   public AudioGraphInputAudioSink(Controller controller) {
     this.controller = controller;
@@ -177,11 +179,25 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       // TODO: b/406185875 - Propagate media duration after implementing handling for seeks in
       //  transitions.
       this.outputGraphInput.onMediaItemChanged(
-          editedMediaItem, /* durationUs= */ C.TIME_UNSET, currentInputFormat, /* isLast= */ false);
+          editedMediaItem,
+          /* durationUs= */ C.TIME_UNSET,
+          currentInputFormat,
+          /* isLast= */ false,
+          /* positionOffsetUs */ presentationTimeUs - outputStreamOffsetUs);
       isConfigurationPending = false;
+      isFlushPending = false;
+    } else if (isFlushPending) {
+      this.outputGraphInput.flush(
+          /* positionOffsetUs= */ presentationTimeUs - outputStreamOffsetUs);
+      isFlushPending = false;
     }
 
     return handleBufferInternal(buffer, presentationTimeUs, /* flags= */ 0);
+  }
+
+  @Override
+  public void setOutputStreamOffsetUs(long outputStreamOffsetUs) {
+    this.outputStreamOffsetUs = outputStreamOffsetUs;
   }
 
   @Override
@@ -236,14 +252,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   public void flush() {
     inputStreamEnded = false;
     signalledEndOfStream = false;
+    isFlushPending = true;
   }
 
   @Override
   public void reset() {
-    flush();
+    inputStreamEnded = false;
+    signalledEndOfStream = false;
     currentInputFormat = null;
     currentEditedMediaItemInfo = null;
+    outputStreamOffsetUs = 0;
     isConfigurationPending = false;
+    isFlushPending = false;
   }
 
   // Unsupported interface functionality.
@@ -322,6 +342,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     int bytesToWrite = buffer.remaining();
     outputBuffer.ensureSpaceForWrite(bytesToWrite);
     checkNotNull(outputBuffer.data).put(buffer).flip();
+    // This is the presentation time relative to the composition.
     outputBuffer.timeUs =
         presentationTimeUs == C.TIME_END_OF_SOURCE
             ? C.TIME_END_OF_SOURCE

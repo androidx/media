@@ -667,10 +667,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         GraphInput sampleExporterInput =
             sampleExporter.getInput(firstEditedMediaItem, assetLoaderOutputFormat, sequenceIndex);
         OnMediaItemChangedListener onMediaItemChangedListener =
-            (editedMediaItem, durationUs, decodedFormat, isLast) -> {
+            (editedMediaItem, durationUs, decodedFormat, isLast, positionOffsetUs) -> {
               onMediaItemChanged(trackType, durationUs, isLast);
               sampleExporterInput.onMediaItemChanged(
-                  editedMediaItem, durationUs, decodedFormat, isLast);
+                  editedMediaItem, durationUs, decodedFormat, isLast, positionOffsetUs);
             };
         sequenceAssetLoaders
             .get(sequenceIndex)

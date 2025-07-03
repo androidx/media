@@ -276,7 +276,7 @@ public final class SonicAudioProcessor implements AudioProcessor {
   }
 
   @Override
-  public void flush() {
+  public void flush(StreamMetadata streamMetadata) {
     if (isActive()) {
       inputAudioFormat = pendingInputAudioFormat;
       outputAudioFormat = pendingOutputAudioFormat;

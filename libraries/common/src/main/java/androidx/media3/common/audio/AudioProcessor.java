@@ -15,6 +15,9 @@
  */
 package androidx.media3.common.audio;
 
+import static androidx.media3.common.util.Assertions.checkArgument;
+
+import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -125,6 +128,33 @@ public interface AudioProcessor {
     }
   }
 
+  /**
+   * Record class that holds information about the underlying stream being processed by an {@link
+   * AudioProcessor}
+   */
+  final class StreamMetadata {
+
+    /** A {@link StreamMetadata} instance populated with default values. */
+    public static final StreamMetadata DEFAULT = new StreamMetadata(/* positionOffsetUs= */ 0);
+
+    /**
+     * The position of the underlying stream in microseconds from which the processor will start
+     * receiving input buffers after a call to {@link #flush(StreamMetadata)}.
+     */
+    public final long positionOffsetUs;
+
+    /**
+     * Creates a new instance with the specified {@code positionOffsetUs}.
+     *
+     * @param positionOffsetUs The stream position in microseconds from which the processor will
+     *     start receiving input buffers after a call to {@link #flush(StreamMetadata)}
+     */
+    public StreamMetadata(@IntRange(from = 0) long positionOffsetUs) {
+      checkArgument(positionOffsetUs >= 0);
+      this.positionOffsetUs = positionOffsetUs;
+    }
+  }
+
   /** An empty, direct {@link ByteBuffer}. */
   ByteBuffer EMPTY_BUFFER = ByteBuffer.allocateDirect(0).order(ByteOrder.nativeOrder());
 
@@ -195,8 +225,26 @@ public interface AudioProcessor {
   /**
    * Clears any buffered data and pending output. If the audio processor is active, also prepares
    * the audio processor to receive a new stream of input in the last configured (pending) format.
+   *
+   * <p>This is equivalent to {@code flush(new StreamMetadata(C.TIME_UNSET))}.
+   *
+   * @deprecated Use {@link #flush(StreamMetadata)} instead.
    */
-  void flush();
+  @Deprecated
+  default void flush() {
+    throw new IllegalStateException(
+        "AudioProcessor must implement at least one #flush() overload.");
+  }
+
+  /**
+   * Prepares the audio processor to receive a new stream of input in the last {@linkplain
+   * #configure configured format} and clears any buffered data and pending output.
+   *
+   * <p>This method is a no-op if the processor is not {@linkplain #isActive() active}.
+   */
+  default void flush(StreamMetadata streamMetadata) {
+    flush();
+  }
 
   /** Resets the processor to its unconfigured state, releasing any resources. */
   void reset();

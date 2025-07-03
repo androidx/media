@@ -17,6 +17,8 @@
         ([#2552](https://github.com/androidx/media/issues/2552)).
 *   DataSource:
 *   Audio:
+    *   Make `AudioProcessor` instances aware of seeking.
+    *   Handle seeks in `GainProcessor`.
 *   Video:
 *   Text:
     *   Add support for VobSub tracks in MP4 files

@@ -40,6 +40,7 @@ import android.media.MediaCodec;
 import android.media.metrics.LogSessionId;
 import android.util.Pair;
 import android.view.Surface;
+import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
@@ -668,7 +669,8 @@ import org.checkerframework.dataflow.qual.Pure;
         EditedMediaItem editedMediaItem,
         long durationUs,
         @Nullable Format decodedFormat,
-        boolean isLast) {
+        boolean isLast,
+        @IntRange(from = 0) long positionOffsetUs) {
       boolean isSurfaceAssetLoaderMediaItem = isMediaItemForSurfaceAssetLoader(editedMediaItem);
       durationUs = editedMediaItem.getDurationAfterEffectsApplied(durationUs);
       if (decodedFormat != null) {

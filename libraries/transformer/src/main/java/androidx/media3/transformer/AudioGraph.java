@@ -89,6 +89,7 @@ import java.util.Objects;
       if (Objects.equals(mixerAudioFormat, AudioFormat.NOT_SET)) {
         this.mixerAudioFormat = audioGraphInput.getOutputAudioFormat();
         audioProcessingPipeline.configure(mixerAudioFormat);
+        // TODO (b/369509881): Plumb StreamMetadata to composition pipeline.
         audioProcessingPipeline.flush();
       }
     } catch (UnhandledAudioFormatException e) {
@@ -166,7 +167,7 @@ import java.util.Objects;
     for (int i = 0; i < inputInfos.size(); i++) {
       InputInfo inputInfo = inputInfos.get(i);
       inputInfo.mixerSourceId = C.INDEX_UNSET;
-      inputInfo.audioGraphInput.flush();
+      inputInfo.audioGraphInput.flush(/* positionOffsetUs= */ 0);
     }
     mixer.reset();
     isMixerConfigured = false;

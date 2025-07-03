@@ -15,6 +15,7 @@
  */
 package androidx.media3.transformer;
 
+import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
@@ -33,10 +34,13 @@ import androidx.media3.common.MediaItem;
    *     track was decoded.
    * @param isLast Whether the {@link MediaItem} is the last one passed to the {@link
    *     SampleExporter}.
+   * @param positionOffsetUs The {@link MediaItem} position from which the new item will begin
+   *     queueing input buffers.
    */
   void onMediaItemChanged(
       EditedMediaItem editedMediaItem,
       long durationUs,
       @Nullable Format decodedFormat,
-      boolean isLast);
+      boolean isLast,
+      @IntRange(from = 0) long positionOffsetUs);
 }
