@@ -65,6 +65,7 @@ import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy.LoadErrorInfo;
 import androidx.media3.exoplayer.upstream.Loader;
 import androidx.media3.exoplayer.upstream.Loader.LoadErrorAction;
+import androidx.media3.exoplayer.util.ReleasableExecutor;
 import androidx.media3.extractor.DiscardingTrackOutput;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorOutput;
@@ -213,6 +214,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
    * @param loadErrorHandlingPolicy A {@link LoadErrorHandlingPolicy}.
    * @param mediaSourceEventDispatcher A dispatcher to notify of {@link MediaSourceEventListener}
    *     events.
+   * @param downloadExecutor A {@link ReleasableExecutor} that is used for loading the media.
    */
   public HlsSampleStreamWrapper(
       String uid,
@@ -227,7 +229,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       DrmSessionEventListener.EventDispatcher drmEventDispatcher,
       LoadErrorHandlingPolicy loadErrorHandlingPolicy,
       MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
-      @HlsMediaSource.MetadataType int metadataType) {
+      @HlsMediaSource.MetadataType int metadataType,
+      @Nullable ReleasableExecutor downloadExecutor) {
     this.uid = uid;
     this.trackType = trackType;
     this.callback = callback;
@@ -240,7 +243,10 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     this.loadErrorHandlingPolicy = loadErrorHandlingPolicy;
     this.mediaSourceEventDispatcher = mediaSourceEventDispatcher;
     this.metadataType = metadataType;
-    loader = new Loader("Loader:HlsSampleStreamWrapper");
+    loader =
+        downloadExecutor != null
+            ? new Loader(downloadExecutor)
+            : new Loader("Loader:HlsSampleStreamWrapper");
     nextChunkHolder = new HlsChunkSource.HlsChunkHolder();
     sampleQueueTrackIds = new int[0];
     sampleQueueMappingDoneByType = new HashSet<>(MAPPABLE_TYPES.size());

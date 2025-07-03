@@ -51,7 +51,9 @@ import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.CmcdConfiguration;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
+import androidx.media3.exoplayer.util.ReleasableExecutor;
 import androidx.media3.extractor.Extractor;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.primitives.Ints;
@@ -89,6 +91,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final PlayerId playerId;
   private final HlsSampleStreamWrapper.Callback sampleStreamWrapperCallback;
   private final long timestampAdjusterInitializationTimeoutMs;
+  @Nullable private final Supplier<ReleasableExecutor> downloadExecutorSupplier;
 
   @Nullable private MediaPeriod.Callback mediaPeriodCallback;
   private int pendingPrepareCount;
@@ -126,6 +129,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * @param timestampAdjusterInitializationTimeoutMs The timeout for the loading thread to wait for
    *     the timestamp adjuster to initialize, in milliseconds. A timeout of zero is interpreted as
    *     an infinite timeout.
+   * @param downloadExecutorSupplier A supplier for a {@link ReleasableExecutor} that is used for
+   *     loading the media.
    */
   public HlsMediaPeriod(
       HlsExtractorFactory extractorFactory,
@@ -143,7 +148,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       @HlsMediaSource.MetadataType int metadataType,
       boolean useSessionKeys,
       PlayerId playerId,
-      long timestampAdjusterInitializationTimeoutMs) {
+      long timestampAdjusterInitializationTimeoutMs,
+      @Nullable Supplier<ReleasableExecutor> downloadExecutorSupplier) {
     this.extractorFactory = extractorFactory;
     this.playlistTracker = playlistTracker;
     this.dataSourceFactory = dataSourceFactory;
@@ -160,6 +166,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.useSessionKeys = useSessionKeys;
     this.playerId = playerId;
     this.timestampAdjusterInitializationTimeoutMs = timestampAdjusterInitializationTimeoutMs;
+    this.downloadExecutorSupplier = downloadExecutorSupplier;
     sampleStreamWrapperCallback = new SampleStreamWrapperCallback();
     compositeSequenceableLoader = compositeSequenceableLoaderFactory.empty();
     streamWrapperIndices = new IdentityHashMap<>();
@@ -856,7 +863,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         drmEventDispatcher,
         loadErrorHandlingPolicy,
         eventDispatcher,
-        metadataType);
+        metadataType,
+        downloadExecutorSupplier != null ? downloadExecutorSupplier.get() : null);
   }
 
   private static Map<String, DrmInitData> deriveOverridingDrmInitData(

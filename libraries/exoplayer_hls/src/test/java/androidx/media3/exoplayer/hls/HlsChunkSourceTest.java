@@ -1043,7 +1043,8 @@ public class HlsChunkSourceTest {
             mock(DrmSessionEventListener.EventDispatcher.class),
             mock(LoadErrorHandlingPolicy.class),
             mock(MediaSourceEventListener.EventDispatcher.class),
-            /* metadataType= */ HlsMediaSource.METADATA_TYPE_ID3);
+            /* metadataType= */ HlsMediaSource.METADATA_TYPE_ID3,
+            /* downloadExecutor= */ null);
     mediaChunk.init(sampleStreamWrapper, ImmutableList.of());
     mediaChunk.load();
   }

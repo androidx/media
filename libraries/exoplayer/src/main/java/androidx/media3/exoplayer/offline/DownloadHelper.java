@@ -188,8 +188,6 @@ public final class DownloadHelper {
     /**
      * Sets a supplier for an {@link ReleasableExecutor} that is used for loading the media.
      *
-     * <p>This is only used for progressive streams.
-     *
      * @param loadExecutor A {@link Supplier} that provides an externally managed {@link
      *     ReleasableExecutor} for loading.
      * @return This factory, for convenience.
@@ -1212,16 +1210,12 @@ public final class DownloadHelper {
       DataSource.Factory dataSourceFactory,
       @Nullable DrmSessionManager drmSessionManager,
       @Nullable Supplier<ReleasableExecutor> loadExecutorSupplier) {
-    MediaSource.Factory mediaSourceFactory;
-    if (isProgressive(checkNotNull(mediaItem.localConfiguration))) {
-      mediaSourceFactory = new ProgressiveMediaSource.Factory(dataSourceFactory);
-      if (loadExecutorSupplier != null) {
-        ((ProgressiveMediaSource.Factory) mediaSourceFactory)
-            .setDownloadExecutor(loadExecutorSupplier);
-      }
-    } else {
-      mediaSourceFactory =
-          new DefaultMediaSourceFactory(dataSourceFactory, ExtractorsFactory.EMPTY);
+    MediaSource.Factory mediaSourceFactory =
+        isProgressive(checkNotNull(mediaItem.localConfiguration))
+            ? new ProgressiveMediaSource.Factory(dataSourceFactory)
+            : new DefaultMediaSourceFactory(dataSourceFactory, ExtractorsFactory.EMPTY);
+    if (loadExecutorSupplier != null) {
+      mediaSourceFactory.setDownloadExecutor(loadExecutorSupplier);
     }
     if (drmSessionManager != null) {
       mediaSourceFactory.setDrmSessionManagerProvider(unusedMediaItem -> drmSessionManager);

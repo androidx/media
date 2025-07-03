@@ -79,8 +79,10 @@ import androidx.media3.exoplayer.upstream.Loader;
 import androidx.media3.exoplayer.upstream.Loader.LoadErrorAction;
 import androidx.media3.exoplayer.upstream.LoaderErrorThrower;
 import androidx.media3.exoplayer.upstream.ParsingLoadable;
+import androidx.media3.exoplayer.util.ReleasableExecutor;
 import androidx.media3.exoplayer.util.SntpClient;
 import androidx.media3.extractor.text.SubtitleParser;
+import com.google.common.base.Supplier;
 import com.google.common.math.LongMath;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.BufferedReader;
@@ -120,6 +122,7 @@ public final class DashMediaSource extends BaseMediaSource {
     private long fallbackTargetLiveOffsetMs;
     private long minLiveStartPositionUs;
     @Nullable private ParsingLoadable.Parser<? extends DashManifest> manifestParser;
+    @Nullable private Supplier<ReleasableExecutor> downloadExecutorSupplier;
 
     /**
      * Creates a new factory for {@link DashMediaSource}s.
@@ -168,6 +171,7 @@ public final class DashMediaSource extends BaseMediaSource {
       minLiveStartPositionUs = MIN_LIVE_DEFAULT_START_POSITION_US;
       compositeSequenceableLoaderFactory = new DefaultCompositeSequenceableLoaderFactory();
       experimentalParseSubtitlesDuringExtraction(true);
+      downloadExecutorSupplier = null;
     }
 
     @CanIgnoreReturnValue
@@ -296,6 +300,13 @@ public final class DashMediaSource extends BaseMediaSource {
       return this;
     }
 
+    @CanIgnoreReturnValue
+    @Override
+    public Factory setDownloadExecutor(Supplier<ReleasableExecutor> downloadExecutor) {
+      this.downloadExecutorSupplier = downloadExecutor;
+      return this;
+    }
+
     /**
      * Returns a new {@link DashMediaSource} using the current parameters and the specified
      * sideloaded manifest.
@@ -347,7 +358,8 @@ public final class DashMediaSource extends BaseMediaSource {
           drmSessionManagerProvider.get(mediaItem),
           loadErrorHandlingPolicy,
           fallbackTargetLiveOffsetMs,
-          minLiveStartPositionUs);
+          minLiveStartPositionUs,
+          downloadExecutorSupplier);
     }
 
     /**
@@ -385,7 +397,8 @@ public final class DashMediaSource extends BaseMediaSource {
           drmSessionManagerProvider.get(mediaItem),
           loadErrorHandlingPolicy,
           fallbackTargetLiveOffsetMs,
-          minLiveStartPositionUs);
+          minLiveStartPositionUs,
+          downloadExecutorSupplier);
     }
 
     @Override
@@ -438,6 +451,7 @@ public final class DashMediaSource extends BaseMediaSource {
   private final Runnable simulateManifestRefreshRunnable;
   private final PlayerEmsgCallback playerEmsgCallback;
   private final LoaderErrorThrower manifestLoadErrorThrower;
+  @Nullable private final Supplier<ReleasableExecutor> downloadExecutorSupplier;
 
   private DataSource dataSource;
   private Loader loader;
@@ -474,7 +488,8 @@ public final class DashMediaSource extends BaseMediaSource {
       DrmSessionManager drmSessionManager,
       LoadErrorHandlingPolicy loadErrorHandlingPolicy,
       long fallbackTargetLiveOffsetMs,
-      long minLiveStartPositionUs) {
+      long minLiveStartPositionUs,
+      @Nullable Supplier<ReleasableExecutor> downloadExecutorSupplier) {
     this.mediaItem = mediaItem;
     this.liveConfiguration = mediaItem.liveConfiguration;
     this.manifestUri = checkNotNull(mediaItem.localConfiguration).uri;
@@ -489,6 +504,7 @@ public final class DashMediaSource extends BaseMediaSource {
     this.fallbackTargetLiveOffsetMs = fallbackTargetLiveOffsetMs;
     this.minLiveStartPositionUs = minLiveStartPositionUs;
     this.compositeSequenceableLoaderFactory = compositeSequenceableLoaderFactory;
+    this.downloadExecutorSupplier = downloadExecutorSupplier;
     baseUrlExclusionList = new BaseUrlExclusionList();
     sideloadedManifest = manifest != null;
     manifestEventDispatcher = createEventDispatcher(/* mediaPeriodId= */ null);
@@ -557,7 +573,10 @@ public final class DashMediaSource extends BaseMediaSource {
       processManifest(false);
     } else {
       dataSource = manifestDataSourceFactory.createDataSource();
-      loader = new Loader("DashMediaSource");
+      loader =
+          downloadExecutorSupplier != null
+              ? new Loader(downloadExecutorSupplier.get())
+              : new Loader("DashMediaSource");
       handler = Util.createHandlerForCurrentLooper();
       startLoadingManifest();
     }
@@ -591,7 +610,8 @@ public final class DashMediaSource extends BaseMediaSource {
             allocator,
             compositeSequenceableLoaderFactory,
             playerEmsgCallback,
-            getPlayerId());
+            getPlayerId(),
+            downloadExecutorSupplier);
     periodsById.put(mediaPeriod.id, mediaPeriod);
     return mediaPeriod;
   }

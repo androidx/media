@@ -264,14 +264,8 @@ public final class ProgressiveMediaSource extends BaseMediaSource
       return this;
     }
 
-    /**
-     * Sets a supplier for an {@link ReleasableExecutor} that is used for loading the media.
-     *
-     * @param downloadExecutor A {@link Supplier} that provides an externally managed {@link
-     *     ReleasableExecutor} for downloading and extraction.
-     * @return This factory, for convenience.
-     */
     @CanIgnoreReturnValue
+    @Override
     public MediaSource.Factory setDownloadExecutor(Supplier<ReleasableExecutor> downloadExecutor) {
       this.downloadExecutorSupplier = downloadExecutor;
       return this;

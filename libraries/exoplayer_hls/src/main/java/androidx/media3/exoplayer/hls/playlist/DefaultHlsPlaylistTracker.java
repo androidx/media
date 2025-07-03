@@ -46,6 +46,8 @@ import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy.LoadErrorInfo;
 import androidx.media3.exoplayer.upstream.Loader;
 import androidx.media3.exoplayer.upstream.Loader.LoadErrorAction;
 import androidx.media3.exoplayer.upstream.ParsingLoadable;
+import androidx.media3.exoplayer.util.ReleasableExecutor;
+import com.google.common.base.Supplier;
 import com.google.common.collect.Iterables;
 import java.io.IOException;
 import java.util.HashMap;
@@ -73,6 +75,7 @@ public final class DefaultHlsPlaylistTracker
   private final CopyOnWriteArrayList<PlaylistEventListener> listeners;
   private final double playlistStuckTargetDurationCoefficient;
   @Nullable private final CmcdConfiguration cmcdConfiguration;
+  @Nullable private final Supplier<ReleasableExecutor> downloadExecutorSupplier;
 
   @Nullable private EventDispatcher eventDispatcher;
   @Nullable private Loader initialPlaylistLoader;
@@ -91,18 +94,22 @@ public final class DefaultHlsPlaylistTracker
    * @param loadErrorHandlingPolicy The {@link LoadErrorHandlingPolicy}.
    * @param playlistParserFactory An {@link HlsPlaylistParserFactory}.
    * @param cmcdConfiguration The {@link CmcdConfiguration}.
+   * @param downloadExecutorSupplier A supplier for a {@link ReleasableExecutor} that is used for
+   *     loading the playlist.
    */
   public DefaultHlsPlaylistTracker(
       HlsDataSourceFactory dataSourceFactory,
       LoadErrorHandlingPolicy loadErrorHandlingPolicy,
       HlsPlaylistParserFactory playlistParserFactory,
-      @Nullable CmcdConfiguration cmcdConfiguration) {
+      @Nullable CmcdConfiguration cmcdConfiguration,
+      @Nullable Supplier<ReleasableExecutor> downloadExecutorSupplier) {
     this(
         dataSourceFactory,
         loadErrorHandlingPolicy,
         playlistParserFactory,
         cmcdConfiguration,
-        DEFAULT_PLAYLIST_STUCK_TARGET_DURATION_COEFFICIENT);
+        DEFAULT_PLAYLIST_STUCK_TARGET_DURATION_COEFFICIENT,
+        downloadExecutorSupplier);
   }
 
   /**
@@ -116,18 +123,22 @@ public final class DefaultHlsPlaylistTracker
    *     media playlists in order to determine that a non-changing playlist is stuck. Once a
    *     playlist is deemed stuck, a {@link PlaylistStuckException} is thrown via {@link
    *     #maybeThrowPlaylistRefreshError(Uri)}.
+   * @param downloadExecutorSupplier A supplier for a {@link ReleasableExecutor} that is used for
+   *     loading the playlist.
    */
   public DefaultHlsPlaylistTracker(
       HlsDataSourceFactory dataSourceFactory,
       LoadErrorHandlingPolicy loadErrorHandlingPolicy,
       HlsPlaylistParserFactory playlistParserFactory,
       @Nullable CmcdConfiguration cmcdConfiguration,
-      double playlistStuckTargetDurationCoefficient) {
+      double playlistStuckTargetDurationCoefficient,
+      @Nullable Supplier<ReleasableExecutor> downloadExecutorSupplier) {
     this.dataSourceFactory = dataSourceFactory;
     this.playlistParserFactory = playlistParserFactory;
     this.loadErrorHandlingPolicy = loadErrorHandlingPolicy;
     this.cmcdConfiguration = cmcdConfiguration;
     this.playlistStuckTargetDurationCoefficient = playlistStuckTargetDurationCoefficient;
+    this.downloadExecutorSupplier = downloadExecutorSupplier;
     listeners = new CopyOnWriteArrayList<>();
     playlistBundles = new HashMap<>();
     initialStartTimeUs = C.TIME_UNSET;
@@ -162,7 +173,10 @@ public final class DefaultHlsPlaylistTracker
             C.DATA_TYPE_MANIFEST,
             playlistParserFactory.createPlaylistParser());
     Assertions.checkState(initialPlaylistLoader == null);
-    initialPlaylistLoader = new Loader("DefaultHlsPlaylistTracker:MultivariantPlaylist");
+    initialPlaylistLoader =
+        downloadExecutorSupplier != null
+            ? new Loader(downloadExecutorSupplier.get())
+            : new Loader("DefaultHlsPlaylistTracker:MultivariantPlaylist");
     initialPlaylistLoader.startLoading(
         multivariantPlaylistLoadable,
         this,
@@ -590,7 +604,10 @@ public final class DefaultHlsPlaylistTracker
 
     public MediaPlaylistBundle(Uri playlistUrl) {
       this.playlistUrl = playlistUrl;
-      mediaPlaylistLoader = new Loader("DefaultHlsPlaylistTracker:MediaPlaylist");
+      mediaPlaylistLoader =
+          downloadExecutorSupplier != null
+              ? new Loader(downloadExecutorSupplier.get())
+              : new Loader("DefaultHlsPlaylistTracker:MediaPlaylist");
       mediaPlaylistDataSource = dataSourceFactory.createDataSource(C.DATA_TYPE_MANIFEST);
     }
 

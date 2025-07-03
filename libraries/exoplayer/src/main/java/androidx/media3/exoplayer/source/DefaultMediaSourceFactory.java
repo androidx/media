@@ -39,6 +39,7 @@ import androidx.media3.exoplayer.source.ads.AdsLoader;
 import androidx.media3.exoplayer.source.ads.AdsMediaSource;
 import androidx.media3.exoplayer.upstream.CmcdConfiguration;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
+import androidx.media3.exoplayer.util.ReleasableExecutor;
 import androidx.media3.extractor.DefaultExtractorsFactory;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorInput;
@@ -456,6 +457,14 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
   }
 
   @UnstableApi
+  @CanIgnoreReturnValue
+  @Override
+  public MediaSource.Factory setDownloadExecutor(Supplier<ReleasableExecutor> downloadExecutor) {
+    delegateFactoryLoader.setDownloadExecutor(downloadExecutor);
+    return this;
+  }
+
+  @UnstableApi
   @Override
   public @C.ContentType int[] getSupportedTypes() {
     return delegateFactoryLoader.getSupportedTypes();
@@ -640,6 +649,7 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
     @Nullable private CmcdConfiguration.Factory cmcdConfigurationFactory;
     @Nullable private DrmSessionManagerProvider drmSessionManagerProvider;
     @Nullable private LoadErrorHandlingPolicy loadErrorHandlingPolicy;
+    @Nullable private Supplier<ReleasableExecutor> downloadExecutorSupplier;
 
     public DelegateFactoryLoader(
         ExtractorsFactory extractorsFactory, SubtitleParser.Factory subtitleParserFactory) {
@@ -673,6 +683,9 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
       }
       if (loadErrorHandlingPolicy != null) {
         mediaSourceFactory.setLoadErrorHandlingPolicy(loadErrorHandlingPolicy);
+      }
+      if (downloadExecutorSupplier != null) {
+        mediaSourceFactory.setDownloadExecutor(downloadExecutorSupplier);
       }
       mediaSourceFactory.setSubtitleParserFactory(subtitleParserFactory);
       mediaSourceFactory.experimentalParseSubtitlesDuringExtraction(parseSubtitlesDuringExtraction);
@@ -740,6 +753,13 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
     public void setJpegExtractorFlags(@JpegExtractor.Flags int flags) {
       if (this.extractorsFactory instanceof DefaultExtractorsFactory) {
         ((DefaultExtractorsFactory) this.extractorsFactory).setJpegExtractorFlags(flags);
+      }
+    }
+
+    public void setDownloadExecutor(Supplier<ReleasableExecutor> downloadExecutor) {
+      this.downloadExecutorSupplier = downloadExecutor;
+      for (MediaSource.Factory mediaSourceFactory : mediaSourceFactories.values()) {
+        mediaSourceFactory.setDownloadExecutor(downloadExecutor);
       }
     }
 
