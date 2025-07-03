@@ -896,6 +896,43 @@ public class CompositionPlayerSeekTest {
   }
 
   @Test
+  public void seekToMidClip_withCompositionAudioProcessor_reportsCorrectPositionOffset()
+      throws PlaybackException, TimeoutException {
+    AtomicLong lastPositionOffsetUs = new AtomicLong(C.TIME_UNSET);
+    PassthroughAudioProcessor fakeProcessor =
+        new PassthroughAudioProcessor() {
+          @Override
+          protected void onFlush(StreamMetadata streamMetadata) {
+            lastPositionOffsetUs.set(streamMetadata.positionOffsetUs);
+          }
+        };
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(MediaItem.fromUri(AndroidTestUtil.WAV_ASSET.uri))
+            .setDurationUs(1_000_000L)
+            .build();
+    final Composition composition =
+        new Composition.Builder(new EditedMediaItemSequence.Builder(item).build())
+            .setEffects(new Effects(ImmutableList.of(fakeProcessor), ImmutableList.of()))
+            .build();
+
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              player.set(new CompositionPlayer.Builder(applicationContext).build());
+              player.get().addListener(playerTestListener);
+              player.get().setComposition(composition);
+              player.get().prepare();
+            });
+    playerTestListener.waitUntilPlayerReady();
+
+    playerTestListener.resetStatus();
+    getInstrumentation().runOnMainSync(() -> player.get().seekTo(/* positionMs= */ 300));
+    playerTestListener.waitUntilPlayerReady();
+
+    assertThat(lastPositionOffsetUs.get()).isEqualTo(/* positionOffsetUs */ 300_000);
+  }
+
+  @Test
   public void
       seekToSecondClip_withMultipleAudioClipSequence_reportsMediaItemRelativePositionOffset()
           throws PlaybackException, TimeoutException {

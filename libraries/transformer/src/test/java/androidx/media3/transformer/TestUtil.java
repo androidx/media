@@ -22,6 +22,7 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.audio.AudioProcessor;
+import androidx.media3.common.audio.BaseAudioProcessor;
 import androidx.media3.common.audio.ChannelMixingAudioProcessor;
 import androidx.media3.common.audio.ChannelMixingMatrix;
 import androidx.media3.common.audio.SonicAudioProcessor;
@@ -33,12 +34,33 @@ import androidx.media3.test.utils.FakeExtractorOutput;
 import androidx.media3.test.utils.FakeTrackOutput;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.StringJoiner;
 
 /** Utility class for {@link Transformer} unit tests */
 @UnstableApi
 public final class TestUtil {
+
+  /**
+   * A {@link BaseAudioProcessor} implementation that accepts all input formats and copies all input
+   * buffers onto the output without modifications.
+   */
+  public static class PassthroughAudioProcessor extends BaseAudioProcessor {
+    @Override
+    protected AudioFormat onConfigure(AudioFormat inputAudioFormat)
+        throws UnhandledAudioFormatException {
+      return inputAudioFormat;
+    }
+
+    @Override
+    public void queueInput(ByteBuffer inputBuffer) {
+      if (!inputBuffer.hasRemaining()) {
+        return;
+      }
+      replaceOutputBuffer(inputBuffer.remaining()).put(inputBuffer).flip();
+    }
+  }
 
   public static final String ASSET_URI_PREFIX = "asset:///media/";
   public static final String FILE_VIDEO_ONLY = "mp4/sample_18byte_nclx_colr.mp4";

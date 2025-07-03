@@ -29,9 +29,11 @@ import androidx.media3.common.audio.BaseAudioProcessor;
 import androidx.media3.common.audio.SonicAudioProcessor;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.test.utils.TestUtil;
+import androidx.media3.transformer.TestUtil.PassthroughAudioProcessor;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;
+import java.util.concurrent.atomic.AtomicLong;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -146,7 +148,7 @@ public class AudioGraphTest {
         new AudioGraph(new DefaultAudioMixer.Factory(), /* effects= */ ImmutableList.of());
     audioGraph.registerInput(FAKE_ITEM, getPcmFormat(MONO_48000));
 
-    audioGraph.flush();
+    audioGraph.flush(/* positionOffsetUs= */ 0);
 
     assertThat(audioGraph.getOutputAudioFormat()).isEqualTo(MONO_48000);
   }
@@ -276,7 +278,7 @@ public class AudioGraphTest {
   }
 
   @Test
-  public void setPendingStartTimeUs_discardsPrecedingData() throws Exception {
+  public void flush_withNonZeroPositionOffset_discardsPrecedingData() throws Exception {
     AudioGraph audioGraph =
         new AudioGraph(new DefaultAudioMixer.Factory(), /* effects= */ ImmutableList.of());
     AudioGraphInput audioGraphInput =
@@ -289,8 +291,7 @@ public class AudioGraphTest {
         /* positionOffsetUs= */ 0);
     audioGraphInput.getOutput(); // Force the media item change to be processed.
 
-    audioGraph.setPendingStartTimeUs(500_000);
-    audioGraph.flush();
+    audioGraph.flush(/* positionOffsetUs= */ 500_000);
     // Queue input buffer with timestamp 0.
     DecoderInputBuffer inputBuffer = audioGraphInput.getInputBuffer();
     byte[] inputData = TestUtil.buildTestData(/* length= */ 100 * STEREO_44100.bytesPerFrame);
@@ -307,7 +308,7 @@ public class AudioGraphTest {
   }
 
   @Test
-  public void setPendingStartTimeUs_doesNotDiscardFollowingData() throws Exception {
+  public void flush_withNonZeroPositionOffset_doesNotDiscardFollowingData() throws Exception {
     AudioGraph audioGraph =
         new AudioGraph(new DefaultAudioMixer.Factory(), /* effects= */ ImmutableList.of());
     AudioGraphInput audioGraphInput =
@@ -320,8 +321,7 @@ public class AudioGraphTest {
         /* positionOffsetUs= */ 0);
     audioGraphInput.getOutput(); // Force the media item change to be processed.
 
-    audioGraph.setPendingStartTimeUs(500_000);
-    audioGraph.flush();
+    audioGraph.flush(/* positionOffsetUs= */ 500_000);
     // Queue input buffer with timestamp 600 ms.
     DecoderInputBuffer inputBuffer = audioGraphInput.getInputBuffer();
     byte[] inputData = TestUtil.buildTestData(/* length= */ 100 * STEREO_44100.bytesPerFrame);
@@ -358,7 +358,7 @@ public class AudioGraphTest {
     checkState(audioGraphInput.queueInputBuffer());
     checkState(audioGraph.getOutput().hasRemaining());
 
-    audioGraph.flush();
+    audioGraph.flush(/* positionOffsetUs= */ 0);
     audioGraphInput.getInputBuffer().setFlags(C.BUFFER_FLAG_END_OF_STREAM);
     checkState(audioGraphInput.queueInputBuffer()); // Queue EOS.
     int bytesOutput = drainAudioGraph(audioGraph);
@@ -389,7 +389,7 @@ public class AudioGraphTest {
     checkState(audioGraphInput.queueInputBuffer());
     checkState(audioGraph.getOutput().hasRemaining());
 
-    audioGraph.flush();
+    audioGraph.flush(/* positionOffsetUs= */ 0);
     audioGraphInput.getInputBuffer().setFlags(C.BUFFER_FLAG_END_OF_STREAM);
     checkState(audioGraphInput.queueInputBuffer()); // Queue EOS.
     int bytesOutput = drainAudioGraph(audioGraph);
@@ -415,7 +415,7 @@ public class AudioGraphTest {
     drainAudioGraph(audioGraph);
     checkState(audioGraph.isEnded());
 
-    audioGraph.flush();
+    audioGraph.flush(/* positionOffsetUs= */ 0);
 
     assertThat(audioGraph.isEnded()).isFalse();
   }
@@ -441,9 +441,26 @@ public class AudioGraphTest {
     drainAudioGraph(audioGraph);
     checkState(audioGraph.isEnded());
 
-    audioGraph.flush();
+    audioGraph.flush(/* positionOffsetUs= */ 0);
 
     assertThat(audioGraph.isEnded()).isFalse();
+  }
+
+  @Test
+  public void flush_propagatesStartTimeToAudioProcessors() throws Exception {
+    AtomicLong lastPositionOffsetUs = new AtomicLong(C.TIME_UNSET);
+    BaseAudioProcessor fakeProcessor =
+        new PassthroughAudioProcessor() {
+          @Override
+          protected void onFlush(StreamMetadata streamMetadata) {
+            lastPositionOffsetUs.set(streamMetadata.positionOffsetUs);
+          }
+        };
+    AudioGraph audioGraph =
+        new AudioGraph(
+            new DefaultAudioMixer.Factory(), /* effects= */ ImmutableList.of(fakeProcessor));
+    audioGraph.flush(/* positionOffsetUs= */ 500_000);
+    assertThat(lastPositionOffsetUs.get()).isEqualTo(500_000);
   }
 
   /** Drains the graph and returns the number of bytes output. */

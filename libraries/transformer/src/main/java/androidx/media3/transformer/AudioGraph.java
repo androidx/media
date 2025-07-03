@@ -19,11 +19,13 @@ package androidx.media3.transformer;
 import static androidx.media3.common.audio.AudioProcessor.EMPTY_BUFFER;
 import static androidx.media3.common.util.Assertions.checkArgument;
 
+import androidx.annotation.IntRange;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.audio.AudioProcessingPipeline;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.AudioProcessor.AudioFormat;
+import androidx.media3.common.audio.AudioProcessor.StreamMetadata;
 import androidx.media3.common.audio.AudioProcessor.UnhandledAudioFormatException;
 import androidx.media3.effect.DebugTraceUtil;
 import com.google.common.collect.ImmutableList;
@@ -78,6 +80,8 @@ import java.util.Objects;
   /**
    * Returns a new {@link AudioGraphInput} instance.
    *
+   * <p>This method assumes the new input will start queueing its stream from the beginning.
+   *
    * <p>Must be called before {@linkplain #getOutput() accessing output}.
    */
   public AudioGraphInput registerInput(EditedMediaItem editedMediaItem, Format format)
@@ -89,8 +93,7 @@ import java.util.Objects;
       if (Objects.equals(mixerAudioFormat, AudioFormat.NOT_SET)) {
         this.mixerAudioFormat = audioGraphInput.getOutputAudioFormat();
         audioProcessingPipeline.configure(mixerAudioFormat);
-        // TODO (b/369509881): Plumb StreamMetadata to composition pipeline.
-        audioProcessingPipeline.flush();
+        audioProcessingPipeline.flush(new StreamMetadata(/* positionOffsetUs= */ 0));
       }
     } catch (UnhandledAudioFormatException e) {
       throw ExportException.createForAudioProcessing(
@@ -155,25 +158,29 @@ import java.util.Objects;
   }
 
   /**
-   * Sets the start time of the audio streams that will enter the audio graph after the next calls
-   * to {@link #flush()}, in microseconds.
+   * Clears any pending data and prepares the {@link AudioGraph} to start receiving input from a new
+   * position.
+   *
+   * @param positionOffsetUs The new position from which the graph will start receiving audio
+   *     streams.
    */
-  public void setPendingStartTimeUs(long startTimeUs) {
-    this.pendingStartTimeUs = startTimeUs;
-  }
+  public void flush(@IntRange(from = 0) long positionOffsetUs) {
+    this.pendingStartTimeUs = positionOffsetUs;
 
-  /** Clears any pending data. */
-  public void flush() {
     for (int i = 0; i < inputInfos.size(); i++) {
       InputInfo inputInfo = inputInfos.get(i);
       inputInfo.mixerSourceId = C.INDEX_UNSET;
+      // AudioGraph does not know the exact position offset of each AudioGraphInput. Each holder of
+      // AudioGraphInput must call AudioGraphInput#flush() or AudioGraphInput#onMediaItemChanged()
+      // once the renderer resolves the seek position, which might be slightly different than
+      // positionOffsetUs.
       inputInfo.audioGraphInput.flush(/* positionOffsetUs= */ 0);
     }
     mixer.reset();
     isMixerConfigured = false;
     isMixerReady = false;
     mixerOutput = EMPTY_BUFFER;
-    audioProcessingPipeline.flush();
+    audioProcessingPipeline.flush(new StreamMetadata(pendingStartTimeUs));
     finishedInputs = 0;
   }
 

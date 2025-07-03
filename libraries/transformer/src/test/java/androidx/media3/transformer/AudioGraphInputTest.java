@@ -28,10 +28,10 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.audio.AudioProcessor.AudioFormat;
 import androidx.media3.common.audio.AudioProcessor.UnhandledAudioFormatException;
-import androidx.media3.common.audio.BaseAudioProcessor;
 import androidx.media3.common.util.Util;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.test.utils.TestUtil;
+import androidx.media3.transformer.TestUtil.PassthroughAudioProcessor;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Bytes;
@@ -740,26 +740,6 @@ public class AudioGraphInputTest {
     audioGraphInput.flush(/* positionOffsetUs= */ 500_000);
 
     assertThat(lastPositionOffsetUs.get()).isEqualTo(/* positionOffsetUs */ 500_000);
-  }
-
-  /**
-   * {@link BaseAudioProcessor} implementation that accepts all input audio formats and outputs a
-   * copy of any received input buffer.
-   */
-  private static class PassthroughAudioProcessor extends BaseAudioProcessor {
-    @Override
-    public void queueInput(ByteBuffer inputBuffer) {
-      if (!inputBuffer.hasRemaining()) {
-        return;
-      }
-      ByteBuffer buffer = this.replaceOutputBuffer(inputBuffer.remaining());
-      buffer.put(inputBuffer).flip();
-    }
-
-    @Override
-    protected AudioFormat onConfigure(AudioFormat inputAudioFormat) {
-      return inputAudioFormat;
-    }
   }
 
   /** Drains the graph and returns the bytes output. */

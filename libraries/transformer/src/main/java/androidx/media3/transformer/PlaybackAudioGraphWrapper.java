@@ -178,8 +178,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
     stopRendering();
     checkNotNull(audioGraph).blockInput();
-    checkNotNull(audioGraph).setPendingStartTimeUs(positionUs);
-    checkNotNull(audioGraph).flush();
+    checkNotNull(audioGraph).flush(positionUs);
     finalAudioSink.flush();
     outputFramesWritten = 0;
     seekPositionUs = positionUs;
