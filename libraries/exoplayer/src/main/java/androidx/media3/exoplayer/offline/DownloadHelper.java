@@ -75,8 +75,10 @@ import androidx.media3.exoplayer.trackselection.TrackSelectorResult;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.BandwidthMeter;
 import androidx.media3.exoplayer.upstream.DefaultAllocator;
+import androidx.media3.exoplayer.util.ReleasableExecutor;
 import androidx.media3.extractor.ExtractorsFactory;
 import androidx.media3.extractor.SeekMap;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
@@ -118,11 +120,13 @@ public final class DownloadHelper {
     @Nullable private RenderersFactory renderersFactory;
     private TrackSelectionParameters trackSelectionParameters;
     @Nullable private DrmSessionManager drmSessionManager;
+    @Nullable private Supplier<ReleasableExecutor> loadExecutorSupplier;
     private boolean debugLoggingEnabled;
 
     /** Creates a {@link Factory}. */
     public Factory() {
       this.trackSelectionParameters = DEFAULT_TRACK_SELECTOR_PARAMETERS;
+      loadExecutorSupplier = null;
     }
 
     /**
@@ -182,6 +186,21 @@ public final class DownloadHelper {
     }
 
     /**
+     * Sets a supplier for an {@link ReleasableExecutor} that is used for loading the media.
+     *
+     * <p>This is only used for progressive streams.
+     *
+     * @param loadExecutor A {@link Supplier} that provides an externally managed {@link
+     *     ReleasableExecutor} for loading.
+     * @return This factory, for convenience.
+     */
+    @CanIgnoreReturnValue
+    public Factory setLoadExecutor(Supplier<ReleasableExecutor> loadExecutor) {
+      this.loadExecutorSupplier = loadExecutor;
+      return this;
+    }
+
+    /**
      * Sets whether to log debug information. The default is {@code false}.
      *
      * @return This factory, for convenience.
@@ -209,7 +228,10 @@ public final class DownloadHelper {
           isProgressive && dataSourceFactory == null
               ? null
               : createMediaSourceInternal(
-                  mediaItem, castNonNull(dataSourceFactory), drmSessionManager),
+                  mediaItem,
+                  castNonNull(dataSourceFactory),
+                  drmSessionManager,
+                  loadExecutorSupplier),
           trackSelectionParameters,
           renderersFactory != null
               ? new DefaultRendererCapabilitiesList.Factory(renderersFactory)
@@ -461,7 +483,10 @@ public final class DownloadHelper {
       DataSource.Factory dataSourceFactory,
       @Nullable DrmSessionManager drmSessionManager) {
     return createMediaSourceInternal(
-        downloadRequest.toMediaItem(), dataSourceFactory, drmSessionManager);
+        downloadRequest.toMediaItem(),
+        dataSourceFactory,
+        drmSessionManager,
+        /* loadExecutorSupplier= */ null);
   }
 
   private static final String TAG = "DownloadHelper";
@@ -1185,11 +1210,19 @@ public final class DownloadHelper {
   private static MediaSource createMediaSourceInternal(
       MediaItem mediaItem,
       DataSource.Factory dataSourceFactory,
-      @Nullable DrmSessionManager drmSessionManager) {
-    MediaSource.Factory mediaSourceFactory =
-        isProgressive(checkNotNull(mediaItem.localConfiguration))
-            ? new ProgressiveMediaSource.Factory(dataSourceFactory)
-            : new DefaultMediaSourceFactory(dataSourceFactory, ExtractorsFactory.EMPTY);
+      @Nullable DrmSessionManager drmSessionManager,
+      @Nullable Supplier<ReleasableExecutor> loadExecutorSupplier) {
+    MediaSource.Factory mediaSourceFactory;
+    if (isProgressive(checkNotNull(mediaItem.localConfiguration))) {
+      mediaSourceFactory = new ProgressiveMediaSource.Factory(dataSourceFactory);
+      if (loadExecutorSupplier != null) {
+        ((ProgressiveMediaSource.Factory) mediaSourceFactory)
+            .setDownloadExecutor(loadExecutorSupplier);
+      }
+    } else {
+      mediaSourceFactory =
+          new DefaultMediaSourceFactory(dataSourceFactory, ExtractorsFactory.EMPTY);
+    }
     if (drmSessionManager != null) {
       mediaSourceFactory.setDrmSessionManagerProvider(unusedMediaItem -> drmSessionManager);
     }
