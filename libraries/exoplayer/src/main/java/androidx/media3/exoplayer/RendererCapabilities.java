@@ -145,10 +145,11 @@ public interface RendererCapabilities {
   /**
    * Level of renderer support for audio offload.
    *
-   * <p>Speed change and gapless transition support with audio offload is represented by the bit
-   * mask flags {@link #AUDIO_OFFLOAD_SPEED_CHANGE_SUPPORTED} and {@link
-   * #AUDIO_OFFLOAD_GAPLESS_SUPPORTED} respectively. If neither feature is supported then the value
-   * will be either {@link #AUDIO_OFFLOAD_SUPPORTED} or {@link #AUDIO_OFFLOAD_NOT_SUPPORTED}.
+   * <p>Set presentation, speed change and gapless transition support with audio offload is
+   * represented by the bit mask flags {@link #AUDIO_OFFLOAD_SET_PRESENTATION_SUPPORTED},
+   * {@link #AUDIO_OFFLOAD_SPEED_CHANGE_SUPPORTED} and {@link #AUDIO_OFFLOAD_GAPLESS_SUPPORTED}
+   * respectively. If neither feature is supported then the value will be either
+   * {@link #AUDIO_OFFLOAD_SUPPORTED} or {@link #AUDIO_OFFLOAD_NOT_SUPPORTED}.
    *
    * <p>For non-audio renderers, the level of support is always {@link
    * #AUDIO_OFFLOAD_NOT_SUPPORTED}.
@@ -157,6 +158,7 @@ public interface RendererCapabilities {
   @Retention(RetentionPolicy.SOURCE)
   @Target(TYPE_USE)
   @IntDef({
+    AUDIO_OFFLOAD_SET_PRESENTATION_SUPPORTED,
     AUDIO_OFFLOAD_SPEED_CHANGE_SUPPORTED,
     AUDIO_OFFLOAD_GAPLESS_SUPPORTED,
     AUDIO_OFFLOAD_SUPPORTED,
@@ -165,7 +167,10 @@ public interface RendererCapabilities {
   @interface AudioOffloadSupport {}
 
   /** A mask to apply to {@link Capabilities} to obtain {@link AudioOffloadSupport} only. */
-  int AUDIO_OFFLOAD_SUPPORT_MASK = 0b111 << 9;
+  int AUDIO_OFFLOAD_SUPPORT_MASK = 0b1111 << 9;
+
+  /** The renderer supports audio offload and set presentation with this format. */
+  int AUDIO_OFFLOAD_SET_PRESENTATION_SUPPORTED = 0b1000 << 9;
 
   /** The renderer supports audio offload and speed changes with this format. */
   int AUDIO_OFFLOAD_SPEED_CHANGE_SUPPORTED = 0b100 << 9;
@@ -215,9 +220,10 @@ public interface RendererCapabilities {
    *   <li>{@link AudioOffloadSupport}: The level of offload support. Value will have the flag
    *       {@link #AUDIO_OFFLOAD_SUPPORTED} or be {@link #AUDIO_OFFLOAD_NOT_SUPPORTED}. In addition,
    *       if it is {@link #AUDIO_OFFLOAD_SUPPORTED}, then one can check for {@link
-   *       #AUDIO_OFFLOAD_SPEED_CHANGE_SUPPORTED} and {@link #AUDIO_OFFLOAD_GAPLESS_SUPPORTED}.
-   *       These represent speed change and gapless transition support with audio offload
-   *       respectively.
+   *       #AUDIO_OFFLOAD_SET_PRESENTATION_SUPPORTED}, {@link #AUDIO_OFFLOAD_SPEED_CHANGE_SUPPORTED}
+   *       and {@link #AUDIO_OFFLOAD_GAPLESS_SUPPORTED}.
+   *       These represent set presentation, speed change and gapless transition support with audio
+   *       offload respectively.
    * </ul>
    */
   @Documented

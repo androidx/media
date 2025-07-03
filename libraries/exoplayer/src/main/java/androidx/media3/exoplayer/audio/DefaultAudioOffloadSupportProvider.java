@@ -43,6 +43,13 @@ public final class DefaultAudioOffloadSupportProvider
   /** AudioManager parameters key for retrieving support of variable speeds during offload. */
   private static final String OFFLOAD_VARIABLE_RATE_SUPPORTED_KEY = "offloadVariableRateSupported";
 
+  /**
+   * AudioManager parameters key for retrieving support of setting audio presentation during
+   * offload.
+   */
+  private static final String OFFLOAD_AC4_SET_PRESENTATION_SUPPORTED_KEY
+      = "isAc4PresentationSelectionByIndexSupported";
+
   @Nullable private final Context context;
 
   /**
@@ -50,6 +57,12 @@ public final class DefaultAudioOffloadSupportProvider
    * attempted to retrieve value from {@link AudioManager}.
    */
   private @MonotonicNonNull Boolean isOffloadVariableRateSupported;
+
+  /**
+   * Whether setting of audio presentations is supported during offload. If {@code null} then it has
+   * not been attempted to retrieve value from {@link AudioManager}.
+   */
+  private @MonotonicNonNull Boolean isOffloadSetPresentationSupported;
 
   /** Creates an instance. */
   public DefaultAudioOffloadSupportProvider() {
@@ -80,6 +93,7 @@ public final class DefaultAudioOffloadSupportProvider
     // the constructor so that the platform will be queried from the playback thread.
     boolean isOffloadVariableRateSupported = isOffloadVariableRateSupported(context);
 
+    boolean isOffloadSetPresentationSupported = isOffloadSetPresentationSupported(context);
     @C.Encoding
     int encoding = MimeTypes.getEncoding(checkNotNull(format.sampleMimeType), format.codecs);
     if (encoding == C.ENCODING_INVALID
@@ -104,12 +118,14 @@ public final class DefaultAudioOffloadSupportProvider
       return Api31.getOffloadedPlaybackSupport(
           audioFormat,
           audioAttributes.getAudioAttributesV21().audioAttributes,
-          isOffloadVariableRateSupported);
+          isOffloadVariableRateSupported,
+          isOffloadSetPresentationSupported);
     }
     return Api29.getOffloadedPlaybackSupport(
         audioFormat,
         audioAttributes.getAudioAttributesV21().audioAttributes,
-        isOffloadVariableRateSupported);
+        isOffloadVariableRateSupported,
+        isOffloadSetPresentationSupported);
   }
 
   private boolean isOffloadVariableRateSupported(@Nullable Context context) {
@@ -131,6 +147,25 @@ public final class DefaultAudioOffloadSupportProvider
     return isOffloadVariableRateSupported;
   }
 
+  private boolean isOffloadSetPresentationSupported(@Nullable Context context) {
+    if (isOffloadSetPresentationSupported != null) {
+      return isOffloadSetPresentationSupported;
+    }
+
+    if (context != null) {
+      AudioManager audioManager = AudioManagerCompat.getAudioManager(context);
+      final String offloadSetPresentationSupportedKeyValue =
+          audioManager.getParameters(/* keys= */ OFFLOAD_AC4_SET_PRESENTATION_SUPPORTED_KEY);
+      isOffloadSetPresentationSupported =
+          offloadSetPresentationSupportedKeyValue != null
+              && offloadSetPresentationSupportedKeyValue.equals(
+              OFFLOAD_AC4_SET_PRESENTATION_SUPPORTED_KEY + "=1");
+    } else {
+      isOffloadSetPresentationSupported = false;
+    }
+    return isOffloadSetPresentationSupported;
+  }
+
   @RequiresApi(29)
   private static final class Api29 {
     private Api29() {}
@@ -138,13 +173,15 @@ public final class DefaultAudioOffloadSupportProvider
     public static AudioOffloadSupport getOffloadedPlaybackSupport(
         AudioFormat audioFormat,
         android.media.AudioAttributes audioAttributes,
-        boolean isOffloadVariableRateSupported) {
+        boolean isOffloadVariableRateSupported,
+        boolean isOffloadSetPresentationSupported) {
       if (!AudioManager.isOffloadedPlaybackSupported(audioFormat, audioAttributes)) {
         return AudioOffloadSupport.DEFAULT_UNSUPPORTED;
       }
       return new AudioOffloadSupport.Builder()
           .setIsFormatSupported(true)
           .setIsSpeedChangeSupported(isOffloadVariableRateSupported)
+          .setIsPresentationSelectionSupported(isOffloadSetPresentationSupported)
           .build();
     }
   }
@@ -156,7 +193,8 @@ public final class DefaultAudioOffloadSupportProvider
     public static AudioOffloadSupport getOffloadedPlaybackSupport(
         AudioFormat audioFormat,
         android.media.AudioAttributes audioAttributes,
-        boolean isOffloadVariableRateSupported) {
+        boolean isOffloadVariableRateSupported,
+        boolean isOffloadSetPresentationSupported) {
       int playbackOffloadSupport =
           AudioManager.getPlaybackOffloadSupport(audioFormat, audioAttributes);
       if (playbackOffloadSupport == AudioManager.PLAYBACK_OFFLOAD_NOT_SUPPORTED) {
@@ -171,6 +209,7 @@ public final class DefaultAudioOffloadSupportProvider
           .setIsFormatSupported(true)
           .setIsGaplessSupported(isGaplessSupported)
           .setIsSpeedChangeSupported(isOffloadVariableRateSupported)
+          .setIsPresentationSelectionSupported(isOffloadSetPresentationSupported)
           .build();
     }
   }

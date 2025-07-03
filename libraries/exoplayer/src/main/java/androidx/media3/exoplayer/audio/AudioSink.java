@@ -18,6 +18,7 @@ package androidx.media3.exoplayer.audio;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.media.AudioDeviceInfo;
+import android.media.AudioPresentation;
 import android.media.AudioTrack;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
@@ -649,6 +650,15 @@ public interface AudioSink {
    */
   @RequiresApi(29)
   default void setOffloadDelayPadding(int delayInFrames, int paddingInFrames) {}
+
+  /**
+   * Sets the presentation of an audio program, delivered by Next Generation Audio streams.
+   * Also requires platform API version 29 onwards.
+   *
+   * @param presentation The audio presentation to set.
+   */
+  @RequiresApi(29)
+  default void setPresentation(AudioPresentation presentation) {}
 
   /**
    * Sets the playback volume.

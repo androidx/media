@@ -38,12 +38,16 @@ public final class AudioOffloadSupport {
     /** Whether playback of the format is supported with speed changes. */
     private boolean isSpeedChangeSupported;
 
+    /** Whether playback of the format is supported with audio presentation selection. */
+    private boolean isSetPresentationSupported;
+
     public Builder() {}
 
     public Builder(AudioOffloadSupport audioOffloadSupport) {
       isFormatSupported = audioOffloadSupport.isFormatSupported;
       isGaplessSupported = audioOffloadSupport.isGaplessSupported;
       isSpeedChangeSupported = audioOffloadSupport.isSpeedChangeSupported;
+      isSetPresentationSupported = audioOffloadSupport.isSetPresentationSupported;
     }
 
     /**
@@ -80,6 +84,17 @@ public final class AudioOffloadSupport {
     }
 
     /**
+     * Sets whether the format allows selection of different audio presentations during playback.
+     *
+     * <p>Default is {@code false}.
+     */
+    @CanIgnoreReturnValue
+    public Builder setIsPresentationSelectionSupported(boolean isSetPresentationSupported) {
+      this.isSetPresentationSupported = isSetPresentationSupported;
+      return this;
+    }
+
+    /**
      * Builds the {@link AudioOffloadSupport}.
      *
      * @throws IllegalStateException If either {@link #isGaplessSupported} or {@link
@@ -103,10 +118,14 @@ public final class AudioOffloadSupport {
   /** Whether playback of the format is supported with speed changes. */
   public final boolean isSpeedChangeSupported;
 
+  /** Whether the format allows selection of different audio presentations during playback. */
+  public final boolean isSetPresentationSupported;
+
   private AudioOffloadSupport(AudioOffloadSupport.Builder builder) {
     this.isFormatSupported = builder.isFormatSupported;
     this.isGaplessSupported = builder.isGaplessSupported;
     this.isSpeedChangeSupported = builder.isSpeedChangeSupported;
+    this.isSetPresentationSupported = builder.isSetPresentationSupported;
   }
 
   /** Creates a new {@link Builder}, copying the initial values from this instance. */
@@ -125,14 +144,16 @@ public final class AudioOffloadSupport {
     AudioOffloadSupport other = (AudioOffloadSupport) obj;
     return isFormatSupported == other.isFormatSupported
         && isGaplessSupported == other.isGaplessSupported
-        && isSpeedChangeSupported == other.isSpeedChangeSupported;
+        && isSpeedChangeSupported == other.isSpeedChangeSupported
+        && isSetPresentationSupported == other.isSetPresentationSupported;
   }
 
   @Override
   public int hashCode() {
-    int hashCode = (isFormatSupported ? 1 : 0) << 2;
-    hashCode += (isGaplessSupported ? 1 : 0) << 1;
-    hashCode += (isSpeedChangeSupported ? 1 : 0);
+    int hashCode = (isFormatSupported ? 1 : 0) << 3;
+    hashCode += (isGaplessSupported ? 1 : 0) << 2;
+    hashCode += (isSpeedChangeSupported ? 1 : 0) << 1;
+    hashCode += (isSetPresentationSupported ? 1 : 0);
     return hashCode;
   }
 }

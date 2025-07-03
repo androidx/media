@@ -30,6 +30,7 @@ import android.content.Context;
 import android.media.AudioDeviceInfo;
 import android.media.AudioFormat;
 import android.media.AudioManager;
+import android.media.AudioPresentation;
 import android.media.AudioRouting;
 import android.media.AudioRouting.OnRoutingChangedListener;
 import android.media.AudioTrack;
@@ -1579,6 +1580,23 @@ public final class DefaultAudioSink implements AudioSink {
         && configuration != null
         && configuration.enableOffloadGapless) {
       audioTrack.setOffloadDelayPadding(delayInFrames, paddingInFrames);
+    }
+  }
+
+  @RequiresApi(29)
+  @Override
+  public void setPresentation(AudioPresentation presentation) {
+    if (audioTrack != null) {
+      try {
+        int status = audioTrack.setPresentation(presentation);
+        if (status != AudioTrack.SUCCESS) {
+          Log.e(TAG, "Failed to set audio presentation: " + status);
+        }
+      } catch (IllegalArgumentException e) {
+        Log.e(TAG, "audioTrack.setPresentation is not supported: ", e);
+      } catch (IllegalStateException e) {
+        Log.e(TAG, "Error applying audioTrack.setPresentation", e);
+      }
     }
   }
 
