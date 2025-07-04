@@ -37,5 +37,6 @@ internal fun ExtraControls(player: Player, modifier: Modifier = Modifier) {
     PlaybackSpeedPopUpButton(player)
     ShuffleButton(player)
     RepeatButton(player)
+    MuteButton(player)
   }
 }

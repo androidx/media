@@ -63,6 +63,9 @@
         `rememberProgressStateWithTickInterval` Composable to
         `media3-ui-compose` module. This state holder is used in `demo-compose`
         to display the current position and duration in text form.
+    *   Add `MuteButtonState` to `ui-compose` that handles muting of the
+        `Player` volume. This state holder is used in `demo-compose` to display
+        mute/unmute toggle button.
 *   Downloads:
 *   OkHttp extension:
 *   Cronet extension:

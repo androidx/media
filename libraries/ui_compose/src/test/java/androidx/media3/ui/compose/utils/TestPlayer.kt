@@ -17,6 +17,7 @@
 package androidx.media3.ui.compose.utils
 
 import android.os.Looper
+import androidx.media3.common.C
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.SimpleBasePlayer
@@ -123,6 +124,14 @@ internal class TestPlayer(
     return Futures.immediateVoidFuture()
   }
 
+  override fun handleSetVolume(
+    volume: Float,
+    volumeOperationType: @C.VolumeOperationType Int,
+  ): ListenableFuture<*> {
+    state = state.buildUpon().setVolume(volume).build()
+    return Futures.immediateVoidFuture()
+  }
+
   fun setPlaybackState(playbackState: @Player.State Int) {
     state = state.buildUpon().setPlaybackState(playbackState).build()
     invalidateState()
@@ -216,7 +225,7 @@ internal class TestPlayer(
     state =
       state
         .buildUpon()
-        .setAvailableCommands(Player.Commands.Builder().addAll(*commands).build())
+        .setAvailableCommands(state.availableCommands.buildUpon().addAll(*commands).build())
         .build()
     invalidateState()
   }
