@@ -29,6 +29,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
+import androidx.media3.common.Player.State;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.SpeedProvider;
@@ -39,7 +40,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.After;
 import org.junit.Before;
@@ -127,31 +127,41 @@ public class CompositionPlayerSetCompositionTest {
         new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
             .setDurationUs(MP4_ASSET.videoDurationUs)
             .build();
-
     EditedMediaItem mediaItemRemoveAudio = mediaItem.buildUpon().setRemoveAudio(true).build();
-    AtomicInteger numberOfFramesRendered = new AtomicInteger();
+    AtomicBoolean changedComposition = new AtomicBoolean();
+    CopyOnWriteArrayList<Integer> playerStates = new CopyOnWriteArrayList<>();
 
     instrumentation.runOnMainSync(
         () -> {
           compositionPlayer = new CompositionPlayer.Builder(context).build();
           compositionPlayer.setVideoSurfaceView(surfaceView);
           compositionPlayer.addListener(playerTestListener);
-          compositionPlayer.setComposition(createSingleSequenceComposition(mediaItem, mediaItem));
-          compositionPlayer.setVideoFrameMetadataListener(
-              (presentationTimeUs, releaseTimeNs, format, mediaFormat) -> {
-                if (numberOfFramesRendered.incrementAndGet() == 15) {
-                  instrumentation.runOnMainSync(
-                      () ->
-                          compositionPlayer.setComposition(
-                              createSingleSequenceComposition(
-                                  mediaItemRemoveAudio, mediaItemRemoveAudio)));
+          compositionPlayer.addListener(
+              new Player.Listener() {
+                @Override
+                public void onPlaybackStateChanged(@State int playbackState) {
+                  playerStates.add(playbackState);
+                  if (playbackState == Player.STATE_READY) {
+                    if (!changedComposition.get()) {
+                      compositionPlayer.setComposition(
+                          createSingleSequenceComposition(
+                              mediaItemRemoveAudio, mediaItemRemoveAudio));
+                      compositionPlayer.play();
+                      changedComposition.set(true);
+                    }
+                  }
                 }
               });
+          compositionPlayer.setComposition(createSingleSequenceComposition(mediaItem, mediaItem));
           compositionPlayer.prepare();
-          compositionPlayer.play();
         });
 
     playerTestListener.waitUntilPlayerEnded();
+    // Asserts that changing removeAudio does not cause the player to get back to buffering state,
+    // because the player should not be re-prepared.
+    assertThat(playerStates)
+        .containsExactly(Player.STATE_BUFFERING, Player.STATE_READY, Player.STATE_ENDED)
+        .inOrder();
   }
 
   @Test
