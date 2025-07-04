@@ -8,6 +8,8 @@
         unsupported by `DefaultTrackSelector`.
     *   Ensure the last frame is correctly rendered when using MediaCodec's
         `DECODE_ONLY` flag (which is enabled by default in scrubbing mode).
+    *   Ensure renderers don't consume data from the next playlist item more
+        than 10 seconds before the end of the current item.
 *   Transformer:
 *   Track Selection:
 *   Extractors:

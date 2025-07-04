@@ -5704,7 +5704,9 @@ public final class ExoPlayerTest {
   }
 
   @Test
-  public void removeMediaItem_removeLoadingWindow_correctMaskingPosition() throws Exception {
+  public void
+      removeMediaItem_removeLoadingWindowWithReadingPeriodSingleAdvancement_correctMaskingPosition()
+          throws Exception {
     final int[] mediaItemIndex = {C.INDEX_UNSET, C.INDEX_UNSET};
     final long[] positionMs = {C.INDEX_UNSET, C.INDEX_UNSET};
     final long[] bufferedPositions = {C.INDEX_UNSET, C.INDEX_UNSET};
@@ -5724,6 +5726,47 @@ public final class ExoPlayerTest {
         totalBufferedDuration,
         new FakeMediaSource(),
         new FakeMediaSource(),
+        createPartiallyBufferedMediaSource(/* maxBufferedPositionMs= */ 4000));
+
+    assertThat(mediaItemIndex[0]).isEqualTo(0);
+    assertThat(positionMs[0]).isAtLeast(8000);
+    assertThat(bufferedPositions[0]).isEqualTo(10_000);
+    assertThat(totalBufferedDuration[0]).isEqualTo(10_000 - positionMs[0]);
+
+    assertThat(mediaItemIndex[1]).isEqualTo(mediaItemIndex[0]);
+    assertThat(positionMs[1]).isEqualTo(positionMs[0]);
+    assertThat(bufferedPositions[1]).isEqualTo(10_000);
+    assertThat(totalBufferedDuration[1]).isEqualTo(12_000);
+  }
+
+  @Test
+  public void
+      removeMediaItem_removeLoadingWindowWithReadingPeriodDoubleAdvancement_correctMaskingPosition()
+          throws Exception {
+    final int[] mediaItemIndex = {C.INDEX_UNSET, C.INDEX_UNSET};
+    final long[] positionMs = {C.INDEX_UNSET, C.INDEX_UNSET};
+    final long[] bufferedPositions = {C.INDEX_UNSET, C.INDEX_UNSET};
+    final long[] totalBufferedDuration = {C.INDEX_UNSET, C.INDEX_UNSET};
+
+    runPositionMaskingCapturingActionSchedule(
+        new PlayerRunnable() {
+          @Override
+          public void run(ExoPlayer player) {
+            player.removeMediaItem(/* index= */ 2);
+          }
+        },
+        /* pauseMediaItemIndex= */ 0,
+        mediaItemIndex,
+        positionMs,
+        bufferedPositions,
+        totalBufferedDuration,
+        new FakeMediaSource(),
+        // Set small duration for second media source to allow reading to advance to third item.
+        new FakeMediaSource(
+            new FakeTimeline(
+                new FakeTimeline.TimelineWindowDefinition.Builder()
+                    .setDurationUs(C.MICROS_PER_SECOND)
+                    .build())),
         createPartiallyBufferedMediaSource(/* maxBufferedPositionMs= */ 4000));
 
     assertThat(mediaItemIndex[0]).isEqualTo(0);
