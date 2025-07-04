@@ -209,6 +209,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
   @Nullable private DecoderCounters audioDecoderCounters;
   private AudioAttributes audioAttributes;
   private float volume;
+  private float unmuteVolume;
   private boolean skipSilenceEnabled;
   private CueGroup currentCueGroup;
   @Nullable private VideoFrameMetadataListener videoFrameMetadataListener;
@@ -1547,6 +1548,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
     if (this.volume == volume) {
       return;
     }
+    unmuteVolume = volume != 0 ? volume : this.volume;
     this.volume = volume;
     internalPlayer.setVolume(volume);
     float finalVolume = volume;
@@ -1557,6 +1559,22 @@ import java.util.concurrent.CopyOnWriteArraySet;
   public float getVolume() {
     verifyApplicationThread();
     return volume;
+  }
+
+  @Override
+  public void mute() {
+    verifyApplicationThread();
+    if (volume != 0) {
+      setVolume(0f);
+    }
+  }
+
+  @Override
+  public void unmute() {
+    verifyApplicationThread();
+    if (volume == 0 && unmuteVolume != 0) {
+      setVolume(unmuteVolume);
+    }
   }
 
   @Override

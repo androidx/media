@@ -799,7 +799,8 @@ public final class ForwardingSimpleBasePlayerTest {
                   }
 
                   @Override
-                  protected ListenableFuture<?> handleSetVolume(float volume) {
+                  protected ListenableFuture<?> handleSetVolume(
+                      float volume, @C.VolumeOperationType int volumeOperationType) {
                     return Futures.immediateVoidFuture();
                   }
                 }));

@@ -117,6 +117,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       private TrackSelectionParameters trackSelectionParameters;
       private AudioAttributes audioAttributes;
       private float volume;
+      private float unmuteVolume;
       private VideoSize videoSize;
       private CueGroup currentCues;
       private DeviceInfo deviceInfo;
@@ -162,6 +163,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
         trackSelectionParameters = TrackSelectionParameters.DEFAULT;
         audioAttributes = AudioAttributes.DEFAULT;
         volume = 1f;
+        unmuteVolume = 1f;
         videoSize = VideoSize.UNKNOWN;
         currentCues = CueGroup.EMPTY_TIME_ZERO;
         deviceInfo = DeviceInfo.UNKNOWN;
@@ -207,6 +209,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
         this.trackSelectionParameters = state.trackSelectionParameters;
         this.audioAttributes = state.audioAttributes;
         this.volume = state.volume;
+        this.unmuteVolume = state.unmuteVolume;
         this.videoSize = state.videoSize;
         this.currentCues = state.currentCues;
         this.deviceInfo = state.deviceInfo;
@@ -436,7 +439,24 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       @CanIgnoreReturnValue
       public Builder setVolume(@FloatRange(from = 0, to = 1.0) float volume) {
         checkArgument(volume >= 0.0f && volume <= 1.0f);
+        this.unmuteVolume = (volume != 0) ? volume : this.volume;
         this.volume = volume;
+        return this;
+      }
+
+      /**
+       * Sets the unmute audio volume, with 0 being silence and 1 being unity gain (signal
+       * unchanged). This value corresponds to volume that the Player will get after a successful
+       * {@link Player#unmute()} call.
+       *
+       * @param unmuteVolume The unmuted audio volume, with 0 being silence and 1 being unity gain
+       *     (signal unchanged).
+       * @return This builder.
+       */
+      @CanIgnoreReturnValue
+      public Builder setUnmuteVolume(@FloatRange(from = 0, to = 1.0) float unmuteVolume) {
+        checkArgument(unmuteVolume >= 0.0f && unmuteVolume <= 1.0f);
+        this.unmuteVolume = unmuteVolume;
         return this;
       }
 
@@ -860,6 +880,10 @@ public abstract class SimpleBasePlayer extends BasePlayer {
     @FloatRange(from = 0, to = 1.0)
     public final float volume;
 
+    /** The unmute audio volume, with 0 being silence and 1 being unity gain (signal unchanged). */
+    @FloatRange(from = 0, to = 1.0)
+    public final float unmuteVolume;
+
     /** The current video size. */
     public final VideoSize videoSize;
 
@@ -1071,6 +1095,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       this.trackSelectionParameters = builder.trackSelectionParameters;
       this.audioAttributes = builder.audioAttributes;
       this.volume = builder.volume;
+      this.unmuteVolume = builder.unmuteVolume;
       this.videoSize = builder.videoSize;
       this.currentCues = builder.currentCues;
       this.deviceInfo = builder.deviceInfo;
@@ -1148,6 +1173,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
           && trackSelectionParameters.equals(state.trackSelectionParameters)
           && audioAttributes.equals(state.audioAttributes)
           && volume == state.volume
+          && unmuteVolume == state.unmuteVolume
           && videoSize.equals(state.videoSize)
           && currentCues.equals(state.currentCues)
           && deviceInfo.equals(state.deviceInfo)
@@ -1193,6 +1219,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       result = 31 * result + trackSelectionParameters.hashCode();
       result = 31 * result + audioAttributes.hashCode();
       result = 31 * result + Float.floatToRawIntBits(volume);
+      result = 31 * result + Float.floatToRawIntBits(unmuteVolume);
       result = 31 * result + videoSize.hashCode();
       result = 31 * result + currentCues.hashCode();
       result = 31 * result + deviceInfo.hashCode();
@@ -2770,7 +2797,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       return;
     }
     updateStateForPendingOperation(
-        /* pendingOperation= */ handleSetVolume(volume),
+        /* pendingOperation= */ handleSetVolume(volume, C.VOLUME_OPERATION_TYPE_SET_VOLUME),
         /* placeholderStateSupplier= */ () -> state.buildUpon().setVolume(volume).build());
   }
 
@@ -2778,6 +2805,36 @@ public abstract class SimpleBasePlayer extends BasePlayer {
   public final float getVolume() {
     verifyApplicationThreadAndInitState();
     return state.volume;
+  }
+
+  @Override
+  public final void mute() {
+    verifyApplicationThreadAndInitState();
+    State state = this.state;
+    if (!shouldHandleCommand(Player.COMMAND_SET_VOLUME)) {
+      return;
+    }
+    if (this.state.volume != 0f) {
+      updateStateForPendingOperation(
+          /* pendingOperation= */ handleSetVolume(0, C.VOLUME_OPERATION_TYPE_MUTE),
+          /* placeholderStateSupplier= */ () -> state.buildUpon().setVolume(0).build());
+    }
+  }
+
+  @Override
+  public final void unmute() {
+    verifyApplicationThreadAndInitState();
+    State state = this.state;
+    if (!shouldHandleCommand(Player.COMMAND_SET_VOLUME)) {
+      return;
+    }
+    if (this.state.volume == 0f) {
+      updateStateForPendingOperation(
+          /* pendingOperation= */ handleSetVolume(
+              state.unmuteVolume, C.VOLUME_OPERATION_TYPE_UNMUTE),
+          /* placeholderStateSupplier= */ () ->
+              state.buildUpon().setVolume(state.unmuteVolume).build());
+    }
   }
 
   @Override
@@ -3274,18 +3331,31 @@ public abstract class SimpleBasePlayer extends BasePlayer {
   }
 
   /**
+   * @deprecated Use {@link #handleSetVolume(float, int)} instead.
+   */
+  @Deprecated
+  @ForOverride
+  protected ListenableFuture<?> handleSetVolume(@FloatRange(from = 0, to = 1.0) float volume) {
+    throw new IllegalStateException("Missing implementation to handle COMMAND_SET_VOLUME");
+  }
+
+  /**
    * Handles calls to {@link Player#setVolume}.
    *
    * <p>Will only be called if {@link Player#COMMAND_SET_VOLUME} is available.
    *
    * @param volume The requested audio volume, with 0 being silence and 1 being unity gain (signal
    *     unchanged).
+   * @param volumeOperationType The {@link C.VolumeOperationType} that corresponds to the original
+   *     command for changing of the volume.
    * @return A {@link ListenableFuture} indicating the completion of all immediate {@link State}
    *     changes caused by this call.
    */
   @ForOverride
-  protected ListenableFuture<?> handleSetVolume(@FloatRange(from = 0, to = 1.0) float volume) {
-    throw new IllegalStateException("Missing implementation to handle COMMAND_SET_VOLUME");
+  protected ListenableFuture<?> handleSetVolume(
+      @FloatRange(from = 0, to = 1.0) float volume,
+      @C.VolumeOperationType int volumeOperationType) {
+    return handleSetVolume(volume);
   }
 
   /**

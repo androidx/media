@@ -416,6 +416,35 @@ public final class C {
   public static final int VOLUME_FLAG_VIBRATE = AudioManager.FLAG_VIBRATE;
 
   /**
+   * Volume operation type. One of:
+   *
+   * <ul>
+   *   <li>{@link #VOLUME_OPERATION_TYPE_SET_VOLUME}
+   *   <li>{@link #VOLUME_OPERATION_TYPE_MUTE}
+   *   <li>{@link #VOLUME_OPERATION_TYPE_UNMUTE}
+   * </ul>
+   */
+  @UnstableApi
+  @Documented
+  @Retention(RetentionPolicy.SOURCE)
+  @Target({TYPE_USE})
+  @IntDef({
+    VOLUME_OPERATION_TYPE_SET_VOLUME,
+    VOLUME_OPERATION_TYPE_MUTE,
+    VOLUME_OPERATION_TYPE_UNMUTE,
+  })
+  public @interface VolumeOperationType {}
+
+  /** A volume operation type constant for direct setting of the Player volume. */
+  @UnstableApi public static final int VOLUME_OPERATION_TYPE_SET_VOLUME = 0;
+
+  /** A volume operation type constant for muting. */
+  @UnstableApi public static final int VOLUME_OPERATION_TYPE_MUTE = 1;
+
+  /** A volume operation type constant for unmuting. */
+  @UnstableApi public static final int VOLUME_OPERATION_TYPE_UNMUTE = 2;
+
+  /**
    * Content types for audio attributes. One of:
    *
    * <ul>

@@ -123,7 +123,7 @@ import java.util.concurrent.ExecutionException;
   private static final String TAG = "MediaSessionStub";
 
   /** The version of the IMediaSession interface. */
-  public static final int VERSION_INT = 5;
+  public static final int VERSION_INT = 6;
 
   /**
    * Sequence number used when a controller method is triggered on the sesison side that wasn't
@@ -1576,6 +1576,24 @@ import java.util.concurrent.ExecutionException;
         sequenceNumber,
         COMMAND_SET_VOLUME,
         sendSessionResultSuccess(player -> player.setVolume(volume)));
+  }
+
+  @Override
+  public void mute(@Nullable IMediaController caller, int sequenceNumber) {
+    if (caller == null) {
+      return;
+    }
+    queueSessionTaskWithPlayerCommand(
+        caller, sequenceNumber, COMMAND_SET_VOLUME, sendSessionResultSuccess(Player::mute));
+  }
+
+  @Override
+  public void unmute(@Nullable IMediaController caller, int sequenceNumber) {
+    if (caller == null) {
+      return;
+    }
+    queueSessionTaskWithPlayerCommand(
+        caller, sequenceNumber, COMMAND_SET_VOLUME, sendSessionResultSuccess(Player::unmute));
   }
 
   @SuppressWarnings("deprecation") // Backwards compatibility a for flag-less method

@@ -567,6 +567,168 @@ public class MediaControllerStateMaskingTest {
   }
 
   @Test
+  public void mute() throws Exception {
+    Bundle playerConfig = new RemoteMediaSession.MockPlayerConfigBuilder().setVolume(0.25f).build();
+    remoteSession.setPlayer(playerConfig);
+    MediaController controller = controllerTestRule.createController(remoteSession.getToken());
+    CountDownLatch latch = new CountDownLatch(2);
+    AtomicReference<Float> volumeFromCallbackRef = new AtomicReference<>();
+    AtomicReference<Player.Events> onEventsRef = new AtomicReference<>();
+    Player.Listener listener =
+        new Player.Listener() {
+          @Override
+          public void onVolumeChanged(float volume) {
+            if (latch.getCount() > 0) {
+              volumeFromCallbackRef.set(volume);
+              latch.countDown();
+            }
+          }
+
+          @Override
+          public void onEvents(Player player, Player.Events events) {
+            if (latch.getCount() > 0) {
+              onEventsRef.set(events);
+              latch.countDown();
+            }
+          }
+        };
+    threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
+
+    AtomicReference<Float> volumeFromGetterRef = new AtomicReference<>();
+    AtomicReference<Float> unmuteVolumeFromGetterRef = new AtomicReference<>();
+    threadTestRule
+        .getHandler()
+        .postAndSync(
+            () -> {
+              unmuteVolumeFromGetterRef.set(controller.getVolume());
+              controller.mute();
+              volumeFromGetterRef.set(controller.getVolume());
+            });
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(volumeFromCallbackRef.get()).isEqualTo(0f);
+    assertThat(volumeFromGetterRef.get()).isEqualTo(0f);
+    assertThat(unmuteVolumeFromGetterRef.get()).isEqualTo(0.25f);
+    assertThat(getEventsAsList(onEventsRef.get())).containsExactly(Player.EVENT_VOLUME_CHANGED);
+  }
+
+  @Test
+  public void unmute_singleController() throws Exception {
+    Bundle playerConfig = new RemoteMediaSession.MockPlayerConfigBuilder().setVolume(0.25f).build();
+    remoteSession.setPlayer(playerConfig);
+    MediaController controller = controllerTestRule.createController(remoteSession.getToken());
+    CountDownLatch muteLatch = new CountDownLatch(1);
+    CountDownLatch unmuteLatch = new CountDownLatch(1);
+    CountDownLatch eventLatch = new CountDownLatch(2);
+    List<Float> volumesFromCallbackRef = new ArrayList<>();
+    List<Float> volumesFromGetterRef = new ArrayList<>();
+    AtomicReference<Player.Events> onEventsRef = new AtomicReference<>();
+    Player.Listener listener =
+        new Player.Listener() {
+          @Override
+          public void onVolumeChanged(float volume) {
+            if (muteLatch.getCount() > 0 || unmuteLatch.getCount() > 0) {
+              volumesFromCallbackRef.add(volume);
+              if (volume == 0f) {
+                muteLatch.countDown();
+              } else {
+                unmuteLatch.countDown();
+              }
+            }
+          }
+
+          @Override
+          public void onEvents(Player player, Player.Events events) {
+            if (eventLatch.getCount() > 0) {
+              onEventsRef.set(events);
+              eventLatch.countDown();
+            }
+          }
+        };
+    threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
+
+    threadTestRule
+        .getHandler()
+        .postAndSync(
+            () -> {
+              volumesFromGetterRef.add(controller.getVolume());
+              controller.mute();
+              volumesFromGetterRef.add(controller.getVolume());
+              controller.unmute();
+              volumesFromGetterRef.add(controller.getVolume());
+            });
+
+    assertThat(unmuteLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(volumesFromCallbackRef).containsExactly(0.0f, 0.25f);
+    assertThat(volumesFromGetterRef).containsExactly(0.25f, 0.0f, 0.25f);
+    assertThat(getEventsAsList(onEventsRef.get())).contains(Player.EVENT_VOLUME_CHANGED);
+  }
+
+  @Test
+  public void unmute_twoControllers() throws Exception {
+    Bundle playerConfig = new RemoteMediaSession.MockPlayerConfigBuilder().setVolume(0.25f).build();
+    remoteSession.setPlayer(playerConfig);
+    MediaController controller = controllerTestRule.createController(remoteSession.getToken());
+    CountDownLatch muteLatch = new CountDownLatch(1);
+    CountDownLatch unmuteLatch = new CountDownLatch(1);
+    CountDownLatch eventLatch = new CountDownLatch(2);
+    List<Float> volumesFromCallbackRef = new ArrayList<>();
+    List<Float> volumesFromGetterRef = new ArrayList<>();
+    AtomicReference<Player.Events> onEventsRef = new AtomicReference<>();
+    Player.Listener listener =
+        new Player.Listener() {
+          @Override
+          public void onVolumeChanged(float volume) {
+            if (muteLatch.getCount() > 0 || unmuteLatch.getCount() > 0) {
+              volumesFromCallbackRef.add(volume);
+              if (volume == 0f) {
+                muteLatch.countDown();
+              } else {
+                unmuteLatch.countDown();
+              }
+            }
+          }
+
+          @Override
+          public void onEvents(Player player, Player.Events events) {
+            if (eventLatch.getCount() > 0) {
+              onEventsRef.set(events);
+              eventLatch.countDown();
+            }
+          }
+        };
+    threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
+
+    threadTestRule
+        .getHandler()
+        .postAndSync(
+            () -> {
+              volumesFromGetterRef.add(controller.getVolume());
+              controller.mute();
+              volumesFromGetterRef.add(controller.getVolume());
+            });
+
+    assertThat(muteLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+
+    MediaController controller2 = controllerTestRule.createController(remoteSession.getToken());
+    threadTestRule.getHandler().postAndSync(() -> controller2.addListener(listener));
+
+    threadTestRule
+        .getHandler()
+        .postAndSync(
+            () -> {
+              controller2.unmute();
+              volumesFromGetterRef.add(controller2.getVolume());
+            });
+
+    assertThat(unmuteLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+
+    assertThat(volumesFromCallbackRef).containsExactly(0.0f, 0.25f);
+    assertThat(volumesFromGetterRef).containsExactly(0.25f, 0.0f, 0.25f);
+    assertThat(getEventsAsList(onEventsRef.get())).contains(Player.EVENT_VOLUME_CHANGED);
+  }
+
+  @Test
   public void setDeviceVolume() throws Exception {
     int testDeviceVolume = 2;
     int volumeFlags = 0;

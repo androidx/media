@@ -136,6 +136,7 @@ import java.util.Objects;
     private VideoSize videoSize;
     private MediaMetadata playlistMetadata;
     private float volume;
+    private float unmuteVolume;
     private AudioAttributes audioAttributes;
     private CueGroup cueGroup;
     private DeviceInfo deviceInfo;
@@ -169,6 +170,7 @@ import java.util.Objects;
       videoSize = playerInfo.videoSize;
       playlistMetadata = playerInfo.playlistMetadata;
       volume = playerInfo.volume;
+      unmuteVolume = playerInfo.unmuteVolume;
       audioAttributes = playerInfo.audioAttributes;
       cueGroup = playerInfo.cueGroup;
       deviceInfo = playerInfo.deviceInfo;
@@ -269,7 +271,14 @@ import java.util.Objects;
 
     @CanIgnoreReturnValue
     public Builder setVolume(@FloatRange(from = 0, to = 1) float volume) {
+      this.unmuteVolume = volume != 0 ? volume : this.volume;
       this.volume = volume;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setUnmuteVolume(@FloatRange(from = 0, to = 1) float volume) {
+      this.unmuteVolume = volume;
       return this;
     }
 
@@ -396,6 +405,7 @@ import java.util.Objects;
           timelineChangeReason,
           playlistMetadata,
           volume,
+          unmuteVolume,
           audioAttributes,
           cueGroup,
           deviceInfo,
@@ -446,6 +456,7 @@ import java.util.Objects;
           TIMELINE_CHANGE_REASON_DEFAULT,
           MediaMetadata.EMPTY,
           /* volume= */ 1f,
+          /* unmuteVolume= */ 1f,
           AudioAttributes.DEFAULT,
           CueGroup.EMPTY_TIME_ZERO,
           DeviceInfo.UNKNOWN,
@@ -491,6 +502,8 @@ import java.util.Objects;
   public final MediaMetadata playlistMetadata;
 
   public final float volume;
+
+  public final float unmuteVolume;
 
   public final AudioAttributes audioAttributes;
 
@@ -672,6 +685,11 @@ import java.util.Objects;
   }
 
   @CheckResult
+  public PlayerInfo copyWithUnmuteVolume(@FloatRange(from = 0, to = 1) float volume) {
+    return new Builder(this).setUnmuteVolume(volume).build();
+  }
+
+  @CheckResult
   public PlayerInfo copyWithDeviceInfo(DeviceInfo deviceInfo) {
     return new Builder(this).setDeviceInfo(deviceInfo).build();
   }
@@ -725,6 +743,7 @@ import java.util.Objects;
       @Player.TimelineChangeReason int timelineChangeReason,
       MediaMetadata playlistMetadata,
       float volume,
+      float unmuteVolume,
       AudioAttributes audioAttributes,
       CueGroup cueGroup,
       DeviceInfo deviceInfo,
@@ -756,6 +775,7 @@ import java.util.Objects;
     this.timelineChangeReason = timelineChangeReason;
     this.playlistMetadata = playlistMetadata;
     this.volume = volume;
+    this.unmuteVolume = unmuteVolume;
     this.audioAttributes = audioAttributes;
     this.cueGroup = cueGroup;
     this.deviceInfo = deviceInfo;
@@ -799,6 +819,7 @@ import java.util.Objects;
   private static final String FIELD_VIDEO_SIZE = Util.intToStringMaxRadix(5);
   private static final String FIELD_PLAYLIST_METADATA = Util.intToStringMaxRadix(6);
   private static final String FIELD_VOLUME = Util.intToStringMaxRadix(7);
+  private static final String FIELD_UNMUTE_VOLUME = Util.intToStringMaxRadix(33);
   private static final String FIELD_AUDIO_ATTRIBUTES = Util.intToStringMaxRadix(8);
   private static final String FIELD_DEVICE_INFO = Util.intToStringMaxRadix(9);
   private static final String FIELD_DEVICE_VOLUME = Util.intToStringMaxRadix(10);
@@ -832,7 +853,7 @@ import java.util.Objects;
   private static final String FIELD_TIMELINE_CHANGE_REASON = Util.intToStringMaxRadix(31);
   private static final String FIELD_IN_PROCESS_BINDER = Util.intToStringMaxRadix(32);
 
-  // Next field key = 33
+  // Next field key = 34
 
   /**
    * Returns a copy of this player info, filtered by the specified available commands.
@@ -949,6 +970,9 @@ import java.util.Objects;
     if (volume != 1) {
       bundle.putFloat(FIELD_VOLUME, volume);
     }
+    if (unmuteVolume != 1) {
+      bundle.putFloat(FIELD_UNMUTE_VOLUME, unmuteVolume);
+    }
     if (!audioAttributes.equals(AudioAttributes.DEFAULT)) {
       bundle.putBundle(FIELD_AUDIO_ATTRIBUTES, audioAttributes.toBundle());
     }
@@ -1062,6 +1086,7 @@ import java.util.Objects;
             ? MediaMetadata.EMPTY
             : MediaMetadata.fromBundle(playlistMetadataBundle);
     float volume = bundle.getFloat(FIELD_VOLUME, /* defaultValue= */ 1);
+    float unmuteVolume = bundle.getFloat(FIELD_UNMUTE_VOLUME, /* defaultValue= */ 1);
     @Nullable Bundle audioAttributesBundle = bundle.getBundle(FIELD_AUDIO_ATTRIBUTES);
     AudioAttributes audioAttributes =
         audioAttributesBundle == null
@@ -1134,6 +1159,7 @@ import java.util.Objects;
         timelineChangeReason,
         playlistMetadata,
         volume,
+        unmuteVolume,
         audioAttributes,
         cueGroup,
         deviceInfo,

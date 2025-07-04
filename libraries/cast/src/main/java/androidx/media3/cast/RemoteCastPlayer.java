@@ -877,6 +877,14 @@ public final class RemoteCastPlayer extends BasePlayer {
 
   /** This method is not supported and does nothing. */
   @Override
+  public void mute() {}
+
+  /** This method is not supported and does nothing. */
+  @Override
+  public void unmute() {}
+
+  /** This method is not supported and does nothing. */
+  @Override
   public void clearVideoSurface() {}
 
   /** This method is not supported and does nothing. */

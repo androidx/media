@@ -1100,6 +1100,16 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
   }
 
   @Override
+  public void mute() {
+    Log.w(TAG, "Session doesn't support muting the player");
+  }
+
+  @Override
+  public void unmute() {
+    Log.w(TAG, "Session doesn't support unmuting the player");
+  }
+
+  @Override
   public DeviceInfo getDeviceInfo() {
     return controllerInfo.playerInfo.deviceInfo;
   }
@@ -2432,6 +2442,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
             /* timelineChangeReason= */ PlayerInfo.TIMELINE_CHANGE_REASON_DEFAULT,
             /* playlistMetadata= */ playlistMetadata,
             /* volume= */ 1.0f,
+            /* unmuteVolume= */ 1.0f,
             /* audioAttributes= */ audioAttributes,
             /* cueGroup= */ CueGroup.EMPTY_TIME_ZERO,
             /* deviceInfo= */ deviceInfo,

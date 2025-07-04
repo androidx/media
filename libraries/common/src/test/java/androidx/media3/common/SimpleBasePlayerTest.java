@@ -3223,7 +3223,8 @@ public class SimpleBasePlayerTest {
           }
 
           @Override
-          protected ListenableFuture<?> handleSetVolume(float volume) {
+          protected ListenableFuture<?> handleSetVolume(
+              float volume, @C.VolumeOperationType int volumeOperationType) {
             playerState = updatedState;
             return Futures.immediateVoidFuture();
           }
@@ -3255,7 +3256,8 @@ public class SimpleBasePlayerTest {
           }
 
           @Override
-          protected ListenableFuture<?> handleSetVolume(float volume) {
+          protected ListenableFuture<?> handleSetVolume(
+              float volume, @C.VolumeOperationType int volumeOperationType) {
             return future;
           }
         };
@@ -3293,13 +3295,281 @@ public class SimpleBasePlayerTest {
           }
 
           @Override
-          protected ListenableFuture<?> handleSetVolume(float volume) {
+          protected ListenableFuture<?> handleSetVolume(
+              float volume, @C.VolumeOperationType int volumeOperationType) {
             callForwarded.set(true);
             return Futures.immediateVoidFuture();
           }
         };
 
     player.setVolume(.5f);
+
+    assertThat(callForwarded.get()).isFalse();
+  }
+
+  @Test
+  public void mute_immediateHandling_updatesStateAndInformsListeners() {
+    State state =
+        new State.Builder()
+            .setAvailableCommands(new Commands.Builder().addAllCommands().build())
+            .build();
+    // Set a different one to the one requested to ensure the updated state is used.
+    State updatedState = state.buildUpon().setVolume(.8f).build();
+    SimpleBasePlayer player =
+        new SimpleBasePlayer(Looper.myLooper()) {
+          private State playerState = state;
+
+          @Override
+          protected State getState() {
+            return playerState;
+          }
+
+          @Override
+          protected ListenableFuture<?> handleSetVolume(
+              float volume, @C.VolumeOperationType int volumeOperationType) {
+            playerState = updatedState;
+            return Futures.immediateVoidFuture();
+          }
+        };
+    Listener listener = mock(Listener.class);
+    player.addListener(listener);
+
+    player.mute();
+
+    assertThat(player.getVolume()).isEqualTo(.8f);
+    verify(listener).onVolumeChanged(.8f);
+    verifyNoMoreInteractions(listener);
+  }
+
+  @Test
+  public void mute_asyncHandling_usesPlaceholderStateAndInformsListeners() {
+    State state =
+        new State.Builder()
+            .setAvailableCommands(new Commands.Builder().addAllCommands().build())
+            .build();
+    // Set a new volume to see a difference between the placeholder and new state.
+    State updatedState = state.buildUpon().setVolume(.8f).build();
+    SettableFuture<?> future = SettableFuture.create();
+    SimpleBasePlayer player =
+        new SimpleBasePlayer(Looper.myLooper()) {
+          @Override
+          protected State getState() {
+            return future.isDone() ? updatedState : state;
+          }
+
+          @Override
+          protected ListenableFuture<?> handleSetVolume(
+              float volume, @C.VolumeOperationType int volumeOperationType) {
+            return future;
+          }
+        };
+    Listener listener = mock(Listener.class);
+    player.addListener(listener);
+
+    player.mute();
+
+    // Verify placeholder state and listener calls.
+    assertThat(player.getVolume()).isEqualTo(0f);
+    verify(listener).onVolumeChanged(0f);
+    verifyNoMoreInteractions(listener);
+
+    future.set(null);
+
+    // Verify actual state update.
+    assertThat(player.getVolume()).isEqualTo(.8f);
+    verify(listener).onVolumeChanged(.8f);
+    verifyNoMoreInteractions(listener);
+  }
+
+  @Test
+  public void mute_withoutAvailableCommand_isNotForwarded() {
+    State state =
+        new State.Builder()
+            .setAvailableCommands(
+                new Commands.Builder().addAllCommands().remove(Player.COMMAND_SET_VOLUME).build())
+            .build();
+    AtomicBoolean callForwarded = new AtomicBoolean();
+    SimpleBasePlayer player =
+        new SimpleBasePlayer(Looper.myLooper()) {
+          @Override
+          protected State getState() {
+            return state;
+          }
+
+          @Override
+          protected ListenableFuture<?> handleSetVolume(
+              float volume, @C.VolumeOperationType int volumeOperationType) {
+            callForwarded.set(true);
+            return Futures.immediateVoidFuture();
+          }
+        };
+
+    player.mute();
+
+    assertThat(callForwarded.get()).isFalse();
+  }
+
+  @Test
+  public void mute_fromAlreadyMutedState_isNotForwarded() {
+    State state =
+        new State.Builder()
+            .setAvailableCommands(
+                new Commands.Builder().addAllCommands().remove(Player.COMMAND_SET_VOLUME).build())
+            .setVolume(0f)
+            .build();
+    AtomicBoolean callForwarded = new AtomicBoolean();
+    SimpleBasePlayer player =
+        new SimpleBasePlayer(Looper.myLooper()) {
+          @Override
+          protected State getState() {
+            return state;
+          }
+
+          @Override
+          protected ListenableFuture<?> handleSetVolume(
+              float volume, @C.VolumeOperationType int volumeOperationType) {
+            callForwarded.set(true);
+            return Futures.immediateVoidFuture();
+          }
+        };
+
+    player.mute();
+
+    assertThat(callForwarded.get()).isFalse();
+  }
+
+  @Test
+  public void unmute_immediateHandling_updatesStateAndInformsListeners() {
+    State state =
+        new State.Builder()
+            .setAvailableCommands(new Commands.Builder().addAllCommands().build())
+            .setVolume(0f)
+            .build();
+    // Set a different one to the one requested to ensure the updated state is used.
+    State updatedState = state.buildUpon().setVolume(.8f).build();
+    SimpleBasePlayer player =
+        new SimpleBasePlayer(Looper.myLooper()) {
+          private State playerState = state;
+
+          @Override
+          protected State getState() {
+            return playerState;
+          }
+
+          @Override
+          protected ListenableFuture<?> handleSetVolume(
+              float volume, @C.VolumeOperationType int volumeOperationType) {
+            playerState = updatedState;
+            return Futures.immediateVoidFuture();
+          }
+        };
+    Listener listener = mock(Listener.class);
+    player.addListener(listener);
+
+    player.unmute();
+
+    assertThat(player.getVolume()).isEqualTo(.8f);
+    verify(listener).onVolumeChanged(.8f);
+    verifyNoMoreInteractions(listener);
+  }
+
+  @Test
+  public void unmute_asyncHandling_usesPlaceholderStateAndInformsListeners() {
+    State state =
+        new State.Builder()
+            .setAvailableCommands(new Commands.Builder().addAllCommands().build())
+            .setVolume(0f)
+            .setUnmuteVolume(0.75f)
+            .build();
+    // Set a new volume to see a difference between the placeholder and new state.
+    State updatedState = state.buildUpon().setVolume(.8f).build();
+    SettableFuture<?> future = SettableFuture.create();
+    SimpleBasePlayer player =
+        new SimpleBasePlayer(Looper.myLooper()) {
+          @Override
+          protected State getState() {
+            return future.isDone() ? updatedState : state;
+          }
+
+          @Override
+          protected ListenableFuture<?> handleSetVolume(
+              float volume, @C.VolumeOperationType int volumeOperationType) {
+            return future;
+          }
+        };
+    Listener listener = mock(Listener.class);
+    player.addListener(listener);
+
+    player.unmute();
+
+    // Verify placeholder state and listener calls.
+    assertThat(player.getVolume()).isEqualTo(0.75f);
+    verify(listener).onVolumeChanged(0.75f);
+    verifyNoMoreInteractions(listener);
+
+    future.set(null);
+
+    // Verify actual state update.
+    assertThat(player.getVolume()).isEqualTo(.8f);
+    verify(listener).onVolumeChanged(.8f);
+    verifyNoMoreInteractions(listener);
+  }
+
+  @Test
+  public void unmute_fromNonZeroVolume_isNotForwarded() {
+    State state =
+        new State.Builder()
+            .setAvailableCommands(new Commands.Builder().addAllCommands().build())
+            .build();
+    AtomicBoolean callForwarded = new AtomicBoolean();
+
+    SimpleBasePlayer player =
+        new SimpleBasePlayer(Looper.myLooper()) {
+          @Override
+          protected State getState() {
+            return state;
+          }
+
+          @Override
+          protected ListenableFuture<?> handleSetVolume(
+              float volume, @C.VolumeOperationType int volumeOperationType) {
+            callForwarded.set(true);
+            return Futures.immediateVoidFuture();
+          }
+        };
+    Listener listener = mock(Listener.class);
+    player.addListener(listener);
+
+    player.unmute();
+
+    assertThat(callForwarded.get()).isFalse();
+  }
+
+  @Test
+  public void unmute_withoutAvailableCommand_isNotForwarded() {
+    State state =
+        new State.Builder()
+            .setAvailableCommands(
+                new Commands.Builder().addAllCommands().remove(Player.COMMAND_SET_VOLUME).build())
+            .setVolume(0f)
+            .build();
+    AtomicBoolean callForwarded = new AtomicBoolean();
+    SimpleBasePlayer player =
+        new SimpleBasePlayer(Looper.myLooper()) {
+          @Override
+          protected State getState() {
+            return state;
+          }
+
+          @Override
+          protected ListenableFuture<?> handleSetVolume(
+              float volume, @C.VolumeOperationType int volumeOperationType) {
+            callForwarded.set(true);
+            return Futures.immediateVoidFuture();
+          }
+        };
+
+    player.unmute();
 
     assertThat(callForwarded.get()).isFalse();
   }

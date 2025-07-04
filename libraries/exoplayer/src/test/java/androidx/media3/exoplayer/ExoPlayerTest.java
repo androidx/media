@@ -14624,6 +14624,22 @@ public final class ExoPlayerTest {
     verify(listener).onVolumeChanged(anyFloat());
   }
 
+  @Test
+  public void releaseAfterMuting_triggerPendingVolumeEventInListener() throws Exception {
+    ExoPlayer player =
+        parameterizeTestExoPlayerBuilder(
+                new TestExoPlayerBuilder(ApplicationProvider.getApplicationContext()))
+            .build();
+    Player.Listener listener = mock(Player.Listener.class);
+    player.addListener(listener);
+
+    player.mute();
+    player.release();
+    ShadowLooper.runMainLooperToNextTask();
+
+    verify(listener).onVolumeChanged(anyFloat());
+  }
+
   /**
    * This test verifies that {@link ExoPlayer#release()} will return without a timeout reported when
    * there is a {@link RuntimeException} thrown on the playback thread during releasing the internal
@@ -14798,6 +14814,52 @@ public final class ExoPlayerTest {
     assertThat(minVolume).isEqualTo(0);
     assertThat(maxVolume).isEqualTo(0);
 
+    player.release();
+  }
+
+  @Test
+  public void mutingSequence_triggersVolumeEventsInListenerWhenAppropriate() throws Exception {
+    ExoPlayer player = new TestExoPlayerBuilder(context).build();
+    Player.Listener listener = mock(Player.Listener.class);
+    player.addListener(listener);
+
+    player.setVolume(0.6f);
+    player.mute();
+
+    InOrder inOrder = inOrder(listener);
+    assertThat(player.getVolume()).isEqualTo(0f);
+    inOrder.verify(listener).onVolumeChanged(0.6f);
+    inOrder.verify(listener).onVolumeChanged(0f);
+    verifyNoMoreInteractions(listener);
+
+    player.mute(); // no-op
+
+    assertThat(player.getVolume()).isEqualTo(0f);
+    verifyNoMoreInteractions(listener);
+    player.release();
+  }
+
+  @Test
+  public void unmutingSequence_triggersVolumeEventsInListenerWhenAppropriate() throws Exception {
+    ExoPlayer player = new TestExoPlayerBuilder(context).build();
+    Player.Listener listener = mock(Player.Listener.class);
+    player.addListener(listener);
+
+    player.setVolume(0.6f);
+    player.mute();
+    player.unmute();
+
+    InOrder inOrder = inOrder(listener);
+    assertThat(player.getVolume()).isEqualTo(0.6f);
+    inOrder.verify(listener).onVolumeChanged(0.6f);
+    inOrder.verify(listener).onVolumeChanged(0f);
+    inOrder.verify(listener).onVolumeChanged(0.6f);
+    verifyNoMoreInteractions(listener);
+
+    player.unmute(); // no-op
+
+    assertThat(player.getVolume()).isEqualTo(0.6f);
+    verifyNoMoreInteractions(listener);
     player.release();
   }
 

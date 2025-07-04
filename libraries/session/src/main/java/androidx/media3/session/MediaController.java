@@ -1827,6 +1827,28 @@ public class MediaController implements Player {
     impl.setVolume(volume);
   }
 
+  @UnstableApi
+  @Override
+  public final void mute() {
+    verifyApplicationThread();
+    if (!isConnected()) {
+      Log.w(TAG, "The controller is not connected. Ignoring mute().");
+      return;
+    }
+    impl.mute();
+  }
+
+  @UnstableApi
+  @Override
+  public final void unmute() {
+    verifyApplicationThread();
+    if (!isConnected()) {
+      Log.w(TAG, "The controller is not connected. Ignoring unmute().");
+      return;
+    }
+    impl.unmute();
+  }
+
   @Override
   public final DeviceInfo getDeviceInfo() {
     verifyApplicationThread();
@@ -2306,6 +2328,10 @@ public class MediaController implements Player {
     float getVolume();
 
     void setVolume(float volume);
+
+    void mute();
+
+    void unmute();
 
     DeviceInfo getDeviceInfo();
 

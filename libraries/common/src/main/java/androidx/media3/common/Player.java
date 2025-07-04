@@ -3220,6 +3220,25 @@ public interface Player {
   float getVolume();
 
   /**
+   * Sets the audio volume to 0.
+   *
+   * <p>This method must only be called if {@link #COMMAND_SET_VOLUME} is {@linkplain
+   * #getAvailableCommands() available}.
+   */
+  @UnstableApi
+  void mute();
+
+  /**
+   * If the audio volume is 0, sets the audio volume to a non-zero value decided by the Player to be
+   * the most appropriate.
+   *
+   * <p>This method must only be called if {@link #COMMAND_SET_VOLUME} is {@linkplain
+   * #getAvailableCommands() available}.
+   */
+  @UnstableApi
+  void unmute();
+
+  /**
    * Clears any {@link Surface}, {@link SurfaceHolder}, {@link SurfaceView} or {@link TextureView}
    * currently set on the player.
    *

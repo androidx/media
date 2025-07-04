@@ -3,6 +3,9 @@
 ### Unreleased changes
 
 *   Common Library:
+    *   Add `void mute()` and `void unmute()` methods to Player that preserve
+        and consequently restore Player's volume before and after setting it to
+        zero.
 *   ExoPlayer:
     *   Fix bug where non-stereo audio formats on TVs may be marked as
         unsupported by `DefaultTrackSelector`.

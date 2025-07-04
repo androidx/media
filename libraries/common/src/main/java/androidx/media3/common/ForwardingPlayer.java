@@ -690,6 +690,18 @@ public class ForwardingPlayer implements Player {
     return player.getVolume();
   }
 
+  /** Calls {@link Player#mute()} on the delegate. */
+  @Override
+  public void mute() {
+    player.mute();
+  }
+
+  /** Calls {@link Player#unmute()} on the delegate. */
+  @Override
+  public void unmute() {
+    player.unmute();
+  }
+
   /** Calls {@link Player#getVideoSize()} on the delegate and returns the result. */
   @Override
   public VideoSize getVideoSize() {

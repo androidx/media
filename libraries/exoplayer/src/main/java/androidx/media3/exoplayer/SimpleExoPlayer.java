@@ -605,6 +605,18 @@ public class SimpleExoPlayer extends BasePlayer implements ExoPlayer {
   }
 
   @Override
+  public void mute() {
+    blockUntilConstructorFinished();
+    player.mute();
+  }
+
+  @Override
+  public void unmute() {
+    blockUntilConstructorFinished();
+    player.unmute();
+  }
+
+  @Override
   public boolean getSkipSilenceEnabled() {
     blockUntilConstructorFinished();
     return player.getSkipSilenceEnabled();

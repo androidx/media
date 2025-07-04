@@ -462,6 +462,34 @@ public class MockPlayerTest {
   }
 
   @Test
+  public void mute() {
+    float startingVolume = .123f;
+    player.setVolume(startingVolume);
+    assertThat(player.volume).isEqualTo(startingVolume);
+
+    player.mute();
+
+    assertThat(player.hasMethodBeenCalled(MockPlayer.METHOD_SET_VOLUME)).isTrue();
+    assertThat(player.volume).isEqualTo(0f);
+    assertThat(player.unmuteVolume).isEqualTo(startingVolume);
+  }
+
+  @Test
+  public void unmute() {
+    float startingVolume = .123f;
+    player.setVolume(startingVolume);
+    assertThat(player.volume).isEqualTo(startingVolume);
+    player.mute();
+    assertThat(player.volume).isEqualTo(0f);
+
+    player.unmute();
+
+    assertThat(player.hasMethodBeenCalled(MockPlayer.METHOD_SET_VOLUME)).isTrue();
+    assertThat(player.volume).isEqualTo(startingVolume);
+    assertThat(player.unmuteVolume).isEqualTo(startingVolume);
+  }
+
+  @Test
   public void setDeviceVolume() {
     int testVolume = 12;
 

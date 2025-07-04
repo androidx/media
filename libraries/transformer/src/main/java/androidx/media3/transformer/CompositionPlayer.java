@@ -661,7 +661,8 @@ public final class CompositionPlayer extends SimpleBasePlayer
   }
 
   @Override
-  protected ListenableFuture<?> handleSetVolume(float volume) {
+  protected ListenableFuture<?> handleSetVolume(
+      float volume, @C.VolumeOperationType int volumeOperationType) {
     this.volume = Util.constrainValue(volume, /* min= */ 0.0f, /* max= */ 1.0f);
     if (compositionPlayerInternal != null) {
       compositionPlayerInternal.setVolume(this.volume);

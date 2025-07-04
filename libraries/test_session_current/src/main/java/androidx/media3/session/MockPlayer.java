@@ -306,6 +306,7 @@ public class MockPlayer implements Player {
   @Nullable public SurfaceView surfaceView;
   @Nullable public TextureView textureView;
   public float volume;
+  public float unmuteVolume;
   public CueGroup cueGroup;
   public DeviceInfo deviceInfo;
   public int deviceVolume;
@@ -350,6 +351,7 @@ public class MockPlayer implements Player {
     videoSize = VideoSize.UNKNOWN;
     surfaceSize = Size.UNKNOWN;
     volume = 1.0f;
+    unmuteVolume = 1.0f;
     cueGroup = CueGroup.EMPTY_TIME_ZERO;
     deviceInfo = DeviceInfo.UNKNOWN;
     seekPositionMs = C.TIME_UNSET;
@@ -706,8 +708,23 @@ public class MockPlayer implements Player {
 
   @Override
   public void setVolume(float volume) {
+    this.unmuteVolume = (volume != 0) ? volume : this.volume;
     this.volume = volume;
     checkNotNull(conditionVariables.get(METHOD_SET_VOLUME)).open();
+  }
+
+  @Override
+  public void mute() {
+    if (this.volume != 0f) {
+      setVolume(0f);
+    }
+  }
+
+  @Override
+  public void unmute() {
+    if (this.volume == 0f) {
+      setVolume(this.unmuteVolume);
+    }
   }
 
   @Override

@@ -602,6 +602,18 @@ import java.util.List;
   }
 
   @Override
+  public void mute() {
+    verifyApplicationThread();
+    super.mute();
+  }
+
+  @Override
+  public void unmute() {
+    verifyApplicationThread();
+    super.unmute();
+  }
+
+  @Override
   public CueGroup getCurrentCues() {
     verifyApplicationThread();
     return super.getCurrentCues();
@@ -906,6 +918,7 @@ import java.util.List;
         PlayerInfo.TIMELINE_CHANGE_REASON_DEFAULT,
         getPlaylistMetadataWithCommandCheck(),
         getVolumeWithCommandCheck(),
+        /* unmuteVolume= */ 1f,
         getAudioAttributesWithCommandCheck(),
         getCurrentCuesWithCommandCheck(),
         getDeviceInfo(),

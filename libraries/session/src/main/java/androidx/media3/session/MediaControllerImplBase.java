@@ -1629,6 +1629,56 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   }
 
   @Override
+  public void mute() {
+    if (!isPlayerCommandAvailable(Player.COMMAND_SET_VOLUME)) {
+      return;
+    }
+
+    float newVolume = 0f;
+    dispatchRemoteSessionTaskWithPlayerCommand(
+        (iSession, seq) -> {
+          if (checkNotNull(connectedToken).getInterfaceVersion() >= 6) {
+            iSession.mute(controllerStub, seq);
+          } else {
+            iSession.setVolume(controllerStub, seq, newVolume);
+          }
+        });
+
+    if (playerInfo.volume != newVolume) {
+      playerInfo = playerInfo.copyWithVolume(newVolume);
+      listeners.queueEvent(
+          /* eventFlag= */ Player.EVENT_VOLUME_CHANGED,
+          listener -> listener.onVolumeChanged(newVolume));
+      listeners.flushEvents();
+    }
+  }
+
+  @Override
+  public void unmute() {
+    if (!isPlayerCommandAvailable(Player.COMMAND_SET_VOLUME)) {
+      return;
+    }
+
+    float unmuteVolume = playerInfo.unmuteVolume;
+    dispatchRemoteSessionTaskWithPlayerCommand(
+        (iSession, seq) -> {
+          if (checkNotNull(connectedToken).getInterfaceVersion() >= 6) {
+            iSession.unmute(controllerStub, seq);
+          } else {
+            iSession.setVolume(controllerStub, seq, unmuteVolume);
+          }
+        });
+
+    if (playerInfo.volume != playerInfo.unmuteVolume && playerInfo.volume == 0) {
+      playerInfo = playerInfo.copyWithVolume(unmuteVolume);
+      listeners.queueEvent(
+          /* eventFlag= */ Player.EVENT_VOLUME_CHANGED,
+          listener -> listener.onVolumeChanged(unmuteVolume));
+      listeners.flushEvents();
+    }
+  }
+
+  @Override
   public DeviceInfo getDeviceInfo() {
     return playerInfo.deviceInfo;
   }
@@ -2787,10 +2837,16 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     if (!isConnected()) {
       return;
     }
+    boolean keepOldUnmuteVolumeForMutedSessions =
+        checkNotNull(connectedToken).getInterfaceVersion() < 6;
     if (pendingPlayerInfo != null) {
       pendingPlayerInfo =
           mergePlayerInfo(
-              pendingPlayerInfo, newPlayerInfo, bundlingExclusions, intersectedPlayerCommands);
+              pendingPlayerInfo,
+              newPlayerInfo,
+              bundlingExclusions,
+              intersectedPlayerCommands,
+              keepOldUnmuteVolumeForMutedSessions);
       if (pendingMaskingSequencedFutureNumbers.isEmpty()) {
         // Finish masking.
         newPlayerInfo = pendingPlayerInfo;
@@ -2809,7 +2865,8 @@ import org.checkerframework.checker.nullness.qual.NonNull;
             oldPlayerInfo,
             newPlayerInfo,
             /* newBundlingExclusions= */ bundlingExclusions,
-            intersectedPlayerCommands);
+            intersectedPlayerCommands,
+            keepOldUnmuteVolumeForMutedSessions);
     PlayerInfo finalPlayerInfo = playerInfo;
 
     @Nullable

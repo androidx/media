@@ -136,7 +136,8 @@ import java.util.List;
       PlayerInfo oldPlayerInfo,
       PlayerInfo newPlayerInfo,
       BundlingExclusions newBundlingExclusions,
-      Commands availablePlayerCommands) {
+      Commands availablePlayerCommands,
+      boolean keepOldUnmuteVolumeForMutedSessions) {
     PlayerInfo mergedPlayerInfo = newPlayerInfo;
     if (newBundlingExclusions.isTimelineExcluded
         && availablePlayerCommands.contains(Player.COMMAND_GET_TIMELINE)) {
@@ -147,6 +148,11 @@ import java.util.List;
         && availablePlayerCommands.contains(Player.COMMAND_GET_TRACKS)) {
       // Use the previous tracks if it is excluded in the most recent update.
       mergedPlayerInfo = mergedPlayerInfo.copyWithCurrentTracks(oldPlayerInfo.currentTracks);
+    }
+    if (keepOldUnmuteVolumeForMutedSessions && newPlayerInfo.volume == 0) {
+      // Making an educated guess to keep the last known volume this controller is aware of for
+      // unmuting the previous volume, rather than taking the default of 1f.
+      mergedPlayerInfo = mergedPlayerInfo.copyWithUnmuteVolume(oldPlayerInfo.unmuteVolume);
     }
     return mergedPlayerInfo;
   }
