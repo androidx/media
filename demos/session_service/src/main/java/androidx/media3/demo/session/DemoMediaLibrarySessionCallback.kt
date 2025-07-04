@@ -106,19 +106,13 @@ open class DemoMediaLibrarySessionCallback(val service: DemoPlaybackService) :
       // Enable shuffling.
       session.player.shuffleModeEnabled = true
       // Change the media button preferences to contain the `Disable shuffling` button.
-      session.setMediaButtonPreferences(
-        session.mediaNotificationControllerInfo!!,
-        ImmutableList.of(commandButtons[1]),
-      )
+      session.setMediaButtonPreferences(ImmutableList.of(commandButtons[1]))
       return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
     } else if (CUSTOM_COMMAND_TOGGLE_SHUFFLE_MODE_OFF == customCommand.customAction) {
       // Disable shuffling.
       session.player.shuffleModeEnabled = false
       // Change the media button preferences to contain the `Enable shuffling` button.
-      session.setMediaButtonPreferences(
-        session.mediaNotificationControllerInfo!!,
-        ImmutableList.of(commandButtons[0]),
-      )
+      session.setMediaButtonPreferences(ImmutableList.of(commandButtons[0]))
       return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
     }
     return Futures.immediateFuture(SessionResult(SessionError.ERROR_NOT_SUPPORTED))
