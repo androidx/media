@@ -21,7 +21,7 @@ import androidx.compose.runtime.withFrameMillis
 import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.media3.common.listen
-import androidx.media3.common.util.Assertions.checkState
+import androidx.media3.common.util.UnstableApi
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
@@ -32,7 +32,7 @@ import kotlinx.coroutines.launch
 internal class ProgressStateJob(
   private val player: Player,
   private val scope: CoroutineScope,
-  private val intervalMsSupplier: () -> Long,
+  private val nextMediaTickMsSupplier: () -> Long,
   private val scheduledTask: () -> Unit,
 ) {
   private var updateJob: Job? = null
@@ -77,39 +77,29 @@ internal class ProgressStateJob(
   }
 
   /**
-   * Delay the polling of the [Player] by the time delta that corresponds to the interval supplied
-   * by [intervalMsSupplier]. If the duration of one step is zero, the polling is suspended until
-   * the next frame is requested, preventing unnecessarily frequent updates that will not be visible
-   * on the screen.
+   * Delay the polling of the [Player] until the current position reaches the value supplied by
+   * [nextMediaTickMsSupplier]. If the time delta from until that next tick is less that
+   * [MIN_UPDATE_INTERVAL_MS], the polling is suspended until the next frame is requested,
+   * preventing unnecessarily frequent updates that will not be visible on the screen.
    *
    * Playback speed is taken into account as well, since it expands or shrinks the effective media
    * duration.
    */
   private suspend fun smartDelay() {
-    val oneStepDurationMs = intervalMsSupplier()
-    checkState(
-      oneStepDurationMs >= 0 || oneStepDurationMs == C.TIME_UNSET,
-      "Provided intervalMsSupplier is negative: $oneStepDurationMs",
-    )
-    if (player.isPlaying && oneStepDurationMs != C.TIME_UNSET) {
-      if (oneStepDurationMs < MIN_UPDATE_INTERVAL_MS * player.playbackParameters.speed) {
-        // oneStepDurationMs == 0 is a requested continuous update,
-        // otherwise throttled by Recomposition frequency
+    val nextMediaWakeUpPositionMs = nextMediaTickMsSupplier()
+    if (player.isPlaying && nextMediaWakeUpPositionMs != C.TIME_UNSET) {
+      val mediaTimeToNextTickMs = nextMediaWakeUpPositionMs - getCurrentPositionMsOrDefault(player)
+      if (mediaTimeToNextTickMs < MIN_UPDATE_INTERVAL_MS * player.playbackParameters.speed) {
+        // Throttle by recomposition frequency
         withFrameMillis {}
       } else {
-        val mediaTimeToNextStepMs = oneStepDurationMs - player.currentPosition % oneStepDurationMs
         // Convert the specified interval to wall-clock time
-        var realTimeToNextStepMs = mediaTimeToNextStepMs / player.playbackParameters.speed
-        // Prevent unnecessarily short sleep which results in increased scheduledTask() frequency
-        if (realTimeToNextStepMs < MIN_UPDATE_INTERVAL_MS) {
-          realTimeToNextStepMs += oneStepDurationMs / player.playbackParameters.speed
-        }
+        val realTimeToNextTickMs = mediaTimeToNextTickMs / player.playbackParameters.speed
         // Prevent infinite delays by 0
-        delay(realTimeToNextStepMs.toLong().coerceAtLeast(1L))
+        delay(realTimeToNextTickMs.toLong().coerceAtLeast(1L))
       }
     } else if (
-      (player.playbackState != Player.STATE_ENDED && player.playbackState != Player.STATE_IDLE) ||
-        oneStepDurationMs == C.TIME_UNSET
+      player.playbackState != Player.STATE_ENDED && player.playbackState != Player.STATE_IDLE
     ) {
       delay(PAUSED_UPDATE_INTERVAL_MS)
     }
@@ -141,6 +131,6 @@ internal fun getDurationMsOrDefault(player: Player): Long {
 }
 
 // Taking highest frame rate as 120fps, interval is 1000/120
-private const val MIN_UPDATE_INTERVAL_MS = 8L
+@UnstableApi const val MIN_UPDATE_INTERVAL_MS = 8L
 @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
 const val PAUSED_UPDATE_INTERVAL_MS = 1000L

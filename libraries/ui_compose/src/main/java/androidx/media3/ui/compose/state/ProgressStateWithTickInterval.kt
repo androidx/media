@@ -96,8 +96,8 @@ fun rememberProgressStateWithTickInterval(
  */
 @UnstableApi
 class ProgressStateWithTickInterval(
-  player: Player,
-  @IntRange(from = 0) tickIntervalMs: Long = 0,
+  private val player: Player,
+  @IntRange(from = 0) private val tickIntervalMs: Long = 0,
   scope: CoroutineScope,
 ) {
   var currentPositionMs by mutableLongStateOf(getCurrentPositionMsOrDefault(player))
@@ -113,7 +113,7 @@ class ProgressStateWithTickInterval(
     ProgressStateJob(
       player,
       scope,
-      intervalMsSupplier = { tickIntervalMs },
+      nextMediaTickMsSupplier = ::nextMediaWakeUpPositionMs,
       scheduledTask = {
         currentPositionMs = getCurrentPositionMsOrDefault(player)
         bufferedPositionMs = getBufferedPositionMsOrDefault(player)
@@ -130,4 +130,18 @@ class ProgressStateWithTickInterval(
    * an asynchronous way.
    */
   suspend fun observe(): Nothing = updateJob.observeProgress()
+
+  private fun nextMediaWakeUpPositionMs(): Long {
+    if (tickIntervalMs == 0L) {
+      return 0
+    }
+    val currentPositionMs = getCurrentPositionMsOrDefault(player)
+    val nextTickIndex = currentPositionMs / tickIntervalMs + 1
+    var nextMediaWakeUpPositionMs = nextTickIndex * tickIntervalMs
+    val idealDelayDuration = nextMediaWakeUpPositionMs - currentPositionMs
+    if (idealDelayDuration < MIN_UPDATE_INTERVAL_MS) {
+      nextMediaWakeUpPositionMs = (nextTickIndex + 1) * tickIntervalMs
+    }
+    return nextMediaWakeUpPositionMs
+  }
 }
