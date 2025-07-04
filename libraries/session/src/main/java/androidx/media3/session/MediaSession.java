@@ -1745,6 +1745,17 @@ public class MediaSession {
     }
 
     /**
+     * @deprecated Override {@link MediaSession.Callback#onPlaybackResumption(MediaSession,
+     *     ControllerInfo, boolean)} instead.
+     */
+    @Deprecated
+    @UnstableApi
+    default ListenableFuture<MediaItemsWithStartPosition> onPlaybackResumption(
+        MediaSession mediaSession, ControllerInfo controller) {
+      return Futures.immediateFailedFuture(new UnsupportedOperationException());
+    }
+
+    /**
      * Returns the playlist with which the player should be prepared when a controller requests to
      * play without a current {@link MediaItem}.
      *
@@ -1752,14 +1763,28 @@ public class MediaSession {
      * href="https://developer.android.com/media/media3/session/background-playback#resumption">playback
      * resumption</a> is requested from a media button receiver or the System UI notification.
      *
-     * <p>Use {@link MediaMetadata#artworkData} or {@link MediaMetadata#artworkUri} with a content
-     * URI to set locally available artwork data for the System UI notification after reboot of the
-     * device. Note that network access may not be available when this method is called during boot
-     * time.
+     * <p>If {@code isForPlayback} is {@code false}, the controller only requests metadata about the
+     * item that will be played once playback resumption is requested without an immediate intention
+     * to start playback. For example, this may happen immediately after reboot of the device for
+     * System UI to populate its playback resumption notification. In these cases, only one {@link
+     * MediaItem} is needed and it's useful to provide additional metadata to allow System UI to
+     * generate the notification:
      *
-     * <p>Use {@link MediaConstants#EXTRAS_KEY_COMPLETION_STATUS} and {@link
-     * MediaConstants#EXTRAS_KEY_COMPLETION_PERCENTAGE} to statically indicate the completion
-     * status.
+     * <ul>
+     *   <li>Use {@link MediaMetadata#artworkData} or {@link MediaMetadata#artworkUri} with a
+     *       content URI to set locally available artwork data for the playback resumption
+     *       notification. Note that network access may not be available when this method is called
+     *       during boot time.
+     *   <li>Use {@link MediaConstants#EXTRAS_KEY_COMPLETION_STATUS} and {@link
+     *       MediaConstants#EXTRAS_KEY_COMPLETION_PERCENTAGE} to statically indicate the completion
+     *       status.
+     * </ul>
+     *
+     * <p>If {@code isForPlayback} is {@code true}, return the initial playlist for the {@link
+     * Player} and the intended start position. {@link Player#setMediaItem}, {@link
+     * Player#setMediaItems}, {@link Player#prepare} and {@link Player#play} will be called
+     * automatically as required. Any additional initial setup like setting playback speed, repeat
+     * mode or shuffle mode can be done from within this callback.
      *
      * <p>The method will only be called if the {@link Player} has {@link
      * Player#COMMAND_GET_CURRENT_MEDIA_ITEM} and either {@link Player#COMMAND_SET_MEDIA_ITEM} or
@@ -1769,12 +1794,17 @@ public class MediaSession {
      * @param controller The {@linkplain ControllerInfo controller} that requests the playback
      *     resumption. This may be a short living controller created only for issuing a play command
      *     for resuming playback.
+     * @param isForPlayback Whether playback is intended to start after this callback. If false, the
+     *     controller only requests metadata about the item that will be played once playback
+     *     resumption is requested. If true, playback will be started automatically with the
+     *     provided {@link MediaItemsWithStartPosition}.
      * @return The {@linkplain MediaItemsWithStartPosition playlist} to resume playback with.
      */
     @UnstableApi
+    @SuppressWarnings("deprecation") // calling deprecated API for backwards compatibility
     default ListenableFuture<MediaItemsWithStartPosition> onPlaybackResumption(
-        MediaSession mediaSession, ControllerInfo controller) {
-      return Futures.immediateFailedFuture(new UnsupportedOperationException());
+        MediaSession mediaSession, ControllerInfo controller, boolean isForPlayback) {
+      return onPlaybackResumption(mediaSession, controller);
     }
 
     /**

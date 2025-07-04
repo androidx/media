@@ -1122,7 +1122,8 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       @Nullable
       ListenableFuture<MediaItemsWithStartPosition> future =
           checkNotNull(
-              callback.onPlaybackResumption(instance, controllerForRequest),
+              callback.onPlaybackResumption(
+                  instance, controllerForRequest, /* isForPlayback= */ true),
               "Callback.onPlaybackResumption must return a non-null future");
       Futures.addCallback(
           future,

@@ -47,6 +47,9 @@
         leave the controller in an invalid state.
     *   Fix StrictMode unsafe launch violation warning
         ([#2330](https://github.com/androidx/media/pull/2330)).
+    *   Add new parameter to `MediaSession.Callback.onPlaybackResumption` to
+        indicate if the call happens to gather information only or to start
+        playback ([#1764](https://github.com/androidx/media/issues/1764)).
 *   UI:
     *   Fix bug where `PlayerSurface` inside re-usable components like
         `LazyColumn` didn't work correctly

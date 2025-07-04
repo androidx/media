@@ -191,39 +191,55 @@ open class DemoMediaLibrarySessionCallback(val service: DemoPlaybackService) :
   override fun onPlaybackResumption(
     mediaSession: MediaSession,
     controller: MediaSession.ControllerInfo,
+    isForPlayback: Boolean,
   ): ListenableFuture<MediaItemsWithStartPosition> {
     return CoroutineScope(Dispatchers.Unconfined).future {
-      service.retrieveLastStoredMediaItem()?.let {
-        var extras: Bundle? = null
-        if (it.durationMs != C.TIME_UNSET) {
-          extras = Bundle()
-          extras.putInt(
-            MediaConstants.EXTRAS_KEY_COMPLETION_STATUS,
-            MediaConstants.EXTRAS_VALUE_COMPLETION_STATUS_PARTIALLY_PLAYED,
-          )
-          extras.putDouble(
-            MediaConstants.EXTRAS_KEY_COMPLETION_PERCENTAGE,
-            max(0.0, min(1.0, it.positionMs.toDouble() / it.durationMs)),
-          )
-        }
-        maybeExpandSingleItemToPlaylist(
-            mediaItem =
-              MediaItem.Builder()
-                .setMediaId(it.mediaId)
+      service.retrieveLastStoredMediaItem()?.apply {
+        if (isForPlayback) {
+          maybeExpandSingleItemToPlaylist(
+              mediaItem = MediaItem.Builder().setMediaId(this.mediaId).build(),
+              startIndex = 0,
+              startPositionMs = this.positionMs,
+            )
+            ?.also {
+              return@future it
+            }
+        } else {
+          MediaItemTree.getItem(this.mediaId)?.also {
+            var extras: Bundle? = null
+            if (this.durationMs != C.TIME_UNSET) {
+              extras = Bundle()
+              extras.putInt(
+                MediaConstants.EXTRAS_KEY_COMPLETION_STATUS,
+                MediaConstants.EXTRAS_VALUE_COMPLETION_STATUS_PARTIALLY_PLAYED,
+              )
+              extras.putDouble(
+                MediaConstants.EXTRAS_KEY_COMPLETION_PERCENTAGE,
+                max(0.0, min(1.0, this.positionMs.toDouble() / this.durationMs)),
+              )
+            }
+            val updatedItem =
+              it
+                .buildUpon()
                 .setMediaMetadata(
-                  MediaMetadata.Builder()
-                    .setArtworkUri(it.artworkOriginalUri.toUri())
-                    .setArtworkData(it.artworkData.toByteArray(), MediaMetadata.PICTURE_TYPE_MEDIA)
+                  it.mediaMetadata
+                    .buildUpon()
+                    .setArtworkUri(this.artworkOriginalUri.toUri())
+                    .setArtworkData(
+                      this.artworkData.toByteArray(),
+                      MediaMetadata.PICTURE_TYPE_MEDIA,
+                    )
                     .setExtras(extras)
                     .build()
                 )
-                .build(),
-            startIndex = 0,
-            startPositionMs = it.positionMs,
-          )
-          ?.let {
-            return@future it
+                .build()
+            return@future MediaItemsWithStartPosition(
+              listOf(updatedItem),
+              /* startIndex= */ 0,
+              /* startPositionMs= */ C.TIME_UNSET,
+            )
           }
+        }
       }
       throw IllegalStateException("previous media id not found")
     }
