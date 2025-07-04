@@ -46,7 +46,6 @@ import static androidx.media3.test.session.common.TestUtils.getEventsAsList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static org.junit.Assert.assertThrows;
 
 import android.app.PendingIntent;
 import android.content.Context;
@@ -150,17 +149,25 @@ public class MediaControllerListenerTest {
   }
 
   @Test
-  public void connection_sessionRejects() throws Exception {
+  public void connection_sessionInSameAppRejects_onlyReleaseCommandAvailable() throws Exception {
     RemoteMediaSession session = createRemoteMediaSession(TEST_CONTROLLER_LISTENER_SESSION_REJECTS);
-    try {
-      ExecutionException thrown =
-          assertThrows(
-              ExecutionException.class,
-              () -> controllerTestRule.createController(session.getToken()));
-      assertThat(thrown).hasCauseThat().isInstanceOf(SecurityException.class);
-    } finally {
-      session.cleanUp();
-    }
+    AtomicReference<Player.Commands> availablePlayerCommands = new AtomicReference<>();
+    AtomicReference<SessionCommands> availableSessionCommands = new AtomicReference<>();
+
+    MediaController controller = controllerTestRule.createController(session.getToken());
+
+    threadTestRule
+        .getHandler()
+        .postAndSync(
+            () -> {
+              availablePlayerCommands.set(controller.getAvailableCommands());
+              availableSessionCommands.set(controller.getAvailableSessionCommands());
+            });
+    session.cleanUp();
+
+    assertThat(availablePlayerCommands.get())
+        .isEqualTo(new Commands.Builder().add(COMMAND_RELEASE).build());
+    assertThat(availableSessionCommands.get()).isEqualTo(SessionCommands.EMPTY);
   }
 
   @Test

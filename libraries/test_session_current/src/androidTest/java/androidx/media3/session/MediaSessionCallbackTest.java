@@ -454,7 +454,7 @@ public class MediaSessionCallbackTest {
   }
 
   @Test
-  public void onPostConnect_afterConnectionRejected() throws Exception {
+  public void onPostConnect_afterConnectionRejectedForTrustedApp() throws Exception {
     CountDownLatch latch = new CountDownLatch(1);
     MediaSession.Callback callback =
         new MediaSession.Callback() {
@@ -476,7 +476,7 @@ public class MediaSessionCallbackTest {
                 .setId("testOnPostConnect_afterConnectionRejected")
                 .build());
     remoteControllerTestRule.createRemoteController(session.getToken());
-    assertThat(latch.await(NO_RESPONSE_TIMEOUT_MS, MILLISECONDS)).isFalse();
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
   }
 
   @Test
@@ -492,7 +492,6 @@ public class MediaSessionCallbackTest {
               return RESULT_INFO_SKIPPED;
             }
 
-            assertThat(controllerInfo.isTrusted()).isFalse();
             commands.add(command);
             if (command == Player.COMMAND_PREPARE) {
               return ERROR_INVALID_STATE;
