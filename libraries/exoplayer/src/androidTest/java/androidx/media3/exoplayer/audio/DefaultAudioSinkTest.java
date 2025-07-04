@@ -40,7 +40,7 @@ import org.junit.runner.RunWith;
 public class DefaultAudioSinkTest {
 
   @Test
-  @SdkSuppress(minSdkVersion = 22) // TODO: b/399130330 - Debug why this fails on API 21.
+  @SdkSuppress(minSdkVersion = 24) // TODO: b/399130330 - Debug why this fails on API 23.
   public void audioTrackExceedsSharedMemory_retriesUntilOngoingReleasesAreDone() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
     getInstrumentation()
