@@ -942,6 +942,12 @@ public class SimpleExoPlayer extends BasePlayer implements ExoPlayer {
   }
 
   @Override
+  public ShuffleOrder getShuffleOrder() {
+    blockUntilConstructorFinished();
+    return player.getShuffleOrder();
+  }
+
+  @Override
   public void setPlayWhenReady(boolean playWhenReady) {
     blockUntilConstructorFinished();
     player.setPlayWhenReady(playWhenReady);
