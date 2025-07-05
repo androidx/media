@@ -101,6 +101,13 @@ public final class PcmAudioUtil {
         } else {
           return (int) (floatValue * Integer.MAX_VALUE);
         }
+      case C.ENCODING_PCM_DOUBLE:
+        double doubleValue = Util.constrainValue(buffer.getDouble(), /* min= */ -1f, /* max= */ 1f);
+        if (doubleValue < 0) {
+          return (int) (-doubleValue * Integer.MIN_VALUE);
+        } else {
+          return (int) (doubleValue * Integer.MAX_VALUE);
+        }
       default:
         throw new IllegalStateException();
     }
@@ -154,6 +161,13 @@ public final class PcmAudioUtil {
           buffer.putFloat(-((float) pcm32bit) / Integer.MIN_VALUE);
         } else {
           buffer.putFloat((float) pcm32bit / Integer.MAX_VALUE);
+        }
+        return;
+      case C.ENCODING_PCM_DOUBLE:
+        if (pcm32bit < 0) {
+          buffer.putDouble(-((double) pcm32bit) / Integer.MIN_VALUE);
+        } else {
+          buffer.putDouble((double) pcm32bit / Integer.MAX_VALUE);
         }
         return;
       default:
