@@ -60,6 +60,8 @@ public final class CodecSpecificDataUtil {
   private static final String CODEC_ID_HVC1 = "hvc1";
   // AV1.
   private static final String CODEC_ID_AV01 = "av01";
+  // APV.
+  private static final String CODEC_ID_APV1 = "apv1";
   // MP4A AAC.
   private static final String CODEC_ID_MP4A = "mp4a";
   // AC-4
@@ -340,6 +342,30 @@ public final class CodecSpecificDataUtil {
     return builder.toString();
   }
 
+  /**
+   * Returns an APV codec string based on the provided initialization data.
+   *
+   * <p>Reference: <a
+   * href="https://github.com/AcademySoftwareFoundation/openapv/blob/main/readme/apv_isobmff.md#sub-parameters-for-the-mime-tyype-codecs-parameter">
+   * Codecs Parameter in APV ISO Base Media File Format</a>
+   *
+   * @param initializationData The initialization data containing profile, level, and band
+   *     information.
+   * @return The generated APV codec string.
+   */
+  public static String buildApvCodecString(byte[] initializationData) {
+    checkArgument(
+        initializationData.length >= 17, "Invalid APV CSD length: %s" + initializationData.length);
+    checkArgument(
+        initializationData[0] == 0x01,
+        "Invalid APV CSD version: %s" + initializationData[0]); // configurationVersion == 1
+
+    int profile = initializationData[5];
+    int level = initializationData[6];
+    int band = initializationData[7];
+    return Util.formatInvariant("apv1.apvf%d.apvl%d.apvb%d", profile, level, band);
+  }
+
   /** Builds an RFC 6381 H263 codec string using profile and level. */
   public static String buildH263CodecString(int profile, int level) {
     return Util.formatInvariant("s263.%d.%d", profile, level);
@@ -393,6 +419,8 @@ public final class CodecSpecificDataUtil {
         return getHevcProfileAndLevel(format.codecs, parts, format.colorInfo);
       case CODEC_ID_AV01:
         return getAv1ProfileAndLevel(format.codecs, parts, format.colorInfo);
+      case CODEC_ID_APV1:
+        return getApvProfileAndLevel(format.codecs, parts);
       case CODEC_ID_MP4A:
         return getAacCodecProfileAndLevel(format.codecs, parts);
       case CODEC_ID_AC4:
@@ -784,6 +812,47 @@ public final class CodecSpecificDataUtil {
       Log.w(TAG, "Unknown AV1 level: " + levelInteger);
       return null;
     }
+    return new Pair<>(profile, level);
+  }
+
+  @Nullable
+  private static Pair<Integer, Integer> getApvProfileAndLevel(String codec, String[] parts) {
+    if (parts.length < 4) {
+      Log.w(TAG, "Ignoring malformed APV codec string: " + codec);
+      return null;
+    }
+    int profileInteger;
+    int levelInteger;
+    int bandInteger;
+    try {
+      profileInteger = Integer.parseInt(parts[1].substring(4));
+      levelInteger = Integer.parseInt(parts[2].substring(4));
+      bandInteger = Integer.parseInt(parts[3].substring(4));
+    } catch (NumberFormatException e) {
+      Log.w(TAG, "Ignoring malformed APV codec string: " + codec, e);
+      return null;
+    }
+
+    int profile = 0;
+    if (profileInteger == 33) {
+      // TODO(b/426125651): Replace apv profile value with
+      // MediaCodecInfo.CodecProfileLevel.APVProfile422_10 when compile SDK is updated to 36.
+      profile = 0x01;
+    } else if (profileInteger == 44) {
+      // TODO(b/426125651): Replace apv profile value with
+      // MediaCodecInfo.CodecProfileLevel.APVProfile422_10HDR10Plus when compile SDK is updated
+      // to 36.
+      profile = 0x2000;
+    } else {
+      Log.w(TAG, "Ignoring invalid APV profile: " + profileInteger);
+      return null;
+    }
+    int levelNum = (levelInteger / 30) * 2;
+    if (levelInteger % 30 == 0) {
+      levelNum -= 1;
+    }
+    int level = ((0x100 << (levelNum - 1)) | (1 << bandInteger));
+
     return new Pair<>(profile, level);
   }
 

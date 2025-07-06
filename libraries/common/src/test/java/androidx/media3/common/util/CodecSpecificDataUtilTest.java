@@ -190,6 +190,56 @@ public class CodecSpecificDataUtilTest {
   }
 
   @Test
+  public void buildApvCodecString_withValidApvSpecificConfig_returnsCorrectCodecString() {
+    byte[] apvSpecificConfig =
+        new byte[] {
+          1, // configurationVersion
+          1, // number_of_configuration_entry
+          1, // pbu_type
+          1, // number_of_frame_info
+          0, // reserved_zero_6bits, color_description_present_flag(1 bit),
+          // capture_time_distance_ignored(1 bit)
+          33, // profile_idc
+          60, // level_idc
+          0, // band_idc
+          0, // frame_width (4 bytes)
+          0,
+          2,
+          -128,
+          0, // frame_height (4 bytes)
+          0,
+          1,
+          -32,
+          34, // chroma_format_idc (4 bit) + bit_depth_minus8(4 bit)
+          0 // capture_time_distance
+        };
+
+    String codecString = CodecSpecificDataUtil.buildApvCodecString(apvSpecificConfig);
+
+    assertThat(codecString).isEqualTo("apv1.apvf33.apvl60.apvb0");
+  }
+
+  @Test
+  public void
+      getCodecProfileAndLevel_withApvProfile422_10CodecString_returnsCorrectProfileAndLevel() {
+    // TODO(b/426125651): Replace apv profile value with
+    // MediaCodecInfo.CodecProfileLevel.APVProfile422_10 and level with
+    // MediaCodecInfo.CodecProfileLevel.APVLevel1Band1
+    assertCodecProfileAndLevelForCodecsString(
+        MimeTypes.VIDEO_APV, "apv1.apvf33.apvl30.apvb1", /* profile= */ 0x01, /* level= */ 0x102);
+  }
+
+  @Test
+  public void
+      getCodecProfileAndLevel_withApvProfile422_10HDR10PlusCodecString_returnsCorrectProfileAndLevel() {
+    // TODO(b/426125651): Replace apv profile value with
+    // MediaCodecInfo.CodecProfileLevel.APVProfile422_10HDR10Plus and level with
+    // MediaCodecInfo.CodecProfileLevel.APVLevel2Band2
+    assertCodecProfileAndLevelForCodecsString(
+        MimeTypes.VIDEO_APV, "apv1.apvf44.apvl60.apvb2", /* profile= */ 0x2000, /* level= */ 0x404);
+  }
+
+  @Test
   public void getCodecProfileAndLevel_handlesMvHevcCodecString() {
     assertCodecProfileAndLevelForCodecsString(
         MimeTypes.VIDEO_MV_HEVC,

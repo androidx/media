@@ -1621,6 +1621,7 @@ public final class BoxParser {
         byte[] initializationDataChunk = new byte[childAtomBodySize];
         parent.setPosition(childStartPosition + Mp4Box.FULL_HEADER_SIZE); // Skip version and flags.
         parent.readBytes(initializationDataChunk, /* offset= */ 0, childAtomBodySize);
+        codecs = CodecSpecificDataUtil.buildApvCodecString(initializationDataChunk);
         initializationData = ImmutableList.of(initializationDataChunk);
 
         ColorInfo colorInfo = parseApvc(new ParsableByteArray(initializationDataChunk));
