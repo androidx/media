@@ -64,8 +64,6 @@ This release includes the following changes since the
 
 *   Common Library:
     *   Add support for replacing the player in `ForwardingSimpleBasePlayer`.
-    *   Add `PlayerTransferState`, which facilitates transferring the playback
-        state across `Player` instances.
 *   ExoPlayer:
     *   Add support for using the virtual device ID from the `Context` passed to
         `ExoPlayer.Builder`.
