@@ -7,37 +7,21 @@
         and consequently restore Player's volume before and after setting it to
         zero.
 *   ExoPlayer:
-    *   Fix bug where non-stereo audio formats on TVs may be marked as
-        unsupported by `DefaultTrackSelector`.
-    *   Ensure the last frame is correctly rendered when using MediaCodec's
-        `DECODE_ONLY` flag (which is enabled by default in scrubbing mode).
     *   Ensure renderers don't consume data from the next playlist item more
         than 10 seconds before the end of the current item.
 *   Transformer:
 *   Track Selection:
 *   Extractors:
-    *   Parse metadata from fragmented MP4 files
-        ([#2084](https://github.com/androidx/media/issues/2084)).
-    *   JPEG: Support motion photos that don't have an Exif segment at the start
-        ([#2552](https://github.com/androidx/media/issues/2552)).
 *   DataSource:
 *   Audio:
     *   Make `AudioProcessor` instances aware of seeking.
     *   Handle seeks in `GainProcessor`.
 *   Video:
-    *   Extend detached surface workaround to "lenovo" and "motorola" devices
-        ([#2059](https://github.com/androidx/media/issues/2059)).
 *   Text:
-    *   Add support for VobSub tracks in MP4 files
-        ([#2510](https://github.com/androidx/media/issues/2510)).
 *   Metadata:
 *   Image:
 *   DataSource:
 *   DRM:
-    *   Add new overload of `OfflineLicenseHelper.newWidevineInstance` accepting
-        a `MediaItem.DrmConfiguration` so that HTTP request headers can be
-        applied correctly
-        ([#2169](https://github.com/androidx/media/issues/2169)).
 *   Effect:
 *   Muxers:
     *   Deprecate `Mp4Muxer#Builder(FileOutputStream)` constructor. Use
@@ -46,12 +30,6 @@
         `FragmentedMp4Muxer#Builder(WritableByteChannel)` instead.
 *   IMA extension:
 *   Session:
-    *   Fix bug where some controller changes that are not handled by the
-        session may cause `IllegalStateExceptions`.
-    *   Fix bug where controller actions that are not handled by the session may
-        leave the controller in an invalid state.
-    *   Fix StrictMode unsafe launch violation warning
-        ([#2330](https://github.com/androidx/media/pull/2330)).
     *   Add new parameter to `MediaSession.Callback.onPlaybackResumption` to
         indicate if the call happens to gather information only or to start
         playback ([#1764](https://github.com/androidx/media/issues/1764)).
@@ -59,9 +37,6 @@
         a notification update
         ([#1833](https://github.com/androidx/media/issues/1833)).
 *   UI:
-    *   Fix bug where `PlayerSurface` inside re-usable components like
-        `LazyColumn` didn't work correctly
-        ([#2493](https://github.com/androidx/media/issues/2493)).
     *   Add `ProgressStateWithTickInterval` class and the corresponding
         `rememberProgressStateWithTickInterval` Composable to
         `media3-ui-compose` module. This state holder is used in `demo-compose`
@@ -73,6 +48,56 @@
 *   OkHttp extension:
 *   Cronet extension:
 *   RTMP extension:
+*   HLS extension:
+*   DASH extension:
+*   Smooth Streaming extension:
+*   RTSP extension:
+*   Decoder extensions (FFmpeg, VP9, AV1, etc.):
+*   MIDI extension:
+*   Leanback extension:
+*   Cast extension:
+*   Test Utilities:
+*   Remove deprecated symbols:
+
+## 1.8
+
+### 1.8.0-rc01 (2025-07-16)
+
+This release includes the following changes since the
+[1.8.0-beta01 release](#180-beta01-2025-06-24):
+
+*   ExoPlayer:
+    *   Fix bug where non-stereo audio formats on TVs may be marked as
+        unsupported by `DefaultTrackSelector`.
+    *   Ensure the last frame is correctly rendered when using MediaCodec's
+        `DECODE_ONLY` flag (which is enabled by default in scrubbing mode).
+*   Extractors:
+    *   Parse metadata from fragmented MP4 files
+        ([#2084](https://github.com/androidx/media/issues/2084)).
+    *   JPEG: Support motion photos that don't have an Exif segment at the start
+        ([#2552](https://github.com/androidx/media/issues/2552)).
+*   Video:
+    *   Extend detached surface workaround to "lenovo" and "motorola" devices
+        ([#2059](https://github.com/androidx/media/issues/2059)).
+*   Text:
+    *   Add support for VobSub tracks in MP4 files
+        ([#2510](https://github.com/androidx/media/issues/2510)).
+*   DRM:
+    *   Add new overload of `OfflineLicenseHelper.newWidevineInstance` accepting
+        a `MediaItem.DrmConfiguration` so that HTTP request headers can be
+        applied correctly
+        ([#2169](https://github.com/androidx/media/issues/2169)).
+*   Session:
+    *   Fix bug where some controller changes that are not handled by the
+        session may cause `IllegalStateExceptions`.
+    *   Fix bug where controller actions that are not handled by the session may
+        leave the controller in an invalid state.
+    *   Fix StrictMode unsafe launch violation warning
+        ([#2330](https://github.com/androidx/media/pull/2330)).
+*   UI:
+    *   Fix bug where `PlayerSurface` inside re-usable components like
+        `LazyColumn` didn't work correctly
+        ([#2493](https://github.com/androidx/media/issues/2493)).
 *   HLS extension:
     *   Fix bug where track selection changes after loading low-latency parts
         and preload hints can cause playback to get stuck or freeze
@@ -87,18 +112,9 @@
     *   Fix issue where trick-play adaptation set is merged with its main
         adaptation set to form an invalid `TrackGroup`
         ([#2148](https://github.com/androidx/media/issues/2148)).
-*   Smooth Streaming extension:
 *   RTSP extension:
     *   Add support for RTP Aggregation Packet for H265 in accordance with RFC
         7798#4.4.2 ([#2413](https://github.com/androidx/media/pull/2413)).
-*   Decoder extensions (FFmpeg, VP9, AV1, etc.):
-*   MIDI extension:
-*   Leanback extension:
-*   Cast extension:
-*   Test Utilities:
-*   Remove deprecated symbols:
-
-## 1.8
 
 ### 1.8.0-beta01 (2025-06-24)
 
