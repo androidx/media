@@ -680,6 +680,20 @@ public abstract class MediaSessionService extends Service {
   }
 
   /**
+   * Manually trigger a notification update.
+   *
+   * <p>In most cases, this should not be required unless an external event that can't be detected
+   * by the session itself requires to update the notification.
+   */
+  @UnstableApi
+  public final void triggerNotificationUpdate() {
+    List<MediaSession> sessions = getSessions();
+    for (int i = 0; i < sessions.size(); i++) {
+      onUpdateNotificationInternal(sessions.get(i), /* startInForegroundWhenPaused= */ false);
+    }
+  }
+
+  /**
    * Sets the {@link MediaNotification.Provider} to customize notifications.
    *
    * <p>This method can be called from any thread.
