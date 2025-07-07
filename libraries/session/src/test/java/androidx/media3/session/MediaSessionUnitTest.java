@@ -72,7 +72,7 @@ public class MediaSessionUnitTest { // Avoid naming collision with session_curre
   }
 
   @Test
-  public void isAutomotiveController_automotiveMediaMedia3Version_returnsFalse() {
+  public void isAutomotiveController_automotiveMediaMedia3Version_returnsTrue() {
     MediaSessionManager.RemoteUserInfo remoteUserInfo =
         new MediaSessionManager.RemoteUserInfo(
             /* packageName= */ "com.android.car.media",
@@ -83,12 +83,12 @@ public class MediaSessionUnitTest { // Avoid naming collision with session_curre
             remoteUserInfo,
             MediaLibraryInfo.VERSION_INT,
             MediaControllerStub.VERSION_INT,
-            /* trusted= */ false,
+            /* trusted= */ true,
             /* cb= */ null,
             /* connectionHints= */ Bundle.EMPTY,
             /* maxCommandsForMediaItems= */ 0);
 
-    assertThat(session.isAutomotiveController(controllerInfo)).isFalse();
+    assertThat(session.isAutomotiveController(controllerInfo)).isTrue();
   }
 
   @Test
@@ -128,7 +128,7 @@ public class MediaSessionUnitTest { // Avoid naming collision with session_curre
   }
 
   @Test
-  public void isAutoCompanionController_media3version_returnsFalse() {
+  public void isAutoCompanionController_media3version_returnsTrue() {
     MediaSessionManager.RemoteUserInfo remoteUserInfo =
         new MediaSessionManager.RemoteUserInfo(
             /* packageName= */ "com.google.android.projection.gearhead",
@@ -139,12 +139,12 @@ public class MediaSessionUnitTest { // Avoid naming collision with session_curre
             remoteUserInfo,
             MediaLibraryInfo.VERSION_INT,
             MediaControllerStub.VERSION_INT,
-            /* trusted= */ false,
+            /* trusted= */ true,
             /* cb= */ null,
             /* connectionHints= */ Bundle.EMPTY,
             /* maxCommandsForMediaItems= */ 0);
 
-    assertThat(session.isAutoCompanionController(controllerInfo)).isFalse();
+    assertThat(session.isAutoCompanionController(controllerInfo)).isTrue();
   }
 
   @Test
@@ -161,7 +161,7 @@ public class MediaSessionUnitTest { // Avoid naming collision with session_curre
             remoteUserInfo,
             MediaLibraryInfo.VERSION_INT,
             MediaControllerStub.VERSION_INT,
-            /* trusted= */ false,
+            /* trusted= */ true,
             /* cb= */ null,
             connectionHints,
             /* maxCommandsForMediaItems= */ 0);
@@ -203,7 +203,7 @@ public class MediaSessionUnitTest { // Avoid naming collision with session_curre
             remoteUserInfo,
             MediaLibraryInfo.VERSION_INT,
             MediaControllerStub.VERSION_INT,
-            /* trusted= */ false,
+            /* trusted= */ true,
             /* cb= */ null,
             /* connectionHints= */ Bundle.EMPTY,
             /* maxCommandsForMediaItems= */ 0);
@@ -225,7 +225,7 @@ public class MediaSessionUnitTest { // Avoid naming collision with session_curre
             remoteUserInfo,
             MediaSession.ControllerInfo.LEGACY_CONTROLLER_VERSION,
             MediaSession.ControllerInfo.LEGACY_CONTROLLER_INTERFACE_VERSION,
-            /* trusted= */ false,
+            /* trusted= */ true,
             /* cb= */ null,
             connectionHints,
             /* maxCommandsForMediaItems= */ 0);

@@ -90,7 +90,6 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import java.lang.ref.WeakReference;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
@@ -363,22 +362,29 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   }
 
   public List<ControllerInfo> getConnectedControllers() {
-    List<ControllerInfo> controllers = new ArrayList<>();
-    controllers.addAll(sessionStub.getConnectedControllersManager().getConnectedControllers());
-    if (isMediaNotificationControllerConnected) {
-      ImmutableList<ControllerInfo> legacyControllers =
-          sessionLegacyStub.getConnectedControllersManager().getConnectedControllers();
-      for (int i = 0; i < legacyControllers.size(); i++) {
-        ControllerInfo legacyController = legacyControllers.get(i);
-        if (!isSystemUiController(legacyController)) {
-          controllers.add(legacyController);
-        }
-      }
-    } else {
-      controllers.addAll(
-          sessionLegacyStub.getConnectedControllersManager().getConnectedControllers());
+    ImmutableList<ControllerInfo> media3Controllers =
+        sessionStub.getConnectedControllersManager().getConnectedControllers();
+    ImmutableList<ControllerInfo> platformControllers =
+        sessionLegacyStub.getConnectedControllersManager().getConnectedControllers();
+    ImmutableList.Builder<ControllerInfo> controllers =
+        ImmutableList.builderWithExpectedSize(
+            media3Controllers.size() + platformControllers.size());
+    if (!isMediaNotificationControllerConnected) {
+      return controllers.addAll(media3Controllers).addAll(platformControllers).build();
     }
-    return controllers;
+    for (int i = 0; i < media3Controllers.size(); i++) {
+      ControllerInfo controllerInfo = media3Controllers.get(i);
+      if (!isSystemUiController(controllerInfo)) {
+        controllers.add(controllerInfo);
+      }
+    }
+    for (int i = 0; i < platformControllers.size(); i++) {
+      ControllerInfo controllerInfo = platformControllers.get(i);
+      if (!isSystemUiController(controllerInfo)) {
+        controllers.add(controllerInfo);
+      }
+    }
+    return controllers.build();
   }
 
   @Nullable
@@ -401,7 +407,6 @@ import org.checkerframework.checker.initialization.qual.Initialized;
    */
   protected boolean isSystemUiController(@Nullable MediaSession.ControllerInfo controllerInfo) {
     return controllerInfo != null
-        && controllerInfo.getControllerVersion() == ControllerInfo.LEGACY_CONTROLLER_VERSION
         && Objects.equals(controllerInfo.getPackageName(), SYSTEM_UI_PACKAGE_NAME);
   }
 
@@ -427,9 +432,8 @@ import org.checkerframework.checker.initialization.qual.Initialized;
    * @return Whether the given controller info belongs to an Automotive OS controller.
    */
   public boolean isAutomotiveController(ControllerInfo controllerInfo) {
-    return controllerInfo.getControllerVersion() == ControllerInfo.LEGACY_CONTROLLER_VERSION
-        && (controllerInfo.getPackageName().equals(ANDROID_AUTOMOTIVE_MEDIA_PACKAGE_NAME)
-            || controllerInfo.getPackageName().equals(ANDROID_AUTOMOTIVE_LAUNCHER_PACKAGE_NAME));
+    return (controllerInfo.getPackageName().equals(ANDROID_AUTOMOTIVE_MEDIA_PACKAGE_NAME)
+        || controllerInfo.getPackageName().equals(ANDROID_AUTOMOTIVE_LAUNCHER_PACKAGE_NAME));
   }
 
   /**
@@ -440,8 +444,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
    * @return Whether the given controller info belongs to an Android Auto companion app controller.
    */
   public boolean isAutoCompanionController(ControllerInfo controllerInfo) {
-    return controllerInfo.getControllerVersion() == ControllerInfo.LEGACY_CONTROLLER_VERSION
-        && controllerInfo.getPackageName().equals(ANDROID_AUTO_PACKAGE_NAME);
+    return controllerInfo.getPackageName().equals(ANDROID_AUTO_PACKAGE_NAME);
   }
 
   /**
@@ -452,6 +455,13 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   protected ControllerInfo getSystemUiControllerInfo() {
     ImmutableList<ControllerInfo> connectedControllers =
         sessionLegacyStub.getConnectedControllersManager().getConnectedControllers();
+    for (int i = 0; i < connectedControllers.size(); i++) {
+      ControllerInfo controllerInfo = connectedControllers.get(i);
+      if (isSystemUiController(controllerInfo)) {
+        return controllerInfo;
+      }
+    }
+    connectedControllers = sessionStub.getConnectedControllersManager().getConnectedControllers();
     for (int i = 0; i < connectedControllers.size(); i++) {
       ControllerInfo controllerInfo = connectedControllers.get(i);
       if (isSystemUiController(controllerInfo)) {
@@ -677,13 +687,16 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     if (sessionStub.getConnectedControllersManager().isConnected(controller)) {
       if (isMediaNotificationController(controller)) {
         sessionLegacyStub.setAvailableCommands(sessionCommands, playerCommands);
-        ControllerInfo systemUiControllerInfo = getSystemUiControllerInfo();
-        if (systemUiControllerInfo != null) {
+        ControllerInfo systemUiInfo = getSystemUiControllerInfo();
+        if (systemUiInfo != null) {
           // Set the available commands of the proxy controller to the ConnectedControllerRecord of
           // the hidden System UI controller.
-          sessionLegacyStub
-              .getConnectedControllersManager()
-              .updateCommandsFromSession(systemUiControllerInfo, sessionCommands, playerCommands);
+          ConnectedControllersManager<?> controllersManager =
+              systemUiInfo.getControllerVersion() == ControllerInfo.LEGACY_CONTROLLER_VERSION
+                  ? sessionLegacyStub.getConnectedControllersManager()
+                  : sessionStub.getConnectedControllersManager();
+          controllersManager.updateCommandsFromSession(
+              systemUiInfo, sessionCommands, playerCommands);
         }
       }
       sessionStub
@@ -836,7 +849,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
 
   public MediaSession.ConnectionResult onConnectOnHandler(ControllerInfo controller) {
     if (isMediaNotificationControllerConnected && isSystemUiController(controller)) {
-      // Hide System UI and provide the connection result from the `PlayerWrapper` state.
+      // Hide System UI and provide the connection result from the platform state.
       return sessionLegacyStub.getPlatformConnectionResult(instance);
     }
     MediaSession.ConnectionResult connectionResult =

@@ -108,10 +108,14 @@ import java.util.concurrent.Future;
   public List<ControllerInfo> getConnectedControllers() {
     List<ControllerInfo> list = super.getConnectedControllers();
     @Nullable MediaLibraryServiceLegacyStub legacyStub = getLegacyBrowserService();
-    if (legacyStub != null) {
-      list.addAll(legacyStub.getConnectedControllersManager().getConnectedControllers());
+    if (legacyStub == null) {
+      return list;
     }
-    return list;
+    ImmutableList<ControllerInfo> legacyControllers =
+        legacyStub.getConnectedControllersManager().getConnectedControllers();
+    ImmutableList.Builder<ControllerInfo> combinedList =
+        ImmutableList.builderWithExpectedSize(list.size() + legacyControllers.size());
+    return combinedList.addAll(list).addAll(legacyControllers).build();
   }
 
   @Override
