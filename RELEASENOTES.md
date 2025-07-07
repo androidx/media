@@ -3,6 +3,8 @@
 ### Unreleased changes
 
 *   Common Library:
+    *   Add `PlayerTransferState`, which facilitates transferring the playback
+        state across `Player` instances.
     *   Add `void mute()` and `void unmute()` methods to Player that preserve
         and consequently restore Player's volume before and after setting it to
         zero.
@@ -123,8 +125,6 @@ This release includes the following changes since the
 
 *   Common Library:
     *   Add support for replacing the player in `ForwardingSimpleBasePlayer`.
-    *   Add `PlayerTransferState`, which facilitates transferring the playback
-        state across `Player` instances.
 *   ExoPlayer:
     *   Add support for using the virtual device ID from the `Context` passed to
         `ExoPlayer.Builder`.
