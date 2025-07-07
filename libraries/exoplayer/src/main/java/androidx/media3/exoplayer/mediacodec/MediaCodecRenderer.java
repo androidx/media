@@ -400,11 +400,8 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   private long lastProcessedOutputBufferTimeUs;
   private boolean needToNotifyOutputFormatChangeAfterStreamChange;
   private boolean experimentalEnableProcessedStreamChangedAtStart;
-  private boolean skippedFlushAndWaitingForEarlierFrame;
-  private long skippedFlushLastOutputBufferPresentationTimeUs;
-  // Largest queued presentation time expected to be received as an output buffer (ex: not tunneling
-  // or decode_only).
-  private long largestQueuedPresentationTimeOfExpectedOutputBufferUs;
+  private boolean hasSkippedFlushAndWaitingForQueueInputBuffer;
+  private long skippedFlushOffsetUs;
 
   /**
    * @param trackType The {@link C.TrackType track type} that the renderer handles.
@@ -460,8 +457,8 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     codecDrainState = DRAIN_STATE_NONE;
     codecDrainAction = DRAIN_ACTION_NONE;
     decoderCounters = new DecoderCounters();
-    skippedFlushLastOutputBufferPresentationTimeUs = C.TIME_UNSET;
-    largestQueuedPresentationTimeOfExpectedOutputBufferUs = C.TIME_UNSET;
+    hasSkippedFlushAndWaitingForQueueInputBuffer = false;
+    skippedFlushOffsetUs = 0;
   }
 
   /**
@@ -963,7 +960,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     } else if (shouldFlushCodec()) {
       flushCodec();
     } else {
-      onSkippedFlushCodec();
+      hasSkippedFlushAndWaitingForQueueInputBuffer = true;
     }
     return false;
   }
@@ -1005,26 +1002,14 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     return true;
   }
 
-  /** Called when the renderer skips flushing the codec. */
-  private void onSkippedFlushCodec() {
-    if (largestQueuedPresentationTimeOfExpectedOutputBufferUs != C.TIME_UNSET
-        && getLastResetPositionUs() <= largestQueuedPresentationTimeOfExpectedOutputBufferUs
-        && lastProcessedOutputBufferTimeUs
-            < largestQueuedPresentationTimeOfExpectedOutputBufferUs) {
-      skippedFlushAndWaitingForEarlierFrame = true;
-      largestQueuedPresentationTimeOfExpectedOutputBufferUs = C.TIME_UNSET;
-    }
-  }
-
   /**
-   * Returns whether the renderer has skipped flushing the codec and is waiting to process an
-   * earlier frame.
+   * Returns the offset added to buffer timestamps prior to decoding.
    *
-   * @see #shouldFlushCodec
-   * @see #onSkippedFlushCodec
+   * <p>The skippedFlushOffset ensures timestamps are greater than the current
+   * "largestQueuedTimestamp" when skipping flushing the codec during a seek.
    */
-  protected boolean hasSkippedFlushAndWaitingForEarlierFrame() {
-    return skippedFlushAndWaitingForEarlierFrame;
+  protected long getSkippedFlushOffsetUs() {
+    return skippedFlushOffsetUs;
   }
 
   /** Flushes the codec. */
@@ -1064,9 +1049,8 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     // guarantee that it's processed.
     codecReconfigurationState =
         codecReconfigured ? RECONFIGURATION_STATE_WRITE_PENDING : RECONFIGURATION_STATE_NONE;
-    skippedFlushAndWaitingForEarlierFrame = false;
-    skippedFlushLastOutputBufferPresentationTimeUs = C.TIME_UNSET;
-    largestQueuedPresentationTimeOfExpectedOutputBufferUs = C.TIME_UNSET;
+    hasSkippedFlushAndWaitingForQueueInputBuffer = false;
+    skippedFlushOffsetUs = 0;
   }
 
   /**
@@ -1539,13 +1523,17 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       handleInputBufferSupplementalData(buffer);
     }
 
+    if (hasSkippedFlushAndWaitingForQueueInputBuffer) {
+      if (presentationTimeUs <= largestQueuedPresentationTimeUs) {
+        skippedFlushOffsetUs += largestQueuedPresentationTimeUs - presentationTimeUs + 1;
+      }
+      largestQueuedPresentationTimeUs = presentationTimeUs;
+      hasSkippedFlushAndWaitingForQueueInputBuffer = false;
+    }
+
     onQueueInputBuffer(buffer);
     int flags = getCodecBufferFlags(buffer);
-    if ((SDK_INT < 34 || (flags & MediaCodec.BUFFER_FLAG_DECODE_ONLY) == 0)
-        && !getConfiguration().tunneling) {
-      largestQueuedPresentationTimeOfExpectedOutputBufferUs =
-          max(largestQueuedPresentationTimeOfExpectedOutputBufferUs, buffer.timeUs);
-    }
+    presentationTimeUs += skippedFlushOffsetUs;
     if (bufferEncrypted) {
       checkNotNull(codec)
           .queueSecureInputBuffer(
@@ -2125,6 +2113,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       }
 
       // We've dequeued a buffer.
+      outputBufferInfo.presentationTimeUs -= skippedFlushOffsetUs;
       if (shouldSkipAdaptationWorkaroundOutputBuffer) {
         shouldSkipAdaptationWorkaroundOutputBuffer = false;
         codec.releaseOutputBuffer(outputIndex, false);
@@ -2148,24 +2137,14 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       updateOutputFormatForTime(outputBufferInfo.presentationTimeUs);
     }
 
-    isDecodeOnlyOutputBuffer = outputBufferInfo.presentationTimeUs < getLastResetPositionUs();
+    isDecodeOnlyOutputBuffer =
+        hasSkippedFlushAndWaitingForQueueInputBuffer
+            || outputBufferInfo.presentationTimeUs < getLastResetPositionUs();
     isLastOutputBuffer =
         lastBufferInStreamPresentationTimeUs != C.TIME_UNSET
             && lastBufferInStreamPresentationTimeUs <= outputBufferInfo.presentationTimeUs;
 
     boolean processedOutputBuffer = false;
-    if (skippedFlushAndWaitingForEarlierFrame) {
-      if (skippedFlushLastOutputBufferPresentationTimeUs != C.TIME_UNSET
-          && outputBufferInfo.presentationTimeUs
-              <= skippedFlushLastOutputBufferPresentationTimeUs) {
-        skippedFlushAndWaitingForEarlierFrame = false;
-        skippedFlushLastOutputBufferPresentationTimeUs = C.TIME_UNSET;
-      } else {
-        skippedFlushLastOutputBufferPresentationTimeUs = outputBufferInfo.presentationTimeUs;
-        isDecodeOnlyOutputBuffer = true;
-        isLastOutputBuffer = false;
-      }
-    }
     if (codecNeedsEosOutputExceptionWorkaround && codecReceivedEos) {
       try {
         processedOutputBuffer =

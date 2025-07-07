@@ -1513,13 +1513,21 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   @Override
   protected final boolean shouldFlushCodec() {
     Format inputFormat = getCodecInputFormat();
+    boolean skippingFlushMayCauseOverflow = true;
+    if (periodDurationUs != C.TIME_UNSET) {
+      long maxPotentialSkippedFlushOffset = periodDurationUs + 1;
+      long maxPotentialSampleTimestamp = getOutputStreamOffsetUs() + periodDurationUs;
+      skippingFlushMayCauseOverflow =
+          getSkippedFlushOffsetUs() + maxPotentialSkippedFlushOffset
+              > Long.MAX_VALUE - maxPotentialSampleTimestamp;
+    }
     return scrubbingModeParameters == null
         ? super.shouldFlushCodec()
         : !scrubbingModeParameters.allowSkippingMediaCodecFlush
             || isFlushRequired
             || tunneling
             || (inputFormat != null && inputFormat.maxNumReorderSamples > 0)
-            || hasSkippedFlushAndWaitingForEarlierFrame()
+            || skippingFlushMayCauseOverflow
             || getLastBufferInStreamPresentationTimeUs() != C.TIME_UNSET;
   }
 
