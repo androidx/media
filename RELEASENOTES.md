@@ -2,6 +2,16 @@
 
 ## 1.8
 
+### 1.8.0-rc02 (2025-07-23)
+
+This release includes the following changes since the
+[1.8.0-rc01 release](#180-rc01-2025-07-16):
+
+*   Session:
+    *   Remove check for available commands when sending custom commands to a
+        legacy `MediaBrowserServiceCompat`. This is in parity with the behavior
+        of legacy controllers/browsers when connected to a legacy app.
+
 ### 1.8.0-rc01 (2025-07-16)
 
 This release includes the following changes since the

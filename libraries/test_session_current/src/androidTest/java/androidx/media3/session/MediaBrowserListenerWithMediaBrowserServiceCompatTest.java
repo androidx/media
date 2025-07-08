@@ -283,8 +283,7 @@ public class MediaBrowserListenerWithMediaBrowserServiceCompatTest {
   }
 
   @Test
-  public void sendCustomCommandWithMediaItem_commandButtonNotAvailable_permissionDenied()
-      throws Exception {
+  public void sendCustomCommandWithMediaItem_commandButtonNotAvailable_succeeds() throws Exception {
     remoteService.setProxyForTest(TEST_MEDIA_ITEMS_WITH_BROWSE_ACTIONS);
     MediaBrowser mediaBrowser =
         createBrowser(
@@ -312,7 +311,7 @@ public class MediaBrowserListenerWithMediaBrowserServiceCompatTest {
                         /* args= */ Bundle.EMPTY))
             .get(TIMEOUT_MS, MILLISECONDS);
 
-    assertThat(sessionResult.resultCode).isEqualTo(SessionResult.RESULT_ERROR_PERMISSION_DENIED);
+    assertThat(sessionResult.resultCode).isEqualTo(SessionResult.RESULT_SUCCESS);
   }
 
   @Test
