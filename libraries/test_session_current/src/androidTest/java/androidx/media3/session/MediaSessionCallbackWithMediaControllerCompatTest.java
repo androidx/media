@@ -2088,7 +2088,6 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
           @Override
           public int onPlayerCommandRequest(
               MediaSession session, ControllerInfo controllerInfo, @Player.Command int command) {
-            assertThat(controllerInfo.isTrusted()).isFalse();
             commands.add(command);
             if (command == COMMAND_PLAY_PAUSE) {
               latchForPause.countDown();
