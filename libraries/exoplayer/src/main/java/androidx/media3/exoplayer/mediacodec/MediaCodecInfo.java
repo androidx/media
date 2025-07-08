@@ -382,7 +382,7 @@ public final class MediaCodecInfo {
   }
 
   private boolean isCompressedAudioBitDepthSupported(Format format) {
-    // MediaCodec doesn't have a way to query decoder bit-depth support.
+    // MediaCodec does not have a way to query decoder bit-depth support.
     if (!Objects.equals(format.sampleMimeType, MimeTypes.AUDIO_FLAC)
         || format.pcmEncoding != C.ENCODING_PCM_32BIT) {
       // Only 32-bit FLAC is a concern at the moment, everything else can be marked supported.
