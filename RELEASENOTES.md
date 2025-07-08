@@ -32,6 +32,9 @@
         `FragmentedMp4Muxer#Builder(WritableByteChannel)` instead.
 *   IMA extension:
 *   Session:
+    *   Remove check for available commands when sending custom commands to a
+        legacy `MediaBrowserServiceCompat`. This is in parity with the behavior
+        of legacy controllers/browsers when connected to a legacy app.
     *   Add new parameter to `MediaSession.Callback.onPlaybackResumption` to
         indicate if the call happens to gather information only or to start
         playback ([#1764](https://github.com/androidx/media/issues/1764)).
