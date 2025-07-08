@@ -290,6 +290,7 @@ public final class RemoteCastPlayer extends BasePlayer {
   // Listeners and notification.
   private final ListenerSet<Listener> listeners;
   @Nullable private SessionAvailabilityListener sessionAvailabilityListener;
+  @Nullable private SessionAvailabilityListener internalSessionAvailabilityListener;
 
   // Internal state.
   private final StateHolder<Boolean> playWhenReady;
@@ -413,6 +414,17 @@ public final class RemoteCastPlayer extends BasePlayer {
    */
   public void setSessionAvailabilityListener(@Nullable SessionAvailabilityListener listener) {
     sessionAvailabilityListener = listener;
+  }
+
+  /**
+   * Equivalent to {@link #setSessionAvailabilityListener}, except it's not part of the API.
+   *
+   * <p>Intended to be called from {@link CastPlayerImpl} without overriding any listeners set by
+   * the app, so as to avoid breaking the API.
+   */
+  /* package */ void setInternalSessionAvailabilityListener(
+      @Nullable SessionAvailabilityListener listener) {
+    internalSessionAvailabilityListener = listener;
   }
 
   // Player implementation.
@@ -1545,11 +1557,19 @@ public final class RemoteCastPlayer extends BasePlayer {
       if (sessionAvailabilityListener != null) {
         sessionAvailabilityListener.onCastSessionAvailable();
       }
+      if (internalSessionAvailabilityListener != null) {
+        internalSessionAvailabilityListener.onCastSessionAvailable();
+      }
       remoteMediaClient.registerCallback(statusListener);
       remoteMediaClient.addProgressListener(statusListener, PROGRESS_REPORT_PERIOD_MS);
       updateInternalStateAndNotifyIfChanged();
-    } else if (sessionAvailabilityListener != null) {
-      sessionAvailabilityListener.onCastSessionUnavailable();
+    } else {
+      if (sessionAvailabilityListener != null) {
+        sessionAvailabilityListener.onCastSessionUnavailable();
+      }
+      if (internalSessionAvailabilityListener != null) {
+        internalSessionAvailabilityListener.onCastSessionUnavailable();
+      }
     }
   }
 
