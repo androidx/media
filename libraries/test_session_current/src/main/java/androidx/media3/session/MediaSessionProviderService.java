@@ -18,6 +18,7 @@ package androidx.media3.session;
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.Player.COMMAND_GET_TRACKS;
 import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.session.MediaConstants.CUSTOM_COMMAND_DOWNLOAD;
 import static androidx.media3.session.MediaSession.ConnectionResult.accept;
 import static androidx.media3.test.session.common.CommonConstants.ACTION_MEDIA3_SESSION;
 import static androidx.media3.test.session.common.CommonConstants.DEFAULT_TEST_NAME;
@@ -63,9 +64,11 @@ import static androidx.media3.test.session.common.MediaSessionConstants.BOUNCING
 import static androidx.media3.test.session.common.MediaSessionConstants.KEY_AVAILABLE_SESSION_COMMANDS;
 import static androidx.media3.test.session.common.MediaSessionConstants.KEY_COMMAND_GET_TASKS_UNAVAILABLE;
 import static androidx.media3.test.session.common.MediaSessionConstants.KEY_CONTROLLER;
+import static androidx.media3.test.session.common.MediaSessionConstants.KEY_IS_LEGACY_CONTROLLER;
 import static androidx.media3.test.session.common.MediaSessionConstants.NOTIFICATION_CONTROLLER_KEY;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_COMMAND_GET_TRACKS;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_CONTROLLER_LISTENER_SESSION_REJECTS;
+import static androidx.media3.test.session.common.MediaSessionConstants.TEST_CUSTOM_ACTION_WITH_PROGRESS_UPDATE;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_GET_COMMAND_BUTTONS_FOR_MEDIA_ITEMS;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_GET_COMMAND_BUTTONS_FOR_MEDIA_ITEMS_COMMANDS_NOT_AVAILABLE;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_GET_CUSTOM_LAYOUT;
@@ -108,6 +111,7 @@ import androidx.media3.common.text.CueGroup;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.Log;
 import androidx.media3.session.MediaSession.ControllerInfo;
+import androidx.media3.session.MediaSession.ProgressReporter;
 import androidx.media3.test.session.common.IRemoteMediaSession;
 import androidx.media3.test.session.common.MediaBrowserConstants;
 import androidx.media3.test.session.common.MockActivity;
@@ -115,7 +119,9 @@ import androidx.media3.test.session.common.TestHandler;
 import androidx.media3.test.session.common.TestHandler.TestRunnable;
 import androidx.media3.test.session.common.TestUtils;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -400,6 +406,68 @@ public class MediaSessionProviderService extends Service {
                     }
                     return accept(
                         availableSessionCommands, connectionResult.availablePlayerCommands);
+                  }
+                });
+            break;
+          }
+        case TEST_CUSTOM_ACTION_WITH_PROGRESS_UPDATE:
+          {
+            builder.setCallback(
+                new MediaSession.Callback() {
+                  @Override
+                  public MediaSession.ConnectionResult onConnect(
+                      MediaSession session, ControllerInfo controller) {
+                    return new MediaSession.ConnectionResult.AcceptedResultBuilder(session)
+                        .setAvailableSessionCommands(
+                            new SessionCommands.Builder()
+                                .addAllSessionCommands()
+                                .add(new SessionCommand(CUSTOM_COMMAND_DOWNLOAD, Bundle.EMPTY))
+                                .build())
+                        .build();
+                  }
+
+                  @Override
+                  public ListenableFuture<SessionResult> onCustomCommand(
+                      MediaSession session,
+                      ControllerInfo controller,
+                      SessionCommand customCommand,
+                      Bundle args,
+                      @Nullable ProgressReporter progressReporter) {
+                    if (!customCommand.customAction.equals(CUSTOM_COMMAND_DOWNLOAD)) {
+                      return Futures.immediateFuture(
+                          new SessionResult(SessionResult.RESULT_ERROR_NOT_SUPPORTED));
+                    }
+                    SettableFuture<SessionResult> settable = SettableFuture.create();
+                    if (progressReporter != null) {
+                      handler.postDelayed(
+                          () -> {
+                            Bundle progressData = new Bundle();
+                            progressData.putInt("percent", 30);
+                            progressData.putFloat(
+                                MediaConstants.EXTRAS_KEY_DOWNLOAD_PROGRESS, 0.3f);
+                            progressReporter.sendProgressUpdate(progressData);
+                            handler.postDelayed(
+                                () -> {
+                                  progressData.putFloat(
+                                      MediaConstants.EXTRAS_KEY_DOWNLOAD_PROGRESS, 1.0f);
+                                  progressData.putInt("percent", 100);
+                                  progressReporter.sendProgressUpdate(progressData);
+                                  settable.set(new SessionResult(SessionResult.RESULT_SUCCESS));
+                                },
+                                /* delayMillis= */ 50);
+                          },
+                          /* delayMillis= */ 50);
+                    } else {
+                      Bundle extras = new Bundle();
+                      extras.putString("key", "value");
+                      if (args.getBoolean(KEY_IS_LEGACY_CONTROLLER)) {
+                        mockPlayer.mediaMetadata =
+                            new MediaMetadata.Builder().setTitle("a title").build();
+                        mockPlayer.notifyMediaMetadataChanged();
+                      }
+                      settable.set(new SessionResult(SessionResult.RESULT_SUCCESS, extras));
+                    }
+                    return settable;
                   }
                 });
             break;

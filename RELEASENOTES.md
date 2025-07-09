@@ -44,6 +44,7 @@
     *   Add `MediaSessionService.triggerNotificationUpdate` to manually trigger
         a notification update
         ([#1833](https://github.com/androidx/media/issues/1833)).
+    *   Add `ProgressListener` to custom command methods.
 *   UI:
     *   Add `ProgressStateWithTickInterval` class and the corresponding
         `rememberProgressStateWithTickInterval` Composable to

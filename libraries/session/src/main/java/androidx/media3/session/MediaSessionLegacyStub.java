@@ -506,7 +506,10 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         controller -> {
           ListenableFuture<SessionResult> future =
               sessionImpl.onCustomCommandOnHandler(
-                  controller, command, args == null ? Bundle.EMPTY : args);
+                  controller,
+                  /* progressReporter= */ null,
+                  command,
+                  args == null ? Bundle.EMPTY : args);
           if (cb != null) {
             sendCustomCommandResultWhenReady(cb, future);
           } else {
@@ -527,7 +530,10 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         controller ->
             ignoreFuture(
                 sessionImpl.onCustomCommandOnHandler(
-                    controller, command, args != null ? args : Bundle.EMPTY)));
+                    controller,
+                    /* progressReporter= */ null,
+                    command,
+                    args != null ? args : Bundle.EMPTY)));
   }
 
   @Override

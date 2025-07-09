@@ -24,6 +24,7 @@ import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.session.MediaLibraryService.LibraryParams;
 import androidx.media3.session.MediaLibraryService.MediaLibrarySession;
+import androidx.media3.session.legacy.MediaBrowserCompat;
 import androidx.media3.session.legacy.MediaDescriptionCompat;
 import androidx.media3.session.legacy.PlaybackStateCompat;
 
@@ -535,6 +536,27 @@ public final class MediaConstants {
   @UnstableApi
   public static final long EXTRAS_VALUE_STATUS_NOT_DOWNLOADED =
       MediaDescriptionCompat.STATUS_NOT_DOWNLOADED;
+
+  /**
+   * Used as a float extra field to denote the current progress during download. The value of this
+   * field must be a float number within [0.0, 1.0].
+   *
+   * @see #CUSTOM_COMMAND_DOWNLOAD
+   */
+  @UnstableApi
+  public static final String EXTRAS_KEY_DOWNLOAD_PROGRESS =
+      MediaBrowserCompat.EXTRA_DOWNLOAD_PROGRESS;
+
+  /**
+   * Predefined custom action name to ask the connected service to download a specific {@link
+   * MediaItem} for offline playback. The id of the media item must be passed in an extra bundle.
+   * The download progress might be delivered to the controller or the browser via {@link
+   * MediaController.ProgressListener}.
+   *
+   * @see #EXTRAS_KEY_DOWNLOAD_PROGRESS
+   */
+  @UnstableApi
+  public static final String CUSTOM_COMMAND_DOWNLOAD = MediaBrowserCompat.CUSTOM_ACTION_DOWNLOAD;
 
   /**
    * The extras value to indicate that the media item is being downloaded. Used with {@link

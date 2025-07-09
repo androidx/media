@@ -812,6 +812,19 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         controller, (cb, seq) -> cb.sendCustomCommand(seq, command, args));
   }
 
+  public void sendCustomCommandProgressUpdate(
+      ControllerInfo controller,
+      int customCommandFutureSequence,
+      SessionCommand command,
+      Bundle args,
+      Bundle progressData) {
+    dispatchRemoteControllerTaskWithoutReturn(
+        controller,
+        (cb, seq) ->
+            cb.sendCustomCommandProgressUpdate(
+                customCommandFutureSequence, command, args, progressData));
+  }
+
   public void sendError(ControllerInfo controllerInfo, SessionError sessionError) {
     if (controllerInfo.getControllerVersion() != ControllerInfo.LEGACY_CONTROLLER_VERSION
         && controllerInfo.getInterfaceVersion() < 4) {
@@ -921,10 +934,17 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   }
 
   public ListenableFuture<SessionResult> onCustomCommandOnHandler(
-      ControllerInfo controller, SessionCommand command, Bundle extras) {
+      ControllerInfo controller,
+      @Nullable MediaSession.ProgressReporter progressReporter,
+      SessionCommand command,
+      Bundle extras) {
     return checkNotNull(
         callback.onCustomCommand(
-            instance, resolveControllerInfoForCallback(controller), command, extras),
+            instance,
+            resolveControllerInfoForCallback(controller),
+            command,
+            extras,
+            progressReporter),
         "Callback.onCustomCommandOnHandler must return non-null future");
   }
 

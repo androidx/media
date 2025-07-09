@@ -86,6 +86,8 @@ public class MediaBrowserConstants {
 
   public static final String CUSTOM_ACTION_ASSERT_PARAMS = "assertParams";
 
+  public static final float EXTRAS_VALUE_PARTIAL_PROGRESS = 0.3f;
+
   static {
     ROOT_EXTRAS.putInt(ROOT_EXTRAS_KEY, ROOT_EXTRAS_VALUE);
 

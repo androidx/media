@@ -78,6 +78,12 @@ oneway interface IMediaSession {
   void connect(IMediaController caller, int seq, in Bundle connectionRequest) = 3014;
   void onCustomCommand(
       IMediaController caller, int seq, in Bundle sessionCommand, in Bundle args) = 3015;
+  void onCustomCommandWithProgressUpdate(
+      IMediaController caller,
+      int seq,
+      in Bundle sessionCommand,
+      in Bundle args,
+      boolean progressUpdateRequested) = 3059;
   void setRepeatMode(IMediaController caller, int seq, int repeatMode) = 3016;
   void setShuffleModeEnabled(IMediaController caller, int seq, boolean shuffleModeEnabled) = 3017;
   void removeMediaItem(IMediaController caller, int seq, int index) = 3018;
@@ -124,7 +130,7 @@ oneway interface IMediaSession {
   void setRatingWithMediaId(
        IMediaController caller, int seq, String mediaId, in Bundle rating) = 3048;
   void setRating(IMediaController caller, int seq, in Bundle rating) = 3049;
-  // Next Id for MediaSession: 3059
+  // Next Id for MediaSession: 3060
 
   void getLibraryRoot(IMediaController caller, int seq, in Bundle libraryParams) = 4000;
   void getItem(IMediaController caller, int seq, String mediaId) = 4001;
