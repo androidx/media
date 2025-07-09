@@ -357,13 +357,23 @@ public final class MediaCodecInfo {
       }
     }
 
-    if (!isVideo && profile != CodecProfileLevel.AACObjectXHE) {
-      // Some devices/builds underreport audio capabilities, so assume support except for xHE-AAC
-      // which may not be widely supported. See https://github.com/google/ExoPlayer/issues/5145.
+    if (!isVideo
+        && !mimeType.equals(MimeTypes.AUDIO_AC4)
+        && profile != CodecProfileLevel.AACObjectXHE) {
+      // AC-4 decoders report profile levels or audio capabilities that determine whether the input
+      // format is supported or not.
+      // With other encodings some devices/builds underreport audio capabilities, so assume support
+      // except for xHE-AAC which may not be widely supported. See
+      // https://github.com/google/ExoPlayer/issues/5145.
       return true;
     }
 
     CodecProfileLevel[] profileLevels = getProfileLevels();
+    if (mimeType.equals(MimeTypes.AUDIO_AC4) && profileLevels.length == 0) {
+      // Some older devices don't report profile levels for AC-4. Estimate them using other data
+      // in the codec capabilities.
+      profileLevels = estimateLegacyAc4ProfileLevels(capabilities);
+    }
     if (SDK_INT <= 23 && MimeTypes.VIDEO_VP9.equals(mimeType) && profileLevels.length == 0) {
       // Some older devices don't report profile levels for VP9. Estimate them using other data in
       // the codec capabilities.
@@ -817,6 +827,39 @@ public final class MediaCodecInfo {
   @RequiresApi(23)
   private static int getMaxSupportedInstancesV23(CodecCapabilities capabilities) {
     return capabilities.getMaxSupportedInstances();
+  }
+
+  /**
+   * Called on devices with AC-4 decoders whose {@link CodecCapabilities} do not report profile
+   * levels. The returned {@link CodecProfileLevel CodecProfileLevels} are estimated based on other
+   * data in the {@link CodecCapabilities}.
+   *
+   * @param capabilities The {@link CodecCapabilities} for an AC-4 decoder, or {@code null} if not
+   *     known.
+   * @return The estimated {@link CodecProfileLevel CodecProfileLevels} for the decoder.
+   */
+  private static CodecProfileLevel[] estimateLegacyAc4ProfileLevels(
+      @Nullable CodecCapabilities capabilities) {
+    int maxInChannelCount = 2;
+    if (capabilities != null) {
+      @Nullable AudioCapabilities audioCapabilities = capabilities.getAudioCapabilities();
+      if (audioCapabilities != null) {
+        maxInChannelCount = audioCapabilities.getMaxInputChannelCount();
+      }
+    }
+
+    int level = CodecProfileLevel.AC4Level3;
+    if (maxInChannelCount > 18) { // AC-4 Level 3 stream is up to 17.1 channel
+      level = CodecProfileLevel.AC4Level4;
+    }
+
+    return new CodecProfileLevel[] {
+      createCodecProfileLevel(CodecProfileLevel.AC4Profile00, level),
+      createCodecProfileLevel(CodecProfileLevel.AC4Profile10, level),
+      createCodecProfileLevel(CodecProfileLevel.AC4Profile11, level),
+      createCodecProfileLevel(CodecProfileLevel.AC4Profile21, level),
+      createCodecProfileLevel(CodecProfileLevel.AC4Profile22, level)
+    };
   }
 
   /**

@@ -18,6 +18,9 @@
 *   Audio:
     *   Make `AudioProcessor` instances aware of seeking.
     *   Handle seeks in `GainProcessor`.
+    *   Utilize AC-4 decoder profile and level capabilities in track format
+        support assessment
+        ([#2580](https://github.com/androidx/media/pull/2580)).
 *   Video:
 *   Text:
 *   Metadata:
