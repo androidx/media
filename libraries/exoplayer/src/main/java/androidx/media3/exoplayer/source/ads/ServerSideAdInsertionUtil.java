@@ -84,22 +84,22 @@ public final class ServerSideAdInsertionUtil {
   }
 
   /**
-   * Returns the position in the underlying server-side inserted ads stream for the current playback
-   * position in the {@link Player}.
+   * Returns the position in the underlying server-side inserted ads stream of the given ads ID for
+   * the current playback position in the {@link Player}.
    *
    * @param player The {@link Player}.
-   * @param adPlaybackState The {@link AdPlaybackState} defining the ad groups.
+   * @param adsId The ads ID of the period for which to get the stream position.
    * @return The position in the underlying server-side inserted ads stream, in microseconds, or
    *     {@link C#TIME_UNSET} if it can't be determined.
    */
-  public static long getStreamPositionUs(Player player, AdPlaybackState adPlaybackState) {
+  public static long getStreamPositionUs(Player player, Object adsId) {
     Timeline timeline = player.getCurrentTimeline();
     if (timeline.isEmpty()) {
       return C.TIME_UNSET;
     }
     Timeline.Period period =
         timeline.getPeriod(player.getCurrentPeriodIndex(), new Timeline.Period());
-    if (!Objects.equals(period.getAdsId(), adPlaybackState.adsId)) {
+    if (!Objects.equals(period.getAdsId(), adsId)) {
       return C.TIME_UNSET;
     }
     if (player.isPlayingAd()) {
@@ -107,12 +107,12 @@ public final class ServerSideAdInsertionUtil {
       int adIndexInAdGroup = player.getCurrentAdIndexInAdGroup();
       long adPositionUs = Util.msToUs(player.getCurrentPosition());
       return getStreamPositionUsForAd(
-          adPositionUs, adGroupIndex, adIndexInAdGroup, adPlaybackState);
+          adPositionUs, adGroupIndex, adIndexInAdGroup, period.adPlaybackState);
     }
     long periodPositionUs =
         Util.msToUs(player.getCurrentPosition()) - period.getPositionInWindowUs();
     return getStreamPositionUsForContent(
-        periodPositionUs, /* nextAdGroupIndex= */ C.INDEX_UNSET, adPlaybackState);
+        periodPositionUs, /* nextAdGroupIndex= */ C.INDEX_UNSET, period.adPlaybackState);
   }
 
   /**
