@@ -617,9 +617,7 @@ public class MediaControllerStateMaskingTest {
     Bundle playerConfig = new RemoteMediaSession.MockPlayerConfigBuilder().setVolume(0.25f).build();
     remoteSession.setPlayer(playerConfig);
     MediaController controller = controllerTestRule.createController(remoteSession.getToken());
-    CountDownLatch muteLatch = new CountDownLatch(1);
-    CountDownLatch unmuteLatch = new CountDownLatch(1);
-    CountDownLatch eventLatch = new CountDownLatch(2);
+    CountDownLatch latch = new CountDownLatch(3);
     List<Float> volumesFromCallbackRef = new ArrayList<>();
     List<Float> volumesFromGetterRef = new ArrayList<>();
     AtomicReference<Player.Events> onEventsRef = new AtomicReference<>();
@@ -627,21 +625,17 @@ public class MediaControllerStateMaskingTest {
         new Player.Listener() {
           @Override
           public void onVolumeChanged(float volume) {
-            if (muteLatch.getCount() > 0 || unmuteLatch.getCount() > 0) {
+            if (latch.getCount() > 0) {
               volumesFromCallbackRef.add(volume);
-              if (volume == 0f) {
-                muteLatch.countDown();
-              } else {
-                unmuteLatch.countDown();
-              }
+              latch.countDown();
             }
           }
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            if (eventLatch.getCount() > 0) {
+            if (latch.getCount() > 0) {
               onEventsRef.set(events);
-              eventLatch.countDown();
+              latch.countDown();
             }
           }
         };
@@ -658,9 +652,9 @@ public class MediaControllerStateMaskingTest {
               volumesFromGetterRef.add(controller.getVolume());
             });
 
-    assertThat(unmuteLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
-    assertThat(volumesFromCallbackRef).containsExactly(0.0f, 0.25f);
-    assertThat(volumesFromGetterRef).containsExactly(0.25f, 0.0f, 0.25f);
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(volumesFromCallbackRef).containsExactly(0.0f, 0.25f).inOrder();
+    assertThat(volumesFromGetterRef).containsExactly(0.25f, 0.0f, 0.25f).inOrder();
     assertThat(getEventsAsList(onEventsRef.get())).contains(Player.EVENT_VOLUME_CHANGED);
   }
 
@@ -723,8 +717,8 @@ public class MediaControllerStateMaskingTest {
 
     assertThat(unmuteLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
 
-    assertThat(volumesFromCallbackRef).containsExactly(0.0f, 0.25f);
-    assertThat(volumesFromGetterRef).containsExactly(0.25f, 0.0f, 0.25f);
+    assertThat(volumesFromCallbackRef).containsExactly(0.0f, 0.25f).inOrder();
+    assertThat(volumesFromGetterRef).containsExactly(0.25f, 0.0f, 0.25f).inOrder();
     assertThat(getEventsAsList(onEventsRef.get())).contains(Player.EVENT_VOLUME_CHANGED);
   }
 
