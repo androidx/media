@@ -392,9 +392,9 @@ public final class MediaCodecInfo {
     if (name.equals("c2.android.flac.decoder")) {
       return SDK_INT >= 34;
     }
-    // c2.sec.flac.decoder is known not to support 32-bit until API 35.
+    // c2.sec.flac.decoder is known not to support 32-bit on any API level currently.
     if (name.equals("c2.sec.flac.decoder")) {
-      return SDK_INT >= 35;
+      return false;
     }
     // We optimistically assume that another (unrecognized) FLAC decoder does support 32-bit on all
     // API levels where it exists.
