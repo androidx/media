@@ -2401,6 +2401,7 @@ public final class Util {
         return 28;
       case C.ENCODING_OPUS:
         return 30;
+      case C.ENCODING_PCM_24BIT:
       case C.ENCODING_PCM_32BIT:
         return 31;
       case C.ENCODING_DTS_UHD_P2:
