@@ -579,7 +579,13 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       int start = spannedInput.getSpanStart(spans[i]) + spanStarts[i];
       int end = spannedInput.getSpanEnd(spans[i]) + spanEnds[i];
       int flags = spannedInput.getSpanFlags(spans[i]);
-      wrapped.setSpan(spans[i], start, end, flags);
+      if ((start >= 0) && (start < wrapped.length())
+          && (end >= 0) && (end <= wrapped.length())) {
+        // Only set the span if the start and end are within bounds of the wrapped text.
+        wrapped.setSpan(spans[i], start, end, flags);
+      } else {
+        Log.w(TAG, "Span out of bounds: start=" + start + ",end=" + end + ",len=" + wrapped.length());
+      }
     }
 
     return wrapped;
