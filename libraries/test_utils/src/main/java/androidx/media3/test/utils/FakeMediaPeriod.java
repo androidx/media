@@ -99,7 +99,9 @@ public class FakeMediaPeriod implements MediaPeriod {
         long initialSampleTimeUs, float sampleRate, long durationUs, int keyFrameInterval) {
       return (unusedFormat, unusedMediaPeriodId) -> {
         ImmutableList.Builder<FakeSampleStreamItem> samples = ImmutableList.builder();
-        for (int frameIndex = 0; frameIndex < durationUs / 33_333; frameIndex++) {
+        long frameCount =
+            DoubleMath.roundToLong(durationUs * sampleRate / C.MICROS_PER_SECOND, RoundingMode.UP);
+        for (int frameIndex = 0; frameIndex < frameCount; frameIndex++) {
           long frameTimeUs =
               initialSampleTimeUs
                   + DoubleMath.roundToLong(
