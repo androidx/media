@@ -121,11 +121,11 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
     for (i in titles.indices) {
       mediaItemOptions.add(Item(titles[i], uris[i], durations[i].toLong(), mutableStateOf(false)))
     }
-    // Load initial media item selections
-    addItem(0)
-    addItem(0)
-    addItem(0)
-    addItem(0)
+    // Load initial media item selections. No need to show the Snackbar message at this point
+    addItem(0, showSnackbarMessage = false)
+    addItem(0, showSnackbarMessage = false)
+    addItem(0, showSnackbarMessage = false)
+    addItem(0, showSnackbarMessage = false)
   }
 
   override fun onCleared() {
@@ -140,9 +140,11 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
     DebugTraceUtil.enableTracing = enable
   }
 
-  fun addItem(index: Int) {
+  fun addItem(index: Int, showSnackbarMessage: Boolean = true) {
     selectedMediaItems.add(mediaItemOptions[index].copy(applyEffects = mutableStateOf(false)))
-    snackbarMessage = "Added item: ${mediaItemOptions[index].title}"
+    if (showSnackbarMessage) {
+      snackbarMessage = "Added item: ${mediaItemOptions[index].title}"
+    }
   }
 
   fun removeItem(index: Int) {
