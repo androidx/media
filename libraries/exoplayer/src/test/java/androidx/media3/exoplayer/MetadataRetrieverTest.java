@@ -24,9 +24,11 @@ import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.robolectric.Shadows.shadowOf;
 
 import android.content.Context;
 import android.net.Uri;
+import android.os.Looper;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Metadata;
@@ -58,6 +60,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.annotation.LooperMode;
+import org.robolectric.shadows.ShadowLooper;
 
 /** Tests for {@link MetadataRetriever}. */
 @LooperMode(LooperMode.Mode.INSTRUMENTATION_TEST)
@@ -77,6 +80,15 @@ public class MetadataRetrieverTest {
 
   @After
   public void tearDown() throws Exception {
+    // Drain loopers to ensure async cleanup tasks complete before the test ends.
+    // This prevents state leakage between tests.
+    for (Looper looper : ShadowLooper.getAllLoopers()) {
+      try {
+        shadowOf(looper).idle();
+      } catch (IllegalStateException e) {
+        // Looper was already quit, safe to ignore.
+      }
+    }
     MetadataRetriever.setMaximumParallelRetrievals(
         MetadataRetriever.DEFAULT_MAXIMUM_PARALLEL_RETRIEVALS);
   }
