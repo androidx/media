@@ -1358,7 +1358,9 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
         AdPlaybackState adPlaybackState = checkNotNull(adPlaybackStates.get(contentPeriod.uid));
         // Calculate the stream position from the current position and the playback state.
         streamPositionMs =
-            usToMs(ServerSideAdInsertionUtil.getStreamPositionUs(player, adPlaybackState));
+            usToMs(
+                ServerSideAdInsertionUtil.getStreamPositionUs(
+                    player, checkNotNull(adPlaybackState.adsId)));
         if (window.windowStartTimeMs != C.TIME_UNSET) {
           // Add the time since epoch at start of the window for live streams.
           streamPositionMs += window.windowStartTimeMs + period.getPositionInWindowMs();
