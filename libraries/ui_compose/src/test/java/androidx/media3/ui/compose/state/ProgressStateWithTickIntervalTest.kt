@@ -99,6 +99,40 @@ class ProgressStateWithTickIntervalTest {
     }
 
   @Test
+  fun progressUpdatingOnTheSecondMark_moveClockByFractionalSeconds_positionRoundsUpToTheGrid() =
+    runTest(testDispatcher) {
+      val player =
+        TestPlayer(
+          playWhenReady = true,
+          playlist = listOf(MediaItemData.Builder("SingleItem").build()),
+        )
+      player.setPositionSupplierDrivenBy(testDispatcher.scheduler)
+      lateinit var state: ProgressStateWithTickInterval
+      composeTestRule.setContent {
+        state =
+          rememberProgressStateWithTickInterval(
+            player,
+            tickIntervalMs = 500,
+            scope = backgroundScope,
+          )
+      }
+
+      advanceTimeByInclusive(1800.milliseconds)
+      player.setDuration("SingleItem", 5000)
+      composeTestRule.waitForIdle()
+
+      assertThat(player.currentPosition).isEqualTo(1800)
+      assertThat(state.currentPositionMs).isEqualTo(1500)
+
+      advanceTimeByInclusive(195.milliseconds)
+      player.setDuration("SingleItem", 7000)
+      composeTestRule.waitForIdle()
+
+      assertThat(player.currentPosition).isEqualTo(1995)
+      assertThat(state.currentPositionMs).isEqualTo(2000)
+    }
+
+  @Test
   fun progressUpdatingContinuouslyEveryFrame_positionChangesByOneFrame() =
     runTest(testDispatcher) {
       val player =
@@ -202,17 +236,17 @@ class ProgressStateWithTickIntervalTest {
       advanceTimeByInclusive(666.milliseconds)
 
       assertThat(player.currentPosition).isEqualTo(999)
-      assertThat(state.currentPositionMs).isEqualTo(999)
+      assertThat(state.currentPositionMs).isEqualTo(1000)
 
       advanceTimeByInclusive(400.milliseconds)
 
       assertThat(player.currentPosition).isEqualTo(1599)
-      assertThat(state.currentPositionMs).isEqualTo(999) // doesn't ever reach 1000
+      assertThat(state.currentPositionMs).isEqualTo(1000)
 
       advanceTimeByInclusive(267.milliseconds)
 
       assertThat(player.currentPosition).isEqualTo(1999)
-      assertThat(state.currentPositionMs).isEqualTo(1999) // first bump since 999
+      assertThat(state.currentPositionMs).isEqualTo(2000)
 
       advanceTimeByInclusive(667.milliseconds)
 
@@ -321,7 +355,7 @@ class ProgressStateWithTickIntervalTest {
         state =
           rememberProgressStateWithTickInterval(
             player,
-            tickIntervalMs = 5000,
+            tickIntervalMs = 100,
             scope = backgroundScope,
           )
       }
@@ -337,7 +371,7 @@ class ProgressStateWithTickIntervalTest {
       advanceTimeByInclusive((PAUSED_UPDATE_INTERVAL_MS - 500).milliseconds)
 
       assertThat(player.bufferedPosition).isEqualTo(123)
-      assertThat(state.bufferedPositionMs).isEqualTo(123)
+      assertThat(state.bufferedPositionMs).isEqualTo(100)
     }
 
   /**

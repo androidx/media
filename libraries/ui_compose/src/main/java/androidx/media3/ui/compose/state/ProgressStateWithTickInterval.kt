@@ -88,7 +88,7 @@ fun rememberProgressStateWithTickInterval(
  *   to some UI element, the scope of the Composable will ensure the job is cancelled when the
  *   element is disposed.
  * @property[currentPositionMs] The playback position in the current content or ad, in milliseconds,
- *   matches [Player.getCurrentPosition].
+ *   matches [Player.getCurrentPosition] that is rounded to a multiple of [tickIntervalMs].
  * @property[bufferedPositionMs] An estimate of the position in the current content or ad up to
  *   which data is buffered, in milliseconds.
  * @property[durationMs] The duration of the current content or ad in milliseconds, matches
@@ -100,10 +100,12 @@ class ProgressStateWithTickInterval(
   @IntRange(from = 0) private val tickIntervalMs: Long = 0,
   scope: CoroutineScope,
 ) {
-  var currentPositionMs by mutableLongStateOf(getCurrentPositionMsOrDefault(player))
+  var currentPositionMs by
+    mutableLongStateOf(snapPositionToNearestTick(player, ::getCurrentPositionMsOrDefault))
     private set
 
-  var bufferedPositionMs by mutableLongStateOf(getBufferedPositionMsOrDefault(player))
+  var bufferedPositionMs by
+    mutableLongStateOf(snapPositionToNearestTick(player, ::getBufferedPositionMsOrDefault))
     private set
 
   var durationMs by mutableLongStateOf(getDurationMsOrDefault(player))
@@ -115,8 +117,8 @@ class ProgressStateWithTickInterval(
       scope,
       nextMediaTickMsSupplier = ::nextMediaWakeUpPositionMs,
       scheduledTask = {
-        currentPositionMs = getCurrentPositionMsOrDefault(player)
-        bufferedPositionMs = getBufferedPositionMsOrDefault(player)
+        currentPositionMs = snapPositionToNearestTick(player, ::getCurrentPositionMsOrDefault)
+        bufferedPositionMs = snapPositionToNearestTick(player, ::getBufferedPositionMsOrDefault)
         durationMs = getDurationMsOrDefault(player)
       },
     )
@@ -144,4 +146,22 @@ class ProgressStateWithTickInterval(
     }
     return nextMediaWakeUpPositionMs
   }
+
+  /**
+   * Round the actual position to the nearest tick (i.e. integer number of tickIntervals). Rounding
+   * happens in a stop-watch manner, i.e. always down - hence integer division.
+   *
+   * Note how this is different to [ProgressStateWithTickCount] rounding that takes half of the
+   * interval into account to round up.
+   */
+  private fun snapPositionToNearestTick(player: Player, positionSupplier: (Player) -> Long): Long {
+    val actualPositionMs = positionSupplier(player)
+    if (tickIntervalMs == 0L || actualPositionMs % tickIntervalMs == 0L) {
+      return actualPositionMs
+    }
+    val adjustedCurrentTick = (actualPositionMs + POSITION_CORRECTION_OFFSET_MS) / tickIntervalMs
+    return adjustedCurrentTick * tickIntervalMs
+  }
 }
+
+private const val POSITION_CORRECTION_OFFSET_MS = 10
