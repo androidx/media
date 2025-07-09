@@ -11,6 +11,8 @@
 *   ExoPlayer:
     *   Ensure renderers don't consume data from the next playlist item more
         than 10 seconds before the end of the current item.
+    *   Add getter for shuffle mode to the `ExoPlayer` interface
+        ([#2522](https://github.com/androidx/media/pull/2522)).
 *   Transformer:
 *   Track Selection:
 *   Extractors:
