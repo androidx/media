@@ -42,6 +42,10 @@ import android.util.DisplayMetrics;
 import androidx.annotation.Nullable;
 import androidx.media3.common.text.Cue;
 import androidx.media3.common.util.Log;
+import com.google.common.base.Joiner;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
@@ -495,15 +499,17 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     if (input == null) {
       return false;
     }
-    for (int i = 0; i < input.length(); i++) {
-      char ch = input.charAt(i);
-      byte dir = Character.getDirectionality(ch);
+    int length = input.length();
+    for (int offset = 0; offset < length; ) {
+      int codePoint = Character.codePointAt(input, offset);
+      byte dir = Character.getDirectionality(codePoint);
       if (dir == Character.DIRECTIONALITY_RIGHT_TO_LEFT ||
           dir == Character.DIRECTIONALITY_RIGHT_TO_LEFT_ARABIC ||
           dir == Character.DIRECTIONALITY_RIGHT_TO_LEFT_EMBEDDING ||
           dir == Character.DIRECTIONALITY_RIGHT_TO_LEFT_OVERRIDE) {
         return true;
       }
+      offset += Character.charCount(codePoint);
     }
     return false;
   }
@@ -513,25 +519,67 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
    * <p>
    * This method ensures that text containing both left-to-right (LTR) and right-to-left (RTL)
    * scripts is displayed correctly by wrapping each line using {@link BidiFormatter#unicodeWrap}.
-   * It forces LTR context for wrapping and preserves line breaks.
+   * It forces LTR context for wrapping and preserves spans and line breaks.
    *
    * @param input the input text as a {@link CharSequence}, possibly containing mixed-direction text
    * @return a {@link CharSequence} with each line wrapped for proper bidi rendering
    */
   public static CharSequence wrapBidiText(CharSequence input) {
     BidiFormatter bidiFormatter = BidiFormatter.getInstance();
-    String[] lines = input.toString().split("\n");
-    StringBuilder wrapped = new StringBuilder();
 
-    for (int i = 0; i < lines.length; i++) {
-      wrapped.append(bidiFormatter.unicodeWrap(
-          lines[i],
-          TextDirectionHeuristics.LTR,
-          true
-      ));
-      if (i < lines.length - 1) {
-        wrapped.append("\n");
+    // Preserve span in the input text.
+    Spanned spannedInput = (Spanned)input;
+    Object[] spans = spannedInput.getSpans(0, input.length(), Object.class);
+
+    // Create arrays to track the start and end of each span after wrapping.
+    int[] spanStarts = new int[spans.length];
+    int[] spanEnds = new int[spans.length];
+    Arrays.fill(spanStarts, -1);
+    Arrays.fill(spanEnds, -1);
+
+    String[] lines = input.toString().split("\n");
+    List<String> wrappedLines = new ArrayList<>();
+
+    // Calculate the offset of each span after wrapping
+    int spanUpdate = 0;
+    int lineStart = 0;
+    for (String line : lines) {
+      // According to unicodeWrap documentation, this will either add 2 more characters or none
+      String wrappedLine = bidiFormatter.unicodeWrap(line, TextDirectionHeuristics.LTR, true);
+      int diff = wrappedLine.length() - line.length();
+      if (diff > 0) {
+        spanUpdate++;
       }
+      for (int j = 0; j < spans.length; j++) {
+        // Each span start or end is updated only once
+        if ((spanStarts[j] < 0) &&
+            (spannedInput.getSpanStart(spans[j]) >= lineStart) &&
+            (spannedInput.getSpanStart(spans[j]) < lineStart + line.length())) {
+          spanStarts[j] = spanUpdate;
+        }
+        if ((spanEnds[j] < 0) &&
+            ((spannedInput.getSpanEnd(spans[j]) - 1) >= lineStart) &&
+            ((spannedInput.getSpanEnd(spans[j]) - 1) < lineStart + line.length())) {
+          spanEnds[j] = spanUpdate;
+        }
+      }
+      lineStart += line.length() + 1; // +1 for the newline character
+      wrappedLines.add(wrappedLine);
+      if (diff > 0) {
+        spanUpdate++;
+      }
+    }
+
+    // Create a new SpannableStringBuilder with the wrapped lines.
+    Joiner joiner = Joiner.on("\n");
+    SpannableStringBuilder wrapped = new SpannableStringBuilder(joiner.join(wrappedLines));
+
+    // Reapply original spans to the wrapped lines.
+    for (int i = 0 ; i < spans.length ; i++) {
+      int start = spannedInput.getSpanStart(spans[i]) + spanStarts[i];
+      int end = spannedInput.getSpanEnd(spans[i]) + spanEnds[i];
+      int flags = spannedInput.getSpanFlags(spans[i]);
+      wrapped.setSpan(spans[i], start, end, flags);
     }
 
     return wrapped;
