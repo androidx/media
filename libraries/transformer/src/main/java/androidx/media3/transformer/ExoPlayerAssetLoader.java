@@ -32,7 +32,6 @@ import static androidx.media3.transformer.TransformerUtil.isImage;
 import static java.lang.Math.min;
 
 import android.content.Context;
-import android.media.metrics.EditingSession;
 import android.media.metrics.LogSessionId;
 import android.os.Handler;
 import android.os.Looper;
@@ -62,7 +61,6 @@ import androidx.media3.exoplayer.video.VideoRendererEventListener;
 import androidx.media3.extractor.DefaultExtractorsFactory;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import com.google.common.collect.ImmutableMap;
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 
 /** An {@link AssetLoader} implementation that uses an {@link ExoPlayer} to load samples. */
@@ -72,107 +70,6 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
   /** An {@link AssetLoader.Factory} for {@link ExoPlayerAssetLoader} instances. */
   public static final class Factory implements AssetLoader.Factory {
 
-    /** A builder for {@link ExoPlayerAssetLoader.Factory} instances. */
-    public static final class Builder {
-
-      private final Context context;
-      private final Codec.DecoderFactory decoderFactory;
-      private Clock clock;
-
-      @Nullable private MediaSource.Factory mediaSourceFactory;
-      @Nullable private TrackSelector.Factory trackSelectorFactory;
-      @Nullable private LogSessionId logSessionId;
-      @Nullable private LoadControl loadControl;
-
-      /**
-       * Constructs a new instance.
-       *
-       * @param context The {@link Context}.
-       * @param decoderFactory The {@link Codec.DecoderFactory} to use to decode the samples (if
-       *     necessary).
-       */
-      public Builder(Context context, Codec.DecoderFactory decoderFactory) {
-        this.context = context.getApplicationContext();
-        this.decoderFactory = decoderFactory;
-        this.clock = Clock.DEFAULT;
-      }
-
-      /**
-       * Sets the {@link Clock} to use.
-       *
-       * <p>The default is {@link Clock#DEFAULT}. This should only be changed for testing.
-       *
-       * @param clock The {@link Clock}.
-       * @return This builder.
-       */
-      @CanIgnoreReturnValue
-      public Builder setClock(Clock clock) {
-        this.clock = clock;
-        return this;
-      }
-
-      /**
-       * Sets the {@link MediaSource.Factory} to be used to retrieve samples to transform.
-       *
-       * <p>If not set, a {@link DefaultMediaSourceFactory} is used by default.
-       *
-       * @param mediaSourceFactory The {@link MediaSource.Factory}.
-       * @return The builder.
-       */
-      @CanIgnoreReturnValue
-      public Builder setMediaSourceFactory(@Nullable MediaSource.Factory mediaSourceFactory) {
-        this.mediaSourceFactory = mediaSourceFactory;
-        return this;
-      }
-
-      /**
-       * Sets the {@link TrackSelector.Factory} to be used when selecting tracks to transform.
-       *
-       * <p>If not set, a {@link DefaultTrackSelector} is used by default.
-       *
-       * @param trackSelectorFactory The {@link TrackSelector.Factory}.
-       * @return The builder.
-       */
-      @CanIgnoreReturnValue
-      public Builder setTrackSelectorFactory(@Nullable TrackSelector.Factory trackSelectorFactory) {
-        this.trackSelectorFactory = trackSelectorFactory;
-        return this;
-      }
-
-      /**
-       * Sets the optional {@link LogSessionId} of the {@link EditingSession}.
-       *
-       * <p>The default is {@code null}.
-       *
-       * @param logSessionId The {@link LogSessionId}.
-       * @return The builder.
-       */
-      @CanIgnoreReturnValue
-      public Builder setLogSessionId(@Nullable LogSessionId logSessionId) {
-        this.logSessionId = logSessionId;
-        return this;
-      }
-
-      /**
-       * Sets the {@link LoadControl} to be used by the underlying {@link ExoPlayer}.
-       *
-       * <p>If not set, a {@link DefaultLoadControl} is used by default.
-       *
-       * @param loadControl The {@link LoadControl}.
-       * @return The builder.
-       */
-      @CanIgnoreReturnValue
-      public Builder setLoadControl(@Nullable LoadControl loadControl) {
-        this.loadControl = loadControl;
-        return this;
-      }
-
-      /** Constructs a {@link ExoPlayerAssetLoader.Factory} instance. */
-      public Factory build() {
-        return new Factory(this);
-      }
-    }
-
     private final Context context;
     private final Codec.DecoderFactory decoderFactory;
     private final Clock clock;
@@ -180,16 +77,6 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
     @Nullable private final TrackSelector.Factory trackSelectorFactory;
     @Nullable private final LogSessionId logSessionId;
     @Nullable private final LoadControl loadControl;
-
-    private Factory(Builder builder) {
-      this.context = builder.context;
-      this.decoderFactory = builder.decoderFactory;
-      this.clock = builder.clock;
-      this.mediaSourceFactory = builder.mediaSourceFactory;
-      this.trackSelectorFactory = builder.trackSelectorFactory;
-      this.logSessionId = builder.logSessionId;
-      this.loadControl = builder.loadControl;
-    }
 
     /**
      * Creates an instance using a {@link DefaultMediaSourceFactory}.
@@ -199,11 +86,17 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
      *     necessary).
      * @param clock The {@link Clock} to use. It should always be {@link Clock#DEFAULT}, except for
      *     testing.
-     * @deprecated Use {@link Builder} instead.
      */
-    @Deprecated
     public Factory(Context context, Codec.DecoderFactory decoderFactory, Clock clock) {
-      this(new Builder(context, decoderFactory).setClock(clock));
+      // TODO: b/381519379 - Deprecate this constructor and replace with a builder.
+      this(
+          context,
+          decoderFactory,
+          clock,
+          /* mediaSourceFactory= */ null,
+          /* trackSelectorFactory= */ null,
+          /* logSessionId= */ null,
+          /* loadControl= */ null);
     }
 
     /**
@@ -215,15 +108,21 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
      * @param clock The {@link Clock} to use. It should always be {@link Clock#DEFAULT}, except for
      *     testing.
      * @param loadControl The {@link LoadControl} to use in the underlying {@link ExoPlayer}.
-     * @deprecated Use {@link Builder} instead.
      */
-    @Deprecated
     public Factory(
         Context context,
         Codec.DecoderFactory decoderFactory,
         Clock clock,
         LoadControl loadControl) {
-      this(new Builder(context, decoderFactory).setClock(clock).setLoadControl(loadControl));
+      // TODO: b/381519379 - Deprecate this constructor and replace with a builder.
+      this(
+          context,
+          decoderFactory,
+          clock,
+          /* mediaSourceFactory= */ null,
+          /* trackSelectorFactory= */ null,
+          /* logSessionId= */ null,
+          loadControl);
     }
 
     /**
@@ -236,18 +135,21 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
      *     testing.
      * @param mediaSourceFactory The {@link MediaSource.Factory} to use to retrieve the samples to
      *     transform.
-     * @deprecated Use {@link Builder} instead.
      */
-    @Deprecated
     public Factory(
         Context context,
         Codec.DecoderFactory decoderFactory,
         Clock clock,
         MediaSource.Factory mediaSourceFactory) {
+      // TODO: b/381519379 - Deprecate this constructor and replace with a builder.
       this(
-          new Builder(context, decoderFactory)
-              .setClock(clock)
-              .setMediaSourceFactory(mediaSourceFactory));
+          context,
+          decoderFactory,
+          clock,
+          mediaSourceFactory,
+          /* trackSelectorFactory= */ null,
+          /* logSessionId= */ null,
+          /* loadControl= */ null);
     }
 
     /**
@@ -262,11 +164,10 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
      *     transform.
      * @param trackSelectorFactory The {@link TrackSelector.Factory} to use when selecting the track
      *     to transform.
-     * @param logSessionId The optional {@link LogSessionId} of the {@link EditingSession}.
+     * @param logSessionId The optional {@link LogSessionId} of the {@link
+     *     android.media.metrics.EditingSession}.
      * @param loadControl The {@link LoadControl} to use in the underlying {@link ExoPlayer}.
-     * @deprecated Use {@link Builder} instead.
      */
-    @Deprecated
     public Factory(
         Context context,
         Codec.DecoderFactory decoderFactory,
@@ -275,13 +176,14 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
         @Nullable TrackSelector.Factory trackSelectorFactory,
         @Nullable LogSessionId logSessionId,
         @Nullable LoadControl loadControl) {
-      this(
-          new Builder(context, decoderFactory)
-              .setClock(clock)
-              .setMediaSourceFactory(mediaSourceFactory)
-              .setTrackSelectorFactory(trackSelectorFactory)
-              .setLogSessionId(logSessionId)
-              .setLoadControl(loadControl));
+      // TODO: b/381519379 - Deprecate this constructor and replace with a builder.
+      this.context = context;
+      this.decoderFactory = decoderFactory;
+      this.clock = clock;
+      this.mediaSourceFactory = mediaSourceFactory;
+      this.trackSelectorFactory = trackSelectorFactory;
+      this.logSessionId = logSessionId;
+      this.loadControl = loadControl;
     }
 
     @Override
