@@ -61,6 +61,7 @@
 *   Cronet extension:
 *   RTMP extension:
 *   HLS extension:
+    *   Parse HLS interstitial skip attributes.
 *   DASH extension:
 *   Smooth Streaming extension:
 *   RTSP extension:

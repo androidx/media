@@ -284,6 +284,12 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
       Pattern.compile("X-TIMELINE-OCCUPIES=" + ATTR_QUOTED_STRING_VALUE_PATTERN);
   private static final Pattern REGEX_TIMELINE_STYLE =
       Pattern.compile("X-TIMELINE-STYLE=" + ATTR_QUOTED_STRING_VALUE_PATTERN);
+  private static final Pattern REGEX_SKIP_CONTROL_OFFSET =
+      Pattern.compile("X-SKIP-CONTROL-OFFSET=([\\d\\.]+)\\b");
+  private static final Pattern REGEX_SKIP_CONTROL_DURATION =
+      Pattern.compile("X-SKIP-CONTROL-DURATION=([\\d\\.]+)\\b");
+  private static final Pattern REGEX_SKIP_CONTROL_LABEL_ID =
+      Pattern.compile("X-SKIP-CONTROL-LABEL-ID=" + ATTR_QUOTED_STRING_VALUE_PATTERN);
   private static final Pattern REGEX_VARIABLE_REFERENCE =
       Pattern.compile("\\{\\$([a-zA-Z0-9\\-_]+)\\}");
   private static final Pattern REGEX_CLIENT_DEFINED_ATTRIBUTE_PREFIX =
@@ -1201,6 +1207,22 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
           }
         }
 
+        double skipControlOffsetSec =
+            parseOptionalDoubleAttr(line, REGEX_SKIP_CONTROL_OFFSET, -1.0d);
+        long skipControlOffsetUs = C.TIME_UNSET;
+        if (skipControlOffsetSec >= 0) {
+          skipControlOffsetUs = (long) (skipControlOffsetSec * C.MICROS_PER_SECOND);
+        }
+        double skipControlDurationSec =
+            parseOptionalDoubleAttr(line, REGEX_SKIP_CONTROL_DURATION, -1.0d);
+        long skipControlDurationUs = C.TIME_UNSET;
+        if (skipControlDurationSec >= 0) {
+          skipControlDurationUs = (long) (skipControlDurationSec * C.MICROS_PER_SECOND);
+        }
+        @Nullable
+        String skipControlLabelId =
+            parseOptionalStringAttr(line, REGEX_SKIP_CONTROL_LABEL_ID, variableDefinitions);
+
         List<HlsMediaPlaylist.ClientDefinedAttribute> clientDefinedAttributes = new ArrayList<>();
         String attributes = line.substring("#EXT-X-DATERANGE:".length());
         Matcher matcher = REGEX_CLIENT_DEFINED_ATTRIBUTE_PREFIX.matcher(attributes);
@@ -1216,6 +1238,9 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
             case "X-CONTENT-MAY-VARY=": // fall through
             case "X-TIMELINE-OCCUPIES=": // fall through
             case "X-TIMELINE-STYLE=": // fall through
+            case "X-SKIP-CONTROL-OFFSET=": // fall through
+            case "X-SKIP-CONTROL-DURATION=": // fall through
+            case "X-SKIP-CONTROL-LABEL-ID=":
               // ignore interstitial attributes
               break;
             default:
@@ -1247,7 +1272,10 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
                 .setClientDefinedAttributes(clientDefinedAttributes)
                 .setContentMayVary(contentMayVary)
                 .setTimelineOccupies(timelineOccupies)
-                .setTimelineStyle(timelineStyle);
+                .setTimelineStyle(timelineStyle)
+                .setSkipControlOffsetUs(skipControlOffsetUs)
+                .setSkipControlDurationUs(skipControlDurationUs)
+                .setSkipControlLabelId(skipControlLabelId);
         interstitialBuilderMap.put(id, interstitialBuilder);
       } else if (!line.startsWith("#")) {
         @Nullable

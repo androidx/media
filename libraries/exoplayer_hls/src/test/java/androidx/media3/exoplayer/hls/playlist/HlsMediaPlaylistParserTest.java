@@ -1186,7 +1186,10 @@ public class HlsMediaPlaylistParserTest {
                     HlsMediaPlaylist.ClientDefinedAttribute.TYPE_TEXT)),
             /* contentMayVary= */ false,
             /* timelineOccupies= */ Interstitial.TIMELINE_OCCUPIES_RANGE,
-            /* timelineStyle= */ Interstitial.TIMELINE_STYLE_PRIMARY);
+            /* timelineStyle= */ Interstitial.TIMELINE_STYLE_PRIMARY,
+            /* skipControlOffsetUs= */ C.TIME_UNSET,
+            /* skipControlDurationUs= */ C.TIME_UNSET,
+            /* skipControlLabelId= */ null);
     Interstitial interstitial2 =
         new Interstitial(
             /* id= */ "ad2",
@@ -1214,7 +1217,10 @@ public class HlsMediaPlaylistParserTest {
                     HlsMediaPlaylist.ClientDefinedAttribute.TYPE_HEX_TEXT)),
             /* contentMayVary= */ true,
             /* timelineOccupies= */ Interstitial.TIMELINE_OCCUPIES_POINT,
-            /* timelineStyle= */ Interstitial.TIMELINE_STYLE_HIGHLIGHT);
+            /* timelineStyle= */ Interstitial.TIMELINE_STYLE_HIGHLIGHT,
+            /* skipControlOffsetUs= */ C.TIME_UNSET,
+            /* skipControlDurationUs= */ C.TIME_UNSET,
+            /* skipControlLabelId= */ null);
     InputStream inputStream = new ByteArrayInputStream(Util.getUtf8Bytes(playlistString));
 
     HlsMediaPlaylist playlist =
@@ -1249,7 +1255,10 @@ public class HlsMediaPlaylistParserTest {
             /* clientDefinedAttributes= */ ImmutableList.of(),
             /* contentMayVary= */ true,
             /* timelineOccupies= */ Interstitial.TIMELINE_OCCUPIES_POINT,
-            /* timelineStyle= */ Interstitial.TIMELINE_STYLE_HIGHLIGHT);
+            /* timelineStyle= */ Interstitial.TIMELINE_STYLE_HIGHLIGHT,
+            /* skipControlOffsetUs= */ C.TIME_UNSET,
+            /* skipControlDurationUs= */ C.TIME_UNSET,
+            /* skipControlLabelId= */ null);
     Interstitial interstitial2 =
         new Interstitial(
             "midroll-1",
@@ -1268,7 +1277,10 @@ public class HlsMediaPlaylistParserTest {
             /* clientDefinedAttributes= */ ImmutableList.of(),
             /* contentMayVary= */ true,
             /* timelineOccupies= */ Interstitial.TIMELINE_OCCUPIES_POINT,
-            /* timelineStyle= */ Interstitial.TIMELINE_STYLE_HIGHLIGHT);
+            /* timelineStyle= */ Interstitial.TIMELINE_STYLE_HIGHLIGHT,
+            /* skipControlOffsetUs= */ C.TIME_UNSET,
+            /* skipControlDurationUs= */ C.TIME_UNSET,
+            /* skipControlLabelId= */ null);
     Interstitial interstitial3 =
         new Interstitial(
             "postroll",
@@ -1288,7 +1300,10 @@ public class HlsMediaPlaylistParserTest {
             /* clientDefinedAttributes= */ ImmutableList.of(),
             /* contentMayVary= */ true,
             /* timelineOccupies= */ Interstitial.TIMELINE_OCCUPIES_POINT,
-            /* timelineStyle= */ Interstitial.TIMELINE_STYLE_HIGHLIGHT);
+            /* timelineStyle= */ Interstitial.TIMELINE_STYLE_HIGHLIGHT,
+            /* skipControlOffsetUs= */ C.TIME_UNSET,
+            /* skipControlDurationUs= */ C.TIME_UNSET,
+            /* skipControlLabelId= */ null);
 
     HlsMediaPlaylist playlist =
         (HlsMediaPlaylist) new HlsPlaylistParser().parse(playlistUri, inputStream);
@@ -1356,6 +1371,125 @@ public class HlsMediaPlaylistParserTest {
                 playlistUri, new ByteArrayInputStream(Util.getUtf8Bytes(playlistString)));
 
     assertThat(mediaPlaylist.interstitials.get(0).durationUs).isEqualTo(2_222_000L);
+  }
+
+  @Test
+  public void parseMediaPlaylist_withInterstitialWithSkipControlAttributes_correctlyParsed()
+      throws IOException {
+    Uri playlistUri = Uri.parse("https://example.com/test.m3u8");
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:55:40.000Z\n"
+            + "#EXTINF:6,\n"
+            + "main1.0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "ID=\"ad1\","
+            + "START-DATE=\"2020-01-02T21:55:44.000Z\","
+            + "X-ASSET-URI=\"http://example.com/ad1.m3u8\","
+            + "X-SKIP-CONTROL-OFFSET=5.5,"
+            + "X-SKIP-CONTROL-DURATION=10.0,"
+            + "X-SKIP-CONTROL-LABEL-ID=\"skip-label\""
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "ID=\"ad2\","
+            + "START-DATE=\"2020-01-02T21:55:44.000Z\","
+            + "X-ASSET-URI=\"http://example.com/ad1.m3u8\","
+            + "X-SKIP-CONTROL-OFFSET=15.5,"
+            + "X-SKIP-CONTROL-DURATION=110.0,"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "ID=\"ad3\","
+            + "START-DATE=\"2020-01-02T21:55:44.000Z\","
+            + "X-ASSET-URI=\"http://example.com/ad1.m3u8\","
+            + "\n";
+    InputStream inputStream = new ByteArrayInputStream(Util.getUtf8Bytes(playlistString));
+
+    HlsMediaPlaylist playlist =
+        (HlsMediaPlaylist) new HlsPlaylistParser().parse(playlistUri, inputStream);
+
+    assertThat(playlist.interstitials).hasSize(3);
+    Interstitial interstitial = playlist.interstitials.get(0);
+    assertThat(interstitial.skipControlOffsetUs).isEqualTo(5_500_000L);
+    assertThat(interstitial.skipControlDurationUs).isEqualTo(10_000_000L);
+    assertThat(interstitial.skipControlLabelId).isEqualTo("skip-label");
+    Interstitial interstitial2 = playlist.interstitials.get(1);
+    assertThat(interstitial2.skipControlOffsetUs).isEqualTo(15_500_000L);
+    assertThat(interstitial2.skipControlDurationUs).isEqualTo(110_000_000L);
+    assertThat(interstitial2.skipControlLabelId).isNull();
+    Interstitial interstitial3 = playlist.interstitials.get(2);
+    assertThat(interstitial3.skipControlOffsetUs).isEqualTo(C.TIME_UNSET);
+    assertThat(interstitial3.skipControlDurationUs).isEqualTo(C.TIME_UNSET);
+    assertThat(interstitial3.skipControlLabelId).isNull();
+  }
+
+  @Test
+  public void parseMediaPlaylist_withInterstitialWithInvalidSkipControlAttributes_isRobust()
+      throws IOException {
+    Uri playlistUri = Uri.parse("https://example.com/test.m3u8");
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:55:40.000Z\n"
+            + "#EXTINF:6,\n"
+            + "main1.0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "ID=\"ad1\","
+            + "START-DATE=\"2020-01-02T21:55:44.000Z\","
+            + "X-ASSET-URI=\"http://example.com/ad1.m3u8\","
+            + "X-SKIP-CONTROL-OFFSET=invalid," // NaN
+            + "X-SKIP-CONTROL-DURATION=10.0"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "ID=\"ad2\","
+            + "START-DATE=\"2020-01-02T21:55:44.000Z\","
+            + "X-ASSET-URI=\"http://example.com/ad1.m3u8\","
+            + "X-SKIP-CONTROL-OFFSET=5.5,"
+            + "X-SKIP-CONTROL-DURATION=invalid" // NaN
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "ID=\"ad3\","
+            + "START-DATE=\"2020-01-02T21:55:44.000Z\","
+            + "X-ASSET-URI=\"http://example.com/ad1.m3u8\","
+            + "X-SKIP-CONTROL-OFFSET=-5.5," // negative value
+            + "X-SKIP-CONTROL-DURATION=10.0"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "ID=\"ad4\","
+            + "START-DATE=\"2020-01-02T21:55:44.000Z\","
+            + "X-ASSET-URI=\"http://example.com/ad1.m3u8\","
+            + "X-SKIP-CONTROL-OFFSET=5.5,"
+            + "X-SKIP-CONTROL-DURATION=-10.0" // negative value
+            + "\n";
+    InputStream inputStream = new ByteArrayInputStream(Util.getUtf8Bytes(playlistString));
+
+    HlsMediaPlaylist playlist =
+        (HlsMediaPlaylist) new HlsPlaylistParser().parse(playlistUri, inputStream);
+
+    assertThat(playlist.interstitials).hasSize(4);
+    Interstitial interstitial1 = playlist.interstitials.get(0);
+    assertThat(interstitial1.skipControlOffsetUs).isEqualTo(C.TIME_UNSET);
+    assertThat(interstitial1.skipControlDurationUs).isEqualTo(10_000_000L);
+    Interstitial interstitial2 = playlist.interstitials.get(1);
+    assertThat(interstitial2.skipControlOffsetUs).isEqualTo(5_500_000L);
+    assertThat(interstitial2.skipControlDurationUs).isEqualTo(C.TIME_UNSET);
+    Interstitial interstitial3 = playlist.interstitials.get(2);
+    assertThat(interstitial3.skipControlOffsetUs).isEqualTo(C.TIME_UNSET);
+    assertThat(interstitial3.skipControlDurationUs).isEqualTo(10_000_000L);
+    Interstitial interstitial4 = playlist.interstitials.get(3);
+    assertThat(interstitial4.skipControlOffsetUs).isEqualTo(5_500_000L);
+    assertThat(interstitial4.skipControlDurationUs).isEqualTo(C.TIME_UNSET);
   }
 
   @Test

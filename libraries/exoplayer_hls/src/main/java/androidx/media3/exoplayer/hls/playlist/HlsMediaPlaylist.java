@@ -587,6 +587,22 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
     /** The timeline style type. */
     public final @TimelineStyleType String timelineStyle;
 
+    /**
+     * The offset from the start of the interstitial after which the skip control button is
+     * displayed, in microseconds. {@link C#TIME_UNSET} if not present.
+     */
+    public final long skipControlOffsetUs;
+
+    /**
+     * The duration of interstitial content the skip button should be displayed, in microseconds.
+     * {@link C#TIME_UNSET} if not present and the skip button should be displayed until the end of
+     * the interstitial.
+     */
+    public final long skipControlDurationUs;
+
+    /** The ID of the label to be displayed on the skip control button. Null if not present. */
+    @Nullable public final String skipControlLabelId;
+
     /** Creates an instance. */
     public Interstitial(
         String id,
@@ -605,7 +621,10 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
         List<ClientDefinedAttribute> clientDefinedAttributes,
         boolean contentMayVary,
         @TimelineOccupiesType String timelineOccupies,
-        @TimelineStyleType String timelineStyle) {
+        @TimelineStyleType String timelineStyle,
+        long skipControlOffsetUs,
+        long skipControlDurationUs,
+        @Nullable String skipControlLabelId) {
       checkArgument(
           (assetUri == null || assetListUri == null) && (assetUri != null || assetListUri != null));
       this.id = id;
@@ -628,6 +647,9 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
       this.contentMayVary = contentMayVary;
       this.timelineOccupies = timelineOccupies;
       this.timelineStyle = timelineStyle;
+      this.skipControlOffsetUs = skipControlOffsetUs;
+      this.skipControlDurationUs = skipControlDurationUs;
+      this.skipControlLabelId = skipControlLabelId;
     }
 
     @Override
@@ -647,6 +669,8 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
           && resumeOffsetUs == that.resumeOffsetUs
           && playoutLimitUs == that.playoutLimitUs
           && contentMayVary == that.contentMayVary
+          && skipControlOffsetUs == that.skipControlOffsetUs
+          && skipControlDurationUs == that.skipControlDurationUs
           && Objects.equals(id, that.id)
           && Objects.equals(assetUri, that.assetUri)
           && Objects.equals(assetListUri, that.assetListUri)
@@ -655,7 +679,8 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
           && Objects.equals(restrictions, that.restrictions)
           && Objects.equals(clientDefinedAttributes, that.clientDefinedAttributes)
           && Objects.equals(timelineOccupies, that.timelineOccupies)
-          && Objects.equals(timelineStyle, that.timelineStyle);
+          && Objects.equals(timelineStyle, that.timelineStyle)
+          && Objects.equals(skipControlLabelId, that.skipControlLabelId);
     }
 
     @Override
@@ -677,7 +702,10 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
           clientDefinedAttributes,
           contentMayVary,
           timelineOccupies,
-          timelineStyle);
+          timelineStyle,
+          skipControlOffsetUs,
+          skipControlDurationUs,
+          skipControlLabelId);
     }
 
     /**
@@ -706,6 +734,9 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
       private @MonotonicNonNull Boolean contentMayVary;
       private @MonotonicNonNull @Interstitial.TimelineOccupiesType String timelineOccupies;
       private @MonotonicNonNull @Interstitial.TimelineStyleType String timelineStyle;
+      private long skipControlOffsetUs;
+      private long skipControlDurationUs;
+      @Nullable private String skipControlLabelId;
 
       /**
        * Creates the builder.
@@ -724,6 +755,8 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
         playoutLimitUs = C.TIME_UNSET;
         snapTypes = new ArrayList<>();
         restrictions = new ArrayList<>();
+        skipControlOffsetUs = C.TIME_UNSET;
+        skipControlDurationUs = C.TIME_UNSET;
       }
 
       /**
@@ -1087,6 +1120,75 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
       }
 
       /**
+       * Sets the skip control offset, in microseconds.
+       *
+       * @throws IllegalArgumentException if called with a value different to {@link C#TIME_UNSET}
+       *     and different to the value previously set.
+       */
+      @CanIgnoreReturnValue
+      public Builder setSkipControlOffsetUs(long skipControlOffsetUs) {
+        if (skipControlOffsetUs == C.TIME_UNSET) {
+          return this;
+        }
+        if (this.skipControlOffsetUs != C.TIME_UNSET) {
+          checkArgument(
+              this.skipControlOffsetUs == skipControlOffsetUs,
+              "Can't change skipControlOffsetUs from "
+                  + this.skipControlOffsetUs
+                  + " to "
+                  + skipControlOffsetUs);
+        }
+        this.skipControlOffsetUs = skipControlOffsetUs;
+        return this;
+      }
+
+      /**
+       * Sets the skip control duration, in microseconds.
+       *
+       * @throws IllegalArgumentException if called with a value different to {@link C#TIME_UNSET}
+       *     and different to the value previously set.
+       */
+      @CanIgnoreReturnValue
+      public Builder setSkipControlDurationUs(long skipControlDurationUs) {
+        if (skipControlDurationUs == C.TIME_UNSET) {
+          return this;
+        }
+        if (this.skipControlDurationUs != C.TIME_UNSET) {
+          checkArgument(
+              this.skipControlDurationUs == skipControlDurationUs,
+              "Can't change skipControlDurationUs from "
+                  + this.skipControlDurationUs
+                  + " to "
+                  + skipControlDurationUs);
+        }
+        this.skipControlDurationUs = skipControlDurationUs;
+        return this;
+      }
+
+      /**
+       * Sets the skip control label ID.
+       *
+       * @throws IllegalArgumentException if called with a non-null value that is different to the
+       *     value previously set.
+       */
+      @CanIgnoreReturnValue
+      public Builder setSkipControlLabelId(@Nullable String skipControlLabelId) {
+        if (skipControlLabelId == null) {
+          return this;
+        }
+        if (this.skipControlLabelId != null) {
+          checkArgument(
+              this.skipControlLabelId.equals(skipControlLabelId),
+              "Can't change skipControlLabelId from "
+                  + this.skipControlLabelId
+                  + " to "
+                  + skipControlLabelId);
+        }
+        this.skipControlLabelId = skipControlLabelId;
+        return this;
+      }
+
+      /**
        * Builds and returns a new {@link Interstitial} instance or null if validation of the
        * properties fails. The properties are considered invalid, if the start date is missing or
        * both asset URI and asset list URI are set at the same time.
@@ -1113,7 +1215,10 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
               new ArrayList<>(clientDefinedAttributes.values()),
               contentMayVary == null || contentMayVary,
               timelineOccupies != null ? timelineOccupies : TIMELINE_OCCUPIES_POINT,
-              timelineStyle != null ? timelineStyle : TIMELINE_STYLE_HIGHLIGHT);
+              timelineStyle != null ? timelineStyle : TIMELINE_STYLE_HIGHLIGHT,
+              skipControlOffsetUs,
+              skipControlDurationUs,
+              skipControlLabelId);
         }
         return null;
       }
