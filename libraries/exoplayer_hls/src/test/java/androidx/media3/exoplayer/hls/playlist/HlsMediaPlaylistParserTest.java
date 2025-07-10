@@ -1344,6 +1344,56 @@ public class HlsMediaPlaylistParserTest {
   }
 
   @Test
+  public void parseMediaPlaylist_withInvalidDuration_durationUnset() throws IOException {
+    Uri playlistUri = Uri.parse("https://example.com/test.m3u8");
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:55:40.000Z\n"
+            + "#EXTINF:6,\n"
+            + "main1.0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad0-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:55:41.123Z\","
+            + "DURATION=-2.222," // negative value
+            + "PLANNED-DURATION=- 2.222," // negative value
+            + "X-PLAYOUT-LIMIT=-2.222," // negative value
+            + "X-RESUME-OFFSET=24.953741497,"
+            + "X-ASSET-URI=\"http://example.com/media-0-0.m3u8\""
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad0-1\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:55:41.123Z\","
+            + "DURATION=\"2.222\"," // string value
+            + "PLANNED-DURATION=\"2.222\"," // string value
+            + "X-PLAYOUT-LIMIT=\"2.222\"," // string value
+            + "X-RESUME-OFFSET=-24.953741497,"
+            + "X-ASSET-URI=\"http://example.com/media-0-0.m3u8\""
+            + "\n";
+    HlsPlaylistParser hlsPlaylistParser = new HlsPlaylistParser();
+
+    HlsMediaPlaylist mediaPlaylist =
+        (HlsMediaPlaylist)
+            hlsPlaylistParser.parse(
+                playlistUri, new ByteArrayInputStream(Util.getUtf8Bytes(playlistString)));
+
+    assertThat(mediaPlaylist.interstitials.get(0).id).isEqualTo("ad0-0");
+    assertThat(mediaPlaylist.interstitials.get(0).durationUs).isEqualTo(C.TIME_UNSET);
+    assertThat(mediaPlaylist.interstitials.get(0).plannedDurationUs).isEqualTo(C.TIME_UNSET);
+    assertThat(mediaPlaylist.interstitials.get(0).playoutLimitUs).isEqualTo(C.TIME_UNSET);
+    assertThat(mediaPlaylist.interstitials.get(0).resumeOffsetUs).isEqualTo(24953741L);
+    assertThat(mediaPlaylist.interstitials.get(1).id).isEqualTo("ad0-1");
+    assertThat(mediaPlaylist.interstitials.get(1).durationUs).isEqualTo(C.TIME_UNSET);
+    assertThat(mediaPlaylist.interstitials.get(1).plannedDurationUs).isEqualTo(C.TIME_UNSET);
+    assertThat(mediaPlaylist.interstitials.get(1).playoutLimitUs).isEqualTo(C.TIME_UNSET);
+    assertThat(mediaPlaylist.interstitials.get(1).resumeOffsetUs).isEqualTo(-24953741L);
+  }
+
+  @Test
   public void parseMediaPlaylist_withDurationAfterPlannedDuration_durationSetCorrectly()
       throws IOException {
     Uri playlistUri = Uri.parse("https://example.com/test.m3u8");
