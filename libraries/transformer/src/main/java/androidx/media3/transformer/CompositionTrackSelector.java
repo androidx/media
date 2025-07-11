@@ -112,8 +112,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    */
   private final class TrackSelectorInternal extends DefaultTrackSelector {
 
-    private static final int BLANK_IMAGE_TRACK_INDEX = 0;
-    private static final String BLANK_IMAGE_TRACK_GROUP_ID = BLANK_IMAGE_TRACK_INDEX + ":";
     private static final String SILENCE_AUDIO_TRACK_GROUP_ID = "1:";
     private final Listener listener;
     private final int sequenceIndex;
@@ -223,43 +221,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         @RendererCapabilities.Capabilities int[][][] rendererFormatSupports,
         Parameters params)
         throws ExoPlaybackException {
-
-      int imageRenderIndex = C.INDEX_UNSET;
-      for (int i = 0; i < mappedTrackInfo.getRendererCount(); i++) {
-        if (mappedTrackInfo.getRendererType(i) == C.TRACK_TYPE_IMAGE) {
-          imageRenderIndex = i;
-          break;
-        }
-      }
-      checkState(imageRenderIndex != C.INDEX_UNSET);
-
-      TrackGroupArray imageTrackGroups = mappedTrackInfo.getTrackGroups(imageRenderIndex);
-      // If there's only one image TrackGroup, there's no need to override track selection
-      if (imageTrackGroups.length > 1) {
-        // TODO(b/419255366): Support `removeVideo` full functionality
-        // Check if media image is playable.
-        boolean shouldUseMediaImage = false;
-        int blankImageTrackGroupIndex = C.INDEX_UNSET;
-        for (int i = 0; i < imageTrackGroups.length; i++) {
-          if (imageTrackGroups.get(i).id.startsWith(BLANK_IMAGE_TRACK_GROUP_ID)) {
-            blankImageTrackGroupIndex = i;
-            continue;
-          }
-          for (int j = 0; j < imageTrackGroups.get(i).length; j++) {
-            shouldUseMediaImage |=
-                RendererCapabilities.getFormatSupport(
-                        rendererFormatSupports[imageRenderIndex][i][j])
-                    == C.FORMAT_HANDLED;
-          }
-        }
-        checkState(blankImageTrackGroupIndex != C.INDEX_UNSET);
-
-        if (shouldUseMediaImage) {
-          // Disable blank images if the media's image track is playable.
-          rendererFormatSupports[imageRenderIndex][BLANK_IMAGE_TRACK_INDEX][0] =
-              RendererCapabilities.create(C.FORMAT_UNSUPPORTED_TYPE);
-        }
-      }
 
       @Nullable
       Pair<ExoTrackSelection.Definition, Integer> trackSelection =
