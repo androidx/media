@@ -8089,15 +8089,18 @@ public final class ExoPlayerTest {
   @Test
   public void setShuffleOrder_keepsCurrentPosition() throws Exception {
     AtomicLong positionAfterSetShuffleOrder = new AtomicLong(C.TIME_UNSET);
+    AtomicReference<ShuffleOrder> shuffleOrderRef = new AtomicReference<>();
+    FakeShuffleOrder shuffleOrder = new FakeShuffleOrder(/* length= */ 1);
     ActionSchedule actionSchedule =
         new ActionSchedule.Builder(TAG)
             .playUntilPosition(0, 5000)
-            .setShuffleOrder(new FakeShuffleOrder(/* length= */ 1))
+            .setShuffleOrder(shuffleOrder)
             .executeRunnable(
                 new PlayerRunnable() {
                   @Override
                   public void run(ExoPlayer player) {
                     positionAfterSetShuffleOrder.set(player.getCurrentPosition());
+                    shuffleOrderRef.set(player.getShuffleOrder());
                   }
                 })
             .play()
@@ -8109,6 +8112,7 @@ public final class ExoPlayerTest {
         .blockUntilEnded(TIMEOUT_MS);
 
     assertThat(positionAfterSetShuffleOrder.get()).isAtLeast(5000);
+    assertThat(shuffleOrderRef.get()).isEqualTo(shuffleOrder);
   }
 
   @Test

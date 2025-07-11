@@ -787,6 +787,12 @@ import java.util.concurrent.CopyOnWriteArraySet;
   }
 
   @Override
+  public ShuffleOrder getShuffleOrder() {
+    verifyApplicationThread();
+    return shuffleOrder;
+  }
+
+  @Override
   public void setPauseAtEndOfMediaItems(boolean pauseAtEndOfMediaItems) {
     verifyApplicationThread();
     if (this.pauseAtEndOfMediaItems == pauseAtEndOfMediaItems) {
