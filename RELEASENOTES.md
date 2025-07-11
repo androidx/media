@@ -7,6 +7,13 @@
 This release includes the following changes since the
 [1.8.0-rc01 release](#180-rc01-2025-07-16):
 
+*   ExoPlayer:
+    *   More clearly throw an exception if `DefaultAudioSink` is accessed from
+        multiple threads. If this happens due to a call to
+        `RendererCapabilities.getFormatSupport` outside of the player, make sure
+        to call this method on the same thread as ExoPlayer's playback thread or
+        use a different instance than the one used for playback
+        ([#1191](https://github.com/androidx/media/issues/1191)).
 *   Session:
     *   Remove check for available commands when sending custom commands to a
         legacy `MediaBrowserServiceCompat`. This is in parity with the behavior
