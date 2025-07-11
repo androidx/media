@@ -103,7 +103,7 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
   public static final class AssetList {
 
     /* package */ static final AssetList EMPTY =
-        new AssetList(ImmutableList.of(), ImmutableList.of());
+        new AssetList(ImmutableList.of(), ImmutableList.of(), /* skipControl= */ null);
 
     /** The list of assets. */
     public final ImmutableList<Asset> assets;
@@ -111,11 +111,17 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
     /** The list of string attributes of the asset list JSON object. */
     public final ImmutableList<StringAttribute> stringAttributes;
 
+    /** The skip control information, or {@code null} if not specified. */
+    @Nullable public final SkipControl skipControl;
+
     /** Creates an instance. */
     /* package */ AssetList(
-        ImmutableList<Asset> assets, ImmutableList<StringAttribute> stringAttributes) {
+        ImmutableList<Asset> assets,
+        ImmutableList<StringAttribute> stringAttributes,
+        @Nullable SkipControl skipControl) {
       this.assets = assets;
       this.stringAttributes = stringAttributes;
+      this.skipControl = skipControl;
     }
 
     @Override
@@ -128,12 +134,13 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
       }
       AssetList assetList = (AssetList) o;
       return Objects.equals(assets, assetList.assets)
-          && Objects.equals(stringAttributes, assetList.stringAttributes);
+          && Objects.equals(stringAttributes, assetList.stringAttributes)
+          && Objects.equals(skipControl, assetList.skipControl);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(assets, stringAttributes);
+      return Objects.hash(assets, stringAttributes, skipControl);
     }
   }
 
@@ -204,6 +211,49 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
     @Override
     public int hashCode() {
       return Objects.hash(name, value);
+    }
+  }
+
+  /**
+   * Holds skip control information for an asset list.
+   *
+   * <p>See RFC 8216bis, appendix D.3, SKIP-CONTROL.
+   */
+  public static final class SkipControl {
+
+    /** The offset, in microseconds. */
+    public final long offsetUs;
+
+    /** The duration, in microseconds. */
+    public final long durationUs;
+
+    /** The label ID. */
+    @Nullable public final String labelId;
+
+    /** Creates an instance. */
+    /* package */ SkipControl(long offsetUs, long durationUs, @Nullable String labelId) {
+      this.offsetUs = offsetUs;
+      this.durationUs = durationUs;
+      this.labelId = labelId;
+    }
+
+    @Override
+    public boolean equals(@Nullable Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof SkipControl)) {
+        return false;
+      }
+      SkipControl that = (SkipControl) o;
+      return offsetUs == that.offsetUs
+          && durationUs == that.durationUs
+          && Objects.equals(labelId, that.labelId);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(offsetUs, durationUs, labelId);
     }
   }
 

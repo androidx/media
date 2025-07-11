@@ -2388,7 +2388,8 @@ public class HlsInterstitialsAdsLoaderTest {
             /* adIndexInAdGroup= */ 0,
             new AssetList(
                 ImmutableList.of(new Asset(Uri.parse("http://0"), /* durationUs= */ 10_123_000L)),
-                ImmutableList.of()));
+                ImmutableList.of(),
+                /* skipControl= */ null));
     ArgumentCaptor<AdPlaybackState> adPlaybackStateCaptor =
         ArgumentCaptor.forClass(AdPlaybackState.class);
     verify(mockEventListener, times(2)).onAdPlaybackState(adPlaybackStateCaptor.capture());
@@ -3186,13 +3187,16 @@ public class HlsInterstitialsAdsLoaderTest {
         .containsExactly(
             new AssetList(
                 ImmutableList.of(new Asset(Uri.parse("http://0"), 10_123_000L)),
-                ImmutableList.of()),
+                ImmutableList.of(),
+                /* skipControl= */ null),
             new AssetList(
                 ImmutableList.of(new Asset(Uri.parse("http://0"), 10_123_000L)),
-                ImmutableList.of()),
+                ImmutableList.of(),
+                /* skipControl= */ null),
             new AssetList(
                 ImmutableList.of(new Asset(Uri.parse("http://0"), 10_123_000L)),
-                ImmutableList.of()))
+                ImmutableList.of(),
+                /* skipControl= */ null))
         .inOrder();
     // Timeline change immediately starts asset list resolution.
     verifyTimelineUpdate(inOrder, mockPlayer, /* verifyMessageScheduled= */ false);

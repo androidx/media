@@ -118,4 +118,150 @@ public class AssetListParserTest {
 
     assertThrows(EOFException.class, parsingLoadable::load);
   }
+
+  @Test
+  public void load_withSkipControl_parsesCorrectly() throws IOException {
+    byte[] assetListBytes =
+        ("{\"ASSETS\": [ "
+                + "{\"URI\": \"http://1\", \"DURATION\":1.23}"
+                + "],"
+                + "\"SKIP-CONTROL\": {"
+                + "\"OFFSET\": 4.56,"
+                + "\"DURATION\": 7.89,"
+                + "\"LABEL-ID\": \"test-label\""
+                + "}"
+                + " }")
+            .getBytes(Charset.defaultCharset());
+    ParsingLoadable<AssetList> parsingLoadable =
+        new ParsingLoadable<>(
+            new ByteArrayDataSource(assetListBytes),
+            Uri.EMPTY,
+            C.DATA_TYPE_AD,
+            new AssetListParser());
+
+    parsingLoadable.load();
+
+    AssetList result = parsingLoadable.getResult();
+    assertThat(result.assets)
+        .containsExactly(new Asset(Uri.parse("http://1"), /* durationUs= */ 1_230_000L));
+    assertThat(result.skipControl).isNotNull();
+    assertThat(result.skipControl.offsetUs).isEqualTo(4_560_000L);
+    assertThat(result.skipControl.durationUs).isEqualTo(7_890_000L);
+    assertThat(result.skipControl.labelId).isEqualTo("test-label");
+  }
+
+  @Test
+  public void load_withSkipControlPartial_parsesCorrectly() throws IOException {
+    byte[] assetListBytes =
+        ("{\"ASSETS\": [ "
+                + "{\"URI\": \"http://1\", \"DURATION\":1.23}"
+                + "],"
+                + "\"SKIP-CONTROL\": {"
+                + "\"OFFSET\": 4.56"
+                + "}"
+                + " }")
+            .getBytes(Charset.defaultCharset());
+    ParsingLoadable<AssetList> parsingLoadable =
+        new ParsingLoadable<>(
+            new ByteArrayDataSource(assetListBytes),
+            Uri.EMPTY,
+            C.DATA_TYPE_AD,
+            new AssetListParser());
+
+    parsingLoadable.load();
+
+    AssetList result = parsingLoadable.getResult();
+    assertThat(result.assets)
+        .containsExactly(new Asset(Uri.parse("http://1"), /* durationUs= */ 1_230_000L));
+    assertThat(result.skipControl).isNotNull();
+    assertThat(result.skipControl.offsetUs).isEqualTo(4_560_000L);
+    assertThat(result.skipControl.durationUs).isEqualTo(C.TIME_UNSET);
+    assertThat(result.skipControl.labelId).isNull();
+  }
+
+  @Test
+  public void load_withSkipControlInvalidOffset_skipControlIgnored() throws IOException {
+    byte[] assetListBytes =
+        ("{\"ASSETS\": [ "
+                + "{\"URI\": \"http://1\", \"DURATION\":1.23}"
+                + "],"
+                + "\"SKIP-CONTROL\": {"
+                + "\"OFFSET\": \"invalid\","
+                + "\"DURATION\": 7.89,"
+                + "\"LABEL-ID\": \"test-label\""
+                + "}"
+                + " }")
+            .getBytes(Charset.defaultCharset());
+    ParsingLoadable<AssetList> parsingLoadable =
+        new ParsingLoadable<>(
+            new ByteArrayDataSource(assetListBytes),
+            Uri.EMPTY,
+            C.DATA_TYPE_AD,
+            new AssetListParser());
+
+    parsingLoadable.load();
+
+    AssetList result = parsingLoadable.getResult();
+    assertThat(result.assets)
+        .containsExactly(new Asset(Uri.parse("http://1"), /* durationUs= */ 1_230_000L));
+    assertThat(result.skipControl).isNull();
+  }
+
+  @Test
+  public void load_withSkipControlMissingOffset_skipControlIgnored() throws IOException {
+    byte[] assetListBytes =
+        ("{\"ASSETS\": [ "
+                + "{\"URI\": \"http://1\", \"DURATION\":1.23}"
+                + "],"
+                + "\"SKIP-CONTROL\": {"
+                + "\"DURATION\": 7.89,"
+                + "\"LABEL-ID\": \"test-label\""
+                + "}"
+                + " }")
+            .getBytes(Charset.defaultCharset());
+    ParsingLoadable<AssetList> parsingLoadable =
+        new ParsingLoadable<>(
+            new ByteArrayDataSource(assetListBytes),
+            Uri.EMPTY,
+            C.DATA_TYPE_AD,
+            new AssetListParser());
+
+    parsingLoadable.load();
+
+    AssetList result = parsingLoadable.getResult();
+    assertThat(result.assets)
+        .containsExactly(new Asset(Uri.parse("http://1"), /* durationUs= */ 1_230_000L));
+    assertThat(result.skipControl).isNull();
+  }
+
+  @Test
+  public void load_withSkipControlInvalidValues_parsesCorrectly() throws IOException {
+    byte[] assetListBytes =
+        ("{\"ASSETS\": [ "
+                + "{\"URI\": \"http://1\", \"DURATION\":1.23}"
+                + "],"
+                + "\"SKIP-CONTROL\": {"
+                + "\"OFFSET\": 0,"
+                + "\"DURATION\": \"invalid type\","
+                + "\"LABEL-ID\": -12"
+                + "}"
+                + " }")
+            .getBytes(Charset.defaultCharset());
+    ParsingLoadable<AssetList> parsingLoadable =
+        new ParsingLoadable<>(
+            new ByteArrayDataSource(assetListBytes),
+            Uri.EMPTY,
+            C.DATA_TYPE_AD,
+            new AssetListParser());
+
+    parsingLoadable.load();
+
+    AssetList result = parsingLoadable.getResult();
+    assertThat(result.assets)
+        .containsExactly(new Asset(Uri.parse("http://1"), /* durationUs= */ 1_230_000L));
+    assertThat(result.skipControl).isNotNull();
+    assertThat(result.skipControl.offsetUs).isEqualTo(0);
+    assertThat(result.skipControl.durationUs).isEqualTo(C.TIME_UNSET);
+    assertThat(result.skipControl.labelId).isNull();
+  }
 }
