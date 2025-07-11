@@ -16,24 +16,20 @@
 
 package androidx.media3.ui.compose.state
 
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.media3.common.C
 import androidx.media3.common.Player.COMMAND_GET_CURRENT_MEDIA_ITEM
 import androidx.media3.common.SimpleBasePlayer.MediaItemData
 import androidx.media3.ui.compose.utils.TestPlayer
+import androidx.media3.ui.compose.utils.advanceTimeByInclusive
+import androidx.media3.ui.compose.utils.rememberCoroutineScopeWithBackgroundCancellation
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.collect.ImmutableList
 import com.google.common.truth.Truth.assertThat
-import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.plus
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestCoroutineScheduler
-import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import org.junit.Rule
 import org.junit.Test
@@ -368,31 +364,9 @@ class ProgressStateWithTickIntervalTest {
       assertThat(player.bufferedPosition).isEqualTo(123)
       assertThat(state.bufferedPositionMs).isEqualTo(0)
 
-      advanceTimeByInclusive((PAUSED_UPDATE_INTERVAL_MS - 500).milliseconds)
+      advanceTimeByInclusive((FALLBACK_UPDATE_INTERVAL_MS - 500).milliseconds)
 
       assertThat(player.bufferedPosition).isEqualTo(123)
       assertThat(state.bufferedPositionMs).isEqualTo(100)
     }
-
-  /**
-   * Moves the virtual clock of this dispatcher forward by [the specified amount][delayTime],
-   * running the scheduled tasks in the meantime.
-   *
-   * Compared to a single [kotlinx.coroutines.test.advanceTimeBy], it does run the tasks that are
-   * scheduled at exactly currentTime + [delayTime]. There is often a need for another run of the
-   * scheduled tasks because they contain exactly the update needed for a correct assertion of the
-   * test. If we will stop just before executing any task starting at the next millisecond, we might
-   * be off by one iteration/task and there would be a need to awkwardly advance by delayTime+1.
-   */
-  private fun TestScope.advanceTimeByInclusive(delayTime: Duration) {
-    testScheduler.advanceTimeBy(delayTime)
-    testScheduler.runCurrent()
-  }
-
-  // A scope that
-  // 1. inherits the job from backgroundScope for cancellation after test assertions
-  // 2. uses Composable's FrameClock to its context for animation, e.g. withFrameMillis
-  @Composable
-  private fun TestScope.rememberCoroutineScopeWithBackgroundCancellation(): CoroutineScope =
-    rememberCoroutineScope().plus(backgroundScope.coroutineContext)
 }

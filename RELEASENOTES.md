@@ -64,6 +64,10 @@
     *   Add `MuteButtonState` to `ui-compose` that handles muting of the
         `Player` volume. This state holder is used in `demo-compose` to display
         mute/unmute toggle button.
+    *   Add `ProgressStateWithTickCount` classes and the corresponding
+        `rememberProgressStateWithTickCount` Composable to `media3-ui-compose`
+        module. This state holder is used in `demo-compose` to display progress
+        as a horizontal read-only progress bar.
 *   Downloads:
 *   OkHttp extension:
 *   Cronet extension:

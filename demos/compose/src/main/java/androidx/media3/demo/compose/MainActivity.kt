@@ -23,9 +23,9 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
@@ -47,6 +47,7 @@ import androidx.media3.common.Player
 import androidx.media3.demo.compose.buttons.ExtraControls
 import androidx.media3.demo.compose.buttons.MinimalControls
 import androidx.media3.demo.compose.data.videos
+import androidx.media3.demo.compose.indicator.HorizontalLinearProgressIndicator
 import androidx.media3.demo.compose.layout.CONTENT_SCALES
 import androidx.media3.demo.compose.layout.noRippleClickable
 import androidx.media3.exoplayer.ExoPlayer
@@ -133,14 +134,11 @@ private fun MediaPlayerScreen(player: Player, modifier: Modifier = Modifier) {
 
     if (showControls) {
       // drawn on top of a potential shutter
-      MinimalControls(player, scaledModifier.fillMaxWidth().align(Alignment.Center))
-      ExtraControls(
-        player,
-        Modifier.fillMaxWidth()
-          .align(Alignment.BottomCenter)
-          .background(Color.Gray.copy(alpha = 0.4f))
-          .navigationBarsPadding(),
-      )
+      MinimalControls(player, Modifier.fillMaxWidth().align(Alignment.Center))
+      Column(Modifier.fillMaxWidth().align(Alignment.BottomCenter)) {
+        HorizontalLinearProgressIndicator(player, Modifier.fillMaxWidth())
+        ExtraControls(player, Modifier.fillMaxWidth().background(Color.Gray.copy(alpha = 0.4f)))
+      }
     }
 
     Button(

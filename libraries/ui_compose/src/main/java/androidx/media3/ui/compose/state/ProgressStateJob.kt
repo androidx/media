@@ -33,6 +33,7 @@ internal class ProgressStateJob(
   private val player: Player,
   private val scope: CoroutineScope,
   private val nextMediaTickMsSupplier: () -> Long,
+  private val shouldScheduleTask: () -> Boolean = { true },
   private val scheduledTask: () -> Unit,
 ) {
   private var updateJob: Job? = null
@@ -43,7 +44,7 @@ internal class ProgressStateJob(
    */
   internal suspend fun observeProgress(): Nothing = coroutineScope {
     // otherwise we don't update on recomposition of UI, only on Player.Events
-    cancelPendingUpdatesAndRelaunch()
+    cancelPendingUpdatesAndMaybeRelaunch()
     player.listen { events ->
       if (
         events.containsAny(
@@ -56,7 +57,7 @@ internal class ProgressStateJob(
       ) {
         scheduledTask()
         if (player.isCommandAvailable(Player.COMMAND_GET_CURRENT_MEDIA_ITEM)) {
-          cancelPendingUpdatesAndRelaunch()
+          cancelPendingUpdatesAndMaybeRelaunch()
         } else {
           updateJob?.cancel()
         }
@@ -64,16 +65,18 @@ internal class ProgressStateJob(
     }
   }
 
-  internal fun cancelPendingUpdatesAndRelaunch() {
+  internal fun cancelPendingUpdatesAndMaybeRelaunch() {
     updateJob?.cancel()
     scheduledTask()
-    updateJob =
-      scope.launch {
-        while (isActive) {
-          smartDelay()
-          scheduledTask()
+    if (shouldScheduleTask()) {
+      updateJob =
+        scope.launch {
+          while (isActive) {
+            smartDelay()
+            scheduledTask()
+          }
         }
-      }
+    }
   }
 
   /**
@@ -89,19 +92,19 @@ internal class ProgressStateJob(
     val nextMediaWakeUpPositionMs = nextMediaTickMsSupplier()
     if (player.isPlaying && nextMediaWakeUpPositionMs != C.TIME_UNSET) {
       val mediaTimeToNextTickMs = nextMediaWakeUpPositionMs - getCurrentPositionMsOrDefault(player)
-      if (mediaTimeToNextTickMs < MIN_UPDATE_INTERVAL_MS * player.playbackParameters.speed) {
+      // Convert the interval to wall-clock time
+      val realTimeToNextTickMs = mediaTimeToNextTickMs / player.playbackParameters.speed
+      if (realTimeToNextTickMs < MIN_UPDATE_INTERVAL_MS) {
         // Throttle by recomposition frequency
         withFrameMillis {}
       } else {
-        // Convert the specified interval to wall-clock time
-        val realTimeToNextTickMs = mediaTimeToNextTickMs / player.playbackParameters.speed
         // Prevent infinite delays by 0
         delay(realTimeToNextTickMs.toLong().coerceAtLeast(1L))
       }
     } else if (
       player.playbackState != Player.STATE_ENDED && player.playbackState != Player.STATE_IDLE
     ) {
-      delay(PAUSED_UPDATE_INTERVAL_MS)
+      delay(FALLBACK_UPDATE_INTERVAL_MS)
     }
   }
 }
@@ -133,4 +136,4 @@ internal fun getDurationMsOrDefault(player: Player): Long {
 // Taking highest frame rate as 120fps, interval is 1000/120
 @UnstableApi const val MIN_UPDATE_INTERVAL_MS = 8L
 @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
-const val PAUSED_UPDATE_INTERVAL_MS = 1000L
+const val FALLBACK_UPDATE_INTERVAL_MS = 1000L
