@@ -11,6 +11,12 @@
 *   ExoPlayer:
     *   Ensure renderers don't consume data from the next playlist item more
         than 10 seconds before the end of the current item.
+    *   More clearly throw an exception if `DefaultAudioSink` is accessed from
+        multiple threads. If this happens due to a call to
+        `RendererCapabilities.getFormatSupport` outside of the player, make sure
+        to call this method on the same thread as ExoPlayer's playback thread or
+        use a different instance than the one used for playback
+        ([#1191](https://github.com/androidx/media/issues/1191)).
 *   Transformer:
 *   Track Selection:
 *   Extractors:

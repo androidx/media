@@ -1668,17 +1668,13 @@ public final class DefaultAudioSink implements AudioSink {
 
   public void onAudioCapabilitiesChanged(AudioCapabilities audioCapabilities) {
     Looper myLooper = Looper.myLooper();
-    if (playbackLooper != myLooper) {
-      String playbackLooperName =
-          playbackLooper == null ? "null" : playbackLooper.getThread().getName();
-      String myLooperName = myLooper == null ? "null" : myLooper.getThread().getName();
-      throw new IllegalStateException(
-          "Current looper ("
-              + myLooperName
-              + ") is not the playback looper ("
-              + playbackLooperName
-              + ")");
-    }
+    checkState(
+        playbackLooper == myLooper,
+        "Current looper ("
+            + getLooperThreadName(myLooper)
+            + ") is not the playback looper ("
+            + getLooperThreadName(playbackLooper)
+            + ")");
     if (this.audioCapabilities != null && !audioCapabilities.equals(this.audioCapabilities)) {
       this.audioCapabilities = audioCapabilities;
       if (listener != null) {
@@ -1888,10 +1884,17 @@ public final class DefaultAudioSink implements AudioSink {
 
   @EnsuresNonNull("audioCapabilities")
   private void maybeStartAudioCapabilitiesReceiver() {
+    @Nullable Looper myLooper = Looper.myLooper();
+    checkState(
+        audioCapabilitiesReceiver == null || playbackLooper == myLooper,
+        "DefaultAudioSink accessed on multiple threads: "
+            + getLooperThreadName(playbackLooper)
+            + " and "
+            + getLooperThreadName(myLooper));
     if (audioCapabilitiesReceiver == null && context != null) {
       // Must be lazily initialized to receive audio capabilities receiver listener event on the
       // current (playback) thread as the constructor is not called in the playback thread.
-      playbackLooper = Looper.myLooper();
+      playbackLooper = myLooper;
       audioCapabilitiesReceiver =
           new AudioCapabilitiesReceiver(
               context, this::onAudioCapabilitiesChanged, audioAttributes, preferredDevice);
@@ -2459,6 +2462,10 @@ public final class DefaultAudioSink implements AudioSink {
     int rate = ExtractorUtil.getMaximumEncodedRateBytesPerSecond(encoding);
     checkState(rate != C.RATE_UNSET_INT);
     return rate;
+  }
+
+  private static String getLooperThreadName(@Nullable Looper looper) {
+    return looper == null ? "null" : looper.getThread().getName();
   }
 
   @RequiresApi(23)
