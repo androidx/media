@@ -100,15 +100,13 @@ class ProgressStateWithTickInterval(
   @IntRange(from = 0) private val tickIntervalMs: Long = 0,
   scope: CoroutineScope,
 ) {
-  var currentPositionMs by
-    mutableLongStateOf(snapPositionToNearestTick(player, ::getCurrentPositionMsOrDefault))
+  var currentPositionMs by mutableLongStateOf(0L)
     private set
 
-  var bufferedPositionMs by
-    mutableLongStateOf(snapPositionToNearestTick(player, ::getBufferedPositionMsOrDefault))
+  var bufferedPositionMs by mutableLongStateOf(0L)
     private set
 
-  var durationMs by mutableLongStateOf(getDurationMsOrDefault(player))
+  var durationMs by mutableLongStateOf(0L)
     private set
 
   private val updateJob =
@@ -116,15 +114,12 @@ class ProgressStateWithTickInterval(
       player,
       scope,
       nextMediaTickMsSupplier = ::nextMediaWakeUpPositionMs,
-      scheduledTask = {
-        currentPositionMs = snapPositionToNearestTick(player, ::getCurrentPositionMsOrDefault)
-        bufferedPositionMs = snapPositionToNearestTick(player, ::getBufferedPositionMsOrDefault)
-        durationMs = getDurationMsOrDefault(player)
-      },
+      scheduledTask = ::updateProgress,
     )
 
   init {
     require(tickIntervalMs >= 0)
+    updateProgress()
   }
 
   /**
@@ -147,6 +142,12 @@ class ProgressStateWithTickInterval(
     return nextMediaWakeUpPositionMs
   }
 
+  private fun updateProgress() {
+    currentPositionMs = snapPositionToNearestTick(::getCurrentPositionMsOrDefault)
+    bufferedPositionMs = snapPositionToNearestTick(::getBufferedPositionMsOrDefault)
+    durationMs = getDurationMsOrDefault(player)
+  }
+
   /**
    * Round the actual position to the nearest tick (i.e. integer number of tickIntervals). Rounding
    * happens in a stop-watch manner, i.e. always down - hence integer division.
@@ -154,7 +155,7 @@ class ProgressStateWithTickInterval(
    * Note how this is different to [ProgressStateWithTickCount] rounding that takes half of the
    * interval into account to round up.
    */
-  private fun snapPositionToNearestTick(player: Player, positionSupplier: (Player) -> Long): Long {
+  private fun snapPositionToNearestTick(positionSupplier: (Player) -> Long): Long {
     val actualPositionMs = positionSupplier(player)
     if (tickIntervalMs == 0L || actualPositionMs % tickIntervalMs == 0L) {
       return actualPositionMs
