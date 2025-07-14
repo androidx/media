@@ -98,6 +98,7 @@ public class TrackSelectionParameters {
     private ImmutableList<String> preferredAudioMimeTypes;
     private AudioOffloadPreferences audioOffloadPreferences;
     // Text
+    private boolean selectTextByDefault;
     private ImmutableList<String> preferredTextLanguages;
     private @C.RoleFlags int preferredTextRoleFlags;
     private boolean usePreferredTextLanguagesAndRoleFlagsFromCaptioningManager;
@@ -133,6 +134,7 @@ public class TrackSelectionParameters {
       preferredAudioMimeTypes = ImmutableList.of();
       audioOffloadPreferences = AudioOffloadPreferences.DEFAULT;
       // Text
+      selectTextByDefault = false;
       preferredTextLanguages = ImmutableList.of();
       preferredTextRoleFlags = 0;
       usePreferredTextLanguagesAndRoleFlagsFromCaptioningManager = true;
@@ -207,6 +209,8 @@ public class TrackSelectionParameters {
               firstNonNull(bundle.getStringArray(FIELD_PREFERRED_AUDIO_MIME_TYPES), new String[0]));
       audioOffloadPreferences = getAudioOffloadPreferencesFromBundle(bundle);
       // Text
+      selectTextByDefault =
+          bundle.getBoolean(FIELD_SELECT_TEXT_BY_DEFAULT, DEFAULT.selectTextByDefault);
       preferredTextLanguages =
           normalizeLanguageCodes(
               firstNonNull(bundle.getStringArray(FIELD_PREFERRED_TEXT_LANGUAGES), new String[0]));
@@ -311,6 +315,7 @@ public class TrackSelectionParameters {
       preferredAudioMimeTypes = parameters.preferredAudioMimeTypes;
       audioOffloadPreferences = parameters.audioOffloadPreferences;
       // Text
+      selectTextByDefault = parameters.selectTextByDefault;
       preferredTextLanguages = parameters.preferredTextLanguages;
       preferredTextRoleFlags = parameters.preferredTextRoleFlags;
       usePreferredTextLanguagesAndRoleFlagsFromCaptioningManager =
@@ -659,6 +664,22 @@ public class TrackSelectionParameters {
     }
 
     // Text
+
+    /**
+     * Sets whether to prefer to select any text track by default.
+     *
+     * <p>If {@code false}, text tracks are only selected if they match any of the other preference
+     * settings.
+     *
+     * @param selectTextByDefault Whether to prefer to select any text track by default.
+     * @return This builder.
+     */
+    @UnstableApi
+    @CanIgnoreReturnValue
+    public Builder setSelectTextByDefault(boolean selectTextByDefault) {
+      this.selectTextByDefault = selectTextByDefault;
+      return this;
+    }
 
     /**
      * Sets whether the preferred languages and the preferred role flags for text tracks should be
@@ -1229,6 +1250,16 @@ public class TrackSelectionParameters {
 
   // Text
   /**
+   * Prefer to select any text track by default.
+   *
+   * <p>If {@code false}, text tracks are only selected if they match any of the other preference
+   * settings.
+   *
+   * <p>The default value is {@code false}.
+   */
+  @UnstableApi public final boolean selectTextByDefault;
+
+  /**
    * The preferred languages for text tracks as IETF BCP 47 conformant tags in order of preference.
    * An empty list selects the default track if there is one, or no track otherwise. The default
    * value is an empty list.
@@ -1319,6 +1350,7 @@ public class TrackSelectionParameters {
     this.preferredAudioMimeTypes = builder.preferredAudioMimeTypes;
     this.audioOffloadPreferences = builder.audioOffloadPreferences;
     // Text
+    this.selectTextByDefault = builder.selectTextByDefault;
     this.preferredTextLanguages = builder.preferredTextLanguages;
     this.preferredTextRoleFlags = builder.preferredTextRoleFlags;
     this.usePreferredTextLanguagesAndRoleFlagsFromCaptioningManager =
@@ -1374,6 +1406,7 @@ public class TrackSelectionParameters {
         && preferredAudioMimeTypes.equals(other.preferredAudioMimeTypes)
         && audioOffloadPreferences.equals(other.audioOffloadPreferences)
         // Text
+        && selectTextByDefault == other.selectTextByDefault
         && preferredTextLanguages.equals(other.preferredTextLanguages)
         && preferredTextRoleFlags == other.preferredTextRoleFlags
         && usePreferredTextLanguagesAndRoleFlagsFromCaptioningManager
@@ -1416,6 +1449,7 @@ public class TrackSelectionParameters {
     result = 31 * result + preferredAudioMimeTypes.hashCode();
     result = 31 * result + audioOffloadPreferences.hashCode();
     // Text
+    result = 31 * result + (selectTextByDefault ? 1 : 0);
     result = 31 * result + preferredTextLanguages.hashCode();
     result = 31 * result + preferredTextRoleFlags;
     result = 31 * result + (usePreferredTextLanguagesAndRoleFlagsFromCaptioningManager ? 1 : 0);
@@ -1469,6 +1503,7 @@ public class TrackSelectionParameters {
   private static final String
       FIELD_USE_PREFERRED_TEXT_LANGUAGES_AND_ROLE_FLAGS_FROM_CAPTIONING_MANAGER =
           Util.intToStringMaxRadix(34);
+  private static final String FIELD_SELECT_TEXT_BY_DEFAULT = Util.intToStringMaxRadix(35);
 
   /**
    * Defines a minimum field ID value for subclasses to use when implementing {@link #toBundle()}
@@ -1513,6 +1548,7 @@ public class TrackSelectionParameters {
     bundle.putStringArray(
         FIELD_PREFERRED_AUDIO_MIME_TYPES, preferredAudioMimeTypes.toArray(new String[0]));
     // Text
+    bundle.putBoolean(FIELD_SELECT_TEXT_BY_DEFAULT, selectTextByDefault);
     bundle.putStringArray(
         FIELD_PREFERRED_TEXT_LANGUAGES, preferredTextLanguages.toArray(new String[0]));
     bundle.putInt(FIELD_PREFERRED_TEXT_ROLE_FLAGS, preferredTextRoleFlags);

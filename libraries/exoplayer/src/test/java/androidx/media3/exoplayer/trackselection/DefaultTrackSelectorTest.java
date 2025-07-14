@@ -1520,6 +1520,99 @@ public final class DefaultTrackSelectorTest {
     assertFixedSelection(result.selections[0], trackGroups, lessRoleFlags);
   }
 
+  @Test
+  public void selectTracks_selectTextByDefault_selectsTrackWhenNoOtherPreferencesSet()
+      throws Exception {
+    // A text track with no language, role, or selection flags.
+    Format plainTextFormat = TEXT_FORMAT.buildUpon().setLanguage(null).build();
+    TrackGroupArray trackGroups = wrapFormats(plainTextFormat);
+    RendererCapabilities[] rendererCapabilities =
+        new RendererCapabilities[] {ALL_TEXT_FORMAT_SUPPORTED_RENDERER_CAPABILITIES};
+
+    // With default parameters, the track is not selected as it matches no preference.
+    TrackSelectorResult result =
+        trackSelector.selectTracks(rendererCapabilities, trackGroups, periodId, TIMELINE);
+
+    assertNoSelection(result.selections[0]);
+
+    // When selectTextByDefault is true, the track is selected.
+    trackSelector.setParameters(defaultParameters.buildUpon().setSelectTextByDefault(true).build());
+    result = trackSelector.selectTracks(rendererCapabilities, trackGroups, periodId, TIMELINE);
+
+    assertFixedSelection(result.selections[0], trackGroups, plainTextFormat);
+  }
+
+  @Test
+  public void selectTracks_selectTextByDefault_selectsTrackEvenIfOtherPreferencesDoNotMatch()
+      throws Exception {
+    // A text track with a language, but no role or selection flags.
+    Format frenchTextFormat = TEXT_FORMAT.buildUpon().setLanguage("fra").build();
+    TrackGroupArray trackGroups = wrapFormats(frenchTextFormat);
+    RendererCapabilities[] rendererCapabilities =
+        new RendererCapabilities[] {ALL_TEXT_FORMAT_SUPPORTED_RENDERER_CAPABILITIES};
+
+    // With preferred language "eng", the track is not selected.
+    trackSelector.setParameters(defaultParameters.buildUpon().setPreferredTextLanguage("eng"));
+    TrackSelectorResult result =
+        trackSelector.selectTracks(rendererCapabilities, trackGroups, periodId, TIMELINE);
+    assertNoSelection(result.selections[0]);
+
+    // When selectTextByDefault is true, the track is selected even if the preferred language does
+    // not match.
+    trackSelector.setParameters(
+        defaultParameters
+            .buildUpon()
+            .setPreferredTextLanguage("eng")
+            .setSelectTextByDefault(true)
+            .build());
+    result = trackSelector.selectTracks(rendererCapabilities, trackGroups, periodId, TIMELINE);
+
+    assertFixedSelection(result.selections[0], trackGroups, frenchTextFormat);
+  }
+
+  @Test
+  public void selectTracks_selectTextByDefault_stillPrefersLanguageMatch() throws Exception {
+    Format otherLanguageFormat = TEXT_FORMAT.buildUpon().setLanguage("deu").build();
+    Format preferredLanguageFormat = TEXT_FORMAT.buildUpon().setLanguage("eng").build();
+    TrackGroupArray trackGroups = wrapFormats(otherLanguageFormat, preferredLanguageFormat);
+    RendererCapabilities[] rendererCapabilities =
+        new RendererCapabilities[] {ALL_TEXT_FORMAT_SUPPORTED_RENDERER_CAPABILITIES};
+
+    // With selectTextByDefault=true, both tracks are eligible, but the one matching the
+    // preferred language should be chosen.
+    trackSelector.setParameters(
+        defaultParameters
+            .buildUpon()
+            .setSelectTextByDefault(true)
+            .setPreferredTextLanguage("eng")
+            .build());
+    TrackSelectorResult result =
+        trackSelector.selectTracks(rendererCapabilities, trackGroups, periodId, TIMELINE);
+
+    assertFixedSelection(result.selections[0], trackGroups, preferredLanguageFormat);
+  }
+
+  @Test
+  public void selectTracks_selectTextByDefault_hasNoEffectIfTextTrackTypeIsDisabled()
+      throws Exception {
+    Format plainTextFormat = TEXT_FORMAT.buildUpon().setLanguage(null).build();
+    TrackGroupArray trackGroups = wrapFormats(plainTextFormat);
+    RendererCapabilities[] rendererCapabilities =
+        new RendererCapabilities[] {ALL_TEXT_FORMAT_SUPPORTED_RENDERER_CAPABILITIES};
+
+    // Even with selectTextByDefault=true, no track is selected if the text type is disabled.
+    trackSelector.setParameters(
+        defaultParameters
+            .buildUpon()
+            .setSelectTextByDefault(true)
+            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+            .build());
+    TrackSelectorResult result =
+        trackSelector.selectTracks(rendererCapabilities, trackGroups, periodId, TIMELINE);
+
+    assertNoSelection(result.selections[0]);
+  }
+
   /**
    * Tests that track selector will select the lowest bitrate supported audio track when {@link
    * Parameters#forceLowestBitrate} is set.
@@ -3449,6 +3542,7 @@ public final class DefaultTrackSelectorTest {
         .setPreferredAudioMimeTypes(MimeTypes.AUDIO_AC3, MimeTypes.AUDIO_E_AC3)
         .setConstrainAudioChannelCountToDeviceCapabilities(false)
         // Text
+        .setSelectTextByDefault(true)
         .setPreferredTextLanguages("de", "en")
         .setPreferredTextRoleFlags(C.ROLE_FLAG_CAPTION)
         .setSelectUndeterminedTextLanguage(true)

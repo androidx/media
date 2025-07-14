@@ -535,6 +535,14 @@ public class DefaultTrackSelector extends MappingTrackSelector
     @SuppressWarnings("deprecation") // Intentionally returning deprecated type
     @CanIgnoreReturnValue
     @Override
+    public ParametersBuilder setSelectTextByDefault(boolean selectTextByDefault) {
+      delegate.setSelectTextByDefault(selectTextByDefault);
+      return this;
+    }
+
+    @SuppressWarnings("deprecation") // Intentionally returning deprecated type
+    @CanIgnoreReturnValue
+    @Override
     public ParametersBuilder setPreferredTextLanguageAndRoleFlagsToCaptioningManagerSettings() {
       delegate.setPreferredTextLanguageAndRoleFlagsToCaptioningManagerSettings();
       return this;
@@ -1388,6 +1396,13 @@ public class DefaultTrackSelector extends MappingTrackSelector
       }
 
       // Text
+
+      @CanIgnoreReturnValue
+      @Override
+      public Builder setSelectTextByDefault(boolean selectTextByDefault) {
+        super.setSelectTextByDefault(selectTextByDefault);
+        return this;
+      }
 
       @CanIgnoreReturnValue
       @Override
@@ -4150,7 +4165,8 @@ public class DefaultTrackSelector extends MappingTrackSelector
           preferredLanguageScore > 0
               || (parameters.preferredTextLanguages.isEmpty() && preferredRoleFlagsScore > 0)
               || isDefault
-              || (isForced && selectedAudioLanguageScore > 0);
+              || (isForced && selectedAudioLanguageScore > 0)
+              || parameters.selectTextByDefault;
       selectionEligibility =
           isFormatSupported(trackFormatSupport, parameters.exceedRendererCapabilitiesIfNecessary)
                   && isWithinConstraints

@@ -21,6 +21,9 @@
         ([#1191](https://github.com/androidx/media/issues/1191)).
 *   Transformer:
 *   Track Selection:
+    *   Add `TrackSelectionParameters.selectTextByDefault` to prefer the
+        selection of any text track without specifying other more specific
+        preferences.
 *   Extractors:
 *   DataSource:
 *   Audio:
