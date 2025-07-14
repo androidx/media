@@ -452,7 +452,7 @@ public class ForwardingSimpleBasePlayer extends SimpleBasePlayer {
   }
 
   @EnsuresNonNull({
-    "player",
+    "this.player",
     "lastTimedMetadata",
     "playWhenReadyChangeReason",
     "pendingDiscontinuityReason",
