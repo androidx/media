@@ -30,6 +30,7 @@ import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.EGLSurfaceTexture;
 import androidx.media3.common.util.EGLSurfaceTexture.SecureMode;
 import androidx.media3.common.util.GlUtil;
+import androidx.media3.common.util.GlUtil.GlException;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import com.google.errorprone.annotations.InlineMe;
@@ -114,17 +115,22 @@ public final class PlaceholderSurface extends Surface {
   }
 
   private static @SecureMode int getSecureMode(Context context) {
-    if (GlUtil.isProtectedContentExtensionSupported(context)) {
-      if (GlUtil.isSurfacelessContextExtensionSupported()) {
-        return SECURE_MODE_SURFACELESS_CONTEXT;
+    try {
+      if (GlUtil.isProtectedContentExtensionSupported(context)) {
+        if (GlUtil.isSurfacelessContextExtensionSupported()) {
+          return SECURE_MODE_SURFACELESS_CONTEXT;
+        } else {
+          // If we can't use surfaceless contexts, we use a protected 1 * 1 pixel buffer surface.
+          // This may require support for EXT_protected_surface, but in practice it works on some
+          // devices that don't have that extension. See also
+          // https://github.com/google/ExoPlayer/issues/3558.
+          return SECURE_MODE_PROTECTED_PBUFFER;
+        }
       } else {
-        // If we can't use surfaceless contexts, we use a protected 1 * 1 pixel buffer surface.
-        // This may require support for EXT_protected_surface, but in practice it works on some
-        // devices that don't have that extension. See also
-        // https://github.com/google/ExoPlayer/issues/3558.
-        return SECURE_MODE_PROTECTED_PBUFFER;
+        return SECURE_MODE_NONE;
       }
-    } else {
+    } catch (GlException e) {
+      Log.e(TAG, "Failed to determine secure mode due to GL error: " + e.getMessage());
       return SECURE_MODE_NONE;
     }
   }

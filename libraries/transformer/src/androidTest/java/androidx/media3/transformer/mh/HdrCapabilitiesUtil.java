@@ -107,9 +107,6 @@ public final class HdrCapabilitiesUtil {
   public static void assumeDeviceSupportsHdrColorTransfer(String testId, Format format)
       throws JSONException, IOException, GlException {
     checkStateNotNull(format.colorInfo);
-    // Required to ensure EGL extensions are initialised.
-    @SuppressWarnings("unused")
-    EGLDisplay eglDisplay = GlUtil.getDefaultEglDisplay();
     if (!GlUtil.isColorTransferSupported(format.colorInfo.colorTransfer)) {
       String skipReason =
           "HDR display not supported for sampleMimeType "
