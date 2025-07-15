@@ -23,7 +23,7 @@ import static androidx.media3.session.MediaConstants.EXTRAS_KEY_ERROR_RESOLUTION
 import static androidx.media3.session.MediaConstants.EXTRAS_KEY_ERROR_RESOLUTION_ACTION_LABEL_COMPAT;
 import static androidx.media3.session.MediaConstants.EXTRAS_VALUE_COMPLETION_STATUS_PARTIALLY_PLAYED;
 import static androidx.media3.session.MediaConstants.EXTRA_KEY_ROOT_CHILDREN_BROWSABLE_ONLY;
-import static androidx.media3.session.MediaLibraryService.MediaLibrarySession.LIBRARY_ERROR_REPLICATION_MODE_FATAL;
+import static androidx.media3.session.MediaLibraryService.MediaLibrarySession.LIBRARY_ERROR_REPLICATION_MODE_NON_FATAL;
 import static androidx.media3.session.SessionError.ERROR_BAD_VALUE;
 import static androidx.media3.session.SessionError.ERROR_SESSION_AUTHENTICATION_EXPIRED;
 import static androidx.media3.session.SessionError.ERROR_SESSION_SKIP_LIMIT_REACHED;
@@ -226,7 +226,7 @@ public class MockMediaLibraryService extends MediaLibraryService {
               .getConnectionHints()
               .getInt(
                   CONNECTION_HINTS_KEY_LIBRARY_ERROR_REPLICATION_MODE,
-                  LIBRARY_ERROR_REPLICATION_MODE_FATAL);
+                  LIBRARY_ERROR_REPLICATION_MODE_NON_FATAL);
       Bundle playlistAddExtras = new Bundle();
       playlistAddExtras.putString("key-1", "playlist_add");
       Bundle radioExtras = new Bundle();

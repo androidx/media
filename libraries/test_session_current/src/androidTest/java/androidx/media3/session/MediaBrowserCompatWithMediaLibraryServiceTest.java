@@ -529,23 +529,24 @@ public class MediaBrowserCompatWithMediaLibraryServiceTest
   }
 
   @Test
-  public void getChildren_errorResultWithDefaultErrorReplication_legacyPlaybackStateWithFatalError()
-      throws Exception {
+  public void
+      getChildren_errorResultWithDefaultErrorReplication_legacyPlaybackStateWithNonFatalError()
+          throws Exception {
     connectAndWait(/* rootHints= */ Bundle.EMPTY);
     subscribeAndAssertServiceCallbackErrorWithAuthErrorReplicated(
-        PARENT_ID_AUTH_EXPIRED_ERROR, /* assertFatalError= */ true);
+        PARENT_ID_AUTH_EXPIRED_ERROR, /* assertFatalError= */ false);
   }
 
   @Test
   public void
-      getChildren_deprecatedErrorResultWithDefaultErrorReplication_legacyPlaybackStateWithFatalError()
+      getChildren_deprecatedErrorResultWithDefaultErrorReplication_legacyPlaybackStateWithNonFatalError()
           throws Exception {
     connectAndWait(/* rootHints= */ Bundle.EMPTY);
     // Tests the deprecated approach where apps were expected to pass the error extras back as the
     // extras of the LibraryParams of the LibraryResult because the SessionError type didn't then
     // exist as part of the LibraryResult.
     subscribeAndAssertServiceCallbackErrorWithAuthErrorReplicated(
-        PARENT_ID_AUTH_EXPIRED_ERROR_DEPRECATED, /* assertFatalError= */ true);
+        PARENT_ID_AUTH_EXPIRED_ERROR_DEPRECATED, /* assertFatalError= */ false);
   }
 
   @Test

@@ -459,7 +459,7 @@ public abstract class MediaLibraryService extends MediaSessionService {
       @UnstableApi
       public Builder(Context context, Player player, Callback callback) {
         super(context, player, callback);
-        libraryErrorReplicationMode = LIBRARY_ERROR_REPLICATION_MODE_FATAL;
+        libraryErrorReplicationMode = LIBRARY_ERROR_REPLICATION_MODE_NON_FATAL;
       }
 
       /**
@@ -643,7 +643,7 @@ public abstract class MediaLibraryService extends MediaSessionService {
        * android.support.v4.media.MediaBrowserCompat} and {@link android.media.browse.MediaBrowser})
        * to which no error codes can be transmitted as a result of the service call.
        *
-       * <p>The default is {@link #LIBRARY_ERROR_REPLICATION_MODE_FATAL}.
+       * <p>The default is {@link #LIBRARY_ERROR_REPLICATION_MODE_NON_FATAL}.
        *
        * <p>{@link MediaLibrarySession.Callback#onGetLibraryRoot} is exempted from replication,
        * because this method is part of the connection process of a legacy browser.
