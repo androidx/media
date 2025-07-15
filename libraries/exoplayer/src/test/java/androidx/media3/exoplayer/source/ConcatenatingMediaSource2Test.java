@@ -16,6 +16,7 @@
 package androidx.media3.exoplayer.source;
 
 import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLooperUntil;
+import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.runUntilPlaybackState;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.truth.Truth.assertThat;
@@ -25,6 +26,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
@@ -789,6 +791,69 @@ public final class ConcatenatingMediaSource2Test {
       timeline.getPeriod(periodIndexAfterPrepare, period);
       assertThat(period.getAdGroupIndexForPositionUs(period.durationUs))
           .isNotEqualTo(C.INDEX_UNSET);
+    }
+  }
+
+  @Test
+  public void playback_fromPositionBeyondDuration_startsFromEndAndPlaysToEnd() throws Exception {
+    Timeline.Period period = new Timeline.Period();
+    Timeline.Window window = new Timeline.Window();
+    ExoPlayer player =
+        new TestExoPlayerBuilder(ApplicationProvider.getApplicationContext())
+            .setClock(testClock)
+            .build();
+    MediaSource mediaSource = config.mediaSourceSupplier.apply(testClock);
+    player.setMediaSource(mediaSource);
+    Player.Listener eventListener = mock(Player.Listener.class);
+    player.addListener(eventListener);
+    player.addAnalyticsListener(new EventLogger());
+
+    player.seekTo(999_999_999_999L);
+    player.prepare();
+    AtomicBoolean longWaitTimeUntilAllTimelinesUpdatesAreDone = new AtomicBoolean();
+    testClock
+        .createHandler(Looper.getMainLooper(), /* callback= */ null)
+        .postDelayed(() -> longWaitTimeUntilAllTimelinesUpdatesAreDone.set(true), 5_000);
+    advance(player)
+        .untilBackgroundThreadCondition(longWaitTimeUntilAllTimelinesUpdatesAreDone::get);
+    Timeline timeline = player.getCurrentTimeline();
+    long windowPositionAfterPrepareMs = player.getContentPosition();
+    boolean isPlayingAd = player.isPlayingAd();
+    Pair<Object, Long> periodPositionUs =
+        timeline.getPeriodPositionUs(window, period, 0, Util.msToUs(windowPositionAfterPrepareMs));
+    int periodIndexAfterPrepare = timeline.getIndexOfPeriod(periodPositionUs.first);
+    long periodPositionAfterPrepareMs = Util.usToMs(periodPositionUs.second);
+    boolean isDynamic = player.isCurrentMediaItemDynamic();
+    if (!isDynamic) {
+      // Dynamic streams never enter the ENDED state.
+      player.play();
+      runUntilPlaybackState(player, Player.STATE_ENDED);
+    }
+    player.release();
+
+    ExpectedTimelineData expectedData = getLast(config.expectedTimelineData);
+    int lastPeriodIndex = expectedData.periodDurationsMs.length - 1;
+    long lastPeriodDurationMs =
+        expectedData.periodDurationsMs[expectedData.periodDurationsMs.length - 1];
+    long lastPeriodOffsetInWindowMs =
+        expectedData.periodOffsetsInWindowMs[expectedData.periodOffsetsInWindowMs.length - 1];
+    if (!isPlayingAd) {
+      assertThat(periodIndexAfterPrepare).isEqualTo(lastPeriodIndex);
+      if (lastPeriodDurationMs == C.TIME_UNSET) {
+        assertThat(windowPositionAfterPrepareMs).isEqualTo(999_999_999_999L);
+        assertThat(periodPositionAfterPrepareMs)
+            .isEqualTo(999_999_999_999L - lastPeriodOffsetInWindowMs);
+      } else {
+        assertThat(windowPositionAfterPrepareMs).isEqualTo(expectedData.windowDurationMs - 1);
+        assertThat(periodPositionAfterPrepareMs).isEqualTo(lastPeriodDurationMs - 1);
+      }
+      verify(eventListener, never())
+          .onPositionDiscontinuity(any(), any(), eq(Player.DISCONTINUITY_REASON_AUTO_TRANSITION));
+    } else {
+      // Seek beyond ad period: assert roll forward to un-played ad period.
+      assertThat(periodIndexAfterPrepare).isLessThan(lastPeriodIndex);
+      verify(eventListener, atLeast(1))
+          .onPositionDiscontinuity(any(), any(), eq(Player.DISCONTINUITY_REASON_AUTO_TRANSITION));
     }
   }
 
