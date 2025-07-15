@@ -24,6 +24,10 @@
     *   Add `TrackSelectionParameters.selectTextByDefault` to prefer the
         selection of any text track without specifying other more specific
         preferences.
+    *   Add `preferredVideoLabels`, `preferredAudioLabels` and
+        `preferredTextLabels` in `TrackSelectionParameters` to specify a
+        preference for tracks with a specific label, for example those read from
+        HLS NAME tags ([#1666](https://github.com/androidx/media/issues/1666)).
 *   Extractors:
 *   DataSource:
 *   Audio:
