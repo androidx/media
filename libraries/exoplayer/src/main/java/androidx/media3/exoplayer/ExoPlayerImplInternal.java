@@ -18,6 +18,7 @@ package androidx.media3.exoplayer;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.castNonNull;
+import static androidx.media3.common.util.Util.constrainValue;
 import static androidx.media3.common.util.Util.msToUs;
 import static androidx.media3.exoplayer.MediaPeriodQueue.UPDATE_PERIOD_QUEUE_ALTERED_PREWARMING_PERIOD;
 import static androidx.media3.exoplayer.MediaPeriodQueue.UPDATE_PERIOD_QUEUE_ALTERED_READING_PERIOD;
@@ -3545,6 +3546,13 @@ import java.util.Objects;
             timeline.getPeriodPositionUs(window, period, windowIndex, windowPositionUs);
         newPeriodUid = periodPositionUs.first;
         newContentPositionUs = periodPositionUs.second;
+      } else {
+        // For all other periods, we may need to clip the duration again.
+        long newPeriodDurationUs = timeline.getPeriodByUid(newPeriodUid, period).durationUs;
+        if (newPeriodDurationUs != C.TIME_UNSET) {
+          newContentPositionUs =
+              constrainValue(newContentPositionUs, /* min= */ 0, /* max= */ period.durationUs - 1);
+        }
       }
       // Use an explicitly requested content position as new target live offset.
       setTargetLiveOffset = true;
