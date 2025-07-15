@@ -34,6 +34,7 @@ import static java.lang.Math.max;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.annotation.TargetApi;
+import android.content.Context;
 import android.media.MediaCodec;
 import android.media.MediaCodec.CodecException;
 import android.media.MediaCrypto;
@@ -403,6 +404,8 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   private boolean hasSkippedFlushAndWaitingForQueueInputBuffer;
   private long skippedFlushOffsetUs;
 
+  private final Context context;
+
   /**
    * @param trackType The {@link C.TrackType track type} that the renderer handles.
    * @param codecAdapterFactory A factory for {@link MediaCodecAdapter} instances.
@@ -415,12 +418,14 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
    *     explicitly using {@link MediaFormat#KEY_OPERATING_RATE}).
    */
   public MediaCodecRenderer(
+      Context context,
       @C.TrackType int trackType,
       MediaCodecAdapter.Factory codecAdapterFactory,
       MediaCodecSelector mediaCodecSelector,
       boolean enableDecoderFallback,
       float assumedMinimumCodecOperatingRate) {
     super(trackType);
+    this.context = context;
     this.codecAdapterFactory = codecAdapterFactory;
     this.mediaCodecSelector = checkNotNull(mediaCodecSelector);
     this.enableDecoderFallback = enableDecoderFallback;
@@ -1296,7 +1301,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     }
     codecInitializedTimestamp = getClock().elapsedRealtime();
 
-    if (!codecInfo.isFormatSupported(inputFormat)) {
+    if (!codecInfo.isFormatSupported(context, inputFormat)) {
       Log.w(
           TAG,
           Util.formatInvariant(
