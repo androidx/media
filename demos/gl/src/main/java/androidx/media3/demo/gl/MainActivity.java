@@ -32,6 +32,7 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.GlUtil;
+import androidx.media3.common.util.GlUtil.GlException;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DefaultDataSource;
@@ -77,10 +78,16 @@ public final class MainActivity extends Activity {
 
     Context context = getApplicationContext();
     boolean requestSecureSurface = getIntent().hasExtra(DRM_SCHEME_EXTRA);
-    if (requestSecureSurface && !GlUtil.isProtectedContentExtensionSupported(context)) {
-      Toast.makeText(
-              context, R.string.error_protected_content_extension_not_supported, Toast.LENGTH_LONG)
-          .show();
+    try {
+      if (requestSecureSurface && !GlUtil.isProtectedContentExtensionSupported(context)) {
+        Toast.makeText(
+                context,
+                R.string.error_protected_content_extension_not_supported,
+                Toast.LENGTH_LONG)
+            .show();
+      }
+    } catch (GlException e) {
+      Toast.makeText(context, R.string.gl_error_occurred, Toast.LENGTH_LONG).show();
     }
 
     VideoProcessingGLSurfaceView videoProcessingGLSurfaceView =
