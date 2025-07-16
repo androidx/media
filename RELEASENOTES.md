@@ -84,6 +84,9 @@
 *   RTMP extension:
 *   HLS extension:
     *   Parse HLS interstitial skip attributes.
+    *   Fix bug where `HlsSampleStreamWrapper` attempts to seek inside buffer
+        when there are no chunks available in the buffer
+        [#2598](https://github.com/androidx/media/issues/2598).
 *   DASH extension:
 *   Smooth Streaming extension:
 *   RTSP extension:
