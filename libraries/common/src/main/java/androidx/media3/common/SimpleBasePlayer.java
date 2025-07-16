@@ -1894,7 +1894,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
             uid,
             windowIndex,
             /* durationUs= */ positionInFirstPeriodUs + durationUs,
-            /* positionInWindowUs= */ 0,
+            /* positionInWindowUs= */ -positionInFirstPeriodUs,
             AdPlaybackState.NONE,
             isPlaceholder);
       } else {
