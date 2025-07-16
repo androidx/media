@@ -20,6 +20,10 @@ This release includes the following changes since the
     *   Remove check for available commands when sending custom commands to a
         legacy `MediaBrowserServiceCompat`. This is in parity with the behavior
         of legacy controllers/browsers when connected to a legacy app.
+* HLS extension
+    *   Fix bug where `HlsSampleStreamWrapper` attempts to seek inside buffer
+        when there are no chunks available in the buffer
+        [#2598](https://github.com/androidx/media/issues/2598).
 
 ### 1.8.0-rc01 (2025-07-16)
 

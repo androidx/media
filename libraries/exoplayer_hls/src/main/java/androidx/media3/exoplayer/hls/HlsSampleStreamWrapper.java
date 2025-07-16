@@ -516,7 +516,10 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     }
 
     // If we're not forced to reset, try and seek within the buffer.
-    if (sampleQueuesBuilt && !forceReset && seekInsideBufferUs(positionUs, seekToMediaChunk)) {
+    if (sampleQueuesBuilt
+        && !forceReset
+        && !mediaChunks.isEmpty()
+        && seekInsideBufferUs(positionUs, seekToMediaChunk)) {
       return false;
     }
 
