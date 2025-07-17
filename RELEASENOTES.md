@@ -100,6 +100,7 @@
         `CastPlayer` constructors keep their old behavior, but are deprecated in
         favour of using the `CastPlayer` or `RemoteCastPlayer` builders instead.
     *   Stop enforcing a non-null mime type in `DefaultMediaItemConverter`.
+    *   Enable remote to local transfers in `DefaultCastOptionsProvider`.
 *   Test Utilities:
 *   Remove deprecated symbols:
 
