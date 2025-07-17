@@ -15,6 +15,7 @@
  */
 package androidx.media3.session;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.app.PendingIntent;
@@ -49,7 +50,10 @@ public class ConnectionStateTest {
             MediaSessionStub.VERSION_INT,
             new MediaSessionStub(session.getImpl()),
             /* sessionActivity= */ PendingIntent.getActivity(
-                context, /* requestCode= */ 0, new Intent(), /* flags= */ 0),
+                context,
+                /* requestCode= */ 0,
+                new Intent(),
+                /* flags= */ SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0),
             /* customLayout= */ ImmutableList.of(
                 new CommandButton.Builder(CommandButton.ICON_ARTIST)
                     .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
@@ -116,7 +120,7 @@ public class ConnectionStateTest {
             /* customLayout= */ ImmutableList.of(),
             /* mediaButtonPreferences= */ ImmutableList.of(
                 new CommandButton.Builder(CommandButton.ICON_HEART_FILLED)
-                    .setPlayerCommand(Player.COMMAND_PREPARE)
+                    .setSessionCommand(new SessionCommand("action", Bundle.EMPTY))
                     .build()),
             /* commandButtonsForMediaItems= */ ImmutableList.of(),
             SessionCommands.EMPTY,

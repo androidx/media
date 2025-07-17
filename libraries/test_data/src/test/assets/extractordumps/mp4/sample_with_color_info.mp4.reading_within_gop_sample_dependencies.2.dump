@@ -11,25 +11,31 @@ track 0:
   sample count = 9
   track duration = 298333
   format 0:
+    averageBitrate = 3265253
     id = 1
     containerMimeType = video/mp4
     sampleMimeType = video/dolby-vision
-    codecs = hev1.08.04
+    codecs = dvhe.08.04
     maxInputSize = 40550
     maxNumReorderSamples = 2
     width = 1920
     height = 1080
+    decodedWidth = 1920
+    decodedHeight = 1088
     frameRate = 30.00
     rotationDegrees = 90
+    maxSubLayers = 1
     colorInfo:
       colorSpace = 6
       colorRange = 2
       colorTransfer = 7
       lumaBitdepth = 10
       chromaBitdepth = 10
+    language = und
     metadata = entries=[mdta: key=com.apple.quicktime.location.accuracy.horizontal, value=3.754789, mdta: key=com.apple.quicktime.location.ISO6709, value=+37.7450-122.4301+066.374/, mdta: key=com.apple.quicktime.make, value=Apple, mdta: key=com.apple.quicktime.model, value=iPhone 12 Pro Max, mdta: key=com.apple.quicktime.software, value=14.5.1, mdta: key=com.apple.quicktime.creationdate, value=2021-05-25T09:21:51-0700, Mp4Timestamp: creation time=3704804511, modification time=3704804511, timescale=600]
     initializationData:
       data = length 526, hash 7B3FC433
+      data = length 24, hash A31E9935
   sample 0:
     time = 0
     flags = 1
@@ -71,6 +77,7 @@ track 1:
   sample count = 7
   track duration = 298333
   format 0:
+    averageBitrate = 137652
     peakBitrate = 192000
     id = 2
     containerMimeType = video/mp4

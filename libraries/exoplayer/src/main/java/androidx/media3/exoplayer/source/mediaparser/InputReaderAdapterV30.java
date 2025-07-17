@@ -15,7 +15,6 @@
  */
 package androidx.media3.exoplayer.source.mediaparser;
 
-import android.annotation.SuppressLint;
 import android.media.MediaParser;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
@@ -27,7 +26,6 @@ import java.io.IOException;
 
 /** {@link MediaParser.SeekableInputReader} implementation wrapping a {@link DataReader}. */
 @RequiresApi(30)
-@SuppressLint("Override") // TODO: Remove once the SDK becomes stable.
 @UnstableApi
 public final class InputReaderAdapterV30 implements MediaParser.SeekableInputReader {
 

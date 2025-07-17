@@ -29,6 +29,7 @@ import androidx.media3.extractor.DefaultExtractorInput;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.TrackOutput;
+import com.google.errorprone.annotations.ForOverride;
 import java.io.IOException;
 
 /** A {@link BaseMediaChunk} that uses an {@link Extractor} to decode sample data. */
@@ -135,6 +136,7 @@ public class ContainerMediaChunk extends BaseMediaChunk {
         nextLoadPosition = input.getPosition() - dataSpec.position;
       }
     } finally {
+      onLoadEnded();
       DataSourceUtil.closeQuietly(dataSource);
     }
     loadCompleted = !loadCanceled;
@@ -149,6 +151,23 @@ public class ContainerMediaChunk extends BaseMediaChunk {
    */
   protected TrackOutputProvider getTrackOutputProvider(BaseMediaChunkOutput baseMediaChunkOutput) {
     return baseMediaChunkOutput;
+  }
+
+  /**
+   * Method that is called to signal that a {@link #load()} has concluded. This is called in both
+   * successful and error scenarios before the {@link DataSource} is closed.
+   */
+  @ForOverride
+  protected void onLoadEnded() {}
+
+  /** Returns whether the current chunk's load has been canceled from {@link #cancelLoad()}. */
+  public final boolean isLoadCanceled() {
+    return loadCanceled;
+  }
+
+  /** Returns the next position to load in the chunk on a {@link #load()}. */
+  public final long getNextLoadPosition() {
+    return nextLoadPosition;
   }
 
   private void maybeWriteEmptySamples(BaseMediaChunkOutput output) {

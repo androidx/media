@@ -37,7 +37,6 @@ import androidx.media3.common.text.CueGroup;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
-import com.google.common.base.Objects;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
@@ -45,6 +44,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * A media player interface defining high-level functionality, such as the ability to play, pause,
@@ -352,13 +352,13 @@ public interface Player {
       }
       PositionInfo that = (PositionInfo) o;
       return equalsForBundling(that)
-          && Objects.equal(windowUid, that.windowUid)
-          && Objects.equal(periodUid, that.periodUid);
+          && Objects.equals(windowUid, that.windowUid)
+          && Objects.equals(periodUid, that.periodUid);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hashCode(
+      return Objects.hash(
           windowUid,
           mediaItemIndex,
           mediaItem,
@@ -368,6 +368,22 @@ public interface Player {
           contentPositionMs,
           adGroupIndex,
           adIndexInAdGroup);
+    }
+
+    @Override
+    public String toString() {
+      String positionInfoString =
+          "mediaItem=" + mediaItemIndex + ", period=" + periodIndex + ", pos=" + positionMs;
+      if (adGroupIndex == C.INDEX_UNSET) {
+        return positionInfoString;
+      }
+      return positionInfoString
+          + ", contentPos="
+          + contentPositionMs
+          + ", adGroup="
+          + adGroupIndex
+          + ", ad="
+          + adIndexInAdGroup;
     }
 
     /**
@@ -382,7 +398,7 @@ public interface Player {
           && contentPositionMs == other.contentPositionMs
           && adGroupIndex == other.adGroupIndex
           && adIndexInAdGroup == other.adIndexInAdGroup
-          && Objects.equal(mediaItem, other.mediaItem);
+          && Objects.equals(mediaItem, other.mediaItem);
     }
 
     @VisibleForTesting static final String FIELD_MEDIA_ITEM_INDEX = Util.intToStringMaxRadix(0);
@@ -1284,11 +1300,17 @@ public interface Player {
   int PLAY_WHEN_READY_CHANGE_REASON_SUPPRESSED_TOO_LONG = 6;
 
   /**
-   * Reason why playback is suppressed even though {@link #getPlayWhenReady()} is {@code true}. One
-   * of {@link #PLAYBACK_SUPPRESSION_REASON_NONE}, {@link
-   * #PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS}, {@link
-   * #PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_ROUTE} or {@link
-   * #PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT}.
+   * Reason why playback is suppressed even though {@link #getPlayWhenReady()} is {@code true}.
+   *
+   * <p>One of:
+   *
+   * <ul>
+   *   <li>{@link #PLAYBACK_SUPPRESSION_REASON_NONE}
+   *   <li>{@link #PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS}
+   *   <li>{@link #PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_ROUTE}
+   *   <li>{@link #PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT}
+   *   <li>{@link #PLAYBACK_SUPPRESSION_REASON_SCRUBBING}
+   * </ul>
    */
   // @Target list includes both 'default' targets and TYPE_USE, to ensure backwards compatibility
   // with Kotlin usages from before TYPE_USE was added.
@@ -1300,7 +1322,8 @@ public interface Player {
     PLAYBACK_SUPPRESSION_REASON_NONE,
     PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS,
     PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_ROUTE,
-    PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT
+    PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT,
+    PLAYBACK_SUPPRESSION_REASON_SCRUBBING
   })
   @interface PlaybackSuppressionReason {}
 
@@ -1320,6 +1343,9 @@ public interface Player {
    * play on built-in speaker on a Wear OS device).
    */
   int PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT = 3;
+
+  /** Playback is suppressed because the player is currently scrubbing. */
+  int PLAYBACK_SUPPRESSION_REASON_SCRUBBING = 4;
 
   /**
    * Repeat modes for playback. One of {@link #REPEAT_MODE_OFF}, {@link #REPEAT_MODE_ONE} or {@link
@@ -1613,7 +1639,7 @@ public interface Player {
   /** {@link #getDeviceInfo()} changed. */
   int EVENT_DEVICE_INFO_CHANGED = 29;
 
-  /** {@link #getDeviceVolume()} changed. */
+  /** {@link #getDeviceVolume()} or {@link #isDeviceMuted()} changed. */
   int EVENT_DEVICE_VOLUME_CHANGED = 30;
 
   /**
@@ -2649,13 +2675,6 @@ public interface Player {
   boolean hasPreviousMediaItem();
 
   /**
-   * @deprecated Use {@link #seekToPreviousMediaItem()} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  void seekToPreviousWindow();
-
-  /**
    * Seeks to the default position of the previous {@link MediaItem}, which may depend on the
    * current repeat mode and whether shuffle mode is enabled. Does nothing if {@link
    * #hasPreviousMediaItem()} is {@code false}.
@@ -2704,20 +2723,6 @@ public interface Player {
   void seekToPrevious();
 
   /**
-   * @deprecated Use {@link #hasNextMediaItem()} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  boolean hasNext();
-
-  /**
-   * @deprecated Use {@link #hasNextMediaItem()} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  boolean hasNextWindow();
-
-  /**
    * Returns whether a next {@link MediaItem} exists, which may depend on the current repeat mode
    * and whether shuffle mode is enabled.
    *
@@ -2729,20 +2734,6 @@ public interface Player {
    * #getAvailableCommands() available}.
    */
   boolean hasNextMediaItem();
-
-  /**
-   * @deprecated Use {@link #seekToNextMediaItem()} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  void next();
-
-  /**
-   * @deprecated Use {@link #seekToNextMediaItem()} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  void seekToNextWindow();
 
   /**
    * Seeks to the default position of the next {@link MediaItem}, which may depend on the current
@@ -2855,7 +2846,6 @@ public interface Player {
    */
   TrackSelectionParameters getTrackSelectionParameters();
 
-  // LINT.IfChange(set_track_selection_parameters)
   /**
    * Sets the parameters constraining the track selection.
    *
@@ -3230,6 +3220,25 @@ public interface Player {
   float getVolume();
 
   /**
+   * Sets the audio volume to 0.
+   *
+   * <p>This method must only be called if {@link #COMMAND_SET_VOLUME} is {@linkplain
+   * #getAvailableCommands() available}.
+   */
+  @UnstableApi
+  void mute();
+
+  /**
+   * If the audio volume is 0, sets the audio volume to a non-zero value decided by the Player to be
+   * the most appropriate.
+   *
+   * <p>This method must only be called if {@link #COMMAND_SET_VOLUME} is {@linkplain
+   * #getAvailableCommands() available}.
+   */
+  @UnstableApi
+  void unmute();
+
+  /**
    * Clears any {@link Surface}, {@link SurfaceHolder}, {@link SurfaceView} or {@link TextureView}
    * currently set on the player.
    *
@@ -3384,8 +3393,7 @@ public interface Player {
    *
    * <p>For devices with {@link DeviceInfo#PLAYBACK_TYPE_LOCAL local playback}, the volume returned
    * by this method varies according to the current {@link C.StreamType stream type}. The stream
-   * type is determined by {@link AudioAttributes#usage} which can be converted to stream type with
-   * {@link Util#getStreamTypeForAudioUsage(int)}.
+   * type is determined by {@link AudioAttributes#getStreamType()}.
    *
    * <p>For devices with {@link DeviceInfo#PLAYBACK_TYPE_REMOTE remote playback}, the volume of the
    * remote device is returned.
@@ -3507,10 +3515,6 @@ public interface Player {
    *
    * <p>If tunneling is enabled by the track selector, the specified audio attributes will be
    * ignored, but they will take effect if audio is later played without tunneling.
-   *
-   * <p>If the device is running a build before platform API version 21, audio attributes cannot be
-   * set directly on the underlying audio track. In this case, the usage will be mapped onto an
-   * equivalent stream type using {@link Util#getStreamTypeForAudioUsage(int)}.
    *
    * <p>If audio focus should be handled, the {@link AudioAttributes#usage} must be {@link
    * C#USAGE_MEDIA} or {@link C#USAGE_GAME}. Other usages will throw an {@link

@@ -15,7 +15,6 @@
  */
 package androidx.media3.extractor.metadata.vorbis;
 
-import android.os.Parcel;
 import androidx.media3.common.util.UnstableApi;
 
 /** A vorbis comment, extracted from a FLAC or Ogg file. */
@@ -30,22 +29,4 @@ public final class VorbisComment extends androidx.media3.extractor.metadata.flac
   public VorbisComment(String key, String value) {
     super(key, value);
   }
-
-  /* package */ VorbisComment(Parcel in) {
-    super(in);
-  }
-
-  public static final Creator<VorbisComment> CREATOR =
-      new Creator<VorbisComment>() {
-
-        @Override
-        public VorbisComment createFromParcel(Parcel in) {
-          return new VorbisComment(in);
-        }
-
-        @Override
-        public VorbisComment[] newArray(int size) {
-          return new VorbisComment[size];
-        }
-      };
 }

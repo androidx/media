@@ -168,6 +168,7 @@ public class DownloadTracker {
     private final DownloadHelper downloadHelper;
     private final MediaItem mediaItem;
 
+    private boolean tracksInfoAvailable;
     private TrackSelectionDialog trackSelectionDialog;
     private WidevineOfflineLicenseFetchTask widevineOfflineLicenseFetchTask;
     @Nullable private byte[] keySetId;
@@ -193,7 +194,8 @@ public class DownloadTracker {
     // DownloadHelper.Callback implementation.
 
     @Override
-    public void onPrepared(DownloadHelper helper) {
+    public void onPrepared(DownloadHelper helper, boolean tracksInfoAvailable) {
+      this.tracksInfoAvailable = tracksInfoAvailable;
       @Nullable Format format = getFirstFormatWithDrmInitData(helper);
       if (format == null) {
         onDownloadPrepared(helper);
@@ -237,6 +239,7 @@ public class DownloadTracker {
 
     @Override
     public void onTracksSelected(TrackSelectionParameters trackSelectionParameters) {
+      checkState(tracksInfoAvailable);
       for (int periodIndex = 0; periodIndex < downloadHelper.getPeriodCount(); periodIndex++) {
         downloadHelper.clearTrackSelections(periodIndex);
         downloadHelper.addTrackSelection(periodIndex, trackSelectionParameters);
@@ -265,6 +268,9 @@ public class DownloadTracker {
      */
     @Nullable
     private Format getFirstFormatWithDrmInitData(DownloadHelper helper) {
+      if (!tracksInfoAvailable) {
+        return null;
+      }
       for (int periodIndex = 0; periodIndex < helper.getPeriodCount(); periodIndex++) {
         MappedTrackInfo mappedTrackInfo = helper.getMappedTrackInfo(periodIndex);
         for (int rendererIndex = 0;
@@ -304,6 +310,13 @@ public class DownloadTracker {
         return;
       }
 
+      if (!tracksInfoAvailable) {
+        Log.d(TAG, "Tracks info is unavailable. Downloading entire stream.");
+        startDownload();
+        downloadHelper.release();
+        return;
+      }
+
       Tracks tracks = downloadHelper.getTracks(/* periodIndex= */ 0);
       if (!TrackSelectionDialog.willHaveContent(tracks)) {
         Log.d(TAG, "No dialog content. Downloading entire stream.");
@@ -315,7 +328,7 @@ public class DownloadTracker {
           TrackSelectionDialog.createForTracksAndParameters(
               /* titleId= */ R.string.exo_download_description,
               tracks,
-              DownloadHelper.getDefaultTrackSelectorParameters(context),
+              DownloadHelper.DEFAULT_TRACK_SELECTOR_PARAMETERS,
               /* allowAdaptiveSelections= */ false,
               /* allowMultipleOverrides= */ true,
               /* onTracksSelectedListener= */ this,
@@ -396,10 +409,8 @@ public class DownloadTracker {
               () -> {
                 OfflineLicenseHelper offlineLicenseHelper =
                     OfflineLicenseHelper.newWidevineInstance(
-                        drmConfiguration.licenseUri.toString(),
-                        drmConfiguration.forceDefaultLicenseUri,
+                        drmConfiguration,
                         dataSourceFactory,
-                        drmConfiguration.licenseRequestHeaders,
                         new DrmSessionEventListener.EventDispatcher());
                 try {
                   keySetId = offlineLicenseHelper.downloadLicense(format);

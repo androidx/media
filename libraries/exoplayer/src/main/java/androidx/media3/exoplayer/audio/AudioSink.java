@@ -155,6 +155,16 @@ public interface AudioSink {
 
     /** Called when a period of silence has been skipped. */
     default void onSilenceSkipped() {}
+
+    /**
+     * Called when the audio session ID changed internally.
+     *
+     * <p>The audio sink will ignore new externally set audio session IDs until this ID has been
+     * acknowledged with {@link #setAudioSessionId(int)}.
+     *
+     * @param audioSessionId The new audio session ID.
+     */
+    default void onAudioSessionIdChanged(int audioSessionId) {}
   }
 
   /** Configuration parameters used for an {@link AudioTrack}. */
@@ -263,6 +273,7 @@ public interface AudioSink {
      * @param audioTrackState The underlying {@link AudioTrack}'s state.
      * @param sampleRate The requested sample rate in Hz.
      * @param channelConfig The requested channel configuration.
+     * @param encoding The requested encoding.
      * @param bufferSize The requested buffer size in bytes.
      * @param format The input format of the sink when the error occurs.
      * @param isRecoverable Whether the exception can be recovered by recreating the sink.
@@ -272,6 +283,7 @@ public interface AudioSink {
         int audioTrackState,
         int sampleRate,
         int channelConfig,
+        int encoding,
         int bufferSize,
         Format format,
         boolean isRecoverable,
@@ -280,7 +292,15 @@ public interface AudioSink {
           "AudioTrack init failed "
               + audioTrackState
               + " "
-              + ("Config(" + sampleRate + ", " + channelConfig + ", " + bufferSize + ")")
+              + ("Config("
+                  + sampleRate
+                  + ", "
+                  + channelConfig
+                  + ", "
+                  + encoding
+                  + ", "
+                  + bufferSize
+                  + ")")
               + " "
               + format
               + (isRecoverable ? " (recoverable)" : ""),
@@ -590,6 +610,15 @@ public interface AudioSink {
    * @param outputStreamOffsetUs The output stream offset in microseconds.
    */
   default void setOutputStreamOffsetUs(long outputStreamOffsetUs) {}
+
+  /**
+   * Returns the size of the underlying {@link AudioTrack} buffer in microseconds. If unsupported or
+   * the {@link AudioTrack} is not initialized then return {@link C#TIME_UNSET}.
+   *
+   * <p>If the {@link AudioTrack} is configured with a compressed encoding, then the returned
+   * duration is an estimated minimum based on the encoding's maximum encoded byte rate.
+   */
+  long getAudioTrackBufferSizeUs();
 
   /**
    * Enables tunneling, if possible. The sink is reset if tunneling was previously disabled.

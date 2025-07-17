@@ -45,6 +45,7 @@ import androidx.media3.exoplayer.upstream.DefaultAllocator;
 import androidx.media3.test.utils.FakeMediaPeriod;
 import androidx.media3.test.utils.FakeSampleStream;
 import androidx.media3.test.utils.TestSpeedProvider;
+import androidx.media3.transformer.SpeedChangingMediaSource.SpeedProviderMediaPeriod;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import java.util.concurrent.CountDownLatch;

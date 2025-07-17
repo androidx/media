@@ -15,6 +15,8 @@
  */
 package androidx.media3.decoder.iamf;
 
+import static android.os.Build.VERSION.SDK_INT;
+
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.media.AudioFormat;
@@ -26,6 +28,7 @@ import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.audio.AudioManagerCompat;
 import androidx.media3.common.util.TraceUtil;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -91,14 +94,11 @@ public class LibiamfAudioRenderer extends DecoderAudioRenderer<IamfDecoder> {
   @SuppressLint("WrongConstant")
   private boolean isSpatializationSupported() {
     // Spatializer is only available on API 32 and above.
-    if (Util.SDK_INT < 32) {
+    if (SDK_INT < 32) {
       return false;
     }
 
-    AudioManager audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
-    if (audioManager == null) {
-      return false;
-    }
+    AudioManager audioManager = AudioManagerCompat.getAudioManager(context);
     AudioFormat audioFormat =
         new AudioFormat.Builder()
             .setEncoding(IamfDecoder.OUTPUT_PCM_ENCODING)
@@ -109,6 +109,6 @@ public class LibiamfAudioRenderer extends DecoderAudioRenderer<IamfDecoder> {
         && spatializer.isAvailable()
         && spatializer.isEnabled()
         && spatializer.canBeSpatialized(
-            AudioAttributes.DEFAULT.getAudioAttributesV21().audioAttributes, audioFormat);
+            AudioAttributes.DEFAULT.getPlatformAudioAttributes(), audioFormat);
   }
 }

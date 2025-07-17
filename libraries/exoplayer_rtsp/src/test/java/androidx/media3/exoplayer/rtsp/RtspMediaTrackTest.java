@@ -76,7 +76,7 @@ public class RtspMediaTrackTest {
                 .setCodecs("avc1.64001F")
                 .setColorInfo(
                     new ColorInfo.Builder()
-                        .setColorRange(1)
+                        .setColorRange(C.COLOR_RANGE_FULL)
                         .setLumaBitdepth(8)
                         .setChromaBitdepth(8)
                         .build())
@@ -255,7 +255,7 @@ public class RtspMediaTrackTest {
                 .setCodecs("avc1.64001F")
                 .setColorInfo(
                     new ColorInfo.Builder()
-                        .setColorRange(1)
+                        .setColorRange(C.COLOR_RANGE_FULL)
                         .setChromaBitdepth(8)
                         .setLumaBitdepth(8)
                         .build())

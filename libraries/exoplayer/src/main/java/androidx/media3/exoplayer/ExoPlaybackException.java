@@ -41,6 +41,7 @@ import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import java.util.Objects;
 
 /** Thrown when a non locally recoverable playback failure occurs. */
 public final class ExoPlaybackException extends PlaybackException {
@@ -132,6 +133,31 @@ public final class ExoPlaybackException extends PlaybackException {
   }
 
   /**
+   * @deprecated Use {@link #createForRenderer(Throwable, String, int, Format, int, MediaPeriodId,
+   *     boolean, int)} instead.
+   */
+  @Deprecated
+  @UnstableApi
+  public static ExoPlaybackException createForRenderer(
+      Throwable cause,
+      String rendererName,
+      int rendererIndex,
+      @Nullable Format rendererFormat,
+      @FormatSupport int rendererFormatSupport,
+      boolean isRecoverable,
+      @ErrorCode int errorCode) {
+    return createForRenderer(
+        cause,
+        rendererName,
+        rendererIndex,
+        rendererFormat,
+        rendererFormatSupport,
+        /* mediaPeriodId= */ null,
+        isRecoverable,
+        errorCode);
+  }
+
+  /**
    * Creates an instance of type {@link #TYPE_RENDERER}.
    *
    * @param cause The cause of the failure.
@@ -142,6 +168,8 @@ public final class ExoPlaybackException extends PlaybackException {
    *     or null if the renderer wasn't using a {@link Format}.
    * @param rendererFormatSupport The {@link FormatSupport} of the renderer for {@code
    *     rendererFormat}. Ignored if {@code rendererFormat} is null.
+   * @param mediaPeriodId The {@link MediaPeriodId mediaPeriodId} of the media associated with this
+   *     error, or null if undetermined.
    * @param isRecoverable If the failure can be recovered by disabling and re-enabling the renderer.
    * @param errorCode See {@link #errorCode}.
    * @return The created instance.
@@ -153,9 +181,9 @@ public final class ExoPlaybackException extends PlaybackException {
       int rendererIndex,
       @Nullable Format rendererFormat,
       @FormatSupport int rendererFormatSupport,
+      @Nullable MediaPeriodId mediaPeriodId,
       boolean isRecoverable,
       @ErrorCode int errorCode) {
-
     return new ExoPlaybackException(
         TYPE_RENDERER,
         cause,
@@ -165,6 +193,7 @@ public final class ExoPlaybackException extends PlaybackException {
         rendererIndex,
         rendererFormat,
         rendererFormat == null ? C.FORMAT_HANDLED : rendererFormatSupport,
+        mediaPeriodId,
         isRecoverable);
   }
 
@@ -208,6 +237,7 @@ public final class ExoPlaybackException extends PlaybackException {
         /* rendererIndex= */ C.INDEX_UNSET,
         /* rendererFormat= */ null,
         /* rendererFormatSupport= */ C.FORMAT_HANDLED,
+        /* mediaPeriodId= */ null,
         /* isRecoverable= */ false);
   }
 
@@ -221,6 +251,7 @@ public final class ExoPlaybackException extends PlaybackException {
         /* rendererIndex= */ C.INDEX_UNSET,
         /* rendererFormat= */ null,
         /* rendererFormatSupport= */ C.FORMAT_HANDLED,
+        /* mediaPeriodId= */ null,
         /* isRecoverable= */ false);
   }
 
@@ -233,6 +264,7 @@ public final class ExoPlaybackException extends PlaybackException {
       int rendererIndex,
       @Nullable Format rendererFormat,
       @FormatSupport int rendererFormatSupport,
+      @Nullable MediaPeriodId mediaPeriodId,
       boolean isRecoverable) {
     this(
         deriveMessage(
@@ -249,22 +281,9 @@ public final class ExoPlaybackException extends PlaybackException {
         rendererIndex,
         rendererFormat,
         rendererFormatSupport,
-        /* mediaPeriodId= */ null,
+        mediaPeriodId,
         /* timestampMs= */ SystemClock.elapsedRealtime(),
         isRecoverable);
-  }
-
-  private ExoPlaybackException(Bundle bundle) {
-    super(bundle);
-    type = bundle.getInt(FIELD_TYPE, /* defaultValue= */ TYPE_UNEXPECTED);
-    rendererName = bundle.getString(FIELD_RENDERER_NAME);
-    rendererIndex = bundle.getInt(FIELD_RENDERER_INDEX, /* defaultValue= */ C.INDEX_UNSET);
-    @Nullable Bundle rendererFormatBundle = bundle.getBundle(FIELD_RENDERER_FORMAT);
-    rendererFormat = rendererFormatBundle == null ? null : Format.fromBundle(rendererFormatBundle);
-    rendererFormatSupport =
-        bundle.getInt(FIELD_RENDERER_FORMAT_SUPPORT, /* defaultValue= */ C.FORMAT_HANDLED);
-    isRecoverable = bundle.getBoolean(FIELD_IS_RECOVERABLE, /* defaultValue= */ false);
-    mediaPeriodId = null;
   }
 
   private ExoPlaybackException(
@@ -333,11 +352,11 @@ public final class ExoPlaybackException extends PlaybackException {
     // true.
     ExoPlaybackException other = (ExoPlaybackException) Util.castNonNull(that);
     return type == other.type
-        && Util.areEqual(rendererName, other.rendererName)
+        && Objects.equals(rendererName, other.rendererName)
         && rendererIndex == other.rendererIndex
-        && Util.areEqual(rendererFormat, other.rendererFormat)
+        && Objects.equals(rendererFormat, other.rendererFormat)
         && rendererFormatSupport == other.rendererFormatSupport
-        && Util.areEqual(mediaPeriodId, other.mediaPeriodId)
+        && Objects.equals(mediaPeriodId, other.mediaPeriodId)
         && isRecoverable == other.isRecoverable;
   }
 
@@ -398,45 +417,5 @@ public final class ExoPlaybackException extends PlaybackException {
       message += ": " + customMessage;
     }
     return message;
-  }
-
-  /** Restores a {@code ExoPlaybackException} from a {@link Bundle}. */
-  @UnstableApi
-  public static ExoPlaybackException fromBundle(Bundle bundle) {
-    return new ExoPlaybackException(bundle);
-  }
-
-  private static final String FIELD_TYPE = Util.intToStringMaxRadix(FIELD_CUSTOM_ID_BASE + 1);
-  private static final String FIELD_RENDERER_NAME =
-      Util.intToStringMaxRadix(FIELD_CUSTOM_ID_BASE + 2);
-  private static final String FIELD_RENDERER_INDEX =
-      Util.intToStringMaxRadix(FIELD_CUSTOM_ID_BASE + 3);
-  private static final String FIELD_RENDERER_FORMAT =
-      Util.intToStringMaxRadix(FIELD_CUSTOM_ID_BASE + 4);
-  private static final String FIELD_RENDERER_FORMAT_SUPPORT =
-      Util.intToStringMaxRadix(FIELD_CUSTOM_ID_BASE + 5);
-  private static final String FIELD_IS_RECOVERABLE =
-      Util.intToStringMaxRadix(FIELD_CUSTOM_ID_BASE + 6);
-
-  /**
-   * {@inheritDoc}
-   *
-   * <p>It omits the {@link #mediaPeriodId} field. The {@link #mediaPeriodId} of an instance
-   * restored by {@link #fromBundle} will always be {@code null}.
-   */
-  @UnstableApi
-  @Override
-  public Bundle toBundle() {
-    Bundle bundle = super.toBundle();
-    bundle.putInt(FIELD_TYPE, type);
-    bundle.putString(FIELD_RENDERER_NAME, rendererName);
-    bundle.putInt(FIELD_RENDERER_INDEX, rendererIndex);
-    if (rendererFormat != null) {
-      bundle.putBundle(
-          FIELD_RENDERER_FORMAT, rendererFormat.toBundle(/* excludeMetadata= */ false));
-    }
-    bundle.putInt(FIELD_RENDERER_FORMAT_SUPPORT, rendererFormatSupport);
-    bundle.putBoolean(FIELD_IS_RECOVERABLE, isRecoverable);
-    return bundle;
   }
 }

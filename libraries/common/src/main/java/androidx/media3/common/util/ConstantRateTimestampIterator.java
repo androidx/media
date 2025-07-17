@@ -17,6 +17,7 @@ package androidx.media3.common.util;
 
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkState;
+import static java.lang.Math.max;
 import static java.lang.Math.round;
 
 import androidx.annotation.FloatRange;
@@ -70,7 +71,8 @@ public final class ConstantRateTimestampIterator implements TimestampIterator {
     this.endPositionUs = endPositionUs;
     this.frameRate = frameRate;
     float durationSecs = (endPositionUs - startPositionUs) / (float) C.MICROS_PER_SECOND;
-    this.totalNumberOfFramesToAdd = round(frameRate * durationSecs);
+    // Generate at least one timestamp so that at least one frame is produced when seeking.
+    this.totalNumberOfFramesToAdd = max(round(frameRate * durationSecs), 1);
     framesDurationUs = C.MICROS_PER_SECOND / frameRate;
   }
 

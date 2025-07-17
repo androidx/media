@@ -16,6 +16,7 @@
 
 package androidx.media3.transformer;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.transformer.ExportException.ERROR_CODE_IO_UNSPECIFIED;
@@ -40,7 +41,6 @@ import androidx.media3.common.ParserException;
 import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.common.util.ConstantRateTimestampIterator;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import androidx.media3.transformer.SampleConsumer.InputResult;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.FutureCallback;
@@ -158,7 +158,7 @@ public final class ImageAssetLoader implements AssetLoader {
                     .setColorInfo(ColorInfo.SRGB_BT709_FULL)
                     .build();
             Format outputFormat =
-                retainHdrFromUltraHdrImage && Util.SDK_INT >= 34 && bitmap.hasGainmap()
+                retainHdrFromUltraHdrImage && SDK_INT >= 34 && bitmap.hasGainmap()
                     ? inputFormat.buildUpon().setSampleMimeType(MimeTypes.IMAGE_JPEG_R).build()
                     : inputFormat;
             try {
@@ -207,8 +207,8 @@ public final class ImageAssetLoader implements AssetLoader {
             () -> queueBitmapInternal(bitmap, format), QUEUE_BITMAP_INTERVAL_MS, MILLISECONDS);
         return;
       }
-      // TODO(b/262693274): consider using listener.onDurationUs() or the MediaItem change
-      //    callback rather than setting duration here.
+      // TODO: b/262693274 - Consider using listener.onDurationUs() or the MediaItem change callback
+      //  rather than setting duration here.
       @InputResult
       int result =
           sampleConsumer.queueInputBitmap(

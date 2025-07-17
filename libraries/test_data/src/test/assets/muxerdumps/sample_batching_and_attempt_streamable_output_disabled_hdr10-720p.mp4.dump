@@ -2,15 +2,16 @@ seekMap:
   isSeekable = true
   duration = 4236600
   getPosition(0) = [[timeUs=0, position=44]]
-  getPosition(1) = [[timeUs=0, position=44], [timeUs=1002955, position=1913587]]
-  getPosition(2118300) = [[timeUs=2003566, position=3814151], [timeUs=3003444, position=5711758]]
-  getPosition(4236600) = [[timeUs=4003277, position=7609538]]
+  getPosition(1) = [[timeUs=0, position=44], [timeUs=1002955, position=30169]]
+  getPosition(2118300) = [[timeUs=2003566, position=2162805], [timeUs=3003444, position=4026908]]
+  getPosition(4236600) = [[timeUs=4003277, position=5970225]]
 numberOfTracks = 2
 track 0:
   total output bytes = 7944083
   sample count = 127
   track duration = 4236600
   format 0:
+    averageBitrate = 15000907
     id = 1
     containerMimeType = video/mp4
     sampleMimeType = video/hevc
@@ -19,7 +20,10 @@ track 0:
     maxNumReorderSamples = 0
     width = 1280
     height = 720
+    decodedWidth = 1280
+    decodedHeight = 720
     frameRate = 29.98
+    maxSubLayers = 1
     colorInfo:
       colorSpace = 6
       colorRange = 2
@@ -542,7 +546,7 @@ track 1:
   sample count = 195
   track duration = 4159900
   format 0:
-    averageBitrate = 256000
+    averageBitrate = 256175
     peakBitrate = 256000
     id = 2
     containerMimeType = video/mp4
@@ -551,7 +555,6 @@ track 1:
     maxInputSize = 877
     channelCount = 2
     sampleRate = 48000
-    language = ```
     metadata = entries=[Mp4Timestamp: creation time=100000000, modification time=500000000, timescale=10000]
     initializationData:
       data = length 2, hash 560

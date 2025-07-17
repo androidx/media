@@ -56,6 +56,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
@@ -359,8 +360,11 @@ import java.util.concurrent.atomic.AtomicReference;
             result.sendError(/* extras= */ null);
             return;
           }
+          ProgressReporter progressReporter = new ProgressReporter(librarySessionImpl, result);
           ListenableFuture<SessionResult> future =
-              librarySessionImpl.onCustomCommandOnHandler(controller, command, extras);
+              librarySessionImpl.onCustomCommandOnHandler(
+                  controller, progressReporter, command, extras);
+          progressReporter.setFuture(future);
           sendCustomActionResultWhenReady(result, future);
         });
   }
@@ -625,12 +629,12 @@ import java.util.concurrent.atomic.AtomicReference;
       synchronized (lock) {
         for (int i = this.searchRequests.size() - 1; i >= 0; i--) {
           SearchRequest iter = this.searchRequests.get(i);
-          if (Util.areEqual(remoteUserInfo, iter.remoteUserInfo) && iter.query.equals(query)) {
+          if (Objects.equals(remoteUserInfo, iter.remoteUserInfo) && iter.query.equals(query)) {
             searchRequests.add(iter);
             this.searchRequests.remove(i);
           }
         }
-        if (searchRequests.size() == 0) {
+        if (searchRequests.isEmpty()) {
           return;
         }
       }
@@ -695,7 +699,7 @@ import java.util.concurrent.atomic.AtomicReference;
         return false;
       }
       BrowserLegacyCb other = (BrowserLegacyCb) obj;
-      return Util.areEqual(remoteUserInfo, other.remoteUserInfo);
+      return Objects.equals(remoteUserInfo, other.remoteUserInfo);
     }
   }
 
@@ -722,6 +726,29 @@ import java.util.concurrent.atomic.AtomicReference;
       // {@link MediaLibrarySessionCallback#onSearchResultChanged}. However, for
       // BrowserCompat, it should be done by {@link Result#sendResult} from
       // {@link MediaLibraryServiceLegacyStub#onSearch} instead.
+    }
+  }
+
+  private static class ProgressReporter implements MediaSession.ProgressReporter {
+
+    private final MediaLibrarySessionImpl session;
+    private final Result<Bundle> result;
+    @Nullable private ListenableFuture<SessionResult> future;
+
+    public ProgressReporter(MediaLibrarySessionImpl session, Result<Bundle> result) {
+      this.session = session;
+      this.result = result;
+    }
+
+    @Override
+    public void sendProgressUpdate(Bundle progressData) {
+      if ((future == null || !future.isDone()) && !session.isReleased()) {
+        result.sendProgressUpdate(progressData);
+      }
+    }
+
+    public void setFuture(ListenableFuture<SessionResult> future) {
+      this.future = future;
     }
   }
 }

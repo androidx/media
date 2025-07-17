@@ -1,4 +1,4 @@
-MediaCodecAdapter (exotest.audio.mpegl2):
+MediaCodecAdapter (media3.audio.mpegl2):
   inputBuffers:
     count = 5
     input buffer #0:
@@ -35,7 +35,7 @@ MediaCodecAdapter (exotest.audio.mpegl2):
       timeUs = 1000000100822
       size = 0
       rendered = false
-MediaCodecAdapter (exotest.video.mpeg2):
+MediaCodecAdapter (media3.video.mpeg2):
   inputBuffers:
     count = 3
     input buffer #0:
@@ -66,16 +66,16 @@ AudioSink:
     sampleRate = 44100
   buffer #0:
     time = 1000000022455
-    data = 1
+    data = empty
   buffer #1:
     time = 1000000048577
-    data = 1
+    data = empty
   buffer #2:
     time = 1000000074700
-    data = 1
+    data = empty
   buffer #3:
     time = 1000000100822
-    data = 1
+    data = empty
 MetadataOutput:
   Metadata[0]:
     presentationTimeUs = 33366

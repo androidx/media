@@ -15,6 +15,8 @@
  */
 package androidx.media3.exoplayer;
 
+import static android.os.Build.VERSION.SDK_INT;
+import static androidx.media3.common.C.AUDIO_SESSION_ID_UNSET;
 import static androidx.media3.common.C.TRACK_TYPE_AUDIO;
 import static androidx.media3.common.C.TRACK_TYPE_CAMERA_MOTION;
 import static androidx.media3.common.C.TRACK_TYPE_IMAGE;
@@ -34,9 +36,7 @@ import static androidx.media3.exoplayer.Renderer.MSG_SET_PRIORITY;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_SCALING_MODE;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_SKIP_SILENCE_ENABLED;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_VIDEO_EFFECTS;
-import static androidx.media3.exoplayer.Renderer.MSG_SET_VIDEO_FRAME_METADATA_LISTENER;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_VIDEO_OUTPUT_RESOLUTION;
-import static androidx.media3.exoplayer.Renderer.MSG_SET_VOLUME;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
@@ -44,11 +44,8 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Rect;
 import android.graphics.SurfaceTexture;
-import android.media.AudioDeviceCallback;
 import android.media.AudioDeviceInfo;
-import android.media.AudioManager;
 import android.media.MediaFormat;
-import android.media.metrics.LogSessionId;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Pair;
@@ -62,6 +59,7 @@ import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.AuxEffectInfo;
 import androidx.media3.common.BasePlayer;
 import androidx.media3.common.C;
+import androidx.media3.common.C.TrackType;
 import androidx.media3.common.DeviceInfo;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
@@ -82,11 +80,13 @@ import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.text.Cue;
 import androidx.media3.common.text.CueGroup;
+import androidx.media3.common.util.BackgroundThreadStateHandler;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.ListenerSet;
 import androidx.media3.common.util.Log;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.PlayerMessage.Target;
@@ -118,19 +118,15 @@ import androidx.media3.exoplayer.video.VideoRendererEventListener;
 import androidx.media3.exoplayer.video.spherical.CameraMotionListener;
 import androidx.media3.exoplayer.video.spherical.SphericalGLSurfaceView;
 import com.google.common.collect.ImmutableList;
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.common.collect.ImmutableSet;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArraySet;
 
 /** The default implementation of {@link ExoPlayer}. */
-/* package */ final class ExoPlayerImpl extends BasePlayer
-    implements ExoPlayer,
-        ExoPlayer.AudioComponent,
-        ExoPlayer.VideoComponent,
-        ExoPlayer.TextComponent,
-        ExoPlayer.DeviceComponent {
+/* package */ final class ExoPlayerImpl extends BasePlayer implements ExoPlayer {
 
   static {
     MediaLibraryInfo.registerModule("media3.exoplayer");
@@ -153,6 +149,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
   private final Context applicationContext;
   private final Player wrappingPlayer;
   private final Renderer[] renderers;
+  private final @NullableType Renderer[] secondaryRenderers;
   private final TrackSelector trackSelector;
   private final HandlerWrapper playbackInfoUpdateHandler;
   private final ExoPlayerImplInternal.PlaybackInfoUpdateListener playbackInfoUpdateListener;
@@ -174,14 +171,12 @@ import java.util.concurrent.CopyOnWriteArraySet;
   private final ComponentListener componentListener;
   private final FrameMetadataListener frameMetadataListener;
   private final AudioBecomingNoisyManager audioBecomingNoisyManager;
-  private final AudioFocusManager audioFocusManager;
   @Nullable private final StreamVolumeManager streamVolumeManager;
   private final WakeLockManager wakeLockManager;
   private final WifiLockManager wifiLockManager;
   private final long detachSurfaceTimeoutMs;
-  @Nullable private AudioManager audioManager;
-  private final boolean suppressPlaybackOnUnsuitableOutput;
   @Nullable private final SuitableOutputChecker suitableOutputChecker;
+  private final BackgroundThreadStateHandler<Integer> audioSessionIdState;
 
   private @RepeatMode int repeatMode;
   private boolean shuffleModeEnabled;
@@ -189,6 +184,9 @@ import java.util.concurrent.CopyOnWriteArraySet;
   private @DiscontinuityReason int pendingDiscontinuityReason;
   private boolean pendingDiscontinuity;
   private boolean foregroundMode;
+  private boolean scrubbingModeEnabled;
+  @Nullable private ImmutableSet<@TrackType Integer> disabledTrackTypesWithoutScrubbingMode;
+  private ScrubbingModeParameters scrubbingModeParameters;
   private SeekParameters seekParameters;
   private ShuffleOrder shuffleOrder;
   private PreloadConfiguration preloadConfiguration;
@@ -209,9 +207,9 @@ import java.util.concurrent.CopyOnWriteArraySet;
   private Size surfaceSize;
   @Nullable private DecoderCounters videoDecoderCounters;
   @Nullable private DecoderCounters audioDecoderCounters;
-  private int audioSessionId;
   private AudioAttributes audioAttributes;
   private float volume;
+  private float unmuteVolume;
   private boolean skipSilenceEnabled;
   private CueGroup currentCueGroup;
   @Nullable private VideoFrameMetadataListener videoFrameMetadataListener;
@@ -263,17 +261,27 @@ import java.util.concurrent.CopyOnWriteArraySet;
       componentListener = new ComponentListener();
       frameMetadataListener = new FrameMetadataListener();
       Handler eventHandler = new Handler(builder.looper);
+      RenderersFactory renderersFactory = builder.renderersFactorySupplier.get();
       renderers =
-          builder
-              .renderersFactorySupplier
-              .get()
-              .createRenderers(
-                  eventHandler,
-                  componentListener,
-                  componentListener,
-                  componentListener,
-                  componentListener);
+          renderersFactory.createRenderers(
+              eventHandler,
+              componentListener,
+              componentListener,
+              componentListener,
+              componentListener);
       checkState(renderers.length > 0);
+      secondaryRenderers = new Renderer[renderers.length];
+      for (int i = 0; i < secondaryRenderers.length; i++) {
+        // TODO(b/377671489): Fix DefaultAnalyticsCollector logic to still work with pre-warming.
+        secondaryRenderers[i] =
+            renderersFactory.createSecondaryRenderer(
+                renderers[i],
+                eventHandler,
+                componentListener,
+                componentListener,
+                componentListener,
+                componentListener);
+      }
       this.trackSelector = builder.trackSelectorSupplier.get();
       this.mediaSourceFactory = builder.mediaSourceFactorySupplier.get();
       this.bandwidthMeter = builder.bandwidthMeterSupplier.get();
@@ -282,11 +290,11 @@ import java.util.concurrent.CopyOnWriteArraySet;
       this.seekBackIncrementMs = builder.seekBackIncrementMs;
       this.seekForwardIncrementMs = builder.seekForwardIncrementMs;
       this.maxSeekToPreviousPositionMs = builder.maxSeekToPreviousPositionMs;
+      this.scrubbingModeParameters = builder.scrubbingModeParameters;
       this.pauseAtEndOfMediaItems = builder.pauseAtEndOfMediaItems;
       this.applicationLooper = builder.looper;
       this.clock = builder.clock;
       this.wrappingPlayer = wrappingPlayer == null ? this : wrappingPlayer;
-      this.suppressPlaybackOnUnsuitableOutput = builder.suppressPlaybackOnUnsuitableOutput;
       listeners =
           new ListenerSet<>(
               applicationLooper,
@@ -346,17 +354,12 @@ import java.util.concurrent.CopyOnWriteArraySet;
               playbackInfoUpdateHandler.post(() -> handlePlaybackInfo(playbackInfoUpdate));
       playbackInfo = PlaybackInfo.createDummy(emptyTrackSelectorResult);
       analyticsCollector.setPlayer(this.wrappingPlayer, applicationLooper);
-      PlayerId playerId =
-          Util.SDK_INT < 31
-              ? new PlayerId(builder.playerName)
-              : Api31.registerMediaMetricsListener(
-                  applicationContext,
-                  /* player= */ this,
-                  builder.usePlatformDiagnostics,
-                  builder.playerName);
+      PlayerId playerId = new PlayerId(builder.playerName);
       internalPlayer =
           new ExoPlayerImplInternal(
+              applicationContext,
               renderers,
+              secondaryRenderers,
               trackSelector,
               emptyTrackSelectorResult,
               builder.loadControlSupplier.get(),
@@ -374,7 +377,9 @@ import java.util.concurrent.CopyOnWriteArraySet;
               playbackInfoUpdateListener,
               playerId,
               builder.playbackLooperProvider,
-              preloadConfiguration);
+              preloadConfiguration,
+              frameMetadataListener);
+      Looper playbackLooper = internalPlayer.getPlaybackLooper();
 
       volume = 1;
       repeatMode = Player.REPEAT_MODE_OFF;
@@ -382,7 +387,6 @@ import java.util.concurrent.CopyOnWriteArraySet;
       playlistMetadata = MediaMetadata.EMPTY;
       staticAndDynamicMediaMetadata = MediaMetadata.EMPTY;
       maskingWindowIndex = C.INDEX_UNSET;
-      audioSessionId = Util.generateAudioSessionIdV21(applicationContext);
       currentCueGroup = CueGroup.EMPTY_TIME_ZERO;
       throwsWhenUsingWrongThread = true;
 
@@ -392,94 +396,72 @@ import java.util.concurrent.CopyOnWriteArraySet;
       if (builder.foregroundModeTimeoutMs > 0) {
         internalPlayer.experimentalSetForegroundModeTimeoutMs(builder.foregroundModeTimeoutMs);
       }
+      if (SDK_INT >= 31) {
+        Api31.registerMediaMetricsListener(
+            applicationContext, /* player= */ this, builder.usePlatformDiagnostics, playerId);
+      }
 
+      audioSessionIdState =
+          new BackgroundThreadStateHandler<>(
+              AUDIO_SESSION_ID_UNSET,
+              playbackLooper,
+              applicationLooper,
+              clock,
+              /* onStateChanged= */ this::onAudioSessionIdChanged);
+      audioSessionIdState.runInBackground(
+          () ->
+              audioSessionIdState.setStateInBackground(
+                  Util.generateAudioSessionIdV21(applicationContext)));
       audioBecomingNoisyManager =
-          new AudioBecomingNoisyManager(builder.context, eventHandler, componentListener);
+          new AudioBecomingNoisyManager(
+              builder.context, playbackLooper, builder.looper, componentListener, clock);
       audioBecomingNoisyManager.setEnabled(builder.handleAudioBecomingNoisy);
-      audioFocusManager = new AudioFocusManager(builder.context, eventHandler, componentListener);
-      audioFocusManager.setAudioAttributes(builder.handleAudioFocus ? audioAttributes : null);
 
-      suitableOutputChecker = builder.suitableOutputChecker;
-      if (suitableOutputChecker != null && Util.SDK_INT >= 35) {
-        suitableOutputChecker.enable(this::onSelectedOutputSuitabilityChanged);
-      } else if (suppressPlaybackOnUnsuitableOutput && Util.SDK_INT >= 23) {
-        audioManager = (AudioManager) applicationContext.getSystemService(Context.AUDIO_SERVICE);
-        Api23.registerAudioDeviceCallback(
-            audioManager,
-            new NoSuitableOutputPlaybackSuppressionAudioDeviceCallback(),
-            new Handler(applicationLooper));
+      if (builder.suppressPlaybackOnUnsuitableOutput) {
+        suitableOutputChecker = builder.suitableOutputChecker;
+        suitableOutputChecker.enable(
+            this::onSelectedOutputSuitabilityChanged,
+            applicationContext,
+            applicationLooper,
+            playbackLooper,
+            clock);
+      } else {
+        suitableOutputChecker = null;
       }
 
       if (builder.deviceVolumeControlEnabled) {
         streamVolumeManager =
             new StreamVolumeManager(
                 builder.context,
-                eventHandler,
                 componentListener,
-                Util.getStreamTypeForAudioUsage(audioAttributes.usage));
+                audioAttributes.getStreamType(),
+                playbackLooper,
+                applicationLooper,
+                clock);
       } else {
         streamVolumeManager = null;
       }
-      wakeLockManager = new WakeLockManager(builder.context);
+      wakeLockManager = new WakeLockManager(builder.context, playbackLooper, clock);
       wakeLockManager.setEnabled(builder.wakeMode != C.WAKE_MODE_NONE);
-      wifiLockManager = new WifiLockManager(builder.context);
+      wifiLockManager = new WifiLockManager(builder.context, playbackLooper, clock);
       wifiLockManager.setEnabled(builder.wakeMode == C.WAKE_MODE_NETWORK);
-      deviceInfo = createDeviceInfo(streamVolumeManager);
+      deviceInfo = DeviceInfo.UNKNOWN;
       videoSize = VideoSize.UNKNOWN;
       surfaceSize = Size.UNKNOWN;
 
-      trackSelector.setAudioAttributes(audioAttributes);
-      sendRendererMessage(TRACK_TYPE_AUDIO, MSG_SET_AUDIO_SESSION_ID, audioSessionId);
-      sendRendererMessage(TRACK_TYPE_VIDEO, MSG_SET_AUDIO_SESSION_ID, audioSessionId);
+      internalPlayer.setScrubbingModeParameters(scrubbingModeParameters);
+      internalPlayer.setAudioAttributes(audioAttributes, builder.handleAudioFocus);
       sendRendererMessage(TRACK_TYPE_AUDIO, MSG_SET_AUDIO_ATTRIBUTES, audioAttributes);
       sendRendererMessage(TRACK_TYPE_VIDEO, MSG_SET_SCALING_MODE, videoScalingMode);
       sendRendererMessage(
           TRACK_TYPE_VIDEO, MSG_SET_CHANGE_FRAME_RATE_STRATEGY, videoChangeFrameRateStrategy);
       sendRendererMessage(TRACK_TYPE_AUDIO, MSG_SET_SKIP_SILENCE_ENABLED, skipSilenceEnabled);
       sendRendererMessage(
-          TRACK_TYPE_VIDEO, MSG_SET_VIDEO_FRAME_METADATA_LISTENER, frameMetadataListener);
-      sendRendererMessage(
           TRACK_TYPE_CAMERA_MOTION, MSG_SET_CAMERA_MOTION_LISTENER, frameMetadataListener);
       sendRendererMessage(MSG_SET_PRIORITY, priority);
     } finally {
       constructorFinished.open();
     }
-  }
-
-  @CanIgnoreReturnValue
-  @SuppressWarnings("deprecation") // Returning deprecated class.
-  @Override
-  @Deprecated
-  public AudioComponent getAudioComponent() {
-    verifyApplicationThread();
-    return this;
-  }
-
-  @CanIgnoreReturnValue
-  @SuppressWarnings("deprecation") // Returning deprecated class.
-  @Override
-  @Deprecated
-  public VideoComponent getVideoComponent() {
-    verifyApplicationThread();
-    return this;
-  }
-
-  @CanIgnoreReturnValue
-  @SuppressWarnings("deprecation") // Returning deprecated class.
-  @Override
-  @Deprecated
-  public TextComponent getTextComponent() {
-    verifyApplicationThread();
-    return this;
-  }
-
-  @CanIgnoreReturnValue
-  @SuppressWarnings("deprecation") // Returning deprecated class.
-  @Override
-  @Deprecated
-  public DeviceComponent getDeviceComponent() {
-    verifyApplicationThread();
-    return this;
   }
 
   @Override
@@ -546,17 +528,13 @@ import java.util.concurrent.CopyOnWriteArraySet;
   @Override
   public void prepare() {
     verifyApplicationThread();
-    boolean playWhenReady = getPlayWhenReady();
-    @AudioFocusManager.PlayerCommand
-    int playerCommand = audioFocusManager.updateAudioFocus(playWhenReady, Player.STATE_BUFFERING);
-    updatePlayWhenReady(playWhenReady, playerCommand, getPlayWhenReadyChangeReason(playerCommand));
     if (playbackInfo.playbackState != Player.STATE_IDLE) {
       return;
     }
     PlaybackInfo playbackInfo = this.playbackInfo.copyWithPlaybackError(null);
     playbackInfo =
-        playbackInfo.copyWithPlaybackState(
-            playbackInfo.timeline.isEmpty() ? STATE_ENDED : STATE_BUFFERING);
+        maskPlaybackState(
+            playbackInfo, playbackInfo.timeline.isEmpty() ? STATE_ENDED : STATE_BUFFERING);
     // Trigger internal prepare first before updating the playback info and notifying external
     // listeners to ensure that new operations issued in the listener notifications reach the
     // player after this prepare. The internal player can't change the playback info immediately
@@ -727,6 +705,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
     Timeline oldTimeline = getCurrentTimeline();
     pendingOperationAcks++;
     Util.moveItems(mediaSourceHolderSnapshots, fromIndex, toIndex, newFromIndex);
+    shuffleOrder = shuffleOrder.cloneAndMove(fromIndex, toIndex, newFromIndex);
     Timeline newTimeline = createMaskingTimeline();
     PlaybackInfo newPlaybackInfo =
         maskTimelineAndPosition(
@@ -809,6 +788,12 @@ import java.util.concurrent.CopyOnWriteArraySet;
   }
 
   @Override
+  public ShuffleOrder getShuffleOrder() {
+    verifyApplicationThread();
+    return shuffleOrder;
+  }
+
+  @Override
   public void setPauseAtEndOfMediaItems(boolean pauseAtEndOfMediaItems) {
     verifyApplicationThread();
     if (this.pauseAtEndOfMediaItems == pauseAtEndOfMediaItems) {
@@ -827,9 +812,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
   @Override
   public void setPlayWhenReady(boolean playWhenReady) {
     verifyApplicationThread();
-    @AudioFocusManager.PlayerCommand
-    int playerCommand = audioFocusManager.updateAudioFocus(playWhenReady, getPlaybackState());
-    updatePlayWhenReady(playWhenReady, playerCommand, getPlayWhenReadyChangeReason(playerCommand));
+    updatePlayWhenReady(playWhenReady, PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST);
   }
 
   @Override
@@ -899,7 +882,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
   }
 
   @Override
-  public void seekTo(
+  protected void seekTo(
       int mediaItemIndex,
       long positionMs,
       @Player.Command int seekCommand,
@@ -929,7 +912,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
     PlaybackInfo newPlaybackInfo = playbackInfo;
     if (playbackInfo.playbackState == Player.STATE_READY
         || (playbackInfo.playbackState == Player.STATE_ENDED && !timeline.isEmpty())) {
-      newPlaybackInfo = playbackInfo.copyWithPlaybackState(Player.STATE_BUFFERING);
+      newPlaybackInfo = maskPlaybackState(playbackInfo, Player.STATE_BUFFERING);
     }
     int oldMaskingMediaItemIndex = getCurrentMediaItemIndex();
     newPlaybackInfo =
@@ -1030,7 +1013,6 @@ import java.util.concurrent.CopyOnWriteArraySet;
   @Override
   public void stop() {
     verifyApplicationThread();
-    audioFocusManager.updateAudioFocus(getPlayWhenReady(), Player.STATE_IDLE);
     stopInternal(/* error= */ null);
     currentCueGroup = new CueGroup(ImmutableList.of(), playbackInfo.positionUs);
   }
@@ -1055,7 +1037,9 @@ import java.util.concurrent.CopyOnWriteArraySet;
     }
     wakeLockManager.setStayAwake(false);
     wifiLockManager.setStayAwake(false);
-    audioFocusManager.release();
+    if (suitableOutputChecker != null) {
+      suitableOutputChecker.disable();
+    }
     if (!internalPlayer.release()) {
       // One of the renderers timed out releasing its resources.
       listeners.sendEvent(
@@ -1072,15 +1056,11 @@ import java.util.concurrent.CopyOnWriteArraySet;
     if (playbackInfo.sleepingForOffload) {
       playbackInfo = playbackInfo.copyWithEstimatedPosition();
     }
-    if (suitableOutputChecker != null && Util.SDK_INT >= 35) {
-      suitableOutputChecker.disable();
-    }
-    playbackInfo = playbackInfo.copyWithPlaybackState(Player.STATE_IDLE);
+    playbackInfo = maskPlaybackState(playbackInfo, Player.STATE_IDLE);
     playbackInfo = playbackInfo.copyWithLoadingMediaPeriodId(playbackInfo.periodId);
     playbackInfo.bufferedPositionUs = playbackInfo.positionUs;
     playbackInfo.totalBufferedDurationUs = 0;
     analyticsCollector.release();
-    trackSelector.release();
     removeSurfaceCallbacks();
     if (ownedSurface != null) {
       ownedSurface.release();
@@ -1226,6 +1206,13 @@ import java.util.concurrent.CopyOnWriteArraySet;
   }
 
   @Override
+  @Nullable
+  public Renderer getSecondaryRenderer(int index) {
+    verifyApplicationThread();
+    return secondaryRenderers[index];
+  }
+
+  @Override
   public TrackSelector getTrackSelector() {
     verifyApplicationThread();
     return trackSelector;
@@ -1252,20 +1239,38 @@ import java.util.concurrent.CopyOnWriteArraySet;
   @Override
   public TrackSelectionParameters getTrackSelectionParameters() {
     verifyApplicationThread();
-    return trackSelector.getParameters();
+    TrackSelectionParameters parameters = trackSelector.getParameters();
+    return scrubbingModeEnabled
+        ? parameters
+            .buildUpon()
+            .setDisabledTrackTypes(disabledTrackTypesWithoutScrubbingMode)
+            .build()
+        : parameters;
   }
 
   @Override
   public void setTrackSelectionParameters(TrackSelectionParameters parameters) {
     verifyApplicationThread();
-    if (!trackSelector.isSetParametersSupported()
-        || parameters.equals(trackSelector.getParameters())) {
+    if (!trackSelector.isSetParametersSupported()) {
       return;
     }
-    trackSelector.setParameters(parameters);
-    listeners.sendEvent(
-        EVENT_TRACK_SELECTION_PARAMETERS_CHANGED,
-        listener -> listener.onTrackSelectionParametersChanged(parameters));
+    TrackSelectionParameters publicParametersBeforeUpdate = getTrackSelectionParameters();
+    TrackSelectionParameters internalParameters;
+    if (scrubbingModeEnabled) {
+      this.disabledTrackTypesWithoutScrubbingMode = parameters.disabledTrackTypes;
+      internalParameters =
+          addDisabledTrackTypes(parameters, scrubbingModeParameters.disabledTrackTypes);
+    } else {
+      internalParameters = parameters;
+    }
+    if (!internalParameters.equals(trackSelector.getParameters())) {
+      trackSelector.setParameters(internalParameters);
+    }
+    if (!publicParametersBeforeUpdate.equals(parameters)) {
+      listeners.sendEvent(
+          EVENT_TRACK_SELECTION_PARAMETERS_CHANGED,
+          listener -> listener.onTrackSelectionParametersChanged(parameters));
+    }
   }
 
   @Override
@@ -1305,8 +1310,9 @@ import java.util.concurrent.CopyOnWriteArraySet;
     verifyApplicationThread();
     try {
       // LINT.IfChange(set_video_effects)
-      Class.forName("androidx.media3.effect.PreviewingSingleInputVideoGraph$Factory")
+      Class.forName("androidx.media3.effect.SingleInputVideoGraph$Factory")
           .getConstructor(VideoFrameProcessor.Factory.class);
+      // LINT.ThenChange(video/PlaybackVideoGraphWrapper.java)
     } catch (ClassNotFoundException | NoSuchMethodException e) {
       throw new IllegalStateException("Could not find required lib-effect dependencies.", e);
     }
@@ -1478,12 +1484,11 @@ import java.util.concurrent.CopyOnWriteArraySet;
     if (playerReleased) {
       return;
     }
-    if (!Util.areEqual(this.audioAttributes, newAudioAttributes)) {
+    if (!Objects.equals(this.audioAttributes, newAudioAttributes)) {
       this.audioAttributes = newAudioAttributes;
       sendRendererMessage(TRACK_TYPE_AUDIO, MSG_SET_AUDIO_ATTRIBUTES, newAudioAttributes);
       if (streamVolumeManager != null) {
-        streamVolumeManager.setStreamType(
-            Util.getStreamTypeForAudioUsage(newAudioAttributes.usage));
+        streamVolumeManager.setStreamType(newAudioAttributes.getStreamType());
       }
       // Queue event only and flush after updating playWhenReady in case both events are triggered.
       listeners.queueEvent(
@@ -1491,12 +1496,8 @@ import java.util.concurrent.CopyOnWriteArraySet;
           listener -> listener.onAudioAttributesChanged(newAudioAttributes));
     }
 
-    audioFocusManager.setAudioAttributes(handleAudioFocus ? newAudioAttributes : null);
-    trackSelector.setAudioAttributes(newAudioAttributes);
-    boolean playWhenReady = getPlayWhenReady();
-    @AudioFocusManager.PlayerCommand
-    int playerCommand = audioFocusManager.updateAudioFocus(playWhenReady, getPlaybackState());
-    updatePlayWhenReady(playWhenReady, playerCommand, getPlayWhenReadyChangeReason(playerCommand));
+    internalPlayer.setAudioAttributes(audioAttributes, handleAudioFocus);
+
     listeners.flushEvents();
   }
 
@@ -1509,24 +1510,22 @@ import java.util.concurrent.CopyOnWriteArraySet;
   @Override
   public void setAudioSessionId(int audioSessionId) {
     verifyApplicationThread();
-    if (this.audioSessionId == audioSessionId) {
+    if (audioSessionIdState.get() == audioSessionId) {
       return;
     }
-    if (audioSessionId == C.AUDIO_SESSION_ID_UNSET) {
-      audioSessionId = Util.generateAudioSessionIdV21(applicationContext);
-    }
-    this.audioSessionId = audioSessionId;
-    sendRendererMessage(TRACK_TYPE_AUDIO, MSG_SET_AUDIO_SESSION_ID, audioSessionId);
-    sendRendererMessage(TRACK_TYPE_VIDEO, MSG_SET_AUDIO_SESSION_ID, audioSessionId);
-    int finalAudioSessionId = audioSessionId;
-    listeners.sendEvent(
-        EVENT_AUDIO_SESSION_ID, listener -> listener.onAudioSessionIdChanged(finalAudioSessionId));
+    audioSessionIdState.updateStateAsync(
+        /* placeholderState= */ previousId ->
+            audioSessionId != AUDIO_SESSION_ID_UNSET ? audioSessionId : previousId,
+        /* backgroundStateUpdate= */ previousId ->
+            audioSessionId != AUDIO_SESSION_ID_UNSET
+                ? audioSessionId
+                : Util.generateAudioSessionIdV21(applicationContext));
   }
 
   @Override
   public int getAudioSessionId() {
     verifyApplicationThread();
-    return audioSessionId;
+    return audioSessionIdState.get();
   }
 
   @Override
@@ -1555,8 +1554,9 @@ import java.util.concurrent.CopyOnWriteArraySet;
     if (this.volume == volume) {
       return;
     }
+    unmuteVolume = volume != 0 ? volume : this.volume;
     this.volume = volume;
-    sendVolumeToRenderers();
+    internalPlayer.setVolume(volume);
     float finalVolume = volume;
     listeners.sendEvent(EVENT_VOLUME_CHANGED, listener -> listener.onVolumeChanged(finalVolume));
   }
@@ -1565,6 +1565,22 @@ import java.util.concurrent.CopyOnWriteArraySet;
   public float getVolume() {
     verifyApplicationThread();
     return volume;
+  }
+
+  @Override
+  public void mute() {
+    verifyApplicationThread();
+    if (volume != 0) {
+      setVolume(0f);
+    }
+  }
+
+  @Override
+  public void unmute() {
+    verifyApplicationThread();
+    if (volume == 0 && unmuteVolume != 0) {
+      setVolume(unmuteVolume);
+    }
   }
 
   @Override
@@ -1584,6 +1600,78 @@ import java.util.concurrent.CopyOnWriteArraySet;
     listeners.sendEvent(
         EVENT_SKIP_SILENCE_ENABLED_CHANGED,
         listener -> listener.onSkipSilenceEnabledChanged(newSkipSilenceEnabled));
+  }
+
+  @Override
+  public void setScrubbingModeEnabled(boolean scrubbingModeEnabled) {
+    verifyApplicationThread();
+    if (scrubbingModeEnabled == this.scrubbingModeEnabled) {
+      return;
+    }
+    this.scrubbingModeEnabled = scrubbingModeEnabled;
+    if (!scrubbingModeParameters.disabledTrackTypes.isEmpty()
+        && trackSelector.isSetParametersSupported()) {
+      TrackSelectionParameters previousTrackSelectionParameters = trackSelector.getParameters();
+      TrackSelectionParameters newTrackSelectionParameters;
+      if (scrubbingModeEnabled) {
+        this.disabledTrackTypesWithoutScrubbingMode =
+            previousTrackSelectionParameters.disabledTrackTypes;
+        newTrackSelectionParameters =
+            addDisabledTrackTypes(
+                previousTrackSelectionParameters, scrubbingModeParameters.disabledTrackTypes);
+      } else {
+        newTrackSelectionParameters =
+            previousTrackSelectionParameters
+                .buildUpon()
+                .setDisabledTrackTypes(disabledTrackTypesWithoutScrubbingMode)
+                .build();
+        this.disabledTrackTypesWithoutScrubbingMode = null;
+      }
+      // Set the parameters directly, to avoid firing onTrackSelectionParametersChanged (because
+      // the return value of getTrackSelectionParameters won't change).
+      if (!newTrackSelectionParameters.equals(previousTrackSelectionParameters)) {
+        trackSelector.setParameters(newTrackSelectionParameters);
+      }
+    }
+    internalPlayer.setScrubbingModeEnabled(scrubbingModeEnabled);
+    maybeUpdatePlaybackSuppressionReason();
+  }
+
+  @Override
+  public boolean isScrubbingModeEnabled() {
+    verifyApplicationThread();
+    return scrubbingModeEnabled;
+  }
+
+  @Override
+  public void setScrubbingModeParameters(ScrubbingModeParameters scrubbingModeParameters) {
+    verifyApplicationThread();
+    if (this.scrubbingModeParameters.equals(scrubbingModeParameters)) {
+      return;
+    }
+    ScrubbingModeParameters previousParameters = this.scrubbingModeParameters;
+    this.scrubbingModeParameters = scrubbingModeParameters;
+    internalPlayer.setScrubbingModeParameters(scrubbingModeParameters);
+    if (scrubbingModeEnabled
+        && trackSelector.isSetParametersSupported()
+        && !previousParameters.disabledTrackTypes.equals(
+            scrubbingModeParameters.disabledTrackTypes)) {
+      // We are already in scrubbing mode, but the tracks we should disable while scrubbing have
+      // changed, so we need to re-calculate the track selection parameters.
+      TrackSelectionParameters trackSelectionParameters =
+          addDisabledTrackTypes(
+              getTrackSelectionParameters(), scrubbingModeParameters.disabledTrackTypes);
+      if (!trackSelectionParameters.equals(trackSelector.getParameters())) {
+        // Set the parameters directly, to avoid firing onTrackSelectionParametersChanged.
+        trackSelector.setParameters(trackSelectionParameters);
+      }
+    }
+  }
+
+  @Override
+  public ScrubbingModeParameters getScrubbingModeParameters() {
+    verifyApplicationThread();
+    return scrubbingModeParameters;
   }
 
   @Override
@@ -1631,7 +1719,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
   @Override
   public void setPriorityTaskManager(@Nullable PriorityTaskManager priorityTaskManager) {
     verifyApplicationThread();
-    if (Util.areEqual(this.priorityTaskManager, priorityTaskManager)) {
+    if (Objects.equals(this.priorityTaskManager, priorityTaskManager)) {
       return;
     }
     if (isPriorityTaskManagerRegistered) {
@@ -1901,7 +1989,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
         this.playbackInfo.copyWithLoadingMediaPeriodId(this.playbackInfo.periodId);
     playbackInfo.bufferedPositionUs = playbackInfo.positionUs;
     playbackInfo.totalBufferedDurationUs = 0;
-    playbackInfo = playbackInfo.copyWithPlaybackState(Player.STATE_IDLE);
+    playbackInfo = maskPlaybackState(playbackInfo, Player.STATE_IDLE);
     if (error != null) {
       playbackInfo = playbackInfo.copyWithPlaybackError(error);
     }
@@ -2379,7 +2467,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
         maskingPlaybackState = STATE_BUFFERING;
       }
     }
-    newPlaybackInfo = newPlaybackInfo.copyWithPlaybackState(maskingPlaybackState);
+    newPlaybackInfo = maskPlaybackState(newPlaybackInfo, maskingPlaybackState);
     internalPlayer.setMediaSources(
         holders, startWindowIndex, Util.msToUs(startPositionMs), shuffleOrder);
     boolean positionDiscontinuity =
@@ -2453,7 +2541,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
             && toIndex == currentMediaSourceCount
             && currentIndex >= newPlaybackInfo.timeline.getWindowCount();
     if (transitionsToEnded) {
-      newPlaybackInfo = newPlaybackInfo.copyWithPlaybackState(STATE_ENDED);
+      newPlaybackInfo = maskPlaybackState(newPlaybackInfo, STATE_ENDED);
     }
     internalPlayer.removeMediaSources(fromIndex, toIndex, shuffleOrder);
     return newPlaybackInfo;
@@ -2573,6 +2661,14 @@ import java.util.concurrent.CopyOnWriteArraySet;
               playbackInfo.trackSelectorResult,
               playbackInfo.staticMetadata);
       playbackInfo.bufferedPositionUs = maskedBufferedPositionUs;
+    }
+    return playbackInfo;
+  }
+
+  private static PlaybackInfo maskPlaybackState(PlaybackInfo playbackInfo, int playbackState) {
+    playbackInfo = playbackInfo.copyWithPlaybackState(playbackState);
+    if (playbackState == STATE_IDLE || playbackState == STATE_ENDED) {
+      playbackInfo = playbackInfo.copyWithIsLoading(false);
     }
     return playbackInfo;
   }
@@ -2755,31 +2851,19 @@ import java.util.concurrent.CopyOnWriteArraySet;
     }
   }
 
-  private void sendVolumeToRenderers() {
-    float scaledVolume = volume * audioFocusManager.getVolumeMultiplier();
-    sendRendererMessage(TRACK_TYPE_AUDIO, MSG_SET_VOLUME, scaledVolume);
+  private void maybeUpdatePlaybackSuppressionReason() {
+    updatePlayWhenReady(playbackInfo.playWhenReady, playbackInfo.playWhenReadyChangeReason);
   }
 
   private void updatePlayWhenReady(
-      boolean playWhenReady,
-      @AudioFocusManager.PlayerCommand int playerCommand,
-      @Player.PlayWhenReadyChangeReason int playWhenReadyChangeReason) {
-    playWhenReady = playWhenReady && playerCommand != AudioFocusManager.PLAYER_COMMAND_DO_NOT_PLAY;
+      boolean playWhenReady, @Player.PlayWhenReadyChangeReason int playWhenReadyChangeReason) {
     @PlaybackSuppressionReason
-    int playbackSuppressionReason = computePlaybackSuppressionReason(playWhenReady, playerCommand);
+    int playbackSuppressionReason = computePlaybackSuppressionReason(playWhenReady);
     if (playbackInfo.playWhenReady == playWhenReady
         && playbackInfo.playbackSuppressionReason == playbackSuppressionReason
         && playbackInfo.playWhenReadyChangeReason == playWhenReadyChangeReason) {
       return;
     }
-    updatePlaybackInfoForPlayWhenReadyAndSuppressionReasonStates(
-        playWhenReady, playWhenReadyChangeReason, playbackSuppressionReason);
-  }
-
-  private void updatePlaybackInfoForPlayWhenReadyAndSuppressionReasonStates(
-      boolean playWhenReady,
-      @Player.PlayWhenReadyChangeReason int playWhenReadyChangeReason,
-      @PlaybackSuppressionReason int playbackSuppressionReason) {
     pendingOperationAcks++;
     // Position estimation and copy must occur before changing/masking playback state.
     PlaybackInfo newPlaybackInfo =
@@ -2801,36 +2885,20 @@ import java.util.concurrent.CopyOnWriteArraySet;
         /* repeatCurrentMediaItem= */ false);
   }
 
-  @PlaybackSuppressionReason
-  private int computePlaybackSuppressionReason(
-      boolean playWhenReady, @AudioFocusManager.PlayerCommand int playerCommand) {
-    if (playerCommand == AudioFocusManager.PLAYER_COMMAND_WAIT_FOR_CALLBACK) {
+  private @PlaybackSuppressionReason int computePlaybackSuppressionReason(boolean playWhenReady) {
+    if (scrubbingModeEnabled) {
+      return Player.PLAYBACK_SUPPRESSION_REASON_SCRUBBING;
+    }
+    if (suitableOutputChecker != null
+        && !suitableOutputChecker.isSelectedOutputSuitableForPlayback()) {
+      return Player.PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT;
+    }
+    if (playbackInfo.playbackSuppressionReason
+            == Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS
+        && !playWhenReady) {
       return Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS;
     }
-    if (suppressPlaybackOnUnsuitableOutput) {
-      if (playWhenReady && !hasSupportedAudioOutput()) {
-        return Player.PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT;
-      }
-      if (!playWhenReady
-          && playbackInfo.playbackSuppressionReason
-              == PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT) {
-        return Player.PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT;
-      }
-    }
     return Player.PLAYBACK_SUPPRESSION_REASON_NONE;
-  }
-
-  private boolean hasSupportedAudioOutput() {
-    if (Util.SDK_INT >= 35 && suitableOutputChecker != null) {
-      return suitableOutputChecker.isSelectedOutputSuitableForPlayback();
-    } else if (Util.SDK_INT >= 23 && audioManager != null) {
-      return Api23.isSuitableExternalAudioOutputPresentInAudioDeviceInfoList(
-          applicationContext, audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS));
-    } else {
-      // The Audio Manager API to determine the list of connected audio devices is available only in
-      // API >= 23.
-      return true;
-    }
   }
 
   private void updateWakeAndWifiLock() {
@@ -2885,6 +2953,11 @@ import java.util.concurrent.CopyOnWriteArraySet;
         createMessageInternal(renderer).setType(messageType).setPayload(payload).send();
       }
     }
+    for (@Nullable Renderer renderer : secondaryRenderers) {
+      if (renderer != null && (trackType == -1 || renderer.getTrackType() == trackType)) {
+        createMessageInternal(renderer).setType(messageType).setPayload(payload).send();
+      }
+    }
   }
 
   private void updatePriorityTaskManagerForIsLoadingChange(boolean isLoading) {
@@ -2936,20 +3009,26 @@ import java.util.concurrent.CopyOnWriteArraySet;
   }
 
   private void onSelectedOutputSuitabilityChanged(boolean isSelectedOutputSuitableForPlayback) {
+    if (playerReleased) {
+      // Stale event.
+      return;
+    }
     if (isSelectedOutputSuitableForPlayback) {
       if (playbackInfo.playbackSuppressionReason
           == Player.PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT) {
-        updatePlaybackInfoForPlayWhenReadyAndSuppressionReasonStates(
-            playbackInfo.playWhenReady,
-            PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
-            Player.PLAYBACK_SUPPRESSION_REASON_NONE);
+        maybeUpdatePlaybackSuppressionReason();
       }
     } else {
-      updatePlaybackInfoForPlayWhenReadyAndSuppressionReasonStates(
-          playbackInfo.playWhenReady,
-          PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
-          Player.PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT);
+      maybeUpdatePlaybackSuppressionReason();
     }
+  }
+
+  private void onAudioSessionIdChanged(int oldAudioSessionId, int newAudioSessionId) {
+    verifyApplicationThread();
+    sendRendererMessage(TRACK_TYPE_AUDIO, MSG_SET_AUDIO_SESSION_ID, newAudioSessionId);
+    sendRendererMessage(TRACK_TYPE_VIDEO, MSG_SET_AUDIO_SESSION_ID, newAudioSessionId);
+    listeners.sendEvent(
+        EVENT_AUDIO_SESSION_ID, listener -> listener.onAudioSessionIdChanged(newAudioSessionId));
   }
 
   private static DeviceInfo createDeviceInfo(@Nullable StreamVolumeManager streamVolumeManager) {
@@ -2959,10 +3038,13 @@ import java.util.concurrent.CopyOnWriteArraySet;
         .build();
   }
 
-  private static int getPlayWhenReadyChangeReason(int playerCommand) {
-    return playerCommand == AudioFocusManager.PLAYER_COMMAND_DO_NOT_PLAY
-        ? PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS
-        : PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST;
+  private static TrackSelectionParameters addDisabledTrackTypes(
+      TrackSelectionParameters parameters, ImmutableSet<@C.TrackType Integer> trackTypesToDisable) {
+    TrackSelectionParameters.Builder parametersBuilder = parameters.buildUpon();
+    for (@C.TrackType Integer trackType : trackTypesToDisable) {
+      parametersBuilder.setTrackTypeDisabled(trackType, true);
+    }
+    return parametersBuilder.build();
   }
 
   private static final class MediaSourceHolderSnapshot implements MediaSourceInfoHolder {
@@ -3001,7 +3083,6 @@ import java.util.concurrent.CopyOnWriteArraySet;
           SurfaceHolder.Callback,
           TextureView.SurfaceTextureListener,
           SphericalGLSurfaceView.VideoSurfaceListener,
-          AudioFocusManager.PlayerControl,
           AudioBecomingNoisyManager.EventListener,
           StreamVolumeManager.Listener,
           AudioOffloadListener {
@@ -3145,6 +3226,13 @@ import java.util.concurrent.CopyOnWriteArraySet;
       analyticsCollector.onAudioTrackReleased(audioTrackConfig);
     }
 
+    @Override
+    public void onAudioSessionIdChanged(int audioSessionId) {
+      audioSessionIdState.updateStateAsync(
+          /* placeholderState= */ previousId -> audioSessionId,
+          /* backgroundStateUpdate= */ previousId -> audioSessionId);
+    }
+
     // TextOutput implementation
     @SuppressWarnings("deprecation") // Intentionally forwarding deprecating callback
     @Override
@@ -3234,28 +3322,12 @@ import java.util.concurrent.CopyOnWriteArraySet;
       setVideoOutputInternal(/* videoOutput= */ null);
     }
 
-    // AudioFocusManager.PlayerControl implementation
-
-    @Override
-    public void setVolumeMultiplier(float volumeMultiplier) {
-      sendVolumeToRenderers();
-    }
-
-    @Override
-    public void executePlayerCommand(@AudioFocusManager.PlayerCommand int playerCommand) {
-      boolean playWhenReady = getPlayWhenReady();
-      updatePlayWhenReady(
-          playWhenReady, playerCommand, getPlayWhenReadyChangeReason(playerCommand));
-    }
-
     // AudioBecomingNoisyManager.EventListener implementation.
 
     @Override
     public void onAudioBecomingNoisy() {
       updatePlayWhenReady(
-          /* playWhenReady= */ false,
-          AudioFocusManager.PLAYER_COMMAND_DO_NOT_PLAY,
-          Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_BECOMING_NOISY);
+          /* playWhenReady= */ false, Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_BECOMING_NOISY);
     }
 
     // StreamVolumeManager.Listener implementation.
@@ -3380,91 +3452,22 @@ import java.util.concurrent.CopyOnWriteArraySet;
   private static final class Api31 {
     private Api31() {}
 
-    public static PlayerId registerMediaMetricsListener(
-        Context context, ExoPlayerImpl player, boolean usePlatformDiagnostics, String playerName) {
-      @Nullable MediaMetricsListener listener = MediaMetricsListener.create(context);
-      if (listener == null) {
-        Log.w(TAG, "MediaMetricsService unavailable.");
-        return new PlayerId(LogSessionId.LOG_SESSION_ID_NONE, playerName);
-      }
-      if (usePlatformDiagnostics) {
-        player.addAnalyticsListener(listener);
-      }
-      return new PlayerId(listener.getLogSessionId(), playerName);
-    }
-  }
-
-  @RequiresApi(23)
-  private static final class Api23 {
-    private Api23() {}
-
-    public static boolean isSuitableExternalAudioOutputPresentInAudioDeviceInfoList(
-        Context context, AudioDeviceInfo[] audioDeviceInfos) {
-      if (!Util.isWear(context)) {
-        return true;
-      }
-      for (AudioDeviceInfo device : audioDeviceInfos) {
-        if (device.getType() == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP
-            || device.getType() == AudioDeviceInfo.TYPE_LINE_ANALOG
-            || device.getType() == AudioDeviceInfo.TYPE_LINE_DIGITAL
-            || device.getType() == AudioDeviceInfo.TYPE_USB_DEVICE
-            || device.getType() == AudioDeviceInfo.TYPE_WIRED_HEADPHONES
-            || device.getType() == AudioDeviceInfo.TYPE_WIRED_HEADSET) {
-          return true;
-        }
-        if (Util.SDK_INT >= 26 && device.getType() == AudioDeviceInfo.TYPE_USB_HEADSET) {
-          return true;
-        }
-        if (Util.SDK_INT >= 28 && device.getType() == AudioDeviceInfo.TYPE_HEARING_AID) {
-          return true;
-        }
-        if (Util.SDK_INT >= 31
-            && (device.getType() == AudioDeviceInfo.TYPE_BLE_HEADSET
-                || device.getType() == AudioDeviceInfo.TYPE_BLE_SPEAKER)) {
-          return true;
-        }
-        if (Util.SDK_INT >= 33 && device.getType() == AudioDeviceInfo.TYPE_BLE_BROADCAST) {
-          return true;
-        }
-      }
-      return false;
-    }
-
-    public static void registerAudioDeviceCallback(
-        AudioManager audioManager, AudioDeviceCallback audioDeviceCallback, Handler handler) {
-      audioManager.registerAudioDeviceCallback(audioDeviceCallback, handler);
-    }
-  }
-
-  /**
-   * A {@link AudioDeviceCallback} to change playback suppression reason when suitable audio outputs
-   * are either added in unsuitable output based playback suppression state or removed during an
-   * ongoing playback.
-   */
-  @RequiresApi(23)
-  private final class NoSuitableOutputPlaybackSuppressionAudioDeviceCallback
-      extends AudioDeviceCallback {
-
-    @Override
-    public void onAudioDevicesAdded(AudioDeviceInfo[] addedDevices) {
-      if (hasSupportedAudioOutput()
-          && playbackInfo.playbackSuppressionReason
-              == Player.PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT) {
-        updatePlaybackInfoForPlayWhenReadyAndSuppressionReasonStates(
-            playbackInfo.playWhenReady,
-            PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
-            Player.PLAYBACK_SUPPRESSION_REASON_NONE);
-      }
-    }
-
-    @Override
-    public void onAudioDevicesRemoved(AudioDeviceInfo[] removedDevices) {
-      if (!hasSupportedAudioOutput()) {
-        updatePlaybackInfoForPlayWhenReadyAndSuppressionReasonStates(
-            playbackInfo.playWhenReady,
-            PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
-            Player.PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT);
-      }
+    public static void registerMediaMetricsListener(
+        Context context, ExoPlayerImpl player, boolean usePlatformDiagnostics, PlayerId playerId) {
+      HandlerWrapper playbackThreadHandler =
+          player.getClock().createHandler(player.getPlaybackLooper(), /* callback= */ null);
+      playbackThreadHandler.post(
+          () -> {
+            @Nullable MediaMetricsListener listener = MediaMetricsListener.create(context);
+            if (listener == null) {
+              Log.w(TAG, "MediaMetricsService unavailable.");
+              return;
+            }
+            if (usePlatformDiagnostics) {
+              player.addAnalyticsListener(listener);
+            }
+            playerId.setLogSessionId(listener.getLogSessionId());
+          });
     }
   }
 }

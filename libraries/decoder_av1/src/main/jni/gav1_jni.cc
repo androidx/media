@@ -78,16 +78,22 @@ const int kMaxPlanes = 3;
 // https://developer.android.com/reference/android/graphics/ImageFormat.html#YV12.
 const int kImageFormatYV12 = 0x32315659;
 
+// LINT.IfChange
 // Output modes.
 const int kOutputModeYuv = 0;
 const int kOutputModeSurfaceYuv = 1;
+// LINT.ThenChange(../../../../common/src/main/java/androidx/media3/common/C.java)
 
+// LINT.IfChange
 const int kColorSpaceUnknown = 0;
+// LINT.ThenChange(../../../../decoder/src/main/java/androidx/media3/decoder/VideoDecoderOutputBuffer.java)
 
+// LINT.IfChange
 // Return codes for jni methods.
 const int kStatusError = 0;
 const int kStatusOk = 1;
 const int kStatusDecodeOnly = 2;
+// LINT.ThenChange(../java/androidx/media3/decoder/av1/Gav1Decoder.java)
 
 // Status codes specific to the JNI wrapper code.
 enum JniStatusCode {
@@ -547,7 +553,7 @@ DECODER_FUNC(jlong, gav1Init, jint threads) {
   const jclass outputBufferClass =
       env->FindClass("androidx/media3/decoder/VideoDecoderOutputBuffer");
   context->decoder_private_field =
-      env->GetFieldID(outputBufferClass, "decoderPrivate", "I");
+      env->GetFieldID(outputBufferClass, "decoderPrivate", "J");
   context->output_mode_field = env->GetFieldID(outputBufferClass, "mode", "I");
   context->data_field =
       env->GetFieldID(outputBufferClass, "data", "Ljava/nio/ByteBuffer;");
@@ -658,7 +664,7 @@ DECODER_FUNC(jint, gav1GetFrame, jlong jContext, jobject jOutputBuffer,
       // Exception is thrown in Java when returning from the native call.
       return kStatusError;
     }
-    env->SetIntField(jOutputBuffer, context->decoder_private_field, buffer_id);
+    env->SetLongField(jOutputBuffer, context->decoder_private_field, buffer_id);
   }
 
   return kStatusOk;
@@ -668,7 +674,7 @@ DECODER_FUNC(jint, gav1RenderFrame, jlong jContext, jobject jSurface,
              jobject jOutputBuffer) {
   JniContext* const context = reinterpret_cast<JniContext*>(jContext);
   const int buffer_id =
-      env->GetIntField(jOutputBuffer, context->decoder_private_field);
+      env->GetLongField(jOutputBuffer, context->decoder_private_field);
   JniFrameBuffer* const jni_buffer =
       context->buffer_manager.GetBuffer(buffer_id);
 
@@ -743,8 +749,8 @@ DECODER_FUNC(jint, gav1RenderFrame, jlong jContext, jobject jSurface,
 DECODER_FUNC(void, gav1ReleaseFrame, jlong jContext, jobject jOutputBuffer) {
   JniContext* const context = reinterpret_cast<JniContext*>(jContext);
   const int buffer_id =
-      env->GetIntField(jOutputBuffer, context->decoder_private_field);
-  env->SetIntField(jOutputBuffer, context->decoder_private_field, -1);
+      env->GetLongField(jOutputBuffer, context->decoder_private_field);
+  env->SetLongField(jOutputBuffer, context->decoder_private_field, -1);
   context->jni_status_code = context->buffer_manager.ReleaseBuffer(buffer_id);
   if (context->jni_status_code != kJniStatusOk) {
     LOGE("%s", GetJniErrorMessage(context->jni_status_code));

@@ -50,6 +50,8 @@ import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.test.utils.FakeMediaPeriod.TrackDataFactory;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.ObjectArrays;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -79,11 +81,99 @@ public class FakeMediaSource extends BaseMediaSource {
     }
   }
 
+  /** A builder for {@link FakeMediaSource} instances. */
+  public static class Builder {
+    @Nullable private Timeline timeline;
+    private DrmSessionManager drmSessionManager;
+    @Nullable private TrackDataFactory trackDataFactory;
+    @Nullable private long[] syncSampleTimesUs;
+    private TrackGroupArray trackGroupArray;
+
+    public Builder() {
+      this.drmSessionManager = DrmSessionManager.DRM_UNSUPPORTED;
+      this.trackGroupArray = buildTrackGroupArray();
+    }
+
+    /**
+     * Sets the {@link Timeline}. Defaults to {@code null} (in which case it can be set later with
+     * {@link #setNewSourceInfo(Timeline)}).
+     *
+     * <p>See {@link FakeMediaSource#getTimeline()}.
+     */
+    @CanIgnoreReturnValue
+    public Builder setTimeline(Timeline timeline) {
+      this.timeline = timeline;
+      return this;
+    }
+
+    /**
+     * Sets the {@link DrmSessionManager}. Defaults to {@link DrmSessionManager#DRM_UNSUPPORTED}.
+     */
+    @CanIgnoreReturnValue
+    public Builder setDrmSessionManager(DrmSessionManager drmSessionManager) {
+      this.drmSessionManager = checkNotNull(drmSessionManager);
+      return this;
+    }
+
+    /**
+     * Sets the track formats to use for the {@link TrackGroupArray} when creating {@link
+     * FakeMediaPeriod} instances.
+     *
+     * <p>Setting this overrides any previous call to {@link #setTrackGroupArray(TrackGroupArray)}.
+     *
+     * <p>Defaults to an empty list (i.e. no tracks).
+     */
+    @CanIgnoreReturnValue
+    public Builder setFormats(Format format, Format... formats) {
+      setTrackGroupArray(buildTrackGroupArray(ObjectArrays.concat(format, formats)));
+      return this;
+    }
+
+    /**
+     * Sets the the {@link TrackGroupArray} used when creating {@link FakeMediaPeriod} instances.
+     *
+     * <p>Setting this overrides any previous call to {@link #setFormats(Format, Format...)}.
+     *
+     * <p>Defaults to an empty array (i.e. no tracks).
+     */
+    @CanIgnoreReturnValue
+    public Builder setTrackGroupArray(TrackGroupArray trackGroupArray) {
+      this.trackGroupArray = trackGroupArray;
+      return this;
+    }
+
+    /**
+     * Sets the factory used to generate track data. Defaults to {@link
+     * TrackDataFactory#singleSampleWithTimeUs(long)} based on the first timestamp of a period.
+     */
+    @CanIgnoreReturnValue
+    public Builder setTrackDataFactory(TrackDataFactory trackDataFactory) {
+      this.trackDataFactory = trackDataFactory;
+      return this;
+    }
+
+    /**
+     * Sets the timestamps of 'sync samples' in the samples returned from {@link
+     * #setTrackDataFactory(TrackDataFactory)}.
+     */
+    @CanIgnoreReturnValue
+    public Builder setSyncSampleTimesUs(long[] syncSampleTimesUs) {
+      this.syncSampleTimesUs = syncSampleTimesUs;
+      return this;
+    }
+
+    /** Creates a {@link FakeMediaSource} from this builder. */
+    public FakeMediaSource build() {
+      return new FakeMediaSource(
+          timeline, drmSessionManager, trackDataFactory, syncSampleTimesUs, trackGroupArray);
+    }
+  }
+
   /** Convenience method to create a {@link FakeMediaSource} with the given window id. */
   public static FakeMediaSource createWithWindowId(Object windowId) {
     return new FakeMediaSource(
         new FakeTimeline(
-            new FakeTimeline.TimelineWindowDefinition(/* periodCount= */ 1, windowId)));
+            new FakeTimeline.TimelineWindowDefinition.Builder().setUid(windowId).build()));
   }
 
   /** The media item used by the fake media source. */
@@ -96,6 +186,7 @@ public class FakeMediaSource extends BaseMediaSource {
 
   private final TrackGroupArray trackGroupArray;
   @Nullable private final FakeMediaPeriod.TrackDataFactory trackDataFactory;
+  @Nullable private final long[] syncSampleTimesUs;
   private final ArrayList<MediaPeriod> activeMediaPeriods;
   private final ArrayList<MediaPeriodId> createdMediaPeriods;
   private final DrmSessionManager drmSessionManager;
@@ -109,7 +200,11 @@ public class FakeMediaSource extends BaseMediaSource {
   @Nullable private TransferListener transferListener;
   private boolean periodDefersOnPreparedCallback;
 
-  /** Creates a {@link FakeMediaSource} with a default {@link FakeTimeline}. */
+  /**
+   * Creates a {@link FakeMediaSource} with a default {@link FakeTimeline}.
+   *
+   * <p>Use {@link Builder} to create a more configured instance.
+   */
   public FakeMediaSource() {
     this(new FakeTimeline());
   }
@@ -119,30 +214,30 @@ public class FakeMediaSource extends BaseMediaSource {
    * {@link TrackGroupArray} using the given {@link Format}s. The provided {@link Timeline} may be
    * null to prevent an immediate source info refresh message when preparing the media source. It
    * can be manually set later using {@link #setNewSourceInfo(Timeline)}.
+   *
+   * <p>Use {@link Builder} to create a more configured instance.
    */
   public FakeMediaSource(@Nullable Timeline timeline, Format... formats) {
     this(timeline, DrmSessionManager.DRM_UNSUPPORTED, formats);
   }
 
   /**
-   * Creates a {@link FakeMediaSource}. This media source creates {@link FakeMediaPeriod}s with a
-   * {@link TrackGroupArray} using the given {@link Format}s. It passes {@code drmSessionManager}
-   * into the created periods. The provided {@link Timeline} may be null to prevent an immediate
-   * source info refresh message when preparing the media source. It can be manually set later using
-   * {@link #setNewSourceInfo(Timeline)}.
+   * @deprecated Use {@link Builder} instead (or {@link FakeMediaSource#FakeMediaSource(Timeline,
+   *     DrmSessionManager, TrackDataFactory, long[], TrackGroupArray)} for subclasses of {@code
+   *     FakeMediaSource}).
    */
+  @Deprecated
   public FakeMediaSource(
       @Nullable Timeline timeline, DrmSessionManager drmSessionManager, Format... formats) {
     this(timeline, drmSessionManager, /* trackDataFactory= */ null, buildTrackGroupArray(formats));
   }
 
   /**
-   * Creates a {@link FakeMediaSource}. This media source creates {@link FakeMediaPeriod}s with a
-   * {@link TrackGroupArray} using the given {@link Format}s. It passes {@code drmSessionManager}
-   * and {@code trackDataFactory} into the created periods. The provided {@link Timeline} may be
-   * null to prevent an immediate source info refresh message when preparing the media source. It
-   * can be manually set later using {@link #setNewSourceInfo(Timeline)}.
+   * @deprecated Use {@link Builder} instead (or {@link FakeMediaSource#FakeMediaSource(Timeline,
+   *     DrmSessionManager, TrackDataFactory, long[], TrackGroupArray)} for subclasses of {@code
+   *     FakeMediaSource}).
    */
+  @Deprecated
   public FakeMediaSource(
       @Nullable Timeline timeline,
       DrmSessionManager drmSessionManager,
@@ -152,16 +247,36 @@ public class FakeMediaSource extends BaseMediaSource {
   }
 
   /**
-   * Creates a {@link FakeMediaSource}. This media source creates {@link FakeMediaPeriod}s with the
-   * provided {@link TrackGroupArray}, {@link DrmSessionManager} and {@link
-   * FakeMediaPeriod.TrackDataFactory}. The provided {@link Timeline} may be null to prevent an
-   * immediate source info refresh message when preparing the media source. It can be manually set
-   * later using {@link #setNewSourceInfo(Timeline)}.
+   * @deprecated Use {@link Builder} instead (or {@link FakeMediaSource#FakeMediaSource(Timeline,
+   *     DrmSessionManager, TrackDataFactory, long[], TrackGroupArray)} for subclasses of {@code
+   *     FakeMediaSource}).
    */
+  @Deprecated
   public FakeMediaSource(
       @Nullable Timeline timeline,
       DrmSessionManager drmSessionManager,
       @Nullable FakeMediaPeriod.TrackDataFactory trackDataFactory,
+      TrackGroupArray trackGroupArray) {
+    this(
+        timeline,
+        drmSessionManager,
+        trackDataFactory,
+        /* syncSampleTimesUs= */ null,
+        trackGroupArray);
+  }
+
+  /**
+   * Creates a {@link FakeMediaSource}. This media source creates {@link FakeMediaPeriod}s with the
+   * provided {@link TrackGroupArray}, {@link DrmSessionManager}, {@link
+   * FakeMediaPeriod.TrackDataFactory}, and {@code syncSampleTimesUs}. The provided {@link Timeline}
+   * may be null to prevent an immediate source info refresh message when preparing the media
+   * source. It can be manually set later using {@link #setNewSourceInfo(Timeline)}.
+   */
+  protected FakeMediaSource(
+      @Nullable Timeline timeline,
+      DrmSessionManager drmSessionManager,
+      @Nullable FakeMediaPeriod.TrackDataFactory trackDataFactory,
+      @Nullable long[] syncSampleTimesUs,
       TrackGroupArray trackGroupArray) {
     if (timeline != null) {
       this.timeline = timeline;
@@ -171,6 +286,7 @@ public class FakeMediaSource extends BaseMediaSource {
     this.createdMediaPeriods = new ArrayList<>();
     this.drmSessionManager = drmSessionManager;
     this.trackDataFactory = trackDataFactory;
+    this.syncSampleTimesUs = syncSampleTimesUs;
     preparationAllowed = true;
     canUpdateMediaItems = false;
   }
@@ -415,6 +531,7 @@ public class FakeMediaSource extends BaseMediaSource {
         trackDataFactory != null
             ? trackDataFactory
             : TrackDataFactory.singleSampleWithTimeUs(defaultFirstSampleTimeUs),
+        syncSampleTimesUs,
         mediaSourceEventDispatcher,
         drmSessionManager,
         drmEventDispatcher,

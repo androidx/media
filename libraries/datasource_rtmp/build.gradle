@@ -24,8 +24,8 @@ android {
 }
 
 dependencies {
-    implementation project(modulePrefix + 'lib-common')
-    implementation project(modulePrefix + 'lib-datasource')
+    api project(modulePrefix + 'lib-common')
+    api project(modulePrefix + 'lib-datasource')
     implementation 'io.antmedia:rtmp-client:3.2.0'
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
     compileOnly 'com.google.errorprone:error_prone_annotations:' + errorProneVersion

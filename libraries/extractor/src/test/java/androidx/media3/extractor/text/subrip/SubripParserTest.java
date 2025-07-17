@@ -26,6 +26,7 @@ import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -51,6 +52,7 @@ public final class SubripParserTest {
   private static final String TYPICAL_WITH_TAGS = "media/subrip/typical_with_tags";
   private static final String TYPICAL_NO_HOURS_AND_MILLIS =
       "media/subrip/typical_no_hours_and_millis";
+  private static final String TYPICAL_BAD_TIMESTAMPS = "media/subrip/typical_bad_timestamps";
 
   @Test
   public void cueReplacementBehaviorIsMerge() {
@@ -103,7 +105,8 @@ public final class SubripParserTest {
     byte[] bytes = TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), TYPICAL_FILE);
 
     List<CuesWithTiming> cues = new ArrayList<>();
-    parser.parse(bytes, OutputOptions.onlyCuesAfter(/* startTimeUs= */ 1_000_000), cues::add);
+    // Choose a start time halfway through the second cue, and expect it to be included.
+    parser.parse(bytes, OutputOptions.onlyCuesAfter(/* startTimeUs= */ 3_000_000), cues::add);
 
     assertThat(cues).hasSize(2);
     assertTypicalCue2(cues.get(0));
@@ -116,9 +119,10 @@ public final class SubripParserTest {
     byte[] bytes = TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), TYPICAL_FILE);
 
     List<CuesWithTiming> cues = new ArrayList<>();
+    // Choose a start time halfway through the second cue, and expect it to be considered 'after'.
     parser.parse(
         bytes,
-        OutputOptions.cuesAfterThenRemainingCuesBefore(/* startTimeUs= */ 1_000_000),
+        OutputOptions.cuesAfterThenRemainingCuesBefore(/* startTimeUs= */ 3_000_000),
         cues::add);
 
     assertThat(cues).hasSize(3);
@@ -286,6 +290,17 @@ public final class SubripParserTest {
     assertThat(allCues.get(1).durationUs).isEqualTo(1_000_000);
     assertThat(allCues.get(1).endTimeUs).isEqualTo(3_000_000);
     assertTypicalCue3(allCues.get(2));
+  }
+
+  @Test
+  public void parseTypicalBadTimestamps() throws IOException {
+    SubripParser parser = new SubripParser();
+    byte[] bytes =
+        TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), TYPICAL_BAD_TIMESTAMPS);
+
+    ImmutableList<CuesWithTiming> allCues = parseAllCues(parser, bytes);
+
+    assertTypicalCue1(Iterables.getOnlyElement(allCues));
   }
 
   private static ImmutableList<CuesWithTiming> parseAllCues(SubtitleParser parser, byte[] data) {

@@ -19,7 +19,6 @@ import static androidx.annotation.RestrictTo.Scope.LIBRARY;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 
 import android.app.ForegroundServiceStartNotAllowedException;
-import android.app.PendingIntent;
 import android.app.Service;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
@@ -35,7 +34,6 @@ import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
 import androidx.core.content.ContextCompat;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.session.legacy.PlaybackStateCompat.MediaKeyAction;
 import java.util.List;
 
 /**
@@ -74,22 +72,6 @@ import java.util.List;
  * &lt;/service&gt;
  * </pre>
  *
- * Events can then be handled in {@link Service#onStartCommand(Intent, int, int)} by calling {@link
- * MediaButtonReceiver#handleIntent(MediaSessionCompat, Intent)}, passing in your current {@link
- * MediaSessionCompat}:
- *
- * <pre>
- * private MediaSessionCompat mMediaSessionCompat = ...;
- *
- * public int onStartCommand(Intent intent, int flags, int startId) {
- *   MediaButtonReceiver.handleIntent(mMediaSessionCompat, intent);
- *   return super.onStartCommand(intent, flags, startId);
- * }
- * </pre>
- *
- * This ensures that the correct callbacks to {@link MediaSessionCompat.Callback} will be triggered
- * based on the incoming {@link KeyEvent}.
- *
  * <p class="note"><strong>Note:</strong> Once the service is started, it must start to run in the
  * foreground.
  *
@@ -122,7 +104,7 @@ public class MediaButtonReceiver extends BroadcastReceiver {
         if (Build.VERSION.SDK_INT >= 31
             && Api31.instanceOfForegroundServiceStartNotAllowedException(e)) {
           onForegroundServiceStartNotAllowedException(
-              intent, Api31.castToForegroundServiceStartNotAllowedException(e));
+              Api31.castToForegroundServiceStartNotAllowedException(e));
         } else {
           throw e;
         }
@@ -171,13 +153,11 @@ public class MediaButtonReceiver extends BroadcastReceiver {
    * <p>In all other cases, apps should use a {@linkplain MediaBrowserCompat media browser} to bind
    * to and start the service instead of broadcasting an intent.
    *
-   * @param intent The intent that was used {@linkplain Context#startForegroundService(Intent) for
-   *     starting the foreground service}.
    * @param e The exception thrown by the system and caught by this broadcast receiver.
    */
   @RequiresApi(31)
   protected void onForegroundServiceStartNotAllowedException(
-      Intent intent, ForegroundServiceStartNotAllowedException e) {
+      ForegroundServiceStartNotAllowedException e) {
     Log.e(
         TAG,
         "caught exception when trying to start a foreground service from the "
@@ -186,28 +166,27 @@ public class MediaButtonReceiver extends BroadcastReceiver {
   }
 
   private static class MediaButtonConnectionCallback extends MediaBrowserCompat.ConnectionCallback {
-    private final Context mContext;
-    private final Intent mIntent;
-    private final PendingResult mPendingResult;
+    private final Context context;
+    private final Intent intent;
+    private final PendingResult pendingResult;
 
-    @Nullable private MediaBrowserCompat mMediaBrowser;
+    @Nullable private MediaBrowserCompat mediaBrowser;
 
     MediaButtonConnectionCallback(Context context, Intent intent, PendingResult pendingResult) {
-      mContext = context;
-      mIntent = intent;
-      mPendingResult = pendingResult;
+      this.context = context;
+      this.intent = intent;
+      this.pendingResult = pendingResult;
     }
 
     void setMediaBrowser(MediaBrowserCompat mediaBrowser) {
-      mMediaBrowser = mediaBrowser;
+      this.mediaBrowser = mediaBrowser;
     }
 
-    @SuppressWarnings("deprecation")
     @Override
     public void onConnected() {
       MediaControllerCompat mediaController =
-          new MediaControllerCompat(mContext, checkNotNull(mMediaBrowser).getSessionToken());
-      KeyEvent ke = mIntent.getParcelableExtra(Intent.EXTRA_KEY_EVENT);
+          new MediaControllerCompat(context, checkNotNull(mediaBrowser).getSessionToken());
+      KeyEvent ke = intent.getParcelableExtra(Intent.EXTRA_KEY_EVENT);
       mediaController.dispatchMediaButtonEvent(ke);
       finish();
     }
@@ -223,115 +202,9 @@ public class MediaButtonReceiver extends BroadcastReceiver {
     }
 
     private void finish() {
-      checkNotNull(mMediaBrowser).disconnect();
-      mPendingResult.finish();
+      checkNotNull(mediaBrowser).disconnect();
+      pendingResult.finish();
     }
-  }
-  ;
-
-  /**
-   * Extracts any available {@link KeyEvent} from an {@link Intent#ACTION_MEDIA_BUTTON} intent,
-   * passing it onto the {@link MediaSessionCompat} using {@link
-   * MediaControllerCompat#dispatchMediaButtonEvent(KeyEvent)}, which in turn will trigger callbacks
-   * to the {@link MediaSessionCompat.Callback} registered via {@link
-   * MediaSessionCompat#setCallback(MediaSessionCompat.Callback)}.
-   *
-   * @param mediaSessionCompat A {@link MediaSessionCompat} that has a {@link
-   *     MediaSessionCompat.Callback} set.
-   * @param intent The intent to parse.
-   * @return The extracted {@link KeyEvent} if found, or null.
-   */
-  @Nullable
-  @SuppressWarnings("deprecation")
-  public static KeyEvent handleIntent(MediaSessionCompat mediaSessionCompat, Intent intent) {
-    if (mediaSessionCompat == null
-        || intent == null
-        || !Intent.ACTION_MEDIA_BUTTON.equals(intent.getAction())
-        || !intent.hasExtra(Intent.EXTRA_KEY_EVENT)) {
-      return null;
-    }
-    KeyEvent ke = intent.getParcelableExtra(Intent.EXTRA_KEY_EVENT);
-    MediaControllerCompat mediaController = mediaSessionCompat.getController();
-    mediaController.dispatchMediaButtonEvent(ke);
-    return ke;
-  }
-
-  /**
-   * Creates a broadcast pending intent that will send a media button event. The {@code action} will
-   * be translated to the appropriate {@link KeyEvent}, and it will be sent to the registered media
-   * button receiver in the given context. The {@code action} should be one of the following:
-   *
-   * <ul>
-   *   <li>{@link PlaybackStateCompat#ACTION_PLAY}
-   *   <li>{@link PlaybackStateCompat#ACTION_PAUSE}
-   *   <li>{@link PlaybackStateCompat#ACTION_SKIP_TO_NEXT}
-   *   <li>{@link PlaybackStateCompat#ACTION_SKIP_TO_PREVIOUS}
-   *   <li>{@link PlaybackStateCompat#ACTION_STOP}
-   *   <li>{@link PlaybackStateCompat#ACTION_FAST_FORWARD}
-   *   <li>{@link PlaybackStateCompat#ACTION_REWIND}
-   *   <li>{@link PlaybackStateCompat#ACTION_PLAY_PAUSE}
-   * </ul>
-   *
-   * @param context The context of the application.
-   * @param action The action to be sent via the pending intent.
-   * @return Created pending intent, or null if cannot find a unique registered media button
-   *     receiver or if the {@code action} is unsupported/invalid.
-   */
-  @Nullable
-  public static PendingIntent buildMediaButtonPendingIntent(
-      Context context, @MediaKeyAction long action) {
-    ComponentName mbrComponent = getMediaButtonReceiverComponent(context);
-    if (mbrComponent == null) {
-      Log.w(
-          TAG,
-          "A unique media button receiver could not be found in the given context, so "
-              + "couldn't build a pending intent.");
-      return null;
-    }
-    return buildMediaButtonPendingIntent(context, mbrComponent, action);
-  }
-
-  /**
-   * Creates a broadcast pending intent that will send a media button event. The {@code action} will
-   * be translated to the appropriate {@link KeyEvent}, and sent to the provided media button
-   * receiver via the pending intent. The {@code action} should be one of the following:
-   *
-   * <ul>
-   *   <li>{@link PlaybackStateCompat#ACTION_PLAY}
-   *   <li>{@link PlaybackStateCompat#ACTION_PAUSE}
-   *   <li>{@link PlaybackStateCompat#ACTION_SKIP_TO_NEXT}
-   *   <li>{@link PlaybackStateCompat#ACTION_SKIP_TO_PREVIOUS}
-   *   <li>{@link PlaybackStateCompat#ACTION_STOP}
-   *   <li>{@link PlaybackStateCompat#ACTION_FAST_FORWARD}
-   *   <li>{@link PlaybackStateCompat#ACTION_REWIND}
-   *   <li>{@link PlaybackStateCompat#ACTION_PLAY_PAUSE}
-   * </ul>
-   *
-   * @param context The context of the application.
-   * @param mbrComponent The full component name of a media button receiver where you want to send
-   *     this intent.
-   * @param action The action to be sent via the pending intent.
-   * @return Created pending intent, or null if the given component name is null or the {@code
-   *     action} is unsupported/invalid.
-   */
-  @Nullable
-  public static PendingIntent buildMediaButtonPendingIntent(
-      Context context, ComponentName mbrComponent, @MediaKeyAction long action) {
-    if (mbrComponent == null) {
-      Log.w(TAG, "The component name of media button receiver should be provided.");
-      return null;
-    }
-    int keyCode = PlaybackStateCompat.toKeyCode(action);
-    if (keyCode == KeyEvent.KEYCODE_UNKNOWN) {
-      Log.w(TAG, "Cannot build a media button pending intent with the given action: " + action);
-      return null;
-    }
-    Intent intent = new Intent(Intent.ACTION_MEDIA_BUTTON);
-    intent.setComponent(mbrComponent);
-    intent.putExtra(Intent.EXTRA_KEY_EVENT, new KeyEvent(KeyEvent.ACTION_DOWN, keyCode));
-    intent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
-    return PendingIntent.getBroadcast(
-        context, keyCode, intent, Build.VERSION.SDK_INT >= 31 ? PendingIntent.FLAG_MUTABLE : 0);
   }
 
   /** */

@@ -43,7 +43,11 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
-/** Extracts JPEG metadata and motion photo using the Exif format. */
+/**
+ * Extracts JPEG motion photos following the <a
+ * href="https://developer.android.com/media/platform/motion-photo-format">Android Motion Photo
+ * format 1.0</a>.
+ */
 /* package */ final class JpegMotionPhotoExtractor implements Extractor {
 
   /** Parser states. */
@@ -67,8 +71,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private static final int STATE_READING_MOTION_PHOTO_VIDEO = 5;
   private static final int STATE_ENDED = 6;
 
-  private static final int EXIF_ID_CODE_LENGTH = 6;
-  private static final long EXIF_HEADER = 0x45786966; // Exif
   private static final int MARKER_SOI = 0xFFD8; // Start of image marker
   private static final int MARKER_SOS = 0xFFDA; // Start of scan (image data) marker
   private static final int MARKER_APP0 = 0xFFE0; // Application data 0 marker
@@ -90,31 +92,23 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @Nullable private Mp4Extractor mp4Extractor;
 
   public JpegMotionPhotoExtractor() {
-    scratch = new ParsableByteArray(EXIF_ID_CODE_LENGTH);
+    scratch = new ParsableByteArray(/* limit= */ 2);
     mp4StartPosition = C.INDEX_UNSET;
   }
 
   @Override
   public boolean sniff(ExtractorInput input) throws IOException {
-    // See ITU-T.81 (1992) subsection B.1.1.3 and Exif version 2.2 (2002) subsection 4.5.4.
+    // See ITU-T.81 (1992) subsection B.1.1.3.
     if (peekMarker(input) != MARKER_SOI) {
       return false;
     }
     marker = peekMarker(input);
-    // Even though JFIF and Exif standards are incompatible in theory, Exif files often contain a
-    // JFIF APP0 marker segment preceding the Exif APP1 marker segment. Skip the JFIF segment if
-    // present.
+    // Skip the JFIF segment if present.
     if (marker == MARKER_APP0) {
       advancePeekPositionToNextSegment(input);
       marker = peekMarker(input);
     }
-    if (marker != MARKER_APP1) {
-      return false;
-    }
-    input.advancePeekPosition(2); // Unused segment length
-    scratch.reset(/* limit= */ EXIF_ID_CODE_LENGTH);
-    input.peekFully(scratch.getData(), /* offset= */ 0, EXIF_ID_CODE_LENGTH);
-    return scratch.readUnsignedInt() == EXIF_HEADER && scratch.readUnsignedShort() == 0; // Exif\0\0
+    return marker == MARKER_APP1;
   }
 
   @Override

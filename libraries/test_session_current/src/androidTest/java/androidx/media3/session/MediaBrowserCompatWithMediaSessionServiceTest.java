@@ -52,6 +52,7 @@ import org.junit.runner.RunWith;
 /** Tests for {@link MediaBrowserCompat} with {@link MediaSessionService}. */
 @RunWith(AndroidJUnit4.class)
 @LargeTest
+@SuppressWarnings("deprecation") // Tests behavior of deprecated MediaBrowserCompat
 public class MediaBrowserCompatWithMediaSessionServiceTest {
 
   private final HandlerThreadTestRule threadTestRule =

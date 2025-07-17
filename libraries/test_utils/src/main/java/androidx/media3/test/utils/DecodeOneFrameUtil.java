@@ -18,6 +18,7 @@ package androidx.media3.test.utils;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.MediaFormatUtil.createMediaFormatFromFormat;
+import static androidx.media3.common.util.Util.postOrRun;
 import static androidx.media3.test.utils.TestUtil.buildAssetUri;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 
@@ -70,6 +71,21 @@ public final class DecodeOneFrameUtil {
   @SuppressWarnings("CatchingUnchecked")
   public static void decodeOneAssetFileFrame(
       String assetFilePath, Listener listener, Surface surface) throws Exception {
+    decodeOneMediaItemFrame(MediaItem.fromUri(buildAssetUri(assetFilePath)), listener, surface);
+  }
+
+  /**
+   * Reads and decodes one frame synchronously from the {@code mediaItem} and renders it to the
+   * {@code surface}.
+   *
+   * <p>This method blocks until the frame has been rendered to the {@code surface}.
+   *
+   * @param mediaItem The {@link MediaItem} from which to decode a frame.
+   * @param listener A {@link Listener} implementation.
+   * @param surface The {@link Surface} to render the decoded frame to.
+   */
+  public static void decodeOneMediaItemFrame(
+      MediaItem mediaItem, Listener listener, Surface surface) throws Exception {
     Context context = getApplicationContext();
     AtomicReference<@NullableType Exception> unexpectedExceptionReference = new AtomicReference<>();
     AtomicReference<@NullableType PlaybackException> playbackExceptionReference =
@@ -77,6 +93,12 @@ public final class DecodeOneFrameUtil {
     ConditionVariable firstFrameRenderedOrError = new ConditionVariable();
 
     ExoPlayer exoPlayer = new ExoPlayer.Builder(context).build();
+    postOrRun(
+        new Handler(exoPlayer.getApplicationLooper()),
+        () ->
+            exoPlayer.setVideoFrameMetadataListener(
+                (presentationTimeUs, releaseTimeNs, format, mediaFormat) ->
+                    listener.onFrameDecoded(checkNotNull(mediaFormat))));
     Handler handler = new Handler(exoPlayer.getApplicationLooper());
     AnalyticsListener analyticsListener =
         new AnalyticsListener() {
@@ -93,8 +115,6 @@ public final class DecodeOneFrameUtil {
             if (exoPlayer.isReleased()) {
               return;
             }
-            listener.onFrameDecoded(
-                createMediaFormatFromFormat(checkNotNull(exoPlayer.getVideoFormat())));
             firstFrameRenderedOrError.open();
           }
 
@@ -115,7 +135,7 @@ public final class DecodeOneFrameUtil {
           try {
             exoPlayer.setVideoSurface(surface);
             exoPlayer.addAnalyticsListener(analyticsListener);
-            exoPlayer.setMediaItem(MediaItem.fromUri(buildAssetUri(assetFilePath)));
+            exoPlayer.setMediaItem(mediaItem);
             exoPlayer.setPlayWhenReady(false);
             exoPlayer.prepare();
             // Catch all exceptions to report. Exceptions thrown here and not caught will not

@@ -21,7 +21,9 @@ import static androidx.media3.common.util.Util.postOrRun;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.collection.ArrayMap;
+import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
+import androidx.media3.common.util.Assertions;
 import androidx.media3.session.MediaSession.ControllerInfo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
@@ -104,7 +106,11 @@ import org.checkerframework.checker.nullness.qual.NonNull;
       @Nullable ConnectedControllerRecord<T> record = controllerRecords.get(controllerInfo);
       if (record != null) {
         record.sessionCommands = sessionCommands;
-        record.playerCommands = playerCommands;
+        if (record.playerCommandsBeforePlaybackException != null) {
+          record.playerCommandsBeforePlaybackException = playerCommands;
+        } else {
+          record.playerCommands = playerCommands;
+        }
       }
     }
   }
@@ -115,6 +121,95 @@ import org.checkerframework.checker.nullness.qual.NonNull;
       @Nullable ConnectedControllerRecord<T> record = controllerRecords.get(controllerInfo);
       if (record != null) {
         return record.playerCommands;
+      }
+    }
+    return null;
+  }
+
+  @Nullable
+  public SessionCommands getAvailableSessionCommands(ControllerInfo controllerInfo) {
+    synchronized (lock) {
+      @Nullable ConnectedControllerRecord<T> record = controllerRecords.get(controllerInfo);
+      if (record != null) {
+        return record.sessionCommands;
+      }
+    }
+    return null;
+  }
+
+  public void setPlaybackException(
+      ControllerInfo controllerInfo,
+      PlaybackException playbackException,
+      Player.Commands playerCommandsBeforePlaybackException) {
+    synchronized (lock) {
+      @Nullable ConnectedControllerRecord<T> record = controllerRecords.get(controllerInfo);
+      if (record != null) {
+        record.playbackException = playbackException;
+        record.playerCommandsBeforePlaybackException = playerCommandsBeforePlaybackException;
+        record.playerInfoForPlaybackException = null;
+      }
+    }
+  }
+
+  public void resetPlaybackException(ControllerInfo controllerInfo) {
+    synchronized (lock) {
+      @Nullable ConnectedControllerRecord<T> record = controllerRecords.get(controllerInfo);
+      if (record != null) {
+        record.playbackException = null;
+        record.playerCommandsBeforePlaybackException = null;
+        record.playerInfoForPlaybackException = null;
+      }
+    }
+  }
+
+  /**
+   * Sets the player info for the playback exception.
+   *
+   * <p>To reset the player info to null call {@link #resetPlaybackException(ControllerInfo)}.
+   *
+   * @param controllerInfo The controller info .
+   * @param playerInfo The player info.
+   * @throws IllegalStateException if {@link ConnectedControllerRecord#playbackException} is null.
+   */
+  public void setPlayerInfoForPlaybackException(
+      ControllerInfo controllerInfo, PlayerInfo playerInfo) {
+    synchronized (lock) {
+      @Nullable ConnectedControllerRecord<T> record = controllerRecords.get(controllerInfo);
+      if (record != null) {
+        Assertions.checkStateNotNull(record.playbackException);
+        record.playerInfoForPlaybackException = playerInfo;
+      }
+    }
+  }
+
+  @Nullable
+  public PlaybackException getPlaybackException(ControllerInfo controllerInfo) {
+    synchronized (lock) {
+      @Nullable ConnectedControllerRecord<T> record = controllerRecords.get(controllerInfo);
+      if (record != null) {
+        return record.playbackException;
+      }
+    }
+    return null;
+  }
+
+  @Nullable
+  public PlayerInfo getPlayerInfoForPlaybackException(ControllerInfo controllerInfo) {
+    synchronized (lock) {
+      @Nullable ConnectedControllerRecord<T> record = controllerRecords.get(controllerInfo);
+      if (record != null) {
+        return record.playerInfoForPlaybackException;
+      }
+    }
+    return null;
+  }
+
+  @Nullable
+  public Player.Commands getPlayerCommandsBeforePlaybackException(ControllerInfo controllerInfo) {
+    synchronized (lock) {
+      @Nullable ConnectedControllerRecord<T> record = controllerRecords.get(controllerInfo);
+      if (record != null) {
+        return record.playerCommandsBeforePlaybackException;
       }
     }
     return null;
@@ -316,8 +411,11 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 
     public SessionCommands sessionCommands;
     public Player.Commands playerCommands;
+    @Nullable public Player.Commands playerCommandsBeforePlaybackException;
     public boolean commandQueueIsFlushing;
     public Player.Commands commandQueuePlayerCommands;
+    @Nullable public PlaybackException playbackException;
+    @Nullable public PlayerInfo playerInfoForPlaybackException;
 
     public ConnectedControllerRecord(
         T controllerKey,

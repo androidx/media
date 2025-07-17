@@ -517,8 +517,7 @@ public class BoxesTest {
   @Test
   public void
       convertPresentationTimestampsToDurationsVu_singleSampleAtZeroTimestamp_returnsSampleLengthEqualsZero() {
-    List<MediaCodec.BufferInfo> sampleBufferInfos =
-        createBufferInfoListWithSamplePresentationTimestamps(0L);
+    List<BufferInfo> sampleBufferInfos = createBufferInfoListWithSamplePresentationTimestamps(0L);
 
     List<Integer> durationsVu =
         Boxes.convertPresentationTimestampsToDurationsVu(
@@ -533,7 +532,7 @@ public class BoxesTest {
   @Test
   public void
       convertPresentationTimestampsToDurationsVu_singleSampleAtNonZeroTimestamp_returnsSampleLengthEqualsZero() {
-    List<MediaCodec.BufferInfo> sampleBufferInfos =
+    List<BufferInfo> sampleBufferInfos =
         createBufferInfoListWithSamplePresentationTimestamps(5_000L);
 
     List<Integer> durationsVu =
@@ -549,7 +548,7 @@ public class BoxesTest {
   @Test
   public void
       convertPresentationTimestampsToDurationsVu_differentSampleDurations_lastFrameDurationShort_returnsLastSampleOfZeroDuration() {
-    List<MediaCodec.BufferInfo> sampleBufferInfos =
+    List<BufferInfo> sampleBufferInfos =
         createBufferInfoListWithSamplePresentationTimestamps(0L, 30_000L, 80_000L);
 
     List<Integer> durationsVu =
@@ -565,7 +564,7 @@ public class BoxesTest {
   @Test
   public void
       convertPresentationTimestampsToDurationsVu_differentSampleDurations_lastFrameDurationDuplicate_returnsLastSampleOfDuplicateDuration() {
-    List<MediaCodec.BufferInfo> sampleBufferInfos =
+    List<BufferInfo> sampleBufferInfos =
         createBufferInfoListWithSamplePresentationTimestamps(0L, 30_000L, 80_000L);
 
     List<Integer> durationsVu =
@@ -581,7 +580,7 @@ public class BoxesTest {
   @Test
   public void
       convertPresentationTimestampsToDurationsVu_withOutOfOrderSampleTimestamps_returnsExpectedDurations() {
-    List<MediaCodec.BufferInfo> sampleBufferInfos =
+    List<BufferInfo> sampleBufferInfos =
         createBufferInfoListWithSamplePresentationTimestamps(0L, 10_000L, 1_000L, 2_000L, 11_000L);
 
     List<Integer> durationsVu =
@@ -596,8 +595,42 @@ public class BoxesTest {
 
   @Test
   public void
+      convertPresentationTimestampsToDurationsVu_withNegativeSampleTimestampsAndZero_returnsExpectedDurations() {
+    List<BufferInfo> sampleBufferInfos =
+        createBufferInfoListWithSamplePresentationTimestamps(
+            -1_000L, 0L, 10_000L, 1_000L, 2_000L, 11_000L);
+
+    List<Integer> durationsVu =
+        Boxes.convertPresentationTimestampsToDurationsVu(
+            sampleBufferInfos,
+            VU_TIMEBASE,
+            LAST_SAMPLE_DURATION_BEHAVIOR_SET_TO_ZERO,
+            C.TIME_UNSET);
+
+    assertThat(durationsVu).containsExactly(100, 100, 100, 800, 100, 0);
+  }
+
+  @Test
+  public void
+      convertPresentationTimestampsToDurationsVu_withNegativeSampleTimestamps_returnsExpectedDurations() {
+    List<BufferInfo> sampleBufferInfos =
+        createBufferInfoListWithSamplePresentationTimestamps(
+            -1_000L, 10_000L, 1_000L, 2_000L, 11_000L);
+
+    List<Integer> durationsVu =
+        Boxes.convertPresentationTimestampsToDurationsVu(
+            sampleBufferInfos,
+            VU_TIMEBASE,
+            LAST_SAMPLE_DURATION_BEHAVIOR_SET_TO_ZERO,
+            C.TIME_UNSET);
+
+    assertThat(durationsVu).containsExactly(200, 100, 800, 100, 0);
+  }
+
+  @Test
+  public void
       convertPresentationTimestampsToDurationsVu_withLastSampleDurationBehaviorUsingEndOfStreamFlag_returnsExpectedDurations() {
-    List<MediaCodec.BufferInfo> sampleBufferInfos =
+    List<BufferInfo> sampleBufferInfos =
         createBufferInfoListWithSamplePresentationTimestamps(0L, 1_000L, 2_000L, 3_000L, 4_000L);
 
     List<Integer> durationsVu =
@@ -652,8 +685,7 @@ public class BoxesTest {
 
   @Test
   public void createCttsBox_withSingleSampleTimestamp_returnsEmptyBox() {
-    List<MediaCodec.BufferInfo> sampleBufferInfos =
-        createBufferInfoListWithSamplePresentationTimestamps(400);
+    List<BufferInfo> sampleBufferInfos = createBufferInfoListWithSamplePresentationTimestamps(400);
     List<Integer> durationsVu =
         Boxes.convertPresentationTimestampsToDurationsVu(
             sampleBufferInfos,
@@ -669,7 +701,7 @@ public class BoxesTest {
 
   @Test
   public void createCttsBox_withNoBframesSampleTimestamps_returnsEmptyBox() throws IOException {
-    List<MediaCodec.BufferInfo> sampleBufferInfos =
+    List<BufferInfo> sampleBufferInfos =
         createBufferInfoListWithSamplePresentationTimestamps(0L, 1000L, 2000L);
     List<Integer> durationsVu =
         Boxes.convertPresentationTimestampsToDurationsVu(
@@ -686,7 +718,7 @@ public class BoxesTest {
 
   @Test
   public void createCttsBox_withBFramesSampleTimestamps_matchesExpected() throws IOException {
-    List<MediaCodec.BufferInfo> sampleBufferInfos =
+    List<BufferInfo> sampleBufferInfos =
         createBufferInfoListWithSamplePresentationTimestamps(
             0, 400, 200, 100, 300, 800, 600, 500, 700);
 
@@ -706,7 +738,7 @@ public class BoxesTest {
 
   @Test
   public void createCttsBox_withLargeSampleTimestamps_matchesExpected() throws IOException {
-    List<MediaCodec.BufferInfo> sampleBufferInfos =
+    List<BufferInfo> sampleBufferInfos =
         createBufferInfoListWithSamplePresentationTimestamps(
             23698215060L, 23698248252L, 23698347988L, 23698488968L, 23698547416L);
 
@@ -724,8 +756,7 @@ public class BoxesTest {
 
   @Test
   public void createStszBox_matchesExpected() throws IOException {
-    List<MediaCodec.BufferInfo> sampleBufferInfos =
-        createBufferInfoListWithSampleSizes(100, 200, 150, 200);
+    List<BufferInfo> sampleBufferInfos = createBufferInfoListWithSampleSizes(100, 200, 150, 200);
 
     ByteBuffer stszBox = Boxes.stsz(sampleBufferInfos);
 
@@ -735,7 +766,7 @@ public class BoxesTest {
   }
 
   @Test
-  public void createStscBox_matchesExpected() throws IOException {
+  public void createStscBox_withDifferentChunks_matchesExpected() throws IOException {
     ImmutableList<Integer> chunkSampleCounts = ImmutableList.of(100, 500, 200, 100);
 
     ByteBuffer stscBox = Boxes.stsc(chunkSampleCounts);
@@ -743,6 +774,17 @@ public class BoxesTest {
     DumpableMp4Box dumpableBox = new DumpableMp4Box(stscBox);
     DumpFileAsserts.assertOutput(
         context, dumpableBox, MuxerTestUtil.getExpectedDumpFilePath("stsc_box"));
+  }
+
+  @Test
+  public void createStscBox_withSameChunks_matchesExpected() throws IOException {
+    ImmutableList<Integer> chunkSampleCounts = ImmutableList.of(100, 100, 100, 100);
+
+    ByteBuffer stscBox = Boxes.stsc(chunkSampleCounts);
+
+    DumpableMp4Box dumpableBox = new DumpableMp4Box(stscBox);
+    DumpFileAsserts.assertOutput(
+        context, dumpableBox, MuxerTestUtil.getExpectedDumpFilePath("stsc_box_with_same_chunks"));
   }
 
   @Test
@@ -769,7 +811,7 @@ public class BoxesTest {
 
   @Test
   public void createStssBox_matchesExpected() throws IOException {
-    List<MediaCodec.BufferInfo> sampleBufferInfos = createBufferInfoListWithSomeKeyFrames();
+    List<BufferInfo> sampleBufferInfos = createBufferInfoListWithSomeKeyFrames();
 
     ByteBuffer stssBox = Boxes.stss(sampleBufferInfos);
 
@@ -819,11 +861,36 @@ public class BoxesTest {
     }
 
     ByteBuffer trunBox =
-        Boxes.trun(samplesMetadata, /* dataOffset= */ 1_000, /* hasBFrame= */ false);
+        Boxes.trun(
+            FAKE_VIDEO_FORMAT, samplesMetadata, /* dataOffset= */ 1_000, /* hasBFrame= */ false);
 
     DumpableMp4Box dumpableBox = new DumpableMp4Box(trunBox);
     DumpFileAsserts.assertOutput(
         context, dumpableBox, MuxerTestUtil.getExpectedDumpFilePath("trun_box"));
+  }
+
+  @Test
+  public void createTrunBox_withAllSyncSamples_matchesExpected() throws IOException {
+    int sampleCount = 5;
+    List<SampleMetadata> samplesMetadata = new ArrayList<>(sampleCount);
+    for (int i = 0; i < sampleCount; i++) {
+      samplesMetadata.add(
+          new SampleMetadata(
+              /* durationsVu= */ 2_000,
+              /* size= */ 5_000,
+              /* flags= */ 0,
+              /* compositionTimeOffsetVu= */ 0));
+    }
+
+    ByteBuffer trunBox =
+        Boxes.trun(
+            FAKE_AUDIO_FORMAT, samplesMetadata, /* dataOffset= */ 1_000, /* hasBFrame= */ false);
+
+    DumpableMp4Box dumpableBox = new DumpableMp4Box(trunBox);
+    DumpFileAsserts.assertOutput(
+        context,
+        dumpableBox,
+        MuxerTestUtil.getExpectedDumpFilePath("trun_box_with_all_sync_samples"));
   }
 
   @Test
@@ -840,7 +907,8 @@ public class BoxesTest {
     }
 
     ByteBuffer trunBox =
-        Boxes.trun(samplesMetadata, /* dataOffset= */ 1_000, /* hasBFrame= */ true);
+        Boxes.trun(
+            FAKE_VIDEO_FORMAT, samplesMetadata, /* dataOffset= */ 1_000, /* hasBFrame= */ true);
 
     DumpableMp4Box dumpableBox = new DumpableMp4Box(trunBox);
     DumpFileAsserts.assertOutput(
@@ -856,37 +924,35 @@ public class BoxesTest {
         context, dumpableBox, MuxerTestUtil.getExpectedDumpFilePath("trex_box"));
   }
 
-  private static List<MediaCodec.BufferInfo> createBufferInfoListWithSamplePresentationTimestamps(
+  private static List<BufferInfo> createBufferInfoListWithSamplePresentationTimestamps(
       long... timestampsUs) {
-    List<MediaCodec.BufferInfo> bufferInfoList = new ArrayList<>();
+    List<BufferInfo> bufferInfoList = new ArrayList<>();
     for (long timestampUs : timestampsUs) {
-      MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
-      bufferInfo.presentationTimeUs = timestampUs;
+      BufferInfo bufferInfo = new BufferInfo(timestampUs, /* size= */ 0, /* flags= */ 0);
       bufferInfoList.add(bufferInfo);
     }
 
     return bufferInfoList;
   }
 
-  private static List<MediaCodec.BufferInfo> createBufferInfoListWithSampleSizes(int... sizes) {
-    List<MediaCodec.BufferInfo> bufferInfoList = new ArrayList<>();
+  private static List<BufferInfo> createBufferInfoListWithSampleSizes(int... sizes) {
+    List<BufferInfo> bufferInfoList = new ArrayList<>();
     for (int size : sizes) {
-      MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
-      bufferInfo.size = size;
+      BufferInfo bufferInfo = new BufferInfo(/* presentationTimeUs= */ 0, size, /* flags= */ 0);
       bufferInfoList.add(bufferInfo);
     }
 
     return bufferInfoList;
   }
 
-  private static List<MediaCodec.BufferInfo> createBufferInfoListWithSomeKeyFrames() {
-    List<MediaCodec.BufferInfo> bufferInfoList = new ArrayList<>();
+  private static List<BufferInfo> createBufferInfoListWithSomeKeyFrames() {
+    List<BufferInfo> bufferInfoList = new ArrayList<>();
     for (int i = 0; i < 30; i++) {
-      MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
+      @C.BufferFlags int flags = 0;
       if (i % 5 == 0) { // Make every 5th frame as key frame.
-        bufferInfo.flags = MediaCodec.BUFFER_FLAG_KEY_FRAME;
+        flags = C.BUFFER_FLAG_KEY_FRAME;
       }
-      bufferInfoList.add(bufferInfo);
+      bufferInfoList.add(new BufferInfo(/* presentationTimeUs= */ 0, /* size= */ 0, flags));
     }
 
     return bufferInfoList;

@@ -51,6 +51,7 @@ import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.Tracks;
 import androidx.media3.common.VideoSize;
+import androidx.media3.common.util.BackgroundExecutor;
 import androidx.media3.common.util.NetworkTypeObserver;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
@@ -75,7 +76,9 @@ import java.io.IOException;
 import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 import java.util.HashMap;
+import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.Executor;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
@@ -108,6 +111,7 @@ public final class MediaMetricsListener
   }
 
   private final Context context;
+  private final Executor backgroundExecutor;
   private final PlaybackSessionManager sessionManager;
   private final PlaybackSession playbackSession;
   private final long startTimeMs;
@@ -145,6 +149,7 @@ public final class MediaMetricsListener
     context = context.getApplicationContext();
     this.context = context;
     this.playbackSession = playbackSession;
+    backgroundExecutor = BackgroundExecutor.get();
     window = new Timeline.Window();
     period = new Timeline.Period();
     bandwidthBytes = new HashMap<>();
@@ -357,13 +362,14 @@ public final class MediaMetricsListener
     ErrorInfo errorInfo =
         getErrorInfo(
             error, context, /* lastIoErrorForManifest= */ ioErrorType == C.DATA_TYPE_MANIFEST);
-    playbackSession.reportPlaybackErrorEvent(
+    PlaybackErrorEvent playbackErrorEvent =
         new PlaybackErrorEvent.Builder()
             .setTimeSinceCreatedMillis(realtimeMs - startTimeMs)
             .setErrorCode(errorInfo.errorCode)
             .setSubErrorCode(errorInfo.subErrorCode)
             .setException(error)
-            .build());
+            .build();
+    backgroundExecutor.execute(() -> playbackSession.reportPlaybackErrorEvent(playbackErrorEvent));
     reportedEventsForCurrentSession = true;
     pendingPlayerError = null;
   }
@@ -415,11 +421,12 @@ public final class MediaMetricsListener
     int networkType = getNetworkType(context);
     if (networkType != currentNetworkType) {
       currentNetworkType = networkType;
-      playbackSession.reportNetworkEvent(
+      NetworkEvent networkEvent =
           new NetworkEvent.Builder()
               .setNetworkType(networkType)
               .setTimeSinceCreatedMillis(realtimeMs - startTimeMs)
-              .build());
+              .build();
+      backgroundExecutor.execute(() -> playbackSession.reportNetworkEvent(networkEvent));
     }
   }
 
@@ -436,11 +443,13 @@ public final class MediaMetricsListener
     if (currentPlaybackState != newPlaybackState) {
       currentPlaybackState = newPlaybackState;
       reportedEventsForCurrentSession = true;
-      playbackSession.reportPlaybackStateEvent(
+      PlaybackStateEvent playbackStateEvent =
           new PlaybackStateEvent.Builder()
               .setState(currentPlaybackState)
               .setTimeSinceCreatedMillis(realtimeMs - startTimeMs)
-              .build());
+              .build();
+      backgroundExecutor.execute(
+          () -> playbackSession.reportPlaybackStateEvent(playbackStateEvent));
     }
   }
 
@@ -483,7 +492,7 @@ public final class MediaMetricsListener
 
   private void maybeUpdateVideoFormat(
       long realtimeMs, @Nullable Format videoFormat, @C.SelectionReason int trackSelectionReason) {
-    if (Util.areEqual(currentVideoFormat, videoFormat)) {
+    if (Objects.equals(currentVideoFormat, videoFormat)) {
       return;
     }
     if (currentVideoFormat == null && trackSelectionReason == C.SELECTION_REASON_UNKNOWN) {
@@ -496,7 +505,7 @@ public final class MediaMetricsListener
 
   private void maybeUpdateAudioFormat(
       long realtimeMs, @Nullable Format audioFormat, @C.SelectionReason int trackSelectionReason) {
-    if (Util.areEqual(currentAudioFormat, audioFormat)) {
+    if (Objects.equals(currentAudioFormat, audioFormat)) {
       return;
     }
     if (currentAudioFormat == null && trackSelectionReason == C.SELECTION_REASON_UNKNOWN) {
@@ -509,7 +518,7 @@ public final class MediaMetricsListener
 
   private void maybeUpdateTextFormat(
       long realtimeMs, @Nullable Format textFormat, @C.SelectionReason int trackSelectionReason) {
-    if (Util.areEqual(currentTextFormat, textFormat)) {
+    if (Objects.equals(currentTextFormat, textFormat)) {
       return;
     }
     if (currentTextFormat == null && trackSelectionReason == C.SELECTION_REASON_UNKNOWN) {
@@ -570,7 +579,8 @@ public final class MediaMetricsListener
       builder.setTrackState(TrackChangeEvent.TRACK_STATE_OFF);
     }
     reportedEventsForCurrentSession = true;
-    playbackSession.reportTrackChangeEvent(builder.build());
+    TrackChangeEvent trackChangeEvent = builder.build();
+    backgroundExecutor.execute(() -> playbackSession.reportTrackChangeEvent(trackChangeEvent));
   }
 
   @RequiresNonNull("metricsBuilder")
@@ -613,7 +623,8 @@ public final class MediaMetricsListener
           networkBytes != null && networkBytes > 0
               ? PlaybackMetrics.STREAM_SOURCE_NETWORK
               : PlaybackMetrics.STREAM_SOURCE_UNKNOWN);
-      playbackSession.reportPlaybackMetrics(metricsBuilder.build());
+      PlaybackMetrics playbackMetrics = metricsBuilder.build();
+      backgroundExecutor.execute(() -> playbackSession.reportPlaybackMetrics(playbackMetrics));
     }
     metricsBuilder = null;
     activeSessionId = null;
@@ -753,7 +764,7 @@ public final class MediaMetricsListener
           int subErrorCode = Util.getErrorCodeFromPlatformDiagnosticsInfo(diagnosticsInfo);
           int errorCode = getDrmErrorCode(subErrorCode);
           return new ErrorInfo(errorCode, subErrorCode);
-        } else if (Util.SDK_INT >= 23 && cause instanceof MediaDrmResetException) {
+        } else if (cause instanceof MediaDrmResetException) {
           return new ErrorInfo(PlaybackErrorEvent.ERROR_DRM_SYSTEM_ERROR, /* subErrorCode= */ 0);
         } else if (cause instanceof NotProvisionedException) {
           return new ErrorInfo(

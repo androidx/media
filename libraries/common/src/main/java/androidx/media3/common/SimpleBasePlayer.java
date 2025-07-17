@@ -15,7 +15,6 @@
  */
 package androidx.media3.common;
 
-import static androidx.annotation.VisibleForTesting.PROTECTED;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Util.castNonNull;
@@ -35,7 +34,6 @@ import android.view.TextureView;
 import androidx.annotation.FloatRange;
 import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
-import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.text.CueGroup;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.HandlerWrapper;
@@ -98,7 +96,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 public abstract class SimpleBasePlayer extends BasePlayer {
 
   /** An immutable state description of the player. */
-  protected static final class State {
+  public static final class State {
 
     /** A builder for {@link State} objects. */
     public static final class Builder {
@@ -119,6 +117,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       private TrackSelectionParameters trackSelectionParameters;
       private AudioAttributes audioAttributes;
       private float volume;
+      private float unmuteVolume;
       private VideoSize videoSize;
       private CueGroup currentCues;
       private DeviceInfo deviceInfo;
@@ -161,9 +160,10 @@ public abstract class SimpleBasePlayer extends BasePlayer {
         seekForwardIncrementMs = C.DEFAULT_SEEK_FORWARD_INCREMENT_MS;
         maxSeekToPreviousPositionMs = C.DEFAULT_MAX_SEEK_TO_PREVIOUS_POSITION_MS;
         playbackParameters = PlaybackParameters.DEFAULT;
-        trackSelectionParameters = TrackSelectionParameters.DEFAULT_WITHOUT_CONTEXT;
+        trackSelectionParameters = TrackSelectionParameters.DEFAULT;
         audioAttributes = AudioAttributes.DEFAULT;
         volume = 1f;
+        unmuteVolume = 1f;
         videoSize = VideoSize.UNKNOWN;
         currentCues = CueGroup.EMPTY_TIME_ZERO;
         deviceInfo = DeviceInfo.UNKNOWN;
@@ -209,6 +209,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
         this.trackSelectionParameters = state.trackSelectionParameters;
         this.audioAttributes = state.audioAttributes;
         this.volume = state.volume;
+        this.unmuteVolume = state.unmuteVolume;
         this.videoSize = state.videoSize;
         this.currentCues = state.currentCues;
         this.deviceInfo = state.deviceInfo;
@@ -222,7 +223,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
           this.playlist = ((PlaylistTimeline) state.timeline).playlist;
         } else {
           this.currentTracks = state.currentTracks;
-          this.currentMetadata = state.currentMetadata;
+          this.currentMetadata = state.usesDerivedMediaMetadata ? null : state.currentMetadata;
         }
         this.playlistMetadata = state.playlistMetadata;
         this.currentMediaItemIndex = state.currentMediaItemIndex;
@@ -438,7 +439,24 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       @CanIgnoreReturnValue
       public Builder setVolume(@FloatRange(from = 0, to = 1.0) float volume) {
         checkArgument(volume >= 0.0f && volume <= 1.0f);
+        this.unmuteVolume = (volume != 0) ? volume : this.volume;
         this.volume = volume;
+        return this;
+      }
+
+      /**
+       * Sets the unmute audio volume, with 0 being silence and 1 being unity gain (signal
+       * unchanged). This value corresponds to volume that the Player will get after a successful
+       * {@link Player#unmute()} call.
+       *
+       * @param unmuteVolume The unmuted audio volume, with 0 being silence and 1 being unity gain
+       *     (signal unchanged).
+       * @return This builder.
+       */
+      @CanIgnoreReturnValue
+      public Builder setUnmuteVolume(@FloatRange(from = 0, to = 1.0) float unmuteVolume) {
+        checkArgument(unmuteVolume >= 0.0f && unmuteVolume <= 1.0f);
+        this.unmuteVolume = unmuteVolume;
         return this;
       }
 
@@ -862,6 +880,10 @@ public abstract class SimpleBasePlayer extends BasePlayer {
     @FloatRange(from = 0, to = 1.0)
     public final float volume;
 
+    /** The unmute audio volume, with 0 being silence and 1 being unity gain (signal unchanged). */
+    @FloatRange(from = 0, to = 1.0)
+    public final float unmuteVolume;
+
     /** The current video size. */
     public final VideoSize videoSize;
 
@@ -958,9 +980,12 @@ public abstract class SimpleBasePlayer extends BasePlayer {
      */
     public final long discontinuityPositionMs;
 
+    private final boolean usesDerivedMediaMetadata;
+
     private State(Builder builder) {
       Tracks currentTracks = builder.currentTracks;
       MediaMetadata currentMetadata = builder.currentMetadata;
+      boolean usesDerivedMediaMetadata = false;
       if (builder.timeline.isEmpty()) {
         checkArgument(
             builder.playbackState == Player.STATE_IDLE
@@ -1016,6 +1041,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
               getCombinedMediaMetadata(
                   builder.timeline.getWindow(mediaItemIndex, new Timeline.Window()).mediaItem,
                   checkNotNull(currentTracks));
+          usesDerivedMediaMetadata = true;
         }
       }
       if (builder.playerError != null) {
@@ -1069,6 +1095,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       this.trackSelectionParameters = builder.trackSelectionParameters;
       this.audioAttributes = builder.audioAttributes;
       this.volume = builder.volume;
+      this.unmuteVolume = builder.unmuteVolume;
       this.videoSize = builder.videoSize;
       this.currentCues = builder.currentCues;
       this.deviceInfo = builder.deviceInfo;
@@ -1092,6 +1119,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       this.hasPositionDiscontinuity = builder.hasPositionDiscontinuity;
       this.positionDiscontinuityReason = builder.positionDiscontinuityReason;
       this.discontinuityPositionMs = builder.discontinuityPositionMs;
+      this.usesDerivedMediaMetadata = usesDerivedMediaMetadata;
     }
 
     /** Returns a {@link Builder} pre-populated with the current state values. */
@@ -1145,6 +1173,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
           && trackSelectionParameters.equals(state.trackSelectionParameters)
           && audioAttributes.equals(state.audioAttributes)
           && volume == state.volume
+          && unmuteVolume == state.unmuteVolume
           && videoSize.equals(state.videoSize)
           && currentCues.equals(state.currentCues)
           && deviceInfo.equals(state.deviceInfo)
@@ -1190,6 +1219,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       result = 31 * result + trackSelectionParameters.hashCode();
       result = 31 * result + audioAttributes.hashCode();
       result = 31 * result + Float.floatToRawIntBits(volume);
+      result = 31 * result + Float.floatToRawIntBits(unmuteVolume);
       result = 31 * result + videoSize.hashCode();
       result = 31 * result + currentCues.hashCode();
       result = 31 * result + deviceInfo.hashCode();
@@ -1324,7 +1354,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
    * like {@link MediaItem} and dynamic data that is generally read from the media like the
    * duration.
    */
-  protected static final class MediaItemData {
+  public static final class MediaItemData {
 
     /** A builder for {@link MediaItemData} objects. */
     public static final class Builder {
@@ -1790,9 +1820,9 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       return this.uid.equals(mediaItemData.uid)
           && this.tracks.equals(mediaItemData.tracks)
           && this.mediaItem.equals(mediaItemData.mediaItem)
-          && Util.areEqual(this.mediaMetadata, mediaItemData.mediaMetadata)
-          && Util.areEqual(this.manifest, mediaItemData.manifest)
-          && Util.areEqual(this.liveConfiguration, mediaItemData.liveConfiguration)
+          && Objects.equals(this.mediaMetadata, mediaItemData.mediaMetadata)
+          && Objects.equals(this.manifest, mediaItemData.manifest)
+          && Objects.equals(this.liveConfiguration, mediaItemData.liveConfiguration)
           && this.presentationStartTimeMs == mediaItemData.presentationStartTimeMs
           && this.windowStartTimeMs == mediaItemData.windowStartTimeMs
           && this.elapsedRealtimeEpochOffsetMs == mediaItemData.elapsedRealtimeEpochOffsetMs
@@ -1891,7 +1921,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
             uid,
             windowIndex,
             /* durationUs= */ positionInFirstPeriodUs + durationUs,
-            /* positionInWindowUs= */ 0,
+            /* positionInWindowUs= */ -positionInFirstPeriodUs,
             AdPlaybackState.NONE,
             isPlaceholder);
       } else {
@@ -1920,7 +1950,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
   }
 
   /** Data describing the properties of a period inside a {@link MediaItemData}. */
-  protected static final class PeriodData {
+  public static final class PeriodData {
 
     /** A builder for {@link PeriodData} objects. */
     public static final class Builder {
@@ -2069,8 +2099,22 @@ public abstract class SimpleBasePlayer extends BasePlayer {
     }
   }
 
-  /** A supplier for a position. */
-  protected interface PositionSupplier {
+  /**
+   * A supplier for a position.
+   *
+   * <p>Convenience methods and classes for creating position suppliers:
+   *
+   * <ul>
+   *   <li>Use {@link #getConstant} for constant or non-moving positions.
+   *   <li>Use {@link #getExtrapolating} for positions advancing with the system clock from a
+   *       provided start time.
+   *   <li>Use {@link LivePositionSupplier} for positions that can be directly obtained from a live
+   *       system. Note that these suppliers should be {@linkplain LivePositionSupplier#disconnect
+   *       disconnected} from the live source as soon as the position is no longer valid, for
+   *       example after a position discontinuity.
+   * </ul>
+   */
+  public interface PositionSupplier {
 
     /** An instance returning a constant position of zero. */
     PositionSupplier ZERO = getConstant(/* positionMs= */ 0);
@@ -2100,6 +2144,48 @@ public abstract class SimpleBasePlayer extends BasePlayer {
 
     /** Returns the position. */
     long get();
+  }
+
+  /**
+   * A {@link PositionSupplier} connected to a live provider that returns a new value on each
+   * invocation until it is {@linkplain #disconnect disconnected} from the live source.
+   *
+   * <p>The recommended usage of this class is to create a new instance connected to the live source
+   * and keep returning this instance as long as the position source is still valid. As soon as the
+   * position source becomes invalid, for example when handling a position discontinuity, call
+   * {@link #disconnect} with the final position that will be returned for all future invocations.
+   */
+  public static final class LivePositionSupplier implements PositionSupplier {
+
+    private final PositionSupplier livePosition;
+
+    private long finalValue;
+
+    /**
+     * Creates the live position supplier.
+     *
+     * @param livePosition The function returning the live position.
+     */
+    public LivePositionSupplier(PositionSupplier livePosition) {
+      this.livePosition = livePosition;
+      this.finalValue = C.TIME_UNSET;
+    }
+
+    /**
+     * Disconnects the position supplier from the live source.
+     *
+     * <p>All future invocations of {@link #get()} will return the provided final position.
+     *
+     * @param finalValue The final position value.
+     */
+    public void disconnect(long finalValue) {
+      this.finalValue = finalValue;
+    }
+
+    @Override
+    public long get() {
+      return finalValue != C.TIME_UNSET ? finalValue : livePosition.get();
+    }
   }
 
   /**
@@ -2450,8 +2536,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
   }
 
   @Override
-  @VisibleForTesting(otherwise = PROTECTED)
-  public final void seekTo(
+  protected final void seekTo(
       int mediaItemIndex,
       long positionMs,
       @Player.Command int seekCommand,
@@ -2712,7 +2797,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       return;
     }
     updateStateForPendingOperation(
-        /* pendingOperation= */ handleSetVolume(volume),
+        /* pendingOperation= */ handleSetVolume(volume, C.VOLUME_OPERATION_TYPE_SET_VOLUME),
         /* placeholderStateSupplier= */ () -> state.buildUpon().setVolume(volume).build());
   }
 
@@ -2720,6 +2805,36 @@ public abstract class SimpleBasePlayer extends BasePlayer {
   public final float getVolume() {
     verifyApplicationThreadAndInitState();
     return state.volume;
+  }
+
+  @Override
+  public final void mute() {
+    verifyApplicationThreadAndInitState();
+    State state = this.state;
+    if (!shouldHandleCommand(Player.COMMAND_SET_VOLUME)) {
+      return;
+    }
+    if (this.state.volume != 0f) {
+      updateStateForPendingOperation(
+          /* pendingOperation= */ handleSetVolume(0, C.VOLUME_OPERATION_TYPE_MUTE),
+          /* placeholderStateSupplier= */ () -> state.buildUpon().setVolume(0).build());
+    }
+  }
+
+  @Override
+  public final void unmute() {
+    verifyApplicationThreadAndInitState();
+    State state = this.state;
+    if (!shouldHandleCommand(Player.COMMAND_SET_VOLUME)) {
+      return;
+    }
+    if (this.state.volume == 0f) {
+      updateStateForPendingOperation(
+          /* pendingOperation= */ handleSetVolume(
+              state.unmuteVolume, C.VOLUME_OPERATION_TYPE_UNMUTE),
+          /* placeholderStateSupplier= */ () ->
+              state.buildUpon().setVolume(state.unmuteVolume).build());
+    }
   }
 
   @Override
@@ -3216,18 +3331,31 @@ public abstract class SimpleBasePlayer extends BasePlayer {
   }
 
   /**
+   * @deprecated Use {@link #handleSetVolume(float, int)} instead.
+   */
+  @Deprecated
+  @ForOverride
+  protected ListenableFuture<?> handleSetVolume(@FloatRange(from = 0, to = 1.0) float volume) {
+    throw new IllegalStateException("Missing implementation to handle COMMAND_SET_VOLUME");
+  }
+
+  /**
    * Handles calls to {@link Player#setVolume}.
    *
    * <p>Will only be called if {@link Player#COMMAND_SET_VOLUME} is available.
    *
    * @param volume The requested audio volume, with 0 being silence and 1 being unity gain (signal
    *     unchanged).
+   * @param volumeOperationType The {@link C.VolumeOperationType} that corresponds to the original
+   *     command for changing of the volume.
    * @return A {@link ListenableFuture} indicating the completion of all immediate {@link State}
    *     changes caused by this call.
    */
   @ForOverride
-  protected ListenableFuture<?> handleSetVolume(@FloatRange(from = 0, to = 1.0) float volume) {
-    throw new IllegalStateException("Missing implementation to handle COMMAND_SET_VOLUME");
+  protected ListenableFuture<?> handleSetVolume(
+      @FloatRange(from = 0, to = 1.0) float volume,
+      @C.VolumeOperationType int volumeOperationType) {
+    return handleSetVolume(volume);
   }
 
   /**
@@ -3244,7 +3372,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
    */
   @ForOverride
   protected ListenableFuture<?> handleSetDeviceVolume(
-      @IntRange(from = 0) int deviceVolume, int flags) {
+      @IntRange(from = 0) int deviceVolume, @C.VolumeFlags int flags) {
     throw new IllegalStateException(
         "Missing implementation to handle COMMAND_SET_DEVICE_VOLUME or"
             + " COMMAND_SET_DEVICE_VOLUME_WITH_FLAGS");
@@ -3402,7 +3530,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
    *     index is in the range {@code fromIndex} &lt; {@code toIndex} &lt;= {@link
    *     #getMediaItemCount()}.
    * @param newIndex The new index of the first moved item. The index is in the range {@code 0}
-   *     &lt;= {@code newIndex} &lt; {@link #getMediaItemCount() - (toIndex - fromIndex)}.
+   *     &lt;= {@code newIndex} &lt;= {@link #getMediaItemCount() - (toIndex - fromIndex)}.
    * @return A {@link ListenableFuture} indicating the completion of all immediate {@link State}
    *     changes caused by this call.
    */
@@ -3417,9 +3545,9 @@ public abstract class SimpleBasePlayer extends BasePlayer {
    * <p>Will only be called if {@link Player#COMMAND_CHANGE_MEDIA_ITEMS} is available.
    *
    * @param fromIndex The start index of the items to replace. The index is in the range 0 &lt;=
-   *     {@code fromIndex} &lt; {@link #getMediaItemCount()}.
+   *     {@code fromIndex} &lt;= {@link #getMediaItemCount()}.
    * @param toIndex The index of the first item not to be replaced (exclusive). The index is in the
-   *     range {@code fromIndex} &lt; {@code toIndex} &lt;= {@link #getMediaItemCount()}.
+   *     range {@code fromIndex} &lt;= {@code toIndex} &lt;= {@link #getMediaItemCount()}.
    * @param mediaItems The media items to replace the specified range with.
    * @return A {@link ListenableFuture} indicating the completion of all immediate {@link State}
    *     changes caused by this call.
@@ -3428,6 +3556,9 @@ public abstract class SimpleBasePlayer extends BasePlayer {
   protected ListenableFuture<?> handleReplaceMediaItems(
       int fromIndex, int toIndex, List<MediaItem> mediaItems) {
     ListenableFuture<?> addFuture = handleAddMediaItems(toIndex, mediaItems);
+    if (fromIndex == toIndex) {
+      return addFuture;
+    }
     ListenableFuture<?> removeFuture = handleRemoveMediaItems(fromIndex, toIndex);
     return Util.transformFutureAsync(addFuture, unused -> removeFuture);
   }
@@ -3561,7 +3692,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
           Player.EVENT_MEDIA_ITEM_TRANSITION,
           listener -> listener.onMediaItemTransition(mediaItem, mediaItemTransitionReason));
     }
-    if (!Util.areEqual(previousState.playerError, newState.playerError)) {
+    if (!Objects.equals(previousState.playerError, newState.playerError)) {
       listeners.queueEvent(
           Player.EVENT_PLAYER_ERROR,
           listener -> listener.onPlayerErrorChanged(newState.playerError));
@@ -4008,14 +4139,10 @@ public abstract class SimpleBasePlayer extends BasePlayer {
     }
     // Only mark changes within the current item as a transition if we are repeating automatically
     // or via a seek to next/previous.
-    if (positionDiscontinuityReason == DISCONTINUITY_REASON_AUTO_TRANSITION) {
-      if ((getContentPositionMsInternal(previousState, window)
-              > getContentPositionMsInternal(newState, window))
-          || (newState.hasPositionDiscontinuity
-              && newState.discontinuityPositionMs == C.TIME_UNSET
-              && isRepeatingCurrentItem)) {
-        return MEDIA_ITEM_TRANSITION_REASON_REPEAT;
-      }
+    if (positionDiscontinuityReason == DISCONTINUITY_REASON_AUTO_TRANSITION
+        && getContentPositionMsInternal(previousState, window)
+            > getContentPositionMsInternal(newState, window)) {
+      return MEDIA_ITEM_TRANSITION_REASON_REPEAT;
     }
     if (positionDiscontinuityReason == DISCONTINUITY_REASON_SEEK && isRepeatingCurrentItem) {
       return MEDIA_ITEM_TRANSITION_REASON_SEEK;

@@ -71,6 +71,7 @@
     android:layout_width="match_parent"
     android:layout_height="0dp"
     android:padding="4dp"
+    android:background="?android:colorBackground"
     app:layout_constraintEnd_toEndOf="parent"
     app:layout_constraintStart_toStartOf="parent"
     app:layout_constraintTop_toBottomOf="@+id/selected_file_text_view"
@@ -239,18 +240,18 @@
         android:layout_weight="1">
         <TextView
           android:layout_gravity="center_vertical"
-          android:text="@string/use_media3_muxer" />
+          android:text="@string/use_media3_mp4_muxer" />
         <CheckBox
-          android:id="@+id/use_media3_muxer_checkbox"
+          android:id="@+id/use_media3_mp4_muxer_checkbox"
           android:layout_gravity="end"/>
       </TableRow>
       <TableRow
         android:layout_weight="1">
         <TextView
           android:layout_gravity="center_vertical"
-          android:text="@string/produce_fragmented_mp4" />
+          android:text="@string/use_media3_fragmented_mp4_muxer" />
         <CheckBox
-          android:id="@+id/produce_fragmented_mp4_checkbox"
+          android:id="@+id/use_media3_fragmented_mp4_muxer_checkbox"
           android:layout_gravity="end"/>
       </TableRow>
       <TableRow
@@ -263,6 +264,33 @@
           android:id="@+id/hdr_mode_spinner"
           android:layout_gravity="end|center_vertical"
           android:gravity="end" />
+      </TableRow>
+      <TableRow
+          android:layout_weight="1">
+        <TextView
+            android:layout_gravity="center_vertical"
+            android:text="@string/enable_trim_optimization" />
+        <CheckBox
+            android:id="@+id/enable_trim_optimization"
+            android:layout_gravity="end"/>
+      </TableRow>
+      <TableRow
+          android:layout_weight="1">
+        <TextView
+            android:layout_gravity="center_vertical"
+            android:text="@string/enable_mp4_edit_list_trimming" />
+        <CheckBox
+            android:id="@+id/enable_mp4_edit_list_trimming"
+            android:layout_gravity="end"/>
+      </TableRow>
+      <TableRow
+          android:layout_weight="1">
+        <TextView
+            android:layout_gravity="center_vertical"
+            android:text="@string/enable_codecdb_lite" />
+        <CheckBox
+            android:id="@+id/enable_codecdb_lite"
+            android:layout_gravity="end"/>
       </TableRow>
     </TableLayout>
   </androidx.core.widget.NestedScrollView>

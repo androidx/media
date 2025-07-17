@@ -17,28 +17,42 @@
 package androidx.media3.ui.compose.utils
 
 import android.os.Looper
+import androidx.media3.common.C
+import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.SimpleBasePlayer
-import com.google.common.collect.ImmutableList
+import androidx.media3.common.VideoSize
+import androidx.media3.common.util.Assertions.checkState
+import androidx.media3.common.util.Util.msToUs
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
+import kotlinx.coroutines.test.TestCoroutineScheduler
 
 /**
  * A fake [Player] that uses [SimpleBasePlayer]'s minimal number of default methods implementations
  * to build upon to simulate realistic playback scenarios for testing.
  */
-internal class TestPlayer : SimpleBasePlayer(Looper.myLooper()!!) {
+internal class TestPlayer(
+  playbackState: @Player.State Int = STATE_READY,
+  playWhenReady: Boolean = false,
+  playlist: List<MediaItemData> =
+    listOf(
+      MediaItemData.Builder(/* uid= */ "First").setDurationUs(1_000_000L).build(),
+      MediaItemData.Builder(/* uid= */ "Second").setDurationUs(2_000_000L).build(),
+    ),
+  playbackSpeed: Float = 1f,
+) : SimpleBasePlayer(Looper.myLooper()!!) {
   private var state =
     State.Builder()
       .setAvailableCommands(Player.Commands.Builder().addAllCommands().build())
-      .setPlaylist(
-        ImmutableList.of(
-          MediaItemData.Builder(/* uid= */ "First").build(),
-          MediaItemData.Builder(/* uid= */ "Second").build(),
-        )
-      )
-      .setPlayWhenReady(true, PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
+      .setPlaybackState(playbackState)
+      .setPlayWhenReady(playWhenReady, PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
+      .setPlaylist(playlist)
+      .setPlaybackParameters(PlaybackParameters(playbackSpeed))
       .build()
+
+  var videoOutput: Any? = null
+    private set
 
   override fun getState(): State {
     return state
@@ -76,7 +90,7 @@ internal class TestPlayer : SimpleBasePlayer(Looper.myLooper()!!) {
         .setContentPositionMs(positionMs)
         .build()
     if (mediaItemIndex == state.playlist.size - 1) {
-      removeCommands(Player.COMMAND_SEEK_TO_NEXT)
+      removeCommands(COMMAND_SEEK_TO_NEXT)
     }
     return Futures.immediateVoidFuture()
   }
@@ -91,6 +105,33 @@ internal class TestPlayer : SimpleBasePlayer(Looper.myLooper()!!) {
     return Futures.immediateVoidFuture()
   }
 
+  override fun handleSetPlaybackParameters(
+    playbackParameters: PlaybackParameters
+  ): ListenableFuture<*> {
+    state = state.buildUpon().setPlaybackParameters(playbackParameters).build()
+    return Futures.immediateVoidFuture()
+  }
+
+  override fun handleSetVideoOutput(videoOutput: Any): ListenableFuture<*> {
+    this.videoOutput = videoOutput
+    return Futures.immediateVoidFuture()
+  }
+
+  override fun handleClearVideoOutput(videoOutput: Any?): ListenableFuture<*> {
+    if (videoOutput == null || videoOutput == this.videoOutput) {
+      this.videoOutput = null
+    }
+    return Futures.immediateVoidFuture()
+  }
+
+  override fun handleSetVolume(
+    volume: Float,
+    volumeOperationType: @C.VolumeOperationType Int,
+  ): ListenableFuture<*> {
+    state = state.buildUpon().setVolume(volume).build()
+    return Futures.immediateVoidFuture()
+  }
+
   fun setPlaybackState(playbackState: @Player.State Int) {
     state = state.buildUpon().setPlaybackState(playbackState).build()
     invalidateState()
@@ -101,7 +142,72 @@ internal class TestPlayer : SimpleBasePlayer(Looper.myLooper()!!) {
     invalidateState()
   }
 
+  /**
+   * Sets the [PositionSupplier] for the current content playback position using extrapolation.
+   * Start and elapsed time are measured using the [TestCoroutineScheduler], and playback speed is
+   * taken into account.
+   *
+   * Note, that this approach only works
+   * * for a single media item (does not consider current item's duration and playlist length)
+   * * assuming the Player is playing (does not react to pauses and discontinuities)
+   * * assuming the playback speed does not change after the supplier is set
+   */
+  fun setPositionSupplierDrivenBy(testScheduler: TestCoroutineScheduler) {
+    checkState(state.playlist.size == 1, "Playlist must contain exactly one item")
+    checkState(isPlaying, "Player must be playing")
+    val startTime = testScheduler.timeSource.markNow()
+    val currentPositionMs = currentPosition
+    val positionSupplier = {
+      val elapsedTime = testScheduler.timeSource.markNow().minus(startTime)
+      currentPositionMs + (elapsedTime * playbackParameters.speed.toDouble()).inWholeMilliseconds
+    }
+    state = state.buildUpon().setContentPositionMs(positionSupplier).build()
+    invalidateState()
+  }
+
+  fun setBufferedPositionMs(bufferedPositionMs: Long) {
+    state = state.buildUpon().setContentBufferedPositionMs { bufferedPositionMs }.build()
+    invalidateState()
+  }
+
+  fun setDuration(uid: String, durationMs: Long) {
+    val index = state.playlist.indexOfFirst { it.uid == uid }
+    if (index == -1) {
+      throw IllegalArgumentException("Playlist does not contain item with uid: $uid")
+    }
+    val modifiedPlaylist = buildList {
+      addAll(state.playlist)
+      set(index, state.playlist[index].buildUpon().setDurationUs(msToUs(durationMs)).build())
+    }
+    state = state.buildUpon().setPlaylist(modifiedPlaylist).build()
+    invalidateState()
+  }
+
+  fun setVideoSize(videoSize: VideoSize) {
+    state = state.buildUpon().setVideoSize(videoSize).build()
+    invalidateState()
+  }
+
+  fun setSeekBackIncrementMs(seekBackIncrementMs: Long) {
+    state = state.buildUpon().setSeekBackIncrementMs(seekBackIncrementMs).build()
+    invalidateState()
+  }
+
+  fun setSeekForwardIncrementMs(seekForwardIncrementMs: Long) {
+    state = state.buildUpon().setSeekForwardIncrementMs(seekForwardIncrementMs).build()
+    invalidateState()
+  }
+
+  fun renderFirstFrame(newlyRenderedFirstFrame: Boolean) {
+    state = state.buildUpon().setNewlyRenderedFirstFrame(newlyRenderedFirstFrame).build()
+    invalidateState() // flushes EVENT_RENDERED_FIRST_FRAME
+    state = state.buildUpon().setNewlyRenderedFirstFrame(false).build()
+  }
+
   fun removeCommands(vararg commands: @Player.Command Int) {
+    // It doesn't seem possible to propagate the @IntDef annotation through Kotlin's spread operator
+    // in a way that lint understands.
+    @SuppressWarnings("WrongConstant")
     state =
       state
         .buildUpon()
@@ -113,10 +219,13 @@ internal class TestPlayer : SimpleBasePlayer(Looper.myLooper()!!) {
   }
 
   fun addCommands(vararg commands: @Player.Command Int) {
+    // It doesn't seem possible to propagate the @IntDef annotation through Kotlin's spread operator
+    // in a way that lint understands.
+    @SuppressWarnings("WrongConstant")
     state =
       state
         .buildUpon()
-        .setAvailableCommands(Player.Commands.Builder().addAll(*commands).build())
+        .setAvailableCommands(state.availableCommands.buildUpon().addAll(*commands).build())
         .build()
     invalidateState()
   }

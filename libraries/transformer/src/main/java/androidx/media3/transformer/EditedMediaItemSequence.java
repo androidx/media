@@ -18,7 +18,9 @@ package androidx.media3.transformer;
 import static androidx.media3.common.util.Assertions.checkArgument;
 
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.effect.Presentation;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
@@ -35,6 +37,8 @@ public final class EditedMediaItemSequence {
   public static final class Builder {
     private final ImmutableList.Builder<EditedMediaItem> items;
     private boolean isLooping;
+    private boolean forceAudioTrack;
+    private boolean forceVideoTrack;
 
     /** Creates an instance. */
     public Builder(EditedMediaItem... editedMediaItems) {
@@ -44,6 +48,16 @@ public final class EditedMediaItemSequence {
     /* Creates an instance. */
     public Builder(List<EditedMediaItem> editedMediaItems) {
       items = new ImmutableList.Builder<EditedMediaItem>().addAll(editedMediaItems);
+    }
+
+    /** Creates a new instance to build upon the provided {@link EditedMediaItemSequence}. */
+    private Builder(EditedMediaItemSequence editedMediaItemSequence) {
+      items =
+          new ImmutableList.Builder<EditedMediaItem>()
+              .addAll(editedMediaItemSequence.editedMediaItems);
+      isLooping = editedMediaItemSequence.isLooping;
+      forceAudioTrack = editedMediaItemSequence.forceAudioTrack;
+      forceVideoTrack = editedMediaItemSequence.forceVideoTrack;
     }
 
     /**
@@ -87,7 +101,9 @@ public final class EditedMediaItemSequence {
      *
      * <p>A gap is a period of time with no media.
      *
-     * <p>Gaps are only supported in sequences of audio.
+     * <p>If the gap is added at the start of the sequence, then {@linkplain
+     * #experimentalSetForceAudioTrack(boolean) force audio track} or/and {@linkplain
+     * #experimentalSetForceVideoTrack(boolean) force video track} flag must be set appropriately.
      *
      * @param durationUs The duration of the gap, in milliseconds.
      * @return This builder, for convenience.
@@ -113,6 +129,82 @@ public final class EditedMediaItemSequence {
     @CanIgnoreReturnValue
     public Builder setIsLooping(boolean isLooping) {
       this.isLooping = isLooping;
+      return this;
+    }
+
+    /**
+     * Forces silent audio in the {@linkplain EditedMediaItemSequence sequence}.
+     *
+     * <p>This flag is necessary when:
+     *
+     * <ul>
+     *   <li>The first {@link EditedMediaItem} in the sequence does not contain audio, but
+     *       subsequent items do.
+     *   <li>The first item in the sequence is a {@linkplain #addGap(long) gap} and the subsequent
+     *       {@linkplain EditedMediaItem media items} contain audio.
+     * </ul>
+     *
+     * <p>If the flag is not set appropriately, then the export will {@linkplain
+     * Transformer.Listener#onError(Composition, ExportResult, ExportException) fail}.
+     *
+     * <p>If the first {@link EditedMediaItem} already contains audio, this flag has no effect.
+     *
+     * <p>The MIME type of the output's audio track can be set using {@link
+     * Transformer.Builder#setAudioMimeType(String)}. The sample rate and channel count can be set
+     * by passing relevant {@link AudioProcessor} instances to the {@link Composition}.
+     *
+     * <p>Forcing an audio track and {@linkplain Composition.Builder#setTransmuxAudio(boolean)
+     * requesting audio transmuxing} are not allowed together because generating silence requires
+     * transcoding.
+     *
+     * <p>The default value is {@code false}.
+     *
+     * <p>This method is experimental and will be renamed or removed in a future release.
+     *
+     * @param forceAudioTrack Whether to force audio track.
+     */
+    @CanIgnoreReturnValue
+    public Builder experimentalSetForceAudioTrack(boolean forceAudioTrack) {
+      this.forceAudioTrack = forceAudioTrack;
+      return this;
+    }
+
+    /**
+     * Forces blank frames in the {@linkplain EditedMediaItemSequence sequence}.
+     *
+     * <p>This flag is necessary when:
+     *
+     * <ul>
+     *   <li>The first {@link EditedMediaItem} in the sequence does not contain video, but
+     *       subsequent items do.
+     *   <li>The first item in the sequence is a {@linkplain #addGap(long) gap} and the subsequent
+     *       {@linkplain EditedMediaItem media items} contain video.
+     * </ul>
+     *
+     * <p>If the flag is not set appropriately, then the export will {@linkplain
+     * Transformer.Listener#onError(Composition, ExportResult, ExportException) fail}.
+     *
+     * <p>If the first {@link EditedMediaItem} already contains video, this flag has no effect.
+     *
+     * <p>The MIME type of the output's video track can be set using {@link
+     * Transformer.Builder#setVideoMimeType(String)}.
+     *
+     * <p>The output resolution must be set using a {@link Presentation} effect on the {@link
+     * Composition}.
+     *
+     * <p>Forcing a video track and {@linkplain Composition.Builder#setTransmuxVideo(boolean)
+     * requesting video transmuxing} are not allowed together because generating blank frames
+     * requires transcoding.
+     *
+     * <p>The default value is {@code false}.
+     *
+     * <p>This method is experimental and will be renamed or removed in a future release.
+     *
+     * @param forceVideoTrack Whether to force video track.
+     */
+    @CanIgnoreReturnValue
+    public Builder experimentalSetForceVideoTrack(boolean forceVideoTrack) {
+      this.forceVideoTrack = forceVideoTrack;
       return this;
     }
 
@@ -147,6 +239,12 @@ public final class EditedMediaItemSequence {
    */
   public final boolean isLooping;
 
+  /** Forces silent audio in the {@linkplain EditedMediaItemSequence sequence}. */
+  public final boolean forceAudioTrack;
+
+  /** Forces blank frames in the {@linkplain EditedMediaItemSequence sequence}. */
+  public final boolean forceVideoTrack;
+
   /**
    * @deprecated Use {@link Builder}.
    */
@@ -172,11 +270,47 @@ public final class EditedMediaItemSequence {
     this(new Builder().addItems(editedMediaItems).setIsLooping(isLooping));
   }
 
+  /** Returns a {@link Builder} initialized with the values of this instance. */
+  public Builder buildUpon() {
+    return new Builder(this);
+  }
+
+  /**
+   * Converts the given {@code index} into the equivalent {@code mediaItemIndex}.
+   *
+   * <p>The index could be greater than {@link EditedMediaItemSequence#editedMediaItems} because the
+   * sequence might be {@linkplain EditedMediaItemSequence#isLooping looping}.
+   */
+  /* package */ static int getEditedMediaItemIndex(EditedMediaItemSequence sequence, int index) {
+    if (sequence.isLooping) {
+      return index % sequence.editedMediaItems.size();
+    }
+    return index;
+  }
+
+  /**
+   * Gets the {@link EditedMediaItem} of a given {@code index}.
+   *
+   * <p>The index could be greater than {@link EditedMediaItemSequence#editedMediaItems} because the
+   * sequence might be {@linkplain EditedMediaItemSequence#isLooping looping}.
+   */
+  /* package */ static EditedMediaItem getEditedMediaItem(
+      EditedMediaItemSequence sequence, int index) {
+    int mediaItemIndex = getEditedMediaItemIndex(sequence, index);
+    return sequence.editedMediaItems.get(mediaItemIndex);
+  }
+
   private EditedMediaItemSequence(EditedMediaItemSequence.Builder builder) {
     this.editedMediaItems = builder.items.build();
     checkArgument(
         !editedMediaItems.isEmpty(), "The sequence must contain at least one EditedMediaItem.");
+    checkArgument(
+        !editedMediaItems.get(0).isGap() || builder.forceAudioTrack || builder.forceVideoTrack,
+        "If the first item in the sequence is a Gap, then forceAudioTrack or forceVideoTrack flag"
+            + " must be set");
     this.isLooping = builder.isLooping;
+    this.forceAudioTrack = builder.forceAudioTrack;
+    this.forceVideoTrack = builder.forceVideoTrack;
   }
 
   /** Return whether any items are a {@linkplain Builder#addGap(long) gap}. */

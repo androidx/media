@@ -1,4 +1,4 @@
-MediaCodecAdapter (exotest.audio.ac4):
+MediaCodecAdapter (media3.audio.ac4):
   inputBuffers:
     count = 20
     input buffer #0:
@@ -148,58 +148,58 @@ AudioSink:
     sampleRate = 48000
   buffer #0:
     time = 1000000000000
-    data = 1
+    data = empty
   buffer #1:
     time = 1000000040000
-    data = 1
+    data = empty
   buffer #2:
     time = 1000000080000
-    data = 1
+    data = empty
   buffer #3:
     time = 1000000120000
-    data = 1
+    data = empty
   buffer #4:
     time = 1000000160000
-    data = 1
+    data = empty
   buffer #5:
     time = 1000000200000
-    data = 1
+    data = empty
   buffer #6:
     time = 1000000240000
-    data = 1
+    data = empty
   buffer #7:
     time = 1000000280000
-    data = 1
+    data = empty
   buffer #8:
     time = 1000000320000
-    data = 1
+    data = empty
   buffer #9:
     time = 1000000360000
-    data = 1
+    data = empty
   buffer #10:
     time = 1000000400000
-    data = 1
+    data = empty
   buffer #11:
     time = 1000000440000
-    data = 1
+    data = empty
   buffer #12:
     time = 1000000480000
-    data = 1
+    data = empty
   buffer #13:
     time = 1000000520000
-    data = 1
+    data = empty
   buffer #14:
     time = 1000000560000
-    data = 1
+    data = empty
   buffer #15:
     time = 1000000600000
-    data = 1
+    data = empty
   buffer #16:
     time = 1000000640000
-    data = 1
+    data = empty
   buffer #17:
     time = 1000000680000
-    data = 1
+    data = empty
   buffer #18:
     time = 1000000720000
-    data = 1
+    data = empty

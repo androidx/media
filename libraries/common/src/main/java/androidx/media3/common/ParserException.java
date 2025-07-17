@@ -109,11 +109,11 @@ public class ParserException extends IOException {
     this.dataType = dataType;
   }
 
-  @Nullable
   @Override
   public String getMessage() {
-    return super.getMessage()
-        + " {contentIsMalformed="
+    String superMessage = super.getMessage();
+    return (superMessage != null ? superMessage + " " : "")
+        + "{contentIsMalformed="
         + contentIsMalformed
         + ", dataType="
         + dataType

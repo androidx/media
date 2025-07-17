@@ -21,22 +21,12 @@ import androidx.media3.exoplayer.source.MediaSource;
 
 /** Controls the target preload status. */
 @UnstableApi
-public interface TargetPreloadStatusControl<T> {
+public interface TargetPreloadStatusControl<T, PreloadStatusT> {
 
   /**
    * Returns the target preload status for a source with the given {@code rankingData}. May be null
    * if a {@link MediaSource} with the given {@code rankingData} should not be preloaded.
    */
   @Nullable
-  PreloadStatus getTargetPreloadStatus(T rankingData);
-
-  /** Defines the status of the preloading for a {@link MediaSource}. */
-  interface PreloadStatus {
-
-    /** The stage of the preloading. */
-    int getStage();
-
-    /** The associated value of the preloading stage. */
-    long getValue();
-  }
+  PreloadStatusT getTargetPreloadStatus(T rankingData);
 }

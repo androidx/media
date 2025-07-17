@@ -15,16 +15,16 @@
  */
 package androidx.media3.muxer;
 
+import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.muxer.Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER_OR_DUPLICATE_PREVIOUS;
 import static androidx.media3.muxer.MuxerTestUtil.FAKE_VIDEO_FORMAT;
 import static androidx.media3.muxer.MuxerTestUtil.XMP_SAMPLE_DATA;
+import static androidx.media3.muxer.MuxerTestUtil.feedInputDataToMuxer;
 import static androidx.media3.muxer.MuxerTestUtil.getFakeSampleAndSampleInfo;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import android.content.Context;
-import android.media.MediaCodec;
-import android.media.MediaCodec.BufferInfo;
 import android.util.Pair;
 import androidx.media3.common.C;
 import androidx.media3.common.util.Util;
@@ -35,14 +35,12 @@ import androidx.media3.container.Mp4TimestampData;
 import androidx.media3.container.XmpData;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
-import androidx.media3.muxer.Muxer.TrackToken;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.DumpableMp4Box;
 import androidx.media3.test.utils.FakeExtractorOutput;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import java.io.FileOutputStream;
 import java.nio.ByteBuffer;
 import org.junit.Rule;
 import org.junit.Test;
@@ -54,12 +52,16 @@ import org.junit.runner.RunWith;
 public class Mp4MuxerEndToEndTest {
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
+  private static final String H265_HDR10_MP4 = "hdr10-720p.mp4";
+  private static final String AV1_MP4 = "sample_av1.mp4";
   private final Context context = ApplicationProvider.getApplicationContext();
 
   @Test
   public void writeMp4File_withSampleAndMetadata_matchedExpectedBoxStructure() throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
-    Mp4Muxer muxer = new Mp4Muxer.Builder(new FileOutputStream(outputFilePath)).build();
+    Mp4Muxer muxer =
+        new Mp4Muxer.Builder(new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath)))
+            .build();
     Pair<ByteBuffer, BufferInfo> sampleAndSampleInfo =
         getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 0L);
     byte[] xmpBytes = TestUtil.getByteArray(context, XMP_SAMPLE_DATA);
@@ -83,8 +85,8 @@ public class Mp4MuxerEndToEndTest {
               /* value= */ Util.getUtf8Bytes("StringValue"),
               MdtaMetadataEntry.TYPE_INDICATOR_STRING));
       muxer.addMetadataEntry(new XmpData(xmpBytes));
-      TrackToken token = muxer.addTrack(FAKE_VIDEO_FORMAT);
-      muxer.writeSampleData(token, sampleAndSampleInfo.first, sampleAndSampleInfo.second);
+      int trackId = muxer.addTrack(FAKE_VIDEO_FORMAT);
+      muxer.writeSampleData(trackId, sampleAndSampleInfo.first, sampleAndSampleInfo.second);
     } finally {
       muxer.close();
     }
@@ -100,7 +102,9 @@ public class Mp4MuxerEndToEndTest {
   @Test
   public void createMp4File_addTrackAndMetadataButNoSamples_createsEmptyFile() throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
-    Mp4Muxer mp4Muxer = new Mp4Muxer.Builder(new FileOutputStream(outputFilePath)).build();
+    Mp4Muxer mp4Muxer =
+        new Mp4Muxer.Builder(new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath)))
+            .build();
 
     try {
       mp4Muxer.addTrack(/* sortKey= */ 0, FAKE_VIDEO_FORMAT);
@@ -119,9 +123,70 @@ public class Mp4MuxerEndToEndTest {
   }
 
   @Test
+  public void createAv1Mp4File_withoutCsd_matchesExpected() throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+    Mp4Muxer mp4Muxer =
+        new Mp4Muxer.Builder(new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath)))
+            .build();
+
+    try {
+      mp4Muxer.addMetadataEntry(
+          new Mp4TimestampData(
+              /* creationTimestampSeconds= */ 100_000_000L,
+              /* modificationTimestampSeconds= */ 500_000_000L));
+      feedInputDataToMuxer(
+          context,
+          mp4Muxer,
+          AV1_MP4,
+          /* removeInitializationData= */ true,
+          /* removeAudioSampleFlags= */ false);
+    } finally {
+      if (mp4Muxer != null) {
+        mp4Muxer.close();
+      }
+    }
+
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(
+            new Mp4Extractor(new DefaultSubtitleParserFactory()), checkNotNull(outputFilePath));
+    DumpFileAsserts.assertOutput(
+        context, fakeExtractorOutput, MuxerTestUtil.getExpectedDumpFilePath(AV1_MP4));
+  }
+
+  @Test
+  public void createMp4File_muxerNotClosed_createsPartiallyWrittenValidFile() throws Exception {
+    String outputPath = temporaryFolder.newFile().getPath();
+    Mp4Muxer mp4Muxer =
+        new Mp4Muxer.Builder(new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputPath)))
+            .build();
+    mp4Muxer.addMetadataEntry(
+        new Mp4TimestampData(
+            /* creationTimestampSeconds= */ 100_000_000L,
+            /* modificationTimestampSeconds= */ 500_000_000L));
+    feedInputDataToMuxer(context, mp4Muxer, H265_HDR10_MP4);
+
+    // Muxer not closed.
+
+    // The output depends on Mp4Muxer.MOOV_BOX_UPDATE_INTERVAL_US and whether or not
+    // sample batching is enabled.
+    // Audio sample written = 187 out of 195.
+    // Video sample written = 93 out of 127.
+    // Output is still a valid MP4 file.
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(
+            new Mp4Extractor(new DefaultSubtitleParserFactory()), checkNotNull(outputPath));
+    DumpFileAsserts.assertOutput(
+        context,
+        fakeExtractorOutput,
+        MuxerTestUtil.getExpectedDumpFilePath("partial_" + H265_HDR10_MP4));
+  }
+
+  @Test
   public void createMp4File_withSameTracksOffset_matchesExpected() throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
-    Mp4Muxer mp4Muxer = new Mp4Muxer.Builder(new FileOutputStream(outputFilePath)).build();
+    Mp4Muxer mp4Muxer =
+        new Mp4Muxer.Builder(new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath)))
+            .build();
     mp4Muxer.addMetadataEntry(
         new Mp4TimestampData(
             /* creationTimestampSeconds= */ 100_000_000L,
@@ -136,12 +201,12 @@ public class Mp4MuxerEndToEndTest {
         getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 300L);
 
     try {
-      TrackToken track1 = mp4Muxer.addTrack(FAKE_VIDEO_FORMAT);
+      int track1 = mp4Muxer.addTrack(FAKE_VIDEO_FORMAT);
       mp4Muxer.writeSampleData(track1, track1Sample1.first, track1Sample1.second);
       mp4Muxer.writeSampleData(track1, track1Sample2.first, track1Sample2.second);
 
       // Add same track again but with different samples.
-      TrackToken track2 = mp4Muxer.addTrack(FAKE_VIDEO_FORMAT);
+      int track2 = mp4Muxer.addTrack(FAKE_VIDEO_FORMAT);
       mp4Muxer.writeSampleData(track2, track2Sample1.first, track2Sample1.second);
       mp4Muxer.writeSampleData(track2, track2Sample2.first, track2Sample2.second);
     } finally {
@@ -165,7 +230,9 @@ public class Mp4MuxerEndToEndTest {
   @Test
   public void createMp4File_withDifferentTracksOffset_matchesExpected() throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
-    Mp4Muxer mp4Muxer = new Mp4Muxer.Builder(new FileOutputStream(outputFilePath)).build();
+    Mp4Muxer mp4Muxer =
+        new Mp4Muxer.Builder(new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath)))
+            .build();
     mp4Muxer.addMetadataEntry(
         new Mp4TimestampData(
             /* creationTimestampSeconds= */ 100_000_000L,
@@ -180,12 +247,12 @@ public class Mp4MuxerEndToEndTest {
         getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 200L);
 
     try {
-      TrackToken track1 = mp4Muxer.addTrack(FAKE_VIDEO_FORMAT);
+      int track1 = mp4Muxer.addTrack(FAKE_VIDEO_FORMAT);
       mp4Muxer.writeSampleData(track1, track1Sample1.first, track1Sample1.second);
       mp4Muxer.writeSampleData(track1, track1Sample2.first, track1Sample2.second);
 
       // Add same track again but with different samples.
-      TrackToken track2 = mp4Muxer.addTrack(FAKE_VIDEO_FORMAT);
+      int track2 = mp4Muxer.addTrack(FAKE_VIDEO_FORMAT);
       mp4Muxer.writeSampleData(track2, track2Sample1.first, track2Sample1.second);
       mp4Muxer.writeSampleData(track2, track2Sample2.first, track2Sample2.second);
     } finally {
@@ -205,7 +272,9 @@ public class Mp4MuxerEndToEndTest {
   @Test
   public void createMp4File_withNegativeTracksOffset_matchesExpected() throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
-    Mp4Muxer mp4Muxer = new Mp4Muxer.Builder(new FileOutputStream(outputFilePath)).build();
+    Mp4Muxer mp4Muxer =
+        new Mp4Muxer.Builder(new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath)))
+            .build();
     mp4Muxer.addMetadataEntry(
         new Mp4TimestampData(
             /* creationTimestampSeconds= */ 100_000_000L,
@@ -218,7 +287,7 @@ public class Mp4MuxerEndToEndTest {
         getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 300L);
 
     try {
-      TrackToken track1 = mp4Muxer.addTrack(FAKE_VIDEO_FORMAT);
+      int track1 = mp4Muxer.addTrack(FAKE_VIDEO_FORMAT);
       mp4Muxer.writeSampleData(track1, track1Sample1.first, track1Sample1.second);
       mp4Muxer.writeSampleData(track1, track1Sample2.first, track1Sample2.second);
       mp4Muxer.writeSampleData(track1, track1Sample3.first, track1Sample3.second);
@@ -242,7 +311,9 @@ public class Mp4MuxerEndToEndTest {
   @Test
   public void createMp4File_withOutOfOrderBframes_matchesExpected() throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
-    Mp4Muxer mp4Muxer = new Mp4Muxer.Builder(new FileOutputStream(outputFilePath)).build();
+    Mp4Muxer mp4Muxer =
+        new Mp4Muxer.Builder(new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath)))
+            .build();
     mp4Muxer.addMetadataEntry(
         new Mp4TimestampData(
             /* creationTimestampSeconds= */ 100_000_000L,
@@ -257,7 +328,7 @@ public class Mp4MuxerEndToEndTest {
         getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 2_000L);
 
     try {
-      TrackToken track1 = mp4Muxer.addTrack(FAKE_VIDEO_FORMAT);
+      int track1 = mp4Muxer.addTrack(FAKE_VIDEO_FORMAT);
       mp4Muxer.writeSampleData(track1, track1Sample1.first, track1Sample1.second);
       mp4Muxer.writeSampleData(track1, track1Sample2.first, track1Sample2.second);
       mp4Muxer.writeSampleData(track1, track1Sample3.first, track1Sample3.second);
@@ -278,7 +349,9 @@ public class Mp4MuxerEndToEndTest {
   public void createMp4File_withOutOfOrderBframesLargePresentationTimestamps_matchesExpected()
       throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
-    Mp4Muxer mp4Muxer = new Mp4Muxer.Builder(new FileOutputStream(outputFilePath)).build();
+    Mp4Muxer mp4Muxer =
+        new Mp4Muxer.Builder(new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath)))
+            .build();
     mp4Muxer.addMetadataEntry(
         new Mp4TimestampData(
             /* creationTimestampSeconds= */ 100_000_000L,
@@ -301,12 +374,12 @@ public class Mp4MuxerEndToEndTest {
         getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 23_001_033_192L);
 
     try {
-      TrackToken track1 = mp4Muxer.addTrack(FAKE_VIDEO_FORMAT);
+      int track1 = mp4Muxer.addTrack(FAKE_VIDEO_FORMAT);
       mp4Muxer.writeSampleData(track1, track1Sample1.first, track1Sample1.second);
       mp4Muxer.writeSampleData(track1, track1Sample2.first, track1Sample2.second);
       mp4Muxer.writeSampleData(track1, track1Sample3.first, track1Sample3.second);
       mp4Muxer.writeSampleData(track1, track1Sample4.first, track1Sample4.second);
-      TrackToken track2 = mp4Muxer.addTrack(FAKE_VIDEO_FORMAT);
+      int track2 = mp4Muxer.addTrack(FAKE_VIDEO_FORMAT);
       mp4Muxer.writeSampleData(track2, track2Sample1.first, track2Sample1.second);
       mp4Muxer.writeSampleData(track2, track2Sample2.first, track2Sample2.second);
       mp4Muxer.writeSampleData(track2, track2Sample3.first, track2Sample3.second);
@@ -326,7 +399,9 @@ public class Mp4MuxerEndToEndTest {
   @Test
   public void createMp4File_withOneTrackEmpty_doesNotWriteEmptyTrack() throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
-    Mp4Muxer mp4Muxer = new Mp4Muxer.Builder(new FileOutputStream(outputFilePath)).build();
+    Mp4Muxer mp4Muxer =
+        new Mp4Muxer.Builder(new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath)))
+            .build();
     mp4Muxer.addMetadataEntry(
         new Mp4TimestampData(
             /* creationTimestampSeconds= */ 100_000_000L,
@@ -337,7 +412,7 @@ public class Mp4MuxerEndToEndTest {
         getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 100L);
 
     try {
-      TrackToken track1 = mp4Muxer.addTrack(FAKE_VIDEO_FORMAT);
+      int track1 = mp4Muxer.addTrack(FAKE_VIDEO_FORMAT);
       mp4Muxer.writeSampleData(track1, track1Sample1.first, track1Sample1.second);
       mp4Muxer.writeSampleData(track1, track1Sample2.first, track1Sample2.second);
       // Add same track again but without any samples.
@@ -359,17 +434,19 @@ public class Mp4MuxerEndToEndTest {
   public void writeMp4File_withLargeNumberOfSamples_writesMoovBoxAtTheEndAndFreeBoxAtStart()
       throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
-    Mp4Muxer muxer = new Mp4Muxer.Builder(new FileOutputStream(outputFilePath)).build();
+    Mp4Muxer muxer =
+        new Mp4Muxer.Builder(new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath)))
+            .build();
     try {
       muxer.addMetadataEntry(
           new Mp4TimestampData(
               /* creationTimestampSeconds= */ 1_000_000L,
               /* modificationTimestampSeconds= */ 5_000_000L));
-      TrackToken token = muxer.addTrack(FAKE_VIDEO_FORMAT);
+      int trackId = muxer.addTrack(FAKE_VIDEO_FORMAT);
       for (int i = 0; i < 50_000; i++) {
         Pair<ByteBuffer, BufferInfo> sampleAndSampleInfo =
             getFakeSampleAndSampleInfo(/* presentationTimeUs= */ i);
-        muxer.writeSampleData(token, sampleAndSampleInfo.first, sampleAndSampleInfo.second);
+        muxer.writeSampleData(trackId, sampleAndSampleInfo.first, sampleAndSampleInfo.second);
       }
     } finally {
       muxer.close();
@@ -389,7 +466,7 @@ public class Mp4MuxerEndToEndTest {
       throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
     Mp4Muxer muxer =
-        new Mp4Muxer.Builder(new FileOutputStream(outputFilePath))
+        new Mp4Muxer.Builder(new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath)))
             .setAttemptStreamableOutputEnabled(false)
             .build();
     try {
@@ -397,11 +474,11 @@ public class Mp4MuxerEndToEndTest {
           new Mp4TimestampData(
               /* creationTimestampSeconds= */ 1_000_000L,
               /* modificationTimestampSeconds= */ 5_000_000L));
-      TrackToken token = muxer.addTrack(FAKE_VIDEO_FORMAT);
+      int trackId = muxer.addTrack(FAKE_VIDEO_FORMAT);
       for (int i = 0; i < 1_000; i++) {
         Pair<ByteBuffer, BufferInfo> sampleAndSampleInfo =
             getFakeSampleAndSampleInfo(/* presentationTimeUs= */ i);
-        muxer.writeSampleData(token, sampleAndSampleInfo.first, sampleAndSampleInfo.second);
+        muxer.writeSampleData(trackId, sampleAndSampleInfo.first, sampleAndSampleInfo.second);
       }
     } finally {
       muxer.close();
@@ -416,121 +493,31 @@ public class Mp4MuxerEndToEndTest {
   }
 
   @Test
-  public void createMp4Muxer_withFileFormatEditableVideoButWithoutCacheFileProvider_throws()
-      throws Exception {
+  public void
+      createMp4Muxer_withMp4WithAuxiliaryTracksExtensionFileFormatButWithoutCacheFileProvider_throws()
+          throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
 
     assertThrows(
         IllegalArgumentException.class,
         () ->
-            new Mp4Muxer.Builder(new FileOutputStream(outputFilePath))
-                .setOutputFileFormat(Mp4Muxer.FILE_FORMAT_EDITABLE_VIDEO)
+            new Mp4Muxer.Builder(new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath)))
+                .setOutputFileFormat(Mp4Muxer.FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION)
                 .build());
   }
 
   @Test
-  public void writeMp4File_withFileFormatEditableVideoAndEditableVideoTracks_writesEdvdBox()
-      throws Exception {
-    String outputFilePath = temporaryFolder.newFile().getPath();
-    String cacheFilePath = temporaryFolder.newFile().getPath();
-    Mp4Muxer muxer =
-        new Mp4Muxer.Builder(new FileOutputStream(outputFilePath))
-            .setOutputFileFormat(Mp4Muxer.FILE_FORMAT_EDITABLE_VIDEO)
-            .setEditableVideoParameters(
-                new Mp4Muxer.EditableVideoParameters(
-                    /* shouldInterleaveSamples= */ false, () -> cacheFilePath))
-            .build();
-
-    try {
-      muxer.addMetadataEntry(
-          new Mp4TimestampData(
-              /* creationTimestampSeconds= */ 1_000_000L,
-              /* modificationTimestampSeconds= */ 5_000_000L));
-      TrackToken primaryVideoTrackToken = muxer.addTrack(FAKE_VIDEO_FORMAT);
-      TrackToken sharpVideoTrackToken =
-          muxer.addTrack(
-              FAKE_VIDEO_FORMAT
-                  .buildUpon()
-                  .setRoleFlags(C.ROLE_FLAG_AUXILIARY)
-                  .setAuxiliaryTrackType(C.AUXILIARY_TRACK_TYPE_ORIGINAL)
-                  .build());
-      TrackToken depthLinearVideoTrackToken =
-          muxer.addTrack(
-              FAKE_VIDEO_FORMAT
-                  .buildUpon()
-                  .setRoleFlags(C.ROLE_FLAG_AUXILIARY)
-                  .setAuxiliaryTrackType(C.AUXILIARY_TRACK_TYPE_DEPTH_LINEAR)
-                  .build());
-      writeFakeSamples(muxer, primaryVideoTrackToken, /* sampleCount= */ 5);
-      writeFakeSamples(muxer, sharpVideoTrackToken, /* sampleCount= */ 5);
-      writeFakeSamples(muxer, depthLinearVideoTrackToken, /* sampleCount= */ 5);
-    } finally {
-      muxer.close();
-    }
-
-    DumpableMp4Box outputFileDumpableBox =
-        new DumpableMp4Box(ByteBuffer.wrap(TestUtil.getByteArrayFromFilePath(outputFilePath)));
-    // 1 track is written in the outer moov box and 2 tracks are written in the edvd.moov box.
-    DumpFileAsserts.assertOutput(
-        context,
-        outputFileDumpableBox,
-        MuxerTestUtil.getExpectedDumpFilePath("mp4_with_editable_video_tracks_in_edvd.box"));
-  }
-
-  @Test
-  public void writeMp4File_withFileFormatDefaultAndEditableVideoTracks_doesNotWriteEdvdBox()
-      throws Exception {
-    String outputFilePath = temporaryFolder.newFile().getPath();
-    Mp4Muxer muxer = new Mp4Muxer.Builder(new FileOutputStream(outputFilePath)).build();
-
-    try {
-      muxer.addMetadataEntry(
-          new Mp4TimestampData(
-              /* creationTimestampSeconds= */ 1_000_000L,
-              /* modificationTimestampSeconds= */ 5_000_000L));
-      TrackToken primaryVideoTrackToken = muxer.addTrack(FAKE_VIDEO_FORMAT);
-      TrackToken sharpVideoTrackToken =
-          muxer.addTrack(
-              FAKE_VIDEO_FORMAT
-                  .buildUpon()
-                  .setRoleFlags(C.ROLE_FLAG_AUXILIARY)
-                  .setAuxiliaryTrackType(C.AUXILIARY_TRACK_TYPE_ORIGINAL)
-                  .build());
-      TrackToken depthLinearVideoTrackToken =
-          muxer.addTrack(
-              FAKE_VIDEO_FORMAT
-                  .buildUpon()
-                  .setRoleFlags(C.ROLE_FLAG_AUXILIARY)
-                  .setAuxiliaryTrackType(C.AUXILIARY_TRACK_TYPE_DEPTH_LINEAR)
-                  .build());
-      writeFakeSamples(muxer, primaryVideoTrackToken, /* sampleCount= */ 5);
-      writeFakeSamples(muxer, sharpVideoTrackToken, /* sampleCount= */ 5);
-      writeFakeSamples(muxer, depthLinearVideoTrackToken, /* sampleCount= */ 5);
-    } finally {
-      muxer.close();
-    }
-
-    DumpableMp4Box outputFileDumpableBox =
-        new DumpableMp4Box(ByteBuffer.wrap(TestUtil.getByteArrayFromFilePath(outputFilePath)));
-    // All 3 tracks are written in the outer moov box and no edvd box.
-    DumpFileAsserts.assertOutput(
-        context,
-        outputFileDumpableBox,
-        MuxerTestUtil.getExpectedDumpFilePath("mp4_with_editable_video_tracks_without_edvd.box"));
-  }
-
-  @Test
   public void
-      writeMp4File_withFileFormatEditableVideoAndEditableVideoTracks_primaryVideoTracksMatchesExpected()
+      writeMp4File_withMp4WithAuxiliaryTracksExtensionFileFormatAndAuxiliaryTracks_writesAxteBox()
           throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
     String cacheFilePath = temporaryFolder.newFile().getPath();
     Mp4Muxer muxer =
-        new Mp4Muxer.Builder(new FileOutputStream(outputFilePath))
-            .setOutputFileFormat(Mp4Muxer.FILE_FORMAT_EDITABLE_VIDEO)
-            .setEditableVideoParameters(
-                new Mp4Muxer.EditableVideoParameters(
-                    /* shouldInterleaveSamples= */ false, () -> cacheFilePath))
+        new Mp4Muxer.Builder(
+                new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath), cacheFilePath))
+            .setOutputFileFormat(Mp4Muxer.FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION)
+            .setMp4AtFileParameters(
+                new Mp4Muxer.Mp4AtFileParameters(/* shouldInterleaveSamples= */ false))
             .build();
 
     try {
@@ -538,24 +525,118 @@ public class Mp4MuxerEndToEndTest {
           new Mp4TimestampData(
               /* creationTimestampSeconds= */ 1_000_000L,
               /* modificationTimestampSeconds= */ 5_000_000L));
-      TrackToken primaryVideoTrackToken = muxer.addTrack(FAKE_VIDEO_FORMAT);
-      TrackToken sharpVideoTrackToken =
+      int primaryVideoTrackId = muxer.addTrack(FAKE_VIDEO_FORMAT);
+      int sharpVideoTrackId =
           muxer.addTrack(
               FAKE_VIDEO_FORMAT
                   .buildUpon()
                   .setRoleFlags(C.ROLE_FLAG_AUXILIARY)
                   .setAuxiliaryTrackType(C.AUXILIARY_TRACK_TYPE_ORIGINAL)
                   .build());
-      TrackToken depthLinearVideoTrackToken =
+      int depthLinearVideoTrackId =
           muxer.addTrack(
               FAKE_VIDEO_FORMAT
                   .buildUpon()
                   .setRoleFlags(C.ROLE_FLAG_AUXILIARY)
                   .setAuxiliaryTrackType(C.AUXILIARY_TRACK_TYPE_DEPTH_LINEAR)
                   .build());
-      writeFakeSamples(muxer, primaryVideoTrackToken, /* sampleCount= */ 5);
-      writeFakeSamples(muxer, sharpVideoTrackToken, /* sampleCount= */ 5);
-      writeFakeSamples(muxer, depthLinearVideoTrackToken, /* sampleCount= */ 5);
+      writeFakeSamples(muxer, primaryVideoTrackId, /* sampleCount= */ 5);
+      writeFakeSamples(muxer, sharpVideoTrackId, /* sampleCount= */ 5);
+      writeFakeSamples(muxer, depthLinearVideoTrackId, /* sampleCount= */ 5);
+    } finally {
+      muxer.close();
+    }
+
+    DumpableMp4Box outputFileDumpableBox =
+        new DumpableMp4Box(ByteBuffer.wrap(TestUtil.getByteArrayFromFilePath(outputFilePath)));
+    // 1 track is written in the outer moov box and 2 tracks are written in the axte.moov box.
+    DumpFileAsserts.assertOutput(
+        context,
+        outputFileDumpableBox,
+        MuxerTestUtil.getExpectedDumpFilePath("mp4_with_auxiliary_tracks_in_axte.box"));
+  }
+
+  @Test
+  public void writeMp4File_withDefaultFileFormatAndAuxiliaryTracks_doesNotWriteAxteBox()
+      throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+    Mp4Muxer muxer =
+        new Mp4Muxer.Builder(new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath)))
+            .build();
+
+    try {
+      muxer.addMetadataEntry(
+          new Mp4TimestampData(
+              /* creationTimestampSeconds= */ 1_000_000L,
+              /* modificationTimestampSeconds= */ 5_000_000L));
+      int primaryVideoTrackId = muxer.addTrack(FAKE_VIDEO_FORMAT);
+      int sharpVideoTrackId =
+          muxer.addTrack(
+              FAKE_VIDEO_FORMAT
+                  .buildUpon()
+                  .setRoleFlags(C.ROLE_FLAG_AUXILIARY)
+                  .setAuxiliaryTrackType(C.AUXILIARY_TRACK_TYPE_ORIGINAL)
+                  .build());
+      int depthLinearVideoTrackId =
+          muxer.addTrack(
+              FAKE_VIDEO_FORMAT
+                  .buildUpon()
+                  .setRoleFlags(C.ROLE_FLAG_AUXILIARY)
+                  .setAuxiliaryTrackType(C.AUXILIARY_TRACK_TYPE_DEPTH_LINEAR)
+                  .build());
+      writeFakeSamples(muxer, primaryVideoTrackId, /* sampleCount= */ 5);
+      writeFakeSamples(muxer, sharpVideoTrackId, /* sampleCount= */ 5);
+      writeFakeSamples(muxer, depthLinearVideoTrackId, /* sampleCount= */ 5);
+    } finally {
+      muxer.close();
+    }
+
+    DumpableMp4Box outputFileDumpableBox =
+        new DumpableMp4Box(ByteBuffer.wrap(TestUtil.getByteArrayFromFilePath(outputFilePath)));
+    // All 3 tracks are written in the outer moov box and no axte box.
+    DumpFileAsserts.assertOutput(
+        context,
+        outputFileDumpableBox,
+        MuxerTestUtil.getExpectedDumpFilePath("mp4_with_auxiliary_tracks_without_axte.box"));
+  }
+
+  @Test
+  public void
+      writeMp4File_withMp4WithAuxiliaryTracksExtensionFileFormatAndAuxiliaryVideoTracks_primaryVideoTracksMatchesExpected()
+          throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+    String cacheFilePath = temporaryFolder.newFile().getPath();
+    Mp4Muxer muxer =
+        new Mp4Muxer.Builder(
+                new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath), cacheFilePath))
+            .setOutputFileFormat(Mp4Muxer.FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION)
+            .setMp4AtFileParameters(
+                new Mp4Muxer.Mp4AtFileParameters(/* shouldInterleaveSamples= */ false))
+            .build();
+
+    try {
+      muxer.addMetadataEntry(
+          new Mp4TimestampData(
+              /* creationTimestampSeconds= */ 1_000_000L,
+              /* modificationTimestampSeconds= */ 5_000_000L));
+      int primaryVideoTrackId = muxer.addTrack(FAKE_VIDEO_FORMAT);
+      int sharpVideoTrackId =
+          muxer.addTrack(
+              FAKE_VIDEO_FORMAT
+                  .buildUpon()
+                  .setRoleFlags(C.ROLE_FLAG_AUXILIARY)
+                  .setAuxiliaryTrackType(C.AUXILIARY_TRACK_TYPE_ORIGINAL)
+                  .build());
+      int depthLinearVideoTrackId =
+          muxer.addTrack(
+              FAKE_VIDEO_FORMAT
+                  .buildUpon()
+                  .setRoleFlags(C.ROLE_FLAG_AUXILIARY)
+                  .setAuxiliaryTrackType(C.AUXILIARY_TRACK_TYPE_DEPTH_LINEAR)
+                  .build());
+      writeFakeSamples(muxer, primaryVideoTrackId, /* sampleCount= */ 5);
+      writeFakeSamples(muxer, sharpVideoTrackId, /* sampleCount= */ 5);
+      writeFakeSamples(muxer, depthLinearVideoTrackId, /* sampleCount= */ 5);
     } finally {
       muxer.close();
     }
@@ -572,16 +653,16 @@ public class Mp4MuxerEndToEndTest {
 
   @Test
   public void
-      writeMp4File_withFileFormatEditableVideoAndEditableVideoTracks_editableVideoTracksMatchesExpected()
+      writeMp4File_withMp4WithAuxiliaryTracksExtensionFileFormatAndAuxiliaryTracks_auxiliaryTracksMatchesExpected()
           throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
     String cacheFilePath = temporaryFolder.newFile().getPath();
     Mp4Muxer muxer =
-        new Mp4Muxer.Builder(new FileOutputStream(outputFilePath))
-            .setOutputFileFormat(Mp4Muxer.FILE_FORMAT_EDITABLE_VIDEO)
-            .setEditableVideoParameters(
-                new Mp4Muxer.EditableVideoParameters(
-                    /* shouldInterleaveSamples= */ false, () -> cacheFilePath))
+        new Mp4Muxer.Builder(
+                new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath), cacheFilePath))
+            .setOutputFileFormat(Mp4Muxer.FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION)
+            .setMp4AtFileParameters(
+                new Mp4Muxer.Mp4AtFileParameters(/* shouldInterleaveSamples= */ false))
             .build();
 
     try {
@@ -589,50 +670,49 @@ public class Mp4MuxerEndToEndTest {
           new Mp4TimestampData(
               /* creationTimestampSeconds= */ 1_000_000L,
               /* modificationTimestampSeconds= */ 5_000_000L));
-      TrackToken primaryVideoTrackToken = muxer.addTrack(FAKE_VIDEO_FORMAT);
-      TrackToken sharpVideoTrackToken =
+      int primaryVideoTrackId = muxer.addTrack(FAKE_VIDEO_FORMAT);
+      int sharpVideoTrackId =
           muxer.addTrack(
               FAKE_VIDEO_FORMAT
                   .buildUpon()
                   .setRoleFlags(C.ROLE_FLAG_AUXILIARY)
                   .setAuxiliaryTrackType(C.AUXILIARY_TRACK_TYPE_ORIGINAL)
                   .build());
-      TrackToken depthLinearVideoTrackToken =
+      int depthLinearVideoTrackId =
           muxer.addTrack(
               FAKE_VIDEO_FORMAT
                   .buildUpon()
                   .setRoleFlags(C.ROLE_FLAG_AUXILIARY)
                   .setAuxiliaryTrackType(C.AUXILIARY_TRACK_TYPE_DEPTH_LINEAR)
                   .build());
-      writeFakeSamples(muxer, primaryVideoTrackToken, /* sampleCount= */ 5);
-      writeFakeSamples(muxer, sharpVideoTrackToken, /* sampleCount= */ 5);
-      writeFakeSamples(muxer, depthLinearVideoTrackToken, /* sampleCount= */ 5);
+      writeFakeSamples(muxer, primaryVideoTrackId, /* sampleCount= */ 5);
+      writeFakeSamples(muxer, sharpVideoTrackId, /* sampleCount= */ 5);
+      writeFakeSamples(muxer, depthLinearVideoTrackId, /* sampleCount= */ 5);
     } finally {
       muxer.close();
     }
 
-    FakeExtractorOutput editableTracksOutput =
+    FakeExtractorOutput auxiliaryTracksOutput =
         TestUtil.extractAllSamplesFromFilePath(
             new Mp4Extractor(
-                new DefaultSubtitleParserFactory(), Mp4Extractor.FLAG_READ_EDITABLE_VIDEO_TRACKS),
+                new DefaultSubtitleParserFactory(), Mp4Extractor.FLAG_READ_AUXILIARY_TRACKS),
             outputFilePath);
     DumpFileAsserts.assertOutput(
         context,
-        editableTracksOutput,
-        MuxerTestUtil.getExpectedDumpFilePath("mp4_with_editable_video_tracks.mp4"));
+        auxiliaryTracksOutput,
+        MuxerTestUtil.getExpectedDumpFilePath("mp4_with_auxiliary_tracks.mp4"));
   }
 
   @Test
   public void
-      writeMp4File_withFileFormatEditableVideoAndEditableVideoTracksAndShouldInterleaveSamples_primaryVideoTracksMatchesExpected()
+      writeMp4File_withMp4WithAuxiliaryTracksExtensionFileFormatAndAuxiliaryTracksAndShouldInterleaveSamples_primaryVideoTracksMatchesExpected()
           throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
     Mp4Muxer muxer =
-        new Mp4Muxer.Builder(new FileOutputStream(outputFilePath))
-            .setOutputFileFormat(Mp4Muxer.FILE_FORMAT_EDITABLE_VIDEO)
-            .setEditableVideoParameters(
-                new Mp4Muxer.EditableVideoParameters(
-                    /* shouldInterleaveSamples= */ true, /* cacheFileProvider= */ null))
+        new Mp4Muxer.Builder(new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath)))
+            .setOutputFileFormat(Mp4Muxer.FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION)
+            .setMp4AtFileParameters(
+                new Mp4Muxer.Mp4AtFileParameters(/* shouldInterleaveSamples= */ true))
             .build();
 
     try {
@@ -640,24 +720,24 @@ public class Mp4MuxerEndToEndTest {
           new Mp4TimestampData(
               /* creationTimestampSeconds= */ 1_000_000L,
               /* modificationTimestampSeconds= */ 5_000_000L));
-      TrackToken primaryVideoTrackToken = muxer.addTrack(FAKE_VIDEO_FORMAT);
-      TrackToken sharpVideoTrackToken =
+      int primaryVideoTrackId = muxer.addTrack(FAKE_VIDEO_FORMAT);
+      int sharpVideoTrackId =
           muxer.addTrack(
               FAKE_VIDEO_FORMAT
                   .buildUpon()
                   .setRoleFlags(C.ROLE_FLAG_AUXILIARY)
                   .setAuxiliaryTrackType(C.AUXILIARY_TRACK_TYPE_ORIGINAL)
                   .build());
-      TrackToken depthLinearVideoTrackToken =
+      int depthLinearVideoTrackId =
           muxer.addTrack(
               FAKE_VIDEO_FORMAT
                   .buildUpon()
                   .setRoleFlags(C.ROLE_FLAG_AUXILIARY)
                   .setAuxiliaryTrackType(C.AUXILIARY_TRACK_TYPE_DEPTH_LINEAR)
                   .build());
-      writeFakeSamples(muxer, primaryVideoTrackToken, /* sampleCount= */ 5);
-      writeFakeSamples(muxer, sharpVideoTrackToken, /* sampleCount= */ 5);
-      writeFakeSamples(muxer, depthLinearVideoTrackToken, /* sampleCount= */ 5);
+      writeFakeSamples(muxer, primaryVideoTrackId, /* sampleCount= */ 5);
+      writeFakeSamples(muxer, sharpVideoTrackId, /* sampleCount= */ 5);
+      writeFakeSamples(muxer, depthLinearVideoTrackId, /* sampleCount= */ 5);
     } finally {
       muxer.close();
     }
@@ -670,20 +750,19 @@ public class Mp4MuxerEndToEndTest {
         context,
         primaryTracksOutput,
         MuxerTestUtil.getExpectedDumpFilePath(
-            "mp4_with_primary_tracks_when_editable_track_samples_interleaved.mp4"));
+            "mp4_with_primary_tracks_when_auxiliary_track_samples_interleaved.mp4"));
   }
 
   @Test
   public void
-      writeMp4File_withFileFormatEditableVideoAndEditableVideoTracksAndShouldInterleaveSamples_editableVideoTracksMatchesExpected()
+      writeMp4File_withMp4WithAuxiliaryTracksExtensionFileFormatAndAuxiliaryTracksAndShouldInterleaveSamples_auxiliaryTracksMatchesExpected()
           throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
     Mp4Muxer muxer =
-        new Mp4Muxer.Builder(new FileOutputStream(outputFilePath))
-            .setOutputFileFormat(Mp4Muxer.FILE_FORMAT_EDITABLE_VIDEO)
-            .setEditableVideoParameters(
-                new Mp4Muxer.EditableVideoParameters(
-                    /* shouldInterleaveSamples= */ true, /* cacheFileProvider= */ null))
+        new Mp4Muxer.Builder(new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath)))
+            .setOutputFileFormat(Mp4Muxer.FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION)
+            .setMp4AtFileParameters(
+                new Mp4Muxer.Mp4AtFileParameters(/* shouldInterleaveSamples= */ true))
             .build();
 
     try {
@@ -691,38 +770,38 @@ public class Mp4MuxerEndToEndTest {
           new Mp4TimestampData(
               /* creationTimestampSeconds= */ 1_000_000L,
               /* modificationTimestampSeconds= */ 5_000_000L));
-      TrackToken primaryVideoTrackToken = muxer.addTrack(FAKE_VIDEO_FORMAT);
-      TrackToken sharpVideoTrackToken =
+      int primaryVideoTrackId = muxer.addTrack(FAKE_VIDEO_FORMAT);
+      int sharpVideoTrackId =
           muxer.addTrack(
               FAKE_VIDEO_FORMAT
                   .buildUpon()
                   .setRoleFlags(C.ROLE_FLAG_AUXILIARY)
                   .setAuxiliaryTrackType(C.AUXILIARY_TRACK_TYPE_ORIGINAL)
                   .build());
-      TrackToken depthLinearVideoTrackToken =
+      int depthLinearVideoTrackId =
           muxer.addTrack(
               FAKE_VIDEO_FORMAT
                   .buildUpon()
                   .setRoleFlags(C.ROLE_FLAG_AUXILIARY)
                   .setAuxiliaryTrackType(C.AUXILIARY_TRACK_TYPE_DEPTH_LINEAR)
                   .build());
-      writeFakeSamples(muxer, primaryVideoTrackToken, /* sampleCount= */ 5);
-      writeFakeSamples(muxer, sharpVideoTrackToken, /* sampleCount= */ 5);
-      writeFakeSamples(muxer, depthLinearVideoTrackToken, /* sampleCount= */ 5);
+      writeFakeSamples(muxer, primaryVideoTrackId, /* sampleCount= */ 5);
+      writeFakeSamples(muxer, sharpVideoTrackId, /* sampleCount= */ 5);
+      writeFakeSamples(muxer, depthLinearVideoTrackId, /* sampleCount= */ 5);
     } finally {
       muxer.close();
     }
 
-    FakeExtractorOutput editableTracksOutput =
+    FakeExtractorOutput auxiliaryTracksOutput =
         TestUtil.extractAllSamplesFromFilePath(
             new Mp4Extractor(
-                new DefaultSubtitleParserFactory(), Mp4Extractor.FLAG_READ_EDITABLE_VIDEO_TRACKS),
+                new DefaultSubtitleParserFactory(), Mp4Extractor.FLAG_READ_AUXILIARY_TRACKS),
             outputFilePath);
     DumpFileAsserts.assertOutput(
         context,
-        editableTracksOutput,
+        auxiliaryTracksOutput,
         MuxerTestUtil.getExpectedDumpFilePath(
-            "mp4_with_editable_video_tracks_when_editable_track_samples_interleaved.mp4"));
+            "mp4_with_auxiliary_tracks_when_auxiliary_track_samples_interleaved.mp4"));
   }
 
   @Test
@@ -731,7 +810,7 @@ public class Mp4MuxerEndToEndTest {
           throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
     Mp4Muxer mp4Muxer =
-        new Mp4Muxer.Builder(new FileOutputStream(outputFilePath))
+        new Mp4Muxer.Builder(new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath)))
             .setLastSampleDurationBehavior(
                 LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER_OR_DUPLICATE_PREVIOUS)
             .build();
@@ -749,18 +828,17 @@ public class Mp4MuxerEndToEndTest {
 
     long expectedDurationUs = 1_000L;
     try {
-      TrackToken track = mp4Muxer.addTrack(FAKE_VIDEO_FORMAT);
+      int track = mp4Muxer.addTrack(FAKE_VIDEO_FORMAT);
       mp4Muxer.writeSampleData(track, sample1.first, sample1.second);
       mp4Muxer.writeSampleData(track, sample2.first, sample2.second);
       mp4Muxer.writeSampleData(track, sample3.first, sample3.second);
       mp4Muxer.writeSampleData(track, sample4.first, sample4.second);
       // Write end of stream sample.
-      BufferInfo endOfStreamBufferInfo = new BufferInfo();
-      endOfStreamBufferInfo.set(
-          /* newOffset= */ 0,
-          /* newSize= */ 0,
-          /* newTimeUs= */ expectedDurationUs,
-          /* newFlags= */ MediaCodec.BUFFER_FLAG_END_OF_STREAM);
+      BufferInfo endOfStreamBufferInfo =
+          new BufferInfo(
+              /* presentationTimeUs= */ expectedDurationUs,
+              /* size= */ 0,
+              C.BUFFER_FLAG_END_OF_STREAM);
       mp4Muxer.writeSampleData(track, ByteBuffer.allocate(0), endOfStreamBufferInfo);
     } finally {
       mp4Muxer.close();
@@ -779,7 +857,7 @@ public class Mp4MuxerEndToEndTest {
           throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
     Mp4Muxer mp4Muxer =
-        new Mp4Muxer.Builder(new FileOutputStream(outputFilePath))
+        new Mp4Muxer.Builder(new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath)))
             .setLastSampleDurationBehavior(
                 LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER_OR_DUPLICATE_PREVIOUS)
             .build();
@@ -796,7 +874,7 @@ public class Mp4MuxerEndToEndTest {
         getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 300L);
 
     try {
-      TrackToken track = mp4Muxer.addTrack(FAKE_VIDEO_FORMAT);
+      int track = mp4Muxer.addTrack(FAKE_VIDEO_FORMAT);
       mp4Muxer.writeSampleData(track, sample1.first, sample1.second);
       mp4Muxer.writeSampleData(track, sample2.first, sample2.second);
       mp4Muxer.writeSampleData(track, sample3.first, sample3.second);
@@ -812,12 +890,101 @@ public class Mp4MuxerEndToEndTest {
     assertThat(fakeExtractorOutput.seekMap.getDurationUs()).isEqualTo(400L);
   }
 
-  private static void writeFakeSamples(Mp4Muxer muxer, TrackToken trackToken, int sampleCount)
-      throws Muxer.MuxerException {
+  @Test
+  public void createMp4File_withSampleBatchingDisabled_matchesExpected() throws Exception {
+    String outputPath = temporaryFolder.newFile().getPath();
+
+    Mp4Muxer mp4Muxer =
+        new Mp4Muxer.Builder(new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputPath)))
+            .setSampleBatchingEnabled(false)
+            .build();
+    mp4Muxer.addMetadataEntry(
+        new Mp4TimestampData(
+            /* creationTimestampSeconds= */ 100_000_000L,
+            /* modificationTimestampSeconds= */ 500_000_000L));
+    try {
+      feedInputDataToMuxer(context, mp4Muxer, checkNotNull(H265_HDR10_MP4));
+    } finally {
+      mp4Muxer.close();
+    }
+
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(
+            new Mp4Extractor(new DefaultSubtitleParserFactory()), checkNotNull(outputPath));
+    DumpFileAsserts.assertOutput(
+        context,
+        fakeExtractorOutput,
+        MuxerTestUtil.getExpectedDumpFilePath("sample_batching_disabled_" + H265_HDR10_MP4));
+  }
+
+  @Test
+  public void createMp4File_withSampleBatchingAndAttemptStreamableOutputDisabled_matchesExpected()
+      throws Exception {
+    String outputPath = temporaryFolder.newFile().getPath();
+
+    Mp4Muxer mp4Muxer =
+        new Mp4Muxer.Builder(new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputPath)))
+            .setSampleBatchingEnabled(false)
+            .setAttemptStreamableOutputEnabled(false)
+            .build();
+    mp4Muxer.addMetadataEntry(
+        new Mp4TimestampData(
+            /* creationTimestampSeconds= */ 100_000_000L,
+            /* modificationTimestampSeconds= */ 500_000_000L));
+    try {
+      feedInputDataToMuxer(context, mp4Muxer, checkNotNull(H265_HDR10_MP4));
+    } finally {
+      mp4Muxer.close();
+    }
+
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(
+            new Mp4Extractor(new DefaultSubtitleParserFactory()), checkNotNull(outputPath));
+    DumpFileAsserts.assertOutput(
+        context,
+        fakeExtractorOutput,
+        MuxerTestUtil.getExpectedDumpFilePath(
+            "sample_batching_and_attempt_streamable_output_disabled_" + H265_HDR10_MP4));
+  }
+
+  @Test
+  public void
+      writeMp4File_withSomeFreeSpaceAfterFileTypeBoxAndAttemptStreamableOutputDisabled_reservesExpectedFreeSpace()
+          throws Exception {
+    String outputFilePath = temporaryFolder.newFile().getPath();
+    Mp4Muxer muxer =
+        new Mp4Muxer.Builder(new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath)))
+            .experimentalSetFreeSpaceAfterFileTypeBox(500)
+            .setAttemptStreamableOutputEnabled(false)
+            .build();
+    Pair<ByteBuffer, BufferInfo> sampleAndSampleInfo =
+        getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 0L);
+
+    try {
+      muxer.addMetadataEntry(
+          new Mp4TimestampData(
+              /* creationTimestampSeconds= */ 1_000_000L,
+              /* modificationTimestampSeconds= */ 5_000_000L));
+      int trackId = muxer.addTrack(FAKE_VIDEO_FORMAT);
+      muxer.writeSampleData(trackId, sampleAndSampleInfo.first, sampleAndSampleInfo.second);
+    } finally {
+      muxer.close();
+    }
+
+    DumpableMp4Box dumpableBox =
+        new DumpableMp4Box(ByteBuffer.wrap(TestUtil.getByteArrayFromFilePath(outputFilePath)));
+    DumpFileAsserts.assertOutput(
+        context,
+        dumpableBox,
+        MuxerTestUtil.getExpectedDumpFilePath("mp4_with_some_free_space_after_ftyp.mp4"));
+  }
+
+  private static void writeFakeSamples(Mp4Muxer muxer, int trackId, int sampleCount)
+      throws MuxerException {
     for (int i = 0; i < sampleCount; i++) {
       Pair<ByteBuffer, BufferInfo> sampleAndSampleInfo =
           getFakeSampleAndSampleInfo(/* presentationTimeUs= */ i);
-      muxer.writeSampleData(trackToken, sampleAndSampleInfo.first, sampleAndSampleInfo.second);
+      muxer.writeSampleData(trackId, sampleAndSampleInfo.first, sampleAndSampleInfo.second);
     }
   }
 }

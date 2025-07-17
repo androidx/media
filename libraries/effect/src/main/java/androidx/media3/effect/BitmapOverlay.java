@@ -23,6 +23,7 @@ import android.net.Uri;
 import android.opengl.Matrix;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.OverlaySettings;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.common.util.GlUtil;

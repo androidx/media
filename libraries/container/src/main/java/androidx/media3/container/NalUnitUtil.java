@@ -106,6 +106,9 @@ public final class NalUnitUtil {
    */
   @Deprecated public static final int NAL_UNIT_TYPE_PREFIX = H264_NAL_UNIT_TYPE_PREFIX;
 
+  /** H.264 unspecified NAL unit. */
+  public static final int H264_NAL_UNIT_TYPE_UNSPECIFIED = 24;
+
   /** H.265 coded slice segment of a random access skipped leading picture (RASL_R). */
   public static final int H265_NAL_UNIT_TYPE_RASL_R = 9;
 
@@ -132,6 +135,9 @@ public final class NalUnitUtil {
 
   /** H.265 suffixed supplemental enhancement information (SUFFIX_SEI_NUT). */
   public static final int H265_NAL_UNIT_TYPE_SUFFIX_SEI = 40;
+
+  /** H.265 unspecified NAL unit. */
+  public static final int H265_NAL_UNIT_TYPE_UNSPECIFIED = 48;
 
   /** Holds data parsed from a H.264 sequence parameter set NAL unit. */
   public static final class SpsData {
@@ -384,6 +390,7 @@ public final class NalUnitUtil {
   public static final class H265SpsData {
 
     public final H265NalHeader nalHeader;
+    public final int maxSubLayersMinus1;
     @Nullable public final H265ProfileTierLevel profileTierLevel;
     public final int chromaFormatIdc;
     public final int bitDepthLumaMinus8;
@@ -391,6 +398,8 @@ public final class NalUnitUtil {
     public final int seqParameterSetId;
     public final int width;
     public final int height;
+    public final int decodedWidth;
+    public final int decodedHeight;
     public final float pixelWidthHeightRatio;
     public final int maxNumReorderPics;
     public final @C.ColorSpace int colorSpace;
@@ -399,6 +408,7 @@ public final class NalUnitUtil {
 
     public H265SpsData(
         H265NalHeader nalHeader,
+        int maxSubLayersMinus1,
         @Nullable H265ProfileTierLevel profileTierLevel,
         int chromaFormatIdc,
         int bitDepthLumaMinus8,
@@ -406,12 +416,15 @@ public final class NalUnitUtil {
         int seqParameterSetId,
         int width,
         int height,
+        int decodedWidth,
+        int decodedHeight,
         float pixelWidthHeightRatio,
         int maxNumReorderPics,
         @C.ColorSpace int colorSpace,
         @C.ColorRange int colorRange,
         @C.ColorTransfer int colorTransfer) {
       this.nalHeader = nalHeader;
+      this.maxSubLayersMinus1 = maxSubLayersMinus1;
       this.profileTierLevel = profileTierLevel;
       this.chromaFormatIdc = chromaFormatIdc;
       this.bitDepthLumaMinus8 = bitDepthLumaMinus8;
@@ -424,6 +437,8 @@ public final class NalUnitUtil {
       this.colorSpace = colorSpace;
       this.colorRange = colorRange;
       this.colorTransfer = colorTransfer;
+      this.decodedWidth = decodedWidth;
+      this.decodedHeight = decodedHeight;
     }
   }
 
@@ -675,6 +690,65 @@ public final class NalUnitUtil {
     }
     // Treat any other NAL unit type as depended on. This might be too restrictive, but reduces
     // risks around closed captions, HDR metadata in SEI messages.
+    return true;
+  }
+
+  /**
+   * Returns the number of bytes in the NAL unit header.
+   *
+   * <p>The NAL unit header can be used to determine the NAL unit type and whether subsequent NAL
+   * units can depend on the current NAL unit.
+   *
+   * <p>This is {@code nalUnitHeaderBytes} from the H.264 spec, or the size of {@code
+   * nal_unit_header()} in H.265.
+   *
+   * @param format The sample {@link Format}.
+   */
+  public static int numberOfBytesInNalUnitHeader(Format format) {
+    if (Objects.equals(format.sampleMimeType, MimeTypes.VIDEO_H264)) {
+      return 1;
+    }
+    if (Objects.equals(format.sampleMimeType, MimeTypes.VIDEO_H265)
+        || MimeTypes.containsCodecsCorrespondingToMimeType(format.codecs, MimeTypes.VIDEO_H265)) {
+      return 2;
+    }
+    return 0;
+  }
+
+  /**
+   * Returns whether the NAL unit starting with the given bytes can be depended on by subsequent NAL
+   * units in decoding order.
+   *
+   * @param data The array holding the first {@code length} bytes of the NAL unit.
+   * @param offset The offset in {@code data} at which the NAL unit starts.
+   * @param length The number of bytes available.
+   * @param format The sample {@link Format}.
+   */
+  public static boolean isDependedOn(byte[] data, int offset, int length, Format format) {
+    if (Objects.equals(format.sampleMimeType, MimeTypes.VIDEO_H264)) {
+      return isH264NalUnitDependedOn(data[offset]);
+    }
+    if (Objects.equals(format.sampleMimeType, MimeTypes.VIDEO_H265)) {
+      return isH265NalUnitDependedOn(data, offset, length, format);
+    }
+    return true;
+  }
+
+  private static boolean isH265NalUnitDependedOn(
+      byte[] data, int offset, int length, Format format) {
+    H265NalHeader header =
+        parseH265NalHeader(new ParsableNalUnitBitArray(data, offset, /* limit= */ offset + length));
+    if (header.nalUnitType == H265_NAL_UNIT_TYPE_AUD) {
+      // NAL unit delimiters are not depended on.
+      return false;
+    }
+    boolean isSubLayerNonReferencePicture = header.nalUnitType <= 14 && header.nalUnitType % 2 == 0;
+    if (isSubLayerNonReferencePicture && header.temporalId == format.maxSubLayers - 1) {
+      // Sub-layer non-reference (SLNR) pictures cannot be used for inter prediction in the same
+      // temporal layer. That is, SLNR pictures are not depended on if they are part of the highest
+      // temporal layer.
+      return false;
+    }
     return true;
   }
 
@@ -1490,6 +1564,8 @@ public final class NalUnitUtil {
     int chromaFormatIdc = 0;
     int frameWidth = 0;
     int frameHeight = 0;
+    int decodedWidth = 0;
+    int decodedHeight = 0;
     int bitDepthLumaMinus8 = 0;
     int bitDepthChromaMinus8 = 0;
     int spsRepFormatIdx = C.INDEX_UNSET;
@@ -1505,8 +1581,10 @@ public final class NalUnitUtil {
             && vpsData.repFormatsAndIndices.repFormats.size() > spsRepFormatIdx) {
           H265RepFormat repFormat = vpsData.repFormatsAndIndices.repFormats.get(spsRepFormatIdx);
           chromaFormatIdc = repFormat.chromaFormatIdc;
-          frameWidth = repFormat.width;
-          frameHeight = repFormat.height;
+          decodedWidth = repFormat.width;
+          decodedHeight = repFormat.height;
+          frameWidth = decodedWidth;
+          frameHeight = decodedHeight;
           bitDepthLumaMinus8 = repFormat.bitDepthLumaMinus8;
           bitDepthChromaMinus8 = repFormat.bitDepthChromaMinus8;
         }
@@ -1516,8 +1594,8 @@ public final class NalUnitUtil {
       if (chromaFormatIdc == 3) {
         data.skipBit(); // separate_colour_plane_flag
       }
-      frameWidth = data.readUnsignedExpGolombCodedInt();
-      frameHeight = data.readUnsignedExpGolombCodedInt();
+      decodedWidth = data.readUnsignedExpGolombCodedInt();
+      decodedHeight = data.readUnsignedExpGolombCodedInt();
       if (data.readBit()) { // conformance_window_flag
         int confWinLeftOffset = data.readUnsignedExpGolombCodedInt();
         int confWinRightOffset = data.readUnsignedExpGolombCodedInt();
@@ -1525,10 +1603,13 @@ public final class NalUnitUtil {
         int confWinBottomOffset = data.readUnsignedExpGolombCodedInt();
         frameWidth =
             applyConformanceWindowToWidth(
-                frameWidth, chromaFormatIdc, confWinLeftOffset, confWinRightOffset);
+                decodedWidth, chromaFormatIdc, confWinLeftOffset, confWinRightOffset);
         frameHeight =
             applyConformanceWindowToHeight(
-                frameHeight, chromaFormatIdc, confWinTopOffset, confWinBottomOffset);
+                decodedHeight, chromaFormatIdc, confWinTopOffset, confWinBottomOffset);
+      } else {
+        frameWidth = decodedWidth;
+        frameHeight = decodedHeight;
       }
       bitDepthLumaMinus8 = data.readUnsignedExpGolombCodedInt();
       bitDepthChromaMinus8 = data.readUnsignedExpGolombCodedInt();
@@ -1638,6 +1719,7 @@ public final class NalUnitUtil {
 
     return new H265SpsData(
         nalHeader,
+        maxSubLayersMinus1,
         profileTierLevel,
         chromaFormatIdc,
         bitDepthLumaMinus8,
@@ -1645,6 +1727,8 @@ public final class NalUnitUtil {
         seqParameterSetId,
         frameWidth,
         frameHeight,
+        decodedWidth,
+        decodedHeight,
         pixelWidthHeightRatio,
         maxNumReorderPics,
         colorSpace,
@@ -1784,6 +1868,8 @@ public final class NalUnitUtil {
             mantissaRefDisplayWidth,
             exponentRefViewingDist,
             mantissaRefViewingDist);
+      } else {
+        data.skipBits(payloadSize * 8);
       }
     }
     return null;

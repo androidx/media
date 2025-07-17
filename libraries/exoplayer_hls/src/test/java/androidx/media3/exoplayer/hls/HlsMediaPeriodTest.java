@@ -75,7 +75,8 @@ public final class HlsMediaPeriodTest {
     FilterableManifestMediaPeriodFactory<HlsPlaylist> mediaPeriodFactory =
         (playlist, periodIndex) -> {
           HlsExtractorFactory mockHlsExtractorFactory = mock(HlsExtractorFactory.class);
-          when(mockHlsExtractorFactory.getOutputTextFormat(any())).thenCallRealMethod();
+          when(mockHlsExtractorFactory.getOutputTextFormat(any()))
+              .then(invocation -> invocation.getArguments()[0]);
           HlsDataSourceFactory mockDataSourceFactory = mock(HlsDataSourceFactory.class);
           when(mockDataSourceFactory.createDataSource(anyInt())).thenReturn(mock(DataSource.class));
           HlsPlaylistTracker mockPlaylistTracker = mock(HlsPlaylistTracker.class);
@@ -100,7 +101,8 @@ public final class HlsMediaPeriodTest {
               HlsMediaSource.METADATA_TYPE_ID3,
               /* useSessionKeys= */ false,
               PlayerId.UNSET,
-              /* timestampAdjusterInitializationTimeoutMs= */ 0);
+              /* timestampAdjusterInitializationTimeoutMs= */ 0,
+              /* downloadExecutorSupplier= */ null);
         };
 
     MediaPeriodAsserts.assertGetStreamKeysAndManifestFilterIntegration(

@@ -20,6 +20,7 @@ import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.transformer.TransformerUtil.getDecoderOutputColor;
 
 import android.media.MediaCodec;
+import android.media.metrics.LogSessionId;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
@@ -39,6 +40,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   private final Codec.DecoderFactory decoderFactory;
   private final @Composition.HdrMode int hdrMode;
   private final List<Long> decodeOnlyPresentationTimestamps;
+  @Nullable private final LogSessionId logSessionId;
 
   private @MonotonicNonNull SefSlowMotionFlattener sefVideoSlowMotionFlattener;
   private int maxDecoderPendingFrameCount;
@@ -48,11 +50,13 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       Codec.DecoderFactory decoderFactory,
       @Composition.HdrMode int hdrMode,
       TransformerMediaClock mediaClock,
-      AssetLoader.Listener assetLoaderListener) {
+      AssetLoader.Listener assetLoaderListener,
+      @Nullable LogSessionId logSessionId) {
     super(C.TRACK_TYPE_VIDEO, mediaClock, assetLoaderListener);
     this.flattenForSlowMotion = flattenForSlowMotion;
     this.decoderFactory = decoderFactory;
     this.hdrMode = hdrMode;
+    this.logSessionId = logSessionId;
     decodeOnlyPresentationTimestamps = new ArrayList<>();
     maxDecoderPendingFrameCount = C.INDEX_UNSET;
   }
@@ -70,6 +74,9 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
    */
   @Override
   public long getDurationToProgressUs(long positionUs, long elapsedRealtimeUs) {
+    if (getState() == STATE_ENABLED) {
+      return DEFAULT_IDLE_DURATION_TO_PROGRESS_US;
+    }
     if (maxDecoderPendingFrameCount == C.INDEX_UNSET) {
       return DEFAULT_DURATION_TO_PROGRESS_US;
     }
@@ -108,7 +115,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
   @Override
   protected void initDecoder(Format inputFormat) throws ExportException {
-    // TODO(b/278259383): Move surface creation out of sampleConsumer. Init decoder before
+    // TODO: b/278259383 - Move surface creation out of sampleConsumer. Init decoder before
     //  sampleConsumer.
     checkStateNotNull(sampleConsumer);
     boolean isDecoderToneMappingRequired =
@@ -118,7 +125,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
         decoderFactory.createForVideoDecoding(
             inputFormat,
             checkNotNull(sampleConsumer.getInputSurface()),
-            isDecoderToneMappingRequired);
+            isDecoderToneMappingRequired,
+            logSessionId);
     maxDecoderPendingFrameCount = decoder.getMaxPendingFrameCount();
   }
 

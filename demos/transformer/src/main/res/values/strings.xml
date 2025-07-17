@@ -32,10 +32,13 @@
   <string name="enable_debug_preview" translatable="false">Enable debug preview</string>
   <string name="enable_debug_tracing" translatable="false">Enable debug tracing</string>
   <string name="abort_slow_export" translatable="false">Abort slow export</string>
-  <string name="use_media3_muxer" translatable="false">Use Media3 muxer</string>
-  <string name="produce_fragmented_mp4" translatable="false">Produce fragmented MP4</string>
+  <string name="use_media3_mp4_muxer" translatable="false">Use Media3 Mp4Muxer</string>
+  <string name="use_media3_fragmented_mp4_muxer" translatable="false">Use Media3 FragmentedMp4Muxer</string>
   <string name="trim" translatable="false">Trim</string>
   <string name="hdr_mode" translatable="false">HDR mode</string>
+  <string name="enable_trim_optimization" translatable="false">Enable trim optimization</string>
+  <string name="enable_mp4_edit_list_trimming" translatable="false">Enable MP4 edit list trimming</string>
+  <string name="enable_codecdb_lite" translatable="false">Enable CodecDB Lite</string>
   <string name="select_audio_effects" translatable="false">Add audio effects</string>
   <string name="select_video_effects" translatable="false">Add video effects</string>
   <string name="periodic_vignette_options" translatable="false">Periodic vignette options</string>
@@ -44,6 +47,7 @@
   <string name="debug_preview" translatable="false">Debug preview:</string>
   <string name="pause" translatable="false">Pause</string>
   <string name="resume" translatable="false">Resume</string>
+  <string name="stop_capture" translatable="false">Stop capture</string>
   <string name="debug_preview_not_available" translatable="false">No debug preview available.</string>
   <string name="export_started" translatable="false">Export started</string>
   <string name="export_timer" translatable="false">Export started %d seconds ago.</string>

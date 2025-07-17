@@ -443,9 +443,7 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
       this.configuration = configuration;
       mediaSourceResources = new HashMap<>();
       adPlaybackStateMap = new HashMap<>();
-      for (Map.Entry<String, AdPlaybackState> entry : state.adPlaybackStates.entrySet()) {
-        adPlaybackStateMap.put(entry.getKey(), entry.getValue());
-      }
+      adPlaybackStateMap.putAll(state.adPlaybackStates);
     }
 
     /**
@@ -653,8 +651,8 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
     return newConfiguration != null
         && newConfiguration.uri.equals(existingConfiguration.uri)
         && newConfiguration.streamKeys.equals(existingConfiguration.streamKeys)
-        && Util.areEqual(newConfiguration.customCacheKey, existingConfiguration.customCacheKey)
-        && Util.areEqual(newConfiguration.drmConfiguration, existingConfiguration.drmConfiguration)
+        && Objects.equals(newConfiguration.customCacheKey, existingConfiguration.customCacheKey)
+        && Objects.equals(newConfiguration.drmConfiguration, existingConfiguration.drmConfiguration)
         && existingMediaItem.liveConfiguration.equals(mediaItem.liveConfiguration);
   }
 
@@ -861,7 +859,8 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
         mainHandler.post(
             () ->
                 setAdPlaybackState(
-                    new AdPlaybackState(adsId).withLivePostrollPlaceholderAppended()));
+                    new AdPlaybackState(adsId)
+                        .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ true)));
       }
       prepareChildSource(/* id= */ null, serverSideAdInsertionMediaSource);
     }
@@ -1359,7 +1358,9 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
         AdPlaybackState adPlaybackState = checkNotNull(adPlaybackStates.get(contentPeriod.uid));
         // Calculate the stream position from the current position and the playback state.
         streamPositionMs =
-            usToMs(ServerSideAdInsertionUtil.getStreamPositionUs(player, adPlaybackState));
+            usToMs(
+                ServerSideAdInsertionUtil.getStreamPositionUs(
+                    player, checkNotNull(adPlaybackState.adsId)));
         if (window.windowStartTimeMs != C.TIME_UNSET) {
           // Add the time since epoch at start of the window for live streams.
           streamPositionMs += window.windowStartTimeMs + period.getPositionInWindowMs();

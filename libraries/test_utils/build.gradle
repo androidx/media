@@ -35,11 +35,13 @@ dependencies {
     api 'junit:junit:' + junitVersion
     api 'com.google.truth:truth:' + truthVersion
     api 'com.google.truth.extensions:truth-java8-extension:' + truthVersion
+    api 'com.squareup.okhttp3:mockwebserver:' + okhttpVersion
     compileOnly 'org.checkerframework:checker-qual:' + checkerframeworkVersion
     compileOnly 'org.jetbrains.kotlin:kotlin-annotations-jvm:' + kotlinAnnotationsVersion
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
-    implementation 'com.squareup.okhttp3:mockwebserver:' + okhttpVersion
-    implementation project(modulePrefix + 'lib-exoplayer')
+    api project(modulePrefix + 'lib-exoplayer')
+    api project(modulePrefix + 'lib-transformer')
+    testImplementation project(modulePrefix + 'test-utils-robolectric')
     testImplementation 'androidx.test.espresso:espresso-core:' + androidxTestEspressoVersion
     testImplementation 'org.robolectric:robolectric:' + robolectricVersion
 }

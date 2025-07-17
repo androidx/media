@@ -31,6 +31,8 @@ public class PlaylistTimeline extends Timeline {
 
   private static final long DEFAULT_DURATION_MS = 100;
 
+  protected static final long WINDOW_POSITION_IN_PERIOD_US = 5000000000L;
+
   private final ImmutableList<MediaItem> mediaItems;
   private final int[] shuffledIndices;
   private final int[] indicesInShuffled;
@@ -60,9 +62,9 @@ public class PlaylistTimeline extends Timeline {
         /* uid= */ 0,
         mediaItems.get(windowIndex),
         /* manifest= */ null,
-        /* presentationStartTimeMs= */ 0,
-        /* windowStartTimeMs= */ 0,
-        /* elapsedRealtimeEpochOffsetMs= */ 0,
+        /* presentationStartTimeMs= */ C.TIME_UNSET,
+        /* windowStartTimeMs= */ C.TIME_UNSET,
+        /* elapsedRealtimeEpochOffsetMs= */ C.TIME_UNSET,
         /* isSeekable= */ true,
         /* isDynamic= */ false,
         /* liveConfiguration= */ null,
@@ -70,7 +72,7 @@ public class PlaylistTimeline extends Timeline {
         /* durationUs= */ Util.msToUs(DEFAULT_DURATION_MS),
         /* firstPeriodIndex= */ windowIndex,
         /* lastPeriodIndex= */ windowIndex,
-        /* positionInFirstPeriodUs= */ 0);
+        /* positionInFirstPeriodUs= */ WINDOW_POSITION_IN_PERIOD_US);
     window.isPlaceholder = false;
     return window;
   }
@@ -135,7 +137,7 @@ public class PlaylistTimeline extends Timeline {
         /* uid= */ null,
         periodIndex,
         Util.msToUs(DEFAULT_DURATION_MS),
-        /* positionInWindowUs= */ 0);
+        /* positionInWindowUs= */ -WINDOW_POSITION_IN_PERIOD_US);
     return period;
   }
 

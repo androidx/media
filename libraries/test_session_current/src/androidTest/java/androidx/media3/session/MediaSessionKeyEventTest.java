@@ -15,6 +15,7 @@
  */
 package androidx.media3.session;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media.MediaSessionManager.RemoteUserInfo.LEGACY_CONTROLLER;
 import static androidx.media3.common.Player.STATE_ENDED;
 import static androidx.media3.session.MediaSession.ControllerInfo.LEGACY_CONTROLLER_VERSION;
@@ -32,7 +33,6 @@ import android.os.Bundle;
 import android.view.KeyEvent;
 import androidx.media3.common.ForwardingPlayer;
 import androidx.media3.common.Player;
-import androidx.media3.common.util.Util;
 import androidx.media3.session.MediaSession.ControllerInfo;
 import androidx.media3.test.session.common.HandlerThreadTestRule;
 import androidx.media3.test.session.common.MainLooperTestRule;
@@ -93,7 +93,7 @@ public class MediaSessionKeyEventTest {
     // Here's the requirement for an app to receive media key events via MediaSession.
     // - SDK < 26: Player should be playing for receiving key events
     // - SDK >= 26: Play a media item in the same process of the session for receiving key events.
-    if (Util.SDK_INT < 26) {
+    if (SDK_INT < 26) {
       handler.postAndSync(
           () -> {
             player.notifyPlayWhenReadyChanged(
@@ -136,6 +136,14 @@ public class MediaSessionKeyEventTest {
 
   @Test
   public void playKeyEvent() throws Exception {
+    handler.postAndSync(
+        () -> {
+          // Update state to allow play event to be triggered.
+          player.notifyPlayWhenReadyChanged(
+              /* playWhenReady= */ false,
+              Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
+              Player.PLAYBACK_SUPPRESSION_REASON_NONE);
+        });
     dispatchMediaKeyEvent(KeyEvent.KEYCODE_MEDIA_PLAY, false);
 
     player.awaitMethodCalled(MockPlayer.METHOD_PLAY, TIMEOUT_MS);
@@ -143,6 +151,15 @@ public class MediaSessionKeyEventTest {
 
   @Test
   public void pauseKeyEvent() throws Exception {
+    handler.postAndSync(
+        () -> {
+          // Update state to allow pause event to be triggered.
+          player.notifyPlayWhenReadyChanged(
+              /* playWhenReady= */ true,
+              Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
+              Player.PLAYBACK_SUPPRESSION_REASON_NONE);
+          player.notifyPlaybackStateChanged(Player.STATE_READY);
+        });
     dispatchMediaKeyEvent(KeyEvent.KEYCODE_MEDIA_PAUSE, false);
 
     player.awaitMethodCalled(MockPlayer.METHOD_PAUSE, TIMEOUT_MS);
@@ -253,7 +270,7 @@ public class MediaSessionKeyEventTest {
   public void playPauseKeyEvent_paused_play() throws Exception {
     // We don't receive media key events when we are not playing on API < 26, so we can't test this
     // case as it's not supported.
-    assumeTrue(Util.SDK_INT >= 26);
+    assumeTrue(SDK_INT >= 26);
 
     handler.postAndSync(
         () -> {
@@ -269,7 +286,7 @@ public class MediaSessionKeyEventTest {
   public void playPauseKeyEvent_fromIdle_prepareAndPlay() throws Exception {
     // We don't receive media key events when we are not playing on API < 26, so we can't test this
     // case as it's not supported.
-    assumeTrue(Util.SDK_INT >= 26);
+    assumeTrue(SDK_INT >= 26);
 
     handler.postAndSync(
         () -> {
@@ -286,7 +303,7 @@ public class MediaSessionKeyEventTest {
   public void playPauseKeyEvent_playWhenReadyAndEnded_seekAndPlay() throws Exception {
     // We don't receive media key events when we are not playing on API < 26, so we can't test this
     // case as it's not supported.
-    assumeTrue(Util.SDK_INT >= 26);
+    assumeTrue(SDK_INT >= 26);
 
     handler.postAndSync(
         () -> {
@@ -369,10 +386,10 @@ public class MediaSessionKeyEventTest {
       return SUPPORT_APP_PACKAGE_NAME;
     }
     // Legacy controllers
-    if (Util.SDK_INT >= 28) {
+    if (SDK_INT >= 28) {
       // Above API 28: package of the app using AudioManager.
       return SUPPORT_APP_PACKAGE_NAME;
-    } else if (Util.SDK_INT >= 24) {
+    } else if (SDK_INT >= 24) {
       // API 24 - 27: KeyEvent from system service has the package name "android".
       return "android";
     } else {

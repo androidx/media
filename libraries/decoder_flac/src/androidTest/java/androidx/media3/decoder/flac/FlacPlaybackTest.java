@@ -29,7 +29,6 @@ import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.RenderersFactory;
 import androidx.media3.exoplayer.audio.AudioSink;
-import androidx.media3.exoplayer.audio.DefaultAudioSink;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.ProgressiveMediaSource;
 import androidx.media3.extractor.mkv.MatroskaExtractor;
@@ -48,6 +47,7 @@ public class FlacPlaybackTest {
 
   private static final String BEAR_FLAC_16BIT = "mka/bear-flac-16bit.mka";
   private static final String BEAR_FLAC_24BIT = "mka/bear-flac-24bit.mka";
+  private static final String BEAR_FLAC_32BIT = "mka/bear-flac-32bit.mka";
 
   @Before
   public void setUp() {
@@ -66,10 +66,13 @@ public class FlacPlaybackTest {
     playAndAssertAudioSinkInput(BEAR_FLAC_24BIT);
   }
 
+  @Test
+  public void test32BitPlayback() throws Exception {
+    playAndAssertAudioSinkInput(BEAR_FLAC_32BIT);
+  }
+
   private static void playAndAssertAudioSinkInput(String fileName) throws Exception {
-    CapturingAudioSink audioSink =
-        new CapturingAudioSink(
-            new DefaultAudioSink.Builder(ApplicationProvider.getApplicationContext()).build());
+    CapturingAudioSink audioSink = CapturingAudioSink.create();
 
     TestPlaybackRunnable testPlaybackRunnable =
         new TestPlaybackRunnable(

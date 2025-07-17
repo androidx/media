@@ -15,29 +15,26 @@
  */
 package androidx.media3.exoplayer.offline;
 
-import static androidx.media3.test.utils.robolectric.RobolectricUtil.createRobolectricConditionVariable;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.Arrays.asList;
 
 import android.net.Uri;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
-import androidx.media3.common.C;
 import androidx.media3.common.StreamKey;
 import androidx.media3.common.util.Assertions;
-import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.exoplayer.scheduler.Requirements;
 import androidx.media3.test.utils.DownloadBuilder;
 import androidx.media3.test.utils.DummyMainThread;
 import androidx.media3.test.utils.DummyMainThread.TestRunnable;
 import androidx.media3.test.utils.TestUtil;
+import androidx.media3.test.utils.robolectric.FakeDownloader;
 import androidx.media3.test.utils.robolectric.TestDownloadManagerListener;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Before;
@@ -111,13 +108,13 @@ public class DownloadManagerTest {
 
     // The download will be canceled by the remove request.
     postRemoveRequest(ID1);
-    downloader0.assertCanceled();
+    downloader0.assertCanceled(true);
     assertRemoving(ID1);
 
     // The download will be removed.
     FakeDownloader downloader1 = getDownloaderAt(1);
     downloader1.assertId(ID1);
-    downloader1.assertRemoveStarted();
+    downloader1.assertRemoveStarted(true);
     downloader1.finish();
     assertRemoved(ID1);
 
@@ -226,7 +223,7 @@ public class DownloadManagerTest {
 
     FakeDownloader downloader1 = getDownloaderAt(1);
     downloader1.assertId(ID1);
-    downloader1.assertRemoveStarted();
+    downloader1.assertRemoveStarted(true);
 
     postDownloadRequest(ID1);
     // The removal should still complete.
@@ -253,7 +250,7 @@ public class DownloadManagerTest {
 
     FakeDownloader downloader1 = getDownloaderAt(1);
     downloader1.assertId(ID1);
-    downloader1.assertRemoveStarted();
+    downloader1.assertRemoveStarted(true);
 
     postRemoveRequest(ID1);
     // The existing removal should still complete.
@@ -286,12 +283,12 @@ public class DownloadManagerTest {
     // Both downloads should be removed.
     FakeDownloader downloader2 = getDownloaderAt(2);
     downloader2.assertId(ID1);
-    downloader2.assertRemoveStarted();
+    downloader2.assertRemoveStarted(true);
     downloader2.finish();
     assertRemoved(ID1);
     FakeDownloader downloader3 = getDownloaderAt(3);
     downloader3.assertId(ID2);
-    downloader3.assertRemoveStarted();
+    downloader3.assertRemoveStarted(true);
     downloader3.finish();
     assertRemoved(ID2);
 
@@ -313,7 +310,7 @@ public class DownloadManagerTest {
     postDownloadRequest(ID1, streamKey2);
     // The request for streamKey2 will cause the downloader for streamKey1 to be canceled and
     // replaced with a new downloader for both keys.
-    downloader0.assertCanceled();
+    downloader0.assertCanceled(true);
     FakeDownloader downloader1 = getDownloaderAt(1);
     downloader1.assertId(ID1);
     downloader1.assertStreamKeys(streamKey1, streamKey2);
@@ -398,7 +395,7 @@ public class DownloadManagerTest {
     FakeDownloader downloader2 = getDownloaderAt(2);
     downloader1.assertId(ID1);
     downloader2.assertId(ID2);
-    downloader1.assertRemoveStarted();
+    downloader1.assertRemoveStarted(true);
     downloader2.assertDownloadStarted();
     downloader1.finish();
     downloader2.finish();
@@ -426,7 +423,7 @@ public class DownloadManagerTest {
     // The second download shouldn't have been started, so the second downloader is for removal.
     FakeDownloader downloader1 = getDownloaderAt(1);
     downloader1.assertId(ID2);
-    downloader1.assertRemoveStarted();
+    downloader1.assertRemoveStarted(true);
     downloader1.finish();
     // A downloader to re-download the second download should not be started.
     assertNoDownloaderAt(2);
@@ -455,7 +452,7 @@ public class DownloadManagerTest {
     downloader0.assertDownloadStarted();
 
     postPauseDownloads();
-    downloader0.assertCanceled();
+    downloader0.assertCanceled(true);
     assertQueued(ID1);
 
     postResumeDownloads();
@@ -477,7 +474,7 @@ public class DownloadManagerTest {
     postRemoveRequest(ID1);
     FakeDownloader downloader = getDownloaderAt(1);
     downloader.assertId(ID1);
-    downloader.assertRemoveStarted();
+    downloader.assertRemoveStarted(true);
 
     postPauseDownloads();
     downloader.finish();
@@ -497,7 +494,7 @@ public class DownloadManagerTest {
     downloader0.assertDownloadStarted();
 
     postSetStopReason(ID1, APP_STOP_REASON);
-    downloader0.assertCanceled();
+    downloader0.assertCanceled(true);
     assertStopped(ID1);
 
     postSetStopReason(ID1, Download.STOP_REASON_NONE);
@@ -525,7 +522,7 @@ public class DownloadManagerTest {
     downloader1.assertDownloadStarted();
 
     postSetStopReason(ID1, APP_STOP_REASON);
-    downloader0.assertCanceled();
+    downloader0.assertCanceled(true);
     assertStopped(ID1);
 
     // The second download should still complete.
@@ -546,13 +543,13 @@ public class DownloadManagerTest {
     downloader0.assertDownloadStarted();
 
     postSetStopReason(ID1, APP_STOP_REASON);
-    downloader0.assertCanceled();
+    downloader0.assertCanceled(true);
     assertStopped(ID1);
 
     postRemoveRequest(ID1);
     FakeDownloader downloader1 = getDownloaderAt(1);
     downloader1.assertId(ID1);
-    downloader1.assertRemoveStarted();
+    downloader1.assertRemoveStarted(true);
     downloader1.finish();
     assertRemoved(ID1);
 
@@ -592,7 +589,7 @@ public class DownloadManagerTest {
 
     postRemoveRequest(ID1);
     FakeDownloader downloadRemover = getDownloaderAt(0);
-    downloadRemover.assertRemoveStarted();
+    downloadRemover.assertRemoveStarted(true);
 
     // Re-add the download without a stop reason.
     postDownloadRequest(ID1);
@@ -623,7 +620,7 @@ public class DownloadManagerTest {
 
     postRemoveRequest(ID1);
     FakeDownloader downloadRemover = getDownloaderAt(1);
-    downloadRemover.assertRemoveStarted();
+    downloadRemover.assertRemoveStarted(true);
 
     // Re-add the download with a stop reason.
     runOnMainThread(
@@ -729,7 +726,7 @@ public class DownloadManagerTest {
     assertQueued(ID2);
     FakeDownloader downloader2 = getDownloaderAt(2);
     downloader2.assertId(ID1);
-    downloader2.assertRemoveStarted();
+    downloader2.assertRemoveStarted(true);
     downloader2.finish();
     assertRemoved(ID1);
 
@@ -737,7 +734,7 @@ public class DownloadManagerTest {
     assertRemoving(ID2);
     FakeDownloader downloader3 = getDownloaderAt(3);
     downloader3.assertId(ID2);
-    downloader3.assertRemoveStarted();
+    downloader3.assertRemoveStarted(true);
     downloader3.finish();
     assertRemoved(ID2);
 
@@ -910,127 +907,6 @@ public class DownloadManagerTest {
         downloaders.notifyAll();
       }
       return fakeDownloader;
-    }
-  }
-
-  private static final class FakeDownloader implements Downloader {
-
-    private final DownloadRequest request;
-    private final ConditionVariable downloadStarted;
-    private final ConditionVariable removeStarted;
-    private final ConditionVariable finished;
-    private final ConditionVariable blocker;
-    private final AtomicInteger startCount;
-    private final AtomicInteger bytesDownloaded;
-
-    private volatile boolean canceled;
-    private volatile boolean enableDownloadIOException;
-
-    private FakeDownloader(DownloadRequest request) {
-      this.request = request;
-      downloadStarted = createRobolectricConditionVariable();
-      removeStarted = createRobolectricConditionVariable();
-      finished = createRobolectricConditionVariable();
-      blocker = createRobolectricConditionVariable();
-      startCount = new AtomicInteger();
-      bytesDownloaded = new AtomicInteger();
-    }
-
-    @Override
-    public void cancel() {
-      canceled = true;
-      blocker.open();
-    }
-
-    @Override
-    public void download(ProgressListener listener) throws IOException {
-      startCount.incrementAndGet();
-      downloadStarted.open();
-      try {
-        block();
-        if (canceled) {
-          return;
-        }
-        int bytesDownloaded = this.bytesDownloaded.get();
-        if (listener != null && bytesDownloaded > 0) {
-          listener.onProgress(C.LENGTH_UNSET, bytesDownloaded, C.PERCENTAGE_UNSET);
-        }
-        if (enableDownloadIOException) {
-          enableDownloadIOException = false;
-          throw new IOException();
-        }
-      } finally {
-        finished.open();
-      }
-    }
-
-    @Override
-    public void remove() {
-      startCount.incrementAndGet();
-      removeStarted.open();
-      try {
-        block();
-      } finally {
-        finished.open();
-      }
-    }
-
-    /** Finishes the {@link #download} or {@link #remove} without an error. */
-    public void finish() throws InterruptedException {
-      blocker.open();
-      blockUntilFinished();
-    }
-
-    /** Fails {@link #download} or {@link #remove} with an error. */
-    public void fail() throws InterruptedException {
-      enableDownloadIOException = true;
-      blocker.open();
-      blockUntilFinished();
-    }
-
-    /** Increments the number of bytes that the fake downloader has downloaded. */
-    public void incrementBytesDownloaded() {
-      bytesDownloaded.incrementAndGet();
-    }
-
-    public void assertId(String id) {
-      assertThat(request.id).isEqualTo(id);
-    }
-
-    public void assertStreamKeys(StreamKey... streamKeys) {
-      assertThat(request.streamKeys).containsExactlyElementsIn(streamKeys);
-    }
-
-    public void assertDownloadStarted() throws InterruptedException {
-      assertThat(downloadStarted.block(TIMEOUT_MS)).isTrue();
-      downloadStarted.close();
-    }
-
-    public void assertRemoveStarted() throws InterruptedException {
-      assertThat(removeStarted.block(TIMEOUT_MS)).isTrue();
-      removeStarted.close();
-    }
-
-    public void assertCanceled() throws InterruptedException {
-      blockUntilFinished();
-      assertThat(canceled).isTrue();
-    }
-
-    // Internal methods.
-
-    private void block() {
-      try {
-        blocker.block();
-      } catch (InterruptedException e) {
-        throw new IllegalStateException(e); // Never happens.
-      } finally {
-        blocker.close();
-      }
-    }
-
-    private void blockUntilFinished() throws InterruptedException {
-      assertThat(finished.block(TIMEOUT_MS)).isTrue();
-      finished.close();
     }
   }
 }

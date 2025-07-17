@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.e2etest;
 
+import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
 import static com.google.common.truth.Truth.assertThat;
 import static org.robolectric.annotation.GraphicsMode.Mode.NATIVE;
 
@@ -33,9 +34,12 @@ import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.datasource.AssetDataSource;
 import androidx.media3.datasource.DataSourceUtil;
 import androidx.media3.datasource.DataSpec;
+import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.exoplayer.RenderersFactory;
 import androidx.media3.exoplayer.image.ExternallyLoadedImageDecoder;
+import androidx.media3.exoplayer.image.ImageDecoder;
 import androidx.media3.exoplayer.image.ImageDecoderException;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.exoplayer.source.MediaSource;
@@ -46,6 +50,7 @@ import androidx.media3.test.utils.robolectric.PlaybackOutput;
 import androidx.media3.test.utils.robolectric.TestPlayerRunHelper;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import java.io.IOException;
@@ -60,7 +65,8 @@ import org.robolectric.annotation.GraphicsMode;
 @GraphicsMode(value = NATIVE)
 public final class ExternallyLoadedImagePlaybackTest {
 
-  private static final String INPUT_FILE = "png/non-motion-photo-shortened.png";
+  private static final String INPUT_FILE_1 = "png/non-motion-photo-shortened.png";
+  private static final String INPUT_FILE_2 = "png/media3test.png";
 
   @Test
   public void imagePlayback_validExternalLoader_callsLoadOnceAndPlaysSuccessfully()
@@ -87,7 +93,7 @@ public final class ExternallyLoadedImagePlaybackTest {
             .build();
     PlaybackOutput playbackOutput = PlaybackOutput.register(player, renderersFactory);
     long durationMs = 5 * C.MILLIS_PER_SECOND;
-    Uri uri = Uri.parse("asset:///media/" + INPUT_FILE);
+    Uri uri = Uri.parse("asset:///media/" + INPUT_FILE_1);
     player.setMediaItem(
         new MediaItem.Builder()
             .setUri(uri)
@@ -106,7 +112,7 @@ public final class ExternallyLoadedImagePlaybackTest {
     assertThat(externalLoaderUris).containsExactly(uri);
     assertThat(playbackDurationMs).isAtLeast(durationMs);
     DumpFileAsserts.assertOutput(
-        applicationContext, playbackOutput, "playbackdumps/" + INPUT_FILE + ".dump");
+        applicationContext, playbackOutput, "playbackdumps/" + INPUT_FILE_1 + ".dump");
   }
 
   @Test
@@ -135,7 +141,7 @@ public final class ExternallyLoadedImagePlaybackTest {
             .build();
     player.setMediaItem(
         new MediaItem.Builder()
-            .setUri("asset:///media/" + INPUT_FILE)
+            .setUri("asset:///media/" + INPUT_FILE_1)
             .setImageDurationMs(5 * C.MILLIS_PER_SECOND)
             .setMimeType(MimeTypes.APPLICATION_EXTERNALLY_LOADED_IMAGE)
             .build());
@@ -161,7 +167,8 @@ public final class ExternallyLoadedImagePlaybackTest {
     MediaSource.Factory mediaSourceFactory =
         new DefaultMediaSourceFactory(applicationContext)
             .setExternalImageLoader(
-                unused -> listeningExecutorService.submit(loadingComplete::blockUninterruptible));
+                unused ->
+                    listeningExecutorService.submit(() -> loadingComplete.blockUninterruptible()));
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, renderersFactory)
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
@@ -169,7 +176,7 @@ public final class ExternallyLoadedImagePlaybackTest {
             .build();
     player.setMediaItem(
         new MediaItem.Builder()
-            .setUri("asset:///media/" + INPUT_FILE)
+            .setUri("asset:///media/" + INPUT_FILE_1)
             .setImageDurationMs(5 * C.MILLIS_PER_SECOND)
             .setMimeType(MimeTypes.APPLICATION_EXTERNALLY_LOADED_IMAGE)
             .build());
@@ -182,6 +189,63 @@ public final class ExternallyLoadedImagePlaybackTest {
     loadingComplete.open();
     // Assert the player stops loading.
     TestPlayerRunHelper.runUntilIsLoading(player, /* expectedIsLoading= */ false);
+  }
+
+  @Test
+  public void imagePlayback_twoMediaItemsWithSeek_callsLoadAndPlaysSuccessfully() throws Exception {
+    Context applicationContext = ApplicationProvider.getApplicationContext();
+    ListeningExecutorService listeningExecutorService =
+        MoreExecutors.listeningDecorator(Executors.newSingleThreadExecutor());
+    RenderersFactory renderersFactory =
+        new DefaultRenderersFactory(applicationContext) {
+          @Override
+          protected ImageDecoder.Factory getImageDecoderFactory(Context context) {
+            return new ExternallyLoadedImageDecoder.Factory(
+                request -> listeningExecutorService.submit(() -> decode(request.uri)));
+          }
+        };
+    Clock clock = new FakeClock(/* isAutoAdvancing= */ true);
+    ArrayList<Uri> externalLoaderUris = new ArrayList<>();
+    MediaSource.Factory mediaSourceFactory =
+        new DefaultMediaSourceFactory(applicationContext)
+            .setExternalImageLoader(
+                request ->
+                    listeningExecutorService.submit(() -> externalLoaderUris.add(request.uri)));
+    ExoPlayer player =
+        new ExoPlayer.Builder(applicationContext, renderersFactory)
+            .setClock(clock)
+            .setMediaSourceFactory(mediaSourceFactory)
+            .build();
+    PlaybackOutput playbackOutput = PlaybackOutput.registerWithoutRendererCapture(player);
+    long durationMs1 = 5 * C.MILLIS_PER_SECOND;
+    long durationMs2 = 7 * C.MILLIS_PER_SECOND;
+    MediaItem mediaItem1 =
+        new MediaItem.Builder()
+            .setUri("asset:///media/" + INPUT_FILE_1)
+            .setImageDurationMs(durationMs1)
+            .setMimeType(MimeTypes.APPLICATION_EXTERNALLY_LOADED_IMAGE)
+            .build();
+    MediaItem mediaItem2 =
+        new MediaItem.Builder()
+            .setUri("asset:///media/" + INPUT_FILE_2)
+            .setImageDurationMs(durationMs2)
+            .setMimeType(MimeTypes.APPLICATION_EXTERNALLY_LOADED_IMAGE)
+            .build();
+    player.setMediaItems(ImmutableList.of(mediaItem1, mediaItem2));
+    player.prepare();
+
+    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_READY);
+    long playerStartedMs = clock.elapsedRealtime();
+    player.play();
+    advance(player).untilPositionAtLeast(2000);
+    player.seekTo(1000);
+    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+    long playbackDurationMs = clock.elapsedRealtime() - playerStartedMs;
+    player.release();
+
+    assertThat(playbackDurationMs).isAtLeast(durationMs1 + durationMs2);
+    DumpFileAsserts.assertOutput(
+        applicationContext, playbackOutput, "playbackdumps/two_images_with_seek.dump");
   }
 
   private static Bitmap decode(Uri uri) throws ImageDecoderException {

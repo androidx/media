@@ -15,10 +15,8 @@
  */
 package androidx.media3.extractor.metadata.id3;
 
-import android.os.Parcel;
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import java.util.Arrays;
 
 /** MPEG location lookup table frame. */
@@ -47,15 +45,6 @@ public final class MlltFrame extends Id3Frame {
     this.millisecondsDeviations = millisecondsDeviations;
   }
 
-  /* package */ MlltFrame(Parcel in) {
-    super(ID);
-    this.mpegFramesBetweenReference = in.readInt();
-    this.bytesBetweenReference = in.readInt();
-    this.millisecondsBetweenReference = in.readInt();
-    this.bytesDeviations = Util.castNonNull(in.createIntArray());
-    this.millisecondsDeviations = Util.castNonNull(in.createIntArray());
-  }
-
   @Override
   public boolean equals(@Nullable Object obj) {
     if (this == obj) {
@@ -82,34 +71,4 @@ public final class MlltFrame extends Id3Frame {
     result = 31 * result + Arrays.hashCode(millisecondsDeviations);
     return result;
   }
-
-  // Parcelable implementation.
-
-  @Override
-  public void writeToParcel(Parcel dest, int flags) {
-    dest.writeInt(mpegFramesBetweenReference);
-    dest.writeInt(bytesBetweenReference);
-    dest.writeInt(millisecondsBetweenReference);
-    dest.writeIntArray(bytesDeviations);
-    dest.writeIntArray(millisecondsDeviations);
-  }
-
-  @Override
-  public int describeContents() {
-    return 0;
-  }
-
-  public static final Creator<MlltFrame> CREATOR =
-      new Creator<MlltFrame>() {
-
-        @Override
-        public MlltFrame createFromParcel(Parcel in) {
-          return new MlltFrame(in);
-        }
-
-        @Override
-        public MlltFrame[] newArray(int size) {
-          return new MlltFrame[size];
-        }
-      };
 }

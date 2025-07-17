@@ -50,6 +50,7 @@ import java.util.concurrent.CountDownLatch;
  * MediaSessionCompatProviderService. Users can run {@link MediaSessionCompat} methods remotely with
  * this object.
  */
+@SuppressWarnings("deprecation") // Test utils for deprecated MediaSessionCompat
 public class RemoteMediaSessionCompat {
 
   private static final String TAG = "RMediaSessionCompat";
@@ -156,7 +157,7 @@ public class RemoteMediaSessionCompat {
     binder.setShuffleMode(sessionTag, shuffleMode);
   }
 
-  public void setSessionActivity(PendingIntent intent) throws RemoteException {
+  public void setSessionActivity(@Nullable PendingIntent intent) throws RemoteException {
     binder.setSessionActivity(sessionTag, intent);
   }
 

@@ -16,12 +16,14 @@
 
 package androidx.media3.exoplayer.hls.e2etest;
 
-import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.run;
+import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
+import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.play;
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import android.content.Context;
@@ -29,6 +31,7 @@ import android.graphics.SurfaceTexture;
 import android.net.Uri;
 import android.view.Surface;
 import androidx.annotation.Nullable;
+import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
 import androidx.media3.datasource.DefaultDataSource;
@@ -42,6 +45,7 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.exoplayer.source.LoadEventInfo;
 import androidx.media3.exoplayer.source.MediaLoadData;
 import androidx.media3.exoplayer.upstream.CmcdConfiguration;
+import androidx.media3.extractor.DefaultExtractorsFactory;
 import androidx.media3.test.utils.CapturingRenderersFactory;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.FakeClock;
@@ -59,14 +63,16 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
+import org.robolectric.annotation.Config;
 
 /** End-to-end tests using HLS samples. */
+@Config(sdk = 30) // TODO: b/382017156 - Remove this when the tests are non-flaky on API 31+.
 @RunWith(AndroidJUnit4.class)
 public final class HlsPlaybackTest {
 
   @Rule
   public ShadowMediaCodecConfig mediaCodecConfig =
-      ShadowMediaCodecConfig.forAllSupportedMimeTypes();
+      ShadowMediaCodecConfig.withAllDefaultSupportedCodecs();
 
   @Test
   public void webvttStandaloneSubtitlesFile() throws Exception {
@@ -85,9 +91,9 @@ public final class HlsPlaybackTest {
         MediaItem.fromUri("asset:///media/hls/standalone-webvtt/multivariant_playlist.m3u8"));
     player.prepare();
     // Ensure media is fully buffered so that the first subtitle is ready at the start of playback.
-    run(player).untilFullyBuffered();
+    advance(player).untilFullyBuffered();
     player.play();
-    run(player).untilState(Player.STATE_ENDED);
+    advance(player).untilState(Player.STATE_ENDED);
     player.release();
     surface.release();
 
@@ -123,9 +129,9 @@ public final class HlsPlaybackTest {
         MediaItem.fromUri("asset:///media/hls/standalone-webvtt/multivariant_playlist.m3u8"));
     player.prepare();
     // Ensure media is fully buffered so that the first subtitle is ready at the start of playback.
-    run(player).ignoringNonFatalErrors().untilFullyBuffered();
+    advance(player).ignoringNonFatalErrors().untilFullyBuffered();
     player.play();
-    run(player).ignoringNonFatalErrors().untilState(Player.STATE_ENDED);
+    advance(player).ignoringNonFatalErrors().untilState(Player.STATE_ENDED);
     player.release();
     surface.release();
 
@@ -160,9 +166,9 @@ public final class HlsPlaybackTest {
         MediaItem.fromUri("asset:///media/hls/standalone-webvtt/multivariant_playlist.m3u8"));
     player.prepare();
     // Ensure media is fully buffered so that the first subtitle is ready at the start of playback.
-    run(player).ignoringNonFatalErrors().untilFullyBuffered();
+    advance(player).ignoringNonFatalErrors().untilFullyBuffered();
     player.play();
-    run(player).ignoringNonFatalErrors().untilState(Player.STATE_ENDED);
+    advance(player).ignoringNonFatalErrors().untilState(Player.STATE_ENDED);
     player.release();
     surface.release();
 
@@ -191,9 +197,9 @@ public final class HlsPlaybackTest {
         MediaItem.fromUri("asset:///media/hls/ttml-in-mp4/multivariant_playlist.m3u8"));
     player.prepare();
     // Ensure media is fully buffered so that the first subtitle is ready at the start of playback.
-    run(player).untilFullyBuffered();
+    advance(player).untilFullyBuffered();
     player.play();
-    run(player).untilState(Player.STATE_ENDED);
+    advance(player).untilState(Player.STATE_ENDED);
     player.release();
     surface.release();
 
@@ -228,9 +234,9 @@ public final class HlsPlaybackTest {
         MediaItem.fromUri("asset:///media/hls/ttml-in-mp4/multivariant_playlist.m3u8"));
     player.prepare();
     // Ensure media is fully buffered so that the first subtitle is ready at the start of playback.
-    run(player).ignoringNonFatalErrors().untilFullyBuffered();
+    advance(player).ignoringNonFatalErrors().untilFullyBuffered();
     player.play();
-    run(player).ignoringNonFatalErrors().untilState(Player.STATE_ENDED);
+    advance(player).ignoringNonFatalErrors().untilState(Player.STATE_ENDED);
     player.release();
     surface.release();
 
@@ -264,9 +270,9 @@ public final class HlsPlaybackTest {
         MediaItem.fromUri("asset:///media/hls/ttml-in-mp4/multivariant_playlist.m3u8"));
     player.prepare();
     // Ensure media is fully buffered so that the first subtitle is ready at the start of playback.
-    run(player).ignoringNonFatalErrors().untilFullyBuffered();
+    advance(player).ignoringNonFatalErrors().untilFullyBuffered();
     player.play();
-    run(player).ignoringNonFatalErrors().untilState(Player.STATE_ENDED);
+    advance(player).ignoringNonFatalErrors().untilState(Player.STATE_ENDED);
     player.release();
     surface.release();
 
@@ -304,9 +310,9 @@ public final class HlsPlaybackTest {
     player.setMediaItem(MediaItem.fromUri("asset:///media/hls/cea608/manifest.m3u8"));
     player.prepare();
     // Ensure media is fully buffered so that the first subtitle is ready at the start of playback.
-    run(player).untilFullyBuffered();
+    advance(player).untilFullyBuffered();
     player.play();
-    run(player).untilState(Player.STATE_ENDED);
+    advance(player).untilState(Player.STATE_ENDED);
     player.release();
     surface.release();
 
@@ -340,9 +346,9 @@ public final class HlsPlaybackTest {
     player.setMediaItem(MediaItem.fromUri("asset:///media/hls/cea608/manifest.m3u8"));
     player.prepare();
     // Ensure media is fully buffered so that the first subtitle is ready at the start of playback.
-    run(player).untilFullyBuffered();
+    advance(player).untilFullyBuffered();
     player.play();
-    run(player).untilState(Player.STATE_ENDED);
+    advance(player).untilState(Player.STATE_ENDED);
     player.release();
     surface.release();
 
@@ -460,6 +466,62 @@ public final class HlsPlaybackTest {
     // Every started load should be completed.
     assertThat(loadCompletedUris).containsExactlyElementsIn(loadStartedUris);
     assertThat(loadCompletedDataSpecUris).containsExactlyElementsIn(loadStartedUris);
+  }
+
+  @Test
+  public void playVideo_usingWithinGopSampleDependencies_withSeek() throws Exception {
+    Context applicationContext = ApplicationProvider.getApplicationContext();
+    CapturingRenderersFactory capturingRenderersFactory =
+        new CapturingRenderersFactory(applicationContext);
+    DefaultMediaSourceFactory defaultMediaSourceFactory =
+        new DefaultMediaSourceFactory(applicationContext, new DefaultExtractorsFactory());
+    defaultMediaSourceFactory.experimentalSetCodecsToParseWithinGopSampleDependencies(
+        C.VIDEO_CODEC_FLAG_H264);
+    ExoPlayer player =
+        new ExoPlayer.Builder(
+                applicationContext, capturingRenderersFactory, defaultMediaSourceFactory)
+            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .build();
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
+    PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
+
+    player.setMediaItem(
+        MediaItem.fromUri("asset:///media/hls/standalone-webvtt/multivariant_playlist.m3u8"));
+    player.seekTo(500L);
+    player.prepare();
+    player.play();
+    advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+    surface.release();
+
+    DumpFileAsserts.assertOutput(
+        applicationContext,
+        playbackOutput,
+        "playbackdumps/hls/standalone-webvtt-optimized-seek.dump");
+  }
+
+  @Test
+  public void seekToEnd_afterLoadingFinished_doesNotLoadAgain() throws Exception {
+    Context applicationContext = ApplicationProvider.getApplicationContext();
+    ExoPlayer player =
+        new ExoPlayer.Builder(applicationContext)
+            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .build();
+    Player.Listener listener = mock(Player.Listener.class);
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
+    player.setMediaItem(MediaItem.fromUri("asset:///media/hls/cea608/manifest.m3u8"));
+    player.prepare();
+    advance(player).untilFullyBuffered();
+
+    player.addListener(listener);
+    player.seekTo(player.getDuration());
+    play(player).untilState(Player.STATE_ENDED);
+    player.release();
+    surface.release();
+
+    verify(listener, never()).onIsLoadingChanged(true);
   }
 
   private static class AnalyticsListenerImpl implements AnalyticsListener {

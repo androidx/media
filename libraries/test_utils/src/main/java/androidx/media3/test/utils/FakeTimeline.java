@@ -15,12 +15,14 @@
  */
 package androidx.media3.test.utils;
 
+import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.test.utils.FakeTimeline.TimelineWindowDefinition.DEFAULT_WINDOW_DURATION_US;
 import static androidx.media3.test.utils.FakeTimeline.TimelineWindowDefinition.DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US;
 import static java.lang.Math.min;
 
 import android.net.Uri;
 import android.util.Pair;
+import androidx.annotation.Nullable;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
@@ -32,6 +34,7 @@ import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.source.ShuffleOrder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -44,6 +47,183 @@ public final class FakeTimeline extends Timeline {
 
   /** Definition used to define a {@link FakeTimeline}. */
   public static final class TimelineWindowDefinition {
+
+    /** A builder to build instances of {@link FakeTimeline.TimelineWindowDefinition}. */
+    public static class Builder {
+      private int periodCount;
+      private Object uid;
+      private boolean isSeekable;
+      private boolean isDynamic;
+      private boolean isLive;
+      private boolean isPlaceholder;
+      private long durationUs;
+      private long defaultPositionUs;
+      private long windowStartTimeUs;
+      private long windowPositionInFirstPeriodUs;
+      @Nullable private List<AdPlaybackState> adPlaybackStates;
+      @Nullable private MediaItem mediaItem;
+
+      /** Create a new instance. */
+      public Builder() {
+        periodCount = 1;
+        uid = 0;
+        isSeekable = true;
+        durationUs = DEFAULT_WINDOW_DURATION_US;
+        defaultPositionUs = 0L;
+        windowStartTimeUs = C.TIME_UNSET;
+        windowPositionInFirstPeriodUs = DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US;
+      }
+
+      private Builder(TimelineWindowDefinition timelineWindowDefinition) {
+        periodCount = timelineWindowDefinition.periodCount;
+        uid = timelineWindowDefinition.id;
+        isSeekable = timelineWindowDefinition.isSeekable;
+        isDynamic = timelineWindowDefinition.isDynamic;
+        isLive = timelineWindowDefinition.isLive;
+        isPlaceholder = timelineWindowDefinition.isPlaceholder;
+        durationUs = timelineWindowDefinition.durationUs;
+        defaultPositionUs = timelineWindowDefinition.defaultPositionUs;
+        windowStartTimeUs = timelineWindowDefinition.windowStartTimeUs;
+        windowPositionInFirstPeriodUs = timelineWindowDefinition.windowOffsetInFirstPeriodUs;
+        adPlaybackStates = timelineWindowDefinition.adPlaybackStates;
+        mediaItem = timelineWindowDefinition.mediaItem;
+      }
+
+      /** See {@code Timeline.Window#getPeriodCount()}. Default is 1. */
+      @CanIgnoreReturnValue
+      public Builder setPeriodCount(int periodCount) {
+        this.periodCount = periodCount;
+        return this;
+      }
+
+      /** See {@link Timeline.Window#uid}. Default is 0 auto-boxed to an {@link Integer}. */
+      @CanIgnoreReturnValue
+      public Builder setUid(Object uid) {
+        this.uid = uid;
+        return this;
+      }
+
+      /** See {@link Timeline.Window#isSeekable}. Default is true. */
+      @CanIgnoreReturnValue
+      public Builder setSeekable(boolean seekable) {
+        isSeekable = seekable;
+        return this;
+      }
+
+      /** See {@link Timeline.Window#isDynamic}. Default is false. */
+      @CanIgnoreReturnValue
+      public Builder setDynamic(boolean dynamic) {
+        isDynamic = dynamic;
+        return this;
+      }
+
+      /** See {@link Window#isLive()}. Default is false. */
+      @CanIgnoreReturnValue
+      public Builder setLive(boolean live) {
+        isLive = live;
+        return this;
+      }
+
+      /** See {@link Timeline.Window#isPlaceholder}. Default is false. */
+      @CanIgnoreReturnValue
+      public Builder setPlaceholder(boolean placeholder) {
+        isPlaceholder = placeholder;
+        return this;
+      }
+
+      /**
+       * See {@link Timeline.Window#durationUs}. Default is {@link
+       * TimelineWindowDefinition#DEFAULT_WINDOW_DURATION_US}.
+       */
+      @CanIgnoreReturnValue
+      public Builder setDurationUs(long durationUs) {
+        checkArgument(durationUs >= 0 || durationUs == C.TIME_UNSET);
+        this.durationUs = durationUs;
+        return this;
+      }
+
+      /** See {@link Timeline.Window#defaultPositionUs}. Default is 0. */
+      @CanIgnoreReturnValue
+      public Builder setDefaultPositionUs(long defaultPositionUs) {
+        checkArgument(defaultPositionUs >= 0);
+        this.defaultPositionUs = defaultPositionUs;
+        return this;
+      }
+
+      /**
+       * See {@link Timeline.Window#windowStartTimeMs} or {@link C#TIME_UNSET} if unknown. Default
+       * is {@link C#TIME_UNSET}.
+       */
+      @CanIgnoreReturnValue
+      public Builder setWindowStartTimeUs(long windowStartTimeUs) {
+        checkArgument(windowStartTimeUs >= 0 || windowStartTimeUs == C.TIME_UNSET);
+        this.windowStartTimeUs = windowStartTimeUs;
+        return this;
+      }
+
+      /**
+       * See {@link Timeline.Window#positionInFirstPeriodUs}. Default is {@link
+       * #DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US}.
+       */
+      @CanIgnoreReturnValue
+      public Builder setWindowPositionInFirstPeriodUs(long windowPositionInFirstPeriodUs) {
+        checkArgument(windowPositionInFirstPeriodUs >= 0);
+        this.windowPositionInFirstPeriodUs = windowPositionInFirstPeriodUs;
+        return this;
+      }
+
+      /**
+       * See {@link Timeline.Period#adPlaybackState}. Default is a list of size of {@code
+       * Window#getPeriodCount()} with an {@linkplain AdPlaybackState#NONE empty ad playback state}
+       * on each position.
+       */
+      @CanIgnoreReturnValue
+      public Builder setAdPlaybackStates(List<AdPlaybackState> adPlaybackStates) {
+        this.adPlaybackStates = ImmutableList.copyOf(adPlaybackStates);
+        return this;
+      }
+
+      /**
+       * See {@link Timeline.Window#mediaItem}. Default is {@code
+       * FAKE_MEDIA_ITEM.buildUpon().setTag(uid).build()}.
+       */
+      @CanIgnoreReturnValue
+      public Builder setMediaItem(MediaItem mediaItem) {
+        this.mediaItem = mediaItem;
+        return this;
+      }
+
+      /** Build an instance of {@link FakeTimeline.TimelineWindowDefinition}. */
+      public TimelineWindowDefinition build() {
+        MediaItem mediaItem = this.mediaItem;
+        if (mediaItem == null) {
+          mediaItem = FAKE_MEDIA_ITEM.buildUpon().setTag(uid).build();
+        }
+        List<AdPlaybackState> adPlaybackStates = this.adPlaybackStates;
+        if (adPlaybackStates == null) {
+          ImmutableList.Builder<AdPlaybackState> builder = new ImmutableList.Builder<>();
+          for (int i = 0; i < periodCount; i++) {
+            builder.add(AdPlaybackState.NONE);
+          }
+          adPlaybackStates = builder.build();
+        } else {
+          Assertions.checkState(adPlaybackStates.size() == periodCount);
+        }
+        return new TimelineWindowDefinition(
+            periodCount,
+            uid,
+            isSeekable,
+            isDynamic,
+            isLive,
+            isPlaceholder,
+            durationUs,
+            defaultPositionUs,
+            windowStartTimeUs,
+            /* windowOffsetInFirstPeriodUs= */ windowPositionInFirstPeriodUs,
+            adPlaybackStates,
+            mediaItem);
+      }
+    }
 
     /** Default window duration in microseconds. */
     public static final long DEFAULT_WINDOW_DURATION_US = 10 * C.MICROS_PER_SECOND;
@@ -60,8 +240,17 @@ public final class FakeTimeline extends Timeline {
     public final boolean isPlaceholder;
     public final long durationUs;
     public final long defaultPositionUs;
+    public final long windowStartTimeUs;
     public final long windowOffsetInFirstPeriodUs;
     public final List<AdPlaybackState> adPlaybackStates;
+
+    /**
+     * Returns a {@link TimelineWindowDefinition.Builder} initialized with the values of this
+     * instance.
+     */
+    public TimelineWindowDefinition.Builder buildUpon() {
+      return new Builder(this);
+    }
 
     /**
      * Creates a window definition that corresponds to a placeholder timeline using the given tag.
@@ -69,68 +258,82 @@ public final class FakeTimeline extends Timeline {
      * @param tag The tag to use in the timeline.
      */
     public static TimelineWindowDefinition createPlaceholder(Object tag) {
-      return new TimelineWindowDefinition(
-          /* periodCount= */ 1,
-          /* id= */ tag,
-          /* isSeekable= */ false,
-          /* isDynamic= */ true,
-          /* isLive= */ false,
-          /* isPlaceholder= */ true,
-          /* durationUs= */ C.TIME_UNSET,
-          /* defaultPositionUs= */ 0,
-          /* windowOffsetInFirstPeriodUs= */ 0,
-          AdPlaybackState.NONE);
+      return new Builder()
+          .setUid(tag)
+          .setSeekable(false)
+          .setDynamic(true)
+          .setPlaceholder(true)
+          .setDurationUs(C.TIME_UNSET)
+          .setWindowStartTimeUs(0L)
+          .setWindowPositionInFirstPeriodUs(0L)
+          .build();
     }
 
     /**
-     * Creates a seekable, non-dynamic window definition with a duration of {@link
-     * #DEFAULT_WINDOW_DURATION_US}.
-     *
-     * @param periodCount The number of periods in the window. Each period get an equal slice of the
-     *     total window duration.
-     * @param id The UID of the window.
+     * @deprecated Use {@link FakeTimeline.TimelineWindowDefinition.Builder} instead.
      */
+    @Deprecated
     public TimelineWindowDefinition(int periodCount, Object id) {
-      this(periodCount, id, true, false, DEFAULT_WINDOW_DURATION_US);
+      this(
+          periodCount,
+          id,
+          /* isSeekable= */ true,
+          /* isDynamic= */ false,
+          /* isLive= */ false,
+          /* isPlaceholder= */ false,
+          DEFAULT_WINDOW_DURATION_US,
+          /* defaultPositionUs= */ 0,
+          /* windowStartTimeUs= */ DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US, // keep for bkw compat.
+          /* windowOffsetInFirstPeriodUs= */ DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US,
+          ImmutableList.of(AdPlaybackState.NONE),
+          FAKE_MEDIA_ITEM.buildUpon().setTag(id).build());
     }
 
     /**
-     * Creates a window definition with one period.
-     *
-     * @param isSeekable Whether the window is seekable.
-     * @param isDynamic Whether the window is dynamic.
-     * @param durationUs The duration of the window in microseconds.
+     * @deprecated Use {@link FakeTimeline.TimelineWindowDefinition.Builder} instead.
      */
+    @Deprecated
     public TimelineWindowDefinition(boolean isSeekable, boolean isDynamic, long durationUs) {
-      this(1, 0, isSeekable, isDynamic, durationUs);
+      this(
+          /* periodCount= */ 1,
+          /* id= */ 0,
+          isSeekable,
+          isDynamic,
+          /* isLive= */ isDynamic,
+          /* isPlaceholder= */ false,
+          durationUs,
+          /* defaultPositionUs= */ 0,
+          /* windowStartTimeUs= */ DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US, // keep for bkw compat.
+          /* windowOffsetInFirstPeriodUs= */ DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US,
+          ImmutableList.of(AdPlaybackState.NONE),
+          FAKE_MEDIA_ITEM.buildUpon().setTag(0).build());
     }
 
     /**
-     * Creates a window definition.
-     *
-     * @param periodCount The number of periods in the window. Each period get an equal slice of the
-     *     total window duration.
-     * @param id The UID of the window.
-     * @param isSeekable Whether the window is seekable.
-     * @param isDynamic Whether the window is dynamic.
-     * @param durationUs The duration of the window in microseconds.
+     * @deprecated Use {@link FakeTimeline.TimelineWindowDefinition.Builder} instead.
      */
+    @Deprecated
     public TimelineWindowDefinition(
         int periodCount, Object id, boolean isSeekable, boolean isDynamic, long durationUs) {
-      this(periodCount, id, isSeekable, isDynamic, durationUs, AdPlaybackState.NONE);
+      this(
+          periodCount,
+          id,
+          isSeekable,
+          isDynamic,
+          /* isLive= */ isDynamic,
+          /* isPlaceholder= */ false,
+          durationUs,
+          /* defaultPositionUs= */ 0,
+          /* windowStartTimeUs= */ DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US, // keep for bkw compat.
+          /* windowOffsetInFirstPeriodUs= */ DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US,
+          ImmutableList.of(AdPlaybackState.NONE),
+          FAKE_MEDIA_ITEM.buildUpon().setTag(id).build());
     }
 
     /**
-     * Creates a window definition with ad groups.
-     *
-     * @param periodCount The number of periods in the window. Each period get an equal slice of the
-     *     total window duration.
-     * @param id The UID of the window.
-     * @param isSeekable Whether the window is seekable.
-     * @param isDynamic Whether the window is dynamic.
-     * @param durationUs The duration of the window in microseconds.
-     * @param adPlaybackState The ad playback state.
+     * @deprecated Use {@link FakeTimeline.TimelineWindowDefinition.Builder} instead.
      */
+    @Deprecated
     public TimelineWindowDefinition(
         int periodCount,
         Object id,
@@ -147,26 +350,16 @@ public final class FakeTimeline extends Timeline {
           /* isPlaceholder= */ false,
           durationUs,
           /* defaultPositionUs= */ 0,
-          DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US,
-          adPlaybackState);
+          /* windowStartTimeUs= */ DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US, // keep for bkw compat.
+          /* windowOffsetInFirstPeriodUs= */ DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US,
+          ImmutableList.of(adPlaybackState),
+          FAKE_MEDIA_ITEM.buildUpon().setTag(id).build());
     }
 
     /**
-     * Creates a window definition with ad groups.
-     *
-     * @param periodCount The number of periods in the window. Each period get an equal slice of the
-     *     total window duration.
-     * @param id The UID of the window.
-     * @param isSeekable Whether the window is seekable.
-     * @param isDynamic Whether the window is dynamic.
-     * @param isLive Whether the window is live.
-     * @param isPlaceholder Whether the window is a placeholder.
-     * @param durationUs The duration of the window in microseconds.
-     * @param defaultPositionUs The default position of the window in microseconds.
-     * @param windowOffsetInFirstPeriodUs The offset of the window in the first period, in
-     *     microseconds.
-     * @param adPlaybackState The ad playback state.
+     * @deprecated Use {@link FakeTimeline.TimelineWindowDefinition.Builder} instead.
      */
+    @Deprecated
     public TimelineWindowDefinition(
         int periodCount,
         Object id,
@@ -187,6 +380,7 @@ public final class FakeTimeline extends Timeline {
           isPlaceholder,
           durationUs,
           defaultPositionUs,
+          /* windowStartTimeUs= */ windowOffsetInFirstPeriodUs, // keep for backwards compatibility
           windowOffsetInFirstPeriodUs,
           ImmutableList.of(adPlaybackState),
           FAKE_MEDIA_ITEM.buildUpon().setTag(id).build());
@@ -218,8 +412,40 @@ public final class FakeTimeline extends Timeline {
           isPlaceholder,
           durationUs,
           defaultPositionUs,
+          /* windowStartTimeUs= */ windowOffsetInFirstPeriodUs, // keep for backwards compatibility
           windowOffsetInFirstPeriodUs,
           ImmutableList.of(adPlaybackState),
+          mediaItem);
+    }
+
+    /**
+     * @deprecated Use {@link FakeTimeline.TimelineWindowDefinition.Builder} instead.
+     */
+    @Deprecated
+    public TimelineWindowDefinition(
+        int periodCount,
+        Object id,
+        boolean isSeekable,
+        boolean isDynamic,
+        boolean isLive,
+        boolean isPlaceholder,
+        long durationUs,
+        long defaultPositionUs,
+        long windowOffsetInFirstPeriodUs,
+        List<AdPlaybackState> adPlaybackStates,
+        MediaItem mediaItem) {
+      this(
+          periodCount,
+          id,
+          isSeekable,
+          isDynamic,
+          isLive,
+          isPlaceholder,
+          durationUs,
+          defaultPositionUs,
+          /* windowStartTimeUs= */ windowOffsetInFirstPeriodUs, // keep for backwards compatibility
+          windowOffsetInFirstPeriodUs,
+          adPlaybackStates,
           mediaItem);
     }
 
@@ -235,12 +461,14 @@ public final class FakeTimeline extends Timeline {
      * @param isPlaceholder Whether the window is a placeholder.
      * @param durationUs The duration of the window in microseconds.
      * @param defaultPositionUs The default position of the window in microseconds.
+     * @param windowStartTimeUs The window start time, in microseconds or {@link C#TIME_UNSET} if
+     *     unknown.
      * @param windowOffsetInFirstPeriodUs The offset of the window in the first period, in
      *     microseconds.
      * @param adPlaybackStates The ad playback states for the periods.
      * @param mediaItem The media item to include in the timeline.
      */
-    public TimelineWindowDefinition(
+    private TimelineWindowDefinition(
         int periodCount,
         Object id,
         boolean isSeekable,
@@ -249,10 +477,11 @@ public final class FakeTimeline extends Timeline {
         boolean isPlaceholder,
         long durationUs,
         long defaultPositionUs,
+        long windowStartTimeUs,
         long windowOffsetInFirstPeriodUs,
         List<AdPlaybackState> adPlaybackStates,
         MediaItem mediaItem) {
-      Assertions.checkArgument(durationUs != C.TIME_UNSET || periodCount == 1);
+      checkArgument(durationUs != C.TIME_UNSET || periodCount == 1);
       this.periodCount = periodCount;
       this.id = id;
       this.mediaItem = mediaItem;
@@ -262,6 +491,7 @@ public final class FakeTimeline extends Timeline {
       this.isPlaceholder = isPlaceholder;
       this.durationUs = durationUs;
       this.defaultPositionUs = defaultPositionUs;
+      this.windowStartTimeUs = windowStartTimeUs;
       this.windowOffsetInFirstPeriodUs = windowOffsetInFirstPeriodUs;
       this.adPlaybackStates = adPlaybackStates;
     }
@@ -491,9 +721,7 @@ public final class FakeTimeline extends Timeline {
         windowDefinition.mediaItem,
         manifests[windowIndex],
         /* presentationStartTimeMs= */ C.TIME_UNSET,
-        /* windowStartTimeMs= */ windowDefinition.isLive
-            ? Util.usToMs(windowDefinition.windowOffsetInFirstPeriodUs)
-            : C.TIME_UNSET,
+        windowDefinition.isLive ? Util.usToMs(windowDefinition.windowStartTimeUs) : C.TIME_UNSET,
         /* elapsedRealtimeEpochOffsetMs= */ windowDefinition.isLive ? 0 : C.TIME_UNSET,
         windowDefinition.isSeekable,
         windowDefinition.isDynamic,
@@ -502,7 +730,7 @@ public final class FakeTimeline extends Timeline {
         windowDurationUs,
         periodOffsets[windowIndex],
         periodOffsets[windowIndex + 1] - 1,
-        windowDefinition.windowOffsetInFirstPeriodUs);
+        /* positionInFirstPeriodUs= */ windowDefinition.windowOffsetInFirstPeriodUs);
     window.isPlaceholder = windowDefinition.isPlaceholder;
     return window;
   }
@@ -588,7 +816,7 @@ public final class FakeTimeline extends Timeline {
   private static TimelineWindowDefinition[] createDefaultWindowDefinitions(int windowCount) {
     TimelineWindowDefinition[] windowDefinitions = new TimelineWindowDefinition[windowCount];
     for (int i = 0; i < windowCount; i++) {
-      windowDefinitions[i] = new TimelineWindowDefinition(/* periodCount= */ 1, /* id= */ i);
+      windowDefinitions[i] = new TimelineWindowDefinition.Builder().setUid(i).build();
     }
     return windowDefinitions;
   }

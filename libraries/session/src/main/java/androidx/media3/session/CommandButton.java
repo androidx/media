@@ -18,20 +18,24 @@ package androidx.media3.session;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
+import static androidx.media3.session.SessionCommand.COMMAND_CODE_CUSTOM;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.content.ContentResolver;
 import android.net.Uri;
 import android.os.Bundle;
 import android.text.TextUtils;
+import android.util.SparseArray;
+import android.util.SparseBooleanArray;
+import android.util.SparseIntArray;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Player;
+import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.ImmutableIntArray;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -41,6 +45,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * A button for a {@link SessionCommand} or {@link Player.Command} that can be displayed by
@@ -51,10 +56,7 @@ import java.util.List;
  */
 public final class CommandButton {
 
-  // TODO: b/328238954 - Stabilize these constants and the corresponding methods, and deprecate the
-  //  methods that do not use these constants.
   /** An icon constant for a button. Must be one of the {@code CommandButton.ICON_} constants. */
-  @UnstableApi
   @Documented
   @Retention(RetentionPolicy.SOURCE)
   @Target(TYPE_USE)
@@ -142,276 +144,276 @@ public final class CommandButton {
    * An icon constant representing an undefined icon, for example a custom icon not covered by the
    * existing constants.
    */
-  @UnstableApi public static final int ICON_UNDEFINED = 0;
+  public static final int ICON_UNDEFINED = 0;
 
   /** An icon showing a play symbol (a right facing triangle). */
-  @UnstableApi public static final int ICON_PLAY = 0xe037;
+  public static final int ICON_PLAY = 0xe037;
 
   /** An icon showing a pause symbol (two vertical bars). */
-  @UnstableApi public static final int ICON_PAUSE = 0xe034;
+  public static final int ICON_PAUSE = 0xe034;
 
   /** An icon showing a stop symbol (a square). */
-  @UnstableApi public static final int ICON_STOP = 0xe047;
+  public static final int ICON_STOP = 0xe047;
 
   /** An icon showing a next symbol (a right facing triangle with a vertical bar). */
-  @UnstableApi public static final int ICON_NEXT = 0xe044;
+  public static final int ICON_NEXT = 0xe044;
 
   /** An icon showing a previous symbol (a left facing triangle with a vertical bar). */
-  @UnstableApi public static final int ICON_PREVIOUS = 0xe045;
+  public static final int ICON_PREVIOUS = 0xe045;
 
   /** An icon showing a skip forward symbol (an open clock-wise arrow). */
-  @UnstableApi public static final int ICON_SKIP_FORWARD = 0xf6f4;
+  public static final int ICON_SKIP_FORWARD = 0xf6f4;
 
   /**
    * An icon showing a skip forward 5 seconds symbol (an open clockwise arrow with the number 5).
    */
-  @UnstableApi public static final int ICON_SKIP_FORWARD_5 = 0xe058;
+  public static final int ICON_SKIP_FORWARD_5 = 0xe058;
 
   /**
    * An icon showing a skip forward 10 seconds symbol (an open clockwise arrow with the number 10).
    */
-  @UnstableApi public static final int ICON_SKIP_FORWARD_10 = 0xe056;
+  public static final int ICON_SKIP_FORWARD_10 = 0xe056;
 
   /**
    * An icon showing a skip forward 15 seconds symbol (an open clockwise arrow with the number 15).
    */
-  @UnstableApi public static final int ICON_SKIP_FORWARD_15 = 0xfe056;
+  public static final int ICON_SKIP_FORWARD_15 = 0xfe056;
 
   /**
    * An icon showing a skip forward 30 seconds symbol (an open clockwise arrow with the number 30).
    */
-  @UnstableApi public static final int ICON_SKIP_FORWARD_30 = 0xe057;
+  public static final int ICON_SKIP_FORWARD_30 = 0xe057;
 
   /** An icon showing a skip back symbol (an open anti-clockwise arrow). */
-  @UnstableApi public static final int ICON_SKIP_BACK = 0xe042;
+  public static final int ICON_SKIP_BACK = 0xe042;
 
   /**
    * An icon showing a skip back 5 seconds symbol (an open anti-clockwise arrow with the number 5).
    */
-  @UnstableApi public static final int ICON_SKIP_BACK_5 = 0xe05b;
+  public static final int ICON_SKIP_BACK_5 = 0xe05b;
 
   /**
    * An icon showing a skip back 10 seconds symbol (an open anti-clockwise arrow with the number
    * 10).
    */
-  @UnstableApi public static final int ICON_SKIP_BACK_10 = 0xe059;
+  public static final int ICON_SKIP_BACK_10 = 0xe059;
 
   /**
    * An icon showing a skip back 15 seconds symbol (an open anti-clockwise arrow with the number
    * 15).
    */
-  @UnstableApi public static final int ICON_SKIP_BACK_15 = 0xfe059;
+  public static final int ICON_SKIP_BACK_15 = 0xfe059;
 
   /**
    * An icon showing a skip back 30 seconds symbol (an open anti-clockwise arrow with the number
    * 30).
    */
-  @UnstableApi public static final int ICON_SKIP_BACK_30 = 0xe05a;
+  public static final int ICON_SKIP_BACK_30 = 0xe05a;
 
   /** An icon showing a fast forward symbol (two right facing triangles). */
-  @UnstableApi public static final int ICON_FAST_FORWARD = 0xe01f;
+  public static final int ICON_FAST_FORWARD = 0xe01f;
 
   /** An icon showing a rewind symbol (two left facing triangles). */
-  @UnstableApi public static final int ICON_REWIND = 0xe020;
+  public static final int ICON_REWIND = 0xe020;
 
   /** An icon showing a repeat all symbol (two open clockwise arrows). */
-  @UnstableApi public static final int ICON_REPEAT_ALL = 0xe040;
+  public static final int ICON_REPEAT_ALL = 0xe040;
 
   /** An icon showing a repeat one symbol (two open clockwise arrows with an overlaid number 1). */
-  @UnstableApi public static final int ICON_REPEAT_ONE = 0xe041;
+  public static final int ICON_REPEAT_ONE = 0xe041;
 
   /**
    * An icon showing a disabled repeat symbol (two open clockwise arrows, in a color representing a
    * disabled state).
    */
-  @UnstableApi public static final int ICON_REPEAT_OFF = 0xfe040;
+  public static final int ICON_REPEAT_OFF = 0xfe040;
 
   /** An icon showing a shuffle symbol (two diagonal upward and downward facing arrows). */
-  @UnstableApi public static final int ICON_SHUFFLE_ON = 0xe043;
+  public static final int ICON_SHUFFLE_ON = 0xe043;
 
   /**
    * An icon showing a disabled shuffle symbol (two diagonal upward and downward facing arrows, in a
    * color representing a disabled state).
    */
-  @UnstableApi public static final int ICON_SHUFFLE_OFF = 0xfe044;
+  public static final int ICON_SHUFFLE_OFF = 0xfe044;
 
   /**
    * An icon showing a shuffle symbol with a start (two diagonal upward and downward facing arrows
    * with an overlaid star).
    */
-  @UnstableApi public static final int ICON_SHUFFLE_STAR = 0xfe043;
+  public static final int ICON_SHUFFLE_STAR = 0xfe043;
 
   /** An icon showing a filled heart symbol. */
-  @UnstableApi public static final int ICON_HEART_FILLED = 0xfe87d;
+  public static final int ICON_HEART_FILLED = 0xfe87d;
 
   /** An icon showing an unfilled heart symbol. */
-  @UnstableApi public static final int ICON_HEART_UNFILLED = 0xe87d;
+  public static final int ICON_HEART_UNFILLED = 0xe87d;
 
   /** An icon showing a filled star symbol. */
-  @UnstableApi public static final int ICON_STAR_FILLED = 0xfe838;
+  public static final int ICON_STAR_FILLED = 0xfe838;
 
   /** An icon showing an unfilled star symbol. */
-  @UnstableApi public static final int ICON_STAR_UNFILLED = 0xe838;
+  public static final int ICON_STAR_UNFILLED = 0xe838;
 
   /** An icon showing a filled bookmark symbol. */
-  @UnstableApi public static final int ICON_BOOKMARK_FILLED = 0xfe866;
+  public static final int ICON_BOOKMARK_FILLED = 0xfe866;
 
   /** An icon showing an unfilled bookmark symbol. */
-  @UnstableApi public static final int ICON_BOOKMARK_UNFILLED = 0xe866;
+  public static final int ICON_BOOKMARK_UNFILLED = 0xe866;
 
   /** An icon showing a filled thumb-up symbol. */
-  @UnstableApi public static final int ICON_THUMB_UP_FILLED = 0xfe8dc;
+  public static final int ICON_THUMB_UP_FILLED = 0xfe8dc;
 
   /** An icon showing an unfilled thumb-up symbol. */
-  @UnstableApi public static final int ICON_THUMB_UP_UNFILLED = 0xe8dc;
+  public static final int ICON_THUMB_UP_UNFILLED = 0xe8dc;
 
   /** An icon showing a filled thumb-down symbol. */
-  @UnstableApi public static final int ICON_THUMB_DOWN_FILLED = 0xfe8db;
+  public static final int ICON_THUMB_DOWN_FILLED = 0xfe8db;
 
   /** An icon showing an unfilled thumb-down symbol. */
-  @UnstableApi public static final int ICON_THUMB_DOWN_UNFILLED = 0xe8db;
+  public static final int ICON_THUMB_DOWN_UNFILLED = 0xe8db;
 
   /** An icon showing a filled flag symbol. */
-  @UnstableApi public static final int ICON_FLAG_FILLED = 0xfe153;
+  public static final int ICON_FLAG_FILLED = 0xfe153;
 
   /** An icon showing an unfilled flag symbol. */
-  @UnstableApi public static final int ICON_FLAG_UNFILLED = 0xe153;
+  public static final int ICON_FLAG_UNFILLED = 0xe153;
 
   /** An icon showing a plus symbol. */
-  @UnstableApi public static final int ICON_PLUS = 0xe145;
+  public static final int ICON_PLUS = 0xe145;
 
   /** An icon showing a minus symbol. */
-  @UnstableApi public static final int ICON_MINUS = 0xe15b;
+  public static final int ICON_MINUS = 0xe15b;
 
   /** An icon showing an add to playlist symbol (multiple horizontal bars with a small plus). */
-  @UnstableApi public static final int ICON_PLAYLIST_ADD = 0xe03b;
+  public static final int ICON_PLAYLIST_ADD = 0xe03b;
 
   /**
    * An icon showing an remove from playlist symbol (multiple horizontal bars with a small minus).
    */
-  @UnstableApi public static final int ICON_PLAYLIST_REMOVE = 0xeb80;
+  public static final int ICON_PLAYLIST_REMOVE = 0xeb80;
 
   /** An icon showing an add to queue symbol (a stylized TV with a plus). */
-  @UnstableApi public static final int ICON_QUEUE_ADD = 0xe05c;
+  public static final int ICON_QUEUE_ADD = 0xe05c;
 
   /**
    * An icon showing a play next queue item symbol (a stylized TV with a plus and a right-facing
    * arrow).
    */
-  @UnstableApi public static final int ICON_QUEUE_NEXT = 0xe066;
+  public static final int ICON_QUEUE_NEXT = 0xe066;
 
   /** An icon showing a remove from queue symbol (a stylized TV with a minus). */
-  @UnstableApi public static final int ICON_QUEUE_REMOVE = 0xe067;
+  public static final int ICON_QUEUE_REMOVE = 0xe067;
 
   /** An icon showing a block symbol (a circle with a diagonal line). */
-  @UnstableApi public static final int ICON_BLOCK = 0xe14b;
+  public static final int ICON_BLOCK = 0xe14b;
 
   /** An icon showing a filled circle with a plus. */
-  @UnstableApi public static final int ICON_PLUS_CIRCLE_FILLED = 0xfe147;
+  public static final int ICON_PLUS_CIRCLE_FILLED = 0xfe147;
 
   /** An icon showing an unfilled circle with a plus. */
-  @UnstableApi public static final int ICON_PLUS_CIRCLE_UNFILLED = 0xe147;
+  public static final int ICON_PLUS_CIRCLE_UNFILLED = 0xe147;
 
   /** An icon showing a filled circle with a minus. */
-  @UnstableApi public static final int ICON_MINUS_CIRCLE_FILLED = 0xfe148;
+  public static final int ICON_MINUS_CIRCLE_FILLED = 0xfe148;
 
   /** An icon showing an unfilled circle with a minus. */
-  @UnstableApi public static final int ICON_MINUS_CIRCLE_UNFILLED = 0xfe149;
+  public static final int ICON_MINUS_CIRCLE_UNFILLED = 0xfe149;
 
   /** An icon showing a filled circle with a check mark. */
-  @UnstableApi public static final int ICON_CHECK_CIRCLE_FILLED = 0xfe86c;
+  public static final int ICON_CHECK_CIRCLE_FILLED = 0xfe86c;
 
   /** An icon showing a unfilled circle with a check mark. */
-  @UnstableApi public static final int ICON_CHECK_CIRCLE_UNFILLED = 0xe86c;
+  public static final int ICON_CHECK_CIRCLE_UNFILLED = 0xe86c;
 
   /**
    * An icon showing a playback speed symbol (a right facing triangle in a circle with half-dashed,
    * half-solid contour).
    */
-  @UnstableApi public static final int ICON_PLAYBACK_SPEED = 0xe068;
+  public static final int ICON_PLAYBACK_SPEED = 0xe068;
 
   /** An icon showing a 0.5x speed symbol. */
-  @UnstableApi public static final int ICON_PLAYBACK_SPEED_0_5 = 0xf4e2;
+  public static final int ICON_PLAYBACK_SPEED_0_5 = 0xf4e2;
 
   /** An icon showing a 0.8x speed symbol. */
-  @UnstableApi public static final int ICON_PLAYBACK_SPEED_0_8 = 0xff4e2;
+  public static final int ICON_PLAYBACK_SPEED_0_8 = 0xff4e2;
 
   /** An icon showing a 1.0x speed symbol. */
-  @UnstableApi public static final int ICON_PLAYBACK_SPEED_1_0 = 0xefcd;
+  public static final int ICON_PLAYBACK_SPEED_1_0 = 0xefcd;
 
   /** An icon showing a 1.2x speed symbol. */
-  @UnstableApi public static final int ICON_PLAYBACK_SPEED_1_2 = 0xf4e1;
+  public static final int ICON_PLAYBACK_SPEED_1_2 = 0xf4e1;
 
   /** An icon showing a 1.5x speed symbol. */
-  @UnstableApi public static final int ICON_PLAYBACK_SPEED_1_5 = 0xf4e0;
+  public static final int ICON_PLAYBACK_SPEED_1_5 = 0xf4e0;
 
   /** An icon showing a 1.8x speed symbol. */
-  @UnstableApi public static final int ICON_PLAYBACK_SPEED_1_8 = 0xff4e0;
+  public static final int ICON_PLAYBACK_SPEED_1_8 = 0xff4e0;
 
   /** An icon showing a 2.0x speed symbol. */
-  @UnstableApi public static final int ICON_PLAYBACK_SPEED_2_0 = 0xf4eb;
+  public static final int ICON_PLAYBACK_SPEED_2_0 = 0xf4eb;
 
   /** An icon showing a settings symbol (a stylized cog). */
-  @UnstableApi public static final int ICON_SETTINGS = 0xe8b8;
+  public static final int ICON_SETTINGS = 0xe8b8;
 
   /** An icon showing a quality selection symbol (multiple horizontal bars with sliders). */
-  @UnstableApi public static final int ICON_QUALITY = 0xe429;
+  public static final int ICON_QUALITY = 0xe429;
 
   /** An icon showing a subtitles symbol (a rectangle filled with dots and horizontal lines). */
-  @UnstableApi public static final int ICON_SUBTITLES = 0xe048;
+  public static final int ICON_SUBTITLES = 0xe048;
 
   /**
    * An icon showing a subtitles off symbol (a rectangle filled with dots and horizontal lines, with
    * a large diagonal line across).
    */
-  @UnstableApi public static final int ICON_SUBTITLES_OFF = 0xef72;
+  public static final int ICON_SUBTITLES_OFF = 0xef72;
 
   /** An icon showing a closed caption symbol (a rectangle with the letters CC). */
-  @UnstableApi public static final int ICON_CLOSED_CAPTIONS = 0xe01c;
+  public static final int ICON_CLOSED_CAPTIONS = 0xe01c;
 
   /**
    * An icon showing a closed caption off symbol (a rectangle with the letters CC, with a large
    * diagonal line across).
    */
-  @UnstableApi public static final int ICON_CLOSED_CAPTIONS_OFF = 0xf1dc;
+  public static final int ICON_CLOSED_CAPTIONS_OFF = 0xf1dc;
 
   /** An icon showing a sync symbol (two open anti-clockwise arrows). */
-  @UnstableApi public static final int ICON_SYNC = 0xe627;
+  public static final int ICON_SYNC = 0xe627;
 
   /**
    * An icon showing a share symbol (three dots connected by two diagonal lines, open on the right).
    */
-  @UnstableApi public static final int ICON_SHARE = 0xe80d;
+  public static final int ICON_SHARE = 0xe80d;
 
   /** An icon showing a volume up symbol (a stylized speaker with multiple sound waves). */
-  @UnstableApi public static final int ICON_VOLUME_UP = 0xe050;
+  public static final int ICON_VOLUME_UP = 0xe050;
 
   /** An icon showing a volume down symbol (a stylized speaker with a single small sound wave). */
-  @UnstableApi public static final int ICON_VOLUME_DOWN = 0xe04d;
+  public static final int ICON_VOLUME_DOWN = 0xe04d;
 
   /**
    * An icon showing a volume off symbol (a stylized speaker with multiple sound waves, with a large
    * diagonal line across).
    */
-  @UnstableApi public static final int ICON_VOLUME_OFF = 0xe04f;
+  public static final int ICON_VOLUME_OFF = 0xe04f;
 
   /** An icon showing an artist symbol (a stylized person with a musical note). */
-  @UnstableApi public static final int ICON_ARTIST = 0xe01a;
+  public static final int ICON_ARTIST = 0xe01a;
 
   /** An icon showing an album symbol (a stylized LP record). */
-  @UnstableApi public static final int ICON_ALBUM = 0xe019;
+  public static final int ICON_ALBUM = 0xe019;
 
   /** An icon showing a radio symbol (left and right facing sound waves). */
-  @UnstableApi public static final int ICON_RADIO = 0xe51e;
+  public static final int ICON_RADIO = 0xe51e;
 
   /** An icon showing an signal symbol (a vertical mast with circular sounds waves). */
-  @UnstableApi public static final int ICON_SIGNAL = 0xf048;
+  public static final int ICON_SIGNAL = 0xf048;
 
   /**
    * An icon showing an feed symbol (a dot in the bottom-left with multiple concentric quarter
    * circles).
    */
-  @UnstableApi public static final int ICON_FEED = 0xe0e5;
+  public static final int ICON_FEED = 0xe0e5;
 
   // TODO: b/332877990 - Stabilize these constants and other slot APIs
   /**
@@ -477,10 +479,11 @@ public final class CommandButton {
     @Nullable private ImmutableIntArray slots;
 
     /**
-     * [will be deprecated] Use {@link #Builder(int)} instead to define the {@link Icon} for this
-     * button. A separate resource id via {@link #setIconResId(int)} is no longer required unless
-     * for {@link #ICON_UNDEFINED}.
+     * @deprecated Use {@link #Builder(int)} instead to define the {@link Icon} for this button. A
+     *     separate resource id via {@link #setIconResId(int)} is no longer required unless for
+     *     {@link #ICON_UNDEFINED}.
      */
+    @Deprecated
     public Builder() {
       this(ICON_UNDEFINED);
     }
@@ -490,7 +493,6 @@ public final class CommandButton {
      *
      * @param icon The {@link Icon} that should be shown for this button.
      */
-    @UnstableApi
     public Builder(@Icon int icon) {
       this(icon, getIconResIdForIconConstant(icon));
     }
@@ -548,23 +550,26 @@ public final class CommandButton {
     }
 
     /**
-     * [will be deprecated] The icon should be defined with the constructor {@link Icon} parameter
-     * in {@link #Builder(int)} instead. Only in case the existing list of icons is not sufficient,
-     * use {@link #ICON_UNDEFINED} and set a separate resource id with {@link #setCustomIconResId}.
+     * @deprecated The icon should be defined with the constructor {@link Icon} parameter in {@link
+     *     #Builder(int)} instead. If the existing list of icons is not sufficient, use {@link
+     *     #ICON_UNDEFINED} for the constructor {@link Icon} parameter, and set a separate resource
+     *     id with {@link #setCustomIconResId}.
      */
+    @Deprecated
     @CanIgnoreReturnValue
     public Builder setIconResId(@DrawableRes int resId) {
       return setCustomIconResId(resId);
     }
 
     /**
-     * Sets the resource id of an icon that is used when the predefined {@link Icon} is not
-     * available or set to {@link #ICON_UNDEFINED}.
+     * Sets the fallback resource ID of an icon.
+     *
+     * <p>This is used when either the predefined {@link #icon} is not available, or it's set to
+     * {@link #ICON_UNDEFINED}.
      *
      * @param resId The resource id of a custom icon.
      * @return This builder for chaining.
      */
-    @UnstableApi
     @CanIgnoreReturnValue
     public Builder setCustomIconResId(@DrawableRes int resId) {
       iconResId = resId;
@@ -572,22 +577,22 @@ public final class CommandButton {
     }
 
     /**
-     * Sets a {@linkplain ContentResolver#SCHEME_CONTENT content} or {@linkplain
+     * Sets a fallback {@linkplain ContentResolver#SCHEME_CONTENT content} or {@linkplain
      * ContentResolver#SCHEME_ANDROID_RESOURCE resource} {@link Uri} for the icon of this button.
      *
-     * <p>Note that this {@link Uri} may be used when the predefined {@link Icon} is not available
-     * or set to {@link #ICON_UNDEFINED}. It can be used in addition to {@link #setCustomIconResId}
-     * for consumers that are capable of loading the content or resource {@link Uri}.
+     * <p>Note that this {@link Uri} may be used when either the predefined {@link
+     * CommandButton#icon} is not available, or it's set to {@link #ICON_UNDEFINED}. It can be used
+     * in addition to {@link #setCustomIconResId} for consumers that are capable of loading the
+     * content or resource {@link Uri}.
      *
      * @param uri The uri to an icon.
      * @return This builder for chaining.
      */
-    @UnstableApi
     @CanIgnoreReturnValue
     public Builder setIconUri(Uri uri) {
       checkArgument(
-          Objects.equal(uri.getScheme(), ContentResolver.SCHEME_CONTENT)
-              || Objects.equal(uri.getScheme(), ContentResolver.SCHEME_ANDROID_RESOURCE),
+          Objects.equals(uri.getScheme(), ContentResolver.SCHEME_CONTENT)
+              || Objects.equals(uri.getScheme(), ContentResolver.SCHEME_ANDROID_RESOURCE),
           "Only content or resource Uris are supported for CommandButton");
       this.iconUri = uri;
       return this;
@@ -695,6 +700,388 @@ public final class CommandButton {
     }
   }
 
+  /**
+   * Constraints for displaying a list of {@link CommandButton} instances with utilities to resolve
+   * these constraints for a given list of buttons.
+   */
+  @UnstableApi
+  public static final class DisplayConstraints {
+
+    /** A builder for {@link DisplayConstraints}. */
+    public static final class Builder {
+
+      private final SparseIntArray maxButtonsPerSlot;
+      private final SparseArray<Player.@NullableType Commands> allowedPlayerCommandsPerSlot;
+      private final SparseArray<@NullableType SessionCommands> allowedSessionCommandsPerSlot;
+      private final SparseBooleanArray areCustomCommandsAllowedPerSlot;
+      private boolean buildCalled;
+
+      /** Creates the builder. */
+      public Builder() {
+        maxButtonsPerSlot = new SparseIntArray();
+        maxButtonsPerSlot.put(SLOT_CENTRAL, 1);
+        maxButtonsPerSlot.put(SLOT_BACK, 1);
+        maxButtonsPerSlot.put(SLOT_FORWARD, 1);
+        maxButtonsPerSlot.put(SLOT_OVERFLOW, Integer.MAX_VALUE);
+        allowedPlayerCommandsPerSlot = new SparseArray<>();
+        allowedSessionCommandsPerSlot = new SparseArray<>();
+        areCustomCommandsAllowedPerSlot = new SparseBooleanArray();
+      }
+
+      /**
+       * Sets the maximum number of buttons that can be displayed in a slot.
+       *
+       * <p>The default values are:
+       *
+       * <ul>
+       *   <li>{@link #SLOT_CENTRAL}, {@link #SLOT_BACK}, {@link #SLOT_FORWARD}: 1
+       *   <li>{@link #SLOT_BACK_SECONDARY}, {@link #SLOT_FORWARD_SECONDARY}: 0
+       *   <li>{@link #SLOT_OVERFLOW}: {@link Integer#MAX_VALUE}.
+       * </ul>
+       *
+       * @param slot The {@link Slot}.
+       * @param maxButtons The maximum number of buttons that can be displayed in this slot.
+       * @return This builder.
+       */
+      @CanIgnoreReturnValue
+      public Builder setMaxButtonsForSlot(@Slot int slot, int maxButtons) {
+        checkArgument(maxButtons >= 0);
+        maxButtonsPerSlot.put(slot, maxButtons);
+        return this;
+      }
+
+      /**
+       * Sets the allowed {@link Player.Commands} for buttons in the given slot.
+       *
+       * <p>The default value ({@code null}) does not restrict the allowed {@link Player.Commands}.
+       *
+       * @param slot The {@link Slot}.
+       * @param allowedPlayerCommands The allowed {@link Player.Commands} for buttons in this slot,
+       *     or null to allow all {@link Player.Commands} .
+       * @return This builder.
+       */
+      @CanIgnoreReturnValue
+      public Builder setAllowedPlayerCommandsForSlot(
+          @Slot int slot, @Nullable Player.Commands allowedPlayerCommands) {
+        allowedPlayerCommandsPerSlot.put(slot, allowedPlayerCommands);
+        return this;
+      }
+
+      /**
+       * Sets the allowed non-custom {@link SessionCommands} for buttons in the given slot.
+       *
+       * <p>The default value ({@code null}) does not restrict the allowed {@link SessionCommands}.
+       *
+       * <p>This setting has no effect on whether {@linkplain SessionCommand#COMMAND_CODE_CUSTOM
+       * custom session commands} are allowed. Use {@link #setAllowCustomCommandsForSlot} instead.
+       *
+       * @param slot The {@link Slot}.
+       * @param allowedSessionCommands The allowed {@link SessionCommands} for buttons in this slot,
+       *     or null to allow all {@link SessionCommands}.
+       * @return This builder.
+       */
+      @CanIgnoreReturnValue
+      public Builder setAllowedSessionCommandsForSlot(
+          @Slot int slot, @Nullable SessionCommands allowedSessionCommands) {
+        allowedSessionCommandsPerSlot.put(slot, allowedSessionCommands);
+        return this;
+      }
+
+      /**
+       * Sets whether {@linkplain SessionCommand#COMMAND_CODE_CUSTOM custom session commands} are
+       * allowed for buttons in the given slot.
+       *
+       * <p>The default value is {@code true}.
+       *
+       * @param slot The {@link Slot}.
+       * @param allowCustomCommands Whether {@linkplain SessionCommand#COMMAND_CODE_CUSTOM custom
+       *     session commands} are allowed for buttons in this slot.
+       * @return This builder.
+       */
+      @CanIgnoreReturnValue
+      public Builder setAllowCustomCommandsForSlot(@Slot int slot, boolean allowCustomCommands) {
+        areCustomCommandsAllowedPerSlot.put(slot, allowCustomCommands);
+        return this;
+      }
+
+      /** Builds the display constraints. */
+      public DisplayConstraints build() {
+        checkState(!buildCalled);
+        buildCalled = true;
+        return new DisplayConstraints(this);
+      }
+    }
+
+    private final SparseIntArray maxButtonsPerSlot;
+    private final SparseArray<Player.@NullableType Commands> allowedPlayerCommandsPerSlot;
+    private final SparseArray<@NullableType SessionCommands> allowedSessionCommandsPerSlot;
+    private final SparseBooleanArray areCustomCommandsAllowedPerSlot;
+
+    private DisplayConstraints(Builder builder) {
+      this.maxButtonsPerSlot = builder.maxButtonsPerSlot;
+      this.allowedPlayerCommandsPerSlot = builder.allowedPlayerCommandsPerSlot;
+      this.allowedSessionCommandsPerSlot = builder.allowedSessionCommandsPerSlot;
+      this.areCustomCommandsAllowedPerSlot = builder.areCustomCommandsAllowedPerSlot;
+    }
+
+    /**
+     * Resolves a list of {@linkplain MediaController#getMediaButtonPreferences media button
+     * preferences} according to these display constraints and returns the list of buttons to be
+     * displayed.
+     *
+     * <p>Note that the result of this resolution can change whenever the {@code
+     * mediaButtonPreferences} change, or the {@code player} reports any of the following listener
+     * events:
+     *
+     * <ul>
+     *   <li>{@link Player#EVENT_AVAILABLE_COMMANDS_CHANGED}
+     *   <li>{@link Player#EVENT_PLAY_WHEN_READY_CHANGED}
+     *   <li>{@link Player#EVENT_PLAYBACK_STATE_CHANGED}
+     *   <li>{@link Player#EVENT_PLAYBACK_SUPPRESSION_REASON_CHANGED}
+     *   <li>{@link Player#EVENT_PLAYBACK_STATE_CHANGED}
+     *   <li>{@link Player#EVENT_SEEK_BACK_INCREMENT_CHANGED}
+     *   <li>{@link Player#EVENT_SEEK_FORWARD_INCREMENT_CHANGED}
+     * </ul>
+     *
+     * @param mediaButtonPreferences The list of {@linkplain
+     *     MediaController#getMediaButtonPreferences media button preferences}.
+     * @param player The {@link Player} used to determine default buttons for empty slots.
+     * @return The resolved list of {@linkplain CommandButton buttons} to be displayed. Each button
+     *     will have a single {@linkplain CommandButton#slots slot} defined.
+     */
+    public ImmutableList<CommandButton> resolve(
+        List<CommandButton> mediaButtonPreferences, Player player) {
+      SparseIntArray availableButtonsPerSlot = maxButtonsPerSlot.clone();
+      ImmutableList.Builder<CommandButton> resolvedButtons = ImmutableList.builder();
+      @Nullable CommandButton firstBackButton = null;
+      @Nullable CommandButton firstForwardButton = null;
+      for (int i = 0; i < mediaButtonPreferences.size(); i++) {
+        CommandButton button = mediaButtonPreferences.get(i);
+        for (int j = 0; j < button.slots.length(); j++) {
+          @Slot int slot = button.slots.get(j);
+          if (!reserveSlotForButton(button, slot, availableButtonsPerSlot)) {
+            continue;
+          }
+          resolvedButtons.add(button.copyWithSlots(ImmutableIntArray.of(slot)));
+          if (firstForwardButton == null && slot == SLOT_FORWARD) {
+            firstForwardButton = button;
+          } else if (firstBackButton == null && slot == SLOT_BACK) {
+            firstBackButton = button;
+          }
+          break;
+        }
+      }
+      Player.Commands availableCommands = player.getAvailableCommands();
+      boolean centralSlotEmpty =
+          maxButtonsPerSlot.get(SLOT_CENTRAL) == availableButtonsPerSlot.get(SLOT_CENTRAL);
+      if (centralSlotEmpty) {
+        CommandButton defaultCentralButton =
+            createButton(
+                Util.shouldShowPlayButton(player) ? ICON_PLAY : ICON_PAUSE,
+                Player.COMMAND_PLAY_PAUSE,
+                availableCommands);
+        if (reserveSlotForButton(defaultCentralButton, SLOT_CENTRAL, availableButtonsPerSlot)) {
+          resolvedButtons.add(defaultCentralButton);
+        }
+      }
+      boolean backSlotEmpty = firstBackButton == null && maxButtonsPerSlot.get(SLOT_BACK) > 0;
+      boolean forwardSlotEmpty =
+          firstForwardButton == null && maxButtonsPerSlot.get(SLOT_FORWARD) > 0;
+      if (backSlotEmpty && forwardSlotEmpty) {
+        @Player.Command
+        int firstAvailableCommand =
+            getFirstAvailableOrFirstCommand(
+                availableCommands,
+                Player.COMMAND_SEEK_TO_PREVIOUS,
+                Player.COMMAND_SEEK_TO_NEXT,
+                Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM,
+                Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM,
+                Player.COMMAND_SEEK_BACK,
+                Player.COMMAND_SEEK_FORWARD);
+        CommandButton button =
+            createButton(
+                getIconForPlayerCommand(firstAvailableCommand, player),
+                firstAvailableCommand,
+                availableCommands);
+        @Slot int buttonSlot = button.slots.get(0);
+        if (reserveSlotForButton(button, buttonSlot, availableButtonsPerSlot)) {
+          resolvedButtons.add(button);
+        }
+        @Slot int oppositeSlot = buttonSlot == SLOT_BACK ? SLOT_FORWARD : SLOT_BACK;
+        CommandButton oppositeButton = createOppositeButton(button, oppositeSlot, player);
+        if (reserveSlotForButton(oppositeButton, oppositeSlot, availableButtonsPerSlot)) {
+          resolvedButtons.add(oppositeButton);
+        }
+      } else if (backSlotEmpty) {
+        CommandButton oppositeButton = createOppositeButton(firstForwardButton, SLOT_BACK, player);
+        if (reserveSlotForButton(oppositeButton, SLOT_BACK, availableButtonsPerSlot)) {
+          resolvedButtons.add(oppositeButton);
+        }
+      } else if (forwardSlotEmpty) {
+        CommandButton oppositeButton = createOppositeButton(firstBackButton, SLOT_FORWARD, player);
+        if (reserveSlotForButton(oppositeButton, SLOT_FORWARD, availableButtonsPerSlot)) {
+          resolvedButtons.add(oppositeButton);
+        }
+      }
+      return resolvedButtons.build();
+    }
+
+    private boolean reserveSlotForButton(
+        CommandButton button, @Slot int slot, SparseIntArray availableButtonsPerSlot) {
+      if (availableButtonsPerSlot.get(slot) == 0) {
+        return false;
+      }
+      boolean canReserveSlot;
+      if (button.playerCommand != Player.COMMAND_INVALID) {
+        @Nullable Player.Commands allowedCommands = allowedPlayerCommandsPerSlot.get(slot);
+        canReserveSlot = allowedCommands == null || allowedCommands.contains(button.playerCommand);
+      } else if (checkNotNull(button.sessionCommand).commandCode == COMMAND_CODE_CUSTOM) {
+        canReserveSlot = areCustomCommandsAllowedPerSlot.get(slot, /* valueIfKeyNotFound= */ true);
+      } else {
+        @Nullable SessionCommands allowedCommands = allowedSessionCommandsPerSlot.get(slot);
+        canReserveSlot = allowedCommands == null || allowedCommands.contains(button.sessionCommand);
+      }
+      if (canReserveSlot) {
+        availableButtonsPerSlot.put(slot, availableButtonsPerSlot.get(slot) - 1);
+      }
+      return canReserveSlot;
+    }
+
+    private static CommandButton createOppositeButton(
+        @Nullable CommandButton button, @Slot int targetSlot, Player player) {
+      Player.Commands availablePlayerCommands = player.getAvailableCommands();
+      @Player.Command
+      int oppositePlayerCommand =
+          getOppositePlayerCommand(button, targetSlot, availablePlayerCommands);
+      @Icon int oppositeIcon = getOppositeIcon(button);
+      if (oppositeIcon == ICON_UNDEFINED) {
+        oppositeIcon = getIconForPlayerCommand(oppositePlayerCommand, player);
+      }
+      return createButton(oppositeIcon, oppositePlayerCommand, availablePlayerCommands);
+    }
+
+    private static CommandButton createButton(
+        @Icon int icon,
+        @Player.Command int playerCommand,
+        Player.Commands availablePlayerCommands) {
+      return new CommandButton.Builder(icon)
+          .setPlayerCommand(playerCommand)
+          .setEnabled(availablePlayerCommands.contains(playerCommand))
+          .build();
+    }
+
+    private static @Player.Command int getFirstAvailableOrFirstCommand(
+        Player.Commands availableCommands, @Player.Command int... commands) {
+      for (int command : commands) {
+        if (availableCommands.contains(command)) {
+          return command;
+        }
+      }
+      return commands[0];
+    }
+
+    private static @Player.Command int getOppositePlayerCommand(
+        @Nullable CommandButton button,
+        @Slot int targetSlot,
+        Player.Commands availablePlayerCommands) {
+      if (button != null) {
+        switch (button.playerCommand) {
+          case Player.COMMAND_SEEK_TO_PREVIOUS:
+            return Player.COMMAND_SEEK_TO_NEXT;
+          case Player.COMMAND_SEEK_TO_NEXT:
+            return Player.COMMAND_SEEK_TO_PREVIOUS;
+          case Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM:
+            return Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM;
+          case Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM:
+            return Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM;
+          case Player.COMMAND_SEEK_BACK:
+            return Player.COMMAND_SEEK_FORWARD;
+          case Player.COMMAND_SEEK_FORWARD:
+            return Player.COMMAND_SEEK_BACK;
+          default:
+            // Fall through.
+        }
+      }
+      if (targetSlot == SLOT_BACK) {
+        return getFirstAvailableOrFirstCommand(
+            availablePlayerCommands,
+            Player.COMMAND_SEEK_TO_PREVIOUS,
+            Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM,
+            Player.COMMAND_SEEK_BACK);
+      } else {
+        return getFirstAvailableOrFirstCommand(
+            availablePlayerCommands,
+            Player.COMMAND_SEEK_TO_NEXT,
+            Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM,
+            Player.COMMAND_SEEK_FORWARD);
+      }
+    }
+
+    private static @Icon int getOppositeIcon(@Nullable CommandButton button) {
+      if (button == null) {
+        return ICON_UNDEFINED;
+      }
+      switch (button.icon) {
+        case ICON_PREVIOUS:
+          return ICON_NEXT;
+        case ICON_REWIND:
+          return ICON_FAST_FORWARD;
+        case ICON_SKIP_BACK:
+          return ICON_SKIP_FORWARD;
+        case ICON_NEXT:
+          return ICON_PREVIOUS;
+        case ICON_FAST_FORWARD:
+          return ICON_REWIND;
+        case ICON_SKIP_FORWARD:
+          return ICON_SKIP_BACK;
+        default:
+          // Intentionally don't match numbered SKIP_BACK/FORWARD icons to let
+          // getIconForPlayerCommand determine the best matching icon based on actual skip amount.
+          return ICON_UNDEFINED;
+      }
+    }
+
+    private static @Icon int getIconForPlayerCommand(
+        @Player.Command int playerCommand, Player player) {
+      switch (playerCommand) {
+        case Player.COMMAND_SEEK_TO_PREVIOUS:
+        case Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM:
+          return ICON_PREVIOUS;
+        case Player.COMMAND_SEEK_TO_NEXT:
+        case Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM:
+          return ICON_NEXT;
+        case Player.COMMAND_SEEK_BACK:
+          long seekBackIncrement = player.getSeekBackIncrement();
+          if (seekBackIncrement >= 2500 && seekBackIncrement < 7500) {
+            return ICON_SKIP_BACK_5;
+          } else if (seekBackIncrement >= 7500 && seekBackIncrement < 12500) {
+            return ICON_SKIP_BACK_10;
+          } else if (seekBackIncrement >= 12500 && seekBackIncrement < 20000) {
+            return ICON_SKIP_BACK_15;
+          } else if (seekBackIncrement >= 20000 && seekBackIncrement < 40000) {
+            return ICON_SKIP_BACK_30;
+          } else {
+            return ICON_SKIP_BACK;
+          }
+        case Player.COMMAND_SEEK_FORWARD:
+          long seekForwardIncrement = player.getSeekForwardIncrement();
+          if (seekForwardIncrement >= 2500 && seekForwardIncrement < 7500) {
+            return ICON_SKIP_FORWARD_5;
+          } else if (seekForwardIncrement >= 7500 && seekForwardIncrement < 12500) {
+            return ICON_SKIP_FORWARD_10;
+          } else if (seekForwardIncrement >= 12500 && seekForwardIncrement < 20000) {
+            return ICON_SKIP_FORWARD_15;
+          } else if (seekForwardIncrement >= 20000 && seekForwardIncrement < 40000) {
+            return ICON_SKIP_FORWARD_30;
+          } else {
+            return ICON_SKIP_FORWARD;
+          }
+        default:
+          throw new UnsupportedOperationException();
+      }
+    }
+  }
+
   /** The session command of the button. Will be {@code null} if {@link #playerCommand} is set. */
   @Nullable public final SessionCommand sessionCommand;
 
@@ -705,24 +1092,31 @@ public final class CommandButton {
   public final @Player.Command int playerCommand;
 
   /** The {@link Icon} of the button. */
-  @UnstableApi public final @Icon int icon;
+  public final @Icon int icon;
 
   /**
-   * The icon resource id of the button that is used when the predefined {@link #icon} is not
-   * available or set to {@link #ICON_UNDEFINED}. Can be {@code 0} if not needed.
+   * The fallback icon resource ID of the button.
+   *
+   * <p>This is used when either the predefined {@link #icon} is not available, or it's set to
+   * {@link #ICON_UNDEFINED}.
+   *
+   * <p>Can be {@code 0} if not needed.
    */
   @DrawableRes public final int iconResId;
 
   /**
-   * The {@linkplain ContentResolver#SCHEME_CONTENT content} or {@linkplain
-   * ContentResolver#SCHEME_ANDROID_RESOURCE resource} {@link Uri} for the icon of the button that
-   * is used when the predefined {@link #icon} is not available or set to {@link #ICON_UNDEFINED}.
-   * Can be {@code null}.
+   * The fallback {@linkplain ContentResolver#SCHEME_CONTENT content} or {@linkplain
+   * ContentResolver#SCHEME_ANDROID_RESOURCE resource} {@link Uri} for the icon of the button.
+   *
+   * <p>This is used when either the predefined {@link #icon} is not available, or it's set to
+   * {@link #ICON_UNDEFINED}.
+   *
+   * <p>Can be {@code null}.
    *
    * <p>Note that this value can be used in addition to {@link #iconResId} for consumers that are
    * capable of loading the content or resource {@link Uri}.
    */
-  @UnstableApi @Nullable public final Uri iconUri;
+  @Nullable public final Uri iconUri;
 
   /**
    * The display name of the button. Can be empty if the command is predefined and a custom name
@@ -734,7 +1128,7 @@ public final class CommandButton {
    * The extra {@link Bundle} of the button. It's private information between session and
    * controller.
    */
-  @UnstableApi public final Bundle extras;
+  public final Bundle extras;
 
   /**
    * The allowed {@link Slot} positions for this button.
@@ -828,11 +1222,11 @@ public final class CommandButton {
       return false;
     }
     CommandButton button = (CommandButton) obj;
-    return Objects.equal(sessionCommand, button.sessionCommand)
+    return Objects.equals(sessionCommand, button.sessionCommand)
         && playerCommand == button.playerCommand
         && icon == button.icon
         && iconResId == button.iconResId
-        && Objects.equal(iconUri, button.iconUri)
+        && Objects.equals(iconUri, button.iconUri)
         && TextUtils.equals(displayName, button.displayName)
         && isEnabled == button.isEnabled
         && slots.equals(button.slots);
@@ -840,7 +1234,7 @@ public final class CommandButton {
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(
+    return Objects.hash(
         sessionCommand, playerCommand, icon, iconResId, displayName, isEnabled, iconUri, slots);
   }
 
@@ -962,8 +1356,8 @@ public final class CommandButton {
       builder.setPlayerCommand(playerCommand);
     }
     if (iconUri != null
-        && (Objects.equal(iconUri.getScheme(), ContentResolver.SCHEME_CONTENT)
-            || Objects.equal(iconUri.getScheme(), ContentResolver.SCHEME_ANDROID_RESOURCE))) {
+        && (Objects.equals(iconUri.getScheme(), ContentResolver.SCHEME_CONTENT)
+            || Objects.equals(iconUri.getScheme(), ContentResolver.SCHEME_ANDROID_RESOURCE))) {
       builder.setIconUri(iconUri);
     }
     return builder
@@ -1196,6 +1590,11 @@ public final class CommandButton {
     int forwardButtonIndex = C.INDEX_UNSET;
     for (int i = 0; i < mediaButtonPreferences.size(); i++) {
       CommandButton button = mediaButtonPreferences.get(i);
+      if (!button.isEnabled
+          || button.sessionCommand == null
+          || button.sessionCommand.commandCode != COMMAND_CODE_CUSTOM) {
+        continue;
+      }
       for (int s = 0; s < button.slots.length(); s++) {
         @Slot int slot = button.slots.get(s);
         if (slot == SLOT_OVERFLOW) {
@@ -1227,6 +1626,11 @@ public final class CommandButton {
     }
     for (int i = 0; i < mediaButtonPreferences.size(); i++) {
       CommandButton button = mediaButtonPreferences.get(i);
+      if (!button.isEnabled
+          || button.sessionCommand == null
+          || button.sessionCommand.commandCode != COMMAND_CODE_CUSTOM) {
+        continue;
+      }
       if (i != backButtonIndex && i != forwardButtonIndex && button.slots.contains(SLOT_OVERFLOW)) {
         customLayout.add(button.copyWithSlots(ImmutableIntArray.of(SLOT_OVERFLOW)));
       }

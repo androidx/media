@@ -17,24 +17,21 @@ package androidx.media3.extractor.metadata.mp4;
 
 import static androidx.media3.common.util.Assertions.checkArgument;
 
-import android.os.Parcel;
-import android.os.Parcelable;
 import androidx.annotation.Nullable;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
-import com.google.common.base.Objects;
 import com.google.common.collect.ComparisonChain;
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 
 /** Holds information about the segments of slow motion playback within a track. */
 @UnstableApi
 public final class SlowMotionData implements Metadata.Entry {
 
   /** Holds information about a single segment of slow motion playback within a track. */
-  public static final class Segment implements Parcelable {
+  public static final class Segment {
 
     public static final Comparator<Segment> BY_START_THEN_END_THEN_DIVISOR =
         (s1, s2) ->
@@ -95,37 +92,8 @@ public final class SlowMotionData implements Metadata.Entry {
 
     @Override
     public int hashCode() {
-      return Objects.hashCode(startTimeMs, endTimeMs, speedDivisor);
+      return Objects.hash(startTimeMs, endTimeMs, speedDivisor);
     }
-
-    @Override
-    public int describeContents() {
-      return 0;
-    }
-
-    @Override
-    public void writeToParcel(Parcel dest, int flags) {
-      dest.writeLong(startTimeMs);
-      dest.writeLong(endTimeMs);
-      dest.writeInt(speedDivisor);
-    }
-
-    public static final Creator<Segment> CREATOR =
-        new Creator<Segment>() {
-
-          @Override
-          public Segment createFromParcel(Parcel in) {
-            long startTimeMs = in.readLong();
-            long endTimeMs = in.readLong();
-            int speedDivisor = in.readInt();
-            return new Segment(startTimeMs, endTimeMs, speedDivisor);
-          }
-
-          @Override
-          public Segment[] newArray(int size) {
-            return new Segment[size];
-          }
-        };
   }
 
   public final List<Segment> segments;
@@ -162,31 +130,6 @@ public final class SlowMotionData implements Metadata.Entry {
   public int hashCode() {
     return segments.hashCode();
   }
-
-  @Override
-  public int describeContents() {
-    return 0;
-  }
-
-  @Override
-  public void writeToParcel(Parcel dest, int flags) {
-    dest.writeList(segments);
-  }
-
-  public static final Creator<SlowMotionData> CREATOR =
-      new Creator<SlowMotionData>() {
-        @Override
-        public SlowMotionData createFromParcel(Parcel in) {
-          List<Segment> slowMotionSegments = new ArrayList<>();
-          in.readList(slowMotionSegments, Segment.class.getClassLoader());
-          return new SlowMotionData(slowMotionSegments);
-        }
-
-        @Override
-        public SlowMotionData[] newArray(int size) {
-          return new SlowMotionData[size];
-        }
-      };
 
   private static boolean doSegmentsOverlap(List<Segment> segments) {
     if (segments.isEmpty()) {

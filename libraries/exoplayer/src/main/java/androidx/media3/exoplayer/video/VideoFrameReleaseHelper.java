@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.video;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 
 import android.content.Context;
@@ -33,11 +34,10 @@ import androidx.media3.common.Format;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
-import androidx.media3.exoplayer.Renderer;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
- * Helps a video {@link Renderer} release frames to a {@link Surface}. The helper:
+ * A helper to release video frames to a {@link Surface}. This helper:
  *
  * <ul>
  *   <li>Adjusts frame release timestamps to achieve a smoother visual result. The release
@@ -155,7 +155,7 @@ public final class VideoFrameReleaseHelper {
     updateSurfacePlaybackFrameRate(/* forceUpdate= */ true);
   }
 
-  /** Called when the renderer is started. */
+  /** Called when rendering starts. */
   public void onStarted() {
     started = true;
     resetAdjustment();
@@ -167,9 +167,9 @@ public final class VideoFrameReleaseHelper {
   }
 
   /**
-   * Called when the renderer changes which {@link Surface} it's rendering to renders to.
+   * Called when the {@link Surface} on which to render changes.
    *
-   * @param surface The new {@link Surface}, or {@code null} if the renderer does not have one.
+   * @param surface The new {@link Surface}, or {@code null} if there is none.
    */
   public void onSurfaceChanged(@Nullable Surface surface) {
     if (this.surface == surface) {
@@ -180,13 +180,13 @@ public final class VideoFrameReleaseHelper {
     updateSurfacePlaybackFrameRate(/* forceUpdate= */ true);
   }
 
-  /** Called when the renderer's position is reset. */
+  /** Called when the position is reset. */
   public void onPositionReset() {
     resetAdjustment();
   }
 
   /**
-   * Called when the renderer's playback speed changes.
+   * Called when the playback speed changes.
    *
    * @param playbackSpeed The factor by which playback is sped up.
    */
@@ -197,7 +197,7 @@ public final class VideoFrameReleaseHelper {
   }
 
   /**
-   * Called when the renderer's output format changes.
+   * Called when the output format changes.
    *
    * @param formatFrameRate The format's frame rate, or {@link Format#NO_VALUE} if unknown.
    */
@@ -208,7 +208,7 @@ public final class VideoFrameReleaseHelper {
   }
 
   /**
-   * Called by the renderer for each frame, prior to it being skipped, dropped or rendered.
+   * Called for each frame, prior to it being skipped, dropped or rendered.
    *
    * @param framePresentationTimeUs The frame presentation timestamp, in microseconds.
    */
@@ -222,7 +222,7 @@ public final class VideoFrameReleaseHelper {
     updateSurfaceMediaFrameRate();
   }
 
-  /** Called when the renderer is stopped. */
+  /** Called when rendering stops. */
   public void onStopped() {
     started = false;
     if (displayHelper != null) {
@@ -298,7 +298,7 @@ public final class VideoFrameReleaseHelper {
    * called to update the surface.
    */
   private void updateSurfaceMediaFrameRate() {
-    if (Util.SDK_INT < 30 || surface == null) {
+    if (SDK_INT < 30 || surface == null) {
       return;
     }
 
@@ -337,7 +337,7 @@ public final class VideoFrameReleaseHelper {
 
   /**
    * Updates the playback frame rate of the current {@link #surface} based on the playback speed,
-   * frame rate of the content, and whether the renderer is started.
+   * frame rate of the content, and whether the rendering started.
    *
    * <p>Does nothing if {@link #changeFrameRateStrategy} is {@link
    * C#VIDEO_CHANGE_FRAME_RATE_STRATEGY_OFF}.
@@ -346,7 +346,7 @@ public final class VideoFrameReleaseHelper {
    *     unchanged.
    */
   private void updateSurfacePlaybackFrameRate(boolean forceUpdate) {
-    if (Util.SDK_INT < 30
+    if (SDK_INT < 30
         || surface == null
         || changeFrameRateStrategy == C.VIDEO_CHANGE_FRAME_RATE_STRATEGY_OFF) {
       return;
@@ -372,7 +372,7 @@ public final class VideoFrameReleaseHelper {
    * C#VIDEO_CHANGE_FRAME_RATE_STRATEGY_OFF}.
    */
   private void clearSurfaceFrameRate() {
-    if (Util.SDK_INT < 30
+    if (SDK_INT < 30
         || surface == null
         || changeFrameRateStrategy == C.VIDEO_CHANGE_FRAME_RATE_STRATEGY_OFF
         || surfacePlaybackFrameRate == 0) {

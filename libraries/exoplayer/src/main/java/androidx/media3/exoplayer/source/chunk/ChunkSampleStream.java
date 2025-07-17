@@ -299,9 +299,10 @@ public class ChunkSampleStream<T extends ChunkSource>
       // chunk even if its timestamp is slightly earlier than the advertised chunk start time.
       seekInsideBuffer = primarySampleQueue.seekTo(seekToMediaChunk.getFirstSampleIndex(0));
     } else {
-      seekInsideBuffer =
-          primarySampleQueue.seekTo(
-              positionUs, /* allowTimeBeyondBuffer= */ positionUs < getNextLoadPositionUs());
+      long nextLoadPositionUs = getNextLoadPositionUs();
+      boolean allowTimeBeyondBuffer =
+          nextLoadPositionUs == C.TIME_END_OF_SOURCE || positionUs < nextLoadPositionUs;
+      seekInsideBuffer = primarySampleQueue.seekTo(positionUs, allowTimeBeyondBuffer);
     }
 
     if (seekInsideBuffer) {
@@ -720,6 +721,43 @@ public class ChunkSampleStream<T extends ChunkSource>
     } finally {
       hasInitialDiscontinuity = false;
     }
+  }
+
+  /**
+   * Discards upstream samples that exceed the given clipped duration of the stream.
+   *
+   * @param clippedDurationUs The clipped duration of the stream in microseconds, or {@link
+   *     C#TIME_UNSET} if not known.
+   */
+  public void discardUpstreamSamplesForClippedDuration(long clippedDurationUs) {
+    Assertions.checkState(!loader.isLoading());
+    if (isPendingReset() || clippedDurationUs == C.TIME_UNSET || mediaChunks.isEmpty()) {
+      return;
+    }
+    BaseMediaChunk lastMediaChunk = getLastMediaChunk();
+    long lastMediaChunkEndTimeUs =
+        lastMediaChunk.clippedEndTimeUs != C.TIME_UNSET
+            ? lastMediaChunk.clippedEndTimeUs
+            : lastMediaChunk.endTimeUs;
+    if (lastMediaChunkEndTimeUs <= clippedDurationUs) {
+      // Last chunk doesn't need to be clipped further.
+      return;
+    }
+    long largestQueuedTimestampUs = primarySampleQueue.getLargestQueuedTimestampUs();
+    if (largestQueuedTimestampUs <= clippedDurationUs) {
+      // No data beyond new duration that needs to be clipped.
+      return;
+    }
+    long minDiscardPositionUs =
+        max(clippedDurationUs, primarySampleQueue.getLargestReadTimestampUs() + 1);
+    primarySampleQueue.discardUpstreamFrom(minDiscardPositionUs);
+    for (SampleQueue embeddedSampleQueue : embeddedSampleQueues) {
+      minDiscardPositionUs =
+          max(clippedDurationUs, embeddedSampleQueue.getLargestReadTimestampUs() + 1);
+      embeddedSampleQueue.discardUpstreamFrom(minDiscardPositionUs);
+    }
+    mediaSourceEventDispatcher.upstreamDiscarded(
+        primaryTrackType, clippedDurationUs, largestQueuedTimestampUs);
   }
 
   private void discardUpstream(int preferredQueueSize) {

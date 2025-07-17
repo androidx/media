@@ -64,6 +64,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -279,6 +280,9 @@ public final class ImaAdsLoader implements AdsLoader {
      * <p>The purpose of this timeout is to avoid playback getting stuck in the unexpected case that
      * the IMA SDK does not load an ad break based on the player's reported content position.
      *
+     * <p>The value will be adjusted to be greater or equal to the one in {@link
+     * #setVastLoadTimeoutMs(int)} if provided.
+     *
      * @param adPreloadTimeoutMs The timeout buffering duration in milliseconds, or {@link
      *     C#TIME_UNSET} for no timeout.
      * @return This builder, for convenience.
@@ -395,6 +399,9 @@ public final class ImaAdsLoader implements AdsLoader {
 
     /** Returns a new {@link ImaAdsLoader}. */
     public ImaAdsLoader build() {
+      if (vastLoadTimeoutMs != TIMEOUT_UNSET && adPreloadTimeoutMs < vastLoadTimeoutMs) {
+        adPreloadTimeoutMs = vastLoadTimeoutMs;
+      }
       return new ImaAdsLoader(
           context,
           new ImaUtil.Configuration(
@@ -653,7 +660,7 @@ public final class ImaAdsLoader implements AdsLoader {
   private void maybeUpdateCurrentAdTagLoader() {
     @Nullable AdTagLoader oldAdTagLoader = currentAdTagLoader;
     @Nullable AdTagLoader newAdTagLoader = getCurrentAdTagLoader();
-    if (!Util.areEqual(oldAdTagLoader, newAdTagLoader)) {
+    if (!Objects.equals(oldAdTagLoader, newAdTagLoader)) {
       if (oldAdTagLoader != null) {
         oldAdTagLoader.deactivate();
       }

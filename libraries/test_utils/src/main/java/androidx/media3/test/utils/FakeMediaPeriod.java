@@ -15,7 +15,9 @@
  */
 package androidx.media3.test.utils;
 
+import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.END_OF_STREAM_ITEM;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.oneByteSample;
 import static com.google.common.truth.Truth.assertThat;
@@ -47,7 +49,9 @@ import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
+import com.google.common.math.DoubleMath;
 import java.io.IOException;
+import java.math.RoundingMode;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
@@ -80,11 +84,41 @@ public class FakeMediaPeriod implements MediaPeriod {
           ImmutableList.of(
               oneByteSample(sampleTimeUs, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM);
     }
+
+    /**
+     * Creates a {@code TrackDataFactory} which generates samples at the given rate to cover the
+     * provided duration, with a specified key frame interval.
+     *
+     * @param initialSampleTimeUs The time of the initial sample, in microseconds.
+     * @param sampleRate The number of samples per second.
+     * @param durationUs The duration of samples to generate, in microseconds.
+     * @param keyFrameInterval The number of samples between each keyframe (inclusive).
+     * @return The {@code TrackDataFactory}.
+     */
+    static TrackDataFactory samplesWithRateDurationAndKeyframeInterval(
+        long initialSampleTimeUs, float sampleRate, long durationUs, int keyFrameInterval) {
+      return (unusedFormat, unusedMediaPeriodId) -> {
+        ImmutableList.Builder<FakeSampleStreamItem> samples = ImmutableList.builder();
+        long frameCount =
+            DoubleMath.roundToLong(durationUs * sampleRate / C.MICROS_PER_SECOND, RoundingMode.UP);
+        for (int frameIndex = 0; frameIndex < frameCount; frameIndex++) {
+          long frameTimeUs =
+              initialSampleTimeUs
+                  + DoubleMath.roundToLong(
+                      (frameIndex * C.MICROS_PER_SECOND) / sampleRate, RoundingMode.DOWN);
+          samples.add(
+              FakeSampleStreamItem.oneByteSample(
+                  frameTimeUs, frameIndex % keyFrameInterval == 0 ? C.BUFFER_FLAG_KEY_FRAME : 0));
+        }
+        return samples.add(END_OF_STREAM_ITEM).build();
+      };
+    }
   }
 
   private final TrackGroupArray trackGroupArray;
   private final Set<FakeSampleStream> sampleStreams;
   private final TrackDataFactory trackDataFactory;
+  @Nullable private final long[] syncSampleTimestampsUs;
   private final MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher;
   private final Allocator allocator;
   private final DrmSessionManager drmSessionManager;
@@ -118,6 +152,7 @@ public class FakeMediaPeriod implements MediaPeriod {
         trackGroupArray,
         allocator,
         TrackDataFactory.singleSampleWithTimeUs(singleSampleTimeUs),
+        /* syncSampleTimestampsUs= */ null,
         mediaSourceEventDispatcher,
         DrmSessionManager.DRM_UNSUPPORTED,
         new DrmSessionEventListener.EventDispatcher(),
@@ -177,10 +212,50 @@ public class FakeMediaPeriod implements MediaPeriod {
       DrmSessionManager drmSessionManager,
       DrmSessionEventListener.EventDispatcher drmEventDispatcher,
       boolean deferOnPrepared) {
+    this(
+        trackGroupArray,
+        allocator,
+        trackDataFactory,
+        /* syncSampleTimestampsUs= */ null,
+        mediaSourceEventDispatcher,
+        drmSessionManager,
+        drmEventDispatcher,
+        deferOnPrepared);
+  }
+
+  /**
+   * Constructs a FakeMediaPeriod.
+   *
+   * @param trackGroupArray The track group array.
+   * @param allocator An {@link Allocator}.
+   * @param trackDataFactory The {@link TrackDataFactory} creating the data.
+   * @param syncSampleTimestampsUs A list of timestamps of samples returned from {@code
+   *     trackDataFactory} which are 'sync samples' for the purposes of seeking.
+   * @param mediaSourceEventDispatcher A dispatcher for media source events.
+   * @param drmSessionManager The {@link DrmSessionManager} used for DRM interactions.
+   * @param drmEventDispatcher A dispatcher for {@link DrmSessionEventListener} events.
+   * @param deferOnPrepared Whether {@link Callback#onPrepared(MediaPeriod)} should be called only
+   *     after {@link #setPreparationComplete()} has been called. If {@code false} preparation
+   *     completes immediately.
+   */
+  public FakeMediaPeriod(
+      TrackGroupArray trackGroupArray,
+      Allocator allocator,
+      TrackDataFactory trackDataFactory,
+      @Nullable long[] syncSampleTimestampsUs,
+      MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
+      DrmSessionManager drmSessionManager,
+      DrmSessionEventListener.EventDispatcher drmEventDispatcher,
+      boolean deferOnPrepared) {
     this.trackGroupArray = trackGroupArray;
     this.mediaSourceEventDispatcher = mediaSourceEventDispatcher;
     this.deferOnPrepared = deferOnPrepared;
     this.trackDataFactory = trackDataFactory;
+    if (syncSampleTimestampsUs != null) {
+      checkArgument(syncSampleTimestampsUs.length > 0);
+      checkArgument(Util.isSorted(syncSampleTimestampsUs));
+    }
+    this.syncSampleTimestampsUs = syncSampleTimestampsUs;
     this.allocator = allocator;
     this.drmSessionManager = drmSessionManager;
     this.drmEventDispatcher = drmEventDispatcher;
@@ -341,7 +416,7 @@ public class FakeMediaPeriod implements MediaPeriod {
     boolean seekedInsideStreams = true;
     for (FakeSampleStream sampleStream : sampleStreams) {
       seekedInsideStreams &=
-          sampleStream.seekToUs(seekPositionUs, /* allowTimeBeyondBuffer= */ false);
+          sampleStream.seekToUs(seekPositionUs, /* allowTimeBeyondBuffer= */ isLoadingFinished());
     }
     if (!seekedInsideStreams) {
       for (FakeSampleStream sampleStream : sampleStreams) {
@@ -353,7 +428,30 @@ public class FakeMediaPeriod implements MediaPeriod {
 
   @Override
   public long getAdjustedSeekPositionUs(long positionUs, SeekParameters seekParameters) {
-    return positionUs + seekOffsetUs;
+    checkState(prepared);
+    long adjustedPositionUs;
+    if (syncSampleTimestampsUs == null) {
+      adjustedPositionUs = positionUs;
+    } else {
+      int firstSyncTimestampIndex =
+          Util.binarySearchFloor(
+              syncSampleTimestampsUs, positionUs, /* inclusive= */ true, /* stayInBounds= */ false);
+      checkState(
+          firstSyncTimestampIndex >= 0,
+          "Seek positionUs ("
+              + positionUs
+              + ") is smaller than first sync sample timestamp ("
+              + syncSampleTimestampsUs[0]
+              + ")");
+      long firstSyncUs = syncSampleTimestampsUs[firstSyncTimestampIndex];
+      long secondSyncUs =
+          firstSyncTimestampIndex < syncSampleTimestampsUs.length - 1
+              ? syncSampleTimestampsUs[firstSyncTimestampIndex + 1]
+              : firstSyncUs;
+      adjustedPositionUs =
+          seekParameters.resolveSeekPositionUs(positionUs, firstSyncUs, secondSyncUs);
+    }
+    return adjustedPositionUs + seekOffsetUs;
   }
 
   @Override

@@ -16,6 +16,7 @@
 
 package androidx.media3.ui.compose.state
 
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.media3.common.Player
 import androidx.media3.ui.compose.utils.TestPlayer
@@ -127,5 +128,25 @@ class PlayPauseButtonStateTest {
 
     assertThat(player.playWhenReady).isTrue()
     assertThat(player.playbackState).isEqualTo(Player.STATE_BUFFERING)
+  }
+
+  @Test
+  fun playerIsScheduledToPlayBeforeEventListenerRegisters_observeGetsTheLatestValues_uiIconInSync() {
+    val player = TestPlayer()
+    player.playbackState = Player.STATE_BUFFERING
+    player.pause()
+
+    lateinit var state: PlayPauseButtonState
+    composeTestRule.setContent {
+      // Schedule LaunchedEffect to update player state before PlayPauseButtonState is created.
+      // This update could end up being executed *before* PlayPauseButtonState schedules the start
+      // of event listening and we don't want to lose it.
+      LaunchedEffect(player) { player.play() }
+      state = rememberPlayPauseButtonState(player = player)
+    }
+
+    // UI catches up with the fact that player.play() happened because observe() started by getting
+    // the most recent values
+    assertThat(state.showPlay).isFalse()
   }
 }

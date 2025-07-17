@@ -33,14 +33,17 @@ import androidx.media3.common.util.UnstableApi;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** Represents an HLS media playlist. */
 @UnstableApi
@@ -485,6 +488,47 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
      */
     public static final String NAVIGATION_RESTRICTION_JUMP = "JUMP";
 
+    /**
+     * The timeline occupies identifier. One of {@link #TIMELINE_OCCUPIES_POINT} or {@link
+     * #TIMELINE_OCCUPIES_RANGE}.
+     *
+     * <p>See RFC 8216bis, appendix D.2.
+     */
+    @Retention(RetentionPolicy.SOURCE)
+    @StringDef({TIMELINE_OCCUPIES_POINT, TIMELINE_OCCUPIES_RANGE})
+    @Documented
+    @Target(TYPE_USE)
+    public @interface TimelineOccupiesType {}
+
+    /** Timeline occupies identifier indicating to present the interstitial as a single point. */
+    public static final String TIMELINE_OCCUPIES_POINT = "POINT";
+
+    /** Timeline occupies identifier indicating to present the interstitial as a range. */
+    public static final String TIMELINE_OCCUPIES_RANGE = "RANGE";
+
+    /**
+     * The timeline style identifier. One of {@link #TIMELINE_STYLE_HIGHLIGHT} or {@link
+     * #TIMELINE_STYLE_PRIMARY}.
+     *
+     * <p>See RFC 8216bis, appendix D.2.
+     */
+    @Retention(RetentionPolicy.SOURCE)
+    @StringDef({TIMELINE_STYLE_HIGHLIGHT, TIMELINE_STYLE_PRIMARY})
+    @Documented
+    @Target(TYPE_USE)
+    public @interface TimelineStyleType {}
+
+    /**
+     * Timeline style identifier indicating to present the interstitial as distinct from the
+     * content.
+     */
+    public static final String TIMELINE_STYLE_HIGHLIGHT = "HIGHLIGHT";
+
+    /**
+     * Timeline style identifier indicating not to differentiate the interstitial from the content.
+     */
+    public static final String TIMELINE_STYLE_PRIMARY = "PRIMARY";
+
     /** The required ID. */
     public final String id;
 
@@ -534,6 +578,31 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
     /** The attributes defined by a client. For informational purpose only. */
     public final ImmutableList<ClientDefinedAttribute> clientDefinedAttributes;
 
+    /** Whether the content may vary between clients. */
+    public final boolean contentMayVary;
+
+    /** The timeline occupies type. */
+    public final @TimelineOccupiesType String timelineOccupies;
+
+    /** The timeline style type. */
+    public final @TimelineStyleType String timelineStyle;
+
+    /**
+     * The offset from the start of the interstitial after which the skip control button is
+     * displayed, in microseconds. {@link C#TIME_UNSET} if not present.
+     */
+    public final long skipControlOffsetUs;
+
+    /**
+     * The duration of interstitial content the skip button should be displayed, in microseconds.
+     * {@link C#TIME_UNSET} if not present and the skip button should be displayed until the end of
+     * the interstitial.
+     */
+    public final long skipControlDurationUs;
+
+    /** The ID of the label to be displayed on the skip control button. Null if not present. */
+    @Nullable public final String skipControlLabelId;
+
     /** Creates an instance. */
     public Interstitial(
         String id,
@@ -549,7 +618,13 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
         long playoutLimitUs,
         List<@SnapType String> snapTypes,
         List<@NavigationRestriction String> restrictions,
-        List<ClientDefinedAttribute> clientDefinedAttributes) {
+        List<ClientDefinedAttribute> clientDefinedAttributes,
+        boolean contentMayVary,
+        @TimelineOccupiesType String timelineOccupies,
+        @TimelineStyleType String timelineStyle,
+        long skipControlOffsetUs,
+        long skipControlDurationUs,
+        @Nullable String skipControlLabelId) {
       checkArgument(
           (assetUri == null || assetListUri == null) && (assetUri != null || assetListUri != null));
       this.id = id;
@@ -565,7 +640,16 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
       this.playoutLimitUs = playoutLimitUs;
       this.snapTypes = ImmutableList.copyOf(snapTypes);
       this.restrictions = ImmutableList.copyOf(restrictions);
-      this.clientDefinedAttributes = ImmutableList.copyOf(clientDefinedAttributes);
+      // Sort to ensure equality decoupled from how exactly parsing is implemented.
+      this.clientDefinedAttributes =
+          ImmutableList.sortedCopyOf(
+              (o1, o2) -> o1.name.compareTo(o2.name), clientDefinedAttributes);
+      this.contentMayVary = contentMayVary;
+      this.timelineOccupies = timelineOccupies;
+      this.timelineStyle = timelineStyle;
+      this.skipControlOffsetUs = skipControlOffsetUs;
+      this.skipControlDurationUs = skipControlDurationUs;
+      this.skipControlLabelId = skipControlLabelId;
     }
 
     @Override
@@ -584,13 +668,19 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
           && endOnNext == that.endOnNext
           && resumeOffsetUs == that.resumeOffsetUs
           && playoutLimitUs == that.playoutLimitUs
+          && contentMayVary == that.contentMayVary
+          && skipControlOffsetUs == that.skipControlOffsetUs
+          && skipControlDurationUs == that.skipControlDurationUs
           && Objects.equals(id, that.id)
           && Objects.equals(assetUri, that.assetUri)
           && Objects.equals(assetListUri, that.assetListUri)
           && Objects.equals(cue, that.cue)
           && Objects.equals(snapTypes, that.snapTypes)
           && Objects.equals(restrictions, that.restrictions)
-          && Objects.equals(clientDefinedAttributes, that.clientDefinedAttributes);
+          && Objects.equals(clientDefinedAttributes, that.clientDefinedAttributes)
+          && Objects.equals(timelineOccupies, that.timelineOccupies)
+          && Objects.equals(timelineStyle, that.timelineStyle)
+          && Objects.equals(skipControlLabelId, that.skipControlLabelId);
     }
 
     @Override
@@ -609,7 +699,529 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
           playoutLimitUs,
           snapTypes,
           restrictions,
-          clientDefinedAttributes);
+          clientDefinedAttributes,
+          contentMayVary,
+          timelineOccupies,
+          timelineStyle,
+          skipControlOffsetUs,
+          skipControlDurationUs,
+          skipControlLabelId);
+    }
+
+    /**
+     * Builder for {@link Interstitial}.
+     *
+     * <p>See RFC 8216bis, section 4.4.5.1 for how to consolidate multiple interstitials with the
+     * same {@linkplain HlsMediaPlaylist.Interstitial#id ID}.
+     */
+    public static final class Builder {
+
+      private final String id;
+      private final Map<String, ClientDefinedAttribute> clientDefinedAttributes;
+
+      private @MonotonicNonNull Uri assetUri;
+      private @MonotonicNonNull Uri assetListUri;
+      private long startDateUnixUs;
+      private long endDateUnixUs;
+      private long durationUs;
+      private long plannedDurationUs;
+      private List<@Interstitial.CueTriggerType String> cue;
+      private boolean endOnNext;
+      private long resumeOffsetUs;
+      private long playoutLimitUs;
+      private List<@Interstitial.SnapType String> snapTypes;
+      private List<@Interstitial.NavigationRestriction String> restrictions;
+      private @MonotonicNonNull Boolean contentMayVary;
+      private @MonotonicNonNull @Interstitial.TimelineOccupiesType String timelineOccupies;
+      private @MonotonicNonNull @Interstitial.TimelineStyleType String timelineStyle;
+      private long skipControlOffsetUs;
+      private long skipControlDurationUs;
+      @Nullable private String skipControlLabelId;
+
+      /**
+       * Creates the builder.
+       *
+       * @param id The id.
+       */
+      public Builder(String id) {
+        this.id = id;
+        clientDefinedAttributes = new HashMap<>();
+        startDateUnixUs = C.TIME_UNSET;
+        endDateUnixUs = C.TIME_UNSET;
+        durationUs = C.TIME_UNSET;
+        plannedDurationUs = C.TIME_UNSET;
+        cue = new ArrayList<>();
+        resumeOffsetUs = C.TIME_UNSET;
+        playoutLimitUs = C.TIME_UNSET;
+        snapTypes = new ArrayList<>();
+        restrictions = new ArrayList<>();
+        skipControlOffsetUs = C.TIME_UNSET;
+        skipControlDurationUs = C.TIME_UNSET;
+      }
+
+      /**
+       * Sets the asset URI.
+       *
+       * @throws IllegalArgumentException if called with a non-null value that is different to the
+       *     value previously set.
+       */
+      @CanIgnoreReturnValue
+      public Builder setAssetUri(@Nullable Uri assetUri) {
+        if (assetUri == null) {
+          return this;
+        }
+        if (this.assetUri != null) {
+          checkArgument(
+              this.assetUri.equals(assetUri),
+              "Can't change assetUri from " + this.assetUri + " to " + assetUri);
+        }
+        this.assetUri = assetUri;
+        return this;
+      }
+
+      /**
+       * Sets the asset list URI.
+       *
+       * @throws IllegalArgumentException if called with a non-null value that is different to the
+       *     value previously set.
+       */
+      @CanIgnoreReturnValue
+      public Builder setAssetListUri(@Nullable Uri assetListUri) {
+        if (assetListUri == null) {
+          return this;
+        }
+        if (this.assetListUri != null) {
+          checkArgument(
+              this.assetListUri.equals(assetListUri),
+              "Can't change assetListUri from " + this.assetListUri + " to " + assetListUri);
+        }
+        this.assetListUri = assetListUri;
+        return this;
+      }
+
+      /**
+       * Sets the start date as a unix epoch timestamp, in microseconds.
+       *
+       * @throws IllegalArgumentException if called with a value different to {@link C#TIME_UNSET}
+       *     and different to the value previously set.
+       */
+      @CanIgnoreReturnValue
+      public Builder setStartDateUnixUs(long startDateUnixUs) {
+        if (startDateUnixUs == C.TIME_UNSET) {
+          return this;
+        }
+        if (this.startDateUnixUs != C.TIME_UNSET) {
+          checkArgument(
+              this.startDateUnixUs == startDateUnixUs,
+              "Can't change startDateUnixUs from "
+                  + this.startDateUnixUs
+                  + " to "
+                  + startDateUnixUs);
+        }
+        this.startDateUnixUs = startDateUnixUs;
+        return this;
+      }
+
+      /**
+       * Sets the end date as a unix epoch timestamp, in microseconds.
+       *
+       * @throws IllegalArgumentException if called with a value different to {@link C#TIME_UNSET}
+       *     and different to the value previously set.
+       */
+      @CanIgnoreReturnValue
+      public Builder setEndDateUnixUs(long endDateUnixUs) {
+        if (endDateUnixUs == C.TIME_UNSET) {
+          return this;
+        }
+        if (this.endDateUnixUs != C.TIME_UNSET) {
+          checkArgument(
+              this.endDateUnixUs == endDateUnixUs,
+              "Can't change endDateUnixUs from " + this.endDateUnixUs + " to " + endDateUnixUs);
+        }
+        this.endDateUnixUs = endDateUnixUs;
+        return this;
+      }
+
+      /**
+       * Sets the duration, in microseconds.
+       *
+       * @throws IllegalArgumentException if called with a value different to {@link C#TIME_UNSET}
+       *     and different to the value previously set.
+       */
+      @CanIgnoreReturnValue
+      public Builder setDurationUs(long durationUs) {
+        if (durationUs == C.TIME_UNSET) {
+          return this;
+        }
+        if (this.durationUs != C.TIME_UNSET) {
+          checkArgument(
+              this.durationUs == durationUs,
+              "Can't change durationUs from " + this.durationUs + " to " + durationUs);
+        }
+        this.durationUs = durationUs;
+        return this;
+      }
+
+      /**
+       * Sets the planned duration, in microseconds.
+       *
+       * @throws IllegalArgumentException if called with a value different to {@link C#TIME_UNSET}
+       *     and different to the value previously set.
+       */
+      @CanIgnoreReturnValue
+      public Builder setPlannedDurationUs(long plannedDurationUs) {
+        if (plannedDurationUs == C.TIME_UNSET) {
+          return this;
+        }
+        if (this.plannedDurationUs != C.TIME_UNSET) {
+          checkArgument(
+              this.plannedDurationUs == plannedDurationUs,
+              "Can't change plannedDurationUs from "
+                  + this.plannedDurationUs
+                  + " to "
+                  + plannedDurationUs);
+        }
+        this.plannedDurationUs = plannedDurationUs;
+        return this;
+      }
+
+      /**
+       * Sets the {@linkplain Interstitial.CueTriggerType cue trigger types}.
+       *
+       * @throws IllegalArgumentException if called with a value different to {@link C#TIME_UNSET}
+       *     and different to the value previously set.
+       */
+      @CanIgnoreReturnValue
+      public Builder setCue(List<@Interstitial.CueTriggerType String> cue) {
+        if (cue.isEmpty()) {
+          return this;
+        }
+        if (!this.cue.isEmpty()) {
+          checkArgument(
+              this.cue.equals(cue),
+              "Can't change cue from "
+                  + String.join(", ", this.cue)
+                  + " to "
+                  + String.join(", ", cue));
+        }
+        this.cue = cue;
+        return this;
+      }
+
+      /**
+       * Sets whether the interstitial ends on the start time of the next interstitial.
+       *
+       * <p>Once set to true, it can't be reset to false and doing so would be ignored.
+       */
+      @CanIgnoreReturnValue
+      public Builder setEndOnNext(boolean endOnNext) {
+        if (!endOnNext) {
+          return this;
+        }
+        this.endOnNext = true;
+        return this;
+      }
+
+      /**
+       * Sets the resume offset, in microseconds.
+       *
+       * @throws IllegalArgumentException if called with a value different to {@link C#TIME_UNSET}
+       *     and different to the value previously set.
+       */
+      @CanIgnoreReturnValue
+      public Builder setResumeOffsetUs(long resumeOffsetUs) {
+        if (resumeOffsetUs == C.TIME_UNSET) {
+          return this;
+        }
+        if (this.resumeOffsetUs != C.TIME_UNSET) {
+          checkArgument(
+              this.resumeOffsetUs == resumeOffsetUs,
+              "Can't change resumeOffsetUs from " + this.resumeOffsetUs + " to " + resumeOffsetUs);
+        }
+        this.resumeOffsetUs = resumeOffsetUs;
+        return this;
+      }
+
+      /**
+       * Sets the play out limit, in microseconds.
+       *
+       * @throws IllegalArgumentException if called with a value different to {@link C#TIME_UNSET}
+       *     and different to the value previously set.
+       */
+      @CanIgnoreReturnValue
+      public Builder setPlayoutLimitUs(long playoutLimitUs) {
+        if (playoutLimitUs == C.TIME_UNSET) {
+          return this;
+        }
+        if (this.playoutLimitUs != C.TIME_UNSET) {
+          checkArgument(
+              this.playoutLimitUs == playoutLimitUs,
+              "Can't change playoutLimitUs from " + this.playoutLimitUs + " to " + playoutLimitUs);
+        }
+        this.playoutLimitUs = playoutLimitUs;
+        return this;
+      }
+
+      /**
+       * Sets the {@linkplain Interstitial.SnapType snap types}.
+       *
+       * @throws IllegalArgumentException if called with a non-empty list of snap types that is not
+       *     equal to the non-empty list that was previously set.
+       */
+      @CanIgnoreReturnValue
+      public Builder setSnapTypes(List<@Interstitial.SnapType String> snapTypes) {
+        if (snapTypes.isEmpty()) {
+          return this;
+        }
+        if (!this.snapTypes.isEmpty()) {
+          checkArgument(
+              this.snapTypes.equals(snapTypes),
+              "Can't change snapTypes from "
+                  + String.join(", ", this.snapTypes)
+                  + " to "
+                  + String.join(", ", snapTypes));
+        }
+        this.snapTypes = snapTypes;
+        return this;
+      }
+
+      /**
+       * Sets the {@link NavigationRestriction navigation restrictions}.
+       *
+       * @throws IllegalArgumentException if called with a non-empty list of restrictions that is
+       *     not equal to the non-empty list that was previously set.
+       */
+      @CanIgnoreReturnValue
+      public Builder setRestrictions(
+          List<@Interstitial.NavigationRestriction String> restrictions) {
+        if (restrictions.isEmpty()) {
+          return this;
+        }
+        if (!this.restrictions.isEmpty()) {
+          checkArgument(
+              this.restrictions.equals(restrictions),
+              "Can't change restrictions from "
+                  + String.join(", ", this.restrictions)
+                  + " to "
+                  + String.join(", ", restrictions));
+        }
+        this.restrictions = restrictions;
+        return this;
+      }
+
+      /**
+       * Sets the {@linkplain ClientDefinedAttribute client defined attributes}.
+       *
+       * <p>Equal duplicates are ignored, new attributes are added to those already set.
+       *
+       * @throws IllegalArgumentException if called with a list containing a client defined
+       *     attribute that is not equal with an attribute previously set with the same {@linkplain
+       *     ClientDefinedAttribute#name name}.
+       */
+      @CanIgnoreReturnValue
+      public Builder setClientDefinedAttributes(
+          List<HlsMediaPlaylist.ClientDefinedAttribute> clientDefinedAttributes) {
+        if (clientDefinedAttributes.isEmpty()) {
+          return this;
+        }
+        for (int i = 0; i < clientDefinedAttributes.size(); i++) {
+          ClientDefinedAttribute newAttribute = clientDefinedAttributes.get(i);
+          String newName = newAttribute.name;
+          ClientDefinedAttribute existingAttribute = this.clientDefinedAttributes.get(newName);
+          if (existingAttribute != null) {
+            checkArgument(
+                existingAttribute.equals(newAttribute),
+                "Can't change "
+                    + newName
+                    + " from "
+                    + existingAttribute.textValue
+                    + " "
+                    + existingAttribute.doubleValue
+                    + " to "
+                    + newAttribute.textValue
+                    + " "
+                    + newAttribute.doubleValue);
+          }
+          this.clientDefinedAttributes.put(newName, newAttribute);
+        }
+        return this;
+      }
+
+      /**
+       * Sets whether the content may vary between clients.
+       *
+       * <p>The default value is {@code true} .
+       *
+       * @param contentMayVary Whether the content may vary.
+       * @return This builder.
+       * @throws IllegalArgumentException if attempting to change a value that is already set to a
+       *     different value.
+       */
+      @CanIgnoreReturnValue
+      public Builder setContentMayVary(@Nullable Boolean contentMayVary) {
+        if (contentMayVary == null) {
+          return this;
+        }
+        if (this.contentMayVary != null) {
+          checkArgument(
+              this.contentMayVary.equals(contentMayVary),
+              "Can't change contentMayVary from " + this.contentMayVary + " to " + contentMayVary);
+        }
+        this.contentMayVary = contentMayVary;
+        return this;
+      }
+
+      /**
+       * Sets the {@linkplain Interstitial.TimelineOccupiesType timeline occupies type}.
+       *
+       * <p>The default value is {@link Interstitial#TIMELINE_OCCUPIES_POINT}.
+       *
+       * @throws IllegalArgumentException if attempting to change a value that is already set to a
+       *     different value.
+       */
+      @CanIgnoreReturnValue
+      public Builder setTimelineOccupies(
+          @Nullable @Interstitial.TimelineOccupiesType String timelineOccupies) {
+        if (timelineOccupies == null) {
+          return this;
+        }
+        if (this.timelineOccupies != null) {
+          checkArgument(
+              this.timelineOccupies.equals(timelineOccupies),
+              "Can't change timelineOccupies from "
+                  + this.timelineOccupies
+                  + " to "
+                  + timelineOccupies);
+        }
+        this.timelineOccupies = timelineOccupies;
+        return this;
+      }
+
+      /**
+       * Sets the {@linkplain Interstitial.TimelineStyleType timeline style type}. The default value
+       * is {@link Interstitial#TIMELINE_STYLE_HIGHLIGHT}.
+       *
+       * @throws IllegalArgumentException if attempting to change from a non-default value to a
+       *     different non-default value.
+       */
+      @CanIgnoreReturnValue
+      public Builder setTimelineStyle(
+          @Nullable @Interstitial.TimelineStyleType String timelineStyle) {
+        if (timelineStyle == null) {
+          return this;
+        }
+        if (this.timelineStyle != null) {
+          checkArgument(
+              this.timelineStyle.equals(timelineStyle),
+              "Can't change timelineStyle from " + this.timelineStyle + " to " + timelineStyle);
+        }
+        this.timelineStyle = timelineStyle;
+        return this;
+      }
+
+      /**
+       * Sets the skip control offset, in microseconds.
+       *
+       * @throws IllegalArgumentException if called with a value different to {@link C#TIME_UNSET}
+       *     and different to the value previously set.
+       */
+      @CanIgnoreReturnValue
+      public Builder setSkipControlOffsetUs(long skipControlOffsetUs) {
+        if (skipControlOffsetUs == C.TIME_UNSET) {
+          return this;
+        }
+        if (this.skipControlOffsetUs != C.TIME_UNSET) {
+          checkArgument(
+              this.skipControlOffsetUs == skipControlOffsetUs,
+              "Can't change skipControlOffsetUs from "
+                  + this.skipControlOffsetUs
+                  + " to "
+                  + skipControlOffsetUs);
+        }
+        this.skipControlOffsetUs = skipControlOffsetUs;
+        return this;
+      }
+
+      /**
+       * Sets the skip control duration, in microseconds.
+       *
+       * @throws IllegalArgumentException if called with a value different to {@link C#TIME_UNSET}
+       *     and different to the value previously set.
+       */
+      @CanIgnoreReturnValue
+      public Builder setSkipControlDurationUs(long skipControlDurationUs) {
+        if (skipControlDurationUs == C.TIME_UNSET) {
+          return this;
+        }
+        if (this.skipControlDurationUs != C.TIME_UNSET) {
+          checkArgument(
+              this.skipControlDurationUs == skipControlDurationUs,
+              "Can't change skipControlDurationUs from "
+                  + this.skipControlDurationUs
+                  + " to "
+                  + skipControlDurationUs);
+        }
+        this.skipControlDurationUs = skipControlDurationUs;
+        return this;
+      }
+
+      /**
+       * Sets the skip control label ID.
+       *
+       * @throws IllegalArgumentException if called with a non-null value that is different to the
+       *     value previously set.
+       */
+      @CanIgnoreReturnValue
+      public Builder setSkipControlLabelId(@Nullable String skipControlLabelId) {
+        if (skipControlLabelId == null) {
+          return this;
+        }
+        if (this.skipControlLabelId != null) {
+          checkArgument(
+              this.skipControlLabelId.equals(skipControlLabelId),
+              "Can't change skipControlLabelId from "
+                  + this.skipControlLabelId
+                  + " to "
+                  + skipControlLabelId);
+        }
+        this.skipControlLabelId = skipControlLabelId;
+        return this;
+      }
+
+      /**
+       * Builds and returns a new {@link Interstitial} instance or null if validation of the
+       * properties fails. The properties are considered invalid, if the start date is missing or
+       * both asset URI and asset list URI are set at the same time.
+       */
+      @Nullable
+      public Interstitial build() {
+        if (((assetListUri == null && assetUri != null)
+                || (assetListUri != null && assetUri == null))
+            && startDateUnixUs != C.TIME_UNSET) {
+          return new Interstitial(
+              id,
+              assetUri,
+              assetListUri,
+              startDateUnixUs,
+              endDateUnixUs,
+              durationUs,
+              plannedDurationUs,
+              cue,
+              endOnNext,
+              resumeOffsetUs,
+              playoutLimitUs,
+              snapTypes,
+              restrictions,
+              new ArrayList<>(clientDefinedAttributes.values()),
+              contentMayVary == null || contentMayVary,
+              timelineOccupies != null ? timelineOccupies : TIMELINE_OCCUPIES_POINT,
+              timelineStyle != null ? timelineStyle : TIMELINE_STYLE_HIGHLIGHT,
+              skipControlOffsetUs,
+              skipControlDurationUs,
+              skipControlLabelId);
+        }
+        return null;
+      }
     }
   }
 

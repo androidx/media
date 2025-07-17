@@ -67,12 +67,12 @@ public class ConstantRateTimestampIteratorTest {
   }
 
   @Test
-  public void timestampIterator_smallDuration_generatesEmptyIterator() {
+  public void timestampIterator_smallDuration_generatesOneTimestamp() {
     ConstantRateTimestampIterator constantRateTimestampIterator =
         new ConstantRateTimestampIterator(/* durationUs= */ 1, /* frameRate= */ 2);
 
-    assertThat(generateList(constantRateTimestampIterator)).isEmpty();
-    assertThat(constantRateTimestampIterator.getLastTimestampUs()).isEqualTo(C.TIME_UNSET);
+    assertThat(generateList(constantRateTimestampIterator)).containsExactly(0L);
+    assertThat(constantRateTimestampIterator.getLastTimestampUs()).isEqualTo(0L);
   }
 
   @Test
@@ -110,15 +110,15 @@ public class ConstantRateTimestampIteratorTest {
   }
 
   @Test
-  public void timestampIterator_withNoTimestampsWithinParameters_generatesNoTimestamp() {
+  public void timestampIterator_withNoTimestampsWithinParameters_generatesOneTimestamp() {
     ConstantRateTimestampIterator constantRateTimestampIterator =
         new ConstantRateTimestampIterator(
             /* startPositionUs= */ 900_000L,
             /* endPositionUs= */ C.MICROS_PER_SECOND,
             /* frameRate= */ 3);
 
-    assertThat(generateList(constantRateTimestampIterator)).isEmpty();
-    assertThat(constantRateTimestampIterator.getLastTimestampUs()).isEqualTo(C.TIME_UNSET);
+    assertThat(generateList(constantRateTimestampIterator)).containsExactly(900_000L);
+    assertThat(constantRateTimestampIterator.getLastTimestampUs()).isEqualTo(900_000L);
   }
 
   private static List<Long> generateList(TimestampIterator iterator) {

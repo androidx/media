@@ -130,9 +130,15 @@ public final class PlayerTestListener implements Player.Listener, AnalyticsListe
 
   private void waitOrThrow(ConditionVariable conditionVariable)
       throws TimeoutException, PlaybackException {
-    if (!conditionVariable.block(testTimeoutMs)) {
+    maybeThrowPlaybackException();
+    boolean conditionVariableTimedOut = !conditionVariable.block(testTimeoutMs);
+    maybeThrowPlaybackException();
+    if (conditionVariableTimedOut) {
       throw new TimeoutException();
     }
+  }
+
+  private void maybeThrowPlaybackException() throws PlaybackException {
     @Nullable PlaybackException playbackException = this.playbackException.get();
     if (playbackException != null) {
       throw playbackException;

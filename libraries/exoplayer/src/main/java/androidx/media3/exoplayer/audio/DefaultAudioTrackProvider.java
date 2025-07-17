@@ -15,8 +15,12 @@
  */
 package androidx.media3.exoplayer.audio;
 
+import static android.os.Build.VERSION.SDK_INT;
+
+import android.content.Context;
 import android.media.AudioFormat;
 import android.media.AudioTrack;
+import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.util.UnstableApi;
@@ -36,9 +40,10 @@ public class DefaultAudioTrackProvider implements DefaultAudioSink.AudioTrackPro
   public final AudioTrack getAudioTrack(
       AudioSink.AudioTrackConfig audioTrackConfig,
       AudioAttributes audioAttributes,
-      int audioSessionId) {
-    if (Util.SDK_INT >= 23) {
-      return createAudioTrackV23(audioTrackConfig, audioAttributes, audioSessionId);
+      int audioSessionId,
+      @Nullable Context context) {
+    if (SDK_INT >= 23) {
+      return createAudioTrackV23(audioTrackConfig, audioAttributes, audioSessionId, context);
     } else {
       return createAudioTrackV21(audioTrackConfig, audioAttributes, audioSessionId);
     }
@@ -48,7 +53,8 @@ public class DefaultAudioTrackProvider implements DefaultAudioSink.AudioTrackPro
   private AudioTrack createAudioTrackV23(
       AudioSink.AudioTrackConfig audioTrackConfig,
       AudioAttributes audioAttributes,
-      int audioSessionId) {
+      int audioSessionId,
+      @Nullable Context context) {
     AudioFormat audioFormat =
         Util.getAudioFormat(
             audioTrackConfig.sampleRate, audioTrackConfig.channelConfig, audioTrackConfig.encoding);
@@ -61,8 +67,11 @@ public class DefaultAudioTrackProvider implements DefaultAudioSink.AudioTrackPro
             .setTransferMode(AudioTrack.MODE_STREAM)
             .setBufferSizeInBytes(audioTrackConfig.bufferSize)
             .setSessionId(audioSessionId);
-    if (Util.SDK_INT >= 29) {
+    if (SDK_INT >= 29) {
       setOffloadedPlaybackV29(audioTrackBuilder, audioTrackConfig.offload);
+    }
+    if (SDK_INT >= 34 && context != null) {
+      audioTrackBuilder.setContext(context);
     }
     return customizeAudioTrackBuilder(audioTrackBuilder).build();
   }
@@ -104,7 +113,7 @@ public class DefaultAudioTrackProvider implements DefaultAudioSink.AudioTrackPro
     if (tunneling) {
       return getAudioTrackTunnelingAttributesV21();
     } else {
-      return audioAttributes.getAudioAttributesV21().audioAttributes;
+      return audioAttributes.getPlatformAudioAttributes();
     }
   }
 

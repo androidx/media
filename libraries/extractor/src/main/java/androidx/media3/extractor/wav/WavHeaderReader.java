@@ -15,6 +15,8 @@
  */
 package androidx.media3.extractor.wav;
 
+import static androidx.media3.extractor.WavUtil.TYPE_WAVE_FORMAT_EXTENSIBLE;
+
 import android.util.Pair;
 import androidx.media3.common.C;
 import androidx.media3.common.ParserException;
@@ -25,11 +27,24 @@ import androidx.media3.common.util.Util;
 import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.WavUtil;
 import java.io.IOException;
+import java.util.Arrays;
 
 /** Reads a WAV header from an input stream; supports resuming from input failures. */
 /* package */ final class WavHeaderReader {
 
   private static final String TAG = "WavHeaderReader";
+  private static final byte[] WAVEEXT_SUBFORMAT = {
+    (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00,
+    (byte) 0x10, (byte) 0x00, (byte) 0x80, (byte) 0x00,
+    (byte) 0x00, (byte) 0xAA, (byte) 0x00, (byte) 0x38,
+    (byte) 0x9B, (byte) 0x71
+  };
+  private static final byte[] AMBISONIC_SUBFORMAT = {
+    (byte) 0x00, (byte) 0x00, (byte) 0x21, (byte) 0x07,
+    (byte) 0xD3, (byte) 0x11, (byte) 0x86, (byte) 0x44,
+    (byte) 0xC8, (byte) 0xC1, (byte) 0xCA, (byte) 0x00,
+    (byte) 0x00, (byte) 0x00
+  };
 
   /**
    * Returns whether the given {@code input} starts with a RIFF or RF64 chunk header, followed by a
@@ -112,6 +127,40 @@ import java.io.IOException;
     if (bytesLeft > 0) {
       extraData = new byte[bytesLeft];
       input.peekFully(extraData, 0, bytesLeft);
+      if (audioFormatType == TYPE_WAVE_FORMAT_EXTENSIBLE && bytesLeft == 24) {
+        ParsableByteArray extensionScratch = new ParsableByteArray(extraData);
+        extensionScratch.readLittleEndianUnsignedShort(); // read cbSize
+        int validBitsPerSample = extensionScratch.readLittleEndianUnsignedShort();
+        if (validBitsPerSample != 0 && validBitsPerSample != bitsPerSample) {
+          throw ParserException.createForUnsupportedContainerFeature(
+              "validBits ( "
+                  + validBitsPerSample
+                  + ")  != bitsPerSample( "
+                  + bitsPerSample
+                  + ") are not supported");
+        }
+        int channelMask = extensionScratch.readLittleEndianUnsignedIntToInt();
+        if ((channelMask >> 18) != 0) {
+          throw ParserException.createForUnsupportedContainerFeature(
+              "invalid channel mask " + channelMask);
+        }
+
+        if ((channelMask != 0) && (Integer.bitCount(channelMask) != numChannels)) {
+          throw ParserException.createForUnsupportedContainerFeature(
+              "invalid number of channels ("
+                  + Integer.bitCount(channelMask)
+                  + ") in channel mask "
+                  + channelMask);
+        }
+        audioFormatType = extensionScratch.readLittleEndianUnsignedShort();
+        byte[] extensionString = new byte[14];
+        extensionScratch.readBytes(extensionString, 0, 14);
+        if (!Arrays.equals(extensionString, WAVEEXT_SUBFORMAT)
+            && !Arrays.equals(extensionString, AMBISONIC_SUBFORMAT)) {
+          throw ParserException.createForUnsupportedContainerFeature(
+              "invalid wav format extension guid");
+        }
+      }
     } else {
       extraData = Util.EMPTY_BYTE_ARRAY;
     }

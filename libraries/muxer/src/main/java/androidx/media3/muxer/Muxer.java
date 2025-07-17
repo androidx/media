@@ -15,37 +15,17 @@
  */
 package androidx.media3.muxer;
 
-import android.media.MediaCodec.BufferInfo;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
-import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;
 
-/** The muxer for producing media container files. */
+/** A muxer for producing media container files. */
 @UnstableApi
-public interface Muxer {
-  /** Thrown when a muxer failure occurs. */
-  final class MuxerException extends Exception {
-
-    static {
-      MediaLibraryInfo.registerModule("media3.muxer");
-    }
-
-    /**
-     * Creates an instance.
-     *
-     * @param message See {@link #getMessage()}.
-     * @param cause See {@link #getCause()}.
-     */
-    public MuxerException(String message, Throwable cause) {
-      super(message, cause);
-    }
-  }
-
+public interface Muxer extends AutoCloseable {
   /** Factory for muxers. */
   interface Factory {
     /**
@@ -61,31 +41,36 @@ public interface Muxer {
      * C.TrackType}.
      */
     ImmutableList<String> getSupportedSampleMimeTypes(@C.TrackType int trackType);
-  }
 
-  /** A token representing an added track. */
-  interface TrackToken {}
+    /**
+     * Whether the muxer supports writing negative timestamps into an edit list to instruct players
+     * to ignore these samples.
+     */
+    default boolean supportsWritingNegativeTimestampsInEditList() {
+      return false;
+    }
+  }
 
   /**
    * Adds a track of the given media format.
    *
+   * <p>All tracks must be added before any samples are written to any track.
+   *
    * @param format The {@link Format} of the track.
-   * @return The {@link TrackToken} for this track, which should be passed to {@link
-   *     #writeSampleData}.
+   * @return A track id for this track, which should be passed to {@link #writeSampleData}.
    * @throws MuxerException If the muxer encounters a problem while adding the track.
    */
-  TrackToken addTrack(Format format) throws MuxerException;
+  int addTrack(Format format) throws MuxerException;
 
   /**
    * Writes encoded sample data.
    *
-   * @param trackToken The {@link TrackToken} of the track, previously returned by {@link
-   *     #addTrack(Format)}.
+   * @param trackId The track id, previously returned by {@link #addTrack(Format)}.
    * @param byteBuffer A buffer containing the sample data to write to the container.
    * @param bufferInfo The {@link BufferInfo} of the sample.
    * @throws MuxerException If the muxer fails to write the sample.
    */
-  void writeSampleData(TrackToken trackToken, ByteBuffer byteBuffer, BufferInfo bufferInfo)
+  void writeSampleData(int trackId, ByteBuffer byteBuffer, BufferInfo bufferInfo)
       throws MuxerException;
 
   /** Adds {@linkplain Metadata.Entry metadata} about the output file. */
@@ -98,5 +83,6 @@ public interface Muxer {
    *
    * @throws MuxerException If the muxer fails to finish writing the output.
    */
+  @Override
   void close() throws MuxerException;
 }

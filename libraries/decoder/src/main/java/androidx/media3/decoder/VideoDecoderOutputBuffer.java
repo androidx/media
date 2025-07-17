@@ -25,13 +25,19 @@ import java.nio.ByteBuffer;
 @UnstableApi
 public class VideoDecoderOutputBuffer extends DecoderOutputBuffer {
 
+  // LINT.IfChange
   public static final int COLORSPACE_UNKNOWN = 0;
   public static final int COLORSPACE_BT601 = 1;
   public static final int COLORSPACE_BT709 = 2;
   public static final int COLORSPACE_BT2020 = 3;
 
+  // LINT.ThenChange(
+  //     ../../../../../../../decoder_av1/src/main/jni/gav1_jni.cc,
+  //     ../../../../../../../decoder_vp9/src/main/jni/vpx_jni.cc
+  // )
+
   /** Decoder private data. Used from native code. */
-  public int decoderPrivate;
+  public long decoderPrivate;
 
   /** Output mode. */
   public @C.VideoOutputMode int mode;
@@ -50,6 +56,8 @@ public class VideoDecoderOutputBuffer extends DecoderOutputBuffer {
 
   @Nullable public int[] yuvStrides;
   public int colorspace;
+  public int yStride;
+  public int uvStride;
 
   /**
    * Supplemental data related to the output frame, if {@link #hasSupplementalData()} returns true.
@@ -111,6 +119,8 @@ public class VideoDecoderOutputBuffer extends DecoderOutputBuffer {
     this.width = width;
     this.height = height;
     this.colorspace = colorspace;
+    this.yStride = yStride;
+    this.uvStride = uvStride;
     int uvHeight = (int) (((long) height + 1) / 2);
     if (!isSafeToMultiply(yStride, height) || !isSafeToMultiply(uvStride, uvHeight)) {
       return false;
@@ -146,6 +156,53 @@ public class VideoDecoderOutputBuffer extends DecoderOutputBuffer {
     data.position(yLength + uvLength);
     yuvPlanes[2] = data.slice();
     yuvPlanes[2].limit(uvLength);
+    if (yuvStrides == null) {
+      yuvStrides = new int[3];
+    }
+    yuvStrides[0] = yStride;
+    yuvStrides[1] = uvStride;
+    yuvStrides[2] = uvStride;
+    return true;
+  }
+
+  public boolean initForOffsetFrames(
+      int offset,
+      int width,
+      int height,
+      int yStride,
+      int uvStride,
+      int colorspace,
+      int alignedHeight) {
+
+    if (yuvPlanes == null) {
+      yuvPlanes = new ByteBuffer[3];
+    }
+
+    // Data should be allocated in the native code.
+    if (data == null) {
+      return false;
+    }
+
+    this.width = width;
+    this.height = height;
+    this.colorspace = colorspace;
+    ByteBuffer[] yuvPlanes = this.yuvPlanes;
+    ByteBuffer data = this.data;
+
+    int yLength = yStride * height;
+    int uvLength = uvStride * (height >> 1);
+    int alignedYLength = yStride * alignedHeight;
+    int alignedUvLength = uvStride * (alignedHeight >> 1);
+    data.position(offset);
+    yuvPlanes[0] = data.slice();
+    yuvPlanes[0].limit(yLength);
+    data.position(alignedYLength + offset);
+    yuvPlanes[1] = data.slice();
+    yuvPlanes[1].limit(uvLength);
+    data.position(alignedYLength + alignedUvLength + offset);
+    yuvPlanes[2] = data.slice();
+    yuvPlanes[2].limit(uvLength);
+
     if (yuvStrides == null) {
       yuvStrides = new int[3];
     }

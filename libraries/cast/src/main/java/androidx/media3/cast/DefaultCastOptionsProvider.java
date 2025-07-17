@@ -43,6 +43,7 @@ public final class DefaultCastOptionsProvider implements OptionsProvider {
         .setEnableReconnectionService(false)
         .setReceiverApplicationId(APP_ID_DEFAULT_RECEIVER_WITH_DRM)
         .setStopReceiverApplicationWhenEndingSession(true)
+        .setRemoteToLocalEnabled(true)
         .build();
   }
 

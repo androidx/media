@@ -15,6 +15,7 @@
  */
 package androidx.media3.decoder.iamf;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static com.google.common.truth.Truth.assertWithMessage;
 
 import android.content.Context;
@@ -28,13 +29,11 @@ import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
-import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DefaultDataSource;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.RenderersFactory;
 import androidx.media3.exoplayer.audio.AudioSink;
-import androidx.media3.exoplayer.audio.DefaultAudioSink;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.ProgressiveMediaSource;
 import androidx.media3.extractor.mp4.Mp4Extractor;
@@ -63,9 +62,7 @@ public class IamfPlaybackTest {
   }
 
   private static void playAndAssertAudioSinkOutput(String fileName) throws Exception {
-    CapturingAudioSink audioSink =
-        new CapturingAudioSink(
-            new DefaultAudioSink.Builder(ApplicationProvider.getApplicationContext()).build());
+    CapturingAudioSink audioSink = CapturingAudioSink.create();
 
     TestPlaybackRunnable testPlaybackRunnable =
         new TestPlaybackRunnable(
@@ -102,8 +99,11 @@ public class IamfPlaybackTest {
     @Override
     public void run() {
       Looper.prepare();
-      if (Util.SDK_INT >= 32) { // Spatializer is only available on API 32 and above.
+      if (SDK_INT >= 32) { // Spatializer is only available on API 32 and above.
         AudioManager audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+        // Lint can't follow the indirection from AudioFormat.ENCODING_PCM_16BIT to
+        // IamfDecoder.OUTPUT_PCM_ENCODING.
+        @SuppressWarnings("WrongConstant")
         AudioFormat.Builder audioFormat =
             new AudioFormat.Builder()
                 .setEncoding(IamfDecoder.OUTPUT_PCM_ENCODING)
@@ -117,7 +117,7 @@ public class IamfPlaybackTest {
                       && spatializer.isAvailable()
                       && spatializer.isEnabled()
                       && spatializer.canBeSpatialized(
-                          AudioAttributes.DEFAULT.getAudioAttributesV21().audioAttributes,
+                          AudioAttributes.DEFAULT.getPlatformAudioAttributes(),
                           audioFormat.build()))
               .isFalse();
         }

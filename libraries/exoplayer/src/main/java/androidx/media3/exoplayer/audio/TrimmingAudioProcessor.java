@@ -15,18 +15,19 @@
  */
 package androidx.media3.exoplayer.audio;
 
+import static androidx.media3.common.util.Util.isEncodingLinearPcm;
+import static java.lang.Math.max;
 import static java.lang.Math.min;
 
-import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.audio.BaseAudioProcessor;
+import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import java.nio.ByteBuffer;
 
 /** Audio processor for trimming samples from the start/end of data. */
-/* package */ final class TrimmingAudioProcessor extends BaseAudioProcessor {
-
-  private static final @C.PcmEncoding int OUTPUT_ENCODING = C.ENCODING_PCM_16BIT;
+@UnstableApi
+public final class TrimmingAudioProcessor extends BaseAudioProcessor {
 
   private int trimStartFrames;
   private int trimEndFrames;
@@ -72,15 +73,19 @@ import java.nio.ByteBuffer;
 
   @Override
   public long getDurationAfterProcessorApplied(long durationUs) {
-    return durationUs
-        - Util.sampleCountToDurationUs(
-            /* sampleCount= */ trimEndFrames + trimStartFrames, inputAudioFormat.sampleRate);
+    // TODO: b/369509881 - Use StreamMetadata#positionOffsetUs to calculate duration based on seek
+    //  position.
+    return max(
+        0,
+        durationUs
+            - Util.sampleCountToDurationUs(
+                /* sampleCount= */ trimEndFrames + trimStartFrames, inputAudioFormat.sampleRate));
   }
 
   @Override
   public AudioFormat onConfigure(AudioFormat inputAudioFormat)
       throws UnhandledAudioFormatException {
-    if (inputAudioFormat.encoding != OUTPUT_ENCODING) {
+    if (!isEncodingLinearPcm(inputAudioFormat.encoding)) {
       throw new UnhandledAudioFormatException(inputAudioFormat);
     }
     reconfigurationPending = true;

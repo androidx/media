@@ -17,6 +17,7 @@
 package androidx.media3.common.audio;
 
 import static androidx.media3.common.util.Assertions.checkState;
+import static java.lang.Math.max;
 import static java.lang.Math.min;
 
 import java.math.BigDecimal;
@@ -35,6 +36,9 @@ import java.util.Arrays;
   private static final int MAXIMUM_PITCH = 400;
   private static final int AMDF_FREQUENCY = 4000;
   private static final int BYTES_PER_SAMPLE = 2;
+
+  private static final float MINIMUM_SPEEDUP_RATE = 1.00001f;
+  private static final float MINIMUM_SLOWDOWN_RATE = 0.99999f;
 
   private final int inputSampleRateHz;
   private final int channelCount;
@@ -91,7 +95,7 @@ import java.util.Arrays;
 
     BigDecimal length = BigDecimal.valueOf(inputFrameCount);
     BigDecimal framesAfterTimeStretching;
-    if (speedRate > 1.00001 || speedRate < 0.99999) {
+    if (speedRate > MINIMUM_SPEEDUP_RATE || speedRate < MINIMUM_SLOWDOWN_RATE) {
       framesAfterTimeStretching =
           length.divide(BigDecimal.valueOf(speedRate), RoundingMode.HALF_EVEN);
     } else {
@@ -141,6 +145,62 @@ import java.util.Arrays;
         errorCount.multiply(individualError).setScale(/* newScale= */ 0, RoundingMode.FLOOR);
 
     return accumulatedError.longValueExact();
+  }
+
+  /**
+   * Returns the number of input frames required for Sonic to produce the given number of output
+   * frames under the specified parameters.
+   *
+   * <p>This method is the inverse of {@link #getExpectedFrameCountAfterProcessorApplied}.
+   *
+   * @param inputSampleRateHz Input sample rate in Hertz.
+   * @param outputSampleRateHz Output sample rate in Hertz.
+   * @param speed Speed rate.
+   * @param pitch Pitch rate.
+   * @param outputFrameCount Number of output frames to calculate the required input frame count of.
+   */
+  /* package */ static long getExpectedInputFrameCountForOutputFrameCount(
+      int inputSampleRateHz,
+      int outputSampleRateHz,
+      float speed,
+      float pitch,
+      long outputFrameCount) {
+    float resamplingRate = (float) inputSampleRateHz / outputSampleRateHz;
+    resamplingRate *= pitch;
+    BigDecimal bigResamplingRate = new BigDecimal(String.valueOf(resamplingRate));
+    long framesBeforeResampling =
+        getFrameCountBeforeResamplingForOutputCount(
+            BigDecimal.valueOf(inputSampleRateHz),
+            bigResamplingRate,
+            BigDecimal.valueOf(outputFrameCount));
+    double speedRate = speed / pitch;
+
+    if (speedRate > MINIMUM_SPEEDUP_RATE || speedRate < MINIMUM_SLOWDOWN_RATE) {
+      return BigDecimal.valueOf(framesBeforeResampling)
+          .multiply(BigDecimal.valueOf(speedRate))
+          .setScale(0, RoundingMode.FLOOR)
+          .longValueExact();
+    } else {
+      // If speed is almost 1, then just copy the buffers without modifying them.
+      return framesBeforeResampling;
+    }
+  }
+
+  /**
+   * Returns the expected input frame count prior to resampling with Sonic.
+   *
+   * <p>See {@link #getExpectedFrameCountAfterProcessorApplied} for more information.
+   *
+   * @param sampleRate Input sample rate of {@link Sonic} instance.
+   * @param resamplingRate Resampling rate given by {@code (inputSampleRate / outputSampleRate) *
+   *     pitch}.
+   * @param outputLength Length of output in frames.
+   */
+  private static long getFrameCountBeforeResamplingForOutputCount(
+      BigDecimal sampleRate, BigDecimal resamplingRate, BigDecimal outputLength) {
+    BigDecimal denominator = sampleRate.divide(resamplingRate, /* scale */ 0, RoundingMode.FLOOR);
+    BigDecimal numerator = sampleRate.multiply(outputLength);
+    return numerator.divide(denominator, /* scale */ 0, RoundingMode.FLOOR).longValueExact();
   }
 
   /**
@@ -198,6 +258,7 @@ import java.util.Arrays;
    * @param buffer A {@link ShortBuffer} into which output will be written.
    */
   public void getOutput(ShortBuffer buffer) {
+    checkState(outputFrameCount >= 0);
     int framesToRead = min(buffer.remaining() / channelCount, outputFrameCount);
     buffer.put(outputBuffer, 0, framesToRead * channelCount);
     outputFrameCount -= framesToRead;
@@ -247,7 +308,8 @@ import java.util.Arrays;
     processStreamInput();
     // Throw away any extra frames we generated due to the silence we added.
     if (outputFrameCount > expectedOutputFrames) {
-      outputFrameCount = expectedOutputFrames;
+      // expectedOutputFrames might be negative, so set lower bound to 0.
+      outputFrameCount = max(expectedOutputFrames, 0);
     }
     // Empty input and pitch buffers.
     inputFrameCount = 0;
@@ -272,6 +334,7 @@ import java.util.Arrays;
 
   /** Returns the size of output that can be read with {@link #getOutput(ShortBuffer)}, in bytes. */
   public int getOutputSize() {
+    checkState(outputFrameCount >= 0);
     return outputFrameCount * channelCount * BYTES_PER_SAMPLE;
   }
 
@@ -599,7 +662,7 @@ import java.util.Arrays;
     int originalOutputFrameCount = outputFrameCount;
     double s = speed / pitch;
     float r = rate * pitch;
-    if (s > 1.00001 || s < 0.99999) {
+    if (s > MINIMUM_SPEEDUP_RATE || s < MINIMUM_SLOWDOWN_RATE) {
       changeSpeed(s);
     } else {
       copyToOutput(inputBuffer, 0, inputFrameCount);

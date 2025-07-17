@@ -269,7 +269,7 @@ public final class SntpClient {
         // Extract the results.
         final byte leap = (byte) ((buffer[0] >> 6) & 0x3);
         final byte mode = (byte) (buffer[0] & 0x7);
-        final int stratum = (int) (buffer[1] & 0xff);
+        final int stratum = buffer[1] & 0xff;
         final long originateTime = readTimestamp(buffer, ORIGINATE_TIME_OFFSET);
         final long receiveTime = readTimestamp(buffer, RECEIVE_TIME_OFFSET);
         final long transmitTime = readTimestamp(buffer, TRANSMIT_TIME_OFFSET);

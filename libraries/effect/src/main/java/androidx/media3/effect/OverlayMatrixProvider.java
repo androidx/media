@@ -19,6 +19,7 @@ import static androidx.media3.common.util.Assertions.checkStateNotNull;
 
 import android.opengl.Matrix;
 import android.util.Pair;
+import androidx.media3.common.OverlaySettings;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.Size;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;

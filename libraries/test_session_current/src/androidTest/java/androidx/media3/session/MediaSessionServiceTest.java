@@ -47,7 +47,6 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.MediumTest;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
-import com.google.common.primitives.ImmutableIntArray;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import java.util.ArrayList;
@@ -102,6 +101,7 @@ public class MediaSessionServiceTest {
     List<ControllerInfo> playbackCommandControllerInfos = new ArrayList<>();
     List<ControllerInfo> onDisconnectedCommandControllerInfos = new ArrayList<>();
     AtomicReference<MediaSession> session = new AtomicReference<>();
+    ConditionVariable disconnected = new ConditionVariable();
     testServiceRegistry.setOnGetSessionHandler(
         controllerInfo -> {
           // The controllerInfo passed to the onGetSession of the service.
@@ -137,8 +137,8 @@ public class MediaSessionServiceTest {
                           if (!session.isMediaNotificationController(controller)) {
                             // The controllerInfo when disconnecting.
                             onDisconnectedCommandControllerInfos.add(controller);
+                            disconnected.open();
                           }
-                          MediaSession.Callback.super.onDisconnected(session, controller);
                         }
                       })
                   .build());
@@ -151,6 +151,8 @@ public class MediaSessionServiceTest {
     // Get the started service instance after creation.
     MockMediaSessionService service =
         (MockMediaSessionService) testServiceRegistry.getServiceInstance();
+    // TestServiceRegistry is taken care of and cleaned up @After the test.
+    service.setCleanupServiceRegistryOnDestroy(false);
     controller.setRepeatMode(Player.REPEAT_MODE_ONE);
     List<ControllerInfo> connectedControllerManagerControllerInfos = new ArrayList<>();
     for (ControllerInfo controllerInfo : session.get().getConnectedControllers()) {
@@ -160,9 +162,12 @@ public class MediaSessionServiceTest {
       }
     }
 
+    // The controller that was bound to the service unbinds when released. Because the service was
+    // never started (as in `onStartCommand()` was never called), the service is immediately
+    // terminated by the system when the last bound client unbinds.
     controller.release();
 
-    service.blockUntilAllControllersUnbind(TIMEOUT_MS);
+    assertThat(disconnected.block(TIMEOUT_MS)).isTrue();
     assertThat(onGetSessionControllerInfos).hasSize(1);
     assertThat(onGetSessionControllerInfos).isEqualTo(onConnectControllerInfos);
     assertThat(onGetSessionControllerInfos).isEqualTo(playbackCommandControllerInfos);
@@ -245,19 +250,19 @@ public class MediaSessionServiceTest {
     CommandButton button1 =
         new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
             .setDisplayName("button1")
-            .setIconResId(R.drawable.media3_notification_small_icon)
+            .setCustomIconResId(R.drawable.media3_notification_small_icon)
             .setSessionCommand(command1)
             .build();
     CommandButton button2 =
         new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
             .setDisplayName("button2")
-            .setIconResId(R.drawable.media3_notification_small_icon)
+            .setCustomIconResId(R.drawable.media3_notification_small_icon)
             .setSessionCommand(command2)
             .build();
     CommandButton button3 =
         new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
             .setDisplayName("button3")
-            .setIconResId(R.drawable.media3_notification_small_icon)
+            .setCustomIconResId(R.drawable.media3_notification_small_icon)
             .setSessionCommand(command3)
             .build();
     Bundle testHints = new Bundle();
@@ -318,6 +323,8 @@ public class MediaSessionServiceTest {
     RemoteMediaController remoteController =
         controllerTestRule.createRemoteController(token, /* waitForConnection= */ true, testHints);
 
+    MockMediaSessionService service =
+        (MockMediaSessionService) TestServiceRegistry.getInstance().getServiceInstance();
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(
             controllerInfoList
@@ -332,13 +339,7 @@ public class MediaSessionServiceTest {
     assertThat(mediaControllerCompat.getPlaybackState().getActions())
         .isEqualTo(PlaybackStateCompat.ACTION_SET_RATING);
     assertThat(remoteController.getCustomLayout())
-        .containsExactly(
-            button1
-                .copyWithIsEnabled(false)
-                .copyWithSlots(ImmutableIntArray.of(CommandButton.SLOT_FORWARD)),
-            button2
-                .copyWithIsEnabled(false)
-                .copyWithSlots(ImmutableIntArray.of(CommandButton.SLOT_OVERFLOW)))
+        .containsExactly(button1.copyWithIsEnabled(false), button2.copyWithIsEnabled(false))
         .inOrder();
     assertThat(initialCustomActionsInControllerCompat).isEmpty();
     assertThat(mediaControllerCompat.getPlaybackState().getCustomActions()).hasSize(2);
@@ -353,8 +354,7 @@ public class MediaSessionServiceTest {
     assertThat(customAction2.getName().toString()).isEqualTo("button3");
     assertThat(customAction2.getIcon()).isEqualTo(R.drawable.media3_notification_small_icon);
     mediaSession.release();
-    ((MockMediaSessionService) TestServiceRegistry.getInstance().getServiceInstance())
-        .blockUntilAllControllersUnbind(TIMEOUT_MS);
+    service.blockUntilAllControllersUnbind(TIMEOUT_MS);
   }
 
   @Test
@@ -366,19 +366,19 @@ public class MediaSessionServiceTest {
     CommandButton button1 =
         new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
             .setDisplayName("button1")
-            .setIconResId(R.drawable.media3_notification_small_icon)
+            .setCustomIconResId(R.drawable.media3_notification_small_icon)
             .setSessionCommand(command1)
             .build();
     CommandButton button2 =
         new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
             .setDisplayName("button2")
-            .setIconResId(R.drawable.media3_notification_small_icon)
+            .setCustomIconResId(R.drawable.media3_notification_small_icon)
             .setSessionCommand(command2)
             .build();
     CommandButton button3 =
         new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
             .setDisplayName("button3")
-            .setIconResId(R.drawable.media3_notification_small_icon)
+            .setCustomIconResId(R.drawable.media3_notification_small_icon)
             .setSessionCommand(command3)
             .build();
     Bundle testHints = new Bundle();
@@ -439,6 +439,8 @@ public class MediaSessionServiceTest {
     RemoteMediaController remoteController =
         controllerTestRule.createRemoteController(token, /* waitForConnection= */ true, testHints);
 
+    MockMediaSessionService service =
+        (MockMediaSessionService) TestServiceRegistry.getInstance().getServiceInstance();
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(
             controllerInfoList
@@ -468,8 +470,7 @@ public class MediaSessionServiceTest {
     assertThat(customAction2.getName().toString()).isEqualTo("button3");
     assertThat(customAction2.getIcon()).isEqualTo(R.drawable.media3_notification_small_icon);
     mediaSession.release();
-    ((MockMediaSessionService) TestServiceRegistry.getInstance().getServiceInstance())
-        .blockUntilAllControllersUnbind(TIMEOUT_MS);
+    service.blockUntilAllControllersUnbind(TIMEOUT_MS);
   }
 
   /**

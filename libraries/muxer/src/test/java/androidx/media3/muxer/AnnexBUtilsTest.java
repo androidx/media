@@ -22,6 +22,7 @@ import static org.junit.Assert.assertThrows;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -47,6 +48,17 @@ public class AnnexBUtilsTest {
   @Test
   public void findNalUnits_singleNalUnitWithFourByteStartCode_returnsSingleElement() {
     ByteBuffer buffer = ByteBuffer.wrap(getBytesFromHexString("00000001ABCDEF"));
+
+    ImmutableList<ByteBuffer> components = AnnexBUtils.findNalUnits(buffer);
+
+    assertThat(components).containsExactly(ByteBuffer.wrap(getBytesFromHexString("ABCDEF")));
+  }
+
+  @Test
+  public void
+      findNalUnits_singleNalUnitWithFourByteStartCodeAndLittleEndianOrder_returnsSingleElement() {
+    ByteBuffer buffer =
+        ByteBuffer.wrap(getBytesFromHexString("00000001ABCDEF")).order(ByteOrder.LITTLE_ENDIAN);
 
     ImmutableList<ByteBuffer> components = AnnexBUtils.findNalUnits(buffer);
 
@@ -98,6 +110,34 @@ public class AnnexBUtilsTest {
         ByteBuffer.wrap(getBytesFromHexString("00000001ABCDEF0000AB0000CDEF00000000AB"));
 
     assertThrows(IllegalStateException.class, () -> AnnexBUtils.findNalUnits(buffer));
+  }
+
+  @Test
+  public void findNalUnits_withPositionAndLimitSet_returnsNalUnit() {
+    ByteBuffer buffer =
+        ByteBuffer.wrap(getBytesFromHexString("12345600000001ABCDEF002233445566778899"));
+    buffer.position(3);
+    buffer.limit(10);
+
+    ImmutableList<ByteBuffer> components = AnnexBUtils.findNalUnits(buffer);
+
+    assertThat(components).containsExactly(ByteBuffer.wrap(getBytesFromHexString("ABCDEF")));
+  }
+
+  @Test
+  public void findNalUnits_withMultipleNalUnitsAndPositionSet_returnsAllNalUnits() {
+    ByteBuffer buffer =
+        ByteBuffer.wrap(getBytesFromHexString("123456000001ABCDEF000001DDCC000001BBAA"));
+    buffer.position(3);
+
+    ImmutableList<ByteBuffer> components = AnnexBUtils.findNalUnits(buffer);
+
+    assertThat(components)
+        .containsExactly(
+            ByteBuffer.wrap(getBytesFromHexString("ABCDEF")),
+            ByteBuffer.wrap(getBytesFromHexString("DDCC")),
+            ByteBuffer.wrap(getBytesFromHexString("BBAA")))
+        .inOrder();
   }
 
   @Test

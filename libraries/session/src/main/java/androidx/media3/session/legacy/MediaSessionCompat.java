@@ -17,7 +17,6 @@ package androidx.media3.session.legacy;
 
 import static androidx.annotation.RestrictTo.Scope.LIBRARY;
 import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.session.legacy.MediaSessionManager.RemoteUserInfo.LEGACY_CONTROLLER;
 import static androidx.media3.session.legacy.MediaSessionManager.RemoteUserInfo.UNKNOWN_PID;
 import static androidx.media3.session.legacy.MediaSessionManager.RemoteUserInfo.UNKNOWN_UID;
@@ -29,25 +28,18 @@ import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.graphics.Bitmap;
 import android.media.AudioAttributes;
 import android.media.AudioManager;
 import android.media.MediaDescription;
-import android.media.MediaMetadata;
-import android.media.MediaMetadataEditor;
-import android.media.MediaMetadataRetriever;
 import android.media.Rating;
-import android.media.RemoteControlClient;
 import android.media.VolumeProvider;
 import android.media.session.MediaSession;
-import android.media.session.PlaybackState;
 import android.net.Uri;
 import android.os.BadParcelableException;
 import android.os.Binder;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
-import android.os.IBinder;
 import android.os.Looper;
 import android.os.Message;
 import android.os.Parcel;
@@ -58,7 +50,6 @@ import android.os.ResultReceiver;
 import android.os.SystemClock;
 import android.text.TextUtils;
 import android.util.Log;
-import android.util.TypedValue;
 import android.view.KeyEvent;
 import android.view.ViewConfiguration;
 import androidx.annotation.GuardedBy;
@@ -80,8 +71,6 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicReference;
-import org.checkerframework.checker.nullness.qual.NonNull;
 
 /**
  * Allows interaction with media controllers, volume keys, media buttons, and transport controls.
@@ -95,7 +84,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
  * interact with the session.
  *
  * <p>To receive commands, media keys, and other events a {@link Callback} must be set with {@link
- * #setCallback(Callback)}.
+ * #setCallback}.
  *
  * <p>When an app is finished performing playback it must call {@link #release()} to clean up the
  * session and notify any controllers.
@@ -116,9 +105,8 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 public class MediaSessionCompat {
   static final String TAG = "MediaSessionCompat";
 
-  private final MediaSessionImpl mImpl;
-  private final MediaControllerCompat mController;
-  private final ArrayList<OnActiveChangeListener> mActiveListeners = new ArrayList<>();
+  private final MediaSessionImpl impl;
+  private final MediaControllerCompat controller;
 
   @IntDef(
       flag = true,
@@ -136,7 +124,9 @@ public class MediaSessionCompat {
    * @deprecated This flag is no longer used. All media sessions are expected to handle media button
    *     events now. For backward compatibility, this flag will be always set.
    */
-  @Deprecated public static final int FLAG_HANDLES_MEDIA_BUTTONS = 1 << 0;
+  @SuppressLint("WrongConstant")
+  @Deprecated
+  public static final int FLAG_HANDLES_MEDIA_BUTTONS = 1 << 0;
 
   /**
    * Sets this flag on the session to indicate that it handles transport control commands through
@@ -145,12 +135,15 @@ public class MediaSessionCompat {
    * @deprecated This flag is no longer used. All media sessions are expected to handle transport
    *     controls now. For backward compatibility, this flag will be always set.
    */
-  @Deprecated public static final int FLAG_HANDLES_TRANSPORT_CONTROLS = 1 << 1;
+  @SuppressLint("WrongConstant")
+  @Deprecated
+  public static final int FLAG_HANDLES_TRANSPORT_CONTROLS = 1 << 1;
 
   /**
    * Sets this flag on the session to indicate that it handles queue management commands through its
    * {@link Callback}.
    */
+  @SuppressLint("WrongConstant")
   public static final int FLAG_HANDLES_QUEUE_COMMANDS = 1 << 2;
 
   /**
@@ -198,15 +191,7 @@ public class MediaSessionCompat {
    */
   public static final String ACTION_UNFOLLOW = "android.support.v4.media.session.action.UNFOLLOW";
 
-  /**
-   * Argument to indicate the media attribute. It should be one of the following:
-   *
-   * <ul>
-   *   <li>{@link #MEDIA_ATTRIBUTE_ARTIST}
-   *   <li>{@link #MEDIA_ATTRIBUTE_PLAYLIST}
-   *   <li>{@link #MEDIA_ATTRIBUTE_ALBUM}
-   * </ul>
-   */
+  /** Argument to indicate the media attribute. */
   public static final String ARGUMENT_MEDIA_ATTRIBUTE =
       "android.support.v4.media.session.ARGUMENT_MEDIA_ATTRIBUTE";
 
@@ -215,27 +200,6 @@ public class MediaSessionCompat {
    */
   public static final String ARGUMENT_MEDIA_ATTRIBUTE_VALUE =
       "android.support.v4.media.session.ARGUMENT_MEDIA_ATTRIBUTE_VALUE";
-
-  /**
-   * The value of {@link #ARGUMENT_MEDIA_ATTRIBUTE} indicating the artist.
-   *
-   * @see #ARGUMENT_MEDIA_ATTRIBUTE
-   */
-  public static final int MEDIA_ATTRIBUTE_ARTIST = 0;
-
-  /**
-   * The value of {@link #ARGUMENT_MEDIA_ATTRIBUTE} indicating the album.
-   *
-   * @see #ARGUMENT_MEDIA_ATTRIBUTE
-   */
-  public static final int MEDIA_ATTRIBUTE_ALBUM = 1;
-
-  /**
-   * The value of {@link #ARGUMENT_MEDIA_ATTRIBUTE} indicating the playlist.
-   *
-   * @see #ARGUMENT_MEDIA_ATTRIBUTE
-   */
-  public static final int MEDIA_ATTRIBUTE_PLAYLIST = 2;
 
   /** Custom action to invoke playFromUri() for the forward compatibility. */
   public static final String ACTION_PLAY_FROM_URI =
@@ -327,62 +291,6 @@ public class MediaSessionCompat {
   /** */
   public static final String KEY_SESSION2_TOKEN = "android.support.v4.media.session.SESSION_TOKEN2";
 
-  // Maximum size of the bitmap in dp.
-  private static final int MAX_BITMAP_SIZE_IN_DP = 320;
-
-  private static final String DATA_CALLING_PACKAGE = "data_calling_pkg";
-  private static final String DATA_CALLING_PID = "data_calling_pid";
-  private static final String DATA_CALLING_UID = "data_calling_uid";
-  private static final String DATA_EXTRAS = "data_extras";
-
-  // Maximum size of the bitmap in px. It shouldn't be changed.
-  static int sMaxBitmapSize;
-
-  /**
-   * Creates a new session. You must call {@link #release()} when finished with the session.
-   *
-   * <p>The session will automatically be registered with the system but will not be published until
-   * {@link #setActive(boolean) setActive(true)} is called.
-   *
-   * <p>For API 20 or earlier, note that a media button receiver is required for handling {@link
-   * Intent#ACTION_MEDIA_BUTTON}. This constructor will attempt to find an appropriate {@link
-   * BroadcastReceiver} from your manifest. See {@link MediaButtonReceiver} for more details.
-   *
-   * @param context The context to use to create the session.
-   * @param tag A short name for debugging purposes.
-   */
-  public MediaSessionCompat(Context context, String tag) {
-    this(context, tag, null, null);
-  }
-
-  /**
-   * Creates a new session with a specified media button receiver (a component name and/or a pending
-   * intent). You must call {@link #release()} when finished with the session.
-   *
-   * <p>The session will automatically be registered with the system but will not be published until
-   * {@link #setActive(boolean) setActive(true)} is called.
-   *
-   * <p>For API 20 or earlier, note that a media button receiver is required for handling {@link
-   * Intent#ACTION_MEDIA_BUTTON}. This constructor will attempt to find an appropriate {@link
-   * BroadcastReceiver} from your manifest if it's not specified. See {@link MediaButtonReceiver}
-   * for more details.
-   *
-   * @param context The context to use to create the session.
-   * @param tag A short name for debugging purposes.
-   * @param mbrComponent The component name for your media button receiver.
-   * @param mbrIntent The PendingIntent for your receiver component that handles media button
-   *     events. This is optional and will be used on between {@link
-   *     android.os.Build.VERSION_CODES#JELLY_BEAN_MR2} and {@link
-   *     android.os.Build.VERSION_CODES#KITKAT_WATCH} instead of the component name.
-   */
-  public MediaSessionCompat(
-      Context context,
-      String tag,
-      @Nullable ComponentName mbrComponent,
-      @Nullable PendingIntent mbrIntent) {
-    this(context, tag, mbrComponent, mbrIntent, null);
-  }
-
   /**
    * Creates a new session with a specified media button receiver (a component name and/or a pending
    * intent). You must call {@link #release()} when finished with the session.
@@ -409,16 +317,6 @@ public class MediaSessionCompat {
    *     MediaControllerCompat#getSessionInfo()}. An {@link IllegalArgumentException} will be thrown
    *     if this contains any non-framework Parcelable objects.
    */
-  public MediaSessionCompat(
-      Context context,
-      String tag,
-      @Nullable ComponentName mbrComponent,
-      @Nullable PendingIntent mbrIntent,
-      @Nullable Bundle sessionInfo) {
-    this(context, tag, mbrComponent, mbrIntent, sessionInfo, null /* session2Token */);
-  }
-
-  /** */
   @SuppressWarnings({
     "method.invocation.invalid",
     "argument.type.incompatible",
@@ -429,11 +327,7 @@ public class MediaSessionCompat {
       String tag,
       @Nullable ComponentName mbrComponent,
       @Nullable PendingIntent mbrIntent,
-      @Nullable Bundle sessionInfo,
-      @Nullable VersionedParcelable session2Token) {
-    if (context == null) {
-      throw new IllegalArgumentException("context must not be null");
-    }
+      @Nullable Bundle sessionInfo) {
     if (TextUtils.isEmpty(tag)) {
       throw new IllegalArgumentException("tag must not be null or empty");
     }
@@ -441,9 +335,7 @@ public class MediaSessionCompat {
     if (mbrComponent == null) {
       mbrComponent = MediaButtonReceiver.getMediaButtonReceiverComponent(context);
       if (mbrComponent == null) {
-        Log.w(
-            TAG,
-            "Couldn't find a unique registered media button receiver in the " + "given context.");
+        Log.i(TAG, "Couldn't find a unique registered media button receiver in the given context.");
       }
     }
     if (mbrComponent != null && mbrIntent == null) {
@@ -459,61 +351,22 @@ public class MediaSessionCompat {
               Build.VERSION.SDK_INT >= 31 ? PendingIntent.FLAG_MUTABLE : 0);
     }
 
-    if (android.os.Build.VERSION.SDK_INT >= 21) {
-      if (android.os.Build.VERSION.SDK_INT >= 29) {
-        mImpl = new MediaSessionImplApi29(context, tag, session2Token, sessionInfo);
-      } else if (android.os.Build.VERSION.SDK_INT >= 28) {
-        mImpl = new MediaSessionImplApi28(context, tag, session2Token, sessionInfo);
-      } else if (android.os.Build.VERSION.SDK_INT >= 22) {
-        mImpl = new MediaSessionImplApi22(context, tag, session2Token, sessionInfo);
-      } else {
-        mImpl = new MediaSessionImplApi21(context, tag, session2Token, sessionInfo);
-      }
-      // Set default callback to respond to controllers' extra binder requests.
-      Looper myLooper = Looper.myLooper();
-      Handler handler = new Handler(myLooper != null ? myLooper : Looper.getMainLooper());
-      setCallback(new Callback() {}, handler);
-      mImpl.setMediaButtonReceiver(mbrIntent);
+    if (Build.VERSION.SDK_INT >= 29) {
+      impl = new MediaSessionImplApi29(context, tag, sessionInfo);
+    } else if (Build.VERSION.SDK_INT >= 28) {
+      impl = new MediaSessionImplApi28(context, tag, sessionInfo);
+    } else if (Build.VERSION.SDK_INT >= 22) {
+      impl = new MediaSessionImplApi22(context, tag, sessionInfo);
     } else {
-      mImpl =
-          new MediaSessionImplApi19(
-              context, tag, mbrComponent, mbrIntent, session2Token, sessionInfo);
+      impl = new MediaSessionImplApi21(context, tag, sessionInfo);
     }
-    mController = new MediaControllerCompat(context, this);
+    // Set default callback to respond to controllers' extra binder requests.
+    Looper myLooper = Looper.myLooper();
+    Handler handler = new Handler(myLooper != null ? myLooper : Looper.getMainLooper());
+    setCallback(new Callback() {}, handler);
+    impl.setMediaButtonReceiver(mbrIntent);
 
-    if (sMaxBitmapSize == 0) {
-      sMaxBitmapSize =
-          (int)
-              (TypedValue.applyDimension(
-                      TypedValue.COMPLEX_UNIT_DIP,
-                      MAX_BITMAP_SIZE_IN_DP,
-                      context.getResources().getDisplayMetrics())
-                  + 0.5f);
-    }
-  }
-
-  @SuppressWarnings({
-    "method.invocation.invalid",
-    "argument.type.incompatible",
-    "assignment.type.incompatible"
-  }) // registering listener from constructor
-  private MediaSessionCompat(Context context, MediaSessionImpl impl) {
-    mImpl = impl;
-    mController = new MediaControllerCompat(context, this);
-  }
-
-  /**
-   * Adds a callback to receive updates on for the MediaSession. This includes media button and
-   * volume events. The caller's thread will be used to post events. Set the callback to null to
-   * stop receiving events.
-   *
-   * <p>Don't reuse the callback among the sessions. Callbacks keep internal reference to the
-   * session when it's set, so it may misbehave.
-   *
-   * @param callback The callback object
-   */
-  public void setCallback(Callback callback) {
-    setCallback(callback, null);
+    controller = new MediaControllerCompat(context, this);
   }
 
   /**
@@ -526,23 +379,8 @@ public class MediaSessionCompat {
    * @param callback The callback to receive updates on.
    * @param handler The handler that events should be posted on.
    */
-  @SuppressWarnings("deprecation")
-  public void setCallback(Callback callback, @Nullable Handler handler) {
-    if (callback == null) {
-      mImpl.setCallback(null, null);
-    } else {
-      mImpl.setCallback(callback, handler != null ? handler : new Handler());
-    }
-  }
-
-  /**
-   * Sets the {@link RegistrationCallback}.
-   *
-   * @param callback callback to listener callback registration. Can be null to stop.
-   * @param handler handler
-   */
-  public void setRegistrationCallback(@Nullable RegistrationCallback callback, Handler handler) {
-    mImpl.setRegistrationCallback(callback, handler);
+  public void setCallback(Callback callback, Handler handler) {
+    impl.setCallback(callback, handler);
   }
 
   /**
@@ -552,8 +390,8 @@ public class MediaSessionCompat {
    *
    * @param pi The intent to launch to show UI for this Session.
    */
-  public void setSessionActivity(PendingIntent pi) {
-    mImpl.setSessionActivity(pi);
+  public void setSessionActivity(@Nullable PendingIntent pi) {
+    impl.setSessionActivity(pi);
   }
 
   /**
@@ -567,7 +405,7 @@ public class MediaSessionCompat {
    * @param mbr The {@link PendingIntent} to send the media button event to.
    */
   public void setMediaButtonReceiver(PendingIntent mbr) {
-    mImpl.setMediaButtonReceiver(mbr);
+    impl.setMediaButtonReceiver(mbr);
   }
 
   /**
@@ -576,7 +414,7 @@ public class MediaSessionCompat {
    * @param flags The flags to set for this session.
    */
   public void setFlags(@SessionFlags int flags) {
-    mImpl.setFlags(flags);
+    impl.setFlags(flags);
   }
 
   /**
@@ -589,7 +427,7 @@ public class MediaSessionCompat {
    * @param stream The {@link AudioManager} stream this session is playing on.
    */
   public void setPlaybackToLocal(int stream) {
-    mImpl.setPlaybackToLocal(stream);
+    impl.setPlaybackToLocal(stream);
   }
 
   /**
@@ -605,10 +443,7 @@ public class MediaSessionCompat {
    * @param volumeProvider The provider that will handle volume changes. May not be null.
    */
   public void setPlaybackToRemote(VolumeProviderCompat volumeProvider) {
-    if (volumeProvider == null) {
-      throw new IllegalArgumentException("volumeProvider may not be null!");
-    }
-    mImpl.setPlaybackToRemote(volumeProvider);
+    impl.setPlaybackToRemote(volumeProvider);
   }
 
   /**
@@ -622,10 +457,7 @@ public class MediaSessionCompat {
    * @param active Whether this session is active or not.
    */
   public void setActive(boolean active) {
-    mImpl.setActive(active);
-    for (OnActiveChangeListener listener : mActiveListeners) {
-      listener.onActiveChanged();
-    }
+    impl.setActive(active);
   }
 
   /**
@@ -634,7 +466,7 @@ public class MediaSessionCompat {
    * @return True if the session is active, false otherwise.
    */
   public boolean isActive() {
-    return mImpl.isActive();
+    return impl.isActive();
   }
 
   /**
@@ -648,7 +480,7 @@ public class MediaSessionCompat {
     if (TextUtils.isEmpty(event)) {
       throw new IllegalArgumentException("event cannot be null or empty");
     }
-    mImpl.sendSessionEvent(event, extras);
+    impl.sendSessionEvent(event, extras);
   }
 
   /**
@@ -657,7 +489,7 @@ public class MediaSessionCompat {
    * service is being destroyed.
    */
   public void release() {
-    mImpl.release();
+    impl.release();
   }
 
   /**
@@ -672,7 +504,7 @@ public class MediaSessionCompat {
    * @return A token that can be used to create a media controller for this session.
    */
   public Token getSessionToken() {
-    return mImpl.getSessionToken();
+    return impl.getSessionToken();
   }
 
   /**
@@ -682,7 +514,7 @@ public class MediaSessionCompat {
    * @return A controller for this session.
    */
   public MediaControllerCompat getController() {
-    return mController;
+    return controller;
   }
 
   /**
@@ -691,7 +523,7 @@ public class MediaSessionCompat {
    * @param state The current state of playback
    */
   public void setPlaybackState(PlaybackStateCompat state) {
-    mImpl.setPlaybackState(state);
+    impl.setPlaybackState(state);
   }
 
   /**
@@ -703,7 +535,7 @@ public class MediaSessionCompat {
    * @see androidx.media3.session.legacy.MediaMetadataCompat.Builder#putBitmap
    */
   public void setMetadata(@Nullable MediaMetadataCompat metadata) {
-    mImpl.setMetadata(metadata);
+    impl.setMetadata(metadata);
   }
 
   /**
@@ -720,9 +552,6 @@ public class MediaSessionCompat {
     if (queue != null) {
       Set<Long> set = new HashSet<>();
       for (QueueItem item : queue) {
-        if (item == null) {
-          throw new IllegalArgumentException("queue shouldn't have null items");
-        }
         if (set.contains(item.getQueueId())) {
           Log.e(
               TAG,
@@ -732,7 +561,7 @@ public class MediaSessionCompat {
         set.add(item.getQueueId());
       }
     }
-    mImpl.setQueue(queue);
+    impl.setQueue(queue);
   }
 
   /**
@@ -742,7 +571,7 @@ public class MediaSessionCompat {
    * @param title The title of the play queue.
    */
   public void setQueueTitle(CharSequence title) {
-    mImpl.setQueueTitle(title);
+    impl.setQueueTitle(title);
   }
 
   /**
@@ -760,16 +589,7 @@ public class MediaSessionCompat {
    * </ul>
    */
   public void setRatingType(@RatingCompat.Style int type) {
-    mImpl.setRatingType(type);
-  }
-
-  /**
-   * Enables/disables captioning for this session.
-   *
-   * @param enabled {@code true} to enable captioning, {@code false} to disable.
-   */
-  public void setCaptioningEnabled(boolean enabled) {
-    mImpl.setCaptioningEnabled(enabled);
+    impl.setRatingType(type);
   }
 
   /**
@@ -783,7 +603,7 @@ public class MediaSessionCompat {
    *     PlaybackStateCompat#REPEAT_MODE_ALL}, {@link PlaybackStateCompat#REPEAT_MODE_GROUP}
    */
   public void setRepeatMode(@PlaybackStateCompat.RepeatMode int repeatMode) {
-    mImpl.setRepeatMode(repeatMode);
+    impl.setRepeatMode(repeatMode);
   }
 
   /**
@@ -797,7 +617,7 @@ public class MediaSessionCompat {
    *     {@link PlaybackStateCompat#SHUFFLE_MODE_GROUP}
    */
   public void setShuffleMode(@PlaybackStateCompat.ShuffleMode int shuffleMode) {
-    mImpl.setShuffleMode(shuffleMode);
+    impl.setShuffleMode(shuffleMode);
   }
 
   /**
@@ -808,7 +628,7 @@ public class MediaSessionCompat {
    * @param extras The extras associated with the session.
    */
   public void setExtras(@Nullable Bundle extras) {
-    mImpl.setExtras(extras);
+    impl.setExtras(extras);
   }
 
   /**
@@ -820,20 +640,7 @@ public class MediaSessionCompat {
    */
   @Nullable
   public Object getMediaSession() {
-    return mImpl.getMediaSession();
-  }
-
-  /**
-   * Gets the underlying framework {@link android.media.RemoteControlClient} object.
-   *
-   * <p>This method is only supported on APIs 14-20. On API 21+ {@link #getMediaSession()} should be
-   * used instead.
-   *
-   * @return The underlying {@link android.media.RemoteControlClient} object, or null if none.
-   */
-  @Nullable
-  public Object getRemoteControlClient() {
-    return mImpl.getRemoteControlClient();
+    return impl.getMediaSession();
   }
 
   /**
@@ -858,76 +665,7 @@ public class MediaSessionCompat {
    */
   @Nullable
   public final RemoteUserInfo getCurrentControllerInfo() {
-    return mImpl.getCurrentControllerInfo();
-  }
-
-  /**
-   * Returns the name of the package that sent the last media button, transport control, or command
-   * from controllers and the system. This is only valid while in a request callback, such as {@link
-   * Callback#onPlay}. This method is not available and returns null on pre-N devices.
-   */
-  @Nullable
-  public String getCallingPackage() {
-    return mImpl.getCallingPackage();
-  }
-
-  /**
-   * Adds a listener to be notified when the active status of this session changes. This is
-   * primarily used by the support library and should not be needed by apps.
-   *
-   * @param listener The listener to add.
-   */
-  public void addOnActiveChangeListener(OnActiveChangeListener listener) {
-    if (listener == null) {
-      throw new IllegalArgumentException("Listener may not be null");
-    }
-    mActiveListeners.add(listener);
-  }
-
-  /**
-   * Stops the listener from being notified when the active status of this session changes.
-   *
-   * @param listener The listener to remove.
-   */
-  public void removeOnActiveChangeListener(OnActiveChangeListener listener) {
-    if (listener == null) {
-      throw new IllegalArgumentException("Listener may not be null");
-    }
-    mActiveListeners.remove(listener);
-  }
-
-  /**
-   * Creates an instance from a framework {@link android.media.session.MediaSession} object.
-   *
-   * <p>This method is only supported on API 21+. On API 20 and below, it returns null.
-   *
-   * <p>Note: A {@link MediaSessionCompat} object returned from this method may not provide the full
-   * functionality of {@link MediaSessionCompat} until setting a new {@link
-   * MediaSessionCompat.Callback}. To avoid this, when both a {@link MediaSessionCompat} and a
-   * framework {@link android.media.session.MediaSession} are needed, it is recommended to create a
-   * {@link MediaSessionCompat} first and get the framework session through {@link
-   * #getMediaSession()}.
-   *
-   * @param context The context to use to create the session.
-   * @param mediaSession A {@link android.media.session.MediaSession} object.
-   * @return An equivalent {@link MediaSessionCompat} object, or null if none.
-   */
-  @Nullable
-  public static MediaSessionCompat fromMediaSession(
-      @Nullable Context context, @Nullable Object mediaSession) {
-    if (Build.VERSION.SDK_INT < 21 || context == null || mediaSession == null) {
-      return null;
-    }
-    MediaSessionImpl impl;
-    if (Build.VERSION.SDK_INT >= 29) {
-      impl = new MediaSessionImplApi29(mediaSession);
-    } else if (Build.VERSION.SDK_INT >= 28) {
-      impl = new MediaSessionImplApi28(mediaSession);
-    } else {
-      // API 21+
-      impl = new MediaSessionImplApi21(mediaSession);
-    }
-    return new MediaSessionCompat(context, impl);
+    return impl.getCurrentControllerInfo();
   }
 
   /** A helper method for setting the application class loader to the given {@link Bundle}. */
@@ -1000,35 +738,30 @@ public class MediaSessionCompat {
    * session when it's set, so it may misbehave.
    */
   public abstract static class Callback {
-    final Object mLock = new Object();
-    @Nullable final MediaSession.Callback mCallbackFwk;
-    private boolean mMediaPlayPausePendingOnHandler;
+    final Object lock = new Object();
+    final MediaSession.Callback callbackFwk;
+    private boolean mediaPlayPausePendingOnHandler;
 
-    @GuardedBy("mLock")
-    WeakReference<MediaSessionImpl> mSessionImpl;
+    @GuardedBy("lock")
+    WeakReference<MediaSessionImpl> sessionImpl;
 
     @Nullable
-    @GuardedBy("mLock")
+    @GuardedBy("lock")
     @SuppressWarnings("WeakerAccess") /* synthetic access */
-    CallbackHandler mCallbackHandler;
+    CallbackHandler callbackHandler;
 
     public Callback() {
-      if (android.os.Build.VERSION.SDK_INT >= 21) {
-        mCallbackFwk = new MediaSessionCallbackApi21();
-      } else {
-        mCallbackFwk = null;
-      }
-      mSessionImpl = new WeakReference<>(null);
+      callbackFwk = new MediaSessionCallbackApi21();
+      sessionImpl = new WeakReference<>(null);
     }
 
-    void setSessionImpl(@Nullable MediaSessionImpl impl, @Nullable Handler handler) {
-      synchronized (mLock) {
-        mSessionImpl = new WeakReference<MediaSessionImpl>(impl);
-        if (mCallbackHandler != null) {
-          mCallbackHandler.removeCallbacksAndMessages(null);
+    void setSessionImpl(MediaSessionImpl impl, @Nullable Handler handler) {
+      synchronized (lock) {
+        sessionImpl = new WeakReference<>(impl);
+        if (callbackHandler != null) {
+          callbackHandler.removeCallbacksAndMessages(null);
         }
-        mCallbackHandler =
-            impl == null || handler == null ? null : new CallbackHandler(handler.getLooper());
+        callbackHandler = handler == null ? null : new CallbackHandler(handler.getLooper());
       }
     }
 
@@ -1064,9 +797,9 @@ public class MediaSessionCompat {
       }
       MediaSessionImpl impl;
       Handler callbackHandler;
-      synchronized (mLock) {
-        impl = mSessionImpl.get();
-        callbackHandler = mCallbackHandler;
+      synchronized (lock) {
+        impl = sessionImpl.get();
+        callbackHandler = this.callbackHandler;
       }
       if (impl == null || callbackHandler == null) {
         return false;
@@ -1081,10 +814,10 @@ public class MediaSessionCompat {
         case KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE:
         case KeyEvent.KEYCODE_HEADSETHOOK:
           if (keyEvent.getRepeatCount() == 0) {
-            if (mMediaPlayPausePendingOnHandler) {
+            if (mediaPlayPausePendingOnHandler) {
               callbackHandler.removeMessages(
                   CallbackHandler.MSG_MEDIA_PLAY_PAUSE_KEY_DOUBLE_TAP_TIMEOUT);
-              mMediaPlayPausePendingOnHandler = false;
+              mediaPlayPausePendingOnHandler = false;
               PlaybackStateCompat state = impl.getPlaybackState();
               long validActions = state == null ? 0 : state.getActions();
               // Consider double tap as the next.
@@ -1092,7 +825,7 @@ public class MediaSessionCompat {
                 onSkipToNext();
               }
             } else {
-              mMediaPlayPausePendingOnHandler = true;
+              mediaPlayPausePendingOnHandler = true;
               callbackHandler.sendMessageDelayed(
                   callbackHandler.obtainMessage(
                       CallbackHandler.MSG_MEDIA_PLAY_PAUSE_KEY_DOUBLE_TAP_TIMEOUT, remoteUserInfo),
@@ -1113,10 +846,10 @@ public class MediaSessionCompat {
     }
 
     void handleMediaPlayPauseIfPendingOnHandler(MediaSessionImpl impl, Handler callbackHandler) {
-      if (!mMediaPlayPausePendingOnHandler) {
+      if (!mediaPlayPausePendingOnHandler) {
         return;
       }
-      mMediaPlayPausePendingOnHandler = false;
+      mediaPlayPausePendingOnHandler = false;
       callbackHandler.removeMessages(CallbackHandler.MSG_MEDIA_PLAY_PAUSE_KEY_DOUBLE_TAP_TIMEOUT);
       PlaybackStateCompat state = impl.getPlaybackState();
       long validActions = state == null ? 0 : state.getActions();
@@ -1311,16 +1044,6 @@ public class MediaSessionCompat {
      */
     public void onRemoveQueueItem(@Nullable MediaDescriptionCompat description) {}
 
-    /**
-     * Called when a {@link MediaControllerCompat} wants to remove a {@link QueueItem} at the
-     * specified position in the play queue.
-     *
-     * @param index The index of the element to be removed.
-     * @deprecated {@link #onRemoveQueueItem} will be called instead.
-     */
-    @Deprecated
-    public void onRemoveQueueItemAt(int index) {}
-
     private class CallbackHandler extends Handler {
       private static final int MSG_MEDIA_PLAY_PAUSE_KEY_DOUBLE_TAP_TIMEOUT = 1;
 
@@ -1335,9 +1058,9 @@ public class MediaSessionCompat {
           // the session callback. This is triggered by timeout.
           MediaSessionImpl impl;
           Handler callbackHandler;
-          synchronized (mLock) {
-            impl = mSessionImpl.get();
-            callbackHandler = mCallbackHandler;
+          synchronized (lock) {
+            impl = sessionImpl.get();
+            callbackHandler = MediaSessionCompat.Callback.this.callbackHandler;
           }
           if (impl == null
               || MediaSessionCompat.Callback.this != impl.getCallback()
@@ -1352,12 +1075,10 @@ public class MediaSessionCompat {
       }
     }
 
-    @RequiresApi(21)
     private class MediaSessionCallbackApi21 extends MediaSession.Callback {
       MediaSessionCallbackApi21() {}
 
       @Override
-      @SuppressWarnings("deprecation")
       public void onCommand(String command, @Nullable Bundle extras, @Nullable ResultReceiver cb) {
         MediaSessionImplApi21 sessionImpl = getSessionImplIfCallbackIsSet();
         if (sessionImpl == null) {
@@ -1403,7 +1124,7 @@ public class MediaSessionCompat {
                       MediaDescriptionCompat.CREATOR));
             }
           } else if (command.equals(MediaControllerCompat.COMMAND_REMOVE_QUEUE_ITEM_AT)) {
-            List<MediaSessionCompat.QueueItem> queue = sessionImpl.mQueue;
+            List<MediaSessionCompat.QueueItem> queue = sessionImpl.queue;
             if (queue != null && extras != null) {
               int index = extras.getInt(MediaControllerCompat.COMMAND_ARGUMENT_INDEX, -1);
               QueueItem item = (index >= 0 && index < queue.size()) ? queue.get(index) : null;
@@ -1582,7 +1303,6 @@ public class MediaSessionCompat {
       }
 
       @Override
-      @SuppressWarnings("deprecation")
       public void onCustomAction(String action, @Nullable Bundle extras) {
         MediaSessionImplApi21 sessionImpl = getSessionImplIfCallbackIsSet();
         if (sessionImpl == null) {
@@ -1749,8 +1469,8 @@ public class MediaSessionCompat {
       @Nullable
       private MediaSessionImplApi21 getSessionImplIfCallbackIsSet() {
         MediaSessionImplApi21 sessionImpl;
-        synchronized (mLock) {
-          sessionImpl = (MediaSessionImplApi21) mSessionImpl.get();
+        synchronized (lock) {
+          sessionImpl = (MediaSessionImplApi21) Callback.this.sessionImpl.get();
         }
         return sessionImpl != null && MediaSessionCompat.Callback.this == sessionImpl.getCallback()
             ? sessionImpl
@@ -1784,46 +1504,42 @@ public class MediaSessionCompat {
    */
   @SuppressLint("BanParcelableUsage")
   public static final class Token implements Parcelable {
-    private final Object mLock = new Object();
-    private final Object mInner;
+    private final Object lock = new Object();
+    private final MediaSession.Token inner;
 
     @Nullable
-    @GuardedBy("mLock")
-    private IMediaSession mExtraBinder;
+    @GuardedBy("lock")
+    private IMediaSession extraBinder;
 
     @Nullable
-    @GuardedBy("mLock")
-    private VersionedParcelable mSession2Token;
+    @GuardedBy("lock")
+    private VersionedParcelable session2Token;
 
-    Token(Object inner) {
-      this(inner, null, null);
+    Token(MediaSession.Token inner) {
+      this(inner, /* extraBinder= */ null);
     }
 
-    Token(Object inner, @Nullable IMediaSession extraBinder) {
-      this(inner, extraBinder, null);
+    Token(MediaSession.Token inner, @Nullable IMediaSession extraBinder) {
+      this(inner, extraBinder, /* session2Token= */ null);
     }
 
     Token(
-        Object inner,
+        MediaSession.Token inner,
         @Nullable IMediaSession extraBinder,
         @Nullable VersionedParcelable session2Token) {
-      mInner = inner;
-      mExtraBinder = extraBinder;
-      mSession2Token = session2Token;
+      this.inner = inner;
+      this.extraBinder = extraBinder;
+      this.session2Token = session2Token;
     }
 
     /**
      * Creates a compat Token from a framework {@link android.media.session.MediaSession.Token}
      * object.
      *
-     * <p>This method is only supported on {@link android.os.Build.VERSION_CODES#LOLLIPOP} and
-     * later.
-     *
      * @param token The framework token object.
      * @return A compat Token for use with {@link MediaControllerCompat}.
      */
-    @RequiresApi(21)
-    public static Token fromToken(Object token) {
+    public static Token fromToken(MediaSession.Token token) {
       return fromToken(token, null);
     }
 
@@ -1831,19 +1547,12 @@ public class MediaSessionCompat {
      * Creates a compat Token from a framework {@link android.media.session.MediaSession.Token}
      * object, and the extra binder.
      *
-     * <p>This method is only supported on {@link android.os.Build.VERSION_CODES#LOLLIPOP} and
-     * later.
-     *
      * @param token The framework token object.
      * @param extraBinder The extra binder.
      * @return A compat Token for use with {@link MediaControllerCompat}.
      */
-    @RequiresApi(21)
-    /* package */ static Token fromToken(Object token, @Nullable IMediaSession extraBinder) {
-      checkState(token != null);
-      if (!(token instanceof MediaSession.Token)) {
-        throw new IllegalArgumentException("token is not a valid MediaSession.Token object");
-      }
+    /* package */ static Token fromToken(
+        MediaSession.Token token, @Nullable IMediaSession extraBinder) {
       return new Token(token, extraBinder);
     }
 
@@ -1854,19 +1563,12 @@ public class MediaSessionCompat {
 
     @Override
     public void writeToParcel(Parcel dest, int flags) {
-      if (android.os.Build.VERSION.SDK_INT >= 21) {
-        dest.writeParcelable((Parcelable) mInner, flags);
-      } else {
-        dest.writeStrongBinder((IBinder) mInner);
-      }
+      dest.writeParcelable(inner, flags);
     }
 
     @Override
     public int hashCode() {
-      if (mInner == null) {
-        return 0;
-      }
-      return mInner.hashCode();
+      return inner.hashCode();
     }
 
     @Override
@@ -1879,52 +1581,43 @@ public class MediaSessionCompat {
       }
 
       Token other = (Token) obj;
-      if (mInner == null) {
-        return other.mInner == null;
-      }
-      if (other.mInner == null) {
-        return false;
-      }
-      return mInner.equals(other.mInner);
+      return inner.equals(other.inner);
     }
 
     /**
      * Gets the underlying framework {@link android.media.session.MediaSession.Token} object.
      *
-     * <p>This method is only supported on API 21+.
-     *
-     * @return The underlying {@link android.media.session.MediaSession.Token} object, or null if
-     *     none.
+     * @return The underlying {@link android.media.session.MediaSession.Token} object.
      */
-    public Object getToken() {
-      return mInner;
+    public MediaSession.Token getToken() {
+      return inner;
     }
 
     @Nullable
     /* package */ IMediaSession getExtraBinder() {
-      synchronized (mLock) {
-        return mExtraBinder;
+      synchronized (lock) {
+        return extraBinder;
       }
     }
 
     /* package */ void setExtraBinder(@Nullable IMediaSession extraBinder) {
-      synchronized (mLock) {
-        mExtraBinder = extraBinder;
+      synchronized (lock) {
+        this.extraBinder = extraBinder;
       }
     }
 
     /** */
     @Nullable
     public VersionedParcelable getSession2Token() {
-      synchronized (mLock) {
-        return mSession2Token;
+      synchronized (lock) {
+        return session2Token;
       }
     }
 
     /** */
     public void setSession2Token(@Nullable VersionedParcelable session2Token) {
-      synchronized (mLock) {
-        mSession2Token = session2Token;
+      synchronized (lock) {
+        this.session2Token = session2Token;
       }
     }
 
@@ -1935,12 +1628,12 @@ public class MediaSessionCompat {
           KEY_TOKEN,
           LegacyParcelableUtil.convert(
               this, android.support.v4.media.session.MediaSessionCompat.Token.CREATOR));
-      synchronized (mLock) {
-        if (mExtraBinder != null) {
-          bundle.putBinder(KEY_EXTRA_BINDER, mExtraBinder.asBinder());
+      synchronized (lock) {
+        if (extraBinder != null) {
+          bundle.putBinder(KEY_EXTRA_BINDER, extraBinder.asBinder());
         }
-        if (mSession2Token != null) {
-          ParcelUtils.putVersionedParcelable(bundle, KEY_SESSION2_TOKEN, mSession2Token);
+        if (session2Token != null) {
+          ParcelUtils.putVersionedParcelable(bundle, KEY_SESSION2_TOKEN, session2Token);
         }
       }
       return bundle;
@@ -1949,10 +1642,9 @@ public class MediaSessionCompat {
     /**
      * Creates a compat Token from a bundle object.
      *
-     * @param tokenBundle
+     * @param tokenBundle The {@link Bundle} of this token.
      * @return A compat Token for use with {@link MediaControllerCompat}.
      */
-    @SuppressWarnings("deprecation")
     @Nullable
     public static Token fromBundle(@Nullable Bundle tokenBundle) {
       if (tokenBundle == null) {
@@ -1964,20 +1656,14 @@ public class MediaSessionCompat {
       VersionedParcelable session2Token =
           ParcelUtils.getVersionedParcelable(tokenBundle, KEY_SESSION2_TOKEN);
       Token token = LegacyParcelableUtil.convert(tokenBundle.getParcelable(KEY_TOKEN), CREATOR);
-      return token == null ? null : new Token(token.mInner, extraSession, session2Token);
+      return token == null ? null : new Token(token.inner, extraSession, session2Token);
     }
 
     public static final Parcelable.Creator<Token> CREATOR =
         new Parcelable.Creator<Token>() {
-          @SuppressWarnings("deprecation")
           @Override
           public Token createFromParcel(Parcel in) {
-            Object inner;
-            if (android.os.Build.VERSION.SDK_INT >= 21) {
-              inner = in.readParcelable(null);
-            } else {
-              inner = in.readStrongBinder();
-            }
+            MediaSession.Token inner = in.readParcelable(null);
             return new Token(checkNotNull(inner));
           }
 
@@ -1997,10 +1683,10 @@ public class MediaSessionCompat {
     /** This id is reserved. No items can be explicitly assigned this id. */
     public static final int UNKNOWN_ID = -1;
 
-    private final MediaDescriptionCompat mDescription;
-    private final long mId;
+    private final MediaDescriptionCompat description;
+    private final long id;
 
-    @Nullable private MediaSession.QueueItem mItemFwk;
+    @Nullable private MediaSession.QueueItem itemFwk;
 
     /**
      * Creates a new {@link MediaSessionCompat.QueueItem}.
@@ -2014,39 +1700,34 @@ public class MediaSessionCompat {
     }
 
     private QueueItem(
-        @Nullable MediaSession.QueueItem queueItem,
-        @Nullable MediaDescriptionCompat description,
-        long id) {
-      if (description == null) {
-        throw new IllegalArgumentException("Description cannot be null");
-      }
+        @Nullable MediaSession.QueueItem queueItem, MediaDescriptionCompat description, long id) {
       if (id == UNKNOWN_ID) {
         throw new IllegalArgumentException("Id cannot be QueueItem.UNKNOWN_ID");
       }
-      mDescription = description;
-      mId = id;
-      mItemFwk = queueItem;
+      this.description = description;
+      this.id = id;
+      itemFwk = queueItem;
     }
 
     QueueItem(Parcel in) {
-      mDescription = MediaDescriptionCompat.CREATOR.createFromParcel(in);
-      mId = in.readLong();
+      description = MediaDescriptionCompat.CREATOR.createFromParcel(in);
+      id = in.readLong();
     }
 
     /** Gets the description for this item. */
     public MediaDescriptionCompat getDescription() {
-      return mDescription;
+      return description;
     }
 
     /** Gets the queue id for this item. */
     public long getQueueId() {
-      return mId;
+      return id;
     }
 
     @Override
     public void writeToParcel(Parcel dest, int flags) {
-      mDescription.writeToParcel(dest, flags);
-      dest.writeLong(mId);
+      description.writeToParcel(dest, flags);
+      dest.writeLong(id);
     }
 
     @Override
@@ -2057,37 +1738,30 @@ public class MediaSessionCompat {
     /**
      * Gets the underlying {@link android.media.session.MediaSession.QueueItem}.
      *
-     * <p>On builds before {@link android.os.Build.VERSION_CODES#LOLLIPOP} null is returned.
-     *
      * @return The underlying {@link android.media.session.MediaSession.QueueItem} or null.
      */
-    @Nullable
-    public Object getQueueItem() {
-      if (mItemFwk != null || android.os.Build.VERSION.SDK_INT < 21) {
-        return mItemFwk;
+    public MediaSession.QueueItem getQueueItem() {
+      if (itemFwk != null) {
+        return itemFwk;
       }
-      mItemFwk =
-          Api21Impl.createQueueItem((MediaDescription) mDescription.getMediaDescription(), mId);
-      return mItemFwk;
+      MediaDescription description = this.description.getMediaDescription();
+      itemFwk = new MediaSession.QueueItem(description, id);
+      return itemFwk;
     }
 
     /**
      * Creates an instance from a framework {@link android.media.session.MediaSession.QueueItem}
      * object.
      *
-     * <p>This method is only supported on API 21+.
-     *
      * @param queueItem A {@link android.media.session.MediaSession.QueueItem} object.
      * @return An equivalent {@link QueueItem} object.
      */
-    @RequiresApi(21)
-    public static QueueItem fromQueueItem(Object queueItem) {
-      MediaSession.QueueItem queueItemObj = (MediaSession.QueueItem) queueItem;
-      Object descriptionObj = Api21Impl.getDescription(queueItemObj);
+    public static QueueItem fromQueueItem(MediaSession.QueueItem queueItem) {
+      MediaDescription mediaDescription = queueItem.getDescription();
       MediaDescriptionCompat description =
-          MediaDescriptionCompat.fromMediaDescription(descriptionObj);
-      long id = Api21Impl.getQueueId(queueItemObj);
-      return new QueueItem(queueItemObj, description, id);
+          MediaDescriptionCompat.fromMediaDescription(mediaDescription);
+      long id = queueItem.getQueueId();
+      return new QueueItem(queueItem, description, id);
     }
 
     /**
@@ -2101,12 +1775,12 @@ public class MediaSessionCompat {
      */
     @Nullable
     public static List<QueueItem> fromQueueItemList(
-        @Nullable List<? extends @NonNull Object> itemList) {
-      if (itemList == null || Build.VERSION.SDK_INT < 21) {
+        @Nullable List<MediaSession.QueueItem> itemList) {
+      if (itemList == null) {
         return null;
       }
       List<QueueItem> items = new ArrayList<>(itemList.size());
-      for (Object itemObj : itemList) {
+      for (MediaSession.QueueItem itemObj : itemList) {
         items.add(fromQueueItem(itemObj));
       }
       return items;
@@ -2128,24 +1802,7 @@ public class MediaSessionCompat {
 
     @Override
     public String toString() {
-      return "MediaSession.QueueItem {" + "Description=" + mDescription + ", Id=" + mId + " }";
-    }
-
-    @RequiresApi(21)
-    private static class Api21Impl {
-      private Api21Impl() {}
-
-      static MediaSession.QueueItem createQueueItem(MediaDescription description, long id) {
-        return new MediaSession.QueueItem(description, id);
-      }
-
-      static MediaDescription getDescription(MediaSession.QueueItem queueItem) {
-        return queueItem.getDescription();
-      }
-
-      static long getQueueId(MediaSession.QueueItem queueItem) {
-        return queueItem.getQueueId();
-      }
+      return "MediaSession.QueueItem { Description=" + description + ", Id=" + id + " }";
     }
   }
 
@@ -2155,14 +1812,10 @@ public class MediaSessionCompat {
    */
   @SuppressLint("BanParcelableUsage")
   /* package */ static final class ResultReceiverWrapper implements Parcelable {
-    ResultReceiver mResultReceiver;
-
-    public ResultReceiverWrapper(ResultReceiver resultReceiver) {
-      mResultReceiver = resultReceiver;
-    }
+    ResultReceiver resultReceiver;
 
     ResultReceiverWrapper(Parcel in) {
-      mResultReceiver = ResultReceiver.CREATOR.createFromParcel(in);
+      resultReceiver = ResultReceiver.CREATOR.createFromParcel(in);
     }
 
     public static final Creator<ResultReceiverWrapper> CREATOR =
@@ -2185,18 +1838,12 @@ public class MediaSessionCompat {
 
     @Override
     public void writeToParcel(Parcel dest, int flags) {
-      mResultReceiver.writeToParcel(dest, flags);
+      resultReceiver.writeToParcel(dest, flags);
     }
-  }
-
-  public interface OnActiveChangeListener {
-    void onActiveChanged();
   }
 
   interface MediaSessionImpl {
     void setCallback(@Nullable Callback callback, @Nullable Handler handler);
-
-    void setRegistrationCallback(@Nullable RegistrationCallback callback, Handler handler);
 
     void setFlags(@SessionFlags int flags);
 
@@ -2221,7 +1868,7 @@ public class MediaSessionCompat {
 
     void setMetadata(@Nullable MediaMetadataCompat metadata);
 
-    void setSessionActivity(PendingIntent pi);
+    void setSessionActivity(@Nullable PendingIntent pi);
 
     void setMediaButtonReceiver(@Nullable PendingIntent mbr);
 
@@ -2231,8 +1878,6 @@ public class MediaSessionCompat {
 
     void setRatingType(@RatingCompat.Style int type);
 
-    void setCaptioningEnabled(boolean enabled);
-
     void setRepeatMode(@PlaybackStateCompat.RepeatMode int repeatMode);
 
     void setShuffleMode(@PlaybackStateCompat.ShuffleMode int shuffleMode);
@@ -2241,9 +1886,6 @@ public class MediaSessionCompat {
 
     @Nullable
     Object getMediaSession();
-
-    @Nullable
-    Object getRemoteControlClient();
 
     @Nullable
     String getCallingPackage();
@@ -2257,1627 +1899,36 @@ public class MediaSessionCompat {
     Callback getCallback();
   }
 
-  static class MediaSessionImplBase implements MediaSessionImpl {
-    /***** RemoteControlClient States, we only need none as the others were public *******/
-    static final int RCC_PLAYSTATE_NONE = 0;
-
-    private final Context mContext;
-    private final ComponentName mMediaButtonReceiverComponentName;
-    private final PendingIntent mMediaButtonReceiverIntent;
-    private final MediaSessionStub mStub;
-    private final Token mToken;
-    @Nullable final Bundle mSessionInfo;
-    final AudioManager mAudioManager;
-    final RemoteControlClient mRcc;
-
-    final Object mLock = new Object();
-    final RemoteCallbackList<IMediaControllerCallback> mControllerCallbacks =
-        new RemoteCallbackList<>();
-
-    @Nullable private MessageHandler mHandler;
-    boolean mDestroyed = false;
-    boolean mIsActive = false;
-    @Nullable volatile Callback mCallback;
-    @Nullable private RemoteUserInfo mRemoteUserInfo;
-
-    @SuppressWarnings("WeakerAccess") /* synthetic access */
-    @Nullable
-    RegistrationCallbackHandler mRegistrationCallbackHandler;
-
-    // For backward compatibility, these flags are always set.
-    @SessionFlags int mFlags = FLAG_HANDLES_MEDIA_BUTTONS | FLAG_HANDLES_TRANSPORT_CONTROLS;
-
-    @Nullable MediaMetadataCompat mMetadata;
-    @Nullable PlaybackStateCompat mState;
-    @Nullable PendingIntent mSessionActivity;
-    @Nullable List<QueueItem> mQueue;
-    @Nullable CharSequence mQueueTitle;
-    @RatingCompat.Style int mRatingType;
-    boolean mCaptioningEnabled;
-    @PlaybackStateCompat.RepeatMode int mRepeatMode;
-    @PlaybackStateCompat.ShuffleMode int mShuffleMode;
-    @Nullable Bundle mExtras;
-
-    int mVolumeType;
-    int mLocalStream;
-    @Nullable VolumeProviderCompat mVolumeProvider;
-
-    private VolumeProviderCompat.Callback mVolumeCallback =
-        new VolumeProviderCompat.Callback() {
-          @SuppressWarnings("method.invocation.invalid") // referencing method from constructor
-          @Override
-          public void onVolumeChanged(VolumeProviderCompat volumeProvider) {
-            if (mVolumeProvider != volumeProvider) {
-              return;
-            }
-            ParcelableVolumeInfo info =
-                new ParcelableVolumeInfo(
-                    mVolumeType,
-                    mLocalStream,
-                    volumeProvider.getVolumeControl(),
-                    volumeProvider.getMaxVolume(),
-                    volumeProvider.getCurrentVolume());
-            sendVolumeInfoChanged(info);
-          }
-        };
-
-    @SuppressWarnings({
-      "assignment.type.incompatible",
-      "argument.type.incompatible"
-    }) // Sharing this in constructor
-    public MediaSessionImplBase(
-        Context context,
-        String tag,
-        ComponentName mbrComponent,
-        @Nullable PendingIntent mbrIntent,
-        @Nullable VersionedParcelable session2Token,
-        @Nullable Bundle sessionInfo) {
-      if (mbrComponent == null) {
-        throw new IllegalArgumentException("MediaButtonReceiver component may not be null");
-      }
-      mContext = context;
-      mSessionInfo = sessionInfo;
-      mAudioManager = (AudioManager) checkNotNull(context.getSystemService(Context.AUDIO_SERVICE));
-      mMediaButtonReceiverComponentName = mbrComponent;
-      mMediaButtonReceiverIntent = mbrIntent;
-      mStub = new MediaSessionStub(/* mediaSessionImpl= */ this, context.getPackageName(), tag);
-      mToken = new Token(mStub, /* extraBinder= */ null, session2Token);
-
-      mRatingType = RatingCompat.RATING_NONE;
-      mVolumeType = MediaControllerCompat.PlaybackInfo.PLAYBACK_TYPE_LOCAL;
-      mLocalStream = AudioManager.STREAM_MUSIC;
-      mRcc = new RemoteControlClient(mbrIntent);
-    }
-
-    @Override
-    public void setCallback(@Nullable Callback callback, @Nullable Handler handler) {
-      synchronized (mLock) {
-        if (mHandler != null) {
-          mHandler.removeCallbacksAndMessages(null);
-        }
-        mHandler =
-            callback == null || handler == null ? null : new MessageHandler(handler.getLooper());
-        if (mCallback != callback && mCallback != null) {
-          mCallback.setSessionImpl(null, null);
-        }
-        mCallback = callback;
-        if (mCallback != null) {
-          mCallback.setSessionImpl(this, handler);
-        }
-      }
-    }
-
-    @Override
-    public void setRegistrationCallback(@Nullable RegistrationCallback callback, Handler handler) {
-      synchronized (mLock) {
-        if (mRegistrationCallbackHandler != null) {
-          mRegistrationCallbackHandler.removeCallbacksAndMessages(null);
-        }
-        if (callback != null) {
-          mRegistrationCallbackHandler =
-              new RegistrationCallbackHandler(handler.getLooper(), callback);
-        } else {
-          mRegistrationCallbackHandler = null;
-        }
-      }
-    }
-
-    void postToHandler(
-        int what, int arg1, int arg2, @Nullable Object obj, @Nullable Bundle extras) {
-      synchronized (mLock) {
-        if (mHandler != null) {
-          Message msg = mHandler.obtainMessage(what, arg1, arg2, obj);
-          Bundle data = new Bundle();
-
-          int uid = Binder.getCallingUid();
-          data.putInt(DATA_CALLING_UID, uid);
-          // Note: Different apps can have same uid, but only when they are signed with
-          // the same private key. This means those apps are from the same developer.
-          // Session apps can allow/reject controller by reading one of their names.
-          data.putString(DATA_CALLING_PACKAGE, getPackageNameForUid(uid));
-          int pid = Binder.getCallingPid();
-          if (pid > 0) {
-            data.putInt(DATA_CALLING_PID, pid);
-          } else {
-            // This cannot be happen for now, but added for future changes.
-            data.putInt(DATA_CALLING_PID, UNKNOWN_PID);
-          }
-          if (extras != null) {
-            data.putBundle(DATA_EXTRAS, extras);
-          }
-          msg.setData(data);
-          msg.sendToTarget();
-        }
-      }
-    }
-
-    String getPackageNameForUid(int uid) {
-      String result = mContext.getPackageManager().getNameForUid(uid);
-      if (TextUtils.isEmpty(result)) {
-        result = LEGACY_CONTROLLER;
-      }
-      return result;
-    }
-
-    @Override
-    public void setFlags(@SessionFlags int flags) {
-      synchronized (mLock) {
-        // For backward compatibility, these flags are always set.
-        mFlags = flags | FLAG_HANDLES_MEDIA_BUTTONS | FLAG_HANDLES_TRANSPORT_CONTROLS;
-      }
-    }
-
-    @Override
-    public void setPlaybackToLocal(int stream) {
-      if (mVolumeProvider != null) {
-        mVolumeProvider.setCallback(null);
-      }
-      mLocalStream = stream;
-      mVolumeType = MediaControllerCompat.PlaybackInfo.PLAYBACK_TYPE_LOCAL;
-      ParcelableVolumeInfo info =
-          new ParcelableVolumeInfo(
-              mVolumeType,
-              mLocalStream,
-              VolumeProviderCompat.VOLUME_CONTROL_ABSOLUTE,
-              mAudioManager.getStreamMaxVolume(mLocalStream),
-              mAudioManager.getStreamVolume(mLocalStream));
-      sendVolumeInfoChanged(info);
-    }
-
-    @Override
-    public void setPlaybackToRemote(VolumeProviderCompat volumeProvider) {
-      if (volumeProvider == null) {
-        throw new IllegalArgumentException("volumeProvider may not be null");
-      }
-      if (mVolumeProvider != null) {
-        mVolumeProvider.setCallback(null);
-      }
-      mVolumeType = MediaControllerCompat.PlaybackInfo.PLAYBACK_TYPE_REMOTE;
-      mVolumeProvider = volumeProvider;
-      ParcelableVolumeInfo info =
-          new ParcelableVolumeInfo(
-              mVolumeType,
-              mLocalStream,
-              mVolumeProvider.getVolumeControl(),
-              mVolumeProvider.getMaxVolume(),
-              mVolumeProvider.getCurrentVolume());
-      sendVolumeInfoChanged(info);
-
-      volumeProvider.setCallback(mVolumeCallback);
-    }
-
-    @Override
-    public void setActive(boolean active) {
-      if (active == mIsActive) {
-        return;
-      }
-      mIsActive = active;
-      updateMbrAndRcc();
-    }
-
-    @Override
-    public boolean isActive() {
-      return mIsActive;
-    }
-
-    @Override
-    public void sendSessionEvent(String event, @Nullable Bundle extras) {
-      sendEvent(event, extras);
-    }
-
-    @Override
-    public void release() {
-      mIsActive = false;
-      mDestroyed = true;
-      updateMbrAndRcc();
-      sendSessionDestroyed();
-      setCallback(null, null);
-    }
-
-    @Override
-    public Token getSessionToken() {
-      return mToken;
-    }
-
-    @Override
-    public void setPlaybackState(@Nullable PlaybackStateCompat state) {
-      synchronized (mLock) {
-        mState = state;
-      }
-      sendState(state);
-      if (!mIsActive) {
-        // Don't set the state until after the RCC is registered
-        return;
-      }
-      if (state == null) {
-        mRcc.setPlaybackState(0);
-        mRcc.setTransportControlFlags(0);
-      } else {
-        // Set state
-        setRccState(checkNotNull(state));
-
-        // Set transport control flags
-        mRcc.setTransportControlFlags(getRccTransportControlFlagsFromActions(state.getActions()));
-      }
-    }
-
-    @Nullable
-    @Override
-    public PlaybackStateCompat getPlaybackState() {
-      synchronized (mLock) {
-        return mState;
-      }
-    }
-
-    void setRccState(PlaybackStateCompat state) {
-      mRcc.setPlaybackState(getRccStateFromState(state.getState()));
-    }
-
-    int getRccStateFromState(int state) {
-      switch (state) {
-        case PlaybackStateCompat.STATE_CONNECTING:
-        case PlaybackStateCompat.STATE_BUFFERING:
-          return RemoteControlClient.PLAYSTATE_BUFFERING;
-        case PlaybackStateCompat.STATE_ERROR:
-          return RemoteControlClient.PLAYSTATE_ERROR;
-        case PlaybackStateCompat.STATE_FAST_FORWARDING:
-          return RemoteControlClient.PLAYSTATE_FAST_FORWARDING;
-        case PlaybackStateCompat.STATE_NONE:
-          return RCC_PLAYSTATE_NONE;
-        case PlaybackStateCompat.STATE_PAUSED:
-          return RemoteControlClient.PLAYSTATE_PAUSED;
-        case PlaybackStateCompat.STATE_PLAYING:
-          return RemoteControlClient.PLAYSTATE_PLAYING;
-        case PlaybackStateCompat.STATE_REWINDING:
-          return RemoteControlClient.PLAYSTATE_REWINDING;
-        case PlaybackStateCompat.STATE_SKIPPING_TO_PREVIOUS:
-          return RemoteControlClient.PLAYSTATE_SKIPPING_BACKWARDS;
-        case PlaybackStateCompat.STATE_SKIPPING_TO_NEXT:
-        case PlaybackStateCompat.STATE_SKIPPING_TO_QUEUE_ITEM:
-          return RemoteControlClient.PLAYSTATE_SKIPPING_FORWARDS;
-        case PlaybackStateCompat.STATE_STOPPED:
-          return RemoteControlClient.PLAYSTATE_STOPPED;
-        default:
-          return -1;
-      }
-    }
-
-    int getRccTransportControlFlagsFromActions(long actions) {
-      int transportControlFlags = 0;
-      if ((actions & PlaybackStateCompat.ACTION_STOP) != 0) {
-        transportControlFlags |= RemoteControlClient.FLAG_KEY_MEDIA_STOP;
-      }
-      if ((actions & PlaybackStateCompat.ACTION_PAUSE) != 0) {
-        transportControlFlags |= RemoteControlClient.FLAG_KEY_MEDIA_PAUSE;
-      }
-      if ((actions & PlaybackStateCompat.ACTION_PLAY) != 0) {
-        transportControlFlags |= RemoteControlClient.FLAG_KEY_MEDIA_PLAY;
-      }
-      if ((actions & PlaybackStateCompat.ACTION_REWIND) != 0) {
-        transportControlFlags |= RemoteControlClient.FLAG_KEY_MEDIA_REWIND;
-      }
-      if ((actions & PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS) != 0) {
-        transportControlFlags |= RemoteControlClient.FLAG_KEY_MEDIA_PREVIOUS;
-      }
-      if ((actions & PlaybackStateCompat.ACTION_SKIP_TO_NEXT) != 0) {
-        transportControlFlags |= RemoteControlClient.FLAG_KEY_MEDIA_NEXT;
-      }
-      if ((actions & PlaybackStateCompat.ACTION_FAST_FORWARD) != 0) {
-        transportControlFlags |= RemoteControlClient.FLAG_KEY_MEDIA_FAST_FORWARD;
-      }
-      if ((actions & PlaybackStateCompat.ACTION_PLAY_PAUSE) != 0) {
-        transportControlFlags |= RemoteControlClient.FLAG_KEY_MEDIA_PLAY_PAUSE;
-      }
-      return transportControlFlags;
-    }
-
-    @Override
-    public void setMetadata(@Nullable MediaMetadataCompat metadata) {
-      if (metadata != null) {
-        // Clones {@link MediaMetadataCompat} and scales down bitmaps if they are large.
-        metadata = new MediaMetadataCompat.Builder(metadata, sMaxBitmapSize).build();
-      }
-
-      synchronized (mLock) {
-        mMetadata = metadata;
-      }
-      sendMetadata(metadata);
-      if (!mIsActive) {
-        // Don't set metadata until after the rcc has been registered
-        return;
-      }
-      RemoteControlClient.MetadataEditor editor =
-          buildRccMetadata(metadata == null ? null : metadata.getBundle());
-      editor.apply();
-    }
-
-    @SuppressWarnings({"deprecation", "argument.type.incompatible"})
-    RemoteControlClient.MetadataEditor buildRccMetadata(@Nullable Bundle metadata) {
-      RemoteControlClient.MetadataEditor editor = mRcc.editMetadata(true);
-      if (metadata == null) {
-        return editor;
-      }
-      if (metadata.containsKey(MediaMetadataCompat.METADATA_KEY_ART)) {
-        Bitmap art = metadata.getParcelable(MediaMetadataCompat.METADATA_KEY_ART);
-        if (art != null) {
-          // Clone the bitmap to prevent it from being recycled by RCC.
-          art = art.copy(art.getConfig(), false);
-        }
-        editor.putBitmap(RemoteControlClient.MetadataEditor.BITMAP_KEY_ARTWORK, art);
-      } else if (metadata.containsKey(MediaMetadataCompat.METADATA_KEY_ALBUM_ART)) {
-        // Fall back to album art if the track art wasn't available
-        Bitmap art = metadata.getParcelable(MediaMetadataCompat.METADATA_KEY_ALBUM_ART);
-        if (art != null) {
-          // Clone the bitmap to prevent it from being recycled by RCC.
-          art = art.copy(art.getConfig(), false);
-        }
-        editor.putBitmap(RemoteControlClient.MetadataEditor.BITMAP_KEY_ARTWORK, art);
-      }
-      if (metadata.containsKey(MediaMetadataCompat.METADATA_KEY_ALBUM)) {
-        editor.putString(
-            MediaMetadataRetriever.METADATA_KEY_ALBUM,
-            metadata.getString(MediaMetadataCompat.METADATA_KEY_ALBUM));
-      }
-      if (metadata.containsKey(MediaMetadataCompat.METADATA_KEY_ALBUM_ARTIST)) {
-        editor.putString(
-            MediaMetadataRetriever.METADATA_KEY_ALBUMARTIST,
-            metadata.getString(MediaMetadataCompat.METADATA_KEY_ALBUM_ARTIST));
-      }
-      if (metadata.containsKey(MediaMetadataCompat.METADATA_KEY_ARTIST)) {
-        editor.putString(
-            MediaMetadataRetriever.METADATA_KEY_ARTIST,
-            metadata.getString(MediaMetadataCompat.METADATA_KEY_ARTIST));
-      }
-      if (metadata.containsKey(MediaMetadataCompat.METADATA_KEY_AUTHOR)) {
-        editor.putString(
-            MediaMetadataRetriever.METADATA_KEY_AUTHOR,
-            metadata.getString(MediaMetadataCompat.METADATA_KEY_AUTHOR));
-      }
-      if (metadata.containsKey(MediaMetadataCompat.METADATA_KEY_COMPILATION)) {
-        editor.putString(
-            MediaMetadataRetriever.METADATA_KEY_COMPILATION,
-            metadata.getString(MediaMetadataCompat.METADATA_KEY_COMPILATION));
-      }
-      if (metadata.containsKey(MediaMetadataCompat.METADATA_KEY_COMPOSER)) {
-        editor.putString(
-            MediaMetadataRetriever.METADATA_KEY_COMPOSER,
-            metadata.getString(MediaMetadataCompat.METADATA_KEY_COMPOSER));
-      }
-      if (metadata.containsKey(MediaMetadataCompat.METADATA_KEY_DATE)) {
-        editor.putString(
-            MediaMetadataRetriever.METADATA_KEY_DATE,
-            metadata.getString(MediaMetadataCompat.METADATA_KEY_DATE));
-      }
-      if (metadata.containsKey(MediaMetadataCompat.METADATA_KEY_DISC_NUMBER)) {
-        editor.putLong(
-            MediaMetadataRetriever.METADATA_KEY_DISC_NUMBER,
-            metadata.getLong(MediaMetadataCompat.METADATA_KEY_DISC_NUMBER));
-      }
-      if (metadata.containsKey(MediaMetadataCompat.METADATA_KEY_DURATION)) {
-        editor.putLong(
-            MediaMetadataRetriever.METADATA_KEY_DURATION,
-            metadata.getLong(MediaMetadataCompat.METADATA_KEY_DURATION));
-      }
-      if (metadata.containsKey(MediaMetadataCompat.METADATA_KEY_GENRE)) {
-        editor.putString(
-            MediaMetadataRetriever.METADATA_KEY_GENRE,
-            metadata.getString(MediaMetadataCompat.METADATA_KEY_GENRE));
-      }
-      if (metadata.containsKey(MediaMetadataCompat.METADATA_KEY_TITLE)) {
-        editor.putString(
-            MediaMetadataRetriever.METADATA_KEY_TITLE,
-            metadata.getString(MediaMetadataCompat.METADATA_KEY_TITLE));
-      }
-      if (metadata.containsKey(MediaMetadataCompat.METADATA_KEY_TRACK_NUMBER)) {
-        editor.putLong(
-            MediaMetadataRetriever.METADATA_KEY_CD_TRACK_NUMBER,
-            metadata.getLong(MediaMetadataCompat.METADATA_KEY_TRACK_NUMBER));
-      }
-      if (metadata.containsKey(MediaMetadataCompat.METADATA_KEY_WRITER)) {
-        editor.putString(
-            MediaMetadataRetriever.METADATA_KEY_WRITER,
-            metadata.getString(MediaMetadataCompat.METADATA_KEY_WRITER));
-      }
-      return editor;
-    }
-
-    @Override
-    public void setSessionActivity(PendingIntent pi) {
-      synchronized (mLock) {
-        mSessionActivity = pi;
-      }
-    }
-
-    @Override
-    public void setMediaButtonReceiver(@Nullable PendingIntent mbr) {
-      // Do nothing, changing this is not supported before API 21.
-    }
-
-    @Override
-    public void setQueue(@Nullable List<QueueItem> queue) {
-      mQueue = queue;
-      sendQueue(queue);
-    }
-
-    @Override
-    public void setQueueTitle(CharSequence title) {
-      mQueueTitle = title;
-      sendQueueTitle(title);
-    }
-
-    @Nullable
-    @Override
-    public Object getMediaSession() {
-      return null;
-    }
-
-    @Nullable
-    @Override
-    public Object getRemoteControlClient() {
-      return null;
-    }
-
-    @Nullable
-    @Override
-    public String getCallingPackage() {
-      return null;
-    }
-
-    @Override
-    public void setRatingType(@RatingCompat.Style int type) {
-      mRatingType = type;
-    }
-
-    @Override
-    public void setCaptioningEnabled(boolean enabled) {
-      if (mCaptioningEnabled != enabled) {
-        mCaptioningEnabled = enabled;
-        sendCaptioningEnabled(enabled);
-      }
-    }
-
-    @Override
-    public void setRepeatMode(@PlaybackStateCompat.RepeatMode int repeatMode) {
-      if (mRepeatMode != repeatMode) {
-        mRepeatMode = repeatMode;
-        sendRepeatMode(repeatMode);
-      }
-    }
-
-    @Override
-    public void setShuffleMode(@PlaybackStateCompat.ShuffleMode int shuffleMode) {
-      if (mShuffleMode != shuffleMode) {
-        mShuffleMode = shuffleMode;
-        sendShuffleMode(shuffleMode);
-      }
-    }
-
-    @Override
-    public void setExtras(@Nullable Bundle extras) {
-      mExtras = extras;
-      sendExtras(extras);
-    }
-
-    @Nullable
-    @Override
-    public RemoteUserInfo getCurrentControllerInfo() {
-      synchronized (mLock) {
-        return mRemoteUserInfo;
-      }
-    }
-
-    @Override
-    public void setCurrentControllerInfo(@Nullable RemoteUserInfo remoteUserInfo) {
-      synchronized (mLock) {
-        mRemoteUserInfo = remoteUserInfo;
-      }
-    }
-
-    @Nullable
-    @Override
-    public Callback getCallback() {
-      synchronized (mLock) {
-        return mCallback;
-      }
-    }
-
-    // Registers/unregisters components as needed.
-    void updateMbrAndRcc() {
-      if (mIsActive) {
-        // When session becomes active, register MBR and RCC.
-        registerMediaButtonEventReceiver(
-            mMediaButtonReceiverIntent, mMediaButtonReceiverComponentName);
-        mAudioManager.registerRemoteControlClient(mRcc);
-
-        setMetadata(mMetadata);
-        setPlaybackState(mState);
-      } else {
-        // When inactive remove any registered components.
-        unregisterMediaButtonEventReceiver(
-            mMediaButtonReceiverIntent, mMediaButtonReceiverComponentName);
-        // RCC keeps the state while the system resets its state internally when
-        // we register RCC. Reset the state so that the states in RCC and the system
-        // are in sync when we re-register the RCC.
-        mRcc.setPlaybackState(0);
-        mAudioManager.unregisterRemoteControlClient(mRcc);
-      }
-    }
-
-    void registerMediaButtonEventReceiver(PendingIntent mbrIntent, ComponentName mbrComponent) {
-      mAudioManager.registerMediaButtonEventReceiver(mbrComponent);
-    }
-
-    void unregisterMediaButtonEventReceiver(PendingIntent mbrIntent, ComponentName mbrComponent) {
-      mAudioManager.unregisterMediaButtonEventReceiver(mbrComponent);
-    }
-
-    void adjustVolume(int direction, int flags) {
-      if (mVolumeType == MediaControllerCompat.PlaybackInfo.PLAYBACK_TYPE_REMOTE) {
-        if (mVolumeProvider != null) {
-          mVolumeProvider.onAdjustVolume(direction);
-        }
-      } else {
-        mAudioManager.adjustStreamVolume(mLocalStream, direction, flags);
-      }
-    }
-
-    void setVolumeTo(int value, int flags) {
-      if (mVolumeType == MediaControllerCompat.PlaybackInfo.PLAYBACK_TYPE_REMOTE) {
-        if (mVolumeProvider != null) {
-          mVolumeProvider.onSetVolumeTo(value);
-        }
-      } else {
-        mAudioManager.setStreamVolume(mLocalStream, value, flags);
-      }
-    }
-
-    void sendVolumeInfoChanged(ParcelableVolumeInfo info) {
-      synchronized (mLock) {
-        int size = mControllerCallbacks.beginBroadcast();
-        for (int i = size - 1; i >= 0; i--) {
-          IMediaControllerCallback cb = mControllerCallbacks.getBroadcastItem(i);
-          try {
-            cb.onVolumeInfoChanged(info);
-          } catch (RemoteException e) {
-          }
-        }
-        mControllerCallbacks.finishBroadcast();
-      }
-    }
-
-    private void sendSessionDestroyed() {
-      synchronized (mLock) {
-        int size = mControllerCallbacks.beginBroadcast();
-        for (int i = size - 1; i >= 0; i--) {
-          IMediaControllerCallback cb = mControllerCallbacks.getBroadcastItem(i);
-          try {
-            cb.onSessionDestroyed();
-          } catch (RemoteException e) {
-          }
-        }
-        mControllerCallbacks.finishBroadcast();
-        mControllerCallbacks.kill();
-      }
-    }
-
-    private void sendEvent(String event, @Nullable Bundle extras) {
-      synchronized (mLock) {
-        int size = mControllerCallbacks.beginBroadcast();
-        for (int i = size - 1; i >= 0; i--) {
-          IMediaControllerCallback cb = mControllerCallbacks.getBroadcastItem(i);
-          try {
-            cb.onEvent(event, extras);
-          } catch (RemoteException e) {
-          }
-        }
-        mControllerCallbacks.finishBroadcast();
-      }
-    }
-
-    private void sendState(@Nullable PlaybackStateCompat state) {
-      synchronized (mLock) {
-        int size = mControllerCallbacks.beginBroadcast();
-        for (int i = size - 1; i >= 0; i--) {
-          IMediaControllerCallback cb = mControllerCallbacks.getBroadcastItem(i);
-          try {
-            cb.onPlaybackStateChanged(state);
-          } catch (RemoteException e) {
-          }
-        }
-        mControllerCallbacks.finishBroadcast();
-      }
-    }
-
-    private void sendMetadata(@Nullable MediaMetadataCompat metadata) {
-      synchronized (mLock) {
-        int size = mControllerCallbacks.beginBroadcast();
-        for (int i = size - 1; i >= 0; i--) {
-          IMediaControllerCallback cb = mControllerCallbacks.getBroadcastItem(i);
-          try {
-            cb.onMetadataChanged(metadata);
-          } catch (RemoteException e) {
-          }
-        }
-        mControllerCallbacks.finishBroadcast();
-      }
-    }
-
-    private void sendQueue(@Nullable List<QueueItem> queue) {
-      synchronized (mLock) {
-        int size = mControllerCallbacks.beginBroadcast();
-        for (int i = size - 1; i >= 0; i--) {
-          IMediaControllerCallback cb = mControllerCallbacks.getBroadcastItem(i);
-          try {
-            cb.onQueueChanged(queue);
-          } catch (RemoteException e) {
-          }
-        }
-        mControllerCallbacks.finishBroadcast();
-      }
-    }
-
-    private void sendQueueTitle(CharSequence queueTitle) {
-      synchronized (mLock) {
-        int size = mControllerCallbacks.beginBroadcast();
-        for (int i = size - 1; i >= 0; i--) {
-          IMediaControllerCallback cb = mControllerCallbacks.getBroadcastItem(i);
-          try {
-            cb.onQueueTitleChanged(queueTitle);
-          } catch (RemoteException e) {
-          }
-        }
-        mControllerCallbacks.finishBroadcast();
-      }
-    }
-
-    private void sendCaptioningEnabled(boolean enabled) {
-      synchronized (mLock) {
-        int size = mControllerCallbacks.beginBroadcast();
-        for (int i = size - 1; i >= 0; i--) {
-          IMediaControllerCallback cb = mControllerCallbacks.getBroadcastItem(i);
-          try {
-            cb.onCaptioningEnabledChanged(enabled);
-          } catch (RemoteException e) {
-          }
-        }
-        mControllerCallbacks.finishBroadcast();
-      }
-    }
-
-    private void sendRepeatMode(int repeatMode) {
-      synchronized (mLock) {
-        int size = mControllerCallbacks.beginBroadcast();
-        for (int i = size - 1; i >= 0; i--) {
-          IMediaControllerCallback cb = mControllerCallbacks.getBroadcastItem(i);
-          try {
-            cb.onRepeatModeChanged(repeatMode);
-          } catch (RemoteException e) {
-          }
-        }
-        mControllerCallbacks.finishBroadcast();
-      }
-    }
-
-    private void sendShuffleMode(int shuffleMode) {
-      synchronized (mLock) {
-        int size = mControllerCallbacks.beginBroadcast();
-        for (int i = size - 1; i >= 0; i--) {
-          IMediaControllerCallback cb = mControllerCallbacks.getBroadcastItem(i);
-          try {
-            cb.onShuffleModeChanged(shuffleMode);
-          } catch (RemoteException e) {
-          }
-        }
-        mControllerCallbacks.finishBroadcast();
-      }
-    }
-
-    private void sendExtras(@Nullable Bundle extras) {
-      synchronized (mLock) {
-        int size = mControllerCallbacks.beginBroadcast();
-        for (int i = size - 1; i >= 0; i--) {
-          IMediaControllerCallback cb = mControllerCallbacks.getBroadcastItem(i);
-          try {
-            cb.onExtrasChanged(extras);
-          } catch (RemoteException e) {
-          }
-        }
-        mControllerCallbacks.finishBroadcast();
-      }
-    }
-
-    static class MediaSessionStub extends IMediaSession.Stub {
-
-      private final AtomicReference<MediaSessionImplBase> mMediaSessionImplRef;
-      private final String mPackageName;
-      private final String mTag;
-
-      MediaSessionStub(MediaSessionImplBase mediaSessionImpl, String packageName, String tag) {
-        mMediaSessionImplRef = new AtomicReference<>(mediaSessionImpl);
-        mPackageName = packageName;
-        mTag = tag;
-      }
-
-      @Override
-      public void sendCommand(
-          @Nullable String command, @Nullable Bundle args, @Nullable ResultReceiverWrapper cb) {
-        if (command == null) {
-          return;
-        }
-        postToHandler(
-            MessageHandler.MSG_COMMAND,
-            new Command(command, args, cb == null ? null : cb.mResultReceiver));
-      }
-
-      @Override
-      public boolean sendMediaButton(@Nullable KeyEvent mediaButton) {
-        postToHandler(MessageHandler.MSG_MEDIA_BUTTON, mediaButton);
-        return true;
-      }
-
-      @Override
-      public void registerCallbackListener(@Nullable IMediaControllerCallback cb) {
-        if (cb == null) {
-          return;
-        }
-        // If this session is already destroyed tell the caller and
-        // don't add them.
-        MediaSessionImplBase mediaSessionImpl = mMediaSessionImplRef.get();
-        if (mediaSessionImpl == null) {
-          try {
-            cb.onSessionDestroyed();
-          } catch (Exception e) {
-            // ignored
-          }
-          return;
-        }
-        int callingPid = Binder.getCallingPid();
-        int callingUid = Binder.getCallingUid();
-        RemoteUserInfo info =
-            new RemoteUserInfo(
-                mediaSessionImpl.getPackageNameForUid(callingUid), callingPid, callingUid);
-        mediaSessionImpl.mControllerCallbacks.register(cb, info);
-
-        synchronized (mediaSessionImpl.mLock) {
-          if (mediaSessionImpl.mRegistrationCallbackHandler != null) {
-            mediaSessionImpl.mRegistrationCallbackHandler.postCallbackRegistered(
-                callingPid, callingUid);
-          }
-        }
-      }
-
-      @Override
-      public void unregisterCallbackListener(@Nullable IMediaControllerCallback cb) {
-        if (cb == null) {
-          return;
-        }
-        MediaSessionImplBase mediaSessionImpl = mMediaSessionImplRef.get();
-        if (mediaSessionImpl == null) {
-          return;
-        }
-        mediaSessionImpl.mControllerCallbacks.unregister(cb);
-
-        int callingPid = Binder.getCallingPid();
-        int callingUid = Binder.getCallingUid();
-        synchronized (mediaSessionImpl.mLock) {
-          if (mediaSessionImpl.mRegistrationCallbackHandler != null) {
-            mediaSessionImpl.mRegistrationCallbackHandler.postCallbackUnregistered(
-                callingPid, callingUid);
-          }
-        }
-      }
-
-      @Override
-      public String getPackageName() {
-        return mPackageName;
-      }
-
-      @Nullable
-      @Override
-      public Bundle getSessionInfo() {
-        MediaSessionImplBase mediaSessionImpl = mMediaSessionImplRef.get();
-        // mSessionInfo is final so doesn't need synchronize block
-        return mediaSessionImpl != null && mediaSessionImpl.mSessionInfo != null
-            ? new Bundle(mediaSessionImpl.mSessionInfo)
-            : null;
-      }
-
-      @Override
-      public String getTag() {
-        // mTag is final so doesn't need synchronize block
-        return mTag;
-      }
-
-      @Nullable
-      @Override
-      public PendingIntent getLaunchPendingIntent() {
-        MediaSessionImplBase mediaSessionImpl = mMediaSessionImplRef.get();
-        if (mediaSessionImpl == null) {
-          return null;
-        }
-        synchronized (mediaSessionImpl.mLock) {
-          return mediaSessionImpl.mSessionActivity;
-        }
-      }
-
-      @Override
-      @SessionFlags
-      public long getFlags() {
-        MediaSessionImplBase mediaSessionImpl = mMediaSessionImplRef.get();
-        if (mediaSessionImpl == null) {
-          return 0;
-        }
-        synchronized (mediaSessionImpl.mLock) {
-          return mediaSessionImpl.mFlags;
-        }
-      }
-
-      @Nullable
-      @Override
-      public ParcelableVolumeInfo getVolumeAttributes() {
-        MediaSessionImplBase mediaSessionImpl = mMediaSessionImplRef.get();
-        if (mediaSessionImpl == null) {
-          return null;
-        }
-        synchronized (mediaSessionImpl.mLock) {
-          int volumeType = mediaSessionImpl.mVolumeType;
-          int stream = mediaSessionImpl.mLocalStream;
-          VolumeProviderCompat vp = mediaSessionImpl.mVolumeProvider;
-          int controlType;
-          int max;
-          int current;
-          if (volumeType == MediaControllerCompat.PlaybackInfo.PLAYBACK_TYPE_REMOTE) {
-            checkNotNull(vp);
-            controlType = vp.getVolumeControl();
-            max = vp.getMaxVolume();
-            current = vp.getCurrentVolume();
-          } else {
-            controlType = VolumeProviderCompat.VOLUME_CONTROL_ABSOLUTE;
-            max = mediaSessionImpl.mAudioManager.getStreamMaxVolume(stream);
-            current = mediaSessionImpl.mAudioManager.getStreamVolume(stream);
-          }
-          return new ParcelableVolumeInfo(volumeType, stream, controlType, max, current);
-        }
-      }
-
-      @Override
-      public void adjustVolume(int direction, int flags, @Nullable String packageName) {
-        MediaSessionImplBase mediaSessionImpl = mMediaSessionImplRef.get();
-        if (mediaSessionImpl != null) {
-          mediaSessionImpl.adjustVolume(direction, flags);
-        }
-      }
-
-      @Override
-      public void setVolumeTo(int value, int flags, @Nullable String packageName) {
-        MediaSessionImplBase mediaSessionImpl = mMediaSessionImplRef.get();
-        if (mediaSessionImpl != null) {
-          mediaSessionImpl.setVolumeTo(value, flags);
-        }
-      }
-
-      @Override
-      public void prepare() throws RemoteException {
-        postToHandler(MessageHandler.MSG_PREPARE);
-      }
-
-      @Override
-      public void prepareFromMediaId(@Nullable String mediaId, @Nullable Bundle extras) {
-        postToHandler(MessageHandler.MSG_PREPARE_MEDIA_ID, mediaId, extras);
-      }
-
-      @Override
-      public void prepareFromSearch(@Nullable String query, @Nullable Bundle extras) {
-        postToHandler(MessageHandler.MSG_PREPARE_SEARCH, query, extras);
-      }
-
-      @Override
-      public void prepareFromUri(@Nullable Uri uri, @Nullable Bundle extras) {
-        postToHandler(MessageHandler.MSG_PREPARE_URI, uri, extras);
-      }
-
-      @Override
-      public void play() throws RemoteException {
-        postToHandler(MessageHandler.MSG_PLAY);
-      }
-
-      @Override
-      public void playFromMediaId(@Nullable String mediaId, @Nullable Bundle extras) {
-        postToHandler(MessageHandler.MSG_PLAY_MEDIA_ID, mediaId, extras);
-      }
-
-      @Override
-      public void playFromSearch(@Nullable String query, @Nullable Bundle extras) {
-        postToHandler(MessageHandler.MSG_PLAY_SEARCH, query, extras);
-      }
-
-      @Override
-      public void playFromUri(@Nullable Uri uri, @Nullable Bundle extras) {
-        postToHandler(MessageHandler.MSG_PLAY_URI, uri, extras);
-      }
-
-      @Override
-      public void skipToQueueItem(long id) {
-        postToHandler(MessageHandler.MSG_SKIP_TO_ITEM, id);
-      }
-
-      @Override
-      public void pause() {
-        postToHandler(MessageHandler.MSG_PAUSE);
-      }
-
-      @Override
-      public void stop() {
-        postToHandler(MessageHandler.MSG_STOP);
-      }
-
-      @Override
-      public void next() {
-        postToHandler(MessageHandler.MSG_NEXT);
-      }
-
-      @Override
-      public void previous() {
-        postToHandler(MessageHandler.MSG_PREVIOUS);
-      }
-
-      @Override
-      public void fastForward() {
-        postToHandler(MessageHandler.MSG_FAST_FORWARD);
-      }
-
-      @Override
-      public void rewind() {
-        postToHandler(MessageHandler.MSG_REWIND);
-      }
-
-      @Override
-      public void seekTo(long pos) {
-        postToHandler(MessageHandler.MSG_SEEK_TO, pos);
-      }
-
-      @Override
-      public void rate(@Nullable RatingCompat rating) {
-        postToHandler(MessageHandler.MSG_RATE, rating);
-      }
-
-      @Override
-      public void rateWithExtras(@Nullable RatingCompat rating, @Nullable Bundle extras) {
-        postToHandler(MessageHandler.MSG_RATE_EXTRA, rating, extras);
-      }
-
-      @Override
-      public void setPlaybackSpeed(float speed) {
-        postToHandler(MessageHandler.MSG_SET_PLAYBACK_SPEED, speed);
-      }
-
-      @Override
-      public void setCaptioningEnabled(boolean enabled) {
-        postToHandler(MessageHandler.MSG_SET_CAPTIONING_ENABLED, enabled);
-      }
-
-      @Override
-      public void setRepeatMode(int repeatMode) {
-        postToHandler(MessageHandler.MSG_SET_REPEAT_MODE, repeatMode);
-      }
-
-      @Override
-      public void setShuffleModeEnabledRemoved(boolean enabled) {
-        // Do nothing.
-      }
-
-      @Override
-      public void setShuffleMode(int shuffleMode) {
-        postToHandler(MessageHandler.MSG_SET_SHUFFLE_MODE, shuffleMode);
-      }
-
-      @Override
-      public void sendCustomAction(@Nullable String action, @Nullable Bundle args)
-          throws RemoteException {
-        postToHandler(MessageHandler.MSG_CUSTOM_ACTION, action, args);
-      }
-
-      @Nullable
-      @Override
-      public MediaMetadataCompat getMetadata() {
-        MediaSessionImplBase mediaSessionImpl = mMediaSessionImplRef.get();
-        return mediaSessionImpl != null ? mediaSessionImpl.mMetadata : null;
-      }
-
-      @Nullable
-      @Override
-      public PlaybackStateCompat getPlaybackState() {
-        MediaSessionImplBase mediaSessionImpl = mMediaSessionImplRef.get();
-        if (mediaSessionImpl == null) {
-          return null;
-        }
-        PlaybackStateCompat state;
-        MediaMetadataCompat metadata;
-        synchronized (mediaSessionImpl.mLock) {
-          state = mediaSessionImpl.mState;
-          metadata = mediaSessionImpl.mMetadata;
-        }
-        return getStateWithUpdatedPosition(state, metadata);
-      }
-
-      @Nullable
-      @Override
-      public List<QueueItem> getQueue() {
-        MediaSessionImplBase mediaSessionImpl = mMediaSessionImplRef.get();
-        if (mediaSessionImpl == null) {
-          return null;
-        }
-        synchronized (mediaSessionImpl.mLock) {
-          return mediaSessionImpl.mQueue;
-        }
-      }
-
-      @Override
-      public void addQueueItem(@Nullable MediaDescriptionCompat description) {
-        postToHandler(MessageHandler.MSG_ADD_QUEUE_ITEM, description);
-      }
-
-      @Override
-      public void addQueueItemAt(@Nullable MediaDescriptionCompat description, int index) {
-        postToHandler(MessageHandler.MSG_ADD_QUEUE_ITEM_AT, description, index, /* extras= */ null);
-      }
-
-      @Override
-      public void removeQueueItem(@Nullable MediaDescriptionCompat description) {
-        postToHandler(MessageHandler.MSG_REMOVE_QUEUE_ITEM, description);
-      }
-
-      @Override
-      public void removeQueueItemAt(int index) {
-        postToHandler(MessageHandler.MSG_REMOVE_QUEUE_ITEM_AT, index);
-      }
-
-      @Nullable
-      @Override
-      public CharSequence getQueueTitle() {
-        MediaSessionImplBase mediaSessionImpl = mMediaSessionImplRef.get();
-        return mediaSessionImpl != null ? mediaSessionImpl.mQueueTitle : null;
-      }
-
-      @Nullable
-      @Override
-      public Bundle getExtras() {
-        MediaSessionImplBase mediaSessionImpl = mMediaSessionImplRef.get();
-        if (mediaSessionImpl == null) {
-          return null;
-        }
-        synchronized (mediaSessionImpl.mLock) {
-          return mediaSessionImpl.mExtras;
-        }
-      }
-
-      @Override
-      @RatingCompat.Style
-      public int getRatingType() {
-        MediaSessionImplBase mediaSessionImpl = mMediaSessionImplRef.get();
-        return mediaSessionImpl != null ? mediaSessionImpl.mRatingType : RatingCompat.RATING_NONE;
-      }
-
-      @Override
-      public boolean isCaptioningEnabled() {
-        MediaSessionImplBase mediaSessionImpl = mMediaSessionImplRef.get();
-        return mediaSessionImpl != null && mediaSessionImpl.mCaptioningEnabled;
-      }
-
-      @Override
-      @PlaybackStateCompat.RepeatMode
-      public int getRepeatMode() {
-        MediaSessionImplBase mediaSessionImpl = mMediaSessionImplRef.get();
-        return mediaSessionImpl != null
-            ? mediaSessionImpl.mRepeatMode
-            : PlaybackStateCompat.REPEAT_MODE_INVALID;
-      }
-
-      @Override
-      public boolean isShuffleModeEnabledRemoved() {
-        return false;
-      }
-
-      @Override
-      @PlaybackStateCompat.ShuffleMode
-      public int getShuffleMode() {
-        MediaSessionImplBase mediaSessionImpl = mMediaSessionImplRef.get();
-        return mediaSessionImpl != null
-            ? mediaSessionImpl.mShuffleMode
-            : PlaybackStateCompat.SHUFFLE_MODE_INVALID;
-      }
-
-      @Override
-      public boolean isTransportControlEnabled() {
-        // All sessions should support transport control commands.
-        return true;
-      }
-
-      void postToHandler(int what) {
-        postToHandler(what, /* obj= */ null, /* arg1= */ 0, /* extras= */ null);
-      }
-
-      void postToHandler(int what, int arg1) {
-        postToHandler(what, /* obj= */ null, arg1, /* extras= */ null);
-      }
-
-      void postToHandler(int what, @Nullable Object obj) {
-        postToHandler(what, obj, /* arg1= */ 0, /* extras= */ null);
-      }
-
-      void postToHandler(int what, @Nullable Object obj, @Nullable Bundle extras) {
-        postToHandler(what, obj, /* arg1= */ 0, extras);
-      }
-
-      void postToHandler(int what, @Nullable Object obj, int arg1, @Nullable Bundle extras) {
-        MediaSessionImplBase mediaSessionImpl = mMediaSessionImplRef.get();
-        if (mediaSessionImpl != null) {
-          mediaSessionImpl.postToHandler(what, arg1, /* arg2= */ 0, obj, extras);
-        }
-      }
-    }
-
-    private static final class Command {
-      public final String command;
-      @Nullable public final Bundle extras;
-      @Nullable public final ResultReceiver stub;
-
-      public Command(String command, @Nullable Bundle extras, @Nullable ResultReceiver stub) {
-        this.command = command;
-        this.extras = extras;
-        this.stub = stub;
-      }
-    }
-
-    class MessageHandler extends Handler {
-      // Next ID: 33
-      private static final int MSG_COMMAND = 1;
-      private static final int MSG_ADJUST_VOLUME = 2;
-      private static final int MSG_PREPARE = 3;
-      private static final int MSG_PREPARE_MEDIA_ID = 4;
-      private static final int MSG_PREPARE_SEARCH = 5;
-      private static final int MSG_PREPARE_URI = 6;
-      private static final int MSG_PLAY = 7;
-      private static final int MSG_PLAY_MEDIA_ID = 8;
-      private static final int MSG_PLAY_SEARCH = 9;
-      private static final int MSG_PLAY_URI = 10;
-      private static final int MSG_SKIP_TO_ITEM = 11;
-      private static final int MSG_PAUSE = 12;
-      private static final int MSG_STOP = 13;
-      private static final int MSG_NEXT = 14;
-      private static final int MSG_PREVIOUS = 15;
-      private static final int MSG_FAST_FORWARD = 16;
-      private static final int MSG_REWIND = 17;
-      private static final int MSG_SEEK_TO = 18;
-      private static final int MSG_RATE = 19;
-      private static final int MSG_RATE_EXTRA = 31;
-      private static final int MSG_SET_PLAYBACK_SPEED = 32;
-      private static final int MSG_CUSTOM_ACTION = 20;
-      private static final int MSG_MEDIA_BUTTON = 21;
-      private static final int MSG_SET_VOLUME = 22;
-      private static final int MSG_SET_REPEAT_MODE = 23;
-      private static final int MSG_ADD_QUEUE_ITEM = 25;
-      private static final int MSG_ADD_QUEUE_ITEM_AT = 26;
-      private static final int MSG_REMOVE_QUEUE_ITEM = 27;
-      private static final int MSG_REMOVE_QUEUE_ITEM_AT = 28;
-      private static final int MSG_SET_CAPTIONING_ENABLED = 29;
-      private static final int MSG_SET_SHUFFLE_MODE = 30;
-
-      // KeyEvent constants only available on API 11+
-      private static final int KEYCODE_MEDIA_PAUSE = 127;
-      private static final int KEYCODE_MEDIA_PLAY = 126;
-
-      public MessageHandler(Looper looper) {
-        super(looper);
-      }
-
-      @Override
-      public void handleMessage(Message msg) {
-        MediaSessionCompat.Callback cb = mCallback;
-        if (cb == null) {
-          return;
-        }
-
-        Bundle data = msg.getData();
-        ensureClassLoader(data);
-        setCurrentControllerInfo(
-            new RemoteUserInfo(
-                data.getString(DATA_CALLING_PACKAGE),
-                data.getInt(DATA_CALLING_PID),
-                data.getInt(DATA_CALLING_UID)));
-
-        Bundle extras = data.getBundle(DATA_EXTRAS);
-        ensureClassLoader(extras);
-
-        try {
-          switch (msg.what) {
-            case MSG_COMMAND:
-              Command cmd = (Command) msg.obj;
-              cb.onCommand(cmd.command, cmd.extras, cmd.stub);
-              break;
-            case MSG_MEDIA_BUTTON:
-              KeyEvent keyEvent = (KeyEvent) msg.obj;
-              Intent intent = new Intent(Intent.ACTION_MEDIA_BUTTON);
-              intent.putExtra(Intent.EXTRA_KEY_EVENT, keyEvent);
-              // Let the Callback handle events first before using the default
-              // behavior
-              if (!cb.onMediaButtonEvent(intent)) {
-                onMediaButtonEvent(keyEvent, cb);
-              }
-              break;
-            case MSG_PREPARE:
-              cb.onPrepare();
-              break;
-            case MSG_PREPARE_MEDIA_ID:
-              cb.onPrepareFromMediaId((String) msg.obj, extras);
-              break;
-            case MSG_PREPARE_SEARCH:
-              cb.onPrepareFromSearch((String) msg.obj, extras);
-              break;
-            case MSG_PREPARE_URI:
-              cb.onPrepareFromUri((Uri) msg.obj, extras);
-              break;
-            case MSG_PLAY:
-              cb.onPlay();
-              break;
-            case MSG_PLAY_MEDIA_ID:
-              cb.onPlayFromMediaId((String) msg.obj, extras);
-              break;
-            case MSG_PLAY_SEARCH:
-              cb.onPlayFromSearch((String) msg.obj, extras);
-              break;
-            case MSG_PLAY_URI:
-              cb.onPlayFromUri((Uri) msg.obj, extras);
-              break;
-            case MSG_SKIP_TO_ITEM:
-              cb.onSkipToQueueItem((Long) msg.obj);
-              break;
-            case MSG_PAUSE:
-              cb.onPause();
-              break;
-            case MSG_STOP:
-              cb.onStop();
-              break;
-            case MSG_NEXT:
-              cb.onSkipToNext();
-              break;
-            case MSG_PREVIOUS:
-              cb.onSkipToPrevious();
-              break;
-            case MSG_FAST_FORWARD:
-              cb.onFastForward();
-              break;
-            case MSG_REWIND:
-              cb.onRewind();
-              break;
-            case MSG_SEEK_TO:
-              cb.onSeekTo((Long) msg.obj);
-              break;
-            case MSG_RATE:
-              cb.onSetRating((RatingCompat) msg.obj);
-              break;
-            case MSG_RATE_EXTRA:
-              cb.onSetRating((RatingCompat) msg.obj, extras);
-              break;
-            case MSG_SET_PLAYBACK_SPEED:
-              cb.onSetPlaybackSpeed((Float) msg.obj);
-              break;
-            case MSG_CUSTOM_ACTION:
-              cb.onCustomAction((String) msg.obj, extras);
-              break;
-            case MSG_ADD_QUEUE_ITEM:
-              cb.onAddQueueItem((MediaDescriptionCompat) msg.obj);
-              break;
-            case MSG_ADD_QUEUE_ITEM_AT:
-              cb.onAddQueueItem((MediaDescriptionCompat) msg.obj, msg.arg1);
-              break;
-            case MSG_REMOVE_QUEUE_ITEM:
-              cb.onRemoveQueueItem((MediaDescriptionCompat) msg.obj);
-              break;
-            case MSG_REMOVE_QUEUE_ITEM_AT:
-              if (mQueue != null) {
-                QueueItem item =
-                    (msg.arg1 >= 0 && msg.arg1 < mQueue.size()) ? mQueue.get(msg.arg1) : null;
-                if (item != null) {
-                  cb.onRemoveQueueItem(item.getDescription());
-                }
-              }
-              break;
-            case MSG_ADJUST_VOLUME:
-              adjustVolume(msg.arg1, 0);
-              break;
-            case MSG_SET_VOLUME:
-              setVolumeTo(msg.arg1, 0);
-              break;
-            case MSG_SET_CAPTIONING_ENABLED:
-              cb.onSetCaptioningEnabled((boolean) msg.obj);
-              break;
-            case MSG_SET_REPEAT_MODE:
-              cb.onSetRepeatMode(msg.arg1);
-              break;
-            case MSG_SET_SHUFFLE_MODE:
-              cb.onSetShuffleMode(msg.arg1);
-              break;
-          }
-        } finally {
-          setCurrentControllerInfo(null);
-        }
-      }
-
-      private void onMediaButtonEvent(@Nullable KeyEvent ke, MediaSessionCompat.Callback cb) {
-        if (ke == null || ke.getAction() != KeyEvent.ACTION_DOWN) {
-          return;
-        }
-        long validActions = mState == null ? 0 : mState.getActions();
-        switch (ke.getKeyCode()) {
-          // Note KeyEvent.KEYCODE_MEDIA_PLAY is API 11+
-          case KEYCODE_MEDIA_PLAY:
-            if ((validActions & PlaybackStateCompat.ACTION_PLAY) != 0) {
-              cb.onPlay();
-            }
-            break;
-          // Note KeyEvent.KEYCODE_MEDIA_PAUSE is API 11+
-          case KEYCODE_MEDIA_PAUSE:
-            if ((validActions & PlaybackStateCompat.ACTION_PAUSE) != 0) {
-              cb.onPause();
-            }
-            break;
-          case KeyEvent.KEYCODE_MEDIA_NEXT:
-            if ((validActions & PlaybackStateCompat.ACTION_SKIP_TO_NEXT) != 0) {
-              cb.onSkipToNext();
-            }
-            break;
-          case KeyEvent.KEYCODE_MEDIA_PREVIOUS:
-            if ((validActions & PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS) != 0) {
-              cb.onSkipToPrevious();
-            }
-            break;
-          case KeyEvent.KEYCODE_MEDIA_STOP:
-            if ((validActions & PlaybackStateCompat.ACTION_STOP) != 0) {
-              cb.onStop();
-            }
-            break;
-          case KeyEvent.KEYCODE_MEDIA_FAST_FORWARD:
-            if ((validActions & PlaybackStateCompat.ACTION_FAST_FORWARD) != 0) {
-              cb.onFastForward();
-            }
-            break;
-          case KeyEvent.KEYCODE_MEDIA_REWIND:
-            if ((validActions & PlaybackStateCompat.ACTION_REWIND) != 0) {
-              cb.onRewind();
-            }
-            break;
-          case KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE:
-          case KeyEvent.KEYCODE_HEADSETHOOK:
-            Log.w(TAG, "KEYCODE_MEDIA_PLAY_PAUSE and KEYCODE_HEADSETHOOK are handled" + " already");
-            break;
-        }
-      }
-    }
-  }
-
-  static class MediaSessionImplApi18 extends MediaSessionImplBase {
-    private static boolean sIsMbrPendingIntentSupported = true;
-
-    MediaSessionImplApi18(
-        Context context,
-        String tag,
-        ComponentName mbrComponent,
-        @Nullable PendingIntent mbrIntent,
-        @Nullable VersionedParcelable session2Token,
-        @Nullable Bundle sessionInfo) {
-      super(context, tag, mbrComponent, mbrIntent, session2Token, sessionInfo);
-    }
-
-    @SuppressWarnings("argument.type.incompatible")
-    @Override
-    public void setCallback(@Nullable Callback callback, @Nullable Handler handler) {
-      super.setCallback(callback, handler);
-      if (callback == null) {
-        mRcc.setPlaybackPositionUpdateListener(null);
-      } else {
-        RemoteControlClient.OnPlaybackPositionUpdateListener listener =
-            new RemoteControlClient.OnPlaybackPositionUpdateListener() {
-              @Override
-              public void onPlaybackPositionUpdate(long newPositionMs) {
-                postToHandler(MessageHandler.MSG_SEEK_TO, -1, -1, newPositionMs, null);
-              }
-            };
-        mRcc.setPlaybackPositionUpdateListener(listener);
-      }
-    }
-
-    @Override
-    void setRccState(PlaybackStateCompat state) {
-      long position = state.getPosition();
-      float speed = state.getPlaybackSpeed();
-      long updateTime = state.getLastPositionUpdateTime();
-      long currTime = SystemClock.elapsedRealtime();
-      if (state.getState() == PlaybackStateCompat.STATE_PLAYING && position > 0) {
-        long diff = 0;
-        if (updateTime > 0) {
-          diff = currTime - updateTime;
-          if (speed > 0 && speed != 1f) {
-            diff = (long) (diff * speed);
-          }
-        }
-        position += diff;
-      }
-      mRcc.setPlaybackState(getRccStateFromState(state.getState()), position, speed);
-    }
-
-    @Override
-    int getRccTransportControlFlagsFromActions(long actions) {
-      int transportControlFlags = super.getRccTransportControlFlagsFromActions(actions);
-      if ((actions & PlaybackStateCompat.ACTION_SEEK_TO) != 0) {
-        transportControlFlags |= RemoteControlClient.FLAG_KEY_MEDIA_POSITION_UPDATE;
-      }
-      return transportControlFlags;
-    }
-
-    @Override
-    void registerMediaButtonEventReceiver(PendingIntent mbrIntent, ComponentName mbrComponent) {
-      // Some Android implementations are not able to register a media button event receiver
-      // using a PendingIntent but need a ComponentName instead. These will raise a
-      // NullPointerException.
-      if (sIsMbrPendingIntentSupported) {
-        try {
-          mAudioManager.registerMediaButtonEventReceiver(mbrIntent);
-        } catch (NullPointerException e) {
-          Log.w(
-              TAG,
-              "Unable to register media button event receiver with "
-                  + "PendingIntent, falling back to ComponentName.");
-          sIsMbrPendingIntentSupported = false;
-        }
-      }
-
-      if (!sIsMbrPendingIntentSupported) {
-        super.registerMediaButtonEventReceiver(mbrIntent, mbrComponent);
-      }
-    }
-
-    @Override
-    void unregisterMediaButtonEventReceiver(PendingIntent mbrIntent, ComponentName mbrComponent) {
-      if (sIsMbrPendingIntentSupported) {
-        mAudioManager.unregisterMediaButtonEventReceiver(mbrIntent);
-      } else {
-        super.unregisterMediaButtonEventReceiver(mbrIntent, mbrComponent);
-      }
-    }
-  }
-
-  static class MediaSessionImplApi19 extends MediaSessionImplApi18 {
-    MediaSessionImplApi19(
-        Context context,
-        String tag,
-        ComponentName mbrComponent,
-        @Nullable PendingIntent mbrIntent,
-        @Nullable VersionedParcelable session2Token,
-        @Nullable Bundle sessionInfo) {
-      super(context, tag, mbrComponent, mbrIntent, session2Token, sessionInfo);
-    }
-
-    @SuppressWarnings("argument.type.incompatible")
-    @Override
-    public void setCallback(@Nullable Callback callback, @Nullable Handler handler) {
-      super.setCallback(callback, handler);
-      if (callback == null) {
-        mRcc.setMetadataUpdateListener(null);
-      } else {
-        RemoteControlClient.OnMetadataUpdateListener listener =
-            new RemoteControlClient.OnMetadataUpdateListener() {
-              @Override
-              public void onMetadataUpdate(int key, Object newValue) {
-                if (key == MediaMetadataEditor.RATING_KEY_BY_USER && newValue instanceof Rating) {
-                  postToHandler(
-                      MessageHandler.MSG_RATE, -1, -1, RatingCompat.fromRating(newValue), null);
-                }
-              }
-            };
-        mRcc.setMetadataUpdateListener(listener);
-      }
-    }
-
-    @Override
-    int getRccTransportControlFlagsFromActions(long actions) {
-      int transportControlFlags = super.getRccTransportControlFlagsFromActions(actions);
-      if ((actions & PlaybackStateCompat.ACTION_SET_RATING) != 0) {
-        transportControlFlags |= RemoteControlClient.FLAG_KEY_MEDIA_RATING;
-      }
-      return transportControlFlags;
-    }
-
-    @Override
-    @SuppressWarnings({"deprecation", "argument.type.incompatible"})
-    RemoteControlClient.MetadataEditor buildRccMetadata(@Nullable Bundle metadata) {
-      RemoteControlClient.MetadataEditor editor = super.buildRccMetadata(metadata);
-      long actions = mState == null ? 0 : mState.getActions();
-      if ((actions & PlaybackStateCompat.ACTION_SET_RATING) != 0) {
-        editor.addEditableKey(RemoteControlClient.MetadataEditor.RATING_KEY_BY_USER);
-      }
-
-      if (metadata == null) {
-        return editor;
-      }
-      if (metadata.containsKey(MediaMetadataCompat.METADATA_KEY_YEAR)) {
-        editor.putLong(
-            MediaMetadataRetriever.METADATA_KEY_YEAR,
-            metadata.getLong(MediaMetadataCompat.METADATA_KEY_YEAR));
-      }
-      if (metadata.containsKey(MediaMetadataCompat.METADATA_KEY_RATING)) {
-        // Do not remove casting here. Without this, a crash will happen in API 19.
-        ((MediaMetadataEditor) editor)
-            .putObject(
-                MediaMetadataEditor.RATING_KEY_BY_OTHERS,
-                LegacyParcelableUtil.convert(
-                    metadata.getParcelable(MediaMetadataCompat.METADATA_KEY_RATING),
-                    RatingCompat.CREATOR));
-      }
-      if (metadata.containsKey(MediaMetadataCompat.METADATA_KEY_USER_RATING)) {
-        // Do not remove casting here. Without this, a crash will happen in API 19.
-        ((MediaMetadataEditor) editor)
-            .putObject(
-                MediaMetadataEditor.RATING_KEY_BY_USER,
-                LegacyParcelableUtil.convert(
-                    metadata.getParcelable(MediaMetadataCompat.METADATA_KEY_USER_RATING),
-                    RatingCompat.CREATOR));
-      }
-      return editor;
-    }
-  }
-
-  @RequiresApi(21)
   static class MediaSessionImplApi21 implements MediaSessionImpl {
-    final MediaSession mSessionFwk;
-    final ExtraSession mExtraSession;
-    final Token mToken;
-    final Object mLock = new Object();
-    @Nullable Bundle mSessionInfo;
+    final MediaSession sessionFwk;
+    final ExtraSession extraSession;
+    final Token token;
+    final Object lock = new Object();
+    @Nullable Bundle sessionInfo;
 
-    boolean mDestroyed = false;
-    final RemoteCallbackList<IMediaControllerCallback> mExtraControllerCallbacks =
+    boolean destroyed = false;
+    final RemoteCallbackList<IMediaControllerCallback> extraControllerCallbacks =
         new RemoteCallbackList<>();
 
-    @Nullable PlaybackStateCompat mPlaybackState;
-    @Nullable List<QueueItem> mQueue;
-    @Nullable MediaMetadataCompat mMetadata;
-    @RatingCompat.Style int mRatingType;
-    boolean mCaptioningEnabled;
-    @PlaybackStateCompat.RepeatMode int mRepeatMode;
-    @PlaybackStateCompat.ShuffleMode int mShuffleMode;
+    @Nullable PlaybackStateCompat playbackState;
+    @Nullable List<QueueItem> queue;
+    @Nullable MediaMetadataCompat metadata;
+    @RatingCompat.Style int ratingType;
+    boolean captioningEnabled;
+    @PlaybackStateCompat.RepeatMode int repeatMode;
+    @PlaybackStateCompat.ShuffleMode int shuffleMode;
 
     @Nullable
-    @GuardedBy("mLock")
-    Callback mCallback;
+    @GuardedBy("lock")
+    Callback callback;
 
     @Nullable
-    @GuardedBy("mLock")
-    RegistrationCallbackHandler mRegistrationCallbackHandler;
+    @GuardedBy("lock")
+    RegistrationCallbackHandler registrationCallbackHandler;
 
     @Nullable
-    @GuardedBy("mLock")
-    RemoteUserInfo mRemoteUserInfo;
+    @GuardedBy("lock")
+    RemoteUserInfo remoteUserInfo;
 
     // Sharing this in constructor
     @SuppressWarnings({
@@ -3885,33 +1936,11 @@ public class MediaSessionCompat {
       "assignment.type.incompatible",
       "argument.type.incompatible"
     })
-    MediaSessionImplApi21(
-        Context context,
-        String tag,
-        @Nullable VersionedParcelable session2Token,
-        @Nullable Bundle sessionInfo) {
-      mSessionFwk = createFwkMediaSession(context, tag, sessionInfo);
-      mExtraSession = new ExtraSession(/* mediaSessionImpl= */ this);
-      mToken = new Token(mSessionFwk.getSessionToken(), mExtraSession, session2Token);
-      mSessionInfo = sessionInfo;
-      // For backward compatibility, these flags are always set.
-      setFlags(FLAG_HANDLES_MEDIA_BUTTONS | FLAG_HANDLES_TRANSPORT_CONTROLS);
-    }
-
-    // Sharing this in constructor
-    @SuppressWarnings({
-      "method.invocation.invalid",
-      "assignment.type.incompatible",
-      "argument.type.incompatible"
-    })
-    MediaSessionImplApi21(Object mediaSession) {
-      if (!(mediaSession instanceof MediaSession)) {
-        throw new IllegalArgumentException("mediaSession is not a valid MediaSession object");
-      }
-      mSessionFwk = (MediaSession) mediaSession;
-      mExtraSession = new ExtraSession(/* mediaSessionImpl= */ this);
-      mToken = new Token(mSessionFwk.getSessionToken(), mExtraSession);
-      mSessionInfo = null;
+    MediaSessionImplApi21(Context context, String tag, @Nullable Bundle sessionInfo) {
+      sessionFwk = createFwkMediaSession(context, tag, sessionInfo);
+      extraSession = new ExtraSession(/* mediaSessionImpl= */ this);
+      token = new Token(sessionFwk.getSessionToken(), extraSession);
+      this.sessionInfo = sessionInfo;
       // For backward compatibility, these flags are always set.
       setFlags(FLAG_HANDLES_MEDIA_BUTTONS | FLAG_HANDLES_TRANSPORT_CONTROLS);
     }
@@ -3923,26 +1952,11 @@ public class MediaSessionCompat {
 
     @Override
     public void setCallback(@Nullable Callback callback, @Nullable Handler handler) {
-      synchronized (mLock) {
-        mCallback = callback;
-        mSessionFwk.setCallback(callback == null ? null : callback.mCallbackFwk, handler);
+      synchronized (lock) {
+        this.callback = callback;
+        sessionFwk.setCallback(callback == null ? null : callback.callbackFwk, handler);
         if (callback != null) {
           callback.setSessionImpl(this, handler);
-        }
-      }
-    }
-
-    @Override
-    public void setRegistrationCallback(@Nullable RegistrationCallback callback, Handler handler) {
-      synchronized (mLock) {
-        if (mRegistrationCallbackHandler != null) {
-          mRegistrationCallbackHandler.removeCallbacksAndMessages(null);
-        }
-        if (callback != null) {
-          mRegistrationCallbackHandler =
-              new RegistrationCallbackHandler(handler.getLooper(), callback);
-        } else {
-          mRegistrationCallbackHandler = null;
         }
       }
     }
@@ -3951,7 +1965,7 @@ public class MediaSessionCompat {
     @Override
     public void setFlags(@SessionFlags int flags) {
       // For backward compatibility, always set these deprecated flags.
-      mSessionFwk.setFlags(flags | FLAG_HANDLES_MEDIA_BUTTONS | FLAG_HANDLES_TRANSPORT_CONTROLS);
+      sessionFwk.setFlags(flags | FLAG_HANDLES_MEDIA_BUTTONS | FLAG_HANDLES_TRANSPORT_CONTROLS);
     }
 
     @Override
@@ -3959,53 +1973,54 @@ public class MediaSessionCompat {
       // TODO update APIs to use support version of AudioAttributes
       AudioAttributes.Builder bob = new AudioAttributes.Builder();
       bob.setLegacyStreamType(stream);
-      mSessionFwk.setPlaybackToLocal(bob.build());
+      sessionFwk.setPlaybackToLocal(bob.build());
     }
 
     @Override
     public void setPlaybackToRemote(VolumeProviderCompat volumeProvider) {
-      mSessionFwk.setPlaybackToRemote((VolumeProvider) volumeProvider.getVolumeProvider());
+      sessionFwk.setPlaybackToRemote((VolumeProvider) volumeProvider.getVolumeProvider());
     }
 
     @Override
     public void setActive(boolean active) {
-      mSessionFwk.setActive(active);
+      sessionFwk.setActive(active);
     }
 
     @Override
     public boolean isActive() {
-      return mSessionFwk.isActive();
+      return sessionFwk.isActive();
     }
 
     @Override
     public void sendSessionEvent(String event, @Nullable Bundle extras) {
       if (android.os.Build.VERSION.SDK_INT < 23) {
-        synchronized (mLock) {
-          int size = mExtraControllerCallbacks.beginBroadcast();
+        synchronized (lock) {
+          int size = extraControllerCallbacks.beginBroadcast();
           for (int i = size - 1; i >= 0; i--) {
-            IMediaControllerCallback cb = mExtraControllerCallbacks.getBroadcastItem(i);
+            IMediaControllerCallback cb = extraControllerCallbacks.getBroadcastItem(i);
             try {
               cb.onEvent(event, extras);
-            } catch (RemoteException e) {
+            } catch (RemoteException | SecurityException e) {
+              Log.e(TAG, "Dead object in sendSessionEvent.", e);
             }
           }
-          mExtraControllerCallbacks.finishBroadcast();
+          extraControllerCallbacks.finishBroadcast();
         }
       }
-      mSessionFwk.sendSessionEvent(event, extras);
+      sessionFwk.sendSessionEvent(event, extras);
     }
 
     @Override
     public void release() {
-      mDestroyed = true;
-      mExtraControllerCallbacks.kill();
+      destroyed = true;
+      extraControllerCallbacks.kill();
       if (Build.VERSION.SDK_INT == 27) {
         // This is a workaround for framework MediaSession's bug in API 27.
         try {
           @SuppressLint({"PrivateApi", "DiscouragedPrivateApi"})
-          Field callback = mSessionFwk.getClass().getDeclaredField("mCallback");
+          Field callback = sessionFwk.getClass().getDeclaredField("mCallback");
           callback.setAccessible(true);
-          Handler handler = (Handler) callback.get(mSessionFwk);
+          Handler handler = (Handler) callback.get(sessionFwk);
           if (handler != null) {
             handler.removeCallbacksAndMessages(null);
           }
@@ -4014,157 +2029,133 @@ public class MediaSessionCompat {
         }
       }
       // Prevent from receiving callbacks from released session.
-      mSessionFwk.setCallback(null);
-      mExtraSession.release();
-      mSessionFwk.release();
+      sessionFwk.setCallback(null);
+      extraSession.release();
+      sessionFwk.release();
     }
 
     @Override
     public Token getSessionToken() {
-      return mToken;
+      return token;
     }
 
     @Override
     public void setPlaybackState(PlaybackStateCompat state) {
-      mPlaybackState = state;
-      synchronized (mLock) {
-        int size = mExtraControllerCallbacks.beginBroadcast();
+      playbackState = state;
+      synchronized (lock) {
+        int size = extraControllerCallbacks.beginBroadcast();
         for (int i = size - 1; i >= 0; i--) {
-          IMediaControllerCallback cb = mExtraControllerCallbacks.getBroadcastItem(i);
+          IMediaControllerCallback cb = extraControllerCallbacks.getBroadcastItem(i);
           try {
             cb.onPlaybackStateChanged(state);
-          } catch (RemoteException e) {
+          } catch (RemoteException | SecurityException e) {
+            Log.e(TAG, "Dead object in setPlaybackState.", e);
           }
         }
-        mExtraControllerCallbacks.finishBroadcast();
+        extraControllerCallbacks.finishBroadcast();
       }
-      mSessionFwk.setPlaybackState(state == null ? null : (PlaybackState) state.getPlaybackState());
+      sessionFwk.setPlaybackState(state.getPlaybackState());
     }
 
     @Nullable
     @Override
     public PlaybackStateCompat getPlaybackState() {
-      return mPlaybackState;
+      return playbackState;
     }
 
     @Override
     public void setMetadata(@Nullable MediaMetadataCompat metadata) {
-      mMetadata = metadata;
-      mSessionFwk.setMetadata(
-          metadata == null ? null : (MediaMetadata) metadata.getMediaMetadata());
+      this.metadata = metadata;
+      sessionFwk.setMetadata(metadata == null ? null : metadata.getMediaMetadata());
     }
 
     @Override
-    public void setSessionActivity(PendingIntent pi) {
-      mSessionFwk.setSessionActivity(pi);
+    public void setSessionActivity(@Nullable PendingIntent pi) {
+      sessionFwk.setSessionActivity(pi);
     }
 
     @Override
     public void setMediaButtonReceiver(@Nullable PendingIntent mbr) {
-      mSessionFwk.setMediaButtonReceiver(mbr);
+      sessionFwk.setMediaButtonReceiver(mbr);
     }
 
     @Override
     public void setQueue(@Nullable List<QueueItem> queue) {
-      mQueue = queue;
+      this.queue = queue;
       if (queue == null) {
-        mSessionFwk.setQueue(null);
+        sessionFwk.setQueue(null);
         return;
       }
       ArrayList<MediaSession.QueueItem> queueItemFwks = new ArrayList<>(queue.size());
       for (QueueItem item : queue) {
-        queueItemFwks.add((MediaSession.QueueItem) checkNotNull(item.getQueueItem()));
+        queueItemFwks.add(item.getQueueItem());
       }
-      mSessionFwk.setQueue(queueItemFwks);
+      sessionFwk.setQueue(queueItemFwks);
     }
 
     @Override
     public void setQueueTitle(CharSequence title) {
-      mSessionFwk.setQueueTitle(title);
+      sessionFwk.setQueueTitle(title);
     }
 
     @Override
     public void setRatingType(@RatingCompat.Style int type) {
-      mRatingType = type;
-    }
-
-    @Override
-    public void setCaptioningEnabled(boolean enabled) {
-      if (mCaptioningEnabled != enabled) {
-        mCaptioningEnabled = enabled;
-        synchronized (mLock) {
-          int size = mExtraControllerCallbacks.beginBroadcast();
-          for (int i = size - 1; i >= 0; i--) {
-            IMediaControllerCallback cb = mExtraControllerCallbacks.getBroadcastItem(i);
-            try {
-              cb.onCaptioningEnabledChanged(enabled);
-            } catch (RemoteException e) {
-            }
-          }
-          mExtraControllerCallbacks.finishBroadcast();
-        }
-      }
+      ratingType = type;
     }
 
     @Override
     public void setRepeatMode(@PlaybackStateCompat.RepeatMode int repeatMode) {
-      if (mRepeatMode != repeatMode) {
-        mRepeatMode = repeatMode;
-        synchronized (mLock) {
-          int size = mExtraControllerCallbacks.beginBroadcast();
+      if (this.repeatMode != repeatMode) {
+        this.repeatMode = repeatMode;
+        synchronized (lock) {
+          int size = extraControllerCallbacks.beginBroadcast();
           for (int i = size - 1; i >= 0; i--) {
-            IMediaControllerCallback cb = mExtraControllerCallbacks.getBroadcastItem(i);
+            IMediaControllerCallback cb = extraControllerCallbacks.getBroadcastItem(i);
             try {
               cb.onRepeatModeChanged(repeatMode);
-            } catch (RemoteException e) {
+            } catch (RemoteException | SecurityException e) {
+              Log.e(TAG, "Dead object in setRepeatMode.", e);
             }
           }
-          mExtraControllerCallbacks.finishBroadcast();
+          extraControllerCallbacks.finishBroadcast();
         }
       }
     }
 
     @Override
     public void setShuffleMode(@PlaybackStateCompat.ShuffleMode int shuffleMode) {
-      if (mShuffleMode != shuffleMode) {
-        mShuffleMode = shuffleMode;
-        synchronized (mLock) {
-          int size = mExtraControllerCallbacks.beginBroadcast();
+      if (this.shuffleMode != shuffleMode) {
+        this.shuffleMode = shuffleMode;
+        synchronized (lock) {
+          int size = extraControllerCallbacks.beginBroadcast();
           for (int i = size - 1; i >= 0; i--) {
-            IMediaControllerCallback cb = mExtraControllerCallbacks.getBroadcastItem(i);
+            IMediaControllerCallback cb = extraControllerCallbacks.getBroadcastItem(i);
             try {
               cb.onShuffleModeChanged(shuffleMode);
-            } catch (RemoteException e) {
+            } catch (RemoteException | SecurityException e) {
+              Log.e(TAG, "Dead object in setShuffleMode.", e);
             }
           }
-          mExtraControllerCallbacks.finishBroadcast();
+          extraControllerCallbacks.finishBroadcast();
         }
       }
     }
 
     @Override
     public void setExtras(@Nullable Bundle extras) {
-      mSessionFwk.setExtras(extras);
+      sessionFwk.setExtras(extras);
     }
 
     @Nullable
     @Override
     public Object getMediaSession() {
-      return mSessionFwk;
-    }
-
-    @Nullable
-    @Override
-    public Object getRemoteControlClient() {
-      // Note: When this returns something, {@link MediaSessionCompatCallbackTest} and
-      //       {@link #setCurrentUserInfoOverride} should be also updated.
-      return null;
+      return sessionFwk;
     }
 
     @Override
     public void setCurrentControllerInfo(@Nullable RemoteUserInfo remoteUserInfo) {
-      synchronized (mLock) {
-        mRemoteUserInfo = remoteUserInfo;
+      synchronized (lock) {
+        this.remoteUserInfo = remoteUserInfo;
       }
     }
 
@@ -4175,8 +2166,8 @@ public class MediaSessionCompat {
         return null;
       } else {
         try {
-          Method getCallingPackageMethod = mSessionFwk.getClass().getMethod("getCallingPackage");
-          return (String) getCallingPackageMethod.invoke(mSessionFwk);
+          Method getCallingPackageMethod = sessionFwk.getClass().getMethod("getCallingPackage");
+          return (String) getCallingPackageMethod.invoke(sessionFwk);
         } catch (Exception e) {
           Log.e(TAG, "Cannot execute MediaSession.getCallingPackage()", e);
         }
@@ -4187,49 +2178,35 @@ public class MediaSessionCompat {
     @Nullable
     @Override
     public RemoteUserInfo getCurrentControllerInfo() {
-      synchronized (mLock) {
-        return mRemoteUserInfo;
+      synchronized (lock) {
+        return remoteUserInfo;
       }
     }
 
     @Nullable
     @Override
     public Callback getCallback() {
-      synchronized (mLock) {
-        return mCallback;
+      synchronized (lock) {
+        return callback;
       }
     }
 
     private static class ExtraSession extends IMediaSession.Stub {
 
-      private final AtomicReference<@NullableType MediaSessionImplApi21> mMediaSessionImplRef;
+      private final WeakReference<@NullableType MediaSessionImplApi21> mediaSessionImplRef;
 
       ExtraSession(MediaSessionImplApi21 mediaSessionImpl) {
-        mMediaSessionImplRef = new AtomicReference<>(mediaSessionImpl);
+        mediaSessionImplRef = new WeakReference<>(mediaSessionImpl);
       }
 
       /** Clears the reference to the containing component in order to enable garbage collection. */
-      @SuppressWarnings("argument.type.incompatible") // Resetting variable to null
       public void release() {
-        mMediaSessionImplRef.set(null);
-      }
-
-      @Override
-      public void sendCommand(
-          @Nullable String command, @Nullable Bundle args, @Nullable ResultReceiverWrapper cb) {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public boolean sendMediaButton(@Nullable KeyEvent mediaButton) {
-        // Will not be called.
-        throw new AssertionError();
+        mediaSessionImplRef.clear();
       }
 
       @Override
       public void registerCallbackListener(@Nullable IMediaControllerCallback cb) {
-        MediaSessionImplApi21 mediaSessionImpl = mMediaSessionImplRef.get();
+        MediaSessionImplApi21 mediaSessionImpl = mediaSessionImplRef.get();
         if (mediaSessionImpl == null || cb == null) {
           return;
         }
@@ -4237,10 +2214,10 @@ public class MediaSessionCompat {
         int callingUid = Binder.getCallingUid();
         RemoteUserInfo info =
             new RemoteUserInfo(RemoteUserInfo.LEGACY_CONTROLLER, callingPid, callingUid);
-        mediaSessionImpl.mExtraControllerCallbacks.register(cb, info);
-        synchronized (mediaSessionImpl.mLock) {
-          if (mediaSessionImpl.mRegistrationCallbackHandler != null) {
-            mediaSessionImpl.mRegistrationCallbackHandler.postCallbackRegistered(
+        mediaSessionImpl.extraControllerCallbacks.register(cb, info);
+        synchronized (mediaSessionImpl.lock) {
+          if (mediaSessionImpl.registrationCallbackHandler != null) {
+            mediaSessionImpl.registrationCallbackHandler.postCallbackRegistered(
                 callingPid, callingUid);
           }
         }
@@ -4248,355 +2225,92 @@ public class MediaSessionCompat {
 
       @Override
       public void unregisterCallbackListener(@Nullable IMediaControllerCallback cb) {
-        MediaSessionImplApi21 mediaSessionImpl = mMediaSessionImplRef.get();
+        MediaSessionImplApi21 mediaSessionImpl = mediaSessionImplRef.get();
         if (mediaSessionImpl == null || cb == null) {
           return;
         }
-        mediaSessionImpl.mExtraControllerCallbacks.unregister(cb);
+        mediaSessionImpl.extraControllerCallbacks.unregister(cb);
 
         int callingPid = Binder.getCallingPid();
         int callingUid = Binder.getCallingUid();
-        synchronized (mediaSessionImpl.mLock) {
-          if (mediaSessionImpl.mRegistrationCallbackHandler != null) {
-            mediaSessionImpl.mRegistrationCallbackHandler.postCallbackUnregistered(
+        synchronized (mediaSessionImpl.lock) {
+          if (mediaSessionImpl.registrationCallbackHandler != null) {
+            mediaSessionImpl.registrationCallbackHandler.postCallbackUnregistered(
                 callingPid, callingUid);
           }
         }
       }
 
-      @Override
-      public String getPackageName() {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
       @Nullable
       @Override
       public Bundle getSessionInfo() {
-        MediaSessionImplApi21 mediaSessionImpl = mMediaSessionImplRef.get();
-        return mediaSessionImpl != null && mediaSessionImpl.mSessionInfo != null
-            ? new Bundle(mediaSessionImpl.mSessionInfo)
+        MediaSessionImplApi21 mediaSessionImpl = mediaSessionImplRef.get();
+        return mediaSessionImpl != null && mediaSessionImpl.sessionInfo != null
+            ? new Bundle(mediaSessionImpl.sessionInfo)
             : null;
-      }
-
-      @Override
-      public String getTag() {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public PendingIntent getLaunchPendingIntent() {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      @SessionFlags
-      public long getFlags() {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public ParcelableVolumeInfo getVolumeAttributes() {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void adjustVolume(int direction, int flags, @Nullable String packageName) {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void setVolumeTo(int value, int flags, @Nullable String packageName) {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void prepare() throws RemoteException {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void prepareFromMediaId(@Nullable String mediaId, @Nullable Bundle extras) {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void prepareFromSearch(@Nullable String query, @Nullable Bundle extras) {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void prepareFromUri(@Nullable Uri uri, @Nullable Bundle extras) {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void play() throws RemoteException {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void playFromMediaId(@Nullable String mediaId, @Nullable Bundle extras) {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void playFromSearch(@Nullable String query, @Nullable Bundle extras) {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void playFromUri(@Nullable Uri uri, @Nullable Bundle extras) {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void skipToQueueItem(long id) {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void pause() {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void stop() {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void next() {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void previous() {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void fastForward() {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void rewind() {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void seekTo(long pos) {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void rate(@Nullable RatingCompat rating) {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void rateWithExtras(@Nullable RatingCompat rating, @Nullable Bundle extras) {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void setPlaybackSpeed(float speed) {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void setCaptioningEnabled(boolean enabled) {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void setRepeatMode(int repeatMode) {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void setShuffleModeEnabledRemoved(boolean enabled) {
-        // Do nothing.
-      }
-
-      @Override
-      public void setShuffleMode(int shuffleMode) throws RemoteException {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void sendCustomAction(@Nullable String action, @Nullable Bundle args)
-          throws RemoteException {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public MediaMetadataCompat getMetadata() {
-        // Will not be called.
-        throw new AssertionError();
       }
 
       @Nullable
       @Override
       public PlaybackStateCompat getPlaybackState() {
-        MediaSessionImplApi21 mediaSessionImpl = mMediaSessionImplRef.get();
+        MediaSessionImplApi21 mediaSessionImpl = mediaSessionImplRef.get();
         if (mediaSessionImpl != null) {
           return getStateWithUpdatedPosition(
-              mediaSessionImpl.mPlaybackState, mediaSessionImpl.mMetadata);
+              mediaSessionImpl.playbackState, mediaSessionImpl.metadata);
         } else {
           return null;
         }
       }
 
-      @Nullable
-      @Override
-      public List<QueueItem> getQueue() {
-        // Will not be called.
-        return null;
-      }
-
-      @Override
-      public void addQueueItem(@Nullable MediaDescriptionCompat descriptionCompat) {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void addQueueItemAt(@Nullable MediaDescriptionCompat descriptionCompat, int index) {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void removeQueueItem(@Nullable MediaDescriptionCompat description) {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public void removeQueueItemAt(int index) {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public CharSequence getQueueTitle() {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
-      @Override
-      public Bundle getExtras() {
-        // Will not be called.
-        throw new AssertionError();
-      }
-
       @Override
       @RatingCompat.Style
       public int getRatingType() {
-        MediaSessionImplApi21 mediaSessionImpl = mMediaSessionImplRef.get();
-        return mediaSessionImpl != null ? mediaSessionImpl.mRatingType : RatingCompat.RATING_NONE;
+        MediaSessionImplApi21 mediaSessionImpl = mediaSessionImplRef.get();
+        return mediaSessionImpl != null ? mediaSessionImpl.ratingType : RatingCompat.RATING_NONE;
       }
 
       @Override
       public boolean isCaptioningEnabled() {
-        MediaSessionImplApi21 mediaSessionImpl = mMediaSessionImplRef.get();
-        return mediaSessionImpl != null && mediaSessionImpl.mCaptioningEnabled;
+        MediaSessionImplApi21 mediaSessionImpl = mediaSessionImplRef.get();
+        return mediaSessionImpl != null && mediaSessionImpl.captioningEnabled;
       }
 
       @Override
       @PlaybackStateCompat.RepeatMode
       public int getRepeatMode() {
-        MediaSessionImplApi21 mediaSessionImpl = mMediaSessionImplRef.get();
+        MediaSessionImplApi21 mediaSessionImpl = mediaSessionImplRef.get();
         return mediaSessionImpl != null
-            ? mediaSessionImpl.mRepeatMode
+            ? mediaSessionImpl.repeatMode
             : PlaybackStateCompat.REPEAT_MODE_INVALID;
-      }
-
-      @Override
-      public boolean isShuffleModeEnabledRemoved() {
-        return false;
       }
 
       @Override
       @PlaybackStateCompat.ShuffleMode
       public int getShuffleMode() {
-        MediaSessionImplApi21 mediaSessionImpl = mMediaSessionImplRef.get();
+        MediaSessionImplApi21 mediaSessionImpl = mediaSessionImplRef.get();
         return mediaSessionImpl != null
-            ? mediaSessionImpl.mShuffleMode
+            ? mediaSessionImpl.shuffleMode
             : PlaybackStateCompat.SHUFFLE_MODE_INVALID;
-      }
-
-      @Override
-      public boolean isTransportControlEnabled() {
-        // Will not be called.
-        throw new AssertionError();
       }
     }
   }
 
   @RequiresApi(22)
   static class MediaSessionImplApi22 extends MediaSessionImplApi21 {
-    MediaSessionImplApi22(
-        Context context,
-        String tag,
-        @Nullable VersionedParcelable session2Token,
-        @Nullable Bundle sessionInfo) {
-      super(context, tag, session2Token, sessionInfo);
-    }
-
-    MediaSessionImplApi22(Object mediaSession) {
-      super(mediaSession);
+    MediaSessionImplApi22(Context context, String tag, @Nullable Bundle sessionInfo) {
+      super(context, tag, sessionInfo);
     }
 
     @Override
     public void setRatingType(@RatingCompat.Style int type) {
-      mSessionFwk.setRatingType(type);
+      sessionFwk.setRatingType(type);
     }
   }
 
   @RequiresApi(28)
   static class MediaSessionImplApi28 extends MediaSessionImplApi22 {
-    MediaSessionImplApi28(
-        Context context,
-        String tag,
-        @Nullable VersionedParcelable session2Token,
-        @Nullable Bundle sessionInfo) {
-      super(context, tag, session2Token, sessionInfo);
-    }
-
-    MediaSessionImplApi28(Object mediaSession) {
-      super(mediaSession);
+    MediaSessionImplApi28(Context context, String tag, @Nullable Bundle sessionInfo) {
+      super(context, tag, sessionInfo);
     }
 
     @Override
@@ -4608,24 +2322,15 @@ public class MediaSessionCompat {
     @Override
     public final RemoteUserInfo getCurrentControllerInfo() {
       android.media.session.MediaSessionManager.RemoteUserInfo info =
-          ((MediaSession) mSessionFwk).getCurrentControllerInfo();
+          sessionFwk.getCurrentControllerInfo();
       return new RemoteUserInfo(info);
     }
   }
 
   @RequiresApi(29)
   static class MediaSessionImplApi29 extends MediaSessionImplApi28 {
-    MediaSessionImplApi29(
-        Context context,
-        String tag,
-        @Nullable VersionedParcelable session2Token,
-        @Nullable Bundle sessionInfo) {
-      super(context, tag, session2Token, sessionInfo);
-    }
-
-    MediaSessionImplApi29(Object mediaSession) {
-      super(mediaSession);
-      mSessionInfo = ((MediaSession) mediaSession).getController().getSessionInfo();
+    MediaSessionImplApi29(Context context, String tag, @Nullable Bundle sessionInfo) {
+      super(context, tag, sessionInfo);
     }
 
     @Override
@@ -4639,11 +2344,11 @@ public class MediaSessionCompat {
     private static final int MSG_CALLBACK_REGISTERED = 1001;
     private static final int MSG_CALLBACK_UNREGISTERED = 1002;
 
-    private final RegistrationCallback mCallback;
+    private final RegistrationCallback callback;
 
     RegistrationCallbackHandler(Looper looper, RegistrationCallback callback) {
       super(looper);
-      mCallback = callback;
+      this.callback = callback;
     }
 
     @Override
@@ -4651,10 +2356,10 @@ public class MediaSessionCompat {
       super.handleMessage(msg);
       switch (msg.what) {
         case MSG_CALLBACK_REGISTERED:
-          mCallback.onCallbackRegistered(msg.arg1, msg.arg2);
+          callback.onCallbackRegistered(msg.arg1, msg.arg2);
           break;
         case MSG_CALLBACK_UNREGISTERED:
-          mCallback.onCallbackUnregistered(msg.arg1, msg.arg2);
+          callback.onCallbackUnregistered(msg.arg1, msg.arg2);
           break;
       }
     }

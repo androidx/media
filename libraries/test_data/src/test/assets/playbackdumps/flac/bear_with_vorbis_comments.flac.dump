@@ -1,4 +1,4 @@
-MediaCodecAdapter (exotest.audio.flac):
+MediaCodecAdapter (media3.audio.flac):
   inputBuffers:
     count = 34
     input buffer #0:
@@ -246,103 +246,103 @@ AudioSink:
     sampleRate = 48000
   buffer #0:
     time = 1000000000000
-    data = 1
+    data = empty
   buffer #1:
     time = 1000000085333
-    data = 1
+    data = empty
   buffer #2:
     time = 1000000170666
-    data = 1
+    data = empty
   buffer #3:
     time = 1000000256000
-    data = 1
+    data = empty
   buffer #4:
     time = 1000000341333
-    data = 1
+    data = empty
   buffer #5:
     time = 1000000426666
-    data = 1
+    data = empty
   buffer #6:
     time = 1000000512000
-    data = 1
+    data = empty
   buffer #7:
     time = 1000000597333
-    data = 1
+    data = empty
   buffer #8:
     time = 1000000682666
-    data = 1
+    data = empty
   buffer #9:
     time = 1000000768000
-    data = 1
+    data = empty
   buffer #10:
     time = 1000000853333
-    data = 1
+    data = empty
   buffer #11:
     time = 1000000938666
-    data = 1
+    data = empty
   buffer #12:
     time = 1000001024000
-    data = 1
+    data = empty
   buffer #13:
     time = 1000001109333
-    data = 1
+    data = empty
   buffer #14:
     time = 1000001194666
-    data = 1
+    data = empty
   buffer #15:
     time = 1000001280000
-    data = 1
+    data = empty
   buffer #16:
     time = 1000001365333
-    data = 1
+    data = empty
   buffer #17:
     time = 1000001450666
-    data = 1
+    data = empty
   buffer #18:
     time = 1000001536000
-    data = 1
+    data = empty
   buffer #19:
     time = 1000001621333
-    data = 1
+    data = empty
   buffer #20:
     time = 1000001706666
-    data = 1
+    data = empty
   buffer #21:
     time = 1000001792000
-    data = 1
+    data = empty
   buffer #22:
     time = 1000001877333
-    data = 1
+    data = empty
   buffer #23:
     time = 1000001962666
-    data = 1
+    data = empty
   buffer #24:
     time = 1000002048000
-    data = 1
+    data = empty
   buffer #25:
     time = 1000002133333
-    data = 1
+    data = empty
   buffer #26:
     time = 1000002218666
-    data = 1
+    data = empty
   buffer #27:
     time = 1000002304000
-    data = 1
+    data = empty
   buffer #28:
     time = 1000002389333
-    data = 1
+    data = empty
   buffer #29:
     time = 1000002474666
-    data = 1
+    data = empty
   buffer #30:
     time = 1000002560000
-    data = 1
+    data = empty
   buffer #31:
     time = 1000002645333
-    data = 1
+    data = empty
   buffer #32:
     time = 1000002730666
-    data = 1
+    data = empty
 Listener.onMediaMetadata:
   MediaMetadata[0]:
     title = test title

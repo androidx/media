@@ -79,7 +79,8 @@ public final class TestMediaBrowserListener implements MediaBrowser.Listener {
   }
 
   @Override
-  public void onSessionActivityChanged(MediaController controller, PendingIntent sessionActivity) {
+  public void onSessionActivityChanged(
+      MediaController controller, @Nullable PendingIntent sessionActivity) {
     delegate.onSessionActivityChanged(controller, sessionActivity);
   }
 

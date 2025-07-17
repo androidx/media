@@ -15,13 +15,11 @@
  */
 package androidx.media3.effect;
 
-import static androidx.media3.common.VideoFrameProcessor.RENDER_OUTPUT_FRAME_IMMEDIATELY;
 import static androidx.media3.common.VideoFrameProcessor.RENDER_OUTPUT_FRAME_WITH_PRESENTATION_TIME;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.effect.DebugTraceUtil.COMPONENT_VFP;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_RENDERED_TO_OUTPUT_SURFACE;
-import static androidx.media3.effect.DefaultVideoFrameProcessor.WORKING_COLOR_SPACE_LINEAR;
 
 import android.content.Context;
 import android.opengl.EGL14;
@@ -29,16 +27,10 @@ import android.opengl.EGLContext;
 import android.opengl.EGLDisplay;
 import android.opengl.EGLExt;
 import android.opengl.EGLSurface;
-import android.opengl.GLES20;
-import android.util.Pair;
 import android.view.Surface;
-import android.view.SurfaceHolder;
-import android.view.SurfaceView;
-import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
-import androidx.media3.common.DebugViewProvider;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.SurfaceInfo;
@@ -48,11 +40,12 @@ import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.LongArrayQueue;
 import androidx.media3.common.util.Size;
-import androidx.media3.common.util.Util;
+import androidx.media3.common.util.SystemClock;
 import androidx.media3.effect.DefaultVideoFrameProcessor.WorkingColorSpace;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
@@ -73,8 +66,15 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  */
 /* package */ final class FinalShaderProgramWrapper implements GlShaderProgram, GlTextureProducer {
 
-  interface OnInputStreamProcessedListener {
+  public interface Listener {
+    /**
+     * Called when one input stream is fully processed following {@link
+     * #signalEndOfCurrentInputStream()}.
+     */
     void onInputStreamProcessed();
+
+    /** Called when a frame is rendered to the output surface. */
+    void onFrameRendered(long presentationTimeUs);
   }
 
   private static final String TAG = "FinalShaderWrapper";
@@ -88,12 +88,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final EGLDisplay eglDisplay;
   private final EGLContext eglContext;
   private final EGLSurface placeholderSurface;
-  private final DebugViewProvider debugViewProvider;
   private final ColorInfo outputColorInfo;
   private final VideoFrameProcessingTaskExecutor videoFrameProcessingTaskExecutor;
   private final Executor videoFrameProcessorListenerExecutor;
   private final VideoFrameProcessor.Listener videoFrameProcessorListener;
-  private final Queue<Pair<GlTextureInfo, Long>> availableFrames;
+  private final Queue<TimedGlTextureInfo> availableFrames;
   private final TexturePool outputTexturePool;
   private final LongArrayQueue outputTextureTimestamps; // Synchronized with outputTexturePool.
   private final LongArrayQueue syncObjects;
@@ -104,7 +103,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private int inputWidth;
   private int inputHeight;
   @Nullable private DefaultShaderProgram defaultShaderProgram;
-  @Nullable private SurfaceViewWrapper debugSurfaceViewWrapper;
   // Whether the input stream has ended, but not all input has been released. This is relevant only
   // when renderFramesAutomatically is false. Ensures all frames are rendered before reporting
   // onInputStreamProcessed.
@@ -112,11 +110,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private boolean isInputStreamEndedWithPendingAvailableFrames;
   private InputListener inputListener;
   private @MonotonicNonNull Size outputSizeBeforeSurfaceTransformation;
-  @Nullable private SurfaceView debugSurfaceView;
-  @Nullable private OnInputStreamProcessedListener onInputStreamProcessedListener;
+  private @MonotonicNonNull Listener listener;
   private boolean matrixTransformationsChanged;
   private boolean outputSurfaceInfoChanged;
   @Nullable private SurfaceInfo outputSurfaceInfo;
+
+  private long redrawFramePresentationTimeUs;
 
   /** Wraps the {@link Surface} in {@link #outputSurfaceInfo}. */
   @Nullable private EGLSurface outputEglSurface;
@@ -126,12 +125,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       EGLDisplay eglDisplay,
       EGLContext eglContext,
       EGLSurface placeholderSurface,
-      DebugViewProvider debugViewProvider,
       ColorInfo outputColorInfo,
       VideoFrameProcessingTaskExecutor videoFrameProcessingTaskExecutor,
       Executor videoFrameProcessorListenerExecutor,
       VideoFrameProcessor.Listener videoFrameProcessorListener,
-      @Nullable Listener textureOutputListener,
+      @Nullable GlTextureProducer.Listener textureOutputListener,
       int textureOutputCapacity,
       @WorkingColorSpace int sdrWorkingColorSpace,
       boolean renderFramesAutomatically) {
@@ -141,7 +139,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.eglDisplay = eglDisplay;
     this.eglContext = eglContext;
     this.placeholderSurface = placeholderSurface;
-    this.debugViewProvider = debugViewProvider;
     this.outputColorInfo = outputColorInfo;
     this.videoFrameProcessingTaskExecutor = videoFrameProcessingTaskExecutor;
     this.videoFrameProcessorListenerExecutor = videoFrameProcessorListenerExecutor;
@@ -157,6 +154,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     outputTexturePool = new TexturePool(useHighPrecisionColorComponents, textureOutputCapacity);
     outputTextureTimestamps = new LongArrayQueue(textureOutputCapacity);
     syncObjects = new LongArrayQueue(textureOutputCapacity);
+    redrawFramePresentationTimeUs = C.TIME_UNSET;
   }
 
   // GlTextureProducer interface. Can be called on any thread.
@@ -200,17 +198,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     throw new UnsupportedOperationException();
   }
 
-  public void setOnInputStreamProcessedListener(
-      @Nullable OnInputStreamProcessedListener onInputStreamProcessedListener) {
+  public void setListener(Listener listener) {
     videoFrameProcessingTaskExecutor.verifyVideoFrameProcessingThread();
-    this.onInputStreamProcessedListener = onInputStreamProcessedListener;
+    this.listener = listener;
   }
 
   @Override
   public void signalEndOfCurrentInputStream() {
     videoFrameProcessingTaskExecutor.verifyVideoFrameProcessingThread();
     if (availableFrames.isEmpty()) {
-      checkNotNull(onInputStreamProcessedListener).onInputStreamProcessed();
+      checkNotNull(listener).onInputStreamProcessed();
       isInputStreamEndedWithPendingAvailableFrames = false;
     } else {
       checkState(!renderFramesAutomatically);
@@ -222,8 +219,15 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   public void queueInputFrame(
       GlObjectsProvider glObjectsProvider, GlTextureInfo inputTexture, long presentationTimeUs) {
     videoFrameProcessingTaskExecutor.verifyVideoFrameProcessingThread();
-    videoFrameProcessorListenerExecutor.execute(
-        () -> videoFrameProcessorListener.onOutputFrameAvailableForRendering(presentationTimeUs));
+
+    if (!isWaitingForRedrawFrame()) {
+      // Don't report output available when redrawing - the redrawn frames are released immediately.
+      videoFrameProcessorListenerExecutor.execute(
+          () ->
+              videoFrameProcessorListener.onOutputFrameAvailableForRendering(
+                  presentationTimeUs, /* isRedrawnFrame= */ false));
+    }
+
     if (textureOutputListener == null) {
       if (renderFramesAutomatically) {
         renderFrame(
@@ -232,7 +236,27 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             presentationTimeUs,
             /* renderTimeNs= */ presentationTimeUs * 1000);
       } else {
-        availableFrames.add(Pair.create(inputTexture, presentationTimeUs));
+        availableFrames.add(new TimedGlTextureInfo(inputTexture, presentationTimeUs));
+        if (isWaitingForRedrawFrame()) {
+          if (presentationTimeUs == redrawFramePresentationTimeUs) {
+            redrawFramePresentationTimeUs = C.TIME_UNSET;
+            videoFrameProcessorListenerExecutor.execute(
+                () ->
+                    videoFrameProcessorListener.onOutputFrameAvailableForRendering(
+                        presentationTimeUs, /* isRedrawnFrame= */ true));
+            renderFrame(
+                glObjectsProvider,
+                inputTexture,
+                presentationTimeUs,
+                /* renderTimeNs= */ SystemClock.DEFAULT.nanoTime());
+            availableFrames.clear();
+          } else {
+            // Skip other frames when waiting for the replay frame to arrive, so that the producer
+            // can continue processing, but keep it in the availableFrames for the player to call
+            // renderFrame.
+            inputListener.onInputFrameProcessed(inputTexture);
+          }
+        }
       }
       inputListener.onReadyToAcceptInputFrame();
     } else {
@@ -318,14 +342,21 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       return;
     }
     checkState(!renderFramesAutomatically);
-    Pair<GlTextureInfo, Long> oldestAvailableFrame = availableFrames.remove();
+    if (availableFrames.isEmpty()) {
+      // This only happens with redrawn frame. The available output frame notification on the player
+      // side runs on another thread and when redrawing rapidly, the player could receive an output
+      // frame from a previous redraw.
+      return;
+    }
+
+    TimedGlTextureInfo oldestAvailableFrame = availableFrames.remove();
     renderFrame(
         glObjectsProvider,
-        /* inputTexture= */ oldestAvailableFrame.first,
-        /* presentationTimeUs= */ oldestAvailableFrame.second,
+        oldestAvailableFrame.glTextureInfo,
+        oldestAvailableFrame.presentationTimeUs,
         renderTimeNs);
     if (availableFrames.isEmpty() && isInputStreamEndedWithPendingAvailableFrames) {
-      checkNotNull(onInputStreamProcessedListener).onInputStreamProcessed();
+      checkNotNull(listener).onInputStreamProcessed();
       isInputStreamEndedWithPendingAvailableFrames = false;
     }
   }
@@ -346,12 +377,20 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
   }
 
+  /* package */ void prepareToRedraw(long redrawFramePresentationTimeUs) {
+    this.redrawFramePresentationTimeUs = redrawFramePresentationTimeUs;
+    for (int i = 0; i < availableFrames.size(); i++) {
+      TimedGlTextureInfo availableFrame = availableFrames.remove();
+      inputListener.onInputFrameProcessed(availableFrame.glTextureInfo);
+    }
+  }
+
   /** Must be called on the GL thread. */
   private void setOutputSurfaceInfoInternal(@Nullable SurfaceInfo outputSurfaceInfo) {
     if (textureOutputListener != null) {
       return;
     }
-    if (Util.areEqual(this.outputSurfaceInfo, outputSurfaceInfo)) {
+    if (Objects.equals(this.outputSurfaceInfo, outputSurfaceInfo)) {
       return;
     }
 
@@ -400,6 +439,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
   }
 
+  private boolean isWaitingForRedrawFrame() {
+    return redrawFramePresentationTimeUs != C.TIME_UNSET;
+  }
+
   private void renderFrame(
       GlObjectsProvider glObjectsProvider,
       GlTextureInfo inputTexture,
@@ -407,8 +450,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       long renderTimeNs) {
     try {
       if (renderTimeNs == VideoFrameProcessor.DROP_OUTPUT_FRAME
-          || !ensureConfigured(glObjectsProvider, inputTexture.width, inputTexture.height)) {
+          || !ensureConfigured(glObjectsProvider, inputTexture.width, inputTexture.height)
+          || (isWaitingForRedrawFrame() && presentationTimeUs != redrawFramePresentationTimeUs)) {
         inputListener.onInputFrameProcessed(inputTexture);
+        if (renderTimeNs == VideoFrameProcessor.DROP_OUTPUT_FRAME) {
+          checkNotNull(listener).onFrameRendered(presentationTimeUs);
+        }
         return; // Drop frames when requested, or there is no output surface and output texture.
       }
       if (outputSurfaceInfo != null) {
@@ -421,9 +468,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           () ->
               videoFrameProcessorListener.onError(
                   VideoFrameProcessingException.from(e, presentationTimeUs)));
-    }
-    if (debugSurfaceViewWrapper != null && defaultShaderProgram != null) {
-      renderFrameToDebugSurface(glObjectsProvider, inputTexture, presentationTimeUs);
     }
 
     inputListener.onInputFrameProcessed(inputTexture);
@@ -446,9 +490,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     defaultShaderProgram.drawFrame(inputTexture.texId, presentationTimeUs);
 
     long eglPresentationTimeNs;
-    if (renderTimeNs == RENDER_OUTPUT_FRAME_IMMEDIATELY) {
-      eglPresentationTimeNs = System.nanoTime();
-    } else if (renderTimeNs == RENDER_OUTPUT_FRAME_WITH_PRESENTATION_TIME) {
+    if (renderTimeNs == RENDER_OUTPUT_FRAME_WITH_PRESENTATION_TIME) {
       checkState(presentationTimeUs != C.TIME_UNSET);
       eglPresentationTimeNs = presentationTimeUs * 1000;
     } else {
@@ -457,6 +499,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     EGLExt.eglPresentationTimeANDROID(eglDisplay, outputEglSurface, eglPresentationTimeNs);
     EGL14.eglSwapBuffers(eglDisplay, outputEglSurface);
+    checkNotNull(listener).onFrameRendered(presentationTimeUs);
     DebugTraceUtil.logEvent(COMPONENT_VFP, EVENT_RENDERED_TO_OUTPUT_SURFACE, presentationTimeUs);
   }
 
@@ -493,7 +536,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       this.inputHeight = inputHeight;
       Size outputSizeBeforeSurfaceTransformation =
           MatrixUtils.configureAndGetOutputSize(inputWidth, inputHeight, matrixTransformations);
-      if (!Util.areEqual(
+      if (!Objects.equals(
           this.outputSizeBeforeSurfaceTransformation, outputSizeBeforeSurfaceTransformation)) {
         this.outputSizeBeforeSurfaceTransformation = outputSizeBeforeSurfaceTransformation;
         videoFrameProcessorListenerExecutor.execute(
@@ -536,16 +579,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     if (textureOutputListener != null) {
       outputTexturePool.ensureConfigured(glObjectsProvider, outputWidth, outputHeight);
     }
-
-    @Nullable
-    SurfaceView debugSurfaceView =
-        debugViewProvider.getDebugPreviewSurfaceView(outputWidth, outputHeight);
-    if (debugSurfaceView != null && !Util.areEqual(this.debugSurfaceView, debugSurfaceView)) {
-      debugSurfaceViewWrapper =
-          new SurfaceViewWrapper(
-              eglDisplay, eglContext, debugSurfaceView, outputColorInfo.colorTransfer);
-    }
-    this.debugSurfaceView = debugSurfaceView;
 
     if (defaultShaderProgram != null
         && (outputSurfaceInfoChanged || inputSizeChanged || matrixTransformationsChanged)) {
@@ -599,124 +632,5 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       checkState(outputSize.getHeight() == outputSurfaceInfo.height);
     }
     return defaultShaderProgram;
-  }
-
-  private void renderFrameToDebugSurface(
-      GlObjectsProvider glObjectsProvider, GlTextureInfo inputTexture, long presentationTimeUs) {
-    DefaultShaderProgram defaultShaderProgram = checkNotNull(this.defaultShaderProgram);
-    SurfaceViewWrapper debugSurfaceViewWrapper = checkNotNull(this.debugSurfaceViewWrapper);
-    try {
-      checkNotNull(debugSurfaceViewWrapper)
-          .maybeRenderToSurfaceView(
-              () -> {
-                GlUtil.clearFocusedBuffers();
-                if (sdrWorkingColorSpace == WORKING_COLOR_SPACE_LINEAR) {
-                  @C.ColorTransfer
-                  int configuredColorTransfer = defaultShaderProgram.getOutputColorTransfer();
-                  defaultShaderProgram.setOutputColorTransfer(
-                      debugSurfaceViewWrapper.outputColorTransfer);
-                  defaultShaderProgram.drawFrame(inputTexture.texId, presentationTimeUs);
-                  defaultShaderProgram.setOutputColorTransfer(configuredColorTransfer);
-                } else {
-                  defaultShaderProgram.drawFrame(inputTexture.texId, presentationTimeUs);
-                }
-              },
-              glObjectsProvider);
-    } catch (VideoFrameProcessingException | GlUtil.GlException e) {
-      Log.d(TAG, "Error rendering to debug preview", e);
-    }
-  }
-
-  /**
-   * Wrapper around a {@link SurfaceView} that keeps track of whether the output surface is valid,
-   * and makes rendering a no-op if not.
-   *
-   * <p>This class should only be used for displaying a debug preview.
-   */
-  private static final class SurfaceViewWrapper implements SurfaceHolder.Callback {
-    public final @C.ColorTransfer int outputColorTransfer;
-    private final EGLDisplay eglDisplay;
-    private final EGLContext eglContext;
-
-    @GuardedBy("this")
-    @Nullable
-    private Surface surface;
-
-    @GuardedBy("this")
-    @Nullable
-    private EGLSurface eglSurface;
-
-    private int width;
-    private int height;
-
-    public SurfaceViewWrapper(
-        EGLDisplay eglDisplay,
-        EGLContext eglContext,
-        SurfaceView surfaceView,
-        @C.ColorTransfer int outputColorTransfer) {
-      this.eglDisplay = eglDisplay;
-      this.eglContext = eglContext;
-      // PQ SurfaceView output is supported from API 33, but HLG output is supported from API 34.
-      // Therefore, convert HLG to PQ below API 34, so that HLG input can be displayed properly on
-      // API 33.
-      this.outputColorTransfer =
-          outputColorTransfer == C.COLOR_TRANSFER_HLG && Util.SDK_INT < 34
-              ? C.COLOR_TRANSFER_ST2084
-              : outputColorTransfer;
-      surfaceView.getHolder().addCallback(this);
-      surface = surfaceView.getHolder().getSurface();
-      width = surfaceView.getWidth();
-      height = surfaceView.getHeight();
-    }
-
-    @Override
-    public void surfaceCreated(SurfaceHolder holder) {}
-
-    @Override
-    public synchronized void surfaceChanged(
-        SurfaceHolder holder, int format, int width, int height) {
-      this.width = width;
-      this.height = height;
-      Surface newSurface = holder.getSurface();
-      if (surface == null || !surface.equals(newSurface)) {
-        surface = newSurface;
-        eglSurface = null;
-      }
-    }
-
-    @Override
-    public synchronized void surfaceDestroyed(SurfaceHolder holder) {
-      surface = null;
-      eglSurface = null;
-      width = C.LENGTH_UNSET;
-      height = C.LENGTH_UNSET;
-    }
-
-    /**
-     * Focuses the wrapped surface view's surface as an {@link EGLSurface}, renders using {@code
-     * renderingTask} and swaps buffers, if the view's holder has a valid surface. Does nothing
-     * otherwise.
-     *
-     * <p>Must be called on the GL thread.
-     */
-    public synchronized void maybeRenderToSurfaceView(
-        VideoFrameProcessingTaskExecutor.Task renderingTask, GlObjectsProvider glObjectsProvider)
-        throws GlUtil.GlException, VideoFrameProcessingException {
-      if (surface == null) {
-        return;
-      }
-
-      if (eglSurface == null) {
-        eglSurface =
-            glObjectsProvider.createEglSurface(
-                eglDisplay, surface, outputColorTransfer, /* isEncoderInputSurface= */ false);
-      }
-      EGLSurface eglSurface = this.eglSurface;
-      GlUtil.focusEglSurface(eglDisplay, eglContext, eglSurface, width, height);
-      renderingTask.run();
-      EGL14.eglSwapBuffers(eglDisplay, eglSurface);
-      // Prevents white flashing on the debug SurfaceView when frames are rendered too fast.
-      GLES20.glFinish();
-    }
   }
 }

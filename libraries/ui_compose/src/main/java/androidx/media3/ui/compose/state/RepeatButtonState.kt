@@ -29,8 +29,8 @@ import androidx.media3.common.util.UnstableApi
 
 /**
  * Remember the value of [RepeatButtonState] created based on the passed [Player] and launch a
- * coroutine to listen to [Player]'s changes. If the [Player] instance changes between compositions,
- * produce and remember a new value.
+ * coroutine to listen to [Player's][Player] changes. If the [Player] instance changes between
+ * compositions, produce and remember a new value.
  */
 @UnstableApi
 @Composable
@@ -53,9 +53,9 @@ fun rememberRepeatButtonState(
  *   button is clicked. Defaults to [Player.REPEAT_MODE_OFF], [Player.REPEAT_MODE_ONE],
  *   [Player.REPEAT_MODE_ALL].
  * @property[isEnabled] determined by `isCommandAvailable(Player.COMMAND_SET_REPEAT_MODE)`
- * @property[repeatModeState] determined by [Player]'s `repeatMode`. Note that there is no guarantee
- *   for this state to be one from [toggleModeSequence]. A button click in such case will toggle the
- *   mode into the first one of [toggleModeSequence].
+ * @property[repeatModeState] determined by [Player's][Player] `repeatMode`. Note that there is no
+ *   guarantee for this state to be one from [toggleModeSequence]. A button click in such case will
+ *   toggle the mode into the first one of [toggleModeSequence].
  */
 @UnstableApi
 class RepeatButtonState(
@@ -63,10 +63,7 @@ class RepeatButtonState(
   private val toggleModeSequence: List<@Player.RepeatMode Int> =
     listOf(Player.REPEAT_MODE_OFF, Player.REPEAT_MODE_ONE, Player.REPEAT_MODE_ALL),
 ) {
-  var isEnabled by
-    mutableStateOf(
-      player.isCommandAvailable(Player.COMMAND_SET_REPEAT_MODE) && toggleModeSequence.isNotEmpty()
-    )
+  var isEnabled by mutableStateOf(isRepeatModeEnabled(player))
     private set
 
   var repeatModeState by mutableIntStateOf(player.repeatMode)
@@ -80,7 +77,15 @@ class RepeatButtonState(
     player.repeatMode = getNextRepeatModeInSequence()
   }
 
-  suspend fun observe(): Nothing =
+  /**
+   * Subscribes to updates from [Player.Events] and listens to
+   * * [Player.EVENT_REPEAT_MODE_CHANGED] in order to determine the latest [Player.getRepeatMode].
+   * * [Player.EVENT_AVAILABLE_COMMANDS_CHANGED] in order to determine whether the button should be
+   *   enabled, i.e. respond to user input.
+   */
+  suspend fun observe(): Nothing {
+    repeatModeState = player.repeatMode
+    isEnabled = isRepeatModeEnabled(player)
     player.listen { events ->
       if (
         events.containsAny(
@@ -89,13 +94,17 @@ class RepeatButtonState(
         )
       ) {
         repeatModeState = repeatMode
-        isEnabled = isCommandAvailable(Player.COMMAND_SET_REPEAT_MODE)
+        isEnabled = isRepeatModeEnabled(this)
       }
     }
+  }
 
   private fun getNextRepeatModeInSequence(): @Player.RepeatMode Int {
     val currRepeatModeIndex = toggleModeSequence.indexOf(player.repeatMode)
     // -1 (i.e. not found) and the last element both loop back to 0
     return toggleModeSequence[(currRepeatModeIndex + 1) % toggleModeSequence.size]
   }
+
+  private fun isRepeatModeEnabled(player: Player) =
+    player.isCommandAvailable(Player.COMMAND_SET_REPEAT_MODE) && toggleModeSequence.isNotEmpty()
 }

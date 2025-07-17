@@ -31,7 +31,6 @@ public class MediaBrowserProtocol {
   public static final String DATA_CALLING_PID = "data_calling_pid";
   public static final String DATA_MEDIA_ITEM_ID = "data_media_item_id";
   public static final String DATA_MEDIA_ITEM_LIST = "data_media_item_list";
-  public static final String DATA_MEDIA_SESSION_TOKEN = "data_media_session_token";
   public static final String DATA_OPTIONS = "data_options";
   public static final String DATA_NOTIFY_CHILDREN_CHANGED_OPTIONS =
       "data_notify_children_changed_options";
@@ -50,13 +49,6 @@ public class MediaBrowserProtocol {
   public static final String EXTRA_SESSION_BINDER = "extra_session_binder";
 
   /**
-   * MediaBrowserCompat will check the version of the connected MediaBrowserServiceCompat, and it
-   * will not send messages if they are introduced in the higher version of the
-   * MediaBrowserServiceCompat.
-   */
-  public static final int SERVICE_VERSION_1 = 1;
-
-  /**
    * To prevent ClassNotFoundException from Parcelables, MediaBrowser(Service)Compat tries to avoid
    * using framework code as much as possible (b/62648808). For backward compatibility, service v2
    * is introduced so that the browser can distinguish whether the service supports subscribing
@@ -71,20 +63,6 @@ public class MediaBrowserProtocol {
    * (Compat implementation for IMediaBrowserServiceCallbacks)
    * DO NOT RENUMBER THESE!
    */
-
-  /**
-   * (service v1) Sent after {@link MediaBrowserCompat#connect()} when the request has successfully
-   * completed. - arg1 : The service version - data DATA_MEDIA_ITEM_ID : A string for the root media
-   * item id DATA_MEDIA_SESSION_TOKEN : Media session token DATA_ROOT_HINTS : An optional root hints
-   * bundle of service-specific arguments
-   */
-  public static final int SERVICE_MSG_ON_CONNECT = 1;
-
-  /**
-   * (service v1) Sent after {@link MediaBrowserCompat#connect()} when the connection to the media
-   * browser failed. - arg1 : service version
-   */
-  public static final int SERVICE_MSG_ON_CONNECT_FAILED = 2;
 
   /**
    * (service v1) Sent when the list of children is loaded or updated. - arg1 : The service version
@@ -109,19 +87,6 @@ public class MediaBrowserProtocol {
    * (Compat implementation for IMediaBrowserService)
    * DO NOT RENUMBER THESE!
    */
-
-  /**
-   * (client v1) Sent to connect to the media browse service compat. - arg1 : The client version -
-   * data DATA_PACKAGE_NAME : A string for the package name of MediaBrowserCompat DATA_ROOT_HINTS :
-   * An optional root hints bundle of service-specific arguments - replyTo : Callback messenger
-   */
-  public static final int CLIENT_MSG_CONNECT = 1;
-
-  /**
-   * (client v1) Sent to disconnect from the media browse service compat. - arg1 : The client
-   * version - replyTo : Callback messenger
-   */
-  public static final int CLIENT_MSG_DISCONNECT = 2;
 
   /**
    * (client v1) Sent to subscribe for changes to the children of the specified media id. - arg1 :

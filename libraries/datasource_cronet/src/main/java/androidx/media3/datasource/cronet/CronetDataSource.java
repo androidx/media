@@ -46,6 +46,8 @@ import com.google.common.primitives.Longs;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.io.InterruptedIOException;
+import java.net.CookieHandler;
+import java.net.CookieManager;
 import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
@@ -74,6 +76,8 @@ import org.chromium.net.UrlResponseInfo;
  * construct the instance.
  */
 public class CronetDataSource extends BaseDataSource implements HttpDataSource {
+
+  private static final String TAG = "CronetDataSource";
 
   static {
     MediaLibraryInfo.registerModule("media3.datasource.cronet");
@@ -173,7 +177,6 @@ public class CronetDataSource extends BaseDataSource implements HttpDataSource {
      * @return This factory.
      */
     @CanIgnoreReturnValue
-    @UnstableApi
     public Factory setUserAgent(@Nullable String userAgent) {
       this.userAgent = userAgent;
       if (internalFallbackFactory != null) {
@@ -1083,14 +1086,6 @@ public class CronetDataSource extends BaseDataSource implements HttpDataSource {
     return false;
   }
 
-  @Nullable
-  private static String parseCookies(@Nullable List<String> setCookieHeaders) {
-    if (setCookieHeaders == null || setCookieHeaders.isEmpty()) {
-      return null;
-    }
-    return TextUtils.join(";", setCookieHeaders);
-  }
-
   private static int getStatus(UrlRequest request) throws InterruptedException {
     final ConditionVariable conditionVariable = new ConditionVariable();
     final int[] statusHolder = new int[1];
@@ -1161,6 +1156,18 @@ public class CronetDataSource extends BaseDataSource implements HttpDataSource {
         resetConnectTimeout();
       }
 
+      CookieHandler cookieHandler = CookieHandler.getDefault();
+      if (cookieHandler == null && handleSetCookieRequests) {
+        // A temporary CookieManager is created for the duration of this request - this guarantees
+        // redirects preserve the cookies correctly.
+        cookieHandler = new CookieManager();
+      }
+
+      String url = info.getUrl();
+      Map<String, List<String>> headers = info.getAllHeaders();
+      HttpUtil.storeCookiesFromHeaders(url, headers, cookieHandler);
+      String cookieHeaders = HttpUtil.getCookieHeader(url, headers, cookieHandler);
+
       boolean shouldKeepPost =
           keepPostFor302Redirects
               && dataSpec.httpMethod == DataSpec.HTTP_METHOD_POST
@@ -1168,16 +1175,12 @@ public class CronetDataSource extends BaseDataSource implements HttpDataSource {
 
       // request.followRedirect() transforms a POST request into a GET request, so if we want to
       // keep it as a POST we need to fall through to the manual redirect logic below.
-      if (!shouldKeepPost && !handleSetCookieRequests) {
-        request.followRedirect();
-        return;
-      }
-
-      @Nullable
-      String cookieHeadersValue = parseCookies(info.getAllHeaders().get(HttpHeaders.SET_COOKIE));
-      if (!shouldKeepPost && TextUtils.isEmpty(cookieHeadersValue)) {
-        request.followRedirect();
-        return;
+      if (!shouldKeepPost) {
+        // No cookies, or we're not handling them - so just follow the redirect.
+        if (!handleSetCookieRequests || TextUtils.isEmpty(cookieHeaders)) {
+          request.followRedirect();
+          return;
+        }
       }
 
       DataSpec redirectUrlDataSpec;
@@ -1195,10 +1198,10 @@ public class CronetDataSource extends BaseDataSource implements HttpDataSource {
         redirectUrlDataSpec = dataSpec.withUri(Uri.parse(newLocationUrl));
       }
 
-      if (!TextUtils.isEmpty(cookieHeadersValue)) {
+      if (!TextUtils.isEmpty(cookieHeaders)) {
         Map<String, String> requestHeaders = new HashMap<>();
         requestHeaders.putAll(dataSpec.httpRequestHeaders);
-        requestHeaders.put(HttpHeaders.COOKIE, cookieHeadersValue);
+        requestHeaders.put(HttpHeaders.COOKIE, cookieHeaders);
         redirectUrlDataSpec =
             redirectUrlDataSpec.buildUpon().setHttpRequestHeaders(requestHeaders).build();
       }
@@ -1219,6 +1222,8 @@ public class CronetDataSource extends BaseDataSource implements HttpDataSource {
       if (isClosed) {
         return;
       }
+      HttpUtil.storeCookiesFromHeaders(
+          info.getUrl(), info.getAllHeaders(), CookieHandler.getDefault());
       responseInfo = info;
       operation.open();
     }

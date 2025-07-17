@@ -40,6 +40,7 @@ const int GL_TRUE = 1;
 const int WORKING_COLOR_SPACE_DEFAULT = 0;
 const int WORKING_COLOR_SPACE_ORIGINAL = 1;
 const int WORKING_COLOR_SPACE_LINEAR = 2;
+// LINT.ThenChange(../../../../../effect/src/main/java/androidx/media3/effect/DefaultVideoFrameProcessor.java:working_color_space)
 
 // Output colors for an obviously visible error.
 const vec3 ERROR_COLOR_BLUE = vec3(0.0, 0.0, 1.0);
@@ -98,6 +99,7 @@ highp vec3 convertToOutputColors(highp vec3 workingColors) {
   // LINT.IfChange(color_transfer)
   const int COLOR_TRANSFER_LINEAR = 1;
   const int COLOR_TRANSFER_SDR_VIDEO = 3;
+  // LINT.ThenChange(../../../../../common/src/main/java/androidx/media3/common/C.java:color_transfer)
   if (uSdrWorkingColorSpace == WORKING_COLOR_SPACE_DEFAULT) {
     if (uOutputColorTransfer == COLOR_TRANSFER_LINEAR) {
       return smpte170mEotf(workingColors);

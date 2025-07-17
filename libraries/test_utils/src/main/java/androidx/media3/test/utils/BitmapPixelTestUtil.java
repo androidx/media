@@ -34,12 +34,12 @@ import android.graphics.PixelFormat;
 import android.media.Image;
 import android.opengl.GLES20;
 import android.opengl.GLES30;
+import android.os.Build;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -92,7 +92,7 @@ public class BitmapPixelTestUtil {
    */
   // TODO: b/279154364 - Stop allowing 15f threshold after bug is fixed.
   public static final float MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE_DIFFERENT_DEVICE =
-      !Util.MODEL.equals("H8266") && !Util.MODEL.equals("H8416") ? 5f : 15f;
+      !Build.MODEL.equals("H8266") && !Build.MODEL.equals("H8416") ? 5f : 15f;
 
   /**
    * Maximum allowed average pixel difference between bitmaps generated.

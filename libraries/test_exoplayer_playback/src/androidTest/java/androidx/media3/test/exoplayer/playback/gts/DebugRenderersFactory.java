@@ -104,12 +104,12 @@ import java.util.ArrayList;
         VideoRendererEventListener eventListener,
         int maxDroppedFrameCountToNotify) {
       super(
-          context,
-          mediaCodecSelector,
-          allowedJoiningTimeMs,
-          eventHandler,
-          eventListener,
-          maxDroppedFrameCountToNotify);
+          new Builder(context)
+              .setMediaCodecSelector(mediaCodecSelector)
+              .setAllowedJoiningTimeMs(allowedJoiningTimeMs)
+              .setEventHandler(eventHandler)
+              .setEventListener(eventListener)
+              .setMaxDroppedFramesToNotify(maxDroppedFrameCountToNotify));
       timestampsList = new long[ARRAY_SIZE];
       inputFormatChangeTimesUs = new ArrayDeque<>();
 

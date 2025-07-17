@@ -46,10 +46,10 @@ public final class MediaSessionManager {
   static final String TAG = "MediaSessionManager";
   static final boolean DEBUG = Log.isLoggable(TAG, Log.DEBUG);
 
-  private static final Object sLock = new Object();
-  @Nullable private static volatile MediaSessionManager sSessionManager;
+  private static final Object lock = new Object();
+  @Nullable private static volatile MediaSessionManager sessionManager;
 
-  MediaSessionManagerImpl mImpl;
+  MediaSessionManagerImpl impl;
 
   /**
    * Gets an instance of the media session manager associated with the context.
@@ -57,25 +57,16 @@ public final class MediaSessionManager {
    * @return The MediaSessionManager instance for this context.
    */
   public static MediaSessionManager getSessionManager(Context context) {
-    if (context == null) {
-      throw new IllegalArgumentException("context cannot be null");
-    }
-    synchronized (sLock) {
-      if (sSessionManager == null) {
-        sSessionManager = new MediaSessionManager(context.getApplicationContext());
+    synchronized (lock) {
+      if (sessionManager == null) {
+        sessionManager = new MediaSessionManager(context.getApplicationContext());
       }
-      return sSessionManager;
+      return sessionManager;
     }
   }
 
   private MediaSessionManager(Context context) {
-    if (Build.VERSION.SDK_INT >= 28) {
-      mImpl = new MediaSessionManagerImplApi28(context);
-    } else if (Build.VERSION.SDK_INT >= 21) {
-      mImpl = new MediaSessionManagerImplApi21(context);
-    } else {
-      mImpl = new MediaSessionManagerImplBase(context);
-    }
+    impl = new MediaSessionManagerImpl(context);
   }
 
   /**
@@ -91,20 +82,7 @@ public final class MediaSessionManager {
    *     {@code false} otherwise.
    */
   public boolean isTrustedForMediaControl(RemoteUserInfo userInfo) {
-    if (userInfo == null) {
-      throw new IllegalArgumentException("userInfo should not be null");
-    }
-    return mImpl.isTrustedForMediaControl(userInfo.mImpl);
-  }
-
-  Context getContext() {
-    return mImpl.getContext();
-  }
-
-  interface MediaSessionManagerImpl {
-    Context getContext();
-
-    boolean isTrustedForMediaControl(RemoteUserInfoImpl userInfo);
+    return impl.isTrustedForMediaControl(userInfo.impl);
   }
 
   interface RemoteUserInfoImpl {
@@ -138,7 +116,7 @@ public final class MediaSessionManager {
     /** Represents an unknown uid of an application. */
     public static final int UNKNOWN_UID = -1;
 
-    RemoteUserInfoImpl mImpl;
+    RemoteUserInfoImpl impl;
 
     /**
      * Public constructor.
@@ -157,10 +135,10 @@ public final class MediaSessionManager {
         throw new IllegalArgumentException("packageName should be nonempty");
       }
       if (Build.VERSION.SDK_INT >= 28) {
-        mImpl = new MediaSessionManagerImplApi28.RemoteUserInfoImplApi28(packageName, pid, uid);
+        impl = new RemoteUserInfoImplApi28(packageName, pid, uid);
       } else {
         // Note: We need to include IBinder to distinguish controllers in a process.
-        mImpl = new MediaSessionManagerImplBase.RemoteUserInfoImplBase(packageName, pid, uid);
+        impl = new RemoteUserInfoImplBase(packageName, pid, uid);
       }
     }
 
@@ -177,14 +155,13 @@ public final class MediaSessionManager {
     public RemoteUserInfo(android.media.session.MediaSessionManager.RemoteUserInfo remoteUserInfo) {
       // Framework RemoteUserInfo doesn't ensure non-null nor non-empty package name,
       // so ensure package name here instead.
-      String packageName =
-          MediaSessionManagerImplApi28.RemoteUserInfoImplApi28.getPackageName(remoteUserInfo);
+      String packageName = RemoteUserInfoImplApi28.getPackageName(remoteUserInfo);
       if (packageName == null) {
         throw new NullPointerException("package shouldn't be null");
       } else if (TextUtils.isEmpty(packageName)) {
         throw new IllegalArgumentException("packageName should be nonempty");
       }
-      mImpl = new MediaSessionManagerImplApi28.RemoteUserInfoImplApi28(remoteUserInfo);
+      impl = new RemoteUserInfoImplApi28(remoteUserInfo);
     }
 
     /**
@@ -192,21 +169,21 @@ public final class MediaSessionManager {
      *     cannot be obtained.
      */
     public String getPackageName() {
-      return mImpl.getPackageName();
+      return impl.getPackageName();
     }
 
     /**
      * @return pid of the controller. Can be a negative value if the pid cannot be obtained.
      */
     public int getPid() {
-      return mImpl.getPid();
+      return impl.getPid();
     }
 
     /**
      * @return uid of the controller. Can be a negative value if the uid cannot be obtained.
      */
     public int getUid() {
-      return mImpl.getUid();
+      return impl.getUid();
     }
 
     /**
@@ -232,17 +209,16 @@ public final class MediaSessionManager {
       if (!(obj instanceof RemoteUserInfo)) {
         return false;
       }
-      return mImpl.equals(((RemoteUserInfo) obj).mImpl);
+      return impl.equals(((RemoteUserInfo) obj).impl);
     }
 
     @Override
     public int hashCode() {
-      return mImpl.hashCode();
+      return impl.hashCode();
     }
   }
 
-  private static class MediaSessionManagerImplBase
-      implements MediaSessionManager.MediaSessionManagerImpl {
+  private static class MediaSessionManagerImpl {
     private static final String TAG = MediaSessionManager.TAG;
     private static final boolean DEBUG = MediaSessionManager.DEBUG;
 
@@ -252,25 +228,30 @@ public final class MediaSessionManager {
         "android.permission.MEDIA_CONTENT_CONTROL";
     private static final String ENABLED_NOTIFICATION_LISTENERS = "enabled_notification_listeners";
 
-    Context mContext;
-    ContentResolver mContentResolver;
+    Context context;
+    ContentResolver contentResolver;
 
-    MediaSessionManagerImplBase(Context context) {
-      mContext = context;
-      mContentResolver = mContext.getContentResolver();
+    MediaSessionManagerImpl(Context context) {
+      this.context = context;
+      contentResolver = this.context.getContentResolver();
     }
 
-    @Override
-    public Context getContext() {
-      return mContext;
-    }
-
-    @Override
-    @SuppressWarnings("deprecation")
     public boolean isTrustedForMediaControl(MediaSessionManager.RemoteUserInfoImpl userInfo) {
+      // Don't use framework's isTrustedForMediaControl().
+      // In P, framework's isTrustedForMediaControl() checks whether the UID, PID,
+      // and package name match. In MediaSession/MediaController, Context#getPackageName() is
+      // used by MediaController to tell MediaSession the package name.
+      // However, UID, PID and Context#getPackageName() may not match if a activity/service runs
+      // on the another app's process by specifying android:process in the AndroidManifest.xml.
+      // In that case, this check will always fail.
+      // Alternative way is to use Context#getOpPackageName() for sending the package name,
+      // but it's hidden so we cannot use it.
+      if (hasMediaControlPermission(userInfo)) {
+        return true;
+      }
       try {
         ApplicationInfo applicationInfo =
-            mContext.getPackageManager().getApplicationInfo(userInfo.getPackageName(), 0);
+            context.getPackageManager().getApplicationInfo(userInfo.getPackageName(), 0);
         if (applicationInfo == null) {
           return false;
         }
@@ -283,17 +264,27 @@ public final class MediaSessionManager {
       return isPermissionGranted(userInfo, PERMISSION_STATUS_BAR_SERVICE)
           || isPermissionGranted(userInfo, PERMISSION_MEDIA_CONTENT_CONTROL)
           || userInfo.getUid() == Process.SYSTEM_UID
+          || userInfo.getUid() == Process.myUid()
           || isEnabledNotificationListener(userInfo);
+    }
+
+    /** Checks the caller has android.Manifest.permission.MEDIA_CONTENT_CONTROL permission. */
+    private boolean hasMediaControlPermission(MediaSessionManager.RemoteUserInfoImpl userInfo) {
+      return context.checkPermission(
+              android.Manifest.permission.MEDIA_CONTENT_CONTROL,
+              userInfo.getPid(),
+              userInfo.getUid())
+          == PackageManager.PERMISSION_GRANTED;
     }
 
     private boolean isPermissionGranted(
         MediaSessionManager.RemoteUserInfoImpl userInfo, String permission) {
       if (userInfo.getPid() < 0) {
         // This may happen for the MediaBrowserServiceCompat#onGetRoot().
-        return mContext.getPackageManager().checkPermission(permission, userInfo.getPackageName())
+        return context.getPackageManager().checkPermission(permission, userInfo.getPackageName())
             == PackageManager.PERMISSION_GRANTED;
       }
-      return mContext.checkPermission(permission, userInfo.getPid(), userInfo.getUid())
+      return context.checkPermission(permission, userInfo.getPid(), userInfo.getUid())
           == PackageManager.PERMISSION_GRANTED;
     }
 
@@ -306,7 +297,7 @@ public final class MediaSessionManager {
     @SuppressWarnings("StringSplitter")
     boolean isEnabledNotificationListener(MediaSessionManager.RemoteUserInfoImpl userInfo) {
       final String enabledNotifListeners =
-          Settings.Secure.getString(mContentResolver, ENABLED_NOTIFICATION_LISTENERS);
+          Settings.Secure.getString(contentResolver, ENABLED_NOTIFICATION_LISTENERS);
       if (enabledNotifListeners != null) {
         final String[] components = enabledNotifListeners.split(":");
         for (int i = 0; i < components.length; i++) {
@@ -320,142 +311,87 @@ public final class MediaSessionManager {
       }
       return false;
     }
-
-    static class RemoteUserInfoImplBase implements MediaSessionManager.RemoteUserInfoImpl {
-      private String mPackageName;
-      private int mPid;
-      private int mUid;
-
-      RemoteUserInfoImplBase(String packageName, int pid, int uid) {
-        mPackageName = packageName;
-        mPid = pid;
-        mUid = uid;
-      }
-
-      @Override
-      public String getPackageName() {
-        return mPackageName;
-      }
-
-      @Override
-      public int getPid() {
-        return mPid;
-      }
-
-      @Override
-      public int getUid() {
-        return mUid;
-      }
-
-      @Override
-      public boolean equals(@Nullable Object obj) {
-        if (this == obj) {
-          return true;
-        }
-        if (!(obj instanceof RemoteUserInfoImplBase)) {
-          return false;
-        }
-        RemoteUserInfoImplBase otherUserInfo = (RemoteUserInfoImplBase) obj;
-        if (mPid < 0 || otherUserInfo.mPid < 0) {
-          // Only compare package name and UID when PID is unknown.
-          return TextUtils.equals(mPackageName, otherUserInfo.mPackageName)
-              && mUid == otherUserInfo.mUid;
-        }
-        return TextUtils.equals(mPackageName, otherUserInfo.mPackageName)
-            && mPid == otherUserInfo.mPid
-            && mUid == otherUserInfo.mUid;
-      }
-
-      @Override
-      public int hashCode() {
-        return ObjectsCompat.hash(mPackageName, mUid);
-      }
-    }
   }
 
-  @RequiresApi(21)
-  private static class MediaSessionManagerImplApi21 extends MediaSessionManagerImplBase {
-    MediaSessionManagerImplApi21(Context context) {
-      super(context);
-      mContext = context;
+  private static class RemoteUserInfoImplBase implements MediaSessionManager.RemoteUserInfoImpl {
+    private final String packageName;
+    private final int pid;
+    private final int uid;
+
+    RemoteUserInfoImplBase(String packageName, int pid, int uid) {
+      this.packageName = packageName;
+      this.pid = pid;
+      this.uid = uid;
     }
 
     @Override
-    public boolean isTrustedForMediaControl(MediaSessionManager.RemoteUserInfoImpl userInfo) {
-
-      return hasMediaControlPermission(userInfo) || super.isTrustedForMediaControl(userInfo);
+    public String getPackageName() {
+      return packageName;
     }
 
-    /** Checks the caller has android.Manifest.permission.MEDIA_CONTENT_CONTROL permission. */
-    private boolean hasMediaControlPermission(MediaSessionManager.RemoteUserInfoImpl userInfo) {
-      return getContext()
-              .checkPermission(
-                  android.Manifest.permission.MEDIA_CONTENT_CONTROL,
-                  userInfo.getPid(),
-                  userInfo.getUid())
-          == PackageManager.PERMISSION_GRANTED;
+    @Override
+    public int getPid() {
+      return pid;
+    }
+
+    @Override
+    public int getUid() {
+      return uid;
+    }
+
+    @Override
+    public boolean equals(@Nullable Object obj) {
+      if (this == obj) {
+        return true;
+      }
+      if (!(obj instanceof RemoteUserInfoImplBase)) {
+        return false;
+      }
+      RemoteUserInfoImplBase otherUserInfo = (RemoteUserInfoImplBase) obj;
+      if (pid < 0 || otherUserInfo.pid < 0) {
+        // Only compare package name and UID when PID is unknown.
+        return TextUtils.equals(packageName, otherUserInfo.packageName) && uid == otherUserInfo.uid;
+      }
+      return TextUtils.equals(packageName, otherUserInfo.packageName)
+          && pid == otherUserInfo.pid
+          && uid == otherUserInfo.uid;
+    }
+
+    @Override
+    public int hashCode() {
+      return ObjectsCompat.hash(packageName, uid);
     }
   }
 
+  /**
+   * This extends {@link RemoteUserInfoImplBase} on purpose not to use frameworks' equals() and
+   * hashCode() implementation for two reasons:
+   *
+   * <p>1. To override PID checks when one of them are unknown. PID can be unknown between
+   * MediaBrowserCompat / MediaBrowserServiceCompat 2. To skip checking hidden binder. Framework's
+   * {@link android.media.session.MediaSessionManager.RemoteUserInfo} also checks internal binder to
+   * distinguish multiple {@link android.media.session.MediaController} and {@link
+   * android.media.browse.MediaBrowser} in a process. However, when the binders in both
+   * RemoteUserInfos are {@code null}, framework's equal() specially handles the case and returns
+   * {@code false}. This causes two issues that we need to workaround. Issue a) RemoteUserInfos
+   * created by key events are considered as all different. Issue b) RemoteUserInfos created with
+   * public constructors are considered as all different.
+   */
   @RequiresApi(28)
-  private static final class MediaSessionManagerImplApi28 extends MediaSessionManagerImplApi21 {
-    @Nullable android.media.session.MediaSessionManager mObject;
+  private static final class RemoteUserInfoImplApi28 extends RemoteUserInfoImplBase {
 
-    MediaSessionManagerImplApi28(Context context) {
-      super(context);
-      mObject =
-          (android.media.session.MediaSessionManager)
-              context.getSystemService(Context.MEDIA_SESSION_SERVICE);
+    RemoteUserInfoImplApi28(String packageName, int pid, int uid) {
+      super(packageName, pid, uid);
     }
 
-    @Override
-    public boolean isTrustedForMediaControl(MediaSessionManager.RemoteUserInfoImpl userInfo) {
-      // Don't use framework's isTrustedForMediaControl().
-      // In P, framework's isTrustedForMediaControl() checks whether the UID, PID,
-      // and package name match. In MediaSession/MediaController, Context#getPackageName() is
-      // used by MediaController to tell MediaSession the package name.
-      // However, UID, PID and Context#getPackageName() may not match if a activity/service runs
-      // on the another app's process by specifying android:process in the AndroidManifest.xml.
-      // In that case, this check will always fail.
-      // Alternative way is to use Context#getOpPackageName() for sending the package name,
-      // but it's hidden so we cannot use it.
-      return super.isTrustedForMediaControl(userInfo);
+    RemoteUserInfoImplApi28(
+        android.media.session.MediaSessionManager.RemoteUserInfo remoteUserInfo) {
+      super(remoteUserInfo.getPackageName(), remoteUserInfo.getPid(), remoteUserInfo.getUid());
     }
 
-    /**
-     * This extends {@link RemoteUserInfoImplBase} on purpose not to use frameworks' equals() and
-     * hashCode() implementation for two reasons:
-     *
-     * <p>1. To override PID checks when one of them are unknown. PID can be unknown between
-     * MediaBrowserCompat / MediaBrowserServiceCompat 2. To skip checking hidden binder. Framework's
-     * {@link android.media.session.MediaSessionManager.RemoteUserInfo} also checks internal binder
-     * to distinguish multiple {@link android.media.session.MediaController} and {@link
-     * android.media.browse.MediaBrowser} in a process. However, when the binders in both
-     * RemoteUserInfos are {@link null}, framework's equal() specially handles the case and returns
-     * {@code false}. This cause two issues that we need to workaround. Issue a) RemoteUserInfos
-     * created by key events are considered as all different. issue b) RemoteUserInfos created with
-     * public constructors are considers as all different.
-     */
-    @RequiresApi(28)
-    private static final class RemoteUserInfoImplApi28 extends RemoteUserInfoImplBase {
-      final android.media.session.MediaSessionManager.RemoteUserInfo mObject;
-
-      RemoteUserInfoImplApi28(String packageName, int pid, int uid) {
-        super(packageName, pid, uid);
-        mObject =
-            new android.media.session.MediaSessionManager.RemoteUserInfo(packageName, pid, uid);
-      }
-
-      RemoteUserInfoImplApi28(
-          android.media.session.MediaSessionManager.RemoteUserInfo remoteUserInfo) {
-        super(remoteUserInfo.getPackageName(), remoteUserInfo.getPid(), remoteUserInfo.getUid());
-        mObject = remoteUserInfo;
-      }
-
-      static String getPackageName(
-          android.media.session.MediaSessionManager.RemoteUserInfo remoteUserInfo) {
-        return remoteUserInfo.getPackageName();
-      }
+    static String getPackageName(
+        android.media.session.MediaSessionManager.RemoteUserInfo remoteUserInfo) {
+      return remoteUserInfo.getPackageName();
     }
   }
 }

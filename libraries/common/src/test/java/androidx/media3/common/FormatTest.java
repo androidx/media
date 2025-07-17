@@ -43,22 +43,10 @@ public final class FormatTest {
   }
 
   @Test
-  public void roundTripViaBundle_includeMetadata_includesAllBundledFields() {
-    Format formatToBundle = createTestFormat();
-
-    Format formatFromBundle =
-        Format.fromBundle(formatToBundle.toBundle(/* excludeMetadata= */ false));
-
-    // Expect all data to be bundled except the custom data.
-    Format expectedRoundTripFormat = formatToBundle.buildUpon().setCustomData(null).build();
-    assertThat(formatFromBundle).isEqualTo(expectedRoundTripFormat);
-  }
-
-  @Test
-  public void roundTripViaBundle_excludeMetadata_includesAllBundledFieldsExceptMetadata() {
+  public void roundTripViaBundle_includesAllBundledFieldsExceptMetadata() {
     Format format = createTestFormat();
 
-    Format formatFromBundle = Format.fromBundle(format.toBundle(/* excludeMetadata= */ true));
+    Format formatFromBundle = Format.fromBundle(format.toBundle());
 
     // Expect all data to be bundled except the custom data and metadata.
     Format expectedRoundTripFormat =

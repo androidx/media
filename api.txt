@@ -26,7 +26,9 @@ package androidx.media3.common {
   }
 
   public final class AudioAttributes {
-    method public androidx.media3.common.AudioAttributes.AudioAttributesV21 getAudioAttributesV21();
+    method public static androidx.media3.common.AudioAttributes fromPlatformAudioAttributes(android.media.AudioAttributes);
+    method @Deprecated public androidx.media3.common.AudioAttributes.AudioAttributesV21 getAudioAttributesV21();
+    method public android.media.AudioAttributes getPlatformAudioAttributes();
     field public static final androidx.media3.common.AudioAttributes DEFAULT;
     field @androidx.media3.common.C.AudioAllowedCapturePolicy public final int allowedCapturePolicy;
     field @androidx.media3.common.C.AudioContentType public final int contentType;
@@ -35,8 +37,8 @@ package androidx.media3.common {
     field @androidx.media3.common.C.AudioUsage public final int usage;
   }
 
-  public static final class AudioAttributes.AudioAttributesV21 {
-    field public final android.media.AudioAttributes audioAttributes;
+  @Deprecated public static final class AudioAttributes.AudioAttributesV21 {
+    field @Deprecated public final android.media.AudioAttributes audioAttributes;
   }
 
   public static final class AudioAttributes.Builder {
@@ -885,6 +887,7 @@ package androidx.media3.common {
     field public static final int MEDIA_ITEM_TRANSITION_REASON_REPEAT = 0; // 0x0
     field public static final int MEDIA_ITEM_TRANSITION_REASON_SEEK = 2; // 0x2
     field public static final int PLAYBACK_SUPPRESSION_REASON_NONE = 0; // 0x0
+    field public static final int PLAYBACK_SUPPRESSION_REASON_SCRUBBING = 4; // 0x4
     field public static final int PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS = 1; // 0x1
     field public static final int PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT = 3; // 0x3
     field @Deprecated public static final int PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_ROUTE = 2; // 0x2
@@ -969,7 +972,7 @@ package androidx.media3.common {
   @IntDef({androidx.media3.common.Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST, androidx.media3.common.Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS, androidx.media3.common.Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_BECOMING_NOISY, androidx.media3.common.Player.PLAY_WHEN_READY_CHANGE_REASON_REMOTE, androidx.media3.common.Player.PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM, androidx.media3.common.Player.PLAY_WHEN_READY_CHANGE_REASON_SUPPRESSED_TOO_LONG}) @java.lang.annotation.Documented @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.SOURCE) @java.lang.annotation.Target({java.lang.annotation.ElementType.FIELD, java.lang.annotation.ElementType.METHOD, java.lang.annotation.ElementType.PARAMETER, java.lang.annotation.ElementType.LOCAL_VARIABLE, java.lang.annotation.ElementType.TYPE_USE}) public static @interface Player.PlayWhenReadyChangeReason {
   }
 
-  @IntDef({androidx.media3.common.Player.PLAYBACK_SUPPRESSION_REASON_NONE, androidx.media3.common.Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS, androidx.media3.common.Player.PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_ROUTE, androidx.media3.common.Player.PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT}) @java.lang.annotation.Documented @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.SOURCE) @java.lang.annotation.Target({java.lang.annotation.ElementType.FIELD, java.lang.annotation.ElementType.METHOD, java.lang.annotation.ElementType.PARAMETER, java.lang.annotation.ElementType.LOCAL_VARIABLE, java.lang.annotation.ElementType.TYPE_USE}) public static @interface Player.PlaybackSuppressionReason {
+  @IntDef({androidx.media3.common.Player.PLAYBACK_SUPPRESSION_REASON_NONE, androidx.media3.common.Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS, androidx.media3.common.Player.PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_ROUTE, androidx.media3.common.Player.PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT, androidx.media3.common.Player.PLAYBACK_SUPPRESSION_REASON_SCRUBBING}) @java.lang.annotation.Documented @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.SOURCE) @java.lang.annotation.Target({java.lang.annotation.ElementType.FIELD, java.lang.annotation.ElementType.METHOD, java.lang.annotation.ElementType.PARAMETER, java.lang.annotation.ElementType.LOCAL_VARIABLE, java.lang.annotation.ElementType.TYPE_USE}) public static @interface Player.PlaybackSuppressionReason {
   }
 
   public static final class Player.PositionInfo {
@@ -1096,12 +1099,13 @@ package androidx.media3.common {
   public class TrackSelectionParameters {
     method public androidx.media3.common.TrackSelectionParameters.Builder buildUpon();
     method public static androidx.media3.common.TrackSelectionParameters fromBundle(android.os.Bundle);
-    method public static androidx.media3.common.TrackSelectionParameters getDefaults(android.content.Context);
+    method @Deprecated public static androidx.media3.common.TrackSelectionParameters getDefaults(android.content.Context);
     method @CallSuper public android.os.Bundle toBundle();
     field public final com.google.common.collect.ImmutableSet<java.lang.Integer> disabledTrackTypes;
     field public final boolean forceHighestSupportedBitrate;
     field public final boolean forceLowestBitrate;
     field @androidx.media3.common.C.SelectionFlags public final int ignoredTextSelectionFlags;
+    field public final boolean isViewportSizeLimitedByPhysicalDisplaySize;
     field public final int maxAudioBitrate;
     field public final int maxAudioChannelCount;
     field public final int maxVideoBitrate;
@@ -1121,13 +1125,15 @@ package androidx.media3.common {
     field public final com.google.common.collect.ImmutableList<java.lang.String> preferredVideoMimeTypes;
     field @androidx.media3.common.C.RoleFlags public final int preferredVideoRoleFlags;
     field public final boolean selectUndeterminedTextLanguage;
+    field public final boolean usePreferredTextLanguagesAndRoleFlagsFromCaptioningManager;
     field public final int viewportHeight;
     field public final boolean viewportOrientationMayChange;
     field public final int viewportWidth;
   }
 
   public static class TrackSelectionParameters.Builder {
-    ctor public TrackSelectionParameters.Builder(android.content.Context);
+    ctor public TrackSelectionParameters.Builder();
+    ctor @Deprecated @com.google.errorprone.annotations.InlineMe(replacement="this()") public TrackSelectionParameters.Builder(android.content.Context);
     method public androidx.media3.common.TrackSelectionParameters.Builder addOverride(androidx.media3.common.TrackSelectionOverride);
     method public androidx.media3.common.TrackSelectionParameters build();
     method public androidx.media3.common.TrackSelectionParameters.Builder clearOverride(androidx.media3.common.TrackGroup);
@@ -1154,7 +1160,8 @@ package androidx.media3.common {
     method public androidx.media3.common.TrackSelectionParameters.Builder setPreferredAudioMimeTypes(java.lang.String...);
     method public androidx.media3.common.TrackSelectionParameters.Builder setPreferredAudioRoleFlags(@androidx.media3.common.C.RoleFlags int);
     method public androidx.media3.common.TrackSelectionParameters.Builder setPreferredTextLanguage(@Nullable String);
-    method public androidx.media3.common.TrackSelectionParameters.Builder setPreferredTextLanguageAndRoleFlagsToCaptioningManagerSettings(android.content.Context);
+    method public androidx.media3.common.TrackSelectionParameters.Builder setPreferredTextLanguageAndRoleFlagsToCaptioningManagerSettings();
+    method @Deprecated public androidx.media3.common.TrackSelectionParameters.Builder setPreferredTextLanguageAndRoleFlagsToCaptioningManagerSettings(android.content.Context);
     method public androidx.media3.common.TrackSelectionParameters.Builder setPreferredTextLanguages(java.lang.String...);
     method public androidx.media3.common.TrackSelectionParameters.Builder setPreferredTextRoleFlags(@androidx.media3.common.C.RoleFlags int);
     method public androidx.media3.common.TrackSelectionParameters.Builder setPreferredVideoMimeType(@Nullable String);
@@ -1163,7 +1170,8 @@ package androidx.media3.common {
     method public androidx.media3.common.TrackSelectionParameters.Builder setSelectUndeterminedTextLanguage(boolean);
     method public androidx.media3.common.TrackSelectionParameters.Builder setTrackTypeDisabled(@androidx.media3.common.C.TrackType int, boolean);
     method public androidx.media3.common.TrackSelectionParameters.Builder setViewportSize(int, int, boolean);
-    method public androidx.media3.common.TrackSelectionParameters.Builder setViewportSizeToPhysicalDisplaySize(android.content.Context, boolean);
+    method @Deprecated public androidx.media3.common.TrackSelectionParameters.Builder setViewportSizeToPhysicalDisplaySize(android.content.Context, boolean);
+    method public androidx.media3.common.TrackSelectionParameters.Builder setViewportSizeToPhysicalDisplaySize(boolean);
   }
 
   public final class Tracks {
@@ -1260,6 +1268,7 @@ package androidx.media3.common.util {
     method public static boolean checkCleartextTrafficPermitted(androidx.media3.common.MediaItem...);
     method @Nullable public static String getAdaptiveMimeTypeForContentType(@androidx.media3.common.C.ContentType int);
     method @Nullable public static java.util.UUID getDrmUuid(String);
+    method public static String getUserAgent(android.content.Context, String);
     method public static boolean handlePauseButtonAction(@Nullable androidx.media3.common.Player);
     method public static boolean handlePlayButtonAction(@Nullable androidx.media3.common.Player);
     method public static boolean handlePlayPauseButtonAction(@Nullable androidx.media3.common.Player);
@@ -1299,6 +1308,7 @@ package androidx.media3.datasource {
 
   public static final class DefaultHttpDataSource.Factory implements androidx.media3.datasource.HttpDataSource.Factory {
     ctor public DefaultHttpDataSource.Factory();
+    method public androidx.media3.datasource.DefaultHttpDataSource.Factory setUserAgent(@Nullable String);
   }
 
   public interface HttpDataSource extends androidx.media3.datasource.DataSource {
@@ -1339,6 +1349,7 @@ package androidx.media3.datasource.cronet {
 
   public static final class CronetDataSource.Factory implements androidx.media3.datasource.HttpDataSource.Factory {
     ctor public CronetDataSource.Factory(org.chromium.net.CronetEngine, java.util.concurrent.Executor);
+    method public androidx.media3.datasource.cronet.CronetDataSource.Factory setUserAgent(@Nullable String);
   }
 
   public final class CronetUtil {
@@ -1354,6 +1365,7 @@ package androidx.media3.datasource.okhttp {
 
   public static final class OkHttpDataSource.Factory implements androidx.media3.datasource.HttpDataSource.Factory {
     ctor public OkHttpDataSource.Factory(okhttp3.Call.Factory);
+    method public androidx.media3.datasource.okhttp.OkHttpDataSource.Factory setUserAgent(@Nullable String);
   }
 
 }
@@ -1377,6 +1389,8 @@ package androidx.media3.exoplayer {
     method public androidx.media3.exoplayer.ExoPlayer.Builder setAudioAttributes(androidx.media3.common.AudioAttributes, boolean);
     method public androidx.media3.exoplayer.ExoPlayer.Builder setHandleAudioBecomingNoisy(boolean);
     method public androidx.media3.exoplayer.ExoPlayer.Builder setMediaSourceFactory(androidx.media3.exoplayer.source.MediaSource.Factory);
+    method public androidx.media3.exoplayer.ExoPlayer.Builder setSeekBackIncrementMs(@IntRange(from=1) long);
+    method public androidx.media3.exoplayer.ExoPlayer.Builder setSeekForwardIncrementMs(@IntRange(from=1) long);
     method public androidx.media3.exoplayer.ExoPlayer.Builder setWakeMode(@androidx.media3.common.C.WakeMode int);
   }
 
@@ -1483,22 +1497,105 @@ package androidx.media3.exoplayer.util {
 package androidx.media3.session {
 
   public final class CommandButton {
+    field public static final int ICON_ALBUM = 57369; // 0xe019
+    field public static final int ICON_ARTIST = 57370; // 0xe01a
+    field public static final int ICON_BLOCK = 57675; // 0xe14b
+    field public static final int ICON_BOOKMARK_FILLED = 1042534; // 0xfe866
+    field public static final int ICON_BOOKMARK_UNFILLED = 59494; // 0xe866
+    field public static final int ICON_CHECK_CIRCLE_FILLED = 1042540; // 0xfe86c
+    field public static final int ICON_CHECK_CIRCLE_UNFILLED = 59500; // 0xe86c
+    field public static final int ICON_CLOSED_CAPTIONS = 57372; // 0xe01c
+    field public static final int ICON_CLOSED_CAPTIONS_OFF = 61916; // 0xf1dc
+    field public static final int ICON_FAST_FORWARD = 57375; // 0xe01f
+    field public static final int ICON_FEED = 57573; // 0xe0e5
+    field public static final int ICON_FLAG_FILLED = 1040723; // 0xfe153
+    field public static final int ICON_FLAG_UNFILLED = 57683; // 0xe153
+    field public static final int ICON_HEART_FILLED = 1042557; // 0xfe87d
+    field public static final int ICON_HEART_UNFILLED = 59517; // 0xe87d
+    field public static final int ICON_MINUS = 57691; // 0xe15b
+    field public static final int ICON_MINUS_CIRCLE_FILLED = 1040712; // 0xfe148
+    field public static final int ICON_MINUS_CIRCLE_UNFILLED = 1040713; // 0xfe149
+    field public static final int ICON_NEXT = 57412; // 0xe044
+    field public static final int ICON_PAUSE = 57396; // 0xe034
+    field public static final int ICON_PLAY = 57399; // 0xe037
+    field public static final int ICON_PLAYBACK_SPEED = 57448; // 0xe068
+    field public static final int ICON_PLAYBACK_SPEED_0_5 = 62690; // 0xf4e2
+    field public static final int ICON_PLAYBACK_SPEED_0_8 = 1045730; // 0xff4e2
+    field public static final int ICON_PLAYBACK_SPEED_1_0 = 61389; // 0xefcd
+    field public static final int ICON_PLAYBACK_SPEED_1_2 = 62689; // 0xf4e1
+    field public static final int ICON_PLAYBACK_SPEED_1_5 = 62688; // 0xf4e0
+    field public static final int ICON_PLAYBACK_SPEED_1_8 = 1045728; // 0xff4e0
+    field public static final int ICON_PLAYBACK_SPEED_2_0 = 62699; // 0xf4eb
+    field public static final int ICON_PLAYLIST_ADD = 57403; // 0xe03b
+    field public static final int ICON_PLAYLIST_REMOVE = 60288; // 0xeb80
+    field public static final int ICON_PLUS = 57669; // 0xe145
+    field public static final int ICON_PLUS_CIRCLE_FILLED = 1040711; // 0xfe147
+    field public static final int ICON_PLUS_CIRCLE_UNFILLED = 57671; // 0xe147
+    field public static final int ICON_PREVIOUS = 57413; // 0xe045
+    field public static final int ICON_QUALITY = 58409; // 0xe429
+    field public static final int ICON_QUEUE_ADD = 57436; // 0xe05c
+    field public static final int ICON_QUEUE_NEXT = 57446; // 0xe066
+    field public static final int ICON_QUEUE_REMOVE = 57447; // 0xe067
+    field public static final int ICON_RADIO = 58654; // 0xe51e
+    field public static final int ICON_REPEAT_ALL = 57408; // 0xe040
+    field public static final int ICON_REPEAT_OFF = 1040448; // 0xfe040
+    field public static final int ICON_REPEAT_ONE = 57409; // 0xe041
+    field public static final int ICON_REWIND = 57376; // 0xe020
+    field public static final int ICON_SETTINGS = 59576; // 0xe8b8
+    field public static final int ICON_SHARE = 59405; // 0xe80d
+    field public static final int ICON_SHUFFLE_OFF = 1040452; // 0xfe044
+    field public static final int ICON_SHUFFLE_ON = 57411; // 0xe043
+    field public static final int ICON_SHUFFLE_STAR = 1040451; // 0xfe043
+    field public static final int ICON_SIGNAL = 61512; // 0xf048
+    field public static final int ICON_SKIP_BACK = 57410; // 0xe042
+    field public static final int ICON_SKIP_BACK_10 = 57433; // 0xe059
+    field public static final int ICON_SKIP_BACK_15 = 1040473; // 0xfe059
+    field public static final int ICON_SKIP_BACK_30 = 57434; // 0xe05a
+    field public static final int ICON_SKIP_BACK_5 = 57435; // 0xe05b
+    field public static final int ICON_SKIP_FORWARD = 63220; // 0xf6f4
+    field public static final int ICON_SKIP_FORWARD_10 = 57430; // 0xe056
+    field public static final int ICON_SKIP_FORWARD_15 = 1040470; // 0xfe056
+    field public static final int ICON_SKIP_FORWARD_30 = 57431; // 0xe057
+    field public static final int ICON_SKIP_FORWARD_5 = 57432; // 0xe058
+    field public static final int ICON_STAR_FILLED = 1042488; // 0xfe838
+    field public static final int ICON_STAR_UNFILLED = 59448; // 0xe838
+    field public static final int ICON_STOP = 57415; // 0xe047
+    field public static final int ICON_SUBTITLES = 57416; // 0xe048
+    field public static final int ICON_SUBTITLES_OFF = 61298; // 0xef72
+    field public static final int ICON_SYNC = 58919; // 0xe627
+    field public static final int ICON_THUMB_DOWN_FILLED = 1042651; // 0xfe8db
+    field public static final int ICON_THUMB_DOWN_UNFILLED = 59611; // 0xe8db
+    field public static final int ICON_THUMB_UP_FILLED = 1042652; // 0xfe8dc
+    field public static final int ICON_THUMB_UP_UNFILLED = 59612; // 0xe8dc
+    field public static final int ICON_UNDEFINED = 0; // 0x0
+    field public static final int ICON_VOLUME_DOWN = 57421; // 0xe04d
+    field public static final int ICON_VOLUME_OFF = 57423; // 0xe04f
+    field public static final int ICON_VOLUME_UP = 57424; // 0xe050
     field public final CharSequence displayName;
+    field public final android.os.Bundle extras;
+    field @androidx.media3.session.CommandButton.Icon public final int icon;
     field @DrawableRes public final int iconResId;
+    field @Nullable public final android.net.Uri iconUri;
     field public final boolean isEnabled;
     field @androidx.media3.common.Player.Command public final int playerCommand;
     field @Nullable public final androidx.media3.session.SessionCommand sessionCommand;
   }
 
   public static final class CommandButton.Builder {
-    ctor public CommandButton.Builder();
+    ctor @Deprecated public CommandButton.Builder();
+    ctor public CommandButton.Builder(@androidx.media3.session.CommandButton.Icon int);
     method public androidx.media3.session.CommandButton build();
+    method public androidx.media3.session.CommandButton.Builder setCustomIconResId(@DrawableRes int);
     method public androidx.media3.session.CommandButton.Builder setDisplayName(CharSequence);
     method public androidx.media3.session.CommandButton.Builder setEnabled(boolean);
     method public androidx.media3.session.CommandButton.Builder setExtras(android.os.Bundle);
-    method public androidx.media3.session.CommandButton.Builder setIconResId(@DrawableRes int);
+    method @Deprecated public androidx.media3.session.CommandButton.Builder setIconResId(@DrawableRes int);
+    method public androidx.media3.session.CommandButton.Builder setIconUri(android.net.Uri);
     method public androidx.media3.session.CommandButton.Builder setPlayerCommand(@androidx.media3.common.Player.Command int);
     method public androidx.media3.session.CommandButton.Builder setSessionCommand(androidx.media3.session.SessionCommand);
+  }
+
+  @IntDef({androidx.media3.session.CommandButton.ICON_UNDEFINED, androidx.media3.session.CommandButton.ICON_PLAY, androidx.media3.session.CommandButton.ICON_PAUSE, androidx.media3.session.CommandButton.ICON_STOP, androidx.media3.session.CommandButton.ICON_NEXT, androidx.media3.session.CommandButton.ICON_PREVIOUS, androidx.media3.session.CommandButton.ICON_SKIP_FORWARD, androidx.media3.session.CommandButton.ICON_SKIP_FORWARD_5, androidx.media3.session.CommandButton.ICON_SKIP_FORWARD_10, androidx.media3.session.CommandButton.ICON_SKIP_FORWARD_15, androidx.media3.session.CommandButton.ICON_SKIP_FORWARD_30, androidx.media3.session.CommandButton.ICON_SKIP_BACK, androidx.media3.session.CommandButton.ICON_SKIP_BACK_5, androidx.media3.session.CommandButton.ICON_SKIP_BACK_10, androidx.media3.session.CommandButton.ICON_SKIP_BACK_15, androidx.media3.session.CommandButton.ICON_SKIP_BACK_30, androidx.media3.session.CommandButton.ICON_FAST_FORWARD, androidx.media3.session.CommandButton.ICON_REWIND, androidx.media3.session.CommandButton.ICON_REPEAT_ALL, androidx.media3.session.CommandButton.ICON_REPEAT_ONE, androidx.media3.session.CommandButton.ICON_REPEAT_OFF, androidx.media3.session.CommandButton.ICON_SHUFFLE_ON, androidx.media3.session.CommandButton.ICON_SHUFFLE_OFF, androidx.media3.session.CommandButton.ICON_SHUFFLE_STAR, androidx.media3.session.CommandButton.ICON_HEART_FILLED, androidx.media3.session.CommandButton.ICON_HEART_UNFILLED, androidx.media3.session.CommandButton.ICON_STAR_FILLED, androidx.media3.session.CommandButton.ICON_STAR_UNFILLED, androidx.media3.session.CommandButton.ICON_BOOKMARK_FILLED, androidx.media3.session.CommandButton.ICON_BOOKMARK_UNFILLED, androidx.media3.session.CommandButton.ICON_THUMB_UP_FILLED, androidx.media3.session.CommandButton.ICON_THUMB_UP_UNFILLED, androidx.media3.session.CommandButton.ICON_THUMB_DOWN_FILLED, androidx.media3.session.CommandButton.ICON_THUMB_DOWN_UNFILLED, androidx.media3.session.CommandButton.ICON_FLAG_FILLED, androidx.media3.session.CommandButton.ICON_FLAG_UNFILLED, androidx.media3.session.CommandButton.ICON_PLUS, androidx.media3.session.CommandButton.ICON_MINUS, androidx.media3.session.CommandButton.ICON_PLAYLIST_ADD, androidx.media3.session.CommandButton.ICON_PLAYLIST_REMOVE, androidx.media3.session.CommandButton.ICON_QUEUE_ADD, androidx.media3.session.CommandButton.ICON_QUEUE_NEXT, androidx.media3.session.CommandButton.ICON_QUEUE_REMOVE, androidx.media3.session.CommandButton.ICON_BLOCK, androidx.media3.session.CommandButton.ICON_PLUS_CIRCLE_FILLED, androidx.media3.session.CommandButton.ICON_PLUS_CIRCLE_UNFILLED, androidx.media3.session.CommandButton.ICON_MINUS_CIRCLE_FILLED, androidx.media3.session.CommandButton.ICON_MINUS_CIRCLE_UNFILLED, androidx.media3.session.CommandButton.ICON_CHECK_CIRCLE_FILLED, androidx.media3.session.CommandButton.ICON_CHECK_CIRCLE_UNFILLED, androidx.media3.session.CommandButton.ICON_PLAYBACK_SPEED, androidx.media3.session.CommandButton.ICON_PLAYBACK_SPEED_0_5, androidx.media3.session.CommandButton.ICON_PLAYBACK_SPEED_0_8, androidx.media3.session.CommandButton.ICON_PLAYBACK_SPEED_1_0, androidx.media3.session.CommandButton.ICON_PLAYBACK_SPEED_1_2, androidx.media3.session.CommandButton.ICON_PLAYBACK_SPEED_1_5, androidx.media3.session.CommandButton.ICON_PLAYBACK_SPEED_1_8, androidx.media3.session.CommandButton.ICON_PLAYBACK_SPEED_2_0, androidx.media3.session.CommandButton.ICON_SETTINGS, androidx.media3.session.CommandButton.ICON_QUALITY, androidx.media3.session.CommandButton.ICON_SUBTITLES, androidx.media3.session.CommandButton.ICON_SUBTITLES_OFF, androidx.media3.session.CommandButton.ICON_CLOSED_CAPTIONS, androidx.media3.session.CommandButton.ICON_CLOSED_CAPTIONS_OFF, androidx.media3.session.CommandButton.ICON_SYNC, androidx.media3.session.CommandButton.ICON_SHARE, androidx.media3.session.CommandButton.ICON_VOLUME_UP, androidx.media3.session.CommandButton.ICON_VOLUME_DOWN, androidx.media3.session.CommandButton.ICON_VOLUME_OFF, androidx.media3.session.CommandButton.ICON_ARTIST, androidx.media3.session.CommandButton.ICON_ALBUM, androidx.media3.session.CommandButton.ICON_RADIO, androidx.media3.session.CommandButton.ICON_SIGNAL, androidx.media3.session.CommandButton.ICON_FEED}) @java.lang.annotation.Documented @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.SOURCE) @java.lang.annotation.Target(java.lang.annotation.ElementType.TYPE_USE) public static @interface CommandButton.Icon {
   }
 
   public final class LibraryResult<V> {
@@ -1599,6 +1696,7 @@ package androidx.media3.session {
     method public final long getCurrentPosition();
     method public final androidx.media3.common.Timeline getCurrentTimeline();
     method public final androidx.media3.common.Tracks getCurrentTracks();
+    method public final com.google.common.collect.ImmutableList<androidx.media3.session.CommandButton> getCustomLayout();
     method public final androidx.media3.common.DeviceInfo getDeviceInfo();
     method @IntRange(from=0) public final int getDeviceVolume();
     method public final long getDuration();
@@ -1701,6 +1799,7 @@ package androidx.media3.session {
   public static interface MediaController.Listener {
     method public default void onAvailableSessionCommandsChanged(androidx.media3.session.MediaController, androidx.media3.session.SessionCommands);
     method public default com.google.common.util.concurrent.ListenableFuture<androidx.media3.session.SessionResult> onCustomCommand(androidx.media3.session.MediaController, androidx.media3.session.SessionCommand, android.os.Bundle);
+    method public default void onCustomLayoutChanged(androidx.media3.session.MediaController, java.util.List<androidx.media3.session.CommandButton>);
     method public default void onDisconnected(androidx.media3.session.MediaController);
     method public default void onExtrasChanged(androidx.media3.session.MediaController, android.os.Bundle);
     method public default com.google.common.util.concurrent.ListenableFuture<androidx.media3.session.SessionResult> onSetCustomLayout(androidx.media3.session.MediaController, java.util.List<androidx.media3.session.CommandButton>);
@@ -1893,6 +1992,7 @@ package androidx.media3.session {
 
   public final class SessionToken {
     ctor public SessionToken(android.content.Context, android.content.ComponentName);
+    method public static com.google.common.util.concurrent.ListenableFuture<androidx.media3.session.SessionToken> createSessionToken(android.content.Context, android.media.session.MediaSession.Token);
     method public static com.google.common.collect.ImmutableSet<androidx.media3.session.SessionToken> getAllServiceTokens(android.content.Context);
     method public android.os.Bundle getExtras();
     method public String getPackageName();
@@ -1900,9 +2000,11 @@ package androidx.media3.session {
     method public int getSessionVersion();
     method @androidx.media3.session.SessionToken.TokenType public int getType();
     method public int getUid();
+    field public static final int PLATFORM_SESSION_VERSION = 0; // 0x0
     field public static final int TYPE_LIBRARY_SERVICE = 2; // 0x2
     field public static final int TYPE_SESSION = 0; // 0x0
     field public static final int TYPE_SESSION_SERVICE = 1; // 0x1
+    field public static final int UNKNOWN_SESSION_VERSION = 1000000; // 0xf4240
   }
 
   @IntDef({androidx.media3.session.SessionToken.TYPE_SESSION, androidx.media3.session.SessionToken.TYPE_SESSION_SERVICE, androidx.media3.session.SessionToken.TYPE_LIBRARY_SERVICE}) @java.lang.annotation.Documented @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.SOURCE) @java.lang.annotation.Target(java.lang.annotation.ElementType.TYPE_USE) public static @interface SessionToken.TokenType {

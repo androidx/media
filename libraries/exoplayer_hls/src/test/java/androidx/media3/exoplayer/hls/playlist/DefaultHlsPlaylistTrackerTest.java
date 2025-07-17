@@ -404,7 +404,9 @@ public class DefaultHlsPlaylistTrackerTest {
         new DefaultHlsPlaylistTracker(
             dataType -> new DefaultHttpDataSource.Factory().createDataSource(),
             new DefaultLoadErrorHandlingPolicy(),
-            new DefaultHlsPlaylistParserFactory());
+            new DefaultHlsPlaylistParserFactory(),
+            /* cmcdConfiguration= */ null,
+            /* downloadExecutorSupplier= */ null);
     AtomicInteger playlistChangedCounter = new AtomicInteger();
     AtomicReference<TimeoutException> audioPlaylistRefreshExceptionRef = new AtomicReference<>();
     defaultHlsPlaylistTracker.addListener(
@@ -486,7 +488,9 @@ public class DefaultHlsPlaylistTrackerTest {
         new DefaultHlsPlaylistTracker(
             dataType -> new DefaultHttpDataSource.Factory().createDataSource(),
             new DefaultLoadErrorHandlingPolicy(),
-            new DefaultHlsPlaylistParserFactory());
+            new DefaultHlsPlaylistParserFactory(),
+            /* cmcdConfiguration= */ null,
+            /* downloadExecutorSupplier= */ null);
     List<HlsMediaPlaylist> mediaPlaylists = new ArrayList<>();
     AtomicInteger playlistCounter = new AtomicInteger();
     AtomicReference<TimeoutException> primaryPlaylistChangeExceptionRef = new AtomicReference<>();
@@ -562,7 +566,9 @@ public class DefaultHlsPlaylistTrackerTest {
         new DefaultHlsPlaylistTracker(
             dataType -> new DefaultHttpDataSource.Factory().createDataSource(),
             new DefaultLoadErrorHandlingPolicy(),
-            new DefaultHlsPlaylistParserFactory());
+            new DefaultHlsPlaylistParserFactory(),
+            /* cmcdConfiguration= */ null,
+            /* downloadExecutorSupplier= */ null);
     List<HlsMediaPlaylist> mediaPlaylists = new ArrayList<>();
     AtomicInteger playlistCounter = new AtomicInteger();
     AtomicReference<TimeoutException> playlistRefreshExceptionRef = new AtomicReference<>();
@@ -674,7 +680,9 @@ public class DefaultHlsPlaylistTrackerTest {
         new DefaultHlsPlaylistTracker(
             dataType -> dataSourceFactory.createDataSource(),
             new DefaultLoadErrorHandlingPolicy(),
-            new DefaultHlsPlaylistParserFactory());
+            new DefaultHlsPlaylistParserFactory(),
+            /* cmcdConfiguration= */ null,
+            /* downloadExecutorSupplier= */ null);
 
     List<HlsMediaPlaylist> mediaPlaylists = new ArrayList<>();
     AtomicInteger playlistCounter = new AtomicInteger();

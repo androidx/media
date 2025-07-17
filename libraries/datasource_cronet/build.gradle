@@ -25,8 +25,8 @@ android {
 
 dependencies {
     api "com.google.android.gms:play-services-cronet:18.0.1"
-    implementation project(modulePrefix + 'lib-common')
-    implementation project(modulePrefix + 'lib-datasource')
+    api project(modulePrefix + 'lib-common')
+    api project(modulePrefix + 'lib-datasource')
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
     compileOnly 'com.google.errorprone:error_prone_annotations:' + errorProneVersion
     compileOnly 'org.checkerframework:checker-qual:' + checkerframeworkVersion

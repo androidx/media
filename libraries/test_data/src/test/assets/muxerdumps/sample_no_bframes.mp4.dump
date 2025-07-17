@@ -11,6 +11,7 @@ track 0:
   sample count = 45
   track duration = 1045300
   format 0:
+    averageBitrate = 72928
     id = 1
     containerMimeType = video/mp4
     sampleMimeType = audio/mp4a-latm
@@ -207,6 +208,7 @@ track 1:
   sample count = 30
   track duration = 1001000
   format 0:
+    averageBitrate = 2407297
     id = 2
     containerMimeType = video/mp4
     sampleMimeType = video/avc

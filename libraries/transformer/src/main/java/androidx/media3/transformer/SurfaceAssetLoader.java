@@ -87,7 +87,7 @@ public final class SurfaceAssetLoader implements AssetLoader {
     }
 
     @Override
-    public AssetLoader createAssetLoader(
+    public SurfaceAssetLoader createAssetLoader(
         EditedMediaItem editedMediaItem,
         Looper looper,
         AssetLoader.Listener listener,

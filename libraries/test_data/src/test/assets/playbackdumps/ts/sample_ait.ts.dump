@@ -1,4 +1,4 @@
-MediaCodecAdapter (exotest.audio.eac3):
+MediaCodecAdapter (media3.audio.eac3):
   inputBuffers:
     count = 20
     input buffer #0:
@@ -148,61 +148,61 @@ AudioSink:
     sampleRate = 48000
   buffer #0:
     time = 1000000000000
-    data = 1
+    data = empty
   buffer #1:
     time = 1000000032000
-    data = 1
+    data = empty
   buffer #2:
     time = 1000000064000
-    data = 1
+    data = empty
   buffer #3:
     time = 1000000096000
-    data = 1
+    data = empty
   buffer #4:
     time = 1000000128000
-    data = 1
+    data = empty
   buffer #5:
     time = 1000000160000
-    data = 1
+    data = empty
   buffer #6:
     time = 1000000192000
-    data = 1
+    data = empty
   buffer #7:
     time = 1000000224000
-    data = 1
+    data = empty
   buffer #8:
     time = 1000000256000
-    data = 1
+    data = empty
   buffer #9:
     time = 1000000288000
-    data = 1
+    data = empty
   buffer #10:
     time = 1000000320000
-    data = 1
+    data = empty
   buffer #11:
     time = 1000000352000
-    data = 1
+    data = empty
   buffer #12:
     time = 1000000384000
-    data = 1
+    data = empty
   buffer #13:
     time = 1000000416000
-    data = 1
+    data = empty
   buffer #14:
     time = 1000000448000
-    data = 1
+    data = empty
   buffer #15:
     time = 1000000480000
-    data = 1
+    data = empty
   buffer #16:
     time = 1000000512000
-    data = 1
+    data = empty
   buffer #17:
     time = 1000000544000
-    data = 1
+    data = empty
   buffer #18:
     time = 1000000576000
-    data = 1
+    data = empty
 MetadataOutput:
   Metadata[0]:
     presentationTimeUs = 0

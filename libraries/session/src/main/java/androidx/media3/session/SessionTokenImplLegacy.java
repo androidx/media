@@ -30,7 +30,7 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.util.Util;
 import androidx.media3.session.SessionToken.SessionTokenImpl;
 import androidx.media3.session.legacy.MediaSessionCompat;
-import com.google.common.base.Objects;
+import java.util.Objects;
 
 /* package */ final class SessionTokenImplLegacy implements SessionTokenImpl {
 
@@ -84,7 +84,7 @@ import com.google.common.base.Objects;
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(type, componentName, legacyToken);
+    return Objects.hash(type, componentName, legacyToken);
   }
 
   @Override
@@ -98,9 +98,9 @@ import com.google.common.base.Objects;
     }
     switch (type) {
       case TYPE_SESSION_LEGACY:
-        return Util.areEqual(legacyToken, other.legacyToken);
+        return Objects.equals(legacyToken, other.legacyToken);
       case TYPE_BROWSER_SERVICE_LEGACY:
-        return Util.areEqual(componentName, other.componentName);
+        return Objects.equals(componentName, other.componentName);
     }
     return false;
   }
@@ -150,12 +150,12 @@ import com.google.common.base.Objects;
 
   @Override
   public int getLibraryVersion() {
-    return 0;
+    return SessionToken.PLATFORM_SESSION_VERSION;
   }
 
   @Override
   public int getInterfaceVersion() {
-    return 0;
+    return SessionToken.UNKNOWN_INTERFACE_VERSION;
   }
 
   @Override
@@ -172,7 +172,7 @@ import com.google.common.base.Objects;
   @Nullable
   @Override
   public MediaSession.Token getPlatformToken() {
-    return legacyToken == null ? null : (MediaSession.Token) legacyToken.getToken();
+    return legacyToken == null ? null : legacyToken.getToken();
   }
 
   private static final String FIELD_LEGACY_TOKEN = Util.intToStringMaxRadix(0);

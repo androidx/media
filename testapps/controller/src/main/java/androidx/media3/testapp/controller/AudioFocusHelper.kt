@@ -39,12 +39,14 @@ class AudioFocusHelper(activity: Activity) :
     get() = FOCUS_TYPES[focusTypeSpinner.selectedItemPosition]
 
   companion object {
+    // LINT.IfChange
     private val FOCUS_TYPES =
       intArrayOf(
         AudioManager.AUDIOFOCUS_GAIN,
         AudioManager.AUDIOFOCUS_GAIN_TRANSIENT,
         AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK
       )
+    // LINT.ThenChange(../../../../../res/values/options.xml)
   }
 
   init {

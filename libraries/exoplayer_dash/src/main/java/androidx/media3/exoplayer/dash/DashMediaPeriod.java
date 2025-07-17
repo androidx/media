@@ -58,6 +58,8 @@ import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.CmcdConfiguration;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
 import androidx.media3.exoplayer.upstream.LoaderErrorThrower;
+import androidx.media3.exoplayer.util.ReleasableExecutor;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -72,6 +74,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -106,6 +109,7 @@ import java.util.regex.Pattern;
   private final MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher;
   private final DrmSessionEventListener.EventDispatcher drmEventDispatcher;
   private final PlayerId playerId;
+  @Nullable private final Supplier<ReleasableExecutor> downloadExecutorSupplier;
 
   @Nullable private Callback callback;
   private ChunkSampleStream<DashChunkSource>[] sampleStreams;
@@ -134,7 +138,8 @@ import java.util.regex.Pattern;
       Allocator allocator,
       CompositeSequenceableLoaderFactory compositeSequenceableLoaderFactory,
       PlayerEmsgCallback playerEmsgCallback,
-      PlayerId playerId) {
+      PlayerId playerId,
+      @Nullable Supplier<ReleasableExecutor> downloadExecutorSupplier) {
     this.id = id;
     this.manifest = manifest;
     this.baseUrlExclusionList = baseUrlExclusionList;
@@ -151,6 +156,7 @@ import java.util.regex.Pattern;
     this.allocator = allocator;
     this.compositeSequenceableLoaderFactory = compositeSequenceableLoaderFactory;
     this.playerId = playerId;
+    this.downloadExecutorSupplier = downloadExecutorSupplier;
     this.canReportInitialDiscontinuity = true;
     playerEmsgHandler = new PlayerEmsgHandler(manifest, playerEmsgCallback, allocator);
     sampleStreams = newSampleStreamArray(0);
@@ -324,6 +330,12 @@ import java.util.regex.Pattern;
 
   @Override
   public void reevaluateBuffer(long positionUs) {
+    for (ChunkSampleStream<DashChunkSource> sampleStream : sampleStreams) {
+      if (!sampleStream.isLoading()) {
+        long periodDurationUs = manifest.getPeriodDurationUs(periodIndex);
+        sampleStream.discardUpstreamSamplesForClippedDuration(periodDurationUs);
+      }
+    }
     compositeSequenceableLoader.reevaluateBuffer(positionUs);
   }
 
@@ -601,7 +613,8 @@ import java.util.regex.Pattern;
       if (trickPlayProperty != null) {
         long mainAdaptationSetId = Long.parseLong(trickPlayProperty.value);
         @Nullable Integer mainAdaptationSetIndex = adaptationSetIdToIndex.get(mainAdaptationSetId);
-        if (mainAdaptationSetIndex != null) {
+        if (mainAdaptationSetIndex != null
+            && canMergeAdaptationSets(adaptationSet, adaptationSets.get(mainAdaptationSetIndex))) {
           mergedGroupIndex = mainAdaptationSetIndex;
         }
       }
@@ -618,7 +631,9 @@ import java.util.regex.Pattern;
             @Nullable
             Integer otherAdaptationSetIndex =
                 adaptationSetIdToIndex.get(Long.parseLong(adaptationSetId));
-            if (otherAdaptationSetIndex != null) {
+            if (otherAdaptationSetIndex != null
+                && canMergeAdaptationSets(
+                    adaptationSet, adaptationSets.get(otherAdaptationSetIndex))) {
               mergedGroupIndex = min(mergedGroupIndex, otherAdaptationSetIndex);
             }
           }
@@ -642,6 +657,22 @@ import java.util.regex.Pattern;
       Arrays.sort(groupedAdaptationSetIndices[i]);
     }
     return groupedAdaptationSetIndices;
+  }
+
+  private static boolean canMergeAdaptationSets(
+      AdaptationSet adaptationSet1, AdaptationSet adaptationSet2) {
+    if (adaptationSet1.type != adaptationSet2.type) {
+      return false;
+    }
+    if (adaptationSet1.representations.isEmpty() || adaptationSet2.representations.isEmpty()) {
+      return true;
+    }
+    Format format1 = adaptationSet1.representations.get(0).format;
+    Format format2 = adaptationSet2.representations.get(0).format;
+    int format1RoleFlagsExcludingTrickPlay = format1.roleFlags & ~C.ROLE_FLAG_TRICK_PLAY;
+    int format2RoleFlagsExcludingTrickPlay = format2.roleFlags & ~C.ROLE_FLAG_TRICK_PLAY;
+    return Objects.equals(format1.language, format2.language)
+        && format1RoleFlagsExcludingTrickPlay == format2RoleFlagsExcludingTrickPlay;
   }
 
   /**
@@ -838,7 +869,7 @@ import java.util.regex.Pattern;
             loadErrorHandlingPolicy,
             mediaSourceEventDispatcher,
             canReportInitialDiscontinuity,
-            /* downloadExecutor= */ null);
+            downloadExecutorSupplier != null ? downloadExecutorSupplier.get() : null);
     synchronized (this) {
       // The map is also accessed on the loading thread so synchronize access.
       trackEmsgHandlerBySampleStream.put(stream, trackPlayerEmsgHandler);

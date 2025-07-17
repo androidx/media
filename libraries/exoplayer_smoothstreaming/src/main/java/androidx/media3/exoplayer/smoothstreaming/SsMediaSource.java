@@ -35,6 +35,7 @@ import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
+import androidx.media3.datasource.DataSpec;
 import androidx.media3.datasource.TransferListener;
 import androidx.media3.exoplayer.drm.DefaultDrmSessionManagerProvider;
 import androidx.media3.exoplayer.drm.DrmSessionEventListener;
@@ -58,6 +59,7 @@ import androidx.media3.exoplayer.source.SequenceableLoader;
 import androidx.media3.exoplayer.source.SinglePeriodTimeline;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.CmcdConfiguration;
+import androidx.media3.exoplayer.upstream.CmcdData;
 import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy.LoadErrorInfo;
@@ -65,12 +67,15 @@ import androidx.media3.exoplayer.upstream.Loader;
 import androidx.media3.exoplayer.upstream.Loader.LoadErrorAction;
 import androidx.media3.exoplayer.upstream.LoaderErrorThrower;
 import androidx.media3.exoplayer.upstream.ParsingLoadable;
+import androidx.media3.exoplayer.util.ReleasableExecutor;
 import androidx.media3.extractor.text.SubtitleParser;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /** A SmoothStreaming {@link MediaSource}. */
 @UnstableApi
@@ -94,6 +99,7 @@ public final class SsMediaSource extends BaseMediaSource
     private LoadErrorHandlingPolicy loadErrorHandlingPolicy;
     private long livePresentationDelayMs;
     @Nullable private ParsingLoadable.Parser<? extends SsManifest> manifestParser;
+    @Nullable private Supplier<ReleasableExecutor> downloadExecutorSupplier;
 
     /**
      * Creates a new factory for {@link SsMediaSource}s.
@@ -127,7 +133,7 @@ public final class SsMediaSource extends BaseMediaSource
      * @param chunkSourceFactory A factory for {@link SsChunkSource} instances.
      * @param manifestDataSourceFactory A factory for {@link DataSource} instances that will be used
      *     to load (and refresh) the manifest. May be {@code null} if the factory will only ever be
-     *     used to create create media sources with sideloaded manifests via {@link
+     *     used to create media sources with sideloaded manifests via {@link
      *     #createMediaSource(SsManifest, MediaItem)}.
      */
     public Factory(
@@ -135,6 +141,7 @@ public final class SsMediaSource extends BaseMediaSource
         @Nullable DataSource.Factory manifestDataSourceFactory) {
       this.chunkSourceFactory = checkNotNull(chunkSourceFactory);
       this.manifestDataSourceFactory = manifestDataSourceFactory;
+      this.downloadExecutorSupplier = null;
       drmSessionManagerProvider = new DefaultDrmSessionManagerProvider();
       loadErrorHandlingPolicy = new DefaultLoadErrorHandlingPolicy();
       livePresentationDelayMs = DEFAULT_LIVE_PRESENTATION_DELAY_MS;
@@ -239,6 +246,13 @@ public final class SsMediaSource extends BaseMediaSource
       return this;
     }
 
+    @CanIgnoreReturnValue
+    @Override
+    public Factory setDownloadExecutor(Supplier<ReleasableExecutor> downloadExecutor) {
+      this.downloadExecutorSupplier = downloadExecutor;
+      return this;
+    }
+
     /**
      * Returns a new {@link SsMediaSource} using the current parameters and the specified sideloaded
      * manifest.
@@ -291,7 +305,8 @@ public final class SsMediaSource extends BaseMediaSource
           cmcdConfiguration,
           drmSessionManagerProvider.get(mediaItem),
           loadErrorHandlingPolicy,
-          livePresentationDelayMs);
+          livePresentationDelayMs,
+          downloadExecutorSupplier);
     }
 
     /**
@@ -328,7 +343,8 @@ public final class SsMediaSource extends BaseMediaSource
           cmcdConfiguration,
           drmSessionManagerProvider.get(mediaItem),
           loadErrorHandlingPolicy,
-          livePresentationDelayMs);
+          livePresentationDelayMs,
+          downloadExecutorSupplier);
     }
 
     @Override
@@ -363,6 +379,7 @@ public final class SsMediaSource extends BaseMediaSource
   private final EventDispatcher manifestEventDispatcher;
   private final ParsingLoadable.Parser<? extends SsManifest> manifestParser;
   private final ArrayList<SsMediaPeriod> mediaPeriods;
+  @Nullable private Supplier<ReleasableExecutor> downloadExecutorSupplier;
 
   private DataSource manifestDataSource;
   private Loader manifestLoader;
@@ -385,7 +402,8 @@ public final class SsMediaSource extends BaseMediaSource
       @Nullable CmcdConfiguration cmcdConfiguration,
       DrmSessionManager drmSessionManager,
       LoadErrorHandlingPolicy loadErrorHandlingPolicy,
-      long livePresentationDelayMs) {
+      long livePresentationDelayMs,
+      @Nullable Supplier<ReleasableExecutor> downloadExecutorSupplier) {
     Assertions.checkState(manifest == null || !manifest.isLive);
     this.mediaItem = mediaItem;
     MediaItem.LocalConfiguration localConfiguration = checkNotNull(mediaItem.localConfiguration);
@@ -402,6 +420,7 @@ public final class SsMediaSource extends BaseMediaSource
     this.drmSessionManager = drmSessionManager;
     this.loadErrorHandlingPolicy = loadErrorHandlingPolicy;
     this.livePresentationDelayMs = livePresentationDelayMs;
+    this.downloadExecutorSupplier = downloadExecutorSupplier;
     this.manifestEventDispatcher = createEventDispatcher(/* mediaPeriodId= */ null);
     sideloadedManifest = manifest != null;
     mediaPeriods = new ArrayList<>();
@@ -422,7 +441,8 @@ public final class SsMediaSource extends BaseMediaSource
     return newConfiguration != null
         && newConfiguration.uri.equals(existingConfiguration.uri)
         && newConfiguration.streamKeys.equals(existingConfiguration.streamKeys)
-        && Util.areEqual(newConfiguration.drmConfiguration, existingConfiguration.drmConfiguration);
+        && Objects.equals(
+            newConfiguration.drmConfiguration, existingConfiguration.drmConfiguration);
   }
 
   @Override
@@ -440,7 +460,10 @@ public final class SsMediaSource extends BaseMediaSource
       processManifest();
     } else {
       manifestDataSource = manifestDataSourceFactory.createDataSource();
-      manifestLoader = new Loader("SsMediaSource");
+      manifestLoader =
+          downloadExecutorSupplier != null
+              ? new Loader(downloadExecutorSupplier.get())
+              : new Loader("SsMediaSource");
       manifestLoaderErrorThrower = manifestLoader;
       manifestRefreshHandler = Util.createHandlerForCurrentLooper();
       startLoadingManifest();
@@ -468,7 +491,8 @@ public final class SsMediaSource extends BaseMediaSource
             loadErrorHandlingPolicy,
             mediaSourceEventDispatcher,
             manifestLoaderErrorThrower,
-            allocator);
+            allocator,
+            downloadExecutorSupplier);
     mediaPeriods.add(period);
     return period;
   }
@@ -676,9 +700,19 @@ public final class SsMediaSource extends BaseMediaSource
     if (manifestLoader.hasFatalError()) {
       return;
     }
+    DataSpec dataSpec =
+        new DataSpec.Builder().setUri(manifestUri).setFlags(DataSpec.FLAG_ALLOW_GZIP).build();
+    if (cmcdConfiguration != null) {
+      CmcdData.Factory cmcdDataFactory =
+          new CmcdData.Factory(cmcdConfiguration, CmcdData.STREAMING_FORMAT_SS)
+              .setObjectType(CmcdData.OBJECT_TYPE_MANIFEST);
+      if (manifest != null) {
+        cmcdDataFactory.setIsLive(manifest.isLive);
+      }
+      dataSpec = cmcdDataFactory.createCmcdData().addToDataSpec(dataSpec);
+    }
     ParsingLoadable<SsManifest> loadable =
-        new ParsingLoadable<>(
-            manifestDataSource, manifestUri, C.DATA_TYPE_MANIFEST, manifestParser);
+        new ParsingLoadable<>(manifestDataSource, dataSpec, C.DATA_TYPE_MANIFEST, manifestParser);
     manifestLoader.startLoading(
         loadable, this, loadErrorHandlingPolicy.getMinimumLoadableRetryCount(loadable.type));
   }

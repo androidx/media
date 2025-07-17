@@ -27,7 +27,6 @@ import androidx.media3.common.Timeline;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.decoder.DecoderInputBuffer.InsufficientCapacityException;
 import androidx.media3.exoplayer.analytics.PlayerId;
@@ -37,6 +36,7 @@ import androidx.media3.exoplayer.source.SampleStream;
 import androidx.media3.exoplayer.source.SampleStream.ReadDataResult;
 import androidx.media3.exoplayer.source.SampleStream.ReadFlags;
 import java.io.IOException;
+import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
@@ -84,6 +84,7 @@ public abstract class BaseRenderer implements Renderer, RendererCapabilities {
   private boolean streamIsFinal;
   private boolean throwRendererExceptionIsExecuting;
   private Timeline timeline;
+  @Nullable private MediaSource.MediaPeriodId mediaPeriodId;
 
   @GuardedBy("lock")
   @Nullable
@@ -144,6 +145,7 @@ public abstract class BaseRenderer implements Renderer, RendererCapabilities {
       throws ExoPlaybackException {
     Assertions.checkState(state == STATE_DISABLED);
     this.configuration = configuration;
+    this.mediaPeriodId = mediaPeriodId;
     state = STATE_ENABLED;
     onEnabled(joining, mayRenderStartOfStream);
     replaceStream(formats, stream, startPositionUs, offsetUs, mediaPeriodId);
@@ -167,6 +169,7 @@ public abstract class BaseRenderer implements Renderer, RendererCapabilities {
       throws ExoPlaybackException {
     Assertions.checkState(!streamIsFinal);
     this.stream = stream;
+    this.mediaPeriodId = mediaPeriodId;
     if (readingPositionUs == C.TIME_END_OF_SOURCE) {
       readingPositionUs = startPositionUs;
     }
@@ -208,7 +211,7 @@ public abstract class BaseRenderer implements Renderer, RendererCapabilities {
 
   @Override
   public final void setTimeline(Timeline timeline) {
-    if (!Util.areEqual(this.timeline, timeline)) {
+    if (!Objects.equals(this.timeline, timeline)) {
       this.timeline = timeline;
       onTimelineChanged(this.timeline);
     }
@@ -242,6 +245,7 @@ public abstract class BaseRenderer implements Renderer, RendererCapabilities {
     streamFormats = null;
     streamIsFinal = false;
     onDisabled();
+    mediaPeriodId = null;
   }
 
   @Override
@@ -486,6 +490,15 @@ public abstract class BaseRenderer implements Renderer, RendererCapabilities {
   }
 
   /**
+   * The {@link MediaSource.MediaPeriodId} of the {@link MediaPeriod} producing the {@code stream},
+   * or {@code null} if the renderer is disabled.
+   */
+  @Nullable
+  protected final MediaSource.MediaPeriodId getMediaPeriodId() {
+    return mediaPeriodId;
+  }
+
+  /**
    * Creates an {@link ExoPlaybackException} of type {@link ExoPlaybackException#TYPE_RENDERER} for
    * this renderer.
    *
@@ -530,7 +543,14 @@ public abstract class BaseRenderer implements Renderer, RendererCapabilities {
       }
     }
     return ExoPlaybackException.createForRenderer(
-        cause, getName(), getIndex(), format, formatSupport, isRecoverable, errorCode);
+        cause,
+        getName(),
+        getIndex(),
+        format,
+        formatSupport,
+        mediaPeriodId,
+        isRecoverable,
+        errorCode);
   }
 
   /**

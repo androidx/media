@@ -17,12 +17,13 @@ package androidx.media3.exoplayer;
 
 import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
 
-import androidx.annotation.RequiresApi;
+import android.content.Context;
+import android.os.Looper;
 import androidx.annotation.RestrictTo;
+import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.UnstableApi;
 
 /** Provides methods to check the suitability of selected media outputs. */
-@RequiresApi(35)
 @RestrictTo(LIBRARY_GROUP)
 @UnstableApi
 public interface SuitableOutputChecker {
@@ -47,8 +48,17 @@ public interface SuitableOutputChecker {
    * #disable()}.
    *
    * @param callback To receive notifications of changes in suitable media output changes.
+   * @param context A {@link Context}.
+   * @param callbackLooper The {@link Looper} to call {@link Callback} methods on.
+   * @param backgroundLooper The {@link Looper} to run background operations on.
+   * @param clock The {@link Clock}.
    */
-  void enable(Callback callback);
+  void enable(
+      Callback callback,
+      Context context,
+      Looper callbackLooper,
+      Looper backgroundLooper,
+      Clock clock);
 
   /**
    * Disables the current instance to receive updates on the selected media outputs and clears the

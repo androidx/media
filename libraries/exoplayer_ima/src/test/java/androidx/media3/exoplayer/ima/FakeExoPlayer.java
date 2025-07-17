@@ -211,11 +211,6 @@ import androidx.media3.test.utils.StubExoPlayer;
   // ExoPlayer methods. Other methods are unsupported.
 
   @Override
-  public AudioComponent getAudioComponent() {
-    return null;
-  }
-
-  @Override
   public Looper getApplicationLooper() {
     return Looper.getMainLooper();
   }
@@ -272,7 +267,7 @@ import androidx.media3.test.utils.StubExoPlayer;
 
   @Override
   public TrackSelectionParameters getTrackSelectionParameters() {
-    return TrackSelectionParameters.DEFAULT_WITHOUT_CONTEXT;
+    return TrackSelectionParameters.DEFAULT;
   }
 
   @Override

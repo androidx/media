@@ -30,6 +30,25 @@ import java.util.List;
 /**
  * A {@link Player} that forwards method calls to another {@link Player}. Applications can use this
  * class to suppress or modify specific operations, by overriding the respective methods.
+ *
+ * <p>Subclasses must ensure they maintain consistency with the {@link Player} interface, including
+ * interactions with {@link Player.Listener}, which can be quite fiddly. For example, if removing an
+ * available {@link Player.Command} and disabling the corresponding method, subclasses need to:
+ *
+ * <ul>
+ *   <li>Override {@link #isCommandAvailable(int)} and {@link #getAvailableCommands()}
+ *   <li>Override and no-op the method itself
+ *   <li>Override {@link #addListener(Listener)} and wrap the provided {@link Player.Listener} with
+ *       an implementation that drops calls to {@link
+ *       Player.Listener#onAvailableCommandsChanged(Commands)} and {@link
+ *       Player.Listener#onEvents(Player, Events)} if they were only triggered by a change in
+ *       command availability that is 'invisible' after the command removal.
+ * </ul>
+ *
+ * <p>Many customization use-cases are instead better served by {@link ForwardingSimpleBasePlayer},
+ * which allows subclasses to more concisely modify the behavior of an operation, or disallow a
+ * {@link Player.Command}. In many cases {@link ForwardingSimpleBasePlayer} should be used in
+ * preference to {@code ForwardingPlayer}.
  */
 @UnstableApi
 public class ForwardingPlayer implements Player {
@@ -333,18 +352,6 @@ public class ForwardingPlayer implements Player {
     return player.hasPreviousMediaItem();
   }
 
-  /**
-   * Calls {@link Player#seekToPreviousWindow()} on the delegate.
-   *
-   * @deprecated Use {@link #seekToPreviousMediaItem()} instead.
-   */
-  @SuppressWarnings("deprecation") // Forwarding to deprecated method
-  @Deprecated
-  @Override
-  public void seekToPreviousWindow() {
-    player.seekToPreviousWindow();
-  }
-
   /** Calls {@link Player#seekToPreviousMediaItem()} on the delegate. */
   @Override
   public void seekToPreviousMediaItem() {
@@ -363,58 +370,10 @@ public class ForwardingPlayer implements Player {
     return player.getMaxSeekToPreviousPosition();
   }
 
-  /**
-   * Calls {@link Player#hasNext()} on the delegate and returns the result.
-   *
-   * @deprecated Use {@link #hasNextMediaItem()} instead.
-   */
-  @SuppressWarnings("deprecation") // Forwarding to deprecated method
-  @Deprecated
-  @Override
-  public boolean hasNext() {
-    return player.hasNext();
-  }
-
-  /**
-   * Calls {@link Player#hasNextWindow()} on the delegate and returns the result.
-   *
-   * @deprecated Use {@link #hasNextMediaItem()} instead.
-   */
-  @SuppressWarnings("deprecation") // Forwarding to deprecated method
-  @Deprecated
-  @Override
-  public boolean hasNextWindow() {
-    return player.hasNextWindow();
-  }
-
   /** Calls {@link Player#hasNextMediaItem()} on the delegate and returns the result. */
   @Override
   public boolean hasNextMediaItem() {
     return player.hasNextMediaItem();
-  }
-
-  /**
-   * Calls {@link Player#next()} on the delegate.
-   *
-   * @deprecated Use {@link #seekToNextMediaItem()} instead.
-   */
-  @SuppressWarnings("deprecation") // Forwarding to deprecated method
-  @Deprecated
-  @Override
-  public void next() {
-    player.next();
-  }
-
-  /**
-   * Calls {@link Player#seekToNextWindow()} on the delegate.
-   *
-   * @deprecated Use {@link #seekToNextMediaItem()} instead.
-   */
-  @SuppressWarnings("deprecation") // Forwarding to deprecated method
-  @Deprecated
-  @Override
-  public void seekToNextWindow() {
-    player.seekToNextWindow();
   }
 
   /** Calls {@link Player#seekToNextMediaItem()} on the delegate. */
@@ -729,6 +688,18 @@ public class ForwardingPlayer implements Player {
   @Override
   public float getVolume() {
     return player.getVolume();
+  }
+
+  /** Calls {@link Player#mute()} on the delegate. */
+  @Override
+  public void mute() {
+    player.mute();
+  }
+
+  /** Calls {@link Player#unmute()} on the delegate. */
+  @Override
+  public void unmute() {
+    player.unmute();
   }
 
   /** Calls {@link Player#getVideoSize()} on the delegate and returns the result. */

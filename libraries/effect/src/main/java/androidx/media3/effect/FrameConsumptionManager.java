@@ -15,7 +15,6 @@
  */
 package androidx.media3.effect;
 
-import android.util.Pair;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -39,7 +38,7 @@ import java.util.Queue;
   private final VideoFrameProcessingTaskExecutor videoFrameProcessingTaskExecutor;
 
   @GuardedBy("this")
-  private final Queue<Pair<GlTextureInfo, Long>> availableFrames;
+  private final Queue<TimedGlTextureInfo> availableFrames;
 
   @GuardedBy("this")
   private int consumingGlShaderProgramInputCapacity;
@@ -63,7 +62,7 @@ import java.util.Queue;
 
   @Override
   public synchronized void onReadyToAcceptInputFrame() {
-    @Nullable Pair<GlTextureInfo, Long> pendingFrame = availableFrames.poll();
+    @Nullable TimedGlTextureInfo pendingFrame = availableFrames.poll();
     if (pendingFrame == null) {
       consumingGlShaderProgramInputCapacity++;
       return;
@@ -72,11 +71,9 @@ import java.util.Queue;
     videoFrameProcessingTaskExecutor.submit(
         () ->
             consumingGlShaderProgram.queueInputFrame(
-                glObjectsProvider,
-                /* inputTexture= */ pendingFrame.first,
-                /* presentationTimeUs= */ pendingFrame.second));
-    @Nullable Pair<GlTextureInfo, Long> nextPendingFrame = availableFrames.peek();
-    if (nextPendingFrame != null && nextPendingFrame.second == C.TIME_END_OF_SOURCE) {
+                glObjectsProvider, pendingFrame.glTextureInfo, pendingFrame.presentationTimeUs));
+    @Nullable TimedGlTextureInfo nextPendingFrame = availableFrames.peek();
+    if (nextPendingFrame != null && nextPendingFrame.presentationTimeUs == C.TIME_END_OF_SOURCE) {
       videoFrameProcessingTaskExecutor.submit(
           consumingGlShaderProgram::signalEndOfCurrentInputStream);
       availableFrames.remove();
@@ -97,7 +94,7 @@ import java.util.Queue;
                   glObjectsProvider, inputTexture, presentationTimeUs));
       consumingGlShaderProgramInputCapacity--;
     } else {
-      availableFrames.add(Pair.create(inputTexture, presentationTimeUs));
+      availableFrames.add(new TimedGlTextureInfo(inputTexture, presentationTimeUs));
     }
   }
 
@@ -107,7 +104,7 @@ import java.util.Queue;
    */
   public synchronized void signalEndOfCurrentStream() {
     if (!availableFrames.isEmpty()) {
-      availableFrames.add(Pair.create(GlTextureInfo.UNSET, C.TIME_END_OF_SOURCE));
+      availableFrames.add(new TimedGlTextureInfo(GlTextureInfo.UNSET, C.TIME_END_OF_SOURCE));
     } else {
       videoFrameProcessingTaskExecutor.submit(
           consumingGlShaderProgram::signalEndOfCurrentInputStream);

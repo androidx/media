@@ -1,4 +1,4 @@
-MediaCodecAdapter (exotest.audio.mpeg):
+MediaCodecAdapter (media3.audio.mpeg):
   inputBuffers:
     count = 2
     input buffer #0:
@@ -22,4 +22,4 @@ AudioSink:
     sampleRate = 44100
   buffer #0:
     time = 1000000000000
-    data = 1
+    data = empty

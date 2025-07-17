@@ -16,6 +16,7 @@
 package androidx.media3.exoplayer.source.preload;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.postOrRun;
 
 import android.os.Handler;
@@ -293,6 +294,7 @@ public final class PreloadMediaSource extends WrappingMediaSource {
 
   @Override
   protected void prepareSourceInternal() {
+    checkState(Looper.myLooper() == preloadHandler.getLooper());
     if (isUsedByPlayer() && !onUsedByPlayerNotified) {
       onUsedByPlayer();
     }
@@ -505,17 +507,18 @@ public final class PreloadMediaSource extends WrappingMediaSource {
               return;
             }
             PreloadMediaPeriod preloadMediaPeriod = (PreloadMediaPeriod) mediaPeriod;
-            long bufferedPositionUs = mediaPeriod.getBufferedPositionUs();
-            if (prepared && bufferedPositionUs == C.TIME_END_OF_SOURCE) {
-              preloadControl.onLoadedToTheEndOfSource(PreloadMediaSource.this);
-              stopPreloading();
-              return;
-            }
-            if (prepared
-                && !preloadControl.onContinueLoadingRequested(
-                    PreloadMediaSource.this, bufferedPositionUs - periodStartPositionUs)) {
-              stopPreloading();
-              return;
+            if (prepared) {
+              long bufferedPositionUs = mediaPeriod.getBufferedPositionUs();
+              if (bufferedPositionUs == C.TIME_END_OF_SOURCE) {
+                preloadControl.onLoadedToTheEndOfSource(PreloadMediaSource.this);
+                stopPreloading();
+                return;
+              }
+              if (!preloadControl.onContinueLoadingRequested(
+                  PreloadMediaSource.this, bufferedPositionUs - periodStartPositionUs)) {
+                stopPreloading();
+                return;
+              }
             }
             preloadMediaPeriod.continueLoading(
                 new LoadingInfo.Builder().setPlaybackPositionUs(periodStartPositionUs).build());

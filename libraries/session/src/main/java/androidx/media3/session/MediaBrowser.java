@@ -61,6 +61,7 @@ public final class MediaBrowser extends MediaController {
     private Looper applicationLooper;
     private @MonotonicNonNull BitmapLoader bitmapLoader;
     private int maxCommandsForMediaItems;
+    private long platformSessionCallbackAggregationTimeoutMs;
 
     /**
      * Creates a builder for {@link MediaBrowser}.
@@ -78,6 +79,8 @@ public final class MediaBrowser extends MediaController {
       connectionHints = Bundle.EMPTY;
       listener = new Listener() {};
       applicationLooper = Util.getCurrentOrMainLooper();
+      platformSessionCallbackAggregationTimeoutMs =
+          DEFAULT_PLATFORM_CALLBACK_AGGREGATION_TIMEOUT_MS;
     }
 
     /**
@@ -156,7 +159,24 @@ public final class MediaBrowser extends MediaController {
       return this;
     }
 
-    // LINT.IfChange(build_async)
+    /**
+     * Sets the timeout after which updates from the platform session callbacks are applied to the
+     * browser, in milliseconds.
+     *
+     * <p>The default is 100ms.
+     *
+     * @param platformSessionCallbackAggregationTimeoutMs The timeout, in milliseconds.
+     * @return The builder to allow chaining.
+     */
+    @UnstableApi
+    @CanIgnoreReturnValue
+    public Builder experimentalSetPlatformSessionCallbackAggregationTimeoutMs(
+        long platformSessionCallbackAggregationTimeoutMs) {
+      this.platformSessionCallbackAggregationTimeoutMs =
+          platformSessionCallbackAggregationTimeoutMs;
+      return this;
+    }
+
     /**
      * Builds a {@link MediaBrowser} asynchronously.
      *
@@ -197,7 +217,8 @@ public final class MediaBrowser extends MediaController {
               applicationLooper,
               holder,
               bitmapLoader,
-              maxCommandsForMediaItems);
+              maxCommandsForMediaItems,
+              platformSessionCallbackAggregationTimeoutMs);
       postOrRun(new Handler(applicationLooper), () -> holder.setController(browser));
       return holder;
     }
@@ -267,7 +288,8 @@ public final class MediaBrowser extends MediaController {
       Looper applicationLooper,
       ConnectionCallback connectionCallback,
       @Nullable BitmapLoader bitmapLoader,
-      int maxCommandsForMediaItems) {
+      int maxCommandsForMediaItems,
+      long platformSessionCallbackAggregationTimeoutMs) {
     super(
         context,
         token,
@@ -276,7 +298,8 @@ public final class MediaBrowser extends MediaController {
         applicationLooper,
         connectionCallback,
         bitmapLoader,
-        maxCommandsForMediaItems);
+        maxCommandsForMediaItems,
+        platformSessionCallbackAggregationTimeoutMs);
   }
 
   @Override
@@ -287,12 +310,19 @@ public final class MediaBrowser extends MediaController {
       SessionToken token,
       Bundle connectionHints,
       Looper applicationLooper,
-      @Nullable BitmapLoader bitmapLoader) {
+      @Nullable BitmapLoader bitmapLoader,
+      long platformSessionCallbackAggregationTimeoutMs) {
     MediaBrowserImpl impl;
     if (token.isLegacySession()) {
       impl =
           new MediaBrowserImplLegacy(
-              context, this, token, connectionHints, applicationLooper, checkNotNull(bitmapLoader));
+              context,
+              this,
+              token,
+              connectionHints,
+              applicationLooper,
+              checkNotNull(bitmapLoader),
+              platformSessionCallbackAggregationTimeoutMs);
     } else {
       impl = new MediaBrowserImplBase(context, this, token, connectionHints, applicationLooper);
     }

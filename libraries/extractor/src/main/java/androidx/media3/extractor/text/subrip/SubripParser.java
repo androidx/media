@@ -60,7 +60,7 @@ public final class SubripParser implements SubtitleParser {
   private static final String TAG = "SubripParser";
 
   // Some SRT files don't include hours or milliseconds in the timecode, so we use optional groups.
-  private static final String SUBRIP_TIMECODE = "(?:(\\d+):)?(\\d+):(\\d+)(?:,(\\d+))?";
+  private static final String SUBRIP_TIMECODE = "(?:(\\d+):)?(\\d+):(\\d+)(?:,(\\d{3}))?";
   private static final Pattern SUBRIP_TIMING_LINE =
       Pattern.compile("\\s*(" + SUBRIP_TIMECODE + ")\\s*-->\\s*(" + SUBRIP_TIMECODE + ")\\s*");
 
@@ -112,7 +112,7 @@ public final class SubripParser implements SubtitleParser {
             : null;
     @Nullable String currentLine;
     while ((currentLine = parsableByteArray.readLine(charset)) != null) {
-      if (currentLine.length() == 0) {
+      if (currentLine.isEmpty()) {
         // Skip blank lines.
         continue;
       }
@@ -166,7 +166,7 @@ public final class SubripParser implements SubtitleParser {
           break;
         }
       }
-      if (outputOptions.startTimeUs == C.TIME_UNSET || startTimeUs >= outputOptions.startTimeUs) {
+      if (outputOptions.startTimeUs == C.TIME_UNSET || endTimeUs >= outputOptions.startTimeUs) {
         output.accept(
             new CuesWithTiming(
                 ImmutableList.of(buildCue(text, alignmentTag)),

@@ -15,15 +15,21 @@
  */
 package androidx.media3.exoplayer.video;
 
+import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_IMMEDIATELY;
+import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED;
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 
+import android.graphics.SurfaceTexture;
+import android.view.Surface;
 import androidx.media3.common.VideoSize;
 import androidx.media3.test.utils.FakeClock;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.InOrder;
@@ -36,6 +42,18 @@ public class VideoFrameRenderControlTest {
   private static final int VIDEO_WIDTH = 640;
   private static final int VIDEO_HEIGHT = 480;
 
+  private Surface surface;
+
+  @Before
+  public void setUp() {
+    surface = new Surface(new SurfaceTexture(/* texName= */ 0));
+  }
+
+  @After
+  public void tearDown() {
+    surface.release();
+  }
+
   @Test
   public void releaseFirstFrame() throws Exception {
     VideoFrameRenderControl.FrameRenderer frameRenderer =
@@ -44,7 +62,7 @@ public class VideoFrameRenderControlTest {
     VideoFrameRenderControl videoFrameRenderControl =
         new VideoFrameRenderControl(frameRenderer, videoFrameReleaseControl);
 
-    videoFrameReleaseControl.onEnabled(/* releaseFirstFrameBeforeStarted= */ true);
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
     videoFrameRenderControl.onVideoSizeChanged(
         /* width= */ VIDEO_WIDTH, /* height= */ VIDEO_HEIGHT);
     videoFrameRenderControl.onFrameAvailableForRendering(/* presentationTimeUs= */ 0);
@@ -72,7 +90,7 @@ public class VideoFrameRenderControlTest {
     VideoFrameRenderControl videoFrameRenderControl =
         new VideoFrameRenderControl(frameRenderer, videoFrameReleaseControl);
 
-    videoFrameReleaseControl.onEnabled(/* releaseFirstFrameBeforeStarted= */ true);
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
     videoFrameReleaseControl.onStarted();
     videoFrameRenderControl.onVideoSizeChanged(
         /* width= */ VIDEO_WIDTH, /* height= */ VIDEO_HEIGHT);
@@ -117,11 +135,12 @@ public class VideoFrameRenderControlTest {
     VideoFrameRenderControl videoFrameRenderControl =
         new VideoFrameRenderControl(frameRenderer, videoFrameReleaseControl);
 
-    videoFrameReleaseControl.onEnabled(/* releaseFirstFrameBeforeStarted= */ true);
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
     videoFrameReleaseControl.onStarted();
     videoFrameRenderControl.onVideoSizeChanged(
         /* width= */ VIDEO_WIDTH, /* height= */ VIDEO_HEIGHT);
-    videoFrameRenderControl.onStreamStartPositionChanged(/* streamStartPositionUs= */ 10_000);
+    videoFrameRenderControl.onStreamChanged(
+        RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED, /* streamStartPositionUs= */ 10_000);
     videoFrameRenderControl.onFrameAvailableForRendering(/* presentationTimeUs= */ 0);
     videoFrameRenderControl.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
 
@@ -135,7 +154,8 @@ public class VideoFrameRenderControlTest {
 
     // 10 milliseconds pass
     clock.advanceTime(/* timeDiffMs= */ 10);
-    videoFrameRenderControl.onStreamStartPositionChanged(/* streamStartPositionUs= */ 20_000);
+    videoFrameRenderControl.onStreamChanged(
+        RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED, /* streamStartPositionUs= */ 20_000);
     videoFrameRenderControl.onFrameAvailableForRendering(/* presentationTimeUs= */ 10_000);
     videoFrameRenderControl.render(/* positionUs= */ 10_000, /* elapsedRealtimeUs= */ 0);
 
@@ -164,7 +184,7 @@ public class VideoFrameRenderControlTest {
     VideoFrameRenderControl videoFrameRenderControl =
         new VideoFrameRenderControl(frameRenderer, videoFrameReleaseControl);
 
-    videoFrameReleaseControl.onEnabled(/* releaseFirstFrameBeforeStarted= */ true);
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
     videoFrameReleaseControl.onStarted();
     videoFrameRenderControl.onVideoSizeChanged(
         /* width= */ VIDEO_WIDTH, /* height= */ VIDEO_HEIGHT);
@@ -202,7 +222,7 @@ public class VideoFrameRenderControlTest {
     VideoFrameRenderControl videoFrameRenderControl =
         new VideoFrameRenderControl(frameRenderer, videoFrameReleaseControl);
 
-    videoFrameReleaseControl.onEnabled(/* releaseFirstFrameBeforeStarted= */ true);
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
     videoFrameReleaseControl.onStarted();
     videoFrameRenderControl.onVideoSizeChanged(
         /* width= */ VIDEO_WIDTH, /* height= */ VIDEO_HEIGHT);
@@ -230,73 +250,52 @@ public class VideoFrameRenderControlTest {
   }
 
   @Test
-  public void hasReleasedFrame_noFrameReleased_returnsFalse() {
+  public void isEnded_endOfInputNotSignaled_returnsFalse() {
     VideoFrameReleaseControl videoFrameReleaseControl = createVideoFrameReleaseControl();
     VideoFrameRenderControl videoFrameRenderControl =
         new VideoFrameRenderControl(
             mock(VideoFrameRenderControl.FrameRenderer.class), videoFrameReleaseControl);
 
-    assertThat(videoFrameRenderControl.hasReleasedFrame(/* presentationTimeUs= */ 0)).isFalse();
+    assertThat(videoFrameRenderControl.isEnded()).isFalse();
   }
 
   @Test
-  public void hasReleasedFrame_frameIsReleased_returnsTrue() throws Exception {
+  public void isEnded_endOfInputSignaled_returnsTrue() throws Exception {
     VideoFrameRenderControl.FrameRenderer frameRenderer =
         mock(VideoFrameRenderControl.FrameRenderer.class);
     VideoFrameReleaseControl videoFrameReleaseControl = createVideoFrameReleaseControl();
     VideoFrameRenderControl videoFrameRenderControl =
         new VideoFrameRenderControl(frameRenderer, videoFrameReleaseControl);
 
-    videoFrameReleaseControl.onEnabled(/* releaseFirstFrameBeforeStarted= */ true);
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
     videoFrameRenderControl.onVideoSizeChanged(
         /* width= */ VIDEO_WIDTH, /* height= */ VIDEO_HEIGHT);
     videoFrameRenderControl.onFrameAvailableForRendering(/* presentationTimeUs= */ 0);
     videoFrameRenderControl.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
+    videoFrameRenderControl.signalEndOfInput();
 
-    InOrder inOrder = Mockito.inOrder(frameRenderer);
-    inOrder
-        .verify(frameRenderer)
-        .onVideoSizeChanged(new VideoSize(/* width= */ VIDEO_WIDTH, /* height= */ VIDEO_HEIGHT));
-    inOrder
-        .verify(frameRenderer)
-        .renderFrame(
-            /* renderTimeNs= */ anyLong(),
-            /* presentationTimeUs= */ eq(0L),
-            /* isFirstFrame= */ eq(true));
-    assertThat(videoFrameRenderControl.hasReleasedFrame(/* presentationTimeUs= */ 0)).isTrue();
+    assertThat(videoFrameRenderControl.isEnded()).isTrue();
   }
 
   @Test
-  public void hasReleasedFrame_frameIsReleasedAndFlushed_returnsFalse() throws Exception {
+  public void isEnded_afterFlush_returnsFalse() throws Exception {
     VideoFrameRenderControl.FrameRenderer frameRenderer =
         mock(VideoFrameRenderControl.FrameRenderer.class);
     VideoFrameReleaseControl videoFrameReleaseControl = createVideoFrameReleaseControl();
     VideoFrameRenderControl videoFrameRenderControl =
         new VideoFrameRenderControl(frameRenderer, videoFrameReleaseControl);
 
-    videoFrameReleaseControl.onEnabled(/* releaseFirstFrameBeforeStarted= */ true);
+    videoFrameReleaseControl.onStreamChanged(RELEASE_FIRST_FRAME_IMMEDIATELY);
     videoFrameRenderControl.onVideoSizeChanged(
         /* width= */ VIDEO_WIDTH, /* height= */ VIDEO_HEIGHT);
     videoFrameRenderControl.onFrameAvailableForRendering(/* presentationTimeUs= */ 0);
     videoFrameRenderControl.render(/* positionUs= */ 0, /* elapsedRealtimeUs= */ 0);
-
-    InOrder inOrder = Mockito.inOrder(frameRenderer);
-    inOrder
-        .verify(frameRenderer)
-        .onVideoSizeChanged(new VideoSize(/* width= */ VIDEO_WIDTH, /* height= */ VIDEO_HEIGHT));
-    inOrder
-        .verify(frameRenderer)
-        .renderFrame(
-            /* renderTimeNs= */ anyLong(),
-            /* presentationTimeUs= */ eq(0L),
-            /* isFirstFrame= */ eq(true));
-
     videoFrameRenderControl.flush();
 
-    assertThat(videoFrameRenderControl.hasReleasedFrame(/* presentationTimeUs= */ 0)).isFalse();
+    assertThat(videoFrameRenderControl.isEnded()).isFalse();
   }
 
-  private static VideoFrameReleaseControl createVideoFrameReleaseControl() {
+  private VideoFrameReleaseControl createVideoFrameReleaseControl() {
     return createVideoFrameReleaseControl(
         new TestFrameTimingEvaluator(
             /* shouldForceReleaseFrames= */ false,
@@ -304,12 +303,15 @@ public class VideoFrameRenderControlTest {
             /* shouldIgnoreFrames= */ false));
   }
 
-  private static VideoFrameReleaseControl createVideoFrameReleaseControl(
+  private VideoFrameReleaseControl createVideoFrameReleaseControl(
       VideoFrameReleaseControl.FrameTimingEvaluator frameTimingEvaluator) {
-    return new VideoFrameReleaseControl(
-        ApplicationProvider.getApplicationContext(),
-        frameTimingEvaluator,
-        /* allowedJoiningTimeMs= */ 0);
+    VideoFrameReleaseControl videoFrameReleaseControl =
+        new VideoFrameReleaseControl(
+            ApplicationProvider.getApplicationContext(),
+            frameTimingEvaluator,
+            /* allowedJoiningTimeMs= */ 0);
+    videoFrameReleaseControl.setOutputSurface(surface);
+    return videoFrameReleaseControl;
   }
 
   private static class TestFrameTimingEvaluator

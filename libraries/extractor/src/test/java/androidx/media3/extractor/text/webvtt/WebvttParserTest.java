@@ -56,6 +56,8 @@ public class WebvttParserTest {
       "media/webvtt/with_overlapping_timestamps";
   private static final String WITH_VERTICAL_FILE = "media/webvtt/with_vertical";
   private static final String WITH_RUBIES_FILE = "media/webvtt/with_rubies";
+  private static final String WITH_WIDE_CHARS_AND_CR_ENDINGS_FILE =
+      "media/webvtt/with_wide_unicode_chars_and_cr_endings";
   private static final String WITH_BAD_CUE_HEADER_FILE = "media/webvtt/with_bad_cue_header";
   private static final String WITH_TAGS_FILE = "media/webvtt/with_tags";
   private static final String WITH_CSS_STYLES = "media/webvtt/with_css_styles";
@@ -495,6 +497,17 @@ public class WebvttParserTest {
     Cue fourthCue = Iterables.getOnlyElement(allCues.get(3).cues);
     assertThat(fourthCue.text.toString()).isEqualTo("Some text with no ruby text.");
     assertThat((Spanned) fourthCue.text).hasNoSpans();
+  }
+
+  // https://github.com/androidx/media/issues/2167
+  @Test
+  public void parseWithWideUnicodeCharsAndCrLineEndings() throws Exception {
+    ImmutableList<CuesWithTiming> allCues =
+        getCuesForTestAsset(WITH_WIDE_CHARS_AND_CR_ENDINGS_FILE);
+
+    // WebvttCueParser normalizes all line endings within cue text to \n.
+    assertThat(Iterables.getOnlyElement(Iterables.getOnlyElement(allCues).cues).text.toString())
+        .isEqualTo("\uD83D\uDE1B\n\uD83D\uDE1B");
   }
 
   @Test

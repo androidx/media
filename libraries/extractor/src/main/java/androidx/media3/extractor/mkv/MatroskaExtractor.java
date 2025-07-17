@@ -41,11 +41,11 @@ import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import androidx.media3.container.DolbyVisionConfig;
 import androidx.media3.container.NalUnitUtil;
 import androidx.media3.extractor.AacUtil;
 import androidx.media3.extractor.AvcConfig;
 import androidx.media3.extractor.ChunkIndex;
-import androidx.media3.extractor.DolbyVisionConfig;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.ExtractorOutput;
@@ -168,6 +168,7 @@ public class MatroskaExtractor implements Extractor {
   private static final String CODEC_ID_PCM_FLOAT = "A_PCM/FLOAT/IEEE";
   private static final String CODEC_ID_SUBRIP = "S_TEXT/UTF8";
   private static final String CODEC_ID_ASS = "S_TEXT/ASS";
+  private static final String CODEC_ID_SSA = "S_TEXT/SSA";
   private static final String CODEC_ID_VTT = "S_TEXT/WEBVTT";
   private static final String CODEC_ID_VOBSUB = "S_VOBSUB";
   private static final String CODEC_ID_PGS = "S_HDMV/PGS";
@@ -1482,6 +1483,7 @@ public class MatroskaExtractor implements Extractor {
     } else {
       if (CODEC_ID_SUBRIP.equals(track.codecId)
           || CODEC_ID_ASS.equals(track.codecId)
+          || CODEC_ID_SSA.equals(track.codecId)
           || CODEC_ID_VTT.equals(track.codecId)) {
         if (blockSampleCount > 1) {
           Log.w(TAG, "Skipping subtitle sample in laced block.");
@@ -1554,7 +1556,7 @@ public class MatroskaExtractor implements Extractor {
     if (CODEC_ID_SUBRIP.equals(track.codecId)) {
       writeSubtitleSampleData(input, SUBRIP_PREFIX, size);
       return finishWriteSampleData();
-    } else if (CODEC_ID_ASS.equals(track.codecId)) {
+    } else if (CODEC_ID_ASS.equals(track.codecId) || CODEC_ID_SSA.equals(track.codecId)) {
       writeSubtitleSampleData(input, SSA_PREFIX, size);
       return finishWriteSampleData();
     } else if (CODEC_ID_VTT.equals(track.codecId)) {
@@ -1787,8 +1789,8 @@ public class MatroskaExtractor implements Extractor {
    * <p>See documentation on {@link #SSA_DIALOGUE_FORMAT} and {@link #SUBRIP_PREFIX} for why we use
    * the duration as the end timecode.
    *
-   * @param codecId The subtitle codec; must be {@link #CODEC_ID_SUBRIP}, {@link #CODEC_ID_ASS} or
-   *     {@link #CODEC_ID_VTT}.
+   * @param codecId The subtitle codec; must be {@link #CODEC_ID_SUBRIP}, {@link #CODEC_ID_ASS},
+   *     {@link #CODEC_ID_SSA} or {@link #CODEC_ID_VTT}.
    * @param durationUs The duration of the sample, in microseconds.
    * @param subtitleData The subtitle sample in which to overwrite the end timecode (output
    *     parameter).
@@ -1804,6 +1806,7 @@ public class MatroskaExtractor implements Extractor {
         endTimecodeOffset = SUBRIP_PREFIX_END_TIMECODE_OFFSET;
         break;
       case CODEC_ID_ASS:
+      case CODEC_ID_SSA:
         endTimecode =
             formatSubtitleTimecode(
                 durationUs, SSA_TIMECODE_FORMAT, SSA_TIMECODE_LAST_VALUE_SCALING_FACTOR);
@@ -1991,6 +1994,7 @@ public class MatroskaExtractor implements Extractor {
       case CODEC_ID_PCM_FLOAT:
       case CODEC_ID_SUBRIP:
       case CODEC_ID_ASS:
+      case CODEC_ID_SSA:
       case CODEC_ID_VTT:
       case CODEC_ID_VOBSUB:
       case CODEC_ID_PGS:
@@ -2156,9 +2160,11 @@ public class MatroskaExtractor implements Extractor {
           break;
         case CODEC_ID_VP9:
           mimeType = MimeTypes.VIDEO_VP9;
+          initializationData = codecPrivate == null ? null : ImmutableList.of(codecPrivate);
           break;
         case CODEC_ID_AV1:
           mimeType = MimeTypes.VIDEO_AV1;
+          initializationData = codecPrivate == null ? null : ImmutableList.of(codecPrivate);
           break;
         case CODEC_ID_MPEG2:
           mimeType = MimeTypes.VIDEO_MPEG2;
@@ -2322,6 +2328,7 @@ public class MatroskaExtractor implements Extractor {
           mimeType = MimeTypes.APPLICATION_SUBRIP;
           break;
         case CODEC_ID_ASS:
+        case CODEC_ID_SSA:
           mimeType = MimeTypes.TEXT_SSA;
           initializationData = ImmutableList.of(SSA_DIALOGUE_FORMAT, getCodecPrivate(codecId));
           break;

@@ -1,4 +1,4 @@
-MediaCodecAdapter (exotest.audio.aac):
+MediaCodecAdapter (media3.audio.aac):
   inputBuffers:
     count = 46
     input buffer #0:
@@ -322,7 +322,7 @@ MediaCodecAdapter (exotest.audio.aac):
       timeUs = 1000011065678
       size = 0
       rendered = false
-MediaCodecAdapter (exotest.video.avc):
+MediaCodecAdapter (media3.video.avc):
   inputBuffers:
     count = 31
     input buffer #0:
@@ -549,139 +549,139 @@ AudioSink:
     sampleRate = 44100
   buffer #0:
     time = 1000010044000
-    data = 1
+    data = empty
   buffer #1:
     time = 1000010067219
-    data = 1
+    data = empty
   buffer #2:
     time = 1000010090439
-    data = 1
+    data = empty
   buffer #3:
     time = 1000010113659
-    data = 1
+    data = empty
   buffer #4:
     time = 1000010136879
-    data = 1
+    data = empty
   buffer #5:
     time = 1000010160099
-    data = 1
+    data = empty
   buffer #6:
     time = 1000010183319
-    data = 1
+    data = empty
   buffer #7:
     time = 1000010206539
-    data = 1
+    data = empty
   buffer #8:
     time = 1000010229759
-    data = 1
+    data = empty
   buffer #9:
     time = 1000010252979
-    data = 1
+    data = empty
   buffer #10:
     time = 1000010276199
-    data = 1
+    data = empty
   buffer #11:
     time = 1000010299419
-    data = 1
+    data = empty
   buffer #12:
     time = 1000010322639
-    data = 1
+    data = empty
   buffer #13:
     time = 1000010345859
-    data = 1
+    data = empty
   buffer #14:
     time = 1000010369079
-    data = 1
+    data = empty
   buffer #15:
     time = 1000010392299
-    data = 1
+    data = empty
   buffer #16:
     time = 1000010415519
-    data = 1
+    data = empty
   buffer #17:
     time = 1000010438739
-    data = 1
+    data = empty
   buffer #18:
     time = 1000010461959
-    data = 1
+    data = empty
   buffer #19:
     time = 1000010485179
-    data = 1
+    data = empty
   buffer #20:
     time = 1000010508399
-    data = 1
+    data = empty
   buffer #21:
     time = 1000010531619
-    data = 1
+    data = empty
   buffer #22:
     time = 1000010554839
-    data = 1
+    data = empty
   buffer #23:
     time = 1000010578058
-    data = 1
+    data = empty
   buffer #24:
     time = 1000010601278
-    data = 1
+    data = empty
   buffer #25:
     time = 1000010624498
-    data = 1
+    data = empty
   buffer #26:
     time = 1000010647718
-    data = 1
+    data = empty
   buffer #27:
     time = 1000010670938
-    data = 1
+    data = empty
   buffer #28:
     time = 1000010694158
-    data = 1
+    data = empty
   buffer #29:
     time = 1000010717378
-    data = 1
+    data = empty
   buffer #30:
     time = 1000010740598
-    data = 1
+    data = empty
   buffer #31:
     time = 1000010763818
-    data = 1
+    data = empty
   buffer #32:
     time = 1000010787038
-    data = 1
+    data = empty
   buffer #33:
     time = 1000010810258
-    data = 1
+    data = empty
   buffer #34:
     time = 1000010833478
-    data = 1
+    data = empty
   buffer #35:
     time = 1000010856698
-    data = 1
+    data = empty
   buffer #36:
     time = 1000010879918
-    data = 1
+    data = empty
   buffer #37:
     time = 1000010903138
-    data = 1
+    data = empty
   buffer #38:
     time = 1000010926358
-    data = 1
+    data = empty
   buffer #39:
     time = 1000010949578
-    data = 1
+    data = empty
   buffer #40:
     time = 1000010972798
-    data = 1
+    data = empty
   buffer #41:
     time = 1000010996018
-    data = 1
+    data = empty
   buffer #42:
     time = 1000011019238
-    data = 1
+    data = empty
   buffer #43:
     time = 1000011042458
-    data = 1
+    data = empty
   buffer #44:
     time = 1000011065678
-    data = 1
+    data = empty
 ImageOutput:
   rendered image count = 2
   image output #1:

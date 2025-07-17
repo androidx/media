@@ -50,9 +50,9 @@ import static java.lang.Math.max;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.annotation.SuppressLint;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.graphics.Bitmap;
-import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.SystemClock;
@@ -60,7 +60,6 @@ import android.text.TextUtils;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AdPlaybackState;
-import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.DeviceInfo;
 import androidx.media3.common.HeartRating;
@@ -77,9 +76,7 @@ import androidx.media3.common.Timeline;
 import androidx.media3.common.Timeline.Period;
 import androidx.media3.common.Timeline.Window;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.Util;
 import androidx.media3.session.MediaLibraryService.LibraryParams;
-import androidx.media3.session.legacy.AudioAttributesCompat;
 import androidx.media3.session.legacy.MediaBrowserCompat;
 import androidx.media3.session.legacy.MediaBrowserServiceCompat.BrowserRoot;
 import androidx.media3.session.legacy.MediaControllerCompat;
@@ -96,6 +93,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeoutException;
@@ -104,10 +102,6 @@ import java.util.concurrent.TimeoutException;
 /* package*/ class LegacyConversions {
 
   private static final String TAG = "LegacyConversions";
-
-  // Stub BrowserRoot for accepting any connection here.
-  public static final BrowserRoot defaultBrowserRoot =
-      new BrowserRoot(MediaLibraryService.SERVICE_INTERFACE, null);
 
   public static final ImmutableSet<String> KNOWN_METADATA_COMPAT_KEYS =
       ImmutableSet.of(
@@ -154,12 +148,17 @@ import java.util.concurrent.TimeoutException;
   /** Converts {@link PlaybackStateCompat} to {@link PlaybackException}. */
   @Nullable
   public static PlaybackException convertToPlaybackException(
-      @Nullable PlaybackStateCompat playbackStateCompat) {
+      @Nullable PlaybackStateCompat playbackStateCompat, Context context) {
     if (playbackStateCompat == null
         || playbackStateCompat.getState() != PlaybackStateCompat.STATE_ERROR) {
       return null;
     }
     @Nullable CharSequence errorMessage = playbackStateCompat.getErrorMessage();
+    if (errorMessage == null) {
+      errorMessage =
+          getSessionErrorMessage(
+              convertToSessionErrorCode(playbackStateCompat.getErrorCode()), context);
+    }
     @Nullable Bundle playbackStateCompatExtras = playbackStateCompat.getExtras();
     return new PlaybackException(
         errorMessage != null ? errorMessage.toString() : null,
@@ -574,15 +573,37 @@ import java.util.concurrent.TimeoutException;
 
     MediaMetadata.Builder builder = new MediaMetadata.Builder();
 
-    CharSequence title = metadataCompat.getText(MediaMetadataCompat.METADATA_KEY_TITLE);
+    @Nullable
     CharSequence displayTitle =
         metadataCompat.getText(MediaMetadataCompat.METADATA_KEY_DISPLAY_TITLE);
+    CharSequence displaySubtitle;
+    CharSequence displayDescription;
+    if (displayTitle != null) {
+      displaySubtitle = metadataCompat.getText(MediaMetadataCompat.METADATA_KEY_DISPLAY_SUBTITLE);
+      displayDescription =
+          metadataCompat.getText(MediaMetadataCompat.METADATA_KEY_DISPLAY_DESCRIPTION);
+    } else {
+      CharSequence[] texts = new CharSequence[3];
+      int textIndex = 0;
+      int keyIndex = 0;
+      while (textIndex < texts.length && keyIndex < PREFERRED_DESCRIPTION_ORDER.length) {
+        CharSequence next = metadataCompat.getText(PREFERRED_DESCRIPTION_ORDER[keyIndex++]);
+        if (!TextUtils.isEmpty(next)) {
+          // Fill in the next empty bit of text
+          texts[textIndex++] = next;
+        }
+      }
+      displayTitle = texts[0];
+      displaySubtitle = texts[1];
+      displayDescription = texts[2];
+    }
+
+    CharSequence title = metadataCompat.getText(MediaMetadataCompat.METADATA_KEY_TITLE);
     builder
         .setTitle(title != null ? title : displayTitle)
-        .setDisplayTitle(title != null ? displayTitle : null)
-        .setSubtitle(metadataCompat.getText(MediaMetadataCompat.METADATA_KEY_DISPLAY_SUBTITLE))
-        .setDescription(
-            metadataCompat.getText(MediaMetadataCompat.METADATA_KEY_DISPLAY_DESCRIPTION))
+        .setDisplayTitle(displayTitle)
+        .setSubtitle(displaySubtitle)
+        .setDescription(displayDescription)
         .setArtist(metadataCompat.getText(MediaMetadataCompat.METADATA_KEY_ARTIST))
         .setAlbumTitle(metadataCompat.getText(MediaMetadataCompat.METADATA_KEY_ALBUM))
         .setAlbumArtist(metadataCompat.getText(MediaMetadataCompat.METADATA_KEY_ALBUM_ARTIST))
@@ -768,9 +789,9 @@ import java.util.concurrent.TimeoutException;
       // If the actual media duration is unknown, use the manually declared value if available.
       durationMs = metadata.durationMs;
     }
-    if (durationMs != C.TIME_UNSET) {
-      builder.putLong(MediaMetadataCompat.METADATA_KEY_DURATION, durationMs);
-    }
+    // METADATA_KEY_DURATION expects any negative value if unknown.
+    builder.putLong(
+        MediaMetadataCompat.METADATA_KEY_DURATION, durationMs != C.TIME_UNSET ? durationMs : -1);
 
     @Nullable RatingCompat userRatingCompat = convertToRatingCompat(metadata.userRating);
     if (userRatingCompat != null) {
@@ -899,6 +920,8 @@ import java.util.concurrent.TimeoutException;
         return metadata.writer;
       case MediaMetadataCompat.METADATA_KEY_COMPOSER:
         return metadata.composer;
+      case MediaMetadataCompat.METADATA_KEY_DISPLAY_SUBTITLE:
+        return metadata.subtitle;
       default:
         return null;
     }
@@ -1027,12 +1050,11 @@ import java.util.concurrent.TimeoutException;
 
   /** Converts {@link Player}' states to state of {@link PlaybackStateCompat}. */
   @PlaybackStateCompat.State
-  public static int convertToPlaybackStateCompatState(Player player, boolean playIfSuppressed) {
+  public static int convertToPlaybackStateCompatState(Player player, boolean shouldShowPlayButton) {
     if (player.getPlayerError() != null) {
       return PlaybackStateCompat.STATE_ERROR;
     }
     @Player.State int playbackState = player.getPlaybackState();
-    boolean shouldShowPlayButton = Util.shouldShowPlayButton(player, playIfSuppressed);
     switch (playbackState) {
       case Player.STATE_IDLE:
         return PlaybackStateCompat.STATE_NONE;
@@ -1096,12 +1118,14 @@ import java.util.concurrent.TimeoutException;
     if (playbackStateCompat == null) {
       return Player.STATE_IDLE;
     }
+    boolean isEnded = convertToIsEnded(playbackStateCompat, currentMediaMetadata, timeDiffMs);
     switch (playbackStateCompat.getState()) {
       case PlaybackStateCompat.STATE_CONNECTING:
       case PlaybackStateCompat.STATE_ERROR:
       case PlaybackStateCompat.STATE_NONE:
-      case PlaybackStateCompat.STATE_STOPPED:
         return Player.STATE_IDLE;
+      case PlaybackStateCompat.STATE_STOPPED:
+        return isEnded ? Player.STATE_ENDED : Player.STATE_IDLE;
       case PlaybackStateCompat.STATE_BUFFERING:
       case PlaybackStateCompat.STATE_FAST_FORWARDING:
       case PlaybackStateCompat.STATE_REWINDING:
@@ -1112,13 +1136,7 @@ import java.util.concurrent.TimeoutException;
       case PlaybackStateCompat.STATE_PLAYING:
         return Player.STATE_READY;
       case PlaybackStateCompat.STATE_PAUSED:
-        long duration = convertToDurationMs(currentMediaMetadata);
-        if (duration == C.TIME_UNSET) {
-          return Player.STATE_READY;
-        }
-        long currentPosition =
-            convertToCurrentPositionMs(playbackStateCompat, currentMediaMetadata, timeDiffMs);
-        return (currentPosition < duration) ? Player.STATE_READY : Player.STATE_ENDED;
+        return isEnded ? Player.STATE_ENDED : Player.STATE_READY;
       default:
         throw new ConversionException(
             "Invalid state of PlaybackStateCompat: " + playbackStateCompat.getState());
@@ -1374,8 +1392,9 @@ import java.util.concurrent.TimeoutException;
       boolean isSessionReady) {
     Player.Commands.Builder playerCommandsBuilder = new Player.Commands.Builder();
     long actions = playbackStateCompat == null ? 0 : playbackStateCompat.getActions();
-    if ((hasAction(actions, PlaybackStateCompat.ACTION_PLAY)
-            && hasAction(actions, PlaybackStateCompat.ACTION_PAUSE))
+    boolean playWhenReady = convertToPlayWhenReady(playbackStateCompat);
+    if ((hasAction(actions, PlaybackStateCompat.ACTION_PLAY) && !playWhenReady)
+        || (hasAction(actions, PlaybackStateCompat.ACTION_PAUSE) && playWhenReady)
         || hasAction(actions, PlaybackStateCompat.ACTION_PLAY_PAUSE)) {
       playerCommandsBuilder.add(COMMAND_PLAY_PAUSE);
     }
@@ -1481,13 +1500,11 @@ import java.util.concurrent.TimeoutException;
 
     if (state != null) {
       List<PlaybackStateCompat.CustomAction> customActions = state.getCustomActions();
-      if (customActions != null) {
-        for (CustomAction customAction : customActions) {
-          String action = customAction.getAction();
-          @Nullable Bundle extras = customAction.getExtras();
-          sessionCommandsBuilder.add(
-              new SessionCommand(action, extras == null ? Bundle.EMPTY : extras));
-        }
+      for (CustomAction customAction : customActions) {
+        String action = customAction.getAction();
+        @Nullable Bundle extras = customAction.getExtras();
+        sessionCommandsBuilder.add(
+            new SessionCommand(action, extras == null ? Bundle.EMPTY : extras));
       }
     }
     return sessionCommandsBuilder.build();
@@ -1509,9 +1526,6 @@ import java.util.concurrent.TimeoutException;
       return ImmutableList.of();
     }
     List<PlaybackStateCompat.CustomAction> customActions = state.getCustomActions();
-    if (customActions == null) {
-      return ImmutableList.of();
-    }
     ImmutableList.Builder<CommandButton> customLayout = new ImmutableList.Builder<>();
     for (CustomAction customAction : customActions) {
       String action = customAction.getAction();
@@ -1523,71 +1537,28 @@ import java.util.concurrent.TimeoutException;
                   MediaConstants.EXTRAS_KEY_COMMAND_BUTTON_ICON_COMPAT,
                   /* defaultValue= */ CommandButton.ICON_UNDEFINED)
               : CommandButton.ICON_UNDEFINED;
-      CommandButton button =
+      CommandButton.Builder button =
           new CommandButton.Builder(icon, customAction.getIcon())
               .setSessionCommand(new SessionCommand(action, extras == null ? Bundle.EMPTY : extras))
               .setDisplayName(customAction.getName())
-              .setEnabled(true)
-              .build();
-      customLayout.add(button);
+              .setEnabled(true);
+      @Nullable
+      String iconUriString =
+          extras != null
+              ? extras.getString(MediaConstants.EXTRAS_KEY_COMMAND_BUTTON_ICON_URI_COMPAT)
+              : null;
+      if (iconUriString != null) {
+        Uri iconUri = Uri.parse(iconUriString);
+        @Nullable String scheme = iconUri.getScheme();
+        if (Objects.equals(scheme, ContentResolver.SCHEME_CONTENT)
+            || Objects.equals(scheme, ContentResolver.SCHEME_ANDROID_RESOURCE)) {
+          button.setIconUri(iconUri);
+        }
+      }
+      customLayout.add(button.build());
     }
     return CommandButton.getMediaButtonPreferencesFromCustomLayout(
         customLayout.build(), availablePlayerCommands, sessionExtras);
-  }
-
-  /** Converts {@link AudioAttributesCompat} into {@link AudioAttributes}. */
-  /*
-   * @AudioAttributesCompat.AttributeUsage and @C.AudioUsage both use the same constant values,
-   * defined by AudioAttributes in the platform.
-   */
-  @SuppressLint("WrongConstant")
-  public static AudioAttributes convertToAudioAttributes(
-      @Nullable AudioAttributesCompat audioAttributesCompat) {
-    if (audioAttributesCompat == null) {
-      return AudioAttributes.DEFAULT;
-    }
-    return new AudioAttributes.Builder()
-        .setContentType(audioAttributesCompat.getContentType())
-        .setFlags(audioAttributesCompat.getFlags())
-        .setUsage(audioAttributesCompat.getUsage())
-        .build();
-  }
-
-  /** Converts {@link MediaControllerCompat.PlaybackInfo} to {@link AudioAttributes}. */
-  public static AudioAttributes convertToAudioAttributes(
-      @Nullable MediaControllerCompat.PlaybackInfo playbackInfoCompat) {
-    if (playbackInfoCompat == null) {
-      return AudioAttributes.DEFAULT;
-    }
-    return convertToAudioAttributes(playbackInfoCompat.getAudioAttributes());
-  }
-
-  /** Converts {@link AudioAttributes} into {@link AudioAttributesCompat}. */
-  public static AudioAttributesCompat convertToAudioAttributesCompat(
-      AudioAttributes audioAttributes) {
-    return new AudioAttributesCompat.Builder()
-        .setContentType(audioAttributes.contentType)
-        .setFlags(audioAttributes.flags)
-        .setUsage(audioAttributes.usage)
-        .build();
-  }
-
-  /**
-   * Gets the legacy stream type from {@link AudioAttributes}.
-   *
-   * @param audioAttributes audio attributes
-   * @return int legacy stream type from {@link AudioManager}
-   */
-  public static int getLegacyStreamType(AudioAttributes audioAttributes) {
-    int legacyStreamType = convertToAudioAttributesCompat(audioAttributes).getLegacyStreamType();
-    if (legacyStreamType == AudioManager.USE_DEFAULT_STREAM_TYPE) {
-      // Usually, AudioAttributesCompat#getLegacyStreamType() does not return
-      // USE_DEFAULT_STREAM_TYPE unless the developer sets it with
-      // AudioAttributesCompat.Builder#setLegacyStreamType().
-      // But for safety, let's convert USE_DEFAULT_STREAM_TYPE to STREAM_MUSIC here.
-      return AudioManager.STREAM_MUSIC;
-    }
-    return legacyStreamType;
   }
 
   public static <T> T getFutureResult(Future<T> future, long timeoutMs)
@@ -1746,6 +1717,19 @@ import java.util.concurrent.TimeoutException;
             androidx.media3.session.legacy.MediaConstants
                 .BROWSER_ROOT_HINTS_KEY_CUSTOM_BROWSER_ACTION_LIMIT,
             /* defaultValue= */ 0));
+  }
+
+  private static boolean convertToIsEnded(
+      PlaybackStateCompat playbackStateCompat,
+      @Nullable MediaMetadataCompat currentMediaMetadata,
+      long timeDiffMs) {
+    long durationMs = convertToDurationMs(currentMediaMetadata);
+    if (durationMs == C.TIME_UNSET) {
+      return false;
+    }
+    long currentPositionMs =
+        convertToCurrentPositionMs(playbackStateCompat, currentMediaMetadata, timeDiffMs);
+    return currentPositionMs >= durationMs;
   }
 
   private static byte[] convertToByteArray(Bitmap bitmap) throws IOException {

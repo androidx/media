@@ -190,7 +190,18 @@ public class RemoteMediaSession {
 
   public void setAvailableCommands(SessionCommands sessionCommands, Player.Commands playerCommands)
       throws RemoteException {
-    binder.setAvailableCommands(sessionId, sessionCommands.toBundle(), playerCommands.toBundle());
+    binder.setAvailableCommands(
+        sessionId,
+        /* controllerKey= */ null,
+        sessionCommands.toBundle(),
+        playerCommands.toBundle());
+  }
+
+  public void setAvailableCommands(
+      String controllerKey, SessionCommands sessionCommands, Player.Commands playerCommands)
+      throws RemoteException {
+    binder.setAvailableCommands(
+        sessionId, controllerKey, sessionCommands.toBundle(), playerCommands.toBundle());
   }
 
   public void setCustomLayout(List<CommandButton> layout) throws RemoteException {
@@ -218,9 +229,16 @@ public class RemoteMediaSession {
     binder.setSessionExtrasForController(sessionId, controllerKey, extras);
   }
 
-  public void setSessionActivity(String controllerKey, PendingIntent sessionActivity)
+  public void setSessionActivity(String controllerKey, @Nullable PendingIntent sessionActivity)
       throws RemoteException {
     binder.setSessionActivity(sessionId, controllerKey, sessionActivity);
+  }
+
+  public void setPlaybackException(
+      @Nullable String controllerKey, @Nullable PlaybackException playerError)
+      throws RemoteException {
+    binder.setPlaybackException(
+        sessionId, controllerKey, playerError == null ? null : playerError.toBundle());
   }
 
   public void sendError(@Nullable String controllerKey, SessionError sessionError)

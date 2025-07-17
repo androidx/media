@@ -41,13 +41,13 @@ import org.junit.rules.ExternalResource;
 @UnstableApi
 public class HttpDataSourceTestEnv extends ExternalResource {
 
-  private static final ImmutableListMultimap<String, String> EXTRA_HEADERS =
+  public static final ImmutableListMultimap<String, String> EXTRA_HEADERS =
       ImmutableListMultimap.<String, String>builder()
           .putAll("X-Test-Header", "test value1", "test value2")
           .build();
 
   private static int seed = 0;
-  private static final WebServerDispatcher.Resource RANGE_SUPPORTED =
+  public static final WebServerDispatcher.Resource RANGE_SUPPORTED =
       new WebServerDispatcher.Resource.Builder()
           .setPath("/supports/range-requests")
           .setData(TestUtil.buildTestData(/* length= */ 20, seed++))
@@ -55,7 +55,7 @@ public class HttpDataSourceTestEnv extends ExternalResource {
           .setExtraResponseHeaders(EXTRA_HEADERS)
           .build();
 
-  private static final WebServerDispatcher.Resource RANGE_SUPPORTED_LENGTH_UNKNOWN =
+  public static final WebServerDispatcher.Resource RANGE_SUPPORTED_LENGTH_UNKNOWN =
       new WebServerDispatcher.Resource.Builder()
           .setPath("/supports/range-requests-length-unknown")
           .setData(TestUtil.buildTestData(/* length= */ 20, seed++))
@@ -64,7 +64,7 @@ public class HttpDataSourceTestEnv extends ExternalResource {
           .setExtraResponseHeaders(EXTRA_HEADERS)
           .build();
 
-  private static final WebServerDispatcher.Resource RANGE_NOT_SUPPORTED =
+  public static final WebServerDispatcher.Resource RANGE_NOT_SUPPORTED =
       new WebServerDispatcher.Resource.Builder()
           .setPath("/doesnt/support/range-requests")
           .setData(TestUtil.buildTestData(/* length= */ 20, seed++))
@@ -72,7 +72,7 @@ public class HttpDataSourceTestEnv extends ExternalResource {
           .setExtraResponseHeaders(EXTRA_HEADERS)
           .build();
 
-  private static final WebServerDispatcher.Resource RANGE_NOT_SUPPORTED_LENGTH_UNKNOWN =
+  public static final WebServerDispatcher.Resource RANGE_NOT_SUPPORTED_LENGTH_UNKNOWN =
       new WebServerDispatcher.Resource.Builder()
           .setPath("/doesnt/support/range-requests-length-unknown")
           .setData(TestUtil.buildTestData(/* length= */ 20, seed++))
@@ -81,7 +81,7 @@ public class HttpDataSourceTestEnv extends ExternalResource {
           .setExtraResponseHeaders(EXTRA_HEADERS)
           .build();
 
-  private static final WebServerDispatcher.Resource GZIP_ENABLED =
+  public static final WebServerDispatcher.Resource GZIP_ENABLED =
       new WebServerDispatcher.Resource.Builder()
           .setPath("/gzip/enabled")
           .setData(TestUtil.buildTestData(/* length= */ 20, seed++))
@@ -89,7 +89,7 @@ public class HttpDataSourceTestEnv extends ExternalResource {
           .setExtraResponseHeaders(EXTRA_HEADERS)
           .build();
 
-  private static final WebServerDispatcher.Resource GZIP_FORCED =
+  public static final WebServerDispatcher.Resource GZIP_FORCED =
       new WebServerDispatcher.Resource.Builder()
           .setPath("/gzip/forced")
           .setData(TestUtil.buildTestData(/* length= */ 20, seed++))
@@ -97,7 +97,7 @@ public class HttpDataSourceTestEnv extends ExternalResource {
           .setExtraResponseHeaders(EXTRA_HEADERS)
           .build();
 
-  private static final WebServerDispatcher.Resource REDIRECTS_TO_RANGE_SUPPORTED =
+  public static final WebServerDispatcher.Resource REDIRECTS_TO_RANGE_SUPPORTED =
       RANGE_SUPPORTED.buildUpon().setPath("/redirects/to/range/supported").build();
 
   private final MockWebServer originServer = new MockWebServer();
@@ -134,7 +134,12 @@ public class HttpDataSourceTestEnv extends ExternalResource {
             .build(),
         new DataSourceContractTest.TestResource.Builder()
             .setName("no-connection")
-            .setUri(Uri.parse("http://not-a-real-server.test/path"))
+            // We use an IP address in order to bypass slow DNS timeouts in some test environments
+            // (b/413664259#comment2). This is an IPv4 address that shouldn't resolve to an HTTP
+            // server because
+            //   a) It is in a block reserved for documentation by RFC 5737.
+            //   b) It is using the SSH port (HTTP would conventionally be on 80).
+            .setUri(Uri.parse("http://192.0.2.1:22/path"))
             .setUnexpectedResponseHeaderKeys(ImmutableSet.of(HttpHeaders.CONTENT_LENGTH))
             .build());
   }

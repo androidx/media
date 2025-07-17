@@ -23,7 +23,6 @@ import androidx.media3.common.AuxEffectInfo;
 import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
-import androidx.media3.common.Player;
 import androidx.media3.common.PriorityTaskManager;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.UnstableApi;
@@ -32,6 +31,7 @@ import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.PlayerMessage;
 import androidx.media3.exoplayer.Renderer;
+import androidx.media3.exoplayer.ScrubbingModeParameters;
 import androidx.media3.exoplayer.SeekParameters;
 import androidx.media3.exoplayer.analytics.AnalyticsCollector;
 import androidx.media3.exoplayer.analytics.AnalyticsListener;
@@ -51,50 +51,6 @@ import java.util.List;
  */
 @UnstableApi
 public class StubExoPlayer extends StubPlayer implements ExoPlayer {
-
-  /**
-   * @deprecated Use {@link ExoPlayer}, as the {@link AudioComponent} methods are defined by that
-   *     interface.
-   */
-  @SuppressWarnings("deprecation") // Returning deprecated type
-  @Override
-  @Deprecated
-  public AudioComponent getAudioComponent() {
-    throw new UnsupportedOperationException();
-  }
-
-  /**
-   * @deprecated Use {@link ExoPlayer}, as the {@link VideoComponent} methods are defined by that
-   *     interface.
-   */
-  @SuppressWarnings("deprecation") // Returning deprecated type
-  @Override
-  @Deprecated
-  public VideoComponent getVideoComponent() {
-    throw new UnsupportedOperationException();
-  }
-
-  /**
-   * @deprecated Use {@link Player}, as the {@link TextComponent} methods are defined by that
-   *     interface.
-   */
-  @SuppressWarnings("deprecation") // Returning deprecated type
-  @Override
-  @Deprecated
-  public TextComponent getTextComponent() {
-    throw new UnsupportedOperationException();
-  }
-
-  /**
-   * @deprecated Use {@link Player}, as the {@link DeviceComponent} methods are defined by that
-   *     interface.
-   */
-  @SuppressWarnings("deprecation") // Returning deprecated type
-  @Override
-  @Deprecated
-  public DeviceComponent getDeviceComponent() {
-    throw new UnsupportedOperationException();
-  }
 
   @Override
   public Looper getPlaybackLooper() {
@@ -221,6 +177,11 @@ public class StubExoPlayer extends StubPlayer implements ExoPlayer {
   }
 
   @Override
+  public ShuffleOrder getShuffleOrder() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
   public void setAudioAttributes(AudioAttributes audioAttributes, boolean handleAudioFocus) {
     throw new UnsupportedOperationException();
   }
@@ -257,6 +218,26 @@ public class StubExoPlayer extends StubPlayer implements ExoPlayer {
 
   @Override
   public boolean getSkipSilenceEnabled() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public void setScrubbingModeEnabled(boolean scrubbingModeEnabled) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public boolean isScrubbingModeEnabled() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public void setScrubbingModeParameters(ScrubbingModeParameters scrubbingModeParameters) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public ScrubbingModeParameters getScrubbingModeParameters() {
     throw new UnsupportedOperationException();
   }
 

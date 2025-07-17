@@ -15,14 +15,10 @@
  */
 package androidx.media3.extractor.metadata.id3;
 
-import static androidx.media3.common.util.Util.castNonNull;
-
-import android.os.Parcel;
-import android.os.Parcelable;
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import java.util.Arrays;
+import java.util.Objects;
 
 /** PRIV (Private) ID3 frame. */
 @UnstableApi
@@ -39,12 +35,6 @@ public final class PrivFrame extends Id3Frame {
     this.privateData = privateData;
   }
 
-  /* package */ PrivFrame(Parcel in) {
-    super(ID);
-    owner = castNonNull(in.readString());
-    privateData = castNonNull(in.createByteArray());
-  }
-
   @Override
   public boolean equals(@Nullable Object obj) {
     if (this == obj) {
@@ -54,7 +44,7 @@ public final class PrivFrame extends Id3Frame {
       return false;
     }
     PrivFrame other = (PrivFrame) obj;
-    return Util.areEqual(owner, other.owner) && Arrays.equals(privateData, other.privateData);
+    return Objects.equals(owner, other.owner) && Arrays.equals(privateData, other.privateData);
   }
 
   @Override
@@ -69,26 +59,4 @@ public final class PrivFrame extends Id3Frame {
   public String toString() {
     return id + ": owner=" + owner;
   }
-
-  // Parcelable implementation.
-
-  @Override
-  public void writeToParcel(Parcel dest, int flags) {
-    dest.writeString(owner);
-    dest.writeByteArray(privateData);
-  }
-
-  public static final Parcelable.Creator<PrivFrame> CREATOR =
-      new Parcelable.Creator<PrivFrame>() {
-
-        @Override
-        public PrivFrame createFromParcel(Parcel in) {
-          return new PrivFrame(in);
-        }
-
-        @Override
-        public PrivFrame[] newArray(int size) {
-          return new PrivFrame[size];
-        }
-      };
 }

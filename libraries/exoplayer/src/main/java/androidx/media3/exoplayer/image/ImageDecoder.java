@@ -31,7 +31,11 @@ public interface ImageDecoder
   /** A factory for image decoders. */
   interface Factory {
 
-    /** Default implementation of an image decoder factory. */
+    /**
+     * @deprecated Instantiate a {@link BitmapFactoryImageDecoder.Factory} directly.
+     */
+    @SuppressWarnings("deprecation") // Using a deprecated API to maintain this deprecated API.
+    @Deprecated
     ImageDecoder.Factory DEFAULT = new BitmapFactoryImageDecoder.Factory();
 
     /**

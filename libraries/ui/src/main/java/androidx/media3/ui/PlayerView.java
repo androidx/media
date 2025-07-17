@@ -15,6 +15,7 @@
  */
 package androidx.media3.ui;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.Player.COMMAND_GET_CURRENT_MEDIA_ITEM;
 import static androidx.media3.common.Player.COMMAND_GET_METADATA;
 import static androidx.media3.common.Player.COMMAND_GET_TEXT;
@@ -72,7 +73,6 @@ import androidx.media3.common.text.CueGroup;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.RepeatModeUtil;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import androidx.media3.ui.AspectRatioFrameLayout.ResizeMode;
 import com.google.common.collect.ImmutableList;
 import java.lang.annotation.Documented;
@@ -257,6 +257,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
    */
   @UnstableApi public static final int IMAGE_DISPLAY_MODE_FILL = 1;
 
+  // LINT.IfChange
   /**
    * Determines when the buffering view is shown. One of {@link #SHOW_BUFFERING_NEVER}, {@link
    * #SHOW_BUFFERING_WHEN_PLAYING} or {@link #SHOW_BUFFERING_ALWAYS}.
@@ -283,11 +284,15 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
    */
   @UnstableApi public static final int SHOW_BUFFERING_ALWAYS = 2;
 
+  // LINT.ThenChange(../../../../res/values/attrs.xml)
+
+  // LINT.IfChange
   private static final int SURFACE_TYPE_NONE = 0;
   private static final int SURFACE_TYPE_SURFACE_VIEW = 1;
   private static final int SURFACE_TYPE_TEXTURE_VIEW = 2;
   private static final int SURFACE_TYPE_SPHERICAL_GL_SURFACE_VIEW = 3;
   private static final int SURFACE_TYPE_VIDEO_DECODER_GL_SURFACE_VIEW = 4;
+  // LINT.ThenChange(../../../../res/values/attrs.xml)
 
   private final ComponentListener componentListener;
   @Nullable private final AspectRatioFrameLayout contentFrame;
@@ -368,7 +373,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
       setImageOutputMethod = null;
       imageOutput = null;
       ImageView logo = new ImageView(context);
-      if (Util.SDK_INT >= 23) {
+      if (SDK_INT >= 23) {
         configureEditModeLogoV23(context, getResources(), logo);
       } else {
         configureEditModeLogo(context, getResources(), logo);
@@ -454,9 +459,11 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
           break;
         case SURFACE_TYPE_SPHERICAL_GL_SURFACE_VIEW:
           try {
+            // LINT.IfChange
             Class<?> clazz =
                 Class.forName("androidx.media3.exoplayer.video.spherical.SphericalGLSurfaceView");
             surfaceView = (View) clazz.getConstructor(Context.class).newInstance(context);
+            // LINT.ThenChange(../../../../../../proguard-rules.txt)
           } catch (Exception e) {
             throw new IllegalStateException(
                 "spherical_gl_surface_view requires an ExoPlayer dependency", e);
@@ -465,9 +472,11 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
           break;
         case SURFACE_TYPE_VIDEO_DECODER_GL_SURFACE_VIEW:
           try {
+            // LINT.IfChange
             Class<?> clazz =
                 Class.forName("androidx.media3.exoplayer.video.VideoDecoderGLSurfaceView");
             surfaceView = (View) clazz.getConstructor(Context.class).newInstance(context);
+            // LINT.ThenChange(../../../../../../proguard-rules.txt)
           } catch (Exception e) {
             throw new IllegalStateException(
                 "video_decoder_gl_surface_view requires an ExoPlayer dependency", e);
@@ -475,7 +484,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
           break;
         default:
           SurfaceView view = new SurfaceView(context);
-          if (Util.SDK_INT >= 34) {
+          if (SDK_INT >= 34) {
             Api34.setSurfaceLifecycleToFollowsAttachment(view);
           }
           surfaceView = view;
@@ -492,7 +501,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
       surfaceView = null;
     }
     this.surfaceViewIgnoresVideoAspectRatio = surfaceViewIgnoresVideoAspectRatio;
-    this.surfaceSyncGroupV34 = Util.SDK_INT == 34 ? new SurfaceSyncGroupCompatV34() : null;
+    this.surfaceSyncGroupV34 = SDK_INT == 34 ? new SurfaceSyncGroupCompatV34() : null;
 
     // Ad overlay frame layout.
     adOverlayFrameLayout = findViewById(R.id.exo_ad_overlay);
@@ -1275,6 +1284,19 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
   }
 
   /**
+   * Sets whether the time bar should {@linkplain Player#seekTo seek} immediately as the user drags
+   * the scrubber around (true), or only seek when the user releases the scrubber (false).
+   *
+   * <p>This can only be used if the {@linkplain #setPlayer connected player} is an instance of
+   * {@code androidx.media3.exoplayer.ExoPlayer}.
+   */
+  @UnstableApi
+  public void setTimeBarScrubbingEnabled(boolean timeBarScrubbingEnabled) {
+    Assertions.checkStateNotNull(controller);
+    controller.setTimeBarScrubbingEnabled(timeBarScrubbingEnabled);
+  }
+
+  /**
    * Sets whether a play button is shown if playback is {@linkplain
    * Player#getPlaybackSuppressionReason() suppressed}.
    *
@@ -1786,7 +1808,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
   @Override
   protected void dispatchDraw(Canvas canvas) {
     super.dispatchDraw(canvas);
-    if (Util.SDK_INT == 34 && surfaceSyncGroupV34 != null && enableComposeSurfaceSyncWorkaround) {
+    if (SDK_INT == 34 && surfaceSyncGroupV34 != null && enableComposeSurfaceSyncWorkaround) {
       surfaceSyncGroupV34.maybeMarkSyncReadyAndClear();
     }
   }
@@ -1858,7 +1880,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
 
     @Override
     public void onSurfaceSizeChanged(int width, int height) {
-      if (Util.SDK_INT == 34
+      if (SDK_INT == 34
           && surfaceView instanceof SurfaceView
           && enableComposeSurfaceSyncWorkaround) {
         // Register a SurfaceSyncGroup to work around https://github.com/androidx/media/issues/1237

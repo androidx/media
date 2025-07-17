@@ -21,7 +21,6 @@ import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
-import static androidx.media3.common.util.Util.areEqual;
 import static androidx.media3.common.util.Util.contains;
 import static androidx.media3.common.util.Util.usToMs;
 import static androidx.media3.effect.DebugTraceUtil.COMPONENT_MUXER;
@@ -33,7 +32,6 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
-import android.media.MediaCodec.BufferInfo;
 import android.util.SparseArray;
 import androidx.annotation.IntDef;
 import androidx.annotation.IntRange;
@@ -47,9 +45,9 @@ import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.NalUnitUtil;
 import androidx.media3.effect.DebugTraceUtil;
+import androidx.media3.muxer.BufferInfo;
 import androidx.media3.muxer.Muxer;
-import androidx.media3.muxer.Muxer.MuxerException;
-import androidx.media3.muxer.Muxer.TrackToken;
+import androidx.media3.muxer.MuxerException;
 import com.google.common.collect.ImmutableList;
 import java.io.File;
 import java.lang.annotation.Documented;
@@ -152,7 +150,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final boolean dropSamplesBeforeFirstVideoSample;
   private final SparseArray<TrackInfo> trackTypeToInfo;
   @Nullable private final Format appendVideoFormat;
-  private final BufferInfo bufferInfo;
+  private final boolean writeNegativeTimestampsToEditList;
 
   private boolean isReady;
   private boolean isEnded;
@@ -184,6 +182,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    *     presentation timestamps before the first video sample.
    * @param appendVideoFormat The format which will be used to write samples after transitioning
    *     from {@link #MUXER_MODE_MUX_PARTIAL} to {@link #MUXER_MODE_APPEND}.
+   * @param writeNegativeTimestampsToEditList Whether the {@link Muxer} should write negative
+   *     timestamps to an edit list.
    */
   public MuxerWrapper(
       String outputPath,
@@ -191,13 +191,15 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       Listener listener,
       @MuxerMode int muxerMode,
       boolean dropSamplesBeforeFirstVideoSample,
-      @Nullable Format appendVideoFormat) {
+      @Nullable Format appendVideoFormat,
+      boolean writeNegativeTimestampsToEditList) {
     this.outputPath = outputPath;
     this.muxerFactory = muxerFactory;
     this.listener = listener;
     checkArgument(muxerMode == MUXER_MODE_DEFAULT || muxerMode == MUXER_MODE_MUX_PARTIAL);
     this.muxerMode = muxerMode;
     this.dropSamplesBeforeFirstVideoSample = dropSamplesBeforeFirstVideoSample;
+    this.writeNegativeTimestampsToEditList = writeNegativeTimestampsToEditList;
     checkArgument(
         (muxerMode == MUXER_MODE_DEFAULT && appendVideoFormat == null)
             || (muxerMode == MUXER_MODE_MUX_PARTIAL && appendVideoFormat != null),
@@ -207,7 +209,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     previousTrackType = C.TRACK_TYPE_NONE;
     firstVideoPresentationTimeUs = C.TIME_UNSET;
     minEndedTrackTimeUs = Long.MAX_VALUE;
-    bufferInfo = new BufferInfo();
   }
 
   /**
@@ -401,7 +402,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         // format but these fields can be ignored.
         // TODO: b/308180225 - Compare Format.colorInfo as well.
         Format existingFormat = videoTrackInfo.format;
-        if (!areEqual(existingFormat.sampleMimeType, format.sampleMimeType)) {
+        if (!Objects.equals(existingFormat.sampleMimeType, format.sampleMimeType)) {
           throw new AppendTrackFormatException(
               "Video format mismatch - sampleMimeType: "
                   + existingFormat.sampleMimeType
@@ -435,7 +436,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         TrackInfo audioTrackInfo = trackTypeToInfo.get(C.TRACK_TYPE_AUDIO);
 
         Format existingFormat = audioTrackInfo.format;
-        if (!areEqual(existingFormat.sampleMimeType, format.sampleMimeType)) {
+        if (!Objects.equals(existingFormat.sampleMimeType, format.sampleMimeType)) {
           throw new AppendTrackFormatException(
               "Audio format mismatch - sampleMimeType: "
                   + existingFormat.sampleMimeType
@@ -555,7 +556,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     if (trackInfo.sampleCount == 0) {
       if (trackType == C.TRACK_TYPE_VIDEO
           && contains(trackTypeToInfo, C.TRACK_TYPE_AUDIO)
-          && !dropSamplesBeforeFirstVideoSample) {
+          && !dropSamplesBeforeFirstVideoSample
+          // When writeNegativeTimestampsToEditList is true and the first timestamp is
+          // negative, skip this optimization.
+          && (!writeNegativeTimestampsToEditList || presentationTimeUs > 0)) {
         checkState(firstVideoPresentationTimeUs != C.TIME_UNSET);
         // Set the presentation timestamp of the first video to zero so that the first video frame
         // is presented when playback starts cross-platform. Moreover, MediaMuxer shifts all video
@@ -565,7 +569,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         // TODO: b/376217254 - Remove audio dropping logic, use video frame shifting instead.
         Log.w(
             TAG,
-            "Applying workarounds for edit list: shifting only the first video timestamp to zero.");
+            "Applying workarounds for edit list: shifting only the first video timestamp to"
+                + " zero.");
         presentationTimeUs = 0;
       }
       trackInfo.startTimeUs = presentationTimeUs;
@@ -575,12 +580,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     trackInfo.timeUs = max(trackInfo.timeUs, presentationTimeUs);
     listener.onSampleWrittenOrDropped();
     checkStateNotNull(muxer);
-    bufferInfo.set(
-        data.position(),
-        data.remaining(),
-        presentationTimeUs,
-        TransformerUtil.getMediaCodecFlags(isKeyFrame ? C.BUFFER_FLAG_KEY_FRAME : 0));
-    muxer.writeSampleData(trackInfo.trackToken, data, bufferInfo);
+    BufferInfo bufferInfo =
+        new BufferInfo(
+            presentationTimeUs,
+            /* size= */ data.remaining(),
+            /* flags= */ isKeyFrame ? C.BUFFER_FLAG_KEY_FRAME : 0);
+    muxer.writeSampleData(trackInfo.trackId, data, bufferInfo);
 
     DebugTraceUtil.logEvent(
         COMPONENT_MUXER,
@@ -749,16 +754,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   private static final class TrackInfo {
     public final Format format;
-    public final TrackToken trackToken;
+    public final int trackId;
 
     public long startTimeUs;
     public long bytesWritten;
     public int sampleCount;
     public long timeUs;
 
-    public TrackInfo(Format format, TrackToken trackToken) {
+    public TrackInfo(Format format, int trackId) {
       this.format = format;
-      this.trackToken = trackToken;
+      this.trackId = trackId;
     }
 
     /**

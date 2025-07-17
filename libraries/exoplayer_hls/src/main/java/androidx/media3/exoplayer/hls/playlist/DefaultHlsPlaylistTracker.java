@@ -29,6 +29,7 @@ import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
+import androidx.media3.datasource.DataSpec;
 import androidx.media3.datasource.HttpDataSource;
 import androidx.media3.exoplayer.hls.HlsDataSourceFactory;
 import androidx.media3.exoplayer.hls.playlist.HlsMediaPlaylist.Part;
@@ -38,11 +39,15 @@ import androidx.media3.exoplayer.hls.playlist.HlsMultivariantPlaylist.Variant;
 import androidx.media3.exoplayer.source.LoadEventInfo;
 import androidx.media3.exoplayer.source.MediaLoadData;
 import androidx.media3.exoplayer.source.MediaSourceEventListener.EventDispatcher;
+import androidx.media3.exoplayer.upstream.CmcdConfiguration;
+import androidx.media3.exoplayer.upstream.CmcdData;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy.LoadErrorInfo;
 import androidx.media3.exoplayer.upstream.Loader;
 import androidx.media3.exoplayer.upstream.Loader.LoadErrorAction;
 import androidx.media3.exoplayer.upstream.ParsingLoadable;
+import androidx.media3.exoplayer.util.ReleasableExecutor;
+import com.google.common.base.Supplier;
 import com.google.common.collect.Iterables;
 import java.io.IOException;
 import java.util.HashMap;
@@ -69,6 +74,8 @@ public final class DefaultHlsPlaylistTracker
   private final HashMap<Uri, MediaPlaylistBundle> playlistBundles;
   private final CopyOnWriteArrayList<PlaylistEventListener> listeners;
   private final double playlistStuckTargetDurationCoefficient;
+  @Nullable private final CmcdConfiguration cmcdConfiguration;
+  @Nullable private final Supplier<ReleasableExecutor> downloadExecutorSupplier;
 
   @Nullable private EventDispatcher eventDispatcher;
   @Nullable private Loader initialPlaylistLoader;
@@ -86,16 +93,23 @@ public final class DefaultHlsPlaylistTracker
    * @param dataSourceFactory A factory for {@link DataSource} instances.
    * @param loadErrorHandlingPolicy The {@link LoadErrorHandlingPolicy}.
    * @param playlistParserFactory An {@link HlsPlaylistParserFactory}.
+   * @param cmcdConfiguration The {@link CmcdConfiguration}.
+   * @param downloadExecutorSupplier A supplier for a {@link ReleasableExecutor} that is used for
+   *     loading the playlist.
    */
   public DefaultHlsPlaylistTracker(
       HlsDataSourceFactory dataSourceFactory,
       LoadErrorHandlingPolicy loadErrorHandlingPolicy,
-      HlsPlaylistParserFactory playlistParserFactory) {
+      HlsPlaylistParserFactory playlistParserFactory,
+      @Nullable CmcdConfiguration cmcdConfiguration,
+      @Nullable Supplier<ReleasableExecutor> downloadExecutorSupplier) {
     this(
         dataSourceFactory,
         loadErrorHandlingPolicy,
         playlistParserFactory,
-        DEFAULT_PLAYLIST_STUCK_TARGET_DURATION_COEFFICIENT);
+        cmcdConfiguration,
+        DEFAULT_PLAYLIST_STUCK_TARGET_DURATION_COEFFICIENT,
+        downloadExecutorSupplier);
   }
 
   /**
@@ -104,20 +118,27 @@ public final class DefaultHlsPlaylistTracker
    * @param dataSourceFactory A factory for {@link DataSource} instances.
    * @param loadErrorHandlingPolicy The {@link LoadErrorHandlingPolicy}.
    * @param playlistParserFactory An {@link HlsPlaylistParserFactory}.
+   * @param cmcdConfiguration The {@link CmcdConfiguration}.
    * @param playlistStuckTargetDurationCoefficient A coefficient to apply to the target duration of
    *     media playlists in order to determine that a non-changing playlist is stuck. Once a
    *     playlist is deemed stuck, a {@link PlaylistStuckException} is thrown via {@link
    *     #maybeThrowPlaylistRefreshError(Uri)}.
+   * @param downloadExecutorSupplier A supplier for a {@link ReleasableExecutor} that is used for
+   *     loading the playlist.
    */
   public DefaultHlsPlaylistTracker(
       HlsDataSourceFactory dataSourceFactory,
       LoadErrorHandlingPolicy loadErrorHandlingPolicy,
       HlsPlaylistParserFactory playlistParserFactory,
-      double playlistStuckTargetDurationCoefficient) {
+      @Nullable CmcdConfiguration cmcdConfiguration,
+      double playlistStuckTargetDurationCoefficient,
+      @Nullable Supplier<ReleasableExecutor> downloadExecutorSupplier) {
     this.dataSourceFactory = dataSourceFactory;
     this.playlistParserFactory = playlistParserFactory;
     this.loadErrorHandlingPolicy = loadErrorHandlingPolicy;
+    this.cmcdConfiguration = cmcdConfiguration;
     this.playlistStuckTargetDurationCoefficient = playlistStuckTargetDurationCoefficient;
+    this.downloadExecutorSupplier = downloadExecutorSupplier;
     listeners = new CopyOnWriteArrayList<>();
     playlistBundles = new HashMap<>();
     initialStartTimeUs = C.TIME_UNSET;
@@ -133,14 +154,29 @@ public final class DefaultHlsPlaylistTracker
     this.playlistRefreshHandler = Util.createHandlerForCurrentLooper();
     this.eventDispatcher = eventDispatcher;
     this.primaryPlaylistListener = primaryPlaylistListener;
+    DataSpec dataSpec =
+        new DataSpec.Builder()
+            .setUri(initialPlaylistUri)
+            .setFlags(DataSpec.FLAG_ALLOW_GZIP)
+            .build();
+    if (cmcdConfiguration != null) {
+      CmcdData cmcdData =
+          new CmcdData.Factory(cmcdConfiguration, CmcdData.STREAMING_FORMAT_HLS)
+              .setObjectType(CmcdData.OBJECT_TYPE_MANIFEST)
+              .createCmcdData();
+      dataSpec = cmcdData.addToDataSpec(dataSpec);
+    }
     ParsingLoadable<HlsPlaylist> multivariantPlaylistLoadable =
         new ParsingLoadable<>(
             dataSourceFactory.createDataSource(C.DATA_TYPE_MANIFEST),
-            initialPlaylistUri,
+            dataSpec,
             C.DATA_TYPE_MANIFEST,
             playlistParserFactory.createPlaylistParser());
     Assertions.checkState(initialPlaylistLoader == null);
-    initialPlaylistLoader = new Loader("DefaultHlsPlaylistTracker:MultivariantPlaylist");
+    initialPlaylistLoader =
+        downloadExecutorSupplier != null
+            ? new Loader(downloadExecutorSupplier.get())
+            : new Loader("DefaultHlsPlaylistTracker:MultivariantPlaylist");
     initialPlaylistLoader.startLoading(
         multivariantPlaylistLoadable,
         this,
@@ -568,7 +604,10 @@ public final class DefaultHlsPlaylistTracker
 
     public MediaPlaylistBundle(Uri playlistUrl) {
       this.playlistUrl = playlistUrl;
-      mediaPlaylistLoader = new Loader("DefaultHlsPlaylistTracker:MediaPlaylist");
+      mediaPlaylistLoader =
+          downloadExecutorSupplier != null
+              ? new Loader(downloadExecutorSupplier.get())
+              : new Loader("DefaultHlsPlaylistTracker:MediaPlaylist");
       mediaPlaylistDataSource = dataSourceFactory.createDataSource(C.DATA_TYPE_MANIFEST);
     }
 
@@ -762,12 +801,23 @@ public final class DefaultHlsPlaylistTracker
     private void loadPlaylistImmediately(Uri playlistRequestUri) {
       ParsingLoadable.Parser<HlsPlaylist> mediaPlaylistParser =
           playlistParserFactory.createPlaylistParser(multivariantPlaylist, playlistSnapshot);
+      DataSpec dataSpec =
+          new DataSpec.Builder()
+              .setUri(playlistRequestUri)
+              .setFlags(DataSpec.FLAG_ALLOW_GZIP)
+              .build();
+      if (cmcdConfiguration != null) {
+        CmcdData.Factory cmcdDataFactory =
+            new CmcdData.Factory(cmcdConfiguration, CmcdData.STREAMING_FORMAT_HLS)
+                .setObjectType(CmcdData.OBJECT_TYPE_MANIFEST);
+        if (primaryMediaPlaylistSnapshot != null) {
+          cmcdDataFactory.setIsLive(!primaryMediaPlaylistSnapshot.hasEndTag);
+        }
+        dataSpec = cmcdDataFactory.createCmcdData().addToDataSpec(dataSpec);
+      }
       ParsingLoadable<HlsPlaylist> mediaPlaylistLoadable =
           new ParsingLoadable<>(
-              mediaPlaylistDataSource,
-              playlistRequestUri,
-              C.DATA_TYPE_MANIFEST,
-              mediaPlaylistParser);
+              mediaPlaylistDataSource, dataSpec, C.DATA_TYPE_MANIFEST, mediaPlaylistParser);
       mediaPlaylistLoader.startLoading(
           mediaPlaylistLoadable,
           /* callback= */ this,
@@ -820,6 +870,14 @@ public final class DefaultHlsPlaylistTracker
             playlistSnapshot != oldPlaylist
                 ? playlistSnapshot.targetDurationUs
                 : (playlistSnapshot.targetDurationUs / 2);
+      } else if (playlistSnapshot == oldPlaylist) {
+        // To prevent infinite requests when the server responds with CAN-BLOCK-RELOAD=YES but does
+        // not actually block until the playlist updates, wait for half the target duration before
+        // retrying.
+        durationUntilNextLoadUs =
+            playlistSnapshot.partTargetDurationUs != C.TIME_UNSET
+                ? playlistSnapshot.partTargetDurationUs / 2
+                : playlistSnapshot.targetDurationUs / 2;
       }
       earliestNextLoadTimeMs =
           currentTimeMs + Util.usToMs(durationUntilNextLoadUs) - loadEventInfo.loadDurationMs;

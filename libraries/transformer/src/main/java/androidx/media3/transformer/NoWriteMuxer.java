@@ -16,11 +16,11 @@
 
 package androidx.media3.transformer;
 
-import android.media.MediaCodec;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.muxer.BufferInfo;
 import androidx.media3.muxer.Muxer;
 import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;
@@ -63,13 +63,12 @@ import java.nio.ByteBuffer;
   }
 
   @Override
-  public TrackToken addTrack(Format format) {
-    return new TrackToken() {};
+  public int addTrack(Format format) {
+    return 0;
   }
 
   @Override
-  public void writeSampleData(
-      TrackToken trackToken, ByteBuffer data, MediaCodec.BufferInfo bufferInfo) {}
+  public void writeSampleData(int trackId, ByteBuffer data, BufferInfo bufferInfo) {}
 
   @Override
   public void addMetadataEntry(Metadata.Entry metadataEntry) {}

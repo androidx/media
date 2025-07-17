@@ -17,8 +17,8 @@ package androidx.media3.demo.transformer;
 
 import static android.Manifest.permission.READ_EXTERNAL_STORAGE;
 import static android.Manifest.permission.READ_MEDIA_VIDEO;
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkState;
-import static androidx.media3.common.util.Util.SDK_INT;
 import static androidx.media3.transformer.Composition.HDR_MODE_EXPERIMENTAL_FORCE_INTERPRET_HDR_AS_SDR;
 import static androidx.media3.transformer.Composition.HDR_MODE_KEEP_HDR;
 import static androidx.media3.transformer.Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC;
@@ -77,8 +77,11 @@ public final class ConfigurationActivity extends AppCompatActivity {
   public static final String ENABLE_ANALYZER_MODE = "enable_analyzer_mode";
   public static final String ENABLE_DEBUG_PREVIEW = "enable_debug_preview";
   public static final String ABORT_SLOW_EXPORT = "abort_slow_export";
-  public static final String USE_MEDIA3_MUXER = "use_media3_muxer";
-  public static final String PRODUCE_FRAGMENTED_MP4 = "produce_fragmented_mp4";
+  public static final String USE_MEDIA3_MP4_MUXER = "use_media3_mp4_muxer";
+  public static final String USE_MEDIA3_FRAGMENTED_MP4_MUXER = "use_media3_fragmented_mp4_muxer";
+  public static final String ENABLE_TRIM_OPTIMIZATION = "enable_trim_optimization";
+  public static final String ENABLE_MP4_EDIT_LIST_TRIMMING = "enable_mp4_edit_list_trimming";
+  public static final String ENABLE_CODECDB_LITE = "enable_codecdb_lite";
   public static final String HDR_MODE = "hdr_mode";
   public static final String AUDIO_EFFECTS_SELECTIONS = "audio_effects_selections";
   public static final String VIDEO_EFFECTS_SELECTIONS = "video_effects_selections";
@@ -120,10 +123,11 @@ public final class ConfigurationActivity extends AppCompatActivity {
 
   // Audio effect selections.
   public static final int HIGH_PITCHED_INDEX = 0;
-  public static final int SAMPLE_RATE_INDEX = 1;
-  public static final int SKIP_SILENCE_INDEX = 2;
-  public static final int CHANNEL_MIXING_INDEX = 3;
-  public static final int VOLUME_SCALING_INDEX = 4;
+  public static final int SAMPLE_RATE_48K_INDEX = 1;
+  public static final int SAMPLE_RATE_96K_INDEX = 2;
+  public static final int SKIP_SILENCE_INDEX = 3;
+  public static final int CHANNEL_MIXING_INDEX = 4;
+  public static final int VOLUME_SCALING_INDEX = 5;
 
   // Color filter options.
   public static final int COLOR_FILTER_GRAYSCALE = 0;
@@ -176,9 +180,12 @@ public final class ConfigurationActivity extends AppCompatActivity {
   private CheckBox enableDebugPreviewCheckBox;
   private CheckBox enableDebugTracingCheckBox;
   private CheckBox abortSlowExportCheckBox;
-  private CheckBox useMedia3Muxer;
-  private CheckBox produceFragmentedMp4CheckBox;
+  private CheckBox useMedia3Mp4Muxer;
+  private CheckBox useMedia3FragmentedMp4Muxer;
   private Spinner hdrModeSpinner;
+  private CheckBox enableTrimOptimization;
+  private CheckBox enableMp4EditListTrimming;
+  private CheckBox enableCodecDbLite;
   private Button selectAudioEffectsButton;
   private Button selectVideoEffectsButton;
   private boolean[] audioEffectsSelections;
@@ -265,7 +272,8 @@ public final class ConfigurationActivity extends AppCompatActivity {
         MimeTypes.VIDEO_H264,
         MimeTypes.VIDEO_H265,
         MimeTypes.VIDEO_MP4V,
-        MimeTypes.VIDEO_AV1);
+        MimeTypes.VIDEO_AV1,
+        MimeTypes.VIDEO_DOLBY_VISION);
 
     ArrayAdapter<String> resolutionHeightAdapter =
         new ArrayAdapter<>(/* context= */ this, R.layout.spinner_item);
@@ -302,18 +310,36 @@ public final class ConfigurationActivity extends AppCompatActivity {
         (buttonView, isChecked) -> DebugTraceUtil.enableTracing = isChecked);
 
     abortSlowExportCheckBox = findViewById(R.id.abort_slow_export_checkbox);
-    useMedia3Muxer = findViewById(R.id.use_media3_muxer_checkbox);
-    produceFragmentedMp4CheckBox = findViewById(R.id.produce_fragmented_mp4_checkbox);
-    useMedia3Muxer.setOnCheckedChangeListener(
-        (buttonView, isChecked) -> {
-          if (!isChecked) {
-            produceFragmentedMp4CheckBox.setChecked(false);
-          }
-        });
-    produceFragmentedMp4CheckBox.setOnCheckedChangeListener(
+    useMedia3Mp4Muxer = findViewById(R.id.use_media3_mp4_muxer_checkbox);
+    useMedia3FragmentedMp4Muxer = findViewById(R.id.use_media3_fragmented_mp4_muxer_checkbox);
+    useMedia3Mp4Muxer.setOnCheckedChangeListener(
         (buttonView, isChecked) -> {
           if (isChecked) {
-            useMedia3Muxer.setChecked(true);
+            useMedia3FragmentedMp4Muxer.setChecked(false);
+          }
+        });
+    useMedia3FragmentedMp4Muxer.setOnCheckedChangeListener(
+        (buttonView, isChecked) -> {
+          if (isChecked) {
+            useMedia3Mp4Muxer.setChecked(false);
+          }
+        });
+    enableTrimOptimization = findViewById(R.id.enable_trim_optimization);
+    enableMp4EditListTrimming = findViewById(R.id.enable_mp4_edit_list_trimming);
+    enableCodecDbLite = findViewById(R.id.enable_codecdb_lite);
+    enableTrimOptimization.setOnCheckedChangeListener(
+        (buttonView, isChecked) -> {
+          if (isChecked) {
+            enableMp4EditListTrimming.setChecked(false);
+          }
+        });
+    enableMp4EditListTrimming.setOnCheckedChangeListener(
+        (buttonView, isChecked) -> {
+          if (isChecked) {
+            enableTrimOptimization.setChecked(false);
+            // The experimentalSetMp4EditListTrimEnabled flag is required to be used together with
+            // Media3Mp4Muxer
+            useMedia3Mp4Muxer.setChecked(true);
           }
         });
 
@@ -406,8 +432,11 @@ public final class ConfigurationActivity extends AppCompatActivity {
     bundle.putBoolean(ENABLE_ANALYZER_MODE, enableAnalyzerModeCheckBox.isChecked());
     bundle.putBoolean(ENABLE_DEBUG_PREVIEW, enableDebugPreviewCheckBox.isChecked());
     bundle.putBoolean(ABORT_SLOW_EXPORT, abortSlowExportCheckBox.isChecked());
-    bundle.putBoolean(USE_MEDIA3_MUXER, useMedia3Muxer.isChecked());
-    bundle.putBoolean(PRODUCE_FRAGMENTED_MP4, produceFragmentedMp4CheckBox.isChecked());
+    bundle.putBoolean(USE_MEDIA3_MP4_MUXER, useMedia3Mp4Muxer.isChecked());
+    bundle.putBoolean(USE_MEDIA3_FRAGMENTED_MP4_MUXER, useMedia3FragmentedMp4Muxer.isChecked());
+    bundle.putBoolean(ENABLE_TRIM_OPTIMIZATION, enableTrimOptimization.isChecked());
+    bundle.putBoolean(ENABLE_MP4_EDIT_LIST_TRIMMING, enableMp4EditListTrimming.isChecked());
+    bundle.putBoolean(ENABLE_CODECDB_LITE, enableCodecDbLite.isChecked());
     String selectedHdrMode = String.valueOf(hdrModeSpinner.getSelectedItem());
     bundle.putInt(HDR_MODE, HDR_MODE_DESCRIPTIONS.get(selectedHdrMode));
     bundle.putBooleanArray(AUDIO_EFFECTS_SELECTIONS, audioEffectsSelections);

@@ -24,7 +24,6 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.Clock;
 import androidx.media3.exoplayer.ExoPlayer;
-import androidx.media3.test.utils.CapturingRenderersFactory;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.FakeClock;
 import androidx.media3.test.utils.robolectric.PlaybackOutput;
@@ -71,11 +70,9 @@ public class ParameterizedImagePlaybackTest {
   @Test
   public void test() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
-    CapturingRenderersFactory renderersFactory = new CapturingRenderersFactory(applicationContext);
     Clock clock = new FakeClock(/* isAutoAdvancing= */ true);
-    ExoPlayer player =
-        new ExoPlayer.Builder(applicationContext, renderersFactory).setClock(clock).build();
-    PlaybackOutput playbackOutput = PlaybackOutput.register(player, renderersFactory);
+    ExoPlayer player = new ExoPlayer.Builder(applicationContext).setClock(clock).build();
+    PlaybackOutput playbackOutput = PlaybackOutput.registerWithoutRendererCapture(player);
     List<String> sortedInputFiles = new ArrayList<>(inputFiles);
     Collections.sort(sortedInputFiles);
     List<MediaItem> mediaItems = new ArrayList<>(inputFiles.size());

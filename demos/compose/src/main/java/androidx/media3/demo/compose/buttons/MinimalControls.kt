@@ -17,9 +17,8 @@
 package androidx.media3.demo.compose.buttons
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
@@ -32,20 +31,25 @@ import androidx.media3.common.Player
 /**
  * Minimal playback controls for a [Player].
  *
- * Includes buttons for seeking to a previous/next items or playing/pausing the playback.
+ * Includes buttons for seeking to a previous/next items, skipping back/forward a couple of seconds,
+ * or playing/pausing the playback.
  */
 @Composable
 internal fun MinimalControls(player: Player, modifier: Modifier = Modifier) {
   val graySemiTransparentBackground = Color.Gray.copy(alpha = 0.1f)
   val modifierForIconButton =
-    modifier.size(80.dp).background(graySemiTransparentBackground, CircleShape)
-  Row(
-    modifier = modifier.fillMaxWidth(),
-    horizontalArrangement = Arrangement.SpaceEvenly,
-    verticalAlignment = Alignment.CenterVertically,
-  ) {
+    Modifier.size(40.dp).background(graySemiTransparentBackground, CircleShape)
+  Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
+    Spacer(Modifier.weight(1f))
     PreviousButton(player, modifierForIconButton)
+    Spacer(Modifier.weight(0.3f))
+    SeekBackButton(player, modifierForIconButton)
+    Spacer(Modifier.weight(0.3f))
     PlayPauseButton(player, modifierForIconButton)
+    Spacer(Modifier.weight(0.3f))
+    SeekForwardButton(player, modifierForIconButton)
+    Spacer(Modifier.weight(0.3f))
     NextButton(player, modifierForIconButton)
+    Spacer(Modifier.weight(1f))
   }
 }

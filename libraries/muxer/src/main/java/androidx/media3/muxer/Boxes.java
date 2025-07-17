@@ -15,19 +15,16 @@
  */
 package androidx.media3.muxer;
 
+import static androidx.media3.common.MimeTypes.allSamplesAreSyncSamples;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
-import static androidx.media3.muxer.ColorUtils.MEDIAFORMAT_STANDARD_TO_PRIMARIES_AND_MATRIX;
-import static androidx.media3.muxer.ColorUtils.MEDIAFORMAT_TRANSFER_TO_MP4_TRANSFER;
 import static androidx.media3.muxer.MuxerUtil.UNSIGNED_INT_MAX_VALUE;
 import static java.lang.Math.abs;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import android.media.MediaCodec;
-import android.media.MediaCodec.BufferInfo;
 import android.media.MediaCodecInfo;
 import android.util.Pair;
 import androidx.annotation.Nullable;
@@ -36,11 +33,15 @@ import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.CodecSpecificDataUtil;
+import androidx.media3.common.util.Log;
+import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.Util;
+import androidx.media3.container.DolbyVisionConfig;
 import androidx.media3.container.MdtaMetadataEntry;
 import androidx.media3.container.Mp4LocationData;
 import androidx.media3.container.NalUnitUtil;
 import androidx.media3.muxer.FragmentedMp4Writer.SampleMetadata;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -54,6 +55,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.PolyNull;
 
 /** Writes out various types of boxes as per MP4 (ISO/IEC 14496-12) standards. */
@@ -93,6 +95,8 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
    * 1 (bit index 16)
    */
   private static final int TRUN_BOX_NON_SYNC_SAMPLE_FLAGS = 0b00000001_00000001_00000000_00000000;
+
+  private static final String TAG = "Boxes";
 
   private Boxes() {}
 
@@ -149,9 +153,18 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
         continue;
       }
       Format format = track.format;
+      if (Objects.equals(track.format.sampleMimeType, MimeTypes.VIDEO_AV1)
+          && format.initializationData.isEmpty()) {
+        format =
+            format
+                .buildUpon()
+                .setInitializationData(ImmutableList.of(checkNotNull(track.parsedCsd)))
+                .build();
+      }
       String languageCode = bcp47LanguageTagToIso3(format.language);
 
-      // Generate the sample durations to calculate the total duration for tkhd box.
+      // Generate the sample durations to calculate the total duration for tkhd, elst and mvhd
+      // boxes.
       List<Integer> sampleDurationsVu =
           convertPresentationTimestampsToDurationsVu(
               track.writtenSamples,
@@ -167,6 +180,8 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
       long firstInputPtsUs =
           track.writtenSamples.isEmpty() ? 0 : track.writtenSamples.get(0).presentationTimeUs;
       long trackDurationUs = usFromVu(trackDurationInTrackUnitsVu, track.videoUnitTimebase());
+      long presentationTrackDurationUs =
+          firstInputPtsUs < 0 ? trackDurationUs - abs(firstInputPtsUs) : trackDurationUs;
 
       @C.TrackType int trackType = MimeTypes.getTrackType(format.sampleMimeType);
       ByteBuffer stts = stts(sampleDurationsVu);
@@ -221,7 +236,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
           trak(
               tkhd(
                   nextTrackId,
-                  trackDurationUs,
+                  presentationTrackDurationUs,
                   creationTimestampSeconds,
                   modificationTimestampSeconds,
                   metadataCollector.orientationData.orientation,
@@ -229,7 +244,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
               edts(
                   firstInputPtsUs,
                   minInputPtsUs,
-                  trackDurationUs,
+                  presentationTrackDurationUs,
                   MVHD_TIMEBASE,
                   track.videoUnitTimebase()),
               mdia(
@@ -243,7 +258,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
                   minf(mhdBox, dinf(dref(localUrl())), stblBox)));
 
       trakBoxes.add(trakBox);
-      videoDurationUs = max(videoDurationUs, trackDurationUs);
+      videoDurationUs = max(videoDurationUs, presentationTrackDurationUs);
       trexBoxes.add(trex(nextTrackId));
       nextTrackId++;
     }
@@ -687,8 +702,10 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
   }
 
   /** Returns a codec specific box. */
+  @SuppressWarnings("MergeCases")
   public static ByteBuffer codecSpecificBox(Format format) {
     String mimeType = checkNotNull(format.sampleMimeType);
+    // LINT.IfChange(codec_specific_boxes)
     switch (mimeType) {
       case MimeTypes.AUDIO_AAC:
       case MimeTypes.AUDIO_VORBIS:
@@ -699,6 +716,8 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
         return damrBox(/* mode= */ (short) 0x83FF); // mode set: all enabled for AMR-WB
       case MimeTypes.AUDIO_OPUS:
         return dOpsBox(format);
+      case MimeTypes.AUDIO_RAW:
+        return ByteBuffer.allocate(0); // No codec specific box for raw audio.
       case MimeTypes.VIDEO_H263:
         return d263Box(format);
       case MimeTypes.VIDEO_H264:
@@ -707,13 +726,19 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
         return hvcCBox(format);
       case MimeTypes.VIDEO_AV1:
         return av1CBox(format);
+      case MimeTypes.VIDEO_APV:
+        return apvCBox(format);
       case MimeTypes.VIDEO_MP4V:
         return esdsBox(format);
       case MimeTypes.VIDEO_VP9:
         return vpcCBox(format);
+      case MimeTypes.VIDEO_DOLBY_VISION:
+        return doviSpecificBox(format);
       default:
         throw new IllegalArgumentException("Unsupported format: " + mimeType);
     }
+    // LINT.ThenChange(Mp4Muxer.java:supported_mime_types,
+    // FragmentedMp4Muxer.java:supported_mime_types)
   }
 
   /**
@@ -767,12 +792,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
 
     contents.put(paspBox());
 
-    // Put in a "colr" box if any of the three color format parameters has a non-default (0) value.
-    // TODO: b/278101856 - Only null check should be enough once we disallow invalid values.
-    if (format.colorInfo != null
-        && (format.colorInfo.colorSpace != 0
-            || format.colorInfo.colorTransfer != 0
-            || format.colorInfo.colorRange != 0)) {
+    if (format.colorInfo != null) {
       contents.put(colrBox(format.colorInfo));
     }
 
@@ -837,8 +857,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
       elstContent.putInt(1); // Entry count
       elstContent.put(
           elstEntry(
-              /* editDurationVu= */ vuFromUs(
-                  trackDurationUs - abs(firstSamplePtsUs), mvhdTimescale),
+              /* editDurationVu= */ vuFromUs(trackDurationUs, mvhdTimescale),
               /* mediaTimeVu= */ vuFromUs(abs(firstSamplePtsUs), trackTimescale),
               /* mediaRateInt= */ 1,
               /* mediaRateFraction= */ 0));
@@ -1044,7 +1063,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
   }
 
   /** Returns the stsz (sample size) box. */
-  public static ByteBuffer stsz(List<MediaCodec.BufferInfo> writtenSamples) {
+  public static ByteBuffer stsz(List<BufferInfo> writtenSamples) {
     ByteBuffer contents = ByteBuffer.allocate(writtenSamples.size() * 4 + MAX_FIXED_LEAF_BOX_SIZE);
 
     contents.putInt(0x0); // version and flags
@@ -1070,21 +1089,28 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
         ByteBuffer.allocate(writtenChunkSampleCounts.size() * 12 + MAX_FIXED_LEAF_BOX_SIZE);
 
     contents.putInt(0x0); // version and flags
-    contents.putInt(writtenChunkSampleCounts.size()); // entry_count
+    int totalEntryCountIndex = contents.position();
+    contents.putInt(0); // entry_count
 
     int currentChunk = 1;
+    int prevChunkSampleCount = -1;
+    int totalEntryCount = 0;
 
-    // TODO: b/270583563 - Consider optimizing for consecutive chunks having same number of samples.
     for (int i = 0; i < writtenChunkSampleCounts.size(); i++) {
       int samplesInChunk = writtenChunkSampleCounts.get(i);
-      contents.putInt(currentChunk); // first_chunk
-      contents.putInt(samplesInChunk); // samples_per_chunk
-      // sample_description_index: there is only one sample description in each track.
-      contents.putInt(1);
-
+      // For exact same chunks, add only first chunk number.
+      if (samplesInChunk != prevChunkSampleCount) {
+        contents.putInt(currentChunk); // first_chunk
+        contents.putInt(samplesInChunk); // samples_per_chunk
+        // sample_description_index: there is only one sample description in each track.
+        contents.putInt(1);
+        totalEntryCount++;
+        prevChunkSampleCount = samplesInChunk;
+      }
       currentChunk += 1;
     }
 
+    contents.putInt(totalEntryCountIndex, totalEntryCount);
     contents.flip();
     return BoxUtils.wrapIntoBox("stsc", contents);
   }
@@ -1125,7 +1151,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
   }
 
   /** Returns the stss (sync sample) box. */
-  public static ByteBuffer stss(List<MediaCodec.BufferInfo> writtenSamples) {
+  public static ByteBuffer stss(List<BufferInfo> writtenSamples) {
     ByteBuffer contents = ByteBuffer.allocate(writtenSamples.size() * 4 + MAX_FIXED_LEAF_BOX_SIZE);
 
     contents.putInt(0x0); // version and flags
@@ -1138,8 +1164,8 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     int currentSampleNumber = 1;
     int totalKeyFrames = 0;
     for (int i = 0; i < writtenSamples.size(); i++) {
-      MediaCodec.BufferInfo info = writtenSamples.get(i);
-      if ((info.flags & MediaCodec.BUFFER_FLAG_KEY_FRAME) > 0) {
+      BufferInfo info = writtenSamples.get(i);
+      if ((info.flags & C.BUFFER_FLAG_KEY_FRAME) > 0) {
         contents.putInt(currentSampleNumber);
         totalKeyFrames++;
       }
@@ -1224,7 +1250,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
 
   /** Returns a track fragment run (trun) box. */
   public static ByteBuffer trun(
-      List<SampleMetadata> samplesMetadata, int dataOffset, boolean hasBFrame) {
+      Format trackFormat, List<SampleMetadata> samplesMetadata, int dataOffset, boolean hasBFrame) {
     ByteBuffer contents =
         ByteBuffer.allocate(getTrunBoxContentSize(samplesMetadata.size(), hasBFrame));
 
@@ -1245,14 +1271,15 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     contents.putInt(versionAndFlags);
     contents.putInt(samplesMetadata.size()); // An unsigned int(32)
     contents.putInt(dataOffset); // A signed int(32)
+    boolean allSamplesAreSyncSamples =
+        allSamplesAreSyncSamples(trackFormat.sampleMimeType, trackFormat.codecs);
     for (int i = 0; i < samplesMetadata.size(); i++) {
       SampleMetadata currentSampleMetadata = samplesMetadata.get(i);
       contents.putInt(currentSampleMetadata.durationVu); // An unsigned int(32)
       contents.putInt(currentSampleMetadata.size); // An unsigned int(32)
-      contents.putInt(
-          (currentSampleMetadata.flags & MediaCodec.BUFFER_FLAG_KEY_FRAME) != 0
-              ? TRUN_BOX_SYNC_SAMPLE_FLAGS
-              : TRUN_BOX_NON_SYNC_SAMPLE_FLAGS);
+      boolean isSyncSample =
+          (currentSampleMetadata.flags & C.BUFFER_FLAG_KEY_FRAME) != 0 || allSamplesAreSyncSamples;
+      contents.putInt(isSyncSample ? TRUN_BOX_SYNC_SAMPLE_FLAGS : TRUN_BOX_NON_SYNC_SAMPLE_FLAGS);
       if (hasBFrame) {
         contents.putInt(currentSampleMetadata.compositionTimeOffsetVu);
       }
@@ -1261,7 +1288,7 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     return BoxUtils.wrapIntoBox("trun", contents);
   }
 
-  /** Returns the size required for {@link #trun(List, int, boolean)} box content. */
+  /** Returns the size required for {@link #trun(int, List, int, boolean)} box content. */
   public static int getTrunBoxContentSize(int sampleCount, boolean hasBFrame) {
     int trunBoxFixedSize = 3 * BYTES_PER_INTEGER;
     int intWrittenPerSample = hasBFrame ? 4 : 3;
@@ -1286,14 +1313,14 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     return BoxUtils.wrapIntoBox("trex", contents);
   }
 
-  /** Returns the edvd box header. */
-  public static ByteBuffer getEdvdBoxHeader(long payloadSize) {
-    ByteBuffer edvdBoxHeader = ByteBuffer.allocate(LARGE_SIZE_BOX_HEADER_SIZE);
-    edvdBoxHeader.putInt(1); // indicating a 64-bit length field
-    edvdBoxHeader.put(Util.getUtf8Bytes("edvd"));
-    edvdBoxHeader.putLong(LARGE_SIZE_BOX_HEADER_SIZE + payloadSize); // the actual length
-    edvdBoxHeader.flip();
-    return edvdBoxHeader;
+  /** Returns the axte box header. */
+  public static ByteBuffer getAxteBoxHeader(long payloadSize) {
+    ByteBuffer axteBoxHeader = ByteBuffer.allocate(LARGE_SIZE_BOX_HEADER_SIZE);
+    axteBoxHeader.putInt(1); // indicating a 64-bit length field
+    axteBoxHeader.put(Util.getUtf8Bytes("axte"));
+    axteBoxHeader.putLong(LARGE_SIZE_BOX_HEADER_SIZE + payloadSize); // the actual length
+    axteBoxHeader.flip();
+    return axteBoxHeader;
   }
 
   /** Returns an ISO 639-2/T (ISO3) language code for the IETF BCP 47 language tag. */
@@ -1506,16 +1533,58 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     return BoxUtils.wrapIntoBox("hvcC", contents);
   }
 
+  /** Returns the apvC box. */
+  private static ByteBuffer apvCBox(Format format) {
+    // For APV, the entire codec-specific box is packed into csd-0.
+    checkArgument(
+        !format.initializationData.isEmpty(), "csd-0 is not found in the format for avpC box");
+
+    byte[] csd0 = format.initializationData.get(0);
+    checkArgument(csd0.length > 0, "csd-0 is empty for avpC box.");
+
+    int versionAndFlags = 0;
+    ByteBuffer apvcBoxContent = ByteBuffer.allocate(csd0.length + BYTES_PER_INTEGER);
+    apvcBoxContent.putInt(versionAndFlags);
+    apvcBoxContent.put(csd0);
+    apvcBoxContent.flip();
+
+    return BoxUtils.wrapIntoBox("apvC", apvcBoxContent);
+  }
+
   /** Returns the av1C box. */
   private static ByteBuffer av1CBox(Format format) {
     // For AV1, the entire codec-specific box is packed into csd-0.
-    checkArgument(
-        !format.initializationData.isEmpty(), "csd-0 is not found in the format for av1C box");
-
     byte[] csd0 = format.initializationData.get(0);
-    checkArgument(csd0.length > 0, "csd-0 is empty for av1C box.");
 
     return BoxUtils.wrapIntoBox("av1C", ByteBuffer.wrap(csd0));
+  }
+
+  /** Returns a dvcC/dvwC/dvvC vision box which will be included in dolby vision box. */
+  private static ByteBuffer doviBox(int profile, byte[] csd) {
+    checkArgument(csd.length > 0, "csd is empty for dovi box.");
+    if (profile <= 7) {
+      return BoxUtils.wrapIntoBox("dvcC", ByteBuffer.wrap(csd));
+    } else if (profile <= 10) {
+      return BoxUtils.wrapIntoBox("dvvC", ByteBuffer.wrap(csd));
+    } else if (profile <= 19) {
+      return BoxUtils.wrapIntoBox("dvwC", ByteBuffer.wrap(csd));
+    } else if (profile == 20) {
+      return BoxUtils.wrapIntoBox("dvcC", ByteBuffer.wrap(csd));
+    } else {
+      return BoxUtils.wrapIntoBox("dvwC", ByteBuffer.wrap(csd));
+    }
+  }
+
+  /** Returns a dolby vision box as per Dolby Vision ISO media format. */
+  private static ByteBuffer doviSpecificBox(Format format) {
+    checkArgument(
+        !format.initializationData.isEmpty(), "csd is not found in the format for dolby vision");
+    byte[] dolbyVisionCsd = Iterables.getLast(format.initializationData);
+    DolbyVisionConfig dolbyVisionConfig = getDolbyVisionConfig(format);
+    checkNotNull(dolbyVisionConfig, "Dolby vision codec is not supported.");
+    ByteBuffer avcHevcBox = dolbyVisionConfig.profile <= 8 ? hvcCBox(format) : avcCBox(format);
+    ByteBuffer dolbyBox = doviBox(dolbyVisionConfig.profile, dolbyVisionCsd);
+    return BoxUtils.concatenateBuffers(avcHevcBox, dolbyBox);
   }
 
   /** Returns the vpcC box as per VP Codec ISO Media File Format Binding v1.0. */
@@ -1544,24 +1613,18 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
 
     // The default values for optional fields as per the : <a
     // href="https://www.webmproject.org/vp9/mp4/#optional-fields">Vp9 webm spec</a>
-    int colourPrimaries = 1;
+    int colorPrimaries = 1;
     int transferCharacteristics = 1;
     int matrixCoefficients = 1;
 
     if (format.colorInfo != null) {
-      ColorInfo colorInfo = format.colorInfo;
-      if (colorInfo.colorSpace != Format.NO_VALUE) {
-        colourPrimaries =
-            MEDIAFORMAT_STANDARD_TO_PRIMARIES_AND_MATRIX.get(colorInfo.colorSpace).get(0);
-        matrixCoefficients =
-            MEDIAFORMAT_STANDARD_TO_PRIMARIES_AND_MATRIX.get(colorInfo.colorSpace).get(1);
-      }
-      if (colorInfo.colorTransfer != Format.NO_VALUE) {
-        transferCharacteristics = MEDIAFORMAT_TRANSFER_TO_MP4_TRANSFER.get(colorInfo.colorTransfer);
-      }
+      colorPrimaries = ColorInfo.colorSpaceToIsoColorPrimaries(format.colorInfo.colorSpace);
+      transferCharacteristics =
+          ColorInfo.colorTransferToIsoTransferCharacteristics(format.colorInfo.colorTransfer);
+      matrixCoefficients = ColorInfo.colorSpaceToIsoMatrixCoefficients(format.colorInfo.colorSpace);
     }
 
-    contents.put((byte) colourPrimaries);
+    contents.put((byte) colorPrimaries);
     contents.put((byte) transferCharacteristics);
     contents.put((byte) matrixCoefficients);
     contents.putShort((short) 0); // codecInitializationDataSize must be 0 for VP9
@@ -1652,40 +1715,11 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     contents.put((byte) 'l');
     contents.put((byte) 'x');
 
-    short primaries = 0;
-    short transfer = 0;
-    short matrix = 0;
-    byte range = 0;
-
-    if (colorInfo.colorSpace != Format.NO_VALUE) {
-      int standard = colorInfo.colorSpace;
-      if (standard < 0 || standard >= MEDIAFORMAT_STANDARD_TO_PRIMARIES_AND_MATRIX.size()) {
-        throw new IllegalArgumentException("Color standard not implemented: " + standard);
-      }
-
-      primaries = MEDIAFORMAT_STANDARD_TO_PRIMARIES_AND_MATRIX.get(standard).get(0);
-      matrix = MEDIAFORMAT_STANDARD_TO_PRIMARIES_AND_MATRIX.get(standard).get(1);
-    }
-
-    if (colorInfo.colorTransfer != Format.NO_VALUE) {
-      int transferInFormat = colorInfo.colorTransfer;
-      if (transferInFormat < 0 || transferInFormat >= MEDIAFORMAT_TRANSFER_TO_MP4_TRANSFER.size()) {
-        throw new IllegalArgumentException("Color transfer not implemented: " + transferInFormat);
-      }
-
-      transfer = MEDIAFORMAT_TRANSFER_TO_MP4_TRANSFER.get(transferInFormat);
-    }
-
-    if (colorInfo.colorRange != Format.NO_VALUE) {
-      int rangeInFormat = colorInfo.colorRange;
-      // Handled values are 0 (unknown), 1 (full) and 2 (limited).
-      if (rangeInFormat < 0 || rangeInFormat > 2) {
-        throw new IllegalArgumentException("Color range not implemented: " + rangeInFormat);
-      }
-
-      // Set this to 0x80 only for full range, 0 otherwise.
-      range = rangeInFormat == C.COLOR_RANGE_FULL ? (byte) 0x80 : 0;
-    }
+    short primaries = (short) ColorInfo.colorSpaceToIsoColorPrimaries(colorInfo.colorSpace);
+    short transfer =
+        (short) ColorInfo.colorTransferToIsoTransferCharacteristics(colorInfo.colorTransfer);
+    short matrix = (short) ColorInfo.colorSpaceToIsoMatrixCoefficients(colorInfo.colorSpace);
+    byte range = colorInfo.colorRange == C.COLOR_RANGE_FULL ? (byte) 0x80 : 0;
 
     contents.putShort(primaries);
     contents.putShort(transfer);
@@ -1694,6 +1728,45 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
 
     contents.flip();
     return BoxUtils.wrapIntoBox("colr", contents);
+  }
+
+  @Nullable
+  private static DolbyVisionConfig getDolbyVisionConfig(Format format) {
+    @Nullable
+    DolbyVisionConfig dolbyVisionConfig =
+        DolbyVisionConfig.parse(
+            new ParsableByteArray(Iterables.getLast(format.initializationData)));
+    if (dolbyVisionConfig == null && format.codecs != null) {
+      Pair<Integer, Integer> profileAndLevel = getDolbyVisionProfileAndLevel(format);
+      checkNotNull(profileAndLevel, "Dolby Vision profile and level is not found.");
+      byte[] dolbyVisionCsd =
+          CodecSpecificDataUtil.buildDolbyVisionInitializationData(
+              /* profile= */ profileAndLevel.first, /* level= */ profileAndLevel.second);
+      dolbyVisionConfig = DolbyVisionConfig.parse(new ParsableByteArray(dolbyVisionCsd));
+    }
+    return dolbyVisionConfig;
+  }
+
+  /** Returns codec specific fourcc for Dolby vision. */
+  private static String getDoviFourcc(Format format) {
+    @Nullable DolbyVisionConfig dolbyVisionConfig = getDolbyVisionConfig(format);
+    checkNotNull(
+        dolbyVisionConfig,
+        "Dolby Vision Initialization data is not found for format: %s" + format.sampleMimeType);
+    switch (dolbyVisionConfig.profile) {
+      case 5:
+        return "dvh1";
+      case 8:
+        return "hvc1";
+      case 9:
+        return "avc1";
+      default:
+        throw new IllegalArgumentException(
+            "Unsupported profile "
+                + dolbyVisionConfig.profile
+                + " for format: "
+                + format.sampleMimeType);
+    }
   }
 
   /** Returns codec specific fourcc. */
@@ -1711,16 +1784,28 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
         return "s263";
       case MimeTypes.AUDIO_OPUS:
         return "Opus";
+      case MimeTypes.AUDIO_RAW:
+        if (format.pcmEncoding == C.ENCODING_PCM_16BIT) {
+          return "sowt";
+        } else if (format.pcmEncoding == C.ENCODING_PCM_16BIT_BIG_ENDIAN) {
+          return "twos";
+        } else {
+          throw new IllegalArgumentException("Unsupported PCM encoding: " + format.pcmEncoding);
+        }
       case MimeTypes.VIDEO_H264:
         return "avc1";
       case MimeTypes.VIDEO_H265:
         return "hvc1";
       case MimeTypes.VIDEO_AV1:
         return "av01";
+      case MimeTypes.VIDEO_APV:
+        return "apv1";
       case MimeTypes.VIDEO_MP4V:
         return "mp4v-es";
       case MimeTypes.VIDEO_VP9:
         return "vp09";
+      case MimeTypes.VIDEO_DOLBY_VISION:
+        return getDoviFourcc(format);
       default:
         throw new IllegalArgumentException("Unsupported format: " + mimeType);
     }
@@ -1938,5 +2023,20 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
       }
     }
     return minInputPtsUs != Long.MAX_VALUE ? minInputPtsUs : C.TIME_UNSET;
+  }
+
+  /** Returns profile and level of dolby vision */
+  @Nullable
+  /* package */ static Pair<Integer, Integer> getDolbyVisionProfileAndLevel(Format format) {
+    checkNotNull(format.codecs, "Codec string is null for Dolby Vision format.");
+    List<String> parts = Splitter.on('.').splitToList(format.codecs);
+    if (parts.size() < 3) {
+      // The codec has fewer parts than required by the Dolby Vision codec string format.
+      Log.w(TAG, "Invalid Dolby Vision codec string: " + format.codecs);
+      return null;
+    }
+    int profile = Integer.parseInt(parts.get(1));
+    int level = Integer.parseInt(parts.get(2));
+    return Pair.create(profile, level);
   }
 }

@@ -1,4 +1,4 @@
-MediaCodecAdapter (exotest.audio.aac):
+MediaCodecAdapter (media3.audio.aac):
   inputBuffers:
     count = 284
     input buffer #0:
@@ -1996,850 +1996,850 @@ AudioSink:
     sampleRate = 48000
   buffer #0:
     time = 1000000000000
-    data = 1
+    data = empty
   buffer #1:
     time = 1000000021000
-    data = 1
+    data = empty
   buffer #2:
     time = 1000000042000
-    data = 1
+    data = empty
   buffer #3:
     time = 1000000064000
-    data = 1
+    data = empty
   buffer #4:
     time = 1000000085000
-    data = 1
+    data = empty
   buffer #5:
     time = 1000000106000
-    data = 1
+    data = empty
   buffer #6:
     time = 1000000128000
-    data = 1
+    data = empty
   buffer #7:
     time = 1000000149000
-    data = 1
+    data = empty
   buffer #8:
     time = 1000000170000
-    data = 1
+    data = empty
   buffer #9:
     time = 1000000192000
-    data = 1
+    data = empty
   buffer #10:
     time = 1000000213000
-    data = 1
+    data = empty
   buffer #11:
     time = 1000000234000
-    data = 1
+    data = empty
   buffer #12:
     time = 1000000256000
-    data = 1
+    data = empty
   buffer #13:
     time = 1000000277000
-    data = 1
+    data = empty
   buffer #14:
     time = 1000000298000
-    data = 1
+    data = empty
   buffer #15:
     time = 1000000320000
-    data = 1
+    data = empty
   buffer #16:
     time = 1000000341000
-    data = 1
+    data = empty
   buffer #17:
     time = 1000000362000
-    data = 1
+    data = empty
   buffer #18:
     time = 1000000384000
-    data = 1
+    data = empty
   buffer #19:
     time = 1000000405000
-    data = 1
+    data = empty
   buffer #20:
     time = 1000000426000
-    data = 1
+    data = empty
   buffer #21:
     time = 1000000448000
-    data = 1
+    data = empty
   buffer #22:
     time = 1000000469000
-    data = 1
+    data = empty
   buffer #23:
     time = 1000000490000
-    data = 1
+    data = empty
   buffer #24:
     time = 1000000512000
-    data = 1
+    data = empty
   buffer #25:
     time = 1000000533000
-    data = 1
+    data = empty
   buffer #26:
     time = 1000000554000
-    data = 1
+    data = empty
   buffer #27:
     time = 1000000576000
-    data = 1
+    data = empty
   buffer #28:
     time = 1000000597000
-    data = 1
+    data = empty
   buffer #29:
     time = 1000000618000
-    data = 1
+    data = empty
   buffer #30:
     time = 1000000640000
-    data = 1
+    data = empty
   buffer #31:
     time = 1000000682000
-    data = 1
+    data = empty
   buffer #32:
     time = 1000000704000
-    data = 1
+    data = empty
   buffer #33:
     time = 1000000725000
-    data = 1
+    data = empty
   buffer #34:
     time = 1000000746000
-    data = 1
+    data = empty
   buffer #35:
     time = 1000000768000
-    data = 1
+    data = empty
   buffer #36:
     time = 1000000789000
-    data = 1
+    data = empty
   buffer #37:
     time = 1000000810000
-    data = 1
+    data = empty
   buffer #38:
     time = 1000000832000
-    data = 1
+    data = empty
   buffer #39:
     time = 1000000853000
-    data = 1
+    data = empty
   buffer #40:
     time = 1000000874000
-    data = 1
+    data = empty
   buffer #41:
     time = 1000000896000
-    data = 1
+    data = empty
   buffer #42:
     time = 1000000917000
-    data = 1
+    data = empty
   buffer #43:
     time = 1000000938000
-    data = 1
+    data = empty
   buffer #44:
     time = 1000000960000
-    data = 1
+    data = empty
   buffer #45:
     time = 1000000981000
-    data = 1
+    data = empty
   buffer #46:
     time = 1000001002000
-    data = 1
+    data = empty
   buffer #47:
     time = 1000001024000
-    data = 1
+    data = empty
   buffer #48:
     time = 1000001045000
-    data = 1
+    data = empty
   buffer #49:
     time = 1000001066000
-    data = 1
+    data = empty
   buffer #50:
     time = 1000001088000
-    data = 1
+    data = empty
   buffer #51:
     time = 1000001109000
-    data = 1
+    data = empty
   buffer #52:
     time = 1000001130000
-    data = 1
+    data = empty
   buffer #53:
     time = 1000001152000
-    data = 1
+    data = empty
   buffer #54:
     time = 1000001173000
-    data = 1
+    data = empty
   buffer #55:
     time = 1000001194000
-    data = 1
+    data = empty
   buffer #56:
     time = 1000001216000
-    data = 1
+    data = empty
   buffer #57:
     time = 1000001237000
-    data = 1
+    data = empty
   buffer #58:
     time = 1000001258000
-    data = 1
+    data = empty
   buffer #59:
     time = 1000001280000
-    data = 1
+    data = empty
   buffer #60:
     time = 1000001301000
-    data = 1
+    data = empty
   buffer #61:
     time = 1000001322000
-    data = 1
+    data = empty
   buffer #62:
     time = 1000001344000
-    data = 1
+    data = empty
   buffer #63:
     time = 1000001365000
-    data = 1
+    data = empty
   buffer #64:
     time = 1000001386000
-    data = 1
+    data = empty
   buffer #65:
     time = 1000001408000
-    data = 1
+    data = empty
   buffer #66:
     time = 1000001429000
-    data = 1
+    data = empty
   buffer #67:
     time = 1000001450000
-    data = 1
+    data = empty
   buffer #68:
     time = 1000001472000
-    data = 1
+    data = empty
   buffer #69:
     time = 1000001493000
-    data = 1
+    data = empty
   buffer #70:
     time = 1000001514000
-    data = 1
+    data = empty
   buffer #71:
     time = 1000001536000
-    data = 1
+    data = empty
   buffer #72:
     time = 1000001557000
-    data = 1
+    data = empty
   buffer #73:
     time = 1000001578000
-    data = 1
+    data = empty
   buffer #74:
     time = 1000001600000
-    data = 1
+    data = empty
   buffer #75:
     time = 1000001621000
-    data = 1
+    data = empty
   buffer #76:
     time = 1000001642000
-    data = 1
+    data = empty
   buffer #77:
     time = 1000001664000
-    data = 1
+    data = empty
   buffer #78:
     time = 1000001685000
-    data = 1
+    data = empty
   buffer #79:
     time = 1000001706000
-    data = 1
+    data = empty
   buffer #80:
     time = 1000001728000
-    data = 1
+    data = empty
   buffer #81:
     time = 1000001749000
-    data = 1
+    data = empty
   buffer #82:
     time = 1000001770000
-    data = 1
+    data = empty
   buffer #83:
     time = 1000001792000
-    data = 1
+    data = empty
   buffer #84:
     time = 1000001813000
-    data = 1
+    data = empty
   buffer #85:
     time = 1000001834000
-    data = 1
+    data = empty
   buffer #86:
     time = 1000001856000
-    data = 1
+    data = empty
   buffer #87:
     time = 1000001877000
-    data = 1
+    data = empty
   buffer #88:
     time = 1000001898000
-    data = 1
+    data = empty
   buffer #89:
     time = 1000001920000
-    data = 1
+    data = empty
   buffer #90:
     time = 1000001941000
-    data = 1
+    data = empty
   buffer #91:
     time = 1000001962000
-    data = 1
+    data = empty
   buffer #92:
     time = 1000001984000
-    data = 1
+    data = empty
   buffer #93:
     time = 1000002005000
-    data = 1
+    data = empty
   buffer #94:
     time = 1000002026000
-    data = 1
+    data = empty
   buffer #95:
     time = 1000002048000
-    data = 1
+    data = empty
   buffer #96:
     time = 1000002069000
-    data = 1
+    data = empty
   buffer #97:
     time = 1000002090000
-    data = 1
+    data = empty
   buffer #98:
     time = 1000002112000
-    data = 1
+    data = empty
   buffer #99:
     time = 1000002133000
-    data = 1
+    data = empty
   buffer #100:
     time = 1000002154000
-    data = 1
+    data = empty
   buffer #101:
     time = 1000002176000
-    data = 1
+    data = empty
   buffer #102:
     time = 1000002197000
-    data = 1
+    data = empty
   buffer #103:
     time = 1000002218000
-    data = 1
+    data = empty
   buffer #104:
     time = 1000002240000
-    data = 1
+    data = empty
   buffer #105:
     time = 1000002261000
-    data = 1
+    data = empty
   buffer #106:
     time = 1000002282000
-    data = 1
+    data = empty
   buffer #107:
     time = 1000002304000
-    data = 1
+    data = empty
   buffer #108:
     time = 1000002325000
-    data = 1
+    data = empty
   buffer #109:
     time = 1000002346000
-    data = 1
+    data = empty
   buffer #110:
     time = 1000002368000
-    data = 1
+    data = empty
   buffer #111:
     time = 1000002389000
-    data = 1
+    data = empty
   buffer #112:
     time = 1000002410000
-    data = 1
+    data = empty
   buffer #113:
     time = 1000002432000
-    data = 1
+    data = empty
   buffer #114:
     time = 1000002453000
-    data = 1
+    data = empty
   buffer #115:
     time = 1000002474000
-    data = 1
+    data = empty
   buffer #116:
     time = 1000002496000
-    data = 1
+    data = empty
   buffer #117:
     time = 1000002517000
-    data = 1
+    data = empty
   buffer #118:
     time = 1000002538000
-    data = 1
+    data = empty
   buffer #119:
     time = 1000002560000
-    data = 1
+    data = empty
   buffer #120:
     time = 1000002581000
-    data = 1
+    data = empty
   buffer #121:
     time = 1000002602000
-    data = 1
+    data = empty
   buffer #122:
     time = 1000002624000
-    data = 1
+    data = empty
   buffer #123:
     time = 1000002645000
-    data = 1
+    data = empty
   buffer #124:
     time = 1000002666000
-    data = 1
+    data = empty
   buffer #125:
     time = 1000002688000
-    data = 1
+    data = empty
   buffer #126:
     time = 1000002709000
-    data = 1
+    data = empty
   buffer #127:
     time = 1000002730000
-    data = 1
+    data = empty
   buffer #128:
     time = 1000002752000
-    data = 1
+    data = empty
   buffer #129:
     time = 1000002773000
-    data = 1
+    data = empty
   buffer #130:
     time = 1000002794000
-    data = 1
+    data = empty
   buffer #131:
     time = 1000002816000
-    data = 1
+    data = empty
   buffer #132:
     time = 1000002837000
-    data = 1
+    data = empty
   buffer #133:
     time = 1000002858000
-    data = 1
+    data = empty
   buffer #134:
     time = 1000002880000
-    data = 1
+    data = empty
   buffer #135:
     time = 1000002901000
-    data = 1
+    data = empty
   buffer #136:
     time = 1000002922000
-    data = 1
+    data = empty
   buffer #137:
     time = 1000002944000
-    data = 1
+    data = empty
   buffer #138:
     time = 1000002965000
-    data = 1
+    data = empty
   buffer #139:
     time = 1000002986000
-    data = 1
+    data = empty
   buffer #140:
     time = 1000003008000
-    data = 1
+    data = empty
   buffer #141:
     time = 1000003029000
-    data = 1
+    data = empty
   buffer #142:
     time = 1000003050000
-    data = 1
+    data = empty
   buffer #143:
     time = 1000003072000
-    data = 1
+    data = empty
   buffer #144:
     time = 1000003093000
-    data = 1
+    data = empty
   buffer #145:
     time = 1000003114000
-    data = 1
+    data = empty
   buffer #146:
     time = 1000003136000
-    data = 1
+    data = empty
   buffer #147:
     time = 1000003157000
-    data = 1
+    data = empty
   buffer #148:
     time = 1000003178000
-    data = 1
+    data = empty
   buffer #149:
     time = 1000003200000
-    data = 1
+    data = empty
   buffer #150:
     time = 1000003221000
-    data = 1
+    data = empty
   buffer #151:
     time = 1000003242000
-    data = 1
+    data = empty
   buffer #152:
     time = 1000003264000
-    data = 1
+    data = empty
   buffer #153:
     time = 1000003285000
-    data = 1
+    data = empty
   buffer #154:
     time = 1000003306000
-    data = 1
+    data = empty
   buffer #155:
     time = 1000003328000
-    data = 1
+    data = empty
   buffer #156:
     time = 1000003349000
-    data = 1
+    data = empty
   buffer #157:
     time = 1000003370000
-    data = 1
+    data = empty
   buffer #158:
     time = 1000003392000
-    data = 1
+    data = empty
   buffer #159:
     time = 1000003413000
-    data = 1
+    data = empty
   buffer #160:
     time = 1000003434000
-    data = 1
+    data = empty
   buffer #161:
     time = 1000003456000
-    data = 1
+    data = empty
   buffer #162:
     time = 1000003477000
-    data = 1
+    data = empty
   buffer #163:
     time = 1000003498000
-    data = 1
+    data = empty
   buffer #164:
     time = 1000003520000
-    data = 1
+    data = empty
   buffer #165:
     time = 1000003541000
-    data = 1
+    data = empty
   buffer #166:
     time = 1000003562000
-    data = 1
+    data = empty
   buffer #167:
     time = 1000003584000
-    data = 1
+    data = empty
   buffer #168:
     time = 1000003605000
-    data = 1
+    data = empty
   buffer #169:
     time = 1000003626000
-    data = 1
+    data = empty
   buffer #170:
     time = 1000003648000
-    data = 1
+    data = empty
   buffer #171:
     time = 1000003669000
-    data = 1
+    data = empty
   buffer #172:
     time = 1000003690000
-    data = 1
+    data = empty
   buffer #173:
     time = 1000003712000
-    data = 1
+    data = empty
   buffer #174:
     time = 1000003733000
-    data = 1
+    data = empty
   buffer #175:
     time = 1000003754000
-    data = 1
+    data = empty
   buffer #176:
     time = 1000003776000
-    data = 1
+    data = empty
   buffer #177:
     time = 1000003797000
-    data = 1
+    data = empty
   buffer #178:
     time = 1000003818000
-    data = 1
+    data = empty
   buffer #179:
     time = 1000003840000
-    data = 1
+    data = empty
   buffer #180:
     time = 1000003861000
-    data = 1
+    data = empty
   buffer #181:
     time = 1000003882000
-    data = 1
+    data = empty
   buffer #182:
     time = 1000003904000
-    data = 1
+    data = empty
   buffer #183:
     time = 1000003925000
-    data = 1
+    data = empty
   buffer #184:
     time = 1000003946000
-    data = 1
+    data = empty
   buffer #185:
     time = 1000003968000
-    data = 1
+    data = empty
   buffer #186:
     time = 1000003989000
-    data = 1
+    data = empty
   buffer #187:
     time = 1000004010000
-    data = 1
+    data = empty
   buffer #188:
     time = 1000004032000
-    data = 1
+    data = empty
   buffer #189:
     time = 1000004053000
-    data = 1
+    data = empty
   buffer #190:
     time = 1000004074000
-    data = 1
+    data = empty
   buffer #191:
     time = 1000004096000
-    data = 1
+    data = empty
   buffer #192:
     time = 1000004117000
-    data = 1
+    data = empty
   buffer #193:
     time = 1000004138000
-    data = 1
+    data = empty
   buffer #194:
     time = 1000004160000
-    data = 1
+    data = empty
   buffer #195:
     time = 1000004181000
-    data = 1
+    data = empty
   buffer #196:
     time = 1000004202000
-    data = 1
+    data = empty
   buffer #197:
     time = 1000004224000
-    data = 1
+    data = empty
   buffer #198:
     time = 1000004245000
-    data = 1
+    data = empty
   buffer #199:
     time = 1000004266000
-    data = 1
+    data = empty
   buffer #200:
     time = 1000004288000
-    data = 1
+    data = empty
   buffer #201:
     time = 1000004309000
-    data = 1
+    data = empty
   buffer #202:
     time = 1000004330000
-    data = 1
+    data = empty
   buffer #203:
     time = 1000004352000
-    data = 1
+    data = empty
   buffer #204:
     time = 1000004373000
-    data = 1
+    data = empty
   buffer #205:
     time = 1000004394000
-    data = 1
+    data = empty
   buffer #206:
     time = 1000004416000
-    data = 1
+    data = empty
   buffer #207:
     time = 1000004437000
-    data = 1
+    data = empty
   buffer #208:
     time = 1000004458000
-    data = 1
+    data = empty
   buffer #209:
     time = 1000004480000
-    data = 1
+    data = empty
   buffer #210:
     time = 1000004501000
-    data = 1
+    data = empty
   buffer #211:
     time = 1000004522000
-    data = 1
+    data = empty
   buffer #212:
     time = 1000004544000
-    data = 1
+    data = empty
   buffer #213:
     time = 1000004565000
-    data = 1
+    data = empty
   buffer #214:
     time = 1000004586000
-    data = 1
+    data = empty
   buffer #215:
     time = 1000004608000
-    data = 1
+    data = empty
   buffer #216:
     time = 1000004629000
-    data = 1
+    data = empty
   buffer #217:
     time = 1000004650000
-    data = 1
+    data = empty
   buffer #218:
     time = 1000004672000
-    data = 1
+    data = empty
   buffer #219:
     time = 1000004693000
-    data = 1
+    data = empty
   buffer #220:
     time = 1000004714000
-    data = 1
+    data = empty
   buffer #221:
     time = 1000004736000
-    data = 1
+    data = empty
   buffer #222:
     time = 1000004757000
-    data = 1
+    data = empty
   buffer #223:
     time = 1000004778000
-    data = 1
+    data = empty
   buffer #224:
     time = 1000004800000
-    data = 1
+    data = empty
   buffer #225:
     time = 1000004821000
-    data = 1
+    data = empty
   buffer #226:
     time = 1000004842000
-    data = 1
+    data = empty
   buffer #227:
     time = 1000004864000
-    data = 1
+    data = empty
   buffer #228:
     time = 1000004885000
-    data = 1
+    data = empty
   buffer #229:
     time = 1000004906000
-    data = 1
+    data = empty
   buffer #230:
     time = 1000004928000
-    data = 1
+    data = empty
   buffer #231:
     time = 1000004949000
-    data = 1
+    data = empty
   buffer #232:
     time = 1000004970000
-    data = 1
+    data = empty
   buffer #233:
     time = 1000004992000
-    data = 1
+    data = empty
   buffer #234:
     time = 1000005013000
-    data = 1
+    data = empty
   buffer #235:
     time = 1000005034000
-    data = 1
+    data = empty
   buffer #236:
     time = 1000005056000
-    data = 1
+    data = empty
   buffer #237:
     time = 1000005077000
-    data = 1
+    data = empty
   buffer #238:
     time = 1000005098000
-    data = 1
+    data = empty
   buffer #239:
     time = 1000005120000
-    data = 1
+    data = empty
   buffer #240:
     time = 1000005141000
-    data = 1
+    data = empty
   buffer #241:
     time = 1000005162000
-    data = 1
+    data = empty
   buffer #242:
     time = 1000005184000
-    data = 1
+    data = empty
   buffer #243:
     time = 1000005205000
-    data = 1
+    data = empty
   buffer #244:
     time = 1000005226000
-    data = 1
+    data = empty
   buffer #245:
     time = 1000005248000
-    data = 1
+    data = empty
   buffer #246:
     time = 1000005269000
-    data = 1
+    data = empty
   buffer #247:
     time = 1000005290000
-    data = 1
+    data = empty
   buffer #248:
     time = 1000005312000
-    data = 1
+    data = empty
   buffer #249:
     time = 1000005333000
-    data = 1
+    data = empty
   buffer #250:
     time = 1000005354000
-    data = 1
+    data = empty
   buffer #251:
     time = 1000005376000
-    data = 1
+    data = empty
   buffer #252:
     time = 1000005397000
-    data = 1
+    data = empty
   buffer #253:
     time = 1000005418000
-    data = 1
+    data = empty
   buffer #254:
     time = 1000005440000
-    data = 1
+    data = empty
   buffer #255:
     time = 1000005461000
-    data = 1
+    data = empty
   buffer #256:
     time = 1000005482000
-    data = 1
+    data = empty
   buffer #257:
     time = 1000005504000
-    data = 1
+    data = empty
   buffer #258:
     time = 1000005525000
-    data = 1
+    data = empty
   buffer #259:
     time = 1000005546000
-    data = 1
+    data = empty
   buffer #260:
     time = 1000005568000
-    data = 1
+    data = empty
   buffer #261:
     time = 1000005589000
-    data = 1
+    data = empty
   buffer #262:
     time = 1000005610000
-    data = 1
+    data = empty
   buffer #263:
     time = 1000005632000
-    data = 1
+    data = empty
   buffer #264:
     time = 1000005653000
-    data = 1
+    data = empty
   buffer #265:
     time = 1000005674000
-    data = 1
+    data = empty
   buffer #266:
     time = 1000005696000
-    data = 1
+    data = empty
   buffer #267:
     time = 1000005717000
-    data = 1
+    data = empty
   buffer #268:
     time = 1000005738000
-    data = 1
+    data = empty
   buffer #269:
     time = 1000005760000
-    data = 1
+    data = empty
   buffer #270:
     time = 1000005781000
-    data = 1
+    data = empty
   buffer #271:
     time = 1000005802000
-    data = 1
+    data = empty
   buffer #272:
     time = 1000005824000
-    data = 1
+    data = empty
   buffer #273:
     time = 1000005845000
-    data = 1
+    data = empty
   buffer #274:
     time = 1000005866000
-    data = 1
+    data = empty
   buffer #275:
     time = 1000005888000
-    data = 1
+    data = empty
   buffer #276:
     time = 1000005909000
-    data = 1
+    data = empty
   buffer #277:
     time = 1000005930000
-    data = 1
+    data = empty
   buffer #278:
     time = 1000005952000
-    data = 1
+    data = empty
   buffer #279:
     time = 1000005973000
-    data = 1
+    data = empty
   buffer #280:
     time = 1000005994000
-    data = 1
+    data = empty
   buffer #281:
     time = 1000006016000
-    data = 1
+    data = empty
   buffer #282:
     time = 1000006037000
-    data = 1
+    data = empty

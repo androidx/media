@@ -32,6 +32,7 @@ import com.google.common.base.Ascii;
  */
 /* package */ final class SsaDialogueFormat {
 
+  public final int layerIndex;
   public final int startTimeIndex;
   public final int endTimeIndex;
   public final int styleIndex;
@@ -39,7 +40,13 @@ import com.google.common.base.Ascii;
   public final int length;
 
   private SsaDialogueFormat(
-      int startTimeIndex, int endTimeIndex, int styleIndex, int textIndex, int length) {
+      int layerIndex,
+      int startTimeIndex,
+      int endTimeIndex,
+      int styleIndex,
+      int textIndex,
+      int length) {
+    this.layerIndex = layerIndex;
     this.startTimeIndex = startTimeIndex;
     this.endTimeIndex = endTimeIndex;
     this.styleIndex = styleIndex;
@@ -54,6 +61,7 @@ import com.google.common.base.Ascii;
    */
   @Nullable
   public static SsaDialogueFormat fromFormatLine(String formatLine) {
+    int layerIndex = C.INDEX_UNSET;
     int startTimeIndex = C.INDEX_UNSET;
     int endTimeIndex = C.INDEX_UNSET;
     int styleIndex = C.INDEX_UNSET;
@@ -62,6 +70,9 @@ import com.google.common.base.Ascii;
     String[] keys = TextUtils.split(formatLine.substring(FORMAT_LINE_PREFIX.length()), ",");
     for (int i = 0; i < keys.length; i++) {
       switch (Ascii.toLowerCase(keys[i].trim())) {
+        case "layer":
+          layerIndex = i;
+          break;
         case "start":
           startTimeIndex = i;
           break;
@@ -79,7 +90,8 @@ import com.google.common.base.Ascii;
     return (startTimeIndex != C.INDEX_UNSET
             && endTimeIndex != C.INDEX_UNSET
             && textIndex != C.INDEX_UNSET)
-        ? new SsaDialogueFormat(startTimeIndex, endTimeIndex, styleIndex, textIndex, keys.length)
+        ? new SsaDialogueFormat(
+            layerIndex, startTimeIndex, endTimeIndex, styleIndex, textIndex, keys.length)
         : null;
   }
 }

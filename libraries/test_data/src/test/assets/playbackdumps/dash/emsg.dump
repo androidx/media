@@ -1,4 +1,4 @@
-MediaCodecAdapter (exotest.audio.aac):
+MediaCodecAdapter (media3.audio.aac):
   inputBuffers:
     count = 92
     input buffer #0:
@@ -649,139 +649,139 @@ AudioSink:
     sampleRate = 44100
   buffer #0:
     time = 1000000000000
-    data = 1
+    data = empty
   buffer #1:
     time = 1000000023220
-    data = 1
+    data = empty
   buffer #2:
     time = 1000000046440
-    data = 1
+    data = empty
   buffer #3:
     time = 1000000069660
-    data = 1
+    data = empty
   buffer #4:
     time = 1000000092880
-    data = 1
+    data = empty
   buffer #5:
     time = 1000000116100
-    data = 1
+    data = empty
   buffer #6:
     time = 1000000139320
-    data = 1
+    data = empty
   buffer #7:
     time = 1000000162540
-    data = 1
+    data = empty
   buffer #8:
     time = 1000000185760
-    data = 1
+    data = empty
   buffer #9:
     time = 1000000208980
-    data = 1
+    data = empty
   buffer #10:
     time = 1000000232200
-    data = 1
+    data = empty
   buffer #11:
     time = 1000000255420
-    data = 1
+    data = empty
   buffer #12:
     time = 1000000278640
-    data = 1
+    data = empty
   buffer #13:
     time = 1000000301860
-    data = 1
+    data = empty
   buffer #14:
     time = 1000000325080
-    data = 1
+    data = empty
   buffer #15:
     time = 1000000348300
-    data = 1
+    data = empty
   buffer #16:
     time = 1000000371520
-    data = 1
+    data = empty
   buffer #17:
     time = 1000000394740
-    data = 1
+    data = empty
   buffer #18:
     time = 1000000417960
-    data = 1
+    data = empty
   buffer #19:
     time = 1000000441180
-    data = 1
+    data = empty
   buffer #20:
     time = 1000000464400
-    data = 1
+    data = empty
   buffer #21:
     time = 1000000487619
-    data = 1
+    data = empty
   buffer #22:
     time = 1000000510839
-    data = 1
+    data = empty
   buffer #23:
     time = 1000000534059
-    data = 1
+    data = empty
   buffer #24:
     time = 1000000557279
-    data = 1
+    data = empty
   buffer #25:
     time = 1000000580499
-    data = 1
+    data = empty
   buffer #26:
     time = 1000000603719
-    data = 1
+    data = empty
   buffer #27:
     time = 1000000626939
-    data = 1
+    data = empty
   buffer #28:
     time = 1000000650159
-    data = 1
+    data = empty
   buffer #29:
     time = 1000000673379
-    data = 1
+    data = empty
   buffer #30:
     time = 1000000696599
-    data = 1
+    data = empty
   buffer #31:
     time = 1000000719819
-    data = 1
+    data = empty
   buffer #32:
     time = 1000000743039
-    data = 1
+    data = empty
   buffer #33:
     time = 1000000766259
-    data = 1
+    data = empty
   buffer #34:
     time = 1000000789479
-    data = 1
+    data = empty
   buffer #35:
     time = 1000000812699
-    data = 1
+    data = empty
   buffer #36:
     time = 1000000835919
-    data = 1
+    data = empty
   buffer #37:
     time = 1000000859139
-    data = 1
+    data = empty
   buffer #38:
     time = 1000000882359
-    data = 1
+    data = empty
   buffer #39:
     time = 1000000905579
-    data = 1
+    data = empty
   buffer #40:
     time = 1000000928799
-    data = 1
+    data = empty
   buffer #41:
     time = 1000000952019
-    data = 1
+    data = empty
   buffer #42:
     time = 1000000975239
-    data = 1
+    data = empty
   buffer #43:
     time = 1000000998458
-    data = 1
+    data = empty
   buffer #44:
     time = 1000001021678
-    data = 1
+    data = empty
   discontinuity:
   config:
     pcmEncoding = 2
@@ -789,139 +789,139 @@ AudioSink:
     sampleRate = 44100
   buffer #45:
     time = 1000001022000
-    data = 1
+    data = empty
   buffer #46:
     time = 1000001045220
-    data = 1
+    data = empty
   buffer #47:
     time = 1000001068440
-    data = 1
+    data = empty
   buffer #48:
     time = 1000001091660
-    data = 1
+    data = empty
   buffer #49:
     time = 1000001114880
-    data = 1
+    data = empty
   buffer #50:
     time = 1000001138100
-    data = 1
+    data = empty
   buffer #51:
     time = 1000001161320
-    data = 1
+    data = empty
   buffer #52:
     time = 1000001184540
-    data = 1
+    data = empty
   buffer #53:
     time = 1000001207760
-    data = 1
+    data = empty
   buffer #54:
     time = 1000001230980
-    data = 1
+    data = empty
   buffer #55:
     time = 1000001254200
-    data = 1
+    data = empty
   buffer #56:
     time = 1000001277420
-    data = 1
+    data = empty
   buffer #57:
     time = 1000001300640
-    data = 1
+    data = empty
   buffer #58:
     time = 1000001323860
-    data = 1
+    data = empty
   buffer #59:
     time = 1000001347080
-    data = 1
+    data = empty
   buffer #60:
     time = 1000001370300
-    data = 1
+    data = empty
   buffer #61:
     time = 1000001393520
-    data = 1
+    data = empty
   buffer #62:
     time = 1000001416740
-    data = 1
+    data = empty
   buffer #63:
     time = 1000001439960
-    data = 1
+    data = empty
   buffer #64:
     time = 1000001463180
-    data = 1
+    data = empty
   buffer #65:
     time = 1000001486400
-    data = 1
+    data = empty
   buffer #66:
     time = 1000001509619
-    data = 1
+    data = empty
   buffer #67:
     time = 1000001532839
-    data = 1
+    data = empty
   buffer #68:
     time = 1000001556059
-    data = 1
+    data = empty
   buffer #69:
     time = 1000001579279
-    data = 1
+    data = empty
   buffer #70:
     time = 1000001602499
-    data = 1
+    data = empty
   buffer #71:
     time = 1000001625719
-    data = 1
+    data = empty
   buffer #72:
     time = 1000001648939
-    data = 1
+    data = empty
   buffer #73:
     time = 1000001672159
-    data = 1
+    data = empty
   buffer #74:
     time = 1000001695379
-    data = 1
+    data = empty
   buffer #75:
     time = 1000001718599
-    data = 1
+    data = empty
   buffer #76:
     time = 1000001741819
-    data = 1
+    data = empty
   buffer #77:
     time = 1000001765039
-    data = 1
+    data = empty
   buffer #78:
     time = 1000001788259
-    data = 1
+    data = empty
   buffer #79:
     time = 1000001811479
-    data = 1
+    data = empty
   buffer #80:
     time = 1000001834699
-    data = 1
+    data = empty
   buffer #81:
     time = 1000001857919
-    data = 1
+    data = empty
   buffer #82:
     time = 1000001881139
-    data = 1
+    data = empty
   buffer #83:
     time = 1000001904359
-    data = 1
+    data = empty
   buffer #84:
     time = 1000001927579
-    data = 1
+    data = empty
   buffer #85:
     time = 1000001950799
-    data = 1
+    data = empty
   buffer #86:
     time = 1000001974019
-    data = 1
+    data = empty
   buffer #87:
     time = 1000001997239
-    data = 1
+    data = empty
   buffer #88:
     time = 1000002020458
-    data = 1
+    data = empty
   buffer #89:
     time = 1000002043678
-    data = 1
+    data = empty
 MetadataOutput:
   Metadata[0]:
     presentationTimeUs = 100000

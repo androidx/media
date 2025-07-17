@@ -30,6 +30,7 @@ import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import java.util.Objects;
 
 /** Information about the playback device. */
 public final class DeviceInfo {
@@ -178,7 +179,7 @@ public final class DeviceInfo {
     return playbackType == other.playbackType
         && minVolume == other.minVolume
         && maxVolume == other.maxVolume
-        && Util.areEqual(routingControllerId, other.routingControllerId);
+        && Objects.equals(routingControllerId, other.routingControllerId);
   }
 
   @Override
@@ -227,5 +228,4 @@ public final class DeviceInfo {
         .setRoutingControllerId(routingControllerId)
         .build();
   }
-  ;
 }

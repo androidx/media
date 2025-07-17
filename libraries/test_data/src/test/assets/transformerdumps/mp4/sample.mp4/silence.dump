@@ -5,6 +5,7 @@ format audio:
   sampleRate = 44100
   pcmEncoding = 2
 format video:
+  averageBitrate = 718290
   id = 1
   containerMimeType = video/mp4
   sampleMimeType = video/avc
@@ -17,6 +18,7 @@ format video:
   colorInfo:
     lumaBitdepth = 8
     chromaBitdepth = 8
+  language = und
   metadata = entries=[TSSE: description=null: values=[Lavf56.1.0], xyz: latitude=40.68, longitude=-74.5, Mp4Timestamp: creation time=3547558895, modification time=3547558895, timescale=1000]
   initializationData:
     data = length 29, hash 4746B5D9

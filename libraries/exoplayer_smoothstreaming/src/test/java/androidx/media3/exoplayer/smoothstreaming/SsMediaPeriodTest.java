@@ -66,7 +66,8 @@ public class SsMediaPeriodTest {
             createStreamElement(
                 /* name= */ "text", C.TRACK_TYPE_TEXT, createTextFormat(/* language= */ "eng")));
     SsChunkSource.Factory chunkSourceFactory = mock(SsChunkSource.Factory.class);
-    when(chunkSourceFactory.getOutputTextFormat(any())).thenCallRealMethod();
+    when(chunkSourceFactory.getOutputTextFormat(any()))
+        .then(invocation -> invocation.getArguments()[0]);
 
     FilterableManifestMediaPeriodFactory<SsManifest> mediaPeriodFactory =
         (manifest, periodIndex) -> {
@@ -143,7 +144,8 @@ public class SsMediaPeriodTest {
         new MediaSourceEventListener.EventDispatcher()
             .withParameters(/* windowIndex= */ 0, mediaPeriodId),
         mock(LoaderErrorThrower.class),
-        mock(Allocator.class));
+        mock(Allocator.class),
+        /* downloadExecutorSupplier= */ null);
   }
 
   private static Format createVideoFormat(int bitrate) {

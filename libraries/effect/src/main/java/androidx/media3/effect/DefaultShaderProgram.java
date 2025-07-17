@@ -17,10 +17,12 @@ package androidx.media3.effect;
 
 import static android.opengl.GLES20.GL_FALSE;
 import static android.opengl.GLES20.GL_TRUE;
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.VideoFrameProcessor.INPUT_TYPE_BITMAP;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.effect.DefaultVideoFrameProcessor.WORKING_COLOR_SPACE_LINEAR;
+import static java.lang.Math.max;
 
 import android.content.Context;
 import android.graphics.Gainmap;
@@ -35,7 +37,6 @@ import androidx.media3.common.util.GlProgram;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.GlUtil.GlException;
 import androidx.media3.common.util.Size;
-import androidx.media3.common.util.Util;
 import androidx.media3.effect.DefaultVideoFrameProcessor.WorkingColorSpace;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
@@ -139,6 +140,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   /** Matrix for storing an intermediate calculation result. */
   private final float[] tempResultMatrix;
+
+  /** The texture minification filter to use when sampling from the input texture. */
+  private final @C.TextureMinFilter int textureMinFilter;
 
   /**
    * A polygon in the input space chosen such that no additional clipping is needed to keep vertices
@@ -473,6 +477,15 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     tempResultMatrix = new float[16];
     visiblePolygon = NDC_SQUARE;
     gainmapTexId = C.INDEX_UNSET;
+
+    // When multiple matrix transformations are applied in a single shader program, use the highest
+    // quality resampling algorithm requested.
+    @C.TextureMinFilter int textureMinFilter = C.TEXTURE_MIN_FILTER_LINEAR;
+    for (int i = 0; i < matrixTransformations.size(); i++) {
+      textureMinFilter =
+          max(textureMinFilter, matrixTransformations.get(i).getGlTextureMinFilter());
+    }
+    this.textureMinFilter = textureMinFilter;
   }
 
   private static GlProgram createGlProgram(
@@ -518,7 +531,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     try {
       glProgram.use();
       setGainmapSamplerAndUniforms();
-      glProgram.setSamplerTexIdUniform("uTexSampler", inputTexId, /* texUnitIndex= */ 0);
+      glProgram.setSamplerTexIdUniform(
+          "uTexSampler", inputTexId, /* texUnitIndex= */ 0, textureMinFilter);
       glProgram.setFloatsUniform("uTransformationMatrix", compositeTransformationMatrixArray);
       glProgram.setFloatsUniformIfPresent("uRgbMatrix", compositeRgbMatrixArray);
       glProgram.setBufferAttribute(
@@ -719,7 +733,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     if (lastGainmap == null) {
       return;
     }
-    if (Util.SDK_INT < 34) {
+    if (SDK_INT < 34) {
       throw new IllegalStateException("Gainmaps not supported under API 34.");
     }
     glProgram.setSamplerTexIdUniform("uGainmapTexSampler", gainmapTexId, /* texUnitIndex= */ 1);

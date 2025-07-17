@@ -22,6 +22,7 @@ import android.annotation.SuppressLint;
 import android.net.Uri;
 import android.text.TextUtils;
 import androidx.annotation.Nullable;
+import androidx.media3.common.C;
 import androidx.media3.common.FileTypes;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
@@ -71,6 +72,7 @@ public final class DefaultHlsExtractorFactory implements HlsExtractorFactory {
 
   private SubtitleParser.Factory subtitleParserFactory;
   private boolean parseSubtitlesDuringExtraction;
+  private @C.VideoCodecFlags int codecsToParseWithinGopSampleDependencies;
 
   private final boolean exposeCea608WhenMissingDeclarations;
 
@@ -179,6 +181,14 @@ public final class DefaultHlsExtractorFactory implements HlsExtractorFactory {
     return this;
   }
 
+  @CanIgnoreReturnValue
+  @Override
+  public DefaultHlsExtractorFactory experimentalSetCodecsToParseWithinGopSampleDependencies(
+      @C.VideoCodecFlags int codecsToParseWithinGopSampleDependencies) {
+    this.codecsToParseWithinGopSampleDependencies = codecsToParseWithinGopSampleDependencies;
+    return this;
+  }
+
   /**
    * {@inheritDoc}
    *
@@ -242,7 +252,8 @@ public final class DefaultHlsExtractorFactory implements HlsExtractorFactory {
             parseSubtitlesDuringExtraction,
             timestampAdjuster,
             format,
-            muxedCaptionFormats);
+            muxedCaptionFormats,
+            codecsToParseWithinGopSampleDependencies);
       case FileTypes.TS:
         return createTsExtractor(
             payloadReaderFactoryFlags,
@@ -255,6 +266,7 @@ public final class DefaultHlsExtractorFactory implements HlsExtractorFactory {
       default:
         return null;
     }
+    // LINT.ThenChange(BundledHlsMediaChunkExtractor.java:extractor_instantiation)
   }
 
   private static TsExtractor createTsExtractor(
@@ -312,7 +324,8 @@ public final class DefaultHlsExtractorFactory implements HlsExtractorFactory {
       boolean parseSubtitlesDuringExtraction,
       TimestampAdjuster timestampAdjuster,
       Format format,
-      @Nullable List<Format> muxedCaptionFormats) {
+      @Nullable List<Format> muxedCaptionFormats,
+      @C.VideoCodecFlags int codecsToParseWithinGopSampleDependencies) {
     // Only enable the EMSG TrackOutput if this is the 'variant' track (i.e. the main one) to avoid
     // creating a separate EMSG track for every audio track in a video stream.
     @FragmentedMp4Extractor.Flags
@@ -321,6 +334,9 @@ public final class DefaultHlsExtractorFactory implements HlsExtractorFactory {
       subtitleParserFactory = SubtitleParser.Factory.UNSUPPORTED;
       flags |= FragmentedMp4Extractor.FLAG_EMIT_RAW_SUBTITLE_DATA;
     }
+    flags |=
+        FragmentedMp4Extractor.codecsToParseWithinGopSampleDependenciesAsFlags(
+            codecsToParseWithinGopSampleDependencies);
     return new FragmentedMp4Extractor(
         subtitleParserFactory,
         flags,

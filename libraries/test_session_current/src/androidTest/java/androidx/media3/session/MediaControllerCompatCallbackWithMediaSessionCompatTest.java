@@ -55,6 +55,7 @@ import org.junit.runner.RunWith;
  */
 @RunWith(AndroidJUnit4.class)
 @LargeTest
+@SuppressWarnings("deprecation") // Tests behavior of deprecated MediaControllerCompat.Callback
 public class MediaControllerCompatCallbackWithMediaSessionCompatTest {
 
   private static final int TIMEOUT_MS = 1_000;

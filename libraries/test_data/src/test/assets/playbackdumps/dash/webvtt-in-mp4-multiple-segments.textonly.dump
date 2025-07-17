@@ -1,0 +1,58 @@
+TextOutput:
+  Subtitle[0]:
+    presentationTimeUs = 0
+    Cues = []
+  Subtitle[1]:
+    presentationTimeUs = 0
+    Cues = []
+  Subtitle[2]:
+    presentationTimeUs = 20000
+    Cue[0]:
+      text = Subtitle in the first segment.
+      textAlignment = ALIGN_CENTER
+      lineType = 1
+      lineAnchor = 0
+      position = 0.5
+      positionAnchor = 1
+      size = 1.0
+  Subtitle[3]:
+    presentationTimeUs = 834000
+    Cues = []
+  Subtitle[4]:
+    presentationTimeUs = 1000000
+    Cues = []
+  Subtitle[5]:
+    presentationTimeUs = 1100000
+    Cue[0]:
+      text = Subtitle in the second segment.
+      textAlignment = ALIGN_CENTER
+      lineType = 1
+      lineAnchor = 0
+      position = 0.5
+      positionAnchor = 1
+      size = 1.0
+  Subtitle[6]:
+    presentationTimeUs = 1956000
+    Cues = []
+  Subtitle[7]:
+    presentationTimeUs = 2000000
+    Cues = []
+  Subtitle[8]:
+    presentationTimeUs = 3000000
+    Cues = []
+  Subtitle[9]:
+    presentationTimeUs = 4000000
+    Cues = []
+  Subtitle[10]:
+    presentationTimeUs = 4500000
+    Cue[0]:
+      text = Subtitle in the fifth segment.
+      textAlignment = ALIGN_CENTER
+      lineType = 1
+      lineAnchor = 0
+      position = 0.5
+      positionAnchor = 1
+      size = 1.0
+  Subtitle[11]:
+    presentationTimeUs = 4956000
+    Cues = []

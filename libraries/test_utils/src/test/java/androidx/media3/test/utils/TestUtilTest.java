@@ -15,10 +15,13 @@
  */
 package androidx.media3.test.utils;
 
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.fail;
 
 import android.os.Bundle;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -31,5 +34,37 @@ public class TestUtilTest {
     Bundle bundle = TestUtil.getThrowingBundle();
 
     assertThrows(RuntimeException.class, () -> bundle.getInt("0"));
+  }
+
+  @Test
+  public void repeatFlakyTest_partialSuccess_stopsAtFirstSuccess() throws Exception {
+    AtomicInteger repetition = new AtomicInteger(/* initialValue= */ 0);
+
+    TestUtil.repeatFlakyTest(
+        /* maxRepetitions= */ 100,
+        () -> {
+          if (repetition.incrementAndGet() < 5) {
+            fail();
+          }
+        });
+
+    assertThat(repetition.get()).isEqualTo(5);
+  }
+
+  @Test
+  public void repeatFlakyTest_noSuccess_retriesMaxRepetitionsAndThrows() throws Exception {
+    AtomicInteger repetition = new AtomicInteger(/* initialValue= */ 0);
+
+    assertThrows(
+        AssertionError.class,
+        () ->
+            TestUtil.repeatFlakyTest(
+                /* maxRepetitions= */ 10,
+                () -> {
+                  repetition.incrementAndGet();
+                  fail();
+                }));
+
+    assertThat(repetition.get()).isEqualTo(10);
   }
 }

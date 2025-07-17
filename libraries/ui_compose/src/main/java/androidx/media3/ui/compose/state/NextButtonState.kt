@@ -28,8 +28,8 @@ import androidx.media3.common.util.UnstableApi
 
 /**
  * Remembers the value of [NextButtonState] created based on the passed [Player] and launch a
- * coroutine to listen to [Player]'s changes. If the [Player] instance changes between compositions,
- * produce and remember a new value.
+ * coroutine to listen to [Player's][Player] changes. If the [Player] instance changes between
+ * compositions, produce and remember a new value.
  */
 @UnstableApi
 @Composable
@@ -49,17 +49,26 @@ fun rememberNextButtonState(player: Player): NextButtonState {
  */
 @UnstableApi
 class NextButtonState(private val player: Player) {
-  var isEnabled by mutableStateOf(player.isCommandAvailable(Player.COMMAND_SEEK_TO_NEXT))
+  var isEnabled by mutableStateOf(isNextEnabled(player))
     private set
 
   fun onClick() {
     player.seekToNext()
   }
 
-  suspend fun observe(): Nothing =
+  /**
+   * Subscribes to updates from [Player.Events] and listens to
+   * [Player.EVENT_AVAILABLE_COMMANDS_CHANGED] in order to determine whether the button should be
+   * enabled, i.e. respond to user input.
+   */
+  suspend fun observe(): Nothing {
+    isEnabled = isNextEnabled(player)
     player.listen { events ->
       if (events.contains(Player.EVENT_AVAILABLE_COMMANDS_CHANGED)) {
-        isEnabled = isCommandAvailable(Player.COMMAND_SEEK_TO_NEXT)
+        isEnabled = isNextEnabled(this)
       }
     }
+  }
+
+  private fun isNextEnabled(player: Player) = player.isCommandAvailable(Player.COMMAND_SEEK_TO_NEXT)
 }

@@ -92,7 +92,7 @@ public final class H265Reader implements ElementaryStreamReader {
     pps.reset();
     prefixSei.reset();
     suffixSei.reset();
-    seiReader.flush();
+    seiReader.clear();
     if (sampleReader != null) {
       sampleReader.reset();
     }
@@ -139,6 +139,14 @@ public final class H265Reader implements ElementaryStreamReader {
         // We've seen the start of a NAL unit of the following type.
         int nalUnitType = NalUnitUtil.getH265NalUnitType(dataArray, nalUnitOffset);
 
+        // Case of a 4 byte start code prefix 0x00000001, recoil NAL unit offset by one byte
+        // to avoid previous byte being assigned to the previous access unit.
+        int prefixSize = 3;
+        if (nalUnitOffset > 0 && dataArray[nalUnitOffset - 1] == 0x00) {
+          nalUnitOffset--;
+          prefixSize = 4;
+        }
+
         // This is the number of bytes from the current offset to the start of the next NAL unit.
         // It may be negative if the NAL unit started in the previously consumed data.
         int lengthToNalUnit = nalUnitOffset - offset;
@@ -159,7 +167,7 @@ public final class H265Reader implements ElementaryStreamReader {
         // Indicate the start of the next NAL unit.
         startNalUnit(absolutePosition, bytesWrittenPastPosition, nalUnitType, pesTimeUs);
         // Continue scanning the data.
-        offset = nalUnitOffset + 3;
+        offset = nalUnitOffset + prefixSize;
       }
     }
   }
@@ -169,7 +177,10 @@ public final class H265Reader implements ElementaryStreamReader {
     assertTracksCreated();
     if (isEndOfInput) {
       seiReader.flush();
-      sampleReader.end(totalBytesWritten);
+      // Simulate end of current NAL unit and start an unspecified one to trigger output of current
+      // sample
+      endNalUnit(totalBytesWritten, 0, 0, pesTimeUs);
+      startNalUnit(totalBytesWritten, 0, NalUnitUtil.H265_NAL_UNIT_TYPE_UNSPECIFIED, pesTimeUs);
     }
   }
 
@@ -265,6 +276,8 @@ public final class H265Reader implements ElementaryStreamReader {
         .setCodecs(codecs)
         .setWidth(spsData.width)
         .setHeight(spsData.height)
+        .setDecodedWidth(spsData.decodedWidth)
+        .setDecodedHeight(spsData.decodedHeight)
         .setColorInfo(
             new ColorInfo.Builder()
                 .setColorSpace(spsData.colorSpace)
@@ -275,6 +288,7 @@ public final class H265Reader implements ElementaryStreamReader {
                 .build())
         .setPixelWidthHeightRatio(spsData.pixelWidthHeightRatio)
         .setMaxNumReorderSamples(spsData.maxNumReorderPics)
+        .setMaxSubLayers(spsData.maxSubLayersMinus1 + 1)
         .setInitializationData(Collections.singletonList(csdData))
         .build();
   }
@@ -383,19 +397,8 @@ public final class H265Reader implements ElementaryStreamReader {
       }
     }
 
-    public void end(long position) {
-      sampleIsKeyframe = nalUnitHasKeyframeData;
-      // Output a sample with the NAL units since the current nalUnitPosition
-      outputSample(/* offset= */ (int) (position - nalUnitPosition));
-      // Output a final sample with the remaining NAL units up to the passed position
-      samplePosition = nalUnitPosition;
-      nalUnitPosition = position;
-      outputSample(/* offset= */ 0);
-      readingSample = false;
-    }
-
     private void outputSample(int offset) {
-      if (sampleTimeUs == C.TIME_UNSET) {
+      if (sampleTimeUs == C.TIME_UNSET || nalUnitPosition == samplePosition) {
         return;
       }
       @C.BufferFlags int flags = sampleIsKeyframe ? C.BUFFER_FLAG_KEY_FRAME : 0;

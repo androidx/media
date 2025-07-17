@@ -15,8 +15,6 @@
  */
 package androidx.media3.common;
 
-import android.os.Parcel;
-import android.os.Parcelable;
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -26,10 +24,10 @@ import java.util.List;
 
 /** A collection of metadata entries. */
 @UnstableApi
-public final class Metadata implements Parcelable {
+public final class Metadata {
 
   /** A metadata entry. */
-  public interface Entry extends Parcelable {
+  public interface Entry {
 
     /**
      * Returns the {@link Format} that can be used to decode the wrapped metadata in {@link
@@ -98,14 +96,6 @@ public final class Metadata implements Parcelable {
    */
   public Metadata(long presentationTimeUs, List<? extends Entry> entries) {
     this(presentationTimeUs, entries.toArray(new Entry[0]));
-  }
-
-  /* package */ Metadata(Parcel in) {
-    entries = new Metadata.Entry[in.readInt()];
-    for (int i = 0; i < entries.length; i++) {
-      entries[i] = in.readParcelable(Entry.class.getClassLoader());
-    }
-    presentationTimeUs = in.readLong();
   }
 
   /** Returns the number of metadata entries. */
@@ -190,33 +180,4 @@ public final class Metadata implements Parcelable {
         + Arrays.toString(entries)
         + (presentationTimeUs == C.TIME_UNSET ? "" : ", presentationTimeUs=" + presentationTimeUs);
   }
-
-  // Parcelable implementation.
-
-  @Override
-  public int describeContents() {
-    return 0;
-  }
-
-  @Override
-  public void writeToParcel(Parcel dest, int flags) {
-    dest.writeInt(entries.length);
-    for (Entry entry : entries) {
-      dest.writeParcelable(entry, 0);
-    }
-    dest.writeLong(presentationTimeUs);
-  }
-
-  public static final Parcelable.Creator<Metadata> CREATOR =
-      new Parcelable.Creator<Metadata>() {
-        @Override
-        public Metadata createFromParcel(Parcel in) {
-          return new Metadata(in);
-        }
-
-        @Override
-        public Metadata[] newArray(int size) {
-          return new Metadata[size];
-        }
-      };
 }

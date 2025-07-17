@@ -49,8 +49,8 @@ import androidx.media3.common.text.CueGroup;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
-import com.google.common.base.Objects;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.Objects;
 
 /**
  * Information about the player that {@link MediaSession} uses to send its state to {@link
@@ -116,7 +116,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
     @Override
     public int hashCode() {
-      return Objects.hashCode(isTimelineExcluded, areCurrentTracksExcluded);
+      return Objects.hash(isTimelineExcluded, areCurrentTracksExcluded);
     }
   }
 
@@ -136,6 +136,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
     private VideoSize videoSize;
     private MediaMetadata playlistMetadata;
     private float volume;
+    private float unmuteVolume;
     private AudioAttributes audioAttributes;
     private CueGroup cueGroup;
     private DeviceInfo deviceInfo;
@@ -169,6 +170,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
       videoSize = playerInfo.videoSize;
       playlistMetadata = playerInfo.playlistMetadata;
       volume = playerInfo.volume;
+      unmuteVolume = playerInfo.unmuteVolume;
       audioAttributes = playerInfo.audioAttributes;
       cueGroup = playerInfo.cueGroup;
       deviceInfo = playerInfo.deviceInfo;
@@ -269,7 +271,14 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
     @CanIgnoreReturnValue
     public Builder setVolume(@FloatRange(from = 0, to = 1) float volume) {
+      this.unmuteVolume = volume != 0 ? volume : this.volume;
       this.volume = volume;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setUnmuteVolume(@FloatRange(from = 0, to = 1) float volume) {
+      this.unmuteVolume = volume;
       return this;
     }
 
@@ -396,6 +405,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
           timelineChangeReason,
           playlistMetadata,
           volume,
+          unmuteVolume,
           audioAttributes,
           cueGroup,
           deviceInfo,
@@ -446,6 +456,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
           TIMELINE_CHANGE_REASON_DEFAULT,
           MediaMetadata.EMPTY,
           /* volume= */ 1f,
+          /* unmuteVolume= */ 1f,
           AudioAttributes.DEFAULT,
           CueGroup.EMPTY_TIME_ZERO,
           DeviceInfo.UNKNOWN,
@@ -462,7 +473,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
           /* seekForwardIncrementMs= */ C.DEFAULT_SEEK_FORWARD_INCREMENT_MS,
           /* maxSeekToPreviousPositionMs= */ C.DEFAULT_MAX_SEEK_TO_PREVIOUS_POSITION_MS,
           /* currentTracks= */ Tracks.EMPTY,
-          TrackSelectionParameters.DEFAULT_WITHOUT_CONTEXT);
+          TrackSelectionParameters.DEFAULT);
 
   @Nullable public final PlaybackException playerError;
 
@@ -491,6 +502,8 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
   public final MediaMetadata playlistMetadata;
 
   public final float volume;
+
+  public final float unmuteVolume;
 
   public final AudioAttributes audioAttributes;
 
@@ -672,6 +685,11 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
   }
 
   @CheckResult
+  public PlayerInfo copyWithUnmuteVolume(@FloatRange(from = 0, to = 1) float volume) {
+    return new Builder(this).setUnmuteVolume(volume).build();
+  }
+
+  @CheckResult
   public PlayerInfo copyWithDeviceInfo(DeviceInfo deviceInfo) {
     return new Builder(this).setDeviceInfo(deviceInfo).build();
   }
@@ -725,6 +743,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
       @Player.TimelineChangeReason int timelineChangeReason,
       MediaMetadata playlistMetadata,
       float volume,
+      float unmuteVolume,
       AudioAttributes audioAttributes,
       CueGroup cueGroup,
       DeviceInfo deviceInfo,
@@ -756,6 +775,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
     this.timelineChangeReason = timelineChangeReason;
     this.playlistMetadata = playlistMetadata;
     this.volume = volume;
+    this.unmuteVolume = unmuteVolume;
     this.audioAttributes = audioAttributes;
     this.cueGroup = cueGroup;
     this.deviceInfo = deviceInfo;
@@ -799,6 +819,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
   private static final String FIELD_VIDEO_SIZE = Util.intToStringMaxRadix(5);
   private static final String FIELD_PLAYLIST_METADATA = Util.intToStringMaxRadix(6);
   private static final String FIELD_VOLUME = Util.intToStringMaxRadix(7);
+  private static final String FIELD_UNMUTE_VOLUME = Util.intToStringMaxRadix(33);
   private static final String FIELD_AUDIO_ATTRIBUTES = Util.intToStringMaxRadix(8);
   private static final String FIELD_DEVICE_INFO = Util.intToStringMaxRadix(9);
   private static final String FIELD_DEVICE_VOLUME = Util.intToStringMaxRadix(10);
@@ -832,7 +853,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
   private static final String FIELD_TIMELINE_CHANGE_REASON = Util.intToStringMaxRadix(31);
   private static final String FIELD_IN_PROCESS_BINDER = Util.intToStringMaxRadix(32);
 
-  // Next field key = 33
+  // Next field key = 34
 
   /**
    * Returns a copy of this player info, filtered by the specified available commands.
@@ -949,6 +970,9 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
     if (volume != 1) {
       bundle.putFloat(FIELD_VOLUME, volume);
     }
+    if (unmuteVolume != 1) {
+      bundle.putFloat(FIELD_UNMUTE_VOLUME, unmuteVolume);
+    }
     if (!audioAttributes.equals(AudioAttributes.DEFAULT)) {
       bundle.putBundle(FIELD_AUDIO_ATTRIBUTES, audioAttributes.toBundle());
     }
@@ -1003,7 +1027,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
     if (!currentTracks.equals(Tracks.EMPTY)) {
       bundle.putBundle(FIELD_CURRENT_TRACKS, currentTracks.toBundle());
     }
-    if (!trackSelectionParameters.equals(TrackSelectionParameters.DEFAULT_WITHOUT_CONTEXT)) {
+    if (!trackSelectionParameters.equals(TrackSelectionParameters.DEFAULT)) {
       bundle.putBundle(FIELD_TRACK_SELECTION_PARAMETERS, trackSelectionParameters.toBundle());
     }
     return bundle;
@@ -1062,6 +1086,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
             ? MediaMetadata.EMPTY
             : MediaMetadata.fromBundle(playlistMetadataBundle);
     float volume = bundle.getFloat(FIELD_VOLUME, /* defaultValue= */ 1);
+    float unmuteVolume = bundle.getFloat(FIELD_UNMUTE_VOLUME, /* defaultValue= */ 1);
     @Nullable Bundle audioAttributesBundle = bundle.getBundle(FIELD_AUDIO_ATTRIBUTES);
     AudioAttributes audioAttributes =
         audioAttributesBundle == null
@@ -1117,7 +1142,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
     Bundle trackSelectionParametersBundle = bundle.getBundle(FIELD_TRACK_SELECTION_PARAMETERS);
     TrackSelectionParameters trackSelectionParameters =
         trackSelectionParametersBundle == null
-            ? TrackSelectionParameters.DEFAULT_WITHOUT_CONTEXT
+            ? TrackSelectionParameters.DEFAULT
             : TrackSelectionParameters.fromBundle(trackSelectionParametersBundle);
     return new PlayerInfo(
         playerError,
@@ -1134,6 +1159,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
         timelineChangeReason,
         playlistMetadata,
         volume,
+        unmuteVolume,
         audioAttributes,
         cueGroup,
         deviceInfo,

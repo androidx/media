@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.exoplayer.AudioFocusManager.PLAYER_COMMAND_DO_NOT_PLAY;
 import static androidx.media3.exoplayer.AudioFocusManager.PLAYER_COMMAND_PLAY_WHEN_READY;
 import static androidx.media3.exoplayer.AudioFocusManager.PLAYER_COMMAND_WAIT_FOR_CALLBACK;
@@ -25,12 +26,10 @@ import static org.robolectric.Shadows.shadowOf;
 import android.content.Context;
 import android.media.AudioFocusRequest;
 import android.media.AudioManager;
-import android.os.Handler;
 import android.os.Looper;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.Player;
-import androidx.media3.common.util.Util;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import org.junit.Before;
@@ -59,9 +58,7 @@ public class AudioFocusManagerTest {
     testPlayerControl = new TestPlayerControl();
     audioFocusManager =
         new AudioFocusManager(
-            ApplicationProvider.getApplicationContext(),
-            new Handler(Looper.myLooper()),
-            testPlayerControl);
+            ApplicationProvider.getApplicationContext(), Looper.myLooper(), testPlayerControl);
   }
 
   @Test
@@ -553,7 +550,7 @@ public class AudioFocusManagerTest {
   }
 
   private int getAudioFocusGainFromRequest(ShadowAudioManager.AudioFocusRequest audioFocusRequest) {
-    return Util.SDK_INT >= 26
+    return SDK_INT >= 26
         ? audioFocusRequest.audioFocusRequest.getFocusGain()
         : audioFocusRequest.durationHint;
   }

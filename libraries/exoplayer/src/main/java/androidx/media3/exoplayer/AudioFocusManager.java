@@ -15,6 +15,11 @@
  */
 package androidx.media3.exoplayer;
 
+import static androidx.media3.common.audio.AudioManagerCompat.AUDIOFOCUS_GAIN;
+import static androidx.media3.common.audio.AudioManagerCompat.AUDIOFOCUS_GAIN_TRANSIENT;
+import static androidx.media3.common.audio.AudioManagerCompat.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE;
+import static androidx.media3.common.audio.AudioManagerCompat.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK;
+import static androidx.media3.common.audio.AudioManagerCompat.AUDIOFOCUS_NONE;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
@@ -22,22 +27,24 @@ import android.content.Context;
 import android.media.AudioFocusRequest;
 import android.media.AudioManager;
 import android.os.Handler;
+import android.os.Looper;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.Player;
+import androidx.media3.common.audio.AudioFocusRequestCompat;
+import androidx.media3.common.audio.AudioManagerCompat;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.Util;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** Manages requesting and responding to changes in audio focus. */
@@ -111,84 +118,33 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   /** Audio focus has been temporarily lost, but playback may continue with reduced volume. */
   private static final int AUDIO_FOCUS_STATE_LOSS_TRANSIENT_DUCK = 4;
 
-  /**
-   * Audio focus types. One of {@link #AUDIOFOCUS_NONE}, {@link #AUDIOFOCUS_GAIN}, {@link
-   * #AUDIOFOCUS_GAIN_TRANSIENT}, {@link #AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK} or {@link
-   * #AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE}.
-   */
-  @Documented
-  @Retention(RetentionPolicy.SOURCE)
-  @Target(TYPE_USE)
-  @IntDef({
-    AUDIOFOCUS_NONE,
-    AUDIOFOCUS_GAIN,
-    AUDIOFOCUS_GAIN_TRANSIENT,
-    AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK,
-    AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE
-  })
-  private @interface AudioFocusGain {}
-
-  /**
-   * @see AudioManager#AUDIOFOCUS_NONE
-   */
-  @SuppressWarnings("InlinedApi")
-  private static final int AUDIOFOCUS_NONE = AudioManager.AUDIOFOCUS_NONE;
-
-  /**
-   * @see AudioManager#AUDIOFOCUS_GAIN
-   */
-  private static final int AUDIOFOCUS_GAIN = AudioManager.AUDIOFOCUS_GAIN;
-
-  /**
-   * @see AudioManager#AUDIOFOCUS_GAIN_TRANSIENT
-   */
-  private static final int AUDIOFOCUS_GAIN_TRANSIENT = AudioManager.AUDIOFOCUS_GAIN_TRANSIENT;
-
-  /**
-   * @see AudioManager#AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK
-   */
-  private static final int AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK =
-      AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK;
-
-  /**
-   * @see AudioManager#AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE
-   */
-  @SuppressWarnings("InlinedApi")
-  private static final int AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE =
-      AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE;
-
   private static final String TAG = "AudioFocusManager";
 
   private static final float VOLUME_MULTIPLIER_DUCK = 0.2f;
   private static final float VOLUME_MULTIPLIER_DEFAULT = 1.0f;
 
   private final Supplier<AudioManager> audioManager;
-  private final AudioFocusListener focusListener;
+  private final Handler eventHandler;
   @Nullable private PlayerControl playerControl;
   @Nullable private AudioAttributes audioAttributes;
 
   private @AudioFocusState int audioFocusState;
-  private @AudioFocusGain int focusGainToRequest;
+  private @AudioManagerCompat.AudioFocusGain int focusGainToRequest;
   private float volumeMultiplier = VOLUME_MULTIPLIER_DEFAULT;
-  private @MonotonicNonNull AudioFocusRequest audioFocusRequest;
+  private @MonotonicNonNull AudioFocusRequestCompat audioFocusRequest;
   private boolean rebuildAudioFocusRequest;
 
   /**
    * Constructs an AudioFocusManager to automatically handle audio focus for a player.
    *
    * @param context The current context.
-   * @param eventHandler A {@link Handler} to for the thread on which the player is used.
+   * @param eventLooper A {@link Looper} for the thread on which the audio focus manager is used.
    * @param playerControl A {@link PlayerControl} to handle commands from this instance.
    */
-  public AudioFocusManager(Context context, Handler eventHandler, PlayerControl playerControl) {
-    this.audioManager =
-        Suppliers.memoize(
-            () ->
-                checkNotNull(
-                    (AudioManager)
-                        context.getApplicationContext().getSystemService(Context.AUDIO_SERVICE)));
+  public AudioFocusManager(Context context, Looper eventLooper, PlayerControl playerControl) {
+    this.audioManager = Suppliers.memoize(() -> AudioManagerCompat.getAudioManager(context));
     this.playerControl = playerControl;
-    this.focusListener = new AudioFocusListener(eventHandler);
+    this.eventHandler = new Handler(eventLooper);
     this.audioFocusState = AUDIO_FOCUS_STATE_NOT_REQUESTED;
   }
 
@@ -207,7 +163,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    *     managed automatically.
    */
   public void setAudioAttributes(@Nullable AudioAttributes audioAttributes) {
-    if (!Util.areEqual(this.audioAttributes, audioAttributes)) {
+    if (!Objects.equals(this.audioAttributes, audioAttributes)) {
       this.audioAttributes = audioAttributes;
       focusGainToRequest = convertAudioAttributesToFocusGain(audioAttributes);
       Assertions.checkArgument(
@@ -257,7 +213,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @VisibleForTesting
   /* package */ AudioManager.OnAudioFocusChangeListener getFocusListener() {
-    return focusListener;
+    return this::handlePlatformAudioFocusChange;
   }
 
   private boolean shouldHandleAudioFocus(@Player.State int playbackState) {
@@ -268,7 +224,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     if (audioFocusState == AUDIO_FOCUS_STATE_HAVE_FOCUS) {
       return PLAYER_COMMAND_PLAY_WHEN_READY;
     }
-    int requestResult = Util.SDK_INT >= 26 ? requestAudioFocusV26() : requestAudioFocusDefault();
+    int requestResult = requestAudioFocusInternal();
     if (requestResult == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
       setAudioFocusState(AUDIO_FOCUS_STATE_HAVE_FOCUS);
       return PLAYER_COMMAND_PLAY_WHEN_READY;
@@ -283,53 +239,29 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         || audioFocusState == AUDIO_FOCUS_STATE_NOT_REQUESTED) {
       return;
     }
-    if (Util.SDK_INT >= 26) {
-      abandonAudioFocusV26();
-    } else {
-      abandonAudioFocusDefault();
+    if (audioFocusRequest != null) {
+      AudioManagerCompat.abandonAudioFocusRequest(audioManager.get(), audioFocusRequest);
     }
   }
 
-  private int requestAudioFocusDefault() {
-    return audioManager
-        .get()
-        .requestAudioFocus(
-            focusListener,
-            Util.getStreamTypeForAudioUsage(checkNotNull(audioAttributes).usage),
-            focusGainToRequest);
-  }
-
-  @RequiresApi(26)
-  private int requestAudioFocusV26() {
+  private int requestAudioFocusInternal() {
     if (audioFocusRequest == null || rebuildAudioFocusRequest) {
-      AudioFocusRequest.Builder builder =
+      AudioFocusRequestCompat.Builder builder =
           audioFocusRequest == null
-              ? new AudioFocusRequest.Builder(focusGainToRequest)
-              : new AudioFocusRequest.Builder(audioFocusRequest);
+              ? new AudioFocusRequestCompat.Builder(focusGainToRequest)
+              : audioFocusRequest.buildUpon();
 
       boolean willPauseWhenDucked = willPauseWhenDucked();
       audioFocusRequest =
           builder
-              .setAudioAttributes(
-                  checkNotNull(audioAttributes).getAudioAttributesV21().audioAttributes)
+              .setAudioAttributes(checkNotNull(audioAttributes))
               .setWillPauseWhenDucked(willPauseWhenDucked)
-              .setOnAudioFocusChangeListener(focusListener)
+              .setOnAudioFocusChangeListener(this::handlePlatformAudioFocusChange, eventHandler)
               .build();
 
       rebuildAudioFocusRequest = false;
     }
-    return audioManager.get().requestAudioFocus(audioFocusRequest);
-  }
-
-  private void abandonAudioFocusDefault() {
-    audioManager.get().abandonAudioFocus(focusListener);
-  }
-
-  @RequiresApi(26)
-  private void abandonAudioFocusV26() {
-    if (audioFocusRequest != null) {
-      audioManager.get().abandonAudioFocusRequest(audioFocusRequest);
-    }
+    return AudioManagerCompat.requestAudioFocus(audioManager.get(), audioFocusRequest);
   }
 
   private boolean willPauseWhenDucked() {
@@ -344,7 +276,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * @param audioAttributes The audio attributes associated with this focus request.
    * @return The type of audio focus gain that should be requested.
    */
-  private static @AudioFocusGain int convertAudioAttributesToFocusGain(
+  private static @AudioManagerCompat.AudioFocusGain int convertAudioAttributesToFocusGain(
       @Nullable AudioAttributes audioAttributes) {
     if (audioAttributes == null) {
       // Don't handle audio focus. It may be either video only contents or developers
@@ -458,21 +390,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private void executePlayerCommand(@PlayerCommand int playerCommand) {
     if (playerControl != null) {
       playerControl.executePlayerCommand(playerCommand);
-    }
-  }
-
-  // Internal audio focus listener.
-
-  private class AudioFocusListener implements AudioManager.OnAudioFocusChangeListener {
-    private final Handler eventHandler;
-
-    public AudioFocusListener(Handler eventHandler) {
-      this.eventHandler = eventHandler;
-    }
-
-    @Override
-    public void onAudioFocusChange(int focusChange) {
-      eventHandler.post(() -> handlePlatformAudioFocusChange(focusChange));
     }
   }
 }

@@ -269,5 +269,4 @@ public final class SessionCommands {
     }
     return builder.build();
   }
-  ;
 }

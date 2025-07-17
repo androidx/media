@@ -257,6 +257,10 @@
       {
         "name": "Apple media playlist (AAC)",
         "uri": "https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_4x3/gear0/prog_index.m3u8"
+      },
+      {
+        "name": "Bitmovin (FMP4)",
+        "uri": "https://bitdash-a.akamaihd.net/content/MI201109210084_1/m3u8s-fmp4/f08e80da-bf1d-4e3d-8899-f0f6155f6efa.m3u8"
       }
     ]
   },
@@ -280,14 +284,24 @@
     "name": "IMA sample ad tags",
     "samples": [
       {
-        "name": "Single inline linear",
+        "name": "VMAP pre-roll single ad, mid-roll standard pods with 5 ads every 10 seconds for 1:40, post-roll single ad",
         "uri": "https://storage.googleapis.com/exoplayer-test-media-1/mkv/android-screens-lavf-56.36.100-aac-avc-main-1280x720.mkv",
-        "ad_tag_uri": "https://pubads.g.doubleclick.net/gampad/ads?sz=640x480&iu=/124319096/external/single_ad_samples&ciu_szs=300x250&impl=s&gdfp_req=1&env=vp&output=vast&unviewed_position_start=1&cust_params=deployment%3Ddevsite%26sample_ct%3Dlinear&correlator="
+        "ad_tag_uri": "https://pubads.g.doubleclick.net/gampad/ads?sz=640x480&iu=/124319096/external/ad_rule_samples&ciu_szs=300x250&ad_rule=1&impl=s&gdfp_req=1&env=vp&output=vmap&unviewed_position_start=1&cust_params=deployment%3Ddevsite%26sample_ar%3Dpremidpostlongpod&cmsid=496&vid=short_tencue&correlator="
+      },
+      {
+        "name": "VMAP empty midroll",
+        "uri": "https://storage.googleapis.com/exoplayer-test-media-1/mkv/android-screens-lavf-56.36.100-aac-avc-main-1280x720.mkv",
+        "ad_tag_uri": "https://vastsynthesizer.appspot.com/empty-midroll"
       },
       {
         "name": "Single skippable inline",
         "uri": "https://storage.googleapis.com/exoplayer-test-media-1/mkv/android-screens-lavf-56.36.100-aac-avc-main-1280x720.mkv",
         "ad_tag_uri": "https://pubads.g.doubleclick.net/gampad/ads?sz=640x480&iu=/124319096/external/single_ad_samples&ciu_szs=300x250&impl=s&gdfp_req=1&env=vp&output=vast&unviewed_position_start=1&cust_params=deployment%3Ddevsite%26sample_ct%3Dskippablelinear&correlator="
+      },
+      {
+        "name": "Single inline linear",
+        "uri": "https://storage.googleapis.com/exoplayer-test-media-1/mkv/android-screens-lavf-56.36.100-aac-avc-main-1280x720.mkv",
+        "ad_tag_uri": "https://pubads.g.doubleclick.net/gampad/ads?sz=640x480&iu=/124319096/external/single_ad_samples&ciu_szs=300x250&impl=s&gdfp_req=1&env=vp&output=vast&unviewed_position_start=1&cust_params=deployment%3Ddevsite%26sample_ct%3Dlinear&correlator="
       },
       {
         "name": "Single redirect linear",
@@ -350,16 +364,6 @@
         "ad_tag_uri": "https://pubads.g.doubleclick.net/gampad/ads?sz=640x480&iu=/124319096/external/ad_rule_samples&ciu_szs=300x250&ad_rule=1&impl=s&gdfp_req=1&env=vp&output=vmap&unviewed_position_start=1&cust_params=deployment%3Ddevsite%26sample_ar%3Dpremidpostoptimizedpodbumper&cmsid=496&vid=short_onecue&correlator="
       },
       {
-        "name": "VMAP pre-roll single ad, mid-roll standard pods with 5 ads every 10 seconds for 1:40, post-roll single ad",
-        "uri": "https://storage.googleapis.com/exoplayer-test-media-1/mkv/android-screens-lavf-56.36.100-aac-avc-main-1280x720.mkv",
-        "ad_tag_uri": "https://pubads.g.doubleclick.net/gampad/ads?sz=640x480&iu=/124319096/external/ad_rule_samples&ciu_szs=300x250&ad_rule=1&impl=s&gdfp_req=1&env=vp&output=vmap&unviewed_position_start=1&cust_params=deployment%3Ddevsite%26sample_ar%3Dpremidpostlongpod&cmsid=496&vid=short_tencue&correlator="
-      },
-      {
-        "name": "VMAP empty midroll",
-        "uri": "https://storage.googleapis.com/exoplayer-test-media-1/mkv/android-screens-lavf-56.36.100-aac-avc-main-1280x720.mkv",
-        "ad_tag_uri": "https://vastsynthesizer.appspot.com/empty-midroll"
-      },
-      {
         "name": "VMAP full, empty, full midrolls",
         "uri": "https://storage.googleapis.com/exoplayer-test-media-1/mkv/android-screens-lavf-56.36.100-aac-avc-main-1280x720.mkv",
         "ad_tag_uri": "https://vastsynthesizer.appspot.com/empty-midroll-2"
@@ -397,6 +401,10 @@
     "name": "IMA DAI streams",
     "samples": [
       {
+        "name": "DASH VOD: Tears of Steel (11 periods, pre/mid/post), 2/5/2 ads [5/10s]",
+        "uri": "ssai://dai.google.com/?contentSourceId=2559737&videoId=tos-dash&format=0&adsId=1"
+      },
+      {
         "name": "HLS VOD: Demo (skippable pre/post), single ads [30 s]",
         "uri": "ssai://dai.google.com/?contentSourceId=2483977&videoId=ima-vod-skippable-test&format=2&adsId=1"
       },
@@ -409,16 +417,40 @@
         "uri": "ssai://dai.google.com/?assetKey=sN_IYUG8STe1ZzhIIE_ksA&format=2&adsId=3"
       },
       {
-        "name": "DASH VOD: Tears of Steel (11 periods, pre/mid/post), 2/5/2 ads [5/10s]",
-        "uri": "ssai://dai.google.com/?contentSourceId=2559737&videoId=tos-dash&format=0&adsId=1"
-      },
-      {
         "name": "DASH live: Tears of Steel (mid), 3 ads each [10 s]",
         "uri": "ssai://dai.google.com/?assetKey=jNVjPZwzSkyeGiaNQTPqiQ&format=0&adsId=1"
       },
       {
         "name": "DASH live: New Tears of Steel (mid), 3 ads each [10 s]",
         "uri": "ssai://dai.google.com/?assetKey=PSzZMzAkSXCmlJOWDmRj8Q&format=0&adsId=12"
+      },
+      {
+        "name": "Playlist: No ads - HLS live: Big Buck Bunny - No ads",
+        "playlist": [
+          {
+            "uri": "https://html5demos.com/assets/dizzy.mp4"
+          },
+          {
+            "uri": "ssai://dai.google.com/?assetKey=sN_IYUG8STe1ZzhIIE_ksA&format=2&adsId=3"
+          },
+          {
+            "uri": "https://html5demos.com/assets/dizzy.mp4"
+          }
+        ]
+      },
+      {
+        "name": "Playlist: No ads - DASH live: Tears of Steel (mid) - No ads",
+        "playlist": [
+          {
+            "uri": "https://html5demos.com/assets/dizzy.mp4"
+          },
+          {
+            "uri": "ssai://dai.google.com/?assetKey=PSzZMzAkSXCmlJOWDmRj8Q&format=0&adsId=1"
+          },
+          {
+            "uri": "https://html5demos.com/assets/dizzy.mp4"
+          }
+        ]
       },
       {
         "name": "DASH live: Unencrypted stream with 30s ad breaks every minute",
@@ -475,34 +507,6 @@
           },
           {
             "uri": "ssai://dai.google.com/?contentSourceId=2559737&videoId=tos-dash&format=0&adsId=1"
-          },
-          {
-            "uri": "https://html5demos.com/assets/dizzy.mp4"
-          }
-        ]
-      },
-      {
-        "name": "Playlist: No ads - DASH live: Tears of Steel (mid) - No ads",
-        "playlist": [
-          {
-            "uri": "https://html5demos.com/assets/dizzy.mp4"
-          },
-          {
-            "uri": "ssai://dai.google.com/?assetKey=PSzZMzAkSXCmlJOWDmRj8Q&format=0&adsId=1"
-          },
-          {
-            "uri": "https://html5demos.com/assets/dizzy.mp4"
-          }
-        ]
-      },
-      {
-        "name": "Playlist: No ads - HLS live: Big Buck Bunny - No ads",
-        "playlist": [
-          {
-            "uri": "https://html5demos.com/assets/dizzy.mp4"
-          },
-          {
-            "uri": "ssai://dai.google.com/?assetKey=sN_IYUG8STe1ZzhIIE_ksA&format=2&adsId=3"
           },
           {
             "uri": "https://html5demos.com/assets/dizzy.mp4"
@@ -614,6 +618,17 @@
             "image_duration_ms": 2000
           }
         ]
+      },
+      {
+        "name": "Change in crop b/409036359",
+        "playlist": [
+          {
+            "uri": "https://storage.googleapis.com/exoplayer-test-media-1/mp4/bbb_760x480_1mbps_60fps_hevc.mp4"
+          },
+          {
+            "uri": "https://storage.googleapis.com/exoplayer-test-media-1/mp4/bbb_760x480_1mbps_60fps_hevc_pad.mp4"
+          }
+        ]
       }
     ]
   },
@@ -635,6 +650,12 @@
         "uri": "https://storage.googleapis.com/wvmedia/2019/cenc/av1/24/webm/llama_av1_480p_400.webm",
         "drm_scheme": "widevine",
         "drm_license_uri": "https://proxy.uat.widevine.com/proxy?video_id=GTS_HW_SECURE_ALL&provider=widevine_test"
+      },
+      {
+        "name": "HD (DASH, Widevine cenc, L3, SVT-AV1)",
+        "uri": "https://storage.googleapis.com/exoplayer-test-media-1/widevine/av1/dash_manifest.mpd",
+        "drm_scheme": "widevine",
+        "drm_license_uri": "https://proxy.uat.widevine.com/proxy?provider=widevine_test"
       }
     ]
   },

@@ -61,7 +61,6 @@ import androidx.media3.datasource.DataSourceUtil;
 import androidx.media3.datasource.DataSpec;
 import androidx.media3.exoplayer.RenderersFactory;
 import androidx.media3.exoplayer.offline.DownloadService;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
@@ -74,6 +73,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -377,6 +377,7 @@ public class SampleChooserActivity extends AppCompatActivity
     private PlaylistHolder readEntry(JsonReader reader, boolean insidePlaylist) throws IOException {
       Uri uri = null;
       String extension = null;
+      String mimeType = null;
       String title = null;
       ArrayList<PlaylistHolder> children = null;
       Uri subtitleUri = null;
@@ -404,6 +405,9 @@ public class SampleChooserActivity extends AppCompatActivity
             break;
           case "extension":
             extension = reader.nextString();
+            break;
+          case "mime_type":
+            mimeType = reader.nextString();
             break;
           case "clip_start_position_ms":
             clippingConfiguration.setStartPositionMs(reader.nextLong());
@@ -474,16 +478,20 @@ public class SampleChooserActivity extends AppCompatActivity
         }
         return new PlaylistHolder(title, mediaItems);
       } else {
-        @Nullable
-        String adaptiveMimeType =
-            Util.getAdaptiveMimeTypeForContentType(
-                TextUtils.isEmpty(extension)
-                    ? Util.inferContentType(uri)
-                    : Util.inferContentTypeForExtension(extension));
+        if (!TextUtils.isEmpty(mimeType)) {
+          checkState(
+              TextUtils.isEmpty(extension), "Only one of mime_type or extension should be set");
+          mediaItem.setMimeType(mimeType);
+        } else {
+          mediaItem.setMimeType(
+              Util.getAdaptiveMimeTypeForContentType(
+                  TextUtils.isEmpty(extension)
+                      ? Util.inferContentType(uri)
+                      : Util.inferContentTypeForExtension(extension)));
+        }
         mediaItem
             .setUri(uri)
             .setMediaMetadata(new MediaMetadata.Builder().setTitle(title).build())
-            .setMimeType(adaptiveMimeType)
             .setClippingConfiguration(clippingConfiguration.build());
         if (drmUuid != null) {
           mediaItem.setDrmConfiguration(
@@ -524,7 +532,7 @@ public class SampleChooserActivity extends AppCompatActivity
 
     private PlaylistGroup getGroup(String groupName, List<PlaylistGroup> groups) {
       for (int i = 0; i < groups.size(); i++) {
-        if (Objects.equal(groupName, groups.get(i).title)) {
+        if (Objects.equals(groupName, groups.get(i).title)) {
           return groups.get(i);
         }
       }

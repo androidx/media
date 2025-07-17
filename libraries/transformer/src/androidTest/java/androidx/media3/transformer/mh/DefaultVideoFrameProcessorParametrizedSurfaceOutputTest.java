@@ -48,7 +48,7 @@ import org.junit.runners.Parameterized.Parameters;
  * a {@link SurfaceBitmapReader} to verify that releasing the output surface during processing
  * succeeds.
  */
-// TODO(b/263395272): Move this test to effects/mh tests
+// TODO: b/263395272 - Move this test to effects/mh tests
 @RunWith(Parameterized.class)
 public class DefaultVideoFrameProcessorParametrizedSurfaceOutputTest {
   @Rule public final TestName testName = new TestName();

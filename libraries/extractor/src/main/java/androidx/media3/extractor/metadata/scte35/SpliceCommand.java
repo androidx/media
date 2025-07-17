@@ -26,11 +26,4 @@ public abstract class SpliceCommand implements Metadata.Entry {
   public String toString() {
     return "SCTE-35 splice command: type=" + getClass().getSimpleName();
   }
-
-  // Parcelable implementation.
-
-  @Override
-  public int describeContents() {
-    return 0;
-  }
 }

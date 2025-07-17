@@ -16,6 +16,7 @@
 package androidx.media3.transformer.mh.analysis;
 
 import static android.media.MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR;
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_REMOTE_1280W_720H_30_SECOND_HIGHMOTION;
@@ -51,7 +52,6 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
-import androidx.media3.common.util.Util;
 import androidx.media3.transformer.AndroidTestUtil.AssetInfo;
 import androidx.media3.transformer.DefaultEncoderFactory;
 import androidx.media3.transformer.EditedMediaItem;
@@ -118,8 +118,8 @@ public class SsimMapperTest {
     List<Object[]> parameterList = new ArrayList<>();
     for (AssetInfo assetInfo : INPUT_ASSETS) {
       parameterList.add(new Object[] {assetInfo, MimeTypes.VIDEO_H264});
-      // TODO(b/210593256): Test pre 24 once in-app muxing implemented.
-      if (Util.SDK_INT >= 24) {
+      // TODO: b/210593256 - Test pre 24 once in-app muxing implemented.
+      if (SDK_INT >= 24) {
         parameterList.add(new Object[] {assetInfo, MimeTypes.VIDEO_H265});
       }
     }
@@ -271,7 +271,7 @@ public class SsimMapperTest {
     }
 
     private double exportAndGetSsim(int bitrate) throws Exception {
-      // TODO(b/238094555): Force specific encoders to be used.
+      // TODO: b/238094555 - Force specific encoders to be used.
 
       String fileName = checkNotNull(getLast(FORWARD_SLASH_SPLITTER.split(videoUri)));
       String testId = String.format("%s_%s_%s", testIdPrefix, bitrate, fileName);

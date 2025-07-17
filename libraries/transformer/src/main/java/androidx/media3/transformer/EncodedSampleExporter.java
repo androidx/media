@@ -19,6 +19,7 @@ package androidx.media3.transformer;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.decoder.DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_DIRECT;
 
+import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.Format;
@@ -83,7 +84,8 @@ import java.util.concurrent.atomic.AtomicLong;
       EditedMediaItem editedMediaItem,
       long durationUs,
       @Nullable Format decodedFormat,
-      boolean isLast) {
+      boolean isLast,
+      @IntRange(from = 0) long positionOffsetUs) {
     mediaItemOffsetUs = nextMediaItemOffsetUs.get();
     nextMediaItemOffsetUs.addAndGet(durationUs);
   }

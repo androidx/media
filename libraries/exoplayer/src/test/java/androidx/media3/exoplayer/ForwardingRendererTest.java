@@ -15,12 +15,8 @@
  */
 package androidx.media3.exoplayer;
 
-import static com.google.common.truth.Truth.assertThat;
-
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import java.lang.reflect.Method;
-import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -28,15 +24,12 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public class ForwardingRendererTest {
   @Test
-  public void forwardingRenderer_overridesAllMethods() throws NoSuchMethodException {
-    // Check with reflection that ForwardingRenderer overrides all Renderer methods.
-    List<Method> methods = TestUtil.getPublicMethods(Renderer.class);
-    for (Method method : methods) {
-      assertThat(
-              ForwardingRenderer.class
-                  .getDeclaredMethod(method.getName(), method.getParameterTypes())
-                  .getDeclaringClass())
-          .isEqualTo(ForwardingRenderer.class);
-    }
+  public void overridesAllMethods() throws NoSuchMethodException {
+    TestUtil.assertSubclassOverridesAllMethods(Renderer.class, ForwardingRenderer.class);
+  }
+
+  @Test
+  public void forwardsAllMethods() throws Exception {
+    TestUtil.assertForwardingClassForwardsAllMethods(Renderer.class, ForwardingRenderer::new);
   }
 }

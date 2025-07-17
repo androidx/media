@@ -19,11 +19,11 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.when;
 
-import android.os.Bundle;
 import android.os.Looper;
 import androidx.media3.common.Player;
+import androidx.media3.common.Timeline;
+import androidx.media3.test.utils.FakeTimeline;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import com.google.common.collect.ImmutableList;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -44,21 +44,59 @@ public class PlayerWrapperTest {
 
   @Before
   public void setUp() {
-    playerWrapper =
-        new PlayerWrapper(
-            player,
-            /* playIfSuppressed= */ true,
-            /* customLayout= */ ImmutableList.of(),
-            /* mediaButtonPreferences= */ ImmutableList.of(),
-            SessionCommands.EMPTY,
-            Player.Commands.EMPTY,
-            /* legacyExtras= */ Bundle.EMPTY);
+    playerWrapper = new PlayerWrapper(player);
     when(player.isCommandAvailable(anyInt())).thenReturn(true);
     when(player.getApplicationLooper()).thenReturn(Looper.myLooper());
   }
 
   @Test
-  public void createSessionPositionInfoForBundling() {
+  public void
+      getCurrentTimelineWithCommandCheck_withoutCommandGetTimelineAndGetCurrentMediaItem_isEmpty() {
+    when(player.isCommandAvailable(Player.COMMAND_GET_TIMELINE)).thenReturn(false);
+    when(player.isCommandAvailable(Player.COMMAND_GET_CURRENT_MEDIA_ITEM)).thenReturn(false);
+    when(player.getCurrentTimeline()).thenReturn(new FakeTimeline(/* windowCount= */ 3));
+
+    Timeline currentTimeline = playerWrapper.getCurrentTimelineWithCommandCheck();
+
+    assertThat(currentTimeline.isEmpty()).isTrue();
+  }
+
+  @Test
+  public void getCurrentTimelineWithCommandCheck_withoutCommandGetTimelineWhenEmpty_isEmpty() {
+    when(player.isCommandAvailable(Player.COMMAND_GET_TIMELINE)).thenReturn(false);
+    when(player.isCommandAvailable(Player.COMMAND_GET_CURRENT_MEDIA_ITEM)).thenReturn(true);
+    when(player.getCurrentTimeline()).thenReturn(Timeline.EMPTY);
+
+    Timeline currentTimeline = playerWrapper.getCurrentTimelineWithCommandCheck();
+
+    assertThat(currentTimeline.isEmpty()).isTrue();
+  }
+
+  @Test
+  public void
+      getCurrentTimelineWithCommandCheck_withoutCommandGetTimelineWhenMultipleItems_hasSingleItemTimeline() {
+    when(player.isCommandAvailable(Player.COMMAND_GET_TIMELINE)).thenReturn(false);
+    when(player.isCommandAvailable(Player.COMMAND_GET_CURRENT_MEDIA_ITEM)).thenReturn(true);
+    when(player.getCurrentTimeline()).thenReturn(new FakeTimeline(/* windowCount= */ 3));
+
+    Timeline currentTimeline = playerWrapper.getCurrentTimelineWithCommandCheck();
+
+    assertThat(currentTimeline.getWindowCount()).isEqualTo(1);
+  }
+
+  @Test
+  public void getCurrentTimelineWithCommandCheck_withCommandGetTimeline_returnOriginalTimeline() {
+    when(player.isCommandAvailable(Player.COMMAND_GET_TIMELINE)).thenReturn(true);
+    when(player.isCommandAvailable(Player.COMMAND_GET_CURRENT_MEDIA_ITEM)).thenReturn(false);
+    when(player.getCurrentTimeline()).thenReturn(new FakeTimeline(/* windowCount= */ 3));
+
+    Timeline currentTimeline = playerWrapper.getCurrentTimelineWithCommandCheck();
+
+    assertThat(currentTimeline.getWindowCount()).isEqualTo(3);
+  }
+
+  @Test
+  public void createSessionPositionInfo() {
     int testAdGroupIndex = 12;
     int testAdIndexInAdGroup = 99;
     boolean testIsPlayingAd = true;
@@ -88,7 +126,7 @@ public class PlayerWrapperTest {
     when(player.getCurrentMediaItemIndex()).thenReturn(testmediaItemIndex);
     when(player.getCurrentPeriodIndex()).thenReturn(testPeriodIndex);
 
-    SessionPositionInfo sessionPositionInfo = playerWrapper.createSessionPositionInfoForBundling();
+    SessionPositionInfo sessionPositionInfo = playerWrapper.createSessionPositionInfo();
 
     assertThat(sessionPositionInfo.positionInfo.positionMs).isEqualTo(testCurrentPositionMs);
     assertThat(sessionPositionInfo.positionInfo.contentPositionMs).isEqualTo(testContentPositionMs);

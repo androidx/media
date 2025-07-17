@@ -16,6 +16,7 @@
 package androidx.media3.session;
 
 import static android.Manifest.permission.MEDIA_CONTENT_CONTROL;
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.core.app.NotificationCompat.COLOR_DEFAULT;
 import static androidx.media3.common.util.Assertions.checkArgument;
 
@@ -33,7 +34,6 @@ import androidx.core.app.NotificationBuilderWithBuilderAccessor;
 import androidx.core.graphics.drawable.IconCompat;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
@@ -190,17 +190,12 @@ public class MediaStyleNotificationHelper {
 
     @Override
     public void apply(NotificationBuilderWithBuilderAccessor builder) {
-      // Avoid ambiguity with androidx.media3.session.Session.Token
-      @SuppressWarnings("UnnecessarilyFullyQualified")
       Notification.MediaStyle style =
-          new Notification.MediaStyle()
-              .setMediaSession(
-                  (android.media.session.MediaSession.Token)
-                      session.getSessionCompat().getSessionToken().getToken());
+          new Notification.MediaStyle().setMediaSession(session.getPlatformToken());
       if (actionsToShowInCompact != null) {
         style.setShowActionsInCompactView(actionsToShowInCompact);
       }
-      if (Util.SDK_INT >= 34 && remoteDeviceName != null) {
+      if (SDK_INT >= 34 && remoteDeviceName != null) {
         Api34Impl.setRemotePlaybackInfo(
             style, remoteDeviceName, remoteDeviceIconRes, remoteDeviceIntent);
         builder.getBuilder().setStyle(style);
@@ -332,7 +327,7 @@ public class MediaStyleNotificationHelper {
 
     @Override
     public void apply(NotificationBuilderWithBuilderAccessor builder) {
-      if (Util.SDK_INT < 24) {
+      if (SDK_INT < 24) {
         super.apply(builder);
         return;
       }
@@ -341,7 +336,7 @@ public class MediaStyleNotificationHelper {
       if (actionsToShowInCompact != null) {
         style.setShowActionsInCompactView(actionsToShowInCompact);
       }
-      if (Util.SDK_INT >= 34 && remoteDeviceName != null) {
+      if (SDK_INT >= 34 && remoteDeviceName != null) {
         Api34Impl.setRemotePlaybackInfo(
             style, remoteDeviceName, remoteDeviceIconRes, remoteDeviceIntent);
         builder.getBuilder().setStyle(style);
@@ -357,7 +352,7 @@ public class MediaStyleNotificationHelper {
     @Nullable
     @SuppressWarnings("nullness:override.return") // NotificationCompat doesn't annotate @Nullable
     public RemoteViews makeContentView(NotificationBuilderWithBuilderAccessor builder) {
-      if (Util.SDK_INT >= 24) {
+      if (SDK_INT >= 24) {
         // No custom content view required
         return null;
       }
@@ -385,7 +380,7 @@ public class MediaStyleNotificationHelper {
     @Nullable
     @SuppressWarnings("nullness:override.return") // NotificationCompat doesn't annotate @Nullable
     public RemoteViews makeBigContentView(NotificationBuilderWithBuilderAccessor builder) {
-      if (Util.SDK_INT >= 24) {
+      if (SDK_INT >= 24) {
         // No custom big content view required
         return null;
       }
@@ -414,7 +409,7 @@ public class MediaStyleNotificationHelper {
     @Nullable
     @SuppressWarnings("nullness:override.return") // NotificationCompat doesn't annotate @Nullable
     public RemoteViews makeHeadsUpContentView(NotificationBuilderWithBuilderAccessor builder) {
-      if (Util.SDK_INT >= 24) {
+      if (SDK_INT >= 24) {
         // No custom heads up content view required
         return null;
       }

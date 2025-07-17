@@ -27,7 +27,6 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -209,7 +208,7 @@ public class MediaItemTest {
             .setUri(URI_STRING)
             .setDrmUuid(C.WIDEVINE_UUID)
             .setDrmLicenseUri(licenseUri)
-            .setDrmSessionForClearTypes(Arrays.asList(C.TRACK_TYPE_AUDIO))
+            .setDrmSessionForClearTypes(ImmutableList.of(C.TRACK_TYPE_AUDIO))
             .setDrmSessionForClearPeriods(true)
             .build();
 
@@ -450,6 +449,7 @@ public class MediaItemTest {
                     .setRelativeToLiveWindow(true)
                     .setRelativeToDefaultPosition(true)
                     .setStartsAtKeyFrame(true)
+                    .setAllowUnseekableMedia(true)
                     .build())
             .build();
 
@@ -458,6 +458,7 @@ public class MediaItemTest {
     assertThat(mediaItem.clippingConfiguration.relativeToLiveWindow).isTrue();
     assertThat(mediaItem.clippingConfiguration.relativeToDefaultPosition).isTrue();
     assertThat(mediaItem.clippingConfiguration.startsAtKeyFrame).isTrue();
+    assertThat(mediaItem.clippingConfiguration.allowUnseekableMedia).isTrue();
     assertThat(mediaItem.clippingConfiguration).isEqualTo(mediaItem.clippingProperties);
   }
 
@@ -475,6 +476,7 @@ public class MediaItemTest {
     assertThat(clippingConfiguration.relativeToLiveWindow).isFalse();
     assertThat(clippingConfiguration.relativeToDefaultPosition).isFalse();
     assertThat(clippingConfiguration.startsAtKeyFrame).isFalse();
+    assertThat(clippingConfiguration.allowUnseekableMedia).isFalse();
     assertThat(clippingConfiguration).isEqualTo(MediaItem.ClippingConfiguration.UNSET);
   }
 
@@ -503,6 +505,7 @@ public class MediaItemTest {
             .setStartPositionMs(1000L)
             .setEndPositionUs(2000_031L)
             .setStartsAtKeyFrame(true)
+            .setAllowUnseekableMedia(true)
             .build();
 
     MediaItem.ClippingConfiguration clippingConfigurationFromBundle =

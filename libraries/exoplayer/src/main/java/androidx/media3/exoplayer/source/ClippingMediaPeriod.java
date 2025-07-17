@@ -15,6 +15,9 @@
  */
 package androidx.media3.exoplayer.source;
 
+import static java.lang.Math.max;
+import static java.lang.Math.min;
+
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -132,19 +135,16 @@ public final class ClippingMediaPeriod implements MediaPeriod, MediaPeriod.Callb
       sampleStreams[i] = (ClippingSampleStream) streams[i];
       childStreams[i] = sampleStreams[i] != null ? sampleStreams[i].childStream : null;
     }
-    long enablePositionUs =
+    long realEnablePositionUs =
         mediaPeriod.selectTracks(
             selections, mayRetainStreamFlags, childStreams, streamResetFlags, positionUs);
+    long correctedEnablePositionUs =
+        enforceClippingRange(realEnablePositionUs, /* minPositionUs= */ positionUs, endUs);
     pendingInitialDiscontinuityPositionUs =
         isPendingInitialDiscontinuity()
-                && positionUs == startUs
-                && shouldKeepInitialDiscontinuity(startUs, selections)
-            ? enablePositionUs
+                && shouldKeepInitialDiscontinuity(realEnablePositionUs, positionUs, selections)
+            ? correctedEnablePositionUs
             : C.TIME_UNSET;
-    Assertions.checkState(
-        enablePositionUs == positionUs
-            || (enablePositionUs >= startUs
-                && (endUs == C.TIME_END_OF_SOURCE || enablePositionUs <= endUs)));
     for (int i = 0; i < streams.length; i++) {
       if (childStreams[i] == null) {
         sampleStreams[i] = null;
@@ -153,7 +153,7 @@ public final class ClippingMediaPeriod implements MediaPeriod, MediaPeriod.Callb
       }
       streams[i] = sampleStreams[i];
     }
-    return enablePositionUs;
+    return correctedEnablePositionUs;
   }
 
   @Override
@@ -179,9 +179,7 @@ public final class ClippingMediaPeriod implements MediaPeriod, MediaPeriod.Callb
     if (discontinuityUs == C.TIME_UNSET) {
       return C.TIME_UNSET;
     }
-    Assertions.checkState(discontinuityUs >= startUs);
-    Assertions.checkState(endUs == C.TIME_END_OF_SOURCE || discontinuityUs <= endUs);
-    return discontinuityUs;
+    return enforceClippingRange(discontinuityUs, startUs, endUs);
   }
 
   @Override
@@ -202,11 +200,7 @@ public final class ClippingMediaPeriod implements MediaPeriod, MediaPeriod.Callb
         sampleStream.clearSentEos();
       }
     }
-    long seekUs = mediaPeriod.seekToUs(positionUs);
-    Assertions.checkState(
-        seekUs == positionUs
-            || (seekUs >= startUs && (endUs == C.TIME_END_OF_SOURCE || seekUs <= endUs)));
-    return seekUs;
+    return enforceClippingRange(mediaPeriod.seekToUs(positionUs), startUs, endUs);
   }
 
   @Override
@@ -276,7 +270,13 @@ public final class ClippingMediaPeriod implements MediaPeriod, MediaPeriod.Callb
   }
 
   private static boolean shouldKeepInitialDiscontinuity(
-      long startUs, @NullableType ExoTrackSelection[] selections) {
+      long startUs, long requestedPositionUs, @NullableType ExoTrackSelection[] selections) {
+    // If the source adjusted the start position to be before the requested position, we need to
+    // report a discontinuity to ensure renderers decode-only the samples before the requested start
+    // position.
+    if (startUs < requestedPositionUs) {
+      return true;
+    }
     // If the clipping start position is non-zero, the clipping sample streams will adjust
     // timestamps on buffers they read from the unclipped sample streams. These adjusted buffer
     // timestamps can be negative, because sample streams provide buffers starting at a key-frame,
@@ -298,6 +298,15 @@ public final class ClippingMediaPeriod implements MediaPeriod, MediaPeriod.Callb
       }
     }
     return false;
+  }
+
+  private static long enforceClippingRange(
+      long positionUs, long minPositionUs, long maxPositionUs) {
+    positionUs = max(positionUs, minPositionUs);
+    if (maxPositionUs != C.TIME_END_OF_SOURCE) {
+      positionUs = min(positionUs, maxPositionUs);
+    }
+    return positionUs;
   }
 
   /** Wraps a {@link SampleStream} and clips its samples. */

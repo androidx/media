@@ -15,24 +15,40 @@
  */
 package androidx.media3.exoplayer.source;
 
+import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.test.utils.robolectric.RobolectricUtil.DEFAULT_TIMEOUT_MS;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
-import android.os.SystemClock;
+import android.net.Uri;
+import android.os.Handler;
+import android.os.Looper;
 import androidx.annotation.Nullable;
+import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.Timeline;
+import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.Util;
+import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DefaultDataSource;
+import androidx.media3.datasource.ResolvingDataSource;
+import androidx.media3.exoplayer.LoadingInfo;
 import androidx.media3.exoplayer.analytics.PlayerId;
+import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
+import androidx.media3.exoplayer.trackselection.FixedTrackSelection;
 import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy;
+import androidx.media3.extractor.SeekMap;
 import androidx.media3.test.utils.MediaSourceTestRunner;
 import androidx.media3.test.utils.TestUtil;
 import androidx.media3.test.utils.robolectric.RobolectricUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.util.concurrent.ListenableFuture;
 import java.io.IOException;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Test;
@@ -119,14 +135,97 @@ public class ProgressiveMediaSourceTest {
   }
 
   @Test
-  public void maybeThrowPrepareError_withSuppressPrepareError_doesNotThrow() throws Exception {
+  public void lazyLoading_preparationCompletesWithoutLoadingData_loadsDataWhenTrackSelected()
+      throws Exception {
+    Set<Uri> openedUris = new HashSet<>();
+    DataSource.Factory dataSourceFactory =
+        new ResolvingDataSource.Factory(
+            new DefaultDataSource.Factory(ApplicationProvider.getApplicationContext()),
+            dataSpec -> {
+              openedUris.add(dataSpec.uri);
+              return dataSpec;
+            });
+    Uri mediaUri = Uri.parse("asset:///media/mp4/sample_opus.mp4");
+    Format format =
+        new Format.Builder().setId("format ID").setSampleMimeType(MimeTypes.AUDIO_OPUS).build();
+    ProgressiveMediaSource mediaSource =
+        new ProgressiveMediaSource.Factory(dataSourceFactory)
+            .enableLazyLoadingWithSingleTrack(/* trackId= */ 42, format)
+            .createMediaSource(MediaItem.fromUri(mediaUri));
+    ProgressiveMediaSourceTestRunner mediaSourceTestRunner =
+        new ProgressiveMediaSourceTestRunner(mediaSource);
+    ConditionVariable loadCompleted = new ConditionVariable();
+    mediaSourceTestRunner.runOnPlaybackThread(
+        () ->
+            mediaSource.addEventListener(
+                new Handler(checkNotNull(Looper.myLooper())),
+                new MediaSourceEventListener() {
+                  @Override
+                  public void onLoadCompleted(
+                      int windowIndex,
+                      @Nullable MediaSource.MediaPeriodId mediaPeriodId,
+                      LoadEventInfo loadEventInfo,
+                      MediaLoadData mediaLoadData) {
+                    loadCompleted.open();
+                  }
+                }));
+
+    AtomicReference<SeekMap> seekMapReference = new AtomicReference<>();
+    ProgressiveMediaSource.Listener listener = (source, seekMap) -> seekMapReference.set(seekMap);
+    mediaSourceTestRunner.setListener(listener);
+    Timeline timeline = mediaSourceTestRunner.prepareSource();
+    MediaPeriod mediaPeriod =
+        mediaSourceTestRunner.createPeriod(
+            new MediaSource.MediaPeriodId(
+                timeline.getUidOfPeriod(/* periodIndex= */ 0), /* windowSequenceNumber= */ 0));
+    CountDownLatch preparedLatch =
+        mediaSourceTestRunner.preparePeriod(mediaPeriod, /* positionUs= */ 0);
+
+    assertThat(preparedLatch.await(DEFAULT_TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(openedUris).isEmpty();
+    assertThat(seekMapReference.get()).isNotNull();
+
+    ListenableFuture<Boolean> isLoading =
+        mediaSourceTestRunner.asyncRunOnPlaybackThread(
+            () -> {
+              mediaPeriod.continueLoading(
+                  new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
+              return mediaPeriod.isLoading();
+            });
+    assertThat(isLoading.get()).isFalse();
+
+    isLoading =
+        mediaSourceTestRunner.asyncRunOnPlaybackThread(
+            () -> {
+              selectOnlyTrack(mediaPeriod);
+              mediaPeriod.continueLoading(
+                  new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
+              return mediaPeriod.isLoading();
+            });
+    assertThat(isLoading.get()).isTrue();
+
+    loadCompleted.block();
+
+    assertThat(mediaSourceTestRunner.asyncRunOnPlaybackThread(mediaPeriod::isLoading).get())
+        .isFalse();
+    assertThat(openedUris).containsExactly(mediaUri);
+
+    mediaSourceTestRunner.releasePeriod(mediaPeriod);
+    mediaSourceTestRunner.clearListener();
+    mediaSourceTestRunner.releaseSource();
+    mediaSourceTestRunner.release();
+  }
+
+  @Test
+  public void lazyLoading_notFoundUri_loadErrorReportedWhenTrackSelected() throws Exception {
     ProgressiveMediaSource mediaSource =
         new ProgressiveMediaSource.Factory(
                 new DefaultDataSource.Factory(ApplicationProvider.getApplicationContext()))
             // Disable retries, so the first error is marked fatal.
             .setLoadErrorHandlingPolicy(
                 new DefaultLoadErrorHandlingPolicy(/* minimumLoadableRetryCount= */ 0))
-            .setSuppressPrepareError(true)
+            .enableLazyLoadingWithSingleTrack(
+                /* trackId= */ 42, new Format.Builder().setId("format ID").build())
             .createMediaSource(MediaItem.fromUri("file:///not/found"));
     MediaSourceTestRunner mediaSourceTestRunner = new MediaSourceTestRunner(mediaSource);
 
@@ -154,26 +253,18 @@ public class ProgressiveMediaSourceTest {
                 timeline.getUidOfPeriod(/* periodIndex= */ 0), /* windowSequenceNumber= */ 0));
     CountDownLatch preparedLatch =
         mediaSourceTestRunner.preparePeriod(mediaPeriod, /* positionUs= */ 0);
-    assertThat(loadErrorReported.await(DEFAULT_TIMEOUT_MS, MILLISECONDS)).isTrue();
-    // Call maybeThrowPrepareError() in a loop until preparation completes (preparation is not
-    // unblocked until the error is caught and suppressed inside maybeThrowPrepareError()). This
-    // mimics the behaviour of ExoPlayerImplInternal which calls maybeThrowPrepareError() on
-    // un-prepared MediaPeriods on every doSomeWork() iteration.
-    long startTime = SystemClock.elapsedRealtime();
-    do {
-      AtomicReference<Throwable> prepareError = new AtomicReference<>();
-      mediaSourceTestRunner.runOnPlaybackThread(
-          () -> {
-            try {
-              mediaPeriod.maybeThrowPrepareError();
-            } catch (Throwable e) {
-              prepareError.set(e);
-            }
-          });
-      assertThat(prepareError.get()).isNull();
-    } while (preparedLatch.getCount() > 0
-        && (SystemClock.elapsedRealtime() - startTime) < DEFAULT_TIMEOUT_MS);
     assertThat(preparedLatch.await(DEFAULT_TIMEOUT_MS, MILLISECONDS)).isTrue();
+
+    ListenableFuture<Boolean> isLoading =
+        mediaSourceTestRunner.asyncRunOnPlaybackThread(
+            () -> {
+              selectOnlyTrack(mediaPeriod);
+              mediaPeriod.continueLoading(
+                  new LoadingInfo.Builder().setPlaybackPositionUs(0).build());
+              return mediaPeriod.isLoading();
+            });
+    assertThat(isLoading.get()).isTrue();
+    assertThat(loadErrorReported.await(DEFAULT_TIMEOUT_MS, MILLISECONDS)).isTrue();
 
     mediaSourceTestRunner.releasePeriod(mediaPeriod);
     mediaSourceTestRunner.releaseSource();
@@ -184,5 +275,33 @@ public class ProgressiveMediaSourceTest {
     return new ProgressiveMediaSource.Factory(
             new DefaultDataSource.Factory(ApplicationProvider.getApplicationContext()))
         .createMediaSource(mediaItem);
+  }
+
+  private static void selectOnlyTrack(MediaPeriod mediaPeriod) {
+    checkState(mediaPeriod.getTrackGroups().length == 1);
+    mediaPeriod.selectTracks(
+        new ExoTrackSelection[] {new FixedTrackSelection(mediaPeriod.getTrackGroups().get(0), 0)},
+        /* mayRetainStreamFlags= */ new boolean[] {false},
+        new SampleStream[1],
+        /* streamResetFlags= */ new boolean[] {false},
+        /* positionUs= */ 0);
+  }
+
+  private static final class ProgressiveMediaSourceTestRunner extends MediaSourceTestRunner {
+
+    private final ProgressiveMediaSource mediaSource;
+
+    public ProgressiveMediaSourceTestRunner(ProgressiveMediaSource mediaSource) {
+      super(mediaSource);
+      this.mediaSource = mediaSource;
+    }
+
+    public void setListener(ProgressiveMediaSource.Listener listener) {
+      runOnPlaybackThread(() -> mediaSource.setListener(listener));
+    }
+
+    public void clearListener() {
+      runOnPlaybackThread(mediaSource::clearListener);
+    }
   }
 }

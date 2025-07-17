@@ -118,6 +118,9 @@ public abstract class Mp4Box {
   public static final int TYPE_dvvC = 0x64767643;
 
   @SuppressWarnings("ConstantCaseForConstants")
+  public static final int TYPE_dvwC = 0x64767743;
+
+  @SuppressWarnings("ConstantCaseForConstants")
   public static final int TYPE_s263 = 0x73323633;
 
   public static final int TYPE_H263 = 0x48323633;
@@ -246,6 +249,9 @@ public abstract class Mp4Box {
   public static final int TYPE_esds = 0x65736473;
 
   @SuppressWarnings("ConstantCaseForConstants")
+  public static final int TYPE_btrt = 0x62747274;
+
+  @SuppressWarnings("ConstantCaseForConstants")
   public static final int TYPE_moof = 0x6d6f6f66;
 
   @SuppressWarnings("ConstantCaseForConstants")
@@ -328,6 +334,9 @@ public abstract class Mp4Box {
 
   @SuppressWarnings("ConstantCaseForConstants")
   public static final int TYPE_mp4v = 0x6d703476;
+
+  @SuppressWarnings("ConstantCaseForConstants")
+  public static final int TYPE_mp4s = 0x6D703473;
 
   @SuppressWarnings("ConstantCaseForConstants")
   public static final int TYPE_stts = 0x73747473;
@@ -459,7 +468,16 @@ public abstract class Mp4Box {
   public static final int TYPE_iacb = 0x69616362;
 
   @SuppressWarnings("ConstantCaseForConstants")
-  public static final int TYPE_edvd = 0x65647664;
+  public static final int TYPE_axte = 0x61787465;
+
+  @SuppressWarnings({"ConstantCaseForConstants", "IdentifierName"})
+  public static final int TYPE_ipcm = 0x6970636d;
+
+  @SuppressWarnings({"ConstantCaseForConstants", "IdentifierName"})
+  public static final int TYPE_fpcm = 0x6670636d;
+
+  @SuppressWarnings({"ConstantCaseForConstants", "IdentifierName"})
+  public static final int TYPE_pcmC = 0x70636d43;
 
   @SuppressWarnings("ConstantCaseForConstants")
   public static final int TYPE_ap4x = 0x61703478;

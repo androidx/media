@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
+
 apply from: "$gradle.ext.androidxMediaSettingsDir/common_library_config.gradle"
 apply plugin: 'kotlin-android'
 
@@ -33,15 +36,15 @@ android {
             includeAndroidResources = true
         }
     }
-
-    kotlinOptions {
-        jvmTarget = '1.8'
+    kotlin {
+        compilerOptions {
+            jvmTarget.set(JvmTarget.JVM_1_8)
+        }
     }
 }
 
 dependencies {
     api project(modulePrefix + 'lib-common')
-    implementation project(modulePrefix + 'lib-exoplayer')
     implementation 'androidx.core:core:' + androidxCoreVersion
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:' + kotlinxCoroutinesVersion
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:' + kotlinxCoroutinesVersion

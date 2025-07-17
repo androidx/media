@@ -15,6 +15,8 @@
  */
 package androidx.media3.ui;
 
+import static android.os.Build.VERSION.SDK_INT;
+
 import android.animation.ValueAnimator;
 import android.content.Context;
 import android.content.res.Resources;
@@ -165,11 +167,14 @@ public class DefaultTimeBar extends View implements TimeBar {
   /** Default color for played ad markers. */
   public static final int DEFAULT_PLAYED_AD_MARKER_COLOR = 0x33FFFF00;
 
+  // LINT.IfChange
   /** Vertical gravity for progress bar to be located at the center in the view. */
   public static final int BAR_GRAVITY_CENTER = 0;
 
   /** Vertical gravity for progress bar to be located at the bottom in the view. */
   public static final int BAR_GRAVITY_BOTTOM = 1;
+
+  // LINT.ThenChange(../../../../res/values/attrs.xml)
 
   /** The threshold in dps above the bar at which touch events trigger fine scrub mode. */
   private static final int FINE_SCRUB_Y_THRESHOLD_DP = -50;
@@ -729,7 +734,7 @@ public class DefaultTimeBar extends View implements TimeBar {
         progressBarY,
         seekBounds.right - scrubberPadding,
         progressBarY + barHeight);
-    if (Util.SDK_INT >= 29) {
+    if (SDK_INT >= 29) {
       setSystemGestureExclusionRectsV29(width, height);
     }
     update();
@@ -980,11 +985,11 @@ public class DefaultTimeBar extends View implements TimeBar {
   }
 
   private boolean setDrawableLayoutDirection(Drawable drawable) {
-    return Util.SDK_INT >= 23 && setDrawableLayoutDirection(drawable, getLayoutDirection());
+    return SDK_INT >= 23 && setDrawableLayoutDirection(drawable, getLayoutDirection());
   }
 
   private static boolean setDrawableLayoutDirection(Drawable drawable, int layoutDirection) {
-    return Util.SDK_INT >= 23 && drawable.setLayoutDirection(layoutDirection);
+    return SDK_INT >= 23 && drawable.setLayoutDirection(layoutDirection);
   }
 
   private static int dpToPx(float density, int dps) {

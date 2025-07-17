@@ -15,12 +15,14 @@
  */
 package androidx.media3.common.util;
 
+import static androidx.media3.common.C.TEXTURE_MIN_FILTER_LINEAR_MIPMAP_LINEAR;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 
 import android.content.Context;
 import android.opengl.GLES11Ext;
 import android.opengl.GLES20;
 import androidx.annotation.Nullable;
+import androidx.media3.common.C;
 import java.io.IOException;
 import java.nio.Buffer;
 import java.util.HashMap;
@@ -184,6 +186,22 @@ public final class GlProgram {
    */
   public void setSamplerTexIdUniform(String name, int texId, int texUnitIndex) {
     checkNotNull(uniformByName.get(name)).setSamplerTexId(texId, texUnitIndex);
+  }
+
+  /**
+   * Sets a texture sampler type uniform.
+   *
+   * @param name The uniform's name.
+   * @param texId The texture identifier.
+   * @param texUnitIndex The texture unit index. Use a different index (0, 1, 2, ...) for each
+   *     texture sampler in the program.
+   * @param texMinFilter The {@link C.TextureMinFilter}.
+   */
+  public void setSamplerTexIdUniform(
+      String name, int texId, int texUnitIndex, @C.TextureMinFilter int texMinFilter) {
+    Uniform texUniform = checkNotNull(uniformByName.get(name));
+    texUniform.setSamplerTexId(texId, texUnitIndex);
+    texUniform.setTexMinFilter(texMinFilter);
   }
 
   /** Sets an {@code int} type uniform. */
@@ -365,6 +383,7 @@ public final class GlProgram {
 
     private int texIdValue;
     private int texUnitIndex;
+    private @C.TextureMinFilter int texMinFilter;
 
     private Uniform(String name, int location, int type) {
       this.name = name;
@@ -372,6 +391,7 @@ public final class GlProgram {
       this.type = type;
       this.floatValue = new float[16]; // Allocate 16 for mat4
       this.intValue = new int[4]; // Allocate 4 for ivec4
+      this.texMinFilter = C.TEXTURE_MIN_FILTER_LINEAR;
     }
 
     /**
@@ -384,6 +404,19 @@ public final class GlProgram {
     public void setSamplerTexId(int texId, int texUnitIndex) {
       this.texIdValue = texId;
       this.texUnitIndex = texUnitIndex;
+    }
+
+    /**
+     * Configures {@link #bind(boolean)} to use the specified texture minification filter for this
+     * sampler uniform.
+     *
+     * <p>Only has effect for {@linkplain GLES20#GL_SAMPLER_2D internal texture} type. External
+     * texture sampling is controlled via the parameter passed to {@link #bind(boolean)}.
+     *
+     * @param texMinFilter The {@link C.TextureMinFilter}.
+     */
+    public void setTexMinFilter(@C.TextureMinFilter int texMinFilter) {
+      this.texMinFilter = texMinFilter;
     }
 
     /** Configures {@link #bind(boolean)} to use the specified {@code int} {@code value}. */
@@ -476,6 +509,15 @@ public final class GlProgram {
               type == GLES20.GL_SAMPLER_2D || !externalTexturesRequireNearestSampling
                   ? GLES20.GL_LINEAR
                   : GLES20.GL_NEAREST);
+          if (type == GLES20.GL_SAMPLER_2D) {
+            if (texMinFilter == TEXTURE_MIN_FILTER_LINEAR_MIPMAP_LINEAR) {
+              GLES20.glGenerateMipmap(GLES20.GL_TEXTURE_2D);
+              GlUtil.checkGlError();
+            }
+            GLES20.glTexParameteri(
+                GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, texMinFilter);
+            GlUtil.checkGlError();
+          }
           GLES20.glUniform1i(location, texUnitIndex);
           GlUtil.checkGlError();
           break;

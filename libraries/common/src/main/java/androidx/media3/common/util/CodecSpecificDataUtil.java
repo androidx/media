@@ -60,8 +60,14 @@ public final class CodecSpecificDataUtil {
   private static final String CODEC_ID_HVC1 = "hvc1";
   // AV1.
   private static final String CODEC_ID_AV01 = "av01";
+  // APV.
+  private static final String CODEC_ID_APV1 = "apv1";
   // MP4A AAC.
   private static final String CODEC_ID_MP4A = "mp4a";
+  // AC-4
+  private static final String CODEC_ID_AC4 = "ac-4";
+  // IAMF
+  private static final String CODEC_ID_IAMF = "iamf";
 
   private static final Pattern PROFILE_PATTERN = Pattern.compile("^\\D?(\\d+)$");
 
@@ -92,6 +98,47 @@ public final class CodecSpecificDataUtil {
    */
   public static List<byte[]> buildCea708InitializationData(boolean isWideAspectRatio) {
     return Collections.singletonList(isWideAspectRatio ? new byte[] {1} : new byte[] {0});
+  }
+
+  /**
+   * Builds an RFC 6381 IAMF codec string from the given {@code initializationData}.
+   *
+   * <p>The format is defined by the <a
+   * href="https://aomediacodec.github.io/iamf/#codecsparameter">IAMF Codec Parameters String</a>
+   * specification.
+   */
+  public static String buildIamfCodecString(byte[] initializationData) {
+    ParsableByteArray parsableByteArray = new ParsableByteArray(initializationData);
+    parsableByteArray.skipLeb128(); // configOBUs_size
+    // IASequenceHeaderOBU
+    parsableByteArray.skipBytes(4); // ia_code (4 bytes)
+    int primaryProfile = parsableByteArray.readUnsignedByte(); // primary_profile (1 byte)
+    int additionalProfile = parsableByteArray.readUnsignedByte(); // additional_profile (1 byte)
+
+    // OBUHeader
+    // obu_type (5 bits) + obu_redundant_copy (1 bit) + obu_trimming_status_flag  (1 bit) +
+    // obu_extension_flag (1 bit)
+    parsableByteArray.skipBytes(1);
+    parsableByteArray.skipLeb128(); // obu_size
+
+    // CodecConfigOBU
+    parsableByteArray.skipLeb128(); // codec_config_id
+    String codecId = parsableByteArray.readString(4); // codec_id (4 bytes)
+
+    if (codecId.equals("mp4a")) {
+      parsableByteArray.skipLeb128(); // num_samples_per_frame
+      parsableByteArray.skipBytes(2); // audio_roll_distance (2 bytes)
+
+      ParsableBitArray decoderConfigBitArray = new ParsableBitArray();
+      decoderConfigBitArray.reset(parsableByteArray);
+      int audioObjectType = decoderConfigBitArray.readBits(5);
+      // If audioObjectType is an escape value, then we need to read 6 bits.
+      if (audioObjectType == 0x1F) {
+        audioObjectType = 32 + decoderConfigBitArray.readBits(6);
+      }
+      codecId += ".40." + audioObjectType;
+    }
+    return Util.formatInvariant("iamf.%03X.%03X.%s", primaryProfile, additionalProfile, codecId);
   }
 
   /**
@@ -135,6 +182,40 @@ public final class CodecSpecificDataUtil {
           bitDepthId, length, bitDepth,
           chromaSubsamplingId, length, chromaSubsampling
         });
+  }
+
+  /**
+   * Returns initialization data for Dolby Vision according to <a
+   * href="https://dolby.my.salesforce.com/sfc/p/#700000009YuG/a/4u000000l6FB/076wHYEmyEfz09m0V1bo85_25hlUJjaiWTbzorNmYY4">Dolby
+   * Vision ISO MediaFormat (section 2.2) specification</a>.
+   *
+   * @param profile The Dolby Vision codec profile.
+   * @param level The Dolby Vision codec level.
+   */
+  public static byte[] buildDolbyVisionInitializationData(int profile, int level) {
+    byte[] dolbyVisionCsd = new byte[24];
+    byte blCompatibilityId = 0x00;
+    // MD compression is not permitted for profile 7 and earlier. Only some devices
+    // support it from profile 8
+    byte mdCompression = 0x00;
+    if (profile == 8) {
+      blCompatibilityId = 0x04;
+    } else if (profile == 9) {
+      blCompatibilityId = 0x02;
+      mdCompression = 0x01;
+    }
+
+    dolbyVisionCsd[0] = 0x01; // dv_version_major
+    dolbyVisionCsd[1] = 0x00; // dv_version_minor
+    dolbyVisionCsd[2] = (byte) ((profile & 0x7f) << 1); // dv_profile
+    dolbyVisionCsd[2] = (byte) ((dolbyVisionCsd[2] | ((level >> 5) & 0x1)) & 0xff);
+    dolbyVisionCsd[3] = (byte) ((level & 0x1f) << 3); // dv_level
+    dolbyVisionCsd[3] = (byte) (dolbyVisionCsd[3] | (1 << 2)); // rpu_present_flag
+    dolbyVisionCsd[3] = (byte) (dolbyVisionCsd[3] | (0 << 1)); // el_present_flag
+    dolbyVisionCsd[3] = (byte) (dolbyVisionCsd[3] | 1); // bl_present_flag
+    dolbyVisionCsd[4] = (byte) (blCompatibilityId << 4); // dv_bl_signal_compatibility_id
+    dolbyVisionCsd[4] = (byte) (dolbyVisionCsd[4] | (mdCompression << 2)); // dv_md_compression
+    return dolbyVisionCsd;
   }
 
   /**
@@ -261,9 +342,50 @@ public final class CodecSpecificDataUtil {
     return builder.toString();
   }
 
+  /**
+   * Returns an APV codec string based on the provided initialization data.
+   *
+   * <p>Reference: <a
+   * href="https://github.com/AcademySoftwareFoundation/openapv/blob/main/readme/apv_isobmff.md#sub-parameters-for-the-mime-tyype-codecs-parameter">
+   * Codecs Parameter in APV ISO Base Media File Format</a>
+   *
+   * @param initializationData The initialization data containing profile, level, and band
+   *     information.
+   * @return The generated APV codec string.
+   */
+  public static String buildApvCodecString(byte[] initializationData) {
+    checkArgument(
+        initializationData.length >= 17, "Invalid APV CSD length: %s" + initializationData.length);
+    checkArgument(
+        initializationData[0] == 0x01,
+        "Invalid APV CSD version: %s" + initializationData[0]); // configurationVersion == 1
+
+    int profile = initializationData[5];
+    int level = initializationData[6];
+    int band = initializationData[7];
+    return Util.formatInvariant("apv1.apvf%d.apvl%d.apvb%d", profile, level, band);
+  }
+
   /** Builds an RFC 6381 H263 codec string using profile and level. */
   public static String buildH263CodecString(int profile, int level) {
     return Util.formatInvariant("s263.%d.%d", profile, level);
+  }
+
+  /**
+   * Builds a Dolby Vision codec string using profile and level.
+   *
+   * <p>Reference: <a>
+   * href="https://professionalsupport.dolby.com/s/article/What-is-Dolby-Vision-Profile?language=en_US">
+   * Dolby Vision Profile and Level (section 2.3)</a>
+   */
+  public static String buildDolbyVisionCodecString(int profile, int level) {
+    if (profile > 9) {
+      return Util.formatInvariant("dvh1.%02d.%02d", profile, level);
+    } else if (profile > 8) {
+      return Util.formatInvariant("dvav.%02d.%02d", profile, level);
+    } else {
+      return Util.formatInvariant("dvhe.%02d.%02d", profile, level);
+    }
   }
 
   /**
@@ -297,8 +419,14 @@ public final class CodecSpecificDataUtil {
         return getHevcProfileAndLevel(format.codecs, parts, format.colorInfo);
       case CODEC_ID_AV01:
         return getAv1ProfileAndLevel(format.codecs, parts, format.colorInfo);
+      case CODEC_ID_APV1:
+        return getApvProfileAndLevel(format.codecs, parts);
       case CODEC_ID_MP4A:
         return getAacCodecProfileAndLevel(format.codecs, parts);
+      case CODEC_ID_AC4:
+        return getAc4CodecProfileAndLevel(format.codecs, parts);
+      case CODEC_ID_IAMF:
+        return getIamfCodecProfileAndLevel(format.codecs, parts);
       default:
         return null;
     }
@@ -405,6 +533,83 @@ public final class CodecSpecificDataUtil {
       split[i] = nal;
     }
     return split;
+  }
+
+  /**
+   * Returns Dolby Vision level number corresponding to the level constant.
+   *
+   * @param levelConstant The Dolby Vision level constant.
+   * @return The Dolby Vision level number.
+   * @throws IllegalArgumentException if the level constant is not recognized.
+   */
+  public static int dolbyVisionConstantToLevelNumber(int levelConstant) {
+    switch (levelConstant) {
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelHd24:
+        return 1;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelHd30:
+        return 2;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelFhd24:
+        return 3;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelFhd30:
+        return 4;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelFhd60:
+        return 5;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelUhd24:
+        return 6;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelUhd30:
+        return 7;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelUhd48:
+        return 8;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelUhd60:
+        return 9;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionLevelUhd120:
+        return 10;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionLevel8k30:
+        return 11;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionLevel8k60:
+        return 12;
+      // TODO: b/179261323 - use framework constant for level 13.
+      case 0x1000:
+        return 13;
+      default:
+        throw new IllegalArgumentException("Unknown Dolby Vision level: " + levelConstant);
+    }
+  }
+
+  /**
+   * Returns Dolby Vision profile number corresponding to the profile constant.
+   *
+   * @param profileConstant The Dolby Vision profile constant.
+   * @return The Dolby Vision profile number.
+   * @throws IllegalArgumentException if the profile constant is not recognized.
+   */
+  public static int dolbyVisionConstantToProfileNumber(int profileConstant) {
+    switch (profileConstant) {
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionProfileDvavPer:
+        return 0;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionProfileDvavPen:
+        return 1;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionProfileDvheDer:
+        return 2;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionProfileDvheDen:
+        return 3;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionProfileDvheDtr:
+        return 4;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionProfileDvheStn:
+        return 5;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionProfileDvheDth:
+        return 6;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionProfileDvheDtb:
+        return 7;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionProfileDvheSt:
+        return 8;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionProfileDvavSe:
+        return 9;
+      case MediaCodecInfo.CodecProfileLevel.DolbyVisionProfileDvav110:
+        return 10;
+      default:
+        throw new IllegalArgumentException("Unknown Dolby Vision profile: " + profileConstant);
+    }
   }
 
   /**
@@ -611,6 +816,47 @@ public final class CodecSpecificDataUtil {
   }
 
   @Nullable
+  private static Pair<Integer, Integer> getApvProfileAndLevel(String codec, String[] parts) {
+    if (parts.length < 4) {
+      Log.w(TAG, "Ignoring malformed APV codec string: " + codec);
+      return null;
+    }
+    int profileInteger;
+    int levelInteger;
+    int bandInteger;
+    try {
+      profileInteger = Integer.parseInt(parts[1].substring(4));
+      levelInteger = Integer.parseInt(parts[2].substring(4));
+      bandInteger = Integer.parseInt(parts[3].substring(4));
+    } catch (NumberFormatException e) {
+      Log.w(TAG, "Ignoring malformed APV codec string: " + codec, e);
+      return null;
+    }
+
+    int profile = 0;
+    if (profileInteger == 33) {
+      // TODO(b/426125651): Replace apv profile value with
+      // MediaCodecInfo.CodecProfileLevel.APVProfile422_10 when compile SDK is updated to 36.
+      profile = 0x01;
+    } else if (profileInteger == 44) {
+      // TODO(b/426125651): Replace apv profile value with
+      // MediaCodecInfo.CodecProfileLevel.APVProfile422_10HDR10Plus when compile SDK is updated
+      // to 36.
+      profile = 0x2000;
+    } else {
+      Log.w(TAG, "Ignoring invalid APV profile: " + profileInteger);
+      return null;
+    }
+    int levelNum = (levelInteger / 30) * 2;
+    if (levelInteger % 30 == 0) {
+      levelNum -= 1;
+    }
+    int level = ((0x100 << (levelNum - 1)) | (1 << bandInteger));
+
+    return new Pair<>(profile, level);
+  }
+
+  @Nullable
   private static Pair<Integer, Integer> getAacCodecProfileAndLevel(String codec, String[] parts) {
     if (parts.length != 3) {
       Log.w(TAG, "Ignoring malformed MP4A codec string: " + codec);
@@ -633,6 +879,84 @@ public final class CodecSpecificDataUtil {
       Log.w(TAG, "Ignoring malformed MP4A codec string: " + codec);
     }
     return null;
+  }
+
+  @Nullable
+  private static Pair<Integer, Integer> getAc4CodecProfileAndLevel(String codec, String[] parts) {
+    if (parts.length != 4) {
+      Log.w(TAG, "Ignoring malformed AC-4 codec string: " + codec);
+      return null;
+    }
+    int bitstreamVersionInteger;
+    int presentationVersionInteger;
+    int levelInteger;
+    try {
+      bitstreamVersionInteger = Integer.parseInt(parts[1]);
+      presentationVersionInteger = Integer.parseInt(parts[2]);
+      levelInteger = Integer.parseInt(parts[3]);
+    } catch (NumberFormatException e) {
+      Log.w(TAG, "Ignoring malformed AC-4 codec string: " + codec);
+      return null;
+    }
+
+    int profile =
+        ac4BitstreamAndPresentationVersionsToProfileConst(
+            bitstreamVersionInteger, presentationVersionInteger);
+    if (profile == -1) {
+      Log.w(
+          TAG,
+          "Unknown AC-4 profile: " + bitstreamVersionInteger + "." + presentationVersionInteger);
+      return null;
+    }
+    int level = ac4LevelNumberToConst(levelInteger);
+    if (level == -1) {
+      Log.w(TAG, "Unknown AC-4 level: " + levelInteger);
+      return null;
+    }
+    return new Pair<>(profile, level);
+  }
+
+  @Nullable
+  private static Pair<Integer, Integer> getIamfCodecProfileAndLevel(String codec, String[] parts) {
+    if (parts.length < 4) {
+      Log.w(TAG, "Ignoring malformed IAMF codec string: " + codec);
+      return null;
+    }
+
+    int primaryProfileValue;
+    try {
+      primaryProfileValue = Integer.parseInt(parts[1]);
+    } catch (NumberFormatException e) {
+      Log.w(TAG, "Ignoring malformed primary profile in IAMF codec string: " + parts[1], e);
+      return null;
+    }
+
+    int profileBitmask = 0x1 << (16 + primaryProfileValue);
+    int versionBitmask = 0x1 << 24;
+    int auxiliaryProfileValue = 0;
+
+    switch (parts[3]) {
+      case "Opus":
+        auxiliaryProfileValue = 0x1; // Bit 0
+        break;
+      case "mp4a":
+        auxiliaryProfileValue = 0x1 << 1; // Bit 1
+        break;
+      case "fLaC":
+        auxiliaryProfileValue = 0x1 << 2; // Bit 2
+        break;
+      case "ipcm":
+        auxiliaryProfileValue = 0x1 << 3; // Bit 3
+        break;
+      default:
+        Log.w(TAG, "Ignoring unknown codec identifier for IAMF auxiliary profile: " + parts[3]);
+        return null;
+    }
+    // IAMF profiles are defined as the combination of (listed from LSB to MSB):
+    //  - audio codec (2 bytes)
+    //  - profile (1 byte, offset 16)
+    //  - specification version (1 byte, offset 24)
+    return new Pair<>(versionBitmask | profileBitmask | auxiliaryProfileValue, /* level= */ 0);
   }
 
   private static int avcProfileNumberToConst(int profileNumber) {
@@ -961,6 +1285,52 @@ public final class CodecSpecificDataUtil {
         return MediaCodecInfo.CodecProfileLevel.AACObjectELD;
       case 42:
         return MediaCodecInfo.CodecProfileLevel.AACObjectXHE;
+      default:
+        return -1;
+    }
+  }
+
+  private static int ac4BitstreamAndPresentationVersionsToProfileConst(
+      int bitstreamVersionInteger, int presentationVersionInteger) {
+    int ac4Profile = -1;
+    switch (bitstreamVersionInteger) {
+      case 0:
+        if (presentationVersionInteger == 0) {
+          ac4Profile = MediaCodecInfo.CodecProfileLevel.AC4Profile00;
+        }
+        break;
+      case 1:
+        if (presentationVersionInteger == 0) {
+          ac4Profile = MediaCodecInfo.CodecProfileLevel.AC4Profile10;
+        } else if (presentationVersionInteger == 1) {
+          ac4Profile = MediaCodecInfo.CodecProfileLevel.AC4Profile11;
+        }
+        break;
+      case 2:
+        if (presentationVersionInteger == 1) {
+          ac4Profile = MediaCodecInfo.CodecProfileLevel.AC4Profile21;
+        } else if (presentationVersionInteger == 2) {
+          ac4Profile = MediaCodecInfo.CodecProfileLevel.AC4Profile22;
+        }
+        break;
+      default:
+        break;
+    }
+    return ac4Profile;
+  }
+
+  private static int ac4LevelNumberToConst(int levelNumber) {
+    switch (levelNumber) {
+      case 0:
+        return MediaCodecInfo.CodecProfileLevel.AC4Level0;
+      case 1:
+        return MediaCodecInfo.CodecProfileLevel.AC4Level1;
+      case 2:
+        return MediaCodecInfo.CodecProfileLevel.AC4Level2;
+      case 3:
+        return MediaCodecInfo.CodecProfileLevel.AC4Level3;
+      case 4:
+        return MediaCodecInfo.CodecProfileLevel.AC4Level4;
       default:
         return -1;
     }

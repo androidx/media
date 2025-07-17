@@ -28,7 +28,6 @@ import androidx.media3.demo.shortform.PlayerPool
 import androidx.media3.demo.shortform.R
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.source.preload.DefaultPreloadManager
-import androidx.media3.exoplayer.source.preload.DefaultPreloadManager.Status.STAGE_LOADED_FOR_DURATION_MS
 import androidx.media3.exoplayer.source.preload.TargetPreloadStatusControl
 import androidx.recyclerview.widget.RecyclerView
 import kotlin.math.abs
@@ -43,7 +42,7 @@ class ViewPagerMediaAdapter(
   private val currentMediaItemsAndIndexes: ArrayDeque<Pair<MediaItem, Int>> = ArrayDeque()
   private var playerPool: PlayerPool
   private val holderMap: MutableMap<Int, ViewPagerMediaHolder>
-  private val preloadControl: DefaultPreloadControl
+  private val targetPreloadStatusControl: DefaultTargetPreloadStatusControl
 
   companion object {
     private const val TAG = "ViewPagerMediaAdapter"
@@ -65,9 +64,9 @@ class ViewPagerMediaAdapter(
         )
         .setPrioritizeTimeOverSizeThresholds(true)
         .build()
-    preloadControl = DefaultPreloadControl()
+    targetPreloadStatusControl = DefaultTargetPreloadStatusControl()
     val preloadManagerBuilder =
-      DefaultPreloadManager.Builder(context.applicationContext, preloadControl)
+      DefaultPreloadManager.Builder(context.applicationContext, targetPreloadStatusControl)
         .setLoadControl(loadControl)
     playerPool = PlayerPool(numberOfPlayers, preloadManagerBuilder)
     holderMap = mutableMapOf()
@@ -139,7 +138,7 @@ class ViewPagerMediaAdapter(
 
   fun onPageSelected(position: Int) {
     holderMap[position]?.playIfPossible()
-    preloadControl.currentPlayingIndex = position
+    targetPreloadStatusControl.currentPlayingIndex = position
     preloadManager.setCurrentPlayingIndex(position)
     preloadManager.invalidate()
   }
@@ -172,14 +171,14 @@ class ViewPagerMediaAdapter(
     preloadManager.remove(itemAndIndex.first)
   }
 
-  inner class DefaultPreloadControl(var currentPlayingIndex: Int = C.INDEX_UNSET) :
-    TargetPreloadStatusControl<Int> {
+  inner class DefaultTargetPreloadStatusControl(var currentPlayingIndex: Int = C.INDEX_UNSET) :
+    TargetPreloadStatusControl<Int, DefaultPreloadManager.PreloadStatus> {
 
-    override fun getTargetPreloadStatus(rankingData: Int): DefaultPreloadManager.Status? {
+    override fun getTargetPreloadStatus(rankingData: Int): DefaultPreloadManager.PreloadStatus? {
       if (abs(rankingData - currentPlayingIndex) == 2) {
-        return DefaultPreloadManager.Status(STAGE_LOADED_FOR_DURATION_MS, 500L)
+        return DefaultPreloadManager.PreloadStatus.specifiedRangeLoaded(/* durationMs= */ 500L)
       } else if (abs(rankingData - currentPlayingIndex) == 1) {
-        return DefaultPreloadManager.Status(STAGE_LOADED_FOR_DURATION_MS, 1000L)
+        return DefaultPreloadManager.PreloadStatus.specifiedRangeLoaded(/* durationMs= */ 1000L)
       }
       return null
     }

@@ -22,11 +22,6 @@ android {
         }
     }
 
-    lintOptions {
-        // TODO: b/353490583 - Enable this once the violations are fixed.
-        checkTestSources false
-    }
-
     publishing {
         singleVariant('release') {
             withSourcesJar()
@@ -35,7 +30,7 @@ android {
 }
 
 dependencies {
-    implementation project(modulePrefix + 'lib-common')
+    api project(modulePrefix + 'lib-common')
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
     compileOnly 'org.jetbrains.kotlin:kotlin-annotations-jvm:' + kotlinAnnotationsVersion
     testImplementation 'androidx.test:core:' + androidxTestCoreVersion

@@ -318,7 +318,7 @@ public class TrackSelectionView extends LinearLayout {
 
   private void updateViewStates() {
     disableView.setChecked(isDisabled);
-    defaultView.setChecked(!isDisabled && overrides.size() == 0);
+    defaultView.setChecked(!isDisabled && overrides.isEmpty());
     for (int i = 0; i < trackViews.length; i++) {
       @Nullable
       TrackSelectionOverride override = overrides.get(trackGroups.get(i).getMediaTrackGroup());
@@ -365,7 +365,7 @@ public class TrackSelectionView extends LinearLayout {
     @Nullable TrackSelectionOverride override = overrides.get(mediaTrackGroup);
     if (override == null) {
       // Start new override.
-      if (!allowMultipleOverrides && overrides.size() > 0) {
+      if (!allowMultipleOverrides && !overrides.isEmpty()) {
         // Removed other overrides if we don't allow multiple overrides.
         overrides.clear();
       }

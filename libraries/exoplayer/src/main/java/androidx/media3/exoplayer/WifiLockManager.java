@@ -18,7 +18,10 @@ package androidx.media3.exoplayer;
 import android.content.Context;
 import android.net.wifi.WifiManager;
 import android.net.wifi.WifiManager.WifiLock;
+import android.os.Looper;
 import androidx.annotation.Nullable;
+import androidx.media3.common.util.Clock;
+import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.Log;
 
 /**
@@ -32,13 +35,22 @@ import androidx.media3.common.util.Log;
   private static final String TAG = "WifiLockManager";
   private static final String WIFI_LOCK_TAG = "ExoPlayer:WifiLockManager";
 
-  private final Context applicationContext;
-  @Nullable private WifiLock wifiLock;
+  private final WifiLockManagerInternal wifiLockManagerInternal;
+  private final HandlerWrapper wifiLockHandler;
+
   private boolean enabled;
   private boolean stayAwake;
 
-  public WifiLockManager(Context context) {
-    applicationContext = context.getApplicationContext();
+  /**
+   * Creates the wifi lock manager.
+   *
+   * @param context A {@link Context}
+   * @param wifiLockLooper The {@link Looper} to call wifi lock system calls on.
+   * @param clock The {@link Clock} to schedule handler messages.
+   */
+  public WifiLockManager(Context context, Looper wifiLockLooper, Clock clock) {
+    wifiLockManagerInternal = new WifiLockManagerInternal(context.getApplicationContext());
+    wifiLockHandler = clock.createHandler(wifiLockLooper, /* callback= */ null);
   }
 
   /**
@@ -52,20 +64,12 @@ import androidx.media3.common.util.Log;
    * @param enabled True if the player should handle a {@link WifiLock}.
    */
   public void setEnabled(boolean enabled) {
-    if (enabled && wifiLock == null) {
-      WifiManager wifiManager =
-          (WifiManager)
-              applicationContext.getApplicationContext().getSystemService(Context.WIFI_SERVICE);
-      if (wifiManager == null) {
-        Log.w(TAG, "WifiManager is null, therefore not creating the WifiLock.");
-        return;
-      }
-      wifiLock = wifiManager.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, WIFI_LOCK_TAG);
-      wifiLock.setReferenceCounted(false);
+    if (this.enabled == enabled) {
+      return;
     }
-
     this.enabled = enabled;
-    updateWifiLock();
+    boolean stayAwakeCurrent = stayAwake;
+    wifiLockHandler.post(() -> wifiLockManagerInternal.updateWifiLock(enabled, stayAwakeCurrent));
   }
 
   /**
@@ -78,19 +82,49 @@ import androidx.media3.common.util.Log;
    *     release.
    */
   public void setStayAwake(boolean stayAwake) {
-    this.stayAwake = stayAwake;
-    updateWifiLock();
-  }
-
-  private void updateWifiLock() {
-    if (wifiLock == null) {
+    if (this.stayAwake == stayAwake) {
       return;
     }
+    this.stayAwake = stayAwake;
+    if (enabled) {
+      wifiLockHandler.post(
+          () -> wifiLockManagerInternal.updateWifiLock(/* enabled= */ true, stayAwake));
+    }
+  }
 
-    if (enabled && stayAwake) {
-      wifiLock.acquire();
-    } else {
-      wifiLock.release();
+  /** Internal methods called on the wifi lock Looper. */
+  private static final class WifiLockManagerInternal {
+
+    private final Context applicationContext;
+
+    @Nullable private WifiLock wifiLock;
+
+    public WifiLockManagerInternal(Context applicationContext) {
+      this.applicationContext = applicationContext;
+    }
+
+    public void updateWifiLock(boolean enabled, boolean stayAwake) {
+      if (enabled && wifiLock == null) {
+        WifiManager wifiManager =
+            (WifiManager)
+                applicationContext.getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+        if (wifiManager == null) {
+          Log.w(TAG, "WifiManager is null, therefore not creating the WifiLock.");
+          return;
+        }
+        wifiLock = wifiManager.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, WIFI_LOCK_TAG);
+        wifiLock.setReferenceCounted(false);
+      }
+
+      if (wifiLock == null) {
+        return;
+      }
+
+      if (enabled && stayAwake) {
+        wifiLock.acquire();
+      } else {
+        wifiLock.release();
+      }
     }
   }
 }

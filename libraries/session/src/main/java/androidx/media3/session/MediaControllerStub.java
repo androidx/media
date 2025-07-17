@@ -40,7 +40,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   private static final String TAG = "MediaControllerStub";
 
   /** The version of the IMediaController interface. */
-  public static final int VERSION_INT = 7;
+  public static final int VERSION_INT = 8;
 
   private final WeakReference<MediaControllerImplBase> controller;
 
@@ -212,12 +212,29 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   }
 
   @Override
-  public void onSessionActivityChanged(int seq, @Nullable PendingIntent sessionActivity)
+  public void onCustomCommandProgressUpdate(
+      int customActionFutureSequence, Bundle commandBundle, Bundle args, Bundle progressData)
       throws RemoteException {
-    if (sessionActivity == null) {
-      Log.w(TAG, "Ignoring null session activity intent");
+    if (commandBundle == null || args == null) {
+      Log.w(TAG, "Ignoring custom command progress update with null args.");
       return;
     }
+    SessionCommand command;
+    try {
+      command = SessionCommand.fromBundle(commandBundle);
+    } catch (RuntimeException e) {
+      Log.w(TAG, "Ignoring malformed Bundle for SessionCommand", e);
+      return;
+    }
+    dispatchControllerTaskOnHandler(
+        controller ->
+            controller.onCustomCommandProgressUpdate(
+                customActionFutureSequence, command, args, progressData));
+  }
+
+  @Override
+  public void onSessionActivityChanged(int seq, @Nullable PendingIntent sessionActivity)
+      throws RemoteException {
     dispatchControllerTaskOnHandler(
         controller -> controller.onSetSessionActivity(seq, sessionActivity));
   }

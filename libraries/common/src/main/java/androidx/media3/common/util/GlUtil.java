@@ -17,6 +17,8 @@ package androidx.media3.common.util;
 
 import static android.opengl.EGL14.EGL_CONTEXT_CLIENT_VERSION;
 import static android.opengl.GLU.gluErrorString;
+import static android.os.Build.VERSION.SDK_INT;
+import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkState;
 
@@ -33,15 +35,18 @@ import android.opengl.GLES20;
 import android.opengl.GLES30;
 import android.opengl.GLUtils;
 import android.opengl.Matrix;
+import android.os.Build;
 import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
+import androidx.annotation.RestrictTo;
 import androidx.media3.common.C;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import javax.microedition.khronos.egl.EGL10;
 
 /** OpenGL ES utilities. */
@@ -59,6 +64,17 @@ public final class GlUtil {
 
   /** Number of elements in a 3d homogeneous coordinate vector describing a vertex. */
   public static final int HOMOGENEOUS_COORDINATE_VECTOR_SIZE = 4;
+
+  /**
+   * A max size to use when decoding bitmaps.
+   *
+   * <p>This should be large enough for most image to video transcode operations, and smaller than
+   * {@link GLES20#GL_MAX_TEXTURE_SIZE} for most devices.
+   */
+  // TODO: b/356072337 - Consider reading this from GL_MAX_TEXTURE_SIZE. This requires an active
+  //  OpenGL context.
+  @RestrictTo(LIBRARY_GROUP)
+  public static final int MAX_BITMAP_DECODING_SIZE = 4096;
 
   /** Length of the normalized device coordinate (NDC) space, which spans from -1 to 1. */
   public static final float LENGTH_NDC = 2f;
@@ -166,18 +182,18 @@ public final class GlUtil {
    *
    * <p>If {@code true}, the device supports a protected output path for DRM content when using GL.
    */
-  public static boolean isProtectedContentExtensionSupported(Context context) {
-    if (Util.SDK_INT < 24) {
+  public static boolean isProtectedContentExtensionSupported(Context context) throws GlException {
+    if (SDK_INT < 24) {
       return false;
     }
-    if (Util.SDK_INT < 26 && ("samsung".equals(Util.MANUFACTURER) || "XT1650".equals(Util.MODEL))) {
+    if (SDK_INT < 26 && ("samsung".equals(Build.MANUFACTURER) || "XT1650".equals(Build.MODEL))) {
       // Samsung devices running Nougat are known to be broken. See
       // https://github.com/google/ExoPlayer/issues/3373 and [Internal: b/37197802].
       // Moto Z XT1650 is also affected. See
       // https://github.com/google/ExoPlayer/issues/3215.
       return false;
     }
-    if (Util.SDK_INT < 26
+    if (SDK_INT < 26
         && !context
             .getPackageManager()
             .hasSystemFeature(PackageManager.FEATURE_VR_MODE_HIGH_PERFORMANCE)) {
@@ -195,7 +211,7 @@ public final class GlUtil {
    * surfaces in a call to {@link EGL14#eglMakeCurrent(EGLDisplay, EGLSurface, EGLSurface,
    * EGLContext)}.
    */
-  public static boolean isSurfacelessContextExtensionSupported() {
+  public static boolean isSurfacelessContextExtensionSupported() throws GlException {
     return isExtensionSupported(EXTENSION_SURFACELESS_CONTEXT);
   }
 
@@ -207,7 +223,7 @@ public final class GlUtil {
    */
   public static boolean isYuvTargetExtensionSupported() {
     @Nullable String glExtensions;
-    if (Util.areEqual(EGL14.eglGetCurrentContext(), EGL14.EGL_NO_CONTEXT)) {
+    if (Objects.equals(EGL14.eglGetCurrentContext(), EGL14.EGL_NO_CONTEXT)) {
       // Create a placeholder context and make it current to allow calling GLES20.glGetString().
       try {
         EGLDisplay eglDisplay = getDefaultEglDisplay();
@@ -225,15 +241,26 @@ public final class GlUtil {
     return glExtensions != null && glExtensions.contains(EXTENSION_YUV_TARGET);
   }
 
+  /** Returns whether the given {@link C.ColorTransfer} is supported. */
+  public static boolean isColorTransferSupported(@C.ColorTransfer int colorTransfer)
+      throws GlException {
+    if (colorTransfer == C.COLOR_TRANSFER_ST2084) {
+      return GlUtil.isBt2020PqExtensionSupported();
+    } else if (colorTransfer == C.COLOR_TRANSFER_HLG) {
+      return GlUtil.isBt2020HlgExtensionSupported();
+    }
+    return true;
+  }
+
   /** Returns whether {@link #EXTENSION_COLORSPACE_BT2020_PQ} is supported. */
-  public static boolean isBt2020PqExtensionSupported() {
+  public static boolean isBt2020PqExtensionSupported() throws GlException {
     // On API<33, the system cannot display PQ content correctly regardless of whether BT2020 PQ
     // GL extension is supported. Context: http://b/252537203#comment5.
-    return Util.SDK_INT >= 33 && isExtensionSupported(EXTENSION_COLORSPACE_BT2020_PQ);
+    return SDK_INT >= 33 && isExtensionSupported(EXTENSION_COLORSPACE_BT2020_PQ);
   }
 
   /** Returns whether {@link #EXTENSION_COLORSPACE_BT2020_HLG} is supported. */
-  public static boolean isBt2020HlgExtensionSupported() {
+  public static boolean isBt2020HlgExtensionSupported() throws GlException {
     return isExtensionSupported(EXTENSION_COLORSPACE_BT2020_HLG);
   }
 
@@ -674,6 +701,34 @@ public final class GlUtil {
   }
 
   /**
+   * Allocates a new {@linkplain GLES20#GL_RGBA normalized integer} {@link GLES30#GL_RGB10_A2}
+   * texture with the specified dimensions.
+   *
+   * <p>Normalized integers in textures are automatically converted for floating point numbers
+   * https://www.khronos.org/opengl/wiki/Normalized_Integer
+   *
+   * <p>The only supported pixel data type for the {@link GLES30#GL_RGB10_A2} sized internal format
+   * is {@link GLES30#GL_UNSIGNED_INT_2_10_10_10_REV}. See
+   * https://registry.khronos.org/OpenGL-Refpages/es3.0/html/glTexImage2D.xhtml
+   *
+   * <p>The created texture is not zero-initialized. To clear the texture, {@linkplain
+   * #focusFramebuffer(EGLDisplay, EGLContext, EGLSurface, int, int, int) focus} on the texture and
+   * {@linkplain #clearFocusedBuffers() clear} its content.
+   *
+   * @param width The width of the new texture in pixels.
+   * @param height The height of the new texture in pixels.
+   * @return The texture identifier for the newly-allocated texture.
+   * @throws GlException If the texture allocation fails.
+   */
+  public static int createRgb10A2Texture(int width, int height) throws GlException {
+    return createTextureUninitialized(
+        width,
+        height,
+        /* internalFormat= */ GLES30.GL_RGB10_A2,
+        /* type= */ GLES30.GL_UNSIGNED_INT_2_10_10_10_REV);
+  }
+
+  /**
    * Allocates a new RGBA texture with the specified dimensions and color component precision.
    *
    * @param width The width of the new texture in pixels.
@@ -1027,8 +1082,8 @@ public final class GlUtil {
     return eglConfigs[0];
   }
 
-  private static boolean isExtensionSupported(String extensionName) {
-    EGLDisplay display = EGL14.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY);
+  private static boolean isExtensionSupported(String extensionName) throws GlException {
+    EGLDisplay display = getDefaultEglDisplay();
     @Nullable String eglExtensions = EGL14.eglQueryString(display, EGL10.EGL_EXTENSIONS);
     return eglExtensions != null && eglExtensions.contains(extensionName);
   }

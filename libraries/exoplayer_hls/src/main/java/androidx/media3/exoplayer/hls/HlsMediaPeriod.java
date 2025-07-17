@@ -51,7 +51,9 @@ import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.CmcdConfiguration;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
+import androidx.media3.exoplayer.util.ReleasableExecutor;
 import androidx.media3.extractor.Extractor;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.primitives.Ints;
@@ -63,6 +65,7 @@ import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** A {@link MediaPeriod} that loads an HLS stream. */
@@ -88,6 +91,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final PlayerId playerId;
   private final HlsSampleStreamWrapper.Callback sampleStreamWrapperCallback;
   private final long timestampAdjusterInitializationTimeoutMs;
+  @Nullable private final Supplier<ReleasableExecutor> downloadExecutorSupplier;
 
   @Nullable private MediaPeriod.Callback mediaPeriodCallback;
   private int pendingPrepareCount;
@@ -125,6 +129,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * @param timestampAdjusterInitializationTimeoutMs The timeout for the loading thread to wait for
    *     the timestamp adjuster to initialize, in milliseconds. A timeout of zero is interpreted as
    *     an infinite timeout.
+   * @param downloadExecutorSupplier A supplier for a {@link ReleasableExecutor} that is used for
+   *     loading the media.
    */
   public HlsMediaPeriod(
       HlsExtractorFactory extractorFactory,
@@ -142,7 +148,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       @HlsMediaSource.MetadataType int metadataType,
       boolean useSessionKeys,
       PlayerId playerId,
-      long timestampAdjusterInitializationTimeoutMs) {
+      long timestampAdjusterInitializationTimeoutMs,
+      @Nullable Supplier<ReleasableExecutor> downloadExecutorSupplier) {
     this.extractorFactory = extractorFactory;
     this.playlistTracker = playlistTracker;
     this.dataSourceFactory = dataSourceFactory;
@@ -159,6 +166,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.useSessionKeys = useSessionKeys;
     this.playerId = playerId;
     this.timestampAdjusterInitializationTimeoutMs = timestampAdjusterInitializationTimeoutMs;
+    this.downloadExecutorSupplier = downloadExecutorSupplier;
     sampleStreamWrapperCallback = new SampleStreamWrapperCallback();
     compositeSequenceableLoader = compositeSequenceableLoaderFactory.empty();
     streamWrapperIndices = new IdentityHashMap<>();
@@ -206,8 +214,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         Assertions.checkNotNull(playlistTracker.getMultivariantPlaylist());
     boolean hasVariants = !multivariantPlaylist.variants.isEmpty();
     int audioWrapperOffset = hasVariants ? 1 : 0;
-    // Subtitle sample stream wrappers are held last.
-    int subtitleWrapperOffset = sampleStreamWrappers.length - multivariantPlaylist.subtitles.size();
 
     TrackGroupArray mainWrapperTrackGroups;
     int mainWrapperPrimaryGroupIndex;
@@ -249,7 +255,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           int selectedTrackGroupIndex = wrapperTrackGroups.indexOf(trackSelectionGroup);
           if (selectedTrackGroupIndex != C.INDEX_UNSET) {
             int groupIndexType =
-                i < subtitleWrapperOffset
+                wrapperTrackGroups.get(selectedTrackGroupIndex).type == C.TRACK_TYPE_AUDIO
                     ? HlsMultivariantPlaylist.GROUP_INDEX_AUDIO
                     : HlsMultivariantPlaylist.GROUP_INDEX_SUBTITLE;
             int[] selectedWrapperUrlIndices = manifestUrlIndicesPerWrapper[i];
@@ -519,33 +525,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     audioVideoSampleStreamWrapperCount = sampleStreamWrappers.size();
 
-    // Subtitle stream wrappers. We can always use multivariant playlist information to prepare
-    // these.
-    for (int i = 0; i < subtitleRenditions.size(); i++) {
-      Rendition subtitleRendition = subtitleRenditions.get(i);
-      String sampleStreamWrapperUid = "subtitle:" + i + ":" + subtitleRendition.name;
-      // Format for HlsChunkSource to createExtractor with
-      Format originalSubtitleFormat = subtitleRendition.format;
-      HlsSampleStreamWrapper sampleStreamWrapper =
-          buildSampleStreamWrapper(
-              sampleStreamWrapperUid,
-              C.TRACK_TYPE_TEXT,
-              new Uri[] {subtitleRendition.url},
-              new Format[] {originalSubtitleFormat},
-              null,
-              Collections.emptyList(),
-              overridingDrmInitData,
-              positionUs);
-      manifestUrlIndicesPerWrapper.add(new int[] {i});
-      sampleStreamWrappers.add(sampleStreamWrapper);
-      sampleStreamWrapper.prepareWithMultivariantPlaylistInfo(
-          new TrackGroup[] {
-            new TrackGroup(
-                sampleStreamWrapperUid,
-                extractorFactory.getOutputTextFormat(originalSubtitleFormat))
-          },
-          /* primaryTrackGroupIndex= */ 0);
-    }
+    buildAndPrepareSubtitleSampleStreamWrappers(
+        positionUs,
+        subtitleRenditions,
+        sampleStreamWrappers,
+        manifestUrlIndicesPerWrapper,
+        overridingDrmInitData);
 
     this.sampleStreamWrappers = sampleStreamWrappers.toArray(new HlsSampleStreamWrapper[0]);
     this.manifestUrlIndicesPerWrapper = manifestUrlIndicesPerWrapper.toArray(new int[0][]);
@@ -750,7 +735,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       scratchIndicesList.clear();
       // Group all renditions with matching name.
       for (int renditionIndex = 0; renditionIndex < audioRenditions.size(); renditionIndex++) {
-        if (Util.areEqual(name, audioRenditions.get(renditionIndex).name)) {
+        if (Objects.equals(name, audioRenditions.get(renditionIndex).name)) {
           Rendition rendition = audioRenditions.get(renditionIndex);
           scratchIndicesList.add(renditionIndex);
           scratchPlaylistUrls.add(rendition.url);
@@ -780,6 +765,66 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             new TrackGroup[] {new TrackGroup(sampleStreamWrapperUid, renditionFormats)},
             /* primaryTrackGroupIndex= */ 0);
       }
+    }
+  }
+
+  private void buildAndPrepareSubtitleSampleStreamWrappers(
+      long positionUs,
+      List<Rendition> subtitleRenditions,
+      List<HlsSampleStreamWrapper> sampleStreamWrappers,
+      List<int[]> manifestUrlsIndicesPerWrapper,
+      Map<String, DrmInitData> overridingDrmInitData) {
+    ArrayList<Uri> scratchPlaylistUrls =
+        new ArrayList<>(/* initialCapacity= */ subtitleRenditions.size());
+    ArrayList<Format> scratchPlaylistFormats =
+        new ArrayList<>(/* initialCapacity= */ subtitleRenditions.size());
+    ArrayList<Integer> scratchIndicesList =
+        new ArrayList<>(/* initialCapacity= */ subtitleRenditions.size());
+    HashSet<String> alreadyGroupedNames = new HashSet<>();
+    for (int renditionByNameIndex = 0;
+        renditionByNameIndex < subtitleRenditions.size();
+        renditionByNameIndex++) {
+      String name = subtitleRenditions.get(renditionByNameIndex).name;
+      if (!alreadyGroupedNames.add(name)) {
+        // This name already has a corresponding group.
+        continue;
+      }
+
+      scratchPlaylistUrls.clear();
+      scratchPlaylistFormats.clear();
+      scratchIndicesList.clear();
+      // Group all renditions with matching name.
+      for (int renditionIndex = 0; renditionIndex < subtitleRenditions.size(); renditionIndex++) {
+        if (Objects.equals(name, subtitleRenditions.get(renditionIndex).name)) {
+          Rendition rendition = subtitleRenditions.get(renditionIndex);
+          scratchIndicesList.add(renditionIndex);
+          scratchPlaylistUrls.add(rendition.url);
+          scratchPlaylistFormats.add(rendition.format);
+        }
+      }
+
+      String sampleStreamWrapperUid = "subtitle:" + name;
+      Format[] originalSubtitleFormats = scratchPlaylistFormats.toArray(new Format[0]);
+      HlsSampleStreamWrapper sampleStreamWrapper =
+          buildSampleStreamWrapper(
+              sampleStreamWrapperUid,
+              C.TRACK_TYPE_TEXT,
+              scratchPlaylistUrls.toArray(Util.castNonNullTypeArray(new Uri[0])),
+              originalSubtitleFormats,
+              /* muxedAudioFormat= */ null,
+              /* muxedCaptionFormats= */ ImmutableList.of(),
+              overridingDrmInitData,
+              positionUs);
+      manifestUrlsIndicesPerWrapper.add(Ints.toArray(scratchIndicesList));
+      sampleStreamWrappers.add(sampleStreamWrapper);
+
+      Format[] outputTextFormats = new Format[originalSubtitleFormats.length];
+      for (int i = 0; i < outputTextFormats.length; i++) {
+        outputTextFormats[i] = extractorFactory.getOutputTextFormat(originalSubtitleFormats[i]);
+      }
+      sampleStreamWrapper.prepareWithMultivariantPlaylistInfo(
+          new TrackGroup[] {new TrackGroup(sampleStreamWrapperUid, outputTextFormats)},
+          /* primaryTrackGroupIndex= */ 0);
     }
   }
 
@@ -818,7 +863,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         drmEventDispatcher,
         loadErrorHandlingPolicy,
         eventDispatcher,
-        metadataType);
+        metadataType,
+        downloadExecutorSupplier != null ? downloadExecutorSupplier.get() : null);
   }
 
   private static Map<String, DrmInitData> deriveOverridingDrmInitData(

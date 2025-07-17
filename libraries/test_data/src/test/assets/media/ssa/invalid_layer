@@ -1,0 +1,8 @@
+[Script Info]
+Title: SomeTitle
+
+[Events]
+Format: Layer, Start, End, Name, Text
+Dialogue: ,0:00:00.00,0:00:01.23,Olly,Blank layer.
+Dialogue: a,0:00:02.34,0:00:03.45,Olly,Non-numeric layer.
+Dialogue: 1.1,0:00:04.56,0:00:05.67,Olly,Non-integer layer.

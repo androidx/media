@@ -1,4 +1,4 @@
-MediaCodecAdapter (exotest.audio.aac):
+MediaCodecAdapter (media3.audio.aac):
   inputBuffers:
     count = 27
     input buffer #0:
@@ -186,7 +186,7 @@ MediaCodecAdapter (exotest.audio.aac):
       timeUs = 1000000887038
       size = 0
       rendered = false
-MediaCodecAdapter (exotest.video.avc):
+MediaCodecAdapter (media3.video.avc):
   inputBuffers:
     count = 26
     input buffer #0:
@@ -378,40 +378,40 @@ AudioSink:
     sampleRate = 44100
   buffer #0:
     time = 1000000344000
-    data = 1
+    data = empty
   buffer #1:
     time = 1000000367219
-    data = 1
+    data = empty
   buffer #2:
     time = 1000000390439
-    data = 1
+    data = empty
   buffer #3:
     time = 1000000413659
-    data = 1
+    data = empty
   buffer #4:
     time = 1000000436879
-    data = 1
+    data = empty
   buffer #5:
     time = 1000000460099
-    data = 1
+    data = empty
   buffer #6:
     time = 1000000483319
-    data = 1
+    data = empty
   buffer #7:
     time = 1000000506539
-    data = 1
+    data = empty
   buffer #8:
     time = 1000000529759
-    data = 1
+    data = empty
   buffer #9:
     time = 1000000552979
-    data = 1
+    data = empty
   buffer #10:
     time = 1000000576199
-    data = 1
+    data = empty
   buffer #11:
     time = 1000000599419
-    data = 1
+    data = empty
   discontinuity:
   config:
     pcmEncoding = 2
@@ -419,40 +419,40 @@ AudioSink:
     sampleRate = 44100
   buffer #12:
     time = 1000000608399
-    data = 1
+    data = empty
   buffer #13:
     time = 1000000631619
-    data = 1
+    data = empty
   buffer #14:
     time = 1000000654839
-    data = 1
+    data = empty
   buffer #15:
     time = 1000000678058
-    data = 1
+    data = empty
   buffer #16:
     time = 1000000701278
-    data = 1
+    data = empty
   buffer #17:
     time = 1000000724498
-    data = 1
+    data = empty
   buffer #18:
     time = 1000000747718
-    data = 1
+    data = empty
   buffer #19:
     time = 1000000770938
-    data = 1
+    data = empty
   buffer #20:
     time = 1000000794158
-    data = 1
+    data = empty
   buffer #21:
     time = 1000000817378
-    data = 1
+    data = empty
   buffer #22:
     time = 1000000840598
-    data = 1
+    data = empty
   buffer #23:
     time = 1000000863818
-    data = 1
+    data = empty
   buffer #24:
     time = 1000000887038
-    data = 1
+    data = empty

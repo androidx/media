@@ -19,12 +19,14 @@ import static androidx.media3.common.C.PLAYREADY_UUID;
 import static androidx.media3.common.C.WIDEVINE_UUID;
 import static androidx.media3.common.MimeTypes.AUDIO_AAC;
 import static androidx.media3.common.MimeTypes.VIDEO_H264;
+import static androidx.media3.common.MimeTypes.VIDEO_MP4;
 import static androidx.media3.test.utils.TestUtil.buildTestData;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
-import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
+import android.media.MediaCodec;
+import android.media.MediaCodecInfo;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.media.metrics.LogSessionId;
@@ -32,13 +34,13 @@ import android.media.metrics.MediaMetricsManager;
 import android.media.metrics.PlaybackSession;
 import android.net.Uri;
 import android.os.PersistableBundle;
+import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.ParsableByteArray;
-import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DefaultDataSource;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.extractor.Extractor;
@@ -51,18 +53,22 @@ import androidx.media3.extractor.SeekMap.SeekPoints;
 import androidx.media3.extractor.SeekPoint;
 import androidx.media3.extractor.TrackOutput;
 import androidx.media3.extractor.mp4.Mp4Extractor;
+import androidx.media3.extractor.mp4.PsshAtomUtil;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.filters.SdkSuppress;
 import androidx.test.platform.app.InstrumentationRegistry;
 import com.google.common.base.Function;
 import com.google.common.io.Files;
+import com.google.common.primitives.Bytes;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
@@ -631,20 +637,18 @@ public class MediaExtractorCompatTest {
   @Test
   public void getTrackFormat_withBothTrackAndSeekMapDurationsSet_prioritizesTrackDuration()
       throws IOException {
-    TrackOutput[] outputs = new TrackOutput[1];
     fakeExtractor.addReadAction(
         (input, seekPosition) -> {
-          outputs[0] = extractorOutput.track(/* id= */ 0, C.TRACK_TYPE_VIDEO);
+          TrackOutput output = extractorOutput.track(/* id= */ 0, C.TRACK_TYPE_VIDEO);
           extractorOutput.endTracks();
           extractorOutput.seekMap(
               new FakeSeekMap(
                   /* durationUs= */ 1_000_000L, (timeUs) -> new SeekPoints(SeekPoint.START)));
-          outputs[0].format(PLACEHOLDER_FORMAT_VIDEO);
-          outputs[0].durationUs(2_000_000L);
+          output.format(PLACEHOLDER_FORMAT_VIDEO);
+          output.durationUs(2_000_000L);
           return Extractor.RESULT_CONTINUE;
         });
     mediaExtractorCompat.setDataSource(PLACEHOLDER_URI, /* offset= */ 0);
-    mediaExtractorCompat.selectTrack(/* trackIndex= */ 0);
 
     MediaFormat mediaFormat = mediaExtractorCompat.getTrackFormat(/* trackIndex= */ 0);
 
@@ -655,19 +659,17 @@ public class MediaExtractorCompatTest {
   @Test
   public void getTrackFormat_withOnlySeekMapDurationSet_returnsSeekMapDuration()
       throws IOException {
-    TrackOutput[] outputs = new TrackOutput[1];
     fakeExtractor.addReadAction(
         (input, seekPosition) -> {
-          outputs[0] = extractorOutput.track(/* id= */ 0, C.TRACK_TYPE_VIDEO);
+          TrackOutput output = extractorOutput.track(/* id= */ 0, C.TRACK_TYPE_VIDEO);
           extractorOutput.endTracks();
           extractorOutput.seekMap(
               new FakeSeekMap(
                   /* durationUs= */ 1_000_000L, (timeUs) -> new SeekPoints(SeekPoint.START)));
-          outputs[0].format(PLACEHOLDER_FORMAT_VIDEO);
+          output.format(PLACEHOLDER_FORMAT_VIDEO);
           return Extractor.RESULT_CONTINUE;
         });
     mediaExtractorCompat.setDataSource(PLACEHOLDER_URI, /* offset= */ 0);
-    mediaExtractorCompat.selectTrack(/* trackIndex= */ 0);
 
     MediaFormat mediaFormat = mediaExtractorCompat.getTrackFormat(/* trackIndex= */ 0);
 
@@ -678,12 +680,11 @@ public class MediaExtractorCompatTest {
   @Test
   public void getTrackFormat_withNoTrackOrSeekMapDurationSet_returnsNoDuration()
       throws IOException {
-    TrackOutput[] outputs = new TrackOutput[1];
     fakeExtractor.addReadAction(
         (input, seekPosition) -> {
-          outputs[0] = extractorOutput.track(/* id= */ 0, C.TRACK_TYPE_VIDEO);
+          TrackOutput output = extractorOutput.track(/* id= */ 0, C.TRACK_TYPE_VIDEO);
           extractorOutput.endTracks();
-          outputs[0].format(
+          output.format(
               new Format.Builder()
                   .setSampleMimeType(MimeTypes.VIDEO_H264)
                   .setCodecs("avc.123")
@@ -691,7 +692,6 @@ public class MediaExtractorCompatTest {
           return Extractor.RESULT_CONTINUE;
         });
     mediaExtractorCompat.setDataSource(PLACEHOLDER_URI, /* offset= */ 0);
-    mediaExtractorCompat.selectTrack(/* trackIndex= */ 0);
 
     MediaFormat mediaFormat = mediaExtractorCompat.getTrackFormat(/* trackIndex= */ 0);
 
@@ -699,22 +699,39 @@ public class MediaExtractorCompatTest {
   }
 
   @Test
+  public void getTrackFormat_withMultipleTracks_returnsCorrectTrackId() throws IOException {
+    fakeExtractor.addReadAction(
+        (input, seekPosition) -> {
+          TrackOutput output1 = extractorOutput.track(/* id= */ 0, C.TRACK_TYPE_VIDEO);
+          TrackOutput output2 = extractorOutput.track(/* id= */ 1, C.TRACK_TYPE_AUDIO);
+          extractorOutput.endTracks();
+          output1.format(
+              new Format.Builder().setId(1).setSampleMimeType(MimeTypes.VIDEO_H264).build());
+          output2.format(
+              new Format.Builder().setId(2).setSampleMimeType(MimeTypes.AUDIO_AAC).build());
+          return Extractor.RESULT_CONTINUE;
+        });
+
+    mediaExtractorCompat.setDataSource(PLACEHOLDER_URI, /* offset= */ 0);
+
+    MediaFormat videoFormat = mediaExtractorCompat.getTrackFormat(/* trackIndex= */ 0);
+    assertThat(videoFormat.containsKey(MediaFormat.KEY_TRACK_ID)).isTrue();
+    assertThat(videoFormat.getInteger(MediaFormat.KEY_TRACK_ID)).isEqualTo(1);
+
+    MediaFormat audioFormat = mediaExtractorCompat.getTrackFormat(/* trackIndex= */ 1);
+    assertThat(audioFormat.containsKey(MediaFormat.KEY_TRACK_ID)).isTrue();
+    assertThat(audioFormat.getInteger(MediaFormat.KEY_TRACK_ID)).isEqualTo(2);
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 31)
   public void getLogSessionId_withUnsetSessionId_returnsNone() {
-    assumeTrue(Util.SDK_INT >= 31);
-    // Needed to keep lint happy (it doesn't understand the assumeTrue call alone)
-    if (Util.SDK_INT < 31) {
-      return;
-    }
     assertThat(mediaExtractorCompat.getLogSessionId()).isEqualTo(LogSessionId.LOG_SESSION_ID_NONE);
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 31)
   public void getLogSessionId_withSetSessionId_returnsSetSessionId() {
-    assumeTrue(Util.SDK_INT >= 31);
-    // Needed to keep lint happy (it doesn't understand the assumeTrue call alone)
-    if (Util.SDK_INT < 31) {
-      return;
-    }
     MediaMetricsManager mediaMetricsManager =
         InstrumentationRegistry.getInstrumentation()
             .getTargetContext()
@@ -729,11 +746,10 @@ public class MediaExtractorCompatTest {
 
   @Test
   public void getDrmInitData_withNoTracksHavingDrmInitData_returnsNull() throws IOException {
-    TrackOutput[] outputs = new TrackOutput[1];
     fakeExtractor.addReadAction(
         (input, seekPosition) -> {
-          outputs[0] = extractorOutput.track(/* id= */ 0, C.TRACK_TYPE_VIDEO);
-          outputs[0].format(PLACEHOLDER_FORMAT_VIDEO);
+          TrackOutput output = extractorOutput.track(/* id= */ 0, C.TRACK_TYPE_VIDEO);
+          output.format(PLACEHOLDER_FORMAT_VIDEO);
           extractorOutput.endTracks();
           return Extractor.RESULT_CONTINUE;
         });
@@ -746,16 +762,13 @@ public class MediaExtractorCompatTest {
   @Test
   public void getDrmInitData_withSingleTrackHavingDrmInitData_returnsDrmInitData()
       throws IOException {
-    TrackOutput[] outputs = new TrackOutput[1];
     DrmInitData.SchemeData schemeData =
-        new DrmInitData.SchemeData(
-            WIDEVINE_UUID, VIDEO_H264, buildTestData(128, 1 /* data seed */));
+        new DrmInitData.SchemeData(WIDEVINE_UUID, VIDEO_H264, buildTestData(128, /* seed= */ 1));
     DrmInitData drmInitData = new DrmInitData(schemeData);
     fakeExtractor.addReadAction(
         (input, seekPosition) -> {
-          outputs[0] = extractorOutput.track(/* id= */ 0, C.TRACK_TYPE_VIDEO);
-          outputs[0].format(
-              PLACEHOLDER_FORMAT_VIDEO.buildUpon().setDrmInitData(drmInitData).build());
+          TrackOutput output = extractorOutput.track(/* id= */ 0, C.TRACK_TYPE_VIDEO);
+          output.format(PLACEHOLDER_FORMAT_VIDEO.buildUpon().setDrmInitData(drmInitData).build());
           extractorOutput.endTracks();
           return Extractor.RESULT_CONTINUE;
         });
@@ -768,16 +781,15 @@ public class MediaExtractorCompatTest {
   @Test
   public void getDrmInitData_withMultipleTracksHavingDrmInitData_returnsFirstNonNullDrmInitData()
       throws IOException {
-    TrackOutput[] outputs = new TrackOutput[3];
     DrmInitData.SchemeData firstSchemeData =
-        new DrmInitData.SchemeData(WIDEVINE_UUID, AUDIO_AAC, buildTestData(128, 1 /* data seed */));
+        new DrmInitData.SchemeData(WIDEVINE_UUID, AUDIO_AAC, buildTestData(128, /* seed= */ 1));
     DrmInitData firstDrmInitData = new DrmInitData(firstSchemeData);
     DrmInitData.SchemeData secondSchemeData =
-        new DrmInitData.SchemeData(
-            PLAYREADY_UUID, AUDIO_AAC, buildTestData(128, 2 /* data seed */));
+        new DrmInitData.SchemeData(PLAYREADY_UUID, AUDIO_AAC, buildTestData(128, /* seed= */ 2));
     DrmInitData secondDrmInitData = new DrmInitData(secondSchemeData);
     fakeExtractor.addReadAction(
         (input, seekPosition) -> {
+          TrackOutput[] outputs = new TrackOutput[3];
           outputs[0] = extractorOutput.track(/* id= */ 0, C.TRACK_TYPE_VIDEO);
           outputs[0].format(PLACEHOLDER_FORMAT_VIDEO);
           outputs[1] = extractorOutput.track(/* id= */ 1, C.TRACK_TYPE_AUDIO);
@@ -1005,12 +1017,8 @@ public class MediaExtractorCompatTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 26)
   public void getMetrics_withMp4DataSource_returnsExpectedMetricsBundle() throws IOException {
-    assumeTrue(Util.SDK_INT >= 26);
-    // Needed to keep lint happy (it doesn't understand the assumeTrue call alone)
-    if (Util.SDK_INT < 26) {
-      return;
-    }
     Context context = ApplicationProvider.getApplicationContext();
     Uri contentUri = Uri.parse("asset:///media/mp4/sample.mp4");
     MediaExtractorCompat mediaExtractorCompat = new MediaExtractorCompat(context);
@@ -1025,6 +1033,137 @@ public class MediaExtractorCompatTest {
     assertThat(bundle.getInt(MediaExtractor.MetricsConstants.TRACKS)).isEqualTo(2);
   }
 
+  @Test
+  public void getPsshInfo_withMediaWithoutPsshData_returnsNull() throws IOException {
+    DrmInitData.SchemeData schemeData =
+        new DrmInitData.SchemeData(WIDEVINE_UUID, VIDEO_H264, buildTestData(128, /* seed= */ 1));
+    DrmInitData drmInitData = new DrmInitData(schemeData);
+    fakeExtractor.addReadAction(
+        (input, seekPosition) -> {
+          TrackOutput output = extractorOutput.track(/* id= */ 0, C.TRACK_TYPE_VIDEO);
+          output.format(PLACEHOLDER_FORMAT_VIDEO.buildUpon().setDrmInitData(drmInitData).build());
+          extractorOutput.endTracks();
+          return Extractor.RESULT_CONTINUE;
+        });
+
+    mediaExtractorCompat.setDataSource(PLACEHOLDER_URI, /* offset= */ 0);
+
+    assertThat(mediaExtractorCompat.getPsshInfo()).isNull();
+  }
+
+  @Test
+  public void getPsshInfo_withMediaHavingPsshData_returnsCorrectPsshMap() throws IOException {
+    byte[] rawSchemeData = new byte[] {0, 1, 2, 3, 4, 5};
+    DrmInitData.SchemeData schemeData =
+        new DrmInitData.SchemeData(
+            WIDEVINE_UUID, VIDEO_MP4, PsshAtomUtil.buildPsshAtom(WIDEVINE_UUID, rawSchemeData));
+    DrmInitData drmInitData = new DrmInitData(schemeData);
+    fakeExtractor.addReadAction(
+        (input, seekPosition) -> {
+          TrackOutput output = extractorOutput.track(/* id= */ 0, C.TRACK_TYPE_VIDEO);
+          output.format(PLACEHOLDER_FORMAT_VIDEO.buildUpon().setDrmInitData(drmInitData).build());
+          extractorOutput.endTracks();
+          return Extractor.RESULT_CONTINUE;
+        });
+    mediaExtractorCompat.setDataSource(PLACEHOLDER_URI, /* offset= */ 0);
+
+    @Nullable Map<UUID, byte[]> psshMap = mediaExtractorCompat.getPsshInfo();
+
+    assertThat(psshMap).isNotNull();
+    assertThat(psshMap).isNotEmpty();
+    assertThat(psshMap).hasSize(1);
+    assertThat(psshMap.get(WIDEVINE_UUID)).isEqualTo(rawSchemeData);
+  }
+
+  @Test
+  public void
+      getSampleCryptoInfo_forEncryptedSample_returnsTrueAndPopulatesPlatformCryptoInfoCorrectly()
+          throws IOException {
+    TrackOutput.CryptoData cryptoData =
+        new TrackOutput.CryptoData(
+            /* cryptoMode= */ C.CRYPTO_MODE_AES_CTR,
+            /* encryptionKey= */ new byte[] {5, 6, 7, 8},
+            /* encryptedBlocks= */ 0,
+            /* clearBlocks= */ 0);
+    byte[] sampleData = new byte[] {0, 1, 2};
+    byte[] initializationVector = new byte[] {7, 6, 5, 4, 3, 2, 1, 0, 7, 6, 5, 4, 3, 2, 1, 0};
+    byte[] encryptedSampleData =
+        Bytes.concat(
+            new byte[] {
+              0x10, // subsampleEncryption = false (1 bit), ivSize = 16 (7 bits).
+            },
+            initializationVector,
+            sampleData);
+    TrackOutput[] outputs = new TrackOutput[1];
+    fakeExtractor.addReadAction(
+        (input, seekPosition) -> {
+          outputs[0] = extractorOutput.track(/* id= */ 0, C.TRACK_TYPE_VIDEO);
+          outputs[0].format(PLACEHOLDER_FORMAT_VIDEO);
+          extractorOutput.endTracks();
+          return Extractor.RESULT_CONTINUE;
+        });
+    mediaExtractorCompat.selectTrack(0);
+    fakeExtractor.addReadAction(
+        (input, seekPosition) -> {
+          outputSampleData(outputs[0], encryptedSampleData);
+          outputs[0].sampleMetadata(
+              /* timeUs= */ 0,
+              C.BUFFER_FLAG_KEY_FRAME | C.BUFFER_FLAG_ENCRYPTED,
+              /* size= */ encryptedSampleData.length,
+              /* offset= */ 0,
+              cryptoData);
+          return Extractor.RESULT_CONTINUE;
+        });
+
+    mediaExtractorCompat.setDataSource(PLACEHOLDER_URI, /* offset= */ 0);
+
+    MediaCodec.CryptoInfo platformCryptoInfo = new MediaCodec.CryptoInfo();
+    assertThat(mediaExtractorCompat.getSampleCryptoInfo(platformCryptoInfo)).isTrue();
+    // Verify platform crypto info data.
+    assertThat(platformCryptoInfo.numSubSamples).isEqualTo(1);
+    assertThat(platformCryptoInfo.numBytesOfClearData).hasLength(1);
+    assertThat(platformCryptoInfo.numBytesOfClearData[0]).isEqualTo(0);
+    assertThat(platformCryptoInfo.numBytesOfEncryptedData).hasLength(1);
+    assertThat(platformCryptoInfo.numBytesOfEncryptedData[0]).isEqualTo(sampleData.length);
+    assertThat(platformCryptoInfo.key).isEqualTo(cryptoData.encryptionKey);
+    assertThat(platformCryptoInfo.iv).isEqualTo(initializationVector);
+    assertThat(platformCryptoInfo.mode).isEqualTo(cryptoData.cryptoMode);
+    // Verify sample data and flags.
+    assertThat(mediaExtractorCompat.getSampleFlags())
+        .isEqualTo(MediaExtractor.SAMPLE_FLAG_SYNC | MediaExtractor.SAMPLE_FLAG_ENCRYPTED);
+    ByteBuffer buffer = ByteBuffer.allocate(sampleData.length);
+    assertThat(mediaExtractorCompat.readSampleData(buffer, /* offset= */ 0))
+        .isEqualTo(sampleData.length);
+    for (int i = 0; i < buffer.remaining(); i++) {
+      assertThat(buffer.get()).isEqualTo(sampleData[i]);
+    }
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 23)
+  public void getTrackFormat_withProfileAndLevelInCodecString_returnsExpectedProfileAndLevel()
+      throws IOException {
+    fakeExtractor.addReadAction(
+        (input, seekPosition) -> {
+          TrackOutput output = extractorOutput.track(/* id= */ 0, C.TRACK_TYPE_VIDEO);
+          extractorOutput.endTracks();
+          output.format(
+              new Format.Builder()
+                  .setSampleMimeType(MimeTypes.VIDEO_H264)
+                  .setCodecs("avc1.122.10")
+                  .build());
+          return Extractor.RESULT_CONTINUE;
+        });
+    mediaExtractorCompat.setDataSource(PLACEHOLDER_URI, /* offset= */ 0);
+
+    MediaFormat mediaFormat = mediaExtractorCompat.getTrackFormat(/* trackIndex= */ 0);
+
+    assertThat(mediaFormat.getInteger(MediaFormat.KEY_PROFILE))
+        .isEqualTo(MediaCodecInfo.CodecProfileLevel.AVCProfileHigh422);
+    assertThat(mediaFormat.getInteger(MediaFormat.KEY_LEVEL))
+        .isEqualTo(MediaCodecInfo.CodecProfileLevel.AVCLevel1);
+  }
+
   // Internal methods.
 
   private void assertReadSample(int trackIndex, long timeUs, int size, byte... sampleData) {
@@ -1032,6 +1171,7 @@ public class MediaExtractorCompatTest {
     assertThat(mediaExtractorCompat.getSampleTime()).isEqualTo(timeUs);
     assertThat(mediaExtractorCompat.getSampleFlags()).isEqualTo(MediaExtractor.SAMPLE_FLAG_SYNC);
     assertThat(mediaExtractorCompat.getSampleSize()).isEqualTo(size);
+    assertThat(mediaExtractorCompat.getSampleCryptoInfo(new MediaCodec.CryptoInfo())).isFalse();
     ByteBuffer buffer = ByteBuffer.allocate(100);
     assertThat(mediaExtractorCompat.readSampleData(buffer, /* offset= */ 0))
         .isEqualTo(sampleData.length);

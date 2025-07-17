@@ -16,6 +16,7 @@
 package androidx.media3.exoplayer.offline;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.common.util.Util.percentFloat;
 
 import android.net.Uri;
 import androidx.annotation.Nullable;
@@ -37,12 +38,14 @@ import androidx.media3.datasource.cache.CacheWriter;
 import androidx.media3.datasource.cache.ContentMetadata;
 import androidx.media3.exoplayer.upstream.ParsingLoadable;
 import androidx.media3.exoplayer.upstream.ParsingLoadable.Parser;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 
@@ -53,6 +56,54 @@ import java.util.concurrent.Executor;
  */
 @UnstableApi
 public abstract class SegmentDownloader<M extends FilterableManifest<M>> implements Downloader {
+
+  /** A base class of the factory of the concrete extension of {@link SegmentDownloader}. */
+  protected abstract static class BaseFactory<M extends FilterableManifest<M>>
+      implements SegmentDownloaderFactory {
+
+    protected final CacheDataSource.Factory cacheDataSourceFactory;
+    protected Parser<M> manifestParser;
+    protected Executor executor;
+    protected long maxMergedSegmentStartTimeDiffMs;
+    protected long startPositionUs;
+    protected long durationUs;
+
+    public BaseFactory(CacheDataSource.Factory cacheDataSourceFactory, Parser<M> manifestParser) {
+      this.cacheDataSourceFactory = cacheDataSourceFactory;
+      this.manifestParser = manifestParser;
+      this.executor = Runnable::run;
+      this.maxMergedSegmentStartTimeDiffMs = DEFAULT_MAX_MERGED_SEGMENT_START_TIME_DIFF_MS;
+      this.durationUs = C.TIME_UNSET;
+    }
+
+    @Override
+    @CanIgnoreReturnValue
+    public BaseFactory<M> setExecutor(Executor executor) {
+      this.executor = executor;
+      return this;
+    }
+
+    @Override
+    @CanIgnoreReturnValue
+    public BaseFactory<M> setMaxMergedSegmentStartTimeDiffMs(long maxMergedSegmentStartTimeDiffMs) {
+      this.maxMergedSegmentStartTimeDiffMs = maxMergedSegmentStartTimeDiffMs;
+      return this;
+    }
+
+    @Override
+    @CanIgnoreReturnValue
+    public BaseFactory<M> setStartPositionUs(long startPositionUs) {
+      this.startPositionUs = startPositionUs;
+      return this;
+    }
+
+    @Override
+    @CanIgnoreReturnValue
+    public BaseFactory<M> setDurationUs(long durationUs) {
+      this.durationUs = durationUs;
+      return this;
+    }
+  }
 
   /** Smallest unit of content to be downloaded. */
   protected static class Segment implements Comparable<Segment> {
@@ -71,13 +122,16 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
 
     @Override
     public int compareTo(Segment other) {
-      return Util.compareLong(startTimeUs, other.startTimeUs);
+      return Long.compare(startTimeUs, other.startTimeUs);
     }
   }
 
   public static final long DEFAULT_MAX_MERGED_SEGMENT_START_TIME_DIFF_MS = 20 * C.MILLIS_PER_SECOND;
 
   private static final int BUFFER_SIZE_BYTES = 128 * 1024;
+
+  public final long startPositionUs;
+  public final long durationUs;
 
   private final DataSpec manifestDataSpec;
   private final Parser<M> manifestParser;
@@ -101,22 +155,20 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
 
   private volatile boolean isCanceled;
 
-  /**
-   * @deprecated Use {@link SegmentDownloader#SegmentDownloader(MediaItem, Parser,
-   *     CacheDataSource.Factory, Executor, long)} instead.
-   */
-  @Deprecated
-  public SegmentDownloader(
+  protected SegmentDownloader(
       MediaItem mediaItem,
       Parser<M> manifestParser,
       CacheDataSource.Factory cacheDataSourceFactory,
-      Executor executor) {
+      Executor executor,
+      long maxMergedSegmentStartTimeDiffMs) {
     this(
         mediaItem,
         manifestParser,
         cacheDataSourceFactory,
         executor,
-        DEFAULT_MAX_MERGED_SEGMENT_START_TIME_DIFF_MS);
+        maxMergedSegmentStartTimeDiffMs,
+        /* startPositionUs= */ 0,
+        /* durationUs= */ C.TIME_UNSET);
   }
 
   /**
@@ -130,19 +182,26 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
    * @param maxMergedSegmentStartTimeDiffMs The maximum difference of the start time of two
    *     segments, up to which the segments (of the same URI) should be merged into a single
    *     download segment, in milliseconds.
+   * @param startPositionUs The start position in microseconds that the download should start from.
+   * @param durationUs The duration in microseconds from the {@code startPositionUs} to be
+   *     downloaded, or {@link C#TIME_UNSET} if the media should be downloaded to the end.
    */
   public SegmentDownloader(
       MediaItem mediaItem,
       Parser<M> manifestParser,
       CacheDataSource.Factory cacheDataSourceFactory,
       Executor executor,
-      long maxMergedSegmentStartTimeDiffMs) {
+      long maxMergedSegmentStartTimeDiffMs,
+      long startPositionUs,
+      long durationUs) {
     checkNotNull(mediaItem.localConfiguration);
     this.manifestDataSpec = getCompressibleDataSpec(mediaItem.localConfiguration.uri);
     this.manifestParser = manifestParser;
     this.streamKeys = new ArrayList<>(mediaItem.localConfiguration.streamKeys);
     this.cacheDataSourceFactory = cacheDataSourceFactory;
     this.executor = executor;
+    this.startPositionUs = startPositionUs;
+    this.durationUs = durationUs;
     cache = Assertions.checkNotNull(cacheDataSourceFactory.getCache());
     cacheKeyFactory = cacheDataSourceFactory.getCacheKeyFactory();
     priorityTaskManager = cacheDataSourceFactory.getUpstreamPriorityTaskManager();
@@ -430,12 +489,14 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
     }
   }
 
+  @SuppressWarnings("FutureReturnValueIgnored")
   private void removeActiveRunnable(RunnableFutureTask<?, ?> runnable) {
     synchronized (activeRunnables) {
       activeRunnables.remove(runnable);
     }
   }
 
+  @SuppressWarnings("FutureReturnValueIgnored")
   private void removeActiveRunnable(int index) {
     synchronized (activeRunnables) {
       activeRunnables.remove(index);
@@ -475,7 +536,7 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
     return dataSpec1.uri.equals(dataSpec2.uri)
         && dataSpec1.length != C.LENGTH_UNSET
         && (dataSpec1.position + dataSpec1.length == dataSpec2.position)
-        && Util.areEqual(dataSpec1.key, dataSpec2.key)
+        && Objects.equals(dataSpec1.key, dataSpec2.key)
         && dataSpec1.flags == dataSpec2.flags
         && dataSpec1.httpMethod == dataSpec2.httpMethod
         && dataSpec1.httpRequestHeaders.equals(dataSpec2.httpRequestHeaders);
@@ -553,9 +614,9 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
 
     private float getPercentDownloaded() {
       if (contentLength != C.LENGTH_UNSET && contentLength != 0) {
-        return (bytesDownloaded * 100f) / contentLength;
+        return percentFloat(bytesDownloaded, contentLength);
       } else if (totalSegments != 0) {
-        return (segmentsDownloaded * 100f) / totalSegments;
+        return percentFloat(segmentsDownloaded, totalSegments);
       } else {
         return C.PERCENTAGE_UNSET;
       }

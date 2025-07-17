@@ -56,6 +56,8 @@ public final class DumpableFormat implements Dumper.Dumpable {
         "maxNumReorderSamples", format, DEFAULT_FORMAT, format -> format.maxNumReorderSamples);
     dumper.addIfNonDefault("width", format, DEFAULT_FORMAT, format -> format.width);
     dumper.addIfNonDefault("height", format, DEFAULT_FORMAT, format -> format.height);
+    dumper.addIfNonDefault("decodedWidth", format, DEFAULT_FORMAT, format -> format.decodedWidth);
+    dumper.addIfNonDefault("decodedHeight", format, DEFAULT_FORMAT, format -> format.decodedHeight);
     dumper.addIfNonDefault(
         "frameRate",
         format,
@@ -65,6 +67,7 @@ public final class DumpableFormat implements Dumper.Dumpable {
         "rotationDegrees", format, DEFAULT_FORMAT, format -> format.rotationDegrees);
     dumper.addIfNonDefault(
         "pixelWidthHeightRatio", format, DEFAULT_FORMAT, format -> format.pixelWidthHeightRatio);
+    dumper.addIfNonDefault("maxSubLayers", format, DEFAULT_FORMAT, format -> format.maxSubLayers);
     @Nullable ColorInfo colorInfo = format.colorInfo;
     if (colorInfo != null) {
       dumper.startBlock("colorInfo");

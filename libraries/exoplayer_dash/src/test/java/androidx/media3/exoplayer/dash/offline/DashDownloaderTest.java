@@ -26,6 +26,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import android.net.Uri;
+import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.StreamKey;
@@ -82,7 +83,7 @@ public class DashDownloaderTest {
   }
 
   @Test
-  public void createWithDefaultDownloaderFactory() {
+  public void createWithDefaultDownloaderFactory_downloadRequestWithoutTimeRange() {
     CacheDataSource.Factory cacheDataSourceFactory =
         new CacheDataSource.Factory()
             .setCache(Mockito.mock(Cache.class))
@@ -98,7 +99,33 @@ public class DashDownloaderTest {
                     Collections.singletonList(
                         new StreamKey(/* groupIndex= */ 0, /* streamIndex= */ 0)))
                 .build());
+
     assertThat(downloader).isInstanceOf(DashDownloader.class);
+  }
+
+  @Test
+  public void createWithDefaultDownloaderFactory_downloadRequestWithTimeRange() {
+    CacheDataSource.Factory cacheDataSourceFactory =
+        new CacheDataSource.Factory()
+            .setCache(Mockito.mock(Cache.class))
+            .setUpstreamDataSourceFactory(PlaceholderDataSource.FACTORY);
+    DownloaderFactory factory =
+        new DefaultDownloaderFactory(cacheDataSourceFactory, /* executor= */ Runnable::run);
+
+    Downloader downloader =
+        factory.createDownloader(
+            new DownloadRequest.Builder(/* id= */ "id", Uri.parse("https://www.test.com/download"))
+                .setMimeType(MimeTypes.APPLICATION_MPD)
+                .setStreamKeys(
+                    Collections.singletonList(
+                        new StreamKey(/* groupIndex= */ 0, /* streamIndex= */ 0)))
+                .setTimeRange(/* startPositionUs= */ 10_000, /* durationUs= */ 20_000)
+                .build());
+
+    assertThat(downloader).isInstanceOf(DashDownloader.class);
+    DashDownloader dashDownloader = (DashDownloader) downloader;
+    assertThat(dashDownloader.startPositionUs).isEqualTo(10_000);
+    assertThat(dashDownloader.durationUs).isEqualTo(20_000);
   }
 
   @Test
@@ -176,7 +203,7 @@ public class DashDownloaderTest {
   }
 
   @Test
-  public void progressiveDownload() throws Exception {
+  public void progressiveDownload_withoutTimeRange() throws Exception {
     FakeDataSet fakeDataSet =
         new FakeDataSet()
             .setData(TEST_MPD_URI, TEST_MPD)
@@ -208,7 +235,7 @@ public class DashDownloaderTest {
   }
 
   @Test
-  public void progressiveDownloadSeparatePeriods() throws Exception {
+  public void progressiveDownloadSeparatePeriods_withoutTimeRange() throws Exception {
     FakeDataSet fakeDataSet =
         new FakeDataSet()
             .setData(TEST_MPD_URI, TEST_MPD)
@@ -237,6 +264,110 @@ public class DashDownloaderTest {
     assertThat(openedDataSpecs[5].uri.getPath()).isEqualTo("period_2_segment_1");
     assertThat(openedDataSpecs[6].uri.getPath()).isEqualTo("period_2_segment_2");
     assertThat(openedDataSpecs[7].uri.getPath()).isEqualTo("period_2_segment_3");
+  }
+
+  @Test
+  public void progressiveDownloadSeparatePeriods_withTimeRange_skipSegmentsNotInTheRange()
+      throws Exception {
+    FakeDataSet fakeDataSet =
+        new FakeDataSet()
+            .setData(TEST_MPD_URI, TEST_MPD)
+            .setRandomData("audio_init_data", 10)
+            .setRandomData("audio_segment_1", 4)
+            .setRandomData("audio_segment_2", 5)
+            .setRandomData("audio_segment_3", 6)
+            .setRandomData("period_2_segment_1", 1)
+            .setRandomData("period_2_segment_2", 2)
+            .setRandomData("period_2_segment_3", 3);
+    FakeDataSource fakeDataSource = new FakeDataSource(fakeDataSet);
+    FakeDataSource.Factory factory = mock(FakeDataSource.Factory.class);
+    when(factory.createDataSource()).thenReturn(fakeDataSource);
+
+    DashDownloader dashDownloader =
+        getDashDownloader(
+            factory,
+            /* startPositionUs= */ 5_000_000,
+            /* durationUs= */ 15_000_000,
+            new StreamKey(0, 0, 0),
+            new StreamKey(1, 0, 0));
+    dashDownloader.download(progressListener);
+
+    DataSpec[] openedDataSpecs = fakeDataSource.getAndClearOpenedDataSpecs();
+    assertThat(openedDataSpecs).hasLength(5);
+    assertThat(openedDataSpecs[0].uri).isEqualTo(TEST_MPD_URI);
+    assertThat(openedDataSpecs[1].uri.getPath()).isEqualTo("audio_init_data");
+    assertThat(openedDataSpecs[2].uri.getPath()).isEqualTo("audio_segment_2");
+    assertThat(openedDataSpecs[3].uri.getPath()).isEqualTo("audio_segment_3");
+    assertThat(openedDataSpecs[4].uri.getPath()).isEqualTo("period_2_segment_1");
+  }
+
+  @Test
+  public void progressiveDownloadSeparatePeriods_withTimeRange_skipPeriodBeforeTheRange()
+      throws Exception {
+    FakeDataSet fakeDataSet =
+        new FakeDataSet()
+            .setData(TEST_MPD_URI, TEST_MPD)
+            .setRandomData("audio_init_data", 10)
+            .setRandomData("audio_segment_1", 4)
+            .setRandomData("audio_segment_2", 5)
+            .setRandomData("audio_segment_3", 6)
+            .setRandomData("period_2_segment_1", 1)
+            .setRandomData("period_2_segment_2", 2)
+            .setRandomData("period_2_segment_3", 3);
+    FakeDataSource fakeDataSource = new FakeDataSource(fakeDataSet);
+    FakeDataSource.Factory factory = mock(FakeDataSource.Factory.class);
+    when(factory.createDataSource()).thenReturn(fakeDataSource);
+
+    DashDownloader dashDownloader =
+        getDashDownloader(
+            factory,
+            /* startPositionUs= */ 16_000_000,
+            /* durationUs= */ 15_000_000,
+            new StreamKey(0, 0, 0),
+            new StreamKey(1, 0, 0));
+    dashDownloader.download(progressListener);
+
+    DataSpec[] openedDataSpecs = fakeDataSource.getAndClearOpenedDataSpecs();
+    assertThat(openedDataSpecs).hasLength(4);
+    assertThat(openedDataSpecs[0].uri).isEqualTo(TEST_MPD_URI);
+    assertThat(openedDataSpecs[1].uri.getPath()).isEqualTo("period_2_segment_1");
+    assertThat(openedDataSpecs[2].uri.getPath()).isEqualTo("period_2_segment_2");
+    assertThat(openedDataSpecs[3].uri.getPath()).isEqualTo("period_2_segment_3");
+  }
+
+  @Test
+  public void progressiveDownloadSeparatePeriods_withTimeRange_skipPeriodAfterTheRange()
+      throws Exception {
+    FakeDataSet fakeDataSet =
+        new FakeDataSet()
+            .setData(TEST_MPD_URI, TEST_MPD)
+            .setRandomData("audio_init_data", 10)
+            .setRandomData("audio_segment_1", 4)
+            .setRandomData("audio_segment_2", 5)
+            .setRandomData("audio_segment_3", 6)
+            .setRandomData("text_segment_1", 1)
+            .setRandomData("text_segment_2", 2)
+            .setRandomData("text_segment_3", 3);
+    FakeDataSource fakeDataSource = new FakeDataSource(fakeDataSet);
+    FakeDataSource.Factory factory = mock(FakeDataSource.Factory.class);
+    when(factory.createDataSource()).thenReturn(fakeDataSource);
+
+    DashDownloader dashDownloader =
+        getDashDownloader(
+            factory,
+            /* startPositionUs= */ 0,
+            /* durationUs= */ 16_000_000,
+            new StreamKey(0, 0, 0),
+            new StreamKey(1, 0, 0));
+    dashDownloader.download(progressListener);
+
+    DataSpec[] openedDataSpecs = fakeDataSource.getAndClearOpenedDataSpecs();
+    assertThat(openedDataSpecs).hasLength(5);
+    assertThat(openedDataSpecs[0].uri).isEqualTo(TEST_MPD_URI);
+    assertThat(openedDataSpecs[1].uri.getPath()).isEqualTo("audio_init_data");
+    assertThat(openedDataSpecs[2].uri.getPath()).isEqualTo("audio_segment_1");
+    assertThat(openedDataSpecs[3].uri.getPath()).isEqualTo("audio_segment_2");
+    assertThat(openedDataSpecs[4].uri.getPath()).isEqualTo("audio_segment_3");
   }
 
   @Test
@@ -313,6 +444,52 @@ public class DashDownloaderTest {
   }
 
   @Test
+  public void remove_withContentBeyondDownloadRange_removesWholeContentInCache() throws Exception {
+    FakeDataSet fakeDataSet =
+        new FakeDataSet()
+            .setData(TEST_MPD_URI, TEST_MPD)
+            .setRandomData("audio_init_data", 10)
+            .setRandomData("audio_segment_1", 4)
+            .setRandomData("audio_segment_2", 5)
+            .setRandomData("audio_segment_3", 6)
+            .setRandomData("text_segment_1", 1)
+            .setRandomData("text_segment_2", 2)
+            .setRandomData("text_segment_3", 3);
+    FakeDataSource fakeDataSource = new FakeDataSource(fakeDataSet);
+    FakeDataSource.Factory factory = mock(FakeDataSource.Factory.class);
+    when(factory.createDataSource()).thenReturn(fakeDataSource);
+    // Let dashDownloader1 download the first part of content.
+    DashDownloader dashDownloader1 =
+        getDashDownloader(
+            factory,
+            /* startPositionUs= */ 0,
+            /* durationUs= */ 4_000_000,
+            new StreamKey(0, 0, 0),
+            new StreamKey(0, 1, 0));
+    dashDownloader1.download(progressListener);
+    assertCachedData(
+        cache,
+        new RequestSet(fakeDataSet)
+            .subset(TEST_MPD_URI.toString(), "audio_init_data", "audio_segment_1", "text_segment_1")
+            .useBoundedDataSpecFor("audio_init_data"));
+    // Let dashDownloader2 download the rest of content and then remove, it should remove the whole
+    // content, instead of only the part it was asked to download.
+    DashDownloader dashDownloader2 =
+        getDashDownloader(
+            factory,
+            /* startPositionUs= */ 4_000_000,
+            /* durationUs= */ C.TIME_UNSET,
+            new StreamKey(0, 0, 0),
+            new StreamKey(0, 1, 0));
+    dashDownloader2.download(progressListener);
+    assertCachedData(cache, new RequestSet(fakeDataSet).useBoundedDataSpecFor("audio_init_data"));
+
+    dashDownloader2.remove();
+
+    assertCacheEmpty(cache);
+  }
+
+  @Test
   public void representationWithoutIndex() throws Exception {
     FakeDataSet fakeDataSet =
         new FakeDataSet()
@@ -336,13 +513,23 @@ public class DashDownloaderTest {
 
   private DashDownloader getDashDownloader(
       FakeDataSource.Factory upstreamDataSourceFactory, StreamKey... keys) {
+    return getDashDownloader(
+        upstreamDataSourceFactory, /* startPositionUs= */ 0, /* durationUs= */ C.TIME_UNSET, keys);
+  }
+
+  private DashDownloader getDashDownloader(
+      FakeDataSource.Factory upstreamDataSourceFactory,
+      long startPositionUs,
+      long durationUs,
+      StreamKey... keys) {
     CacheDataSource.Factory cacheDataSourceFactory =
         new CacheDataSource.Factory()
             .setCache(cache)
             .setUpstreamDataSourceFactory(upstreamDataSourceFactory);
-    return new DashDownloader(
-        new MediaItem.Builder().setUri(TEST_MPD_URI).setStreamKeys(keysList(keys)).build(),
-        cacheDataSourceFactory);
+    return new DashDownloader.Factory(cacheDataSourceFactory)
+        .setStartPositionUs(startPositionUs)
+        .setDurationUs(durationUs)
+        .create(new MediaItem.Builder().setUri(TEST_MPD_URI).setStreamKeys(keysList(keys)).build());
   }
 
   private static ArrayList<StreamKey> keysList(StreamKey... keys) {

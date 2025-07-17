@@ -15,6 +15,7 @@
  */
 package androidx.media3.session;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static android.support.v4.media.session.MediaSessionCompat.FLAG_HANDLES_QUEUE_COMMANDS;
 import static androidx.media3.test.session.common.TestUtils.VOLUME_CHANGE_TIMEOUT_MS;
 import static com.google.common.truth.Truth.assertThat;
@@ -43,7 +44,6 @@ import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.Player;
 import androidx.media3.common.Rating;
 import androidx.media3.common.StarRating;
-import androidx.media3.common.util.Util;
 import androidx.media3.test.session.common.HandlerThreadTestRule;
 import androidx.media3.test.session.common.MainLooperTestRule;
 import androidx.media3.test.session.common.MockActivity;
@@ -67,6 +67,7 @@ import org.junit.runner.RunWith;
 /** Tests for {@link MediaSessionCompat.Callback} with {@link MediaController}. */
 @RunWith(AndroidJUnit4.class)
 @SmallTest
+@SuppressWarnings("deprecation") // Tests behavior of deprecated MediaSessionCompat.Callback
 public class MediaSessionCompatCallbackWithMediaControllerTest {
   private static final String TAG = "MediaControllerTest";
 
@@ -91,7 +92,7 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
     // Create this test specific MediaSession to use our own Handler.
     PendingIntent intent =
         PendingIntent.getActivity(
-            context, 0, sessionActivity, Util.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0);
+            context, 0, sessionActivity, SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0);
 
     sessionCallback = new MediaSessionCallback();
     session = new MediaSessionCompat(context, TAG + "Compat");

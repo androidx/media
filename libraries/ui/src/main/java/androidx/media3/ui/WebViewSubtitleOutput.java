@@ -326,7 +326,7 @@ import java.util.Map;
       htmlHead.append(cssSelector).append("{").append(cssRuleSets.get(cssSelector)).append("}");
     }
     htmlHead.append("</style></head>");
-    html.insert(0, htmlHead.toString());
+    html.insert(0, htmlHead);
 
     webView.loadData(
         Base64.encodeToString(html.toString().getBytes(StandardCharsets.UTF_8), Base64.NO_PADDING),

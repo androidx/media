@@ -15,14 +15,11 @@
  */
 package androidx.media3.extractor.metadata.id3;
 
-import static androidx.media3.common.util.Util.castNonNull;
-
-import android.os.Parcel;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import java.util.Arrays;
+import java.util.Objects;
 
 /** Chapter information ID3 frame. */
 @UnstableApi
@@ -58,20 +55,6 @@ public final class ChapterFrame extends Id3Frame {
     this.subFrames = subFrames;
   }
 
-  /* package */ ChapterFrame(Parcel in) {
-    super(ID);
-    this.chapterId = castNonNull(in.readString());
-    this.startTimeMs = in.readInt();
-    this.endTimeMs = in.readInt();
-    this.startOffset = in.readLong();
-    this.endOffset = in.readLong();
-    int subFrameCount = in.readInt();
-    subFrames = new Id3Frame[subFrameCount];
-    for (int i = 0; i < subFrameCount; i++) {
-      subFrames[i] = in.readParcelable(Id3Frame.class.getClassLoader());
-    }
-  }
-
   /** Returns the number of sub-frames. */
   public int getSubFrameCount() {
     return subFrames.length;
@@ -95,7 +78,7 @@ public final class ChapterFrame extends Id3Frame {
         && endTimeMs == other.endTimeMs
         && startOffset == other.startOffset
         && endOffset == other.endOffset
-        && Util.areEqual(chapterId, other.chapterId)
+        && Objects.equals(chapterId, other.chapterId)
         && Arrays.equals(subFrames, other.subFrames);
   }
 
@@ -109,36 +92,4 @@ public final class ChapterFrame extends Id3Frame {
     result = 31 * result + (chapterId != null ? chapterId.hashCode() : 0);
     return result;
   }
-
-  @Override
-  public void writeToParcel(Parcel dest, int flags) {
-    dest.writeString(chapterId);
-    dest.writeInt(startTimeMs);
-    dest.writeInt(endTimeMs);
-    dest.writeLong(startOffset);
-    dest.writeLong(endOffset);
-    dest.writeInt(subFrames.length);
-    for (Id3Frame subFrame : subFrames) {
-      dest.writeParcelable(subFrame, 0);
-    }
-  }
-
-  @Override
-  public int describeContents() {
-    return 0;
-  }
-
-  public static final Creator<ChapterFrame> CREATOR =
-      new Creator<ChapterFrame>() {
-
-        @Override
-        public ChapterFrame createFromParcel(Parcel in) {
-          return new ChapterFrame(in);
-        }
-
-        @Override
-        public ChapterFrame[] newArray(int size) {
-          return new ChapterFrame[size];
-        }
-      };
 }

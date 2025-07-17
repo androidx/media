@@ -17,9 +17,9 @@ package androidx.media3.transformer.mh;
 
 import static android.media.MediaCodecInfo.CodecProfileLevel.AVCLevel41;
 import static android.media.MediaCodecInfo.CodecProfileLevel.AVCProfileHigh;
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.MediaFormatUtil.createFormatFromMediaFormat;
-import static androidx.media3.common.util.Util.SDK_INT;
 import static androidx.media3.exoplayer.mediacodec.MediaCodecUtil.getCodecProfileAndLevel;
 import static androidx.media3.transformer.AndroidTestUtil.FORCE_TRANSCODE_VIDEO_EFFECTS;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
@@ -42,12 +42,12 @@ import static org.junit.Assume.assumeTrue;
 import android.content.Context;
 import android.media.MediaFormat;
 import android.net.Uri;
+import android.os.Build;
 import android.util.Pair;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
-import androidx.media3.common.util.Util;
 import androidx.media3.effect.Presentation;
 import androidx.media3.effect.ScaleAndRotateTransformation;
 import androidx.media3.exoplayer.MediaExtractorCompat;
@@ -170,17 +170,17 @@ public class ExportTest {
     // Reference: b/262710361
     assumeFalse(
         "Skip due to over-reported encoder capabilities",
-        Util.SDK_INT == 29 && Ascii.equalsIgnoreCase(Util.MODEL, "pixel 3"));
+        SDK_INT == 29 && Ascii.equalsIgnoreCase(Build.MODEL, "pixel 3"));
     // Reference: b/347635026
     assumeFalse(
         "Skip due to decoder failing to queue input frames",
-        Util.SDK_INT == 29 && Ascii.equalsIgnoreCase(Util.MODEL, "pixel 3a"));
+        SDK_INT == 29 && Ascii.equalsIgnoreCase(Build.MODEL, "pixel 3a"));
     Transformer transformer =
         new Transformer.Builder(context)
             .setEncoderFactory(new ForceEncodeEncoderFactory(context))
             .build();
     MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_4K60_PORTRAIT.uri));
-    boolean skipCalculateSsim = Util.SDK_INT < 30 && Util.DEVICE.equals("joyeuse");
+    boolean skipCalculateSsim = SDK_INT < 30 && Build.DEVICE.equals("joyeuse");
 
     ExportTestResult result =
         new TransformerAndroidTestRunner.Builder(context, transformer)
@@ -197,11 +197,11 @@ public class ExportTest {
     // Reference: b/244711282#comment5
     assumeFalse(
         "Some devices are capable of instantiating only either one 8K decoder or one 8K encoder",
-        Ascii.equalsIgnoreCase(Util.MODEL, "tb-q706")
-            || Ascii.equalsIgnoreCase(Util.MODEL, "sm-f916u1")
-            || Ascii.equalsIgnoreCase(Util.MODEL, "sm-g981u1")
-            || Ascii.equalsIgnoreCase(Util.MODEL, "le2121")
-            || Ascii.equalsIgnoreCase(Util.MODEL, "seahawk"));
+        Ascii.equalsIgnoreCase(Build.MODEL, "tb-q706")
+            || Ascii.equalsIgnoreCase(Build.MODEL, "sm-f916u1")
+            || Ascii.equalsIgnoreCase(Build.MODEL, "sm-g981u1")
+            || Ascii.equalsIgnoreCase(Build.MODEL, "le2121")
+            || Ascii.equalsIgnoreCase(Build.MODEL, "seahawk"));
     Context context = ApplicationProvider.getApplicationContext();
     assumeFormatsSupported(
         context, testId, /* inputFormat= */ MP4_ASSET_8K24.videoFormat, /* outputFormat= */ null);
@@ -211,7 +211,7 @@ public class ExportTest {
             .build();
     MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_8K24.uri));
     // TODO: b/281824052 - have requestCalculateSsim always be true after linked bug is fixed.
-    boolean requestCalculateSsim = !Util.MODEL.equals("SM-G991B");
+    boolean requestCalculateSsim = !Build.MODEL.equals("SM-G991B");
 
     ExportTestResult result =
         new TransformerAndroidTestRunner.Builder(context, transformer)
@@ -308,7 +308,7 @@ public class ExportTest {
   public void exportSef() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
     if (SDK_INT < 25) {
-      // TODO(b/210593256): Remove test skipping after using an in-app muxer that supports B-frames
+      // TODO: b/210593256 - Remove test skipping after using an in-app muxer that supports B-frames
       //  before API 25.
       recordTestSkipped(context, testId, /* reason= */ "API version lacks muxing support");
       return;
@@ -333,7 +333,7 @@ public class ExportTest {
   public void exportSefH265() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
     if (SDK_INT < 25) {
-      // TODO(b/210593256): Remove test skipping after using an in-app muxer that supports B-frames
+      // TODO: b/210593256 - Remove test skipping after using an in-app muxer that supports B-frames
       //  before API 25.
       recordTestSkipped(context, testId, /* reason= */ "API version lacks muxing support");
       return;
@@ -380,7 +380,7 @@ public class ExportTest {
   public void exportTranscodeBt2020Sdr() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
     // Reference: b/262732842#comment51
-    if (SDK_INT <= 27 && Util.MANUFACTURER.equals("samsung")) {
+    if (SDK_INT <= 27 && Build.MANUFACTURER.equals("samsung")) {
       String reason = "Some older Samsung encoders report a non-specified error code";
       recordTestSkipped(context, testId, reason);
       throw new AssumptionViolatedException(reason);
@@ -390,6 +390,10 @@ public class ExportTest {
         testId,
         /* inputFormat= */ MP4_ASSET_BT2020_SDR.videoFormat,
         /* outputFormat= */ null);
+    // Reference: b/391362064
+    assumeFalse(
+        "Skip due to over-reported decoder capabilities",
+        SDK_INT == 33 && Ascii.equalsIgnoreCase(Build.MODEL, "sm-a325f"));
     Transformer transformer = new Transformer.Builder(context).build();
     MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_BT2020_SDR.uri));
     EditedMediaItem editedMediaItem =
@@ -409,12 +413,12 @@ public class ExportTest {
     Context context = ApplicationProvider.getApplicationContext();
     // Devices with Tensor G2 & G3 chipsets should work, but Pixel 7a is flaky.
     assumeTrue(
-        Ascii.toLowerCase(Util.MODEL).contains("pixel")
-            && (Ascii.toLowerCase(Util.MODEL).contains("7")
-                || Ascii.toLowerCase(Util.MODEL).contains("8")
-                || Ascii.toLowerCase(Util.MODEL).contains("fold")
-                || Ascii.toLowerCase(Util.MODEL).contains("tablet")));
-    assumeFalse(Ascii.toLowerCase(Util.MODEL).contains("7a"));
+        Ascii.toLowerCase(Build.MODEL).contains("pixel")
+            && (Ascii.toLowerCase(Build.MODEL).contains("7")
+                || Ascii.toLowerCase(Build.MODEL).contains("8")
+                || Ascii.toLowerCase(Build.MODEL).contains("fold")
+                || Ascii.toLowerCase(Build.MODEL).contains("tablet")));
+    assumeFalse(Ascii.toLowerCase(Build.MODEL).contains("7a"));
     Transformer transformer =
         new Transformer.Builder(context).experimentalSetTrimOptimizationEnabled(true).build();
     MediaItem mediaItem =
@@ -452,7 +456,7 @@ public class ExportTest {
   public void export_setEncodingProfileLevel_changesProfileAndLevel() throws Exception {
     assumeTrue(
         "Android encoding guidelines recommend H.264 baseline profile prior to API 25",
-        Util.SDK_INT >= 25);
+        SDK_INT >= 25);
     Context context = ApplicationProvider.getApplicationContext();
     Transformer transformer =
         new Transformer.Builder(context)

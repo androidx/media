@@ -35,12 +35,14 @@ import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import com.google.errorprone.annotations.InlineMe;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Objects;
 
 /**
  * Represents ad group times and information on the state and URIs of ads within each ad group.
@@ -70,7 +72,7 @@ public final class AdPlaybackState {
 
     /**
      * The original number of ads in the ad group in case the ad group is only partially available,
-     * or {@link C#LENGTH_UNSET} if unknown. An ad can be partially available when a server side
+     * or {@link C#LENGTH_UNSET} if unknown. An ad can be partially available when a server-side
      * inserted ad live stream is joined while an ad is already playing and some ad information is
      * missing.
      */
@@ -90,6 +92,9 @@ public final class AdPlaybackState {
     /** The durations of each ad in the ad group, in microseconds. */
     public final long[] durationsUs;
 
+    /** The optional IDs of the ads. */
+    public final @NullableType String[] ids;
+
     /**
      * The offset in microseconds which should be added to the content stream when resuming playback
      * after the ad group.
@@ -98,6 +103,9 @@ public final class AdPlaybackState {
 
     /** Whether this ad group is server-side inserted and part of the content stream. */
     public final boolean isServerSideInserted;
+
+    /** Whether this is an ignorable placeholder that must not be attempted to be played. */
+    public final boolean isPlaceholder;
 
     /**
      * Creates a new ad group with an unspecified number of ads.
@@ -114,7 +122,9 @@ public final class AdPlaybackState {
           /* mediaItems= */ new MediaItem[0],
           /* durationsUs= */ new long[0],
           /* contentResumeOffsetUs= */ 0,
-          /* isServerSideInserted= */ false);
+          /* isServerSideInserted= */ false,
+          /* ids= */ new String[0],
+          /* isPlaceholder= */ false);
     }
 
     @SuppressWarnings("deprecation") // Intentionally assigning deprecated field
@@ -126,7 +136,9 @@ public final class AdPlaybackState {
         @NullableType MediaItem[] mediaItems,
         long[] durationsUs,
         long contentResumeOffsetUs,
-        boolean isServerSideInserted) {
+        boolean isServerSideInserted,
+        @NullableType String[] ids,
+        boolean isPlaceholder) {
       checkArgument(states.length == mediaItems.length);
       this.timeUs = timeUs;
       this.count = count;
@@ -140,6 +152,8 @@ public final class AdPlaybackState {
       for (int i = 0; i < uris.length; i++) {
         uris[i] = mediaItems[i] == null ? null : checkNotNull(mediaItems[i].localConfiguration).uri;
       }
+      this.ids = ids;
+      this.isPlaceholder = isPlaceholder;
     }
 
     /**
@@ -155,7 +169,7 @@ public final class AdPlaybackState {
      * lastPlayedAdIndex}, or {@link #count} if no later ads should be played. If no ads have been
      * played, pass -1 to get the index of the first ad to play.
      *
-     * <p>Note: {@linkplain #isServerSideInserted Server side inserted ads} are always considered
+     * <p>Note: {@linkplain #isServerSideInserted server-side inserted ads} are always considered
      * playable.
      */
     public int getNextAdIndexToPlay(@IntRange(from = -1) int lastPlayedAdIndex) {
@@ -191,8 +205,24 @@ public final class AdPlaybackState {
       return false;
     }
 
-    private boolean isLivePostrollPlaceholder() {
-      return isServerSideInserted && timeUs == C.TIME_END_OF_SOURCE && count == C.LENGTH_UNSET;
+    /**
+     * Returns whether this is a is a placeholder ad group.
+     *
+     * @param isServerSideInserted Whether the postroll placeholder must be server-side inserted.
+     * @return true only if this ad group has a matching {@link #isServerSideInserted} flag.
+     */
+    public boolean isLivePostrollPlaceholder(boolean isServerSideInserted) {
+      return (this.isServerSideInserted == isServerSideInserted) && isLivePostrollPlaceholder();
+    }
+
+    /**
+     * Returns whether this is a placeholder ad group. It can be server-side inserted or not. Use
+     * {@link #isLivePostrollPlaceholder(boolean)} if you want to differentiate.
+     *
+     * @return true only if this is a live postroll placeholder.
+     */
+    public boolean isLivePostrollPlaceholder() {
+      return isPlaceholder && timeUs == C.TIME_END_OF_SOURCE && count == C.LENGTH_UNSET;
     }
 
     @Override
@@ -211,7 +241,9 @@ public final class AdPlaybackState {
           && Arrays.equals(states, adGroup.states)
           && Arrays.equals(durationsUs, adGroup.durationsUs)
           && contentResumeOffsetUs == adGroup.contentResumeOffsetUs
-          && isServerSideInserted == adGroup.isServerSideInserted;
+          && isServerSideInserted == adGroup.isServerSideInserted
+          && Arrays.equals(ids, adGroup.ids)
+          && isPlaceholder == adGroup.isPlaceholder;
     }
 
     @Override
@@ -224,6 +256,8 @@ public final class AdPlaybackState {
       result = 31 * result + Arrays.hashCode(durationsUs);
       result = 31 * result + (int) (contentResumeOffsetUs ^ (contentResumeOffsetUs >>> 32));
       result = 31 * result + (isServerSideInserted ? 1 : 0);
+      result = 31 * result + Arrays.hashCode(ids);
+      result = 31 * result + (isPlaceholder ? 1 : 0);
       return result;
     }
 
@@ -238,7 +272,9 @@ public final class AdPlaybackState {
           mediaItems,
           durationsUs,
           contentResumeOffsetUs,
-          isServerSideInserted);
+          isServerSideInserted,
+          ids,
+          isPlaceholder);
     }
 
     /** Returns a new instance with the ad count set to {@code count}. */
@@ -247,6 +283,7 @@ public final class AdPlaybackState {
       @AdState int[] states = copyStatesWithSpaceForAdCount(this.states, count);
       long[] durationsUs = copyDurationsUsWithSpaceForAdCount(this.durationsUs, count);
       @NullableType MediaItem[] mediaItems = Arrays.copyOf(this.mediaItems, count);
+      @NullableType String[] ids = Arrays.copyOf(this.ids, count);
       return new AdGroup(
           timeUs,
           count,
@@ -255,7 +292,9 @@ public final class AdPlaybackState {
           mediaItems,
           durationsUs,
           contentResumeOffsetUs,
-          isServerSideInserted);
+          isServerSideInserted,
+          ids,
+          isPlaceholder);
     }
 
     /**
@@ -281,6 +320,9 @@ public final class AdPlaybackState {
       @NullableType MediaItem[] mediaItems = Arrays.copyOf(this.mediaItems, states.length);
       mediaItems[index] = mediaItem;
       states[index] = AD_STATE_AVAILABLE;
+      @NullableType
+      String[] ids =
+          this.ids.length == states.length ? this.ids : Arrays.copyOf(this.ids, states.length);
       return new AdGroup(
           timeUs,
           count,
@@ -289,7 +331,9 @@ public final class AdPlaybackState {
           mediaItems,
           durationsUs,
           contentResumeOffsetUs,
-          isServerSideInserted);
+          isServerSideInserted,
+          ids,
+          isPlaceholder);
     }
 
     /**
@@ -317,6 +361,9 @@ public final class AdPlaybackState {
           this.mediaItems.length == states.length
               ? this.mediaItems
               : Arrays.copyOf(this.mediaItems, states.length);
+      @NullableType
+      String[] ids =
+          this.ids.length == states.length ? this.ids : Arrays.copyOf(this.ids, states.length);
       states[index] = state;
       return new AdGroup(
           timeUs,
@@ -326,7 +373,9 @@ public final class AdPlaybackState {
           mediaItems,
           durationsUs,
           contentResumeOffsetUs,
-          isServerSideInserted);
+          isServerSideInserted,
+          ids,
+          isPlaceholder);
     }
 
     /** Returns a new instance with the specified ad durations, in microseconds. */
@@ -345,7 +394,39 @@ public final class AdPlaybackState {
           mediaItems,
           durationsUs,
           contentResumeOffsetUs,
-          isServerSideInserted);
+          isServerSideInserted,
+          ids,
+          isPlaceholder);
+    }
+
+    /** Returns a new instance with the specified ID for the given ad index. */
+    @CheckResult
+    public AdGroup withAdId(String adId, @IntRange(from = 0) int index) {
+      @AdState int[] states = copyStatesWithSpaceForAdCount(this.states, index + 1);
+      long[] durationsUs =
+          this.durationsUs.length == states.length
+              ? this.durationsUs
+              : copyDurationsUsWithSpaceForAdCount(this.durationsUs, states.length);
+      @NullableType
+      MediaItem[] mediaItems =
+          this.mediaItems.length == states.length
+              ? this.mediaItems
+              : Arrays.copyOf(this.mediaItems, states.length);
+      @NullableType
+      String[] ids =
+          this.ids.length == states.length ? this.ids : Arrays.copyOf(this.ids, states.length);
+      ids[index] = adId;
+      return new AdGroup(
+          timeUs,
+          count,
+          originalCount,
+          states,
+          mediaItems,
+          durationsUs,
+          contentResumeOffsetUs,
+          isServerSideInserted,
+          ids,
+          isPlaceholder);
     }
 
     /** Returns an instance with the specified {@link #contentResumeOffsetUs}. */
@@ -359,7 +440,9 @@ public final class AdPlaybackState {
           mediaItems,
           durationsUs,
           contentResumeOffsetUs,
-          isServerSideInserted);
+          isServerSideInserted,
+          ids,
+          isPlaceholder);
     }
 
     /** Returns an instance with the specified value for {@link #isServerSideInserted}. */
@@ -373,7 +456,9 @@ public final class AdPlaybackState {
           mediaItems,
           durationsUs,
           contentResumeOffsetUs,
-          isServerSideInserted);
+          isServerSideInserted,
+          ids,
+          isPlaceholder);
     }
 
     /** Returns an instance with the specified value for {@link #originalCount}. */
@@ -386,7 +471,9 @@ public final class AdPlaybackState {
           mediaItems,
           durationsUs,
           contentResumeOffsetUs,
-          isServerSideInserted);
+          isServerSideInserted,
+          ids,
+          isPlaceholder);
     }
 
     /** Removes the last ad from the ad group. */
@@ -398,6 +485,7 @@ public final class AdPlaybackState {
       if (durationsUs.length > newCount) {
         newDurationsUs = Arrays.copyOf(durationsUs, newCount);
       }
+      @NullableType String[] newIds = Arrays.copyOf(ids, newCount);
       return new AdGroup(
           timeUs,
           newCount,
@@ -406,7 +494,9 @@ public final class AdPlaybackState {
           newMediaItems,
           newDurationsUs,
           /* contentResumeOffsetUs= */ Util.sum(newDurationsUs),
-          isServerSideInserted);
+          isServerSideInserted,
+          newIds,
+          isPlaceholder);
     }
 
     /**
@@ -424,7 +514,9 @@ public final class AdPlaybackState {
             /* mediaItems= */ new MediaItem[0],
             /* durationsUs= */ new long[0],
             contentResumeOffsetUs,
-            isServerSideInserted);
+            isServerSideInserted,
+            ids,
+            isPlaceholder);
       }
       int count = this.states.length;
       @AdState int[] states = Arrays.copyOf(this.states, count);
@@ -441,7 +533,9 @@ public final class AdPlaybackState {
           mediaItems,
           durationsUs,
           contentResumeOffsetUs,
-          isServerSideInserted);
+          isServerSideInserted,
+          ids,
+          isPlaceholder);
     }
 
     /**
@@ -470,7 +564,51 @@ public final class AdPlaybackState {
           mediaItems,
           durationsUs,
           contentResumeOffsetUs,
-          isServerSideInserted);
+          isServerSideInserted,
+          ids,
+          isPlaceholder);
+    }
+
+    private AdGroup withIsPlaceholder(boolean isPlaceholder, boolean isServerSideInserted) {
+      return new AdGroup(
+          timeUs,
+          count,
+          originalCount,
+          states,
+          mediaItems,
+          durationsUs,
+          contentResumeOffsetUs,
+          isServerSideInserted,
+          ids,
+          isPlaceholder);
+    }
+
+    /**
+     * Returns the index of the ad with the given ad ID, or {@link C#INDEX_UNSET} if the ad ID can't
+     * be found.
+     */
+    public int getIndexOfAdId(String adId) {
+      for (int i = 0; i < ids.length; i++) {
+        if (Objects.equals(ids[i], adId)) {
+          return i;
+        }
+      }
+      return C.INDEX_UNSET;
+    }
+
+    /** Returns a safe copy with all array fields copied into the new instance as new arrays. */
+    public AdGroup copy() {
+      return new AdGroup(
+          timeUs,
+          count,
+          originalCount,
+          Arrays.copyOf(states, states.length),
+          Arrays.copyOf(mediaItems, mediaItems.length),
+          Arrays.copyOf(durationsUs, durationsUs.length),
+          contentResumeOffsetUs,
+          isServerSideInserted,
+          Arrays.copyOf(ids, ids.length),
+          isPlaceholder);
     }
 
     @CheckResult
@@ -500,6 +638,8 @@ public final class AdPlaybackState {
     private static final String FIELD_IS_SERVER_SIDE_INSERTED = Util.intToStringMaxRadix(6);
     private static final String FIELD_ORIGINAL_COUNT = Util.intToStringMaxRadix(7);
     @VisibleForTesting static final String FIELD_MEDIA_ITEMS = Util.intToStringMaxRadix(8);
+    static final String FIELD_IDS = Util.intToStringMaxRadix(9);
+    static final String FIELD_IS_PLACEHOLDER = Util.intToStringMaxRadix(10);
 
     // Intentionally assigning deprecated field.
     // putParcelableArrayList actually supports null elements.
@@ -516,6 +656,8 @@ public final class AdPlaybackState {
       bundle.putLongArray(FIELD_DURATIONS_US, durationsUs);
       bundle.putLong(FIELD_CONTENT_RESUME_OFFSET_US, contentResumeOffsetUs);
       bundle.putBoolean(FIELD_IS_SERVER_SIDE_INSERTED, isServerSideInserted);
+      bundle.putStringArrayList(FIELD_IDS, new ArrayList<>(Arrays.asList(ids)));
+      bundle.putBoolean(FIELD_IS_PLACEHOLDER, isPlaceholder);
       return bundle;
     }
 
@@ -536,6 +678,8 @@ public final class AdPlaybackState {
       @Nullable long[] durationsUs = bundle.getLongArray(FIELD_DURATIONS_US);
       long contentResumeOffsetUs = bundle.getLong(FIELD_CONTENT_RESUME_OFFSET_US);
       boolean isServerSideInserted = bundle.getBoolean(FIELD_IS_SERVER_SIDE_INSERTED);
+      @Nullable ArrayList<String> ids = bundle.getStringArrayList(FIELD_IDS);
+      boolean isPlaceholder = bundle.getBoolean(FIELD_IS_PLACEHOLDER);
       return new AdGroup(
           timeUs,
           count,
@@ -544,7 +688,9 @@ public final class AdPlaybackState {
           getMediaItemsFromBundleArrays(mediaItemBundleList, uriList),
           durationsUs == null ? new long[0] : durationsUs,
           contentResumeOffsetUs,
-          isServerSideInserted);
+          isServerSideInserted,
+          ids == null ? new String[0] : ids.toArray(new String[0]),
+          isPlaceholder);
     }
 
     private ArrayList<@NullableType Bundle> getMediaItemsArrayBundles() {
@@ -734,7 +880,10 @@ public final class AdPlaybackState {
             || !getAdGroup(index).shouldPlayAdGroup())) {
       index++;
     }
-    return index < adGroupCount ? index : C.INDEX_UNSET;
+    return index < adGroupCount
+            && (periodDurationUs == C.TIME_UNSET || getAdGroup(index).timeUs <= periodDurationUs)
+        ? index
+        : C.INDEX_UNSET;
   }
 
   /** Returns whether the specified ad has been marked as in {@link #AD_STATE_ERROR}. */
@@ -811,6 +960,20 @@ public final class AdPlaybackState {
   }
 
   /**
+   * Returns an new instance that is a safe deep copy of this instance in case an immutable object
+   * is used for {@link #adsId}.
+   */
+  @CheckResult
+  public AdPlaybackState copy() {
+    AdGroup[] adGroups = new AdGroup[this.adGroups.length];
+    for (int i = 0; i < adGroups.length; i++) {
+      adGroups[i] = this.adGroups[i].copy();
+    }
+    return new AdPlaybackState(
+        adsId, adGroups, adResumePositionUs, contentDurationUs, removedAdGroupCount);
+  }
+
+  /**
    * @deprecated Use {@link #withAvailableAdMediaItem} instead.
    */
   @Deprecated
@@ -844,14 +1007,21 @@ public final class AdPlaybackState {
         adsId, adGroups, adResumePositionUs, contentDurationUs, removedAdGroupCount);
   }
 
+  /** Returns an instance with the specified value for {@link #adsId}. */
+  @CheckResult
+  public AdPlaybackState withAdsId(Object adsId) {
+    return new AdPlaybackState(
+        adsId, adGroups, adResumePositionUs, contentDurationUs, removedAdGroupCount);
+  }
+
   /**
    * Returns an instance with the specified ad marked as {@linkplain #AD_STATE_AVAILABLE available}.
    *
-   * <p>Must not be called with client side inserted ad groups. Client side inserted ads should use
+   * <p>Must not be called with client-side inserted ad groups. Client-side inserted ads should use
    * {@link #withAvailableAdMediaItem}.
    *
    * @throws IllegalStateException in case this methods is called on an ad group that {@linkplain
-   *     AdGroup#isServerSideInserted is not server side inserted}.
+   *     AdGroup#isServerSideInserted is not server-side inserted}.
    */
   @CheckResult
   public AdPlaybackState withAvailableAd(
@@ -907,6 +1077,17 @@ public final class AdPlaybackState {
         adsId, adGroups, adResumePositionUs, contentDurationUs, removedAdGroupCount);
   }
 
+  /** Returns an instance with the specified ad ID for the given ad. */
+  @CheckResult
+  public AdPlaybackState withAdId(
+      @IntRange(from = 0) int adGroupIndex, @IntRange(from = 0) int adIndexInAdGroup, String adId) {
+    int adjustedIndex = adGroupIndex - removedAdGroupCount;
+    AdGroup[] adGroups = Util.nullSafeArrayCopy(this.adGroups, this.adGroups.length);
+    adGroups[adjustedIndex] = adGroups[adjustedIndex].withAdId(adId, adIndexInAdGroup);
+    return new AdPlaybackState(
+        adsId, adGroups, adResumePositionUs, contentDurationUs, removedAdGroupCount);
+  }
+
   /**
    * Returns an instance with all ads in the specified ad group skipped (except for those already
    * marked as played or in the error state).
@@ -923,14 +1104,23 @@ public final class AdPlaybackState {
   /**
    * Returns an instance with the specified ad durations, in microseconds.
    *
-   * <p>Must only be used if {@link #removedAdGroupCount} is 0.
+   * <p>The number of arrays of durations ({@code adDurations.length}) must always be equal to
+   * {@link #adGroupCount}. This is required even on an instance created with {@link
+   * #withRemovedAdGroupCount(int)}. The array of durations at the index of a removed ad group can
+   * be null or empty.
+   *
+   * @throws IllegalArgumentException if {@code adDurations.length != adGroupCount}.
    */
   @CheckResult
   public AdPlaybackState withAdDurationsUs(long[][] adDurationUs) {
-    checkState(removedAdGroupCount == 0);
+    checkArgument(adDurationUs.length == adGroupCount);
     AdGroup[] adGroups = Util.nullSafeArrayCopy(this.adGroups, this.adGroups.length);
-    for (int adGroupIndex = 0; adGroupIndex < adGroupCount; adGroupIndex++) {
-      adGroups[adGroupIndex] = adGroups[adGroupIndex].withAdDurationsUs(adDurationUs[adGroupIndex]);
+    for (int correctedAdGroupIndex = 0;
+        correctedAdGroupIndex < adGroupCount - removedAdGroupCount;
+        correctedAdGroupIndex++) {
+      adGroups[correctedAdGroupIndex] =
+          adGroups[correctedAdGroupIndex].withAdDurationsUs(
+              adDurationUs[removedAdGroupCount + correctedAdGroupIndex]);
     }
     return new AdPlaybackState(
         adsId, adGroups, adResumePositionUs, contentDurationUs, removedAdGroupCount);
@@ -1001,6 +1191,27 @@ public final class AdPlaybackState {
   }
 
   /**
+   * Returns an instance with ad groups removed until and excluding the first post roll ad group or
+   * the first ad group with {@link AdGroup#timeUs} larger than the given time, in microseconds.
+   *
+   * <p>Any ad group with {@link AdGroup#timeUs} set to {@link C#TIME_END_OF_SOURCE} is considered a
+   * post roll ad group.
+   */
+  @CheckResult
+  public AdPlaybackState withRemovedAdGroupCountBefore(long timeUs) {
+    int newRemovedAdGroupCount;
+    for (newRemovedAdGroupCount = removedAdGroupCount;
+        newRemovedAdGroupCount < adGroupCount;
+        newRemovedAdGroupCount++) {
+      AdGroup adGroup = getAdGroup(newRemovedAdGroupCount);
+      if (timeUs <= adGroup.timeUs || adGroup.timeUs == C.TIME_END_OF_SOURCE) {
+        break;
+      }
+    }
+    return withRemovedAdGroupCount(newRemovedAdGroupCount);
+  }
+
+  /**
    * Returns an instance with the specified {@link AdGroup#contentResumeOffsetUs}, in microseconds,
    * for the specified ad group.
    */
@@ -1067,24 +1278,55 @@ public final class AdPlaybackState {
   }
 
   /**
+   * @deprecated Use {@link #withLivePostrollPlaceholderAppended(boolean)} and pass {@code true}
+   *     instead.
+   */
+  @InlineMe(replacement = "this.withLivePostrollPlaceholderAppended(true)")
+  @Deprecated
+  public AdPlaybackState withLivePostrollPlaceholderAppended() {
+    return withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ true);
+  }
+
+  /**
    * Appends a live postroll placeholder ad group to the ad playback state.
    *
-   * <p>Adding such a placeholder is only required for periods of server side ad insertion live
-   * streams. A player is not expected to play this placeholder. It is only used to indicate that
-   * another ad group with this ad group index will be inserted in the future.
+   * <p>Adding such a placeholder is only required for periods of live streams. A player is not
+   * expected to play this placeholder. It is only used to indicate that another ad group with this
+   * ad group index will be inserted in the future.
    *
-   * <p>See {@link #endsWithLivePostrollPlaceHolder()} also.
+   * <p>See {@link #endsWithLivePostrollPlaceHolder()} and {@link
+   * #endsWithLivePostrollPlaceHolder(boolean)} also.
    *
+   * @param isServerSideInserted Whether this is a server-side inserted ad (single stream).
    * @return The new ad playback state instance ending with a live postroll placeholder.
    */
-  public AdPlaybackState withLivePostrollPlaceholderAppended() {
+  public AdPlaybackState withLivePostrollPlaceholderAppended(boolean isServerSideInserted) {
     return withNewAdGroup(adGroupCount, /* adGroupTimeUs= */ C.TIME_END_OF_SOURCE)
-        .withIsServerSideInserted(adGroupCount, true);
+        .withIsPlaceholder(adGroupCount, /* isPlaceholder= */ true, isServerSideInserted);
+  }
+
+  @VisibleForTesting
+  /* package */ AdPlaybackState withIsPlaceholder(
+      int adGroupIndex, boolean isPlaceholder, boolean isServerSideInserted) {
+    int adjustedIndex = adGroupIndex - removedAdGroupCount;
+    if (adGroups[adjustedIndex].isPlaceholder == isPlaceholder
+        && adGroups[adjustedIndex].isServerSideInserted == isServerSideInserted) {
+      return this;
+    }
+    AdGroup[] adGroups = Util.nullSafeArrayCopy(this.adGroups, this.adGroups.length);
+    adGroups[adjustedIndex] =
+        adGroups[adjustedIndex].withIsPlaceholder(isPlaceholder, isServerSideInserted);
+    return new AdPlaybackState(
+        adsId, adGroups, adResumePositionUs, contentDurationUs, removedAdGroupCount);
   }
 
   /**
    * Returns whether the last ad group is a live postroll placeholder as inserted by {@link
-   * #withLivePostrollPlaceholderAppended()}.
+   * #withLivePostrollPlaceholderAppended(boolean)}.
+   *
+   * <p>Note: That either server-side or client-side inserted placeholders are considered. Use
+   * {@link #endsWithLivePostrollPlaceHolder(boolean)} if you want to test for one or the other
+   * only.
    *
    * @return Whether the ad playback state ends with a live postroll placeholder.
    */
@@ -1094,13 +1336,53 @@ public final class AdPlaybackState {
   }
 
   /**
-   * Whether the {@link AdGroup} at the given ad group index is a live postroll placeholder.
+   * Returns whether the last ad group is a live postroll placeholder as inserted by {@link
+   * #withLivePostrollPlaceholderAppended(boolean)} .
+   *
+   * @param isServerSideInserted Whether the trailing placeholder is server-side inserted.
+   * @return Whether the ad playback state ends with a live postroll placeholder.
+   */
+  public boolean endsWithLivePostrollPlaceHolder(boolean isServerSideInserted) {
+    int adGroupIndex = adGroupCount - 1;
+    return adGroupIndex >= 0 && isLivePostrollPlaceholder(adGroupIndex, isServerSideInserted);
+  }
+
+  /**
+   * Returns whether the {@link AdGroup} at the given ad group index is a live postroll placeholder.
+   *
+   * <p>Note: That either server-side or client-side inserted placeholders return true. Use {@link
+   * #isLivePostrollPlaceholder(int, boolean)} if you want to test for one or the other only.
    *
    * @param adGroupIndex The ad group index.
    * @return True if the ad group at the given index is a live postroll placeholder, false if not.
    */
   public boolean isLivePostrollPlaceholder(int adGroupIndex) {
     return adGroupIndex == adGroupCount - 1 && getAdGroup(adGroupIndex).isLivePostrollPlaceholder();
+  }
+
+  /**
+   * Returns whether the {@link AdGroup} at the given ad group index is a live postroll placeholder
+   * and either server or client-side inserted.
+   *
+   * @param adGroupIndex The ad group index.
+   * @param isServerSideInserted Whether the placeholder is server-side inserted.
+   * @return True if the ad group at the given index is a live postroll placeholder, false if not.
+   */
+  public boolean isLivePostrollPlaceholder(int adGroupIndex, boolean isServerSideInserted) {
+    return adGroupIndex == adGroupCount - 1
+        && getAdGroup(adGroupIndex).isLivePostrollPlaceholder(isServerSideInserted);
+  }
+
+  /**
+   * Returns the index of the ad with the given ad ID in the given ad group, or {@link
+   * C#INDEX_UNSET} if the ad ID can't be found.
+   *
+   * @param adGroupIndex The ad group index.
+   * @param adId The ad ID.
+   * @return The ad index in the ad group, or {@link C#INDEX_UNSET} if the ad ID is not found.
+   */
+  public int getAdIndexOfAdId(int adGroupIndex, String adId) {
+    return getAdGroup(adGroupIndex).getIndexOfAdId(adId);
   }
 
   /**
@@ -1124,7 +1406,9 @@ public final class AdPlaybackState {
               Arrays.copyOf(adGroup.mediaItems, adGroup.mediaItems.length),
               Arrays.copyOf(adGroup.durationsUs, adGroup.durationsUs.length),
               adGroup.contentResumeOffsetUs,
-              adGroup.isServerSideInserted);
+              adGroup.isServerSideInserted,
+              adGroup.ids,
+              adGroup.isPlaceholder);
     }
     return new AdPlaybackState(
         adsId,
@@ -1143,7 +1427,7 @@ public final class AdPlaybackState {
       return false;
     }
     AdPlaybackState that = (AdPlaybackState) o;
-    return Util.areEqual(adsId, that.adsId)
+    return Objects.equals(adsId, that.adsId)
         && adGroupCount == that.adGroupCount
         && adResumePositionUs == that.adResumePositionUs
         && contentDurationUs == that.contentDurationUs
@@ -1226,7 +1510,7 @@ public final class AdPlaybackState {
       // placeholder in a period of a multi-period live window, or when c) the position actually is
       // before the given period duration.
       return periodDurationUs == C.TIME_UNSET
-          || (adGroup.isServerSideInserted && adGroup.count == C.LENGTH_UNSET)
+          || adGroup.isLivePostrollPlaceholder()
           || positionUs < periodDurationUs;
     }
     return positionUs < adGroupPositionUs;

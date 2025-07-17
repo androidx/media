@@ -20,6 +20,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.robolectric.shadows.ShadowLooper.shadowMainLooper;
 
+import android.content.Context;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
@@ -58,6 +59,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Before;
 import org.junit.BeforeClass;
@@ -69,10 +71,15 @@ import org.junit.runner.RunWith;
 public class DownloadHelperTest {
 
   private static final Object TEST_MANIFEST = new Object();
+
+  private static final long TEST_WINDOW_DEFAULT_POSITION_US = C.MICROS_PER_SECOND;
   private static final Timeline TEST_TIMELINE =
       new FakeTimeline(
           new Object[] {TEST_MANIFEST},
-          new TimelineWindowDefinition(/* periodCount= */ 2, /* id= */ new Object()));
+          new TimelineWindowDefinition.Builder()
+              .setPeriodCount(2)
+              .setDefaultPositionUs(TEST_WINDOW_DEFAULT_POSITION_US)
+              .build());
 
   private static TrackGroup trackGroupVideoLow;
   private static TrackGroup trackGroupVideoLowAndHigh;
@@ -83,6 +90,7 @@ public class DownloadHelperTest {
   private static TrackGroupArray[] trackGroupArrays;
   private static MediaItem testMediaItem;
 
+  private RenderersFactory renderersFactory;
   private DownloadHelper downloadHelper;
 
   @BeforeClass
@@ -121,7 +129,7 @@ public class DownloadHelperTest {
     FakeRenderer videoRenderer = new FakeRenderer(C.TRACK_TYPE_VIDEO);
     FakeRenderer audioRenderer = new FakeRenderer(C.TRACK_TYPE_AUDIO);
     FakeRenderer textRenderer = new FakeRenderer(C.TRACK_TYPE_TEXT);
-    RenderersFactory renderersFactory =
+    renderersFactory =
         (handler, videoListener, audioListener, metadata, text) ->
             new Renderer[] {textRenderer, audioRenderer, videoRenderer};
 
@@ -129,9 +137,42 @@ public class DownloadHelperTest {
         new DownloadHelper(
             testMediaItem,
             new TestMediaSource(),
-            DownloadHelper.DEFAULT_TRACK_SELECTOR_PARAMETERS_WITHOUT_CONTEXT,
+            DownloadHelper.DEFAULT_TRACK_SELECTOR_PARAMETERS,
             new DefaultRendererCapabilitiesList.Factory(renderersFactory)
                 .createRendererCapabilitiesList());
+  }
+
+  @Test
+  public void prepare_withoutMediaSource_tracksInfoNotAvailable() throws Exception {
+    // DownloadHelper will be constructed without MediaSource if no DataSource.Factory is provided.
+    DownloadHelper downloadHelper =
+        new DownloadHelper.Factory().create(MediaItem.fromUri("asset:///media/mp4/sample.mp4"));
+
+    boolean tracksInfoAvailable = prepareDownloadHelper(downloadHelper);
+
+    assertThat(tracksInfoAvailable).isFalse();
+  }
+
+  @Test
+  public void prepare_prepareProgressiveSource_tracksInfoNotAvailable() throws Exception {
+    Context context = getApplicationContext();
+    DownloadHelper downloadHelper =
+        new DownloadHelper.Factory()
+            .setDataSourceFactory(new DefaultDataSource.Factory(context))
+            .create(MediaItem.fromUri("asset:///media/mp4/sample.mp4"));
+
+    boolean tracksInfoAvailable = prepareDownloadHelper(downloadHelper);
+
+    assertThat(tracksInfoAvailable).isFalse();
+  }
+
+  @Test
+  public void prepare_prepareNonProgressiveSource_tracksInfoAvailable() throws Exception {
+    // We use this.downloadHelper as it was created with a TestMediaSource, thus the DownloadHelper
+    // will treat it as non-progressive.
+    boolean tracksInfoAvailable = prepareDownloadHelper(downloadHelper);
+
+    assertThat(tracksInfoAvailable).isTrue();
   }
 
   @Test
@@ -257,7 +298,7 @@ public class DownloadHelperTest {
       throws Exception {
     prepareDownloadHelper(downloadHelper);
     DefaultTrackSelector.Parameters parameters =
-        new DefaultTrackSelector.ParametersBuilder(getApplicationContext())
+        new DefaultTrackSelector.Parameters.Builder()
             .setPreferredAudioLanguage("de")
             .setPreferredTextLanguage("de")
             .setRendererDisabled(/* rendererIndex= */ 2, true)
@@ -293,8 +334,8 @@ public class DownloadHelperTest {
     prepareDownloadHelper(downloadHelper);
     // Select parameters to require some merging of track groups because the new parameters add
     // all video tracks to initial video single track selection.
-    TrackSelectionParameters parameters =
-        new TrackSelectionParameters.Builder(getApplicationContext())
+    DefaultTrackSelector.Parameters parameters =
+        new DefaultTrackSelector.Parameters.Builder()
             .setPreferredAudioLanguage("de")
             .setPreferredTextLanguage("en")
             .build();
@@ -397,8 +438,8 @@ public class DownloadHelperTest {
     prepareDownloadHelper(downloadHelper);
     // Ensure we have track groups with multiple indices, renderers with multiple track groups and
     // also renderers without any track groups.
-    TrackSelectionParameters parameters =
-        new TrackSelectionParameters.Builder(getApplicationContext())
+    DefaultTrackSelector.Parameters parameters =
+        new DefaultTrackSelector.Parameters.Builder()
             .setPreferredAudioLanguage("de")
             .setPreferredTextLanguage("en")
             .build();
@@ -428,8 +469,8 @@ public class DownloadHelperTest {
       throws Exception {
     prepareDownloadHelper(downloadHelper);
 
-    TrackSelectionParameters parameters =
-        new TrackSelectionParameters.Builder(getApplicationContext())
+    DefaultTrackSelector.Parameters parameters =
+        new DefaultTrackSelector.Parameters.Builder()
             .addOverride(new TrackSelectionOverride(trackGroupAudioUs, /* trackIndex= */ 0))
             .addOverride(new TrackSelectionOverride(trackGroupAudioZh, /* trackIndex= */ 0))
             .setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, /* disabled= */ true)
@@ -447,6 +488,249 @@ public class DownloadHelperTest {
             new StreamKey(/* periodIndex= */ 0, /* groupIndex= */ 2, /* streamIndex= */ 0));
   }
 
+  @Test
+  public void
+      getDownloadRequestForProgressive_withConcreteTimeRange_requestContainsConcreteByteRange()
+          throws Exception {
+    DownloadHelper downloadHelper =
+        new DownloadHelper.Factory()
+            .setDataSourceFactory(new DefaultDataSource.Factory(getApplicationContext()))
+            .create(MediaItem.fromUri("asset:///media/mp4/long_1080p_lowbitrate.mp4"));
+    prepareDownloadHelper(downloadHelper);
+
+    DownloadRequest downloadRequest =
+        downloadHelper.getDownloadRequest(
+            /* data= */ null, /* startPositionMs= */ 0, /* durationMs= */ 30000);
+
+    assertThat(downloadRequest.byteRange).isNotNull();
+    assertThat(downloadRequest.byteRange.offset).isAtLeast(0);
+    assertThat(downloadRequest.byteRange.length).isGreaterThan(0);
+  }
+
+  @Test
+  public void
+      getDownloadRequestForProgressive_withUnsetStartPosition_requestContainsConcreteByteRange()
+          throws Exception {
+    DownloadHelper downloadHelper =
+        new DownloadHelper.Factory()
+            .setDataSourceFactory(new DefaultDataSource.Factory(getApplicationContext()))
+            .create(MediaItem.fromUri("asset:///media/mp4/long_1080p_lowbitrate.mp4"));
+    prepareDownloadHelper(downloadHelper);
+
+    DownloadRequest downloadRequest =
+        downloadHelper.getDownloadRequest(
+            /* data= */ null, /* startPositionMs= */ C.TIME_UNSET, /* durationMs= */ 30000);
+
+    assertThat(downloadRequest.byteRange).isNotNull();
+    assertThat(downloadRequest.byteRange.offset).isAtLeast(0);
+    assertThat(downloadRequest.byteRange.length).isGreaterThan(0);
+  }
+
+  @Test
+  public void
+      getDownloadRequestForProgressive_withUnsetDuration_requestContainsUnsetByteRangeLength()
+          throws Exception {
+    DownloadHelper downloadHelper =
+        new DownloadHelper.Factory()
+            .setDataSourceFactory(new DefaultDataSource.Factory(getApplicationContext()))
+            .create(MediaItem.fromUri("asset:///media/mp4/long_1080p_lowbitrate.mp4"));
+    prepareDownloadHelper(downloadHelper);
+
+    DownloadRequest downloadRequest =
+        downloadHelper.getDownloadRequest(
+            /* data= */ null, /* startPositionMs= */ 30000, /* durationMs= */ C.TIME_UNSET);
+
+    assertThat(downloadRequest.byteRange).isNotNull();
+    assertThat(downloadRequest.byteRange.offset).isAtLeast(0);
+    assertThat(downloadRequest.byteRange.length).isEqualTo(C.LENGTH_UNSET);
+  }
+
+  @Test
+  public void
+      getDownloadRequestForShortProgressive_withConcreteTimeRange_requestContainsUnsetByteRangeLength()
+          throws Exception {
+    DownloadHelper downloadHelper =
+        new DownloadHelper.Factory()
+            .setDataSourceFactory(new DefaultDataSource.Factory(getApplicationContext()))
+            .create(MediaItem.fromUri("asset:///media/mp4/sample.mp4"));
+    prepareDownloadHelper(downloadHelper);
+
+    DownloadRequest downloadRequest =
+        downloadHelper.getDownloadRequest(
+            /* data= */ null, /* startPositionMs= */ 0, /* durationMs= */ 30000);
+
+    assertThat(downloadRequest.byteRange).isNotNull();
+    assertThat(downloadRequest.byteRange.offset).isAtLeast(0);
+    assertThat(downloadRequest.byteRange.length).isEqualTo(C.LENGTH_UNSET);
+  }
+
+  @Test
+  public void getDownloadRequestForProgressive_withoutRange_requestContainsNullByteRange()
+      throws Exception {
+    DownloadHelper downloadHelper =
+        new DownloadHelper.Factory()
+            .setDataSourceFactory(new DefaultDataSource.Factory(getApplicationContext()))
+            .create(MediaItem.fromUri("asset:///media/mp4/sample.mp4"));
+    prepareDownloadHelper(downloadHelper);
+
+    DownloadRequest downloadRequest = downloadHelper.getDownloadRequest(/* data= */ null);
+
+    assertThat(downloadRequest.byteRange).isNull();
+  }
+
+  @Test
+  public void
+      getDownloadRequestForNonProgressive_withConcreteTimeRange_requestContainsCorrectTimeRange()
+          throws Exception {
+    DownloadHelper downloadHelper =
+        new DownloadHelper(
+            new MediaItem.Builder()
+                .setUri("http://test.uri")
+                .setMimeType(MimeTypes.APPLICATION_M3U8)
+                .build(),
+            new TestMediaSource(),
+            DownloadHelper.DEFAULT_TRACK_SELECTOR_PARAMETERS,
+            new DefaultRendererCapabilitiesList.Factory(renderersFactory)
+                .createRendererCapabilitiesList());
+    prepareDownloadHelper(downloadHelper);
+
+    DownloadRequest downloadRequest =
+        downloadHelper.getDownloadRequest(
+            /* data= */ null, /* startPositionMs= */ 0, /* durationMs= */ 10000);
+
+    assertThat(downloadRequest.timeRange).isNotNull();
+    assertThat(downloadRequest.timeRange.startPositionUs).isEqualTo(0);
+    assertThat(downloadRequest.timeRange.durationUs).isEqualTo(10000000);
+  }
+
+  @Test
+  public void
+      getDownloadRequestForNonProgressive_withUnsetStartPosition_requestContainsCorrectTimeRange()
+          throws Exception {
+    DownloadHelper downloadHelper =
+        new DownloadHelper(
+            new MediaItem.Builder()
+                .setUri("http://test.uri")
+                .setMimeType(MimeTypes.APPLICATION_M3U8)
+                .build(),
+            new TestMediaSource(),
+            DownloadHelper.DEFAULT_TRACK_SELECTOR_PARAMETERS,
+            new DefaultRendererCapabilitiesList.Factory(renderersFactory)
+                .createRendererCapabilitiesList());
+    prepareDownloadHelper(downloadHelper);
+
+    DownloadRequest downloadRequest =
+        downloadHelper.getDownloadRequest(
+            /* data= */ null, /* startPositionMs= */ C.TIME_UNSET, /* durationMs= */ 5000);
+
+    assertThat(downloadRequest.timeRange).isNotNull();
+    // The startPositionUs is set to window.defaultPositionUs.
+    Timeline.Window window = TEST_TIMELINE.getWindow(0, new Timeline.Window());
+    assertThat(downloadRequest.timeRange.startPositionUs).isEqualTo(window.defaultPositionUs);
+    assertThat(downloadRequest.timeRange.durationUs).isEqualTo(5000000);
+  }
+
+  @Test
+  public void
+      getDownloadRequestForNonProgressive_withStartPositionExceedingWindowDuration_requestContainsCorrectTimeRange()
+          throws Exception {
+    DownloadHelper downloadHelper =
+        new DownloadHelper(
+            new MediaItem.Builder()
+                .setUri("http://test.uri")
+                .setMimeType(MimeTypes.APPLICATION_M3U8)
+                .build(),
+            new TestMediaSource(),
+            DownloadHelper.DEFAULT_TRACK_SELECTOR_PARAMETERS,
+            new DefaultRendererCapabilitiesList.Factory(renderersFactory)
+                .createRendererCapabilitiesList());
+    prepareDownloadHelper(downloadHelper);
+    Timeline.Window window = TEST_TIMELINE.getWindow(0, new Timeline.Window());
+
+    DownloadRequest downloadRequest =
+        downloadHelper.getDownloadRequest(
+            /* data= */ null,
+            /* startPositionMs= */ window.durationUs + 100,
+            /* durationMs= */ C.TIME_UNSET);
+
+    assertThat(downloadRequest.timeRange).isNotNull();
+    // The startPositionUs is set to window.durationUs.
+    assertThat(downloadRequest.timeRange.startPositionUs).isEqualTo(window.durationUs);
+    assertThat(downloadRequest.timeRange.durationUs).isEqualTo(0);
+  }
+
+  @Test
+  public void
+      getDownloadRequestForNonProgressive_withUnsetDuration_requestContainsCorrectTimeRange()
+          throws Exception {
+    DownloadHelper downloadHelper =
+        new DownloadHelper(
+            new MediaItem.Builder()
+                .setUri("http://test.uri")
+                .setMimeType(MimeTypes.APPLICATION_M3U8)
+                .build(),
+            new TestMediaSource(),
+            DownloadHelper.DEFAULT_TRACK_SELECTOR_PARAMETERS,
+            new DefaultRendererCapabilitiesList.Factory(renderersFactory)
+                .createRendererCapabilitiesList());
+    prepareDownloadHelper(downloadHelper);
+
+    DownloadRequest downloadRequest =
+        downloadHelper.getDownloadRequest(
+            /* data= */ null, /* startPositionMs= */ 10, /* durationMs= */ C.TIME_UNSET);
+
+    assertThat(downloadRequest.timeRange).isNotNull();
+    assertThat(downloadRequest.timeRange.startPositionUs).isEqualTo(10_000);
+    Timeline.Window window = TEST_TIMELINE.getWindow(0, new Timeline.Window());
+    assertThat(downloadRequest.timeRange.durationUs).isEqualTo(window.durationUs - 10_000);
+  }
+
+  @Test
+  public void
+      getDownloadRequestForNonProgressive_withDurationExceedingWindowDuration_requestContainsCorrectTimeRange()
+          throws Exception {
+    DownloadHelper downloadHelper =
+        new DownloadHelper(
+            new MediaItem.Builder()
+                .setUri("http://test.uri")
+                .setMimeType(MimeTypes.APPLICATION_M3U8)
+                .build(),
+            new TestMediaSource(),
+            DownloadHelper.DEFAULT_TRACK_SELECTOR_PARAMETERS,
+            new DefaultRendererCapabilitiesList.Factory(renderersFactory)
+                .createRendererCapabilitiesList());
+    prepareDownloadHelper(downloadHelper);
+    Timeline.Window window = TEST_TIMELINE.getWindow(0, new Timeline.Window());
+
+    DownloadRequest downloadRequest =
+        downloadHelper.getDownloadRequest(
+            /* data= */ null, /* startPositionMs= */ 0, /* durationMs= */ window.durationUs + 100);
+
+    assertThat(downloadRequest.timeRange).isNotNull();
+    assertThat(downloadRequest.timeRange.startPositionUs).isEqualTo(0);
+    assertThat(downloadRequest.timeRange.durationUs).isEqualTo(window.durationUs);
+  }
+
+  @Test
+  public void getDownloadRequestForNonProgressive_withoutRange_requestContainsNullTimeRange()
+      throws Exception {
+    DownloadHelper downloadHelper =
+        new DownloadHelper(
+            new MediaItem.Builder()
+                .setUri("http://test.uri")
+                .setMimeType(MimeTypes.APPLICATION_M3U8)
+                .build(),
+            new TestMediaSource(),
+            DownloadHelper.DEFAULT_TRACK_SELECTOR_PARAMETERS,
+            new DefaultRendererCapabilitiesList.Factory(renderersFactory)
+                .createRendererCapabilitiesList());
+    prepareDownloadHelper(downloadHelper);
+
+    DownloadRequest downloadRequest = downloadHelper.getDownloadRequest(/* data= */ null);
+
+    assertThat(downloadRequest.timeRange).isNull();
+  }
+
   // https://github.com/androidx/media/issues/1224
   @Test
   public void prepareThenRelease_renderersReleased() throws Exception {
@@ -459,11 +743,10 @@ public class DownloadHelperTest {
         (handler, videoListener, audioListener, metadata, text) ->
             new Renderer[] {textRenderer, audioRenderer, videoRenderer};
     DownloadHelper downloadHelper =
-        DownloadHelper.forMediaItem(
-            testMediaItem,
-            DownloadHelper.DEFAULT_TRACK_SELECTOR_PARAMETERS_WITHOUT_CONTEXT,
-            renderersFactory,
-            new FakeDataSource.Factory());
+        new DownloadHelper.Factory()
+            .setDataSourceFactory(new DefaultDataSource.Factory(getApplicationContext()))
+            .setRenderersFactory(renderersFactory)
+            .create(MediaItem.fromUri("asset:///media/mp4/sample.mp4"));
 
     prepareDownloadHelper(downloadHelper);
     downloadHelper.release();
@@ -481,8 +764,7 @@ public class DownloadHelperTest {
         new Thread(
             () -> {
               try {
-                downloadHelper.set(
-                    DownloadHelper.forMediaItem(getApplicationContext(), testMediaItem));
+                downloadHelper.set(new DownloadHelper.Factory().create(testMediaItem));
               } catch (Throwable e) {
                 exception.set(e);
               }
@@ -509,11 +791,10 @@ public class DownloadHelperTest {
                     (handler, videoListener, audioListener, metadata, text) ->
                         new Renderer[] {videoRenderer};
                 downloadHelper.set(
-                    DownloadHelper.forMediaItem(
-                        getApplicationContext(),
-                        testMediaItem,
-                        renderersFactory,
-                        new FakeDataSource.Factory()));
+                    new DownloadHelper.Factory()
+                        .setDataSourceFactory(new FakeDataSource.Factory())
+                        .setRenderersFactory(renderersFactory)
+                        .create(testMediaItem));
               } catch (Throwable e) {
                 exception.set(e);
               }
@@ -539,11 +820,10 @@ public class DownloadHelperTest {
                     (handler, videoListener, audioListener, metadata, text) ->
                         new Renderer[] {videoRenderer};
                 downloadHelper.set(
-                    DownloadHelper.forMediaItem(
-                        testMediaItem,
-                        TrackSelectionParameters.getDefaults(getApplicationContext()),
-                        renderersFactory,
-                        new FakeDataSource.Factory()));
+                    new DownloadHelper.Factory()
+                        .setDataSourceFactory(new FakeDataSource.Factory())
+                        .setRenderersFactory(renderersFactory)
+                        .create(testMediaItem));
               } catch (Throwable e) {
                 exception.set(e);
               }
@@ -570,16 +850,16 @@ public class DownloadHelperTest {
                     (handler, videoListener, audioListener, metadata, text) ->
                         new Renderer[] {videoRenderer};
                 downloadHelper.set(
-                    DownloadHelper.forMediaItem(
-                        testMediaItem,
-                        TrackSelectionParameters.getDefaults(getApplicationContext()),
-                        renderersFactory,
-                        new FakeDataSource.Factory(),
-                        new DefaultDrmSessionManager.Builder()
-                            .build(
-                                new HttpMediaDrmCallback(
-                                    /* defaultLicenseUrl= */ null,
-                                    new DefaultDataSource.Factory(getApplicationContext())))));
+                    new DownloadHelper.Factory()
+                        .setDataSourceFactory(new FakeDataSource.Factory())
+                        .setRenderersFactory(renderersFactory)
+                        .setDrmSessionManager(
+                            new DefaultDrmSessionManager.Builder()
+                                .build(
+                                    new HttpMediaDrmCallback(
+                                        /* defaultLicenseUrl= */ null,
+                                        new DefaultDataSource.Factory(getApplicationContext()))))
+                        .create(testMediaItem));
               } catch (Throwable e) {
                 exception.set(e);
               }
@@ -619,7 +899,7 @@ public class DownloadHelperTest {
                     new DownloadHelper(
                         testMediaItem,
                         new FakeMediaSource(),
-                        TrackSelectionParameters.getDefaults(getApplicationContext()),
+                        TrackSelectionParameters.DEFAULT,
                         emptyRendererCapabilitiesList));
               } catch (Throwable e) {
                 exception.set(e);
@@ -632,14 +912,16 @@ public class DownloadHelperTest {
     assertThat(exception.get()).isNull();
   }
 
-  private static void prepareDownloadHelper(DownloadHelper downloadHelper) throws Exception {
+  private static boolean prepareDownloadHelper(DownloadHelper downloadHelper) throws Exception {
+    AtomicBoolean tracksInfoAvailableRef = new AtomicBoolean();
     AtomicReference<Exception> prepareException = new AtomicReference<>(null);
     CountDownLatch preparedLatch = new CountDownLatch(1);
     downloadHelper.prepare(
         new Callback() {
           @Override
-          public void onPrepared(DownloadHelper helper) {
+          public void onPrepared(DownloadHelper helper, boolean tracksInfoAvailable) {
             preparedLatch.countDown();
+            tracksInfoAvailableRef.set(tracksInfoAvailable);
           }
 
           @Override
@@ -654,6 +936,8 @@ public class DownloadHelperTest {
     if (prepareException.get() != null) {
       throw prepareException.get();
     }
+
+    return tracksInfoAvailableRef.get();
   }
 
   private static Format createVideoFormat(int bitrate) {

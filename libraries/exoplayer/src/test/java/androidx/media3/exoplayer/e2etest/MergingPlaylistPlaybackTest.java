@@ -15,7 +15,7 @@
  */
 package androidx.media3.exoplayer.e2etest;
 
-import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.run;
+import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
@@ -86,7 +86,7 @@ public final class MergingPlaylistPlaybackTest {
 
   @Rule
   public ShadowMediaCodecConfig mediaCodecConfig =
-      ShadowMediaCodecConfig.forAllSupportedMimeTypes();
+      ShadowMediaCodecConfig.withAllDefaultSupportedCodecs();
 
   @Test
   public void transitionBetweenDifferentMergeConfigurations() throws Exception {
@@ -108,7 +108,7 @@ public final class MergingPlaylistPlaybackTest {
     player.prepare();
     // Load all content prior to play to reduce flaky-ness resulting from the playback advancement
     // speed and handling of discontinuities.
-    run(player).untilFullyBuffered();
+    advance(player).untilFullyBuffered();
     // Reset the listener to avoid verifying the onIsLoadingChanged events from prepare().
     reset(listener);
     player.play();
@@ -154,7 +154,7 @@ public final class MergingPlaylistPlaybackTest {
     player.prepare();
     // Load all content prior to play to reduce flaky-ness resulting from the playback advancement
     // speed and handling of discontinuities.
-    run(player).untilFullyBuffered();
+    advance(player).untilFullyBuffered();
     // Reset the listener to avoid verifying the onIsLoadingChanged events from prepare().
     reset(listener);
     player.play();
@@ -188,13 +188,17 @@ public final class MergingPlaylistPlaybackTest {
             C.TRACK_TYPE_AUDIO);
     if (videoClipped) {
       videoSource =
-          new ClippingMediaSource(
-              videoSource, /* startPositionUs= */ 300_000, /* endPositionUs= */ 600_000);
+          new ClippingMediaSource.Builder(videoSource)
+              .setStartPositionMs(300)
+              .setEndPositionMs(600)
+              .build();
     }
     if (audioClipped) {
       audioSource =
-          new ClippingMediaSource(
-              audioSource, /* startPositionUs= */ 500_000, /* endPositionUs= */ 800_000);
+          new ClippingMediaSource.Builder(audioSource)
+              .setStartPositionMs(500)
+              .setEndPositionMs(800)
+              .build();
     }
     return new MergingMediaSource(
         /* adjustPeriodTimeOffsets= */ true,

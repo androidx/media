@@ -39,6 +39,7 @@ import androidx.media3.exoplayer.source.ads.AdsLoader;
 import androidx.media3.exoplayer.source.ads.AdsMediaSource;
 import androidx.media3.exoplayer.upstream.CmcdConfiguration;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
+import androidx.media3.exoplayer.util.ReleasableExecutor;
 import androidx.media3.extractor.DefaultExtractorsFactory;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorInput;
@@ -208,6 +209,16 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
       SubtitleParser.Factory subtitleParserFactory) {
     this.subtitleParserFactory = checkNotNull(subtitleParserFactory);
     delegateFactoryLoader.setSubtitleParserFactory(subtitleParserFactory);
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  @Override
+  @UnstableApi
+  public DefaultMediaSourceFactory experimentalSetCodecsToParseWithinGopSampleDependencies(
+      @C.VideoCodecFlags int codecsToParseWithinGopSampleDependencies) {
+    delegateFactoryLoader.setCodecsToParseWithinGopSampleDependencies(
+        codecsToParseWithinGopSampleDependencies);
     return this;
   }
 
@@ -446,6 +457,14 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
   }
 
   @UnstableApi
+  @CanIgnoreReturnValue
+  @Override
+  public MediaSource.Factory setDownloadExecutor(Supplier<ReleasableExecutor> downloadExecutor) {
+    delegateFactoryLoader.setDownloadExecutor(downloadExecutor);
+    return this;
+  }
+
+  @UnstableApi
   @Override
   public @C.ContentType int[] getSupportedTypes() {
     return delegateFactoryLoader.getSupportedTypes();
@@ -525,12 +544,23 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
               () ->
                   new Extractor[] {
                     subtitleParserFactory.supportsFormat(format)
-                        ? new SubtitleExtractor(subtitleParserFactory.create(format), format)
+                        ? new SubtitleExtractor(
+                            subtitleParserFactory.create(format), /* format= */ null)
                         : new UnknownSubtitlesExtractor(format)
                   };
           ProgressiveMediaSource.Factory progressiveMediaSourceFactory =
               new ProgressiveMediaSource.Factory(dataSourceFactory, extractorsFactory)
-                  .setSuppressPrepareError(true);
+                  .enableLazyLoadingWithSingleTrack(
+                      SubtitleExtractor.TRACK_ID,
+                      subtitleParserFactory.supportsFormat(format)
+                          ? format
+                              .buildUpon()
+                              .setSampleMimeType(MimeTypes.APPLICATION_MEDIA3_CUES)
+                              .setCodecs(format.sampleMimeType)
+                              .setCueReplacementBehavior(
+                                  subtitleParserFactory.getCueReplacementBehavior(format))
+                              .build()
+                          : format);
           if (loadErrorHandlingPolicy != null) {
             progressiveMediaSourceFactory.setLoadErrorHandlingPolicy(loadErrorHandlingPolicy);
           }
@@ -562,13 +592,14 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
         && !mediaItem.clippingConfiguration.relativeToDefaultPosition) {
       return mediaSource;
     }
-    return new ClippingMediaSource(
-        mediaSource,
-        mediaItem.clippingConfiguration.startPositionUs,
-        mediaItem.clippingConfiguration.endPositionUs,
-        /* enableInitialDiscontinuity= */ !mediaItem.clippingConfiguration.startsAtKeyFrame,
-        /* allowDynamicClippingUpdates= */ mediaItem.clippingConfiguration.relativeToLiveWindow,
-        mediaItem.clippingConfiguration.relativeToDefaultPosition);
+    return new ClippingMediaSource.Builder(mediaSource)
+        .setStartPositionUs(mediaItem.clippingConfiguration.startPositionUs)
+        .setEndPositionUs(mediaItem.clippingConfiguration.endPositionUs)
+        .setEnableInitialDiscontinuity(!mediaItem.clippingConfiguration.startsAtKeyFrame)
+        .setAllowDynamicClippingUpdates(mediaItem.clippingConfiguration.relativeToLiveWindow)
+        .setRelativeToDefaultPosition(mediaItem.clippingConfiguration.relativeToDefaultPosition)
+        .setAllowUnseekableMedia(mediaItem.clippingConfiguration.allowUnseekableMedia)
+        .build();
   }
 
   private MediaSource maybeWrapWithAdsMediaSource(MediaItem mediaItem, MediaSource mediaSource) {
@@ -614,9 +645,11 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
     private DataSource.@MonotonicNonNull Factory dataSourceFactory;
     private boolean parseSubtitlesDuringExtraction;
     private SubtitleParser.Factory subtitleParserFactory;
+    private @C.VideoCodecFlags int codecsToParseWithinGopSampleDependencies;
     @Nullable private CmcdConfiguration.Factory cmcdConfigurationFactory;
     @Nullable private DrmSessionManagerProvider drmSessionManagerProvider;
     @Nullable private LoadErrorHandlingPolicy loadErrorHandlingPolicy;
+    @Nullable private Supplier<ReleasableExecutor> downloadExecutorSupplier;
 
     public DelegateFactoryLoader(
         ExtractorsFactory extractorsFactory, SubtitleParser.Factory subtitleParserFactory) {
@@ -651,8 +684,13 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
       if (loadErrorHandlingPolicy != null) {
         mediaSourceFactory.setLoadErrorHandlingPolicy(loadErrorHandlingPolicy);
       }
+      if (downloadExecutorSupplier != null) {
+        mediaSourceFactory.setDownloadExecutor(downloadExecutorSupplier);
+      }
       mediaSourceFactory.setSubtitleParserFactory(subtitleParserFactory);
       mediaSourceFactory.experimentalParseSubtitlesDuringExtraction(parseSubtitlesDuringExtraction);
+      mediaSourceFactory.experimentalSetCodecsToParseWithinGopSampleDependencies(
+          codecsToParseWithinGopSampleDependencies);
       mediaSourceFactories.put(contentType, mediaSourceFactory);
       return mediaSourceFactory;
     }
@@ -684,6 +722,13 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
       }
     }
 
+    public void setCodecsToParseWithinGopSampleDependencies(
+        @C.VideoCodecFlags int codecsToParseWithinGopSampleDependencies) {
+      this.codecsToParseWithinGopSampleDependencies = codecsToParseWithinGopSampleDependencies;
+      extractorsFactory.experimentalSetCodecsToParseWithinGopSampleDependencies(
+          codecsToParseWithinGopSampleDependencies);
+    }
+
     public void setCmcdConfigurationFactory(CmcdConfiguration.Factory cmcdConfigurationFactory) {
       this.cmcdConfigurationFactory = cmcdConfigurationFactory;
       for (MediaSource.Factory mediaSourceFactory : mediaSourceFactories.values()) {
@@ -708,6 +753,13 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
     public void setJpegExtractorFlags(@JpegExtractor.Flags int flags) {
       if (this.extractorsFactory instanceof DefaultExtractorsFactory) {
         ((DefaultExtractorsFactory) this.extractorsFactory).setJpegExtractorFlags(flags);
+      }
+    }
+
+    public void setDownloadExecutor(Supplier<ReleasableExecutor> downloadExecutor) {
+      this.downloadExecutorSupplier = downloadExecutor;
+      for (MediaSource.Factory mediaSourceFactory : mediaSourceFactories.values()) {
+        mediaSourceFactory.setDownloadExecutor(downloadExecutor);
       }
     }
 
@@ -739,6 +791,7 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
         return mediaSourceFactorySupplier;
       }
 
+      // LINT.IfChange
       DataSource.Factory dataSourceFactory = checkNotNull(this.dataSourceFactory);
       Class<? extends MediaSource.Factory> clazz;
       switch (contentType) {
@@ -773,6 +826,7 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
         default:
           throw new IllegalArgumentException("Unrecognized contentType: " + contentType);
       }
+      // LINT.ThenChange(../../../../../proguard-rules.txt)
       mediaSourceFactorySuppliers.put(contentType, mediaSourceFactorySupplier);
       return mediaSourceFactorySupplier;
     }
@@ -792,7 +846,7 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
 
     @Override
     public void init(ExtractorOutput output) {
-      TrackOutput trackOutput = output.track(/* id= */ 0, C.TRACK_TYPE_TEXT);
+      TrackOutput trackOutput = output.track(SubtitleExtractor.TRACK_ID, C.TRACK_TYPE_TEXT);
       output.seekMap(new SeekMap.Unseekable(C.TIME_UNSET));
       output.endTracks();
       trackOutput.format(

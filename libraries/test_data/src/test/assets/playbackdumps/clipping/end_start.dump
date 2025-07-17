@@ -1,4 +1,4 @@
-MediaCodecAdapter (exotest.audio.aac):
+MediaCodecAdapter (media3.audio.aac):
   inputBuffers:
     count = 47
     input buffer #0:
@@ -326,7 +326,7 @@ MediaCodecAdapter (exotest.audio.aac):
       timeUs = 1000001509179
       size = 0
       rendered = false
-MediaCodecAdapter (exotest.video.avc):
+MediaCodecAdapter (media3.video.avc):
   inputBuffers:
     count = 45
     input buffer #0:
@@ -651,79 +651,79 @@ AudioSink:
     sampleRate = 44100
   buffer #0:
     time = 1000000508399
-    data = 1
+    data = empty
   buffer #1:
     time = 1000000531619
-    data = 1
+    data = empty
   buffer #2:
     time = 1000000554839
-    data = 1
+    data = empty
   buffer #3:
     time = 1000000578058
-    data = 1
+    data = empty
   buffer #4:
     time = 1000000601278
-    data = 1
+    data = empty
   buffer #5:
     time = 1000000624498
-    data = 1
+    data = empty
   buffer #6:
     time = 1000000647718
-    data = 1
+    data = empty
   buffer #7:
     time = 1000000670938
-    data = 1
+    data = empty
   buffer #8:
     time = 1000000694158
-    data = 1
+    data = empty
   buffer #9:
     time = 1000000717378
-    data = 1
+    data = empty
   buffer #10:
     time = 1000000740598
-    data = 1
+    data = empty
   buffer #11:
     time = 1000000763818
-    data = 1
+    data = empty
   buffer #12:
     time = 1000000787038
-    data = 1
+    data = empty
   buffer #13:
     time = 1000000810258
-    data = 1
+    data = empty
   buffer #14:
     time = 1000000833478
-    data = 1
+    data = empty
   buffer #15:
     time = 1000000856698
-    data = 1
+    data = empty
   buffer #16:
     time = 1000000879918
-    data = 1
+    data = empty
   buffer #17:
     time = 1000000903138
-    data = 1
+    data = empty
   buffer #18:
     time = 1000000926358
-    data = 1
+    data = empty
   buffer #19:
     time = 1000000949578
-    data = 1
+    data = empty
   buffer #20:
     time = 1000000972798
-    data = 1
+    data = empty
   buffer #21:
     time = 1000000996018
-    data = 1
+    data = empty
   buffer #22:
     time = 1000001019238
-    data = 1
+    data = empty
   buffer #23:
     time = 1000001042458
-    data = 1
+    data = empty
   buffer #24:
     time = 1000001065678
-    data = 1
+    data = empty
   discontinuity:
   config:
     pcmEncoding = 2
@@ -731,61 +731,61 @@ AudioSink:
     sampleRate = 44100
   buffer #25:
     time = 1000001068000
-    data = 1
+    data = empty
   buffer #26:
     time = 1000001091219
-    data = 1
+    data = empty
   buffer #27:
     time = 1000001114439
-    data = 1
+    data = empty
   buffer #28:
     time = 1000001137659
-    data = 1
+    data = empty
   buffer #29:
     time = 1000001160879
-    data = 1
+    data = empty
   buffer #30:
     time = 1000001184099
-    data = 1
+    data = empty
   buffer #31:
     time = 1000001207319
-    data = 1
+    data = empty
   buffer #32:
     time = 1000001230539
-    data = 1
+    data = empty
   buffer #33:
     time = 1000001253759
-    data = 1
+    data = empty
   buffer #34:
     time = 1000001276979
-    data = 1
+    data = empty
   buffer #35:
     time = 1000001300199
-    data = 1
+    data = empty
   buffer #36:
     time = 1000001323419
-    data = 1
+    data = empty
   buffer #37:
     time = 1000001346639
-    data = 1
+    data = empty
   buffer #38:
     time = 1000001369859
-    data = 1
+    data = empty
   buffer #39:
     time = 1000001393079
-    data = 1
+    data = empty
   buffer #40:
     time = 1000001416299
-    data = 1
+    data = empty
   buffer #41:
     time = 1000001439519
-    data = 1
+    data = empty
   buffer #42:
     time = 1000001462739
-    data = 1
+    data = empty
   buffer #43:
     time = 1000001485959
-    data = 1
+    data = empty
   buffer #44:
     time = 1000001509179
-    data = 1
+    data = empty

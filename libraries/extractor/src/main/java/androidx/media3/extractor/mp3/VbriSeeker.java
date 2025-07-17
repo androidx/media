@@ -49,29 +49,30 @@ import androidx.media3.extractor.SeekPoint;
       long position,
       MpegAudioUtil.Header mpegAudioHeader,
       ParsableByteArray frame) {
-    frame.skipBytes(10);
+    frame.skipBytes(6);
+    int bytes = frame.readInt();
+    long startOfMp3Data = position + mpegAudioHeader.frameSize;
+    long endOfMp3Data = startOfMp3Data + bytes;
     int numFrames = frame.readInt();
     if (numFrames <= 0) {
       return null;
     }
     int sampleRate = mpegAudioHeader.sampleRate;
     long durationUs =
-        Util.scaleLargeTimestamp(
-            numFrames, C.MICROS_PER_SECOND * (sampleRate >= 32000 ? 1152 : 576), sampleRate);
+        Util.sampleCountToDurationUs(
+            ((long) numFrames * mpegAudioHeader.samplesPerFrame) - 1, sampleRate);
     int entryCount = frame.readUnsignedShort();
     int scale = frame.readUnsignedShort();
     int entrySize = frame.readUnsignedShort();
     frame.skipBytes(2);
 
-    long minPosition = position + mpegAudioHeader.frameSize;
+    position += mpegAudioHeader.frameSize;
     // Read table of contents entries.
     long[] timesUs = new long[entryCount];
     long[] positions = new long[entryCount];
     for (int index = 0; index < entryCount; index++) {
       timesUs[index] = (index * durationUs) / entryCount;
-      // Ensure positions do not fall within the frame containing the VBRI header. This constraint
-      // will normally only apply to the first entry in the table.
-      positions[index] = max(position, minPosition);
+      positions[index] = position;
       int segmentSize;
       switch (entrySize) {
         case 1:
@@ -91,24 +92,42 @@ import androidx.media3.extractor.SeekPoint;
       }
       position += segmentSize * ((long) scale);
     }
-    if (inputLength != C.LENGTH_UNSET && inputLength != position) {
-      Log.w(TAG, "VBRI data size mismatch: " + inputLength + ", " + position);
+    if (inputLength != C.LENGTH_UNSET && inputLength != endOfMp3Data) {
+      Log.w(TAG, "VBRI data size mismatch: " + inputLength + ", " + endOfMp3Data);
     }
+    if (endOfMp3Data != position) {
+      Log.w(
+          TAG,
+          "VBRI bytes and ToC mismatch (using max): "
+              + endOfMp3Data
+              + ", "
+              + position
+              + "\nSeeking will be inaccurate.");
+      endOfMp3Data = max(endOfMp3Data, position);
+    }
+
     return new VbriSeeker(
-        timesUs, positions, durationUs, /* dataEndPosition= */ position, mpegAudioHeader.bitrate);
+        timesUs, positions, durationUs, startOfMp3Data, endOfMp3Data, mpegAudioHeader.bitrate);
   }
 
   private final long[] timesUs;
   private final long[] positions;
   private final long durationUs;
+  private final long dataStartPosition;
   private final long dataEndPosition;
   private final int bitrate;
 
   private VbriSeeker(
-      long[] timesUs, long[] positions, long durationUs, long dataEndPosition, int bitrate) {
+      long[] timesUs,
+      long[] positions,
+      long durationUs,
+      long dataStartPosition,
+      long dataEndPosition,
+      int bitrate) {
     this.timesUs = timesUs;
     this.positions = positions;
     this.durationUs = durationUs;
+    this.dataStartPosition = dataStartPosition;
     this.dataEndPosition = dataEndPosition;
     this.bitrate = bitrate;
   }
@@ -138,6 +157,11 @@ import androidx.media3.extractor.SeekPoint;
   @Override
   public long getDurationUs() {
     return durationUs;
+  }
+
+  @Override
+  public long getDataStartPosition() {
+    return dataStartPosition;
   }
 
   @Override

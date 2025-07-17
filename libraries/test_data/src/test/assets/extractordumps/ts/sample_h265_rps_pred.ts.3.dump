@@ -8,7 +8,7 @@ seekMap:
 numberOfTracks = 1
 track 256:
   total output bytes = 146
-  sample count = 3
+  sample count = 2
   format 0:
     id = 1/256
     containerMimeType = video/mp2t
@@ -17,22 +17,21 @@ track 256:
     maxNumReorderSamples = 4
     width = 914
     height = 686
+    decodedWidth = 920
+    decodedHeight = 688
     pixelWidthHeightRatio = 1.0003651
+    maxSubLayers = 4
     colorInfo:
       lumaBitdepth = 8
       chromaBitdepth = 8
     initializationData:
-      data = length 146, hash 61554FEF
+      data = length 144, hash 549DF6F3
   sample 0:
     time = 1133333
     flags = 0
-    data = length 46, hash CE770A40
+    data = length 46, hash 99614662
   sample 1:
     time = 1266666
     flags = 0
-    data = length 7, hash 680F23CB
-  sample 2:
-    time = 1266666
-    flags = 0
-    data = length 92, hash 531EE3AD
+    data = length 100, hash 6E090F99
 tracksEnded = true

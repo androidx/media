@@ -1,4 +1,4 @@
-MediaCodecAdapter (exotest.audio.flac):
+MediaCodecAdapter (media3.audio.flac):
   inputBuffers:
     count = 28
     input buffer #0:
@@ -204,82 +204,82 @@ AudioSink:
     sampleRate = 44000
   buffer #0:
     time = 1000000000000
-    data = 1
+    data = empty
   buffer #1:
     time = 1000000104727
-    data = 1
+    data = empty
   buffer #2:
     time = 1000000209454
-    data = 1
+    data = empty
   buffer #3:
     time = 1000000314181
-    data = 1
+    data = empty
   buffer #4:
     time = 1000000418909
-    data = 1
+    data = empty
   buffer #5:
     time = 1000000523636
-    data = 1
+    data = empty
   buffer #6:
     time = 1000000628363
-    data = 1
+    data = empty
   buffer #7:
     time = 1000000733090
-    data = 1
+    data = empty
   buffer #8:
     time = 1000000837818
-    data = 1
+    data = empty
   buffer #9:
     time = 1000000942545
-    data = 1
+    data = empty
   buffer #10:
     time = 1000001047272
-    data = 1
+    data = empty
   buffer #11:
     time = 1000001152000
-    data = 1
+    data = empty
   buffer #12:
     time = 1000001256727
-    data = 1
+    data = empty
   buffer #13:
     time = 1000001361454
-    data = 1
+    data = empty
   buffer #14:
     time = 1000001466181
-    data = 1
+    data = empty
   buffer #15:
     time = 1000001570909
-    data = 1
+    data = empty
   buffer #16:
     time = 1000001675636
-    data = 1
+    data = empty
   buffer #17:
     time = 1000001780363
-    data = 1
+    data = empty
   buffer #18:
     time = 1000001885090
-    data = 1
+    data = empty
   buffer #19:
     time = 1000001989818
-    data = 1
+    data = empty
   buffer #20:
     time = 1000002094545
-    data = 1
+    data = empty
   buffer #21:
     time = 1000002199272
-    data = 1
+    data = empty
   buffer #22:
     time = 1000002304000
-    data = 1
+    data = empty
   buffer #23:
     time = 1000002408727
-    data = 1
+    data = empty
   buffer #24:
     time = 1000002513454
-    data = 1
+    data = empty
   buffer #25:
     time = 1000002618181
-    data = 1
+    data = empty
   buffer #26:
     time = 1000002722909
-    data = 1
+    data = empty

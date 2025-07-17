@@ -153,7 +153,7 @@ public class StubPlayer extends BasePlayer {
   }
 
   @Override
-  public void seekTo(
+  protected void seekTo(
       int mediaItemIndex,
       long positionMs,
       @Player.Command int seekCommand,
@@ -293,6 +293,16 @@ public class StubPlayer extends BasePlayer {
 
   @Override
   public void setVolume(float volume) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public void mute() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public void unmute() {
     throw new UnsupportedOperationException();
   }
 

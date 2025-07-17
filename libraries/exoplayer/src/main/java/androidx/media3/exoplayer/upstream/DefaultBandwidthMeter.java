@@ -15,12 +15,16 @@
  */
 package androidx.media3.exoplayer.upstream;
 
+import static com.google.common.base.Strings.nullToEmpty;
+
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.os.Handler;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.Assertions;
+import androidx.media3.common.util.BackgroundExecutor;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.NetworkTypeObserver;
 import androidx.media3.common.util.UnstableApi;
@@ -35,6 +39,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.HashMap;
 import java.util.Map;
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
  * Estimates bandwidth by listening to data transfers.
@@ -116,14 +121,17 @@ public final class DefaultBandwidthMeter implements BandwidthMeter, TransferList
    */
   private static final int COUNTRY_GROUP_INDEX_5G_SA = 5;
 
-  @Nullable private static DefaultBandwidthMeter singletonInstance;
+  // Intentionally mutable static field and using application context to prevent leakage.
+  @SuppressLint({"NonFinalStaticField", "StaticFieldLeak"})
+  @Nullable
+  private static DefaultBandwidthMeter singletonInstance;
 
   /** Builder for a bandwidth meter. */
   public static final class Builder {
 
     @Nullable private final Context context;
+    private final Map<Integer, Long> initialBitrateEstimates;
 
-    private Map<Integer, Long> initialBitrateEstimates;
     private int slidingWindowMaxWeight;
     private Clock clock;
     private boolean resetOnNetworkTypeChange;
@@ -136,10 +144,18 @@ public final class DefaultBandwidthMeter implements BandwidthMeter, TransferList
     public Builder(Context context) {
       // Handling of null is for backward compatibility only.
       this.context = context == null ? null : context.getApplicationContext();
-      initialBitrateEstimates = getInitialBitrateEstimatesForCountry(Util.getCountryCode(context));
       slidingWindowMaxWeight = DEFAULT_SLIDING_WINDOW_MAX_WEIGHT;
       clock = Clock.DEFAULT;
       resetOnNetworkTypeChange = true;
+      initialBitrateEstimates = new HashMap<>(/* initialCapacity= */ 8);
+      initialBitrateEstimates.put(C.NETWORK_TYPE_UNKNOWN, DEFAULT_INITIAL_BITRATE_ESTIMATE);
+      initialBitrateEstimates.put(C.NETWORK_TYPE_WIFI, C.TIME_UNSET);
+      initialBitrateEstimates.put(C.NETWORK_TYPE_2G, C.TIME_UNSET);
+      initialBitrateEstimates.put(C.NETWORK_TYPE_3G, C.TIME_UNSET);
+      initialBitrateEstimates.put(C.NETWORK_TYPE_4G, C.TIME_UNSET);
+      initialBitrateEstimates.put(C.NETWORK_TYPE_5G_NSA, C.TIME_UNSET);
+      initialBitrateEstimates.put(C.NETWORK_TYPE_5G_SA, C.TIME_UNSET);
+      initialBitrateEstimates.put(C.NETWORK_TYPE_ETHERNET, C.TIME_UNSET);
     }
 
     /**
@@ -194,8 +210,11 @@ public final class DefaultBandwidthMeter implements BandwidthMeter, TransferList
      */
     @CanIgnoreReturnValue
     public Builder setInitialBitrateEstimate(String countryCode) {
-      initialBitrateEstimates =
-          getInitialBitrateEstimatesForCountry(Ascii.toUpperCase(countryCode));
+      countryCode = Ascii.toUpperCase(countryCode);
+      for (Integer networkType : initialBitrateEstimates.keySet()) {
+        setInitialBitrateEstimate(
+            networkType, getInitialBitrateEstimatesForCountry(countryCode, networkType));
+      }
       return this;
     }
 
@@ -237,35 +256,6 @@ public final class DefaultBandwidthMeter implements BandwidthMeter, TransferList
           clock,
           resetOnNetworkTypeChange);
     }
-
-    private static Map<Integer, Long> getInitialBitrateEstimatesForCountry(String countryCode) {
-      int[] groupIndices = getInitialBitrateCountryGroupAssignment(countryCode);
-      Map<Integer, Long> result = new HashMap<>(/* initialCapacity= */ 8);
-      result.put(C.NETWORK_TYPE_UNKNOWN, DEFAULT_INITIAL_BITRATE_ESTIMATE);
-      result.put(
-          C.NETWORK_TYPE_WIFI,
-          DEFAULT_INITIAL_BITRATE_ESTIMATES_WIFI.get(groupIndices[COUNTRY_GROUP_INDEX_WIFI]));
-      result.put(
-          C.NETWORK_TYPE_2G,
-          DEFAULT_INITIAL_BITRATE_ESTIMATES_2G.get(groupIndices[COUNTRY_GROUP_INDEX_2G]));
-      result.put(
-          C.NETWORK_TYPE_3G,
-          DEFAULT_INITIAL_BITRATE_ESTIMATES_3G.get(groupIndices[COUNTRY_GROUP_INDEX_3G]));
-      result.put(
-          C.NETWORK_TYPE_4G,
-          DEFAULT_INITIAL_BITRATE_ESTIMATES_4G.get(groupIndices[COUNTRY_GROUP_INDEX_4G]));
-      result.put(
-          C.NETWORK_TYPE_5G_NSA,
-          DEFAULT_INITIAL_BITRATE_ESTIMATES_5G_NSA.get(groupIndices[COUNTRY_GROUP_INDEX_5G_NSA]));
-      result.put(
-          C.NETWORK_TYPE_5G_SA,
-          DEFAULT_INITIAL_BITRATE_ESTIMATES_5G_SA.get(groupIndices[COUNTRY_GROUP_INDEX_5G_SA]));
-      // Assume default Wifi speed for Ethernet to prevent using the slower fallback.
-      result.put(
-          C.NETWORK_TYPE_ETHERNET,
-          DEFAULT_INITIAL_BITRATE_ESTIMATES_WIFI.get(groupIndices[COUNTRY_GROUP_INDEX_WIFI]));
-      return result;
-    }
   }
 
   /**
@@ -284,6 +274,7 @@ public final class DefaultBandwidthMeter implements BandwidthMeter, TransferList
   private static final int ELAPSED_MILLIS_FOR_ESTIMATE = 2000;
   private static final int BYTES_TRANSFERRED_FOR_ESTIMATE = 512 * 1024;
 
+  @Nullable private final Context context;
   private final ImmutableMap<Integer, Long> initialBitrateEstimates;
   private final EventDispatcher eventDispatcher;
   private final Clock clock;
@@ -316,6 +307,7 @@ public final class DefaultBandwidthMeter implements BandwidthMeter, TransferList
   private @C.NetworkType int networkType;
   private boolean networkTypeOverrideSet;
   private @C.NetworkType int networkTypeOverride;
+  private @MonotonicNonNull String countryCode;
 
   private DefaultBandwidthMeter(
       @Nullable Context context,
@@ -323,6 +315,7 @@ public final class DefaultBandwidthMeter implements BandwidthMeter, TransferList
       int maxWeight,
       Clock clock,
       boolean resetOnNetworkTypeChange) {
+    this.context = context == null ? null : context.getApplicationContext();
     this.initialBitrateEstimates = ImmutableMap.copyOf(initialBitrateEstimates);
     this.eventDispatcher = new EventDispatcher();
     this.slidingPercentile = new SlidingPercentile(maxWeight);
@@ -332,10 +325,11 @@ public final class DefaultBandwidthMeter implements BandwidthMeter, TransferList
       NetworkTypeObserver networkTypeObserver = NetworkTypeObserver.getInstance(context);
       networkType = networkTypeObserver.getNetworkType();
       bitrateEstimate = getInitialBitrateEstimateForNetworkType(networkType);
-      networkTypeObserver.register(/* listener= */ this::onNetworkTypeChanged);
+      networkTypeObserver.register(
+          /* listener= */ this::onNetworkTypeChanged, BackgroundExecutor.get());
     } else {
       networkType = C.NETWORK_TYPE_UNKNOWN;
-      bitrateEstimate = getInitialBitrateEstimateForNetworkType(C.NETWORK_TYPE_UNKNOWN);
+      bitrateEstimate = DEFAULT_INITIAL_BITRATE_ESTIMATE;
     }
   }
 
@@ -434,7 +428,7 @@ public final class DefaultBandwidthMeter implements BandwidthMeter, TransferList
     if (networkTypeOverrideSet) {
       networkType = networkTypeOverride;
     }
-    if (this.networkType == networkType) {
+    if (this.networkType == networkType && countryCode != null) {
       return;
     }
 
@@ -444,6 +438,10 @@ public final class DefaultBandwidthMeter implements BandwidthMeter, TransferList
         || networkType == C.NETWORK_TYPE_OTHER) {
       // It's better not to reset the bandwidth meter for these network types.
       return;
+    }
+
+    if (countryCode == null) {
+      countryCode = Util.getCountryCode(context);
     }
 
     // Reset the bitrate estimate and report it, along with any bytes transferred.
@@ -474,6 +472,8 @@ public final class DefaultBandwidthMeter implements BandwidthMeter, TransferList
     Long initialBitrateEstimate = initialBitrateEstimates.get(networkType);
     if (initialBitrateEstimate == null) {
       initialBitrateEstimate = initialBitrateEstimates.get(C.NETWORK_TYPE_UNKNOWN);
+    } else if (initialBitrateEstimate == C.TIME_UNSET) {
+      initialBitrateEstimate = getInitialBitrateEstimatesForCountry(countryCode, networkType);
     }
     if (initialBitrateEstimate == null) {
       initialBitrateEstimate = DEFAULT_INITIAL_BITRATE_ESTIMATE;
@@ -483,6 +483,31 @@ public final class DefaultBandwidthMeter implements BandwidthMeter, TransferList
 
   private static boolean isTransferAtFullNetworkSpeed(DataSpec dataSpec, boolean isNetwork) {
     return isNetwork && !dataSpec.isFlagSet(DataSpec.FLAG_MIGHT_NOT_USE_FULL_NETWORK_SPEED);
+  }
+
+  private static long getInitialBitrateEstimatesForCountry(
+      @Nullable String countryCode, @C.NetworkType int networkType) {
+    int[] groupIndices = getInitialBitrateCountryGroupAssignment(nullToEmpty(countryCode));
+    switch (networkType) {
+      case C.NETWORK_TYPE_WIFI:
+      case C.NETWORK_TYPE_ETHERNET:
+        // Assume default Wifi speed for Ethernet to prevent using the slower fallback.
+        return DEFAULT_INITIAL_BITRATE_ESTIMATES_WIFI.get(groupIndices[COUNTRY_GROUP_INDEX_WIFI]);
+      case C.NETWORK_TYPE_2G:
+        return DEFAULT_INITIAL_BITRATE_ESTIMATES_2G.get(groupIndices[COUNTRY_GROUP_INDEX_2G]);
+      case C.NETWORK_TYPE_3G:
+        return DEFAULT_INITIAL_BITRATE_ESTIMATES_3G.get(groupIndices[COUNTRY_GROUP_INDEX_3G]);
+      case C.NETWORK_TYPE_4G:
+        return DEFAULT_INITIAL_BITRATE_ESTIMATES_4G.get(groupIndices[COUNTRY_GROUP_INDEX_4G]);
+      case C.NETWORK_TYPE_5G_NSA:
+        return DEFAULT_INITIAL_BITRATE_ESTIMATES_5G_NSA.get(
+            groupIndices[COUNTRY_GROUP_INDEX_5G_NSA]);
+      case C.NETWORK_TYPE_5G_SA:
+        return DEFAULT_INITIAL_BITRATE_ESTIMATES_5G_SA.get(groupIndices[COUNTRY_GROUP_INDEX_5G_SA]);
+      case C.NETWORK_TYPE_UNKNOWN:
+      default:
+        return DEFAULT_INITIAL_BITRATE_ESTIMATE;
+    }
   }
 
   /**

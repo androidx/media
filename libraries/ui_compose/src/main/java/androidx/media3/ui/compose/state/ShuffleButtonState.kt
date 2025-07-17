@@ -28,8 +28,8 @@ import androidx.media3.common.util.UnstableApi
 
 /**
  * Remember the value of [ShuffleButtonState] created based on the passed [Player] and launch a
- * coroutine to listen to [Player]'s changes. If the [Player] instance changes between compositions,
- * produce and remember a new value.
+ * coroutine to listen to [Player's][Player] changes. If the [Player] instance changes between
+ * compositions, produce and remember a new value.
  */
 @UnstableApi
 @Composable
@@ -44,11 +44,11 @@ fun rememberShuffleButtonState(player: Player): ShuffleButtonState {
  * On/Off button.
  *
  * @property[isEnabled] determined by `isCommandAvailable(Player.COMMAND_SET_SHUFFLE_MODE)`
- * @property[shuffleOn] determined by [Player]'s `shuffleModeEnabled`
+ * @property[shuffleOn] determined by [Player's][Player] `shuffleModeEnabled`
  */
 @UnstableApi
 class ShuffleButtonState(private val player: Player) {
-  var isEnabled by mutableStateOf(player.isCommandAvailable(Player.COMMAND_SET_SHUFFLE_MODE))
+  var isEnabled by mutableStateOf(isShuffleEnabled(player))
     private set
 
   var shuffleOn by mutableStateOf(player.shuffleModeEnabled)
@@ -58,7 +58,16 @@ class ShuffleButtonState(private val player: Player) {
     player.shuffleModeEnabled = !player.shuffleModeEnabled
   }
 
-  suspend fun observe(): Nothing =
+  /**
+   * Subscribes to updates from [Player.Events] and listens to
+   * * [Player.EVENT_SHUFFLE_MODE_ENABLED_CHANGED] in order to determine the latest
+   *   [Player.getShuffleModeEnabled].
+   * * [Player.EVENT_AVAILABLE_COMMANDS_CHANGED] in order to determine whether the button should be
+   *   enabled, i.e. respond to user input.
+   */
+  suspend fun observe(): Nothing {
+    shuffleOn = player.shuffleModeEnabled
+    isEnabled = isShuffleEnabled(player)
     player.listen { events ->
       if (
         events.containsAny(
@@ -67,7 +76,11 @@ class ShuffleButtonState(private val player: Player) {
         )
       ) {
         shuffleOn = shuffleModeEnabled
-        isEnabled = isCommandAvailable(Player.COMMAND_SET_SHUFFLE_MODE)
+        isEnabled = isShuffleEnabled(player)
       }
     }
+  }
+
+  private fun isShuffleEnabled(player: Player) =
+    player.isCommandAvailable(Player.COMMAND_SET_SHUFFLE_MODE)
 }

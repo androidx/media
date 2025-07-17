@@ -16,6 +16,7 @@
 
 package androidx.media3.transformer;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
@@ -35,6 +36,7 @@ import static java.lang.Math.round;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.content.Context;
+import android.media.metrics.LogSessionId;
 import android.os.Looper;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
@@ -96,6 +98,9 @@ public final class Transformer {
   /** A builder for {@link Transformer} instances. */
   public static final class Builder {
 
+    private static final ImmutableList<Integer> ALL_ROTATION_DEGREES =
+        ImmutableList.of(0, 90, 180, 270);
+
     // Mandatory field.
     private final Context context;
 
@@ -103,14 +108,15 @@ public final class Transformer {
     private @MonotonicNonNull String audioMimeType;
     private @MonotonicNonNull String videoMimeType;
     private @MonotonicNonNull TransformationRequest transformationRequest;
-    private ImmutableList<AudioProcessor> audioProcessors;
-    private ImmutableList<Effect> videoEffects;
+    private final ImmutableList<AudioProcessor> audioProcessors;
+    private final ImmutableList<Effect> videoEffects;
     private boolean removeAudio;
     private boolean removeVideo;
-    private boolean flattenForSlowMotion;
     private boolean trimOptimizationEnabled;
-    private boolean portraitEncodingEnabled;
+    private boolean mp4EditListTrimEnabled;
+    private ImmutableList<Integer> allowedEncodingRotationDegrees;
     private boolean fileStartsOnVideoFrameEnabled;
+    private boolean usePlatformDiagnostics;
     private long maxDelayBetweenMuxerSamplesMs;
     private int maxFramesInEncoder;
     private ListenerSet<Transformer.Listener> listeners;
@@ -122,6 +128,8 @@ public final class Transformer {
     private Looper looper;
     private DebugViewProvider debugViewProvider;
     private Clock clock;
+    private EditingMetricsCollector.MetricsReporter.@MonotonicNonNull Factory
+        metricsReporterFactory;
 
     /**
      * Creates a builder with default values.
@@ -142,6 +150,12 @@ public final class Transformer {
       debugViewProvider = DebugViewProvider.NONE;
       clock = Clock.DEFAULT;
       listeners = new ListenerSet<>(looper, clock, (listener, flags) -> {});
+      if (SDK_INT >= 35) {
+        usePlatformDiagnostics = true;
+        metricsReporterFactory =
+            new EditingMetricsCollector.DefaultMetricsReporter.Factory(context);
+      }
+      allowedEncodingRotationDegrees = ALL_ROTATION_DEGREES;
     }
 
     /** Creates a builder with the values of the provided {@link Transformer}. */
@@ -155,8 +169,10 @@ public final class Transformer {
       this.removeAudio = transformer.removeAudio;
       this.removeVideo = transformer.removeVideo;
       this.trimOptimizationEnabled = transformer.trimOptimizationEnabled;
-      this.portraitEncodingEnabled = transformer.portraitEncodingEnabled;
+      this.mp4EditListTrimEnabled = transformer.mp4EditListTrimEnabled;
+      this.allowedEncodingRotationDegrees = transformer.allowedEncodingRotationDegrees;
       this.fileStartsOnVideoFrameEnabled = transformer.fileStartsOnVideoFrameEnabled;
+      this.usePlatformDiagnostics = transformer.usePlatformDiagnostics;
       this.maxDelayBetweenMuxerSamplesMs = transformer.maxDelayBetweenMuxerSamplesMs;
       this.maxFramesInEncoder = transformer.maxFramesInEncoder;
       this.listeners = transformer.listeners;
@@ -168,6 +184,7 @@ public final class Transformer {
       this.looper = transformer.looper;
       this.debugViewProvider = transformer.debugViewProvider;
       this.clock = transformer.clock;
+      this.metricsReporterFactory = transformer.metricsReporterFactory;
     }
 
     /**
@@ -263,6 +280,42 @@ public final class Transformer {
     }
 
     /**
+     * Sets whether to use an MP4 edit list for trimming, to instruct players to ignore frames
+     * between the key frame before the trim start point, and the trim start point.
+     *
+     * <p>This optimization has the following limitations, and will throw an {@link
+     * IllegalStateException} if they are not met:
+     *
+     * <ul>
+     *   <li>Transformer is configured with any {@link Muxer.Factory} where {@link
+     *       Muxer.Factory#supportsWritingNegativeTimestampsInEditList()} is false. It is
+     *       recommended to use {@link InAppMp4Muxer.Factory}.
+     *   <li>Transformer has to transcode for any reason while trimming (such as if any video
+     *       effects, apart from 90, 180 and 270 degree rotations are applied while trimming).
+     * </ul>
+     *
+     * <p>This optimization will be ignored in the following cases:
+     *
+     * <ul>
+     *   <li>Transformer input contains multiple assets (i.e. there is more than one {@link
+     *       EditedMediaItem} in the {@link Composition}).
+     *   <li>Transformer input contains a single {@link MediaItem} but the {@linkplain
+     *       MediaItem#clippingConfiguration clipping configuration} is not set.
+     * </ul>
+     *
+     * <p>If players do not respect the edit list the output file will be played from the key frame
+     * before the trim start point rather than the requested trim start point.
+     *
+     * @param enabled Whether to enable mp4 edit list trimming.
+     * @return This builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder experimentalSetMp4EditListTrimEnabled(boolean enabled) {
+      mp4EditListTrimEnabled = enabled;
+      return this;
+    }
+
+    /**
      * Sets whether to encode portrait videos in portrait orientation.
      *
      * <p>The default value is {@code false}. In this case, portrait videos will be rotated by 90
@@ -276,7 +329,7 @@ public final class Transformer {
      */
     @CanIgnoreReturnValue
     public Builder setPortraitEncodingEnabled(boolean enabled) {
-      portraitEncodingEnabled = enabled;
+      allowedEncodingRotationDegrees = enabled ? ImmutableList.of(0) : ALL_ROTATION_DEGREES;
       return this;
     }
 
@@ -311,8 +364,8 @@ public final class Transformer {
      * make the output of trimming operations more compatible with player implementations that don't
      * show the first video frame until its presentation timestamp.
      *
-     * <p>Ignored when {@linkplain #experimentalSetTrimOptimizationEnabled trim optimization} is
-     * set.
+     * <p>Ignored when {@linkplain #experimentalSetTrimOptimizationEnabled trim optimization} or
+     * {@linkplain #experimentalSetMp4EditListTrimEnabled trimming with MP4 edit list} is set.
      *
      * @param enabled Whether to ensure that the file starts on a video frame.
      * @return This builder.
@@ -508,9 +561,48 @@ public final class Transformer {
      */
     @CanIgnoreReturnValue
     @VisibleForTesting
-    /* package */ Builder setClock(Clock clock) {
+    public Builder setClock(Clock clock) {
       this.clock = clock;
       this.listeners = listeners.copy(looper, clock, (listener, flags) -> {});
+      return this;
+    }
+
+    /**
+     * Sets the {@link EditingMetricsCollector.MetricsReporter.Factory} that will be used to report
+     * the metrics.
+     *
+     * <p>The default value is {@link EditingMetricsCollector.DefaultMetricsReporter.Factory}.
+     *
+     * @param metricsReporterFactory A {@link EditingMetricsCollector.MetricsReporter.Factory}.
+     * @return This builder.
+     */
+    @CanIgnoreReturnValue
+    @VisibleForTesting
+    /* package */ Builder setMetricsReporterFactory(
+        EditingMetricsCollector.MetricsReporter.Factory metricsReporterFactory) {
+      this.metricsReporterFactory = metricsReporterFactory;
+      return this;
+    }
+
+    /**
+     * Sets whether transformer reports diagnostics data to the Android platform.
+     *
+     * <p>If enabled, transformer will use the {@link android.media.metrics.MediaMetricsManager} to
+     * create an {@link android.media.metrics.EditingSession} and forward editing events and
+     * performance data to this session. This helps to provide system performance and debugging
+     * information for media editing on this device. This data may also be collected by Google <a
+     * href="https://support.google.com/accounts/answer/6078260">if sharing usage and diagnostics
+     * data is enabled</a> by the user of the device.
+     *
+     * <p>The default value is {@code true}.
+     *
+     * @param usePlatformDiagnostics Whether transformer reports diagnostics data to the Android
+     *     platform.
+     * @return This builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setUsePlatformDiagnostics(boolean usePlatformDiagnostics) {
+      this.usePlatformDiagnostics = usePlatformDiagnostics;
       return this;
     }
 
@@ -521,6 +613,9 @@ public final class Transformer {
      *     would not contain any samples).
      * @throws IllegalStateException If the muxer doesn't support the requested audio/video MIME
      *     type.
+     * @throws IllegalStateException If {@link #experimentalSetMp4EditListTrimEnabled(boolean
+     *     enabled)} is enabled but the {@link Muxer.Factory} does not support writing negative
+     *     timestamps to an edit list.
      */
     public Transformer build() {
       TransformationRequest.Builder transformationRequestBuilder =
@@ -540,6 +635,11 @@ public final class Transformer {
       if (transformationRequest.videoMimeType != null) {
         checkSampleMimeType(transformationRequest.videoMimeType);
       }
+      checkState(
+          !mp4EditListTrimEnabled || muxerFactory.supportsWritingNegativeTimestampsInEditList(),
+          String.format(
+              "Muxer.Factory %s does not support writing negative timestamps to an edit list.",
+              muxerFactory));
       return new Transformer(
           context,
           transformationRequest,
@@ -547,10 +647,11 @@ public final class Transformer {
           videoEffects,
           removeAudio,
           removeVideo,
-          flattenForSlowMotion,
           trimOptimizationEnabled,
-          portraitEncodingEnabled,
+          mp4EditListTrimEnabled,
+          allowedEncodingRotationDegrees,
           fileStartsOnVideoFrameEnabled,
+          usePlatformDiagnostics,
           maxDelayBetweenMuxerSamplesMs,
           maxFramesInEncoder,
           listeners,
@@ -561,7 +662,8 @@ public final class Transformer {
           muxerFactory,
           looper,
           debugViewProvider,
-          clock);
+          clock,
+          metricsReporterFactory);
     }
 
     private void checkSampleMimeType(String sampleMimeType) {
@@ -724,16 +826,19 @@ public final class Transformer {
 
   private static final int TRANSFORMER_STATE_PROCESS_MEDIA_START = 5;
   private static final int TRANSFORMER_STATE_REMUX_REMAINING_MEDIA = 6;
+  private static final String EXPORTER_NAME =
+      "androidx.media3:media3-transformer:" + MediaLibraryInfo.VERSION;
   private final Context context;
   private final TransformationRequest transformationRequest;
   private final ImmutableList<AudioProcessor> audioProcessors;
   private final ImmutableList<Effect> videoEffects;
   private final boolean removeAudio;
   private final boolean removeVideo;
-  private final boolean flattenForSlowMotion;
   private final boolean trimOptimizationEnabled;
-  private final boolean portraitEncodingEnabled;
+  private final boolean mp4EditListTrimEnabled;
+  private final ImmutableList<Integer> allowedEncodingRotationDegrees;
   private final boolean fileStartsOnVideoFrameEnabled;
+  private final boolean usePlatformDiagnostics;
   private final long maxDelayBetweenMuxerSamplesMs;
   private final int maxFramesInEncoder;
 
@@ -749,6 +854,7 @@ public final class Transformer {
   private final HandlerWrapper applicationHandler;
   private final ComponentListener componentListener;
   private final ExportResult.Builder exportResultBuilder;
+  @Nullable private final EditingMetricsCollector.MetricsReporter.Factory metricsReporterFactory;
 
   @Nullable private TransformerInternal transformerInternal;
   @Nullable private MuxerWrapper remuxingMuxerWrapper;
@@ -759,6 +865,7 @@ public final class Transformer {
   private TransmuxTranscodeHelper.@MonotonicNonNull ResumeMetadata resumeMetadata;
   private @MonotonicNonNull ListenableFuture<TransmuxTranscodeHelper.ResumeMetadata>
       getResumeMetadataFuture;
+  private @MonotonicNonNull EditingMetricsCollector editingMetricsCollector;
   private @MonotonicNonNull ListenableFuture<Void> copyOutputFuture;
   @Nullable private Mp4Info mediaItemInfo;
   @Nullable private WatchdogTimer exportWatchdogTimer;
@@ -770,10 +877,11 @@ public final class Transformer {
       ImmutableList<Effect> videoEffects,
       boolean removeAudio,
       boolean removeVideo,
-      boolean flattenForSlowMotion,
       boolean trimOptimizationEnabled,
-      boolean portraitEncodingEnabled,
+      boolean mp4EditListTrimEnabled,
+      ImmutableList<Integer> allowedEncodingRotationDegrees,
       boolean fileStartsOnVideoFrameEnabled,
+      boolean usePlatformDiagnostics,
       long maxDelayBetweenMuxerSamplesMs,
       int maxFramesInEncoder,
       ListenerSet<Listener> listeners,
@@ -784,7 +892,8 @@ public final class Transformer {
       Muxer.Factory muxerFactory,
       Looper looper,
       DebugViewProvider debugViewProvider,
-      Clock clock) {
+      Clock clock,
+      @Nullable EditingMetricsCollector.MetricsReporter.Factory metricsReporterFactory) {
     checkState(!removeAudio || !removeVideo, "Audio and video cannot both be removed.");
     this.context = context;
     this.transformationRequest = transformationRequest;
@@ -792,10 +901,11 @@ public final class Transformer {
     this.videoEffects = videoEffects;
     this.removeAudio = removeAudio;
     this.removeVideo = removeVideo;
-    this.flattenForSlowMotion = flattenForSlowMotion;
     this.trimOptimizationEnabled = trimOptimizationEnabled;
-    this.portraitEncodingEnabled = portraitEncodingEnabled;
+    this.mp4EditListTrimEnabled = mp4EditListTrimEnabled;
+    this.allowedEncodingRotationDegrees = allowedEncodingRotationDegrees;
     this.fileStartsOnVideoFrameEnabled = fileStartsOnVideoFrameEnabled;
+    this.usePlatformDiagnostics = usePlatformDiagnostics;
     this.maxDelayBetweenMuxerSamplesMs = maxDelayBetweenMuxerSamplesMs;
     this.maxFramesInEncoder = maxFramesInEncoder;
     this.listeners = listeners;
@@ -807,6 +917,7 @@ public final class Transformer {
     this.looper = looper;
     this.debugViewProvider = debugViewProvider;
     this.clock = clock;
+    this.metricsReporterFactory = metricsReporterFactory;
     transformerState = TRANSFORMER_STATE_PROCESS_FULL_INPUT;
     applicationHandler = clock.createHandler(looper, /* callback= */ null);
     componentListener = new ComponentListener();
@@ -881,8 +992,8 @@ public final class Transformer {
    *   <li>If an {@link EditedMediaItem} in a sequence contains data of a given {@linkplain
    *       C.TrackType track}, so must all items in that sequence.
    *       <ul>
-   *         <li>For audio, this condition can be removed by setting an experimental {@link
-   *             Composition.Builder#experimentalSetForceAudioTrack(boolean) flag}.
+   *         <li>For audio, this condition can be removed by setting {@link
+   *             EditedMediaItemSequence.Builder#experimentalSetForceAudioTrack(boolean)} flag.
    *       </ul>
    *   <li>If a sequence starts with an HDR {@link EditedMediaItem}, all the following items in the
    *       sequence must be HDR.
@@ -917,7 +1028,7 @@ public final class Transformer {
   public void start(Composition composition, String path) {
     verifyApplicationThread();
     initialize(composition, path);
-    if (shouldOptimizeForTrimming()) {
+    if (trimOptimizationEnabled && isSingleAssetTrimming()) {
       processMediaBeforeFirstSyncSampleAfterTrimStartTime();
     } else {
       startInternal(
@@ -928,7 +1039,8 @@ public final class Transformer {
               componentListener,
               MuxerWrapper.MUXER_MODE_DEFAULT,
               /* dropSamplesBeforeFirstVideoSample= */ fileStartsOnVideoFrameEnabled,
-              /* appendVideoFormat= */ null),
+              /* appendVideoFormat= */ null,
+              /* writeNegativeTimestampsToEditList= */ shouldApplyMp4EditListTrim()),
           componentListener,
           /* initialTimestampOffsetUs= */ 0,
           /* useDefaultAssetLoaderFactory= */ false);
@@ -994,16 +1106,10 @@ public final class Transformer {
    * @throws IllegalStateException If an export is already in progress.
    */
   public void start(MediaItem mediaItem, String path) {
-    if (!mediaItem.clippingConfiguration.equals(MediaItem.ClippingConfiguration.UNSET)
-        && flattenForSlowMotion) {
-      throw new IllegalArgumentException(
-          "Clipping is not supported when slow motion flattening is requested");
-    }
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(mediaItem)
             .setRemoveAudio(removeAudio)
             .setRemoveVideo(removeVideo)
-            .setFlattenForSlowMotion(flattenForSlowMotion)
             .setEffects(new Effects(audioProcessors, videoEffects))
             .build();
     start(editedMediaItem, path);
@@ -1048,7 +1154,7 @@ public final class Transformer {
         : transformerInternal.getProgress(progressHolder);
   }
 
-  private boolean shouldOptimizeForTrimming() {
+  private boolean isSingleAssetTrimming() {
     if (isMultiAsset()) {
       return false;
     }
@@ -1061,11 +1167,11 @@ public final class Transformer {
             .get(0)
             .mediaItem
             .clippingConfiguration;
-    if (clippingConfiguration.equals(MediaItem.ClippingConfiguration.UNSET)) {
-      return false;
-    }
+    return !clippingConfiguration.equals(MediaItem.ClippingConfiguration.UNSET);
+  }
 
-    return trimOptimizationEnabled;
+  private boolean shouldApplyMp4EditListTrim() {
+    return mp4EditListTrimEnabled && isSingleAssetTrimming();
   }
 
   private boolean isExportResumed() {
@@ -1150,7 +1256,17 @@ public final class Transformer {
     try {
       transformerInternal.cancel();
     } finally {
+      ProgressHolder progressHolder = new ProgressHolder();
+      int progressState = getProgress(progressHolder);
       transformerInternal = null;
+
+      if (canCollectEditingMetrics()) {
+        int progressPercentage =
+            (progressState == PROGRESS_STATE_AVAILABLE)
+                ? progressHolder.progress
+                : C.PERCENTAGE_UNSET;
+        checkNotNull(editingMetricsCollector).onExportCancelled(progressPercentage);
+      }
     }
 
     if (getResumeMetadataFuture != null && !getResumeMetadataFuture.isDone()) {
@@ -1235,7 +1351,8 @@ public final class Transformer {
             componentListener,
             MuxerWrapper.MUXER_MODE_DEFAULT,
             /* dropSamplesBeforeFirstVideoSample= */ false,
-            /* appendVideoFormat= */ null),
+            /* appendVideoFormat= */ null,
+            /* writeNegativeTimestampsToEditList= */ false),
         componentListener,
         /* initialTimestampOffsetUs= */ 0,
         /* useDefaultAssetLoaderFactory= */ false);
@@ -1268,7 +1385,8 @@ public final class Transformer {
                     componentListener,
                     MuxerWrapper.MUXER_MODE_MUX_PARTIAL,
                     /* dropSamplesBeforeFirstVideoSample= */ false,
-                    /* appendVideoFormat= */ resumeMetadata.videoFormat);
+                    /* appendVideoFormat= */ resumeMetadata.videoFormat,
+                    /* writeNegativeTimestampsToEditList= */ false);
 
             startInternal(
                 TransmuxTranscodeHelper.createVideoOnlyComposition(
@@ -1319,7 +1437,8 @@ public final class Transformer {
             componentListener,
             MuxerWrapper.MUXER_MODE_DEFAULT,
             /* dropSamplesBeforeFirstVideoSample= */ false,
-            /* appendVideoFormat= */ null);
+            /* appendVideoFormat= */ null,
+            /* writeNegativeTimestampsToEditList= */ shouldApplyMp4EditListTrim());
 
     startInternal(
         TransmuxTranscodeHelper.createAudioTranscodeAndVideoTransmuxComposition(
@@ -1393,8 +1512,8 @@ public final class Transformer {
             if (mp4Info.firstSyncSampleTimestampUsAfterTimeUs
                 == mp4Info.firstVideoSampleTimestampUs) {
               // The video likely includes an edit list. For example, an edit list adds 1_000ms to
-              // each video sample and the trim position is from 100ms, the first sample would be at
-              // 1_000ms, the first sync sample after 100ms would also be at 1_000ms; but in this
+              // each video sample and the trim position is from 100ms, the first sample would be
+              // at 1_000ms, the first sync sample after 100ms would also be at 1_000ms; but in this
               // case processing should start from 100ms rather than 1_000ms. The resulting video
               // should be 100ms shorter than the original video, and the first video timestamp
               // should have timestamp at 900ms.
@@ -1436,7 +1555,8 @@ public final class Transformer {
                     componentListener,
                     MuxerWrapper.MUXER_MODE_MUX_PARTIAL,
                     /* dropSamplesBeforeFirstVideoSample= */ false,
-                    mp4Info.videoFormat);
+                    mp4Info.videoFormat,
+                    /* writeNegativeTimestampsToEditList= */ false);
             if (shouldTranscodeVideo(
                     checkNotNull(mp4Info.videoFormat),
                     composition,
@@ -1526,6 +1646,10 @@ public final class Transformer {
     }
   }
 
+  private boolean canCollectEditingMetrics() {
+    return SDK_INT >= 35 && usePlatformDiagnostics;
+  }
+
   private void startInternal(
       Composition composition,
       MuxerWrapper muxerWrapper,
@@ -1538,13 +1662,32 @@ public final class Transformer {
       transformationRequest =
           transformationRequest.buildUpon().setHdrMode(composition.hdrMode).build();
     }
+    LogSessionId logSessionId = null;
+    if (canCollectEditingMetrics()) {
+      @Nullable String muxerName = null;
+      if (muxerFactory instanceof InAppMp4Muxer.Factory) {
+        muxerName = InAppMp4Muxer.MUXER_NAME;
+      } else if (muxerFactory instanceof InAppFragmentedMp4Muxer.Factory) {
+        muxerName = InAppFragmentedMp4Muxer.MUXER_NAME;
+      } else if (muxerFactory instanceof DefaultMuxer.Factory) {
+        muxerName = DefaultMuxer.MUXER_NAME;
+      }
+      EditingMetricsCollector.MetricsReporter metricsReporter =
+          checkNotNull(metricsReporterFactory).create();
+      if (metricsReporter instanceof EditingMetricsCollector.DefaultMetricsReporter) {
+        logSessionId =
+            ((EditingMetricsCollector.DefaultMetricsReporter) metricsReporter).getLogSessionId();
+      }
+      editingMetricsCollector =
+          new EditingMetricsCollector(metricsReporter, EXPORTER_NAME, muxerName);
+    }
     FallbackListener fallbackListener =
         new FallbackListener(composition, listeners, applicationHandler, transformationRequest);
     AssetLoader.Factory assetLoaderFactory = this.assetLoaderFactory;
     if (useDefaultAssetLoaderFactory || assetLoaderFactory == null) {
       assetLoaderFactory =
           new DefaultAssetLoaderFactory(
-              context, new DefaultDecoderFactory.Builder(context).build(), clock);
+              context, new DefaultDecoderFactory.Builder(context).build(), clock, logSessionId);
     }
     DebugTraceUtil.reset();
     transformerInternal =
@@ -1556,7 +1699,7 @@ public final class Transformer {
             audioMixerFactory,
             videoFrameProcessorFactory,
             encoderFactory,
-            portraitEncodingEnabled,
+            allowedEncodingRotationDegrees,
             maxFramesInEncoder,
             muxerWrapper,
             componentListener,
@@ -1564,26 +1707,42 @@ public final class Transformer {
             applicationHandler,
             debugViewProvider,
             clock,
-            initialTimestampOffsetUs);
+            initialTimestampOffsetUs,
+            logSessionId,
+            shouldApplyMp4EditListTrim());
     transformerInternal.start();
   }
 
   private void onExportCompletedWithSuccess() {
     maybeStopExportWatchdogTimer();
+    ExportResult exportResult = exportResultBuilder.build();
     listeners.queueEvent(
         /* eventFlag= */ C.INDEX_UNSET,
-        listener -> listener.onCompleted(checkNotNull(composition), exportResultBuilder.build()));
+        listener -> listener.onCompleted(checkNotNull(composition), exportResult));
     listeners.flushEvents();
+    if (canCollectEditingMetrics()) {
+      checkNotNull(editingMetricsCollector).onExportSuccess(exportResult);
+    }
     transformerState = TRANSFORMER_STATE_PROCESS_FULL_INPUT;
   }
 
   private void onExportCompletedWithError(ExportException exception) {
     maybeStopExportWatchdogTimer();
+    ExportResult exportResult = exportResultBuilder.build();
     listeners.queueEvent(
         /* eventFlag= */ C.INDEX_UNSET,
-        listener ->
-            listener.onError(checkNotNull(composition), exportResultBuilder.build(), exception));
+        listener -> listener.onError(checkNotNull(composition), exportResult, exception));
     listeners.flushEvents();
+    if (canCollectEditingMetrics()) {
+      ProgressHolder progressHolder = new ProgressHolder();
+      int progressState = getProgress(progressHolder);
+      int progressPercentage =
+          (progressState == PROGRESS_STATE_AVAILABLE)
+              ? progressHolder.progress
+              : C.PERCENTAGE_UNSET;
+      checkNotNull(editingMetricsCollector)
+          .onExportError(progressPercentage, exception, exportResult);
+    }
     transformerState = TRANSFORMER_STATE_PROCESS_FULL_INPUT;
   }
 
@@ -1608,7 +1767,7 @@ public final class Transformer {
         exportResultBuilder.setVideoEncoderName(videoEncoderName);
       }
 
-      // TODO(b/213341814): Add event flags for Transformer events.
+      // TODO: b/213341814 - Add event flags for Transformer events.
       transformerInternal = null;
       if (transformerState == TRANSFORMER_STATE_REMUX_PROCESSED_VIDEO) {
         processRemainingVideo();
@@ -1657,8 +1816,8 @@ public final class Transformer {
       }
 
       exportResultBuilder.setExportException(exportException);
-      transformerInternal = null;
       onExportCompletedWithError(exportException);
+      transformerInternal = null;
     }
 
     // MuxerWrapper.Listener implementation

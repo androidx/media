@@ -100,7 +100,7 @@ import java.util.Objects;
   public abstract static class ItemConfig {
     public final int frameCount;
     @Nullable public final Format format;
-    // TODO - b/345483531: Modify output format to account for effects (such as presentation).
+    // TODO: b/345483531 - Modify output format to account for effects (such as presentation).
     @Nullable public final Format outputFormat;
 
     protected final Effects effects;

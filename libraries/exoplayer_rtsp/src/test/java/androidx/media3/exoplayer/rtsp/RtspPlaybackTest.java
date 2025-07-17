@@ -17,8 +17,13 @@ package androidx.media3.exoplayer.rtsp;
 
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
+import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.play;
 import static com.google.common.truth.Truth.assertThat;
 import static java.lang.Math.min;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 import android.content.Context;
 import android.net.Uri;
@@ -80,7 +85,7 @@ public final class RtspPlaybackTest {
 
   @Rule
   public ShadowMediaCodecConfig mediaCodecConfig =
-      ShadowMediaCodecConfig.forAllSupportedMimeTypes();
+      ShadowMediaCodecConfig.withAllDefaultSupportedCodecs();
 
   @Before
   public void setUp() throws Exception {
@@ -272,6 +277,33 @@ public final class RtspPlaybackTest {
     RobolectricUtil.runMainLooperUntil(() -> optionsRequestCounter.get().get() != 0);
 
     player.release();
+  }
+
+  @Test
+  public void seekToEnd_afterLoadingFinished_doesNotLoadAgain() throws Exception {
+    FakeUdpDataSourceRtpDataChannel fakeRtpDataChannel = new FakeUdpDataSourceRtpDataChannel();
+    RtpDataChannel.Factory rtpDataChannelFactory = (trackId) -> fakeRtpDataChannel;
+    ResponseProvider responseProvider =
+        new ResponseProvider(
+            clock,
+            ImmutableList.of(aacRtpPacketStreamDump, mpeg2tsRtpPacketStreamDump),
+            fakeRtpDataChannel,
+            RtspMessageUtil.DEFAULT_RTSP_TIMEOUT_MS,
+            /* optionsRequestCounter= */ Optional.empty());
+    rtspServer = new RtspServer(responseProvider);
+    ExoPlayer player = createExoPlayer(rtspServer.startAndGetPortNumber(), rtpDataChannelFactory);
+    Player.Listener listener = mock(Player.Listener.class);
+    player.prepare();
+    player.play();
+    advance(player).untilBackgroundThreadCondition(() -> player.getBufferedPosition() > 0);
+    advance(player).untilLoadingIs(false);
+
+    player.addListener(listener);
+    player.seekTo(player.getDuration());
+    play(player).untilState(Player.STATE_ENDED);
+    player.release();
+
+    verify(listener, never()).onIsLoadingChanged(true);
   }
 
   private ExoPlayer createExoPlayer(

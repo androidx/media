@@ -110,6 +110,7 @@ public final class ParameterizedInputSequenceExportTest {
     assumeSequenceFormatsSupported(context, testId, sequence);
     Transformer transformer =
         new Transformer.Builder(context)
+            .experimentalSetMaxFramesInEncoder(16)
             .setEncoderFactory(
                 new DefaultEncoderFactory.Builder(context).setEnableFallback(false).build())
             .build();
@@ -131,6 +132,7 @@ public final class ParameterizedInputSequenceExportTest {
     assumeSequenceFormatsSupported(context, testId, sequence);
     Transformer transformer =
         new Transformer.Builder(context)
+            .experimentalSetMaxFramesInEncoder(16)
             .setEncoderFactory(
                 new DefaultEncoderFactory.Builder(context).setEnableFallback(false).build())
             .build();

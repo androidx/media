@@ -15,8 +15,8 @@
  */
 package androidx.media3.effect;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Util.SDK_INT;
 import static java.lang.Math.ceil;
 
 import android.annotation.SuppressLint;
@@ -29,6 +29,7 @@ import android.text.SpannableString;
 import android.text.StaticLayout;
 import android.text.TextPaint;
 import androidx.annotation.RequiresApi;
+import androidx.media3.common.OverlaySettings;
 import androidx.media3.common.util.UnstableApi;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 

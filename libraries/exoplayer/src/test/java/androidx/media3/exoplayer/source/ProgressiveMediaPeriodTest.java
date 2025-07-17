@@ -121,7 +121,8 @@ public final class ProgressiveMediaPeriodTest {
             new DefaultAllocator(/* trimOnReset= */ true, C.DEFAULT_BUFFER_SEGMENT_SIZE),
             /* customCacheKey= */ null,
             ProgressiveMediaSource.DEFAULT_LOADING_CHECK_INTERVAL_BYTES,
-            /* suppressPrepareError= */ false,
+            /* singleTrackId= */ 0,
+            /* singleTrackFormat= */ null,
             imageDurationUs,
             executor != null ? ReleasableExecutor.from(executor, executorReleased) : null);
 

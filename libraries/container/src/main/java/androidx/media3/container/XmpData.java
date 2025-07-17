@@ -15,8 +15,6 @@
  */
 package androidx.media3.container;
 
-import android.os.Parcel;
-import android.os.Parcelable;
 import androidx.annotation.Nullable;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.UnstableApi;
@@ -31,10 +29,6 @@ public final class XmpData implements Metadata.Entry {
   /** Creates an instance. */
   public XmpData(byte[] data) {
     this.data = data;
-  }
-
-  private XmpData(Parcel in) {
-    this.data = Util.castNonNull(in.createByteArray());
   }
 
   @Override
@@ -58,30 +52,4 @@ public final class XmpData implements Metadata.Entry {
   public String toString() {
     return "XMP: " + Util.toHexString(data);
   }
-
-  // Parcelable implementation.
-
-  @Override
-  public int describeContents() {
-    return 0;
-  }
-
-  @Override
-  public void writeToParcel(Parcel dest, int flags) {
-    dest.writeByteArray(data);
-  }
-
-  public static final Parcelable.Creator<XmpData> CREATOR =
-      new Parcelable.Creator<XmpData>() {
-
-        @Override
-        public XmpData createFromParcel(Parcel in) {
-          return new XmpData(in);
-        }
-
-        @Override
-        public XmpData[] newArray(int size) {
-          return new XmpData[size];
-        }
-      };
 }

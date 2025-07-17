@@ -15,7 +15,6 @@
  */
 package androidx.media3.extractor.metadata.scte35;
 
-import android.os.Parcel;
 import androidx.media3.common.C;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.TimestampAdjuster;
@@ -72,26 +71,4 @@ public final class TimeSignalCommand extends SpliceCommand {
         + playbackPositionUs
         + " }";
   }
-
-  // Parcelable implementation.
-
-  @Override
-  public void writeToParcel(Parcel dest, int flags) {
-    dest.writeLong(ptsTime);
-    dest.writeLong(playbackPositionUs);
-  }
-
-  public static final Creator<TimeSignalCommand> CREATOR =
-      new Creator<TimeSignalCommand>() {
-
-        @Override
-        public TimeSignalCommand createFromParcel(Parcel in) {
-          return new TimeSignalCommand(in.readLong(), in.readLong());
-        }
-
-        @Override
-        public TimeSignalCommand[] newArray(int size) {
-          return new TimeSignalCommand[size];
-        }
-      };
 }

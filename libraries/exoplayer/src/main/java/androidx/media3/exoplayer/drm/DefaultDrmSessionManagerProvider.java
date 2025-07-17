@@ -22,12 +22,12 @@ import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DefaultHttpDataSource;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
 import com.google.common.primitives.Ints;
 import java.util.Map;
+import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** Default implementation of {@link DrmSessionManagerProvider}. */
@@ -93,7 +93,7 @@ public final class DefaultDrmSessionManagerProvider implements DrmSessionManager
     }
 
     synchronized (lock) {
-      if (!Util.areEqual(drmConfiguration, this.drmConfiguration)) {
+      if (!Objects.equals(drmConfiguration, this.drmConfiguration)) {
         this.drmConfiguration = drmConfiguration;
         this.manager = createManager(drmConfiguration);
       }

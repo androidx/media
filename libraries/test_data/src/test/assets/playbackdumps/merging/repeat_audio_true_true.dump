@@ -1,4 +1,4 @@
-MediaCodecAdapter (exotest.audio.aac):
+MediaCodecAdapter (media3.audio.aac):
   inputBuffers:
     count = 70
     input buffer #0:
@@ -478,7 +478,7 @@ MediaCodecAdapter (exotest.audio.aac):
       timeUs = 1000001987038
       size = 0
       rendered = false
-MediaCodecAdapter (exotest.video.avc):
+MediaCodecAdapter (media3.video.avc):
   inputBuffers:
     count = 95
     input buffer #0:
@@ -1141,212 +1141,212 @@ AudioSink:
     sampleRate = 44100
   buffer #0:
     time = 1000000508399
-    data = 1
+    data = empty
   buffer #1:
     time = 1000000531619
-    data = 1
+    data = empty
   buffer #2:
     time = 1000000554839
-    data = 1
+    data = empty
   buffer #3:
     time = 1000000578058
-    data = 1
+    data = empty
   buffer #4:
     time = 1000000601278
-    data = 1
+    data = empty
   buffer #5:
     time = 1000000624498
-    data = 1
+    data = empty
   buffer #6:
     time = 1000000647718
-    data = 1
+    data = empty
   buffer #7:
     time = 1000000670938
-    data = 1
+    data = empty
   buffer #8:
     time = 1000000694158
-    data = 1
+    data = empty
   buffer #9:
     time = 1000000717378
-    data = 1
+    data = empty
   buffer #10:
     time = 1000000740598
-    data = 1
+    data = empty
   buffer #11:
     time = 1000000763818
-    data = 1
+    data = empty
   buffer #12:
     time = 1000000787038
-    data = 1
+    data = empty
   config:
     pcmEncoding = 2
     channelCount = 1
     sampleRate = 44100
   buffer #13:
     time = 1000000808399
-    data = 1
+    data = empty
   buffer #14:
     time = 1000000831619
-    data = 1
+    data = empty
   buffer #15:
     time = 1000000854839
-    data = 1
+    data = empty
   buffer #16:
     time = 1000000878058
-    data = 1
+    data = empty
   buffer #17:
     time = 1000000901278
-    data = 1
+    data = empty
   buffer #18:
     time = 1000000924498
-    data = 1
+    data = empty
   buffer #19:
     time = 1000000947718
-    data = 1
+    data = empty
   buffer #20:
     time = 1000000970938
-    data = 1
+    data = empty
   buffer #21:
     time = 1000000994158
-    data = 1
+    data = empty
   buffer #22:
     time = 1000001017378
-    data = 1
+    data = empty
   buffer #23:
     time = 1000001040598
-    data = 1
+    data = empty
   buffer #24:
     time = 1000001063818
-    data = 1
+    data = empty
   buffer #25:
     time = 1000001087038
-    data = 1
+    data = empty
   config:
     pcmEncoding = 2
     channelCount = 1
     sampleRate = 44100
   buffer #26:
     time = 1000001108399
-    data = 1
+    data = empty
   buffer #27:
     time = 1000001131619
-    data = 1
+    data = empty
   buffer #28:
     time = 1000001154839
-    data = 1
+    data = empty
   buffer #29:
     time = 1000001178058
-    data = 1
+    data = empty
   buffer #30:
     time = 1000001201278
-    data = 1
+    data = empty
   buffer #31:
     time = 1000001224498
-    data = 1
+    data = empty
   buffer #32:
     time = 1000001247718
-    data = 1
+    data = empty
   buffer #33:
     time = 1000001270938
-    data = 1
+    data = empty
   buffer #34:
     time = 1000001294158
-    data = 1
+    data = empty
   buffer #35:
     time = 1000001317378
-    data = 1
+    data = empty
   buffer #36:
     time = 1000001340598
-    data = 1
+    data = empty
   buffer #37:
     time = 1000001363818
-    data = 1
+    data = empty
   buffer #38:
     time = 1000001387038
-    data = 1
+    data = empty
   config:
     pcmEncoding = 2
     channelCount = 1
     sampleRate = 44100
   buffer #39:
     time = 1000001408399
-    data = 1
+    data = empty
   buffer #40:
     time = 1000001431619
-    data = 1
+    data = empty
   buffer #41:
     time = 1000001454839
-    data = 1
+    data = empty
   buffer #42:
     time = 1000001478058
-    data = 1
+    data = empty
   buffer #43:
     time = 1000001501278
-    data = 1
+    data = empty
   buffer #44:
     time = 1000001524498
-    data = 1
+    data = empty
   buffer #45:
     time = 1000001547718
-    data = 1
+    data = empty
   buffer #46:
     time = 1000001570938
-    data = 1
+    data = empty
   buffer #47:
     time = 1000001594158
-    data = 1
+    data = empty
   buffer #48:
     time = 1000001617378
-    data = 1
+    data = empty
   buffer #49:
     time = 1000001640598
-    data = 1
+    data = empty
   buffer #50:
     time = 1000001663818
-    data = 1
+    data = empty
   buffer #51:
     time = 1000001687038
-    data = 1
+    data = empty
   config:
     pcmEncoding = 2
     channelCount = 1
     sampleRate = 44100
   buffer #52:
     time = 1000001708399
-    data = 1
+    data = empty
   buffer #53:
     time = 1000001731619
-    data = 1
+    data = empty
   buffer #54:
     time = 1000001754839
-    data = 1
+    data = empty
   buffer #55:
     time = 1000001778058
-    data = 1
+    data = empty
   buffer #56:
     time = 1000001801278
-    data = 1
+    data = empty
   buffer #57:
     time = 1000001824498
-    data = 1
+    data = empty
   buffer #58:
     time = 1000001847718
-    data = 1
+    data = empty
   buffer #59:
     time = 1000001870938
-    data = 1
+    data = empty
   buffer #60:
     time = 1000001894158
-    data = 1
+    data = empty
   buffer #61:
     time = 1000001917378
-    data = 1
+    data = empty
   buffer #62:
     time = 1000001940598
-    data = 1
+    data = empty
   buffer #63:
     time = 1000001963818
-    data = 1
+    data = empty
   buffer #64:
     time = 1000001987038
-    data = 1
+    data = empty

@@ -15,9 +15,11 @@
  */
 package androidx.media3.test.utils;
 
+import static androidx.annotation.VisibleForTesting.PRIVATE;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -96,7 +98,10 @@ public class FakeSampleStream implements SampleStream {
     }
 
     @Nullable private final Format format;
-    @Nullable private final SampleInfo sampleInfo;
+
+    @Nullable
+    @VisibleForTesting(otherwise = PRIVATE)
+    /* package */ final SampleInfo sampleInfo;
 
     /**
      * Creates an instance. Exactly one of {@code format} or {@code sampleInfo} must be non-null.
@@ -295,7 +300,8 @@ public class FakeSampleStream implements SampleStream {
     }
   }
 
-  private static class SampleInfo {
+  @VisibleForTesting(otherwise = PRIVATE)
+  /* package */ static class SampleInfo {
     public final byte[] data;
     public final @C.BufferFlags int flags;
     public final long timeUs;

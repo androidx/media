@@ -87,7 +87,7 @@ public class DefaultDashChunkSourceTest {
                     SAMPLE_MPD_LIVE_WITH_OFFSET_INSIDE_WINDOW));
     DefaultDashChunkSource chunkSource =
         new DefaultDashChunkSource(
-            BundledChunkExtractor.FACTORY,
+            new BundledChunkExtractor.Factory(),
             new LoaderErrorThrower.Placeholder(),
             manifest,
             new BaseUrlExclusionList(),
@@ -139,7 +139,7 @@ public class DefaultDashChunkSourceTest {
                     ApplicationProvider.getApplicationContext(), SAMPLE_MPD_VOD));
     DefaultDashChunkSource chunkSource =
         new DefaultDashChunkSource(
-            BundledChunkExtractor.FACTORY,
+            new BundledChunkExtractor.Factory(),
             new LoaderErrorThrower.Placeholder(),
             manifest,
             new BaseUrlExclusionList(),
@@ -551,7 +551,7 @@ public class DefaultDashChunkSourceTest {
                     "media/mpd/sample_mpd_live_known_duration_not_ended"));
     DefaultDashChunkSource chunkSource =
         new DefaultDashChunkSource(
-            BundledChunkExtractor.FACTORY,
+            new BundledChunkExtractor.Factory(),
             new LoaderErrorThrower.Placeholder(),
             manifest,
             new BaseUrlExclusionList(),
@@ -600,7 +600,7 @@ public class DefaultDashChunkSourceTest {
                     "media/mpd/sample_mpd_live_known_duration_ended"));
     DefaultDashChunkSource chunkSource =
         new DefaultDashChunkSource(
-            BundledChunkExtractor.FACTORY,
+            new BundledChunkExtractor.Factory(),
             new LoaderErrorThrower.Placeholder(),
             manifest,
             new BaseUrlExclusionList(),
@@ -665,7 +665,7 @@ public class DefaultDashChunkSourceTest {
             selectedTracks,
             new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext()).build());
     return new DefaultDashChunkSource(
-        BundledChunkExtractor.FACTORY,
+        new BundledChunkExtractor.Factory(),
         new LoaderErrorThrower.Placeholder(),
         manifest,
         new BaseUrlExclusionList(new Random(/* seed= */ 1234)),

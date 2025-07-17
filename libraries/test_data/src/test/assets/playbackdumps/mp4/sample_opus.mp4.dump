@@ -1,4 +1,4 @@
-MediaCodecAdapter (exotest.audio.opus):
+MediaCodecAdapter (media3.audio.opus):
   inputBuffers:
     count = 102
     input buffer #0:
@@ -723,301 +723,301 @@ AudioSink:
   discontinuity:
   buffer #0:
     time = 1000000003500
-    data = 1
+    data = empty
   buffer #1:
     time = 1000000013500
-    data = 1
+    data = empty
   buffer #2:
     time = 1000000023500
-    data = 1
+    data = empty
   buffer #3:
     time = 1000000033500
-    data = 1
+    data = empty
   buffer #4:
     time = 1000000043500
-    data = 1
+    data = empty
   buffer #5:
     time = 1000000053500
-    data = 1
+    data = empty
   buffer #6:
     time = 1000000063500
-    data = 1
+    data = empty
   buffer #7:
     time = 1000000073500
-    data = 1
+    data = empty
   buffer #8:
     time = 1000000083500
-    data = 1
+    data = empty
   buffer #9:
     time = 1000000093500
-    data = 1
+    data = empty
   buffer #10:
     time = 1000000103500
-    data = 1
+    data = empty
   buffer #11:
     time = 1000000113500
-    data = 1
+    data = empty
   buffer #12:
     time = 1000000123500
-    data = 1
+    data = empty
   buffer #13:
     time = 1000000133500
-    data = 1
+    data = empty
   buffer #14:
     time = 1000000143500
-    data = 1
+    data = empty
   buffer #15:
     time = 1000000153500
-    data = 1
+    data = empty
   buffer #16:
     time = 1000000163500
-    data = 1
+    data = empty
   buffer #17:
     time = 1000000173500
-    data = 1
+    data = empty
   buffer #18:
     time = 1000000183500
-    data = 1
+    data = empty
   buffer #19:
     time = 1000000193500
-    data = 1
+    data = empty
   buffer #20:
     time = 1000000203500
-    data = 1
+    data = empty
   buffer #21:
     time = 1000000213500
-    data = 1
+    data = empty
   buffer #22:
     time = 1000000223500
-    data = 1
+    data = empty
   buffer #23:
     time = 1000000233500
-    data = 1
+    data = empty
   buffer #24:
     time = 1000000243500
-    data = 1
+    data = empty
   buffer #25:
     time = 1000000253500
-    data = 1
+    data = empty
   buffer #26:
     time = 1000000263500
-    data = 1
+    data = empty
   buffer #27:
     time = 1000000273500
-    data = 1
+    data = empty
   buffer #28:
     time = 1000000283500
-    data = 1
+    data = empty
   buffer #29:
     time = 1000000293500
-    data = 1
+    data = empty
   buffer #30:
     time = 1000000303500
-    data = 1
+    data = empty
   buffer #31:
     time = 1000000313500
-    data = 1
+    data = empty
   buffer #32:
     time = 1000000323500
-    data = 1
+    data = empty
   buffer #33:
     time = 1000000333500
-    data = 1
+    data = empty
   buffer #34:
     time = 1000000343500
-    data = 1
+    data = empty
   buffer #35:
     time = 1000000353500
-    data = 1
+    data = empty
   buffer #36:
     time = 1000000363500
-    data = 1
+    data = empty
   buffer #37:
     time = 1000000373500
-    data = 1
+    data = empty
   buffer #38:
     time = 1000000383500
-    data = 1
+    data = empty
   buffer #39:
     time = 1000000393500
-    data = 1
+    data = empty
   buffer #40:
     time = 1000000403500
-    data = 1
+    data = empty
   buffer #41:
     time = 1000000413500
-    data = 1
+    data = empty
   buffer #42:
     time = 1000000423500
-    data = 1
+    data = empty
   buffer #43:
     time = 1000000433500
-    data = 1
+    data = empty
   buffer #44:
     time = 1000000443500
-    data = 1
+    data = empty
   buffer #45:
     time = 1000000453500
-    data = 1
+    data = empty
   buffer #46:
     time = 1000000463500
-    data = 1
+    data = empty
   buffer #47:
     time = 1000000473500
-    data = 1
+    data = empty
   buffer #48:
     time = 1000000483500
-    data = 1
+    data = empty
   buffer #49:
     time = 1000000493500
-    data = 1
+    data = empty
   buffer #50:
     time = 1000000503500
-    data = 1
+    data = empty
   buffer #51:
     time = 1000000513500
-    data = 1
+    data = empty
   buffer #52:
     time = 1000000523500
-    data = 1
+    data = empty
   buffer #53:
     time = 1000000533500
-    data = 1
+    data = empty
   buffer #54:
     time = 1000000543500
-    data = 1
+    data = empty
   buffer #55:
     time = 1000000553500
-    data = 1
+    data = empty
   buffer #56:
     time = 1000000563500
-    data = 1
+    data = empty
   buffer #57:
     time = 1000000573500
-    data = 1
+    data = empty
   buffer #58:
     time = 1000000583500
-    data = 1
+    data = empty
   buffer #59:
     time = 1000000593500
-    data = 1
+    data = empty
   buffer #60:
     time = 1000000603500
-    data = 1
+    data = empty
   buffer #61:
     time = 1000000613500
-    data = 1
+    data = empty
   buffer #62:
     time = 1000000623500
-    data = 1
+    data = empty
   buffer #63:
     time = 1000000633500
-    data = 1
+    data = empty
   buffer #64:
     time = 1000000643500
-    data = 1
+    data = empty
   buffer #65:
     time = 1000000653500
-    data = 1
+    data = empty
   buffer #66:
     time = 1000000663500
-    data = 1
+    data = empty
   buffer #67:
     time = 1000000673500
-    data = 1
+    data = empty
   buffer #68:
     time = 1000000683500
-    data = 1
+    data = empty
   buffer #69:
     time = 1000000693500
-    data = 1
+    data = empty
   buffer #70:
     time = 1000000703500
-    data = 1
+    data = empty
   buffer #71:
     time = 1000000713500
-    data = 1
+    data = empty
   buffer #72:
     time = 1000000723500
-    data = 1
+    data = empty
   buffer #73:
     time = 1000000733500
-    data = 1
+    data = empty
   buffer #74:
     time = 1000000743500
-    data = 1
+    data = empty
   buffer #75:
     time = 1000000753500
-    data = 1
+    data = empty
   buffer #76:
     time = 1000000763500
-    data = 1
+    data = empty
   buffer #77:
     time = 1000000773500
-    data = 1
+    data = empty
   buffer #78:
     time = 1000000783500
-    data = 1
+    data = empty
   buffer #79:
     time = 1000000793500
-    data = 1
+    data = empty
   buffer #80:
     time = 1000000803500
-    data = 1
+    data = empty
   buffer #81:
     time = 1000000813500
-    data = 1
+    data = empty
   buffer #82:
     time = 1000000823500
-    data = 1
+    data = empty
   buffer #83:
     time = 1000000833500
-    data = 1
+    data = empty
   buffer #84:
     time = 1000000843500
-    data = 1
+    data = empty
   buffer #85:
     time = 1000000853500
-    data = 1
+    data = empty
   buffer #86:
     time = 1000000863500
-    data = 1
+    data = empty
   buffer #87:
     time = 1000000873500
-    data = 1
+    data = empty
   buffer #88:
     time = 1000000883500
-    data = 1
+    data = empty
   buffer #89:
     time = 1000000893500
-    data = 1
+    data = empty
   buffer #90:
     time = 1000000903500
-    data = 1
+    data = empty
   buffer #91:
     time = 1000000913500
-    data = 1
+    data = empty
   buffer #92:
     time = 1000000923500
-    data = 1
+    data = empty
   buffer #93:
     time = 1000000933500
-    data = 1
+    data = empty
   buffer #94:
     time = 1000000943500
-    data = 1
+    data = empty
   buffer #95:
     time = 1000000953500
-    data = 1
+    data = empty
   buffer #96:
     time = 1000000963500
-    data = 1
+    data = empty
   buffer #97:
     time = 1000000973500
-    data = 1
+    data = empty
   buffer #98:
     time = 1000000983500
-    data = 1
+    data = empty
   buffer #99:
     time = 1000000993500
-    data = 1
+    data = empty

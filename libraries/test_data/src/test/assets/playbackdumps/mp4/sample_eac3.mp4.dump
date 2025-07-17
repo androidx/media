@@ -1,4 +1,4 @@
-MediaCodecAdapter (exotest.audio.eac3):
+MediaCodecAdapter (media3.audio.eac3):
   inputBuffers:
     count = 55
     input buffer #0:
@@ -393,163 +393,163 @@ AudioSink:
     sampleRate = 48000
   buffer #0:
     time = 1000000000000
-    data = 1
+    data = empty
   buffer #1:
     time = 1000000032000
-    data = 1
+    data = empty
   buffer #2:
     time = 1000000064000
-    data = 1
+    data = empty
   buffer #3:
     time = 1000000096000
-    data = 1
+    data = empty
   buffer #4:
     time = 1000000128000
-    data = 1
+    data = empty
   buffer #5:
     time = 1000000160000
-    data = 1
+    data = empty
   buffer #6:
     time = 1000000192000
-    data = 1
+    data = empty
   buffer #7:
     time = 1000000224000
-    data = 1
+    data = empty
   buffer #8:
     time = 1000000256000
-    data = 1
+    data = empty
   buffer #9:
     time = 1000000288000
-    data = 1
+    data = empty
   buffer #10:
     time = 1000000320000
-    data = 1
+    data = empty
   buffer #11:
     time = 1000000352000
-    data = 1
+    data = empty
   buffer #12:
     time = 1000000384000
-    data = 1
+    data = empty
   buffer #13:
     time = 1000000416000
-    data = 1
+    data = empty
   buffer #14:
     time = 1000000448000
-    data = 1
+    data = empty
   buffer #15:
     time = 1000000480000
-    data = 1
+    data = empty
   buffer #16:
     time = 1000000512000
-    data = 1
+    data = empty
   buffer #17:
     time = 1000000544000
-    data = 1
+    data = empty
   buffer #18:
     time = 1000000576000
-    data = 1
+    data = empty
   buffer #19:
     time = 1000000608000
-    data = 1
+    data = empty
   buffer #20:
     time = 1000000640000
-    data = 1
+    data = empty
   buffer #21:
     time = 1000000672000
-    data = 1
+    data = empty
   buffer #22:
     time = 1000000704000
-    data = 1
+    data = empty
   buffer #23:
     time = 1000000736000
-    data = 1
+    data = empty
   buffer #24:
     time = 1000000768000
-    data = 1
+    data = empty
   buffer #25:
     time = 1000000800000
-    data = 1
+    data = empty
   buffer #26:
     time = 1000000832000
-    data = 1
+    data = empty
   buffer #27:
     time = 1000000864000
-    data = 1
+    data = empty
   buffer #28:
     time = 1000000896000
-    data = 1
+    data = empty
   buffer #29:
     time = 1000000928000
-    data = 1
+    data = empty
   buffer #30:
     time = 1000000960000
-    data = 1
+    data = empty
   buffer #31:
     time = 1000000992000
-    data = 1
+    data = empty
   buffer #32:
     time = 1000001024000
-    data = 1
+    data = empty
   buffer #33:
     time = 1000001056000
-    data = 1
+    data = empty
   buffer #34:
     time = 1000001088000
-    data = 1
+    data = empty
   buffer #35:
     time = 1000001120000
-    data = 1
+    data = empty
   buffer #36:
     time = 1000001152000
-    data = 1
+    data = empty
   buffer #37:
     time = 1000001184000
-    data = 1
+    data = empty
   buffer #38:
     time = 1000001216000
-    data = 1
+    data = empty
   buffer #39:
     time = 1000001248000
-    data = 1
+    data = empty
   buffer #40:
     time = 1000001280000
-    data = 1
+    data = empty
   buffer #41:
     time = 1000001312000
-    data = 1
+    data = empty
   buffer #42:
     time = 1000001344000
-    data = 1
+    data = empty
   buffer #43:
     time = 1000001376000
-    data = 1
+    data = empty
   buffer #44:
     time = 1000001408000
-    data = 1
+    data = empty
   buffer #45:
     time = 1000001440000
-    data = 1
+    data = empty
   buffer #46:
     time = 1000001472000
-    data = 1
+    data = empty
   buffer #47:
     time = 1000001504000
-    data = 1
+    data = empty
   buffer #48:
     time = 1000001536000
-    data = 1
+    data = empty
   buffer #49:
     time = 1000001568000
-    data = 1
+    data = empty
   buffer #50:
     time = 1000001600000
-    data = 1
+    data = empty
   buffer #51:
     time = 1000001632000
-    data = 1
+    data = empty
   buffer #52:
     time = 1000001664000
-    data = 1
+    data = empty
   buffer #53:
     time = 1000001696000
-    data = 1
+    data = empty

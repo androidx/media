@@ -23,11 +23,16 @@ import androidx.media3.common.util.BundleCollectionUtil;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Ordering;
 import java.util.ArrayList;
 import java.util.List;
 
 /** Class to represent the state of active {@link Cue Cues} at a particular time. */
 public final class CueGroup {
+
+  /** An {@link Ordering} which sorts cues in ascending zIndex priority */
+  private static final Ordering<Cue> CUES_PRIORITY_COMPARATOR =
+      Ordering.<Integer>natural().onResultOf(c -> c.zIndex);
 
   /** An empty group with no {@link Cue Cues} and presentation time of zero. */
   @UnstableApi
@@ -54,7 +59,7 @@ public final class CueGroup {
   /** Creates a CueGroup. */
   @UnstableApi
   public CueGroup(List<Cue> cues, long presentationTimeUs) {
-    this.cues = ImmutableList.copyOf(cues);
+    this.cues = ImmutableList.sortedCopyOf(CUES_PRIORITY_COMPARATOR, cues);
     this.presentationTimeUs = presentationTimeUs;
   }
 

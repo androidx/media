@@ -22,9 +22,7 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 import static java.lang.annotation.RetentionPolicy.SOURCE;
 
 import android.content.Context;
-import android.graphics.Point;
 import android.os.Bundle;
-import android.os.Looper;
 import android.view.accessibility.CaptioningManager;
 import androidx.annotation.CallSuper;
 import androidx.annotation.IntDef;
@@ -37,6 +35,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Ints;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.errorprone.annotations.InlineMe;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
@@ -44,12 +43,10 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Locale;
 import java.util.Set;
 import org.checkerframework.checker.initialization.qual.UnknownInitialization;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 
-// LINT.IfChange(javadoc)
 /**
  * Parameters for controlling track selection.
  *
@@ -88,20 +85,26 @@ public class TrackSelectionParameters {
     private int minVideoBitrate;
     private int viewportWidth;
     private int viewportHeight;
+    private boolean isViewportSizeLimitedByPhysicalDisplaySize;
     private boolean viewportOrientationMayChange;
     private ImmutableList<String> preferredVideoMimeTypes;
+    private ImmutableList<String> preferredVideoLabels;
     private ImmutableList<String> preferredVideoLanguages;
     private @C.RoleFlags int preferredVideoRoleFlags;
     // Audio
     private ImmutableList<String> preferredAudioLanguages;
+    private ImmutableList<String> preferredAudioLabels;
     private @C.RoleFlags int preferredAudioRoleFlags;
     private int maxAudioChannelCount;
     private int maxAudioBitrate;
     private ImmutableList<String> preferredAudioMimeTypes;
     private AudioOffloadPreferences audioOffloadPreferences;
     // Text
+    private boolean selectTextByDefault;
     private ImmutableList<String> preferredTextLanguages;
     private @C.RoleFlags int preferredTextRoleFlags;
+    private boolean usePreferredTextLanguagesAndRoleFlagsFromCaptioningManager;
+    private ImmutableList<String> preferredTextLabels;
     private @C.SelectionFlags int ignoredTextSelectionFlags;
     private boolean selectUndeterminedTextLanguage;
     // Image
@@ -112,12 +115,7 @@ public class TrackSelectionParameters {
     private HashMap<TrackGroup, TrackSelectionOverride> overrides;
     private HashSet<@C.TrackType Integer> disabledTrackTypes;
 
-    /**
-     * @deprecated {@link Context} constraints will not be set using this constructor. Use {@link
-     *     #Builder(Context)} instead.
-     */
-    @UnstableApi
-    @Deprecated
+    /** Creates a builder with default initial values. */
     public Builder() {
       // Video
       maxVideoWidth = Integer.MAX_VALUE;
@@ -126,20 +124,26 @@ public class TrackSelectionParameters {
       maxVideoBitrate = Integer.MAX_VALUE;
       viewportWidth = Integer.MAX_VALUE;
       viewportHeight = Integer.MAX_VALUE;
+      isViewportSizeLimitedByPhysicalDisplaySize = true;
       viewportOrientationMayChange = true;
       preferredVideoMimeTypes = ImmutableList.of();
+      preferredVideoLabels = ImmutableList.of();
       preferredVideoLanguages = ImmutableList.of();
       preferredVideoRoleFlags = 0;
       // Audio
       preferredAudioLanguages = ImmutableList.of();
+      preferredAudioLabels = ImmutableList.of();
       preferredAudioRoleFlags = 0;
       maxAudioChannelCount = Integer.MAX_VALUE;
       maxAudioBitrate = Integer.MAX_VALUE;
       preferredAudioMimeTypes = ImmutableList.of();
       audioOffloadPreferences = AudioOffloadPreferences.DEFAULT;
       // Text
+      selectTextByDefault = false;
       preferredTextLanguages = ImmutableList.of();
       preferredTextRoleFlags = 0;
+      usePreferredTextLanguagesAndRoleFlagsFromCaptioningManager = true;
+      preferredTextLabels = ImmutableList.of();
       ignoredTextSelectionFlags = 0;
       selectUndeterminedTextLanguage = false;
       // Image
@@ -152,15 +156,12 @@ public class TrackSelectionParameters {
     }
 
     /**
-     * Creates a builder with default initial values.
-     *
-     * @param context Any context.
+     * @deprecated Use {@link #Builder()} instead.
      */
-    @SuppressWarnings({"deprecation", "method.invocation"}) // Methods invoked are setter only.
+    @Deprecated
+    @InlineMe(replacement = "this()")
     public Builder(Context context) {
       this();
-      setPreferredTextLanguageAndRoleFlagsToCaptioningManagerSettings(context);
-      setViewportSizeToPhysicalDisplaySize(context, /* viewportOrientationMayChange= */ true);
     }
 
     /** Creates a builder with the initial values specified in {@code initialValues}. */
@@ -173,79 +174,85 @@ public class TrackSelectionParameters {
     @UnstableApi
     protected Builder(Bundle bundle) {
       // Video
-      maxVideoWidth = bundle.getInt(FIELD_MAX_VIDEO_WIDTH, DEFAULT_WITHOUT_CONTEXT.maxVideoWidth);
-      maxVideoHeight =
-          bundle.getInt(FIELD_MAX_VIDEO_HEIGHT, DEFAULT_WITHOUT_CONTEXT.maxVideoHeight);
-      maxVideoFrameRate =
-          bundle.getInt(FIELD_MAX_VIDEO_FRAMERATE, DEFAULT_WITHOUT_CONTEXT.maxVideoFrameRate);
-      maxVideoBitrate =
-          bundle.getInt(FIELD_MAX_VIDEO_BITRATE, DEFAULT_WITHOUT_CONTEXT.maxVideoBitrate);
-      minVideoWidth = bundle.getInt(FIELD_MIN_VIDEO_WIDTH, DEFAULT_WITHOUT_CONTEXT.minVideoWidth);
-      minVideoHeight =
-          bundle.getInt(FIELD_MIN_VIDEO_HEIGHT, DEFAULT_WITHOUT_CONTEXT.minVideoHeight);
-      minVideoFrameRate =
-          bundle.getInt(FIELD_MIN_VIDEO_FRAMERATE, DEFAULT_WITHOUT_CONTEXT.minVideoFrameRate);
-      minVideoBitrate =
-          bundle.getInt(FIELD_MIN_VIDEO_BITRATE, DEFAULT_WITHOUT_CONTEXT.minVideoBitrate);
-      viewportWidth = bundle.getInt(FIELD_VIEWPORT_WIDTH, DEFAULT_WITHOUT_CONTEXT.viewportWidth);
-      viewportHeight = bundle.getInt(FIELD_VIEWPORT_HEIGHT, DEFAULT_WITHOUT_CONTEXT.viewportHeight);
+      maxVideoWidth = bundle.getInt(FIELD_MAX_VIDEO_WIDTH, DEFAULT.maxVideoWidth);
+      maxVideoHeight = bundle.getInt(FIELD_MAX_VIDEO_HEIGHT, DEFAULT.maxVideoHeight);
+      maxVideoFrameRate = bundle.getInt(FIELD_MAX_VIDEO_FRAMERATE, DEFAULT.maxVideoFrameRate);
+      maxVideoBitrate = bundle.getInt(FIELD_MAX_VIDEO_BITRATE, DEFAULT.maxVideoBitrate);
+      minVideoWidth = bundle.getInt(FIELD_MIN_VIDEO_WIDTH, DEFAULT.minVideoWidth);
+      minVideoHeight = bundle.getInt(FIELD_MIN_VIDEO_HEIGHT, DEFAULT.minVideoHeight);
+      minVideoFrameRate = bundle.getInt(FIELD_MIN_VIDEO_FRAMERATE, DEFAULT.minVideoFrameRate);
+      minVideoBitrate = bundle.getInt(FIELD_MIN_VIDEO_BITRATE, DEFAULT.minVideoBitrate);
+      viewportWidth = bundle.getInt(FIELD_VIEWPORT_WIDTH, DEFAULT.viewportWidth);
+      viewportHeight = bundle.getInt(FIELD_VIEWPORT_HEIGHT, DEFAULT.viewportHeight);
+      isViewportSizeLimitedByPhysicalDisplaySize =
+          viewportWidth == Integer.MAX_VALUE
+              && viewportHeight == Integer.MAX_VALUE
+              && bundle.getBoolean(
+                  FIELD_IS_VIEWPORT_SIZE_LIMITED_BY_PHYSICAL_DISPLAY_SIZE,
+                  DEFAULT.isViewportSizeLimitedByPhysicalDisplaySize);
       viewportOrientationMayChange =
           bundle.getBoolean(
-              FIELD_VIEWPORT_ORIENTATION_MAY_CHANGE,
-              DEFAULT_WITHOUT_CONTEXT.viewportOrientationMayChange);
+              FIELD_VIEWPORT_ORIENTATION_MAY_CHANGE, DEFAULT.viewportOrientationMayChange);
       preferredVideoMimeTypes =
           ImmutableList.copyOf(
               firstNonNull(bundle.getStringArray(FIELD_PREFERRED_VIDEO_MIMETYPES), new String[0]));
+      preferredVideoLabels =
+          ImmutableList.copyOf(
+              firstNonNull(bundle.getStringArray(FIELD_PREFERRED_VIDEO_LABELS), new String[0]));
       preferredVideoLanguages =
           ImmutableList.copyOf(
               firstNonNull(bundle.getStringArray(FIELD_PREFERRED_VIDEO_LANGUAGES), new String[0]));
       preferredVideoRoleFlags =
-          bundle.getInt(
-              FIELD_PREFERRED_VIDEO_ROLE_FLAGS, DEFAULT_WITHOUT_CONTEXT.preferredVideoRoleFlags);
+          bundle.getInt(FIELD_PREFERRED_VIDEO_ROLE_FLAGS, DEFAULT.preferredVideoRoleFlags);
       // Audio
       String[] preferredAudioLanguages1 =
           firstNonNull(bundle.getStringArray(FIELD_PREFERRED_AUDIO_LANGUAGES), new String[0]);
       preferredAudioLanguages = normalizeLanguageCodes(preferredAudioLanguages1);
+      preferredAudioLabels =
+          ImmutableList.copyOf(
+              firstNonNull(bundle.getStringArray(FIELD_PREFERRED_AUDIO_LABELS), new String[0]));
       preferredAudioRoleFlags =
-          bundle.getInt(
-              FIELD_PREFERRED_AUDIO_ROLE_FLAGS, DEFAULT_WITHOUT_CONTEXT.preferredAudioRoleFlags);
+          bundle.getInt(FIELD_PREFERRED_AUDIO_ROLE_FLAGS, DEFAULT.preferredAudioRoleFlags);
       maxAudioChannelCount =
-          bundle.getInt(
-              FIELD_MAX_AUDIO_CHANNEL_COUNT, DEFAULT_WITHOUT_CONTEXT.maxAudioChannelCount);
-      maxAudioBitrate =
-          bundle.getInt(FIELD_MAX_AUDIO_BITRATE, DEFAULT_WITHOUT_CONTEXT.maxAudioBitrate);
+          bundle.getInt(FIELD_MAX_AUDIO_CHANNEL_COUNT, DEFAULT.maxAudioChannelCount);
+      maxAudioBitrate = bundle.getInt(FIELD_MAX_AUDIO_BITRATE, DEFAULT.maxAudioBitrate);
       preferredAudioMimeTypes =
           ImmutableList.copyOf(
               firstNonNull(bundle.getStringArray(FIELD_PREFERRED_AUDIO_MIME_TYPES), new String[0]));
       audioOffloadPreferences = getAudioOffloadPreferencesFromBundle(bundle);
       // Text
+      selectTextByDefault =
+          bundle.getBoolean(FIELD_SELECT_TEXT_BY_DEFAULT, DEFAULT.selectTextByDefault);
       preferredTextLanguages =
           normalizeLanguageCodes(
               firstNonNull(bundle.getStringArray(FIELD_PREFERRED_TEXT_LANGUAGES), new String[0]));
       preferredTextRoleFlags =
-          bundle.getInt(
-              FIELD_PREFERRED_TEXT_ROLE_FLAGS, DEFAULT_WITHOUT_CONTEXT.preferredTextRoleFlags);
+          bundle.getInt(FIELD_PREFERRED_TEXT_ROLE_FLAGS, DEFAULT.preferredTextRoleFlags);
+      usePreferredTextLanguagesAndRoleFlagsFromCaptioningManager =
+          preferredTextLanguages.isEmpty()
+              && preferredTextRoleFlags == 0
+              && bundle.getBoolean(
+                  FIELD_USE_PREFERRED_TEXT_LANGUAGES_AND_ROLE_FLAGS_FROM_CAPTIONING_MANAGER,
+                  DEFAULT.usePreferredTextLanguagesAndRoleFlagsFromCaptioningManager);
       ignoredTextSelectionFlags =
-          bundle.getInt(
-              FIELD_IGNORED_TEXT_SELECTION_FLAGS,
-              DEFAULT_WITHOUT_CONTEXT.ignoredTextSelectionFlags);
+          bundle.getInt(FIELD_IGNORED_TEXT_SELECTION_FLAGS, DEFAULT.ignoredTextSelectionFlags);
+      preferredTextLabels =
+          ImmutableList.copyOf(
+              firstNonNull(bundle.getStringArray(FIELD_PREFERRED_TEXT_LABELS), new String[0]));
       selectUndeterminedTextLanguage =
           bundle.getBoolean(
-              FIELD_SELECT_UNDETERMINED_TEXT_LANGUAGE,
-              DEFAULT_WITHOUT_CONTEXT.selectUndeterminedTextLanguage);
+              FIELD_SELECT_UNDETERMINED_TEXT_LANGUAGE, DEFAULT.selectUndeterminedTextLanguage);
       // Image
       isPrioritizeImageOverVideoEnabled =
           bundle.getBoolean(
-              FIELD_IS_PREFER_IMAGE_OVER_VIDEO_ENABLED,
-              DEFAULT_WITHOUT_CONTEXT.isPrioritizeImageOverVideoEnabled);
+              FIELD_IS_PREFER_IMAGE_OVER_VIDEO_ENABLED, DEFAULT.isPrioritizeImageOverVideoEnabled);
 
       // General
       forceLowestBitrate =
-          bundle.getBoolean(FIELD_FORCE_LOWEST_BITRATE, DEFAULT_WITHOUT_CONTEXT.forceLowestBitrate);
+          bundle.getBoolean(FIELD_FORCE_LOWEST_BITRATE, DEFAULT.forceLowestBitrate);
       forceHighestSupportedBitrate =
           bundle.getBoolean(
-              FIELD_FORCE_HIGHEST_SUPPORTED_BITRATE,
-              DEFAULT_WITHOUT_CONTEXT.forceHighestSupportedBitrate);
+              FIELD_FORCE_HIGHEST_SUPPORTED_BITRATE, DEFAULT.forceHighestSupportedBitrate);
       @Nullable
       List<Bundle> overrideBundleList = bundle.getParcelableArrayList(FIELD_SELECTION_OVERRIDES);
       List<TrackSelectionOverride> overrideList =
@@ -296,6 +303,9 @@ public class TrackSelectionParameters {
       "preferredTextLanguages",
       "overrides",
       "disabledTrackTypes",
+      "preferredVideoLabels",
+      "preferredAudioLabels",
+      "preferredTextLabels"
     })
     private void init(@UnknownInitialization Builder this, TrackSelectionParameters parameters) {
       // Video
@@ -309,20 +319,28 @@ public class TrackSelectionParameters {
       minVideoBitrate = parameters.minVideoBitrate;
       viewportWidth = parameters.viewportWidth;
       viewportHeight = parameters.viewportHeight;
+      isViewportSizeLimitedByPhysicalDisplaySize =
+          parameters.isViewportSizeLimitedByPhysicalDisplaySize;
       viewportOrientationMayChange = parameters.viewportOrientationMayChange;
+      preferredVideoLabels = parameters.preferredVideoLabels;
       preferredVideoMimeTypes = parameters.preferredVideoMimeTypes;
       preferredVideoLanguages = parameters.preferredVideoLanguages;
       preferredVideoRoleFlags = parameters.preferredVideoRoleFlags;
       // Audio
       preferredAudioLanguages = parameters.preferredAudioLanguages;
       preferredAudioRoleFlags = parameters.preferredAudioRoleFlags;
+      preferredAudioLabels = parameters.preferredAudioLabels;
       maxAudioChannelCount = parameters.maxAudioChannelCount;
       maxAudioBitrate = parameters.maxAudioBitrate;
       preferredAudioMimeTypes = parameters.preferredAudioMimeTypes;
       audioOffloadPreferences = parameters.audioOffloadPreferences;
       // Text
+      selectTextByDefault = parameters.selectTextByDefault;
       preferredTextLanguages = parameters.preferredTextLanguages;
       preferredTextRoleFlags = parameters.preferredTextRoleFlags;
+      usePreferredTextLanguagesAndRoleFlagsFromCaptioningManager =
+          parameters.usePreferredTextLanguagesAndRoleFlagsFromCaptioningManager;
+      preferredTextLabels = parameters.preferredTextLabels;
       ignoredTextSelectionFlags = parameters.ignoredTextSelectionFlags;
       selectUndeterminedTextLanguage = parameters.selectUndeterminedTextLanguage;
       // Image
@@ -441,20 +459,31 @@ public class TrackSelectionParameters {
     }
 
     /**
-     * Equivalent to calling {@link #setViewportSize(int, int, boolean)} with the viewport size
-     * obtained from {@link Util#getCurrentDisplayModeSize(Context)}.
+     * Sets whether the viewport size should be assumed to the physical display size if no other
+     * specific viewport size constraint is specified. Constrains video track selections for
+     * adaptive content so that only tracks suitable for the viewport are selected.
      *
-     * @param context Any context.
      * @param viewportOrientationMayChange Whether the viewport orientation may change during
      *     playback.
      * @return This builder.
      */
     @CanIgnoreReturnValue
+    public Builder setViewportSizeToPhysicalDisplaySize(boolean viewportOrientationMayChange) {
+      this.isViewportSizeLimitedByPhysicalDisplaySize = true;
+      this.viewportOrientationMayChange = viewportOrientationMayChange;
+      this.viewportHeight = Integer.MAX_VALUE;
+      this.viewportWidth = Integer.MAX_VALUE;
+      return this;
+    }
+
+    /**
+     * @deprecated Use {@link #setViewportSizeToPhysicalDisplaySize(boolean)} instead.
+     */
+    @Deprecated
+    @CanIgnoreReturnValue
     public Builder setViewportSizeToPhysicalDisplaySize(
         Context context, boolean viewportOrientationMayChange) {
-      // Assume the viewport is fullscreen.
-      Point viewportSize = Util.getCurrentDisplayModeSize(context);
-      return setViewportSize(viewportSize.x, viewportSize.y, viewportOrientationMayChange);
+      return setViewportSizeToPhysicalDisplaySize(viewportOrientationMayChange);
     }
 
     /**
@@ -484,6 +513,7 @@ public class TrackSelectionParameters {
       this.viewportWidth = viewportWidth;
       this.viewportHeight = viewportHeight;
       this.viewportOrientationMayChange = viewportOrientationMayChange;
+      this.isViewportSizeLimitedByPhysicalDisplaySize = false;
       return this;
     }
 
@@ -542,6 +572,20 @@ public class TrackSelectionParameters {
     }
 
     /**
+     * Sets the preferred labels for video tracks.
+     *
+     * @param preferredVideoLabels Preferred video labels in order of preference, or an empty array
+     *     to express no label preference for video track selection.
+     * @return This builder.
+     */
+    @UnstableApi
+    @CanIgnoreReturnValue
+    public Builder setPreferredVideoLabels(String... preferredVideoLabels) {
+      this.preferredVideoLabels = ImmutableList.copyOf(preferredVideoLabels);
+      return this;
+    }
+
+    /**
      * Sets the preferred {@link C.RoleFlags} for video tracks.
      *
      * @param preferredVideoRoleFlags Preferred video role flags.
@@ -591,6 +635,20 @@ public class TrackSelectionParameters {
     @CanIgnoreReturnValue
     public Builder setPreferredAudioRoleFlags(@C.RoleFlags int preferredAudioRoleFlags) {
       this.preferredAudioRoleFlags = preferredAudioRoleFlags;
+      return this;
+    }
+
+    /**
+     * Sets the preferred labels for audio tracks.
+     *
+     * @param preferredAudioLabels Preferred audio labels in order of preference, or an empty array
+     *     to express no label preference for audio track selection.
+     * @return This builder.
+     */
+    @UnstableApi
+    @CanIgnoreReturnValue
+    public Builder setPreferredAudioLabels(String... preferredAudioLabels) {
+      this.preferredAudioLabels = ImmutableList.copyOf(preferredAudioLabels);
       return this;
     }
 
@@ -657,33 +715,45 @@ public class TrackSelectionParameters {
     // Text
 
     /**
-     * Sets the preferred language and role flags for text tracks based on the accessibility
-     * settings of {@link CaptioningManager}.
+     * Sets whether to prefer to select any text track by default.
      *
-     * <p>Does nothing when the {@link CaptioningManager} is disabled.
+     * <p>If {@code false}, text tracks are only selected if they match any of the other preference
+     * settings.
      *
-     * @param context A {@link Context}.
+     * @param selectTextByDefault Whether to prefer to select any text track by default.
+     * @return This builder.
+     */
+    @UnstableApi
+    @CanIgnoreReturnValue
+    public Builder setSelectTextByDefault(boolean selectTextByDefault) {
+      this.selectTextByDefault = selectTextByDefault;
+      return this;
+    }
+
+    /**
+     * Sets whether the preferred languages and the preferred role flags for text tracks should be
+     * set according the {@link CaptioningManager} preferences, if enabled in the system settings
+     * and no other explicit language or role flag preferences are specified.
+     *
      * @return This builder.
      */
     @CanIgnoreReturnValue
+    public Builder setPreferredTextLanguageAndRoleFlagsToCaptioningManagerSettings() {
+      usePreferredTextLanguagesAndRoleFlagsFromCaptioningManager = true;
+      preferredTextLanguages = ImmutableList.of();
+      preferredTextRoleFlags = 0;
+      return this;
+    }
+
+    /**
+     * @deprecated Use {@link #setPreferredTextLanguageAndRoleFlagsToCaptioningManagerSettings()}
+     *     instead.
+     */
+    @Deprecated
+    @CanIgnoreReturnValue
     public Builder setPreferredTextLanguageAndRoleFlagsToCaptioningManagerSettings(
         Context context) {
-      if (Util.SDK_INT < 23 && Looper.myLooper() == null) {
-        // Android platform bug (pre-Marshmallow) that causes RuntimeExceptions when
-        // CaptioningService is instantiated from a non-Looper thread. See [internal: b/143779904].
-        return this;
-      }
-      CaptioningManager captioningManager =
-          (CaptioningManager) context.getSystemService(Context.CAPTIONING_SERVICE);
-      if (captioningManager == null || !captioningManager.isEnabled()) {
-        return this;
-      }
-      preferredTextRoleFlags = C.ROLE_FLAG_CAPTION | C.ROLE_FLAG_DESCRIBES_MUSIC_AND_SOUND;
-      Locale preferredLocale = captioningManager.getLocale();
-      if (preferredLocale != null) {
-        preferredTextLanguages = ImmutableList.of(Util.getLocaleLanguageTag(preferredLocale));
-      }
-      return this;
+      return setPreferredTextLanguageAndRoleFlagsToCaptioningManagerSettings();
     }
 
     /**
@@ -710,6 +780,7 @@ public class TrackSelectionParameters {
     @CanIgnoreReturnValue
     public Builder setPreferredTextLanguages(String... preferredTextLanguages) {
       this.preferredTextLanguages = normalizeLanguageCodes(preferredTextLanguages);
+      this.usePreferredTextLanguagesAndRoleFlagsFromCaptioningManager = false;
       return this;
     }
 
@@ -722,6 +793,21 @@ public class TrackSelectionParameters {
     @CanIgnoreReturnValue
     public Builder setPreferredTextRoleFlags(@C.RoleFlags int preferredTextRoleFlags) {
       this.preferredTextRoleFlags = preferredTextRoleFlags;
+      this.usePreferredTextLanguagesAndRoleFlagsFromCaptioningManager = false;
+      return this;
+    }
+
+    /**
+     * Sets the preferred labels for text tracks.
+     *
+     * @param preferredTextLabels Preferred text labels in order of preference, or an empty array to
+     *     express no label preference for text track selection.
+     * @return This builder.
+     */
+    @UnstableApi
+    @CanIgnoreReturnValue
+    public Builder setPreferredTextLabels(String... preferredTextLabels) {
+      this.preferredTextLabels = ImmutableList.copyOf(preferredTextLabels);
       return this;
     }
 
@@ -847,10 +933,8 @@ public class TrackSelectionParameters {
      *
      * @param disabledTrackTypes The track types to disable.
      * @return This builder.
-     * @deprecated Use {@link #setTrackTypeDisabled(int, boolean)}.
      */
     @CanIgnoreReturnValue
-    @Deprecated
     @UnstableApi
     public Builder setDisabledTrackTypes(Set<@C.TrackType Integer> disabledTrackTypes) {
       this.disabledTrackTypes.clear();
@@ -1080,35 +1164,21 @@ public class TrackSelectionParameters {
     }
   }
 
-  /**
-   * An instance with default values, except those obtained from the {@link Context}.
-   *
-   * <p>If possible, use {@link #getDefaults(Context)} instead.
-   *
-   * <p>This instance will not have the following settings:
-   *
-   * <ul>
-   *   <li>{@link Builder#setViewportSizeToPhysicalDisplaySize(Context, boolean) Viewport
-   *       constraints} configured for the primary display.
-   *   <li>{@link Builder#setPreferredTextLanguageAndRoleFlagsToCaptioningManagerSettings(Context)
-   *       Preferred text language and role flags} configured to the accessibility settings of
-   *       {@link CaptioningManager}.
-   * </ul>
-   */
-  @UnstableApi
-  @SuppressWarnings("deprecation")
-  public static final TrackSelectionParameters DEFAULT_WITHOUT_CONTEXT = new Builder().build();
+  /** An instance with default parameters. */
+  @UnstableApi public static final TrackSelectionParameters DEFAULT = new Builder().build();
 
   /**
-   * @deprecated This instance is not configured using {@link Context} constraints. Use {@link
-   *     #getDefaults(Context)} instead.
+   * @deprecated Use {@link #DEFAULT} instead.
    */
   @UnstableApi @Deprecated
-  public static final TrackSelectionParameters DEFAULT = DEFAULT_WITHOUT_CONTEXT;
+  public static final TrackSelectionParameters DEFAULT_WITHOUT_CONTEXT = DEFAULT;
 
-  /** Returns an instance configured with default values. */
+  /**
+   * @deprecated Use {@link #DEFAULT} instead.
+   */
+  @Deprecated
   public static TrackSelectionParameters getDefaults(Context context) {
-    return new Builder(context).build();
+    return DEFAULT;
   }
 
   // Video
@@ -1173,6 +1243,13 @@ public class TrackSelectionParameters {
   public final int viewportHeight;
 
   /**
+   * Whether the viewport size should be assumed to the physical display size if no other specific
+   * viewport size constraint is specified. Constrains video track selections for adaptive content
+   * so that only tracks suitable for the viewport are selected. The default value is {@code true}.
+   */
+  public final boolean isViewportSizeLimitedByPhysicalDisplaySize;
+
+  /**
    * Whether the viewport orientation may change during playback. Constrains video track selections
    * for adaptive content so that only tracks suitable for the viewport are selected. The default
    * value is {@code true}.
@@ -1184,6 +1261,12 @@ public class TrackSelectionParameters {
    * no preference. The default is an empty list.
    */
   public final ImmutableList<String> preferredVideoMimeTypes;
+
+  /**
+   * The preferred labels for video tracks in order of preference, or an empty list for no
+   * preference. The default is an empty list.
+   */
+  @UnstableApi public final ImmutableList<String> preferredVideoLabels;
 
   /**
    * The preferred languages for video tracks as IETF BCP 47 conformant tags in order of preference.
@@ -1203,6 +1286,12 @@ public class TrackSelectionParameters {
    * default. The default value is an empty list.
    */
   public final ImmutableList<String> preferredAudioLanguages;
+
+  /**
+   * The preferred labels for audio tracks in order of preference, or an empty list for no
+   * preference. The default is an empty list.
+   */
+  @UnstableApi public final ImmutableList<String> preferredAudioLabels;
 
   /**
    * The preferred {@link C.RoleFlags} for audio tracks. {@code 0} selects the default track if
@@ -1236,20 +1325,41 @@ public class TrackSelectionParameters {
 
   // Text
   /**
+   * Prefer to select any text track by default.
+   *
+   * <p>If {@code false}, text tracks are only selected if they match any of the other preference
+   * settings.
+   *
+   * <p>The default value is {@code false}.
+   */
+  @UnstableApi public final boolean selectTextByDefault;
+
+  /**
    * The preferred languages for text tracks as IETF BCP 47 conformant tags in order of preference.
    * An empty list selects the default track if there is one, or no track otherwise. The default
-   * value is an empty list, or the language of the accessibility {@link CaptioningManager} if
-   * enabled.
+   * value is an empty list.
    */
   public final ImmutableList<String> preferredTextLanguages;
 
   /**
+   * The preferred labels for text tracks in order of preference, or an empty list for no
+   * preference. The default is an empty list.
+   */
+  @UnstableApi public final ImmutableList<String> preferredTextLabels;
+
+  /**
    * The preferred {@link C.RoleFlags} for text tracks. {@code 0} selects the default track if there
-   * is one, or no track otherwise. The default value is {@code 0}, or {@link C#ROLE_FLAG_SUBTITLE}
-   * | {@link C#ROLE_FLAG_DESCRIBES_MUSIC_AND_SOUND} if the accessibility {@link CaptioningManager}
-   * is enabled.
+   * is one, or no track otherwise. The default value is {@code 0}.
    */
   public final @C.RoleFlags int preferredTextRoleFlags;
+
+  /**
+   * Whether the preferred languages and the preferred role flags for text tracks should be set
+   * according the {@link CaptioningManager} preferences, if enabled in the system settings and no
+   * other explicit language or role flag preferences are specified. The default value is {@code
+   * true}.
+   */
+  public final boolean usePreferredTextLanguagesAndRoleFlagsFromCaptioningManager;
 
   /**
    * Bitmask of selection flags that are ignored for text track selections. See {@link
@@ -1307,20 +1417,28 @@ public class TrackSelectionParameters {
     this.minVideoBitrate = builder.minVideoBitrate;
     this.viewportWidth = builder.viewportWidth;
     this.viewportHeight = builder.viewportHeight;
+    this.isViewportSizeLimitedByPhysicalDisplaySize =
+        builder.isViewportSizeLimitedByPhysicalDisplaySize;
     this.viewportOrientationMayChange = builder.viewportOrientationMayChange;
     this.preferredVideoMimeTypes = builder.preferredVideoMimeTypes;
+    this.preferredVideoLabels = builder.preferredVideoLabels;
     this.preferredVideoLanguages = builder.preferredVideoLanguages;
     this.preferredVideoRoleFlags = builder.preferredVideoRoleFlags;
     // Audio
     this.preferredAudioLanguages = builder.preferredAudioLanguages;
     this.preferredAudioRoleFlags = builder.preferredAudioRoleFlags;
     this.maxAudioChannelCount = builder.maxAudioChannelCount;
+    this.preferredAudioLabels = builder.preferredAudioLabels;
     this.maxAudioBitrate = builder.maxAudioBitrate;
     this.preferredAudioMimeTypes = builder.preferredAudioMimeTypes;
     this.audioOffloadPreferences = builder.audioOffloadPreferences;
     // Text
+    this.selectTextByDefault = builder.selectTextByDefault;
     this.preferredTextLanguages = builder.preferredTextLanguages;
     this.preferredTextRoleFlags = builder.preferredTextRoleFlags;
+    this.usePreferredTextLanguagesAndRoleFlagsFromCaptioningManager =
+        builder.usePreferredTextLanguagesAndRoleFlagsFromCaptioningManager;
+    this.preferredTextLabels = builder.preferredTextLabels;
     this.ignoredTextSelectionFlags = builder.ignoredTextSelectionFlags;
     this.selectUndeterminedTextLanguage = builder.selectUndeterminedTextLanguage;
     // Image
@@ -1359,19 +1477,27 @@ public class TrackSelectionParameters {
         && viewportOrientationMayChange == other.viewportOrientationMayChange
         && viewportWidth == other.viewportWidth
         && viewportHeight == other.viewportHeight
+        && isViewportSizeLimitedByPhysicalDisplaySize
+            == other.isViewportSizeLimitedByPhysicalDisplaySize
         && preferredVideoMimeTypes.equals(other.preferredVideoMimeTypes)
+        && preferredVideoLabels.equals(other.preferredVideoLabels)
         && preferredVideoLanguages.equals(other.preferredVideoLanguages)
         && preferredVideoRoleFlags == other.preferredVideoRoleFlags
         // Audio
         && preferredAudioLanguages.equals(other.preferredAudioLanguages)
         && preferredAudioRoleFlags == other.preferredAudioRoleFlags
         && maxAudioChannelCount == other.maxAudioChannelCount
+        && preferredAudioLabels.equals(other.preferredAudioLabels)
         && maxAudioBitrate == other.maxAudioBitrate
         && preferredAudioMimeTypes.equals(other.preferredAudioMimeTypes)
         && audioOffloadPreferences.equals(other.audioOffloadPreferences)
         // Text
+        && selectTextByDefault == other.selectTextByDefault
+        && preferredTextLabels.equals(other.preferredTextLabels)
         && preferredTextLanguages.equals(other.preferredTextLanguages)
         && preferredTextRoleFlags == other.preferredTextRoleFlags
+        && usePreferredTextLanguagesAndRoleFlagsFromCaptioningManager
+            == other.usePreferredTextLanguagesAndRoleFlagsFromCaptioningManager
         && ignoredTextSelectionFlags == other.ignoredTextSelectionFlags
         && selectUndeterminedTextLanguage == other.selectUndeterminedTextLanguage
         // Image
@@ -1398,19 +1524,25 @@ public class TrackSelectionParameters {
     result = 31 * result + (viewportOrientationMayChange ? 1 : 0);
     result = 31 * result + viewportWidth;
     result = 31 * result + viewportHeight;
+    result = 31 * result + (isViewportSizeLimitedByPhysicalDisplaySize ? 1 : 0);
     result = 31 * result + preferredVideoMimeTypes.hashCode();
+    result = 31 * result + preferredVideoLabels.hashCode();
     result = 31 * result + preferredVideoLanguages.hashCode();
     result = 31 * result + preferredVideoRoleFlags;
     // Audio
     result = 31 * result + preferredAudioLanguages.hashCode();
     result = 31 * result + preferredAudioRoleFlags;
     result = 31 * result + maxAudioChannelCount;
+    result = 31 * result + preferredAudioLabels.hashCode();
     result = 31 * result + maxAudioBitrate;
     result = 31 * result + preferredAudioMimeTypes.hashCode();
     result = 31 * result + audioOffloadPreferences.hashCode();
     // Text
+    result = 31 * result + (selectTextByDefault ? 1 : 0);
     result = 31 * result + preferredTextLanguages.hashCode();
     result = 31 * result + preferredTextRoleFlags;
+    result = 31 * result + (usePreferredTextLanguagesAndRoleFlagsFromCaptioningManager ? 1 : 0);
+    result = 31 * result + preferredTextLabels.hashCode();
     result = 31 * result + ignoredTextSelectionFlags;
     result = 31 * result + (selectUndeterminedTextLanguage ? 1 : 0);
     // Image
@@ -1456,6 +1588,15 @@ public class TrackSelectionParameters {
   private static final String FIELD_IS_PREFER_IMAGE_OVER_VIDEO_ENABLED =
       Util.intToStringMaxRadix(31);
   private static final String FIELD_PREFERRED_VIDEO_LANGUAGES = Util.intToStringMaxRadix(32);
+  private static final String FIELD_IS_VIEWPORT_SIZE_LIMITED_BY_PHYSICAL_DISPLAY_SIZE =
+      Util.intToStringMaxRadix(33);
+  private static final String
+      FIELD_USE_PREFERRED_TEXT_LANGUAGES_AND_ROLE_FLAGS_FROM_CAPTIONING_MANAGER =
+          Util.intToStringMaxRadix(34);
+  private static final String FIELD_SELECT_TEXT_BY_DEFAULT = Util.intToStringMaxRadix(35);
+  private static final String FIELD_PREFERRED_VIDEO_LABELS = Util.intToStringMaxRadix(36);
+  private static final String FIELD_PREFERRED_AUDIO_LABELS = Util.intToStringMaxRadix(37);
+  private static final String FIELD_PREFERRED_TEXT_LABELS = Util.intToStringMaxRadix(38);
 
   /**
    * Defines a minimum field ID value for subclasses to use when implementing {@link #toBundle()}
@@ -1482,11 +1623,16 @@ public class TrackSelectionParameters {
     bundle.putInt(FIELD_MIN_VIDEO_BITRATE, minVideoBitrate);
     bundle.putInt(FIELD_VIEWPORT_WIDTH, viewportWidth);
     bundle.putInt(FIELD_VIEWPORT_HEIGHT, viewportHeight);
+    bundle.putBoolean(
+        FIELD_IS_VIEWPORT_SIZE_LIMITED_BY_PHYSICAL_DISPLAY_SIZE,
+        isViewportSizeLimitedByPhysicalDisplaySize);
     bundle.putBoolean(FIELD_VIEWPORT_ORIENTATION_MAY_CHANGE, viewportOrientationMayChange);
     bundle.putStringArray(
         FIELD_PREFERRED_VIDEO_MIMETYPES, preferredVideoMimeTypes.toArray(new String[0]));
     bundle.putStringArray(
         FIELD_PREFERRED_VIDEO_LANGUAGES, preferredVideoLanguages.toArray(new String[0]));
+    bundle.putStringArray(
+        FIELD_PREFERRED_VIDEO_LABELS, preferredVideoLabels.toArray(new String[0]));
     bundle.putInt(FIELD_PREFERRED_VIDEO_ROLE_FLAGS, preferredVideoRoleFlags);
     // Audio
     bundle.putStringArray(
@@ -1495,11 +1641,18 @@ public class TrackSelectionParameters {
     bundle.putInt(FIELD_MAX_AUDIO_CHANNEL_COUNT, maxAudioChannelCount);
     bundle.putInt(FIELD_MAX_AUDIO_BITRATE, maxAudioBitrate);
     bundle.putStringArray(
+        FIELD_PREFERRED_AUDIO_LABELS, preferredAudioLabels.toArray(new String[0]));
+    bundle.putStringArray(
         FIELD_PREFERRED_AUDIO_MIME_TYPES, preferredAudioMimeTypes.toArray(new String[0]));
     // Text
+    bundle.putBoolean(FIELD_SELECT_TEXT_BY_DEFAULT, selectTextByDefault);
     bundle.putStringArray(
         FIELD_PREFERRED_TEXT_LANGUAGES, preferredTextLanguages.toArray(new String[0]));
     bundle.putInt(FIELD_PREFERRED_TEXT_ROLE_FLAGS, preferredTextRoleFlags);
+    bundle.putBoolean(
+        FIELD_USE_PREFERRED_TEXT_LANGUAGES_AND_ROLE_FLAGS_FROM_CAPTIONING_MANAGER,
+        usePreferredTextLanguagesAndRoleFlagsFromCaptioningManager);
+    bundle.putStringArray(FIELD_PREFERRED_TEXT_LABELS, preferredTextLabels.toArray(new String[0]));
     bundle.putInt(FIELD_IGNORED_TEXT_SELECTION_FLAGS, ignoredTextSelectionFlags);
     bundle.putBoolean(FIELD_SELECT_UNDETERMINED_TEXT_LANGUAGE, selectUndeterminedTextLanguage);
     bundle.putInt(FIELD_AUDIO_OFFLOAD_MODE_PREFERENCE, audioOffloadPreferences.audioOffloadMode);

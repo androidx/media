@@ -17,6 +17,7 @@ package androidx.media3.common.audio;
 
 import static androidx.media3.common.util.Assertions.checkArgument;
 
+import androidx.annotation.IntRange;
 import androidx.media3.common.util.UnstableApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
@@ -52,21 +53,40 @@ public final class ChannelMixingMatrix {
   private final boolean isIdentity;
 
   /**
-   * Creates a basic channel mixing matrix that converts from {@code inputChannelCount} channels to
-   * {@code outputChannelCount} channels.
+   * Returns a default constant gain channel mixing matrix that mixes {@code inputChannelCount}
+   * channels into {@code outputChannelCount} channels.
    *
-   * <p>If the input and output channel counts match then a simple identity matrix will be returned.
-   * Otherwise, default matrix coefficients will be used to best match channel locations and overall
-   * power level.
+   * <p>This method returns an identity matrix if {@code inputChannelCount} and {@code
+   * outputChannelCount} are equal.
    *
    * @param inputChannelCount Number of input channels.
    * @param outputChannelCount Number of output channels.
-   * @return New channel mixing matrix.
-   * @throws UnsupportedOperationException If no default matrix coefficients are implemented for the
-   *     given input and output channel counts.
+   * @throws UnsupportedOperationException If no default coefficients are available for the given
+   *     input and output channel counts.
+   * @deprecated Use {@link #createForConstantGain} instead.
    */
-  // TODO(b/300467493): Modify create() to use constant power defaults and migrate all users.
-  public static ChannelMixingMatrix create(int inputChannelCount, int outputChannelCount) {
+  @Deprecated
+  public static ChannelMixingMatrix create(
+      @IntRange(from = 1, to = 2) int inputChannelCount,
+      @IntRange(from = 1, to = 2) int outputChannelCount) {
+    return createForConstantGain(inputChannelCount, outputChannelCount);
+  }
+
+  /**
+   * Returns a default constant gain channel mixing matrix that mixes {@code inputChannelCount}
+   * channels into {@code outputChannelCount} channels.
+   *
+   * <p>This method returns an identity matrix if {@code inputChannelCount} and {@code
+   * outputChannelCount} are equal.
+   *
+   * @param inputChannelCount Number of input channels.
+   * @param outputChannelCount Number of output channels.
+   * @throws UnsupportedOperationException If no default coefficients are available for the given
+   *     input and output channel counts.
+   */
+  public static ChannelMixingMatrix createForConstantGain(
+      @IntRange(from = 1, to = 2) int inputChannelCount,
+      @IntRange(from = 1, to = 2) int outputChannelCount) {
     return new ChannelMixingMatrix(
         inputChannelCount,
         outputChannelCount,
@@ -74,19 +94,31 @@ public final class ChannelMixingMatrix {
   }
 
   /**
-   * Returns default constant power matrix for mixing {@code inputChannelCount} channels into {@code
-   * outputChannelCount} channels.
+   * Returns a default constant power channel mixing matrix that mixes {@code inputChannelCount}
+   * channels into {@code outputChannelCount} channels.
    *
-   * <p>If the input and output channel counts match then a simple identity matrix will be returned.
+   * <p>This method returns an identity matrix if {@code inputChannelCount} and {@code
+   * outputChannelCount} are equal.
+   *
+   * <p>Channel counts map to the following layouts:
+   *
+   * <ol>
+   *   <li>[MONO]
+   *   <li>[FRONT_LEFT, FRONT_RIGHT]
+   *   <li>[FRONT_LEFT, FRONT_RIGHT, FRONT_CENTER]
+   *   <li>[FRONT_LEFT, FRONT_RIGHT, BACK_LEFT, BACK_RIGHT]
+   *   <li>[FRONT_LEFT, FRONT_RIGHT, FRONT_CENTER, BACK_LEFT, BACK_RIGHT]
+   *   <li>[FRONT_LEFT, FRONT_RIGHT, FRONT_CENTER, LOW_FREQUENCY, BACK_LEFT, BACK_RIGHT]
+   * </ol>
    *
    * @param inputChannelCount Number of input channels.
    * @param outputChannelCount Number of output channels.
-   * @return New channel mixing matrix.
-   * @throws UnsupportedOperationException If no default coefficients are available for the given
-   *     input and output channel counts.
+   * @throws UnsupportedOperationException If no default matrix coefficients are implemented for the
+   *     given input and output channel counts.
    */
   public static ChannelMixingMatrix createForConstantPower(
-      int inputChannelCount, int outputChannelCount) {
+      @IntRange(from = 1, to = 6) int inputChannelCount,
+      @IntRange(from = 1, to = 2) int outputChannelCount) {
     return new ChannelMixingMatrix(
         inputChannelCount,
         outputChannelCount,

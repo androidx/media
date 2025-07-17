@@ -35,6 +35,7 @@ import static androidx.media3.test.utils.CacheAsserts.assertCachedData;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.net.Uri;
+import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.StreamKey;
@@ -100,7 +101,7 @@ public class HlsDownloaderTest {
   }
 
   @Test
-  public void createWithDefaultDownloaderFactory() {
+  public void createWithDefaultDownloaderFactory_downloadRequestWithoutTimeRange() {
     CacheDataSource.Factory cacheDataSourceFactory =
         new CacheDataSource.Factory()
             .setCache(Mockito.mock(Cache.class))
@@ -116,7 +117,33 @@ public class HlsDownloaderTest {
                     Collections.singletonList(
                         new StreamKey(/* groupIndex= */ 0, /* streamIndex= */ 0)))
                 .build());
+
     assertThat(downloader).isInstanceOf(HlsDownloader.class);
+  }
+
+  @Test
+  public void createWithDefaultDownloaderFactory_downloadRequestWithTimeRange() {
+    CacheDataSource.Factory cacheDataSourceFactory =
+        new CacheDataSource.Factory()
+            .setCache(Mockito.mock(Cache.class))
+            .setUpstreamDataSourceFactory(PlaceholderDataSource.FACTORY);
+    DownloaderFactory factory =
+        new DefaultDownloaderFactory(cacheDataSourceFactory, /* executor= */ Runnable::run);
+
+    Downloader downloader =
+        factory.createDownloader(
+            new DownloadRequest.Builder(/* id= */ "id", Uri.parse("https://www.test.com/download"))
+                .setMimeType(MimeTypes.APPLICATION_M3U8)
+                .setStreamKeys(
+                    Collections.singletonList(
+                        new StreamKey(/* groupIndex= */ 0, /* streamIndex= */ 0)))
+                .setTimeRange(/* startPositionUs= */ 10_000, /* durationUs= */ 20_000)
+                .build());
+
+    assertThat(downloader).isInstanceOf(HlsDownloader.class);
+    HlsDownloader hlsDownloader = (HlsDownloader) downloader;
+    assertThat(hlsDownloader.startPositionUs).isEqualTo(10_000);
+    assertThat(hlsDownloader.durationUs).isEqualTo(20_000);
   }
 
   @Test
@@ -188,7 +215,47 @@ public class HlsDownloaderTest {
   }
 
   @Test
-  public void downloadMediaPlaylist() throws Exception {
+  public void remove_withContentBeyondDownloadRange_removesWholeContentInCache() throws Exception {
+    // Let downloader1 download the first part of content.
+    HlsDownloader downloader1 =
+        getHlsDownloader(
+            MEDIA_PLAYLIST_1_URI,
+            getKeys(),
+            /* startPositionUs= */ 0,
+            /* durationUs= */ 10_000_000);
+    downloader1.download(progressListener);
+    assertCachedData(
+        cache,
+        new CacheAsserts.RequestSet(fakeDataSet)
+            .subset(
+                MEDIA_PLAYLIST_1_URI,
+                MEDIA_PLAYLIST_1_DIR + "fileSequence0.ts",
+                MEDIA_PLAYLIST_1_DIR + "fileSequence1.ts"));
+    // Let downloader2 download the rest of content and then remove, it should remove the whole
+    // content, instead of only the part it was asked to download.
+    HlsDownloader downloader2 =
+        getHlsDownloader(
+            MEDIA_PLAYLIST_1_URI,
+            getKeys(),
+            /* startPositionUs= */ 10_000_000,
+            /* durationUs= */ C.TIME_UNSET);
+    downloader2.download(progressListener);
+    assertCachedData(
+        cache,
+        new CacheAsserts.RequestSet(fakeDataSet)
+            .subset(
+                MEDIA_PLAYLIST_1_URI,
+                MEDIA_PLAYLIST_1_DIR + "fileSequence0.ts",
+                MEDIA_PLAYLIST_1_DIR + "fileSequence1.ts",
+                MEDIA_PLAYLIST_1_DIR + "fileSequence2.ts"));
+
+    downloader2.remove();
+
+    assertCacheEmpty(cache);
+  }
+
+  @Test
+  public void downloadMediaPlaylist_withoutTimeRange() throws Exception {
     HlsDownloader downloader = getHlsDownloader(MEDIA_PLAYLIST_1_URI, getKeys());
     downloader.download(progressListener);
 
@@ -200,6 +267,22 @@ public class HlsDownloaderTest {
                 MEDIA_PLAYLIST_1_DIR + "fileSequence0.ts",
                 MEDIA_PLAYLIST_1_DIR + "fileSequence1.ts",
                 MEDIA_PLAYLIST_1_DIR + "fileSequence2.ts"));
+  }
+
+  @Test
+  public void downloadMediaPlaylist_withTimeRange() throws Exception {
+    HlsDownloader downloader =
+        getHlsDownloader(
+            MEDIA_PLAYLIST_1_URI,
+            getKeys(),
+            /* startPositionUs= */ 9_976_670,
+            /* durationUs= */ 9_976_670);
+    downloader.download(progressListener);
+
+    assertCachedData(
+        cache,
+        new CacheAsserts.RequestSet(fakeDataSet)
+            .subset(MEDIA_PLAYLIST_1_URI, MEDIA_PLAYLIST_1_DIR + "fileSequence1.ts"));
   }
 
   @Test
@@ -223,9 +306,20 @@ public class HlsDownloaderTest {
         new CacheDataSource.Factory()
             .setCache(cache)
             .setUpstreamDataSourceFactory(new FakeDataSource.Factory().setFakeDataSet(fakeDataSet));
-    return new HlsDownloader(
-        new MediaItem.Builder().setUri(mediaPlaylistUri).setStreamKeys(keys).build(),
-        cacheDataSourceFactory);
+    return new HlsDownloader.Factory(cacheDataSourceFactory)
+        .create(new MediaItem.Builder().setUri(mediaPlaylistUri).setStreamKeys(keys).build());
+  }
+
+  private HlsDownloader getHlsDownloader(
+      String mediaPlaylistUri, List<StreamKey> keys, long startPositionUs, long durationUs) {
+    CacheDataSource.Factory cacheDataSourceFactory =
+        new CacheDataSource.Factory()
+            .setCache(cache)
+            .setUpstreamDataSourceFactory(new FakeDataSource.Factory().setFakeDataSet(fakeDataSet));
+    return new HlsDownloader.Factory(cacheDataSourceFactory)
+        .setStartPositionUs(startPositionUs)
+        .setDurationUs(durationUs)
+        .create(new MediaItem.Builder().setUri(mediaPlaylistUri).setStreamKeys(keys).build());
   }
 
   private static ArrayList<StreamKey> getKeys(int... variantIndices) {

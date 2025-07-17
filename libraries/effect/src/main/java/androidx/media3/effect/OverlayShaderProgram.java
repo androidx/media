@@ -15,6 +15,7 @@
  */
 package androidx.media3.effect;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
@@ -31,11 +32,11 @@ import android.util.SparseArray;
 import android.util.SparseIntArray;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.OverlaySettings;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.GlProgram;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.Size;
-import androidx.media3.common.util.Util;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 
@@ -211,7 +212,7 @@ import java.io.IOException;
         hdrTypes[i] = HDR_TYPE_TEXT;
         overlaySamplersAvailable -= 1;
       } else if (overlay instanceof BitmapOverlay) {
-        checkState(Util.SDK_INT >= 34);
+        checkState(SDK_INT >= 34);
         hdrTypes[i] = HDR_TYPE_ULTRA_HDR;
         // Each UltraHDR overlay uses an extra texture to apply the gainmap to the base in the
         // shader.

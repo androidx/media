@@ -17,15 +17,20 @@ package androidx.media3.container;
 
 import static androidx.media3.common.util.Assertions.checkArgument;
 
-import android.os.Parcel;
-import android.os.Parcelable;
 import androidx.annotation.Nullable;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.util.UnstableApi;
 
-/** Stores the orientation hint for the video playback. */
+/**
+ * Stores the orientation hint for the video playback.
+ *
+ * <p>The orientation hint is typically read/written in the "tkhd" box (track header box, defined in
+ * ISO/IEC 14496-12).
+ */
 @UnstableApi
 public final class Mp4OrientationData implements Metadata.Entry {
+
+  /** The orientation, in degrees. */
   public final int orientation;
 
   /**
@@ -39,10 +44,6 @@ public final class Mp4OrientationData implements Metadata.Entry {
         orientation == 0 || orientation == 90 || orientation == 180 || orientation == 270,
         "Unsupported orientation");
     this.orientation = orientation;
-  }
-
-  private Mp4OrientationData(Parcel in) {
-    orientation = in.readInt();
   }
 
   @Override
@@ -68,30 +69,4 @@ public final class Mp4OrientationData implements Metadata.Entry {
   public String toString() {
     return "Orientation= " + orientation;
   }
-
-  // Parcelable implementation.
-
-  @Override
-  public int describeContents() {
-    return 0;
-  }
-
-  @Override
-  public void writeToParcel(Parcel dest, int flags) {
-    dest.writeInt(orientation);
-  }
-
-  public static final Parcelable.Creator<Mp4OrientationData> CREATOR =
-      new Parcelable.Creator<Mp4OrientationData>() {
-
-        @Override
-        public Mp4OrientationData createFromParcel(Parcel in) {
-          return new Mp4OrientationData(in);
-        }
-
-        @Override
-        public Mp4OrientationData[] newArray(int size) {
-          return new Mp4OrientationData[size];
-        }
-      };
 }

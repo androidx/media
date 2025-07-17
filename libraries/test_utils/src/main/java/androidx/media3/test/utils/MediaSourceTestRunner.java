@@ -42,13 +42,17 @@ import androidx.media3.exoplayer.source.MediaSource.MediaSourceCaller;
 import androidx.media3.exoplayer.source.MediaSourceEventListener;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.DefaultAllocator;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingDeque;
 import org.checkerframework.dataflow.qual.SideEffectFree;
 
@@ -93,26 +97,35 @@ public class MediaSourceTestRunner {
    * @param runnable The {@link Runnable} to run.
    */
   public void runOnPlaybackThread(final Runnable runnable) {
-    Throwable[] throwable = new Throwable[1];
-    CountDownLatch finishedLatch = new CountDownLatch(1);
+    ListenableFuture<Void> result =
+        asyncRunOnPlaybackThread(
+            () -> {
+              runnable.run();
+              return null;
+            });
+    try {
+      result.get();
+    } catch (InterruptedException | ExecutionException e) {
+      Util.sneakyThrow(e);
+    }
+  }
+
+  /**
+   * Runs the provided {@link Callable} on the playback thread and returns a future of the result.
+   *
+   * @param callable The {@link Callable} to run.
+   */
+  public <T> ListenableFuture<T> asyncRunOnPlaybackThread(Callable<T> callable) {
+    SettableFuture<T> result = SettableFuture.create();
     playbackHandler.post(
         () -> {
           try {
-            runnable.run();
+            result.set(callable.call());
           } catch (Throwable e) {
-            throwable[0] = e;
-          } finally {
-            finishedLatch.countDown();
+            result.setException(e);
           }
         });
-    try {
-      assertThat(finishedLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
-    } catch (InterruptedException e) {
-      Util.sneakyThrow(e);
-    }
-    if (throwable[0] != null) {
-      Util.sneakyThrow(throwable[0]);
-    }
+    return result;
   }
 
   /**
@@ -347,7 +360,7 @@ public class MediaSourceTestRunner {
     playbackThread.quit();
   }
 
-  private class MediaSourceListener implements MediaSourceCaller, MediaSourceEventListener {
+  public class MediaSourceListener implements MediaSourceCaller, MediaSourceEventListener {
 
     // MediaSourceCaller methods.
 

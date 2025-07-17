@@ -61,7 +61,7 @@ public final class BundledChunkExtractor implements ExtractorOutput, ChunkExtrac
 
     private SubtitleParser.Factory subtitleParserFactory;
     private boolean parseSubtitlesDuringExtraction;
-    private boolean parseWithinGopSampleDependencies;
+    private @C.VideoCodecFlags int codecsToParseWithinGopSampleDependencies;
 
     public Factory() {
       subtitleParserFactory = new DefaultSubtitleParserFactory();
@@ -79,6 +79,14 @@ public final class BundledChunkExtractor implements ExtractorOutput, ChunkExtrac
     public Factory experimentalParseSubtitlesDuringExtraction(
         boolean parseSubtitlesDuringExtraction) {
       this.parseSubtitlesDuringExtraction = parseSubtitlesDuringExtraction;
+      return this;
+    }
+
+    @Override
+    @CanIgnoreReturnValue
+    public Factory experimentalSetCodecsToParseWithinGopSampleDependencies(
+        @C.VideoCodecFlags int codecsToParseWithinGopSampleDependencies) {
+      this.codecsToParseWithinGopSampleDependencies = codecsToParseWithinGopSampleDependencies;
       return this;
     }
 
@@ -147,9 +155,9 @@ public final class BundledChunkExtractor implements ExtractorOutput, ChunkExtrac
         if (!parseSubtitlesDuringExtraction) {
           flags |= FragmentedMp4Extractor.FLAG_EMIT_RAW_SUBTITLE_DATA;
         }
-        if (parseWithinGopSampleDependencies) {
-          flags |= FragmentedMp4Extractor.FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES;
-        }
+        flags |=
+            FragmentedMp4Extractor.codecsToParseWithinGopSampleDependenciesAsFlags(
+                codecsToParseWithinGopSampleDependencies);
         extractor =
             new FragmentedMp4Extractor(
                 subtitleParserFactory,
@@ -161,30 +169,13 @@ public final class BundledChunkExtractor implements ExtractorOutput, ChunkExtrac
       }
       return new BundledChunkExtractor(extractor, primaryTrackType, representationFormat);
     }
-
-    /**
-     * Sets whether within GOP sample dependency information should be parsed as part of extraction.
-     * Defaults to {@code false}.
-     *
-     * <p>Having access to additional sample dependency information can speed up seeking. See {@link
-     * FragmentedMp4Extractor#FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES}.
-     *
-     * <p>This method is experimental and will be renamed or removed in a future release.
-     *
-     * @param parseWithinGopSampleDependencies Whether to parse within GOP sample dependencies
-     *     during extraction.
-     * @return This factory, for convenience.
-     */
-    @CanIgnoreReturnValue
-    public Factory experimentalParseWithinGopSampleDependencies(
-        boolean parseWithinGopSampleDependencies) {
-      this.parseWithinGopSampleDependencies = parseWithinGopSampleDependencies;
-      return this;
-    }
   }
 
-  /** {@link Factory} for {@link BundledChunkExtractor}. */
-  public static final Factory FACTORY = new Factory();
+  /**
+   * @deprecated {@link Factory} is mutable, so a static instance is not safe. Instantiate a new
+   *     {@link Factory} instead.
+   */
+  @Deprecated public static final Factory FACTORY = new Factory();
 
   private static final PositionHolder POSITION_HOLDER = new PositionHolder();
 

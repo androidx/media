@@ -45,6 +45,8 @@ import com.google.common.primitives.Longs;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.io.InterruptedIOException;
+import java.net.CookieHandler;
+import java.net.CookieManager;
 import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
@@ -122,7 +124,6 @@ public final class HttpEngineDataSource extends BaseDataSource implements HttpDa
      * @return This factory.
      */
     @CanIgnoreReturnValue
-    @UnstableApi
     public Factory setUserAgent(@Nullable String userAgent) {
       this.userAgent = userAgent;
       return this;
@@ -709,7 +710,7 @@ public final class HttpEngineDataSource extends BaseDataSource implements HttpDa
   @UnstableApi
   @VisibleForTesting
   @Nullable
-  UrlRequest.Callback getCurrentUrlRequestCallback() {
+  UrlRequestCallback getCurrentUrlRequestCallback() {
     return currentUrlRequestWrapper == null
         ? null
         : currentUrlRequestWrapper.getUrlRequestCallback();
@@ -933,14 +934,6 @@ public final class HttpEngineDataSource extends BaseDataSource implements HttpDa
   }
 
   @Nullable
-  private static String parseCookies(@Nullable List<String> setCookieHeaders) {
-    if (setCookieHeaders == null || setCookieHeaders.isEmpty()) {
-      return null;
-    }
-    return TextUtils.join(";", setCookieHeaders);
-  }
-
-  @Nullable
   private static String getFirstHeader(Map<String, List<String>> allHeaders, String headerName) {
     @Nullable List<String> headers = allHeaders.get(headerName);
     return headers != null && !headers.isEmpty() ? headers.get(0) : null;
@@ -984,7 +977,7 @@ public final class HttpEngineDataSource extends BaseDataSource implements HttpDa
       urlRequest.cancel();
     }
 
-    public UrlRequest.Callback getUrlRequestCallback() {
+    public UrlRequestCallback getUrlRequestCallback() {
       return urlRequestCallback;
     }
 
@@ -1004,8 +997,7 @@ public final class HttpEngineDataSource extends BaseDataSource implements HttpDa
     }
   }
 
-  private final class UrlRequestCallback implements UrlRequest.Callback {
-
+  final class UrlRequestCallback implements UrlRequest.Callback {
     private volatile boolean isClosed = false;
 
     public void close() {
@@ -1040,6 +1032,19 @@ public final class HttpEngineDataSource extends BaseDataSource implements HttpDa
         resetConnectTimeout();
       }
 
+      CookieHandler cookieHandler = CookieHandler.getDefault();
+
+      if (cookieHandler == null && handleSetCookieRequests) {
+        // a temporary CookieManager is created for the duration of this request - this guarantees
+        // redirects preserve the cookies correctly.
+        cookieHandler = new CookieManager();
+      }
+
+      String url = info.getUrl();
+      Map<String, List<String>> headers = info.getHeaders().getAsMap();
+      HttpUtil.storeCookiesFromHeaders(url, headers, cookieHandler);
+      String cookieHeaders = HttpUtil.getCookieHeader(url, headers, cookieHandler);
+
       boolean shouldKeepPost =
           keepPostFor302Redirects
               && dataSpec.httpMethod == DataSpec.HTTP_METHOD_POST
@@ -1047,17 +1052,12 @@ public final class HttpEngineDataSource extends BaseDataSource implements HttpDa
 
       // request.followRedirect() transforms a POST request into a GET request, so if we want to
       // keep it as a POST we need to fall through to the manual redirect logic below.
-      if (!shouldKeepPost && !handleSetCookieRequests) {
-        request.followRedirect();
-        return;
-      }
-
-      @Nullable
-      String cookieHeadersValue =
-          parseCookies(info.getHeaders().getAsMap().get(HttpHeaders.SET_COOKIE));
-      if (!shouldKeepPost && TextUtils.isEmpty(cookieHeadersValue)) {
-        request.followRedirect();
-        return;
+      if (!shouldKeepPost) {
+        // No cookies, or we're not handling them - so just follow the redirect.
+        if (!handleSetCookieRequests || TextUtils.isEmpty(cookieHeaders)) {
+          request.followRedirect();
+          return;
+        }
       }
 
       request.cancel();
@@ -1075,13 +1075,15 @@ public final class HttpEngineDataSource extends BaseDataSource implements HttpDa
       } else {
         redirectUrlDataSpec = dataSpec.withUri(Uri.parse(newLocationUrl));
       }
-      if (!TextUtils.isEmpty(cookieHeadersValue)) {
+
+      if (!TextUtils.isEmpty(cookieHeaders)) {
         Map<String, String> requestHeaders = new HashMap<>();
         requestHeaders.putAll(dataSpec.httpRequestHeaders);
-        requestHeaders.put(HttpHeaders.COOKIE, cookieHeadersValue);
+        requestHeaders.put(HttpHeaders.COOKIE, cookieHeaders);
         redirectUrlDataSpec =
             redirectUrlDataSpec.buildUpon().setHttpRequestHeaders(requestHeaders).build();
       }
+
       UrlRequestWrapper redirectUrlRequestWrapper;
       try {
         redirectUrlRequestWrapper = buildRequestWrapper(redirectUrlDataSpec);
@@ -1101,6 +1103,8 @@ public final class HttpEngineDataSource extends BaseDataSource implements HttpDa
       if (isClosed) {
         return;
       }
+      HttpUtil.storeCookiesFromHeaders(
+          info.getUrl(), info.getHeaders().getAsMap(), CookieHandler.getDefault());
       responseInfo = info;
       operation.open();
     }

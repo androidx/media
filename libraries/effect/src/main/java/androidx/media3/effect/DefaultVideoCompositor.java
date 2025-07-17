@@ -35,6 +35,8 @@ import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
+import androidx.media3.common.OverlaySettings;
+import androidx.media3.common.VideoCompositorSettings;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.GlProgram;
 import androidx.media3.common.util.GlUtil;
@@ -42,7 +44,6 @@ import androidx.media3.common.util.Log;
 import androidx.media3.common.util.LongArrayQueue;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import java.io.IOException;
@@ -76,14 +77,11 @@ public final class DefaultVideoCompositor implements VideoCompositor {
   //  * Use a lock to synchronize inputFrameInfos more narrowly, to reduce blocking.
   //  * Add support for mixing SDR streams with different ColorInfo.
   //  * Add support for HDR input.
-
-  private static final String THREAD_NAME = "Effect:DefaultVideoCompositor:GlThread";
   private static final String TAG = "DefaultVideoCompositor";
 
   private final VideoCompositor.Listener listener;
   private final GlTextureProducer.Listener textureOutputListener;
   private final GlObjectsProvider glObjectsProvider;
-  private final VideoCompositorSettings settings;
   private final CompositorGlProgram compositorGlProgram;
   private final VideoFrameProcessingTaskExecutor videoFrameProcessingTaskExecutor;
 
@@ -97,10 +95,10 @@ public final class DefaultVideoCompositor implements VideoCompositor {
   private final LongArrayQueue outputTextureTimestamps; // Synchronized with outputTexturePool.
   private final LongArrayQueue syncObjects; // Synchronized with outputTexturePool.
 
+  private VideoCompositorSettings videoCompositorSettings;
+
   private @MonotonicNonNull ColorInfo configuredColorInfo;
 
-  // Only used on the GL Thread.
-  private @MonotonicNonNull EGLContext eglContext;
   private @MonotonicNonNull EGLDisplay eglDisplay;
   private @MonotonicNonNull EGLSurface placeholderEglSurface;
   private int primaryInputIndex;
@@ -108,21 +106,20 @@ public final class DefaultVideoCompositor implements VideoCompositor {
   /**
    * Creates an instance.
    *
-   * <p>If a non-null {@code executorService} is set, the {@link ExecutorService} must be
-   * {@linkplain ExecutorService#shutdown shut down} by the caller.
+   * <p>It's the caller's responsibility to {@linkplain GlObjectsProvider#release(EGLDisplay)
+   * release} the {@link GlObjectsProvider} on the {@link ExecutorService}'s thread, and to
+   * {@linkplain ExecutorService#shutdown shut down} the {@link ExecutorService}.
    */
   public DefaultVideoCompositor(
       Context context,
       GlObjectsProvider glObjectsProvider,
-      VideoCompositorSettings settings,
-      @Nullable ExecutorService executorService,
+      ExecutorService executorService,
       VideoCompositor.Listener listener,
       GlTextureProducer.Listener textureOutputListener,
       @IntRange(from = 1) int textureOutputCapacity) {
     this.listener = listener;
     this.textureOutputListener = textureOutputListener;
     this.glObjectsProvider = glObjectsProvider;
-    this.settings = settings;
     this.compositorGlProgram = new CompositorGlProgram(context);
     primaryInputIndex = C.INDEX_UNSET;
 
@@ -131,15 +128,11 @@ public final class DefaultVideoCompositor implements VideoCompositor {
         new TexturePool(/* useHighPrecisionColorComponents= */ false, textureOutputCapacity);
     outputTextureTimestamps = new LongArrayQueue(textureOutputCapacity);
     syncObjects = new LongArrayQueue(textureOutputCapacity);
+    videoCompositorSettings = VideoCompositorSettings.DEFAULT;
 
-    boolean ownsExecutor = executorService == null;
-    ExecutorService instanceExecutorService =
-        ownsExecutor ? Util.newSingleThreadExecutor(THREAD_NAME) : checkNotNull(executorService);
     videoFrameProcessingTaskExecutor =
         new VideoFrameProcessingTaskExecutor(
-            instanceExecutorService,
-            /* shouldShutdownExecutorService= */ ownsExecutor,
-            listener::onError);
+            executorService, /* shouldShutdownExecutorService= */ false, listener::onError);
     videoFrameProcessingTaskExecutor.submit(this::setupGlObjects);
   }
 
@@ -155,6 +148,11 @@ public final class DefaultVideoCompositor implements VideoCompositor {
     if (primaryInputIndex == C.INDEX_UNSET) {
       primaryInputIndex = inputIndex;
     }
+  }
+
+  @Override
+  public void setVideoCompositorSettings(VideoCompositorSettings videoCompositorSettings) {
+    this.videoCompositorSettings = videoCompositorSettings;
   }
 
   @Override
@@ -208,9 +206,8 @@ public final class DefaultVideoCompositor implements VideoCompositor {
     InputFrameInfo inputFrameInfo =
         new InputFrameInfo(
             textureProducer,
-            inputTexture,
-            presentationTimeUs,
-            settings.getOverlaySettings(inputIndex, presentationTimeUs));
+            new TimedGlTextureInfo(inputTexture, presentationTimeUs),
+            videoCompositorSettings.getOverlaySettings(inputIndex, presentationTimeUs));
     inputSource.frameInfos.add(inputFrameInfo);
 
     if (inputIndex == primaryInputIndex) {
@@ -224,7 +221,6 @@ public final class DefaultVideoCompositor implements VideoCompositor {
 
   @Override
   public synchronized void release() {
-    checkState(allInputsEnded);
     try {
       videoFrameProcessingTaskExecutor.release(/* releaseTask= */ this::releaseGlObjects);
     } catch (InterruptedException e) {
@@ -268,13 +264,15 @@ public final class DefaultVideoCompositor implements VideoCompositor {
     // nextTimestampToComposite.
     @Nullable InputFrameInfo nextPrimaryFrame = primaryInputSource.frameInfos.peek();
     long nextTimestampToComposite =
-        nextPrimaryFrame != null ? nextPrimaryFrame.presentationTimeUs : C.TIME_UNSET;
+        nextPrimaryFrame != null
+            ? nextPrimaryFrame.timedGlTextureInfo.presentationTimeUs
+            : C.TIME_UNSET;
 
     int numberOfSecondaryFramesBeforeOrAtNextTargetTimestamp =
         Iterables.size(
             Iterables.filter(
                 secondaryInputSource.frameInfos,
-                frame -> frame.presentationTimeUs <= nextTimestampToComposite));
+                frame -> frame.timedGlTextureInfo.presentationTimeUs <= nextTimestampToComposite));
     releaseFrames(
         secondaryInputSource,
         /* numberOfFramesToRelease= */ max(
@@ -285,14 +283,14 @@ public final class DefaultVideoCompositor implements VideoCompositor {
     for (int i = 0; i < numberOfFramesToRelease; i++) {
       InputFrameInfo frameInfoToRelease = inputSource.frameInfos.remove();
       frameInfoToRelease.textureProducer.releaseOutputTexture(
-          frameInfoToRelease.presentationTimeUs);
+          frameInfoToRelease.timedGlTextureInfo.presentationTimeUs);
     }
   }
 
   // Below methods must be called on the GL thread.
   private void setupGlObjects() throws GlUtil.GlException {
     eglDisplay = GlUtil.getDefaultEglDisplay();
-    eglContext =
+    EGLContext eglContext =
         glObjectsProvider.createEglContext(
             eglDisplay, /* openGlVersion= */ 2, GlUtil.EGL_CONFIG_ATTRIBUTES_RGBA_8888);
     placeholderEglSurface =
@@ -310,15 +308,15 @@ public final class DefaultVideoCompositor implements VideoCompositor {
 
     ImmutableList.Builder<Size> inputSizes = new ImmutableList.Builder<>();
     for (int i = 0; i < framesToComposite.size(); i++) {
-      GlTextureInfo texture = framesToComposite.get(i).texture;
+      GlTextureInfo texture = framesToComposite.get(i).timedGlTextureInfo.glTextureInfo;
       inputSizes.add(new Size(texture.width, texture.height));
     }
-    Size outputSize = settings.getOutputSize(inputSizes.build());
+    Size outputSize = videoCompositorSettings.getOutputSize(inputSizes.build());
     outputTexturePool.ensureConfigured(
         glObjectsProvider, outputSize.getWidth(), outputSize.getHeight());
 
     GlTextureInfo outputTexture = outputTexturePool.useTexture();
-    long outputPresentationTimestampUs = primaryInputFrame.presentationTimeUs;
+    long outputPresentationTimestampUs = primaryInputFrame.timedGlTextureInfo.presentationTimeUs;
     outputTextureTimestamps.add(outputPresentationTimestampUs);
 
     compositorGlProgram.drawFrame(framesToComposite, outputTexture);
@@ -377,16 +375,18 @@ public final class DefaultVideoCompositor implements VideoCompositor {
       Iterator<InputFrameInfo> frameInfosIterator = secondaryInputSource.frameInfos.iterator();
       while (frameInfosIterator.hasNext()) {
         InputFrameInfo candidateFrame = frameInfosIterator.next();
-        long candidateTimestampUs = candidateFrame.presentationTimeUs;
+        long candidateTimestampUs = candidateFrame.timedGlTextureInfo.presentationTimeUs;
         long candidateAbsDistance =
-            abs(candidateTimestampUs - primaryFrameToComposite.presentationTimeUs);
+            abs(
+                candidateTimestampUs
+                    - primaryFrameToComposite.timedGlTextureInfo.presentationTimeUs);
 
         if (candidateAbsDistance < minTimeDiffFromPrimaryUs) {
           minTimeDiffFromPrimaryUs = candidateAbsDistance;
           secondaryFrameToComposite = candidateFrame;
         }
 
-        if (candidateTimestampUs > primaryFrameToComposite.presentationTimeUs
+        if (candidateTimestampUs > primaryFrameToComposite.timedGlTextureInfo.presentationTimeUs
             || (!frameInfosIterator.hasNext() && secondaryInputSource.isInputEnded)) {
           framesToComposite.add(checkNotNull(secondaryFrameToComposite));
           break;
@@ -418,12 +418,6 @@ public final class DefaultVideoCompositor implements VideoCompositor {
       GlUtil.destroyEglSurface(eglDisplay, placeholderEglSurface);
     } catch (GlUtil.GlException e) {
       Log.e(TAG, "Error releasing GL resources", e);
-    } finally {
-      try {
-        glObjectsProvider.release(checkNotNull(eglDisplay));
-      } catch (GlUtil.GlException e) {
-        Log.e(TAG, "Error releasing GL objects", e);
-      }
     }
   }
 
@@ -517,7 +511,7 @@ public final class DefaultVideoCompositor implements VideoCompositor {
 
     private void blendOntoFocusedTexture(InputFrameInfo inputFrameInfo) throws GlUtil.GlException {
       GlProgram glProgram = checkNotNull(this.glProgram);
-      GlTextureInfo inputTexture = inputFrameInfo.texture;
+      GlTextureInfo inputTexture = inputFrameInfo.timedGlTextureInfo.glTextureInfo;
       glProgram.setSamplerTexIdUniform("uTexSampler", inputTexture.texId, /* texUnitIndex= */ 0);
       float[] transformationMatrix =
           overlayMatrixProvider.getTransformationMatrix(
@@ -551,18 +545,15 @@ public final class DefaultVideoCompositor implements VideoCompositor {
   /** Holds information on a frame and how to release it. */
   private static final class InputFrameInfo {
     public final GlTextureProducer textureProducer;
-    public final GlTextureInfo texture;
-    public final long presentationTimeUs;
+    public final TimedGlTextureInfo timedGlTextureInfo;
     public final OverlaySettings overlaySettings;
 
     public InputFrameInfo(
         GlTextureProducer textureProducer,
-        GlTextureInfo texture,
-        long presentationTimeUs,
+        TimedGlTextureInfo timedGlTextureInfo,
         OverlaySettings overlaySettings) {
       this.textureProducer = textureProducer;
-      this.texture = texture;
-      this.presentationTimeUs = presentationTimeUs;
+      this.timedGlTextureInfo = timedGlTextureInfo;
       this.overlaySettings = overlaySettings;
     }
   }

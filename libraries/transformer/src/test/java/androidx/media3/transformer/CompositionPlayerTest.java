@@ -15,6 +15,7 @@
  */
 package androidx.media3.transformer;
 
+import static androidx.media3.common.Player.PLAYBACK_SUPPRESSION_REASON_SCRUBBING;
 import static androidx.media3.transformer.TestUtil.ASSET_URI_PREFIX;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_RAW;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_RAW_STEREO_48000KHZ;
@@ -211,7 +212,7 @@ public class CompositionPlayerTest {
 
     player.setComposition(buildComposition());
     player.prepare();
-    TestPlayerRunHelper.run(player).untilState(Player.STATE_READY);
+    TestPlayerRunHelper.advance(player).untilState(Player.STATE_READY);
 
     player.release();
 
@@ -237,6 +238,7 @@ public class CompositionPlayerTest {
             Player.COMMAND_STOP,
             Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM,
             Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM,
+            Player.COMMAND_SEEK_TO_DEFAULT_POSITION,
             Player.COMMAND_SEEK_BACK,
             Player.COMMAND_SEEK_FORWARD,
             Player.COMMAND_GET_CURRENT_MEDIA_ITEM,
@@ -246,18 +248,6 @@ public class CompositionPlayerTest {
             Player.COMMAND_GET_VOLUME,
             Player.COMMAND_SET_VOLUME,
             Player.COMMAND_RELEASE);
-
-    player.release();
-  }
-
-  @Test
-  public void setComposition_calledTwice_throws() {
-    Composition composition = buildComposition();
-    CompositionPlayer player = buildCompositionPlayer();
-
-    player.setComposition(composition);
-
-    assertThrows(IllegalStateException.class, () -> player.setComposition(composition));
 
     player.release();
   }
@@ -414,6 +404,35 @@ public class CompositionPlayerTest {
     TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_READY);
 
     assertThat(player.getDuration()).isEqualTo(800);
+
+    player.release();
+  }
+
+  @Test
+  public void getDuration_withClippedStartGreaterThanHalfDuration_returnsCorrectDuration()
+      throws Exception {
+    // This test covers cases where the clipped duration exceeds half the original duration.
+    // It is needed to make sure no problems arise from clipping in this case. This would catch
+    // removing ClippingConfiguration wrapping SilenceMediaSource, because the problem only occurs
+    // when the clippedDuration exceeds half the original duration.
+    CompositionPlayer player = buildCompositionPlayer();
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)
+            .setClippingConfiguration(
+                new MediaItem.ClippingConfiguration.Builder().setStartPositionUs(600_000).build())
+            .build();
+    EditedMediaItem editedMediaItem1 =
+        new EditedMediaItem.Builder(mediaItem).setDurationUs(1_000_000L).build();
+    EditedMediaItemSequence sequence =
+        new EditedMediaItemSequence.Builder(editedMediaItem1).build();
+    Composition composition = new Composition.Builder(sequence).build();
+
+    player.setComposition(composition);
+    player.prepare();
+    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_READY);
+
+    assertThat(player.getDuration()).isEqualTo(400);
 
     player.release();
   }
@@ -619,9 +638,10 @@ public class CompositionPlayerTest {
     TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
     inOrder.verify(listener).onPlaybackStateChanged(Player.STATE_ENDED);
 
-    player.release();
+    player.stop();
     TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_IDLE);
     inOrder.verify(listener).onPlaybackStateChanged(Player.STATE_IDLE);
+    player.release();
 
     assertThat(playbackStates)
         .containsExactly(
@@ -836,8 +856,93 @@ public class CompositionPlayerTest {
     player.play();
 
     player.seekTo(/* positionMs= */ 1100);
-    TestPlayerRunHelper.run(player).untilState(Player.STATE_ENDED);
+    TestPlayerRunHelper.advance(player).untilState(Player.STATE_ENDED);
     player.release();
+  }
+
+  @Test
+  public void seekPastDuration_withClippedStart_ends() throws Exception {
+    CompositionPlayer player = buildCompositionPlayer();
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)
+                    .buildUpon()
+                    .setClippingConfiguration(
+                        new MediaItem.ClippingConfiguration.Builder()
+                            .setStartPositionUs(200_000L)
+                            .build())
+                    .build())
+            .setDurationUs(1_000_000L)
+            .build();
+    EditedMediaItemSequence sequence = new EditedMediaItemSequence.Builder(editedMediaItem).build();
+    Composition composition = new Composition.Builder(sequence).build();
+    player.setComposition(composition);
+    player.seekTo(/* positionMs= */ 900);
+    player.prepare();
+    player.play();
+
+    TestPlayerRunHelper.advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+  }
+
+  @Test
+  public void seekPastDuration_withClippedEnd_ends() throws Exception {
+    CompositionPlayer player = buildCompositionPlayer();
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)
+                    .buildUpon()
+                    .setClippingConfiguration(
+                        new MediaItem.ClippingConfiguration.Builder()
+                            .setEndPositionUs(800_000)
+                            .build())
+                    .build())
+            .setDurationUs(1_000_000L)
+            .build();
+    EditedMediaItemSequence sequence = new EditedMediaItemSequence.Builder(editedMediaItem).build();
+    Composition composition = new Composition.Builder(sequence).build();
+    player.setComposition(composition);
+    player.seekTo(/* positionMs= */ 900);
+    player.prepare();
+    player.play();
+
+    TestPlayerRunHelper.advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+  }
+
+  @Test
+  public void isScrubbingModeEnabled_defaultsFalse() {
+    CompositionPlayer player = buildCompositionPlayer();
+
+    assertThat(player.isScrubbingModeEnabled()).isFalse();
+  }
+
+  @Test
+  public void setScrubbingModeEnabled_updatesIsScrubbingModeEnabled() {
+    CompositionPlayer player = buildCompositionPlayer();
+
+    player.setScrubbingModeEnabled(true);
+
+    assertThat(player.isScrubbingModeEnabled()).isTrue();
+  }
+
+  @Test
+  public void setScrubbingModeEnabled_updatesPlaybackSuppressionReason() throws TimeoutException {
+    CompositionPlayer player = buildCompositionPlayer();
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW))
+            .setDurationUs(1_000_000L)
+            .build();
+    EditedMediaItemSequence sequence = new EditedMediaItemSequence.Builder(editedMediaItem).build();
+    Composition composition = new Composition.Builder(sequence).build();
+    player.setComposition(composition);
+    player.prepare();
+
+    player.setScrubbingModeEnabled(true);
+    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_READY);
+
+    assertThat(player.getPlaybackSuppressionReason())
+        .isEqualTo(PLAYBACK_SUPPRESSION_REASON_SCRUBBING);
   }
 
   private static CompositionPlayer buildCompositionPlayer() {

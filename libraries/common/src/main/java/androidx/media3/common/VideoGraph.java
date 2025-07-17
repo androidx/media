@@ -16,16 +16,56 @@
 
 package androidx.media3.common;
 
+import android.content.Context;
+import android.graphics.Bitmap;
+import android.view.Surface;
 import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
+import androidx.media3.common.VideoFrameProcessor.InputType;
+import androidx.media3.common.util.TimestampIterator;
 import androidx.media3.common.util.UnstableApi;
+import java.util.List;
+import java.util.concurrent.Executor;
 
 /** Represents a graph for processing raw video frames. */
 @UnstableApi
 public interface VideoGraph {
 
+  /** A factory for {@link VideoGraph} instances. */
+  interface Factory {
+    /**
+     * Creates a new {@link VideoGraph} instance.
+     *
+     * @param context A {@link Context}.
+     * @param outputColorInfo The {@link ColorInfo} for the output frames.
+     * @param debugViewProvider A {@link DebugViewProvider}.
+     * @param listener A {@link Listener}.
+     * @param listenerExecutor The {@link Executor} on which the {@code listener} is invoked.
+     * @param initialTimestampOffsetUs The timestamp offset for the first frame, in microseconds.
+     * @param renderFramesAutomatically If {@code true}, the instance will render output frames to
+     *     the {@linkplain VideoGraph#setOutputSurfaceInfo(SurfaceInfo) output surface}
+     *     automatically as the instance is done processing them. If {@code false}, the instance
+     *     will block until {@code VideoGraph#renderOutputFrameWithMediaPresentationTime()} is
+     *     called, to render the frame.
+     * @return A new instance.
+     */
+    VideoGraph create(
+        Context context,
+        ColorInfo outputColorInfo,
+        DebugViewProvider debugViewProvider,
+        Listener listener,
+        Executor listenerExecutor,
+        long initialTimestampOffsetUs,
+        boolean renderFramesAutomatically);
+
+    /**
+     * Returns whether the {@linkplain #create created} {@link VideoGraph} supports multiple video
+     * {@linkplain VideoGraph#registerInputStream inputs}.
+     */
+    boolean supportsMultipleInputs();
+  }
+
   /** Listener for video frame processing events. */
-  @UnstableApi
   interface Listener {
     /**
      * Called when the output size changes.
@@ -48,8 +88,12 @@ public interface VideoGraph {
      * for rendering.
      *
      * @param framePresentationTimeUs The presentation time of the frame, in microseconds.
+     * @param isRedrawnFrame Whether the frame is a frame that is {@linkplain #redraw redrawn},
+     *     redrawn frames are rendered directly thus {@link #renderOutputFrame} must not be called
+     *     on such frames.
      */
-    default void onOutputFrameAvailableForRendering(long framePresentationTimeUs) {}
+    default void onOutputFrameAvailableForRendering(
+        long framePresentationTimeUs, boolean isRedrawnFrame) {}
 
     /**
      * Called after the {@link VideoGraph} has rendered its final output frame.
@@ -79,11 +123,8 @@ public interface VideoGraph {
   /**
    * Registers a new input to the {@code VideoGraph}.
    *
-   * <p>A underlying processing {@link VideoFrameProcessor} is created every time this method is
-   * called.
-   *
-   * <p>All inputs must be registered before rendering frames to the underlying {@link
-   * #getProcessor(int) VideoFrameProcessor}.
+   * <p>All inputs must be registered before rendering frames by calling {@link
+   * #registerInputFrame}, {@link #queueInputBitmap} or {@link #queueInputTexture}.
    *
    * <p>If the method throws, the caller must call {@link #release}.
    *
@@ -91,13 +132,6 @@ public interface VideoGraph {
    *     must start from 0.
    */
   void registerInput(@IntRange(from = 0) int inputIndex) throws VideoFrameProcessingException;
-
-  /**
-   * Returns the {@link VideoFrameProcessor} that handles the processing for an input registered via
-   * {@link #registerInput(int)}. If the {@code inputIndex} is not {@linkplain #registerInput(int)
-   * registered} before, this method will throw an {@link IllegalStateException}.
-   */
-  VideoFrameProcessor getProcessor(int inputIndex);
 
   /**
    * Sets the output surface and supporting information.
@@ -117,9 +151,130 @@ public interface VideoGraph {
   void setOutputSurfaceInfo(@Nullable SurfaceInfo outputSurfaceInfo);
 
   /**
+   * Sets a listener that's called when the {@linkplain #getInputSurface input surface} is ready to
+   * use at {@code inputIndex}.
+   */
+  void setOnInputSurfaceReadyListener(int inputIndex, Runnable listener);
+
+  /** Returns the input {@link Surface} at {@code inputIndex}. */
+  Surface getInputSurface(int inputIndex);
+
+  /** Sets the {@link OnInputFrameProcessedListener} at {@code inputIndex}. */
+  void setOnInputFrameProcessedListener(int inputIndex, OnInputFrameProcessedListener listener);
+
+  /**
+   * Sets the Composition-level video effects that are applied after the effects on single
+   * {@linkplain #registerInputStream input stream}.
+   *
+   * <p>This method should be called before {@link #registerInputStream} to set the desired
+   * composition level {@link Effect effects}.
+   */
+  void setCompositionEffects(List<Effect> compositionEffects);
+
+  /**
+   * Sets the {@link VideoCompositorSettings}.
+   *
+   * <p>This method should be called before {@link #registerInputStream} to set the desired
+   * composition level {@link VideoCompositorSettings}.
+   *
+   * <p>Setting a custom {@link VideoCompositorSettings} where {@link
+   * Factory#supportsMultipleInputs()} returns {@code false} throws an {@link
+   * IllegalArgumentException}.
+   */
+  void setCompositorSettings(VideoCompositorSettings videoCompositorSettings);
+
+  /**
+   * Informs the graph that a new input stream will be queued to the graph input corresponding to
+   * {@code inputIndex}.
+   *
+   * <p>After registering the first input stream, this method must only be called for the same index
+   * after the last frame of the already-registered input stream has been {@linkplain
+   * #registerInputFrame registered}, last bitmap {@linkplain #queueInputBitmap queued} or last
+   * texture id {@linkplain #queueInputTexture queued}.
+   *
+   * <p>This method blocks the calling thread until the previous input stream corresponding to the
+   * same {@code inputIndex} has been fully registered internally.
+   *
+   * @param inputIndex The index of the input for which a new input stream should be registered.
+   *     This index must start from 0.
+   * @param inputType The {@link InputType} of the new input stream.
+   * @param format The {@link Format} of the new input stream. The {@link Format#colorInfo}, the
+   *     {@link Format#width}, the {@link Format#height} and the {@link
+   *     Format#pixelWidthHeightRatio} must be set.
+   * @param effects The list of {@link Effect effects} to apply to the new input stream.
+   * @param offsetToAddUs The offset that must be added to the frame presentation timestamps, in
+   *     microseconds. This offset is not part of the input timestamps. It is added to the frame
+   *     timestamps before processing, and is retained in the output timestamps.
+   */
+  void registerInputStream(
+      int inputIndex,
+      @InputType int inputType,
+      Format format,
+      List<Effect> effects,
+      long offsetToAddUs);
+
+  /**
+   * Returns the number of pending input frames at {@code inputIndex} that has not been processed
+   * yet.
+   */
+  int getPendingInputFrameCount(int inputIndex);
+
+  /**
+   * Registers a new input frame at {@code inputIndex}.
+   *
+   * @see VideoFrameProcessor#registerInputFrame()
+   */
+  boolean registerInputFrame(int inputIndex);
+
+  /**
+   * Queues the input {@link Bitmap} at {@code inputIndex}.
+   *
+   * @see VideoFrameProcessor#queueInputBitmap(Bitmap, TimestampIterator)
+   */
+  boolean queueInputBitmap(int inputIndex, Bitmap inputBitmap, TimestampIterator timestampIterator);
+
+  /**
+   * Queues the input texture at {@code inputIndex}.
+   *
+   * @see VideoFrameProcessor#queueInputTexture(int, long)
+   */
+  boolean queueInputTexture(int inputIndex, int textureId, long presentationTimeUs);
+
+  /**
+   * Renders the output frame from the {@code VideoGraph}.
+   *
+   * <p>This method must be called only for frames that have become {@linkplain
+   * Listener#onOutputFrameAvailableForRendering available}, calling the method renders the frame
+   * that becomes available the earliest but not yet rendered.
+   *
+   * @see VideoFrameProcessor#renderOutputFrame(long)
+   */
+  void renderOutputFrame(long renderTimeNs);
+
+  /**
+   * Updates an {@linkplain Listener#onOutputFrameAvailableForRendering available frame} with the
+   * modified effects.
+   */
+  void redraw();
+
+  /**
    * Returns whether the {@code VideoGraph} has produced a frame with zero presentation timestamp.
    */
   boolean hasProducedFrameWithTimestampZero();
+
+  /**
+   * Flushes the {@linkplain #registerInput inputs} of the {@code VideoGraph}.
+   *
+   * @see VideoFrameProcessor#flush()
+   */
+  void flush();
+
+  /**
+   * Informs that no further inputs should be accepted at {@code inputIndex}.
+   *
+   * @see VideoFrameProcessor#signalEndOfInput()
+   */
+  void signalEndOfInput(int inputIndex);
 
   /**
    * Releases the associated resources.

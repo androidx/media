@@ -462,7 +462,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private boolean seekInsideBufferUs(long positionUs) {
     for (int i = 0; i < rtspLoaderWrappers.size(); i++) {
       SampleQueue sampleQueue = rtspLoaderWrappers.get(i).sampleQueue;
-      if (!sampleQueue.seekTo(positionUs, /* allowTimeBeyondBuffer= */ false)) {
+      if (!sampleQueue.seekTo(positionUs, /* allowTimeBeyondBuffer= */ loadingFinished)) {
         return false;
       }
     }

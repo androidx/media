@@ -26,6 +26,7 @@ import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.GlRect;
 import androidx.media3.common.util.GlUtil;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -72,6 +73,7 @@ import java.util.concurrent.TimeUnit;
 /* package */ final class QueuingGlShaderProgram<T> implements GlShaderProgram {
 
   private static final long PROCESSING_TIMEOUT_MS = 500_000L;
+  private static final String TAG = "QueuingGlShaderProgram";
 
   /** A concurrent effect that is applied by the {@link QueuingGlShaderProgram}. */
   public interface ConcurrentEffect<T> {
@@ -140,7 +142,7 @@ import java.util.concurrent.TimeUnit;
 
   private final ConcurrentEffect<T> concurrentEffect;
   private final TexturePool outputTexturePool;
-  private final Queue<TimedTextureInfo<T>> frameQueue;
+  private final Queue<QueuedFrame<T>> frameQueue;
   private InputListener inputListener;
   private OutputListener outputListener;
   private ErrorListener errorListener;
@@ -167,7 +169,12 @@ import java.util.concurrent.TimeUnit;
     outputTexturePool = new TexturePool(useHighPrecisionColorComponents, queueSize);
     inputListener = new InputListener() {};
     outputListener = new OutputListener() {};
-    errorListener = (frameProcessingException) -> {};
+    errorListener =
+        (frameProcessingException) ->
+            Log.e(
+                TAG,
+                "Exception caught by default QueuingGlShaderProgram errorListener.",
+                frameProcessingException);
     errorListenerExecutor = MoreExecutors.directExecutor();
     inputWidth = C.LENGTH_UNSET;
     inputHeight = C.LENGTH_UNSET;
@@ -219,7 +226,8 @@ import java.util.concurrent.TimeUnit;
 
       Future<T> task =
           concurrentEffect.queueInputFrame(glObjectsProvider, outputTexture, presentationTimeUs);
-      frameQueue.add(new TimedTextureInfo<T>(outputTexture, presentationTimeUs, task));
+      frameQueue.add(
+          new QueuedFrame<T>(new TimedGlTextureInfo(outputTexture, presentationTimeUs), task));
 
       inputListener.onInputFrameProcessed(inputTexture);
 
@@ -290,25 +298,28 @@ import java.util.concurrent.TimeUnit;
    * <p>Returns {@code false} if no more frames are available for output.
    */
   private boolean outputOneFrame() {
-    TimedTextureInfo<T> timedTextureInfo = frameQueue.poll();
-    if (timedTextureInfo == null) {
+    QueuedFrame<T> queuedFrame = frameQueue.poll();
+    if (queuedFrame == null) {
       return false;
     }
     try {
       T result =
           Futures.getChecked(
-              timedTextureInfo.task,
+              queuedFrame.task,
               VideoFrameProcessingException.class,
               PROCESSING_TIMEOUT_MS,
               TimeUnit.MILLISECONDS);
       GlUtil.focusFramebufferUsingCurrentContext(
-          timedTextureInfo.textureInfo.fboId,
-          timedTextureInfo.textureInfo.width,
-          timedTextureInfo.textureInfo.height);
+          queuedFrame.timedGlTextureInfo.glTextureInfo.fboId,
+          queuedFrame.timedGlTextureInfo.glTextureInfo.width,
+          queuedFrame.timedGlTextureInfo.glTextureInfo.height);
       concurrentEffect.finishProcessingAndBlend(
-          timedTextureInfo.textureInfo, timedTextureInfo.presentationTimeUs, result);
+          queuedFrame.timedGlTextureInfo.glTextureInfo,
+          queuedFrame.timedGlTextureInfo.presentationTimeUs,
+          result);
       outputListener.onOutputFrameAvailable(
-          timedTextureInfo.textureInfo, timedTextureInfo.presentationTimeUs);
+          queuedFrame.timedGlTextureInfo.glTextureInfo,
+          queuedFrame.timedGlTextureInfo.presentationTimeUs);
       return true;
     } catch (GlUtil.GlException | VideoFrameProcessingException e) {
       onError(e);
@@ -317,9 +328,9 @@ import java.util.concurrent.TimeUnit;
   }
 
   private void cancelProcessingOfPendingFrames() {
-    TimedTextureInfo<T> timedTextureInfo;
-    while ((timedTextureInfo = frameQueue.poll()) != null) {
-      timedTextureInfo.task.cancel(/* mayInterruptIfRunning= */ false);
+    QueuedFrame<T> queuedFrame;
+    while ((queuedFrame = frameQueue.poll()) != null) {
+      queuedFrame.task.cancel(/* mayInterruptIfRunning= */ false);
     }
   }
 
@@ -328,14 +339,12 @@ import java.util.concurrent.TimeUnit;
         () -> errorListener.onError(VideoFrameProcessingException.from(e)));
   }
 
-  private static class TimedTextureInfo<T> {
-    final GlTextureInfo textureInfo;
-    final long presentationTimeUs;
-    final Future<T> task;
+  private static final class QueuedFrame<T> {
+    public final TimedGlTextureInfo timedGlTextureInfo;
+    public final Future<T> task;
 
-    TimedTextureInfo(GlTextureInfo textureInfo, long presentationTimeUs, Future<T> task) {
-      this.textureInfo = textureInfo;
-      this.presentationTimeUs = presentationTimeUs;
+    public QueuedFrame(TimedGlTextureInfo timedGlTextureInfo, Future<T> task) {
+      this.timedGlTextureInfo = timedGlTextureInfo;
       this.task = task;
     }
   }

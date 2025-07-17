@@ -20,6 +20,7 @@ import static androidx.media3.common.util.Assertions.checkState;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
+import android.util.Pair;
 import android.view.Surface;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.util.Clock;
@@ -47,11 +48,15 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
   }
 
   private static final String TAG = "CompPlayerInternal";
-  private static final int MSG_SET_OUTPUT_SURFACE_INFO = 1;
-  private static final int MSG_CLEAR_OUTPUT_SURFACE = 2;
-  private static final int MSG_START_SEEK = 3;
-  private static final int MSG_END_SEEK = 4;
-  private static final int MSG_RELEASE = 5;
+  private static final int MSG_SET_COMPOSITION = 0;
+  private static final int MSG_START_RENDERING = 1;
+  private static final int MSG_STOP_RENDERING = 2;
+  private static final int MSG_SET_VOLUME = 3;
+  private static final int MSG_SET_OUTPUT_SURFACE_INFO = 4;
+  private static final int MSG_CLEAR_OUTPUT_SURFACE = 5;
+  private static final int MSG_START_SEEK = 6;
+  private static final int MSG_END_SEEK = 7;
+  private static final int MSG_RELEASE = 8;
 
   private final Clock clock;
   private final HandlerWrapper handler;
@@ -65,6 +70,7 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
   private final Listener listener;
   private final HandlerWrapper listenerHandler;
 
+  private boolean hasSetComposition;
   private boolean released;
 
   /**
@@ -94,6 +100,24 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
 
   // Public methods
 
+  public void setComposition(Composition composition, long startPositionUs) {
+    handler
+        .obtainMessage(MSG_SET_COMPOSITION, Pair.create(composition, startPositionUs))
+        .sendToTarget();
+  }
+
+  public void startRendering() {
+    handler.sendEmptyMessage(MSG_START_RENDERING);
+  }
+
+  public void stopRendering() {
+    handler.sendEmptyMessage(MSG_STOP_RENDERING);
+  }
+
+  public void setVolume(float volume) {
+    handler.obtainMessage(MSG_SET_VOLUME, volume).sendToTarget();
+  }
+
   /** Sets the output surface information on the video pipeline. */
   public void setOutputSurfaceInfo(Surface surface, Size size) {
     handler
@@ -103,7 +127,7 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
 
   /** Clears the output surface from the video pipeline. */
   public void clearOutputSurface() {
-    handler.obtainMessage(MSG_CLEAR_OUTPUT_SURFACE).sendToTarget();
+    handler.sendEmptyMessage(MSG_CLEAR_OUTPUT_SURFACE);
   }
 
   public void startSeek(long positionMs) {
@@ -111,7 +135,7 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
   }
 
   public void endSeek() {
-    handler.obtainMessage(MSG_END_SEEK).sendToTarget();
+    handler.sendEmptyMessage(MSG_END_SEEK);
   }
 
   /**
@@ -135,10 +159,20 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
 
   // Handler.Callback methods
 
+  @SuppressWarnings("unchecked")
   @Override
   public boolean handleMessage(Message message) {
     try {
       switch (message.what) {
+        case MSG_START_RENDERING:
+          startRenderingInternal();
+          break;
+        case MSG_STOP_RENDERING:
+          stopRenderingInternal();
+          break;
+        case MSG_SET_VOLUME:
+          playbackAudioGraphWrapper.setVolume(/* volume= */ (float) message.obj);
+          break;
         case MSG_SET_OUTPUT_SURFACE_INFO:
           setOutputSurfaceInfoOnInternalThread(
               /* outputSurfaceInfo= */ (OutputSurfaceInfo) message.obj);
@@ -157,6 +191,9 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
         case MSG_RELEASE:
           releaseInternal(/* conditionVariable= */ (ConditionVariable) message.obj);
           break;
+        case MSG_SET_COMPOSITION:
+          setCompositionInternal((Pair<Composition, Long>) message.obj);
+          break;
         default:
           maybeRaiseError(
               /* message= */ "Unknown message",
@@ -174,6 +211,29 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
 
   // Internal methods
 
+  private void setCompositionInternal(Pair<Composition, Long> compositionAndStartTimeUs) {
+    Composition composition = compositionAndStartTimeUs.first;
+    long startTimeUs = compositionAndStartTimeUs.second;
+    if (!hasSetComposition) {
+      // TODO: b/412585856 - Allow setting Composition-level effect on AudioGraph.
+      playbackAudioGraphWrapper.setAudioProcessors(composition.effects.audioProcessors);
+      hasSetComposition = true;
+    }
+
+    // Resets the position of the AudioGraph, or the AudioGraph retains its location in the previous
+    // Composition
+
+    playbackAudioGraphWrapper.startSeek(/* positionUs= */ startTimeUs);
+    playbackAudioGraphWrapper.endSeek();
+
+    playbackVideoGraphWrapper.setCompositionEffects(composition.effects.videoEffects);
+    playbackVideoGraphWrapper.setCompositorSettings(composition.videoCompositorSettings);
+    playbackVideoGraphWrapper.setRequestOpenGlToneMapping(
+        composition.hdrMode == Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL);
+    playbackVideoGraphWrapper.setIsInputSdrToneMapped(
+        composition.hdrMode == Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC);
+  }
+
   private void releaseInternal(ConditionVariable conditionVariable) {
     try {
       playbackAudioGraphWrapper.release();
@@ -184,6 +244,16 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
     } finally {
       conditionVariable.open();
     }
+  }
+
+  public void startRenderingInternal() {
+    playbackAudioGraphWrapper.startRendering();
+    playbackVideoGraphWrapper.startRendering();
+  }
+
+  public void stopRenderingInternal() {
+    playbackAudioGraphWrapper.stopRendering();
+    playbackVideoGraphWrapper.stopRendering();
   }
 
   private void clearOutputSurfaceInternal() {

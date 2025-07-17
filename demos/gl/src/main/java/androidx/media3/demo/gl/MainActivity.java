@@ -15,6 +15,7 @@
  */
 package androidx.media3.demo.gl;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 
 import android.app.Activity;
@@ -31,6 +32,7 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.GlUtil;
+import androidx.media3.common.util.GlUtil.GlException;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DefaultDataSource;
@@ -76,10 +78,16 @@ public final class MainActivity extends Activity {
 
     Context context = getApplicationContext();
     boolean requestSecureSurface = getIntent().hasExtra(DRM_SCHEME_EXTRA);
-    if (requestSecureSurface && !GlUtil.isProtectedContentExtensionSupported(context)) {
-      Toast.makeText(
-              context, R.string.error_protected_content_extension_not_supported, Toast.LENGTH_LONG)
-          .show();
+    try {
+      if (requestSecureSurface && !GlUtil.isProtectedContentExtensionSupported(context)) {
+        Toast.makeText(
+                context,
+                R.string.error_protected_content_extension_not_supported,
+                Toast.LENGTH_LONG)
+            .show();
+      }
+    } catch (GlException e) {
+      Toast.makeText(context, R.string.gl_error_occurred, Toast.LENGTH_LONG).show();
     }
 
     VideoProcessingGLSurfaceView videoProcessingGLSurfaceView =
@@ -94,7 +102,7 @@ public final class MainActivity extends Activity {
   @Override
   public void onStart() {
     super.onStart();
-    if (Util.SDK_INT > 23) {
+    if (SDK_INT > 23) {
       initializePlayer();
       if (playerView != null) {
         playerView.onResume();
@@ -105,7 +113,7 @@ public final class MainActivity extends Activity {
   @Override
   public void onResume() {
     super.onResume();
-    if (Util.SDK_INT <= 23 || player == null) {
+    if (SDK_INT <= 23 || player == null) {
       initializePlayer();
       if (playerView != null) {
         playerView.onResume();
@@ -116,7 +124,7 @@ public final class MainActivity extends Activity {
   @Override
   public void onPause() {
     super.onPause();
-    if (Util.SDK_INT <= 23) {
+    if (SDK_INT <= 23) {
       if (playerView != null) {
         playerView.onPause();
       }
@@ -127,7 +135,7 @@ public final class MainActivity extends Activity {
   @Override
   public void onStop() {
     super.onStop();
-    if (Util.SDK_INT > 23) {
+    if (SDK_INT > 23) {
       if (playerView != null) {
         playerView.onPause();
       }

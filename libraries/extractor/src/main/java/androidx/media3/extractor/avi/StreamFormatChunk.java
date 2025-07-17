@@ -86,18 +86,17 @@ import com.google.common.collect.ImmutableList;
     int bitsPerSample = body.readLittleEndianUnsignedShort();
     int pcmEncoding = Util.getPcmEncoding(bitsPerSample);
     int cbSize = body.bytesLeft() > 0 ? body.readLittleEndianUnsignedShort() : 0;
-    byte[] codecData = new byte[cbSize];
-    body.readBytes(codecData, /* offset= */ 0, codecData.length);
-
     Format.Builder formatBuilder = new Format.Builder();
     formatBuilder
         .setSampleMimeType(mimeType)
         .setChannelCount(channelCount)
         .setSampleRate(samplesPerSecond);
-    if (MimeTypes.AUDIO_RAW.equals(mimeType) && pcmEncoding != C.ENCODING_INVALID) {
+    if (mimeType.equals(MimeTypes.AUDIO_RAW) && pcmEncoding != C.ENCODING_INVALID) {
       formatBuilder.setPcmEncoding(pcmEncoding);
     }
-    if (MimeTypes.AUDIO_AAC.equals(mimeType) && codecData.length > 0) {
+    if (mimeType.equals(MimeTypes.AUDIO_AAC) && cbSize > 0) {
+      byte[] codecData = new byte[cbSize];
+      body.readBytes(codecData, /* offset= */ 0, codecData.length);
       formatBuilder.setInitializationData(ImmutableList.of(codecData));
     }
     return new StreamFormatChunk(formatBuilder.build());

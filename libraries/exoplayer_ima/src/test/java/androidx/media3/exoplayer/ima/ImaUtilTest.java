@@ -1086,7 +1086,8 @@ public class ImaUtilTest {
     long liveWindowDurationUs = 60_000_000L;
     long nowUs = 110_234_567L;
     AdPlaybackState adPlaybackState =
-        new AdPlaybackState(/* adsId= */ "adsId").withLivePostrollPlaceholderAppended();
+        new AdPlaybackState(/* adsId= */ "adsId")
+            .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ true);
     adPlaybackState =
         addAdGroupToAdPlaybackState(
             adPlaybackState,
@@ -1134,7 +1135,8 @@ public class ImaUtilTest {
     long liveWindowDurationUs = 60_000_000L;
     long nowUs = 110_234_567L;
     AdPlaybackState adPlaybackState =
-        new AdPlaybackState(/* adsId= */ "adsId").withLivePostrollPlaceholderAppended();
+        new AdPlaybackState(/* adsId= */ "adsId")
+            .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ true);
     adPlaybackState =
         addAdGroupToAdPlaybackState(
             adPlaybackState,
@@ -1170,7 +1172,8 @@ public class ImaUtilTest {
   public void
       maybeCorrectPreviouslyUnknownAdDuration_windowPastAdGroups_adPlaybackStateNotChanged() {
     AdPlaybackState adPlaybackState =
-        new AdPlaybackState(/* adsId= */ "adsId").withLivePostrollPlaceholderAppended();
+        new AdPlaybackState(/* adsId= */ "adsId")
+            .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ true);
     adPlaybackState =
         addAdGroupToAdPlaybackState(
             adPlaybackState,
@@ -1219,7 +1222,8 @@ public class ImaUtilTest {
             /* populateAds= */ false,
             /* playedAds= */ false);
     AdPlaybackState adPlaybackState =
-        new AdPlaybackState(/* adsId= */ "adsId").withLivePostrollPlaceholderAppended();
+        new AdPlaybackState(/* adsId= */ "adsId")
+            .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ true);
     // Insert first ad resulting in group [10_000_000, 29_000_123, 0, 0]
     adPlaybackState =
         addLiveAdBreak(
@@ -1322,7 +1326,8 @@ public class ImaUtilTest {
   public void
       maybeCorrectPreviouslyUnknownAdDuration_timelineMovesMultiplePeriodsForward_adDurationCorrected() {
     AdPlaybackState adPlaybackState =
-        new AdPlaybackState(/* adsId= */ "adsId").withLivePostrollPlaceholderAppended();
+        new AdPlaybackState(/* adsId= */ "adsId")
+            .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ true);
     // Timeline window to start with: c, a, a, a, [a, c, a], a, a, a
     FakeMultiPeriodLiveTimeline contentTimeline =
         new FakeMultiPeriodLiveTimeline(
@@ -1402,7 +1407,8 @@ public class ImaUtilTest {
         windowStartTimeUs
             + contentTimeline.getPeriod(/* periodIndex= */ 1, new Period()).positionInWindowUs;
     AdPlaybackState adPlaybackState =
-        new AdPlaybackState(/* adsId= */ "adsId").withLivePostrollPlaceholderAppended();
+        new AdPlaybackState(/* adsId= */ "adsId")
+            .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ true);
     adPlaybackState =
         addLiveAdBreak(
             /* currentContentPeriodPositionUs= */ firstAdPeriodStartTimeUs,
@@ -1438,7 +1444,8 @@ public class ImaUtilTest {
   public void
       maybeCorrectPreviouslyUnknownAdDuration_timelineMovesMultiplePeriodsForwardStartOfAdGroupNotInWindow_adDurationCorrected() {
     AdPlaybackState adPlaybackState =
-        new AdPlaybackState(/* adsId= */ "adsId").withLivePostrollPlaceholderAppended();
+        new AdPlaybackState(/* adsId= */ "adsId")
+            .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ true);
     // Window with content and ad periods: c, a, a, a, a, [c, a, a], a, a, c
     // Supposed insertion of ad for period with unknown duration.
     // durationsUs: [10_000_000L, 28_000_000L, 0L, 0L]
@@ -1496,7 +1503,8 @@ public class ImaUtilTest {
   public void
       maybeCorrectPreviouslyUnknownAdDuration_timelineMovesMultiplePeriodsForwardWithinAdOnlyWindow_adDurationCorrected() {
     AdPlaybackState adPlaybackState =
-        new AdPlaybackState(/* adsId= */ "adsId").withLivePostrollPlaceholderAppended();
+        new AdPlaybackState(/* adsId= */ "adsId")
+            .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ true);
     // Supposed window when inserting ads: c, a, a, [a, a, a], a, a, a, c
     // durationsUs: [10_000_000L, 10_000_000L, 10_000_000L, 10_000_000L, 123L, 0, 0, 0]
     adPlaybackState =
@@ -1619,7 +1627,8 @@ public class ImaUtilTest {
     long adPeriodDurationUs = msToUs(AD_PERIOD_DURATION_MS);
     long periodDurationUs = msToUs(PERIOD_DURATION_MS);
     AdPlaybackState adPlaybackState =
-        new AdPlaybackState(/* adsId= */ "adsId").withLivePostrollPlaceholderAppended();
+        new AdPlaybackState(/* adsId= */ "adsId")
+            .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ true);
     // Window with content and ad periods: c, a, a, a, a, [c, a, a], a, a, c
     // Supposed insertion of ad for period with unknown duration. PLaying first ad.
     // durationsUs: [10_000_000L, 28_000_000L, 0L, 0L]
@@ -1688,7 +1697,8 @@ public class ImaUtilTest {
             /* populateAds= */ false,
             /* playedAds= */ false);
     AdPlaybackState adPlaybackState =
-        new AdPlaybackState(/* adsId= */ "adsId").withLivePostrollPlaceholderAppended();
+        new AdPlaybackState(/* adsId= */ "adsId")
+            .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ true);
     adPlaybackState =
         addAdGroupToAdPlaybackState(
             adPlaybackState,
@@ -1724,7 +1734,8 @@ public class ImaUtilTest {
             /* populateAds= */ false,
             /* playedAds= */ false);
     AdPlaybackState adPlaybackState =
-        new AdPlaybackState(/* adsId= */ "adsId").withLivePostrollPlaceholderAppended();
+        new AdPlaybackState(/* adsId= */ "adsId")
+            .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ true);
     adPlaybackState =
         addAdGroupToAdPlaybackState(
             adPlaybackState,
@@ -2034,7 +2045,8 @@ public class ImaUtilTest {
             /* populateAds= */ false,
             /* playedAds= */ false);
     AdPlaybackState adPlaybackState =
-        new AdPlaybackState("adsId").withLivePostrollPlaceholderAppended();
+        new AdPlaybackState("adsId")
+            .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ true);
     adPlaybackState =
         addLiveAdBreak(
             /* currentContentPeriodPositionUs= */ 50_000_000,
@@ -2135,7 +2147,8 @@ public class ImaUtilTest {
             /* populateAds= */ false,
             /* playedAds= */ false);
     AdPlaybackState adPlaybackState =
-        new AdPlaybackState("adsId").withLivePostrollPlaceholderAppended();
+        new AdPlaybackState("adsId")
+            .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ true);
     adPlaybackState =
         addLiveAdBreak(
             /* currentContentPeriodPositionUs= */ 50_000_000,
@@ -2222,7 +2235,8 @@ public class ImaUtilTest {
             /* populateAds= */ false,
             /* playedAds= */ false);
     AdPlaybackState adPlaybackState =
-        new AdPlaybackState("adsId").withLivePostrollPlaceholderAppended();
+        new AdPlaybackState("adsId")
+            .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ true);
     adPlaybackState =
         addLiveAdBreak(
             /* currentContentPeriodPositionUs= */ 30_000_000,
@@ -2283,7 +2297,8 @@ public class ImaUtilTest {
             /* populateAds= */ false,
             /* playedAds= */ false);
     AdPlaybackState adPlaybackState =
-        new AdPlaybackState("adsId").withLivePostrollPlaceholderAppended();
+        new AdPlaybackState("adsId")
+            .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ true);
     // Ad events of the first two ads of the group have arrived (the first of the window).
     adPlaybackState =
         addLiveAdBreak(
@@ -2365,7 +2380,8 @@ public class ImaUtilTest {
             /* populateAds= */ true,
             /* playedAds= */ false);
     AdPlaybackState adPlaybackState =
-        new AdPlaybackState("adsId").withLivePostrollPlaceholderAppended();
+        new AdPlaybackState("adsId")
+            .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ true);
     // Ad events of the first two ads of the group have arrived (the first of the window).
     adPlaybackState =
         addLiveAdBreak(

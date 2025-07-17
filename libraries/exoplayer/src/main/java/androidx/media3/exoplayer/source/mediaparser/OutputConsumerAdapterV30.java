@@ -30,7 +30,6 @@ import static android.media.MediaParser.PARSER_NAME_PS;
 import static android.media.MediaParser.PARSER_NAME_TS;
 import static android.media.MediaParser.PARSER_NAME_WAV;
 
-import android.annotation.SuppressLint;
 import android.media.DrmInitData.SchemeInitData;
 import android.media.MediaCodec;
 import android.media.MediaCodec.CryptoInfo;
@@ -68,6 +67,7 @@ import java.nio.IntBuffer;
 import java.nio.LongBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -76,7 +76,6 @@ import java.util.regex.Pattern;
  * ExtractorOutput}.
  */
 @RequiresApi(30)
-@SuppressLint("Override") // TODO: Remove once the SDK becomes stable.
 @UnstableApi
 public final class OutputConsumerAdapterV30 implements MediaParser.OutputConsumer {
 
@@ -509,7 +508,7 @@ public final class OutputConsumerAdapterV30 implements MediaParser.OutputConsume
             .setAccessibilityChannel(mediaFormatAccessibilityChannel);
     for (int i = 0; i < muxedCaptionFormats.size(); i++) {
       Format muxedCaptionFormat = muxedCaptionFormats.get(i);
-      if (Util.areEqual(muxedCaptionFormat.sampleMimeType, mediaFormatMimeType)
+      if (Objects.equals(muxedCaptionFormat.sampleMimeType, mediaFormatMimeType)
           && muxedCaptionFormat.accessibilityChannel == mediaFormatAccessibilityChannel) {
         // The track's format matches this muxedCaptionFormat, so we apply the manifest format
         // information to the track.

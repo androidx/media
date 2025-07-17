@@ -17,6 +17,7 @@
 
 package androidx.media3.transformer;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.transformer.AndroidTestUtil.JPG_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.JPG_ULTRA_HDR_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.assertSdrColors;
@@ -33,7 +34,6 @@ import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.BitmapLoader;
-import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSourceBitmapLoader;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -77,7 +77,7 @@ public final class TransformerUltraHdrTest {
   @Test
   public void exportUltraHdrImage_withUltraHdrEnabledOnUnsupportedApiLevel_fallbackToExportSdr()
       throws Exception {
-    assumeTrue(Util.SDK_INT < 34);
+    assumeTrue(SDK_INT < 34);
     assumeFormatsSupported(
         context,
         testId,

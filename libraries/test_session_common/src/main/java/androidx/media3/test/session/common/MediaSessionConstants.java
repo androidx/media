@@ -36,10 +36,16 @@ public class MediaSessionConstants {
       "testSetShowPlayButtonIfSuppressedToFalse";
   public static final String TEST_MEDIA_CONTROLLER_COMPAT_CALLBACK_WITH_MEDIA_SESSION_TEST =
       "MediaControllerCompatCallbackWithMediaSessionTest";
+  public static final String TEST_CUSTOM_ACTION_WITH_PROGRESS_UPDATE =
+      "testCustomActionWithProgressUpdate";
   // Bundle keys
   public static final String KEY_AVAILABLE_SESSION_COMMANDS = "availableSessionCommands";
   public static final String KEY_CONTROLLER = "controllerKey";
   public static final String KEY_COMMAND_GET_TASKS_UNAVAILABLE = "commandGetTasksUnavailable";
+
+  public static final String KEY_IS_LEGACY_CONTROLLER = "isLegacyController";
+
+  public static final String BOUNCING_CUSTOM_COMMAND = "bouncingCustomCommand";
 
   /**
    * The key used to identify the notification controller in test-only methods like {@code

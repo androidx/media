@@ -85,17 +85,24 @@ public abstract class BaseAudioProcessor implements AudioProcessor {
   }
 
   @Override
+  @Deprecated
   public final void flush() {
+    flush(StreamMetadata.DEFAULT);
+  }
+
+  @Override
+  public final void flush(StreamMetadata streamMetadata) {
     outputBuffer = EMPTY_BUFFER;
     inputEnded = false;
     inputAudioFormat = pendingInputAudioFormat;
     outputAudioFormat = pendingOutputAudioFormat;
-    onFlush();
+    onFlush(streamMetadata);
   }
 
   @Override
   public final void reset() {
-    flush();
+    outputBuffer = EMPTY_BUFFER;
+    inputEnded = false;
     buffer = EMPTY_BUFFER;
     pendingInputAudioFormat = AudioFormat.NOT_SET;
     pendingOutputAudioFormat = AudioFormat.NOT_SET;
@@ -135,9 +142,19 @@ public abstract class BaseAudioProcessor implements AudioProcessor {
     // Do nothing.
   }
 
-  /** Called when the processor is flushed, directly or as part of resetting. */
+  /**
+   * Called when the processor is flushed.
+   *
+   * @deprecated Use {@link #onFlush(StreamMetadata)} instead.
+   */
+  @Deprecated
   protected void onFlush() {
     // Do nothing.
+  }
+
+  /** Called when the processor is {@linkplain AudioProcessor#flush(StreamMetadata) flushed}. */
+  protected void onFlush(StreamMetadata streamMetadata) {
+    onFlush();
   }
 
   /** Called when the processor is reset. */

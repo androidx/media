@@ -15,6 +15,7 @@
  */
 package androidx.media3.session;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static android.support.v4.media.MediaMetadataCompat.METADATA_KEY_ADVERTISEMENT;
 import static android.support.v4.media.MediaMetadataCompat.METADATA_KEY_ALBUM_ART;
 import static android.support.v4.media.MediaMetadataCompat.METADATA_KEY_ARTIST;
@@ -42,12 +43,14 @@ import static androidx.media3.test.session.common.TestUtils.TIMEOUT_MS;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.junit.Assert.assertThrows;
 
 import android.annotation.SuppressLint;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.graphics.Typeface;
 import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Bundle;
@@ -58,7 +61,10 @@ import android.support.v4.media.session.MediaSessionCompat;
 import android.support.v4.media.session.MediaSessionCompat.QueueItem;
 import android.support.v4.media.session.PlaybackStateCompat;
 import android.support.v4.media.session.PlaybackStateCompat.CustomAction;
+import android.text.SpannableString;
+import android.text.Spanned;
 import android.text.TextUtils;
+import android.text.style.StyleSpan;
 import androidx.annotation.Nullable;
 import androidx.media.VolumeProviderCompat;
 import androidx.media3.common.DeviceInfo;
@@ -72,7 +78,6 @@ import androidx.media3.common.Player.RepeatMode;
 import androidx.media3.common.Player.State;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.BitmapLoader;
-import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSourceBitmapLoader;
 import androidx.media3.test.session.common.HandlerThreadTestRule;
 import androidx.media3.test.session.common.MainLooperTestRule;
@@ -90,6 +95,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -205,24 +211,40 @@ public class MediaControllerWithMediaSessionCompatTest {
   }
 
   @Test
-  public void disconnected_bySessionRelease() throws Exception {
-    CountDownLatch latch = new CountDownLatch(1);
-    MediaController controller =
-        controllerTestRule.createController(
-            session.getSessionToken(),
-            new MediaController.Listener() {
-              @Override
-              public void onDisconnected(MediaController controller) {
-                latch.countDown();
-              }
-            });
+  public void
+      createController_alreadyReleasedSession_throwsSecurityExceptionWithoutCallingOnDisconnected()
+          throws Exception {
     session.release();
-    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
-    assertThat(controller.isConnected()).isFalse();
+    AtomicBoolean onDisconnectedCalled = new AtomicBoolean();
+
+    ExecutionException exception =
+        assertThrows(
+            ExecutionException.class,
+            () ->
+                controllerTestRule.createController(
+                    session.getSessionToken(),
+                    new MediaController.Listener() {
+                      @Override
+                      public void onDisconnected(MediaController controller) {
+                        onDisconnectedCalled.set(true);
+                      }
+                    }));
+
+    assertThat(exception).hasCauseThat().isInstanceOf(SecurityException.class);
+    assertThat(onDisconnectedCalled.get()).isFalse();
   }
 
   @Test
-  public void disconnected_byControllerRelease() throws Exception {
+  public void isConnected_afterSuccessfulConnection_returnsTrue() throws Exception {
+    MediaController controller =
+        controllerTestRule.createController(session.getSessionToken(), /* listener= */ null);
+
+    assertThat(controller.isConnected()).isTrue();
+  }
+
+  @Test
+  public void isConnected_afterSessionReleased_returnsFalseAndCallsOnDisconnected()
+      throws Exception {
     CountDownLatch latch = new CountDownLatch(1);
     MediaController controller =
         controllerTestRule.createController(
@@ -233,13 +255,37 @@ public class MediaControllerWithMediaSessionCompatTest {
                 latch.countDown();
               }
             });
-    threadTestRule.getHandler().postAndSync(controller::release);
+
+    session.release();
+
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(controller.isConnected()).isFalse();
   }
 
   @Test
-  public void disconnected_byControllerReleaseRightAfterCreated() throws Exception {
+  public void isConnected_afterControllerRelease_returnsFalseAndCallsOnDisconnected()
+      throws Exception {
+    CountDownLatch latch = new CountDownLatch(1);
+    MediaController controller =
+        controllerTestRule.createController(
+            session.getSessionToken(),
+            new MediaController.Listener() {
+              @Override
+              public void onDisconnected(MediaController controller) {
+                latch.countDown();
+              }
+            });
+
+    threadTestRule.getHandler().postAndSync(controller::release);
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(controller.isConnected()).isFalse();
+  }
+
+  @Test
+  public void
+      isConnected_afterControllerReleaseRightAfterCreated_returnsFalseAndCallsOnDisconnected()
+          throws Exception {
     CountDownLatch latch = new CountDownLatch(1);
     AtomicReference<Exception> exception = new AtomicReference<>();
     MediaController controller =
@@ -259,13 +305,14 @@ public class MediaControllerWithMediaSessionCompatTest {
                 exception.set(e);
               }
             });
+
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(exception.get()).isNull();
     assertThat(controller.isConnected()).isFalse();
   }
 
   @Test
-  public void close_twice_doesNotCrash() throws Exception {
+  public void release_twice_doesNotCrash() throws Exception {
     MediaController controller = controllerTestRule.createController(session.getSessionToken());
     threadTestRule.getHandler().postAndSync(controller::release);
     threadTestRule.getHandler().postAndSync(controller::release);
@@ -370,7 +417,7 @@ public class MediaControllerWithMediaSessionCompatTest {
     Intent sessionActivity = new Intent(context, MockActivity.class);
     PendingIntent pi =
         PendingIntent.getActivity(
-            context, 0, sessionActivity, Util.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0);
+            context, 0, sessionActivity, SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0);
     session.setSessionActivity(pi);
 
     MediaController controller = controllerTestRule.createController(session.getSessionToken());
@@ -576,7 +623,7 @@ public class MediaControllerWithMediaSessionCompatTest {
     assertThat(TextUtils.equals(metadata.description, testDescription)).isTrue();
     assertThat(metadata.artworkUri).isEqualTo(testIconUri);
     assertThat(metadata.artworkData).isEqualTo(testArtworkData);
-    if (Util.SDK_INT >= 23) {
+    if (SDK_INT >= 23) {
       // TODO(b/199055952): Test mediaUri for all API levels once the bug is fixed.
       assertThat(mediaItem.requestMetadata.mediaUri).isEqualTo(testMediaUri);
     }
@@ -896,6 +943,39 @@ public class MediaControllerWithMediaSessionCompatTest {
   }
 
   @Test
+  public void
+      getMediaMetadata_withMediaMetadataCompatCustomPlainTypeValues_returnsConvertedMediaMetadataWithExtras()
+          throws Exception {
+    SpannableString spannableString = new SpannableString("chars");
+    spannableString.setSpan(
+        new StyleSpan(Typeface.BOLD), /* start= */ 0, /* end= */ 1, /* flags= */ 0);
+    MediaMetadataCompat testMediaMetadataCompat =
+        new MediaMetadataCompat.Builder()
+            .putLong("longKey", 1234567890987654321L)
+            .putString("stringKey", "abcdef")
+            .putText("textKey", spannableString)
+            // Explicitly not test setBitmap and setRating as we don't want to transfer custom
+            // values of these types.
+            .build();
+    session.setMetadata(testMediaMetadataCompat);
+    MediaController controller = controllerTestRule.createController(session.getSessionToken());
+
+    MediaMetadata mediaMetadata =
+        threadTestRule.getHandler().postAndSync(controller::getMediaMetadata);
+
+    assertThat(mediaMetadata.extras).isNotNull();
+    assertThat(mediaMetadata.extras.getLong("longKey", /* defaultValue= */ 0))
+        .isEqualTo(1234567890987654321L);
+    assertThat(mediaMetadata.extras.getString("stringKey")).isEqualTo("abcdef");
+    assertThat(mediaMetadata.extras.getCharSequence("stringKey").toString()).isEqualTo("abcdef");
+    assertThat(mediaMetadata.extras.getCharSequence("textKey").toString()).isEqualTo("chars");
+    assertThat(
+            ((Spanned) mediaMetadata.extras.getCharSequence("textKey"))
+                .getSpans(/* start= */ 0, /* end= */ 1, StyleSpan.class))
+        .isNotEmpty();
+  }
+
+  @Test
   public void getMediaMetadata_withMediaMetadataCompatAndArtworkData_returnsConvertedMediaMetadata()
       throws Exception {
     MediaItem testMediaItem = MediaTestUtils.createMediaItemWithArtworkData("test");
@@ -978,8 +1058,8 @@ public class MediaControllerWithMediaSessionCompatTest {
 
     MediaMetadata mediaMetadata =
         threadTestRule.getHandler().postAndSync(controller::getMediaMetadata);
-    assertThat(TextUtils.equals(mediaMetadata.description, testMediaMetadataCompatDescription))
-        .isTrue();
+
+    assertThat(mediaMetadata.description.toString()).isEqualTo(testMediaMetadataCompatDescription);
     assertThat(TextUtils.equals(mediaMetadata.artist, METADATA_ARTIST)).isTrue();
     assertThat(TextUtils.equals(mediaMetadata.albumTitle, METADATA_ALBUM_TITLE)).isTrue();
   }
@@ -1461,6 +1541,84 @@ public class MediaControllerWithMediaSessionCompatTest {
   }
 
   @Test
+  public void setPlaybackState_toStoppedWithEndPosition_notifiesPlaybackStateEnded()
+      throws Exception {
+    long testDuration = 1_000;
+    session.setPlaybackState(
+        new PlaybackStateCompat.Builder()
+            .setState(PlaybackStateCompat.STATE_PLAYING, /* position= */ 0, /* playbackSpeed= */ 1f)
+            .build());
+    session.setMetadata(
+        new MediaMetadataCompat.Builder().putLong(METADATA_KEY_DURATION, testDuration).build());
+
+    MediaController controller = controllerTestRule.createController(session.getSessionToken());
+    CountDownLatch latch = new CountDownLatch(1);
+    AtomicInteger playbackStateFromParamRef = new AtomicInteger();
+    AtomicInteger playbackStateFromGetterRef = new AtomicInteger();
+    Player.Listener listener =
+        new Player.Listener() {
+          @Override
+          public void onPlaybackStateChanged(@Player.State int playbackState) {
+            playbackStateFromParamRef.set(playbackState);
+            playbackStateFromGetterRef.set(controller.getPlaybackState());
+            latch.countDown();
+          }
+        };
+    threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
+
+    session.setPlaybackState(
+        new PlaybackStateCompat.Builder()
+            .setState(
+                PlaybackStateCompat.STATE_STOPPED,
+                /* position= */ testDuration,
+                /* playbackSpeed= */ 1f)
+            .build());
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(playbackStateFromParamRef.get()).isEqualTo(Player.STATE_ENDED);
+    assertThat(playbackStateFromGetterRef.get()).isEqualTo(Player.STATE_ENDED);
+  }
+
+  @Test
+  public void setPlaybackState_toStoppedBeforeEndPosition_notifiesPlaybackStateIdle()
+      throws Exception {
+    long testDuration = 1_000;
+    session.setPlaybackState(
+        new PlaybackStateCompat.Builder()
+            .setState(PlaybackStateCompat.STATE_PLAYING, /* position= */ 0, /* playbackSpeed= */ 1f)
+            .build());
+    session.setMetadata(
+        new MediaMetadataCompat.Builder().putLong(METADATA_KEY_DURATION, testDuration).build());
+
+    MediaController controller = controllerTestRule.createController(session.getSessionToken());
+    CountDownLatch latch = new CountDownLatch(1);
+    AtomicInteger playbackStateFromParamRef = new AtomicInteger();
+    AtomicInteger playbackStateFromGetterRef = new AtomicInteger();
+    Player.Listener listener =
+        new Player.Listener() {
+          @Override
+          public void onPlaybackStateChanged(@Player.State int playbackState) {
+            playbackStateFromParamRef.set(playbackState);
+            playbackStateFromGetterRef.set(controller.getPlaybackState());
+            latch.countDown();
+          }
+        };
+    threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
+
+    session.setPlaybackState(
+        new PlaybackStateCompat.Builder()
+            .setState(
+                PlaybackStateCompat.STATE_STOPPED,
+                /* position= */ testDuration / 2,
+                /* playbackSpeed= */ 1f)
+            .build());
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(playbackStateFromParamRef.get()).isEqualTo(Player.STATE_IDLE);
+    assertThat(playbackStateFromGetterRef.get()).isEqualTo(Player.STATE_IDLE);
+  }
+
+  @Test
   public void setPlaybackState_withSpeed_notifiesOnPlaybackParametersChanged() throws Exception {
     MediaController controller = controllerTestRule.createController(session.getSessionToken());
     CountDownLatch latch = new CountDownLatch(1);
@@ -1526,7 +1684,7 @@ public class MediaControllerWithMediaSessionCompatTest {
     int volumeControlType = VolumeProviderCompat.VOLUME_CONTROL_ABSOLUTE;
     int maxVolume = 100;
     int currentVolume = 45;
-    String routingSessionId = Util.SDK_INT >= 30 ? "route" : null;
+    String routingSessionId = SDK_INT >= 30 ? "route" : null;
 
     AtomicReference<DeviceInfo> deviceInfoRef = new AtomicReference<>();
     CountDownLatch latchForDeviceInfo = new CountDownLatch(1);
@@ -1561,7 +1719,7 @@ public class MediaControllerWithMediaSessionCompatTest {
 
   @Test
   public void setPlaybackToLocal_notifiesDeviceInfoAndVolume() throws Exception {
-    if (Util.SDK_INT <= 22) {
+    if (SDK_INT <= 22) {
       // In API 21 and 22, onAudioInfoChanged is not called.
       return;
     }

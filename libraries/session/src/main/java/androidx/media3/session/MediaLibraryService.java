@@ -459,7 +459,7 @@ public abstract class MediaLibraryService extends MediaSessionService {
       @UnstableApi
       public Builder(Context context, Player player, Callback callback) {
         super(context, player, callback);
-        libraryErrorReplicationMode = LIBRARY_ERROR_REPLICATION_MODE_FATAL;
+        libraryErrorReplicationMode = LIBRARY_ERROR_REPLICATION_MODE_NON_FATAL;
       }
 
       /**
@@ -547,11 +547,12 @@ public abstract class MediaLibraryService extends MediaSessionService {
        * that the media button preferences use {@link CommandButton#slots} to define the allowed
        * button placement.
        *
-       * <p>The buttons are converted to custom actions in the legacy media session playback state
-       * for legacy controllers (see {@code
+       * <p>The buttons are converted to platform actions in the platform media session playback
+       * state for platform or legacy {@code android.support.v4.media.session.MediaControllerCompat}
+       * controllers (see {@code
        * PlaybackStateCompat.Builder#addCustomAction(PlaybackStateCompat.CustomAction)}). When
        * converting, the {@linkplain SessionCommand#customExtras custom extras of the session
-       * command} is used for the extras of the legacy custom action.
+       * command} is used for the extras of the platform custom action.
        *
        * <p>Controllers that connect have the custom layout of the session available with the
        * initial connection result by default. A custom layout specific to a controller can be set
@@ -577,11 +578,12 @@ public abstract class MediaLibraryService extends MediaSessionService {
       /**
        * Sets the media button preferences.
        *
-       * <p>The button are converted to custom actions in the legacy media session playback state
-       * for legacy controllers (see {@code
+       * <p>The button are converted to custom actions in the platform media session playback state
+       * for platform or legacy {@code android.support.v4.media.session.MediaControllerCompat}
+       * controllers (see {@code
        * PlaybackStateCompat.Builder#addCustomAction(PlaybackStateCompat.CustomAction)}). When
        * converting, the {@linkplain SessionCommand#customExtras custom extras of the session
-       * command} is used for the extras of the legacy custom action.
+       * command} is used for the extras of the platform custom action.
        *
        * <p>Controllers that connect have the media button preferences of the session available with
        * the initial connection result by default. Media button preferences specific to a controller
@@ -641,7 +643,7 @@ public abstract class MediaLibraryService extends MediaSessionService {
        * android.support.v4.media.MediaBrowserCompat} and {@link android.media.browse.MediaBrowser})
        * to which no error codes can be transmitted as a result of the service call.
        *
-       * <p>The default is {@link #LIBRARY_ERROR_REPLICATION_MODE_FATAL}.
+       * <p>The default is {@link #LIBRARY_ERROR_REPLICATION_MODE_NON_FATAL}.
        *
        * <p>{@link MediaLibrarySession.Callback#onGetLibraryRoot} is exempted from replication,
        * because this method is part of the connection process of a legacy browser.
@@ -855,7 +857,7 @@ public abstract class MediaLibraryService extends MediaSessionService {
      * Clears the replicated library error in the platform session that was set when a {@link
      * LibraryResult} with an error result code was returned by the {@link
      * MediaLibrarySession.Callback} that is replicated and if {@linkplain
-     * MediaLibrarySession.Builder#setLibraryErrorReplicationMode(int) legacy session error
+     * MediaLibrarySession.Builder#setLibraryErrorReplicationMode(int) platform session error
      * replication is not turned off}.
      *
      * <p>Note: If a {@link LibraryResult#RESULT_SUCCESS} was returned by a method of {@link
@@ -875,9 +877,11 @@ public abstract class MediaLibraryService extends MediaSessionService {
    * Parameters for the interaction between {@link MediaBrowser} and {@link MediaLibrarySession}.
    *
    * <p>When a {@link MediaBrowser} specifies the parameters, the {@link MediaLibrarySession} is
-   * recommended to do the best effort to provide a result regarding the parameters, but it's not an
-   * error even though {@link MediaLibrarySession} doesn't return the parameters since they are
-   * optional.
+   * recommended to provide a result matching the parameters, but it's not an error if {@link
+   * MediaLibrarySession} can't fulfil the request.
+   *
+   * <p>Multiple parameters can be combined together, for example to request {@linkplain
+   * #isSuggested suggested} items that are also {@linkplain #isOffline offline}.
    */
   public static final class LibraryParams {
 

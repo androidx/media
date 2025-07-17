@@ -24,6 +24,7 @@ import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.session.MediaLibraryService.LibraryParams;
 import androidx.media3.session.MediaLibraryService.MediaLibrarySession;
+import androidx.media3.session.legacy.MediaBrowserCompat;
 import androidx.media3.session.legacy.MediaDescriptionCompat;
 import androidx.media3.session.legacy.PlaybackStateCompat;
 
@@ -170,6 +171,9 @@ public final class MediaConstants {
   /**
    * {@link Bundle} value used in {@link MediaMetadata#extras} to indicate that the corresponding
    * {@link MediaItem} has been partially played by the user.
+   *
+   * <p>{@link #EXTRAS_KEY_COMPLETION_PERCENTAGE} must be specified to indicate how far the item has
+   * been played.
    *
    * @see MediaMetadata.Builder#setExtras(Bundle)
    * @see MediaMetadata#extras
@@ -477,13 +481,21 @@ public final class MediaConstants {
       "androidx.media3.session.EXTRAS_KEY_MEDIA_TYPE_COMPAT";
 
   /**
-   * {@link Bundle} key used to indicate the {@link CommandButton.Icon} in the extras of the legacy
-   * {@link PlaybackStateCompat.CustomAction}. The corresponding value should be one of the {@code
-   * CommandButton.ICON_} integer constants.
+   * {@link Bundle} key used to indicate the {@link CommandButton.Icon} in the extras of the
+   * platform {@link android.media.session.PlaybackState.CustomAction}. The corresponding value
+   * should be one of the {@code CommandButton.ICON_} integer constants.
    */
   @UnstableApi
   public static final String EXTRAS_KEY_COMMAND_BUTTON_ICON_COMPAT =
       "androidx.media3.session.EXTRAS_KEY_COMMAND_BUTTON_ICON_COMPAT";
+
+  /**
+   * {@link Bundle} key used to indicate the custom icon Uri of a {@link CommandButton} in the
+   * extras of the platform {@link android.media.session.PlaybackState.CustomAction}.
+   */
+  @UnstableApi
+  public static final String EXTRAS_KEY_COMMAND_BUTTON_ICON_URI_COMPAT =
+      "androidx.media3.session.EXTRAS_KEY_COMMAND_BUTTON_ICON_URI_COMPAT";
 
   /**
    * {@link Bundle} key used to store the title in case there was a display title that was given
@@ -524,6 +536,27 @@ public final class MediaConstants {
   @UnstableApi
   public static final long EXTRAS_VALUE_STATUS_NOT_DOWNLOADED =
       MediaDescriptionCompat.STATUS_NOT_DOWNLOADED;
+
+  /**
+   * Used as a float extra field to denote the current progress during download. The value of this
+   * field must be a float number within [0.0, 1.0].
+   *
+   * @see #CUSTOM_COMMAND_DOWNLOAD
+   */
+  @UnstableApi
+  public static final String EXTRAS_KEY_DOWNLOAD_PROGRESS =
+      MediaBrowserCompat.EXTRA_DOWNLOAD_PROGRESS;
+
+  /**
+   * Predefined custom action name to ask the connected service to download a specific {@link
+   * MediaItem} for offline playback. The id of the media item must be passed in an extra bundle.
+   * The download progress might be delivered to the controller or the browser via {@link
+   * MediaController.ProgressListener}.
+   *
+   * @see #EXTRAS_KEY_DOWNLOAD_PROGRESS
+   */
+  @UnstableApi
+  public static final String CUSTOM_COMMAND_DOWNLOAD = MediaBrowserCompat.CUSTOM_ACTION_DOWNLOAD;
 
   /**
    * The extras value to indicate that the media item is being downloaded. Used with {@link

@@ -27,10 +27,10 @@ import android.graphics.drawable.Drawable;
 import android.os.Handler;
 import android.util.Pair;
 import android.view.animation.LinearInterpolator;
+import androidx.media3.common.OverlaySettings;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.DrawableOverlay;
-import androidx.media3.effect.OverlaySettings;
 import androidx.media3.effect.TextureOverlay;
 import java.util.concurrent.CountDownLatch;
 

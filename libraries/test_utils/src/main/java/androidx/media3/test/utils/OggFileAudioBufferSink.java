@@ -132,7 +132,7 @@ public final class OggFileAudioBufferSink extends ForwardingAudioSink {
     scratchByteBuffer.put(isIdHeaderPacket ? (byte) 0x02 : (byte) 0x00);
 
     // granule_position
-    scratchByteBuffer.putLong((long) 0);
+    scratchByteBuffer.putLong(0L);
 
     // bitstream_serial_number
     scratchByteBuffer.putInt(0);

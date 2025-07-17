@@ -15,7 +15,7 @@
  */
 package androidx.media3.exoplayer.e2etest;
 
-import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.run;
+import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
@@ -23,6 +23,7 @@ import android.graphics.SurfaceTexture;
 import android.net.Uri;
 import android.view.Surface;
 import androidx.media3.common.C;
+import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
@@ -32,6 +33,10 @@ import androidx.media3.exoplayer.analytics.AnalyticsListener;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.exoplayer.source.LoadEventInfo;
 import androidx.media3.exoplayer.source.MediaLoadData;
+import androidx.media3.extractor.Extractor;
+import androidx.media3.extractor.ExtractorsFactory;
+import androidx.media3.extractor.mp4.FragmentedMp4Extractor;
+import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
 import androidx.media3.test.utils.CapturingRenderersFactory;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.FakeClock;
@@ -42,6 +47,8 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Rule;
 import org.junit.Test;
@@ -53,7 +60,133 @@ public class SubtitlePlaybackTest {
 
   @Rule
   public ShadowMediaCodecConfig mediaCodecConfig =
-      ShadowMediaCodecConfig.forAllSupportedMimeTypes();
+      ShadowMediaCodecConfig.withAllDefaultSupportedCodecs();
+
+  // https://github.com/androidx/media/issues/1721
+  @Test
+  public void multipleSideloadedSubtitles_noneSelected_noneLoaded() throws Exception {
+    Context applicationContext = ApplicationProvider.getApplicationContext();
+    List<Uri> loadStartedUris = new ArrayList<>();
+    AnalyticsListener analyticsListener =
+        new AnalyticsListener() {
+          @Override
+          public void onLoadStarted(
+              EventTime eventTime,
+              LoadEventInfo loadEventInfo,
+              MediaLoadData mediaLoadData,
+              int retryCount) {
+            loadStartedUris.add(loadEventInfo.uri);
+            loadStartedUris.add(loadEventInfo.dataSpec.uri);
+          }
+        };
+    ExoPlayer player =
+        new ExoPlayer.Builder(applicationContext)
+            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .build();
+    player.addAnalyticsListener(analyticsListener);
+    Uri typicalVttUri = Uri.parse("asset:///media/webvtt/typical");
+    Uri simpleTtmlUri = Uri.parse("asset:///media/ttml/simple.xml");
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri("asset:///media/mp4/sample.mp4")
+            .setSubtitleConfigurations(
+                ImmutableList.of(
+                    new MediaItem.SubtitleConfiguration.Builder(typicalVttUri)
+                        .setMimeType(MimeTypes.TEXT_VTT)
+                        .setLanguage("en")
+                        .build(),
+                    new MediaItem.SubtitleConfiguration.Builder(simpleTtmlUri)
+                        .setMimeType(MimeTypes.APPLICATION_TTML)
+                        .setLanguage("en")
+                        .build()))
+            .build();
+
+    player.setMediaItem(mediaItem);
+    player.prepare();
+    advance(player).untilState(Player.STATE_READY);
+    advance(player).untilLoadingIs(false);
+    player.play();
+    advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+
+    assertThat(loadStartedUris).containsNoneOf(typicalVttUri, simpleTtmlUri);
+  }
+
+  @Test
+  public void cea608() throws Exception {
+    Context applicationContext = ApplicationProvider.getApplicationContext();
+    CapturingRenderersFactory capturingRenderersFactory =
+        new CapturingRenderersFactory(applicationContext);
+    ExtractorsFactory fragmentedMp4ExtractorFactory =
+        new FragmentedMp4CaptionsExtractorsFactory(
+            new Format.Builder()
+                .setSampleMimeType(MimeTypes.APPLICATION_CEA608)
+                .setLanguage("en")
+                .build());
+    ExoPlayer player =
+        new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
+            .setMediaSourceFactory(
+                new DefaultMediaSourceFactory(applicationContext, fragmentedMp4ExtractorFactory))
+            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .build();
+    player.setTrackSelectionParameters(
+        player.getTrackSelectionParameters().buildUpon().setPreferredTextLanguage("en").build());
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
+    PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
+
+    player.setMediaItem(MediaItem.fromUri("asset:///media/mp4/fragmented_captions.mp4"));
+    player.prepare();
+    advance(player).untilState(Player.STATE_READY);
+    advance(player).untilFullyBuffered();
+    player.play();
+    advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+    surface.release();
+
+    DumpFileAsserts.assertOutput(
+        applicationContext, playbackOutput, "playbackdumps/subtitles/fragmented_captions.mp4.dump");
+  }
+
+  // b/388765515
+  @Test
+  public void clippedCea608() throws Exception {
+    Context applicationContext = ApplicationProvider.getApplicationContext();
+    ExtractorsFactory fragmentedMp4ExtractorFactory =
+        new FragmentedMp4CaptionsExtractorsFactory(
+            new Format.Builder()
+                .setSampleMimeType(MimeTypes.APPLICATION_CEA608)
+                .setLanguage("en")
+                .build());
+    ExoPlayer player =
+        new ExoPlayer.Builder(applicationContext)
+            .setMediaSourceFactory(
+                new DefaultMediaSourceFactory(applicationContext, fragmentedMp4ExtractorFactory))
+            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .build();
+    player.setTrackSelectionParameters(
+        player.getTrackSelectionParameters().buildUpon().setPreferredTextLanguage("en").build());
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
+    MediaItem mediaItemFull = MediaItem.fromUri("asset:///media/mp4/fragmented_captions.mp4");
+    MediaItem mediaItemClipped =
+        mediaItemFull
+            .buildUpon()
+            .setClippingConfiguration(
+                new MediaItem.ClippingConfiguration.Builder().setEndPositionMs(1830).build())
+            .build();
+
+    player.setMediaItems(ImmutableList.of(mediaItemClipped, mediaItemFull));
+    player.prepare();
+    advance(player).untilState(Player.STATE_READY);
+    advance(player).untilFullyBuffered();
+    player.play();
+    advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+    surface.release();
+
+    // No output assertion, the test just checks that playback completes.
+  }
 
   @Test
   public void sideloadedSubtitleLoadingError_playbackContinues_errorReportedToAnalyticsListener()
@@ -97,17 +230,16 @@ public class SubtitlePlaybackTest {
 
     player.setMediaItem(mediaItem);
     player.prepare();
-    run(player).ignoringNonFatalErrors().untilState(Player.STATE_READY);
-    run(player).untilFullyBuffered();
+    advance(player).ignoringNonFatalErrors().untilState(Player.STATE_READY);
+    advance(player).ignoringNonFatalErrors().untilFullyBuffered();
     player.play();
-    run(player).untilState(Player.STATE_ENDED);
+    advance(player).ignoringNonFatalErrors().untilState(Player.STATE_ENDED);
     player.release();
     surface.release();
 
     assertThat(loadErrorEventInfo.get().uri).isEqualTo(notFoundSubtitleUri);
-    // Assert the output is the same as playing the video without sideloaded subtitles.
     DumpFileAsserts.assertOutput(
-        applicationContext, playbackOutput, "playbackdumps/mp4/sample.mp4.dump");
+        applicationContext, playbackOutput, "playbackdumps/subtitles/sideloaded-error.mp4.dump");
   }
 
   @Test
@@ -159,10 +291,10 @@ public class SubtitlePlaybackTest {
 
     player.setMediaItem(mediaItem);
     player.prepare();
-    run(player).ignoringNonFatalErrors().untilState(Player.STATE_READY);
-    run(player).untilFullyBuffered();
+    advance(player).ignoringNonFatalErrors().untilState(Player.STATE_READY);
+    advance(player).ignoringNonFatalErrors().untilFullyBuffered();
     player.play();
-    run(player).untilState(Player.STATE_ENDED);
+    advance(player).ignoringNonFatalErrors().untilState(Player.STATE_ENDED);
     player.release();
     surface.release();
 
@@ -172,8 +304,66 @@ public class SubtitlePlaybackTest {
         .hasMessageThat()
         .contains("test subtitle parsing error");
     DumpFileAsserts.assertOutput(
-        applicationContext,
-        playbackOutput,
-        "playbackdumps/subtitles/sideloaded-parse-error.mp4.dump");
+        applicationContext, playbackOutput, "playbackdumps/subtitles/sideloaded-error.mp4.dump");
+  }
+
+  // TODO: b/391362063 - Assert that this error gets propagated out after that is implemented.
+  @Test
+  public void muxedSubtitleParsingError_playbackContinues() throws Exception {
+    Context applicationContext = ApplicationProvider.getApplicationContext();
+    CapturingRenderersFactory capturingRenderersFactory =
+        new CapturingRenderersFactory(applicationContext);
+    ExoPlayer player =
+        new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
+            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setMediaSourceFactory(
+                new DefaultMediaSourceFactory(applicationContext)
+                    .setSubtitleParserFactory(
+                        new ThrowingSubtitleParserFactory(
+                            () -> new IllegalStateException("test subtitle parsing error"))))
+            .build();
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
+    PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
+    MediaItem mediaItem =
+        new MediaItem.Builder().setUri("asset:///media/mkv/sample_with_srt.mkv").build();
+
+    player.setMediaItem(mediaItem);
+    player.prepare();
+    advance(player).untilState(Player.STATE_READY);
+    advance(player).untilFullyBuffered();
+    player.play();
+    advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+    surface.release();
+
+    DumpFileAsserts.assertOutput(
+        applicationContext, playbackOutput, "playbackdumps/subtitles/muxed-parsing-error.mkv.dump");
+  }
+
+  /**
+   * An {@link ExtractorsFactory} which creates a {@link FragmentedMp4Extractor} configured to
+   * extract a single additional caption track.
+   */
+  private static class FragmentedMp4CaptionsExtractorsFactory implements ExtractorsFactory {
+
+    private final Format closedCaptionFormat;
+
+    private FragmentedMp4CaptionsExtractorsFactory(Format closedCaptionFormat) {
+      this.closedCaptionFormat = closedCaptionFormat;
+    }
+
+    @Override
+    public Extractor[] createExtractors() {
+      return new Extractor[] {
+        new FragmentedMp4Extractor(
+            new DefaultSubtitleParserFactory(),
+            /* flags= */ 0,
+            /* timestampAdjuster= */ null,
+            /* sideloadedTrack= */ null,
+            /* closedCaptionFormats= */ ImmutableList.of(closedCaptionFormat),
+            /* additionalEmsgTrackOutput= */ null)
+      };
+    }
   }
 }

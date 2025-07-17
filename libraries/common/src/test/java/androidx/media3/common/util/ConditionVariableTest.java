@@ -33,14 +33,14 @@ public class ConditionVariableTest {
   }
 
   @Test
-  public void blockWithTimeout_timesOut() throws InterruptedException {
+  public void block_withTimeoutUnopened_timesOut() throws InterruptedException {
     ConditionVariable conditionVariable = buildTestConditionVariable();
     assertThat(conditionVariable.block(1)).isFalse();
     assertThat(conditionVariable.isOpen()).isFalse();
   }
 
   @Test
-  public void blockWithTimeout_blocksForAtLeastTimeout() throws InterruptedException {
+  public void block_withTimeoutUnopened_blocksForAtLeastTimeout() throws InterruptedException {
     ConditionVariable conditionVariable = buildTestConditionVariable();
     long startTimeMs = System.currentTimeMillis();
     assertThat(conditionVariable.block(/* timeoutMs= */ 500)).isFalse();
@@ -49,7 +49,8 @@ public class ConditionVariableTest {
   }
 
   @Test
-  public void blockWithMaxTimeout_blocks_thenThrowsWhenInterrupted() throws InterruptedException {
+  public void block_withMaxTimeoutUnopened_blocksThenThrowsWhenInterrupted()
+      throws InterruptedException {
     ConditionVariable conditionVariable = buildTestConditionVariable();
 
     AtomicBoolean blockReturned = new AtomicBoolean();
@@ -76,7 +77,7 @@ public class ConditionVariableTest {
   }
 
   @Test
-  public void block_blocks_thenThrowsWhenInterrupted() throws InterruptedException {
+  public void block_unopened_blocksThenThrowsWhenInterrupted() throws InterruptedException {
     ConditionVariable conditionVariable = buildTestConditionVariable();
 
     AtomicBoolean blockReturned = new AtomicBoolean();
@@ -103,7 +104,7 @@ public class ConditionVariableTest {
   }
 
   @Test
-  public void block_blocks_thenReturnsWhenOpened() throws InterruptedException {
+  public void block_opened_blocksThenReturnsWhenOpened() throws InterruptedException {
     ConditionVariable conditionVariable = buildTestConditionVariable();
 
     AtomicBoolean blockReturned = new AtomicBoolean();
@@ -130,7 +131,7 @@ public class ConditionVariableTest {
   }
 
   @Test
-  public void blockUnterruptible_blocksIfInterrupted_thenUnblocksWhenOpened()
+  public void blockUninterruptible_blocksIfInterruptedThenUnblocksWhenOpened()
       throws InterruptedException {
     ConditionVariable conditionVariable = buildTestConditionVariable();
 
@@ -140,8 +141,8 @@ public class ConditionVariableTest {
         new Thread(
             () -> {
               conditionVariable.blockUninterruptible();
-              blockReturned.set(true);
               interruptedStatusSet.set(Thread.currentThread().isInterrupted());
+              blockReturned.set(true);
             });
 
     blockingThread.start();
@@ -155,6 +156,58 @@ public class ConditionVariableTest {
 
     conditionVariable.open();
     blockingThread.join();
+    // blockUninterruptible should have set the thread's interrupted status on exit.
+    assertThat(interruptedStatusSet.get()).isTrue();
+    assertThat(conditionVariable.isOpen()).isTrue();
+  }
+
+  @Test
+  public void blockUninterruptible_withTimeoutUnopened_timesOut() throws InterruptedException {
+    ConditionVariable conditionVariable = buildTestConditionVariable();
+
+    assertThat(conditionVariable.blockUninterruptible(1)).isFalse();
+    assertThat(conditionVariable.isOpen()).isFalse();
+  }
+
+  @Test
+  public void blockUninterruptible_withTimeoutUnopened_blocksForAtLeastTimeout()
+      throws InterruptedException {
+    ConditionVariable conditionVariable = buildTestConditionVariable();
+
+    long startTimeMs = System.currentTimeMillis();
+    assertThat(conditionVariable.blockUninterruptible(/* timeoutMs= */ 500)).isFalse();
+    long endTimeMs = System.currentTimeMillis();
+
+    assertThat(endTimeMs - startTimeMs).isAtLeast(500);
+  }
+
+  @Test
+  public void blockUninterruptible_withMaxTimeout_blocksUntilOpened() throws InterruptedException {
+    ConditionVariable conditionVariable = buildTestConditionVariable();
+    AtomicBoolean blockReturned = new AtomicBoolean();
+    AtomicBoolean interruptedStatusSet = new AtomicBoolean();
+    Thread blockingThread =
+        new Thread(
+            () -> {
+              conditionVariable.blockUninterruptible(/* timeoutMs= */ Long.MAX_VALUE);
+              interruptedStatusSet.set(Thread.currentThread().isInterrupted());
+              blockReturned.set(true);
+            });
+
+    blockingThread.start();
+    Thread.sleep(500);
+
+    assertThat(blockReturned.get()).isFalse();
+
+    blockingThread.interrupt();
+    Thread.sleep(500);
+
+    // blockUninterruptible should still be blocked.
+    assertThat(blockReturned.get()).isFalse();
+
+    conditionVariable.open();
+    blockingThread.join();
+
     // blockUninterruptible should have set the thread's interrupted status on exit.
     assertThat(interruptedStatusSet.get()).isTrue();
     assertThat(conditionVariable.isOpen()).isTrue();

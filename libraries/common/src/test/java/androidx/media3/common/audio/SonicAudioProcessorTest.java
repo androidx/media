@@ -15,11 +15,13 @@
  */
 package androidx.media3.common.audio;
 
+import static androidx.media3.test.utils.TestUtil.getPeriodicSamplesBuffer;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import androidx.media3.common.C;
 import androidx.media3.common.audio.AudioProcessor.AudioFormat;
+import androidx.media3.common.audio.AudioProcessor.StreamMetadata;
 import androidx.media3.common.audio.AudioProcessor.UnhandledAudioFormatException;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import org.junit.Before;
@@ -81,14 +83,38 @@ public final class SonicAudioProcessorTest {
   public void isActiveWithSpeedChange() throws Exception {
     sonicAudioProcessor.setSpeed(1.5f);
     sonicAudioProcessor.configure(AUDIO_FORMAT_44100_HZ);
-    sonicAudioProcessor.flush();
+    sonicAudioProcessor.flush(StreamMetadata.DEFAULT);
     assertThat(sonicAudioProcessor.isActive()).isTrue();
   }
 
   @Test
-  public void isNotActiveWithNoChange() throws Exception {
+  public void isActive_withDefaultParameters_returnsFalse() throws Exception {
     sonicAudioProcessor.configure(AUDIO_FORMAT_44100_HZ);
     assertThat(sonicAudioProcessor.isActive()).isFalse();
+  }
+
+  @Test
+  public void isActive_keepActiveWithDefaultParameters_returnsTrue() throws Exception {
+    SonicAudioProcessor processor =
+        new SonicAudioProcessor(/* keepActiveWithDefaultParameters= */ true);
+    processor.configure(AUDIO_FORMAT_44100_HZ);
+    assertThat(processor.isActive()).isTrue();
+  }
+
+  @Test
+  public void queueEndOfStream_withOutputFrameCountUnderflow_setsIsEndedToTrue() throws Exception {
+    sonicAudioProcessor.setSpeed(0.95f);
+    sonicAudioProcessor.configure(AUDIO_FORMAT_48000_HZ);
+    sonicAudioProcessor.flush(StreamMetadata.DEFAULT);
+
+    // Multiply by channel count.
+    sonicAudioProcessor.queueInput(
+        getPeriodicSamplesBuffer(/* sampleCount= */ 1700 * 2, /* period= */ 192 * 2));
+    // Drain output, so that pending output frame count is 0.
+    assertThat(sonicAudioProcessor.getOutput().hasRemaining()).isTrue();
+    sonicAudioProcessor.queueEndOfStream();
+
+    assertThat(sonicAudioProcessor.isEnded()).isTrue();
   }
 
   @Test

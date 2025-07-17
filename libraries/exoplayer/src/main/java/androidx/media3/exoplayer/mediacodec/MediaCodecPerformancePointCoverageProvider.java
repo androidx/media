@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.mediacodec;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.media.MediaCodecInfo.VideoCapabilities;
@@ -23,7 +24,6 @@ import androidx.annotation.IntDef;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
-import androidx.media3.common.util.Util;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -85,8 +85,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    */
   public static @PerformancePointCoverageResult int areResolutionAndFrameRateCovered(
       VideoCapabilities videoCapabilities, int width, int height, double frameRate) {
-    if (Util.SDK_INT < 29
-        || (shouldIgnorePerformancePoints != null && shouldIgnorePerformancePoints)) {
+    if (SDK_INT < 29 || (shouldIgnorePerformancePoints != null && shouldIgnorePerformancePoints)) {
       return COVERAGE_RESULT_NO_PERFORMANCE_POINTS_UNSUPPORTED;
     }
 
@@ -131,7 +130,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
      * Checks if the CDD-requirement to support H264 720p at 60 fps is covered by PerformancePoints.
      */
     private static boolean shouldIgnorePerformancePoints() {
-      if (Util.SDK_INT >= 35) {
+      if (SDK_INT >= 35) {
         // The same check as below is tested in CTS and we should get reliable results from API 35.
         return false;
       }
@@ -165,19 +164,19 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                   /* requiresSecureDecoder= */ requiresSecureDecoder,
                   /* requiresTunnelingDecoder= */ false);
           for (int i = 0; i < decoderInfos.size(); i++) {
-            if (decoderInfos.get(i).capabilities != null
-                && decoderInfos.get(i).capabilities.getVideoCapabilities() != null) {
-              List<PerformancePoint> performancePointListH264 =
-                  decoderInfos
-                      .get(i)
-                      .capabilities
-                      .getVideoCapabilities()
-                      .getSupportedPerformancePoints();
-              if (performancePointListH264 != null && !performancePointListH264.isEmpty()) {
-                PerformancePoint targetPerformancePointH264 =
-                    new PerformancePoint(/* width= */ 1280, /* height= */ 720, /* frameRate= */ 60);
-                return evaluatePerformancePointCoverage(
-                    performancePointListH264, targetPerformancePointH264);
+            if (decoderInfos.get(i).capabilities != null) {
+              VideoCapabilities videoCapabilities =
+                  decoderInfos.get(i).capabilities.getVideoCapabilities();
+              if (videoCapabilities != null) {
+                List<PerformancePoint> performancePointListH264 =
+                    videoCapabilities.getSupportedPerformancePoints();
+                if (performancePointListH264 != null && !performancePointListH264.isEmpty()) {
+                  PerformancePoint targetPerformancePointH264 =
+                      new PerformancePoint(
+                          /* width= */ 1280, /* height= */ 720, /* frameRate= */ 60);
+                  return evaluatePerformancePointCoverage(
+                      performancePointListH264, targetPerformancePointH264);
+                }
               }
             }
           }

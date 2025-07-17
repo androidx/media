@@ -23,7 +23,6 @@ import android.os.Parcel;
 import android.os.Parcelable;
 import android.os.SystemClock;
 import android.text.TextUtils;
-import android.util.Pair;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Player;
@@ -128,39 +127,34 @@ import java.util.List;
    * previousPlayerInfo} and taking into account the passed available commands.
    *
    * @param oldPlayerInfo The old {@link PlayerInfo}.
-   * @param oldBundlingExclusions The bundling exclusions in the old {@link PlayerInfo}.
    * @param newPlayerInfo The new {@link PlayerInfo}.
    * @param newBundlingExclusions The bundling exclusions in the new {@link PlayerInfo}.
    * @param availablePlayerCommands The available commands to take into account when merging.
-   * @return A pair with the resulting {@link PlayerInfo} and {@link BundlingExclusions}.
+   * @return The resulting merged {@link PlayerInfo}.
    */
-  public static Pair<PlayerInfo, BundlingExclusions> mergePlayerInfo(
+  public static PlayerInfo mergePlayerInfo(
       PlayerInfo oldPlayerInfo,
-      BundlingExclusions oldBundlingExclusions,
       PlayerInfo newPlayerInfo,
       BundlingExclusions newBundlingExclusions,
-      Commands availablePlayerCommands) {
+      Commands availablePlayerCommands,
+      boolean keepOldUnmuteVolumeForMutedSessions) {
     PlayerInfo mergedPlayerInfo = newPlayerInfo;
-    BundlingExclusions mergedBundlingExclusions = newBundlingExclusions;
     if (newBundlingExclusions.isTimelineExcluded
-        && availablePlayerCommands.contains(Player.COMMAND_GET_TIMELINE)
-        && !oldBundlingExclusions.isTimelineExcluded) {
+        && availablePlayerCommands.contains(Player.COMMAND_GET_TIMELINE)) {
       // Use the previous timeline if it is excluded in the most recent update.
       mergedPlayerInfo = mergedPlayerInfo.copyWithTimeline(oldPlayerInfo.timeline);
-      mergedBundlingExclusions =
-          new BundlingExclusions(
-              /* isTimelineExcluded= */ false, mergedBundlingExclusions.areCurrentTracksExcluded);
     }
     if (newBundlingExclusions.areCurrentTracksExcluded
-        && availablePlayerCommands.contains(Player.COMMAND_GET_TRACKS)
-        && !oldBundlingExclusions.areCurrentTracksExcluded) {
+        && availablePlayerCommands.contains(Player.COMMAND_GET_TRACKS)) {
       // Use the previous tracks if it is excluded in the most recent update.
       mergedPlayerInfo = mergedPlayerInfo.copyWithCurrentTracks(oldPlayerInfo.currentTracks);
-      mergedBundlingExclusions =
-          new BundlingExclusions(
-              mergedBundlingExclusions.isTimelineExcluded, /* areCurrentTracksExcluded= */ false);
     }
-    return new Pair<>(mergedPlayerInfo, mergedBundlingExclusions);
+    if (keepOldUnmuteVolumeForMutedSessions && newPlayerInfo.volume == 0) {
+      // Making an educated guess to keep the last known volume this controller is aware of for
+      // unmuting the previous volume, rather than taking the default of 1f.
+      mergedPlayerInfo = mergedPlayerInfo.copyWithUnmuteVolume(oldPlayerInfo.unmuteVolume);
+    }
+    return mergedPlayerInfo;
   }
 
   /** Generates an array of {@code n} indices. */
@@ -181,7 +175,7 @@ import java.util.List;
         ? 0
         : durationMs == 0
             ? 100
-            : Util.constrainValue((int) ((bufferedPositionMs * 100) / durationMs), 0, 100);
+            : Util.constrainValue(Util.percentInt(bufferedPositionMs, durationMs), 0, 100);
   }
 
   /**

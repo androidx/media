@@ -167,13 +167,14 @@ public final class SsaParser implements SubtitleParser {
       }
       long startTimeUs = startTimesUs.get(i);
       // It's safe to inspect element i+1, because we already exited the loop above if i=size()-1.
-      long durationUs = startTimesUs.get(i + 1) - startTimesUs.get(i);
-      if (outputOptions.startTimeUs == C.TIME_UNSET || startTimeUs >= outputOptions.startTimeUs) {
-        output.accept(new CuesWithTiming(cuesForThisStartTime, startTimeUs, durationUs));
-
+      long endTimeUs = startTimesUs.get(i + 1);
+      CuesWithTiming cuesWithTiming =
+          new CuesWithTiming(
+              cuesForThisStartTime, startTimeUs, /* durationUs= */ endTimeUs - startTimeUs);
+      if (outputOptions.startTimeUs == C.TIME_UNSET || endTimeUs >= outputOptions.startTimeUs) {
+        output.accept(cuesWithTiming);
       } else if (cuesWithTimingBeforeRequestedStartTimeUs != null) {
-        cuesWithTimingBeforeRequestedStartTimeUs.add(
-            new CuesWithTiming(cuesForThisStartTime, startTimeUs, durationUs));
+        cuesWithTimingBeforeRequestedStartTimeUs.add(cuesWithTiming);
       }
     }
     if (cuesWithTimingBeforeRequestedStartTimeUs != null) {
@@ -227,7 +228,7 @@ public final class SsaParser implements SubtitleParser {
   private void parseScriptInfo(ParsableByteArray data, Charset charset) {
     @Nullable String currentLine;
     while ((currentLine = data.readLine(charset)) != null
-        && (data.bytesLeft() == 0 || data.peekChar(charset) != '[')) {
+        && (data.bytesLeft() == 0 || data.peekCodePoint(charset) != '[')) {
       String[] infoNameAndValue = currentLine.split(":");
       if (infoNameAndValue.length != 2) {
         continue;
@@ -266,7 +267,7 @@ public final class SsaParser implements SubtitleParser {
     @Nullable SsaStyle.Format formatInfo = null;
     @Nullable String currentLine;
     while ((currentLine = data.readLine(charset)) != null
-        && (data.bytesLeft() == 0 || data.peekChar(charset) != '[')) {
+        && (data.bytesLeft() == 0 || data.peekCodePoint(charset) != '[')) {
       if (currentLine.startsWith(FORMAT_LINE_PREFIX)) {
         formatInfo = SsaStyle.Format.fromFormatLine(currentLine);
       } else if (currentLine.startsWith(STYLE_LINE_PREFIX)) {
@@ -327,6 +328,15 @@ public final class SsaParser implements SubtitleParser {
       return;
     }
 
+    int layer = 0;
+    if (format.layerIndex != C.INDEX_UNSET) {
+      try {
+        layer = Integer.parseInt(lineValues[format.layerIndex].trim());
+      } catch (RuntimeException exception) {
+        Log.w(TAG, "Fail to parse layer: " + lineValues[format.layerIndex]);
+      }
+    }
+
     long startTimeUs = parseTimecodeUs(lineValues[format.startTimeIndex]);
     if (startTimeUs == C.TIME_UNSET) {
       Log.w(TAG, "Skipping invalid timing: " + dialogueLine);
@@ -334,7 +344,7 @@ public final class SsaParser implements SubtitleParser {
     }
 
     long endTimeUs = parseTimecodeUs(lineValues[format.endTimeIndex]);
-    if (endTimeUs == C.TIME_UNSET) {
+    if (endTimeUs == C.TIME_UNSET || endTimeUs <= startTimeUs) {
       Log.w(TAG, "Skipping invalid timing: " + dialogueLine);
       return;
     }
@@ -351,7 +361,7 @@ public final class SsaParser implements SubtitleParser {
             .replace("\\N", "\n")
             .replace("\\n", "\n")
             .replace("\\h", "\u00A0");
-    Cue cue = createCue(text, style, styleOverrides, screenWidth, screenHeight);
+    Cue cue = createCue(text, layer, style, styleOverrides, screenWidth, screenHeight);
 
     int startTimeIndex = addCuePlacerholderByTime(startTimeUs, cueTimesUs, cues);
     int endTimeIndex = addCuePlacerholderByTime(endTimeUs, cueTimesUs, cues);
@@ -382,12 +392,13 @@ public final class SsaParser implements SubtitleParser {
 
   private static Cue createCue(
       String text,
+      int layer,
       @Nullable SsaStyle style,
       SsaStyle.Overrides styleOverrides,
       float screenWidth,
       float screenHeight) {
     SpannableString spannableText = new SpannableString(text);
-    Cue.Builder cue = new Cue.Builder().setText(spannableText);
+    Cue.Builder cue = new Cue.Builder().setText(spannableText).setZIndex(layer);
 
     if (style != null) {
       if (style.primaryColor != null) {

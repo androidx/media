@@ -120,26 +120,34 @@ public class MediaControllerStateMaskingTest {
           @Override
           public void onPlayWhenReadyChanged(
               boolean playWhenReady, @Player.PlayWhenReadyChangeReason int reason) {
-            playWhenReadyFromCallbackRef.set(playWhenReady);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              playWhenReadyFromCallbackRef.set(playWhenReady);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onPlaybackSuppressionReasonChanged(int playbackSuppressionReason) {
-            playbackSuppressionReasonFromCallbackRef.set(playbackSuppressionReason);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              playbackSuppressionReasonFromCallbackRef.set(playbackSuppressionReason);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onIsPlayingChanged(boolean isPlaying) {
-            isPlayingFromCallbackRef.set(isPlaying);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              isPlayingFromCallbackRef.set(isPlaying);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            onEventsRef.set(events);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              onEventsRef.set(events);
+              latch.countDown();
+            }
           }
         };
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
@@ -247,11 +255,13 @@ public class MediaControllerStateMaskingTest {
     return new Player.Listener() {
       @Override
       public void onEvents(Player player, Player.Events events) {
-        eventsRef.set(events);
-        if (events.contains(Player.EVENT_PLAYBACK_SUPPRESSION_REASON_CHANGED)) {
-          playbackSuppressionReasonChangedRef.set(player.getPlaybackSuppressionReason());
+        if (countDownLatchForOnEventCalls.getCount() > 0) {
+          eventsRef.set(events);
+          if (events.contains(Player.EVENT_PLAYBACK_SUPPRESSION_REASON_CHANGED)) {
+            playbackSuppressionReasonChangedRef.set(player.getPlaybackSuppressionReason());
+          }
+          countDownLatchForOnEventCalls.countDown();
         }
-        countDownLatchForOnEventCalls.countDown();
       }
     };
   }
@@ -283,14 +293,18 @@ public class MediaControllerStateMaskingTest {
         new Player.Listener() {
           @Override
           public void onShuffleModeEnabledChanged(boolean shuffleModeEnabled) {
-            shuffleModeEnabledFromCallbackRef.set(shuffleModeEnabled);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              shuffleModeEnabledFromCallbackRef.set(shuffleModeEnabled);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            onEventsRef.set(events);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              onEventsRef.set(events);
+              latch.countDown();
+            }
           }
         };
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
@@ -328,14 +342,18 @@ public class MediaControllerStateMaskingTest {
         new Player.Listener() {
           @Override
           public void onRepeatModeChanged(int repeatMode) {
-            repeatModeFromCallbackRef.set(repeatMode);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              repeatModeFromCallbackRef.set(repeatMode);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            onEventsRef.set(events);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              onEventsRef.set(events);
+              latch.countDown();
+            }
           }
         };
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
@@ -373,14 +391,18 @@ public class MediaControllerStateMaskingTest {
         new Player.Listener() {
           @Override
           public void onPlaybackParametersChanged(PlaybackParameters playbackParameters) {
-            playbackParametersFromCallbackRef.set(playbackParameters);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              playbackParametersFromCallbackRef.set(playbackParameters);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            onEventsRef.set(events);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              onEventsRef.set(events);
+              latch.countDown();
+            }
           }
         };
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
@@ -418,14 +440,18 @@ public class MediaControllerStateMaskingTest {
         new Player.Listener() {
           @Override
           public void onPlaybackParametersChanged(PlaybackParameters playbackParameters) {
-            playbackParametersFromCallbackRef.set(playbackParameters);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              playbackParametersFromCallbackRef.set(playbackParameters);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            onEventsRef.set(events);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              onEventsRef.set(events);
+              latch.countDown();
+            }
           }
         };
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
@@ -463,14 +489,18 @@ public class MediaControllerStateMaskingTest {
         new Player.Listener() {
           @Override
           public void onPlaylistMetadataChanged(MediaMetadata mediaMetadata) {
-            playlistMetadataFromCallbackRef.set(mediaMetadata);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              playlistMetadataFromCallbackRef.set(mediaMetadata);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            onEventsRef.set(events);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              onEventsRef.set(events);
+              latch.countDown();
+            }
           }
         };
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
@@ -505,14 +535,18 @@ public class MediaControllerStateMaskingTest {
         new Player.Listener() {
           @Override
           public void onVolumeChanged(float volume) {
-            volumeFromCallbackRef.set(volume);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              volumeFromCallbackRef.set(volume);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            onEventsRef.set(events);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              onEventsRef.set(events);
+              latch.countDown();
+            }
           }
         };
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
@@ -533,6 +567,162 @@ public class MediaControllerStateMaskingTest {
   }
 
   @Test
+  public void mute() throws Exception {
+    Bundle playerConfig = new RemoteMediaSession.MockPlayerConfigBuilder().setVolume(0.25f).build();
+    remoteSession.setPlayer(playerConfig);
+    MediaController controller = controllerTestRule.createController(remoteSession.getToken());
+    CountDownLatch latch = new CountDownLatch(2);
+    AtomicReference<Float> volumeFromCallbackRef = new AtomicReference<>();
+    AtomicReference<Player.Events> onEventsRef = new AtomicReference<>();
+    Player.Listener listener =
+        new Player.Listener() {
+          @Override
+          public void onVolumeChanged(float volume) {
+            if (latch.getCount() > 0) {
+              volumeFromCallbackRef.set(volume);
+              latch.countDown();
+            }
+          }
+
+          @Override
+          public void onEvents(Player player, Player.Events events) {
+            if (latch.getCount() > 0) {
+              onEventsRef.set(events);
+              latch.countDown();
+            }
+          }
+        };
+    threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
+
+    AtomicReference<Float> volumeFromGetterRef = new AtomicReference<>();
+    AtomicReference<Float> unmuteVolumeFromGetterRef = new AtomicReference<>();
+    threadTestRule
+        .getHandler()
+        .postAndSync(
+            () -> {
+              unmuteVolumeFromGetterRef.set(controller.getVolume());
+              controller.mute();
+              volumeFromGetterRef.set(controller.getVolume());
+            });
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(volumeFromCallbackRef.get()).isEqualTo(0f);
+    assertThat(volumeFromGetterRef.get()).isEqualTo(0f);
+    assertThat(unmuteVolumeFromGetterRef.get()).isEqualTo(0.25f);
+    assertThat(getEventsAsList(onEventsRef.get())).containsExactly(Player.EVENT_VOLUME_CHANGED);
+  }
+
+  @Test
+  public void unmute_singleController() throws Exception {
+    Bundle playerConfig = new RemoteMediaSession.MockPlayerConfigBuilder().setVolume(0.25f).build();
+    remoteSession.setPlayer(playerConfig);
+    MediaController controller = controllerTestRule.createController(remoteSession.getToken());
+    CountDownLatch latch = new CountDownLatch(3);
+    List<Float> volumesFromCallbackRef = new ArrayList<>();
+    List<Float> volumesFromGetterRef = new ArrayList<>();
+    AtomicReference<Player.Events> onEventsRef = new AtomicReference<>();
+    Player.Listener listener =
+        new Player.Listener() {
+          @Override
+          public void onVolumeChanged(float volume) {
+            if (latch.getCount() > 0) {
+              volumesFromCallbackRef.add(volume);
+              latch.countDown();
+            }
+          }
+
+          @Override
+          public void onEvents(Player player, Player.Events events) {
+            if (latch.getCount() > 0) {
+              onEventsRef.set(events);
+              latch.countDown();
+            }
+          }
+        };
+    threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
+
+    threadTestRule
+        .getHandler()
+        .postAndSync(
+            () -> {
+              volumesFromGetterRef.add(controller.getVolume());
+              controller.mute();
+              volumesFromGetterRef.add(controller.getVolume());
+              controller.unmute();
+              volumesFromGetterRef.add(controller.getVolume());
+            });
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(volumesFromCallbackRef).containsExactly(0.0f, 0.25f).inOrder();
+    assertThat(volumesFromGetterRef).containsExactly(0.25f, 0.0f, 0.25f).inOrder();
+    assertThat(getEventsAsList(onEventsRef.get())).contains(Player.EVENT_VOLUME_CHANGED);
+  }
+
+  @Test
+  public void unmute_twoControllers() throws Exception {
+    Bundle playerConfig = new RemoteMediaSession.MockPlayerConfigBuilder().setVolume(0.25f).build();
+    remoteSession.setPlayer(playerConfig);
+    MediaController controller = controllerTestRule.createController(remoteSession.getToken());
+    CountDownLatch muteLatch = new CountDownLatch(1);
+    CountDownLatch unmuteLatch = new CountDownLatch(1);
+    CountDownLatch eventLatch = new CountDownLatch(2);
+    List<Float> volumesFromCallbackRef = new ArrayList<>();
+    List<Float> volumesFromGetterRef = new ArrayList<>();
+    AtomicReference<Player.Events> onEventsRef = new AtomicReference<>();
+    Player.Listener listener =
+        new Player.Listener() {
+          @Override
+          public void onVolumeChanged(float volume) {
+            if (muteLatch.getCount() > 0 || unmuteLatch.getCount() > 0) {
+              volumesFromCallbackRef.add(volume);
+              if (volume == 0f) {
+                muteLatch.countDown();
+              } else {
+                unmuteLatch.countDown();
+              }
+            }
+          }
+
+          @Override
+          public void onEvents(Player player, Player.Events events) {
+            if (eventLatch.getCount() > 0) {
+              onEventsRef.set(events);
+              eventLatch.countDown();
+            }
+          }
+        };
+    threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
+
+    threadTestRule
+        .getHandler()
+        .postAndSync(
+            () -> {
+              volumesFromGetterRef.add(controller.getVolume());
+              controller.mute();
+              volumesFromGetterRef.add(controller.getVolume());
+            });
+
+    assertThat(muteLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+
+    MediaController controller2 = controllerTestRule.createController(remoteSession.getToken());
+    threadTestRule.getHandler().postAndSync(() -> controller2.addListener(listener));
+
+    threadTestRule
+        .getHandler()
+        .postAndSync(
+            () -> {
+              controller2.unmute();
+              volumesFromGetterRef.add(controller2.getVolume());
+            });
+
+    assertThat(unmuteLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+
+    assertThat(volumesFromCallbackRef).containsExactly(0.0f, 0.25f).inOrder();
+    assertThat(volumesFromGetterRef).containsExactly(0.25f, 0.0f, 0.25f).inOrder();
+    assertThat(getEventsAsList(onEventsRef.get())).contains(Player.EVENT_VOLUME_CHANGED);
+  }
+
+  @Test
   public void setDeviceVolume() throws Exception {
     int testDeviceVolume = 2;
     int volumeFlags = 0;
@@ -548,14 +738,18 @@ public class MediaControllerStateMaskingTest {
         new Player.Listener() {
           @Override
           public void onDeviceVolumeChanged(int volume, boolean muted) {
-            deviceVolumeFromCallbackRef.set(volume);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              deviceVolumeFromCallbackRef.set(volume);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            onEventsRef.set(events);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              onEventsRef.set(events);
+              latch.countDown();
+            }
           }
         };
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
@@ -596,14 +790,18 @@ public class MediaControllerStateMaskingTest {
         new Player.Listener() {
           @Override
           public void onDeviceVolumeChanged(int volume, boolean muted) {
-            deviceVolumeFromCallbackRef.set(volume);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              deviceVolumeFromCallbackRef.set(volume);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            onEventsRef.set(events);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              onEventsRef.set(events);
+              latch.countDown();
+            }
           }
         };
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
@@ -639,14 +837,18 @@ public class MediaControllerStateMaskingTest {
         new Player.Listener() {
           @Override
           public void onDeviceVolumeChanged(int volume, boolean muted) {
-            deviceVolumeFromCallbackRef.set(volume);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              deviceVolumeFromCallbackRef.set(volume);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            onEventsRef.set(events);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              onEventsRef.set(events);
+              latch.countDown();
+            }
           }
         };
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
@@ -684,14 +886,18 @@ public class MediaControllerStateMaskingTest {
         new Player.Listener() {
           @Override
           public void onDeviceVolumeChanged(int volume, boolean muted) {
-            deviceMutedFromCallbackRef.set(muted);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              deviceMutedFromCallbackRef.set(muted);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            onEventsRef.set(events);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              onEventsRef.set(events);
+              latch.countDown();
+            }
           }
         };
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
@@ -728,14 +934,18 @@ public class MediaControllerStateMaskingTest {
         new Player.Listener() {
           @Override
           public void onAudioAttributesChanged(AudioAttributes audioAttributes) {
-            audioAttributesFromCallbackRef.set(originalAttrs);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              audioAttributesFromCallbackRef.set(originalAttrs);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            onEventsRef.set(events);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              onEventsRef.set(events);
+              latch.countDown();
+            }
           }
         };
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
@@ -782,20 +992,26 @@ public class MediaControllerStateMaskingTest {
         new Player.Listener() {
           @Override
           public void onPlaybackStateChanged(int playbackState) {
-            playbackStateFromCallbackRef.set(playbackState);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              playbackStateFromCallbackRef.set(playbackState);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            onEventsRef.set(events);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              onEventsRef.set(events);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onPlayerErrorChanged(@Nullable PlaybackException error) {
-            playerErrorFromCallbackRef.set(error);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              playerErrorFromCallbackRef.set(error);
+              latch.countDown();
+            }
           }
         };
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
@@ -834,14 +1050,18 @@ public class MediaControllerStateMaskingTest {
         new Player.Listener() {
           @Override
           public void onTrackSelectionParametersChanged(TrackSelectionParameters parameters) {
-            trackSelectionParametersCallbackRef.set(parameters);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              trackSelectionParametersCallbackRef.set(parameters);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            onEventsRef.set(events);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              onEventsRef.set(events);
+              latch.countDown();
+            }
           }
         };
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
@@ -893,22 +1113,28 @@ public class MediaControllerStateMaskingTest {
         new Player.Listener() {
           @Override
           public void onMediaItemTransition(@Nullable MediaItem mediaItem, int reason) {
-            newMediaItemRef.set(mediaItem);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              newMediaItemRef.set(mediaItem);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onPositionDiscontinuity(
               PositionInfo oldPosition, PositionInfo newPosition, int reason) {
-            oldPositionInfoRef.set(oldPosition);
-            newPositionInfoRef.set(newPosition);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              oldPositionInfoRef.set(oldPosition);
+              newPositionInfoRef.set(newPosition);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            onEventsRef.set(events);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              onEventsRef.set(events);
+              latch.countDown();
+            }
           }
         };
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
@@ -959,22 +1185,28 @@ public class MediaControllerStateMaskingTest {
         new Player.Listener() {
           @Override
           public void onMediaItemTransition(@Nullable MediaItem mediaItem, int reason) {
-            newMediaItemRef.set(mediaItem);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              newMediaItemRef.set(mediaItem);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onPositionDiscontinuity(
               PositionInfo oldPosition, PositionInfo newPosition, int reason) {
-            oldPositionInfoRef.set(oldPosition);
-            newPositionInfoRef.set(newPosition);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              oldPositionInfoRef.set(oldPosition);
+              newPositionInfoRef.set(newPosition);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            onEventsRef.set(events);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              onEventsRef.set(events);
+              latch.countDown();
+            }
           }
         };
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
@@ -1030,14 +1262,18 @@ public class MediaControllerStateMaskingTest {
           @Override
           public void onPositionDiscontinuity(
               PositionInfo oldPosition, PositionInfo newPosition, int reason) {
-            newPositionInfoRef.set(newPosition);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              newPositionInfoRef.set(newPosition);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            onEventsRef.set(events);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              onEventsRef.set(events);
+              latch.countDown();
+            }
           }
         };
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
@@ -1100,14 +1336,18 @@ public class MediaControllerStateMaskingTest {
           @Override
           public void onPositionDiscontinuity(
               PositionInfo oldPosition, PositionInfo newPosition, int reason) {
-            newPositionInfoRef.set(newPosition);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              newPositionInfoRef.set(newPosition);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            onEventsRef.set(events);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              onEventsRef.set(events);
+              latch.countDown();
+            }
           }
         };
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
@@ -1170,14 +1410,18 @@ public class MediaControllerStateMaskingTest {
           @Override
           public void onPositionDiscontinuity(
               PositionInfo oldPosition, PositionInfo newPosition, int reason) {
-            newPositionInfoRef.set(newPosition);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              newPositionInfoRef.set(newPosition);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            onEventsRef.set(events);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              onEventsRef.set(events);
+              latch.countDown();
+            }
           }
         };
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
@@ -1241,14 +1485,18 @@ public class MediaControllerStateMaskingTest {
           @Override
           public void onPositionDiscontinuity(
               PositionInfo oldPosition, PositionInfo newPosition, int reason) {
-            newPositionInfoRef.set(newPosition);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              newPositionInfoRef.set(newPosition);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            onEventsRef.set(events);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              onEventsRef.set(events);
+              latch.countDown();
+            }
           }
         };
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
@@ -1348,14 +1596,18 @@ public class MediaControllerStateMaskingTest {
           @Override
           public void onPositionDiscontinuity(
               PositionInfo oldPosition, PositionInfo newPosition, int reason) {
-            newPositionInfoRef.set(newPosition);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              newPositionInfoRef.set(newPosition);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            onEventsRef.set(events);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              onEventsRef.set(events);
+              latch.countDown();
+            }
           }
         };
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
@@ -1484,14 +1736,18 @@ public class MediaControllerStateMaskingTest {
           @Override
           public void onPositionDiscontinuity(
               PositionInfo oldPosition, PositionInfo newPosition, int reason) {
-            newPositionInfoRef.set(newPosition);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              newPositionInfoRef.set(newPosition);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            onEventsRef.set(events);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              onEventsRef.set(events);
+              latch.countDown();
+            }
           }
         };
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
@@ -1568,15 +1824,19 @@ public class MediaControllerStateMaskingTest {
           @Override
           public void onPositionDiscontinuity(
               PositionInfo oldPosition, PositionInfo newPosition, int reason) {
-            oldPositionRef.set(oldPosition.positionMs);
-            newPositionRef.set(newPosition.positionMs);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              oldPositionRef.set(oldPosition.positionMs);
+              newPositionRef.set(newPosition.positionMs);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            onEventsRef.set(events);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              onEventsRef.set(events);
+              latch.countDown();
+            }
           }
         };
     controller.addListener(listener);
@@ -1612,15 +1872,19 @@ public class MediaControllerStateMaskingTest {
           @Override
           public void onPositionDiscontinuity(
               PositionInfo oldPosition, PositionInfo newPosition, int reason) {
-            oldPositionRef.set(oldPosition.positionMs);
-            newPositionRef.set(newPosition.positionMs);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              oldPositionRef.set(oldPosition.positionMs);
+              newPositionRef.set(newPosition.positionMs);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            onEventsRef.set(events);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              onEventsRef.set(events);
+              latch.countDown();
+            }
           }
         };
     controller.addListener(listener);
@@ -1669,20 +1933,26 @@ public class MediaControllerStateMaskingTest {
           @Override
           public void onPositionDiscontinuity(
               PositionInfo oldPosition, PositionInfo newPosition, int reason) {
-            newPositionInfoRef.set(newPosition);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              newPositionInfoRef.set(newPosition);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onTimelineChanged(Timeline timeline, int reason) {
-            newTimelineRef.set(timeline);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              newTimelineRef.set(timeline);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            onEventsRef.set(events);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              onEventsRef.set(events);
+              latch.countDown();
+            }
           }
         };
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
@@ -1796,26 +2066,34 @@ public class MediaControllerStateMaskingTest {
           @Override
           public void onPositionDiscontinuity(
               PositionInfo oldPosition, PositionInfo newPosition, int reason) {
-            newPositionInfoRef.set(newPosition);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              newPositionInfoRef.set(newPosition);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onTimelineChanged(Timeline timeline, int reason) {
-            newTimelineRef.set(timeline);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              newTimelineRef.set(timeline);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onMediaItemTransition(@Nullable MediaItem mediaItem, int reason) {
-            newMediaItemRef.set(mediaItem);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              newMediaItemRef.set(mediaItem);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            onEventsRef.set(events);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              onEventsRef.set(events);
+              latch.countDown();
+            }
           }
         };
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
@@ -1897,26 +2175,34 @@ public class MediaControllerStateMaskingTest {
           @Override
           public void onPositionDiscontinuity(
               PositionInfo oldPosition, PositionInfo newPosition, int reason) {
-            newPositionInfoRef.set(newPosition);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              newPositionInfoRef.set(newPosition);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onTimelineChanged(Timeline timeline, int reason) {
-            newTimelineRef.set(timeline);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              newTimelineRef.set(timeline);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onMediaItemTransition(@Nullable MediaItem mediaItem, int reason) {
-            newMediaItemRef.set(mediaItem);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              newMediaItemRef.set(mediaItem);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            onEventsRef.set(events);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              onEventsRef.set(events);
+              latch.countDown();
+            }
           }
         };
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
@@ -2008,20 +2294,26 @@ public class MediaControllerStateMaskingTest {
         new Player.Listener() {
           @Override
           public void onTimelineChanged(Timeline timeline, int reason) {
-            newTimelineRef.set(timeline);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              newTimelineRef.set(timeline);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onMediaItemTransition(@Nullable MediaItem mediaItem, int reason) {
-            newMediaItemRef.set(mediaItem);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              newMediaItemRef.set(mediaItem);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            onEventsRef.set(events);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              onEventsRef.set(events);
+              latch.countDown();
+            }
           }
         };
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
@@ -2087,20 +2379,26 @@ public class MediaControllerStateMaskingTest {
         new Player.Listener() {
           @Override
           public void onTimelineChanged(Timeline timeline, int reason) {
-            newTimelineRef.set(timeline);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              newTimelineRef.set(timeline);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onMediaItemTransition(@Nullable MediaItem mediaItem, int reason) {
-            newMediaItemRef.set(mediaItem);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              newMediaItemRef.set(mediaItem);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            onEventsRef.set(events);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              onEventsRef.set(events);
+              latch.countDown();
+            }
           }
         };
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
@@ -2168,14 +2466,18 @@ public class MediaControllerStateMaskingTest {
         new Player.Listener() {
           @Override
           public void onTimelineChanged(Timeline timeline, int reason) {
-            newTimelineRef.set(timeline);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              newTimelineRef.set(timeline);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            onEventsRef.set(events);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              onEventsRef.set(events);
+              latch.countDown();
+            }
           }
         };
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
@@ -2285,14 +2587,18 @@ public class MediaControllerStateMaskingTest {
         new Player.Listener() {
           @Override
           public void onTimelineChanged(Timeline timeline, int reason) {
-            newTimelineRef.set(timeline);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              newTimelineRef.set(timeline);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            onEventsRef.set(events);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              onEventsRef.set(events);
+              latch.countDown();
+            }
           }
         };
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
@@ -2362,27 +2668,35 @@ public class MediaControllerStateMaskingTest {
         new Player.Listener() {
           @Override
           public void onTimelineChanged(Timeline timeline, int reason) {
-            newTimelineRef.set(timeline);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              newTimelineRef.set(timeline);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onMediaItemTransition(@Nullable MediaItem mediaItem, int reason) {
-            newMediaItemRef.set(mediaItem);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              newMediaItemRef.set(mediaItem);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onPositionDiscontinuity(
               PositionInfo oldPosition, PositionInfo newPosition, int reason) {
-            newPositionInfoRef.set(newPosition);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              newPositionInfoRef.set(newPosition);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            onEventsRef.set(events);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              onEventsRef.set(events);
+              latch.countDown();
+            }
           }
         };
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
@@ -2453,14 +2767,18 @@ public class MediaControllerStateMaskingTest {
         new Player.Listener() {
           @Override
           public void onTimelineChanged(Timeline timeline, int reason) {
-            newTimelineRef.set(timeline);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              newTimelineRef.set(timeline);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            onEventsRef.set(events);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              onEventsRef.set(events);
+              latch.countDown();
+            }
           }
         };
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
@@ -2528,14 +2846,18 @@ public class MediaControllerStateMaskingTest {
         new Player.Listener() {
           @Override
           public void onTimelineChanged(Timeline timeline, int reason) {
-            newTimelineRef.set(timeline);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              newTimelineRef.set(timeline);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            onEventsRef.set(events);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              onEventsRef.set(events);
+              latch.countDown();
+            }
           }
         };
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
@@ -2603,26 +2925,34 @@ public class MediaControllerStateMaskingTest {
         new Player.Listener() {
           @Override
           public void onTimelineChanged(Timeline timeline, int reason) {
-            newTimelineRef.set(timeline);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              newTimelineRef.set(timeline);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onMediaItemTransition(@Nullable MediaItem mediaItem, int reason) {
-            newMediaItemRef.set(mediaItem);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              newMediaItemRef.set(mediaItem);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onPlaybackStateChanged(int playbackState) {
-            newPlaybackStateRef.set(playbackState);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              newPlaybackStateRef.set(playbackState);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            onEventsRef.set(events);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              onEventsRef.set(events);
+              latch.countDown();
+            }
           }
         };
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
@@ -2691,14 +3021,18 @@ public class MediaControllerStateMaskingTest {
         new Player.Listener() {
           @Override
           public void onPlaybackStateChanged(int playbackState) {
-            newPlaybackStateRef.set(playbackState);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              newPlaybackStateRef.set(playbackState);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            onEventsRef.set(events);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              onEventsRef.set(events);
+              latch.countDown();
+            }
           }
         };
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
@@ -2944,14 +3278,18 @@ public class MediaControllerStateMaskingTest {
         new Player.Listener() {
           @Override
           public void onTimelineChanged(Timeline timeline, int reason) {
-            newTimelineRef.set(timeline);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              newTimelineRef.set(timeline);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            onEventsRef.set(events);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              onEventsRef.set(events);
+              latch.countDown();
+            }
           }
         };
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
@@ -3069,14 +3407,18 @@ public class MediaControllerStateMaskingTest {
         new Player.Listener() {
           @Override
           public void onTimelineChanged(Timeline timeline, int reason) {
-            newTimelineRef.set(timeline);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              newTimelineRef.set(timeline);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            onEventsRef.set(events);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              onEventsRef.set(events);
+              latch.countDown();
+            }
           }
         };
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
@@ -3189,8 +3531,6 @@ public class MediaControllerStateMaskingTest {
           }
         };
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
-
-    // Step 1: Report a discontinuity from item 0 to item 1 in the session.
     PositionInfo oldPositionInfo =
         new PositionInfo(
             /* windowUid= */ timeline.getWindow(/* windowIndex= */ 0, new Window()).uid,
@@ -3217,22 +3557,126 @@ public class MediaControllerStateMaskingTest {
             /* contentPositionMs= */ 0,
             /* adGroupIndex= */ C.INDEX_UNSET,
             /* adIndexInAdGroup= */ C.INDEX_UNSET);
-    remoteSession.getMockPlayer().setCurrentMediaItemIndex(1);
-    remoteSession
-        .getMockPlayer()
-        .notifyPositionDiscontinuity(
-            oldPositionInfo, newPositionInfo, Player.DISCONTINUITY_REASON_AUTO_TRANSITION);
-    // Step 2: Before step 1 can be handled by the controller, remove item 1.
-    threadTestRule.getHandler().postAndSync(() -> controller.removeMediaItem(/* index= */ 1));
-    remoteSession.getMockPlayer().setCurrentMediaItemIndex(0);
-    remoteSession.getMockPlayer().setTimeline(MediaTestUtils.createTimeline(/* windowCount= */ 1));
-    remoteSession.getMockPlayer().notifyPlaybackStateChanged(Player.STATE_ENDED);
-    remoteSession
-        .getMockPlayer()
-        .notifyTimelineChanged(Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);
+
+    threadTestRule
+        .getHandler()
+        .postAndSync(
+            () -> {
+              // Step 1: Report a discontinuity from item 0 to item 1 in the session. And then give
+              // it some time to propagate so that it results in an update independent from step 2.
+              remoteSession.getMockPlayer().setCurrentMediaItemIndex(1);
+              remoteSession
+                  .getMockPlayer()
+                  .notifyPositionDiscontinuity(
+                      oldPositionInfo,
+                      newPositionInfo,
+                      Player.DISCONTINUITY_REASON_AUTO_TRANSITION);
+              Thread.sleep(100);
+              // Step 2: Before step 1 can be handled by the controller, remove item 1 and trigger
+              // player updates for the item removal.
+              remoteSession.getMockPlayer().setCurrentMediaItemIndex(0);
+              remoteSession
+                  .getMockPlayer()
+                  .setTimeline(MediaTestUtils.createTimeline(/* windowCount= */ 2));
+              remoteSession.getMockPlayer().notifyPlaybackStateChanged(Player.STATE_ENDED);
+              remoteSession
+                  .getMockPlayer()
+                  .notifyTimelineChanged(Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);
+              controller.removeMediaItem(/* index= */ 1);
+            });
 
     assertThat(positionDiscontinuityReported.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(reportedStateChangeToEndedAtSameTimeAsDiscontinuity.get()).isTrue();
+  }
+
+  @Test
+  public void timelineUpdatesDuringMasking_withNoPlayerInfoUpdateFromSession_areResolvedCorrectly()
+      throws Exception {
+    Timeline timeline = MediaTestUtils.createTimeline(/* windowCount= */ 5);
+    remoteSession.getMockPlayer().setTimeline(timeline);
+    remoteSession.getMockPlayer().setCurrentMediaItemIndex(4);
+    remoteSession
+        .getMockPlayer()
+        .notifyTimelineChanged(Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);
+    MediaController controller = controllerTestRule.createController(remoteSession.getToken());
+    CountDownLatch timelineChangeReported = new CountDownLatch(2);
+    ArrayList<Timeline> reportedTimelineChanges = new ArrayList<>();
+    ArrayList<Integer> reportedCurrentIndex = new ArrayList<>();
+    Player.Listener listener =
+        new Player.Listener() {
+          @Override
+          public void onEvents(Player player, Player.Events events) {
+            if (events.contains(Player.EVENT_TIMELINE_CHANGED)) {
+              reportedTimelineChanges.add(player.getCurrentTimeline());
+              reportedCurrentIndex.add(player.getCurrentMediaItemIndex());
+              timelineChangeReported.countDown();
+            }
+          }
+        };
+    threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
+
+    // Change masked Timeline in controller by assigning new single item, but don't change Timeline
+    // of the remote session. This means the timeline change needs to be reversed once the update is
+    // handled even if the remote session doesn't send any further update.
+    threadTestRule
+        .getHandler()
+        .postAndSync(
+            () ->
+                controller.setMediaItem(
+                    new MediaItem.Builder().setMediaId("placeholder_id").build()));
+
+    assertThat(timelineChangeReported.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(reportedTimelineChanges.get(0).getWindowCount()).isEqualTo(1);
+    assertThat(reportedTimelineChanges.get(1).getWindowCount()).isEqualTo(5);
+    assertThat(reportedCurrentIndex.get(0)).isEqualTo(0);
+    assertThat(reportedCurrentIndex.get(1)).isEqualTo(4);
+  }
+
+  @Test
+  public void
+      timelineUpdatesDuringMasking_withPlayerInfoUpdateExcludingTimeline_areResolvedCorrectly()
+          throws Exception {
+    Timeline timeline = MediaTestUtils.createTimeline(/* windowCount= */ 5);
+    remoteSession.getMockPlayer().setPlaybackState(Player.STATE_READY);
+    remoteSession.getMockPlayer().setTimeline(timeline);
+    remoteSession.getMockPlayer().setCurrentMediaItemIndex(4);
+    remoteSession
+        .getMockPlayer()
+        .notifyTimelineChanged(Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);
+    MediaController controller = controllerTestRule.createController(remoteSession.getToken());
+    CountDownLatch timelineChangeReported = new CountDownLatch(2);
+    ArrayList<Timeline> reportedTimelineChanges = new ArrayList<>();
+    ArrayList<Integer> reportedCurrentIndex = new ArrayList<>();
+    Player.Listener listener =
+        new Player.Listener() {
+          @Override
+          public void onEvents(Player player, Player.Events events) {
+            if (events.contains(Player.EVENT_TIMELINE_CHANGED)) {
+              reportedTimelineChanges.add(player.getCurrentTimeline());
+              reportedCurrentIndex.add(player.getCurrentMediaItemIndex());
+              timelineChangeReported.countDown();
+            }
+          }
+        };
+    threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
+
+    // Change masked Timeline in controller by assigning new single item, but don't change Timeline
+    // of the remote session. This means the timeline change needs to be reversed once the update is
+    // handled even if the remote session doesn't send any further Timeline updates.
+    threadTestRule
+        .getHandler()
+        .postAndSync(
+            () ->
+                controller.setMediaItem(
+                    new MediaItem.Builder().setMediaId("placeholder_id").build()));
+    // Update session with new PlayerInfo, without changing Timeline.
+    remoteSession.getMockPlayer().notifyPlaybackStateChanged(Player.STATE_BUFFERING);
+
+    assertThat(timelineChangeReported.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(reportedTimelineChanges.get(0).getWindowCount()).isEqualTo(1);
+    assertThat(reportedTimelineChanges.get(1).getWindowCount()).isEqualTo(5);
+    assertThat(reportedCurrentIndex.get(0)).isEqualTo(0);
+    assertThat(reportedCurrentIndex.get(1)).isEqualTo(4);
   }
 
   @Test
@@ -3407,14 +3851,18 @@ public class MediaControllerStateMaskingTest {
         new Player.Listener() {
           @Override
           public void onTimelineChanged(Timeline timeline, int reason) {
-            newTimelineRef.set(timeline);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              newTimelineRef.set(timeline);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            onEventsRef.set(events);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              onEventsRef.set(events);
+              latch.countDown();
+            }
           }
         };
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
@@ -3445,7 +3893,7 @@ public class MediaControllerStateMaskingTest {
             .build();
     remoteSession.setPlayer(playerConfig);
     MediaController controller = controllerTestRule.createController(remoteSession.getToken());
-    CountDownLatch latch = new CountDownLatch(2);
+    CountDownLatch latch = new CountDownLatch(3);
     AtomicReference<Timeline> newTimelineRef = new AtomicReference<>();
     AtomicReference<Player.Events> onEventsRef = new AtomicReference<>();
     AtomicReference<PositionInfo> newPositionInfoRef = new AtomicReference<>();
@@ -3453,14 +3901,18 @@ public class MediaControllerStateMaskingTest {
         new Player.Listener() {
           @Override
           public void onTimelineChanged(Timeline timeline, int reason) {
-            newTimelineRef.set(timeline);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              newTimelineRef.set(timeline);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            onEventsRef.set(events);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              onEventsRef.set(events);
+              latch.countDown();
+            }
           }
 
           @Override
@@ -3468,7 +3920,10 @@ public class MediaControllerStateMaskingTest {
               PositionInfo oldPosition,
               PositionInfo newPosition,
               @Player.DiscontinuityReason int reason) {
-            newPositionInfoRef.set(newPosition);
+            if (latch.getCount() > 0) {
+              newPositionInfoRef.set(newPosition);
+              latch.countDown();
+            }
           }
         };
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
@@ -3510,14 +3965,18 @@ public class MediaControllerStateMaskingTest {
         new Player.Listener() {
           @Override
           public void onTimelineChanged(Timeline timeline, int reason) {
-            newTimelineRef.set(timeline);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              newTimelineRef.set(timeline);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            onEventsRef.set(events);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              onEventsRef.set(events);
+              latch.countDown();
+            }
           }
         };
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
@@ -3561,14 +4020,18 @@ public class MediaControllerStateMaskingTest {
         new Player.Listener() {
           @Override
           public void onTimelineChanged(Timeline timeline, int reason) {
-            newTimelineRef.set(timeline);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              newTimelineRef.set(timeline);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            onEventsRef.set(events);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              onEventsRef.set(events);
+              latch.countDown();
+            }
           }
         };
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
@@ -3614,14 +4077,18 @@ public class MediaControllerStateMaskingTest {
         new Player.Listener() {
           @Override
           public void onTimelineChanged(Timeline timeline, int reason) {
-            newTimelineRef.set(timeline);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              newTimelineRef.set(timeline);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            onEventsRef.set(events);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              onEventsRef.set(events);
+              latch.countDown();
+            }
           }
         };
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
@@ -3698,14 +4165,18 @@ public class MediaControllerStateMaskingTest {
         new Player.Listener() {
           @Override
           public void onTimelineChanged(Timeline timeline, int reason) {
-            newTimelineRef.set(timeline);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              newTimelineRef.set(timeline);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            onEventsRef.set(events);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              onEventsRef.set(events);
+              latch.countDown();
+            }
           }
         };
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
@@ -3806,14 +4277,18 @@ public class MediaControllerStateMaskingTest {
         new Player.Listener() {
           @Override
           public void onPlaybackStateChanged(int playbackState) {
-            playbackStateFromCallbackRef.set(playbackState);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              playbackStateFromCallbackRef.set(playbackState);
+              latch.countDown();
+            }
           }
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            onEventsRef.set(events);
-            latch.countDown();
+            if (latch.getCount() > 0) {
+              onEventsRef.set(events);
+              latch.countDown();
+            }
           }
         };
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));

@@ -172,45 +172,15 @@ public class EventLogger implements AnalyticsListener {
       Player.PositionInfo oldPosition,
       Player.PositionInfo newPosition,
       @Player.DiscontinuityReason int reason) {
-    StringBuilder builder = new StringBuilder();
-    builder
-        .append("reason=")
-        .append(getDiscontinuityReasonString(reason))
-        .append(", PositionInfo:old [")
-        .append("mediaItem=")
-        .append(oldPosition.mediaItemIndex)
-        .append(", period=")
-        .append(oldPosition.periodIndex)
-        .append(", pos=")
-        .append(oldPosition.positionMs);
-    if (oldPosition.adGroupIndex != C.INDEX_UNSET) {
-      builder
-          .append(", contentPos=")
-          .append(oldPosition.contentPositionMs)
-          .append(", adGroup=")
-          .append(oldPosition.adGroupIndex)
-          .append(", ad=")
-          .append(oldPosition.adIndexInAdGroup);
-    }
-    builder
-        .append("], PositionInfo:new [")
-        .append("mediaItem=")
-        .append(newPosition.mediaItemIndex)
-        .append(", period=")
-        .append(newPosition.periodIndex)
-        .append(", pos=")
-        .append(newPosition.positionMs);
-    if (newPosition.adGroupIndex != C.INDEX_UNSET) {
-      builder
-          .append(", contentPos=")
-          .append(newPosition.contentPositionMs)
-          .append(", adGroup=")
-          .append(newPosition.adGroupIndex)
-          .append(", ad=")
-          .append(newPosition.adIndexInAdGroup);
-    }
-    builder.append("]");
-    logd(eventTime, "positionDiscontinuity", builder.toString());
+    String details =
+        "reason="
+            + getDiscontinuityReasonString(reason)
+            + ", PositionInfo:old ["
+            + oldPosition
+            + "], PositionInfo:new ["
+            + newPosition
+            + "]";
+    logd(eventTime, "positionDiscontinuity", details);
   }
 
   @UnstableApi
@@ -285,7 +255,7 @@ public class EventLogger implements AnalyticsListener {
     ImmutableList<Tracks.Group> trackGroups = tracks.getGroups();
     for (int groupIndex = 0; groupIndex < trackGroups.size(); groupIndex++) {
       Tracks.Group trackGroup = trackGroups.get(groupIndex);
-      logd("  group [");
+      logd("  group [ id=" + trackGroup.getMediaTrackGroup().id);
       for (int trackIndex = 0; trackIndex < trackGroup.length; trackIndex++) {
         String status = getTrackStatusString(trackGroup.isTrackSelected(trackIndex));
         String formatSupport = getFormatSupportString(trackGroup.getTrackSupport(trackIndex));
@@ -424,6 +394,17 @@ public class EventLogger implements AnalyticsListener {
 
   @UnstableApi
   @Override
+  public void onAudioPositionAdvancing(EventTime eventTime, long playoutStartSystemTimeMs) {
+    long playoutStartTimeInElapsedRealtimeMs =
+        playoutStartSystemTimeMs - System.currentTimeMillis() + SystemClock.elapsedRealtime();
+    logd(
+        eventTime,
+        "audioPositionAdvancing",
+        "since " + getTimeString(playoutStartTimeInElapsedRealtimeMs - startTimeMs));
+  }
+
+  @UnstableApi
+  @Override
   public void onVideoEnabled(EventTime eventTime, DecoderCounters decoderCounters) {
     logd(eventTime, "videoEnabled");
   }
@@ -472,7 +453,12 @@ public class EventLogger implements AnalyticsListener {
   @UnstableApi
   @Override
   public void onVideoSizeChanged(EventTime eventTime, VideoSize videoSize) {
-    logd(eventTime, "videoSize", videoSize.width + ", " + videoSize.height);
+    StringBuilder description =
+        new StringBuilder("w=" + videoSize.width + ", h=" + videoSize.height);
+    if (videoSize.pixelWidthHeightRatio != 1.0f) {
+      description.append(", par=").append(videoSize.pixelWidthHeightRatio);
+    }
+    logd(eventTime, "videoSize", description.toString());
   }
 
   @UnstableApi
@@ -489,7 +475,7 @@ public class EventLogger implements AnalyticsListener {
   @UnstableApi
   @Override
   public void onSurfaceSizeChanged(EventTime eventTime, int width, int height) {
-    logd(eventTime, "surfaceSize", width + ", " + height);
+    logd(eventTime, "surfaceSize", "w=" + width + ", h=" + height);
   }
 
   @UnstableApi
@@ -739,6 +725,10 @@ public class EventLogger implements AnalyticsListener {
         return "NONE";
       case Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS:
         return "TRANSIENT_AUDIO_FOCUS_LOSS";
+      case Player.PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT:
+        return "UNSUITABLE_AUDIO_OUTPUT";
+      case Player.PLAYBACK_SUPPRESSION_REASON_SCRUBBING:
+        return "SCRUBBING";
       default:
         return "?";
     }

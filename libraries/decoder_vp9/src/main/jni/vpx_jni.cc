@@ -484,7 +484,7 @@ DECODER_FUNC(jlong, vpxInit, jboolean disableLoopFilter,
       env->GetFieldID(outputBufferClass, "data", "Ljava/nio/ByteBuffer;");
   outputModeField = env->GetFieldID(outputBufferClass, "mode", "I");
   decoderPrivateField =
-      env->GetFieldID(outputBufferClass, "decoderPrivate", "I");
+      env->GetFieldID(outputBufferClass, "decoderPrivate", "J");
   return reinterpret_cast<intptr_t>(context);
 }
 
@@ -530,15 +530,19 @@ DECODER_FUNC(jint, vpxGetFrame, jlong jContext, jobject jOutputBuffer) {
     return 1;
   }
 
+  // LINT.IfChange
   const int kOutputModeYuv = 0;
   const int kOutputModeSurfaceYuv = 1;
+  // LINT.ThenChange(../../../../common/src/main/java/androidx/media3/common/C.java)
 
   int outputMode = env->GetIntField(jOutputBuffer, outputModeField);
   if (outputMode == kOutputModeYuv) {
+    // LINT.IfChange
     const int kColorspaceUnknown = 0;
     const int kColorspaceBT601 = 1;
     const int kColorspaceBT709 = 2;
     const int kColorspaceBT2020 = 3;
+    // LINT.ThenChange(../../../../decoder/src/main/java/androidx/media3/decoder/VideoDecoderOutputBuffer.java)
 
     int colorspace = kColorspaceUnknown;
     switch (img->cs) {
@@ -611,8 +615,8 @@ DECODER_FUNC(jint, vpxGetFrame, jlong jContext, jobject jOutputBuffer) {
     if (env->ExceptionCheck()) {
       return -1;
     }
-    env->SetIntField(jOutputBuffer, decoderPrivateField,
-                     id + kDecoderPrivateBase);
+    env->SetLongField(jOutputBuffer, decoderPrivateField,
+                      id + kDecoderPrivateBase);
   }
   return 0;
 }
@@ -620,7 +624,7 @@ DECODER_FUNC(jint, vpxGetFrame, jlong jContext, jobject jOutputBuffer) {
 DECODER_FUNC(jint, vpxRenderFrame, jlong jContext, jobject jSurface,
              jobject jOutputBuffer) {
   JniCtx* const context = reinterpret_cast<JniCtx*>(jContext);
-  const int id = env->GetIntField(jOutputBuffer, decoderPrivateField) -
+  const int id = env->GetLongField(jOutputBuffer, decoderPrivateField) -
                  kDecoderPrivateBase;
   JniFrameBuffer* srcBuffer = context->buffer_manager->get_buffer(id);
   context->acquire_native_window(env, jSurface);
@@ -675,9 +679,9 @@ DECODER_FUNC(jint, vpxRenderFrame, jlong jContext, jobject jSurface,
 
 DECODER_FUNC(void, vpxReleaseFrame, jlong jContext, jobject jOutputBuffer) {
   JniCtx* const context = reinterpret_cast<JniCtx*>(jContext);
-  const int id = env->GetIntField(jOutputBuffer, decoderPrivateField) -
+  const int id = env->GetLongField(jOutputBuffer, decoderPrivateField) -
                  kDecoderPrivateBase;
-  env->SetIntField(jOutputBuffer, decoderPrivateField, -1);
+  env->SetLongField(jOutputBuffer, decoderPrivateField, -1);
   context->buffer_manager->release(id);
 }
 

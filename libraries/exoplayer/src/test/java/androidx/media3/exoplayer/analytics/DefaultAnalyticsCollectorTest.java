@@ -50,9 +50,10 @@ import static androidx.media3.exoplayer.analytics.AnalyticsListener.EVENT_VIDEO_
 import static androidx.media3.exoplayer.analytics.AnalyticsListener.EVENT_VIDEO_SIZE_CHANGED;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.END_OF_STREAM_ITEM;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.oneByteSample;
+import static androidx.media3.test.utils.TestUtil.assertSubclassOverridesAllMethods;
+import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.play;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.playUntilPosition;
-import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.run;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.runUntilError;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.runUntilIsLoading;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.runUntilPlaybackState;
@@ -96,7 +97,6 @@ import androidx.media3.common.VideoSize;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.HandlerWrapper;
-import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.DecoderCounters;
 import androidx.media3.exoplayer.DecoderReuseEvaluation;
 import androidx.media3.exoplayer.ExoPlaybackException;
@@ -130,11 +130,12 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Test;
@@ -198,14 +199,8 @@ public final class DefaultAnalyticsCollectorTest {
    * methods.
    */
   @Test
-  public void defaultAnalyticsCollector_overridesAllPlayerListenerMethods() throws Exception {
-    for (Method method : TestUtil.getPublicMethods(Player.Listener.class)) {
-      assertThat(
-              DefaultAnalyticsCollector.class
-                  .getMethod(method.getName(), method.getParameterTypes())
-                  .getDeclaringClass())
-          .isEqualTo(DefaultAnalyticsCollector.class);
-    }
+  public void overridesAllPlayerListenerMethods() throws Exception {
+    assertSubclassOverridesAllMethods(Player.Listener.class, DefaultAnalyticsCollector.class);
   }
 
   @Test
@@ -478,10 +473,10 @@ public final class DefaultAnalyticsCollectorTest {
     player.setMediaSources(ImmutableList.of(mediaSource1, mediaSource2));
     player.prepare();
     // Wait until second period has fully loaded to assert loading events.
-    run(player).untilFullyBuffered();
+    advance(player).untilFullyBuffered();
     player.seekTo(/* mediaItemIndex= */ 1, /* positionMs= */ 0);
     player.play();
-    run(player).untilState(Player.STATE_ENDED);
+    advance(player).untilState(Player.STATE_ENDED);
 
     populateEventIds(listener.lastReportedTimeline);
     assertThat(listener.getEvents(EVENT_PLAYER_STATE_CHANGED))
@@ -916,7 +911,7 @@ public final class DefaultAnalyticsCollectorTest {
             period1Seq0 /* PLAYLIST_CHANGED (sources in playlist moved) */)
         .inOrder();
     assertThat(listener.getEvents(EVENT_IS_LOADING_CHANGED))
-        .containsExactly(window0Period1Seq0, window0Period1Seq0, period1Seq0, period1Seq0);
+        .containsExactly(window0Period1Seq0, window0Period1Seq0);
     assertThat(listener.getEvents(EVENT_TRACKS_CHANGED)).containsExactly(window0Period1Seq0);
     assertThat(listener.getEvents(EVENT_LOAD_STARTED))
         .containsExactly(
@@ -975,15 +970,15 @@ public final class DefaultAnalyticsCollectorTest {
 
     player.setMediaSource(fakeMediaSource);
     player.prepare();
-    run(player).untilState(Player.STATE_READY);
+    advance(player).untilState(Player.STATE_READY);
     player.addMediaSource(fakeMediaSource);
     // Wait until second period has fully loaded to assert loading events.
-    run(player).untilFullyBuffered();
+    advance(player).untilFullyBuffered();
     player.removeMediaItem(/* index= */ 0);
-    run(player).untilState(Player.STATE_BUFFERING);
-    run(player).untilState(Player.STATE_READY);
+    advance(player).untilState(Player.STATE_BUFFERING);
+    advance(player).untilState(Player.STATE_READY);
     player.play();
-    run(player).untilState(Player.STATE_ENDED);
+    advance(player).untilState(Player.STATE_ENDED);
 
     // Populate event ids with second to last timeline that still contained both periods.
     populateEventIds(listener.reportedTimelines.get(listener.reportedTimelines.size() - 2));
@@ -1074,36 +1069,38 @@ public final class DefaultAnalyticsCollectorTest {
     AtomicInteger playedAdCount = new AtomicInteger(0);
     Timeline adTimeline =
         new FakeTimeline(
-            new TimelineWindowDefinition(
-                /* periodCount= */ 1,
-                /* id= */ 0,
-                /* isSeekable= */ true,
-                /* isDynamic= */ false,
-                contentDurationsUs,
-                adPlaybackState.get()));
+            new TimelineWindowDefinition.Builder()
+                .setDurationUs(contentDurationsUs)
+                .setAdPlaybackStates(ImmutableList.of(adPlaybackState.get()))
+                .build());
     FakeMediaSource fakeMediaSource =
-        new FakeMediaSource(
-            adTimeline,
-            DrmSessionManager.DRM_UNSUPPORTED,
-            (unusedFormat, mediaPeriodId) -> {
-              if (mediaPeriodId.isAd()) {
-                return ImmutableList.of(
-                    oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM);
-              } else {
-                // Provide a single sample before and after the midroll ad and another after the
-                // postroll.
-                return ImmutableList.of(
-                    oneByteSample(
-                        windowOffsetInFirstPeriodUs + C.MICROS_PER_SECOND, C.BUFFER_FLAG_KEY_FRAME),
-                    oneByteSample(
-                        windowOffsetInFirstPeriodUs + 6 * C.MICROS_PER_SECOND,
-                        C.BUFFER_FLAG_KEY_FRAME),
-                    oneByteSample(
-                        windowOffsetInFirstPeriodUs + contentDurationsUs, C.BUFFER_FLAG_KEY_FRAME),
-                    END_OF_STREAM_ITEM);
-              }
-            },
-            ExoPlayerTestRunner.VIDEO_FORMAT);
+        new FakeMediaSource.Builder()
+            .setTimeline(adTimeline)
+            .setDrmSessionManager(DrmSessionManager.DRM_UNSUPPORTED)
+            .setTrackDataFactory(
+                (unusedFormat, mediaPeriodId) -> {
+                  if (mediaPeriodId.isAd()) {
+                    return ImmutableList.of(
+                        oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME),
+                        END_OF_STREAM_ITEM);
+                  } else {
+                    // Provide a single sample before and after the midroll ad and another after the
+                    // postroll.
+                    return ImmutableList.of(
+                        oneByteSample(
+                            windowOffsetInFirstPeriodUs + C.MICROS_PER_SECOND,
+                            C.BUFFER_FLAG_KEY_FRAME),
+                        oneByteSample(
+                            windowOffsetInFirstPeriodUs + 6 * C.MICROS_PER_SECOND,
+                            C.BUFFER_FLAG_KEY_FRAME),
+                        oneByteSample(
+                            windowOffsetInFirstPeriodUs + contentDurationsUs,
+                            C.BUFFER_FLAG_KEY_FRAME),
+                        END_OF_STREAM_ITEM);
+                  }
+                })
+            .setFormats(ExoPlayerTestRunner.VIDEO_FORMAT)
+            .build();
     ExoPlayer player = setupPlayer();
     player.addListener(
         new Player.Listener() {
@@ -1122,13 +1119,10 @@ public final class DefaultAnalyticsCollectorTest {
                           /* adIndexInAdGroup= */ 0));
               fakeMediaSource.setNewSourceInfo(
                   new FakeTimeline(
-                      new TimelineWindowDefinition(
-                          /* periodCount= */ 1,
-                          /* id= */ 0,
-                          /* isSeekable= */ true,
-                          /* isDynamic= */ false,
-                          contentDurationsUs,
-                          adPlaybackState.get())),
+                      new TimelineWindowDefinition.Builder()
+                          .setDurationUs(contentDurationsUs)
+                          .setAdPlaybackStates(ImmutableList.of(adPlaybackState.get()))
+                          .build()),
                   /* sendManifestLoadEvents= */ false);
             }
           }
@@ -1139,17 +1133,17 @@ public final class DefaultAnalyticsCollectorTest {
     player.setMediaSource(fakeMediaSource);
     player.prepare();
     // Ensure everything is preloaded.
-    run(player).untilFullyBuffered();
-    run(player).untilState(Player.STATE_READY);
+    advance(player).untilFullyBuffered();
+    advance(player).untilState(Player.STATE_READY);
     // Wait in each content part to ensure previously triggered events get a chance to be delivered.
     play(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 3_000);
-    run(player).untilPendingCommandsAreFullyHandled();
+    advance(player).untilPendingCommandsAreFullyHandled();
     play(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 8_000);
-    run(player).untilPendingCommandsAreFullyHandled();
+    advance(player).untilPendingCommandsAreFullyHandled();
     player.play();
-    run(player).untilState(Player.STATE_ENDED);
+    advance(player).untilState(Player.STATE_ENDED);
     // Wait for final timeline change that marks post-roll played.
-    run(player).untilTimelineChanges();
+    advance(player).untilTimelineChanges();
 
     Object periodUid = listener.lastReportedTimeline.getUidOfPeriod(/* periodIndex= */ 0);
     EventWindowAndPeriodId prerollAd =
@@ -1259,7 +1253,10 @@ public final class DefaultAnalyticsCollectorTest {
             postrollAd,
             contentAfterPostroll)
         .inOrder();
-    assertThat(listener.getEvents(EVENT_VIDEO_ENABLED)).containsExactly(prerollAd);
+    assertThat(listener.getEvents(EVENT_VIDEO_ENABLED))
+        .containsExactly(prerollAd, contentAfterPreroll, contentAfterMidroll);
+    assertThat(listener.getEvents(EVENT_VIDEO_DISABLED))
+        .containsExactly(prerollAd, contentAfterPreroll);
     assertThat(listener.getEvents(EVENT_VIDEO_DECODER_INITIALIZED))
         .containsExactly(
             prerollAd,
@@ -1279,9 +1276,14 @@ public final class DefaultAnalyticsCollectorTest {
             contentAfterPostroll)
         .inOrder();
     assertThat(listener.getEvents(EVENT_DROPPED_VIDEO_FRAMES))
-        .containsExactly(contentAfterPostroll);
+        .containsExactly(contentAfterPreroll, contentAfterPostroll);
     assertThat(listener.getEvents(EVENT_VIDEO_SIZE_CHANGED))
-        .containsExactly(prerollAd) // First frame rendered
+        .containsExactly(
+            prerollAd, // First frame rendered
+            contentAfterPreroll, // Size unknown for renderer reset
+            contentAfterPreroll, // Content size
+            contentAfterMidroll, // Size unknown for renderer reset
+            contentAfterMidroll) // Content size
         .inOrder();
     assertThat(listener.getEvents(EVENT_RENDERED_FIRST_FRAME))
         .containsExactly(
@@ -1293,7 +1295,7 @@ public final class DefaultAnalyticsCollectorTest {
             contentAfterPostroll)
         .inOrder();
     assertThat(listener.getEvents(EVENT_VIDEO_FRAME_PROCESSING_OFFSET))
-        .containsExactly(contentAfterPostroll);
+        .containsExactly(contentAfterPreroll, contentAfterPostroll);
     assertThat(listener.getEvents(EVENT_RENDERER_READY_CHANGED))
         .containsExactly(prerollAd /* videoTrue */);
     listener.assertNoMoreEvents();
@@ -1305,35 +1307,39 @@ public final class DefaultAnalyticsCollectorTest {
         TimelineWindowDefinition.DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US;
     Timeline adTimeline =
         new FakeTimeline(
-            new TimelineWindowDefinition(
-                /* periodCount= */ 1,
-                /* id= */ 0,
-                /* isSeekable= */ true,
-                /* isDynamic= */ false,
-                10 * C.MICROS_PER_SECOND,
-                FakeTimeline.createAdPlaybackState(
-                    /* adsPerAdGroup= */ 1, /* adGroupTimesUs...= */
-                    windowOffsetInFirstPeriodUs + 5 * C.MICROS_PER_SECOND)));
+            new TimelineWindowDefinition.Builder()
+                .setDurationUs(10 * C.MICROS_PER_SECOND)
+                .setAdPlaybackStates(
+                    ImmutableList.of(
+                        FakeTimeline.createAdPlaybackState(
+                            /* adsPerAdGroup= */ 1,
+                            /* adGroupTimesUs...= */ windowOffsetInFirstPeriodUs
+                                + 5 * C.MICROS_PER_SECOND)))
+                .build());
     FakeMediaSource fakeMediaSource =
-        new FakeMediaSource(
-            adTimeline,
-            DrmSessionManager.DRM_UNSUPPORTED,
-            (unusedFormat, mediaPeriodId) -> {
-              if (mediaPeriodId.isAd()) {
-                return ImmutableList.of(
-                    oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM);
-              } else {
-                // Provide a sample before the midroll and another after the seek point below (6s).
-                return ImmutableList.of(
-                    oneByteSample(
-                        windowOffsetInFirstPeriodUs + C.MICROS_PER_SECOND, C.BUFFER_FLAG_KEY_FRAME),
-                    oneByteSample(
-                        windowOffsetInFirstPeriodUs + 7 * C.MICROS_PER_SECOND,
-                        C.BUFFER_FLAG_KEY_FRAME),
-                    END_OF_STREAM_ITEM);
-              }
-            },
-            ExoPlayerTestRunner.VIDEO_FORMAT);
+        new FakeMediaSource.Builder()
+            .setTimeline(adTimeline)
+            .setTrackDataFactory(
+                (unusedFormat, mediaPeriodId) -> {
+                  if (mediaPeriodId.isAd()) {
+                    return ImmutableList.of(
+                        oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME),
+                        END_OF_STREAM_ITEM);
+                  } else {
+                    // Provide a sample before the midroll and another after the seek point below
+                    // (6s).
+                    return ImmutableList.of(
+                        oneByteSample(
+                            windowOffsetInFirstPeriodUs + C.MICROS_PER_SECOND,
+                            C.BUFFER_FLAG_KEY_FRAME),
+                        oneByteSample(
+                            windowOffsetInFirstPeriodUs + 7 * C.MICROS_PER_SECOND,
+                            C.BUFFER_FLAG_KEY_FRAME),
+                        END_OF_STREAM_ITEM);
+                  }
+                })
+            .setFormats(ExoPlayerTestRunner.VIDEO_FORMAT)
+            .build();
     ExoPlayer player = setupPlayer();
     TestAnalyticsListener listener = new TestAnalyticsListener();
     player.addAnalyticsListener(listener);
@@ -1341,13 +1347,13 @@ public final class DefaultAnalyticsCollectorTest {
     player.setMediaSource(fakeMediaSource);
     player.prepare();
     // Ensure everything is preloaded.
-    run(player).untilFullyBuffered();
+    advance(player).untilFullyBuffered();
     // Seek behind the midroll.
     player.seekTo(/* positionMs= */ 6_000);
     // Wait until loading started again to assert loading events.
-    run(player).untilLoadingIs(true);
+    advance(player).untilLoadingIs(true);
     player.play();
-    run(player).untilState(Player.STATE_ENDED);
+    advance(player).untilState(Player.STATE_ENDED);
 
     Object periodUid = listener.lastReportedTimeline.getUidOfPeriod(/* periodIndex= */ 0);
     EventWindowAndPeriodId midrollAd =
@@ -1469,7 +1475,11 @@ public final class DefaultAnalyticsCollectorTest {
   @Test
   public void drmEvents_singlePeriod() throws Exception {
     MediaSource mediaSource =
-        new FakeMediaSource(SINGLE_PERIOD_TIMELINE, drmSessionManager, VIDEO_FORMAT_DRM_1);
+        new FakeMediaSource.Builder()
+            .setTimeline(SINGLE_PERIOD_TIMELINE)
+            .setDrmSessionManager(drmSessionManager)
+            .setFormats(VIDEO_FORMAT_DRM_1)
+            .build();
     ExoPlayer player = setupPlayer();
     TestAnalyticsListener listener = new TestAnalyticsListener();
     player.addAnalyticsListener(listener);
@@ -1500,9 +1510,17 @@ public final class DefaultAnalyticsCollectorTest {
             .setMultiSession(true)
             .build(mediaDrmCallback);
     MediaSource mediaSource1 =
-        new FakeMediaSource(SINGLE_PERIOD_TIMELINE, blockingDrmSessionManager, VIDEO_FORMAT_DRM_1);
+        new FakeMediaSource.Builder()
+            .setTimeline(SINGLE_PERIOD_TIMELINE)
+            .setDrmSessionManager(blockingDrmSessionManager)
+            .setFormats(VIDEO_FORMAT_DRM_1)
+            .build();
     MediaSource mediaSource2 =
-        new FakeMediaSource(SINGLE_PERIOD_TIMELINE, blockingDrmSessionManager, VIDEO_FORMAT_DRM_1);
+        new FakeMediaSource.Builder()
+            .setTimeline(SINGLE_PERIOD_TIMELINE)
+            .setDrmSessionManager(blockingDrmSessionManager)
+            .setFormats(VIDEO_FORMAT_DRM_1)
+            .build();
     ExoPlayer player = setupPlayer();
     TestAnalyticsListener listener = new TestAnalyticsListener();
     player.addAnalyticsListener(listener);
@@ -1513,9 +1531,9 @@ public final class DefaultAnalyticsCollectorTest {
     // Wait for the media to be fully buffered before unblocking the DRM key request. This
     // ensures both periods report the same load event (because period1's DRM session is
     // already preacquired by the time the key load completes).
-    run(player).untilFullyBuffered();
+    advance(player).untilFullyBuffered();
     mediaDrmCallback.keyCondition.open();
-    run(player).untilState(Player.STATE_ENDED);
+    advance(player).untilState(Player.STATE_ENDED);
 
     populateEventIds(listener.lastReportedTimeline);
     assertThat(listener.getEvents(EVENT_DRM_SESSION_MANAGER_ERROR)).isEmpty();
@@ -1535,12 +1553,17 @@ public final class DefaultAnalyticsCollectorTest {
   @Test
   public void drmEvents_periodWithDifferentDrmData_keysLoadedAgain() throws Exception {
     MediaSource mediaSource1 =
-        new FakeMediaSource(SINGLE_PERIOD_TIMELINE, drmSessionManager, VIDEO_FORMAT_DRM_1);
+        new FakeMediaSource.Builder()
+            .setTimeline(SINGLE_PERIOD_TIMELINE)
+            .setDrmSessionManager(drmSessionManager)
+            .setFormats(VIDEO_FORMAT_DRM_1)
+            .build();
     MediaSource mediaSource2 =
-        new FakeMediaSource(
-            SINGLE_PERIOD_TIMELINE,
-            drmSessionManager,
-            VIDEO_FORMAT_DRM_1.buildUpon().setDrmInitData(DRM_DATA_2).build());
+        new FakeMediaSource.Builder()
+            .setTimeline(SINGLE_PERIOD_TIMELINE)
+            .setDrmSessionManager(drmSessionManager)
+            .setFormats(VIDEO_FORMAT_DRM_1.buildUpon().setDrmInitData(DRM_DATA_2).build())
+            .build();
     ExoPlayer player = setupPlayer();
     TestAnalyticsListener listener = new TestAnalyticsListener();
     player.addAnalyticsListener(listener);
@@ -1577,7 +1600,11 @@ public final class DefaultAnalyticsCollectorTest {
             .setPlayClearSamplesWithoutKeys(false)
             .build(mediaDrmCallback);
     MediaSource mediaSource =
-        new FakeMediaSource(SINGLE_PERIOD_TIMELINE, failingDrmSessionManager, VIDEO_FORMAT_DRM_1);
+        new FakeMediaSource.Builder()
+            .setTimeline(SINGLE_PERIOD_TIMELINE)
+            .setDrmSessionManager(failingDrmSessionManager)
+            .setFormats(VIDEO_FORMAT_DRM_1)
+            .build();
     ExoPlayer player = setupPlayer();
     TestAnalyticsListener listener = new TestAnalyticsListener();
     player.addAnalyticsListener(listener);
@@ -1585,9 +1612,9 @@ public final class DefaultAnalyticsCollectorTest {
     player.play();
     player.setMediaSource(mediaSource);
     player.prepare();
-    run(player).untilFullyBuffered();
+    advance(player).untilFullyBuffered();
     mediaDrmCallback.keyCondition.open();
-    run(player).untilPlayerError();
+    advance(player).untilPlayerError();
 
     populateEventIds(listener.lastReportedTimeline);
     assertThat(listener.getEvents(EVENT_DRM_SESSION_MANAGER_ERROR)).containsExactly(period0);
@@ -2090,7 +2117,7 @@ public final class DefaultAnalyticsCollectorTest {
     }
   }
 
-  private static ExoPlayer setupPlayer() {
+  private static ExoPlayer setupPlayer() throws TimeoutException {
     Clock clock = new FakeClock(/* isAutoAdvancing= */ true);
     return setupPlayer(
         /* renderersFactory= */ (eventHandler,
@@ -2108,11 +2135,12 @@ public final class DefaultAnalyticsCollectorTest {
         clock);
   }
 
-  private static ExoPlayer setupPlayer(RenderersFactory renderersFactory) {
+  private static ExoPlayer setupPlayer(RenderersFactory renderersFactory) throws TimeoutException {
     return setupPlayer(renderersFactory, new FakeClock(/* isAutoAdvancing= */ true));
   }
 
-  private static ExoPlayer setupPlayer(RenderersFactory renderersFactory, Clock clock) {
+  private static ExoPlayer setupPlayer(RenderersFactory renderersFactory, Clock clock)
+      throws TimeoutException {
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 0));
     ExoPlayer player =
         new TestExoPlayerBuilder(ApplicationProvider.getApplicationContext())
@@ -2120,6 +2148,7 @@ public final class DefaultAnalyticsCollectorTest {
             .setRenderersFactory(renderersFactory)
             .build();
     player.setVideoSurface(surface);
+    advance(player).untilPendingCommandsAreFullyHandled();
     return player;
   }
 
@@ -2139,7 +2168,7 @@ public final class DefaultAnalyticsCollectorTest {
         return false;
       }
       EventWindowAndPeriodId event = (EventWindowAndPeriodId) other;
-      return windowIndex == event.windowIndex && Util.areEqual(mediaPeriodId, event.mediaPeriodId);
+      return windowIndex == event.windowIndex && Objects.equals(mediaPeriodId, event.mediaPeriodId);
     }
 
     @Override

@@ -30,7 +30,7 @@ import androidx.media3.effect.ScaleAndRotateTransformation;
  * for the wrapped {@link GlEffect} rather than merging it with preceding or subsequent {@link
  * GlEffect} instances and applying them in one combined {@link GlShaderProgram}.
  */
-// TODO(b/263395272): Move this to effects/mh tests.
+// TODO: b/263395272 - Move this to effects/mh tests.
 public final class UnoptimizedGlEffect implements GlEffect {
   // A passthrough effect allows for testing having an intermediate effect injected, which uses
   // different OpenGL shaders from having no effects.

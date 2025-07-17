@@ -16,6 +16,7 @@
 package androidx.media3.common;
 
 import static androidx.media3.common.util.Assertions.checkState;
+import static com.google.common.math.DoubleMath.fuzzyEquals;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.os.Bundle;
@@ -96,12 +97,15 @@ import java.util.UUID;
  * <ul>
  *   <li>{@link #width}
  *   <li>{@link #height}
+ *   <li>{@link #decodedWidth}
+ *   <li>{@link #decodedHeight}
  *   <li>{@link #frameRate}
  *   <li>{@link #rotationDegrees}
  *   <li>{@link #pixelWidthHeightRatio}
  *   <li>{@link #projectionData}
  *   <li>{@link #stereoMode}
  *   <li>{@link #colorInfo}
+ *   <li>{@link #maxSubLayers}
  * </ul>
  *
  * <h2 id="audio-formats">Fields relevant to audio formats</h2>
@@ -172,12 +176,15 @@ public final class Format {
 
     private int width;
     private int height;
+    private int decodedWidth;
+    private int decodedHeight;
     private float frameRate;
     private int rotationDegrees;
     private float pixelWidthHeightRatio;
     @Nullable private byte[] projectionData;
     private @C.StereoMode int stereoMode;
     @Nullable private ColorInfo colorInfo;
+    private int maxSubLayers;
 
     // Audio specific.
 
@@ -213,9 +220,12 @@ public final class Format {
       // Video specific.
       width = NO_VALUE;
       height = NO_VALUE;
+      decodedWidth = NO_VALUE;
+      decodedHeight = NO_VALUE;
       frameRate = NO_VALUE;
       pixelWidthHeightRatio = 1.0f;
       stereoMode = NO_VALUE;
+      maxSubLayers = NO_VALUE;
       // Audio specific.
       channelCount = NO_VALUE;
       sampleRate = NO_VALUE;
@@ -261,12 +271,15 @@ public final class Format {
       // Video specific.
       this.width = format.width;
       this.height = format.height;
+      this.decodedWidth = format.decodedWidth;
+      this.decodedHeight = format.decodedHeight;
       this.frameRate = format.frameRate;
       this.rotationDegrees = format.rotationDegrees;
       this.pixelWidthHeightRatio = format.pixelWidthHeightRatio;
       this.projectionData = format.projectionData;
       this.stereoMode = format.stereoMode;
       this.colorInfo = format.colorInfo;
+      this.maxSubLayers = format.maxSubLayers;
       // Audio specific.
       this.channelCount = format.channelCount;
       this.sampleRate = format.sampleRate;
@@ -584,6 +597,30 @@ public final class Format {
     }
 
     /**
+     * Sets {@link Format#decodedWidth}. The default value is {@link #NO_VALUE}.
+     *
+     * @param decodedWidth The {@link Format#decodedWidth}.
+     * @return The builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setDecodedWidth(int decodedWidth) {
+      this.decodedWidth = decodedWidth;
+      return this;
+    }
+
+    /**
+     * Sets {@link Format#decodedHeight}. The default value is {@link #NO_VALUE}.
+     *
+     * @param decodedHeight The {@link Format#decodedHeight}.
+     * @return The builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setDecodedHeight(int decodedHeight) {
+      this.decodedHeight = decodedHeight;
+      return this;
+    }
+
+    /**
      * Sets {@link Format#frameRate}. The default value is {@link #NO_VALUE}.
      *
      * @param frameRate The {@link Format#frameRate}.
@@ -652,6 +689,18 @@ public final class Format {
     @CanIgnoreReturnValue
     public Builder setColorInfo(@Nullable ColorInfo colorInfo) {
       this.colorInfo = colorInfo;
+      return this;
+    }
+
+    /**
+     * Sets {@link Format#maxSubLayers}. The default value is {@link #NO_VALUE}.
+     *
+     * @param maxSubLayers The {@link Format#maxSubLayers}.
+     * @return The builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setMaxSubLayers(int maxSubLayers) {
+      this.maxSubLayers = maxSubLayers;
       return this;
     }
 
@@ -749,7 +798,7 @@ public final class Format {
     /**
      * Sets {@link Format#tileCountHorizontal}. The default value is {@link #NO_VALUE}.
      *
-     * @param tileCountHorizontal The {@link Format#accessibilityChannel}.
+     * @param tileCountHorizontal The {@link Format#tileCountHorizontal}.
      * @return The builder.
      */
     @CanIgnoreReturnValue
@@ -761,7 +810,7 @@ public final class Format {
     /**
      * Sets {@link Format#tileCountVertical}. The default value is {@link #NO_VALUE}.
      *
-     * @param tileCountVertical The {@link Format#accessibilityChannel}.
+     * @param tileCountVertical The {@link Format#tileCountVertical}.
      * @return The builder.
      */
     @CanIgnoreReturnValue
@@ -983,6 +1032,22 @@ public final class Format {
   /** The height of the video in pixels, or {@link #NO_VALUE} if unknown or not applicable. */
   public final int height;
 
+  /**
+   * The width of the video decoded picture in pixels, or {@link #NO_VALUE} if unknown or not
+   * applicable.
+   *
+   * <p>May be larger than {@link #width} if cropping is applied before display.
+   */
+  @UnstableApi public final int decodedWidth;
+
+  /**
+   * The height of the video decoded picture in pixels, or {@link #NO_VALUE} if unknown or not
+   * applicable.
+   *
+   * <p>May be larger than {@link #height} if cropping is applied before display.
+   */
+  @UnstableApi public final int decodedHeight;
+
   /** The frame rate in frames per second, or {@link #NO_VALUE} if unknown or not applicable. */
   public final float frameRate;
 
@@ -1008,6 +1073,12 @@ public final class Format {
   /** The color metadata associated with the video, or null if not applicable. */
   @UnstableApi @Nullable public final ColorInfo colorInfo;
 
+  /**
+   * The maximum number of temporal scalable sub-layers in the video bitstream, or {@link #NO_VALUE}
+   * if not applicable.
+   */
+  @UnstableApi public final int maxSubLayers;
+
   // Audio specific.
 
   /** The number of audio channels, or {@link #NO_VALUE} if unknown or not applicable. */
@@ -1016,7 +1087,10 @@ public final class Format {
   /** The audio sampling rate in Hz, or {@link #NO_VALUE} if unknown or not applicable. */
   public final int sampleRate;
 
-  /** The {@link C.PcmEncoding} for PCM audio. Set to {@link #NO_VALUE} for other media types. */
+  /**
+   * The {@link C.PcmEncoding} for PCM or losslessly compressed audio. Set to {@link #NO_VALUE} for
+   * other media types.
+   */
   @UnstableApi public final @C.PcmEncoding int pcmEncoding;
 
   /**
@@ -1119,6 +1193,8 @@ public final class Format {
     // Video specific.
     width = builder.width;
     height = builder.height;
+    decodedWidth = builder.decodedWidth;
+    decodedHeight = builder.decodedHeight;
     frameRate = builder.frameRate;
     rotationDegrees = builder.rotationDegrees == NO_VALUE ? 0 : builder.rotationDegrees;
     pixelWidthHeightRatio =
@@ -1126,6 +1202,7 @@ public final class Format {
     projectionData = builder.projectionData;
     stereoMode = builder.stereoMode;
     colorInfo = builder.colorInfo;
+    maxSubLayers = builder.maxSubLayers;
     // Audio specific.
     channelCount = builder.channelCount;
     sampleRate = builder.sampleRate;
@@ -1302,12 +1379,15 @@ public final class Format {
       // Video specific.
       result = 31 * result + width;
       result = 31 * result + height;
+      result = 31 * result + decodedWidth;
+      result = 31 * result + decodedHeight;
       result = 31 * result + Float.floatToIntBits(frameRate);
       result = 31 * result + rotationDegrees;
       result = 31 * result + Float.floatToIntBits(pixelWidthHeightRatio);
       // [Omitted] projectionData.
       result = 31 * result + stereoMode;
       // [Omitted] colorInfo.
+      result = 31 * result + maxSubLayers;
       // Audio specific.
       result = 31 * result + channelCount;
       result = 31 * result + sampleRate;
@@ -1348,8 +1428,11 @@ public final class Format {
         && subsampleOffsetUs == other.subsampleOffsetUs
         && width == other.width
         && height == other.height
+        && decodedWidth == other.decodedWidth
+        && decodedHeight == other.decodedHeight
         && rotationDegrees == other.rotationDegrees
         && stereoMode == other.stereoMode
+        && maxSubLayers == other.maxSubLayers
         && channelCount == other.channelCount
         && sampleRate == other.sampleRate
         && pcmEncoding == other.pcmEncoding
@@ -1442,11 +1525,24 @@ public final class Format {
     if (format.width != NO_VALUE && format.height != NO_VALUE) {
       builder.append(", res=").append(format.width).append("x").append(format.height);
     }
+    if (format.decodedWidth != NO_VALUE && format.decodedHeight != NO_VALUE) {
+      builder
+          .append(", decRes=")
+          .append(format.decodedWidth)
+          .append("x")
+          .append(format.decodedHeight);
+    }
+    if (!fuzzyEquals(format.pixelWidthHeightRatio, 1, 0.001)) {
+      builder.append(", par=").append(Util.formatInvariant("%.3f", format.pixelWidthHeightRatio));
+    }
     if (format.colorInfo != null && format.colorInfo.isValid()) {
       builder.append(", color=").append(format.colorInfo.toLogString());
     }
     if (format.frameRate != NO_VALUE) {
       builder.append(", fps=").append(format.frameRate);
+    }
+    if (format.maxSubLayers != NO_VALUE) {
+      builder.append(", maxSubLayers=").append(format.maxSubLayers);
     }
     if (format.channelCount != NO_VALUE) {
       builder.append(", channels=").append(format.channelCount);
@@ -1492,7 +1588,8 @@ public final class Format {
   private static final String FIELD_AVERAGE_BITRATE = Util.intToStringMaxRadix(5);
   private static final String FIELD_PEAK_BITRATE = Util.intToStringMaxRadix(6);
   private static final String FIELD_CODECS = Util.intToStringMaxRadix(7);
-  private static final String FIELD_METADATA = Util.intToStringMaxRadix(8);
+  // Do not reuse this key.
+  private static final String UNUSED_FIELD_METADATA = Util.intToStringMaxRadix(8);
   private static final String FIELD_CONTAINER_MIME_TYPE = Util.intToStringMaxRadix(9);
   private static final String FIELD_SAMPLE_MIME_TYPE = Util.intToStringMaxRadix(10);
   private static final String FIELD_MAX_INPUT_SIZE = Util.intToStringMaxRadix(11);
@@ -1518,22 +1615,16 @@ public final class Format {
   private static final String FIELD_TILE_COUNT_VERTICAL = Util.intToStringMaxRadix(31);
   private static final String FIELD_LABELS = Util.intToStringMaxRadix(32);
   private static final String FIELD_AUXILIARY_TRACK_TYPE = Util.intToStringMaxRadix(33);
-
-  /**
-   * @deprecated Use {@link #toBundle(boolean)} instead.
-   */
-  @UnstableApi
-  @Deprecated
-  public Bundle toBundle() {
-    return toBundle(/* excludeMetadata= */ false);
-  }
+  private static final String FIELD_MAX_SUB_LAYERS = Util.intToStringMaxRadix(34);
+  private static final String FIELD_DECODED_WIDTH = Util.intToStringMaxRadix(35);
+  private static final String FIELD_DECODED_HEIGHT = Util.intToStringMaxRadix(36);
 
   /**
    * Returns a {@link Bundle} representing the information stored in this object. If {@code
    * excludeMetadata} is true, {@linkplain Format#metadata metadata} is excluded.
    */
   @UnstableApi
-  public Bundle toBundle(boolean excludeMetadata) {
+  public Bundle toBundle() {
     Bundle bundle = new Bundle();
     bundle.putString(FIELD_ID, id);
     bundle.putString(FIELD_LABEL, label);
@@ -1548,10 +1639,7 @@ public final class Format {
     bundle.putInt(FIELD_AVERAGE_BITRATE, averageBitrate);
     bundle.putInt(FIELD_PEAK_BITRATE, peakBitrate);
     bundle.putString(FIELD_CODECS, codecs);
-    if (!excludeMetadata) {
-      // TODO (internal ref: b/239701618)
-      bundle.putParcelable(FIELD_METADATA, metadata);
-    }
+    // The metadata does not implement toBundle() method, hence can not be added.
     // Container specific.
     bundle.putString(FIELD_CONTAINER_MIME_TYPE, containerMimeType);
     // Sample specific.
@@ -1567,6 +1655,8 @@ public final class Format {
     // Video specific.
     bundle.putInt(FIELD_WIDTH, width);
     bundle.putInt(FIELD_HEIGHT, height);
+    bundle.putInt(FIELD_DECODED_WIDTH, decodedWidth);
+    bundle.putInt(FIELD_DECODED_HEIGHT, decodedHeight);
     bundle.putFloat(FIELD_FRAME_RATE, frameRate);
     bundle.putInt(FIELD_ROTATION_DEGREES, rotationDegrees);
     bundle.putFloat(FIELD_PIXEL_WIDTH_HEIGHT_RATIO, pixelWidthHeightRatio);
@@ -1575,6 +1665,7 @@ public final class Format {
     if (colorInfo != null) {
       bundle.putBundle(FIELD_COLOR_INFO, colorInfo.toBundle());
     }
+    bundle.putInt(FIELD_MAX_SUB_LAYERS, maxSubLayers);
     // Audio specific.
     bundle.putInt(FIELD_CHANNEL_COUNT, channelCount);
     bundle.putInt(FIELD_SAMPLE_RATE, sampleRate);
@@ -1614,7 +1705,6 @@ public final class Format {
         .setAverageBitrate(bundle.getInt(FIELD_AVERAGE_BITRATE, DEFAULT.averageBitrate))
         .setPeakBitrate(bundle.getInt(FIELD_PEAK_BITRATE, DEFAULT.peakBitrate))
         .setCodecs(defaultIfNull(bundle.getString(FIELD_CODECS), DEFAULT.codecs))
-        .setMetadata(defaultIfNull(bundle.getParcelable(FIELD_METADATA), DEFAULT.metadata))
         // Container specific.
         .setContainerMimeType(
             defaultIfNull(bundle.getString(FIELD_CONTAINER_MIME_TYPE), DEFAULT.containerMimeType))
@@ -1638,12 +1728,15 @@ public final class Format {
         // Video specific.
         .setWidth(bundle.getInt(FIELD_WIDTH, DEFAULT.width))
         .setHeight(bundle.getInt(FIELD_HEIGHT, DEFAULT.height))
+        .setDecodedWidth(bundle.getInt(FIELD_DECODED_WIDTH, DEFAULT.decodedWidth))
+        .setDecodedHeight(bundle.getInt(FIELD_DECODED_HEIGHT, DEFAULT.decodedHeight))
         .setFrameRate(bundle.getFloat(FIELD_FRAME_RATE, DEFAULT.frameRate))
         .setRotationDegrees(bundle.getInt(FIELD_ROTATION_DEGREES, DEFAULT.rotationDegrees))
         .setPixelWidthHeightRatio(
             bundle.getFloat(FIELD_PIXEL_WIDTH_HEIGHT_RATIO, DEFAULT.pixelWidthHeightRatio))
         .setProjectionData(bundle.getByteArray(FIELD_PROJECTION_DATA))
-        .setStereoMode(bundle.getInt(FIELD_STEREO_MODE, DEFAULT.stereoMode));
+        .setStereoMode(bundle.getInt(FIELD_STEREO_MODE, DEFAULT.stereoMode))
+        .setMaxSubLayers(bundle.getInt(FIELD_MAX_SUB_LAYERS, DEFAULT.maxSubLayers));
     Bundle colorInfoBundle = bundle.getBundle(FIELD_COLOR_INFO);
     if (colorInfoBundle != null) {
       builder.setColorInfo(ColorInfo.fromBundle(colorInfoBundle));

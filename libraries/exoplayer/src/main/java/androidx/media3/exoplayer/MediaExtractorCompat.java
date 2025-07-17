@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.annotation.VisibleForTesting.NONE;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
@@ -25,12 +26,14 @@ import static java.lang.Math.max;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.res.AssetFileDescriptor;
+import android.media.MediaCodec;
 import android.media.MediaDataSource;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.media.metrics.LogSessionId;
 import android.net.Uri;
 import android.os.PersistableBundle;
+import android.util.Pair;
 import android.util.SparseArray;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
@@ -41,6 +44,7 @@ import androidx.media3.common.DrmInitData;
 import androidx.media3.common.Format;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.Assertions;
+import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.MediaFormatUtil;
 import androidx.media3.common.util.UnstableApi;
@@ -72,6 +76,7 @@ import androidx.media3.extractor.SeekMap.SeekPoints;
 import androidx.media3.extractor.SeekPoint;
 import androidx.media3.extractor.TrackOutput;
 import androidx.media3.extractor.mp4.Mp4Extractor;
+import androidx.media3.extractor.mp4.PsshAtomUtil;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
@@ -84,9 +89,11 @@ import java.lang.annotation.RetentionPolicy;
 import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
 
 /**
@@ -135,8 +142,8 @@ public final class MediaExtractorCompat {
   private final SparseArray<MediaExtractorSampleQueue> sampleQueues;
   private final SampleMetadataQueue sampleMetadataQueue;
   private final FormatHolder formatHolder;
-  private final DecoderInputBuffer sampleHolder;
-  private final DecoderInputBuffer noDataBuffer;
+  private final DecoderInputBuffer sampleHolderWithBufferReplacementDisabled;
+  private final DecoderInputBuffer sampleHolderWithBufferReplacementEnabled;
   private final Set<Integer> selectedTrackIndices;
 
   private boolean hasBeenPrepared;
@@ -185,8 +192,9 @@ public final class MediaExtractorCompat {
     sampleQueues = new SparseArray<>();
     sampleMetadataQueue = new SampleMetadataQueue();
     formatHolder = new FormatHolder();
-    sampleHolder = new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_DISABLED);
-    noDataBuffer = DecoderInputBuffer.newNoDataInstance();
+    sampleHolderWithBufferReplacementDisabled = DecoderInputBuffer.newNoDataInstance();
+    sampleHolderWithBufferReplacementEnabled =
+        new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_DIRECT);
     selectedTrackIndices = new HashSet<>();
   }
 
@@ -282,11 +290,8 @@ public final class MediaExtractorCompat {
    */
   public void setDataSource(Context context, Uri uri, @Nullable Map<String, String> headers)
       throws IOException {
-    String scheme = uri.getScheme();
-    String path = uri.getPath();
-    if ((scheme == null || scheme.equals("file")) && path != null) {
-      // If the URI scheme is null or file, treat it as a local file path
-      setDataSource(path);
+    if (Util.isLocalFileUri(uri)) {
+      setDataSource(checkNotNull(uri.getPath()));
       return;
     }
 
@@ -425,7 +430,8 @@ public final class MediaExtractorCompat {
   /** Returns the track {@link MediaFormat} at the specified {@code trackIndex}. */
   public MediaFormat getTrackFormat(int trackIndex) {
     MediaExtractorTrack track = tracks.get(trackIndex);
-    MediaFormat mediaFormat = track.createDownstreamMediaFormat(formatHolder, noDataBuffer);
+    MediaFormat mediaFormat =
+        track.createDownstreamMediaFormat(formatHolder, sampleHolderWithBufferReplacementDisabled);
     long trackDurationUs = track.sampleQueue.trackDurationUs;
     if (trackDurationUs != C.TIME_UNSET) {
       mediaFormat.setLong(MediaFormat.KEY_DURATION, trackDurationUs);
@@ -539,11 +545,11 @@ public final class MediaExtractorCompat {
     // The platform media extractor implementation ignores the buffer's input position and limit.
     buffer.position(offset);
     buffer.limit(buffer.capacity());
-    sampleHolder.data = buffer;
-    peekNextSelectedTrackSample(sampleHolder);
+    sampleHolderWithBufferReplacementDisabled.data = buffer;
+    peekNextSelectedTrackSample(sampleHolderWithBufferReplacementDisabled);
     buffer.flip();
     buffer.position(offset);
-    sampleHolder.data = null;
+    sampleHolderWithBufferReplacementDisabled.data = null;
     return buffer.remaining();
   }
 
@@ -563,7 +569,11 @@ public final class MediaExtractorCompat {
     if (!advanceToSampleOrEndOfInput()) {
       return -1;
     }
-    return sampleMetadataQueue.peekFirst().size;
+    peekNextSelectedTrackSample(sampleHolderWithBufferReplacementEnabled);
+    ByteBuffer buffer = checkNotNull(sampleHolderWithBufferReplacementEnabled.data);
+    int sampleSize = buffer.position();
+    buffer.position(0);
+    return sampleSize;
   }
 
   /**
@@ -583,6 +593,38 @@ public final class MediaExtractorCompat {
       return -1;
     }
     return sampleMetadataQueue.peekFirst().flags;
+  }
+
+  /**
+   * Returns {@code true} if the current sample is at least partially encrypted and fills the
+   * provided {@link MediaCodec.CryptoInfo} structure with relevant decryption information.
+   *
+   * @param info The {@link MediaCodec.CryptoInfo} structure to be filled with decryption data.
+   * @return {@code true} if the sample is at least partially encrypted, {@code false} otherwise.
+   */
+  public boolean getSampleCryptoInfo(MediaCodec.CryptoInfo info) {
+    if (!advanceToSampleOrEndOfInput()) {
+      return false;
+    }
+    boolean isEncrypted =
+        (sampleMetadataQueue.peekFirst().flags & MediaExtractor.SAMPLE_FLAG_ENCRYPTED) != 0;
+    if (!isEncrypted) {
+      return false;
+    }
+    peekNextSelectedTrackSample(sampleHolderWithBufferReplacementEnabled);
+    populatePlatformCryptoInfoParameters(info);
+    return true;
+  }
+
+  private void populatePlatformCryptoInfoParameters(MediaCodec.CryptoInfo info) {
+    MediaCodec.CryptoInfo platformCryptoInfo =
+        checkNotNull(sampleHolderWithBufferReplacementEnabled.cryptoInfo).getFrameworkCryptoInfo();
+    info.numSubSamples = platformCryptoInfo.numSubSamples;
+    info.numBytesOfClearData = platformCryptoInfo.numBytesOfClearData;
+    info.numBytesOfEncryptedData = platformCryptoInfo.numBytesOfEncryptedData;
+    info.key = platformCryptoInfo.key;
+    info.iv = platformCryptoInfo.iv;
+    info.mode = platformCryptoInfo.mode;
   }
 
   /** Sets the {@link LogSessionId} for MediaExtractorCompat. */
@@ -608,7 +650,8 @@ public final class MediaExtractorCompat {
   @Nullable
   public DrmInitData getDrmInitData() {
     for (int i = 0; i < tracks.size(); i++) {
-      Format format = tracks.get(i).getFormat(formatHolder, noDataBuffer);
+      Format format =
+          tracks.get(i).getFormat(formatHolder, sampleHolderWithBufferReplacementDisabled);
       if (format.drmInitData == null) {
         continue;
       }
@@ -673,13 +716,44 @@ public final class MediaExtractorCompat {
           currentExtractor.getUnderlyingImplementation().getClass().getSimpleName());
     }
     if (!tracks.isEmpty()) {
-      Format format = tracks.get(0).getFormat(formatHolder, noDataBuffer);
+      Format format =
+          tracks.get(0).getFormat(formatHolder, sampleHolderWithBufferReplacementDisabled);
       if (format.containerMimeType != null) {
         bundle.putString(MediaExtractor.MetricsConstants.MIME_TYPE, format.containerMimeType);
       }
     }
     bundle.putInt(MediaExtractor.MetricsConstants.TRACKS, tracks.size());
     return bundle;
+  }
+
+  /**
+   * Extracts PSSH data from the media, if present.
+   *
+   * @return A {@link Map} of UUID-to-byte[] pairs, where the {@link UUID} identifies the crypto
+   *     scheme, and the byte array contains the scheme-specific data. Returns {@code null} if no
+   *     PSSH data exists.
+   */
+  @Nullable
+  public Map<UUID, byte[]> getPsshInfo() {
+    @Nullable DrmInitData drmInitData = getDrmInitData();
+    if (drmInitData == null) {
+      return null;
+    }
+
+    Map<UUID, byte[]> psshDataMap = new HashMap<>();
+    for (int i = 0; i < drmInitData.schemeDataCount; i++) {
+      DrmInitData.SchemeData schemeData = drmInitData.get(i);
+      if (schemeData.data == null) {
+        continue;
+      }
+
+      @Nullable PsshAtomUtil.PsshAtom parsedPsshAtom = PsshAtomUtil.parsePsshAtom(schemeData.data);
+      if (parsedPsshAtom != null) {
+        psshDataMap.put(parsedPsshAtom.uuid, parsedPsshAtom.schemeData);
+      }
+    }
+
+    return psshDataMap.isEmpty() ? null : psshDataMap;
   }
 
   @VisibleForTesting(otherwise = NONE)
@@ -929,10 +1003,16 @@ public final class MediaExtractorCompat {
       Format format = getFormat(scratchFormatHolder, scratchNoDataDecoderInputBuffer);
       MediaFormat mediaFormatResult = MediaFormatUtil.createMediaFormatFromFormat(format);
       if (compatibilityTrackMimeType != null) {
-        if (Util.SDK_INT >= 29) {
+        if (SDK_INT >= 29) {
           mediaFormatResult.removeKey(MediaFormat.KEY_CODECS_STRING);
         }
         mediaFormatResult.setString(MediaFormat.KEY_MIME, compatibilityTrackMimeType);
+      }
+      Pair<Integer, Integer> profileAndLevel =
+          CodecSpecificDataUtil.getCodecProfileAndLevel(format);
+      if (profileAndLevel != null && SDK_INT >= 23) {
+        mediaFormatResult.setInteger(MediaFormat.KEY_PROFILE, profileAndLevel.first);
+        mediaFormatResult.setInteger(MediaFormat.KEY_LEVEL, profileAndLevel.second);
       }
       return mediaFormatResult;
     }
@@ -1023,7 +1103,7 @@ public final class MediaExtractorCompat {
       super.sampleMetadata(timeUs, flags, size, offset, cryptoData);
       // Add the sample metadata if the sample was committed
       if (this.getWriteIndex() == writeIndexBeforeCommitting + 1) {
-        queueSampleMetadata(timeUs, flags, size);
+        queueSampleMetadata(timeUs, flags);
       }
     }
 
@@ -1034,7 +1114,7 @@ public final class MediaExtractorCompat {
           trackId, mainTrackIndex, compatibilityTrackIndex);
     }
 
-    private void queueSampleMetadata(long timeUs, @C.BufferFlags int flags, int size) {
+    private void queueSampleMetadata(long timeUs, @C.BufferFlags int flags) {
       int mediaExtractorFlags = 0;
       mediaExtractorFlags |=
           (flags & C.BUFFER_FLAG_ENCRYPTED) != 0 ? MediaExtractor.SAMPLE_FLAG_ENCRYPTED : 0;
@@ -1043,9 +1123,9 @@ public final class MediaExtractorCompat {
 
       if (compatibilityTrackIndex != C.INDEX_UNSET) {
         sampleMetadataQueue.addLast(
-            timeUs, /* flags= */ mediaExtractorFlags, size, compatibilityTrackIndex);
+            timeUs, /* flags= */ mediaExtractorFlags, compatibilityTrackIndex);
       }
-      sampleMetadataQueue.addLast(timeUs, /* flags= */ mediaExtractorFlags, size, mainTrackIndex);
+      sampleMetadataQueue.addLast(timeUs, /* flags= */ mediaExtractorFlags, mainTrackIndex);
     }
   }
 
@@ -1070,11 +1150,10 @@ public final class MediaExtractorCompat {
      *
      * @param timeUs The media timestamp associated with the sample, in microseconds.
      * @param flags Flags associated with the sample. See {@code MediaExtractor.SAMPLE_FLAG_*}.
-     * @param size The size of the sample data, in bytes.
      * @param trackIndex Track index of the sample.
      */
-    public void addLast(long timeUs, int flags, long size, int trackIndex) {
-      SampleMetadata metadata = obtainSampleMetadata(timeUs, flags, size, trackIndex);
+    public void addLast(long timeUs, int flags, int trackIndex) {
+      SampleMetadata metadata = obtainSampleMetadata(timeUs, flags, trackIndex);
       sampleMetadataQueue.addLast(metadata);
     }
 
@@ -1111,29 +1190,27 @@ public final class MediaExtractorCompat {
       return sampleMetadataQueue.isEmpty();
     }
 
-    private SampleMetadata obtainSampleMetadata(long timeUs, int flags, long size, int trackIndex) {
+    private SampleMetadata obtainSampleMetadata(long timeUs, int flags, int trackIndex) {
       SampleMetadata metadata =
           sampleMetadataPool.isEmpty()
-              ? new SampleMetadata(timeUs, flags, size, trackIndex)
+              ? new SampleMetadata(timeUs, flags, trackIndex)
               : sampleMetadataPool.pop();
-      metadata.set(timeUs, flags, size, trackIndex);
+      metadata.set(timeUs, flags, trackIndex);
       return metadata;
     }
 
     private static final class SampleMetadata {
       public int flags;
-      public long size;
       public long timeUs;
       public int trackIndex;
 
-      public SampleMetadata(long timeUs, int flags, long size, int trackIndex) {
-        set(timeUs, flags, size, trackIndex);
+      public SampleMetadata(long timeUs, int flags, int trackIndex) {
+        set(timeUs, flags, trackIndex);
       }
 
-      public void set(long timeUs, int flags, long size, int trackIndex) {
+      public void set(long timeUs, int flags, int trackIndex) {
         this.timeUs = timeUs;
         this.flags = flags;
-        this.size = size;
         this.trackIndex = trackIndex;
       }
     }

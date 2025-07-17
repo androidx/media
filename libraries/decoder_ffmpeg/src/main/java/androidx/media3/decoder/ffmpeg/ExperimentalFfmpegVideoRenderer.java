@@ -15,11 +15,12 @@
  */
 package androidx.media3.decoder.ffmpeg;
 
-import static java.lang.Runtime.getRuntime;
+import static androidx.media3.exoplayer.DecoderReuseEvaluation.DISCARD_REASON_MIME_TYPE_CHANGED;
+import static androidx.media3.exoplayer.DecoderReuseEvaluation.REUSE_RESULT_NO;
+import static androidx.media3.exoplayer.DecoderReuseEvaluation.REUSE_RESULT_YES_WITHOUT_RECONFIGURATION;
 
 import android.os.Handler;
 import android.view.Surface;
-
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -35,6 +36,7 @@ import androidx.media3.exoplayer.DecoderReuseEvaluation;
 import androidx.media3.exoplayer.RendererCapabilities;
 import androidx.media3.exoplayer.video.DecoderVideoRenderer;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
+import java.util.Objects;
 
 /**
  * <b>NOTE: This class if under development and is not yet functional.</b>
@@ -91,7 +93,7 @@ public final class ExperimentalFfmpegVideoRenderer extends DecoderVideoRenderer 
         eventHandler,
         eventListener,
         maxDroppedFramesToNotify,
-        /* threads= */ getRuntime().availableProcessors(),
+        /* threads= */ Runtime.getRuntime().availableProcessors(),
         DEFAULT_NUM_OF_INPUT_BUFFERS,
         DEFAULT_NUM_OF_OUTPUT_BUFFERS);
   }
@@ -181,7 +183,13 @@ public final class ExperimentalFfmpegVideoRenderer extends DecoderVideoRenderer 
   @Override
   protected DecoderReuseEvaluation canReuseDecoder(
       String decoderName, Format oldFormat, Format newFormat) {
+    boolean sameMimeType = Objects.equals(oldFormat.sampleMimeType, newFormat.sampleMimeType);
     // TODO: Ability to reuse the decoder may be MIME type dependent.
-    return super.canReuseDecoder(decoderName, oldFormat, newFormat);
+    return new DecoderReuseEvaluation(
+        decoderName,
+        oldFormat,
+        newFormat,
+        sameMimeType ? REUSE_RESULT_YES_WITHOUT_RECONFIGURATION : REUSE_RESULT_NO,
+        sameMimeType ? 0 : DISCARD_REASON_MIME_TYPE_CHANGED);
   }
 }

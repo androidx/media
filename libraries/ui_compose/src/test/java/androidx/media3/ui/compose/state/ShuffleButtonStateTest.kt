@@ -16,6 +16,7 @@
 
 package androidx.media3.ui.compose.state
 
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.media3.ui.compose.utils.TestPlayer
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -60,9 +61,9 @@ class ShuffleButtonStateTest {
   @Test
   fun playerSetShuffleModeAndOnClick_inTheSameHandlerMessage_uiStateSynchronises() {
     // The UDF model of Compose relies on holding the Player as the single source of truth with
-    // RepeatButtonState changing its state in sync with the relevant Player events. This means that
-    // we should never find ourselves in a situation where a button's icon (here: determined by
-    // RepeatButtonState.repeatModeState) is out of sync with the Player's repeat mode. It can cause
+    // ShuffleButtonState changing its state in sync with the relevant Player events. This means
+    // that we should never find ourselves in a situation where a button's icon (here: determined by
+    // ShuffleButtonState.shuffleOn) is out of sync with the Player's shuffle mode. It can cause
     // confusion for a human user whose intent to toggle the mode will not be fulfilled. The
     // following test tries to simulate this scenario by squeezing the 2 actions together (setter +
     // onClick) into a single Looper iteration. This is a practically unlikely scenario for a human
@@ -92,5 +93,22 @@ class ShuffleButtonStateTest {
 
     assertThat(player.shuffleModeEnabled).isFalse()
     assertThat(state.shuffleOn).isFalse() // UI state synchronises with Player
+  }
+
+  @Test
+  fun playerChangesShuffleModeCommandsBeforeEventListenerRegisters_observeGetsTheLatestValues_uiIconInSync() {
+    val player = TestPlayer()
+
+    lateinit var state: ShuffleButtonState
+    composeTestRule.setContent {
+      // Schedule LaunchedEffect to update player state before ShuffleButtonState is created.
+      // This update could end up being executed *before* ShuffleButtonState schedules the start of
+      // event listening and we don't want to lose it.
+      LaunchedEffect(player) { player.shuffleModeEnabled = !player.shuffleModeEnabled }
+      state = rememberShuffleButtonState(player)
+    }
+
+    // UI syncs up with the fact that shuffle mode got flipped to true
+    assertThat(state.shuffleOn).isTrue()
   }
 }

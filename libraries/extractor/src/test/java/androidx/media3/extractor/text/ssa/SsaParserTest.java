@@ -56,6 +56,8 @@ public final class SsaParserTest {
   private static final String INVALID_TIMECODES = "media/ssa/invalid_timecodes";
   private static final String INVALID_POSITIONS = "media/ssa/invalid_positioning";
   private static final String POSITIONS_WITHOUT_PLAYRES = "media/ssa/positioning_without_playres";
+  private static final String LAYERS = "media/ssa/layer";
+  private static final String INVALID_LAYERS = "media/ssa/invalid_layer";
   private static final String STYLE_PRIMARY_COLOR = "media/ssa/style_primary_color";
   private static final String STYLE_OUTLINE_COLOR = "media/ssa/style_outline_color";
   private static final String STYLE_FONT_SIZE = "media/ssa/style_font_size";
@@ -129,7 +131,8 @@ public final class SsaParserTest {
     SsaParser parser = new SsaParser();
     byte[] bytes = TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), TYPICAL);
     List<CuesWithTiming> cues = new ArrayList<>();
-    parser.parse(bytes, OutputOptions.onlyCuesAfter(/* startTimeUs= */ 1_000_000), cues::add);
+    // Choose a start time halfway through the second cue, and expect it to be included.
+    parser.parse(bytes, OutputOptions.onlyCuesAfter(/* startTimeUs= */ 3_000_000), cues::add);
 
     assertThat(cues).hasSize(2);
     assertTypicalCue2(cues.get(0));
@@ -141,9 +144,10 @@ public final class SsaParserTest {
     SsaParser parser = new SsaParser();
     byte[] bytes = TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), TYPICAL);
     List<CuesWithTiming> cues = new ArrayList<>();
+    // Choose a start time halfway through the second cue, and expect it to be considered 'after'.
     parser.parse(
         bytes,
-        OutputOptions.cuesAfterThenRemainingCuesBefore(/* startTimeUs= */ 1_000_000),
+        OutputOptions.cuesAfterThenRemainingCuesBefore(/* startTimeUs= */ 3_000_000),
         cues::add);
 
     assertThat(cues).hasSize(3);
@@ -410,6 +414,41 @@ public final class SsaParserTest {
   }
 
   @Test
+  public void parseLayer() throws IOException {
+    SsaParser parser = new SsaParser();
+    byte[] bytes = TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), LAYERS);
+    ImmutableList<CuesWithTiming> allCues = parseAllCues(parser, bytes);
+
+    // Check positive layer.
+    Cue firstCue = Iterables.getOnlyElement(allCues.get(0).cues);
+    assertThat(firstCue.zIndex).isEqualTo(1);
+
+    // Check negative layer.
+    Cue secondCue = Iterables.getOnlyElement(allCues.get(1).cues);
+    assertThat(secondCue.zIndex).isEqualTo(-1);
+  }
+
+  @Test
+  public void parseInvalidLayer() throws IOException {
+    SsaParser parser = new SsaParser();
+    byte[] bytes =
+        TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), INVALID_LAYERS);
+    ImmutableList<CuesWithTiming> allCues = parseAllCues(parser, bytes);
+
+    // Check empty layer.
+    Cue firstCue = Iterables.getOnlyElement(allCues.get(0).cues);
+    assertThat(firstCue.zIndex).isEqualTo(0);
+
+    // Check non-numeric layer.
+    Cue secondCue = Iterables.getOnlyElement(allCues.get(1).cues);
+    assertThat(secondCue.zIndex).isEqualTo(0);
+
+    // Check non-integer layer.
+    Cue thirdCue = Iterables.getOnlyElement(allCues.get(2).cues);
+    assertThat(thirdCue.zIndex).isEqualTo(0);
+  }
+
+  @Test
   public void parsePositionsWithMissingPlayResY() throws IOException {
     SsaParser parser = new SsaParser();
     byte[] bytes =
@@ -425,16 +464,25 @@ public final class SsaParserTest {
     assertThat(firstCue.line).isEqualTo(Cue.DIMEN_UNSET);
   }
 
+  /**
+   * Parsing should succeed, skipping the cues with invalid time codes, and parsing the third and
+   * final cues only.
+   */
   @Test
   public void parseInvalidTimecodes() throws IOException {
-    // Parsing should succeed, parsing the third cue only.
     SsaParser parser = new SsaParser();
     byte[] bytes =
         TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), INVALID_TIMECODES);
     ImmutableList<CuesWithTiming> allCues = parseAllCues(parser, bytes);
 
-    assertThat(allCues).hasSize(1);
-    assertTypicalCue3(Iterables.getOnlyElement(allCues));
+    assertThat(allCues).hasSize(2);
+    assertTypicalCue3(allCues.get(0));
+    CuesWithTiming finalCue = allCues.get(1);
+    assertThat(finalCue.startTimeUs).isEqualTo(16_560_000);
+    assertThat(finalCue.endTimeUs).isEqualTo(17_900_000);
+    assertThat(finalCue.durationUs).isEqualTo(1_340_000);
+    assertThat(Iterables.getOnlyElement(finalCue.cues).text.toString())
+        .isEqualTo("This is the last subtitle.");
   }
 
   @Test
