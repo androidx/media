@@ -251,6 +251,30 @@ public final class CastPlayerTest {
     assertThat(localPlayer.released).isTrue();
   }
 
+  @Test
+  public void playerTransfer_whenSourcePlayerIsNonIdle_callsPrepare() {
+    // We need a non empty timeline to be in a non-idle state, and check that the target player is
+    // prepared as a result.
+    when(mockMediaQueue.getItemIds()).thenReturn(new int[] {1});
+    when(mockRemoteMediaClient.getPlayerState()).thenReturn(MediaStatus.PLAYER_STATE_PLAYING);
+    castSessionListener.onSessionStarted(mockCastSession, /* sessionId= */ "ignored");
+    castPlayer = castPlayerBuilder.build();
+
+    castSessionListener.onSessionEnded(mockCastSession, /* error= */ 0);
+
+    assertThat(localPlayer.getPlaybackState()).isEqualTo(Player.STATE_BUFFERING);
+  }
+
+  @Test
+  public void playerTransfer_whenSourcePlayerIsIdle_doesNotCallPrepare() {
+    // CastPlayer starts in local playback.
+    castPlayer = castPlayerBuilder.build();
+
+    castSessionListener.onSessionEnded(mockCastSession, /* error= */ 0);
+
+    assertThat(localPlayer.getPlaybackState()).isEqualTo(Player.STATE_IDLE);
+  }
+
   /** A {@link Player} that holds state and supports its modification through setters. */
   private static final class StateHolderPlayer extends SimpleBasePlayer {
 
@@ -260,6 +284,7 @@ public final class CastPlayerTest {
     private static final Commands AVAILABLE_COMMANDS =
         new Commands.Builder()
             .addAll(
+                COMMAND_PREPARE,
                 COMMAND_PLAY_PAUSE,
                 COMMAND_SET_REPEAT_MODE,
                 COMMAND_SET_SHUFFLE_MODE,
@@ -284,6 +309,12 @@ public final class CastPlayerTest {
     @Override
     protected State getState() {
       return state;
+    }
+
+    @Override
+    protected ListenableFuture<?> handlePrepare() {
+      state = state.buildUpon().setPlaybackState(STATE_BUFFERING).build();
+      return Futures.immediateVoidFuture();
     }
 
     @Override

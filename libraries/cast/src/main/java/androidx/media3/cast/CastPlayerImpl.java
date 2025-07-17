@@ -56,6 +56,9 @@ import com.google.common.util.concurrent.ListenableFuture;
       return;
     }
     transferCallback.transferState(previousPlayer, newPlayer);
+    if (previousPlayer.getPlaybackState() != STATE_IDLE) {
+      newPlayer.prepare();
+    }
     previousPlayer.stop();
     setPlayer(newPlayer);
   }
