@@ -21,6 +21,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Assertions;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import com.google.android.gms.cast.MediaInfo;
 import com.google.android.gms.cast.MediaMetadata;
@@ -36,6 +37,8 @@ import org.json.JSONObject;
 @UnstableApi
 public final class DefaultMediaItemConverter implements MediaItemConverter {
 
+  // Shortened to fit in 25 character limit for logcat tags.
+  private static final String TAG = "DefltMediaItemConverter";
   private static final String KEY_MEDIA_ITEM = "mediaItem";
   private static final String KEY_PLAYER_CONFIG = "exoPlayerConfig";
   private static final String KEY_MEDIA_ID = "mediaId";
@@ -92,7 +95,11 @@ public final class DefaultMediaItemConverter implements MediaItemConverter {
   public MediaQueueItem toMediaQueueItem(MediaItem mediaItem) {
     Assertions.checkNotNull(mediaItem.localConfiguration);
     if (mediaItem.localConfiguration.mimeType == null) {
-      throw new IllegalArgumentException("The item must specify its mimeType");
+      // TODO: b/432214377 - Revisit the media type once this ticket is addressed.
+      Log.w(
+          TAG,
+          "Converting MediaItem with null MIME type. Assuming MEDIA_TYPE_MOVIE. Song metadata may"
+              + " not be rendered correctly by the default receiver.");
     }
     MediaMetadata metadata =
         new MediaMetadata(

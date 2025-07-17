@@ -99,6 +99,7 @@
         only Cast playback, you can use `RemoteCastPlayer`. The pre-existing
         `CastPlayer` constructors keep their old behavior, but are deprecated in
         favour of using the `CastPlayer` or `RemoteCastPlayer` builders instead.
+    *   Stop enforcing a non-null mime type in `DefaultMediaItemConverter`.
 *   Test Utilities:
 *   Remove deprecated symbols:
 
