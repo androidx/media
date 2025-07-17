@@ -409,6 +409,35 @@ public class CompositionPlayerTest {
   }
 
   @Test
+  public void getDuration_withClippedStartGreaterThanHalfDuration_returnsCorrectDuration()
+      throws Exception {
+    // This test covers cases where the clipped duration exceeds half the original duration.
+    // It is needed to make sure no problems arise from clipping in this case. This would catch
+    // removing ClippingConfiguration wrapping SilenceMediaSource, because the problem only occurs
+    // when the clippedDuration exceeds half the original duration.
+    CompositionPlayer player = buildCompositionPlayer();
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)
+            .setClippingConfiguration(
+                new MediaItem.ClippingConfiguration.Builder().setStartPositionUs(600_000).build())
+            .build();
+    EditedMediaItem editedMediaItem1 =
+        new EditedMediaItem.Builder(mediaItem).setDurationUs(1_000_000L).build();
+    EditedMediaItemSequence sequence =
+        new EditedMediaItemSequence.Builder(editedMediaItem1).build();
+    Composition composition = new Composition.Builder(sequence).build();
+
+    player.setComposition(composition);
+    player.prepare();
+    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_READY);
+
+    assertThat(player.getDuration()).isEqualTo(400);
+
+    player.release();
+  }
+
+  @Test
   public void getDuration_withClippedEnd_returnsCorrectDuration() throws Exception {
     CompositionPlayer player = buildCompositionPlayer();
     MediaItem mediaItem =
@@ -827,6 +856,56 @@ public class CompositionPlayerTest {
     player.play();
 
     player.seekTo(/* positionMs= */ 1100);
+    TestPlayerRunHelper.advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+  }
+
+  @Test
+  public void seekPastDuration_withClippedStart_ends() throws Exception {
+    CompositionPlayer player = buildCompositionPlayer();
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)
+                    .buildUpon()
+                    .setClippingConfiguration(
+                        new MediaItem.ClippingConfiguration.Builder()
+                            .setStartPositionUs(200_000L)
+                            .build())
+                    .build())
+            .setDurationUs(1_000_000L)
+            .build();
+    EditedMediaItemSequence sequence = new EditedMediaItemSequence.Builder(editedMediaItem).build();
+    Composition composition = new Composition.Builder(sequence).build();
+    player.setComposition(composition);
+    player.seekTo(/* positionMs= */ 900);
+    player.prepare();
+    player.play();
+
+    TestPlayerRunHelper.advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+  }
+
+  @Test
+  public void seekPastDuration_withClippedEnd_ends() throws Exception {
+    CompositionPlayer player = buildCompositionPlayer();
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)
+                    .buildUpon()
+                    .setClippingConfiguration(
+                        new MediaItem.ClippingConfiguration.Builder()
+                            .setEndPositionUs(800_000)
+                            .build())
+                    .build())
+            .setDurationUs(1_000_000L)
+            .build();
+    EditedMediaItemSequence sequence = new EditedMediaItemSequence.Builder(editedMediaItem).build();
+    Composition composition = new Composition.Builder(sequence).build();
+    player.setComposition(composition);
+    player.seekTo(/* positionMs= */ 900);
+    player.prepare();
+    player.play();
+
     TestPlayerRunHelper.advance(player).untilState(Player.STATE_ENDED);
     player.release();
   }
