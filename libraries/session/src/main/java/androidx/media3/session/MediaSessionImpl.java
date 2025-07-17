@@ -1141,7 +1141,9 @@ import org.checkerframework.checker.initialization.qual.Initialized;
    * @param controller The controller requesting to play.
    */
   /* package */ ListenableFuture<SessionResult> handleMediaControllerPlayRequest(
-      ControllerInfo controller, boolean callOnPlayerInteractionFinished) {
+      ControllerInfo controller,
+      boolean callOnPlayerInteractionFinished,
+      boolean mustStartForegroundService) {
     SettableFuture<SessionResult> sessionFuture = SettableFuture.create();
     ListenableFuture<Boolean> playRequestedFuture = onPlayRequested();
     playRequestedFuture.addListener(
@@ -1195,6 +1197,26 @@ import org.checkerframework.checker.initialization.qual.Initialized;
                     callWithControllerForCurrentRequestSet(
                             controllerForRequest,
                             () -> {
+                              if (mediaItemsWithStartPosition.mediaItems.isEmpty()) {
+                                if (mustStartForegroundService) {
+                                  applicationHandler.postAtFrontOfQueue(
+                                      () -> {
+                                        throw new IllegalArgumentException(
+                                            "Callback.onPlaybackResumption must return non-empty"
+                                                + " MediaItemsWithStartPosition if started from a"
+                                                + " media button receiver. If there is nothing to"
+                                                + " resume playback with, override"
+                                                + " MediaButtonReceiver.shouldStartForegroundService()"
+                                                + " and return false.");
+                                      });
+                                  return;
+                                }
+                                Log.w(
+                                    TAG,
+                                    "onPlaybackResumption() is trying to resume with empty"
+                                        + " playlist, this will make the resumption notification"
+                                        + " appear broken.");
+                              }
                               MediaUtils.setMediaItemsWithStartIndexAndPosition(
                                   playerWrapper, mediaItemsWithStartPosition);
                               Util.handlePlayButtonAction(playerWrapper);
@@ -1209,21 +1231,33 @@ import org.checkerframework.checker.initialization.qual.Initialized;
 
                   @Override
                   public void onFailure(Throwable t) {
+                    RuntimeException e;
                     if (t instanceof UnsupportedOperationException) {
-                      Log.w(
-                          TAG,
-                          "UnsupportedOperationException: Make sure to implement"
-                              + " MediaSession.Callback.onPlaybackResumption() if you add a media"
-                              + " button receiver to your manifest or if you implement the recent"
-                              + " media item contract with your MediaLibraryService.",
-                          t);
+                      e =
+                          new UnsupportedOperationException(
+                              "Make sure to implement MediaSession.Callback.onPlaybackResumption()"
+                                  + " if you add a media button receiver to your manifest or if you"
+                                  + " implement the recent media item contract with your"
+                                  + " MediaLibraryService.",
+                              t);
                     } else {
-                      Log.e(
-                          TAG,
-                          "Failure calling MediaSession.Callback.onPlaybackResumption(): "
-                              + t.getMessage(),
-                          t);
+                      e =
+                          new IllegalStateException(
+                              "Failure calling MediaSession.Callback.onPlaybackResumption(): "
+                                  + t.getMessage(),
+                              t);
                     }
+                    if (mustStartForegroundService) {
+                      // MediaButtonReceiver already called startForegroundService(). If we do not
+                      // crash ourselves, ForegroundServiceDidNotStartInTimeException will do it
+                      // for us. Let's at least get a useful stack trace out there.
+                      applicationHandler.postAtFrontOfQueue(
+                          () -> {
+                            throw e;
+                          });
+                      return;
+                    }
+                    Log.e(TAG, Objects.requireNonNull(Log.getThrowableString(e)));
                     // Play as requested even if playback resumption fails.
                     Util.handlePlayButtonAction(playerWrapper);
                     sessionFuture.set(new SessionResult(SessionResult.RESULT_SUCCESS));
@@ -1482,13 +1516,13 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     // Double tap detection.
     int keyCode = keyEvent.getKeyCode();
     boolean isTvApp = context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK);
+    boolean isEventSourceMediaButtonReceiver =
+        callerInfo.getControllerVersion() != ControllerInfo.LEGACY_CONTROLLER_VERSION;
     boolean doubleTapCompleted = false;
     switch (keyCode) {
       case KEYCODE_MEDIA_PLAY_PAUSE:
       case KEYCODE_HEADSETHOOK:
-        if (isTvApp
-            || callerInfo.getControllerVersion() != ControllerInfo.LEGACY_CONTROLLER_VERSION
-            || keyEvent.getRepeatCount() != 0) {
+        if (isTvApp || isEventSourceMediaButtonReceiver || keyEvent.getRepeatCount() != 0) {
           // Double tap detection is only for mobile apps that receive a media button event from
           // external sources (for instance Bluetooth) and excluding long press (repeatCount > 0).
           mediaPlayPauseKeyHandler.flush();
@@ -1528,11 +1562,18 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         intent.getBooleanExtra(
             MediaNotification.NOTIFICATION_DISMISSED_EVENT_KEY, /* defaultValue= */ false);
     return keyEvent.getRepeatCount() > 0
-        || applyMediaButtonKeyEvent(keyEvent, doubleTapCompleted, isDismissNotificationEvent);
+        || applyMediaButtonKeyEvent(
+            keyEvent,
+            doubleTapCompleted,
+            isDismissNotificationEvent,
+            isEventSourceMediaButtonReceiver);
   }
 
   private boolean applyMediaButtonKeyEvent(
-      KeyEvent keyEvent, boolean doubleTapCompleted, boolean isDismissNotificationEvent) {
+      KeyEvent keyEvent,
+      boolean doubleTapCompleted,
+      boolean isDismissNotificationEvent,
+      boolean mustStartForegroundService) {
     ControllerInfo controllerInfo = checkNotNull(instance.getMediaNotificationControllerInfo());
     Runnable command;
     int keyCode = keyEvent.getKeyCode();
@@ -1546,10 +1587,15 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         command =
             getPlayerWrapper().getPlayWhenReady()
                 ? () -> sessionStub.pauseForControllerInfo(controllerInfo, UNKNOWN_SEQUENCE_NUMBER)
-                : () -> sessionStub.playForControllerInfo(controllerInfo, UNKNOWN_SEQUENCE_NUMBER);
+                : () ->
+                    sessionStub.playForControllerInfo(
+                        controllerInfo, UNKNOWN_SEQUENCE_NUMBER, mustStartForegroundService);
         break;
       case KEYCODE_MEDIA_PLAY:
-        command = () -> sessionStub.playForControllerInfo(controllerInfo, UNKNOWN_SEQUENCE_NUMBER);
+        command =
+            () ->
+                sessionStub.playForControllerInfo(
+                    controllerInfo, UNKNOWN_SEQUENCE_NUMBER, mustStartForegroundService);
         break;
       case KEYCODE_MEDIA_PAUSE:
         command = () -> sessionStub.pauseForControllerInfo(controllerInfo, UNKNOWN_SEQUENCE_NUMBER);
@@ -2164,7 +2210,8 @@ import org.checkerframework.checker.initialization.qual.Initialized;
               applyMediaButtonKeyEvent(
                   keyEvent,
                   /* doubleTapCompleted= */ false,
-                  /* isDismissNotificationEvent= */ false);
+                  /* isDismissNotificationEvent= */ false,
+                  /* mustStartForegroundService= */ false);
             } else {
               sessionLegacyStub.handleMediaPlayPauseOnHandler(
                   checkNotNull(controllerInfo.getRemoteUserInfo()));

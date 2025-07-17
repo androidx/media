@@ -1932,6 +1932,14 @@ public class MediaSession {
      * automatically as required. Any additional initial setup like setting playback speed, repeat
      * mode or shuffle mode can be done from within this callback.
      *
+     * <p>If the returned list is empty or an exception is returned, and the request to resume
+     * playback came from {@link MediaButtonReceiver}, an {@link IllegalStateException} will be
+     * thrown. This is because the {@link MediaButtonReceiver} has already requested a foreground
+     * service start, and it's not possible to avoid a {@code
+     * ForegroundServiceDidNotStartInTimeException} anymore. To avoid a crash as result, override
+     * {@link MediaButtonReceiver#shouldStartForegroundService(Context, Intent)} to return {@code
+     * false} if there is nothing to resume. This will avoid requesting a foreground service start.
+     *
      * <p>The method will only be called if the {@link Player} has {@link
      * Player#COMMAND_GET_CURRENT_MEDIA_ITEM} and either {@link Player#COMMAND_SET_MEDIA_ITEM} or
      * {@link Player#COMMAND_CHANGE_MEDIA_ITEMS} available.
