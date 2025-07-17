@@ -102,6 +102,8 @@
     *   Stop enforcing a non-null mime type in `DefaultMediaItemConverter`.
     *   Enable remote to local transfers in `DefaultCastOptionsProvider`.
 *   Test Utilities:
+    *   Add maximum time diff for the auto-advancing behavior of `FakeClock`. It
+        defaults to 1 second, but is configurable via `FakeClock.Builder`.
 *   Remove deprecated symbols:
 
 ## 1.8
