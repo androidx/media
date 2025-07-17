@@ -935,7 +935,9 @@ public final class DefaultAudioSink implements AudioSink {
     playing = true;
     if (isAudioTrackInitialized()) {
       audioTrackPositionTracker.start();
-      audioTrack.play();
+      if (!stoppedAudioTrack || isOffloadedPlayback(audioTrack)) {
+        audioTrack.play();
+      }
     }
   }
 
@@ -1599,9 +1601,11 @@ public final class DefaultAudioSink implements AudioSink {
   @Override
   public void pause() {
     playing = false;
-    if (isAudioTrackInitialized()
-        && (audioTrackPositionTracker.pause() || isOffloadedPlayback(audioTrack))) {
-      audioTrack.pause();
+    if (isAudioTrackInitialized()) {
+      audioTrackPositionTracker.pause();
+      if (!stoppedAudioTrack || isOffloadedPlayback(audioTrack)) {
+        audioTrack.pause();
+      }
     }
   }
 
