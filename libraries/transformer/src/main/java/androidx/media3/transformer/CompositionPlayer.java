@@ -23,11 +23,13 @@ import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.msToUs;
 import static androidx.media3.common.util.Util.usToMs;
 import static androidx.media3.transformer.CompositionUtil.shouldRePreparePlayer;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.graphics.Bitmap;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Process;
@@ -40,6 +42,7 @@ import androidx.annotation.RestrictTo;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.Effect;
+import androidx.media3.common.Format;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
@@ -60,15 +63,19 @@ import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.SingleInputVideoGraph;
 import androidx.media3.effect.TimestampAdjustment;
 import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.exoplayer.RendererCapabilities;
+import androidx.media3.exoplayer.RendererCapabilities.Capabilities;
 import androidx.media3.exoplayer.analytics.AnalyticsCollector;
 import androidx.media3.exoplayer.analytics.DefaultAnalyticsCollector;
 import androidx.media3.exoplayer.audio.AudioSink;
 import androidx.media3.exoplayer.audio.DefaultAudioSink;
 import androidx.media3.exoplayer.image.BitmapFactoryImageDecoder;
+import androidx.media3.exoplayer.image.ExternallyLoadedImageDecoder;
 import androidx.media3.exoplayer.image.ImageDecoder;
 import androidx.media3.exoplayer.source.ClippingMediaSource;
 import androidx.media3.exoplayer.source.ConcatenatingMediaSource2;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
+import androidx.media3.exoplayer.source.ExternallyLoadedMediaSource;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.MergingMediaSource;
 import androidx.media3.exoplayer.source.SilenceMediaSource;
@@ -345,6 +352,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
       };
 
   private static final String TAG = "CompositionPlayer";
+  private static final String BLANK_FRAMES_MEDIA_SOURCE_TYPE = "composition_player_blank_frames";
 
   private final Context context;
   private final Clock clock;
@@ -399,7 +407,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
     applicationHandler = clock.createHandler(builder.looper, /* callback= */ null);
     finalAudioSink = checkNotNull(builder.audioSink);
     mediaSourceFactory = builder.mediaSourceFactory;
-    imageDecoderFactory = builder.imageDecoderFactory;
+    imageDecoderFactory = new GapHandlingDecoderFactory(builder.imageDecoderFactory);
     videoGraphFactory = checkNotNull(builder.videoGraphFactory);
     videoPrewarmingEnabled = builder.videoPrewarmingEnabled;
     compositionInternalListenerHandler = clock.createHandler(builder.looper, /* callback= */ null);
@@ -871,15 +879,21 @@ public final class CompositionPlayer extends SimpleBasePlayer
       // Starts from zero - internal player will discard current progress, re-preparing it by
       // setting new media sources.
       // TODO: b/412585856 - Optimize for the case where we can keep some of the MediaSources.
+      boolean shouldGenerateBlankFrames = newSequence.forceVideoTrack;
       if (sequenceIndex == 0) {
-        player.setMediaSource(createPrimarySequenceMediaSource(newSequence, mediaSourceFactory));
+        player.setMediaSource(
+            createPrimarySequenceMediaSource(
+                newSequence, mediaSourceFactory, shouldGenerateBlankFrames));
         if (pendingVideoFrameMetadatListener != null) {
           player.setVideoFrameMetadataListener(pendingVideoFrameMetadatListener);
         }
       } else {
         player.setMediaSource(
             createSecondarySequenceMediaSource(
-                newSequence, mediaSourceFactory, primarySequenceDurationUs));
+                newSequence,
+                mediaSourceFactory,
+                primarySequenceDurationUs,
+                shouldGenerateBlankFrames));
       }
       checkNotNull(compositionPlayerInternal)
           .setComposition(newComposition, /* startPositionUs= */ C.TIME_UNSET);
@@ -930,7 +944,9 @@ public final class CompositionPlayer extends SimpleBasePlayer
   }
 
   private static MediaSource createPrimarySequenceMediaSource(
-      EditedMediaItemSequence sequence, MediaSource.Factory mediaSourceFactory) {
+      EditedMediaItemSequence sequence,
+      MediaSource.Factory mediaSourceFactory,
+      boolean shouldGenerateBlankFrames) {
     ConcatenatingMediaSource2.Builder mediaSourceBuilder = new ConcatenatingMediaSource2.Builder();
 
     for (int i = 0; i < sequence.editedMediaItems.size(); i++) {
@@ -938,45 +954,73 @@ public final class CompositionPlayer extends SimpleBasePlayer
       checkArgument(editedMediaItem.durationUs != C.TIME_UNSET);
       long durationUs = editedMediaItem.getPresentationDurationUs();
 
-      MediaSource silenceGeneratedMediaSource =
-          createMediaSourceWithSilence(mediaSourceFactory, editedMediaItem);
+      MediaSource blankFramesAndSilenceGeneratedMediaSource =
+          createMediaSourceWithBlankFramesAndSilence(
+              mediaSourceFactory, editedMediaItem, shouldGenerateBlankFrames);
 
       MediaSource itemMediaSource =
           wrapWithVideoEffectsBasedMediaSources(
-              silenceGeneratedMediaSource, editedMediaItem.effects.videoEffects, durationUs);
+              blankFramesAndSilenceGeneratedMediaSource,
+              editedMediaItem.effects.videoEffects,
+              durationUs);
       mediaSourceBuilder.add(
           itemMediaSource, /* initialPlaceholderDurationMs= */ usToMs(durationUs));
     }
     return mediaSourceBuilder.build();
   }
 
-  private static MediaSource createMediaSourceWithSilence(
-      MediaSource.Factory mediaSourceFactory, EditedMediaItem editedMediaItem) {
+  private static MediaSource createMediaSourceWithBlankFramesAndSilence(
+      MediaSource.Factory mediaSourceFactory,
+      EditedMediaItem editedMediaItem,
+      boolean shouldGenerateBlankFrames) {
     MediaSource silenceMediaSource =
         new ClippingMediaSource.Builder(new SilenceMediaSource(editedMediaItem.durationUs))
             .setStartPositionUs(editedMediaItem.mediaItem.clippingConfiguration.startPositionUs)
             .setEndPositionUs(editedMediaItem.mediaItem.clippingConfiguration.endPositionUs)
             .build();
 
-    if (editedMediaItem.isGap()) {
-      return silenceMediaSource;
-    }
+    MediaSource blankFramesMediaSource =
+        new ClippingMediaSource.Builder(
+                new ExternallyLoadedMediaSource.Factory(
+                        editedMediaItem.durationUs, loadRequest -> Futures.immediateVoidFuture())
+                    .createMediaSource(
+                        new MediaItem.Builder()
+                            .setMimeType(BLANK_FRAMES_MEDIA_SOURCE_TYPE)
+                            .setUri("compositionPlayer://" + BLANK_FRAMES_MEDIA_SOURCE_TYPE)
+                            .build()))
+            .setStartPositionUs(editedMediaItem.mediaItem.clippingConfiguration.startPositionUs)
+            .setEndPositionUs(editedMediaItem.mediaItem.clippingConfiguration.endPositionUs)
+            .build();
 
-    // The MediaSource that loads the MediaItem
-    MediaSource mainMediaSource = mediaSourceFactory.createMediaSource(editedMediaItem.mediaItem);
-    return new MergingMediaSource(mainMediaSource, silenceMediaSource);
+    if (editedMediaItem.isGap()) {
+      if (shouldGenerateBlankFrames) {
+        return new MergingMediaSource(blankFramesMediaSource, silenceMediaSource);
+      } else {
+        return silenceMediaSource;
+      }
+    } else {
+      // The MediaSource that loads the MediaItem
+      MediaSource mainMediaSource = mediaSourceFactory.createMediaSource(editedMediaItem.mediaItem);
+      if (shouldGenerateBlankFrames) {
+        return new MergingMediaSource(blankFramesMediaSource, silenceMediaSource, mainMediaSource);
+      } else {
+        return new MergingMediaSource(mainMediaSource, silenceMediaSource);
+      }
+    }
   }
 
   private static MediaSource createSecondarySequenceMediaSource(
       EditedMediaItemSequence sequence,
       MediaSource.Factory mediaSourceFactory,
-      long primarySequenceDurationUs) {
+      long primarySequenceDurationUs,
+      boolean shouldGenerateBlankFrames) {
     ConcatenatingMediaSource2.Builder mediaSourceBuilder = new ConcatenatingMediaSource2.Builder();
     if (!sequence.isLooping) {
       for (int i = 0; i < sequence.editedMediaItems.size(); i++) {
         EditedMediaItem editedMediaItem = sequence.editedMediaItems.get(i);
         mediaSourceBuilder.add(
-            createMediaSourceWithSilence(mediaSourceFactory, editedMediaItem),
+            createMediaSourceWithBlankFramesAndSilence(
+                mediaSourceFactory, editedMediaItem, shouldGenerateBlankFrames),
             /* initialPlaceholderDurationMs= */ usToMs(
                 editedMediaItem.getPresentationDurationUs()));
       }
@@ -990,15 +1034,18 @@ public final class CompositionPlayer extends SimpleBasePlayer
       long itemPresentationDurationUs = editedMediaItem.getPresentationDurationUs();
       if (accumulatedDurationUs + itemPresentationDurationUs <= primarySequenceDurationUs) {
         mediaSourceBuilder.add(
-            createMediaSourceWithSilence(mediaSourceFactory, editedMediaItem),
+            createMediaSourceWithBlankFramesAndSilence(
+                mediaSourceFactory, editedMediaItem, shouldGenerateBlankFrames),
             /* initialPlaceholderDurationMs= */ usToMs(itemPresentationDurationUs));
         accumulatedDurationUs += itemPresentationDurationUs;
       } else {
         long remainingDurationUs = primarySequenceDurationUs - accumulatedDurationUs;
         // TODO: b/289989542 - Handle already clipped, or speed adjusted media.
         mediaSourceBuilder.add(
-            createMediaSourceWithSilence(
-                mediaSourceFactory, clipToDuration(editedMediaItem, remainingDurationUs)));
+            createMediaSourceWithBlankFramesAndSilence(
+                mediaSourceFactory,
+                clipToDuration(editedMediaItem, remainingDurationUs),
+                shouldGenerateBlankFrames));
         break;
       }
       i = (i + 1) % sequence.editedMediaItems.size();
@@ -1357,6 +1404,47 @@ public final class CompositionPlayer extends SimpleBasePlayer
     public void setSequence(EditedMediaItemSequence sequence) {
       renderersFactory.setSequence(sequence);
       trackSelector.setSequence(sequence);
+    }
+  }
+
+  private static final class GapHandlingDecoderFactory implements ImageDecoder.Factory {
+    private static final String BLANK_FRAMES_MEDIA_SOURCE_TYPE = "composition_player_blank_frames";
+    private static final int BLANK_IMAGE_BITMAP_WIDTH = 1;
+    private static final int BLANK_IMAGE_BITMAP_HEIGHT = 1;
+
+    private final ImageDecoder.Factory imageDecoderFactory;
+    private @MonotonicNonNull Format format;
+
+    public GapHandlingDecoderFactory(@Nullable ImageDecoder.Factory imageDecoderFactory) {
+      this.imageDecoderFactory = checkStateNotNull(imageDecoderFactory);
+    }
+
+    @Override
+    public @Capabilities int supportsFormat(Format format) {
+      // TODO: b/429411914 - Investigate a better way to get the output format
+      this.format = format;
+      if (format.sampleMimeType != null
+          && format.sampleMimeType.equals(BLANK_FRAMES_MEDIA_SOURCE_TYPE)) {
+        return RendererCapabilities.create(C.FORMAT_HANDLED);
+      }
+      return imageDecoderFactory.supportsFormat(format);
+    }
+
+    @Override
+    public ImageDecoder createImageDecoder() {
+      if (format != null
+          && format.sampleMimeType != null
+          && format.sampleMimeType.equals(BLANK_FRAMES_MEDIA_SOURCE_TYPE)) {
+        return new ExternallyLoadedImageDecoder.Factory(
+                request ->
+                    immediateFuture(
+                        Bitmap.createBitmap(
+                            BLANK_IMAGE_BITMAP_WIDTH,
+                            BLANK_IMAGE_BITMAP_HEIGHT,
+                            Bitmap.Config.ARGB_8888)))
+            .createImageDecoder();
+      }
+      return imageDecoderFactory.createImageDecoder();
     }
   }
 }
