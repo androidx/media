@@ -30,6 +30,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -44,6 +45,7 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import androidx.media3.common.listen
 import androidx.media3.demo.compose.buttons.ExtraControls
 import androidx.media3.demo.compose.buttons.MinimalControls
 import androidx.media3.demo.compose.data.videos
@@ -102,7 +104,7 @@ fun ComposeDemoApp(modifier: Modifier = Modifier) {
 
 private fun initializePlayer(context: Context): Player =
   ExoPlayer.Builder(context).build().apply {
-    setMediaItems(videos.map(MediaItem::fromUri))
+    setMediaItems(videos.keys.map(MediaItem::fromUri))
     prepare()
   }
 
@@ -110,10 +112,19 @@ private fun initializePlayer(context: Context): Player =
 private fun MediaPlayerScreen(player: Player, modifier: Modifier = Modifier) {
   var showControls by remember { mutableStateOf(true) }
   var currentContentScaleIndex by remember { mutableIntStateOf(0) }
+  var surfaceType by remember { mutableIntStateOf(SURFACE_TYPE_SURFACE_VIEW) }
   val contentScale = CONTENT_SCALES[currentContentScaleIndex].second
 
   val presentationState = rememberPresentationState(player)
   val scaledModifier = Modifier.resizeWithContentScale(contentScale, presentationState.videoSizeDp)
+
+  LaunchedEffect(player) {
+    player.listen {
+      currentMediaItem?.localConfiguration?.let {
+        surfaceType = videos.getValue(it.uri.toString())
+      }
+    }
+  }
 
   // Only use MediaPlayerScreen's modifier once for the top level Composable
   Box(modifier) {
@@ -122,7 +133,7 @@ private fun MediaPlayerScreen(player: Player, modifier: Modifier = Modifier) {
     // because the Player will not emit the relevant event, e.g. the first frame being ready.
     PlayerSurface(
       player = player,
-      surfaceType = SURFACE_TYPE_SURFACE_VIEW,
+      surfaceType = surfaceType,
       modifier = scaledModifier.noRippleClickable { showControls = !showControls },
     )
 
