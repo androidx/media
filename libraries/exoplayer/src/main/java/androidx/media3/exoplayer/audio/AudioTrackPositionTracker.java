@@ -450,22 +450,15 @@ import java.lang.reflect.Method;
         || forceHasPendingData();
   }
 
-  /**
-   * Pauses the audio track position tracker, returning whether the audio track needs to be paused
-   * to cause playback to pause. If {@code false} is returned the audio track will pause without
-   * further interaction, as the end of stream has been handled.
-   */
-  public boolean pause() {
+  /** Pauses the audio track position tracker. */
+  public void pause() {
     resetSyncParams();
     if (stopTimestampUs == C.TIME_UNSET) {
       // The audio track is going to be paused, so reset the timestamp poller to ensure it doesn't
       // supply an advancing position.
       checkNotNull(audioTimestampPoller).reset();
-      return true;
     }
     stopPlaybackHeadPosition = getPlaybackHeadPosition();
-    // We've handled the end of the stream already, so there's no need to pause the track.
-    return false;
   }
 
   /**
