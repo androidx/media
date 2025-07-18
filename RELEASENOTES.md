@@ -88,6 +88,8 @@
         when there are no chunks available in the buffer
         [#2598](https://github.com/androidx/media/issues/2598).
 *   DASH extension:
+    *   Sort adaption sets by type to avoid `IndexOutOfBoundsException`
+        ([#2612](https://github.com/androidx/media/pull/2612)).
 *   Smooth Streaming extension:
 *   RTSP extension:
 *   Decoder extensions (FFmpeg, VP9, AV1, etc.):
