@@ -58,18 +58,22 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.VideoFrameProcessingException;
+import androidx.media3.common.VideoGraph;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.GlProgram;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import androidx.media3.effect.DefaultGlObjectsProvider;
+import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.GlShaderProgram;
 import androidx.media3.effect.MatrixTransformation;
 import androidx.media3.effect.PassthroughShaderProgram;
 import androidx.media3.effect.RgbMatrix;
 import androidx.media3.effect.ScaleAndRotateTransformation;
+import androidx.media3.effect.SingleInputVideoGraph;
 import androidx.media3.exoplayer.DecoderCounters;
 import androidx.media3.exoplayer.DecoderReuseEvaluation;
 import androidx.media3.exoplayer.ExoPlaybackException;
@@ -83,6 +87,8 @@ import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.video.MediaCodecVideoRenderer;
+import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
+import androidx.media3.exoplayer.video.VideoFrameReleaseControl;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
 import androidx.media3.extractor.DefaultExtractorsFactory;
 import com.google.common.collect.ImmutableList;
@@ -135,6 +141,7 @@ public final class ExperimentalFrameExtractor {
       private SeekParameters seekParameters;
       private MediaCodecSelector mediaCodecSelector;
       private boolean extractHdrFrames;
+      @Nullable private GlObjectsProvider glObjectsProvider;
 
       /** Creates a new instance with default values. */
       public Builder() {
@@ -196,9 +203,24 @@ public final class ExperimentalFrameExtractor {
         return this;
       }
 
+      /**
+       * Sets the {@link GlObjectsProvider} to be used by the effect processing pipeline.
+       *
+       * <p>By default, a {@link DefaultGlObjectsProvider} is used.
+       *
+       * @param glObjectsProvider The {@link GlObjectsProvider}.
+       * @return This builder.
+       */
+      @CanIgnoreReturnValue
+      public Builder setGlObjectsProvider(GlObjectsProvider glObjectsProvider) {
+        this.glObjectsProvider = glObjectsProvider;
+        return this;
+      }
+
       /** Builds a new {@link Configuration} instance. */
       public Configuration build() {
-        return new Configuration(seekParameters, mediaCodecSelector, extractHdrFrames);
+        return new Configuration(
+            seekParameters, mediaCodecSelector, extractHdrFrames, glObjectsProvider);
       }
     }
 
@@ -211,13 +233,18 @@ public final class ExperimentalFrameExtractor {
     /** Whether extracting HDR frames is requested. */
     public final boolean extractHdrFrames;
 
+    /** The {@link GlObjectsProvider}. */
+    @Nullable public final GlObjectsProvider glObjectsProvider;
+
     private Configuration(
         SeekParameters seekParameters,
         MediaCodecSelector mediaCodecSelector,
-        boolean extractHdrFrames) {
+        boolean extractHdrFrames,
+        @Nullable GlObjectsProvider glObjectsProvider) {
       this.seekParameters = seekParameters;
       this.mediaCodecSelector = mediaCodecSelector;
       this.extractHdrFrames = extractHdrFrames;
+      this.glObjectsProvider = glObjectsProvider;
     }
   }
 
@@ -294,7 +321,8 @@ public final class ExperimentalFrameExtractor {
                           context,
                           configuration.mediaCodecSelector,
                           videoRendererEventListener,
-                          /* toneMapHdrToSdr= */ !configuration.extractHdrFrames)
+                          /* toneMapHdrToSdr= */ !configuration.extractHdrFrames,
+                          configuration.glObjectsProvider)
                     },
                 mediaSourceFactory)
             .setSeekParameters(configuration.seekParameters)
@@ -650,6 +678,7 @@ public final class ExperimentalFrameExtractor {
   /** A custom MediaCodecVideoRenderer that renders only one frame per position reset. */
   private final class FrameExtractorRenderer extends MediaCodecVideoRenderer {
     private final boolean toneMapHdrToSdr;
+    @Nullable private final GlObjectsProvider glObjectsProvider;
 
     private boolean frameRenderedSinceLastPositionReset;
     private List<Effect> effectsFromPlayer;
@@ -659,7 +688,8 @@ public final class ExperimentalFrameExtractor {
         Context context,
         MediaCodecSelector mediaCodecSelector,
         VideoRendererEventListener videoRendererEventListener,
-        boolean toneMapHdrToSdr) {
+        boolean toneMapHdrToSdr,
+        @Nullable GlObjectsProvider glObjectsProvider) {
       super(
           new Builder(context)
               .setMediaCodecSelector(mediaCodecSelector)
@@ -668,7 +698,25 @@ public final class ExperimentalFrameExtractor {
               .setEventListener(videoRendererEventListener)
               .setMaxDroppedFramesToNotify(0));
       this.toneMapHdrToSdr = toneMapHdrToSdr;
+      this.glObjectsProvider = glObjectsProvider;
       effectsFromPlayer = ImmutableList.of();
+    }
+
+    @Override
+    protected PlaybackVideoGraphWrapper createPlaybackVideoGraphWrapper(
+        Context context, VideoFrameReleaseControl videoFrameReleaseControl) {
+      if (glObjectsProvider == null) {
+        return super.createPlaybackVideoGraphWrapper(context, videoFrameReleaseControl);
+      }
+      DefaultVideoFrameProcessor.Factory.Builder videoFrameProcessorFactoryBuilder =
+          new DefaultVideoFrameProcessor.Factory.Builder().setGlObjectsProvider(glObjectsProvider);
+      VideoGraph.Factory videoGraphFactory =
+          new SingleInputVideoGraph.Factory(videoFrameProcessorFactoryBuilder.build());
+      return new PlaybackVideoGraphWrapper.Builder(context, videoFrameReleaseControl)
+          .setEnablePlaylistMode(true)
+          .setClock(getClock())
+          .setVideoGraphFactory(videoGraphFactory)
+          .build();
     }
 
     @Override
