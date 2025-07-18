@@ -33,6 +33,7 @@ import static androidx.media3.exoplayer.mediacodec.MediaCodecPerformancePointCov
 import static androidx.media3.exoplayer.mediacodec.MediaCodecPerformancePointCoverageProvider.COVERAGE_RESULT_YES;
 import static androidx.media3.exoplayer.mediacodec.MediaCodecUtil.createCodecProfileLevel;
 
+import android.content.Context;
 import android.graphics.Point;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo.AudioCapabilities;
@@ -55,6 +56,8 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.DecoderReuseEvaluation;
 import androidx.media3.exoplayer.DecoderReuseEvaluation.DecoderDiscardReasons;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 /** Information about a {@link MediaCodec} for a given MIME type. */
@@ -270,12 +273,14 @@ public final class MediaCodecInfo {
    * @return Whether the decoder may support decoding the given {@code format}.
    * @throws MediaCodecUtil.DecoderQueryException Thrown if an error occurs while querying decoders.
    */
-  public boolean isFormatSupported(Format format) throws MediaCodecUtil.DecoderQueryException {
+  public boolean isFormatSupported(Context context, Format format)
+      throws MediaCodecUtil.DecoderQueryException {
     if (!isSampleMimeTypeSupported(format)) {
       return false;
     }
 
-    if (!isCodecProfileAndLevelSupported(format, /* checkPerformanceCapabilities= */ true)) {
+    if (!isCodecProfileAndLevelSupported(
+        context, format, /* checkPerformanceCapabilities= */ true)) {
       return false;
     }
 
@@ -302,9 +307,10 @@ public final class MediaCodecInfo {
    * @param format The input media format.
    * @return Whether the decoder may functionally support decoding the given {@code format}.
    */
-  public boolean isFormatFunctionallySupported(Format format) {
+  public boolean isFormatFunctionallySupported(Context context, Format format) {
     return isSampleMimeTypeSupported(format)
-        && isCodecProfileAndLevelSupported(format, /* checkPerformanceCapabilities= */ false)
+        && isCodecProfileAndLevelSupported(
+            context, format, /* checkPerformanceCapabilities= */ false)
         && isCompressedAudioBitDepthSupported(format);
   }
 
@@ -314,7 +320,7 @@ public final class MediaCodecInfo {
   }
 
   private boolean isCodecProfileAndLevelSupported(
-      Format format, boolean checkPerformanceCapabilities) {
+      Context context, Format format, boolean checkPerformanceCapabilities) {
     Pair<Integer, Integer> codecProfileAndLevel = MediaCodecUtil.getCodecProfileAndLevel(format);
     if (format.sampleMimeType != null && format.sampleMimeType.equals(MimeTypes.VIDEO_MV_HEVC)) {
       String normalizedCodecMimeType = MimeTypes.normalizeMimeType(codecMimeType);
@@ -372,7 +378,7 @@ public final class MediaCodecInfo {
     if (mimeType.equals(MimeTypes.AUDIO_AC4) && profileLevels.length == 0) {
       // Some older devices don't report profile levels for AC-4. Estimate them using other data
       // in the codec capabilities.
-      profileLevels = estimateLegacyAc4ProfileLevels(capabilities);
+      profileLevels = estimateLegacyAc4ProfileLevels(context, capabilities);
     }
     if (SDK_INT <= 23 && MimeTypes.VIDEO_VP9.equals(mimeType) && profileLevels.length == 0) {
       // Some older devices don't report profile levels for VP9. Estimate them using other data in
@@ -838,8 +844,8 @@ public final class MediaCodecInfo {
    *     known.
    * @return The estimated {@link CodecProfileLevel CodecProfileLevels} for the decoder.
    */
-  private static CodecProfileLevel[] estimateLegacyAc4ProfileLevels(
-      @Nullable CodecCapabilities capabilities) {
+    private CodecProfileLevel[] estimateLegacyAc4ProfileLevels(
+        Context context, @Nullable CodecCapabilities capabilities) {
     int maxInChannelCount = 2;
     if (capabilities != null) {
       @Nullable AudioCapabilities audioCapabilities = capabilities.getAudioCapabilities();
@@ -853,13 +859,20 @@ public final class MediaCodecInfo {
       level = CodecProfileLevel.AC4Level4;
     }
 
-    return new CodecProfileLevel[] {
-      createCodecProfileLevel(CodecProfileLevel.AC4Profile00, level),
-      createCodecProfileLevel(CodecProfileLevel.AC4Profile10, level),
-      createCodecProfileLevel(CodecProfileLevel.AC4Profile11, level),
-      createCodecProfileLevel(CodecProfileLevel.AC4Profile21, level),
-      createCodecProfileLevel(CodecProfileLevel.AC4Profile22, level)
-    };
+    List<CodecProfileLevel> codecProfileLevel = new ArrayList<>();
+    // All MediaCodec AC-4 decoders are expected to support AC4Profile21
+    codecProfileLevel.add(createCodecProfileLevel(CodecProfileLevel.AC4Profile21, level));
+
+    // Automotive platform MediaCodec AC-4 decoders are not expected to support AC4Profile22 and
+    // deprecated profiles AC4Profile00, AC4Profile10 and AC4Profile11.
+    if (!Util.isAutomotive(context)) {
+      codecProfileLevel.add(createCodecProfileLevel(CodecProfileLevel.AC4Profile00, level));
+      codecProfileLevel.add(createCodecProfileLevel(CodecProfileLevel.AC4Profile10, level));
+      codecProfileLevel.add(createCodecProfileLevel(CodecProfileLevel.AC4Profile11, level));
+      codecProfileLevel.add(createCodecProfileLevel(CodecProfileLevel.AC4Profile22, level));
+    }
+
+    return codecProfileLevel.toArray(new CodecProfileLevel[0]);
   }
 
   /**
