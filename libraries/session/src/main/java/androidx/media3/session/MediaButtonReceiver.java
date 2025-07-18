@@ -190,7 +190,7 @@ public class MediaButtonReceiver extends BroadcastReceiver {
         } catch (/* ForegroundServiceStartNotAllowedException */ IllegalStateException e) {
           if (SDK_INT >= 31 && Api31.instanceOfForegroundServiceStartNotAllowedException(e)) {
             onForegroundServiceStartNotAllowedException(
-                serviceIntent, Api31.castToForegroundServiceStartNotAllowedException(e));
+                context, serviceIntent, Api31.castToForegroundServiceStartNotAllowedException(e));
           } else {
             throw e;
           }
@@ -249,13 +249,14 @@ public class MediaButtonReceiver extends BroadcastReceiver {
    * apps must use a {@link MediaBrowser} or {@link MediaController} to bind to the service instead
    * of broadcasting an intent.
    *
+   * @param context The broadcast receiver's {@linkplain Context}
    * @param intent The intent that was used {@linkplain Context#startForegroundService(Intent) for
    *     starting the foreground service}.
    * @param e The exception thrown by the system and caught by this broadcast receiver.
    */
   @RequiresApi(31)
   protected void onForegroundServiceStartNotAllowedException(
-      Intent intent, ForegroundServiceStartNotAllowedException e) {
+      Context context, Intent intent, ForegroundServiceStartNotAllowedException e) {
     Log.e(
         TAG,
         "caught exception when trying to start a foreground service from the "
