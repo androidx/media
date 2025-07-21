@@ -18,6 +18,7 @@ package androidx.media3.extractor;
 import static com.google.common.truth.Truth.assertThat;
 
 import androidx.media3.common.util.ParsableByteArray;
+import androidx.media3.common.util.Util;
 import androidx.media3.extractor.FlacFrameReader.SampleNumberHolder;
 import androidx.media3.extractor.FlacMetadataReader.FlacStreamMetadataHolder;
 import androidx.media3.extractor.flac.FlacConstants;
@@ -25,6 +26,7 @@ import androidx.media3.test.utils.FakeExtractorInput;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.primitives.UnsignedBytes;
 import java.io.IOException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -80,6 +82,29 @@ public class FlacFrameReaderTest {
   }
 
   @Test
+  public void checkAndReadFrameHeader_validDataWithNoSubframeHeaderIncluded_returnsTrue()
+      throws Exception {
+    FlacStreamMetadataHolder streamMetadataHolder =
+        new FlacStreamMetadataHolder(/* flacStreamMetadata= */ null);
+    ExtractorInput input =
+        buildExtractorInputReadingFromFirstFrame(
+            "media/flac/bear_one_metadata_block.flac", streamMetadataHolder);
+    int frameStartMarker = FlacMetadataReader.getFrameStartMarker(input);
+    // The first frame header in this file is only 6 bytes.
+    ParsableByteArray scratch = new ParsableByteArray(6);
+    input.read(scratch.getData(), 0, 6);
+
+    boolean result =
+        FlacFrameReader.checkAndReadFrameHeader(
+            scratch,
+            streamMetadataHolder.flacStreamMetadata,
+            frameStartMarker,
+            new SampleNumberHolder());
+
+    assertThat(result).isTrue();
+  }
+
+  @Test
   public void checkAndReadFrameHeader_validData_writesSampleNumber() throws Exception {
     FlacStreamMetadataHolder streamMetadataHolder =
         new FlacStreamMetadataHolder(/* flacStreamMetadata= */ null);
@@ -115,6 +140,117 @@ public class FlacFrameReaderTest {
             scratch,
             streamMetadataHolder.flacStreamMetadata,
             /* frameStartMarker= */ -1,
+            new SampleNumberHolder());
+
+    assertThat(result).isFalse();
+  }
+
+  // https://github.com/androidx/media/issues/558
+  @Test
+  public void checkAndReadFrameHeader_blockSizeSmallerThanMinBlockSize_isFalse() throws Exception {
+    FlacStreamMetadataHolder streamMetadataHolder =
+        new FlacStreamMetadataHolder(/* flacStreamMetadata= */ null);
+    ExtractorInput input =
+        buildExtractorInputReadingFromFirstFrame(
+            "media/flac/bear_one_metadata_block.flac", streamMetadataHolder);
+    int frameStartMarker = FlacMetadataReader.getFrameStartMarker(input);
+    ParsableByteArray scratch = new ParsableByteArray(FlacConstants.MAX_FRAME_HEADER_SIZE);
+    input.read(scratch.getData(), 0, FlacConstants.MAX_FRAME_HEADER_SIZE);
+
+    // Set the block size key to 1, meaning 192 (should be 12, meaning 4096).
+    scratch.getData()[2] = (byte) ((scratch.getData()[2] & (byte) 0x0F) | (byte) 0x10);
+    // Update the CRC byte to include the block size edit.
+    scratch.getData()[5] =
+        UnsignedBytes.checkedCast(
+            Util.crc8(scratch.getData(), /* start= */ 0, /* end= */ 5, /* initialValue= */ 0));
+
+    boolean result =
+        FlacFrameReader.checkAndReadFrameHeader(
+            scratch,
+            streamMetadataHolder.flacStreamMetadata,
+            frameStartMarker,
+            new SampleNumberHolder());
+
+    assertThat(result).isFalse();
+  }
+
+  // https://github.com/androidx/media/issues/558
+  @Test
+  public void checkAndReadFrameHeader_sampleNumberLargerThanTotalSamples_isFalse()
+      throws Exception {
+    FlacStreamMetadataHolder streamMetadataHolder =
+        new FlacStreamMetadataHolder(/* flacStreamMetadata= */ null);
+    ExtractorInput input =
+        buildExtractorInputReadingFromFirstFrame(
+            "media/flac/bear_one_metadata_block.flac", streamMetadataHolder);
+    int frameStartMarker = FlacMetadataReader.getFrameStartMarker(input);
+    ParsableByteArray scratch = new ParsableByteArray(FlacConstants.MAX_FRAME_HEADER_SIZE);
+    input.read(scratch.getData(), 0, FlacConstants.MAX_FRAME_HEADER_SIZE);
+
+    // Set the frame number 33, which is larger than the number of frames expected in this stream
+    // based on the FlacStreamMetadata (32). This field is a variable length UTF-8 encoded int, but
+    // that means for single-byte values the direct byte values is used.
+    scratch.getData()[4] = 33;
+    // Update the CRC byte to include the frame number edit.
+    scratch.getData()[5] =
+        UnsignedBytes.checkedCast(
+            Util.crc8(scratch.getData(), /* start= */ 0, /* end= */ 5, /* initialValue= */ 0));
+
+    boolean result =
+        FlacFrameReader.checkAndReadFrameHeader(
+            scratch,
+            streamMetadataHolder.flacStreamMetadata,
+            frameStartMarker,
+            new SampleNumberHolder());
+
+    assertThat(result).isFalse();
+  }
+
+  // https://github.com/androidx/media/issues/558
+  @Test
+  public void checkAndReadFrameHeader_invalidSubframeHeaderReservedBit_isFalse() throws Exception {
+    FlacStreamMetadataHolder streamMetadataHolder =
+        new FlacStreamMetadataHolder(/* flacStreamMetadata= */ null);
+    ExtractorInput input =
+        buildExtractorInputReadingFromFirstFrame(
+            "media/flac/bear_one_metadata_block.flac", streamMetadataHolder);
+    int frameStartMarker = FlacMetadataReader.getFrameStartMarker(input);
+    ParsableByteArray scratch = new ParsableByteArray(FlacConstants.MAX_FRAME_HEADER_SIZE);
+    input.read(scratch.getData(), 0, FlacConstants.MAX_FRAME_HEADER_SIZE);
+
+    // Set the reserved bit on the subframe header to make it invalid.
+    scratch.getData()[6] |= 0x80;
+
+    boolean result =
+        FlacFrameReader.checkAndReadFrameHeader(
+            scratch,
+            streamMetadataHolder.flacStreamMetadata,
+            frameStartMarker,
+            new SampleNumberHolder());
+
+    assertThat(result).isFalse();
+  }
+
+  // https://github.com/androidx/media/issues/558
+  @Test
+  public void checkAndReadFrameHeader_reservedSubframeType_isFalse() throws Exception {
+    FlacStreamMetadataHolder streamMetadataHolder =
+        new FlacStreamMetadataHolder(/* flacStreamMetadata= */ null);
+    ExtractorInput input =
+        buildExtractorInputReadingFromFirstFrame(
+            "media/flac/bear_one_metadata_block.flac", streamMetadataHolder);
+    int frameStartMarker = FlacMetadataReader.getFrameStartMarker(input);
+    ParsableByteArray scratch = new ParsableByteArray(FlacConstants.MAX_FRAME_HEADER_SIZE);
+    input.read(scratch.getData(), 0, FlacConstants.MAX_FRAME_HEADER_SIZE);
+
+    // Modify the subframe header to be invalid (reserved subframe type value)
+    scratch.getData()[6] = 4;
+
+    boolean result =
+        FlacFrameReader.checkAndReadFrameHeader(
+            scratch,
+            streamMetadataHolder.flacStreamMetadata,
+            frameStartMarker,
             new SampleNumberHolder());
 
     assertThat(result).isFalse();

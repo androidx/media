@@ -29,6 +29,9 @@
         preference for tracks with a specific label, for example those read from
         HLS NAME tags ([#1666](https://github.com/androidx/media/issues/1666)).
 *   Extractors:
+    *   FLAC: Tighten header detection to reduce the chance of finding spurious
+        headers in the encoded FLAC data, resulting in decoding errors
+        ([#558](https://github.com/androidx/media/issues/558)).
 *   DataSource:
 *   Audio:
     *   Make `AudioProcessor` instances aware of seeking.
