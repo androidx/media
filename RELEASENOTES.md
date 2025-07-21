@@ -106,6 +106,9 @@
 *   Test Utilities:
     *   Add maximum time diff for the auto-advancing behavior of `FakeClock`. It
         defaults to 1 second, but is configurable via `FakeClock.Builder`.
+    *   Add maximum time diff between messages for
+        `RobolectricUtil.runMainLooperUntil` (and `runLooperUntil`). It defaults
+        to 1 second, but is configurable via new overloads of these methods.
 *   Remove deprecated symbols:
 
 ## 1.8

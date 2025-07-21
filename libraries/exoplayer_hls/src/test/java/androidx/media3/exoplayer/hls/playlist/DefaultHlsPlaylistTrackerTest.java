@@ -694,7 +694,9 @@ public class DefaultHlsPlaylistTrackerTest {
           playlistCounter.addAndGet(1);
         });
 
-    RobolectricUtil.runMainLooperUntil(() -> playlistCounter.get() >= awaitedMediaPlaylistCount);
+    RobolectricUtil.runMainLooperUntil(
+        /* maxTimeDiffMs= */ 10_000, // Account for scheduled playlist refresh delays
+        () -> playlistCounter.get() >= awaitedMediaPlaylistCount);
 
     defaultHlsPlaylistTracker.stop();
     return mediaPlaylists;
