@@ -387,6 +387,15 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
   }
 
   @Override
+  public void onDroppedSeeksWhileScrubbing(int droppedSeekCount) {
+    EventTime eventTime = generateCurrentPlayerMediaPeriodEventTime();
+    sendEvent(
+        eventTime,
+        AnalyticsListener.EVENT_DROPPED_SEEKS_WHILE_SCRUBBING,
+        listener -> listener.onDroppedSeeksWhileScrubbing(eventTime, droppedSeekCount));
+  }
+
+  @Override
   public final void onSurfaceSizeChanged(int width, int height) {
     EventTime eventTime = generateReadingMediaPeriodEventTime();
     sendEvent(

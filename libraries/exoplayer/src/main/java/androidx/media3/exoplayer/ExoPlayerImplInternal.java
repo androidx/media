@@ -236,6 +236,7 @@ import java.util.Objects;
   private boolean scrubbingModeEnabled;
   private boolean seekIsPendingWhileScrubbing;
   @Nullable private SeekPosition queuedSeekWhileScrubbing;
+  private int droppedSeeksWhileScrubbing;
   private PlaybackInfo playbackInfo;
   private PlaybackInfoUpdate playbackInfoUpdate;
   private boolean releasedOnApplicationThread;
@@ -1556,6 +1557,9 @@ import java.util.Objects;
       throws ExoPlaybackException {
     playbackInfoUpdate.incrementPendingOperationAcks(incrementAcks ? 1 : 0);
     if (seekIsPendingWhileScrubbing) {
+      if (queuedSeekWhileScrubbing != null) {
+        droppedSeeksWhileScrubbing++;
+      }
       queuedSeekWhileScrubbing = seekPosition;
       return;
     }
@@ -1794,6 +1798,12 @@ import java.util.Objects;
   private void setScrubbingModeEnabledInternal(boolean scrubbingModeEnabled)
       throws ExoPlaybackException {
     if (!scrubbingModeEnabled) {
+      if (droppedSeeksWhileScrubbing > 0) {
+        int localDroppedSeeksCount = droppedSeeksWhileScrubbing;
+        applicationLooperHandler.post(
+            () -> analyticsCollector.onDroppedSeeksWhileScrubbing(localDroppedSeeksCount));
+      }
+      droppedSeeksWhileScrubbing = 0;
       seekIsPendingWhileScrubbing = false;
       handler.removeMessages(MSG_SEEK_COMPLETED_IN_SCRUBBING_MODE);
       if (queuedSeekWhileScrubbing != null) {

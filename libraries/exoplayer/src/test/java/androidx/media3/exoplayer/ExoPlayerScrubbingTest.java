@@ -133,6 +133,8 @@ public final class ExoPlayerScrubbingTest {
     player.setVideoSurface(surface);
     Player.Listener mockListener = mock(Player.Listener.class);
     player.addListener(mockListener);
+    AnalyticsListener mockAnalyticsListener = mock(AnalyticsListener.class);
+    player.addAnalyticsListener(mockAnalyticsListener);
     player.setMediaSource(create30Fps2sGop10sDurationVideoSource());
     player.prepare();
     player.play();
@@ -148,6 +150,8 @@ public final class ExoPlayerScrubbingTest {
     player.seekTo(3500);
     // Allow the 2500 and 3500 seeks to complete (the 3000 seek should be dropped).
     advance(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 3500);
+    // The dropped seek won't be reported immediately, only after exiting scrubbing mode.
+    verify(mockAnalyticsListener, never()).onDroppedSeeksWhileScrubbing(any(), anyInt());
 
     player.seekTo(4000);
     player.seekTo(4500);
@@ -178,6 +182,9 @@ public final class ExoPlayerScrubbingTest {
     assertThat(newPositionCaptor.getAllValues().stream().map(p -> p.positionMs))
         .containsExactly(2500L, 3000L, 3500L, 4000L, 4500L)
         .inOrder();
+
+    // Check the dropped 3000 and 4000 seeks are reported
+    verify(mockAnalyticsListener).onDroppedSeeksWhileScrubbing(any(), eq(2));
   }
 
   @Test

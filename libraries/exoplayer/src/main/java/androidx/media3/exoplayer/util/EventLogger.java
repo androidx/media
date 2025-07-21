@@ -544,6 +544,12 @@ public class EventLogger implements AnalyticsListener {
             + isRendererReady);
   }
 
+  @UnstableApi
+  @Override
+  public void onDroppedSeeksWhileScrubbing(EventTime eventTime, int droppedSeeks) {
+    logd(eventTime, "droppedSeeksWhileScrubbing", Integer.toString(droppedSeeks));
+  }
+
   /**
    * Logs a debug message.
    *
