@@ -50,6 +50,8 @@
         `FragmentedMp4Muxer#Builder(WritableByteChannel)` instead.
 *   IMA extension:
 *   Session:
+    *   Fix bug where connections from third-party non-priviledged Media3
+        controllers are ignored.
     *   Remove check for available commands when sending custom commands to a
         legacy `MediaBrowserServiceCompat`. This is in parity with the behavior
         of legacy controllers/browsers when connected to a legacy app.

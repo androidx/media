@@ -862,16 +862,6 @@ public abstract class MediaSessionService extends Service {
       int uid = Binder.getCallingUid();
       long token = Binder.clearCallingIdentity();
       int pid = (callingPid != 0) ? callingPid : request.pid;
-      if (!SessionUtil.isValidPackage(mediaSessionService, request.packageName, uid)) {
-        Log.w(
-            TAG,
-            "Ignoring connection from invalid package name "
-                + request.packageName
-                + " (uid="
-                + uid
-                + ")");
-        return;
-      }
       MediaSessionManager.RemoteUserInfo remoteUserInfo =
           new MediaSessionManager.RemoteUserInfo(request.packageName, pid, uid);
       boolean isTrusted =
