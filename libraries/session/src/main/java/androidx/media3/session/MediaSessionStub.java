@@ -655,26 +655,15 @@ import java.util.concurrent.ExecutionException;
     }
     int uid = Binder.getCallingUid();
     int callingPid = Binder.getCallingPid();
-    @Nullable MediaSessionImpl sessionImpl = this.sessionImpl.get();
-    if (sessionImpl != null
-        && !SessionUtil.isValidPackage(sessionImpl.getContext(), request.packageName, uid)) {
-      Log.w(
-          TAG,
-          "Ignoring connection from invalid package name "
-              + request.packageName
-              + " (uid="
-              + uid
-              + ")");
-      return;
-    }
-
     long token = Binder.clearCallingIdentity();
     // Binder.getCallingPid() can be 0 for an oneway call from the remote process.
     // If it's the case, use PID from the ConnectionRequest.
     int pid = (callingPid != 0) ? callingPid : request.pid;
     try {
+
       MediaSessionManager.RemoteUserInfo remoteUserInfo =
           new MediaSessionManager.RemoteUserInfo(request.packageName, pid, uid);
+      @Nullable MediaSessionImpl sessionImpl = this.sessionImpl.get();
       boolean isTrustedForMediaControl =
           sessionImpl != null
               && MediaSessionManager.getSessionManager(sessionImpl.getContext())

@@ -17,6 +17,8 @@ This release includes the following changes since the
         use a different instance than the one used for playback
         ([#1191](https://github.com/androidx/media/issues/1191)).
 *   Session:
+    *   Fix bug where connections from third-party non-priviledged Media3
+        controllers are ignored.
     *   Remove check for available commands when sending custom commands to a
         legacy `MediaBrowserServiceCompat`. This is in parity with the behavior
         of legacy controllers/browsers when connected to a legacy app.
