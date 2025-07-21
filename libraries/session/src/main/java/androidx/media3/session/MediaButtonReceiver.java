@@ -227,6 +227,21 @@ public class MediaButtonReceiver extends BroadcastReceiver {
   }
 
   /**
+   * @deprecated Use {@link #onForegroundServiceStartNotAllowedException(Context, Intent,
+   *     ForegroundServiceStartNotAllowedException)} instead.
+   */
+  @Deprecated
+  @RequiresApi(31)
+  protected void onForegroundServiceStartNotAllowedException(
+      Intent intent, ForegroundServiceStartNotAllowedException e) {
+    Log.e(
+        TAG,
+        "caught exception when trying to start a foreground service from the "
+            + "background: "
+            + e.getMessage());
+  }
+
+  /**
    * This method is called when an exception is thrown when calling {@link
    * Context#startForegroundService(Intent)} as a result of receiving a media button event.
    *
@@ -254,14 +269,11 @@ public class MediaButtonReceiver extends BroadcastReceiver {
    *     starting the foreground service}.
    * @param e The exception thrown by the system and caught by this broadcast receiver.
    */
+  @SuppressWarnings("deprecation")
   @RequiresApi(31)
   protected void onForegroundServiceStartNotAllowedException(
       Context context, Intent intent, ForegroundServiceStartNotAllowedException e) {
-    Log.e(
-        TAG,
-        "caught exception when trying to start a foreground service from the "
-            + "background: "
-            + e.getMessage());
+    onForegroundServiceStartNotAllowedException(intent, e);
   }
 
   @SuppressWarnings("QueryPermissionsNeeded") // Needs to be provided in the app manifest.
