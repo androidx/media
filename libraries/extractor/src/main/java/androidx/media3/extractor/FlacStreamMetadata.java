@@ -18,6 +18,7 @@ package androidx.media3.extractor;
 import static androidx.media3.extractor.VorbisUtil.parseVorbisComments;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
@@ -165,7 +166,8 @@ public final class FlacStreamMetadata {
         concatenateVorbisMetadata(vorbisComments, pictureFrames));
   }
 
-  private FlacStreamMetadata(
+  @VisibleForTesting
+  /* package */ FlacStreamMetadata(
       int minBlockSizeSamples,
       int maxBlockSizeSamples,
       int minFrameSize,

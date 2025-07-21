@@ -106,22 +106,21 @@ public final class FlacFrameReader {
       throws IOException {
     long originalPeekPosition = input.getPeekPosition();
 
-    byte[] frameStartBytes = new byte[2];
-    input.peekFully(frameStartBytes, 0, 2);
-    int frameStart = (frameStartBytes[0] & 0xFF) << 8 | (frameStartBytes[1] & 0xFF);
+    // We will try and read the first subframe header following the frame header as well.
+    int dataToCheck = FlacConstants.MAX_FRAME_HEADER_SIZE + 1;
+    ParsableByteArray scratch = new ParsableByteArray(dataToCheck);
+
+    // Check the start marker first, before peeking the rest of the frame header.
+    input.peekFully(scratch.getData(), 0, 2);
+    int frameStart = scratch.peekChar();
     if (frameStart != frameStartMarker) {
       input.resetPeekPosition();
       input.advancePeekPosition((int) (originalPeekPosition - input.getPosition()));
       return false;
     }
 
-    // Try and read the first subframe header following the frame header as well.
-    int dataToCheck = FlacConstants.MAX_FRAME_HEADER_SIZE + 1;
-    ParsableByteArray scratch = new ParsableByteArray(dataToCheck);
-    System.arraycopy(
-        frameStartBytes, /* srcPos= */ 0, scratch.getData(), /* destPos= */ 0, /* length= */ 2);
-
-    int totalBytesPeeked = ExtractorUtil.peekToLength(input, scratch.getData(), 2, dataToCheck - 2);
+    int totalBytesPeeked = 2;
+    totalBytesPeeked += ExtractorUtil.peekToLength(input, scratch.getData(), 2, dataToCheck - 2);
     scratch.setLimit(totalBytesPeeked);
 
     input.resetPeekPosition();

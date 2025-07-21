@@ -15,19 +15,25 @@
  */
 package androidx.media3.extractor;
 
+import static androidx.media3.test.utils.TestUtil.createByteArray;
 import static com.google.common.truth.Truth.assertThat;
 
+import androidx.media3.common.Metadata;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.Util;
 import androidx.media3.extractor.FlacFrameReader.SampleNumberHolder;
 import androidx.media3.extractor.FlacMetadataReader.FlacStreamMetadataHolder;
+import androidx.media3.extractor.FlacStreamMetadata.SeekTable;
 import androidx.media3.extractor.flac.FlacConstants;
 import androidx.media3.test.utils.FakeExtractorInput;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.primitives.Bytes;
 import com.google.common.primitives.UnsignedBytes;
 import java.io.IOException;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -39,6 +45,16 @@ import org.junit.runner.RunWith;
  */
 @RunWith(AndroidJUnit4.class)
 public class FlacFrameReaderTest {
+
+  @BeforeClass
+  public static void enableParsableByteArrayLimitEnforcement() {
+    ParsableByteArray.setShouldEnforceLimitOnLegacyMethods(true);
+  }
+
+  @AfterClass
+  public static void disableParsableByteArrayLimitEnforcement() {
+    ParsableByteArray.setShouldEnforceLimitOnLegacyMethods(false);
+  }
 
   @Test
   public void checkAndReadFrameHeader_validData_updatesPosition() throws Exception {
@@ -290,6 +306,47 @@ public class FlacFrameReaderTest {
             streamMetadataHolder.flacStreamMetadata,
             frameStartMarker,
             new SampleNumberHolder());
+
+    assertThat(result).isTrue();
+  }
+
+  @Test
+  public void checkFrameHeaderFromPeek_validData_maxHeaderSize() throws Exception {
+    byte[] frameHeader =
+        Bytes.concat(
+            // The sync code and blocking strategy bit (variable block size)
+            createByteArray(0xFF, 0xF9),
+            // Indicates 16-bit uncommon block size and sample rate, and mono channel count.
+            createByteArray(0b0111_1101, 0x00),
+            // The smallest 7 byte coded number: 0x8000_0000
+            createByteArray(0xFE, 0x82, 0x80, 0x80, 0x80, 0x80, 0x80),
+            // The 16-bit uncommon block size (257 - 1) & sample rate (256kHz), as indicated above.
+            createByteArray(0x01, 0x00, 0x01, 0x00),
+            // The CRC placeholder (updated below).
+            createByteArray(0x00));
+    frameHeader[15] =
+        UnsignedBytes.checkedCast(
+            Util.crc8(frameHeader, /* start= */ 0, /* end= */ 15, /* initialValue= */ 0));
+
+    ExtractorInput input = new FakeExtractorInput.Builder().setData(frameHeader).build();
+    FlacStreamMetadata flacStreamMetadata =
+        new FlacStreamMetadata(
+            /* minBlockSizeSamples= */ 16,
+            /* maxBlockSizeSamples= */ 257,
+            /* minFrameSize= */ 0, /* unknown */
+            /* maxFrameSize= */ 0 /* unknown */,
+            /* sampleRate= */ 256,
+            /* channels= */ 1,
+            /* bitsPerSample= */ 16,
+            /* totalSamples= */ 0 /* unknown */,
+            (SeekTable) null,
+            (Metadata) null);
+
+    int frameStartMarker = FlacMetadataReader.getFrameStartMarker(input);
+
+    boolean result =
+        FlacFrameReader.checkFrameHeaderFromPeek(
+            input, flacStreamMetadata, frameStartMarker, new SampleNumberHolder());
 
     assertThat(result).isTrue();
   }
