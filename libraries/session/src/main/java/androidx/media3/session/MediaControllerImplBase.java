@@ -2561,12 +2561,15 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     //    If a service wants to keep running, it should be either foreground service or
     //    bound service. But there had been request for the feature for system apps
     //    and using bindService() will be better fit with it.
-    boolean result = context.bindService(intent, serviceConnection, flags);
-    if (!result) {
+    try {
+      if (context.bindService(intent, serviceConnection, flags)) {
+        return true;
+      }
       Log.w(TAG, "bind to " + token + " failed");
-      return false;
+    } catch (SecurityException e) {
+      Log.w(TAG, "bind to " + token + " not allowed", e);
     }
-    return true;
+    return false;
   }
 
   private boolean requestConnectToSession(Bundle connectionHints) {
