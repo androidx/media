@@ -43,6 +43,7 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.text.Cue;
 import androidx.media3.common.util.Log;
 import com.google.common.base.Joiner;
+import com.google.common.base.Splitter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -197,7 +198,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       return;
     }
 
-    this.cueText = containsRTL(cue.text) ? wrapBidiText(cue.text) : cue.text;
+    this.cueText = containsRTL(cue.text) ? wrapBiDiText(cue.text) : cue.text;
     this.cueTextAlignment = cue.textAlignment;
     this.cueBitmap = cue.bitmap;
     this.cueLine = cue.line;
@@ -515,7 +516,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   }
 
   /**
-   * Applies bidirectional (bidi) Unicode wrapping to each line of the given {@link CharSequence}.
+   * Applies bidirectional (BiDi) Unicode wrapping to each line of the given {@link CharSequence}.
    * <p>
    * This method ensures that text containing both left-to-right (LTR) and right-to-left (RTL)
    * scripts is displayed correctly by wrapping each line using {@link BidiFormatter#unicodeWrap}.
@@ -524,20 +525,33 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
    * @param input the input text as a {@link CharSequence}, possibly containing mixed-direction text
    * @return a {@link CharSequence} with each line wrapped for proper bidi rendering
    */
-  public static CharSequence wrapBidiText(CharSequence input) {
+  public static CharSequence wrapBiDiText(CharSequence input) {
     BidiFormatter bidiFormatter = BidiFormatter.getInstance();
+    Spanned spannedInput = null;
+    Object[] spans = null;
+    int[] spanStarts = null;
+    int[] spanEnds = null;
 
-    // Preserve span in the input text.
-    Spanned spannedInput = (Spanned)input;
-    Object[] spans = spannedInput.getSpans(0, input.length(), Object.class);
 
-    // Create arrays to track the start and end of each span after wrapping.
-    int[] spanStarts = new int[spans.length];
-    int[] spanEnds = new int[spans.length];
-    Arrays.fill(spanStarts, -1);
-    Arrays.fill(spanEnds, -1);
+    if (input instanceof Spanned) {
+      // Preserve span in the input text.
+      spannedInput = (Spanned) input;
+      spans = spannedInput.getSpans(0, input.length(), Object.class);
+      // Create arrays to track the start and end of each span after wrapping.
+      spanStarts = new int[spans.length];
+      spanEnds = new int[spans.length];
+      Arrays.fill(spanStarts, -1);
+      Arrays.fill(spanEnds, -1);
+    }
 
-    String[] lines = input.toString().split("\n");
+    // Determine the eol sequence for splitting the input text.
+    String inputStr = input.toString();
+    String eol = "\n";
+    if (inputStr.contains("\r\n")) {
+      eol = "\r\n";
+    }
+    Iterable<String> lines = Splitter.on(eol).split(inputStr);
+
     List<String> wrappedLines = new ArrayList<>();
 
     // Calculate the offset of each span after wrapping
@@ -546,45 +560,50 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     for (String line : lines) {
       // According to unicodeWrap documentation, this will either add 2 more characters or none
       String wrappedLine = bidiFormatter.unicodeWrap(line, TextDirectionHeuristics.LTR, true);
-      int diff = wrappedLine.length() - line.length();
-      if (diff > 0) {
-        spanUpdate++;
-      }
-      for (int j = 0; j < spans.length; j++) {
-        // Each span start or end is updated only once
-        if ((spanStarts[j] < 0) &&
-            (spannedInput.getSpanStart(spans[j]) >= lineStart) &&
-            (spannedInput.getSpanStart(spans[j]) < lineStart + line.length())) {
-          spanStarts[j] = spanUpdate;
+      if (spans != null) {
+        int diff = wrappedLine.length() - line.length();
+        if (diff > 0) {
+          spanUpdate++;
         }
-        if ((spanEnds[j] < 0) &&
-            ((spannedInput.getSpanEnd(spans[j]) - 1) >= lineStart) &&
-            ((spannedInput.getSpanEnd(spans[j]) - 1) < lineStart + line.length())) {
-          spanEnds[j] = spanUpdate;
+        for (int j = 0; j < spans.length; j++) {
+          // Each span start or end is updated only once
+          if ((spanStarts[j] < 0) &&
+              (spannedInput.getSpanStart(spans[j]) >= lineStart) &&
+              (spannedInput.getSpanStart(spans[j]) < lineStart + line.length())) {
+            spanStarts[j] = spanUpdate;
+          }
+          if ((spanEnds[j] < 0) &&
+              ((spannedInput.getSpanEnd(spans[j]) - 1) >= lineStart) &&
+              ((spannedInput.getSpanEnd(spans[j]) - 1) < lineStart + line.length())) {
+            spanEnds[j] = spanUpdate;
+          }
+        }
+        lineStart += line.length() + eol.length();
+        if (diff > 0) {
+          spanUpdate++;
         }
       }
-      lineStart += line.length() + 1; // +1 for the newline character
       wrappedLines.add(wrappedLine);
-      if (diff > 0) {
-        spanUpdate++;
-      }
     }
 
     // Create a new SpannableStringBuilder with the wrapped lines.
     Joiner joiner = Joiner.on("\n");
     SpannableStringBuilder wrapped = new SpannableStringBuilder(joiner.join(wrappedLines));
 
-    // Reapply original spans to the wrapped lines.
-    for (int i = 0 ; i < spans.length ; i++) {
-      int start = spannedInput.getSpanStart(spans[i]) + spanStarts[i];
-      int end = spannedInput.getSpanEnd(spans[i]) + spanEnds[i];
-      int flags = spannedInput.getSpanFlags(spans[i]);
-      if ((start >= 0) && (start < wrapped.length())
-          && (end >= 0) && (end <= wrapped.length())) {
-        // Only set the span if the start and end are within bounds of the wrapped text.
-        wrapped.setSpan(spans[i], start, end, flags);
-      } else {
-        Log.w(TAG, "Span out of bounds: start=" + start + ",end=" + end + ",len=" + wrapped.length());
+    if (spans != null) {
+      // Reapply original spans to the wrapped lines.
+      for (int i = 0; i < spans.length; i++) {
+        int start = spannedInput.getSpanStart(spans[i]) + spanStarts[i];
+        int end = spannedInput.getSpanEnd(spans[i]) + spanEnds[i];
+        int flags = spannedInput.getSpanFlags(spans[i]);
+        if ((start >= 0) && (start < wrapped.length())
+            && (end >= 0) && (end <= wrapped.length())) {
+          // Only set the span if the start and end are within bounds of the wrapped text.
+          wrapped.setSpan(spans[i], start, end, flags);
+        } else {
+          Log.w(TAG,
+              "Span out of bounds: start=" + start + ",end=" + end + ",len=" + wrapped.length());
+        }
       }
     }
 
