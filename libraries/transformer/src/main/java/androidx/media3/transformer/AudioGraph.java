@@ -80,8 +80,6 @@ import java.util.Objects;
   /**
    * Returns a new {@link AudioGraphInput} instance.
    *
-   * <p>This method assumes the new input will start queueing its stream from the beginning.
-   *
    * <p>Must be called before {@linkplain #getOutput() accessing output}.
    */
   public AudioGraphInput registerInput(EditedMediaItem editedMediaItem, Format format)
@@ -93,7 +91,7 @@ import java.util.Objects;
       if (Objects.equals(mixerAudioFormat, AudioFormat.NOT_SET)) {
         this.mixerAudioFormat = audioGraphInput.getOutputAudioFormat();
         audioProcessingPipeline.configure(mixerAudioFormat);
-        audioProcessingPipeline.flush(new StreamMetadata(/* positionOffsetUs= */ 0));
+        audioProcessingPipeline.flush(new StreamMetadata(pendingStartTimeUs));
       }
     } catch (UnhandledAudioFormatException e) {
       throw ExportException.createForAudioProcessing(
@@ -122,7 +120,7 @@ import java.util.Objects;
    * Returns a {@link ByteBuffer} containing output data between the position and limit.
    *
    * <p>The same buffer is returned until it has been fully consumed ({@code position == limit}),
-   * unless the graph was {@linkplain #flush() flushed}.
+   * unless the graph was {@linkplain #flush flushed}.
    */
   public ByteBuffer getOutput() throws ExportException {
     if (!ensureMixerReady()) {
