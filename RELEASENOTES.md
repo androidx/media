@@ -39,6 +39,8 @@
     *   Utilize AC-4 decoder profile and level capabilities in track format
         support assessment
         ([#2580](https://github.com/androidx/media/pull/2580)).
+    *   Fix bug where `AnalyticsListener.onAudioPositionAdvancing` is not called
+        when the audio playback is started very close to the end of the media.
 *   Video:
 *   Text:
 *   Metadata:
