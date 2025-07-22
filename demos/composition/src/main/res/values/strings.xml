@@ -17,7 +17,7 @@
   <string name="app_name">Composition Demo</string>
   <string name="edit">Edit</string>
   <string name="add_effects">Add effects</string>
-  <string name="add_effects_hint">Click the star to apply effects</string>
+  <string name="add_effects_hint">Click the Media Item to apply effects</string>
   <string name="preview" translatable="false">Preview</string>
   <string name="preview_composition" translatable="false">Composition preview</string>
   <string name="video_sequence_items" translatable="false">Video sequence items</string>
@@ -32,6 +32,7 @@
   <string name="hdr_mode" translatable="false">HDR mode</string>
   <string name="ok" translatable="false">OK</string>
   <string name="select" translatable="false">Select</string>
+  <string name="select_effects" translatable="false">Select Effects</string>
   <string name="cancel" translatable="false">Cancel</string>
   <string name="export_settings" translatable="false">Export Settings</string>
   <string name="output_audio_mime_type" translatable="false">Output audio MIME type</string>

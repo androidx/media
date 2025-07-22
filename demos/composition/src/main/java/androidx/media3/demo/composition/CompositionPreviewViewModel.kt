@@ -75,7 +75,7 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
     val title: String,
     val uri: String,
     val durationUs: Long,
-    var applyEffects: MutableState<Boolean>,
+    var selectedEffects: MutableState<Set<String>>,
   )
 
   var snackbarMessage by mutableStateOf<String?>(null)
@@ -110,8 +110,10 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
       }
     )
 
-  private val perItemVideoEffects =
-    listOf<Effect>(createDizzyCropEffect(), RgbFilter.createGrayscaleFilter())
+  private val effectOptions: Map<String, Effect> =
+    mapOf("Grayscale" to RgbFilter.createGrayscaleFilter(), "Dizzy Crop" to createDizzyCropEffect())
+
+  val availableEffectNames: List<String> = effectOptions.keys.toList()
 
   init {
     // Load media items
@@ -119,7 +121,9 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
     val uris = application.resources.getStringArray(/* id= */ R.array.preset_uris)
     val durations = application.resources.getIntArray(/* id= */ R.array.preset_durations)
     for (i in titles.indices) {
-      mediaItemOptions.add(Item(titles[i], uris[i], durations[i].toLong(), mutableStateOf(false)))
+      mediaItemOptions.add(
+        Item(titles[i], uris[i], durations[i].toLong(), mutableStateOf(emptySet()))
+      )
     }
     // Load initial media item selections. No need to show the Snackbar message at this point
     addItem(0, showSnackbarMessage = false)
@@ -141,7 +145,9 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
   }
 
   fun addItem(index: Int, showSnackbarMessage: Boolean = true) {
-    selectedMediaItems.add(mediaItemOptions[index].copy(applyEffects = mutableStateOf(false)))
+    selectedMediaItems.add(
+      mediaItemOptions[index].copy(selectedEffects = mutableStateOf(emptySet()))
+    )
     if (showSnackbarMessage) {
       snackbarMessage = "Added item: ${mediaItemOptions[index].title}"
     }
@@ -151,8 +157,8 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
     selectedMediaItems.removeAt(index)
   }
 
-  fun updateEffects(index: Int, checked: Boolean) {
-    selectedMediaItems[index].applyEffects.value = checked
+  fun updateEffectsForItem(index: Int, newEffects: Set<String>) {
+    selectedMediaItems[index].selectedEffects.value = newEffects
   }
 
   fun previewComposition() {
@@ -268,8 +274,11 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
           .setUri(item.uri)
           .setImageDurationMs(usToMs(item.durationUs)) // Ignored for audio/video
           .build()
-      val finalVideoEffects =
-        globalVideoEffects + if (item.applyEffects.value) perItemVideoEffects else emptyList()
+      val effectsForItem = mutableListOf<Effect>()
+      for (effectName in item.selectedEffects.value) {
+        effectOptions[effectName]?.let { effectsForItem.add(it) }
+      }
+      val finalVideoEffects = globalVideoEffects + effectsForItem
       val itemBuilder =
         EditedMediaItem.Builder(mediaItem)
           .setEffects(
