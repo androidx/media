@@ -16,6 +16,9 @@ This release includes the following changes since the
         to call this method on the same thread as ExoPlayer's playback thread or
         use a different instance than the one used for playback
         ([#1191](https://github.com/androidx/media/issues/1191)).
+* Audio
+    *   Fix bug where `AnalyticsListener.onAudioPositionAdvancing` is not called
+        when the audio playback is started very close to the end of the media.
 *   Session:
     *   Fix bug where connections from third-party non-priviledged Media3
         controllers are ignored.

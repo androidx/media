@@ -303,21 +303,12 @@ import java.lang.reflect.Method;
             ? audioTimestampPoller.getTimestampPositionUs(systemTimeUs, audioTrackPlaybackSpeed)
             : getPlaybackHeadPositionEstimateUs(systemTimeUs);
 
-    if (audioTrack.getPlayState() == PLAYSTATE_PLAYING) {
-      if (enableOnAudioPositionAdvancingFix
-          && onPositionAdvancingFromPositionUs != C.TIME_UNSET
-          && positionUs >= onPositionAdvancingFromPositionUs
-          && (useGetTimestampMode || !audioTimestampPoller.isWaitingForAdvancingTimestamp())) {
+    int audioTrackPlayState = audioTrack.getPlayState();
+    if (audioTrackPlayState == PLAYSTATE_PLAYING) {
+      if (useGetTimestampMode || !audioTimestampPoller.isWaitingForAdvancingTimestamp()) {
         // Assume the new position is reliable to estimate the playout start time once we have an
         // advancing timestamp from the AudioTimestampPoller, or we stopped waiting for it.
-        long mediaDurationSinceResumeUs = positionUs - onPositionAdvancingFromPositionUs;
-        long playoutDurationSinceLastPositionUs =
-            Util.getPlayoutDurationForMediaDuration(
-                mediaDurationSinceResumeUs, audioTrackPlaybackSpeed);
-        long playoutStartSystemTimeMs =
-            clock.currentTimeMillis() - Util.usToMs(playoutDurationSinceLastPositionUs);
-        onPositionAdvancingFromPositionUs = C.TIME_UNSET;
-        listener.onPositionAdvancing(playoutStartSystemTimeMs);
+        maybeTriggerOnPositionAdvancingCallback(positionUs);
       }
 
       if (lastSystemTimeUs != C.TIME_UNSET) {
@@ -357,6 +348,10 @@ import java.lang.reflect.Method;
 
       lastSystemTimeUs = systemTimeUs;
       lastPositionUs = positionUs;
+    } else if (audioTrackPlayState == PLAYSTATE_STOPPED) {
+      // Once stopped, the position is simulated anyway and we don't need to wait for the timestamp
+      // poller to produce reliable data.
+      maybeTriggerOnPositionAdvancingCallback(positionUs);
     }
 
     return positionUs;
@@ -504,6 +499,22 @@ import java.lang.reflect.Method;
     lastUnderrunCount = underrunCount;
 
     return result;
+  }
+
+  private void maybeTriggerOnPositionAdvancingCallback(long positionUs) {
+    if (!enableOnAudioPositionAdvancingFix
+        || onPositionAdvancingFromPositionUs == C.TIME_UNSET
+        || positionUs < onPositionAdvancingFromPositionUs) {
+      return;
+    }
+    long mediaDurationSinceResumeUs = positionUs - onPositionAdvancingFromPositionUs;
+    long playoutDurationSinceLastPositionUs =
+        Util.getPlayoutDurationForMediaDuration(
+            mediaDurationSinceResumeUs, audioTrackPlaybackSpeed);
+    long playoutStartSystemTimeMs =
+        clock.currentTimeMillis() - Util.usToMs(playoutDurationSinceLastPositionUs);
+    onPositionAdvancingFromPositionUs = C.TIME_UNSET;
+    listener.onPositionAdvancing(playoutStartSystemTimeMs);
   }
 
   private void maybeSampleSyncParams() {
