@@ -23,6 +23,13 @@
         to call this method on the same thread as ExoPlayer's playback thread or
         use a different instance than the one used for playback
         ([#1191](https://github.com/androidx/media/issues/1191)).
+    *   Add pre-caching functionality in `DefaultPreloadManager`. Apps now can
+        return
+        `DefaultPreloadManager.PreloadStatus.specifiedRangeCached(startPositionMs,
+        durationMs)` or
+        `DefaultPreloadManager.PreloadStatus.specifiedRangeCached(durationMs)`
+        via `TargetPreloadStatusControl.getTargetPreloadStatus(T rankingData)`
+        to indicate that a media item needs to be pre-cached.
 *   Transformer:
 *   Track Selection:
     *   Add `TrackSelectionParameters.selectTextByDefault` to prefer the

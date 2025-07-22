@@ -20,6 +20,7 @@ import static androidx.media3.test.utils.FakeMediaSourceFactory.DEFAULT_WINDOW_U
 import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLooperUntil;
 import static com.google.common.truth.Truth.assertThat;
 import static java.lang.Math.abs;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -37,8 +38,14 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.SystemClock;
 import androidx.media3.common.util.Util;
+import androidx.media3.datasource.AssetDataSource;
+import androidx.media3.datasource.DataSourceUtil;
+import androidx.media3.datasource.DataSpec;
 import androidx.media3.datasource.DefaultDataSource;
 import androidx.media3.datasource.TransferListener;
+import androidx.media3.datasource.cache.Cache;
+import androidx.media3.datasource.cache.NoOpCacheEvictor;
+import androidx.media3.datasource.cache.SimpleCache;
 import androidx.media3.exoplayer.DefaultLoadControl;
 import androidx.media3.exoplayer.LoadControl;
 import androidx.media3.exoplayer.Renderer;
@@ -63,10 +70,12 @@ import androidx.media3.test.utils.FakeMediaSourceFactory;
 import androidx.media3.test.utils.FakeRenderer;
 import androidx.media3.test.utils.FakeTimeline;
 import androidx.media3.test.utils.FakeVideoRenderer;
+import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -93,9 +102,11 @@ public class DefaultPreloadManagerTest {
   private LoadControl loadControl;
   private RenderersFactory renderersFactory;
   private HandlerThread preloadThread;
+  private File testDir;
+  private Cache downloadCache;
 
   @Before
-  public void setUp() {
+  public void setUp() throws Exception {
     context = ApplicationProvider.getApplicationContext();
     renderersFactory =
         (handler, videoListener, audioListener, textOutput, metadataOutput) ->
@@ -110,10 +121,18 @@ public class DefaultPreloadManagerTest {
     loadControl = new DefaultLoadControl();
     preloadThread = new HandlerThread("DefaultPreloadManagerTest");
     preloadThread.start();
+    testDir =
+        Util.createTempFile(ApplicationProvider.getApplicationContext(), "PreCacheHelperTest");
+    assertThat(testDir.delete()).isTrue();
+    assertThat(testDir.mkdirs()).isTrue();
+    downloadCache =
+        new SimpleCache(testDir, new NoOpCacheEvictor(), TestUtil.getInMemoryDatabaseProvider());
   }
 
   @After
   public void tearDown() {
+    downloadCache.release();
+    Util.recursiveDelete(testDir);
     preloadThread.quit();
   }
 
@@ -194,7 +213,7 @@ public class DefaultPreloadManagerTest {
                 return DefaultPreloadManager.PreloadStatus.specifiedRangeLoaded(
                     /* durationMs= */ 100L);
               } else {
-                return DefaultPreloadManager.PreloadStatus.SOURCE_PREPARED;
+                return DefaultPreloadManager.PreloadStatus.PRELOAD_STATUS_SOURCE_PREPARED;
               }
             };
     ProgressiveMediaSource.Factory mediaSourceFactory =
@@ -251,7 +270,7 @@ public class DefaultPreloadManagerTest {
                 return DefaultPreloadManager.PreloadStatus.specifiedRangeLoaded(
                     /* durationMs= */ 100L);
               } else {
-                return DefaultPreloadManager.PreloadStatus.SOURCE_PREPARED;
+                return DefaultPreloadManager.PreloadStatus.PRELOAD_STATUS_SOURCE_PREPARED;
               }
             };
     ProgressiveMediaSource.Factory mediaSourceFactory =
@@ -305,7 +324,7 @@ public class DefaultPreloadManagerTest {
         targetPreloadStatusControl =
             rankingData -> {
               targetPreloadStatusControlCallStates.add(rankingData);
-              return DefaultPreloadManager.PreloadStatus.SOURCE_PREPARED;
+              return DefaultPreloadManager.PreloadStatus.PRELOAD_STATUS_SOURCE_PREPARED;
             };
     FakeMediaSourceFactory fakeMediaSourceFactory = new FakeMediaSourceFactory();
     DefaultPreloadManager preloadManager =
@@ -357,7 +376,7 @@ public class DefaultPreloadManagerTest {
         targetPreloadStatusControl =
             rankingData -> {
               targetPreloadStatusControlCallStates.add(rankingData);
-              return DefaultPreloadManager.PreloadStatus.SOURCE_PREPARED;
+              return DefaultPreloadManager.PreloadStatus.PRELOAD_STATUS_SOURCE_PREPARED;
             };
     FakeMediaSourceFactory fakeMediaSourceFactory = new FakeMediaSourceFactory();
     DefaultPreloadManager preloadManager =
@@ -414,7 +433,7 @@ public class DefaultPreloadManagerTest {
   }
 
   @Test
-  public void invalidate_provideNullTargetPreloadStatus_sourcesSkippedForPreload()
+  public void invalidate_provideNotToPreloadTargetPreloadStatus_sourcesSkippedForPreload()
       throws Exception {
     ArrayList<Integer> targetPreloadStatusControlCallStates = new ArrayList<>();
     TargetPreloadStatusControl<Integer, DefaultPreloadManager.PreloadStatus>
@@ -422,8 +441,8 @@ public class DefaultPreloadManagerTest {
             rankingData -> {
               targetPreloadStatusControlCallStates.add(rankingData);
               return (rankingData == 0)
-                  ? null
-                  : DefaultPreloadManager.PreloadStatus.SOURCE_PREPARED;
+                  ? DefaultPreloadManager.PreloadStatus.PRELOAD_STATUS_NOT_PRELOADED
+                  : DefaultPreloadManager.PreloadStatus.PRELOAD_STATUS_SOURCE_PREPARED;
             };
     ProgressiveMediaSource.Factory mediaSourceFactory =
         new ProgressiveMediaSource.Factory(
@@ -466,7 +485,7 @@ public class DefaultPreloadManagerTest {
         targetPreloadStatusControl =
             rankingData -> {
               targetPreloadStatusControlCallStates.add(rankingData);
-              return DefaultPreloadManager.PreloadStatus.SOURCE_PREPARED;
+              return DefaultPreloadManager.PreloadStatus.PRELOAD_STATUS_SOURCE_PREPARED;
             };
     IOException causeException = new IOException("Failed to refresh source info");
     MediaItem.Builder mediaItemBuilder = new MediaItem.Builder();
@@ -551,11 +570,11 @@ public class DefaultPreloadManagerTest {
             rankingData -> {
               targetPreloadStatusControlCallStates.add(rankingData);
               if (abs(rankingData - currentPlayingIndex.get()) <= 2) {
-                return DefaultPreloadManager.PreloadStatus.TRACKS_SELECTED;
+                return DefaultPreloadManager.PreloadStatus.PRELOAD_STATUS_TRACKS_SELECTED;
               } else if (abs(rankingData - currentPlayingIndex.get()) == 3) {
-                return DefaultPreloadManager.PreloadStatus.SOURCE_PREPARED;
+                return DefaultPreloadManager.PreloadStatus.PRELOAD_STATUS_SOURCE_PREPARED;
               }
-              return null;
+              return DefaultPreloadManager.PreloadStatus.PRELOAD_STATUS_NOT_PRELOADED;
             };
     MediaSource.Factory mockMediaSourceFactory = mock(MediaSource.Factory.class);
     ArrayList<String> releasedPreloadingPeriodMediaIds = new ArrayList<>();
@@ -739,7 +758,7 @@ public class DefaultPreloadManagerTest {
                   checkNotNull(preloadManagerReference.get()).release();
                   shadowOf(preloadThread.getLooper()).idle();
                 }
-                return DefaultPreloadManager.PreloadStatus.SOURCE_PREPARED;
+                return DefaultPreloadManager.PreloadStatus.PRELOAD_STATUS_SOURCE_PREPARED;
               }
             };
     MediaSource.Factory mockMediaSourceFactory = mock(MediaSource.Factory.class);
@@ -790,10 +809,163 @@ public class DefaultPreloadManagerTest {
   }
 
   @Test
+  public void
+      invalidate_cachingWithoutCacheNorCustomMediaSourceFactoryConfigured_throwsIllegalStateException() {
+    TargetPreloadStatusControl<Integer, DefaultPreloadManager.PreloadStatus>
+        targetPreloadStatusControl =
+            rankingData ->
+                DefaultPreloadManager.PreloadStatus.specifiedRangeCached(
+                    /* startPositionMs= */ 0, /* durationMs= */ C.TIME_UNSET);
+    DefaultPreloadManager preloadManager =
+        new DefaultPreloadManager.Builder(context, targetPreloadStatusControl)
+            .setRenderersFactory(renderersFactory)
+            .setPreloadLooper(preloadThread.getLooper())
+            .setLoadControl(loadControl)
+            .build();
+
+    MediaItem mediaItem =
+        MediaItem.fromUri("asset://android_asset/media/mp4/long_1080p_lowbitrate.mp4");
+    preloadManager.add(mediaItem, /* rankingData= */ 0);
+
+    assertThrows(IllegalStateException.class, preloadManager::invalidate);
+  }
+
+  @Test
+  public void invalidate_cachingWithCacheConfigured_mediaItemPreCachedSuccessfully()
+      throws Exception {
+    TargetPreloadStatusControl<Integer, DefaultPreloadManager.PreloadStatus>
+        targetPreloadStatusControl =
+            rankingData ->
+                DefaultPreloadManager.PreloadStatus.specifiedRangeCached(
+                    /* startPositionMs= */ 0, /* durationMs= */ C.TIME_UNSET);
+    DefaultPreloadManager preloadManager =
+        new DefaultPreloadManager.Builder(context, targetPreloadStatusControl)
+            .setRenderersFactory(renderersFactory)
+            .setPreloadLooper(preloadThread.getLooper())
+            .setLoadControl(loadControl)
+            .setCache(downloadCache)
+            .build();
+    TestPreloadManagerListener preloadManagerListener = new TestPreloadManagerListener();
+    preloadManager.addListener(preloadManagerListener);
+    MediaItem.Builder mediaItemBuilder = new MediaItem.Builder();
+    MediaItem mediaItem0 =
+        mediaItemBuilder
+            .setMediaId("mediaId0")
+            .setUri(Uri.parse("asset:///media/mp4/sample.mp4"))
+            .setCustomCacheKey("mediaId0")
+            .build();
+    MediaItem mediaItem1 =
+        mediaItemBuilder
+            .setMediaId("mediaId1")
+            .setUri(Uri.parse("asset:///media/mp4/sample.mp4"))
+            .setCustomCacheKey("mediaId1")
+            .build();
+    MediaItem mediaItem2 =
+        mediaItemBuilder
+            .setMediaId("mediaId2")
+            .setUri(Uri.parse("asset:///media/mp4/sample.mp4"))
+            .setCustomCacheKey("mediaId2")
+            .build();
+    preloadManager.add(mediaItem0, /* rankingData= */ 0);
+    preloadManager.add(mediaItem1, /* rankingData= */ 1);
+    preloadManager.add(mediaItem2, /* rankingData= */ 2);
+
+    preloadManager.invalidate();
+    runMainLooperUntil(() -> preloadManagerListener.onCompletedMediaItemRecords.size() == 3);
+
+    assertThat(preloadManagerListener.onCompletedMediaItemRecords)
+        .containsExactly(mediaItem0, mediaItem1, mediaItem2)
+        .inOrder();
+    long expectedCachedBytes = getContentLength("asset:///media/mp4/sample.mp4");
+    assertThat(
+            downloadCache.getCachedBytes(
+                "mediaId0", /* position= */ 0, /* length= */ C.LENGTH_UNSET))
+        .isEqualTo(expectedCachedBytes);
+    assertThat(
+            downloadCache.getCachedBytes(
+                "mediaId1", /* position= */ 0, /* length= */ C.LENGTH_UNSET))
+        .isEqualTo(expectedCachedBytes);
+    assertThat(
+            downloadCache.getCachedBytes(
+                "mediaId2", /* position= */ 0, /* length= */ C.LENGTH_UNSET))
+        .isEqualTo(expectedCachedBytes);
+  }
+
+  @Test
+  public void invalidate_cachingOneItemAndLoadingTheOthers_mediaItemCachedOrLoadedSuccessfully()
+      throws Exception {
+    TargetPreloadStatusControl<Integer, DefaultPreloadManager.PreloadStatus>
+        targetPreloadStatusControl =
+            rankingData -> {
+              if (rankingData == 0) {
+                return DefaultPreloadManager.PreloadStatus.specifiedRangeLoaded(
+                    /* durationMs= */ 100L);
+              } else if (rankingData == 1) {
+                return DefaultPreloadManager.PreloadStatus.PRELOAD_STATUS_SOURCE_PREPARED;
+              } else {
+                return DefaultPreloadManager.PreloadStatus.specifiedRangeCached(
+                    /* durationMs= */ C.TIME_UNSET);
+              }
+            };
+    DefaultPreloadManager preloadManager =
+        new DefaultPreloadManager.Builder(context, targetPreloadStatusControl)
+            .setRenderersFactory(renderersFactory)
+            .setPreloadLooper(preloadThread.getLooper())
+            .setLoadControl(loadControl)
+            .setCache(downloadCache)
+            .build();
+    TestPreloadManagerListener preloadManagerListener = new TestPreloadManagerListener();
+    preloadManager.addListener(preloadManagerListener);
+    MediaItem.Builder mediaItemBuilder = new MediaItem.Builder();
+    MediaItem mediaItem0 =
+        mediaItemBuilder
+            .setMediaId("mediaId0")
+            .setUri(Uri.parse("asset:///media/mp4/sample.mp4"))
+            .setCustomCacheKey("mediaId0")
+            .build();
+    MediaItem mediaItem1 =
+        mediaItemBuilder
+            .setMediaId("mediaId1")
+            .setUri(Uri.parse("asset:///media/mp4/sample.mp4"))
+            .setCustomCacheKey("mediaId1")
+            .build();
+    MediaItem mediaItem2 =
+        mediaItemBuilder
+            .setMediaId("mediaId2")
+            .setUri(Uri.parse("asset:///media/mp4/sample.mp4"))
+            .setCustomCacheKey("mediaId2")
+            .build();
+    preloadManager.add(mediaItem0, /* rankingData= */ 0);
+    preloadManager.add(mediaItem1, /* rankingData= */ 1);
+    preloadManager.add(mediaItem2, /* rankingData= */ 2);
+
+    preloadManager.invalidate();
+    shadowOf(preloadThread.getLooper()).idle();
+    runMainLooperUntil(() -> preloadManagerListener.onCompletedMediaItemRecords.size() == 3);
+
+    assertThat(preloadManagerListener.onCompletedMediaItemRecords)
+        .containsExactly(mediaItem0, mediaItem1, mediaItem2)
+        .inOrder();
+    long expectedCachedBytes = getContentLength("asset:///media/mp4/sample.mp4");
+    assertThat(
+            downloadCache.getCachedBytes(
+                "mediaId0", /* position= */ 0, /* length= */ C.LENGTH_UNSET))
+        .isEqualTo(0);
+    assertThat(
+            downloadCache.getCachedBytes(
+                "mediaId1", /* position= */ 0, /* length= */ C.LENGTH_UNSET))
+        .isEqualTo(0);
+    assertThat(
+            downloadCache.getCachedBytes(
+                "mediaId2", /* position= */ 0, /* length= */ C.LENGTH_UNSET))
+        .isEqualTo(expectedCachedBytes);
+  }
+
+  @Test
   public void removeByMediaItems_correspondingHeldSourceRemovedAndReleased() {
     TargetPreloadStatusControl<Integer, DefaultPreloadManager.PreloadStatus>
         targetPreloadStatusControl =
-            rankingData -> DefaultPreloadManager.PreloadStatus.SOURCE_PREPARED;
+            rankingData -> DefaultPreloadManager.PreloadStatus.PRELOAD_STATUS_SOURCE_PREPARED;
     MediaSource.Factory mockMediaSourceFactory = mock(MediaSource.Factory.class);
     DefaultPreloadManager preloadManager =
         new DefaultPreloadManager.Builder(context, targetPreloadStatusControl)
@@ -842,7 +1014,7 @@ public class DefaultPreloadManagerTest {
   public void removeByMediaSources_heldSourceRemovedAndReleased() {
     TargetPreloadStatusControl<Integer, DefaultPreloadManager.PreloadStatus>
         targetPreloadStatusControl =
-            rankingData -> DefaultPreloadManager.PreloadStatus.SOURCE_PREPARED;
+            rankingData -> DefaultPreloadManager.PreloadStatus.PRELOAD_STATUS_SOURCE_PREPARED;
     MediaSource.Factory mockMediaSourceFactory = mock(MediaSource.Factory.class);
     DefaultPreloadManager preloadManager =
         new DefaultPreloadManager.Builder(context, targetPreloadStatusControl)
@@ -898,7 +1070,7 @@ public class DefaultPreloadManagerTest {
   public void reset_returnZeroCount_sourcesButNotRendererCapabilitiesListReleased() {
     TargetPreloadStatusControl<Integer, DefaultPreloadManager.PreloadStatus>
         targetPreloadStatusControl =
-            rankingData -> DefaultPreloadManager.PreloadStatus.SOURCE_PREPARED;
+            rankingData -> DefaultPreloadManager.PreloadStatus.PRELOAD_STATUS_SOURCE_PREPARED;
     MediaSource.Factory mockMediaSourceFactory = mock(MediaSource.Factory.class);
     List<FakeRenderer> underlyingRenderers = new ArrayList<>();
     RenderersFactory renderersFactory =
@@ -968,7 +1140,7 @@ public class DefaultPreloadManagerTest {
   public void release_returnZeroCount_sourcesAndRendererCapabilitiesListReleased() {
     TargetPreloadStatusControl<Integer, DefaultPreloadManager.PreloadStatus>
         targetPreloadStatusControl =
-            rankingData -> DefaultPreloadManager.PreloadStatus.SOURCE_PREPARED;
+            rankingData -> DefaultPreloadManager.PreloadStatus.PRELOAD_STATUS_SOURCE_PREPARED;
     MediaSource.Factory mockMediaSourceFactory = mock(MediaSource.Factory.class);
     List<FakeRenderer> underlyingRenderers = new ArrayList<>();
     RenderersFactory renderersFactory =
@@ -1068,6 +1240,18 @@ public class DefaultPreloadManagerTest {
     Handler preloadHandler = Util.createHandler(preloadThread.getLooper(), /* callback= */ null);
     preloadHandler.post(() -> mediaSource.prepareSource(mediaSourceCaller, null, PlayerId.UNSET));
     shadowOf(preloadThread.getLooper()).idle();
+  }
+
+  private static long getContentLength(String assetUrlString) throws IOException {
+    AssetDataSource dataSource = new AssetDataSource(ApplicationProvider.getApplicationContext());
+    byte[] data;
+    try {
+      dataSource.open(new DataSpec(Uri.parse(assetUrlString)));
+      data = DataSourceUtil.readToEnd(dataSource);
+    } finally {
+      dataSource.close();
+    }
+    return data.length;
   }
 
   private static class TestPreloadManagerListener implements PreloadManagerListener {

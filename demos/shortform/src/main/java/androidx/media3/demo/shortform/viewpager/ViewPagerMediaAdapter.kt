@@ -174,13 +174,13 @@ class ViewPagerMediaAdapter(
   inner class DefaultTargetPreloadStatusControl(var currentPlayingIndex: Int = C.INDEX_UNSET) :
     TargetPreloadStatusControl<Int, DefaultPreloadManager.PreloadStatus> {
 
-    override fun getTargetPreloadStatus(rankingData: Int): DefaultPreloadManager.PreloadStatus? {
+    override fun getTargetPreloadStatus(rankingData: Int): DefaultPreloadManager.PreloadStatus {
       if (abs(rankingData - currentPlayingIndex) == 2) {
         return DefaultPreloadManager.PreloadStatus.specifiedRangeLoaded(/* durationMs= */ 500L)
       } else if (abs(rankingData - currentPlayingIndex) == 1) {
         return DefaultPreloadManager.PreloadStatus.specifiedRangeLoaded(/* durationMs= */ 1000L)
       }
-      return null
+      return DefaultPreloadManager.PreloadStatus.PRELOAD_STATUS_NOT_PRELOADED
     }
   }
 }

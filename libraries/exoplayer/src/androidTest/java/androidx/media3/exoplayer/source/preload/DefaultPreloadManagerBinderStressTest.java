@@ -52,7 +52,9 @@ public class DefaultPreloadManagerBinderStressTest {
         /* systemUnderTest= */ () -> {
           DefaultPreloadManager.Builder builder =
               new DefaultPreloadManager.Builder(
-                      context, rankingData -> DefaultPreloadManager.PreloadStatus.SOURCE_PREPARED)
+                      context,
+                      rankingData ->
+                          DefaultPreloadManager.PreloadStatus.PRELOAD_STATUS_SOURCE_PREPARED)
                   .setBandwidthMeter(new DefaultBandwidthMeter.Builder(context).build());
           MediaItem mediaItem = MediaItem.fromUri("http://test.test");
 
