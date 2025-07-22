@@ -71,6 +71,9 @@
     *   Change the default value for
         `MediaLibrarySession.Builder.setLibraryErrorReplicationMode` to non
         fatal.
+    *   Fix a bug that causes a player's first playback error to be incorrectly
+        treated as a persistent custom exception. This prevents the application
+        from recovering.
 *   UI:
     *   Add `ProgressStateWithTickInterval` class and the corresponding
         `rememberProgressStateWithTickInterval` Composable to
