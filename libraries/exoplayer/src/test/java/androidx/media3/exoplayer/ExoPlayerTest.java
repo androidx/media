@@ -137,6 +137,7 @@ import androidx.media3.common.Tracks;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Clock;
+import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.SystemClock;
@@ -6797,7 +6798,7 @@ public final class ExoPlayerTest {
   }
 
   @Test
-  public void loadControlNeverWantsToLoad_throwsIllegalStateException() {
+  public void loadControlNeverWantsToLoad_throwsStuckPlayerException() {
     LoadControl neverLoadingLoadControl =
         new DefaultLoadControl() {
           @Override
@@ -6832,7 +6833,8 @@ public final class ExoPlayerTest {
                     .start()
                     .blockUntilEnded(TIMEOUT_MS));
     assertThat(exception.type).isEqualTo(ExoPlaybackException.TYPE_UNEXPECTED);
-    assertThat(exception.getUnexpectedException()).isInstanceOf(IllegalStateException.class);
+    assertThat(exception.getUnexpectedException())
+        .isEqualTo(new StuckPlayerException(StuckPlayerException.STUCK_BUFFERING_NOT_LOADING));
   }
 
   @Test
@@ -9938,7 +9940,7 @@ public final class ExoPlayerTest {
 
   @Test
   public void
-      infiniteLoading_withSmallAllocations_oomIsPreventedByLoadControl_andThrowsStuckBufferingIllegalStateException() {
+      infiniteLoading_withSmallAllocations_oomIsPreventedByLoadControl_andThrowsStuckPlayerException() {
     DefaultLoadControl loadControl =
         new DefaultLoadControl.Builder()
             .setTargetBufferBytes(10 * C.DEFAULT_BUFFER_SEGMENT_SIZE)
@@ -10007,7 +10009,8 @@ public final class ExoPlayerTest {
         assertThrows(
             ExoPlaybackException.class, () -> testRunner.start().blockUntilEnded(TIMEOUT_MS));
     assertThat(exception.type).isEqualTo(ExoPlaybackException.TYPE_UNEXPECTED);
-    assertThat(exception.getUnexpectedException()).isInstanceOf(IllegalStateException.class);
+    assertThat(exception.getUnexpectedException())
+        .isEqualTo(new StuckPlayerException(StuckPlayerException.STUCK_BUFFERING_NOT_LOADING));
   }
 
   @Test
@@ -17438,6 +17441,96 @@ public final class ExoPlayerTest {
     // not ready. Regression test for b/420963056 where render() was delayed by a full second.
     assertThat(renderTime2Ms).isWithin(50).of(renderTime1Ms);
     assertThat(renderTime3Ms).isWithin(50).of(renderTime2Ms);
+  }
+
+  @Test
+  public void stuckBufferingDetectionTimeoutMs_triggersPlayerErrorWhenStuckBuffering()
+      throws Exception {
+    ExoPlayer player =
+        new ExoPlayer.Builder(context)
+            .setClock(new FakeClock(/* initialTimeMs= */ 0, /* isAutoAdvancing= */ true))
+            .setStuckBufferingDetectionTimeoutMs(45_000)
+            .build();
+    player.setMediaSource(
+        new FakeMediaSource() {
+          @Override
+          protected MediaPeriod createMediaPeriod(
+              MediaPeriodId id,
+              TrackGroupArray trackGroupArray,
+              Allocator allocator,
+              MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
+              DrmSessionManager drmSessionManager,
+              DrmSessionEventListener.EventDispatcher drmEventDispatcher,
+              @Nullable TransferListener transferListener) {
+            return new FakeMediaPeriod(
+                trackGroupArray,
+                allocator,
+                /* singleSampleTimeUs= */ 0,
+                mediaSourceEventDispatcher,
+                drmSessionManager,
+                drmEventDispatcher,
+                // Ensure the player stays in BUFFERING state.
+                /* deferOnPrepared= */ true) {
+              @Override
+              public long getBufferedPositionUs() {
+                // Return fixed value to pretend not making any loading progress.
+                return 0;
+              }
+            };
+          }
+        });
+    player.prepare();
+    player.play();
+
+    ExoPlaybackException error = advance(player).untilPlayerError();
+    long elapsedRealtimeAtErrorMs = player.getClock().elapsedRealtime();
+    player.release();
+
+    assertThat(error.errorCode).isEqualTo(PlaybackException.ERROR_CODE_TIMEOUT);
+    assertThat(error)
+        .hasCauseThat()
+        .isEqualTo(new StuckPlayerException(StuckPlayerException.STUCK_BUFFERING_NO_PROGRESS));
+    assertThat(elapsedRealtimeAtErrorMs).isAtLeast(45_000);
+  }
+
+  @Test
+  public void stuckBufferingDetectionTimeoutMs_triggersPlayerErrorWhenPlaybackThreadUnresponsive()
+      throws Exception {
+    FakeClock clock =
+        new FakeClock.Builder()
+            .setInitialTimeMs(0)
+            .setIsAutoAdvancing(true)
+            .setMaxAutoAdvancingTimeDiffMs(100_000)
+            .build();
+    ExoPlayer player =
+        new ExoPlayer.Builder(context)
+            .setClock(clock)
+            .setStuckBufferingDetectionTimeoutMs(45_000)
+            .build();
+    ConditionVariable blockPlaybackThread = new ConditionVariable();
+    player.setMediaSource(
+        new FakeMediaSource() {
+          @Override
+          public synchronized void prepareSourceInternal(
+              @Nullable TransferListener mediaTransferListener) {
+            clock.onThreadBlocked();
+            blockPlaybackThread.blockUninterruptible();
+            super.prepareSourceInternal(mediaTransferListener);
+          }
+        });
+    player.prepare();
+    player.play();
+
+    ExoPlaybackException error = advance(player).untilPlayerError();
+    long elapsedRealtimeAtErrorMs = clock.elapsedRealtime();
+    blockPlaybackThread.open();
+    player.release();
+
+    assertThat(error.errorCode).isEqualTo(PlaybackException.ERROR_CODE_TIMEOUT);
+    assertThat(error)
+        .hasCauseThat()
+        .isEqualTo(new StuckPlayerException(StuckPlayerException.STUCK_BUFFERING_NO_PROGRESS));
+    assertThat(elapsedRealtimeAtErrorMs).isAtLeast(45_000);
   }
 
   // Internal methods.

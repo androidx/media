@@ -9,6 +9,10 @@
         and consequently restore Player's volume before and after setting it to
         zero.
 *   ExoPlayer:
+    *   Add a stuck buffering detection that triggers a `StuckPlayerException`
+        player error after 10 minutes of `STATE_BUFFERING` while trying to play
+        and no buffering progress. This timeout is configurable in
+        `ExoPlayer.Builder.setStuckBufferingDetectionTimeoutMs` if required.
     *   Ensure renderers don't consume data from the next playlist item more
         than 10 seconds before the end of the current item.
     *   Add getter for shuffle mode to the `ExoPlayer` interface

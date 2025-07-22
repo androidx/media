@@ -177,6 +177,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
   private final long detachSurfaceTimeoutMs;
   @Nullable private final SuitableOutputChecker suitableOutputChecker;
   private final BackgroundThreadStateHandler<Integer> audioSessionIdState;
+  private final StuckPlayerDetector stuckPlayerDetector;
 
   private @RepeatMode int repeatMode;
   private boolean shuffleModeEnabled;
@@ -448,6 +449,13 @@ import java.util.concurrent.CopyOnWriteArraySet;
       deviceInfo = DeviceInfo.UNKNOWN;
       videoSize = VideoSize.UNKNOWN;
       surfaceSize = Size.UNKNOWN;
+
+      stuckPlayerDetector =
+          new StuckPlayerDetector(
+              /* player= */ this,
+              componentListener,
+              clock,
+              builder.stuckBufferingDetectionTimeoutMs);
 
       internalPlayer.setScrubbingModeParameters(scrubbingModeParameters);
       internalPlayer.setAudioAttributes(audioAttributes, builder.handleAudioFocus);
@@ -1040,6 +1048,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
     if (suitableOutputChecker != null) {
       suitableOutputChecker.disable();
     }
+    stuckPlayerDetector.release();
     if (!internalPlayer.release()) {
       // One of the renderers timed out releasing its resources.
       listeners.sendEvent(
@@ -3085,7 +3094,8 @@ import java.util.concurrent.CopyOnWriteArraySet;
           SphericalGLSurfaceView.VideoSurfaceListener,
           AudioBecomingNoisyManager.EventListener,
           StreamVolumeManager.Listener,
-          AudioOffloadListener {
+          AudioOffloadListener,
+          StuckPlayerDetector.Callback {
 
     // VideoRendererEventListener implementation
 
@@ -3354,6 +3364,15 @@ import java.util.concurrent.CopyOnWriteArraySet;
     @Override
     public void onSleepingForOffloadChanged(boolean sleepingForOffload) {
       updateWakeAndWifiLock();
+    }
+
+    // StuckPlayerDetector.Callback implementation.
+
+    @Override
+    public void onStuckPlayerDetected(StuckPlayerException exception) {
+      stopInternal(
+          ExoPlaybackException.createForUnexpected(
+              exception, PlaybackException.ERROR_CODE_TIMEOUT));
     }
   }
 

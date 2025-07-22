@@ -245,6 +245,7 @@ public interface ExoPlayer extends Player {
     /* package */ LivePlaybackSpeedControl livePlaybackSpeedControl;
     /* package */ long releaseTimeoutMs;
     /* package */ long detachSurfaceTimeoutMs;
+    /* package */ int stuckBufferingDetectionTimeoutMs;
     /* package */ boolean pauseAtEndOfMediaItems;
     /* package */ boolean usePlatformDiagnostics;
     @Nullable /* package */ PlaybackLooperProvider playbackLooperProvider;
@@ -294,6 +295,8 @@ public interface ExoPlayer extends Player {
      *   <li>{@code maxSeekToPreviousPositionMs}: {@link C#DEFAULT_MAX_SEEK_TO_PREVIOUS_POSITION_MS}
      *   <li>{@code releaseTimeoutMs}: {@link #DEFAULT_RELEASE_TIMEOUT_MS}
      *   <li>{@code detachSurfaceTimeoutMs}: {@link #DEFAULT_DETACH_SURFACE_TIMEOUT_MS}
+     *   <li>{@code stuckBufferingDetectionTimeoutMs}: {@link
+     *       #DEFAULT_STUCK_BUFFERING_DETECTION_TIMEOUT_MS}
      *   <li>{@code pauseAtEndOfMediaItems}: {@code false}
      *   <li>{@code usePlatformDiagnostics}: {@code true}
      *   <li>{@link Clock}: {@link Clock#DEFAULT}
@@ -458,6 +461,7 @@ public interface ExoPlayer extends Player {
       clock = Clock.DEFAULT;
       releaseTimeoutMs = DEFAULT_RELEASE_TIMEOUT_MS;
       detachSurfaceTimeoutMs = DEFAULT_DETACH_SURFACE_TIMEOUT_MS;
+      stuckBufferingDetectionTimeoutMs = DEFAULT_STUCK_BUFFERING_DETECTION_TIMEOUT_MS;
       usePlatformDiagnostics = true;
       playerName = "";
       priority = C.PRIORITY_PLAYBACK;
@@ -952,6 +956,26 @@ public interface ExoPlayer extends Player {
     }
 
     /**
+     * Sets the timeout after which the player is assumed stuck buffering if it's in {@link
+     * Player#STATE_BUFFERING} and no loading progress is made, in milliseconds.
+     *
+     * <p>If this timeout is triggered, the player will transition to an error state with a {@link
+     * StuckPlayerException} using {@link StuckPlayerException#STUCK_BUFFERING_NO_PROGRESS}.
+     *
+     * @param stuckBufferingDetectionTimeoutMs The timeout after which the player is assumed stuck
+     *     buffering, in milliseconds.
+     * @return This builder.
+     * @throws IllegalStateException If {@link #build()} has already been called.
+     */
+    @CanIgnoreReturnValue
+    @UnstableApi
+    public Builder setStuckBufferingDetectionTimeoutMs(int stuckBufferingDetectionTimeoutMs) {
+      checkState(!buildCalled);
+      this.stuckBufferingDetectionTimeoutMs = stuckBufferingDetectionTimeoutMs;
+      return this;
+    }
+
+    /**
      * Sets whether to pause playback at the end of each media item.
      *
      * <p>This means the player will pause at the end of each window in the current {@link
@@ -1127,6 +1151,9 @@ public interface ExoPlayer extends Player {
 
   /** The default timeout for detaching a surface from the player, in milliseconds. */
   @UnstableApi long DEFAULT_DETACH_SURFACE_TIMEOUT_MS = 2_000;
+
+  /** The default timeout for detecting whether playback is stuck buffering, in milliseconds. */
+  @UnstableApi int DEFAULT_STUCK_BUFFERING_DETECTION_TIMEOUT_MS = 600_000;
 
   /**
    * Equivalent to {@link Player#getPlayerError()}, except the exception is guaranteed to be an
