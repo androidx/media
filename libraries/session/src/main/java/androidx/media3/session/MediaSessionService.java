@@ -34,7 +34,6 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
-import android.os.RemoteException;
 import androidx.annotation.CallSuper;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.IntDef;
@@ -836,7 +835,7 @@ public abstract class MediaSessionService extends Service {
         @Nullable IMediaController caller, @Nullable Bundle connectionRequestBundle) {
       if (caller == null || connectionRequestBundle == null) {
         // Malformed call from potentially malicious controller.
-        // No need to notify that we're ignoring call.
+        SessionUtil.disconnectIMediaController(caller);
         return;
       }
       ConnectionRequest request;
@@ -844,18 +843,13 @@ public abstract class MediaSessionService extends Service {
         request = ConnectionRequest.fromBundle(connectionRequestBundle);
       } catch (RuntimeException e) {
         // Malformed call from potentially malicious controller.
-        // No need to notify that we're ignoring call.
         Log.w(TAG, "Ignoring malformed Bundle for ConnectionRequest", e);
+        SessionUtil.disconnectIMediaController(caller);
         return;
       }
       @Nullable MediaSessionService mediaSessionService = serviceReference.get();
       if (mediaSessionService == null) {
-        try {
-          caller.onDisconnected(/* seq= */ 0);
-        } catch (RemoteException e) {
-          // Controller may be died prematurely.
-          // Not an issue because we'll ignore it anyway.
-        }
+        SessionUtil.disconnectIMediaController(caller);
         return;
       }
       int callingPid = Binder.getCallingPid();
@@ -872,7 +866,7 @@ public abstract class MediaSessionService extends Service {
         handler.post(
             () -> {
               pendingControllers.remove(caller);
-              boolean shouldNotifyDisconnected = true;
+              boolean connected = false;
               try {
                 @Nullable MediaSessionService service = serviceReference.get();
                 if (service == null) {
@@ -889,30 +883,19 @@ public abstract class MediaSessionService extends Service {
                         request.connectionHints,
                         request.maxCommandsForMediaItems);
 
-                @Nullable MediaSession session;
-                try {
-                  session = service.onGetSession(controllerInfo);
-                  if (session == null) {
-                    return;
-                  }
-
-                  service.addSession(session);
-                  shouldNotifyDisconnected = false;
-
-                  session.handleControllerConnectionFromService(caller, controllerInfo);
-                } catch (Exception e) {
-                  // Don't propagate exception in service to the controller.
-                  Log.w(TAG, "Failed to add a session to session service", e);
+                @Nullable MediaSession session = service.onGetSession(controllerInfo);
+                if (session == null) {
+                  return;
                 }
+                service.addSession(session);
+                session.handleControllerConnectionFromService(caller, controllerInfo);
+                connected = true;
+              } catch (Exception e) {
+                // Don't propagate exception in service to the controller.
+                Log.w(TAG, "Failed to add a session to session service", e);
               } finally {
-                // Trick to call onDisconnected() in one place.
-                if (shouldNotifyDisconnected) {
-                  try {
-                    caller.onDisconnected(/* seq= */ 0);
-                  } catch (RemoteException e) {
-                    // Controller may be died prematurely.
-                    // Not an issue because we'll ignore it anyway.
-                  }
+                if (!connected) {
+                  SessionUtil.disconnectIMediaController(caller);
                 }
               }
             });
@@ -925,11 +908,7 @@ public abstract class MediaSessionService extends Service {
       serviceReference.clear();
       handler.removeCallbacksAndMessages(null);
       for (IMediaController controller : pendingControllers) {
-        try {
-          controller.onDisconnected(/* seq= */ 0);
-        } catch (RemoteException e) {
-          // Ignore. We're releasing.
-        }
+        SessionUtil.disconnectIMediaController(controller);
       }
       pendingControllers.clear();
     }
