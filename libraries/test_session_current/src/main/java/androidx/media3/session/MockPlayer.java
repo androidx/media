@@ -631,6 +631,9 @@ public class MockPlayer implements Player {
       return;
     }
     boolean wasPlaying = isPlaying();
+    if (playbackState != STATE_IDLE) {
+      this.playerError = null;
+    }
     this.playbackState = playbackState;
     boolean isPlaying = isPlaying();
     for (Listener listener : listeners) {

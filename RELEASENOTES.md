@@ -22,6 +22,9 @@ This release includes the following changes since the
     *   Remove check for available commands when sending custom commands to a
         legacy `MediaBrowserServiceCompat`. This is in parity with the behavior
         of legacy controllers/browsers when connected to a legacy app.
+    *   Fix a bug that causes a player's first playback error to be incorrectly
+        treated as a persistent custom exception. This prevents the application
+        from recovering.
 * HLS extension
     *   Fix bug where `HlsSampleStreamWrapper` attempts to seek inside buffer
         when there are no chunks available in the buffer
