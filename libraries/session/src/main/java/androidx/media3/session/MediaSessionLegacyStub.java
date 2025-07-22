@@ -1006,11 +1006,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
               /* maxCommandsForMediaItems= */ 0);
       MediaSession.ConnectionResult connectionResult = sessionImpl.onConnectOnHandler(controller);
       if (!connectionResult.isAccepted) {
-        try {
-          controllerCb.onDisconnected(/* seq= */ 0);
-        } catch (RemoteException e) {
-          // Controller may have died prematurely.
-        }
+        controllerCb.onDisconnected(/* seq= */ 0);
         return null;
       }
       connectedControllersManager.addController(
@@ -1300,7 +1296,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     }
 
     @Override
-    public void onDisconnected(int seq) throws RemoteException {
+    public void onDisconnected(int seq) {
       // Calling MediaSessionCompat#release() is already done in release().
     }
 
@@ -1724,11 +1720,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     public void handleMessage(Message msg) {
       ControllerInfo controller = (ControllerInfo) msg.obj;
       if (connectedControllersManager.isConnected(controller)) {
-        try {
-          checkStateNotNull(controller.getControllerCb()).onDisconnected(/* seq= */ 0);
-        } catch (RemoteException e) {
-          // Controller may have died prematurely.
-        }
+        checkStateNotNull(controller.getControllerCb()).onDisconnected(/* seq= */ 0);
         connectedControllersManager.removeController(controller);
       }
     }

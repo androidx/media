@@ -2147,7 +2147,7 @@ public class MediaSession {
 
     // Mostly matched with MediaController.ControllerCallback
 
-    default void onDisconnected(int seq) throws RemoteException {}
+    default void onDisconnected(int seq) {}
 
     default void setCustomLayout(int seq, List<CommandButton> layout) throws RemoteException {}
 

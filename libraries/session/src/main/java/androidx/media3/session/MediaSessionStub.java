@@ -467,16 +467,12 @@ import java.util.concurrent.ExecutionException;
   @SuppressWarnings("UngroupedOverloads") // Overload belongs to AIDL interface that is separated.
   public void connect(@Nullable IMediaController caller, @Nullable ControllerInfo controllerInfo) {
     if (caller == null || controllerInfo == null) {
+      SessionUtil.disconnectIMediaController(caller);
       return;
     }
     @Nullable MediaSessionImpl sessionImpl = this.sessionImpl.get();
     if (sessionImpl == null || sessionImpl.isReleased()) {
-      try {
-        caller.onDisconnected(/* seq= */ 0);
-      } catch (RemoteException e) {
-        // Controller may be died prematurely.
-        // Not an issue because we'll ignore it anyway.
-      }
+      SessionUtil.disconnectIMediaController(caller);
       return;
     }
     pendingControllers.add(controllerInfo);
@@ -596,12 +592,7 @@ import java.util.concurrent.ExecutionException;
             }
           } finally {
             if (!connected) {
-              try {
-                caller.onDisconnected(/* seq= */ 0);
-              } catch (RemoteException e) {
-                // Controller may be died prematurely.
-                // Not an issue because we'll ignore it anyway.
-              }
+              SessionUtil.disconnectIMediaController(caller);
             }
           }
         });
@@ -613,21 +604,13 @@ import java.util.concurrent.ExecutionException;
       connectedControllersManager.removeController(controller);
       ControllerCb cb = controller.getControllerCb();
       if (cb != null) {
-        try {
-          cb.onDisconnected(/* seq= */ 0);
-        } catch (RemoteException e) {
-          // Ignore. We're releasing.
-        }
+        cb.onDisconnected(/* seq= */ 0);
       }
     }
     for (ControllerInfo controller : pendingControllers) {
       ControllerCb cb = controller.getControllerCb();
       if (cb != null) {
-        try {
-          cb.onDisconnected(/* seq= */ 0);
-        } catch (RemoteException e) {
-          // Ignore. We're releasing.
-        }
+        cb.onDisconnected(/* seq= */ 0);
       }
     }
     pendingControllers.clear();
@@ -2180,8 +2163,8 @@ import java.util.concurrent.ExecutionException;
     }
 
     @Override
-    public void onDisconnected(int sequenceNumber) throws RemoteException {
-      iController.onDisconnected(sequenceNumber);
+    public void onDisconnected(int sequenceNumber) {
+      SessionUtil.disconnectIMediaController(iController);
     }
 
     @Override
