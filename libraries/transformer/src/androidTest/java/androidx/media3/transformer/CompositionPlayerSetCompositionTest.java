@@ -33,6 +33,7 @@ import androidx.media3.common.Player.State;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.SpeedProvider;
+import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.effect.GlEffect;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -129,6 +130,7 @@ public class CompositionPlayerSetCompositionTest {
             .build();
     EditedMediaItem mediaItemRemoveAudio = mediaItem.buildUpon().setRemoveAudio(true).build();
     AtomicBoolean changedComposition = new AtomicBoolean();
+    ConditionVariable playerEnded = new ConditionVariable();
     CopyOnWriteArrayList<Integer> playerStates = new CopyOnWriteArrayList<>();
 
     instrumentation.runOnMainSync(
@@ -149,6 +151,8 @@ public class CompositionPlayerSetCompositionTest {
                       compositionPlayer.play();
                       changedComposition.set(true);
                     }
+                  } else if (playbackState == Player.STATE_ENDED) {
+                    playerEnded.open();
                   }
                 }
               });
@@ -156,6 +160,9 @@ public class CompositionPlayerSetCompositionTest {
           compositionPlayer.prepare();
         });
 
+    // Wait until the final state is added to playerStates.
+    playerEnded.block(TEST_TIMEOUT_MS);
+    // waitUntilPlayerEnded should return immediate and will throw any player error.
     playerTestListener.waitUntilPlayerEnded();
     // Asserts that changing removeAudio does not cause the player to get back to buffering state,
     // because the player should not be re-prepared.
