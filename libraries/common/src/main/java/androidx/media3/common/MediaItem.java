@@ -23,9 +23,12 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import android.net.Uri;
+import android.os.Binder;
 import android.os.Bundle;
+import android.os.IBinder;
 import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
+import androidx.annotation.RestrictTo;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.util.BundleCollectionUtil;
 import androidx.media3.common.util.UnstableApi;
@@ -2394,6 +2397,7 @@ public final class MediaItem {
   private static final String FIELD_CLIPPING_PROPERTIES = Util.intToStringMaxRadix(3);
   private static final String FIELD_REQUEST_METADATA = Util.intToStringMaxRadix(4);
   private static final String FIELD_LOCAL_CONFIGURATION = Util.intToStringMaxRadix(5);
+  private static final String FIELD_IN_PROCESS_BINDER = Util.intToStringMaxRadix(6);
 
   @UnstableApi
   private Bundle toBundle(boolean includeLocalConfiguration, int interfaceVersion) {
@@ -2473,6 +2477,17 @@ public final class MediaItem {
   }
 
   /**
+   * Returns a {@link Bundle} containing the entirety of this {@link #MediaItem} object without
+   * bundling it, for use in local process communication only.
+   */
+  @UnstableApi
+  public Bundle toBundleIncludeLocalConfigurationForLocalProcess() {
+    Bundle bundle = new Bundle();
+    bundle.putBinder(FIELD_IN_PROCESS_BINDER, new InProcessBinder());
+    return bundle;
+  }
+
+  /**
    * Restores a {@code MediaItem} from a {@link Bundle}.
    *
    * @param bundle The {@link Bundle}.
@@ -2481,6 +2496,10 @@ public final class MediaItem {
   @UnstableApi
   @SuppressWarnings("deprecation") // Unbundling to ClippingProperties while it still exists.
   public static MediaItem fromBundle(Bundle bundle, int interfaceVersion) {
+    IBinder inProcessBinder = bundle.getBinder(FIELD_IN_PROCESS_BINDER);
+    if (inProcessBinder instanceof InProcessBinder) {
+      return ((InProcessBinder) inProcessBinder).getMediaItem();
+    }
     String mediaId = checkNotNull(bundle.getString(FIELD_MEDIA_ID, DEFAULT_MEDIA_ID));
     @Nullable Bundle liveConfigurationBundle = bundle.getBundle(FIELD_LIVE_CONFIGURATION);
     LiveConfiguration liveConfiguration;
@@ -2524,5 +2543,25 @@ public final class MediaItem {
         liveConfiguration,
         mediaMetadata,
         requestMetadata);
+  }
+
+  private final class InProcessBinder extends Binder {
+    public MediaItem getMediaItem() {
+      return MediaItem.this;
+    }
+  }
+
+  @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+  @UnstableApi
+  public static final class ListInProcessBinder extends Binder {
+    private final ImmutableList<MediaItem> theList;
+
+    public ListInProcessBinder(List<MediaItem> theList) {
+      this.theList = ImmutableList.copyOf(theList);
+    }
+
+    public ImmutableList<MediaItem> getMediaItemList() {
+      return theList;
+    }
   }
 }
