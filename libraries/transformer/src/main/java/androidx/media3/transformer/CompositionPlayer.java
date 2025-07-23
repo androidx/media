@@ -123,6 +123,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
 
     private @MonotonicNonNull Looper looper;
     private @MonotonicNonNull AudioSink audioSink;
+    private AudioMixer.Factory audioMixerFactory;
     private MediaSource.Factory mediaSourceFactory;
     private ImageDecoder.Factory imageDecoderFactory;
     private boolean videoPrewarmingEnabled;
@@ -140,6 +141,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
      */
     public Builder(Context context) {
       this.context = context.getApplicationContext();
+      audioMixerFactory = new DefaultAudioMixer.Factory();
       mediaSourceFactory = new DefaultMediaSourceFactory(context);
       imageDecoderFactory =
           new BitmapFactoryImageDecoder.Factory(context)
@@ -174,6 +176,21 @@ public final class CompositionPlayer extends SimpleBasePlayer
     @CanIgnoreReturnValue
     public Builder setAudioSink(AudioSink audioSink) {
       this.audioSink = audioSink;
+      return this;
+    }
+
+    /**
+     * Sets the {@link AudioMixer.Factory} to be used when {@linkplain AudioMixer audio mixing} is
+     * needed.
+     *
+     * <p>The default value is a {@link DefaultAudioMixer.Factory} with default values.
+     *
+     * @param audioMixerFactory A {@link AudioMixer.Factory}.
+     * @return This builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setAudioMixerFactory(AudioMixer.Factory audioMixerFactory) {
+      this.audioMixerFactory = audioMixerFactory;
       return this;
     }
 
@@ -359,6 +376,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
   private final HandlerWrapper applicationHandler;
   private final List<SequencePlayerHolder> playerHolders;
   private final AudioSink finalAudioSink;
+  private final AudioMixer.Factory audioMixerFactory;
   private final MediaSource.Factory mediaSourceFactory;
   private final ImageDecoder.Factory imageDecoderFactory;
   private final VideoGraph.Factory videoGraphFactory;
@@ -406,6 +424,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
     clock = builder.clock;
     applicationHandler = clock.createHandler(builder.looper, /* callback= */ null);
     finalAudioSink = checkNotNull(builder.audioSink);
+    audioMixerFactory = builder.audioMixerFactory;
     mediaSourceFactory = builder.mediaSourceFactory;
     imageDecoderFactory = new GapHandlingDecoderFactory(builder.imageDecoderFactory);
     videoGraphFactory = checkNotNull(builder.videoGraphFactory);
@@ -816,8 +835,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
     // must done on the playback thread only, to ensure related components are accessed from one
     // thread only.
     playbackAudioGraphWrapper =
-        new PlaybackAudioGraphWrapper(
-            new DefaultAudioMixer.Factory(), checkNotNull(finalAudioSink));
+        new PlaybackAudioGraphWrapper(audioMixerFactory, checkNotNull(finalAudioSink));
     VideoFrameReleaseControl videoFrameReleaseControl =
         new VideoFrameReleaseControl(
             context, new CompositionFrameTimingEvaluator(), /* allowedJoiningTimeMs= */ 0);

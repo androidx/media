@@ -28,6 +28,7 @@ import static com.google.common.truth.Truth.assertThat;
 import android.content.Context;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
+import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.exoplayer.audio.AudioSink;
 import androidx.media3.test.utils.CapturingAudioSink;
 import androidx.media3.test.utils.DumpFileAsserts;
@@ -36,7 +37,9 @@ import androidx.media3.test.utils.robolectric.TestPlayerRunHelper;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicLong;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -718,6 +721,108 @@ public final class CompositionPlayerAudioPlaybackTest {
         context,
         capturingAudioSink,
         PREVIEW_DUMP_FILE_EXTENSION + FILE_AUDIO_RAW + "_playedTwice.dump");
+  }
+
+  @Test
+  public void playSingleSequence_withCustomAudioMixer_mixesTheCorrectNumberOfBytes()
+      throws Exception {
+    AtomicLong bytesMixed = new AtomicLong();
+    AudioMixer.Factory forwardingAudioMixerFactory =
+        () ->
+            new ForwardingAudioMixer(new DefaultAudioMixer.Factory().create()) {
+              @Override
+              public void queueInput(int sourceId, ByteBuffer sourceBuffer) {
+                bytesMixed.addAndGet(sourceBuffer.remaining());
+                super.queueInput(sourceId, sourceBuffer);
+              }
+            };
+    CompositionPlayer player =
+        new CompositionPlayer.Builder(context)
+            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setAudioMixerFactory(forwardingAudioMixerFactory)
+            .build();
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW))
+            .setDurationUs(1_000_000L)
+            .build();
+    EditedMediaItemSequence sequence = new EditedMediaItemSequence.Builder(editedMediaItem).build();
+    Composition composition = new Composition.Builder(sequence).build();
+
+    player.setComposition(composition);
+    player.prepare();
+    player.play();
+    TestPlayerRunHelper.advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+
+    // Expect 1 second of single-channel, 44_100Hz, 2 bytes per sample.
+    assertThat(bytesMixed.get()).isEqualTo(88_200);
+  }
+
+  private static class ForwardingAudioMixer implements AudioMixer {
+
+    private final AudioMixer wrappedAudioMixer;
+
+    public ForwardingAudioMixer(AudioMixer audioMixer) {
+      wrappedAudioMixer = audioMixer;
+    }
+
+    @Override
+    public void configure(
+        AudioProcessor.AudioFormat outputAudioFormat, int bufferSizeMs, long startTimeUs)
+        throws AudioProcessor.UnhandledAudioFormatException {
+      wrappedAudioMixer.configure(outputAudioFormat, bufferSizeMs, startTimeUs);
+    }
+
+    @Override
+    public void setEndTimeUs(long endTimeUs) {
+      wrappedAudioMixer.setEndTimeUs(endTimeUs);
+    }
+
+    @Override
+    public boolean supportsSourceAudioFormat(AudioProcessor.AudioFormat sourceFormat) {
+      return wrappedAudioMixer.supportsSourceAudioFormat(sourceFormat);
+    }
+
+    @Override
+    public int addSource(AudioProcessor.AudioFormat sourceFormat, long startTimeUs)
+        throws AudioProcessor.UnhandledAudioFormatException {
+      return wrappedAudioMixer.addSource(sourceFormat, startTimeUs);
+    }
+
+    @Override
+    public boolean hasSource(int sourceId) {
+      return wrappedAudioMixer.hasSource(sourceId);
+    }
+
+    @Override
+    public void setSourceVolume(int sourceId, float volume) {
+      wrappedAudioMixer.setSourceVolume(sourceId, volume);
+    }
+
+    @Override
+    public void removeSource(int sourceId) {
+      wrappedAudioMixer.removeSource(sourceId);
+    }
+
+    @Override
+    public void queueInput(int sourceId, ByteBuffer sourceBuffer) {
+      wrappedAudioMixer.queueInput(sourceId, sourceBuffer);
+    }
+
+    @Override
+    public ByteBuffer getOutput() {
+      return wrappedAudioMixer.getOutput();
+    }
+
+    @Override
+    public boolean isEnded() {
+      return wrappedAudioMixer.isEnded();
+    }
+
+    @Override
+    public void reset() {
+      wrappedAudioMixer.reset();
+    }
   }
 
   private static CompositionPlayer createCompositionPlayer(Context context, AudioSink audioSink) {
