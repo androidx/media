@@ -87,6 +87,9 @@
     *   Fix a bug that causes a player's first playback error to be incorrectly
         treated as a persistent custom exception. This prevents the application
         from recovering.
+    *   Add a `Context` parameter to
+        `MediaButtonReceiver.onForegroundServiceStartNotAllowedException`
+        ([#2625](https://github.com/androidx/media/pull/2625)).
 *   UI:
     *   Add `ProgressStateWithTickInterval` class and the corresponding
         `rememberProgressStateWithTickInterval` Composable to
