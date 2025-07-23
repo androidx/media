@@ -23,11 +23,13 @@ import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.Log
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.demo.shortform.DemoUtil
 import androidx.media3.demo.shortform.MediaItemDatabase
 import androidx.media3.demo.shortform.PlayerPool
 import androidx.media3.demo.shortform.R
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.source.preload.DefaultPreloadManager
+import androidx.media3.exoplayer.source.preload.PreloadManagerListener
 import androidx.media3.exoplayer.source.preload.TargetPreloadStatusControl
 import androidx.recyclerview.widget.RecyclerView
 import kotlin.math.abs
@@ -49,7 +51,7 @@ class ViewPagerMediaAdapter(
     private const val LOAD_CONTROL_MIN_BUFFER_MS = 5_000
     private const val LOAD_CONTROL_MAX_BUFFER_MS = 20_000
     private const val LOAD_CONTROL_BUFFER_FOR_PLAYBACK_MS = 500
-    private const val MANAGED_ITEM_COUNT = 10
+    private const val MANAGED_ITEM_COUNT = 20
     private const val ITEM_ADD_REMOVE_COUNT = 4
   }
 
@@ -68,9 +70,11 @@ class ViewPagerMediaAdapter(
     val preloadManagerBuilder =
       DefaultPreloadManager.Builder(context.applicationContext, targetPreloadStatusControl)
         .setLoadControl(loadControl)
+        .setCache(DemoUtil.getDownloadCache(context.applicationContext))
     playerPool = PlayerPool(numberOfPlayers, preloadManagerBuilder)
     holderMap = mutableMapOf()
     preloadManager = preloadManagerBuilder.build()
+    preloadManager.addListener(DefaultPreloadManagerListener())
     for (i in 0 until MANAGED_ITEM_COUNT) {
       addMediaItem(index = i, isAddingToRightEnd = true)
     }
@@ -175,12 +179,18 @@ class ViewPagerMediaAdapter(
     TargetPreloadStatusControl<Int, DefaultPreloadManager.PreloadStatus> {
 
     override fun getTargetPreloadStatus(rankingData: Int): DefaultPreloadManager.PreloadStatus {
-      if (abs(rankingData - currentPlayingIndex) == 2) {
-        return DefaultPreloadManager.PreloadStatus.specifiedRangeLoaded(/* durationMs= */ 500L)
-      } else if (abs(rankingData - currentPlayingIndex) == 1) {
+      if (abs(rankingData - currentPlayingIndex) == 1) {
+        return DefaultPreloadManager.PreloadStatus.specifiedRangeLoaded(/* durationMs= */ 1000L)
+      } else if (abs(rankingData - currentPlayingIndex) <= 3) {
         return DefaultPreloadManager.PreloadStatus.specifiedRangeLoaded(/* durationMs= */ 1000L)
       }
-      return DefaultPreloadManager.PreloadStatus.PRELOAD_STATUS_NOT_PRELOADED
+      return DefaultPreloadManager.PreloadStatus.specifiedRangeCached(5000L)
+    }
+  }
+
+  inner class DefaultPreloadManagerListener : PreloadManagerListener {
+    override fun onCompleted(mediaItem: MediaItem) {
+      Log.w(TAG, "onCompleted: " + mediaItem.mediaId)
     }
   }
 }

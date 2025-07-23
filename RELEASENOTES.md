@@ -30,6 +30,8 @@
         `DefaultPreloadManager.PreloadStatus.specifiedRangeCached(durationMs)`
         via `TargetPreloadStatusControl.getTargetPreloadStatus(T rankingData)`
         to indicate that a media item needs to be pre-cached.
+    *   Use pre-caching functionality of `DefaultPreloadManager` in shortform
+        demo app.
 *   Transformer:
 *   Track Selection:
     *   Add `TrackSelectionParameters.selectTextByDefault` to prefer the
