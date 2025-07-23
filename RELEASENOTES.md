@@ -349,9 +349,8 @@ This release includes the following changes since [1.7.1](#171-2025-05-16):
     *   Fix a bug where passing null into `getLibraryRoot` of a `MediaBrowser`
         connected to a legacy `MediaBrowserServiceCompat` produced a
         `NullPointerException`.
-    *   Fix a bug where where sending custom actions, a search result or a
-        getItem request crashed the legacy session app with a
-        `ClassNotFoundException`.
+    *   Fix a bug where sending custom actions, a search result or a getItem
+        request crashed the legacy session app with a `ClassNotFoundException`.
     *   Fix a bug where `MediaItem.LocalConfiguration.uri` was shared to the
         platform sessions's `MediaMetadata`. To intentionally share a URI to
         allow controllers to re-request the media, set
