@@ -952,7 +952,6 @@ public final class CompositionPlayer extends SimpleBasePlayer
     for (int i = 0; i < sequence.editedMediaItems.size(); i++) {
       EditedMediaItem editedMediaItem = sequence.editedMediaItems.get(i);
       checkArgument(editedMediaItem.durationUs != C.TIME_UNSET);
-      long durationUs = editedMediaItem.getPresentationDurationUs();
 
       MediaSource blankFramesAndSilenceGeneratedMediaSource =
           createMediaSourceWithBlankFramesAndSilence(
@@ -960,11 +959,10 @@ public final class CompositionPlayer extends SimpleBasePlayer
 
       MediaSource itemMediaSource =
           wrapWithVideoEffectsBasedMediaSources(
-              blankFramesAndSilenceGeneratedMediaSource,
-              editedMediaItem.effects.videoEffects,
-              durationUs);
+              blankFramesAndSilenceGeneratedMediaSource, editedMediaItem.effects.videoEffects);
       mediaSourceBuilder.add(
-          itemMediaSource, /* initialPlaceholderDurationMs= */ usToMs(durationUs));
+          itemMediaSource,
+          /* initialPlaceholderDurationMs= */ usToMs(editedMediaItem.getPresentationDurationUs()));
     }
     return mediaSourceBuilder.build();
   }
@@ -1072,15 +1070,13 @@ public final class CompositionPlayer extends SimpleBasePlayer
   }
 
   private static MediaSource wrapWithVideoEffectsBasedMediaSources(
-      MediaSource mediaSource, ImmutableList<Effect> videoEffects, long durationUs) {
+      MediaSource mediaSource, ImmutableList<Effect> videoEffects) {
     MediaSource newMediaSource = mediaSource;
     for (Effect videoEffect : videoEffects) {
       if (videoEffect instanceof InactiveTimestampAdjustment) {
         newMediaSource =
             new SpeedChangingMediaSource(
-                newMediaSource,
-                ((InactiveTimestampAdjustment) videoEffect).speedProvider,
-                durationUs);
+                newMediaSource, ((InactiveTimestampAdjustment) videoEffect).speedProvider);
       }
     }
     return newMediaSource;

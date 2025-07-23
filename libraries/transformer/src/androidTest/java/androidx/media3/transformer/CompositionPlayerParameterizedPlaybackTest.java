@@ -18,6 +18,7 @@ package androidx.media3.transformer;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.common.util.Util.usToMs;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_VIDEO_ONLY_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.PNG_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.WAV_ASSET;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
@@ -25,10 +26,15 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.TruthJUnit.assume;
 
 import android.content.Context;
+import android.util.Pair;
 import android.view.SurfaceView;
+import androidx.media3.common.C;
+import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.VideoGraph;
+import androidx.media3.common.audio.AudioProcessor;
+import androidx.media3.common.audio.SpeedProvider;
 import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.MultipleInputVideoGraph;
 import androidx.media3.effect.SingleInputVideoGraph;
@@ -51,6 +57,34 @@ import org.junit.runners.Parameterized.Parameters;
 public class CompositionPlayerParameterizedPlaybackTest {
 
   private static final long TEST_TIMEOUT_MS = isRunningOnEmulator() ? 30_000 : 20_000;
+  private static final Pair<AudioProcessor, Effect> HALF_SPEED_CHANGE_EFFECTS =
+      Effects.createExperimentalSpeedChangingEffect(
+          new SpeedProvider() {
+            @Override
+            public float getSpeed(long timeUs) {
+              return 0.5f;
+            }
+
+            @Override
+            public long getNextSpeedChangeTimeUs(long timeUs) {
+              // Adjust speed for all timestamps.
+              return C.TIME_UNSET;
+            }
+          });
+  private static final Pair<AudioProcessor, Effect> TWICE_SPEED_CHANGE_EFFECTS =
+      Effects.createExperimentalSpeedChangingEffect(
+          new SpeedProvider() {
+            @Override
+            public float getSpeed(long timeUs) {
+              return 2f;
+            }
+
+            @Override
+            public long getNextSpeedChangeTimeUs(long timeUs) {
+              // Adjust speed for all timestamps.
+              return C.TIME_UNSET;
+            }
+          });
   private static final Input IMAGE_INPUT =
       new Input(
           new EditedMediaItem.Builder(
@@ -60,7 +94,6 @@ public class CompositionPlayerParameterizedPlaybackTest {
                       .build())
               .setDurationUs(500_000)
               .build(),
-          // 200 ms at 30 fps (default frame rate)
           ImmutableList.of(
               0L, 33_333L, 66_667L, 100_000L, 133_333L, 166_667L, 200_000L, 233_333L, 266_667L,
               300_000L, 333_333L, 366_667L, 400_000L, 433_333L, 466_667L),
@@ -80,6 +113,71 @@ public class CompositionPlayerParameterizedPlaybackTest {
               .build(),
           MP4_ASSET.videoTimestampsUs,
           /* inputName= */ "Video_no_audio");
+
+  private static final MediaItem VIDEO_ONLY_CLIPPED =
+      MediaItem.fromUri(MP4_VIDEO_ONLY_ASSET.uri)
+          .buildUpon()
+          .setClippingConfiguration(
+              new MediaItem.ClippingConfiguration.Builder().setStartPositionMs(500).build())
+          .build();
+  private static final Input VIDEO_ONLY_CLIPPED_TWICE_SPEED =
+      new Input(
+          new EditedMediaItem.Builder(VIDEO_ONLY_CLIPPED)
+              .setDurationUs(MP4_VIDEO_ONLY_ASSET.videoDurationUs)
+              .setRemoveAudio(true)
+              .setEffects(
+                  new Effects(
+                      /* audioProcessors= */ ImmutableList.of(),
+                      /* videoEffects= */ ImmutableList.of(TWICE_SPEED_CHANGE_EFFECTS.second)))
+              .build(),
+          /* expectedVideoTimestampsUs= */ ImmutableList.of(
+              // The first timestamp is at clipping point, 500ms and speed up 2x to 250ms. The
+              // last is at (967633 - 500_000) / 2
+              250L,
+              16933L,
+              33616L,
+              50300L,
+              66983L,
+              83666L,
+              100350L,
+              117033L,
+              133716L,
+              150400L,
+              167083L,
+              183766L,
+              200450L,
+              217133L,
+              233816L),
+          /* inputName= */ "Video_only_clippped_half_speed");
+  private static final Input VIDEO_ONLY_CLIPPED_HALF_SPEED =
+      new Input(
+          new EditedMediaItem.Builder(VIDEO_ONLY_CLIPPED)
+              .setDurationUs(MP4_VIDEO_ONLY_ASSET.videoDurationUs)
+              .setRemoveAudio(true)
+              .setEffects(
+                  new Effects(
+                      /* audioProcessors= */ ImmutableList.of(),
+                      /* videoEffects= */ ImmutableList.of(HALF_SPEED_CHANGE_EFFECTS.second)))
+              .build(),
+          /* expectedVideoTimestampsUs= */ ImmutableList.of(
+              // The first timestamp is at clipping point, 500ms and slowed down 2x to 1000ms. The
+              // last is at (967633 - 500_000) x 2
+              1000L,
+              67732L,
+              134466L,
+              201200L,
+              267932L,
+              334666L,
+              401400L,
+              468132L,
+              534866L,
+              601600L,
+              668332L,
+              735066L,
+              801800L,
+              868532L,
+              935266L),
+          /* inputName= */ "Video_only_clippped_half_speed");
   private static final Input AUDIO_INPUT =
       new Input(
           new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
@@ -129,6 +227,20 @@ public class CompositionPlayerParameterizedPlaybackTest {
     // TODO: b/412585977 - Enable once implicit gaps are implemented.
     // configs.add(new TestConfig(new InputSequence(AUDIO_INPUT,
     // VIDEO_INPUT).withForceVideoTrack()));
+    configs.add(new TestConfig(new InputSequence(VIDEO_ONLY_CLIPPED_HALF_SPEED)));
+    configs.add(new TestConfig(new InputSequence(VIDEO_ONLY_CLIPPED_TWICE_SPEED)));
+    configs.add(
+        new TestConfig(
+            new InputSequence(VIDEO_ONLY_CLIPPED_TWICE_SPEED, VIDEO_ONLY_CLIPPED_TWICE_SPEED)));
+    configs.add(
+        new TestConfig(
+            new InputSequence(VIDEO_ONLY_CLIPPED_TWICE_SPEED, VIDEO_ONLY_CLIPPED_HALF_SPEED)));
+    configs.add(
+        new TestConfig(
+            new InputSequence(VIDEO_ONLY_CLIPPED_HALF_SPEED, VIDEO_ONLY_CLIPPED_TWICE_SPEED)));
+    configs.add(
+        new TestConfig(
+            new InputSequence(VIDEO_ONLY_CLIPPED_HALF_SPEED, VIDEO_ONLY_CLIPPED_HALF_SPEED)));
 
     // Multiple sequence.
     configs.add(
@@ -161,7 +273,6 @@ public class CompositionPlayerParameterizedPlaybackTest {
     //     new TestConfig(
     //         new InputSequence(VIDEO_INPUT, VIDEO_INPUT),
     //         new InputSequence(VIDEO_INPUT).withIsLooping()));
-
     return configs.build();
   }
 
@@ -355,7 +466,7 @@ public class CompositionPlayerParameterizedPlaybackTest {
         String inputName) {
       this.editedMediaItem = editedMediaItem;
       this.expectedVideoTimestampsUs = expectedVideoTimestampsUs;
-      this.durationUs = editedMediaItem.durationUs;
+      this.durationUs = editedMediaItem.getPresentationDurationUs();
       this.inputName = inputName;
     }
   }

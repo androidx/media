@@ -196,24 +196,23 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     return null;
   }
 
+  /**
+   * Returns the offset convert the renderers timestamp to the start of the {@link Composition}.
+   *
+   * @param timeline The {@link Timeline} associated with this renderer.
+   * @param mediaPeriodId The {@link MediaSource.MediaPeriodId}.
+   * @param offsetUs The offset added to timestamps of buffers to ensure monotonically increasing
+   *     timestamps, in microseconds. This is the constant offset between the current MediaPeriod
+   *     timestamps and the renderer timestamp.
+   *     <p>See <a
+   *     href="https://developer.android.com/reference/androidx/media3/exoplayer/Renderer#timestamps-and-offsets">this
+   *     corresponding topic on timestamps</a>.
+   */
   private static long getOffsetToCompositionTimeUs(
-      EditedMediaItemSequence sequence, int mediaItemIndex, long offsetUs) {
-    // Reverse engineer how timestamps and offsets are computed with a ConcatenatingMediaSource2
-    // to compute an offset converting buffer timestamps to composition timestamps.
-    // startPositionUs is not used because it is equal to offsetUs + clipping start time + seek
-    // position when seeking from any MediaItem in the playlist to the first MediaItem.
-    // The offset to convert the sample timestamps to composition time is negative because we need
-    // to remove the large offset added by ExoPlayer to make sure the decoder doesn't received any
-    // negative timestamps. We also need to remove the clipping start position.
-    long offsetToCompositionTimeUs = -offsetUs;
-    if (mediaItemIndex == 0) {
-      offsetToCompositionTimeUs -=
-          sequence.editedMediaItems.get(0).mediaItem.clippingConfiguration.startPositionUs;
-    }
-    for (int i = 0; i < mediaItemIndex; i++) {
-      offsetToCompositionTimeUs += getEditedMediaItem(sequence, i).getPresentationDurationUs();
-    }
-    return offsetToCompositionTimeUs;
+      Timeline timeline, MediaSource.MediaPeriodId mediaPeriodId, long offsetUs) {
+    Timeline.Period period =
+        timeline.getPeriodByUid(mediaPeriodId.periodUid, new Timeline.Period());
+    return -offsetUs + period.positionInWindowUs;
   }
 
   private static boolean isLastInSequence(
@@ -286,7 +285,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       checkStateNotNull(sequence);
       pendingEditedMediaItem = getEditedMediaItem(sequence, periodIndex);
       pendingOffsetToCompositionTimeUs =
-          getOffsetToCompositionTimeUs(sequence, periodIndex, offsetUs);
+          getOffsetToCompositionTimeUs(getTimeline(), mediaPeriodId, offsetUs);
       super.onStreamChanged(formats, startPositionUs, offsetUs, mediaPeriodId);
     }
 
@@ -391,7 +390,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       // The renderer has started processing this item, VideoGraph might still be processing the
       // previous one.
       currentEditedMediaItem = getEditedMediaItem(sequence, periodIndex);
-      offsetToCompositionTimeUs = getOffsetToCompositionTimeUs(sequence, periodIndex, offsetUs);
+      offsetToCompositionTimeUs =
+          getOffsetToCompositionTimeUs(getTimeline(), mediaPeriodId, offsetUs);
       pendingEffects = checkNotNull(currentEditedMediaItem).effects.videoEffects;
       super.onStreamChanged(formats, startPositionUs, offsetUs, mediaPeriodId);
     }
@@ -618,7 +618,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       int periodIndex = getTimeline().getIndexOfPeriod(mediaPeriodId.periodUid);
       currentEditedMediaItem = getEditedMediaItem(sequence, periodIndex);
       long offsetToCompositionTimeUs =
-          getOffsetToCompositionTimeUs(sequence, periodIndex, offsetUs);
+          getOffsetToCompositionTimeUs(getTimeline(), mediaPeriodId, offsetUs);
       videoSink.setBufferTimestampAdjustmentUs(offsetToCompositionTimeUs);
       timestampIterator = createTimestampIterator(/* positionUs= */ startPositionUs);
       videoEffects = checkNotNull(currentEditedMediaItem).effects.videoEffects;
