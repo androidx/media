@@ -3931,9 +3931,14 @@ public class MediaControllerListenerTest {
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            // onEvents is called twice.
-            eventsList.add(events);
-            controller.setShuffleModeEnabled(true);
+            if (latch.getCount() > 0) {
+              eventsList.add(events);
+              if (events.contains(Player.EVENT_REPEAT_MODE_CHANGED)) {
+                // This event is expected to be delivered in the next listener iteration processed
+                // in a following Looper task.
+                controller.setShuffleModeEnabled(true);
+              }
+            }
             latch.countDown();
           }
         };
@@ -4111,9 +4116,12 @@ public class MediaControllerListenerTest {
         new Player.Listener() {
           @Override
           public void onPlaybackStateChanged(@Player.State int playbackState) {
-            listener1States.add(playbackState);
-            if (playbackState == Player.STATE_READY) {
-              controller.stop();
+            if (latch.getCount() > 0) {
+              // avoid trailing events making the test flaky
+              listener1States.add(playbackState);
+              if (playbackState == Player.STATE_READY) {
+                controller.stop();
+              }
             }
             latch.countDown();
           }
@@ -4122,7 +4130,10 @@ public class MediaControllerListenerTest {
         new Player.Listener() {
           @Override
           public void onPlaybackStateChanged(@Player.State int playbackState) {
-            listener2States.add(playbackState);
+            if (latch.getCount() > 0) {
+              // avoid trailing events making the test flaky
+              listener2States.add(playbackState);
+            }
             latch.countDown();
           }
         };
