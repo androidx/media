@@ -32,6 +32,9 @@
         to indicate that a media item needs to be pre-cached.
     *   Use pre-caching functionality of `DefaultPreloadManager` in shortform
         demo app.
+    *   Add `DefaultLoadControl.Builder` setters for local playback and adjust
+        default values of `DefaultLoadControl` to work well with a wide range of
+        local files.
 *   Transformer:
 *   Track Selection:
     *   Add `TrackSelectionParameters.selectTextByDefault` to prefer the

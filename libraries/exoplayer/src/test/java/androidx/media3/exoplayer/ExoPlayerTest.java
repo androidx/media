@@ -9944,6 +9944,7 @@ public final class ExoPlayerTest {
     DefaultLoadControl loadControl =
         new DefaultLoadControl.Builder()
             .setTargetBufferBytes(10 * C.DEFAULT_BUFFER_SEGMENT_SIZE)
+            .setPrioritizeTimeOverSizeThresholds(false)
             .build();
     // Return no end of stream signal to prevent playback from ending.
     FakeMediaPeriod.TrackDataFactory trackDataWithoutEos = (format, periodId) -> ImmutableList.of();
