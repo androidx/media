@@ -15,14 +15,6 @@
         `ExoPlayer.Builder.setStuckBufferingDetectionTimeoutMs` if required.
     *   Ensure renderers don't consume data from the next playlist item more
         than 10 seconds before the end of the current item.
-    *   Add getter for shuffle mode to the `ExoPlayer` interface
-        ([#2522](https://github.com/androidx/media/pull/2522)).
-    *   More clearly throw an exception if `DefaultAudioSink` is accessed from
-        multiple threads. If this happens due to a call to
-        `RendererCapabilities.getFormatSupport` outside of the player, make sure
-        to call this method on the same thread as ExoPlayer's playback thread or
-        use a different instance than the one used for playback
-        ([#1191](https://github.com/androidx/media/issues/1191)).
     *   Add pre-caching functionality in `DefaultPreloadManager`. Apps now can
         return
         `DefaultPreloadManager.PreloadStatus.specifiedRangeCached(startPositionMs,
@@ -55,8 +47,6 @@
     *   Utilize AC-4 decoder profile and level capabilities in track format
         support assessment
         ([#2580](https://github.com/androidx/media/pull/2580)).
-    *   Fix bug where `AnalyticsListener.onAudioPositionAdvancing` is not called
-        when the audio playback is started very close to the end of the media.
 *   Video:
 *   Text:
 *   Metadata:
@@ -71,11 +61,6 @@
         `FragmentedMp4Muxer#Builder(WritableByteChannel)` instead.
 *   IMA extension:
 *   Session:
-    *   Fix bug where connections from third-party non-priviledged Media3
-        controllers are ignored.
-    *   Remove check for available commands when sending custom commands to a
-        legacy `MediaBrowserServiceCompat`. This is in parity with the behavior
-        of legacy controllers/browsers when connected to a legacy app.
     *   Add new parameter to `MediaSession.Callback.onPlaybackResumption` to
         indicate if the call happens to gather information only or to start
         playback ([#1764](https://github.com/androidx/media/issues/1764)).
@@ -89,9 +74,6 @@
     *   Change the default value for
         `MediaLibrarySession.Builder.setLibraryErrorReplicationMode` to non
         fatal.
-    *   Fix a bug that causes a player's first playback error to be incorrectly
-        treated as a persistent custom exception. This prevents the application
-        from recovering.
     *   Add a `Context` parameter to
         `MediaButtonReceiver.onForegroundServiceStartNotAllowedException`
         ([#2625](https://github.com/androidx/media/pull/2625)).
@@ -113,9 +95,6 @@
 *   RTMP extension:
 *   HLS extension:
     *   Parse HLS interstitial skip attributes.
-    *   Fix bug where `HlsSampleStreamWrapper` attempts to seek inside buffer
-        when there are no chunks available in the buffer
-        [#2598](https://github.com/androidx/media/issues/2598).
 *   DASH extension:
     *   Reset `LiveConfiguration` to the value provided by the `MediaItem` of
         the `DashMediaSource` when released and when the media item is updated
@@ -144,6 +123,37 @@
 *   Remove deprecated symbols:
 
 ## 1.8
+
+### 1.8.0-rc02 (2025-07-24)
+
+This release includes the following changes since the
+[1.8.0-rc01 release](#180-rc01-2025-07-16):
+
+*   ExoPlayer:
+    *   Add getter for shuffle mode to the `ExoPlayer` interface
+        ([#2522](https://github.com/androidx/media/pull/2522)).
+    *   More clearly throw an exception if `DefaultAudioSink` is accessed from
+        multiple threads. If this happens due to a call to
+        `RendererCapabilities.getFormatSupport` outside of the player, make sure
+        to call this method on the same thread as ExoPlayer's playback thread or
+        use a different instance than the one used for playback
+        ([#1191](https://github.com/androidx/media/issues/1191)).
+*   Audio:
+    *   Fix bug where `AnalyticsListener.onAudioPositionAdvancing` is not called
+        when the audio playback is started very close to the end of the media.
+*   Session:
+    *   Fix bug where connections from third-party non-priviledged Media3
+        controllers are ignored.
+    *   Remove check for available commands when sending custom commands to a
+        legacy `MediaBrowserServiceCompat`. This is in parity with the behavior
+        of legacy controllers/browsers when connected to a legacy app.
+    *   Fix a bug that causes a player's first playback error to be incorrectly
+        treated as a persistent custom exception. This prevents the application
+        from recovering.
+*   HLS extension:
+    *   Fix bug where `HlsSampleStreamWrapper` attempts to seek inside buffer
+        when there are no chunks available in the buffer
+        [#2598](https://github.com/androidx/media/issues/2598).
 
 ### 1.8.0-rc01 (2025-07-16)
 
