@@ -526,9 +526,6 @@ public abstract class BasePreloadManager<T, PreloadStatusT> {
 
     public synchronized void put(
         MediaItem mediaItem, MediaSource mediaSource, MediaSourceHolder mediaSourceHolder) {
-      checkState(
-          mediaItemToMediaSourceHolder.containsKey(mediaItem)
-              == mediaSourceToMediaItem.containsKey(mediaSource));
       mediaItemToMediaSourceHolder.put(mediaItem, mediaSourceHolder);
       mediaSourceToMediaItem.put(mediaSource, mediaItem);
     }
