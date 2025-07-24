@@ -240,4 +240,13 @@ public class MediaFormatUtilTest {
         .isEqualTo(C.ENCODING_PCM_16BIT_BIG_ENDIAN);
     assertThat(mediaFormat.containsKey(MediaFormat.KEY_PCM_ENCODING)).isFalse();
   }
+
+  @Test
+  public void createMediaFormatFromFormat_withNonIntegerFormatId_doesNotSetTrackId() {
+    Format format = new Format.Builder().setId("1/256").build();
+
+    MediaFormat mediaFormat = MediaFormatUtil.createMediaFormatFromFormat(format);
+
+    assertThat(mediaFormat.containsKey(MediaFormat.KEY_TRACK_ID)).isFalse();
+  }
 }

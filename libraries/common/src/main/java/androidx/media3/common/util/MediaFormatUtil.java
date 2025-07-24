@@ -181,7 +181,11 @@ public final class MediaFormatUtil {
     maybeSetPixelAspectRatio(result, format.pixelWidthHeightRatio);
 
     if (format.id != null) {
-      result.setInteger(MediaFormat.KEY_TRACK_ID, Integer.parseInt(format.id));
+      try {
+        result.setInteger(MediaFormat.KEY_TRACK_ID, Integer.parseInt(format.id));
+      } catch (NumberFormatException e) {
+        // Ignore, format.id is not always an integer, but KEY_TRACK_ID expects an int.
+      }
     }
     return result;
   }
