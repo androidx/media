@@ -237,7 +237,6 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         new MediaSessionLegacyStub(
             /* session= */ thisRef,
             sessionUri,
-            applicationHandler,
             tokenExtras,
             sessionActivity,
             playIfSuppressed,
@@ -248,7 +247,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
             sessionExtras,
             packageNameOverride);
 
-    Token platformToken = sessionLegacyStub.getSessionCompat().getSessionToken().getToken();
+    Token platformToken = sessionLegacyStub.getSessionToken().getToken();
     sessionToken =
         new SessionToken(
             Process.myUid(),
@@ -1109,7 +1108,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
 
   @SuppressWarnings("UnnecessarilyFullyQualified") // Avoiding confusion by just using "Token"
   public android.media.session.MediaSession.Token getPlatformToken() {
-    return sessionLegacyStub.getSessionCompat().getSessionToken().getToken();
+    return sessionLegacyStub.getSessionToken().getToken();
   }
 
   public void setLegacyControllerConnectionTimeoutMs(long timeoutMs) {
@@ -1192,8 +1191,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     MediaSessionServiceLegacyStub legacyStub;
     synchronized (lock) {
       if (browserServiceLegacyStub == null) {
-        browserServiceLegacyStub =
-            createLegacyBrowserService(sessionLegacyStub.getSessionCompat().getSessionToken());
+        browserServiceLegacyStub = createLegacyBrowserService(sessionLegacyStub.getSessionToken());
       }
       legacyStub = browserServiceLegacyStub;
     }
@@ -1670,7 +1668,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         sessionLegacyStub.onSkipToNext();
         return true;
       } else if (callerInfo.getControllerVersion() != ControllerInfo.LEGACY_CONTROLLER_VERSION) {
-        sessionLegacyStub.getSessionCompat().getController().dispatchMediaButtonEvent(keyEvent);
+        sessionLegacyStub.getControllerCompat().dispatchMediaButtonEvent(keyEvent);
         return true;
       }
       // This is an unhandled framework event. Return false to let the framework resolve by calling
