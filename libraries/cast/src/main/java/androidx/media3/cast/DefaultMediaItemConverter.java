@@ -94,18 +94,7 @@ public final class DefaultMediaItemConverter implements MediaItemConverter {
   @Override
   public MediaQueueItem toMediaQueueItem(MediaItem mediaItem) {
     Assertions.checkNotNull(mediaItem.localConfiguration);
-    if (mediaItem.localConfiguration.mimeType == null) {
-      // TODO: b/432214377 - Revisit the media type once this ticket is addressed.
-      Log.w(
-          TAG,
-          "Converting MediaItem with null MIME type. Assuming MEDIA_TYPE_MOVIE. Song metadata may"
-              + " not be rendered correctly by the default receiver.");
-    }
-    MediaMetadata metadata =
-        new MediaMetadata(
-            MimeTypes.isAudio(mediaItem.localConfiguration.mimeType)
-                ? MediaMetadata.MEDIA_TYPE_MUSIC_TRACK
-                : MediaMetadata.MEDIA_TYPE_MOVIE);
+    MediaMetadata metadata = new MediaMetadata(getMediaType(mediaItem));
     if (mediaItem.mediaMetadata.title != null) {
       metadata.putString(MediaMetadata.KEY_TITLE, mediaItem.mediaMetadata.title.toString());
     }
@@ -147,6 +136,44 @@ public final class DefaultMediaItemConverter implements MediaItemConverter {
             .setCustomData(getCustomData(mediaItem))
             .build();
     return new MediaQueueItem.Builder(mediaInfo).build();
+  }
+
+  private static int getMediaType(MediaItem mediaItem) {
+    Integer media3MediaType = mediaItem.mediaMetadata.mediaType;
+    if (media3MediaType != null) {
+      switch (media3MediaType) {
+        case androidx.media3.common.MediaMetadata.MEDIA_TYPE_MOVIE:
+        case androidx.media3.common.MediaMetadata.MEDIA_TYPE_TRAILER:
+          return MediaMetadata.MEDIA_TYPE_MOVIE;
+        case androidx.media3.common.MediaMetadata.MEDIA_TYPE_TV_SHOW:
+          return MediaMetadata.MEDIA_TYPE_TV_SHOW;
+        case androidx.media3.common.MediaMetadata.MEDIA_TYPE_MUSIC:
+        case androidx.media3.common.MediaMetadata.MEDIA_TYPE_RADIO_STATION:
+          return MediaMetadata.MEDIA_TYPE_MUSIC_TRACK;
+        case androidx.media3.common.MediaMetadata.MEDIA_TYPE_AUDIO_BOOK_CHAPTER:
+          return MediaMetadata.MEDIA_TYPE_AUDIOBOOK_CHAPTER;
+        default:
+          // Fall through to use MIME type.
+          break;
+      }
+    }
+
+    String mimeType =
+        mediaItem.localConfiguration != null ? mediaItem.localConfiguration.mimeType : null;
+    if (mimeType == null) {
+      // TODO: b/432214377 - Revisit the media type once this ticket is addressed.
+      Log.w(
+          TAG,
+          "Converting MediaItem with null MIME type and no media type. Assuming "
+              + "MEDIA_TYPE_MOVIE. Song metadata may not be rendered correctly by the default"
+              + " receiver.");
+    }
+    // We default to MEDIA_TYPE_MOVIE because that ensures the default receiver will render video,
+    // if available. The disadvantage of guessing wrong is that song-related metadata may not be
+    // rendered.
+    return MimeTypes.isAudio(mimeType)
+        ? MediaMetadata.MEDIA_TYPE_MUSIC_TRACK
+        : MediaMetadata.MEDIA_TYPE_MOVIE;
   }
 
   // Deserialization.

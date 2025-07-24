@@ -129,6 +129,8 @@
         `CastPlayer` constructors keep their old behavior, but are deprecated in
         favour of using the `CastPlayer` or `RemoteCastPlayer` builders instead.
     *   Stop enforcing a non-null mime type in `DefaultMediaItemConverter`.
+    *   Use `MediaItem.mediaMetadata.mediaType` to infer the Cast MEDIA_TYPE to
+        use in `DefaultCastOptionsProvider#toMediaQueueItem`, when available.
     *   Enable remote to local transfers in `DefaultCastOptionsProvider`.
 *   Test Utilities:
     *   Add maximum time diff for the auto-advancing behavior of `FakeClock`. It
