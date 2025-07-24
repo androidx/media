@@ -325,7 +325,8 @@ public class MediaSessionCompat {
       String tag,
       @Nullable ComponentName mbrComponent,
       @Nullable PendingIntent mbrIntent,
-      @Nullable Bundle sessionInfo) {
+      @Nullable Bundle sessionInfo,
+      @Nullable Looper callbackLooper) {
     if (TextUtils.isEmpty(tag)) {
       throw new IllegalArgumentException("tag must not be null or empty");
     }
@@ -357,7 +358,7 @@ public class MediaSessionCompat {
       impl = new MediaSessionImplApi23(context, tag, sessionInfo);
     }
     // Set default callback to respond to controllers' extra binder requests.
-    Looper myLooper = Looper.myLooper();
+    Looper myLooper = callbackLooper != null ? callbackLooper : Looper.myLooper();
     Handler handler = new Handler(myLooper != null ? myLooper : Looper.getMainLooper());
     setCallback(new Callback() {}, handler);
     impl.setMediaButtonReceiver(mbrIntent);
