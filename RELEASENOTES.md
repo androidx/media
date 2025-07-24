@@ -2,7 +2,7 @@
 
 ## 1.8
 
-### 1.8.0-rc02 (2025-07-23)
+### 1.8.0-rc02 (2025-07-24)
 
 This release includes the following changes since the
 [1.8.0-rc01 release](#180-rc01-2025-07-16):
@@ -16,11 +16,11 @@ This release includes the following changes since the
         to call this method on the same thread as ExoPlayer's playback thread or
         use a different instance than the one used for playback
         ([#1191](https://github.com/androidx/media/issues/1191)).
-* Audio
+*   Audio:
     *   Fix bug where `AnalyticsListener.onAudioPositionAdvancing` is not called
         when the audio playback is started very close to the end of the media.
 *   Session:
-    *   Fix bug where connections from third-party non-priviledged Media3
+    *   Fix bug where connections from third-party non-privileged Media3
         controllers are ignored.
     *   Remove check for available commands when sending custom commands to a
         legacy `MediaBrowserServiceCompat`. This is in parity with the behavior
@@ -28,7 +28,7 @@ This release includes the following changes since the
     *   Fix a bug that causes a player's first playback error to be incorrectly
         treated as a persistent custom exception. This prevents the application
         from recovering.
-* HLS extension
+*   HLS extension:
     *   Fix bug where `HlsSampleStreamWrapper` attempts to seek inside buffer
         when there are no chunks available in the buffer
         [#2598](https://github.com/androidx/media/issues/2598).
