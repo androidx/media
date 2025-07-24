@@ -459,8 +459,6 @@ public final class DashMediaSource extends BaseMediaSource {
 
   private IOException manifestFatalError;
   private Handler handler;
-
-  private MediaItem.LiveConfiguration liveConfiguration;
   private Uri manifestUri;
   private Uri initialManifestUri;
   private DashManifest manifest;
@@ -476,6 +474,9 @@ public final class DashMediaSource extends BaseMediaSource {
 
   @GuardedBy("this")
   private MediaItem mediaItem;
+
+  @GuardedBy("this")
+  private MediaItem.LiveConfiguration liveConfiguration;
 
   private DashMediaSource(
       MediaItem mediaItem,
@@ -555,13 +556,14 @@ public final class DashMediaSource extends BaseMediaSource {
     return newConfiguration != null
         && newConfiguration.uri.equals(existingConfiguration.uri)
         && newConfiguration.streamKeys.equals(existingConfiguration.streamKeys)
-        && Objects.equals(newConfiguration.drmConfiguration, existingConfiguration.drmConfiguration)
-        && existingMediaItem.liveConfiguration.equals(mediaItem.liveConfiguration);
+        && Objects.equals(
+            newConfiguration.drmConfiguration, existingConfiguration.drmConfiguration);
   }
 
   @Override
   public synchronized void updateMediaItem(MediaItem mediaItem) {
     this.mediaItem = mediaItem;
+    liveConfiguration = mediaItem.liveConfiguration;
   }
 
   @Override
@@ -631,6 +633,7 @@ public final class DashMediaSource extends BaseMediaSource {
       loader.release();
       loader = null;
     }
+    setLiveConfiguration(getMediaItem().liveConfiguration);
     manifestLoadStartTimestampMs = 0;
     manifestLoadEndTimestampMs = 0;
     manifestUri = initialManifestUri;
@@ -971,7 +974,7 @@ public final class DashMediaSource extends BaseMediaSource {
       updateLiveConfiguration(nowInWindowUs, windowDurationUs);
       windowStartUnixTimeMs =
           manifest.availabilityStartTimeMs + Util.usToMs(windowStartTimeInManifestUs);
-      windowDefaultPositionUs = nowInWindowUs - Util.msToUs(liveConfiguration.targetOffsetMs);
+      windowDefaultPositionUs = nowInWindowUs - Util.msToUs(getLiveConfiguration().targetOffsetMs);
       long minimumWindowDefaultPositionUs = min(minLiveStartPositionUs, windowDurationUs / 2);
       if (windowDefaultPositionUs < minimumWindowDefaultPositionUs) {
         // The default position is too close to the start of the live window. Set it to the minimum
@@ -992,7 +995,7 @@ public final class DashMediaSource extends BaseMediaSource {
             windowDefaultPositionUs,
             manifest,
             getMediaItem(),
-            manifest.dynamic ? liveConfiguration : null);
+            manifest.dynamic ? getLiveConfiguration() : null);
     refreshSourceInfo(timeline);
 
     if (!sideloadedManifest) {
@@ -1067,9 +1070,10 @@ public final class DashMediaSource extends BaseMediaSource {
       maxLiveOffsetMs = minLiveOffsetMs;
     }
     long targetOffsetMs;
-    if (liveConfiguration.targetOffsetMs != C.TIME_UNSET) {
+    MediaItem.LiveConfiguration localLiveConfiguration = getLiveConfiguration();
+    if (localLiveConfiguration.targetOffsetMs != C.TIME_UNSET) {
       // Keep existing target offset even if the media configuration changes.
-      targetOffsetMs = liveConfiguration.targetOffsetMs;
+      targetOffsetMs = localLiveConfiguration.targetOffsetMs;
     } else if (manifest.serviceDescription != null
         && manifest.serviceDescription.targetOffsetMs != C.TIME_UNSET) {
       targetOffsetMs = manifest.serviceDescription.targetOffsetMs;
@@ -1111,14 +1115,14 @@ public final class DashMediaSource extends BaseMediaSource {
       minPlaybackSpeed = 1f;
       maxPlaybackSpeed = 1f;
     }
-    liveConfiguration =
+    setLiveConfiguration(
         new MediaItem.LiveConfiguration.Builder()
             .setTargetOffsetMs(targetOffsetMs)
             .setMinOffsetMs(minLiveOffsetMs)
             .setMaxOffsetMs(maxLiveOffsetMs)
             .setMinPlaybackSpeed(minPlaybackSpeed)
             .setMaxPlaybackSpeed(maxPlaybackSpeed)
-            .build();
+            .build());
   }
 
   private void scheduleManifestRefresh(long delayUntilNextLoadMs) {
@@ -1158,6 +1162,14 @@ public final class DashMediaSource extends BaseMediaSource {
 
   private long getManifestLoadRetryDelayMillis() {
     return min((staleManifestReloadAttempt - 1) * 1000, 5000);
+  }
+
+  private synchronized MediaItem.LiveConfiguration getLiveConfiguration() {
+    return liveConfiguration;
+  }
+
+  private synchronized void setLiveConfiguration(MediaItem.LiveConfiguration liveConfiguration) {
+    this.liveConfiguration = liveConfiguration;
   }
 
   private <T> void startLoading(

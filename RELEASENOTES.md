@@ -117,6 +117,9 @@
         when there are no chunks available in the buffer
         [#2598](https://github.com/androidx/media/issues/2598).
 *   DASH extension:
+    *   Reset `LiveConfiguration` to the value provided by the `MediaItem` of
+        the `DashMediaSource` when released and when the media item is updated
+        by the user ([#2606](https://github.com/androidx/media/issues/2606)).
 *   Smooth Streaming extension:
 *   RTSP extension:
 *   Decoder extensions (FFmpeg, VP9, AV1, etc.):
