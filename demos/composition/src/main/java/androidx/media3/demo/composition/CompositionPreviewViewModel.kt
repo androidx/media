@@ -284,6 +284,8 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
           .setEffects(
             Effects(/* audioProcessors= */ emptyList(), /* videoEffects= */ finalVideoEffects)
           )
+          // For image inputs. Automatically ignored if input is audio/video.
+          .setFrameRate(DEFAULT_FRAME_RATE_FPS)
           // Setting duration explicitly is only required for preview with CompositionPlayer, and
           // is not needed for export with Transformer.
           .setDurationUs(item.durationUs)
@@ -466,6 +468,7 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
     const val LAYOUT_EXTRA = "composition_layout"
     private const val TAG = "CompPreviewVM"
     private const val AUDIO_URI = "https://storage.googleapis.com/exoplayer-test-media-0/play.mp3"
+    private const val DEFAULT_FRAME_RATE_FPS = 30
     val HDR_MODE_DESCRIPTIONS =
       mapOf(
         Pair("Keep HDR", Composition.HDR_MODE_KEEP_HDR),
