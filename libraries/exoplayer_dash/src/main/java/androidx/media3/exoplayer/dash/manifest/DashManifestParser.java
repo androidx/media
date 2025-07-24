@@ -393,6 +393,7 @@ public class DashManifestParser extends DefaultHandler
       List<AdaptationSet> adaptationSets,
       List<EventStream> eventStreams,
       @Nullable Descriptor assetIdentifier) {
+    java.util.Collections.sort(adaptationSets, (a, b) -> Integer.compare(a.type, b.type));
     return new Period(id, startMs, adaptationSets, eventStreams, assetIdentifier);
   }
 

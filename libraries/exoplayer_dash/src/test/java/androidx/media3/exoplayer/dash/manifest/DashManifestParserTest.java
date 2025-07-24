@@ -55,6 +55,8 @@ public class DashManifestParserTest {
   private static final String SAMPLE_MPD_UNKNOWN_MIME_TYPE =
       "media/mpd/sample_mpd_unknown_mime_type";
   private static final String SAMPLE_MPD_SEGMENT_TEMPLATE = "media/mpd/sample_mpd_segment_template";
+  private static final String SAMPLE_MPD_SEGMENT_TEMPLATE_ORDER =
+      "media/mpd/sample_mpd_segment_template_order";
   private static final String SAMPLE_MPD_EVENT_STREAM = "media/mpd/sample_mpd_event_stream";
   private static final String SAMPLE_MPD_IMAGES = "media/mpd/sample_mpd_images";
   private static final String SAMPLE_MPD_LABELS = "media/mpd/sample_mpd_labels";
@@ -116,6 +118,11 @@ public class DashManifestParserTest {
     Period period = manifest.getPeriod(0);
     assertThat(period).isNotNull();
     assertThat(period.adaptationSets).hasSize(2);
+    // AdaptationSets should be always sorted from DashManifestParser::buildPeriod by type
+    assertThat(period.adaptationSets.get(0).type).isEqualTo(C.TRACK_TYPE_AUDIO);
+    assertThat(period.adaptationSets.get(0).representations).hasSize(1);
+    assertThat(period.adaptationSets.get(1).type).isEqualTo(C.TRACK_TYPE_VIDEO);
+    assertThat(period.adaptationSets.get(1).representations).hasSize(5);
 
     for (AdaptationSet adaptationSet : period.adaptationSets) {
       assertThat(adaptationSet).isNotNull();
@@ -130,6 +137,27 @@ public class DashManifestParserTest {
         }
       }
     }
+  }
+
+  @Test
+  public void parseMediaPresentationDescription_buildPeriod() throws IOException {
+    DashManifestParser parser = new DashManifestParser();
+    DashManifest manifest =
+        parser.parse(
+            Uri.parse("https://example.com/test.mpd"),
+            TestUtil.getInputStream(
+                ApplicationProvider.getApplicationContext(), SAMPLE_MPD_SEGMENT_TEMPLATE_ORDER));
+
+    assertThat(manifest.getPeriodCount()).isEqualTo(1);
+
+    Period period = manifest.getPeriod(0);
+    assertThat(period).isNotNull();
+    assertThat(period.adaptationSets).hasSize(2);
+    // AdaptationSets should be always sorted from DashManifestParser::buildPeriod by type
+    assertThat(period.adaptationSets.get(0).type).isEqualTo(C.TRACK_TYPE_AUDIO);
+    assertThat(period.adaptationSets.get(0).representations).hasSize(1);
+    assertThat(period.adaptationSets.get(1).type).isEqualTo(C.TRACK_TYPE_VIDEO);
+    assertThat(period.adaptationSets.get(1).representations).hasSize(5);
   }
 
   @Test
