@@ -24,7 +24,7 @@ import androidx.media3.common.MediaMetadata
 import androidx.media3.common.util.UnstableApi
 import com.google.common.collect.ImmutableList
 import java.io.BufferedReader
-import java.lang.StringBuilder
+import org.json.JSONException
 import org.json.JSONObject
 
 /**
@@ -86,7 +86,7 @@ object MediaItemTree {
     artist: String? = null,
     genre: String? = null,
     sourceUri: Uri? = null,
-    imageUri: Uri? = null
+    imageUri: Uri? = null,
   ): MediaItem {
     val metadata =
       MediaMetadata.Builder()
@@ -122,7 +122,7 @@ object MediaItemTree {
           mediaId = ROOT_ID,
           isPlayable = false,
           isBrowsable = true,
-          mediaType = MediaMetadata.MEDIA_TYPE_FOLDER_MIXED
+          mediaType = MediaMetadata.MEDIA_TYPE_FOLDER_MIXED,
         )
       )
     treeNodes[ALBUM_ID] =
@@ -132,7 +132,7 @@ object MediaItemTree {
           mediaId = ALBUM_ID,
           isPlayable = false,
           isBrowsable = true,
-          mediaType = MediaMetadata.MEDIA_TYPE_FOLDER_ALBUMS
+          mediaType = MediaMetadata.MEDIA_TYPE_FOLDER_ALBUMS,
         )
       )
     treeNodes[ARTIST_ID] =
@@ -142,7 +142,7 @@ object MediaItemTree {
           mediaId = ARTIST_ID,
           isPlayable = false,
           isBrowsable = true,
-          mediaType = MediaMetadata.MEDIA_TYPE_FOLDER_ARTISTS
+          mediaType = MediaMetadata.MEDIA_TYPE_FOLDER_ARTISTS,
         )
       )
     treeNodes[GENRE_ID] =
@@ -152,7 +152,7 @@ object MediaItemTree {
           mediaId = GENRE_ID,
           isPlayable = false,
           isBrowsable = true,
-          mediaType = MediaMetadata.MEDIA_TYPE_FOLDER_GENRES
+          mediaType = MediaMetadata.MEDIA_TYPE_FOLDER_GENRES,
         )
       )
     treeNodes[ROOT_ID]!!.addChild(ALBUM_ID)
@@ -177,6 +177,7 @@ object MediaItemTree {
     val title = mediaObject.getString("title")
     val artist = mediaObject.getString("artist")
     val genre = mediaObject.getString("genre")
+    val mediaType = toMediaType(mediaObject.getString("media_type"))
     val subtitleConfigurations: MutableList<SubtitleConfiguration> = mutableListOf()
     if (mediaObject.has("subtitles")) {
       val subtitlesJson = mediaObject.getJSONArray("subtitles")
@@ -205,13 +206,13 @@ object MediaItemTree {
           mediaId = idInTree,
           isPlayable = true,
           isBrowsable = false,
-          mediaType = MediaMetadata.MEDIA_TYPE_MUSIC,
+          mediaType,
           subtitleConfigurations,
           album = album,
           artist = artist,
           genre = genre,
           sourceUri = sourceUri,
-          imageUri = imageUri
+          imageUri = imageUri,
         )
       )
 
@@ -231,7 +232,7 @@ object MediaItemTree {
             artist = null,
             genre = null,
             sourceUri = null,
-            imageUri
+            imageUri,
           )
         )
       treeNodes[ALBUM_ID]!!.addChild(albumFolderIdInTree)
@@ -248,7 +249,7 @@ object MediaItemTree {
             isPlayable = true,
             isBrowsable = true,
             mediaType = MediaMetadata.MEDIA_TYPE_ARTIST,
-            subtitleConfigurations
+            subtitleConfigurations,
           )
         )
       treeNodes[ARTIST_ID]!!.addChild(artistFolderIdInTree)
@@ -265,13 +266,20 @@ object MediaItemTree {
             isPlayable = true,
             isBrowsable = true,
             mediaType = MediaMetadata.MEDIA_TYPE_GENRE,
-            subtitleConfigurations
+            subtitleConfigurations,
           )
         )
       treeNodes[GENRE_ID]!!.addChild(genreFolderIdInTree)
     }
     treeNodes[genreFolderIdInTree]!!.addChild(idInTree)
   }
+
+  private fun toMediaType(mediaTypeString: String): @MediaMetadata.MediaType Int =
+    when (mediaTypeString) {
+      "movie" -> MediaMetadata.MEDIA_TYPE_MOVIE
+      "music" -> MediaMetadata.MEDIA_TYPE_MUSIC
+      else -> throw JSONException("Unexpected media_type=$mediaTypeString")
+    }
 
   fun getItem(id: String): MediaItem? {
     return treeNodes[id]?.item
