@@ -60,6 +60,8 @@ import static androidx.media3.session.SessionError.ERROR_PERMISSION_DENIED;
 import static androidx.media3.session.SessionError.ERROR_SESSION_DISCONNECTED;
 import static androidx.media3.session.SessionError.ERROR_UNKNOWN;
 import static androidx.media3.session.SessionError.INFO_CANCELLED;
+import static androidx.media3.session.SessionUtil.PACKAGE_INVALID;
+import static androidx.media3.session.SessionUtil.checkPackageValidity;
 
 import android.app.PendingIntent;
 import android.media.session.MediaSession.Token;
@@ -626,7 +628,9 @@ import java.util.concurrent.ExecutionException;
       @Nullable IMediaController caller,
       int sequenceNumber,
       @Nullable Bundle connectionRequestBundle) {
-    if (caller == null || connectionRequestBundle == null) {
+    @Nullable MediaSessionImpl sessionImpl = this.sessionImpl.get();
+    if (caller == null || connectionRequestBundle == null || sessionImpl == null) {
+      SessionUtil.disconnectIMediaController(caller);
       return;
     }
     ConnectionRequest request;
@@ -638,19 +642,25 @@ import java.util.concurrent.ExecutionException;
     }
     int uid = Binder.getCallingUid();
     int callingPid = Binder.getCallingPid();
+    @Nullable String packageName = request.packageName;
+    if (checkPackageValidity(sessionImpl.getContext(), packageName, uid) == PACKAGE_INVALID) {
+      Log.w(
+          TAG,
+          "Ignoring connection from invalid package name " + packageName + " (uid=" + uid + ")");
+      SessionUtil.disconnectIMediaController(caller);
+      return;
+    }
+
     long token = Binder.clearCallingIdentity();
     // Binder.getCallingPid() can be 0 for an oneway call from the remote process.
     // If it's the case, use PID from the ConnectionRequest.
     int pid = (callingPid != 0) ? callingPid : request.pid;
     try {
-
       MediaSessionManager.RemoteUserInfo remoteUserInfo =
-          new MediaSessionManager.RemoteUserInfo(request.packageName, pid, uid);
-      @Nullable MediaSessionImpl sessionImpl = this.sessionImpl.get();
+          new MediaSessionManager.RemoteUserInfo(packageName, pid, uid);
       boolean isTrustedForMediaControl =
-          sessionImpl != null
-              && MediaSessionManager.getSessionManager(sessionImpl.getContext())
-                  .isTrustedForMediaControl(remoteUserInfo);
+          MediaSessionManager.getSessionManager(sessionImpl.getContext())
+              .isTrustedForMediaControl(remoteUserInfo);
       ControllerInfo controllerInfo =
           new ControllerInfo(
               remoteUserInfo,

@@ -20,6 +20,8 @@ import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.postOrRun;
+import static androidx.media3.session.SessionUtil.PACKAGE_VALID;
+import static androidx.media3.session.SessionUtil.checkPackageValidity;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.app.Activity;
@@ -856,6 +858,17 @@ public abstract class MediaSessionService extends Service {
       int uid = Binder.getCallingUid();
       long token = Binder.clearCallingIdentity();
       int pid = (callingPid != 0) ? callingPid : request.pid;
+      if (checkPackageValidity(mediaSessionService, request.packageName, uid) != PACKAGE_VALID) {
+        Log.w(
+            TAG,
+            "Ignoring connection from invalid package name "
+                + request.packageName
+                + " (uid="
+                + uid
+                + ")");
+        SessionUtil.disconnectIMediaController(caller);
+        return;
+      }
       MediaSessionManager.RemoteUserInfo remoteUserInfo =
           new MediaSessionManager.RemoteUserInfo(request.packageName, pid, uid);
       boolean isTrusted =
