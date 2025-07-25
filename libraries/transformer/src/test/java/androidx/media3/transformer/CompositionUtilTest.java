@@ -16,7 +16,7 @@
 
 package androidx.media3.transformer;
 
-import static androidx.media3.transformer.CompositionPlayer.shouldRePreparePlayerForSequence;
+import static androidx.media3.transformer.CompositionUtil.shouldRePreparePlayerForSequence;
 import static com.google.common.truth.Truth.assertThat;
 
 import androidx.media3.common.MediaItem;
@@ -29,9 +29,9 @@ import java.nio.ByteBuffer;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-/** Unit test for util methods in {@link CompositionPlayer}. */
+/** Unit test for {@link CompositionUtil}. */
 @RunWith(AndroidJUnit4.class)
-public class CompositionPlayerUtilTest {
+public class CompositionUtilTest {
 
   private static final String URI_0 = "CompositionUtilTest_0";
   private static final String URI_1 = "CompositionUtilTest_1";
