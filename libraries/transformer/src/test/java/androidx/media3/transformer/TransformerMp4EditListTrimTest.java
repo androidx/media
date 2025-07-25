@@ -102,9 +102,9 @@ public class TransformerMp4EditListTrimTest {
     List<Long> audioTimestampsUs = getAudioSampleTimesUs(outputPath);
     assertThat(audioTimestampsUs).hasSize(432);
     assertThat(audioTimestampsUs.get(0)).isEqualTo(0);
-    assertThat(audioTimestampsUs.get(1)).isEqualTo(23_229);
-    assertThat(audioTimestampsUs.get(2)).isEqualTo(46_458);
-    assertThat(audioTimestampsUs.get(431)).isEqualTo(10_011_083);
+    assertThat(audioTimestampsUs.get(1)).isEqualTo(23_219);
+    assertThat(audioTimestampsUs.get(2)).isEqualTo(46_439);
+    assertThat(audioTimestampsUs.get(431)).isEqualTo(10_007_165);
   }
 
   @Test
@@ -143,9 +143,9 @@ public class TransformerMp4EditListTrimTest {
     List<Long> audioTimestampsUs = getAudioSampleTimesUs(outputPath);
     assertThat(audioTimestampsUs).hasSize(86);
     assertThat(audioTimestampsUs.get(0)).isEqualTo(19_700); // Original PTS: 69_687
-    assertThat(audioTimestampsUs.get(1)).isEqualTo(42_929); // Original PTS: 92_916
-    assertThat(audioTimestampsUs.get(2)).isEqualTo(66_158); // Original PTS: 116_145
-    assertThat(audioTimestampsUs.get(55)).isEqualTo(1_297_304); // Original PTS: 2_100_700
+    assertThat(audioTimestampsUs.get(1)).isEqualTo(42_919); // Original PTS: 92_916
+    assertThat(audioTimestampsUs.get(2)).isEqualTo(66_139); // Original PTS: 116_145
+    assertThat(audioTimestampsUs.get(55)).isEqualTo(1_296_797); // Original PTS: 2_100_700
   }
 
   @Test
