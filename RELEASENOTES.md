@@ -142,7 +142,7 @@ This release includes the following changes since the
     *   Fix bug where `AnalyticsListener.onAudioPositionAdvancing` is not called
         when the audio playback is started very close to the end of the media.
 *   Session:
-    *   Fix bug where connections from third-party non-priviledged Media3
+    *   Fix bug where connections from third-party non-privileged Media3
         controllers are ignored.
     *   Remove check for available commands when sending custom commands to a
         legacy `MediaBrowserServiceCompat`. This is in parity with the behavior
