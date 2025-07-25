@@ -21,7 +21,6 @@ import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.usToMs;
-import static androidx.media3.transformer.CompositionUtil.shouldRePreparePlayerForSequence;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -84,6 +83,7 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
 import androidx.media3.exoplayer.video.VideoFrameMetadataListener;
 import androidx.media3.exoplayer.video.VideoFrameReleaseControl;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -1479,6 +1479,75 @@ public final class CompositionPlayer extends SimpleBasePlayer
     }
     if (oldComposition.hdrMode != newComposition.hdrMode) {
       return true;
+    }
+    return false;
+  }
+
+  /**
+   * Returns whether the player should be re-prepared after switching {@link
+   * EditedMediaItemSequence} to the new one.
+   *
+   * <p>It returns {@code true} if the {@code oldSequence} is {@code null}.
+   *
+   * <p>Currently this method returns {@code false} when
+   *
+   * <ul>
+   *   <li>All the {@link MediaItem mediaItems} in the {@code oldSequence} match with those in the
+   *       {@code newSequence}.
+   *   <li>Changes in {@link EditedMediaItem}:
+   *       <ul>
+   *         <li>{@linkplain EditedMediaItem#effects Video effects} changed. Except when there are
+   *             speed adjustments ({@link InactiveTimestampAdjustment}).
+   *       </ul>
+   * </ul>
+   */
+  @VisibleForTesting
+  /* package */ static boolean shouldRePreparePlayerForSequence(
+      @Nullable EditedMediaItemSequence oldSequence, EditedMediaItemSequence newSequence) {
+    if (oldSequence == null) {
+      return true;
+    }
+
+    if (oldSequence.editedMediaItems.size() != newSequence.editedMediaItems.size()) {
+      return true;
+    }
+
+    for (int i = 0; i < oldSequence.editedMediaItems.size(); i++) {
+      EditedMediaItem oldEditedMediaItem = oldSequence.editedMediaItems.get(i);
+      EditedMediaItem newEditedMediaItem = newSequence.editedMediaItems.get(i);
+      if (!oldEditedMediaItem.mediaItem.equals(newEditedMediaItem.mediaItem)) {
+        // All MediaItems must match - this checks the URI and the clipping.
+        return true;
+      }
+
+      if (oldEditedMediaItem.flattenForSlowMotion != newEditedMediaItem.flattenForSlowMotion) {
+        return true;
+      }
+
+      if (oldEditedMediaItem.removeVideo != newEditedMediaItem.removeVideo) {
+        return true;
+      }
+
+      if (oldEditedMediaItem.removeAudio != newEditedMediaItem.removeAudio) {
+        return true;
+      }
+
+      if (!oldEditedMediaItem.effects.audioProcessors.equals(
+          newEditedMediaItem.effects.audioProcessors)) {
+        return true;
+      }
+
+      // TimestampAdjustment change needs to be handled separately. Player needs to be re-prepared
+      // if the timestamp adjustments change.
+      if (!Iterables.elementsEqual(
+          // Old timestamp adjustments
+          Iterables.filter(
+              oldEditedMediaItem.effects.videoEffects, InactiveTimestampAdjustment.class),
+          // New timestamp adjustments
+          Iterables.filter(
+              newEditedMediaItem.effects.videoEffects, InactiveTimestampAdjustment.class))) {
+        return true;
+      }
     }
     return false;
   }
