@@ -16,7 +16,7 @@
 
 package androidx.media3.transformer;
 
-import static androidx.media3.transformer.CompositionUtil.shouldRePreparePlayer;
+import static androidx.media3.transformer.CompositionUtil.shouldRePreparePlayerForSequence;
 import static com.google.common.truth.Truth.assertThat;
 
 import androidx.media3.common.MediaItem;
@@ -37,9 +37,9 @@ public class CompositionUtilTest {
   private static final String URI_1 = "CompositionUtilTest_1";
 
   @Test
-  public void shouldRePreparePlayer_withNoPreviousSequence_returnsTrue() {
+  public void shouldRePreparePlayerForSequence_withNoPreviousSequence_returnsTrue() {
     assertThat(
-            shouldRePreparePlayer(
+            shouldRePreparePlayerForSequence(
                 /* oldSequence= */ null,
                 new EditedMediaItemSequence.Builder(
                         new EditedMediaItem.Builder(MediaItem.fromUri(URI_0)).build())
@@ -48,33 +48,36 @@ public class CompositionUtilTest {
   }
 
   @Test
-  public void shouldRePreparePlayer_withPreviousSequenceAddedNumberOfMediaItems_returnsTrue() {
+  public void
+      shouldRePreparePlayerForSequence_withPreviousSequenceAddedNumberOfMediaItems_returnsTrue() {
     EditedMediaItem editedMediaItem = new EditedMediaItem.Builder(MediaItem.fromUri(URI_0)).build();
     assertThat(
-            shouldRePreparePlayer(
+            shouldRePreparePlayerForSequence(
                 new EditedMediaItemSequence.Builder(editedMediaItem).build(),
                 new EditedMediaItemSequence.Builder(editedMediaItem, editedMediaItem).build()))
         .isTrue();
   }
 
   @Test
-  public void shouldRePreparePlayer_withPreviousSequenceReducedNumberOfMediaItems_returnsTrue() {
+  public void
+      shouldRePreparePlayerForSequence_withPreviousSequenceReducedNumberOfMediaItems_returnsTrue() {
     EditedMediaItem editedMediaItem = new EditedMediaItem.Builder(MediaItem.fromUri(URI_0)).build();
     assertThat(
-            shouldRePreparePlayer(
+            shouldRePreparePlayerForSequence(
                 new EditedMediaItemSequence.Builder(editedMediaItem).build(),
                 new EditedMediaItemSequence.Builder(editedMediaItem, editedMediaItem).build()))
         .isTrue();
   }
 
   @Test
-  public void shouldRePreparePlayer_withPreviousSequenceMismatchingMediaItems_returnsTrue() {
+  public void
+      shouldRePreparePlayerForSequence_withPreviousSequenceMismatchingMediaItems_returnsTrue() {
     EditedMediaItem editedMediaItem0 =
         new EditedMediaItem.Builder(MediaItem.fromUri(URI_0)).build();
     EditedMediaItem editedMediaItem1 =
         new EditedMediaItem.Builder(MediaItem.fromUri(URI_1)).build();
     assertThat(
-            shouldRePreparePlayer(
+            shouldRePreparePlayerForSequence(
                 new EditedMediaItemSequence.Builder(editedMediaItem0).build(),
                 new EditedMediaItemSequence.Builder(editedMediaItem1).build()))
         .isTrue();
@@ -82,10 +85,10 @@ public class CompositionUtilTest {
 
   @Test
   public void
-      shouldRePreparePlayer_withPreviousSequenceMatchingMediaItemMismatchingFlattenSlowMotion_returnsTrue() {
+      shouldRePreparePlayerForSequence_withPreviousSequenceMatchingMediaItemMismatchingFlattenSlowMotion_returnsTrue() {
     EditedMediaItem editedMediaItem = new EditedMediaItem.Builder(MediaItem.fromUri(URI_0)).build();
     assertThat(
-            shouldRePreparePlayer(
+            shouldRePreparePlayerForSequence(
                 new EditedMediaItemSequence.Builder(editedMediaItem).build(),
                 new EditedMediaItemSequence.Builder(
                         editedMediaItem.buildUpon().setFlattenForSlowMotion(true).build())
@@ -95,10 +98,10 @@ public class CompositionUtilTest {
 
   @Test
   public void
-      shouldRePreparePlayer_withPreviousSequenceMatchingMediaItemMismatchingRemoveVideoMatchingRemoveAudio_returnsTrue() {
+      shouldRePreparePlayerForSequence_withPreviousSequenceMatchingMediaItemMismatchingRemoveVideoMatchingRemoveAudio_returnsTrue() {
     EditedMediaItem editedMediaItem = new EditedMediaItem.Builder(MediaItem.fromUri(URI_0)).build();
     assertThat(
-            shouldRePreparePlayer(
+            shouldRePreparePlayerForSequence(
                 new EditedMediaItemSequence.Builder(editedMediaItem).build(),
                 new EditedMediaItemSequence.Builder(
                         editedMediaItem.buildUpon().setRemoveVideo(true).build())
@@ -108,20 +111,20 @@ public class CompositionUtilTest {
 
   @Test
   public void
-      shouldRePreparePlayer_withPreviousSequenceMatchingMediaItemMatchingRemoveVideoMismatchingRemoveAudio_returnsFalse() {
+      shouldRePreparePlayerForSequence_withPreviousSequenceMatchingMediaItemMatchingRemoveVideoMismatchingRemoveAudio_returnsTrue() {
     EditedMediaItem editedMediaItem = new EditedMediaItem.Builder(MediaItem.fromUri(URI_0)).build();
     assertThat(
-            shouldRePreparePlayer(
+            shouldRePreparePlayerForSequence(
                 new EditedMediaItemSequence.Builder(editedMediaItem).build(),
                 new EditedMediaItemSequence.Builder(
                         editedMediaItem.buildUpon().setRemoveAudio(true).build())
                     .build()))
-        .isFalse();
+        .isTrue();
   }
 
   @Test
   public void
-      shouldRePreparePlayer_withPreviousSequenceMatchingMediaItemMismatchingVideoEffectsMismatchingAudioEffects_returnTrue() {
+      shouldRePreparePlayerForSequence_withPreviousSequenceMatchingMediaItemMismatchingVideoEffectsMismatchingAudioEffects_returnTrue() {
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(MediaItem.fromUri(URI_0))
             .setEffects(
@@ -130,7 +133,7 @@ public class CompositionUtilTest {
                     /* videoEffects= */ ImmutableList.of()))
             .build();
     assertThat(
-            shouldRePreparePlayer(
+            shouldRePreparePlayerForSequence(
                 new EditedMediaItemSequence.Builder(editedMediaItem).build(),
                 new EditedMediaItemSequence.Builder(
                         editedMediaItem
@@ -147,7 +150,7 @@ public class CompositionUtilTest {
 
   @Test
   public void
-      shouldRePreparePlayer_withPreviousSequenceMatchingMediaItemMismatchingVideoEffects_returnsFalse() {
+      shouldRePreparePlayerForSequence_withPreviousSequenceMatchingMediaItemMismatchingVideoEffects_returnsFalse() {
     AudioProcessor audioProcessor = new FakeAudioProcessor();
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(MediaItem.fromUri(URI_0))
@@ -157,7 +160,7 @@ public class CompositionUtilTest {
                     /* videoEffects= */ ImmutableList.of()))
             .build();
     assertThat(
-            shouldRePreparePlayer(
+            shouldRePreparePlayerForSequence(
                 new EditedMediaItemSequence.Builder(editedMediaItem).build(),
                 new EditedMediaItemSequence.Builder(
                         editedMediaItem

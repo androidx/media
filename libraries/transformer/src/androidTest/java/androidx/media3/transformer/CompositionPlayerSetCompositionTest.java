@@ -29,18 +29,23 @@ import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
-import androidx.media3.common.Player.State;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.audio.AudioProcessor;
+import androidx.media3.common.audio.BaseAudioProcessor;
 import androidx.media3.common.audio.SpeedProvider;
 import androidx.media3.common.util.ConditionVariable;
+import androidx.media3.common.util.Util;
 import androidx.media3.effect.GlEffect;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import java.nio.ByteBuffer;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.After;
 import org.junit.Before;
@@ -51,6 +56,7 @@ import org.junit.runner.RunWith;
 /** Tests for setting {@link Composition} on {@link CompositionPlayer}. */
 @RunWith(AndroidJUnit4.class)
 public class CompositionPlayerSetCompositionTest {
+  // TODO: b/412585856: Keep tests focused or make them parameterized.
   private static final long TEST_TIMEOUT_MS = isRunningOnEmulator() ? 20_000 : 10_000;
 
   private @MonotonicNonNull CompositionPlayer compositionPlayer;
@@ -123,55 +129,6 @@ public class CompositionPlayerSetCompositionTest {
   }
 
   @Test
-  public void setComposition_withChangedRemoveAudio_playbackCompletes() throws Exception {
-    EditedMediaItem mediaItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
-            .setDurationUs(MP4_ASSET.videoDurationUs)
-            .build();
-    EditedMediaItem mediaItemRemoveAudio = mediaItem.buildUpon().setRemoveAudio(true).build();
-    AtomicBoolean changedComposition = new AtomicBoolean();
-    ConditionVariable playerEnded = new ConditionVariable();
-    CopyOnWriteArrayList<Integer> playerStates = new CopyOnWriteArrayList<>();
-
-    instrumentation.runOnMainSync(
-        () -> {
-          compositionPlayer = new CompositionPlayer.Builder(context).build();
-          compositionPlayer.setVideoSurfaceView(surfaceView);
-          compositionPlayer.addListener(playerTestListener);
-          compositionPlayer.addListener(
-              new Player.Listener() {
-                @Override
-                public void onPlaybackStateChanged(@State int playbackState) {
-                  playerStates.add(playbackState);
-                  if (playbackState == Player.STATE_READY) {
-                    if (!changedComposition.get()) {
-                      compositionPlayer.setComposition(
-                          createSingleSequenceComposition(
-                              mediaItemRemoveAudio, mediaItemRemoveAudio));
-                      compositionPlayer.play();
-                      changedComposition.set(true);
-                    }
-                  } else if (playbackState == Player.STATE_ENDED) {
-                    playerEnded.open();
-                  }
-                }
-              });
-          compositionPlayer.setComposition(createSingleSequenceComposition(mediaItem, mediaItem));
-          compositionPlayer.prepare();
-        });
-
-    // Wait until the final state is added to playerStates.
-    playerEnded.block(TEST_TIMEOUT_MS);
-    // waitUntilPlayerEnded should return immediate and will throw any player error.
-    playerTestListener.waitUntilPlayerEnded();
-    // Asserts that changing removeAudio does not cause the player to get back to buffering state,
-    // because the player should not be re-prepared.
-    assertThat(playerStates)
-        .containsExactly(Player.STATE_BUFFERING, Player.STATE_READY, Player.STATE_ENDED)
-        .inOrder();
-  }
-
-  @Test
   public void setComposition_withChangedSpeed_playbackCompletes() throws Exception {
     EditedMediaItem fastMediaItem = createEditedMediaItemWithSpeed(MP4_ASSET, 3.f);
     EditedMediaItem slowMediaItem = createEditedMediaItemWithSpeed(MP4_ASSET, 1 / 3.f);
@@ -207,6 +164,228 @@ public class CompositionPlayerSetCompositionTest {
     assertThat(playerDurations).containsExactly(341333L, 3071999L).inOrder();
   }
 
+  @Test
+  public void setComposition_withStartPosition_playbackStartsFromSetPosition() throws Exception {
+    assertThat(
+            getFirstVideoFrameTimestampUsWithStartPosition(
+                /* startPositionUs= */ 500_000L, /* numberOfItemsInSequence= */ 1))
+        .isEqualTo(500_500L);
+  }
+
+  @Test
+  public void setComposition_withZeroStartPosition_playbackStartsFromZero() throws Exception {
+    assertThat(
+            getFirstVideoFrameTimestampUsWithStartPosition(
+                /* startPositionUs= */ 0, /* numberOfItemsInSequence= */ 1))
+        .isEqualTo(0);
+  }
+
+  @Test
+  public void setComposition_withStartPositionPastVideoDuration_playbackStopsAtLastFrame()
+      throws Exception {
+    assertThat(
+            getFirstVideoFrameTimestampUsWithStartPosition(
+                /* startPositionUs= */ 100_000_000L, /* numberOfItemsInSequence= */ 1))
+        .isEqualTo(967633L);
+  }
+
+  @Test
+  public void
+      setComposition_withStartPositionPastVideoDurationInMultiItemSequence_playbackStopsAtLastFrame()
+          throws Exception {
+    assertThat(
+            getFirstVideoFrameTimestampUsWithStartPosition(
+                /* startPositionUs= */ 100_000_000L, /* numberOfItemsInSequence= */ 5))
+        .isEqualTo(5_063_633L);
+  }
+
+  @Test
+  public void setComposition_withStartPositionInMultiItemSequence_playbackStartsFromSetPosition()
+      throws Exception {
+    assertThat(
+            getFirstVideoFrameTimestampUsWithStartPosition(
+                /* startPositionUs= */ 1_500_000L, /* numberOfItemsInSequence= */ 2))
+        .isEqualTo(1_524_500);
+  }
+
+  @Test
+  public void
+      setComposition_withStartPositionSingleItemAudioSequence_reportsCorrectAudioProcessorPositionOffset()
+          throws Exception {
+    Pair<Long, Long> lastAudioPositionOffsetWithStartPosition =
+        getLastAudioPositionOffsetWithStartPosition(
+            /* startPositionUs= */ 500_000L, /* numberOfItemsInSequence= */ 1);
+
+    assertThat(lastAudioPositionOffsetWithStartPosition.first).isEqualTo(500_000);
+    assertThat(lastAudioPositionOffsetWithStartPosition.second).isEqualTo(500_000);
+  }
+
+  @Test
+  public void
+      setComposition_withStartPositionTwoItemsAudioSequence_reportsCorrectAudioProcessorPositionOffset()
+          throws Exception {
+    Pair<Long, Long> lastAudioPositionOffsetWithStartPosition =
+        getLastAudioPositionOffsetWithStartPosition(
+            /* startPositionUs= */ 1_500_000L, /* numberOfItemsInSequence= */ 2);
+
+    assertThat(lastAudioPositionOffsetWithStartPosition.first).isEqualTo(500_000);
+    assertThat(lastAudioPositionOffsetWithStartPosition.second).isEqualTo(1_500_000);
+  }
+
+  @Test
+  public void setComposition_withNewCompositionAudioProcessor_recreatesAudioPipeline()
+      throws Exception {
+    AtomicBoolean firstCompositionSentDataToAudioPipeline = new AtomicBoolean();
+    AtomicBoolean secondCompositionSentDataToAudioPipeline = new AtomicBoolean();
+    ConditionVariable firstCompositionProcessedData = new ConditionVariable();
+    PassthroughAudioProcessor firstCompositionAudioProcessor =
+        new PassthroughAudioProcessor() {
+          @Override
+          public void queueInput(ByteBuffer inputBuffer) {
+            super.queueInput(inputBuffer);
+            firstCompositionSentDataToAudioPipeline.set(true);
+            firstCompositionProcessedData.open();
+          }
+        };
+    PassthroughAudioProcessor secondCompositionAudioProcessor =
+        new PassthroughAudioProcessor() {
+          @Override
+          public void queueInput(ByteBuffer inputBuffer) {
+            super.queueInput(inputBuffer);
+            secondCompositionSentDataToAudioPipeline.set(true);
+          }
+        };
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(AndroidTestUtil.WAV_ASSET.uri))
+            .setDurationUs(1_000_000L)
+            .setEffects(
+                new Effects(
+                    /* audioProcessors= */ ImmutableList.of(firstCompositionAudioProcessor),
+                    /* videoEffects= */ ImmutableList.of()))
+            .build();
+    Composition firstComposition =
+        new Composition.Builder(
+                new EditedMediaItemSequence.Builder(Collections.nCopies(5, editedMediaItem))
+                    .build())
+            .setEffects(
+                new Effects(
+                    /* audioProcessors= */ ImmutableList.of(firstCompositionAudioProcessor),
+                    /* videoEffects= */ ImmutableList.of()))
+            .build();
+    Composition secondComposition =
+        new Composition.Builder(
+                new EditedMediaItemSequence.Builder(Collections.nCopies(5, editedMediaItem))
+                    .build())
+            .setEffects(
+                new Effects(
+                    /* audioProcessors= */ ImmutableList.of(secondCompositionAudioProcessor),
+                    /* videoEffects= */ ImmutableList.of()))
+            .build();
+
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              compositionPlayer = new CompositionPlayer.Builder(context).build();
+              compositionPlayer.addListener(playerTestListener);
+              compositionPlayer.setComposition(firstComposition);
+              compositionPlayer.prepare();
+            });
+    playerTestListener.waitUntilPlayerReady();
+    firstCompositionProcessedData.block(TEST_TIMEOUT_MS);
+    assertThat(firstCompositionSentDataToAudioPipeline.get()).isTrue();
+    assertThat(secondCompositionSentDataToAudioPipeline.get()).isFalse();
+
+    playerTestListener.resetStatus();
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              compositionPlayer.setComposition(secondComposition);
+              compositionPlayer.play();
+            });
+    playerTestListener.waitUntilPlayerEnded();
+
+    assertThat(secondCompositionSentDataToAudioPipeline.get()).isTrue();
+  }
+
+  private Pair<Long, Long> getLastAudioPositionOffsetWithStartPosition(
+      long startPositionUs, int numberOfItemsInSequence) throws Exception {
+    AtomicLong lastItemPositionOffsetUs = new AtomicLong(C.TIME_UNSET);
+    AtomicLong lastCompositionPositionOffsetUs = new AtomicLong(C.TIME_UNSET);
+    PassthroughAudioProcessor itemAudioProcessor =
+        new PassthroughAudioProcessor() {
+          @Override
+          protected void onFlush(AudioProcessor.StreamMetadata streamMetadata) {
+            lastItemPositionOffsetUs.set(streamMetadata.positionOffsetUs);
+          }
+        };
+    PassthroughAudioProcessor compositionAudioProcessor =
+        new PassthroughAudioProcessor() {
+          @Override
+          protected void onFlush(AudioProcessor.StreamMetadata streamMetadata) {
+            lastCompositionPositionOffsetUs.set(streamMetadata.positionOffsetUs);
+          }
+        };
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(AndroidTestUtil.WAV_ASSET.uri))
+            .setDurationUs(1_000_000L)
+            .setEffects(
+                new Effects(
+                    /* audioProcessors= */ ImmutableList.of(itemAudioProcessor),
+                    /* videoEffects= */ ImmutableList.of()))
+            .build();
+    final Composition composition =
+        new Composition.Builder(
+                new EditedMediaItemSequence.Builder(
+                        Collections.nCopies(numberOfItemsInSequence, editedMediaItem))
+                    .build())
+            .setEffects(
+                new Effects(
+                    /* audioProcessors= */ ImmutableList.of(compositionAudioProcessor),
+                    /* videoEffects= */ ImmutableList.of()))
+            .build();
+
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              compositionPlayer = new CompositionPlayer.Builder(context).build();
+              compositionPlayer.addListener(playerTestListener);
+              compositionPlayer.setComposition(composition, Util.usToMs(startPositionUs));
+              compositionPlayer.prepare();
+            });
+    playerTestListener.waitUntilPlayerReady();
+    return Pair.create(lastItemPositionOffsetUs.get(), lastCompositionPositionOffsetUs.get());
+  }
+
+  private long getFirstVideoFrameTimestampUsWithStartPosition(
+      long startPositionUs, int numberOfItemsInSequence) throws Exception {
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
+            .setDurationUs(MP4_ASSET.videoDurationUs)
+            .build();
+    AtomicLong firstFrameTimestampUs = new AtomicLong(C.TIME_UNSET);
+
+    instrumentation.runOnMainSync(
+        () -> {
+          compositionPlayer = new CompositionPlayer.Builder(context).build();
+          compositionPlayer.setVideoSurfaceView(surfaceView);
+          compositionPlayer.addListener(playerTestListener);
+          compositionPlayer.setVideoFrameMetadataListener(
+              (presentationTimeUs, releaseTimeNs, format, mediaFormat) -> {
+                if (firstFrameTimestampUs.compareAndSet(C.TIME_UNSET, presentationTimeUs)) {
+                  instrumentation.runOnMainSync(compositionPlayer::play);
+                }
+              });
+          compositionPlayer.setComposition(
+              createSingleSequenceComposition(
+                  Collections.nCopies(numberOfItemsInSequence, editedMediaItem)),
+              Util.usToMs(startPositionUs));
+          compositionPlayer.prepare();
+        });
+
+    playerTestListener.waitUntilPlayerEnded();
+    return firstFrameTimestampUs.get();
+  }
+
   private static EditedMediaItem createEditedMediaItemWithSpeed(
       AndroidTestUtil.AssetInfo assetInfo, float speed) {
     Pair<AudioProcessor, Effect> speedChangingEffect =
@@ -221,15 +400,18 @@ public class CompositionPlayerSetCompositionTest {
   }
 
   private static Composition createSingleSequenceComposition(
-      EditedMediaItem editedMediaItem, EditedMediaItem... moreEditedMediaItems) {
-    return new Composition.Builder(
-            new EditedMediaItemSequence.Builder(
-                    new ImmutableList.Builder<EditedMediaItem>()
-                        .add(editedMediaItem)
-                        .add(moreEditedMediaItems)
-                        .build())
-                .build())
+      List<EditedMediaItem> editedMediaItems) {
+    return new Composition.Builder(new EditedMediaItemSequence.Builder(editedMediaItems).build())
         .build();
+  }
+
+  private static Composition createSingleSequenceComposition(
+      EditedMediaItem editedMediaItem, EditedMediaItem... moreEditedMediaItems) {
+    return createSingleSequenceComposition(
+        new ImmutableList.Builder<EditedMediaItem>()
+            .add(editedMediaItem)
+            .add(moreEditedMediaItems)
+            .build());
   }
 
   private static final class SimpleSpeedProvider implements SpeedProvider {
@@ -249,6 +431,22 @@ public class CompositionPlayerSetCompositionTest {
     public long getNextSpeedChangeTimeUs(long timeUs) {
       // Adjust speed for all timestamps.
       return C.TIME_UNSET;
+    }
+  }
+
+  private static class PassthroughAudioProcessor extends BaseAudioProcessor {
+    @Override
+    public void queueInput(ByteBuffer inputBuffer) {
+      if (!inputBuffer.hasRemaining()) {
+        return;
+      }
+      ByteBuffer buffer = this.replaceOutputBuffer(inputBuffer.remaining());
+      buffer.put(inputBuffer).flip();
+    }
+
+    @Override
+    protected AudioFormat onConfigure(AudioFormat inputAudioFormat) {
+      return inputAudioFormat;
     }
   }
 }
