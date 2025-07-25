@@ -527,26 +527,6 @@ public final class CompositionPlayer extends SimpleBasePlayer
     setVideoSurfaceInternal(surface, videoOutputSize);
   }
 
-  /**
-   * Returns the {@link Looper} associated with the playback thread or null if the internal player
-   * has not been prepared.
-   *
-   * <p>This method may be called from any thread.
-   */
-  @Nullable
-  public Looper getPlaybackLooper() {
-    return playbackThread != null ? playbackThread.getLooper() : null;
-  }
-
-  /**
-   * Returns the {@link Clock} used for playback.
-   *
-   * <p>This method can be called from any thread.
-   */
-  public Clock getClock() {
-    return clock;
-  }
-
   // PlaybackVideoGraphWrapper.Listener methods. Called on playback thread.
 
   @Override
