@@ -20,8 +20,9 @@ import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static androidx.media3.common.util.Util.msToUs;
 import static androidx.media3.common.util.Util.usToMs;
-import static androidx.media3.transformer.CompositionUtil.shouldRePreparePlayerForSequence;
+import static androidx.media3.transformer.CompositionUtil.shouldRePreparePlayer;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -36,7 +37,6 @@ import android.util.SparseBooleanArray;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
-import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
 import androidx.annotation.RestrictTo;
 import androidx.annotation.VisibleForTesting;
@@ -442,37 +442,24 @@ public final class CompositionPlayer extends SimpleBasePlayer
   }
 
   /**
-   * Sets the {@link Composition} to play from the beginning.
-   *
-   * <p>Calling this method is equivalent to calling {@link #setComposition(Composition, long)} with
-   * a start position at zero.
-   *
-   * @param composition The {@link Composition} to play. Every {@link EditedMediaItem} in the {@link
-   *     Composition} must have its {@link EditedMediaItem#durationUs} set.
-   */
-  public void setComposition(Composition composition) {
-    setComposition(composition, /* startPositionMs= */ 0);
-  }
-
-  /**
    * Sets the {@link Composition} to play.
    *
+   * <p>This method should only be called once.
+   *
    * @param composition The {@link Composition} to play. Every {@link EditedMediaItem} in the {@link
    *     Composition} must have its {@link EditedMediaItem#durationUs} set.
-   * @param startPositionMs The position at which playback should start, in milliseconds.
    */
   @SuppressWarnings("FutureReturnValueIgnored")
-  public void setComposition(Composition composition, @IntRange(from = 0) long startPositionMs) {
+  public void setComposition(Composition composition) {
     verifyApplicationThread();
     checkArgument(!composition.sequences.isEmpty());
-    checkArgument(startPositionMs >= 0, "Invalid start position " + startPositionMs);
     composition = deactivateSpeedAdjustingVideoEffects(composition);
 
     if (composition.sequences.size() > 1 && !videoGraphFactory.supportsMultipleInputs()) {
       Log.w(TAG, "Setting multi-sequence Composition with single input video graph.");
     }
 
-    setCompositionInternal(composition, startPositionMs);
+    setCompositionInternal(composition);
     // Update the composition field at the end after everything else has been set.
     this.composition = composition;
     maybeSetVideoOutput();
@@ -835,15 +822,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
   }
 
   private void prepareCompositionPlayerInternal() {
-    // PlaybackAudioGraphWrapper needs to be recreated everytime a new composition is set.
-    if (playbackAudioGraphWrapper != null) {
-      playbackAudioGraphWrapper.release();
-    }
-    playbackAudioGraphWrapper =
-        new PlaybackAudioGraphWrapper(audioMixerFactory, checkNotNull(finalAudioSink));
     if (compositionPlayerInternalPrepared) {
-      checkNotNull(compositionPlayerInternal)
-          .setPlaybackAudioGraphWrapper(playbackAudioGraphWrapper);
       return;
     }
 
@@ -851,8 +830,12 @@ public final class CompositionPlayer extends SimpleBasePlayer
     playbackThread.start();
     playbackThreadHandler = clock.createHandler(playbackThread.getLooper(), /* callback= */ null);
 
-    // Once this method returns, further access to the audio and video graph wrappers must done on
-    // the playback thread only, to ensure related components are accessed from one thread only.
+    // Create the audio and video composition components now in order to setup the audio and video
+    // pipelines. Once this method returns, further access to the audio and video graph wrappers
+    // must done on the playback thread only, to ensure related components are accessed from one
+    // thread only.
+    playbackAudioGraphWrapper =
+        new PlaybackAudioGraphWrapper(audioMixerFactory, checkNotNull(finalAudioSink));
     VideoFrameReleaseControl videoFrameReleaseControl =
         new VideoFrameReleaseControl(
             context, new CompositionFrameTimingEvaluator(), /* allowedJoiningTimeMs= */ 0);
@@ -878,97 +861,79 @@ public final class CompositionPlayer extends SimpleBasePlayer
     compositionPlayerInternalPrepared = true;
   }
 
-  private void setCompositionInternal(Composition composition, long startPositionMs) {
+  private void setCompositionInternal(Composition composition) {
     prepareCompositionPlayerInternal();
-    CompositionPlayerInternal compositionPlayerInternal =
-        checkNotNull(this.compositionPlayerInternal);
-
     compositionDurationUs = getCompositionDurationUs(composition);
     long primarySequenceDurationUs =
         getSequenceDurationUs(checkNotNull(composition.sequences.get(0)));
     for (int i = 0; i < composition.sequences.size(); i++) {
-      setSequenceInternal(
-          composition,
-          /* sequenceIndex= */ i,
-          primarySequenceDurationUs,
-          startPositionMs,
-          /* forceReprepare= */ shouldRePreparePlayerForComposition(this.composition, composition));
+      setSequenceInternal(composition, /* sequenceIndex= */ i, primarySequenceDurationUs);
     }
-    compositionPlayerInternal.setComposition(composition);
-    compositionPlayerInternal.startSeek(startPositionMs);
-    compositionPlayerInternal.endSeek();
   }
 
   private void setSequenceInternal(
-      Composition newComposition,
-      int sequenceIndex,
-      long primarySequenceDurationUs,
-      long startPositionMs,
-      boolean forceReprepare) {
+      Composition newComposition, int sequenceIndex, long primarySequenceDurationUs) {
     EditedMediaItemSequence newSequence = newComposition.sequences.get(sequenceIndex);
     @Nullable
     EditedMediaItemSequence oldSequence =
         composition == null || composition.sequences.size() <= sequenceIndex
             ? null
             : composition.sequences.get(sequenceIndex);
-    if (!shouldRePreparePlayerForSequence(oldSequence, newSequence) && !forceReprepare) {
-      SequencePlayerHolder playerHolder = playerHolders.get(sequenceIndex);
-      playerHolder.setSequence(newSequence);
-      // Start from current position
-      //      checkNotNull(compositionPlayerInternal).setComposition(newComposition);
-      return;
-    }
-    // The underlying player needs to be recreated so that the audio renderer can use the new
-    // AudioSink from the newly created PlaybackAudioGraphWrapper.
-    SequencePlayerHolder playerHolder =
-        createSequencePlayer(
-            sequenceIndex,
-            newComposition.hdrMode == Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC);
+
+    SequencePlayerHolder playerHolder;
     if (playerHolders.size() <= sequenceIndex) {
+      playerHolder =
+          createSequencePlayer(
+              sequenceIndex,
+              newComposition.hdrMode == Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC);
       playerHolders.add(playerHolder);
     } else {
-      // TODO: b/412585856 - Optimize for the case where we can keep some resources.
-      playerHolders.get(sequenceIndex).player.release();
-      // TODO: b/412585856 - Remove dangling playerHolder references after changing the number of
-      //  sequences.
-      playerHolders.set(sequenceIndex, playerHolder);
+      playerHolder = playerHolders.get(sequenceIndex);
     }
     playerHolder.setSequence(newSequence);
     ExoPlayer player = playerHolder.player;
 
-    // Starts from zero - internal player will discard current progress, re-preparing it by
-    // setting new media sources.
-    boolean shouldGenerateBlankFrames = newSequence.forceVideoTrack;
-    if (sequenceIndex == 0) {
-      player.setMediaSource(
-          createPrimarySequenceMediaSource(
-              newSequence, mediaSourceFactory, shouldGenerateBlankFrames),
-          startPositionMs);
-      if (pendingVideoFrameMetadataListener != null) {
-        player.setVideoFrameMetadataListener(pendingVideoFrameMetadataListener);
+    if (shouldRePreparePlayer(oldSequence, newSequence)) {
+      // Starts from zero - internal player will discard current progress, re-preparing it by
+      // setting new media sources.
+      // TODO: b/412585856 - Optimize for the case where we can keep some of the MediaSources.
+      boolean shouldGenerateBlankFrames = newSequence.forceVideoTrack;
+      if (sequenceIndex == 0) {
+        player.setMediaSource(
+            createPrimarySequenceMediaSource(
+                newSequence, mediaSourceFactory, shouldGenerateBlankFrames));
+        if (pendingVideoFrameMetadataListener != null) {
+          player.setVideoFrameMetadataListener(pendingVideoFrameMetadataListener);
+        }
+      } else {
+        player.setMediaSource(
+            createSecondarySequenceMediaSource(
+                newSequence,
+                mediaSourceFactory,
+                primarySequenceDurationUs,
+                shouldGenerateBlankFrames));
+      }
+      checkNotNull(compositionPlayerInternal)
+          .setComposition(newComposition, /* startPositionUs= */ C.TIME_UNSET);
+
+      if (sequenceIndex == 0) {
+        // Invalidate the player state before initializing the playlist to force SimpleBasePlayer
+        // to collect a state while the playlist is null. Consequently, once the playlist is
+        // initialized, SimpleBasePlayer will raise a timeline change callback with reason
+        // TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED.
+        invalidateState();
+        playlist = createPlaylist();
+      }
+
+      if (playbackState != STATE_IDLE) {
+        player.stop();
+        player.prepare();
       }
     } else {
-      player.setMediaSource(
-          createSecondarySequenceMediaSource(
-              newSequence,
-              mediaSourceFactory,
-              primarySequenceDurationUs,
-              shouldGenerateBlankFrames),
-          startPositionMs);
-    }
-
-    if (sequenceIndex == 0) {
-      // Invalidate the player state before initializing the playlist to force SimpleBasePlayer
-      // to collect a state while the playlist is null. Consequently, once the playlist is
-      // initialized, SimpleBasePlayer will raise a timeline change callback with reason
-      // TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED.
-      invalidateState();
-      playlist = createPlaylist();
-    }
-
-    if (playbackState != STATE_IDLE) {
-      player.stop();
-      player.prepare();
+      // Start from current position
+      checkNotNull(compositionPlayerInternal)
+          .setComposition(
+              newComposition, /* startPositionUs= */ msToUs(player.getCurrentPosition()));
     }
   }
 
@@ -1454,33 +1419,6 @@ public final class CompositionPlayer extends SimpleBasePlayer
       renderersFactory.setSequence(sequence);
       trackSelector.setSequence(sequence);
     }
-  }
-
-  /**
-   * Returns true if changes on the {@link Composition} level requires the players to be re
-   * prepared.
-   *
-   * <p>This method does not concern the changes in individual {@linkplain Composition#sequences
-   * sequences}.
-   */
-  private static boolean shouldRePreparePlayerForComposition(
-      @Nullable Composition oldComposition, Composition newComposition) {
-    if (oldComposition == null) {
-      return true;
-    }
-    if (!oldComposition.effects.audioProcessors.equals(newComposition.effects.audioProcessors)) {
-      return true;
-    }
-    if (!oldComposition.effects.videoEffects.equals(newComposition.effects.videoEffects)) {
-      return true;
-    }
-    if (!oldComposition.videoCompositorSettings.equals(newComposition.videoCompositorSettings)) {
-      return true;
-    }
-    if (oldComposition.hdrMode != newComposition.hdrMode) {
-      return true;
-    }
-    return false;
   }
 
   private static final class GapHandlingDecoderFactory implements ImageDecoder.Factory {

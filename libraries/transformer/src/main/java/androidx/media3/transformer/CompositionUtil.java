@@ -35,11 +35,12 @@ import com.google.common.collect.Iterables;
    *       {@code newSequence}.
    *   <li>Changes in {@link EditedMediaItem}:
    *       <ul>
+   *         <li>{@link EditedMediaItem#removeAudio} changed.
    *         <li>{@linkplain EditedMediaItem#effects Video effects} changed.
    *       </ul>
    * </ul>
    */
-  public static boolean shouldRePreparePlayerForSequence(
+  public static boolean shouldRePreparePlayer(
       @Nullable EditedMediaItemSequence oldSequence, EditedMediaItemSequence newSequence) {
     if (oldSequence == null) {
       return true;
@@ -62,10 +63,6 @@ import com.google.common.collect.Iterables;
       }
 
       if (oldEditedMediaItem.removeVideo != newEditedMediaItem.removeVideo) {
-        return true;
-      }
-
-      if (oldEditedMediaItem.removeAudio != newEditedMediaItem.removeAudio) {
         return true;
       }
 
