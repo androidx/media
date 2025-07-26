@@ -39,6 +39,6 @@ internal fun ShuffleButton(player: Player, modifier: Modifier = Modifier) {
       stringResource(R.string.shuffle_button_shuffle_off)
     }
   IconButton(onClick = state::onClick, modifier = modifier, enabled = state.isEnabled) {
-    Icon(icon, contentDescription = contentDescription, modifier = modifier)
+    Icon(icon, contentDescription = contentDescription)
   }
 }
