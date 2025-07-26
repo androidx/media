@@ -562,6 +562,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
    */
   protected MediaCodecVideoRenderer(Builder builder) {
     super(
+        builder.context.getApplicationContext(),
         C.TRACK_TYPE_VIDEO,
         builder.codecAdapterFactory,
         builder.mediaCodecSelector,
@@ -697,13 +698,13 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     // Check whether the first decoder supports the format. This is the preferred decoder for the
     // format's MIME type, according to the MediaCodecSelector.
     MediaCodecInfo decoderInfo = decoderInfos.get(0);
-    boolean isFormatSupported = decoderInfo.isFormatSupported(format);
+    boolean isFormatSupported = decoderInfo.isFormatSupported(context, format);
     boolean isPreferredDecoder = true;
     if (!isFormatSupported) {
       // Check whether any of the other decoders support the format.
       for (int i = 1; i < decoderInfos.size(); i++) {
         MediaCodecInfo otherDecoderInfo = decoderInfos.get(i);
-        if (otherDecoderInfo.isFormatSupported(format)) {
+        if (otherDecoderInfo.isFormatSupported(context, format)) {
           decoderInfo = otherDecoderInfo;
           isFormatSupported = true;
           isPreferredDecoder = false;
@@ -743,9 +744,10 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
               /* requiresTunnelingDecoder= */ true);
       if (!tunnelingDecoderInfos.isEmpty()) {
         MediaCodecInfo tunnelingDecoderInfo =
-            MediaCodecUtil.getDecoderInfosSortedByFormatSupport(tunnelingDecoderInfos, format)
+            MediaCodecUtil.getDecoderInfosSortedByFormatSupport(
+                context, tunnelingDecoderInfos, format)
                 .get(0);
-        if (tunnelingDecoderInfo.isFormatSupported(format)
+        if (tunnelingDecoderInfo.isFormatSupported(context, format)
             && tunnelingDecoderInfo.isSeamlessAdaptationSupported(format)) {
           tunnelingSupport = TUNNELING_SUPPORTED;
         }
@@ -764,7 +766,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   protected List<MediaCodecInfo> getDecoderInfos(
       MediaCodecSelector mediaCodecSelector, Format format, boolean requiresSecureDecoder)
       throws DecoderQueryException {
-    return MediaCodecUtil.getDecoderInfosSortedByFormatSupport(
+    return MediaCodecUtil.getDecoderInfosSortedByFormatSupport(context,
         getDecoderInfos(context, mediaCodecSelector, format, requiresSecureDecoder, tunneling),
         format);
   }
