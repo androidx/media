@@ -2467,7 +2467,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
             maskWindowPositionMsOrGetPeriodPositionUs(timeline, startWindowIndex, startPositionMs));
     // Mask the playback state.
     int maskingPlaybackState = newPlaybackInfo.playbackState;
-    if (startWindowIndex != C.INDEX_UNSET && newPlaybackInfo.playbackState != STATE_IDLE) {
+    if (startWindowIndex != C.INDEX_UNSET || newPlaybackInfo.playbackState != STATE_IDLE) {
       // Position reset to startWindowIndex (results in pending initial seek).
       if (timeline.isEmpty() || startWindowIndex >= timeline.getWindowCount()) {
         // Setting an empty timeline or invalid seek transitions to ended.
