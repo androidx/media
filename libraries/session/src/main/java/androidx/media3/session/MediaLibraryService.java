@@ -607,6 +607,24 @@ public abstract class MediaLibraryService extends MediaSessionService {
       }
 
       /**
+       * Sets whether to opt into the System UI playback resumption. If this is set to {@code true},
+       * {@link MediaSession.Callback#onPlaybackResumption(MediaSession, ControllerInfo, boolean)}
+       * must be implemented.
+       *
+       * <p>The default is {@code null}.
+       *
+       * @param systemUiPlaybackResumptionOptIn Whether to opt into System UI playback resumption
+       *     notification, or {@code null} to determine based on the presence of a {@link
+       *     MediaButtonReceiver} in the manifest.
+       */
+      @UnstableApi
+      @Override
+      public Builder setSystemUiPlaybackResumptionOptIn(
+          @Nullable Boolean systemUiPlaybackResumptionOptIn) {
+        return super.setSystemUiPlaybackResumptionOptIn(systemUiPlaybackResumptionOptIn);
+      }
+
+      /**
        * Sets whether a play button is shown if playback is {@linkplain
        * Player#getPlaybackSuppressionReason() suppressed}.
        *
@@ -705,7 +723,8 @@ public abstract class MediaLibraryService extends MediaSessionService {
             checkNotNull(bitmapLoader),
             playIfSuppressed,
             isPeriodicPositionUpdateEnabled,
-            libraryErrorReplicationMode);
+            libraryErrorReplicationMode,
+            systemUiPlaybackResumptionOptIn);
       }
     }
 
@@ -723,7 +742,8 @@ public abstract class MediaLibraryService extends MediaSessionService {
         BitmapLoader bitmapLoader,
         boolean playIfSuppressed,
         boolean isPeriodicPositionUpdateEnabled,
-        @LibraryErrorReplicationMode int libraryErrorReplicationMode) {
+        @LibraryErrorReplicationMode int libraryErrorReplicationMode,
+        @Nullable Boolean systemUiPlaybackResumptionOptIn) {
       super(
           context,
           id,
@@ -738,7 +758,8 @@ public abstract class MediaLibraryService extends MediaSessionService {
           bitmapLoader,
           playIfSuppressed,
           isPeriodicPositionUpdateEnabled,
-          libraryErrorReplicationMode);
+          libraryErrorReplicationMode,
+          systemUiPlaybackResumptionOptIn);
     }
 
     @Override
@@ -756,7 +777,8 @@ public abstract class MediaLibraryService extends MediaSessionService {
         BitmapLoader bitmapLoader,
         boolean playIfSuppressed,
         boolean isPeriodicPositionUpdateEnabled,
-        @LibraryErrorReplicationMode int libraryErrorReplicationMode) {
+        @LibraryErrorReplicationMode int libraryErrorReplicationMode,
+        @Nullable Boolean systemUiPlaybackResumptionOptIn) {
       return new MediaLibrarySessionImpl(
           this,
           context,
@@ -772,7 +794,8 @@ public abstract class MediaLibraryService extends MediaSessionService {
           bitmapLoader,
           playIfSuppressed,
           isPeriodicPositionUpdateEnabled,
-          libraryErrorReplicationMode);
+          libraryErrorReplicationMode,
+          systemUiPlaybackResumptionOptIn);
     }
 
     @Override
