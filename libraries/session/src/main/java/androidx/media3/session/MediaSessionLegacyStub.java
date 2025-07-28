@@ -1738,7 +1738,10 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       int playbackType = sessionImpl.getPlayerWrapper().getDeviceInfo().playbackType;
       if (playbackType == DeviceInfo.PLAYBACK_TYPE_LOCAL) {
         postOrRunForCompatSession(
-            () -> sessionCompat.setPlaybackToLocal(audioAttributes.getStreamType()));
+            () -> {
+              sessionCompat.setPlaybackToLocal(audioAttributes.getStreamType());
+              sessionImpl.onNotificationRefreshRequired();
+            });
       }
     }
 
@@ -1748,9 +1751,15 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       volumeProviderCompat = createVolumeProviderCompat(player);
       if (volumeProviderCompat == null) {
         int streamType = player.getAudioAttributesWithCommandCheck().getStreamType();
-        postOrRunForCompatSession(() -> sessionCompat.setPlaybackToLocal(streamType));
+        postOrRunForCompatSession(() -> {
+          sessionCompat.setPlaybackToLocal(streamType);
+          sessionImpl.onNotificationRefreshRequired();
+        });
       } else {
-        postOrRunForCompatSession(() -> sessionCompat.setPlaybackToRemote(volumeProviderCompat));
+        postOrRunForCompatSession(() -> {
+          sessionCompat.setPlaybackToRemote(volumeProviderCompat);
+          sessionImpl.onNotificationRefreshRequired();
+        });
       }
     }
 
