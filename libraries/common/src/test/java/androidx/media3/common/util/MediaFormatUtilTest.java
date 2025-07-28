@@ -17,6 +17,7 @@ package androidx.media3.common.util;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import android.media.AudioFormat;
 import android.media.MediaFormat;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
@@ -179,6 +180,8 @@ public class MediaFormatUtilTest {
     assertThat(mediaFormat.getInteger(MediaFormat.KEY_BIT_RATE)).isEqualTo(format.bitrate);
     assertThat(mediaFormat.getInteger(MediaFormat.KEY_CHANNEL_COUNT))
         .isEqualTo(format.channelCount);
+    assertThat(mediaFormat.getInteger(MediaFormat.KEY_CHANNEL_MASK))
+        .isEqualTo(AudioFormat.CHANNEL_OUT_STEREO);
 
     ColorInfo colorInfo = Assertions.checkNotNull(format.colorInfo);
     assertThat(mediaFormat.getInteger(MediaFormat.KEY_COLOR_TRANSFER))

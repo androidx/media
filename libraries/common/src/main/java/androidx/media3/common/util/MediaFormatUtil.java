@@ -151,6 +151,10 @@ public final class MediaFormatUtil {
     maybeSetInteger(result, MediaFormat.KEY_BIT_RATE, format.bitrate);
     maybeSetInteger(result, KEY_MAX_BIT_RATE, format.peakBitrate);
     maybeSetInteger(result, MediaFormat.KEY_CHANNEL_COUNT, format.channelCount);
+    int channelMask = Util.getAudioTrackChannelConfig(format.channelCount);
+    if (channelMask != AudioFormat.CHANNEL_INVALID) {
+      result.setInteger(MediaFormat.KEY_CHANNEL_MASK, channelMask);
+    }
 
     maybeSetColorInfo(result, format.colorInfo);
 
