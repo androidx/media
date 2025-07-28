@@ -27,7 +27,6 @@ import static java.lang.Math.min;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.os.Bundle;
-import android.os.RemoteException;
 import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
@@ -358,19 +357,6 @@ import java.util.concurrent.Future;
     MediaLibraryServiceLegacyStub stub = new MediaLibraryServiceLegacyStub(this);
     stub.initialize(compatToken);
     return stub;
-  }
-
-  @Override
-  protected void dispatchRemoteControllerTaskWithoutReturn(RemoteControllerTask task) {
-    super.dispatchRemoteControllerTaskWithoutReturn(task);
-    @Nullable MediaLibraryServiceLegacyStub legacyStub = getLegacyBrowserService();
-    if (legacyStub != null) {
-      try {
-        task.run(legacyStub.getBrowserLegacyCbForBroadcast(), /* seq= */ 0);
-      } catch (RemoteException e) {
-        Log.e(TAG, "Exception in using media1 API", e);
-      }
-    }
   }
 
   private void maybeUpdateLegacyErrorState(ControllerInfo browser, LibraryResult<?> result) {
