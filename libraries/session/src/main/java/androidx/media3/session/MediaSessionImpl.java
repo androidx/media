@@ -547,7 +547,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       postOrRunOnApplicationHandler(
           () -> {
             sessionLegacyStub.setPlatformCustomLayout(customLayout);
-            sessionLegacyStub.updateLegacySessionPlaybackState(playerWrapper);
+            sessionLegacyStub.updateLegacySessionPlaybackState(playerWrapper, true);
           });
     }
     return dispatchRemoteControllerTask(
@@ -578,7 +578,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       postOrRunOnApplicationHandler(
           () -> {
             sessionLegacyStub.setPlatformMediaButtonPreferences(mediaButtonPreferences);
-            sessionLegacyStub.updateLegacySessionPlaybackState(playerWrapper);
+            sessionLegacyStub.updateLegacySessionPlaybackState(playerWrapper, true);
           });
     }
     return dispatchRemoteControllerTask(
