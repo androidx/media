@@ -449,20 +449,6 @@ import java.util.concurrent.TimeoutException;
     }
 
     @Override
-    public void onMediaButtonPreferencesChanged(
-        MediaController controller, List<CommandButton> mediaButtonPreferences) {
-      mediaSessionService.onUpdateNotificationInternal(
-          session, /* startInForegroundWhenPaused= */ false);
-    }
-
-    @Override
-    public void onAvailableSessionCommandsChanged(
-        MediaController controller, SessionCommands commands) {
-      mediaSessionService.onUpdateNotificationInternal(
-          session, /* startInForegroundWhenPaused= */ false);
-    }
-
-    @Override
     public ListenableFuture<SessionResult> onCustomCommand(
         MediaController controller, SessionCommand command, Bundle args) {
       @SessionResult.Code int resultCode = SessionError.ERROR_NOT_SUPPORTED;
@@ -481,20 +467,6 @@ import java.util.concurrent.TimeoutException;
       // We may need to hide the notification.
       mediaSessionService.onUpdateNotificationInternal(
           session, /* startInForegroundWhenPaused= */ false);
-    }
-
-    @Override
-    public void onEvents(Player player, Player.Events events) {
-      // We must limit the frequency of notification updates, otherwise the system may suppress
-      // them.
-      if (events.containsAny(
-          Player.EVENT_PLAYBACK_STATE_CHANGED,
-          Player.EVENT_PLAY_WHEN_READY_CHANGED,
-          Player.EVENT_MEDIA_METADATA_CHANGED,
-          Player.EVENT_TIMELINE_CHANGED)) {
-        mediaSessionService.onUpdateNotificationInternal(
-            session, /* startInForegroundWhenPaused= */ false);
-      }
     }
   }
 
