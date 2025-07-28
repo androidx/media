@@ -499,7 +499,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       ControllerInfo controller, ImmutableList<CommandButton> customLayout) {
     if (isMediaNotificationController(controller)) {
       sessionLegacyStub.setPlatformCustomLayout(customLayout);
-      sessionLegacyStub.updateLegacySessionPlaybackState(playerWrapper);
+      sessionLegacyStub.updateLegacySessionPlaybackState(playerWrapper, true);
     }
     return dispatchRemoteControllerTask(
         controller, (controller1, seq) -> controller1.setCustomLayout(seq, customLayout));
@@ -524,7 +524,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       ControllerInfo controller, ImmutableList<CommandButton> mediaButtonPreferences) {
     if (isMediaNotificationController(controller)) {
       sessionLegacyStub.setPlatformMediaButtonPreferences(mediaButtonPreferences);
-      sessionLegacyStub.updateLegacySessionPlaybackState(playerWrapper);
+      sessionLegacyStub.updateLegacySessionPlaybackState(playerWrapper, true);
     }
     return dispatchRemoteControllerTask(
         controller,
