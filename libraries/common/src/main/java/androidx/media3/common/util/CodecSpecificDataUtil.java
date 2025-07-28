@@ -107,19 +107,20 @@ public final class CodecSpecificDataUtil {
    * href="https://aomediacodec.github.io/iamf/#codecsparameter">IAMF Codec Parameters String</a>
    * specification.
    */
+  @Nullable
   public static String buildIamfCodecString(byte[] initializationData) {
     ParsableByteArray parsableByteArray = new ParsableByteArray(initializationData);
-    parsableByteArray.skipLeb128(); // configOBUs_size
+    if (!skipObuHeader(parsableByteArray, /* expectedObuType= */ 0x1F)) { // OBU_IA_Sequence_Header
+      return null;
+    }
     // IASequenceHeaderOBU
     parsableByteArray.skipBytes(4); // ia_code (4 bytes)
     int primaryProfile = parsableByteArray.readUnsignedByte(); // primary_profile (1 byte)
     int additionalProfile = parsableByteArray.readUnsignedByte(); // additional_profile (1 byte)
 
-    // OBUHeader
-    // obu_type (5 bits) + obu_redundant_copy (1 bit) + obu_trimming_status_flag  (1 bit) +
-    // obu_extension_flag (1 bit)
-    parsableByteArray.skipBytes(1);
-    parsableByteArray.skipLeb128(); // obu_size
+    if (!skipObuHeader(parsableByteArray, /* expectedObuType= */ 0x00)) { // OBU_IA_Codec_Config
+      return null;
+    }
 
     // CodecConfigOBU
     parsableByteArray.skipLeb128(); // codec_config_id
@@ -139,6 +140,18 @@ public final class CodecSpecificDataUtil {
       codecId += ".40." + audioObjectType;
     }
     return Util.formatInvariant("iamf.%03X.%03X.%s", primaryProfile, additionalProfile, codecId);
+  }
+
+  private static boolean skipObuHeader(ParsableByteArray parsableByteArray, int expectedObuType) {
+    // OBUHeader
+    // obu_type (5 bits) + obu_redundant_copy (1 bit) + obu_trimming_status_flag  (1 bit) +
+    // obu_extension_flag (1 bit)
+    int obuHeaderByte = parsableByteArray.readUnsignedByte();
+    if (obuHeaderByte >> 3 != expectedObuType) {
+      return false;
+    }
+    parsableByteArray.skipLeb128(); // obu_size
+    return true;
   }
 
   /**
