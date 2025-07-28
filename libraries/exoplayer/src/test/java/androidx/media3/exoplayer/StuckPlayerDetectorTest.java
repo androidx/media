@@ -31,6 +31,7 @@ import androidx.media3.common.util.Clock;
 import androidx.media3.test.utils.FakeClock;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -52,6 +53,11 @@ public final class StuckPlayerDetectorTest {
     clock = new FakeClock(/* initialTimeMs= */ 0);
     player = new TestPlayer(clock);
     detector = new StuckPlayerDetector(player, callback, clock, TEST_STUCK_BUFFERING_TIMEOUT_MS);
+  }
+
+  @After
+  public void tearDown() {
+    detector.release();
   }
 
   @Test
@@ -104,6 +110,52 @@ public final class StuckPlayerDetectorTest {
             // Do something else too so that the player gets an update.
             .setNewlyRenderedFirstFrame(true)
             .build());
+    advanceTimeAndIdleMainLooper(clock, TEST_STUCK_BUFFERING_TIMEOUT_MS);
+
+    verify(callback)
+        .onStuckPlayerDetected(
+            new StuckPlayerException(StuckPlayerException.STUCK_BUFFERING_NO_PROGRESS));
+  }
+
+  @Test
+  public void stuckBufferingDetection_bufferingWithProgressInOtherPeriod_doesNotTriggerTimeout() {
+    player.setState(
+        player
+            .buildUponState()
+            .setPlaybackState(Player.STATE_BUFFERING)
+            .setPlayWhenReady(true, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
+            .setPlaylist(
+                ImmutableList.of(
+                    new SimpleBasePlayer.MediaItemData.Builder("uid1").build(),
+                    new SimpleBasePlayer.MediaItemData.Builder("uid2").build()))
+            .setContentPositionMs(getConstant(500))
+            .setContentBufferedPositionMs(getConstant(1000))
+            .setTotalBufferedDurationMs(getConstant(2000))
+            .build());
+
+    advanceTimeAndIdleMainLooper(clock, TEST_STUCK_BUFFERING_TIMEOUT_MS / 2);
+    player.setState(player.buildUponState().setTotalBufferedDurationMs(getConstant(2500)).build());
+    advanceTimeAndIdleMainLooper(clock, TEST_STUCK_BUFFERING_TIMEOUT_MS / 2);
+
+    verify(callback, never()).onStuckPlayerDetected(any());
+  }
+
+  @Test
+  public void stuckBufferingDetection_stuckInBufferWithoutProgressInOtherPeriod_triggersTimeout() {
+    player.setState(
+        player
+            .buildUponState()
+            .setPlaybackState(Player.STATE_BUFFERING)
+            .setPlayWhenReady(true, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
+            .setPlaylist(
+                ImmutableList.of(
+                    new SimpleBasePlayer.MediaItemData.Builder("uid1").build(),
+                    new SimpleBasePlayer.MediaItemData.Builder("uid2").build()))
+            .setContentPositionMs(getConstant(500))
+            .setContentBufferedPositionMs(getConstant(1000))
+            .setTotalBufferedDurationMs(getConstant(2000))
+            .build());
+
     advanceTimeAndIdleMainLooper(clock, TEST_STUCK_BUFFERING_TIMEOUT_MS);
 
     verify(callback)
@@ -298,7 +350,7 @@ public final class StuckPlayerDetectorTest {
   @Test
   public void stuckBufferingDetection_customTimeout_isRespected() {
     int customTimeoutMs = TEST_STUCK_BUFFERING_TIMEOUT_MS / 2;
-    detector = new StuckPlayerDetector(player, callback, clock, customTimeoutMs);
+    configureDetectorWithCustomBufferingTimeoutMs(customTimeoutMs);
     player.setState(
         player
             .buildUponState()
@@ -370,6 +422,11 @@ public final class StuckPlayerDetectorTest {
     protected State getState() {
       return state;
     }
+  }
+
+  private void configureDetectorWithCustomBufferingTimeoutMs(int customTimeoutMs) {
+    detector.release();
+    detector = new StuckPlayerDetector(player, callback, clock, customTimeoutMs);
   }
 
   private static void advanceTimeAndIdleMainLooper(FakeClock clock, long timeMs) {

@@ -15,9 +15,12 @@
  */
 package androidx.media3.exoplayer;
 
+import static java.lang.Math.max;
+
 import android.os.Handler;
 import android.os.Message;
 import androidx.annotation.Nullable;
+import androidx.media3.common.C;
 import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.Clock;
@@ -99,6 +102,7 @@ import java.util.Objects;
     private int adGroupIndex;
     private int adIndexInAdGroup;
     private long bufferedPositionInPeriodMs;
+    private long bufferedDurationInOtherPeriodsMs;
     private boolean isBuffering;
     private long startRealtimeMs;
 
@@ -124,7 +128,11 @@ import java.util.Objects;
       int adGroupIndex = player.getCurrentAdGroupIndex();
       int adIndexInAdGroup = player.getCurrentAdIndexInAdGroup();
       long bufferedPositionInPeriodMs = player.getBufferedPosition();
-      if (periodUid != null) {
+      long bufferedDurationInPeriodMs =
+          max(0, bufferedPositionInPeriodMs - player.getCurrentPosition());
+      long bufferedDurationInOtherPeriodsMs =
+          max(0, player.getTotalBufferedDuration() - bufferedDurationInPeriodMs);
+      if (periodUid != null && adGroupIndex == C.INDEX_UNSET) {
         bufferedPositionInPeriodMs -=
             timeline.getPeriodByUid(periodUid, period).getPositionInWindowMs();
       }
@@ -133,7 +141,8 @@ import java.util.Objects;
           && Objects.equals(periodUid, this.periodUid)
           && adGroupIndex == this.adGroupIndex
           && adIndexInAdGroup == this.adIndexInAdGroup
-          && bufferedPositionInPeriodMs == this.bufferedPositionInPeriodMs) {
+          && bufferedPositionInPeriodMs == this.bufferedPositionInPeriodMs
+          && bufferedDurationInOtherPeriodsMs == this.bufferedDurationInOtherPeriodsMs) {
         // Still the same state, keep current timeout.
         if (nowRealtimeMs - startRealtimeMs >= stuckBufferingTimeoutMs) {
           callback.onStuckPlayerDetected(
@@ -147,6 +156,7 @@ import java.util.Objects;
         this.adGroupIndex = adGroupIndex;
         this.adIndexInAdGroup = adIndexInAdGroup;
         this.bufferedPositionInPeriodMs = bufferedPositionInPeriodMs;
+        this.bufferedDurationInOtherPeriodsMs = bufferedDurationInOtherPeriodsMs;
         handler.removeMessages(MSG_STUCK_BUFFERING_TIMEOUT);
         handler.sendEmptyMessageDelayed(MSG_STUCK_BUFFERING_TIMEOUT, stuckBufferingTimeoutMs);
       }
