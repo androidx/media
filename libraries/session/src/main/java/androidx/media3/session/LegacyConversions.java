@@ -1588,8 +1588,7 @@ import java.util.concurrent.TimeoutException;
 
   /** Converts {@link MediaControllerCompat.PlaybackInfo} to {@link DeviceInfo}. */
   public static DeviceInfo convertToDeviceInfo(
-      @Nullable MediaControllerCompat.PlaybackInfo playbackInfoCompat,
-      @Nullable String routingControllerId) {
+      @Nullable MediaControllerCompat.PlaybackInfo playbackInfoCompat) {
     if (playbackInfoCompat == null) {
       return DeviceInfo.UNKNOWN;
     }
@@ -1599,7 +1598,7 @@ import java.util.concurrent.TimeoutException;
                 ? DeviceInfo.PLAYBACK_TYPE_REMOTE
                 : DeviceInfo.PLAYBACK_TYPE_LOCAL)
         .setMaxVolume(playbackInfoCompat.getMaxVolume())
-        .setRoutingControllerId(routingControllerId)
+        .setRoutingControllerId(playbackInfoCompat.getVolumeControlId())
         .build();
   }
 

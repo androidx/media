@@ -77,6 +77,9 @@
     *   Add a `Context` parameter to
         `MediaButtonReceiver.onForegroundServiceStartNotAllowedException`
         ([#2625](https://github.com/androidx/media/pull/2625)).
+    *   Read the volume control ID from the platform `PlaybackInfo` instead of
+        fetching it via binder. This ensures that playback type and volume
+        control ID are read atomically and do match to each other.
 *   UI:
     *   Add `ProgressStateWithTickInterval` class and the corresponding
         `rememberProgressStateWithTickInterval` Composable to

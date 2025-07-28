@@ -15,8 +15,10 @@
  */
 package androidx.media3.session.legacy;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.annotation.RestrictTo.Scope.LIBRARY;
 import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.session.legacy.MediaControllerCompat.PlaybackInfo.PLAYBACK_TYPE_LOCAL;
 
 import android.app.PendingIntent;
 import android.content.Context;
@@ -43,6 +45,7 @@ import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
 import androidx.media3.common.AudioAttributes;
+import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.session.legacy.MediaSessionCompat.QueueItem;
 import androidx.media3.session.legacy.PlaybackStateCompat.CustomAction;
@@ -782,13 +785,17 @@ public final class MediaControllerCompat {
       public void onAudioInfoChanged(@Nullable MediaController.PlaybackInfo info) {
         MediaControllerCompat.Callback callback = this.callback.get();
         if (callback != null && info != null) {
+          int playbackType = info.getPlaybackType();
+          String volumeControlId = SDK_INT >= 30 ? info.getVolumeControlId() : null;
+          Assertions.checkArgument(playbackType != PLAYBACK_TYPE_LOCAL || volumeControlId == null);
           callback.onAudioInfoChanged(
               new PlaybackInfo(
-                  info.getPlaybackType(),
+                  playbackType,
                   AudioAttributes.fromPlatformAudioAttributes(info.getAudioAttributes()),
                   info.getVolumeControl(),
                   info.getMaxVolume(),
-                  info.getCurrentVolume()));
+                  info.getCurrentVolume(),
+                  volumeControlId));
         }
       }
     }
@@ -1140,13 +1147,21 @@ public final class MediaControllerCompat {
     private final int volumeControl;
     private final int maxVolume;
     private final int currentVolume;
+    @Nullable private final String volumeControlId;
 
-    PlaybackInfo(int type, AudioAttributes audioAttributes, int control, int max, int current) {
+    PlaybackInfo(
+        int type,
+        AudioAttributes audioAttributes,
+        int control,
+        int max,
+        int current,
+        @Nullable String volumeControlId) {
       playbackType = type;
       this.audioAttributes = audioAttributes;
       volumeControl = control;
       maxVolume = max;
       currentVolume = current;
+      this.volumeControlId = volumeControlId;
     }
 
     /**
@@ -1205,6 +1220,15 @@ public final class MediaControllerCompat {
      */
     public int getCurrentVolume() {
       return currentVolume;
+    }
+
+    /**
+     * Get the routing controller ID for this session. Returns null if unset, or if {@link
+     * #getPlaybackType()} is {@link #PLAYBACK_TYPE_LOCAL}.
+     */
+    @Nullable
+    public String getVolumeControlId() {
+      return volumeControlId;
     }
   }
 
@@ -1513,7 +1537,8 @@ public final class MediaControllerCompat {
               AudioAttributes.fromPlatformAudioAttributes(volumeInfoFwk.getAudioAttributes()),
               volumeInfoFwk.getVolumeControl(),
               volumeInfoFwk.getMaxVolume(),
-              volumeInfoFwk.getCurrentVolume())
+              volumeInfoFwk.getCurrentVolume(),
+              SDK_INT >= 30 ? volumeInfoFwk.getVolumeControlId() : null)
           : null;
     }
 
