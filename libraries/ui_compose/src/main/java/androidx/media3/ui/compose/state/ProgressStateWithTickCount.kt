@@ -113,7 +113,10 @@ class ProgressStateWithTickCount(
       player,
       scope,
       nextMediaTickMsSupplier = ::nextMediaWakeUpPositionMs,
-      shouldScheduleTask = { canCalculateTicks(totalTickCount, getDurationMsOrDefault(player)) },
+      shouldScheduleTask = {
+        isReadyOrBuffering(player) &&
+          canCalculateTicks(totalTickCount, getDurationMsOrDefault(player))
+      },
       scheduledTask = ::updateProgress,
     )
 
