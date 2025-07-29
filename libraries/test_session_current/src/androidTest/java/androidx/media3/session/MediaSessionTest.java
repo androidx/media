@@ -867,10 +867,9 @@ public class MediaSessionTest {
   }
 
   @Test
-  public void onMediaButtonEvent_invalidKeyEvent_returnsFalse() {
+  public void onMediaButtonEvent_keyEventIsNull_returnsFalse() {
     Intent intent = getMediaButtonIntent(KEYCODE_MEDIA_PLAY);
     intent.removeExtra(Intent.EXTRA_KEY_EVENT);
-    intent.putExtra(Intent.EXTRA_KEY_EVENT, new KeyEvent(KeyEvent.ACTION_UP, KEYCODE_MEDIA_PAUSE));
 
     boolean isEventHandled =
         session.getImpl().onMediaButtonEvent(createMediaButtonCaller(), intent);
@@ -879,7 +878,7 @@ public class MediaSessionTest {
   }
 
   @Test
-  public void onMediaButtonEvent_invalidKeyEvent_mediaNotificationControllerConnected_returnsFalse()
+  public void onMediaButtonEvent_keyEventIsNull_mediaNotificationControllerConnected_returnsFalse()
       throws Exception {
     Bundle connectionHints = new Bundle();
     connectionHints.putBoolean(MediaController.KEY_MEDIA_NOTIFICATION_CONTROLLER_FLAG, true);
@@ -889,7 +888,6 @@ public class MediaSessionTest {
         .get();
     Intent intent = getMediaButtonIntent(KEYCODE_MEDIA_PLAY);
     intent.removeExtra(Intent.EXTRA_KEY_EVENT);
-    intent.putExtra(Intent.EXTRA_KEY_EVENT, new KeyEvent(KeyEvent.ACTION_UP, KEYCODE_MEDIA_PAUSE));
 
     boolean isEventHandled =
         session.getImpl().onMediaButtonEvent(createMediaButtonCaller(), intent);

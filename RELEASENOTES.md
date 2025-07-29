@@ -83,6 +83,10 @@
     *   Read the volume control ID from the platform `PlaybackInfo` instead of
         fetching it via binder. This ensures that playback type and volume
         control ID are read atomically and do match to each other.
+    *   Fix bug where `ACTION_UP` key events were filtered out before passing
+        them to the callback for custom handling. This brings parity with what
+        media1 did and the platform does
+        ([#2637](https://github.com/androidx/media/issues/2637)).
 *   UI:
     *   Add `ProgressStateWithTickInterval` class and the corresponding
         `rememberProgressStateWithTickInterval` Composable to

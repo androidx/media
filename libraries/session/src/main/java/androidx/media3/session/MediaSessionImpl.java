@@ -1413,8 +1413,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     if (!Objects.equals(intent.getAction(), Intent.ACTION_MEDIA_BUTTON)
         || (intentComponent != null
             && !Objects.equals(intentComponent.getPackageName(), context.getPackageName()))
-        || keyEvent == null
-        || keyEvent.getAction() != KeyEvent.ACTION_DOWN) {
+        || keyEvent == null) {
       return false;
     }
 
@@ -1423,6 +1422,27 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       // Event handled by app callback.
       return true;
     }
+
+    if (keyEvent.getAction() != KeyEvent.ACTION_DOWN) {
+      switch (keyEvent.getKeyCode()) {
+        case KEYCODE_MEDIA_PLAY_PAUSE:
+        case KEYCODE_MEDIA_PLAY:
+        case KEYCODE_MEDIA_PAUSE:
+        case KEYCODE_MEDIA_NEXT:
+        case KEYCODE_MEDIA_SKIP_FORWARD:
+        case KEYCODE_MEDIA_PREVIOUS:
+        case KEYCODE_MEDIA_SKIP_BACKWARD:
+        case KEYCODE_MEDIA_FAST_FORWARD:
+        case KEYCODE_MEDIA_REWIND:
+        case KEYCODE_MEDIA_STOP:
+          // The default implementation is handling action down of these key codes. Signal to handle
+          // corresponding non-down actions as well.
+          return true;
+        default:
+          return false;
+      }
+    }
+
     // Double tap detection.
     int keyCode = keyEvent.getKeyCode();
     boolean isTvApp = context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK);
@@ -1471,7 +1491,8 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     boolean isDismissNotificationEvent =
         intent.getBooleanExtra(
             MediaNotification.NOTIFICATION_DISMISSED_EVENT_KEY, /* defaultValue= */ false);
-    return applyMediaButtonKeyEvent(keyEvent, doubleTapCompleted, isDismissNotificationEvent);
+    return keyEvent.getRepeatCount() > 0
+        || applyMediaButtonKeyEvent(keyEvent, doubleTapCompleted, isDismissNotificationEvent);
   }
 
   private boolean applyMediaButtonKeyEvent(
@@ -1496,12 +1517,12 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       case KEYCODE_MEDIA_PAUSE:
         command = () -> sessionStub.pauseForControllerInfo(controllerInfo, UNKNOWN_SEQUENCE_NUMBER);
         break;
-      case KEYCODE_MEDIA_NEXT: // Fall through.
+      case KEYCODE_MEDIA_NEXT:
       case KEYCODE_MEDIA_SKIP_FORWARD:
         command =
             () -> sessionStub.seekToNextForControllerInfo(controllerInfo, UNKNOWN_SEQUENCE_NUMBER);
         break;
-      case KEYCODE_MEDIA_PREVIOUS: // Fall through.
+      case KEYCODE_MEDIA_PREVIOUS:
       case KEYCODE_MEDIA_SKIP_BACKWARD:
         command =
             () ->
