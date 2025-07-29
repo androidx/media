@@ -687,8 +687,9 @@ public final class DashPlaybackTest {
 
     player.setMediaItem(MediaItem.fromUri("asset:///media/dash/thumbnails/sample.mpd"));
     player.prepare();
+    advance(player).untilState(Player.STATE_READY);
     player.play();
-    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+    advance(player).untilState(Player.STATE_ENDED);
     player.release();
 
     DumpFileAsserts.assertOutput(
@@ -709,11 +710,15 @@ public final class DashPlaybackTest {
     player.setMediaItem(MediaItem.fromUri("asset:///media/dash/thumbnails/sample.mpd"));
     player.seekTo(55_000L);
     player.prepare();
+    advance(player).untilState(Player.STATE_READY);
     player.play();
     TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
 
+    player.pause();
     player.seekTo(55_000L);
-    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+    advance(player).untilState(Player.STATE_READY);
+    player.play();
+    advance(player).untilState(Player.STATE_ENDED);
     player.release();
 
     DumpFileAsserts.assertOutput(

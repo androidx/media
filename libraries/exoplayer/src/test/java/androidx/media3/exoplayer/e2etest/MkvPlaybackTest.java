@@ -83,7 +83,7 @@ public final class MkvPlaybackTest {
 
     player.setMediaItem(MediaItem.fromUri("asset:///media/mkv/" + inputFile));
     player.prepare();
-    advance(player).untilFullyBuffered();
+    advance(player).untilState(Player.STATE_READY);
     player.play();
     advance(player).untilState(Player.STATE_ENDED);
     player.release();
