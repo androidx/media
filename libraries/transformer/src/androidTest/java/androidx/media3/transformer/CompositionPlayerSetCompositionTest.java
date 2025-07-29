@@ -315,6 +315,42 @@ public class CompositionPlayerSetCompositionTest {
   }
 
   @Test
+  public void setComposition_twiceAndSettingVideoFrameMetadataListenerAfter_playbackCompletes()
+      throws Exception {
+    EditedMediaItem fullMediaItem =
+        createEditedMediaItemWithClippingConfiguration(MP4_ASSET, ClippingConfiguration.UNSET);
+    AtomicBoolean firstTimelineUpdated = new AtomicBoolean();
+    AtomicBoolean videoFrameMetadataListenerCalled = new AtomicBoolean();
+
+    instrumentation.runOnMainSync(
+        () -> {
+          compositionPlayer = new CompositionPlayer.Builder(context).build();
+          compositionPlayer.setVideoSurfaceView(surfaceView);
+          compositionPlayer.addListener(playerTestListener);
+          compositionPlayer.addListener(
+              new Player.Listener() {
+                @Override
+                public void onTimelineChanged(Timeline timeline, int reason) {
+                  if (firstTimelineUpdated.compareAndSet(false, true)) {
+                    compositionPlayer.setComposition(
+                        createSingleSequenceComposition(fullMediaItem));
+                    compositionPlayer.play();
+                  }
+                }
+              });
+          compositionPlayer.setComposition(createSingleSequenceComposition(fullMediaItem));
+          compositionPlayer.setVideoFrameMetadataListener(
+              (presentationTimeUs, releaseTimeNs, format, mediaFormat) -> {
+                videoFrameMetadataListenerCalled.set(true);
+              });
+          compositionPlayer.prepare();
+        });
+
+    playerTestListener.waitUntilPlayerEnded();
+    assertThat(videoFrameMetadataListenerCalled.get()).isTrue();
+  }
+
+  @Test
   public void setComposition_withStartPosition_playbackStartsFromSetPosition() throws Exception {
     assertThat(
             getFirstVideoFrameTimestampUsWithStartPosition(

@@ -394,7 +394,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
   private @MonotonicNonNull Size videoOutputSize;
   private @MonotonicNonNull PlaybackVideoGraphWrapper playbackVideoGraphWrapper;
   private @MonotonicNonNull PlaybackAudioGraphWrapper playbackAudioGraphWrapper;
-  private @MonotonicNonNull VideoFrameMetadataListener pendingVideoFrameMetadataListener;
+  private @MonotonicNonNull VideoFrameMetadataListener videoFrameMetadataListener;
 
   private long compositionDurationUs;
   private boolean playWhenReady;
@@ -746,8 +746,8 @@ public final class CompositionPlayer extends SimpleBasePlayer
 
   /** Sets the {@link VideoFrameMetadataListener}. */
   public void setVideoFrameMetadataListener(VideoFrameMetadataListener videoFrameMetadataListener) {
+    this.videoFrameMetadataListener = videoFrameMetadataListener;
     if (playerHolders.isEmpty()) {
-      pendingVideoFrameMetadataListener = videoFrameMetadataListener;
       return;
     }
     playerHolders.get(0).player.setVideoFrameMetadataListener(videoFrameMetadataListener);
@@ -945,8 +945,8 @@ public final class CompositionPlayer extends SimpleBasePlayer
       player.setMediaSource(
           createPrimarySequenceMediaSource(sequence, mediaSourceFactory, shouldGenerateBlankFrames),
           startPositionMs);
-      if (pendingVideoFrameMetadataListener != null) {
-        player.setVideoFrameMetadataListener(pendingVideoFrameMetadataListener);
+      if (videoFrameMetadataListener != null) {
+        player.setVideoFrameMetadataListener(videoFrameMetadataListener);
       }
     } else {
       player.setMediaSource(
