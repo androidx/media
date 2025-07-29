@@ -46,7 +46,7 @@ public class ForwardingPlayerTest {
 
   @Test
   public void addListener_addsForwardingListener_toEqualityBasedPlayer() {
-    EqualityBasedFakePlayer player = new EqualityBasedFakePlayer();
+    EqualityBasedRelaxedFakePlayer player = new EqualityBasedRelaxedFakePlayer();
     Player.Listener listener1 = new AllIsEqualPlayerListener();
     Player.Listener listener2 = new AllIsEqualPlayerListener();
 
@@ -62,7 +62,7 @@ public class ForwardingPlayerTest {
 
   @Test
   public void removeListener_removesForwardingListener_toEqualityBasedPlayer() {
-    EqualityBasedFakePlayer player = new EqualityBasedFakePlayer();
+    EqualityBasedRelaxedFakePlayer player = new EqualityBasedRelaxedFakePlayer();
     Player.Listener listener1 = new AllIsEqualPlayerListener();
     Player.Listener listener2 = new AllIsEqualPlayerListener();
 
@@ -82,7 +82,7 @@ public class ForwardingPlayerTest {
 
   @Test
   public void addListener_addsForwardingListener_toIdentityBasedPlayer() {
-    IdentityBasedFakePlayer player = new IdentityBasedFakePlayer();
+    IdentityBasedStrictFakePlayer player = new IdentityBasedStrictFakePlayer();
     Player.Listener listener1 = new AllIsEqualPlayerListener();
     Player.Listener listener2 = new AllIsEqualPlayerListener();
 
@@ -98,7 +98,7 @@ public class ForwardingPlayerTest {
 
   @Test
   public void removeListener_removesForwardingListener_toIdentityBasedPlayer() {
-    IdentityBasedFakePlayer player = new IdentityBasedFakePlayer();
+    IdentityBasedStrictFakePlayer player = new IdentityBasedStrictFakePlayer();
     Player.Listener listener1 = new AllIsEqualPlayerListener();
     Player.Listener listener2 = new AllIsEqualPlayerListener();
 
@@ -118,7 +118,7 @@ public class ForwardingPlayerTest {
 
   @Test
   public void onEvents_passesForwardingPlayerAsArgument() {
-    EqualityBasedFakePlayer player = new EqualityBasedFakePlayer();
+    EqualityBasedRelaxedFakePlayer player = new EqualityBasedRelaxedFakePlayer();
     Player.Listener listener = mock(Player.Listener.class);
     ForwardingPlayer forwardingPlayer = new ForwardingPlayer(player);
     forwardingPlayer.addListener(listener);
@@ -168,7 +168,12 @@ public class ForwardingPlayerTest {
     assertSubclassOverridesAllMethods(Player.Listener.class, forwardingListenerClass);
   }
 
-  private static class EqualityBasedFakePlayer extends StubPlayer {
+  /**
+   * A {@link Player} that compares registered {@link Player.Listener} instances with {@link
+   * Object#equals(Object)}, and silently ignores duplicate registrations and removals of
+   * unrecognized listeners.
+   */
+  private static final class EqualityBasedRelaxedFakePlayer extends StubPlayer {
 
     private final Set<Listener> listeners = new HashSet<>();
 
@@ -183,7 +188,12 @@ public class ForwardingPlayerTest {
     }
   }
 
-  private static class IdentityBasedFakePlayer extends StubPlayer {
+  /**
+   * A {@link Player} that compares registered {@link Player.Listener} instances with reference
+   * equality ({@code ==}), and throws an error on duplicate registrations and removals of
+   * unrecognized listeners.
+   */
+  private static final class IdentityBasedStrictFakePlayer extends StubPlayer {
 
     private final List<Listener> listeners = new ArrayList<>();
 
@@ -212,7 +222,7 @@ public class ForwardingPlayerTest {
     }
   }
 
-  private static class AllIsEqualPlayerListener implements Player.Listener {
+  private static final class AllIsEqualPlayerListener implements Player.Listener {
 
     @Override
     public boolean equals(@Nullable Object obj) {

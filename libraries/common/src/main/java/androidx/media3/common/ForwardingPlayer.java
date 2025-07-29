@@ -20,6 +20,7 @@ import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.TextureView;
+import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.media3.common.text.Cue;
 import androidx.media3.common.text.CueGroup;
@@ -55,7 +56,9 @@ import java.util.List;
 public class ForwardingPlayer implements Player {
 
   private final Player player;
-  private final IdentityHashMap<Listener, Listener> listeners = new IdentityHashMap<>();
+
+  @GuardedBy("listeners")
+  private final IdentityHashMap<Listener, ForwardingListener> listeners = new IdentityHashMap<>();
 
   /** Creates a new instance that forwards all operations to {@code player}. */
   public ForwardingPlayer(Player player) {
@@ -81,7 +84,7 @@ public class ForwardingPlayer implements Player {
   @Override
   public void addListener(Listener listener) {
     synchronized (listeners) {
-      Listener forwardingListener = listeners.get(listener);
+      ForwardingListener forwardingListener = listeners.get(listener);
       if (forwardingListener == null) {
         forwardingListener = new ForwardingListener(this, listener);
       }
