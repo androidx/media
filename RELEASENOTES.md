@@ -40,6 +40,9 @@
     *   FLAC: Tighten header detection to reduce the chance of finding spurious
         headers in the encoded FLAC data, resulting in decoding errors
         ([#558](https://github.com/androidx/media/issues/558)).
+    *   MP3: Allow gaps between (and before) ID3 tags at the beginning of MP3
+        files ([#811](https://github.com/androidx/media/issues/811),
+        [#5718](https://github.com/google/ExoPlayer/issues/5718)).
 *   DataSource:
 *   Audio:
     *   Make `AudioProcessor` instances aware of seeking.

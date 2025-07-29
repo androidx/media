@@ -327,6 +327,26 @@ public final class ParsableByteArray {
     return codePointAndSize != 0 ? Ints.checkedCast(codePointAndSize >>> 8) : INVALID_CODE_POINT;
   }
 
+  /** Peeks the next three bytes as an unsigned value. */
+  public int peekUnsignedInt24() {
+    if (bytesLeft() < 3) {
+      throw new IndexOutOfBoundsException("position=" + position + ", limit=" + limit);
+    }
+    int result = readUnsignedInt24();
+    position -= 3;
+    return result;
+  }
+
+  /** Peeks the next four bytes as a signed value. */
+  public int peekInt() {
+    if (bytesLeft() < 4) {
+      throw new IndexOutOfBoundsException("position=" + position + ", limit=" + limit);
+    }
+    int result = readInt();
+    position -= 4;
+    return result;
+  }
+
   /** Reads the next byte as an unsigned value. */
   public int readUnsignedByte() {
     maybeAssertAtLeastBytesLeftForLegacyMethod(1);
