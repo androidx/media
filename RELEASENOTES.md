@@ -8,6 +8,9 @@
     *   Add `void mute()` and `void unmute()` methods to Player that preserve
         and consequently restore Player's volume before and after setting it to
         zero.
+    *   Fix `ForwardingPlayer` listener handling when the underlying delegate
+        player uses reference equality for comparing listener instances
+        ([#2675](https://github.com/androidx/media/issues/2675)).
 *   ExoPlayer:
     *   Add a stuck buffering detection that triggers a `StuckPlayerException`
         player error after 10 minutes of `STATE_BUFFERING` while trying to play
