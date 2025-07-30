@@ -102,7 +102,8 @@ import java.util.concurrent.atomic.AtomicReference;
         manager.isTrustedForMediaControl(info),
         /* cb= */ null,
         /* connectionHints= */ rootHints,
-        extractMaxCommandsForMediaItemFromRootHints(rootHints));
+        extractMaxCommandsForMediaItemFromRootHints(rootHints),
+        /* isPackageNameVerified= */ true);
   }
 
   public final MediaSessionManager getMediaSessionManager() {

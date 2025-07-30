@@ -505,7 +505,8 @@ public abstract class MediaSessionService extends Service {
         /* trusted= */ false,
         /* cb= */ null,
         /* connectionHints= */ Bundle.EMPTY,
-        /* maxCommandsForMediaItems= */ 0);
+        /* maxCommandsForMediaItems= */ 0,
+        /* isPackageNameVerified= */ false);
   }
 
   /**
@@ -894,7 +895,8 @@ public abstract class MediaSessionService extends Service {
                         new MediaSessionStub.Controller2Cb(
                             caller, request.controllerInterfaceVersion),
                         request.connectionHints,
-                        request.maxCommandsForMediaItems);
+                        request.maxCommandsForMediaItems,
+                        /* isPackageNameVerified= */ true);
 
                 @Nullable MediaSession session = service.onGetSession(controllerInfo);
                 if (session == null) {

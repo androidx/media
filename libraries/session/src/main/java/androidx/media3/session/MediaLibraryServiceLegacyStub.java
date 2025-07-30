@@ -378,7 +378,8 @@ import java.util.concurrent.atomic.AtomicReference;
         getMediaSessionManager().isTrustedForMediaControl(remoteUserInfo),
         new BrowserLegacyCb(remoteUserInfo),
         /* connectionHints= */ rootHints,
-        extractMaxCommandsForMediaItemFromRootHints(rootHints));
+        extractMaxCommandsForMediaItemFromRootHints(rootHints),
+        /* isPackageNameVerified= */ true);
   }
 
   public ControllerCb getBrowserLegacyCbForBroadcast() {

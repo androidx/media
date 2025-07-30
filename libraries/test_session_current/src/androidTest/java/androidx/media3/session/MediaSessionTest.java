@@ -1047,7 +1047,8 @@ public class MediaSessionTest {
         MediaLibraryInfo.VERSION_INT,
         MediaControllerStub.VERSION_INT,
         /* trusted= */ false,
-        /* connectionHints= */ Bundle.EMPTY);
+        /* connectionHints= */ Bundle.EMPTY,
+        /* isPackageNameVerified= */ false);
   }
 
   private static class CallerCollectorPlayer extends ForwardingPlayer {

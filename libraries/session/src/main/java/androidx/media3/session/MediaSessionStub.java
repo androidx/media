@@ -61,6 +61,7 @@ import static androidx.media3.session.SessionError.ERROR_SESSION_DISCONNECTED;
 import static androidx.media3.session.SessionError.ERROR_UNKNOWN;
 import static androidx.media3.session.SessionError.INFO_CANCELLED;
 import static androidx.media3.session.SessionUtil.PACKAGE_INVALID;
+import static androidx.media3.session.SessionUtil.PACKAGE_VALID;
 import static androidx.media3.session.SessionUtil.checkPackageValidity;
 
 import android.app.PendingIntent;
@@ -643,7 +644,9 @@ import java.util.concurrent.ExecutionException;
     int uid = Binder.getCallingUid();
     int callingPid = Binder.getCallingPid();
     @Nullable String packageName = request.packageName;
-    if (checkPackageValidity(sessionImpl.getContext(), packageName, uid) == PACKAGE_INVALID) {
+    @SessionUtil.PackageValidationResult
+    int packageValidity = checkPackageValidity(sessionImpl.getContext(), packageName, uid);
+    if (packageValidity == PACKAGE_INVALID) {
       Log.w(
           TAG,
           "Ignoring connection from invalid package name " + packageName + " (uid=" + uid + ")");
@@ -669,7 +672,8 @@ import java.util.concurrent.ExecutionException;
               isTrustedForMediaControl,
               new MediaSessionStub.Controller2Cb(caller, request.controllerInterfaceVersion),
               request.connectionHints,
-              request.maxCommandsForMediaItems);
+              request.maxCommandsForMediaItems,
+              /* isPackageNameVerified= */ packageValidity == PACKAGE_VALID);
       connect(caller, controllerInfo);
     } finally {
       Binder.restoreCallingIdentity(token);

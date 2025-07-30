@@ -546,7 +546,8 @@ import org.checkerframework.checker.initialization.qual.Initialized;
             /* trusted= */ false,
             /* cb= */ null,
             /* connectionHints= */ Bundle.EMPTY,
-            /* maxCommandsForMediaItems= */ 0),
+            /* maxCommandsForMediaItems= */ 0,
+            /* isPackageNameVerified= */ SDK_INT >= 33),
         intent);
   }
 
@@ -1009,7 +1010,8 @@ import org.checkerframework.checker.initialization.qual.Initialized;
               sessionManager.isTrustedForMediaControl(remoteUserInfo),
               controllerCb,
               /* connectionHints= */ Bundle.EMPTY,
-              /* maxCommandsForMediaItems= */ 0);
+              /* maxCommandsForMediaItems= */ 0,
+              /* isPackageNameVerified= */ SDK_INT >= 33);
       MediaSession.ConnectionResult connectionResult = sessionImpl.onConnectOnHandler(controller);
       if (!connectionResult.isAccepted) {
         controllerCb.onDisconnected(/* seq= */ 0);

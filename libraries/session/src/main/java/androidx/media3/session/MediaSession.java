@@ -534,6 +534,7 @@ public class MediaSession {
     @Nullable private final ControllerCb controllerCb;
     private final Bundle connectionHints;
     private final int maxCommandsForMediaItems;
+    private final boolean isPackageNameVerified;
 
     /**
      * Creates an instance.
@@ -555,7 +556,8 @@ public class MediaSession {
         boolean trusted,
         @Nullable ControllerCb cb,
         Bundle connectionHints,
-        int maxCommandsForMediaItems) {
+        int maxCommandsForMediaItems,
+        boolean isPackageNameVerified) {
       this.remoteUserInfo = remoteUserInfo;
       this.libraryVersion = libraryVersion;
       this.interfaceVersion = interfaceVersion;
@@ -563,6 +565,7 @@ public class MediaSession {
       controllerCb = cb;
       this.connectionHints = connectionHints;
       this.maxCommandsForMediaItems = maxCommandsForMediaItems;
+      this.isPackageNameVerified = isPackageNameVerified;
     }
 
     /* package */ RemoteUserInfo getRemoteUserInfo() {
@@ -592,7 +595,15 @@ public class MediaSession {
       return interfaceVersion;
     }
 
-    /** Returns the package name, or {@link #LEGACY_CONTROLLER_PACKAGE_NAME} on API &le; 24. */
+    /**
+     * Returns the package name, or {@link #LEGACY_CONTROLLER_PACKAGE_NAME} on API &le; 24.
+     *
+     * <p>In some cases the correctness of the package name cannot be verified, for example when a
+     * controller from another app connects directly with a {@link SessionToken} and the app's
+     * package is not visible from this app. Refer to the <a
+     * href="https://developer.android.com/training/package-visibility">package visibility
+     * guidelines</a> for more details and how to ensure specific packages are visible if required.
+     */
     public String getPackageName() {
       return remoteUserInfo.getPackageName();
     }
@@ -639,6 +650,15 @@ public class MediaSession {
     @UnstableApi
     public boolean isTrusted() {
       return isTrusted;
+    }
+
+    /**
+     * Returns whether the value returned from {@link #getPackageName()} has been verified to be a
+     * valid package name belonging to {@link #getUid()}.
+     */
+    @UnstableApi
+    public boolean isPackageNameVerified() {
+      return isPackageNameVerified;
     }
 
     @Override
@@ -688,7 +708,8 @@ public class MediaSession {
           /* trusted= */ false,
           /* cb= */ null,
           /* connectionHints= */ Bundle.EMPTY,
-          /* maxCommandsForMediaItems= */ 0);
+          /* maxCommandsForMediaItems= */ 0,
+          /* isPackageNameVerified= */ false);
     }
 
     /** Returns a {@link ControllerInfo} suitable for use when testing client code. */
@@ -700,7 +721,8 @@ public class MediaSession {
         int libraryVersion,
         int interfaceVersion,
         boolean trusted,
-        Bundle connectionHints) {
+        Bundle connectionHints,
+        boolean isPackageNameVerified) {
       return new MediaSession.ControllerInfo(
           new RemoteUserInfo(packageName, pid, uid),
           libraryVersion,
@@ -708,7 +730,8 @@ public class MediaSession {
           trusted,
           /* cb= */ null,
           connectionHints,
-          /* maxCommandsForMediaItems= */ 0);
+          /* maxCommandsForMediaItems= */ 0,
+          isPackageNameVerified);
     }
   }
 
