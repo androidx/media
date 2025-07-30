@@ -1041,9 +1041,14 @@ public final class CompositionPlayer extends SimpleBasePlayer
             .setEndPositionUs(editedMediaItem.mediaItem.clippingConfiguration.endPositionUs)
             .build();
 
+    // The order of these MediaSource instances is critical. The CompositionTrackSelector
+    // relies on this fixed order to correctly identify and disable both the silence and
+    // blank image tracks. The SilenceMediaSource must be the first item, and the
+    // BlankMediaSource must come before the main media source.
+    // LINT.IfChange
     if (editedMediaItem.isGap()) {
       if (shouldGenerateBlankFrames) {
-        return new MergingMediaSource(blankFramesMediaSource, silenceMediaSource);
+        return new MergingMediaSource(silenceMediaSource, blankFramesMediaSource);
       } else {
         return silenceMediaSource;
       }
@@ -1051,11 +1056,12 @@ public final class CompositionPlayer extends SimpleBasePlayer
       // The MediaSource that loads the MediaItem
       MediaSource mainMediaSource = mediaSourceFactory.createMediaSource(editedMediaItem.mediaItem);
       if (shouldGenerateBlankFrames) {
-        return new MergingMediaSource(blankFramesMediaSource, silenceMediaSource, mainMediaSource);
+        return new MergingMediaSource(silenceMediaSource, blankFramesMediaSource, mainMediaSource);
       } else {
-        return new MergingMediaSource(mainMediaSource, silenceMediaSource);
+        return new MergingMediaSource(silenceMediaSource, mainMediaSource);
       }
     }
+    // LINT.ThenChange(CompositionTrackSelector.java)
   }
 
   private static MediaSource createSecondarySequenceMediaSource(

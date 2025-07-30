@@ -21,12 +21,14 @@ import static androidx.media3.common.Player.REPEAT_MODE_ALL;
 import static androidx.media3.common.Player.REPEAT_MODE_OFF;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
+import static androidx.media3.transformer.AndroidTestUtil.WAV_80KHZ_MONO_20_REPEATING_1_SAMPLES_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.WAV_ASSET;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.content.Context;
+import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
@@ -35,9 +37,12 @@ import androidx.media3.common.util.NullableType;
 import androidx.media3.effect.GlEffect;
 import androidx.media3.exoplayer.audio.AudioSink;
 import androidx.media3.exoplayer.audio.DefaultAudioSink;
+import androidx.media3.exoplayer.audio.TeeAudioProcessor;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import java.nio.ByteBuffer;
+import java.nio.ShortBuffer;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -213,6 +218,51 @@ public class CompositionPlaybackTest {
 
     assertThat(inputTimestampRecordingShaderProgram.getInputTimestampsUs())
         .isEqualTo(expectedTimestampsUs);
+  }
+
+  @Test
+  public void setForceVideoTrack_withSingleAssetAudioSequence_doesNotOutputSilence()
+      throws PlaybackException, TimeoutException {
+    EditedMediaItem audioClip =
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(WAV_80KHZ_MONO_20_REPEATING_1_SAMPLES_ASSET.uri))
+            .setDurationUs(250L)
+            .build();
+    EditedMediaItemSequence sequence =
+        new EditedMediaItemSequence.Builder(audioClip).experimentalSetForceVideoTrack(true).build();
+    AtomicInteger samplesProcessedCount = new AtomicInteger();
+    TeeAudioProcessor teeAudioProcessor =
+        new TeeAudioProcessor(
+            new TeeAudioProcessor.AudioBufferSink() {
+              @Override
+              public void flush(int sampleRateHz, int channelCount, @C.PcmEncoding int encoding) {}
+
+              @Override
+              public void handleBuffer(ByteBuffer buffer) {
+                ShortBuffer samplesBuffer = buffer.asShortBuffer();
+                while (samplesBuffer.hasRemaining()) {
+                  // The input asset is made of 20 samples of value 1.
+                  assertThat(samplesBuffer.get()).isEqualTo(1);
+                  samplesProcessedCount.getAndIncrement();
+                }
+              }
+            });
+    Composition composition =
+        new Composition.Builder(sequence)
+            .setEffects(new Effects(ImmutableList.of(teeAudioProcessor), ImmutableList.of()))
+            .build();
+
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              player = new CompositionPlayer.Builder(context).build();
+              player.addListener(playerTestListener);
+              player.setComposition(composition);
+              player.prepare();
+              player.play();
+            });
+    playerTestListener.waitUntilPlayerEnded();
+    assertThat(samplesProcessedCount.get()).isEqualTo(20);
   }
 
   @Test

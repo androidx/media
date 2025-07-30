@@ -112,9 +112,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    */
   private final class TrackSelectorInternal extends DefaultTrackSelector {
 
-    private static final int BLANK_IMAGE_TRACK_INDEX = 0;
-    private static final String BLANK_IMAGE_TRACK_GROUP_ID = BLANK_IMAGE_TRACK_INDEX + ":";
-    private static final String SILENCE_AUDIO_TRACK_GROUP_ID = "1:";
+    private static final String SILENCE_AUDIO_TRACK_GROUP_ID = "0:";
+    private static final String BLANK_IMAGE_TRACK_GROUP_ID = "1:";
     private final Listener listener;
     private final int sequenceIndex;
 
@@ -180,7 +179,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
           if (shouldUseMediaAudio) {
             // Disable silence if the media's audio track is playable.
-            int silenceAudioTrackIndex = audioTrackGroups.length - 1;
+            int silenceAudioTrackIndex = 0;
             rendererFormatSupports[audioRenderIndex][silenceAudioTrackIndex][0] =
                 RendererCapabilities.create(C.FORMAT_UNSUPPORTED_TYPE);
           }
@@ -256,7 +255,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
         if (shouldUseMediaImage) {
           // Disable blank images if the media's image track is playable.
-          rendererFormatSupports[imageRenderIndex][BLANK_IMAGE_TRACK_INDEX][0] =
+          int blankImageTrackIndex = 0;
+          rendererFormatSupports[imageRenderIndex][blankImageTrackIndex][0] =
               RendererCapabilities.create(C.FORMAT_UNSUPPORTED_TYPE);
         }
       }

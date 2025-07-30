@@ -1118,6 +1118,10 @@ public final class AndroidTestUtil {
   public static final AssetInfo WAV_192KHZ_ASSET =
       new AssetInfo.Builder("asset:///media/wav/sample_192khz.wav").build();
 
+  public static final AssetInfo WAV_80KHZ_MONO_20_REPEATING_1_SAMPLES_ASSET =
+      new AssetInfo.Builder("asset:///media/wav/sample_80KHz_mono_20_repeating_1_samples.wav")
+          .build();
+
   public static final AssetInfo FLAC_STEREO_ASSET =
       new AssetInfo.Builder("asset:///media/flac/bear.flac").build();
 
