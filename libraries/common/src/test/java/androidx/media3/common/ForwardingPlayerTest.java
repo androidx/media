@@ -201,7 +201,7 @@ public class ForwardingPlayerTest {
     public void addListener(Listener listener) {
       for (Listener listener1 : listeners) {
         if (listener == listener1) {
-          throw new IllegalArgumentException("Trying to add duplicate listener added");
+          throw new IllegalArgumentException("Trying to add duplicate listener");
         }
       }
       listeners.add(listener);
