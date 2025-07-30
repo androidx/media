@@ -141,6 +141,8 @@ public final class BoxParser {
    * @param ignoreEditLists Whether to ignore any edit lists in the trak boxes.
    * @param isQuickTime True for QuickTime media. False otherwise.
    * @param modifyTrackFunction A function to apply to the {@link Track Tracks} in the result.
+   * @param omitTrackSampleTable Whether to optimize for metadata retrieval by skipping allocation
+   *     and population of per-sample arrays in the {@link TrackSampleTable}.
    * @return A list of {@link TrackSampleTable} instances.
    * @throws ParserException Thrown if the trak boxes can't be parsed.
    */
@@ -151,7 +153,8 @@ public final class BoxParser {
       @Nullable DrmInitData drmInitData,
       boolean ignoreEditLists,
       boolean isQuickTime,
-      Function<@NullableType Track, @NullableType Track> modifyTrackFunction)
+      Function<@NullableType Track, @NullableType Track> modifyTrackFunction,
+      boolean omitTrackSampleTable)
       throws ParserException {
     List<TrackSampleTable> trackSampleTables = new ArrayList<>();
     for (int i = 0; i < moov.containerChildren.size(); i++) {
@@ -178,7 +181,8 @@ public final class BoxParser {
                       checkNotNull(atom.getContainerBoxOfType(Mp4Box.TYPE_mdia))
                           .getContainerBoxOfType(Mp4Box.TYPE_minf))
                   .getContainerBoxOfType(Mp4Box.TYPE_stbl));
-      TrackSampleTable trackSampleTable = parseStbl(track, stblAtom, gaplessInfoHolder);
+      TrackSampleTable trackSampleTable =
+          parseStbl(track, stblAtom, gaplessInfoHolder, omitTrackSampleTable);
       trackSampleTables.add(trackSampleTable);
     }
     return trackSampleTables;
@@ -423,11 +427,16 @@ public final class BoxParser {
    * @param track Track to which this sample table corresponds.
    * @param stblBox stbl (sample table) box to decode.
    * @param gaplessInfoHolder Holder to populate with gapless playback information.
+   * @param omitTrackSampleTable Whether to optimize for metadata retrieval by skipping allocation
+   *     and population of per-sample arrays in the {@link TrackSampleTable}.
    * @return Sample table described by the stbl box.
    * @throws ParserException Thrown if the stbl box can't be parsed.
    */
   public static TrackSampleTable parseStbl(
-      Track track, Mp4Box.ContainerBox stblBox, GaplessInfoHolder gaplessInfoHolder)
+      Track track,
+      Mp4Box.ContainerBox stblBox,
+      GaplessInfoHolder gaplessInfoHolder,
+      boolean omitTrackSampleTable)
       throws ParserException {
     SampleSizeBox sampleSizeBox;
     @Nullable LeafBox stszAtom = stblBox.getLeafBoxOfType(Mp4Box.TYPE_stsz);
@@ -451,7 +460,8 @@ public final class BoxParser {
           /* maximumSize= */ 0,
           /* timestampsUs= */ new long[0],
           /* flags= */ new int[0],
-          /* durationUs= */ 0);
+          /* durationUs= */ 0,
+          /* sampleCount= */ 0);
     }
 
     if (track.type == C.TRACK_TYPE_VIDEO && track.mediaDurationUs > 0) {
@@ -541,18 +551,18 @@ public final class BoxParser {
       FixedSampleSizeRechunker.Results rechunkedResults =
           FixedSampleSizeRechunker.rechunk(
               fixedSampleSize, chunkOffsetsBytes, chunkSampleCounts, timestampDeltaInTimeUnits);
-      offsets = rechunkedResults.offsets;
-      sizes = rechunkedResults.sizes;
+      offsets = omitTrackSampleTable ? new long[0] : rechunkedResults.offsets;
+      sizes = omitTrackSampleTable ? new int[0] : rechunkedResults.sizes;
+      timestamps = omitTrackSampleTable ? new long[0] : rechunkedResults.timestamps;
+      flags = omitTrackSampleTable ? new int[0] : rechunkedResults.flags;
       maximumSize = rechunkedResults.maximumSize;
-      timestamps = rechunkedResults.timestamps;
-      flags = rechunkedResults.flags;
       duration = rechunkedResults.duration;
       totalSize = rechunkedResults.totalSize;
     } else {
-      offsets = new long[sampleCount];
-      sizes = new int[sampleCount];
-      timestamps = new long[sampleCount];
-      flags = new int[sampleCount];
+      offsets = omitTrackSampleTable ? new long[0] : new long[sampleCount];
+      sizes = omitTrackSampleTable ? new int[0] : new int[sampleCount];
+      timestamps = omitTrackSampleTable ? new long[0] : new long[sampleCount];
+      flags = omitTrackSampleTable ? new int[0] : new int[sampleCount];
       long offset = 0;
       int remainingSamplesInChunk = 0;
 
@@ -566,10 +576,12 @@ public final class BoxParser {
         if (!chunkDataComplete) {
           Log.w(TAG, "Unexpected end of chunk data");
           sampleCount = i;
-          offsets = Arrays.copyOf(offsets, sampleCount);
-          sizes = Arrays.copyOf(sizes, sampleCount);
-          timestamps = Arrays.copyOf(timestamps, sampleCount);
-          flags = Arrays.copyOf(flags, sampleCount);
+          if (!omitTrackSampleTable) {
+            offsets = Arrays.copyOf(offsets, sampleCount);
+            sizes = Arrays.copyOf(sizes, sampleCount);
+            timestamps = Arrays.copyOf(timestamps, sampleCount);
+            flags = Arrays.copyOf(flags, sampleCount);
+          }
           break;
         }
 
@@ -588,18 +600,24 @@ public final class BoxParser {
           remainingSamplesAtTimestampOffset--;
         }
 
-        offsets[i] = offset;
-        sizes[i] = sampleSizeBox.readNextSampleSize();
-        totalSize += sizes[i];
-        if (sizes[i] > maximumSize) {
-          maximumSize = sizes[i];
+        int currentSampleSize = sampleSizeBox.readNextSampleSize();
+        totalSize += currentSampleSize;
+        if (currentSampleSize > maximumSize) {
+          maximumSize = currentSampleSize;
         }
-        timestamps[i] = timestampTimeUnits + timestampOffset;
 
-        // All samples are synchronization samples if the stss is not present.
-        flags[i] = stss == null ? C.BUFFER_FLAG_KEY_FRAME : 0;
-        if (i == nextSynchronizationSampleIndex) {
-          flags[i] = C.BUFFER_FLAG_KEY_FRAME;
+        if (!omitTrackSampleTable) {
+          offsets[i] = offset;
+          sizes[i] = currentSampleSize;
+          timestamps[i] = timestampTimeUnits + timestampOffset;
+          // All samples are synchronization samples if the stss is not present.
+          flags[i] = stss == null ? C.BUFFER_FLAG_KEY_FRAME : 0;
+          if (i == nextSynchronizationSampleIndex) {
+            flags[i] = C.BUFFER_FLAG_KEY_FRAME;
+          }
+        }
+
+        if (stss != null && i == nextSynchronizationSampleIndex) {
           remainingSynchronizationSamples--;
           if (remainingSynchronizationSamples > 0) {
             nextSynchronizationSampleIndex = checkNotNull(stss).readUnsignedIntToInt() - 1;
@@ -621,7 +639,7 @@ public final class BoxParser {
           remainingTimestampDeltaChanges--;
         }
 
-        offset += sizes[i];
+        offset += currentSampleSize;
         remainingSamplesInChunk--;
       }
       duration = timestampTimeUnits + timestampOffset;
@@ -679,9 +697,49 @@ public final class BoxParser {
     long durationUs = Util.scaleLargeTimestamp(duration, C.MICROS_PER_SECOND, track.timescale);
 
     if (track.editListDurations == null) {
-      Util.scaleLargeTimestampsInPlace(timestamps, C.MICROS_PER_SECOND, track.timescale);
+      if (!omitTrackSampleTable) {
+        Util.scaleLargeTimestampsInPlace(timestamps, C.MICROS_PER_SECOND, track.timescale);
+        return new TrackSampleTable(
+            track, offsets, sizes, maximumSize, timestamps, flags, durationUs, sampleCount);
+      } else {
+        return new TrackSampleTable(
+            track,
+            /* offsets= */ new long[0],
+            /* sizes= */ new int[0],
+            maximumSize,
+            /* timestampsUs= */ new long[0],
+            /* flags= */ new int[0],
+            durationUs,
+            sampleCount);
+      }
+    }
+
+    if (omitTrackSampleTable) {
+      long editedDurationUs;
+      long[] editListMediaTimes = checkNotNull(track.editListMediaTimes);
+      if (track.editListDurations.length == 1 && track.editListDurations[0] == 0) {
+        long editStartTime = editListMediaTimes[0];
+        editedDurationUs =
+            Util.scaleLargeTimestamp(
+                duration - editStartTime, C.MICROS_PER_SECOND, track.timescale);
+      } else {
+        long pts = 0;
+        for (int i = 0; i < track.editListDurations.length; i++) {
+          if (editListMediaTimes[i] != -1) {
+            pts += track.editListDurations[i];
+          }
+        }
+        editedDurationUs = Util.scaleLargeTimestamp(pts, C.MICROS_PER_SECOND, track.movieTimescale);
+      }
       return new TrackSampleTable(
-          track, offsets, sizes, maximumSize, timestamps, flags, durationUs);
+          track,
+          /* offsets= */ new long[0],
+          /* sizes= */ new int[0],
+          maximumSize,
+          /* timestampsUs= */ new long[0],
+          /* flags= */ new int[0],
+          editedDurationUs,
+          sampleCount);
     }
 
     // See the BMFF spec (ISO/IEC 14496-12) subsection 8.6.6. Edit lists that require prerolling
@@ -716,7 +774,7 @@ public final class BoxParser {
               Util.scaleLargeTimestamp(
                   track.editListDurations[0], C.MICROS_PER_SECOND, track.movieTimescale);
           return new TrackSampleTable(
-              track, offsets, sizes, maximumSize, timestamps, flags, editedDurationUs);
+              track, offsets, sizes, maximumSize, timestamps, flags, editedDurationUs, sampleCount);
         }
       }
     }
@@ -734,7 +792,7 @@ public final class BoxParser {
       durationUs =
           Util.scaleLargeTimestamp(duration - editStartTime, C.MICROS_PER_SECOND, track.timescale);
       return new TrackSampleTable(
-          track, offsets, sizes, maximumSize, timestamps, flags, durationUs);
+          track, offsets, sizes, maximumSize, timestamps, flags, durationUs, sampleCount);
     }
 
     // When applying edit lists, we need to include any partial clipped samples at the end to ensure
@@ -859,7 +917,8 @@ public final class BoxParser {
         editedMaximumSize,
         editedTimestamps,
         editedFlags,
-        editedDurationUs);
+        editedDurationUs,
+        editedOffsets.length);
   }
 
   @Nullable

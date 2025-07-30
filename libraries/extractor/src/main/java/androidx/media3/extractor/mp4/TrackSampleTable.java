@@ -55,7 +55,8 @@ public final class TrackSampleTable {
       int maximumSize,
       long[] timestampsUs,
       int[] flags,
-      long durationUs) {
+      long durationUs,
+      int sampleCount) {
     Assertions.checkArgument(sizes.length == timestampsUs.length);
     Assertions.checkArgument(offsets.length == timestampsUs.length);
     Assertions.checkArgument(flags.length == timestampsUs.length);
@@ -67,7 +68,7 @@ public final class TrackSampleTable {
     this.timestampsUs = timestampsUs;
     this.flags = flags;
     this.durationUs = durationUs;
-    sampleCount = offsets.length;
+    this.sampleCount = sampleCount;
     if (flags.length > 0) {
       flags[flags.length - 1] |= C.BUFFER_FLAG_LAST_SAMPLE;
     }

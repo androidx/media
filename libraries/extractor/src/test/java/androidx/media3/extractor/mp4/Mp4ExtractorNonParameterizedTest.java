@@ -18,6 +18,7 @@ package androidx.media3.extractor.mp4;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
+import androidx.media3.common.Format;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.SniffFailure;
@@ -154,6 +155,40 @@ public final class Mp4ExtractorNonParameterizedTest {
 
     String dumpFilePath = getDumpFilePath(inputFilePath, "_with_flag_read_auxiliary_tracks");
     DumpFileAsserts.assertOutput(context, auxiliaryTracksOutput, dumpFilePath);
+  }
+
+  @Test
+  public void extract_withOmitTrackSampleTableFlag_extractsCorrectMetadata() throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    String inputFilePath = "media/mp4/sample.mp4";
+    Mp4Extractor mp4Extractor =
+        new Mp4Extractor(
+            new DefaultSubtitleParserFactory(),
+            /* flags= */ Mp4Extractor.FLAG_OMIT_TRACK_SAMPLE_TABLE);
+
+    FakeExtractorOutput output =
+        TestUtil.extractAllSamplesFromFile(mp4Extractor, context, inputFilePath);
+
+    assertThat(output.seekMap).isNotNull();
+    assertThat(output.seekMap.getDurationUs()).isEqualTo(1024000);
+    assertThat(output.seekMap.isSeekable()).isTrue();
+    assertThat(output.numberOfTracks).isEqualTo(2);
+
+    // Check Video Track Format
+    Format videoFormat = output.trackOutputs.get(0).lastFormat;
+    assertThat(videoFormat.sampleMimeType).isEqualTo("video/avc");
+    assertThat(videoFormat.width).isEqualTo(1080);
+    assertThat(videoFormat.height).isEqualTo(720);
+
+    // Check Audio Track Format
+    Format audioFormat = output.trackOutputs.get(1).lastFormat;
+    assertThat(audioFormat.sampleMimeType).isEqualTo("audio/mp4a-latm");
+    assertThat(audioFormat.channelCount).isEqualTo(1);
+    assertThat(audioFormat.sampleRate).isEqualTo(44100);
+
+    // Importantly, check that no actual sample data was output
+    assertThat(output.trackOutputs.get(0).getSampleCount()).isEqualTo(0);
+    assertThat(output.trackOutputs.get(1).getSampleCount()).isEqualTo(0);
   }
 
   private static String getDumpFilePath(String inputFilePath, String suffix) {

@@ -22,7 +22,6 @@ import static androidx.media3.common.C.AUXILIARY_TRACK_TYPE_UNDEFINED;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
-import static androidx.media3.common.util.Util.castNonNull;
 import static androidx.media3.container.MdtaMetadataEntry.AUXILIARY_TRACKS_SAMPLES_NOT_INTERLEAVED;
 import static androidx.media3.extractor.mp4.BoxParser.parseTraks;
 import static androidx.media3.extractor.mp4.MetadataUtil.findMdtaMetadataEntryWithKey;
@@ -75,7 +74,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
-import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** Extracts data from the MP4 container format. */
 @UnstableApi
@@ -93,7 +91,8 @@ public final class Mp4Extractor implements Extractor, SeekMap {
    * Flags controlling the behavior of the extractor. Possible flag values are {@link
    * #FLAG_WORKAROUND_IGNORE_EDIT_LISTS}, {@link #FLAG_READ_MOTION_PHOTO_METADATA}, {@link
    * #FLAG_READ_SEF_DATA}, {@link #FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES}, {@link
-   * #FLAG_READ_AUXILIARY_TRACKS} and {@link #FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES_H265}.
+   * #FLAG_READ_AUXILIARY_TRACKS}, {@link #FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES_H265} and {@link
+   * #FLAG_OMIT_TRACK_SAMPLE_TABLE}.
    */
   @Documented
   @Retention(RetentionPolicy.SOURCE)
@@ -108,7 +107,8 @@ public final class Mp4Extractor implements Extractor, SeekMap {
         FLAG_EMIT_RAW_SUBTITLE_DATA,
         FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES,
         FLAG_READ_AUXILIARY_TRACKS,
-        FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES_H265
+        FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES_H265,
+        FLAG_OMIT_TRACK_SAMPLE_TABLE
       })
   public @interface Flags {}
 
@@ -175,6 +175,13 @@ public final class Mp4Extractor implements Extractor, SeekMap {
   public static final int FLAG_READ_WITHIN_GOP_SAMPLE_DEPENDENCIES_H265 = 1 << 7;
 
   /**
+   * Flag to omit allocating and populating the large per-sample arrays (offsets, sizes, timestamps,
+   * flags) within {@link TrackSampleTable}. This is used to reduce memory consumption in metadata
+   * retrieval scenarios where individual sample data is not required.
+   */
+  public static final int FLAG_OMIT_TRACK_SAMPLE_TABLE = 1 << 8;
+
+  /**
    * @deprecated Use {@link #newFactory(SubtitleParser.Factory)} instead.
    */
   @Deprecated
@@ -226,6 +233,7 @@ public final class Mp4Extractor implements Extractor, SeekMap {
 
   private final SubtitleParser.Factory subtitleParserFactory;
   private final @Flags int flags;
+  private final boolean omitTrackSampleTable;
 
   // Temporary arrays.
   private final ParsableByteArray nalStartCode;
@@ -253,6 +261,7 @@ public final class Mp4Extractor implements Extractor, SeekMap {
   private boolean seekToAxteAtom;
   private long axteAtomOffset;
   private boolean readingAuxiliaryTracks;
+  private boolean moovAtomProcessed;
 
   // Used when auxiliary tracks samples are in the auxiliary tracks MP4 (inside axte atom).
   private long sampleOffsetForAuxiliaryTracks;
@@ -261,7 +270,7 @@ public final class Mp4Extractor implements Extractor, SeekMap {
   private ExtractorOutput extractorOutput;
   private Mp4Track[] tracks;
 
-  private long @MonotonicNonNull [][] accumulatedSampleSizes;
+  @Nullable private long[][] accumulatedSampleSizes;
   private int firstVideoTrackIndex;
   private long durationUs;
   private @FileType int fileType;
@@ -304,6 +313,7 @@ public final class Mp4Extractor implements Extractor, SeekMap {
   public Mp4Extractor(SubtitleParser.Factory subtitleParserFactory, @Flags int flags) {
     this.subtitleParserFactory = subtitleParserFactory;
     this.flags = flags;
+    omitTrackSampleTable = (flags & FLAG_OMIT_TRACK_SAMPLE_TABLE) != 0;
     lastSniffFailures = ImmutableList.of();
     parserState =
         ((flags & FLAG_READ_SEF_DATA) != 0) ? STATE_READING_SEF : STATE_READING_ATOM_HEADER;
@@ -368,6 +378,7 @@ public final class Mp4Extractor implements Extractor, SeekMap {
     sampleBytesWritten = 0;
     sampleCurrentNalBytesRemaining = 0;
     isSampleDependedOn = false;
+    moovAtomProcessed = false;
     if (position == 0) {
       // Reading the SEF data occurs before normal MP4 parsing. Therefore we can not transition to
       // reading the atom header until that has completed.
@@ -394,6 +405,9 @@ public final class Mp4Extractor implements Extractor, SeekMap {
 
   @Override
   public int read(ExtractorInput input, PositionHolder seekPosition) throws IOException {
+    if (omitTrackSampleTable && moovAtomProcessed) {
+      return RESULT_END_OF_INPUT;
+    }
     while (true) {
       switch (parserState) {
         case STATE_READING_ATOM_HEADER:
@@ -650,7 +664,8 @@ public final class Mp4Extractor implements Extractor, SeekMap {
         // We've reached the end of the moov atom. Process it and prepare to read samples.
         processMoovAtom(containerAtom);
         containerAtoms.clear();
-        if (!seekToAxteAtom) {
+        moovAtomProcessed = true;
+        if (!seekToAxteAtom && !omitTrackSampleTable) {
           parserState = STATE_READING_SAMPLE;
         }
       } else if (!containerAtoms.isEmpty()) {
@@ -711,7 +726,8 @@ public final class Mp4Extractor implements Extractor, SeekMap {
             /* drmInitData= */ null,
             ignoreEditLists,
             isQuickTime,
-            /* modifyTrackFunction= */ track -> track);
+            /* modifyTrackFunction= */ track -> track,
+            omitTrackSampleTable);
 
     if (readingAuxiliaryTracks) {
       checkState(
@@ -784,7 +800,8 @@ public final class Mp4Extractor implements Extractor, SeekMap {
     this.firstVideoTrackIndex = firstVideoTrackIndex;
     this.durationUs = durationUs;
     this.tracks = tracks.toArray(new Mp4Track[0]);
-    accumulatedSampleSizes = calculateAccumulatedSampleSizes(this.tracks);
+    accumulatedSampleSizes =
+        !omitTrackSampleTable ? calculateAccumulatedSampleSizes(this.tracks) : null;
 
     extractorOutput.endTracks();
     extractorOutput.seekMap(this);
@@ -1037,7 +1054,8 @@ public final class Mp4Extractor implements Extractor, SeekMap {
         continue;
       }
       long sampleOffset = track.sampleTable.offsets[sampleIndex];
-      long sampleAccumulatedBytes = castNonNull(accumulatedSampleSizes)[trackIndex][sampleIndex];
+      long sampleAccumulatedBytes =
+          checkStateNotNull(accumulatedSampleSizes)[trackIndex][sampleIndex];
       long skipAmount = sampleOffset - inputPosition;
       boolean requiresReload = skipAmount < 0 || skipAmount >= RELOAD_MINIMUM_SEEK_DISTANCE;
       if ((!requiresReload && preferredRequiresReload)

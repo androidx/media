@@ -122,7 +122,9 @@ public final class MetadataRetriever implements AutoCloseable {
         ExtractorsFactory extractorsFactory =
             new DefaultExtractorsFactory()
                 .setMp4ExtractorFlags(
-                    Mp4Extractor.FLAG_READ_MOTION_PHOTO_METADATA | Mp4Extractor.FLAG_READ_SEF_DATA);
+                    Mp4Extractor.FLAG_READ_MOTION_PHOTO_METADATA
+                        | Mp4Extractor.FLAG_READ_SEF_DATA
+                        | Mp4Extractor.FLAG_OMIT_TRACK_SAMPLE_TABLE);
         mediaSourceFactory = new DefaultMediaSourceFactory(context, extractorsFactory);
       }
       return new MetadataRetriever(mediaItem, checkNotNull(mediaSourceFactory), clock);

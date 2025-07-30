@@ -496,7 +496,8 @@ public class FragmentedMp4Extractor implements Extractor {
                   /* maximumSize= */ 0,
                   /* timestampsUs= */ new long[0],
                   /* flags= */ new int[0],
-                  /* durationUs= */ 0),
+                  /* durationUs= */ 0,
+                  /* sampleCount= */ 0),
               new DefaultSampleValues(
                   /* sampleDescriptionIndex= */ 0,
                   /* duration= */ 0,
@@ -782,7 +783,8 @@ public class FragmentedMp4Extractor implements Extractor {
             drmInitData,
             /* ignoreEditLists= */ (flags & FLAG_WORKAROUND_IGNORE_EDIT_LISTS) != 0,
             /* isQuickTime= */ false,
-            this::modifyTrack);
+            this::modifyTrack,
+            /* omitTrackSampleTable= */ false);
 
     int trackCount = sampleTables.size();
     if (trackBundles.size() == 0) {
