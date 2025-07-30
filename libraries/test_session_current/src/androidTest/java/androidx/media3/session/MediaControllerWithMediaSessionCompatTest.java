@@ -416,8 +416,7 @@ public class MediaControllerWithMediaSessionCompatTest {
   public void getSessionActivity() throws Exception {
     Intent sessionActivity = new Intent(context, MockActivity.class);
     PendingIntent pi =
-        PendingIntent.getActivity(
-            context, 0, sessionActivity, SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0);
+        PendingIntent.getActivity(context, 0, sessionActivity, PendingIntent.FLAG_IMMUTABLE);
     session.setSessionActivity(pi);
 
     MediaController controller = controllerTestRule.createController(session.getSessionToken());
@@ -623,10 +622,7 @@ public class MediaControllerWithMediaSessionCompatTest {
     assertThat(TextUtils.equals(metadata.description, testDescription)).isTrue();
     assertThat(metadata.artworkUri).isEqualTo(testIconUri);
     assertThat(metadata.artworkData).isEqualTo(testArtworkData);
-    if (SDK_INT >= 23) {
-      // TODO(b/199055952): Test mediaUri for all API levels once the bug is fixed.
-      assertThat(mediaItem.requestMetadata.mediaUri).isEqualTo(testMediaUri);
-    }
+    assertThat(mediaItem.requestMetadata.mediaUri).isEqualTo(testMediaUri);
     assertThat(TestUtils.equals(metadata.extras, testExtras)).isTrue();
   }
 
@@ -1719,10 +1715,6 @@ public class MediaControllerWithMediaSessionCompatTest {
 
   @Test
   public void setPlaybackToLocal_notifiesDeviceInfoAndVolume() throws Exception {
-    if (SDK_INT <= 22) {
-      // In API 21 and 22, onAudioInfoChanged is not called.
-      return;
-    }
     session.setPlaybackToRemote(
         VolumeProviderCompat.VOLUME_CONTROL_ABSOLUTE,
         /* maxVolume= */ 100,

@@ -1022,13 +1022,13 @@ public class MediaSessionTest {
    * Returns the expected {@link MediaSessionManager.RemoteUserInfo#getPackageName()} of a
    * controller hosted in the test companion app.
    *
-   * <p>Before API 21 and after API 23 the package name is {@link Context#getPackageName()} of the
-   * {@link ApplicationProvider#getApplicationContext() application under test}.
+   * <p>After API 23 the package name is {@link Context#getPackageName()} of the {@link
+   * ApplicationProvider#getApplicationContext() application under test}.
    *
-   * <p>The early implementations (API 21 - 23), the platform MediaSession doesn't report the caller
-   * package name. Instead the package of the RemoteUserInfo is set for all external controllers to
-   * the same {@code MediaSessionManager.RemoteUserInfo.LEGACY_CONTROLLER} (see
-   * MediaSessionCompat.MediaSessionCallbackApi21.setCurrentControllerInfo()).
+   * <p>On API 23, the platform MediaSession doesn't report the caller package name. Instead the
+   * package of the RemoteUserInfo is set for all external controllers to the same {@code
+   * MediaSessionManager.RemoteUserInfo.LEGACY_CONTROLLER} (see
+   * MediaSessionCompat.MediaSessionCallback.setCurrentControllerInfo()).
    *
    * <p>Calling this method should only be required to test legacy behaviour.
    */

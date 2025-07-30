@@ -202,7 +202,7 @@ public final class Requirements implements Parcelable {
   private boolean isDeviceIdle(Context context) {
     PowerManager powerManager =
         (PowerManager) Assertions.checkNotNull(context.getSystemService(Context.POWER_SERVICE));
-    return SDK_INT >= 23 ? powerManager.isDeviceIdleMode() : !powerManager.isInteractive();
+    return powerManager.isDeviceIdleMode();
   }
 
   private boolean isStorageNotLow(Context context) {

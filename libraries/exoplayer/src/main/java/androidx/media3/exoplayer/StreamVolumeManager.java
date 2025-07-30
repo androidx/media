@@ -15,7 +15,6 @@
  */
 package androidx.media3.exoplayer;
 
-import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 
 import android.annotation.SuppressLint;
@@ -247,14 +246,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             return state;
           }
           checkNotNull(audioManager);
-          if (SDK_INT >= 23) {
-            audioManager.adjustStreamVolume(
-                state.streamType,
-                muted ? AudioManager.ADJUST_MUTE : AudioManager.ADJUST_UNMUTE,
-                flags);
-          } else {
-            audioManager.setStreamMute(state.streamType, muted);
-          }
+          audioManager.adjustStreamVolume(
+              state.streamType,
+              muted ? AudioManager.ADJUST_MUTE : AudioManager.ADJUST_UNMUTE,
+              flags);
           return generateState(state.streamType);
         });
   }

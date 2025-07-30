@@ -306,7 +306,7 @@ public class DefaultTimeBar extends View implements TimeBar {
       try {
         scrubberDrawable = a.getDrawable(R.styleable.DefaultTimeBar_scrubber_drawable);
         if (scrubberDrawable != null) {
-          setDrawableLayoutDirection(scrubberDrawable);
+          scrubberDrawable.setLayoutDirection(getLayoutDirection());
           defaultTouchTargetHeight =
               Math.max(scrubberDrawable.getMinimumHeight(), defaultTouchTargetHeight);
         }
@@ -742,7 +742,7 @@ public class DefaultTimeBar extends View implements TimeBar {
 
   @Override
   public void onRtlPropertiesChanged(int layoutDirection) {
-    if (scrubberDrawable != null && setDrawableLayoutDirection(scrubberDrawable, layoutDirection)) {
+    if (scrubberDrawable != null && scrubberDrawable.setLayoutDirection(layoutDirection)) {
       invalidate();
     }
   }
@@ -982,14 +982,6 @@ public class DefaultTimeBar extends View implements TimeBar {
     return keyTimeIncrement == C.TIME_UNSET
         ? (duration == C.TIME_UNSET ? 0 : (duration / keyCountIncrement))
         : keyTimeIncrement;
-  }
-
-  private boolean setDrawableLayoutDirection(Drawable drawable) {
-    return SDK_INT >= 23 && setDrawableLayoutDirection(drawable, getLayoutDirection());
-  }
-
-  private static boolean setDrawableLayoutDirection(Drawable drawable, int layoutDirection) {
-    return SDK_INT >= 23 && drawable.setLayoutDirection(layoutDirection);
   }
 
   private static int dpToPx(float density, int dps) {

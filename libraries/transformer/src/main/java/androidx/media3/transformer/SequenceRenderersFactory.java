@@ -34,7 +34,6 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.media.MediaFormat;
 import android.os.Handler;
-import androidx.annotation.ChecksSdkIntAtLeast;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
@@ -185,7 +184,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       AudioRendererEventListener audioRendererEventListener,
       TextOutput textRendererOutput,
       MetadataOutput metadataRendererOutput) {
-    if (isVideoPrewarmingEnabled() && renderer instanceof SequenceVideoRenderer) {
+    if (videoPrewarmingEnabled && renderer instanceof SequenceVideoRenderer) {
       if (secondaryVideoRenderer == null) {
         secondaryVideoRenderer =
             new SequenceVideoRenderer(
@@ -220,11 +219,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     // TODO: b/419479048 - Investigate whether this should always be false for looping sequences.
     int lastEditedMediaItemIndex = timeline.getPeriodCount() - 1;
     return mediaItem == getEditedMediaItem(sequence, lastEditedMediaItemIndex);
-  }
-
-  @ChecksSdkIntAtLeast(api = 23)
-  private boolean isVideoPrewarmingEnabled() {
-    return videoPrewarmingEnabled && SDK_INT >= 23;
   }
 
   private static final class SequenceAudioRenderer extends MediaCodecAudioRenderer {
@@ -431,7 +425,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     @Override
     protected boolean shouldInitCodec(MediaCodecInfo codecInfo) {
-      if (isVideoPrewarmingEnabled()
+      if (videoPrewarmingEnabled
           && bufferingVideoSink.getVideoSink() == null
           && codecNeedsSetOutputSurfaceWorkaround(codecInfo.name)) {
         // Wait until the BufferingVideoSink points to the effect VideoSink to init the codec, so
@@ -476,7 +470,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       VideoSink frameProcessingVideoSink = checkNotNull(SequenceRenderersFactory.this.videoSink);
       bufferingVideoSink.setVideoSink(frameProcessingVideoSink);
       @Nullable MediaCodecAdapter codec = getCodec();
-      if (isVideoPrewarmingEnabled()
+      if (videoPrewarmingEnabled
           && frameProcessingVideoSink.isInitialized()
           && codec != null
           && !codecNeedsSetOutputSurfaceWorkaround(checkNotNull(getCodecInfo()).name)) {
@@ -485,7 +479,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
 
     private void deactivateBufferingVideoSink() {
-      if (!isVideoPrewarmingEnabled()) {
+      if (!videoPrewarmingEnabled) {
         return;
       }
       bufferingVideoSink.setVideoSink(null);

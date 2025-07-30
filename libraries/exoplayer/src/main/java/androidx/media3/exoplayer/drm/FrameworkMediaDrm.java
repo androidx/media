@@ -133,21 +133,10 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
                 listener.onEvent(FrameworkMediaDrm.this, sessionId, event, extra, data));
   }
 
-  /**
-   * {@inheritDoc}
-   *
-   * @param listener The listener to receive events, or {@code null} to stop receiving events.
-   * @throws UnsupportedOperationException on API levels lower than 23.
-   */
   @UnstableApi
   @Override
-  @RequiresApi(23)
   public void setOnKeyStatusChangeListener(
       @Nullable ExoMediaDrm.OnKeyStatusChangeListener listener) {
-    if (SDK_INT < 23) {
-      throw new UnsupportedOperationException();
-    }
-
     mediaDrm.setOnKeyStatusChangeListener(
         listener == null
             ? null
@@ -162,20 +151,9 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
         /* handler= */ null);
   }
 
-  /**
-   * {@inheritDoc}
-   *
-   * @param listener The listener to receive events, or {@code null} to stop receiving events.
-   * @throws UnsupportedOperationException on API levels lower than 23.
-   */
   @UnstableApi
   @Override
-  @RequiresApi(23)
   public void setOnExpirationUpdateListener(@Nullable OnExpirationUpdateListener listener) {
-    if (SDK_INT < 23) {
-      throw new UnsupportedOperationException();
-    }
-
     mediaDrm.setOnExpirationUpdateListener(
         listener == null
             ? null
@@ -237,9 +215,7 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
       licenseServerUrl = schemeData.licenseServerUrl;
     }
 
-    @KeyRequest.RequestType
-    int requestType = SDK_INT >= 23 ? request.getRequestType() : KeyRequest.REQUEST_TYPE_UNKNOWN;
-
+    @KeyRequest.RequestType int requestType = request.getRequestType();
     return new KeyRequest(requestData, licenseServerUrl, requestType);
   }
 
@@ -460,14 +436,11 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
       }
     }
 
-    // For API levels 23 - 27, prefer the first V1 PSSH box. For API levels 22 and earlier, prefer
-    // the first V0 box.
+    // For API levels 23 - 27, prefer the first V1 PSSH box.
     for (int i = 0; i < schemeDatas.size(); i++) {
       SchemeData schemeData = schemeDatas.get(i);
       int version = PsshAtomUtil.parseVersion(Assertions.checkNotNull(schemeData.data));
-      if (SDK_INT < 23 && version == 0) {
-        return schemeData;
-      } else if (SDK_INT >= 23 && version == 1) {
+      if (version == 1) {
         return schemeData;
       }
     }
@@ -500,20 +473,13 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
       }
     }
 
-    // Prior to API level 21, the Widevine CDM required scheme specific data to be extracted from
-    // the PSSH atom. We also extract the data on API levels 21 and 22 because these API levels
-    // don't handle V1 PSSH atoms, but do handle scheme specific data regardless of whether it's
-    // extracted from a V0 or a V1 PSSH atom. Hence extracting the data allows us to support content
-    // that only provides V1 PSSH atoms. API levels 23 and above understand V0 and V1 PSSH atoms,
-    // and so we do not extract the data.
-    // Some Amazon devices also require data to be extracted from the PSSH atom for PlayReady.
-    if ((SDK_INT < 23 && C.WIDEVINE_UUID.equals(uuid))
-        || (C.PLAYREADY_UUID.equals(uuid)
-            && "Amazon".equals(Build.MANUFACTURER)
-            && ("AFTB".equals(Build.MODEL) // Fire TV Gen 1
-                || "AFTS".equals(Build.MODEL) // Fire TV Gen 2
-                || "AFTM".equals(Build.MODEL) // Fire TV Stick Gen 1
-                || "AFTT".equals(Build.MODEL)))) { // Fire TV Stick Gen 2
+    // Some Amazon devices require data to be extracted from the PSSH atom for PlayReady.
+    if ((C.PLAYREADY_UUID.equals(uuid)
+        && "Amazon".equals(Build.MANUFACTURER)
+        && ("AFTB".equals(Build.MODEL) // Fire TV Gen 1
+            || "AFTS".equals(Build.MODEL) // Fire TV Gen 2
+            || "AFTM".equals(Build.MODEL) // Fire TV Stick Gen 1
+            || "AFTT".equals(Build.MODEL)))) { // Fire TV Stick Gen 2
       byte[] psshData = PsshAtomUtil.parseSchemeSpecificData(initData, uuid);
       if (psshData != null) {
         // Extraction succeeded, so return the extracted data.

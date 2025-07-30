@@ -15,7 +15,6 @@
  */
 package androidx.media3.session;
 
-import static android.os.Build.VERSION.SDK_INT;
 import static android.support.v4.media.session.MediaSessionCompat.FLAG_HANDLES_QUEUE_COMMANDS;
 import static androidx.media3.test.session.common.TestUtils.VOLUME_CHANGE_TIMEOUT_MS;
 import static com.google.common.truth.Truth.assertThat;
@@ -91,8 +90,7 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
     Intent sessionActivity = new Intent(context, MockActivity.class);
     // Create this test specific MediaSession to use our own Handler.
     PendingIntent intent =
-        PendingIntent.getActivity(
-            context, 0, sessionActivity, SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0);
+        PendingIntent.getActivity(context, 0, sessionActivity, PendingIntent.FLAG_IMMUTABLE);
 
     sessionCallback = new MediaSessionCallback();
     session = new MediaSessionCompat(context, TAG + "Compat");

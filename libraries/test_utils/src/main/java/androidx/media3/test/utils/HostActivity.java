@@ -197,7 +197,7 @@ public final class HostActivity extends Activity implements SurfaceHolder.Callba
   @Override
   public void onPause() {
     super.onPause();
-    if (SDK_INT <= 23) {
+    if (SDK_INT == 23) {
       maybeStopHostedTest();
     }
   }

@@ -33,7 +33,6 @@ import static androidx.media3.exoplayer.source.SampleStream.FLAG_REQUIRE_FORMAT;
 import static java.lang.Math.max;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
-import android.annotation.TargetApi;
 import android.media.MediaCodec;
 import android.media.MediaCodec.CodecException;
 import android.media.MediaCrypto;
@@ -366,7 +365,6 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   private @AdaptationWorkaroundMode int codecAdaptationWorkaroundMode;
   private boolean codecNeedsSosFlushWorkaround;
   private boolean codecNeedsEosFlushWorkaround;
-  private boolean codecNeedsEosOutputExceptionWorkaround;
   private boolean codecNeedsAdaptationWorkaroundBuffer;
   private boolean shouldSkipAdaptationWorkaroundOutputBuffer;
   private boolean codecNeedsEosPropagation;
@@ -639,14 +637,6 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
    * in device capabilities.
    */
   protected boolean shouldReinitCodec() {
-    return false;
-  }
-
-  /**
-   * Returns whether the codec needs the renderer to propagate the end-of-stream signal directly,
-   * rather than by using an end-of-stream buffer queued to the codec.
-   */
-  protected boolean getCodecNeedsEosPropagation() {
     return false;
   }
 
@@ -977,15 +967,12 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       return true;
     }
     if (codecDrainAction == DRAIN_ACTION_FLUSH_AND_UPDATE_DRM_SESSION) {
-      checkState(SDK_INT >= 23); // Implied by DRAIN_ACTION_FLUSH_AND_UPDATE_DRM_SESSION
       // Needed to keep lint happy (it doesn't understand the checkState call alone)
-      if (SDK_INT >= 23) {
-        try {
-          updateDrmSessionV23();
-        } catch (ExoPlaybackException e) {
-          Log.w(TAG, "Failed to update the DRM session, releasing the codec instead.", e);
-          return true;
-        }
+      try {
+        updateDrmSession();
+      } catch (ExoPlaybackException e) {
+        Log.w(TAG, "Failed to update the DRM session, releasing the codec instead.", e);
+        return true;
       }
     }
     return false;
@@ -1074,7 +1061,6 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     codecAdaptationWorkaroundMode = ADAPTATION_WORKAROUND_MODE_NEVER;
     codecNeedsSosFlushWorkaround = false;
     codecNeedsEosFlushWorkaround = false;
-    codecNeedsEosOutputExceptionWorkaround = false;
     codecNeedsEosPropagation = false;
     codecRegisteredOnBufferAvailableListener = false;
     codecReconfigured = false;
@@ -1274,9 +1260,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     long codecInitializedTimestamp;
     String codecName = codecInfo.name;
     float codecOperatingRate =
-        SDK_INT < 23
-            ? CODEC_OPERATING_RATE_UNSET
-            : getCodecOperatingRateV23(targetPlaybackSpeed, inputFormat, getStreamFormats());
+        getCodecOperatingRateV23(targetPlaybackSpeed, inputFormat, getStreamFormats());
     if (codecOperatingRate <= assumedMinimumCodecOperatingRate) {
       codecOperatingRate = CODEC_OPERATING_RATE_UNSET;
     }
@@ -1309,9 +1293,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     codecAdaptationWorkaroundMode = codecAdaptationWorkaroundMode(codecName);
     codecNeedsSosFlushWorkaround = codecNeedsSosFlushWorkaround(codecName);
     codecNeedsEosFlushWorkaround = codecNeedsEosFlushWorkaround(codecName);
-    codecNeedsEosOutputExceptionWorkaround = codecNeedsEosOutputExceptionWorkaround(codecName);
-    codecNeedsEosPropagation =
-        codecNeedsEosPropagationWorkaround(codecInfo) || getCodecNeedsEosPropagation();
+    codecNeedsEosPropagation = codecNeedsEosPropagationWorkaround(codecInfo);
     if (checkNotNull(codec).needsReconfiguration()) {
       this.codecReconfigured = true;
       this.codecReconfigurationState = RECONFIGURATION_STATE_WRITE_PENDING;
@@ -1680,7 +1662,6 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
           DISCARD_REASON_DRM_SESSION_CHANGED);
     }
     boolean drainAndUpdateCodecDrmSession = sourceDrmSession != codecDrmSession;
-    Assertions.checkState(!drainAndUpdateCodecDrmSession || SDK_INT >= 23);
 
     DecoderReuseEvaluation evaluation = canReuseCodec(codecInfo, oldFormat, newFormat);
     @DecoderDiscardReasons int overridingDiscardReasons = 0;
@@ -1694,7 +1675,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
         } else {
           codecInputFormat = newFormat;
           if (drainAndUpdateCodecDrmSession) {
-            if (!drainAndUpdateCodecDrmSessionV23()) {
+            if (!drainAndUpdateCodecDrmSession()) {
               overridingDiscardReasons |= DISCARD_REASON_WORKAROUND;
             }
           } else if (!drainAndFlushCodec()) {
@@ -1714,7 +1695,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
                       && newFormat.width == oldFormat.width
                       && newFormat.height == oldFormat.height);
           codecInputFormat = newFormat;
-          if (drainAndUpdateCodecDrmSession && !drainAndUpdateCodecDrmSessionV23()) {
+          if (drainAndUpdateCodecDrmSession && !drainAndUpdateCodecDrmSession()) {
             overridingDiscardReasons |= DISCARD_REASON_WORKAROUND;
           }
         }
@@ -1724,7 +1705,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
           overridingDiscardReasons |= DISCARD_REASON_OPERATING_RATE_CHANGED;
         } else {
           codecInputFormat = newFormat;
-          if (drainAndUpdateCodecDrmSession && !drainAndUpdateCodecDrmSessionV23()) {
+          if (drainAndUpdateCodecDrmSession && !drainAndUpdateCodecDrmSession()) {
             overridingDiscardReasons |= DISCARD_REASON_WORKAROUND;
           }
         }
@@ -1969,10 +1950,6 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
    * @return False if codec release and re-initialization was triggered. True in all other cases.
    */
   private boolean updateCodecOperatingRate(@Nullable Format format) throws ExoPlaybackException {
-    if (SDK_INT < 23) {
-      return true;
-    }
-
     if (codec == null
         || codecDrainAction == DRAIN_ACTION_REINITIALIZE
         || getState() == STATE_DISABLED) {
@@ -2033,10 +2010,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
    * @return False if codec release and re-initialization was triggered due to the need to apply a
    *     flush workaround. True in all other cases.
    */
-  // Only called when SDK_INT >= 23, but lint isn't clever enough to know.
-  @SuppressWarnings("UseRequiresApi")
-  @TargetApi(23)
-  private boolean drainAndUpdateCodecDrmSessionV23() throws ExoPlaybackException {
+  private boolean drainAndUpdateCodecDrmSession() throws ExoPlaybackException {
     if (codecReceivedBuffers) {
       codecDrainState = DRAIN_STATE_SIGNAL_END_OF_STREAM;
       if (codecNeedsEosFlushWorkaround) {
@@ -2047,7 +2021,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       }
     } else {
       // Nothing has been queued to the decoder, so we can do the update immediately.
-      updateDrmSessionV23();
+      updateDrmSession();
     }
     return true;
   }
@@ -2076,22 +2050,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       throws ExoPlaybackException {
     MediaCodecAdapter codec = checkNotNull(this.codec);
     if (!hasOutputBuffer()) {
-      int outputIndex;
-      if (codecNeedsEosOutputExceptionWorkaround && codecReceivedEos) {
-        try {
-          outputIndex = codec.dequeueOutputBufferIndex(outputBufferInfo);
-        } catch (IllegalStateException e) {
-          processEndOfStream();
-          if (outputStreamEnded) {
-            // Release the codec, as it's in an error state.
-            releaseCodec();
-          }
-          return false;
-        }
-      } else {
-        outputIndex = codec.dequeueOutputBufferIndex(outputBufferInfo);
-      }
-
+      int outputIndex = codec.dequeueOutputBufferIndex(outputBufferInfo);
       if (outputIndex < 0) {
         if (outputIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED /* (-2) */) {
           processOutputMediaFormatChanged();
@@ -2144,45 +2103,19 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
         lastBufferInStreamPresentationTimeUs != C.TIME_UNSET
             && lastBufferInStreamPresentationTimeUs <= outputBufferInfo.presentationTimeUs;
 
-    boolean processedOutputBuffer = false;
-    if (codecNeedsEosOutputExceptionWorkaround && codecReceivedEos) {
-      try {
-        processedOutputBuffer =
-            processOutputBuffer(
-                positionUs,
-                elapsedRealtimeUs,
-                codec,
-                outputBuffer,
-                outputIndex,
-                outputBufferInfo.flags,
-                /* sampleCount= */ 1,
-                outputBufferInfo.presentationTimeUs,
-                isDecodeOnlyOutputBuffer,
-                isLastOutputBuffer,
-                checkNotNull(outputFormat));
-      } catch (IllegalStateException e) {
-        processEndOfStream();
-        if (outputStreamEnded) {
-          // Release the codec, as it's in an error state.
-          releaseCodec();
-        }
-        return false;
-      }
-    } else {
-      processedOutputBuffer =
-          processOutputBuffer(
-              positionUs,
-              elapsedRealtimeUs,
-              codec,
-              outputBuffer,
-              outputIndex,
-              outputBufferInfo.flags,
-              /* sampleCount= */ 1,
-              outputBufferInfo.presentationTimeUs,
-              isDecodeOnlyOutputBuffer,
-              isLastOutputBuffer,
-              checkNotNull(outputFormat));
-    }
+    boolean processedOutputBuffer =
+        processOutputBuffer(
+            positionUs,
+            elapsedRealtimeUs,
+            codec,
+            outputBuffer,
+            outputIndex,
+            outputBufferInfo.flags,
+            /* sampleCount= */ 1,
+            outputBufferInfo.presentationTimeUs,
+            isDecodeOnlyOutputBuffer,
+            isLastOutputBuffer,
+            checkNotNull(outputFormat));
     if (processedOutputBuffer) {
       onProcessedOutputBuffer(outputBufferInfo.presentationTimeUs);
       boolean isEndOfStream = (outputBufferInfo.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0;
@@ -2283,9 +2216,6 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
    *
    * @throws ExoPlaybackException If an error occurs processing the signal.
    */
-  // codecDrainAction == DRAIN_ACTION_FLUSH_AND_UPDATE_DRM_SESSION implies SDK_INT >= 23.
-  @SuppressWarnings("UseRequiresApi")
-  @TargetApi(23)
   private void processEndOfStream() throws ExoPlaybackException {
     switch (codecDrainAction) {
       case DRAIN_ACTION_REINITIALIZE:
@@ -2293,7 +2223,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
         break;
       case DRAIN_ACTION_FLUSH_AND_UPDATE_DRM_SESSION:
         flushCodec();
-        updateDrmSessionV23();
+        updateDrmSession();
         break;
       case DRAIN_ACTION_FLUSH:
         flushCodec();
@@ -2399,11 +2329,6 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       return true;
     }
 
-    if (SDK_INT < 23) {
-      // MediaCrypto.setMediaDrmSession is only available from API level 23, so re-initialization is
-      // required to switch to newSession on older API levels.
-      return true;
-    }
     if (C.PLAYREADY_UUID.equals(oldSession.getSchemeUuid())
         || C.PLAYREADY_UUID.equals(newSession.getSchemeUuid())) {
       // The PlayReady CDM does not support MediaCrypto.setMediaDrmSession, either as the old or new
@@ -2426,8 +2351,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     maybeInitCodecOrBypass();
   }
 
-  @RequiresApi(23)
-  private void updateDrmSessionV23() throws ExoPlaybackException {
+  private void updateDrmSession() throws ExoPlaybackException {
     CryptoConfig cryptoConfig = checkNotNull(sourceDrmSession).getCryptoConfig();
     if (cryptoConfig instanceof FrameworkCryptoConfig) {
       try {
@@ -2725,22 +2649,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
    *     buffer with {@link MediaCodec#BUFFER_FLAG_END_OF_STREAM} set. False otherwise.
    */
   private static boolean codecNeedsEosFlushWorkaround(String name) {
-    return SDK_INT <= 23 && "OMX.google.vorbis.decoder".equals(name);
-  }
-
-  /**
-   * Returns whether the decoder may throw an {@link IllegalStateException} from {@link
-   * MediaCodec#dequeueOutputBuffer(MediaCodec.BufferInfo, long)} or {@link
-   * MediaCodec#releaseOutputBuffer(int, boolean)} after receiving an input buffer with {@link
-   * MediaCodec#BUFFER_FLAG_END_OF_STREAM} set.
-   *
-   * <p>See [Internal: b/17933838].
-   *
-   * @param name The name of the decoder.
-   * @return True if the decoder may throw an exception after receiving an end-of-stream buffer.
-   */
-  private static boolean codecNeedsEosOutputExceptionWorkaround(String name) {
-    return SDK_INT == 21 && "OMX.google.aac.decoder".equals(name);
+    return SDK_INT == 23 && "OMX.google.vorbis.decoder".equals(name);
   }
 
   private static final class OutputStreamInfo {

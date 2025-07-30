@@ -373,11 +373,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
       setImageOutputMethod = null;
       imageOutput = null;
       ImageView logo = new ImageView(context);
-      if (SDK_INT >= 23) {
-        configureEditModeLogoV23(context, getResources(), logo);
-      } else {
-        configureEditModeLogo(context, getResources(), logo);
-      }
+      configureEditModeLogo(context, getResources(), logo);
       addView(logo);
       return;
     }
@@ -1813,16 +1809,9 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
     }
   }
 
-  @RequiresApi(23)
-  private static void configureEditModeLogoV23(
-      Context context, Resources resources, ImageView logo) {
-    logo.setImageDrawable(getDrawable(context, resources, R.drawable.exo_edit_mode_logo));
-    logo.setBackgroundColor(resources.getColor(R.color.exo_edit_mode_background_color, null));
-  }
-
   private static void configureEditModeLogo(Context context, Resources resources, ImageView logo) {
     logo.setImageDrawable(getDrawable(context, resources, R.drawable.exo_edit_mode_logo));
-    logo.setBackgroundColor(resources.getColor(R.color.exo_edit_mode_background_color));
+    logo.setBackgroundColor(resources.getColor(R.color.exo_edit_mode_background_color, null));
   }
 
   @SuppressWarnings("ResourceType")

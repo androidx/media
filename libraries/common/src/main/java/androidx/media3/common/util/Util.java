@@ -82,7 +82,6 @@ import android.util.SparseLongArray;
 import android.view.Display;
 import android.view.SurfaceView;
 import android.view.WindowManager;
-import androidx.annotation.ChecksSdkIntAtLeast;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
@@ -353,9 +352,6 @@ public final class Util {
    */
   public static boolean maybeRequestReadStoragePermission(
       Activity activity, MediaItem... mediaItems) {
-    if (Build.VERSION.SDK_INT < 23) {
-      return false;
-    }
     for (MediaItem mediaItem : mediaItems) {
       if (mediaItem.localConfiguration == null) {
         continue;
@@ -385,12 +381,7 @@ public final class Util {
     }
   }
 
-  @ChecksSdkIntAtLeast(api = 23)
   private static boolean isReadStoragePermissionRequestNeeded(Activity activity, Uri uri) {
-    if (Build.VERSION.SDK_INT < 23) {
-      // Permission automatically granted via manifest below API 23.
-      return false;
-    }
     if (isLocalFileUri(uri)) {
       return !isAppSpecificStorageFileUri(activity, uri);
     }
@@ -3211,8 +3202,7 @@ public final class Util {
    */
   @UnstableApi
   public static boolean isAutomotive(Context context) {
-    return Build.VERSION.SDK_INT >= 23
-        && context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE);
+    return context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE);
   }
 
   /**
@@ -3316,11 +3306,7 @@ public final class Util {
     }
 
     Point displaySize = new Point();
-    if (Build.VERSION.SDK_INT >= 23) {
-      getDisplaySizeV23(display, displaySize);
-    } else {
-      display.getRealSize(displaySize);
-    }
+    getDisplaySize(display, displaySize);
     return displaySize;
   }
 
@@ -3901,8 +3887,7 @@ public final class Util {
     }
   }
 
-  @RequiresApi(23)
-  private static void getDisplaySizeV23(Display display, Point outSize) {
+  private static void getDisplaySize(Display display, Point outSize) {
     Display.Mode mode = display.getMode();
     outSize.x = mode.getPhysicalWidth();
     outSize.y = mode.getPhysicalHeight();
@@ -3944,7 +3929,6 @@ public final class Util {
     return replacedLanguages;
   }
 
-  @RequiresApi(api = Build.VERSION_CODES.M)
   private static boolean requestExternalStoragePermission(Activity activity) {
     if (activity.checkSelfPermission(permission.READ_EXTERNAL_STORAGE)
         != PackageManager.PERMISSION_GRANTED) {
@@ -3973,7 +3957,7 @@ public final class Util {
     return false;
   }
 
-  @RequiresApi(api = Build.VERSION_CODES.N)
+  @RequiresApi(api = 24)
   private static boolean isTrafficRestricted(Uri uri) {
     return "http".equals(uri.getScheme())
         && !NetworkSecurityPolicy.getInstance()

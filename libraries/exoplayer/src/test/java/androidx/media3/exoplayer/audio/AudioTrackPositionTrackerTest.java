@@ -70,7 +70,6 @@ public class AudioTrackPositionTrackerTest {
       getCurrentPositionUs_withoutExpectRawPlaybackHeadReset_returnsPositionWithWrappedValue() {
     audioTrackPositionTracker.setAudioTrack(
         audioTrack,
-        /* isPassthrough= */ false,
         C.ENCODING_PCM_16BIT,
         OUTPUT_PCM_FRAME_SIZE,
         MIN_BUFFER_SIZE,
@@ -94,7 +93,6 @@ public class AudioTrackPositionTrackerTest {
   public void getCurrentPositionUs_withExpectRawPlaybackHeadReset_returnsAccumulatedPosition() {
     audioTrackPositionTracker.setAudioTrack(
         audioTrack,
-        /* isPassthrough= */ false,
         C.ENCODING_PCM_16BIT,
         OUTPUT_PCM_FRAME_SIZE,
         MIN_BUFFER_SIZE,
@@ -121,7 +119,6 @@ public class AudioTrackPositionTrackerTest {
   public void getCurrentPositionUs_withExpectPositionResetThenPause_returnsCorrectPosition() {
     audioTrackPositionTracker.setAudioTrack(
         audioTrack,
-        /* isPassthrough= */ false,
         C.ENCODING_PCM_16BIT,
         OUTPUT_PCM_FRAME_SIZE,
         MIN_BUFFER_SIZE,
@@ -155,7 +152,6 @@ public class AudioTrackPositionTrackerTest {
     AudioTrack audioTrack2 = createDefaultAudioTrack();
     audioTrackPositionTracker.setAudioTrack(
         audioTrack1,
-        /* isPassthrough= */ false,
         C.ENCODING_PCM_16BIT,
         OUTPUT_PCM_FRAME_SIZE,
         MIN_BUFFER_SIZE,
@@ -178,7 +174,6 @@ public class AudioTrackPositionTrackerTest {
     audioTrackPositionTracker.reset();
     audioTrackPositionTracker.setAudioTrack(
         audioTrack2,
-        /* isPassthrough= */ false,
         C.ENCODING_PCM_16BIT,
         OUTPUT_PCM_FRAME_SIZE,
         MIN_BUFFER_SIZE,
@@ -197,7 +192,6 @@ public class AudioTrackPositionTrackerTest {
     audioTrackPositionTracker.expectRawPlaybackHeadReset();
     audioTrackPositionTracker.setAudioTrack(
         audioTrack,
-        /* isPassthrough= */ false,
         C.ENCODING_PCM_16BIT,
         OUTPUT_PCM_FRAME_SIZE,
         MIN_BUFFER_SIZE,
@@ -221,7 +215,6 @@ public class AudioTrackPositionTrackerTest {
   public void getCurrentPositionUs_afterHandleEndOfStreamWithPause_returnsCorrectPosition() {
     audioTrackPositionTracker.setAudioTrack(
         audioTrack,
-        /* isPassthrough= */ false,
         C.ENCODING_PCM_16BIT,
         OUTPUT_PCM_FRAME_SIZE,
         MIN_BUFFER_SIZE,
@@ -245,7 +238,6 @@ public class AudioTrackPositionTrackerTest {
   public void getCurrentPositionUs_afterHandleEndOfStreamWithPausePlay_returnsCorrectPosition() {
     audioTrackPositionTracker.setAudioTrack(
         audioTrack,
-        /* isPassthrough= */ false,
         C.ENCODING_PCM_16BIT,
         OUTPUT_PCM_FRAME_SIZE,
         MIN_BUFFER_SIZE,
@@ -275,7 +267,6 @@ public class AudioTrackPositionTrackerTest {
     audioTrackPositionTracker.setClock(clock);
     audioTrackPositionTracker.setAudioTrack(
         audioTrack,
-        /* isPassthrough= */ false,
         C.ENCODING_PCM_16BIT,
         OUTPUT_PCM_FRAME_SIZE,
         MIN_BUFFER_SIZE,
@@ -299,7 +290,6 @@ public class AudioTrackPositionTrackerTest {
     audioTrackPositionTracker.setClock(clock);
     audioTrackPositionTracker.setAudioTrack(
         audioTrack,
-        /* isPassthrough= */ false,
         C.ENCODING_PCM_16BIT,
         OUTPUT_PCM_FRAME_SIZE,
         MIN_BUFFER_SIZE,
@@ -326,7 +316,6 @@ public class AudioTrackPositionTrackerTest {
     audioTrackPositionTracker.setClock(clock);
     audioTrackPositionTracker.setAudioTrack(
         audioTrack,
-        /* isPassthrough= */ false,
         C.ENCODING_PCM_16BIT,
         OUTPUT_PCM_FRAME_SIZE,
         MIN_BUFFER_SIZE,
@@ -362,7 +351,6 @@ public class AudioTrackPositionTrackerTest {
     audioTrackPositionTracker.setClock(clock);
     audioTrackPositionTracker.setAudioTrack(
         audioTrack,
-        /* isPassthrough= */ false,
         C.ENCODING_PCM_16BIT,
         OUTPUT_PCM_FRAME_SIZE,
         MIN_BUFFER_SIZE,
@@ -390,7 +378,6 @@ public class AudioTrackPositionTrackerTest {
     audioTrackPositionTracker.setClock(clock);
     audioTrackPositionTracker.setAudioTrack(
         audioTrack,
-        /* isPassthrough= */ false,
         C.ENCODING_PCM_16BIT,
         OUTPUT_PCM_FRAME_SIZE,
         MIN_BUFFER_SIZE,

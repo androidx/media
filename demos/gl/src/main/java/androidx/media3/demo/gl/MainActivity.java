@@ -113,7 +113,7 @@ public final class MainActivity extends Activity {
   @Override
   public void onResume() {
     super.onResume();
-    if (SDK_INT <= 23 || player == null) {
+    if (SDK_INT == 23 || player == null) {
       initializePlayer();
       if (playerView != null) {
         playerView.onResume();
@@ -124,7 +124,7 @@ public final class MainActivity extends Activity {
   @Override
   public void onPause() {
     super.onPause();
-    if (SDK_INT <= 23) {
+    if (SDK_INT == 23) {
       if (playerView != null) {
         playerView.onPause();
       }

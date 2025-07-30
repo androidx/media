@@ -29,7 +29,6 @@ import static androidx.media3.test.utils.TestUtil.retrieveTrackFormat;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.junit.Assume.assumeFalse;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -1312,9 +1311,6 @@ public final class AndroidTestUtil {
   public static ImmutableList<Bitmap> extractBitmapsFromVideo(
       Context context, String filePath, Bitmap.Config config)
       throws IOException, InterruptedException {
-    // b/298599172 - runUntilComparisonFrameOrEnded fails on this device because reading decoder
-    //  output as a bitmap doesn't work.
-    assumeFalse(SDK_INT == 21 && Ascii.toLowerCase(Build.MODEL).contains("nexus"));
     ImmutableList.Builder<Bitmap> bitmaps = new ImmutableList.Builder<>();
     try (VideoDecodingWrapper decodingWrapper =
         new VideoDecodingWrapper(

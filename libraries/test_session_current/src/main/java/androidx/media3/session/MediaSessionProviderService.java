@@ -15,7 +15,6 @@
  */
 package androidx.media3.session;
 
-import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.Player.COMMAND_GET_TRACKS;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.session.MediaConstants.CUSTOM_COMMAND_DOWNLOAD;
@@ -210,7 +209,7 @@ public class MediaSessionProviderService extends Service {
                     MediaSessionProviderService.this,
                     /* requestCode= */ 0,
                     sessionActivity,
-                    SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0);
+                    PendingIntent.FLAG_IMMUTABLE);
             builder.setSessionActivity(pendingIntent);
             break;
           }

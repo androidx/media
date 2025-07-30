@@ -15,7 +15,6 @@
  */
 package androidx.media3.session;
 
-import static android.os.Build.VERSION.SDK_INT;
 import static android.support.v4.media.MediaMetadataCompat.METADATA_KEY_DURATION;
 import static android.support.v4.media.MediaMetadataCompat.METADATA_KEY_MEDIA_ID;
 import static android.support.v4.media.MediaMetadataCompat.METADATA_KEY_USER_RATING;
@@ -990,21 +989,10 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
 
     session.setPlayer(playerConfigToUpdate);
 
-    // In API 21 and 22, onAudioInfoChanged is not called when playback is changed to local.
-    if (SDK_INT <= 22) {
-      PollingCheck.waitFor(
-          TIMEOUT_MS,
-          () -> {
-            MediaControllerCompat.PlaybackInfo info = controllerCompat.getPlaybackInfo();
-            return info.getPlaybackType() == legacyPlaybackTypeToUpdate
-                && info.getAudioAttributes().getLegacyStreamType() == legacyStream;
-          });
-    } else {
-      assertThat(playbackInfoNotified.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
-      MediaControllerCompat.PlaybackInfo info = controllerCompat.getPlaybackInfo();
-      assertThat(info.getPlaybackType()).isEqualTo(legacyPlaybackTypeToUpdate);
-      assertThat(info.getAudioAttributes().getLegacyStreamType()).isEqualTo(legacyStream);
-    }
+    assertThat(playbackInfoNotified.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    MediaControllerCompat.PlaybackInfo info = controllerCompat.getPlaybackInfo();
+    assertThat(info.getPlaybackType()).isEqualTo(legacyPlaybackTypeToUpdate);
+    assertThat(info.getAudioAttributes().getLegacyStreamType()).isEqualTo(legacyStream);
   }
 
   @Test

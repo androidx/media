@@ -216,7 +216,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
 
   private boolean tunneling;
   private int tunnelingAudioSessionId;
-  /* package */ @Nullable OnFrameRenderedListenerV23 tunnelingOnFrameRenderedListener;
+  /* package */ @Nullable OnFrameRenderedListener tunnelingOnFrameRenderedListener;
   @Nullable private VideoFrameMetadataListener frameMetadataListener;
   private long startPositionUs;
   private long periodDurationUs;
@@ -1200,7 +1200,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       if (codec != null && videoSink == null) {
         MediaCodecInfo codecInfo = checkNotNull(getCodecInfo());
         boolean canUpdateSurface = hasSurfaceForCodec(codecInfo);
-        if (SDK_INT >= 23 && canUpdateSurface && !codecNeedsSetOutputSurfaceWorkaround) {
+        if (canUpdateSurface && !codecNeedsSetOutputSurfaceWorkaround) {
           setOutputSurface(codec, getSurfaceForCodec(codecInfo));
         } else {
           releaseCodec();
@@ -1240,12 +1240,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   @Override
   protected boolean shouldInitCodec(MediaCodecInfo codecInfo) {
     return hasSurfaceForCodec(codecInfo);
-  }
-
-  @Override
-  protected boolean getCodecNeedsEosPropagation() {
-    // Since API 23, onFrameRenderedListener allows for detection of the renderer EOS.
-    return tunneling && SDK_INT < 23;
   }
 
   @Override
@@ -1568,11 +1562,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     int flags = getCodecBufferFlags(buffer);
     if ((SDK_INT < 34 || (flags & MediaCodec.BUFFER_FLAG_DECODE_ONLY) == 0) && !tunneling) {
       buffersInCodecCount++;
-    }
-    if (SDK_INT < 23 && tunneling) {
-      // In tunneled mode before API 23 we don't have a way to know when the buffer is output, so
-      // treat it as if it were output immediately.
-      onProcessedTunneledBuffer(buffer.timeUs);
     }
   }
 
@@ -2214,8 +2203,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   }
 
   protected boolean shouldUsePlaceholderSurface(MediaCodecInfo codecInfo) {
-    return SDK_INT >= 23
-        && !tunneling
+    return !tunneling
         && !codecNeedsSetOutputSurfaceWorkaround(codecInfo.name)
         && (!codecInfo.secure || PlaceholderSurface.isSecureSupported(context));
   }
@@ -2228,9 +2216,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   }
 
   private void maybeSetupTunnelingForFirstFrame() {
-    if (!tunneling || SDK_INT < 23) {
-      // The first frame notification for tunneling is triggered by onQueueInputBuffer prior to API
-      // level 23 and no setup is needed here.
+    if (!tunneling) {
       return;
     }
     @Nullable MediaCodecAdapter codec = getCodec();
@@ -2238,7 +2224,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       // If codec is null, then the setup will be triggered again in onCodecInitialized.
       return;
     }
-    tunnelingOnFrameRenderedListener = new OnFrameRenderedListenerV23(codec);
+    tunnelingOnFrameRenderedListener = new OnFrameRenderedListener(codec);
     if (SDK_INT >= 33) {
       // This should be the default anyway according to the API contract, but some devices are known
       // to not adhere to this contract and need to get the parameter explicitly. See
@@ -2321,7 +2307,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   }
 
   private void setOutputSurface(MediaCodecAdapter codec, @Nullable Surface surface) {
-    if (SDK_INT >= 23 && surface != null) {
+    if (surface != null) {
       setOutputSurfaceV23(codec, surface);
     } else if (SDK_INT >= 35) {
       detachOutputSurfaceV35(codec);
@@ -2330,7 +2316,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     }
   }
 
-  @RequiresApi(23)
   protected void setOutputSurfaceV23(MediaCodecAdapter codec, Surface surface) {
     codec.setOutputSurface(surface);
   }
@@ -2387,11 +2372,9 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     MediaFormatUtil.maybeSetInteger(
         mediaFormat, MediaFormat.KEY_MAX_INPUT_SIZE, codecMaxValues.inputSize);
     // Set codec configuration values.
-    if (SDK_INT >= 23) {
-      mediaFormat.setInteger(MediaFormat.KEY_PRIORITY, 0 /* realtime priority */);
-      if (codecOperatingRate != CODEC_OPERATING_RATE_UNSET) {
-        mediaFormat.setFloat(MediaFormat.KEY_OPERATING_RATE, codecOperatingRate);
-      }
+    mediaFormat.setInteger(MediaFormat.KEY_PRIORITY, 0 /* realtime priority */);
+    if (codecOperatingRate != CODEC_OPERATING_RATE_UNSET) {
+      mediaFormat.setFloat(MediaFormat.KEY_OPERATING_RATE, codecOperatingRate);
     }
     if (deviceNeedsNoPostProcessWorkaround) {
       mediaFormat.setInteger("no-post-process", 1);
@@ -2837,15 +2820,14 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     return false;
   }
 
-  @RequiresApi(23)
-  private final class OnFrameRenderedListenerV23
+  private final class OnFrameRenderedListener
       implements MediaCodecAdapter.OnFrameRenderedListener, Handler.Callback {
 
     private static final int HANDLE_FRAME_RENDERED = 0;
 
     private final Handler handler;
 
-    public OnFrameRenderedListenerV23(MediaCodecAdapter codec) {
+    public OnFrameRenderedListener(MediaCodecAdapter codec) {
       handler = Util.createHandlerForCurrentLooper(/* callback= */ this);
       codec.setOnFrameRenderedListener(/* listener= */ this, handler);
     }

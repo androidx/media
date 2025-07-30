@@ -176,7 +176,7 @@ public final class MediaControllerCompat {
     if (Build.VERSION.SDK_INT >= 29) {
       impl = new MediaControllerImplApi29(context, sessionToken);
     } else {
-      impl = new MediaControllerImplApi21(context, sessionToken);
+      impl = new MediaControllerImplApi23(context, sessionToken);
     }
   }
 
@@ -728,11 +728,7 @@ public final class MediaControllerCompat {
         MediaSessionCompat.ensureClassLoader(extras);
         MediaControllerCompat.Callback callback = this.callback.get();
         if (callback != null) {
-          if (callback.iControllerCallback != null && android.os.Build.VERSION.SDK_INT < 23) {
-            // Ignore. ExtraCallback will handle this.
-          } else {
-            callback.onSessionEvent(event, extras);
-          }
+          callback.onSessionEvent(event, extras);
         }
       }
 
@@ -808,14 +804,6 @@ public final class MediaControllerCompat {
       }
 
       @Override
-      public void onEvent(@Nullable String event, @Nullable Bundle extras) {
-        MediaControllerCompat.Callback callback = this.callback.get();
-        if (callback != null) {
-          callback.postToHandler(MessageHandler.MSG_EVENT, event, extras);
-        }
-      }
-
-      @Override
       public void onPlaybackStateChanged(@Nullable PlaybackStateCompat state) {
         MediaControllerCompat.Callback callback = this.callback.get();
         if (callback != null) {
@@ -857,13 +845,7 @@ public final class MediaControllerCompat {
     }
 
     private class MessageHandler extends Handler {
-      private static final int MSG_EVENT = 1;
       private static final int MSG_UPDATE_PLAYBACK_STATE = 2;
-      private static final int MSG_UPDATE_METADATA = 3;
-      private static final int MSG_UPDATE_VOLUME = 4;
-      private static final int MSG_UPDATE_QUEUE = 5;
-      private static final int MSG_UPDATE_QUEUE_TITLE = 6;
-      private static final int MSG_UPDATE_EXTRAS = 7;
       private static final int MSG_DESTROYED = 8;
       private static final int MSG_UPDATE_REPEAT_MODE = 9;
       private static final int MSG_UPDATE_CAPTIONING_ENABLED = 11;
@@ -883,24 +865,8 @@ public final class MediaControllerCompat {
           return;
         }
         switch (msg.what) {
-          case MSG_EVENT:
-            {
-              Bundle extras = msg.getData();
-              MediaSessionCompat.ensureClassLoader(extras);
-              onSessionEvent((String) msg.obj, extras);
-              break;
-            }
           case MSG_UPDATE_PLAYBACK_STATE:
             onPlaybackStateChanged((PlaybackStateCompat) msg.obj);
-            break;
-          case MSG_UPDATE_METADATA:
-            onMetadataChanged((MediaMetadataCompat) msg.obj);
-            break;
-          case MSG_UPDATE_QUEUE:
-            onQueueChanged((List<QueueItem>) msg.obj);
-            break;
-          case MSG_UPDATE_QUEUE_TITLE:
-            onQueueTitleChanged((CharSequence) msg.obj);
             break;
           case MSG_UPDATE_CAPTIONING_ENABLED:
             onCaptioningEnabledChanged((boolean) msg.obj);
@@ -910,16 +876,6 @@ public final class MediaControllerCompat {
             break;
           case MSG_UPDATE_SHUFFLE_MODE:
             onShuffleModeChanged((int) msg.obj);
-            break;
-          case MSG_UPDATE_EXTRAS:
-            {
-              Bundle extras = (Bundle) msg.obj;
-              MediaSessionCompat.ensureClassLoader(extras);
-              onExtrasChanged(extras);
-              break;
-            }
-          case MSG_UPDATE_VOLUME:
-            onAudioInfoChanged((PlaybackInfo) msg.obj);
             break;
           case MSG_DESTROYED:
             onSessionDestroyed();
@@ -1295,7 +1251,7 @@ public final class MediaControllerCompat {
     Object getMediaController();
   }
 
-  static class MediaControllerImplApi21 implements MediaControllerImpl {
+  static class MediaControllerImplApi23 implements MediaControllerImpl {
     protected final MediaController controllerFwk;
 
     final Object lock = new Object();
@@ -1311,7 +1267,7 @@ public final class MediaControllerCompat {
 
     // Calling method from constructor
     @SuppressWarnings({"assignment.type.incompatible", "method.invocation.invalid"})
-    MediaControllerImplApi21(Context context, MediaSessionCompat.Token sessionToken) {
+    MediaControllerImplApi23(Context context, MediaSessionCompat.Token sessionToken) {
       this.sessionToken = sessionToken;
       controllerFwk = new MediaController(context, this.sessionToken.getToken());
       if (this.sessionToken.getExtraBinder() == null) {
@@ -1374,10 +1330,8 @@ public final class MediaControllerCompat {
         return new TransportControlsApi29(controlsFwk);
       } else if (Build.VERSION.SDK_INT >= 24) {
         return new TransportControlsApi24(controlsFwk);
-      } else if (Build.VERSION.SDK_INT >= 23) {
-        return new TransportControlsApi23(controlsFwk);
       } else {
-        return new TransportControlsApi21(controlsFwk);
+        return new TransportControlsApi23(controlsFwk);
       }
     }
 
@@ -1470,16 +1424,6 @@ public final class MediaControllerCompat {
 
     @Override
     public int getRatingType() {
-      if (android.os.Build.VERSION.SDK_INT < 22) {
-        try {
-          IMediaSession extraBinder = sessionToken.getExtraBinder();
-          if (extraBinder != null) {
-            return extraBinder.getRatingType();
-          }
-        } catch (RemoteException | SecurityException e) {
-          Log.e(TAG, "Dead object in getRatingType.", e);
-        }
-      }
       return controllerFwk.getRatingType();
     }
 
@@ -1625,16 +1569,16 @@ public final class MediaControllerCompat {
     }
 
     private static class ExtraBinderRequestResultReceiver extends ResultReceiver {
-      private final WeakReference<MediaControllerImplApi21> mediaControllerImpl;
+      private final WeakReference<MediaControllerImplApi23> mediaControllerImpl;
 
-      ExtraBinderRequestResultReceiver(MediaControllerImplApi21 mediaControllerImpl) {
+      ExtraBinderRequestResultReceiver(MediaControllerImplApi23 mediaControllerImpl) {
         super(null /* handler */);
         this.mediaControllerImpl = new WeakReference<>(mediaControllerImpl);
       }
 
       @Override
       protected void onReceiveResult(int resultCode, Bundle resultData) {
-        MediaControllerImplApi21 mediaControllerImpl = this.mediaControllerImpl.get();
+        MediaControllerImplApi23 mediaControllerImpl = this.mediaControllerImpl.get();
         if (mediaControllerImpl == null || resultData == null) {
           return;
         }
@@ -1652,7 +1596,7 @@ public final class MediaControllerCompat {
   }
 
   @RequiresApi(29)
-  static class MediaControllerImplApi29 extends MediaControllerImplApi21 {
+  static class MediaControllerImplApi29 extends MediaControllerImplApi23 {
     MediaControllerImplApi29(Context context, MediaSessionCompat.Token sessionToken) {
       super(context, sessionToken);
     }
@@ -1668,10 +1612,10 @@ public final class MediaControllerCompat {
     }
   }
 
-  static class TransportControlsApi21 extends TransportControls {
+  static class TransportControlsApi23 extends TransportControls {
     protected final MediaController.TransportControls controlsFwk;
 
-    TransportControlsApi21(MediaController.TransportControls controlsFwk) {
+    TransportControlsApi23(MediaController.TransportControls controlsFwk) {
       this.controlsFwk = controlsFwk;
     }
 
@@ -1796,15 +1740,10 @@ public final class MediaControllerCompat {
       controlsFwk.playFromSearch(query, extras);
     }
 
+    @SuppressWarnings("argument.type.incompatible") // Framework controller is missing annotation
     @Override
     public void playFromUri(Uri uri, @Nullable Bundle extras) {
-      if (Uri.EMPTY.equals(uri)) {
-        throw new IllegalArgumentException("You must specify a non-empty Uri for playFromUri.");
-      }
-      Bundle bundle = new Bundle();
-      bundle.putParcelable(MediaSessionCompat.ACTION_ARGUMENT_URI, uri);
-      bundle.putBundle(MediaSessionCompat.ACTION_ARGUMENT_EXTRAS, extras);
-      sendCustomAction(MediaSessionCompat.ACTION_PLAY_FROM_URI, bundle);
+      controlsFwk.playFromUri(uri, extras);
     }
 
     @Override
@@ -1822,19 +1761,6 @@ public final class MediaControllerCompat {
     public void sendCustomAction(String action, @Nullable Bundle args) {
       validateCustomAction(action, args);
       controlsFwk.sendCustomAction(action, args);
-    }
-  }
-
-  @RequiresApi(23)
-  static class TransportControlsApi23 extends TransportControlsApi21 {
-    TransportControlsApi23(MediaController.TransportControls controlsFwk) {
-      super(controlsFwk);
-    }
-
-    @SuppressWarnings("argument.type.incompatible") // Framework controller is missing annotation
-    @Override
-    public void playFromUri(Uri uri, @Nullable Bundle extras) {
-      controlsFwk.playFromUri(uri, extras);
     }
   }
 

@@ -43,7 +43,6 @@ import android.os.Build;
 import android.util.Pair;
 import android.util.Range;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
@@ -193,10 +192,7 @@ public final class MediaCodecInfo {
         hardwareAccelerated,
         softwareOnly,
         vendor,
-        /* adaptive= */ !forceDisableAdaptive
-            && capabilities != null
-            && isAdaptive(capabilities)
-            && !needsDisableAdaptationWorkaround(name),
+        /* adaptive= */ !forceDisableAdaptive && capabilities != null && isAdaptive(capabilities),
         /* tunneling= */ capabilities != null && isTunneling(capabilities),
         /* secure= */ forceSecure || (capabilities != null && isSecure(capabilities)),
         isDetachedSurfaceSupported(capabilities));
@@ -256,10 +252,10 @@ public final class MediaCodecInfo {
    * @see CodecCapabilities#getMaxSupportedInstances()
    */
   public int getMaxSupportedInstances() {
-    if (SDK_INT < 23 || capabilities == null) {
+    if (capabilities == null) {
       return MAX_SUPPORTED_INSTANCES_UNKNOWN;
     }
-    return getMaxSupportedInstancesV23(capabilities);
+    return capabilities.getMaxSupportedInstances();
   }
 
   /**
@@ -374,7 +370,7 @@ public final class MediaCodecInfo {
       // in the codec capabilities.
       profileLevels = estimateLegacyAc4ProfileLevels(capabilities);
     }
-    if (SDK_INT <= 23 && MimeTypes.VIDEO_VP9.equals(mimeType) && profileLevels.length == 0) {
+    if (SDK_INT == 23 && MimeTypes.VIDEO_VP9.equals(mimeType) && profileLevels.length == 0) {
       // Some older devices don't report profile levels for VP9. Estimate them using other data in
       // the codec capabilities.
       profileLevels = estimateLegacyVp9ProfileLevels(capabilities);
@@ -824,11 +820,6 @@ public final class MediaCodecInfo {
         Util.ceilDivide(height, heightAlignment) * heightAlignment);
   }
 
-  @RequiresApi(23)
-  private static int getMaxSupportedInstancesV23(CodecCapabilities capabilities) {
-    return capabilities.getMaxSupportedInstances();
-  }
-
   /**
    * Called on devices with AC-4 decoders whose {@link CodecCapabilities} do not report profile
    * levels. The returned {@link CodecProfileLevel CodecProfileLevels} are estimated based on other
@@ -910,19 +901,6 @@ public final class MediaCodecInfo {
 
     // Since this method is for legacy devices only, assume that only profile 0 is supported.
     return new CodecProfileLevel[] {createCodecProfileLevel(CodecProfileLevel.VP9Profile0, level)};
-  }
-
-  /**
-   * Returns whether the decoder is known to fail when adapting, despite advertising itself as an
-   * adaptive decoder.
-   *
-   * @param name The decoder name.
-   * @return True if the decoder is known to fail when adapting.
-   */
-  private static boolean needsDisableAdaptationWorkaround(String name) {
-    return SDK_INT <= 22
-        && ("ODROID-XU3".equals(Build.MODEL) || "Nexus 10".equals(Build.MODEL))
-        && ("OMX.Exynos.AVC.Decoder".equals(name) || "OMX.Exynos.AVC.Decoder.secure".equals(name));
   }
 
   /**

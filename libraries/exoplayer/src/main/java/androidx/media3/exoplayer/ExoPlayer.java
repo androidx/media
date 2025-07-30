@@ -32,7 +32,6 @@ import android.view.SurfaceView;
 import android.view.TextureView;
 import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AudioAttributes;
@@ -1486,7 +1485,6 @@ public interface ExoPlayer extends Player {
    *     restore the default.
    */
   @UnstableApi
-  @RequiresApi(23)
   void setPreferredAudioDevice(@Nullable AudioDeviceInfo audioDeviceInfo);
 
   /**

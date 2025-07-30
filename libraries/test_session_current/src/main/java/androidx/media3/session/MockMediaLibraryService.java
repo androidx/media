@@ -15,7 +15,6 @@
  */
 package androidx.media3.session;
 
-import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.session.MediaConstants.CUSTOM_COMMAND_DOWNLOAD;
 import static androidx.media3.session.MediaConstants.EXTRAS_KEY_COMPLETION_STATUS;
@@ -423,7 +422,7 @@ public class MockMediaLibraryService extends MediaLibraryService {
           || Objects.equals(parentId, PARENT_ID_SKIP_LIMIT_REACHED_ERROR)) {
         Bundle bundle = new Bundle();
         Intent signInIntent = new Intent("action");
-        int flags = SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0;
+        int flags = PendingIntent.FLAG_IMMUTABLE;
         bundle.putParcelable(
             EXTRAS_KEY_ERROR_RESOLUTION_ACTION_INTENT_COMPAT,
             PendingIntent.getActivity(
@@ -449,7 +448,7 @@ public class MockMediaLibraryService extends MediaLibraryService {
       } else if (Objects.equals(parentId, PARENT_ID_AUTH_EXPIRED_ERROR_NON_FATAL)) {
         Bundle bundle = new Bundle();
         Intent signInIntent = new Intent("action");
-        int flags = SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0;
+        int flags = PendingIntent.FLAG_IMMUTABLE;
         bundle.putParcelable(
             EXTRAS_KEY_ERROR_RESOLUTION_ACTION_INTENT_COMPAT,
             PendingIntent.getActivity(

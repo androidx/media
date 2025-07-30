@@ -268,7 +268,6 @@ public interface MediaCodecAdapter {
    *
    * @see MediaCodec#setOnFrameRenderedListener
    */
-  @RequiresApi(23)
   void setOnFrameRenderedListener(OnFrameRenderedListener listener, Handler handler);
 
   /**
@@ -290,7 +289,6 @@ public interface MediaCodecAdapter {
    *
    * @see MediaCodec#setOutputSurface(Surface)
    */
-  @RequiresApi(23)
   void setOutputSurface(Surface surface);
 
   /**

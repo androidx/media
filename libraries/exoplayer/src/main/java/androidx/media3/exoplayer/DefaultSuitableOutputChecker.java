@@ -45,16 +45,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 /** Default implementation for {@link SuitableOutputChecker}. */
 /* package */ final class DefaultSuitableOutputChecker implements SuitableOutputChecker {
 
-  @Nullable private final SuitableOutputChecker impl;
+  private final SuitableOutputChecker impl;
 
   /** Creates the default {@link SuitableOutputChecker}. */
   public DefaultSuitableOutputChecker() {
     if (SDK_INT >= 35) {
       impl = new ImplApi35();
-    } else if (SDK_INT >= 23) {
-      impl = new ImplApi23();
     } else {
-      impl = null;
+      impl = new ImplApi23();
     }
   }
 
@@ -65,21 +63,17 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       Looper callbackLooper,
       Looper backgroundLooper,
       Clock clock) {
-    if (impl != null) {
-      impl.enable(callback, context, callbackLooper, backgroundLooper, clock);
-    }
+    impl.enable(callback, context, callbackLooper, backgroundLooper, clock);
   }
 
   @Override
   public void disable() {
-    if (impl != null) {
-      impl.disable();
-    }
+    impl.disable();
   }
 
   @Override
   public boolean isSelectedOutputSuitableForPlayback() {
-    return impl == null || impl.isSelectedOutputSuitableForPlayback();
+    return impl.isSelectedOutputSuitableForPlayback();
   }
 
   @RequiresApi(35)
@@ -176,7 +170,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
   }
 
-  @RequiresApi(23)
   private static final class ImplApi23 implements SuitableOutputChecker {
 
     @Nullable private AudioManager audioManager;

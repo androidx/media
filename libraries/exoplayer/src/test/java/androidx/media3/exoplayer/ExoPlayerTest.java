@@ -15194,7 +15194,7 @@ public final class ExoPlayerTest {
    * the Wear OS.
    */
   // TODO: remove maxSdk once Robolectric supports MediaRouter2 (b/382017156)
-  @Config(minSdk = 23, maxSdk = 34)
+  @Config(minSdk = Config.OLDEST_SDK, maxSdk = 34)
   @Test
   public void play_withOnlyUnsuitableOutputsOnWear_shouldSuppressPlayback() throws Exception {
     addWatchAsSystemFeature();
@@ -15233,7 +15233,7 @@ public final class ExoPlayerTest {
    * Wear OS.
    */
   // TODO: remove maxSdk once Robolectric supports MediaRouter2 (b/382017156)
-  @Config(minSdk = 23, maxSdk = 34)
+  @Config(minSdk = Config.OLDEST_SDK, maxSdk = 34)
   @Test
   public void play_withAtleastOneSuitableOutputOnWear_shouldNotSuppressPlayback() throws Exception {
     addWatchAsSystemFeature();
@@ -15271,7 +15271,7 @@ public final class ExoPlayerTest {
    * (e.g. builtin speaker) on the Wear OS.
    */
   // TODO: remove maxSdk once Robolectric supports MediaRouter2 (b/382017156)
-  @Config(minSdk = 23, maxSdk = 34)
+  @Config(minSdk = Config.OLDEST_SDK, maxSdk = 34)
   @Test
   public void
       play_callMultipleTimesOnUnsuitableOutputFollowedByPause_shouldRetainSameSuppressionReason()
@@ -15313,7 +15313,7 @@ public final class ExoPlayerTest {
 
   /** Tests playback suppression for playback on the built-speaker on non-Wear OS surfaces. */
   // TODO: remove maxSdk once Robolectric supports MediaRouter2 (b/382017156)
-  @Config(minSdk = 23, maxSdk = 34)
+  @Config(minSdk = Config.OLDEST_SDK, maxSdk = 34)
   @Test
   public void play_onBuiltinSpeakerWithoutWearPresentAsSystemFeature_shouldNotSuppressPlayback()
       throws Exception {
@@ -15352,7 +15352,7 @@ public final class ExoPlayerTest {
    * ExoPlayer.Builder#setSuppressPlaybackOnUnsuitableOutput(boolean)} is not called with true.
    */
   // TODO: remove maxSdk once Robolectric supports MediaRouter2 (b/382017156)
-  @Config(minSdk = 23, maxSdk = 34)
+  @Config(minSdk = Config.OLDEST_SDK, maxSdk = 34)
   @Test
   public void
       play_withOnlyUnsuitableOutputsWithoutEnablingPlaybackSuppression_shouldNotSuppressPlayback()
@@ -15389,7 +15389,7 @@ public final class ExoPlayerTest {
    * added.
    */
   // TODO: remove maxSdk once Robolectric supports MediaRouter2 (b/382017156)
-  @Config(minSdk = 23, maxSdk = 34)
+  @Config(minSdk = Config.OLDEST_SDK, maxSdk = 34)
   @Test
   public void addSuitableOutputWhenPlaybackSuppressed_shouldRemovePlaybackSuppression()
       throws Exception {
@@ -15432,7 +15432,7 @@ public final class ExoPlayerTest {
    * while playback was suppressed earlier.
    */
   // TODO: remove maxSdk once Robolectric supports MediaRouter2 (b/382017156)
-  @Config(minSdk = 23, maxSdk = 34)
+  @Config(minSdk = Config.OLDEST_SDK, maxSdk = 34)
   @Test
   public void addUnsuitableOutputWhenPlaybackIsSuppressed_shouldNotRemovePlaybackSuppression()
       throws Exception {
@@ -15465,7 +15465,7 @@ public final class ExoPlayerTest {
    * playback was not suppressed earlier.
    */
   // TODO: remove maxSdk once Robolectric supports MediaRouter2 (b/382017156)
-  @Config(minSdk = 23, maxSdk = 34)
+  @Config(minSdk = Config.OLDEST_SDK, maxSdk = 34)
   @Test
   public void addSuitableOutputWhenPlaybackNotSuppressed_shouldNotRemovePlaybackSuppression()
       throws Exception {
@@ -15500,7 +15500,7 @@ public final class ExoPlayerTest {
    * have been removed during an ongoing playback.
    */
   // TODO: remove maxSdk once Robolectric supports MediaRouter2 (b/382017156)
-  @Config(minSdk = 23, maxSdk = 34)
+  @Config(minSdk = Config.OLDEST_SDK, maxSdk = 34)
   @Test
   public void removeAllSuitableOutputsWhenPlaybackOngoing_shouldSetPlaybackSuppression()
       throws Exception {
@@ -15535,7 +15535,7 @@ public final class ExoPlayerTest {
    * removed during an ongoing playback but some suitable audio outputs are still available.
    */
   // TODO: remove maxSdk once Robolectric supports MediaRouter2 (b/382017156)
-  @Config(minSdk = 23, maxSdk = 34)
+  @Config(minSdk = Config.OLDEST_SDK, maxSdk = 34)
   @Test
   public void removeAnyUnsuitableOutputWhenPlaybackOngoing_shouldNotSetPlaybackSuppression()
       throws Exception {
@@ -15573,7 +15573,7 @@ public final class ExoPlayerTest {
    * connected to the device.
    */
   // TODO: remove maxSdk once Robolectric supports MediaRouter2 (b/382017156)
-  @Config(minSdk = 23, maxSdk = 34)
+  @Config(minSdk = Config.OLDEST_SDK, maxSdk = 34)
   @Test
   public void
       removeAnySuitableOutputButOneSuitableDeviceStillConnected_shouldNotSetPlaybackSuppression()

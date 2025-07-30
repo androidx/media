@@ -50,7 +50,6 @@ import java.nio.ByteBuffer;
  * routes {@link MediaCodec.Callback} callbacks on a dedicated thread that is managed internally,
  * and queues input buffers asynchronously.
  */
-@RequiresApi(23)
 /* package */ final class AsynchronousMediaCodecAdapter implements MediaCodecAdapter {
 
   /** A factory for {@link AsynchronousMediaCodecAdapter} instances. */

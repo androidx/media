@@ -179,7 +179,6 @@ public final class SynchronousMediaCodecAdapter implements MediaCodecAdapter {
   }
 
   @Override
-  @RequiresApi(23)
   public void setOnFrameRenderedListener(OnFrameRenderedListener listener, Handler handler) {
     codec.setOnFrameRenderedListener(
         (codec, presentationTimeUs, nanoTime) ->
@@ -189,7 +188,6 @@ public final class SynchronousMediaCodecAdapter implements MediaCodecAdapter {
   }
 
   @Override
-  @RequiresApi(23)
   public void setOutputSurface(Surface surface) {
     codec.setOutputSurface(surface);
   }

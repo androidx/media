@@ -350,7 +350,6 @@ public final class MediaExtractorCompat {
    *     sniffs the input.
    * @throws IllegalStateException If this method is called twice on the same instance.
    */
-  @RequiresApi(23)
   public void setDataSource(MediaDataSource mediaDataSource) throws IOException {
     // MediaDataSourceAdapter is created privately here, so TransferListeners cannot be registered.
     // Therefore, the isNetwork parameter is hardcoded to false as it has no effect.
@@ -1010,7 +1009,7 @@ public final class MediaExtractorCompat {
       }
       Pair<Integer, Integer> profileAndLevel =
           CodecSpecificDataUtil.getCodecProfileAndLevel(format);
-      if (profileAndLevel != null && SDK_INT >= 23) {
+      if (profileAndLevel != null) {
         mediaFormatResult.setInteger(MediaFormat.KEY_PROFILE, profileAndLevel.first);
         mediaFormatResult.setInteger(MediaFormat.KEY_LEVEL, profileAndLevel.second);
       }

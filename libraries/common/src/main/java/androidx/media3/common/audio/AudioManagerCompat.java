@@ -233,11 +233,7 @@ public final class AudioManagerCompat {
    * @return Whether the stream is muted.
    */
   public static boolean isStreamMute(AudioManager audioManager, @C.StreamType int streamType) {
-    if (SDK_INT >= 23) {
-      return audioManager.isStreamMute(streamType);
-    } else {
-      return getStreamVolume(audioManager, streamType) == 0;
-    }
+    return audioManager.isStreamMute(streamType);
   }
 
   private AudioManagerCompat() {}

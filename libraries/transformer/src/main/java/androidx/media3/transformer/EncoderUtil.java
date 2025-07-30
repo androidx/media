@@ -421,7 +421,6 @@ public final class EncoderUtil {
   }
 
   /** Returns the number of max number of the supported concurrent codec instances. */
-  @RequiresApi(23)
   public static int getMaxSupportedInstances(MediaCodecInfo encoderInfo, String mimeType) {
     return encoderInfo.getCapabilitiesForType(mimeType).getMaxSupportedInstances();
   }
