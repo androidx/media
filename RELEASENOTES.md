@@ -3,6 +3,7 @@
 ### Unreleased changes
 
 *   Common Library:
+    *   Update `minSdk` to `23` in line with other AndroidX libraries.
     *   Add `PlayerTransferState`, which facilitates transferring the playback
         state across `Player` instances.
     *   Add `void mute()` and `void unmute()` methods to Player that preserve
