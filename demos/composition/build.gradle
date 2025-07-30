@@ -50,7 +50,7 @@ android {
 
     lintOptions {
         // This demo app isn't indexed and doesn't have translations.
-        disable 'GoogleAppIndexingWarning','MissingTranslation'
+        disable 'GoogleAppIndexingWarning', 'MissingTranslation'
     }
 
     buildFeatures {
@@ -79,6 +79,7 @@ dependencies {
     implementation 'androidx.compose.material3.adaptive:adaptive'
     implementation 'androidx.compose.material3.adaptive:adaptive-layout'
     implementation 'androidx.compose.material3.adaptive:adaptive-navigation'
+    implementation 'com.airbnb.android:lottie:6.6.0'
     compileOnly 'org.checkerframework:checker-qual:' + checkerframeworkVersion
     debugImplementation 'androidx.compose.ui:ui-tooling'
     debugImplementation 'androidx.compose.ui:ui-test-manifest'

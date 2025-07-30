@@ -39,6 +39,7 @@ import androidx.media3.common.util.Size
 import androidx.media3.common.util.Util
 import androidx.media3.common.util.Util.usToMs
 import androidx.media3.demo.composition.MatrixTransformationFactory.createDizzyCropEffect
+import androidx.media3.demo.composition.effect.LottieEffectFactory
 import androidx.media3.effect.DebugTraceUtil
 import androidx.media3.effect.LanczosResample
 import androidx.media3.effect.MultipleInputVideoGraph
@@ -110,8 +111,19 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
       }
     )
 
-  private val effectOptions: Map<String, Effect> =
-    mapOf("Grayscale" to RgbFilter.createGrayscaleFilter(), "Dizzy Crop" to createDizzyCropEffect())
+  private val effectOptions: Map<String, Effect> by lazy {
+    buildMap {
+      put(
+        application.resources.getString(R.string.effect_name_grayscale),
+        RgbFilter.createGrayscaleFilter(),
+      )
+      put(application.resources.getString(R.string.effect_name_dizzy_crop), createDizzyCropEffect())
+
+      LottieEffectFactory.buildAvailableEffects(getApplication()).forEach { (name, effect) ->
+        put(name, effect)
+      }
+    }
+  }
 
   val availableEffectNames: List<String> = effectOptions.keys.toList()
 
@@ -276,7 +288,8 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
           .build()
       val effectsForItem = mutableListOf<Effect>()
       for (effectName in item.selectedEffects.value) {
-        effectOptions[effectName]?.let { effectsForItem.add(it) }
+        // TODO(b/433484977): Order of applied effects should be more clear in the UI
+        effectOptions[effectName]?.let { effect -> effectsForItem.add(effect) }
       }
       val finalVideoEffects = globalVideoEffects + effectsForItem
       val itemBuilder =
