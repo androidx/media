@@ -441,7 +441,7 @@ public final class AudioCapabilities {
     return audioProfiles.build();
   }
 
-  public static boolean isBluetoothConnected(
+  private static boolean isBluetoothConnected(
       AudioManager audioManager, @Nullable AudioDeviceInfo currentDevice) {
     // Check the current device if known or all devices otherwise.
     AudioDeviceInfo[] audioDeviceInfos =
