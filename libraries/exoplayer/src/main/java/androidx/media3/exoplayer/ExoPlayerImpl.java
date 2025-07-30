@@ -2464,16 +2464,17 @@ import java.util.concurrent.CopyOnWriteArraySet;
             playbackInfo,
             timeline,
             maskWindowPositionMsOrGetPeriodPositionUs(timeline, startWindowIndex, startPositionMs));
-    // Mask the playback state.
-    int maskingPlaybackState = newPlaybackInfo.playbackState;
-    if (startWindowIndex != C.INDEX_UNSET && newPlaybackInfo.playbackState != STATE_IDLE) {
-      // Position reset to startWindowIndex (results in pending initial seek).
-      if (timeline.isEmpty() || startWindowIndex >= timeline.getWindowCount()) {
-        // Setting an empty timeline or invalid seek transitions to ended.
-        maskingPlaybackState = STATE_ENDED;
-      } else {
-        maskingPlaybackState = STATE_BUFFERING;
-      }
+    int maskingPlaybackState;
+    if (newPlaybackInfo.playbackState == STATE_IDLE) {
+      maskingPlaybackState = STATE_IDLE; // never move out of IDLE automatically
+    } else if (timeline.isEmpty()) {
+      maskingPlaybackState = STATE_ENDED; // ensure ENDED for empty playlist
+    } else if (startWindowIndex == C.INDEX_UNSET) {
+      maskingPlaybackState = newPlaybackInfo.playbackState; // no implicit seek, keep old state
+    } else if (startWindowIndex >= timeline.getWindowCount()) {
+      maskingPlaybackState = STATE_ENDED; // invalid seek, transition to ENDED
+    } else {
+      maskingPlaybackState = STATE_BUFFERING;
     }
     newPlaybackInfo = maskPlaybackState(newPlaybackInfo, maskingPlaybackState);
     internalPlayer.setMediaSources(

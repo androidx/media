@@ -17173,6 +17173,34 @@ public final class ExoPlayerTest {
     assertThat(elapsedRealtimeAtErrorMs).isAtLeast(45_000);
   }
 
+  @Test
+  public void clearMediaItems_afterReady_transitionsToEnded() throws Exception {
+    ExoPlayer player = parameterizeTestExoPlayerBuilder(new TestExoPlayerBuilder(context)).build();
+    player.setMediaSource(new FakeMediaSource());
+    player.prepare();
+    advance(player).untilState(Player.STATE_READY);
+
+    player.clearMediaItems();
+    @Player.State int stateAfterClearingPlaylist = player.getPlaybackState();
+    player.release();
+
+    assertThat(stateAfterClearingPlaylist).isEqualTo(Player.STATE_ENDED);
+  }
+
+  @Test
+  public void settingMediaItems_withEmptyListAfterReady_transitionsToEnded() throws Exception {
+    ExoPlayer player = parameterizeTestExoPlayerBuilder(new TestExoPlayerBuilder(context)).build();
+    player.setMediaSource(new FakeMediaSource());
+    player.prepare();
+    advance(player).untilState(Player.STATE_READY);
+
+    player.setMediaItems(ImmutableList.of());
+    @Player.State int stateAfterClearingPlaylist = player.getPlaybackState();
+    player.release();
+
+    assertThat(stateAfterClearingPlaylist).isEqualTo(Player.STATE_ENDED);
+  }
+
   // Internal methods.
 
   private void addWatchAsSystemFeature() {

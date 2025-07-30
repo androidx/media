@@ -31,6 +31,8 @@
     *   Add `DefaultLoadControl.Builder` setters for local playback and adjust
         default values of `DefaultLoadControl` to work well with a wide range of
         local files.
+    *   Fix bug where setting an empty playlist can leave the player in
+        `STATE_READY` or `STATE_BUFFERING`.
 *   Transformer:
 *   Track Selection:
     *   Add `TrackSelectionParameters.selectTextByDefault` to prefer the
