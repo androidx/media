@@ -651,7 +651,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private static SegmentBaseHolder getNextSegmentHolder(
       HlsMediaPlaylist mediaPlaylist, long nextMediaSequence, int nextPartIndex) {
     int segmentIndexInPlaylist = (int) (nextMediaSequence - mediaPlaylist.mediaSequence);
-    if (segmentIndexInPlaylist == mediaPlaylist.segments.size()) {
+    if (segmentIndexInPlaylist >= mediaPlaylist.segments.size()) {
       int index = nextPartIndex != C.INDEX_UNSET ? nextPartIndex : 0;
       return index < mediaPlaylist.trailingParts.size()
           ? new SegmentBaseHolder(mediaPlaylist.trailingParts.get(index), nextMediaSequence, index)
