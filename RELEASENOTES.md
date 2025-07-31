@@ -69,6 +69,8 @@
     *   Deprecate `FragmentedMp4Muxer#Builder(OutputStream)` constructor. Use
         `FragmentedMp4Muxer#Builder(WritableByteChannel)` instead.
 *   IMA extension:
+    *   Removal of custom proguard rules, so that apps can use those released in
+        IMA android archive instead.
 *   Session:
     *   Add new parameter to `MediaSession.Callback.onPlaybackResumption` to
         indicate if the call happens to gather information only or to start
