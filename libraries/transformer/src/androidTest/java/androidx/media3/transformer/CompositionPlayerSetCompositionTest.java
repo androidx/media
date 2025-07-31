@@ -36,17 +36,16 @@ import androidx.media3.common.audio.BaseAudioProcessor;
 import androidx.media3.common.audio.SpeedProvider;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.Util;
-import androidx.media3.effect.GlEffect;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.After;
@@ -90,17 +89,12 @@ public class CompositionPlayerSetCompositionTest {
   @Test
   public void composition_changeNumberOfItemsInAComposition_playbackCompletes() throws Exception {
     PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
-    InputTimestampRecordingShaderProgram timestampRecordingShaderProgram =
-        new InputTimestampRecordingShaderProgram();
     EditedMediaItem video =
         new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
             .setDurationUs(MP4_ASSET.videoDurationUs)
-            .setEffects(
-                new Effects(
-                    ImmutableList.of(),
-                    ImmutableList.of(
-                        (GlEffect) (context, useHdr) -> timestampRecordingShaderProgram)))
             .build();
+    AtomicBoolean firstTimelineUpdated = new AtomicBoolean();
+    AtomicInteger numberOfTimelineUpdates = new AtomicInteger();
 
     instrumentation.runOnMainSync(
         () -> {
@@ -109,25 +103,24 @@ public class CompositionPlayerSetCompositionTest {
           // otherwise the player will skip/drop video frames.
           compositionPlayer.setVideoSurfaceView(surfaceView);
           compositionPlayer.addListener(listener);
-          compositionPlayer.setComposition(
-              new Composition.Builder(new EditedMediaItemSequence.Builder(video).build()).build());
+          compositionPlayer.addListener(
+              new Player.Listener() {
+                @Override
+                public void onTimelineChanged(Timeline timeline, int reason) {
+                  if (firstTimelineUpdated.compareAndSet(false, true)) {
+                    compositionPlayer.setComposition(createSingleSequenceComposition(video, video));
+                    compositionPlayer.play();
+                  }
+                  numberOfTimelineUpdates.incrementAndGet();
+                }
+              });
+          compositionPlayer.setComposition(createSingleSequenceComposition(video));
           compositionPlayer.prepare();
-          compositionPlayer.play();
         });
-    listener.waitUntilFirstFrameRendered();
-    instrumentation.runOnMainSync(
-        () ->
-            compositionPlayer.setComposition(
-                new Composition.Builder(new EditedMediaItemSequence.Builder(video, video).build())
-                    .build()));
 
     listener.waitUntilPlayerEnded();
-    // Played two compositions so should render two frames of timestamp zero.
-    assertThat(
-            Iterables.filter(
-                timestampRecordingShaderProgram.getInputTimestampsUs(),
-                timestamp -> timestamp == 0))
-        .hasSize(2);
+    // Played two compositions so should update the timeline twice.
+    assertThat(numberOfTimelineUpdates.get()).isEqualTo(2);
   }
 
   @Test
