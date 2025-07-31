@@ -93,6 +93,9 @@
         them to the callback for custom handling. This brings parity with what
         media1 did and the platform does
         ([#2637](https://github.com/androidx/media/issues/2637)).
+    *   Fix bug where `getCurrentTimeline()` was called by `PlayerWrapper` even
+        when the command isn't available
+        ([#2665](https://github.com/androidx/media/issues/2665)).
 *   UI:
     *   Add `ProgressStateWithTickInterval` class and the corresponding
         `rememberProgressStateWithTickInterval` Composable to

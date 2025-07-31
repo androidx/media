@@ -487,10 +487,8 @@ import java.util.List;
   public Timeline getCurrentTimelineWithCommandCheck() {
     if (isCommandAvailable(COMMAND_GET_TIMELINE)) {
       return getCurrentTimeline();
-    } else if (isCommandAvailable(COMMAND_GET_CURRENT_MEDIA_ITEM)) {
-      return getCurrentTimeline().isEmpty()
-          ? Timeline.EMPTY
-          : new CurrentMediaItemOnlyTimeline(this);
+    } else if (getCurrentMediaItemWithCommandCheck() != null) {
+      return new CurrentMediaItemOnlyTimeline(/* player= */ this);
     }
     return Timeline.EMPTY;
   }
@@ -957,13 +955,7 @@ import java.util.List;
       mediaItem = player.getCurrentMediaItem();
       isSeekable = player.isCurrentMediaItemSeekable();
       isDynamic = player.isCurrentMediaItemDynamic();
-      Timeline timeline = player.getCurrentTimeline();
-      isPlaceholder =
-          !timeline.isEmpty()
-              && player
-                  .getCurrentTimeline()
-                  .getWindow(player.getCurrentMediaItemIndex(), new Window())
-                  .isPlaceholder;
+      isPlaceholder = false;
       liveConfiguration =
           player.isCurrentMediaItemLive() ? MediaItem.LiveConfiguration.UNSET : null;
       durationUs = msToUs(player.getContentDuration());

@@ -262,6 +262,9 @@ public class MockPlayer implements Player {
   /** Maps to {@link Player#setAudioAttributes(AudioAttributes, boolean)}. */
   public static final int METHOD_SET_AUDIO_ATTRIBUTES = 48;
 
+  /** Maps to {@link Player#getCurrentTimeline()}. */
+  public static final int METHOD_GET_CURRENT_TIMELINE = 49;
+
   private final boolean changePlayerStateWithTransportControl;
   private final Looper applicationLooper;
   private final ArraySet<Listener> listeners = new ArraySet<>();
@@ -852,6 +855,7 @@ public class MockPlayer implements Player {
 
   @Override
   public Timeline getCurrentTimeline() {
+    checkNotNull(conditionVariables.get(METHOD_GET_CURRENT_TIMELINE)).open();
     return timeline;
   }
 
@@ -918,7 +922,6 @@ public class MockPlayer implements Player {
 
   @Override
   public boolean isCurrentMediaItemDynamic() {
-    Timeline timeline = getCurrentTimeline();
     return !timeline.isEmpty()
         && timeline.getWindow(getCurrentMediaItemIndex(), new Timeline.Window()).isDynamic;
   }
@@ -934,7 +937,6 @@ public class MockPlayer implements Player {
 
   @Override
   public boolean isCurrentMediaItemLive() {
-    Timeline timeline = getCurrentTimeline();
     return !timeline.isEmpty()
         && timeline.getWindow(getCurrentMediaItemIndex(), new Timeline.Window()).isLive();
   }
@@ -950,7 +952,6 @@ public class MockPlayer implements Player {
 
   @Override
   public boolean isCurrentMediaItemSeekable() {
-    Timeline timeline = getCurrentTimeline();
     return !timeline.isEmpty()
         && timeline.getWindow(getCurrentMediaItemIndex(), new Timeline.Window()).isSeekable;
   }
@@ -1383,6 +1384,11 @@ public class MockPlayer implements Player {
     return checkNotNull(conditionVariables.get(method)).isOpen();
   }
 
+  /** Returns whether {@code method} has been called at least once. */
+  public boolean closeConditionVariableForMethod(@Method int method) {
+    return checkNotNull(conditionVariables.get(method)).close();
+  }
+
   /**
    * Awaits up to {@code timeOutMs} until {@code method} is called, otherwise throws a {@link
    * TimeoutException}.
@@ -1452,6 +1458,7 @@ public class MockPlayer implements Player {
         .put(METHOD_STOP, new ConditionVariable())
         .put(METHOD_REPLACE_MEDIA_ITEM, new ConditionVariable())
         .put(METHOD_REPLACE_MEDIA_ITEMS, new ConditionVariable())
+        .put(METHOD_GET_CURRENT_TIMELINE, new ConditionVariable())
         .buildOrThrow();
   }
 

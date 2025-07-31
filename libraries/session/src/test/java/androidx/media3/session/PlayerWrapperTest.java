@@ -20,6 +20,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.when;
 
 import android.os.Looper;
+import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
 import androidx.media3.test.utils.FakeTimeline;
@@ -77,7 +78,7 @@ public class PlayerWrapperTest {
       getCurrentTimelineWithCommandCheck_withoutCommandGetTimelineWhenMultipleItems_hasSingleItemTimeline() {
     when(player.isCommandAvailable(Player.COMMAND_GET_TIMELINE)).thenReturn(false);
     when(player.isCommandAvailable(Player.COMMAND_GET_CURRENT_MEDIA_ITEM)).thenReturn(true);
-    when(player.getCurrentTimeline()).thenReturn(new FakeTimeline(/* windowCount= */ 3));
+    when(player.getCurrentMediaItem()).thenReturn(MediaItem.fromUri("http://www.example.com"));
 
     Timeline currentTimeline = playerWrapper.getCurrentTimelineWithCommandCheck();
 

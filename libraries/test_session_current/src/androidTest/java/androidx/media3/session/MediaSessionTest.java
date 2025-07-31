@@ -47,11 +47,13 @@ import androidx.media.MediaSessionManager;
 import androidx.media3.common.ForwardingPlayer;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.Player;
+import androidx.media3.common.Timeline;
 import androidx.media3.common.util.Log;
 import androidx.media3.session.MediaSession.ControllerInfo;
 import androidx.media3.test.session.common.HandlerThreadTestRule;
 import androidx.media3.test.session.common.MainLooperTestRule;
 import androidx.media3.test.session.common.TestHandler;
+import androidx.media3.test.utils.FakeTimeline;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.LargeTest;
@@ -1008,6 +1010,80 @@ public class MediaSessionTest {
         });
 
     assertThat(sessionExtraValue.get()).isEqualTo("value");
+  }
+
+  @Test
+  public void getCurrentTimeline_commandGetTimelineNotAvailable_onGetTimelineNotCalled()
+      throws Exception {
+    CountDownLatch latch = new CountDownLatch(/* count= */ 1);
+    List<Player.Commands> capturedCommands = new ArrayList<>();
+    Player.Listener availableCommandsListener =
+        new Player.Listener() {
+          @Override
+          public void onAvailableCommandsChanged(Player.Commands availableCommands) {
+            capturedCommands.add(availableCommands);
+            latch.countDown();
+          }
+        };
+    controller.addListener(availableCommandsListener);
+
+    threadTestRule
+        .getHandler()
+        .postAndSync(
+            () -> {
+              player.notifyAvailableCommandsChanged(
+                  new Player.Commands.Builder()
+                      .addAllCommands()
+                      .remove(Player.COMMAND_GET_TIMELINE)
+                      .build());
+            });
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(capturedCommands).hasSize(1);
+    assertThat(capturedCommands.get(0).contains(Player.COMMAND_GET_TIMELINE)).isFalse();
+    threadTestRule
+        .getHandler()
+        .postAndSync(() -> controller.removeListener(availableCommandsListener));
+    List<Timeline> capturedTimelines = new ArrayList<>();
+    CountDownLatch timelineLatch = new CountDownLatch(/* count= */ 1);
+    Player.Listener timelineListener =
+        new Player.Listener() {
+          @Override
+          public void onTimelineChanged(Timeline timeline, int reason) {
+            capturedTimelines.add(timeline);
+            timelineLatch.countDown();
+          }
+        };
+    controller.addListener(timelineListener);
+    player.closeConditionVariableForMethod(MockPlayer.METHOD_GET_CURRENT_TIMELINE);
+    player.timeline =
+        new FakeTimeline(
+            new FakeTimeline.TimelineWindowDefinition.Builder()
+                .setDynamic(true)
+                .setLive(true)
+                .setSeekable(true)
+                .setPlaceholder(true)
+                .build(),
+            new FakeTimeline.TimelineWindowDefinition.Builder()
+                .setDynamic(true)
+                .setLive(true)
+                .setSeekable(true)
+                .setPlaceholder(true)
+                .build());
+
+    threadTestRule
+        .getHandler()
+        .postAndSync(
+            () -> player.notifyTimelineChanged(Player.TIMELINE_CHANGE_REASON_SOURCE_UPDATE));
+
+    assertThat(timelineLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(player.hasMethodBeenCalled(MockPlayer.METHOD_GET_CURRENT_TIMELINE)).isFalse();
+    assertThat(capturedTimelines).hasSize(1);
+    assertThat(capturedTimelines.get(0).getWindowCount()).isEqualTo(1);
+    assertThat(capturedTimelines.get(0).getWindow(0, new Timeline.Window()).isPlaceholder)
+        .isFalse();
+    assertThat(capturedTimelines.get(0).getWindow(0, new Timeline.Window()).isDynamic).isTrue();
+    assertThat(capturedTimelines.get(0).getWindow(0, new Timeline.Window()).isLive()).isTrue();
   }
 
   private static Intent getMediaButtonIntent(int keyCode) {
