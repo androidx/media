@@ -445,7 +445,7 @@ public class MatroskaExtractor implements Extractor {
   private long durationTimecode = C.TIME_UNSET;
   private long durationUs = C.TIME_UNSET;
   private boolean isWebm;
-  private boolean pendingEndTracks = true;
+  private boolean pendingEndTracks;
 
   // The track corresponding to the current TrackEntry element, or null.
   @Nullable private Track currentTrack;
@@ -557,6 +557,7 @@ public class MatroskaExtractor implements Extractor {
     encryptionSubsampleData = new ParsableByteArray();
     supplementalData = new ParsableByteArray();
     blockSampleSizes = new int[1];
+    pendingEndTracks = true;
   }
 
   @Override
@@ -795,23 +796,6 @@ public class MatroskaExtractor implements Extractor {
       default:
         break;
     }
-  }
-
-  /**
-   * Ensures `extractorOutput.endTracks()` gets called only once, and only
-   * if we don't have any pending audio analysis.
-   */
-  private void maybeEndTracks() {
-    if (!pendingEndTracks) {
-      return;
-    }
-    for (int i = 0; i < tracks.size(); i++) {
-      if (tracks.valueAt(i).waitingForDtsAnalysis) {
-        return;
-      }
-    }
-    extractorOutput.endTracks();
-    pendingEndTracks = false;
   }
 
   /**
@@ -1584,51 +1568,14 @@ public class MatroskaExtractor implements Extractor {
     }
 
     if (track.waitingForDtsAnalysis) {
-      // The format for this DTS track as not been determined yet
-      long remaining = input.getLength() - input.getPosition();
-      // Limit the peek ahead to be up to the max frame size (16383) plus the
-      // sync word of the second frame
-      int scanLength = (int)Math.min(16383 + 95, remaining);
-      byte[] buf = new byte[scanLength];
-
-      input.advancePeekPosition(0);
-      input.peekFully(buf, 0, buf.length);
-      input.resetPeekPosition();
-
-      final ByteBuffer bb = ByteBuffer.wrap(buf);
-      for (int idx = 0; idx + 4 <= buf.length; idx += 4) {
-        int word = bb.getInt(idx);
-
-        if (DtsUtil.getFrameType(word) == DtsUtil.FRAME_TYPE_CORE) {
-          if (idx + 10 > buf.length) {
-            break;
-          }
-
-          bb.mark();
-          bb.position(idx);
-          byte[] header = new byte[10];
-          bb.get(header);
-          bb.reset();
-          int fsize = DtsUtil.getDtsFrameSize(header);
-          if (fsize <= 0 || idx + fsize + 4 > buf.length) {
-            break;
-          }
-
-          word = bb.getInt(idx + fsize);
-
-          if (DtsUtil.getFrameType(word) == DtsUtil.FRAME_TYPE_EXTENSION_SUBSTREAM) {
-            track.formatBuilder.setSampleMimeType(MimeTypes.AUDIO_DTS_HD);
-            track.output.format(track.formatBuilder.build());
-          }
-
-          // After finding a valid DTS core frame we can break the loop, there is no
-          // need to evaluate the rest of the buffer.
-          break;
-        }
+      checkNotNull(track.format);
+      if (DtsUtil.isSampleDtsHd(input, size)) {
+        track.format = track.format.buildUpon().setSampleMimeType(MimeTypes.AUDIO_DTS_HD).build();
       }
+      track.output.format(track.format);
       track.waitingForDtsAnalysis = false;
       maybeEndTracks();
-   }
+    }
 
     TrackOutput output = track.output;
     if (!sampleEncodingHandled) {
@@ -2091,6 +2038,19 @@ public class MatroskaExtractor implements Extractor {
     checkStateNotNull(extractorOutput);
   }
 
+  private void maybeEndTracks() {
+    if (!pendingEndTracks) {
+      return;
+    }
+    for (int i = 0; i < tracks.size(); i++) {
+      if (tracks.valueAt(i).waitingForDtsAnalysis) {
+        return;
+      }
+    }
+    checkNotNull(extractorOutput).endTracks();
+    pendingEndTracks = false;
+  }
+
   /** Passes events through to the outer {@link MatroskaExtractor}. */
   private final class InnerEbmlProcessor implements EbmlProcessor {
 
@@ -2210,7 +2170,7 @@ public class MatroskaExtractor implements Extractor {
 
     // Set when the output is initialized. nalUnitLengthFieldLength is only set for H264/H265.
     public @MonotonicNonNull TrackOutput output;
-    public Format.Builder formatBuilder;
+    public @MonotonicNonNull Format format;
     public int nalUnitLengthFieldLength;
 
     /** Initializes the track with an output. */
@@ -2438,7 +2398,7 @@ public class MatroskaExtractor implements Extractor {
       selectionFlags |= flagForced ? C.SELECTION_FLAG_FORCED : 0;
 
       int type;
-      formatBuilder = new Format.Builder();
+      Format.Builder formatBuilder = new Format.Builder();
       // TODO: Consider reading the name elements of the tracks and, if present, incorporating them
       // into the trackId passed when creating the formats.
       if (MimeTypes.isAudio(mimeType)) {
@@ -2514,7 +2474,7 @@ public class MatroskaExtractor implements Extractor {
         formatBuilder.setLabel(name);
       }
 
-      Format format =
+      format =
           formatBuilder
               .setId(trackId)
               .setContainerMimeType(isWebm ? MimeTypes.VIDEO_WEBM : MimeTypes.VIDEO_MATROSKA)
@@ -2528,7 +2488,9 @@ public class MatroskaExtractor implements Extractor {
               .build();
 
       this.output = output.track(number, type);
-      this.output.format(format);
+      if (!waitingForDtsAnalysis) {
+        this.output.format(format);
+      }
     }
 
     /** Forces any pending sample metadata to be flushed to the output. */
