@@ -702,6 +702,12 @@ public abstract class DownloadService extends Service {
   }
 
   @Override
+  public void onTimeout(int startId, int fgsType) {
+    Log.w(TAG, "onTimeout() called by system. Calling stopSelf() to terminate gracefully.");
+    stopSelf();
+  }
+
+  @Override
   public void onDestroy() {
     isDestroyed = true;
     Assertions.checkNotNull(downloadManagerHelper).detachService(this);
