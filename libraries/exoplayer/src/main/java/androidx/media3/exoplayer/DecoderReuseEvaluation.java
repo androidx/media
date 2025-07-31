@@ -137,6 +137,9 @@ public final class DecoderReuseEvaluation {
   /** The audio bypass mode is possible. */
   public static final int DISCARD_REASON_AUDIO_BYPASS_POSSIBLE = 1 << 15;
 
+  /** The codec is changing. */
+  public static final int DISCARD_REASON_CODEC_CHANGED = 1 << 16;
+
   /** The name of the decoder. */
   public final String decoderName;
 
