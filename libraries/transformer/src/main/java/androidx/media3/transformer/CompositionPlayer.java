@@ -1067,9 +1067,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
             .build();
 
     // The order of these MediaSource instances is critical. The CompositionTrackSelector
-    // relies on this fixed order to correctly identify and disable both the silence and
-    // blank image tracks. The SilenceMediaSource must be the first item, and the
-    // BlankMediaSource must come before the main media source.
+    // relies on this fixed order to correctly identify the silence and blank image track groups.
     // LINT.IfChange
     if (editedMediaItem.isGap()) {
       if (shouldGenerateBlankFrames) {

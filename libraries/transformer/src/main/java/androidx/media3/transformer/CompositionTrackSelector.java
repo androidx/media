@@ -179,8 +179,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
           if (shouldUseMediaAudio) {
             // Disable silence if the media's audio track is playable.
-            int silenceAudioTrackIndex = 0;
-            rendererFormatSupports[audioRenderIndex][silenceAudioTrackIndex][0] =
+            rendererFormatSupports[audioRenderIndex][silenceAudioTrackGroupIndex][0] =
                 RendererCapabilities.create(C.FORMAT_UNSUPPORTED_TYPE);
           }
         }
@@ -255,8 +254,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
         if (shouldUseMediaImage) {
           // Disable blank images if the media's image track is playable.
-          int blankImageTrackIndex = 0;
-          rendererFormatSupports[imageRenderIndex][blankImageTrackIndex][0] =
+          rendererFormatSupports[imageRenderIndex][blankImageTrackGroupIndex][0] =
               RendererCapabilities.create(C.FORMAT_UNSUPPORTED_TYPE);
         }
       }
