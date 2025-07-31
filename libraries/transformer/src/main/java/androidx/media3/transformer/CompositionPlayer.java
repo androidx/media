@@ -21,6 +21,7 @@ import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.usToMs;
+import static androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper.LATE_US_TO_DROP_INPUT_FRAME;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -131,6 +132,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
 
     private @MonotonicNonNull GlObjectsProvider glObjectsProvider;
     private boolean enableReplayableCache;
+    private long lateThresholdToDropInputUs;
     private boolean built;
 
     /**
@@ -146,6 +148,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
           new BitmapFactoryImageDecoder.Factory(context)
               .setMaxOutputSize(GlUtil.MAX_BITMAP_DECODING_SIZE);
       videoPrewarmingEnabled = true;
+      lateThresholdToDropInputUs = LATE_US_TO_DROP_INPUT_FRAME;
       clock = Clock.DEFAULT;
     }
 
@@ -304,6 +307,25 @@ public final class CompositionPlayer extends SimpleBasePlayer
     }
 
     /**
+     * Sets the late threshold for decoded frames, in microseconds, after which frames may be
+     * dropped before applying effects.
+     *
+     * <p>The default value is {@link PlaybackVideoGraphWrapper#LATE_US_TO_DROP_INPUT_FRAME}.
+     *
+     * <p>Set this threshold to {@link C#TIME_UNSET} to disable frame dropping before effects are
+     * applied.
+     *
+     * <p>This method is experimental and will be renamed or removed in a future release.
+     *
+     * @param lateThresholdToDropInputUs The threshold.
+     */
+    @CanIgnoreReturnValue
+    public Builder experimentalSetLateThresholdToDropInputUs(long lateThresholdToDropInputUs) {
+      this.lateThresholdToDropInputUs = lateThresholdToDropInputUs;
+      return this;
+    }
+
+    /**
      * Builds the {@link CompositionPlayer} instance. Must be called at most once.
      *
      * <p>If no {@link Looper} has been called with {@link #setLooper(Looper)}, then this method
@@ -382,6 +404,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
   private final boolean videoPrewarmingEnabled;
   private final HandlerWrapper compositionInternalListenerHandler;
   private final boolean enableReplayableCache;
+  private final long lateThresholdToDropInputUs;
 
   /** Maps from input index to whether the video track is selected in that sequence. */
   private final SparseBooleanArray videoTracksSelected;
@@ -430,6 +453,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
     videoPrewarmingEnabled = builder.videoPrewarmingEnabled;
     compositionInternalListenerHandler = clock.createHandler(builder.looper, /* callback= */ null);
     this.enableReplayableCache = builder.enableReplayableCache;
+    lateThresholdToDropInputUs = builder.lateThresholdToDropInputUs;
     videoTracksSelected = new SparseBooleanArray();
     playerHolders = new ArrayList<>();
     compositionDurationUs = C.TIME_UNSET;
@@ -881,6 +905,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
             .setVideoGraphFactory(checkNotNull(videoGraphFactory))
             .setClock(clock)
             .setEnableReplayableCache(enableReplayableCache)
+            .experimentalSetLateThresholdToDropInputUs(lateThresholdToDropInputUs)
             .build();
     playbackVideoGraphWrapper.addListener(this);
 

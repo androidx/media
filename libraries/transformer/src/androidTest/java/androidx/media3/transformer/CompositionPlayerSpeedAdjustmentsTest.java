@@ -22,6 +22,7 @@ import android.app.Instrumentation;
 import android.content.Context;
 import android.util.Pair;
 import android.view.SurfaceView;
+import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.audio.AudioProcessor;
@@ -100,7 +101,10 @@ public class CompositionPlayerSpeedAdjustmentsTest {
 
     instrumentation.runOnMainSync(
         () -> {
-          compositionPlayer = new CompositionPlayer.Builder(applicationContext).build();
+          compositionPlayer =
+              new CompositionPlayer.Builder(applicationContext)
+                  .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
+                  .build();
           // Set a surface on the player even though there is no UI on this test. We need a surface
           // otherwise the player will skip/drop video frames.
           compositionPlayer.setVideoSurfaceView(surfaceView);

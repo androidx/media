@@ -1070,6 +1070,7 @@ public class CompositionPlayerSeekTest {
                   new CompositionPlayer.Builder(applicationContext)
                       .setVideoGraphFactory(new ListenerCapturingVideoGraphFactory(videoGraphEnded))
                       .setVideoPrewarmingEnabled(videoPrewarmingEnabled)
+                      .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
                       .build());
               // Set a surface on the player even though there is no UI on this test. We need a
               // surface otherwise the player will skip/drop video frames.
@@ -1156,6 +1157,7 @@ public class CompositionPlayerSeekTest {
               compositionPlayer.set(
                   new CompositionPlayer.Builder(applicationContext)
                       .setVideoGraphFactory(new ListenerCapturingVideoGraphFactory(videoGraphEnded))
+                      .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
                       .build());
               // Set a surface on the player even though there is no UI on this test. We need a
               // surface otherwise the player will skip/drop video frames.

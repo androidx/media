@@ -77,6 +77,8 @@ import androidx.media3.exoplayer.ExoPlaybackException;
   /** A queue of unprocessed input frame timestamps. */
   private final LongArrayQueue presentationTimestampsUs;
 
+  private final VideoFrameReleaseEarlyTimeForecaster videoFrameReleaseEarlyTimeForecaster;
+
   private long latestInputPresentationTimeUs;
   private long latestOutputPresentationTimeUs;
 
@@ -88,9 +90,12 @@ import androidx.media3.exoplayer.ExoPlaybackException;
 
   /** Creates an instance. */
   public VideoFrameRenderControl(
-      FrameRenderer frameRenderer, VideoFrameReleaseControl videoFrameReleaseControl) {
+      FrameRenderer frameRenderer,
+      VideoFrameReleaseControl videoFrameReleaseControl,
+      VideoFrameReleaseEarlyTimeForecaster videoFrameReleaseEarlyTimeForecaster) {
     this.frameRenderer = frameRenderer;
     this.videoFrameReleaseControl = videoFrameReleaseControl;
+    this.videoFrameReleaseEarlyTimeForecaster = videoFrameReleaseEarlyTimeForecaster;
     videoFrameReleaseInfo = new VideoFrameReleaseControl.FrameReleaseInfo();
     videoSizes = new TimedValueQueue<>();
     streamStartPositionsUs = new TimedValueQueue<>();
@@ -147,6 +152,11 @@ import androidx.media3.exoplayer.ExoPlaybackException;
               /* isDecodeOnlyFrame= */ false,
               /* isLastFrame= */ false,
               videoFrameReleaseInfo);
+      if (frameReleaseAction != VideoFrameReleaseControl.FRAME_RELEASE_TRY_AGAIN_LATER
+          && frameReleaseAction != VideoFrameReleaseControl.FRAME_RELEASE_IGNORE) {
+        videoFrameReleaseEarlyTimeForecaster.onVideoFrameProcessed(
+            presentationTimeUs, videoFrameReleaseInfo.getEarlyUs());
+      }
       switch (frameReleaseAction) {
         case VideoFrameReleaseControl.FRAME_RELEASE_TRY_AGAIN_LATER:
           return;

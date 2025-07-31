@@ -419,7 +419,10 @@ public class VideoTimestampConsistencyTest {
 
     instrumentation.runOnMainSync(
         () -> {
-          compositionPlayer = new CompositionPlayer.Builder(applicationContext).build();
+          compositionPlayer =
+              new CompositionPlayer.Builder(applicationContext)
+                  .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
+                  .build();
           // Set a surface on the player even though there is no UI on this test. We need a surface
           // otherwise the player will skip/drop video frames.
           compositionPlayer.setVideoSurfaceView(surfaceView);

@@ -713,6 +713,7 @@ public final class ExperimentalFrameExtractor {
       VideoGraph.Factory videoGraphFactory =
           new SingleInputVideoGraph.Factory(videoFrameProcessorFactoryBuilder.build());
       return new PlaybackVideoGraphWrapper.Builder(context, videoFrameReleaseControl)
+          .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
           .setEnablePlaylistMode(true)
           .setClock(getClock())
           .setVideoGraphFactory(videoGraphFactory)

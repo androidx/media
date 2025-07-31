@@ -55,6 +55,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 /* package */ final class DefaultVideoSink implements VideoSink {
 
   private final VideoFrameReleaseControl videoFrameReleaseControl;
+  private final VideoFrameReleaseEarlyTimeForecaster videoFrameReleaseEarlyTimeForecaster;
   private final VideoFrameRenderControl videoFrameRenderControl;
   private final Queue<VideoFrameHandler> videoFrameHandlers;
 
@@ -65,11 +66,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private Executor listenerExecutor;
   private VideoFrameMetadataListener videoFrameMetadataListener;
 
-  public DefaultVideoSink(VideoFrameReleaseControl videoFrameReleaseControl, Clock clock) {
+  public DefaultVideoSink(
+      VideoFrameReleaseControl videoFrameReleaseControl,
+      VideoFrameReleaseEarlyTimeForecaster videoFrameReleaseEarlyTimeForecaster,
+      Clock clock) {
     this.videoFrameReleaseControl = videoFrameReleaseControl;
+    this.videoFrameReleaseEarlyTimeForecaster = videoFrameReleaseEarlyTimeForecaster;
     videoFrameReleaseControl.setClock(clock);
     videoFrameRenderControl =
-        new VideoFrameRenderControl(new FrameRendererImpl(), videoFrameReleaseControl);
+        new VideoFrameRenderControl(
+            new FrameRendererImpl(),
+            videoFrameReleaseControl,
+            videoFrameReleaseEarlyTimeForecaster);
     videoFrameHandlers = new ArrayDeque<>();
     inputFormat = new Format.Builder().build();
     streamStartPositionUs = C.TIME_UNSET;
@@ -80,11 +88,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Override
   public void startRendering() {
+    videoFrameReleaseEarlyTimeForecaster.reset();
     videoFrameReleaseControl.onStarted();
   }
 
   @Override
   public void stopRendering() {
+    videoFrameReleaseEarlyTimeForecaster.reset();
     videoFrameReleaseControl.onStopped();
   }
 
@@ -120,6 +130,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     if (resetPosition) {
       videoFrameReleaseControl.reset();
     }
+    videoFrameReleaseEarlyTimeForecaster.reset();
     videoFrameRenderControl.flush();
     videoFrameHandlers.clear();
   }

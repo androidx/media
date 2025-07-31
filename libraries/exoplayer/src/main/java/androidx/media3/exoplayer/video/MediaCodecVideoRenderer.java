@@ -945,6 +945,10 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     // TODO: b/391109644 - Add a more explicit API to enable replaying.
     return new PlaybackVideoGraphWrapper.Builder(context, videoFrameReleaseControl)
         .setEnablePlaylistMode(true)
+        .experimentalSetLateThresholdToDropInputUs(
+            minEarlyUsToDropDecoderInput != C.TIME_UNSET
+                ? -minEarlyUsToDropDecoderInput
+                : C.TIME_UNSET)
         .setClock(getClock())
         .build();
   }
@@ -1810,7 +1814,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
 
             @Override
             public void skip() {
-              skipOutputBuffer(codec, bufferIndex, presentationTimeUs);
+              dropOutputBuffer(codec, bufferIndex, presentationTimeUs);
             }
           });
     }

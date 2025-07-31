@@ -370,6 +370,7 @@ public class CompositionPlaybackTest {
               player =
                   new CompositionPlayer.Builder(context)
                       .setVideoPrewarmingEnabled(videoPrewarmingEnabled)
+                      .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
                       .build();
               player.addListener(playerTestListener);
               player.setComposition(composition);
