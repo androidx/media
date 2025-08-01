@@ -15,6 +15,7 @@
  */
 package androidx.media3.session;
 
+import static androidx.media3.session.SessionError.ERROR_NOT_SUPPORTED;
 import static androidx.media3.session.SessionError.ERROR_SESSION_AUTHENTICATION_EXPIRED;
 import static androidx.media3.session.SessionError.ERROR_SESSION_CONCURRENT_STREAM_LIMIT;
 import static com.google.common.truth.Truth.assertThat;
@@ -71,5 +72,15 @@ public class SessionResultTest {
     assertThat(resultFromBundle.sessionError.extras.size()).isEqualTo(1);
     assertThat(resultFromBundle.sessionError.extras.getString("errorKey")).isEqualTo("errorValue");
     assertThat(resultFromBundle.extras.size()).isEqualTo(0);
+  }
+
+  @Test
+  public void roundTripViaBundleForLocalProcess_yieldsSameInstance() {
+    SessionResult errorSessionResult =
+        new SessionResult(new SessionError(ERROR_NOT_SUPPORTED, "error message", new Bundle()));
+    SessionResult unbundledSessionResult =
+        SessionResult.fromBundle(errorSessionResult.toBundleForLocalProcess());
+
+    assertThat(errorSessionResult == unbundledSessionResult).isTrue();
   }
 }
