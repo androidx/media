@@ -211,6 +211,30 @@ public final class MatroskaExtractorTest {
         simulationConfig);
   }
 
+  @Test
+  public void mkvSample_withDts() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/mkv/sample_with_dts.mkv",
+        simulationConfig);
+  }
+
+  @Test
+  public void mkvSample_withDtsHdMa() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/mkv/sample_with_dts_hd_ma.mkv",
+        simulationConfig);
+  }
+
+  @Test
+  public void mkvSample_withDtsX() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/mkv/sample_with_dts_x.mkv",
+        simulationConfig);
+  }
+
   private static ExtractorAsserts.ExtractorFactory getExtractorFactory(
       boolean subtitlesParsedDuringExtraction) {
     SubtitleParser.Factory subtitleParserFactory;

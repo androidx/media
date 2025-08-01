@@ -1,0 +1,396 @@
+seekMap:
+  isSeekable = true
+  duration = 1002664
+  getPosition(0) = [[timeUs=0, position=5417]]
+  getPosition(1) = [[timeUs=0, position=5417], [timeUs=426993, position=5417]]
+  getPosition(501332) = [[timeUs=426993, position=5417]]
+  getPosition(1002664) = [[timeUs=426993, position=5417]]
+numberOfTracks = 1
+track 1:
+  total output bytes = 200032
+  sample count = 94
+  format 0:
+    id = 1
+    containerMimeType = video/x-matroska
+    sampleMimeType = audio/vnd.dts.hd
+    channelCount = 8
+    sampleRate = 48000
+    selectionFlags = [default]
+    language = en
+  sample 0:
+    time = 0
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 1:
+    time = 10666
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 2:
+    time = 21333
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 3:
+    time = 32000
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 4:
+    time = 42666
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 5:
+    time = 53333
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 6:
+    time = 64000
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 7:
+    time = 74666
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 8:
+    time = 84994
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 9:
+    time = 95660
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 10:
+    time = 106327
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 11:
+    time = 116994
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 12:
+    time = 127660
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 13:
+    time = 138327
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 14:
+    time = 148994
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 15:
+    time = 159660
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 16:
+    time = 171009
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 17:
+    time = 181675
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 18:
+    time = 192342
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 19:
+    time = 203009
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 20:
+    time = 213675
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 21:
+    time = 224342
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 22:
+    time = 235009
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 23:
+    time = 245675
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 24:
+    time = 256004
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 25:
+    time = 266670
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 26:
+    time = 277337
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 27:
+    time = 288004
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 28:
+    time = 298670
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 29:
+    time = 309337
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 30:
+    time = 320004
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 31:
+    time = 330670
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 32:
+    time = 340999
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 33:
+    time = 351665
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 34:
+    time = 362332
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 35:
+    time = 372999
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 36:
+    time = 383665
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 37:
+    time = 394332
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 38:
+    time = 404999
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 39:
+    time = 415665
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 40:
+    time = 426993
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 41:
+    time = 437659
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 42:
+    time = 448326
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 43:
+    time = 458993
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 44:
+    time = 469659
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 45:
+    time = 480326
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 46:
+    time = 490993
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 47:
+    time = 501659
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 48:
+    time = 512008
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 49:
+    time = 522674
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 50:
+    time = 533341
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 51:
+    time = 544008
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 52:
+    time = 554674
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 53:
+    time = 565341
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 54:
+    time = 576008
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 55:
+    time = 586674
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 56:
+    time = 597003
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 57:
+    time = 607669
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 58:
+    time = 618336
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 59:
+    time = 629003
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 60:
+    time = 639669
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 61:
+    time = 650336
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 62:
+    time = 661003
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 63:
+    time = 671669
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 64:
+    time = 682997
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 65:
+    time = 693663
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 66:
+    time = 704330
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 67:
+    time = 714997
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 68:
+    time = 725663
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 69:
+    time = 736330
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 70:
+    time = 746997
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 71:
+    time = 757663
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 72:
+    time = 767991
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 73:
+    time = 778657
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 74:
+    time = 789324
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 75:
+    time = 799991
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 76:
+    time = 810657
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 77:
+    time = 821324
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 78:
+    time = 831991
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 79:
+    time = 842657
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 80:
+    time = 854006
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 81:
+    time = 864672
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 82:
+    time = 875339
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 83:
+    time = 886006
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 84:
+    time = 896672
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 85:
+    time = 907339
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 86:
+    time = 918006
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 87:
+    time = 928672
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 88:
+    time = 939001
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 89:
+    time = 949667
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 90:
+    time = 960334
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 91:
+    time = 971001
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 92:
+    time = 981667
+    flags = 1
+    data = length 2128, hash E93B32EA
+  sample 93:
+    time = 992334
+    flags = 1
+    data = length 2128, hash E93B32EA
+tracksEnded = true
