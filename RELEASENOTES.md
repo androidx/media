@@ -117,6 +117,9 @@
 *   HLS extension:
     *   Parse HLS interstitial skip attributes.
 *   DASH extension:
+    *   Fix `UnsupportedOperationException` when playing DASH streams with a
+        non-hierarchical `data:` URI manifest
+        ([#2688](https://github.com/androidx/media/issues/2688)).
     *   Reset `LiveConfiguration` to the value provided by the `MediaItem` of
         the `DashMediaSource` when released and when the media item is updated
         by the user ([#2606](https://github.com/androidx/media/issues/2606)).

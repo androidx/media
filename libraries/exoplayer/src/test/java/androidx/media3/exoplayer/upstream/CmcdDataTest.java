@@ -631,4 +631,13 @@ public class CmcdDataTest {
 
     assertThat(updatedUri.toString()).isEqualTo("https://test.test/test.mp4?key=value&key2=value2");
   }
+
+  @Test
+  public void removeFromUri_nonHierarchicalUri_returnsUnmodifiedUri() {
+    Uri uri = Uri.parse("data:application/dash+xml;base64");
+
+    Uri updatedUri = CmcdData.removeFromUri(uri);
+
+    assertThat(updatedUri).isEqualTo(uri);
+  }
 }
