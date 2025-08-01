@@ -117,6 +117,13 @@ public final class BoxParser {
    */
   private static final int MAX_GAPLESS_TRIM_SIZE_SAMPLES = 4;
 
+  /**
+   * A small tolerance for comparing track durations, in timescale units. This is to account for
+   * small rounding errors that can be introduced when scaling edit list durations from the movie
+   * timescale to the track timescale.
+   */
+  private static final int EDIT_LIST_DURATION_TOLERANCE_TIMESCALE_UNITS = 2;
+
   /** The magic signature for an Opus Identification header, as defined in RFC-7845. */
   private static final byte[] opusMagic = Util.getUtf8Bytes("OpusHead");
 
@@ -758,7 +765,9 @@ public final class BoxParser {
               + Util.scaleLargeTimestamp(
                   track.editListDurations[0], track.timescale, track.movieTimescale);
       if (canApplyEditWithGaplessInfo(timestamps, duration, editStartTime, editEndTime)) {
-        long paddingTimeUnits = duration - editEndTime;
+        // Clamp padding to 0 to account for rounding errors where editEndTime is slightly
+        // greater than duration.
+        long paddingTimeUnits = max(0, duration - editEndTime);
         long encoderDelay =
             Util.scaleLargeTimestamp(
                 editStartTime - timestamps[0], track.format.sampleRate, track.timescale);
@@ -2669,7 +2678,7 @@ public final class BoxParser {
     return timestamps[0] <= editStartTime
         && editStartTime < timestamps[latestDelayIndex]
         && timestamps[earliestPaddingIndex] < editEndTime
-        && editEndTime <= duration;
+        && editEndTime <= duration + EDIT_LIST_DURATION_TOLERANCE_TIMESCALE_UNITS;
   }
 
   private BoxParser() {
