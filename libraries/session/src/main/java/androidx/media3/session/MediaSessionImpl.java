@@ -889,6 +889,12 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     return connectionResult;
   }
 
+  public void setOptOutOfMediaButtonPlaybackResumption(
+      boolean optOutOfMediaButtonPlaybackResumption) {
+    sessionLegacyStub.setOptOutOfMediaButtonPlaybackResumption(
+        optOutOfMediaButtonPlaybackResumption);
+  }
+
   public void onPostConnectOnHandler(ControllerInfo controller) {
     if (isMediaNotificationControllerConnected && isSystemUiController(controller)) {
       // Hide System UI. Apps can use the media notification controller to maintain the platform
