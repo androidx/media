@@ -139,7 +139,6 @@ public class AudioCapabilitiesTest {
         .isFalse();
   }
 
-  /** {@link AudioDeviceInfo#TYPE_BLUETOOTH_A2DP} is only supported from API 23. */
   @Test
   @Config(minSdk = Config.OLDEST_SDK)
   public void getCapabilities_withBluetoothA2dpAndHdmiConnected_returnsDefaultCapabilities() {
@@ -292,7 +291,7 @@ public class AudioCapabilitiesTest {
   }
 
   @Test
-  @Config(minSdk = Config.OLDEST_SDK) // TYPE_BLUETOOTH_A2DP detection is supported from API 23.
+  @Config(minSdk = Config.OLDEST_SDK)
   public void
       getCapabilities_withBluetoothA2dpConnectedAndHdmiAsRoutedDeviceHint_returnsHdmiCapabilities() {
     setOutputDevices(AudioDeviceInfo.TYPE_BLUETOOTH_A2DP, AudioDeviceInfo.TYPE_HDMI);

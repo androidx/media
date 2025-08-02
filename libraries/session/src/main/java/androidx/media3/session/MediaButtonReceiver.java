@@ -255,10 +255,9 @@ public class MediaButtonReceiver extends BroadcastReceiver {
    * Intent#ACTION_MEDIA_BUTTON}. If this happens on API 31+ and the app is in the background then
    * an exception is thrown.
    *
-   * <p>With the exception of devices that are running API 20 and below, a media button intent is
-   * only required to be sent to this receiver for a Bluetooth media button event that wants to
-   * restart the service. In such a case the app gets an exemption and is allowed to start the
-   * foreground service. In this case this method will never be called.
+   * <p>A media button intent is only required to be sent to this receiver for a Bluetooth media
+   * button event that wants to restart the service. In such a case the app gets an exemption and is
+   * allowed to start the foreground service. In this case this method will never be called.
    *
    * <p>In all other cases of attempting to start a Media3 service or to send a media button event,
    * apps must use a {@link MediaBrowser} or {@link MediaController} to bind to the service instead

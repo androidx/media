@@ -50,7 +50,6 @@ import androidx.media3.test.session.common.PollingCheck;
 import androidx.media3.test.session.common.TestUtils;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import androidx.test.filters.SdkSuppress;
 import androidx.test.filters.SmallTest;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
@@ -628,7 +627,6 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
   }
 
   @Test
-  @SdkSuppress(minSdkVersion = 23)
   public void setDeviceMuted_mute_forLocalPlayback_mutesStreamVolume() throws Exception {
     if (audioManager.isVolumeFixed()) {
       // This test is not eligible for this device.
@@ -657,7 +655,6 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
   }
 
   @Test
-  @SdkSuppress(minSdkVersion = 23)
   public void setDeviceMuted_unmute_forLocalPlayback_unmutesStreamVolume() throws Exception {
     if (audioManager.isVolumeFixed()) {
       // This test is not eligible for this device.

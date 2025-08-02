@@ -155,7 +155,6 @@ public class MediaExtractorContractTest {
   }
 
   @Test
-  @SdkSuppress(minSdkVersion = 23)
   public void setDataSource_withMediaDataSource_returnsCorrectTrackCount() throws IOException {
     byte[] fileData = TestUtil.getByteArray(context, /* fileName= */ "media/mp4/sample.mp4");
     MediaDataSource mediaDataSource =

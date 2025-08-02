@@ -3719,7 +3719,7 @@ public final class Util {
    * Returns a {@link Drawable} for the given resource or throws a {@link
    * Resources.NotFoundException} if not found.
    *
-   * @param context The context to get the theme from starting with API 21.
+   * @param context The context to get the theme from.
    * @param resources The resources to load the drawable from.
    * @param drawableRes The drawable resource int.
    * @return The loaded {@link Drawable}.

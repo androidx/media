@@ -121,8 +121,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  *       {@linkplain MediaCodecSelector#PREFER_SOFTWARE software} or {@linkplain
  *       MediaCodecSelector#DEFAULT hardware} decoders across a wide range of devices.
  *   <li>Other inputs are likely to produce accurate output when using {@linkplain
- *       MediaCodecSelector#DEFAULT hardware} decoders on devices that are launched with API 13 or
- *       later.
+ *       MediaCodecSelector#DEFAULT hardware} decoders.
  *   <li>HDR inputs will produce a {@link Bitmap} with {@link ColorSpace.Named#BT2020_HLG}. There
  *       are no guarantees that an HLG {@link Bitmap} displayed in {@link ImageView} and an HLG
  *       video displayed in {@link SurfaceView} will look the same.
