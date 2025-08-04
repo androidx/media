@@ -580,6 +580,8 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
                   "Color transfer %d is not supported. Falling back to OpenGl tone mapping.",
                   inputColorInfo.colorTransfer));
           outputColorInfo = ColorInfo.SDR_BT709_LIMITED;
+        } else if (inputColorInfo.colorTransfer == C.COLOR_TRANSFER_SRGB) {
+          outputColorInfo = ColorInfo.SDR_BT709_LIMITED;
         } else {
           outputColorInfo = inputColorInfo;
         }

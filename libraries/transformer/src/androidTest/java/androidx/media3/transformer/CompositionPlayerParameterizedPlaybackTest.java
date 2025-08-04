@@ -18,6 +18,7 @@ package androidx.media3.transformer;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.common.util.Util.usToMs;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
+import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_SRGB;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_VIDEO_ONLY_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.PNG_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.WAV_ASSET;
@@ -105,6 +106,13 @@ public class CompositionPlayerParameterizedPlaybackTest {
               .build(),
           MP4_ASSET.videoTimestampsUs,
           /* inputName= */ "Video");
+  private static final Input VIDEO_INPUT_SRGB =
+      new Input(
+          new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET_SRGB.uri))
+              .setDurationUs(MP4_ASSET_SRGB.videoDurationUs)
+              .build(),
+          MP4_ASSET_SRGB.videoTimestampsUs,
+          /* inputName= */ "Video_srgb");
   private static final Input VIDEO_INPUT_WITHOUT_AUDIO =
       new Input(
           new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
@@ -202,6 +210,7 @@ public class CompositionPlayerParameterizedPlaybackTest {
     ImmutableList.Builder<TestConfig> configs = new ImmutableList.Builder<>();
     // Single asset.
     configs.add(new TestConfig(new InputSequence(VIDEO_INPUT)));
+    configs.add(new TestConfig(new InputSequence(VIDEO_INPUT_SRGB)));
     configs.add(new TestConfig(new InputSequence(IMAGE_INPUT)));
     configs.add(new TestConfig(new InputSequence(AUDIO_INPUT)));
 
@@ -241,6 +250,10 @@ public class CompositionPlayerParameterizedPlaybackTest {
     configs.add(
         new TestConfig(
             new InputSequence(VIDEO_ONLY_CLIPPED_HALF_SPEED, VIDEO_ONLY_CLIPPED_HALF_SPEED)));
+    configs.add(
+        new TestConfig(
+            new InputSequence(
+                VIDEO_INPUT, VIDEO_INPUT_SRGB, VIDEO_INPUT, IMAGE_INPUT, VIDEO_INPUT_SRGB)));
 
     // Multiple sequence.
     configs.add(
