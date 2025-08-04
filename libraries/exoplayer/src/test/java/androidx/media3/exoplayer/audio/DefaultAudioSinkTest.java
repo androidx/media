@@ -446,7 +446,7 @@ public final class DefaultAudioSinkTest {
   }
 
   @Test
-  @Config(minSdk = Config.OLDEST_SDK) // AudioManager.TYPE_BLUETOOTH_A2DP is supported from API 23.
+  @Config(minSdk = Config.OLDEST_SDK)
   public void bluetoothDeviceAddedAndRemoved_audioCapabilitiesUpdated() {
     // Set UI mode to TV.
     getShadowUiModeManager().setCurrentModeType(Configuration.UI_MODE_TYPE_TELEVISION);
@@ -488,8 +488,7 @@ public final class DefaultAudioSinkTest {
   }
 
   @Test
-  @Config(
-      minSdk = Config.OLDEST_SDK) // AudioManager.ACTION_HDMI_AUDIO_PLUG is supported from API 21.
+  @Config(minSdk = Config.OLDEST_SDK)
   public void hdmiDeviceAddedAndRemoved_audioCapabilitiesUpdated() {
     // Set UI mode to TV.
     getShadowUiModeManager().setCurrentModeType(Configuration.UI_MODE_TYPE_TELEVISION);
@@ -577,9 +576,7 @@ public final class DefaultAudioSinkTest {
   // Adding the permission to the test AndroidManifest.xml doesn't work to appease lint.
   @SuppressWarnings({"StickyBroadcast", "MissingPermission"})
   @Test
-  @Config(
-      minSdk = Config.OLDEST_SDK,
-      maxSdk = 32) // AudioManager.TYPE_BLUETOOTH_A2DP is supported from API 23.
+  @Config(minSdk = Config.OLDEST_SDK, maxSdk = 32)
   public void setPreferredDevice_audioCapabilitiesUpdated() {
     // Initially setup the audio sink with Bluetooth and HDMI device connected.
     AudioDeviceInfo hdmiDevice =
@@ -660,7 +657,7 @@ public final class DefaultAudioSinkTest {
   }
 
   @Test
-  @Config(minSdk = Config.OLDEST_SDK) // AudioManager.TYPE_BLUETOOTH_A2DP is supported from API 23.
+  @Config(minSdk = Config.OLDEST_SDK)
   public void afterRelease_bluetoothDeviceAdded_audioCapabilitiesShouldNotBeUpdated() {
     // Set UI mode to TV.
     getShadowUiModeManager().setCurrentModeType(Configuration.UI_MODE_TYPE_TELEVISION);
@@ -691,8 +688,7 @@ public final class DefaultAudioSinkTest {
   }
 
   @Test
-  @Config(
-      minSdk = Config.OLDEST_SDK) // AudioManager.ACTION_HDMI_AUDIO_PLUG is supported from API 21.
+  @Config(minSdk = Config.OLDEST_SDK)
   public void afterRelease_hdmiDeviceAdded_audioCapabilitiesShouldNotBeUpdated() {
     // Set UI mode to TV.
     getShadowUiModeManager().setCurrentModeType(Configuration.UI_MODE_TYPE_TELEVISION);

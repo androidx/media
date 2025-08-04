@@ -453,7 +453,7 @@ public class MediaSessionKeyEventTest {
       // API 24 - 27: KeyEvent from system service has the package name "android".
       return "android";
     } else {
-      // API 21 - 23: Fallback set by MediaSessionCompat#getCurrentControllerInfo
+      // API 23: Fallback set by MediaSessionCompat#getCurrentControllerInfo
       return LEGACY_CONTROLLER;
     }
   }

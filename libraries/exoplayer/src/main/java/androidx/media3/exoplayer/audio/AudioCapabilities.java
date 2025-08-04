@@ -462,7 +462,7 @@ public final class AudioCapabilities {
    * AudioDeviceInfo#getType()}.
    *
    * <p>The types {@link AudioDeviceInfo#TYPE_BLUETOOTH_A2DP} and {@link
-   * AudioDeviceInfo#TYPE_BLUETOOTH_SCO} are included from API 23. And the types {@link
+   * AudioDeviceInfo#TYPE_BLUETOOTH_SCO} are included by default. And the types {@link
    * AudioDeviceInfo#TYPE_BLE_HEADSET} and {@link AudioDeviceInfo#TYPE_BLE_SPEAKER} are added from
    * API 31. And the type {@link AudioDeviceInfo#TYPE_BLE_BROADCAST} is added from API 33.
    */

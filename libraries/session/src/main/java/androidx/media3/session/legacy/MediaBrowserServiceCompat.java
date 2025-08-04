@@ -1310,7 +1310,7 @@ public abstract class MediaBrowserServiceCompat extends Service {
    * of this bundle may affect the information returned when browsing.
    *
    * <p>Note that this will return null when connected to {@link android.media.browse.MediaBrowser}
-   * and running on API 23 or lower.
+   * and running on API 23.
    *
    * @throws IllegalStateException If this method is called outside of {@link #onLoadChildren},
    *     {@link #onLoadItem} or {@link #onSearch}.

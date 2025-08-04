@@ -1547,8 +1547,6 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   /**
    * Called immediately before an input buffer is queued into the codec.
    *
-   * <p>In tunneling mode for pre Marshmallow, the buffer is treated as if immediately output.
-   *
    * @param buffer The buffer to be queued.
    * @throws ExoPlaybackException Thrown if an error occurs handling the input buffer.
    */

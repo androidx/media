@@ -36,7 +36,6 @@ import androidx.media3.exoplayer.source.ClippingMediaSource;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.exoplayer.text.TextOutput;
 import androidx.media3.exoplayer.text.TextRenderer;
-import androidx.test.filters.SdkSuppress;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import java.util.ArrayList;
@@ -109,8 +108,6 @@ public final class ClippedPlaybackTest {
   }
 
   @Test
-  // TODO: b/399815346 - This test is flaky on API 21 even when parsing subtitles during extraction.
-  @SdkSuppress(minSdkVersion = 22)
   public void subtitlesRespectClipping_multiplePeriods() throws Exception {
     // Parsing subtitles during rendering is flaky (see comment above), so restrict that
     // configuration to a single API level to reduce the chance of seeing a flaky failure.
