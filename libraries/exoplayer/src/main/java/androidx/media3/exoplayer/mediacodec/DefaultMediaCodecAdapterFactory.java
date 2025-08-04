@@ -148,7 +148,7 @@ public final class DefaultMediaCodecAdapterFactory implements MediaCodecAdapter.
   public MediaCodecAdapter createAdapter(MediaCodecAdapter.Configuration configuration)
       throws IOException {
     if (asynchronousMode == MODE_ENABLED
-        || asynchronousMode == MODE_DEFAULT && shouldUseAsynchronousAdapterInDefaultMode()) {
+        || (asynchronousMode == MODE_DEFAULT && shouldUseAsynchronousAdapterInDefaultMode())) {
       int trackType = MimeTypes.getTrackType(configuration.format.sampleMimeType);
       Log.i(
           TAG,
