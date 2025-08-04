@@ -63,6 +63,7 @@ public final class FakeExtractorInput implements ExtractorInput {
   private final boolean simulateUnknownLength;
   private final boolean simulatePartialReads;
   private final boolean simulateIOErrors;
+  private final int peekLimit;
 
   private int readPosition;
   private int peekPosition;
@@ -76,11 +77,13 @@ public final class FakeExtractorInput implements ExtractorInput {
       byte[] data,
       boolean simulateUnknownLength,
       boolean simulatePartialReads,
-      boolean simulateIOErrors) {
+      boolean simulateIOErrors,
+      int peekLimit) {
     this.data = data;
     this.simulateUnknownLength = simulateUnknownLength;
     this.simulatePartialReads = simulatePartialReads;
     this.simulateIOErrors = simulateIOErrors;
+    this.peekLimit = peekLimit;
     partiallySatisfiedTargetReadPositions = new SparseBooleanArray();
     partiallySatisfiedTargetPeekPositions = new SparseBooleanArray();
     failedReadPositions = new SparseBooleanArray();
@@ -171,6 +174,7 @@ public final class FakeExtractorInput implements ExtractorInput {
     if (!checkXFully(allowEndOfInput, peekPosition, length)) {
       return false;
     }
+    checkPeekLimit(length);
     peekPosition += length;
     return true;
   }
@@ -277,9 +281,25 @@ public final class FakeExtractorInput implements ExtractorInput {
     if (!checkXFully(allowEndOfInput, peekPosition, length)) {
       return false;
     }
+    checkPeekLimit(length);
     System.arraycopy(data, peekPosition, target, offset, length);
     peekPosition += length;
     return true;
+  }
+
+  private void checkPeekLimit(int length) {
+    if (peekLimit != C.LENGTH_UNSET && peekPosition + length - readPosition > peekLimit) {
+      throw new IllegalStateException(
+          "Peeking "
+              + length
+              + " bytes would exceed peek limit of "
+              + peekLimit
+              + " (readPosition="
+              + readPosition
+              + ", peekPosition="
+              + peekPosition
+              + ")");
+    }
   }
 
   /** Builder of {@link FakeExtractorInput} instances. */
@@ -289,9 +309,11 @@ public final class FakeExtractorInput implements ExtractorInput {
     private boolean simulateUnknownLength;
     private boolean simulatePartialReads;
     private boolean simulateIOErrors;
+    private int peekLimit;
 
     public Builder() {
       data = Util.EMPTY_BYTE_ARRAY;
+      peekLimit = C.LENGTH_UNSET;
     }
 
     @CanIgnoreReturnValue
@@ -318,9 +340,15 @@ public final class FakeExtractorInput implements ExtractorInput {
       return this;
     }
 
+    @CanIgnoreReturnValue
+    public Builder setPeekLimit(int peekLimit) {
+      this.peekLimit = peekLimit;
+      return this;
+    }
+
     public FakeExtractorInput build() {
       return new FakeExtractorInput(
-          data, simulateUnknownLength, simulatePartialReads, simulateIOErrors);
+          data, simulateUnknownLength, simulatePartialReads, simulateIOErrors, peekLimit);
     }
   }
 }

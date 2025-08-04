@@ -217,12 +217,37 @@ public final class ExtractorAsserts {
    */
   public static void assertBehavior(
       ExtractorFactory factory, String file, SimulationConfig simulationConfig) throws IOException {
-    assertBehavior(factory, file, new AssertionConfig.Builder().build(), simulationConfig);
+    assertBehavior(factory, file, /* peekLimit= */ C.LENGTH_UNSET, simulationConfig);
   }
 
   /**
-   * Asserts that an extractor consumes valid input data successfully successfully under the
-   * conditions specified by {@code simulationConfig}.
+   * Asserts that an extractor consumes valid input data successfully under the conditions specified
+   * by {@code simulationConfig}.
+   *
+   * <p>The output of the extractor is compared against prerecorded dump files whose names are
+   * derived from the {@code file} parameter as specified in the docs for {@link
+   * AssertionConfig#dumpFilesPrefix}.
+   *
+   * @param factory An {@link ExtractorFactory} which creates instances of the {@link Extractor}
+   *     class which is to be tested.
+   * @param file The path to the input sample.
+   * @param peekLimit The limit that {@link ExtractorInput#getPeekPosition()} is permitted to
+   *     advance ahead of {@link ExtractorInput#getPosition()}, or {@link C#LENGTH_UNSET} to disable
+   *     enforcement of this limit. This value likely needs to be derived by trial and error for
+   *     each test sample (or possibly from a strict format specification).
+   * @param simulationConfig Details on the environment to simulate and behaviours to assert.
+   * @throws IOException If reading from the input fails.
+   */
+  public static void assertBehavior(
+      ExtractorFactory factory, String file, int peekLimit, SimulationConfig simulationConfig)
+      throws IOException {
+    assertBehavior(
+        factory, file, peekLimit, new AssertionConfig.Builder().build(), simulationConfig);
+  }
+
+  /**
+   * Asserts that an extractor consumes valid input data successfully under the conditions specified
+   * by {@code simulationConfig}.
    *
    * <p>The output of the extractor is compared against prerecorded dump files.
    *
@@ -236,6 +261,34 @@ public final class ExtractorAsserts {
   public static void assertBehavior(
       ExtractorFactory factory,
       String file,
+      AssertionConfig assertionConfig,
+      SimulationConfig simulationConfig)
+      throws IOException {
+    assertBehavior(
+        factory, file, /* peekLimit= */ C.LENGTH_UNSET, assertionConfig, simulationConfig);
+  }
+
+  /**
+   * Asserts that an extractor consumes valid input data successfully under the conditions specified
+   * by {@code simulationConfig}.
+   *
+   * <p>The output of the extractor is compared against prerecorded dump files.
+   *
+   * @param factory An {@link ExtractorFactory} which creates instances of the {@link Extractor}
+   *     class which is to be tested.
+   * @param file The input file to pass to the extractor.
+   * @param peekLimit The limit that {@link ExtractorInput#getPeekPosition()} is permitted to
+   *     advance ahead of {@link ExtractorInput#getPosition()}, or {@link C#LENGTH_UNSET} to disable
+   *     enforcement of this limit. This value likely needs to be derived by trial and error for
+   *     each test sample (or possibly from a strict format specification).
+   * @param assertionConfig Details of how to read and process the source and dump files.
+   * @param simulationConfig Details on the environment to simulate and behaviours to assert.
+   * @throws IOException If reading from the input fails.
+   */
+  public static void assertBehavior(
+      ExtractorFactory factory,
+      String file,
+      int peekLimit,
       AssertionConfig assertionConfig,
       SimulationConfig simulationConfig)
       throws IOException {
@@ -274,7 +327,8 @@ public final class ExtractorAsserts {
         simulationConfig.sniffFirst,
         simulationConfig.simulateIOErrors,
         simulationConfig.simulateUnknownLength,
-        simulationConfig.simulatePartialReads);
+        simulationConfig.simulatePartialReads,
+        peekLimit);
     extractor.release();
   }
 
@@ -291,6 +345,10 @@ public final class ExtractorAsserts {
    * @param simulateIOErrors Whether to simulate IO errors.
    * @param simulateUnknownLength Whether to simulate unknown input length.
    * @param simulatePartialReads Whether to simulate partial reads.
+   * @param peekLimit The limit that {@link ExtractorInput#getPeekPosition()} is permitted to
+   *     advance ahead of {@link ExtractorInput#getPosition()}, or {@link C#LENGTH_UNSET} to disable
+   *     enforcement of this limit. This value likely needs to be derived by trial and error for
+   *     each test sample (or possibly from a strict format specification).
    * @throws IOException If reading from the input fails.
    */
   private static void assertOutput(
@@ -302,7 +360,8 @@ public final class ExtractorAsserts {
       boolean sniffFirst,
       boolean simulateIOErrors,
       boolean simulateUnknownLength,
-      boolean simulatePartialReads)
+      boolean simulatePartialReads,
+      int peekLimit)
       throws IOException {
     FakeExtractorInput input =
         new FakeExtractorInput.Builder()
@@ -310,6 +369,7 @@ public final class ExtractorAsserts {
             .setSimulateIOErrors(simulateIOErrors)
             .setSimulateUnknownLength(simulateUnknownLength)
             .setSimulatePartialReads(simulatePartialReads)
+            .setPeekLimit(peekLimit)
             .build();
 
     if (sniffFirst) {
