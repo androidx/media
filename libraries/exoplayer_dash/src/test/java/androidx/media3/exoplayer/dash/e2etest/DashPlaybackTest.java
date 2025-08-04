@@ -88,7 +88,6 @@ import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.robolectric.annotation.Config;
-import org.robolectric.shadows.ShadowLooper;
 
 /** End-to-end tests using DASH samples. */
 @RunWith(AndroidJUnit4.class)
@@ -358,9 +357,6 @@ public final class DashPlaybackTest {
         .ignoringNonFatalErrors()
         .untilBackgroundThreadCondition(() -> secondSubtitleFailureCount.get() == 4);
     secondSubtitleResolves.set(true);
-
-    ShadowLooper.runUiThreadTasks();
-
     advance(player)
         .ignoringNonFatalErrors()
         .untilBackgroundThreadCondition(secondSubtitleChunkLoaded::get);
