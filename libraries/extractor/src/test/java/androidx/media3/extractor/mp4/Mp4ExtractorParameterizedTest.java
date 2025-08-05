@@ -138,6 +138,11 @@ public final class Mp4ExtractorParameterizedTest {
   }
 
   @Test
+  public void mp4SampleWithMp2Track() throws Exception {
+    assertExtractorBehavior("media/mp4/sample_mp2_audio.mp4");
+  }
+
+  @Test
   public void mp4SampleWithColorInfo() throws Exception {
     assertExtractorBehavior("media/mp4/sample_with_color_info.mp4");
   }
