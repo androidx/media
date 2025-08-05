@@ -55,6 +55,7 @@ import androidx.media3.common.audio.AudioProcessor.UnhandledAudioFormatException
 import androidx.media3.common.audio.SonicAudioProcessor;
 import androidx.media3.common.audio.ToInt16PcmAudioProcessor;
 import androidx.media3.common.util.Assertions;
+import androidx.media3.common.util.BackgroundExecutor;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
@@ -2094,6 +2095,7 @@ public final class DefaultAudioSink implements AudioSink {
 
     private final AudioTrack audioTrack;
     private final AudioCapabilitiesReceiver capabilitiesReceiver;
+    private final Handler playbackThreadHandler;
 
     @Nullable private OnRoutingChangedListener listener;
 
@@ -2102,8 +2104,8 @@ public final class DefaultAudioSink implements AudioSink {
       this.audioTrack = audioTrack;
       this.capabilitiesReceiver = capabilitiesReceiver;
       this.listener = this::onRoutingChanged;
-      Handler handler = new Handler(Looper.myLooper());
-      audioTrack.addOnRoutingChangedListener(listener, handler);
+      playbackThreadHandler = new Handler(Looper.myLooper());
+      audioTrack.addOnRoutingChangedListener(listener, playbackThreadHandler);
     }
 
     public void release() {
@@ -2116,10 +2118,21 @@ public final class DefaultAudioSink implements AudioSink {
         // Stale event.
         return;
       }
-      @Nullable AudioDeviceInfo routedDevice = router.getRoutedDevice();
-      if (routedDevice != null) {
-        capabilitiesReceiver.setRoutedDevice(routedDevice);
-      }
+      BackgroundExecutor.get()
+          .execute(
+              () -> {
+                @Nullable AudioDeviceInfo routedDevice = router.getRoutedDevice();
+                if (routedDevice != null) {
+                  playbackThreadHandler.post(
+                      () -> {
+                        if (listener == null) {
+                          // Stale event.
+                          return;
+                        }
+                        capabilitiesReceiver.setRoutedDevice(routedDevice);
+                      });
+                }
+              });
     }
   }
 

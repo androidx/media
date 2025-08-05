@@ -57,6 +57,9 @@
     *   Utilize AC-4 decoder profile and level capabilities in track format
         support assessment
         ([#2580](https://github.com/androidx/media/pull/2580)).
+    *   Avoid potential delays caused by handling routing change callbacks at
+        the beginning of playback
+        ([#2646]()https://github.com/androidx/media/issues/2646).
 *   Video:
 *   Text:
 *   Metadata:

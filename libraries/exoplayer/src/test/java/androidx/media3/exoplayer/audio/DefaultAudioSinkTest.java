@@ -19,6 +19,7 @@ import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.exoplayer.audio.AudioSink.SINK_FORMAT_SUPPORTED_DIRECTLY;
 import static androidx.media3.exoplayer.audio.AudioSink.SINK_FORMAT_SUPPORTED_WITH_TRANSCODING;
+import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLooperUntil;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.robolectric.Shadows.shadowOf;
@@ -61,7 +62,6 @@ import org.robolectric.shadows.AudioDeviceInfoBuilder;
 import org.robolectric.shadows.AudioProfileBuilder;
 import org.robolectric.shadows.ShadowAudioManager;
 import org.robolectric.shadows.ShadowAudioTrack;
-import org.robolectric.shadows.ShadowLooper;
 import org.robolectric.shadows.ShadowSystemClock;
 import org.robolectric.shadows.ShadowUIModeManager;
 
@@ -651,9 +651,8 @@ public final class DefaultAudioSinkTest {
 
     // Changed the routing to HDMI and assert that the surround sound is now supported.
     ShadowAudioTrack.setRoutedDevice(hdmiDevice);
-    ShadowLooper.idleMainLooper();
 
-    assertThat(audioSink.supportsFormat(surroundFormat)).isTrue();
+    runMainLooperUntil(() -> audioSink.supportsFormat(surroundFormat));
   }
 
   @Test
