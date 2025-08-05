@@ -42,6 +42,7 @@ import java.util.Objects;
   }
 
   private static final int MSG_STUCK_BUFFERING_TIMEOUT = 1;
+  private static final int MSG_STUCK_PLAYING_TIMEOUT = 2;
 
   private final Player player;
   private final Callback callback;
@@ -49,6 +50,7 @@ import java.util.Objects;
   private final Timeline.Period period;
   private final HandlerWrapper handler;
   private final StuckBufferingDetector stuckBufferingDetector;
+  private final StuckPlayingDetector stuckPlayingDetector;
 
   /**
    * Creates the stuck player detector.
@@ -60,15 +62,22 @@ import java.util.Objects;
    * @param clock The {@link Clock}.
    * @param stuckBufferingTimeoutMs The timeout after which the player is assumed stuck buffering if
    *     it's buffering and no loading progress is made, in milliseconds.
+   * @param stuckPlayingTimeoutMs The timeout after which the player is assumed stuck playing if
+   *     it's playing and no position progress is made, in milliseconds.
    */
   public StuckPlayerDetector(
-      Player player, Callback callback, Clock clock, int stuckBufferingTimeoutMs) {
+      Player player,
+      Callback callback,
+      Clock clock,
+      int stuckBufferingTimeoutMs,
+      int stuckPlayingTimeoutMs) {
     this.player = player;
     this.callback = callback;
     this.clock = clock;
     this.period = new Timeline.Period();
     this.handler = clock.createHandler(player.getApplicationLooper(), /* callback= */ this);
     this.stuckBufferingDetector = new StuckBufferingDetector(stuckBufferingTimeoutMs);
+    this.stuckPlayingDetector = new StuckPlayingDetector(stuckPlayingTimeoutMs);
     player.addListener(this);
   }
 
@@ -81,6 +90,7 @@ import java.util.Objects;
   @Override
   public void onEvents(Player player, Player.Events events) {
     stuckBufferingDetector.update();
+    stuckPlayingDetector.update();
   }
 
   @Override
@@ -88,6 +98,9 @@ import java.util.Objects;
     switch (message.what) {
       case MSG_STUCK_BUFFERING_TIMEOUT:
         stuckBufferingDetector.update();
+        return true;
+      case MSG_STUCK_PLAYING_TIMEOUT:
+        stuckPlayingDetector.update();
         return true;
       default:
         return false;
@@ -146,7 +159,8 @@ import java.util.Objects;
         // Still the same state, keep current timeout.
         if (nowRealtimeMs - startRealtimeMs >= stuckBufferingTimeoutMs) {
           callback.onStuckPlayerDetected(
-              new StuckPlayerException(StuckPlayerException.STUCK_BUFFERING_NO_PROGRESS));
+              new StuckPlayerException(
+                  StuckPlayerException.STUCK_BUFFERING_NO_PROGRESS, stuckBufferingTimeoutMs));
         }
       } else {
         // Restart the timeout from the current time.
@@ -159,6 +173,67 @@ import java.util.Objects;
         this.bufferedDurationInOtherPeriodsMs = bufferedDurationInOtherPeriodsMs;
         handler.removeMessages(MSG_STUCK_BUFFERING_TIMEOUT);
         handler.sendEmptyMessageDelayed(MSG_STUCK_BUFFERING_TIMEOUT, stuckBufferingTimeoutMs);
+      }
+    }
+  }
+
+  private final class StuckPlayingDetector {
+
+    private final int stuckPlayingTimeoutMs;
+
+    @Nullable private Object periodUid;
+    private int adGroupIndex;
+    private int adIndexInAdGroup;
+    private long currentPositionInPeriodMs;
+    private boolean isPlaying;
+    private long startRealtimeMs;
+
+    public StuckPlayingDetector(int stuckPlayingTimeoutMs) {
+      this.stuckPlayingTimeoutMs = stuckPlayingTimeoutMs;
+    }
+
+    public void update() {
+      if (!player.isPlaying()) {
+        // Preconditions for stuck playing not met. Clear any pending timeout and ignore.
+        if (isPlaying) {
+          handler.removeMessages(MSG_STUCK_PLAYING_TIMEOUT);
+        }
+        isPlaying = false;
+        return;
+      }
+      Timeline timeline = player.getCurrentTimeline();
+      @Nullable
+      Object periodUid =
+          timeline.isEmpty() ? null : timeline.getUidOfPeriod(player.getCurrentPeriodIndex());
+      int adGroupIndex = player.getCurrentAdGroupIndex();
+      int adIndexInAdGroup = player.getCurrentAdIndexInAdGroup();
+      long currentPositionInPeriodMs = player.getCurrentPosition();
+      if (periodUid != null && adGroupIndex == C.INDEX_UNSET) {
+        currentPositionInPeriodMs -=
+            timeline.getPeriodByUid(periodUid, period).getPositionInWindowMs();
+      }
+      long nowRealtimeMs = clock.elapsedRealtime();
+      if (isPlaying
+          && Objects.equals(periodUid, this.periodUid)
+          && adGroupIndex == this.adGroupIndex
+          && adIndexInAdGroup == this.adIndexInAdGroup
+          && currentPositionInPeriodMs == this.currentPositionInPeriodMs) {
+        // Still the same state, keep current timeout.
+        if (nowRealtimeMs - startRealtimeMs >= stuckPlayingTimeoutMs) {
+          callback.onStuckPlayerDetected(
+              new StuckPlayerException(
+                  StuckPlayerException.STUCK_PLAYING_NO_PROGRESS, stuckPlayingTimeoutMs));
+        }
+      } else {
+        // Restart the timeout from the current time.
+        isPlaying = true;
+        startRealtimeMs = nowRealtimeMs;
+        this.periodUid = periodUid;
+        this.adGroupIndex = adGroupIndex;
+        this.adIndexInAdGroup = adIndexInAdGroup;
+        this.currentPositionInPeriodMs = currentPositionInPeriodMs;
+        handler.removeMessages(MSG_STUCK_PLAYING_TIMEOUT);
+        handler.sendEmptyMessageDelayed(MSG_STUCK_PLAYING_TIMEOUT, stuckPlayingTimeoutMs);
       }
     }
   }

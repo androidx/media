@@ -6456,8 +6456,10 @@ public final class ExoPlayerTest {
                     .start()
                     .blockUntilEnded(TIMEOUT_MS));
     assertThat(exception.type).isEqualTo(ExoPlaybackException.TYPE_UNEXPECTED);
-    assertThat(exception.getUnexpectedException())
-        .isEqualTo(new StuckPlayerException(StuckPlayerException.STUCK_BUFFERING_NOT_LOADING));
+    RuntimeException cause = exception.getUnexpectedException();
+    assertThat(cause).isInstanceOf(StuckPlayerException.class);
+    assertThat(((StuckPlayerException) cause).stuckType)
+        .isEqualTo(StuckPlayerException.STUCK_BUFFERING_NOT_LOADING);
   }
 
   @Test
@@ -9633,8 +9635,10 @@ public final class ExoPlayerTest {
         assertThrows(
             ExoPlaybackException.class, () -> testRunner.start().blockUntilEnded(TIMEOUT_MS));
     assertThat(exception.type).isEqualTo(ExoPlaybackException.TYPE_UNEXPECTED);
-    assertThat(exception.getUnexpectedException())
-        .isEqualTo(new StuckPlayerException(StuckPlayerException.STUCK_BUFFERING_NOT_LOADING));
+    RuntimeException cause = exception.getUnexpectedException();
+    assertThat(cause).isInstanceOf(StuckPlayerException.class);
+    assertThat(((StuckPlayerException) cause).stuckType)
+        .isEqualTo(StuckPlayerException.STUCK_BUFFERING_NOT_LOADING);
   }
 
   @Test
@@ -17129,7 +17133,9 @@ public final class ExoPlayerTest {
     assertThat(error.errorCode).isEqualTo(PlaybackException.ERROR_CODE_TIMEOUT);
     assertThat(error)
         .hasCauseThat()
-        .isEqualTo(new StuckPlayerException(StuckPlayerException.STUCK_BUFFERING_NO_PROGRESS));
+        .isEqualTo(
+            new StuckPlayerException(
+                StuckPlayerException.STUCK_BUFFERING_NO_PROGRESS, /* timeoutMs= */ 45_000));
     assertThat(elapsedRealtimeAtErrorMs).isAtLeast(45_000);
   }
 
@@ -17169,7 +17175,106 @@ public final class ExoPlayerTest {
     assertThat(error.errorCode).isEqualTo(PlaybackException.ERROR_CODE_TIMEOUT);
     assertThat(error)
         .hasCauseThat()
-        .isEqualTo(new StuckPlayerException(StuckPlayerException.STUCK_BUFFERING_NO_PROGRESS));
+        .isEqualTo(
+            new StuckPlayerException(
+                StuckPlayerException.STUCK_BUFFERING_NO_PROGRESS, /* timeout= */ 45_000));
+    assertThat(elapsedRealtimeAtErrorMs).isAtLeast(45_000);
+  }
+
+  @Test
+  public void stuckPlayingDetectionTimeoutMs_triggersPlayerErrorWhenStuckPlaying()
+      throws Exception {
+    ExoPlayer player =
+        new ExoPlayer.Builder(context)
+            .setClock(new FakeClock(/* initialTimeMs= */ 0, /* isAutoAdvancing= */ true))
+            .setStuckPlayingDetectionTimeoutMs(45_000)
+            .setRenderersFactory(
+                (eventHandler,
+                    videoRendererEventListener,
+                    audioRendererEventListener,
+                    textRendererOutput,
+                    metadataRendererOutput) ->
+                    new Renderer[] {
+                      new FakeMediaClockRenderer(C.TRACK_TYPE_VIDEO) {
+                        @Override
+                        public long getPositionUs() {
+                          // Always return 0 to not make playback progress.
+                          return 0;
+                        }
+
+                        @Override
+                        public boolean isEnded() {
+                          // Avoid marking the renderer as ended so that its clock keeps being
+                          // used.
+                          return false;
+                        }
+
+                        @Override
+                        public void setPlaybackParameters(PlaybackParameters playbackParameters) {}
+
+                        @Override
+                        public PlaybackParameters getPlaybackParameters() {
+                          return PlaybackParameters.DEFAULT;
+                        }
+                      }
+                    })
+            .build();
+    player.setMediaSource(
+        new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT));
+    player.prepare();
+    player.play();
+
+    ExoPlaybackException error = advance(player).untilPlayerError();
+    long elapsedRealtimeAtErrorMs = player.getClock().elapsedRealtime();
+    player.release();
+
+    assertThat(error.errorCode).isEqualTo(PlaybackException.ERROR_CODE_TIMEOUT);
+    assertThat(error)
+        .hasCauseThat()
+        .isEqualTo(
+            new StuckPlayerException(
+                StuckPlayerException.STUCK_PLAYING_NO_PROGRESS, /* timeout= */ 45_000));
+    assertThat(elapsedRealtimeAtErrorMs).isAtLeast(45_000);
+  }
+
+  @Test
+  public void stuckPlayingDetectionTimeoutMs_triggersPlayerErrorWhenPlaybackThreadUnresponsive()
+      throws Exception {
+    FakeClock clock =
+        new FakeClock.Builder()
+            .setInitialTimeMs(0)
+            .setIsAutoAdvancing(true)
+            .setMaxAutoAdvancingTimeDiffMs(100_000)
+            .build();
+    ExoPlayer player =
+        new ExoPlayer.Builder(context)
+            .setClock(clock)
+            .setStuckPlayingDetectionTimeoutMs(45_000)
+            .build();
+    player.setMediaSource(new FakeMediaSource());
+    player.prepare();
+    player.play();
+    advance(player).untilState(Player.STATE_READY);
+    ConditionVariable blockPlaybackThread = new ConditionVariable();
+
+    player
+        .createMessage(
+            (what, payload) -> {
+              clock.onThreadBlocked();
+              blockPlaybackThread.blockUninterruptible();
+            })
+        .send();
+    ExoPlaybackException error = advance(player).untilPlayerError();
+    long elapsedRealtimeAtErrorMs = clock.elapsedRealtime();
+    blockPlaybackThread.open();
+    player.release();
+
+    assertThat(error.errorCode).isEqualTo(PlaybackException.ERROR_CODE_TIMEOUT);
+    assertThat(error)
+        .hasCauseThat()
+        .isEqualTo(
+            new StuckPlayerException(
+                StuckPlayerException.STUCK_PLAYING_NO_PROGRESS, /* timeout= */ 45_000));
     assertThat(elapsedRealtimeAtErrorMs).isAtLeast(45_000);
   }
 
