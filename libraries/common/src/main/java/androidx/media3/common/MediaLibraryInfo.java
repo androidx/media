@@ -15,7 +15,6 @@
  */
 package androidx.media3.common;
 
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.TraceUtil;
 import androidx.media3.common.util.UnstableApi;
 import java.util.HashSet;
@@ -48,9 +47,6 @@ public final class MediaLibraryInfo {
    */
   // Intentionally hardcoded. Do not derive from other constants (e.g. VERSION) or vice versa.
   public static final int VERSION_INT = 1_008_000_3_00;
-
-  /** Whether the library was compiled with {@link Assertions} checks enabled. */
-  public static final boolean ASSERTIONS_ENABLED = true;
 
   /** Whether the library was compiled with {@link TraceUtil} trace enabled. */
   public static final boolean TRACE_ENABLED = true;

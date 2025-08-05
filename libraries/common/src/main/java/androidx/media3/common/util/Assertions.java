@@ -18,7 +18,6 @@ package androidx.media3.common.util;
 import android.os.Looper;
 import android.text.TextUtils;
 import androidx.annotation.Nullable;
-import androidx.media3.common.MediaLibraryInfo;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.dataflow.qual.Pure;
 
@@ -36,7 +35,7 @@ public final class Assertions {
    */
   @Pure
   public static void checkArgument(boolean expression) {
-    if (MediaLibraryInfo.ASSERTIONS_ENABLED && !expression) {
+    if (!expression) {
       throw new IllegalArgumentException();
     }
   }
@@ -51,7 +50,7 @@ public final class Assertions {
    */
   @Pure
   public static void checkArgument(boolean expression, Object errorMessage) {
-    if (MediaLibraryInfo.ASSERTIONS_ENABLED && !expression) {
+    if (!expression) {
       throw new IllegalArgumentException(String.valueOf(errorMessage));
     }
   }
@@ -81,7 +80,7 @@ public final class Assertions {
    */
   @Pure
   public static void checkState(boolean expression) {
-    if (MediaLibraryInfo.ASSERTIONS_ENABLED && !expression) {
+    if (!expression) {
       throw new IllegalStateException();
     }
   }
@@ -96,7 +95,7 @@ public final class Assertions {
    */
   @Pure
   public static void checkState(boolean expression, Object errorMessage) {
-    if (MediaLibraryInfo.ASSERTIONS_ENABLED && !expression) {
+    if (!expression) {
       throw new IllegalStateException(String.valueOf(errorMessage));
     }
   }
@@ -113,7 +112,7 @@ public final class Assertions {
   @EnsuresNonNull({"#1"})
   @Pure
   public static <T> T checkStateNotNull(@Nullable T reference) {
-    if (MediaLibraryInfo.ASSERTIONS_ENABLED && reference == null) {
+    if (reference == null) {
       throw new IllegalStateException();
     }
     return reference;
@@ -133,7 +132,7 @@ public final class Assertions {
   @EnsuresNonNull({"#1"})
   @Pure
   public static <T> T checkStateNotNull(@Nullable T reference, Object errorMessage) {
-    if (MediaLibraryInfo.ASSERTIONS_ENABLED && reference == null) {
+    if (reference == null) {
       throw new IllegalStateException(String.valueOf(errorMessage));
     }
     return reference;
@@ -151,7 +150,7 @@ public final class Assertions {
   @EnsuresNonNull({"#1"})
   @Pure
   public static <T> T checkNotNull(@Nullable T reference) {
-    if (MediaLibraryInfo.ASSERTIONS_ENABLED && reference == null) {
+    if (reference == null) {
       throw new NullPointerException();
     }
     return reference;
@@ -171,7 +170,7 @@ public final class Assertions {
   @EnsuresNonNull({"#1"})
   @Pure
   public static <T> T checkNotNull(@Nullable T reference, Object errorMessage) {
-    if (MediaLibraryInfo.ASSERTIONS_ENABLED && reference == null) {
+    if (reference == null) {
       throw new NullPointerException(String.valueOf(errorMessage));
     }
     return reference;
@@ -188,7 +187,7 @@ public final class Assertions {
   @EnsuresNonNull({"#1"})
   @Pure
   public static String checkNotEmpty(@Nullable String string) {
-    if (MediaLibraryInfo.ASSERTIONS_ENABLED && TextUtils.isEmpty(string)) {
+    if (TextUtils.isEmpty(string)) {
       throw new IllegalArgumentException();
     }
     return string;
@@ -207,7 +206,7 @@ public final class Assertions {
   @EnsuresNonNull({"#1"})
   @Pure
   public static String checkNotEmpty(@Nullable String string, Object errorMessage) {
-    if (MediaLibraryInfo.ASSERTIONS_ENABLED && TextUtils.isEmpty(string)) {
+    if (TextUtils.isEmpty(string)) {
       throw new IllegalArgumentException(String.valueOf(errorMessage));
     }
     return string;
@@ -221,7 +220,7 @@ public final class Assertions {
    */
   @Pure
   public static void checkMainThread() {
-    if (MediaLibraryInfo.ASSERTIONS_ENABLED && Looper.myLooper() != Looper.getMainLooper()) {
+    if (Looper.myLooper() != Looper.getMainLooper()) {
       throw new IllegalStateException("Not in applications main thread");
     }
   }
