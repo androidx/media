@@ -929,7 +929,7 @@ public class PlayerControlView extends FrameLayout {
       this.extraAdGroupTimesMs = new long[0];
       this.extraPlayedAdGroups = new boolean[0];
     } else {
-      extraPlayedAdGroups = checkNotNull(extraPlayedAdGroups);
+      checkNotNull(extraPlayedAdGroups);
       Assertions.checkArgument(extraAdGroupTimesMs.length == extraPlayedAdGroups.length);
       this.extraAdGroupTimesMs = extraAdGroupTimesMs;
       this.extraPlayedAdGroups = extraPlayedAdGroups;
