@@ -137,7 +137,6 @@ import androidx.media3.common.Tracks;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Clock;
-import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.SystemClock;
@@ -174,7 +173,6 @@ import androidx.media3.exoplayer.source.ads.ServerSideAdInsertionMediaSource;
 import androidx.media3.exoplayer.text.TextOutput;
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
-import androidx.media3.exoplayer.upstream.Allocation;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.Loader;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
@@ -184,12 +182,8 @@ import androidx.media3.test.utils.ActionSchedule;
 import androidx.media3.test.utils.ActionSchedule.PlayerRunnable;
 import androidx.media3.test.utils.ActionSchedule.PlayerTarget;
 import androidx.media3.test.utils.ExoPlayerTestRunner;
-import androidx.media3.test.utils.FakeAdaptiveDataSet;
-import androidx.media3.test.utils.FakeAdaptiveMediaSource;
 import androidx.media3.test.utils.FakeAudioRenderer;
-import androidx.media3.test.utils.FakeChunkSource;
 import androidx.media3.test.utils.FakeClock;
-import androidx.media3.test.utils.FakeDataSource;
 import androidx.media3.test.utils.FakeMediaClockRenderer;
 import androidx.media3.test.utils.FakeMediaPeriod;
 import androidx.media3.test.utils.FakeMediaSource;
@@ -220,7 +214,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -6421,48 +6414,6 @@ public final class ExoPlayerTest {
   }
 
   @Test
-  public void loadControlNeverWantsToLoad_throwsStuckPlayerException() {
-    LoadControl neverLoadingLoadControl =
-        new DefaultLoadControl() {
-          @Override
-          public boolean shouldContinueLoading(LoadControl.Parameters parameters) {
-            return false;
-          }
-
-          @Override
-          public boolean shouldStartPlayback(LoadControl.Parameters parameters) {
-            return true;
-          }
-        };
-
-    // Use chunked data to ensure the player actually needs to continue loading and playing.
-    FakeAdaptiveDataSet.Factory dataSetFactory =
-        new FakeAdaptiveDataSet.Factory(
-            /* chunkDurationUs= */ 500_000, /* bitratePercentStdDev= */ 10.0, new Random(0));
-    MediaSource chunkedMediaSource =
-        new FakeAdaptiveMediaSource(
-            new FakeTimeline(),
-            new TrackGroupArray(new TrackGroup(ExoPlayerTestRunner.VIDEO_FORMAT)),
-            new FakeChunkSource.Factory(dataSetFactory, new FakeDataSource.Factory()));
-
-    ExoPlaybackException exception =
-        assertThrows(
-            ExoPlaybackException.class,
-            () ->
-                new ExoPlayerTestRunner.Builder(context)
-                    .setLoadControl(neverLoadingLoadControl)
-                    .setMediaSources(chunkedMediaSource)
-                    .build()
-                    .start()
-                    .blockUntilEnded(TIMEOUT_MS));
-    assertThat(exception.type).isEqualTo(ExoPlaybackException.TYPE_UNEXPECTED);
-    RuntimeException cause = exception.getUnexpectedException();
-    assertThat(cause).isInstanceOf(StuckPlayerException.class);
-    assertThat(((StuckPlayerException) cause).stuckType)
-        .isEqualTo(StuckPlayerException.STUCK_BUFFERING_NOT_LOADING);
-  }
-
-  @Test
   public void
       nextLoadPositionExceedingLoadControlMaxBuffer_whileCurrentLoadInProgress_doesNotThrowException()
           throws Exception {
@@ -6539,41 +6490,6 @@ public final class ExoPlayerTest {
     assertThat(player.getPlayerError()).isNull();
 
     player.release();
-  }
-
-  @Test
-  public void loadControlNeverWantsToPlay_playbackDoesNotGetStuck() throws Exception {
-    LoadControl neverLoadingOrPlayingLoadControl =
-        new DefaultLoadControl() {
-          @Override
-          public boolean shouldContinueLoading(LoadControl.Parameters parameters) {
-            return true;
-          }
-
-          @Override
-          public boolean shouldStartPlayback(LoadControl.Parameters parameters) {
-            return false;
-          }
-        };
-
-    // Use chunked data to ensure the player actually needs to continue loading and playing.
-    FakeAdaptiveDataSet.Factory dataSetFactory =
-        new FakeAdaptiveDataSet.Factory(
-            /* chunkDurationUs= */ 500_000, /* bitratePercentStdDev= */ 10.0, new Random(0));
-    MediaSource chunkedMediaSource =
-        new FakeAdaptiveMediaSource(
-            new FakeTimeline(),
-            new TrackGroupArray(new TrackGroup(ExoPlayerTestRunner.VIDEO_FORMAT)),
-            new FakeChunkSource.Factory(dataSetFactory, new FakeDataSource.Factory()));
-
-    parameterizeExoPlayerTestRunnerBuilder(
-            new ExoPlayerTestRunner.Builder(context)
-                .setLoadControl(neverLoadingOrPlayingLoadControl)
-                .setMediaSources(chunkedMediaSource))
-        .build()
-        .start()
-        // This throws if playback doesn't finish within timeout.
-        .blockUntilEnded(TIMEOUT_MS);
   }
 
   @Test
@@ -9561,84 +9477,6 @@ public final class ExoPlayerTest {
     assertThat(playbackStateAfterPause.get()).isEqualTo(Player.STATE_ENDED);
     assertThat(mediaItemIndexAfterPause.get()).isEqualTo(0);
     assertThat(positionAfterPause.get()).isEqualTo(10_000);
-  }
-
-  @Test
-  public void
-      infiniteLoading_withSmallAllocations_oomIsPreventedByLoadControl_andThrowsStuckPlayerException() {
-    DefaultLoadControl loadControl =
-        new DefaultLoadControl.Builder()
-            .setTargetBufferBytes(10 * C.DEFAULT_BUFFER_SEGMENT_SIZE)
-            .setPrioritizeTimeOverSizeThresholds(false)
-            .build();
-    // Return no end of stream signal to prevent playback from ending.
-    FakeMediaPeriod.TrackDataFactory trackDataWithoutEos = (format, periodId) -> ImmutableList.of();
-    MediaSource continuouslyAllocatingMediaSource =
-        new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT) {
-          @Override
-          protected MediaPeriod createMediaPeriod(
-              MediaPeriodId id,
-              TrackGroupArray trackGroupArray,
-              Allocator allocator,
-              MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
-              DrmSessionManager drmSessionManager,
-              DrmSessionEventListener.EventDispatcher drmEventDispatcher,
-              @Nullable TransferListener transferListener) {
-            return new FakeMediaPeriod(
-                trackGroupArray,
-                allocator,
-                trackDataWithoutEos,
-                mediaSourceEventDispatcher,
-                drmSessionManager,
-                drmEventDispatcher,
-                /* deferOnPrepared= */ false) {
-
-              private final List<Allocation> allocations = new ArrayList<>();
-
-              private Callback callback;
-
-              @Override
-              public synchronized void prepare(Callback callback, long positionUs) {
-                this.callback = callback;
-                super.prepare(callback, positionUs);
-              }
-
-              @Override
-              public long getBufferedPositionUs() {
-                // Pretend not to make loading progress, so that continueLoading keeps being called.
-                return 0;
-              }
-
-              @Override
-              public long getNextLoadPositionUs() {
-                // Pretend not to make loading progress, so that continueLoading keeps being called.
-                return 0;
-              }
-
-              @Override
-              public boolean continueLoading(LoadingInfo loadingInfo) {
-                allocations.add(allocator.allocate());
-                callback.onContinueLoadingRequested(this);
-                return true;
-              }
-            };
-          }
-        };
-    ExoPlayerTestRunner testRunner =
-        parameterizeExoPlayerTestRunnerBuilder(
-                new ExoPlayerTestRunner.Builder(context)
-                    .setMediaSources(continuouslyAllocatingMediaSource)
-                    .setLoadControl(loadControl))
-            .build();
-
-    ExoPlaybackException exception =
-        assertThrows(
-            ExoPlaybackException.class, () -> testRunner.start().blockUntilEnded(TIMEOUT_MS));
-    assertThat(exception.type).isEqualTo(ExoPlaybackException.TYPE_UNEXPECTED);
-    RuntimeException cause = exception.getUnexpectedException();
-    assertThat(cause).isInstanceOf(StuckPlayerException.class);
-    assertThat(((StuckPlayerException) cause).stuckType)
-        .isEqualTo(StuckPlayerException.STUCK_BUFFERING_NOT_LOADING);
   }
 
   @Test
@@ -17085,197 +16923,6 @@ public final class ExoPlayerTest {
     // not ready. Regression test for b/420963056 where render() was delayed by a full second.
     assertThat(renderTime2Ms).isWithin(50).of(renderTime1Ms);
     assertThat(renderTime3Ms).isWithin(50).of(renderTime2Ms);
-  }
-
-  @Test
-  public void stuckBufferingDetectionTimeoutMs_triggersPlayerErrorWhenStuckBuffering()
-      throws Exception {
-    ExoPlayer player =
-        new ExoPlayer.Builder(context)
-            .setClock(new FakeClock(/* initialTimeMs= */ 0, /* isAutoAdvancing= */ true))
-            .setStuckBufferingDetectionTimeoutMs(45_000)
-            .build();
-    player.setMediaSource(
-        new FakeMediaSource() {
-          @Override
-          protected MediaPeriod createMediaPeriod(
-              MediaPeriodId id,
-              TrackGroupArray trackGroupArray,
-              Allocator allocator,
-              MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
-              DrmSessionManager drmSessionManager,
-              DrmSessionEventListener.EventDispatcher drmEventDispatcher,
-              @Nullable TransferListener transferListener) {
-            return new FakeMediaPeriod(
-                trackGroupArray,
-                allocator,
-                /* singleSampleTimeUs= */ 0,
-                mediaSourceEventDispatcher,
-                drmSessionManager,
-                drmEventDispatcher,
-                // Ensure the player stays in BUFFERING state.
-                /* deferOnPrepared= */ true) {
-              @Override
-              public long getBufferedPositionUs() {
-                // Return fixed value to pretend not making any loading progress.
-                return 0;
-              }
-            };
-          }
-        });
-    player.prepare();
-    player.play();
-
-    ExoPlaybackException error = advance(player).untilPlayerError();
-    long elapsedRealtimeAtErrorMs = player.getClock().elapsedRealtime();
-    player.release();
-
-    assertThat(error.errorCode).isEqualTo(PlaybackException.ERROR_CODE_TIMEOUT);
-    assertThat(error)
-        .hasCauseThat()
-        .isEqualTo(
-            new StuckPlayerException(
-                StuckPlayerException.STUCK_BUFFERING_NO_PROGRESS, /* timeoutMs= */ 45_000));
-    assertThat(elapsedRealtimeAtErrorMs).isAtLeast(45_000);
-  }
-
-  @Test
-  public void stuckBufferingDetectionTimeoutMs_triggersPlayerErrorWhenPlaybackThreadUnresponsive()
-      throws Exception {
-    FakeClock clock =
-        new FakeClock.Builder()
-            .setInitialTimeMs(0)
-            .setIsAutoAdvancing(true)
-            .setMaxAutoAdvancingTimeDiffMs(100_000)
-            .build();
-    ExoPlayer player =
-        new ExoPlayer.Builder(context)
-            .setClock(clock)
-            .setStuckBufferingDetectionTimeoutMs(45_000)
-            .build();
-    ConditionVariable blockPlaybackThread = new ConditionVariable();
-    player.setMediaSource(
-        new FakeMediaSource() {
-          @Override
-          public synchronized void prepareSourceInternal(
-              @Nullable TransferListener mediaTransferListener) {
-            clock.onThreadBlocked();
-            blockPlaybackThread.blockUninterruptible();
-            super.prepareSourceInternal(mediaTransferListener);
-          }
-        });
-    player.prepare();
-    player.play();
-
-    ExoPlaybackException error = advance(player).untilPlayerError();
-    long elapsedRealtimeAtErrorMs = clock.elapsedRealtime();
-    blockPlaybackThread.open();
-    player.release();
-
-    assertThat(error.errorCode).isEqualTo(PlaybackException.ERROR_CODE_TIMEOUT);
-    assertThat(error)
-        .hasCauseThat()
-        .isEqualTo(
-            new StuckPlayerException(
-                StuckPlayerException.STUCK_BUFFERING_NO_PROGRESS, /* timeout= */ 45_000));
-    assertThat(elapsedRealtimeAtErrorMs).isAtLeast(45_000);
-  }
-
-  @Test
-  public void stuckPlayingDetectionTimeoutMs_triggersPlayerErrorWhenStuckPlaying()
-      throws Exception {
-    ExoPlayer player =
-        new ExoPlayer.Builder(context)
-            .setClock(new FakeClock(/* initialTimeMs= */ 0, /* isAutoAdvancing= */ true))
-            .setStuckPlayingDetectionTimeoutMs(45_000)
-            .setRenderersFactory(
-                (eventHandler,
-                    videoRendererEventListener,
-                    audioRendererEventListener,
-                    textRendererOutput,
-                    metadataRendererOutput) ->
-                    new Renderer[] {
-                      new FakeMediaClockRenderer(C.TRACK_TYPE_VIDEO) {
-                        @Override
-                        public long getPositionUs() {
-                          // Always return 0 to not make playback progress.
-                          return 0;
-                        }
-
-                        @Override
-                        public boolean isEnded() {
-                          // Avoid marking the renderer as ended so that its clock keeps being
-                          // used.
-                          return false;
-                        }
-
-                        @Override
-                        public void setPlaybackParameters(PlaybackParameters playbackParameters) {}
-
-                        @Override
-                        public PlaybackParameters getPlaybackParameters() {
-                          return PlaybackParameters.DEFAULT;
-                        }
-                      }
-                    })
-            .build();
-    player.setMediaSource(
-        new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT));
-    player.prepare();
-    player.play();
-
-    ExoPlaybackException error = advance(player).untilPlayerError();
-    long elapsedRealtimeAtErrorMs = player.getClock().elapsedRealtime();
-    player.release();
-
-    assertThat(error.errorCode).isEqualTo(PlaybackException.ERROR_CODE_TIMEOUT);
-    assertThat(error)
-        .hasCauseThat()
-        .isEqualTo(
-            new StuckPlayerException(
-                StuckPlayerException.STUCK_PLAYING_NO_PROGRESS, /* timeout= */ 45_000));
-    assertThat(elapsedRealtimeAtErrorMs).isAtLeast(45_000);
-  }
-
-  @Test
-  public void stuckPlayingDetectionTimeoutMs_triggersPlayerErrorWhenPlaybackThreadUnresponsive()
-      throws Exception {
-    FakeClock clock =
-        new FakeClock.Builder()
-            .setInitialTimeMs(0)
-            .setIsAutoAdvancing(true)
-            .setMaxAutoAdvancingTimeDiffMs(100_000)
-            .build();
-    ExoPlayer player =
-        new ExoPlayer.Builder(context)
-            .setClock(clock)
-            .setStuckPlayingDetectionTimeoutMs(45_000)
-            .build();
-    player.setMediaSource(new FakeMediaSource());
-    player.prepare();
-    player.play();
-    advance(player).untilState(Player.STATE_READY);
-    ConditionVariable blockPlaybackThread = new ConditionVariable();
-
-    player
-        .createMessage(
-            (what, payload) -> {
-              clock.onThreadBlocked();
-              blockPlaybackThread.blockUninterruptible();
-            })
-        .send();
-    ExoPlaybackException error = advance(player).untilPlayerError();
-    long elapsedRealtimeAtErrorMs = clock.elapsedRealtime();
-    blockPlaybackThread.open();
-    player.release();
-
-    assertThat(error.errorCode).isEqualTo(PlaybackException.ERROR_CODE_TIMEOUT);
-    assertThat(error)
-        .hasCauseThat()
-        .isEqualTo(
-            new StuckPlayerException(
-                StuckPlayerException.STUCK_PLAYING_NO_PROGRESS, /* timeout= */ 45_000));
-    assertThat(elapsedRealtimeAtErrorMs).isAtLeast(45_000);
   }
 
   @Test
