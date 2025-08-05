@@ -492,7 +492,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
   private final boolean renderFramesAutomatically;
   private final FinalShaderProgramWrapper finalShaderProgramWrapper;
 
-  // Shader programs that apply Effects.
+  // Shader programs that apply Effects, this doesn't include the frame cache (if present).
   private final List<GlShaderProgram> intermediateGlShaderPrograms;
   private final ConditionVariable inputStreamRegisteredCondition;
 
@@ -1126,18 +1126,10 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
         /* inputColorInfo= */ checkNotNull(inputStreamInfo.format.colorInfo), outputColorInfo);
 
     if (forceReconfigure || !activeEffects.equals(inputStreamInfo.effects)) {
-      if (!intermediateGlShaderPrograms.isEmpty()) {
-        // If frameCache is present, it's the first item in the list, skip releasing it.
-        int startIndex = frameCache == null ? 0 : 1;
-        for (int i = startIndex; i < intermediateGlShaderPrograms.size(); i++) {
-          intermediateGlShaderPrograms.get(i).release();
-        }
-        intermediateGlShaderPrograms.clear();
+      for (int i = 0; i < intermediateGlShaderPrograms.size(); i++) {
+        intermediateGlShaderPrograms.get(i).release();
       }
-
-      if (frameCache != null) {
-        intermediateGlShaderPrograms.add(frameCache);
-      }
+      intermediateGlShaderPrograms.clear();
 
       ImmutableList.Builder<Effect> effectsListBuilder =
           new ImmutableList.Builder<Effect>().addAll(inputStreamInfo.effects);
@@ -1150,11 +1142,19 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
       intermediateGlShaderPrograms.addAll(
           createGlShaderPrograms(
               context, effectsListBuilder.build(), outputColorInfo, finalShaderProgramWrapper));
-      inputSwitcher.setDownstreamShaderProgram(
-          getFirst(intermediateGlShaderPrograms, /* defaultValue= */ finalShaderProgramWrapper));
+
+      ImmutableList.Builder<GlShaderProgram> shaderProgramsToChain = new ImmutableList.Builder<>();
+      if (frameCache != null) {
+        inputSwitcher.setDownstreamShaderProgram(frameCache);
+        shaderProgramsToChain.add(frameCache);
+      } else {
+        inputSwitcher.setDownstreamShaderProgram(
+            getFirst(intermediateGlShaderPrograms, /* defaultValue= */ finalShaderProgramWrapper));
+      }
+      shaderProgramsToChain.addAll(intermediateGlShaderPrograms);
       chainShaderProgramsWithListeners(
           glObjectsProvider,
-          intermediateGlShaderPrograms,
+          shaderProgramsToChain.build(),
           finalShaderProgramWrapper,
           videoFrameProcessingTaskExecutor,
           listener,
@@ -1244,6 +1244,9 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
     try {
       try {
         inputSwitcher.release();
+        if (frameCache != null) {
+          frameCache.release();
+        }
         for (int i = 0; i < intermediateGlShaderPrograms.size(); i++) {
           intermediateGlShaderPrograms.get(i).release();
         }
