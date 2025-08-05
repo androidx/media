@@ -15,7 +15,9 @@
  */
 package androidx.media3.test.utils;
 
+import static androidx.media3.common.util.Assertions.checkArgument;
 import static com.google.common.truth.Truth.assertThat;
+import static java.lang.Math.max;
 import static java.lang.Math.min;
 
 import android.util.SparseBooleanArray;
@@ -67,6 +69,7 @@ public final class FakeExtractorInput implements ExtractorInput {
 
   private int readPosition;
   private int peekPosition;
+  private int maxPeekLimit;
 
   private final SparseBooleanArray partiallySatisfiedTargetReadPositions;
   private final SparseBooleanArray partiallySatisfiedTargetPeekPositions;
@@ -110,6 +113,10 @@ public final class FakeExtractorInput implements ExtractorInput {
     assertThat(position).isAtMost(data.length);
     readPosition = position;
     peekPosition = position;
+  }
+
+  public int getMaxPeekLimit() {
+    return maxPeekLimit;
   }
 
   @Override
@@ -288,11 +295,15 @@ public final class FakeExtractorInput implements ExtractorInput {
   }
 
   private void checkPeekLimit(int length) {
-    if (peekLimit != C.LENGTH_UNSET && peekPosition + length - readPosition > peekLimit) {
+    int targetPeekOffset = peekPosition + length - readPosition;
+    maxPeekLimit = max(maxPeekLimit, targetPeekOffset);
+    if (peekLimit != C.LENGTH_UNSET && targetPeekOffset > peekLimit) {
       throw new IllegalStateException(
           "Peeking "
               + length
-              + " bytes would exceed peek limit of "
+              + " bytes would increase the peek offset to "
+              + targetPeekOffset
+              + " and exceed the peek limit of "
               + peekLimit
               + " (readPosition="
               + readPosition
@@ -342,6 +353,7 @@ public final class FakeExtractorInput implements ExtractorInput {
 
     @CanIgnoreReturnValue
     public Builder setPeekLimit(int peekLimit) {
+      checkArgument(peekLimit == C.LENGTH_UNSET || peekLimit >= 0);
       this.peekLimit = peekLimit;
       return this;
     }

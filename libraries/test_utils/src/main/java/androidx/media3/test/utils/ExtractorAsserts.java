@@ -17,6 +17,7 @@ package androidx.media3.test.utils;
 
 import static androidx.media3.common.util.Assertions.checkState;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.fail;
 
 import android.content.Context;
 import androidx.annotation.Nullable;
@@ -173,6 +174,8 @@ public final class ExtractorAsserts {
     Extractor create();
   }
 
+  public static final int PEEK_LIMIT_FAIL_WITH_MAX = -2;
+
   private static final String DUMP_EXTENSION = ".dump";
   private static final String UNKNOWN_LENGTH_EXTENSION = ".unknown_length" + DUMP_EXTENSION;
 
@@ -232,9 +235,9 @@ public final class ExtractorAsserts {
    *     class which is to be tested.
    * @param file The path to the input sample.
    * @param peekLimit The limit that {@link ExtractorInput#getPeekPosition()} is permitted to
-   *     advance ahead of {@link ExtractorInput#getPosition()}, or {@link C#LENGTH_UNSET} to disable
-   *     enforcement of this limit. This value likely needs to be derived by trial and error for
-   *     each test sample (or possibly from a strict format specification).
+   *     advance ahead of {@link ExtractorInput#getPosition()}. {@link C#LENGTH_UNSET} disables
+   *     enforcement of this limit. {@link #PEEK_LIMIT_FAIL_WITH_MAX} forces the test to fail at the
+   *     end and print the max limit that was used (which can be helpful when setting this value).
    * @param simulationConfig Details on the environment to simulate and behaviours to assert.
    * @throws IOException If reading from the input fails.
    */
@@ -278,9 +281,9 @@ public final class ExtractorAsserts {
    *     class which is to be tested.
    * @param file The input file to pass to the extractor.
    * @param peekLimit The limit that {@link ExtractorInput#getPeekPosition()} is permitted to
-   *     advance ahead of {@link ExtractorInput#getPosition()}, or {@link C#LENGTH_UNSET} to disable
-   *     enforcement of this limit. This value likely needs to be derived by trial and error for
-   *     each test sample (or possibly from a strict format specification).
+   *     advance ahead of {@link ExtractorInput#getPosition()}. {@link C#LENGTH_UNSET} disables
+   *     enforcement of this limit. {@link #PEEK_LIMIT_FAIL_WITH_MAX} forces the test to fail at the
+   *     end and print the max limit that was used (which can be helpful when setting this value).
    * @param assertionConfig Details of how to read and process the source and dump files.
    * @param simulationConfig Details on the environment to simulate and behaviours to assert.
    * @throws IOException If reading from the input fails.
@@ -346,9 +349,9 @@ public final class ExtractorAsserts {
    * @param simulateUnknownLength Whether to simulate unknown input length.
    * @param simulatePartialReads Whether to simulate partial reads.
    * @param peekLimit The limit that {@link ExtractorInput#getPeekPosition()} is permitted to
-   *     advance ahead of {@link ExtractorInput#getPosition()}, or {@link C#LENGTH_UNSET} to disable
-   *     enforcement of this limit. This value likely needs to be derived by trial and error for
-   *     each test sample (or possibly from a strict format specification).
+   *     advance ahead of {@link ExtractorInput#getPosition()}. {@link C#LENGTH_UNSET} disables
+   *     enforcement of this limit. {@link #PEEK_LIMIT_FAIL_WITH_MAX} forces the test to fail at the
+   *     end and print the max limit that was used (which can be helpful when setting this value).
    * @throws IOException If reading from the input fails.
    */
   private static void assertOutput(
@@ -369,7 +372,7 @@ public final class ExtractorAsserts {
             .setSimulateIOErrors(simulateIOErrors)
             .setSimulateUnknownLength(simulateUnknownLength)
             .setSimulatePartialReads(simulatePartialReads)
-            .setPeekLimit(peekLimit)
+            .setPeekLimit(peekLimit != PEEK_LIMIT_FAIL_WITH_MAX ? peekLimit : C.LENGTH_UNSET)
             .build();
 
     if (sniffFirst) {
@@ -421,6 +424,9 @@ public final class ExtractorAsserts {
         DumpFileAsserts.assertOutput(
             context, extractorOutput, dumpFilesPrefix + '.' + j + DUMP_EXTENSION);
       }
+    }
+    if (peekLimit == PEEK_LIMIT_FAIL_WITH_MAX) {
+      fail("maxPeekLimit=" + input.getMaxPeekLimit());
     }
   }
 
