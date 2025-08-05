@@ -18,6 +18,7 @@ package androidx.media3.common.util;
 import android.os.Looper;
 import android.text.TextUtils;
 import androidx.annotation.Nullable;
+import com.google.common.base.Preconditions;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.dataflow.qual.Pure;
 
@@ -56,15 +57,11 @@ public final class Assertions {
   }
 
   /**
-   * Throws {@link IndexOutOfBoundsException} if {@code index} falls outside the specified bounds.
-   *
-   * @param index The index to test.
-   * @param start The start of the allowed range (inclusive).
-   * @param limit The end of the allowed range (exclusive).
-   * @return The {@code index} that was validated.
-   * @throws IndexOutOfBoundsException If {@code index} falls outside the specified bounds.
+   * @deprecated Use {@link Preconditions#checkElementIndex(int, int)}, with an additional assertion
+   *     to check a non-zero {@code start} value if needed.
    */
   @Pure
+  @Deprecated
   public static int checkIndex(int index, int start, int limit) {
     if (index < start || index >= limit) {
       throw new IndexOutOfBoundsException();

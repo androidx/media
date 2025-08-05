@@ -15,6 +15,8 @@
  */
 package androidx.media3.extractor.text.cea;
 
+import static com.google.common.base.Preconditions.checkElementIndex;
+
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.text.Layout.Alignment;
@@ -1370,10 +1372,10 @@ public final class Cea708Decoder extends CeaDecoder {
     }
 
     public static int getArgbColorFromCeaColor(int red, int green, int blue, int opacity) {
-      Assertions.checkIndex(red, 0, 4);
-      Assertions.checkIndex(green, 0, 4);
-      Assertions.checkIndex(blue, 0, 4);
-      Assertions.checkIndex(opacity, 0, 4);
+      checkElementIndex(red, 4);
+      checkElementIndex(green, 4);
+      checkElementIndex(blue, 4);
+      checkElementIndex(opacity, 4);
 
       int alpha;
       switch (opacity) {

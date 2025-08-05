@@ -17,7 +17,6 @@ package androidx.media3.session;
 
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkIndex;
 import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
@@ -27,6 +26,7 @@ import static androidx.media3.session.MediaUtils.mergePlayerInfo;
 import static androidx.media3.session.SessionError.ERROR_PERMISSION_DENIED;
 import static androidx.media3.session.SessionError.ERROR_SESSION_DISCONNECTED;
 import static androidx.media3.session.SessionError.ERROR_UNKNOWN;
+import static com.google.common.base.Preconditions.checkElementIndex;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
@@ -3364,7 +3364,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   @Nullable
   private static PeriodInfo getPeriodInfo(
       Timeline timeline, Window window, Period period, int windowIndex, long windowPositionUs) {
-    checkIndex(windowIndex, 0, timeline.getWindowCount());
+    checkElementIndex(windowIndex, timeline.getWindowCount());
     timeline.getWindow(windowIndex, window);
     if (windowPositionUs == C.TIME_UNSET) {
       windowPositionUs = window.getDefaultPositionUs();

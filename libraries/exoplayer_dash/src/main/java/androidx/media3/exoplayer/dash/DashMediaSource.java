@@ -20,6 +20,7 @@ import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.constrainValue;
 import static androidx.media3.common.util.Util.msToUs;
 import static androidx.media3.common.util.Util.usToMs;
+import static com.google.common.base.Preconditions.checkElementIndex;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
@@ -1359,7 +1360,7 @@ public final class DashMediaSource extends BaseMediaSource {
 
     @Override
     public Period getPeriod(int periodIndex, Period period, boolean setIds) {
-      Assertions.checkIndex(periodIndex, 0, getPeriodCount());
+      checkElementIndex(periodIndex, getPeriodCount());
       Object id = setIds ? manifest.getPeriod(periodIndex).id : null;
       Object uid = setIds ? (firstPeriodId + periodIndex) : null;
       return period.set(
@@ -1378,7 +1379,7 @@ public final class DashMediaSource extends BaseMediaSource {
 
     @Override
     public Window getWindow(int windowIndex, Window window, long defaultPositionProjectionUs) {
-      Assertions.checkIndex(windowIndex, 0, 1);
+      checkElementIndex(windowIndex, 1);
       long windowDefaultStartPositionUs =
           getAdjustedWindowDefaultStartPositionUs(defaultPositionProjectionUs);
       return window.set(
@@ -1453,7 +1454,7 @@ public final class DashMediaSource extends BaseMediaSource {
 
     @Override
     public Object getUidOfPeriod(int periodIndex) {
-      Assertions.checkIndex(periodIndex, 0, getPeriodCount());
+      checkElementIndex(periodIndex, getPeriodCount());
       return firstPeriodId + periodIndex;
     }
 
