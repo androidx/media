@@ -1301,7 +1301,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
   }
 
   private ImmutableList<MediaItemData> createPlaylist() {
-    checkNotNull(compositionDurationUs != C.TIME_UNSET);
+    checkState(compositionDurationUs != C.TIME_UNSET);
     return ImmutableList.of(
         new MediaItemData.Builder("CompositionTimeline")
             .setMediaItem(MediaItem.EMPTY)
