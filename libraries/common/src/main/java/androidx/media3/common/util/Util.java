@@ -39,6 +39,7 @@ import static java.lang.Math.abs;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
+import static java.nio.charset.StandardCharsets.US_ASCII;
 
 import android.Manifest.permission;
 import android.annotation.SuppressLint;
@@ -2078,6 +2079,11 @@ public final class Util {
           .append(Character.forDigit(bytes[i] & 0xF, 16));
     }
     return result.toString();
+  }
+
+  @UnstableApi
+  public static String toFourccString(int fourcc) {
+    return new String(Ints.toByteArray(fourcc), US_ASCII);
   }
 
   /**
