@@ -77,6 +77,15 @@ public final class Mp4ExtractorNonParameterizedTest {
   }
 
   @Test
+  public void sniff_returnsTrueWithoutPeekingLargeStbl() throws Exception {
+    Mp4Extractor extractor = new Mp4Extractor(SubtitleParser.Factory.UNSUPPORTED);
+    FakeExtractorInput input = createInputForSample("large_stbl_truncated_after_moov.m4b");
+
+    assertThat(extractor.sniff(input)).isTrue();
+    assertThat(input.getMaxPeekLimit()).isLessThan(500);
+  }
+
+  @Test
   public void getSeekPoints_withEmptyTracks_returnsValidInformation() throws Exception {
     Mp4Extractor extractor = new Mp4Extractor(SubtitleParser.Factory.UNSUPPORTED);
     FakeExtractorInput input = createInputForSample("sample_empty_track.mp4");

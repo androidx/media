@@ -164,6 +164,14 @@ public final class Sniffer {
         continue;
       }
 
+      // Peek inside the boxes that will lead to stbl, so that a very large stbl box can be used to
+      // short-circuit the fragmented/non-fragmented decision.
+      if (atomType == Mp4Box.TYPE_trak
+          || atomType == Mp4Box.TYPE_mdia
+          || atomType == Mp4Box.TYPE_minf) {
+        continue;
+      }
+
       if (atomType == Mp4Box.TYPE_moof || atomType == Mp4Box.TYPE_mvex) {
         // The movie is fragmented. Stop searching as we must have read any ftyp atom already.
         isFragmented = true;
@@ -174,6 +182,13 @@ public final class Sniffer {
         // The original QuickTime specification did not require files to begin with the ftyp atom.
         // See https://developer.apple.com/standards/qtff-2001.pdf.
         foundGoodFileType = true;
+      }
+
+      if (atomType == Mp4Box.TYPE_stbl && atomSize > 1_000_000) {
+        // We exit early as soon as we found a moof atom, so this must be nested inside a moov atom.
+        // An stbl this large would only be in a non-fragmented MP4.
+        isFragmented = false;
+        break;
       }
 
       if (bytesSearched + atomSize - headerSize >= bytesToSearch) {

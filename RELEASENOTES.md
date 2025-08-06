@@ -54,6 +54,9 @@
         `audio/mpeg-L2` MIME types by peeking the layer value of the first
         sample before emitting a track format from the extractor
         ([#2683](https://github.com/androidx/media/issues/2683)).
+    *   MP4: Improve sniffing efficiency of very large files by assuming a
+        `stbl` box larger than 1MB implies the file must be non-fragmented
+        ([#2650](https://github.com/androidx/media/issues/2650)).
 *   DataSource:
 *   Audio:
     *   Make `AudioProcessor` instances aware of seeking.
