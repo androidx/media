@@ -17,6 +17,7 @@
 package androidx.media3.ui.compose
 
 import android.content.Context
+import android.opengl.GLSurfaceView
 import android.view.SurfaceView
 import android.view.TextureView
 import android.view.View
@@ -31,7 +32,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.exoplayer.video.spherical.SphericalGLSurfaceView
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -39,8 +39,7 @@ import kotlinx.coroutines.withContext
  * Provides a dedicated drawing [android.view.Surface] for media playbacks using a [Player].
  *
  * The player's video output is displayed with either a [android.view.SurfaceView], a
- * [android.view.TextureView], or a
- * [androidx.media3.exoplayer.video.spherical.SphericalGLSurfaceView].
+ * [android.view.TextureView], or a `SphericalGLSurfaceView`.
  *
  * [Player] takes care of attaching the rendered output to the [android.view.Surface] and clearing
  * it, when it is destroyed.
@@ -77,11 +76,26 @@ fun PlayerSurface(
       PlayerSurfaceInternal(
         player,
         modifier,
-        createView = ::SphericalGLSurfaceView,
+        createView = {
+          try {
+            // LINT.IfChange
+            val surfaceViewClassName =
+              "androidx.media3.exoplayer.video.spherical.SphericalGLSurfaceView"
+            val surfaceViewClass = Class.forName(surfaceViewClassName)
+
+            surfaceViewClass.getConstructor(Context::class.java).newInstance(it) as GLSurfaceView
+            // LINT.ThenChange(../../../../../../../proguard-rules.txt)
+          } catch (exception: ClassNotFoundException) {
+            throw IllegalStateException(
+              "SURFACE_TYPE_SPHERICAL_GL_SURFACE_VIEW requires an ExoPlayer dependency",
+              exception
+            )
+          }
+        },
         setVideoView = { setVideoSurfaceView(it) },
         clearVideoView = { setVideoSurfaceView(null) },
-        onReset = SphericalGLSurfaceView::onPause,
-        onUpdate = SphericalGLSurfaceView::onResume,
+        onReset = GLSurfaceView::onPause,
+        onUpdate = GLSurfaceView::onResume,
       )
     else -> throw IllegalArgumentException("Unrecognized surface type: $surfaceType")
   }
@@ -160,5 +174,5 @@ annotation class SurfaceType
 @UnstableApi const val SURFACE_TYPE_SURFACE_VIEW = 1
 /** Surface type to create [android.view.TextureView]. */
 @UnstableApi const val SURFACE_TYPE_TEXTURE_VIEW = 2
-/** Surface type to create [androidx.media3.exoplayer.video.spherical.SphericalGLSurfaceView]. */
+/** Surface type to create `SphericalGLSurfaceView`. */
 @UnstableApi const val SURFACE_TYPE_SPHERICAL_GL_SURFACE_VIEW = 3

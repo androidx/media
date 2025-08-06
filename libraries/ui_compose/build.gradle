@@ -49,7 +49,6 @@ android {
 dependencies {
     api project(modulePrefix + 'lib-common')
     api project(modulePrefix + 'lib-common-ktx')
-    api project(modulePrefix + 'lib-exoplayer')
 
     def composeBom = platform('androidx.compose:compose-bom:2024.12.01')
     api composeBom
@@ -60,6 +59,7 @@ dependencies {
     testImplementation 'androidx.compose.ui:ui-test-android:1.8.2'
     testImplementation 'androidx.compose.ui:ui-test'
     testImplementation 'androidx.compose.ui:ui-test-junit4'
+    testImplementation project(modulePrefix + 'lib-exoplayer')
     testImplementation project(modulePrefix + 'test-utils')
     testImplementation 'org.robolectric:robolectric:' + robolectricVersion
 }
