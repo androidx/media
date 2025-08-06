@@ -1406,7 +1406,8 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     contents.put((byte) 0x01); // configurationVersion
 
     ImmutableList<ByteBuffer> csd0NalUnits = AnnexBUtils.findNalUnits(csd0ByteBuffer);
-    checkArgument(csd0NalUnits.size() == 1, "SPS data not found in csd0 for avcC box.");
+    // TODO: b/436789610 - Handle more than one SPS data.
+    checkArgument(!csd0NalUnits.isEmpty(), "SPS data not found in csd0 for avcC box.");
 
     ByteBuffer sps = csd0NalUnits.get(0);
     byte[] spsData = new byte[sps.remaining()];
@@ -1426,7 +1427,8 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     sps.rewind();
 
     ImmutableList<ByteBuffer> csd1NalUnits = AnnexBUtils.findNalUnits(csd1ByteBuffer);
-    checkState(csd1NalUnits.size() == 1, "PPS data not found in csd1.");
+    // TODO: b/436789610 - Handle more than one PPS data.
+    checkState(!csd1NalUnits.isEmpty(), "PPS data not found in csd1 for avcC box.");
 
     contents.put((byte) 0x01); // numOfPictureParameterSets
 
