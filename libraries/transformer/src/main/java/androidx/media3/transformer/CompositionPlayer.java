@@ -437,6 +437,9 @@ public final class CompositionPlayer extends SimpleBasePlayer
   private LivePositionSupplier totalBufferedDurationSupplier;
   private boolean compositionPlayerInternalPrepared;
   private boolean scrubbingModeEnabled;
+  // Whether prepare() needs to be called to prepare the underlying sequence players.
+  // TODO: b/436491202 - Revise CompositionPlayer state handling.
+  private boolean appNeedsToPrepareCompositionPlayer;
 
   // "this" reference for position suppliers.
   @SuppressWarnings("initialization:methodref.receiver.bound.invalid")
@@ -462,6 +465,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
     positionSupplier = new LivePositionSupplier(this::getContentPositionMs);
     bufferedPositionSupplier = new LivePositionSupplier(this::getBufferedPositionMs);
     totalBufferedDurationSupplier = new LivePositionSupplier(this::getTotalBufferedDurationMs);
+    appNeedsToPrepareCompositionPlayer = true;
   }
 
   /**
@@ -664,6 +668,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
     for (int i = 0; i < playerHolders.size(); i++) {
       playerHolders.get(i).player.prepare();
     }
+    appNeedsToPrepareCompositionPlayer = false;
     return Futures.immediateVoidFuture();
   }
 
@@ -697,6 +702,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
     for (int i = 0; i < playerHolders.size(); i++) {
       playerHolders.get(i).player.stop();
     }
+    appNeedsToPrepareCompositionPlayer = true;
     return Futures.immediateVoidFuture();
   }
 
@@ -924,6 +930,12 @@ public final class CompositionPlayer extends SimpleBasePlayer
   }
 
   private void setCompositionInternal(Composition composition, long startPositionMs) {
+    for (int i = 0; i < playerHolders.size(); i++) {
+      // TODO: b/412585856 - Optimize for the case where we can keep some resources.
+      playerHolders.get(i).player.release();
+    }
+    playerHolders.clear();
+
     prepareCompositionPlayerInternal();
     CompositionPlayerInternal compositionPlayerInternal =
         checkNotNull(this.compositionPlayerInternal);
@@ -931,15 +943,26 @@ public final class CompositionPlayer extends SimpleBasePlayer
     long primarySequenceDurationUs =
         getSequenceDurationUs(checkNotNull(composition.sequences.get(0)));
     for (int i = 0; i < composition.sequences.size(); i++) {
-      setSequenceInternal(
+      createSequencePlayer(
           composition, /* sequenceIndex= */ i, primarySequenceDurationUs, startPositionMs);
     }
     compositionPlayerInternal.setComposition(composition);
     compositionPlayerInternal.startSeek(startPositionMs);
     compositionPlayerInternal.endSeek();
+
+    if (appNeedsToPrepareCompositionPlayer) {
+      return;
+    }
+    // After the app calls prepare() for the first time, subsequent calls to setComposition()
+    // doesn't require apps to call prepare() again (unless stop() is called, or player error
+    // reported), hence the need to prepare the underlying players here.
+    for (int i = 0; i < playerHolders.size(); i++) {
+      SequencePlayerHolder sequencePlayerHolder = playerHolders.get(i);
+      sequencePlayerHolder.player.prepare();
+    }
   }
 
-  private void setSequenceInternal(
+  private void createSequencePlayer(
       Composition newComposition,
       int sequenceIndex,
       long primarySequenceDurationUs,
@@ -951,15 +974,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
         createSequencePlayer(
             sequenceIndex,
             newComposition.hdrMode == Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC);
-    if (playerHolders.size() <= sequenceIndex) {
-      playerHolders.add(playerHolder);
-    } else {
-      // TODO: b/412585856 - Optimize for the case where we can keep some resources.
-      playerHolders.get(sequenceIndex).player.release();
-      // TODO: b/412585856 - Remove dangling playerHolder references after changing the number of
-      //  sequences.
-      playerHolders.set(sequenceIndex, playerHolder);
-    }
+    playerHolders.add(playerHolder);
     playerHolder.setSequence(sequence);
     ExoPlayer player = playerHolder.player;
 
@@ -987,11 +1002,6 @@ public final class CompositionPlayer extends SimpleBasePlayer
       // TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED.
       invalidateState();
       playlist = createPlaylist();
-    }
-
-    if (playbackState != STATE_IDLE) {
-      player.stop();
-      player.prepare();
     }
   }
 
@@ -1245,6 +1255,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
       for (int i = 0; i < playerHolders.size(); i++) {
         playerHolders.get(i).player.stop();
       }
+      appNeedsToPrepareCompositionPlayer = true;
       updatePlaybackState();
       // Invalidate the parent class state.
       invalidateState();
