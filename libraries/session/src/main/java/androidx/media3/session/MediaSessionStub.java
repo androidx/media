@@ -39,7 +39,6 @@ import static androidx.media3.common.Player.COMMAND_SET_TRACK_SELECTION_PARAMETE
 import static androidx.media3.common.Player.COMMAND_SET_VIDEO_SURFACE;
 import static androidx.media3.common.Player.COMMAND_SET_VOLUME;
 import static androidx.media3.common.Player.COMMAND_STOP;
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.postOrRun;
 import static androidx.media3.common.util.Util.postOrRunWithCompletion;
@@ -63,6 +62,7 @@ import static androidx.media3.session.SessionError.INFO_CANCELLED;
 import static androidx.media3.session.SessionUtil.PACKAGE_INVALID;
 import static androidx.media3.session.SessionUtil.PACKAGE_VALID;
 import static androidx.media3.session.SessionUtil.checkPackageValidity;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.app.PendingIntent;
 import android.media.session.MediaSession.Token;

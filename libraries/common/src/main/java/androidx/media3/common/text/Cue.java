@@ -16,7 +16,7 @@
 package androidx.media3.common.text;
 
 import static androidx.media3.common.text.CustomSpanBundler.bundleCustomSpans;
-import static androidx.media3.common.util.Assertions.checkState;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.ElementType.LOCAL_VARIABLE;
 import static java.lang.annotation.ElementType.METHOD;

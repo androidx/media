@@ -15,8 +15,8 @@
  */
 package androidx.media3.effect;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static com.google.common.base.Preconditions.checkArgument;
 
 import android.graphics.Matrix;
 import androidx.media3.common.util.GlUtil;

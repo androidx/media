@@ -15,9 +15,6 @@
  */
 package androidx.media3.transformer;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.percentInt;
 import static androidx.media3.effect.DebugTraceUtil.COMPONENT_ASSET_LOADER;
@@ -26,6 +23,9 @@ import static androidx.media3.effect.DebugTraceUtil.EVENT_OUTPUT_FORMAT;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_AVAILABLE;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_NOT_STARTED;
 import static androidx.media3.transformer.TransformerUtil.getProcessedTrackType;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.graphics.Bitmap;
 import android.graphics.Color;

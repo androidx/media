@@ -15,7 +15,7 @@
  */
 package androidx.media3.exoplayer.hls;
 
-import static androidx.media3.common.util.Assertions.checkState;
+import static com.google.common.base.Preconditions.checkState;
 
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.Format;

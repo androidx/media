@@ -15,9 +15,9 @@
  */
 package androidx.media3.transformer;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.transformer.TransformerUtil.getDecoderOutputColor;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.media.MediaCodec;
 import android.media.metrics.LogSessionId;

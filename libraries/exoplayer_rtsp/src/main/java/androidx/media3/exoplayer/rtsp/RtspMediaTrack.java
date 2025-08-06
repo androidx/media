@@ -15,8 +15,6 @@
  */
 package androidx.media3.exoplayer.rtsp;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Util.castNonNull;
 import static androidx.media3.container.NalUnitUtil.NAL_START_CODE;
 import static androidx.media3.exoplayer.rtsp.MediaDescription.MEDIA_TYPE_AUDIO;
@@ -24,6 +22,8 @@ import static androidx.media3.exoplayer.rtsp.RtpPayloadFormat.getMimeTypeFromRtp
 import static androidx.media3.exoplayer.rtsp.RtspHeaders.CONTENT_BASE;
 import static androidx.media3.exoplayer.rtsp.RtspHeaders.CONTENT_LOCATION;
 import static androidx.media3.exoplayer.rtsp.SessionDescription.ATTR_CONTROL;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.net.Uri;
 import android.text.TextUtils;

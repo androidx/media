@@ -17,8 +17,8 @@ package androidx.media3.session.legacy;
 
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.annotation.RestrictTo.Scope.LIBRARY;
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.session.legacy.MediaControllerCompat.PlaybackInfo.PLAYBACK_TYPE_LOCAL;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.app.PendingIntent;
 import android.content.Context;

@@ -15,7 +15,7 @@
  */
 package androidx.media3.muxer;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.max;
 
 import java.nio.ByteBuffer;

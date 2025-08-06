@@ -15,8 +15,8 @@
  */
 package androidx.media3.extractor.ogg;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;

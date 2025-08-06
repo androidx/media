@@ -15,8 +15,8 @@
  */
 package androidx.media3.exoplayer.source.chunk;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Util.castNonNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.util.SparseArray;
 import androidx.annotation.Nullable;

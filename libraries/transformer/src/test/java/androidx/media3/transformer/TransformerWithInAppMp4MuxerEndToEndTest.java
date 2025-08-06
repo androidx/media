@@ -15,9 +15,9 @@
  */
 package androidx.media3.transformer;
 
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.test.utils.TestUtil.extractAllSamplesFromFilePath;
 import static androidx.media3.test.utils.TestUtil.retrieveTrackFormat;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;

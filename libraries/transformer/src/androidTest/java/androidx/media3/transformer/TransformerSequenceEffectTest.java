@@ -17,7 +17,6 @@
 
 package androidx.media3.transformer;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_SURFACE_TEXTURE_TRANSFORM_FIX;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmap;
 import static androidx.media3.transformer.AndroidTestUtil.BT601_MOV_ASSET;
@@ -43,6 +42,7 @@ import static androidx.media3.transformer.SequenceEffectTestUtil.createCompositi
 import static androidx.media3.transformer.SequenceEffectTestUtil.decoderProducesWashedOutColours;
 import static androidx.media3.transformer.SequenceEffectTestUtil.oneFrameFromImage;
 import static androidx.media3.transformer.SequenceEffectTestUtil.tryToExportCompositionWithDecoder;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;

@@ -15,9 +15,9 @@
  */
 package androidx.media3.session;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.isBitmapFactorySupportedMimeType;
+import static com.google.common.base.Preconditions.checkArgument;
 
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;

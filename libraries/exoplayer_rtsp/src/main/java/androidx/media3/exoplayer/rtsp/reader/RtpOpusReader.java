@@ -15,9 +15,9 @@
  */
 package androidx.media3.exoplayer.rtsp.reader;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.exoplayer.rtsp.reader.RtpReaderUtils.toSampleTimeUs;
+import static com.google.common.base.Preconditions.checkArgument;
 
 import androidx.media3.common.C;
 import androidx.media3.common.Format;

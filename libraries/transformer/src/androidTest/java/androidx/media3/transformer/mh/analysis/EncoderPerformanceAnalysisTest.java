@@ -16,9 +16,9 @@
 
 package androidx.media3.transformer.mh.analysis;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.transformer.VideoEncoderSettings.NO_VALUE;
 import static androidx.media3.transformer.VideoEncoderSettings.RATE_UNSET;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.content.Context;
 import android.net.Uri;

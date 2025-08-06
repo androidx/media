@@ -16,7 +16,7 @@
 package androidx.media3.common;
 
 import static androidx.media3.common.AdPlaybackState.AD_STATE_UNAVAILABLE;
-import static androidx.media3.common.util.Assertions.checkArgument;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkElementIndex;
 import static java.lang.Math.max;
 import static java.lang.Math.min;

@@ -16,8 +16,8 @@
 package androidx.media3.exoplayer.analytics;
 
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.media.metrics.LogSessionId;
 import androidx.annotation.Nullable;

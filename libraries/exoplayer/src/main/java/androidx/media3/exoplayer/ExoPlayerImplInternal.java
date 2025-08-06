@@ -15,8 +15,6 @@
  */
 package androidx.media3.exoplayer;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.castNonNull;
 import static androidx.media3.common.util.Util.constrainValue;
 import static androidx.media3.common.util.Util.msToUs;
@@ -25,6 +23,8 @@ import static androidx.media3.exoplayer.MediaPeriodQueue.UPDATE_PERIOD_QUEUE_ALT
 import static androidx.media3.exoplayer.RendererHolder.REPLACE_STREAMS_DISABLE_RENDERERS_COMPLETED;
 import static androidx.media3.exoplayer.RendererHolder.REPLACE_STREAMS_DISABLE_RENDERERS_DISABLE_OFFLOAD_SCHEDULING;
 import static androidx.media3.exoplayer.audio.AudioSink.OFFLOAD_MODE_DISABLED;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 

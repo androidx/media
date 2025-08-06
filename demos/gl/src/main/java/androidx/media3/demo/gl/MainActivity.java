@@ -16,7 +16,7 @@
 package androidx.media3.demo.gl;
 
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.app.Activity;
 import android.content.Context;

@@ -17,8 +17,8 @@ package androidx.media3.effect;
 
 import static androidx.media3.common.C.TEXTURE_MIN_FILTER_LINEAR;
 import static androidx.media3.common.C.TEXTURE_MIN_FILTER_LINEAR_MIPMAP_LINEAR;
-import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.annotation.ElementType.TYPE_USE;
 import static java.lang.annotation.RetentionPolicy.SOURCE;
 

@@ -15,9 +15,9 @@
  */
 package androidx.media3.extractor.ts;
 
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.extractor.metadata.id3.Id3Decoder.ID3_HEADER_LENGTH;
 import static androidx.media3.extractor.ts.TsPayloadReader.FLAG_DATA_ALIGNMENT_INDICATOR;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.min;
 
 import androidx.media3.common.C;

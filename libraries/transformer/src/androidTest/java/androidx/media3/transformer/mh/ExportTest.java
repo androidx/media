@@ -18,7 +18,6 @@ package androidx.media3.transformer.mh;
 import static android.media.MediaCodecInfo.CodecProfileLevel.AVCLevel41;
 import static android.media.MediaCodecInfo.CodecProfileLevel.AVCProfileHigh;
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.MediaFormatUtil.createFormatFromMediaFormat;
 import static androidx.media3.exoplayer.mediacodec.MediaCodecUtil.getCodecProfileAndLevel;
 import static androidx.media3.transformer.AndroidTestUtil.FORCE_TRANSCODE_VIDEO_EFFECTS;
@@ -35,6 +34,7 @@ import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported
 import static androidx.media3.transformer.AndroidTestUtil.recordTestSkipped;
 import static androidx.media3.transformer.ExportResult.CONVERSION_PROCESS_TRANSMUXED_AND_TRANSCODED;
 import static androidx.media3.transformer.ExportResult.OPTIMIZATION_SUCCEEDED;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;

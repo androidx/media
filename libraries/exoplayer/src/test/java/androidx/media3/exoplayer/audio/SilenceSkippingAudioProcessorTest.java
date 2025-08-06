@@ -15,7 +15,7 @@
  */
 package androidx.media3.exoplayer.audio;
 
-import static androidx.media3.common.util.Assertions.checkState;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 import static java.lang.Math.min;
 import static java.lang.Short.MAX_VALUE;

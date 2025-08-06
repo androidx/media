@@ -15,7 +15,7 @@
  */
 package androidx.media3.datasource.cache;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.content.ContentValues;
 import android.database.Cursor;

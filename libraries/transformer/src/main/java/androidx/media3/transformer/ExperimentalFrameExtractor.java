@@ -26,10 +26,10 @@ import static androidx.media3.common.ColorInfo.isTransferHdr;
 import static androidx.media3.common.PlaybackException.ERROR_CODE_FAILED_RUNTIME_CHECK;
 import static androidx.media3.common.PlaybackException.ERROR_CODE_INVALID_STATE;
 import static androidx.media3.common.PlaybackException.ERROR_CODE_SETUP_REQUIRED;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.GlUtil.createRgb10A2Texture;
 import static androidx.media3.common.util.Util.usToMs;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateCancelledFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 

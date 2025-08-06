@@ -15,8 +15,8 @@
  */
 package androidx.media3.exoplayer.offline;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Util.castNonNull;
+import static com.google.common.base.Preconditions.checkArgument;
 
 import android.net.Uri;
 import android.os.Parcel;

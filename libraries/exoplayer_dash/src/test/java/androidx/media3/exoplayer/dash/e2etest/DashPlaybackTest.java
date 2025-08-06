@@ -15,11 +15,11 @@
  */
 package androidx.media3.exoplayer.dash.e2etest;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.test.utils.WebServerDispatcher.NOT_FOUND_BODY;
 import static androidx.media3.test.utils.WebServerDispatcher.getRequestPath;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.play;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;

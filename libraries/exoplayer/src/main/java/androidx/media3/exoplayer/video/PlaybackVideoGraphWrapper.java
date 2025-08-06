@@ -17,12 +17,12 @@ package androidx.media3.exoplayer.video;
 
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.VideoFrameProcessor.DROP_OUTPUT_FRAME;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.contains;
 import static androidx.media3.common.util.Util.getMaxPendingFramesCountForMediaCodecDecoders;
 import static androidx.media3.exoplayer.video.VideoSink.INPUT_TYPE_SURFACE;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.content.Context;

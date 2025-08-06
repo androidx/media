@@ -16,13 +16,13 @@
 package androidx.media3.exoplayer.ima;
 
 import static androidx.media3.common.Player.COMMAND_GET_VOLUME;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.msToUs;
 import static androidx.media3.exoplayer.ima.ImaUtil.BITRATE_UNSET;
 import static androidx.media3.exoplayer.ima.ImaUtil.TIMEOUT_UNSET;
 import static androidx.media3.exoplayer.ima.ImaUtil.getAdGroupTimesUsForCuePoints;
 import static androidx.media3.exoplayer.ima.ImaUtil.getImaLooper;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 import static java.lang.annotation.ElementType.TYPE_USE;
 

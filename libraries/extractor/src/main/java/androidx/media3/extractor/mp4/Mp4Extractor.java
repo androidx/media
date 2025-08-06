@@ -19,8 +19,6 @@ import static androidx.media3.common.C.AUXILIARY_TRACK_TYPE_DEPTH_INVERSE;
 import static androidx.media3.common.C.AUXILIARY_TRACK_TYPE_DEPTH_LINEAR;
 import static androidx.media3.common.C.AUXILIARY_TRACK_TYPE_ORIGINAL;
 import static androidx.media3.common.C.AUXILIARY_TRACK_TYPE_UNDEFINED;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.container.MdtaMetadataEntry.AUXILIARY_TRACKS_SAMPLES_NOT_INTERLEAVED;
 import static androidx.media3.extractor.mp4.BoxParser.parseTraks;
@@ -28,6 +26,8 @@ import static androidx.media3.extractor.mp4.MetadataUtil.findMdtaMetadataEntryWi
 import static androidx.media3.extractor.mp4.MimeTypeResolver.getContainerMimeType;
 import static androidx.media3.extractor.mp4.Sniffer.BRAND_HEIC;
 import static androidx.media3.extractor.mp4.Sniffer.BRAND_QUICKTIME;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.annotation.ElementType.TYPE_USE;

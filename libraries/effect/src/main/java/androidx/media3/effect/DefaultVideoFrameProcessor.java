@@ -16,9 +16,6 @@
 package androidx.media3.effect;
 
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.GlUtil.getDefaultEglDisplay;
 import static androidx.media3.common.util.Util.castNonNull;
@@ -26,6 +23,9 @@ import static androidx.media3.effect.DebugTraceUtil.COMPONENT_VFP;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_RECEIVE_END_OF_ALL_INPUT;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_REGISTER_NEW_INPUT_STREAM;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_SIGNAL_ENDED;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getFirst;
 import static java.lang.annotation.ElementType.TYPE_USE;
 

@@ -16,7 +16,6 @@
 
 package androidx.media3.transformer;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Util.percentInt;
 import static androidx.media3.exoplayer.DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS;
 import static androidx.media3.exoplayer.DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_MS;
@@ -29,6 +28,7 @@ import static androidx.media3.transformer.Transformer.PROGRESS_STATE_NOT_STARTED
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_UNAVAILABLE;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_WAITING_FOR_AVAILABILITY;
 import static androidx.media3.transformer.TransformerUtil.isImage;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.min;
 
 import android.content.Context;

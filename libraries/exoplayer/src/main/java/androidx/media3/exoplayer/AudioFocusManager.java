@@ -20,7 +20,7 @@ import static androidx.media3.common.audio.AudioManagerCompat.AUDIOFOCUS_GAIN_TR
 import static androidx.media3.common.audio.AudioManagerCompat.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE;
 import static androidx.media3.common.audio.AudioManagerCompat.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK;
 import static androidx.media3.common.audio.AudioManagerCompat.AUDIOFOCUS_NONE;
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.content.Context;

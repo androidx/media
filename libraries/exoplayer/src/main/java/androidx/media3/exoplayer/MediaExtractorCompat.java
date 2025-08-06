@@ -17,10 +17,10 @@ package androidx.media3.exoplayer;
 
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.annotation.VisibleForTesting.NONE;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.exoplayer.source.SampleStream.FLAG_PEEK;
 import static androidx.media3.exoplayer.source.SampleStream.FLAG_REQUIRE_FORMAT;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 
 import android.content.ContentResolver;

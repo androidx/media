@@ -15,13 +15,13 @@
  */
 package androidx.media3.session;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Assertions.checkNotEmpty;
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.session.SessionToken.TYPE_BROWSER_SERVICE_LEGACY;
 import static androidx.media3.session.SessionToken.TYPE_LIBRARY_SERVICE;
 import static androidx.media3.session.SessionToken.TYPE_SESSION;
 import static androidx.media3.session.SessionToken.TYPE_SESSION_LEGACY;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.content.ComponentName;
 import android.media.session.MediaSession;

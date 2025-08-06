@@ -15,9 +15,9 @@
  */
 package androidx.media3.transformer.mh;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmap;
 import static androidx.media3.test.utils.VideoFrameProcessorTestRunner.createTimestampIterator;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.graphics.Bitmap;

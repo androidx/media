@@ -17,7 +17,6 @@
 
 package androidx.media3.transformer.mh;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_1080P_5_SECOND_HLG10;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_720P_4_SECOND_HDR10;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_AV1_2_SECOND_HDR10;
@@ -35,6 +34,7 @@ import static androidx.media3.transformer.SequenceEffectTestUtil.tryToExportComp
 import static androidx.media3.transformer.mh.HdrCapabilitiesUtil.assumeDeviceDoesNotSupportHdrEditing;
 import static androidx.media3.transformer.mh.HdrCapabilitiesUtil.assumeDeviceSupportsHdrEditing;
 import static androidx.media3.transformer.mh.HdrCapabilitiesUtil.assumeDeviceSupportsOpenGlToneMapping;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;

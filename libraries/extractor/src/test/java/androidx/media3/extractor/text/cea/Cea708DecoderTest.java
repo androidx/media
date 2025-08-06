@@ -15,9 +15,9 @@
  */
 package androidx.media3.extractor.text.cea;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.test.utils.TestUtil.createByteArray;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 
 import androidx.annotation.Nullable;

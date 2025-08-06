@@ -16,8 +16,8 @@
 package androidx.media3.common;
 
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.util.Assertions.checkState;
 import static com.google.common.base.Preconditions.checkElementIndex;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.util.SparseBooleanArray;
 import androidx.annotation.Nullable;

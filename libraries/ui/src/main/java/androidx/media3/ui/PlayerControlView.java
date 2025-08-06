@@ -41,10 +41,10 @@ import static androidx.media3.common.Player.EVENT_SEEK_FORWARD_INCREMENT_CHANGED
 import static androidx.media3.common.Player.EVENT_SHUFFLE_MODE_ENABLED_CHANGED;
 import static androidx.media3.common.Player.EVENT_TIMELINE_CHANGED;
 import static androidx.media3.common.Player.EVENT_TRACKS_CHANGED;
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Util.castNonNull;
 import static androidx.media3.common.util.Util.getDrawable;
 import static androidx.media3.common.util.Util.msToUs;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.annotation.SuppressLint;
 import android.content.Context;

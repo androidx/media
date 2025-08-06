@@ -15,7 +15,7 @@
  */
 package androidx.media3.exoplayer;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
+import static com.google.common.base.Preconditions.checkArgument;
 
 import android.os.SystemClock;
 import androidx.annotation.Nullable;

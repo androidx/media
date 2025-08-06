@@ -15,12 +15,12 @@
  */
 package androidx.media3.muxer;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.muxer.Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER_OR_DUPLICATE_PREVIOUS;
 import static androidx.media3.muxer.MuxerTestUtil.FAKE_VIDEO_FORMAT;
 import static androidx.media3.muxer.MuxerTestUtil.XMP_SAMPLE_DATA;
 import static androidx.media3.muxer.MuxerTestUtil.feedInputDataToMuxer;
 import static androidx.media3.muxer.MuxerTestUtil.getFakeSampleAndSampleInfo;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 

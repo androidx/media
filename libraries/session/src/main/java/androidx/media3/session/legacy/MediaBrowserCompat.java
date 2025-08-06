@@ -16,7 +16,6 @@
 package androidx.media3.session.legacy;
 
 import static androidx.annotation.RestrictTo.Scope.LIBRARY;
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.session.legacy.MediaBrowserProtocol.CLIENT_MSG_ADD_SUBSCRIPTION;
 import static androidx.media3.session.legacy.MediaBrowserProtocol.CLIENT_MSG_GET_MEDIA_ITEM;
 import static androidx.media3.session.legacy.MediaBrowserProtocol.CLIENT_MSG_REGISTER_CALLBACK_MESSENGER;
@@ -45,6 +44,7 @@ import static androidx.media3.session.legacy.MediaBrowserProtocol.EXTRA_SERVICE_
 import static androidx.media3.session.legacy.MediaBrowserProtocol.EXTRA_SESSION_BINDER;
 import static androidx.media3.session.legacy.MediaBrowserProtocol.SERVICE_MSG_ON_LOAD_CHILDREN;
 import static androidx.media3.session.legacy.MediaBrowserProtocol.SERVICE_VERSION_2;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.annotation.SuppressLint;
 import android.content.ComponentName;

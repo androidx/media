@@ -16,7 +16,6 @@
 package androidx.media3.session;
 
 import static androidx.media3.common.Player.COMMAND_GET_TRACKS;
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.session.MediaConstants.CUSTOM_COMMAND_DOWNLOAD;
 import static androidx.media3.session.MediaSession.ConnectionResult.accept;
 import static androidx.media3.test.session.common.CommonConstants.ACTION_MEDIA3_SESSION;
@@ -78,6 +77,7 @@ import static androidx.media3.test.session.common.MediaSessionConstants.TEST_ON_
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_ON_VIDEO_SIZE_CHANGED;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_SET_SHOW_PLAY_BUTTON_IF_SUPPRESSED_TO_FALSE;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_WITH_CUSTOM_COMMANDS;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 

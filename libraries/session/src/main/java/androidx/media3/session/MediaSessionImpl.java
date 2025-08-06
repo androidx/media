@@ -27,13 +27,13 @@ import static android.view.KeyEvent.KEYCODE_MEDIA_SKIP_FORWARD;
 import static android.view.KeyEvent.KEYCODE_MEDIA_STOP;
 import static androidx.media3.common.Player.COMMAND_CHANGE_MEDIA_ITEMS;
 import static androidx.media3.common.Player.COMMAND_SET_MEDIA_ITEM;
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.postOrRun;
 import static androidx.media3.session.MediaSessionStub.UNKNOWN_SEQUENCE_NUMBER;
 import static androidx.media3.session.SessionError.ERROR_SESSION_DISCONNECTED;
 import static androidx.media3.session.SessionError.ERROR_UNKNOWN;
 import static androidx.media3.session.SessionError.INFO_CANCELLED;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.app.PendingIntent;
 import android.content.ComponentName;

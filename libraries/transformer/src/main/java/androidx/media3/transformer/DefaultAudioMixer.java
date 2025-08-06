@@ -18,9 +18,9 @@ package androidx.media3.transformer;
 import static androidx.media3.common.audio.AudioProcessor.EMPTY_BUFFER;
 import static androidx.media3.common.audio.ChannelMixingMatrix.createForConstantGain;
 import static androidx.media3.common.audio.ChannelMixingMatrix.createForConstantPower;
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.contains;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 

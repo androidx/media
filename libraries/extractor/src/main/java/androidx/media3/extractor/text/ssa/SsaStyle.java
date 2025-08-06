@@ -16,8 +16,8 @@
  */
 package androidx.media3.extractor.text.ssa;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.extractor.text.ssa.SsaParser.STYLE_LINE_PREFIX;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.annotation.ElementType.TYPE_USE;
 import static java.lang.annotation.RetentionPolicy.SOURCE;
 

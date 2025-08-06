@@ -17,8 +17,6 @@ package androidx.media3.exoplayer.ima;
 
 import static androidx.media3.common.AdPlaybackState.AD_STATE_AVAILABLE;
 import static androidx.media3.common.AdPlaybackState.AD_STATE_UNAVAILABLE;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.msToUs;
 import static androidx.media3.common.util.Util.usToMs;
 import static androidx.media3.exoplayer.ima.ImaUtil.addLiveAdBreak;
@@ -36,6 +34,8 @@ import static androidx.media3.exoplayer.ima.ImaUtil.splitAdPlaybackStateForPerio
 import static androidx.media3.exoplayer.ima.ImaUtil.updateAdDurationInAdGroup;
 import static androidx.media3.exoplayer.source.ads.ServerSideAdInsertionUtil.addAdGroupToAdPlaybackState;
 import static com.google.ads.interactivemedia.v3.api.AdEvent.AdEventType.LOADED;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.content.Context;
 import android.net.Uri;

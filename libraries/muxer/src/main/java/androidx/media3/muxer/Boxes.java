@@ -16,10 +16,10 @@
 package androidx.media3.muxer;
 
 import static androidx.media3.common.MimeTypes.allSamplesAreSyncSamples;
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.muxer.MuxerUtil.UNSIGNED_INT_MAX_VALUE;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.abs;
 import static java.lang.Math.max;
 import static java.lang.Math.min;

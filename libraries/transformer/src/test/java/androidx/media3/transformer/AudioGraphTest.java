@@ -15,8 +15,8 @@
  */
 package androidx.media3.transformer;
 
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.getPcmFormat;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 

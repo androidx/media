@@ -15,8 +15,8 @@
  */
 package androidx.media3.session;
 
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.msToUs;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.os.Looper;
 import android.os.SystemClock;

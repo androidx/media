@@ -15,7 +15,6 @@
  */
 package androidx.media3.session;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.session.MediaConstants.CUSTOM_COMMAND_DOWNLOAD;
 import static androidx.media3.session.MediaConstants.EXTRAS_KEY_COMPLETION_STATUS;
 import static androidx.media3.session.MediaConstants.EXTRAS_KEY_ERROR_RESOLUTION_ACTION_INTENT_COMPAT;
@@ -65,6 +64,7 @@ import static androidx.media3.test.session.common.MediaBrowserConstants.SEARCH_R
 import static androidx.media3.test.session.common.MediaBrowserConstants.SEARCH_TIME_IN_MS;
 import static androidx.media3.test.session.common.MediaBrowserConstants.SUBSCRIBE_PARENT_ID_1;
 import static androidx.media3.test.session.common.MediaBrowserConstants.SUBSCRIBE_PARENT_ID_2;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.min;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 

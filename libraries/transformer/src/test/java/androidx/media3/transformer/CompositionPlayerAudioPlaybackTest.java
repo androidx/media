@@ -15,7 +15,6 @@
  */
 package androidx.media3.transformer;
 
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.transformer.TestUtil.ASSET_URI_PREFIX;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_RAW;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_RAW_STEREO_48000KHZ;
@@ -23,6 +22,7 @@ import static androidx.media3.transformer.TestUtil.createAudioEffects;
 import static androidx.media3.transformer.TestUtil.createChannelCountChangingAudioProcessor;
 import static androidx.media3.transformer.TestUtil.createSampleRateChangingAudioProcessor;
 import static androidx.media3.transformer.TestUtil.createVolumeScalingAudioProcessor;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;

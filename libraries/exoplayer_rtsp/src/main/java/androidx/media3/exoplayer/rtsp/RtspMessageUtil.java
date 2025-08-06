@@ -15,8 +15,6 @@
  */
 package androidx.media3.exoplayer.rtsp;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.exoplayer.rtsp.RtspRequest.METHOD_ANNOUNCE;
 import static androidx.media3.exoplayer.rtsp.RtspRequest.METHOD_DESCRIBE;
 import static androidx.media3.exoplayer.rtsp.RtspRequest.METHOD_GET_PARAMETER;
@@ -30,6 +28,8 @@ import static androidx.media3.exoplayer.rtsp.RtspRequest.METHOD_SETUP;
 import static androidx.media3.exoplayer.rtsp.RtspRequest.METHOD_SET_PARAMETER;
 import static androidx.media3.exoplayer.rtsp.RtspRequest.METHOD_TEARDOWN;
 import static androidx.media3.exoplayer.rtsp.RtspRequest.METHOD_UNSET;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.nullToEmpty;
 import static java.util.regex.Pattern.CASE_INSENSITIVE;
 

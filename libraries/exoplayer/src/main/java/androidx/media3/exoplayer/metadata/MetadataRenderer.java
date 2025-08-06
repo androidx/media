@@ -15,8 +15,8 @@
  */
 package androidx.media3.exoplayer.metadata;
 
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.castNonNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.os.Handler;
 import android.os.Handler.Callback;

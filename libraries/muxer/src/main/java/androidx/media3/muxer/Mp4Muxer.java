@@ -15,9 +15,6 @@
  */
 package androidx.media3.muxer;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.muxer.Boxes.LARGE_SIZE_BOX_HEADER_SIZE;
 import static androidx.media3.muxer.Boxes.getAxteBoxHeader;
 import static androidx.media3.muxer.MuxerUtil.getAuxiliaryTracksLengthMetadata;
@@ -25,6 +22,9 @@ import static androidx.media3.muxer.MuxerUtil.getAuxiliaryTracksOffsetMetadata;
 import static androidx.media3.muxer.MuxerUtil.isAuxiliaryTrack;
 import static androidx.media3.muxer.MuxerUtil.isMetadataSupported;
 import static androidx.media3.muxer.MuxerUtil.populateAuxiliaryTracksMetadata;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import androidx.annotation.IntDef;

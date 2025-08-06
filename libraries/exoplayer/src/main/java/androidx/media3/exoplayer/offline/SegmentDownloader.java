@@ -15,8 +15,8 @@
  */
 package androidx.media3.exoplayer.offline;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Util.percentFloat;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.net.Uri;
 import androidx.annotation.Nullable;

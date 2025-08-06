@@ -15,8 +15,8 @@
  */
 package androidx.media3.transformer.mh.analysis;
 
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import android.content.Context;

@@ -15,9 +15,9 @@
  */
 package androidx.media3.exoplayer.source;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Util.castNonNull;
 import static androidx.media3.common.util.Util.msToUs;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.content.Context;
 import android.net.Uri;

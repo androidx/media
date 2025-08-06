@@ -15,9 +15,6 @@
  */
 package androidx.media3.exoplayer.rtsp;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.exoplayer.rtsp.RtspMessageChannel.DEFAULT_RTSP_PORT;
 import static androidx.media3.exoplayer.rtsp.RtspRequest.METHOD_ANNOUNCE;
@@ -33,6 +30,9 @@ import static androidx.media3.exoplayer.rtsp.RtspRequest.METHOD_SETUP;
 import static androidx.media3.exoplayer.rtsp.RtspRequest.METHOD_SET_PARAMETER;
 import static androidx.media3.exoplayer.rtsp.RtspRequest.METHOD_TEARDOWN;
 import static androidx.media3.exoplayer.rtsp.RtspRequest.METHOD_UNSET;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
 import static java.lang.Math.max;
 import static java.lang.annotation.ElementType.TYPE_USE;

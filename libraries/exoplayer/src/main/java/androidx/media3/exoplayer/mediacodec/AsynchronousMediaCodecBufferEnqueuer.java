@@ -17,8 +17,8 @@ package androidx.media3.exoplayer.mediacodec;
 
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.annotation.VisibleForTesting.NONE;
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Util.castNonNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.media.MediaCodec;
 import android.os.Bundle;
