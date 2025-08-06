@@ -50,6 +50,10 @@
     *   MP3: Allow gaps between (and before) ID3 tags at the beginning of MP3
         files ([#811](https://github.com/androidx/media/issues/811),
         [#5718](https://github.com/google/ExoPlayer/issues/5718)).
+    *   MP4: Disambiguate between `audio/mpeg` (MP3), `audio/mpeg-L1` and
+        `audio/mpeg-L2` MIME types by peeking the layer value of the first
+        sample before emitting a track format from the extractor
+        ([#2683](https://github.com/androidx/media/issues/2683)).
 *   DataSource:
 *   Audio:
     *   Make `AudioProcessor` instances aware of seeking.

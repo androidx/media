@@ -53,6 +53,7 @@ import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.extractor.ExtractorsFactory;
 import androidx.media3.extractor.GaplessInfoHolder;
+import androidx.media3.extractor.MpegAudioUtil;
 import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.SeekMap;
 import androidx.media3.extractor.SeekPoint;
@@ -749,7 +750,6 @@ public final class Mp4Extractor implements Extractor, SeekMap {
       Track track = trackSampleTable.track;
       Mp4Track mp4Track =
           new Mp4Track(track, trackSampleTable, extractorOutput.track(trackIndex++, track.type));
-
       long trackDurationUs =
           track.durationUs != C.TIME_UNSET ? track.durationUs : trackSampleTable.durationUs;
       mp4Track.trackOutput.durationUs(trackDurationUs);
@@ -790,7 +790,17 @@ public final class Mp4Extractor implements Extractor, SeekMap {
           udtaMetadata,
           mvhdMetadata);
       formatBuilder.setContainerMimeType(containerMimeType);
-      mp4Track.trackOutput.format(formatBuilder.build());
+      if (Objects.equals(track.format.sampleMimeType, MimeTypes.AUDIO_MPEG)) {
+        // The moov and esds boxes don't contain enough information to distinguish between MPEG
+        // audio layers 1, 2 and 3, but the distinction is important to select the right MIME type
+        // for MediaCodec decoders (and other decoders that handle the same audio/mpeg-L1 and
+        // audio/mpeg-L2 MIME types). So we store the format with audio/mpeg for now, and then
+        // update the MIME type and pass it to TrackOutput.format(...) based on the layer info in
+        // the first sample.
+        mp4Track.pendingFormat = formatBuilder.build();
+      } else {
+        mp4Track.trackOutput.format(formatBuilder.build());
+      }
 
       if (track.type == C.TRACK_TYPE_VIDEO && firstVideoTrackIndex == C.INDEX_UNSET) {
         firstVideoTrackIndex = tracks.size();
@@ -989,6 +999,22 @@ public final class Mp4Extractor implements Extractor, SeekMap {
           sampleBytesWritten += Ac4Util.SAMPLE_HEADER_SIZE;
         }
         sampleSize += Ac4Util.SAMPLE_HEADER_SIZE;
+      } else if (track.pendingFormat != null
+          && Objects.equals(track.track.format.sampleMimeType, MimeTypes.AUDIO_MPEG)) {
+        Format pendingFormat = track.pendingFormat;
+        scratch.reset(/* limit= */ 4);
+        input.peekFully(scratch.getData(), /* offset= */ 0, /* length= */ 4);
+        input.resetPeekPosition();
+        MpegAudioUtil.Header mpegHeader = new MpegAudioUtil.Header();
+        track.trackOutput.format(
+            mpegHeader.setForHeaderData(scratch.readInt())
+                    && !Objects.equals(pendingFormat.sampleMimeType, mpegHeader.mimeType)
+                ? pendingFormat
+                    .buildUpon()
+                    .setSampleMimeType(checkNotNull(mpegHeader.mimeType))
+                    .build()
+                : pendingFormat);
+        track.pendingFormat = null;
       } else if (trueHdSampleRechunker != null) {
         trueHdSampleRechunker.startSample(input);
       }
@@ -1293,6 +1319,12 @@ public final class Mp4Extractor implements Extractor, SeekMap {
     @Nullable public final TrueHdSampleRechunker trueHdSampleRechunker;
 
     public int sampleIndex;
+
+    /**
+     * A {@link Format} that needs to be passed to {@link #trackOutput}, after being possibly
+     * modified based on sample data, before {@link TrackOutput#sampleMetadata} is called.
+     */
+    @Nullable public Format pendingFormat;
 
     public Mp4Track(Track track, TrackSampleTable sampleTable, TrackOutput trackOutput) {
       this.track = track;
