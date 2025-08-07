@@ -158,6 +158,33 @@ public class CompositionPlayerSetCompositionTest {
   }
 
   @Test
+  public void
+      setComposition_withClippingEndPositionAndRemovingAudioStartAtEndPosition_playbackCompletes()
+          throws Exception {
+    long trimEndPositionMs = 600;
+    EditedMediaItem clippedEditedMediaItem =
+        createEditedMediaItemWithClippingConfiguration(
+                MP4_ASSET,
+                new ClippingConfiguration.Builder().setEndPositionMs(trimEndPositionMs).build())
+            .buildUpon()
+            .setRemoveAudio(true)
+            .build();
+
+    instrumentation.runOnMainSync(
+        () -> {
+          compositionPlayer = new CompositionPlayer.Builder(context).build();
+          compositionPlayer.setVideoSurfaceView(surfaceView);
+          compositionPlayer.addListener(playerTestListener);
+          compositionPlayer.setComposition(
+              createSingleSequenceComposition(clippedEditedMediaItem),
+              /* startPositionMs= */ trimEndPositionMs);
+          compositionPlayer.prepare();
+          compositionPlayer.play();
+        });
+    playerTestListener.waitUntilPlayerEnded();
+  }
+
+  @Test
   public void setComposition_withSameComposition_playbackCompletes() throws Exception {
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))

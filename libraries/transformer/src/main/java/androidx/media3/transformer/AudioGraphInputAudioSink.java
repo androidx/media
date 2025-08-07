@@ -138,7 +138,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Override
   public boolean isEnded() {
-    if (currentInputFormat == null) { // Sink not configured.
+    if (currentInputFormat == null || outputGraphInput == null) {
+      // AudioGraphInput has not been set up yet.
       return inputStreamEnded;
     }
 
@@ -203,7 +204,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @Override
   public void playToEndOfStream() {
     inputStreamEnded = true;
-    if (currentInputFormat == null) { // Sink not configured.
+    if (currentInputFormat == null || outputGraphInput == null) {
+      // AudioGraphInput has not been set up yet.
       return;
     }
     // Queue end-of-stream only if playing the last media item in the sequence.
