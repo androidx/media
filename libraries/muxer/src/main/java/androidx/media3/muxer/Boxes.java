@@ -1539,10 +1539,10 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
   private static ByteBuffer apvCBox(Format format) {
     // For APV, the entire codec-specific box is packed into csd-0.
     checkArgument(
-        !format.initializationData.isEmpty(), "csd-0 is not found in the format for avpC box");
+        !format.initializationData.isEmpty(), "csd-0 is not found in the format for apvC box");
 
     byte[] csd0 = format.initializationData.get(0);
-    checkArgument(csd0.length > 0, "csd-0 is empty for avpC box.");
+    checkArgument(csd0.length > 0, "csd-0 is empty for apvC box.");
 
     int versionAndFlags = 0;
     ByteBuffer apvcBoxContent = ByteBuffer.allocate(csd0.length + BYTES_PER_INTEGER);
