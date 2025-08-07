@@ -105,4 +105,25 @@ class MetadataStateTest {
 
     assertThat(state.uri).isEqualTo(uri2)
   }
+
+  @Test
+  fun uri_getCurrentMediaItemCommandBecomesAvailable_returnsUpdatedUri() {
+    val uri = "https://storage.googleapis.com/wvmedia/clear/h264/tears/tears.mpd".toUri()
+    val player = TestPlayer(
+      playlist = listOf(
+        MediaItemData.Builder("uid_1").setMediaItem(MediaItem.fromUri(uri)).build(),
+      ),
+    )
+    player.removeCommands(Player.COMMAND_GET_CURRENT_MEDIA_ITEM)
+
+    lateinit var state: MetadataState
+    composeTestRule.setContent { state = rememberMetadataState(player) }
+
+    assertThat(state.uri).isNull()
+
+    player.addCommands(Player.COMMAND_GET_CURRENT_MEDIA_ITEM)
+    composeTestRule.waitForIdle()
+
+    assertThat(state.uri).isEqualTo(uri)
+  }
 }

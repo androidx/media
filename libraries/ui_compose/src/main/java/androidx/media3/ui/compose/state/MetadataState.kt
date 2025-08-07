@@ -48,18 +48,27 @@ fun rememberMetadataState(player: Player): MetadataState {
  */
 @UnstableApi
 class MetadataState(private val player: Player) {
-  var uri by mutableStateOf(player.getMediaItemUri())
+  var uri by mutableStateOf(player.getMediaItemUriWithCommandCheck())
     private set
 
   suspend fun observe(): Nothing {
     player.listen { events ->
-      if (events.contains(Player.EVENT_MEDIA_ITEM_TRANSITION)) {
-        uri = getMediaItemUri()
+      if (
+          events.containsAny(
+            Player.EVENT_AVAILABLE_COMMANDS_CHANGED,
+            Player.EVENT_MEDIA_ITEM_TRANSITION,
+          )
+      ) {
+        uri = getMediaItemUriWithCommandCheck()
       }
     }
   }
 
-  private fun Player.getMediaItemUri(): Uri? {
-    return currentMediaItem?.localConfiguration?.uri
+  private fun Player.getMediaItemUriWithCommandCheck(): Uri? {
+    return if (isCommandAvailable(Player.COMMAND_GET_CURRENT_MEDIA_ITEM)) {
+      currentMediaItem?.localConfiguration?.uri
+    } else {
+      null
+    }
   }
 }
