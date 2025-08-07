@@ -174,38 +174,28 @@ public final class Assertions {
   }
 
   /**
-   * Throws {@link IllegalArgumentException} if {@code string} is null or zero length.
-   *
-   * @param string The string to check.
-   * @return The non-null, non-empty string that was validated.
-   * @throws IllegalArgumentException If {@code string} is null or 0-length.
+   * @deprecated Use {@link Preconditions#checkArgument} with {@link
+   *     TextUtils#isEmpty(CharSequence)} instead.
    */
+  @Deprecated
   @SuppressWarnings({"nullness:contracts.postcondition", "nullness:return"})
   @EnsuresNonNull({"#1"})
   @Pure
   public static String checkNotEmpty(@Nullable String string) {
-    if (TextUtils.isEmpty(string)) {
-      throw new IllegalArgumentException();
-    }
+    Preconditions.checkArgument(!TextUtils.isEmpty(string));
     return string;
   }
 
   /**
-   * Throws {@link IllegalArgumentException} if {@code string} is null or zero length.
-   *
-   * @param string The string to check.
-   * @param errorMessage The exception message to use if the check fails. The message is converted
-   *     to a string using {@link String#valueOf(Object)}.
-   * @return The non-null, non-empty string that was validated.
-   * @throws IllegalArgumentException If {@code string} is null or 0-length.
+   * @deprecated Use {@link Preconditions#checkArgument} with {@link
+   *     TextUtils#isEmpty(CharSequence)} instead.
    */
+  @Deprecated
   @SuppressWarnings({"nullness:contracts.postcondition", "nullness:return"})
   @EnsuresNonNull({"#1"})
   @Pure
   public static String checkNotEmpty(@Nullable String string, Object errorMessage) {
-    if (TextUtils.isEmpty(string)) {
-      throw new IllegalArgumentException(String.valueOf(errorMessage));
-    }
+    Preconditions.checkArgument(!TextUtils.isEmpty(string), errorMessage);
     return string;
   }
 
