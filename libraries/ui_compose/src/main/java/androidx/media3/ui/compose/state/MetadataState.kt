@@ -54,10 +54,10 @@ class MetadataState(private val player: Player) {
   suspend fun observe(): Nothing {
     player.listen { events ->
       if (
-          events.containsAny(
-            Player.EVENT_AVAILABLE_COMMANDS_CHANGED,
-            Player.EVENT_MEDIA_ITEM_TRANSITION,
-          )
+        events.containsAny(
+          Player.EVENT_AVAILABLE_COMMANDS_CHANGED,
+          Player.EVENT_MEDIA_ITEM_TRANSITION,
+        )
       ) {
         uri = getMediaItemUriWithCommandCheck()
       }
