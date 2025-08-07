@@ -53,7 +53,6 @@ import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.o
 import static androidx.media3.test.utils.TestUtil.assertSubclassOverridesAllMethods;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.play;
-import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.playUntilPosition;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.runUntilError;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.runUntilIsLoading;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.runUntilPlaybackState;
@@ -573,7 +572,7 @@ public final class DefaultAnalyticsCollectorTest {
     player.setMediaSources(ImmutableList.of(mediaSource1, mediaSource2));
     player.prepare();
     runUntilPlaybackState(player, Player.STATE_READY);
-    playUntilPosition(player, /* mediaItemIndex= */ 0, windowDurationMs - 100);
+    play(player).untilPositionAtLeast(windowDurationMs - 100);
     player.seekTo(/* positionMs= */ 0);
     runUntilPlaybackState(player, Player.STATE_READY);
     player.play();
@@ -888,7 +887,7 @@ public final class DefaultAnalyticsCollectorTest {
     player.prepare();
     runUntilPlaybackState(player, Player.STATE_READY);
     // Ensure second period is already being read from.
-    playUntilPosition(player, /* mediaItemIndex= */ 0, /* positionMs= */ windowDurationMs - 100);
+    play(player).untilPositionAtLeast(windowDurationMs - 100);
     player.moveMediaItem(/* currentIndex= */ 0, /* newIndex= */ 1);
     runUntilPlaybackState(player, Player.STATE_READY);
     player.play();
@@ -1136,9 +1135,9 @@ public final class DefaultAnalyticsCollectorTest {
     advance(player).untilFullyBuffered();
     advance(player).untilState(Player.STATE_READY);
     // Wait in each content part to ensure previously triggered events get a chance to be delivered.
-    play(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 3_000);
+    play(player).untilPositionAtLeast(/* positionMs= */ 3_000);
     advance(player).untilPendingCommandsAreFullyHandled();
-    play(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 8_000);
+    play(player).untilPositionAtLeast(/* positionMs= */ 8_000);
     advance(player).untilPendingCommandsAreFullyHandled();
     player.play();
     advance(player).untilState(Player.STATE_ENDED);
