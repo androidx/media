@@ -598,7 +598,7 @@ public class LegacyPlayerControlView extends FrameLayout {
       this.extraAdGroupTimesMs = new long[0];
       this.extraPlayedAdGroups = new boolean[0];
     } else {
-      extraPlayedAdGroups = Assertions.checkNotNull(extraPlayedAdGroups);
+      Assertions.checkNotNull(extraPlayedAdGroups);
       Assertions.checkArgument(extraAdGroupTimesMs.length == extraPlayedAdGroups.length);
       this.extraAdGroupTimesMs = extraAdGroupTimesMs;
       this.extraPlayedAdGroups = extraPlayedAdGroups;
