@@ -26,7 +26,6 @@ import android.os.Bundle;
 import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.BundleCollectionUtil;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -1885,7 +1884,7 @@ public final class MediaItem {
       @UnstableApi
       @CanIgnoreReturnValue
       public Builder setStartPositionUs(@IntRange(from = 0) long startPositionUs) {
-        Assertions.checkArgument(startPositionUs >= 0);
+        checkArgument(startPositionUs >= 0);
         this.startPositionUs = startPositionUs;
         return this;
       }
@@ -1908,7 +1907,7 @@ public final class MediaItem {
       @UnstableApi
       @CanIgnoreReturnValue
       public Builder setEndPositionUs(long endPositionUs) {
-        Assertions.checkArgument(endPositionUs == C.TIME_END_OF_SOURCE || endPositionUs >= 0);
+        checkArgument(endPositionUs == C.TIME_END_OF_SOURCE || endPositionUs >= 0);
         this.endPositionUs = endPositionUs;
         return this;
       }

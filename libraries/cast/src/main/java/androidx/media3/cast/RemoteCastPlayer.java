@@ -19,6 +19,7 @@ import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Util.castNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.min;
 
 import android.content.Context;
@@ -54,7 +55,6 @@ import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.Tracks;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.text.CueGroup;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ListenerSet;
 import androidx.media3.common.util.Log;
@@ -147,8 +147,8 @@ public final class RemoteCastPlayer extends BasePlayer {
      */
     @CanIgnoreReturnValue
     public Builder setMediaItemConverter(MediaItemConverter mediaItemConverter) {
-      Assertions.checkState(!buildCalled);
-      this.mediaItemConverter = Assertions.checkNotNull(mediaItemConverter);
+      checkState(!buildCalled);
+      this.mediaItemConverter = checkNotNull(mediaItemConverter);
       return this;
     }
 
@@ -162,8 +162,8 @@ public final class RemoteCastPlayer extends BasePlayer {
      */
     @CanIgnoreReturnValue
     public Builder setSeekBackIncrementMs(@IntRange(from = 1) long seekBackIncrementMs) {
-      Assertions.checkArgument(seekBackIncrementMs > 0);
-      Assertions.checkState(!buildCalled);
+      checkArgument(seekBackIncrementMs > 0);
+      checkState(!buildCalled);
       this.seekBackIncrementMs = seekBackIncrementMs;
       return this;
     }
@@ -178,8 +178,8 @@ public final class RemoteCastPlayer extends BasePlayer {
      */
     @CanIgnoreReturnValue
     public Builder setSeekForwardIncrementMs(@IntRange(from = 1) long seekForwardIncrementMs) {
-      Assertions.checkArgument(seekForwardIncrementMs > 0);
-      Assertions.checkState(!buildCalled);
+      checkArgument(seekForwardIncrementMs > 0);
+      checkState(!buildCalled);
       this.seekForwardIncrementMs = seekForwardIncrementMs;
       return this;
     }
@@ -196,8 +196,8 @@ public final class RemoteCastPlayer extends BasePlayer {
     @CanIgnoreReturnValue
     public Builder setMaxSeekToPreviousPositionMs(
         @IntRange(from = 0) long maxSeekToPreviousPositionMs) {
-      Assertions.checkArgument(maxSeekToPreviousPositionMs >= 0L);
-      Assertions.checkState(!buildCalled);
+      checkArgument(maxSeekToPreviousPositionMs >= 0L);
+      checkState(!buildCalled);
       this.maxSeekToPreviousPositionMs = maxSeekToPreviousPositionMs;
       return this;
     }
@@ -208,7 +208,7 @@ public final class RemoteCastPlayer extends BasePlayer {
      * @throws IllegalStateException If this method has already been called.
      */
     public RemoteCastPlayer build() {
-      Assertions.checkState(!buildCalled);
+      checkState(!buildCalled);
       buildCalled = true;
       return new RemoteCastPlayer(this);
     }

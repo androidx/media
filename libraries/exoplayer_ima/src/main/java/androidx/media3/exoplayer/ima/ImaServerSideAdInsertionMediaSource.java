@@ -34,6 +34,7 @@ import static androidx.media3.exoplayer.ima.ImaUtil.splitAdPlaybackStateForPerio
 import static androidx.media3.exoplayer.ima.ImaUtil.updateAdDurationInAdGroup;
 import static androidx.media3.exoplayer.source.ads.ServerSideAdInsertionUtil.addAdGroupToAdPlaybackState;
 import static com.google.ads.interactivemedia.v3.api.AdEvent.AdEventType.LOADED;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -56,7 +57,6 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
@@ -617,7 +617,7 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
     this.streamEventListener = adsLoader.configuration.streamEventListener;
     this.applicationAdEventListener = adsLoader.configuration.applicationAdEventListener;
     this.applicationAdErrorListener = adsLoader.configuration.applicationAdErrorListener;
-    Assertions.checkArgument(player.getApplicationLooper() == Looper.getMainLooper());
+    checkArgument(player.getApplicationLooper() == Looper.getMainLooper());
     mainHandler = new Handler(Looper.getMainLooper());
     Uri streamRequestUri = checkNotNull(mediaItem.localConfiguration).uri;
     isLiveStream = ImaServerSideAdInsertionUriBuilder.isLiveStream(streamRequestUri);
@@ -1288,7 +1288,7 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
 
     /** Sets the {@link StreamLoadListener} to be called when the SSAI content URI was loaded. */
     public void setStreamLoadListener(StreamLoadListener listener) {
-      streamLoadListener = Assertions.checkNotNull(listener);
+      streamLoadListener = checkNotNull(listener);
     }
 
     /** Called when the content has completed playback. */

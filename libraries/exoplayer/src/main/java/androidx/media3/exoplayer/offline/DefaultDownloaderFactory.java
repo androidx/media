@@ -16,12 +16,12 @@
 package androidx.media3.exoplayer.offline;
 
 import static androidx.media3.common.util.Util.contains;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.util.SparseArray;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.cache.CacheDataSource;
@@ -63,8 +63,8 @@ public class DefaultDownloaderFactory implements DownloaderFactory {
    */
   public DefaultDownloaderFactory(
       CacheDataSource.Factory cacheDataSourceFactory, Executor executor) {
-    this.cacheDataSourceFactory = Assertions.checkNotNull(cacheDataSourceFactory);
-    this.executor = Assertions.checkNotNull(executor);
+    this.cacheDataSourceFactory = checkNotNull(cacheDataSourceFactory);
+    this.executor = checkNotNull(executor);
     this.segmentDownloaderFactories = new SparseArray<>();
   }
 

@@ -16,7 +16,9 @@
 package androidx.media3.exoplayer.drm;
 
 import static android.os.Build.VERSION.SDK_INT;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.annotation.SuppressLint;
 import android.media.DeniedByServerException;
@@ -36,7 +38,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.DrmInitData.SchemeData;
 import androidx.media3.common.MimeTypes;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
@@ -112,8 +113,8 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
   }
 
   private FrameworkMediaDrm(UUID uuid) throws UnsupportedSchemeException {
-    Assertions.checkNotNull(uuid);
-    Assertions.checkArgument(!C.COMMON_PSSH_UUID.equals(uuid), "Use C.CLEARKEY_UUID instead");
+    checkNotNull(uuid);
+    checkArgument(!C.COMMON_PSSH_UUID.equals(uuid), "Use C.CLEARKEY_UUID instead");
     this.uuid = uuid;
     this.mediaDrm = new MediaDrm(adjustUuid(uuid));
     // Creators of an instance automatically acquire ownership of the created instance.
@@ -201,7 +202,7 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
     String mimeType = null;
     if (schemeDatas != null) {
       schemeData = getSchemeData(uuid, schemeDatas);
-      initData = adjustRequestInitData(uuid, Assertions.checkNotNull(schemeData.data));
+      initData = adjustRequestInitData(uuid, checkNotNull(schemeData.data));
       mimeType = adjustRequestMimeType(uuid, schemeData.mimeType);
     }
     MediaDrm.KeyRequest request =
@@ -294,7 +295,7 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
   @UnstableApi
   @Override
   public synchronized void acquire() {
-    Assertions.checkState(referenceCount > 0);
+    checkState(referenceCount > 0);
     referenceCount++;
   }
 
@@ -411,7 +412,7 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
       boolean canConcatenateData = true;
       for (int i = 0; i < schemeDatas.size(); i++) {
         SchemeData schemeData = schemeDatas.get(i);
-        byte[] schemeDataData = Assertions.checkNotNull(schemeData.data);
+        byte[] schemeDataData = checkNotNull(schemeData.data);
         if (Objects.equals(schemeData.mimeType, firstSchemeData.mimeType)
             && Objects.equals(schemeData.licenseServerUrl, firstSchemeData.licenseServerUrl)
             && PsshAtomUtil.isPsshAtom(schemeDataData)) {
@@ -426,7 +427,7 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
         int concatenatedDataPosition = 0;
         for (int i = 0; i < schemeDatas.size(); i++) {
           SchemeData schemeData = schemeDatas.get(i);
-          byte[] schemeDataData = Assertions.checkNotNull(schemeData.data);
+          byte[] schemeDataData = checkNotNull(schemeData.data);
           int schemeDataLength = schemeDataData.length;
           System.arraycopy(
               schemeDataData, 0, concatenatedData, concatenatedDataPosition, schemeDataLength);
@@ -439,7 +440,7 @@ public final class FrameworkMediaDrm implements ExoMediaDrm {
     // For API levels 23 - 27, prefer the first V1 PSSH box.
     for (int i = 0; i < schemeDatas.size(); i++) {
       SchemeData schemeData = schemeDatas.get(i);
-      int version = PsshAtomUtil.parseVersion(Assertions.checkNotNull(schemeData.data));
+      int version = PsshAtomUtil.parseVersion(checkNotNull(schemeData.data));
       if (version == 1) {
         return schemeData;
       }

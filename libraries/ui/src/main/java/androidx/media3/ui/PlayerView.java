@@ -23,7 +23,9 @@ import static androidx.media3.common.Player.COMMAND_GET_TIMELINE;
 import static androidx.media3.common.Player.COMMAND_GET_TRACKS;
 import static androidx.media3.common.Player.COMMAND_SET_VIDEO_SURFACE;
 import static androidx.media3.common.util.Util.getDrawable;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.annotation.SuppressLint;
@@ -644,9 +646,8 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
    *     player.getApplicationLooper() == Looper.getMainLooper()}).
    */
   public void setPlayer(@Nullable Player player) {
-    Assertions.checkState(Looper.myLooper() == Looper.getMainLooper());
-    Assertions.checkArgument(
-        player == null || player.getApplicationLooper() == Looper.getMainLooper());
+    checkState(Looper.myLooper() == Looper.getMainLooper());
+    checkArgument(player == null || player.getApplicationLooper() == Looper.getMainLooper());
     if (this.player == player) {
       return;
     }
@@ -766,7 +767,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
   /** Sets whether and how artwork is displayed if present in the media. */
   @UnstableApi
   public void setArtworkDisplayMode(@ArtworkDisplayMode int artworkDisplayMode) {
-    Assertions.checkState(artworkDisplayMode == ARTWORK_DISPLAY_MODE_OFF || artworkView != null);
+    checkState(artworkDisplayMode == ARTWORK_DISPLAY_MODE_OFF || artworkView != null);
     if (this.artworkDisplayMode != artworkDisplayMode) {
       this.artworkDisplayMode = artworkDisplayMode;
       updateForCurrentTrackSelections(/* isNewPlayer= */ false);
@@ -803,7 +804,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
   /** Sets how images are displayed if present in the media. */
   @UnstableApi
   public void setImageDisplayMode(@ImageDisplayMode int imageDisplayMode) {
-    Assertions.checkState(imageView != null);
+    checkState(imageView != null);
     if (this.imageDisplayMode != imageDisplayMode) {
       this.imageDisplayMode = imageDisplayMode;
       updateImageViewAspectRatio();
@@ -831,7 +832,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
    * @param useController Whether the playback controls can be shown.
    */
   public void setUseController(boolean useController) {
-    Assertions.checkState(!useController || controller != null);
+    checkState(!useController || controller != null);
     setClickable(useController || hasOnClickListeners());
     if (this.useController == useController) {
       return;
@@ -922,7 +923,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
    */
   @UnstableApi
   public void setCustomErrorMessage(@Nullable CharSequence message) {
-    Assertions.checkState(errorMessageView != null);
+    checkState(errorMessageView != null);
     customErrorMessage = message;
     updateErrorMessage();
   }
@@ -1999,7 +2000,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
               return;
             }
             surfaceSyncGroup = new SurfaceSyncGroup("exo-sync-b-334901521");
-            Assertions.checkState(surfaceSyncGroup.add(rootSurfaceControl, () -> {}));
+            checkState(surfaceSyncGroup.add(rootSurfaceControl, () -> {}));
             invalidate.run();
             rootSurfaceControl.applyTransactionOnDraw(new SurfaceControl.Transaction());
           });

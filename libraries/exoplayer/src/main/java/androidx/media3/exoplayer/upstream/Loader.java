@@ -15,6 +15,8 @@
  */
 package androidx.media3.exoplayer.upstream;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.min;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
@@ -396,7 +398,7 @@ public final class Loader implements LoaderErrorThrower {
     }
 
     public void start(long delayMillis) {
-      Assertions.checkState(currentTask == null);
+      checkState(currentTask == null);
       currentTask = this;
       if (delayMillis > 0) {
         sendEmptyMessageDelayed(MSG_START, delayMillis);
@@ -429,8 +431,7 @@ public final class Loader implements LoaderErrorThrower {
       if (released) {
         finish();
         long nowMs = SystemClock.elapsedRealtime();
-        Assertions.checkNotNull(callback)
-            .onLoadCanceled(loadable, nowMs, nowMs - startTimeMs, true);
+        checkNotNull(callback).onLoadCanceled(loadable, nowMs, nowMs - startTimeMs, true);
         // If loading, this task will be referenced from a GC root (the loading thread) until
         // cancellation completes. The time taken for cancellation to complete depends on the
         // implementation of the Loadable that the task is loading. We null the callback reference
@@ -508,7 +509,7 @@ public final class Loader implements LoaderErrorThrower {
       finish();
       long nowMs = SystemClock.elapsedRealtime();
       long durationMs = nowMs - startTimeMs;
-      Loader.Callback<T> callback = Assertions.checkNotNull(this.callback);
+      Loader.Callback<T> callback = checkNotNull(this.callback);
       if (canceled) {
         callback.onLoadCanceled(loadable, nowMs, durationMs, false);
         return;
@@ -549,9 +550,9 @@ public final class Loader implements LoaderErrorThrower {
     private void execute() {
       long nowMs = SystemClock.elapsedRealtime();
       long durationMs = nowMs - startTimeMs;
-      Assertions.checkNotNull(this.callback).onLoadStarted(loadable, nowMs, durationMs, errorCount);
+      checkNotNull(this.callback).onLoadStarted(loadable, nowMs, durationMs, errorCount);
       currentError = null;
-      downloadExecutor.execute(Assertions.checkNotNull(currentTask));
+      downloadExecutor.execute(checkNotNull(currentTask));
     }
 
     private void finish() {

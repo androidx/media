@@ -15,9 +15,10 @@
  */
 package androidx.media3.exoplayer.hls;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import android.net.Uri;
 import androidx.annotation.Nullable;
-import androidx.media3.common.util.Assertions;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -60,7 +61,7 @@ import java.util.Map;
    */
   @Nullable
   public byte[] put(Uri uri, byte[] encryptionKey) {
-    return backingMap.put(Assertions.checkNotNull(uri), Assertions.checkNotNull(encryptionKey));
+    return backingMap.put(checkNotNull(uri), checkNotNull(encryptionKey));
   }
 
   /**
@@ -69,7 +70,7 @@ import java.util.Map;
    * @throws NullPointerException if {@code uri} is null.
    */
   public boolean containsUri(Uri uri) {
-    return backingMap.containsKey(Assertions.checkNotNull(uri));
+    return backingMap.containsKey(checkNotNull(uri));
   }
 
   /**
@@ -80,6 +81,6 @@ import java.util.Map;
    */
   @Nullable
   public byte[] remove(Uri uri) {
-    return backingMap.remove(Assertions.checkNotNull(uri));
+    return backingMap.remove(checkNotNull(uri));
   }
 }

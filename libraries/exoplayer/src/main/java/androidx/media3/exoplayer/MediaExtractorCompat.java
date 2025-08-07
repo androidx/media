@@ -43,7 +43,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.Format;
 import androidx.media3.common.ParserException;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.MediaFormatUtil;
@@ -360,7 +359,7 @@ public final class MediaExtractorCompat {
 
   private void prepareDataSource(DataSource dataSource, DataSpec dataSpec) throws IOException {
     // Assert that this instance is not being re-prepared, which is not currently supported.
-    Assertions.checkState(!hasBeenPrepared);
+    checkState(!hasBeenPrepared);
     hasBeenPrepared = true;
     offsetInCurrentFile = dataSpec.position;
     currentDataSource = dataSource;
@@ -1097,7 +1096,7 @@ public final class MediaExtractorCompat {
       // Disable BUFFER_FLAG_LAST_SAMPLE to prevent the sample queue from ignoring
       // FLAG_REQUIRE_FORMAT. See b/191518632.
       flags &= ~C.BUFFER_FLAG_LAST_SAMPLE;
-      Assertions.checkState(mainTrackIndex != C.INDEX_UNSET);
+      checkState(mainTrackIndex != C.INDEX_UNSET);
       int writeIndexBeforeCommitting = this.getWriteIndex();
       super.sampleMetadata(timeUs, flags, size, offset, cryptoData);
       // Add the sample metadata if the sample was committed

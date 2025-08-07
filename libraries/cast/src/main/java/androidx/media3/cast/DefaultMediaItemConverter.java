@@ -15,12 +15,13 @@
  */
 package androidx.media3.cast;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import android.net.Uri;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import com.google.android.gms.cast.MediaInfo;
@@ -53,7 +54,7 @@ public final class DefaultMediaItemConverter implements MediaItemConverter {
   @Override
   public MediaItem toMediaItem(MediaQueueItem mediaQueueItem) {
     @Nullable MediaInfo mediaInfo = mediaQueueItem.getMedia();
-    Assertions.checkNotNull(mediaInfo);
+    checkNotNull(mediaInfo);
     androidx.media3.common.MediaMetadata.Builder metadataBuilder =
         new androidx.media3.common.MediaMetadata.Builder();
     @Nullable MediaMetadata metadata = mediaInfo.getMetadata();
@@ -87,13 +88,12 @@ public final class DefaultMediaItemConverter implements MediaItemConverter {
       }
     }
     // `mediaQueueItem` came from `toMediaQueueItem()` so the custom JSON data must be set.
-    return getMediaItem(
-        Assertions.checkNotNull(mediaInfo.getCustomData()), metadataBuilder.build());
+    return getMediaItem(checkNotNull(mediaInfo.getCustomData()), metadataBuilder.build());
   }
 
   @Override
   public MediaQueueItem toMediaQueueItem(MediaItem mediaItem) {
-    Assertions.checkNotNull(mediaItem.localConfiguration);
+    checkNotNull(mediaItem.localConfiguration);
     MediaMetadata metadata = new MediaMetadata(getMediaType(mediaItem));
     if (mediaItem.mediaMetadata.title != null) {
       metadata.putString(MediaMetadata.KEY_TITLE, mediaItem.mediaMetadata.title.toString());
@@ -231,7 +231,7 @@ public final class DefaultMediaItemConverter implements MediaItemConverter {
   }
 
   private static JSONObject getMediaItemJson(MediaItem mediaItem) throws JSONException {
-    Assertions.checkNotNull(mediaItem.localConfiguration);
+    checkNotNull(mediaItem.localConfiguration);
     JSONObject json = new JSONObject();
     json.put(KEY_MEDIA_ID, mediaItem.mediaId);
     json.put(KEY_TITLE, mediaItem.mediaMetadata.title);

@@ -63,6 +63,7 @@ import static androidx.media3.session.SessionUtil.PACKAGE_INVALID;
 import static androidx.media3.session.SessionUtil.PACKAGE_VALID;
 import static androidx.media3.session.SessionUtil.checkPackageValidity;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.app.PendingIntent;
 import android.media.session.MediaSession.Token;
@@ -88,7 +89,6 @@ import androidx.media3.common.TrackGroup;
 import androidx.media3.common.TrackSelectionOverride;
 import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.Tracks;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.BundleCollectionUtil;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.Log;
@@ -2111,7 +2111,7 @@ import java.util.concurrent.ExecutionException;
         boolean excludeTimeline,
         boolean excludeTracks)
         throws RemoteException {
-      Assertions.checkState(controllerInterfaceVersion != 0);
+      checkState(controllerInterfaceVersion != 0);
       // The bundling exclusions merge the performance overrides with the available commands.
       boolean bundlingExclusionsTimeline =
           excludeTimeline || !availableCommands.contains(Player.COMMAND_GET_TIMELINE);

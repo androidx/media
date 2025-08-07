@@ -69,6 +69,7 @@ import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.runUnti
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.runUntilPositionDiscontinuity;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.runUntilSleepingForOffload;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.runUntilTimelineChanged;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.Arrays.stream;
@@ -135,7 +136,6 @@ import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.TrackSelectionParameters.AudioOffloadPreferences;
 import androidx.media3.common.Tracks;
 import androidx.media3.common.VideoSize;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.NullableType;
@@ -17219,7 +17219,7 @@ public final class ExoPlayerTest {
      * @param timelineWindowCount An array of window counts to populate.
      */
     public PlaybackStateCollector(int index, int[] playbackStates, int[] timelineWindowCount) {
-      Assertions.checkArgument(playbackStates.length > index && timelineWindowCount.length > index);
+      checkArgument(playbackStates.length > index && timelineWindowCount.length > index);
       this.playbackStates = playbackStates;
       this.timelineWindowCount = timelineWindowCount;
       this.index = index;

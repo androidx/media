@@ -16,12 +16,13 @@
 package androidx.media3.exoplayer.source;
 
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.os.Handler;
 import android.os.Looper;
 import androidx.annotation.Nullable;
 import androidx.media3.common.Timeline;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.TransferListener;
 import androidx.media3.exoplayer.analytics.PlayerId;
@@ -127,7 +128,7 @@ public abstract class BaseMediaSource implements MediaSource {
   @Deprecated
   protected final MediaSourceEventListener.EventDispatcher createEventDispatcher(
       MediaPeriodId mediaPeriodId, long mediaTimeOffsetMs) {
-    Assertions.checkNotNull(mediaPeriodId);
+    checkNotNull(mediaPeriodId);
     return eventDispatcher.withParameters(/* windowIndex= */ 0, mediaPeriodId);
   }
 
@@ -205,8 +206,8 @@ public abstract class BaseMediaSource implements MediaSource {
   @UnstableApi
   @Override
   public final void addEventListener(Handler handler, MediaSourceEventListener eventListener) {
-    Assertions.checkNotNull(handler);
-    Assertions.checkNotNull(eventListener);
+    checkNotNull(handler);
+    checkNotNull(eventListener);
     eventDispatcher.addEventListener(handler, eventListener);
   }
 
@@ -219,8 +220,8 @@ public abstract class BaseMediaSource implements MediaSource {
   @UnstableApi
   @Override
   public final void addDrmEventListener(Handler handler, DrmSessionEventListener eventListener) {
-    Assertions.checkNotNull(handler);
-    Assertions.checkNotNull(eventListener);
+    checkNotNull(handler);
+    checkNotNull(eventListener);
     drmEventDispatcher.addEventListener(handler, eventListener);
   }
 
@@ -245,7 +246,7 @@ public abstract class BaseMediaSource implements MediaSource {
       @Nullable TransferListener mediaTransferListener,
       PlayerId playerId) {
     Looper looper = Looper.myLooper();
-    Assertions.checkArgument(this.looper == null || this.looper == looper);
+    checkArgument(this.looper == null || this.looper == looper);
     this.playerId = playerId;
     @Nullable Timeline timeline = this.timeline;
     mediaSourceCallers.add(caller);
@@ -262,7 +263,7 @@ public abstract class BaseMediaSource implements MediaSource {
   @UnstableApi
   @Override
   public final void enable(MediaSourceCaller caller) {
-    Assertions.checkNotNull(looper);
+    checkNotNull(looper);
     boolean wasDisabled = enabledMediaSourceCallers.isEmpty();
     enabledMediaSourceCallers.add(caller);
     if (wasDisabled) {

@@ -39,7 +39,6 @@ import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.container.MdtaMetadataEntry;
@@ -590,8 +589,8 @@ public final class Mp4Extractor implements Extractor, SeekMap {
     } else if (shouldParseLeafAtom(atomType)) {
       // We don't support parsing of leaf atoms that define extended atom sizes, or that have
       // lengths greater than Integer.MAX_VALUE.
-      Assertions.checkState(atomHeaderBytesRead == Mp4Box.HEADER_SIZE);
-      Assertions.checkState(atomSize <= Integer.MAX_VALUE);
+      checkState(atomHeaderBytesRead == Mp4Box.HEADER_SIZE);
+      checkState(atomSize <= Integer.MAX_VALUE);
       ParsableByteArray atomData = new ParsableByteArray((int) atomSize);
       System.arraycopy(atomHeader.getData(), 0, atomData.getData(), 0, Mp4Box.HEADER_SIZE);
       this.atomData = atomData;

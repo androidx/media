@@ -136,9 +136,7 @@ public class SampleQueue implements TrackOutput {
       DrmSessionManager drmSessionManager,
       DrmSessionEventListener.EventDispatcher drmEventDispatcher) {
     return new SampleQueue(
-        allocator,
-        Assertions.checkNotNull(drmSessionManager),
-        Assertions.checkNotNull(drmEventDispatcher));
+        allocator, checkNotNull(drmSessionManager), checkNotNull(drmEventDispatcher));
   }
 
   /**
@@ -154,9 +152,7 @@ public class SampleQueue implements TrackOutput {
       DrmSessionEventListener.EventDispatcher drmEventDispatcher) {
     drmSessionManager.setPlayer(playbackLooper, PlayerId.UNSET);
     return new SampleQueue(
-        allocator,
-        Assertions.checkNotNull(drmSessionManager),
-        Assertions.checkNotNull(drmEventDispatcher));
+        allocator, checkNotNull(drmSessionManager), checkNotNull(drmEventDispatcher));
   }
 
   protected SampleQueue(
@@ -301,7 +297,7 @@ public class SampleQueue implements TrackOutput {
   public void maybeThrowError() throws IOException {
     // TODO: Avoid throwing if the DRM error is not preventing a read operation.
     if (currentDrmSession != null && currentDrmSession.getState() == DrmSession.STATE_ERROR) {
-      throw Assertions.checkNotNull(currentDrmSession.getError());
+      throw checkNotNull(currentDrmSession.getError());
     }
   }
 
@@ -707,7 +703,7 @@ public class SampleQueue implements TrackOutput {
         buffer.timeUs = C.TIME_END_OF_SOURCE;
         return C.RESULT_BUFFER_READ;
       } else if (upstreamFormat != null && (formatRequired || upstreamFormat != downstreamFormat)) {
-        onFormatResult(Assertions.checkNotNull(upstreamFormat), formatHolder);
+        onFormatResult(checkNotNull(upstreamFormat), formatHolder);
         return C.RESULT_FORMAT_READ;
       } else {
         return C.RESULT_NOTHING_READ;

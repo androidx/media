@@ -16,6 +16,7 @@
 package androidx.media3.exoplayer;
 
 import static androidx.media3.common.util.Util.msToUs;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
@@ -28,7 +29,6 @@ import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Timeline;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
@@ -828,7 +828,7 @@ public class DefaultLoadControl implements LoadControl {
   }
 
   private static void assertGreaterOrEqual(int value1, int value2, String name1, String name2) {
-    Assertions.checkArgument(value1 >= value2, name1 + " cannot be less than " + name2);
+    checkArgument(value1 >= value2, name1 + " cannot be less than " + name2);
   }
 
   private static class PlayerLoadingState {

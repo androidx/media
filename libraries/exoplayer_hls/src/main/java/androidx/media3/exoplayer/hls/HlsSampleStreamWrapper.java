@@ -19,6 +19,9 @@ import static androidx.media3.exoplayer.hls.HlsChunkSource.CHUNK_PUBLICATION_STA
 import static androidx.media3.exoplayer.hls.HlsChunkSource.CHUNK_PUBLICATION_STATE_PUBLISHED;
 import static androidx.media3.exoplayer.hls.HlsChunkSource.CHUNK_PUBLICATION_STATE_REMOVED;
 import static androidx.media3.exoplayer.trackselection.TrackSelectionUtil.createFallbackOptions;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getLast;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -315,7 +318,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
   public int bindSampleQueueToSampleStream(int trackGroupIndex) {
     assertIsPrepared();
-    Assertions.checkNotNull(trackGroupToSampleQueueIndex);
+    checkNotNull(trackGroupToSampleQueueIndex);
 
     int sampleQueueIndex = trackGroupToSampleQueueIndex[trackGroupIndex];
     if (sampleQueueIndex == C.INDEX_UNSET) {
@@ -333,9 +336,9 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
   public void unbindSampleQueue(int trackGroupIndex) {
     assertIsPrepared();
-    Assertions.checkNotNull(trackGroupToSampleQueueIndex);
+    checkNotNull(trackGroupToSampleQueueIndex);
     int sampleQueueIndex = trackGroupToSampleQueueIndex[trackGroupIndex];
-    Assertions.checkState(sampleQueuesEnabledStates[sampleQueueIndex]);
+    checkState(sampleQueuesEnabledStates[sampleQueueIndex]);
     sampleQueuesEnabledStates[sampleQueueIndex] = false;
   }
 
@@ -694,7 +697,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     int result =
         sampleQueues[sampleQueueIndex].read(formatHolder, buffer, readFlags, loadingFinished);
     if (result == C.RESULT_FORMAT_READ) {
-      Format format = Assertions.checkNotNull(formatHolder.format);
+      Format format = checkNotNull(formatHolder.format);
       if (sampleQueueIndex == primarySampleQueueIndex) {
         // Fill in primary sample format with information from the track format.
         int chunkUid = Ints.checkedCast(sampleQueues[sampleQueueIndex].peekSourceId());
@@ -705,7 +708,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
         Format trackFormat =
             chunkIndex < mediaChunks.size()
                 ? mediaChunks.get(chunkIndex).trackFormat
-                : Assertions.checkNotNull(upstreamTrackFormat);
+                : checkNotNull(upstreamTrackFormat);
         format = format.withManifestFormatInfo(trackFormat);
       }
       formatHolder.format = format;
@@ -879,7 +882,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     }
 
     if (loader.isLoading()) {
-      Assertions.checkNotNull(loadingChunk);
+      checkNotNull(loadingChunk);
       if (chunkSource.shouldCancelLoad(positionUs, loadingChunk, readOnlyMediaChunks)) {
         loader.cancelLoading();
       }
@@ -1048,7 +1051,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     if (exclusionSucceeded) {
       if (isMediaChunk && bytesLoaded == 0) {
         HlsMediaChunk removed = mediaChunks.remove(mediaChunks.size() - 1);
-        Assertions.checkState(removed == loadable);
+        checkState(removed == loadable);
         if (mediaChunks.isEmpty()) {
           pendingResetPositionUs = lastSeekPositionUs;
         } else {
@@ -1118,7 +1121,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   }
 
   private void discardUpstream(int preferredQueueSize) {
-    Assertions.checkState(!loader.isLoading());
+    checkState(!loader.isLoading());
 
     int newQueueSize = C.LENGTH_UNSET;
     for (int i = preferredQueueSize; i < mediaChunks.size(); i++) {
@@ -1196,7 +1199,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
    */
   @Nullable
   private TrackOutput getMappedTrackOutput(int id, int type) {
-    Assertions.checkArgument(MAPPABLE_TYPES.contains(type));
+    checkArgument(MAPPABLE_TYPES.contains(type));
     int sampleQueueIndex = sampleQueueIndicesByType.get(type, C.INDEX_UNSET);
     if (sampleQueueIndex == C.INDEX_UNSET) {
       return null;
@@ -1532,7 +1535,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       }
     }
     this.trackGroups = createTrackGroupArrayWithDrmInfo(trackGroups);
-    Assertions.checkState(optionalTrackGroups == null);
+    checkState(optionalTrackGroups == null);
     optionalTrackGroups = Collections.emptySet();
   }
 
@@ -1596,9 +1599,9 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
   @EnsuresNonNull({"trackGroups", "optionalTrackGroups"})
   private void assertIsPrepared() {
-    Assertions.checkState(prepared);
-    Assertions.checkNotNull(trackGroups);
-    Assertions.checkNotNull(optionalTrackGroups);
+    checkState(prepared);
+    checkNotNull(trackGroups);
+    checkNotNull(optionalTrackGroups);
   }
 
   /**
@@ -1936,7 +1939,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
         int size,
         int offset,
         @Nullable CryptoData cryptoData) {
-      Assertions.checkNotNull(format);
+      checkNotNull(format);
       ParsableByteArray sample = getSampleAndTrimBuffer(size, offset);
       ParsableByteArray sampleForDelegate;
       if (Objects.equals(format.sampleMimeType, delegateFormat.sampleMimeType)) {
@@ -1953,8 +1956,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
                   delegateFormat.sampleMimeType, emsg.getWrappedMetadataFormat()));
           return;
         }
-        sampleForDelegate =
-            new ParsableByteArray(Assertions.checkNotNull(emsg.getWrappedMetadataBytes()));
+        sampleForDelegate = new ParsableByteArray(checkNotNull(emsg.getWrappedMetadataBytes()));
       } else {
         Log.w(TAG, "Ignoring sample for unsupported format: " + format.sampleMimeType);
         return;

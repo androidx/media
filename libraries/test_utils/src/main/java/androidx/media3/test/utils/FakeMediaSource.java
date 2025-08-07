@@ -16,6 +16,7 @@
 package androidx.media3.test.utils;
 
 import static androidx.media3.common.util.Util.castNonNull;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
@@ -382,7 +383,7 @@ public class FakeMediaSource extends BaseMediaSource {
     assertThat(preparedSource).isTrue();
     assertThat(releasedSource).isFalse();
     int periodIndex = castNonNull(timeline).getIndexOfPeriod(id.periodUid);
-    Assertions.checkArgument(periodIndex != C.INDEX_UNSET);
+    checkArgument(periodIndex != C.INDEX_UNSET);
     Period period = timeline.getPeriod(periodIndex, new Period());
     MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher =
         createEventDispatcher(period.windowIndex, id);

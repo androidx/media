@@ -20,6 +20,7 @@ import static androidx.media3.common.audio.AudioManagerCompat.AUDIOFOCUS_GAIN_TR
 import static androidx.media3.common.audio.AudioManagerCompat.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE;
 import static androidx.media3.common.audio.AudioManagerCompat.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK;
 import static androidx.media3.common.audio.AudioManagerCompat.AUDIOFOCUS_NONE;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
@@ -36,7 +37,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.Player;
 import androidx.media3.common.audio.AudioFocusRequestCompat;
 import androidx.media3.common.audio.AudioManagerCompat;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
@@ -166,7 +166,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     if (!Objects.equals(this.audioAttributes, audioAttributes)) {
       this.audioAttributes = audioAttributes;
       focusGainToRequest = convertAudioAttributesToFocusGain(audioAttributes);
-      Assertions.checkArgument(
+      checkArgument(
           focusGainToRequest == AUDIOFOCUS_GAIN || focusGainToRequest == AUDIOFOCUS_NONE,
           "Automatic handling of audio focus is only available for USAGE_MEDIA and USAGE_GAME.");
     }

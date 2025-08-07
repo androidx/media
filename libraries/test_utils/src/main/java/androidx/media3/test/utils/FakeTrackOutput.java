@@ -15,13 +15,13 @@
  */
 package androidx.media3.test.utils;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.DataReader;
 import androidx.media3.common.Format;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -85,14 +85,14 @@ public final class FakeTrackOutput implements TrackOutput, Dumper.Dumpable {
   @Override
   public void format(Format format) {
     if (!deduplicateConsecutiveFormats) {
-      Assertions.checkState(
+      checkState(
           receivedSampleInFormat,
           "deduplicateConsecutiveFormats=false so TrackOutput must receive at least one"
               + " sampleMetadata() call between format() calls.");
     } else if (!receivedSampleInFormat) {
       Dumpable dumpable = dumpables.remove(dumpables.size() - 1);
       formatCount--;
-      Assertions.checkState(
+      checkState(
           dumpable instanceof DumpableFormat,
           "receivedSampleInFormat=false so expected last dumpable to be a DumpableFormat. Found: "
               + dumpable.getClass().getCanonicalName());

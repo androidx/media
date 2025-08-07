@@ -18,6 +18,7 @@ package androidx.media3.session.legacy;
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.annotation.RestrictTo.Scope.LIBRARY;
 import static androidx.media3.session.legacy.MediaControllerCompat.PlaybackInfo.PLAYBACK_TYPE_LOCAL;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.app.PendingIntent;
@@ -45,7 +46,6 @@ import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
 import androidx.media3.common.AudioAttributes;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.session.legacy.MediaSessionCompat.QueueItem;
 import androidx.media3.session.legacy.PlaybackStateCompat.CustomAction;
@@ -783,7 +783,7 @@ public final class MediaControllerCompat {
         if (callback != null && info != null) {
           int playbackType = info.getPlaybackType();
           String volumeControlId = SDK_INT >= 30 ? info.getVolumeControlId() : null;
-          Assertions.checkArgument(playbackType != PLAYBACK_TYPE_LOCAL || volumeControlId == null);
+          checkArgument(playbackType != PLAYBACK_TYPE_LOCAL || volumeControlId == null);
           callback.onAudioInfoChanged(
               new PlaybackInfo(
                   playbackType,

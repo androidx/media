@@ -15,8 +15,9 @@
  */
 package androidx.media3.extractor.mp4;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import androidx.media3.common.C;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 
@@ -57,9 +58,9 @@ public final class TrackSampleTable {
       int[] flags,
       long durationUs,
       int sampleCount) {
-    Assertions.checkArgument(sizes.length == timestampsUs.length);
-    Assertions.checkArgument(offsets.length == timestampsUs.length);
-    Assertions.checkArgument(flags.length == timestampsUs.length);
+    checkArgument(sizes.length == timestampsUs.length);
+    checkArgument(offsets.length == timestampsUs.length);
+    checkArgument(flags.length == timestampsUs.length);
 
     this.track = track;
     this.offsets = offsets;

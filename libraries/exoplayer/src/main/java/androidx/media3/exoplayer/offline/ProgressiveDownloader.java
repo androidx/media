@@ -25,7 +25,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.PriorityTaskManager;
 import androidx.media3.common.PriorityTaskManager.PriorityTooLowException;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.RunnableFutureTask;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -125,8 +124,8 @@ public final class ProgressiveDownloader implements Downloader {
       Executor executor,
       long position,
       long length) {
-    this.executor = Assertions.checkNotNull(executor);
-    Assertions.checkNotNull(mediaItem.localConfiguration);
+    this.executor = checkNotNull(executor);
+    checkNotNull(mediaItem.localConfiguration);
     dataSpec =
         new DataSpec.Builder()
             .setUri(mediaItem.localConfiguration.uri)
@@ -175,7 +174,7 @@ public final class ProgressiveDownloader implements Downloader {
           downloadRunnable.get();
           finished = true;
         } catch (ExecutionException e) {
-          Throwable cause = Assertions.checkNotNull(e.getCause());
+          Throwable cause = checkNotNull(e.getCause());
           if (cause instanceof PriorityTooLowException) {
             // The next loop iteration will block until the task is able to proceed.
           } else if (cause instanceof IOException) {

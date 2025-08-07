@@ -16,6 +16,7 @@
 package androidx.media3.test.utils;
 
 import static androidx.media3.test.utils.TestUtil.timelinesAreSame;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.os.Looper;
 import android.view.Surface;
@@ -27,7 +28,6 @@ import androidx.media3.common.IllegalSeekPositionException;
 import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.Log;
@@ -439,7 +439,7 @@ public abstract class Action {
     @Override
     protected void doActionImpl(
         ExoPlayer player, DefaultTrackSelector trackSelector, @Nullable Surface surface) {
-      player.setVideoSurface(Assertions.checkNotNull(surface));
+      player.setVideoSurface(checkNotNull(surface));
     }
   }
 

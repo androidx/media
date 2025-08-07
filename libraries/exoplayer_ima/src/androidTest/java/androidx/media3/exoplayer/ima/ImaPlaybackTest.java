@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.ima;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
@@ -28,7 +29,6 @@ import androidx.media3.common.Player;
 import androidx.media3.common.Player.DiscontinuityReason;
 import androidx.media3.common.Player.TimelineChangeReason;
 import androidx.media3.common.Timeline.Window;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSpec;
 import androidx.media3.exoplayer.DecoderCounters;
@@ -240,7 +240,7 @@ public final class ImaPlaybackTest {
           adTagDataSpec,
           /* adsId= */ adTagDataSpec.uri,
           new DefaultMediaSourceFactory(context),
-          Assertions.checkNotNull(imaAdsLoader),
+          checkNotNull(imaAdsLoader),
           () -> overlayFrameLayout,
           /* useLazyContentSourcePreparation= */ true);
     }
@@ -251,7 +251,7 @@ public final class ImaPlaybackTest {
     }
 
     private void maybeUpdateSeenAdIdentifiers() {
-      if (Assertions.checkNotNull(player)
+      if (checkNotNull(player)
           .getCurrentTimeline()
           .getWindow(/* windowIndex= */ 0, new Window())
           .isPlaceholder) {

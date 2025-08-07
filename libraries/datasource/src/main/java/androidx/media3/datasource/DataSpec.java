@@ -15,6 +15,7 @@
  */
 package androidx.media3.datasource;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
@@ -471,9 +472,9 @@ public final class DataSpec {
       @Nullable Object customData) {
     // TODO: Replace this assertion with a stricter one checking "uriPositionOffset >= 0", after
     // validating there are no violations in ExoPlayer and 1P apps.
-    Assertions.checkArgument(uriPositionOffset + position >= 0);
-    Assertions.checkArgument(position >= 0);
-    Assertions.checkArgument(length > 0 || length == C.LENGTH_UNSET);
+    checkArgument(uriPositionOffset + position >= 0);
+    checkArgument(position >= 0);
+    checkArgument(length > 0 || length == C.LENGTH_UNSET);
     this.uri = checkNotNull(uri);
     this.uriPositionOffset = uriPositionOffset;
     this.httpMethod = httpMethod;

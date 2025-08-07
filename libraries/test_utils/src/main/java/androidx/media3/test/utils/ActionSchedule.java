@@ -15,6 +15,8 @@
  */
 package androidx.media3.test.utils;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import android.os.Looper;
 import android.view.Surface;
 import androidx.annotation.Nullable;
@@ -834,7 +836,7 @@ public final class ActionSchedule {
         @Nullable Surface surface,
         HandlerWrapper handler,
         @Nullable ActionNode nextAction) {
-      Assertions.checkArgument(nextAction == null);
+      checkArgument(nextAction == null);
       @Nullable Callback callback = this.callback;
       if (callback != null) {
         handler.post(callback::onActionScheduleFinished);

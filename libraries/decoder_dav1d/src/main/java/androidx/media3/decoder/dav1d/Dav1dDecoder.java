@@ -15,13 +15,15 @@
  */
 package androidx.media3.decoder.dav1d;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
+
 import android.os.Build.VERSION_CODES;
 import android.view.Surface;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.decoder.Decoder;
@@ -168,7 +170,7 @@ public final class Dav1dDecoder
   public final DecoderInputBuffer dequeueInputBuffer() throws Dav1dDecoderException {
     synchronized (lock) {
       maybeThrowException();
-      Assertions.checkState(dequeuedInputBuffer == null || flushed);
+      checkState(dequeuedInputBuffer == null || flushed);
       dequeuedInputBuffer =
           availableInputBufferCount == 0 || flushed
               ? null
@@ -181,7 +183,7 @@ public final class Dav1dDecoder
   public final void queueInputBuffer(DecoderInputBuffer inputBuffer) throws Dav1dDecoderException {
     synchronized (lock) {
       maybeThrowException();
-      Assertions.checkArgument(inputBuffer == dequeuedInputBuffer);
+      checkArgument(inputBuffer == dequeuedInputBuffer);
       queuedInputBuffers.addLast(inputBuffer);
       maybeNotifyDecodeLoop();
       dequeuedInputBuffer = null;

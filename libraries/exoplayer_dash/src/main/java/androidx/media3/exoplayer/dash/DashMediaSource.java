@@ -18,6 +18,7 @@ package androidx.media3.exoplayer.dash;
 import static androidx.media3.common.util.Util.constrainValue;
 import static androidx.media3.common.util.Util.msToUs;
 import static androidx.media3.common.util.Util.usToMs;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkElementIndex;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -40,7 +41,6 @@ import androidx.media3.common.ParserException;
 import androidx.media3.common.Player;
 import androidx.media3.common.StreamKey;
 import androidx.media3.common.Timeline;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -336,7 +336,7 @@ public final class DashMediaSource extends BaseMediaSource {
      * @throws IllegalArgumentException If {@link DashManifest#dynamic} is true.
      */
     public DashMediaSource createMediaSource(DashManifest manifest, MediaItem mediaItem) {
-      Assertions.checkArgument(!manifest.dynamic);
+      checkArgument(!manifest.dynamic);
       MediaItem.Builder mediaItemBuilder =
           mediaItem.buildUpon().setMimeType(MimeTypes.APPLICATION_MPD);
       if (mediaItem.localConfiguration == null) {
@@ -516,7 +516,7 @@ public final class DashMediaSource extends BaseMediaSource {
     expiredManifestPublishTimeUs = C.TIME_UNSET;
     elapsedRealtimeOffsetMs = C.TIME_UNSET;
     if (sideloadedManifest) {
-      Assertions.checkState(!manifest.dynamic);
+      checkState(!manifest.dynamic);
       manifestCallback = null;
       refreshManifestRunnable = null;
       simulateManifestRefreshRunnable = null;

@@ -15,6 +15,8 @@
  */
 package androidx.media3.exoplayer.dash;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import android.net.Uri;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -253,7 +255,7 @@ public final class DashUtil {
       int baseUrlIndex,
       boolean loadIndex)
       throws IOException {
-    RangedUri initializationUri = Assertions.checkNotNull(representation.getInitializationUri());
+    RangedUri initializationUri = checkNotNull(representation.getInitializationUri());
     @Nullable RangedUri requestUri;
     if (loadIndex) {
       @Nullable RangedUri indexUri = representation.getIndexUri();

@@ -19,6 +19,7 @@ import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Util.constrainValue;
 import static androidx.media3.common.util.Util.msToUs;
 import static androidx.media3.exoplayer.audio.AudioCapabilities.DEFAULT_AUDIO_CAPABILITIES;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
@@ -54,7 +55,6 @@ import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.AudioProcessor.UnhandledAudioFormatException;
 import androidx.media3.common.audio.SonicAudioProcessor;
 import androidx.media3.common.audio.ToInt16PcmAudioProcessor;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.BackgroundExecutor;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.Log;
@@ -739,7 +739,7 @@ public final class DefaultAudioSink implements AudioSink {
 
     maybeStartAudioCapabilitiesReceiver();
     if (MimeTypes.AUDIO_RAW.equals(inputFormat.sampleMimeType)) {
-      Assertions.checkArgument(Util.isEncodingLinearPcm(inputFormat.pcmEncoding));
+      checkArgument(Util.isEncodingLinearPcm(inputFormat.pcmEncoding));
 
       inputPcmFrameSize = Util.getPcmFrameSize(inputFormat.pcmEncoding, inputFormat.channelCount);
 
@@ -951,7 +951,7 @@ public final class DefaultAudioSink implements AudioSink {
   public boolean handleBuffer(
       ByteBuffer buffer, long presentationTimeUs, int encodedAccessUnitCount)
       throws InitializationException, WriteException {
-    Assertions.checkArgument(inputBuffer == null || buffer == inputBuffer);
+    checkArgument(inputBuffer == null || buffer == inputBuffer);
 
     if (pendingConfiguration != null) {
       if (!drainToEndOfStream()) {
@@ -1023,7 +1023,7 @@ public final class DefaultAudioSink implements AudioSink {
 
     if (inputBuffer == null) {
       // We are seeing this buffer for the first time.
-      Assertions.checkArgument(buffer.order() == ByteOrder.LITTLE_ENDIAN);
+      checkArgument(buffer.order() == ByteOrder.LITTLE_ENDIAN);
       if (!buffer.hasRemaining()) {
         // The buffer is empty.
         return true;
@@ -1312,7 +1312,7 @@ public final class DefaultAudioSink implements AudioSink {
     int bytesRemaining = outputBuffer.remaining();
     int bytesWrittenOrError = 0; // Error if negative
     if (tunneling) {
-      Assertions.checkState(avSyncPresentationTimeUs != C.TIME_UNSET);
+      checkState(avSyncPresentationTimeUs != C.TIME_UNSET);
       if (avSyncPresentationTimeUs == C.TIME_END_OF_SOURCE) {
         // Audio processors during tunneling are required to produce buffers immediately when
         // queuing, so we can assume the timestamp during draining at the end of the stream is the
@@ -1391,7 +1391,7 @@ public final class DefaultAudioSink implements AudioSink {
       if (configuration.outputMode != OUTPUT_MODE_PCM) {
         // When playing non-PCM, the inputBuffer is never processed, thus the last inputBuffer
         // must be the current input buffer.
-        Assertions.checkState(outputBuffer == inputBuffer);
+        checkState(outputBuffer == inputBuffer);
         writtenEncodedFrames += (long) framesPerEncodedSample * inputBufferAccessUnitCount;
       }
       outputBuffer = null;
@@ -1547,7 +1547,7 @@ public final class DefaultAudioSink implements AudioSink {
 
   @Override
   public void enableTunnelingV21() {
-    Assertions.checkState(externalAudioSessionIdProvided);
+    checkState(externalAudioSessionIdProvided);
     if (!tunneling) {
       tunneling = true;
       flush();
@@ -1565,7 +1565,7 @@ public final class DefaultAudioSink implements AudioSink {
   @RequiresApi(29)
   @Override
   public void setOffloadMode(@OffloadMode int offloadMode) {
-    Assertions.checkState(SDK_INT >= 29);
+    checkState(SDK_INT >= 29);
     this.offloadMode = offloadMode;
   }
 
@@ -2226,7 +2226,7 @@ public final class DefaultAudioSink implements AudioSink {
   private static int getAudioTrackMinBufferSize(
       int sampleRateInHz, int channelConfig, int encoding) {
     int minBufferSize = AudioTrack.getMinBufferSize(sampleRateInHz, channelConfig, encoding);
-    Assertions.checkState(minBufferSize != AudioTrack.ERROR_BAD_VALUE);
+    checkState(minBufferSize != AudioTrack.ERROR_BAD_VALUE);
     return minBufferSize;
   }
 

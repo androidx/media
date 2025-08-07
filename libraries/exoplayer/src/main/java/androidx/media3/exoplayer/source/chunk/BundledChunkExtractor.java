@@ -17,6 +17,7 @@ package androidx.media3.exoplayer.source.chunk;
 
 import static androidx.media3.common.util.Util.castNonNull;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.util.SparseArray;
 import androidx.annotation.Nullable;
@@ -247,7 +248,7 @@ public final class BundledChunkExtractor implements ExtractorOutput, ChunkExtrac
   @Override
   public boolean read(ExtractorInput input) throws IOException {
     int result = extractor.read(input, POSITION_HOLDER);
-    Assertions.checkState(result != Extractor.RESULT_SEEK);
+    checkState(result != Extractor.RESULT_SEEK);
     return result == Extractor.RESULT_CONTINUE;
   }
 
@@ -258,7 +259,7 @@ public final class BundledChunkExtractor implements ExtractorOutput, ChunkExtrac
     BindingTrackOutput bindingTrackOutput = bindingTrackOutputs.get(id);
     if (bindingTrackOutput == null) {
       // Assert that if we're seeing a new track we have not seen endTracks.
-      Assertions.checkState(sampleFormats == null);
+      checkState(sampleFormats == null);
       // TODO: Manifest formats for embedded tracks should also be passed here.
       bindingTrackOutput =
           new BindingTrackOutput(

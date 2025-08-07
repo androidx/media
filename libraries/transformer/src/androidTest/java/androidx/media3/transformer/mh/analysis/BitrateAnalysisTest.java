@@ -35,11 +35,11 @@ import static androidx.media3.transformer.AndroidTestUtil.MP4_REMOTE_3840W_2160H
 import static androidx.media3.transformer.AndroidTestUtil.MP4_REMOTE_640W_480H_31_SECOND_ROOF_SONYXPERIAXZ3;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_REMOTE_7680W_4320H_31_SECOND_ROOF_SAMSUNGS20ULTRA5G;
 import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.content.Context;
 import android.net.Uri;
 import androidx.media3.common.MediaItem;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.transformer.AndroidTestUtil;
 import androidx.media3.transformer.AndroidTestUtil.AssetInfo;
 import androidx.media3.transformer.DefaultEncoderFactory;
@@ -121,9 +121,8 @@ public class BitrateAnalysisTest {
 
   @Test
   public void analyzeBitrate() throws Exception {
-    Assertions.checkNotNull(assetInfo);
-    String fileName =
-        Assertions.checkNotNull(Iterables.getLast(Splitter.on("/").split(assetInfo.uri)));
+    checkNotNull(assetInfo);
+    String fileName = checkNotNull(Iterables.getLast(Splitter.on("/").split(assetInfo.uri)));
     String testId = String.format("analyzeBitrate_ssim_%s_%d_%s", bitrate, bitrateMode, fileName);
 
     Map<String, Object> inputValues = new HashMap<>();

@@ -15,6 +15,7 @@
  */
 package androidx.media3.test.utils;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
@@ -22,7 +23,6 @@ import static org.junit.Assert.fail;
 import android.content.Context;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.extractor.Extractor;
@@ -402,7 +402,7 @@ public final class ExtractorAsserts {
           context, extractorOutput, dumpFilesPrefix + ".0" + DUMP_EXTENSION);
     }
 
-    SeekMap seekMap = Assertions.checkNotNull(extractorOutput.seekMap);
+    SeekMap seekMap = checkNotNull(extractorOutput.seekMap);
     long durationUs = seekMap.getDurationUs();
     // Only seek to the timeUs=0 if the SeekMap is unseekable or the duration is unknown.
     int numberSeekTests = seekMap.isSeekable() && durationUs != C.TIME_UNSET ? 4 : 1;

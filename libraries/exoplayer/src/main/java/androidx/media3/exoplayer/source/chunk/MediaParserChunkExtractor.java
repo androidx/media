@@ -33,7 +33,6 @@ import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.source.mediaparser.InputReaderAdapterV30;
@@ -176,7 +175,7 @@ public final class MediaParserChunkExtractor implements ChunkExtractor {
         new OutputConsumerAdapterV30(
             manifestFormat, primaryTrackType, /* expectDummySeekMap= */ true);
     inputReaderAdapter = new InputReaderAdapterV30();
-    String mimeType = Assertions.checkNotNull(manifestFormat.containerMimeType);
+    String mimeType = checkNotNull(manifestFormat.containerMimeType);
     String parserName =
         MimeTypes.isMatroska(mimeType)
             ? MediaParser.PARSER_NAME_MATROSKA

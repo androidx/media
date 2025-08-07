@@ -15,10 +15,11 @@
  */
 package androidx.media3.common;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import android.text.TextUtils;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.base.Ascii;
@@ -820,7 +821,7 @@ public final class MimeTypes {
     if (!matcher.matches()) {
       return null;
     }
-    String objectTypeIndicationHex = Assertions.checkNotNull(matcher.group(1));
+    String objectTypeIndicationHex = checkNotNull(matcher.group(1));
     @Nullable String audioObjectTypeIndicationDec = matcher.group(2);
     int objectTypeIndication;
     int audioObjectTypeIndication = 0;

@@ -18,6 +18,7 @@ package androidx.media3.ui;
 
 import static androidx.media3.ui.SubtitleView.DEFAULT_BOTTOM_PADDING_FRACTION;
 import static androidx.media3.ui.SubtitleView.DEFAULT_TEXT_SIZE_FRACTION;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.content.Context;
 import android.graphics.Color;
@@ -30,7 +31,6 @@ import android.webkit.WebView;
 import android.widget.FrameLayout;
 import androidx.annotation.Nullable;
 import androidx.media3.common.text.Cue;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Util;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -268,7 +268,7 @@ import java.util.Map;
         @Nullable
         String previousCssDeclarationBlock =
             cssRuleSets.put(cssSelector, cssRuleSets.get(cssSelector));
-        Assertions.checkState(
+        checkState(
             previousCssDeclarationBlock == null
                 || previousCssDeclarationBlock.equals(cssRuleSets.get(cssSelector)));
       }

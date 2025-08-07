@@ -16,6 +16,8 @@
 package androidx.media3.ui;
 
 import static android.os.Build.VERSION.SDK_INT;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.animation.ValueAnimator;
 import android.content.Context;
@@ -40,7 +42,6 @@ import androidx.annotation.ColorInt;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import java.util.Collections;
@@ -508,7 +509,7 @@ public class DefaultTimeBar extends View implements TimeBar {
 
   @Override
   public void addListener(OnScrubListener listener) {
-    Assertions.checkNotNull(listener);
+    checkNotNull(listener);
     listeners.add(listener);
   }
 
@@ -519,14 +520,14 @@ public class DefaultTimeBar extends View implements TimeBar {
 
   @Override
   public void setKeyTimeIncrement(long time) {
-    Assertions.checkArgument(time > 0);
+    checkArgument(time > 0);
     keyCountIncrement = C.INDEX_UNSET;
     keyTimeIncrement = time;
   }
 
   @Override
   public void setKeyCountIncrement(int count) {
-    Assertions.checkArgument(count > 0);
+    checkArgument(count > 0);
     keyCountIncrement = count;
     keyTimeIncrement = C.TIME_UNSET;
   }
@@ -573,8 +574,7 @@ public class DefaultTimeBar extends View implements TimeBar {
   @Override
   public void setAdGroupTimesMs(
       @Nullable long[] adGroupTimesMs, @Nullable boolean[] playedAdGroups, int adGroupCount) {
-    Assertions.checkArgument(
-        adGroupCount == 0 || (adGroupTimesMs != null && playedAdGroups != null));
+    checkArgument(adGroupCount == 0 || (adGroupTimesMs != null && playedAdGroups != null));
     this.adGroupCount = adGroupCount;
     this.adGroupTimesMs = adGroupTimesMs;
     this.playedAdGroups = playedAdGroups;
@@ -914,8 +914,8 @@ public class DefaultTimeBar extends View implements TimeBar {
     if (adGroupCount == 0) {
       return;
     }
-    long[] adGroupTimesMs = Assertions.checkNotNull(this.adGroupTimesMs);
-    boolean[] playedAdGroups = Assertions.checkNotNull(this.playedAdGroups);
+    long[] adGroupTimesMs = checkNotNull(this.adGroupTimesMs);
+    boolean[] playedAdGroups = checkNotNull(this.playedAdGroups);
     int adMarkerOffset = adMarkerWidth / 2;
     for (int i = 0; i < adGroupCount; i++) {
       long adGroupTimeMs = Util.constrainValue(adGroupTimesMs[i], 0, duration);

@@ -16,6 +16,9 @@
 package androidx.media3.test.utils;
 
 import static android.os.Build.VERSION.SDK_INT;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static org.junit.Assert.fail;
 
 import android.app.Activity;
@@ -116,10 +119,10 @@ public final class HostActivity extends Activity implements SurfaceHolder.Callba
    */
   public void runTest(
       final HostedTest hostedTest, long timeoutMs, boolean failOnTimeoutOrForceStop) {
-    Assertions.checkArgument(timeoutMs > 0);
-    Assertions.checkState(Thread.currentThread() != getMainLooper().getThread());
-    Assertions.checkState(this.hostedTest == null);
-    Assertions.checkNotNull(hostedTest);
+    checkArgument(timeoutMs > 0);
+    checkState(Thread.currentThread() != getMainLooper().getThread());
+    checkState(this.hostedTest == null);
+    checkNotNull(hostedTest);
     hostedTestStartedCondition = new ConditionVariable();
     forcedStopped = false;
     hostedTestStarted = false;
@@ -245,8 +248,7 @@ public final class HostActivity extends Activity implements SurfaceHolder.Callba
     if (surface != null && surface.isValid()) {
       hostedTestStarted = true;
       Log.d(TAG, "Starting test.");
-      Util.castNonNull(hostedTest)
-          .onStart(this, surface, Assertions.checkNotNull(overlayFrameLayout));
+      Util.castNonNull(hostedTest).onStart(this, surface, checkNotNull(overlayFrameLayout));
       Util.castNonNull(hostedTestStartedCondition).open();
     }
   }

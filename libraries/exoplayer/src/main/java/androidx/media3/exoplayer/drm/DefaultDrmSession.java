@@ -16,6 +16,7 @@
 package androidx.media3.exoplayer.drm;
 
 import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.min;
 
@@ -31,7 +32,6 @@ import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData.SchemeData;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.CopyOnWriteMultiset;
 import androidx.media3.common.util.Log;
@@ -187,7 +187,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       PlayerId playerId) {
     if (mode == DefaultDrmSessionManager.MODE_QUERY
         || mode == DefaultDrmSessionManager.MODE_RELEASE) {
-      Assertions.checkNotNull(offlineLicenseKeySetId);
+      checkNotNull(offlineLicenseKeySetId);
     }
     this.uuid = uuid;
     this.provisioningManager = provisioningManager;
@@ -200,7 +200,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       this.offlineLicenseKeySetId = offlineLicenseKeySetId;
       this.schemeDatas = null;
     } else {
-      this.schemeDatas = Collections.unmodifiableList(Assertions.checkNotNull(schemeDatas));
+      this.schemeDatas = Collections.unmodifiableList(checkNotNull(schemeDatas));
     }
     this.keyRequestParameters = keyRequestParameters;
     this.callback = callback;
@@ -232,10 +232,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   /* package */ void provision() {
     currentProvisionRequest = mediaDrm.getProvisionRequest();
     Util.castNonNull(requestHandler)
-        .post(
-            MSG_PROVISION,
-            Assertions.checkNotNull(currentProvisionRequest),
-            /* allowRetry= */ true);
+        .post(MSG_PROVISION, checkNotNull(currentProvisionRequest), /* allowRetry= */ true);
   }
 
   /* package */ void onProvisionCompleted() {
@@ -390,7 +387,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       // Capture state into a local so a consistent value is seen by the lambda.
       int localState = state;
       dispatchEvent(eventDispatcher -> eventDispatcher.drmSessionAcquired(localState));
-      Assertions.checkNotNull(sessionId);
+      checkNotNull(sessionId);
       return true;
     } catch (NotProvisionedException e) {
       provisioningManager.provisionRequired(this);
@@ -463,8 +460,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
         }
         break;
       case DefaultDrmSessionManager.MODE_RELEASE:
-        Assertions.checkNotNull(offlineLicenseKeySetId);
-        Assertions.checkNotNull(this.sessionId);
+        checkNotNull(offlineLicenseKeySetId);
+        checkNotNull(this.sessionId);
         postKeyRequest(offlineLicenseKeySetId, ExoMediaDrm.KEY_TYPE_RELEASE, allowRetry);
         break;
       default:
@@ -487,16 +484,14 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     if (!C.WIDEVINE_UUID.equals(uuid)) {
       return Long.MAX_VALUE;
     }
-    Pair<Long, Long> pair =
-        Assertions.checkNotNull(WidevineUtil.getLicenseDurationRemainingSec(this));
+    Pair<Long, Long> pair = checkNotNull(WidevineUtil.getLicenseDurationRemainingSec(this));
     return min(pair.first, pair.second);
   }
 
   private void postKeyRequest(byte[] scope, int type, boolean allowRetry) {
     try {
       currentKeyRequest = mediaDrm.getKeyRequest(scope, schemeDatas, type, keyRequestParameters);
-      Util.castNonNull(requestHandler)
-          .post(MSG_KEYS, Assertions.checkNotNull(currentKeyRequest), allowRetry);
+      Util.castNonNull(requestHandler).post(MSG_KEYS, checkNotNull(currentKeyRequest), allowRetry);
     } catch (Exception | NoSuchMethodError e) {
       onKeysError(e, /* thrownByExoMediaDrm= */ true);
     }

@@ -15,6 +15,8 @@
  */
 package androidx.media3.demo.surface;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import android.app.Activity;
 import android.content.Intent;
 import android.net.Uri;
@@ -31,7 +33,6 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DefaultDataSource;
@@ -79,7 +80,7 @@ public final class MainActivity extends Activity {
     fullscreenView.setOnClickListener(
         v -> {
           setCurrentOutputView(nonFullscreenView);
-          Assertions.checkNotNull(fullscreenView).setVisibility(View.GONE);
+          checkNotNull(fullscreenView).setVisibility(View.GONE);
         });
     attachSurfaceListener(fullscreenView);
     isOwner = getIntent().getBooleanExtra(OWNER_EXTRA, /* defaultValue= */ true);
@@ -98,7 +99,7 @@ public final class MainActivity extends Activity {
         button.setOnClickListener(
             v -> {
               setCurrentOutputView(fullscreenView);
-              Assertions.checkNotNull(fullscreenView).setVisibility(View.VISIBLE);
+              checkNotNull(fullscreenView).setVisibility(View.VISIBLE);
             });
       } else if (i == 2) {
         Button button = new Button(/* context= */ this);
@@ -146,7 +147,7 @@ public final class MainActivity extends Activity {
 
     setCurrentOutputView(nonFullscreenView);
 
-    LegacyPlayerControlView playerControlView = Assertions.checkNotNull(this.playerControlView);
+    LegacyPlayerControlView playerControlView = checkNotNull(this.playerControlView);
     playerControlView.setPlayer(player);
     playerControlView.show();
   }
@@ -155,7 +156,7 @@ public final class MainActivity extends Activity {
   public void onPause() {
     super.onPause();
 
-    Assertions.checkNotNull(playerControlView).setPlayer(null);
+    checkNotNull(playerControlView).setPlayer(null);
   }
 
   @Override
@@ -181,14 +182,12 @@ public final class MainActivity extends Activity {
     Intent intent = getIntent();
     String action = intent.getAction();
     Uri uri =
-        ACTION_VIEW.equals(action)
-            ? Assertions.checkNotNull(intent.getData())
-            : Uri.parse(DEFAULT_MEDIA_URI);
+        ACTION_VIEW.equals(action) ? checkNotNull(intent.getData()) : Uri.parse(DEFAULT_MEDIA_URI);
     DrmSessionManager drmSessionManager;
     if (intent.hasExtra(DRM_SCHEME_EXTRA)) {
-      String drmScheme = Assertions.checkNotNull(intent.getStringExtra(DRM_SCHEME_EXTRA));
-      String drmLicenseUrl = Assertions.checkNotNull(intent.getStringExtra(DRM_LICENSE_URL_EXTRA));
-      UUID drmSchemeUuid = Assertions.checkNotNull(Util.getDrmUuid(drmScheme));
+      String drmScheme = checkNotNull(intent.getStringExtra(DRM_SCHEME_EXTRA));
+      String drmLicenseUrl = checkNotNull(intent.getStringExtra(DRM_LICENSE_URL_EXTRA));
+      UUID drmSchemeUuid = checkNotNull(Util.getDrmUuid(drmScheme));
       DataSource.Factory licenseDataSourceFactory = new DefaultHttpDataSource.Factory();
       HttpMediaDrmCallback drmCallback =
           new HttpMediaDrmCallback(drmLicenseUrl, licenseDataSourceFactory);
@@ -266,7 +265,7 @@ public final class MainActivity extends Activity {
   }
 
   private static void reparent(@Nullable SurfaceView surfaceView) {
-    SurfaceControl surfaceControl = Assertions.checkNotNull(MainActivity.surfaceControl);
+    SurfaceControl surfaceControl = checkNotNull(MainActivity.surfaceControl);
     if (surfaceView == null) {
       new SurfaceControl.Transaction()
           .reparent(surfaceControl, /* newParent= */ null)

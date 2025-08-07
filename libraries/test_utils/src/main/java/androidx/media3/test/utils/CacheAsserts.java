@@ -15,6 +15,7 @@
  */
 package androidx.media3.test.utils;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
@@ -49,7 +50,7 @@ public final class CacheAsserts {
       ArrayList<FakeData> allData = fakeDataSet.getAllData();
       dataSpecs = new DataSpec[allData.size()];
       for (int i = 0; i < dataSpecs.length; i++) {
-        dataSpecs[i] = new DataSpec(Assertions.checkNotNull(allData.get(i).uri));
+        dataSpecs[i] = new DataSpec(checkNotNull(allData.get(i).uri));
       }
     }
 
@@ -82,7 +83,7 @@ public final class CacheAsserts {
     }
 
     public byte[] getData(int i) {
-      return Assertions.checkNotNull(fakeDataSet.getData(dataSpecs[i].uri)).getData();
+      return checkNotNull(fakeDataSet.getData(dataSpecs[i].uri)).getData();
     }
 
     public DataSpec getDataSpec(int i) {
@@ -94,7 +95,7 @@ public final class CacheAsserts {
       FakeData data = Assertions.checkStateNotNull(fakeDataSet.getData(uriString));
       for (int i = 0; i < dataSpecs.length; i++) {
         DataSpec spec = dataSpecs[i];
-        if (Assertions.checkNotNull(spec.uri.getPath()).equals(uriString)) {
+        if (checkNotNull(spec.uri.getPath()).equals(uriString)) {
           dataSpecs[i] = spec.subrange(0, data.getData().length);
           return this;
         }

@@ -17,6 +17,7 @@ package androidx.media3.exoplayer.source;
 
 import static androidx.media3.common.util.Util.postOrRun;
 import static androidx.media3.common.util.Util.usToMs;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.os.Handler;
 import androidx.annotation.CheckResult;
@@ -25,7 +26,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.C.DataType;
 import androidx.media3.common.Format;
 import androidx.media3.common.Player;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
@@ -205,8 +205,8 @@ public interface MediaSourceEventListener {
      * @param eventListener The listener to be added.
      */
     public void addEventListener(Handler handler, MediaSourceEventListener eventListener) {
-      Assertions.checkNotNull(handler);
-      Assertions.checkNotNull(eventListener);
+      checkNotNull(handler);
+      checkNotNull(eventListener);
       listenerAndHandlers.add(new ListenerAndHandler(handler, eventListener));
     }
 
@@ -479,7 +479,7 @@ public interface MediaSourceEventListener {
 
     /** Dispatches {@link #onUpstreamDiscarded(int, MediaPeriodId, MediaLoadData)}. */
     public void upstreamDiscarded(MediaLoadData mediaLoadData) {
-      MediaPeriodId mediaPeriodId = Assertions.checkNotNull(this.mediaPeriodId);
+      MediaPeriodId mediaPeriodId = checkNotNull(this.mediaPeriodId);
       dispatchEvent(
           (listener) -> listener.onUpstreamDiscarded(windowIndex, mediaPeriodId, mediaLoadData));
     }

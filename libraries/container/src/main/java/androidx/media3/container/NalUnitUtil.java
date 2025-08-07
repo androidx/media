@@ -16,6 +16,7 @@
 package androidx.media3.container;
 
 import static androidx.media3.common.MimeTypes.containsCodecsCorrespondingToMimeType;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.math.DoubleMath.log2;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -25,7 +26,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
@@ -1900,7 +1900,7 @@ public final class NalUnitUtil {
       byte[] data, int startOffset, int endOffset, boolean[] prefixFlags) {
     int length = endOffset - startOffset;
 
-    Assertions.checkState(length >= 0);
+    checkState(length >= 0);
     if (length == 0) {
       return endOffset;
     }

@@ -44,7 +44,9 @@ import static androidx.media3.common.Player.EVENT_TRACKS_CHANGED;
 import static androidx.media3.common.util.Util.castNonNull;
 import static androidx.media3.common.util.Util.getDrawable;
 import static androidx.media3.common.util.Util.msToUs;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
@@ -76,7 +78,6 @@ import androidx.media3.common.TrackGroup;
 import androidx.media3.common.TrackSelectionOverride;
 import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.Tracks;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.RepeatModeUtil;
 import androidx.media3.common.util.UnstableApi;
@@ -873,9 +874,8 @@ public class PlayerControlView extends FrameLayout {
    *     player.getApplicationLooper() == Looper.getMainLooper()}).
    */
   public void setPlayer(@Nullable Player player) {
-    Assertions.checkState(Looper.myLooper() == Looper.getMainLooper());
-    Assertions.checkArgument(
-        player == null || player.getApplicationLooper() == Looper.getMainLooper());
+    checkState(Looper.myLooper() == Looper.getMainLooper());
+    checkArgument(player == null || player.getApplicationLooper() == Looper.getMainLooper());
     if (this.player == player) {
       return;
     }
@@ -930,7 +930,7 @@ public class PlayerControlView extends FrameLayout {
       this.extraPlayedAdGroups = new boolean[0];
     } else {
       checkNotNull(extraPlayedAdGroups);
-      Assertions.checkArgument(extraAdGroupTimesMs.length == extraPlayedAdGroups.length);
+      checkArgument(extraAdGroupTimesMs.length == extraPlayedAdGroups.length);
       this.extraAdGroupTimesMs = extraAdGroupTimesMs;
       this.extraPlayedAdGroups = extraPlayedAdGroups;
     }
@@ -1444,7 +1444,7 @@ public class PlayerControlView extends FrameLayout {
         }
         timeline.getWindow(i, window);
         if (window.durationUs == C.TIME_UNSET) {
-          Assertions.checkState(!multiWindowTimeBar);
+          checkState(!multiWindowTimeBar);
           break;
         }
         for (int j = window.firstPeriodIndex; j <= window.lastPeriodIndex; j++) {

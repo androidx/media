@@ -28,7 +28,6 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Timeline;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.upstream.Allocator;
@@ -370,7 +369,7 @@ public final class ClippingMediaSource extends WrappingMediaSource {
     checkState(mediaPeriods.remove(mediaPeriod));
     mediaSource.releasePeriod(((ClippingMediaPeriod) mediaPeriod).mediaPeriod);
     if (mediaPeriods.isEmpty() && !allowDynamicClippingUpdates) {
-      refreshClippedTimeline(Assertions.checkNotNull(clippingTimeline).timeline);
+      refreshClippedTimeline(checkNotNull(clippingTimeline).timeline);
     }
   }
 
