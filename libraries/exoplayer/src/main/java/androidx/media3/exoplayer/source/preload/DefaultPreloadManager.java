@@ -61,7 +61,6 @@ import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
-import java.util.Comparator;
 import java.util.concurrent.Executor;
 
 /**
@@ -96,7 +95,7 @@ public final class DefaultPreloadManager
         Context context,
         TargetPreloadStatusControl<Integer, PreloadStatus> targetPreloadStatusControl) {
       super(
-          new RankingDataComparator(),
+          new SimpleRankingDataComparator(),
           targetPreloadStatusControl,
           new MediaSourceFactorySupplier(context));
       this.context = context;
@@ -484,7 +483,7 @@ public final class DefaultPreloadManager
 
   private DefaultPreloadManager(Builder builder) {
     super(
-        new RankingDataComparator(),
+        new SimpleRankingDataComparator(),
         builder.targetPreloadStatusControl,
         builder.mediaSourceFactorySupplier.get());
     rendererCapabilitiesList =
@@ -532,7 +531,7 @@ public final class DefaultPreloadManager
       RendererCapabilitiesList.Factory rendererCapabilitiesListFactory,
       Allocator allocator,
       Looper preloadLooper) {
-    super(new RankingDataComparator(), targetPreloadStatusControl, mediaSourceFactory);
+    super(new SimpleRankingDataComparator(), targetPreloadStatusControl, mediaSourceFactory);
     this.rendererCapabilitiesList =
         rendererCapabilitiesListFactory.createRendererCapabilitiesList();
     this.preloadLooperProvider = new PlaybackLooperProvider(preloadLooper);
@@ -559,9 +558,9 @@ public final class DefaultPreloadManager
    * @param currentPlayingIndex The index of current playing media.
    */
   public void setCurrentPlayingIndex(int currentPlayingIndex) {
-    RankingDataComparator rankingDataComparator =
-        (RankingDataComparator) this.rankingDataComparator;
-    rankingDataComparator.currentPlayingIndex = currentPlayingIndex;
+    SimpleRankingDataComparator rankingDataComparator =
+        (SimpleRankingDataComparator) this.rankingDataComparator;
+    rankingDataComparator.setCurrentPlayingIndex(currentPlayingIndex);
   }
 
   @Override
@@ -622,6 +621,7 @@ public final class DefaultPreloadManager
     if (releaseCalled) {
       return;
     }
+    super.releaseMediaSourceHolderInternal(mediaSourceHolder);
     checkArgument(mediaSourceHolder instanceof PreloadMediaSourceHolder);
     PreloadMediaSourceHolder preloadMediaSourceHolder =
         (PreloadMediaSourceHolder) mediaSourceHolder;
@@ -658,17 +658,32 @@ public final class DefaultPreloadManager
     }
   }
 
-  private static final class RankingDataComparator implements Comparator<Integer> {
+  private static final class SimpleRankingDataComparator implements RankingDataComparator<Integer> {
 
-    public int currentPlayingIndex;
+    private int currentPlayingIndex;
+    @Nullable private InvalidationListener invalidationListener;
 
-    public RankingDataComparator() {
+    public SimpleRankingDataComparator() {
       this.currentPlayingIndex = C.INDEX_UNSET;
     }
 
     @Override
     public int compare(Integer o1, Integer o2) {
       return Integer.compare(abs(o1 - currentPlayingIndex), abs(o2 - currentPlayingIndex));
+    }
+
+    @Override
+    public void setInvalidationListener(@Nullable InvalidationListener invalidationListener) {
+      this.invalidationListener = invalidationListener;
+    }
+
+    public void setCurrentPlayingIndex(int currentPlayingIndex) {
+      if (currentPlayingIndex != this.currentPlayingIndex) {
+        this.currentPlayingIndex = currentPlayingIndex;
+        if (invalidationListener != null) {
+          invalidationListener.onRankingDataComparatorInvalidated();
+        }
+      }
     }
   }
 

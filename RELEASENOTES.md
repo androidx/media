@@ -34,6 +34,20 @@
         local files.
     *   Fix bug where setting an empty playlist can leave the player in
         `STATE_READY` or `STATE_BUFFERING`.
+    *   Enhance the preload manager APIs:
+        *   Add `addMediaItems(List<MediaItem>, List<T>)` and
+            `addMediaSources(List<MediaSource>, List<T>)` that add the media
+            items or media sources in batch, and automatically call
+            `invalidate()` afterwards.
+        *   Add `removeMediaItems((List<MediaItem>)` and
+            `removeMediaSources(List<MediaSource>)` that remove the media items
+            or media sources in batch, and make sure that preload manager does
+            not start to preload or continue preloading any of them after
+            removal.
+        *   Allow `DefaultPreloadManager.setCurrentPlayingIndex(int)` to
+            invalidate itself automatically. Apps don't need to call
+            `invalidate()` explicitly anymore after updating the current playing
+            index.
 *   Transformer:
 *   Track Selection:
     *   Add `TrackSelectionParameters.selectTextByDefault` to prefer the
