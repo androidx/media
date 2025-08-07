@@ -32,15 +32,11 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class MetadataStateTest {
 
-  @get:Rule
-  val composeTestRule = createComposeRule()
+  @get:Rule val composeTestRule = createComposeRule()
 
   @Test
   fun uri_emptyPlaylist_returnsNull() {
-    val player = TestPlayer(
-      playbackState = Player.STATE_IDLE,
-      playlist = emptyList(),
-    )
+    val player = TestPlayer(playbackState = Player.STATE_IDLE, playlist = emptyList())
 
     lateinit var state: MetadataState
     composeTestRule.setContent { state = rememberMetadataState(player) }
@@ -50,11 +46,7 @@ class MetadataStateTest {
 
   @Test
   fun uri_singleItemWithoutUri_returnsNull() {
-    val player = TestPlayer(
-      playlist = listOf(
-        MediaItemData.Builder("uid_1").build(),
-      ),
-    )
+    val player = TestPlayer(playlist = listOf(MediaItemData.Builder("uid_1").build()))
 
     lateinit var state: MetadataState
     composeTestRule.setContent { state = rememberMetadataState(player) }
@@ -65,11 +57,11 @@ class MetadataStateTest {
   @Test
   fun uri_singleItemWithUri_returnsTheUri() {
     val uri = "https://storage.googleapis.com/wvmedia/clear/h264/tears/tears.mpd".toUri()
-    val player = TestPlayer(
-      playlist = listOf(
-        MediaItemData.Builder("uid_1").setMediaItem(MediaItem.fromUri(uri)).build(),
-      ),
-    )
+    val player =
+      TestPlayer(
+        playlist =
+          listOf(MediaItemData.Builder("uid_1").setMediaItem(MediaItem.fromUri(uri)).build())
+      )
 
     lateinit var state: MetadataState
     composeTestRule.setContent { state = rememberMetadataState(player) }
@@ -82,13 +74,15 @@ class MetadataStateTest {
     val uri1 = "https://storage.googleapis.com/wvmedia/clear/h264/tears/tears.mpd".toUri()
     val uri2 =
       "https://storage.googleapis.com/exoplayer-test-media-1/mp4/dizzy-with-tx3g.mp4".toUri()
-    val player = TestPlayer(
-      playlist = listOf(
-        MediaItemData.Builder("uid_1").setMediaItem(MediaItem.fromUri(uri1)).build(),
-        MediaItemData.Builder("uid_2").build(),
-        MediaItemData.Builder("uid_3").setMediaItem(MediaItem.fromUri(uri2)).build(),
-      ),
-    )
+    val player =
+      TestPlayer(
+        playlist =
+          listOf(
+            MediaItemData.Builder("uid_1").setMediaItem(MediaItem.fromUri(uri1)).build(),
+            MediaItemData.Builder("uid_2").build(),
+            MediaItemData.Builder("uid_3").setMediaItem(MediaItem.fromUri(uri2)).build(),
+          )
+      )
 
     lateinit var state: MetadataState
     composeTestRule.setContent { state = rememberMetadataState(player) }
@@ -109,11 +103,11 @@ class MetadataStateTest {
   @Test
   fun uri_getCurrentMediaItemCommandBecomesAvailable_returnsUpdatedUri() {
     val uri = "https://storage.googleapis.com/wvmedia/clear/h264/tears/tears.mpd".toUri()
-    val player = TestPlayer(
-      playlist = listOf(
-        MediaItemData.Builder("uid_1").setMediaItem(MediaItem.fromUri(uri)).build(),
-      ),
-    )
+    val player =
+      TestPlayer(
+        playlist =
+          listOf(MediaItemData.Builder("uid_1").setMediaItem(MediaItem.fromUri(uri)).build())
+      )
     player.removeCommands(Player.COMMAND_GET_CURRENT_MEDIA_ITEM)
 
     lateinit var state: MetadataState
