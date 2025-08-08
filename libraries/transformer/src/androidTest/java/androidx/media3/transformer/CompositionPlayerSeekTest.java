@@ -19,8 +19,9 @@ package androidx.media3.transformer;
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.common.util.Util.usToMs;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
-import static androidx.media3.transformer.AndroidTestUtil.PNG_ASSET;
+import static androidx.media3.test.utils.TestUtil.MP4_ASSET;
+import static androidx.media3.test.utils.TestUtil.PNG_ASSET;
+import static androidx.media3.test.utils.TestUtil.WAV_ASSET;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.skip;
@@ -871,7 +872,7 @@ public class CompositionPlayerSeekTest {
           }
         };
     EditedMediaItem item =
-        new EditedMediaItem.Builder(MediaItem.fromUri(AndroidTestUtil.WAV_ASSET.uri))
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
             .setDurationUs(1_000_000L)
             .setEffects(new Effects(ImmutableList.of(fakeProcessor), ImmutableList.of()))
             .build();
@@ -907,7 +908,7 @@ public class CompositionPlayerSeekTest {
           }
         };
     EditedMediaItem item =
-        new EditedMediaItem.Builder(MediaItem.fromUri(AndroidTestUtil.WAV_ASSET.uri))
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
             .setDurationUs(1_000_000L)
             .build();
     final Composition composition =
@@ -945,12 +946,12 @@ public class CompositionPlayerSeekTest {
           }
         };
     EditedMediaItem firstItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(AndroidTestUtil.WAV_ASSET.uri))
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
             .setDurationUs(1_000_000L)
             .build();
 
     EditedMediaItem secondItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(AndroidTestUtil.WAV_ASSET.uri))
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
             .setDurationUs(1_000_000L)
             .setEffects(new Effects(ImmutableList.of(fakeProcessor), ImmutableList.of()))
             .build();
@@ -997,12 +998,12 @@ public class CompositionPlayerSeekTest {
         };
 
     EditedMediaItem firstSequenceItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(AndroidTestUtil.WAV_ASSET.uri))
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
             .setEffects(new Effects(ImmutableList.of(firstSequenceProcessor), ImmutableList.of()))
             .setDurationUs(1_000_000L)
             .build();
     EditedMediaItem secondSequenceItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(AndroidTestUtil.WAV_ASSET.uri))
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
             .setDurationUs(1_000_000L)
             .setEffects(new Effects(ImmutableList.of(secondSequenceProcessor), ImmutableList.of()))
             .build();

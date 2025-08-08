@@ -28,7 +28,7 @@ import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.Util;
-import androidx.media3.transformer.AndroidTestUtil.AssetInfo;
+import androidx.media3.test.utils.TestUtil.AssetInfo;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;

@@ -20,9 +20,9 @@ import static androidx.media3.common.Player.DISCONTINUITY_REASON_AUTO_TRANSITION
 import static androidx.media3.common.Player.REPEAT_MODE_ALL;
 import static androidx.media3.common.Player.REPEAT_MODE_OFF;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
-import static androidx.media3.transformer.AndroidTestUtil.WAV_80KHZ_MONO_20_REPEATING_1_SAMPLES_ASSET;
-import static androidx.media3.transformer.AndroidTestUtil.WAV_ASSET;
+import static androidx.media3.test.utils.TestUtil.MP4_ASSET;
+import static androidx.media3.test.utils.TestUtil.WAV_80KHZ_MONO_20_REPEATING_1_SAMPLES_ASSET;
+import static androidx.media3.test.utils.TestUtil.WAV_ASSET;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;

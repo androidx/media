@@ -17,7 +17,8 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
+import static androidx.media3.test.utils.TestUtil.MP4_ASSET;
+import static androidx.media3.test.utils.TestUtil.WAV_ASSET;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 import static com.google.common.truth.Truth.assertThat;
 
@@ -35,6 +36,7 @@ import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.BaseAudioProcessor;
 import androidx.media3.common.audio.SpeedProvider;
 import androidx.media3.common.util.Util;
+import androidx.media3.test.utils.TestUtil.AssetInfo;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
@@ -434,7 +436,7 @@ public class CompositionPlayerSetCompositionTest {
           }
         };
     EditedMediaItem editedMediaItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(AndroidTestUtil.WAV_ASSET.uri))
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
             .setDurationUs(1_000_000L)
             .setEffects(
                 new Effects(
@@ -484,7 +486,7 @@ public class CompositionPlayerSetCompositionTest {
           }
         };
     EditedMediaItem item1 =
-        new EditedMediaItem.Builder(MediaItem.fromUri(AndroidTestUtil.WAV_ASSET.uri))
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
             .setDurationUs(1_000_000L)
             .build();
     EditedMediaItem item2 =
@@ -534,7 +536,7 @@ public class CompositionPlayerSetCompositionTest {
           }
         };
     EditedMediaItem editedMediaItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(AndroidTestUtil.WAV_ASSET.uri))
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
             .setDurationUs(1_000_000L)
             .build();
     Composition firstComposition =
@@ -610,8 +612,7 @@ public class CompositionPlayerSetCompositionTest {
     return firstFrameTimestampUs.get();
   }
 
-  private static EditedMediaItem createEditedMediaItemWithSpeed(
-      AndroidTestUtil.AssetInfo assetInfo, float speed) {
+  private static EditedMediaItem createEditedMediaItemWithSpeed(AssetInfo assetInfo, float speed) {
     Pair<AudioProcessor, Effect> speedChangingEffect =
         Effects.createExperimentalSpeedChangingEffect(new SimpleSpeedProvider(speed));
     return new EditedMediaItem.Builder(MediaItem.fromUri(assetInfo.uri))
@@ -630,7 +631,7 @@ public class CompositionPlayerSetCompositionTest {
   }
 
   private static EditedMediaItem createEditedMediaItemWithClippingConfiguration(
-      AndroidTestUtil.AssetInfo assetInfo, ClippingConfiguration clippingConfiguration) {
+      AssetInfo assetInfo, ClippingConfiguration clippingConfiguration) {
     return new EditedMediaItem.Builder(
             new MediaItem.Builder()
                 .setUri(assetInfo.uri)

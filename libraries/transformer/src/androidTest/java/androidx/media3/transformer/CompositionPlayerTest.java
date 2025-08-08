@@ -16,8 +16,8 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
-import static androidx.media3.transformer.AndroidTestUtil.JPG_SINGLE_PIXEL_ASSET;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
+import static androidx.media3.test.utils.TestUtil.JPG_SINGLE_PIXEL_ASSET;
+import static androidx.media3.test.utils.TestUtil.MP4_ASSET;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;

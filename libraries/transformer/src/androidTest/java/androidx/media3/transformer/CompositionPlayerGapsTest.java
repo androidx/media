@@ -16,8 +16,8 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
-import static androidx.media3.transformer.AndroidTestUtil.MP3_ASSET;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
+import static androidx.media3.test.utils.TestUtil.MP3_ASSET;
+import static androidx.media3.test.utils.TestUtil.MP4_ASSET;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assume.assumeFalse;

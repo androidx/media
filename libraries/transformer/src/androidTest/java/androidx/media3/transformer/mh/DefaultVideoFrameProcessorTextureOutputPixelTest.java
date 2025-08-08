@@ -21,11 +21,11 @@ import static androidx.media3.test.utils.BitmapPixelTestUtil.MAXIMUM_AVERAGE_PIX
 import static androidx.media3.test.utils.BitmapPixelTestUtil.MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE_DIFFERENT_DEVICE_FP16;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmap;
+import static androidx.media3.test.utils.TestUtil.MP4_ASSET;
+import static androidx.media3.test.utils.TestUtil.MP4_ASSET_1080P_5_SECOND_HLG10;
+import static androidx.media3.test.utils.TestUtil.MP4_ASSET_720P_4_SECOND_HDR10;
 import static androidx.media3.test.utils.TestUtil.assertBitmapsAreSimilar;
 import static androidx.media3.test.utils.VideoFrameProcessorTestRunner.VIDEO_FRAME_PROCESSING_WAIT_MS;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_1080P_5_SECOND_HLG10;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_720P_4_SECOND_HDR10;
 import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
 import static androidx.media3.transformer.AndroidTestUtil.recordTestSkipped;
 import static androidx.media3.transformer.SequenceEffectTestUtil.PSNR_THRESHOLD;
