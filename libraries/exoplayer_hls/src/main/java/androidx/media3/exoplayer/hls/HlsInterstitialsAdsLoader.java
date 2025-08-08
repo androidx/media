@@ -23,7 +23,6 @@ import static androidx.media3.common.Player.DISCONTINUITY_REASON_SEEK;
 import static androidx.media3.common.Player.DISCONTINUITY_REASON_SEEK_ADJUSTMENT;
 import static androidx.media3.common.Player.DISCONTINUITY_REASON_SKIP;
 import static androidx.media3.common.Player.STATE_IDLE;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.castNonNull;
 import static androidx.media3.common.util.Util.msToUs;
 import static androidx.media3.common.util.Util.usToMs;
@@ -775,7 +774,7 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
     }
     if (contentMediaSourceAdDataHolder.isIdle()) {
       // Set the player listener when the first ad starts.
-      checkStateNotNull(player, "setPlayer(Player) needs to be called").addListener(playerListener);
+      checkNotNull(player, "setPlayer(Player) needs to be called").addListener(playerListener);
     }
     contentMediaSourceAdDataHolder.startContentSource(adsId, eventListener);
     MediaItem mediaItem = adsMediaSource.getMediaItem();

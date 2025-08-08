@@ -15,7 +15,6 @@
  */
 package androidx.media3.effect;
 
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.effect.DebugTraceUtil.COMPONENT_EXTERNAL_TEXTURE_MANAGER;
 import static androidx.media3.effect.DebugTraceUtil.COMPONENT_VFP;
@@ -436,7 +435,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                 currentFrame.format.width,
                 currentFrame.format.height),
             presentationTimeUs);
-    checkStateNotNull(pendingFrames.remove());
+    checkNotNull(pendingFrames.remove());
     DebugTraceUtil.logEvent(COMPONENT_VFP, EVENT_QUEUE_FRAME, presentationTimeUs);
     // If the queued frame is the last frame, end of stream will be signaled onInputFrameProcessed.
   }

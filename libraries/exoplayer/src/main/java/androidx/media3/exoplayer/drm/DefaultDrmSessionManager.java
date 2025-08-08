@@ -16,7 +16,6 @@
 package androidx.media3.exoplayer.drm;
 
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -443,7 +442,7 @@ public class DefaultDrmSessionManager implements DrmSessionManager {
       @Nullable DrmSessionEventListener.EventDispatcher eventDispatcher, Format format) {
     // Don't verify the playback thread, preacquireSession can be called from any thread.
     checkState(prepareCallsCount > 0);
-    checkStateNotNull(playbackLooper);
+    checkNotNull(playbackLooper);
     PreacquiredSessionReference preacquiredSessionReference =
         new PreacquiredSessionReference(eventDispatcher);
     preacquiredSessionReference.acquire(format);
@@ -456,7 +455,7 @@ public class DefaultDrmSessionManager implements DrmSessionManager {
       @Nullable DrmSessionEventListener.EventDispatcher eventDispatcher, Format format) {
     verifyPlaybackThread(/* allowBeforeSetPlayer= */ false);
     checkState(prepareCallsCount > 0);
-    checkStateNotNull(playbackLooper);
+    checkNotNull(playbackLooper);
     return acquireSession(
         playbackLooper,
         eventDispatcher,

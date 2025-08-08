@@ -15,8 +15,8 @@
  */
 package androidx.media3.extractor.ogg;
 
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.castNonNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -131,7 +131,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
   @EnsuresNonNull({"trackOutput", "extractorOutput"})
   private void assertInitialized() {
-    checkStateNotNull(trackOutput);
+    checkNotNull(trackOutput);
     castNonNull(extractorOutput);
   }
 
@@ -206,7 +206,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     }
 
     if (!seekMapSet) {
-      SeekMap seekMap = checkStateNotNull(oggSeeker.createSeekMap());
+      SeekMap seekMap = checkNotNull(oggSeeker.createSeekMap());
       extractorOutput.seekMap(seekMap);
       trackOutput.durationUs(seekMap.getDurationUs());
       seekMapSet = true;

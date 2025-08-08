@@ -16,7 +16,6 @@
 package androidx.media3.effect;
 
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.GlUtil.getDefaultEglDisplay;
 import static androidx.media3.common.util.Util.castNonNull;
 import static androidx.media3.effect.DebugTraceUtil.COMPONENT_VFP;
@@ -767,7 +766,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
   @Override
   public boolean registerInputFrame() {
     checkState(!inputStreamEnded);
-    checkStateNotNull(
+    checkNotNull(
         nextInputFrameInfo, "registerInputStream must be called before registering input frames");
     if (!inputStreamRegisteredCondition.isOpen() || released) {
       return false;

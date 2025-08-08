@@ -15,7 +15,6 @@
  */
 package androidx.media3.exoplayer.rtsp;
 
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.exoplayer.rtsp.RtspMessageChannel.DEFAULT_RTSP_PORT;
 import static androidx.media3.exoplayer.rtsp.RtspRequest.METHOD_ANNOUNCE;
 import static androidx.media3.exoplayer.rtsp.RtspRequest.METHOD_DESCRIBE;
@@ -434,7 +433,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
 
     public void retryLastRequest() {
-      checkStateNotNull(lastRequest);
+      checkNotNull(lastRequest);
 
       Multimap<String, String> headersMultiMap = lastRequest.headers.asMultiMap();
       Map<String, String> lastRequestHeaders = new HashMap<>();
@@ -474,7 +473,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       RtspHeaders.Builder headersBuilder = new RtspHeaders.Builder(userAgent, sessionId, cSeq++);
 
       if (rtspAuthenticationInfo != null) {
-        checkStateNotNull(rtspAuthUserInfo);
+        checkNotNull(rtspAuthUserInfo);
         try {
           headersBuilder.add(
               RtspHeaders.AUTHORIZATION,

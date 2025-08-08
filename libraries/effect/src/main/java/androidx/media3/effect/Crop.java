@@ -15,8 +15,8 @@
  */
 package androidx.media3.effect;
 
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.graphics.Matrix;
 import androidx.media3.common.util.GlUtil;
@@ -91,13 +91,13 @@ public final class Crop implements MatrixTransformation {
 
   @Override
   public Matrix getMatrix(long presentationTimeUs) {
-    return checkStateNotNull(transformationMatrix, "configure must be called first");
+    return checkNotNull(transformationMatrix, "configure must be called first");
   }
 
   @Override
   public boolean isNoOp(int inputWidth, int inputHeight) {
     Size outputSize = configure(inputWidth, inputHeight);
-    return checkStateNotNull(transformationMatrix).isIdentity()
+    return checkNotNull(transformationMatrix).isIdentity()
         && inputWidth == outputSize.getWidth()
         && inputHeight == outputSize.getHeight();
   }

@@ -20,7 +20,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
 import android.net.Uri;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DataSourceInputStream;
@@ -92,7 +91,7 @@ public final class CacheAsserts {
 
     @CanIgnoreReturnValue
     public RequestSet useBoundedDataSpecFor(String uriString) {
-      FakeData data = Assertions.checkStateNotNull(fakeDataSet.getData(uriString));
+      FakeData data = checkNotNull(fakeDataSet.getData(uriString));
       for (int i = 0; i < dataSpecs.length; i++) {
         DataSpec spec = dataSpecs[i];
         if (checkNotNull(spec.uri.getPath()).equals(uriString)) {

@@ -31,7 +31,6 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.Timeline.Period;
 import androidx.media3.common.TrackGroup;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSpec;
@@ -549,7 +548,7 @@ public class FakeMediaSource extends BaseMediaSource {
   }
 
   private void finishSourcePreparation(boolean sendManifestLoadEvents) {
-    refreshSourceInfo(Assertions.checkStateNotNull(timeline));
+    refreshSourceInfo(checkNotNull(timeline));
     if (!timeline.isEmpty() && sendManifestLoadEvents) {
       MediaLoadData mediaLoadData =
           new MediaLoadData(

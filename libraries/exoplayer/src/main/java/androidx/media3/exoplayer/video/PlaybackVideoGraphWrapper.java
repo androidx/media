@@ -17,7 +17,6 @@ package androidx.media3.exoplayer.video;
 
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.VideoFrameProcessor.DROP_OUTPUT_FRAME;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.contains;
 import static androidx.media3.common.util.Util.getMaxPendingFramesCountForMediaCodecDecoders;
 import static androidx.media3.exoplayer.video.VideoSink.INPUT_TYPE_SURFACE;
@@ -335,7 +334,7 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
   private PlaybackVideoGraphWrapper(Builder builder) {
     context = builder.context;
     pendingStreamChanges = new TimedValueQueue<>();
-    videoGraphFactory = checkStateNotNull(builder.videoGraphFactory);
+    videoGraphFactory = checkNotNull(builder.videoGraphFactory);
     inputVideoSinks = new SparseArray<>();
     compositionEffects = ImmutableList.of();
     compositorSettings = VideoCompositorSettings.DEFAULT;
@@ -353,12 +352,12 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
         new VideoSink.VideoFrameHandler() {
           @Override
           public void render(long renderTimestampNs) {
-            checkStateNotNull(videoGraph).renderOutputFrame(renderTimestampNs);
+            checkNotNull(videoGraph).renderOutputFrame(renderTimestampNs);
           }
 
           @Override
           public void skip() {
-            checkStateNotNull(videoGraph).renderOutputFrame(DROP_OUTPUT_FRAME);
+            checkNotNull(videoGraph).renderOutputFrame(DROP_OUTPUT_FRAME);
           }
         };
     listeners = new CopyOnWriteArraySet<>();
@@ -588,7 +587,7 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
       } catch (GlException e) {
         throw new VideoSink.VideoSinkException(e, sourceFormat);
       }
-      handler = clock.createHandler(checkStateNotNull(Looper.myLooper()), /* callback= */ null);
+      handler = clock.createHandler(checkNotNull(Looper.myLooper()), /* callback= */ null);
       try {
         // TODO: b/412585856 - Allow setting CompositorSetting and CompositionEffects dynamically.
         videoGraph =
@@ -696,7 +695,7 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
     hasSignaledEndOfVideoGraphOutputStream = false;
     // Handle pending video graph callbacks to ensure video size changes reach the video render
     // control.
-    checkStateNotNull(handler).post(() -> pendingFlushCount--);
+    checkNotNull(handler).post(() -> pendingFlushCount--);
   }
 
   private void joinPlayback(boolean renderNextFrameImmediately) {
@@ -1127,7 +1126,7 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
           () ->
               currentListener.onError(
                   new VideoSinkException(
-                      videoFrameProcessingException, checkStateNotNull(this.inputFormat))));
+                      videoFrameProcessingException, checkNotNull(this.inputFormat))));
     }
 
     // Private methods

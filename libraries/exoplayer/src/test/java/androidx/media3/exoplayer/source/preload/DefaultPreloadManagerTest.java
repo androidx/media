@@ -718,7 +718,7 @@ public class DefaultPreloadManagerTest {
 
   @Test
   public void
-      invalidate_cachingWithoutCacheNorCustomMediaSourceFactoryConfigured_throwsIllegalStateException() {
+      invalidate_cachingWithoutCacheNorCustomMediaSourceFactoryConfigured_throwsException() {
     TargetPreloadStatusControl<Integer, DefaultPreloadManager.PreloadStatus>
         targetPreloadStatusControl =
             rankingData ->
@@ -735,7 +735,7 @@ public class DefaultPreloadManagerTest {
         MediaItem.fromUri("asset://android_asset/media/mp4/long_1080p_lowbitrate.mp4");
     preloadManager.add(mediaItem, /* rankingData= */ 0);
 
-    assertThrows(IllegalStateException.class, preloadManager::invalidate);
+    assertThrows(NullPointerException.class, preloadManager::invalidate);
   }
 
   @Test

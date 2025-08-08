@@ -15,7 +15,6 @@
  */
 package androidx.media3.exoplayer.source.preload;
 
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.postOrRun;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -646,7 +645,7 @@ public abstract class BasePreloadManager<T, PreloadStatusT> {
     public synchronized MediaSourceHolder get(MediaSource mediaSource) {
       MediaItem mediaItem = mediaSourceToMediaItem.get(mediaSource);
       if (mediaItem != null) {
-        return checkStateNotNull(mediaItemToMediaSourceHolder.get(mediaItem));
+        return checkNotNull(mediaItemToMediaSourceHolder.get(mediaItem));
       }
       return null;
     }
@@ -656,7 +655,7 @@ public abstract class BasePreloadManager<T, PreloadStatusT> {
       if (mediaSourceHolder == null) {
         return false;
       }
-      checkStateNotNull(mediaSourceToMediaItem.remove(mediaSourceHolder.getMediaSource()));
+      checkNotNull(mediaSourceToMediaItem.remove(mediaSourceHolder.getMediaSource()));
       return true;
     }
 
@@ -665,7 +664,7 @@ public abstract class BasePreloadManager<T, PreloadStatusT> {
       if (mediaItem == null) {
         return false;
       }
-      checkStateNotNull(mediaItemToMediaSourceHolder.remove(mediaItem));
+      checkNotNull(mediaItemToMediaSourceHolder.remove(mediaItem));
       return true;
     }
 

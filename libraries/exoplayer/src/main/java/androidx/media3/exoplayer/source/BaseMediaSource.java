@@ -15,7 +15,6 @@
  */
 package androidx.media3.exoplayer.source;
 
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -183,7 +182,7 @@ public abstract class BaseMediaSource implements MediaSource {
    * prepared} or has {@linkplain #setPlayerId a player ID set}.
    */
   protected final PlayerId getPlayerId() {
-    return checkStateNotNull(playerId);
+    return checkNotNull(playerId);
   }
 
   /**

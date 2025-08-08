@@ -24,7 +24,6 @@ import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaLibraryInfo;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.lang.annotation.Documented;
@@ -229,7 +228,7 @@ public final class DataSpec {
      * @throws IllegalStateException If {@link #setUri} has not been called.
      */
     public DataSpec build() {
-      Assertions.checkStateNotNull(uri, "The uri must be set.");
+      checkNotNull(uri, "The uri must be set.");
       return new DataSpec(
           uri,
           uriPositionOffset,

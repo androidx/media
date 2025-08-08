@@ -22,7 +22,6 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DataSpec;
@@ -166,7 +165,7 @@ public final class DashUtil {
     } finally {
       chunkExtractor.release();
     }
-    return Assertions.checkStateNotNull(chunkExtractor.getSampleFormats())[0];
+    return checkNotNull(chunkExtractor.getSampleFormats())[0];
   }
 
   /**

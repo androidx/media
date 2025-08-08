@@ -17,7 +17,6 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.ColorInfo.isTransferHdr;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.exoplayer.mediacodec.MediaCodecUtil.getAlternativeCodecMimeType;
 import static androidx.media3.transformer.EncoderUtil.getSupportedEncoders;
 import static androidx.media3.transformer.EncoderUtil.getSupportedEncodersForHdrEditing;
@@ -140,7 +139,7 @@ import java.util.List;
     try {
       if (!muxerWrapper.writeSample(
           outputTrackType,
-          checkStateNotNull(muxerInputBuffer.data),
+          checkNotNull(muxerInputBuffer.data),
           muxerInputBuffer.isKeyFrame(),
           muxerInputBuffer.timeUs)) {
         return false;

@@ -15,7 +15,6 @@
  */
 package androidx.media3.transformer;
 
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.percentInt;
 import static androidx.media3.effect.DebugTraceUtil.COMPONENT_ASSET_LOADER;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_INPUT_FORMAT;
@@ -340,7 +339,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       if (reportedTrackCount.get() == 1) {
         if (forceAudioTrack && trackType == C.TRACK_TYPE_VIDEO) {
           SampleConsumer wrappedAudioSampleConsumer =
-              checkStateNotNull(
+              checkNotNull(
                   sequenceAssetLoaderListener.onOutputFormat(
                       FORCE_AUDIO_TRACK_FORMAT
                           .buildUpon()
@@ -352,8 +351,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               new SampleConsumerWrapper(wrappedAudioSampleConsumer, C.TRACK_TYPE_AUDIO));
         } else if (forceVideoTrack && trackType == C.TRACK_TYPE_AUDIO) {
           SampleConsumer wrappedVideoSampleConsumer =
-              checkStateNotNull(
-                  sequenceAssetLoaderListener.onOutputFormat(BLANK_IMAGE_BITMAP_FORMAT));
+              checkNotNull(sequenceAssetLoaderListener.onOutputFormat(BLANK_IMAGE_BITMAP_FORMAT));
           sampleConsumersByTrackType.put(
               C.TRACK_TYPE_VIDEO,
               new SampleConsumerWrapper(wrappedVideoSampleConsumer, C.TRACK_TYPE_VIDEO));
@@ -372,8 +370,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                   + " tracks, then"
                   + " EditedMediaItemSequence.Builder.experimentalSetForceVideoTrack() needs to"
                   + " be set to true.";
-      sampleConsumer =
-          checkStateNotNull(sampleConsumersByTrackType.get(trackType), missingTrackMessage);
+      sampleConsumer = checkNotNull(sampleConsumersByTrackType.get(trackType), missingTrackMessage);
     }
     onMediaItemChanged(trackType, format);
     if (reportedTrackCount.get() == 1 && sampleConsumersByTrackType.size() == 2) {
@@ -506,7 +503,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     @Override
     public boolean queueInputBuffer() {
-      DecoderInputBuffer inputBuffer = checkStateNotNull(sampleConsumer.getInputBuffer());
+      DecoderInputBuffer inputBuffer = checkNotNull(sampleConsumer.getInputBuffer());
       long globalTimestampUs = totalDurationUs + inputBuffer.timeUs;
       if (isLooping && (globalTimestampUs >= maxSequenceDurationUs || audioLoopingEnded)) {
         if (isMaxSequenceDurationUsFinal && !audioLoopingEnded) {

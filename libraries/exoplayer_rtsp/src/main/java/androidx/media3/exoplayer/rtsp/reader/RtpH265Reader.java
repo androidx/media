@@ -15,7 +15,6 @@
  */
 package androidx.media3.exoplayer.rtsp.reader;
 
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.exoplayer.rtsp.reader.RtpReaderUtils.toSampleTimeUs;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -98,7 +97,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     // NAL Unit Header.type (RFC7798 Section 1.1.4).
     int payloadType = (data.getData()[0] >> 1) & 0x3F;
 
-    checkStateNotNull(trackOutput);
+    checkNotNull(trackOutput);
     if (payloadType >= 0 && payloadType < RTP_PACKET_TYPE_AP) {
       processSingleNalUnitPacket(data);
     } else if (payloadType == RTP_PACKET_TYPE_AP) {

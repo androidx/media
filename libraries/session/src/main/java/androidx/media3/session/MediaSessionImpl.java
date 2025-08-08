@@ -27,7 +27,6 @@ import static android.view.KeyEvent.KEYCODE_MEDIA_SKIP_FORWARD;
 import static android.view.KeyEvent.KEYCODE_MEDIA_STOP;
 import static androidx.media3.common.Player.COMMAND_CHANGE_MEDIA_ITEMS;
 import static androidx.media3.common.Player.COMMAND_SET_MEDIA_ITEM;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.postOrRun;
 import static androidx.media3.session.MediaSessionStub.UNKNOWN_SEQUENCE_NUMBER;
 import static androidx.media3.session.SessionError.ERROR_SESSION_DISCONNECTED;
@@ -277,7 +276,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       @Nullable PlayerWrapper oldPlayerWrapper, PlayerWrapper newPlayerWrapper) {
     playerWrapper = newPlayerWrapper;
     if (oldPlayerWrapper != null) {
-      oldPlayerWrapper.removeListener(checkStateNotNull(this.playerListener));
+      oldPlayerWrapper.removeListener(checkNotNull(this.playerListener));
     }
     PlayerListener playerListener = new PlayerListener(this, newPlayerWrapper);
     newPlayerWrapper.addListener(playerListener);
@@ -766,7 +765,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
             MediaUtils.intersect(
                 controllersManager.getAvailablePlayerCommands(controller),
                 getPlayerWrapper().getAvailableCommands());
-        checkStateNotNull(controller.getControllerCb())
+        checkNotNull(controller.getControllerCb())
             .onPlayerInfoChanged(
                 seq,
                 playerInfoInErrorStateForController == null

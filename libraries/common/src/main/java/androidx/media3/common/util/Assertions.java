@@ -19,6 +19,7 @@ import android.os.Looper;
 import android.text.TextUtils;
 import androidx.annotation.Nullable;
 import com.google.common.base.Preconditions;
+import com.google.errorprone.annotations.InlineMe;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.dataflow.qual.Pure;
 
@@ -98,41 +99,29 @@ public final class Assertions {
   }
 
   /**
-   * Throws {@link IllegalStateException} if {@code reference} is null.
-   *
-   * @param <T> The type of the reference.
-   * @param reference The reference.
-   * @return The non-null reference that was validated.
-   * @throws IllegalStateException If {@code reference} is null.
+   * @deprecated Use {@link Preconditions#checkNotNull} instead.
    */
-  @SuppressWarnings({"nullness:contracts.postcondition", "nullness:return"})
+  @Deprecated
   @EnsuresNonNull({"#1"})
   @Pure
+  @InlineMe(
+      replacement = "Preconditions.checkNotNull(reference)",
+      imports = "com.google.common.base.Preconditions")
   public static <T> T checkStateNotNull(@Nullable T reference) {
-    if (reference == null) {
-      throw new IllegalStateException();
-    }
-    return reference;
+    return Preconditions.checkNotNull(reference);
   }
 
   /**
-   * Throws {@link IllegalStateException} if {@code reference} is null.
-   *
-   * @param <T> The type of the reference.
-   * @param reference The reference.
-   * @param errorMessage The exception message to use if the check fails. The message is converted
-   *     to a string using {@link String#valueOf(Object)}.
-   * @return The non-null reference that was validated.
-   * @throws IllegalStateException If {@code reference} is null.
+   * @deprecated Use {@link Preconditions#checkNotNull} instead.
    */
-  @SuppressWarnings({"nullness:contracts.postcondition", "nullness:return"})
+  @Deprecated
   @EnsuresNonNull({"#1"})
   @Pure
+  @InlineMe(
+      replacement = "Preconditions.checkNotNull(reference, errorMessage)",
+      imports = "com.google.common.base.Preconditions")
   public static <T> T checkStateNotNull(@Nullable T reference, Object errorMessage) {
-    if (reference == null) {
-      throw new IllegalStateException(String.valueOf(errorMessage));
-    }
-    return reference;
+    return Preconditions.checkNotNull(reference, errorMessage);
   }
 
   /**

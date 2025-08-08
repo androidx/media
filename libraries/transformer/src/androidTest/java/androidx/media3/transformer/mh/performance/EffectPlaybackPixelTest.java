@@ -17,7 +17,6 @@
 package androidx.media3.transformer.mh.performance;
 
 import static androidx.media3.common.Player.STATE_ENDED;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.createArgb8888BitmapFromRgba8888Image;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.createArgb8888BitmapFromRgba8888ImageBuffer;
@@ -128,7 +127,7 @@ public class EffectPlaybackPixelTest {
     instrumentation.runOnMainSync(
         () -> {
           player = new ExoPlayer.Builder(ApplicationProvider.getApplicationContext()).build();
-          checkStateNotNull(outputImageReader);
+          checkNotNull(outputImageReader);
           outputImageReader.setOnImageAvailableListener(
               imageReader -> {
                 try (Image image = imageReader.acquireLatestImage()) {
@@ -205,7 +204,7 @@ public class EffectPlaybackPixelTest {
                       })
                   .build();
 
-          checkStateNotNull(outputImageReader);
+          checkNotNull(outputImageReader);
           outputImageReader.setOnImageAvailableListener(
               imageReader -> {
                 try (Image image = imageReader.acquireNextImage()) {
@@ -313,7 +312,7 @@ public class EffectPlaybackPixelTest {
                       })
                   .build();
 
-          checkStateNotNull(outputImageReader);
+          checkNotNull(outputImageReader);
           outputImageReader.setOnImageAvailableListener(
               imageReader -> {
                 try (Image image = imageReader.acquireNextImage()) {
@@ -460,7 +459,7 @@ public class EffectPlaybackPixelTest {
                       })
                   .build();
 
-          checkStateNotNull(outputImageReader);
+          checkNotNull(outputImageReader);
           outputImageReader.setOnImageAvailableListener(
               imageReader -> {
                 try (Image image = imageReader.acquireNextImage()) {

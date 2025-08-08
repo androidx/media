@@ -17,7 +17,6 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.audio.AudioProcessor.EMPTY_BUFFER;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.decoder.DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_DIRECT;
 import static androidx.media3.transformer.AudioGraph.isInputAudioFormatValid;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -387,12 +386,12 @@ import java.util.concurrent.atomic.AtomicLong;
     // DecoderInputBuffer. Therefore it must be consumed by the downstream component before it can
     // be used for fresh input.
     if (currentInputBufferBeingOutput != null) {
-      ByteBuffer data = checkStateNotNull(currentInputBufferBeingOutput.data);
+      ByteBuffer data = checkNotNull(currentInputBufferBeingOutput.data);
       if (data.hasRemaining()) {
         // Currently output data has not been consumed, return it.
         return data;
       }
-      clearAndAddToAvailableBuffers(checkStateNotNull(currentInputBufferBeingOutput));
+      clearAndAddToAvailableBuffers(checkNotNull(currentInputBufferBeingOutput));
       currentInputBufferBeingOutput = null;
     }
 
@@ -461,7 +460,7 @@ import java.util.concurrent.atomic.AtomicLong;
    * through {@link #getOutput()}.
    */
   private void configureForPendingMediaItemChange() throws UnhandledAudioFormatException {
-    MediaItemChange pendingChange = checkStateNotNull(pendingMediaItemChanges.poll());
+    MediaItemChange pendingChange = checkNotNull(pendingMediaItemChanges.poll());
 
     currentItemInputBytesRead = 0;
     isCurrentItemLast = pendingChange.isLast;

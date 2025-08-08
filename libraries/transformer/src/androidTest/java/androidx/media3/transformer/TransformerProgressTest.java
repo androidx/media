@@ -16,13 +16,13 @@
 package androidx.media3.transformer;
 
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.transformer.AndroidTestUtil.MP4_TRIM_OPTIMIZATION;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_AVAILABLE;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_NOT_STARTED;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_UNAVAILABLE;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_WAITING_FOR_AVAILABILITY;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
@@ -142,7 +142,7 @@ public class TransformerProgressTest {
     while (!completed.get()) {
       instrumentation.runOnMainSync(
           () -> {
-            Transformer transformer = checkStateNotNull(transformerRef.get());
+            Transformer transformer = checkNotNull(transformerRef.get());
             ProgressHolder progressHolder = new ProgressHolder();
             if (transformer.getProgress(progressHolder) == PROGRESS_STATE_AVAILABLE
                 && (progresses.isEmpty()

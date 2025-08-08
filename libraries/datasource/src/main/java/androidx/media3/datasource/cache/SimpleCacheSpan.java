@@ -20,7 +20,6 @@ import static com.google.common.base.Preconditions.checkState;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Util;
 import java.io.File;
 import java.util.regex.Matcher;
@@ -171,7 +170,7 @@ import java.util.regex.Pattern;
 
     File newCacheFile =
         getCacheFile(
-            Assertions.checkStateNotNull(file.getParentFile()),
+            checkNotNull(file.getParentFile()),
             index.assignIdForKey(key),
             Long.parseLong(checkNotNull(matcher.group(2))),
             Long.parseLong(checkNotNull(matcher.group(3))));

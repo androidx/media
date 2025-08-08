@@ -15,8 +15,8 @@
  */
 package androidx.media3.exoplayer.audio;
 
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
@@ -129,9 +129,9 @@ public class WaveformAudioBufferSink implements TeeAudioProcessor.AudioBufferSin
 
   @Override
   public void handleBuffer(ByteBuffer buffer) {
-    checkStateNotNull(inputAudioFormat);
-    checkStateNotNull(mixingAudioFormat);
-    checkStateNotNull(channelMixingMatrix);
+    checkNotNull(inputAudioFormat);
+    checkNotNull(mixingAudioFormat);
+    checkNotNull(channelMixingMatrix);
     while (buffer.hasRemaining()) {
       mixingBuffer.rewind();
       AudioMixingUtil.mix(

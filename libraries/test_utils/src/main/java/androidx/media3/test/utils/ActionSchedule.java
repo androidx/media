@@ -16,6 +16,7 @@
 package androidx.media3.test.utils;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.os.Looper;
 import android.view.Surface;
@@ -26,7 +27,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.ExoPlaybackException;
@@ -670,7 +670,7 @@ public final class ActionSchedule {
     @Override
     public final void handleMessage(
         @Renderer.MessageType int messageType, @Nullable Object message) {
-      handleMessage(Assertions.checkStateNotNull(player), messageType, message);
+      handleMessage(checkNotNull(player), messageType, message);
       if (callback != null) {
         hasArrived = true;
         callback.onMessageArrived();
@@ -696,7 +696,7 @@ public final class ActionSchedule {
 
     @Override
     public final void run() {
-      run(Assertions.checkStateNotNull(player));
+      run(checkNotNull(player));
     }
 
     /** Sets the player to be passed to {@link #run(ExoPlayer)} . */
@@ -776,10 +776,10 @@ public final class ActionSchedule {
     @Override
     public void run() {
       action.doActionAndScheduleNext(
-          Assertions.checkStateNotNull(player),
-          Assertions.checkStateNotNull(trackSelector),
+          checkNotNull(player),
+          checkNotNull(trackSelector),
           surface,
-          Assertions.checkStateNotNull(mainHandler),
+          checkNotNull(mainHandler),
           next);
       if (repeatIntervalMs != C.TIME_UNSET) {
         mainHandler.postDelayed(

@@ -15,7 +15,6 @@
  */
 package androidx.media3.exoplayer;
 
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -118,7 +117,7 @@ public final class MetadataRetriever implements AutoCloseable {
     /** Builds the {@link MetadataRetriever} instance. */
     public MetadataRetriever build() {
       if (mediaSourceFactory == null) {
-        checkStateNotNull(context, "Context must be provided if MediaSource.Factory is not set.");
+        checkNotNull(context, "Context must be provided if MediaSource.Factory is not set.");
         ExtractorsFactory extractorsFactory =
             new DefaultExtractorsFactory()
                 .setMp4ExtractorFlags(

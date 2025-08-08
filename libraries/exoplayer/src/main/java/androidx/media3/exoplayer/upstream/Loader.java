@@ -28,7 +28,6 @@ import android.os.SystemClock;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.TraceUtil;
 import androidx.media3.common.util.UnstableApi;
@@ -294,7 +293,7 @@ public final class Loader implements LoaderErrorThrower {
    */
   public <T extends Loadable> long startLoading(
       T loadable, Callback<T> callback, int defaultMinRetryCount) {
-    Looper looper = Assertions.checkStateNotNull(Looper.myLooper());
+    Looper looper = checkNotNull(Looper.myLooper());
     fatalError = null;
     long startTimeMs = SystemClock.elapsedRealtime();
     new LoadTask<>(looper, loadable, callback, defaultMinRetryCount, startTimeMs).start(0);
@@ -312,7 +311,7 @@ public final class Loader implements LoaderErrorThrower {
    * @throws IllegalStateException If the loader is not currently loading.
    */
   public void cancelLoading() {
-    Assertions.checkStateNotNull(currentTask).cancel(false);
+    checkNotNull(currentTask).cancel(false);
   }
 
   /** Releases the loader. This method should be called when the loader is no longer required. */

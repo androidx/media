@@ -15,7 +15,7 @@
  */
 package androidx.media3.exoplayer.video;
 
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import android.graphics.Bitmap;
@@ -157,7 +157,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Override
   public Surface getInputSurface() {
-    return checkStateNotNull(outputSurface);
+    return checkNotNull(outputSurface);
   }
 
   @Override

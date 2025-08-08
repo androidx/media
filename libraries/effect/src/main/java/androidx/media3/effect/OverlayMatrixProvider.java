@@ -15,7 +15,7 @@
  */
 package androidx.media3.effect;
 
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.opengl.Matrix;
 import android.util.Pair;
@@ -71,7 +71,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         backgroundFrameAnchor.second,
         /* z= */ 0f);
 
-    checkStateNotNull(backgroundSize);
+    checkNotNull(backgroundSize);
     Matrix.scaleM(
         aspectRatioMatrix,
         MATRIX_OFFSET,

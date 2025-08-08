@@ -15,7 +15,6 @@
  */
 package androidx.media3.extractor.mkv;
 
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -891,7 +890,7 @@ public class MatroskaExtractor implements Extractor {
         }
         break;
       case ID_TRACK_ENTRY:
-        Track currentTrack = checkStateNotNull(this.currentTrack);
+        Track currentTrack = checkNotNull(this.currentTrack);
         if (currentTrack.codecId == null) {
           throw ParserException.createForMalformedContainer(
               "CodecId is missing in TrackEntry element", /* cause= */ null);
@@ -2035,7 +2034,7 @@ public class MatroskaExtractor implements Extractor {
 
   @EnsuresNonNull("extractorOutput")
   private void assertInitialized() {
-    checkStateNotNull(extractorOutput);
+    checkNotNull(extractorOutput);
   }
 
   private void maybeEndTracks() {

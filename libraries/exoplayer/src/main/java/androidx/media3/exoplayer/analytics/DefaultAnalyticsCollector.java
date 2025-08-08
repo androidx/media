@@ -15,7 +15,6 @@
  */
 package androidx.media3.exoplayer.analytics;
 
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -142,7 +141,7 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
   public void release() {
     // Release lazily so that all events that got triggered as part of player.release()
     // are still delivered to all listeners and onPlayerReleased() is delivered last.
-    checkStateNotNull(handler).post(this::releaseInternal);
+    checkNotNull(handler).post(this::releaseInternal);
   }
 
   @Override

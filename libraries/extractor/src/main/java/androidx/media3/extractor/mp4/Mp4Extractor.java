@@ -19,7 +19,6 @@ import static androidx.media3.common.C.AUXILIARY_TRACK_TYPE_DEPTH_INVERSE;
 import static androidx.media3.common.C.AUXILIARY_TRACK_TYPE_DEPTH_LINEAR;
 import static androidx.media3.common.C.AUXILIARY_TRACK_TYPE_ORIGINAL;
 import static androidx.media3.common.C.AUXILIARY_TRACK_TYPE_UNDEFINED;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.container.MdtaMetadataEntry.AUXILIARY_TRACKS_SAMPLES_NOT_INTERLEAVED;
 import static androidx.media3.extractor.mp4.BoxParser.parseTraks;
 import static androidx.media3.extractor.mp4.MetadataUtil.findMdtaMetadataEntryWithKey;
@@ -690,7 +689,7 @@ public final class Mp4Extractor implements Extractor, SeekMap {
     if (meta != null) {
       mdtaMetadata = BoxParser.parseMdtaFromMeta(meta);
       if (readingAuxiliaryTracks) {
-        checkStateNotNull(mdtaMetadata);
+        checkNotNull(mdtaMetadata);
         maybeSetDefaultSampleOffsetForAuxiliaryTracks(mdtaMetadata);
         auxiliaryTrackTypesForAuxiliaryTracks =
             getAuxiliaryTrackTypesForAuxiliaryTracks(mdtaMetadata);
@@ -853,7 +852,7 @@ public final class Mp4Extractor implements Extractor, SeekMap {
   private List<@C.AuxiliaryTrackType Integer> getAuxiliaryTrackTypesForAuxiliaryTracks(
       Metadata metadata) {
     MdtaMetadataEntry trackTypesMetadata =
-        checkStateNotNull(
+        checkNotNull(
             findMdtaMetadataEntryWithKey(metadata, MdtaMetadataEntry.KEY_AUXILIARY_TRACKS_MAP));
     List<Integer> auxiliaryTrackTypesFromMap = trackTypesMetadata.getAuxiliaryTrackTypesFromMap();
     List<@C.AuxiliaryTrackType Integer> auxiliaryTrackTypes =
@@ -1079,8 +1078,7 @@ public final class Mp4Extractor implements Extractor, SeekMap {
         continue;
       }
       long sampleOffset = track.sampleTable.offsets[sampleIndex];
-      long sampleAccumulatedBytes =
-          checkStateNotNull(accumulatedSampleSizes)[trackIndex][sampleIndex];
+      long sampleAccumulatedBytes = checkNotNull(accumulatedSampleSizes)[trackIndex][sampleIndex];
       long skipAmount = sampleOffset - inputPosition;
       boolean requiresReload = skipAmount < 0 || skipAmount >= RELOAD_MINIMUM_SEEK_DISTANCE;
       if ((!requiresReload && preferredRequiresReload)

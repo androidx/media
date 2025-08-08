@@ -17,7 +17,6 @@ package androidx.media3.exoplayer.video;
 
 import static android.os.Build.VERSION.SDK_INT;
 import static android.view.Display.DEFAULT_DISPLAY;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.DISCARD_REASON_MAX_INPUT_SIZE_EXCEEDED;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.DISCARD_REASON_VIDEO_MAX_RESOLUTION_EXCEEDED;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.REUSE_RESULT_NO;
@@ -1155,7 +1154,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         if (outputResolution.getWidth() != 0 && outputResolution.getHeight() != 0) {
           this.outputResolution = outputResolution;
           if (videoSink != null) {
-            videoSink.setOutputSurfaceInfo(checkStateNotNull(displaySurface), outputResolution);
+            videoSink.setOutputSurfaceInfo(checkNotNull(displaySurface), outputResolution);
           }
         }
         break;
@@ -1852,7 +1851,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       case VideoFrameReleaseControl.FRAME_RELEASE_IGNORE:
         return false;
       case VideoFrameReleaseControl.FRAME_RELEASE_SCHEDULED:
-        releaseFrame(checkStateNotNull(codec), bufferIndex, presentationTimeUs, format);
+        releaseFrame(checkNotNull(codec), bufferIndex, presentationTimeUs, format);
         return true;
       default:
         throw new IllegalStateException(String.valueOf(frameReleaseAction));

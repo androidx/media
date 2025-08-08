@@ -39,7 +39,6 @@ import static androidx.media3.common.Player.COMMAND_SET_TRACK_SELECTION_PARAMETE
 import static androidx.media3.common.Player.COMMAND_SET_VIDEO_SURFACE;
 import static androidx.media3.common.Player.COMMAND_SET_VOLUME;
 import static androidx.media3.common.Player.COMMAND_STOP;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.postOrRun;
 import static androidx.media3.common.util.Util.postOrRunWithCompletion;
 import static androidx.media3.common.util.Util.transformFutureAsync;
@@ -160,7 +159,7 @@ import java.util.concurrent.ExecutionException;
       int sequenceNumber,
       SessionResult result) {
     try {
-      checkStateNotNull(controller.getControllerCb()).onSessionResult(sequenceNumber, result);
+      checkNotNull(controller.getControllerCb()).onSessionResult(sequenceNumber, result);
       // Make sure the session sends out a new PlayerInfo update in any case, even if the controller
       // command we just handled didn't change anything. This is needed to end any masking states
       // in the controllers waiting to acknowledge this command.
@@ -270,7 +269,7 @@ import java.util.concurrent.ExecutionException;
   private static void sendLibraryResult(
       ControllerInfo controller, int sequenceNumber, LibraryResult<?> result) {
     try {
-      checkStateNotNull(controller.getControllerCb()).onLibraryResult(sequenceNumber, result);
+      checkNotNull(controller.getControllerCb()).onLibraryResult(sequenceNumber, result);
     } catch (RemoteException e) {
       Log.w(TAG, "Failed to send result to browser " + controller, e);
     }
@@ -489,8 +488,7 @@ import java.util.concurrent.ExecutionException;
               return;
             }
             IBinder callbackBinder =
-                checkStateNotNull((Controller2Cb) controllerInfo.getControllerCb())
-                    .getCallbackBinder();
+                checkNotNull((Controller2Cb) controllerInfo.getControllerCb()).getCallbackBinder();
             MediaSession.ConnectionResult connectionResult =
                 sessionImpl.onConnectOnHandler(controllerInfo);
             // Don't reject connection for the request from trusted app.

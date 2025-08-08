@@ -15,7 +15,6 @@
  */
 package androidx.media3.session;
 
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.castNonNull;
 import static androidx.media3.common.util.Util.postOrRun;
 import static androidx.media3.session.LegacyConversions.extractMaxCommandsForMediaItemFromRootHints;
@@ -334,7 +333,7 @@ import java.util.concurrent.atomic.AtomicReference;
             result.sendResult(/* result= */ null);
             return;
           }
-          BrowserLegacyCb cb = (BrowserLegacyCb) checkStateNotNull(controller.getControllerCb());
+          BrowserLegacyCb cb = (BrowserLegacyCb) checkNotNull(controller.getControllerCb());
           cb.registerSearchRequest(controller, query, extras, result);
           @Nullable
           LibraryParams params =

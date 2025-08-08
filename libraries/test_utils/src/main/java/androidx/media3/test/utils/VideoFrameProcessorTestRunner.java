@@ -18,7 +18,6 @@ package androidx.media3.test.utils;
 import static androidx.media3.common.VideoFrameProcessor.INPUT_TYPE_BITMAP;
 import static androidx.media3.common.VideoFrameProcessor.INPUT_TYPE_SURFACE;
 import static androidx.media3.common.VideoFrameProcessor.INPUT_TYPE_TEXTURE_ID;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.createArgb8888BitmapFromRgba8888Image;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.maybeSaveTestBitmap;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
@@ -215,8 +214,8 @@ public final class VideoFrameProcessorTestRunner {
     }
 
     public VideoFrameProcessorTestRunner build() throws VideoFrameProcessingException {
-      checkStateNotNull(testId, "testId must be set.");
-      checkStateNotNull(videoFrameProcessorFactory, "videoFrameProcessorFactory must be set.");
+      checkNotNull(testId, "testId must be set.");
+      checkNotNull(videoFrameProcessorFactory, "videoFrameProcessorFactory must be set.");
 
       return new VideoFrameProcessorTestRunner(
           testId,

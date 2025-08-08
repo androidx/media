@@ -16,7 +16,7 @@
 package androidx.media3.test.utils;
 
 import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.content.Context;
 import android.os.Looper;
@@ -83,7 +83,7 @@ public final class FakeSuitableOutputChecker implements SuitableOutputChecker {
 
   @Override
   public boolean isSelectedOutputSuitableForPlayback() {
-    checkStateNotNull(callback, "SuitableOutputChecker is not enabled");
+    checkNotNull(callback, "SuitableOutputChecker is not enabled");
     return isSelectedOutputSuitableForPlayback;
   }
 

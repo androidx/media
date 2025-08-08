@@ -27,7 +27,6 @@ import android.os.Looper;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.audio.AudioManagerCompat;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.BackgroundThreadStateHandler;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.Log;
@@ -97,7 +96,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     stateHandler.runInBackground(
         () -> {
           audioManager =
-              Assertions.checkStateNotNull(
+              checkNotNull(
                   (AudioManager) applicationContext.getSystemService(Context.AUDIO_SERVICE));
           VolumeChangeReceiver receiver = new VolumeChangeReceiver();
           IntentFilter filter = new IntentFilter(VOLUME_CHANGED_ACTION);

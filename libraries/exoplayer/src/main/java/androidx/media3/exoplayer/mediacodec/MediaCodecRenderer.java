@@ -16,7 +16,6 @@
 package androidx.media3.exoplayer.mediacodec;
 
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.DISCARD_REASON_DRM_SESSION_CHANGED;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.DISCARD_REASON_OPERATING_RATE_CHANGED;
 import static androidx.media3.exoplayer.DecoderReuseEvaluation.DISCARD_REASON_REUSE_NOT_IMPLEMENTED;
@@ -586,8 +585,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
             codecDrmSession != null
                 && (codecDrmSession.getState() == DrmSession.STATE_OPENED
                     || codecDrmSession.getState() == DrmSession.STATE_OPENED_WITH_KEYS)
-                && codecDrmSession.requiresSecureDecoder(
-                    checkStateNotNull(inputFormat.sampleMimeType));
+                && codecDrmSession.requiresSecureDecoder(checkNotNull(inputFormat.sampleMimeType));
         maybeInitCodecWithFallback(mediaCrypto, mediaCryptoRequiresSecureDecoder);
       } catch (DecoderInitializationException e) {
         throw createRendererException(
@@ -1001,7 +999,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   /** Flushes the codec. */
   private void flushCodec() {
     try {
-      checkStateNotNull(codec).flush();
+      checkNotNull(codec).flush();
     } finally {
       resetCodecStateForFlush();
     }

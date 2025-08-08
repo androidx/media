@@ -15,7 +15,6 @@
  */
 package androidx.media3.exoplayer.rtsp.reader;
 
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.castNonNull;
 import static androidx.media3.exoplayer.rtsp.reader.RtpReaderUtils.toSampleTimeUs;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -100,7 +99,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       throw ParserException.createForMalformedManifest(/* message= */ null, e);
     }
 
-    checkStateNotNull(trackOutput);
+    checkNotNull(trackOutput);
     if (rtpH264PacketMode > 0 && rtpH264PacketMode < 24) {
       processSingleNalUnitPacket(data);
     } else if (rtpH264PacketMode == RTP_PACKET_TYPE_STAP_A) {

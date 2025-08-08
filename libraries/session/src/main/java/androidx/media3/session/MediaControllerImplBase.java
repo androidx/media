@@ -16,7 +16,6 @@
 package androidx.media3.session;
 
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.usToMs;
 import static androidx.media3.session.MediaUtils.calculateBufferedPercentage;
 import static androidx.media3.session.MediaUtils.mergePlayerInfo;
@@ -2655,7 +2654,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 
   private boolean requestConnectToSession(Bundle connectionHints) {
     IMediaSession iSession =
-        IMediaSession.Stub.asInterface((IBinder) checkStateNotNull(token.getBinder()));
+        IMediaSession.Stub.asInterface((IBinder) checkNotNull(token.getBinder()));
     int seq = sequencedFutureManager.obtainNextSequenceNumber();
     ConnectionRequest request =
         new ConnectionRequest(

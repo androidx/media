@@ -72,7 +72,6 @@ import androidx.media3.common.Timeline.Period;
 import androidx.media3.common.Tracks;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.text.CueGroup;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.RepeatModeUtil;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.ui.AspectRatioFrameLayout.ResizeMode;
@@ -735,14 +734,14 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
    */
   @UnstableApi
   public void setResizeMode(@ResizeMode int resizeMode) {
-    Assertions.checkStateNotNull(contentFrame);
+    checkNotNull(contentFrame);
     contentFrame.setResizeMode(resizeMode);
   }
 
   /** Returns the {@link ResizeMode}. */
   @UnstableApi
   public @ResizeMode int getResizeMode() {
-    Assertions.checkStateNotNull(contentFrame);
+    checkNotNull(contentFrame);
     return contentFrame.getResizeMode();
   }
 
@@ -1014,7 +1013,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
    */
   @UnstableApi
   public void setControllerShowTimeoutMs(int controllerShowTimeoutMs) {
-    Assertions.checkStateNotNull(controller);
+    checkNotNull(controller);
     this.controllerShowTimeoutMs = controllerShowTimeoutMs;
     if (controller.isFullyVisible()) {
       // Update the controller's timeout if necessary.
@@ -1035,7 +1034,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
    */
   @UnstableApi
   public void setControllerHideOnTouch(boolean controllerHideOnTouch) {
-    Assertions.checkStateNotNull(controller);
+    checkNotNull(controller);
     this.controllerHideOnTouch = controllerHideOnTouch;
     updateContentDescription();
   }
@@ -1096,7 +1095,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
    */
   @UnstableApi
   public void setControllerAnimationEnabled(boolean animationEnabled) {
-    Assertions.checkStateNotNull(controller);
+    checkNotNull(controller);
     controller.setAnimationEnabled(animationEnabled);
   }
 
@@ -1113,7 +1112,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
   @UnstableApi
   public void setControllerVisibilityListener(
       @Nullable PlayerControlView.VisibilityListener listener) {
-    Assertions.checkStateNotNull(controller);
+    checkNotNull(controller);
     if (this.legacyControllerVisibilityListener == listener) {
       return;
     }
@@ -1139,7 +1138,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
    */
   @SuppressWarnings("deprecation") // Calling the deprecated method on PlayerControlView for now.
   public void setFullscreenButtonClickListener(@Nullable FullscreenButtonClickListener listener) {
-    Assertions.checkStateNotNull(controller);
+    checkNotNull(controller);
     this.fullscreenButtonClickListener = listener;
     controller.setOnFullScreenModeChangedListener(componentListener);
   }
@@ -1155,7 +1154,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
    */
   @UnstableApi
   public void setFullscreenButtonState(boolean isFullscreen) {
-    Assertions.checkStateNotNull(controller);
+    checkNotNull(controller);
     controller.updateIsFullscreen(isFullscreen);
   }
 
@@ -1175,7 +1174,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
   @UnstableApi
   public void setControllerOnFullScreenModeChangedListener(
       @Nullable PlayerControlView.OnFullScreenModeChangedListener listener) {
-    Assertions.checkStateNotNull(controller);
+    checkNotNull(controller);
     this.fullscreenButtonClickListener = null;
     controller.setOnFullScreenModeChangedListener(listener);
   }
@@ -1187,7 +1186,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
    */
   @UnstableApi
   public void setShowRewindButton(boolean showRewindButton) {
-    Assertions.checkStateNotNull(controller);
+    checkNotNull(controller);
     controller.setShowRewindButton(showRewindButton);
   }
 
@@ -1198,7 +1197,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
    */
   @UnstableApi
   public void setShowFastForwardButton(boolean showFastForwardButton) {
-    Assertions.checkStateNotNull(controller);
+    checkNotNull(controller);
     controller.setShowFastForwardButton(showFastForwardButton);
   }
 
@@ -1209,7 +1208,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
    */
   @UnstableApi
   public void setShowPreviousButton(boolean showPreviousButton) {
-    Assertions.checkStateNotNull(controller);
+    checkNotNull(controller);
     controller.setShowPreviousButton(showPreviousButton);
   }
 
@@ -1220,7 +1219,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
    */
   @UnstableApi
   public void setShowNextButton(boolean showNextButton) {
-    Assertions.checkStateNotNull(controller);
+    checkNotNull(controller);
     controller.setShowNextButton(showNextButton);
   }
 
@@ -1231,7 +1230,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
    */
   @UnstableApi
   public void setRepeatToggleModes(@RepeatModeUtil.RepeatToggleModes int repeatToggleModes) {
-    Assertions.checkStateNotNull(controller);
+    checkNotNull(controller);
     controller.setRepeatToggleModes(repeatToggleModes);
   }
 
@@ -1242,7 +1241,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
    */
   @UnstableApi
   public void setShowShuffleButton(boolean showShuffleButton) {
-    Assertions.checkStateNotNull(controller);
+    checkNotNull(controller);
     controller.setShowShuffleButton(showShuffleButton);
   }
 
@@ -1253,7 +1252,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
    */
   @UnstableApi
   public void setShowSubtitleButton(boolean showSubtitleButton) {
-    Assertions.checkStateNotNull(controller);
+    checkNotNull(controller);
     controller.setShowSubtitleButton(showSubtitleButton);
   }
 
@@ -1264,7 +1263,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
    */
   @UnstableApi
   public void setShowVrButton(boolean showVrButton) {
-    Assertions.checkStateNotNull(controller);
+    checkNotNull(controller);
     controller.setShowVrButton(showVrButton);
   }
 
@@ -1276,7 +1275,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
   @Deprecated
   @UnstableApi
   public void setShowMultiWindowTimeBar(boolean showMultiWindowTimeBar) {
-    Assertions.checkStateNotNull(controller);
+    checkNotNull(controller);
     controller.setShowMultiWindowTimeBar(showMultiWindowTimeBar);
   }
 
@@ -1289,7 +1288,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
    */
   @UnstableApi
   public void setTimeBarScrubbingEnabled(boolean timeBarScrubbingEnabled) {
-    Assertions.checkStateNotNull(controller);
+    checkNotNull(controller);
     controller.setTimeBarScrubbingEnabled(timeBarScrubbingEnabled);
   }
 
@@ -1304,7 +1303,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
    */
   @UnstableApi
   public void setShowPlayButtonIfPlaybackIsSuppressed(boolean showPlayButtonIfSuppressed) {
-    Assertions.checkStateNotNull(controller);
+    checkNotNull(controller);
     controller.setShowPlayButtonIfPlaybackIsSuppressed(showPlayButtonIfSuppressed);
   }
 
@@ -1321,7 +1320,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
   @UnstableApi
   public void setExtraAdGroupMarkers(
       @Nullable long[] extraAdGroupTimesMs, @Nullable boolean[] extraPlayedAdGroups) {
-    Assertions.checkStateNotNull(controller);
+    checkNotNull(controller);
     controller.setExtraAdGroupMarkers(extraAdGroupTimesMs, extraPlayedAdGroups);
   }
 
@@ -1334,7 +1333,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
   @UnstableApi
   public void setAspectRatioListener(
       @Nullable AspectRatioFrameLayout.AspectRatioListener listener) {
-    Assertions.checkStateNotNull(contentFrame);
+    checkNotNull(contentFrame);
     contentFrame.setAspectRatioListener(listener);
   }
 
@@ -1459,8 +1458,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
 
   @Override
   public ViewGroup getAdViewGroup() {
-    return Assertions.checkStateNotNull(
-        adOverlayFrameLayout, "exo_ad_overlay must be present for ad playback");
+    return checkNotNull(adOverlayFrameLayout, "exo_ad_overlay must be present for ad playback");
   }
 
   @Override
@@ -1484,7 +1482,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
   @EnsuresNonNullIf(expression = "controller", result = true)
   private boolean useController() {
     if (useController) {
-      Assertions.checkStateNotNull(controller);
+      checkNotNull(controller);
       return true;
     }
     return false;
@@ -1492,7 +1490,7 @@ public class PlayerView extends FrameLayout implements AdViewProvider {
 
   private boolean useArtwork() {
     if (artworkDisplayMode != ARTWORK_DISPLAY_MODE_OFF) {
-      Assertions.checkStateNotNull(artworkView);
+      checkNotNull(artworkView);
       return true;
     }
     return false;

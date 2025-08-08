@@ -722,7 +722,7 @@ public final class Util {
   @UnstableApi
   public static Handler createHandlerForCurrentLooper(
       @Nullable Handler.@UnknownInitialization Callback callback) {
-    return createHandler(Assertions.checkStateNotNull(Looper.myLooper()), callback);
+    return createHandler(checkNotNull(Looper.myLooper()), callback);
   }
 
   /**

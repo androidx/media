@@ -17,7 +17,6 @@
 package androidx.media3.effect;
 
 import static androidx.media3.common.VideoFrameProcessor.INPUT_TYPE_TEXTURE_ID;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.GlUtil.destroyEglContext;
 import static androidx.media3.common.util.GlUtil.getDefaultEglDisplay;
 import static androidx.media3.common.util.Util.contains;
@@ -513,7 +512,7 @@ public final class MultipleInputVideoGraph implements VideoGraph {
       return;
     }
     VideoFrameProcessor compositionVideoFrameProcessor =
-        checkStateNotNull(this.compositionVideoFrameProcessor);
+        checkNotNull(this.compositionVideoFrameProcessor);
     int width = outputTexture.glTextureInfo.width;
     int height = outputTexture.glTextureInfo.height;
     if (width != compositorOutputSize.getWidth() || height != compositorOutputSize.getHeight()) {

@@ -15,7 +15,6 @@
  */
 package androidx.media3.exoplayer.rtsp;
 
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.play;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -405,7 +404,7 @@ public final class RtspPlaybackTest {
 
     @Override
     public RtspResponse getPlayResponse() {
-      checkStateNotNull(packetTransmitter);
+      checkNotNull(packetTransmitter);
       packetTransmitter.startTransmitting(binaryDataListener);
 
       return new RtspResponse(

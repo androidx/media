@@ -18,7 +18,6 @@ package androidx.media3.exoplayer.trackselection;
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_DISABLED;
 import static androidx.media3.common.TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_REQUIRED;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.exoplayer.RendererCapabilities.AUDIO_OFFLOAD_GAPLESS_SUPPORTED;
 import static androidx.media3.exoplayer.RendererCapabilities.AUDIO_OFFLOAD_NOT_SUPPORTED;
 import static androidx.media3.exoplayer.RendererCapabilities.AUDIO_OFFLOAD_SPEED_CHANGE_SUPPORTED;
@@ -4409,7 +4408,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
               defaultTrackSelector.maybeInvalidateForAudioChannelCountConstraints();
             }
           };
-      this.handler = new Handler(checkStateNotNull(Looper.myLooper()));
+      this.handler = new Handler(checkNotNull(Looper.myLooper()));
       spatializer.addOnSpatializerStateChangedListener(handler::post, listener);
     }
 

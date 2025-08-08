@@ -15,7 +15,6 @@
  */
 package androidx.media3.exoplayer.rtsp.reader;
 
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.exoplayer.rtsp.reader.RtpReaderUtils.toSampleTimeUs;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -94,7 +93,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @Override
   public void consume(
       ParsableByteArray data, long timestamp, int sequenceNumber, boolean rtpMarker) {
-    checkStateNotNull(trackOutput);
+    checkNotNull(trackOutput);
 
     // H263 Header Payload Header, RFC4629 Section 5.1.
     //    0                   1

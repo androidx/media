@@ -15,7 +15,6 @@
  */
 package androidx.media3.transformer;
 
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.transformer.EditedMediaItemSequence.getEditedMediaItem;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -80,8 +79,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       throws ExoPlaybackException {
     currentEditedMediaItem =
         getEditedMediaItem(
-            checkStateNotNull(sequence),
-            /* index= */ timeline.getIndexOfPeriod(periodId.periodUid));
+            checkNotNull(sequence), /* index= */ timeline.getIndexOfPeriod(periodId.periodUid));
     return trackSelectorInternal.selectTracks(
         rendererCapabilities, trackGroups, periodId, timeline);
   }

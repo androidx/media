@@ -21,7 +21,6 @@ import static androidx.media3.common.VideoFrameProcessor.INPUT_TYPE_BITMAP;
 import static androidx.media3.common.VideoFrameProcessor.INPUT_TYPE_SURFACE;
 import static androidx.media3.common.VideoFrameProcessor.INPUT_TYPE_SURFACE_AUTOMATIC_FRAME_REGISTRATION;
 import static androidx.media3.common.VideoFrameProcessor.INPUT_TYPE_TEXTURE_ID;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.contains;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -151,7 +150,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   public void switchToInput(
       @VideoFrameProcessor.InputType int newInputType, FrameInfo newInputFrameInfo)
       throws VideoFrameProcessingException {
-    checkStateNotNull(downstreamShaderProgram);
+    checkNotNull(downstreamShaderProgram);
     checkState(contains(inputs, newInputType), "Input type not registered: " + newInputType);
 
     for (int i = 0; i < inputs.size(); i++) {
@@ -190,7 +189,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    *     #hasActiveInput() input}.
    */
   public TextureManager activeTextureManager() {
-    return checkStateNotNull(activeTextureManager);
+    return checkNotNull(activeTextureManager);
   }
 
   /**

@@ -15,12 +15,13 @@
  */
 package androidx.media3.test.utils;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import android.net.Uri;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DataSpec;
@@ -134,8 +135,7 @@ public class FakeChunkSource implements ChunkSource {
       long endTimeUs = startTimeUs + dataSet.getChunkDuration(chunkIndex);
       int trackGroupIndex = trackSelection.getIndexInTrackGroup(trackSelection.getSelectedIndex());
       String uri = dataSet.getUri(trackGroupIndex);
-      Segment fakeDataChunk =
-          Assertions.checkStateNotNull(dataSet.getData(uri)).getSegments().get(chunkIndex);
+      Segment fakeDataChunk = checkNotNull(dataSet.getData(uri)).getSegments().get(chunkIndex);
       DataSpec dataSpec =
           new DataSpec(Uri.parse(uri), fakeDataChunk.byteOffset, fakeDataChunk.length);
       int trackType = MimeTypes.getTrackType(selectedFormat.sampleMimeType);

@@ -15,7 +15,6 @@
  */
 package androidx.media3.exoplayer.upstream;
 
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -249,7 +248,7 @@ public final class CmcdData {
     public CmcdData createCmcdData() {
       boolean isManifestObjectType = isManifestObjectType(objectType);
       if (!isManifestObjectType) {
-        checkStateNotNull(trackSelection, "Track selection must be set");
+        checkNotNull(trackSelection, "Track selection must be set");
       }
 
       if (objectType == null) {

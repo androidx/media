@@ -17,6 +17,7 @@ package androidx.media3.extractor.ts;
 
 import static androidx.media3.extractor.ts.TsPayloadReader.FLAG_DATA_ALIGNMENT_INDICATOR;
 import static androidx.media3.extractor.ts.TsPayloadReader.FLAG_RANDOM_ACCESS_INDICATOR;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.min;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
@@ -26,7 +27,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.ParsableBitArray;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
@@ -159,7 +159,8 @@ public final class MpeghReader implements ElementaryStreamReader {
 
   @Override
   public void consume(ParsableByteArray data) throws ParserException {
-    Assertions.checkStateNotNull(output); // Asserts that createTracks has been called.
+    // Asserts that createTracks has been called.
+    checkNotNull(output);
 
     while (data.bytesLeft() > 0) {
       switch (state) {

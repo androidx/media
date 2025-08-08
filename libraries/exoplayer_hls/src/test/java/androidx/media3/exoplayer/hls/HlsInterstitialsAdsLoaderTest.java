@@ -162,9 +162,9 @@ public class HlsInterstitialsAdsLoaderTest {
   }
 
   @Test
-  public void start_playerNotSet_throwIllegalStateException() {
+  public void start_playerNotSet_throwsException() {
     assertThrows(
-        IllegalStateException.class,
+        NullPointerException.class,
         () ->
             adsLoader.start(
                 adsMediaSource, adTagDataSpec, "adsId", mockAdViewProvider, mockEventListener));

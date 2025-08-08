@@ -27,7 +27,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
@@ -149,7 +148,7 @@ public final class WavExtractor implements Extractor {
 
   @EnsuresNonNull({"extractorOutput", "trackOutput"})
   private void assertInitialized() {
-    Assertions.checkStateNotNull(trackOutput);
+    checkNotNull(trackOutput);
     Util.castNonNull(extractorOutput);
   }
 

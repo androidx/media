@@ -15,7 +15,6 @@
  */
 package androidx.media3.exoplayer.drm;
 
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.min;
@@ -300,7 +299,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   @Override
   public boolean requiresSecureDecoder(String mimeType) {
     verifyPlaybackThread();
-    return mediaDrm.requiresSecureDecoder(checkStateNotNull(sessionId), mimeType);
+    return mediaDrm.requiresSecureDecoder(checkNotNull(sessionId), mimeType);
   }
 
   @Override

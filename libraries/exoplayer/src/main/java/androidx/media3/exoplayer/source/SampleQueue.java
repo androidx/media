@@ -32,7 +32,6 @@ import androidx.media3.common.DataReader;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.ParsableByteArray;
@@ -612,7 +611,7 @@ public class SampleQueue implements TrackOutput {
       int offset,
       @Nullable CryptoData cryptoData) {
     if (upstreamFormatAdjustmentRequired) {
-      format(Assertions.checkStateNotNull(unadjustedUpstreamFormat));
+      format(checkNotNull(unadjustedUpstreamFormat));
     }
 
     boolean isKeyframe = (flags & C.BUFFER_FLAG_KEY_FRAME) != 0;

@@ -17,7 +17,6 @@
 package androidx.media3.transformer;
 
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_ACCEPTED_INPUT;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_INPUT_ENDED;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_INPUT_FORMAT;
@@ -176,7 +175,7 @@ public final class DefaultCodec implements Codec {
 
   @Override
   public Surface getInputSurface() {
-    return checkStateNotNull(inputSurface);
+    return checkNotNull(inputSurface);
   }
 
   @Override
@@ -313,7 +312,7 @@ public final class DefaultCodec implements Codec {
 
   @Override
   public void releaseOutputBuffer(boolean render) throws ExportException {
-    releaseOutputBuffer(render, checkStateNotNull(outputBufferInfo).presentationTimeUs);
+    releaseOutputBuffer(render, checkNotNull(outputBufferInfo).presentationTimeUs);
   }
 
   @Override

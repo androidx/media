@@ -25,7 +25,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.DataReader;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.analytics.PlayerId;
@@ -274,7 +273,7 @@ public final class BundledChunkExtractor implements ExtractorOutput, ChunkExtrac
   public void endTracks() {
     Format[] sampleFormats = new Format[bindingTrackOutputs.size()];
     for (int i = 0; i < bindingTrackOutputs.size(); i++) {
-      sampleFormats[i] = Assertions.checkStateNotNull(bindingTrackOutputs.valueAt(i).sampleFormat);
+      sampleFormats[i] = checkNotNull(bindingTrackOutputs.valueAt(i).sampleFormat);
     }
     this.sampleFormats = sampleFormats;
   }

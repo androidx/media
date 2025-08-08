@@ -17,7 +17,6 @@
 package androidx.media3.test.utils;
 
 import static androidx.media3.common.C.MEDIA_CODEC_PRIORITY_NON_REALTIME;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
@@ -107,7 +106,7 @@ public final class VideoDecodingWrapper implements AutoCloseable {
       }
     }
 
-    checkStateNotNull(mediaFormat);
+    checkNotNull(mediaFormat);
     checkState(mediaFormat.containsKey(MediaFormat.KEY_WIDTH));
     int width = mediaFormat.getInteger(MediaFormat.KEY_WIDTH);
     checkState(mediaFormat.containsKey(MediaFormat.KEY_HEIGHT));

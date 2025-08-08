@@ -16,7 +16,6 @@
 package androidx.media3.session;
 
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.postOrRun;
 import static androidx.media3.session.SessionUtil.PACKAGE_VALID;
 import static androidx.media3.session.SessionUtil.checkPackageValidity;
@@ -717,7 +716,7 @@ public abstract class MediaSessionService extends Service {
   }
 
   /* package */ IBinder getServiceBinder() {
-    return checkStateNotNull(stub).asBinder();
+    return checkNotNull(stub).asBinder();
   }
 
   /**
@@ -750,7 +749,7 @@ public abstract class MediaSessionService extends Service {
       @Nullable MediaNotification.Provider initialMediaNotificationProvider) {
     if (mediaNotificationManager == null) {
       if (initialMediaNotificationProvider == null) {
-        checkStateNotNull(getBaseContext(), "Accessing service context before onCreate()");
+        checkNotNull(getBaseContext(), "Accessing service context before onCreate()");
         initialMediaNotificationProvider =
             new DefaultMediaNotificationProvider.Builder(getApplicationContext()).build();
       }

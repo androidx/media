@@ -15,7 +15,6 @@
  */
 package androidx.media3.effect;
 
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.effect.DefaultVideoFrameProcessor.WORKING_COLOR_SPACE_ORIGINAL;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888;
@@ -606,7 +605,7 @@ public final class DefaultVideoFrameProcessorPixelTest {
 
     @Override
     public Matrix getMatrix(long presentationTimeUs) {
-      return checkStateNotNull(adjustedTransformationMatrix);
+      return checkNotNull(adjustedTransformationMatrix);
     }
   }
 

@@ -18,7 +18,6 @@ package androidx.media3.transformer;
 
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.ColorInfo.isTransferHdr;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.MediaFormatUtil.createMediaFormatFromFormat;
 import static androidx.media3.transformer.EncoderUtil.getCodecProfilesForHdrFormat;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -286,7 +285,7 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
     checkArgument(format.height != Format.NO_VALUE);
     checkArgument(format.rotationDegrees == 0);
 
-    checkStateNotNull(videoEncoderSelector);
+    checkNotNull(videoEncoderSelector);
 
     @Nullable
     VideoEncoderQueryResult encoderAndClosestFormatSupport =

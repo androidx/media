@@ -32,7 +32,6 @@ import static androidx.media3.common.Player.COMMAND_SET_REPEAT_MODE;
 import static androidx.media3.common.Player.COMMAND_SET_SHUFFLE_MODE;
 import static androidx.media3.common.Player.COMMAND_SET_SPEED_AND_PITCH;
 import static androidx.media3.common.Player.COMMAND_STOP;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.castNonNull;
 import static androidx.media3.common.util.Util.postOrRun;
 import static androidx.media3.session.MediaConstants.EXTRAS_KEY_ERROR_RESOLUTION_ACTION_INTENT_COMPAT;
@@ -490,7 +489,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
 
   @Override
   public void onCommand(String commandName, @Nullable Bundle args, @Nullable ResultReceiver cb) {
-    checkStateNotNull(commandName);
+    checkNotNull(commandName);
     if (commandName.equals(MediaConstants.SESSION_COMMAND_MEDIA3_PLAY_REQUEST)) {
       // Only applicable to controllers on Media3 1.5, where this command was sent via sendCommand
       // instead of sendCustomAction. No need to handle this command here.
@@ -1726,7 +1725,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     public void handleMessage(Message msg) {
       ControllerInfo controller = (ControllerInfo) msg.obj;
       if (connectedControllersManager.isConnected(controller)) {
-        checkStateNotNull(controller.getControllerCb()).onDisconnected(/* seq= */ 0);
+        checkNotNull(controller.getControllerCb()).onDisconnected(/* seq= */ 0);
         connectedControllersManager.removeController(controller);
       }
     }

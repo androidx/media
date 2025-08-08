@@ -15,7 +15,6 @@
  */
 package androidx.media3.exoplayer.source.preload;
 
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -591,7 +590,7 @@ public final class DefaultPreloadManager
     } else if (targetPreloadStatus.stage == PreloadStatus.STAGE_SPECIFIED_RANGE_CACHED) {
       if (preloadMediaSourceHolder.preCacheHelper == null) {
         PreCacheHelper.Factory preCacheHelperFactory =
-            checkStateNotNull(
+            checkNotNull(
                 this.preCacheHelperFactory, "DefaultPreloadManager wasn't configured with a Cache");
         preloadMediaSourceHolder.preCacheHelper =
             preCacheHelperFactory.create(mediaSourceHolder.mediaItem);

@@ -17,7 +17,6 @@
 package androidx.media3.transformer;
 
 import static androidx.annotation.VisibleForTesting.PRIVATE;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.contains;
 import static androidx.media3.common.util.Util.usToMs;
 import static androidx.media3.effect.DebugTraceUtil.COMPONENT_MUXER;
@@ -579,7 +578,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     trackInfo.bytesWritten += data.remaining();
     trackInfo.timeUs = max(trackInfo.timeUs, presentationTimeUs);
     listener.onSampleWrittenOrDropped();
-    checkStateNotNull(muxer);
+    checkNotNull(muxer);
     BufferInfo bufferInfo =
         new BufferInfo(
             presentationTimeUs,

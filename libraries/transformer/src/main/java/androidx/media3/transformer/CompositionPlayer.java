@@ -16,7 +16,6 @@
 package androidx.media3.transformer;
 
 import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.usToMs;
 import static androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper.LATE_US_TO_DROP_INPUT_FRAME;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -335,7 +334,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
     public CompositionPlayer build() {
       checkState(!built);
       if (looper == null) {
-        looper = checkStateNotNull(Looper.myLooper());
+        looper = checkNotNull(Looper.myLooper());
       }
       if (audioSink == null) {
         audioSink = new DefaultAudioSink.Builder(context).build();
@@ -659,7 +658,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
 
   @Override
   protected ListenableFuture<?> handlePrepare() {
-    checkStateNotNull(composition, "No composition set");
+    checkNotNull(composition, "No composition set");
 
     if (playbackState != Player.STATE_IDLE) {
       // The player has been prepared already.
@@ -678,9 +677,9 @@ public final class CompositionPlayer extends SimpleBasePlayer
     playWhenReadyChangeReason = PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST;
     if (playbackState == STATE_READY) {
       if (playWhenReady) {
-        checkStateNotNull(compositionPlayerInternal).startRendering();
+        checkNotNull(compositionPlayerInternal).startRendering();
       } else {
-        checkStateNotNull(compositionPlayerInternal).stopRendering();
+        checkNotNull(compositionPlayerInternal).stopRendering();
       }
       for (int i = 0; i < playerHolders.size(); i++) {
         playerHolders.get(i).player.setPlayWhenReady(playWhenReady);
@@ -712,17 +711,17 @@ public final class CompositionPlayer extends SimpleBasePlayer
       return Futures.immediateVoidFuture();
     }
 
-    checkState(checkStateNotNull(playbackThread).isAlive());
+    checkState(checkNotNull(playbackThread).isAlive());
     // Release the players first so that they stop rendering.
     for (int i = 0; i < playerHolders.size(); i++) {
       playerHolders.get(i).player.release();
     }
-    checkStateNotNull(compositionPlayerInternal).release();
+    checkNotNull(compositionPlayerInternal).release();
     removeSurfaceCallbacks();
     // Remove any queued callback from the internal player.
     compositionInternalListenerHandler.removeCallbacksAndMessages(/* token= */ null);
     displaySurface = null;
-    checkStateNotNull(playbackThread).quitSafely();
+    checkNotNull(playbackThread).quitSafely();
     applicationHandler.removeCallbacksAndMessages(/* token= */ null);
     return Futures.immediateVoidFuture();
   }
@@ -765,7 +764,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
       int mediaItemIndex, long positionMs, @Command int seekCommand) {
     resetLivePositionSuppliers();
     CompositionPlayerInternal compositionPlayerInternal =
-        checkStateNotNull(this.compositionPlayerInternal);
+        checkNotNull(this.compositionPlayerInternal);
     compositionPlayerInternal.startSeek(positionMs);
     for (int i = 0; i < playerHolders.size(); i++) {
       playerHolders.get(i).player.seekTo(positionMs);
@@ -868,18 +867,18 @@ public final class CompositionPlayer extends SimpleBasePlayer
         for (int i = 0; i < playerHolders.size(); i++) {
           playerHolders.get(i).player.setPlayWhenReady(false);
         }
-        checkStateNotNull(compositionPlayerInternal).stopRendering();
+        checkNotNull(compositionPlayerInternal).stopRendering();
       }
     } else if (endedCount == playerHolders.size()) {
       playbackState = STATE_ENDED;
-      checkStateNotNull(compositionPlayerInternal).stopRendering();
+      checkNotNull(compositionPlayerInternal).stopRendering();
     } else {
       playbackState = STATE_READY;
       if (oldPlaybackState != STATE_READY && playWhenReady) {
         for (int i = 0; i < playerHolders.size(); i++) {
           playerHolders.get(i).player.setPlayWhenReady(true);
         }
-        checkStateNotNull(compositionPlayerInternal).startRendering();
+        checkNotNull(compositionPlayerInternal).startRendering();
       }
     }
   }
@@ -1011,13 +1010,12 @@ public final class CompositionPlayer extends SimpleBasePlayer
         new SequencePlayerHolder(
             context,
             getApplicationLooper(),
-            checkStateNotNull(playbackThread).getLooper(),
+            checkNotNull(playbackThread).getLooper(),
             clock,
             SequenceRenderersFactory.create(
                 context,
-                checkStateNotNull(playbackAudioGraphWrapper),
-                checkStateNotNull(playbackVideoGraphWrapper)
-                    .getSink(/* inputIndex= */ sequenceIndex),
+                checkNotNull(playbackAudioGraphWrapper),
+                checkNotNull(playbackVideoGraphWrapper).getSink(/* inputIndex= */ sequenceIndex),
                 imageDecoderFactory,
                 /* inputIndex= */ sequenceIndex,
                 videoPrewarmingEnabled),
@@ -1503,7 +1501,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
     private @MonotonicNonNull Format format;
 
     public GapHandlingDecoderFactory(@Nullable ImageDecoder.Factory imageDecoderFactory) {
-      this.imageDecoderFactory = checkStateNotNull(imageDecoderFactory);
+      this.imageDecoderFactory = checkNotNull(imageDecoderFactory);
     }
 
     @Override

@@ -38,14 +38,14 @@ import org.junit.runner.RunWith;
 public class CmcdDataTest {
 
   @Test
-  public void createInstance_withInvalidFactoryState_throwsIllegalStateException() {
+  public void createInstance_withInvalidFactoryState_throwsException() {
     CmcdConfiguration cmcdConfiguration =
         CmcdConfiguration.Factory.DEFAULT.createCmcdConfiguration(MediaItem.EMPTY);
     ExoTrackSelection trackSelection = mock(ExoTrackSelection.class);
 
     assertThrows(
         "Track selection must be set",
-        IllegalStateException.class,
+        NullPointerException.class,
         () ->
             new CmcdData.Factory(cmcdConfiguration, CmcdData.STREAMING_FORMAT_DASH)
                 .setObjectType(CmcdData.OBJECT_TYPE_INIT_SEGMENT)
