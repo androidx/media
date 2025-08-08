@@ -15,6 +15,8 @@
  */
 package androidx.media3.common.util;
 
+import static com.google.common.base.Preconditions.checkState;
+
 import java.util.Arrays;
 
 /** Configurable loader for native libraries. */
@@ -39,7 +41,7 @@ public abstract class LibraryLoader {
    * #isAvailable()}.
    */
   public synchronized void setLibraries(String... libraries) {
-    Assertions.checkState(!loadAttempted, "Cannot set libraries after loading");
+    checkState(!loadAttempted, "Cannot set libraries after loading");
     nativeLibraries = libraries;
   }
 

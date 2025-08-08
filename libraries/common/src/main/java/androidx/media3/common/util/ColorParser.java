@@ -15,6 +15,9 @@
  */
 package androidx.media3.common.util;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import android.graphics.Color;
 import android.text.TextUtils;
 import androidx.annotation.ColorInt;
@@ -75,7 +78,7 @@ public final class ColorParser {
 
   @ColorInt
   private static int parseColorInternal(String colorExpression, boolean alphaHasFloatFormat) {
-    Assertions.checkArgument(!TextUtils.isEmpty(colorExpression));
+    checkArgument(!TextUtils.isEmpty(colorExpression));
     colorExpression = colorExpression.replace(" ", "");
     if (colorExpression.charAt(0) == '#') {
       // Parse using Long to avoid failure when colorExpression is greater than #7FFFFFFF.
@@ -97,19 +100,19 @@ public final class ColorParser {
       if (matcher.matches()) {
         return Color.argb(
             alphaHasFloatFormat
-                ? (int) (255 * Float.parseFloat(Assertions.checkNotNull(matcher.group(4))))
-                : Integer.parseInt(Assertions.checkNotNull(matcher.group(4)), 10),
-            Integer.parseInt(Assertions.checkNotNull(matcher.group(1)), 10),
-            Integer.parseInt(Assertions.checkNotNull(matcher.group(2)), 10),
-            Integer.parseInt(Assertions.checkNotNull(matcher.group(3)), 10));
+                ? (int) (255 * Float.parseFloat(checkNotNull(matcher.group(4))))
+                : Integer.parseInt(checkNotNull(matcher.group(4)), 10),
+            Integer.parseInt(checkNotNull(matcher.group(1)), 10),
+            Integer.parseInt(checkNotNull(matcher.group(2)), 10),
+            Integer.parseInt(checkNotNull(matcher.group(3)), 10));
       }
     } else if (colorExpression.startsWith(RGB)) {
       Matcher matcher = RGB_PATTERN.matcher(colorExpression);
       if (matcher.matches()) {
         return Color.rgb(
-            Integer.parseInt(Assertions.checkNotNull(matcher.group(1)), 10),
-            Integer.parseInt(Assertions.checkNotNull(matcher.group(2)), 10),
-            Integer.parseInt(Assertions.checkNotNull(matcher.group(3)), 10));
+            Integer.parseInt(checkNotNull(matcher.group(1)), 10),
+            Integer.parseInt(checkNotNull(matcher.group(2)), 10),
+            Integer.parseInt(checkNotNull(matcher.group(3)), 10));
       }
     } else {
       // we use our own color map

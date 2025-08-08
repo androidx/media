@@ -15,6 +15,7 @@
  */
 package androidx.media3.common.util;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.media.AudioFormat;
@@ -183,7 +184,7 @@ public class MediaFormatUtilTest {
     assertThat(mediaFormat.getInteger(MediaFormat.KEY_CHANNEL_MASK))
         .isEqualTo(AudioFormat.CHANNEL_OUT_STEREO);
 
-    ColorInfo colorInfo = Assertions.checkNotNull(format.colorInfo);
+    ColorInfo colorInfo = checkNotNull(format.colorInfo);
     assertThat(mediaFormat.getInteger(MediaFormat.KEY_COLOR_TRANSFER))
         .isEqualTo(colorInfo.colorTransfer);
     assertThat(mediaFormat.getInteger(MediaFormat.KEY_COLOR_RANGE)).isEqualTo(colorInfo.colorRange);
