@@ -37,7 +37,6 @@ import static androidx.media3.test.session.common.MediaBrowserConstants.CONNECTI
 import static androidx.media3.test.session.common.MediaBrowserConstants.CUSTOM_ACTION;
 import static androidx.media3.test.session.common.MediaBrowserConstants.CUSTOM_ACTION_EXTRAS;
 import static androidx.media3.test.session.common.MediaBrowserConstants.EXTRAS_KEY_NOTIFY_CHILDREN_CHANGED_MEDIA_ID;
-import static androidx.media3.test.session.common.MediaBrowserConstants.EXTRAS_VALUE_PARTIAL_PROGRESS;
 import static androidx.media3.test.session.common.MediaBrowserConstants.GET_CHILDREN_RESULT;
 import static androidx.media3.test.session.common.MediaBrowserConstants.LONG_LIST_COUNT;
 import static androidx.media3.test.session.common.MediaBrowserConstants.MEDIA_ID_GET_BROWSABLE_ITEM;
@@ -1036,7 +1035,7 @@ public class MediaBrowserCompatWithMediaLibraryServiceTest
 
   // TODO: Add test for onCustomCommand() in MediaLibrarySessionLegacyCallbackTest.
   @Test
-  public void sendCustomAction() throws Exception {
+  public void customAction() throws Exception {
     Bundle testArgs = new Bundle();
     testArgs.putString("args_key", "args_value");
     connectAndWait(/* rootHints= */ Bundle.EMPTY);
@@ -1062,60 +1061,6 @@ public class MediaBrowserCompatWithMediaLibraryServiceTest
     assertThat(actionRef.get()).isEqualTo(CUSTOM_ACTION);
     assertThat(TestUtils.equals(testArgs, extrasRef.get())).isTrue();
     assertThat(TestUtils.equals(CUSTOM_ACTION_EXTRAS, resultDataRef.get())).isTrue();
-  }
-
-  @SuppressWarnings("deprecation") // test backwards compatibility
-  @Test
-  public void sendCustomAction_withProgressUpdates() throws Exception {
-    Bundle testArgs = new Bundle();
-    testArgs.putString("args_key", "args_value");
-    connectAndWait(/* rootHints= */ Bundle.EMPTY);
-    CountDownLatch latch = new CountDownLatch(3);
-    AtomicReference<String> actionRef = new AtomicReference<>();
-    AtomicReference<Bundle> extrasRef = new AtomicReference<>();
-    AtomicReference<Bundle> resultDataRef = new AtomicReference<>();
-    List<String> progressUpdateActions = new ArrayList<>();
-    List<Bundle> progressUpdateExtras = new ArrayList<>();
-    List<Bundle> progressUpdateData = new ArrayList<>();
-
-    browserCompat.sendCustomAction(
-        MediaConstants.CUSTOM_COMMAND_DOWNLOAD,
-        testArgs,
-        new CustomActionCallback() {
-          @Override
-          public void onResult(String action, Bundle extras, Bundle resultData) {
-            actionRef.set(action);
-            extrasRef.set(extras);
-            resultDataRef.set(resultData);
-            latch.countDown();
-          }
-
-          @Override
-          public void onProgressUpdate(String action, Bundle extras, Bundle data) {
-            progressUpdateActions.add(action);
-            progressUpdateExtras.add(extras);
-            progressUpdateData.add(data);
-            latch.countDown();
-          }
-        });
-
-    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
-    assertThat(actionRef.get()).isEqualTo(MediaConstants.CUSTOM_COMMAND_DOWNLOAD);
-    assertThat(TestUtils.equals(testArgs, extrasRef.get())).isTrue();
-    assertThat(TestUtils.equals(CUSTOM_ACTION_EXTRAS, resultDataRef.get())).isTrue();
-    assertThat(progressUpdateExtras).hasSize(2);
-    assertThat(TestUtils.equals(testArgs, progressUpdateExtras.get(0))).isTrue();
-    assertThat(TestUtils.equals(testArgs, progressUpdateExtras.get(1))).isTrue();
-    assertThat(progressUpdateData).hasSize(2);
-    assertThat(progressUpdateData.get(0).getInt("percent")).isEqualTo(30);
-    assertThat(progressUpdateData.get(1).getInt("percent")).isEqualTo(100);
-    assertThat(progressUpdateData.get(0).getFloat(MediaConstants.EXTRAS_KEY_DOWNLOAD_PROGRESS))
-        .isEqualTo(EXTRAS_VALUE_PARTIAL_PROGRESS);
-    assertThat(progressUpdateData.get(1).getFloat(MediaConstants.EXTRAS_KEY_DOWNLOAD_PROGRESS))
-        .isEqualTo(1.0f);
-    assertThat(progressUpdateActions)
-        .containsExactly(
-            MediaConstants.CUSTOM_COMMAND_DOWNLOAD, MediaConstants.CUSTOM_COMMAND_DOWNLOAD);
   }
 
   // TODO: Add test for onCustomCommand() in MediaLibrarySessionLegacyCallbackTest.

@@ -394,29 +394,6 @@ public class MediaController implements Player {
   }
 
   /**
-   * A listener to receive progress updates of a custom command when a custom command is sent and a
-   * non-null {@link ProgressListener} is passed into {@link #sendCustomCommand(SessionCommand,
-   * Bundle, ProgressListener)}.
-   */
-  @UnstableApi
-  public interface ProgressListener {
-
-    /**
-     * Called when the session reports progress of a custom command.
-     *
-     * @param mediaController The controller.
-     * @param sessionCommand The session command sent to the session.
-     * @param args The argument {@link Bundle} sent to the session.
-     * @param progressData The progress data.
-     */
-    public void onProgress(
-        MediaController mediaController,
-        SessionCommand sessionCommand,
-        Bundle args,
-        Bundle progressData);
-  }
-
-  /**
    * A listener for events and incoming commands from {@link MediaSession}.
    *
    * <p>The methods will be called from the application thread associated with the {@link
@@ -1149,38 +1126,6 @@ public class MediaController implements Player {
   }
 
   /**
-   * Sends a custom command to the session.
-   *
-   * <p>A controller can request progress updates by passing in a non-null {@link ProgressListener}.
-   * Whether or not the session sends progress updates depends on the implementation of the session
-   * callback that responds to the given {@link SessionCommand}.
-   *
-   * <p>Interoperability: When connected to {@code
-   * android.support.v4.media.session.MediaSessionCompat}, {@link SessionResult#resultCode} will
-   * return the custom result code from the {@code android.os.ResultReceiver#onReceiveResult(int,
-   * Bundle)} instead of the standard result codes defined in the {@link SessionResult}.
-   *
-   * @param command The custom command.
-   * @param args The additional arguments. May be empty.
-   * @param progressListener A {@link ProgressListener} to receive progress updates. May be null.
-   * @return A {@link ListenableFuture} of {@link SessionResult} representing the pending
-   *     completion.
-   */
-  @UnstableApi
-  public final ListenableFuture<SessionResult> sendCustomCommand(
-      SessionCommand command, Bundle args, @Nullable ProgressListener progressListener) {
-    verifyApplicationThread();
-    checkNotNull(command, "command must not be null");
-    checkArgument(
-        command.commandCode == SessionCommand.COMMAND_CODE_CUSTOM,
-        "command must be a custom command");
-    if (isConnected()) {
-      return impl.sendCustomCommand(command, args, progressListener);
-    }
-    return createDisconnectedFuture();
-  }
-
-  /**
    * Sends a custom command to the session for the given {@linkplain MediaItem media item}.
    *
    * <p>Calling this method is equivalent to calling {@link #sendCustomCommand(SessionCommand,
@@ -1204,44 +1149,9 @@ public class MediaController implements Player {
   @UnstableApi
   public final ListenableFuture<SessionResult> sendCustomCommand(
       SessionCommand command, MediaItem mediaItem, Bundle args) {
-    return sendCustomCommand(command, mediaItem, args, /* progressListener= */ null);
-  }
-
-  /**
-   * Sends a custom command to the session for the given {@linkplain MediaItem media item}.
-   *
-   * <p>A controller can request progress updates by passing in a non-null {@link ProgressListener}.
-   * Whether or not the session sends progress updates depends on the implementation of the session
-   * callback that responds to the given {@link SessionCommand}.
-   *
-   * <p>Calling this method is equivalent to calling {@link #sendCustomCommand(SessionCommand,
-   * Bundle)} and including the {@linkplain MediaItem#mediaId media ID} in the argument bundle with
-   * key {@link MediaConstants#EXTRA_KEY_MEDIA_ID}.
-   *
-   * <p>A command is not accepted if it is not a custom command or the command is not in the list of
-   * {@linkplain #getAvailableSessionCommands() available session commands}.
-   *
-   * <p>Interoperability: When connected to {@code
-   * android.support.v4.media.session.MediaSessionCompat}, {@link SessionResult#resultCode} will
-   * return the custom result code from the {@code android.os.ResultReceiver#onReceiveResult(int,
-   * Bundle)} instead of the standard result codes defined in the {@link SessionResult}.
-   *
-   * @param command The custom command.
-   * @param mediaItem The media item for which the command is sent.
-   * @param args The additional arguments. May be empty.
-   * @param progressListener A {@link ProgressListener} to receive progress updates. May be null.
-   * @return A {@link ListenableFuture} of {@link SessionResult} representing the pending
-   *     completion.
-   */
-  @UnstableApi
-  public final ListenableFuture<SessionResult> sendCustomCommand(
-      SessionCommand command,
-      MediaItem mediaItem,
-      Bundle args,
-      @Nullable ProgressListener progressListener) {
     Bundle augnentedBundle = new Bundle(args);
     augnentedBundle.putString(MediaConstants.EXTRA_KEY_MEDIA_ID, mediaItem.mediaId);
-    return sendCustomCommand(command, augnentedBundle, progressListener);
+    return sendCustomCommand(command, augnentedBundle);
   }
 
   /**
@@ -2311,9 +2221,6 @@ public class MediaController implements Player {
     ListenableFuture<SessionResult> setRating(Rating rating);
 
     ListenableFuture<SessionResult> sendCustomCommand(SessionCommand command, Bundle args);
-
-    ListenableFuture<SessionResult> sendCustomCommand(
-        SessionCommand command, Bundle args, @Nullable ProgressListener progressListener);
 
     ImmutableList<CommandButton> getMediaButtonPreferences();
 

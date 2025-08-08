@@ -21,8 +21,6 @@ import static androidx.media3.session.MediaConstants.EXTRAS_VALUE_COMPLETION_STA
 import static androidx.media3.session.MediaConstants.EXTRA_KEY_ROOT_CHILDREN_BROWSABLE_ONLY;
 import static androidx.media3.session.MockMediaBrowserServiceCompat.EXTRAS_KEY_SEND_ROOT_HINTS_AS_SESSION_EXTRAS;
 import static androidx.media3.test.session.common.CommonConstants.MOCK_MEDIA_BROWSER_SERVICE_COMPAT;
-import static androidx.media3.test.session.common.MediaBrowserConstants.CUSTOM_ACTION;
-import static androidx.media3.test.session.common.MediaBrowserConstants.EXTRAS_VALUE_PARTIAL_PROGRESS;
 import static androidx.media3.test.session.common.MediaBrowserConstants.PARENT_ID;
 import static androidx.media3.test.session.common.MediaBrowserConstants.ROOT_EXTRAS_KEY;
 import static androidx.media3.test.session.common.MediaBrowserConstants.ROOT_EXTRAS_VALUE;
@@ -38,7 +36,6 @@ import static androidx.media3.test.session.common.MediaBrowserServiceCompatConst
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_MEDIA_ITEMS_WITH_BROWSE_ACTIONS;
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_ON_CHILDREN_CHANGED_SUBSCRIBE_AND_UNSUBSCRIBE;
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_SEND_CUSTOM_COMMAND;
-import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_SEND_CUSTOM_COMMAND_WITH_PROGRESS_UPDATE;
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_SUBSCRIBE_THEN_REJECT_ON_LOAD_CHILDREN;
 import static androidx.media3.test.session.common.TestUtils.TIMEOUT_MS;
 import static com.google.common.truth.Truth.assertThat;
@@ -59,7 +56,6 @@ import androidx.media3.common.Player;
 import androidx.media3.session.MediaLibraryService.LibraryParams;
 import androidx.media3.test.session.common.HandlerThreadTestRule;
 import androidx.media3.test.session.common.MediaBrowserConstants;
-import androidx.media3.test.session.common.TestUtils;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.LargeTest;
@@ -670,63 +666,6 @@ public class MediaBrowserListenerWithMediaBrowserServiceCompatTest {
     assertThat(sessionResultRef.get()).isNotNull();
     assertThat(sessionResultRef.get().resultCode).isEqualTo(SessionResult.RESULT_ERROR_UNKNOWN);
     assertThat(sessionResultRef.get().extras.getString("key-1")).isEqualTo("error-from-service");
-  }
-
-  @Test
-  public void sendCustomCommand_withProgressUpdate_correctAsyncResultAndProgressUpdates()
-      throws Exception {
-    remoteService.setProxyForTest(TEST_SEND_CUSTOM_COMMAND_WITH_PROGRESS_UPDATE);
-    MediaBrowser browser = createBrowser(/* listener= */ null);
-    CountDownLatch latch = new CountDownLatch(/* count= */ 3);
-    AtomicReference<SessionResult> sessionResultRef = new AtomicReference<>();
-    List<SessionCommand> progressCommands = new ArrayList<>();
-    List<Bundle> progressArgs = new ArrayList<>();
-    List<Bundle> progressDataList = new ArrayList<>();
-    MediaController.ProgressListener progressListener =
-        (mediaController, sessionCommand, args, progressData) -> {
-          progressCommands.add(sessionCommand);
-          progressArgs.add(args);
-          progressDataList.add(progressData);
-          latch.countDown();
-        };
-    SessionCommand sessionCommand =
-        new SessionCommand(MediaConstants.CUSTOM_COMMAND_DOWNLOAD, /* extras= */ Bundle.EMPTY);
-    Bundle args = new Bundle();
-    args.putBoolean("isTrue", true);
-
-    ListenableFuture<SessionResult> resultFuture =
-        threadTestRule
-            .getHandler()
-            .postAndSync(() -> browser.sendCustomCommand(sessionCommand, args, progressListener));
-    Futures.addCallback(
-        resultFuture,
-        new FutureCallback<SessionResult>() {
-          @Override
-          public void onSuccess(SessionResult result) {
-            sessionResultRef.set(result);
-            latch.countDown();
-          }
-
-          @Override
-          public void onFailure(Throwable t) {}
-        },
-        directExecutor());
-
-    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
-    assertThat(sessionResultRef.get().resultCode).isEqualTo(SessionResult.RESULT_SUCCESS);
-    assertThat(sessionResultRef.get().extras.getBoolean("isTrue")).isTrue();
-    assertThat(sessionResultRef.get().extras.getString(CUSTOM_ACTION)).isEqualTo(CUSTOM_ACTION);
-    assertThat(progressArgs).hasSize(2);
-    assertThat(TestUtils.equals(args, progressArgs.get(0))).isTrue();
-    assertThat(TestUtils.equals(args, progressArgs.get(1))).isTrue();
-    assertThat(progressDataList).hasSize(2);
-    assertThat(progressDataList.get(0).getInt("percent")).isEqualTo(30);
-    assertThat(progressDataList.get(1).getInt("percent")).isEqualTo(100);
-    assertThat(progressDataList.get(0).getFloat(MediaConstants.EXTRAS_KEY_DOWNLOAD_PROGRESS))
-        .isEqualTo(EXTRAS_VALUE_PARTIAL_PROGRESS);
-    assertThat(progressDataList.get(1).getFloat(MediaConstants.EXTRAS_KEY_DOWNLOAD_PROGRESS))
-        .isEqualTo(1.0f);
-    assertThat(progressCommands).containsExactly(sessionCommand, sessionCommand);
   }
 
   @Test

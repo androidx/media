@@ -619,14 +619,6 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
   }
 
   @Override
-  public ListenableFuture<SessionResult> sendCustomCommand(
-      SessionCommand command,
-      Bundle args,
-      @Nullable MediaController.ProgressListener progressListener) {
-    return sendCustomCommand(command, args);
-  }
-
-  @Override
   public Timeline getCurrentTimeline() {
     return controllerInfo.playerInfo.timeline;
   }

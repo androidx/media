@@ -77,7 +77,6 @@ import androidx.collection.ArrayMap;
 import androidx.core.util.Pair;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import androidx.media3.session.legacy.MediaSessionManager.RemoteUserInfo;
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
@@ -122,8 +121,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 public abstract class MediaBrowserServiceCompat extends Service {
   static final String TAG = "MBServiceCompat";
   static final boolean DEBUG = Log.isLoggable(TAG, Log.DEBUG);
-
-  private static final float EPSILON = 0.00001f;
 
   private @MonotonicNonNull MediaBrowserServiceImpl impl;
 
@@ -675,23 +672,6 @@ public abstract class MediaBrowserServiceCompat extends Service {
       this.debug = debug;
     }
 
-    /**
-     * Send an interim update to the caller. This method is supported only when it is used in {@link
-     * #onCustomAction}.
-     *
-     * @param extras A bundle that contains extra data.
-     */
-    public void sendProgressUpdate(@Nullable Bundle extras) {
-      if (sendResultCalled || sendErrorCalled) {
-        throw new IllegalStateException(
-            "sendProgressUpdate() called when either "
-                + "sendResult() or sendError() had already been called for: "
-                + debug);
-      }
-      checkExtraFields(extras);
-      onProgressUpdateSent(extras);
-    }
-
     /** Send the result back to the caller. */
     public void sendResult(@Nullable T result) {
       if (sendResultCalled || sendErrorCalled) {
@@ -758,41 +738,11 @@ public abstract class MediaBrowserServiceCompat extends Service {
      */
     void onResultSent(@Nullable T result) {}
 
-    /** Called when an interim update is sent. */
-    void onProgressUpdateSent(@Nullable Bundle extras) {
-      throw new UnsupportedOperationException(
-          "It is not supported to send an interim update " + "for " + debug);
-    }
-
     /**
      * Called when an error is sent, after assertions about not being called twice have happened.
      */
     void onErrorSent(@Nullable Bundle extras) {
       throw new UnsupportedOperationException("It is not supported to send an error for " + debug);
-    }
-
-    @SuppressWarnings("deprecation") // provides backwards compatibility
-    private void checkExtraFields(@Nullable Bundle extras) {
-      if (extras == null) {
-        return;
-      }
-      if (extras.containsKey(android.support.v4.media.MediaBrowserCompat.EXTRA_DOWNLOAD_PROGRESS)) {
-        float value =
-            extras.getFloat(android.support.v4.media.MediaBrowserCompat.EXTRA_DOWNLOAD_PROGRESS);
-        float constraintValue =
-            Util.constrainValue(value, /* min= */ -EPSILON, /* max= */ 1.0f + EPSILON);
-        if (value != constraintValue) {
-          extras.putFloat(
-              android.support.v4.media.MediaBrowserCompat.EXTRA_DOWNLOAD_PROGRESS, constraintValue);
-          Log.w(
-              TAG,
-              "The value of the EXTRA_DOWNLOAD_PROGRESS "
-                  + "field must be a float number within [0.0, 1.0]. Actual value clamped to "
-                  + constraintValue
-                  + " from "
-                  + value);
-        }
-      }
     }
   }
 
@@ -1691,11 +1641,6 @@ public abstract class MediaBrowserServiceCompat extends Service {
           @Override
           void onResultSent(@Nullable Bundle result) {
             receiver.send(RESULT_OK, result);
-          }
-
-          @Override
-          void onProgressUpdateSent(@Nullable Bundle data) {
-            receiver.send(RESULT_PROGRESS_UPDATE, data);
           }
 
           @Override

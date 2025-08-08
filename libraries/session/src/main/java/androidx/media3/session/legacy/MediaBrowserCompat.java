@@ -150,16 +150,6 @@ public final class MediaBrowserCompat {
   public static final String CUSTOM_ACTION_REMOVE_DOWNLOADED_FILE =
       "android.support.v4.media.action.REMOVE_DOWNLOADED_FILE";
 
-  /**
-   * Used as a float extra field to denote the current progress during download. The value of this
-   * field must be a float number within [0.0, 1.0].
-   *
-   * @see #CUSTOM_ACTION_DOWNLOAD
-   * @see CustomActionCallback#onProgressUpdate
-   */
-  public static final String EXTRA_DOWNLOAD_PROGRESS =
-      "android.media.browse.extra.DOWNLOAD_PROGRESS";
-
   private final MediaBrowserImpl impl;
 
   /**
@@ -794,16 +784,6 @@ public final class MediaBrowserCompat {
 
   /** Callback for receiving the result of {@link #sendCustomAction}. */
   public abstract static class CustomActionCallback {
-    /**
-     * Called when an interim update was delivered from the connected service while performing the
-     * custom action.
-     *
-     * @param action The custom action sent to the connected service.
-     * @param extras The bundle of service-specific arguments sent to the connected service.
-     * @param data The additional data delivered from the connected service.
-     */
-    public void onProgressUpdate(String action, Bundle extras, Bundle data) {}
-
     /**
      * Called when the custom action finished successfully.
      *
@@ -1593,10 +1573,7 @@ public final class MediaBrowserCompat {
       MediaSessionCompat.ensureClassLoader(resultData);
       switch (resultCode) {
         case MediaBrowserServiceCompat.RESULT_PROGRESS_UPDATE:
-          callback.onProgressUpdate(
-              action,
-              extras == null ? Bundle.EMPTY : extras,
-              resultData == null ? Bundle.EMPTY : resultData);
+          // Ignore, no implementation.
           break;
         case MediaBrowserServiceCompat.RESULT_OK:
           callback.onResult(action, extras, resultData);

@@ -15,7 +15,6 @@
  */
 package androidx.media3.session;
 
-import static androidx.media3.session.MediaConstants.CUSTOM_COMMAND_DOWNLOAD;
 import static androidx.media3.session.MediaConstants.EXTRAS_KEY_COMPLETION_STATUS;
 import static androidx.media3.session.MediaConstants.EXTRAS_KEY_ERROR_RESOLUTION_ACTION_INTENT_COMPAT;
 import static androidx.media3.session.MediaConstants.EXTRAS_KEY_ERROR_RESOLUTION_ACTION_LABEL_COMPAT;
@@ -35,7 +34,6 @@ import static androidx.media3.test.session.common.MediaBrowserConstants.EXTRAS_K
 import static androidx.media3.test.session.common.MediaBrowserConstants.EXTRAS_KEY_NOTIFY_CHILDREN_CHANGED_DELAY_MS;
 import static androidx.media3.test.session.common.MediaBrowserConstants.EXTRAS_KEY_NOTIFY_CHILDREN_CHANGED_ITEM_COUNT;
 import static androidx.media3.test.session.common.MediaBrowserConstants.EXTRAS_KEY_NOTIFY_CHILDREN_CHANGED_MEDIA_ID;
-import static androidx.media3.test.session.common.MediaBrowserConstants.EXTRAS_VALUE_PARTIAL_PROGRESS;
 import static androidx.media3.test.session.common.MediaBrowserConstants.GET_CHILDREN_RESULT;
 import static androidx.media3.test.session.common.MediaBrowserConstants.LONG_LIST_COUNT;
 import static androidx.media3.test.session.common.MediaBrowserConstants.MEDIA_ID_GET_BROWSABLE_ITEM;
@@ -90,7 +88,6 @@ import androidx.media3.test.session.common.TestUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.SettableFuture;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -302,7 +299,6 @@ public class MockMediaLibraryService extends MediaLibraryService {
       SessionCommands.Builder builder = connectionResult.availableSessionCommands.buildUpon();
       builder.add(new SessionCommand(CUSTOM_ACTION, /* extras= */ Bundle.EMPTY));
       builder.add(new SessionCommand(CUSTOM_ACTION_ASSERT_PARAMS, /* extras= */ Bundle.EMPTY));
-      builder.add(new SessionCommand(CUSTOM_COMMAND_DOWNLOAD, /* extras= */ Bundle.EMPTY));
       Bundle connectionHints = controller.getConnectionHints();
       int commandCodeToRemove =
           connectionHints.getInt(CONNECTION_HINTS_KEY_REMOVE_COMMAND_CODE, /* defaultValue= */ -1);
@@ -561,8 +557,7 @@ public class MockMediaLibraryService extends MediaLibraryService {
         MediaSession session,
         ControllerInfo controller,
         SessionCommand sessionCommand,
-        Bundle args,
-        @Nullable MediaSession.ProgressReporter progressReporter) {
+        Bundle args) {
       switch (sessionCommand.customAction) {
         case CUSTOM_ACTION:
           return Futures.immediateFuture(
@@ -574,31 +569,6 @@ public class MockMediaLibraryService extends MediaLibraryService {
               paramsBundle == null ? null : LibraryParams.fromBundle(paramsBundle);
           setAssertLibraryParams(params);
           return Futures.immediateFuture(new SessionResult(SessionResult.RESULT_SUCCESS));
-        case CUSTOM_COMMAND_DOWNLOAD:
-          SettableFuture<SessionResult> settable = SettableFuture.create();
-          if (progressReporter != null) {
-            handler.postDelayed(
-                () -> {
-                  Bundle progressData = new Bundle();
-                  progressData.putInt("percent", 30);
-                  progressData.putFloat(
-                      MediaConstants.EXTRAS_KEY_DOWNLOAD_PROGRESS, EXTRAS_VALUE_PARTIAL_PROGRESS);
-                  progressReporter.sendProgressUpdate(progressData);
-                  handler.postDelayed(
-                      () -> {
-                        progressData.putInt("percent", 100);
-                        progressData.putFloat(MediaConstants.EXTRAS_KEY_DOWNLOAD_PROGRESS, 1.0f);
-                        progressReporter.sendProgressUpdate(progressData);
-                        settable.set(
-                            new SessionResult(SessionResult.RESULT_SUCCESS, CUSTOM_ACTION_EXTRAS));
-                      },
-                      /* delayMillis= */ 50);
-                },
-                /* delayMillis= */ 50);
-          } else {
-            settable.set(new SessionResult(SessionResult.RESULT_SUCCESS, CUSTOM_ACTION_EXTRAS));
-          }
-          return settable;
         default: // fall out
       }
       return Futures.immediateFuture(new SessionResult(ERROR_BAD_VALUE));
