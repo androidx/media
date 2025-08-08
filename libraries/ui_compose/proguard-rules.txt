@@ -1,0 +1,7 @@
+# Proguard rules specific to the UI Compose module.
+
+# Constructor method and classes accessed via reflection in PlayerSurface
+-dontnote androidx.media3.exoplayer.video.spherical.SphericalGLSurfaceView
+-keepclassmembers class androidx.media3.exoplayer.video.spherical.SphericalGLSurfaceView {
+  <init>(android.content.Context);
+}
