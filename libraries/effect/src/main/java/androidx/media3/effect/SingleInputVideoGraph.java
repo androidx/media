@@ -138,7 +138,7 @@ public class SingleInputVideoGraph implements VideoGraph {
 
   @Override
   public void registerInput(int inputIndex) throws VideoFrameProcessingException {
-    checkStateNotNull(videoFrameProcessor == null && !released);
+    checkState(videoFrameProcessor == null && !released);
     checkState(this.inputIndex == C.INDEX_UNSET, "This VideoGraph supports only one input.");
 
     this.inputIndex = inputIndex;
