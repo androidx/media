@@ -45,7 +45,6 @@ import static androidx.media3.transformer.AndroidTestUtil.createFrameCountingEff
 import static androidx.media3.transformer.AndroidTestUtil.createOpenGlObjects;
 import static androidx.media3.transformer.AndroidTestUtil.generateTextureFromBitmap;
 import static androidx.media3.transformer.AndroidTestUtil.getMuxerFactoryBasedOnApi;
-import static androidx.media3.transformer.AndroidTestUtil.getTrackOutput;
 import static androidx.media3.transformer.AndroidTestUtil.recordTestSkipped;
 import static androidx.media3.transformer.ExportResult.CONVERSION_PROCESS_NA;
 import static androidx.media3.transformer.ExportResult.CONVERSION_PROCESS_TRANSCODED;
@@ -1068,7 +1067,7 @@ public class TransformerEndToEndTest {
         TestUtil.extractAllSamplesFromFilePath(mp4Extractor, checkNotNull(result.filePath));
     assertThat(result.exportResult.fileSizeBytes).isGreaterThan(0);
     List<Long> videoTimestampsUs =
-        checkNotNull(getTrackOutput(fakeExtractorOutput, C.TRACK_TYPE_VIDEO)).getSampleTimesUs();
+        checkNotNull(fakeExtractorOutput.getTrackOutput(C.TRACK_TYPE_VIDEO)).getSampleTimesUs();
     assertThat(videoTimestampsUs).hasSize(270);
     assertThat(videoTimestampsUs.get(0)).isEqualTo(0);
     // The second sample is originally at 1_033_333, clipping at 100_000 results in 933_333.
@@ -1097,7 +1096,7 @@ public class TransformerEndToEndTest {
         TestUtil.extractAllSamplesFromFilePath(mp4Extractor, checkNotNull(result.filePath));
     assertThat(result.exportResult.fileSizeBytes).isGreaterThan(0);
     List<Long> videoTimestampsUs =
-        checkNotNull(getTrackOutput(fakeExtractorOutput, C.TRACK_TYPE_VIDEO)).getSampleTimesUs();
+        checkNotNull(fakeExtractorOutput.getTrackOutput(C.TRACK_TYPE_VIDEO)).getSampleTimesUs();
     assertThat(videoTimestampsUs).hasSize(270);
     assertThat(videoTimestampsUs.get(0)).isEqualTo(0);
     // The second sample is originally at 1_033_333, clipping at 100_000 results in 933_333.

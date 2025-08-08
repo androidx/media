@@ -61,13 +61,10 @@ import androidx.media3.exoplayer.mediacodec.MediaCodecUtil;
 import androidx.media3.exoplayer.video.MediaCodecVideoRenderer;
 import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
 import androidx.media3.exoplayer.video.VideoFrameReleaseControl;
-import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.muxer.BufferInfo;
 import androidx.media3.muxer.Muxer;
 import androidx.media3.muxer.MuxerException;
 import androidx.media3.test.utils.BitmapPixelTestUtil;
-import androidx.media3.test.utils.FakeExtractorOutput;
-import androidx.media3.test.utils.FakeTrackOutput;
 import androidx.media3.test.utils.VideoDecodingWrapper;
 import androidx.test.platform.app.InstrumentationRegistry;
 import com.google.common.base.Ascii;
@@ -276,28 +273,6 @@ public final class AndroidTestUtil {
     // output, so allow both color spaces in output files when checking for SDR.
     assertThat(colorInfo.colorSpace)
         .isAnyOf(C.COLOR_SPACE_BT709, C.COLOR_SPACE_BT601, Format.NO_VALUE);
-  }
-
-  /**
-   * Returns a {@link FakeTrackOutput} of given {@link C.TrackType} from the {@link
-   * FakeExtractorOutput}.
-   *
-   * @param extractorOutput The {@link ExtractorOutput} to get the {@link FakeTrackOutput} from.
-   * @param trackType The {@link C.TrackType}.
-   * @return The {@link FakeTrackOutput} or {@code null} if a track is not found.
-   */
-  @Nullable
-  public static FakeTrackOutput getTrackOutput(
-      FakeExtractorOutput extractorOutput, @C.TrackType int trackType) {
-    for (int i = 0; i < extractorOutput.numberOfTracks; i++) {
-      FakeTrackOutput trackOutput = extractorOutput.trackOutputs.get(i);
-      String sampleMimeType = checkNotNull(trackOutput.lastFormat).sampleMimeType;
-      if ((trackType == C.TRACK_TYPE_AUDIO && MimeTypes.isAudio(sampleMimeType))
-          || (trackType == C.TRACK_TYPE_VIDEO && MimeTypes.isVideo(sampleMimeType))) {
-        return trackOutput;
-      }
-    }
-    return null;
   }
 
   public static ImmutableList<Bitmap> extractBitmapsFromVideo(Context context, String filePath)

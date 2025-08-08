@@ -18,16 +18,13 @@ package androidx.media3.transformer;
 import static androidx.media3.test.utils.TestUtil.extractAllSamplesFromFilePath;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import androidx.annotation.Nullable;
 import androidx.media3.common.C;
-import androidx.media3.common.MimeTypes;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.BaseAudioProcessor;
 import androidx.media3.common.audio.ChannelMixingAudioProcessor;
 import androidx.media3.common.audio.ChannelMixingMatrix;
 import androidx.media3.common.audio.SonicAudioProcessor;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
 import androidx.media3.test.utils.FakeExtractorOutput;
@@ -189,7 +186,7 @@ public final class TestUtil {
     Mp4Extractor mp4Extractor = new Mp4Extractor(new DefaultSubtitleParserFactory());
     FakeExtractorOutput fakeExtractorOutput =
         extractAllSamplesFromFilePath(mp4Extractor, checkNotNull(filePath));
-    return checkNotNull(getTrackOutput(fakeExtractorOutput, C.TRACK_TYPE_VIDEO)).getSampleTimesUs();
+    return checkNotNull(fakeExtractorOutput.getTrackOutput(C.TRACK_TYPE_VIDEO)).getSampleTimesUs();
   }
 
   /**
@@ -202,28 +199,6 @@ public final class TestUtil {
     Mp4Extractor mp4Extractor = new Mp4Extractor(new DefaultSubtitleParserFactory());
     FakeExtractorOutput fakeExtractorOutput =
         extractAllSamplesFromFilePath(mp4Extractor, checkNotNull(filePath));
-    return checkNotNull(getTrackOutput(fakeExtractorOutput, C.TRACK_TYPE_AUDIO)).getSampleTimesUs();
-  }
-
-  /**
-   * Returns a {@link FakeTrackOutput} of given {@link C.TrackType} from the {@link
-   * FakeExtractorOutput}.
-   *
-   * @param extractorOutput The {@link ExtractorOutput} to get the {@link FakeTrackOutput} from.
-   * @param trackType The {@link C.TrackType}.
-   * @return The {@link FakeTrackOutput} or {@code null} if a track is not found.
-   */
-  @Nullable
-  public static FakeTrackOutput getTrackOutput(
-      FakeExtractorOutput extractorOutput, @C.TrackType int trackType) {
-    for (int i = 0; i < extractorOutput.numberOfTracks; i++) {
-      FakeTrackOutput trackOutput = extractorOutput.trackOutputs.get(i);
-      String sampleMimeType = checkNotNull(trackOutput.lastFormat).sampleMimeType;
-      if ((trackType == C.TRACK_TYPE_AUDIO && MimeTypes.isAudio(sampleMimeType))
-          || (trackType == C.TRACK_TYPE_VIDEO && MimeTypes.isVideo(sampleMimeType))) {
-        return trackOutput;
-      }
-    }
-    return null;
+    return checkNotNull(fakeExtractorOutput.getTrackOutput(C.TRACK_TYPE_AUDIO)).getSampleTimesUs();
   }
 }

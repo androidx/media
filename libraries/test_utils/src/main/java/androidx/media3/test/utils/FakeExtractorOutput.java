@@ -15,11 +15,13 @@
  */
 package androidx.media3.test.utils;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.util.SparseArray;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.extractor.SeekMap;
@@ -107,5 +109,24 @@ public final class FakeExtractorOutput implements ExtractorOutput, Dumper.Dumpab
       dumper.startBlock("track " + trackOutputs.keyAt(i)).add(trackOutputs.valueAt(i)).endBlock();
     }
     dumper.add("tracksEnded", tracksEnded);
+  }
+
+  /**
+   * Returns a {@link FakeTrackOutput} of given {@link C.TrackType}.
+   *
+   * @param trackType The {@link C.TrackType}.
+   * @return The {@link FakeTrackOutput} or {@code null} if a track is not found.
+   */
+  @Nullable
+  public FakeTrackOutput getTrackOutput(@C.TrackType int trackType) {
+    for (int i = 0; i < numberOfTracks; i++) {
+      FakeTrackOutput trackOutput = trackOutputs.get(i);
+      String sampleMimeType = checkNotNull(trackOutput.lastFormat).sampleMimeType;
+      if ((trackType == C.TRACK_TYPE_AUDIO && MimeTypes.isAudio(sampleMimeType))
+          || (trackType == C.TRACK_TYPE_VIDEO && MimeTypes.isVideo(sampleMimeType))) {
+        return trackOutput;
+      }
+    }
+    return null;
   }
 }
