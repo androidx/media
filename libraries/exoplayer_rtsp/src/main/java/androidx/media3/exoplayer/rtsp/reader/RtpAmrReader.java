@@ -28,6 +28,7 @@ import androidx.media3.exoplayer.rtsp.RtpPacket;
 import androidx.media3.exoplayer.rtsp.RtpPayloadFormat;
 import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.extractor.TrackOutput;
+import java.util.ArrayList;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
@@ -149,15 +150,39 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     // | CMR |R|R|R|R| ILL  |  ILP  |
     // +-+-+-+-+-+-+-+- - - - - - - -
     //
+    int bufferSize = data.bytesLeft();
+    final int CMRPlusReservedBitsSize = 1;
     // Skip CMR and reserved bits.
-    data.skipBytes(1);
-    // Loop over sampleSize to send multiple frames along with appropriate timestamp when compound
-    // payload support is added.
-    int frameType = (data.peekUnsignedByte() >> 3) & 0x0f;
-    int frameSize = getFrameSize(frameType, isWideBand);
-    int sampleSize = data.bytesLeft();
-    checkArgument(sampleSize == frameSize, "compound payload not supported currently");
-    trackOutput.sampleData(data, sampleSize);
+    data.skipBytes(CMRPlusReservedBitsSize);
+    // For multi-channel sessions, the ToC entries of all frames from a frame-block are placed in
+    // the ToC in consecutive order as defined in RFC4867 Section 4.1.
+    // Parsing all the toc to get frame size of each frame and feed the data accordingly.
+    int tocIndex = data.getPosition();
+    ArrayList<Integer> frameSizes = new ArrayList<>();
+    int sampleSize = 0;
+    int toc;
+    do {
+      toc = data.readUnsignedByte();
+      int frameType = (toc >> 3) & 0x0f;
+      int frameSize = getFrameSize(frameType, isWideBand);
+      sampleSize += frameSize;
+      frameSizes.add(frameSize);
+    } while (0 != (toc & 0x80));
+
+    int frameDataIndex = data.getPosition();
+    checkArgument(bufferSize >= CMRPlusReservedBitsSize + sampleSize,
+        "AMR packet is too short. " + "Buffersize : " + bufferSize +
+            "sample size : " + sampleSize);
+    int size = 0;
+    for (int i = 0; i < frameSizes.size(); i++) {
+      int frameSize = frameSizes.get(i);
+      data.setPosition(tocIndex + i);
+      trackOutput.sampleData(data, /* toc Size */ 1);
+      data.setPosition(frameDataIndex + size);
+      trackOutput.sampleData(data, frameSize - 1);
+      size += frameSize - 1;
+    }
+
     long sampleTimeUs =
         toSampleTimeUs(startTimeOffsetUs, timestamp, firstReceivedTimestamp, sampleRate);
     trackOutput.sampleMetadata(
@@ -177,7 +202,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   public static int getFrameSize(int frameType, boolean isWideBand) {
     checkArgument(
         // Valid frame types are defined in RFC4867 Section 4.3.1.
-        (frameType >= 0 && frameType <= 8) || frameType == 15,
+        (isWideBand && (frameType >= 0 && frameType <= 8)) ||
+            (!isWideBand && (frameType >= 0 && frameType <= 7)) || frameType == 15,
         "Illegal AMR " + (isWideBand ? "WB" : "NB") + " frame type " + frameType);
 
     return isWideBand
