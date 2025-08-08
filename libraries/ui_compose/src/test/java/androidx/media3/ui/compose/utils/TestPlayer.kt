@@ -172,9 +172,7 @@ internal class TestPlayer(
 
   fun setDuration(uid: String, durationMs: Long) {
     val index = state.playlist.indexOfFirst { it.uid == uid }
-    if (index == -1) {
-      throw IllegalArgumentException("Playlist does not contain item with uid: $uid")
-    }
+    require(index >= 0) { "Playlist does not contain item with uid: $uid" }
     val modifiedPlaylist = buildList {
       addAll(state.playlist)
       set(index, state.playlist[index].buildUpon().setDurationUs(msToUs(durationMs)).build())
