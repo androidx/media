@@ -1163,6 +1163,10 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
       activeEffects.addAll(inputStreamInfo.effects);
     }
 
+    if (frameCache != null) {
+      frameCache.onNewInputStream();
+    }
+
     inputSwitcher.switchToInput(
         inputStreamInfo.inputType,
         new FrameInfo(inputStreamInfo.format, inputStreamInfo.offsetToAddUs));
