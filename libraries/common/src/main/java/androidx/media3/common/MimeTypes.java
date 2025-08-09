@@ -41,6 +41,7 @@ public final class MimeTypes {
   // video/ MIME types
 
   public static final String VIDEO_MP4 = BASE_TYPE_VIDEO + "/mp4";
+  @UnstableApi public static final String VIDEO_QUICK_TIME = BASE_TYPE_VIDEO + "/quicktime";
   @UnstableApi public static final String VIDEO_MATROSKA = BASE_TYPE_VIDEO + "/x-matroska";
   public static final String VIDEO_WEBM = BASE_TYPE_VIDEO + "/webm";
   public static final String VIDEO_H263 = BASE_TYPE_VIDEO + "/3gpp";
