@@ -15,7 +15,7 @@
 -->
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
 
-  <string name="application_name">ExoPlayer</string>
+  <string name="application_name">Media3</string>
 
   <string name="track_selection_title">Select tracks</string>
 
