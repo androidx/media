@@ -105,25 +105,25 @@ public final class RtpAc3ReaderTest {
         packetData,
         frame1fragment1.timestamp,
         frame1fragment1.sequenceNumber,
-        /* isFrameBoundary= */ frame1fragment1.marker);
+        /* rtpMarker= */ frame1fragment1.marker);
     packetData.reset(frame1fragment2.payloadData);
     ac3Reader.consume(
         packetData,
         frame1fragment2.timestamp,
         frame1fragment2.sequenceNumber,
-        /* isFrameBoundary= */ frame1fragment2.marker);
+        /* rtpMarker= */ frame1fragment2.marker);
     packetData.reset(frame2fragment1.payloadData);
     ac3Reader.consume(
         packetData,
         frame2fragment1.timestamp,
         frame2fragment1.sequenceNumber,
-        /* isFrameBoundary= */ frame2fragment1.marker);
+        /* rtpMarker= */ frame2fragment1.marker);
     packetData.reset(frame2fragment2.payloadData);
     ac3Reader.consume(
         packetData,
         frame2fragment2.timestamp,
         frame2fragment2.sequenceNumber,
-        /* isFrameBoundary= */ frame2fragment2.marker);
+        /* rtpMarker= */ frame2fragment2.marker);
 
     assertThat(trackOutput.getSampleCount()).isEqualTo(2);
     assertThat(trackOutput.getSampleData(0)).isEqualTo(getBytesFromHexString("01020304"));
@@ -141,19 +141,19 @@ public final class RtpAc3ReaderTest {
         packetData,
         frame1fragment2.timestamp,
         frame1fragment2.sequenceNumber,
-        /* isFrameBoundary= */ frame1fragment2.marker);
+        /* rtpMarker= */ frame1fragment2.marker);
     packetData.reset(frame2fragment1.payloadData);
     ac3Reader.consume(
         packetData,
         frame2fragment1.timestamp,
         frame2fragment1.sequenceNumber,
-        /* isFrameBoundary= */ frame2fragment1.marker);
+        /* rtpMarker= */ frame2fragment1.marker);
     packetData.reset(frame2fragment2.payloadData);
     ac3Reader.consume(
         packetData,
         frame2fragment2.timestamp,
         frame2fragment2.sequenceNumber,
-        /* isFrameBoundary= */ frame2fragment2.marker);
+        /* rtpMarker= */ frame2fragment2.marker);
 
     assertThat(trackOutput.getSampleCount()).isEqualTo(2);
     assertThat(trackOutput.getSampleData(0)).isEqualTo(getBytesFromHexString("0304"));
@@ -170,19 +170,19 @@ public final class RtpAc3ReaderTest {
         packetData,
         frame1fragment1.timestamp,
         frame1fragment1.sequenceNumber,
-        /* isFrameBoundary= */ frame1fragment1.marker);
+        /* rtpMarker= */ frame1fragment1.marker);
     packetData.reset(frame2fragment1.payloadData);
     ac3Reader.consume(
         packetData,
         frame2fragment1.timestamp,
         frame2fragment1.sequenceNumber,
-        /* isFrameBoundary= */ frame2fragment1.marker);
+        /* rtpMarker= */ frame2fragment1.marker);
     packetData.reset(frame2fragment2.payloadData);
     ac3Reader.consume(
         packetData,
         frame2fragment2.timestamp,
         frame2fragment2.sequenceNumber,
-        /* isFrameBoundary= */ frame2fragment2.marker);
+        /* rtpMarker= */ frame2fragment2.marker);
 
     assertThat(trackOutput.getSampleCount()).isEqualTo(2);
     assertThat(trackOutput.getSampleData(0)).isEqualTo(getBytesFromHexString("0102"));
@@ -194,7 +194,7 @@ public final class RtpAc3ReaderTest {
   private static RtpPacket createRtpPacket(
       long timestamp, int sequenceNumber, boolean marker, byte[] payloadData) {
     return new RtpPacket.Builder()
-        .setTimestamp((int) timestamp)
+        .setTimestamp(timestamp)
         .setSequenceNumber(sequenceNumber)
         .setMarker(marker)
         .setPayloadData(payloadData)
