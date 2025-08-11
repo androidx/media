@@ -141,13 +141,13 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   private final MediaSessionCompat sessionCompat;
   @Nullable private final MediaButtonReceiver runtimeBroadcastReceiver;
   @Nullable private final ComponentName broadcastReceiverComponentName;
-  @Nullable private VolumeProviderCompat volumeProviderCompat;
   private final boolean playIfSuppressed;
   private final HandlerThread compatSessionInteractionThread;
   private final Handler compatSessionInteractionHandler;
 
   private volatile long connectionTimeoutMs;
   @Nullable private FutureCallback<Bitmap> pendingBitmapLoadCallback;
+  @Nullable private VolumeProviderCompat volumeProviderCompat;
   private int sessionFlags;
   @Nullable private LegacyError legacyError;
   private Bundle legacyExtras;
@@ -1739,6 +1739,10 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       if (playbackType == DeviceInfo.PLAYBACK_TYPE_LOCAL) {
         postOrRunForCompatSession(
             () -> {
+              if (volumeProviderCompat != null) {
+                // Stale event.
+                return;
+              }
               sessionCompat.setPlaybackToLocal(audioAttributes.getStreamType());
               sessionImpl.onNotificationRefreshRequired();
             });
@@ -1752,11 +1756,19 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       if (volumeProviderCompat == null) {
         int streamType = player.getAudioAttributesWithCommandCheck().getStreamType();
         postOrRunForCompatSession(() -> {
+          if (volumeProviderCompat != null) {
+            // Stale event.
+            return;
+          }
           sessionCompat.setPlaybackToLocal(streamType);
           sessionImpl.onNotificationRefreshRequired();
         });
       } else {
         postOrRunForCompatSession(() -> {
+          if (volumeProviderCompat == null) {
+            // Stale event.
+            return;
+          }
           sessionCompat.setPlaybackToRemote(volumeProviderCompat);
           sessionImpl.onNotificationRefreshRequired();
         });
