@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.video;
 
+import static androidx.media3.common.ColorInfo.SDR_BT709_LIMITED;
 import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_IMMEDIATELY;
 import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED;
 import static com.google.common.truth.Truth.assertThat;
@@ -161,7 +162,7 @@ public final class PlaybackVideoGraphWrapperTest {
 
     testVideoGraphFactory.verifyRegisterInputStream(/* invocationTimes= */ 1);
     Format bt709ColorInfoInputFormat =
-        inputFormat.buildUpon().setColorInfo(ColorInfo.SDR_BT709_LIMITED).build();
+        inputFormat.buildUpon().setColorInfo(SDR_BT709_LIMITED).build();
     assertThat(testVideoGraphFactory.getCapturedFormats())
         .containsExactly(bt709ColorInfoInputFormat);
   }
@@ -193,6 +194,26 @@ public final class PlaybackVideoGraphWrapperTest {
 
     testVideoGraphFactory.verifyRegisterInputStream(/* invocationTimes= */ 1);
     assertThat(testVideoGraphFactory.getCapturedFormats()).containsExactly(inputFormat);
+  }
+
+  @Test
+  public void inputSinkInitialized_withGamma22_createsGraphWithBT709()
+      throws VideoSink.VideoSinkException {
+    TestVideoGraphFactory testVideoGraphFactory = new TestVideoGraphFactory();
+    PlaybackVideoGraphWrapper playbackVideoGraphWrapper =
+        createPlaybackVideoGraphWrapper(testVideoGraphFactory);
+    ColorInfo gamma22ColorInfo =
+        new ColorInfo.Builder()
+            .setColorRange(C.COLOR_RANGE_LIMITED)
+            .setColorSpace(C.COLOR_SPACE_BT709)
+            .setColorTransfer(C.COLOR_TRANSFER_GAMMA_2_2)
+            .build();
+    Format inputFormat = new Format.Builder().setColorInfo(gamma22ColorInfo).build();
+    VideoSink sink = playbackVideoGraphWrapper.getSink(/* inputIndex= */ 0);
+
+    sink.initialize(inputFormat);
+
+    assertThat(testVideoGraphFactory.outputColorInfo).isEqualTo(SDR_BT709_LIMITED);
   }
 
   @Test
@@ -370,6 +391,8 @@ public final class PlaybackVideoGraphWrapperTest {
 
     private final ArgumentCaptor<Format> formatCaptor = ArgumentCaptor.forClass(Format.class);
 
+    public ColorInfo outputColorInfo;
+
     @Override
     public VideoGraph create(
         Context context,
@@ -379,6 +402,7 @@ public final class PlaybackVideoGraphWrapperTest {
         Executor listenerExecutor,
         long initialTimestampOffsetUs,
         boolean renderFramesAutomatically) {
+      this.outputColorInfo = outputColorInfo;
 
       when(videoGraph.registerInputFrame(anyInt())).thenReturn(true);
       return videoGraph;

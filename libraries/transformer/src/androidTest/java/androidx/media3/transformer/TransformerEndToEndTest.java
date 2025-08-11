@@ -17,6 +17,8 @@ package androidx.media3.transformer;
 
 import static android.media.MediaCodecInfo.CodecProfileLevel.AACObjectHE;
 import static android.os.Build.VERSION.SDK_INT;
+import static androidx.media3.common.C.COLOR_SPACE_BT709;
+import static androidx.media3.common.C.COLOR_TRANSFER_SDR;
 import static androidx.media3.common.util.MediaFormatUtil.createFormatFromMediaFormat;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.test.utils.TestUtil.JPG_ASSET;
@@ -27,6 +29,7 @@ import static androidx.media3.test.utils.TestUtil.MP4_ASSET_DOLBY_VISION_HDR;
 import static androidx.media3.test.utils.TestUtil.MP4_ASSET_PHOTOS_TRIM_OPTIMIZATION_VIDEO;
 import static androidx.media3.test.utils.TestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS;
 import static androidx.media3.test.utils.TestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S;
+import static androidx.media3.test.utils.TestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_GAMMA22_1S;
 import static androidx.media3.test.utils.TestUtil.MP4_ASSET_WITH_SHORTER_AUDIO;
 import static androidx.media3.test.utils.TestUtil.MP4_PORTRAIT_ASSET;
 import static androidx.media3.test.utils.TestUtil.MP4_POSITIVE_SHIFT_EDIT_LIST;
@@ -2555,6 +2558,41 @@ public class TransformerEndToEndTest {
     Format format = retrieveTrackFormat(context, result.filePath, C.TRACK_TYPE_VIDEO);
     assertThat(format.sampleMimeType).isEqualTo(MimeTypes.VIDEO_APV);
     assertThat(result.exportResult.videoConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSMUXED);
+  }
+
+  @Test
+  public void videoTranscoding_withGamma22Input_completesWithCorrectFrameCount() throws Exception {
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_GAMMA22_1S.videoFormat,
+        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_GAMMA22_1S.videoFormat);
+    Transformer transformer =
+        new Transformer.Builder(context)
+            .setEncoderFactory(new AndroidTestUtil.ForceEncodeEncoderFactory(context))
+            .build();
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(
+                new MediaItem.Builder()
+                    .setUri(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_GAMMA22_1S.uri)
+                    .build())
+            .setRemoveAudio(true)
+            .build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, editedMediaItem);
+
+    Mp4Extractor mp4Extractor = new Mp4Extractor(new DefaultSubtitleParserFactory());
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(mp4Extractor, result.filePath);
+    FakeTrackOutput videoTrack = fakeExtractorOutput.trackOutputs.get(0);
+    videoTrack.assertSampleCount(
+        MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_GAMMA22_1S.videoFrameCount);
+    Format format = retrieveTrackFormat(context, result.filePath, C.TRACK_TYPE_VIDEO);
+    assertThat(format.colorInfo.colorSpace).isEqualTo(COLOR_SPACE_BT709);
+    assertThat(format.colorInfo.colorTransfer).isEqualTo(COLOR_TRANSFER_SDR);
   }
 
   private static boolean shouldSkipDeviceForAacObjectHeProfileEncoding() {

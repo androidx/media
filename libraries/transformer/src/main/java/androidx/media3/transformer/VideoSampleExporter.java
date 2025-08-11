@@ -116,20 +116,23 @@ import org.checkerframework.dataflow.qual.Pure;
 
     ColorInfo videoGraphInputColor = checkNotNull(firstInputFormat.colorInfo);
     ColorInfo videoGraphOutputColor;
-    if (videoGraphInputColor.colorTransfer == C.COLOR_TRANSFER_SRGB) {
-      // The sRGB color transfer is only used for images.
+    if (Objects.equals(firstInputFormat.sampleMimeType, MimeTypes.IMAGE_JPEG_R)
+        && videoGraphInputColor.colorTransfer == C.COLOR_TRANSFER_SRGB) {
+      // We only support the sRGB color transfer for Ultra HDR images.
       // When an Ultra HDR image transcoded into a video, we use BT2020 HLG full range colors in the
       // resulting HDR video.
-      // When an SDR image gets transcoded into a video, we use the SMPTE 170M transfer function for
-      // the resulting video.
       videoGraphOutputColor =
-          Objects.equals(firstInputFormat.sampleMimeType, MimeTypes.IMAGE_JPEG_R)
-              ? new ColorInfo.Builder()
-                  .setColorSpace(COLOR_SPACE_BT2020)
-                  .setColorTransfer(COLOR_TRANSFER_HLG)
-                  .setColorRange(COLOR_RANGE_FULL)
-                  .build()
-              : SDR_BT709_LIMITED;
+          new ColorInfo.Builder()
+              .setColorSpace(COLOR_SPACE_BT2020)
+              .setColorTransfer(COLOR_TRANSFER_HLG)
+              .setColorRange(COLOR_RANGE_FULL)
+              .build();
+    } else if (videoGraphInputColor.colorTransfer == C.COLOR_TRANSFER_SRGB
+        || videoGraphInputColor.colorTransfer == C.COLOR_TRANSFER_GAMMA_2_2) {
+      // Convert to BT.709 which is a more commonly used color space.
+      // COLOR_TRANSFER_SDR (BT.709), COLOR_TRANSFER_SRGB and COLOR_TRANSFER_GAMMA_2_2 are similar,
+      // so the conversion should not bring a large quality degradation.
+      videoGraphOutputColor = SDR_BT709_LIMITED;
     } else {
       videoGraphOutputColor = videoGraphInputColor;
     }
