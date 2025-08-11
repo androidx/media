@@ -148,13 +148,13 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   private final MediaSessionCompat sessionCompat;
   @Nullable private final MediaButtonReceiver runtimeBroadcastReceiver;
   @Nullable private final ComponentName broadcastReceiverComponentName;
-  @Nullable private VolumeProviderCompat volumeProviderCompat;
   private final boolean playIfSuppressed;
   private final HandlerThread compatSessionInteractionThread;
   private final Handler compatSessionInteractionHandler;
 
   private volatile long connectionTimeoutMs;
   @Nullable private FutureCallback<Bitmap> pendingBitmapLoadCallback;
+  @Nullable private VolumeProviderCompat volumeProviderCompat;
   private int sessionFlags;
   @Nullable private LegacyError legacyError;
   private Bundle legacyExtras;
@@ -1822,7 +1822,13 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       int playbackType = sessionImpl.getPlayerWrapper().getDeviceInfo().playbackType;
       if (playbackType == DeviceInfo.PLAYBACK_TYPE_LOCAL) {
         postOrRunForCompatSession(
-            () -> sessionCompat.setPlaybackToLocal(audioAttributes));
+            () -> {
+              if (volumeProviderCompat != null) {
+                // Stale event.
+                return;
+              }
+              sessionCompat.setPlaybackToLocal(audioAttributes);
+            });
       }
     }
 
@@ -1832,9 +1838,21 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       volumeProviderCompat = createVolumeProviderCompat(player);
       if (volumeProviderCompat == null) {
         AudioAttributes audioAttributes = player.getAudioAttributesWithCommandCheck();
-        postOrRunForCompatSession(() -> sessionCompat.setPlaybackToLocal(audioAttributes));
+        postOrRunForCompatSession(() -> {
+          if (volumeProviderCompat != null) {
+            // Stale event.
+            return;
+          }
+          sessionCompat.setPlaybackToLocal(audioAttributes);
+        });
       } else {
-        postOrRunForCompatSession(() -> sessionCompat.setPlaybackToRemote(volumeProviderCompat));
+        postOrRunForCompatSession(() -> {
+          if (volumeProviderCompat == null) {
+            // Stale event.
+            return;
+          }
+          sessionCompat.setPlaybackToRemote(volumeProviderCompat);
+        });
       }
     }
 
