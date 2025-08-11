@@ -30,31 +30,27 @@ public final class Assertions {
   private Assertions() {}
 
   /**
-   * Throws {@link IllegalArgumentException} if {@code expression} evaluates to false.
-   *
-   * @param expression The expression to evaluate.
-   * @throws IllegalArgumentException If {@code expression} is false.
+   * @deprecated Use {@link Preconditions#checkArgument} instead.
    */
+  @Deprecated
   @Pure
+  @InlineMe(
+      replacement = "Preconditions.checkArgument(expression)",
+      imports = "com.google.common.base.Preconditions")
   public static void checkArgument(boolean expression) {
-    if (!expression) {
-      throw new IllegalArgumentException();
-    }
+    Preconditions.checkArgument(expression);
   }
 
   /**
-   * Throws {@link IllegalArgumentException} if {@code expression} evaluates to false.
-   *
-   * @param expression The expression to evaluate.
-   * @param errorMessage The exception message if an exception is thrown. The message is converted
-   *     to a {@link String} using {@link String#valueOf(Object)}.
-   * @throws IllegalArgumentException If {@code expression} is false.
+   * @deprecated Use {@link Preconditions#checkArgument} instead.
    */
+  @Deprecated
   @Pure
+  @InlineMe(
+      replacement = "Preconditions.checkArgument(expression, errorMessage)",
+      imports = "com.google.common.base.Preconditions")
   public static void checkArgument(boolean expression, Object errorMessage) {
-    if (!expression) {
-      throw new IllegalArgumentException(String.valueOf(errorMessage));
-    }
+    Preconditions.checkArgument(expression, errorMessage);
   }
 
   /**
@@ -71,31 +67,27 @@ public final class Assertions {
   }
 
   /**
-   * Throws {@link IllegalStateException} if {@code expression} evaluates to false.
-   *
-   * @param expression The expression to evaluate.
-   * @throws IllegalStateException If {@code expression} is false.
+   * @deprecated Use {@link Preconditions#checkState} instead.
    */
+  @Deprecated
   @Pure
+  @InlineMe(
+      replacement = "Preconditions.checkState(expression)",
+      imports = "com.google.common.base.Preconditions")
   public static void checkState(boolean expression) {
-    if (!expression) {
-      throw new IllegalStateException();
-    }
+    Preconditions.checkState(expression);
   }
 
   /**
-   * Throws {@link IllegalStateException} if {@code expression} evaluates to false.
-   *
-   * @param expression The expression to evaluate.
-   * @param errorMessage The exception message if an exception is thrown. The message is converted
-   *     to a {@link String} using {@link String#valueOf(Object)}.
-   * @throws IllegalStateException If {@code expression} is false.
+   * @deprecated Use {@link Preconditions#checkState} instead.
    */
+  @Deprecated
   @Pure
+  @InlineMe(
+      replacement = "Preconditions.checkState(expression, errorMessage)",
+      imports = "com.google.common.base.Preconditions")
   public static void checkState(boolean expression, Object errorMessage) {
-    if (!expression) {
-      throw new IllegalStateException(String.valueOf(errorMessage));
-    }
+    Preconditions.checkState(expression, errorMessage);
   }
 
   /**
@@ -125,41 +117,31 @@ public final class Assertions {
   }
 
   /**
-   * Throws {@link NullPointerException} if {@code reference} is null.
-   *
-   * @param <T> The type of the reference.
-   * @param reference The reference.
-   * @return The non-null reference that was validated.
-   * @throws NullPointerException If {@code reference} is null.
+   * @deprecated Use {@link Preconditions#checkNotNull} instead.
    */
+  @Deprecated
   @SuppressWarnings({"nullness:contracts.postcondition", "nullness:return"})
   @EnsuresNonNull({"#1"})
   @Pure
+  @InlineMe(
+      replacement = "Preconditions.checkNotNull(reference)",
+      imports = "com.google.common.base.Preconditions")
   public static <T> T checkNotNull(@Nullable T reference) {
-    if (reference == null) {
-      throw new NullPointerException();
-    }
-    return reference;
+    return Preconditions.checkNotNull(reference);
   }
 
   /**
-   * Throws {@link NullPointerException} if {@code reference} is null.
-   *
-   * @param <T> The type of the reference.
-   * @param reference The reference.
-   * @param errorMessage The exception message to use if the check fails. The message is converted
-   *     to a string using {@link String#valueOf(Object)}.
-   * @return The non-null reference that was validated.
-   * @throws NullPointerException If {@code reference} is null.
+   * @deprecated Use {@link Preconditions#checkNotNull} instead.
    */
+  @Deprecated
   @SuppressWarnings({"nullness:contracts.postcondition", "nullness:return"})
   @EnsuresNonNull({"#1"})
   @Pure
+  @InlineMe(
+      replacement = "Preconditions.checkNotNull(reference, errorMessage)",
+      imports = "com.google.common.base.Preconditions")
   public static <T> T checkNotNull(@Nullable T reference, Object errorMessage) {
-    if (reference == null) {
-      throw new NullPointerException(String.valueOf(errorMessage));
-    }
-    return reference;
+    return Preconditions.checkNotNull(reference, errorMessage);
   }
 
   /**
@@ -189,15 +171,18 @@ public final class Assertions {
   }
 
   /**
-   * Throws {@link IllegalStateException} if the calling thread is not the application's main
-   * thread.
-   *
-   * @throws IllegalStateException If the calling thread is not the application's main thread.
+   * @deprecated Use {@link Preconditions#checkState} to assert {@code Looper.myLooper() ==
+   *     Looper.getMainLooper()} instead.
    */
+  @Deprecated
   @Pure
+  @InlineMe(
+      replacement =
+          "Preconditions.checkState(Looper.myLooper() == Looper.getMainLooper(), \"Not in"
+              + " application's main thread\")",
+      imports = {"com.google.common.base.Preconditions", "android.os.Looper"})
   public static void checkMainThread() {
-    if (Looper.myLooper() != Looper.getMainLooper()) {
-      throw new IllegalStateException("Not in applications main thread");
-    }
+    Preconditions.checkState(
+        Looper.myLooper() == Looper.getMainLooper(), "Not in application's main thread");
   }
 }
