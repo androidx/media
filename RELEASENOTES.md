@@ -150,6 +150,9 @@
         by the user ([#2606](https://github.com/androidx/media/issues/2606)).
 *   Smooth Streaming extension:
 *   RTSP extension:
+    *   Handle error of missing RTP packets when processing fragmented NAL units
+        for H264 and H265
+        ([#2613](https://github.com/androidx/media/issues/2613)).
 *   Decoder extensions (FFmpeg, VP9, AV1, etc.):
 *   MIDI extension:
 *   Leanback extension:

@@ -70,6 +70,12 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
   private long startTimeOffsetUs;
 
+  /**
+   * If a Fragmentation Unit is lost then following units corresponding to the same NAL unit should
+   * be discarded (RFC7798 Section 4.4.3).
+   */
+  boolean discardPacketsUntilNextNalUnit;
+
   /** Creates an instance. */
   public RtpH265Reader(RtpPayloadFormat payloadFormat) {
     this.fuScratchBuffer = new ParsableByteArray();
@@ -98,6 +104,11 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     int payloadType = (data.getData()[0] >> 1) & 0x3F;
 
     checkNotNull(trackOutput);
+
+    if (payloadType != RTP_PACKET_TYPE_FU) {
+      resetReaderStateForNewNalUnit();
+    }
+
     if (payloadType >= 0 && payloadType < RTP_PACKET_TYPE_AP) {
       processSingleNalUnitPacket(data);
     } else if (payloadType == RTP_PACKET_TYPE_AP) {
@@ -110,17 +121,16 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
           /* cause= */ null);
     }
 
-    if (rtpMarker) {
-      if (firstReceivedTimestamp == C.TIME_UNSET) {
-        firstReceivedTimestamp = timestamp;
-      }
+    if (firstReceivedTimestamp == C.TIME_UNSET) {
+      firstReceivedTimestamp = timestamp;
+    }
 
+    if (rtpMarker && !discardPacketsUntilNextNalUnit) {
       long timeUs =
           toSampleTimeUs(
               startTimeOffsetUs, timestamp, firstReceivedTimestamp, MEDIA_CLOCK_FREQUENCY);
       trackOutput.sampleMetadata(
           timeUs, bufferFlags, fragmentedSampleSizeBytes, /* offset= */ 0, /* cryptoData= */ null);
-      fragmentedSampleSizeBytes = 0;
     }
 
     previousSequenceNumber = sequenceNumber;
@@ -276,6 +286,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     boolean isLastFuPacket = (fuHeader & 0x40) > 0;
 
     if (isFirstFuPacket) {
+      resetReaderStateForNewNalUnit();
       // Prepends starter code.
       fragmentedSampleSizeBytes += writeStartCode();
 
@@ -289,9 +300,13 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       fuScratchBuffer.reset(data.getData());
       fuScratchBuffer.setPosition(1);
     } else {
+      if (discardPacketsUntilNextNalUnit) {
+        return;
+      }
       // Check that this packet is in the sequence of the previous packet.
       int expectedSequenceNumber = (previousSequenceNumber + 1) % RtpPacket.MAX_SEQUENCE_NUMBER;
       if (packetSequenceNumber != expectedSequenceNumber) {
+        discardPacketsUntilNextNalUnit = true;
         Log.w(
             TAG,
             Util.formatInvariant(
@@ -320,6 +335,11 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     int bytesWritten = nalStartCodeArray.bytesLeft();
     checkNotNull(trackOutput).sampleData(nalStartCodeArray, bytesWritten);
     return bytesWritten;
+  }
+
+  private void resetReaderStateForNewNalUnit() {
+    discardPacketsUntilNextNalUnit = false;
+    fragmentedSampleSizeBytes = 0;
   }
 
   private static @C.BufferFlags int getBufferFlagsFromNalType(int nalType) {
