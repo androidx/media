@@ -41,13 +41,14 @@ import java.util.Objects;
 public final class FakeTrackOutput implements TrackOutput, Dumper.Dumpable {
 
   public static final Factory DEFAULT_FACTORY =
-      (id, type) -> new FakeTrackOutput(/* deduplicateConsecutiveFormats= */ false);
+      (id, type) -> new FakeTrackOutput(type, /* deduplicateConsecutiveFormats= */ false);
 
   /** Factory for {@link FakeTrackOutput} instances. */
   public interface Factory {
     FakeTrackOutput create(int id, int type);
   }
 
+  private final @C.TrackType int type;
   private final boolean deduplicateConsecutiveFormats;
   private final ArrayList<DumpableSampleInfo> sampleInfos;
   private final ArrayList<Dumpable> dumpables;
@@ -59,7 +60,8 @@ public final class FakeTrackOutput implements TrackOutput, Dumper.Dumpable {
 
   @Nullable public Format lastFormat;
 
-  public FakeTrackOutput(boolean deduplicateConsecutiveFormats) {
+  public FakeTrackOutput(@C.TrackType int type, boolean deduplicateConsecutiveFormats) {
+    this.type = type;
     this.deduplicateConsecutiveFormats = deduplicateConsecutiveFormats;
     sampleInfos = new ArrayList<>();
     dumpables = new ArrayList<>();
@@ -144,6 +146,10 @@ public final class FakeTrackOutput implements TrackOutput, Dumper.Dumpable {
     }
     addSampleInfo(
         timeUs, flags, sampleData.length - offset - size, sampleData.length - offset, cryptoData);
+  }
+
+  public @C.TrackType int getType() {
+    return type;
   }
 
   public void assertSampleCount(int count) {

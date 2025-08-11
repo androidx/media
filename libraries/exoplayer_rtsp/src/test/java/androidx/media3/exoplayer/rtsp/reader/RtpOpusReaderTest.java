@@ -21,6 +21,7 @@ import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.when;
 
+import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.ParsableByteArray;
@@ -85,7 +86,8 @@ public final class RtpOpusReaderTest {
   @Before
   public void setUp() {
     packetData = new ParsableByteArray();
-    trackOutput = new FakeTrackOutput(/* deduplicateConsecutiveFormats= */ true);
+    trackOutput =
+        new FakeTrackOutput(C.TRACK_TYPE_AUDIO, /* deduplicateConsecutiveFormats= */ true);
     when(extractorOutput.track(anyInt(), anyInt())).thenReturn(trackOutput);
     opusReader = new RtpOpusReader(OPUS_FORMAT);
     opusReader.createTracks(extractorOutput, /* trackId= */ 0);

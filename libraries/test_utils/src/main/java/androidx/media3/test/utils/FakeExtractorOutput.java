@@ -15,14 +15,14 @@
  */
 package androidx.media3.test.utils;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.util.SparseArray;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
-import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.common.util.Util;
 import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.extractor.SeekMap;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -48,13 +48,20 @@ public final class FakeExtractorOutput implements ExtractorOutput, Dumper.Dumpab
   }
 
   @Override
-  public FakeTrackOutput track(int id, int type) {
+  public FakeTrackOutput track(int id, @C.TrackType int type) {
     @Nullable FakeTrackOutput output = trackOutputs.get(id);
     if (output == null) {
       assertThat(tracksEnded).isFalse();
       numberOfTracks++;
       output = trackOutputFactory.create(id, type);
       trackOutputs.put(id, output);
+    } else {
+      checkArgument(
+          type == output.getType(),
+          "Track with id=%s previously registered with type=%s, which doesn't match type=%s.",
+          id,
+          Util.getTrackTypeString(output.getType()),
+          Util.getTrackTypeString(type));
     }
     return output;
   }
@@ -120,10 +127,8 @@ public final class FakeExtractorOutput implements ExtractorOutput, Dumper.Dumpab
   @Nullable
   public FakeTrackOutput getTrackOutput(@C.TrackType int trackType) {
     for (int i = 0; i < numberOfTracks; i++) {
-      FakeTrackOutput trackOutput = trackOutputs.get(i);
-      String sampleMimeType = checkNotNull(trackOutput.lastFormat).sampleMimeType;
-      if ((trackType == C.TRACK_TYPE_AUDIO && MimeTypes.isAudio(sampleMimeType))
-          || (trackType == C.TRACK_TYPE_VIDEO && MimeTypes.isVideo(sampleMimeType))) {
+      FakeTrackOutput trackOutput = trackOutputs.valueAt(i);
+      if (trackType == trackOutput.getType()) {
         return trackOutput;
       }
     }

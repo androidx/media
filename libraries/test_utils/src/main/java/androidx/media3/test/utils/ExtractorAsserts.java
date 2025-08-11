@@ -440,7 +440,8 @@ public final class ExtractorAsserts {
       boolean deduplicateConsecutiveFormats)
       throws IOException {
     FakeExtractorOutput output =
-        new FakeExtractorOutput((id, type) -> new FakeTrackOutput(deduplicateConsecutiveFormats));
+        new FakeExtractorOutput(
+            (id, type) -> new FakeTrackOutput(type, deduplicateConsecutiveFormats));
     extractor.init(output);
     consumeTestData(extractor, input, timeUs, output, retryFromStartIfLive);
     return output;

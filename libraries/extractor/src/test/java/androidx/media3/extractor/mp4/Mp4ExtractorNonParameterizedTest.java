@@ -91,7 +91,7 @@ public final class Mp4ExtractorNonParameterizedTest {
     FakeExtractorInput input = createInputForSample("sample_empty_track.mp4");
     FakeExtractorOutput output =
         new FakeExtractorOutput(
-            (id, type) -> new FakeTrackOutput(/* deduplicateConsecutiveFormats= */ true));
+            (id, type) -> new FakeTrackOutput(type, /* deduplicateConsecutiveFormats= */ true));
     PositionHolder seekPositionHolder = new PositionHolder();
     extractor.init(output);
     int readResult = Extractor.RESULT_CONTINUE;
