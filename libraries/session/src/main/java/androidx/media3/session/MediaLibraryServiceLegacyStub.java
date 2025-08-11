@@ -359,8 +359,11 @@ import java.util.concurrent.atomic.AtomicReference;
             result.sendError(/* extras= */ null);
             return;
           }
+          ProgressReporter progressReporter = new ProgressReporter(librarySessionImpl, result);
           ListenableFuture<SessionResult> future =
-              librarySessionImpl.onCustomCommandOnHandler(controller, command, extras);
+              librarySessionImpl.onCustomCommandOnHandler(
+                  controller, progressReporter, command, extras);
+          progressReporter.setFuture(future);
           sendCustomActionResultWhenReady(result, future);
         });
   }
@@ -723,6 +726,29 @@ import java.util.concurrent.atomic.AtomicReference;
       // {@link MediaLibrarySessionCallback#onSearchResultChanged}. However, for
       // BrowserCompat, it should be done by {@link Result#sendResult} from
       // {@link MediaLibraryServiceLegacyStub#onSearch} instead.
+    }
+  }
+
+  private static class ProgressReporter implements MediaSession.ProgressReporter {
+
+    private final MediaLibrarySessionImpl session;
+    private final Result<Bundle> result;
+    @Nullable private ListenableFuture<SessionResult> future;
+
+    public ProgressReporter(MediaLibrarySessionImpl session, Result<Bundle> result) {
+      this.session = session;
+      this.result = result;
+    }
+
+    @Override
+    public void sendProgressUpdate(Bundle progressData) {
+      if ((future == null || !future.isDone()) && !session.isReleased()) {
+        result.sendProgressUpdate(progressData);
+      }
+    }
+
+    public void setFuture(ListenableFuture<SessionResult> future) {
+      this.future = future;
     }
   }
 }

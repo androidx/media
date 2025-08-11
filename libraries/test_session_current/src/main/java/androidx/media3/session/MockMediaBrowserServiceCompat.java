@@ -23,6 +23,7 @@ import static androidx.media3.session.legacy.MediaConstants.BROWSER_ROOT_HINTS_K
 import static androidx.media3.session.legacy.MediaConstants.BROWSER_SERVICE_EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ROOT_LIST;
 import static androidx.media3.session.legacy.MediaConstants.DESCRIPTION_EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ID_LIST;
 import static androidx.media3.test.session.common.CommonConstants.SUPPORT_APP_PACKAGE_NAME;
+import static androidx.media3.test.session.common.MediaBrowserConstants.CUSTOM_ACTION_EXTRAS;
 import static androidx.media3.test.session.common.MediaBrowserConstants.ROOT_EXTRAS;
 import static androidx.media3.test.session.common.MediaBrowserConstants.ROOT_ID;
 import static androidx.media3.test.session.common.MediaBrowserConstants.ROOT_ID_SUPPORTS_BROWSABLE_CHILDREN_ONLY;
@@ -36,6 +37,7 @@ import static androidx.media3.test.session.common.MediaBrowserServiceCompatConst
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_MEDIA_ITEMS_WITH_BROWSE_ACTIONS;
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_ON_CHILDREN_CHANGED_SUBSCRIBE_AND_UNSUBSCRIBE;
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_SEND_CUSTOM_COMMAND;
+import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_SEND_CUSTOM_COMMAND_WITH_PROGRESS_UPDATE;
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_SUBSCRIBE_THEN_REJECT_ON_LOAD_CHILDREN;
 import static java.lang.Math.min;
 
@@ -298,6 +300,9 @@ public class MockMediaBrowserServiceCompat extends MediaBrowserServiceCompat {
           break;
         case TEST_SEND_CUSTOM_COMMAND:
           setProxyForTestSendCustomCommand();
+          break;
+        case TEST_SEND_CUSTOM_COMMAND_WITH_PROGRESS_UPDATE:
+          setProxyForTestSendCustomCommandWithProgressUpdate();
           break;
         case TEST_MEDIA_ITEMS_WITH_BROWSE_ACTIONS:
           setProxyForMediaItemsWithBrowseActions(session);
@@ -576,6 +581,61 @@ public class MockMediaBrowserServiceCompat extends MediaBrowserServiceCompat {
                   resultBundle.putString("key-1", "success-from-service");
                   result.sendResult(resultBundle);
                 }
+              } else if (action.equals(MediaConstants.CUSTOM_COMMAND_DOWNLOAD)) {
+              } else {
+                result.sendError(resultBundle);
+              }
+            }
+          });
+    }
+
+    @SuppressWarnings("deprecation") // For testing backwards compatibility.
+    private void setProxyForTestSendCustomCommandWithProgressUpdate() {
+      setMediaBrowserServiceProxy(
+          new MockMediaBrowserServiceCompat.Proxy() {
+            @Override
+            public BrowserRoot onGetRoot(
+                String clientPackageName, int clientUid, Bundle rootHints) {
+              session.setPlaybackState(
+                  new PlaybackStateCompat.Builder()
+                      .setState(
+                          PlaybackStateCompat.STATE_PLAYING,
+                          /* position= */ 123L,
+                          /* playbackSpeed= */ 1.0f)
+                      .addCustomAction(
+                          new PlaybackStateCompat.CustomAction.Builder(
+                                  MediaConstants.CUSTOM_COMMAND_DOWNLOAD,
+                                  "Download",
+                                  CommandButton.ICON_PLAYLIST_ADD)
+                              .build())
+                      .build());
+
+              return new BrowserRoot(ROOT_ID, Bundle.EMPTY);
+            }
+
+            @Override
+            public void onCustomAction(String action, Bundle extras, Result<Bundle> result) {
+              Bundle resultBundle = new Bundle();
+              if (action.equals(MediaConstants.CUSTOM_COMMAND_DOWNLOAD)) {
+                result.detach();
+                Handler handler = new Handler(Looper.getMainLooper());
+                handler.postDelayed(
+                    () -> {
+                      Bundle progressData = new Bundle();
+                      progressData.putInt("percent", 30);
+                      progressData.putFloat(MediaConstants.EXTRAS_KEY_DOWNLOAD_PROGRESS, 0.3f);
+                      result.sendProgressUpdate(progressData);
+                      handler.postDelayed(
+                          () -> {
+                            progressData.putInt("percent", 100);
+                            progressData.putFloat(
+                                MediaConstants.EXTRAS_KEY_DOWNLOAD_PROGRESS, 1.0f);
+                            result.sendProgressUpdate(progressData);
+                            result.sendResult(CUSTOM_ACTION_EXTRAS);
+                          },
+                          /* delayMillis= */ 50);
+                    },
+                    /* delayMillis= */ 50);
               } else {
                 result.sendError(resultBundle);
               }

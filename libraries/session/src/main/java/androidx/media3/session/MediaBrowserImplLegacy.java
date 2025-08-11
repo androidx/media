@@ -372,6 +372,14 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
 
   @Override
   public ListenableFuture<SessionResult> sendCustomCommand(SessionCommand command, Bundle args) {
+    return sendCustomCommand(command, args, /* progressListener= */ null);
+  }
+
+  @Override
+  public ListenableFuture<SessionResult> sendCustomCommand(
+      SessionCommand command,
+      Bundle args,
+      @Nullable MediaController.ProgressListener progressListener) {
     MediaBrowserCompat browserCompat = getBrowserCompat();
     if (browserCompat != null) {
       SettableFuture<SessionResult> settable = SettableFuture.create();
@@ -379,6 +387,13 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
           command.customAction,
           args,
           new MediaBrowserCompat.CustomActionCallback() {
+            @Override
+            public void onProgressUpdate(String action, Bundle extras, Bundle data) {
+              if (progressListener != null) {
+                progressListener.onProgress(getInstance(), command, args, data);
+              }
+            }
+
             @Override
             public void onResult(
                 String action, @Nullable Bundle extras, @Nullable Bundle resultData) {

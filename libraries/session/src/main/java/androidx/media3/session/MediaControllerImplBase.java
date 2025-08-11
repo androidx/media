@@ -45,6 +45,7 @@ import android.os.Message;
 import android.os.Process;
 import android.os.RemoteException;
 import android.os.SystemClock;
+import android.util.SparseArray;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
@@ -82,6 +83,7 @@ import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.Util;
 import androidx.media3.session.MediaController.MediaControllerImpl;
+import androidx.media3.session.MediaController.ProgressListener;
 import androidx.media3.session.PlayerInfo.BundlingExclusions;
 import androidx.media3.session.legacy.MediaBrowserCompat;
 import com.google.common.collect.ImmutableList;
@@ -118,6 +120,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   private final ListenerSet<Listener> listeners;
   private final FlushCommandQueueHandler flushCommandQueueHandler;
   private final ArraySet<Integer> pendingMaskingSequencedFutureNumbers;
+  private final SparseArray<ProgressListener> pendingCustomActionProgressListeners;
   private final Handler fallbackPlaybackInfoUpdateHandler;
 
   @Nullable private SessionToken connectedToken;
@@ -197,6 +200,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     flushCommandQueueHandler = new FlushCommandQueueHandler(applicationLooper);
     currentPositionMs = C.TIME_UNSET;
     lastSetPlayWhenReadyCalledTimeMs = C.TIME_UNSET;
+    pendingCustomActionProgressListeners = new SparseArray<>();
   }
 
   /* package*/ MediaController getInstance() {
@@ -744,9 +748,36 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 
   @Override
   public ListenableFuture<SessionResult> sendCustomCommand(SessionCommand command, Bundle args) {
+    if (checkNotNull(connectedToken).getInterfaceVersion() >= 7) {
+      // Always use the newer remote API if available. The session Callback implementation delegates
+      // accordingly.
+      return sendCustomCommand(command, args, /* progressListener= */ null);
+    }
     return dispatchRemoteSessionTaskWithSessionCommand(
         command,
         (iSession, seq) -> iSession.onCustomCommand(controllerStub, seq, command.toBundle(), args));
+  }
+
+  @Override
+  public ListenableFuture<SessionResult> sendCustomCommand(
+      SessionCommand command, Bundle args, @Nullable ProgressListener progressListener) {
+    if (checkNotNull(connectedToken).getInterfaceVersion() < 7) {
+      // sendCustomCommandWithProgressListener only available with session version 8 and greater.
+      return sendCustomCommand(command, args);
+    }
+    return dispatchRemoteSessionTaskWithSessionCommand(
+        command,
+        (iSession, seq) -> {
+          if (progressListener != null) {
+            pendingCustomActionProgressListeners.put(seq, progressListener);
+          }
+          iSession.onCustomCommandWithProgressUpdate(
+              controllerStub,
+              seq,
+              command.toBundle(),
+              args,
+              /* progressUpdateRequested= */ progressListener != null);
+        });
   }
 
   @Override
@@ -2703,6 +2734,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
         .runOnApplicationLooper(
             () -> {
               pendingMaskingSequencedFutureNumbers.remove(seq);
+              pendingCustomActionProgressListeners.delete(seq);
               if (connectedToken != null
                   && connectedToken.getInterfaceVersion() < 5
                   && pendingMaskingSequencedFutureNumbers.isEmpty()) {
@@ -2833,6 +2865,19 @@ import org.checkerframework.checker.nullness.qual.NonNull;
                       "ControllerCallback#onCustomCommand() must not return null");
               sendControllerResultWhenReady(seq, future);
             });
+  }
+
+  void onCustomCommandProgressUpdate(
+      int customActionFutureSequence, SessionCommand command, Bundle args, Bundle progressData) {
+    if (!isConnected()) {
+      return;
+    }
+    @Nullable
+    ProgressListener progressListener =
+        pendingCustomActionProgressListeners.get(customActionFutureSequence);
+    if (progressListener != null) {
+      progressListener.onProgress(getInstance(), command, args, progressData);
+    }
   }
 
   void onPlayerInfoChanged(PlayerInfo newPlayerInfo, BundlingExclusions bundlingExclusions) {

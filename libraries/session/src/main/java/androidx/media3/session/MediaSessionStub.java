@@ -125,10 +125,10 @@ import java.util.concurrent.ExecutionException;
   private static final String TAG = "MediaSessionStub";
 
   /** The version of the IMediaSession interface. */
-  public static final int VERSION_INT = 6;
+  public static final int VERSION_INT = 7;
 
   /**
-   * Sequence number used when a controller method is triggered on the sesison side that wasn't
+   * Sequence number used when a controller method is triggered on the session side that wasn't
    * initiated by the controller itself.
    */
   public static final int UNKNOWN_SEQUENCE_NUMBER = Integer.MIN_VALUE;
@@ -900,6 +900,17 @@ import java.util.concurrent.ExecutionException;
       int sequenceNumber,
       @Nullable Bundle commandBundle,
       @Nullable Bundle args) {
+    onCustomCommandWithProgressUpdate(
+        caller, sequenceNumber, commandBundle, args, /* progressUpdateRequested= */ false);
+  }
+
+  @Override
+  public void onCustomCommandWithProgressUpdate(
+      @Nullable IMediaController caller,
+      int sequenceNumber,
+      @Nullable Bundle commandBundle,
+      @Nullable Bundle args,
+      boolean progressUpdateRequested) {
     if (caller == null || commandBundle == null || args == null) {
       return;
     }
@@ -915,8 +926,19 @@ import java.util.concurrent.ExecutionException;
         sequenceNumber,
         command,
         sendSessionResultWhenReady(
-            (sessionImpl, controller, sequenceNum) ->
-                sessionImpl.onCustomCommandOnHandler(controller, command, args)));
+            (sessionImpl, controller, sequenceNum) -> {
+              ProgressReporter progressReporter = null;
+              if (progressUpdateRequested) {
+                progressReporter =
+                    new ProgressReporter(sessionImpl, controller, sequenceNum, command, args);
+              }
+              ListenableFuture<SessionResult> future =
+                  sessionImpl.onCustomCommandOnHandler(controller, progressReporter, command, args);
+              if (progressReporter != null) {
+                progressReporter.setFuture(future);
+              }
+              return future;
+            }));
   }
 
   @Override
@@ -2174,6 +2196,12 @@ import java.util.concurrent.ExecutionException;
       iController.onCustomCommand(sequenceNumber, command.toBundle(), args);
     }
 
+    @Override
+    public void sendCustomCommandProgressUpdate(
+        int seq, SessionCommand command, Bundle args, Bundle progressData) throws RemoteException {
+      iController.onCustomCommandProgressUpdate(seq, command.toBundle(), args, progressData);
+    }
+
     @SuppressWarnings("nullness:argument") // params can be null.
     @Override
     public void onChildrenChanged(
@@ -2243,6 +2271,41 @@ import java.util.concurrent.ExecutionException;
       }
       Controller2Cb other = (Controller2Cb) obj;
       return Objects.equals(getCallbackBinder(), other.getCallbackBinder());
+    }
+  }
+
+  private static class ProgressReporter implements MediaSession.ProgressReporter {
+
+    private final MediaSessionImpl session;
+    private final ControllerInfo controller;
+    private final int customCommandFutureSequence;
+    private final SessionCommand command;
+    private final Bundle extras;
+    @Nullable private ListenableFuture<SessionResult> future;
+
+    public ProgressReporter(
+        MediaSessionImpl session,
+        ControllerInfo controller,
+        int customCommandFutureSequence,
+        SessionCommand command,
+        Bundle extras) {
+      this.session = session;
+      this.controller = controller;
+      this.customCommandFutureSequence = customCommandFutureSequence;
+      this.command = command;
+      this.extras = extras;
+    }
+
+    @Override
+    public void sendProgressUpdate(Bundle progressData) {
+      if ((future == null || !future.isDone()) && !session.isReleased()) {
+        session.sendCustomCommandProgressUpdate(
+            controller, customCommandFutureSequence, command, extras, progressData);
+      }
+    }
+
+    public void setFuture(ListenableFuture<SessionResult> future) {
+      this.future = future;
     }
   }
 }

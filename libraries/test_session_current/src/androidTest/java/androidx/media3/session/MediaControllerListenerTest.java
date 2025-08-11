@@ -33,10 +33,12 @@ import static androidx.media3.session.MediaUtils.createPlayerCommandsWithout;
 import static androidx.media3.test.session.common.CommonConstants.DEFAULT_TEST_NAME;
 import static androidx.media3.test.session.common.CommonConstants.MOCK_MEDIA3_LIBRARY_SERVICE;
 import static androidx.media3.test.session.common.CommonConstants.MOCK_MEDIA3_SESSION_SERVICE;
+import static androidx.media3.test.session.common.MediaBrowserConstants.EXTRAS_VALUE_PARTIAL_PROGRESS;
 import static androidx.media3.test.session.common.MediaSessionConstants.KEY_COMMAND_GET_TASKS_UNAVAILABLE;
 import static androidx.media3.test.session.common.MediaSessionConstants.KEY_CONTROLLER;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_COMMAND_GET_TRACKS;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_CONTROLLER_LISTENER_SESSION_REJECTS;
+import static androidx.media3.test.session.common.MediaSessionConstants.TEST_CUSTOM_ACTION_WITH_PROGRESS_UPDATE;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_ON_VIDEO_SIZE_CHANGED;
 import static androidx.media3.test.session.common.MediaSessionConstants.TEST_WITH_CUSTOM_COMMANDS;
 import static androidx.media3.test.session.common.TestUtils.LONG_TIMEOUT_MS;
@@ -2967,6 +2969,67 @@ public class MediaControllerListenerTest {
     // TODO(b/245724167): Test receivers as well.
     remoteSession.sendCustomCommand(testCommand, testArgs);
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+  }
+
+  @Test
+  public void sendCustomCommand_withProgressListener_callsListenerAndResultIsSuccess()
+      throws Exception {
+    remoteSession = createRemoteMediaSession(TEST_CUSTOM_ACTION_WITH_PROGRESS_UPDATE);
+    CountDownLatch latch = new CountDownLatch(2);
+    MediaController controller = controllerTestRule.createController(remoteSession.getToken());
+    List<Bundle> progressDataList = new ArrayList<>();
+    List<SessionCommand> sessionCommandList = new ArrayList<>();
+    List<Bundle> argsList = new ArrayList<>();
+    MediaController.ProgressListener progressListener =
+        (mediaController, sessionCommand, args, progressData) -> {
+          sessionCommandList.add(sessionCommand);
+          argsList.add(args);
+          progressDataList.add(progressData);
+          latch.countDown();
+        };
+    SessionCommand sessionCommand =
+        new SessionCommand(MediaConstants.CUSTOM_COMMAND_DOWNLOAD, Bundle.EMPTY);
+    Bundle args = new Bundle();
+    args.putString("key", "value");
+
+    ListenableFuture<SessionResult> customCommandFuture =
+        threadTestRule
+            .getHandler()
+            .postAndSync(
+                () -> controller.sendCustomCommand(sessionCommand, args, progressListener));
+
+    assertThat(customCommandFuture.get().resultCode).isEqualTo(SessionResult.RESULT_SUCCESS);
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(progressDataList).hasSize(2);
+    assertThat(sessionCommandList.get(0)).isEqualTo(sessionCommand);
+    assertThat(sessionCommandList.get(1)).isEqualTo(sessionCommand);
+    assertThat(argsList.get(0).getString("key")).isEqualTo("value");
+    assertThat(argsList.get(1).getString("key")).isEqualTo("value");
+    assertThat(progressDataList.get(0).getFloat(MediaConstants.EXTRAS_KEY_DOWNLOAD_PROGRESS))
+        .isEqualTo(EXTRAS_VALUE_PARTIAL_PROGRESS);
+    assertThat(progressDataList.get(1).getFloat(MediaConstants.EXTRAS_KEY_DOWNLOAD_PROGRESS))
+        .isEqualTo(1.0f);
+    assertThat(progressDataList.get(0).getInt("percent")).isEqualTo(30);
+    assertThat(progressDataList.get(1).getInt("percent")).isEqualTo(100);
+  }
+
+  @Test
+  public void sendCustomCommand_withProgressListener_listenerIsNull_resultIsSuccess()
+      throws Exception {
+    remoteSession = createRemoteMediaSession(TEST_CUSTOM_ACTION_WITH_PROGRESS_UPDATE);
+    MediaController controller = controllerTestRule.createController(remoteSession.getToken());
+
+    ListenableFuture<SessionResult> customCommandFuture =
+        threadTestRule
+            .getHandler()
+            .postAndSync(
+                () ->
+                    controller.sendCustomCommand(
+                        new SessionCommand(MediaConstants.CUSTOM_COMMAND_DOWNLOAD, Bundle.EMPTY),
+                        Bundle.EMPTY,
+                        /* progressListener= */ null));
+
+    assertThat(customCommandFuture.get().resultCode).isEqualTo(SessionResult.RESULT_SUCCESS);
   }
 
   @Test
