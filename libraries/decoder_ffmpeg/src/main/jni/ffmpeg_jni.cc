@@ -593,7 +593,9 @@ JniContext *createVideoContext(JNIEnv *env,
                                const AVCodec *codec,
                                jbyteArray extraData,
                                jint threads,
-                               jint degree) {
+                               jint degree,
+                               jint width,
+                               jint height) {
     JniContext *jniContext = new(std::nothrow)JniContext();
 
     AVCodecContext *codecContext = avcodec_alloc_context3(codec);
@@ -623,12 +625,27 @@ JniContext *createVideoContext(JNIEnv *env,
     codecContext->thread_count = threads;
     codecContext->thread_type = FF_THREAD_FRAME;
     codecContext->err_recognition = AV_EF_IGNORE_ERR;
+
+    AVDictionary *opts = NULL;
+    // libdav1d should set max_frame_delay
+    if (codec->id == AV_CODEC_ID_AV1) {
+        av_dict_set(&opts, "max_frame_delay", "1", 0);
+    }
+
+    // mp43 format need set width x height
+    if (width > 0 && height > 0) {
+        codecContext->width = width;
+        codecContext->height = height;
+    }
+
     int result = avcodec_open2(codecContext, codec, NULL);
     if (result < 0) {
         logError("avcodec_open2", result);
+        av_dict_free(&opts);
         releaseContext(codecContext);
         return NULL;
     }
+    av_dict_free(&opts);
 
     jniContext->codecContext = codecContext;
 
@@ -654,14 +671,15 @@ JniContext *createVideoContext(JNIEnv *env,
 }
 
 
-VIDEO_DECODER_FUNC(jlong, ffmpegInitialize, jstring codecName, jbyteArray extraData, jint threads, jint degree) {
+VIDEO_DECODER_FUNC(jlong, ffmpegInitialize, jstring codecName, jbyteArray extraData, jint threads, jint degree,
+                   jint width, jint height) {
     auto *codec = getCodecByName(env, codecName);
     if (!codec) {
         LOGE("Codec not found.");
         return 0L;
     }
 
-    return (jlong) createVideoContext(env, codec, extraData, threads, degree);
+    return (jlong) createVideoContext(env, codec, extraData, threads, degree, width, height);
 }
 
 

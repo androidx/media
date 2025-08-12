@@ -81,7 +81,7 @@ import java.util.List;
     codecName = Assertions.checkNotNull(FfmpegLibrary.getCodecName(format.sampleMimeType));
     extraData = getExtraData(format.sampleMimeType, format.initializationData);
     degree = format.rotationDegrees;
-    nativeContext = ffmpegInitialize(codecName, extraData, threads, degree);
+    nativeContext = ffmpegInitialize(codecName, extraData, threads, degree, format.width, format.height);
     if (nativeContext == 0) {
       throw new FfmpegDecoderException("Failed to initialize decoder.");
     }
@@ -219,7 +219,7 @@ import java.util.List;
   }
 
   private native long ffmpegInitialize(String codecName, @Nullable byte[] extraData, int threads,
-      int degree);
+                                       int degree, int width, int height);
 
   private native long ffmpegReset(long context);
 
