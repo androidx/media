@@ -15,10 +15,11 @@
  */
 package androidx.media3.exoplayer.upstream;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.max;
 
 import androidx.annotation.Nullable;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -64,8 +65,8 @@ public final class DefaultAllocator implements Allocator {
    */
   public DefaultAllocator(
       boolean trimOnReset, int individualAllocationSize, int initialAllocationCount) {
-    Assertions.checkArgument(individualAllocationSize > 0);
-    Assertions.checkArgument(initialAllocationCount >= 0);
+    checkArgument(individualAllocationSize > 0);
+    checkArgument(initialAllocationCount >= 0);
     this.trimOnReset = trimOnReset;
     this.individualAllocationSize = individualAllocationSize;
     this.availableCount = initialAllocationCount;
@@ -100,7 +101,7 @@ public final class DefaultAllocator implements Allocator {
     allocatedCount++;
     Allocation allocation;
     if (availableCount > 0) {
-      allocation = Assertions.checkNotNull(availableAllocations[--availableCount]);
+      allocation = checkNotNull(availableAllocations[--availableCount]);
       availableAllocations[availableCount] = null;
     } else {
       allocation = new Allocation(new byte[individualAllocationSize], 0);
@@ -149,11 +150,11 @@ public final class DefaultAllocator implements Allocator {
       int lowIndex = 0;
       int highIndex = availableCount - 1;
       while (lowIndex <= highIndex) {
-        Allocation lowAllocation = Assertions.checkNotNull(availableAllocations[lowIndex]);
+        Allocation lowAllocation = checkNotNull(availableAllocations[lowIndex]);
         if (lowAllocation.data == initialAllocationBlock) {
           lowIndex++;
         } else {
-          Allocation highAllocation = Assertions.checkNotNull(availableAllocations[highIndex]);
+          Allocation highAllocation = checkNotNull(availableAllocations[highIndex]);
           if (highAllocation.data != initialAllocationBlock) {
             highIndex--;
           } else {

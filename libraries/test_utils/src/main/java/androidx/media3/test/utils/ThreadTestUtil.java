@@ -15,9 +15,11 @@
  */
 package androidx.media3.test.utils;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import android.os.Looper;
 import androidx.annotation.GuardedBy;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.collect.ArrayListMultimap;
@@ -41,7 +43,7 @@ public final class ThreadTestUtil {
    */
   public static void registerThreadIsBlockedUntilProgressOnLooper(
       ConditionVariable conditionVariable, Looper looper) {
-    Assertions.checkArgument(looper != Looper.myLooper());
+    checkArgument(looper != Looper.myLooper());
     synchronized (blockedThreadConditions) {
       blockedThreadConditions.put(looper, conditionVariable);
     }
@@ -49,7 +51,7 @@ public final class ThreadTestUtil {
 
   /** Unblocks any threads that are waiting for progress on the current {@link Looper} thread. */
   public static void unblockThreadsWaitingForProgressOnCurrentLooper() {
-    Looper myLooper = Assertions.checkNotNull(Looper.myLooper());
+    Looper myLooper = checkNotNull(Looper.myLooper());
     synchronized (blockedThreadConditions) {
       for (ConditionVariable condition : blockedThreadConditions.removeAll(myLooper)) {
         condition.open();

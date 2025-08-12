@@ -45,7 +45,7 @@ git clone https://chromium.googlesource.com/codecs/libgav1
 
 ```
 cd "${AV1_MODULE_PATH}/jni/libgav1" && \
-git clone https://github.com/abseil/abseil-cpp.git third_party/abseil-cpp
+git clone https://github.com/abseil/abseil-cpp.git third_party/abseil-cpp -b 20250512.0
 ```
 
 * [Install CMake][].

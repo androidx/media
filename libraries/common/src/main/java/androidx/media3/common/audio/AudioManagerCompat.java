@@ -16,7 +16,7 @@
 package androidx.media3.common.audio;
 
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.content.Context;
@@ -233,11 +233,7 @@ public final class AudioManagerCompat {
    * @return Whether the stream is muted.
    */
   public static boolean isStreamMute(AudioManager audioManager, @C.StreamType int streamType) {
-    if (SDK_INT >= 23) {
-      return audioManager.isStreamMute(streamType);
-    } else {
-      return getStreamVolume(audioManager, streamType) == 0;
-    }
+    return audioManager.isStreamMute(streamType);
   }
 
   private AudioManagerCompat() {}

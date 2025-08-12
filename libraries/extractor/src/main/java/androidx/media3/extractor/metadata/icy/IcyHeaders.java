@@ -15,12 +15,13 @@
  */
 package androidx.media3.extractor.metadata.icy;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.Metadata;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import java.util.List;
@@ -156,7 +157,7 @@ public final class IcyHeaders implements Metadata.Entry {
       @Nullable String url,
       boolean isPublic,
       int metadataInterval) {
-    Assertions.checkArgument(metadataInterval == C.LENGTH_UNSET || metadataInterval > 0);
+    checkArgument(metadataInterval == C.LENGTH_UNSET || metadataInterval > 0);
     this.bitrate = bitrate;
     this.genre = genre;
     this.name = name;

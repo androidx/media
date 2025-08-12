@@ -15,9 +15,10 @@
  */
 package androidx.media3.extractor.mp3;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Util;
 import androidx.media3.extractor.SeekPoint;
 
@@ -102,7 +103,7 @@ import androidx.media3.extractor.SeekPoint;
       scaledPosition = 256;
     } else {
       int prevTableIndex = (int) percent;
-      long[] tableOfContents = Assertions.checkStateNotNull(this.tableOfContents);
+      long[] tableOfContents = checkNotNull(this.tableOfContents);
       double prevScaledPosition = tableOfContents[prevTableIndex];
       double nextScaledPosition = prevTableIndex == 99 ? 256 : tableOfContents[prevTableIndex + 1];
       // Linearly interpolate between the two scaled positions.
@@ -122,7 +123,7 @@ import androidx.media3.extractor.SeekPoint;
     if (!isSeekable() || positionOffset <= xingFrameSize) {
       return 0L;
     }
-    long[] tableOfContents = Assertions.checkStateNotNull(this.tableOfContents);
+    long[] tableOfContents = checkNotNull(this.tableOfContents);
     double scaledPosition = (positionOffset * 256d) / dataSize;
     int prevTableIndex = Util.binarySearchFloor(tableOfContents, (long) scaledPosition, true, true);
     long prevTimeUs = getTimeUsForTableIndex(prevTableIndex);

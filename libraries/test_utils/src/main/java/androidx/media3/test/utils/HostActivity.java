@@ -16,6 +16,9 @@
 package androidx.media3.test.utils;
 
 import static android.os.Build.VERSION.SDK_INT;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static org.junit.Assert.fail;
 
 import android.app.Activity;
@@ -32,7 +35,6 @@ import android.view.SurfaceView;
 import android.view.Window;
 import android.widget.FrameLayout;
 import androidx.annotation.Nullable;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -116,10 +118,10 @@ public final class HostActivity extends Activity implements SurfaceHolder.Callba
    */
   public void runTest(
       final HostedTest hostedTest, long timeoutMs, boolean failOnTimeoutOrForceStop) {
-    Assertions.checkArgument(timeoutMs > 0);
-    Assertions.checkState(Thread.currentThread() != getMainLooper().getThread());
-    Assertions.checkState(this.hostedTest == null);
-    Assertions.checkNotNull(hostedTest);
+    checkArgument(timeoutMs > 0);
+    checkState(Thread.currentThread() != getMainLooper().getThread());
+    checkState(this.hostedTest == null);
+    checkNotNull(hostedTest);
     hostedTestStartedCondition = new ConditionVariable();
     forcedStopped = false;
     hostedTestStarted = false;
@@ -182,13 +184,11 @@ public final class HostActivity extends Activity implements SurfaceHolder.Callba
   public void onStart() {
     Context appContext = getApplicationContext();
     WifiManager wifiManager =
-        Assertions.checkStateNotNull(
-            (WifiManager) appContext.getSystemService(Context.WIFI_SERVICE));
+        checkNotNull((WifiManager) appContext.getSystemService(Context.WIFI_SERVICE));
     wifiLock = wifiManager.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, LOCK_TAG);
     wifiLock.acquire();
     PowerManager powerManager =
-        Assertions.checkStateNotNull(
-            (PowerManager) appContext.getSystemService(Context.POWER_SERVICE));
+        checkNotNull((PowerManager) appContext.getSystemService(Context.POWER_SERVICE));
     wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, LOCK_TAG);
     wakeLock.acquire();
     super.onStart();
@@ -197,7 +197,7 @@ public final class HostActivity extends Activity implements SurfaceHolder.Callba
   @Override
   public void onPause() {
     super.onPause();
-    if (SDK_INT <= 23) {
+    if (SDK_INT == 23) {
       maybeStopHostedTest();
     }
   }
@@ -245,8 +245,7 @@ public final class HostActivity extends Activity implements SurfaceHolder.Callba
     if (surface != null && surface.isValid()) {
       hostedTestStarted = true;
       Log.d(TAG, "Starting test.");
-      Util.castNonNull(hostedTest)
-          .onStart(this, surface, Assertions.checkNotNull(overlayFrameLayout));
+      Util.castNonNull(hostedTest).onStart(this, surface, checkNotNull(overlayFrameLayout));
       Util.castNonNull(hostedTestStartedCondition).open();
     }
   }

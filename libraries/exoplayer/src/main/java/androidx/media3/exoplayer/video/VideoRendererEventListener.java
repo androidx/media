@@ -16,6 +16,7 @@
 package androidx.media3.exoplayer.video;
 
 import static androidx.media3.common.util.Util.castNonNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.media.MediaCodec;
 import android.media.MediaCodec.CodecException;
@@ -26,7 +27,6 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.Player;
 import androidx.media3.common.VideoSize;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.decoder.DecoderException;
 import androidx.media3.exoplayer.DecoderCounters;
@@ -162,7 +162,7 @@ public interface VideoRendererEventListener {
      */
     public EventDispatcher(
         @Nullable Handler handler, @Nullable VideoRendererEventListener listener) {
-      this.handler = listener != null ? Assertions.checkNotNull(handler) : null;
+      this.handler = listener != null ? checkNotNull(handler) : null;
       this.listener = listener;
     }
 

@@ -15,7 +15,7 @@
  */
 package androidx.media3.transformer.mh;
 
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_AV1_VIDEO;
+import static androidx.media3.test.utils.TestUtil.MP4_ASSET_AV1_VIDEO;
 import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
 import static com.google.common.truth.Truth.assertThat;
 

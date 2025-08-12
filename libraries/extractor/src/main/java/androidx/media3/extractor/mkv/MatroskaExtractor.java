@@ -15,10 +15,9 @@
  */
 package androidx.media3.extractor.mkv;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.annotation.ElementType.TYPE_USE;
@@ -46,6 +45,7 @@ import androidx.media3.container.NalUnitUtil;
 import androidx.media3.extractor.AacUtil;
 import androidx.media3.extractor.AvcConfig;
 import androidx.media3.extractor.ChunkIndex;
+import androidx.media3.extractor.DtsUtil;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.ExtractorOutput;
@@ -444,6 +444,7 @@ public class MatroskaExtractor implements Extractor {
   private long durationTimecode = C.TIME_UNSET;
   private long durationUs = C.TIME_UNSET;
   private boolean isWebm;
+  private boolean pendingEndTracks;
 
   // The track corresponding to the current TrackEntry element, or null.
   @Nullable private Track currentTrack;
@@ -555,6 +556,7 @@ public class MatroskaExtractor implements Extractor {
     encryptionSubsampleData = new ParsableByteArray();
     supplementalData = new ParsableByteArray();
     blockSampleSizes = new int[1];
+    pendingEndTracks = true;
   }
 
   @Override
@@ -888,7 +890,7 @@ public class MatroskaExtractor implements Extractor {
         }
         break;
       case ID_TRACK_ENTRY:
-        Track currentTrack = checkStateNotNull(this.currentTrack);
+        Track currentTrack = checkNotNull(this.currentTrack);
         if (currentTrack.codecId == null) {
           throw ParserException.createForMalformedContainer(
               "CodecId is missing in TrackEntry element", /* cause= */ null);
@@ -905,7 +907,7 @@ public class MatroskaExtractor implements Extractor {
           throw ParserException.createForMalformedContainer(
               "No valid tracks were found", /* cause= */ null);
         }
-        extractorOutput.endTracks();
+        maybeEndTracks();
         break;
       default:
         break;
@@ -1564,6 +1566,16 @@ public class MatroskaExtractor implements Extractor {
       return finishWriteSampleData();
     }
 
+    if (track.waitingForDtsAnalysis) {
+      checkNotNull(track.format);
+      if (DtsUtil.isSampleDtsHd(input, size)) {
+        track.format = track.format.buildUpon().setSampleMimeType(MimeTypes.AUDIO_DTS_HD).build();
+      }
+      track.output.format(track.format);
+      track.waitingForDtsAnalysis = false;
+      maybeEndTracks();
+    }
+
     TrackOutput output = track.output;
     if (!sampleEncodingHandled) {
       if (track.hasContentEncryption) {
@@ -2022,7 +2034,20 @@ public class MatroskaExtractor implements Extractor {
 
   @EnsuresNonNull("extractorOutput")
   private void assertInitialized() {
-    checkStateNotNull(extractorOutput);
+    checkNotNull(extractorOutput);
+  }
+
+  private void maybeEndTracks() {
+    if (!pendingEndTracks) {
+      return;
+    }
+    for (int i = 0; i < tracks.size(); i++) {
+      if (tracks.valueAt(i).waitingForDtsAnalysis) {
+        return;
+      }
+    }
+    checkNotNull(extractorOutput).endTracks();
+    pendingEndTracks = false;
   }
 
   /** Passes events through to the outer {@link MatroskaExtractor}. */
@@ -2135,6 +2160,7 @@ public class MatroskaExtractor implements Extractor {
     public long codecDelayNs = 0;
     public long seekPreRollNs = 0;
     public @MonotonicNonNull TrueHdSampleRechunker trueHdSampleRechunker;
+    public boolean waitingForDtsAnalysis = false;
 
     // Text elements.
     public boolean flagForced;
@@ -2143,6 +2169,7 @@ public class MatroskaExtractor implements Extractor {
 
     // Set when the output is initialized. nalUnitLengthFieldLength is only set for H264/H265.
     public @MonotonicNonNull TrackOutput output;
+    public @MonotonicNonNull Format format;
     public int nalUnitLengthFieldLength;
 
     /** Initializes the track with an output. */
@@ -2246,7 +2273,8 @@ public class MatroskaExtractor implements Extractor {
           break;
         case CODEC_ID_DTS:
         case CODEC_ID_DTS_EXPRESS:
-          mimeType = MimeTypes.AUDIO_DTS;
+          mimeType = MimeTypes.AUDIO_DTS; // temporary
+          waitingForDtsAnalysis = true;
           break;
         case CODEC_ID_DTS_LOSSLESS:
           mimeType = MimeTypes.AUDIO_DTS_HD;
@@ -2445,7 +2473,7 @@ public class MatroskaExtractor implements Extractor {
         formatBuilder.setLabel(name);
       }
 
-      Format format =
+      format =
           formatBuilder
               .setId(trackId)
               .setContainerMimeType(isWebm ? MimeTypes.VIDEO_WEBM : MimeTypes.VIDEO_MATROSKA)
@@ -2459,7 +2487,9 @@ public class MatroskaExtractor implements Extractor {
               .build();
 
       this.output = output.track(number, type);
-      this.output.format(format);
+      if (!waitingForDtsAnalysis) {
+        this.output.format(format);
+      }
     }
 
     /** Forces any pending sample metadata to be flushed to the output. */

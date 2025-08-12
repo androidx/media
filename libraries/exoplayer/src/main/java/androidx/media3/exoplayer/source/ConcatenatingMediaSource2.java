@@ -15,11 +15,10 @@
  */
 package androidx.media3.exoplayer.source;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.usToMs;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.content.Context;
 import android.net.Uri;
@@ -164,7 +163,7 @@ public final class ConcatenatingMediaSource2 extends CompositeMediaSource<Intege
                 mediaItem.clippingConfiguration.endPositionUs
                     - mediaItem.clippingConfiguration.startPositionUs);
       }
-      checkStateNotNull(
+      checkNotNull(
           mediaSourceFactory,
           "Must use useDefaultMediaSourceFactory or setMediaSourceFactory first.");
       return add(mediaSourceFactory.createMediaSource(mediaItem), initialPlaceholderDurationMs);

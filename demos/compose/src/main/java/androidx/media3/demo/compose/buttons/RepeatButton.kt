@@ -36,7 +36,7 @@ internal fun RepeatButton(player: Player, modifier: Modifier = Modifier) {
   val icon = repeatModeIcon(state.repeatModeState)
   val contentDescription = repeatModeContentDescription(state.repeatModeState)
   IconButton(onClick = state::onClick, modifier = modifier, enabled = state.isEnabled) {
-    Icon(icon, contentDescription = contentDescription, modifier = modifier)
+    Icon(icon, contentDescription = contentDescription)
   }
 }
 

@@ -15,9 +15,9 @@
  */
 package androidx.media3.effect;
 
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.effect.EffectsTestUtil.generateAndProcessFrames;
 import static androidx.media3.effect.EffectsTestUtil.getAndAssertOutputBitmaps;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 

@@ -15,7 +15,6 @@
  */
 package androidx.media3.session;
 
-import static android.os.Build.VERSION.SDK_INT;
 import static android.support.v4.media.MediaMetadataCompat.METADATA_KEY_DURATION;
 import static android.support.v4.media.MediaMetadataCompat.METADATA_KEY_MEDIA_ID;
 import static android.support.v4.media.MediaMetadataCompat.METADATA_KEY_USER_RATING;
@@ -239,7 +238,7 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
   }
 
   @Test
-  public void playerError_notified() throws Exception {
+  public void playerError_errorEmittedAndResolved_correctPlaybackStatesReceived() throws Exception {
     Bundle extras = new Bundle();
     extras.putString("key-1", "value-1");
     PlaybackException testPlayerError =
@@ -248,10 +247,9 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
             /* cause= */ null,
             PlaybackException.ERROR_CODE_AUTHENTICATION_EXPIRED,
             extras);
-
     CountDownLatch latch = new CountDownLatch(1);
     AtomicReference<PlaybackStateCompat> playbackStateCompatRef = new AtomicReference<>();
-    MediaControllerCompat.Callback callback =
+    MediaControllerCompat.Callback errorCallback =
         new MediaControllerCompat.Callback() {
           @Override
           public void onPlaybackStateChanged(PlaybackStateCompat state) {
@@ -259,16 +257,39 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
             latch.countDown();
           }
         };
-    controllerCompat.registerCallback(callback, handler);
+    controllerCompat.registerCallback(errorCallback, handler);
 
     session.getMockPlayer().notifyPlayerError(testPlayerError);
+
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
-    PlaybackStateCompat state = playbackStateCompatRef.get();
-    assertThat(state.getState()).isEqualTo(PlaybackStateCompat.STATE_ERROR);
-    assertThat(state.getErrorCode())
+    PlaybackStateCompat errorState = playbackStateCompatRef.get();
+    assertThat(errorState.getState()).isEqualTo(PlaybackStateCompat.STATE_ERROR);
+    assertThat(errorState.getErrorCode())
         .isEqualTo(PlaybackStateCompat.ERROR_CODE_AUTHENTICATION_EXPIRED);
-    assertThat(state.getErrorMessage().toString()).isEqualTo(testPlayerError.getMessage());
-    assertThat(state.getExtras().getString("key-1")).isEqualTo("value-1");
+    assertThat(errorState.getErrorMessage().toString()).isEqualTo(testPlayerError.getMessage());
+    assertThat(errorState.getExtras().getString("key-1")).isEqualTo("value-1");
+    // Resolve the exception and assert the playback state transition
+    controllerCompat.unregisterCallback(errorCallback);
+    CountDownLatch bufferingLatch = new CountDownLatch(1);
+    AtomicReference<PlaybackStateCompat> bufferingPlaybackStateCompatRef = new AtomicReference<>();
+    MediaControllerCompat.Callback bufferingCallback =
+        new MediaControllerCompat.Callback() {
+          @Override
+          public void onPlaybackStateChanged(PlaybackStateCompat state) {
+            bufferingPlaybackStateCompatRef.set(state);
+            bufferingLatch.countDown();
+          }
+        };
+    controllerCompat.registerCallback(bufferingCallback, handler);
+
+    session.getMockPlayer().notifyPlaybackStateChanged(Player.STATE_BUFFERING);
+
+    assertThat(bufferingLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    PlaybackStateCompat bufferingState = bufferingPlaybackStateCompatRef.get();
+    assertThat(bufferingState.getState()).isEqualTo(PlaybackStateCompat.STATE_PAUSED);
+    assertThat(bufferingState.getErrorCode()).isEqualTo(0);
+    assertThat(bufferingState.getErrorMessage()).isNull();
+    assertThat(bufferingState.getExtras().getString("key-1")).isNull();
   }
 
   @SuppressWarnings("deprecation") // Using PlaybackStateCompat
@@ -968,21 +989,10 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
 
     session.setPlayer(playerConfigToUpdate);
 
-    // In API 21 and 22, onAudioInfoChanged is not called when playback is changed to local.
-    if (SDK_INT <= 22) {
-      PollingCheck.waitFor(
-          TIMEOUT_MS,
-          () -> {
-            MediaControllerCompat.PlaybackInfo info = controllerCompat.getPlaybackInfo();
-            return info.getPlaybackType() == legacyPlaybackTypeToUpdate
-                && info.getAudioAttributes().getLegacyStreamType() == legacyStream;
-          });
-    } else {
-      assertThat(playbackInfoNotified.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
-      MediaControllerCompat.PlaybackInfo info = controllerCompat.getPlaybackInfo();
-      assertThat(info.getPlaybackType()).isEqualTo(legacyPlaybackTypeToUpdate);
-      assertThat(info.getAudioAttributes().getLegacyStreamType()).isEqualTo(legacyStream);
-    }
+    assertThat(playbackInfoNotified.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    MediaControllerCompat.PlaybackInfo info = controllerCompat.getPlaybackInfo();
+    assertThat(info.getPlaybackType()).isEqualTo(legacyPlaybackTypeToUpdate);
+    assertThat(info.getAudioAttributes().getLegacyStreamType()).isEqualTo(legacyStream);
   }
 
   @Test

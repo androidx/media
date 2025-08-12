@@ -15,6 +15,8 @@
  */
 package androidx.media3.demo.cast;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import android.content.Context;
 import android.os.Bundle;
 import android.view.KeyEvent;
@@ -33,7 +35,6 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.ColorUtils;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.ui.PlayerView;
@@ -200,7 +201,7 @@ public class MainActivity extends AppCompatActivity
 
     @Override
     public void onBindViewHolder(QueueItemViewHolder holder, int position) {
-      holder.item = Assertions.checkNotNull(playerManager.getItem(position));
+      holder.item = checkNotNull(playerManager.getItem(position));
 
       TextView view = holder.textView;
       view.setText(holder.item.mediaMetadata.title);

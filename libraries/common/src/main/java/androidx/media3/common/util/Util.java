@@ -33,12 +33,14 @@ import static androidx.media3.common.Player.COMMAND_SEEK_TO_NEXT;
 import static androidx.media3.common.Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM;
 import static androidx.media3.common.Player.COMMAND_SEEK_TO_PREVIOUS;
 import static androidx.media3.common.Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM;
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.abs;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
+import static java.nio.charset.StandardCharsets.US_ASCII;
 
 import android.Manifest.permission;
 import android.annotation.SuppressLint;
@@ -82,7 +84,6 @@ import android.util.SparseLongArray;
 import android.view.Display;
 import android.view.SurfaceView;
 import android.view.WindowManager;
-import androidx.annotation.ChecksSdkIntAtLeast;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
@@ -100,6 +101,7 @@ import androidx.media3.common.Player.Commands;
 import androidx.media3.common.audio.AudioManagerCompat;
 import androidx.media3.common.audio.AudioProcessor;
 import com.google.common.base.Ascii;
+import com.google.common.base.Preconditions;
 import com.google.common.io.ByteStreams;
 import com.google.common.math.DoubleMath;
 import com.google.common.math.LongMath;
@@ -353,9 +355,6 @@ public final class Util {
    */
   public static boolean maybeRequestReadStoragePermission(
       Activity activity, MediaItem... mediaItems) {
-    if (Build.VERSION.SDK_INT < 23) {
-      return false;
-    }
     for (MediaItem mediaItem : mediaItems) {
       if (mediaItem.localConfiguration == null) {
         continue;
@@ -385,12 +384,7 @@ public final class Util {
     }
   }
 
-  @ChecksSdkIntAtLeast(api = 23)
   private static boolean isReadStoragePermissionRequestNeeded(Activity activity, Uri uri) {
-    if (Build.VERSION.SDK_INT < 23) {
-      // Permission automatically granted via manifest below API 23.
-      return false;
-    }
     if (isLocalFileUri(uri)) {
       return !isAppSpecificStorageFileUri(activity, uri);
     }
@@ -607,7 +601,7 @@ public final class Util {
   /**
    * Casts a nullable variable to a non-null variable without runtime null check.
    *
-   * <p>Use {@link Assertions#checkNotNull(Object)} to throw if the value is null.
+   * <p>Use {@link Preconditions#checkNotNull(Object)} to throw if the value is null.
    */
   @UnstableApi
   @SuppressWarnings({"nullness:contracts.postcondition", "nullness:return"})
@@ -701,7 +695,7 @@ public final class Util {
   @UnstableApi
   @SuppressWarnings("nullness:toArray.nullable.elements.not.newarray")
   public static <T> void nullSafeListToArray(List<T> list, T[] array) {
-    Assertions.checkState(list.size() == array.length);
+    checkState(list.size() == array.length);
     list.toArray(array);
   }
 
@@ -730,7 +724,7 @@ public final class Util {
   @UnstableApi
   public static Handler createHandlerForCurrentLooper(
       @Nullable Handler.@UnknownInitialization Callback callback) {
-    return createHandler(Assertions.checkStateNotNull(Looper.myLooper()), callback);
+    return createHandler(checkNotNull(Looper.myLooper()), callback);
   }
 
   /**
@@ -2089,6 +2083,11 @@ public final class Util {
     return result.toString();
   }
 
+  @UnstableApi
+  public static String toFourccString(int fourcc) {
+    return new String(Ints.toByteArray(fourcc), US_ASCII);
+  }
+
   /**
    * Returns a user agent string based on the given application name and the library version.
    *
@@ -3211,8 +3210,7 @@ public final class Util {
    */
   @UnstableApi
   public static boolean isAutomotive(Context context) {
-    return Build.VERSION.SDK_INT >= 23
-        && context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE);
+    return context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE);
   }
 
   /**
@@ -3316,11 +3314,7 @@ public final class Util {
     }
 
     Point displaySize = new Point();
-    if (Build.VERSION.SDK_INT >= 23) {
-      getDisplaySizeV23(display, displaySize);
-    } else {
-      display.getRealSize(displaySize);
-    }
+    getDisplaySize(display, displaySize);
     return displaySize;
   }
 
@@ -3733,7 +3727,7 @@ public final class Util {
    * Returns a {@link Drawable} for the given resource or throws a {@link
    * Resources.NotFoundException} if not found.
    *
-   * @param context The context to get the theme from starting with API 21.
+   * @param context The context to get the theme from.
    * @param resources The resources to load the drawable from.
    * @param drawableRes The drawable resource int.
    * @return The loaded {@link Drawable}.
@@ -3901,8 +3895,7 @@ public final class Util {
     }
   }
 
-  @RequiresApi(23)
-  private static void getDisplaySizeV23(Display display, Point outSize) {
+  private static void getDisplaySize(Display display, Point outSize) {
     Display.Mode mode = display.getMode();
     outSize.x = mode.getPhysicalWidth();
     outSize.y = mode.getPhysicalHeight();
@@ -3944,7 +3937,6 @@ public final class Util {
     return replacedLanguages;
   }
 
-  @RequiresApi(api = Build.VERSION_CODES.M)
   private static boolean requestExternalStoragePermission(Activity activity) {
     if (activity.checkSelfPermission(permission.READ_EXTERNAL_STORAGE)
         != PackageManager.PERMISSION_GRANTED) {
@@ -3973,7 +3965,7 @@ public final class Util {
     return false;
   }
 
-  @RequiresApi(api = Build.VERSION_CODES.N)
+  @RequiresApi(api = 24)
   private static boolean isTrafficRestricted(Uri uri) {
     return "http".equals(uri.getScheme())
         && !NetworkSecurityPolicy.getInstance()

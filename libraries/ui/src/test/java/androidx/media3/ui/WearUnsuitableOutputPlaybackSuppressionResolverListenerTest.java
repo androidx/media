@@ -112,7 +112,7 @@ public class WearUnsuitableOutputPlaybackSuppressionResolverListenerTest {
    * playback is suppressed and then unsuppressed.
    */
   // TODO: remove maxSdk once Robolectric supports MediaRouter2 (b/382017156)
-  @Config(minSdk = 23, maxSdk = 34)
+  @Config(minSdk = Config.OLDEST_SDK, maxSdk = 34)
   @Test
   public void playbackSuppressionFollowedByResolution_shouldLaunchOutputSwitcherAndStartPlayback()
       throws TimeoutException {
@@ -158,7 +158,7 @@ public class WearUnsuitableOutputPlaybackSuppressionResolverListenerTest {
    * unsuitable output and the system updated Output Switcher is present on the device.
    */
   // TODO: remove maxSdk once Robolectric supports MediaRouter2 (b/382017156)
-  @Config(minSdk = 23, maxSdk = 34)
+  @Config(minSdk = Config.OLDEST_SDK, maxSdk = 34)
   @Test
   public void playEventWithPlaybackSuppression_shouldLaunchOutputSwitcher()
       throws TimeoutException {
@@ -191,7 +191,7 @@ public class WearUnsuitableOutputPlaybackSuppressionResolverListenerTest {
    * output and both the system as well as user installed Output Switcher are present on the device.
    */
   // TODO: remove maxSdk once Robolectric supports MediaRouter2 (b/382017156)
-  @Config(minSdk = 23, maxSdk = 34)
+  @Config(minSdk = Config.OLDEST_SDK, maxSdk = 34)
   @Test
   public void
       playbackSuppressionWithSystemAndUserInstalledComponentsPresent_shouldLaunchSystemComponent()
@@ -230,7 +230,7 @@ public class WearUnsuitableOutputPlaybackSuppressionResolverListenerTest {
    * playback suppression conditions and the system Output Switcher present on the device.
    */
   // TODO: remove maxSdk once Robolectric supports MediaRouter2 (b/382017156)
-  @Config(minSdk = 23, maxSdk = 34)
+  @Config(minSdk = Config.OLDEST_SDK, maxSdk = 34)
   @Test
   public void
       playEventWithPlaybackSuppressionConditionsOnNonWearOSDevice_shouldNotLaunchOutputSwitcher()
@@ -274,7 +274,7 @@ public class WearUnsuitableOutputPlaybackSuppressionResolverListenerTest {
    * not present on the device.
    */
   // TODO: remove maxSdk once Robolectric supports MediaRouter2 (b/382017156)
-  @Config(minSdk = 23, maxSdk = 34)
+  @Config(minSdk = Config.OLDEST_SDK, maxSdk = 34)
   @Test
   public void
       playEventWithPlaybackSuppressionWhenOnlySystemBTSettingsPresent_shouldLaunchBTSettings()
@@ -308,7 +308,7 @@ public class WearUnsuitableOutputPlaybackSuppressionResolverListenerTest {
    * not present on the device.
    */
   // TODO: remove maxSdk once Robolectric supports MediaRouter2 (b/382017156)
-  @Config(minSdk = 23, maxSdk = 34)
+  @Config(minSdk = Config.OLDEST_SDK, maxSdk = 34)
   @Test
   public void playbackSuppressionWhenOnlyUpdatedSystemBTSettingsPresent_shouldLaunchBTSettings()
       throws TimeoutException {
@@ -340,7 +340,7 @@ public class WearUnsuitableOutputPlaybackSuppressionResolverListenerTest {
    * and both Output Switcher as well as the Bluetooth settings are present on the device.
    */
   // TODO: remove maxSdk once Robolectric supports MediaRouter2 (b/382017156)
-  @Config(minSdk = 23, maxSdk = 34)
+  @Config(minSdk = Config.OLDEST_SDK, maxSdk = 34)
   @Test
   public void playbackSuppressionWhenMultipleSystemComponentsPresent_shouldLaunchOutputSwitcher()
       throws TimeoutException {
@@ -378,7 +378,7 @@ public class WearUnsuitableOutputPlaybackSuppressionResolverListenerTest {
    * is suppressed due to unsuitable output.
    */
   // TODO: remove maxSdk once Robolectric supports MediaRouter2 (b/382017156)
-  @Config(minSdk = 23, maxSdk = 34)
+  @Config(minSdk = Config.OLDEST_SDK, maxSdk = 34)
   @Test
   public void playbackSuppressionWhenOnlyUserInstalledComponentsPresent_shouldNotLaunchAnyApp()
       throws TimeoutException {
@@ -412,7 +412,7 @@ public class WearUnsuitableOutputPlaybackSuppressionResolverListenerTest {
    * suppressed due to unsuitable output.
    */
   // TODO: remove maxSdk once Robolectric supports MediaRouter2 (b/382017156)
-  @Config(minSdk = 23, maxSdk = 34)
+  @Config(minSdk = Config.OLDEST_SDK, maxSdk = 34)
   @Test
   public void playEventWithoutPlaybackSuppression_shouldNotLaunchOutputSwitcherOrBTSettings()
       throws TimeoutException {
@@ -446,7 +446,7 @@ public class WearUnsuitableOutputPlaybackSuppressionResolverListenerTest {
    * due to removal of all suitable audio outputs in mid of an ongoing playback.
    */
   // TODO: remove maxSdk once Robolectric supports MediaRouter2 (b/382017156)
-  @Config(minSdk = 23, maxSdk = 34)
+  @Config(minSdk = Config.OLDEST_SDK, maxSdk = 34)
   @Test
   public void playbackSuppressionDuringOngoingPlayback_shouldOnlyPauseButNotLaunchSystemComponent()
       throws TimeoutException {
@@ -489,7 +489,7 @@ public class WearUnsuitableOutputPlaybackSuppressionResolverListenerTest {
 
   /** Test for pause on the Player when the playback is suppressed due to unsuitable output. */
   // TODO: remove maxSdk once Robolectric supports MediaRouter2 (b/382017156)
-  @Config(minSdk = 23, maxSdk = 34)
+  @Config(minSdk = Config.OLDEST_SDK, maxSdk = 34)
   @Test
   public void playEventWithSuppressedPlaybackCondition_shouldCallPauseOnPlayer()
       throws TimeoutException {
@@ -526,7 +526,7 @@ public class WearUnsuitableOutputPlaybackSuppressionResolverListenerTest {
    * device to another within set time out.
    */
   // TODO: remove maxSdk once Robolectric supports MediaRouter2 (b/382017156)
-  @Config(minSdk = 23, maxSdk = 34)
+  @Config(minSdk = Config.OLDEST_SDK, maxSdk = 34)
   @Test
   public void
       transferOnGoingPlaybackFromOneSuitableDeviceToAnotherWithinSetTimeOut_shouldContinuePlayback()
@@ -557,7 +557,7 @@ public class WearUnsuitableOutputPlaybackSuppressionResolverListenerTest {
    * device to another and the time difference between switching is more than default time out
    */
   // TODO: remove maxSdk once Robolectric supports MediaRouter2 (b/382017156)
-  @Config(minSdk = 23, maxSdk = 34)
+  @Config(minSdk = Config.OLDEST_SDK, maxSdk = 34)
   @Test
   public void
       transferOnGoingPlaybackFromOneSuitableDeviceToAnotherAfterTimeOut_shouldNotContinuePlayback()
@@ -604,7 +604,7 @@ public class WearUnsuitableOutputPlaybackSuppressionResolverListenerTest {
    * Test for no pause on the Player when the playback is not suppressed due to unsuitable output.
    */
   // TODO: remove maxSdk once Robolectric supports MediaRouter2 (b/382017156)
-  @Config(minSdk = 23, maxSdk = 34)
+  @Config(minSdk = Config.OLDEST_SDK, maxSdk = 34)
   @Test
   public void playEventWithoutSuppressedPlaybackCondition_shouldNotCallPauseOnPlayer()
       throws TimeoutException {
@@ -642,7 +642,7 @@ public class WearUnsuitableOutputPlaybackSuppressionResolverListenerTest {
    * removed after the default timeout.
    */
   // TODO: remove maxSdk once Robolectric supports MediaRouter2 (b/382017156)
-  @Config(minSdk = 23, maxSdk = 34)
+  @Config(minSdk = Config.OLDEST_SDK, maxSdk = 34)
   @Test
   public void
       playbackSuppressionChangeToNoneAfterDefaultTimeout_shouldNotChangePlaybackStateToPlaying()
@@ -686,7 +686,7 @@ public class WearUnsuitableOutputPlaybackSuppressionResolverListenerTest {
    * removed within the set timeout.
    */
   // TODO: remove maxSdk once Robolectric supports MediaRouter2 (b/382017156)
-  @Config(minSdk = 23, maxSdk = 34)
+  @Config(minSdk = Config.OLDEST_SDK, maxSdk = 34)
   @Test
   public void playbackSuppressionChangeToNoneWithinSetTimeout_shouldChangePlaybackStateToPlaying()
       throws TimeoutException {
@@ -714,7 +714,7 @@ public class WearUnsuitableOutputPlaybackSuppressionResolverListenerTest {
    * removed after the set timeout.
    */
   // TODO: remove maxSdk once Robolectric supports MediaRouter2 (b/382017156)
-  @Config(minSdk = 23, maxSdk = 34)
+  @Config(minSdk = Config.OLDEST_SDK, maxSdk = 34)
   @Test
   public void
       playbackSuppressionChangeToNoneAfterSetTimeout_shouldNotChangeFinalPlaybackStateToPlaying()
@@ -749,7 +749,7 @@ public class WearUnsuitableOutputPlaybackSuppressionResolverListenerTest {
 
   /** Test to ensure wake lock is acquired when playback is suppressed due to unsuitable output. */
   // TODO: remove maxSdk once Robolectric supports MediaRouter2 (b/382017156)
-  @Config(minSdk = 23, maxSdk = 34)
+  @Config(minSdk = Config.OLDEST_SDK, maxSdk = 34)
   @Test
   public void playEventWithSuppressedPlaybackCondition_shouldAcquireWakeLock()
       throws TimeoutException {
@@ -774,7 +774,7 @@ public class WearUnsuitableOutputPlaybackSuppressionResolverListenerTest {
    * is released after the set timeout.
    */
   // TODO: remove maxSdk once Robolectric supports MediaRouter2 (b/382017156)
-  @Config(minSdk = 23, maxSdk = 34)
+  @Config(minSdk = Config.OLDEST_SDK, maxSdk = 34)
   @Test
   public void playEventWithSuppressedPlaybackCondition_shouldReleaseAcquiredWakeLockAfterTimeout()
       throws TimeoutException {
@@ -801,7 +801,7 @@ public class WearUnsuitableOutputPlaybackSuppressionResolverListenerTest {
    * is released after suitable output gets added.
    */
   // TODO: remove maxSdk once Robolectric supports MediaRouter2 (b/382017156)
-  @Config(minSdk = 23, maxSdk = 34)
+  @Config(minSdk = Config.OLDEST_SDK, maxSdk = 34)
   @Test
   public void playEventWithSuppressedPlaybackConditionRemoved_shouldReleaseAcquiredWakeLock()
       throws TimeoutException {

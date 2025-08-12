@@ -53,10 +53,7 @@ import static android.os.Build.VERSION.SDK_INT;
   public static final String H264_MAIN_240P_VIDEO_REPRESENTATION_ID = "avc-main-240";
   public static final String H264_MAIN_480P_VIDEO_REPRESENTATION_ID = "avc-main-480";
   // The highest quality H264 format mandated by the Android CDD.
-  public static final String H264_CDD_FIXED =
-      SDK_INT < 23
-          ? H264_BASELINE_480P_VIDEO_REPRESENTATION_ID
-          : H264_MAIN_480P_VIDEO_REPRESENTATION_ID;
+  public static final String H264_CDD_FIXED = H264_MAIN_480P_VIDEO_REPRESENTATION_ID;
   // Multiple H264 formats mandated by the Android CDD. Note: The CDD actually mandated main profile
   // support from API level 23, but we opt to test only from 24 due to known issues on API level 23
   // when switching between baseline and main profiles on certain devices.
@@ -106,9 +103,7 @@ import static android.os.Build.VERSION.SDK_INT;
   public static final String WIDEVINE_H264_MAIN_480P_VIDEO_REPRESENTATION_ID = "5";
   // The highest quality H264 format mandated by the Android CDD.
   public static final String WIDEVINE_H264_CDD_FIXED =
-      SDK_INT < 23
-          ? WIDEVINE_H264_BASELINE_480P_VIDEO_REPRESENTATION_ID
-          : WIDEVINE_H264_MAIN_480P_VIDEO_REPRESENTATION_ID;
+      WIDEVINE_H264_MAIN_480P_VIDEO_REPRESENTATION_ID;
   // Multiple H264 formats mandated by the Android CDD. Note: The CDD actually mandated main profile
   // support from API level 23, but we opt to test only from 24 due to known issues on API level 23
   // when switching between baseline and main profiles on certain devices.

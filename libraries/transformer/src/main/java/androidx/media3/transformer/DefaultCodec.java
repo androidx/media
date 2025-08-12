@@ -17,16 +17,15 @@
 package androidx.media3.transformer;
 
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_ACCEPTED_INPUT;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_INPUT_ENDED;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_INPUT_FORMAT;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_OUTPUT_ENDED;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_OUTPUT_FORMAT;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_PRODUCED_OUTPUT;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.content.Context;
 import android.media.MediaCodec;
@@ -176,7 +175,7 @@ public final class DefaultCodec implements Codec {
 
   @Override
   public Surface getInputSurface() {
-    return checkStateNotNull(inputSurface);
+    return checkNotNull(inputSurface);
   }
 
   @Override
@@ -313,7 +312,7 @@ public final class DefaultCodec implements Codec {
 
   @Override
   public void releaseOutputBuffer(boolean render) throws ExportException {
-    releaseOutputBuffer(render, checkStateNotNull(outputBufferInfo).presentationTimeUs);
+    releaseOutputBuffer(render, checkNotNull(outputBufferInfo).presentationTimeUs);
   }
 
   @Override

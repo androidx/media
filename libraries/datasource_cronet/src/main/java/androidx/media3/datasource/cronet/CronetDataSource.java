@@ -17,6 +17,8 @@ package androidx.media3.datasource.cronet;
 
 import static androidx.media3.common.util.Util.castNonNull;
 import static androidx.media3.datasource.HttpUtil.buildRangeRequestHeader;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static org.chromium.net.UrlRequest.Builder.REQUEST_PRIORITY_MEDIUM;
 
 import android.net.Uri;
@@ -26,7 +28,6 @@ import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.PlaybackException;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.UnstableApi;
@@ -119,7 +120,7 @@ public class CronetDataSource extends BaseDataSource implements HttpDataSource {
      *     sure response handling is a fast operation when using a direct executor.
      */
     public Factory(CronetEngine cronetEngine, Executor executor) {
-      this.cronetEngine = Assertions.checkNotNull(cronetEngine);
+      this.cronetEngine = checkNotNull(cronetEngine);
       this.executor = executor;
       defaultRequestProperties = new RequestProperties();
       internalFallbackFactory = null;
@@ -363,7 +364,7 @@ public class CronetDataSource extends BaseDataSource implements HttpDataSource {
       if (cronetEngine == null) {
         return (fallbackFactory != null)
             ? fallbackFactory.createDataSource()
-            : Assertions.checkNotNull(internalFallbackFactory).createDataSource();
+            : checkNotNull(internalFallbackFactory).createDataSource();
       }
       CronetDataSource dataSource =
           new CronetDataSource(
@@ -503,8 +504,8 @@ public class CronetDataSource extends BaseDataSource implements HttpDataSource {
       boolean keepPostFor302Redirects,
       int readBufferSize) {
     super(/* isNetwork= */ true);
-    this.cronetEngine = Assertions.checkNotNull(cronetEngine);
-    this.executor = Assertions.checkNotNull(executor);
+    this.cronetEngine = checkNotNull(cronetEngine);
+    this.executor = checkNotNull(executor);
     this.requestPriority = requestPriority;
     this.connectTimeoutMs = connectTimeoutMs;
     this.readTimeoutMs = readTimeoutMs;
@@ -570,8 +571,8 @@ public class CronetDataSource extends BaseDataSource implements HttpDataSource {
   @UnstableApi
   @Override
   public long open(DataSpec dataSpec) throws HttpDataSourceException {
-    Assertions.checkNotNull(dataSpec);
-    Assertions.checkState(!transferStarted);
+    checkNotNull(dataSpec);
+    checkState(!transferStarted);
 
     operation.close();
     resetConnectTimeout();
@@ -625,7 +626,7 @@ public class CronetDataSource extends BaseDataSource implements HttpDataSource {
     }
 
     // Check for a valid response code.
-    UrlResponseInfo responseInfo = Assertions.checkNotNull(this.responseInfo);
+    UrlResponseInfo responseInfo = checkNotNull(this.responseInfo);
     int responseCode = responseInfo.getHttpStatusCode();
     Map<String, List<String>> responseHeaders = responseInfo.getAllHeaders();
     if (responseCode < 200 || responseCode > 299) {
@@ -702,7 +703,7 @@ public class CronetDataSource extends BaseDataSource implements HttpDataSource {
   @UnstableApi
   @Override
   public int read(byte[] buffer, int offset, int length) throws HttpDataSourceException {
-    Assertions.checkState(transferStarted);
+    checkState(transferStarted);
 
     if (length == 0) {
       return 0;
@@ -725,7 +726,7 @@ public class CronetDataSource extends BaseDataSource implements HttpDataSource {
 
       // The operation didn't time out, fail or finish, and therefore data must have been read.
       readBuffer.flip();
-      Assertions.checkState(readBuffer.hasRemaining());
+      checkState(readBuffer.hasRemaining());
     }
 
     // Ensure we read up to bytesRemaining, in case this was a Range request with finite end, but
@@ -773,7 +774,7 @@ public class CronetDataSource extends BaseDataSource implements HttpDataSource {
    */
   @UnstableApi
   public int read(ByteBuffer buffer) throws HttpDataSourceException {
-    Assertions.checkState(transferStarted);
+    checkState(transferStarted);
 
     if (!buffer.isDirect()) {
       throw new IllegalArgumentException("Passed buffer is not a direct ByteBuffer");
@@ -807,7 +808,7 @@ public class CronetDataSource extends BaseDataSource implements HttpDataSource {
     }
 
     // The operation didn't time out, fail or finish, and therefore data must have been read.
-    Assertions.checkState(readLength > buffer.remaining());
+    checkState(readLength > buffer.remaining());
     int bytesRead = readLength - buffer.remaining();
     if (bytesRemaining != C.LENGTH_UNSET) {
       bytesRemaining -= bytesRead;
@@ -978,7 +979,7 @@ public class CronetDataSource extends BaseDataSource implements HttpDataSource {
         } else {
           // The operation didn't time out, fail or finish, and therefore data must have been read.
           readBuffer.flip();
-          Assertions.checkState(readBuffer.hasRemaining());
+          checkState(readBuffer.hasRemaining());
           int bytesSkipped = (int) Math.min(readBuffer.remaining(), bytesToSkip);
           readBuffer.position(readBuffer.position() + bytesSkipped);
           bytesToSkip -= bytesSkipped;
@@ -1133,9 +1134,9 @@ public class CronetDataSource extends BaseDataSource implements HttpDataSource {
       if (isClosed) {
         return;
       }
-      Assertions.checkNotNull(currentUrlRequest);
-      Assertions.checkNotNull(currentUrlRequestCallback);
-      DataSpec dataSpec = Assertions.checkNotNull(currentDataSpec);
+      checkNotNull(currentUrlRequest);
+      checkNotNull(currentUrlRequestCallback);
+      DataSpec dataSpec = checkNotNull(currentDataSpec);
       int responseCode = info.getHttpStatusCode();
       if (dataSpec.httpMethod == DataSpec.HTTP_METHOD_POST) {
         // The industry standard is to disregard POST redirects when the status code is 307 or 308.

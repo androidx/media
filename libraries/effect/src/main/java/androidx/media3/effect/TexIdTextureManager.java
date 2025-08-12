@@ -15,11 +15,11 @@
  */
 package androidx.media3.effect;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.effect.DebugTraceUtil.COMPONENT_TEX_ID_TEXTURE_MANAGER;
 import static androidx.media3.effect.DebugTraceUtil.COMPONENT_VFP;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_QUEUE_TEXTURE;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_SIGNAL_EOS;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.opengl.GLES10;
 import androidx.media3.common.C;

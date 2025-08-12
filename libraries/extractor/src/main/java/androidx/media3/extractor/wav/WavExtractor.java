@@ -15,6 +15,8 @@
  */
 package androidx.media3.extractor.wav;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.annotation.ElementType.TYPE_USE;
@@ -25,7 +27,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
@@ -147,12 +148,12 @@ public final class WavExtractor implements Extractor {
 
   @EnsuresNonNull({"extractorOutput", "trackOutput"})
   private void assertInitialized() {
-    Assertions.checkStateNotNull(trackOutput);
+    checkNotNull(trackOutput);
     Util.castNonNull(extractorOutput);
   }
 
   private void readFileType(ExtractorInput input) throws IOException {
-    Assertions.checkState(input.getPosition() == 0);
+    checkState(input.getPosition() == 0);
     if (dataStartPosition != C.INDEX_UNSET) {
       input.skipFully(dataStartPosition);
       state = STATE_READING_SAMPLE_DATA;
@@ -223,14 +224,14 @@ public final class WavExtractor implements Extractor {
       Log.w(TAG, "Data exceeds input length: " + dataEndPosition + ", " + inputLength);
       dataEndPosition = inputLength;
     }
-    Assertions.checkNotNull(outputWriter).init(dataStartPosition, dataEndPosition);
+    checkNotNull(outputWriter).init(dataStartPosition, dataEndPosition);
     state = STATE_READING_SAMPLE_DATA;
   }
 
   private @ReadResult int readSampleData(ExtractorInput input) throws IOException {
-    Assertions.checkState(dataEndPosition != C.INDEX_UNSET);
+    checkState(dataEndPosition != C.INDEX_UNSET);
     long bytesLeft = dataEndPosition - input.getPosition();
-    return Assertions.checkNotNull(outputWriter).sampleData(input, bytesLeft)
+    return checkNotNull(outputWriter).sampleData(input, bytesLeft)
         ? RESULT_END_OF_INPUT
         : RESULT_CONTINUE;
   }

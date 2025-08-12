@@ -15,7 +15,8 @@
  */
 package androidx.media3.exoplayer.video;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.content.Context;
 import android.opengl.GLES20;
@@ -23,7 +24,6 @@ import android.opengl.GLSurfaceView;
 import android.util.AttributeSet;
 import android.util.Log;
 import androidx.annotation.Nullable;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.GlProgram;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.NullableType;
@@ -270,7 +270,7 @@ public final class VideoDecoderGLSurfaceView extends GLSurfaceView
       for (int i = 0; i < 3; i++) {
         // Set cropping of stride if either width or stride has changed.
         if (previousWidths[i] != widths[i] || previousStrides[i] != yuvStrides[i]) {
-          Assertions.checkState(yuvStrides[i] != 0);
+          checkState(yuvStrides[i] != 0);
           float widthRatio = (float) widths[i] / yuvStrides[i];
           // These buffers are consumed during each call to glDrawArrays. They need to be member
           // variables rather than local variables in order not to get garbage collected.

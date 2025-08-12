@@ -322,6 +322,38 @@ public final class FakeClockTest {
   }
 
   @Test
+  public void createHandler_withIsAutoAdvancing_triggersOnlyMessagesWithinDefinedMaxTimeDiff() {
+    HandlerThread handlerThread = new HandlerThread("FakeClockTest");
+    handlerThread.start();
+    FakeClock fakeClock =
+        new FakeClock.Builder()
+            .setInitialTimeMs(0)
+            .setIsAutoAdvancing(true)
+            .setMaxAutoAdvancingTimeDiffMs(400)
+            .build();
+    HandlerWrapper handler =
+        fakeClock.createHandler(handlerThread.getLooper(), /* callback= */ null);
+
+    // Post a series of immediate and delayed messages with one that is too far in the future.
+    ArrayList<Long> clockTimes = new ArrayList<>();
+    handler.post(
+        () -> {
+          handler.postDelayed(
+              () -> clockTimes.add(fakeClock.elapsedRealtime()), /* delayMs= */ 400);
+          handler.postDelayed(
+              () -> clockTimes.add(fakeClock.elapsedRealtime()), /* delayMs= */ 801);
+          handler.post(() -> clockTimes.add(fakeClock.elapsedRealtime()));
+          handler.postDelayed(
+              () -> clockTimes.add(fakeClock.elapsedRealtime()), /* delayMs= */ 200);
+        });
+    ShadowLooper.idleMainLooper();
+    shadowOf(handler.getLooper()).idle();
+    handlerThread.quitSafely();
+
+    assertThat(clockTimes).containsExactly(0L, 200L, 400L).inOrder();
+  }
+
+  @Test
   public void createHandler_multiThreadCommunication_deliversMessagesDeterministicallyInOrder()
       throws Exception {
     HandlerThread handlerThread1 = new HandlerThread("FakeClockTest");

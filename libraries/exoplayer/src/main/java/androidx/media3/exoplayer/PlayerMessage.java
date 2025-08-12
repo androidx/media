@@ -15,6 +15,9 @@
  */
 package androidx.media3.exoplayer;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
+
 import android.os.Looper;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -22,7 +25,6 @@ import androidx.media3.common.IllegalSeekPositionException;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.Renderer.MessageType;
@@ -127,7 +129,7 @@ public final class PlayerMessage {
    */
   @CanIgnoreReturnValue
   public PlayerMessage setType(int messageType) {
-    Assertions.checkState(!isSent);
+    checkState(!isSent);
     this.type = messageType;
     return this;
   }
@@ -146,7 +148,7 @@ public final class PlayerMessage {
    */
   @CanIgnoreReturnValue
   public PlayerMessage setPayload(@Nullable Object payload) {
-    Assertions.checkState(!isSent);
+    checkState(!isSent);
     this.payload = payload;
     return this;
   }
@@ -166,7 +168,7 @@ public final class PlayerMessage {
    */
   @CanIgnoreReturnValue
   public PlayerMessage setLooper(Looper looper) {
-    Assertions.checkState(!isSent);
+    checkState(!isSent);
     this.looper = looper;
     return this;
   }
@@ -197,7 +199,7 @@ public final class PlayerMessage {
    */
   @CanIgnoreReturnValue
   public PlayerMessage setPosition(long positionMs) {
-    Assertions.checkState(!isSent);
+    checkState(!isSent);
     this.positionMs = positionMs;
     return this;
   }
@@ -216,8 +218,8 @@ public final class PlayerMessage {
    */
   @CanIgnoreReturnValue
   public PlayerMessage setPosition(int mediaItemIndex, long positionMs) {
-    Assertions.checkState(!isSent);
-    Assertions.checkArgument(positionMs != C.TIME_UNSET);
+    checkState(!isSent);
+    checkArgument(positionMs != C.TIME_UNSET);
     if (mediaItemIndex < 0
         || (!timeline.isEmpty() && mediaItemIndex >= timeline.getWindowCount())) {
       throw new IllegalSeekPositionException(timeline, mediaItemIndex, positionMs);
@@ -243,7 +245,7 @@ public final class PlayerMessage {
    */
   @CanIgnoreReturnValue
   public PlayerMessage setDeleteAfterDelivery(boolean deleteAfterDelivery) {
-    Assertions.checkState(!isSent);
+    checkState(!isSent);
     this.deleteAfterDelivery = deleteAfterDelivery;
     return this;
   }
@@ -262,9 +264,9 @@ public final class PlayerMessage {
    */
   @CanIgnoreReturnValue
   public PlayerMessage send() {
-    Assertions.checkState(!isSent);
+    checkState(!isSent);
     if (positionMs == C.TIME_UNSET) {
-      Assertions.checkArgument(deleteAfterDelivery);
+      checkArgument(deleteAfterDelivery);
     }
     isSent = true;
     sender.sendMessage(this);
@@ -279,7 +281,7 @@ public final class PlayerMessage {
    */
   @CanIgnoreReturnValue
   public synchronized PlayerMessage cancel() {
-    Assertions.checkState(isSent);
+    checkState(isSent);
     isCanceled = true;
     markAsProcessed(/* isDelivered= */ false);
     return this;
@@ -319,8 +321,8 @@ public final class PlayerMessage {
    *     to be delivered.
    */
   public synchronized boolean blockUntilDelivered() throws InterruptedException {
-    Assertions.checkState(isSent);
-    Assertions.checkState(looper.getThread() != Thread.currentThread());
+    checkState(isSent);
+    checkState(looper.getThread() != Thread.currentThread());
     while (!isProcessed) {
       wait();
     }
@@ -346,8 +348,8 @@ public final class PlayerMessage {
    */
   public synchronized boolean blockUntilDelivered(long timeoutMs)
       throws InterruptedException, TimeoutException {
-    Assertions.checkState(isSent);
-    Assertions.checkState(looper.getThread() != Thread.currentThread());
+    checkState(isSent);
+    checkState(looper.getThread() != Thread.currentThread());
 
     long deadlineMs = clock.elapsedRealtime() + timeoutMs;
     long remainingMs = timeoutMs;

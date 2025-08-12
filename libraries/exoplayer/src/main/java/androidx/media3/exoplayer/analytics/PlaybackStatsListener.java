@@ -15,7 +15,8 @@
  */
 package androidx.media3.exoplayer.analytics;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.max;
 
 import android.os.SystemClock;
@@ -29,7 +30,6 @@ import androidx.media3.common.Timeline;
 import androidx.media3.common.Timeline.Period;
 import androidx.media3.common.Tracks;
 import androidx.media3.common.VideoSize;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.analytics.PlaybackStats.EventTimeAndException;
@@ -658,7 +658,7 @@ public final class PlaybackStatsListener
     }
 
     private void updatePlaybackState(@PlaybackState int newPlaybackState, EventTime eventTime) {
-      Assertions.checkArgument(eventTime.realtimeMs >= currentPlaybackStateStartTimeMs);
+      checkArgument(eventTime.realtimeMs >= currentPlaybackStateStartTimeMs);
       long stateDurationMs = eventTime.realtimeMs - currentPlaybackStateStartTimeMs;
       playbackStateDurationsMs[currentPlaybackState] += stateDurationMs;
       if (firstReportedTimeMs == C.TIME_UNSET) {

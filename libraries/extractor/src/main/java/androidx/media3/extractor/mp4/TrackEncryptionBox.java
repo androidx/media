@@ -15,9 +15,10 @@
  */
 package androidx.media3.extractor.mp4;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.extractor.TrackOutput;
@@ -69,7 +70,7 @@ public final class TrackEncryptionBox {
       int defaultEncryptedBlocks,
       int defaultClearBlocks,
       @Nullable byte[] defaultInitializationVector) {
-    Assertions.checkArgument(perSampleIvSize == 0 ^ defaultInitializationVector == null);
+    checkArgument(perSampleIvSize == 0 ^ defaultInitializationVector == null);
     this.isEncrypted = isEncrypted;
     this.schemeType = schemeType;
     this.perSampleIvSize = perSampleIvSize;

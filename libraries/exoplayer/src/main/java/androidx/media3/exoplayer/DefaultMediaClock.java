@@ -16,11 +16,11 @@
 package androidx.media3.exoplayer;
 
 import static androidx.media3.exoplayer.Renderer.STATE_STARTED;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.PlaybackParameters;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Clock;
 
 /**
@@ -135,14 +135,14 @@ import androidx.media3.common.util.Clock;
   public long getPositionUs() {
     return isUsingStandaloneClock
         ? standaloneClock.getPositionUs()
-        : Assertions.checkNotNull(rendererClock).getPositionUs();
+        : checkNotNull(rendererClock).getPositionUs();
   }
 
   @Override
   public boolean hasSkippedSilenceSinceLastCall() {
     return isUsingStandaloneClock
         ? standaloneClock.hasSkippedSilenceSinceLastCall()
-        : Assertions.checkNotNull(rendererClock).hasSkippedSilenceSinceLastCall();
+        : checkNotNull(rendererClock).hasSkippedSilenceSinceLastCall();
   }
 
   @Override
@@ -171,7 +171,7 @@ import androidx.media3.common.util.Clock;
     }
     // We are either already using the renderer clock or switching from the standalone to the
     // renderer clock, so it must be non-null.
-    MediaClock rendererClock = Assertions.checkNotNull(this.rendererClock);
+    MediaClock rendererClock = checkNotNull(this.rendererClock);
     long rendererClockPositionUs = rendererClock.getPositionUs();
     if (isUsingStandaloneClock) {
       // Ensure enabling the renderer clock doesn't jump backwards in time.

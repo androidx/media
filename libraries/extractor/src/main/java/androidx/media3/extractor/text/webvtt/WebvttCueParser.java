@@ -16,6 +16,8 @@
 package androidx.media3.extractor.text.webvtt;
 
 import static androidx.annotation.VisibleForTesting.PACKAGE_PRIVATE;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.min;
 import static java.lang.annotation.ElementType.TYPE_USE;
 import static java.lang.annotation.RetentionPolicy.SOURCE;
@@ -44,7 +46,6 @@ import androidx.media3.common.text.RubySpan;
 import androidx.media3.common.text.SpanUtil;
 import androidx.media3.common.text.TextAnnotation;
 import androidx.media3.common.text.VoiceSpan;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
@@ -344,15 +345,15 @@ public final class WebvttCueParser {
     try {
       // Parse the cue start and end times.
       builder.startTimeUs =
-          WebvttParserUtil.parseTimestampUs(Assertions.checkNotNull(cueHeaderMatcher.group(1)));
+          WebvttParserUtil.parseTimestampUs(checkNotNull(cueHeaderMatcher.group(1)));
       builder.endTimeUs =
-          WebvttParserUtil.parseTimestampUs(Assertions.checkNotNull(cueHeaderMatcher.group(2)));
+          WebvttParserUtil.parseTimestampUs(checkNotNull(cueHeaderMatcher.group(2)));
     } catch (IllegalArgumentException e) {
       Log.w(TAG, "Skipping cue with bad header: " + cueHeaderMatcher.group());
       return null;
     }
 
-    parseCueSettingsList(Assertions.checkNotNull(cueHeaderMatcher.group(3)), builder);
+    parseCueSettingsList(checkNotNull(cueHeaderMatcher.group(3)), builder);
 
     // Parse the cue text.
     StringBuilder textBuilder = new StringBuilder();
@@ -373,8 +374,8 @@ public final class WebvttCueParser {
     Matcher cueSettingMatcher = CUE_SETTING_PATTERN.matcher(cueSettingsList);
 
     while (cueSettingMatcher.find()) {
-      String name = Assertions.checkNotNull(cueSettingMatcher.group(1));
-      String value = Assertions.checkNotNull(cueSettingMatcher.group(2));
+      String name = checkNotNull(cueSettingMatcher.group(1));
+      String value = checkNotNull(cueSettingMatcher.group(2));
       try {
         if ("line".equals(name)) {
           parseLineAttribute(value, builder);
@@ -752,7 +753,7 @@ public final class WebvttCueParser {
    */
   private static String getTagName(String tagExpression) {
     tagExpression = tagExpression.trim();
-    Assertions.checkArgument(!tagExpression.isEmpty());
+    checkArgument(!tagExpression.isEmpty());
     return Util.splitAtFirst(tagExpression, "[ \\.]")[0];
   }
 
@@ -949,7 +950,7 @@ public final class WebvttCueParser {
 
     public static StartTag buildStartTag(String fullTagExpression, int position) {
       fullTagExpression = fullTagExpression.trim();
-      Assertions.checkArgument(!fullTagExpression.isEmpty());
+      checkArgument(!fullTagExpression.isEmpty());
       int voiceStartIndex = fullTagExpression.indexOf(" ");
       String voice;
       if (voiceStartIndex == -1) {

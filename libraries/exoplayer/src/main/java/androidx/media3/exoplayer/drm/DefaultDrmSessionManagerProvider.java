@@ -15,8 +15,8 @@
  */
 package androidx.media3.exoplayer.drm;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.exoplayer.drm.DefaultDrmSessionManager.MODE_PLAYBACK;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;

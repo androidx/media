@@ -15,8 +15,9 @@
  */
 package androidx.media3.exoplayer.source.ads;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.os.Handler;
@@ -30,7 +31,6 @@ import androidx.media3.common.AdViewProvider;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Timeline;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -342,7 +342,7 @@ public final class AdsMediaSource extends CompositeMediaSource<MediaPeriodId> {
           .handleSourceInfoRefresh(newTimeline);
       maybeUpdateSourceInfo();
     } else {
-      Assertions.checkArgument(newTimeline.getPeriodCount() == 1);
+      checkArgument(newTimeline.getPeriodCount() == 1);
       contentTimeline = newTimeline;
       mainHandler.post(
           () -> {
@@ -637,7 +637,7 @@ public final class AdsMediaSource extends CompositeMediaSource<MediaPeriodId> {
     }
 
     public void handleSourceInfoRefresh(Timeline timeline) {
-      Assertions.checkArgument(timeline.getPeriodCount() == 1);
+      checkArgument(timeline.getPeriodCount() == 1);
       if (this.timeline == null) {
         Object periodUid = timeline.getUidOfPeriod(/* periodIndex= */ 0);
         for (int i = 0; i < activeMediaPeriods.size(); i++) {

@@ -45,6 +45,7 @@ import androidx.media3.exoplayer.upstream.DefaultAllocator;
 import androidx.media3.test.utils.FakeMediaPeriod;
 import androidx.media3.test.utils.FakeSampleStream;
 import androidx.media3.test.utils.TestSpeedProvider;
+import androidx.media3.transformer.SpeedChangingMediaSource.SpeedProviderMapper;
 import androidx.media3.transformer.SpeedChangingMediaSource.SpeedProviderMediaPeriod;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
@@ -67,7 +68,7 @@ public final class SpeedProviderMediaPeriodTest {
             ImmutableList.of(
                 oneByteSample(/* timeUs= */ 500_000, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM));
     SpeedProviderMediaPeriod speedProviderMediaPeriod =
-        new SpeedProviderMediaPeriod(fakeMediaPeriod, speedProvider);
+        new SpeedProviderMediaPeriod(fakeMediaPeriod, new SpeedProviderMapper(speedProvider));
     prepareMediaPeriodSync(speedProviderMediaPeriod, /* positionUs= */ 0);
     FormatHolder formatHolder = new FormatHolder();
     DecoderInputBuffer inputBuffer =
@@ -96,7 +97,7 @@ public final class SpeedProviderMediaPeriodTest {
                 oneByteSample(/* timeUs= */ 500_000, C.BUFFER_FLAG_KEY_FRAME),
                 oneByteSample(/* timeUs= */ 1_500_000, C.BUFFER_FLAG_KEY_FRAME)));
     SpeedProviderMediaPeriod speedProviderMediaPeriod =
-        new SpeedProviderMediaPeriod(fakeMediaPeriod, speedProvider);
+        new SpeedProviderMediaPeriod(fakeMediaPeriod, new SpeedProviderMapper(speedProvider));
     prepareMediaPeriodSync(speedProviderMediaPeriod, /* positionUs= */ 0);
     selectTracksOnMediaPeriodAndTriggerLoading(speedProviderMediaPeriod);
 
@@ -111,7 +112,7 @@ public final class SpeedProviderMediaPeriodTest {
                 oneByteSample(/* timeUs= */ 1_000_000, C.BUFFER_FLAG_KEY_FRAME),
                 oneByteSample(/* timeUs= */ 2_500_000, C.BUFFER_FLAG_KEY_FRAME)));
     SpeedProviderMediaPeriod speedProviderMediaPeriod =
-        new SpeedProviderMediaPeriod(fakeMediaPeriod, speedProvider);
+        new SpeedProviderMediaPeriod(fakeMediaPeriod, new SpeedProviderMapper(speedProvider));
     prepareMediaPeriodSync(speedProviderMediaPeriod, /* positionUs= */ 0);
     selectTracksOnMediaPeriodAndTriggerLoading(speedProviderMediaPeriod);
 
@@ -126,7 +127,7 @@ public final class SpeedProviderMediaPeriodTest {
                 oneByteSample(/* timeUs= */ 100_000, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM));
     MediaPeriod spyPeriod = spy(fakeMediaPeriod);
     SpeedProviderMediaPeriod speedProviderMediaPeriod =
-        new SpeedProviderMediaPeriod(spyPeriod, speedProvider);
+        new SpeedProviderMediaPeriod(spyPeriod, new SpeedProviderMapper(speedProvider));
 
     prepareMediaPeriodSync(speedProviderMediaPeriod, /* positionUs= */ 250_000);
 
@@ -141,7 +142,7 @@ public final class SpeedProviderMediaPeriodTest {
                 oneByteSample(/* timeUs= */ 8000, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM));
     MediaPeriod spyPeriod = spy(fakeMediaPeriod);
     SpeedProviderMediaPeriod speedProviderMediaPeriod =
-        new SpeedProviderMediaPeriod(spyPeriod, speedProvider);
+        new SpeedProviderMediaPeriod(spyPeriod, new SpeedProviderMapper(speedProvider));
     prepareMediaPeriodSync(speedProviderMediaPeriod, /* positionUs= */ 3_250_000);
     selectTracksOnMediaPeriodAndTriggerLoading(speedProviderMediaPeriod);
 
@@ -158,7 +159,7 @@ public final class SpeedProviderMediaPeriodTest {
                 oneByteSample(/* timeUs= */ 8000, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM));
     MediaPeriod spyPeriod = spy(fakeMediaPeriod);
     SpeedProviderMediaPeriod speedProviderMediaPeriod =
-        new SpeedProviderMediaPeriod(spyPeriod, speedProvider);
+        new SpeedProviderMediaPeriod(spyPeriod, new SpeedProviderMapper(speedProvider));
     prepareMediaPeriodSync(speedProviderMediaPeriod, /* positionUs= */ 0);
     selectTracksOnMediaPeriodAndTriggerLoading(speedProviderMediaPeriod);
 
@@ -176,7 +177,7 @@ public final class SpeedProviderMediaPeriodTest {
     fakeMediaPeriod.setDiscontinuityPositionUs(1_000_000);
     MediaPeriod spyPeriod = spy(fakeMediaPeriod);
     SpeedProviderMediaPeriod speedProviderMediaPeriod =
-        new SpeedProviderMediaPeriod(spyPeriod, speedProvider);
+        new SpeedProviderMediaPeriod(spyPeriod, new SpeedProviderMapper(speedProvider));
     prepareMediaPeriodSync(speedProviderMediaPeriod, /* positionUs= */ 500_000);
 
     assertThat(speedProviderMediaPeriod.readDiscontinuity()).isEqualTo(2_000_000);
@@ -191,7 +192,7 @@ public final class SpeedProviderMediaPeriodTest {
                 oneByteSample(/* timeUs= */ 8000, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM));
     MediaPeriod spyPeriod = spy(fakeMediaPeriod);
     SpeedProviderMediaPeriod speedProviderMediaPeriod =
-        new SpeedProviderMediaPeriod(spyPeriod, speedProvider);
+        new SpeedProviderMediaPeriod(spyPeriod, new SpeedProviderMapper(speedProvider));
     prepareMediaPeriodSync(speedProviderMediaPeriod, /* positionUs= */ 2_000_000);
     selectTracksOnMediaPeriodAndTriggerLoading(speedProviderMediaPeriod);
 
@@ -210,7 +211,7 @@ public final class SpeedProviderMediaPeriodTest {
     fakeMediaPeriod.setSeekToUsOffset(2000);
     MediaPeriod spyPeriod = spy(fakeMediaPeriod);
     SpeedProviderMediaPeriod speedProviderMediaPeriod =
-        new SpeedProviderMediaPeriod(spyPeriod, speedProvider);
+        new SpeedProviderMediaPeriod(spyPeriod, new SpeedProviderMapper(speedProvider));
     prepareMediaPeriodSync(speedProviderMediaPeriod, /* positionUs= */ 2_000_000);
     selectTracksOnMediaPeriodAndTriggerLoading(speedProviderMediaPeriod);
 
@@ -230,7 +231,7 @@ public final class SpeedProviderMediaPeriodTest {
                 oneByteSample(/* timeUs= */ 8000, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM));
     MediaPeriod spyPeriod = spy(fakeMediaPeriod);
     SpeedProviderMediaPeriod speedProviderMediaPeriod =
-        new SpeedProviderMediaPeriod(spyPeriod, speedProvider);
+        new SpeedProviderMediaPeriod(spyPeriod, new SpeedProviderMapper(speedProvider));
     prepareMediaPeriodSync(speedProviderMediaPeriod, /* positionUs= */ 3_250_000);
     selectTracksOnMediaPeriodAndTriggerLoading(speedProviderMediaPeriod);
 
@@ -249,7 +250,7 @@ public final class SpeedProviderMediaPeriodTest {
                 oneByteSample(/* timeUs= */ 8000, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM));
     MediaPeriod spyPeriod = spy(fakeMediaPeriod);
     SpeedProviderMediaPeriod speedProviderMediaPeriod =
-        new SpeedProviderMediaPeriod(spyPeriod, speedProvider);
+        new SpeedProviderMediaPeriod(spyPeriod, new SpeedProviderMapper(speedProvider));
     prepareMediaPeriodSync(speedProviderMediaPeriod, /* positionUs= */ 3_250_000);
     selectTracksOnMediaPeriodAndTriggerLoading(speedProviderMediaPeriod);
 

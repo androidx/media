@@ -16,12 +16,12 @@
 package androidx.media3.exoplayer.drm;
 
 import static androidx.media3.common.util.Util.postOrRun;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.os.Handler;
 import androidx.annotation.CheckResult;
 import androidx.annotation.Nullable;
 import androidx.media3.common.Player;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -136,8 +136,8 @@ public interface DrmSessionEventListener {
      * @param eventListener The listener to be added.
      */
     public void addEventListener(Handler handler, DrmSessionEventListener eventListener) {
-      Assertions.checkNotNull(handler);
-      Assertions.checkNotNull(eventListener);
+      checkNotNull(handler);
+      checkNotNull(eventListener);
       listenerAndHandlers.add(new ListenerAndHandler(handler, eventListener));
     }
 

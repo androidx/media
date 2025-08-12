@@ -15,6 +15,7 @@
  */
 package androidx.media3.test.utils;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 
 import androidx.annotation.Nullable;
@@ -24,7 +25,6 @@ import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.Timeline.Period;
 import androidx.media3.common.Timeline.Window;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -181,7 +181,7 @@ public final class TimelineAsserts {
         expectedWindowIndex++;
       }
       assertThat(period.windowIndex).isEqualTo(expectedWindowIndex);
-      Object periodUid = Assertions.checkNotNull(period.uid);
+      Object periodUid = checkNotNull(period.uid);
       assertThat(timeline.getIndexOfPeriod(periodUid)).isEqualTo(i);
       assertThat(timeline.getUidOfPeriod(i)).isEqualTo(periodUid);
       for (int repeatMode : REPEAT_MODES) {

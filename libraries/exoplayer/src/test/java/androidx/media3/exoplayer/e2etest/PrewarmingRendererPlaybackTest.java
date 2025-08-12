@@ -37,7 +37,6 @@ import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.FakeClock;
 import androidx.media3.test.utils.robolectric.PlaybackOutput;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
-import androidx.media3.test.utils.robolectric.TestPlayerRunHelper;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
@@ -76,8 +75,9 @@ public class PrewarmingRendererPlaybackTest {
             new MediaItem.Builder().setUri(TEST_MP4_URI).build()));
 
     player.prepare();
+    advance(player).untilState(Player.STATE_READY);
     player.play();
-    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+    advance(player).untilState(Player.STATE_ENDED);
     player.release();
     surface.release();
 
@@ -115,9 +115,10 @@ public class PrewarmingRendererPlaybackTest {
             .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, true)
             .build());
     player.prepare();
+    advance(player).untilState(Player.STATE_READY);
     player.play();
 
-    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+    advance(player).untilState(Player.STATE_ENDED);
 
     player.release();
     surface.release();
@@ -162,6 +163,7 @@ public class PrewarmingRendererPlaybackTest {
             .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, true)
             .build());
     player.prepare();
+    advance(player).untilState(Player.STATE_READY);
     player.play();
 
     advance(player).untilStartOfMediaItem(1);
@@ -170,9 +172,10 @@ public class PrewarmingRendererPlaybackTest {
     player.stop();
     player.seekTo(/* mediaItemIndex= */ 1, /* positionMs= */ 0);
     player.prepare();
+    advance(player).untilState(Player.STATE_READY);
     player.play();
 
-    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+    advance(player).untilState(Player.STATE_ENDED);
 
     player.release();
     surface.release();
@@ -227,8 +230,9 @@ public class PrewarmingRendererPlaybackTest {
             .build());
 
     player.prepare();
+    advance(player).untilState(Player.STATE_READY);
     player.play();
-    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+    advance(player).untilState(Player.STATE_ENDED);
     player.release();
     surface.release();
 
@@ -265,8 +269,9 @@ public class PrewarmingRendererPlaybackTest {
             .build());
 
     player.prepare();
+    advance(player).untilState(Player.STATE_READY);
     player.play();
-    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+    advance(player).untilState(Player.STATE_ENDED);
     player.release();
     surface.release();
 
@@ -298,8 +303,9 @@ public class PrewarmingRendererPlaybackTest {
             new MediaItem.Builder().setUri(TEST_IMAGE_URI).setImageDurationMs(1000).build()));
 
     player.prepare();
+    advance(player).untilState(Player.STATE_READY);
     player.play();
-    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+    advance(player).untilState(Player.STATE_ENDED);
     player.release();
     surface.release();
 

@@ -15,9 +15,8 @@
  */
 package androidx.media3.exoplayer.analytics;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.os.Looper;
 import android.util.SparseArray;
@@ -142,7 +141,7 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
   public void release() {
     // Release lazily so that all events that got triggered as part of player.release()
     // are still delivered to all listeners and onPlayerReleased() is delivered last.
-    checkStateNotNull(handler).post(this::releaseInternal);
+    checkNotNull(handler).post(this::releaseInternal);
   }
 
   @Override
@@ -384,6 +383,15 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
         eventTime,
         AnalyticsListener.EVENT_VIDEO_CODEC_ERROR,
         listener -> listener.onVideoCodecError(eventTime, videoCodecError));
+  }
+
+  @Override
+  public void onDroppedSeeksWhileScrubbing(int droppedSeekCount) {
+    EventTime eventTime = generateCurrentPlayerMediaPeriodEventTime();
+    sendEvent(
+        eventTime,
+        AnalyticsListener.EVENT_DROPPED_SEEKS_WHILE_SCRUBBING,
+        listener -> listener.onDroppedSeeksWhileScrubbing(eventTime, droppedSeekCount));
   }
 
   @Override

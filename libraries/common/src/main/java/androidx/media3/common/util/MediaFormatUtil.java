@@ -151,6 +151,10 @@ public final class MediaFormatUtil {
     maybeSetInteger(result, MediaFormat.KEY_BIT_RATE, format.bitrate);
     maybeSetInteger(result, KEY_MAX_BIT_RATE, format.peakBitrate);
     maybeSetInteger(result, MediaFormat.KEY_CHANNEL_COUNT, format.channelCount);
+    int channelMask = Util.getAudioTrackChannelConfig(format.channelCount);
+    if (channelMask != AudioFormat.CHANNEL_INVALID) {
+      result.setInteger(MediaFormat.KEY_CHANNEL_MASK, channelMask);
+    }
 
     maybeSetColorInfo(result, format.colorInfo);
 
@@ -181,7 +185,11 @@ public final class MediaFormatUtil {
     maybeSetPixelAspectRatio(result, format.pixelWidthHeightRatio);
 
     if (format.id != null) {
-      result.setInteger(MediaFormat.KEY_TRACK_ID, Integer.parseInt(format.id));
+      try {
+        result.setInteger(MediaFormat.KEY_TRACK_ID, Integer.parseInt(format.id));
+      } catch (NumberFormatException e) {
+        // Ignore, format.id is not always an integer, but KEY_TRACK_ID expects an int.
+      }
     }
     return result;
   }

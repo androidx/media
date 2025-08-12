@@ -15,7 +15,7 @@
  */
 package androidx.media3.exoplayer.source.preload;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.content.Context;
 import android.view.SurfaceView;
@@ -30,7 +30,6 @@ import androidx.media3.test.utils.BinderStressCreator;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import androidx.test.filters.SdkSuppress;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -40,7 +39,6 @@ import org.junit.runner.RunWith;
  * main thread.
  */
 @RunWith(AndroidJUnit4.class)
-@SdkSuppress(minSdkVersion = 23)
 public class DefaultPreloadManagerBinderStressTest {
 
   @Test
@@ -52,7 +50,9 @@ public class DefaultPreloadManagerBinderStressTest {
         /* systemUnderTest= */ () -> {
           DefaultPreloadManager.Builder builder =
               new DefaultPreloadManager.Builder(
-                      context, rankingData -> DefaultPreloadManager.PreloadStatus.SOURCE_PREPARED)
+                      context,
+                      rankingData ->
+                          DefaultPreloadManager.PreloadStatus.PRELOAD_STATUS_SOURCE_PREPARED)
                   .setBandwidthMeter(new DefaultBandwidthMeter.Builder(context).build());
           MediaItem mediaItem = MediaItem.fromUri("http://test.test");
 

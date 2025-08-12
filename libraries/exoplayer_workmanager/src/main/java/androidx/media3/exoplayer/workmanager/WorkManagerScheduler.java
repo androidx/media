@@ -15,13 +15,11 @@
  */
 package androidx.media3.exoplayer.workmanager;
 
-import static android.os.Build.VERSION.SDK_INT;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.content.Context;
 import android.content.Intent;
-import androidx.annotation.RequiresApi;
 import androidx.media3.common.MediaLibraryInfo;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -51,7 +49,7 @@ public final class WorkManagerScheduler implements Scheduler {
   private static final int SUPPORTED_REQUIREMENTS =
       Requirements.NETWORK
           | Requirements.NETWORK_UNMETERED
-          | (SDK_INT >= 23 ? Requirements.DEVICE_IDLE : 0)
+          | Requirements.DEVICE_IDLE
           | Requirements.DEVICE_CHARGING
           | Requirements.DEVICE_STORAGE_NOT_LOW;
 
@@ -107,8 +105,8 @@ public final class WorkManagerScheduler implements Scheduler {
     } else {
       builder.setRequiredNetworkType(NetworkType.NOT_REQUIRED);
     }
-    if (SDK_INT >= 23 && requirements.isIdleRequired()) {
-      setRequiresDeviceIdle(builder);
+    if (requirements.isIdleRequired()) {
+      builder.setRequiresDeviceIdle(true);
     }
     if (requirements.isChargingRequired()) {
       builder.setRequiresCharging(true);
@@ -118,11 +116,6 @@ public final class WorkManagerScheduler implements Scheduler {
     }
 
     return builder.build();
-  }
-
-  @RequiresApi(23)
-  private static void setRequiresDeviceIdle(Constraints.Builder builder) {
-    builder.setRequiresDeviceIdle(true);
   }
 
   private static Data buildInputData(
@@ -160,12 +153,12 @@ public final class WorkManagerScheduler implements Scheduler {
 
     @Override
     public Result doWork() {
-      Data inputData = Assertions.checkNotNull(workerParams.getInputData());
+      Data inputData = checkNotNull(workerParams.getInputData());
       Requirements requirements = new Requirements(inputData.getInt(KEY_REQUIREMENTS, 0));
       int notMetRequirements = requirements.getNotMetRequirements(context);
       if (notMetRequirements == 0) {
-        String serviceAction = Assertions.checkNotNull(inputData.getString(KEY_SERVICE_ACTION));
-        String servicePackage = Assertions.checkNotNull(inputData.getString(KEY_SERVICE_PACKAGE));
+        String serviceAction = checkNotNull(inputData.getString(KEY_SERVICE_ACTION));
+        String servicePackage = checkNotNull(inputData.getString(KEY_SERVICE_PACKAGE));
         Intent intent = new Intent(serviceAction).setPackage(servicePackage);
         Util.startForegroundService(context, intent);
         return Result.success();

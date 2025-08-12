@@ -17,37 +17,37 @@ package androidx.media3.transformer;
 
 import static android.media.MediaCodecInfo.CodecProfileLevel.AACObjectHE;
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
+import static androidx.media3.common.C.COLOR_SPACE_BT709;
+import static androidx.media3.common.C.COLOR_TRANSFER_SDR;
 import static androidx.media3.common.util.MediaFormatUtil.createFormatFromMediaFormat;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
+import static androidx.media3.test.utils.TestUtil.JPG_ASSET;
+import static androidx.media3.test.utils.TestUtil.JPG_PIXEL_MOTION_PHOTO_ASSET;
+import static androidx.media3.test.utils.TestUtil.MP3_ASSET;
+import static androidx.media3.test.utils.TestUtil.MP4_ASSET;
+import static androidx.media3.test.utils.TestUtil.MP4_ASSET_DOLBY_VISION_HDR;
+import static androidx.media3.test.utils.TestUtil.MP4_ASSET_PHOTOS_TRIM_OPTIMIZATION_VIDEO;
+import static androidx.media3.test.utils.TestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS;
+import static androidx.media3.test.utils.TestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S;
+import static androidx.media3.test.utils.TestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_GAMMA22_1S;
+import static androidx.media3.test.utils.TestUtil.MP4_ASSET_WITH_SHORTER_AUDIO;
+import static androidx.media3.test.utils.TestUtil.MP4_PORTRAIT_ASSET;
+import static androidx.media3.test.utils.TestUtil.MP4_POSITIVE_SHIFT_EDIT_LIST;
+import static androidx.media3.test.utils.TestUtil.MP4_TRIM_OPTIMIZATION;
+import static androidx.media3.test.utils.TestUtil.MP4_TRIM_OPTIMIZATION_180;
+import static androidx.media3.test.utils.TestUtil.MP4_TRIM_OPTIMIZATION_270;
+import static androidx.media3.test.utils.TestUtil.PNG_ASSET;
+import static androidx.media3.test.utils.TestUtil.WAV_192KHZ_ASSET;
+import static androidx.media3.test.utils.TestUtil.WAV_96KHZ_ASSET;
+import static androidx.media3.test.utils.TestUtil.WAV_ASSET;
+import static androidx.media3.test.utils.TestUtil.WEBP_LARGE;
 import static androidx.media3.test.utils.TestUtil.retrieveTrackFormat;
-import static androidx.media3.transformer.AndroidTestUtil.JPG_ASSET;
-import static androidx.media3.transformer.AndroidTestUtil.JPG_PIXEL_MOTION_PHOTO_ASSET;
-import static androidx.media3.transformer.AndroidTestUtil.MP3_ASSET;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_DOLBY_VISION_HDR;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_PHOTOS_TRIM_OPTIMIZATION_VIDEO;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_WITH_SHORTER_AUDIO;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_PORTRAIT_ASSET;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_POSITIVE_SHIFT_EDIT_LIST;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_TRIM_OPTIMIZATION;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_TRIM_OPTIMIZATION_180;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_TRIM_OPTIMIZATION_270;
-import static androidx.media3.transformer.AndroidTestUtil.PNG_ASSET;
-import static androidx.media3.transformer.AndroidTestUtil.WAV_192KHZ_ASSET;
-import static androidx.media3.transformer.AndroidTestUtil.WAV_96KHZ_ASSET;
-import static androidx.media3.transformer.AndroidTestUtil.WAV_ASSET;
-import static androidx.media3.transformer.AndroidTestUtil.WEBP_LARGE;
 import static androidx.media3.transformer.AndroidTestUtil.assumeCanEncodeWithProfile;
 import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
 import static androidx.media3.transformer.AndroidTestUtil.createFrameCountingEffect;
 import static androidx.media3.transformer.AndroidTestUtil.createOpenGlObjects;
 import static androidx.media3.transformer.AndroidTestUtil.generateTextureFromBitmap;
 import static androidx.media3.transformer.AndroidTestUtil.getMuxerFactoryBasedOnApi;
-import static androidx.media3.transformer.AndroidTestUtil.getTrackOutput;
 import static androidx.media3.transformer.AndroidTestUtil.recordTestSkipped;
 import static androidx.media3.transformer.ExportResult.CONVERSION_PROCESS_NA;
 import static androidx.media3.transformer.ExportResult.CONVERSION_PROCESS_TRANSCODED;
@@ -57,6 +57,8 @@ import static androidx.media3.transformer.ExportResult.OPTIMIZATION_ABANDONED_KE
 import static androidx.media3.transformer.ExportResult.OPTIMIZATION_ABANDONED_TRIM_AND_TRANSCODING_TRANSFORMATION_REQUESTED;
 import static androidx.media3.transformer.ExportResult.OPTIMIZATION_FAILED_FORMAT_MISMATCH;
 import static androidx.media3.transformer.ExportResult.OPTIMIZATION_SUCCEEDED;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assume.assumeFalse;
@@ -1068,7 +1070,7 @@ public class TransformerEndToEndTest {
         TestUtil.extractAllSamplesFromFilePath(mp4Extractor, checkNotNull(result.filePath));
     assertThat(result.exportResult.fileSizeBytes).isGreaterThan(0);
     List<Long> videoTimestampsUs =
-        checkNotNull(getTrackOutput(fakeExtractorOutput, C.TRACK_TYPE_VIDEO)).getSampleTimesUs();
+        checkNotNull(fakeExtractorOutput.getTrackOutput(C.TRACK_TYPE_VIDEO)).getSampleTimesUs();
     assertThat(videoTimestampsUs).hasSize(270);
     assertThat(videoTimestampsUs.get(0)).isEqualTo(0);
     // The second sample is originally at 1_033_333, clipping at 100_000 results in 933_333.
@@ -1097,7 +1099,7 @@ public class TransformerEndToEndTest {
         TestUtil.extractAllSamplesFromFilePath(mp4Extractor, checkNotNull(result.filePath));
     assertThat(result.exportResult.fileSizeBytes).isGreaterThan(0);
     List<Long> videoTimestampsUs =
-        checkNotNull(getTrackOutput(fakeExtractorOutput, C.TRACK_TYPE_VIDEO)).getSampleTimesUs();
+        checkNotNull(fakeExtractorOutput.getTrackOutput(C.TRACK_TYPE_VIDEO)).getSampleTimesUs();
     assertThat(videoTimestampsUs).hasSize(270);
     assertThat(videoTimestampsUs.get(0)).isEqualTo(0);
     // The second sample is originally at 1_033_333, clipping at 100_000 results in 933_333.
@@ -2146,38 +2148,6 @@ public class TransformerEndToEndTest {
   }
 
   @Test
-  public void transmux_audioWithEditListUsingInAppMuxer_preservesDuration() throws Exception {
-    Context context = ApplicationProvider.getApplicationContext();
-    Transformer transformer =
-        new Transformer.Builder(context).setMuxerFactory(new InAppMp4Muxer.Factory()).build();
-    MediaItem mediaItem =
-        MediaItem.fromUri(Uri.parse("asset:///media/mp4/long_edit_list_audioonly.mp4"));
-
-    ExportTestResult exportTestResult =
-        new TransformerAndroidTestRunner.Builder(context, transformer)
-            .build()
-            .run(testId, mediaItem);
-
-    Mp4Extractor mp4Extractor = new Mp4Extractor(new DefaultSubtitleParserFactory());
-    FakeExtractorOutput fakeExtractorOutput =
-        TestUtil.extractAllSamplesFromFilePath(mp4Extractor, exportTestResult.filePath);
-    assertThat(fakeExtractorOutput.seekMap.getDurationUs()).isEqualTo(1_562_800);
-    assertThat(fakeExtractorOutput.numberOfTracks).isEqualTo(1);
-    FakeTrackOutput audioTrack = fakeExtractorOutput.trackOutputs.get(0);
-    int expectedSampleCount = 68;
-    audioTrack.assertSampleCount(expectedSampleCount);
-    assertThat(audioTrack.lastFormat.encoderDelay).isEqualTo(0);
-    assertThat(audioTrack.getSampleTimeUs(/* index= */ 0)).isEqualTo(-16833);
-    // TODO: b/270583563 - InAppMuxer always uses 1 / 48_000 timebase for audio.
-    //  The audio file in this test is 44_100 Hz, with timebase for audio of 1 / 44_100 and
-    //  each sample duration is exactly 1024 / 44_100, with no rounding errors.
-    //  Since InAppMuxer uses a different timebase for audio, some rounding errors are introduced
-    //  and MP4 sample durations are off.
-    assertThat(audioTrack.getSampleTimeUs(/* index= */ expectedSampleCount - 1))
-        .isEqualTo(1_539_520);
-  }
-
-  @Test
   public void transmux_videoWithEditList_trimsFirstIdrFrameDuration() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
     assumeTrue("MediaMuxer doesn't support B frames reliably on older SDK versions", SDK_INT >= 29);
@@ -2588,6 +2558,41 @@ public class TransformerEndToEndTest {
     Format format = retrieveTrackFormat(context, result.filePath, C.TRACK_TYPE_VIDEO);
     assertThat(format.sampleMimeType).isEqualTo(MimeTypes.VIDEO_APV);
     assertThat(result.exportResult.videoConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSMUXED);
+  }
+
+  @Test
+  public void videoTranscoding_withGamma22Input_completesWithCorrectFrameCount() throws Exception {
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_GAMMA22_1S.videoFormat,
+        /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_GAMMA22_1S.videoFormat);
+    Transformer transformer =
+        new Transformer.Builder(context)
+            .setEncoderFactory(new AndroidTestUtil.ForceEncodeEncoderFactory(context))
+            .build();
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(
+                new MediaItem.Builder()
+                    .setUri(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_GAMMA22_1S.uri)
+                    .build())
+            .setRemoveAudio(true)
+            .build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, editedMediaItem);
+
+    Mp4Extractor mp4Extractor = new Mp4Extractor(new DefaultSubtitleParserFactory());
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(mp4Extractor, result.filePath);
+    FakeTrackOutput videoTrack = fakeExtractorOutput.trackOutputs.get(0);
+    videoTrack.assertSampleCount(
+        MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_GAMMA22_1S.videoFrameCount);
+    Format format = retrieveTrackFormat(context, result.filePath, C.TRACK_TYPE_VIDEO);
+    assertThat(format.colorInfo.colorSpace).isEqualTo(COLOR_SPACE_BT709);
+    assertThat(format.colorInfo.colorTransfer).isEqualTo(COLOR_TRANSFER_SDR);
   }
 
   private static boolean shouldSkipDeviceForAacObjectHeProfileEncoding() {

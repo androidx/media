@@ -15,10 +15,11 @@
  */
 package androidx.media3.datasource;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import android.net.Uri;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import java.io.IOException;
 import java.util.Collections;
@@ -44,7 +45,7 @@ public final class StatsDataSource implements DataSource {
    * @param dataSource The wrapped {@link DataSource}.
    */
   public StatsDataSource(DataSource dataSource) {
-    this.dataSource = Assertions.checkNotNull(dataSource);
+    this.dataSource = checkNotNull(dataSource);
     lastOpenedUri = Uri.EMPTY;
     lastResponseHeaders = Collections.emptyMap();
   }
@@ -75,7 +76,7 @@ public final class StatsDataSource implements DataSource {
 
   @Override
   public void addTransferListener(TransferListener transferListener) {
-    Assertions.checkNotNull(transferListener);
+    checkNotNull(transferListener);
     dataSource.addTransferListener(transferListener);
   }
 

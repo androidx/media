@@ -15,12 +15,13 @@
  */
 package androidx.media3.muxer;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.muxer.FileFormat.FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION;
 import static androidx.media3.muxer.Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER_OR_DUPLICATE_PREVIOUS;
 import static androidx.media3.muxer.MuxerTestUtil.FAKE_VIDEO_FORMAT;
 import static androidx.media3.muxer.MuxerTestUtil.XMP_SAMPLE_DATA;
 import static androidx.media3.muxer.MuxerTestUtil.feedInputDataToMuxer;
 import static androidx.media3.muxer.MuxerTestUtil.getFakeSampleAndSampleInfo;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
@@ -502,7 +503,7 @@ public class Mp4MuxerEndToEndTest {
         IllegalArgumentException.class,
         () ->
             new Mp4Muxer.Builder(new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath)))
-                .setOutputFileFormat(Mp4Muxer.FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION)
+                .setOutputFileFormat(FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION)
                 .build());
   }
 
@@ -515,7 +516,7 @@ public class Mp4MuxerEndToEndTest {
     Mp4Muxer muxer =
         new Mp4Muxer.Builder(
                 new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath), cacheFilePath))
-            .setOutputFileFormat(Mp4Muxer.FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION)
+            .setOutputFileFormat(FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION)
             .setMp4AtFileParameters(
                 new Mp4Muxer.Mp4AtFileParameters(/* shouldInterleaveSamples= */ false))
             .build();
@@ -609,7 +610,7 @@ public class Mp4MuxerEndToEndTest {
     Mp4Muxer muxer =
         new Mp4Muxer.Builder(
                 new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath), cacheFilePath))
-            .setOutputFileFormat(Mp4Muxer.FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION)
+            .setOutputFileFormat(FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION)
             .setMp4AtFileParameters(
                 new Mp4Muxer.Mp4AtFileParameters(/* shouldInterleaveSamples= */ false))
             .build();
@@ -660,7 +661,7 @@ public class Mp4MuxerEndToEndTest {
     Mp4Muxer muxer =
         new Mp4Muxer.Builder(
                 new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath), cacheFilePath))
-            .setOutputFileFormat(Mp4Muxer.FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION)
+            .setOutputFileFormat(FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION)
             .setMp4AtFileParameters(
                 new Mp4Muxer.Mp4AtFileParameters(/* shouldInterleaveSamples= */ false))
             .build();
@@ -710,7 +711,7 @@ public class Mp4MuxerEndToEndTest {
     String outputFilePath = temporaryFolder.newFile().getPath();
     Mp4Muxer muxer =
         new Mp4Muxer.Builder(new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath)))
-            .setOutputFileFormat(Mp4Muxer.FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION)
+            .setOutputFileFormat(FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION)
             .setMp4AtFileParameters(
                 new Mp4Muxer.Mp4AtFileParameters(/* shouldInterleaveSamples= */ true))
             .build();
@@ -760,7 +761,7 @@ public class Mp4MuxerEndToEndTest {
     String outputFilePath = temporaryFolder.newFile().getPath();
     Mp4Muxer muxer =
         new Mp4Muxer.Builder(new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath)))
-            .setOutputFileFormat(Mp4Muxer.FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION)
+            .setOutputFileFormat(FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION)
             .setMp4AtFileParameters(
                 new Mp4Muxer.Mp4AtFileParameters(/* shouldInterleaveSamples= */ true))
             .build();

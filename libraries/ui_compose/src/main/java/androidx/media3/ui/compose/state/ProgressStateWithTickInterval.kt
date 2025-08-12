@@ -114,6 +114,7 @@ class ProgressStateWithTickInterval(
       player,
       scope,
       nextMediaTickMsSupplier = ::nextMediaWakeUpPositionMs,
+      shouldScheduleTask = { isReadyOrBuffering(player) },
       scheduledTask = ::updateProgress,
     )
 

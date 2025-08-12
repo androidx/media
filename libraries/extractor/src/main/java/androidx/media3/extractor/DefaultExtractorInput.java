@@ -15,12 +15,12 @@
  */
 package androidx.media3.extractor;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.min;
 
 import androidx.media3.common.C;
 import androidx.media3.common.DataReader;
 import androidx.media3.common.MediaLibraryInfo;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import java.io.EOFException;
@@ -200,7 +200,7 @@ public final class DefaultExtractorInput implements ExtractorInput {
 
   @Override
   public <E extends Throwable> void setRetryPosition(long position, E e) throws E {
-    Assertions.checkArgument(position >= 0);
+    checkArgument(position >= 0);
     this.position = position;
     throw e;
   }

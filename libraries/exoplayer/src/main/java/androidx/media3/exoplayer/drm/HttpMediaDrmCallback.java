@@ -16,12 +16,13 @@
 package androidx.media3.exoplayer.drm;
 
 import static androidx.media3.exoplayer.drm.DrmUtil.executePost;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.net.Uri;
 import android.text.TextUtils;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
@@ -72,7 +73,7 @@ public final class HttpMediaDrmCallback implements MediaDrmCallback {
       @Nullable String defaultLicenseUrl,
       boolean forceDefaultLicenseUrl,
       DataSource.Factory dataSourceFactory) {
-    Assertions.checkArgument(!(forceDefaultLicenseUrl && TextUtils.isEmpty(defaultLicenseUrl)));
+    checkArgument(!(forceDefaultLicenseUrl && TextUtils.isEmpty(defaultLicenseUrl)));
     this.dataSourceFactory = dataSourceFactory;
     this.defaultLicenseUrl = defaultLicenseUrl;
     this.forceDefaultLicenseUrl = forceDefaultLicenseUrl;
@@ -86,8 +87,8 @@ public final class HttpMediaDrmCallback implements MediaDrmCallback {
    * @param value The value of the field.
    */
   public void setKeyRequestProperty(String name, String value) {
-    Assertions.checkNotNull(name);
-    Assertions.checkNotNull(value);
+    checkNotNull(name);
+    checkNotNull(value);
     synchronized (keyRequestProperties) {
       keyRequestProperties.put(name, value);
     }
@@ -99,7 +100,7 @@ public final class HttpMediaDrmCallback implements MediaDrmCallback {
    * @param name The name of the header field.
    */
   public void clearKeyRequestProperty(String name) {
-    Assertions.checkNotNull(name);
+    checkNotNull(name);
     synchronized (keyRequestProperties) {
       keyRequestProperties.remove(name);
     }

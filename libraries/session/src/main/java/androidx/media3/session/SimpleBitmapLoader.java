@@ -15,9 +15,9 @@
  */
 package androidx.media3.session;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.isBitmapFactorySupportedMimeType;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -59,7 +59,7 @@ public final class SimpleBitmapLoader implements BitmapLoader {
    * between instances.
    */
   public SimpleBitmapLoader() {
-    this(checkStateNotNull(DEFAULT_EXECUTOR_SERVICE.get()));
+    this(checkNotNull(DEFAULT_EXECUTOR_SERVICE.get()));
   }
 
   /** Creates an instance that delegates loading tasks to the {@code executorService}. */

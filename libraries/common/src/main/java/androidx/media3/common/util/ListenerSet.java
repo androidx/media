@@ -15,7 +15,8 @@
  */
 package androidx.media3.common.util;
 
-import static androidx.media3.common.util.Assertions.checkState;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.os.Looper;
 import android.os.Message;
@@ -169,7 +170,7 @@ public final class ListenerSet<T extends @NonNull Object> {
    * @param listener The listener to be added.
    */
   public void add(T listener) {
-    Assertions.checkNotNull(listener);
+    checkNotNull(listener);
     synchronized (releasedLock) {
       if (released) {
         return;

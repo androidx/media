@@ -38,6 +38,6 @@ internal fun MuteButton(player: Player, modifier: Modifier = Modifier) {
     if (state.showMuted) stringResource(R.string.mute_button_shown_muted)
     else stringResource(R.string.mute_button_shown_unmuted)
   IconButton(onClick = state::onClick, modifier = modifier, enabled = state.isEnabled) {
-    Icon(icon, contentDescription = contentDescription, modifier = modifier)
+    Icon(icon, contentDescription = contentDescription)
   }
 }

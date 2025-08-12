@@ -16,6 +16,7 @@
 package androidx.media3.datasource;
 
 import static androidx.media3.common.util.Util.castNonNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.min;
 
 import android.annotation.SuppressLint;
@@ -29,7 +30,6 @@ import android.text.TextUtils;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.PlaybackException;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import java.io.EOFException;
 import java.io.FileInputStream;
@@ -224,7 +224,7 @@ public final class RawResourceDataSource extends BaseDataSource {
       }
     } else if (TextUtils.equals(
         ContentResolver.SCHEME_ANDROID_RESOURCE, normalizedUri.getScheme())) {
-      String path = Assertions.checkNotNull(normalizedUri.getPath());
+      String path = checkNotNull(normalizedUri.getPath());
       if (path.startsWith("/")) {
         path = path.substring(1);
       }

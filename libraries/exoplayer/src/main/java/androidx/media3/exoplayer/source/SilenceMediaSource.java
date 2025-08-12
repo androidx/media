@@ -15,6 +15,8 @@
  */
 package androidx.media3.exoplayer.source;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.min;
 
 import android.net.Uri;
@@ -27,7 +29,6 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.TrackGroup;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -82,7 +83,7 @@ public final class SilenceMediaSource extends BaseMediaSource {
      * @throws IllegalStateException if the duration is a non-positive value.
      */
     public SilenceMediaSource createMediaSource() {
-      Assertions.checkState(durationUs > 0);
+      checkState(durationUs > 0);
       return new SilenceMediaSource(durationUs, MEDIA_ITEM.buildUpon().setTag(tag).build());
     }
   }
@@ -130,7 +131,7 @@ public final class SilenceMediaSource extends BaseMediaSource {
    * @param mediaItem The media item associated with this media source.
    */
   private SilenceMediaSource(long durationUs, MediaItem mediaItem) {
-    Assertions.checkArgument(durationUs >= 0);
+    checkArgument(durationUs >= 0);
     this.durationUs = durationUs;
     this.mediaItem = mediaItem;
   }

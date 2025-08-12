@@ -15,8 +15,8 @@
  */
 package androidx.media3.exoplayer.upstream.experimental;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.exoplayer.upstream.experimental.BandwidthEstimator.ESTIMATE_NOT_AVAILABLE;
+import static com.google.common.base.Preconditions.checkArgument;
 
 import androidx.media3.common.util.UnstableApi;
 import java.util.ArrayDeque;

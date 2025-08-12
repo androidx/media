@@ -15,9 +15,11 @@
  */
 package androidx.media3.extractor.metadata;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import androidx.annotation.Nullable;
 import androidx.media3.common.Metadata;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import java.nio.ByteBuffer;
 
@@ -28,9 +30,8 @@ public abstract class SimpleMetadataDecoder implements MetadataDecoder {
   @Override
   @Nullable
   public final Metadata decode(MetadataInputBuffer inputBuffer) {
-    ByteBuffer buffer = Assertions.checkNotNull(inputBuffer.data);
-    Assertions.checkArgument(
-        buffer.position() == 0 && buffer.hasArray() && buffer.arrayOffset() == 0);
+    ByteBuffer buffer = checkNotNull(inputBuffer.data);
+    checkArgument(buffer.position() == 0 && buffer.hasArray() && buffer.arrayOffset() == 0);
     return decode(inputBuffer, buffer);
   }
 

@@ -27,13 +27,12 @@ import static android.view.KeyEvent.KEYCODE_MEDIA_SKIP_FORWARD;
 import static android.view.KeyEvent.KEYCODE_MEDIA_STOP;
 import static androidx.media3.common.Player.COMMAND_CHANGE_MEDIA_ITEMS;
 import static androidx.media3.common.Player.COMMAND_SET_MEDIA_ITEM;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.postOrRun;
 import static androidx.media3.session.MediaSessionStub.UNKNOWN_SEQUENCE_NUMBER;
 import static androidx.media3.session.SessionError.ERROR_SESSION_DISCONNECTED;
 import static androidx.media3.session.SessionError.ERROR_UNKNOWN;
 import static androidx.media3.session.SessionError.INFO_CANCELLED;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.app.PendingIntent;
 import android.content.ComponentName;
@@ -277,7 +276,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       @Nullable PlayerWrapper oldPlayerWrapper, PlayerWrapper newPlayerWrapper) {
     playerWrapper = newPlayerWrapper;
     if (oldPlayerWrapper != null) {
-      oldPlayerWrapper.removeListener(checkStateNotNull(this.playerListener));
+      oldPlayerWrapper.removeListener(checkNotNull(this.playerListener));
     }
     PlayerListener playerListener = new PlayerListener(this, newPlayerWrapper);
     newPlayerWrapper.addListener(playerListener);
@@ -766,7 +765,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
             MediaUtils.intersect(
                 controllersManager.getAvailablePlayerCommands(controller),
                 getPlayerWrapper().getAvailableCommands());
-        checkStateNotNull(controller.getControllerCb())
+        checkNotNull(controller.getControllerCb())
             .onPlayerInfoChanged(
                 seq,
                 playerInfoInErrorStateForController == null
@@ -1413,8 +1412,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     if (!Objects.equals(intent.getAction(), Intent.ACTION_MEDIA_BUTTON)
         || (intentComponent != null
             && !Objects.equals(intentComponent.getPackageName(), context.getPackageName()))
-        || keyEvent == null
-        || keyEvent.getAction() != KeyEvent.ACTION_DOWN) {
+        || keyEvent == null) {
       return false;
     }
 
@@ -1423,6 +1421,27 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       // Event handled by app callback.
       return true;
     }
+
+    if (keyEvent.getAction() != KeyEvent.ACTION_DOWN) {
+      switch (keyEvent.getKeyCode()) {
+        case KEYCODE_MEDIA_PLAY_PAUSE:
+        case KEYCODE_MEDIA_PLAY:
+        case KEYCODE_MEDIA_PAUSE:
+        case KEYCODE_MEDIA_NEXT:
+        case KEYCODE_MEDIA_SKIP_FORWARD:
+        case KEYCODE_MEDIA_PREVIOUS:
+        case KEYCODE_MEDIA_SKIP_BACKWARD:
+        case KEYCODE_MEDIA_FAST_FORWARD:
+        case KEYCODE_MEDIA_REWIND:
+        case KEYCODE_MEDIA_STOP:
+          // The default implementation is handling action down of these key codes. Signal to handle
+          // corresponding non-down actions as well.
+          return true;
+        default:
+          return false;
+      }
+    }
+
     // Double tap detection.
     int keyCode = keyEvent.getKeyCode();
     boolean isTvApp = context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK);
@@ -1471,7 +1490,8 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     boolean isDismissNotificationEvent =
         intent.getBooleanExtra(
             MediaNotification.NOTIFICATION_DISMISSED_EVENT_KEY, /* defaultValue= */ false);
-    return applyMediaButtonKeyEvent(keyEvent, doubleTapCompleted, isDismissNotificationEvent);
+    return keyEvent.getRepeatCount() > 0
+        || applyMediaButtonKeyEvent(keyEvent, doubleTapCompleted, isDismissNotificationEvent);
   }
 
   private boolean applyMediaButtonKeyEvent(
@@ -1496,12 +1516,12 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       case KEYCODE_MEDIA_PAUSE:
         command = () -> sessionStub.pauseForControllerInfo(controllerInfo, UNKNOWN_SEQUENCE_NUMBER);
         break;
-      case KEYCODE_MEDIA_NEXT: // Fall through.
+      case KEYCODE_MEDIA_NEXT:
       case KEYCODE_MEDIA_SKIP_FORWARD:
         command =
             () -> sessionStub.seekToNextForControllerInfo(controllerInfo, UNKNOWN_SEQUENCE_NUMBER);
         break;
-      case KEYCODE_MEDIA_PREVIOUS: // Fall through.
+      case KEYCODE_MEDIA_PREVIOUS:
       case KEYCODE_MEDIA_SKIP_BACKWARD:
         command =
             () ->

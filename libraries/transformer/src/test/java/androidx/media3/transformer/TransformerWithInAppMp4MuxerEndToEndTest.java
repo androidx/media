@@ -15,9 +15,9 @@
  */
 package androidx.media3.transformer;
 
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.test.utils.TestUtil.extractAllSamplesFromFilePath;
 import static androidx.media3.test.utils.TestUtil.retrieveTrackFormat;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
@@ -37,6 +37,7 @@ import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
 import androidx.media3.muxer.Muxer;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.FakeExtractorOutput;
+import androidx.media3.test.utils.FakeTrackOutput;
 import androidx.media3.test.utils.TestTransformerBuilder;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -250,6 +251,30 @@ public class TransformerWithInAppMp4MuxerEndToEndTest {
         androidx.media3.test.utils.TestUtil.extractAllSamplesFromFilePath(
             new Mp4Extractor(new DefaultSubtitleParserFactory()), outputPath);
     assertThat(fakeExtractorOutput.seekMap.getDurationUs()).isEqualTo(expectedDurationUs);
+  }
+
+  @Test
+  public void transmux_audioWithEditList_preservesDuration() throws Exception {
+    Transformer transformer =
+        new TestTransformerBuilder(context).setMuxerFactory(new InAppMp4Muxer.Factory()).build();
+    MediaItem mediaItem =
+        MediaItem.fromUri(Uri.parse("asset:///media/mp4/long_edit_list_audioonly.mp4"));
+
+    transformer.start(mediaItem, outputPath);
+    TransformerTestRunner.runLooper(transformer);
+
+    Mp4Extractor mp4Extractor = new Mp4Extractor(new DefaultSubtitleParserFactory());
+    FakeExtractorOutput fakeExtractorOutput =
+        androidx.media3.test.utils.TestUtil.extractAllSamplesFromFilePath(mp4Extractor, outputPath);
+    assertThat(fakeExtractorOutput.seekMap.getDurationUs()).isEqualTo(1_562_100);
+    assertThat(fakeExtractorOutput.numberOfTracks).isEqualTo(1);
+    FakeTrackOutput audioTrack = fakeExtractorOutput.trackOutputs.get(0);
+    int expectedSampleCount = 68;
+    audioTrack.assertSampleCount(expectedSampleCount);
+    assertThat(audioTrack.lastFormat.encoderDelay).isEqualTo(742);
+    assertThat(audioTrack.getSampleTimeUs(/* index= */ 0)).isEqualTo(0);
+    assertThat(audioTrack.getSampleTimeUs(/* index= */ expectedSampleCount - 1))
+        .isEqualTo(1_555_736);
   }
 
   /**

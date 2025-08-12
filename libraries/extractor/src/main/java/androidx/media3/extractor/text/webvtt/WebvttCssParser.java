@@ -15,10 +15,11 @@
  */
 package androidx.media3.extractor.text.webvtt;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import android.text.TextUtils;
 import androidx.annotation.Nullable;
 import androidx.media3.common.text.TextAnnotation;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.ColorParser;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ParsableByteArray;
@@ -349,7 +350,7 @@ import java.util.regex.Pattern;
       Log.w(TAG, "Invalid font-size: '" + fontSize + "'.");
       return;
     }
-    String unit = Assertions.checkNotNull(matcher.group(2));
+    String unit = checkNotNull(matcher.group(2));
     switch (unit) {
       case "px":
         style.setFontSizeUnit(WebvttCssStyle.FONT_SIZE_UNIT_PIXEL);
@@ -365,7 +366,7 @@ import java.util.regex.Pattern;
         // unit must be one of: px, em, %
         throw new IllegalStateException();
     }
-    style.setFontSize(Float.parseFloat(Assertions.checkNotNull(matcher.group(1))));
+    style.setFontSize(Float.parseFloat(checkNotNull(matcher.group(1))));
   }
 
   /**
@@ -380,7 +381,7 @@ import java.util.regex.Pattern;
     if (voiceStartIndex != -1) {
       Matcher matcher = VOICE_NAME_PATTERN.matcher(selector.substring(voiceStartIndex));
       if (matcher.matches()) {
-        style.setTargetVoice(Assertions.checkNotNull(matcher.group(1)));
+        style.setTargetVoice(checkNotNull(matcher.group(1)));
       }
       selector = selector.substring(0, voiceStartIndex);
     }

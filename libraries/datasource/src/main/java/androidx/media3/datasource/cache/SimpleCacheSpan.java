@@ -15,9 +15,11 @@
  */
 package androidx.media3.datasource.cache;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Util;
 import java.io.File;
 import java.util.regex.Matcher;
@@ -120,7 +122,7 @@ import java.util.regex.Pattern;
       return null;
     }
 
-    int id = Integer.parseInt(Assertions.checkNotNull(matcher.group(1)));
+    int id = Integer.parseInt(checkNotNull(matcher.group(1)));
     @Nullable String key = index.getKeyForId(id);
     if (key == null) {
       return null;
@@ -133,9 +135,9 @@ import java.util.regex.Pattern;
       return null;
     }
 
-    long position = Long.parseLong(Assertions.checkNotNull(matcher.group(2)));
+    long position = Long.parseLong(checkNotNull(matcher.group(2)));
     if (lastTouchTimestamp == C.TIME_UNSET) {
-      lastTouchTimestamp = Long.parseLong(Assertions.checkNotNull(matcher.group(3)));
+      lastTouchTimestamp = Long.parseLong(checkNotNull(matcher.group(3)));
     }
     return new SimpleCacheSpan(key, position, length, lastTouchTimestamp, file);
   }
@@ -154,11 +156,11 @@ import java.util.regex.Pattern;
     String filename = file.getName();
     Matcher matcher = CACHE_FILE_PATTERN_V2.matcher(filename);
     if (matcher.matches()) {
-      key = Util.unescapeFileName(Assertions.checkNotNull(matcher.group(1)));
+      key = Util.unescapeFileName(checkNotNull(matcher.group(1)));
     } else {
       matcher = CACHE_FILE_PATTERN_V1.matcher(filename);
       if (matcher.matches()) {
-        key = Assertions.checkNotNull(matcher.group(1)); // Keys were not escaped in version 1.
+        key = checkNotNull(matcher.group(1)); // Keys were not escaped in version 1.
       }
     }
 
@@ -168,10 +170,10 @@ import java.util.regex.Pattern;
 
     File newCacheFile =
         getCacheFile(
-            Assertions.checkStateNotNull(file.getParentFile()),
+            checkNotNull(file.getParentFile()),
             index.assignIdForKey(key),
-            Long.parseLong(Assertions.checkNotNull(matcher.group(2))),
-            Long.parseLong(Assertions.checkNotNull(matcher.group(3))));
+            Long.parseLong(checkNotNull(matcher.group(2))),
+            Long.parseLong(checkNotNull(matcher.group(3))));
     if (!file.renameTo(newCacheFile)) {
       return null;
     }
@@ -200,7 +202,7 @@ import java.util.regex.Pattern;
    * @throws IllegalStateException If called on a non-cached span (i.e. {@link #isCached} is false).
    */
   public SimpleCacheSpan copyWithFileAndLastTouchTimestamp(File file, long lastTouchTimestamp) {
-    Assertions.checkState(isCached);
+    checkState(isCached);
     return new SimpleCacheSpan(key, position, length, lastTouchTimestamp, file);
   }
 }

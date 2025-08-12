@@ -15,12 +15,12 @@
  */
 package androidx.media3.extractor.flv;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.max;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import androidx.annotation.IntDef;
 import androidx.media3.common.C;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.extractor.Extractor;
@@ -155,7 +155,8 @@ public final class FlvExtractor implements Extractor {
 
   @Override
   public int read(ExtractorInput input, PositionHolder seekPosition) throws IOException {
-    Assertions.checkStateNotNull(extractorOutput); // Asserts that init has been called.
+    // Asserts that init has been called.
+    checkNotNull(extractorOutput);
     while (true) {
       switch (state) {
         case STATE_READING_FLV_HEADER:

@@ -16,14 +16,14 @@
 package androidx.media3.test.utils;
 
 import static androidx.annotation.VisibleForTesting.PRIVATE;
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.decoder.DecoderInputBuffer;
@@ -107,7 +107,7 @@ public class FakeSampleStream implements SampleStream {
      * Creates an instance. Exactly one of {@code format} or {@code sampleInfo} must be non-null.
      */
     private FakeSampleStreamItem(@Nullable Format format, @Nullable SampleInfo sampleInfo) {
-      Assertions.checkArgument((format == null) != (sampleInfo == null));
+      checkArgument((format == null) != (sampleInfo == null));
       this.format = format;
       this.sampleInfo = sampleInfo;
     }

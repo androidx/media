@@ -50,6 +50,7 @@ import static androidx.media3.common.Player.COMMAND_STOP;
 import static androidx.media3.common.Player.DISCONTINUITY_REASON_REMOVE;
 import static androidx.media3.common.Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED;
 import static androidx.media3.common.Player.STATE_IDLE;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
@@ -75,7 +76,6 @@ import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.Player;
 import androidx.media3.common.Player.Listener;
 import androidx.media3.common.Timeline;
-import androidx.media3.common.util.Assertions;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.android.gms.cast.Cast;
 import com.google.android.gms.cast.MediaInfo;
@@ -2105,7 +2105,7 @@ public class RemoteCastPlayerTest {
   }
 
   private void addMediaItemsAndUpdateTimeline(List<MediaItem> mediaItems, int[] mediaQueueItemIds) {
-    Assertions.checkState(mediaItems.size() == mediaQueueItemIds.length);
+    checkState(mediaItems.size() == mediaQueueItemIds.length);
     remoteCastPlayer.addMediaItems(mediaItems);
     updateTimeLine(mediaItems, mediaQueueItemIds, /* currentItemId= */ 1);
   }

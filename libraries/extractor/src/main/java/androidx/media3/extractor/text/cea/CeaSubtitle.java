@@ -15,9 +15,10 @@
  */
 package androidx.media3.extractor.text.cea;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import androidx.media3.common.C;
 import androidx.media3.common.text.Cue;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.extractor.text.Subtitle;
 import java.util.Collections;
 import java.util.List;
@@ -46,7 +47,7 @@ import java.util.List;
 
   @Override
   public long getEventTime(int index) {
-    Assertions.checkArgument(index == 0);
+    checkArgument(index == 0);
     return 0;
   }
 

@@ -15,12 +15,10 @@
  */
 package androidx.media3.exoplayer.drm;
 
-import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.MimeTypes.VIDEO_AV1;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assume.assumeFalse;
-import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
 import androidx.media3.common.C;
@@ -121,10 +119,6 @@ public final class DrmPlaybackTest {
   @Test
   public void clearkeyPlayback_withLateThresholdToDropDecoderInput_dropsInputBuffers()
       throws Exception {
-    // The API 21 emulator doesn't have a secure decoder. Due to b/18678462 MediaCodecUtil pretends
-    // that there is a secure decoder so we must only run this test on API 21 - i.e. we cannot
-    // assumeTrue() on getDecoderInfos.
-    assumeTrue(SDK_INT > 21);
     MediaItem mediaItem =
         new MediaItem.Builder()
             .setUri("asset:///media/drm/sample_fragmented_clearkey.mp4")

@@ -15,8 +15,9 @@
  */
 package androidx.media3.exoplayer.hls.playlist;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Util.castNonNull;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 
 import android.net.Uri;
@@ -25,7 +26,6 @@ import android.os.SystemClock;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ParserException;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
@@ -172,7 +172,7 @@ public final class DefaultHlsPlaylistTracker
             dataSpec,
             C.DATA_TYPE_MANIFEST,
             playlistParserFactory.createPlaylistParser());
-    Assertions.checkState(initialPlaylistLoader == null);
+    checkState(initialPlaylistLoader == null);
     initialPlaylistLoader =
         downloadExecutorSupplier != null
             ? new Loader(downloadExecutorSupplier.get())

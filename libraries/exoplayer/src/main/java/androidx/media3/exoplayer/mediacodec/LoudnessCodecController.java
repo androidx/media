@@ -15,7 +15,7 @@
  */
 package androidx.media3.exoplayer.mediacodec;
 
-import static androidx.media3.common.util.Assertions.checkState;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import android.media.LoudnessCodecController.OnLoudnessCodecUpdateListener;

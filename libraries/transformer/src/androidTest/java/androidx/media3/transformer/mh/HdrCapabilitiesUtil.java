@@ -16,11 +16,11 @@
 package androidx.media3.transformer.mh;
 
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.util.Assertions.checkState;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
 import static androidx.media3.transformer.AndroidTestUtil.recordTestSkipped;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.content.Context;
 import android.opengl.EGLDisplay;
@@ -106,7 +106,7 @@ public final class HdrCapabilitiesUtil {
    */
   public static void assumeDeviceSupportsHdrColorTransfer(String testId, Format format)
       throws JSONException, IOException, GlException {
-    checkStateNotNull(format.colorInfo);
+    checkNotNull(format.colorInfo);
     if (!GlUtil.isColorTransferSupported(format.colorInfo.colorTransfer)) {
       String skipReason =
           "HDR display not supported for sampleMimeType "
@@ -125,7 +125,7 @@ public final class HdrCapabilitiesUtil {
    */
   public static void assumeDeviceDoesNotSupportHdrColorTransfer(String testId, Format format)
       throws JSONException, IOException, GlException {
-    checkStateNotNull(format.colorInfo);
+    checkNotNull(format.colorInfo);
     // Required to ensure EGL extensions are initialised.
     @SuppressWarnings("unused")
     EGLDisplay eglDisplay = GlUtil.getDefaultEglDisplay();

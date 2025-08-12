@@ -15,8 +15,10 @@
  */
 package androidx.media3.common.util;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 
+import android.media.AudioFormat;
 import android.media.MediaFormat;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
@@ -179,8 +181,10 @@ public class MediaFormatUtilTest {
     assertThat(mediaFormat.getInteger(MediaFormat.KEY_BIT_RATE)).isEqualTo(format.bitrate);
     assertThat(mediaFormat.getInteger(MediaFormat.KEY_CHANNEL_COUNT))
         .isEqualTo(format.channelCount);
+    assertThat(mediaFormat.getInteger(MediaFormat.KEY_CHANNEL_MASK))
+        .isEqualTo(AudioFormat.CHANNEL_OUT_STEREO);
 
-    ColorInfo colorInfo = Assertions.checkNotNull(format.colorInfo);
+    ColorInfo colorInfo = checkNotNull(format.colorInfo);
     assertThat(mediaFormat.getInteger(MediaFormat.KEY_COLOR_TRANSFER))
         .isEqualTo(colorInfo.colorTransfer);
     assertThat(mediaFormat.getInteger(MediaFormat.KEY_COLOR_RANGE)).isEqualTo(colorInfo.colorRange);
@@ -239,5 +243,14 @@ public class MediaFormatUtilTest {
     assertThat(mediaFormat.getInteger(MediaFormatUtil.KEY_PCM_ENCODING_EXTENDED))
         .isEqualTo(C.ENCODING_PCM_16BIT_BIG_ENDIAN);
     assertThat(mediaFormat.containsKey(MediaFormat.KEY_PCM_ENCODING)).isFalse();
+  }
+
+  @Test
+  public void createMediaFormatFromFormat_withNonIntegerFormatId_doesNotSetTrackId() {
+    Format format = new Format.Builder().setId("1/256").build();
+
+    MediaFormat mediaFormat = MediaFormatUtil.createMediaFormatFromFormat(format);
+
+    assertThat(mediaFormat.containsKey(MediaFormat.KEY_TRACK_ID)).isFalse();
   }
 }

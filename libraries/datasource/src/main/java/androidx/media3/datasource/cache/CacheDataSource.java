@@ -15,8 +15,9 @@
  */
 package androidx.media3.datasource.cache;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Util.castNonNull;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.min;
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.ElementType.LOCAL_VARIABLE;
@@ -30,7 +31,6 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.PriorityTaskManager;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DataSink;
 import androidx.media3.datasource.DataSource;
@@ -776,7 +776,7 @@ public final class CacheDataSource implements DataSource {
             ? readPosition + MIN_READ_BEFORE_CHECKING_CACHE
             : Long.MAX_VALUE;
     if (checkCache) {
-      Assertions.checkState(isBypassingCache());
+      checkState(isBypassingCache());
       if (nextDataSource == upstreamDataSource) {
         // Continue reading from upstream.
         return;

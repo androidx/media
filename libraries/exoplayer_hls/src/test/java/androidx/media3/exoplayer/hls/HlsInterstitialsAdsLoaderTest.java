@@ -17,8 +17,8 @@ package androidx.media3.exoplayer.hls;
 
 import static androidx.media3.common.Player.DISCONTINUITY_REASON_AUTO_TRANSITION;
 import static androidx.media3.common.Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED;
-import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLooperUntil;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -162,9 +162,9 @@ public class HlsInterstitialsAdsLoaderTest {
   }
 
   @Test
-  public void start_playerNotSet_throwIllegalStateException() {
+  public void start_playerNotSet_throwsException() {
     assertThrows(
-        IllegalStateException.class,
+        NullPointerException.class,
         () ->
             adsLoader.start(
                 adsMediaSource, adTagDataSpec, "adsId", mockAdViewProvider, mockEventListener));

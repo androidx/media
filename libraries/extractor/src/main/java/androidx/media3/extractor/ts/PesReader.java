@@ -15,12 +15,12 @@
  */
 package androidx.media3.extractor.ts;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.min;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ParserException;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ParsableBitArray;
 import androidx.media3.common.util.ParsableByteArray;
@@ -87,7 +87,8 @@ public final class PesReader implements TsPayloadReader {
 
   @Override
   public void consume(ParsableByteArray data, @Flags int flags) throws ParserException {
-    Assertions.checkStateNotNull(timestampAdjuster); // Asserts init has been called.
+    // Asserts init has been called.
+    checkNotNull(timestampAdjuster);
 
     if ((flags & FLAG_PAYLOAD_UNIT_START_INDICATOR) != 0) {
       switch (state) {

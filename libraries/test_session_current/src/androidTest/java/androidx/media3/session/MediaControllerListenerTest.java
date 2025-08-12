@@ -83,6 +83,7 @@ import androidx.media3.test.session.common.MainLooperTestRule;
 import androidx.media3.test.session.common.MediaSessionConstants;
 import androidx.media3.test.session.common.SurfaceActivity;
 import androidx.media3.test.session.common.TestUtils;
+import androidx.media3.test.utils.FakeTimeline;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.LargeTest;
@@ -3931,9 +3932,14 @@ public class MediaControllerListenerTest {
 
           @Override
           public void onEvents(Player player, Player.Events events) {
-            // onEvents is called twice.
-            eventsList.add(events);
-            controller.setShuffleModeEnabled(true);
+            if (latch.getCount() > 0) {
+              eventsList.add(events);
+              if (events.contains(Player.EVENT_REPEAT_MODE_CHANGED)) {
+                // This event is expected to be delivered in the next listener iteration processed
+                // in a following Looper task.
+                controller.setShuffleModeEnabled(true);
+              }
+            }
             latch.countDown();
           }
         };
@@ -4111,9 +4117,12 @@ public class MediaControllerListenerTest {
         new Player.Listener() {
           @Override
           public void onPlaybackStateChanged(@Player.State int playbackState) {
-            listener1States.add(playbackState);
-            if (playbackState == Player.STATE_READY) {
-              controller.stop();
+            if (latch.getCount() > 0) {
+              // avoid trailing events making the test flaky
+              listener1States.add(playbackState);
+              if (playbackState == Player.STATE_READY) {
+                controller.stop();
+              }
             }
             latch.countDown();
           }
@@ -4122,7 +4131,10 @@ public class MediaControllerListenerTest {
         new Player.Listener() {
           @Override
           public void onPlaybackStateChanged(@Player.State int playbackState) {
-            listener2States.add(playbackState);
+            if (latch.getCount() > 0) {
+              // avoid trailing events making the test flaky
+              listener2States.add(playbackState);
+            }
             latch.countDown();
           }
         };
@@ -4134,6 +4146,64 @@ public class MediaControllerListenerTest {
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(listener1States).containsExactly(Player.STATE_READY, Player.STATE_IDLE).inOrder();
     assertThat(listener2States).containsExactly(Player.STATE_READY, Player.STATE_IDLE).inOrder();
+  }
+
+  @Test
+  public void
+      missingCommandGetTimeline_withCommandGetCurrentMediaItem_doesNotIncludePlaceholderFlag()
+          throws Exception {
+    MediaController controller = controllerTestRule.createController(remoteSession.getToken());
+    remoteSession
+        .getMockPlayer()
+        .setTimeline(
+            new FakeTimeline(
+                new FakeTimeline.TimelineWindowDefinition.Builder().setPlaceholder(true).build(),
+                new FakeTimeline.TimelineWindowDefinition.Builder().setPlaceholder(true).build()));
+    CountDownLatch timelineLatch = new CountDownLatch(1);
+    List<Timeline> capturedTimelines = new ArrayList<>();
+    Player.Listener timelineListener =
+        new Player.Listener() {
+          @Override
+          public void onTimelineChanged(Timeline timeline, int reason) {
+            capturedTimelines.add(timeline);
+            timelineLatch.countDown();
+          }
+        };
+    controller.addListener(timelineListener);
+    remoteSession
+        .getMockPlayer()
+        .notifyTimelineChanged(Player.TIMELINE_CHANGE_REASON_SOURCE_UPDATE);
+    assertThat(timelineLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    threadTestRule.getHandler().postAndSync(() -> controller.removeListener(timelineListener));
+    CountDownLatch latch = new CountDownLatch(2);
+    Player.Listener listener =
+        new Player.Listener() {
+          @Override
+          public void onAvailableCommandsChanged(Commands availableCommands) {
+            latch.countDown();
+          }
+
+          @Override
+          public void onTimelineChanged(Timeline timeline, int reason) {
+            capturedTimelines.add(timeline);
+            latch.countDown();
+          }
+        };
+    controller.addListener(listener);
+
+    remoteSession
+        .getMockPlayer()
+        .notifyAvailableCommandsChanged(
+            new Commands.Builder().addAllCommands().remove(COMMAND_GET_TIMELINE).build());
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(capturedTimelines).hasSize(2);
+    assertThat(capturedTimelines.get(0).getWindowCount()).isEqualTo(2);
+    assertThat(capturedTimelines.get(0).getWindow(0, new Timeline.Window()).isPlaceholder).isTrue();
+    assertThat(capturedTimelines.get(0).getWindow(1, new Timeline.Window()).isPlaceholder).isTrue();
+    assertThat(capturedTimelines.get(1).getWindowCount()).isEqualTo(1);
+    assertThat(capturedTimelines.get(1).getWindow(0, new Timeline.Window()).isPlaceholder)
+        .isFalse();
   }
 
   private void testControllerAfterSessionIsClosed(String id) throws Exception {

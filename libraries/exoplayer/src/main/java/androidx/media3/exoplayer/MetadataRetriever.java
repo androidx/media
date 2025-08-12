@@ -15,10 +15,9 @@
  */
 package androidx.media3.exoplayer;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
@@ -118,11 +117,13 @@ public final class MetadataRetriever implements AutoCloseable {
     /** Builds the {@link MetadataRetriever} instance. */
     public MetadataRetriever build() {
       if (mediaSourceFactory == null) {
-        checkStateNotNull(context, "Context must be provided if MediaSource.Factory is not set.");
+        checkNotNull(context, "Context must be provided if MediaSource.Factory is not set.");
         ExtractorsFactory extractorsFactory =
             new DefaultExtractorsFactory()
                 .setMp4ExtractorFlags(
-                    Mp4Extractor.FLAG_READ_MOTION_PHOTO_METADATA | Mp4Extractor.FLAG_READ_SEF_DATA);
+                    Mp4Extractor.FLAG_READ_MOTION_PHOTO_METADATA
+                        | Mp4Extractor.FLAG_READ_SEF_DATA
+                        | Mp4Extractor.FLAG_OMIT_TRACK_SAMPLE_TABLE);
         mediaSourceFactory = new DefaultMediaSourceFactory(context, extractorsFactory);
       }
       return new MetadataRetriever(mediaItem, checkNotNull(mediaSourceFactory), clock);

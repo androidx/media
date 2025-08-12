@@ -21,9 +21,9 @@ import static androidx.media3.exoplayer.SeekParameters.CLOSEST_SYNC;
 import static androidx.media3.exoplayer.SeekParameters.NEXT_SYNC;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.maybeSaveTestBitmap;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmap;
+import static androidx.media3.test.utils.TestUtil.MP4_ASSET;
+import static androidx.media3.test.utils.TestUtil.MP4_TRIM_OPTIMIZATION_270;
 import static androidx.media3.test.utils.TestUtil.assertBitmapsAreSimilar;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_TRIM_OPTIMIZATION_270;
 import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -33,10 +33,16 @@ import static org.junit.Assert.assertThrows;
 import android.app.Instrumentation;
 import android.content.Context;
 import android.graphics.Bitmap;
+import androidx.media3.common.GlObjectsProvider;
+import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.NullableType;
+import androidx.media3.effect.DefaultGlObjectsProvider;
+import androidx.media3.effect.GlEffect;
+import androidx.media3.effect.GlShaderProgram;
+import androidx.media3.effect.PassthroughShaderProgram;
 import androidx.media3.effect.Presentation;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.transformer.ExperimentalFrameExtractor.Frame;
@@ -524,5 +530,41 @@ public class FrameExtractorTest {
                 .get(TIMEOUT_SECONDS, SECONDS)
                 .skippedInputBufferCount)
         .isEqualTo(13);
+  }
+
+  @Test
+  public void extractFrame_withGlObjectsProvider_usesCustomObjectsProvider() throws Exception {
+    GlObjectsProvider customObjectsProvider = new DefaultGlObjectsProvider();
+    AtomicReference<GlObjectsProvider> glObjectsProviderUsedByEffects = new AtomicReference<>();
+    frameExtractor =
+        new ExperimentalFrameExtractor(
+            context,
+            new ExperimentalFrameExtractor.Configuration.Builder()
+                .setGlObjectsProvider(customObjectsProvider)
+                .build());
+    frameExtractor.setMediaItem(
+        MediaItem.fromUri(FILE_PATH),
+        /* effects= */ ImmutableList.of(
+            new GlEffect() {
+              @Override
+              public GlShaderProgram toGlShaderProgram(Context context, boolean useHdr) {
+                return new PassthroughShaderProgram() {
+                  @Override
+                  public void queueInputFrame(
+                      GlObjectsProvider glObjectsProvider,
+                      GlTextureInfo inputTexture,
+                      long presentationTimeUs) {
+                    glObjectsProviderUsedByEffects.set(glObjectsProvider);
+                    super.queueInputFrame(glObjectsProvider, inputTexture, presentationTimeUs);
+                  }
+                };
+              }
+            }));
+
+    ListenableFuture<Frame> frameFuture = frameExtractor.getFrame(/* positionMs= */ 8_500);
+    Frame frame = frameFuture.get(TIMEOUT_SECONDS, SECONDS);
+
+    assertThat(frame.presentationTimeMs).isEqualTo(8_531);
+    assertThat(glObjectsProviderUsedByEffects.get()).isEqualTo(customObjectsProvider);
   }
 }

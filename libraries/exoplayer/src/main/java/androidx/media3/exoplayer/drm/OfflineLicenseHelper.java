@@ -15,8 +15,8 @@
  */
 package androidx.media3.exoplayer.drm;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.media.MediaDrm;
 import android.os.ConditionVariable;
@@ -29,7 +29,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DataSource;
@@ -242,7 +241,7 @@ public final class OfflineLicenseHelper {
    */
   public synchronized byte[] renewLicense(byte[] offlineLicenseKeySetId)
       throws DrmSessionException {
-    Assertions.checkNotNull(offlineLicenseKeySetId);
+    checkNotNull(offlineLicenseKeySetId);
     return acquireSessionAndGetOfflineLicenseKeySetIdOnHandlerThread(
         DefaultDrmSessionManager.MODE_DOWNLOAD,
         offlineLicenseKeySetId,
@@ -257,7 +256,7 @@ public final class OfflineLicenseHelper {
    */
   public synchronized void releaseLicense(byte[] offlineLicenseKeySetId)
       throws DrmSessionException {
-    Assertions.checkNotNull(offlineLicenseKeySetId);
+    checkNotNull(offlineLicenseKeySetId);
     acquireSessionAndGetOfflineLicenseKeySetIdOnHandlerThread(
         DefaultDrmSessionManager.MODE_RELEASE,
         offlineLicenseKeySetId,
@@ -273,7 +272,7 @@ public final class OfflineLicenseHelper {
    */
   public synchronized Pair<Long, Long> getLicenseDurationRemainingSec(byte[] offlineLicenseKeySetId)
       throws DrmSessionException {
-    Assertions.checkNotNull(offlineLicenseKeySetId);
+    checkNotNull(offlineLicenseKeySetId);
     DrmSession drmSession;
     try {
       drmSession =
@@ -293,7 +292,7 @@ public final class OfflineLicenseHelper {
         () -> {
           try {
             licenseDurationRemainingSec.set(
-                Assertions.checkNotNull(WidevineUtil.getLicenseDurationRemainingSec(drmSession)));
+                checkNotNull(WidevineUtil.getLicenseDurationRemainingSec(drmSession)));
           } catch (Throwable e) {
             licenseDurationRemainingSec.setException(e);
           } finally {
@@ -340,7 +339,7 @@ public final class OfflineLicenseHelper {
         });
 
     try {
-      return Assertions.checkNotNull(keySetId.get());
+      return checkNotNull(keySetId.get());
     } catch (ExecutionException | InterruptedException e) {
       throw new IllegalStateException(e);
     } finally {
@@ -372,19 +371,18 @@ public final class OfflineLicenseHelper {
   private DrmSession acquireFirstSessionOnHandlerThread(
       @Mode int licenseMode, @Nullable byte[] offlineLicenseKeySetId, Format format)
       throws DrmSessionException {
-    Assertions.checkNotNull(format.drmInitData);
+    checkNotNull(format.drmInitData);
     SettableFuture<DrmSession> drmSessionFuture = SettableFuture.create();
     drmListenerConditionVariable.close();
     handler.post(
         () -> {
           try {
-            drmSessionManager.setPlayer(Assertions.checkNotNull(Looper.myLooper()), PlayerId.UNSET);
+            drmSessionManager.setPlayer(checkNotNull(Looper.myLooper()), PlayerId.UNSET);
             drmSessionManager.prepare();
             try {
               drmSessionManager.setMode(licenseMode, offlineLicenseKeySetId);
               drmSessionFuture.set(
-                  Assertions.checkNotNull(
-                      drmSessionManager.acquireSession(eventDispatcher, format)));
+                  checkNotNull(drmSessionManager.acquireSession(eventDispatcher, format)));
             } catch (Throwable e) {
               drmSessionManager.release();
               throw e;

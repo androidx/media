@@ -16,6 +16,7 @@
 package androidx.media3.exoplayer.smoothstreaming;
 
 import static androidx.media3.exoplayer.trackselection.TrackSelectionUtil.createFallbackOptions;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.max;
 
 import android.net.Uri;
@@ -24,7 +25,6 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.UriUtil;
 import androidx.media3.datasource.DataSource;
@@ -193,7 +193,7 @@ public class DefaultSsChunkSource implements SsChunkSource {
       @Nullable
       TrackEncryptionBox[] trackEncryptionBoxes =
           format.drmInitData != null
-              ? Assertions.checkNotNull(manifest.protectionElement).trackEncryptionBoxes
+              ? checkNotNull(manifest.protectionElement).trackEncryptionBoxes
               : null;
       int nalUnitLengthFieldLength = streamElement.type == C.TRACK_TYPE_VIDEO ? 4 : 0;
       Track track =
