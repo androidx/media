@@ -17,6 +17,7 @@ package androidx.media3.demo.shortform.viewpager
 
 import android.os.Bundle
 import android.util.Log
+import android.view.KeyEvent
 import androidx.appcompat.app.AppCompatActivity
 import androidx.media3.demo.shortform.MainActivity
 import androidx.media3.demo.shortform.MediaItemDatabase
@@ -59,5 +60,15 @@ class ViewPagerActivity : AppCompatActivity() {
     viewPagerView.unregisterOnPageChangeCallback(onPageChangeCallback)
     viewPagerView.adapter = null
     super.onStop()
+  }
+
+  override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
+    when (keyCode) {
+      KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_CHANNEL_UP ->
+        viewPagerView.setCurrentItem(viewPagerView.currentItem+1, false)
+      KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_CHANNEL_DOWN ->
+        viewPagerView.setCurrentItem(viewPagerView.currentItem-1, false)
+    }
+    return super.onKeyUp(keyCode, event)
   }
 }
