@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.primitives.Longs.max;
 import static java.lang.Math.abs;
 import static java.lang.Math.max;
@@ -22,7 +23,6 @@ import static java.lang.Math.max;
 import android.os.SystemClock;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem.LiveConfiguration;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -128,7 +128,7 @@ public final class DefaultLivePlaybackSpeedControl implements LivePlaybackSpeedC
      */
     @CanIgnoreReturnValue
     public Builder setFallbackMinPlaybackSpeed(float fallbackMinPlaybackSpeed) {
-      Assertions.checkArgument(0 < fallbackMinPlaybackSpeed && fallbackMinPlaybackSpeed <= 1f);
+      checkArgument(0 < fallbackMinPlaybackSpeed && fallbackMinPlaybackSpeed <= 1f);
       this.fallbackMinPlaybackSpeed = fallbackMinPlaybackSpeed;
       return this;
     }
@@ -144,7 +144,7 @@ public final class DefaultLivePlaybackSpeedControl implements LivePlaybackSpeedC
      */
     @CanIgnoreReturnValue
     public Builder setFallbackMaxPlaybackSpeed(float fallbackMaxPlaybackSpeed) {
-      Assertions.checkArgument(fallbackMaxPlaybackSpeed >= 1f);
+      checkArgument(fallbackMaxPlaybackSpeed >= 1f);
       this.fallbackMaxPlaybackSpeed = fallbackMaxPlaybackSpeed;
       return this;
     }
@@ -160,7 +160,7 @@ public final class DefaultLivePlaybackSpeedControl implements LivePlaybackSpeedC
      */
     @CanIgnoreReturnValue
     public Builder setMinUpdateIntervalMs(long minUpdateIntervalMs) {
-      Assertions.checkArgument(minUpdateIntervalMs > 0);
+      checkArgument(minUpdateIntervalMs > 0);
       this.minUpdateIntervalMs = minUpdateIntervalMs;
       return this;
     }
@@ -179,7 +179,7 @@ public final class DefaultLivePlaybackSpeedControl implements LivePlaybackSpeedC
      */
     @CanIgnoreReturnValue
     public Builder setProportionalControlFactor(float proportionalControlFactor) {
-      Assertions.checkArgument(proportionalControlFactor > 0);
+      checkArgument(proportionalControlFactor > 0);
       this.proportionalControlFactorUs = proportionalControlFactor / C.MICROS_PER_SECOND;
       return this;
     }
@@ -196,7 +196,7 @@ public final class DefaultLivePlaybackSpeedControl implements LivePlaybackSpeedC
      */
     @CanIgnoreReturnValue
     public Builder setMaxLiveOffsetErrorMsForUnitSpeed(long maxLiveOffsetErrorMsForUnitSpeed) {
-      Assertions.checkArgument(maxLiveOffsetErrorMsForUnitSpeed > 0);
+      checkArgument(maxLiveOffsetErrorMsForUnitSpeed > 0);
       this.maxLiveOffsetErrorUsForUnitSpeed = Util.msToUs(maxLiveOffsetErrorMsForUnitSpeed);
       return this;
     }
@@ -212,7 +212,7 @@ public final class DefaultLivePlaybackSpeedControl implements LivePlaybackSpeedC
     @CanIgnoreReturnValue
     public Builder setTargetLiveOffsetIncrementOnRebufferMs(
         long targetLiveOffsetIncrementOnRebufferMs) {
-      Assertions.checkArgument(targetLiveOffsetIncrementOnRebufferMs >= 0);
+      checkArgument(targetLiveOffsetIncrementOnRebufferMs >= 0);
       this.targetLiveOffsetIncrementOnRebufferUs =
           Util.msToUs(targetLiveOffsetIncrementOnRebufferMs);
       return this;
@@ -235,7 +235,7 @@ public final class DefaultLivePlaybackSpeedControl implements LivePlaybackSpeedC
     @CanIgnoreReturnValue
     public Builder setMinPossibleLiveOffsetSmoothingFactor(
         float minPossibleLiveOffsetSmoothingFactor) {
-      Assertions.checkArgument(
+      checkArgument(
           minPossibleLiveOffsetSmoothingFactor >= 0 && minPossibleLiveOffsetSmoothingFactor < 1f);
       this.minPossibleLiveOffsetSmoothingFactor = minPossibleLiveOffsetSmoothingFactor;
       return this;

@@ -15,10 +15,10 @@
  */
 package androidx.media3.session;
 
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.test.session.common.CommonConstants.DEFAULT_TEST_NAME;
 import static androidx.media3.test.session.common.TestUtils.NO_RESPONSE_TIMEOUT_MS;
 import static androidx.media3.test.session.common.TestUtils.TIMEOUT_MS;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -303,7 +303,7 @@ public class MediaControllerSurfaceSizeChangeTest {
       expectedWidthFromCallback = C.LENGTH_UNSET;
       expectedHeightFromCallback = C.LENGTH_UNSET;
     } else {
-      checkStateNotNull(viewForAction);
+      checkNotNull(viewForAction);
       expectedWidthFromCallback = viewForAction.getWidth();
       expectedHeightFromCallback = viewForAction.getHeight();
     }

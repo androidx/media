@@ -16,7 +16,7 @@
 
 package androidx.media3.transformer;
 
-import static androidx.media3.common.util.Assertions.checkState;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.content.Context;
 import android.media.MediaCodec.BufferInfo;

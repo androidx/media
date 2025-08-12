@@ -18,19 +18,23 @@ package androidx.media3.common;
 import static androidx.media3.common.Player.EVENT_IS_PLAYING_CHANGED;
 import static androidx.media3.common.Player.EVENT_MEDIA_ITEM_TRANSITION;
 import static androidx.media3.common.Player.EVENT_TIMELINE_CHANGED;
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.test.utils.TestUtil.assertForwardingClassForwardsAllMethodsExcept;
 import static androidx.media3.test.utils.TestUtil.assertSubclassOverridesAllMethods;
 import static androidx.media3.test.utils.TestUtil.getInnerClass;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
+import androidx.annotation.Nullable;
 import androidx.media3.test.utils.StubPlayer;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableSet;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -41,11 +45,12 @@ import org.mockito.ArgumentCaptor;
 public class ForwardingPlayerTest {
 
   @Test
-  public void addListener_addsForwardingListener() {
-    FakePlayer player = new FakePlayer();
-    Player.Listener listener1 = mock(Player.Listener.class);
-    Player.Listener listener2 = mock(Player.Listener.class);
+  public void addListener_addsForwardingListener_toEqualityBasedPlayer() {
+    EqualityBasedRelaxedFakePlayer player = new EqualityBasedRelaxedFakePlayer();
+    Player.Listener listener1 = new AllIsEqualPlayerListener();
+    Player.Listener listener2 = new AllIsEqualPlayerListener();
 
+    // Even though the listeners are equal, ForwardingPlayer should hide this from the player.
     ForwardingPlayer forwardingPlayer = new ForwardingPlayer(player);
     forwardingPlayer.addListener(listener1);
     // Add listener1 again.
@@ -56,10 +61,12 @@ public class ForwardingPlayerTest {
   }
 
   @Test
-  public void removeListener_removesForwardingListener() {
-    FakePlayer player = new FakePlayer();
-    Player.Listener listener1 = mock(Player.Listener.class);
-    Player.Listener listener2 = mock(Player.Listener.class);
+  public void removeListener_removesForwardingListener_toEqualityBasedPlayer() {
+    EqualityBasedRelaxedFakePlayer player = new EqualityBasedRelaxedFakePlayer();
+    Player.Listener listener1 = new AllIsEqualPlayerListener();
+    Player.Listener listener2 = new AllIsEqualPlayerListener();
+
+    // Even though the listeners are equal, ForwardingPlayer should hide this from the player.
     ForwardingPlayer forwardingPlayer = new ForwardingPlayer(player);
     forwardingPlayer.addListener(listener1);
     forwardingPlayer.addListener(listener2);
@@ -74,8 +81,44 @@ public class ForwardingPlayerTest {
   }
 
   @Test
+  public void addListener_addsForwardingListener_toIdentityBasedPlayer() {
+    IdentityBasedStrictFakePlayer player = new IdentityBasedStrictFakePlayer();
+    Player.Listener listener1 = new AllIsEqualPlayerListener();
+    Player.Listener listener2 = new AllIsEqualPlayerListener();
+
+    // The listeners are equal, but the Player handles that, and ForwardingPlayer should, too.
+    ForwardingPlayer forwardingPlayer = new ForwardingPlayer(player);
+    forwardingPlayer.addListener(listener1);
+    // Add listener1 again.
+    assertThrows(IllegalArgumentException.class, () -> forwardingPlayer.addListener(listener1));
+    assertThat(player.listeners).hasSize(1);
+    forwardingPlayer.addListener(listener2);
+    assertThat(player.listeners).hasSize(2);
+  }
+
+  @Test
+  public void removeListener_removesForwardingListener_toIdentityBasedPlayer() {
+    IdentityBasedStrictFakePlayer player = new IdentityBasedStrictFakePlayer();
+    Player.Listener listener1 = new AllIsEqualPlayerListener();
+    Player.Listener listener2 = new AllIsEqualPlayerListener();
+
+    // The listeners are equal, but the Player handles that, and ForwardingPlayer should, too.
+    ForwardingPlayer forwardingPlayer = new ForwardingPlayer(player);
+    forwardingPlayer.addListener(listener1);
+    forwardingPlayer.addListener(listener2);
+
+    forwardingPlayer.removeListener(listener1);
+    assertThat(player.listeners).hasSize(1);
+    // Remove same listener again.
+    assertThrows(IllegalArgumentException.class, () -> forwardingPlayer.removeListener(listener1));
+    assertThat(player.listeners).hasSize(1);
+    forwardingPlayer.removeListener(listener2);
+    assertThat(player.listeners).isEmpty();
+  }
+
+  @Test
   public void onEvents_passesForwardingPlayerAsArgument() {
-    FakePlayer player = new FakePlayer();
+    EqualityBasedRelaxedFakePlayer player = new EqualityBasedRelaxedFakePlayer();
     Player.Listener listener = mock(Player.Listener.class);
     ForwardingPlayer forwardingPlayer = new ForwardingPlayer(player);
     forwardingPlayer.addListener(listener);
@@ -125,7 +168,12 @@ public class ForwardingPlayerTest {
     assertSubclassOverridesAllMethods(Player.Listener.class, forwardingListenerClass);
   }
 
-  private static class FakePlayer extends StubPlayer {
+  /**
+   * A {@link Player} that compares registered {@link Player.Listener} instances with {@link
+   * Object#equals(Object)}, and silently ignores duplicate registrations and removals of
+   * unrecognized listeners.
+   */
+  private static final class EqualityBasedRelaxedFakePlayer extends StubPlayer {
 
     private final Set<Listener> listeners = new HashSet<>();
 
@@ -137,6 +185,53 @@ public class ForwardingPlayerTest {
     @Override
     public void removeListener(Listener listener) {
       listeners.remove(listener);
+    }
+  }
+
+  /**
+   * A {@link Player} that compares registered {@link Player.Listener} instances with reference
+   * equality ({@code ==}), and throws an error on duplicate registrations and removals of
+   * unrecognized listeners.
+   */
+  private static final class IdentityBasedStrictFakePlayer extends StubPlayer {
+
+    private final List<Listener> listeners = new ArrayList<>();
+
+    @Override
+    public void addListener(Listener listener) {
+      for (Listener listener1 : listeners) {
+        if (listener == listener1) {
+          throw new IllegalArgumentException("Trying to add duplicate listener");
+        }
+      }
+      listeners.add(listener);
+    }
+
+    @Override
+    public void removeListener(Listener listener) {
+      int found = -1;
+      for (int i = 0; i < listeners.size(); i++) {
+        if (listener == listeners.get(i)) {
+          found = i;
+        }
+      }
+      if (found == -1) {
+        throw new IllegalArgumentException("Trying to remove listener that doesn't exist");
+      }
+      listeners.remove(found);
+    }
+  }
+
+  private static final class AllIsEqualPlayerListener implements Player.Listener {
+
+    @Override
+    public boolean equals(@Nullable Object obj) {
+      return true;
+    }
+
+    @Override
+    public int hashCode() {
+      return 2;
     }
   }
 }

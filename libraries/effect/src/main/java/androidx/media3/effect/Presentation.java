@@ -17,8 +17,8 @@ package androidx.media3.effect;
 
 import static androidx.media3.common.C.TEXTURE_MIN_FILTER_LINEAR;
 import static androidx.media3.common.C.TEXTURE_MIN_FILTER_LINEAR_MIPMAP_LINEAR;
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.annotation.ElementType.TYPE_USE;
 import static java.lang.annotation.RetentionPolicy.SOURCE;
 
@@ -290,13 +290,13 @@ public final class Presentation implements MatrixTransformation {
 
   @Override
   public Matrix getMatrix(long presentationTimeUs) {
-    return checkStateNotNull(transformationMatrix, "configure must be called first");
+    return checkNotNull(transformationMatrix, "configure must be called first");
   }
 
   @Override
   public boolean isNoOp(int inputWidth, int inputHeight) {
     configure(inputWidth, inputHeight);
-    return checkStateNotNull(transformationMatrix).isIdentity()
+    return checkNotNull(transformationMatrix).isIdentity()
         && inputWidth == Math.round(outputWidth)
         && inputHeight == Math.round(outputHeight);
   }

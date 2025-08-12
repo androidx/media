@@ -19,6 +19,7 @@ package androidx.media3.ui.compose.state
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.media3.common.C
+import androidx.media3.common.Player
 import androidx.media3.common.Player.COMMAND_GET_CURRENT_MEDIA_ITEM
 import androidx.media3.common.SimpleBasePlayer.MediaItemData
 import androidx.media3.ui.compose.utils.TestPlayer
@@ -368,5 +369,68 @@ class ProgressStateWithTickIntervalTest {
 
       assertThat(player.bufferedPosition).isEqualTo(123)
       assertThat(state.bufferedPositionMs).isEqualTo(100)
+    }
+
+  @Test
+  fun playerIdle_reportsInitialPlaceholderDataAndDoesNotBlockMainThread() =
+    runTest(testDispatcher) {
+      val player = TestPlayer(playbackState = Player.STATE_IDLE, playlist = listOf())
+      lateinit var state: ProgressStateWithTickInterval
+      composeTestRule.setContent {
+        state =
+          rememberProgressStateWithTickInterval(
+            player,
+            tickIntervalMs = 100,
+            scope = backgroundScope,
+          )
+      }
+      assertThat(state.durationMs).isEqualTo(C.TIME_UNSET)
+      assertThat(state.currentPositionMs).isEqualTo(0)
+      assertThat(state.bufferedPositionMs).isEqualTo(0)
+
+      // Wait for any pending updates to verify the state stays the same and is not blocked on the
+      // main thread.
+      advanceTimeByInclusive(200.milliseconds)
+
+      assertThat(state.durationMs).isEqualTo(C.TIME_UNSET)
+      assertThat(state.currentPositionMs).isEqualTo(0)
+      assertThat(state.bufferedPositionMs).isEqualTo(0)
+    }
+
+  @Test
+  fun playerEnded_reportsFinalStateAndDoesNotBlockMainThread() =
+    runTest(testDispatcher) {
+      val player =
+        TestPlayer(
+          playbackState = Player.STATE_READY,
+          playlist = listOf(MediaItemData.Builder("SingleItem").setDurationUs(10_000_000).build()),
+        )
+      lateinit var state: ProgressStateWithTickInterval
+      composeTestRule.setContent {
+        state =
+          rememberProgressStateWithTickInterval(
+            player,
+            tickIntervalMs = 100,
+            scope = backgroundScope,
+          )
+      }
+      player.setPosition(10_000)
+      player.setBufferedPositionMs(10_000)
+      advanceTimeByInclusive(200.milliseconds)
+
+      // Check state before change to ENDED, immediately after the change and after waiting for any
+      // pending updates to ensure the main thread is not blocked.
+      assertThat(state.durationMs).isEqualTo(10_000)
+      assertThat(state.currentPositionMs).isEqualTo(10_000)
+      assertThat(state.bufferedPositionMs).isEqualTo(10_000)
+      player.setPlaybackState(Player.STATE_ENDED)
+      assertThat(state.durationMs).isEqualTo(10_000)
+      assertThat(state.currentPositionMs).isEqualTo(10_000)
+      assertThat(state.bufferedPositionMs).isEqualTo(10_000)
+      advanceTimeByInclusive(200.milliseconds)
+
+      assertThat(state.durationMs).isEqualTo(10_000)
+      assertThat(state.currentPositionMs).isEqualTo(10_000)
+      assertThat(state.bufferedPositionMs).isEqualTo(10_000)
     }
 }

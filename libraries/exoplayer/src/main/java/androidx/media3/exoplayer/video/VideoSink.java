@@ -90,7 +90,7 @@ public interface VideoSink {
      */
     void render(long renderTimestampNs);
 
-    /** Skips the frame. */
+    /** Drops the frame. */
     void skip();
   }
 

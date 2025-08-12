@@ -16,17 +16,16 @@
 package androidx.media3.session;
 
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkIndex;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.usToMs;
 import static androidx.media3.session.MediaUtils.calculateBufferedPercentage;
 import static androidx.media3.session.MediaUtils.mergePlayerInfo;
 import static androidx.media3.session.SessionError.ERROR_PERMISSION_DENIED;
 import static androidx.media3.session.SessionError.ERROR_SESSION_DISCONNECTED;
 import static androidx.media3.session.SessionError.ERROR_UNKNOWN;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkElementIndex;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
@@ -749,7 +748,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 
   @Override
   public ListenableFuture<SessionResult> sendCustomCommand(SessionCommand command, Bundle args) {
-    if (checkNotNull(connectedToken).getSessionVersion() >= 8) {
+    if (checkNotNull(connectedToken).getInterfaceVersion() >= 7) {
       // Always use the newer remote API if available. The session Callback implementation delegates
       // accordingly.
       return sendCustomCommand(command, args, /* progressListener= */ null);
@@ -762,7 +761,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   @Override
   public ListenableFuture<SessionResult> sendCustomCommand(
       SessionCommand command, Bundle args, @Nullable ProgressListener progressListener) {
-    if (checkNotNull(connectedToken).getSessionVersion() < 8) {
+    if (checkNotNull(connectedToken).getInterfaceVersion() < 7) {
       // sendCustomCommandWithProgressListener only available with session version 8 and greater.
       return sendCustomCommand(command, args);
     }
@@ -2642,17 +2641,20 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     //    If a service wants to keep running, it should be either foreground service or
     //    bound service. But there had been request for the feature for system apps
     //    and using bindService() will be better fit with it.
-    boolean result = context.bindService(intent, serviceConnection, flags);
-    if (!result) {
+    try {
+      if (context.bindService(intent, serviceConnection, flags)) {
+        return true;
+      }
       Log.w(TAG, "bind to " + token + " failed");
-      return false;
+    } catch (SecurityException e) {
+      Log.w(TAG, "bind to " + token + " not allowed", e);
     }
-    return true;
+    return false;
   }
 
   private boolean requestConnectToSession(Bundle connectionHints) {
     IMediaSession iSession =
-        IMediaSession.Stub.asInterface((IBinder) checkStateNotNull(token.getBinder()));
+        IMediaSession.Stub.asInterface((IBinder) checkNotNull(token.getBinder()));
     int seq = sequencedFutureManager.obtainNextSequenceNumber();
     ConnectionRequest request =
         new ConnectionRequest(
@@ -3361,7 +3363,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   @Nullable
   private static PeriodInfo getPeriodInfo(
       Timeline timeline, Window window, Period period, int windowIndex, long windowPositionUs) {
-    checkIndex(windowIndex, 0, timeline.getWindowCount());
+    checkElementIndex(windowIndex, timeline.getWindowCount());
     timeline.getWindow(windowIndex, window);
     if (windowPositionUs == C.TIME_UNSET) {
       windowPositionUs = window.getDefaultPositionUs();

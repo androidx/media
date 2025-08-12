@@ -15,7 +15,7 @@
  */
 package androidx.media3.extractor.text.ttml;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.annotation.SuppressLint;
 import android.text.Spannable;

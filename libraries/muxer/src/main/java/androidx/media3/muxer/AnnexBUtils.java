@@ -15,9 +15,9 @@
  */
 package androidx.media3.muxer;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.muxer.Boxes.getDolbyVisionProfileAndLevel;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;

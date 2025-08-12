@@ -15,12 +15,13 @@
  */
 package androidx.media3.exoplayer.source;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.min;
 
 import android.net.Uri;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DataSpec;
@@ -59,7 +60,7 @@ import java.util.Map;
    * @param listener A listener to which stream metadata is delivered.
    */
   public IcyDataSource(DataSource upstream, int metadataIntervalBytes, Listener listener) {
-    Assertions.checkArgument(metadataIntervalBytes > 0);
+    checkArgument(metadataIntervalBytes > 0);
     this.upstream = upstream;
     this.metadataIntervalBytes = metadataIntervalBytes;
     this.listener = listener;
@@ -69,7 +70,7 @@ import java.util.Map;
 
   @Override
   public void addTransferListener(TransferListener transferListener) {
-    Assertions.checkNotNull(transferListener);
+    checkNotNull(transferListener);
     upstream.addTransferListener(transferListener);
   }
 

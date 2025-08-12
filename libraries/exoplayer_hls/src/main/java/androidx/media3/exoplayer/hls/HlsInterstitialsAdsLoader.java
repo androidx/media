@@ -23,10 +23,6 @@ import static androidx.media3.common.Player.DISCONTINUITY_REASON_SEEK;
 import static androidx.media3.common.Player.DISCONTINUITY_REASON_SEEK_ADJUSTMENT;
 import static androidx.media3.common.Player.DISCONTINUITY_REASON_SKIP;
 import static androidx.media3.common.Player.STATE_IDLE;
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.castNonNull;
 import static androidx.media3.common.util.Util.msToUs;
 import static androidx.media3.common.util.Util.usToMs;
@@ -34,6 +30,9 @@ import static androidx.media3.exoplayer.hls.playlist.HlsMediaPlaylist.Interstiti
 import static androidx.media3.exoplayer.hls.playlist.HlsMediaPlaylist.Interstitial.CUE_TRIGGER_PRE;
 import static androidx.media3.exoplayer.hls.playlist.HlsMediaPlaylist.Interstitial.SNAP_TYPE_IN;
 import static androidx.media3.exoplayer.hls.playlist.HlsMediaPlaylist.Interstitial.SNAP_TYPE_OUT;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.abs;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -775,7 +774,7 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
     }
     if (contentMediaSourceAdDataHolder.isIdle()) {
       // Set the player listener when the first ad starts.
-      checkStateNotNull(player, "setPlayer(Player) needs to be called").addListener(playerListener);
+      checkNotNull(player, "setPlayer(Player) needs to be called").addListener(playerListener);
     }
     contentMediaSourceAdDataHolder.startContentSource(adsId, eventListener);
     MediaItem mediaItem = adsMediaSource.getMediaItem();

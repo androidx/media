@@ -15,8 +15,6 @@
  */
 package androidx.media3.exoplayer;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.castNonNull;
 import static androidx.media3.common.util.Util.constrainValue;
 import static androidx.media3.common.util.Util.msToUs;
@@ -25,6 +23,9 @@ import static androidx.media3.exoplayer.MediaPeriodQueue.UPDATE_PERIOD_QUEUE_ALT
 import static androidx.media3.exoplayer.RendererHolder.REPLACE_STREAMS_DISABLE_RENDERERS_COMPLETED;
 import static androidx.media3.exoplayer.RendererHolder.REPLACE_STREAMS_DISABLE_RENDERERS_DISABLE_OFFLOAD_SCHEDULING;
 import static androidx.media3.exoplayer.audio.AudioSink.OFFLOAD_MODE_DISABLED;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
@@ -53,7 +54,6 @@ import androidx.media3.common.Player.DiscontinuityReason;
 import androidx.media3.common.Player.PlaybackSuppressionReason;
 import androidx.media3.common.Player.RepeatMode;
 import androidx.media3.common.Timeline;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.HandlerWrapper;
@@ -126,7 +126,7 @@ import java.util.Objects;
           && this.discontinuityReason != Player.DISCONTINUITY_REASON_INTERNAL) {
         // We always prefer non-internal discontinuity reasons. We also assume that we won't report
         // more than one non-internal discontinuity per message iteration.
-        Assertions.checkArgument(discontinuityReason == Player.DISCONTINUITY_REASON_INTERNAL);
+        checkArgument(discontinuityReason == Player.DISCONTINUITY_REASON_INTERNAL);
         return;
       }
       hasPendingChange = true;
@@ -236,6 +236,7 @@ import java.util.Objects;
   private boolean scrubbingModeEnabled;
   private boolean seekIsPendingWhileScrubbing;
   @Nullable private SeekPosition queuedSeekWhileScrubbing;
+  private int droppedSeeksWhileScrubbing;
   private PlaybackInfo playbackInfo;
   private PlaybackInfoUpdate playbackInfoUpdate;
   private boolean releasedOnApplicationThread;
@@ -1556,6 +1557,9 @@ import java.util.Objects;
       throws ExoPlaybackException {
     playbackInfoUpdate.incrementPendingOperationAcks(incrementAcks ? 1 : 0);
     if (seekIsPendingWhileScrubbing) {
+      if (queuedSeekWhileScrubbing != null) {
+        droppedSeeksWhileScrubbing++;
+      }
       queuedSeekWhileScrubbing = seekPosition;
       return;
     }
@@ -1794,6 +1798,12 @@ import java.util.Objects;
   private void setScrubbingModeEnabledInternal(boolean scrubbingModeEnabled)
       throws ExoPlaybackException {
     if (!scrubbingModeEnabled) {
+      if (droppedSeeksWhileScrubbing > 0) {
+        int localDroppedSeeksCount = droppedSeeksWhileScrubbing;
+        applicationLooperHandler.post(
+            () -> analyticsCollector.onDroppedSeeksWhileScrubbing(localDroppedSeeksCount));
+      }
+      droppedSeeksWhileScrubbing = 0;
       seekIsPendingWhileScrubbing = false;
       handler.removeMessages(MSG_SEEK_COMPLETED_IN_SCRUBBING_MODE);
       if (queuedSeekWhileScrubbing != null) {

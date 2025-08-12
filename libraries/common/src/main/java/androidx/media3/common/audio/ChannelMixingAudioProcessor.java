@@ -15,7 +15,7 @@
  */
 package androidx.media3.common.audio;
 
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.util.SparseArray;
 import androidx.annotation.Nullable;
@@ -74,7 +74,7 @@ public final class ChannelMixingAudioProcessor extends BaseAudioProcessor {
   @Override
   public void queueInput(ByteBuffer inputBuffer) {
     ChannelMixingMatrix channelMixingMatrix =
-        checkStateNotNull(matrixByInputChannelCount.get(inputAudioFormat.channelCount));
+        checkNotNull(matrixByInputChannelCount.get(inputAudioFormat.channelCount));
 
     int framesToMix = inputBuffer.remaining() / inputAudioFormat.bytesPerFrame;
     ByteBuffer outputBuffer = replaceOutputBuffer(framesToMix * outputAudioFormat.bytesPerFrame);

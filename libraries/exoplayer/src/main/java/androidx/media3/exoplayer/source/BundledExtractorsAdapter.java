@@ -15,11 +15,13 @@
  */
 package androidx.media3.exoplayer.source;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+
 import android.net.Uri;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.DataReader;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.extractor.DefaultExtractorInput;
 import androidx.media3.extractor.Extractor;
@@ -90,7 +92,7 @@ public final class BundledExtractorsAdapter implements ProgressiveMediaExtractor
         } catch (EOFException e) {
           // Do nothing.
         } finally {
-          Assertions.checkState(this.extractor != null || extractorInput.getPosition() == position);
+          checkState(this.extractor != null || extractorInput.getPosition() == position);
           extractorInput.resetPeekPosition();
         }
       }
@@ -104,7 +106,7 @@ public final class BundledExtractorsAdapter implements ProgressiveMediaExtractor
                             extractor ->
                                 extractor.getUnderlyingImplementation().getClass().getSimpleName()))
                 + ") could read the stream.",
-            Assertions.checkNotNull(uri),
+            checkNotNull(uri),
             sniffFailures.build());
       }
     }
@@ -138,12 +140,11 @@ public final class BundledExtractorsAdapter implements ProgressiveMediaExtractor
 
   @Override
   public void seek(long position, long seekTimeUs) {
-    Assertions.checkNotNull(extractor).seek(position, seekTimeUs);
+    checkNotNull(extractor).seek(position, seekTimeUs);
   }
 
   @Override
   public int read(PositionHolder positionHolder) throws IOException {
-    return Assertions.checkNotNull(extractor)
-        .read(Assertions.checkNotNull(extractorInput), positionHolder);
+    return checkNotNull(extractor).read(checkNotNull(extractorInput), positionHolder);
   }
 }

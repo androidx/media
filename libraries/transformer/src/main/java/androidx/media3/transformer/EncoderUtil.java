@@ -17,7 +17,7 @@
 package androidx.media3.transformer;
 
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.floor;
 import static java.lang.Math.max;
 import static java.lang.Math.round;
@@ -421,7 +421,6 @@ public final class EncoderUtil {
   }
 
   /** Returns the number of max number of the supported concurrent codec instances. */
-  @RequiresApi(23)
   public static int getMaxSupportedInstances(MediaCodecInfo encoderInfo, String mimeType) {
     return encoderInfo.getCapabilitiesForType(mimeType).getMaxSupportedInstances();
   }

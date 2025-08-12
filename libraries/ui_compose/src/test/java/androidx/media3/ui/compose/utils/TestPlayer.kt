@@ -22,8 +22,8 @@ import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.SimpleBasePlayer
 import androidx.media3.common.VideoSize
-import androidx.media3.common.util.Assertions.checkState
 import androidx.media3.common.util.Util.msToUs
+import com.google.common.base.Preconditions.checkState
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.test.TestCoroutineScheduler

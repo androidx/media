@@ -15,7 +15,7 @@
  */
 package androidx.media3.extractor.ogg;
 
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.min;
 
 import androidx.media3.common.C;
@@ -73,7 +73,8 @@ public class OggExtractor implements Extractor {
 
   @Override
   public int read(ExtractorInput input, PositionHolder seekPosition) throws IOException {
-    checkStateNotNull(output); // Check that init has been called.
+    // Check that init has been called.
+    checkNotNull(output);
     if (streamReader == null) {
       if (!sniffInternal(input)) {
         throw ParserException.createForMalformedContainer(

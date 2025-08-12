@@ -16,6 +16,9 @@
 
 package androidx.media3.test.utils.robolectric;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
+
 import android.media.AudioFormat;
 import android.media.MediaCrypto;
 import android.media.MediaFormat;
@@ -23,7 +26,6 @@ import android.view.Surface;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.MimeTypes;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.extractor.MpegAudioUtil;
@@ -57,7 +59,7 @@ public final class RandomizedMp3Decoder implements ShadowMediaCodec.CodecConfig.
       return;
     }
 
-    Assertions.checkState(
+    checkState(
         in.remaining() >= 4, "Frame size too small, should be at least 4 to hold an MP3 header");
 
     // Get the desired output size for every input.
@@ -80,7 +82,7 @@ public final class RandomizedMp3Decoder implements ShadowMediaCodec.CodecConfig.
         format.getInteger(
             MediaFormat.KEY_PCM_ENCODING, /* defaultValue= */ AudioFormat.ENCODING_PCM_16BIT);
     int channelCount = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT);
-    Assertions.checkArgument(
+    checkArgument(
         format.getString(MediaFormat.KEY_MIME, MimeTypes.AUDIO_MPEG).equals(MimeTypes.AUDIO_MPEG));
     frameSizeInBytes = Util.getPcmFrameSize(pcmEncoding, channelCount);
   }

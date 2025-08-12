@@ -17,10 +17,10 @@ package androidx.media3.exoplayer;
 
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.annotation.VisibleForTesting.NONE;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.exoplayer.source.SampleStream.FLAG_PEEK;
 import static androidx.media3.exoplayer.source.SampleStream.FLAG_REQUIRE_FORMAT;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 
 import android.content.ContentResolver;
@@ -43,7 +43,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.Format;
 import androidx.media3.common.ParserException;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.MediaFormatUtil;
@@ -350,7 +349,6 @@ public final class MediaExtractorCompat {
    *     sniffs the input.
    * @throws IllegalStateException If this method is called twice on the same instance.
    */
-  @RequiresApi(23)
   public void setDataSource(MediaDataSource mediaDataSource) throws IOException {
     // MediaDataSourceAdapter is created privately here, so TransferListeners cannot be registered.
     // Therefore, the isNetwork parameter is hardcoded to false as it has no effect.
@@ -361,7 +359,7 @@ public final class MediaExtractorCompat {
 
   private void prepareDataSource(DataSource dataSource, DataSpec dataSpec) throws IOException {
     // Assert that this instance is not being re-prepared, which is not currently supported.
-    Assertions.checkState(!hasBeenPrepared);
+    checkState(!hasBeenPrepared);
     hasBeenPrepared = true;
     offsetInCurrentFile = dataSpec.position;
     currentDataSource = dataSource;
@@ -1010,7 +1008,7 @@ public final class MediaExtractorCompat {
       }
       Pair<Integer, Integer> profileAndLevel =
           CodecSpecificDataUtil.getCodecProfileAndLevel(format);
-      if (profileAndLevel != null && SDK_INT >= 23) {
+      if (profileAndLevel != null) {
         mediaFormatResult.setInteger(MediaFormat.KEY_PROFILE, profileAndLevel.first);
         mediaFormatResult.setInteger(MediaFormat.KEY_LEVEL, profileAndLevel.second);
       }
@@ -1098,7 +1096,7 @@ public final class MediaExtractorCompat {
       // Disable BUFFER_FLAG_LAST_SAMPLE to prevent the sample queue from ignoring
       // FLAG_REQUIRE_FORMAT. See b/191518632.
       flags &= ~C.BUFFER_FLAG_LAST_SAMPLE;
-      Assertions.checkState(mainTrackIndex != C.INDEX_UNSET);
+      checkState(mainTrackIndex != C.INDEX_UNSET);
       int writeIndexBeforeCommitting = this.getWriteIndex();
       super.sampleMetadata(timeUs, flags, size, offset, cryptoData);
       // Add the sample metadata if the sample was committed

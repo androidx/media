@@ -15,8 +15,8 @@
  */
 package androidx.media3.effect;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
@@ -161,13 +161,13 @@ public final class ScaleAndRotateTransformation implements MatrixTransformation 
 
   @Override
   public Matrix getMatrix(long presentationTimeUs) {
-    return checkStateNotNull(adjustedTransformationMatrix, "configure must be called first");
+    return checkNotNull(adjustedTransformationMatrix, "configure must be called first");
   }
 
   @Override
   public boolean isNoOp(int inputWidth, int inputHeight) {
     Size outputSize = configure(inputWidth, inputHeight);
-    return checkStateNotNull(adjustedTransformationMatrix).isIdentity()
+    return checkNotNull(adjustedTransformationMatrix).isIdentity()
         && inputWidth == outputSize.getWidth()
         && inputHeight == outputSize.getHeight();
   }

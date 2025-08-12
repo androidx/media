@@ -15,9 +15,9 @@
  */
 package androidx.media3.exoplayer.source;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Util.castNonNull;
 import static androidx.media3.common.util.Util.msToUs;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.content.Context;
 import android.net.Uri;
@@ -27,7 +27,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -473,7 +472,7 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
   @UnstableApi
   @Override
   public MediaSource createMediaSource(MediaItem mediaItem) {
-    Assertions.checkNotNull(mediaItem.localConfiguration);
+    checkNotNull(mediaItem.localConfiguration);
     @Nullable String scheme = mediaItem.localConfiguration.uri.getScheme();
     if (scheme != null && scheme.equals(C.SSAI_SCHEME)) {
       return checkNotNull(serverSideAdInsertionMediaSourceFactory).createMediaSource(mediaItem);

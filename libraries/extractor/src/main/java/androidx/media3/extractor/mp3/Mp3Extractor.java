@@ -15,7 +15,7 @@
  */
 package androidx.media3.extractor.mp3;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.annotation.ElementType.TYPE_USE;
 import static java.lang.annotation.RetentionPolicy.SOURCE;
 
@@ -27,7 +27,6 @@ import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
@@ -386,7 +385,7 @@ public final class Mp3Extractor implements Extractor {
       boolean parseAllId3Frames = (flags & FLAG_DISABLE_ID3_METADATA) == 0;
       Id3Decoder.FramePredicate id3FramePredicate =
           parseAllId3Frames ? null : REQUIRED_ID3_FRAME_PREDICATE;
-      metadata = id3Peeker.peekId3Data(input, id3FramePredicate);
+      metadata = id3Peeker.peekId3Data(input, id3FramePredicate, searchLimitBytes);
       if (metadata != null) {
         gaplessInfoHolder.setFromMetadata(metadata);
       }
@@ -702,7 +701,7 @@ public final class Mp3Extractor implements Extractor {
 
   @EnsuresNonNull({"extractorOutput", "realTrackOutput"})
   private void assertInitialized() {
-    Assertions.checkStateNotNull(realTrackOutput);
+    checkNotNull(realTrackOutput);
     Util.castNonNull(extractorOutput);
   }
 

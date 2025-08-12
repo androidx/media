@@ -256,7 +256,7 @@ public class CompositionPlayerTest {
   public void prepare_withoutCompositionSet_throws() {
     CompositionPlayer player = buildCompositionPlayer();
 
-    assertThrows(IllegalStateException.class, player::prepare);
+    assertThrows(NullPointerException.class, player::prepare);
 
     player.release();
   }

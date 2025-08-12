@@ -16,8 +16,9 @@
  */
 package androidx.media3.extractor.text.ssa;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.extractor.text.ssa.SsaParser.STYLE_LINE_PREFIX;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.annotation.ElementType.TYPE_USE;
 import static java.lang.annotation.RetentionPolicy.SOURCE;
 
@@ -29,7 +30,6 @@ import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.text.Cue;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Util;
 import com.google.common.base.Ascii;
@@ -464,7 +464,7 @@ import java.util.regex.Pattern;
       PointF position = null;
       Matcher matcher = BRACES_PATTERN.matcher(text);
       while (matcher.find()) {
-        String braceContents = Assertions.checkNotNull(matcher.group(1));
+        String braceContents = checkNotNull(matcher.group(1));
         try {
           PointF parsedPosition = parsePosition(braceContents);
           if (parsedPosition != null) {
@@ -525,14 +525,13 @@ import java.util.regex.Pattern;
         return null;
       }
       return new PointF(
-          Float.parseFloat(Assertions.checkNotNull(x).trim()),
-          Float.parseFloat(Assertions.checkNotNull(y).trim()));
+          Float.parseFloat(checkNotNull(x).trim()), Float.parseFloat(checkNotNull(y).trim()));
     }
 
     private static @SsaAlignment int parseAlignmentOverride(String braceContents) {
       Matcher matcher = ALIGNMENT_OVERRIDE_PATTERN.matcher(braceContents);
       return matcher.find()
-          ? parseAlignment(Assertions.checkNotNull(matcher.group(1)))
+          ? parseAlignment(checkNotNull(matcher.group(1)))
           : SSA_ALIGNMENT_UNKNOWN;
     }
   }

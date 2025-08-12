@@ -15,7 +15,7 @@
  */
 package androidx.media3.exoplayer.analytics;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.ElementType.LOCAL_VARIABLE;
 import static java.lang.annotation.ElementType.METHOD;
@@ -447,6 +447,9 @@ public interface AnalyticsListener {
 
   /** A renderer changed its readiness for playback. */
   @UnstableApi int EVENT_RENDERER_READY_CHANGED = 1033;
+
+  /** Seeks have been dropped when scrubbing. */
+  @UnstableApi int EVENT_DROPPED_SEEKS_WHILE_SCRUBBING = 1034;
 
   /** Time information of an event. */
   @UnstableApi
@@ -1423,6 +1426,21 @@ public interface AnalyticsListener {
       int rendererIndex,
       @C.TrackType int rendererTrackType,
       boolean isRendererReady) {}
+
+  /**
+   * Called when seeks have been dropped while in {@linkplain
+   * androidx.media3.exoplayer.ExoPlayer#setScrubbingModeEnabled(boolean) scrubbing mode}.
+   *
+   * <p>Seeks are dropped in scrubbing mode when at least two calls are made to {@link
+   * Player#seekTo} while an earlier call to {@link Player#seekTo} is still being processed (i.e.
+   * the resulting frame hasn't been rendered/released yet). The most recent seek is queued to
+   * process later and any intermediate seeks are dropped.
+   *
+   * @param eventTime The event time.
+   * @param droppedSeeks The number of dropped seeks since the last call to this method.
+   */
+  @UnstableApi
+  default void onDroppedSeeksWhileScrubbing(EventTime eventTime, int droppedSeeks) {}
 
   /**
    * Called when the {@link Player} is released.

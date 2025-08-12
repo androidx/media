@@ -17,19 +17,18 @@
 
 package androidx.media3.transformer;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_SURFACE_TEXTURE_TRANSFORM_FIX;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmap;
-import static androidx.media3.transformer.AndroidTestUtil.BT601_MOV_ASSET;
-import static androidx.media3.transformer.AndroidTestUtil.JPG_ASSET;
-import static androidx.media3.transformer.AndroidTestUtil.JPG_PORTRAIT_ASSET;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_AV1_VIDEO;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_CHECKERBOARD_VIDEO;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_PORTRAIT_ASSET;
-import static androidx.media3.transformer.AndroidTestUtil.PNG_ASSET_LINES_1080P;
+import static androidx.media3.test.utils.TestUtil.BT601_MOV_ASSET;
+import static androidx.media3.test.utils.TestUtil.JPG_ASSET;
+import static androidx.media3.test.utils.TestUtil.JPG_PORTRAIT_ASSET;
+import static androidx.media3.test.utils.TestUtil.MP4_ASSET;
+import static androidx.media3.test.utils.TestUtil.MP4_ASSET_AV1_VIDEO;
+import static androidx.media3.test.utils.TestUtil.MP4_ASSET_CHECKERBOARD_VIDEO;
+import static androidx.media3.test.utils.TestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS;
+import static androidx.media3.test.utils.TestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S;
+import static androidx.media3.test.utils.TestUtil.MP4_PORTRAIT_ASSET;
+import static androidx.media3.test.utils.TestUtil.PNG_ASSET_LINES_1080P;
 import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
 import static androidx.media3.transformer.AndroidTestUtil.extractBitmapsFromVideo;
 import static androidx.media3.transformer.SequenceEffectTestUtil.NO_EFFECT;
@@ -43,6 +42,7 @@ import static androidx.media3.transformer.SequenceEffectTestUtil.createCompositi
 import static androidx.media3.transformer.SequenceEffectTestUtil.decoderProducesWashedOutColours;
 import static androidx.media3.transformer.SequenceEffectTestUtil.oneFrameFromImage;
 import static androidx.media3.transformer.SequenceEffectTestUtil.tryToExportCompositionWithDecoder;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;

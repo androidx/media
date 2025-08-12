@@ -16,12 +16,12 @@
 package androidx.media3.exoplayer.audio;
 
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Util.castNonNull;
 import static androidx.media3.common.util.Util.durationUsToSampleCount;
 import static androidx.media3.common.util.Util.getMediaDurationForPlayoutDuration;
 import static androidx.media3.common.util.Util.msToUs;
 import static androidx.media3.common.util.Util.sampleCountToDurationUs;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.annotation.ElementType.TYPE_USE;
@@ -44,7 +44,7 @@ import java.lang.reflect.Method;
  * Wraps an {@link AudioTrack}, exposing a position based on {@link
  * AudioTrack#getPlaybackHeadPosition()} and {@link AudioTrack#getTimestamp(AudioTimestamp)}.
  *
- * <p>Call {@link #setAudioTrack(AudioTrack, boolean, int, int, int)} to set the audio track to
+ * <p>Call {@link #setAudioTrack(AudioTrack, int, int, int, boolean)} to set the audio track to
  * wrap. Call {@link #mayHandleBuffer(long)} if there is input data to write to the track. If it
  * returns false, the audio track position is stabilizing and no data may be written. Call {@link
  * #start()} immediately before calling {@link AudioTrack#play()}. Call {@link #pause()} when
@@ -170,7 +170,6 @@ import java.lang.reflect.Method;
   private int bufferSize;
   @Nullable private AudioTimestampPoller audioTimestampPoller;
   private int outputSampleRate;
-  private boolean needsPassthroughWorkarounds;
   private long bufferSizeUs;
   private float audioTrackPlaybackSpeed;
   private boolean notifiedPositionIncreasing;
@@ -189,7 +188,6 @@ import java.lang.reflect.Method;
   private long lastRawPlaybackHeadPositionSampleTimeMs;
   private long rawPlaybackHeadPosition;
   private long rawPlaybackHeadWrapCount;
-  private long passthroughWorkaroundPauseOffset;
   private int nextPlayheadOffsetIndex;
   private int playheadOffsetCount;
   private long stopTimestampUs;
@@ -238,7 +236,6 @@ import java.lang.reflect.Method;
    * track's position, until the next call to {@link #reset()}.
    *
    * @param audioTrack The audio track to wrap.
-   * @param isPassthrough Whether passthrough mode is being used.
    * @param outputEncoding The encoding of the audio track.
    * @param outputPcmFrameSize For PCM output encodings, the frame size. The value is ignored
    *     otherwise.
@@ -246,7 +243,6 @@ import java.lang.reflect.Method;
    */
   public void setAudioTrack(
       AudioTrack audioTrack,
-      boolean isPassthrough,
       @C.Encoding int outputEncoding,
       int outputPcmFrameSize,
       int bufferSize,
@@ -255,7 +251,6 @@ import java.lang.reflect.Method;
     this.bufferSize = bufferSize;
     audioTimestampPoller = new AudioTimestampPoller(audioTrack, listener);
     outputSampleRate = audioTrack.getSampleRate();
-    needsPassthroughWorkarounds = isPassthrough && needsPassthroughWorkarounds(outputEncoding);
     isOutputPcm = Util.isEncodingLinearPcm(outputEncoding);
     bufferSizeUs =
         isOutputPcm
@@ -265,7 +260,6 @@ import java.lang.reflect.Method;
     rawPlaybackHeadWrapCount = 0;
     expectRawPlaybackHeadReset = false;
     sumRawPlaybackHeadPosition = 0;
-    passthroughWorkaroundPauseOffset = 0;
     hasData = false;
     stopTimestampUs = C.TIME_UNSET;
     forceResetWorkaroundTimeMs = C.TIME_UNSET;
@@ -303,21 +297,12 @@ import java.lang.reflect.Method;
             ? audioTimestampPoller.getTimestampPositionUs(systemTimeUs, audioTrackPlaybackSpeed)
             : getPlaybackHeadPositionEstimateUs(systemTimeUs);
 
-    if (audioTrack.getPlayState() == PLAYSTATE_PLAYING) {
-      if (enableOnAudioPositionAdvancingFix
-          && onPositionAdvancingFromPositionUs != C.TIME_UNSET
-          && positionUs >= onPositionAdvancingFromPositionUs
-          && (useGetTimestampMode || !audioTimestampPoller.isWaitingForAdvancingTimestamp())) {
+    int audioTrackPlayState = audioTrack.getPlayState();
+    if (audioTrackPlayState == PLAYSTATE_PLAYING) {
+      if (useGetTimestampMode || !audioTimestampPoller.isWaitingForAdvancingTimestamp()) {
         // Assume the new position is reliable to estimate the playout start time once we have an
         // advancing timestamp from the AudioTimestampPoller, or we stopped waiting for it.
-        long mediaDurationSinceResumeUs = positionUs - onPositionAdvancingFromPositionUs;
-        long playoutDurationSinceLastPositionUs =
-            Util.getPlayoutDurationForMediaDuration(
-                mediaDurationSinceResumeUs, audioTrackPlaybackSpeed);
-        long playoutStartSystemTimeMs =
-            clock.currentTimeMillis() - Util.usToMs(playoutDurationSinceLastPositionUs);
-        onPositionAdvancingFromPositionUs = C.TIME_UNSET;
-        listener.onPositionAdvancing(playoutStartSystemTimeMs);
+        maybeTriggerOnPositionAdvancingCallback(positionUs);
       }
 
       if (lastSystemTimeUs != C.TIME_UNSET) {
@@ -357,6 +342,10 @@ import java.lang.reflect.Method;
 
       lastSystemTimeUs = systemTimeUs;
       lastPositionUs = positionUs;
+    } else if (audioTrackPlayState == PLAYSTATE_STOPPED) {
+      // Once stopped, the position is simulated anyway and we don't need to wait for the timestamp
+      // poller to produce reliable data.
+      maybeTriggerOnPositionAdvancingCallback(positionUs);
     }
 
     return positionUs;
@@ -385,23 +374,6 @@ import java.lang.reflect.Method;
    */
   public boolean mayHandleBuffer(long writtenFrames) {
     @PlayState int playState = checkNotNull(audioTrack).getPlayState();
-    if (needsPassthroughWorkarounds) {
-      // An AC-3 audio track continues to play data written while it is paused. Stop writing so its
-      // buffer empties. See [Internal: b/18899620].
-      if (playState == PLAYSTATE_PAUSED) {
-        // We force an underrun to pause the track, so don't notify the listener in this case.
-        hasData = false;
-        return false;
-      }
-
-      // A new AC-3 audio track's playback position continues to increase from the old track's
-      // position for a short time after is has been released. Avoid writing data until the playback
-      // head position actually returns to zero.
-      if (playState == PLAYSTATE_STOPPED && getPlaybackHeadPosition() == 0) {
-        return false;
-      }
-    }
-
     boolean emitUnderrun;
     if (SDK_INT >= 24) {
       emitUnderrun = hasPendingAudioTrackUnderruns();
@@ -446,8 +418,7 @@ import java.lang.reflect.Method;
    * @return Whether the audio track has any pending data to play out.
    */
   public boolean hasPendingData(long writtenFrames) {
-    return writtenFrames > durationUsToSampleCount(getCurrentPositionUs(), outputSampleRate)
-        || forceHasPendingData();
+    return writtenFrames > durationUsToSampleCount(getCurrentPositionUs(), outputSampleRate);
   }
 
   /** Pauses the audio track position tracker. */
@@ -474,7 +445,7 @@ import java.lang.reflect.Method;
 
   /**
    * Resets the position tracker. Should be called when the audio track previously passed to {@link
-   * #setAudioTrack(AudioTrack, boolean, int, int, int)} is no longer in use.
+   * #setAudioTrack(AudioTrack, int, int, int, boolean)} is no longer in use.
    */
   public void reset() {
     resetSyncParams();
@@ -506,6 +477,22 @@ import java.lang.reflect.Method;
     return result;
   }
 
+  private void maybeTriggerOnPositionAdvancingCallback(long positionUs) {
+    if (!enableOnAudioPositionAdvancingFix
+        || onPositionAdvancingFromPositionUs == C.TIME_UNSET
+        || positionUs < onPositionAdvancingFromPositionUs) {
+      return;
+    }
+    long mediaDurationSinceResumeUs = positionUs - onPositionAdvancingFromPositionUs;
+    long playoutDurationSinceLastPositionUs =
+        Util.getPlayoutDurationForMediaDuration(
+            mediaDurationSinceResumeUs, audioTrackPlaybackSpeed);
+    long playoutStartSystemTimeMs =
+        clock.currentTimeMillis() - Util.usToMs(playoutDurationSinceLastPositionUs);
+    onPositionAdvancingFromPositionUs = C.TIME_UNSET;
+    listener.onPositionAdvancing(playoutStartSystemTimeMs);
+  }
+
   private void maybeSampleSyncParams() {
     long systemTimeUs = clock.nanoTime() / 1000;
     if (systemTimeUs - lastPlayheadSampleTimeUs >= MIN_PLAYHEAD_OFFSET_SAMPLE_INTERVAL_US) {
@@ -527,12 +514,6 @@ import java.lang.reflect.Method;
       for (int i = 0; i < playheadOffsetCount; i++) {
         smoothedPlayheadOffsetUs += playheadOffsets[i] / playheadOffsetCount;
       }
-    }
-
-    if (needsPassthroughWorkarounds) {
-      // Don't sample the timestamp and latency if this is an AC-3 passthrough AudioTrack on
-      // platform API versions 21/22, as incorrect values are returned. See [Internal: b/21145353].
-      return;
     }
 
     maybeUpdateLatency(systemTimeUs);
@@ -603,25 +584,6 @@ import java.lang.reflect.Method;
     notifiedPositionIncreasing = false;
   }
 
-  /**
-   * If passthrough workarounds are enabled, pausing is implemented by forcing the AudioTrack to
-   * underrun. In this case, still behave as if we have pending data, otherwise writing won't
-   * resume.
-   */
-  private boolean forceHasPendingData() {
-    return needsPassthroughWorkarounds
-        && checkNotNull(audioTrack).getPlayState() == AudioTrack.PLAYSTATE_PAUSED
-        && getPlaybackHeadPosition() == 0;
-  }
-
-  /**
-   * Returns whether to work around problems with passthrough audio tracks. See [Internal:
-   * b/18899620, b/19187573, b/21145353].
-   */
-  private static boolean needsPassthroughWorkarounds(@C.Encoding int outputEncoding) {
-    return SDK_INT < 23 && (outputEncoding == C.ENCODING_AC3 || outputEncoding == C.ENCODING_E_AC3);
-  }
-
   private long getPlaybackHeadPositionUs() {
     return sampleCountToDurationUs(getPlaybackHeadPosition(), outputSampleRate);
   }
@@ -669,16 +631,6 @@ import java.lang.reflect.Method;
       return;
     }
     long rawPlaybackHeadPosition = 0xFFFFFFFFL & audioTrack.getPlaybackHeadPosition();
-    if (needsPassthroughWorkarounds) {
-      // Work around an issue with passthrough/direct AudioTracks on platform API versions 21/22
-      // where the playback head position jumps back to zero on paused passthrough/direct audio
-      // tracks. See [Internal: b/19187573].
-      if (state == PLAYSTATE_PAUSED && rawPlaybackHeadPosition == 0) {
-        passthroughWorkaroundPauseOffset = this.rawPlaybackHeadPosition;
-      }
-      rawPlaybackHeadPosition += passthroughWorkaroundPauseOffset;
-    }
-
     if (SDK_INT <= 29) {
       if (rawPlaybackHeadPosition == 0
           && this.rawPlaybackHeadPosition > 0

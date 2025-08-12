@@ -16,13 +16,12 @@
 package androidx.media3.session;
 
 import static androidx.annotation.VisibleForTesting.NONE;
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotEmpty;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.postOrRun;
 import static androidx.media3.session.SessionError.ERROR_NOT_SUPPORTED;
 import static androidx.media3.session.SessionError.ERROR_SESSION_DISCONNECTED;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.app.PendingIntent;
 import android.content.Context;
@@ -30,6 +29,7 @@ import android.media.session.PlaybackState;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.text.TextUtils;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
@@ -1090,7 +1090,7 @@ public class MediaController implements Player {
   public final ListenableFuture<SessionResult> setRating(String mediaId, Rating rating) {
     verifyApplicationThread();
     checkNotNull(mediaId, "mediaId must not be null");
-    checkNotEmpty(mediaId, "mediaId must not be empty");
+    checkArgument(!TextUtils.isEmpty(mediaId), "mediaId must not be empty");
     checkNotNull(rating, "rating must not be null");
     if (isConnected()) {
       return impl.setRating(mediaId, rating);

@@ -18,13 +18,13 @@ package androidx.media3.exoplayer.trackselection;
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_DISABLED;
 import static androidx.media3.common.TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_REQUIRED;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.exoplayer.RendererCapabilities.AUDIO_OFFLOAD_GAPLESS_SUPPORTED;
 import static androidx.media3.exoplayer.RendererCapabilities.AUDIO_OFFLOAD_NOT_SUPPORTED;
 import static androidx.media3.exoplayer.RendererCapabilities.AUDIO_OFFLOAD_SPEED_CHANGE_SUPPORTED;
 import static androidx.media3.exoplayer.RendererCapabilities.isFormatSupported;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.annotation.ElementType.TYPE_USE;
 import static java.util.Collections.max;
 
@@ -57,7 +57,6 @@ import androidx.media3.common.TrackSelectionOverride;
 import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.TrackSelectionParameters.AudioOffloadPreferences;
 import androidx.media3.common.audio.AudioManagerCompat;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.BundleCollectionUtil;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.NullableType;
@@ -2414,8 +2413,8 @@ public class DefaultTrackSelector extends MappingTrackSelector
       int groupIndex = bundle.getInt(FIELD_GROUP_INDEX, -1);
       @Nullable int[] tracks = bundle.getIntArray(FIELD_TRACKS);
       int trackType = bundle.getInt(FIELD_TRACK_TYPE, -1);
-      Assertions.checkArgument(groupIndex >= 0 && trackType >= 0);
-      Assertions.checkNotNull(tracks);
+      checkArgument(groupIndex >= 0 && trackType >= 0);
+      checkNotNull(tracks);
       return new SelectionOverride(groupIndex, tracks, trackType);
     }
   }
@@ -2624,7 +2623,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
    * @param parameters The parameters for track selection.
    */
   private void setParametersInternal(Parameters parameters) {
-    Assertions.checkNotNull(parameters);
+    checkNotNull(parameters);
     boolean parametersChanged;
     synchronized (lock) {
       parametersChanged = !this.parameters.equals(parameters);
@@ -4409,7 +4408,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
               defaultTrackSelector.maybeInvalidateForAudioChannelCountConstraints();
             }
           };
-      this.handler = new Handler(checkStateNotNull(Looper.myLooper()));
+      this.handler = new Handler(checkNotNull(Looper.myLooper()));
       spatializer.addOnSpatializerStateChangedListener(handler::post, listener);
     }
 

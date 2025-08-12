@@ -16,6 +16,7 @@
 package androidx.media3.extractor;
 
 import androidx.media3.common.ParserException;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -25,6 +26,8 @@ import java.io.IOException;
 /** Reads and peeks FLAC frame elements according to RFC 9639. */
 @UnstableApi
 public final class FlacFrameReader {
+
+  private static final String TAG = "FlacFrameReader";
 
   /** Holds a sample number. */
   public static final class SampleNumberHolder {
@@ -38,6 +41,9 @@ public final class FlacFrameReader {
    *
    * <p>If the header is valid, the position of {@code data} is moved to the byte following it.
    * Otherwise, there is no guarantee on the position.
+   *
+   * <p>If {@code data} contains enough data, the subframe header following the header is also
+   * checked for validity, to reduce the risk of a false-positive frame header match.
    *
    * @param data The array to read the data from, whose position must correspond to the frame
    *     header.
@@ -69,9 +75,11 @@ public final class FlacFrameReader {
         && !reservedBit
         && checkAndReadFirstSampleNumber(
             data, flacStreamMetadata, isBlockSizeVariable, sampleNumberHolder)
-        && checkAndReadBlockSizeSamples(data, flacStreamMetadata, blockSizeKey)
+        && checkAndReadBlockSizeSamples(
+            data, flacStreamMetadata, blockSizeKey, sampleNumberHolder.sampleNumber)
         && checkAndReadSampleRate(data, flacStreamMetadata, sampleRateKey)
-        && checkAndReadCrc(data, frameStartPosition);
+        && checkAndReadCrc(data, frameStartPosition)
+        && checkFirstSubframeHeaderFromPeek(data);
   }
 
   /**
@@ -79,6 +87,9 @@ public final class FlacFrameReader {
    * number in {@code sampleNumberHolder}.
    *
    * <p>The {@code input} peek position is left unchanged.
+   *
+   * <p>If {@code input} contains enough data, the subframe header following the header is also
+   * checked for validity, to reduce the risk of a false-positive frame header match.
    *
    * @param input The input to get the data from, whose peek position must correspond to the frame
    *     header.
@@ -95,22 +106,21 @@ public final class FlacFrameReader {
       throws IOException {
     long originalPeekPosition = input.getPeekPosition();
 
-    byte[] frameStartBytes = new byte[2];
-    input.peekFully(frameStartBytes, 0, 2);
-    int frameStart = (frameStartBytes[0] & 0xFF) << 8 | (frameStartBytes[1] & 0xFF);
+    // We will try and read the first subframe header following the frame header as well.
+    int dataToCheck = FlacConstants.MAX_FRAME_HEADER_SIZE + 1;
+    ParsableByteArray scratch = new ParsableByteArray(dataToCheck);
+
+    // Check the start marker first, before peeking the rest of the frame header.
+    input.peekFully(scratch.getData(), 0, 2);
+    int frameStart = scratch.peekChar();
     if (frameStart != frameStartMarker) {
       input.resetPeekPosition();
       input.advancePeekPosition((int) (originalPeekPosition - input.getPosition()));
       return false;
     }
 
-    ParsableByteArray scratch = new ParsableByteArray(FlacConstants.MAX_FRAME_HEADER_SIZE);
-    System.arraycopy(
-        frameStartBytes, /* srcPos= */ 0, scratch.getData(), /* destPos= */ 0, /* length= */ 2);
-
-    int totalBytesPeeked =
-        ExtractorUtil.peekToLength(
-            input, scratch.getData(), 2, FlacConstants.MAX_FRAME_HEADER_SIZE - 2);
+    int totalBytesPeeked = 2;
+    totalBytesPeeked += ExtractorUtil.peekToLength(input, scratch.getData(), 2, dataToCheck - 2);
     scratch.setLimit(totalBytesPeeked);
 
     input.resetPeekPosition();
@@ -253,9 +263,12 @@ public final class FlacFrameReader {
     } catch (NumberFormatException e) {
       return false;
     }
-
-    sampleNumberHolder.sampleNumber =
+    long sampleNumber =
         isBlockSizeVariable ? utf8Value : utf8Value * flacStreamMetadata.maxBlockSizeSamples;
+    if (flacStreamMetadata.totalSamples != 0 && sampleNumber > flacStreamMetadata.totalSamples) {
+      return false;
+    }
+    sampleNumberHolder.sampleNumber = sampleNumber;
     return true;
   }
 
@@ -270,12 +283,21 @@ public final class FlacFrameReader {
    *     bits.
    * @param flacStreamMetadata The stream metadata.
    * @param blockSizeKey The key in the block size lookup table.
+   * @param firstSampleNumber The number of the first sample in this frame.
    * @return Whether the block size is valid.
    */
   private static boolean checkAndReadBlockSizeSamples(
-      ParsableByteArray data, FlacStreamMetadata flacStreamMetadata, int blockSizeKey) {
+      ParsableByteArray data,
+      FlacStreamMetadata flacStreamMetadata,
+      int blockSizeKey,
+      long firstSampleNumber) {
     int blockSizeSamples = readFrameBlockSizeSamplesFromKey(data, blockSizeKey);
-    return blockSizeSamples != -1 && blockSizeSamples <= flacStreamMetadata.maxBlockSizeSamples;
+    boolean isMaybeLastBlock =
+        flacStreamMetadata.totalSamples == 0
+            || firstSampleNumber + blockSizeSamples >= flacStreamMetadata.totalSamples;
+    return blockSizeSamples != -1
+        && (isMaybeLastBlock || blockSizeSamples >= flacStreamMetadata.minBlockSizeSamples)
+        && blockSizeSamples <= flacStreamMetadata.maxBlockSizeSamples;
   }
 
   /**
@@ -328,6 +350,35 @@ public final class FlacFrameReader {
     int expectedCrc =
         Util.crc8(data.getData(), frameStartPosition, frameEndPosition - 1, /* initialValue= */ 0);
     return crc == expectedCrc;
+  }
+
+  /**
+   * Checks the first subframe header which follows the CRC, as defined in RFC 9639 section 9.2.1.
+   *
+   * <p>The first bit must be zero.
+   *
+   * <p>The following 6 bits have some reserved values in RFC 9639. These may be used in a future
+   * version of the FLAC spec. For now this function rejects these, in order to maximise the
+   * accuracy of frame header detection. This is permitted by RFC 9639 section 5: "Older decoders
+   * MAY choose to abort decoding when encountering data that is encoded using methods they do not
+   * recognize."
+   */
+  private static boolean checkFirstSubframeHeaderFromPeek(ParsableByteArray data) {
+    if (data.bytesLeft() == 0) {
+      // The provided data doesn't include the subframe header, so we can't check it.
+      return true;
+    }
+    int subframeHeader = data.peekUnsignedByte();
+    // reserved bit
+    if ((subframeHeader & 0x80) != 0) {
+      return false;
+    }
+    int subframeType = (subframeHeader & 0x7E) >> 1;
+    if ((subframeType >= 2 && subframeType <= 7) || (subframeType >= 13 && subframeType <= 31)) {
+      Log.i(TAG, "Ignoring frame where first subframe has a reserved type: " + subframeType);
+      return false;
+    }
+    return true;
   }
 
   private FlacFrameReader() {}

@@ -15,10 +15,11 @@
  */
 package androidx.media3.test.utils;
 
+import static com.google.common.base.Preconditions.checkState;
+
 import android.net.Uri;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DataSpec;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -165,7 +166,7 @@ public class FakeDataSet {
     /** Appends to the underlying data. */
     @CanIgnoreReturnValue
     public FakeData appendReadData(byte[] data) {
-      Assertions.checkState(data.length > 0);
+      checkState(data.length > 0);
       segments.add(new Segment(data, getLastSegment()));
       return this;
     }
@@ -176,7 +177,7 @@ public class FakeDataSet {
      */
     @CanIgnoreReturnValue
     public FakeData appendReadData(int length) {
-      Assertions.checkState(length > 0);
+      checkState(length > 0);
       segments.add(new Segment(length, getLastSegment()));
       return this;
     }

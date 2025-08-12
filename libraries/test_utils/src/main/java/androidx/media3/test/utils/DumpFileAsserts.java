@@ -15,12 +15,12 @@
  */
 package androidx.media3.test.utils;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.content.Context;
 import androidx.annotation.IntDef;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.base.StandardSystemProperty;
 import java.io.File;
@@ -180,7 +180,7 @@ public class DumpFileAsserts {
               ? new File(StandardSystemProperty.USER_DIR.value(), assetDirectory)
               : context.getExternalFilesDir(null);
       file = new File(file, dumpFile);
-      Assertions.checkStateNotNull(file.getParentFile()).mkdirs();
+      checkNotNull(file.getParentFile()).mkdirs();
       PrintWriter out = new PrintWriter(file);
       out.print(actual);
       out.close();

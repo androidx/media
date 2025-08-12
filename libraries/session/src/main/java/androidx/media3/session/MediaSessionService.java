@@ -16,10 +16,11 @@
 package androidx.media3.session;
 
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.postOrRun;
+import static androidx.media3.session.SessionUtil.PACKAGE_VALID;
+import static androidx.media3.session.SessionUtil.checkPackageValidity;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.app.Activity;
@@ -34,7 +35,6 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
-import android.os.RemoteException;
 import androidx.annotation.CallSuper;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.IntDef;
@@ -504,7 +504,8 @@ public abstract class MediaSessionService extends Service {
         /* trusted= */ false,
         /* cb= */ null,
         /* connectionHints= */ Bundle.EMPTY,
-        /* maxCommandsForMediaItems= */ 0);
+        /* maxCommandsForMediaItems= */ 0,
+        /* isPackageNameVerified= */ false);
   }
 
   /**
@@ -715,7 +716,7 @@ public abstract class MediaSessionService extends Service {
   }
 
   /* package */ IBinder getServiceBinder() {
-    return checkStateNotNull(stub).asBinder();
+    return checkNotNull(stub).asBinder();
   }
 
   /**
@@ -748,7 +749,7 @@ public abstract class MediaSessionService extends Service {
       @Nullable MediaNotification.Provider initialMediaNotificationProvider) {
     if (mediaNotificationManager == null) {
       if (initialMediaNotificationProvider == null) {
-        checkStateNotNull(getBaseContext(), "Accessing service context before onCreate()");
+        checkNotNull(getBaseContext(), "Accessing service context before onCreate()");
         initialMediaNotificationProvider =
             new DefaultMediaNotificationProvider.Builder(getApplicationContext()).build();
       }
@@ -836,7 +837,7 @@ public abstract class MediaSessionService extends Service {
         @Nullable IMediaController caller, @Nullable Bundle connectionRequestBundle) {
       if (caller == null || connectionRequestBundle == null) {
         // Malformed call from potentially malicious controller.
-        // No need to notify that we're ignoring call.
+        SessionUtil.disconnectIMediaController(caller);
         return;
       }
       ConnectionRequest request;
@@ -844,25 +845,20 @@ public abstract class MediaSessionService extends Service {
         request = ConnectionRequest.fromBundle(connectionRequestBundle);
       } catch (RuntimeException e) {
         // Malformed call from potentially malicious controller.
-        // No need to notify that we're ignoring call.
         Log.w(TAG, "Ignoring malformed Bundle for ConnectionRequest", e);
+        SessionUtil.disconnectIMediaController(caller);
         return;
       }
       @Nullable MediaSessionService mediaSessionService = serviceReference.get();
       if (mediaSessionService == null) {
-        try {
-          caller.onDisconnected(/* seq= */ 0);
-        } catch (RemoteException e) {
-          // Controller may be died prematurely.
-          // Not an issue because we'll ignore it anyway.
-        }
+        SessionUtil.disconnectIMediaController(caller);
         return;
       }
       int callingPid = Binder.getCallingPid();
       int uid = Binder.getCallingUid();
       long token = Binder.clearCallingIdentity();
       int pid = (callingPid != 0) ? callingPid : request.pid;
-      if (!SessionUtil.isValidPackage(mediaSessionService, request.packageName, uid)) {
+      if (checkPackageValidity(mediaSessionService, request.packageName, uid) != PACKAGE_VALID) {
         Log.w(
             TAG,
             "Ignoring connection from invalid package name "
@@ -870,6 +866,7 @@ public abstract class MediaSessionService extends Service {
                 + " (uid="
                 + uid
                 + ")");
+        SessionUtil.disconnectIMediaController(caller);
         return;
       }
       MediaSessionManager.RemoteUserInfo remoteUserInfo =
@@ -882,7 +879,7 @@ public abstract class MediaSessionService extends Service {
         handler.post(
             () -> {
               pendingControllers.remove(caller);
-              boolean shouldNotifyDisconnected = true;
+              boolean connected = false;
               try {
                 @Nullable MediaSessionService service = serviceReference.get();
                 if (service == null) {
@@ -897,32 +894,22 @@ public abstract class MediaSessionService extends Service {
                         new MediaSessionStub.Controller2Cb(
                             caller, request.controllerInterfaceVersion),
                         request.connectionHints,
-                        request.maxCommandsForMediaItems);
+                        request.maxCommandsForMediaItems,
+                        /* isPackageNameVerified= */ true);
 
-                @Nullable MediaSession session;
-                try {
-                  session = service.onGetSession(controllerInfo);
-                  if (session == null) {
-                    return;
-                  }
-
-                  service.addSession(session);
-                  shouldNotifyDisconnected = false;
-
-                  session.handleControllerConnectionFromService(caller, controllerInfo);
-                } catch (Exception e) {
-                  // Don't propagate exception in service to the controller.
-                  Log.w(TAG, "Failed to add a session to session service", e);
+                @Nullable MediaSession session = service.onGetSession(controllerInfo);
+                if (session == null) {
+                  return;
                 }
+                service.addSession(session);
+                session.handleControllerConnectionFromService(caller, controllerInfo);
+                connected = true;
+              } catch (Exception e) {
+                // Don't propagate exception in service to the controller.
+                Log.w(TAG, "Failed to add a session to session service", e);
               } finally {
-                // Trick to call onDisconnected() in one place.
-                if (shouldNotifyDisconnected) {
-                  try {
-                    caller.onDisconnected(/* seq= */ 0);
-                  } catch (RemoteException e) {
-                    // Controller may be died prematurely.
-                    // Not an issue because we'll ignore it anyway.
-                  }
+                if (!connected) {
+                  SessionUtil.disconnectIMediaController(caller);
                 }
               }
             });
@@ -935,11 +922,7 @@ public abstract class MediaSessionService extends Service {
       serviceReference.clear();
       handler.removeCallbacksAndMessages(null);
       for (IMediaController controller : pendingControllers) {
-        try {
-          controller.onDisconnected(/* seq= */ 0);
-        } catch (RemoteException e) {
-          // Ignore. We're releasing.
-        }
+        SessionUtil.disconnectIMediaController(controller);
       }
       pendingControllers.clear();
     }

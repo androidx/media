@@ -15,8 +15,7 @@
  */
 package androidx.media3.effect;
 
-import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.ceil;
 
 import android.annotation.SuppressLint;
@@ -24,11 +23,9 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.PorterDuff;
-import android.text.Layout;
 import android.text.SpannableString;
 import android.text.StaticLayout;
 import android.text.TextPaint;
-import androidx.annotation.RequiresApi;
 import androidx.media3.common.OverlaySettings;
 import androidx.media3.common.util.UnstableApi;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -128,25 +125,8 @@ public abstract class TextOverlay extends BitmapOverlay {
 
   @SuppressLint("InlinedApi") // Inlined Layout constants.
   private StaticLayout createStaticLayout(SpannableString text, TextPaint textPaint, int width) {
-    return SDK_INT >= 23
-        ? Api23.getStaticLayout(text, textPaint, width)
-        : new StaticLayout(
-            text,
-            textPaint,
-            width,
-            Layout.Alignment.ALIGN_NORMAL,
-            Layout.DEFAULT_LINESPACING_MULTIPLIER,
-            Layout.DEFAULT_LINESPACING_ADDITION,
-            /* includepad= */ true);
-  }
-
-  @RequiresApi(23)
-  private static final class Api23 {
-    public static StaticLayout getStaticLayout(
-        SpannableString text, TextPaint textPaint, int width) {
-      return StaticLayout.Builder.obtain(
-              text, /* start= */ 0, /* end= */ text.length(), textPaint, width)
-          .build();
-    }
+    return StaticLayout.Builder.obtain(
+            text, /* start= */ 0, /* end= */ text.length(), textPaint, width)
+        .build();
   }
 }

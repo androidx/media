@@ -70,6 +70,16 @@ public final class FragmentedMp4ExtractorNonParameterizedTest {
     assertThat(incorrectFragmentationSniffFailure.fileIsFragmented).isFalse();
   }
 
+  @Test
+  public void sniff_returnsFalseWithoutPeekingLargeStbl() throws Exception {
+    FragmentedMp4Extractor extractor =
+        new FragmentedMp4Extractor(SubtitleParser.Factory.UNSUPPORTED);
+    FakeExtractorInput input = createInputForSample("large_stbl_truncated_after_moov.m4b");
+
+    assertThat(extractor.sniff(input)).isFalse();
+    assertThat(input.getMaxPeekLimit()).isLessThan(500);
+  }
+
   private static FakeExtractorInput createInputForSample(String sample) throws IOException {
     return new FakeExtractorInput.Builder()
         .setData(

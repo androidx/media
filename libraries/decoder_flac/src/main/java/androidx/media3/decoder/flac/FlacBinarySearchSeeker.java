@@ -15,9 +15,9 @@
  */
 package androidx.media3.decoder.flac;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.max;
 
-import androidx.media3.common.util.Assertions;
 import androidx.media3.extractor.BinarySearchSeeker;
 import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.FlacStreamMetadata;
@@ -78,7 +78,7 @@ import java.nio.ByteBuffer;
         /* ceilingBytePosition= */ inputLength,
         /* approxBytesPerFrame= */ streamMetadata.getApproxBytesPerFrame(),
         /* minimumSearchRange= */ max(MIN_FRAME_HEADER_SIZE, streamMetadata.minFrameSize));
-    this.decoderJni = Assertions.checkNotNull(decoderJni);
+    this.decoderJni = checkNotNull(decoderJni);
   }
 
   @Override

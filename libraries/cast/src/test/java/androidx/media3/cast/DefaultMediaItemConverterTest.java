@@ -118,4 +118,47 @@ public class DefaultMediaItemConverterTest {
 
     assertThat(secondQueueItem.getMedia().getContentId()).isEqualTo("http://example.com");
   }
+
+  @Test
+  public void toMediaQueueItem_withNoMimeType_usesCastMediaTypeMovie() {
+    DefaultMediaItemConverter converter = new DefaultMediaItemConverter();
+    MediaItem mediaItem = new MediaItem.Builder().setUri("http://example.com").build();
+
+    MediaQueueItem queueItem = converter.toMediaQueueItem(mediaItem);
+
+    assertThat(queueItem.getMedia().getMetadata().getMediaType())
+        .isEqualTo(com.google.android.gms.cast.MediaMetadata.MEDIA_TYPE_MOVIE);
+  }
+
+  @Test
+  public void toMediaQueueItem_withAudioMimeType_usesMediaTypeMusicTrack() {
+    DefaultMediaItemConverter converter = new DefaultMediaItemConverter();
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri("http://example.com")
+            .setMimeType(MimeTypes.AUDIO_MPEG)
+            .build();
+
+    MediaQueueItem queueItem = converter.toMediaQueueItem(mediaItem);
+
+    assertThat(queueItem.getMedia().getMetadata().getMediaType())
+        .isEqualTo(com.google.android.gms.cast.MediaMetadata.MEDIA_TYPE_MUSIC_TRACK);
+  }
+
+  @Test
+  public void toMediaQueueItem_withMimeTypeAndMediaType_usesMediaType() {
+    DefaultMediaItemConverter converter = new DefaultMediaItemConverter();
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri("http://example.com")
+            .setMimeType(MimeTypes.APPLICATION_M3U8)
+            .setMediaMetadata(
+                new MediaMetadata.Builder().setMediaType(MediaMetadata.MEDIA_TYPE_MUSIC).build())
+            .build();
+
+    MediaQueueItem queueItem = converter.toMediaQueueItem(mediaItem);
+
+    assertThat(queueItem.getMedia().getMetadata().getMediaType())
+        .isEqualTo(com.google.android.gms.cast.MediaMetadata.MEDIA_TYPE_MUSIC_TRACK);
+  }
 }

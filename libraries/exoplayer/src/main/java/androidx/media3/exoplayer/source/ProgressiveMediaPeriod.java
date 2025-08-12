@@ -15,7 +15,8 @@
  */
 package androidx.media3.exoplayer.source;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
@@ -29,7 +30,6 @@ import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.TrackGroup;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.NullableType;
@@ -308,7 +308,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     for (int i = 0; i < selections.length; i++) {
       if (streams[i] != null && (selections[i] == null || !mayRetainStreamFlags[i])) {
         int track = ((SampleStreamImpl) streams[i]).track;
-        Assertions.checkState(trackEnabledStates[track]);
+        checkState(trackEnabledStates[track]);
         enabledTrackCount--;
         trackEnabledStates[track] = false;
         streams[i] = null;
@@ -323,10 +323,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     for (int i = 0; i < selections.length; i++) {
       if (streams[i] == null && selections[i] != null) {
         ExoTrackSelection selection = selections[i];
-        Assertions.checkState(selection.length() == 1);
-        Assertions.checkState(selection.getIndexInTrackGroup(0) == 0);
+        checkState(selection.length() == 1);
+        checkState(selection.getIndexInTrackGroup(0) == 0);
         int track = tracks.indexOf(selection.getTrackGroup());
-        Assertions.checkState(!trackEnabledStates[track]);
+        checkState(!trackEnabledStates[track]);
         enabledTrackCount++;
         trackEnabledStates[track] = true;
         pendingInitialDiscontinuity |= selection.getSelectedFormat().hasPrerollSamples;
@@ -901,7 +901,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         new ExtractingLoadable(
             uri, dataSource, progressiveMediaExtractor, /* extractorOutput= */ this, loadCondition);
     if (prepared) {
-      Assertions.checkState(isPendingReset());
+      checkState(isPendingReset());
       if (durationUs != C.TIME_UNSET && pendingResetPositionUs > durationUs) {
         loadingFinished = true;
         pendingResetPositionUs = C.TIME_UNSET;
@@ -1020,7 +1020,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @EnsuresNonNull({"trackState", "seekMap"})
   private void assertPrepared() {
-    Assertions.checkState(prepared);
+    checkState(prepared);
     checkNotNull(trackState);
     checkNotNull(seekMap);
   }

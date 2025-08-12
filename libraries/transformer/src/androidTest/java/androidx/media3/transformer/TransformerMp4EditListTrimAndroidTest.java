@@ -16,7 +16,7 @@
 
 package androidx.media3.transformer;
 
-import static androidx.media3.transformer.AndroidTestUtil.MP4_VISUAL_TIMESTAMPS;
+import static androidx.media3.test.utils.TestUtil.MP4_VISUAL_TIMESTAMPS;
 import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;

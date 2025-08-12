@@ -15,10 +15,9 @@
  */
 package androidx.media3.exoplayer.rtsp.reader;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.castNonNull;
 import static androidx.media3.exoplayer.rtsp.reader.RtpReaderUtils.toSampleTimeUs;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import androidx.media3.common.C;
 import androidx.media3.common.ParserException;
@@ -70,6 +69,12 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
   private long startTimeOffsetUs;
 
+  /**
+   * If a Fragmentation Unit is lost then following units corresponding to the same NAL unit should
+   * be discarded (RFC6184 Section 5.8).
+   */
+  boolean discardPacketsUntilNextNalUnit;
+
   /** Creates an instance. */
   public RtpH264Reader(RtpPayloadFormat payloadFormat) {
     this.payloadFormat = payloadFormat;
@@ -100,7 +105,12 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       throw ParserException.createForMalformedManifest(/* message= */ null, e);
     }
 
-    checkStateNotNull(trackOutput);
+    checkNotNull(trackOutput);
+
+    if (rtpH264PacketMode != RTP_PACKET_TYPE_FU_A) {
+      resetReaderStateForNewNalUnit();
+    }
+
     if (rtpH264PacketMode > 0 && rtpH264PacketMode < 24) {
       processSingleNalUnitPacket(data);
     } else if (rtpH264PacketMode == RTP_PACKET_TYPE_STAP_A) {
@@ -113,17 +123,16 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
           /* cause= */ null);
     }
 
-    if (rtpMarker) {
-      if (firstReceivedTimestamp == C.TIME_UNSET) {
-        firstReceivedTimestamp = timestamp;
-      }
+    if (firstReceivedTimestamp == C.TIME_UNSET) {
+      firstReceivedTimestamp = timestamp;
+    }
 
+    if (rtpMarker && !discardPacketsUntilNextNalUnit) {
       long timeUs =
           toSampleTimeUs(
               startTimeOffsetUs, timestamp, firstReceivedTimestamp, MEDIA_CLOCK_FREQUENCY);
       trackOutput.sampleMetadata(
           timeUs, bufferFlags, fragmentedSampleSizeBytes, /* offset= */ 0, /* cryptoData= */ null);
-      fragmentedSampleSizeBytes = 0;
     }
 
     previousSequenceNumber = sequenceNumber;
@@ -250,6 +259,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     boolean isLastFuPacket = (fuHeader & 0x40) > 0;
 
     if (isFirstFuPacket) {
+      resetReaderStateForNewNalUnit();
       // Prepends starter code.
       fragmentedSampleSizeBytes += writeStartCode();
 
@@ -259,9 +269,13 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       fuScratchBuffer.reset(data.getData());
       fuScratchBuffer.setPosition(1);
     } else {
+      if (discardPacketsUntilNextNalUnit) {
+        return;
+      }
       // Check that this packet is in the sequence of the previous packet.
       int expectedSequenceNumber = RtpPacket.getNextSequenceNumber(previousSequenceNumber);
       if (packetSequenceNumber != expectedSequenceNumber) {
+        discardPacketsUntilNextNalUnit = true;
         Log.w(
             TAG,
             Util.formatInvariant(
@@ -290,6 +304,11 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     int bytesWritten = nalStartCodeArray.bytesLeft();
     checkNotNull(trackOutput).sampleData(nalStartCodeArray, bytesWritten);
     return bytesWritten;
+  }
+
+  private void resetReaderStateForNewNalUnit() {
+    discardPacketsUntilNextNalUnit = false;
+    fragmentedSampleSizeBytes = 0;
   }
 
   private static @C.BufferFlags int getBufferFlagsFromNalType(int nalType) {

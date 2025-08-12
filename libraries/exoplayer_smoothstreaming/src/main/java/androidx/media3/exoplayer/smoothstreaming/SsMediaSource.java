@@ -15,7 +15,9 @@
  */
 package androidx.media3.exoplayer.smoothstreaming;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
@@ -31,7 +33,6 @@ import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.StreamKey;
 import androidx.media3.common.Timeline;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
@@ -275,7 +276,7 @@ public final class SsMediaSource extends BaseMediaSource
      * @throws IllegalArgumentException If {@link SsManifest#isLive} is true.
      */
     public SsMediaSource createMediaSource(SsManifest manifest, MediaItem mediaItem) {
-      Assertions.checkArgument(!manifest.isLive);
+      checkArgument(!manifest.isLive);
       List<StreamKey> streamKeys =
           mediaItem.localConfiguration != null
               ? mediaItem.localConfiguration.streamKeys
@@ -404,7 +405,7 @@ public final class SsMediaSource extends BaseMediaSource
       LoadErrorHandlingPolicy loadErrorHandlingPolicy,
       long livePresentationDelayMs,
       @Nullable Supplier<ReleasableExecutor> downloadExecutorSupplier) {
-    Assertions.checkState(manifest == null || !manifest.isLive);
+    checkState(manifest == null || !manifest.isLive);
     this.mediaItem = mediaItem;
     MediaItem.LocalConfiguration localConfiguration = checkNotNull(mediaItem.localConfiguration);
     this.manifest = manifest;

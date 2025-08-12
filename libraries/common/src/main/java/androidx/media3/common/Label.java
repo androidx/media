@@ -15,7 +15,7 @@
  */
 package androidx.media3.common;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.os.Bundle;
 import androidx.annotation.Nullable;

@@ -16,6 +16,7 @@
 package androidx.media3.exoplayer.audio;
 
 import static androidx.media3.common.util.Util.castNonNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.media.AudioTrack;
 import android.media.MediaCodec;
@@ -26,7 +27,6 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Player;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.decoder.DecoderException;
 import androidx.media3.exoplayer.DecoderCounters;
@@ -180,7 +180,7 @@ public interface AudioRendererEventListener {
      */
     public EventDispatcher(
         @Nullable Handler handler, @Nullable AudioRendererEventListener listener) {
-      this.handler = listener != null ? Assertions.checkNotNull(handler) : null;
+      this.handler = listener != null ? checkNotNull(handler) : null;
       this.listener = listener;
     }
 

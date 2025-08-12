@@ -83,8 +83,7 @@ public class DecoderAudioRendererTest {
 
   @Config(sdk = Config.OLDEST_SDK)
   @Test
-  public void supportsFormatAtApi21() {
-    // From API 21, tunneling is supported.
+  public void supportsFormat() {
     assertThat(audioRenderer.supportsFormat(FORMAT))
         .isEqualTo(
             ADAPTIVE_NOT_SEAMLESS | TUNNELING_SUPPORTED | FORMAT_HANDLED | DECODER_SUPPORT_PRIMARY);

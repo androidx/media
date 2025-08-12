@@ -21,6 +21,7 @@ import static androidx.media3.common.Player.PLAYBACK_SUPPRESSION_REASON_NONE;
 import static androidx.media3.common.Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST;
 import static androidx.media3.common.Player.STATE_IDLE;
 import static androidx.media3.common.Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.os.Binder;
 import android.os.Bundle;
@@ -46,7 +47,6 @@ import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.Tracks;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.text.CueGroup;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -387,7 +387,7 @@ import java.util.Objects;
     }
 
     public PlayerInfo build() {
-      Assertions.checkState(
+      checkState(
           timeline.isEmpty()
               || sessionPositionInfo.positionInfo.mediaItemIndex < timeline.getWindowCount());
       return new PlayerInfo(

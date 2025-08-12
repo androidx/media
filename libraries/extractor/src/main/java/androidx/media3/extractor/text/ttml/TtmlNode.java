@@ -15,6 +15,8 @@
  */
 package androidx.media3.extractor.text.ttml;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.text.SpannableStringBuilder;
@@ -23,7 +25,6 @@ import android.util.Pair;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.text.Cue;
-import androidx.media3.common.util.Assertions;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -179,7 +180,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.isTextNode = text != null;
     this.startTimeUs = startTimeUs;
     this.endTimeUs = endTimeUs;
-    this.regionId = Assertions.checkNotNull(regionId);
+    this.regionId = checkNotNull(regionId);
     this.parent = parent;
     nodeStartsByRegion = new HashMap<>();
     nodeEndsByRegion = new HashMap<>();
@@ -270,7 +271,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
       byte[] bitmapData = Base64.decode(encodedBitmapData, Base64.DEFAULT);
       Bitmap bitmap = BitmapFactory.decodeByteArray(bitmapData, /* offset= */ 0, bitmapData.length);
-      TtmlRegion region = Assertions.checkNotNull(regionMap.get(regionImagePair.first));
+      TtmlRegion region = checkNotNull(regionMap.get(regionImagePair.first));
 
       cues.add(
           new Cue.Builder()
@@ -287,9 +288,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     // Create text based cues.
     for (Map.Entry<String, Cue.Builder> entry : regionTextOutputs.entrySet()) {
-      TtmlRegion region = Assertions.checkNotNull(regionMap.get(entry.getKey()));
+      TtmlRegion region = checkNotNull(regionMap.get(entry.getKey()));
       Cue.Builder regionOutput = entry.getValue();
-      cleanUpText((SpannableStringBuilder) Assertions.checkNotNull(regionOutput.getText()));
+      cleanUpText((SpannableStringBuilder) checkNotNull(regionOutput.getText()));
       regionOutput.setLine(region.line, region.lineType);
       regionOutput.setLineAnchor(region.lineAnchor);
       regionOutput.setPosition(region.position);
@@ -329,14 +330,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     String resolvedRegionId = ANONYMOUS_REGION_ID.equals(regionId) ? inheritedRegion : regionId;
 
     if (isTextNode && descendsPNode) {
-      getRegionOutputText(resolvedRegionId, regionOutputs).append(Assertions.checkNotNull(text));
+      getRegionOutputText(resolvedRegionId, regionOutputs).append(checkNotNull(text));
     } else if (TAG_BR.equals(tag) && descendsPNode) {
       getRegionOutputText(resolvedRegionId, regionOutputs).append('\n');
     } else if (isActive(timeUs)) {
       // This is a container node, which can contain zero or more children.
       for (Map.Entry<String, Cue.Builder> entry : regionOutputs.entrySet()) {
-        nodeStartsByRegion.put(
-            entry.getKey(), Assertions.checkNotNull(entry.getValue().getText()).length());
+        nodeStartsByRegion.put(entry.getKey(), checkNotNull(entry.getValue().getText()).length());
       }
 
       boolean isPNode = TAG_P.equals(tag);
@@ -349,8 +349,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       }
 
       for (Map.Entry<String, Cue.Builder> entry : regionOutputs.entrySet()) {
-        nodeEndsByRegion.put(
-            entry.getKey(), Assertions.checkNotNull(entry.getValue().getText()).length());
+        nodeEndsByRegion.put(entry.getKey(), checkNotNull(entry.getValue().getText()).length());
       }
     }
   }
@@ -362,8 +361,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       regionOutput.setText(new SpannableStringBuilder());
       regionOutputs.put(resolvedRegionId, regionOutput);
     }
-    return (SpannableStringBuilder)
-        Assertions.checkNotNull(regionOutputs.get(resolvedRegionId).getText());
+    return (SpannableStringBuilder) checkNotNull(regionOutputs.get(resolvedRegionId).getText());
   }
 
   private void traverseForStyle(
@@ -381,9 +379,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       int start = nodeStartsByRegion.containsKey(regionId) ? nodeStartsByRegion.get(regionId) : 0;
       int end = entry.getValue();
       if (start != end) {
-        Cue.Builder regionOutput = Assertions.checkNotNull(regionOutputs.get(regionId));
+        Cue.Builder regionOutput = checkNotNull(regionOutputs.get(regionId));
         @Cue.VerticalType
-        int verticalType = Assertions.checkNotNull(regionMaps.get(resolvedRegionId)).verticalType;
+        int verticalType = checkNotNull(regionMaps.get(resolvedRegionId)).verticalType;
         applyStyleToOutput(globalStyles, regionOutput, start, end, verticalType);
       }
     }

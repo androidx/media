@@ -151,7 +151,6 @@ public class ForwardingAudioSink implements AudioSink {
     sink.setAuxEffectInfo(auxEffectInfo);
   }
 
-  @RequiresApi(23)
   @Override
   public void setPreferredDevice(@Nullable AudioDeviceInfo audioDeviceInfo) {
     sink.setPreferredDevice(audioDeviceInfo);

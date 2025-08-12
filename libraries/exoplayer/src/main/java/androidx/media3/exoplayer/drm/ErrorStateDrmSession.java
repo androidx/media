@@ -15,9 +15,10 @@
  */
 package androidx.media3.exoplayer.drm;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.decoder.CryptoConfig;
 import java.util.Map;
@@ -30,7 +31,7 @@ public final class ErrorStateDrmSession implements DrmSession {
   private final DrmSessionException error;
 
   public ErrorStateDrmSession(DrmSessionException error) {
-    this.error = Assertions.checkNotNull(error);
+    this.error = checkNotNull(error);
   }
 
   @Override

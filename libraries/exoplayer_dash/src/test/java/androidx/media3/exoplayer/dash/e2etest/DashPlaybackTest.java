@@ -15,11 +15,11 @@
  */
 package androidx.media3.exoplayer.dash.e2etest;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.test.utils.WebServerDispatcher.NOT_FOUND_BODY;
 import static androidx.media3.test.utils.WebServerDispatcher.getRequestPath;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.play;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -687,8 +687,9 @@ public final class DashPlaybackTest {
 
     player.setMediaItem(MediaItem.fromUri("asset:///media/dash/thumbnails/sample.mpd"));
     player.prepare();
+    advance(player).untilState(Player.STATE_READY);
     player.play();
-    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+    advance(player).untilState(Player.STATE_ENDED);
     player.release();
 
     DumpFileAsserts.assertOutput(
@@ -709,11 +710,15 @@ public final class DashPlaybackTest {
     player.setMediaItem(MediaItem.fromUri("asset:///media/dash/thumbnails/sample.mpd"));
     player.seekTo(55_000L);
     player.prepare();
+    advance(player).untilState(Player.STATE_READY);
     player.play();
     TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
 
+    player.pause();
     player.seekTo(55_000L);
-    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+    advance(player).untilState(Player.STATE_READY);
+    player.play();
+    advance(player).untilState(Player.STATE_ENDED);
     player.release();
 
     DumpFileAsserts.assertOutput(

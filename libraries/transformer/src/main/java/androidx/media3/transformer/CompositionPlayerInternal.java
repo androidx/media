@@ -15,12 +15,12 @@
  */
 package androidx.media3.transformer;
 
-import static androidx.media3.common.util.Assertions.checkState;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
-import android.util.Pair;
 import android.view.Surface;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.util.Clock;
@@ -52,17 +52,18 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
   private static final int MSG_START_RENDERING = 1;
   private static final int MSG_STOP_RENDERING = 2;
   private static final int MSG_SET_VOLUME = 3;
-  private static final int MSG_SET_OUTPUT_SURFACE_INFO = 4;
-  private static final int MSG_CLEAR_OUTPUT_SURFACE = 5;
-  private static final int MSG_START_SEEK = 6;
-  private static final int MSG_END_SEEK = 7;
-  private static final int MSG_RELEASE = 8;
+  private static final int MSG_SET_PLAYBACK_AUDIO_GRAPH_WRAPPER = 4;
+  private static final int MSG_SET_OUTPUT_SURFACE_INFO = 5;
+  private static final int MSG_CLEAR_OUTPUT_SURFACE = 6;
+  private static final int MSG_START_SEEK = 7;
+  private static final int MSG_END_SEEK = 8;
+  private static final int MSG_RELEASE = 9;
 
   private final Clock clock;
   private final HandlerWrapper handler;
 
   /** Must be accessed on the playback thread only. */
-  private final PlaybackAudioGraphWrapper playbackAudioGraphWrapper;
+  private PlaybackAudioGraphWrapper playbackAudioGraphWrapper;
 
   /** Must be accessed on the playback thread only. */
   private final PlaybackVideoGraphWrapper playbackVideoGraphWrapper;
@@ -70,7 +71,6 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
   private final Listener listener;
   private final HandlerWrapper listenerHandler;
 
-  private boolean hasSetComposition;
   private boolean released;
 
   /**
@@ -100,10 +100,8 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
 
   // Public methods
 
-  public void setComposition(Composition composition, long startPositionUs) {
-    handler
-        .obtainMessage(MSG_SET_COMPOSITION, Pair.create(composition, startPositionUs))
-        .sendToTarget();
+  public void setComposition(Composition composition) {
+    handler.obtainMessage(MSG_SET_COMPOSITION, composition).sendToTarget();
   }
 
   public void startRendering() {
@@ -128,6 +126,13 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
   /** Clears the output surface from the video pipeline. */
   public void clearOutputSurface() {
     handler.sendEmptyMessage(MSG_CLEAR_OUTPUT_SURFACE);
+  }
+
+  /** Sets a new {@link PlaybackAudioGraphWrapper}. */
+  public void setPlaybackAudioGraphWrapper(PlaybackAudioGraphWrapper playbackAudioGraphWrapper) {
+    handler
+        .obtainMessage(MSG_SET_PLAYBACK_AUDIO_GRAPH_WRAPPER, playbackAudioGraphWrapper)
+        .sendToTarget();
   }
 
   public void startSeek(long positionMs) {
@@ -159,7 +164,6 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
 
   // Handler.Callback methods
 
-  @SuppressWarnings("unchecked")
   @Override
   public boolean handleMessage(Message message) {
     try {
@@ -171,7 +175,10 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
           stopRenderingInternal();
           break;
         case MSG_SET_VOLUME:
-          playbackAudioGraphWrapper.setVolume(/* volume= */ (float) message.obj);
+          checkNotNull(playbackAudioGraphWrapper).setVolume(/* volume= */ (float) message.obj);
+          break;
+        case MSG_SET_PLAYBACK_AUDIO_GRAPH_WRAPPER:
+          playbackAudioGraphWrapper = (PlaybackAudioGraphWrapper) message.obj;
           break;
         case MSG_SET_OUTPUT_SURFACE_INFO:
           setOutputSurfaceInfoOnInternalThread(
@@ -192,7 +199,7 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
           releaseInternal(/* conditionVariable= */ (ConditionVariable) message.obj);
           break;
         case MSG_SET_COMPOSITION:
-          setCompositionInternal((Pair<Composition, Long>) message.obj);
+          setCompositionInternal((Composition) message.obj);
           break;
         default:
           maybeRaiseError(
@@ -211,20 +218,9 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
 
   // Internal methods
 
-  private void setCompositionInternal(Pair<Composition, Long> compositionAndStartTimeUs) {
-    Composition composition = compositionAndStartTimeUs.first;
-    long startTimeUs = compositionAndStartTimeUs.second;
-    if (!hasSetComposition) {
-      // TODO: b/412585856 - Allow setting Composition-level effect on AudioGraph.
-      playbackAudioGraphWrapper.setAudioProcessors(composition.effects.audioProcessors);
-      hasSetComposition = true;
-    }
-
-    // Resets the position of the AudioGraph, or the AudioGraph retains its location in the previous
-    // Composition
-
-    playbackAudioGraphWrapper.startSeek(/* positionUs= */ startTimeUs);
-    playbackAudioGraphWrapper.endSeek();
+  private void setCompositionInternal(Composition composition) {
+    // TODO: b/412585856 - Allow setting Composition-level effect on AudioGraph.
+    playbackAudioGraphWrapper.setAudioProcessors(composition.effects.audioProcessors);
 
     playbackVideoGraphWrapper.setCompositionEffects(composition.effects.videoEffects);
     playbackVideoGraphWrapper.setCompositorSettings(composition.videoCompositorSettings);

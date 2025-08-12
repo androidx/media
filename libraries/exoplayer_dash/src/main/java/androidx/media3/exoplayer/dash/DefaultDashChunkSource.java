@@ -15,8 +15,7 @@
  */
 package androidx.media3.exoplayer.dash;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
@@ -553,8 +552,7 @@ public class DefaultDashChunkSource implements DashChunkSource {
       // where it does we should ignore it.
       if (representationHolder.segmentIndex == null) {
         @Nullable
-        ChunkIndex chunkIndex =
-            checkStateNotNull(representationHolder.chunkExtractor).getChunkIndex();
+        ChunkIndex chunkIndex = checkNotNull(representationHolder.chunkExtractor).getChunkIndex();
         if (chunkIndex != null) {
           representationHolders[trackIndex] =
               representationHolder.copyWithNewSegmentIndex(
@@ -1047,7 +1045,7 @@ public class DefaultDashChunkSource implements DashChunkSource {
             newIndex);
       }
 
-      checkStateNotNull(newIndex);
+      checkNotNull(newIndex);
 
       long oldIndexFirstSegmentNum = oldIndex.getFirstSegmentNum();
       long oldIndexStartTimeUs = oldIndex.getTimeUs(oldIndexFirstSegmentNum);
@@ -1109,47 +1107,45 @@ public class DefaultDashChunkSource implements DashChunkSource {
     }
 
     public long getFirstSegmentNum() {
-      return checkStateNotNull(segmentIndex).getFirstSegmentNum() + segmentNumShift;
+      return checkNotNull(segmentIndex).getFirstSegmentNum() + segmentNumShift;
     }
 
     public long getFirstAvailableSegmentNum(long nowUnixTimeUs) {
-      return checkStateNotNull(segmentIndex)
-              .getFirstAvailableSegmentNum(periodDurationUs, nowUnixTimeUs)
+      return checkNotNull(segmentIndex).getFirstAvailableSegmentNum(periodDurationUs, nowUnixTimeUs)
           + segmentNumShift;
     }
 
     public long getSegmentCount() {
-      return checkStateNotNull(segmentIndex).getSegmentCount(periodDurationUs);
+      return checkNotNull(segmentIndex).getSegmentCount(periodDurationUs);
     }
 
     public long getSegmentStartTimeUs(long segmentNum) {
-      return checkStateNotNull(segmentIndex).getTimeUs(segmentNum - segmentNumShift);
+      return checkNotNull(segmentIndex).getTimeUs(segmentNum - segmentNumShift);
     }
 
     public long getSegmentEndTimeUs(long segmentNum) {
       return getSegmentStartTimeUs(segmentNum)
-          + checkStateNotNull(segmentIndex)
+          + checkNotNull(segmentIndex)
               .getDurationUs(segmentNum - segmentNumShift, periodDurationUs);
     }
 
     public long getSegmentNum(long positionUs) {
-      return checkStateNotNull(segmentIndex).getSegmentNum(positionUs, periodDurationUs)
+      return checkNotNull(segmentIndex).getSegmentNum(positionUs, periodDurationUs)
           + segmentNumShift;
     }
 
     public RangedUri getSegmentUrl(long segmentNum) {
-      return checkStateNotNull(segmentIndex).getSegmentUrl(segmentNum - segmentNumShift);
+      return checkNotNull(segmentIndex).getSegmentUrl(segmentNum - segmentNumShift);
     }
 
     public long getLastAvailableSegmentNum(long nowUnixTimeUs) {
       return getFirstAvailableSegmentNum(nowUnixTimeUs)
-          + checkStateNotNull(segmentIndex)
-              .getAvailableSegmentCount(periodDurationUs, nowUnixTimeUs)
+          + checkNotNull(segmentIndex).getAvailableSegmentCount(periodDurationUs, nowUnixTimeUs)
           - 1;
     }
 
     public boolean isSegmentAvailableAtFullNetworkSpeed(long segmentNum, long nowPeriodTimeUs) {
-      if (checkStateNotNull(segmentIndex).isExplicit()) {
+      if (checkNotNull(segmentIndex).isExplicit()) {
         // We don't support segment availability for explicit indices (internal ref: b/172894901).
         // Hence, also assume all segments in explicit indices are always available at full network
         // speed even if they end in the future.

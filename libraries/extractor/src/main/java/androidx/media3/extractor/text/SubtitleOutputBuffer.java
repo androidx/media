@@ -15,10 +15,11 @@
  */
 package androidx.media3.extractor.text;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.text.Cue;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.decoder.DecoderOutputBuffer;
 import java.util.List;
@@ -48,22 +49,22 @@ public abstract class SubtitleOutputBuffer extends DecoderOutputBuffer implement
 
   @Override
   public int getEventTimeCount() {
-    return Assertions.checkNotNull(subtitle).getEventTimeCount();
+    return checkNotNull(subtitle).getEventTimeCount();
   }
 
   @Override
   public long getEventTime(int index) {
-    return Assertions.checkNotNull(subtitle).getEventTime(index) + subsampleOffsetUs;
+    return checkNotNull(subtitle).getEventTime(index) + subsampleOffsetUs;
   }
 
   @Override
   public int getNextEventTimeIndex(long timeUs) {
-    return Assertions.checkNotNull(subtitle).getNextEventTimeIndex(timeUs - subsampleOffsetUs);
+    return checkNotNull(subtitle).getNextEventTimeIndex(timeUs - subsampleOffsetUs);
   }
 
   @Override
   public List<Cue> getCues(long timeUs) {
-    return Assertions.checkNotNull(subtitle).getCues(timeUs - subsampleOffsetUs);
+    return checkNotNull(subtitle).getCues(timeUs - subsampleOffsetUs);
   }
 
   @Override

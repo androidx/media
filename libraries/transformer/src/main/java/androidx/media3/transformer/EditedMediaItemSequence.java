@@ -15,7 +15,7 @@
  */
 package androidx.media3.transformer;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
+import static com.google.common.base.Preconditions.checkArgument;
 
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.audio.AudioProcessor;
@@ -172,21 +172,24 @@ public final class EditedMediaItemSequence {
     /**
      * Forces blank frames in the {@linkplain EditedMediaItemSequence sequence}.
      *
-     * <p>This flag is necessary when:
+     * <p>This flag is essential for proper behavior with both {@link Transformer} and {@link
+     * CompositionPlayer} sequences that include {@linkplain #addGap(long) gaps}.
      *
      * <ul>
-     *   <li>The first {@link EditedMediaItem} in the sequence does not contain video, but
-     *       subsequent items do.
-     *   <li>The first item in the sequence is a {@linkplain #addGap(long) gap} and the subsequent
-     *       {@linkplain EditedMediaItem media items} contain video.
+     *   <li>For {@link Transformer}, you must set this flag if:
+     *       <ul>
+     *         <li>The first {@link EditedMediaItem} in the sequence does not contain video, but
+     *             subsequent items do.
+     *         <li>The first item in the sequence is a {@linkplain #addGap(long) gap} and the
+     *             subsequent {@linkplain EditedMediaItem media items} contain video.
+     *       </ul>
+     *       Failing to set it appropriately will cause the export to {@linkplain
+     *       Transformer.Listener#onError(Composition, ExportResult, ExportException) fail}.
+     *   <li>For {@link CompositionPlayer}, you must set this flag whenever the sequence contains
+     *       any gaps, regardless of their position in the sequence.
      * </ul>
      *
-     * <p>If the flag is not set appropriately, then the export will {@linkplain
-     * Transformer.Listener#onError(Composition, ExportResult, ExportException) fail}.
-     *
-     * <p>If the first {@link EditedMediaItem} already contains video, this flag has no effect.
-     *
-     * <p>The MIME type of the output's video track can be set using {@link
+     * <p>For export, the MIME type of the output's video track can be set using {@link
      * Transformer.Builder#setVideoMimeType(String)}.
      *
      * <p>The output resolution must be set using a {@link Presentation} effect on the {@link

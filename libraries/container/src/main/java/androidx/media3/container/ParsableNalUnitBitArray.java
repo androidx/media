@@ -15,7 +15,8 @@
  */
 package androidx.media3.container;
 
-import androidx.media3.common.util.Assertions;
+import static com.google.common.base.Preconditions.checkState;
+
 import androidx.media3.common.util.UnstableApi;
 
 /**
@@ -216,7 +217,7 @@ public final class ParsableNalUnitBitArray {
 
   private void assertValidOffset() {
     // It is fine for position to be at the end of the array, but no further.
-    Assertions.checkState(
+    checkState(
         byteOffset >= 0 && (byteOffset < byteLimit || (byteOffset == byteLimit && bitOffset == 0)));
   }
 }

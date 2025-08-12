@@ -15,8 +15,8 @@
  */
 package androidx.media3.transformer;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.extractor.metadata.mp4.SlowMotionData.Segment.BY_START_THEN_END_THEN_DIVISOR;
+import static com.google.common.base.Preconditions.checkArgument;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;

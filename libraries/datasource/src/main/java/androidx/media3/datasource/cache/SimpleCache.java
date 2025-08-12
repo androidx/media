@@ -15,11 +15,13 @@
  */
 package androidx.media3.datasource.cache;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+
 import android.os.ConditionVariable;
 import androidx.annotation.Nullable;
 import androidx.annotation.WorkerThread;
 import androidx.media3.common.C;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -275,9 +277,9 @@ public final class SimpleCache implements Cache {
 
   @Override
   public synchronized NavigableSet<CacheSpan> addListener(String key, Listener listener) {
-    Assertions.checkState(!released);
-    Assertions.checkNotNull(key);
-    Assertions.checkNotNull(listener);
+    checkState(!released);
+    checkNotNull(key);
+    checkNotNull(listener);
     ArrayList<Listener> listenersForKey = listeners.get(key);
     if (listenersForKey == null) {
       listenersForKey = new ArrayList<>();
@@ -303,7 +305,7 @@ public final class SimpleCache implements Cache {
 
   @Override
   public synchronized NavigableSet<CacheSpan> getCachedSpans(String key) {
-    Assertions.checkState(!released);
+    checkState(!released);
     CachedContent cachedContent = contentIndex.get(key);
     return cachedContent == null || cachedContent.isEmpty()
         ? new TreeSet<>()
@@ -312,20 +314,20 @@ public final class SimpleCache implements Cache {
 
   @Override
   public synchronized Set<String> getKeys() {
-    Assertions.checkState(!released);
+    checkState(!released);
     return new HashSet<>(contentIndex.getKeys());
   }
 
   @Override
   public synchronized long getCacheSpace() {
-    Assertions.checkState(!released);
+    checkState(!released);
     return totalSpace;
   }
 
   @Override
   public synchronized CacheSpan startReadWrite(String key, long position, long length)
       throws InterruptedException, CacheException {
-    Assertions.checkState(!released);
+    checkState(!released);
     checkInitialization();
 
     while (true) {
@@ -347,7 +349,7 @@ public final class SimpleCache implements Cache {
   @Nullable
   public synchronized CacheSpan startReadWriteNonBlocking(String key, long position, long length)
       throws CacheException {
-    Assertions.checkState(!released);
+    checkState(!released);
     checkInitialization();
 
     SimpleCacheSpan span = getSpan(key, position, length);
@@ -369,12 +371,12 @@ public final class SimpleCache implements Cache {
 
   @Override
   public synchronized File startFile(String key, long position, long length) throws CacheException {
-    Assertions.checkState(!released);
+    checkState(!released);
     checkInitialization();
 
     CachedContent cachedContent = contentIndex.get(key);
-    Assertions.checkNotNull(cachedContent);
-    Assertions.checkState(cachedContent.isFullyLocked(position, length));
+    checkNotNull(cachedContent);
+    checkState(cachedContent.isFullyLocked(position, length));
     if (!cacheDir.exists()) {
       // The cache directory has been deleted from underneath us. Recreate it, and remove in-memory
       // spans corresponding to cache files that no longer exist.
@@ -394,7 +396,7 @@ public final class SimpleCache implements Cache {
 
   @Override
   public synchronized void commitFile(File file, long length) throws CacheException {
-    Assertions.checkState(!released);
+    checkState(!released);
     if (!file.exists()) {
       return;
     }
@@ -404,14 +406,14 @@ public final class SimpleCache implements Cache {
     }
 
     SimpleCacheSpan span =
-        Assertions.checkNotNull(SimpleCacheSpan.createCacheEntry(file, length, contentIndex));
-    CachedContent cachedContent = Assertions.checkNotNull(contentIndex.get(span.key));
-    Assertions.checkState(cachedContent.isFullyLocked(span.position, span.length));
+        checkNotNull(SimpleCacheSpan.createCacheEntry(file, length, contentIndex));
+    CachedContent cachedContent = checkNotNull(contentIndex.get(span.key));
+    checkState(cachedContent.isFullyLocked(span.position, span.length));
 
     // Check if the span conflicts with the set content length
     long contentLength = ContentMetadata.getContentLength(cachedContent.getMetadata());
     if (contentLength != C.LENGTH_UNSET) {
-      Assertions.checkState((span.position + span.length) <= contentLength);
+      checkState((span.position + span.length) <= contentLength);
     }
 
     if (fileIndex != null) {
@@ -433,8 +435,8 @@ public final class SimpleCache implements Cache {
 
   @Override
   public synchronized void releaseHoleSpan(CacheSpan holeSpan) {
-    Assertions.checkState(!released);
-    CachedContent cachedContent = Assertions.checkNotNull(contentIndex.get(holeSpan.key));
+    checkState(!released);
+    CachedContent cachedContent = checkNotNull(contentIndex.get(holeSpan.key));
     cachedContent.unlockRange(holeSpan.position);
     contentIndex.maybeRemove(cachedContent.key);
     notifyAll();
@@ -442,7 +444,7 @@ public final class SimpleCache implements Cache {
 
   @Override
   public synchronized void removeResource(String key) {
-    Assertions.checkState(!released);
+    checkState(!released);
     for (CacheSpan span : getCachedSpans(key)) {
       removeSpanInternal(span);
     }
@@ -450,20 +452,20 @@ public final class SimpleCache implements Cache {
 
   @Override
   public synchronized void removeSpan(CacheSpan span) {
-    Assertions.checkState(!released);
+    checkState(!released);
     removeSpanInternal(span);
   }
 
   @Override
   public synchronized boolean isCached(String key, long position, long length) {
-    Assertions.checkState(!released);
+    checkState(!released);
     @Nullable CachedContent cachedContent = contentIndex.get(key);
     return cachedContent != null && cachedContent.getCachedBytesLength(position, length) >= length;
   }
 
   @Override
   public synchronized long getCachedLength(String key, long position, long length) {
-    Assertions.checkState(!released);
+    checkState(!released);
     if (length == C.LENGTH_UNSET) {
       length = Long.MAX_VALUE;
     }
@@ -497,7 +499,7 @@ public final class SimpleCache implements Cache {
   @Override
   public synchronized void applyContentMetadataMutations(
       String key, ContentMetadataMutations mutations) throws CacheException {
-    Assertions.checkState(!released);
+    checkState(!released);
     checkInitialization();
 
     contentIndex.applyContentMetadataMutations(key, mutations);
@@ -510,7 +512,7 @@ public final class SimpleCache implements Cache {
 
   @Override
   public synchronized ContentMetadata getContentMetadata(String key) {
-    Assertions.checkState(!released);
+    checkState(!released);
     return contentIndex.getContentMetadata(key);
   }
 
@@ -636,7 +638,7 @@ public final class SimpleCache implements Cache {
     if (!touchCacheSpans) {
       return span;
     }
-    String fileName = Assertions.checkNotNull(span.file).getName();
+    String fileName = checkNotNull(span.file).getName();
     long length = span.length;
     long lastTouchTimestamp = System.currentTimeMillis();
     boolean updateFile = false;
@@ -652,7 +654,7 @@ public final class SimpleCache implements Cache {
       updateFile = true;
     }
     SimpleCacheSpan newSpan =
-        Assertions.checkNotNull(contentIndex.get(key))
+        checkNotNull(contentIndex.get(key))
             .setLastTouchTimestamp(span, lastTouchTimestamp, updateFile);
     notifySpanTouched(span, newSpan);
     return newSpan;
@@ -674,7 +676,7 @@ public final class SimpleCache implements Cache {
     }
     while (true) {
       SimpleCacheSpan span = cachedContent.getSpan(position, length);
-      if (span.isCached && Assertions.checkNotNull(span.file).length() != span.length) {
+      if (span.isCached && checkNotNull(span.file).length() != span.length) {
         // The file has been modified or deleted underneath us. It's likely that other files will
         // have been modified too, so scan the whole in-memory representation.
         removeStaleSpans();
@@ -702,7 +704,7 @@ public final class SimpleCache implements Cache {
     }
     totalSpace -= span.length;
     if (fileIndex != null) {
-      String fileName = Assertions.checkNotNull(span.file).getName();
+      String fileName = checkNotNull(span.file).getName();
       try {
         fileIndex.remove(fileName);
       } catch (IOException e) {
@@ -723,7 +725,7 @@ public final class SimpleCache implements Cache {
     ArrayList<CacheSpan> spansToBeRemoved = new ArrayList<>();
     for (CachedContent cachedContent : contentIndex.getAll()) {
       for (CacheSpan span : cachedContent.getSpans()) {
-        if (Assertions.checkNotNull(span.file).length() != span.length) {
+        if (checkNotNull(span.file).length() != span.length) {
           spansToBeRemoved.add(span);
         }
       }

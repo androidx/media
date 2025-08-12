@@ -69,6 +69,7 @@ import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.runUnti
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.runUntilPositionDiscontinuity;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.runUntilSleepingForOffload;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.runUntilTimelineChanged;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.Arrays.stream;
@@ -135,8 +136,8 @@ import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.TrackSelectionParameters.AudioOffloadPreferences;
 import androidx.media3.common.Tracks;
 import androidx.media3.common.VideoSize;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Clock;
+import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.SystemClock;
@@ -228,7 +229,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -4493,192 +4493,6 @@ public final class ExoPlayerTest {
   }
 
   @Test
-  public void audioFocus_grantedWhenCallingPlay_startsPlayback() throws Exception {
-    AudioManager audioManager = context.getSystemService(AudioManager.class);
-    shadowOf(audioManager).setNextFocusRequestResponse(AudioManager.AUDIOFOCUS_REQUEST_GRANTED);
-    Listener listener = mock(Player.Listener.class);
-    ExoPlayer player = new TestExoPlayerBuilder(context).build();
-    player.setAudioAttributes(AudioAttributes.DEFAULT, /* handleAudioFocus= */ true);
-    player.addListener(listener);
-    player.setMediaSource(new FakeMediaSource());
-    player.prepare();
-
-    player.play();
-    advance(player).untilPendingCommandsAreFullyHandled();
-    boolean playWhenReady = player.getPlayWhenReady();
-    @Player.PlaybackSuppressionReason int suppressionReason = player.getPlaybackSuppressionReason();
-    player.release();
-
-    assertThat(playWhenReady).isTrue();
-    assertThat(suppressionReason).isEqualTo(Player.PLAYBACK_SUPPRESSION_REASON_NONE);
-    verify(listener, never()).onPlaybackSuppressionReasonChanged(anyInt());
-    verify(listener)
-        .onPlayWhenReadyChanged(
-            /* playWhenReady= */ true, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST);
-  }
-
-  @Test
-  public void audioFocus_deniedWhenCallingPlay_doesNotPlay() throws Exception {
-    AudioManager audioManager = context.getSystemService(AudioManager.class);
-    shadowOf(audioManager).setNextFocusRequestResponse(AudioManager.AUDIOFOCUS_REQUEST_FAILED);
-    Listener listener = mock(Player.Listener.class);
-    ExoPlayer player = new TestExoPlayerBuilder(context).build();
-    player.setAudioAttributes(AudioAttributes.DEFAULT, /* handleAudioFocus= */ true);
-    player.addListener(listener);
-    player.setMediaSource(new FakeMediaSource());
-    player.prepare();
-
-    player.play();
-    boolean playWhenReadyInitial = player.getPlayWhenReady();
-    @Player.PlaybackSuppressionReason
-    int suppressionReasonInitial = player.getPlaybackSuppressionReason();
-    advance(player).untilPendingCommandsAreFullyHandled();
-    boolean playWhenReadyFinal = player.getPlayWhenReady();
-    @Player.PlaybackSuppressionReason
-    int suppressionReasonFinal = player.getPlaybackSuppressionReason();
-    player.release();
-
-    assertThat(playWhenReadyInitial).isTrue();
-    assertThat(suppressionReasonInitial).isEqualTo(Player.PLAYBACK_SUPPRESSION_REASON_NONE);
-    assertThat(playWhenReadyFinal).isFalse();
-    assertThat(suppressionReasonFinal).isEqualTo(Player.PLAYBACK_SUPPRESSION_REASON_NONE);
-    verify(listener, never()).onPlaybackSuppressionReasonChanged(anyInt());
-    verify(listener)
-        .onPlayWhenReadyChanged(
-            /* playWhenReady= */ false, Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS);
-  }
-
-  @Test
-  public void audioFocus_lossWhilePlaying_pausesPlayback() throws Exception {
-    AudioManager audioManager = context.getSystemService(AudioManager.class);
-    shadowOf(audioManager).setNextFocusRequestResponse(AudioManager.AUDIOFOCUS_REQUEST_GRANTED);
-    Listener listener = mock(Player.Listener.class);
-    ExoPlayer player = new TestExoPlayerBuilder(context).build();
-    player.setAudioAttributes(AudioAttributes.DEFAULT, /* handleAudioFocus= */ true);
-    player.addListener(listener);
-    player.setMediaSource(new FakeMediaSource());
-    player.prepare();
-    player.play();
-    advance(player).untilPendingCommandsAreFullyHandled();
-
-    triggerAudioFocusChangeListener(player, AudioManager.AUDIOFOCUS_LOSS);
-    advance(player).untilPendingCommandsAreFullyHandled();
-    boolean playWhenReady = player.getPlayWhenReady();
-    @Player.PlaybackSuppressionReason int suppressionReason = player.getPlaybackSuppressionReason();
-    player.release();
-
-    assertThat(playWhenReady).isFalse();
-    assertThat(suppressionReason).isEqualTo(Player.PLAYBACK_SUPPRESSION_REASON_NONE);
-    verify(listener, never()).onPlaybackSuppressionReasonChanged(anyInt());
-    InOrder inOrder = inOrder(listener);
-    inOrder
-        .verify(listener)
-        .onPlayWhenReadyChanged(
-            /* playWhenReady= */ true, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST);
-    inOrder
-        .verify(listener)
-        .onPlayWhenReadyChanged(
-            /* playWhenReady= */ false, Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS);
-  }
-
-  @Test
-  public void audioFocus_transientLossAndGainWhilePlaying_suppressesPlaybackWhileLost()
-      throws Exception {
-    AudioManager audioManager = context.getSystemService(AudioManager.class);
-    shadowOf(audioManager).setNextFocusRequestResponse(AudioManager.AUDIOFOCUS_REQUEST_GRANTED);
-    Listener listener = mock(Player.Listener.class);
-    ExoPlayer player = new TestExoPlayerBuilder(context).build();
-    player.setAudioAttributes(AudioAttributes.DEFAULT, /* handleAudioFocus= */ true);
-    player.addListener(listener);
-    player.setMediaSource(new FakeMediaSource());
-    player.prepare();
-    player.play();
-    advance(player).untilPendingCommandsAreFullyHandled();
-
-    triggerAudioFocusChangeListener(player, AudioManager.AUDIOFOCUS_LOSS_TRANSIENT);
-    advance(player).untilPendingCommandsAreFullyHandled();
-    boolean playWhenReady = player.getPlayWhenReady();
-    @Player.PlaybackSuppressionReason int suppressionReason = player.getPlaybackSuppressionReason();
-    triggerAudioFocusChangeListener(player, AudioManager.AUDIOFOCUS_GAIN);
-    advance(player).untilPendingCommandsAreFullyHandled();
-    boolean playWhenReadyAfterGain = player.getPlayWhenReady();
-    @Player.PlaybackSuppressionReason
-    int suppressionReasonAfterGain = player.getPlaybackSuppressionReason();
-    player.release();
-
-    assertThat(playWhenReady).isTrue();
-    assertThat(suppressionReason)
-        .isEqualTo(Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS);
-    assertThat(playWhenReadyAfterGain).isTrue();
-    assertThat(suppressionReasonAfterGain).isEqualTo(Player.PLAYBACK_SUPPRESSION_REASON_NONE);
-    InOrder inOrder = inOrder(listener);
-    inOrder
-        .verify(listener)
-        .onPlayWhenReadyChanged(
-            /* playWhenReady= */ true, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST);
-    inOrder
-        .verify(listener)
-        .onPlaybackSuppressionReasonChanged(
-            Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS);
-    inOrder
-        .verify(listener)
-        .onPlaybackSuppressionReasonChanged(Player.PLAYBACK_SUPPRESSION_REASON_NONE);
-    verify(listener, never())
-        .onPlayWhenReadyChanged(
-            /* playWhenReady= */ false, Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS);
-  }
-
-  @Test
-  public void audioFocus_pauseDuringTransientLossWhilePlaying_keepsPlaybackPausedAndSuppressed()
-      throws Exception {
-    AudioManager audioManager = context.getSystemService(AudioManager.class);
-    shadowOf(audioManager).setNextFocusRequestResponse(AudioManager.AUDIOFOCUS_REQUEST_GRANTED);
-    Listener listener = mock(Player.Listener.class);
-    ExoPlayer player = new TestExoPlayerBuilder(context).build();
-    player.setAudioAttributes(AudioAttributes.DEFAULT, /* handleAudioFocus= */ true);
-    player.addListener(listener);
-    player.setMediaSource(new FakeMediaSource());
-    player.prepare();
-    player.play();
-    advance(player).untilPendingCommandsAreFullyHandled();
-
-    triggerAudioFocusChangeListener(player, AudioManager.AUDIOFOCUS_LOSS_TRANSIENT);
-    advance(player).untilPendingCommandsAreFullyHandled();
-    player.pause();
-    boolean playWhenReadyInitial = player.getPlayWhenReady();
-    @Player.PlaybackSuppressionReason
-    int suppressionReasonInitial = player.getPlaybackSuppressionReason();
-    advance(player).untilPendingCommandsAreFullyHandled();
-    boolean playWhenReadyFinal = player.getPlayWhenReady();
-    @Player.PlaybackSuppressionReason
-    int suppressionReasonFinal = player.getPlaybackSuppressionReason();
-    player.release();
-
-    assertThat(playWhenReadyInitial).isFalse();
-    assertThat(suppressionReasonInitial)
-        .isEqualTo(Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS);
-    assertThat(playWhenReadyFinal).isFalse();
-    assertThat(suppressionReasonFinal)
-        .isEqualTo(Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS);
-    InOrder inOrder = inOrder(listener);
-    inOrder
-        .verify(listener)
-        .onPlayWhenReadyChanged(
-            /* playWhenReady= */ true, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST);
-    inOrder
-        .verify(listener)
-        .onPlaybackSuppressionReasonChanged(
-            Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS);
-    inOrder
-        .verify(listener)
-        .onPlayWhenReadyChanged(
-            /* playWhenReady= */ false, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST);
-    verify(listener, never())
-        .onPlayWhenReadyChanged(
-            /* playWhenReady= */ false, Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS);
-  }
-
-  @Test
   public void audioFocus_transientLossDuckWhilePlaying_continuesPlaybackWithLowerVolume()
       throws Exception {
     AudioManager audioManager = context.getSystemService(AudioManager.class);
@@ -4766,196 +4580,6 @@ public final class ExoPlayerTest {
         .onPlayWhenReadyChanged(
             /* playWhenReady= */ false, Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS);
     assertThat(lastAudioVolume.get()).isEqualTo(0.9f);
-  }
-
-  @Test
-  public void audioFocus_lossWhilePaused_rereportsPausedWithFocusLoss() throws Exception {
-    AudioManager audioManager = context.getSystemService(AudioManager.class);
-    shadowOf(audioManager).setNextFocusRequestResponse(AudioManager.AUDIOFOCUS_REQUEST_GRANTED);
-    Listener listener = mock(Player.Listener.class);
-    ExoPlayer player = new TestExoPlayerBuilder(context).build();
-    player.setAudioAttributes(AudioAttributes.DEFAULT, /* handleAudioFocus= */ true);
-    player.addListener(listener);
-    player.setMediaSource(new FakeMediaSource());
-    player.prepare();
-    player.play();
-    advance(player).untilPendingCommandsAreFullyHandled();
-
-    player.pause();
-    triggerAudioFocusChangeListener(player, AudioManager.AUDIOFOCUS_LOSS);
-    advance(player).untilPendingCommandsAreFullyHandled();
-    boolean playWhenReady = player.getPlayWhenReady();
-    @Player.PlaybackSuppressionReason int suppressionReason = player.getPlaybackSuppressionReason();
-    player.release();
-
-    assertThat(playWhenReady).isFalse();
-    assertThat(suppressionReason).isEqualTo(Player.PLAYBACK_SUPPRESSION_REASON_NONE);
-    verify(listener, never()).onPlaybackSuppressionReasonChanged(anyInt());
-    InOrder inOrder = inOrder(listener);
-    inOrder
-        .verify(listener)
-        .onPlayWhenReadyChanged(
-            /* playWhenReady= */ true, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST);
-    inOrder
-        .verify(listener)
-        .onPlayWhenReadyChanged(
-            /* playWhenReady= */ false, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST);
-    inOrder
-        .verify(listener)
-        .onPlayWhenReadyChanged(
-            /* playWhenReady= */ false, Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS);
-  }
-
-  @Test
-  public void audioFocus_transientLossAndGainWhilePaused_suppressesPlayback() throws Exception {
-    AudioManager audioManager = context.getSystemService(AudioManager.class);
-    shadowOf(audioManager).setNextFocusRequestResponse(AudioManager.AUDIOFOCUS_REQUEST_GRANTED);
-    Listener listener = mock(Player.Listener.class);
-    ExoPlayer player = new TestExoPlayerBuilder(context).build();
-    player.setAudioAttributes(AudioAttributes.DEFAULT, /* handleAudioFocus= */ true);
-    player.addListener(listener);
-    player.setMediaSource(new FakeMediaSource());
-    player.prepare();
-    player.play();
-    advance(player).untilPendingCommandsAreFullyHandled();
-
-    player.pause();
-    triggerAudioFocusChangeListener(player, AudioManager.AUDIOFOCUS_LOSS_TRANSIENT);
-    advance(player).untilPendingCommandsAreFullyHandled();
-    boolean playWhenReady = player.getPlayWhenReady();
-    @Player.PlaybackSuppressionReason int suppressionReason = player.getPlaybackSuppressionReason();
-    triggerAudioFocusChangeListener(player, AudioManager.AUDIOFOCUS_GAIN);
-    advance(player).untilPendingCommandsAreFullyHandled();
-    boolean playWhenReadyAfterGain = player.getPlayWhenReady();
-    @Player.PlaybackSuppressionReason
-    int suppressionReasonAfterGain = player.getPlaybackSuppressionReason();
-    player.release();
-
-    assertThat(playWhenReady).isFalse();
-    assertThat(playWhenReadyAfterGain).isFalse();
-    assertThat(suppressionReason)
-        .isEqualTo(Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS);
-    assertThat(suppressionReasonAfterGain).isEqualTo(Player.PLAYBACK_SUPPRESSION_REASON_NONE);
-    InOrder inOrder = inOrder(listener);
-    inOrder
-        .verify(listener)
-        .onPlayWhenReadyChanged(
-            /* playWhenReady= */ true, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST);
-    inOrder
-        .verify(listener)
-        .onPlayWhenReadyChanged(
-            /* playWhenReady= */ false, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST);
-    inOrder
-        .verify(listener)
-        .onPlaybackSuppressionReasonChanged(
-            Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS);
-    inOrder
-        .verify(listener)
-        .onPlaybackSuppressionReasonChanged(Player.PLAYBACK_SUPPRESSION_REASON_NONE);
-    verify(listener, never())
-        .onPlayWhenReadyChanged(
-            /* playWhenReady= */ false, Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS);
-  }
-
-  @Test
-  public void audioFocus_playDuringTransientLossWhilePaused_continuesPlayback() throws Exception {
-    AudioManager audioManager = context.getSystemService(AudioManager.class);
-    shadowOf(audioManager).setNextFocusRequestResponse(AudioManager.AUDIOFOCUS_REQUEST_GRANTED);
-    Listener listener = mock(Player.Listener.class);
-    ExoPlayer player = new TestExoPlayerBuilder(context).build();
-    player.setAudioAttributes(AudioAttributes.DEFAULT, /* handleAudioFocus= */ true);
-    player.addListener(listener);
-    player.setMediaSource(new FakeMediaSource());
-    player.prepare();
-    player.play();
-    advance(player).untilPendingCommandsAreFullyHandled();
-
-    player.pause();
-    triggerAudioFocusChangeListener(player, AudioManager.AUDIOFOCUS_LOSS_TRANSIENT);
-    advance(player).untilPendingCommandsAreFullyHandled();
-    player.play();
-    boolean playWhenReadyInitial = player.getPlayWhenReady();
-    @Player.PlaybackSuppressionReason
-    int suppressionReasonInitial = player.getPlaybackSuppressionReason();
-    advance(player).untilPendingCommandsAreFullyHandled();
-    boolean playWhenReadyFinal = player.getPlayWhenReady();
-    @Player.PlaybackSuppressionReason
-    int suppressionReasonFinal = player.getPlaybackSuppressionReason();
-    player.release();
-
-    assertThat(playWhenReadyInitial).isTrue();
-    assertThat(suppressionReasonInitial).isEqualTo(Player.PLAYBACK_SUPPRESSION_REASON_NONE);
-    assertThat(playWhenReadyFinal).isTrue();
-    assertThat(suppressionReasonFinal).isEqualTo(Player.PLAYBACK_SUPPRESSION_REASON_NONE);
-    InOrder inOrder = inOrder(listener);
-    inOrder
-        .verify(listener)
-        .onPlayWhenReadyChanged(
-            /* playWhenReady= */ true, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST);
-    inOrder
-        .verify(listener)
-        .onPlayWhenReadyChanged(
-            /* playWhenReady= */ false, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST);
-    inOrder
-        .verify(listener)
-        .onPlaybackSuppressionReasonChanged(
-            Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS);
-    inOrder
-        .verify(listener)
-        .onPlayWhenReadyChanged(
-            /* playWhenReady= */ true, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST);
-    inOrder
-        .verify(listener)
-        .onPlaybackSuppressionReasonChanged(Player.PLAYBACK_SUPPRESSION_REASON_NONE);
-    verify(listener, never())
-        .onPlayWhenReadyChanged(
-            /* playWhenReady= */ false, Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS);
-  }
-
-  @Test
-  public void audioFocus_playDuringTransientLossWhilePlaying_continuesPlayback() throws Exception {
-    AudioManager audioManager = context.getSystemService(AudioManager.class);
-    shadowOf(audioManager).setNextFocusRequestResponse(AudioManager.AUDIOFOCUS_REQUEST_GRANTED);
-    Listener listener = mock(Player.Listener.class);
-    ExoPlayer player = new TestExoPlayerBuilder(context).build();
-    player.setAudioAttributes(AudioAttributes.DEFAULT, /* handleAudioFocus= */ true);
-    player.addListener(listener);
-    player.setMediaSource(new FakeMediaSource());
-    player.prepare();
-    player.play();
-    advance(player).untilPendingCommandsAreFullyHandled();
-
-    triggerAudioFocusChangeListener(player, AudioManager.AUDIOFOCUS_LOSS_TRANSIENT);
-    advance(player).untilPendingCommandsAreFullyHandled();
-    player.play();
-    boolean playWhenReadyInitial = player.getPlayWhenReady();
-    @Player.PlaybackSuppressionReason
-    int suppressionReasonInitial = player.getPlaybackSuppressionReason();
-    advance(player).untilPendingCommandsAreFullyHandled();
-    boolean playWhenReadyFinal = player.getPlayWhenReady();
-    @Player.PlaybackSuppressionReason
-    int suppressionReasonFinal = player.getPlaybackSuppressionReason();
-    player.release();
-
-    assertThat(playWhenReadyInitial).isTrue();
-    assertThat(suppressionReasonInitial).isEqualTo(Player.PLAYBACK_SUPPRESSION_REASON_NONE);
-    assertThat(playWhenReadyFinal).isTrue();
-    assertThat(suppressionReasonFinal).isEqualTo(Player.PLAYBACK_SUPPRESSION_REASON_NONE);
-    InOrder inOrder = inOrder(listener);
-    inOrder
-        .verify(listener)
-        .onPlayWhenReadyChanged(
-            /* playWhenReady= */ true, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST);
-    inOrder
-        .verify(listener)
-        .onPlaybackSuppressionReasonChanged(
-            Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS);
-    inOrder
-        .verify(listener)
-        .onPlaybackSuppressionReasonChanged(Player.PLAYBACK_SUPPRESSION_REASON_NONE);
-    verify(listener, never())
-        .onPlayWhenReadyChanged(
-            /* playWhenReady= */ false, Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS);
   }
 
   @Test
@@ -6797,7 +6421,7 @@ public final class ExoPlayerTest {
   }
 
   @Test
-  public void loadControlNeverWantsToLoad_throwsIllegalStateException() {
+  public void loadControlNeverWantsToLoad_throwsStuckPlayerException() {
     LoadControl neverLoadingLoadControl =
         new DefaultLoadControl() {
           @Override
@@ -6832,7 +6456,10 @@ public final class ExoPlayerTest {
                     .start()
                     .blockUntilEnded(TIMEOUT_MS));
     assertThat(exception.type).isEqualTo(ExoPlaybackException.TYPE_UNEXPECTED);
-    assertThat(exception.getUnexpectedException()).isInstanceOf(IllegalStateException.class);
+    RuntimeException cause = exception.getUnexpectedException();
+    assertThat(cause).isInstanceOf(StuckPlayerException.class);
+    assertThat(((StuckPlayerException) cause).stuckType)
+        .isEqualTo(StuckPlayerException.STUCK_BUFFERING_NOT_LOADING);
   }
 
   @Test
@@ -9938,10 +9565,11 @@ public final class ExoPlayerTest {
 
   @Test
   public void
-      infiniteLoading_withSmallAllocations_oomIsPreventedByLoadControl_andThrowsStuckBufferingIllegalStateException() {
+      infiniteLoading_withSmallAllocations_oomIsPreventedByLoadControl_andThrowsStuckPlayerException() {
     DefaultLoadControl loadControl =
         new DefaultLoadControl.Builder()
             .setTargetBufferBytes(10 * C.DEFAULT_BUFFER_SEGMENT_SIZE)
+            .setPrioritizeTimeOverSizeThresholds(false)
             .build();
     // Return no end of stream signal to prevent playback from ending.
     FakeMediaPeriod.TrackDataFactory trackDataWithoutEos = (format, periodId) -> ImmutableList.of();
@@ -10007,7 +9635,10 @@ public final class ExoPlayerTest {
         assertThrows(
             ExoPlaybackException.class, () -> testRunner.start().blockUntilEnded(TIMEOUT_MS));
     assertThat(exception.type).isEqualTo(ExoPlaybackException.TYPE_UNEXPECTED);
-    assertThat(exception.getUnexpectedException()).isInstanceOf(IllegalStateException.class);
+    RuntimeException cause = exception.getUnexpectedException();
+    assertThat(cause).isInstanceOf(StuckPlayerException.class);
+    assertThat(((StuckPlayerException) cause).stuckType)
+        .isEqualTo(StuckPlayerException.STUCK_BUFFERING_NOT_LOADING);
   }
 
   @Test
@@ -11826,6 +11457,8 @@ public final class ExoPlayerTest {
   @Config(minSdk = 31)
   public void play_withDynamicSchedulingEnabled_wakesUpExoPlayerForWork() throws Exception {
     AtomicInteger renderCounter = new AtomicInteger();
+    AtomicBoolean queuedInputBuffer = new AtomicBoolean();
+    AtomicBoolean allowProgressInRenderBeyondFirstBuffer = new AtomicBoolean();
     RenderersFactory renderersFactory =
         new DefaultRenderersFactory(context) {
           @Override
@@ -11846,7 +11479,21 @@ public final class ExoPlayerTest {
                     enableDecoderFallback,
                     eventHandler,
                     eventListener,
-                    audioSink);
+                    audioSink) {
+                  @Override
+                  public void render(long positionUs, long elapsedRealtimeUs)
+                      throws ExoPlaybackException {
+                    if (!queuedInputBuffer.get() || allowProgressInRenderBeyondFirstBuffer.get()) {
+                      super.render(positionUs, elapsedRealtimeUs);
+                    }
+                  }
+
+                  @Override
+                  protected void onQueueInputBuffer(DecoderInputBuffer buffer)
+                      throws ExoPlaybackException {
+                    queuedInputBuffer.set(true);
+                  }
+                };
             out.add(
                 new ForwardingDurationToProgressRenderer(
                     audioRenderer, /* durationToProgressUs= */ Long.MAX_VALUE, renderCounter));
@@ -11863,16 +11510,17 @@ public final class ExoPlayerTest {
         new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.AUDIO_FORMAT));
     player.prepare();
     player.play();
-    runUntilPlaybackState(player, Player.STATE_READY);
+    advance(player).untilBackgroundThreadCondition(() -> queuedInputBuffer.get());
+    allowProgressInRenderBeyondFirstBuffer.set(true);
     renderCounter.set(0);
 
-    TestPlayerRunHelper.advance(player)
-        .untilBackgroundThreadCondition(() -> clock.currentTimeMillis() >= 500L);
-
-    assertThat(renderCounter.get()).isNotEqualTo(0);
-    assertThat(renderCounter.get()).isLessThan(10);
-
+    advance(player).untilBackgroundThreadCondition(() -> clock.currentTimeMillis() >= 500L);
     player.release();
+
+    // Verify doSomeWork is triggered by renderer
+    assertThat(renderCounter.get()).isNotEqualTo(0);
+    // Verify is triggered less often than a regular 10ms update interval
+    assertThat(renderCounter.get()).isLessThan(20);
   }
 
   @Test
@@ -15567,7 +15215,7 @@ public final class ExoPlayerTest {
    * the Wear OS.
    */
   // TODO: remove maxSdk once Robolectric supports MediaRouter2 (b/382017156)
-  @Config(minSdk = 23, maxSdk = 34)
+  @Config(minSdk = Config.OLDEST_SDK, maxSdk = 34)
   @Test
   public void play_withOnlyUnsuitableOutputsOnWear_shouldSuppressPlayback() throws Exception {
     addWatchAsSystemFeature();
@@ -15606,7 +15254,7 @@ public final class ExoPlayerTest {
    * Wear OS.
    */
   // TODO: remove maxSdk once Robolectric supports MediaRouter2 (b/382017156)
-  @Config(minSdk = 23, maxSdk = 34)
+  @Config(minSdk = Config.OLDEST_SDK, maxSdk = 34)
   @Test
   public void play_withAtleastOneSuitableOutputOnWear_shouldNotSuppressPlayback() throws Exception {
     addWatchAsSystemFeature();
@@ -15644,7 +15292,7 @@ public final class ExoPlayerTest {
    * (e.g. builtin speaker) on the Wear OS.
    */
   // TODO: remove maxSdk once Robolectric supports MediaRouter2 (b/382017156)
-  @Config(minSdk = 23, maxSdk = 34)
+  @Config(minSdk = Config.OLDEST_SDK, maxSdk = 34)
   @Test
   public void
       play_callMultipleTimesOnUnsuitableOutputFollowedByPause_shouldRetainSameSuppressionReason()
@@ -15686,7 +15334,7 @@ public final class ExoPlayerTest {
 
   /** Tests playback suppression for playback on the built-speaker on non-Wear OS surfaces. */
   // TODO: remove maxSdk once Robolectric supports MediaRouter2 (b/382017156)
-  @Config(minSdk = 23, maxSdk = 34)
+  @Config(minSdk = Config.OLDEST_SDK, maxSdk = 34)
   @Test
   public void play_onBuiltinSpeakerWithoutWearPresentAsSystemFeature_shouldNotSuppressPlayback()
       throws Exception {
@@ -15725,7 +15373,7 @@ public final class ExoPlayerTest {
    * ExoPlayer.Builder#setSuppressPlaybackOnUnsuitableOutput(boolean)} is not called with true.
    */
   // TODO: remove maxSdk once Robolectric supports MediaRouter2 (b/382017156)
-  @Config(minSdk = 23, maxSdk = 34)
+  @Config(minSdk = Config.OLDEST_SDK, maxSdk = 34)
   @Test
   public void
       play_withOnlyUnsuitableOutputsWithoutEnablingPlaybackSuppression_shouldNotSuppressPlayback()
@@ -15762,7 +15410,7 @@ public final class ExoPlayerTest {
    * added.
    */
   // TODO: remove maxSdk once Robolectric supports MediaRouter2 (b/382017156)
-  @Config(minSdk = 23, maxSdk = 34)
+  @Config(minSdk = Config.OLDEST_SDK, maxSdk = 34)
   @Test
   public void addSuitableOutputWhenPlaybackSuppressed_shouldRemovePlaybackSuppression()
       throws Exception {
@@ -15805,7 +15453,7 @@ public final class ExoPlayerTest {
    * while playback was suppressed earlier.
    */
   // TODO: remove maxSdk once Robolectric supports MediaRouter2 (b/382017156)
-  @Config(minSdk = 23, maxSdk = 34)
+  @Config(minSdk = Config.OLDEST_SDK, maxSdk = 34)
   @Test
   public void addUnsuitableOutputWhenPlaybackIsSuppressed_shouldNotRemovePlaybackSuppression()
       throws Exception {
@@ -15838,7 +15486,7 @@ public final class ExoPlayerTest {
    * playback was not suppressed earlier.
    */
   // TODO: remove maxSdk once Robolectric supports MediaRouter2 (b/382017156)
-  @Config(minSdk = 23, maxSdk = 34)
+  @Config(minSdk = Config.OLDEST_SDK, maxSdk = 34)
   @Test
   public void addSuitableOutputWhenPlaybackNotSuppressed_shouldNotRemovePlaybackSuppression()
       throws Exception {
@@ -15873,7 +15521,7 @@ public final class ExoPlayerTest {
    * have been removed during an ongoing playback.
    */
   // TODO: remove maxSdk once Robolectric supports MediaRouter2 (b/382017156)
-  @Config(minSdk = 23, maxSdk = 34)
+  @Config(minSdk = Config.OLDEST_SDK, maxSdk = 34)
   @Test
   public void removeAllSuitableOutputsWhenPlaybackOngoing_shouldSetPlaybackSuppression()
       throws Exception {
@@ -15908,7 +15556,7 @@ public final class ExoPlayerTest {
    * removed during an ongoing playback but some suitable audio outputs are still available.
    */
   // TODO: remove maxSdk once Robolectric supports MediaRouter2 (b/382017156)
-  @Config(minSdk = 23, maxSdk = 34)
+  @Config(minSdk = Config.OLDEST_SDK, maxSdk = 34)
   @Test
   public void removeAnyUnsuitableOutputWhenPlaybackOngoing_shouldNotSetPlaybackSuppression()
       throws Exception {
@@ -15946,7 +15594,7 @@ public final class ExoPlayerTest {
    * connected to the device.
    */
   // TODO: remove maxSdk once Robolectric supports MediaRouter2 (b/382017156)
-  @Config(minSdk = 23, maxSdk = 34)
+  @Config(minSdk = Config.OLDEST_SDK, maxSdk = 34)
   @Test
   public void
       removeAnySuitableOutputButOneSuitableDeviceStillConnected_shouldNotSetPlaybackSuppression()
@@ -16913,7 +16561,6 @@ public final class ExoPlayerTest {
     verify(listener).onAudioSessionIdChanged(audioSessionId);
   }
 
-  @Ignore // TODO: b/420380940 - Renable test once audio session id is propagated from audio sink
   @Test
   public void audioSessionIdChangeInTheAudioSink_propagatesToRenderersAndListener()
       throws Exception {
@@ -17440,6 +17087,124 @@ public final class ExoPlayerTest {
     assertThat(renderTime3Ms).isWithin(50).of(renderTime2Ms);
   }
 
+  @Test
+  public void stuckBufferingDetectionTimeoutMs_triggersPlayerErrorWhenStuckBuffering()
+      throws Exception {
+    ExoPlayer player =
+        new ExoPlayer.Builder(context)
+            .setClock(new FakeClock(/* initialTimeMs= */ 0, /* isAutoAdvancing= */ true))
+            .setStuckBufferingDetectionTimeoutMs(45_000)
+            .build();
+    player.setMediaSource(
+        new FakeMediaSource() {
+          @Override
+          protected MediaPeriod createMediaPeriod(
+              MediaPeriodId id,
+              TrackGroupArray trackGroupArray,
+              Allocator allocator,
+              MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
+              DrmSessionManager drmSessionManager,
+              DrmSessionEventListener.EventDispatcher drmEventDispatcher,
+              @Nullable TransferListener transferListener) {
+            return new FakeMediaPeriod(
+                trackGroupArray,
+                allocator,
+                /* singleSampleTimeUs= */ 0,
+                mediaSourceEventDispatcher,
+                drmSessionManager,
+                drmEventDispatcher,
+                // Ensure the player stays in BUFFERING state.
+                /* deferOnPrepared= */ true) {
+              @Override
+              public long getBufferedPositionUs() {
+                // Return fixed value to pretend not making any loading progress.
+                return 0;
+              }
+            };
+          }
+        });
+    player.prepare();
+    player.play();
+
+    ExoPlaybackException error = advance(player).untilPlayerError();
+    long elapsedRealtimeAtErrorMs = player.getClock().elapsedRealtime();
+    player.release();
+
+    assertThat(error.errorCode).isEqualTo(PlaybackException.ERROR_CODE_TIMEOUT);
+    assertThat(error)
+        .hasCauseThat()
+        .isEqualTo(new StuckPlayerException(StuckPlayerException.STUCK_BUFFERING_NO_PROGRESS));
+    assertThat(elapsedRealtimeAtErrorMs).isAtLeast(45_000);
+  }
+
+  @Test
+  public void stuckBufferingDetectionTimeoutMs_triggersPlayerErrorWhenPlaybackThreadUnresponsive()
+      throws Exception {
+    FakeClock clock =
+        new FakeClock.Builder()
+            .setInitialTimeMs(0)
+            .setIsAutoAdvancing(true)
+            .setMaxAutoAdvancingTimeDiffMs(100_000)
+            .build();
+    ExoPlayer player =
+        new ExoPlayer.Builder(context)
+            .setClock(clock)
+            .setStuckBufferingDetectionTimeoutMs(45_000)
+            .build();
+    ConditionVariable blockPlaybackThread = new ConditionVariable();
+    player.setMediaSource(
+        new FakeMediaSource() {
+          @Override
+          public synchronized void prepareSourceInternal(
+              @Nullable TransferListener mediaTransferListener) {
+            clock.onThreadBlocked();
+            blockPlaybackThread.blockUninterruptible();
+            super.prepareSourceInternal(mediaTransferListener);
+          }
+        });
+    player.prepare();
+    player.play();
+
+    ExoPlaybackException error = advance(player).untilPlayerError();
+    long elapsedRealtimeAtErrorMs = clock.elapsedRealtime();
+    blockPlaybackThread.open();
+    player.release();
+
+    assertThat(error.errorCode).isEqualTo(PlaybackException.ERROR_CODE_TIMEOUT);
+    assertThat(error)
+        .hasCauseThat()
+        .isEqualTo(new StuckPlayerException(StuckPlayerException.STUCK_BUFFERING_NO_PROGRESS));
+    assertThat(elapsedRealtimeAtErrorMs).isAtLeast(45_000);
+  }
+
+  @Test
+  public void clearMediaItems_afterReady_transitionsToEnded() throws Exception {
+    ExoPlayer player = parameterizeTestExoPlayerBuilder(new TestExoPlayerBuilder(context)).build();
+    player.setMediaSource(new FakeMediaSource());
+    player.prepare();
+    advance(player).untilState(Player.STATE_READY);
+
+    player.clearMediaItems();
+    @Player.State int stateAfterClearingPlaylist = player.getPlaybackState();
+    player.release();
+
+    assertThat(stateAfterClearingPlaylist).isEqualTo(Player.STATE_ENDED);
+  }
+
+  @Test
+  public void settingMediaItems_withEmptyListAfterReady_transitionsToEnded() throws Exception {
+    ExoPlayer player = parameterizeTestExoPlayerBuilder(new TestExoPlayerBuilder(context)).build();
+    player.setMediaSource(new FakeMediaSource());
+    player.prepare();
+    advance(player).untilState(Player.STATE_READY);
+
+    player.setMediaItems(ImmutableList.of());
+    @Player.State int stateAfterClearingPlaylist = player.getPlaybackState();
+    player.release();
+
+    assertThat(stateAfterClearingPlaylist).isEqualTo(Player.STATE_ENDED);
+  }
+
   // Internal methods.
 
   private void addWatchAsSystemFeature() {
@@ -17706,7 +17471,7 @@ public final class ExoPlayerTest {
      * @param timelineWindowCount An array of window counts to populate.
      */
     public PlaybackStateCollector(int index, int[] playbackStates, int[] timelineWindowCount) {
-      Assertions.checkArgument(playbackStates.length > index && timelineWindowCount.length > index);
+      checkArgument(playbackStates.length > index && timelineWindowCount.length > index);
       this.playbackStates = playbackStates;
       this.timelineWindowCount = timelineWindowCount;
       this.index = index;

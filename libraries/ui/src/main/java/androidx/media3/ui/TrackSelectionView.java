@@ -15,6 +15,8 @@
  */
 package androidx.media3.ui;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.util.AttributeSet;
@@ -28,7 +30,6 @@ import androidx.media3.common.Format;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.TrackSelectionOverride;
 import androidx.media3.common.Tracks;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
@@ -207,7 +208,7 @@ public class TrackSelectionView extends LinearLayout {
    * @param trackNameProvider The {@link TrackNameProvider} to use.
    */
   public void setTrackNameProvider(TrackNameProvider trackNameProvider) {
-    this.trackNameProvider = Assertions.checkNotNull(trackNameProvider);
+    this.trackNameProvider = checkNotNull(trackNameProvider);
     updateViews();
   }
 
@@ -324,7 +325,7 @@ public class TrackSelectionView extends LinearLayout {
       TrackSelectionOverride override = overrides.get(trackGroups.get(i).getMediaTrackGroup());
       for (int j = 0; j < trackViews[i].length; j++) {
         if (override != null) {
-          TrackInfo trackInfo = (TrackInfo) Assertions.checkNotNull(trackViews[i][j].getTag());
+          TrackInfo trackInfo = (TrackInfo) checkNotNull(trackViews[i][j].getTag());
           trackViews[i][j].setChecked(override.trackIndices.contains(trackInfo.trackIndex));
         } else {
           trackViews[i][j].setChecked(false);
@@ -359,7 +360,7 @@ public class TrackSelectionView extends LinearLayout {
 
   private void onTrackViewClicked(View view) {
     isDisabled = false;
-    TrackInfo trackInfo = (TrackInfo) Assertions.checkNotNull(view.getTag());
+    TrackInfo trackInfo = (TrackInfo) checkNotNull(view.getTag());
     TrackGroup mediaTrackGroup = trackInfo.trackGroup.getMediaTrackGroup();
     int trackIndex = trackInfo.trackIndex;
     @Nullable TrackSelectionOverride override = overrides.get(mediaTrackGroup);

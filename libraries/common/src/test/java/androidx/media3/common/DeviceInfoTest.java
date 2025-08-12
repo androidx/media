@@ -16,6 +16,7 @@
 package androidx.media3.common;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import org.junit.Test;
@@ -35,5 +36,15 @@ public class DeviceInfoTest {
             .build();
 
     assertThat(DeviceInfo.fromBundle(deviceInfo.toBundle())).isEqualTo(deviceInfo);
+  }
+
+  @Test
+  public void build_playbackTypeLocalWithRoutingId_throwsIllegalStateException() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            new DeviceInfo.Builder(DeviceInfo.PLAYBACK_TYPE_LOCAL)
+                .setRoutingControllerId("route")
+                .build());
   }
 }

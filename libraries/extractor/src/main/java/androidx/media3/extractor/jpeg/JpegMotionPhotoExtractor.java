@@ -15,9 +15,9 @@
  */
 package androidx.media3.extractor.jpeg;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.extractor.SingleSampleExtractor.IMAGE_TRACK_ID;
 import static androidx.media3.extractor.mp4.Mp4Extractor.FLAG_MARK_FIRST_VIDEO_TRACK_WITH_MAIN_ROLE;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import androidx.annotation.IntDef;

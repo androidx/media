@@ -15,7 +15,7 @@
  */
 package androidx.media3.session;
 
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.graphics.Bitmap;
 import android.net.Uri;
@@ -106,7 +106,7 @@ public final class CacheBitmapLoader implements BitmapLoader {
 
     /** Returns the future that set for the bitmap load request. */
     public ListenableFuture<Bitmap> getFuture() {
-      return checkStateNotNull(future);
+      return checkNotNull(future);
     }
   }
 }

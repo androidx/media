@@ -18,7 +18,8 @@ package androidx.media3.common.util;
 import android.os.Looper;
 import android.text.TextUtils;
 import androidx.annotation.Nullable;
-import androidx.media3.common.MediaLibraryInfo;
+import com.google.common.base.Preconditions;
+import com.google.errorprone.annotations.InlineMe;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.dataflow.qual.Pure;
 
@@ -29,43 +30,35 @@ public final class Assertions {
   private Assertions() {}
 
   /**
-   * Throws {@link IllegalArgumentException} if {@code expression} evaluates to false.
-   *
-   * @param expression The expression to evaluate.
-   * @throws IllegalArgumentException If {@code expression} is false.
+   * @deprecated Use {@link Preconditions#checkArgument} instead.
    */
+  @Deprecated
   @Pure
+  @InlineMe(
+      replacement = "Preconditions.checkArgument(expression)",
+      imports = "com.google.common.base.Preconditions")
   public static void checkArgument(boolean expression) {
-    if (MediaLibraryInfo.ASSERTIONS_ENABLED && !expression) {
-      throw new IllegalArgumentException();
-    }
+    Preconditions.checkArgument(expression);
   }
 
   /**
-   * Throws {@link IllegalArgumentException} if {@code expression} evaluates to false.
-   *
-   * @param expression The expression to evaluate.
-   * @param errorMessage The exception message if an exception is thrown. The message is converted
-   *     to a {@link String} using {@link String#valueOf(Object)}.
-   * @throws IllegalArgumentException If {@code expression} is false.
+   * @deprecated Use {@link Preconditions#checkArgument} instead.
    */
+  @Deprecated
   @Pure
+  @InlineMe(
+      replacement = "Preconditions.checkArgument(expression, errorMessage)",
+      imports = "com.google.common.base.Preconditions")
   public static void checkArgument(boolean expression, Object errorMessage) {
-    if (MediaLibraryInfo.ASSERTIONS_ENABLED && !expression) {
-      throw new IllegalArgumentException(String.valueOf(errorMessage));
-    }
+    Preconditions.checkArgument(expression, errorMessage);
   }
 
   /**
-   * Throws {@link IndexOutOfBoundsException} if {@code index} falls outside the specified bounds.
-   *
-   * @param index The index to test.
-   * @param start The start of the allowed range (inclusive).
-   * @param limit The end of the allowed range (exclusive).
-   * @return The {@code index} that was validated.
-   * @throws IndexOutOfBoundsException If {@code index} falls outside the specified bounds.
+   * @deprecated Use {@link Preconditions#checkElementIndex(int, int)}, with an additional assertion
+   *     to check a non-zero {@code start} value if needed.
    */
   @Pure
+  @Deprecated
   public static int checkIndex(int index, int start, int limit) {
     if (index < start || index >= limit) {
       throw new IndexOutOfBoundsException();
@@ -74,155 +67,122 @@ public final class Assertions {
   }
 
   /**
-   * Throws {@link IllegalStateException} if {@code expression} evaluates to false.
-   *
-   * @param expression The expression to evaluate.
-   * @throws IllegalStateException If {@code expression} is false.
+   * @deprecated Use {@link Preconditions#checkState} instead.
    */
+  @Deprecated
   @Pure
+  @InlineMe(
+      replacement = "Preconditions.checkState(expression)",
+      imports = "com.google.common.base.Preconditions")
   public static void checkState(boolean expression) {
-    if (MediaLibraryInfo.ASSERTIONS_ENABLED && !expression) {
-      throw new IllegalStateException();
-    }
+    Preconditions.checkState(expression);
   }
 
   /**
-   * Throws {@link IllegalStateException} if {@code expression} evaluates to false.
-   *
-   * @param expression The expression to evaluate.
-   * @param errorMessage The exception message if an exception is thrown. The message is converted
-   *     to a {@link String} using {@link String#valueOf(Object)}.
-   * @throws IllegalStateException If {@code expression} is false.
+   * @deprecated Use {@link Preconditions#checkState} instead.
    */
+  @Deprecated
   @Pure
+  @InlineMe(
+      replacement = "Preconditions.checkState(expression, errorMessage)",
+      imports = "com.google.common.base.Preconditions")
   public static void checkState(boolean expression, Object errorMessage) {
-    if (MediaLibraryInfo.ASSERTIONS_ENABLED && !expression) {
-      throw new IllegalStateException(String.valueOf(errorMessage));
-    }
+    Preconditions.checkState(expression, errorMessage);
   }
 
   /**
-   * Throws {@link IllegalStateException} if {@code reference} is null.
-   *
-   * @param <T> The type of the reference.
-   * @param reference The reference.
-   * @return The non-null reference that was validated.
-   * @throws IllegalStateException If {@code reference} is null.
+   * @deprecated Use {@link Preconditions#checkNotNull} instead.
    */
-  @SuppressWarnings({"nullness:contracts.postcondition", "nullness:return"})
+  @Deprecated
   @EnsuresNonNull({"#1"})
   @Pure
+  @InlineMe(
+      replacement = "Preconditions.checkNotNull(reference)",
+      imports = "com.google.common.base.Preconditions")
   public static <T> T checkStateNotNull(@Nullable T reference) {
-    if (MediaLibraryInfo.ASSERTIONS_ENABLED && reference == null) {
-      throw new IllegalStateException();
-    }
-    return reference;
+    return Preconditions.checkNotNull(reference);
   }
 
   /**
-   * Throws {@link IllegalStateException} if {@code reference} is null.
-   *
-   * @param <T> The type of the reference.
-   * @param reference The reference.
-   * @param errorMessage The exception message to use if the check fails. The message is converted
-   *     to a string using {@link String#valueOf(Object)}.
-   * @return The non-null reference that was validated.
-   * @throws IllegalStateException If {@code reference} is null.
+   * @deprecated Use {@link Preconditions#checkNotNull} instead.
    */
-  @SuppressWarnings({"nullness:contracts.postcondition", "nullness:return"})
+  @Deprecated
   @EnsuresNonNull({"#1"})
   @Pure
+  @InlineMe(
+      replacement = "Preconditions.checkNotNull(reference, errorMessage)",
+      imports = "com.google.common.base.Preconditions")
   public static <T> T checkStateNotNull(@Nullable T reference, Object errorMessage) {
-    if (MediaLibraryInfo.ASSERTIONS_ENABLED && reference == null) {
-      throw new IllegalStateException(String.valueOf(errorMessage));
-    }
-    return reference;
+    return Preconditions.checkNotNull(reference, errorMessage);
   }
 
   /**
-   * Throws {@link NullPointerException} if {@code reference} is null.
-   *
-   * @param <T> The type of the reference.
-   * @param reference The reference.
-   * @return The non-null reference that was validated.
-   * @throws NullPointerException If {@code reference} is null.
+   * @deprecated Use {@link Preconditions#checkNotNull} instead.
    */
+  @Deprecated
   @SuppressWarnings({"nullness:contracts.postcondition", "nullness:return"})
   @EnsuresNonNull({"#1"})
   @Pure
+  @InlineMe(
+      replacement = "Preconditions.checkNotNull(reference)",
+      imports = "com.google.common.base.Preconditions")
   public static <T> T checkNotNull(@Nullable T reference) {
-    if (MediaLibraryInfo.ASSERTIONS_ENABLED && reference == null) {
-      throw new NullPointerException();
-    }
-    return reference;
+    return Preconditions.checkNotNull(reference);
   }
 
   /**
-   * Throws {@link NullPointerException} if {@code reference} is null.
-   *
-   * @param <T> The type of the reference.
-   * @param reference The reference.
-   * @param errorMessage The exception message to use if the check fails. The message is converted
-   *     to a string using {@link String#valueOf(Object)}.
-   * @return The non-null reference that was validated.
-   * @throws NullPointerException If {@code reference} is null.
+   * @deprecated Use {@link Preconditions#checkNotNull} instead.
    */
+  @Deprecated
   @SuppressWarnings({"nullness:contracts.postcondition", "nullness:return"})
   @EnsuresNonNull({"#1"})
   @Pure
+  @InlineMe(
+      replacement = "Preconditions.checkNotNull(reference, errorMessage)",
+      imports = "com.google.common.base.Preconditions")
   public static <T> T checkNotNull(@Nullable T reference, Object errorMessage) {
-    if (MediaLibraryInfo.ASSERTIONS_ENABLED && reference == null) {
-      throw new NullPointerException(String.valueOf(errorMessage));
-    }
-    return reference;
+    return Preconditions.checkNotNull(reference, errorMessage);
   }
 
   /**
-   * Throws {@link IllegalArgumentException} if {@code string} is null or zero length.
-   *
-   * @param string The string to check.
-   * @return The non-null, non-empty string that was validated.
-   * @throws IllegalArgumentException If {@code string} is null or 0-length.
+   * @deprecated Use {@link Preconditions#checkArgument} with {@link
+   *     TextUtils#isEmpty(CharSequence)} instead.
    */
+  @Deprecated
   @SuppressWarnings({"nullness:contracts.postcondition", "nullness:return"})
   @EnsuresNonNull({"#1"})
   @Pure
   public static String checkNotEmpty(@Nullable String string) {
-    if (MediaLibraryInfo.ASSERTIONS_ENABLED && TextUtils.isEmpty(string)) {
-      throw new IllegalArgumentException();
-    }
+    Preconditions.checkArgument(!TextUtils.isEmpty(string));
     return string;
   }
 
   /**
-   * Throws {@link IllegalArgumentException} if {@code string} is null or zero length.
-   *
-   * @param string The string to check.
-   * @param errorMessage The exception message to use if the check fails. The message is converted
-   *     to a string using {@link String#valueOf(Object)}.
-   * @return The non-null, non-empty string that was validated.
-   * @throws IllegalArgumentException If {@code string} is null or 0-length.
+   * @deprecated Use {@link Preconditions#checkArgument} with {@link
+   *     TextUtils#isEmpty(CharSequence)} instead.
    */
+  @Deprecated
   @SuppressWarnings({"nullness:contracts.postcondition", "nullness:return"})
   @EnsuresNonNull({"#1"})
   @Pure
   public static String checkNotEmpty(@Nullable String string, Object errorMessage) {
-    if (MediaLibraryInfo.ASSERTIONS_ENABLED && TextUtils.isEmpty(string)) {
-      throw new IllegalArgumentException(String.valueOf(errorMessage));
-    }
+    Preconditions.checkArgument(!TextUtils.isEmpty(string), errorMessage);
     return string;
   }
 
   /**
-   * Throws {@link IllegalStateException} if the calling thread is not the application's main
-   * thread.
-   *
-   * @throws IllegalStateException If the calling thread is not the application's main thread.
+   * @deprecated Use {@link Preconditions#checkState} to assert {@code Looper.myLooper() ==
+   *     Looper.getMainLooper()} instead.
    */
+  @Deprecated
   @Pure
+  @InlineMe(
+      replacement =
+          "Preconditions.checkState(Looper.myLooper() == Looper.getMainLooper(), \"Not in"
+              + " application's main thread\")",
+      imports = {"com.google.common.base.Preconditions", "android.os.Looper"})
   public static void checkMainThread() {
-    if (MediaLibraryInfo.ASSERTIONS_ENABLED && Looper.myLooper() != Looper.getMainLooper()) {
-      throw new IllegalStateException("Not in applications main thread");
-    }
+    Preconditions.checkState(
+        Looper.myLooper() == Looper.getMainLooper(), "Not in application's main thread");
   }
 }

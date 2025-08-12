@@ -21,9 +21,6 @@ import static androidx.media3.common.C.TRACK_TYPE_AUDIO;
 import static androidx.media3.common.C.TRACK_TYPE_CAMERA_MOTION;
 import static androidx.media3.common.C.TRACK_TYPE_IMAGE;
 import static androidx.media3.common.C.TRACK_TYPE_VIDEO;
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.castNonNull;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_AUDIO_ATTRIBUTES;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_AUDIO_SESSION_ID;
@@ -37,6 +34,9 @@ import static androidx.media3.exoplayer.Renderer.MSG_SET_SCALING_MODE;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_SKIP_SILENCE_ENABLED;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_VIDEO_EFFECTS;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_VIDEO_OUTPUT_RESOLUTION;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
@@ -177,6 +177,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
   private final long detachSurfaceTimeoutMs;
   @Nullable private final SuitableOutputChecker suitableOutputChecker;
   private final BackgroundThreadStateHandler<Integer> audioSessionIdState;
+  private final StuckPlayerDetector stuckPlayerDetector;
 
   private @RepeatMode int repeatMode;
   private boolean shuffleModeEnabled;
@@ -448,6 +449,13 @@ import java.util.concurrent.CopyOnWriteArraySet;
       deviceInfo = DeviceInfo.UNKNOWN;
       videoSize = VideoSize.UNKNOWN;
       surfaceSize = Size.UNKNOWN;
+
+      stuckPlayerDetector =
+          new StuckPlayerDetector(
+              /* player= */ this,
+              componentListener,
+              clock,
+              builder.stuckBufferingDetectionTimeoutMs);
 
       internalPlayer.setScrubbingModeParameters(scrubbingModeParameters);
       internalPlayer.setAudioAttributes(audioAttributes, builder.handleAudioFocus);
@@ -1040,6 +1048,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
     if (suitableOutputChecker != null) {
       suitableOutputChecker.disable();
     }
+    stuckPlayerDetector.release();
     if (!internalPlayer.release()) {
       // One of the renderers timed out releasing its resources.
       listeners.sendEvent(
@@ -1540,7 +1549,6 @@ import java.util.concurrent.CopyOnWriteArraySet;
     setAuxEffectInfo(new AuxEffectInfo(AuxEffectInfo.NO_AUX_EFFECT_ID, /* sendLevel= */ 0f));
   }
 
-  @RequiresApi(23)
   @Override
   public void setPreferredAudioDevice(@Nullable AudioDeviceInfo audioDeviceInfo) {
     verifyApplicationThread();
@@ -2456,16 +2464,17 @@ import java.util.concurrent.CopyOnWriteArraySet;
             playbackInfo,
             timeline,
             maskWindowPositionMsOrGetPeriodPositionUs(timeline, startWindowIndex, startPositionMs));
-    // Mask the playback state.
-    int maskingPlaybackState = newPlaybackInfo.playbackState;
-    if (startWindowIndex != C.INDEX_UNSET && newPlaybackInfo.playbackState != STATE_IDLE) {
-      // Position reset to startWindowIndex (results in pending initial seek).
-      if (timeline.isEmpty() || startWindowIndex >= timeline.getWindowCount()) {
-        // Setting an empty timeline or invalid seek transitions to ended.
-        maskingPlaybackState = STATE_ENDED;
-      } else {
-        maskingPlaybackState = STATE_BUFFERING;
-      }
+    int maskingPlaybackState;
+    if (newPlaybackInfo.playbackState == STATE_IDLE) {
+      maskingPlaybackState = STATE_IDLE; // never move out of IDLE automatically
+    } else if (timeline.isEmpty()) {
+      maskingPlaybackState = STATE_ENDED; // ensure ENDED for empty playlist
+    } else if (startWindowIndex == C.INDEX_UNSET) {
+      maskingPlaybackState = newPlaybackInfo.playbackState; // no implicit seek, keep old state
+    } else if (startWindowIndex >= timeline.getWindowCount()) {
+      maskingPlaybackState = STATE_ENDED; // invalid seek, transition to ENDED
+    } else {
+      maskingPlaybackState = STATE_BUFFERING;
     }
     newPlaybackInfo = maskPlaybackState(newPlaybackInfo, maskingPlaybackState);
     internalPlayer.setMediaSources(
@@ -3085,7 +3094,8 @@ import java.util.concurrent.CopyOnWriteArraySet;
           SphericalGLSurfaceView.VideoSurfaceListener,
           AudioBecomingNoisyManager.EventListener,
           StreamVolumeManager.Listener,
-          AudioOffloadListener {
+          AudioOffloadListener,
+          StuckPlayerDetector.Callback {
 
     // VideoRendererEventListener implementation
 
@@ -3354,6 +3364,15 @@ import java.util.concurrent.CopyOnWriteArraySet;
     @Override
     public void onSleepingForOffloadChanged(boolean sleepingForOffload) {
       updateWakeAndWifiLock();
+    }
+
+    // StuckPlayerDetector.Callback implementation.
+
+    @Override
+    public void onStuckPlayerDetected(StuckPlayerException exception) {
+      stopInternal(
+          ExoPlaybackException.createForUnexpected(
+              exception, PlaybackException.ERROR_CODE_TIMEOUT));
     }
   }
 

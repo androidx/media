@@ -27,6 +27,7 @@ import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,6 +35,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -45,17 +47,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.twotone.Delete
-import androidx.compose.material.icons.twotone.Star
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ElevatedButton
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
@@ -361,13 +361,24 @@ class CompositionPreviewActivity : AppCompatActivity() {
 
   @Composable
   fun VideoSequenceList(viewModel: CompositionPreviewViewModel) {
-    var showDialog by remember { mutableStateOf(false) }
+    var selectedMediaItemIndex by remember { mutableStateOf<Int?>(null) }
+    var showEditMediaItemsDialog by remember { mutableStateOf(false) }
 
-    if (showDialog) {
+    if (showEditMediaItemsDialog) {
       VideoSequenceDialog(
-        { showDialog = false },
-        viewModel.mediaItemOptions,
-        { index -> viewModel.addItem(index) },
+        onDismissRequest = { showEditMediaItemsDialog = false },
+        itemOptions = viewModel.mediaItemOptions,
+        addSelectedVideo = { index -> viewModel.addItem(index) },
+      )
+    }
+
+    selectedMediaItemIndex?.let { index ->
+      val item = viewModel.selectedMediaItems[index]
+      EffectSelectionDialog(
+        onDismissRequest = { selectedMediaItemIndex = null },
+        effectOptions = viewModel.availableEffectNames,
+        currentSelections = item.selectedEffects.value,
+        onEffectsSelected = { newEffects -> viewModel.updateEffectsForItem(index, newEffects) },
       )
     }
 
@@ -396,33 +407,27 @@ class CompositionPreviewActivity : AppCompatActivity() {
             Row(
               horizontalArrangement = Arrangement.SpaceBetween,
               verticalAlignment = Alignment.CenterVertically,
-              modifier = Modifier.fillMaxWidth(),
+              modifier = Modifier.fillMaxWidth().clickable { selectedMediaItemIndex = index },
             ) {
-              Text(
-                text = "${index + 1}. ${item.title}",
-                modifier = Modifier.textPadding().weight(1f),
-              )
-              Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                IconToggleButton(
-                  checked = item.applyEffects.value,
-                  onCheckedChange = { checked -> viewModel.updateEffects(index, checked) },
-                ) {
-                  Icon(
-                    imageVector =
-                      if (item.applyEffects.value) Icons.Filled.Star else Icons.TwoTone.Star,
-                    contentDescription = "Apply effects to item ${index + 1}",
-                  )
-                }
-                IconButton({ viewModel.removeItem(index) }) {
-                  Icon(Icons.TwoTone.Delete, contentDescription = "Remove item ${index + 1}")
-                }
+              Column(modifier = Modifier.textPadding().weight(1f)) {
+                Text(text = "${index + 1}. ${item.title}")
+                val effectsText = item.selectedEffects.value.joinToString().ifEmpty { "None" }
+                Text(
+                  text = "Effect: $effectsText",
+                  fontSize = 12.sp,
+                  fontStyle = FontStyle.Italic,
+                  color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f),
+                )
+              }
+              IconButton({ viewModel.removeItem(index) }) {
+                Icon(Icons.TwoTone.Delete, contentDescription = "Remove item ${index + 1}")
               }
             }
           }
         }
         HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.secondary)
         ElevatedButton(
-          onClick = { showDialog = true },
+          onClick = { showEditMediaItemsDialog = true },
           modifier = Modifier.align(Alignment.CenterHorizontally),
         ) {
           Text(text = stringResource(R.string.edit))
@@ -529,6 +534,68 @@ class CompositionPreviewActivity : AppCompatActivity() {
               HDR_MODE_DESCRIPTIONS[newSelection] ?: Composition.HDR_MODE_KEEP_HDR
           },
         )
+      }
+    }
+  }
+
+  @Composable
+  fun EffectSelectionDialog(
+    onDismissRequest: () -> Unit,
+    effectOptions: List<String>,
+    currentSelections: Set<String>,
+    onEffectsSelected: (Set<String>) -> Unit,
+  ) {
+    var selectedOptions by remember { mutableStateOf(currentSelections) }
+
+    Dialog(onDismissRequest = onDismissRequest) {
+      Card(shape = RoundedCornerShape(16.dp)) {
+        Column(modifier = Modifier.padding(MaterialTheme.spacing.standard)) {
+          Text(
+            text = stringResource(R.string.select_effects),
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(bottom = MaterialTheme.spacing.small),
+          )
+          Column {
+            effectOptions.forEach { effectName ->
+              Row(
+                Modifier.fillMaxWidth()
+                  .clickable {
+                    selectedOptions =
+                      if (selectedOptions.contains(effectName)) {
+                        selectedOptions - effectName
+                      } else {
+                        selectedOptions + effectName
+                      }
+                  }
+                  .padding(vertical = MaterialTheme.spacing.mini),
+                verticalAlignment = Alignment.CenterVertically,
+              ) {
+                Checkbox(checked = selectedOptions.contains(effectName), onCheckedChange = null)
+                Text(
+                  text = effectName,
+                  modifier = Modifier.padding(start = MaterialTheme.spacing.small),
+                )
+              }
+            }
+          }
+          Spacer(modifier = Modifier.height(MaterialTheme.spacing.standard))
+          Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            OutlinedButton(
+              onClick = onDismissRequest,
+              modifier = Modifier.padding(end = MaterialTheme.spacing.small),
+            ) {
+              Text(stringResource(R.string.cancel))
+            }
+            Button(
+              onClick = {
+                onEffectsSelected(selectedOptions)
+                onDismissRequest()
+              }
+            ) {
+              Text(stringResource(R.string.ok))
+            }
+          }
+        }
       }
     }
   }

@@ -104,7 +104,7 @@ public final class RtpVp8ReaderTest {
   public void setUp() {
     extractorOutput =
         new FakeExtractorOutput(
-            (id, type) -> new FakeTrackOutput(/* deduplicateConsecutiveFormats= */ true));
+            (id, type) -> new FakeTrackOutput(type, /* deduplicateConsecutiveFormats= */ true));
   }
 
   @Test

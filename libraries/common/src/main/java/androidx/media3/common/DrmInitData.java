@@ -15,13 +15,15 @@
  */
 package androidx.media3.common;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.text.TextUtils;
 import androidx.annotation.CheckResult;
 import androidx.annotation.Nullable;
 import androidx.media3.common.DrmInitData.SchemeData;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import java.util.ArrayList;
@@ -176,7 +178,7 @@ public final class DrmInitData implements Comparator<SchemeData>, Parcelable {
    * @return The merged result.
    */
   public DrmInitData merge(DrmInitData drmInitData) {
-    Assertions.checkState(
+    checkState(
         schemeType == null
             || drmInitData.schemeType == null
             || TextUtils.equals(schemeType, drmInitData.schemeType));
@@ -295,9 +297,9 @@ public final class DrmInitData implements Comparator<SchemeData>, Parcelable {
      */
     public SchemeData(
         UUID uuid, @Nullable String licenseServerUrl, String mimeType, @Nullable byte[] data) {
-      this.uuid = Assertions.checkNotNull(uuid);
+      this.uuid = checkNotNull(uuid);
       this.licenseServerUrl = licenseServerUrl;
-      this.mimeType = MimeTypes.normalizeMimeType(Assertions.checkNotNull(mimeType));
+      this.mimeType = MimeTypes.normalizeMimeType(checkNotNull(mimeType));
       this.data = data;
     }
 

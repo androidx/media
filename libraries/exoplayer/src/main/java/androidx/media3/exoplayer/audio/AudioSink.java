@@ -600,7 +600,6 @@ public interface AudioSink {
    * @param audioDeviceInfo The preferred {@linkplain AudioDeviceInfo audio device}, or null to
    *     restore the default.
    */
-  @RequiresApi(23)
   default void setPreferredDevice(@Nullable AudioDeviceInfo audioDeviceInfo) {}
 
   /**

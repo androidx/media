@@ -20,7 +20,6 @@ import static androidx.media3.test.session.common.TestUtils.TIMEOUT_MS;
 import static androidx.media3.test.session.common.TestUtils.getEventsAsList;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
 import android.media.AudioManager;
@@ -347,11 +346,6 @@ public class MediaControllerListenerWithMediaSessionCompatTest {
 
   @Test
   public void onAudioAttributesChanged() throws Exception {
-    // We need to trigger MediaControllerCompat.Callback.onAudioInfoChanged in order to raise the
-    // onAudioAttributesChanged() callback. In API 21 and 22, onAudioInfoChanged is not called when
-    // playback is changed to local.
-    assumeTrue(SDK_INT > 22);
-
     session.setPlaybackToRemote(
         /* volumeControl= */ VolumeProviderCompat.VOLUME_CONTROL_ABSOLUTE,
         /* maxVolume= */ 100,

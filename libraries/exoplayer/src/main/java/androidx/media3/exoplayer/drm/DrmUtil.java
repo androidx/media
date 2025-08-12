@@ -29,7 +29,6 @@ import android.media.NotProvisionedException;
 import android.media.ResourceBusyException;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -91,7 +90,7 @@ public final class DrmUtil {
       String diagnosticsInfo = ((MediaDrm.MediaDrmStateException) exception).getDiagnosticInfo();
       int drmErrorCode = Util.getErrorCodeFromPlatformDiagnosticsInfo(diagnosticsInfo);
       return Util.getErrorCodeForMediaDrmErrorCode(drmErrorCode);
-    } else if (SDK_INT >= 23 && Api23.isMediaDrmResetException(exception)) {
+    } else if (exception instanceof MediaDrmResetException) {
       return PlaybackException.ERROR_CODE_DRM_SYSTEM_ERROR;
     } else if (exception instanceof NotProvisionedException
         || isFailureToConstructNotProvisionedException(exception)) {
@@ -217,15 +216,6 @@ public final class DrmUtil {
     return null;
   }
 
-  @RequiresApi(23)
-  private static final class Api23 {
-
-    public static boolean isMediaDrmResetException(@Nullable Throwable throwable) {
-      return throwable instanceof MediaDrmResetException;
-    }
-  }
-
   // Prevent instantiation.
-
   private DrmUtil() {}
 }

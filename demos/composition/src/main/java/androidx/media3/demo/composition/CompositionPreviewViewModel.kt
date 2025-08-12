@@ -39,6 +39,7 @@ import androidx.media3.common.util.Size
 import androidx.media3.common.util.Util
 import androidx.media3.common.util.Util.usToMs
 import androidx.media3.demo.composition.MatrixTransformationFactory.createDizzyCropEffect
+import androidx.media3.demo.composition.effect.LottieEffectFactory
 import androidx.media3.effect.DebugTraceUtil
 import androidx.media3.effect.LanczosResample
 import androidx.media3.effect.MultipleInputVideoGraph
@@ -75,7 +76,7 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
     val title: String,
     val uri: String,
     val durationUs: Long,
-    var applyEffects: MutableState<Boolean>,
+    var selectedEffects: MutableState<Set<String>>,
   )
 
   var snackbarMessage by mutableStateOf<String?>(null)
@@ -110,8 +111,21 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
       }
     )
 
-  private val perItemVideoEffects =
-    listOf<Effect>(createDizzyCropEffect(), RgbFilter.createGrayscaleFilter())
+  private val effectOptions: Map<String, Effect> by lazy {
+    buildMap {
+      put(
+        application.resources.getString(R.string.effect_name_grayscale),
+        RgbFilter.createGrayscaleFilter(),
+      )
+      put(application.resources.getString(R.string.effect_name_dizzy_crop), createDizzyCropEffect())
+
+      LottieEffectFactory.buildAvailableEffects(getApplication()).forEach { (name, effect) ->
+        put(name, effect)
+      }
+    }
+  }
+
+  val availableEffectNames: List<String> = effectOptions.keys.toList()
 
   init {
     // Load media items
@@ -119,7 +133,9 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
     val uris = application.resources.getStringArray(/* id= */ R.array.preset_uris)
     val durations = application.resources.getIntArray(/* id= */ R.array.preset_durations)
     for (i in titles.indices) {
-      mediaItemOptions.add(Item(titles[i], uris[i], durations[i].toLong(), mutableStateOf(false)))
+      mediaItemOptions.add(
+        Item(titles[i], uris[i], durations[i].toLong(), mutableStateOf(emptySet()))
+      )
     }
     // Load initial media item selections. No need to show the Snackbar message at this point
     addItem(0, showSnackbarMessage = false)
@@ -141,7 +157,9 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
   }
 
   fun addItem(index: Int, showSnackbarMessage: Boolean = true) {
-    selectedMediaItems.add(mediaItemOptions[index].copy(applyEffects = mutableStateOf(false)))
+    selectedMediaItems.add(
+      mediaItemOptions[index].copy(selectedEffects = mutableStateOf(emptySet()))
+    )
     if (showSnackbarMessage) {
       snackbarMessage = "Added item: ${mediaItemOptions[index].title}"
     }
@@ -151,8 +169,8 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
     selectedMediaItems.removeAt(index)
   }
 
-  fun updateEffects(index: Int, checked: Boolean) {
-    selectedMediaItems[index].applyEffects.value = checked
+  fun updateEffectsForItem(index: Int, newEffects: Set<String>) {
+    selectedMediaItems[index].selectedEffects.value = newEffects
   }
 
   fun previewComposition() {
@@ -268,13 +286,19 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
           .setUri(item.uri)
           .setImageDurationMs(usToMs(item.durationUs)) // Ignored for audio/video
           .build()
-      val finalVideoEffects =
-        globalVideoEffects + if (item.applyEffects.value) perItemVideoEffects else emptyList()
+      val effectsForItem = mutableListOf<Effect>()
+      for (effectName in item.selectedEffects.value) {
+        // TODO(b/433484977): Order of applied effects should be more clear in the UI
+        effectOptions[effectName]?.let { effect -> effectsForItem.add(effect) }
+      }
+      val finalVideoEffects = globalVideoEffects + effectsForItem
       val itemBuilder =
         EditedMediaItem.Builder(mediaItem)
           .setEffects(
             Effects(/* audioProcessors= */ emptyList(), /* videoEffects= */ finalVideoEffects)
           )
+          // For image inputs. Automatically ignored if input is audio/video.
+          .setFrameRate(DEFAULT_FRAME_RATE_FPS)
           // Setting duration explicitly is only required for preview with CompositionPlayer, and
           // is not needed for export with Transformer.
           .setDurationUs(item.durationUs)
@@ -457,6 +481,7 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
     const val LAYOUT_EXTRA = "composition_layout"
     private const val TAG = "CompPreviewVM"
     private const val AUDIO_URI = "https://storage.googleapis.com/exoplayer-test-media-0/play.mp3"
+    private const val DEFAULT_FRAME_RATE_FPS = 30
     val HDR_MODE_DESCRIPTIONS =
       mapOf(
         Pair("Keep HDR", Composition.HDR_MODE_KEEP_HDR),

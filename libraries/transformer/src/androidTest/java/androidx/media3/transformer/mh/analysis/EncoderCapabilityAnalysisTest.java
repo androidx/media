@@ -151,8 +151,7 @@ public class EncoderCapabilityAnalysisTest {
             EncoderUtil.getSupportedColorFormats(encoderInfo, mimeType));
 
         capabilities.put(
-            "max_supported_instances",
-            SDK_INT >= 23 ? EncoderUtil.getMaxSupportedInstances(encoderInfo, mimeType) : -1);
+            "max_supported_instances", EncoderUtil.getMaxSupportedInstances(encoderInfo, mimeType));
 
         capabilities.put(
             "supports_qp_bounds",

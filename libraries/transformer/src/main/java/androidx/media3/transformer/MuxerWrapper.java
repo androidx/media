@@ -17,10 +17,6 @@
 package androidx.media3.transformer;
 
 import static androidx.annotation.VisibleForTesting.PRIVATE;
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.contains;
 import static androidx.media3.common.util.Util.usToMs;
 import static androidx.media3.effect.DebugTraceUtil.COMPONENT_MUXER;
@@ -28,6 +24,9 @@ import static androidx.media3.effect.DebugTraceUtil.EVENT_ACCEPTED_INPUT;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_CAN_WRITE_SAMPLE;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_INPUT_ENDED;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_OUTPUT_ENDED;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.annotation.ElementType.TYPE_USE;
@@ -579,7 +578,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     trackInfo.bytesWritten += data.remaining();
     trackInfo.timeUs = max(trackInfo.timeUs, presentationTimeUs);
     listener.onSampleWrittenOrDropped();
-    checkStateNotNull(muxer);
+    checkNotNull(muxer);
     BufferInfo bufferInfo =
         new BufferInfo(
             presentationTimeUs,

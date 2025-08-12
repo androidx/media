@@ -59,9 +59,9 @@ track 0:
 track 1:
   total output bytes = 2674
   sample count = 7
-  track duration = 162600
+  track duration = 162500
   format 0:
-    averageBitrate = 131559
+    averageBitrate = 131611
     peakBitrate = 192000
     id = 2
     containerMimeType = video/mp4
@@ -79,27 +79,27 @@ track 1:
     flags = 1
     data = length 6, hash 6EFB71F1
   sample 1:
-    time = 23229
+    time = 23219
     flags = 1
     data = length 260, hash EE23C4F4
   sample 2:
-    time = 46458
+    time = 46439
     flags = 1
     data = length 458, hash C54D6937
   sample 3:
-    time = 69687
+    time = 69659
     flags = 1
     data = length 448, hash 319412F3
   sample 4:
-    time = 92916
+    time = 92879
     flags = 1
     data = length 422, hash 1E293713
   sample 5:
-    time = 116145
+    time = 116099
     flags = 1
     data = length 586, hash C4CD7E3D
   sample 6:
-    time = 139375
+    time = 139319
     flags = 536870913
     data = length 494, hash A7AFD1B8
 tracksEnded = true

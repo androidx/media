@@ -15,7 +15,8 @@
  */
 package androidx.media3.exoplayer.drm;
 
-import androidx.media3.common.util.Assertions;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.drm.ExoMediaDrm.KeyRequest;
 import androidx.media3.exoplayer.drm.ExoMediaDrm.ProvisionRequest;
@@ -36,7 +37,7 @@ public final class LocalMediaDrmCallback implements MediaDrmCallback {
    * @param keyResponse The fixed response for all key requests.
    */
   public LocalMediaDrmCallback(byte[] keyResponse) {
-    this.keyResponse = Assertions.checkNotNull(keyResponse);
+    this.keyResponse = checkNotNull(keyResponse);
   }
 
   @Override

@@ -15,12 +15,10 @@
  */
 package androidx.media3.session;
 
-import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.session.MediaUtils.calculateBufferedPercentage;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
@@ -157,7 +155,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
   @Override
   public void connect(@UnderInitialization MediaControllerImplLegacy this) {
     if (this.token.getType() == SessionToken.TYPE_SESSION) {
-      connectToSession((MediaSessionCompat.Token) checkStateNotNull(this.token.getBinder()));
+      connectToSession((MediaSessionCompat.Token) checkNotNull(this.token.getBinder()));
     } else {
       connectToService();
     }
@@ -1253,11 +1251,6 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
 
   @Override
   public void setDeviceMuted(boolean muted, @C.VolumeFlags int flags) {
-    if (SDK_INT < 23) {
-      Log.w(TAG, "Session doesn't support setting mute state at API level less than 23");
-      return;
-    }
-
     boolean isMuted = isDeviceMuted();
     if (muted != isMuted) {
       int volume = getDeviceVolume();
@@ -1604,7 +1597,6 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
             controllerCompat.isSessionReady(),
             controllerCompat.getRatingType(),
             getInstance().getTimeDiffMs(),
-            getRoutingControllerId(controllerCompat),
             hasPendingExtrasChange,
             context);
     Pair<@NullableType Integer, @NullableType Integer> reasons =
@@ -1833,22 +1825,6 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
     listeners.flushEvents();
   }
 
-  @Nullable
-  private static String getRoutingControllerId(MediaControllerCompat controllerCompat) {
-    if (SDK_INT < 30) {
-      return null;
-    }
-    android.media.session.MediaController fwkController =
-        (android.media.session.MediaController) controllerCompat.getMediaController();
-    @Nullable
-    android.media.session.MediaController.PlaybackInfo playbackInfo =
-        fwkController.getPlaybackInfo();
-    if (playbackInfo == null) {
-      return null;
-    }
-    return playbackInfo.getVolumeControlId();
-  }
-
   private static <T> void ignoreFuture(Future<T> unused) {
     // Ignore return value of the future because legacy session cannot get result back.
   }
@@ -2030,7 +2006,6 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
       boolean isSessionReady,
       @RatingCompat.Style int ratingType,
       long timeDiffMs,
-      @Nullable String routingControllerId,
       boolean hasPendingExtrasChange,
       Context context) {
     QueueTimeline currentTimeline;
@@ -2206,8 +2181,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
     boolean isPlaying =
         LegacyConversions.convertToIsPlaying(newLegacyPlayerInfo.playbackStateCompat);
     DeviceInfo deviceInfo =
-        LegacyConversions.convertToDeviceInfo(
-            newLegacyPlayerInfo.playbackInfoCompat, routingControllerId);
+        LegacyConversions.convertToDeviceInfo(newLegacyPlayerInfo.playbackInfoCompat);
     int deviceVolume =
         LegacyConversions.convertToDeviceVolume(newLegacyPlayerInfo.playbackInfoCompat);
     boolean deviceMuted =
@@ -2279,7 +2253,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
       mediaItemTransitionReason = Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED;
     } else {
       MediaItem oldCurrentMediaItem =
-          checkStateNotNull(oldControllerInfo.playerInfo.getCurrentMediaItem());
+          checkNotNull(oldControllerInfo.playerInfo.getCurrentMediaItem());
       boolean oldCurrentMediaItemExistsInNewTimeline =
           ((QueueTimeline) newControllerInfo.playerInfo.timeline).contains(oldCurrentMediaItem);
       if (!oldCurrentMediaItemExistsInNewTimeline) {

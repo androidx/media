@@ -15,8 +15,8 @@
  */
 package androidx.media3.transformer;
 
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.getPcmFormat;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
@@ -460,6 +460,70 @@ public class AudioGraphTest {
         new AudioGraph(
             new DefaultAudioMixer.Factory(), /* effects= */ ImmutableList.of(fakeProcessor));
     audioGraph.flush(/* positionOffsetUs= */ 500_000);
+    assertThat(lastPositionOffsetUs.get()).isEqualTo(500_000);
+  }
+
+  @Test
+  public void flush_beforeRegisteringFirstInput_maintainsPreviousPositionOffset() throws Exception {
+    AtomicLong lastPositionOffsetUs = new AtomicLong(C.TIME_UNSET);
+    BaseAudioProcessor fakeProcessor =
+        new PassthroughAudioProcessor() {
+          @Override
+          protected void onFlush(StreamMetadata streamMetadata) {
+            lastPositionOffsetUs.set(streamMetadata.positionOffsetUs);
+          }
+        };
+    AudioGraph audioGraph =
+        new AudioGraph(
+            new DefaultAudioMixer.Factory(), /* effects= */ ImmutableList.of(fakeProcessor));
+
+    audioGraph.flush(/* positionOffsetUs= */ 500_000);
+    lastPositionOffsetUs.set(C.TIME_UNSET);
+    audioGraph.registerInput(FAKE_ITEM, getPcmFormat(MONO_44100));
+
+    assertThat(lastPositionOffsetUs.get()).isEqualTo(500_000);
+  }
+
+  @Test
+  public void flush_multipleTimes_propagatesLastPositionOffsetAfterFirstInput() throws Exception {
+    AtomicLong lastPositionOffsetUs = new AtomicLong(C.TIME_UNSET);
+    BaseAudioProcessor fakeProcessor =
+        new PassthroughAudioProcessor() {
+          @Override
+          protected void onFlush(StreamMetadata streamMetadata) {
+            lastPositionOffsetUs.set(streamMetadata.positionOffsetUs);
+          }
+        };
+    AudioGraph audioGraph =
+        new AudioGraph(
+            new DefaultAudioMixer.Factory(), /* effects= */ ImmutableList.of(fakeProcessor));
+
+    audioGraph.flush(/* positionOffsetUs= */ 500_000);
+    audioGraph.flush(/* positionOffsetUs= */ 600_000);
+    audioGraph.flush(/* positionOffsetUs= */ 700_000);
+    audioGraph.registerInput(FAKE_ITEM, getPcmFormat(MONO_44100));
+
+    assertThat(lastPositionOffsetUs.get()).isEqualTo(700_000);
+  }
+
+  @Test
+  public void flush_afterRegisteringFirstInput_updatesPositionOffset() throws Exception {
+    AtomicLong lastPositionOffsetUs = new AtomicLong(C.TIME_UNSET);
+    BaseAudioProcessor fakeProcessor =
+        new PassthroughAudioProcessor() {
+          @Override
+          protected void onFlush(StreamMetadata streamMetadata) {
+            lastPositionOffsetUs.set(streamMetadata.positionOffsetUs);
+          }
+        };
+    AudioGraph audioGraph =
+        new AudioGraph(
+            new DefaultAudioMixer.Factory(), /* effects= */ ImmutableList.of(fakeProcessor));
+
+    audioGraph.registerInput(FAKE_ITEM, getPcmFormat(MONO_44100));
+    assertThat(lastPositionOffsetUs.get()).isEqualTo(0);
+    audioGraph.flush(/* positionOffsetUs= */ 500_000);
+
     assertThat(lastPositionOffsetUs.get()).isEqualTo(500_000);
   }
 

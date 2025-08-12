@@ -15,6 +15,8 @@
  */
 package androidx.media3.exoplayer.trackselection;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 
 import android.os.SystemClock;
@@ -23,7 +25,6 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.TrackGroup;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.source.chunk.MediaChunk;
@@ -74,9 +75,9 @@ public abstract class BaseTrackSelection implements ExoTrackSelection {
    * @param type The type that will be returned from {@link TrackSelection#getType()}.
    */
   public BaseTrackSelection(TrackGroup group, int[] tracks, @Type int type) {
-    Assertions.checkState(tracks.length > 0);
+    checkState(tracks.length > 0);
     this.type = type;
-    this.group = Assertions.checkNotNull(group);
+    this.group = checkNotNull(group);
     this.length = tracks.length;
     // Set the formats, sorted in order of decreasing bandwidth.
     formats = new Format[length];

@@ -41,18 +41,18 @@ import static androidx.media3.common.Player.EVENT_SEEK_FORWARD_INCREMENT_CHANGED
 import static androidx.media3.common.Player.EVENT_SHUFFLE_MODE_ENABLED_CHANGED;
 import static androidx.media3.common.Player.EVENT_TIMELINE_CHANGED;
 import static androidx.media3.common.Player.EVENT_TRACKS_CHANGED;
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Util.castNonNull;
 import static androidx.media3.common.util.Util.getDrawable;
 import static androidx.media3.common.util.Util.msToUs;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.res.Resources;
 import android.content.res.TypedArray;
-import android.graphics.Color;
 import android.graphics.Typeface;
-import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.os.Looper;
 import android.util.AttributeSet;
@@ -78,7 +78,6 @@ import androidx.media3.common.TrackGroup;
 import androidx.media3.common.TrackSelectionOverride;
 import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.Tracks;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.RepeatModeUtil;
 import androidx.media3.common.util.UnstableApi;
@@ -804,11 +803,6 @@ public class PlayerControlView extends FrameLayout {
     settingsView.setLayoutManager(new LinearLayoutManager(getContext()));
     settingsWindow =
         new PopupWindow(settingsView, LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT, true);
-    if (SDK_INT < 23) {
-      // Work around issue where tapping outside of the menu area or pressing the back button
-      // doesn't dismiss the menu as expected. See: https://github.com/google/ExoPlayer/issues/8272.
-      settingsWindow.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
-    }
     settingsWindow.setOnDismissListener(componentListener);
     needToHideBars = true;
 
@@ -880,9 +874,8 @@ public class PlayerControlView extends FrameLayout {
    *     player.getApplicationLooper() == Looper.getMainLooper()}).
    */
   public void setPlayer(@Nullable Player player) {
-    Assertions.checkState(Looper.myLooper() == Looper.getMainLooper());
-    Assertions.checkArgument(
-        player == null || player.getApplicationLooper() == Looper.getMainLooper());
+    checkState(Looper.myLooper() == Looper.getMainLooper());
+    checkArgument(player == null || player.getApplicationLooper() == Looper.getMainLooper());
     if (this.player == player) {
       return;
     }
@@ -936,8 +929,8 @@ public class PlayerControlView extends FrameLayout {
       this.extraAdGroupTimesMs = new long[0];
       this.extraPlayedAdGroups = new boolean[0];
     } else {
-      extraPlayedAdGroups = checkNotNull(extraPlayedAdGroups);
-      Assertions.checkArgument(extraAdGroupTimesMs.length == extraPlayedAdGroups.length);
+      checkNotNull(extraPlayedAdGroups);
+      checkArgument(extraAdGroupTimesMs.length == extraPlayedAdGroups.length);
       this.extraAdGroupTimesMs = extraAdGroupTimesMs;
       this.extraPlayedAdGroups = extraPlayedAdGroups;
     }
@@ -1451,7 +1444,7 @@ public class PlayerControlView extends FrameLayout {
         }
         timeline.getWindow(i, window);
         if (window.durationUs == C.TIME_UNSET) {
-          Assertions.checkState(!multiWindowTimeBar);
+          checkState(!multiWindowTimeBar);
           break;
         }
         for (int j = window.firstPeriodIndex; j <= window.lastPeriodIndex; j++) {

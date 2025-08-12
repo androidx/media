@@ -15,6 +15,8 @@
  */
 package androidx.media3.exoplayer.video.spherical;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import android.content.Context;
 import android.graphics.PointF;
 import android.graphics.SurfaceTexture;
@@ -36,7 +38,6 @@ import androidx.annotation.Nullable;
 import androidx.annotation.UiThread;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.video.VideoFrameMetadataListener;
@@ -100,8 +101,7 @@ public final class SphericalGLSurfaceView extends GLSurfaceView {
     mainHandler = new Handler(Looper.getMainLooper());
 
     // Configure sensors and touch.
-    sensorManager =
-        (SensorManager) Assertions.checkNotNull(context.getSystemService(Context.SENSOR_SERVICE));
+    sensorManager = (SensorManager) checkNotNull(context.getSystemService(Context.SENSOR_SERVICE));
     // TYPE_GAME_ROTATION_VECTOR is the easiest sensor since it handles all the complex math for
     // fusion. It's used instead of TYPE_ROTATION_VECTOR since the latter uses the magnetometer on
     // devices. When used indoors, the magnetometer can take some time to settle depending on the
@@ -118,7 +118,7 @@ public final class SphericalGLSurfaceView extends GLSurfaceView {
 
     touchTracker = new TouchTracker(context, renderer, PX_PER_DEGREES);
     WindowManager windowManager = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
-    Display display = Assertions.checkNotNull(windowManager).getDefaultDisplay();
+    Display display = checkNotNull(windowManager).getDefaultDisplay();
     orientationListener = new OrientationListener(display, touchTracker, renderer);
     useSensorRotation = true;
 

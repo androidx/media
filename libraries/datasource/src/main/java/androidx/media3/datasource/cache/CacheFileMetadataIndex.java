@@ -15,14 +15,13 @@
  */
 package androidx.media3.datasource.cache;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.content.ContentValues;
 import android.database.Cursor;
 import android.database.SQLException;
 import android.database.sqlite.SQLiteDatabase;
 import androidx.annotation.WorkerThread;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.database.DatabaseIOException;
 import androidx.media3.database.DatabaseProvider;
 import androidx.media3.database.VersionTable;
@@ -173,7 +172,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    */
   @WorkerThread
   public void set(String name, long length, long lastTouchTimestamp) throws DatabaseIOException {
-    Assertions.checkNotNull(tableName);
+    checkNotNull(tableName);
     try {
       SQLiteDatabase writableDatabase = databaseProvider.getWritableDatabase();
       ContentValues values = new ContentValues();
@@ -196,7 +195,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    */
   @WorkerThread
   public void remove(String name) throws DatabaseIOException {
-    Assertions.checkNotNull(tableName);
+    checkNotNull(tableName);
     try {
       SQLiteDatabase writableDatabase = databaseProvider.getWritableDatabase();
       writableDatabase.delete(tableName, WHERE_NAME_EQUALS, new String[] {name});
@@ -215,7 +214,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    */
   @WorkerThread
   public void removeAll(Set<String> names) throws DatabaseIOException {
-    Assertions.checkNotNull(tableName);
+    checkNotNull(tableName);
     try {
       SQLiteDatabase writableDatabase = databaseProvider.getWritableDatabase();
       writableDatabase.beginTransactionNonExclusive();
@@ -233,7 +232,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   private Cursor getCursor() {
-    Assertions.checkNotNull(tableName);
+    checkNotNull(tableName);
     return databaseProvider
         .getReadableDatabase()
         .query(

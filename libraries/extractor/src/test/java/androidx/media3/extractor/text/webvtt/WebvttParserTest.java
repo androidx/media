@@ -17,6 +17,7 @@ package androidx.media3.extractor.text.webvtt;
 
 import static androidx.media3.common.Format.CUE_REPLACEMENT_BEHAVIOR_MERGE;
 import static androidx.media3.test.utils.truth.SpannedSubject.assertThat;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
@@ -24,7 +25,6 @@ import android.text.Layout.Alignment;
 import android.text.Spanned;
 import androidx.media3.common.text.Cue;
 import androidx.media3.common.text.TextAnnotation;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.ColorParser;
 import androidx.media3.extractor.text.CuesWithTiming;
 import androidx.media3.extractor.text.SubtitleParser;
@@ -686,6 +686,6 @@ public class WebvttParserTest {
   }
 
   private Spanned getUniqueSpanTextAt(CuesWithTiming cuesWithTiming) {
-    return (Spanned) Assertions.checkNotNull(cuesWithTiming.cues.get(0).text);
+    return (Spanned) checkNotNull(cuesWithTiming.cues.get(0).text);
   }
 }

@@ -15,10 +15,9 @@
  */
 package androidx.media3.transformer;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.transformer.EditedMediaItemSequence.getEditedMediaItem;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.content.Context;
 import android.util.Pair;
@@ -80,8 +79,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       throws ExoPlaybackException {
     currentEditedMediaItem =
         getEditedMediaItem(
-            checkStateNotNull(sequence),
-            /* index= */ timeline.getIndexOfPeriod(periodId.periodUid));
+            checkNotNull(sequence), /* index= */ timeline.getIndexOfPeriod(periodId.periodUid));
     return trackSelectorInternal.selectTracks(
         rendererCapabilities, trackGroups, periodId, timeline);
   }
@@ -112,7 +110,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    */
   private final class TrackSelectorInternal extends DefaultTrackSelector {
 
-    private static final String SILENCE_AUDIO_TRACK_GROUP_ID = "1:";
+    private static final String SILENCE_AUDIO_TRACK_GROUP_ID = "0:";
+    private static final String BLANK_IMAGE_TRACK_GROUP_ID = "1:";
     private final Listener listener;
     private final int sequenceIndex;
 
@@ -178,8 +177,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
           if (shouldUseMediaAudio) {
             // Disable silence if the media's audio track is playable.
-            int silenceAudioTrackIndex = audioTrackGroups.length - 1;
-            rendererFormatSupports[audioRenderIndex][silenceAudioTrackIndex][0] =
+            rendererFormatSupports[audioRenderIndex][silenceAudioTrackGroupIndex][0] =
                 RendererCapabilities.create(C.FORMAT_UNSUPPORTED_TYPE);
           }
         }
@@ -221,6 +219,43 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         @RendererCapabilities.Capabilities int[][][] rendererFormatSupports,
         Parameters params)
         throws ExoPlaybackException {
+
+      int imageRenderIndex = C.INDEX_UNSET;
+      for (int i = 0; i < mappedTrackInfo.getRendererCount(); i++) {
+        if (mappedTrackInfo.getRendererType(i) == C.TRACK_TYPE_IMAGE) {
+          imageRenderIndex = i;
+          break;
+        }
+      }
+      checkState(imageRenderIndex != C.INDEX_UNSET);
+
+      TrackGroupArray imageTrackGroups = mappedTrackInfo.getTrackGroups(imageRenderIndex);
+      // If there's only one image TrackGroup, there's no need to override track selection
+      if (imageTrackGroups.length > 1) {
+        // TODO(b/419255366): Support `removeVideo` full functionality
+        // Check if media image is playable.
+        boolean shouldUseMediaImage = false;
+        int blankImageTrackGroupIndex = C.INDEX_UNSET;
+        for (int i = 0; i < imageTrackGroups.length; i++) {
+          if (imageTrackGroups.get(i).id.startsWith(BLANK_IMAGE_TRACK_GROUP_ID)) {
+            blankImageTrackGroupIndex = i;
+            continue;
+          }
+          for (int j = 0; j < imageTrackGroups.get(i).length; j++) {
+            shouldUseMediaImage |=
+                RendererCapabilities.getFormatSupport(
+                        rendererFormatSupports[imageRenderIndex][i][j])
+                    == C.FORMAT_HANDLED;
+          }
+        }
+        checkState(blankImageTrackGroupIndex != C.INDEX_UNSET);
+
+        if (shouldUseMediaImage) {
+          // Disable blank images if the media's image track is playable.
+          rendererFormatSupports[imageRenderIndex][blankImageTrackGroupIndex][0] =
+              RendererCapabilities.create(C.FORMAT_UNSUPPORTED_TYPE);
+        }
+      }
 
       @Nullable
       Pair<ExoTrackSelection.Definition, Integer> trackSelection =
