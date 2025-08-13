@@ -25,6 +25,7 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.extractor.SeekMap;
+import com.google.common.collect.ImmutableList;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** A fake {@link ExtractorOutput}. */
@@ -119,19 +120,19 @@ public final class FakeExtractorOutput implements ExtractorOutput, Dumper.Dumpab
   }
 
   /**
-   * Returns a {@link FakeTrackOutput} of given {@link C.TrackType}.
+   * Returns a list of {@link FakeTrackOutput} of given {@link C.TrackType}.
    *
    * @param trackType The {@link C.TrackType}.
-   * @return The {@link FakeTrackOutput} or {@code null} if a track is not found.
+   * @return A list of {@link FakeTrackOutput}.
    */
-  @Nullable
-  public FakeTrackOutput getTrackOutput(@C.TrackType int trackType) {
+  public ImmutableList<FakeTrackOutput> getTrackOutputsForType(@C.TrackType int trackType) {
+    ImmutableList.Builder<FakeTrackOutput> trackOutputList = new ImmutableList.Builder<>();
     for (int i = 0; i < numberOfTracks; i++) {
       FakeTrackOutput trackOutput = trackOutputs.valueAt(i);
       if (trackType == trackOutput.getType()) {
-        return trackOutput;
+        trackOutputList.add(trackOutput);
       }
     }
-    return null;
+    return trackOutputList.build();
   }
 }
