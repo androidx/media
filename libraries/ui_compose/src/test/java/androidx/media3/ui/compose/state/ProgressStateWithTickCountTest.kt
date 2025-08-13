@@ -386,17 +386,27 @@ class ProgressStateWithTickCountTest {
       }
       player.setPosition(10_000)
       player.setBufferedPositionMs(10_000)
-      advanceTimeByInclusive(200.milliseconds)
+      composeTestRule.waitForIdle()
+      // TODO: b/436159565 - Remove runCurrent() when `compose.ui:ui-test` is updated to include
+      //    aosp/3208355, which makes waitForIdle() sufficient. Will require composeBom upgrade.
+      testScheduler.runCurrent()
 
-      // Check state before change to ENDED, immediately after the change and after waiting for any
-      // pending updates to ensure the main thread is not blocked.
+      // Check state before change to ENDED
       assertThat(state.currentPositionProgress).isEqualTo(1f)
       assertThat(state.bufferedPositionProgress).isEqualTo(1f)
+
       player.setPlaybackState(Player.STATE_ENDED)
+
+      // Immediately after the change before running the playback state update
       assertThat(state.currentPositionProgress).isEqualTo(1f)
       assertThat(state.bufferedPositionProgress).isEqualTo(1f)
-      advanceTimeByInclusive(200.milliseconds)
 
+      composeTestRule.waitForIdle()
+      // TODO: b/436159565 - Remove runCurrent() when `compose.ui:ui-test` is updated to include
+      //    aosp/3208355, which makes waitForIdle() sufficient. Will require composeBom upgrade.
+      testScheduler.runCurrent()
+
+      // After completing any pending updates to ensure the main thread is not blocked.
       assertThat(state.currentPositionProgress).isEqualTo(1f)
       assertThat(state.bufferedPositionProgress).isEqualTo(1f)
     }
