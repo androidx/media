@@ -124,6 +124,9 @@
     *   Fix bug where `getCurrentTimeline()` was called by `PlayerWrapper` even
         when the command isn't available
         ([#2665](https://github.com/androidx/media/issues/2665)).
+    *   Fix bug where a message was left in the message queue of the main looper
+        which caused a memory leak after the service terminated
+        ([#2692](https://github.com/androidx/media/issues/2692)).
 *   UI:
     *   Add `ProgressStateWithTickInterval` class and the corresponding
         `rememberProgressStateWithTickInterval` Composable to

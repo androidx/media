@@ -577,7 +577,6 @@ public abstract class MediaSessionService extends Service {
    */
   @UnstableApi
   public final void pauseAllPlayersAndStopSelf() {
-    getMediaNotificationManager().disableUserEngagedTimeout();
     List<MediaSession> sessionList = getSessions();
     for (int i = 0; i < sessionList.size(); i++) {
       sessionList.get(i).getPlayer().setPlayWhenReady(false);
@@ -633,6 +632,9 @@ public abstract class MediaSessionService extends Service {
   @Override
   public void onDestroy() {
     super.onDestroy();
+    if (mediaNotificationManager != null) {
+      mediaNotificationManager.disableUserEngagedTimeout();
+    }
     if (stub != null) {
       stub.release();
       stub = null;
