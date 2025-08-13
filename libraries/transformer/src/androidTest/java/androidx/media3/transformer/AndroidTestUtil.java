@@ -704,8 +704,9 @@ public final class AndroidTestUtil {
     File fileDirectory = new File(context.getExternalCacheDir(), directoryName);
     fileDirectory.mkdirs();
     File file = new File(fileDirectory, fileName);
-    checkState(!file.exists() || file.delete(), "Could not delete file: " + file.getAbsolutePath());
-    checkState(file.createNewFile(), "Could not create file: " + file.getAbsolutePath());
+    checkState(
+        !file.exists() || file.delete(), "Could not delete file: %s", file.getAbsolutePath());
+    checkState(file.createNewFile(), "Could not create file: %s", file.getAbsolutePath());
     return file;
   }
 

@@ -151,7 +151,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       @VideoFrameProcessor.InputType int newInputType, FrameInfo newInputFrameInfo)
       throws VideoFrameProcessingException {
     checkNotNull(downstreamShaderProgram);
-    checkState(contains(inputs, newInputType), "Input type not registered: " + newInputType);
+    checkState(contains(inputs, newInputType), "Input type not registered: %s", newInputType);
 
     for (int i = 0; i < inputs.size(); i++) {
       inputs.get(inputs.keyAt(i)).setActive(false);

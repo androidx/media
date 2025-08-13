@@ -1754,7 +1754,8 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     @Nullable DolbyVisionConfig dolbyVisionConfig = getDolbyVisionConfig(format);
     checkNotNull(
         dolbyVisionConfig,
-        "Dolby Vision Initialization data is not found for format: %s" + format.sampleMimeType);
+        "Dolby Vision Initialization data is not found for format: %s",
+        format.sampleMimeType);
     switch (dolbyVisionConfig.profile) {
       case 5:
         return "dvh1";

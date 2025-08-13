@@ -312,7 +312,7 @@ public final class FakeExoMediaDrm implements ExoMediaDrm {
     if (keyType == KEY_TYPE_OFFLINE || keyType == KEY_TYPE_RELEASE) {
       throw new UnsupportedOperationException("Offline key requests are not supported.");
     }
-    checkArgument(keyType == KEY_TYPE_STREAMING, "Unrecognised keyType: " + keyType);
+    checkArgument(keyType == KEY_TYPE_STREAMING, "Unrecognised keyType: %s", keyType);
     if (throwNotProvisionedExceptionFromGetKeyRequest && provisionsReceived < provisionsRequired) {
       throwNotProvisionedException();
     }

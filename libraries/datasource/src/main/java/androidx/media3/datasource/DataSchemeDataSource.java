@@ -52,7 +52,7 @@ public final class DataSchemeDataSource extends BaseDataSource {
     this.dataSpec = dataSpec;
     Uri uri = dataSpec.uri.normalizeScheme();
     String scheme = uri.getScheme();
-    checkArgument(SCHEME_DATA.equals(scheme), "Unsupported scheme: " + scheme);
+    checkArgument(SCHEME_DATA.equals(scheme), "Unsupported scheme: %s", scheme);
     String[] uriParts = Util.split(uri.getSchemeSpecificPart(), ",");
     if (uriParts.length != 2) {
       throw ParserException.createForMalformedDataOfUnknownType(

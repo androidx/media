@@ -213,7 +213,7 @@ public final class Transformer {
     @CanIgnoreReturnValue
     public Builder setAudioMimeType(String audioMimeType) {
       audioMimeType = MimeTypes.normalizeMimeType(audioMimeType);
-      checkArgument(MimeTypes.isAudio(audioMimeType), "Not an audio MIME type: " + audioMimeType);
+      checkArgument(MimeTypes.isAudio(audioMimeType), "Not an audio MIME type: %s", audioMimeType);
       this.audioMimeType = audioMimeType;
       return this;
     }
@@ -245,7 +245,7 @@ public final class Transformer {
     @CanIgnoreReturnValue
     public Builder setVideoMimeType(String videoMimeType) {
       videoMimeType = MimeTypes.normalizeMimeType(videoMimeType);
-      checkArgument(MimeTypes.isVideo(videoMimeType), "Not a video MIME type: " + videoMimeType);
+      checkArgument(MimeTypes.isVideo(videoMimeType), "Not a video MIME type: %s", videoMimeType);
       this.videoMimeType = videoMimeType;
       return this;
     }
@@ -671,7 +671,8 @@ public final class Transformer {
           muxerFactory
               .getSupportedSampleMimeTypes(MimeTypes.getTrackType(sampleMimeType))
               .contains(sampleMimeType),
-          "Unsupported sample MIME type " + sampleMimeType);
+          "Unsupported sample MIME type %s",
+          sampleMimeType);
     }
   }
 

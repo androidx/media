@@ -491,7 +491,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
   public void setComposition(Composition composition, @IntRange(from = 0) long startPositionMs) {
     verifyApplicationThread();
     checkArgument(!composition.sequences.isEmpty());
-    checkArgument(startPositionMs >= 0, "Invalid start position " + startPositionMs);
+    checkArgument(startPositionMs >= 0, "Invalid start position %s", startPositionMs);
     composition = deactivateSpeedAdjustingVideoEffects(composition);
 
     if (composition.sequences.size() > 1 && !videoGraphFactory.supportsMultipleInputs()) {

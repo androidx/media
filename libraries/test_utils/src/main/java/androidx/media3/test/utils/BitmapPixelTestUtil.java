@@ -436,7 +436,9 @@ public class BitmapPixelTestUtil {
     if (path != null) {
       File folder = new File(path);
       checkState(
-          folder.exists() || folder.mkdirs(), "Could not create directory to save images: " + path);
+          folder.exists() || folder.mkdirs(),
+          "Could not create directory to save images: %s",
+          path);
       file = new File(path, fileName);
     } else {
       file = new File(getApplicationContext().getExternalCacheDir(), fileName);
