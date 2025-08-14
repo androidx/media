@@ -498,9 +498,9 @@ public final class MediaCodecInfo {
         discardReasons |= DISCARD_REASON_AUDIO_ENCODING_CHANGED;
       }
 
-      // Check whether we're adapting between two xHE-AAC formats, for which adaptation is possible
-      // without reconfiguration or flushing.
-      if (discardReasons == 0 && MimeTypes.AUDIO_AAC.equals(mimeType)) {
+      // Some audio formats allow adaptation without reconfiguration or flushing.
+      if (discardReasons == 0
+          && (mimeType.equals(MimeTypes.AUDIO_AAC) || mimeType.equals(MimeTypes.AUDIO_AC4))) {
         @Nullable
         Pair<Integer, Integer> oldCodecProfileLevel =
             MediaCodecUtil.getCodecProfileAndLevel(oldFormat);
@@ -510,6 +510,8 @@ public final class MediaCodecInfo {
         if (oldCodecProfileLevel != null && newCodecProfileLevel != null) {
           int oldProfile = oldCodecProfileLevel.first;
           int newProfile = newCodecProfileLevel.first;
+          // Check whether we're adapting between two xHE-AAC formats, for which adaptation is
+          // possible without reconfiguration or flushing.
           if (oldProfile == CodecProfileLevel.AACObjectXHE
               && newProfile == CodecProfileLevel.AACObjectXHE) {
             return new DecoderReuseEvaluation(
@@ -519,7 +521,30 @@ public final class MediaCodecInfo {
                 REUSE_RESULT_YES_WITHOUT_RECONFIGURATION,
                 /* discardReasons= */ 0);
           }
+          // For ac4 with the same profile and level, adaptation is possible without reconfiguration
+          // or flushing.
+          if (mimeType.equals(MimeTypes.AUDIO_AC4)
+              && oldCodecProfileLevel.equals(newCodecProfileLevel)) {
+            return new DecoderReuseEvaluation(
+                name,
+                oldFormat,
+                newFormat,
+                REUSE_RESULT_YES_WITHOUT_RECONFIGURATION,
+                /* discardReasons= */ 0);
+          }
         }
+      }
+
+      // For eac3 and eac3-joc, adaptation is possible without reconfiguration or flushing.
+      if (discardReasons == 0
+          && (mimeType.equals(MimeTypes.AUDIO_E_AC3_JOC)
+              || mimeType.equals(MimeTypes.AUDIO_E_AC3))) {
+        return new DecoderReuseEvaluation(
+            name,
+            oldFormat,
+            newFormat,
+            REUSE_RESULT_YES_WITHOUT_RECONFIGURATION,
+            /* discardReasons= */ 0);
       }
 
       if (!oldFormat.initializationDataEquals(newFormat)) {
