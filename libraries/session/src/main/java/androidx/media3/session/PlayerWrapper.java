@@ -882,8 +882,6 @@ import java.util.List;
                     currentPeriodIndex,
                     /* min= */ window.firstPeriodIndex,
                     /* max= */ window.lastPeriodIndex));
-      } else if (getPlaybackState() != STATE_IDLE) {
-        checkState(currentMediaItemIndex == 0 && currentPeriodIndex == 0);
       }
     }
     return new PositionInfo(

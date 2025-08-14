@@ -160,13 +160,16 @@ public class PlayerWrapperTest {
 
   @Test
   public void
-      createPositionInfo_currentMediaItemIndexNotZeroWithEmptyTimeline_throwsIllegalStateException() {
+      createPositionInfo_currentMediaItemIndexNotZeroWithEmptyTimelineInEnded_correctPositionInfo() {
     when(player.getCurrentTimeline()).thenReturn(Timeline.EMPTY);
     when(player.getPlaybackState()).thenReturn(Player.STATE_ENDED);
     when(player.getCurrentMediaItemIndex()).thenReturn(1);
     when(player.getCurrentPeriodIndex()).thenReturn(1);
 
-    assertThrows(IllegalStateException.class, playerWrapper::createPositionInfo);
+    Player.PositionInfo positionInfo = playerWrapper.createPositionInfo();
+
+    assertThat(positionInfo.mediaItemIndex).isEqualTo(1);
+    assertThat(positionInfo.periodIndex).isEqualTo(1);
   }
 
   @Test
