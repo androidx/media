@@ -12,6 +12,9 @@
     *   Fix `ForwardingPlayer` listener handling when the underlying delegate
         player uses reference equality for comparing listener instances
         ([#2675](https://github.com/androidx/media/issues/2675)).
+    *   Add a `Player.listenTo` suspending extension function in the
+        `media3-common-ktx` library that specifies the particular
+        `Player.Events` that should be acted upon.
 *   ExoPlayer:
     *   Add a stuck buffering detection that triggers a `StuckPlayerException`
         player error after 10 minutes of `STATE_BUFFERING` while trying to play

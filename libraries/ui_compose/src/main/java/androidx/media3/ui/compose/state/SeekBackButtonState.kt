@@ -24,7 +24,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.media3.common.Player
-import androidx.media3.common.listen
+import androidx.media3.common.listenTo
 import androidx.media3.common.util.UnstableApi
 
 /**
@@ -74,16 +74,12 @@ class SeekBackButtonState(private val player: Player) {
   suspend fun observe(): Nothing {
     isEnabled = isSeekBackEnabled(player)
     seekBackAmountMs = player.seekBackIncrement
-    player.listen { events ->
-      if (
-        events.containsAny(
-          Player.EVENT_AVAILABLE_COMMANDS_CHANGED,
-          Player.EVENT_SEEK_BACK_INCREMENT_CHANGED,
-        )
-      ) {
-        isEnabled = isSeekBackEnabled(this)
-        seekBackAmountMs = seekBackIncrement
-      }
+    player.listenTo(
+      Player.EVENT_AVAILABLE_COMMANDS_CHANGED,
+      Player.EVENT_SEEK_BACK_INCREMENT_CHANGED,
+    ) {
+      isEnabled = isSeekBackEnabled(this)
+      seekBackAmountMs = seekBackIncrement
     }
   }
 
