@@ -86,6 +86,18 @@ public final class Mp4ExtractorNonParameterizedTest {
   }
 
   @Test
+  public void extract_withMalformedFreeBox_succeeds() throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    String inputFilePath = "media/mp4/sample_malformed_free_box.mp4";
+    Mp4Extractor mp4Extractor = new Mp4Extractor(SubtitleParser.Factory.UNSUPPORTED);
+
+    FakeExtractorOutput output =
+        TestUtil.extractAllSamplesFromFile(mp4Extractor, context, inputFilePath);
+
+    assertThat(output.numberOfTracks).isEqualTo(2);
+  }
+
+  @Test
   public void getSeekPoints_withEmptyTracks_returnsValidInformation() throws Exception {
     Mp4Extractor extractor = new Mp4Extractor(SubtitleParser.Factory.UNSUPPORTED);
     FakeExtractorInput input = createInputForSample("sample_empty_track.mp4");
