@@ -48,7 +48,7 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public final class CompositionPlayerGapsTest {
   private static final long TEST_TIMEOUT_MS = isRunningOnEmulator() ? 20_000 : 10_000;
-  private static final long START_GAP_CHECK_OFFSET_US = 50_000;
+  private static final long START_GAP_CHECK_OFFSET_US = 70_000;
   private static final long AUDIO_VIDEO_MEDIA_ITEM_DURATION_US = MP4_ASSET.videoDurationUs;
   private static final long AUDIO_ONLY_MEDIA_ITEM_DURATION_US = 1_000_000;
   private static final long GAP_DURATION_US = 1_000_000;
@@ -192,8 +192,9 @@ public final class CompositionPlayerGapsTest {
     final AtomicBoolean oneByOneFramesInGapCount = new AtomicBoolean(false);
     VideoFrameMetadataListener videoFrameMetadataListener =
         (presentationTimeUs, releaseTimeNs, format, mediaFormat) -> {
-          // Added a start offset because the format is only set after the first frame is rendered
-          // (b/292111083).
+          // TODO - b/438435783: Used a start offset to accommodate a race condition during the
+          //  video-to-gap transition. The video format change is not always propagated before the
+          //  first two frames are processed, leading to incorrect frame size.
           if (presentationTimeUs >= gapStartCompositionUs + START_GAP_CHECK_OFFSET_US
               && presentationTimeUs < gapEndCompositionUs) {
             if (format.width == 1 && format.height == 1) {
@@ -243,8 +244,9 @@ public final class CompositionPlayerGapsTest {
     final AtomicBoolean oneByOneFramesInGapCount = new AtomicBoolean(false);
     VideoFrameMetadataListener videoFrameMetadataListener =
         (presentationTimeUs, releaseTimeNs, format, mediaFormat) -> {
-          // Added a start offset because the format is only set after the first frame is rendered
-          // (b/292111083).
+          // TODO - b/438435783: Used a start offset to accommodate a race condition during the
+          //  video-to-gap transition. The video format change is not always propagated before the
+          //  first two frames are processed, leading to incorrect frame size.
           if (presentationTimeUs >= gapStartCompositionUs + START_GAP_CHECK_OFFSET_US
               && presentationTimeUs < gapEndCompositionUs) {
             if (format.width == 1 && format.height == 1) {
@@ -377,8 +379,9 @@ public final class CompositionPlayerGapsTest {
     final AtomicBoolean oneByOneFramesInAudioOnlyItemCount = new AtomicBoolean(false);
     VideoFrameMetadataListener videoFrameMetadataListener =
         (presentationTimeUs, releaseTimeNs, format, mediaFormat) -> {
-          // Added a start offset because the format is only set after the first frame is rendered
-          // (b/292111083).
+          // TODO - b/438435783: Used a start offset to accommodate a race condition during the
+          //  video-to-gap transition. The video format change is not always propagated before the
+          //  first two frames are processed, leading to incorrect frame size.
           if (presentationTimeUs >= audioOnlyItemStartCompositionUs + START_GAP_CHECK_OFFSET_US
               && presentationTimeUs < audioOnlyItemEndCompositionUs) {
             if (format.width == 1 && format.height == 1) {
@@ -430,8 +433,9 @@ public final class CompositionPlayerGapsTest {
     final AtomicBoolean oneByOneFramesInAudioOnlyItemCount = new AtomicBoolean(false);
     VideoFrameMetadataListener videoFrameMetadataListener =
         (presentationTimeUs, releaseTimeNs, format, mediaFormat) -> {
-          // Added a start offset because the format is only set after the first frame is rendered
-          // (b/292111083).
+          // TODO - b/438435783: Used a start offset to accommodate a race condition during the
+          //  video-to-gap transition. The video format change is not always propagated before the
+          //  first two frames are processed, leading to incorrect frame size.
           if (presentationTimeUs >= audioOnlyItemStartCompositionUs + START_GAP_CHECK_OFFSET_US
               && presentationTimeUs < audioOnlyItemEndCompositionUs) {
             if (format.width == 1 && format.height == 1) {
