@@ -577,6 +577,7 @@ public abstract class MediaSessionService extends Service {
    */
   @UnstableApi
   public final void pauseAllPlayersAndStopSelf() {
+    getMediaNotificationManager().disableUserEngagedTimeout();
     List<MediaSession> sessionList = getSessions();
     for (int i = 0; i < sessionList.size(); i++) {
       sessionList.get(i).getPlayer().setPlayWhenReady(false);
