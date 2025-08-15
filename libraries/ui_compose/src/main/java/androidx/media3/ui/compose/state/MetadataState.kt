@@ -24,7 +24,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.media3.common.Player
-import androidx.media3.common.listen
+import androidx.media3.common.listenTo
 import androidx.media3.common.util.UnstableApi
 
 /**
@@ -52,15 +52,8 @@ class MetadataState(private val player: Player) {
     private set
 
   suspend fun observe(): Nothing {
-    player.listen { events ->
-      if (
-        events.containsAny(
-          Player.EVENT_AVAILABLE_COMMANDS_CHANGED,
-          Player.EVENT_MEDIA_ITEM_TRANSITION,
-        )
-      ) {
-        uri = getMediaItemUriWithCommandCheck()
-      }
+    player.listenTo(Player.EVENT_AVAILABLE_COMMANDS_CHANGED, Player.EVENT_MEDIA_ITEM_TRANSITION) {
+      uri = getMediaItemUriWithCommandCheck()
     }
   }
 
