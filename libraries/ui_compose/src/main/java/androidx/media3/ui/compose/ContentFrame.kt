@@ -26,8 +26,26 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.compose.modifiers.resizeWithContentScale
+import androidx.media3.ui.compose.state.PresentationState
 import androidx.media3.ui.compose.state.rememberPresentationState
 
+/**
+ * A container for displaying media content from a [Player].
+ *
+ * This composable handles the underlying [PlayerSurface] for video playback, resizing the video
+ * based on the provided [ContentScale], and displaying a [shutter] according to the
+ * [PresentationState] based off the [Player].
+ *
+ * @param player The attached [Player] that provides media to this content frame.
+ * @param modifier The [Modifier] to be applied to the layout.
+ * @param surfaceType The type of surface to use for video playback. Can be either
+ *   [SURFACE_TYPE_SURFACE_VIEW] or [SURFACE_TYPE_TEXTURE_VIEW].
+ * @param contentScale The [ContentScale] strategy for the container.
+ * @param keepContentOnReset If `true`, the last rendered frame will remain visible when the player
+ *   is reset. If `false`, the surface will be cleared.
+ * @param shutter A composable that is displayed when the video surface needs to be covered. By
+ *   default, this is a black background.
+ */
 @UnstableApi
 @Composable
 fun ContentFrame(
@@ -38,7 +56,7 @@ fun ContentFrame(
   keepContentOnReset: Boolean = false,
   shutter: @Composable () -> Unit = { Box(Modifier.fillMaxSize().background(Color.Black)) },
 ) {
-  val presentationState = rememberPresentationState(player, keepContentOnReset)
+  val presentationState: PresentationState = rememberPresentationState(player, keepContentOnReset)
   val scaledModifier = modifier.resizeWithContentScale(contentScale, presentationState.videoSizeDp)
 
   // Always leave PlayerSurface to be part of the Compose tree because it will be initialised in
