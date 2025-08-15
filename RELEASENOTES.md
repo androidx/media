@@ -144,6 +144,8 @@
         `rememberProgressStateWithTickCount` Composable to `media3-ui-compose`
         module. This state holder is used in `demo-compose` to display progress
         as a horizontal read-only progress bar.
+    *   Add `MetadataState` class and the corresponding `rememberMetadataState`
+        Composable to `media3-ui-compose` module.
 *   Downloads:
 *   OkHttp extension:
 *   Cronet extension:
