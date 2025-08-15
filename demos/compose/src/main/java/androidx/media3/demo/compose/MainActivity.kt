@@ -102,7 +102,11 @@ fun ComposeDemoApp(modifier: Modifier = Modifier) {
 
 private fun initializePlayer(context: Context): Player =
   ExoPlayer.Builder(context).build().apply {
-    setMediaItems(videos.map(MediaItem::fromUri))
+    setMediaItems(
+      videos.mapIndexed { idx, uri ->
+        MediaItem.Builder().setUri(uri).setMediaId(idx.toString()).build()
+      }
+    )
     prepare()
   }
 
