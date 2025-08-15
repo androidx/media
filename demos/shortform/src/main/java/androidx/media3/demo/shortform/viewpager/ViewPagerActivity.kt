@@ -64,10 +64,12 @@ class ViewPagerActivity : AppCompatActivity() {
 
   override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
     when (keyCode) {
-      KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_CHANNEL_UP ->
-        viewPagerView.setCurrentItem(viewPagerView.currentItem+1, false)
-      KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_CHANNEL_DOWN ->
-        viewPagerView.setCurrentItem(viewPagerView.currentItem-1, false)
+      KeyEvent.KEYCODE_DPAD_DOWN,
+      KeyEvent.KEYCODE_CHANNEL_UP ->
+        viewPagerView.setCurrentItem(viewPagerView.currentItem + 1, false)
+      KeyEvent.KEYCODE_DPAD_UP,
+      KeyEvent.KEYCODE_CHANNEL_DOWN ->
+        viewPagerView.setCurrentItem(viewPagerView.currentItem - 1, false)
     }
     return super.onKeyUp(keyCode, event)
   }
