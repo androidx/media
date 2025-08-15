@@ -61,7 +61,9 @@ import androidx.media3.effect.DefaultGlObjectsProvider;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.SingleInputVideoGraph;
 import androidx.media3.effect.TimestampAdjustment;
+import androidx.media3.exoplayer.DefaultLoadControl;
 import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.exoplayer.LoadControl;
 import androidx.media3.exoplayer.RendererCapabilities;
 import androidx.media3.exoplayer.RendererCapabilities.Capabilities;
 import androidx.media3.exoplayer.analytics.AnalyticsCollector;
@@ -130,6 +132,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
     private VideoGraph.@MonotonicNonNull Factory videoGraphFactory;
 
     private @MonotonicNonNull GlObjectsProvider glObjectsProvider;
+    private LoadControl loadControl;
     private boolean enableReplayableCache;
     private long lateThresholdToDropInputUs;
     private boolean built;
@@ -148,6 +151,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
               .setMaxOutputSize(GlUtil.MAX_BITMAP_DECODING_SIZE);
       videoPrewarmingEnabled = true;
       lateThresholdToDropInputUs = LATE_US_TO_DROP_INPUT_FRAME;
+      loadControl = new DefaultLoadControl();
       clock = Clock.DEFAULT;
     }
 
@@ -291,6 +295,21 @@ public final class CompositionPlayer extends SimpleBasePlayer
     }
 
     /**
+     * Sets the {@link LoadControl} that will be used by the player to control buffering of all
+     * {@linkplain EditedMediaItem#mediaItem media items} in a {@link Composition}.
+     *
+     * <p>By default, a {@link DefaultLoadControl} is used.
+     *
+     * @param loadControl A {@link LoadControl}.
+     * @return This builder, for convenience.
+     */
+    @CanIgnoreReturnValue
+    public Builder setLoadControl(LoadControl loadControl) {
+      this.loadControl = loadControl;
+      return this;
+    }
+
+    /**
      * Sets whether to enable replayable cache.
      *
      * <p>By default, the replayable cache is not enabled. Enable it to achieve accurate effect
@@ -402,6 +421,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
   private final VideoGraph.Factory videoGraphFactory;
   private final boolean videoPrewarmingEnabled;
   private final HandlerWrapper compositionInternalListenerHandler;
+  private final LoadControl loadControl;
   private final boolean enableReplayableCache;
   private final long lateThresholdToDropInputUs;
 
@@ -454,6 +474,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
     videoGraphFactory = checkNotNull(builder.videoGraphFactory);
     videoPrewarmingEnabled = builder.videoPrewarmingEnabled;
     compositionInternalListenerHandler = clock.createHandler(builder.looper, /* callback= */ null);
+    loadControl = builder.loadControl;
     this.enableReplayableCache = builder.enableReplayableCache;
     lateThresholdToDropInputUs = builder.lateThresholdToDropInputUs;
     videoTracksSelected = new SparseBooleanArray();
@@ -1477,6 +1498,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
               .setPlaybackLooper(playbackLooper)
               .setRenderersFactory(renderersFactory)
               .setHandleAudioBecomingNoisy(true)
+              .setLoadControl(loadControl)
               .setClock(clock)
               // Use dynamic scheduling to show the first video/image frame more promptly when the
               // player is paused (which is common in editing applications).

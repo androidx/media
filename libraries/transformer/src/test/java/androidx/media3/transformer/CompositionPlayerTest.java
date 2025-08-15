@@ -48,6 +48,8 @@ import androidx.media3.common.audio.SpeedChangingAudioProcessor;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.NullableType;
+import androidx.media3.exoplayer.DefaultLoadControl;
+import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.audio.AudioSink;
 import androidx.media3.exoplayer.audio.DefaultAudioSink;
 import androidx.media3.exoplayer.audio.ForwardingAudioSink;
@@ -946,6 +948,22 @@ public class CompositionPlayerTest {
         .isEqualTo(PLAYBACK_SUPPRESSION_REASON_SCRUBBING);
   }
 
+  @Test
+  public void prepare_withCustomLoadControl_preparesTheLoadControl() throws Exception {
+    CustomLoadControl customLoadControl = new CustomLoadControl();
+    CompositionPlayer.Builder playerBuilder = createCompositionPlayerBuilder();
+    playerBuilder.setLoadControl(customLoadControl);
+    CompositionPlayer player = playerBuilder.build();
+
+    player.setComposition(buildComposition());
+    player.prepare();
+    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_READY);
+
+    assertThat(customLoadControl.prepared).isTrue();
+
+    player.release();
+  }
+
   private static CompositionPlayer buildCompositionPlayer() {
     return createCompositionPlayerBuilder().build();
   }
@@ -969,5 +987,15 @@ public class CompositionPlayerTest {
     EditedMediaItemSequence sequence =
         new EditedMediaItemSequence.Builder(editedMediaItem1, editedMediaItem2).build();
     return new Composition.Builder(sequence).build();
+  }
+
+  private static final class CustomLoadControl extends DefaultLoadControl {
+    public boolean prepared;
+
+    @Override
+    public void onPrepared(PlayerId playerId) {
+      prepared = true;
+      super.onPrepared(playerId);
+    }
   }
 }
