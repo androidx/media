@@ -48,8 +48,9 @@ import javax.microedition.khronos.opengles.GL10;
 /**
  * Renders a GL scene in a non-VR Activity that is affected by phone orientation and touch input.
  *
- * <p>The two input components are the TYPE_GAME_ROTATION_VECTOR Sensor and a TouchListener. The GL
- * renderer combines these two inputs to render a scene with the appropriate camera orientation.
+ * <p>The two input components are the {@link Sensor#TYPE_GAME_ROTATION_VECTOR
+ * TYPE_GAME_ROTATION_VECTOR} Sensor and a TouchListener. The GL renderer combines these two inputs
+ * to render a scene with the appropriate camera orientation.
  *
  * <p>The primary complexity in this class is related to the various rotations. It is important to
  * apply the touch and sensor rotations in the correct order or the user's touch manipulations won't

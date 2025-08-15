@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.media3.common.ForwardingPlayer
 import androidx.media3.common.Player
 import androidx.media3.common.SimpleBasePlayer
+import androidx.media3.exoplayer.video.spherical.SphericalGLSurfaceView
 import androidx.media3.ui.compose.utils.TestPlayer
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
@@ -74,6 +75,18 @@ class PlayerSurfaceTest {
     }
 
     assertThat(player.videoOutput).isInstanceOf(TextureView::class.java)
+  }
+
+  @Test
+  fun playerSurface_withSphericalGlSurfaceViewType_setsSphericalGlSurfaceViewOnPlayer() {
+    val player = TestPlayer()
+
+    composeTestRule.setContent {
+      PlayerSurface(player = player, surfaceType = SURFACE_TYPE_SPHERICAL_GL_SURFACE_VIEW)
+    }
+    composeTestRule.waitForIdle()
+
+    assertThat(player.videoOutput).isInstanceOf(SphericalGLSurfaceView::class.java)
   }
 
   @Test

@@ -58,6 +58,7 @@ dependencies {
 
     testImplementation 'androidx.compose.ui:ui-test'
     testImplementation 'androidx.compose.ui:ui-test-junit4'
+    testImplementation project(modulePrefix + 'lib-exoplayer')
     testImplementation project(modulePrefix + 'test-utils')
     testImplementation 'org.robolectric:robolectric:' + robolectricVersion
 }

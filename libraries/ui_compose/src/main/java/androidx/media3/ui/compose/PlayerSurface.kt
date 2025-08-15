@@ -17,6 +17,7 @@
 package androidx.media3.ui.compose
 
 import android.content.Context
+import android.opengl.GLSurfaceView
 import android.view.SurfaceView
 import android.view.TextureView
 import android.view.View
@@ -37,8 +38,8 @@ import kotlinx.coroutines.withContext
 /**
  * Provides a dedicated drawing [android.view.Surface] for media playbacks using a [Player].
  *
- * The player's video output is displayed with either a [android.view.SurfaceView] or a
- * [android.view.TextureView].
+ * The player's video output is displayed with either a [android.view.SurfaceView], a
+ * [android.view.TextureView], or a `SphericalGLSurfaceView`.
  *
  * [Player] takes care of attaching the rendered output to the [android.view.Surface] and clearing
  * it, when it is destroyed.
@@ -71,6 +72,31 @@ fun PlayerSurface(
         setVideoView = Player::setVideoTextureView,
         clearVideoView = Player::clearVideoTextureView,
       )
+    SURFACE_TYPE_SPHERICAL_GL_SURFACE_VIEW ->
+      PlayerSurfaceInternal(
+        player,
+        modifier,
+        createView = {
+          try {
+            // LINT.IfChange
+            val surfaceViewClassName =
+              "androidx.media3.exoplayer.video.spherical.SphericalGLSurfaceView"
+            val surfaceViewClass = Class.forName(surfaceViewClassName)
+
+            surfaceViewClass.getConstructor(Context::class.java).newInstance(it) as GLSurfaceView
+            // LINT.ThenChange(../../../../../../../proguard-rules.txt)
+          } catch (exception: ClassNotFoundException) {
+            throw IllegalStateException(
+              "SURFACE_TYPE_SPHERICAL_GL_SURFACE_VIEW requires an ExoPlayer dependency",
+              exception
+            )
+          }
+        },
+        setVideoView = { setVideoSurfaceView(it) },
+        clearVideoView = { setVideoSurfaceView(null) },
+        onReset = GLSurfaceView::onPause,
+        onUpdate = GLSurfaceView::onResume,
+      )
     else -> throw IllegalArgumentException("Unrecognized surface type: $surfaceType")
   }
 }
@@ -82,14 +108,19 @@ private fun <T : View> PlayerSurfaceInternal(
   createView: (Context) -> T,
   setVideoView: Player.(T) -> Unit,
   clearVideoView: Player.(T) -> Unit,
+  onReset: (T) -> Unit = {},
+  onUpdate: (T) -> Unit = {},
 ) {
   var view by remember { mutableStateOf<T?>(null) }
 
   AndroidView(
     modifier = modifier,
     factory = { createView(it) },
-    onReset = {},
-    update = { view = it },
+    onReset = onReset,
+    update = {
+      view = it
+      onUpdate(it)
+    },
   )
 
   view?.let { view ->
@@ -130,16 +161,18 @@ private var View.attachedPlayer: Player?
   }
 
 /**
- * The type of surface used for media playbacks. One of [SURFACE_TYPE_SURFACE_VIEW] or
- * [SURFACE_TYPE_TEXTURE_VIEW].
+ * The type of surface used for media playbacks. One of [SURFACE_TYPE_SURFACE_VIEW],
+ * [SURFACE_TYPE_TEXTURE_VIEW] or [SURFACE_TYPE_SPHERICAL_GL_SURFACE_VIEW].
  */
 @UnstableApi
 @Retention(AnnotationRetention.SOURCE)
 @Target(AnnotationTarget.CLASS, AnnotationTarget.TYPE, AnnotationTarget.TYPE_PARAMETER)
-@IntDef(SURFACE_TYPE_SURFACE_VIEW, SURFACE_TYPE_TEXTURE_VIEW)
+@IntDef(SURFACE_TYPE_SURFACE_VIEW, SURFACE_TYPE_TEXTURE_VIEW, SURFACE_TYPE_SPHERICAL_GL_SURFACE_VIEW)
 annotation class SurfaceType
 
 /** Surface type to create [android.view.SurfaceView]. */
 @UnstableApi const val SURFACE_TYPE_SURFACE_VIEW = 1
 /** Surface type to create [android.view.TextureView]. */
 @UnstableApi const val SURFACE_TYPE_TEXTURE_VIEW = 2
+/** Surface type to create `SphericalGLSurfaceView`. */
+@UnstableApi const val SURFACE_TYPE_SPHERICAL_GL_SURFACE_VIEW = 3

@@ -15,10 +15,15 @@
  */
 package androidx.media3.demo.compose.data
 
+import androidx.media3.ui.compose.SURFACE_TYPE_SPHERICAL_GL_SURFACE_VIEW
+import androidx.media3.ui.compose.SURFACE_TYPE_SURFACE_VIEW
+
 val videos =
-  listOf(
-    "https://html5demos.com/assets/dizzy.mp4",
-    "https://storage.googleapis.com/exoplayer-test-media-0/shortform_2.mp4",
-    "https://storage.googleapis.com/exoplayer-test-media-1/gen-3/screens/dash-vod-single-segment/video-vp9-360.webm",
-    "https://storage.googleapis.com/exoplayer-test-media-0/shortform_3.mp4",
+  mapOf(
+    "https://html5demos.com/assets/dizzy.mp4" to SURFACE_TYPE_SURFACE_VIEW,
+    "https://storage.googleapis.com/exoplayer-test-media-0/shortform_2.mp4" to SURFACE_TYPE_SURFACE_VIEW,
+    "https://storage.googleapis.com/exoplayer-test-media-1/gen-3/screens/dash-vod-single-segment/video-vp9-360.webm" to SURFACE_TYPE_SURFACE_VIEW,
+    "https://storage.googleapis.com/exoplayer-test-media-0/shortform_3.mp4" to SURFACE_TYPE_SURFACE_VIEW,
+    // https://bitmovin.com/demos/vr-360/
+    "https://cdn.bitmovin.com/content/assets/playhouse-vr/progressive.mp4" to SURFACE_TYPE_SPHERICAL_GL_SURFACE_VIEW,
   )
