@@ -144,6 +144,9 @@
         `rememberProgressStateWithTickCount` Composable to `media3-ui-compose`
         module. This state holder is used in `demo-compose` to display progress
         as a horizontal read-only progress bar.
+    *   Add `ContentFrame` Composable to `media3-ui-compose` which combines
+        `PlayerSurface` management with aspect ratio resizing and covering with
+        a shutter.
 *   Downloads:
 *   OkHttp extension:
 *   Cronet extension:
