@@ -20,7 +20,7 @@ import static androidx.media3.session.MediaTestUtils.createTimeline;
 import static androidx.media3.test.session.common.CommonConstants.DEFAULT_TEST_NAME;
 import static androidx.media3.test.session.common.TestUtils.NO_RESPONSE_TIMEOUT_MS;
 import static androidx.media3.test.session.common.TestUtils.TIMEOUT_MS;
-import static androidx.media3.test.session.common.TestUtils.getEventsAsList;
+import static androidx.media3.test.utils.TestUtil.getEventsAsList;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -43,7 +43,6 @@ import androidx.media3.common.Timeline.Window;
 import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.test.session.common.HandlerThreadTestRule;
 import androidx.media3.test.session.common.MainLooperTestRule;
-import androidx.media3.test.session.common.TestUtils;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.LargeTest;
@@ -169,7 +168,7 @@ public class MediaControllerStateMaskingTest {
     assertThat(playWhenReadyFromCallbackRef.get()).isEqualTo(testPlayWhenReady);
     assertThat(playbackSuppressionReasonFromCallbackRef.get()).isEqualTo(testReason);
     assertThat(isPlayingFromCallbackRef.get()).isEqualTo(testIsPlaying);
-    assertThat(TestUtils.getEventsAsList(onEventsRef.get()))
+    assertThat(getEventsAsList(onEventsRef.get()))
         .containsExactly(
             Player.EVENT_PLAY_WHEN_READY_CHANGED,
             Player.EVENT_PLAYBACK_SUPPRESSION_REASON_CHANGED,

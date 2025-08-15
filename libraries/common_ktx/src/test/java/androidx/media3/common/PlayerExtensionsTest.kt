@@ -23,6 +23,7 @@ import androidx.media3.common.Player.EVENT_PLAY_WHEN_READY_CHANGED
 import androidx.media3.common.Player.EVENT_VOLUME_CHANGED
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.test.utils.TestExoPlayerBuilder
+import androidx.media3.test.utils.TestUtil.getEventsAsList
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
@@ -95,14 +96,8 @@ class PlayerExtensionsTest {
 
     assertThat(volumeFromInsideOnEvents).isEqualTo(0.5f)
     assertThat(onEventsCount.get()).isEqualTo(1)
-    assertThat(eventsRef.get())
-      .isEqualTo(
-        Player.Events(
-          FlagSet.Builder().addAll(EVENT_PLAY_WHEN_READY_CHANGED, EVENT_VOLUME_CHANGED).build()
-        )
-      )
-    // TODO: b/254265256 - Assert events as a list when getEventsAsList is moved to lib-common
-    // assertThat(getEventsAsList(eventsRef.get())).containsExactly(...)
+    assertThat(getEventsAsList(eventsRef.get()))
+      .containsExactly(EVENT_PLAY_WHEN_READY_CHANGED, EVENT_VOLUME_CHANGED)
     listenJob.cancelAndJoin()
   }
 

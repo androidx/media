@@ -16,6 +16,7 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.Player.PLAYBACK_SUPPRESSION_REASON_SCRUBBING;
+import static androidx.media3.test.utils.TestUtil.getCommandsAsList;
 import static androidx.media3.transformer.TestUtil.ASSET_URI_PREFIX;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_RAW;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_RAW_STEREO_48000KHZ;
@@ -231,7 +232,7 @@ public class CompositionPlayerTest {
   public void getAvailableCommands_returnsSpecificCommands() {
     CompositionPlayer player = buildCompositionPlayer();
 
-    assertThat(getList(player.getAvailableCommands()))
+    assertThat(getCommandsAsList(player.getAvailableCommands()))
         .containsExactly(
             Player.COMMAND_PLAY_PAUSE,
             Player.COMMAND_PREPARE,
@@ -968,13 +969,5 @@ public class CompositionPlayerTest {
     EditedMediaItemSequence sequence =
         new EditedMediaItemSequence.Builder(editedMediaItem1, editedMediaItem2).build();
     return new Composition.Builder(sequence).build();
-  }
-
-  private static List<Integer> getList(Player.Commands commands) {
-    List<Integer> commandList = new ArrayList<>();
-    for (int i = 0; i < commands.size(); i++) {
-      commandList.add(commands.get(i));
-    }
-    return commandList;
   }
 }
