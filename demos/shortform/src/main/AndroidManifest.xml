@@ -16,9 +16,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
   package="androidx.media3.demo.shortform">
 
+  <uses-feature android:name="android.software.leanback" android:required="false"/>
+  <uses-feature android:name="android.hardware.touchscreen" android:required="false"/>
+
   <application
     android:allowBackup="false"
     android:icon="@mipmap/ic_launcher"
+    android:banner="@drawable/ic_banner"
     android:label="@string/app_name"
     android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar"
     android:taskAffinity="">
@@ -28,6 +32,7 @@
       <intent-filter>
         <action android:name="android.intent.action.MAIN" />
         <category android:name="android.intent.category.LAUNCHER" />
+        <category android:name="android.intent.category.LEANBACK_LAUNCHER"/>
       </intent-filter>
     </activity>
     <activity
