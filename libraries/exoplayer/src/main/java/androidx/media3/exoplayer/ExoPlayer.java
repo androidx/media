@@ -79,8 +79,8 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
 
 /**
- * An extensible media player that plays {@link MediaSource}s. Instances can be obtained from {@link
- * Builder}.
+ * An extensible media player that plays {@link MediaSource}s. Instances can be obtained from
+ * {@link Builder}.
  *
  * <h2>Player components</h2>
  *
