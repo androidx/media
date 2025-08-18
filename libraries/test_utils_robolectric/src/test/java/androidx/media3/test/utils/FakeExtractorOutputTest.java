@@ -20,6 +20,8 @@ import static org.junit.Assert.assertThrows;
 
 import androidx.media3.common.C;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -68,29 +70,22 @@ public final class FakeExtractorOutputTest {
   }
 
   @Test
-  public void getTrackOutput_noTracks_returnsNull() {
+  public void getTrackOutputsForType_noTracks_returnsEmptyList() {
     FakeExtractorOutput output = new FakeExtractorOutput();
 
-    assertThat(output.getTrackOutput(C.TRACK_TYPE_VIDEO)).isNull();
+    assertThat(output.getTrackOutputsForType(C.TRACK_TYPE_VIDEO)).isEmpty();
   }
 
   @Test
-  public void getTrackOutput_returnsOnlyTrackOutputOfType() {
+  public void getTrackOutputsForType_returnsAllTrackOutputOfType() {
     FakeExtractorOutput output = new FakeExtractorOutput();
-    FakeTrackOutput audioTrack = output.track(/* id= */ 2, C.TRACK_TYPE_AUDIO);
-    output.track(/* id= */ 3, C.TRACK_TYPE_VIDEO);
-
-    assertThat(output.getTrackOutput(C.TRACK_TYPE_AUDIO)).isSameInstanceAs(audioTrack);
-  }
-
-  // TODO: Update this test when the contract of getTrackOutput is changed to either return all
-  //  tracks of the given type, or the only one found (not an arbitrary one of many).
-  @Test
-  public void getTrackOutput_returnsOneOfMatchingOutputs() {
-    FakeExtractorOutput output = new FakeExtractorOutput();
+    FakeTrackOutput videoTrack = output.track(/* id= */ 1, C.TRACK_TYPE_VIDEO);
     FakeTrackOutput audioTrack1 = output.track(/* id= */ 2, C.TRACK_TYPE_AUDIO);
     FakeTrackOutput audioTrack2 = output.track(/* id= */ 3, C.TRACK_TYPE_AUDIO);
 
-    assertThat(output.getTrackOutput(C.TRACK_TYPE_AUDIO)).isAnyOf(audioTrack1, audioTrack2);
+    assertThat(Iterables.getOnlyElement(output.getTrackOutputsForType(C.TRACK_TYPE_VIDEO)))
+        .isSameInstanceAs(videoTrack);
+    ImmutableList<FakeTrackOutput> audioTracks = output.getTrackOutputsForType(C.TRACK_TYPE_AUDIO);
+    assertThat(audioTracks).containsExactly(audioTrack1, audioTrack2);
   }
 }

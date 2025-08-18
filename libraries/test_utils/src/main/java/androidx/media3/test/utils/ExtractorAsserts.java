@@ -311,12 +311,11 @@ public final class ExtractorAsserts {
           path.length > 0 && path[0].equals("media"),
           "AssertionConfig.dumpFilesPrefix == null but file isn't in a media/ sub-directory.\n"
               + "Expected : 'media/<path-to-file>'\n"
-              + "Found    : '"
-              + file
-              + "'\n"
+              + "Found    : '%s'\n"
               + "You need to set AssertionConfig.dumpFilesPrefix explicitly if your media and dump"
               + " file aren't located in the expected structure (see docs on"
-              + " AssertionConfig.dumpFilesPrefix)");
+              + " AssertionConfig.dumpFilesPrefix)",
+          file);
       path[0] = "extractordumps";
       dumpFilesPrefix = Joiner.on('/').join(path);
     }

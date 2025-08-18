@@ -1323,50 +1323,6 @@ public class MediaCodecAudioRendererTest {
     assertThat(durationToProgressUs).isEqualTo(10_000L);
   }
 
-  @Test
-  public void isReady_returnsTrueOnceAudioSinkHasPendingData() throws Exception {
-    FakeSampleStream fakeSampleStream =
-        new FakeSampleStream(
-            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
-            /* mediaSourceEventDispatcher= */ null,
-            DrmSessionManager.DRM_UNSUPPORTED,
-            new DrmSessionEventListener.EventDispatcher(),
-            /* initialFormat= */ AUDIO_AAC,
-            ImmutableList.of(
-                oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME),
-                oneByteSample(/* timeUs= */ 50, C.BUFFER_FLAG_KEY_FRAME),
-                oneByteSample(/* timeUs= */ 100, C.BUFFER_FLAG_KEY_FRAME),
-                END_OF_STREAM_ITEM));
-    fakeSampleStream.writeData(/* startPositionUs= */ 0);
-    mediaCodecAudioRenderer.enable(
-        RendererConfiguration.DEFAULT,
-        new Format[] {AUDIO_AAC},
-        fakeSampleStream,
-        /* positionUs= */ 0,
-        /* joining= */ false,
-        /* mayRenderStartOfStream= */ false,
-        /* startPositionUs= */ 0,
-        /* offsetUs= */ 0,
-        new MediaSource.MediaPeriodId(new Object()));
-
-    mediaCodecAudioRenderer.start();
-    mediaCodecAudioRenderer.setCurrentStreamFinal();
-    when(audioSink.hasPendingData()).thenReturn(false);
-
-    boolean isReadyBeforeFirstRender = mediaCodecAudioRenderer.isReady();
-    for (int i = 0; i < 3; i++) {
-      // Handle some buffers.
-      mediaCodecAudioRenderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
-    }
-    boolean isReadyAfterDecoding = mediaCodecAudioRenderer.isReady();
-    when(audioSink.hasPendingData()).thenReturn(true);
-    boolean isReadyAfterPendingData = mediaCodecAudioRenderer.isReady();
-
-    assertThat(isReadyBeforeFirstRender).isFalse();
-    assertThat(isReadyAfterDecoding).isFalse();
-    assertThat(isReadyAfterPendingData).isTrue();
-  }
-
   private void maybeIdleAsynchronousMediaCodecAdapterThreads() {
     if (queueingThread != null) {
       shadowOf(queueingThread.getLooper()).idle();

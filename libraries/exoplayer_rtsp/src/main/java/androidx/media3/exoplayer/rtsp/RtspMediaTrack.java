@@ -234,7 +234,7 @@ import com.google.common.collect.ImmutableMap;
           @Nullable String config = fmtpParameters.get(PARAMETER_MP4A_CONFIG);
           checkNotNull(config, "AAC audio stream must include config fmtp parameter");
           // config is a hex string.
-          checkArgument(config.length() % 2 == 0, "Malformat MPEG4 config: " + config);
+          checkArgument(config.length() % 2 == 0, "Malformat MPEG4 config: %s", config);
           AacUtil.Config aacConfig = parseAacStreamMuxConfig(config);
           formatBuilder
               .setSampleRate(aacConfig.sampleRateHz)
@@ -443,8 +443,7 @@ import com.google.common.collect.ImmutableMap;
     if (fmtpAttributes.containsKey(PARAMETER_H265_SPROP_MAX_DON_DIFF)) {
       int maxDonDiff =
           Integer.parseInt(checkNotNull(fmtpAttributes.get(PARAMETER_H265_SPROP_MAX_DON_DIFF)));
-      checkArgument(
-          maxDonDiff == 0, "non-zero sprop-max-don-diff " + maxDonDiff + " is not supported");
+      checkArgument(maxDonDiff == 0, "non-zero sprop-max-don-diff %s is not supported", maxDonDiff);
     }
 
     checkArgument(

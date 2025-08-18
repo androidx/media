@@ -757,7 +757,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
 
   @Override
   public boolean isReady() {
-    return audioSink.hasPendingData();
+    return audioSink.hasPendingData() || super.isReady();
   }
 
   @Override

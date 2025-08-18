@@ -53,10 +53,8 @@ public final class Crop implements MatrixTransformation {
    * @param top The top edge of the output frame, in NDC. Must be greater than {@code bottom}.
    */
   public Crop(float left, float right, float bottom, float top) {
-    checkArgument(
-        right > left, "right value " + right + " should be greater than left value " + left);
-    checkArgument(
-        top > bottom, "top value " + top + " should be greater than bottom value " + bottom);
+    checkArgument(right > left, "right value %s should be greater than left value %s", right, left);
+    checkArgument(top > bottom, "top value %s should be greater than bottom value %s", top, bottom);
     this.left = left;
     this.right = right;
     this.bottom = bottom;

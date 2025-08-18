@@ -213,7 +213,7 @@ public final class Transformer {
     @CanIgnoreReturnValue
     public Builder setAudioMimeType(String audioMimeType) {
       audioMimeType = MimeTypes.normalizeMimeType(audioMimeType);
-      checkArgument(MimeTypes.isAudio(audioMimeType), "Not an audio MIME type: " + audioMimeType);
+      checkArgument(MimeTypes.isAudio(audioMimeType), "Not an audio MIME type: %s", audioMimeType);
       this.audioMimeType = audioMimeType;
       return this;
     }
@@ -245,7 +245,7 @@ public final class Transformer {
     @CanIgnoreReturnValue
     public Builder setVideoMimeType(String videoMimeType) {
       videoMimeType = MimeTypes.normalizeMimeType(videoMimeType);
-      checkArgument(MimeTypes.isVideo(videoMimeType), "Not a video MIME type: " + videoMimeType);
+      checkArgument(MimeTypes.isVideo(videoMimeType), "Not a video MIME type: %s", videoMimeType);
       this.videoMimeType = videoMimeType;
       return this;
     }
@@ -671,7 +671,8 @@ public final class Transformer {
           muxerFactory
               .getSupportedSampleMimeTypes(MimeTypes.getTrackType(sampleMimeType))
               .contains(sampleMimeType),
-          "Unsupported sample MIME type " + sampleMimeType);
+          "Unsupported sample MIME type %s",
+          sampleMimeType);
     }
   }
 
@@ -1141,8 +1142,7 @@ public final class Transformer {
   public @ProgressState int getProgress(ProgressHolder progressHolder) {
     verifyApplicationThread();
     if (isExportResumed()) {
-      // Progress updates are unavailable for resumed exports.
-      return PROGRESS_STATE_UNAVAILABLE;
+      return getResumeProgress(progressHolder);
     }
 
     if (isExportTrimOptimization()) {
@@ -1186,6 +1186,34 @@ public final class Transformer {
         || transformerState == TRANSFORMER_STATE_REMUX_REMAINING_MEDIA;
   }
 
+  private @ProgressState int getResumeProgress(ProgressHolder progressHolder) {
+    float remuxProcessedVideoProgressWeight = 0.15f;
+    float processRemainingVideoProgressWeight = 0.40f;
+    float processAudioProgressWeight = 0.30f;
+    // Remaining 15% progress is for copying the output to the final location.
+
+    float progressSoFar = 0f;
+    if (transformerState == TRANSFORMER_STATE_REMUX_PROCESSED_VIDEO) {
+      return getNextAccumulatedProgress(
+          progressSoFar, remuxProcessedVideoProgressWeight, progressHolder);
+    }
+    progressSoFar = remuxProcessedVideoProgressWeight * 100;
+    if (transformerState == TRANSFORMER_STATE_PROCESS_REMAINING_VIDEO) {
+      return getNextAccumulatedProgress(
+          progressSoFar, processRemainingVideoProgressWeight, progressHolder);
+    }
+    progressSoFar += processRemainingVideoProgressWeight * 100;
+    if (transformerState == TRANSFORMER_STATE_PROCESS_AUDIO) {
+      return getNextAccumulatedProgress(progressSoFar, processAudioProgressWeight, progressHolder);
+    }
+    progressSoFar += processAudioProgressWeight * 100;
+
+    // Progress for copying the output can not be determined. After this, the export should complete
+    // soon indicating 100% progress.
+    progressHolder.progress = round(progressSoFar);
+    return PROGRESS_STATE_AVAILABLE;
+  }
+
   private @ProgressState int getTrimOptimizationProgress(ProgressHolder progressHolder) {
     if (mediaItemInfo == null) {
       return PROGRESS_STATE_WAITING_FOR_AVAILABILITY;
@@ -1196,42 +1224,33 @@ public final class Transformer {
     long transcodeDuration = mediaItemInfo.firstSyncSampleTimestampUsAfterTimeUs - trimStartTimeUs;
     float transcodeWeighting = (float) transcodeDuration / mediaItemInfo.durationUs;
 
+    float progressSoFar = 0f;
     if (transformerState == TRANSFORMER_STATE_PROCESS_MEDIA_START) {
-      if (transformerInternal == null) {
-        return PROGRESS_STATE_WAITING_FOR_AVAILABILITY;
-      }
-      @ProgressState
-      int processMediaStartProgressState = transformerInternal.getProgress(progressHolder);
-      switch (processMediaStartProgressState) {
-        case PROGRESS_STATE_NOT_STARTED:
-        case PROGRESS_STATE_WAITING_FOR_AVAILABILITY:
-          return PROGRESS_STATE_WAITING_FOR_AVAILABILITY;
-        case PROGRESS_STATE_AVAILABLE:
-          progressHolder.progress = round(progressHolder.progress * transcodeWeighting);
-          return PROGRESS_STATE_AVAILABLE;
-        case PROGRESS_STATE_UNAVAILABLE:
-          return PROGRESS_STATE_UNAVAILABLE;
-        default:
-          throw new IllegalStateException();
-      }
+      return getNextAccumulatedProgress(progressSoFar, transcodeWeighting, progressHolder);
     }
+    progressSoFar = 100 * transcodeWeighting;
+    return getNextAccumulatedProgress(progressSoFar, (1 - transcodeWeighting), progressHolder);
+  }
 
-    float fullTranscodeProgress = 100 * transcodeWeighting;
+  private @ProgressState int getNextAccumulatedProgress(
+      float progressSoFar, float nextProgressWeight, ProgressHolder progressHolder) {
     if (transformerInternal == null) {
-      // Transformer has not started remuxing the remaining media yet.
-      progressHolder.progress = round(fullTranscodeProgress);
-      return PROGRESS_STATE_AVAILABLE;
+      progressHolder.progress = round(progressSoFar);
+      return progressSoFar == 0
+          ? PROGRESS_STATE_WAITING_FOR_AVAILABILITY
+          : PROGRESS_STATE_AVAILABLE;
     }
-    @ProgressState
-    int remuxRemainingMediaProgressState = transformerInternal.getProgress(progressHolder);
-    switch (remuxRemainingMediaProgressState) {
+    @ProgressState int ongoingProgressState = transformerInternal.getProgress(progressHolder);
+    switch (ongoingProgressState) {
       case PROGRESS_STATE_NOT_STARTED:
       case PROGRESS_STATE_WAITING_FOR_AVAILABILITY:
-        progressHolder.progress = round(fullTranscodeProgress);
-        return PROGRESS_STATE_AVAILABLE;
+        progressHolder.progress = round(progressSoFar);
+        return progressSoFar == 0
+            ? PROGRESS_STATE_WAITING_FOR_AVAILABILITY
+            : PROGRESS_STATE_AVAILABLE;
       case PROGRESS_STATE_AVAILABLE:
         progressHolder.progress =
-            round(fullTranscodeProgress + (1 - transcodeWeighting) * progressHolder.progress);
+            round(progressSoFar + (progressHolder.progress * nextProgressWeight));
         return PROGRESS_STATE_AVAILABLE;
       case PROGRESS_STATE_UNAVAILABLE:
         return PROGRESS_STATE_UNAVAILABLE;

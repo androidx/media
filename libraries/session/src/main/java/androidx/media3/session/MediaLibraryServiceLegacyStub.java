@@ -236,17 +236,17 @@ import java.util.concurrent.atomic.AtomicReference;
             result.sendResult(/* result= */ null);
             return;
           }
+          @Nullable LibraryParams params = null;
           if (options != null) {
             options.setClassLoader(librarySessionImpl.getContext().getClassLoader());
             try {
               int page = options.getInt(EXTRA_PAGE);
               int pageSize = options.getInt(EXTRA_PAGE_SIZE);
+              params =
+                  LegacyConversions.convertToLibraryParams(
+                      librarySessionImpl.getContext(), options);
               if (page >= 0 && pageSize > 0) {
                 // Requesting the list of children through pagination.
-                @Nullable
-                LibraryParams params =
-                    LegacyConversions.convertToLibraryParams(
-                        librarySessionImpl.getContext(), options);
                 ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> future =
                     librarySessionImpl.onGetChildrenOnHandler(
                         controller, parentId, page, pageSize, params);
@@ -267,11 +267,7 @@ import java.util.concurrent.atomic.AtomicReference;
           // A MediaBrowserCompat called loadChildren with no pagination option.
           ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> future =
               librarySessionImpl.onGetChildrenOnHandler(
-                  controller,
-                  parentId,
-                  /* page= */ 0,
-                  /* pageSize= */ Integer.MAX_VALUE,
-                  /* params= */ null);
+                  controller, parentId, /* page= */ 0, /* pageSize= */ Integer.MAX_VALUE, params);
           ListenableFuture<@NullableType List<MediaBrowserCompat.MediaItem>> browserItemsFuture =
               Util.transformFutureAsync(future, createMediaItemsToBrowserItemsAsyncFunction());
           sendLibraryResultWithMediaItemsWhenReady(result, browserItemsFuture);

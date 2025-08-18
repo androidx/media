@@ -368,10 +368,11 @@ public final class CodecSpecificDataUtil {
    */
   public static String buildApvCodecString(byte[] initializationData) {
     checkArgument(
-        initializationData.length >= 17, "Invalid APV CSD length: %s" + initializationData.length);
+        initializationData.length >= 17, "Invalid APV CSD length: %s", initializationData.length);
     checkArgument(
         initializationData[0] == 0x01,
-        "Invalid APV CSD version: %s" + initializationData[0]); // configurationVersion == 1
+        "Invalid APV CSD version: %s",
+        initializationData[0]); // configurationVersion == 1
 
     int profile = initializationData[5];
     int level = initializationData[6];

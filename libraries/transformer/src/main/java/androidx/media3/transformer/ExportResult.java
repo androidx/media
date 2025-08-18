@@ -92,7 +92,8 @@ public final class ExportResult {
     public Builder setFileSizeBytes(long fileSizeBytes) {
       checkArgument(
           fileSizeBytes > 0 || fileSizeBytes == C.LENGTH_UNSET,
-          "Invalid file size = " + fileSizeBytes);
+          "Invalid file size = %s",
+          fileSizeBytes);
       this.fileSizeBytes = fileSizeBytes;
       return this;
     }

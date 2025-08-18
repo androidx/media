@@ -124,7 +124,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     if (slowMotionData != null) {
       checkArgument(
           mimeType.equals(MimeTypes.VIDEO_H264) || mimeType.equals(MimeTypes.VIDEO_H265),
-          "Unsupported MIME type for SEF slow motion video track: " + mimeType);
+          "Unsupported MIME type for SEF slow motion video track: %s",
+          mimeType);
     }
     List<SlowMotionData.Segment> segments =
         slowMotionData != null ? slowMotionData.segments : ImmutableList.of();
@@ -316,7 +317,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     checkState(
         metadataInfo.captureFrameRate % 1 == 0
             && metadataInfo.captureFrameRate % TARGET_OUTPUT_FRAME_RATE == 0,
-        "Invalid capture frame rate: " + metadataInfo.captureFrameRate);
+        "Invalid capture frame rate: %s",
+        metadataInfo.captureFrameRate);
 
     int frameCountDivisor = (int) metadataInfo.captureFrameRate / TARGET_OUTPUT_FRAME_RATE;
     int normalSpeedMaxLayer = metadataInfo.inputMaxLayer;
@@ -327,8 +329,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
         // divides the number of frames by 2.
         checkState(
             frameCountDivisor >> 1 == 0,
-            "Could not compute normal speed max SVC layer for capture frame rate  "
-                + metadataInfo.captureFrameRate);
+            "Could not compute normal speed max SVC layer for capture frame rate %s",
+            metadataInfo.captureFrameRate);
         metadataInfo.normalSpeedMaxLayer = normalSpeedMaxLayer;
         break;
       }
@@ -403,7 +405,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       int shiftedSpeedDivisor = speedDivisor;
       while (shiftedSpeedDivisor > 0) {
         if ((shiftedSpeedDivisor & 1) == 1) {
-          checkState(shiftedSpeedDivisor >> 1 == 0, "Invalid speed divisor: " + speedDivisor);
+          checkState(shiftedSpeedDivisor >> 1 == 0, "Invalid speed divisor: %s", speedDivisor);
           break;
         }
         maxLayer++;

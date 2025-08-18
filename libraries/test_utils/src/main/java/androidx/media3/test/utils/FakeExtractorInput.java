@@ -16,6 +16,7 @@
 package androidx.media3.test.utils;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -297,20 +298,15 @@ public final class FakeExtractorInput implements ExtractorInput {
   private void checkPeekLimit(int length) {
     int targetPeekOffset = peekPosition + length - readPosition;
     maxPeekLimit = max(maxPeekLimit, targetPeekOffset);
-    if (peekLimit != C.LENGTH_UNSET && targetPeekOffset > peekLimit) {
-      throw new IllegalStateException(
-          "Peeking "
-              + length
-              + " bytes would increase the peek offset to "
-              + targetPeekOffset
-              + " and exceed the peek limit of "
-              + peekLimit
-              + " (readPosition="
-              + readPosition
-              + ", peekPosition="
-              + peekPosition
-              + ")");
-    }
+    checkState(
+        peekLimit == C.LENGTH_UNSET || targetPeekOffset <= peekLimit,
+        "Peeking %s bytes would increase the peek offset to %s and exceed the peek limit of %s"
+            + " (readPosition=%s, peekPosition=%s)",
+        length,
+        targetPeekOffset,
+        peekLimit,
+        readPosition,
+        peekPosition);
   }
 
   /** Builder of {@link FakeExtractorInput} instances. */

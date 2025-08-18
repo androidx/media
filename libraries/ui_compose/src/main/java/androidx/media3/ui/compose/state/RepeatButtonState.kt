@@ -24,7 +24,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.media3.common.Player
-import androidx.media3.common.listen
+import androidx.media3.common.listenTo
 import androidx.media3.common.util.UnstableApi
 
 /**
@@ -86,16 +86,9 @@ class RepeatButtonState(
   suspend fun observe(): Nothing {
     repeatModeState = player.repeatMode
     isEnabled = isRepeatModeEnabled(player)
-    player.listen { events ->
-      if (
-        events.containsAny(
-          Player.EVENT_REPEAT_MODE_CHANGED,
-          Player.EVENT_AVAILABLE_COMMANDS_CHANGED,
-        )
-      ) {
-        repeatModeState = repeatMode
-        isEnabled = isRepeatModeEnabled(this)
-      }
+    player.listenTo(Player.EVENT_REPEAT_MODE_CHANGED, Player.EVENT_AVAILABLE_COMMANDS_CHANGED) {
+      repeatModeState = repeatMode
+      isEnabled = isRepeatModeEnabled(this)
     }
   }
 

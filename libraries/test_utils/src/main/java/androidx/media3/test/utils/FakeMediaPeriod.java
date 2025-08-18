@@ -438,11 +438,9 @@ public class FakeMediaPeriod implements MediaPeriod {
               syncSampleTimestampsUs, positionUs, /* inclusive= */ true, /* stayInBounds= */ false);
       checkState(
           firstSyncTimestampIndex >= 0,
-          "Seek positionUs ("
-              + positionUs
-              + ") is smaller than first sync sample timestamp ("
-              + syncSampleTimestampsUs[0]
-              + ")");
+          "Seek positionUs (%s) is smaller than first sync sample timestamp (%s)",
+          positionUs,
+          syncSampleTimestampsUs[0]);
       long firstSyncUs = syncSampleTimestampsUs[firstSyncTimestampIndex];
       long secondSyncUs =
           firstSyncTimestampIndex < syncSampleTimestampsUs.length - 1

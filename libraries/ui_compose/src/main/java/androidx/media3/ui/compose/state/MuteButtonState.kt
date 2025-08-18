@@ -23,7 +23,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.media3.common.Player
-import androidx.media3.common.listen
+import androidx.media3.common.listenTo
 import androidx.media3.common.util.UnstableApi
 
 /**
@@ -76,13 +76,9 @@ class MuteButtonState(private val player: Player) {
   suspend fun observe(): Nothing {
     showMuted = isMuted(player)
     isEnabled = isMutingEnabled(player)
-    player.listen { events ->
-      if (
-        events.containsAny(Player.EVENT_VOLUME_CHANGED, Player.EVENT_AVAILABLE_COMMANDS_CHANGED)
-      ) {
-        showMuted = isMuted(this)
-        isEnabled = isMutingEnabled(this)
-      }
+    player.listenTo(Player.EVENT_VOLUME_CHANGED, Player.EVENT_AVAILABLE_COMMANDS_CHANGED) {
+      showMuted = isMuted(this)
+      isEnabled = isMutingEnabled(this)
     }
   }
 

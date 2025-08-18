@@ -117,6 +117,7 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import java.io.File;
 import java.nio.ByteBuffer;
 import java.nio.ShortBuffer;
@@ -1070,7 +1071,8 @@ public class TransformerEndToEndTest {
         TestUtil.extractAllSamplesFromFilePath(mp4Extractor, checkNotNull(result.filePath));
     assertThat(result.exportResult.fileSizeBytes).isGreaterThan(0);
     List<Long> videoTimestampsUs =
-        checkNotNull(fakeExtractorOutput.getTrackOutput(C.TRACK_TYPE_VIDEO)).getSampleTimesUs();
+        Iterables.getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_VIDEO))
+            .getSampleTimesUs();
     assertThat(videoTimestampsUs).hasSize(270);
     assertThat(videoTimestampsUs.get(0)).isEqualTo(0);
     // The second sample is originally at 1_033_333, clipping at 100_000 results in 933_333.
@@ -1099,7 +1101,8 @@ public class TransformerEndToEndTest {
         TestUtil.extractAllSamplesFromFilePath(mp4Extractor, checkNotNull(result.filePath));
     assertThat(result.exportResult.fileSizeBytes).isGreaterThan(0);
     List<Long> videoTimestampsUs =
-        checkNotNull(fakeExtractorOutput.getTrackOutput(C.TRACK_TYPE_VIDEO)).getSampleTimesUs();
+        Iterables.getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_VIDEO))
+            .getSampleTimesUs();
     assertThat(videoTimestampsUs).hasSize(270);
     assertThat(videoTimestampsUs.get(0)).isEqualTo(0);
     // The second sample is originally at 1_033_333, clipping at 100_000 results in 933_333.

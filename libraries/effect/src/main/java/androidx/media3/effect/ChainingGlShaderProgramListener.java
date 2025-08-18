@@ -55,7 +55,8 @@ import androidx.media3.effect.GlShaderProgram.OutputListener;
       VideoFrameProcessingTaskExecutor videoFrameProcessingTaskExecutor) {
     checkArgument(
         producingGlShaderProgram != consumingGlShaderProgram,
-        "Creating a self loop in the chain: " + producingGlShaderProgram);
+        "Creating a self loop in the chain: %s",
+        producingGlShaderProgram);
     this.producingGlShaderProgram = producingGlShaderProgram;
     frameConsumptionManager =
         new FrameConsumptionManager(

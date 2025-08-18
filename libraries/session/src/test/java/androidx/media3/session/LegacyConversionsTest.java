@@ -25,6 +25,7 @@ import static androidx.media3.session.legacy.MediaBrowserCompat.MediaItem.FLAG_B
 import static androidx.media3.session.legacy.MediaBrowserCompat.MediaItem.FLAG_PLAYABLE;
 import static androidx.media3.session.legacy.MediaConstants.BROWSER_ROOT_HINTS_KEY_ROOT_CHILDREN_SUPPORTED_FLAGS;
 import static androidx.media3.session.legacy.MediaMetadataCompat.METADATA_KEY_DURATION;
+import static androidx.media3.test.utils.TestUtil.getCommandsAsList;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.fail;
@@ -1482,16 +1483,6 @@ public final class LegacyConversionsTest {
         .setState(PlaybackStateCompat.STATE_ERROR, /* position= */ 0, /* playbackSpeed= */ 1.0f)
         .setErrorMessage(errorCode, /* errorMessage= */ null)
         .build();
-  }
-
-  // TODO(b/254265256): Move this method to a central place.
-  private static ImmutableList<@Player.Command Integer> getCommandsAsList(
-      Player.Commands commands) {
-    ImmutableList.Builder<@Player.Command Integer> list = new ImmutableList.Builder<>();
-    for (int i = 0; i < commands.size(); i++) {
-      list.add(commands.get(i));
-    }
-    return list.build();
   }
 
   private static MediaItem createMediaItemWithArtworkData(String mediaId, long durationMs) {

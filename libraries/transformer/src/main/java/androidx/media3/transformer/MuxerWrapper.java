@@ -374,7 +374,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     @C.TrackType int trackType = MimeTypes.getTrackType(sampleMimeType);
     checkArgument(
         trackType == C.TRACK_TYPE_AUDIO || trackType == C.TRACK_TYPE_VIDEO,
-        "Unsupported track format: " + sampleMimeType);
+        "Unsupported track format: %s",
+        sampleMimeType);
     if (trackType == C.TRACK_TYPE_VIDEO) {
       format =
           format
@@ -467,7 +468,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     checkState(trackCount > 0, "The track count should be set before the formats are added.");
     checkState(trackTypeToInfo.size() < trackCount, "All track formats have already been added.");
     checkState(
-        !contains(trackTypeToInfo, trackType), "There is already a track of type " + trackType);
+        !contains(trackTypeToInfo, trackType), "There is already a track of type %s", trackType);
 
     ensureMuxerInitialized();
     TrackInfo trackInfo = new TrackInfo(format, muxer.addTrack(format));

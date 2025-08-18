@@ -18,6 +18,7 @@ package androidx.media3.session;
 import static androidx.media3.test.session.common.CommonConstants.DEFAULT_TEST_NAME;
 import static androidx.media3.test.session.common.TestUtils.NO_RESPONSE_TIMEOUT_MS;
 import static androidx.media3.test.session.common.TestUtils.TIMEOUT_MS;
+import static androidx.media3.test.utils.TestUtil.getEventsAsList;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -36,7 +37,6 @@ import androidx.media3.common.Player;
 import androidx.media3.test.session.common.MainLooperTestRule;
 import androidx.media3.test.session.common.PollingCheck;
 import androidx.media3.test.session.common.SurfaceActivity;
-import androidx.media3.test.session.common.TestUtils;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.filters.LargeTest;
 import androidx.test.rule.ActivityTestRule;
@@ -353,7 +353,7 @@ public class MediaControllerSurfaceSizeChangeTest {
       assertThat(countDownLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
       assertThat(newSurfaceWidthRef.get()).isEqualTo(expectedWidthFromCallback);
       assertThat(newSurfaceHeightRef.get()).isEqualTo(expectedHeightFromCallback);
-      assertThat(TestUtils.getEventsAsList(eventsRef.get()))
+      assertThat(getEventsAsList(eventsRef.get()))
           .containsExactly(Player.EVENT_SURFACE_SIZE_CHANGED);
     } else {
       assertThat(countDownLatch.await(NO_RESPONSE_TIMEOUT_MS, MILLISECONDS)).isFalse();

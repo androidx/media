@@ -203,11 +203,9 @@ import java.util.Locale;
     // writeSampleData blocks on old API versions, so check here to avoid calling the method.
     checkState(
         SDK_INT > 24 || presentationTimeUs >= lastSamplePresentationTimeUs,
-        "Samples not in presentation order ("
-            + presentationTimeUs
-            + " < "
-            + lastSamplePresentationTimeUs
-            + ") unsupported on this API version");
+        "Samples not in presentation order (%s < %s) unsupported on this API version",
+        presentationTimeUs,
+        lastSamplePresentationTimeUs);
     trackIdToLastPresentationTimeUs.put(trackId, presentationTimeUs);
 
     checkState(

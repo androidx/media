@@ -19,11 +19,16 @@ import android.content.Context
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.Looper
+import androidx.media3.common.Player.EVENT_PLAY_WHEN_READY_CHANGED
+import androidx.media3.common.Player.EVENT_VOLUME_CHANGED
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.test.utils.TestExoPlayerBuilder
+import androidx.media3.test.utils.TestUtil.getEventsAsList
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.android.asCoroutineDispatcher
@@ -48,7 +53,7 @@ class PlayerExtensionsTest {
     val player: ExoPlayer = TestExoPlayerBuilder(context).build()
     val listenJob = launch {
       player.listen { events ->
-        if (Player.EVENT_VOLUME_CHANGED in events) {
+        if (EVENT_VOLUME_CHANGED in events) {
           volumeFromInsideOnEvents = player.volume
         }
       }
@@ -67,11 +72,60 @@ class PlayerExtensionsTest {
   }
 
   @Test
+  fun playerListen_onlyForVolumeEvent_receivesAllEventsIncludingVolume() = runTest {
+    var volumeFromInsideOnEvents: Float? = null
+    val onEventsCount = AtomicInteger(0)
+    val eventsRef = AtomicReference<Player.Events>()
+    val player: ExoPlayer = TestExoPlayerBuilder(context).build()
+    val listenJob = launch {
+      player.listenTo(EVENT_VOLUME_CHANGED) { events ->
+        volumeFromInsideOnEvents = player.volume
+        onEventsCount.incrementAndGet()
+        eventsRef.set(events)
+      }
+    }
+    // Wait for the Player.Listener to be registered inside player.listen
+    testScheduler.runCurrent()
+
+    // Set the volume to a non-default value to trigger an event
+    player.volume = 0.5f
+    // Trigger an irrelevant event
+    player.play()
+    // Let the volume change propagate
+    shadowOf(Looper.getMainLooper()).idle()
+
+    assertThat(volumeFromInsideOnEvents).isEqualTo(0.5f)
+    assertThat(onEventsCount.get()).isEqualTo(1)
+    assertThat(getEventsAsList(eventsRef.get()))
+      .containsExactly(EVENT_PLAY_WHEN_READY_CHANGED, EVENT_VOLUME_CHANGED)
+    listenJob.cancelAndJoin()
+  }
+
+  @Test
+  fun playerListen_onlyForVolumeEvent_receivesIrrelevantEventNoChange() = runTest {
+    val onEventsCount = AtomicInteger(0)
+    val player: ExoPlayer = TestExoPlayerBuilder(context).build()
+    val listenJob = launch {
+      player.listenTo(EVENT_VOLUME_CHANGED) { onEventsCount.incrementAndGet() }
+    }
+    // Wait for the Player.Listener to be registered inside player.listen
+    testScheduler.runCurrent()
+
+    // Trigger an irrelevant event
+    player.play()
+    // Let the play-when-ready change propagate
+    shadowOf(Looper.getMainLooper()).idle()
+
+    assertThat(onEventsCount.get()).isEqualTo(0)
+    listenJob.cancelAndJoin()
+  }
+
+  @Test
   fun playerListen_withInternalCancel_cancelsCoroutineAndUnregistersListener() = runTest {
     val player = PlayerWithListeners(TestExoPlayerBuilder(context).build())
     val listenJob = launch {
       player.listen { events ->
-        if (Player.EVENT_VOLUME_CHANGED in events) {
+        if (EVENT_VOLUME_CHANGED in events) {
           throw CancellationException()
         }
       }
@@ -115,7 +169,7 @@ class PlayerExtensionsTest {
     val exceptionFromListen = async {
       runCatching {
           player.listen { events ->
-            if (Player.EVENT_VOLUME_CHANGED in events) {
+            if (EVENT_VOLUME_CHANGED in events) {
               throw IllegalStateException("Volume event!")
             }
           }
@@ -152,7 +206,7 @@ class PlayerExtensionsTest {
       // Start listening from test thread != application thread
       // Player is accessed from a different thread to where it was created
       player.listen { events ->
-        if (Player.EVENT_VOLUME_CHANGED in events) {
+        if (EVENT_VOLUME_CHANGED in events) {
           // Complete a Job of getting the new volume out of a forever listening loop with success
           volumeFromInsideOnEventsJob.complete(player.volume)
         }

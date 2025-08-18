@@ -442,6 +442,75 @@ public final class AndroidTestUtil {
     }
   }
 
+  /** A {@link Muxer} that notifies after a specified sample batch size is written. */
+  public static final class BatchProgressReportingMuxer implements Muxer {
+    interface Listener {
+      void onNextBatchWritten();
+    }
+
+    /** A {@link Muxer.Factory} that creates {@link BatchProgressReportingMuxer} instances. */
+    public static final class Factory implements Muxer.Factory {
+      private final Muxer.Factory wrappedMuxerFactory;
+      private final BatchProgressReportingMuxer.Listener listener;
+      private final int sampleBatchSize;
+
+      public Factory(int sampleBatchSize, BatchProgressReportingMuxer.Listener listener) {
+        this.wrappedMuxerFactory = new DefaultMuxer.Factory();
+        this.listener = listener;
+        this.sampleBatchSize = sampleBatchSize;
+      }
+
+      @Override
+      public Muxer create(String path) throws MuxerException {
+        return new BatchProgressReportingMuxer(
+            wrappedMuxerFactory.create(path), sampleBatchSize, listener);
+      }
+
+      @Override
+      public ImmutableList<String> getSupportedSampleMimeTypes(@C.TrackType int trackType) {
+        return wrappedMuxerFactory.getSupportedSampleMimeTypes(trackType);
+      }
+    }
+
+    private final Muxer wrappedMuxer;
+    private final BatchProgressReportingMuxer.Listener listener;
+    private final int sampleBatchSize;
+
+    private int samplesWritten;
+
+    private BatchProgressReportingMuxer(
+        Muxer wrappedMuxer, int sampleBatchSize, BatchProgressReportingMuxer.Listener listener) {
+      this.wrappedMuxer = wrappedMuxer;
+      this.listener = listener;
+      this.sampleBatchSize = sampleBatchSize;
+    }
+
+    @Override
+    public int addTrack(Format format) throws MuxerException {
+      return wrappedMuxer.addTrack(format);
+    }
+
+    @Override
+    public void writeSampleData(int trackId, ByteBuffer data, BufferInfo bufferInfo)
+        throws MuxerException {
+      wrappedMuxer.writeSampleData(trackId, data, bufferInfo);
+      samplesWritten++;
+      if (samplesWritten % sampleBatchSize == 0) {
+        listener.onNextBatchWritten();
+      }
+    }
+
+    @Override
+    public void addMetadataEntry(Metadata.Entry metadataEntry) {
+      wrappedMuxer.addMetadataEntry(metadataEntry);
+    }
+
+    @Override
+    public void close() throws MuxerException {
+      wrappedMuxer.close();
+    }
+  }
+
   /**
    * Implementation of {@link ByteBufferGlEffect.Processor} that counts how many frames are copied
    * to CPU memory.
@@ -704,8 +773,9 @@ public final class AndroidTestUtil {
     File fileDirectory = new File(context.getExternalCacheDir(), directoryName);
     fileDirectory.mkdirs();
     File file = new File(fileDirectory, fileName);
-    checkState(!file.exists() || file.delete(), "Could not delete file: " + file.getAbsolutePath());
-    checkState(file.createNewFile(), "Could not create file: " + file.getAbsolutePath());
+    checkState(
+        !file.exists() || file.delete(), "Could not delete file: %s", file.getAbsolutePath());
+    checkState(file.createNewFile(), "Could not create file: %s", file.getAbsolutePath());
     return file;
   }
 

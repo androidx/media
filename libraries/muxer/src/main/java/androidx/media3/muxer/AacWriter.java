@@ -69,7 +69,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   public void setFormat(Format format) {
     checkArgument(
         format.channelCount >= 1 && format.channelCount <= 7,
-        "Channel count must be between 1 and 7, got " + format.channelCount);
+        "Channel count must be between 1 and 7, got %s",
+        format.channelCount);
 
     profileCode = checkNotNull(CodecSpecificDataUtil.getCodecProfileAndLevel(format)).first;
     sampleFreqIndex = checkNotNull(SAMPLE_RATE_TABLE_INDEX.get(format.sampleRate));

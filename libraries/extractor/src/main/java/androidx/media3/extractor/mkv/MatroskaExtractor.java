@@ -177,7 +177,6 @@ public class MatroskaExtractor implements Extractor {
   private static final int VORBIS_MAX_INPUT_SIZE = 8192;
   private static final int OPUS_MAX_INPUT_SIZE = 5760;
   private static final int ENCRYPTION_IV_SIZE = 8;
-  private static final int TRACK_TYPE_AUDIO = 2;
 
   private static final int ID_EBML = 0x1A45DFA3;
   private static final int ID_EBML_READ_VERSION = 0x42F7;
@@ -969,7 +968,24 @@ public class MatroskaExtractor implements Extractor {
         getCurrentTrack(id).flagForced = value == 1;
         break;
       case ID_TRACK_TYPE:
-        getCurrentTrack(id).type = (int) value;
+        int matroskaTrackType = (int) value;
+        switch (matroskaTrackType) {
+          case 1: // Matroska video
+            getCurrentTrack(id).type = C.TRACK_TYPE_VIDEO;
+            break;
+          case 2: // Matroska audio
+            getCurrentTrack(id).type = C.TRACK_TYPE_AUDIO;
+            break;
+          case 17: // Matroska subtitle
+            getCurrentTrack(id).type = C.TRACK_TYPE_TEXT;
+            break;
+          case 33: // Matroska metadata
+            getCurrentTrack(id).type = C.TRACK_TYPE_METADATA;
+            break;
+          default:
+            getCurrentTrack(id).type = C.TRACK_TYPE_UNKNOWN;
+            break;
+        }
         break;
       case ID_DEFAULT_DURATION:
         getCurrentTrack(id).defaultSampleDurationNs = (int) value;
@@ -1377,7 +1393,7 @@ public class MatroskaExtractor implements Extractor {
           int timecode = (scratch.getData()[0] << 8) | (scratch.getData()[1] & 0xFF);
           blockTimeUs = clusterTimecodeUs + scaleTimecodeToUs(timecode);
           boolean isKeyframe =
-              track.type == TRACK_TYPE_AUDIO
+              track.type == C.TRACK_TYPE_AUDIO
                   || (id == ID_SIMPLE_BLOCK && (scratch.getData()[2] & 0x80) == 0x80);
           blockFlags = isKeyframe ? C.BUFFER_FLAG_KEY_FRAME : 0;
           blockState = BLOCK_STATE_DATA;
@@ -2112,7 +2128,7 @@ public class MatroskaExtractor implements Extractor {
     public @MonotonicNonNull String name;
     public @MonotonicNonNull String codecId;
     public int number;
-    public int type;
+    public @C.TrackType int type;
     public int defaultSampleDurationNs;
     public int maxBlockAdditionId;
     private int blockAddIdType;

@@ -147,8 +147,14 @@ public final class Sniffer {
       }
 
       if (atomSize < headerSize) {
-        // The file is invalid because the atom size is too small for its header.
-        return new AtomSizeTooSmallSniffFailure(atomType, atomSize, headerSize);
+        if (atomType == Mp4Box.TYPE_free && headerSize == Mp4Box.HEADER_SIZE) {
+          // Workaround for writers that could create a malformed 'free' box with a size less than
+          // its header, causing file corruption. [See internal: b/438187097].
+          atomSize = headerSize;
+        } else {
+          // The file is invalid because the atom size is too small for its header.
+          return new AtomSizeTooSmallSniffFailure(atomType, atomSize, headerSize);
+        }
       }
       bytesSearched += headerSize;
 

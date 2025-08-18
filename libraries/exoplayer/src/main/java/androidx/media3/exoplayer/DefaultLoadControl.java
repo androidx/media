@@ -828,7 +828,7 @@ public class DefaultLoadControl implements LoadControl {
   }
 
   private static void assertGreaterOrEqual(int value1, int value2, String name1, String name2) {
-    checkArgument(value1 >= value2, name1 + " cannot be less than " + name2);
+    checkArgument(value1 >= value2, "%s cannot be less than %s", name1, name2);
   }
 
   private static class PlayerLoadingState {

@@ -178,7 +178,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     checkArgument(
         // Valid frame types are defined in RFC4867 Section 4.3.1.
         (frameType >= 0 && frameType <= 8) || frameType == 15,
-        "Illegal AMR " + (isWideBand ? "WB" : "NB") + " frame type " + frameType);
+        "Illegal AMR %s frame type %s",
+        (isWideBand ? "WB" : "NB"),
+        frameType);
 
     return isWideBand
         ? AMR_WB_FRAME_TYPE_INDEX_TO_FRAME_SIZE[frameType]

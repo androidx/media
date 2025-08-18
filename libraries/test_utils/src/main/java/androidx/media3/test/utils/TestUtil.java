@@ -47,6 +47,7 @@ import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
+import androidx.media3.common.Player;
 import androidx.media3.common.StreamKey;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.TrackGroup;
@@ -2099,6 +2100,32 @@ public class TestUtil {
         }
       }
     }
+  }
+
+  /**
+   * Returns an {@link ImmutableList} with the {@linkplain Player.Event Events} contained in {@code
+   * events}. The contents of the list are in matching order with the {@linkplain Player.Event
+   * Events} returned by {@link Player.Events#get(int)}.
+   */
+  public static ImmutableList<@Player.Event Integer> getEventsAsList(Player.Events events) {
+    ImmutableList.Builder<@Player.Event Integer> list = new ImmutableList.Builder<>();
+    for (int i = 0; i < events.size(); i++) {
+      list.add(events.get(i));
+    }
+    return list.build();
+  }
+
+  /**
+   * Returns an {@link ImmutableList} with the {@linkplain Player.Command Commands} contained in
+   * {@code commands}. The contents of the list are in matching order with the {@linkplain
+   * Player.Command Commands} returned by {@link Player.Commands#get(int)}.
+   */
+  public static ImmutableList<@Player.Command Integer> getCommandsAsList(Player.Commands commands) {
+    ImmutableList.Builder<@Player.Command Integer> list = new ImmutableList.Builder<>();
+    for (int i = 0; i < commands.size(); i++) {
+      list.add(commands.get(i));
+    }
+    return list.build();
   }
 
   private static final class NoUidOrShufflingTimeline extends Timeline {

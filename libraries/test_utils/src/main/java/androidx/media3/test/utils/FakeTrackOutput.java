@@ -96,8 +96,9 @@ public final class FakeTrackOutput implements TrackOutput, Dumper.Dumpable {
       formatCount--;
       checkState(
           dumpable instanceof DumpableFormat,
-          "receivedSampleInFormat=false so expected last dumpable to be a DumpableFormat. Found: "
-              + dumpable.getClass().getCanonicalName());
+          "receivedSampleInFormat=false so expected last dumpable to be a DumpableFormat. Found:"
+              + " %s",
+          dumpable.getClass().getCanonicalName());
     }
     receivedSampleInFormat = false;
     addFormat(format);

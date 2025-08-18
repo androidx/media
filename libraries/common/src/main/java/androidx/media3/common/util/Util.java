@@ -3518,7 +3518,8 @@ public final class Util {
   public static void putInt24(ByteBuffer buffer, int value) {
     checkArgument(
         (value & ~0xffffff) == 0 || (value & ~0x7fffff) == 0xff800000,
-        "Value out of range of 24-bit integer: " + Integer.toHexString(value));
+        "Value out of range of 24-bit integer: %s",
+        Integer.toHexString(value));
     checkArgument(buffer.remaining() >= 3);
     byte component1 =
         buffer.order() == ByteOrder.BIG_ENDIAN

@@ -16,6 +16,7 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.Player.PLAYBACK_SUPPRESSION_REASON_SCRUBBING;
+import static androidx.media3.test.utils.TestUtil.getCommandsAsList;
 import static androidx.media3.transformer.TestUtil.ASSET_URI_PREFIX;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_RAW;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_RAW_STEREO_48000KHZ;
@@ -47,6 +48,8 @@ import androidx.media3.common.audio.SpeedChangingAudioProcessor;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.NullableType;
+import androidx.media3.exoplayer.DefaultLoadControl;
+import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.audio.AudioSink;
 import androidx.media3.exoplayer.audio.DefaultAudioSink;
 import androidx.media3.exoplayer.audio.ForwardingAudioSink;
@@ -231,7 +234,7 @@ public class CompositionPlayerTest {
   public void getAvailableCommands_returnsSpecificCommands() {
     CompositionPlayer player = buildCompositionPlayer();
 
-    assertThat(getList(player.getAvailableCommands()))
+    assertThat(getCommandsAsList(player.getAvailableCommands()))
         .containsExactly(
             Player.COMMAND_PLAY_PAUSE,
             Player.COMMAND_PREPARE,
@@ -945,6 +948,22 @@ public class CompositionPlayerTest {
         .isEqualTo(PLAYBACK_SUPPRESSION_REASON_SCRUBBING);
   }
 
+  @Test
+  public void prepare_withCustomLoadControl_preparesTheLoadControl() throws Exception {
+    CustomLoadControl customLoadControl = new CustomLoadControl();
+    CompositionPlayer.Builder playerBuilder = createCompositionPlayerBuilder();
+    playerBuilder.setLoadControl(customLoadControl);
+    CompositionPlayer player = playerBuilder.build();
+
+    player.setComposition(buildComposition());
+    player.prepare();
+    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_READY);
+
+    assertThat(customLoadControl.prepared).isTrue();
+
+    player.release();
+  }
+
   private static CompositionPlayer buildCompositionPlayer() {
     return createCompositionPlayerBuilder().build();
   }
@@ -970,11 +989,13 @@ public class CompositionPlayerTest {
     return new Composition.Builder(sequence).build();
   }
 
-  private static List<Integer> getList(Player.Commands commands) {
-    List<Integer> commandList = new ArrayList<>();
-    for (int i = 0; i < commands.size(); i++) {
-      commandList.add(commands.get(i));
+  private static final class CustomLoadControl extends DefaultLoadControl {
+    public boolean prepared;
+
+    @Override
+    public void onPrepared(PlayerId playerId) {
+      prepared = true;
+      super.onPrepared(playerId);
     }
-    return commandList;
   }
 }

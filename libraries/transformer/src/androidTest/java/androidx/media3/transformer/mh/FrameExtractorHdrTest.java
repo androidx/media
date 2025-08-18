@@ -28,20 +28,25 @@ import static androidx.media3.transformer.mh.HdrCapabilitiesUtil.assumeDeviceDoe
 import static androidx.media3.transformer.mh.HdrCapabilitiesUtil.assumeDeviceSupportsHdrColorTransfer;
 import static androidx.media3.transformer.mh.HdrCapabilitiesUtil.assumeDeviceSupportsOpenGlToneMapping;
 import static com.google.common.truth.Truth.assertThat;
+import static java.nio.file.Files.newInputStream;
+import static java.nio.file.Files.newOutputStream;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
 import android.graphics.Bitmap;
-import android.graphics.Canvas;
+import android.graphics.BitmapFactory;
 import android.graphics.ColorSpace;
-import android.graphics.Paint;
 import androidx.media3.common.MediaItem;
 import androidx.media3.transformer.ExperimentalFrameExtractor;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
+import java.io.File;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.file.Path;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.After;
 import org.junit.Before;
@@ -122,19 +127,50 @@ public class FrameExtractorHdrTest {
         frameExtractor.getFrame(/* positionMs= */ 0);
     ExperimentalFrameExtractor.Frame frame = frameFuture.get(TIMEOUT_SECONDS, SECONDS);
     Bitmap actualBitmap = frame.bitmap;
-    Bitmap actualBitmapDefaultColorSpace = removeColorSpace(actualBitmap);
     Bitmap expectedBitmap =
         readBitmap(/* assetString= */ GOLDEN_ASSET_FOLDER_PATH + "hlg10-color-test_0.000.png");
-    maybeSaveTestBitmap(
-        testId,
-        /* bitmapLabel= */ "actualBitmapDefaultColorSpace",
-        actualBitmapDefaultColorSpace,
-        /* path= */ null);
+    maybeSaveTestBitmap(testId, /* bitmapLabel= */ "actualBitmap", actualBitmap, /* path= */ null);
 
     assertThat(frame.presentationTimeMs).isEqualTo(0);
-    assertThat(actualBitmap.getConfig()).isEqualTo(RGBA_1010102);
+    assertThat(actualBitmap.getConfig()).isAnyOf(RGBA_1010102, RGBA_F16);
     assertThat(actualBitmap.getColorSpace()).isEqualTo(ColorSpace.get(BT2020_HLG));
     assertBitmapsAreSimilar(expectedBitmap, actualBitmap, PSNR_THRESHOLD);
+  }
+
+  @Test
+  public void extractFrameAndSaveToJpeg_oneFrameHlgWithHdrOutput_succeeds() throws Exception {
+    // TODO: b/438478509 - rename assumeDeviceSupportsOpenGlToneMapping.
+    assumeDeviceSupportsOpenGlToneMapping(testId, MP4_ASSET_COLOR_TEST_1080P_HLG10.videoFormat);
+    assumeDeviceSupportsHdrColorTransfer(testId, MP4_ASSET_COLOR_TEST_1080P_HLG10.videoFormat);
+    // HLG Bitmaps are only supported on API 34+.
+    assumeTrue(SDK_INT >= 34);
+    Path temporaryFilePath = new File(context.getExternalCacheDir(), testId + ".jpg").toPath();
+    frameExtractor =
+        new ExperimentalFrameExtractor(
+            context,
+            new ExperimentalFrameExtractor.Configuration.Builder()
+                .setExtractHdrFrames(true)
+                .build());
+    frameExtractor.setMediaItem(
+        MediaItem.fromUri(MP4_ASSET_COLOR_TEST_1080P_HLG10.uri), /* effects= */ ImmutableList.of());
+
+    ListenableFuture<ExperimentalFrameExtractor.Frame> frameFuture =
+        frameExtractor.getFrame(/* positionMs= */ 0);
+    ExperimentalFrameExtractor.Frame frame = frameFuture.get(TIMEOUT_SECONDS, SECONDS);
+    Bitmap actualBitmap = frame.bitmap;
+    try (OutputStream outputStream = newOutputStream(temporaryFilePath)) {
+      actualBitmap.compress(Bitmap.CompressFormat.JPEG, /* quality= */ 60, outputStream);
+    }
+    Bitmap bitmapFromFile;
+    try (InputStream inputStream = newInputStream(temporaryFilePath)) {
+      bitmapFromFile = BitmapFactory.decodeStream(inputStream);
+    }
+
+    assertThat(bitmapFromFile.getWidth())
+        .isEqualTo(MP4_ASSET_COLOR_TEST_1080P_HLG10.videoFormat.width);
+    assertThat(bitmapFromFile.getHeight())
+        .isEqualTo(MP4_ASSET_COLOR_TEST_1080P_HLG10.videoFormat.height);
+    assertThat(bitmapFromFile.getColorSpace()).isEqualTo(ColorSpace.get(BT2020_HLG));
   }
 
   @Test
@@ -168,6 +204,7 @@ public class FrameExtractorHdrTest {
   public void
       extractFrame_changeMediaItemFromHdrToSdrWithToneMapping_extractsFrameFromTheCorrectItem()
           throws Exception {
+    // TODO: b/438478509 - rename assumeDeviceSupportsOpenGlToneMapping.
     assumeDeviceSupportsOpenGlToneMapping(testId, MP4_ASSET_COLOR_TEST_1080P_HLG10.videoFormat);
     frameExtractor =
         new ExperimentalFrameExtractor(
@@ -201,21 +238,5 @@ public class FrameExtractorHdrTest {
     assertBitmapsAreSimilar(expectedBitmapFirstItem, actualBitmapFirstItem, PSNR_THRESHOLD);
     assertThat(frameSecondItem.presentationTimeMs).isEqualTo(0);
     assertBitmapsAreSimilar(expectedBitmapSecondItem, actualBitmapSecondItem, PSNR_THRESHOLD);
-  }
-
-  /**
-   * Copy the contents of the input {@link Bitmap} into a {@link Bitmap} with {@link
-   * Bitmap.Config#RGBA_F16} config and default {@link ColorSpace}.
-   *
-   * <p>Writing a {@link ColorSpace.Named#BT2020_HLG} {@link Bitmap} to PNG seems to be poorly
-   * supported. Use this method to convert to generate golden files that preserve the pixel values,
-   * albeit in an incorrect {@link ColorSpace}.
-   */
-  private static Bitmap removeColorSpace(Bitmap hlgBitmap) {
-    Bitmap regularBitmap =
-        Bitmap.createBitmap(hlgBitmap.getWidth(), hlgBitmap.getHeight(), RGBA_F16);
-    Canvas canvas = new Canvas(regularBitmap);
-    canvas.drawBitmap(hlgBitmap, /* left= */ 0, /* top= */ 0, new Paint());
-    return regularBitmap;
   }
 }
