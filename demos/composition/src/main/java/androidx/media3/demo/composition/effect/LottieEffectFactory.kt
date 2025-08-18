@@ -57,6 +57,14 @@ internal object LottieEffectFactory {
             .setScaleMode(LottieScaleMode.Custom(0.1f, 0.1f))
             .setAnchor(0.5f, 0.5f)
             .setSpeed(LottieSpeed.Multiplier(2.0f)),
+        "Lottie: Asset from folder with System Font(monospace, bold)" to
+          LottieOverlay.Builder(R.raw.text_with_asset_from_folder)
+            .setScaleMode(LottieScaleMode.FitToHeight)
+            .setAssetProvider(DemoLottieAssetProvider(context)),
+        "Lottie: Assets encoded with Imported Font(Playwrite, regular)" to
+          LottieOverlay.Builder(R.raw.text_with_asset_encoded)
+            .setScaleMode(LottieScaleMode.FitToHeight)
+            .setAssetProvider(DemoLottieAssetProvider(context)),
       )
       .mapValues { entry ->
         val lottieOverlay = entry.value.build(context)

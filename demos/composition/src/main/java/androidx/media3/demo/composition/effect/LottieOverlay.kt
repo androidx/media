@@ -33,15 +33,19 @@ import com.airbnb.lottie.LottieDrawable
 /**
  * A [CanvasOverlay] that renders a Lottie animation.
  *
- * This overlay uses the Lottie library to draw an animation loaded from a raw resource. The
+ * <p>This overlay uses the Lottie library to draw an animation loaded from a raw resource. The
  * animation's size, position, speed, and looping behavior can be configured using the [Builder].
  *
  * @property context The application context.
  * @property animationConfig The configuration for the Lottie animation.
  */
 @UnstableApi
-internal class LottieOverlay(private val context: Context, private val animationConfig: Config) :
-  CanvasOverlay(/* useInputFrameSize= */ false) {
+internal class LottieOverlay
+private constructor(
+  private val context: Context,
+  private val animationConfig: Config,
+  private val assetProvider: LottieAssetProvider?,
+) : CanvasOverlay(/* useInputFrameSize= */ false) {
 
   private val lottieDrawable: LottieDrawable = LottieDrawable()
   private var frameworkOverlaySettings: OverlaySettings = StaticOverlaySettings.Builder().build()
@@ -64,6 +68,13 @@ internal class LottieOverlay(private val context: Context, private val animation
     }
 
     lottieDrawable.composition = composition
+
+    assetProvider?.let { provider ->
+      provider.setComposition(composition)
+      lottieDrawable.setImageAssetDelegate(provider.getImageAssetDelegate())
+      lottieDrawable.setFontMap(provider.getFontMap())
+    }
+
     lottieDrawable.repeatCount = LottieDrawable.INFINITE
     lottieDrawable.invalidateSelf()
     tryToSetCanvasSize(composition, videoSize)
@@ -142,6 +153,7 @@ internal class LottieOverlay(private val context: Context, private val animation
 
   override fun release() {
     super.release()
+    assetProvider?.release()
     lottieDrawable.clearComposition()
     timeToProgressFactor = 0f
   }
@@ -152,6 +164,8 @@ internal class LottieOverlay(private val context: Context, private val animation
     private var backgroundFrameAnchorY: Float = 0.0f
     private var speed: LottieSpeed = LottieSpeed.Multiplier(1.0f)
     private var opacity: Float = 1.0f
+
+    private var assetProvider: LottieAssetProvider? = null
 
     fun setScaleMode(scaleMode: LottieScaleMode) = apply { this.scaleMode = scaleMode }
 
@@ -164,6 +178,10 @@ internal class LottieOverlay(private val context: Context, private val animation
 
     fun setOpacity(opacity: Float) = apply { this.opacity = opacity.coerceIn(0f, 1f) }
 
+    fun setAssetProvider(assetProvider: LottieAssetProvider) = apply {
+      this.assetProvider = assetProvider
+    }
+
     fun build(context: Context): LottieOverlay {
       val config =
         Config(
@@ -174,7 +192,7 @@ internal class LottieOverlay(private val context: Context, private val animation
           speed = speed,
           opacity = opacity,
         )
-      return LottieOverlay(context, config)
+      return LottieOverlay(context, config, this.assetProvider)
     }
   }
 
