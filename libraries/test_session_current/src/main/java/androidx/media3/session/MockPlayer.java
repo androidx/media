@@ -334,7 +334,7 @@ public class MockPlayer implements Player {
     playbackParameters = PlaybackParameters.DEFAULT;
 
     if (builder.itemCount > 0) {
-      mediaItems = MediaTestUtils.createMediaItems(builder.itemCount);
+      mediaItems = MediaTestUtils.createMediaItems(builder.itemCount, true);
       timeline = new PlaylistTimeline(mediaItems);
     } else {
       mediaItems = new ArrayList<>();
@@ -882,6 +882,7 @@ public class MockPlayer implements Player {
   @Override
   public void setMediaItems(List<MediaItem> mediaItems) {
     this.mediaItems = new ArrayList<>(mediaItems);
+    adjustIndicesAfterMediaItemUpdate();
     checkNotNull(conditionVariables.get(METHOD_SET_MEDIA_ITEMS)).open();
   }
 
@@ -889,6 +890,7 @@ public class MockPlayer implements Player {
   public void setMediaItems(List<MediaItem> mediaItems, boolean resetPosition) {
     this.mediaItems = new ArrayList<>(mediaItems);
     this.resetPosition = resetPosition;
+    adjustIndicesAfterMediaItemUpdate();
     checkNotNull(conditionVariables.get(METHOD_SET_MEDIA_ITEMS_WITH_RESET_POSITION)).open();
   }
 
@@ -897,7 +899,15 @@ public class MockPlayer implements Player {
     this.mediaItems = new ArrayList<>(mediaItems);
     this.startMediaItemIndex = startIndex;
     this.startPositionMs = startPositionMs;
+    adjustIndicesAfterMediaItemUpdate();
     checkNotNull(conditionVariables.get(METHOD_SET_MEDIA_ITEMS_WITH_START_INDEX)).open();
+  }
+
+  private void adjustIndicesAfterMediaItemUpdate() {
+    if (mediaItems.isEmpty()) {
+      currentMediaItemIndex = 0;
+      currentPeriodIndex = 0;
+    }
   }
 
   @Override

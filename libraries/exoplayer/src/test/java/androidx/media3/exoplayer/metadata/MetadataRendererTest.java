@@ -401,7 +401,9 @@ public class MetadataRendererTest {
     int frameSizeIndex = 7;
     int frameSize = id3FrameData.length - 10;
     checkArgument(
-        frameSize < 128, "frameSize must fit in 7 bits to avoid synch-safe encoding: " + frameSize);
+        frameSize < 128,
+        "frameSize must fit in 7 bits to avoid synch-safe encoding: %s",
+        frameSize);
     id3FrameData[frameSizeIndex] = (byte) frameSize;
 
     byte[] id3Bytes =
@@ -414,7 +416,7 @@ public class MetadataRendererTest {
     int tagSizeIndex = 9;
     int tagSize = id3Bytes.length - 10;
     checkArgument(
-        tagSize < 128, "tagSize must fit in 7 bits to avoid synch-safe encoding: " + tagSize);
+        tagSize < 128, "tagSize must fit in 7 bits to avoid synch-safe encoding: %s", tagSize);
     id3Bytes[tagSizeIndex] = (byte) tagSize;
     return id3Bytes;
   }

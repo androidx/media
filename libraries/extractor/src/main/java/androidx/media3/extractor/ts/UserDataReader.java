@@ -61,7 +61,8 @@ import java.util.List;
       checkArgument(
           MimeTypes.APPLICATION_CEA608.equals(channelMimeType)
               || MimeTypes.APPLICATION_CEA708.equals(channelMimeType),
-          "Invalid closed caption MIME type provided: " + channelMimeType);
+          "Invalid closed caption MIME type provided: %s",
+          channelMimeType);
       output.format(
           new Format.Builder()
               .setId(idGenerator.getFormatId())

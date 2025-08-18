@@ -12,6 +12,9 @@
     *   Fix `ForwardingPlayer` listener handling when the underlying delegate
         player uses reference equality for comparing listener instances
         ([#2675](https://github.com/androidx/media/issues/2675)).
+    *   Add a `Player.listenTo` suspending extension function in the
+        `media3-common-ktx` library that specifies the particular
+        `Player.Events` that should be acted upon.
 *   ExoPlayer:
     *   Add a stuck buffering detection that triggers a `StuckPlayerException`
         player error after 10 minutes of `STATE_BUFFERING` while trying to play
@@ -82,6 +85,8 @@
     *   Avoid potential delays caused by handling routing change callbacks at
         the beginning of playback
         ([#2646]()https://github.com/androidx/media/issues/2646).
+    *   Allow codec reuse for EAC3, EAC3-JOC and AC-4 formats
+        ([#1346](https://github.com/androidx/media/pull/1346)).
 *   Video:
 *   Text:
 *   Metadata:
@@ -124,6 +129,9 @@
     *   Fix bug where `getCurrentTimeline()` was called by `PlayerWrapper` even
         when the command isn't available
         ([#2665](https://github.com/androidx/media/issues/2665)).
+    *   Fix bug where a message was left in the message queue of the main looper
+        which caused a memory leak after the service terminated
+        ([#2692](https://github.com/androidx/media/issues/2692)).
 *   UI:
     *   Add `ProgressStateWithTickInterval` class and the corresponding
         `rememberProgressStateWithTickInterval` Composable to
@@ -136,6 +144,9 @@
         `rememberProgressStateWithTickCount` Composable to `media3-ui-compose`
         module. This state holder is used in `demo-compose` to display progress
         as a horizontal read-only progress bar.
+    *   Add `ContentFrame` Composable to `media3-ui-compose` which combines
+        `PlayerSurface` management with aspect ratio resizing and covering with
+        a shutter.
 *   Downloads:
 *   OkHttp extension:
 *   Cronet extension:

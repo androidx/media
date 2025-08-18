@@ -633,6 +633,9 @@ public abstract class MediaSessionService extends Service {
   @Override
   public void onDestroy() {
     super.onDestroy();
+    if (mediaNotificationManager != null) {
+      mediaNotificationManager.disableUserEngagedTimeout();
+    }
     if (stub != null) {
       stub.release();
       stub = null;

@@ -20,7 +20,7 @@ import androidx.annotation.VisibleForTesting
 import androidx.compose.runtime.withFrameMillis
 import androidx.media3.common.C
 import androidx.media3.common.Player
-import androidx.media3.common.listen
+import androidx.media3.common.listenTo
 import androidx.media3.common.util.UnstableApi
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -45,22 +45,18 @@ internal class ProgressStateJob(
   internal suspend fun observeProgress(): Nothing = coroutineScope {
     // otherwise we don't update on recomposition of UI, only on Player.Events
     cancelPendingUpdatesAndMaybeRelaunch()
-    player.listen { events ->
-      if (
-        events.containsAny(
-          Player.EVENT_IS_PLAYING_CHANGED,
-          Player.EVENT_POSITION_DISCONTINUITY,
-          Player.EVENT_TIMELINE_CHANGED,
-          Player.EVENT_PLAYBACK_PARAMETERS_CHANGED,
-          Player.EVENT_AVAILABLE_COMMANDS_CHANGED,
-        )
-      ) {
-        scheduledTask()
-        if (player.isCommandAvailable(Player.COMMAND_GET_CURRENT_MEDIA_ITEM)) {
-          cancelPendingUpdatesAndMaybeRelaunch()
-        } else {
-          updateJob?.cancel()
-        }
+    player.listenTo(
+      Player.EVENT_IS_PLAYING_CHANGED,
+      Player.EVENT_POSITION_DISCONTINUITY,
+      Player.EVENT_TIMELINE_CHANGED,
+      Player.EVENT_PLAYBACK_PARAMETERS_CHANGED,
+      Player.EVENT_AVAILABLE_COMMANDS_CHANGED,
+    ) {
+      scheduledTask()
+      if (player.isCommandAvailable(Player.COMMAND_GET_CURRENT_MEDIA_ITEM)) {
+        cancelPendingUpdatesAndMaybeRelaunch()
+      } else {
+        updateJob?.cancel()
       }
     }
   }

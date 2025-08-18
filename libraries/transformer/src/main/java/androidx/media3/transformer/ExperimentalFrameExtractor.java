@@ -18,6 +18,7 @@ package androidx.media3.transformer;
 
 import static android.graphics.Bitmap.Config.ARGB_8888;
 import static android.graphics.Bitmap.Config.RGBA_1010102;
+import static android.graphics.Bitmap.Config.RGBA_F16;
 import static android.graphics.ColorSpace.Named.BT2020_HLG;
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.C.COLOR_TRANSFER_HLG;
@@ -27,6 +28,7 @@ import static androidx.media3.common.PlaybackException.ERROR_CODE_FAILED_RUNTIME
 import static androidx.media3.common.PlaybackException.ERROR_CODE_INVALID_STATE;
 import static androidx.media3.common.PlaybackException.ERROR_CODE_SETUP_REQUIRED;
 import static androidx.media3.common.util.GlUtil.createRgb10A2Texture;
+import static androidx.media3.common.util.GlUtil.createTexture;
 import static androidx.media3.common.util.Util.usToMs;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -185,9 +187,9 @@ public final class ExperimentalFrameExtractor {
        * <p>When set to {@code false}, extracted HDR frames will be tone-mapped to {@link
        * ColorSpace.Named#BT709}.
        *
-       * <p>When set to {@code true}, extracted HDR frames will have {@link
-       * Bitmap.Config#RGBA_1010102} and {@link ColorSpace.Named#BT2020_HLG}. Extracting HDR frames
-       * is only supported on API 34+.
+       * <p>When set to {@code true}, extracted HDR frames will have a high bit depth {@link
+       * Bitmap.Config} and {@link ColorSpace.Named#BT2020_HLG}. Extracting HDR frames is only
+       * supported on API 34+.
        *
        * <p>This flag has no effect when the input is SDR.
        *
@@ -528,9 +530,9 @@ public final class ExperimentalFrameExtractor {
   }
 
   private final class FrameReadingGlShaderProgram extends PassthroughShaderProgram {
-    private static final int BYTES_PER_PIXEL = 4;
-
+    private final int bytesPerPixel;
     private final boolean useHdr;
+    private final boolean hdrUses16BitFloat;
 
     /** The visible portion of the frame. */
     private final ImmutableList<float[]> visiblePolygon =
@@ -567,6 +569,9 @@ public final class ExperimentalFrameExtractor {
             GlUtil.createVertexBuffer(visiblePolygon),
             GlUtil.HOMOGENEOUS_COORDINATE_VECTOR_SIZE);
       }
+      // RGBA_1010102 Bitmaps cannot be saved to file prior to API 36. See b/438163272.
+      hdrUses16BitFloat = SDK_INT <= 35;
+      bytesPerPixel = useHdr && hdrUses16BitFloat ? 8 : 4;
     }
 
     @Override
@@ -601,7 +606,9 @@ public final class ExperimentalFrameExtractor {
               hlgTextureInfo.width,
               hlgTextureInfo.height,
               /* format= */ GLES20.GL_RGBA,
-              /* type= */ GLES30.GL_UNSIGNED_INT_2_10_10_10_REV,
+              /* type= */ hdrUses16BitFloat
+                  ? GLES30.GL_HALF_FLOAT
+                  : GLES30.GL_UNSIGNED_INT_2_10_10_10_REV,
               byteBuffer);
           GlUtil.checkGlError();
         } catch (GlUtil.GlException e) {
@@ -613,7 +620,7 @@ public final class ExperimentalFrameExtractor {
                 /* display= */ null,
                 hlgTextureInfo.width,
                 hlgTextureInfo.height,
-                RGBA_1010102,
+                hdrUses16BitFloat ? RGBA_F16 : RGBA_1010102,
                 /* hasAlpha= */ false,
                 ColorSpace.get(BT2020_HLG));
       } else {
@@ -651,7 +658,7 @@ public final class ExperimentalFrameExtractor {
     }
 
     private void ensureConfigured(GlObjectsProvider glObjectsProvider, int width, int height) {
-      int pixelBufferSize = width * height * BYTES_PER_PIXEL;
+      int pixelBufferSize = width * height * bytesPerPixel;
       if (byteBuffer.capacity() != pixelBufferSize) {
         byteBuffer = ByteBuffer.allocateDirect(pixelBufferSize);
       }
@@ -665,7 +672,10 @@ public final class ExperimentalFrameExtractor {
             if (hlgTextureInfo != null) {
               hlgTextureInfo.release();
             }
-            int texId = createRgb10A2Texture(width, height);
+            int texId =
+                hdrUses16BitFloat
+                    ? createTexture(width, height, /* useHighPrecisionColorComponents= */ true)
+                    : createRgb10A2Texture(width, height);
             hlgTextureInfo = glObjectsProvider.createBuffersForTexture(texId, width, height);
           } catch (GlUtil.GlException e) {
             onError(e);

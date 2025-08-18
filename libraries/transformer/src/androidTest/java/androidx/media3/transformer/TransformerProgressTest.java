@@ -61,6 +61,7 @@ import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
 /** End-to-end instrumentation test for {@link Transformer#getProgress}. */
+// TODO: b/438552229 - Use BatchProgressReportingMuxer to remove Thread.sleep().
 @RunWith(AndroidJUnit4.class)
 public class TransformerProgressTest {
   private static final long DELAY_MS = 50;

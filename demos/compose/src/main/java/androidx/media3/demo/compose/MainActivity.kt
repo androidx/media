@@ -51,10 +51,8 @@ import androidx.media3.demo.compose.indicator.HorizontalLinearProgressIndicator
 import androidx.media3.demo.compose.layout.CONTENT_SCALES
 import androidx.media3.demo.compose.layout.noRippleClickable
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.ui.compose.PlayerSurface
+import androidx.media3.ui.compose.ContentFrame
 import androidx.media3.ui.compose.SURFACE_TYPE_SURFACE_VIEW
-import androidx.media3.ui.compose.modifiers.resizeWithContentScale
-import androidx.media3.ui.compose.state.rememberPresentationState
 
 class MainActivity : ComponentActivity() {
 
@@ -102,7 +100,11 @@ fun ComposeDemoApp(modifier: Modifier = Modifier) {
 
 private fun initializePlayer(context: Context): Player =
   ExoPlayer.Builder(context).build().apply {
-    setMediaItems(videos.map(MediaItem::fromUri))
+    setMediaItems(
+      videos.mapIndexed { idx, uri ->
+        MediaItem.Builder().setUri(uri).setMediaId(idx.toString()).build()
+      }
+    )
     prepare()
   }
 
@@ -112,25 +114,15 @@ private fun MediaPlayerScreen(player: Player, modifier: Modifier = Modifier) {
   var currentContentScaleIndex by remember { mutableIntStateOf(0) }
   val contentScale = CONTENT_SCALES[currentContentScaleIndex].second
 
-  val presentationState = rememberPresentationState(player)
-  val scaledModifier = Modifier.resizeWithContentScale(contentScale, presentationState.videoSizeDp)
-
   // Only use MediaPlayerScreen's modifier once for the top level Composable
   Box(modifier) {
-    // Always leave PlayerSurface to be part of the Compose tree because it will be initialised in
-    // the process. If this composable is guarded by some condition, it might never become visible
-    // because the Player will not emit the relevant event, e.g. the first frame being ready.
-    PlayerSurface(
+    ContentFrame(
       player = player,
       surfaceType = SURFACE_TYPE_SURFACE_VIEW,
-      modifier = scaledModifier.noRippleClickable { showControls = !showControls },
+      modifier = Modifier.noRippleClickable { showControls = !showControls },
+      keepContentOnReset = true,
+      contentScale = contentScale,
     )
-
-    if (presentationState.coverSurface) {
-      // Cover the surface that is being prepared with a shutter
-      // Do not use scaledModifier here, makes the Box be measured at 0x0
-      Box(Modifier.matchParentSize().background(Color.Black))
-    }
 
     if (showControls) {
       // drawn on top of a potential shutter

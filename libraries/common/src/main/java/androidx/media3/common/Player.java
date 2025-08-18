@@ -204,6 +204,16 @@ public interface Player {
       return flags.containsAny(events);
     }
 
+    /**
+     * Returns whether any of the given {@link Player.Events} occurred.
+     *
+     * @param events The {@link Player.Events}.
+     * @return Whether any of the {@link Player.Events} occurred.
+     */
+    public boolean containsAny(Player.Events events) {
+      return flags.containsAny(events.flags);
+    }
+
     /** Returns the number of events in the set. */
     public int size() {
       return flags.size();

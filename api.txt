@@ -927,6 +927,7 @@ package androidx.media3.common {
 
   public static final class Player.Events {
     method public boolean contains(@androidx.media3.common.Player.Event int);
+    method public boolean containsAny(androidx.media3.common.Player.Events);
     method public boolean containsAny(@androidx.media3.common.Player.Event int...);
     method @androidx.media3.common.Player.Event public int get(int);
     method public int size();

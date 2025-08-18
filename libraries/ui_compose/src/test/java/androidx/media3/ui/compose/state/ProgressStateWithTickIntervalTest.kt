@@ -139,6 +139,8 @@ class ProgressStateWithTickIntervalTest {
         )
       player.setPositionSupplierDrivenBy(testDispatcher.scheduler)
       lateinit var state: ProgressStateWithTickInterval
+      // Prevent infinite scheduling loop for withFrameMillis, override here before setContent
+      composeTestRule.mainClock.autoAdvance = false
       composeTestRule.setContent {
         state =
           rememberProgressStateWithTickInterval(
@@ -164,6 +166,8 @@ class ProgressStateWithTickIntervalTest {
         )
       player.setPositionSupplierDrivenBy(testDispatcher.scheduler)
       lateinit var state: ProgressStateWithTickInterval
+      // Prevent infinite scheduling loop for withFrameMillis, override here before setContent
+      composeTestRule.mainClock.autoAdvance = false
       composeTestRule.setContent {
         state =
           rememberProgressStateWithTickInterval(
@@ -416,19 +420,29 @@ class ProgressStateWithTickIntervalTest {
       }
       player.setPosition(10_000)
       player.setBufferedPositionMs(10_000)
-      advanceTimeByInclusive(200.milliseconds)
+      composeTestRule.waitForIdle()
+      // TODO: b/436159565 - Remove runCurrent() when `compose.ui:ui-test` is updated to include
+      //    aosp/3208355, which makes waitForIdle() sufficient. Will require composeBom upgrade.
+      testScheduler.runCurrent()
 
-      // Check state before change to ENDED, immediately after the change and after waiting for any
-      // pending updates to ensure the main thread is not blocked.
+      // Check state before change to ENDED
       assertThat(state.durationMs).isEqualTo(10_000)
       assertThat(state.currentPositionMs).isEqualTo(10_000)
       assertThat(state.bufferedPositionMs).isEqualTo(10_000)
+
       player.setPlaybackState(Player.STATE_ENDED)
+
+      // Immediately after the change before running the playback state update
       assertThat(state.durationMs).isEqualTo(10_000)
       assertThat(state.currentPositionMs).isEqualTo(10_000)
       assertThat(state.bufferedPositionMs).isEqualTo(10_000)
-      advanceTimeByInclusive(200.milliseconds)
 
+      composeTestRule.waitForIdle()
+      // TODO: b/436159565 - Remove runCurrent() when `compose.ui:ui-test` is updated to include
+      //    aosp/3208355, which makes waitForIdle() sufficient. Will require composeBom upgrade.
+      testScheduler.runCurrent()
+
+      // After completing any pending updates to ensure the main thread is not blocked.
       assertThat(state.durationMs).isEqualTo(10_000)
       assertThat(state.currentPositionMs).isEqualTo(10_000)
       assertThat(state.bufferedPositionMs).isEqualTo(10_000)

@@ -1355,7 +1355,7 @@ public class MediaController implements Player {
     verifyApplicationThread();
     checkNotNull(mediaItems, "mediaItems must not be null");
     for (int i = 0; i < mediaItems.size(); i++) {
-      checkArgument(mediaItems.get(i) != null, "items must not contain null, index=" + i);
+      checkArgument(mediaItems.get(i) != null, "items must not contain null, index=%s", i);
     }
     if (!isConnected()) {
       Log.w(TAG, "The controller is not connected. Ignoring setMediaItems().");
@@ -1369,7 +1369,7 @@ public class MediaController implements Player {
     verifyApplicationThread();
     checkNotNull(mediaItems, "mediaItems must not be null");
     for (int i = 0; i < mediaItems.size(); i++) {
-      checkArgument(mediaItems.get(i) != null, "items must not contain null, index=" + i);
+      checkArgument(mediaItems.get(i) != null, "items must not contain null, index=%s", i);
     }
     if (!isConnected()) {
       Log.w(TAG, "The controller is not connected. Ignoring setMediaItems().");
@@ -1384,7 +1384,7 @@ public class MediaController implements Player {
     verifyApplicationThread();
     checkNotNull(mediaItems, "mediaItems must not be null");
     for (int i = 0; i < mediaItems.size(); i++) {
-      checkArgument(mediaItems.get(i) != null, "items must not contain null, index=" + i);
+      checkArgument(mediaItems.get(i) != null, "items must not contain null, index=%s", i);
     }
     if (!isConnected()) {
       Log.w(TAG, "The controller is not connected. Ignoring setMediaItems().");

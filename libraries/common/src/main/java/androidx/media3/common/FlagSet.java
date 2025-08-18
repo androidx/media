@@ -196,6 +196,21 @@ public final class FlagSet {
     return false;
   }
 
+  /**
+   * Returns whether this FlagSet contains at least one of the flags in the other Flagset.
+   *
+   * @param other The flag.
+   * @return Whether the set contains the flag.
+   */
+  public boolean containsAny(FlagSet other) {
+    for (int i = 0; i < other.size(); i++) {
+      if (contains(other.get(i))) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   /** Returns the number of flags in this set. */
   public int size() {
     return flags.size();

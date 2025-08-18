@@ -61,7 +61,6 @@ class PlayerSurfaceTest {
     composeTestRule.setContent {
       PlayerSurface(player = player, surfaceType = SURFACE_TYPE_SURFACE_VIEW)
     }
-    composeTestRule.waitForIdle()
 
     assertThat(player.videoOutput).isInstanceOf(SurfaceView::class.java)
   }
@@ -73,7 +72,6 @@ class PlayerSurfaceTest {
     composeTestRule.setContent {
       PlayerSurface(player = player, surfaceType = SURFACE_TYPE_TEXTURE_VIEW)
     }
-    composeTestRule.waitForIdle()
 
     assertThat(player.videoOutput).isInstanceOf(TextureView::class.java)
   }
@@ -86,7 +84,6 @@ class PlayerSurfaceTest {
     composeTestRule.setContent {
       PlayerSurface(player = player, surfaceType = SURFACE_TYPE_TEXTURE_VIEW)
     }
-    composeTestRule.waitForIdle()
 
     assertThat(player.videoOutput).isNull()
   }
@@ -100,7 +97,7 @@ class PlayerSurfaceTest {
       surfaceType = remember { mutableIntStateOf(SURFACE_TYPE_TEXTURE_VIEW) }
       PlayerSurface(player = player, surfaceType = surfaceType.intValue)
     }
-    composeTestRule.waitForIdle()
+
     surfaceType.intValue = SURFACE_TYPE_SURFACE_VIEW
     composeTestRule.waitForIdle()
 
@@ -122,7 +119,7 @@ class PlayerSurfaceTest {
         surfaceType = SURFACE_TYPE_SURFACE_VIEW,
       )
     }
-    composeTestRule.waitForIdle()
+
     playerIndex.intValue = 1
     composeTestRule.waitForIdle()
 
@@ -152,7 +149,7 @@ class PlayerSurfaceTest {
         surfaceType = SURFACE_TYPE_SURFACE_VIEW,
       )
     }
-    composeTestRule.waitForIdle()
+
     playerIndex.intValue = 1
     composeTestRule.waitForIdle()
 
@@ -172,7 +169,6 @@ class PlayerSurfaceTest {
       PlayerSurface(player = if (playerIndex.intValue == 0) player1 else player0)
     }
 
-    composeTestRule.waitForIdle()
     playerIndex.intValue = 1
     composeTestRule.waitForIdle()
 
@@ -195,7 +191,6 @@ class PlayerSurfaceTest {
       PlayerSurface(player = if (playerIndex.intValue == 0) null else player)
     }
 
-    composeTestRule.waitForIdle()
     playerIndex.intValue = 1
     composeTestRule.waitForIdle()
     playerIndex.intValue = 0
@@ -231,7 +226,6 @@ class PlayerSurfaceTest {
       }
     }
     // Show every element twice to verify reuse within and across items
-    composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("lazyColumn").performScrollToIndex(1)
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("lazyColumn").performScrollToIndex(2)
@@ -285,7 +279,6 @@ class PlayerSurfaceTest {
       }
     }
     // Show every element twice to verify reuse within and across items
-    composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("lazyColumn").performScrollToIndex(1)
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("lazyColumn").performScrollToIndex(2)
@@ -331,7 +324,6 @@ class PlayerSurfaceTest {
       }
     }
     // Show every element twice to verify reuse within and across items
-    composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("lazyColumn").performScrollToIndex(1)
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("lazyColumn").performScrollToIndex(2)
@@ -375,7 +367,6 @@ class PlayerSurfaceTest {
       }
     }
     // Show every element twice to verify reuse within and across items
-    composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("lazyColumn").performScrollToIndex(1)
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("lazyColumn").performScrollToIndex(2)
@@ -419,7 +410,6 @@ class PlayerSurfaceTest {
       }
     }
     // Show every element twice to verify reuse within and across items
-    composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("lazyColumn").performScrollToIndex(1)
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("lazyColumn").performScrollToIndex(2)
@@ -469,7 +459,6 @@ class PlayerSurfaceTest {
       }
     }
     // Show every element twice to verify reuse within and across items
-    composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("lazyColumn").performScrollToIndex(1)
     composeTestRule.waitForIdle()
     composeTestRule.onNodeWithTag("lazyColumn").performScrollToIndex(2)

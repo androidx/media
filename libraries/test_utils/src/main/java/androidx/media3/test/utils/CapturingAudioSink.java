@@ -210,12 +210,10 @@ public class CapturingAudioSink extends ForwardingAudioSink implements Dumper.Du
         int remainingBytes = buffer.remaining();
         checkState(
             remainingBytes % frameSize == 0,
-            "buffer.remaining()="
-                + remainingBytes
-                + ", channelCount="
-                + format.channelCount
-                + ", pcmEncoding="
-                + format.pcmEncoding);
+            "buffer.remaining()=%s, channelCount=%s, pcmEncoding=%s",
+            remainingBytes,
+            format.channelCount,
+            format.pcmEncoding);
         byte[][] perChannelData =
             new byte[format.channelCount][remainingBytes / format.channelCount];
         for (int i = 0; byteDepth <= buffer.remaining(); i += byteDepth) {

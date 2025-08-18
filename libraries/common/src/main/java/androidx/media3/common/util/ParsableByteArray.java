@@ -269,7 +269,7 @@ public final class ParsableByteArray {
   @Deprecated
   public char peekChar(Charset charset) {
     checkArgument(
-        SUPPORTED_CHARSETS_FOR_READLINE.contains(charset), "Unsupported charset: " + charset);
+        SUPPORTED_CHARSETS_FOR_READLINE.contains(charset), "Unsupported charset: %s", charset);
     if (bytesLeft() == 0) {
       return 0;
     }
@@ -655,7 +655,7 @@ public final class ParsableByteArray {
   @Nullable
   public String readLine(Charset charset) {
     checkArgument(
-        SUPPORTED_CHARSETS_FOR_READLINE.contains(charset), "Unsupported charset: " + charset);
+        SUPPORTED_CHARSETS_FOR_READLINE.contains(charset), "Unsupported charset: %s", charset);
     if (bytesLeft() == 0) {
       return null;
     }
@@ -875,7 +875,7 @@ public final class ParsableByteArray {
    */
   private int peekCodePointAndSize(Charset charset) {
     checkArgument(
-        SUPPORTED_CHARSETS_FOR_READLINE.contains(charset), "Unsupported charset: " + charset);
+        SUPPORTED_CHARSETS_FOR_READLINE.contains(charset), "Unsupported charset: %s", charset);
     if (bytesLeft() < getSmallestCodeUnitSize(charset)) {
       throw new IndexOutOfBoundsException("position=" + position + ", limit=" + limit);
     }
@@ -931,7 +931,7 @@ public final class ParsableByteArray {
 
   private static int getSmallestCodeUnitSize(Charset charset) {
     checkArgument(
-        SUPPORTED_CHARSETS_FOR_READLINE.contains(charset), "Unsupported charset: " + charset);
+        SUPPORTED_CHARSETS_FOR_READLINE.contains(charset), "Unsupported charset: %s", charset);
     return charset.equals(StandardCharsets.UTF_8) || charset.equals(StandardCharsets.US_ASCII)
         ? 1
         : 2;

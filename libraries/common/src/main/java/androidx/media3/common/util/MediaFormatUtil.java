@@ -519,10 +519,11 @@ public final class MediaFormatUtil {
   /** Whether this is a valid {@link C.ColorTransfer} instance. */
   private static boolean isValidColorTransfer(int colorTransfer) {
     // LINT.IfChange(color_transfer)
-    // C.COLOR_TRANSFER_GAMMA_2_2 & C.COLOR_TRANSFER_SRGB aren't valid because MediaCodec, and
-    // hence MediaFormat, do not support them.
+    // C.COLOR_TRANSFER_GAMMA_2_2 is not valid because MediaCodec, and hence MediaFormat, do not
+    // support them.
     return colorTransfer == C.COLOR_TRANSFER_LINEAR
         || colorTransfer == C.COLOR_TRANSFER_SDR
+        || colorTransfer == C.COLOR_TRANSFER_SRGB
         || colorTransfer == C.COLOR_TRANSFER_ST2084
         || colorTransfer == C.COLOR_TRANSFER_HLG
         || colorTransfer == Format.NO_VALUE;

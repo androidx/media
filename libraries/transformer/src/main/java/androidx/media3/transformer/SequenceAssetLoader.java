@@ -455,7 +455,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   public void onDurationUs(long durationUs) {
     checkArgument(
         durationUs != C.TIME_UNSET || isLastMediaItemInSequence(),
-        "Could not retrieve required duration for EditedMediaItem " + currentMediaItemIndex);
+        "Could not retrieve required duration for EditedMediaItem %s",
+        currentMediaItemIndex);
     currentAssetDurationAfterEffectsAppliedUs =
         editedMediaItems.get(currentMediaItemIndex).getDurationAfterEffectsApplied(durationUs);
     currentAssetDurationUs = durationUs;

@@ -202,7 +202,8 @@ public final class DownloadRequest implements Parcelable {
     if (contentType == C.CONTENT_TYPE_DASH
         || contentType == C.CONTENT_TYPE_HLS
         || contentType == C.CONTENT_TYPE_SS) {
-      checkArgument(customCacheKey == null, "customCacheKey must be null for type: " + contentType);
+      checkArgument(
+          customCacheKey == null, "customCacheKey must be null for type: %s", contentType);
       this.byteRange = null;
       this.timeRange = timeRange;
     } else {

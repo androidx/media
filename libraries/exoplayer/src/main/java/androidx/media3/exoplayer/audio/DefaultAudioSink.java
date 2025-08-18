@@ -1670,11 +1670,9 @@ public final class DefaultAudioSink implements AudioSink {
     Looper myLooper = Looper.myLooper();
     checkState(
         playbackLooper == myLooper,
-        "Current looper ("
-            + getLooperThreadName(myLooper)
-            + ") is not the playback looper ("
-            + getLooperThreadName(playbackLooper)
-            + ")");
+        "Current looper (%s) is not the playback looper (%s)",
+        getLooperThreadName(myLooper),
+        getLooperThreadName(playbackLooper));
     if (this.audioCapabilities != null && !audioCapabilities.equals(this.audioCapabilities)) {
       this.audioCapabilities = audioCapabilities;
       if (listener != null) {
@@ -1886,10 +1884,9 @@ public final class DefaultAudioSink implements AudioSink {
     @Nullable Looper myLooper = Looper.myLooper();
     checkState(
         audioCapabilitiesReceiver == null || playbackLooper == myLooper,
-        "DefaultAudioSink accessed on multiple threads: "
-            + getLooperThreadName(playbackLooper)
-            + " and "
-            + getLooperThreadName(myLooper));
+        "DefaultAudioSink accessed on multiple threads: %s and %s",
+        getLooperThreadName(playbackLooper),
+        getLooperThreadName(myLooper));
     if (audioCapabilitiesReceiver == null && context != null) {
       // Must be lazily initialized to receive audio capabilities receiver listener event on the
       // current (playback) thread as the constructor is not called in the playback thread.

@@ -30,6 +30,7 @@ import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
 import androidx.media3.test.utils.FakeExtractorOutput;
 import androidx.media3.test.utils.FakeTrackOutput;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
@@ -186,7 +187,8 @@ public final class TestUtil {
     Mp4Extractor mp4Extractor = new Mp4Extractor(new DefaultSubtitleParserFactory());
     FakeExtractorOutput fakeExtractorOutput =
         extractAllSamplesFromFilePath(mp4Extractor, checkNotNull(filePath));
-    return checkNotNull(fakeExtractorOutput.getTrackOutput(C.TRACK_TYPE_VIDEO)).getSampleTimesUs();
+    return Iterables.getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_VIDEO))
+        .getSampleTimesUs();
   }
 
   /**
@@ -199,6 +201,7 @@ public final class TestUtil {
     Mp4Extractor mp4Extractor = new Mp4Extractor(new DefaultSubtitleParserFactory());
     FakeExtractorOutput fakeExtractorOutput =
         extractAllSamplesFromFilePath(mp4Extractor, checkNotNull(filePath));
-    return checkNotNull(fakeExtractorOutput.getTrackOutput(C.TRACK_TYPE_AUDIO)).getSampleTimesUs();
+    return Iterables.getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_AUDIO))
+        .getSampleTimesUs();
   }
 }

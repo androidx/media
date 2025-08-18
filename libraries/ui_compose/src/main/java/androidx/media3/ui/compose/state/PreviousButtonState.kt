@@ -23,7 +23,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.media3.common.Player
-import androidx.media3.common.listen
+import androidx.media3.common.listenTo
 import androidx.media3.common.util.UnstableApi
 
 /**
@@ -63,11 +63,7 @@ class PreviousButtonState(private val player: Player) {
    */
   suspend fun observe(): Nothing {
     isEnabled = isPreviousEnabled(player)
-    player.listen { events ->
-      if (events.contains(Player.EVENT_AVAILABLE_COMMANDS_CHANGED)) {
-        isEnabled = isPreviousEnabled(this)
-      }
-    }
+    player.listenTo(Player.EVENT_AVAILABLE_COMMANDS_CHANGED) { isEnabled = isPreviousEnabled(this) }
   }
 
   private fun isPreviousEnabled(player: Player) =

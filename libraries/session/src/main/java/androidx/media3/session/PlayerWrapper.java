@@ -15,6 +15,7 @@
  */
 package androidx.media3.session;
 
+import static androidx.media3.common.util.Util.constrainValue;
 import static androidx.media3.common.util.Util.msToUs;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -864,12 +865,31 @@ import java.util.List;
   public PositionInfo createPositionInfo() {
     boolean canAccessCurrentMediaItem = isCommandAvailable(COMMAND_GET_CURRENT_MEDIA_ITEM);
     boolean canAccessTimeline = isCommandAvailable(COMMAND_GET_TIMELINE);
+    int currentMediaItemIndex = canAccessTimeline ? getCurrentMediaItemIndex() : 0;
+    checkState(currentMediaItemIndex >= 0);
+    int currentPeriodIndex = canAccessTimeline ? getCurrentPeriodIndex() : 0;
+    checkState(currentPeriodIndex >= 0);
+    if (canAccessTimeline) {
+      Timeline currentTimeline = getCurrentTimeline();
+      if (!currentTimeline.isEmpty()) {
+        int windowCount = currentTimeline.getWindowCount();
+        checkState(currentMediaItemIndex < windowCount);
+        Timeline.Window window =
+            currentTimeline.getWindow(currentMediaItemIndex, new Timeline.Window());
+        checkState(
+            currentPeriodIndex
+                == constrainValue(
+                    currentPeriodIndex,
+                    /* min= */ window.firstPeriodIndex,
+                    /* max= */ window.lastPeriodIndex));
+      }
+    }
     return new PositionInfo(
         /* windowUid= */ null,
-        canAccessTimeline ? getCurrentMediaItemIndex() : 0,
+        currentMediaItemIndex,
         canAccessCurrentMediaItem ? getCurrentMediaItem() : null,
         /* periodUid= */ null,
-        canAccessTimeline ? getCurrentPeriodIndex() : 0,
+        currentPeriodIndex,
         canAccessCurrentMediaItem ? getCurrentPosition() : 0,
         canAccessCurrentMediaItem ? getContentPosition() : 0,
         canAccessCurrentMediaItem ? getCurrentAdGroupIndex() : C.INDEX_UNSET,

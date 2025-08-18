@@ -618,11 +618,9 @@ public final class TextRenderer extends BaseRenderer implements Callback {
             || Objects.equals(streamFormat.sampleMimeType, MimeTypes.APPLICATION_CEA608)
             || Objects.equals(streamFormat.sampleMimeType, MimeTypes.APPLICATION_MP4CEA608)
             || Objects.equals(streamFormat.sampleMimeType, MimeTypes.APPLICATION_CEA708),
-        "Legacy decoding is disabled, can't handle "
-            + streamFormat.sampleMimeType
-            + " samples (expected "
-            + MimeTypes.APPLICATION_MEDIA3_CUES
-            + ").");
+        "Legacy decoding is disabled, can't handle %s samples (expected %s).",
+        streamFormat.sampleMimeType,
+        MimeTypes.APPLICATION_MEDIA3_CUES);
   }
 
   /** Returns whether {@link Format#sampleMimeType} is {@link MimeTypes#APPLICATION_MEDIA3_CUES}. */

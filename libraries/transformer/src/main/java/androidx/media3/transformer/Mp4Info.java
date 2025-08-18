@@ -59,7 +59,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    */
   public final long lastSyncSampleTimestampUs;
 
-  /** The prestation timestamp of the first video frame, in microseconds. */
+  /** The presentation timestamp of the first video frame, in microseconds. */
   public final long firstVideoSampleTimestampUs;
 
   /**

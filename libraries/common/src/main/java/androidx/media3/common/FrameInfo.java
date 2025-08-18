@@ -42,8 +42,8 @@ public class FrameInfo {
    */
   public FrameInfo(Format format, long offsetToAddUs) {
     checkArgument(format.colorInfo != null, "format colorInfo must be set");
-    checkArgument(format.width > 0, "format width must be positive, but is: " + format.width);
-    checkArgument(format.height > 0, "format height must be positive, but is: " + format.height);
+    checkArgument(format.width > 0, "format width must be positive, but is: %s", format.width);
+    checkArgument(format.height > 0, "format height must be positive, but is: %s", format.height);
 
     this.format = format;
     this.offsetToAddUs = offsetToAddUs;

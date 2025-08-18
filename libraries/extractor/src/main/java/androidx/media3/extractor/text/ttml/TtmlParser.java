@@ -260,7 +260,7 @@ public final class TtmlParser implements SubtitleParser {
     try {
       int columns = Integer.parseInt(checkNotNull(cellResolutionMatcher.group(1)));
       int rows = Integer.parseInt(checkNotNull(cellResolutionMatcher.group(2)));
-      checkArgument(columns != 0 && rows != 0, "Invalid cell resolution " + columns + " " + rows);
+      checkArgument(columns != 0 && rows != 0, "Invalid cell resolution %s %s", columns, rows);
       return rows;
     } catch (NumberFormatException e) {
       Log.w(TAG, "Ignoring malformed cell resolution: " + cellResolution);
