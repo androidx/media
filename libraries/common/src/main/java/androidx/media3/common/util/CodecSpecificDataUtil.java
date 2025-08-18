@@ -47,6 +47,10 @@ public final class CodecSpecificDataUtil {
   private static final int EXTENDED_PAR = 0x0F;
   private static final int RECTANGULAR = 0x00;
 
+  // IAMF OBU types.
+  private static final int OBU_IA_CODEC_CONFIG = 0x00;
+  private static final int OBU_IA_SEQUENCE_HEADER = 0x1F;
+
   // Codecs to constant mappings.
   // H263
   private static final String CODEC_ID_H263 = "s263";
@@ -110,48 +114,70 @@ public final class CodecSpecificDataUtil {
   @Nullable
   public static String buildIamfCodecString(byte[] initializationData) {
     ParsableByteArray parsableByteArray = new ParsableByteArray(initializationData);
-    if (!skipObuHeader(parsableByteArray, /* expectedObuType= */ 0x1F)) { // OBU_IA_Sequence_Header
-      return null;
-    }
-    // IASequenceHeaderOBU
-    parsableByteArray.skipBytes(4); // ia_code (4 bytes)
-    int primaryProfile = parsableByteArray.readUnsignedByte(); // primary_profile (1 byte)
-    int additionalProfile = parsableByteArray.readUnsignedByte(); // additional_profile (1 byte)
 
-    if (!skipObuHeader(parsableByteArray, /* expectedObuType= */ 0x00)) { // OBU_IA_Codec_Config
-      return null;
-    }
+    @Nullable String iaSequenceHeader = null;
+    @Nullable String codecConfigCodecId = null;
 
-    // CodecConfigOBU
-    parsableByteArray.skipLeb128(); // codec_config_id
-    String codecId = parsableByteArray.readString(4); // codec_id (4 bytes)
+    while (parsableByteArray.bytesLeft() > 0
+        && (iaSequenceHeader == null || codecConfigCodecId == null)) {
+      // OBUHeader
+      // obu_type (5 bits) + obu_redundant_copy (1 bit) + obu_trimming_status_flag  (1 bit) +
+      // obu_extension_flag (1 bit)
+      int obuHeaderByte = parsableByteArray.readUnsignedByte();
+      int obuType = obuHeaderByte >> 3; // obu_type (5 bits)
+      // skip obu_redundant_copy (1 bit)
+      boolean obuTrimmingStatusFlag = (obuHeaderByte & 0x2) != 0; // obu_trimming_status (1 bit)
+      boolean obuExtensionFlag = (obuHeaderByte & 0x1) != 0; // obu_extension (1 bit)
 
-    if (codecId.equals("mp4a")) {
-      parsableByteArray.skipLeb128(); // num_samples_per_frame
-      parsableByteArray.skipBytes(2); // audio_roll_distance (2 bytes)
+      int obuSize = parsableByteArray.readUnsignedLeb128ToInt(); // obu_size
 
-      ParsableBitArray decoderConfigBitArray = new ParsableBitArray();
-      decoderConfigBitArray.reset(parsableByteArray);
-      int audioObjectType = decoderConfigBitArray.readBits(5);
-      // If audioObjectType is an escape value, then we need to read 6 bits.
-      if (audioObjectType == 0x1F) {
-        audioObjectType = 32 + decoderConfigBitArray.readBits(6);
+      if ((obuType > 4 && obuType < 24) && obuTrimmingStatusFlag) {
+        parsableByteArray.skipLeb128(); // num_samples_to_trim_at_end
+        parsableByteArray.skipLeb128(); // num_samples_to_trim_at_start
       }
-      codecId += ".40." + audioObjectType;
-    }
-    return Util.formatInvariant("iamf.%03X.%03X.%s", primaryProfile, additionalProfile, codecId);
-  }
+      if (obuExtensionFlag) {
+        int extensionHeaderSize =
+            parsableByteArray.readUnsignedLeb128ToInt(); // extension_header_size
+        parsableByteArray.skipBytes(extensionHeaderSize); // extension_header_bytes
+      }
 
-  private static boolean skipObuHeader(ParsableByteArray parsableByteArray, int expectedObuType) {
-    // OBUHeader
-    // obu_type (5 bits) + obu_redundant_copy (1 bit) + obu_trimming_status_flag  (1 bit) +
-    // obu_extension_flag (1 bit)
-    int obuHeaderByte = parsableByteArray.readUnsignedByte();
-    if (obuHeaderByte >> 3 != expectedObuType) {
-      return false;
+      int nextObuPosition = parsableByteArray.getPosition() + obuSize;
+      if (obuType == OBU_IA_SEQUENCE_HEADER) { // OBU_IA_Sequence_Header
+        // IASequenceHeaderOBU
+        parsableByteArray.skipBytes(4); // ia_code (4 bytes)
+        int primaryProfile = parsableByteArray.readUnsignedByte(); // primary_profile (1 byte)
+        int additionalProfile = parsableByteArray.readUnsignedByte(); // additional_profile (1 byte)
+        iaSequenceHeader =
+            Util.formatInvariant("iamf.%03X.%03X", primaryProfile, additionalProfile);
+      } else if (obuType == OBU_IA_CODEC_CONFIG) { // OBU_IA_Codec_Config
+        // CodecConfigOBU
+        parsableByteArray.skipLeb128(); // codec_config_id
+        codecConfigCodecId = parsableByteArray.readString(4); // codec_id (4 bytes)
+
+        if (codecConfigCodecId.equals(CODEC_ID_MP4A)) {
+          parsableByteArray.skipLeb128(); // num_samples_per_frame
+          parsableByteArray.skipBytes(2); // audio_roll_distance (2 bytes)
+
+          ParsableBitArray decoderConfigBitArray = new ParsableBitArray();
+          decoderConfigBitArray.reset(parsableByteArray);
+          int audioObjectType = decoderConfigBitArray.readBits(5);
+          // If audioObjectType is an escape value, then we need to read extra 6 bits.
+          // Refer to ISO/IEC 14496-3 (2005) Table 1.14 for more details.
+          if (audioObjectType == 0x1F) {
+            audioObjectType = 32 + decoderConfigBitArray.readBits(6);
+          }
+          codecConfigCodecId += ".40." + audioObjectType;
+        }
+      }
+
+      parsableByteArray.setPosition(nextObuPosition);
     }
-    parsableByteArray.skipLeb128(); // obu_size
-    return true;
+
+    if (iaSequenceHeader != null && codecConfigCodecId != null) {
+      return iaSequenceHeader + "." + codecConfigCodecId;
+    } else {
+      return null;
+    }
   }
 
   /**
@@ -948,7 +974,6 @@ public final class CodecSpecificDataUtil {
     int profileBitmask = 0x1 << (16 + primaryProfileValue);
     int versionBitmask = 0x1 << 24;
     int auxiliaryProfileValue = 0;
-
     switch (parts[3]) {
       case "Opus":
         auxiliaryProfileValue = 0x1; // Bit 0
