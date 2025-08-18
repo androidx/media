@@ -11457,6 +11457,8 @@ public final class ExoPlayerTest {
   @Config(minSdk = 31)
   public void play_withDynamicSchedulingEnabled_wakesUpExoPlayerForWork() throws Exception {
     AtomicInteger renderCounter = new AtomicInteger();
+    AtomicBoolean queuedInputBuffer = new AtomicBoolean();
+    AtomicBoolean allowProgressInRenderBeyondFirstBuffer = new AtomicBoolean();
     RenderersFactory renderersFactory =
         new DefaultRenderersFactory(context) {
           @Override
@@ -11477,7 +11479,21 @@ public final class ExoPlayerTest {
                     enableDecoderFallback,
                     eventHandler,
                     eventListener,
-                    audioSink);
+                    audioSink) {
+                  @Override
+                  public void render(long positionUs, long elapsedRealtimeUs)
+                      throws ExoPlaybackException {
+                    if (!queuedInputBuffer.get() || allowProgressInRenderBeyondFirstBuffer.get()) {
+                      super.render(positionUs, elapsedRealtimeUs);
+                    }
+                  }
+
+                  @Override
+                  protected void onQueueInputBuffer(DecoderInputBuffer buffer)
+                      throws ExoPlaybackException {
+                    queuedInputBuffer.set(true);
+                  }
+                };
             out.add(
                 new ForwardingDurationToProgressRenderer(
                     audioRenderer, /* durationToProgressUs= */ Long.MAX_VALUE, renderCounter));
@@ -11494,16 +11510,17 @@ public final class ExoPlayerTest {
         new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.AUDIO_FORMAT));
     player.prepare();
     player.play();
-    runUntilPlaybackState(player, Player.STATE_READY);
+    advance(player).untilBackgroundThreadCondition(() -> queuedInputBuffer.get());
+    allowProgressInRenderBeyondFirstBuffer.set(true);
     renderCounter.set(0);
 
-    TestPlayerRunHelper.advance(player)
-        .untilBackgroundThreadCondition(() -> clock.currentTimeMillis() >= 500L);
-
-    assertThat(renderCounter.get()).isNotEqualTo(0);
-    assertThat(renderCounter.get()).isLessThan(10);
-
+    advance(player).untilBackgroundThreadCondition(() -> clock.currentTimeMillis() >= 500L);
     player.release();
+
+    // Verify doSomeWork is triggered by renderer
+    assertThat(renderCounter.get()).isNotEqualTo(0);
+    // Verify is triggered less often than a regular 10ms update interval
+    assertThat(renderCounter.get()).isLessThan(20);
   }
 
   @Test

@@ -1031,7 +1031,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
 
   @Override
   public boolean isReady() {
-    boolean rendererOtherwiseReady = super.isReady();
+    boolean rendererOtherwiseReady = isReadyForDecoding();
     if (videoSink != null) {
       return videoSink.isReady(rendererOtherwiseReady);
     }

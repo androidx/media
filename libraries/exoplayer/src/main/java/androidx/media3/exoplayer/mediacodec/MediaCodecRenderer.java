@@ -1884,6 +1884,11 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
 
   @Override
   public boolean isReady() {
+    return isReadyForDecoding();
+  }
+
+  /** Returns whether the renderer is ready to start or continue decoding. */
+  protected final boolean isReadyForDecoding() {
     return inputFormat != null
         && (isSourceReady()
             || hasOutputBuffer()
