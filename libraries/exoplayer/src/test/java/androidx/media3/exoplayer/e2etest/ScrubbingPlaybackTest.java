@@ -26,6 +26,7 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
+import androidx.media3.common.util.Clock;
 import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.ExoPlayer;
@@ -33,9 +34,9 @@ import androidx.media3.exoplayer.mediacodec.MediaCodecAdapter;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.media3.exoplayer.video.MediaCodecVideoRenderer;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
-import androidx.media3.test.utils.CapturingRenderersFactory;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.FakeClock;
+import androidx.media3.test.utils.robolectric.CapturingRenderersFactory;
 import androidx.media3.test.utils.robolectric.PlaybackOutput;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
 import androidx.media3.test.utils.robolectric.TestPlayerRunHelper;
@@ -62,12 +63,16 @@ public class ScrubbingPlaybackTest {
     Context applicationContext = ApplicationProvider.getApplicationContext();
     AtomicLong blockingPresentationTimeUs = new AtomicLong(250_000L);
     AtomicBoolean hasReceivedOutputBufferPastBlockTime = new AtomicBoolean(false);
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactoryWithBlockingMediaCodecVideoRenderer capturingRenderersFactory =
         new CapturingRenderersFactoryWithBlockingMediaCodecVideoRenderer(
-            applicationContext, blockingPresentationTimeUs, hasReceivedOutputBufferPastBlockTime);
+            applicationContext,
+            clock,
+            blockingPresentationTimeUs,
+            hasReceivedOutputBufferPastBlockTime);
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setClock(clock)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -100,12 +105,16 @@ public class ScrubbingPlaybackTest {
     Context applicationContext = ApplicationProvider.getApplicationContext();
     AtomicLong blockingPresentationTimeUs = new AtomicLong(500_000L);
     AtomicBoolean hasReceivedOutputBufferPastBlockTime = new AtomicBoolean(false);
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactoryWithBlockingMediaCodecVideoRenderer capturingRenderersFactory =
         new CapturingRenderersFactoryWithBlockingMediaCodecVideoRenderer(
-            applicationContext, blockingPresentationTimeUs, hasReceivedOutputBufferPastBlockTime);
+            applicationContext,
+            clock,
+            blockingPresentationTimeUs,
+            hasReceivedOutputBufferPastBlockTime);
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setClock(clock)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -138,9 +147,13 @@ public class ScrubbingPlaybackTest {
     Context applicationContext = ApplicationProvider.getApplicationContext();
     AtomicLong blockingPresentationTimeUs = new AtomicLong(230_000L);
     AtomicBoolean hasReceivedOutputBufferPastBlockTime = new AtomicBoolean(false);
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactoryWithBlockingMediaCodecVideoRenderer capturingRenderersFactory =
         new CapturingRenderersFactoryWithBlockingMediaCodecVideoRenderer(
-            applicationContext, blockingPresentationTimeUs, hasReceivedOutputBufferPastBlockTime);
+            applicationContext,
+            clock,
+            blockingPresentationTimeUs,
+            hasReceivedOutputBufferPastBlockTime);
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
@@ -177,9 +190,13 @@ public class ScrubbingPlaybackTest {
     Context applicationContext = ApplicationProvider.getApplicationContext();
     AtomicLong blockingPresentationTimeUs = new AtomicLong(250_000L);
     AtomicBoolean hasReceivedOutputBufferPastBlockTime = new AtomicBoolean(false);
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactoryWithBlockingMediaCodecVideoRenderer capturingRenderersFactory =
         new CapturingRenderersFactoryWithBlockingMediaCodecVideoRenderer(
-            applicationContext, blockingPresentationTimeUs, hasReceivedOutputBufferPastBlockTime);
+            applicationContext,
+            clock,
+            blockingPresentationTimeUs,
+            hasReceivedOutputBufferPastBlockTime);
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
@@ -228,9 +245,10 @@ public class ScrubbingPlaybackTest {
 
     public CapturingRenderersFactoryWithBlockingMediaCodecVideoRenderer(
         Context context,
+        Clock clock,
         AtomicLong blockingPresentationTimeUs,
         AtomicBoolean hasReceivedOutputBufferPastBlockTime) {
-      super(context);
+      super(context, clock);
       this.blockingPresentationTimeUs = blockingPresentationTimeUs;
       this.hasReceivedOutputBufferPastBlockTime = hasReceivedOutputBufferPastBlockTime;
     }

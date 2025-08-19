@@ -47,7 +47,6 @@ import androidx.media3.extractor.metadata.mp4.SmtaMetadataEntry;
 import androidx.media3.extractor.metadata.scte35.SpliceCommand;
 import androidx.media3.extractor.metadata.vorbis.VorbisComment;
 import androidx.media3.test.utils.CapturingImageOutput;
-import androidx.media3.test.utils.CapturingRenderersFactory;
 import androidx.media3.test.utils.Dumper;
 import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;

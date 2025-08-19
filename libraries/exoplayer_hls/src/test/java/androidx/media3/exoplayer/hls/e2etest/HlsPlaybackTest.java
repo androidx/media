@@ -46,10 +46,10 @@ import androidx.media3.exoplayer.source.LoadEventInfo;
 import androidx.media3.exoplayer.source.MediaLoadData;
 import androidx.media3.exoplayer.upstream.CmcdConfiguration;
 import androidx.media3.extractor.DefaultExtractorsFactory;
-import androidx.media3.test.utils.CapturingRenderersFactory;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.FakeClock;
 import androidx.media3.test.utils.ThrowingSubtitleParserFactory;
+import androidx.media3.test.utils.robolectric.CapturingRenderersFactory;
 import androidx.media3.test.utils.robolectric.PlaybackOutput;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
 import androidx.media3.test.utils.robolectric.TestPlayerRunHelper;
@@ -77,11 +77,12 @@ public final class HlsPlaybackTest {
   @Test
   public void webvttStandaloneSubtitlesFile() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory capturingRenderersFactory =
-        new CapturingRenderersFactory(applicationContext);
+        new CapturingRenderersFactory(applicationContext, clock);
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setClock(clock)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -105,8 +106,9 @@ public final class HlsPlaybackTest {
   public void webvttStandaloneSubtitles_loadError_playbackContinuesErrorReported()
       throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory capturingRenderersFactory =
-        new CapturingRenderersFactory(applicationContext);
+        new CapturingRenderersFactory(applicationContext, clock);
     ResolvingDataSource.Factory webvttNotFoundDataSourceFactory =
         new ResolvingDataSource.Factory(
             new DefaultDataSource.Factory(applicationContext),
@@ -117,7 +119,7 @@ public final class HlsPlaybackTest {
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setMediaSourceFactory(new DefaultMediaSourceFactory(webvttNotFoundDataSourceFactory))
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setClock(clock)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -145,11 +147,12 @@ public final class HlsPlaybackTest {
   public void webvttStandaloneSubtitles_parseError_playbackContinuesErrorReported()
       throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory capturingRenderersFactory =
-        new CapturingRenderersFactory(applicationContext);
+        new CapturingRenderersFactory(applicationContext, clock);
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setClock(clock)
             .setMediaSourceFactory(
                 new DefaultMediaSourceFactory(applicationContext)
                     .setSubtitleParserFactory(
@@ -183,11 +186,12 @@ public final class HlsPlaybackTest {
   @Test
   public void ttmlInMp4() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory capturingRenderersFactory =
-        new CapturingRenderersFactory(applicationContext);
+        new CapturingRenderersFactory(applicationContext, clock);
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setClock(clock)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -210,8 +214,9 @@ public final class HlsPlaybackTest {
   @Test
   public void ttmlInMp4_loadError_playbackContinuesErrorReported() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory capturingRenderersFactory =
-        new CapturingRenderersFactory(applicationContext);
+        new CapturingRenderersFactory(applicationContext, clock);
     ResolvingDataSource.Factory ttmlNotFoundDataSourceFactory =
         new ResolvingDataSource.Factory(
             new DefaultDataSource.Factory(applicationContext),
@@ -221,7 +226,7 @@ public final class HlsPlaybackTest {
                     : dataSpec);
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setClock(clock)
             .setMediaSourceFactory(new DefaultMediaSourceFactory(ttmlNotFoundDataSourceFactory))
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
@@ -249,11 +254,12 @@ public final class HlsPlaybackTest {
   @Test
   public void ttmlInMp4_parseError_playbackContinuesErrorReported() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory capturingRenderersFactory =
-        new CapturingRenderersFactory(applicationContext);
+        new CapturingRenderersFactory(applicationContext, clock);
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setClock(clock)
             .setMediaSourceFactory(
                 new DefaultMediaSourceFactory(applicationContext)
                     .setSubtitleParserFactory(
@@ -294,14 +300,15 @@ public final class HlsPlaybackTest {
   @Test
   public void cea608_parseDuringRendering() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory capturingRenderersFactory =
-        new CapturingRenderersFactory(applicationContext);
+        new CapturingRenderersFactory(applicationContext, clock);
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setMediaSourceFactory(
                 new HlsMediaSource.Factory(new DefaultDataSource.Factory(applicationContext))
                     .experimentalParseSubtitlesDuringExtraction(false))
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setClock(clock)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -330,14 +337,15 @@ public final class HlsPlaybackTest {
   @Test
   public void cea608_parseDuringExtraction() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory capturingRenderersFactory =
-        new CapturingRenderersFactory(applicationContext);
+        new CapturingRenderersFactory(applicationContext, clock);
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setMediaSourceFactory(
                 new HlsMediaSource.Factory(new DefaultDataSource.Factory(applicationContext))
                     .experimentalParseSubtitlesDuringExtraction(true))
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setClock(clock)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -360,11 +368,12 @@ public final class HlsPlaybackTest {
   public void multiSegment_withSeekToPrevSyncFrame_startsRenderingAtBeginningOfSegment()
       throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory capturingRenderersFactory =
-        new CapturingRenderersFactory(applicationContext);
+        new CapturingRenderersFactory(applicationContext, clock);
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setClock(clock)
             .setLoadControl(
                 new DefaultLoadControl.Builder()
                     .setBackBuffer(
@@ -396,11 +405,12 @@ public final class HlsPlaybackTest {
   @Test
   public void cmcdEnabled_withInitSegment() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory capturingRenderersFactory =
-        new CapturingRenderersFactory(applicationContext);
+        new CapturingRenderersFactory(applicationContext, clock);
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setClock(clock)
             .setMediaSourceFactory(
                 new DefaultMediaSourceFactory(applicationContext)
                     .setCmcdConfigurationFactory(CmcdConfiguration.Factory.DEFAULT))
@@ -471,8 +481,9 @@ public final class HlsPlaybackTest {
   @Test
   public void playVideo_usingWithinGopSampleDependencies_withSeek() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory capturingRenderersFactory =
-        new CapturingRenderersFactory(applicationContext);
+        new CapturingRenderersFactory(applicationContext, clock);
     DefaultMediaSourceFactory defaultMediaSourceFactory =
         new DefaultMediaSourceFactory(applicationContext, new DefaultExtractorsFactory());
     defaultMediaSourceFactory.experimentalSetCodecsToParseWithinGopSampleDependencies(
@@ -480,7 +491,7 @@ public final class HlsPlaybackTest {
     ExoPlayer player =
         new ExoPlayer.Builder(
                 applicationContext, capturingRenderersFactory, defaultMediaSourceFactory)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setClock(clock)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);

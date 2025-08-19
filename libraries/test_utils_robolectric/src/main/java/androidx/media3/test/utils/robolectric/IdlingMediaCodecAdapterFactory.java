@@ -85,11 +85,11 @@ public final class IdlingMediaCodecAdapterFactory implements MediaCodecAdapter.F
             public void run() {
               idleQueueingAndCallbackThreads();
               if (handler.getLooper().getThread().isAlive()) {
-                handler.postDelayed(this, /* delayMs= */ 1);
+                handler.postDelayed(this, /* delayMs= */ 5);
               }
             }
           };
-      handler.postDelayed(idlingRunnable, /* delayMs= */ 1);
+      handler.postDelayed(idlingRunnable, /* delayMs= */ 5);
     }
   }
 
@@ -112,7 +112,11 @@ public final class IdlingMediaCodecAdapterFactory implements MediaCodecAdapter.F
       @Nullable Looper looper = thread.getLooper();
       if (looper != null && thread.isAlive()) {
         ShadowLooper shadowLooper = shadowOf(looper);
-        shadowLooper.idle();
+        try {
+          shadowLooper.idle();
+        } catch (IllegalStateException e) {
+          // Ignorable, may happen if Looper is already quitting.
+        }
       }
     }
   }

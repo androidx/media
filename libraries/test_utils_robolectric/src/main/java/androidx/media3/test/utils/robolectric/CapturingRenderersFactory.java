@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.test.utils;
+package androidx.media3.test.utils.robolectric;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -26,6 +26,7 @@ import android.util.SparseArray;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.Renderer;
@@ -45,6 +46,8 @@ import androidx.media3.exoplayer.text.TextOutput;
 import androidx.media3.exoplayer.text.TextRenderer;
 import androidx.media3.exoplayer.video.MediaCodecVideoRenderer;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
+import androidx.media3.test.utils.CapturingAudioSink;
+import androidx.media3.test.utils.Dumper;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMap;
@@ -79,9 +82,10 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
    * Creates an instance.
    *
    * @param context The {@link Context}.
+   * @param clock The {@link Clock}.
    */
-  public CapturingRenderersFactory(Context context) {
-    this(context, CapturingAudioSink.create());
+  public CapturingRenderersFactory(Context context, Clock clock) {
+    this(context, clock, CapturingAudioSink.create());
   }
 
   /**
@@ -89,10 +93,13 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
    *
    * @param context The {@link Context}.
    * @param capturingAudioSink The audio sink to use for capturing audio output.
+   * @param clock The {@link Clock}.
    */
-  public CapturingRenderersFactory(Context context, CapturingAudioSink capturingAudioSink) {
+  public CapturingRenderersFactory(
+      Context context, Clock clock, CapturingAudioSink capturingAudioSink) {
     this.context = context;
-    this.mediaCodecAdapterFactory = new CapturingMediaCodecAdapter.Factory(context);
+    this.mediaCodecAdapterFactory =
+        new CapturingMediaCodecAdapter.Factory(new IdlingMediaCodecAdapterFactory(context, clock));
     this.audioSink = capturingAudioSink;
     this.imageDecoderFactory = new BitmapFactoryImageDecoder.Factory(context);
     this.textRendererFactory = TextRenderer::new;
@@ -281,11 +288,11 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
 
     private static class Factory implements MediaCodecAdapter.Factory, Dumper.Dumpable {
 
-      private final Context context;
+      private final MediaCodecAdapter.Factory mediaCodecAdapterFactory;
       private final List<CapturingMediaCodecAdapter> constructedAdapters;
 
-      private Factory(Context context) {
-        this.context = context;
+      private Factory(MediaCodecAdapter.Factory mediaCodecAdapterFactory) {
+        this.mediaCodecAdapterFactory = mediaCodecAdapterFactory;
         constructedAdapters = new ArrayList<>();
       }
 
@@ -293,7 +300,7 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
       public MediaCodecAdapter createAdapter(Configuration configuration) throws IOException {
         CapturingMediaCodecAdapter adapter =
             new CapturingMediaCodecAdapter(
-                MediaCodecAdapter.Factory.getDefault(context).createAdapter(configuration),
+                mediaCodecAdapterFactory.createAdapter(configuration),
                 configuration.codecInfo.name);
         constructedAdapters.add(adapter);
         return adapter;

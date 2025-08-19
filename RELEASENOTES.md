@@ -185,6 +185,8 @@
     *   Add maximum time diff between messages for
         `RobolectricUtil.runMainLooperUntil` (and `runLooperUntil`). It defaults
         to 1 second, but is configurable via new overloads of these methods.
+    *   Move `CapturingRenderersFactory` from `test-utils` to
+        `test-utils-robolectric`.
 *   Remove deprecated symbols:
 
 ## 1.8

@@ -61,11 +61,11 @@ import androidx.media3.exoplayer.source.chunk.BundledChunkExtractor;
 import androidx.media3.exoplayer.text.TextRenderer;
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
 import androidx.media3.exoplayer.upstream.CmcdConfiguration;
-import androidx.media3.test.utils.CapturingRenderersFactory;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.FakeClock;
 import androidx.media3.test.utils.ThrowingSubtitleParserFactory;
 import androidx.media3.test.utils.WebServerDispatcher;
+import androidx.media3.test.utils.robolectric.CapturingRenderersFactory;
 import androidx.media3.test.utils.robolectric.PlaybackOutput;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
 import androidx.media3.test.utils.robolectric.TestPlayerRunHelper;
@@ -102,11 +102,12 @@ public final class DashPlaybackTest {
   @Test
   public void webvttStandaloneFile() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory capturingRenderersFactory =
-        new CapturingRenderersFactory(applicationContext);
+        new CapturingRenderersFactory(applicationContext, clock);
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setClock(clock)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -132,8 +133,9 @@ public final class DashPlaybackTest {
   @Test
   public void webvttStandaloneFile_loadError_playbackContinuesErrorReported() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory capturingRenderersFactory =
-        new CapturingRenderersFactory(applicationContext);
+        new CapturingRenderersFactory(applicationContext, clock);
     ResolvingDataSource.Factory webvttNotFoundDataSourceFactory =
         new ResolvingDataSource.Factory(
             new DefaultDataSource.Factory(applicationContext),
@@ -143,7 +145,7 @@ public final class DashPlaybackTest {
                     : dataSpec);
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setClock(clock)
             .setMediaSourceFactory(new DefaultMediaSourceFactory(webvttNotFoundDataSourceFactory))
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
@@ -174,11 +176,12 @@ public final class DashPlaybackTest {
   @Test
   public void webvttStandaloneFile_parseError_playbackContinuesErrorReported() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory capturingRenderersFactory =
-        new CapturingRenderersFactory(applicationContext);
+        new CapturingRenderersFactory(applicationContext, clock);
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setClock(clock)
             .setMediaSourceFactory(
                 new DefaultMediaSourceFactory(applicationContext)
                     .setSubtitleParserFactory(
@@ -218,11 +221,12 @@ public final class DashPlaybackTest {
   @Test
   public void ttmlStandaloneXmlFile() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory capturingRenderersFactory =
-        new CapturingRenderersFactory(applicationContext);
+        new CapturingRenderersFactory(applicationContext, clock);
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setClock(clock)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -249,11 +253,12 @@ public final class DashPlaybackTest {
   @Test
   public void webvttInMp4() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory capturingRenderersFactory =
-        new CapturingRenderersFactory(applicationContext);
+        new CapturingRenderersFactory(applicationContext, clock);
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setClock(clock)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -317,9 +322,12 @@ public final class DashPlaybackTest {
     mockWebServer.setDispatcher(blockingDispatcher);
 
     Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
+    CapturingRenderersFactory capturingRenderersFactory =
+        new CapturingRenderersFactory(applicationContext, clock);
     ExoPlayer player =
-        new ExoPlayer.Builder(applicationContext)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+        new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
+            .setClock(clock)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -365,9 +373,7 @@ public final class DashPlaybackTest {
     // Progress past the transition into the third segment (which is the first empty one), then
     // allow the fifth (non-empty) subtitle segment to load. This ensures we enter the third segment
     // with no future subtitle data in TextRenderer.
-    advance(player)
-        .ignoringNonFatalErrors()
-        .untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 3500);
+    advance(player).ignoringNonFatalErrors().untilPositionAtLeast(/* positionMs= */ 3500);
     fifthSubtitleLoad.open();
     advance(player).ignoringNonFatalErrors().untilState(Player.STATE_ENDED);
     player.release();
@@ -383,11 +389,12 @@ public final class DashPlaybackTest {
   @Test
   public void ttmlInMp4() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory capturingRenderersFactory =
-        new CapturingRenderersFactory(applicationContext);
+        new CapturingRenderersFactory(applicationContext, clock);
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setClock(clock)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -413,8 +420,9 @@ public final class DashPlaybackTest {
   @Test
   public void ttmlInMp4_loadError_playbackContinuesErrorReported() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory capturingRenderersFactory =
-        new CapturingRenderersFactory(applicationContext);
+        new CapturingRenderersFactory(applicationContext, clock);
     ResolvingDataSource.Factory ttmlNotFoundDataSourceFactory =
         new ResolvingDataSource.Factory(
             new DefaultDataSource.Factory(applicationContext),
@@ -424,7 +432,7 @@ public final class DashPlaybackTest {
                     : dataSpec);
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setClock(clock)
             .setMediaSourceFactory(new DefaultMediaSourceFactory(ttmlNotFoundDataSourceFactory))
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
@@ -455,11 +463,12 @@ public final class DashPlaybackTest {
   @Test
   public void ttmlInMp4_parseError_playbackContinuesErrorReported() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory capturingRenderersFactory =
-        new CapturingRenderersFactory(applicationContext);
+        new CapturingRenderersFactory(applicationContext, clock);
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setClock(clock)
             .setMediaSourceFactory(
                 new DefaultMediaSourceFactory(applicationContext)
                     .setSubtitleParserFactory(
@@ -503,14 +512,15 @@ public final class DashPlaybackTest {
   @Test
   public void cea608_parseDuringRendering() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory capturingRenderersFactory =
-        new CapturingRenderersFactory(applicationContext);
+        new CapturingRenderersFactory(applicationContext, clock);
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setMediaSourceFactory(
                 new DashMediaSource.Factory(new DefaultDataSource.Factory(applicationContext))
                     .experimentalParseSubtitlesDuringExtraction(false))
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setClock(clock)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -543,14 +553,15 @@ public final class DashPlaybackTest {
   @Test
   public void cea608_parseDuringExtraction() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory capturingRenderersFactory =
-        new CapturingRenderersFactory(applicationContext);
+        new CapturingRenderersFactory(applicationContext, clock);
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setMediaSourceFactory(
                 new DashMediaSource.Factory(new DefaultDataSource.Factory(applicationContext))
                     .experimentalParseSubtitlesDuringExtraction(true))
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setClock(clock)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -577,11 +588,12 @@ public final class DashPlaybackTest {
   @Test
   public void emsgNearToPeriodBoundary() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory capturingRenderersFactory =
-        new CapturingRenderersFactory(applicationContext);
+        new CapturingRenderersFactory(applicationContext, clock);
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setClock(clock)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -614,9 +626,7 @@ public final class DashPlaybackTest {
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
-    CapturingRenderersFactory capturingRenderersFactory =
-        new CapturingRenderersFactory(applicationContext);
-    PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
+    PlaybackOutput playbackOutput = PlaybackOutput.registerWithoutRendererCapture(player);
 
     player.setMediaItem(MediaItem.fromUri("asset:///media/dash/emsg/sample.mpd"));
     player.prepare();
@@ -652,9 +662,7 @@ public final class DashPlaybackTest {
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
-    CapturingRenderersFactory capturingRenderersFactory =
-        new CapturingRenderersFactory(applicationContext);
-    PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
+    PlaybackOutput playbackOutput = PlaybackOutput.registerWithoutRendererCapture(player);
 
     player.setMediaItem(MediaItem.fromUri("asset:///media/dash/emsg/sample.mpd"));
     player.prepare();
@@ -728,8 +736,9 @@ public final class DashPlaybackTest {
   @Test
   public void playVideo_usingWithinGopSampleDependencies_withSeek() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory capturingRenderersFactory =
-        new CapturingRenderersFactory(applicationContext);
+        new CapturingRenderersFactory(applicationContext, clock);
     BundledChunkExtractor.Factory chunkExtractorFactory =
         new BundledChunkExtractor.Factory()
             .experimentalSetCodecsToParseWithinGopSampleDependencies(C.VIDEO_CODEC_FLAG_H264);
@@ -742,7 +751,7 @@ public final class DashPlaybackTest {
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setMediaSourceFactory(dashMediaSourceFactory)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setClock(clock)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -795,8 +804,9 @@ public final class DashPlaybackTest {
   @Test
   public void playVideo_usingWithinGopSampleDependenciesOnH265_withSeek() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory capturingRenderersFactory =
-        new CapturingRenderersFactory(applicationContext);
+        new CapturingRenderersFactory(applicationContext, clock);
     BundledChunkExtractor.Factory chunkExtractorFactory =
         new BundledChunkExtractor.Factory()
             .experimentalSetCodecsToParseWithinGopSampleDependencies(C.VIDEO_CODEC_FLAG_H265);
@@ -809,7 +819,7 @@ public final class DashPlaybackTest {
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setMediaSourceFactory(dashMediaSourceFactory)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setClock(clock)
             .build();
     player.setTrackSelectionParameters(
         player.getTrackSelectionParameters().buildUpon().setPreferredTextLanguage("en").build());
@@ -832,11 +842,12 @@ public final class DashPlaybackTest {
   @Test
   public void multiPeriod_withOffsetInSegment() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory capturingRenderersFactory =
-        new CapturingRenderersFactory(applicationContext);
+        new CapturingRenderersFactory(applicationContext, clock);
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setClock(clock)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -859,11 +870,12 @@ public final class DashPlaybackTest {
   @Test
   public void cmcdEnabled_withInitSegment() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory capturingRenderersFactory =
-        new CapturingRenderersFactory(applicationContext);
+        new CapturingRenderersFactory(applicationContext, clock);
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setClock(clock)
             .setMediaSourceFactory(
                 new DefaultMediaSourceFactory(applicationContext)
                     .setCmcdConfigurationFactory(CmcdConfiguration.Factory.DEFAULT))
