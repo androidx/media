@@ -17,9 +17,14 @@ package androidx.media3.transformer;
 
 import static androidx.media3.common.Player.PLAYBACK_SUPPRESSION_REASON_SCRUBBING;
 import static androidx.media3.test.utils.TestUtil.getCommandsAsList;
+import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLooperUntil;
+import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
 import static androidx.media3.transformer.TestUtil.ASSET_URI_PREFIX;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_RAW;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_RAW_STEREO_48000KHZ;
+import static androidx.media3.transformer.TestUtil.createTestCompositionPlayer;
+import static androidx.media3.transformer.TestUtil.createTestCompositionPlayerBuilder;
+import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -53,11 +58,8 @@ import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.audio.AudioSink;
 import androidx.media3.exoplayer.audio.DefaultAudioSink;
 import androidx.media3.exoplayer.audio.ForwardingAudioSink;
-import androidx.media3.test.utils.FakeClock;
 import androidx.media3.test.utils.TestSpeedProvider;
-import androidx.media3.test.utils.robolectric.RobolectricUtil;
 import androidx.media3.test.utils.robolectric.TestPlayerRunHelper;
-import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -81,8 +83,7 @@ public class CompositionPlayerTest {
 
   @Test
   public void builder_buildCalledTwice_throws() {
-    CompositionPlayer.Builder builder =
-        new CompositionPlayer.Builder(ApplicationProvider.getApplicationContext());
+    CompositionPlayer.Builder builder = new CompositionPlayer.Builder(getApplicationContext());
 
     CompositionPlayer player = builder.build();
 
@@ -100,7 +101,7 @@ public class CompositionPlayerTest {
         new Thread(
             () -> {
               try {
-                new Composition.Builder(ApplicationProvider.getApplicationContext()).build();
+                new Composition.Builder(getApplicationContext()).build();
               } catch (Exception e) {
                 exception.set(e);
               } finally {
@@ -117,7 +118,7 @@ public class CompositionPlayerTest {
 
   @Test
   public void instance_accessedByWrongThread_throws() throws InterruptedException {
-    CompositionPlayer player = buildCompositionPlayer();
+    CompositionPlayer player = createTestCompositionPlayer();
     AtomicReference<@NullableType RuntimeException> exception = new AtomicReference<>();
     ConditionVariable conditionVariable = new ConditionVariable();
     HandlerThread handlerThread = new HandlerThread("test");
@@ -153,7 +154,7 @@ public class CompositionPlayerTest {
     AtomicReference<Thread> callbackThread = new AtomicReference<>();
     ConditionVariable eventsArrived = new ConditionVariable();
     CompositionPlayer player =
-        createCompositionPlayerBuilder().setLooper(applicationLooper).build();
+        createTestCompositionPlayerBuilder().setLooper(applicationLooper).build();
     // Listeners can be added by any thread.
     player.addListener(
         new Player.Listener() {
@@ -192,7 +193,7 @@ public class CompositionPlayerTest {
 
   @Test
   public void release_onNewlyCreateInstance() {
-    CompositionPlayer player = buildCompositionPlayer();
+    CompositionPlayer player = createTestCompositionPlayer();
 
     player.release();
   }
@@ -202,20 +203,19 @@ public class CompositionPlayerTest {
     Log.Logger logger = mock(Log.Logger.class);
     Log.setLogger(logger);
     AudioSink audioSink =
-        new ForwardingAudioSink(
-            new DefaultAudioSink.Builder(ApplicationProvider.getApplicationContext()).build()) {
+        new ForwardingAudioSink(new DefaultAudioSink.Builder(getApplicationContext()).build()) {
           @Override
           public void release() {
             throw new RuntimeException("AudioSink release error");
           }
         };
-    CompositionPlayer player = createCompositionPlayerBuilder().setAudioSink(audioSink).build();
+    CompositionPlayer player = createTestCompositionPlayerBuilder().setAudioSink(audioSink).build();
     Player.Listener listener = mock(Player.Listener.class);
     player.addListener(listener);
 
     player.setComposition(buildComposition());
     player.prepare();
-    TestPlayerRunHelper.advance(player).untilState(Player.STATE_READY);
+    advance(player).untilState(Player.STATE_READY);
 
     player.release();
 
@@ -232,7 +232,7 @@ public class CompositionPlayerTest {
 
   @Test
   public void getAvailableCommands_returnsSpecificCommands() {
-    CompositionPlayer player = buildCompositionPlayer();
+    CompositionPlayer player = createTestCompositionPlayer();
 
     assertThat(getCommandsAsList(player.getAvailableCommands()))
         .containsExactly(
@@ -257,7 +257,7 @@ public class CompositionPlayerTest {
 
   @Test
   public void prepare_withoutCompositionSet_throws() {
-    CompositionPlayer player = buildCompositionPlayer();
+    CompositionPlayer player = createTestCompositionPlayer();
 
     assertThrows(NullPointerException.class, player::prepare);
 
@@ -266,7 +266,7 @@ public class CompositionPlayerTest {
 
   @Test
   public void playWhenReady_calledBeforePrepare_startsPlayingAfterPrepareCalled() throws Exception {
-    CompositionPlayer player = buildCompositionPlayer();
+    CompositionPlayer player = createTestCompositionPlayer();
 
     player.setPlayWhenReady(true);
     player.setComposition(buildComposition());
@@ -278,7 +278,7 @@ public class CompositionPlayerTest {
 
   @Test
   public void playWhenReady_triggersPlayWhenReadyCallbackWithReason() throws Exception {
-    CompositionPlayer player = buildCompositionPlayer();
+    CompositionPlayer player = createTestCompositionPlayer();
     AtomicInteger playWhenReadyReason = new AtomicInteger(-1);
     player.addListener(
         new Player.Listener() {
@@ -290,7 +290,7 @@ public class CompositionPlayerTest {
         });
 
     player.setPlayWhenReady(true);
-    RobolectricUtil.runMainLooperUntil(() -> playWhenReadyReason.get() != -1);
+    runMainLooperUntil(() -> playWhenReadyReason.get() != -1);
 
     assertThat(playWhenReadyReason.get())
         .isEqualTo(Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST);
@@ -298,8 +298,8 @@ public class CompositionPlayerTest {
 
   @Test
   public void setVideoTextureView_throws() {
-    Context context = ApplicationProvider.getApplicationContext();
-    CompositionPlayer player = buildCompositionPlayer();
+    Context context = getApplicationContext();
+    CompositionPlayer player = createTestCompositionPlayer();
 
     assertThrows(
         UnsupportedOperationException.class,
@@ -310,7 +310,7 @@ public class CompositionPlayerTest {
 
   @Test
   public void setVideoSurface_withNonNullSurface_throws() {
-    CompositionPlayer player = buildCompositionPlayer();
+    CompositionPlayer player = createTestCompositionPlayer();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 0));
 
     assertThrows(UnsupportedOperationException.class, () -> player.setVideoSurface(surface));
@@ -321,7 +321,7 @@ public class CompositionPlayerTest {
 
   @Test
   public void clearVideoSurface_specifiedSurfaceNotPreviouslySet_throws() {
-    CompositionPlayer player = buildCompositionPlayer();
+    CompositionPlayer player = createTestCompositionPlayer();
 
     assertThrows(
         IllegalArgumentException.class,
@@ -332,7 +332,7 @@ public class CompositionPlayerTest {
 
   @Test
   public void getTotalBufferedDuration_playerStillIdle_returnsZero() {
-    CompositionPlayer player = buildCompositionPlayer();
+    CompositionPlayer player = createTestCompositionPlayer();
 
     assertThat(player.getTotalBufferedDuration()).isEqualTo(0);
 
@@ -341,7 +341,7 @@ public class CompositionPlayerTest {
 
   @Test
   public void getTotalBufferedDuration_setCompositionButNotPrepare_returnsZero() {
-    CompositionPlayer player = buildCompositionPlayer();
+    CompositionPlayer player = createTestCompositionPlayer();
 
     player.setComposition(buildComposition());
 
@@ -352,7 +352,7 @@ public class CompositionPlayerTest {
 
   @Test
   public void getTotalBufferedDuration_playerReady_returnsNonZero() throws Exception {
-    CompositionPlayer player = buildCompositionPlayer();
+    CompositionPlayer player = createTestCompositionPlayer();
 
     player.setComposition(buildComposition());
     player.prepare();
@@ -365,7 +365,7 @@ public class CompositionPlayerTest {
 
   @Test
   public void getDuration_withoutComposition_returnsTimeUnset() {
-    CompositionPlayer player = buildCompositionPlayer();
+    CompositionPlayer player = createTestCompositionPlayer();
 
     assertThat(player.getDuration()).isEqualTo(C.TIME_UNSET);
 
@@ -374,7 +374,7 @@ public class CompositionPlayerTest {
 
   @Test
   public void getDuration_withComposition_returnsDuration() throws Exception {
-    CompositionPlayer player = buildCompositionPlayer();
+    CompositionPlayer player = createTestCompositionPlayer();
     Composition composition = buildComposition();
 
     player.setComposition(composition);
@@ -389,7 +389,7 @@ public class CompositionPlayerTest {
 
   @Test
   public void getDuration_withClippedStart_returnsCorrectDuration() throws Exception {
-    CompositionPlayer player = buildCompositionPlayer();
+    CompositionPlayer player = createTestCompositionPlayer();
     MediaItem mediaItem =
         new MediaItem.Builder()
             .setUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)
@@ -418,7 +418,7 @@ public class CompositionPlayerTest {
     // It is needed to make sure no problems arise from clipping in this case. This would catch
     // removing ClippingConfiguration wrapping SilenceMediaSource, because the problem only occurs
     // when the clippedDuration exceeds half the original duration.
-    CompositionPlayer player = buildCompositionPlayer();
+    CompositionPlayer player = createTestCompositionPlayer();
     MediaItem mediaItem =
         new MediaItem.Builder()
             .setUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)
@@ -442,7 +442,7 @@ public class CompositionPlayerTest {
 
   @Test
   public void getDuration_withClippedEnd_returnsCorrectDuration() throws Exception {
-    CompositionPlayer player = buildCompositionPlayer();
+    CompositionPlayer player = createTestCompositionPlayer();
     MediaItem mediaItem =
         new MediaItem.Builder()
             .setUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)
@@ -466,7 +466,7 @@ public class CompositionPlayerTest {
 
   @Test
   public void getDuration_withClippedStartEnd_returnsCorrectDuration() throws Exception {
-    CompositionPlayer player = buildCompositionPlayer();
+    CompositionPlayer player = createTestCompositionPlayer();
     MediaItem mediaItem =
         new MediaItem.Builder()
             .setUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)
@@ -494,7 +494,7 @@ public class CompositionPlayerTest {
   @Test
   public void getDuration_withDurationAdjustingEffectsAndClippedStart_returnsCorrectDuration()
       throws Exception {
-    CompositionPlayer player = buildCompositionPlayer();
+    CompositionPlayer player = createTestCompositionPlayer();
     ImmutableList<AudioProcessor> audioProcessors =
         ImmutableList.of(
             new SpeedChangingAudioProcessor(
@@ -528,7 +528,7 @@ public class CompositionPlayerTest {
   @Test
   public void getDuration_withDurationAdjustingEffectsAndClippedEnd_returnsCorrectDuration()
       throws Exception {
-    CompositionPlayer player = buildCompositionPlayer();
+    CompositionPlayer player = createTestCompositionPlayer();
     ImmutableList<AudioProcessor> audioProcessors =
         ImmutableList.of(
             new SpeedChangingAudioProcessor(
@@ -562,7 +562,7 @@ public class CompositionPlayerTest {
   @Test
   public void getDuration_withDurationAdjustingEffectsAndClippedStartEnd_returnsCorrectDuration()
       throws Exception {
-    CompositionPlayer player = buildCompositionPlayer();
+    CompositionPlayer player = createTestCompositionPlayer();
     ImmutableList<AudioProcessor> audioProcessors =
         ImmutableList.of(
             new SpeedChangingAudioProcessor(
@@ -596,7 +596,7 @@ public class CompositionPlayerTest {
 
   @Test
   public void addListener_callsSupportedCallbacks() throws Exception {
-    CompositionPlayer player = buildCompositionPlayer();
+    CompositionPlayer player = createTestCompositionPlayer();
     Composition composition = buildComposition();
     List<Integer> playbackStates = new ArrayList<>();
     AtomicBoolean playing = new AtomicBoolean();
@@ -632,7 +632,7 @@ public class CompositionPlayerTest {
     player.setPlayWhenReady(true);
 
     // Ensure that Player.Listener.onIsPlayingChanged(true) is called.
-    RobolectricUtil.runMainLooperUntil(playing::get);
+    runMainLooperUntil(playing::get);
     inOrder
         .verify(listener)
         .onPlayWhenReadyChanged(true, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST);
@@ -654,7 +654,7 @@ public class CompositionPlayerTest {
 
   @Test
   public void addListener_callsOnEventsWithSupportedEvents() throws Exception {
-    CompositionPlayer player = buildCompositionPlayer();
+    CompositionPlayer player = createTestCompositionPlayer();
     Composition composition = buildComposition();
     Player.Listener mockListener = mock(Player.Listener.class);
     ArgumentCaptor<Player.Events> eventsCaptor = ArgumentCaptor.forClass(Player.Events.class);
@@ -685,7 +685,7 @@ public class CompositionPlayerTest {
 
   @Test
   public void play_withCorrectTimelineUpdated() throws Exception {
-    CompositionPlayer player = buildCompositionPlayer();
+    CompositionPlayer player = createTestCompositionPlayer();
     Composition composition = buildComposition();
     Player.Listener mockListener = mock(Player.Listener.class);
     ArgumentCaptor<Timeline> timelineCaptor = ArgumentCaptor.forClass(Timeline.class);
@@ -714,7 +714,7 @@ public class CompositionPlayerTest {
   @Test
   public void playSequence_withRepeatModeOff_doesNotReportRepeatMediaItemTransition()
       throws Exception {
-    CompositionPlayer player = buildCompositionPlayer();
+    CompositionPlayer player = createTestCompositionPlayer();
     Player.Listener mockListener = mock(Player.Listener.class);
     player.addListener(mockListener);
     player.setComposition(buildComposition());
@@ -732,7 +732,7 @@ public class CompositionPlayerTest {
   @Test
   public void playSequence_withRepeatModeAll_reportsRepeatReasonForMediaItemTransition()
       throws Exception {
-    CompositionPlayer player = buildCompositionPlayer();
+    CompositionPlayer player = createTestCompositionPlayer();
     Player.Listener mockListener = mock(Player.Listener.class);
     player.addListener(mockListener);
     player.setRepeatMode(Player.REPEAT_MODE_ALL);
@@ -758,7 +758,7 @@ public class CompositionPlayerTest {
   @Test
   public void playComposition_withRepeatModeOff_doesNotReportRepeatMediaItemTransition()
       throws Exception {
-    CompositionPlayer player = buildCompositionPlayer();
+    CompositionPlayer player = createTestCompositionPlayer();
     Player.Listener mockListener = mock(Player.Listener.class);
     player.addListener(mockListener);
     player.setRepeatMode(Player.REPEAT_MODE_OFF);
@@ -800,7 +800,7 @@ public class CompositionPlayerTest {
   @Test
   public void playComposition_withRepeatModeAll_reportsRepeatReasonForMediaItemTransition()
       throws Exception {
-    CompositionPlayer player = buildCompositionPlayer();
+    CompositionPlayer player = createTestCompositionPlayer();
     Player.Listener mockListener = mock(Player.Listener.class);
     player.addListener(mockListener);
     player.setRepeatMode(Player.REPEAT_MODE_ALL);
@@ -847,7 +847,7 @@ public class CompositionPlayerTest {
 
   @Test
   public void seekPastDuration_ends() throws Exception {
-    CompositionPlayer player = buildCompositionPlayer();
+    CompositionPlayer player = createTestCompositionPlayer();
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW))
             .setDurationUs(1_000_000L)
@@ -859,13 +859,13 @@ public class CompositionPlayerTest {
     player.play();
 
     player.seekTo(/* positionMs= */ 1100);
-    TestPlayerRunHelper.advance(player).untilState(Player.STATE_ENDED);
+    advance(player).untilState(Player.STATE_ENDED);
     player.release();
   }
 
   @Test
   public void seekPastDuration_withClippedStart_ends() throws Exception {
-    CompositionPlayer player = buildCompositionPlayer();
+    CompositionPlayer player = createTestCompositionPlayer();
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(
                 MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)
@@ -884,13 +884,13 @@ public class CompositionPlayerTest {
     player.prepare();
     player.play();
 
-    TestPlayerRunHelper.advance(player).untilState(Player.STATE_ENDED);
+    advance(player).untilState(Player.STATE_ENDED);
     player.release();
   }
 
   @Test
   public void seekPastDuration_withClippedEnd_ends() throws Exception {
-    CompositionPlayer player = buildCompositionPlayer();
+    CompositionPlayer player = createTestCompositionPlayer();
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(
                 MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW)
@@ -909,20 +909,20 @@ public class CompositionPlayerTest {
     player.prepare();
     player.play();
 
-    TestPlayerRunHelper.advance(player).untilState(Player.STATE_ENDED);
+    advance(player).untilState(Player.STATE_ENDED);
     player.release();
   }
 
   @Test
   public void isScrubbingModeEnabled_defaultsFalse() {
-    CompositionPlayer player = buildCompositionPlayer();
+    CompositionPlayer player = createTestCompositionPlayer();
 
     assertThat(player.isScrubbingModeEnabled()).isFalse();
   }
 
   @Test
   public void setScrubbingModeEnabled_updatesIsScrubbingModeEnabled() {
-    CompositionPlayer player = buildCompositionPlayer();
+    CompositionPlayer player = createTestCompositionPlayer();
 
     player.setScrubbingModeEnabled(true);
 
@@ -931,7 +931,7 @@ public class CompositionPlayerTest {
 
   @Test
   public void setScrubbingModeEnabled_updatesPlaybackSuppressionReason() throws TimeoutException {
-    CompositionPlayer player = buildCompositionPlayer();
+    CompositionPlayer player = createTestCompositionPlayer();
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW))
             .setDurationUs(1_000_000L)
@@ -951,7 +951,7 @@ public class CompositionPlayerTest {
   @Test
   public void prepare_withCustomLoadControl_preparesTheLoadControl() throws Exception {
     CustomLoadControl customLoadControl = new CustomLoadControl();
-    CompositionPlayer.Builder playerBuilder = createCompositionPlayerBuilder();
+    CompositionPlayer.Builder playerBuilder = createTestCompositionPlayerBuilder();
     playerBuilder.setLoadControl(customLoadControl);
     CompositionPlayer player = playerBuilder.build();
 
@@ -962,15 +962,6 @@ public class CompositionPlayerTest {
     assertThat(customLoadControl.prepared).isTrue();
 
     player.release();
-  }
-
-  private static CompositionPlayer buildCompositionPlayer() {
-    return createCompositionPlayerBuilder().build();
-  }
-
-  private static CompositionPlayer.Builder createCompositionPlayerBuilder() {
-    return new CompositionPlayer.Builder(ApplicationProvider.getApplicationContext())
-        .setClock(new FakeClock(/* isAutoAdvancing= */ true));
   }
 
   private static Composition buildComposition() {

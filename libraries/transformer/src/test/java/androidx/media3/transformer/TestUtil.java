@@ -16,6 +16,7 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.test.utils.TestUtil.extractAllSamplesFromFilePath;
+import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import androidx.media3.common.C;
@@ -27,8 +28,10 @@ import androidx.media3.common.audio.SonicAudioProcessor;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
+import androidx.media3.test.utils.FakeClock;
 import androidx.media3.test.utils.FakeExtractorOutput;
 import androidx.media3.test.utils.FakeTrackOutput;
+import androidx.test.core.app.ApplicationProvider;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import java.io.IOException;
@@ -203,5 +206,24 @@ public final class TestUtil {
         extractAllSamplesFromFilePath(mp4Extractor, checkNotNull(filePath));
     return Iterables.getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_AUDIO))
         .getSampleTimesUs();
+  }
+
+  /**
+   * Returns a new {@link CompositionPlayer} built using {@link
+   * #createTestCompositionPlayerBuilder()}.
+   */
+  public static CompositionPlayer createTestCompositionPlayer() {
+    return createTestCompositionPlayerBuilder().build();
+  }
+
+  /**
+   * Returns a new {@link CompositionPlayer.Builder} configured for unit tests.
+   *
+   * <p>This method sets an auto advancing {@link FakeClock} and {@link
+   * ApplicationProvider#getApplicationContext()} as context.
+   */
+  public static CompositionPlayer.Builder createTestCompositionPlayerBuilder() {
+    return new CompositionPlayer.Builder(getApplicationContext())
+        .setClock(new FakeClock(/* isAutoAdvancing= */ true));
   }
 }
