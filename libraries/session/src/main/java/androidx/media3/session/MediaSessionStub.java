@@ -124,8 +124,11 @@ import java.util.concurrent.ExecutionException;
 
   private static final String TAG = "MediaSessionStub";
 
+  // LINT.IfChange(version_int)
   /** The version of the IMediaSession interface. */
   public static final int VERSION_INT = 7;
+
+  // LINT.ThenChange()
 
   /**
    * Sequence number used when a controller method is triggered on the session side that wasn't

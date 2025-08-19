@@ -30,7 +30,6 @@ import androidx.media3.session.IMediaSession;
 oneway interface IMediaController {
 
   // Id < 3000 is reserved to avoid potential collision with media2 1.x.
-  // LINT.IfChange
   void onConnected(int seq, in Bundle connectionResult) = 3000;
   void onSessionResult(int seq, in Bundle sessionResult) = 3001;
   void onLibraryResult(int seq, in Bundle libraryResult) = 3002;
@@ -59,6 +58,7 @@ oneway interface IMediaController {
       int seq, String parentId, int itemCount, in @nullable Bundle libraryParams) = 4000;
   void onSearchResultChanged(
       int seq, String query, int itemCount, in @nullable Bundle libraryParams) = 4001;
+  // LINT.IfChange
   // Next Id for MediaBrowser: 4002
-  // LINT.ThenChange( ../../../../java/androidx/media3/session/MediaControllerStub.java )
+  // LINT.ThenChange( ../../../../java/androidx/media3/session/MediaControllerStub.java:version_int)
 }

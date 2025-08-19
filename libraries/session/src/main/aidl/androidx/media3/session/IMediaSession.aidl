@@ -130,7 +130,9 @@ oneway interface IMediaSession {
   void setRatingWithMediaId(
        IMediaController caller, int seq, String mediaId, in Bundle rating) = 3048;
   void setRating(IMediaController caller, int seq, in Bundle rating) = 3049;
+  // LINT.IfChange
   // Next Id for MediaSession: 3060
+  // LINT.ThenChange(../../../../java/androidx/media3/session/MediaSessionStub.java:version_int)
 
   void getLibraryRoot(IMediaController caller, int seq, in Bundle libraryParams) = 4000;
   void getItem(IMediaController caller, int seq, String mediaId) = 4001;
@@ -152,5 +154,7 @@ oneway interface IMediaSession {
   void subscribe(
       IMediaController caller, int seq, String parentId, in Bundle libraryParams) = 4005;
   void unsubscribe(IMediaController caller, int seq, String parentId) = 4006;
+  // LINT.IfChange
   // Next Id for MediaLibrarySession: 4007
+  // LINT.ThenChange(../../../../java/androidx/media3/session/MediaSessionStub.java:version_int)
 }
