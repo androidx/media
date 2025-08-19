@@ -509,7 +509,7 @@ public final class MediaConstants {
       "androidx.media3.session.SESSION_COMMAND_ON_CAPTIONING_ENABLED_CHANGED";
   /* package */ static final String SESSION_COMMAND_REQUEST_SESSION3_TOKEN =
       "androidx.media3.session.SESSION_COMMAND_REQUEST_SESSION3_TOKEN";
-  /* package */ static final String SESSION_COMMAND_MEDIA3_PLAY_REQUEST =
+  /* package */ static final String SESSION_COMMAND_MEDIA3_CHANGE_REQUEST =
       "androidx.media3.session.SESSION_COMMAND_MEDIA3_PLAY_REQUEST";
 
   /* package */ static final String ARGUMENT_CAPTIONING_ENABLED =

@@ -385,6 +385,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
       RemoteSessionTask task,
       boolean addToPendingMaskingOperations) {
     if (iSession != null) {
+      notifyPlatformControllerAboutMedia3ChangeRequest();
       SequencedFutureManager.SequencedFuture<SessionResult> result =
           sequencedFutureManager.createSequencedFuture(
               new SessionResult(SessionResult.RESULT_INFO_SKIPPED));
@@ -422,14 +423,6 @@ import org.checkerframework.checker.nullness.qual.NonNull;
               + " command has started the service for instance for playback resumption, this may"
               + " prevent the service from being started into the foreground.");
       return;
-    }
-
-    if (SDK_INT >= 31 && platformController != null) {
-      // Ensure the platform session gets allow-listed to start a foreground service after receiving
-      // the play command.
-      platformController
-          .getTransportControls()
-          .sendCustomAction(MediaConstants.SESSION_COMMAND_MEDIA3_PLAY_REQUEST, /* args= */ null);
     }
 
     dispatchRemoteSessionTaskWithPlayerCommand(
@@ -3221,6 +3214,16 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   public void onRenderedFirstFrame() {
     listeners.sendEvent(
         /* eventFlag= */ Player.EVENT_RENDERED_FIRST_FRAME, Listener::onRenderedFirstFrame);
+  }
+
+  protected void notifyPlatformControllerAboutMedia3ChangeRequest() {
+    if (SDK_INT >= 31 && platformController != null) {
+      // Ensure the platform session gets allow-listed to start a foreground service after receiving
+      // the play command.
+      platformController
+          .getTransportControls()
+          .sendCustomAction(MediaConstants.SESSION_COMMAND_MEDIA3_CHANGE_REQUEST, /* args= */ null);
+    }
   }
 
   private void updateSessionPositionInfoIfNeeded(SessionPositionInfo sessionPositionInfo) {
