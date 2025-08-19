@@ -48,7 +48,6 @@ import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.SampleQueue;
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
 import androidx.media3.exoplayer.trackselection.TrackSelector;
-import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.BandwidthMeter;
 import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter;
 import com.google.common.base.Predicate;
@@ -477,7 +476,6 @@ public final class DefaultPreloadManager
   @Nullable private final HandlerThread preCacheThread;
   @Nullable private final PreCacheHelper.Factory preCacheHelperFactory;
   private final Handler preloadHandler;
-  private final boolean deprecatedConstructorCalled;
   private boolean releaseCalled;
 
   private DefaultPreloadManager(Builder builder) {
@@ -515,40 +513,6 @@ public final class DefaultPreloadManager
       preCacheHelperFactory = null;
     }
     preloadHandler = Util.createHandler(preloadLooper, /* callback= */ null);
-    deprecatedConstructorCalled = false;
-  }
-
-  /**
-   * @deprecated Use {@link Builder} instead.
-   */
-  @Deprecated
-  public DefaultPreloadManager(
-      TargetPreloadStatusControl<Integer, PreloadStatus> targetPreloadStatusControl,
-      MediaSource.Factory mediaSourceFactory,
-      TrackSelector trackSelector,
-      BandwidthMeter bandwidthMeter,
-      RendererCapabilitiesList.Factory rendererCapabilitiesListFactory,
-      Allocator allocator,
-      Looper preloadLooper) {
-    super(new SimpleRankingDataComparator(), targetPreloadStatusControl, mediaSourceFactory);
-    this.rendererCapabilitiesList =
-        rendererCapabilitiesListFactory.createRendererCapabilitiesList();
-    this.preloadLooperProvider = new PlaybackLooperProvider(preloadLooper);
-    this.trackSelector = trackSelector;
-    Looper obtainedPreloadLooper = preloadLooperProvider.obtainLooper();
-    preloadMediaSourceFactory =
-        new PreloadMediaSource.Factory(
-            mediaSourceFactory,
-            new PreloadMediaSourceControl(),
-            trackSelector,
-            bandwidthMeter,
-            rendererCapabilitiesList.getRendererCapabilities(),
-            allocator,
-            obtainedPreloadLooper);
-    preloadHandler = Util.createHandler(obtainedPreloadLooper, /* callback= */ null);
-    preCacheThread = null;
-    preCacheHelperFactory = null;
-    deprecatedConstructorCalled = true;
   }
 
   /**
@@ -642,11 +606,7 @@ public final class DefaultPreloadManager
     preloadHandler.post(
         () -> {
           rendererCapabilitiesList.release();
-          if (!deprecatedConstructorCalled) {
-            // TODO: Remove the property deprecatedConstructorCalled and release the TrackSelector
-            // anyway after the deprecated constructor is removed.
-            trackSelector.release();
-          }
+          trackSelector.release();
           preloadLooperProvider.releaseLooper();
         });
   }

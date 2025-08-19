@@ -188,6 +188,8 @@
     *   Move `CapturingRenderersFactory` from `test-utils` to
         `test-utils-robolectric`.
 *   Remove deprecated symbols:
+    *   Remove deprecated `DefaultPreloadManager` constructor. Use
+        `DefaultPreloadManager.Builder` instead.
 
 ## 1.8
 
