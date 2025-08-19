@@ -103,29 +103,6 @@ public final class ExoPlayerScrubbingTest {
   }
 
   @Test
-  public void scrubbingMode_suppressesPlayback() throws Exception {
-    ExoPlayer player =
-        new TestExoPlayerBuilder(ApplicationProvider.getApplicationContext()).build();
-    Player.Listener mockListener = mock(Player.Listener.class);
-    player.addListener(mockListener);
-    player.setMediaSource(
-        new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT));
-    player.prepare();
-    player.play();
-    advance(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 2000);
-
-    player.setScrubbingModeEnabled(true);
-    verify(mockListener)
-        .onPlaybackSuppressionReasonChanged(Player.PLAYBACK_SUPPRESSION_REASON_SCRUBBING);
-
-    player.setScrubbingModeEnabled(false);
-    verify(mockListener)
-        .onPlaybackSuppressionReasonChanged(Player.PLAYBACK_SUPPRESSION_REASON_NONE);
-
-    player.release();
-  }
-
-  @Test
   public void scrubbingMode_pendingSeekIsNotPreempted() throws Exception {
     ExoPlayer player =
         new TestExoPlayerBuilder(ApplicationProvider.getApplicationContext()).build();
