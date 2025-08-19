@@ -6,7 +6,7 @@ Provides support for RTSP playbacks in ExoPlayer.
 
 The easiest way to get the module is to add it as a gradle dependency:
 
-```gradle
+```groovy
 implementation 'androidx.media3:media3-exoplayer-rtsp:1.X.X'
 ```
 
