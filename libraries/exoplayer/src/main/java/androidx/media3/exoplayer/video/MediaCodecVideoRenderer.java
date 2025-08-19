@@ -45,6 +45,7 @@ import android.os.Handler;
 import android.os.Message;
 import android.util.Pair;
 import android.view.Display;
+import android.view.Display.HdrCapabilities;
 import android.view.Surface;
 import androidx.annotation.CallSuper;
 import androidx.annotation.Nullable;
@@ -813,21 +814,23 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   @RequiresApi(26)
   private static final class Api26 {
     public static boolean doesDisplaySupportDolbyVision(Context context) {
-      boolean supportsDolbyVision = false;
       DisplayManager displayManager =
           (DisplayManager) context.getSystemService(Context.DISPLAY_SERVICE);
       Display display =
           (displayManager != null) ? displayManager.getDisplay(DEFAULT_DISPLAY) : null;
-      if (display != null && display.isHdr()) {
-        int[] supportedHdrTypes = display.getHdrCapabilities().getSupportedHdrTypes();
-        for (int hdrType : supportedHdrTypes) {
-          if (hdrType == Display.HdrCapabilities.HDR_TYPE_DOLBY_VISION) {
-            supportsDolbyVision = true;
-            break;
-          }
+      if (display == null || !display.isHdr()) {
+        return false;
+      }
+      HdrCapabilities hdrCapabilities = display.getHdrCapabilities();
+      if (hdrCapabilities == null) {
+        return false;
+      }
+      for (int hdrType : hdrCapabilities.getSupportedHdrTypes()) {
+        if (hdrType == Display.HdrCapabilities.HDR_TYPE_DOLBY_VISION) {
+          return true;
         }
       }
-      return supportsDolbyVision;
+      return false;
     }
   }
 
