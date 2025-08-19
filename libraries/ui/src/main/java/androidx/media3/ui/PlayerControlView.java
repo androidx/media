@@ -1964,6 +1964,9 @@ public class PlayerControlView extends FrameLayout {
                   + checkNotNull(player).getClass());
         }
       }
+      if (isScrubbingModeEnabled(player)) {
+        seekToTimeBarPosition(player, position);
+      }
     }
 
     @Override
