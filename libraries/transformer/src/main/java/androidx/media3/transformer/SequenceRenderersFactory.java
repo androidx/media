@@ -371,6 +371,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
 
     @Override
+    protected void onRelease() {
+      super.onRelease();
+      bufferingVideoSink.release();
+    }
+
+    @Override
     protected void onStreamChanged(
         Format[] formats,
         long startPositionUs,
