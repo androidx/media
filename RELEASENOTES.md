@@ -51,6 +51,8 @@
             invalidate itself automatically. Apps don't need to call
             `invalidate()` explicitly anymore after updating the current playing
             index.
+    *   Make short-form demo work on TV with D-pad
+        ([#2720](https://github.com/androidx/media/pull/2720)).
 *   Transformer:
 *   Track Selection:
     *   Add `TrackSelectionParameters.selectTextByDefault` to prefer the
