@@ -84,7 +84,9 @@ public class FakeRenderer extends BaseRenderer {
   }
 
   @Override
-  protected void onPositionReset(long positionUs, boolean joining) throws ExoPlaybackException {
+  protected void onPositionReset(
+      long positionUs, boolean joining, boolean sampleStreamIsResetToKeyFrame)
+      throws ExoPlaybackException {
     if (playbackPositionUs == positionUs && lastSamplePositionUs == Long.MIN_VALUE && !isEnded) {
       // Nothing change, ignore reset operation.
       return;

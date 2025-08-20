@@ -760,7 +760,7 @@ public class DecoderAudioRendererTest {
 
     // Simulate a seek through resetPosition which should flush the audio sink.
     audioRenderer.stop();
-    audioRenderer.resetPosition(/* positionUs= */ 0);
+    audioRenderer.resetPosition(/* positionUs= */ 0, /* sampleStreamIsResetToKeyFrame= */ true);
     long durationToProgressUs =
         audioRenderer.getDurationToProgressUs(
             /* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);

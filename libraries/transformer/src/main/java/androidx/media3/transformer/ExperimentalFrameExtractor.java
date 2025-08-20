@@ -851,10 +851,12 @@ public final class ExperimentalFrameExtractor {
     }
 
     @Override
-    protected void onPositionReset(long positionUs, boolean joining) throws ExoPlaybackException {
+    protected void onPositionReset(
+        long positionUs, boolean joining, boolean sampleStreamIsResetToKeyFrame)
+        throws ExoPlaybackException {
       frameRenderedSinceLastPositionReset = false;
       extractedFrameNeedsRendering.set(true);
-      super.onPositionReset(positionUs, joining);
+      super.onPositionReset(positionUs, joining, sampleStreamIsResetToKeyFrame);
     }
   }
 }

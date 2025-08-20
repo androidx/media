@@ -288,8 +288,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
 
     @Override
-    protected void onPositionReset(long positionUs, boolean joining) throws ExoPlaybackException {
-      super.onPositionReset(positionUs, joining);
+    protected void onPositionReset(
+        long positionUs, boolean joining, boolean sampleStreamIsResetToKeyFrame)
+        throws ExoPlaybackException {
+      super.onPositionReset(positionUs, joining, sampleStreamIsResetToKeyFrame);
       onMediaItemChanged();
     }
 
@@ -575,12 +577,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
 
     @Override
-    protected void onPositionReset(long positionUs, boolean joining) throws ExoPlaybackException {
+    protected void onPositionReset(
+        long positionUs, boolean joining, boolean sampleStreamIsResetToKeyFrame)
+        throws ExoPlaybackException {
       if (!joining) {
         videoSink.flush(/* resetPosition= */ true);
         timestampIterator = createTimestampIterator(positionUs);
       }
-      super.onPositionReset(positionUs, joining);
+      super.onPositionReset(positionUs, joining, sampleStreamIsResetToKeyFrame);
     }
 
     @Override

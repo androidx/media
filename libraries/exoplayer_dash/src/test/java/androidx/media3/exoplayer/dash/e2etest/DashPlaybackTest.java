@@ -32,12 +32,15 @@ import android.content.Context;
 import android.content.res.AssetManager;
 import android.graphics.SurfaceTexture;
 import android.net.Uri;
+import android.os.Handler;
 import android.view.Surface;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.Player;
+import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.datasource.AssetDataSource;
 import androidx.media3.datasource.DataSource;
@@ -46,12 +49,16 @@ import androidx.media3.datasource.DataSpec;
 import androidx.media3.datasource.DefaultDataSource;
 import androidx.media3.datasource.ResolvingDataSource;
 import androidx.media3.exoplayer.DecoderCounters;
+import androidx.media3.exoplayer.DefaultRenderersFactory;
+import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.RenderersFactory;
 import androidx.media3.exoplayer.analytics.AnalyticsListener;
 import androidx.media3.exoplayer.dash.DashMediaSource;
 import androidx.media3.exoplayer.dash.DefaultDashChunkSource;
+import androidx.media3.exoplayer.mediacodec.MediaCodecAdapter;
+import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.media3.exoplayer.metadata.MetadataDecoderFactory;
 import androidx.media3.exoplayer.metadata.MetadataRenderer;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
@@ -61,6 +68,8 @@ import androidx.media3.exoplayer.source.chunk.BundledChunkExtractor;
 import androidx.media3.exoplayer.text.TextRenderer;
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
 import androidx.media3.exoplayer.upstream.CmcdConfiguration;
+import androidx.media3.exoplayer.video.MediaCodecVideoRenderer;
+import androidx.media3.exoplayer.video.VideoRendererEventListener;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.FakeClock;
 import androidx.media3.test.utils.ThrowingSubtitleParserFactory;
@@ -75,9 +84,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import okhttp3.mockwebserver.Dispatcher;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
@@ -965,6 +976,56 @@ public final class DashPlaybackTest {
     verify(listener, never()).onIsLoadingChanged(true);
   }
 
+  @Test
+  public void
+      scrubbingPlayback_withSkipKeyFrameResetEnabledAndSameSyncPointDifferentGoP_dumpsCorrectOutput()
+          throws Exception {
+    Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
+    AtomicLong blockingPresentationTimeUs = new AtomicLong(933000L);
+    AtomicBoolean hasReceivedOutputBufferPastBlockTime = new AtomicBoolean(false);
+    CapturingRenderersFactoryWithBlockingMediaCodecVideoRenderer capturingRenderersFactory =
+        new CapturingRenderersFactoryWithBlockingMediaCodecVideoRenderer(
+            applicationContext,
+            clock,
+            blockingPresentationTimeUs,
+            hasReceivedOutputBufferPastBlockTime);
+    ExoPlayer player =
+        new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
+            .setClock(clock)
+            .setMediaSourceFactory(
+                new DefaultMediaSourceFactory(applicationContext)
+                    .setCmcdConfigurationFactory(CmcdConfiguration.Factory.DEFAULT))
+            .build();
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
+    PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
+    player.addMediaItem(
+        MediaItem.fromUri("asset:///media/dash/multi-period-with-multiple-gop/sample.mpd"));
+    player.prepare();
+    // Play until renderer has reached the specified blocked presentation time.
+    play(player).untilBackgroundThreadCondition(hasReceivedOutputBufferPastBlockTime::get);
+    player.setScrubbingModeEnabled(true);
+    TestPlayerRunHelper.runUntilPendingCommandsAreFullyHandled(player);
+
+    player.seekTo(/* positionMs= */ 1700);
+    TestPlayerRunHelper.runUntilPendingCommandsAreFullyHandled(player);
+    // End blocking in renderer.
+    blockingPresentationTimeUs.set(Long.MAX_VALUE);
+    player.setScrubbingModeEnabled(false);
+    TestPlayerRunHelper.runUntilPendingCommandsAreFullyHandled(player);
+    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+
+    player.release();
+    surface.release();
+
+    assertThat(player.getScrubbingModeParameters().allowSkippingKeyFrameReset).isTrue();
+    DumpFileAsserts.assertOutput(
+        applicationContext,
+        playbackOutput,
+        /* dumpFile= */ "playbackdumps/dash/scrubbing-skipKeyFrameReset-sameSyncNextGoP.dump");
+  }
+
   private static ImmutableList<WebServerDispatcher.Resource>
       mockWebServerResourcesFromAssetsDirectory(String assetDirectory) throws IOException {
     Context context = ApplicationProvider.getApplicationContext();
@@ -1005,6 +1066,75 @@ public final class DashPlaybackTest {
         boolean wasCanceled) {
       this.loadErrorEventInfo = loadEventInfo;
       this.loadError = error;
+    }
+  }
+
+  /**
+   * A @link CapturingRenderersFactory} that provides a custom {@link MediaCodecVideoRenderer} that
+   * can block output buffer processing at a specific buffer presentation time.
+   */
+  private static final class CapturingRenderersFactoryWithBlockingMediaCodecVideoRenderer
+      extends CapturingRenderersFactory {
+
+    private final AtomicLong blockingPresentationTimeUs;
+    private final AtomicBoolean hasReceivedOutputBufferPastBlockTime;
+
+    private CapturingRenderersFactoryWithBlockingMediaCodecVideoRenderer(
+        Context context,
+        Clock clock,
+        AtomicLong blockingPresentationTimeUs,
+        AtomicBoolean hasReceivedOutputBufferPastBlockTime) {
+      super(context, clock);
+      this.blockingPresentationTimeUs = blockingPresentationTimeUs;
+      this.hasReceivedOutputBufferPastBlockTime = hasReceivedOutputBufferPastBlockTime;
+    }
+
+    @Override
+    protected MediaCodecVideoRenderer createMediaCodecVideoRenderer(
+        Handler eventHandler, VideoRendererEventListener videoRendererEventListener) {
+      return new CapturingMediaCodecVideoRenderer(
+          getContext(),
+          getMediaCodecAdapterFactory(),
+          MediaCodecSelector.DEFAULT,
+          DefaultRenderersFactory.DEFAULT_ALLOWED_VIDEO_JOINING_TIME_MS,
+          /* enableDecoderFallback= */ false,
+          eventHandler,
+          videoRendererEventListener,
+          DefaultRenderersFactory.MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY,
+          /* parseAv1SampleDependencies= */ false) {
+        @Override
+        protected boolean processOutputBuffer(
+            long positionUs,
+            long elapsedRealtimeUs,
+            @Nullable MediaCodecAdapter codec,
+            @Nullable ByteBuffer buffer,
+            int bufferIndex,
+            int bufferFlags,
+            int sampleCount,
+            long bufferPresentationTimeUs,
+            boolean isDecodeOnlyBuffer,
+            boolean isLastBuffer,
+            Format format)
+            throws ExoPlaybackException {
+          if ((bufferPresentationTimeUs - getOutputStreamOffsetUs())
+              > blockingPresentationTimeUs.get()) {
+            hasReceivedOutputBufferPastBlockTime.set(true);
+            return false;
+          }
+          return super.processOutputBuffer(
+              positionUs,
+              elapsedRealtimeUs,
+              codec,
+              buffer,
+              bufferIndex,
+              bufferFlags,
+              sampleCount,
+              bufferPresentationTimeUs,
+              isDecodeOnlyBuffer,
+              isLastBuffer,
+              format);
+        }
+      };
     }
   }
 }

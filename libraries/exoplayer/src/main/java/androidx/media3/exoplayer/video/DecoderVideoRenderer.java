@@ -291,7 +291,10 @@ public abstract class DecoderVideoRenderer extends BaseRenderer {
   }
 
   @Override
-  protected void onPositionReset(long positionUs, boolean joining) throws ExoPlaybackException {
+  protected void onPositionReset(
+      long positionUs, boolean joining, boolean sampleStreamIsResetToKeyFrame)
+      throws ExoPlaybackException {
+    // TODO(b/440006632): Implement decode-only frame drop logic to allow skipping keyframe reset.
     inputStreamEnded = false;
     outputStreamEnded = false;
     lowerFirstFrameState(C.FIRST_FRAME_NOT_RENDERED);

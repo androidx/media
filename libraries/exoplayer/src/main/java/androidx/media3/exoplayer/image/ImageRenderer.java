@@ -236,7 +236,9 @@ public class ImageRenderer extends BaseRenderer {
   }
 
   @Override
-  protected void onPositionReset(long positionUs, boolean joining) throws ExoPlaybackException {
+  protected void onPositionReset(
+      long positionUs, boolean joining, boolean sampleStreamIsResetToKeyFrame)
+      throws ExoPlaybackException {
     lowerFirstFrameState(FIRST_FRAME_NOT_RENDERED);
     outputStreamEnded = false;
     inputStreamEnded = false;

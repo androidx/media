@@ -51,6 +51,8 @@
             invalidate itself automatically. Apps don't need to call
             `invalidate()` explicitly anymore after updating the current playing
             index.
+    *   Add capability to skip keyframe reset for forward seeks within the same
+        group of pictures while in scrubbing mode.
 *   Transformer:
 *   Track Selection:
     *   Add `TrackSelectionParameters.selectTextByDefault` to prefer the

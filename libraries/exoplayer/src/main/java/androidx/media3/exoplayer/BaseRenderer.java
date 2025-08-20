@@ -149,7 +149,7 @@ public abstract class BaseRenderer implements Renderer, RendererCapabilities {
     state = STATE_ENABLED;
     onEnabled(joining, mayRenderStartOfStream);
     replaceStream(formats, stream, startPositionUs, offsetUs, mediaPeriodId);
-    resetPosition(startPositionUs, joining);
+    resetPosition(startPositionUs, joining, /* sampleStreamIsResetToKeyFrame= */ true);
   }
 
   @Override
@@ -218,15 +218,21 @@ public abstract class BaseRenderer implements Renderer, RendererCapabilities {
   }
 
   @Override
-  public final void resetPosition(long positionUs) throws ExoPlaybackException {
-    resetPosition(positionUs, /* joining= */ false);
+  public final void resetPosition(long positionUs, boolean sampleStreamIsResetToKeyFrame)
+      throws ExoPlaybackException {
+    resetPosition(positionUs, /* joining= */ false, sampleStreamIsResetToKeyFrame);
   }
 
-  private void resetPosition(long positionUs, boolean joining) throws ExoPlaybackException {
+  private void resetPosition(
+      long positionUs, boolean joining, boolean sampleStreamIsResetToKeyFrame)
+      throws ExoPlaybackException {
     streamIsFinal = false;
     lastResetPositionUs = positionUs;
     readingPositionUs = positionUs;
-    onPositionReset(positionUs, joining);
+    if (!sampleStreamIsResetToKeyFrame) {
+      sampleStreamIsResetToKeyFrame = skipSource(positionUs) != 0;
+    }
+    onPositionReset(positionUs, joining, sampleStreamIsResetToKeyFrame);
   }
 
   @Override
@@ -342,15 +348,22 @@ public abstract class BaseRenderer implements Renderer, RendererCapabilities {
    * when a position discontinuity is encountered.
    *
    * <p>After a position reset, the renderer's {@link SampleStream} is guaranteed to provide samples
-   * starting from a key frame.
+   * starting from a key frame if {@code sampleStreamIsResetToKeyFrame} is {@code true}. {@code
+   * sampleStreamIsResetToKeyFrame} is guaranteed to be {@code true} unless the implementation
+   * overrides {@link #supportsResetPositionWithoutKeyFrameReset(long positionUs)} to return {@code
+   * true}.
    *
    * <p>The default implementation is a no-op.
    *
    * @param positionUs The new playback position in microseconds.
    * @param joining Whether this renderer is being enabled to join an ongoing playback.
+   * @param sampleStreamIsResetToKeyFrame Whether the renderer's {@link SampleStream} is guaranteed
+   *     to provide samples starting from a key frame.
    * @throws ExoPlaybackException If an error occurs.
    */
-  protected void onPositionReset(long positionUs, boolean joining) throws ExoPlaybackException {
+  protected void onPositionReset(
+      long positionUs, boolean joining, boolean sampleStreamIsResetToKeyFrame)
+      throws ExoPlaybackException {
     // Do nothing.
   }
 

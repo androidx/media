@@ -743,14 +743,18 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   }
 
   @Override
-  protected void onPositionReset(long positionUs, boolean joining) throws ExoPlaybackException {
+  protected void onPositionReset(
+      long positionUs, boolean joining, boolean sampleStreamIsResetToKeyFrame)
+      throws ExoPlaybackException {
     inputStreamEnded = false;
     outputStreamEnded = false;
     pendingOutputEndOfStream = false;
-    if (bypassEnabled) {
-      resetBypassState();
-    } else {
-      flushOrReinitializeCodec();
+    if (sampleStreamIsResetToKeyFrame) {
+      if (bypassEnabled) {
+        resetBypassState();
+      } else {
+        flushOrReinitializeCodec();
+      }
     }
     // If there is a format change on the input side still pending propagation to the output, we
     // need to queue a format next time a buffer is read. This is because we may not read a new
@@ -1826,6 +1830,18 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   }
 
   /**
+   * Returns the presentation time of the last output buffer processed.
+   *
+   * <p>If an output buffer has not yet been processed then the return value will be {@link
+   * C#TIME_UNSET}.
+   *
+   * @return The presentation time of the last output buffer processed.
+   */
+  protected final long getLastProcessedOutputBufferTimeUs() {
+    return lastProcessedOutputBufferTimeUs;
+  }
+
+  /**
    * Called when an output buffer is successfully processed.
    *
    * @param presentationTimeUs The timestamp associated with the output buffer.
@@ -2161,7 +2177,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
    * buffer's position to keep track of how much of the data it has processed.
    *
    * <p>Note that the first call to this method following a call to {@link #onPositionReset(long,
-   * boolean)} will always receive a new {@link ByteBuffer} to be processed.
+   * boolean, boolean)} will always receive a new {@link ByteBuffer} to be processed.
    *
    * @param positionUs The current media time in microseconds, measured at the start of the current
    *     iteration of the rendering loop.

@@ -648,7 +648,7 @@ import java.util.Objects;
         disableRenderer(renderer, mediaClock);
       } else if (streamReset) {
         // The renderer will continue to consume from its current stream, but needs to be reset.
-        renderer.resetPosition(rendererPositionUs);
+        renderer.resetPosition(rendererPositionUs, /* sampleStreamIsResetToKeyFrame= */ true);
       }
     }
   }
@@ -680,12 +680,26 @@ import java.util.Objects;
    *
    * @see Renderer#resetPosition
    */
-  public void resetPosition(MediaPeriodHolder playingPeriod, long positionUs)
+  public void resetPosition(
+      MediaPeriodHolder playingPeriod, long positionUs, boolean sampleStreamIsResetToKeyFrame)
       throws ExoPlaybackException {
     Renderer renderer = getRendererReadingFromPeriod(playingPeriod);
     if (renderer != null) {
-      renderer.resetPosition(positionUs);
+      renderer.resetPosition(positionUs, sampleStreamIsResetToKeyFrame);
     }
+  }
+
+  /**
+   * Returns {@code true} if a {@link Renderer} is enabled on the provided {@link MediaPeriodHolder
+   * media period} and if it will support a {@link Renderer#resetPosition} invocation without
+   * resetting the sample stream to a key frame.
+   *
+   * @see Renderer#supportsResetPositionWithoutKeyFrameReset
+   */
+  public boolean supportsResetPositionWithoutKeyFrameReset(
+      MediaPeriodHolder playingPeriod, long positionUs) {
+    Renderer renderer = getRendererReadingFromPeriod(playingPeriod);
+    return renderer != null && renderer.supportsResetPositionWithoutKeyFrameReset(positionUs);
   }
 
   /**

@@ -1257,7 +1257,8 @@ public class MediaCodecAudioRendererTest {
 
     // Simulate a seek through resetPosition which should flush the audio sink.
     mediaCodecAudioRenderer.stop();
-    mediaCodecAudioRenderer.resetPosition(/* positionUs= */ 0);
+    mediaCodecAudioRenderer.resetPosition(
+        /* positionUs= */ 0, /* sampleStreamIsResetToKeyFrame= */ true);
     long durationToProgressUs =
         mediaCodecAudioRenderer.getDurationToProgressUs(
             /* positionUs= */ 0, fakeClock.elapsedRealtime() * 1000);

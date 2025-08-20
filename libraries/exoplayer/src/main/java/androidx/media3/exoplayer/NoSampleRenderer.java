@@ -85,7 +85,7 @@ public abstract class NoSampleRenderer implements Renderer, RendererCapabilities
     state = STATE_ENABLED;
     onEnabled(joining);
     replaceStream(formats, stream, startPositionUs, offsetUs, mediaPeriodId);
-    onPositionReset(positionUs, joining);
+    onPositionReset(positionUs, joining, /* sampleStreamIsResetToKeyFrame= */ true);
   }
 
   @Override
@@ -138,9 +138,10 @@ public abstract class NoSampleRenderer implements Renderer, RendererCapabilities
   public final void maybeThrowStreamError() throws IOException {}
 
   @Override
-  public final void resetPosition(long positionUs) throws ExoPlaybackException {
+  public final void resetPosition(long positionUs, boolean sampleStreamIsResetToKeyFrame)
+      throws ExoPlaybackException {
     streamIsFinal = false;
-    onPositionReset(positionUs, false);
+    onPositionReset(positionUs, false, sampleStreamIsResetToKeyFrame);
   }
 
   @Override
@@ -236,9 +237,12 @@ public abstract class NoSampleRenderer implements Renderer, RendererCapabilities
    *
    * @param positionUs The new playback position in microseconds.
    * @param joining Whether this renderer is being enabled to join an ongoing playback.
+   * @param sampleStreamIsResetToKeyFrame Whether the sample stream is reset to a key frame.
    * @throws ExoPlaybackException If an error occurs.
    */
-  protected void onPositionReset(long positionUs, boolean joining) throws ExoPlaybackException {
+  protected void onPositionReset(
+      long positionUs, boolean joining, boolean sampleStreamIsResetToKeyFrame)
+      throws ExoPlaybackException {
     // Do nothing.
   }
 

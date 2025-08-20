@@ -666,7 +666,9 @@ public abstract class DecoderAudioRenderer<
   }
 
   @Override
-  protected void onPositionReset(long positionUs, boolean joining) throws ExoPlaybackException {
+  protected void onPositionReset(
+      long positionUs, boolean joining, boolean sampleStreamIsResetToKeyFrame)
+      throws ExoPlaybackException {
     audioSink.flush();
 
     currentPositionUs = positionUs;

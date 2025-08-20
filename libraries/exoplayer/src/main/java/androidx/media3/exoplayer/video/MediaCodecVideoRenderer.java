@@ -997,7 +997,9 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   }
 
   @Override
-  protected void onPositionReset(long positionUs, boolean joining) throws ExoPlaybackException {
+  protected void onPositionReset(
+      long positionUs, boolean joining, boolean sampleStreamIsResetToKeyFrame)
+      throws ExoPlaybackException {
     if (videoSink != null) {
       if (!joining) {
         // Flush the video sink first to ensure it stops reading textures that will be owned by
@@ -1005,7 +1007,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         videoSink.flush(/* resetPosition= */ true);
       }
     }
-    super.onPositionReset(positionUs, joining);
+    super.onPositionReset(positionUs, joining, sampleStreamIsResetToKeyFrame);
     if (videoSink == null) {
       videoFrameReleaseControl.reset();
     }
@@ -1025,6 +1027,17 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
 
     maybeSetupTunnelingForFirstFrame();
     consecutiveDroppedFrameCount = 0;
+  }
+
+  @Override
+  public boolean supportsResetPositionWithoutKeyFrameReset(long positionUs) {
+    long lastProcessedOutputBufferTimeUs = getLastProcessedOutputBufferTimeUs();
+    if (lastProcessedOutputBufferTimeUs == C.TIME_UNSET) {
+      return true;
+    }
+    long lastProcessedOutputBufferPresentationTimeUs =
+        lastProcessedOutputBufferTimeUs - getOutputStreamOffsetUs();
+    return positionUs > lastProcessedOutputBufferPresentationTimeUs;
   }
 
   @Override
