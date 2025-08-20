@@ -20,7 +20,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -37,6 +36,8 @@ import androidx.media3.common.Player;
 import androidx.media3.common.SimpleBasePlayer;
 import androidx.test.core.app.ApplicationProvider;
 import com.google.android.gms.cast.MediaInfo;
+import com.google.android.gms.cast.MediaLoadRequestData;
+import com.google.android.gms.cast.MediaQueueData;
 import com.google.android.gms.cast.MediaQueueItem;
 import com.google.android.gms.cast.MediaStatus;
 import com.google.android.gms.cast.framework.CastContext;
@@ -92,8 +93,7 @@ public final class CastPlayerTest {
     when(mockRemoteMediaClient.play()).thenReturn(mockPendingResult);
     when(mockRemoteMediaClient.pause()).thenReturn(mockPendingResult);
     when(mockRemoteMediaClient.queueSetRepeatMode(anyInt(), any())).thenReturn(mockPendingResult);
-    when(mockRemoteMediaClient.queueLoad(any(), anyInt(), anyInt(), anyLong(), any()))
-        .thenReturn(mockPendingResult);
+    when(mockRemoteMediaClient.load((MediaLoadRequestData) any())).thenReturn(mockPendingResult);
     when(mockRemoteMediaClient.setPlaybackRate(anyDouble(), any())).thenReturn(mockPendingResult);
     when(mockMediaStatus.getMediaInfo()).thenReturn(new MediaInfo.Builder("contentId").build());
     when(mockMediaQueue.getItemIds()).thenReturn(new int[0]);
@@ -171,23 +171,23 @@ public final class CastPlayerTest {
         new MediaItem.Builder().setUri(sampleUrl).setMimeType(MimeTypes.VIDEO_MP4).build();
     castPlayer.setMediaItems(
         ImmutableList.of(mediaItem), /* startIndex= */ 0, /* startPositionMs= */ 1234);
-    ArgumentCaptor<MediaQueueItem[]> queueCaptor = ArgumentCaptor.forClass(MediaQueueItem[].class);
+    ArgumentCaptor<MediaLoadRequestData> loadArgumentCaptor =
+        ArgumentCaptor.forClass(MediaLoadRequestData.class);
 
     castSessionListener.onSessionStarted(mockCastSession, /* sessionId= */ "ignored");
 
     verify(mockRemoteMediaClient)
         .queueSetRepeatMode(MediaStatus.REPEAT_MODE_REPEAT_SINGLE, /* customData= */ null);
     verify(mockRemoteMediaClient).play();
-    verify(mockRemoteMediaClient)
-        .queueLoad(
-            queueCaptor.capture(),
-            /* startIndex= */ eq(0),
-            /* repeatMode= */ eq(MediaStatus.REPEAT_MODE_REPEAT_SINGLE),
-            /* playPosition= */ eq(1234L),
-            /* customData= */ eq(null));
-    MediaQueueItem[] mediaQueue = queueCaptor.getValue();
-    assertThat(mediaQueue).hasLength(1);
-    assertThat(mediaQueue[0].getMedia().getContentUrl()).isEqualTo(sampleUrl);
+    verify(mockRemoteMediaClient).load(loadArgumentCaptor.capture());
+    MediaLoadRequestData mediaLoadRequestData = loadArgumentCaptor.getValue();
+    MediaQueueData queueData = mediaLoadRequestData.getQueueData();
+    assertThat(mediaLoadRequestData.getCurrentTime()).isEqualTo(1234L);
+    assertThat(queueData.getStartIndex()).isEqualTo(0);
+    assertThat(queueData.getStartTime()).isEqualTo(1234L);
+    List<MediaQueueItem> mediaQueueItems = queueData.getItems();
+    assertThat(mediaQueueItems.get(0).getMedia().getContentId()).isEqualTo(sampleUrl);
+    assertThat(mediaQueueItems).hasSize(1);
   }
 
   @Test

@@ -64,6 +64,8 @@ import androidx.media3.common.util.Util;
 import com.google.android.gms.cast.Cast;
 import com.google.android.gms.cast.CastStatusCodes;
 import com.google.android.gms.cast.MediaInfo;
+import com.google.android.gms.cast.MediaLoadRequestData;
+import com.google.android.gms.cast.MediaQueueData;
 import com.google.android.gms.cast.MediaQueueItem;
 import com.google.android.gms.cast.MediaStatus;
 import com.google.android.gms.cast.MediaTrack;
@@ -79,6 +81,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.InlineMe;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
@@ -1391,12 +1394,24 @@ public final class RemoteCastPlayer extends BasePlayer {
     }
     MediaQueueItem[] mediaQueueItems = toMediaQueueItems(mediaItems);
     timelineTracker.onMediaItemsSet(mediaItems, mediaQueueItems);
-    remoteMediaClient.queueLoad(
-        mediaQueueItems,
-        min(startIndex, mediaItems.size() - 1),
-        getCastRepeatMode(repeatMode),
-        startPositionMs,
-        /* customData= */ null);
+    MediaQueueData mediaQueueData =
+        new MediaQueueData.Builder()
+            .setItems(Arrays.asList(mediaQueueItems))
+            .setStartIndex(min(startIndex, mediaItems.size() - 1))
+            .setRepeatMode(getCastRepeatMode(repeatMode))
+            .setStartTime(startPositionMs)
+            .build();
+    // TODO: b/432716880 - Populate autoplay (play when ready) and playback speed. Also use repeat
+    // mode values set while no media queue was active.
+    // TODO: b/434761431 - Remove setCurrentTime call once setStartTime (above) is handled correctly
+    // by the Cast framework.
+    MediaLoadRequestData loadRequestData =
+        new MediaLoadRequestData.Builder()
+            .setQueueData(mediaQueueData)
+            .setCurrentTime(startPositionMs)
+            .build();
+    // We don't use the pending result because the timeline tracker is taking care of the masking.
+    PendingResult<MediaChannelResult> unused = remoteMediaClient.load(loadRequestData);
   }
 
   private void addMediaItemsInternal(List<MediaItem> mediaItems, int uid) {

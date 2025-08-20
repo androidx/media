@@ -79,6 +79,8 @@ import androidx.media3.common.Timeline;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.android.gms.cast.Cast;
 import com.google.android.gms.cast.MediaInfo;
+import com.google.android.gms.cast.MediaLoadRequestData;
+import com.google.android.gms.cast.MediaQueueData;
 import com.google.android.gms.cast.MediaQueueItem;
 import com.google.android.gms.cast.MediaStatus;
 import com.google.android.gms.cast.framework.CastContext;
@@ -127,6 +129,7 @@ public class RemoteCastPlayerTest {
 
   @Captor private ArgumentCaptor<Cast.Listener> castListenerArgumentCaptor;
   @Captor private ArgumentCaptor<RemoteMediaClient.Callback> callbackArgumentCaptor;
+  @Captor private ArgumentCaptor<MediaLoadRequestData> loadArgumentCaptor;
   @Captor private ArgumentCaptor<MediaQueueItem[]> queueItemsArgumentCaptor;
   @Captor private ArgumentCaptor<MediaItem> mediaItemCaptor;
 
@@ -479,11 +482,14 @@ public class RemoteCastPlayerTest {
 
     remoteCastPlayer.setMediaItems(mediaItems, /* startIndex= */ 1, /* startPositionMs= */ 2000L);
 
-    verify(mockRemoteMediaClient)
-        .queueLoad(queueItemsArgumentCaptor.capture(), eq(1), anyInt(), eq(2000L), any());
-    MediaQueueItem[] mediaQueueItems = queueItemsArgumentCaptor.getValue();
-    assertThat(mediaQueueItems[0].getMedia().getContentId()).isEqualTo(uri1);
-    assertThat(mediaQueueItems[1].getMedia().getContentId()).isEqualTo(uri2);
+    verify(mockRemoteMediaClient).load(loadArgumentCaptor.capture());
+    MediaLoadRequestData mediaLoadRequestData = loadArgumentCaptor.getValue();
+    MediaQueueData queueData = mediaLoadRequestData.getQueueData();
+    assertThat(queueData.getStartIndex()).isEqualTo(1);
+    assertThat(queueData.getStartTime()).isEqualTo(2000L);
+    List<MediaQueueItem> mediaQueueItems = queueData.getItems();
+    assertThat(mediaQueueItems.get(0).getMedia().getContentId()).isEqualTo(uri1);
+    assertThat(mediaQueueItems.get(1).getMedia().getContentId()).isEqualTo(uri2);
   }
 
   @Test
@@ -499,12 +505,14 @@ public class RemoteCastPlayerTest {
 
     remoteCastPlayer.setMediaItems(mediaItems, startWindowIndex, startPositionMs);
 
-    verify(mockRemoteMediaClient)
-        .queueLoad(queueItemsArgumentCaptor.capture(), eq(0), anyInt(), eq(0L), any());
-
-    MediaQueueItem[] mediaQueueItems = queueItemsArgumentCaptor.getValue();
-    assertThat(mediaQueueItems[0].getMedia().getContentId()).isEqualTo(uri1);
-    assertThat(mediaQueueItems[1].getMedia().getContentId()).isEqualTo(uri2);
+    verify(mockRemoteMediaClient).load(loadArgumentCaptor.capture());
+    MediaLoadRequestData mediaLoadRequestData = loadArgumentCaptor.getValue();
+    MediaQueueData queueData = mediaLoadRequestData.getQueueData();
+    assertThat(queueData.getStartIndex()).isEqualTo(0);
+    assertThat(queueData.getStartTime()).isEqualTo(0);
+    List<MediaQueueItem> mediaQueueItems = queueData.getItems();
+    assertThat(mediaQueueItems.get(0).getMedia().getContentId()).isEqualTo(uri1);
+    assertThat(mediaQueueItems.get(1).getMedia().getContentId()).isEqualTo(uri2);
   }
 
   @Test
