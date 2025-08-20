@@ -248,31 +248,6 @@ public final class EditedMediaItemSequence {
   /** Forces blank frames in the {@linkplain EditedMediaItemSequence sequence}. */
   public final boolean forceVideoTrack;
 
-  /**
-   * @deprecated Use {@link Builder}.
-   */
-  @Deprecated
-  public EditedMediaItemSequence(
-      EditedMediaItem editedMediaItem, EditedMediaItem... editedMediaItems) {
-    this(new Builder().addItem(editedMediaItem).addItems(editedMediaItems));
-  }
-
-  /**
-   * @deprecated Use {@link Builder}.
-   */
-  @Deprecated
-  public EditedMediaItemSequence(List<EditedMediaItem> editedMediaItems) {
-    this(new Builder().addItems(editedMediaItems));
-  }
-
-  /**
-   * @deprecated Use {@link Builder}.
-   */
-  @Deprecated
-  public EditedMediaItemSequence(List<EditedMediaItem> editedMediaItems, boolean isLooping) {
-    this(new Builder().addItems(editedMediaItems).setIsLooping(isLooping));
-  }
-
   /** Returns a {@link Builder} initialized with the values of this instance. */
   public Builder buildUpon() {
     return new Builder(this);
