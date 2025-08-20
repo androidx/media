@@ -81,6 +81,7 @@
 }
 -dontnote androidx.media3.effect.DefaultVideoFrameProcessor$Factory$Builder
 -keepclasseswithmembers class androidx.media3.effect.DefaultVideoFrameProcessor$Factory$Builder {
+  <init>();
   androidx.media3.effect.DefaultVideoFrameProcessor$Factory build();
   androidx.media3.effect.DefaultVideoFrameProcessor$Factory$Builder setEnableReplayableCache(boolean);
 }
