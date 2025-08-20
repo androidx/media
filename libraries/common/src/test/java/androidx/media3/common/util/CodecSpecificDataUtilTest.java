@@ -47,10 +47,11 @@ public class CodecSpecificDataUtilTest {
           0, 46, -32, 0, // avgBitRate
           0, 1, 119, 0, // sampleRate = 96000
         };
-    Pair<Integer, Integer> sampleRateAndChannelCount =
+    int[] sampleRateAndChannelCount =
         CodecSpecificDataUtil.parseAlacAudioSpecificConfig(alacSpecificConfig);
-    assertThat(sampleRateAndChannelCount.first).isEqualTo(96000);
-    assertThat(sampleRateAndChannelCount.second).isEqualTo(2);
+    assertThat(sampleRateAndChannelCount[0]).isEqualTo(96000);
+    assertThat(sampleRateAndChannelCount[1]).isEqualTo(2);
+    assertThat(sampleRateAndChannelCount[2]).isEqualTo(16);
   }
 
   @Test
