@@ -1239,6 +1239,11 @@ public final class ImaAdsLoaderTest {
           public double getTimeOffset() {
             return midrollTimeSecs;
           }
+
+          @Override
+          public List<Long> getAdsDurationsMs() {
+            return Arrays.asList(10000L, 10000L, 10000L);
+          }
         });
 
     assertThat(getAdPlaybackState(/* periodIndex= */ 0))
