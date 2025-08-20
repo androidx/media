@@ -64,4 +64,8 @@ project(modulePrefix + 'test-session-current').projectDir = new File(rootDir, 'l
 include modulePrefix + 'testapp-controller'
 project(modulePrefix + 'testapp-controller').projectDir = new File(rootDir, 'testapps/controller')
 
+// Documentation samples.
+include modulePrefix + 'doc-samples'
+project(modulePrefix + 'doc-samples').projectDir = new File(rootDir, 'docsamples')
+
 apply from: 'core_settings.gradle'
