@@ -84,6 +84,7 @@ import androidx.media3.exoplayer.util.EventLogger;
 import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
 import androidx.media3.exoplayer.video.VideoFrameMetadataListener;
 import androidx.media3.exoplayer.video.VideoFrameReleaseControl;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -122,17 +123,17 @@ public final class CompositionPlayer extends SimpleBasePlayer
   public static final class Builder {
     private final Context context;
 
-    private @MonotonicNonNull Looper looper;
-    private @MonotonicNonNull AudioSink audioSink;
-    private AudioMixer.Factory audioMixerFactory;
-    private MediaSource.Factory mediaSourceFactory;
-    private ImageDecoder.Factory imageDecoderFactory;
-    private boolean videoPrewarmingEnabled;
+    private Looper looper;
     private Clock clock;
+    private Supplier<AudioSink> audioSinkSupplier;
+    private Supplier<AudioMixer.Factory> audioMixerFactorySupplier;
+    private Supplier<MediaSource.Factory> mediaSourceFactorySupplier;
+    private Supplier<ImageDecoder.Factory> imageDecoderFactorySupplier;
+    private Supplier<GlObjectsProvider> glObjectsProviderSupplier;
+    private Supplier<LoadControl> loadControlSupplier;
     private VideoGraph.@MonotonicNonNull Factory videoGraphFactory;
 
-    private @MonotonicNonNull GlObjectsProvider glObjectsProvider;
-    private LoadControl loadControl;
+    private boolean videoPrewarmingEnabled;
     private boolean enableReplayableCache;
     private long lateThresholdToDropInputUs;
     private boolean built;
@@ -144,14 +145,18 @@ public final class CompositionPlayer extends SimpleBasePlayer
      */
     public Builder(Context context) {
       this.context = context.getApplicationContext();
-      audioMixerFactory = new DefaultAudioMixer.Factory();
-      mediaSourceFactory = new DefaultMediaSourceFactory(context);
-      imageDecoderFactory =
-          new BitmapFactoryImageDecoder.Factory(context)
-              .setMaxOutputSize(GlUtil.MAX_BITMAP_DECODING_SIZE);
+      looper = Util.getCurrentOrMainLooper();
+      audioSinkSupplier = () -> new DefaultAudioSink.Builder(context).build();
+      glObjectsProviderSupplier = DefaultGlObjectsProvider::new;
+      audioMixerFactorySupplier = DefaultAudioMixer.Factory::new;
+      mediaSourceFactorySupplier = () -> new DefaultMediaSourceFactory(context);
+      loadControlSupplier = DefaultLoadControl::new;
+      imageDecoderFactorySupplier =
+          () ->
+              new BitmapFactoryImageDecoder.Factory(context)
+                  .setMaxOutputSize(GlUtil.MAX_BITMAP_DECODING_SIZE);
       videoPrewarmingEnabled = true;
       lateThresholdToDropInputUs = LATE_US_TO_DROP_INPUT_FRAME;
-      loadControl = new DefaultLoadControl();
       clock = Clock.DEFAULT;
     }
 
@@ -180,7 +185,8 @@ public final class CompositionPlayer extends SimpleBasePlayer
      */
     @CanIgnoreReturnValue
     public Builder setAudioSink(AudioSink audioSink) {
-      this.audioSink = audioSink;
+      checkNotNull(audioSink);
+      this.audioSinkSupplier = () -> audioSink;
       return this;
     }
 
@@ -195,7 +201,8 @@ public final class CompositionPlayer extends SimpleBasePlayer
      */
     @CanIgnoreReturnValue
     public Builder setAudioMixerFactory(AudioMixer.Factory audioMixerFactory) {
-      this.audioMixerFactory = audioMixerFactory;
+      checkNotNull(audioMixerFactory);
+      this.audioMixerFactorySupplier = () -> audioMixerFactory;
       return this;
     }
 
@@ -212,7 +219,8 @@ public final class CompositionPlayer extends SimpleBasePlayer
      */
     @CanIgnoreReturnValue
     public Builder setMediaSourceFactory(MediaSource.Factory mediaSourceFactory) {
-      this.mediaSourceFactory = mediaSourceFactory;
+      checkNotNull(mediaSourceFactory);
+      this.mediaSourceFactorySupplier = () -> mediaSourceFactory;
       return this;
     }
 
@@ -229,7 +237,8 @@ public final class CompositionPlayer extends SimpleBasePlayer
      */
     @CanIgnoreReturnValue
     public Builder setImageDecoderFactory(ImageDecoder.Factory imageDecoderFactory) {
-      this.imageDecoderFactory = imageDecoderFactory;
+      checkNotNull(imageDecoderFactory);
+      this.imageDecoderFactorySupplier = () -> imageDecoderFactory;
       return this;
     }
 
@@ -290,7 +299,8 @@ public final class CompositionPlayer extends SimpleBasePlayer
      */
     @CanIgnoreReturnValue
     public Builder setGlObjectsProvider(GlObjectsProvider glObjectsProvider) {
-      this.glObjectsProvider = glObjectsProvider;
+      checkNotNull(glObjectsProvider);
+      this.glObjectsProviderSupplier = () -> glObjectsProvider;
       return this;
     }
 
@@ -305,7 +315,8 @@ public final class CompositionPlayer extends SimpleBasePlayer
      */
     @CanIgnoreReturnValue
     public Builder setLoadControl(LoadControl loadControl) {
-      this.loadControl = loadControl;
+      checkNotNull(loadControl);
+      this.loadControlSupplier = () -> loadControl;
       return this;
     }
 
@@ -352,27 +363,15 @@ public final class CompositionPlayer extends SimpleBasePlayer
      */
     public CompositionPlayer build() {
       checkState(!built);
-      if (looper == null) {
-        looper = checkNotNull(Looper.myLooper());
-      }
-      if (audioSink == null) {
-        audioSink = new DefaultAudioSink.Builder(context).build();
-      }
       if (videoGraphFactory == null) {
-        DefaultVideoFrameProcessor.Factory.Builder videoFrameProcessorFactoryBuilder =
+        DefaultVideoFrameProcessor.Factory videoFrameProcessorFactory =
             new DefaultVideoFrameProcessor.Factory.Builder()
-                .setEnableReplayableCache(enableReplayableCache);
-        if (glObjectsProvider != null) {
-          videoFrameProcessorFactoryBuilder.setGlObjectsProvider(glObjectsProvider);
-        }
-        videoGraphFactory =
-            new SingleInputVideoGraph.Factory(videoFrameProcessorFactoryBuilder.build());
+                .setEnableReplayableCache(enableReplayableCache)
+                .setGlObjectsProvider(glObjectsProviderSupplier.get())
+                .build();
+        videoGraphFactory = new SingleInputVideoGraph.Factory(videoFrameProcessorFactory);
       }
       CompositionPlayer compositionPlayer = new CompositionPlayer(this);
-      AnalyticsCollector analyticsCollector = new DefaultAnalyticsCollector(clock);
-      analyticsCollector.setPlayer(compositionPlayer, looper);
-      analyticsCollector.addListener(new EventLogger(TAG));
-      compositionPlayer.addListener(analyticsCollector);
       built = true;
       return compositionPlayer;
     }
@@ -467,14 +466,14 @@ public final class CompositionPlayer extends SimpleBasePlayer
     context = builder.context;
     clock = builder.clock;
     applicationHandler = clock.createHandler(builder.looper, /* callback= */ null);
-    finalAudioSink = checkNotNull(builder.audioSink);
-    audioMixerFactory = builder.audioMixerFactory;
-    mediaSourceFactory = builder.mediaSourceFactory;
-    imageDecoderFactory = new GapHandlingDecoderFactory(builder.imageDecoderFactory);
+    finalAudioSink = builder.audioSinkSupplier.get();
+    audioMixerFactory = builder.audioMixerFactorySupplier.get();
+    mediaSourceFactory = builder.mediaSourceFactorySupplier.get();
+    imageDecoderFactory = new GapHandlingDecoderFactory(builder.imageDecoderFactorySupplier.get());
     videoGraphFactory = checkNotNull(builder.videoGraphFactory);
     videoPrewarmingEnabled = builder.videoPrewarmingEnabled;
     compositionInternalListenerHandler = clock.createHandler(builder.looper, /* callback= */ null);
-    loadControl = builder.loadControl;
+    loadControl = builder.loadControlSupplier.get();
     this.enableReplayableCache = builder.enableReplayableCache;
     lateThresholdToDropInputUs = builder.lateThresholdToDropInputUs;
     videoTracksSelected = new SparseBooleanArray();
@@ -486,6 +485,10 @@ public final class CompositionPlayer extends SimpleBasePlayer
     bufferedPositionSupplier = new LivePositionSupplier(this::getBufferedPositionMs);
     totalBufferedDurationSupplier = new LivePositionSupplier(this::getTotalBufferedDurationMs);
     appNeedsToPrepareCompositionPlayer = true;
+    AnalyticsCollector analyticsCollector = new DefaultAnalyticsCollector(clock);
+    analyticsCollector.setPlayer(this, builder.looper);
+    analyticsCollector.addListener(new EventLogger(TAG));
+    addListener(analyticsCollector);
   }
 
   /**
