@@ -82,7 +82,7 @@ public final class CodecSpecificDataUtil {
    * href="https://github.com/macosforge/alac/blob/master/ALACMagicCookieDescription.txt">ALACSpecificConfig</a>).
    *
    * @param audioSpecificConfig A byte array containing the AudioSpecificConfig to parse.
-   * @return A int array consisting of the sample rate in Hz, the channel count and the bit depth.
+   * @return An int array consisting of the sample rate in Hz, the channel count and the bit depth.
    */
   public static int[] parseAlacAudioSpecificConfig(byte[] audioSpecificConfig) {
     ParsableByteArray byteArray = new ParsableByteArray(audioSpecificConfig);
