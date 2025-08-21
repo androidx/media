@@ -56,6 +56,7 @@ import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.SeekMap;
 import androidx.media3.extractor.SeekPoint;
 import androidx.media3.extractor.SniffFailure;
+import androidx.media3.extractor.TrackAwareSeekMap;
 import androidx.media3.extractor.TrackOutput;
 import androidx.media3.extractor.TrueHdSampleRechunker;
 import androidx.media3.extractor.metadata.mp4.MotionPhotoMetadata;
@@ -76,7 +77,7 @@ import java.util.Objects;
 
 /** Extracts data from the MP4 container format. */
 @UnstableApi
-public final class Mp4Extractor implements Extractor, SeekMap {
+public final class Mp4Extractor implements Extractor {
 
   /**
    * Creates a factory for {@link Mp4Extractor} instances with the provided {@link
@@ -270,8 +271,6 @@ public final class Mp4Extractor implements Extractor, SeekMap {
   private Mp4Track[] tracks;
 
   @Nullable private long[][] accumulatedSampleSizes;
-  private int firstVideoTrackIndex;
-  private long durationUs;
   private @FileType int fileType;
   @Nullable private MotionPhotoMetadata motionPhotoMetadata;
 
@@ -426,91 +425,6 @@ public final class Mp4Extractor implements Extractor, SeekMap {
         default:
           throw new IllegalStateException();
       }
-    }
-  }
-
-  // SeekMap implementation.
-
-  @Override
-  public boolean isSeekable() {
-    return true;
-  }
-
-  @Override
-  public long getDurationUs() {
-    return durationUs;
-  }
-
-  @Override
-  public SeekPoints getSeekPoints(long timeUs) {
-    return getSeekPoints(timeUs, /* trackId= */ C.INDEX_UNSET);
-  }
-
-  // Non-inherited public methods.
-
-  /**
-   * Equivalent to {@link SeekMap#getSeekPoints(long)}, except it adds the {@code trackId}
-   * parameter.
-   *
-   * @param timeUs A seek time in microseconds.
-   * @param trackId The id of the track on which to seek for {@link SeekPoints}. May be {@link
-   *     C#INDEX_UNSET} if the extractor is expected to define the strategy for generating {@link
-   *     SeekPoints}.
-   * @return The corresponding seek points.
-   */
-  public SeekPoints getSeekPoints(long timeUs, int trackId) {
-    if (tracks.length == 0) {
-      return new SeekPoints(SeekPoint.START);
-    }
-
-    long firstTimeUs;
-    long firstOffset;
-    long secondTimeUs = C.TIME_UNSET;
-    long secondOffset = C.INDEX_UNSET;
-
-    // Note that the id matches the index in tracks.
-    int mainTrackIndex = trackId != C.INDEX_UNSET ? trackId : firstVideoTrackIndex;
-    // If we have a video track, use it to establish one or two seek points.
-    if (mainTrackIndex != C.INDEX_UNSET) {
-      TrackSampleTable sampleTable = tracks[mainTrackIndex].sampleTable;
-      int sampleIndex = getSynchronizationSampleIndex(sampleTable, timeUs);
-      if (sampleIndex == C.INDEX_UNSET) {
-        return new SeekPoints(SeekPoint.START);
-      }
-      long sampleTimeUs = sampleTable.timestampsUs[sampleIndex];
-      firstTimeUs = sampleTimeUs;
-      firstOffset = sampleTable.offsets[sampleIndex];
-      if (sampleTimeUs < timeUs && sampleIndex < sampleTable.sampleCount - 1) {
-        int secondSampleIndex = sampleTable.getIndexOfLaterOrEqualSynchronizationSample(timeUs);
-        if (secondSampleIndex != C.INDEX_UNSET && secondSampleIndex != sampleIndex) {
-          secondTimeUs = sampleTable.timestampsUs[secondSampleIndex];
-          secondOffset = sampleTable.offsets[secondSampleIndex];
-        }
-      }
-    } else {
-      firstTimeUs = timeUs;
-      firstOffset = Long.MAX_VALUE;
-    }
-
-    if (trackId == C.INDEX_UNSET) {
-      // Take into account other tracks, but only if the caller has not specified a trackId.
-      for (int i = 0; i < tracks.length; i++) {
-        if (i != firstVideoTrackIndex) {
-          TrackSampleTable sampleTable = tracks[i].sampleTable;
-          firstOffset = maybeAdjustSeekOffset(sampleTable, firstTimeUs, firstOffset);
-          if (secondTimeUs != C.TIME_UNSET) {
-            secondOffset = maybeAdjustSeekOffset(sampleTable, secondTimeUs, secondOffset);
-          }
-        }
-      }
-    }
-
-    SeekPoint firstSeekPoint = new SeekPoint(firstTimeUs, firstOffset);
-    if (secondTimeUs == C.TIME_UNSET) {
-      return new SeekPoints(firstSeekPoint);
-    } else {
-      SeekPoint secondSeekPoint = new SeekPoint(secondTimeUs, secondOffset);
-      return new SeekPoints(firstSeekPoint, secondSeekPoint);
     }
   }
 
@@ -811,14 +725,12 @@ public final class Mp4Extractor implements Extractor, SeekMap {
       }
       tracks.add(mp4Track);
     }
-    this.firstVideoTrackIndex = firstVideoTrackIndex;
-    this.durationUs = durationUs;
     this.tracks = tracks.toArray(new Mp4Track[0]);
     accumulatedSampleSizes =
         !omitTrackSampleTable ? calculateAccumulatedSampleSizes(this.tracks) : null;
 
     extractorOutput.endTracks();
-    extractorOutput.seekMap(this);
+    extractorOutput.seekMap(new Mp4SeekMap(durationUs, this.tracks, firstVideoTrackIndex));
   }
 
   private boolean shouldSeekToAxteAtom(@Nullable Metadata mdtaMetadata) {
@@ -1337,6 +1249,95 @@ public final class Mp4Extractor implements Extractor, SeekMap {
           MimeTypes.AUDIO_TRUEHD.equals(track.format.sampleMimeType)
               ? new TrueHdSampleRechunker()
               : null;
+    }
+  }
+
+  private static final class Mp4SeekMap implements TrackAwareSeekMap {
+    private final long durationUs;
+    private final Mp4Track[] tracks;
+    private final int firstVideoTrackIndex;
+
+    public Mp4SeekMap(long durationUs, Mp4Track[] tracks, int firstVideoTrackIndex) {
+      this.durationUs = durationUs;
+      this.tracks = tracks;
+      this.firstVideoTrackIndex = firstVideoTrackIndex;
+    }
+
+    @Override
+    public boolean isSeekable() {
+      return true;
+    }
+
+    @Override
+    public boolean isSeekable(int trackId) {
+      return true;
+    }
+
+    @Override
+    public long getDurationUs() {
+      return durationUs;
+    }
+
+    @Override
+    public SeekPoints getSeekPoints(long timeUs) {
+      return getSeekPoints(timeUs, /* trackId= */ C.INDEX_UNSET);
+    }
+
+    @Override
+    public SeekPoints getSeekPoints(long timeUs, int trackId) {
+      if (tracks.length == 0) {
+        return new SeekPoints(SeekPoint.START);
+      }
+
+      long firstTimeUs;
+      long firstOffset;
+      long secondTimeUs = C.TIME_UNSET;
+      long secondOffset = C.INDEX_UNSET;
+
+      // Note that the id matches the index in tracks.
+      int mainTrackIndex = trackId != C.INDEX_UNSET ? trackId : firstVideoTrackIndex;
+      // If we have a video track, use it to establish one or two seek points.
+      if (mainTrackIndex != C.INDEX_UNSET) {
+        TrackSampleTable sampleTable = tracks[mainTrackIndex].sampleTable;
+        int sampleIndex = getSynchronizationSampleIndex(sampleTable, timeUs);
+        if (sampleIndex == C.INDEX_UNSET) {
+          return new SeekPoints(SeekPoint.START);
+        }
+        long sampleTimeUs = sampleTable.timestampsUs[sampleIndex];
+        firstTimeUs = sampleTimeUs;
+        firstOffset = sampleTable.offsets[sampleIndex];
+        if (sampleTimeUs < timeUs && sampleIndex < sampleTable.sampleCount - 1) {
+          int secondSampleIndex = sampleTable.getIndexOfLaterOrEqualSynchronizationSample(timeUs);
+          if (secondSampleIndex != C.INDEX_UNSET && secondSampleIndex != sampleIndex) {
+            secondTimeUs = sampleTable.timestampsUs[secondSampleIndex];
+            secondOffset = sampleTable.offsets[secondSampleIndex];
+          }
+        }
+      } else {
+        firstTimeUs = timeUs;
+        firstOffset = Long.MAX_VALUE;
+      }
+
+      if (trackId == C.INDEX_UNSET) {
+        // Take into account other tracks, but only if the caller has not specified a trackId.
+        for (int i = 0; i < tracks.length; i++) {
+          if (i != firstVideoTrackIndex) {
+            TrackSampleTable sampleTable = tracks[i].sampleTable;
+            firstOffset = maybeAdjustSeekOffset(sampleTable, firstTimeUs, firstOffset);
+            if (secondTimeUs != C.TIME_UNSET) {
+              secondOffset = maybeAdjustSeekOffset(sampleTable, secondTimeUs, secondOffset);
+            }
+          }
+        }
+      }
+
+      SeekPoint firstSeekPoint = new SeekPoint(firstTimeUs, firstOffset);
+      if (secondTimeUs == C.TIME_UNSET) {
+        return new SeekPoints(firstSeekPoint);
+      } else {
+        SeekPoint secondSeekPoint = new SeekPoint(secondTimeUs, secondOffset);
+        return new SeekPoints(firstSeekPoint, secondSeekPoint);
+      }
     }
   }
 }

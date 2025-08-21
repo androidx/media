@@ -73,8 +73,8 @@ import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.SeekMap;
 import androidx.media3.extractor.SeekMap.SeekPoints;
 import androidx.media3.extractor.SeekPoint;
+import androidx.media3.extractor.TrackAwareSeekMap;
 import androidx.media3.extractor.TrackOutput;
-import androidx.media3.extractor.mp4.Mp4Extractor;
 import androidx.media3.extractor.mp4.PsshAtomUtil;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -472,13 +472,14 @@ public final class MediaExtractorCompat {
     }
 
     SeekPoints seekPoints;
-    if (selectedTrackIndices.size() == 1 && currentExtractor instanceof Mp4Extractor) {
-      // Mp4Extractor supports seeking within a specific track. This helps with poorly interleaved
-      // tracks. See b/223910395.
-      seekPoints =
-          ((Mp4Extractor) currentExtractor)
-              .getSeekPoints(
-                  timeUs, tracks.get(selectedTrackIndices.iterator().next()).getIdOfBackingTrack());
+    if (selectedTrackIndices.size() == 1 && seekMap instanceof TrackAwareSeekMap) {
+      TrackAwareSeekMap trackAwareSeekMap = (TrackAwareSeekMap) seekMap;
+      int trackId = tracks.get(selectedTrackIndices.iterator().next()).getIdOfBackingTrack();
+      if (trackAwareSeekMap.isSeekable(trackId)) {
+        seekPoints = trackAwareSeekMap.getSeekPoints(timeUs, trackId);
+      } else {
+        seekPoints = trackAwareSeekMap.getSeekPoints(timeUs);
+      }
     } else {
       seekPoints = seekMap.getSeekPoints(timeUs);
     }
