@@ -16,6 +16,10 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.Player.PLAYBACK_SUPPRESSION_REASON_SCRUBBING;
+import static androidx.media3.common.Player.STATE_BUFFERING;
+import static androidx.media3.common.Player.STATE_ENDED;
+import static androidx.media3.common.Player.STATE_IDLE;
+import static androidx.media3.common.Player.STATE_READY;
 import static androidx.media3.test.utils.TestUtil.getCommandsAsList;
 import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLooperUntil;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
@@ -215,7 +219,7 @@ public class CompositionPlayerTest {
 
     player.setComposition(buildComposition());
     player.prepare();
-    advance(player).untilState(Player.STATE_READY);
+    advance(player).untilState(STATE_READY);
 
     player.release();
 
@@ -265,6 +269,65 @@ public class CompositionPlayerTest {
   }
 
   @Test
+  public void prepare_playbackStateIsBuffering() {
+    CompositionPlayer player = createTestCompositionPlayer();
+    player.setComposition(buildComposition());
+
+    player.prepare();
+
+    assertThat(player.getPlaybackState()).isEqualTo(STATE_BUFFERING);
+    player.release();
+  }
+
+  @Test
+  public void seekTo_playbackStateIsBuffering() throws Exception {
+    CompositionPlayer player = createTestCompositionPlayer();
+    player.setComposition(buildComposition());
+    player.prepare();
+    advance(player).untilState(STATE_READY);
+
+    player.seekTo(100);
+
+    assertThat(player.getPlaybackState()).isEqualTo(STATE_BUFFERING);
+    player.release();
+  }
+
+  @Test
+  public void stop_playbackStateIsIdle() throws Exception {
+    CompositionPlayer player = createTestCompositionPlayer();
+    player.setComposition(buildComposition());
+    player.prepare();
+    advance(player).untilState(STATE_READY);
+
+    player.stop();
+
+    assertThat(player.getPlaybackState()).isEqualTo(STATE_IDLE);
+    player.release();
+  }
+
+  @Test
+  public void setComposition_playbackStateIsUpdated() throws Exception {
+    CompositionPlayer player = createTestCompositionPlayer();
+    player.setComposition(buildComposition());
+    assertThat(player.getPlaybackState()).isEqualTo(STATE_IDLE);
+    player.prepare();
+    advance(player).untilState(STATE_READY);
+    player.setComposition(
+        new Composition.Builder(
+                new EditedMediaItemSequence.Builder(
+                        new EditedMediaItem.Builder(
+                                MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW))
+                            .setDurationUs(1_000_000L)
+                            .build())
+                    .build())
+            .build());
+    assertThat(player.getPlaybackState()).isEqualTo(STATE_BUFFERING);
+    player.stop();
+    assertThat(player.getPlaybackState()).isEqualTo(STATE_IDLE);
+    player.release();
+  }
+
+  @Test
   public void playWhenReady_calledBeforePrepare_startsPlayingAfterPrepareCalled() throws Exception {
     CompositionPlayer player = createTestCompositionPlayer();
 
@@ -272,7 +335,7 @@ public class CompositionPlayerTest {
     player.setComposition(buildComposition());
     player.prepare();
 
-    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+    TestPlayerRunHelper.runUntilPlaybackState(player, STATE_ENDED);
     player.release();
   }
 
@@ -356,7 +419,7 @@ public class CompositionPlayerTest {
 
     player.setComposition(buildComposition());
     player.prepare();
-    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_READY);
+    TestPlayerRunHelper.runUntilPlaybackState(player, STATE_READY);
 
     assertThat(player.getTotalBufferedDuration()).isGreaterThan(0);
 
@@ -379,7 +442,7 @@ public class CompositionPlayerTest {
 
     player.setComposition(composition);
     player.prepare();
-    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_READY);
+    TestPlayerRunHelper.runUntilPlaybackState(player, STATE_READY);
 
     // Refer to the durations in buildComposition().
     assertThat(player.getDuration()).isEqualTo(1_348);
@@ -404,7 +467,7 @@ public class CompositionPlayerTest {
 
     player.setComposition(composition);
     player.prepare();
-    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_READY);
+    TestPlayerRunHelper.runUntilPlaybackState(player, STATE_READY);
 
     assertThat(player.getDuration()).isEqualTo(800);
 
@@ -433,7 +496,7 @@ public class CompositionPlayerTest {
 
     player.setComposition(composition);
     player.prepare();
-    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_READY);
+    TestPlayerRunHelper.runUntilPlaybackState(player, STATE_READY);
 
     assertThat(player.getDuration()).isEqualTo(400);
 
@@ -457,7 +520,7 @@ public class CompositionPlayerTest {
 
     player.setComposition(composition);
     player.prepare();
-    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_READY);
+    TestPlayerRunHelper.runUntilPlaybackState(player, STATE_READY);
 
     assertThat(player.getDuration()).isEqualTo(600);
 
@@ -484,7 +547,7 @@ public class CompositionPlayerTest {
 
     player.setComposition(composition);
     player.prepare();
-    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_READY);
+    TestPlayerRunHelper.runUntilPlaybackState(player, STATE_READY);
 
     assertThat(player.getDuration()).isEqualTo(450);
 
@@ -518,7 +581,7 @@ public class CompositionPlayerTest {
 
     player.setComposition(composition);
     player.prepare();
-    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_READY);
+    TestPlayerRunHelper.runUntilPlaybackState(player, STATE_READY);
 
     assertThat(player.getDuration()).isEqualTo(400);
 
@@ -552,7 +615,7 @@ public class CompositionPlayerTest {
 
     player.setComposition(composition);
     player.prepare();
-    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_READY);
+    TestPlayerRunHelper.runUntilPlaybackState(player, STATE_READY);
 
     assertThat(player.getDuration()).isEqualTo(300);
 
@@ -587,7 +650,7 @@ public class CompositionPlayerTest {
 
     player.setComposition(composition);
     player.prepare();
-    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_READY);
+    TestPlayerRunHelper.runUntilPlaybackState(player, STATE_READY);
 
     assertThat(player.getDuration()).isEqualTo(900);
 
@@ -621,13 +684,13 @@ public class CompositionPlayerTest {
     player.setComposition(composition);
     player.addListener(listener);
     player.prepare();
-    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_READY);
+    TestPlayerRunHelper.runUntilPlaybackState(player, STATE_READY);
 
     inOrder
         .verify(listener)
         .onTimelineChanged(any(), eq(Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED));
-    inOrder.verify(listener).onPlaybackStateChanged(Player.STATE_BUFFERING);
-    inOrder.verify(listener).onPlaybackStateChanged(Player.STATE_READY);
+    inOrder.verify(listener).onPlaybackStateChanged(STATE_BUFFERING);
+    inOrder.verify(listener).onPlaybackStateChanged(STATE_READY);
 
     player.setPlayWhenReady(true);
 
@@ -638,17 +701,16 @@ public class CompositionPlayerTest {
         .onPlayWhenReadyChanged(true, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST);
     inOrder.verify(listener).onIsPlayingChanged(true);
 
-    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
-    inOrder.verify(listener).onPlaybackStateChanged(Player.STATE_ENDED);
+    TestPlayerRunHelper.runUntilPlaybackState(player, STATE_ENDED);
+    inOrder.verify(listener).onPlaybackStateChanged(STATE_ENDED);
 
     player.stop();
-    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_IDLE);
-    inOrder.verify(listener).onPlaybackStateChanged(Player.STATE_IDLE);
+    TestPlayerRunHelper.runUntilPlaybackState(player, STATE_IDLE);
+    inOrder.verify(listener).onPlaybackStateChanged(STATE_IDLE);
     player.release();
 
     assertThat(playbackStates)
-        .containsExactly(
-            Player.STATE_BUFFERING, Player.STATE_READY, Player.STATE_ENDED, Player.STATE_IDLE)
+        .containsExactly(STATE_BUFFERING, STATE_READY, STATE_ENDED, STATE_IDLE)
         .inOrder();
   }
 
@@ -670,7 +732,7 @@ public class CompositionPlayerTest {
     player.addListener(mockListener);
     player.prepare();
     player.play();
-    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+    TestPlayerRunHelper.runUntilPlaybackState(player, STATE_ENDED);
     player.release();
 
     verify(mockListener, atLeastOnce()).onEvents(any(), eventsCaptor.capture());
@@ -694,7 +756,7 @@ public class CompositionPlayerTest {
     player.addListener(mockListener);
     player.prepare();
     player.play();
-    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+    TestPlayerRunHelper.runUntilPlaybackState(player, STATE_ENDED);
     player.release();
 
     verify(mockListener)
@@ -721,7 +783,7 @@ public class CompositionPlayerTest {
     player.prepare();
     player.play();
 
-    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+    TestPlayerRunHelper.runUntilPlaybackState(player, STATE_ENDED);
 
     verify(mockListener, never())
         .onMediaItemTransition(any(), eq(Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT));
@@ -747,7 +809,7 @@ public class CompositionPlayerTest {
     TestPlayerRunHelper.runUntilPositionDiscontinuity(
         player, Player.DISCONTINUITY_REASON_AUTO_TRANSITION);
     player.setRepeatMode(Player.REPEAT_MODE_OFF);
-    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+    TestPlayerRunHelper.runUntilPlaybackState(player, STATE_ENDED);
 
     verify(mockListener, times(3))
         .onMediaItemTransition(any(), eq(Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT));
@@ -789,7 +851,7 @@ public class CompositionPlayerTest {
     player.prepare();
     player.play();
 
-    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+    TestPlayerRunHelper.runUntilPlaybackState(player, STATE_ENDED);
 
     verify(mockListener, never())
         .onMediaItemTransition(any(), eq(Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT));
@@ -837,7 +899,7 @@ public class CompositionPlayerTest {
     TestPlayerRunHelper.runUntilPositionDiscontinuity(
         player, Player.DISCONTINUITY_REASON_AUTO_TRANSITION);
     player.setRepeatMode(Player.REPEAT_MODE_OFF);
-    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+    TestPlayerRunHelper.runUntilPlaybackState(player, STATE_ENDED);
 
     verify(mockListener, times(3))
         .onMediaItemTransition(any(), eq(Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT));
@@ -848,6 +910,8 @@ public class CompositionPlayerTest {
   @Test
   public void seekPastDuration_ends() throws Exception {
     CompositionPlayer player = createTestCompositionPlayer();
+    Player.Listener mockListener = mock(Player.Listener.class);
+    player.addListener(mockListener);
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW))
             .setDurationUs(1_000_000L)
@@ -858,8 +922,10 @@ public class CompositionPlayerTest {
     player.prepare();
     player.play();
 
+    advance(player).untilState(STATE_READY);
     player.seekTo(/* positionMs= */ 1100);
-    advance(player).untilState(Player.STATE_ENDED);
+    assertThat(player.getPlaybackState()).isEqualTo(STATE_BUFFERING);
+    advance(player).untilState(STATE_ENDED);
     player.release();
   }
 
@@ -884,7 +950,7 @@ public class CompositionPlayerTest {
     player.prepare();
     player.play();
 
-    advance(player).untilState(Player.STATE_ENDED);
+    advance(player).untilState(STATE_ENDED);
     player.release();
   }
 
@@ -909,7 +975,7 @@ public class CompositionPlayerTest {
     player.prepare();
     player.play();
 
-    advance(player).untilState(Player.STATE_ENDED);
+    advance(player).untilState(STATE_ENDED);
     player.release();
   }
 
@@ -942,7 +1008,7 @@ public class CompositionPlayerTest {
     player.prepare();
 
     player.setScrubbingModeEnabled(true);
-    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_READY);
+    TestPlayerRunHelper.runUntilPlaybackState(player, STATE_READY);
 
     assertThat(player.getPlaybackSuppressionReason())
         .isEqualTo(PLAYBACK_SUPPRESSION_REASON_SCRUBBING);
@@ -957,7 +1023,7 @@ public class CompositionPlayerTest {
 
     player.setComposition(buildComposition());
     player.prepare();
-    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_READY);
+    TestPlayerRunHelper.runUntilPlaybackState(player, STATE_READY);
 
     assertThat(customLoadControl.prepared).isTrue();
 

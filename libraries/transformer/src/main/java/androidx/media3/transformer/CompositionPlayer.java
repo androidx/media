@@ -456,7 +456,6 @@ public final class CompositionPlayer extends SimpleBasePlayer
   private boolean compositionPlayerInternalPrepared;
   private boolean scrubbingModeEnabled;
   // Whether prepare() needs to be called to prepare the underlying sequence players.
-  // TODO: b/436491202 - Revise CompositionPlayer state handling.
   private boolean appNeedsToPrepareCompositionPlayer;
 
   // "this" reference for position suppliers.
@@ -692,6 +691,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
       playerHolders.get(i).player.prepare();
     }
     appNeedsToPrepareCompositionPlayer = false;
+    updatePlaybackState();
     return Futures.immediateVoidFuture();
   }
 
@@ -726,6 +726,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
       playerHolders.get(i).player.stop();
     }
     appNeedsToPrepareCompositionPlayer = true;
+    updatePlaybackState();
     return Futures.immediateVoidFuture();
   }
 
@@ -882,9 +883,12 @@ public final class CompositionPlayer extends SimpleBasePlayer
           throw new IllegalStateException(String.valueOf(playbackState));
       }
     }
-    if (idleCount > 0) {
+    if (appNeedsToPrepareCompositionPlayer) {
+      // State is IDLE before prepare is called.
       playbackState = STATE_IDLE;
-    } else if (bufferingCount > 0) {
+    } else if (bufferingCount > 0 || idleCount > 0) {
+      // After calling prepare, transition into buffering, and stay until either all players are
+      // ready, error is thrown or stop is called.
       playbackState = STATE_BUFFERING;
       if (oldPlaybackState == STATE_READY && playWhenReady) {
         // We were playing but a player got in buffering state, pause the players.
@@ -983,6 +987,8 @@ public final class CompositionPlayer extends SimpleBasePlayer
       SequencePlayerHolder sequencePlayerHolder = playerHolders.get(i);
       sequencePlayerHolder.player.prepare();
     }
+    updatePlaybackState();
+    invalidateState();
   }
 
   private void createSequencePlayer(
