@@ -24,14 +24,12 @@ import androidx.annotation.Nullable;
 import androidx.annotation.RestrictTo;
 import androidx.media3.common.C;
 import androidx.media3.common.util.ParsableByteArray;
-import androidx.media3.common.util.UnstableApi;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.PriorityQueue;
 
 /** A queue of buffers, ordered by presentation timestamp. */
-@UnstableApi
 @RestrictTo(LIBRARY_GROUP)
 public final class ReorderingBufferQueue {
 

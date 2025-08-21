@@ -1088,7 +1088,6 @@ public interface ExoPlayer extends Player {
      * @throws IllegalStateException If {@link #build()} has already been called.
      */
     @CanIgnoreReturnValue
-    @UnstableApi
     @RestrictTo(LIBRARY_GROUP)
     @VisibleForTesting
     public Builder setSuitableOutputChecker(SuitableOutputChecker suitableOutputChecker) {
@@ -1124,7 +1123,6 @@ public interface ExoPlayer extends Player {
      * @throws IllegalStateException If {@link #build()} has already been called.
      */
     @CanIgnoreReturnValue
-    @UnstableApi
     @RestrictTo(LIBRARY_GROUP)
     public Builder setPlaybackLooperProvider(PlaybackLooperProvider playbackLooperProvider) {
       checkState(!buildCalled);

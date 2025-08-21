@@ -24,14 +24,12 @@ import android.os.Process;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.annotation.RestrictTo;
-import androidx.media3.common.util.UnstableApi;
 
 /**
  * Provides a {@link Looper} for multiple {@link ExoPlayer} instances with reference counting in
  * order to properly manage the lifecycle of the thread that the {@link Looper} is associated with.
  */
 @RestrictTo(LIBRARY_GROUP)
-@UnstableApi
 public final class PlaybackLooperProvider {
 
   private final Object lock;

@@ -16,6 +16,7 @@
 package androidx.media3.exoplayer.video;
 
 import static android.os.Build.VERSION.SDK_INT;
+import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
 import static androidx.media3.common.VideoFrameProcessor.DROP_OUTPUT_FRAME;
 import static androidx.media3.common.util.Util.contains;
 import static androidx.media3.common.util.Util.getMaxPendingFramesCountForMediaCodecDecoders;
@@ -34,7 +35,6 @@ import androidx.annotation.FloatRange;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.annotation.RestrictTo;
-import androidx.annotation.RestrictTo.Scope;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DebugViewProvider;
@@ -54,7 +54,6 @@ import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.TimedValueQueue;
 import androidx.media3.common.util.TimestampIterator;
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
@@ -74,8 +73,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * Processes input from {@link VideoSink} instances, plumbing the data through a {@link VideoGraph}
  * and rendering the output.
  */
-@UnstableApi
-@RestrictTo({Scope.LIBRARY_GROUP})
+@RestrictTo(LIBRARY_GROUP)
 public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
 
   /** Listener for {@link PlaybackVideoGraphWrapper} events. */

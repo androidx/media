@@ -20,7 +20,6 @@ import static androidx.annotation.RestrictTo.Scope.LIBRARY;
 import android.os.Parcel;
 import android.os.Parcelable;
 import androidx.annotation.RestrictTo;
-import androidx.media3.common.util.UnstableApi;
 import java.util.ArrayList;
 import java.util.List;
 import org.checkerframework.checker.nullness.qual.PolyNull;
@@ -29,7 +28,6 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
  * Utilities to convert {@link android.os.Parcelable} instances to and from legacy package names
  * when writing to or reading them from a {@link android.os.Bundle}.
  */
-@UnstableApi
 @RestrictTo(LIBRARY)
 public final class LegacyParcelableUtil {
 

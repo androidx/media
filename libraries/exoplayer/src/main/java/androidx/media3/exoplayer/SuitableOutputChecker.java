@@ -21,11 +21,9 @@ import android.content.Context;
 import android.os.Looper;
 import androidx.annotation.RestrictTo;
 import androidx.media3.common.util.Clock;
-import androidx.media3.common.util.UnstableApi;
 
 /** Provides methods to check the suitability of selected media outputs. */
 @RestrictTo(LIBRARY_GROUP)
-@UnstableApi
 public interface SuitableOutputChecker {
 
   /** Callback to notify changes in the suitability of the selected media output. */

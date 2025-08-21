@@ -72,7 +72,6 @@ import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
 import androidx.collection.ArrayMap;
 import androidx.media3.common.util.NullableType;
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.session.legacy.MediaControllerCompat.TransportControls;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -106,7 +105,6 @@ import java.util.List;
  * <p>For information about building your media application, read the <a
  * href="{@docRoot}guide/topics/media-apps/index.html">Media Apps</a> developer guide. </div>
  */
-@UnstableApi
 @RestrictTo(LIBRARY)
 public final class MediaBrowserCompat {
   static final String TAG = "MediaBrowserCompat";

@@ -58,7 +58,6 @@ import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
 import androidx.media3.common.util.NullableType;
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.session.legacy.MediaSessionManager.RemoteUserInfo;
 import androidx.versionedparcelable.ParcelUtils;
 import androidx.versionedparcelable.VersionedParcelable;
@@ -100,7 +99,6 @@ import java.util.Set;
  * <p>For information about building your media application, read the <a
  * href="{@docRoot}guide/topics/media-apps/index.html">Media Apps</a> developer guide.
  */
-@UnstableApi
 @RestrictTo(LIBRARY)
 public class MediaSessionCompat {
   static final String TAG = "MediaSessionCompat";
