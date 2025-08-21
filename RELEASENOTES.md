@@ -78,6 +78,9 @@
         ([#2650](https://github.com/androidx/media/issues/2650)).
     *   Matroska: Add support for DTS-HD detection
         ([#6225](https://github.com/google/ExoPlayer/issues/6225)).
+    *   Fix an issue in `MatroskaExtractor` where seeking could be inaccurate
+        for files with multiple tracks. Cue points are now correctly associated
+        with their respective tracks, leading to more precise seeking.
 *   DataSource:
 *   Audio:
     *   Make `AudioProcessor` instances aware of seeking.
