@@ -38,7 +38,6 @@ import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
 import java.util.Queue;
 import java.util.function.LongConsumer;
-import org.checkerframework.checker.initialization.qual.UnknownInitialization;
 
 /**
  * An {@link AudioProcessor} that changes the speed of audio samples depending on their timestamp.
@@ -89,7 +88,7 @@ public final class SpeedChangingAudioProcessor implements AudioProcessor {
         new SynchronizedSonicAudioProcessor(lock, /* keepActiveWithDefaultParameters= */ true);
     pendingCallbackInputTimesUs = new LongArrayQueue();
     pendingCallbacks = new ArrayDeque<>();
-    resetInternalState(/* shouldResetSpeed= */ true);
+    currentSpeed = 1f;
   }
 
   /** Returns the estimated number of samples output given the provided parameters. */
@@ -374,8 +373,7 @@ public final class SpeedChangingAudioProcessor implements AudioProcessor {
    *
    * @param shouldResetSpeed Whether {@link #currentSpeed} should be reset to its default value.
    */
-  private void resetInternalState(
-      @UnknownInitialization SpeedChangingAudioProcessor this, boolean shouldResetSpeed) {
+  private void resetInternalState(boolean shouldResetSpeed) {
     if (shouldResetSpeed) {
       currentSpeed = 1f;
     }
