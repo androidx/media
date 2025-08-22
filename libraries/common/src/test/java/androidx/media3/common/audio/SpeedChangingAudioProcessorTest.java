@@ -668,6 +668,32 @@ public class SpeedChangingAudioProcessorTest {
   }
 
   @Test
+  public void flush_withNonZeroPositionOffset_appliesCorrectSpeedRegion() throws Exception {
+    SpeedProvider speedProvider =
+        TestSpeedProvider.createWithFrameCounts(
+            AUDIO_FORMAT_44_100HZ,
+            /* frameCounts= */ new int[] {4410, 4410},
+            /* speeds= */ new float[] {2, 10});
+    SpeedChangingAudioProcessor speedChangingAudioProcessor =
+        getConfiguredSpeedChangingAudioProcessor(speedProvider);
+    ByteBuffer input = getNonRandomByteBuffer(4410, AUDIO_FORMAT_44_100HZ.bytesPerFrame);
+
+    // Flush to start of second speed region.
+    speedChangingAudioProcessor.flush(new StreamMetadata(/* positionOffsetUs= */ 100_000L));
+    int outputFrameCount = 0;
+    while (input.hasRemaining()) {
+      speedChangingAudioProcessor.queueInput(input);
+      outputFrameCount +=
+          speedChangingAudioProcessor.getOutput().remaining() / AUDIO_FORMAT_44_100HZ.bytesPerFrame;
+    }
+    speedChangingAudioProcessor.queueEndOfStream();
+    outputFrameCount +=
+        speedChangingAudioProcessor.getOutput().remaining() / AUDIO_FORMAT_44_100HZ.bytesPerFrame;
+
+    assertThat(outputFrameCount).isEqualTo(441); // 4410 frames / 10x speed.
+  }
+
+  @Test
   public void getSampleCountAfterProcessorApplied_withConstantSpeed_outputsExpectedSamples() {
     SpeedProvider speedProvider =
         TestSpeedProvider.createWithFrameCounts(

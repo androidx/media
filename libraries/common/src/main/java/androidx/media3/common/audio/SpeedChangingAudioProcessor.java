@@ -18,6 +18,7 @@ package androidx.media3.common.audio;
 
 import static androidx.media3.common.util.SpeedProviderUtil.getNextSpeedChangeSamplePosition;
 import static androidx.media3.common.util.SpeedProviderUtil.getSampleAlignedSpeed;
+import static androidx.media3.common.util.Util.durationUsToSampleCount;
 import static androidx.media3.common.util.Util.sampleCountToDurationUs;
 import static androidx.media3.common.util.Util.scaleLargeValue;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -208,6 +209,8 @@ public final class SpeedChangingAudioProcessor implements AudioProcessor {
       inputAudioFormat = pendingInputAudioFormat;
       sonicAudioProcessor.flush(streamMetadata);
       processPendingCallbacks();
+      framesRead =
+          durationUsToSampleCount(streamMetadata.positionOffsetUs, inputAudioFormat.sampleRate);
     }
   }
 
