@@ -2319,11 +2319,11 @@ public final class BoxParser {
         parent.readBytes(initializationDataBytes, /* offset= */ 0, childAtomBodySize);
         // Update sampleRate and channelCount from the AudioSpecificConfig initialization data,
         // which is more reliable. See https://github.com/google/ExoPlayer/pull/6629.
-        int[] audioSpecificConfig =
+        int[] parsedAlacConfig =
             CodecSpecificDataUtil.parseAlacAudioSpecificConfig(initializationDataBytes);
-        sampleRate = audioSpecificConfig[0];
-        channelCount = audioSpecificConfig[1];
-        int bitDepth = audioSpecificConfig[2];
+        sampleRate = parsedAlacConfig[0];
+        channelCount = parsedAlacConfig[1];
+        int bitDepth = parsedAlacConfig[2];
         pcmEncoding = Util.getPcmEncoding(bitDepth);
         initializationData = ImmutableList.of(initializationDataBytes);
       } else if (childAtomType == Mp4Box.TYPE_iacb) {
