@@ -72,6 +72,7 @@ public class Mp4PlaybackTest {
         Sample.forFile("sample_with_numeric_genre.mp4"),
         Sample.forFile("sample_opus_fragmented.mp4"),
         Sample.forFile("sample_opus.mp4"),
+        Sample.forFile("sample_alac.mp4"),
         Sample.forFile("sample_partially_fragmented.mp4"),
         Sample.withSubtitles("sample_with_vobsub.mp4", "eng"),
         Sample.forFile("testvid_1022ms.mp4"),

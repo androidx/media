@@ -140,6 +140,8 @@ public final class ShadowMediaCodecConfig extends ExternalResource {
       new CodecInfo(/* codecName= */ "media3.audio.eac3", MimeTypes.AUDIO_E_AC3);
   public static final CodecInfo CODEC_INFO_E_AC3_JOC =
       new CodecInfo(/* codecName= */ "media3.audio.eac3joc", MimeTypes.AUDIO_E_AC3_JOC);
+  public static final CodecInfo CODEC_INFO_ALAC =
+      new CodecInfo(/* codecName= */ "media3.audio.alac", MimeTypes.AUDIO_ALAC);
   public static final CodecInfo CODEC_INFO_FLAC =
       new CodecInfo(/* codecName= */ "media3.audio.flac", MimeTypes.AUDIO_FLAC);
   public static final CodecInfo CODEC_INFO_MPEG =
@@ -167,6 +169,7 @@ public final class ShadowMediaCodecConfig extends ExternalResource {
           CODEC_INFO_AC4,
           CODEC_INFO_E_AC3,
           CODEC_INFO_E_AC3_JOC,
+          CODEC_INFO_ALAC,
           CODEC_INFO_FLAC,
           CODEC_INFO_MPEG,
           CODEC_INFO_MPEG_L2,
