@@ -569,6 +569,20 @@ public class TestUtil {
           .build();
 
   /** Baseline profile level 3.0 H.264 stream, which should be supported on all devices. */
+  public static final AssetInfo MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S =
+      new AssetInfo.Builder("asset:///media/mp4/sample_with_increasing_timestamps_320w_240h_5s.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(320)
+                  .setHeight(240)
+                  .setFrameRate(60.00f)
+                  .setCodecs("avc1.42C015")
+                  .build())
+          .setVideoFrameCount(300)
+          .build();
+
+  /** Baseline profile level 3.0 H.264 stream, which should be supported on all devices. */
   public static final AssetInfo MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_GAMMA22_1S =
       new AssetInfo.Builder("asset:///media/mp4/sample_gamma2.2.mp4")
           .setVideoFormat(
