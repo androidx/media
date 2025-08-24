@@ -462,6 +462,24 @@ public class MediaSession {
     }
 
     /**
+     * Sets whether to opt into the System UI playback resumption. If this is set to {@code true},
+     * {@link MediaSession.Callback#onPlaybackResumption(MediaSession, ControllerInfo, boolean)}
+     * must be implemented.
+     *
+     * <p>The default is {@code null}.
+     *
+     * @param systemUiPlaybackResumptionOptIn Whether to opt into System UI playback resumption
+     *     notification, or {@code null} to determine based on the presence of a {@link
+     *     MediaButtonReceiver} in the manifest.
+     */
+    @UnstableApi
+    @Override
+    public Builder setSystemUiPlaybackResumptionOptIn(
+        @Nullable Boolean systemUiPlaybackResumptionOptIn) {
+      return super.setSystemUiPlaybackResumptionOptIn(systemUiPlaybackResumptionOptIn);
+    }
+
+    /**
      * Sets {@link CommandButton command buttons} that can be added as {@linkplain
      * MediaMetadata.Builder#setSupportedCommands(List) supported media item commands}.
      *
@@ -499,7 +517,8 @@ public class MediaSession {
           checkNotNull(bitmapLoader),
           playIfSuppressed,
           isPeriodicPositionUpdateEnabled,
-          MediaLibrarySession.LIBRARY_ERROR_REPLICATION_MODE_NONE);
+          MediaLibrarySession.LIBRARY_ERROR_REPLICATION_MODE_NONE,
+          systemUiPlaybackResumptionOptIn);
     }
   }
 
@@ -753,7 +772,8 @@ public class MediaSession {
       BitmapLoader bitmapLoader,
       boolean playIfSuppressed,
       boolean isPeriodicPositionUpdateEnabled,
-      @MediaLibrarySession.LibraryErrorReplicationMode int libraryErrorReplicationMode) {
+      @MediaLibrarySession.LibraryErrorReplicationMode int libraryErrorReplicationMode,
+      @Nullable Boolean systemUiPlaybackResumptionOptIn) {
     synchronized (STATIC_LOCK) {
       if (SESSION_ID_TO_SESSION_MAP.containsKey(id)) {
         throw new IllegalStateException("Session ID must be unique. ID=" + id);
@@ -775,7 +795,8 @@ public class MediaSession {
             bitmapLoader,
             playIfSuppressed,
             isPeriodicPositionUpdateEnabled,
-            libraryErrorReplicationMode);
+            libraryErrorReplicationMode,
+            systemUiPlaybackResumptionOptIn);
   }
 
   /* package */ MediaSessionImpl createImpl(
@@ -792,7 +813,8 @@ public class MediaSession {
       BitmapLoader bitmapLoader,
       boolean playIfSuppressed,
       boolean isPeriodicPositionUpdateEnabled,
-      @MediaLibrarySession.LibraryErrorReplicationMode int libraryErrorReplicationMode) {
+      @MediaLibrarySession.LibraryErrorReplicationMode int libraryErrorReplicationMode,
+      @Nullable Boolean systemUiPlaybackResumptionOptIn) {
     return new MediaSessionImpl(
         this,
         context,
@@ -807,7 +829,8 @@ public class MediaSession {
         sessionExtras,
         bitmapLoader,
         playIfSuppressed,
-        isPeriodicPositionUpdateEnabled);
+        isPeriodicPositionUpdateEnabled,
+        systemUiPlaybackResumptionOptIn);
   }
 
   /* package */ MediaSessionImpl getImpl() {
@@ -2444,6 +2467,7 @@ public class MediaSession {
     /* package */ ImmutableList<CommandButton> mediaButtonPreferences;
     /* package */ ImmutableList<CommandButton> commandButtonsForMediaItems;
     /* package */ boolean isPeriodicPositionUpdateEnabled;
+    /* package */ @Nullable Boolean systemUiPlaybackResumptionOptIn;
 
     public BuilderBase(Context context, Player player, CallbackT callback) {
       this.context = checkNotNull(context);
@@ -2516,6 +2540,14 @@ public class MediaSession {
     @SuppressWarnings("unchecked")
     public BuilderT setMediaButtonPreferences(List<CommandButton> mediaButtonPreferences) {
       this.mediaButtonPreferences = ImmutableList.copyOf(mediaButtonPreferences);
+      return (BuilderT) this;
+    }
+
+    @CanIgnoreReturnValue
+    @SuppressWarnings("unchecked")
+    public BuilderT setSystemUiPlaybackResumptionOptIn(
+        @Nullable Boolean systemUiPlaybackResumptionOptIn) {
+      this.systemUiPlaybackResumptionOptIn = systemUiPlaybackResumptionOptIn;
       return (BuilderT) this;
     }
 
