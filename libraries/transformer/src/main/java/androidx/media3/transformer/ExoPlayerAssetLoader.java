@@ -225,6 +225,7 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
                     DEFAULT_MAX_BUFFER_MS,
                     DEFAULT_BUFFER_FOR_PLAYBACK_MS / 10,
                     DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS / 10)
+                .setPrioritizeTimeOverSizeThresholds(false)
                 .build();
       }
       return new ExoPlayerAssetLoader(
