@@ -35,9 +35,7 @@ class SeekForwardButtonStateTest {
 
   @Test
   fun addSeekForwardCommandToPlayer_buttonStateTogglesFromDisabledToEnabled() {
-    val player = TestPlayer()
-    player.playbackState = Player.STATE_READY
-    player.playWhenReady = true
+    val player = TestPlayer(playbackState = Player.STATE_READY, playWhenReady = true)
     player.removeCommands(Player.COMMAND_SEEK_FORWARD)
 
     lateinit var state: SeekForwardButtonState
@@ -53,10 +51,7 @@ class SeekForwardButtonStateTest {
 
   @Test
   fun removeSeekForwardCommandToPlayer_buttonStateTogglesFromEnabledToDisabled() {
-    val player = TestPlayer()
-    player.playbackState = Player.STATE_READY
-    player.playWhenReady = true
-
+    val player = TestPlayer(playbackState = Player.STATE_READY, playWhenReady = true)
     lateinit var state: SeekForwardButtonState
     composeTestRule.setContent { state = rememberSeekForwardButtonState(player = player) }
 
@@ -85,9 +80,7 @@ class SeekForwardButtonStateTest {
 
   @Test
   fun positionNonZero_buttonClicked_positionJumpsForwardBySpecifiedAmount() {
-    val player = TestPlayer()
-    player.playbackState = Player.STATE_READY
-    player.playWhenReady = true
+    val player = TestPlayer(playbackState = Player.STATE_READY, playWhenReady = true)
     player.setPosition(500)
     player.setSeekForwardIncrementMs(300)
     val state = SeekForwardButtonState(player)
@@ -101,9 +94,7 @@ class SeekForwardButtonStateTest {
 
   @Test
   fun remainingDurationSmallerThanIncrement_buttonClicked_positionJumpsToTheEndOfCurrentMediaItem() {
-    val player = TestPlayer()
-    player.playbackState = Player.STATE_READY
-    player.playWhenReady = true
+    val player = TestPlayer(playbackState = Player.STATE_READY, playWhenReady = true)
     val state = SeekForwardButtonState(player)
 
     assertThat(player.currentPosition).isEqualTo(0)
@@ -116,9 +107,7 @@ class SeekForwardButtonStateTest {
 
   @Test
   fun positionAtTheEnd_buttonClicked_positionDoesNotMove() {
-    val player = TestPlayer()
-    player.playbackState = Player.STATE_READY
-    player.playWhenReady = true
+    val player = TestPlayer(playbackState = Player.STATE_READY, playWhenReady = true)
     player.setPosition(player.duration)
     val state = SeekForwardButtonState(player)
 

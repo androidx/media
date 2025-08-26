@@ -35,9 +35,7 @@ class SeekBackButtonStateTest {
 
   @Test
   fun addSeekBackCommandToPlayer_buttonStateTogglesFromDisabledToEnabled() {
-    val player = TestPlayer()
-    player.playbackState = Player.STATE_READY
-    player.playWhenReady = true
+    val player = TestPlayer(playbackState = Player.STATE_READY, playWhenReady = true)
     player.removeCommands(Player.COMMAND_SEEK_BACK)
 
     lateinit var state: SeekBackButtonState
@@ -53,10 +51,7 @@ class SeekBackButtonStateTest {
 
   @Test
   fun removeSeekBackCommandToPlayer_buttonStateTogglesFromEnabledToDisabled() {
-    val player = TestPlayer()
-    player.playbackState = Player.STATE_READY
-    player.playWhenReady = true
-
+    val player = TestPlayer(playbackState = Player.STATE_READY, playWhenReady = true)
     lateinit var state: SeekBackButtonState
     composeTestRule.setContent { state = rememberSeekBackButtonState(player = player) }
 
@@ -85,9 +80,7 @@ class SeekBackButtonStateTest {
 
   @Test
   fun positionAtTheStart_buttonClicked_positionDoesNotChange() {
-    val player = TestPlayer()
-    player.playbackState = Player.STATE_READY
-    player.playWhenReady = true
+    val player = TestPlayer(playbackState = Player.STATE_READY, playWhenReady = true)
     val state = SeekBackButtonState(player)
 
     assertThat(player.currentPosition).isEqualTo(0)
@@ -99,9 +92,7 @@ class SeekBackButtonStateTest {
 
   @Test
   fun positionNonZero_buttonClicked_positionJumpsBackBySpecifiedAmount() {
-    val player = TestPlayer()
-    player.playbackState = Player.STATE_READY
-    player.playWhenReady = true
+    val player = TestPlayer(playbackState = Player.STATE_READY, playWhenReady = true)
     player.setPosition(700)
     player.setSeekBackIncrementMs(300)
     val state = SeekBackButtonState(player)

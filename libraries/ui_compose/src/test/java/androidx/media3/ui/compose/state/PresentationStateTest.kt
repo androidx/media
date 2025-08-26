@@ -39,8 +39,7 @@ class PresentationStateTest {
 
   @Test
   fun playerInitialized_presentationStateInitialized() {
-    val player = TestPlayer()
-    player.playbackState = Player.STATE_IDLE
+    val player = TestPlayer(playbackState = Player.STATE_IDLE)
 
     lateinit var state: PresentationState
     composeTestRule.setContent { state = rememberPresentationState(player) }
@@ -52,8 +51,7 @@ class PresentationStateTest {
 
   @Test
   fun playerChangesVideoSizeBeforeEventListenerRegisters_observeGetsTheLatestValues_uiInSync() {
-    val player = TestPlayer()
-    player.playbackState = Player.STATE_IDLE
+    val player = TestPlayer(playbackState = Player.STATE_IDLE)
 
     lateinit var state: PresentationState
     composeTestRule.setContent {
@@ -71,8 +69,7 @@ class PresentationStateTest {
 
   @Test
   fun firstFrameRendered_shutterOpens() {
-    val player = TestPlayer()
-    player.playbackState = Player.STATE_IDLE
+    val player = TestPlayer(playbackState = Player.STATE_IDLE)
 
     lateinit var state: PresentationState
     composeTestRule.setContent { state = rememberPresentationState(player) }
@@ -86,9 +83,8 @@ class PresentationStateTest {
 
   @Test
   fun newNonNullPlayer_keepContentOnResetAndShutterAlreadyOpen_doNotCloseShutter() {
-    val player0 = TestPlayer()
+    val player0 = TestPlayer(playbackState = Player.STATE_IDLE)
     val player1 = TestPlayer()
-    player0.playbackState = Player.STATE_IDLE
 
     lateinit var playerIndex: MutableIntState
     lateinit var state: PresentationState
@@ -112,10 +108,8 @@ class PresentationStateTest {
 
   @Test
   fun newNullPlayer_keepContentOnResetAndShutterAlreadyOpen_doNotCloseShutter() {
-    val player0 = TestPlayer()
+    val player0 = TestPlayer(playbackState = Player.STATE_IDLE)
     val player1 = null
-    player0.playbackState = Player.STATE_IDLE
-
     lateinit var playerIndex: MutableIntState
     lateinit var state: PresentationState
     composeTestRule.setContent {
@@ -162,9 +156,8 @@ class PresentationStateTest {
 
   @Test
   fun newNonNullPlayer_doNotKeepContentOnResetAndShutterAlreadyOpen_closeShutter() {
-    val player0 = TestPlayer()
+    val player0 = TestPlayer(playbackState = Player.STATE_IDLE)
     val player1 = TestPlayer()
-    player0.playbackState = Player.STATE_IDLE
 
     lateinit var playerIndex: MutableIntState
     lateinit var state: PresentationState
@@ -188,9 +181,8 @@ class PresentationStateTest {
 
   @Test
   fun newNullPlayer_doNotKeepContentOnResetAndShutterAlreadyOpen_closeShutter() {
-    val player0 = TestPlayer()
+    val player0 = TestPlayer(playbackState = Player.STATE_IDLE)
     val player1 = null
-    player0.playbackState = Player.STATE_IDLE
 
     lateinit var playerIndex: MutableIntState
     lateinit var state: PresentationState

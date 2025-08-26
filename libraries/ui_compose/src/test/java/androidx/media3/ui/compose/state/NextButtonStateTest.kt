@@ -37,9 +37,7 @@ class NextButtonStateTest {
 
   @Test
   fun addSeekNextCommandToPlayer_buttonStateTogglesFromDisabledToEnabled() {
-    val player = TestPlayer()
-    player.playbackState = STATE_READY
-    player.playWhenReady = true
+    val player = TestPlayer(playbackState = STATE_READY, playWhenReady = true)
     player.removeCommands(Player.COMMAND_SEEK_TO_NEXT)
 
     lateinit var state: NextButtonState
@@ -55,9 +53,7 @@ class NextButtonStateTest {
 
   @Test
   fun removeSeekNextCommandToPlayer_buttonStateTogglesFromEnabledToDisabled() {
-    val player = TestPlayer()
-    player.playbackState = STATE_READY
-    player.playWhenReady = true
+    val player = TestPlayer(playbackState = STATE_READY, playWhenReady = true)
 
     lateinit var state: NextButtonState
     composeTestRule.setContent { state = rememberNextButtonState(player = player) }
@@ -72,10 +68,7 @@ class NextButtonStateTest {
 
   @Test
   fun clickNextOnPenultimateMediaItem_buttonStateTogglesFromEnabledToDisabled() {
-    val player = TestPlayer()
-    player.playbackState = STATE_READY
-    player.playWhenReady = true
-
+    val player = TestPlayer(playbackState = STATE_READY, playWhenReady = true)
     lateinit var state: NextButtonState
     composeTestRule.setContent { state = rememberNextButtonState(player = player) }
 
@@ -89,9 +82,7 @@ class NextButtonStateTest {
 
   @Test
   fun playerInReadyState_buttonClicked_nextItemPlaying() {
-    val player = TestPlayer()
-    player.playbackState = STATE_READY
-    player.playWhenReady = true
+    val player = TestPlayer(playbackState = STATE_READY, playWhenReady = true)
     val state = NextButtonState(player)
 
     assertThat(player.currentMediaItemIndex).isEqualTo(0)

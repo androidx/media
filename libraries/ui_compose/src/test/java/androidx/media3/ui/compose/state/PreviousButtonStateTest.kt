@@ -34,9 +34,7 @@ class PreviousButtonStateTest {
 
   @Test
   fun addSeekPrevCommandToPlayer_buttonStateTogglesFromDisabledToEnabled() {
-    val player = TestPlayer()
-    player.playbackState = Player.STATE_READY
-    player.playWhenReady = true
+    val player = TestPlayer(playbackState = Player.STATE_READY, playWhenReady = true)
     player.removeCommands(Player.COMMAND_SEEK_TO_PREVIOUS)
 
     lateinit var state: PreviousButtonState
@@ -52,9 +50,7 @@ class PreviousButtonStateTest {
 
   @Test
   fun removeSeekPrevCommandToPlayer_buttonStateTogglesFromEnabledToDisabled() {
-    val player = TestPlayer()
-    player.playbackState = Player.STATE_READY
-    player.playWhenReady = true
+    val player = TestPlayer(playbackState = Player.STATE_READY, playWhenReady = true)
 
     lateinit var state: PreviousButtonState
     composeTestRule.setContent { state = rememberPreviousButtonState(player = player) }
@@ -69,9 +65,7 @@ class PreviousButtonStateTest {
 
   @Test
   fun playerInReadyState_prevButtonClicked_sameItemPlayingFromBeginning() {
-    val player = TestPlayer()
-    player.playbackState = Player.STATE_READY
-    player.playWhenReady = true
+    val player = TestPlayer(playbackState = Player.STATE_READY, playWhenReady = true)
     val state = PreviousButtonState(player)
 
     assertThat(player.currentMediaItemIndex).isEqualTo(0)
