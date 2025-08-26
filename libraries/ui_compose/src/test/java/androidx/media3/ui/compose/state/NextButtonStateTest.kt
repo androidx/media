@@ -18,10 +18,13 @@ package androidx.media3.ui.compose.state
 
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import androidx.media3.common.Player.STATE_READY
 import androidx.media3.ui.compose.utils.TestPlayer
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
+import com.google.common.util.concurrent.ListenableFuture
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -35,7 +38,7 @@ class NextButtonStateTest {
   @Test
   fun addSeekNextCommandToPlayer_buttonStateTogglesFromDisabledToEnabled() {
     val player = TestPlayer()
-    player.playbackState = Player.STATE_READY
+    player.playbackState = STATE_READY
     player.playWhenReady = true
     player.removeCommands(Player.COMMAND_SEEK_TO_NEXT)
 
@@ -53,7 +56,7 @@ class NextButtonStateTest {
   @Test
   fun removeSeekNextCommandToPlayer_buttonStateTogglesFromEnabledToDisabled() {
     val player = TestPlayer()
-    player.playbackState = Player.STATE_READY
+    player.playbackState = STATE_READY
     player.playWhenReady = true
 
     lateinit var state: NextButtonState
@@ -70,7 +73,7 @@ class NextButtonStateTest {
   @Test
   fun clickNextOnPenultimateMediaItem_buttonStateTogglesFromEnabledToDisabled() {
     val player = TestPlayer()
-    player.playbackState = Player.STATE_READY
+    player.playbackState = STATE_READY
     player.playWhenReady = true
 
     lateinit var state: NextButtonState
@@ -87,7 +90,7 @@ class NextButtonStateTest {
   @Test
   fun playerInReadyState_buttonClicked_nextItemPlaying() {
     val player = TestPlayer()
-    player.playbackState = Player.STATE_READY
+    player.playbackState = STATE_READY
     player.playWhenReady = true
     val state = NextButtonState(player)
 
@@ -96,6 +99,45 @@ class NextButtonStateTest {
     state.onClick()
 
     assertThat(player.currentMediaItemIndex).isEqualTo(1)
+  }
+
+  @Test
+  fun playerInEndedState_singleDynamicLiveItem_onClickToDefaultPosition() {
+    val nonBufferingPlayer: TestPlayer =
+      object :
+        TestPlayer(
+          playbackState = STATE_ENDED,
+          playWhenReady = true,
+          playlist =
+            listOf(
+              MediaItemData.Builder("SingleItem")
+                .setDurationUs(10_000)
+                .setIsDynamic(true)
+                .setLiveConfiguration(
+                  MediaItem.LiveConfiguration.Builder().setTargetOffsetMs(2000).build()
+                )
+                .build()
+            ),
+        ) {
+        override fun handleSeek(
+          mediaItemIndex: Int,
+          positionMs: Long,
+          seekCommand: @Player.Command Int,
+        ): ListenableFuture<*> {
+          val future = super.handleSeek(mediaItemIndex, positionMs, seekCommand)
+          updateState { setPlaybackState(STATE_READY) }
+          return future
+        }
+      }
+    nonBufferingPlayer.setPosition(10_000)
+    val state = NextButtonState(nonBufferingPlayer)
+    assertThat(nonBufferingPlayer.currentPosition).isEqualTo(10_000)
+    assertThat(nonBufferingPlayer.isPlaying).isFalse()
+
+    state.onClick()
+
+    assertThat(nonBufferingPlayer.currentPosition).isEqualTo(0)
+    assertThat(nonBufferingPlayer.isPlaying).isTrue()
   }
 
   @Test

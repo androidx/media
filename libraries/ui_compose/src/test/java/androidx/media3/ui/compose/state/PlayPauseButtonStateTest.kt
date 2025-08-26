@@ -19,9 +19,11 @@ package androidx.media3.ui.compose.state
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.media3.common.Player
+import androidx.media3.common.Player.STATE_READY
 import androidx.media3.ui.compose.utils.TestPlayer
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
+import com.google.common.util.concurrent.ListenableFuture
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -101,23 +103,36 @@ class PlayPauseButtonStateTest {
   }
 
   @Test
-  fun playerInEndedState_buttonClicked_playerBuffersAndPlays() {
-    val player = TestPlayer()
-    player.playbackState = Player.STATE_ENDED
-    player.setPosition(456)
-    val state = PlayPauseButtonState(player)
+  fun playerInEndedState_buttonClicked_playerPlaysFromBeginning() {
+    val nonBufferingPlayer: TestPlayer =
+      object :
+        TestPlayer(
+          playbackState = STATE_ENDED,
+          playlist = listOf(MediaItemData.Builder("SingleItem").setDurationUs(456).build()),
+        ) {
+        override fun handleSeek(
+          mediaItemIndex: Int,
+          positionMs: Long,
+          seekCommand: @Player.Command Int,
+        ): ListenableFuture<*> {
+          val future = super.handleSeek(mediaItemIndex, positionMs, seekCommand)
+          updateState { setPlaybackState(STATE_READY) }
+          return future
+        }
+      }
+    nonBufferingPlayer.setPosition(456)
+    val state = PlayPauseButtonState(nonBufferingPlayer)
 
     assertThat(state.showPlay).isTrue()
 
     state.onClick() // Player seeks to default position and plays
 
-    assertThat(player.contentPosition).isEqualTo(0)
-    assertThat(player.playWhenReady).isTrue()
-    assertThat(player.playbackState).isEqualTo(Player.STATE_BUFFERING)
+    assertThat(nonBufferingPlayer.contentPosition).isEqualTo(0)
+    assertThat(nonBufferingPlayer.isPlaying).isTrue()
   }
 
   @Test
-  fun playerInIdleState_buttonClicked_playerBuffersAndPlays() {
+  fun playerInIdleState_buttonClicked_playerBuffersButDoesntPlay() {
     val player = TestPlayer()
     player.playbackState = Player.STATE_IDLE
     val state = PlayPauseButtonState(player)
@@ -128,6 +143,7 @@ class PlayPauseButtonStateTest {
 
     assertThat(player.playWhenReady).isTrue()
     assertThat(player.playbackState).isEqualTo(Player.STATE_BUFFERING)
+    assertThat(player.isPlaying).isFalse()
   }
 
   @Test

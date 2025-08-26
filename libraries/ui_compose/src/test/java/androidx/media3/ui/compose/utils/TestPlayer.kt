@@ -33,7 +33,7 @@ import kotlinx.coroutines.test.TestCoroutineScheduler
  * A fake [Player] that uses [SimpleBasePlayer]'s minimal number of default methods implementations
  * to build upon to simulate realistic playback scenarios for testing.
  */
-internal class TestPlayer(
+open class TestPlayer(
   playbackState: @Player.State Int = STATE_READY,
   playWhenReady: Boolean = false,
   playlist: List<MediaItemData> =
@@ -63,6 +63,16 @@ internal class TestPlayer(
 
   init {
     updateAvailableSeekCommands()
+  }
+
+  /**
+   * Allow subclasses to have more control over the state to make use of this player's
+   * implementation of handle* methods, but add customization
+   */
+  protected fun updateState(block: State.Builder.() -> Unit) {
+    state = state.buildUpon().apply(block).build()
+    invalidateState() // propagate the change from `block` to SimpleBasePlayer.state
+    updateAvailableSeekCommands() // operates on Player (SimpleBasePlayer.state), not local state
   }
 
   override fun getState(): State = state
@@ -210,9 +220,7 @@ internal class TestPlayer(
   }
 
   private fun handleStateUpdate(stateUpdate: State.Builder.() -> Unit): ListenableFuture<*> {
-    state = state.buildUpon().apply(stateUpdate).build()
-    invalidateState() // propagate the change from `stateUpdate` to SimpleBasePlayer.state
-    updateAvailableSeekCommands() // operates on Player (SimpleBasePlayer.state), not local state
+    updateState(stateUpdate)
     return Futures.immediateVoidFuture()
   }
 
