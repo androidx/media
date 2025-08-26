@@ -19,7 +19,7 @@ package androidx.media3.ui.compose.state
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.media3.common.Player
-import androidx.media3.ui.compose.utils.TestPlayer
+import androidx.media3.test.utils.TestSimpleBasePlayer
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import org.junit.Rule
@@ -34,7 +34,7 @@ class PreviousButtonStateTest {
 
   @Test
   fun addSeekPrevCommandToPlayer_buttonStateTogglesFromDisabledToEnabled() {
-    val player = TestPlayer(playbackState = Player.STATE_READY, playWhenReady = true)
+    val player = TestSimpleBasePlayer(playbackState = Player.STATE_READY, playWhenReady = true)
     player.removeCommands(Player.COMMAND_SEEK_TO_PREVIOUS)
 
     lateinit var state: PreviousButtonState
@@ -50,7 +50,7 @@ class PreviousButtonStateTest {
 
   @Test
   fun removeSeekPrevCommandToPlayer_buttonStateTogglesFromEnabledToDisabled() {
-    val player = TestPlayer(playbackState = Player.STATE_READY, playWhenReady = true)
+    val player = TestSimpleBasePlayer(playbackState = Player.STATE_READY, playWhenReady = true)
 
     lateinit var state: PreviousButtonState
     composeTestRule.setContent { state = rememberPreviousButtonState(player = player) }
@@ -65,7 +65,7 @@ class PreviousButtonStateTest {
 
   @Test
   fun playerInReadyState_prevButtonClicked_sameItemPlayingFromBeginning() {
-    val player = TestPlayer(playbackState = Player.STATE_READY, playWhenReady = true)
+    val player = TestSimpleBasePlayer(playbackState = Player.STATE_READY, playWhenReady = true)
     val state = PreviousButtonState(player)
 
     assertThat(player.currentMediaItemIndex).isEqualTo(0)
@@ -77,7 +77,7 @@ class PreviousButtonStateTest {
 
   @Test
   fun playerChangesAvailableCommandsBeforeEventListenerRegisters_observeGetsTheLatestValues_uiIconInSync() {
-    val player = TestPlayer()
+    val player = TestSimpleBasePlayer()
 
     lateinit var state: PreviousButtonState
     composeTestRule.setContent {

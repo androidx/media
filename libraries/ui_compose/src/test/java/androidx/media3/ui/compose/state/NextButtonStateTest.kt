@@ -21,7 +21,8 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.Player.STATE_READY
-import androidx.media3.ui.compose.utils.TestPlayer
+import androidx.media3.common.SimpleBasePlayer.MediaItemData
+import androidx.media3.test.utils.TestSimpleBasePlayer
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import com.google.common.util.concurrent.ListenableFuture
@@ -37,7 +38,7 @@ class NextButtonStateTest {
 
   @Test
   fun addSeekNextCommandToPlayer_buttonStateTogglesFromDisabledToEnabled() {
-    val player = TestPlayer(playbackState = STATE_READY, playWhenReady = true)
+    val player = TestSimpleBasePlayer(playbackState = STATE_READY, playWhenReady = true)
     player.removeCommands(Player.COMMAND_SEEK_TO_NEXT)
 
     lateinit var state: NextButtonState
@@ -53,7 +54,7 @@ class NextButtonStateTest {
 
   @Test
   fun removeSeekNextCommandToPlayer_buttonStateTogglesFromEnabledToDisabled() {
-    val player = TestPlayer(playbackState = STATE_READY, playWhenReady = true)
+    val player = TestSimpleBasePlayer(playbackState = STATE_READY, playWhenReady = true)
 
     lateinit var state: NextButtonState
     composeTestRule.setContent { state = rememberNextButtonState(player = player) }
@@ -68,7 +69,7 @@ class NextButtonStateTest {
 
   @Test
   fun clickNextOnPenultimateMediaItem_buttonStateTogglesFromEnabledToDisabled() {
-    val player = TestPlayer(playbackState = STATE_READY, playWhenReady = true)
+    val player = TestSimpleBasePlayer(playbackState = STATE_READY, playWhenReady = true)
     lateinit var state: NextButtonState
     composeTestRule.setContent { state = rememberNextButtonState(player = player) }
 
@@ -82,7 +83,7 @@ class NextButtonStateTest {
 
   @Test
   fun playerInReadyState_buttonClicked_nextItemPlaying() {
-    val player = TestPlayer(playbackState = STATE_READY, playWhenReady = true)
+    val player = TestSimpleBasePlayer(playbackState = STATE_READY, playWhenReady = true)
     val state = NextButtonState(player)
 
     assertThat(player.currentMediaItemIndex).isEqualTo(0)
@@ -94,9 +95,9 @@ class NextButtonStateTest {
 
   @Test
   fun playerInEndedState_singleDynamicLiveItem_onClickToDefaultPosition() {
-    val nonBufferingPlayer: TestPlayer =
+    val nonBufferingPlayer: TestSimpleBasePlayer =
       object :
-        TestPlayer(
+        TestSimpleBasePlayer(
           playbackState = STATE_ENDED,
           playWhenReady = true,
           playlist =
@@ -133,7 +134,7 @@ class NextButtonStateTest {
 
   @Test
   fun playerReachesLastItemWithDisabledNextButtonBeforeEventListenerRegisters_observeGetsTheLatestValues_uiIconInSync() {
-    val player = TestPlayer()
+    val player = TestSimpleBasePlayer()
 
     lateinit var state: NextButtonState
     composeTestRule.setContent {

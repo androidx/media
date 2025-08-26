@@ -20,7 +20,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.media3.common.C
 import androidx.media3.common.Player
-import androidx.media3.ui.compose.utils.TestPlayer
+import androidx.media3.test.utils.TestSimpleBasePlayer
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import org.junit.Rule
@@ -35,7 +35,7 @@ class SeekForwardButtonStateTest {
 
   @Test
   fun addSeekForwardCommandToPlayer_buttonStateTogglesFromDisabledToEnabled() {
-    val player = TestPlayer(playbackState = Player.STATE_READY, playWhenReady = true)
+    val player = TestSimpleBasePlayer(playbackState = Player.STATE_READY, playWhenReady = true)
     player.removeCommands(Player.COMMAND_SEEK_FORWARD)
 
     lateinit var state: SeekForwardButtonState
@@ -51,7 +51,7 @@ class SeekForwardButtonStateTest {
 
   @Test
   fun removeSeekForwardCommandToPlayer_buttonStateTogglesFromEnabledToDisabled() {
-    val player = TestPlayer(playbackState = Player.STATE_READY, playWhenReady = true)
+    val player = TestSimpleBasePlayer(playbackState = Player.STATE_READY, playWhenReady = true)
     lateinit var state: SeekForwardButtonState
     composeTestRule.setContent { state = rememberSeekForwardButtonState(player = player) }
 
@@ -65,7 +65,7 @@ class SeekForwardButtonStateTest {
 
   @Test
   fun playerChangeSeekForwardIncrement_buttonStateGetsUpdatedValue() {
-    val player = TestPlayer()
+    val player = TestSimpleBasePlayer()
 
     lateinit var state: SeekForwardButtonState
     composeTestRule.setContent { state = rememberSeekForwardButtonState(player = player) }
@@ -80,7 +80,7 @@ class SeekForwardButtonStateTest {
 
   @Test
   fun positionNonZero_buttonClicked_positionJumpsForwardBySpecifiedAmount() {
-    val player = TestPlayer(playbackState = Player.STATE_READY, playWhenReady = true)
+    val player = TestSimpleBasePlayer(playbackState = Player.STATE_READY, playWhenReady = true)
     player.setPosition(500)
     player.setSeekForwardIncrementMs(300)
     val state = SeekForwardButtonState(player)
@@ -94,7 +94,7 @@ class SeekForwardButtonStateTest {
 
   @Test
   fun remainingDurationSmallerThanIncrement_buttonClicked_positionJumpsToTheEndOfCurrentMediaItem() {
-    val player = TestPlayer(playbackState = Player.STATE_READY, playWhenReady = true)
+    val player = TestSimpleBasePlayer(playbackState = Player.STATE_READY, playWhenReady = true)
     val state = SeekForwardButtonState(player)
 
     assertThat(player.currentPosition).isEqualTo(0)
@@ -107,7 +107,7 @@ class SeekForwardButtonStateTest {
 
   @Test
   fun positionAtTheEnd_buttonClicked_positionDoesNotMove() {
-    val player = TestPlayer(playbackState = Player.STATE_READY, playWhenReady = true)
+    val player = TestSimpleBasePlayer(playbackState = Player.STATE_READY, playWhenReady = true)
     player.setPosition(player.duration)
     val state = SeekForwardButtonState(player)
 
@@ -120,7 +120,7 @@ class SeekForwardButtonStateTest {
 
   @Test
   fun playerChangesAvailableCommandsBeforeEventListenerRegisters_observeGetsTheLatestValues_uiIconInSync() {
-    val player = TestPlayer()
+    val player = TestSimpleBasePlayer()
 
     lateinit var state: SeekForwardButtonState
     composeTestRule.setContent {

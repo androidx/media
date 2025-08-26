@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 The Android Open Source Project
+ * Copyright 2025 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package androidx.media3.ui.compose.utils
+package androidx.media3.test.utils
 
 import android.os.Looper
 import androidx.media3.common.C
@@ -22,6 +22,7 @@ import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.SimpleBasePlayer
 import androidx.media3.common.VideoSize
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.util.Util.getAvailableCommands
 import androidx.media3.common.util.Util.msToUs
 import com.google.common.base.Preconditions.checkState
@@ -32,8 +33,15 @@ import kotlinx.coroutines.test.TestCoroutineScheduler
 /**
  * A fake [Player] that uses [SimpleBasePlayer]'s minimal number of default methods implementations
  * to build upon to simulate realistic playback scenarios for testing.
+ *
+ * @param playbackState The initial playback state of the player.
+ * @param playWhenReady Whether playback should start automatically when ready.
+ * @param playlist The initial list of media items to play. Default is 2 items (1s and 2s duration).
+ * @param playbackSpeed The initial playback speed.
+ * @hide
  */
-open class TestPlayer(
+@UnstableApi
+open class TestSimpleBasePlayer(
   playbackState: @Player.State Int = STATE_READY,
   playWhenReady: Boolean = false,
   playlist: List<MediaItemData> =
@@ -58,6 +66,7 @@ open class TestPlayer(
       .setPlaybackParameters(PlaybackParameters(playbackSpeed))
       .build()
 
+  /** Current video output */
   var videoOutput: Any? = null
     private set
 
@@ -68,6 +77,8 @@ open class TestPlayer(
   /**
    * Allow subclasses to have more control over the state to make use of this player's
    * implementation of handle* methods, but add customization
+   *
+   * @param block The block to be applied to the local [state].
    */
   protected fun updateState(block: State.Builder.() -> Unit) {
     state = state.buildUpon().apply(block).build()
@@ -123,11 +134,24 @@ open class TestPlayer(
       setVolume(volume)
     }
 
+  /**
+   * Sets the {@linkplain Player.State state} of the player.
+   *
+   * If the playlist is empty, the state must be either [Player.STATE_IDLE] or [Player.STATE_ENDED].
+   *
+   * @param playbackState The [Player.State] of the player.
+   */
   fun setPlaybackState(playbackState: @Player.State Int) {
     state = state.buildUpon().setPlaybackState(playbackState).build()
     invalidateState()
   }
 
+  /**
+   * Sets the current content playback position in milliseconds.
+   *
+   * @param positionMs The current content playback position in milliseconds, or [C.TIME_UNSET] to
+   *   indicate the default start position.
+   */
   fun setPosition(positionMs: Long) {
     state = state.buildUpon().setContentPositionMs(positionMs).build()
     invalidateState()
@@ -156,11 +180,23 @@ open class TestPlayer(
     invalidateState()
   }
 
+  /**
+   * Sets the buffered content playback position in milliseconds.
+   *
+   * @param bufferedPositionMs The buffered content playback position in milliseconds.
+   */
   fun setBufferedPositionMs(bufferedPositionMs: Long) {
     state = state.buildUpon().setContentBufferedPositionMs { bufferedPositionMs }.build()
     invalidateState()
   }
 
+  /**
+   * Sets the duration of the media item in the playlist, in milliseconds.
+   *
+   * @param uid Unique id of the media item whose duration is being set.
+   * @param durationMs The duration of the media item, in milliseconds, or {@link C#TIME_UNSET} if
+   *   unknown.
+   */
   fun setDuration(uid: String, durationMs: Long) {
     val index = state.playlist.indexOfFirst { it.uid == uid }
     if (index == -1) {
@@ -174,27 +210,47 @@ open class TestPlayer(
     invalidateState()
   }
 
+  /**
+   * Sets the current video size.
+   *
+   * @param videoSize The current video size.
+   */
   fun setVideoSize(videoSize: VideoSize) {
     state = state.buildUpon().setVideoSize(videoSize).build()
     invalidateState()
   }
 
+  /**
+   * Sets the [Player.seekBack] increment in milliseconds.
+   *
+   * @param seekBackIncrementMs The [Player.seekBack] increment in milliseconds.
+   */
   fun setSeekBackIncrementMs(seekBackIncrementMs: Long) {
     state = state.buildUpon().setSeekBackIncrementMs(seekBackIncrementMs).build()
     invalidateState()
   }
 
+  /**
+   * Sets the [Player.seekForward] increment in milliseconds.
+   *
+   * @param seekForwardIncrementMs The [Player.seekForward] increment in milliseconds.
+   */
   fun setSeekForwardIncrementMs(seekForwardIncrementMs: Long) {
     state = state.buildUpon().setSeekForwardIncrementMs(seekForwardIncrementMs).build()
     invalidateState()
   }
 
+  /**
+   * Sets whether a frame has been rendered for the first time since setting the surface, a
+   * rendering reset, or since the stream being rendered was changed.
+   */
   fun renderFirstFrame(newlyRenderedFirstFrame: Boolean) {
     state = state.buildUpon().setNewlyRenderedFirstFrame(newlyRenderedFirstFrame).build()
     invalidateState() // flushes EVENT_RENDERED_FIRST_FRAME
     state = state.buildUpon().setNewlyRenderedFirstFrame(false).build()
   }
 
+  /** Remove commands from those already available to the player. */
   fun removeCommands(vararg commands: @Player.Command Int) {
     // It doesn't seem possible to propagate the @IntDef annotation through Kotlin's spread operator
     // in a way that lint understands.
@@ -207,6 +263,7 @@ open class TestPlayer(
     invalidateState()
   }
 
+  /** Add commands to those already available to the player. */
   fun addCommands(vararg commands: @Player.Command Int) {
     // It doesn't seem possible to propagate the @IntDef annotation through Kotlin's spread operator
     // in a way that lint understands.

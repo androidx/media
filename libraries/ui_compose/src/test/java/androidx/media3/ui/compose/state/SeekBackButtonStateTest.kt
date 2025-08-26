@@ -20,7 +20,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.media3.common.C
 import androidx.media3.common.Player
-import androidx.media3.ui.compose.utils.TestPlayer
+import androidx.media3.test.utils.TestSimpleBasePlayer
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import org.junit.Rule
@@ -35,7 +35,7 @@ class SeekBackButtonStateTest {
 
   @Test
   fun addSeekBackCommandToPlayer_buttonStateTogglesFromDisabledToEnabled() {
-    val player = TestPlayer(playbackState = Player.STATE_READY, playWhenReady = true)
+    val player = TestSimpleBasePlayer(playbackState = Player.STATE_READY, playWhenReady = true)
     player.removeCommands(Player.COMMAND_SEEK_BACK)
 
     lateinit var state: SeekBackButtonState
@@ -51,7 +51,7 @@ class SeekBackButtonStateTest {
 
   @Test
   fun removeSeekBackCommandToPlayer_buttonStateTogglesFromEnabledToDisabled() {
-    val player = TestPlayer(playbackState = Player.STATE_READY, playWhenReady = true)
+    val player = TestSimpleBasePlayer(playbackState = Player.STATE_READY, playWhenReady = true)
     lateinit var state: SeekBackButtonState
     composeTestRule.setContent { state = rememberSeekBackButtonState(player = player) }
 
@@ -65,7 +65,7 @@ class SeekBackButtonStateTest {
 
   @Test
   fun playerChangeSeekBackIncrement_buttonStateGetsUpdatedValue() {
-    val player = TestPlayer()
+    val player = TestSimpleBasePlayer()
 
     lateinit var state: SeekBackButtonState
     composeTestRule.setContent { state = rememberSeekBackButtonState(player = player) }
@@ -80,7 +80,7 @@ class SeekBackButtonStateTest {
 
   @Test
   fun positionAtTheStart_buttonClicked_positionDoesNotChange() {
-    val player = TestPlayer(playbackState = Player.STATE_READY, playWhenReady = true)
+    val player = TestSimpleBasePlayer(playbackState = Player.STATE_READY, playWhenReady = true)
     val state = SeekBackButtonState(player)
 
     assertThat(player.currentPosition).isEqualTo(0)
@@ -92,7 +92,7 @@ class SeekBackButtonStateTest {
 
   @Test
   fun positionNonZero_buttonClicked_positionJumpsBackBySpecifiedAmount() {
-    val player = TestPlayer(playbackState = Player.STATE_READY, playWhenReady = true)
+    val player = TestSimpleBasePlayer(playbackState = Player.STATE_READY, playWhenReady = true)
     player.setPosition(700)
     player.setSeekBackIncrementMs(300)
     val state = SeekBackButtonState(player)
@@ -106,7 +106,7 @@ class SeekBackButtonStateTest {
 
   @Test
   fun playerChangesAvailableCommandsBeforeEventListenerRegisters_observeGetsTheLatestValues_uiIconInSync() {
-    val player = TestPlayer()
+    val player = TestSimpleBasePlayer()
 
     lateinit var state: SeekBackButtonState
     composeTestRule.setContent {

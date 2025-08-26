@@ -19,7 +19,7 @@ package androidx.media3.ui.compose.state
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.media3.common.Player
-import androidx.media3.ui.compose.utils.TestPlayer
+import androidx.media3.test.utils.TestSimpleBasePlayer
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import org.junit.Rule
@@ -34,7 +34,7 @@ class MuteButtonStateTest {
 
   @Test
   fun playerHasVolume_mutePlayer_mutedIconShowing() {
-    val player = TestPlayer()
+    val player = TestSimpleBasePlayer()
     player.volume = 0.5f
 
     lateinit var state: MuteButtonState
@@ -50,7 +50,7 @@ class MuteButtonStateTest {
 
   @Test
   fun playerIsMuted_setNonZeroVolumeOnPlayer_unmutedIconShowing() {
-    val player = TestPlayer()
+    val player = TestSimpleBasePlayer()
     player.mute()
 
     lateinit var state: MuteButtonState
@@ -66,7 +66,7 @@ class MuteButtonStateTest {
 
   @Test
   fun addSetVolumeCommandToPlayer_buttonStateTogglesFromDisabledToEnabled() {
-    val player = TestPlayer()
+    val player = TestSimpleBasePlayer()
     player.removeCommands(Player.COMMAND_SET_VOLUME)
 
     lateinit var state: MuteButtonState
@@ -82,7 +82,7 @@ class MuteButtonStateTest {
 
   @Test
   fun addGetVolumeCommandToPlayer_buttonStateTogglesFromDisabledToEnabled() {
-    val player = TestPlayer()
+    val player = TestSimpleBasePlayer()
     player.removeCommands(Player.COMMAND_GET_VOLUME)
 
     lateinit var state: MuteButtonState
@@ -98,7 +98,7 @@ class MuteButtonStateTest {
 
   @Test
   fun addSetGetVolumeCommandToPlayer_buttonStateTogglesFromDisabledToEnabled() {
-    val player = TestPlayer()
+    val player = TestSimpleBasePlayer()
     player.removeCommands(Player.COMMAND_GET_VOLUME, Player.COMMAND_SET_VOLUME)
     lateinit var state: MuteButtonState
     composeTestRule.setContent { state = rememberMuteButtonState(player) }
@@ -115,7 +115,7 @@ class MuteButtonStateTest {
 
   @Test
   fun noGetVolumeCommand_volumeNonZero_buttonStateShowsUnmuted() {
-    val player = TestPlayer()
+    val player = TestSimpleBasePlayer()
     player.addCommands(Player.COMMAND_SET_VOLUME)
     player.removeCommands(Player.COMMAND_GET_VOLUME)
     player.volume = 0.7f
@@ -129,7 +129,7 @@ class MuteButtonStateTest {
 
   @Test
   fun noGetVolumeCommand_volumeZero_buttonStateShowsUnmuted() {
-    val player = TestPlayer()
+    val player = TestSimpleBasePlayer()
     player.addCommands(Player.COMMAND_SET_VOLUME)
     player.removeCommands(Player.COMMAND_GET_VOLUME)
     player.volume = 0f
@@ -143,7 +143,7 @@ class MuteButtonStateTest {
 
   @Test
   fun playerHasVolume_buttonClicked_playerMuted() {
-    val player = TestPlayer()
+    val player = TestSimpleBasePlayer()
     player.volume = 0.7f
 
     val state = MuteButtonState(player)
@@ -157,7 +157,7 @@ class MuteButtonStateTest {
 
   @Test
   fun playerIsMutedWithAnonZeroPrevVolume_buttonClicked_playerVolumeReturnsToPreMuted() {
-    val player = TestPlayer()
+    val player = TestSimpleBasePlayer()
     player.volume = 0.7f
     player.mute()
     val state = MuteButtonState(player)
@@ -170,7 +170,7 @@ class MuteButtonStateTest {
 
   @Test
   fun playerIsMutedFromTheStart_buttonClicked_playerVolumeIs1() {
-    val player = TestPlayer()
+    val player = TestSimpleBasePlayer()
     player.mute()
     val state = MuteButtonState(player)
 
@@ -183,7 +183,7 @@ class MuteButtonStateTest {
 
   @Test
   fun playerIsMutedBeforeEventListenerRegisters_observeGetsTheLatestValues_uiIconInSync() {
-    val player = TestPlayer()
+    val player = TestSimpleBasePlayer()
 
     lateinit var state: MuteButtonState
     composeTestRule.setContent {
@@ -201,7 +201,7 @@ class MuteButtonStateTest {
 
   @Test
   fun playerChangesAvailableCommandsBeforeEventListenerRegisters_observeGetsTheLatestValues_uiIconInSync() {
-    val player = TestPlayer()
+    val player = TestSimpleBasePlayer()
 
     lateinit var state: MuteButtonState
     composeTestRule.setContent {
