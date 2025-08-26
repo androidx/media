@@ -117,9 +117,11 @@ public final class EditingMetricsCollectorTest {
               public void close() {}
             },
             EXPORTER_NAME,
-            MUXER_NAME);
+            MUXER_NAME,
+            /* compositionHasAudioProcessors= */ false,
+            /* compositionHasVideoEffects= */ false);
 
-    editingMetricsCollector.onExportSuccess(exportResult);
+    editingMetricsCollector.onExportSuccess(exportResult, /* isExportResumed= */ false);
 
     EditingEndedEvent editingEndedEvent = editingEndedEventAtomicReference.get();
     assertThat(editingEndedEvent.getFinalState())
@@ -128,6 +130,10 @@ public final class EditingMetricsCollectorTest {
     assertThat(editingEndedEvent.getExporterName()).isEqualTo(EXPORTER_NAME);
     assertThat(editingEndedEvent.getMuxerName()).isEqualTo(MUXER_NAME);
     assertThat(editingEndedEvent.getFinalProgressPercent()).isEqualTo(100);
+    assertThat(editingEndedEvent.getOperationTypes())
+        .isEqualTo(
+            EditingEndedEvent.OPERATION_TYPE_AUDIO_TRANSCODE
+                | EditingEndedEvent.OPERATION_TYPE_VIDEO_TRANSCODE);
     assertThat(editingEndedEvent.getInputMediaItemInfos()).hasSize(1);
     // Assert input media items information
     MediaItemInfo inputMediaItemInfo = editingEndedEvent.getInputMediaItemInfos().get(0);
@@ -218,10 +224,13 @@ public final class EditingMetricsCollectorTest {
               public void close() {}
             },
             EXPORTER_NAME,
-            MUXER_NAME);
+            MUXER_NAME,
+            /* compositionHasAudioProcessors= */ false,
+            /* compositionHasVideoEffects= */ false);
     int progressPercentage = 10;
 
-    editingMetricsCollector.onExportError(progressPercentage, exception, exportResult);
+    editingMetricsCollector.onExportError(
+        progressPercentage, exception, exportResult, /* isExportResumed= */ false);
 
     EditingEndedEvent editingEndedEvent = editingEndedEventAtomicReference.get();
     assertThat(editingEndedEvent.getFinalState()).isEqualTo(EditingEndedEvent.FINAL_STATE_ERROR);
@@ -231,6 +240,10 @@ public final class EditingMetricsCollectorTest {
     assertThat(editingEndedEvent.getFinalProgressPercent()).isEqualTo(progressPercentage);
     assertThat(editingEndedEvent.getErrorCode())
         .isEqualTo(EditingEndedEvent.ERROR_CODE_MUXING_FAILED);
+    assertThat(editingEndedEvent.getOperationTypes())
+        .isEqualTo(
+            EditingEndedEvent.OPERATION_TYPE_AUDIO_TRANSCODE
+                | EditingEndedEvent.OPERATION_TYPE_VIDEO_TRANSCODE);
     // Assert input media items information
     assertThat(editingEndedEvent.getInputMediaItemInfos()).hasSize(1);
     MediaItemInfo inputMediaItemInfo = editingEndedEvent.getInputMediaItemInfos().get(0);
@@ -294,7 +307,9 @@ public final class EditingMetricsCollectorTest {
               public void close() {}
             },
             EXPORTER_NAME,
-            MUXER_NAME);
+            MUXER_NAME,
+            /* compositionHasAudioProcessors= */ true,
+            /* compositionHasVideoEffects= */ true);
     int progressPercentage = 70;
 
     editingMetricsCollector.onExportCancelled(progressPercentage);
@@ -305,5 +320,9 @@ public final class EditingMetricsCollectorTest {
     assertThat(editingEndedEvent.getExporterName()).isEqualTo(EXPORTER_NAME);
     assertThat(editingEndedEvent.getMuxerName()).isEqualTo(MUXER_NAME);
     assertThat(editingEndedEvent.getFinalProgressPercent()).isEqualTo(progressPercentage);
+    assertThat(editingEndedEvent.getOperationTypes())
+        .isEqualTo(
+            EditingEndedEvent.OPERATION_TYPE_AUDIO_EDIT
+                | EditingEndedEvent.OPERATION_TYPE_VIDEO_EDIT);
   }
 }

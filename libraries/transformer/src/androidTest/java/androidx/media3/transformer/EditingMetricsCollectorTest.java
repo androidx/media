@@ -37,6 +37,8 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.Metadata;
+import androidx.media3.common.audio.SonicAudioProcessor;
+import androidx.media3.effect.Brightness;
 import androidx.media3.muxer.BufferInfo;
 import androidx.media3.muxer.Muxer;
 import androidx.media3.muxer.MuxerException;
@@ -131,7 +133,12 @@ public class EditingMetricsCollectorTest {
                     }))
             .build();
     EditedMediaItem audioVideoItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri)).build();
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
+            .setEffects(
+                new Effects(
+                    /* audioProcessors= */ ImmutableList.of(),
+                    /* videoEffects= */ ImmutableList.of(new Brightness(0.5f))))
+            .build();
     EditedMediaItem imageItem =
         new EditedMediaItem.Builder(
                 new MediaItem.Builder().setUri(JPG_ASSET.uri).setImageDurationMs(1500).build())
@@ -159,6 +166,11 @@ public class EditingMetricsCollectorTest {
     assertThat(editingEndedEvent.getExporterName()).isEqualTo(EXPORTER_NAME);
     assertThat(editingEndedEvent.getMuxerName()).isEqualTo(DefaultMuxer.MUXER_NAME);
     assertThat(editingEndedEvent.getFinalProgressPercent()).isEqualTo(100);
+    assertThat(editingEndedEvent.getOperationTypes())
+        .isEqualTo(
+            EditingEndedEvent.OPERATION_TYPE_AUDIO_TRANSCODE
+                | EditingEndedEvent.OPERATION_TYPE_VIDEO_TRANSCODE
+                | EditingEndedEvent.OPERATION_TYPE_VIDEO_EDIT);
     // Assert video input media item information
     MediaItemInfo firstMediaItemInfo = editingEndedEvent.getInputMediaItemInfos().get(0);
     ExportResult.ProcessedInput firstProcessedInput =
@@ -265,8 +277,15 @@ public class EditingMetricsCollectorTest {
                     }))
             .setMuxerFactory(new FailingMuxerFactory())
             .build();
+    SonicAudioProcessor sonicAudioProcessor = new SonicAudioProcessor();
+    sonicAudioProcessor.setPitch(/* pitch= */ 2f);
     EditedMediaItem audioVideoItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri)).build();
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
+            .setEffects(
+                new Effects(
+                    /* audioProcessors= */ ImmutableList.of(sonicAudioProcessor),
+                    /* videoEffects= */ ImmutableList.of()))
+            .build();
 
     assertThrows(
         ExportException.class,
@@ -282,6 +301,11 @@ public class EditingMetricsCollectorTest {
     assertThat(editingEndedEvent.getFinalProgressPercent()).isIn(Range.closed(0f, 100f));
     assertThat(editingEndedEvent.getErrorCode())
         .isEqualTo(EditingEndedEvent.ERROR_CODE_MUXING_FAILED);
+    assertThat(editingEndedEvent.getOperationTypes())
+        .isEqualTo(
+            EditingEndedEvent.OPERATION_TYPE_AUDIO_TRANSCODE
+                | EditingEndedEvent.OPERATION_TYPE_VIDEO_TRANSMUX
+                | EditingEndedEvent.OPERATION_TYPE_AUDIO_EDIT);
   }
 
   @Test

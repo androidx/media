@@ -40,6 +40,7 @@ import android.media.metrics.LogSessionId;
 import android.os.Looper;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.DebugViewProvider;
@@ -62,6 +63,7 @@ import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.muxer.Muxer;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -1683,22 +1685,13 @@ public final class Transformer {
     }
     LogSessionId logSessionId = null;
     if (canCollectEditingMetrics()) {
-      @Nullable String muxerName = null;
-      if (muxerFactory instanceof InAppMp4Muxer.Factory) {
-        muxerName = InAppMp4Muxer.MUXER_NAME;
-      } else if (muxerFactory instanceof InAppFragmentedMp4Muxer.Factory) {
-        muxerName = InAppFragmentedMp4Muxer.MUXER_NAME;
-      } else if (muxerFactory instanceof DefaultMuxer.Factory) {
-        muxerName = DefaultMuxer.MUXER_NAME;
-      }
       EditingMetricsCollector.MetricsReporter metricsReporter =
           checkNotNull(metricsReporterFactory).create();
       if (metricsReporter instanceof EditingMetricsCollector.DefaultMetricsReporter) {
         logSessionId =
             ((EditingMetricsCollector.DefaultMetricsReporter) metricsReporter).getLogSessionId();
       }
-      editingMetricsCollector =
-          new EditingMetricsCollector(metricsReporter, EXPORTER_NAME, muxerName);
+      editingMetricsCollector = prepareEditingMetricsCollector(metricsReporter);
     }
     FallbackListener fallbackListener =
         new FallbackListener(composition, listeners, applicationHandler, transformationRequest);
@@ -1740,7 +1733,7 @@ public final class Transformer {
         listener -> listener.onCompleted(checkNotNull(composition), exportResult));
     listeners.flushEvents();
     if (canCollectEditingMetrics()) {
-      checkNotNull(editingMetricsCollector).onExportSuccess(exportResult);
+      checkNotNull(editingMetricsCollector).onExportSuccess(exportResult, isExportResumed());
     }
     transformerState = TRANSFORMER_STATE_PROCESS_FULL_INPUT;
   }
@@ -1760,9 +1753,49 @@ public final class Transformer {
               ? progressHolder.progress
               : C.PERCENTAGE_UNSET;
       checkNotNull(editingMetricsCollector)
-          .onExportError(progressPercentage, exception, exportResult);
+          .onExportError(progressPercentage, exception, exportResult, isExportResumed());
     }
     transformerState = TRANSFORMER_STATE_PROCESS_FULL_INPUT;
+  }
+
+  // This method is safe to have because it's called inside a canCollectEditingMetrics() check which
+  // checks for the API level
+  @RequiresApi(35)
+  private EditingMetricsCollector prepareEditingMetricsCollector(
+      EditingMetricsCollector.MetricsReporter metricsReporter) {
+    @Nullable String muxerName = null;
+    if (muxerFactory instanceof InAppMp4Muxer.Factory) {
+      muxerName = InAppMp4Muxer.MUXER_NAME;
+    } else if (muxerFactory instanceof InAppFragmentedMp4Muxer.Factory) {
+      muxerName = InAppFragmentedMp4Muxer.MUXER_NAME;
+    } else if (muxerFactory instanceof DefaultMuxer.Factory) {
+      muxerName = DefaultMuxer.MUXER_NAME;
+    }
+
+    boolean compositionHasAudioProcessors =
+        !checkNotNull(composition).effects.audioProcessors.isEmpty()
+            || Iterables.any(
+                checkNotNull(composition).sequences,
+                sequence ->
+                    Iterables.any(
+                        sequence.editedMediaItems,
+                        editedMediaItem -> !editedMediaItem.effects.audioProcessors.isEmpty()));
+
+    boolean compositionHasVideoEffects =
+        !checkNotNull(composition).effects.videoEffects.isEmpty()
+            || Iterables.any(
+                checkNotNull(composition).sequences,
+                sequence ->
+                    Iterables.any(
+                        sequence.editedMediaItems,
+                        editedMediaItem -> !editedMediaItem.effects.videoEffects.isEmpty()));
+
+    return new EditingMetricsCollector(
+        metricsReporter,
+        EXPORTER_NAME,
+        muxerName,
+        compositionHasAudioProcessors,
+        compositionHasVideoEffects);
   }
 
   private final class ComponentListener
