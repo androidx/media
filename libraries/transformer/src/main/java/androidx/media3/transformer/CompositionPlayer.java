@@ -116,14 +116,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * {@linkplain Player#REPEAT_MODE_ALL all} of the {@link Composition}, or {@linkplain
  * Player#REPEAT_MODE_OFF off}.
  */
-// TODO: b/440060806 - Remove callbacks from public API and move listener implementations into
-//  internal classes.
 @UnstableApi
 @RestrictTo(LIBRARY_GROUP)
-public final class CompositionPlayer extends SimpleBasePlayer
-    implements CompositionPlayerInternal.Listener,
-        PlaybackVideoGraphWrapper.Listener,
-        SurfaceHolder.Callback {
+public final class CompositionPlayer extends SimpleBasePlayer {
 
   /** A builder for {@link CompositionPlayer} instances. */
   public static final class Builder {
@@ -453,6 +448,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
   private final boolean enableReplayableCache;
   private final long lateThresholdToDropInputUs;
   private final AudioFocusManager audioFocusManager;
+  private final InternalListener internalListener;
 
   /** Maps from input index to whether the video track is selected in that sequence. */
   private final SparseBooleanArray videoTracksSelected;
@@ -519,9 +515,9 @@ public final class CompositionPlayer extends SimpleBasePlayer
     audioAttributes = builder.audioAttributes;
     handleAudioFocus = builder.handleAudioFocus;
     appNeedsToPrepareCompositionPlayer = true;
+    internalListener = new InternalListener();
     audioFocusManager =
-        new AudioFocusManager(
-            context, applicationHandler.getLooper(), new AudioFocusManagerListener());
+        new AudioFocusManager(context, applicationHandler.getLooper(), internalListener);
     AnalyticsCollector analyticsCollector = new DefaultAnalyticsCollector(clock);
     analyticsCollector.setPlayer(this, builder.looper);
     analyticsCollector.addListener(new EventLogger(TAG));
@@ -660,58 +656,6 @@ public final class CompositionPlayer extends SimpleBasePlayer
    */
   public Clock getClock() {
     return clock;
-  }
-
-  // PlaybackVideoGraphWrapper.Listener methods. Called on playback thread.
-
-  @Override
-  public void onFirstFrameRendered() {
-    applicationHandler.post(
-        () -> {
-          CompositionPlayer.this.renderedFirstFrame = true;
-          invalidateState();
-        });
-  }
-
-  @Override
-  public void onFrameDropped() {
-    // Do not post to application thread on each dropped frame, because onFrameDropped
-    // may be called frequently when resources are already scarce.
-  }
-
-  @Override
-  public void onVideoSizeChanged(VideoSize videoSize) {
-    // TODO: b/328219481 - Report video size change to app.
-  }
-
-  @Override
-  public void onError(VideoFrameProcessingException videoFrameProcessingException) {
-    // The error will also be surfaced from the underlying ExoPlayer instance via
-    // PlayerListener.onPlayerError, and it will arrive to the composition player twice.
-    applicationHandler.post(
-        () ->
-            maybeUpdatePlaybackError(
-                "Error processing video frames",
-                videoFrameProcessingException,
-                PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSING_FAILED));
-  }
-
-  // SurfaceHolder.Callback methods. Called on application thread.
-
-  @Override
-  public void surfaceCreated(SurfaceHolder holder) {
-    videoOutputSize = new Size(holder.getSurfaceFrame().width(), holder.getSurfaceFrame().height());
-    setVideoSurfaceInternal(holder.getSurface(), videoOutputSize);
-  }
-
-  @Override
-  public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
-    maybeSetOutputSurfaceInfo(width, height);
-  }
-
-  @Override
-  public void surfaceDestroyed(SurfaceHolder holder) {
-    clearVideoSurfaceInternal();
   }
 
   // SimpleBasePlayer methods
@@ -872,13 +816,6 @@ public final class CompositionPlayer extends SimpleBasePlayer
       return;
     }
     playerHolders.get(0).player.setVideoFrameMetadataListener(videoFrameMetadataListener);
-  }
-
-  // CompositionPlayerInternal.Listener methods
-
-  @Override
-  public void onError(String message, Exception cause, int errorCode) {
-    maybeUpdatePlaybackError(message, cause, errorCode);
   }
 
   // Internal methods
@@ -1130,7 +1067,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
             .setEnableReplayableCache(enableReplayableCache)
             .experimentalSetLateThresholdToDropInputUs(lateThresholdToDropInputUs)
             .build();
-    playbackVideoGraphWrapper.addListener(this);
+    playbackVideoGraphWrapper.addListener(internalListener);
 
     // From here after, composition player accessed the audio and video pipelines via the internal
     // player. The internal player ensures access to the components is done on the playback thread.
@@ -1140,7 +1077,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
             clock,
             playbackAudioGraphWrapper,
             playbackVideoGraphWrapper,
-            /* listener= */ this,
+            internalListener,
             compositionInternalListenerHandler);
     setVolumeInternal(volume);
     compositionPlayerInternalPrepared = true;
@@ -1487,7 +1424,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
   private void setVideoSurfaceHolderInternal(SurfaceHolder surfaceHolder) {
     removeSurfaceCallbacks();
     this.surfaceHolder = surfaceHolder;
-    surfaceHolder.addCallback(this);
+    surfaceHolder.addCallback(internalListener);
     Surface surface = surfaceHolder.getSurface();
     if (surface != null && surface.isValid()) {
       videoOutputSize =
@@ -1521,7 +1458,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
 
   private void removeSurfaceCallbacks() {
     if (surfaceHolder != null) {
-      surfaceHolder.removeCallback(this);
+      surfaceHolder.removeCallback(internalListener);
       surfaceHolder = null;
     }
   }
@@ -1755,8 +1692,16 @@ public final class CompositionPlayer extends SimpleBasePlayer
     }
   }
 
-  // These methods are called from the application thread.
-  private final class AudioFocusManagerListener implements AudioFocusManager.PlayerControl {
+  /** Class that holds internal listener methods for {@link CompositionPlayer}. */
+  @SuppressWarnings("UngroupedOverloads") // onError() methods represent different callbacks.
+  private final class InternalListener
+      implements AudioFocusManager.PlayerControl,
+          CompositionPlayerInternal.Listener,
+          SurfaceHolder.Callback,
+          PlaybackVideoGraphWrapper.Listener {
+
+    // AudioFocusManager.PlayerControl methods. Called on the application thread.
+
     @Override
     public void setVolumeMultiplier(float volumeMultiplier) {
       setVolumeInternal(volume);
@@ -1768,6 +1713,66 @@ public final class CompositionPlayer extends SimpleBasePlayer
       updatePlayWhenReadyWithAudioFocus(
           playWhenReady, playerCommand, playbackSuppressionReason, playWhenReadyChangeReason);
       invalidateState();
+    }
+
+    // CompositionPlayerInternal.Listener method. Called on the application thread.
+
+    @Override
+    public void onError(String message, Exception cause, int errorCode) {
+      maybeUpdatePlaybackError(message, cause, errorCode);
+    }
+
+    // SurfaceHolder.Callback methods. Called on application thread.
+
+    @Override
+    public void surfaceCreated(SurfaceHolder holder) {
+      videoOutputSize =
+          new Size(holder.getSurfaceFrame().width(), holder.getSurfaceFrame().height());
+      setVideoSurfaceInternal(holder.getSurface(), videoOutputSize);
+    }
+
+    @Override
+    public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+      maybeSetOutputSurfaceInfo(width, height);
+    }
+
+    @Override
+    public void surfaceDestroyed(SurfaceHolder holder) {
+      clearVideoSurfaceInternal();
+    }
+
+    // PlaybackVideoGraphWrapper.Listener methods. Called on the playback thread.
+
+    @Override
+    public void onFirstFrameRendered() {
+      applicationHandler.post(
+          () -> {
+            CompositionPlayer.this.renderedFirstFrame = true;
+            invalidateState();
+          });
+    }
+
+    @Override
+    public void onFrameDropped() {
+      // Do not post to application thread on each dropped frame, because onFrameDropped
+      // may be called frequently when resources are already scarce.
+    }
+
+    @Override
+    public void onVideoSizeChanged(VideoSize videoSize) {
+      // TODO: b/328219481 - Report video size change to app.
+    }
+
+    @Override
+    public void onError(VideoFrameProcessingException videoFrameProcessingException) {
+      // The error will also be surfaced from the underlying ExoPlayer instance via
+      // PlayerListener.onPlayerError, and it will arrive to the composition player twice.
+      applicationHandler.post(
+          () ->
+              maybeUpdatePlaybackError(
+                  "Error processing video frames",
+                  videoFrameProcessingException,
+                  PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSING_FAILED));
     }
   }
 }
