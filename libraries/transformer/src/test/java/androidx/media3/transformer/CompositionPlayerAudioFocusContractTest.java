@@ -14,34 +14,35 @@
  * limitations under the License.
  */
 
-package androidx.media3.exoplayer;
+package androidx.media3.transformer;
 
-import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
+import static androidx.media3.transformer.TestUtil.createTestCompositionPlayer;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.os.Looper;
+import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.Clock;
-import androidx.media3.test.utils.TestExoPlayerBuilder;
 import androidx.media3.test.utils.robolectric.PlayerAudioFocusContractTest;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import org.junit.runner.RunWith;
 
 /**
  * {@linkplain Player#COMMAND_SET_AUDIO_ATTRIBUTES Player audio focus} contract tests for {@link
- * ExoPlayer}.
+ * CompositionPlayer}.
  */
 @RunWith(AndroidJUnit4.class)
-public class ExoPlayerAudioFocusContractTest extends PlayerAudioFocusContractTest {
+public class CompositionPlayerAudioFocusContractTest extends PlayerAudioFocusContractTest {
 
   @Override
   protected PlayerInfo createPlayerInfo() {
-    return new ExoPlayerInfo(new TestExoPlayerBuilder(getApplicationContext()).build());
+    return new CompositionPlayerInfo(createTestCompositionPlayer());
   }
 
-  private static final class ExoPlayerInfo implements PlayerInfo {
-    private final ExoPlayer player;
+  private static final class CompositionPlayerInfo implements PlayerInfo {
+    private final CompositionPlayer player;
 
-    private ExoPlayerInfo(ExoPlayer player) {
+    private CompositionPlayerInfo(CompositionPlayer player) {
       this.player = player;
     }
 
@@ -57,12 +58,22 @@ public class ExoPlayerAudioFocusContractTest extends PlayerAudioFocusContractTes
 
     @Override
     public Looper getPlaybackLooper() {
-      return player.getPlaybackLooper();
+      return checkNotNull(player.getPlaybackLooper());
     }
 
     @Override
     public Looper getAudioFocusListenerLooper() {
-      return player.getPlaybackLooper();
+      return player.getApplicationLooper();
+    }
+
+    @Override
+    public void setMediaItem(MediaItem item) {
+      // Duration has no effect for these tests, but is required by CompositionPlayer.
+      EditedMediaItem editedMediaItem =
+          new EditedMediaItem.Builder(item).setDurationUs(1_000_000).build();
+      EditedMediaItemSequence sequence =
+          new EditedMediaItemSequence.Builder(editedMediaItem).build();
+      player.setComposition(new Composition.Builder(sequence).build());
     }
   }
 }

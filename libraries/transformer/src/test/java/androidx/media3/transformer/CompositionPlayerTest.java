@@ -15,7 +15,6 @@
  */
 package androidx.media3.transformer;
 
-import static androidx.media3.common.Player.PLAYBACK_SUPPRESSION_REASON_SCRUBBING;
 import static androidx.media3.common.Player.STATE_BUFFERING;
 import static androidx.media3.common.Player.STATE_ENDED;
 import static androidx.media3.common.Player.STATE_IDLE;
@@ -254,7 +253,8 @@ public class CompositionPlayerTest {
             Player.COMMAND_SET_REPEAT_MODE,
             Player.COMMAND_GET_VOLUME,
             Player.COMMAND_SET_VOLUME,
-            Player.COMMAND_RELEASE);
+            Player.COMMAND_RELEASE,
+            Player.COMMAND_SET_AUDIO_ATTRIBUTES);
 
     player.release();
   }
@@ -993,25 +993,6 @@ public class CompositionPlayerTest {
     player.setScrubbingModeEnabled(true);
 
     assertThat(player.isScrubbingModeEnabled()).isTrue();
-  }
-
-  @Test
-  public void setScrubbingModeEnabled_updatesPlaybackSuppressionReason() throws TimeoutException {
-    CompositionPlayer player = createTestCompositionPlayer();
-    EditedMediaItem editedMediaItem =
-        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW))
-            .setDurationUs(1_000_000L)
-            .build();
-    EditedMediaItemSequence sequence = new EditedMediaItemSequence.Builder(editedMediaItem).build();
-    Composition composition = new Composition.Builder(sequence).build();
-    player.setComposition(composition);
-    player.prepare();
-
-    player.setScrubbingModeEnabled(true);
-    TestPlayerRunHelper.runUntilPlaybackState(player, STATE_READY);
-
-    assertThat(player.getPlaybackSuppressionReason())
-        .isEqualTo(PLAYBACK_SUPPRESSION_REASON_SCRUBBING);
   }
 
   @Test

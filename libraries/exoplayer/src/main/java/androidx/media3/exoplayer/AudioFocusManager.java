@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer;
 
+import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
 import static androidx.media3.common.audio.AudioManagerCompat.AUDIOFOCUS_GAIN;
 import static androidx.media3.common.audio.AudioManagerCompat.AUDIOFOCUS_GAIN_TRANSIENT;
 import static androidx.media3.common.audio.AudioManagerCompat.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE;
@@ -31,6 +32,7 @@ import android.os.Handler;
 import android.os.Looper;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
+import androidx.annotation.RestrictTo;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
@@ -48,7 +50,8 @@ import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** Manages requesting and responding to changes in audio focus. */
-/* package */ final class AudioFocusManager {
+@RestrictTo(LIBRARY_GROUP)
+public final class AudioFocusManager {
 
   /** Interface to allow AudioFocusManager to give commands to a player. */
   public interface PlayerControl {

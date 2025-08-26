@@ -16,6 +16,7 @@
 package androidx.media3.transformer;
 
 import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+import static androidx.media3.common.util.Util.constrainValue;
 import static androidx.media3.common.util.Util.usToMs;
 import static androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper.LATE_US_TO_DROP_INPUT_FRAME;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -39,6 +40,7 @@ import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
 import androidx.annotation.RestrictTo;
 import androidx.annotation.VisibleForTesting;
+import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
@@ -61,6 +63,8 @@ import androidx.media3.effect.DefaultGlObjectsProvider;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.SingleInputVideoGraph;
 import androidx.media3.effect.TimestampAdjustment;
+import androidx.media3.exoplayer.AudioFocusManager;
+import androidx.media3.exoplayer.AudioFocusManager.PlayerCommand;
 import androidx.media3.exoplayer.DefaultLoadControl;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.LoadControl;
@@ -112,6 +116,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * {@linkplain Player#REPEAT_MODE_ALL all} of the {@link Composition}, or {@linkplain
  * Player#REPEAT_MODE_OFF off}.
  */
+// TODO: b/440060806 - Remove callbacks from public API and move listener implementations into
+//  internal classes.
 @UnstableApi
 @RestrictTo(LIBRARY_GROUP)
 public final class CompositionPlayer extends SimpleBasePlayer
@@ -131,6 +137,8 @@ public final class CompositionPlayer extends SimpleBasePlayer
     private Supplier<ImageDecoder.Factory> imageDecoderFactorySupplier;
     private Supplier<GlObjectsProvider> glObjectsProviderSupplier;
     private Supplier<LoadControl> loadControlSupplier;
+    private AudioAttributes audioAttributes;
+    private boolean handleAudioFocus;
     private VideoGraph.@MonotonicNonNull Factory videoGraphFactory;
 
     private boolean videoPrewarmingEnabled;
@@ -158,6 +166,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
       videoPrewarmingEnabled = true;
       lateThresholdToDropInputUs = LATE_US_TO_DROP_INPUT_FRAME;
       clock = Clock.DEFAULT;
+      audioAttributes = AudioAttributes.DEFAULT;
     }
 
     /**
@@ -321,6 +330,25 @@ public final class CompositionPlayer extends SimpleBasePlayer
     }
 
     /**
+     * Sets {@link AudioAttributes} that will be used by the player and whether to handle audio
+     * focus.
+     *
+     * <p>If audio focus should be handled, the {@link AudioAttributes#usage} must be {@link
+     * C#USAGE_MEDIA} or {@link C#USAGE_GAME}. Other usages will throw an {@link
+     * IllegalArgumentException}.
+     *
+     * @param audioAttributes {@link AudioAttributes}.
+     * @param handleAudioFocus Whether the player should handle audio focus.
+     * @return This builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setAudioAttributes(AudioAttributes audioAttributes, boolean handleAudioFocus) {
+      this.audioAttributes = checkNotNull(audioAttributes);
+      this.handleAudioFocus = handleAudioFocus;
+      return this;
+    }
+
+    /**
      * Sets whether to enable replayable cache.
      *
      * <p>By default, the replayable cache is not enabled. Enable it to achieve accurate effect
@@ -394,7 +422,8 @@ public final class CompositionPlayer extends SimpleBasePlayer
               COMMAND_SET_VIDEO_SURFACE,
               COMMAND_GET_VOLUME,
               COMMAND_SET_VOLUME,
-              COMMAND_RELEASE)
+              COMMAND_RELEASE,
+              COMMAND_SET_AUDIO_ATTRIBUTES)
           .build();
 
   private static final @Event int[] SUPPORTED_LISTENER_EVENTS =
@@ -423,6 +452,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
   private final LoadControl loadControl;
   private final boolean enableReplayableCache;
   private final long lateThresholdToDropInputUs;
+  private final AudioFocusManager audioFocusManager;
 
   /** Maps from input index to whether the video track is selected in that sequence. */
   private final SparseBooleanArray videoTracksSelected;
@@ -457,6 +487,9 @@ public final class CompositionPlayer extends SimpleBasePlayer
   private boolean scrubbingModeEnabled;
   // Whether prepare() needs to be called to prepare the underlying sequence players.
   private boolean appNeedsToPrepareCompositionPlayer;
+  private boolean playWhenReadyBeforeScrubbingEnabled;
+  private AudioAttributes audioAttributes;
+  private boolean handleAudioFocus;
 
   // "this" reference for position suppliers.
   @SuppressWarnings("initialization:methodref.receiver.bound.invalid")
@@ -483,7 +516,12 @@ public final class CompositionPlayer extends SimpleBasePlayer
     positionSupplier = new LivePositionSupplier(this::getContentPositionMs);
     bufferedPositionSupplier = new LivePositionSupplier(this::getBufferedPositionMs);
     totalBufferedDurationSupplier = new LivePositionSupplier(this::getTotalBufferedDurationMs);
+    audioAttributes = builder.audioAttributes;
+    handleAudioFocus = builder.handleAudioFocus;
     appNeedsToPrepareCompositionPlayer = true;
+    audioFocusManager =
+        new AudioFocusManager(
+            context, applicationHandler.getLooper(), new AudioFocusManagerListener());
     AnalyticsCollector analyticsCollector = new DefaultAnalyticsCollector(clock);
     analyticsCollector.setPlayer(this, builder.looper);
     analyticsCollector.addListener(new EventLogger(TAG));
@@ -540,10 +578,37 @@ public final class CompositionPlayer extends SimpleBasePlayer
    * @param scrubbingModeEnabled Whether scrubbing mode should be enabled.
    */
   public void setScrubbingModeEnabled(boolean scrubbingModeEnabled) {
+    verifyApplicationThread();
+    if (this.scrubbingModeEnabled == scrubbingModeEnabled) {
+      return;
+    }
     this.scrubbingModeEnabled = scrubbingModeEnabled;
+    if (scrubbingModeEnabled) {
+      this.playWhenReadyBeforeScrubbingEnabled = this.playWhenReady;
+    }
+
     for (int i = 0; i < playerHolders.size(); i++) {
       playerHolders.get(i).player.setScrubbingModeEnabled(scrubbingModeEnabled);
     }
+
+    if (scrubbingModeEnabled) {
+      updatePlayWhenReadyWithAudioFocus(
+          this.playWhenReady,
+          PLAYBACK_SUPPRESSION_REASON_SCRUBBING,
+          this.playWhenReadyChangeReason);
+    } else {
+      // Disabling scrubbing mode when scrubbing was enabled in a "playing" state is considered an
+      // implicit "play".
+      updatePlayWhenReadyWithAudioFocus(
+          /* playWhenReady= */ this.playWhenReadyBeforeScrubbingEnabled || this.playWhenReady,
+          PLAYBACK_SUPPRESSION_REASON_NONE,
+          this.playWhenReadyBeforeScrubbingEnabled
+              ? PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST
+              : this.playWhenReadyChangeReason);
+    }
+
+    // This is not a SimpleBasePlayer method, so we need to manually invalidate the state.
+    invalidateState();
   }
 
   /**
@@ -687,28 +752,23 @@ public final class CompositionPlayer extends SimpleBasePlayer
       // The player has been prepared already.
       return Futures.immediateVoidFuture();
     }
+
     for (int i = 0; i < playerHolders.size(); i++) {
       playerHolders.get(i).player.prepare();
     }
     appNeedsToPrepareCompositionPlayer = false;
+
+    updatePlayWhenReadyWithAudioFocus(
+        this.playWhenReady, this.playbackSuppressionReason, this.playWhenReadyChangeReason);
+
     updatePlaybackState();
     return Futures.immediateVoidFuture();
   }
 
   @Override
   protected ListenableFuture<?> handleSetPlayWhenReady(boolean playWhenReady) {
-    this.playWhenReady = playWhenReady;
-    playWhenReadyChangeReason = PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST;
-    if (playbackState == STATE_READY) {
-      if (playWhenReady) {
-        checkNotNull(compositionPlayerInternal).startRendering();
-      } else {
-        checkNotNull(compositionPlayerInternal).stopRendering();
-      }
-      for (int i = 0; i < playerHolders.size(); i++) {
-        playerHolders.get(i).player.setPlayWhenReady(playWhenReady);
-      }
-    } // else, wait until all players are ready.
+    updatePlayWhenReadyWithAudioFocus(
+        playWhenReady, playbackSuppressionReason, PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST);
     return Futures.immediateVoidFuture();
   }
 
@@ -777,9 +837,9 @@ public final class CompositionPlayer extends SimpleBasePlayer
   @Override
   protected ListenableFuture<?> handleSetVolume(
       float volume, @C.VolumeOperationType int volumeOperationType) {
-    this.volume = Util.constrainValue(volume, /* min= */ 0.0f, /* max= */ 1.0f);
-    if (compositionPlayerInternal != null) {
-      compositionPlayerInternal.setVolume(this.volume);
+    volume = constrainValue(volume, /* min= */ 0.0f, /* max= */ 1.0f);
+    if (this.volume != volume) {
+      setVolumeInternal(volume);
     }
     return Futures.immediateVoidFuture();
   }
@@ -795,6 +855,13 @@ public final class CompositionPlayer extends SimpleBasePlayer
       playerHolders.get(i).player.seekTo(positionMs);
     }
     compositionPlayerInternal.endSeek();
+    return Futures.immediateVoidFuture();
+  }
+
+  @Override
+  protected ListenableFuture<?> handleSetAudioAttributes(
+      AudioAttributes audioAttributes, boolean handleAudioFocus) {
+    setAudioAttributesInternal(audioAttributes, handleAudioFocus);
     return Futures.immediateVoidFuture();
   }
 
@@ -815,6 +882,37 @@ public final class CompositionPlayer extends SimpleBasePlayer
   }
 
   // Internal methods
+
+  private static @Player.PlayWhenReadyChangeReason int updatePlayWhenReadyChangeReason(
+      @AudioFocusManager.PlayerCommand int playerCommand,
+      @Player.PlayWhenReadyChangeReason int playWhenReadyChangeReason) {
+    if (playerCommand == AudioFocusManager.PLAYER_COMMAND_DO_NOT_PLAY) {
+      return Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS;
+    }
+    if (playWhenReadyChangeReason == Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS) {
+      return Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST;
+    }
+    return playWhenReadyChangeReason;
+  }
+
+  private static @Player.PlaybackSuppressionReason int updatePlaybackSuppressionReason(
+      @AudioFocusManager.PlayerCommand int playerCommand,
+      @Player.PlaybackSuppressionReason int playbackSuppressionReason,
+      boolean isScrubbingModeEnabled) {
+    if (playerCommand == AudioFocusManager.PLAYER_COMMAND_WAIT_FOR_CALLBACK) {
+      return Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS;
+    }
+    if (playbackSuppressionReason
+        != Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS) {
+      return playbackSuppressionReason;
+    }
+
+    if (isScrubbingModeEnabled) {
+      return PLAYBACK_SUPPRESSION_REASON_SCRUBBING;
+    }
+
+    return Player.PLAYBACK_SUPPRESSION_REASON_NONE;
+  }
 
   private static Composition deactivateSpeedAdjustingVideoEffects(Composition composition) {
     List<EditedMediaItemSequence> newSequences = new ArrayList<>();
@@ -858,13 +956,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
     int idleCount = 0;
     int bufferingCount = 0;
     int endedCount = 0;
-    playbackSuppressionReason = PLAYBACK_SUPPRESSION_REASON_NONE;
     for (int i = 0; i < playerHolders.size(); i++) {
-      // TODO: b/422124120 - Determine playbackSuppressionReason by inspecting all players.
-      if (playerHolders.get(i).player.getPlaybackSuppressionReason()
-          != PLAYBACK_SUPPRESSION_REASON_NONE) {
-        playbackSuppressionReason = playerHolders.get(i).player.getPlaybackSuppressionReason();
-      }
       @Player.State int playbackState = playerHolders.get(i).player.getPlaybackState();
       switch (playbackState) {
         case STATE_IDLE:
@@ -890,25 +982,121 @@ public final class CompositionPlayer extends SimpleBasePlayer
       // After calling prepare, transition into buffering, and stay until either all players are
       // ready, error is thrown or stop is called.
       playbackState = STATE_BUFFERING;
-      if (oldPlaybackState == STATE_READY && playWhenReady) {
+      if (oldPlaybackState == STATE_READY && shouldPlayWhenReady()) {
         // We were playing but a player got in buffering state, pause the players.
-        for (int i = 0; i < playerHolders.size(); i++) {
-          playerHolders.get(i).player.setPlayWhenReady(false);
-        }
-        checkNotNull(compositionPlayerInternal).stopRendering();
+        setPlayWhenReadyInternal(
+            /* playWhenReady= */ false, /* shouldUpdateInternalPlayers= */ true);
       }
     } else if (endedCount == playerHolders.size()) {
       playbackState = STATE_ENDED;
       checkNotNull(compositionPlayerInternal).stopRendering();
     } else {
       playbackState = STATE_READY;
-      if (oldPlaybackState != STATE_READY && playWhenReady) {
-        for (int i = 0; i < playerHolders.size(); i++) {
-          playerHolders.get(i).player.setPlayWhenReady(true);
-        }
-        checkNotNull(compositionPlayerInternal).startRendering();
+      if (oldPlaybackState != STATE_READY && shouldPlayWhenReady()) {
+        setPlayWhenReadyInternal(
+            /* playWhenReady= */ true, /* shouldUpdateInternalPlayers= */ true);
       }
     }
+  }
+
+  private void setAudioAttributesInternal(
+      AudioAttributes audioAttributes, boolean handleAudioFocus) {
+    this.handleAudioFocus = handleAudioFocus;
+
+    if (!Objects.equals(audioAttributes, this.audioAttributes)) {
+      this.audioAttributes = audioAttributes;
+      if (compositionPlayerInternalPrepared) {
+        checkNotNull(compositionPlayerInternal).setAudioAttributes(audioAttributes);
+      }
+      // CompositionPlayer handles audio focus, so only set AudioAttributes to internal players.
+      for (SequencePlayerHolder playerHolder : playerHolders) {
+        playerHolder.player.setAudioAttributes(audioAttributes, /* handleAudioFocus= */ false);
+      }
+    }
+
+    audioFocusManager.setAudioAttributes(handleAudioFocus ? audioAttributes : null);
+
+    updatePlayWhenReadyWithAudioFocus(
+        this.playWhenReady, this.playbackSuppressionReason, this.playWhenReadyChangeReason);
+  }
+
+  private void setVolumeInternal(float volume) {
+    this.volume = volume;
+    if (compositionPlayerInternal != null) {
+      compositionPlayerInternal.setVolume(this.volume * audioFocusManager.getVolumeMultiplier());
+    }
+  }
+
+  /**
+   * Toggles rendering on {@link #compositionPlayerInternal} and {@link ExoPlayer#setPlayWhenReady}
+   * on internal players.
+   *
+   * <p>This method has no effect on {@link #playWhenReady}.
+   *
+   * @param playWhenReady Whether to enable or disable rendering.
+   * @param shouldUpdateInternalPlayers Whether to modify {@link ExoPlayer#setPlayWhenReady} on
+   *     internal players.
+   */
+  private void setPlayWhenReadyInternal(
+      boolean playWhenReady, boolean shouldUpdateInternalPlayers) {
+    if (!compositionPlayerInternalPrepared) {
+      return;
+    }
+    if (playWhenReady) {
+      checkNotNull(compositionPlayerInternal).startRendering();
+    } else {
+      checkNotNull(compositionPlayerInternal).stopRendering();
+    }
+
+    if (shouldUpdateInternalPlayers) {
+      for (int i = 0; i < playerHolders.size(); i++) {
+        playerHolders.get(i).player.setPlayWhenReady(playWhenReady);
+      }
+    }
+  }
+
+  private void updatePlayWhenReadyWithAudioFocus(
+      boolean playWhenReady,
+      @PlaybackSuppressionReason int playbackSuppressionReason,
+      @PlayWhenReadyChangeReason int playWhenReadyChangeReason) {
+    int playerCommand = audioFocusManager.updateAudioFocus(playWhenReady, playbackState);
+    updatePlayWhenReadyWithAudioFocus(
+        playWhenReady, playerCommand, playbackSuppressionReason, playWhenReadyChangeReason);
+  }
+
+  private void updatePlayWhenReadyWithAudioFocus(
+      boolean playWhenReady,
+      @AudioFocusManager.PlayerCommand int playerCommand,
+      @PlaybackSuppressionReason int playbackSuppressionReason,
+      @Player.PlayWhenReadyChangeReason int playWhenReadyChangeReason) {
+    playWhenReady &= playerCommand != AudioFocusManager.PLAYER_COMMAND_DO_NOT_PLAY;
+    playWhenReadyChangeReason =
+        updatePlayWhenReadyChangeReason(playerCommand, playWhenReadyChangeReason);
+    playbackSuppressionReason =
+        updatePlaybackSuppressionReason(
+            playerCommand, playbackSuppressionReason, this.scrubbingModeEnabled);
+    if (this.playWhenReady == playWhenReady
+        && this.playbackSuppressionReason == playbackSuppressionReason
+        && this.playWhenReadyChangeReason == playWhenReadyChangeReason) {
+      return;
+    }
+
+    int previousPlaybackSuppressionReason = this.playbackSuppressionReason;
+
+    this.playWhenReady = playWhenReady;
+    this.playWhenReadyChangeReason = playWhenReadyChangeReason;
+    this.playbackSuppressionReason = playbackSuppressionReason;
+
+    boolean shouldUpdateInternalPlayers =
+        previousPlaybackSuppressionReason != PLAYBACK_SUPPRESSION_REASON_SCRUBBING
+            && this.playbackSuppressionReason != PLAYBACK_SUPPRESSION_REASON_SCRUBBING;
+
+    setPlayWhenReadyInternal(shouldPlayWhenReady(), shouldUpdateInternalPlayers);
+  }
+
+  private boolean shouldPlayWhenReady() {
+    return this.playWhenReady
+        && this.playbackSuppressionReason == Player.PLAYBACK_SUPPRESSION_REASON_NONE;
   }
 
   private void prepareCompositionPlayerInternal() {
@@ -927,6 +1115,8 @@ public final class CompositionPlayer extends SimpleBasePlayer
     playbackThread = new HandlerThread("CompositionPlaybackThread", Process.THREAD_PRIORITY_AUDIO);
     playbackThread.start();
     playbackThreadHandler = clock.createHandler(playbackThread.getLooper(), /* callback= */ null);
+
+    setAudioAttributesInternal(audioAttributes, handleAudioFocus);
 
     // Once this method returns, further access to the audio and video graph wrappers must done on
     // the playback thread only, to ensure related components are accessed from one thread only.
@@ -952,7 +1142,7 @@ public final class CompositionPlayer extends SimpleBasePlayer
             playbackVideoGraphWrapper,
             /* listener= */ this,
             compositionInternalListenerHandler);
-    compositionPlayerInternal.setVolume(volume);
+    setVolumeInternal(volume);
     compositionPlayerInternalPrepared = true;
   }
 
@@ -1052,6 +1242,8 @@ public final class CompositionPlayer extends SimpleBasePlayer
             /* inputIndex= */ sequenceIndex);
     playerHolder.player.addListener(new PlayerListener(sequenceIndex));
     playerHolder.player.addAnalyticsListener(new EventLogger(TAG + "-" + sequenceIndex));
+    // Audio focus is handled directly by CompositionPlayer, not by sequence players.
+    playerHolder.player.setAudioAttributes(audioAttributes, /* handleAudioFocus= */ false);
     playerHolder.player.setPauseAtEndOfMediaItems(true);
     playerHolder.renderersFactory.setRequestMediaCodecToneMapping(requestMediaCodecToneMapping);
     return playerHolder;
@@ -1453,7 +1645,6 @@ public final class CompositionPlayer extends SimpleBasePlayer
 
     @Override
     public void onPlayWhenReadyChanged(boolean playWhenReady, int reason) {
-      playWhenReadyChangeReason = reason;
       if (reason == PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM
           && repeatMode != REPEAT_MODE_OFF
           && playerIndex == 0) {
@@ -1561,6 +1752,22 @@ public final class CompositionPlayer extends SimpleBasePlayer
             .createImageDecoder();
       }
       return imageDecoderFactory.createImageDecoder();
+    }
+  }
+
+  // These methods are called from the application thread.
+  private final class AudioFocusManagerListener implements AudioFocusManager.PlayerControl {
+    @Override
+    public void setVolumeMultiplier(float volumeMultiplier) {
+      setVolumeInternal(volume);
+      invalidateState();
+    }
+
+    @Override
+    public void executePlayerCommand(@PlayerCommand int playerCommand) {
+      updatePlayWhenReadyWithAudioFocus(
+          playWhenReady, playerCommand, playbackSuppressionReason, playWhenReadyChangeReason);
+      invalidateState();
     }
   }
 }

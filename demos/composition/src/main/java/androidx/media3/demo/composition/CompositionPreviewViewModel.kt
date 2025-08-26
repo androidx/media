@@ -26,6 +26,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import androidx.media3.common.AudioAttributes
 import androidx.media3.common.Effect
 import androidx.media3.common.MediaItem
 import androidx.media3.common.OverlaySettings
@@ -431,6 +432,7 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
     if (compositionLayout != COMPOSITION_LAYOUT[0]) {
       playerBuilder.setVideoGraphFactory(MultipleInputVideoGraph.Factory())
     }
+    playerBuilder.setAudioAttributes(AudioAttributes.DEFAULT, /* handleAudioFocus= */ true)
     val player = playerBuilder.build()
     player.addListener(
       object : Player.Listener {

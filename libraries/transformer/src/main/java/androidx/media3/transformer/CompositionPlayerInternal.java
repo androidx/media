@@ -22,6 +22,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.view.Surface;
+import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ConditionVariable;
@@ -58,6 +59,7 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
   private static final int MSG_START_SEEK = 7;
   private static final int MSG_END_SEEK = 8;
   private static final int MSG_RELEASE = 9;
+  private static final int MSG_SET_AUDIO_ATTRIBUTES = 10;
 
   private final Clock clock;
   private final HandlerWrapper handler;
@@ -162,6 +164,10 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
     }
   }
 
+  public void setAudioAttributes(AudioAttributes attributes) {
+    handler.obtainMessage(MSG_SET_AUDIO_ATTRIBUTES, attributes).sendToTarget();
+  }
+
   // Handler.Callback methods
 
   @Override
@@ -200,6 +206,9 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
           break;
         case MSG_SET_COMPOSITION:
           setCompositionInternal((Composition) message.obj);
+          break;
+        case MSG_SET_AUDIO_ATTRIBUTES:
+          playbackAudioGraphWrapper.setAudioAttributes((AudioAttributes) message.obj);
           break;
         default:
           maybeRaiseError(

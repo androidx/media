@@ -54,6 +54,8 @@
     *   Add capability to skip keyframe reset for forward seeks within the same
         group of pictures while in scrubbing mode.
 *   Transformer:
+    *   Add support for `COMMAND_SET_AUDIO_ATTRIBUTES` and audio focus handling
+        in `CompositionPlayer`.
 *   Track Selection:
     *   Add `TrackSelectionParameters.selectTextByDefault` to prefer the
         selection of any text track without specifying other more specific
