@@ -22,6 +22,7 @@ import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.SimpleBasePlayer
 import androidx.media3.common.VideoSize
+import androidx.media3.common.util.Util.getAvailableCommands
 import androidx.media3.common.util.Util.msToUs
 import com.google.common.base.Preconditions.checkState
 import com.google.common.util.concurrent.Futures
@@ -37,8 +38,14 @@ internal class TestPlayer(
   playWhenReady: Boolean = false,
   playlist: List<MediaItemData> =
     listOf(
-      MediaItemData.Builder(/* uid= */ "First").setDurationUs(1_000_000L).build(),
-      MediaItemData.Builder(/* uid= */ "Second").setDurationUs(2_000_000L).build(),
+      MediaItemData.Builder(/* uid= */ "First")
+        .setDurationUs(1_000_000L)
+        .setIsSeekable(true)
+        .build(),
+      MediaItemData.Builder(/* uid= */ "Second")
+        .setDurationUs(2_000_000L)
+        .setIsSeekable(true)
+        .build(),
     ),
   playbackSpeed: Float = 1f,
 ) : SimpleBasePlayer(Looper.myLooper()!!) {
@@ -54,63 +61,40 @@ internal class TestPlayer(
   var videoOutput: Any? = null
     private set
 
-  override fun getState(): State {
-    return state
+  init {
+    updateAvailableSeekCommands()
   }
 
-  override fun handleSetPlayWhenReady(playWhenReady: Boolean): ListenableFuture<*> {
-    state =
-      state
-        .buildUpon()
-        .setPlayWhenReady(playWhenReady, PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
-        .build()
-    return Futures.immediateVoidFuture()
+  override fun getState(): State = state
+
+  override fun handleSetPlayWhenReady(playWhenReady: Boolean) = handleStateUpdate {
+    setPlayWhenReady(playWhenReady, PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
   }
 
-  override fun handlePrepare(): ListenableFuture<*> {
-    state =
-      state
-        .buildUpon()
-        .setPlayerError(null)
-        .setPlaybackState(if (state.timeline.isEmpty) STATE_ENDED else STATE_BUFFERING)
-        .build()
-    return Futures.immediateVoidFuture()
+  override fun handlePrepare() = handleStateUpdate {
+    setPlayerError(null)
+      .setPlaybackState(if (state.timeline.isEmpty) STATE_ENDED else STATE_BUFFERING)
   }
 
-  override fun handleSeek(
-    mediaItemIndex: Int,
-    positionMs: Long,
-    seekCommand: @Player.Command Int,
-  ): ListenableFuture<*> {
-    state =
-      state
-        .buildUpon()
-        .setPlaybackState(STATE_BUFFERING)
+  override fun handleSeek(mediaItemIndex: Int, positionMs: Long, seekCommand: @Player.Command Int) =
+    handleStateUpdate {
+      setPlaybackState(STATE_BUFFERING)
         .setCurrentMediaItemIndex(mediaItemIndex)
         .setContentPositionMs(positionMs)
-        .build()
-    if (mediaItemIndex == state.playlist.size - 1) {
-      removeCommands(COMMAND_SEEK_TO_NEXT)
     }
-    return Futures.immediateVoidFuture()
+
+  override fun handleSetShuffleModeEnabled(shuffleModeEnabled: Boolean) = handleStateUpdate {
+    setShuffleModeEnabled(shuffleModeEnabled)
   }
 
-  override fun handleSetShuffleModeEnabled(shuffleModeEnabled: Boolean): ListenableFuture<*> {
-    state = state.buildUpon().setShuffleModeEnabled(shuffleModeEnabled).build()
-    return Futures.immediateVoidFuture()
+  override fun handleSetRepeatMode(repeatMode: Int) = handleStateUpdate {
+    setRepeatMode(repeatMode)
   }
 
-  override fun handleSetRepeatMode(repeatMode: Int): ListenableFuture<*> {
-    state = state.buildUpon().setRepeatMode(repeatMode).build()
-    return Futures.immediateVoidFuture()
-  }
-
-  override fun handleSetPlaybackParameters(
-    playbackParameters: PlaybackParameters
-  ): ListenableFuture<*> {
-    state = state.buildUpon().setPlaybackParameters(playbackParameters).build()
-    return Futures.immediateVoidFuture()
-  }
+  override fun handleSetPlaybackParameters(playbackParameters: PlaybackParameters) =
+    handleStateUpdate {
+      setPlaybackParameters(playbackParameters)
+    }
 
   override fun handleSetVideoOutput(videoOutput: Any): ListenableFuture<*> {
     this.videoOutput = videoOutput
@@ -124,13 +108,10 @@ internal class TestPlayer(
     return Futures.immediateVoidFuture()
   }
 
-  override fun handleSetVolume(
-    volume: Float,
-    volumeOperationType: @C.VolumeOperationType Int,
-  ): ListenableFuture<*> {
-    state = state.buildUpon().setVolume(volume).build()
-    return Futures.immediateVoidFuture()
-  }
+  override fun handleSetVolume(volume: Float, volumeOperationType: @C.VolumeOperationType Int) =
+    handleStateUpdate {
+      setVolume(volume)
+    }
 
   fun setPlaybackState(playbackState: @Player.State Int) {
     state = state.buildUpon().setPlaybackState(playbackState).build()
@@ -211,9 +192,7 @@ internal class TestPlayer(
     state =
       state
         .buildUpon()
-        .setAvailableCommands(
-          Player.Commands.Builder().addAllCommands().removeAll(*commands).build()
-        )
+        .setAvailableCommands(state.availableCommands.buildUpon().removeAll(*commands).build())
         .build()
     invalidateState()
   }
@@ -229,4 +208,49 @@ internal class TestPlayer(
         .build()
     invalidateState()
   }
+
+  private fun handleStateUpdate(stateUpdate: State.Builder.() -> Unit): ListenableFuture<*> {
+    state = state.buildUpon().apply(stateUpdate).build()
+    invalidateState() // propagate the change from `stateUpdate` to SimpleBasePlayer.state
+    updateAvailableSeekCommands() // operates on Player (SimpleBasePlayer.state), not local state
+    return Futures.immediateVoidFuture()
+  }
+
+  /**
+   * Potentially remove/add COMMAND_SEEK_* due to the nature of the current media or the location in
+   * the playlist by delegating to `Util's getAvailableCommands`. Respect the existing non-seek
+   * commands and don't rely on a set of always available commands to let the TestPlayer consumer
+   * have more control when removing commands for good.
+   */
+  private fun updateAvailableSeekCommands() {
+    state =
+      state
+        .buildUpon()
+        .setAvailableCommands(
+          state.availableCommands
+            .buildUpon()
+            .removeAll(*ALL_SEEK_COMMANDS)
+            .addAll(
+              getAvailableCommands(
+                /* player= */ this,
+                /* permanentAvailableCommands = */ Player.Commands.Builder().build(),
+              )
+            )
+            .build()
+        )
+        .build()
+  }
 }
+
+private val ALL_SEEK_COMMANDS =
+  intArrayOf(
+    Player.COMMAND_SEEK_TO_DEFAULT_POSITION,
+    Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM,
+    Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM,
+    Player.COMMAND_SEEK_TO_PREVIOUS,
+    Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM,
+    Player.COMMAND_SEEK_TO_NEXT,
+    Player.COMMAND_SEEK_TO_MEDIA_ITEM,
+    Player.COMMAND_SEEK_BACK,
+    Player.COMMAND_SEEK_FORWARD,
+  )
