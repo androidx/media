@@ -186,6 +186,7 @@
     *   Use `MediaItem.mediaMetadata.mediaType` to infer the Cast MEDIA_TYPE to
         use in `DefaultCastOptionsProvider#toMediaQueueItem`, when available.
     *   Enable remote to local transfers in `DefaultCastOptionsProvider`.
+    *   Add support for Cast in the Session demo.
 *   Test Utilities:
     *   Add maximum time diff for the auto-advancing behavior of `FakeClock`. It
         defaults to 1 second, but is configurable via `FakeClock.Builder`.

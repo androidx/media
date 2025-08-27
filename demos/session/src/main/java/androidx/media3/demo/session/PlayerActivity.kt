@@ -20,6 +20,7 @@ import android.content.Context
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
+import android.view.Menu
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
@@ -43,6 +44,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import androidx.media3.ui.PlayerView
+import com.google.android.gms.cast.framework.CastButtonFactory
 import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.guava.await
@@ -94,6 +96,13 @@ class PlayerActivity : AppCompatActivity() {
         }
       }
     }
+  }
+
+  override fun onCreateOptionsMenu(menu: Menu): Boolean {
+    super.onCreateOptionsMenu(menu)
+    getMenuInflater().inflate(R.menu.menu, menu)
+    CastButtonFactory.setUpMediaRouteButton(this, menu, R.id.cast_menu_item)
+    return true
   }
 
   private suspend fun initializeController() {

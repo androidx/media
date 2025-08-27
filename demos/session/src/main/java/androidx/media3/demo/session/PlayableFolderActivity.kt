@@ -20,6 +20,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
+import android.view.Menu
 import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
@@ -35,6 +36,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.session.MediaBrowser
 import androidx.media3.session.SessionToken
+import com.google.android.gms.cast.framework.CastButtonFactory
 import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
 import com.google.android.material.snackbar.BaseTransientBottomBar
 import com.google.android.material.snackbar.Snackbar
@@ -73,7 +75,7 @@ class PlayableFolderActivity : AppCompatActivity() {
         browser.setMediaItems(
           subItemMediaList,
           /* startIndex= */ position,
-          /* startPositionMs= */ C.TIME_UNSET
+          /* startPositionMs= */ C.TIME_UNSET,
         )
         browser.shuffleModeEnabled = false
         browser.prepare()
@@ -109,6 +111,13 @@ class PlayableFolderActivity : AppCompatActivity() {
       }
   }
 
+  override fun onCreateOptionsMenu(menu: Menu): Boolean {
+    super.onCreateOptionsMenu(menu)
+    getMenuInflater().inflate(R.menu.menu, menu)
+    CastButtonFactory.setUpMediaRouteButton(this, menu, R.id.cast_menu_item)
+    return true
+  }
+
   override fun onStart() {
     super.onStart()
     initializeBrowser()
@@ -131,7 +140,7 @@ class PlayableFolderActivity : AppCompatActivity() {
     browserFuture =
       MediaBrowser.Builder(
           this,
-          SessionToken(this, ComponentName(this, PlaybackService::class.java))
+          SessionToken(this, ComponentName(this, PlaybackService::class.java)),
         )
         .buildAsync()
     browserFuture.addListener({ displayFolder() }, ContextCompat.getMainExecutor(this))
@@ -153,7 +162,7 @@ class PlayableFolderActivity : AppCompatActivity() {
         val result = mediaItemFuture.get()!!
         title.text = result.value!!.mediaMetadata.title
       },
-      ContextCompat.getMainExecutor(this)
+      ContextCompat.getMainExecutor(this),
     )
     childrenFuture.addListener(
       {
@@ -164,14 +173,14 @@ class PlayableFolderActivity : AppCompatActivity() {
         subItemMediaList.addAll(children)
         mediaListAdapter.notifyDataSetChanged()
       },
-      ContextCompat.getMainExecutor(this)
+      ContextCompat.getMainExecutor(this),
     )
   }
 
   private inner class PlayableMediaItemArrayAdapter(
     context: Context,
     viewID: Int,
-    mediaItemList: List<MediaItem>
+    mediaItemList: List<MediaItem>,
   ) : ArrayAdapter<MediaItem>(context, viewID, mediaItemList) {
     override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
       val mediaItem = getItem(position)!!
@@ -189,7 +198,7 @@ class PlayableFolderActivity : AppCompatActivity() {
         Snackbar.make(
             findViewById<LinearLayout>(R.id.linear_layout),
             getString(R.string.added_media_item_format, mediaItem.mediaMetadata.title),
-            BaseTransientBottomBar.LENGTH_SHORT
+            BaseTransientBottomBar.LENGTH_SHORT,
           )
           .show()
       }

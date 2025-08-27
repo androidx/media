@@ -29,6 +29,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.datastore.core.DataStore
 import androidx.datastore.core.Serializer
 import androidx.datastore.dataStore
+import androidx.media3.cast.CastPlayer
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.Player
 import androidx.media3.common.listenTo
@@ -136,11 +137,12 @@ open class DemoPlaybackService : MediaLibraryService() {
 
   @OptIn(UnstableApi::class) // Player.listen
   private fun initializeSessionAndPlayer() {
-    val player =
+    val exoPlayer =
       ExoPlayer.Builder(this)
         .setAudioAttributes(AudioAttributes.DEFAULT, /* handleAudioFocus= */ true)
         .build()
-    player.addAnalyticsListener(EventLogger())
+    exoPlayer.addAnalyticsListener(EventLogger())
+    val player = CastPlayer.Builder(/* context= */ this).setLocalPlayer(exoPlayer).build()
     CoroutineScope(Dispatchers.Unconfined).launch {
       player.listenTo(Player.EVENT_IS_PLAYING_CHANGED, Player.EVENT_MEDIA_ITEM_TRANSITION) {
         storeCurrentMediaItem()
