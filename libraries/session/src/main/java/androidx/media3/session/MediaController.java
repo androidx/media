@@ -1190,10 +1190,11 @@ public class MediaController implements Player {
    * <p>A command is not accepted if it is not a custom command or the command is not in the list of
    * {@linkplain #getAvailableSessionCommands() available session commands}.
    *
-   * <p>Interoperability: When connected to {@code
+   * <p>Interoperability: When sending a custom command to {@code
    * android.support.v4.media.session.MediaSessionCompat}, {@link SessionResult#resultCode} will
-   * return the custom result code from the {@code android.os.ResultReceiver#onReceiveResult(int,
-   * Bundle)} instead of the standard result codes defined in the {@link SessionResult}.
+   * always be {@link SessionResult#RESULT_SUCCESS} because the session has no way to send a result
+   * back from {@link
+   * androidx.media3.session.legacy.MediaSessionCompat.Callback#onCustomAction(String, Bundle)}.
    *
    * @param command The custom command.
    * @param mediaItem The media item for which the command is sent.
@@ -1221,10 +1222,11 @@ public class MediaController implements Player {
    * <p>A command is not accepted if it is not a custom command or the command is not in the list of
    * {@linkplain #getAvailableSessionCommands() available session commands}.
    *
-   * <p>Interoperability: When connected to {@code
+   * <p>Interoperability: When sending a custom command to {@code
    * android.support.v4.media.session.MediaSessionCompat}, {@link SessionResult#resultCode} will
-   * return the custom result code from the {@code android.os.ResultReceiver#onReceiveResult(int,
-   * Bundle)} instead of the standard result codes defined in the {@link SessionResult}.
+   * always be {@link SessionResult#RESULT_SUCCESS} because the session has no way to send a result
+   * back from {@link
+   * androidx.media3.session.legacy.MediaSessionCompat.Callback#onCustomAction(String, Bundle)}.
    *
    * @param command The custom command.
    * @param mediaItem The media item for which the command is sent.
@@ -1239,9 +1241,9 @@ public class MediaController implements Player {
       MediaItem mediaItem,
       Bundle args,
       @Nullable ProgressListener progressListener) {
-    Bundle augnentedBundle = new Bundle(args);
-    augnentedBundle.putString(MediaConstants.EXTRA_KEY_MEDIA_ID, mediaItem.mediaId);
-    return sendCustomCommand(command, augnentedBundle, progressListener);
+    Bundle augmentedBundle = new Bundle(args);
+    augmentedBundle.putString(MediaConstants.EXTRA_KEY_MEDIA_ID, mediaItem.mediaId);
+    return sendCustomCommand(command, augmentedBundle, progressListener);
   }
 
   /**

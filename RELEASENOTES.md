@@ -140,6 +140,10 @@
     *   Fix bug where a message was left in the message queue of the main looper
         which caused a memory leak after the service terminated
         ([#2692](https://github.com/androidx/media/issues/2692)).
+    *   When connected to a legacy session app with a `MediaBrowser`, custom
+        commands are sent to the session only if the custom action is advertised
+        as a custom action in `PlaybackStateCompat` of the legacy session. All
+        other custom actions are sent to the service.
 *   UI:
     *   Add `ProgressStateWithTickInterval` class and the corresponding
         `rememberProgressStateWithTickInterval` Composable to
