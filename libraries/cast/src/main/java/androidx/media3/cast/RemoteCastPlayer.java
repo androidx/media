@@ -555,6 +555,14 @@ public final class RemoteCastPlayer extends BasePlayer {
     setPlayerStateAndNotifyIfChanged(
         playWhenReady, PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST, playbackState);
     listeners.flushEvents();
+    if (getMediaStatus() == null) {
+      // No media status means that both play and pause will fail, causing playWhenReady to be reset
+      // to true. By not calling play/pause, the playWhenReady state holder remains populated until
+      // either:
+      // - It's overwritten by an eventual media status update.
+      // - It's used to populate autoplay when the client loads media.
+      return;
+    }
     PendingResult<MediaChannelResult> pendingResult =
         playWhenReady ? remoteMediaClient.play() : remoteMediaClient.pause();
     this.playWhenReady.pendingResultCallback =
@@ -1401,12 +1409,12 @@ public final class RemoteCastPlayer extends BasePlayer {
             .setRepeatMode(getCastRepeatMode(repeatMode))
             .setStartTime(startPositionMs)
             .build();
-    // TODO: b/432716880 - Populate autoplay (play when ready) and playback speed. Also use repeat
-    // mode values set while no media queue was active.
+    // TODO: b/432716880 - Populate playback speed and repeat mode values.
     // TODO: b/434761431 - Remove setCurrentTime call once setStartTime (above) is handled correctly
     // by the Cast framework.
     MediaLoadRequestData loadRequestData =
         new MediaLoadRequestData.Builder()
+            .setAutoplay(getPlayWhenReady())
             .setQueueData(mediaQueueData)
             .setCurrentTime(startPositionMs)
             .build();

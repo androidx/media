@@ -266,6 +266,17 @@ public class RemoteCastPlayerTest {
   }
 
   @Test
+  public void playWhenReady_whenNoMediaStatusAvailable_isMasked() {
+    when(mockRemoteMediaClient.getMediaStatus()).thenReturn(null);
+    assertThat(remoteCastPlayer.getPlayWhenReady()).isFalse(); // Verify we'll change the state.
+
+    remoteCastPlayer.play();
+
+    assertThat(remoteCastPlayer.getPlayWhenReady()).isTrue();
+    verify(mockRemoteMediaClient, never()).play();
+  }
+
+  @Test
   public void playbackParameters_defaultPlaybackSpeed_isUnitSpeed() {
     assertThat(remoteCastPlayer.getPlaybackParameters()).isEqualTo(PlaybackParameters.DEFAULT);
   }
