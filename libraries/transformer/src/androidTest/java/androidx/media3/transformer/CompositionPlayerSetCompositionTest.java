@@ -35,6 +35,7 @@ import androidx.media3.common.Timeline;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.BaseAudioProcessor;
 import androidx.media3.common.audio.SpeedProvider;
+import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.Util;
 import androidx.media3.test.utils.TestUtil.AssetInfo;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
@@ -517,22 +518,13 @@ public class CompositionPlayerSetCompositionTest {
   @Test
   public void setComposition_withNewCompositionAudioProcessor_recreatesAudioPipeline()
       throws Exception {
-    AtomicBoolean firstCompositionSentDataToAudioPipeline = new AtomicBoolean();
-    AtomicBoolean secondCompositionSentDataToAudioPipeline = new AtomicBoolean();
-    PassthroughAudioProcessor firstCompositionAudioProcessor =
-        new PassthroughAudioProcessor() {
-          @Override
-          public void queueInput(ByteBuffer inputBuffer) {
-            super.queueInput(inputBuffer);
-            firstCompositionSentDataToAudioPipeline.set(true);
-          }
-        };
+    ConditionVariable secondCompositionSentDataToAudioPipeline = new ConditionVariable();
     PassthroughAudioProcessor secondCompositionAudioProcessor =
         new PassthroughAudioProcessor() {
           @Override
           public void queueInput(ByteBuffer inputBuffer) {
             super.queueInput(inputBuffer);
-            secondCompositionSentDataToAudioPipeline.set(true);
+            secondCompositionSentDataToAudioPipeline.open();
           }
         };
     EditedMediaItem editedMediaItem =
@@ -543,10 +535,6 @@ public class CompositionPlayerSetCompositionTest {
         new Composition.Builder(
                 new EditedMediaItemSequence.Builder(Collections.nCopies(5, editedMediaItem))
                     .build())
-            .setEffects(
-                new Effects(
-                    /* audioProcessors= */ ImmutableList.of(firstCompositionAudioProcessor),
-                    /* videoEffects= */ ImmutableList.of()))
             .build();
     Composition secondComposition =
         new Composition.Builder(
@@ -567,8 +555,7 @@ public class CompositionPlayerSetCompositionTest {
               compositionPlayer.prepare();
             });
     playerTestListener.waitUntilPlayerReady();
-    assertThat(firstCompositionSentDataToAudioPipeline.get()).isTrue();
-    assertThat(secondCompositionSentDataToAudioPipeline.get()).isFalse();
+    assertThat(secondCompositionSentDataToAudioPipeline.isOpen()).isFalse();
 
     playerTestListener.resetStatus();
     getInstrumentation()
@@ -579,7 +566,7 @@ public class CompositionPlayerSetCompositionTest {
             });
     playerTestListener.waitUntilPlayerEnded();
 
-    assertThat(secondCompositionSentDataToAudioPipeline.get()).isTrue();
+    assertThat(secondCompositionSentDataToAudioPipeline.block(TEST_TIMEOUT_MS)).isTrue();
   }
 
   private long getFirstVideoFrameTimestampUsWithStartPosition(
