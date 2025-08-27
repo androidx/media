@@ -308,6 +308,11 @@ public final class Mp4ExtractorParameterizedTest {
     assertExtractorBehavior("media/mp4/sample_alac.mp4", /* peekLimit= */ 50);
   }
 
+  @Test
+  public void mp4SampleWithFixedRechunkAndNoElst() throws Exception {
+    assertExtractorBehavior("media/mp4/sample_fixed_rechunk_no_elst.mp4", /* peekLimit= */ 44);
+  }
+
   private void assertExtractorBehavior(String file, int peekLimit) throws IOException {
     ExtractorAsserts.AssertionConfig.Builder assertionConfigBuilder =
         new ExtractorAsserts.AssertionConfig.Builder();

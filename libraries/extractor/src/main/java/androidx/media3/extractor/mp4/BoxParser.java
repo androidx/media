@@ -565,6 +565,7 @@ public final class BoxParser {
       maximumSize = rechunkedResults.maximumSize;
       duration = rechunkedResults.duration;
       totalSize = rechunkedResults.totalSize;
+      sampleCount = rechunkedResults.offsets.length;
     } else {
       offsets = omitTrackSampleTable ? new long[0] : new long[sampleCount];
       sizes = omitTrackSampleTable ? new int[0] : new int[sampleCount];
