@@ -23,10 +23,10 @@ import androidx.media3.common.Player
 import androidx.media3.common.Player.COMMAND_GET_CURRENT_MEDIA_ITEM
 import androidx.media3.common.SimpleBasePlayer.MediaItemData
 import androidx.media3.test.utils.TestSimpleBasePlayer
-import androidx.media3.ui.compose.utils.advanceTimeByInclusive
-import androidx.media3.ui.compose.utils.rememberCoroutineScopeWithBackgroundCancellation
+import androidx.media3.ui.compose.testutils.advanceTimeByInclusive
+import androidx.media3.ui.compose.testutils.createReadyPlayerWithSingleItem
+import androidx.media3.ui.compose.testutils.rememberCoroutineScopeWithBackgroundCancellation
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.google.common.collect.ImmutableList
 import com.google.common.truth.Truth.assertThat
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -48,11 +48,7 @@ class ProgressStateWithTickIntervalTest {
   @Test
   fun progressUpdatingOnTheSecondMark_positionChangesByOneSecond() =
     runTest(testDispatcher) {
-      val player =
-        TestSimpleBasePlayer(
-          playWhenReady = true,
-          playlist = listOf(MediaItemData.Builder("SingleItem").build()),
-        )
+      val player = createReadyPlayerWithSingleItem()
       player.setPositionSupplierDrivenBy(testDispatcher.scheduler)
       lateinit var state: ProgressStateWithTickInterval
       composeTestRule.setContent {
@@ -73,11 +69,7 @@ class ProgressStateWithTickIntervalTest {
   @Test
   fun progressUpdatingOnTheSecondMark_moveClockByFractionalSeconds_positionUpdatesOnTheGrid() =
     runTest(testDispatcher) {
-      val player =
-        TestSimpleBasePlayer(
-          playWhenReady = true,
-          playlist = listOf(MediaItemData.Builder("SingleItem").build()),
-        )
+      val player = createReadyPlayerWithSingleItem()
       player.setPositionSupplierDrivenBy(testDispatcher.scheduler)
       lateinit var state: ProgressStateWithTickInterval
       composeTestRule.setContent {
@@ -98,11 +90,7 @@ class ProgressStateWithTickIntervalTest {
   @Test
   fun progressUpdatingOnTheSecondMark_moveClockByFractionalSeconds_positionRoundsUpToTheGrid() =
     runTest(testDispatcher) {
-      val player =
-        TestSimpleBasePlayer(
-          playWhenReady = true,
-          playlist = listOf(MediaItemData.Builder("SingleItem").build()),
-        )
+      val player = createReadyPlayerWithSingleItem()
       player.setPositionSupplierDrivenBy(testDispatcher.scheduler)
       lateinit var state: ProgressStateWithTickInterval
       composeTestRule.setContent {
@@ -132,11 +120,7 @@ class ProgressStateWithTickIntervalTest {
   @Test
   fun progressUpdatingContinuouslyEveryFrame_positionChangesByOneFrame() =
     runTest(testDispatcher) {
-      val player =
-        TestSimpleBasePlayer(
-          playWhenReady = true,
-          playlist = listOf(MediaItemData.Builder("SingleItem").build()),
-        )
+      val player = createReadyPlayerWithSingleItem()
       player.setPositionSupplierDrivenBy(testDispatcher.scheduler)
       lateinit var state: ProgressStateWithTickInterval
       // Prevent infinite scheduling loop for withFrameMillis, override here before setContent
@@ -159,11 +143,7 @@ class ProgressStateWithTickIntervalTest {
   @Test
   fun progressUpdatingContinuouslyEveryFrame_moveClockByFractionalFrames_positionUpdatesOnTheGrid() =
     runTest(testDispatcher) {
-      val player =
-        TestSimpleBasePlayer(
-          playWhenReady = true,
-          playlist = listOf(MediaItemData.Builder("SingleItem").build()),
-        )
+      val player = createReadyPlayerWithSingleItem()
       player.setPositionSupplierDrivenBy(testDispatcher.scheduler)
       lateinit var state: ProgressStateWithTickInterval
       // Prevent infinite scheduling loop for withFrameMillis, override here before setContent
@@ -188,6 +168,7 @@ class ProgressStateWithTickIntervalTest {
     runTest(testDispatcher) {
       val player =
         TestSimpleBasePlayer(
+          playbackState = Player.STATE_READY,
           playWhenReady = true,
           playlist = listOf(MediaItemData.Builder("SingleItem").build()),
           playbackSpeed = 1.5f, // Awkward division of 1000 by 3/2 where 1000 and 3 are coprime.
@@ -219,6 +200,7 @@ class ProgressStateWithTickIntervalTest {
     runTest(testDispatcher) {
       val player =
         TestSimpleBasePlayer(
+          playbackState = Player.STATE_READY,
           playWhenReady = true,
           playlist = listOf(MediaItemData.Builder("SingleItem").build()),
           playbackSpeed = 1.5f, // Awkward division of 1000 by 3/2 where 1000 and 3 are coprime.
@@ -258,11 +240,7 @@ class ProgressStateWithTickIntervalTest {
   @Test
   fun playerWithAndWithoutRelevantCommand_stateGetsTrueAndDefaultValues() =
     runTest(testDispatcher) {
-      val player =
-        TestSimpleBasePlayer(
-          playWhenReady = true,
-          playlist = listOf(MediaItemData.Builder("SingleItem").setDurationUs(10_000_000).build()),
-        )
+      val player = createReadyPlayerWithSingleItem()
       player.setPositionSupplierDrivenBy(testDispatcher.scheduler)
       player.removeCommands(COMMAND_GET_CURRENT_MEDIA_ITEM)
       lateinit var state: ProgressStateWithTickInterval
@@ -299,11 +277,7 @@ class ProgressStateWithTickIntervalTest {
   @Test
   fun durationKnownStraightAway() =
     runTest(testDispatcher) {
-      val player =
-        TestSimpleBasePlayer(
-          playlist =
-            ImmutableList.of(MediaItemData.Builder("SingleItem").setDurationUs(10_000_000).build())
-        )
+      val player = createReadyPlayerWithSingleItem()
       lateinit var state: ProgressStateWithTickInterval
       composeTestRule.setContent {
         state =
@@ -323,6 +297,7 @@ class ProgressStateWithTickIntervalTest {
     runTest(testDispatcher) {
       val player =
         TestSimpleBasePlayer(
+          playbackState = Player.STATE_READY,
           playWhenReady = true,
           playlist = listOf(MediaItemData.Builder("SingleItem").build()),
         )
@@ -351,7 +326,11 @@ class ProgressStateWithTickIntervalTest {
   fun playerReadyAndPaused_bufferedPositionIncreases_updatePropagatesAfterOneSecond() =
     runTest(testDispatcher) {
       val player =
-        TestSimpleBasePlayer(playlist = listOf(MediaItemData.Builder("SingleItem").build()))
+        TestSimpleBasePlayer(
+          playbackState = Player.STATE_READY,
+          playWhenReady = false,
+          playlist = listOf(MediaItemData.Builder("SingleItem").build()),
+        )
       lateinit var state: ProgressStateWithTickInterval
       composeTestRule.setContent {
         state =
@@ -405,11 +384,7 @@ class ProgressStateWithTickIntervalTest {
   @Test
   fun playerEnded_reportsFinalStateAndDoesNotBlockMainThread() =
     runTest(testDispatcher) {
-      val player =
-        TestSimpleBasePlayer(
-          playbackState = Player.STATE_READY,
-          playlist = listOf(MediaItemData.Builder("SingleItem").setDurationUs(10_000_000).build()),
-        )
+      val player = createReadyPlayerWithSingleItem()
       lateinit var state: ProgressStateWithTickInterval
       composeTestRule.setContent {
         state =

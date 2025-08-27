@@ -34,7 +34,7 @@ class PlaybackSpeedStateTest {
 
   @Test
   fun addSetSpeedAndPitchCommandToPlayer_stateTogglesFromDisabledToEnabled() {
-    val player = TestSimpleBasePlayer(playbackState = Player.STATE_READY, playWhenReady = true)
+    val player = TestSimpleBasePlayer()
     player.removeCommands(Player.COMMAND_SET_SPEED_AND_PITCH)
     lateinit var state: PlaybackSpeedState
     composeTestRule.setContent { state = rememberPlaybackSpeedState(player = player) }
@@ -49,7 +49,7 @@ class PlaybackSpeedStateTest {
 
   @Test
   fun removeSetSpeedAndPitchCommandToPlayer_stateTogglesFromEnabledToDisabled() {
-    val player = TestSimpleBasePlayer(playbackState = Player.STATE_READY, playWhenReady = true)
+    val player = TestSimpleBasePlayer()
     lateinit var state: PlaybackSpeedState
     composeTestRule.setContent { state = rememberPlaybackSpeedState(player = player) }
 

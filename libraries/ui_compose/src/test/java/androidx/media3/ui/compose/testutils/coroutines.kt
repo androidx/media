@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package androidx.media3.ui.compose.utils
+package androidx.media3.ui.compose.testutils
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope

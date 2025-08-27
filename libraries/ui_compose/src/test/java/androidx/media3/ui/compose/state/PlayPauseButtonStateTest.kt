@@ -19,8 +19,8 @@ package androidx.media3.ui.compose.state
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.media3.common.Player
-import androidx.media3.common.Player.STATE_READY
 import androidx.media3.test.utils.TestSimpleBasePlayer
+import androidx.media3.ui.compose.testutils.createReadyPlayerWithTwoItems
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import com.google.common.util.concurrent.ListenableFuture
@@ -36,7 +36,8 @@ class PlayPauseButtonStateTest {
 
   @Test
   fun playerIsBuffering_pausePlayer_playIconShowing() {
-    val player = TestSimpleBasePlayer(playbackState = Player.STATE_BUFFERING, playWhenReady = true)
+    val player = createReadyPlayerWithTwoItems()
+    player.playbackState = Player.STATE_BUFFERING
     lateinit var state: PlayPauseButtonState
     composeTestRule.setContent { state = rememberPlayPauseButtonState(player = player) }
 
@@ -50,7 +51,8 @@ class PlayPauseButtonStateTest {
 
   @Test
   fun playerIsIdling_preparePlayer_pauseIconShowing() {
-    val player = TestSimpleBasePlayer(playbackState = Player.STATE_IDLE, playWhenReady = true)
+    val player = createReadyPlayerWithTwoItems()
+    player.playbackState = Player.STATE_IDLE
     lateinit var state: PlayPauseButtonState
     composeTestRule.setContent { state = rememberPlayPauseButtonState(player = player) }
 
@@ -64,7 +66,7 @@ class PlayPauseButtonStateTest {
 
   @Test
   fun addPlayPauseCommandToPlayer_buttonStateTogglesFromDisabledToEnabled() {
-    val player = TestSimpleBasePlayer(playbackState = STATE_READY, playWhenReady = true)
+    val player = createReadyPlayerWithTwoItems()
     player.removeCommands(Player.COMMAND_PLAY_PAUSE)
 
     lateinit var state: PlayPauseButtonState
@@ -80,7 +82,7 @@ class PlayPauseButtonStateTest {
 
   @Test
   fun playerInReadyState_buttonClicked_playerPaused() {
-    val player = TestSimpleBasePlayer(playbackState = STATE_READY, playWhenReady = true)
+    val player = createReadyPlayerWithTwoItems()
     val state = PlayPauseButtonState(player)
 
     assertThat(state.showPlay).isFalse()
@@ -122,7 +124,8 @@ class PlayPauseButtonStateTest {
 
   @Test
   fun playerInIdleState_buttonClicked_playerBuffersButDoesntPlay() {
-    val player = TestSimpleBasePlayer(playbackState = Player.STATE_IDLE)
+    val player = createReadyPlayerWithTwoItems()
+    player.playbackState = Player.STATE_IDLE
     val state = PlayPauseButtonState(player)
 
     assertThat(state.showPlay).isTrue() // Player not prepared, Play icon
@@ -136,7 +139,8 @@ class PlayPauseButtonStateTest {
 
   @Test
   fun playerIsScheduledToPlayBeforeEventListenerRegisters_observeGetsTheLatestValues_uiIconInSync() {
-    val player = TestSimpleBasePlayer(playbackState = Player.STATE_BUFFERING, playWhenReady = false)
+    val player = createReadyPlayerWithTwoItems()
+    player.playbackState = Player.STATE_BUFFERING
 
     lateinit var state: PlayPauseButtonState
     composeTestRule.setContent {

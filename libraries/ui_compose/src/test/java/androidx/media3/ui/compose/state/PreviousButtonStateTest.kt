@@ -20,6 +20,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.media3.common.Player
 import androidx.media3.test.utils.TestSimpleBasePlayer
+import androidx.media3.ui.compose.testutils.createReadyPlayerWithTwoItems
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import org.junit.Rule
@@ -34,7 +35,7 @@ class PreviousButtonStateTest {
 
   @Test
   fun addSeekPrevCommandToPlayer_buttonStateTogglesFromDisabledToEnabled() {
-    val player = TestSimpleBasePlayer(playbackState = Player.STATE_READY, playWhenReady = true)
+    val player = createReadyPlayerWithTwoItems()
     player.removeCommands(Player.COMMAND_SEEK_TO_PREVIOUS)
 
     lateinit var state: PreviousButtonState
@@ -50,7 +51,7 @@ class PreviousButtonStateTest {
 
   @Test
   fun removeSeekPrevCommandToPlayer_buttonStateTogglesFromEnabledToDisabled() {
-    val player = TestSimpleBasePlayer(playbackState = Player.STATE_READY, playWhenReady = true)
+    val player = createReadyPlayerWithTwoItems()
 
     lateinit var state: PreviousButtonState
     composeTestRule.setContent { state = rememberPreviousButtonState(player = player) }
@@ -65,7 +66,7 @@ class PreviousButtonStateTest {
 
   @Test
   fun playerInReadyState_prevButtonClicked_sameItemPlayingFromBeginning() {
-    val player = TestSimpleBasePlayer(playbackState = Player.STATE_READY, playWhenReady = true)
+    val player = createReadyPlayerWithTwoItems()
     val state = PreviousButtonState(player)
 
     assertThat(player.currentMediaItemIndex).isEqualTo(0)

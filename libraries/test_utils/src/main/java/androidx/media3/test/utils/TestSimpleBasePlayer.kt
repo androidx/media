@@ -26,6 +26,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.util.Util.getAvailableCommands
 import androidx.media3.common.util.Util.msToUs
 import com.google.common.base.Preconditions.checkState
+import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.test.TestCoroutineScheduler
@@ -42,19 +43,9 @@ import kotlinx.coroutines.test.TestCoroutineScheduler
  */
 @UnstableApi
 open class TestSimpleBasePlayer(
-  playbackState: @Player.State Int = STATE_READY,
+  playbackState: @Player.State Int = STATE_IDLE,
   playWhenReady: Boolean = false,
-  playlist: List<MediaItemData> =
-    listOf(
-      MediaItemData.Builder(/* uid= */ "First")
-        .setDurationUs(1_000_000L)
-        .setIsSeekable(true)
-        .build(),
-      MediaItemData.Builder(/* uid= */ "Second")
-        .setDurationUs(2_000_000L)
-        .setIsSeekable(true)
-        .build(),
-    ),
+  playlist: List<MediaItemData> = ImmutableList.of(),
   playbackSpeed: Float = 1f,
 ) : SimpleBasePlayer(Looper.myLooper()!!) {
   private var state =
