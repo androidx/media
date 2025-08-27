@@ -217,14 +217,7 @@ public final class EditedMediaItem {
 
     /** Builds an {@link EditedMediaItem} instance. */
     public EditedMediaItem build() {
-      return new EditedMediaItem(
-          mediaItem,
-          removeAudio,
-          removeVideo,
-          flattenForSlowMotion,
-          durationUs,
-          frameRate,
-          effects);
+      return new EditedMediaItem(this);
     }
 
     /**
@@ -285,26 +278,23 @@ public final class EditedMediaItem {
   /** The duration for which this {@code EditedMediaItem} should be presented, in microseconds. */
   private long presentationDurationUs;
 
-  private EditedMediaItem(
-      MediaItem mediaItem,
-      boolean removeAudio,
-      boolean removeVideo,
-      boolean flattenForSlowMotion,
-      long durationUs,
-      int frameRate,
-      Effects effects) {
-    checkState(!removeAudio || !removeVideo, "Audio and video cannot both be removed");
-    if (isGap(mediaItem)) {
-      checkArgument(durationUs != C.TIME_UNSET);
-      checkArgument(!removeAudio && !flattenForSlowMotion && effects.audioProcessors.isEmpty());
+  private EditedMediaItem(Builder builder) {
+    checkState(
+        !builder.removeAudio || !builder.removeVideo, "Audio and video cannot both be removed");
+    if (isGap(builder.mediaItem)) {
+      checkArgument(builder.durationUs != C.TIME_UNSET);
+      checkArgument(
+          !builder.removeAudio
+              && !builder.flattenForSlowMotion
+              && builder.effects.audioProcessors.isEmpty());
     }
-    this.mediaItem = mediaItem;
-    this.removeAudio = removeAudio;
-    this.removeVideo = removeVideo;
-    this.flattenForSlowMotion = flattenForSlowMotion;
-    this.durationUs = durationUs;
-    this.frameRate = frameRate;
-    this.effects = effects;
+    this.mediaItem = builder.mediaItem;
+    this.removeAudio = builder.removeAudio;
+    this.removeVideo = builder.removeVideo;
+    this.flattenForSlowMotion = builder.flattenForSlowMotion;
+    this.durationUs = builder.durationUs;
+    this.frameRate = builder.frameRate;
+    this.effects = builder.effects;
     presentationDurationUs = C.TIME_UNSET;
   }
 
