@@ -26,6 +26,7 @@ import androidx.compose.runtime.setValue
 import androidx.media3.common.Player
 import androidx.media3.common.listenTo
 import androidx.media3.common.util.UnstableApi
+import com.google.common.base.Preconditions.checkState
 
 /**
  * Remember the value of [PlaybackSpeedState] created based on the passed [Player] and launch a
@@ -59,8 +60,16 @@ class PlaybackSpeedState(private val player: Player) {
   var playbackSpeed by mutableFloatStateOf(player.playbackParameters.speed)
     private set
 
-  /** Updates the playback speed of the [Player] backing this state. */
+  /**
+   * Updates the playback speed of the [Player] backing this state.
+   *
+   * This method must only be programmatically called if the [state is enabled][isEnabled].
+   *
+   * @see [Player.setPlaybackSpeed]
+   * @see [Player.COMMAND_SET_SPEED_AND_PITCH]
+   */
   fun updatePlaybackSpeed(speed: Float) {
+    checkState(isEnabled) { "COMMAND_SET_SPEED_AND_PITCH is not available." }
     player.playbackParameters = player.playbackParameters.withSpeed(speed)
   }
 

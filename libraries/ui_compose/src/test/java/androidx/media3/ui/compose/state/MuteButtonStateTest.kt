@@ -22,6 +22,7 @@ import androidx.media3.common.Player
 import androidx.media3.test.utils.TestSimpleBasePlayer
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
+import org.junit.Assert.assertThrows
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -62,6 +63,17 @@ class MuteButtonStateTest {
     composeTestRule.waitForIdle()
 
     assertThat(state.showMuted).isFalse()
+  }
+
+  @Test
+  fun onClick_stateIsDisabled_throwsException() {
+    val player = TestSimpleBasePlayer()
+    player.removeCommands(Player.COMMAND_SET_VOLUME)
+    lateinit var state: MuteButtonState
+    composeTestRule.setContent { state = rememberMuteButtonState(player = player) }
+
+    assertThat(state.isEnabled).isFalse()
+    assertThrows(IllegalStateException::class.java) { state.onClick() }
   }
 
   @Test

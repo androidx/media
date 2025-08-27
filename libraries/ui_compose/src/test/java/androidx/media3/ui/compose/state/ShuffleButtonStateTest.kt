@@ -18,9 +18,11 @@ package androidx.media3.ui.compose.state
 
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.media3.common.Player.COMMAND_SET_SHUFFLE_MODE
 import androidx.media3.test.utils.TestSimpleBasePlayer
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
+import org.junit.Assert.assertThrows
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -56,6 +58,16 @@ class ShuffleButtonStateTest {
     state.onClick()
 
     assertThat(player.shuffleModeEnabled).isTrue()
+  }
+
+  @Test
+  fun onClick_whenCommandNotAvailable_throwsIllegalStateException() {
+    val player = TestSimpleBasePlayer()
+    player.removeCommands(COMMAND_SET_SHUFFLE_MODE)
+    val state = ShuffleButtonState(player)
+
+    assertThat(state.isEnabled).isFalse()
+    assertThrows(IllegalStateException::class.java) { state.onClick() }
   }
 
   @Test

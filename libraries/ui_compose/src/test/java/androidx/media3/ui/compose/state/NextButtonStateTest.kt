@@ -25,6 +25,7 @@ import androidx.media3.ui.compose.testutils.createReadyPlayerWithTwoItems
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import com.google.common.util.concurrent.ListenableFuture
+import org.junit.Assert.assertThrows
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -64,6 +65,17 @@ class NextButtonStateTest {
     composeTestRule.waitForIdle()
 
     assertThat(state.isEnabled).isFalse()
+  }
+
+  @Test
+  fun onClick_stateIsDisabled_throwsException() {
+    val player = TestSimpleBasePlayer()
+    player.removeCommands(Player.COMMAND_SEEK_TO_NEXT)
+    lateinit var state: NextButtonState
+    composeTestRule.setContent { state = rememberNextButtonState(player = player) }
+
+    assertThat(state.isEnabled).isFalse()
+    assertThrows(IllegalStateException::class.java) { state.onClick() }
   }
 
   @Test

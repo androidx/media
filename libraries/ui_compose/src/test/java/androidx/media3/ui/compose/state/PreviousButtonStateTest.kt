@@ -23,6 +23,7 @@ import androidx.media3.test.utils.TestSimpleBasePlayer
 import androidx.media3.ui.compose.testutils.createReadyPlayerWithTwoItems
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
+import org.junit.Assert.assertThrows
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -62,6 +63,16 @@ class PreviousButtonStateTest {
     composeTestRule.waitForIdle()
 
     assertThat(state.isEnabled).isFalse()
+  }
+
+  @Test
+  fun onClick_whenCommandNotAvailable_throwsIllegalStateException() {
+    val player = createReadyPlayerWithTwoItems()
+    player.removeCommands(Player.COMMAND_SEEK_TO_PREVIOUS)
+    val state = PreviousButtonState(player)
+
+    assertThat(state.isEnabled).isFalse()
+    assertThrows(IllegalStateException::class.java) { state.onClick() }
   }
 
   @Test

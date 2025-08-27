@@ -25,6 +25,7 @@ import androidx.compose.runtime.setValue
 import androidx.media3.common.Player
 import androidx.media3.common.listenTo
 import androidx.media3.common.util.UnstableApi
+import com.google.common.base.Preconditions.checkState
 
 /**
  * Remembers the value of [MuteButtonState] created based on the passed [Player] and launch a
@@ -59,10 +60,17 @@ class MuteButtonState(private val player: Player) {
    * Toggled between a muted state (volume of the Player is 0) and non-muted. Does not influence the
    * volume of the device.
    *
+   * This method must only be programmatically called if the [state is enabled][isEnabled]. However,
+   * it can be freely provided into containers that take care of skipping the [onClick] if a
+   * particular UI node is not enabled (see Compose Clickable Modifier).
+   *
    * @see [Player.mute]
    * @see [Player.unmute]
+   * @see [Player.COMMAND_GET_VOLUME]
+   * @see [Player.COMMAND_SET_VOLUME]
    */
   fun onClick() {
+    checkState(isEnabled) { "This Player does not support change volume" }
     if (player.volume == 0f) player.unmute() else player.mute()
   }
 

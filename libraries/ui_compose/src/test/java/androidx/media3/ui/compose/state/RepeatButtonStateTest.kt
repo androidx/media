@@ -22,6 +22,7 @@ import androidx.media3.common.Player
 import androidx.media3.test.utils.TestSimpleBasePlayer
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
+import org.junit.Assert.assertThrows
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -57,6 +58,16 @@ class RepeatButtonStateTest {
     state.onClick()
 
     assertThat(player.repeatMode).isEqualTo(Player.REPEAT_MODE_ONE)
+  }
+
+  @Test
+  fun onClick_whenCommandNotAvailable_throwsIllegalStateException() {
+    val player = TestSimpleBasePlayer()
+    player.removeCommands(Player.COMMAND_SET_REPEAT_MODE)
+    val state = RepeatButtonState(player)
+
+    assertThat(state.isEnabled).isFalse()
+    assertThrows(IllegalStateException::class.java) { state.onClick() }
   }
 
   @Test

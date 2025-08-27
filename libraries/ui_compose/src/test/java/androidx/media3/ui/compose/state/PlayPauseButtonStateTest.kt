@@ -24,6 +24,7 @@ import androidx.media3.ui.compose.testutils.createReadyPlayerWithTwoItems
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import com.google.common.util.concurrent.ListenableFuture
+import org.junit.Assert.assertThrows
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -62,6 +63,16 @@ class PlayPauseButtonStateTest {
     composeTestRule.waitForIdle()
 
     assertThat(state.showPlay).isFalse()
+  }
+
+  @Test
+  fun onClick_whenCommandNotAvailable_throwsIllegalStateException() {
+    val player = createReadyPlayerWithTwoItems()
+    player.removeCommands(Player.COMMAND_PLAY_PAUSE)
+    val state = PlayPauseButtonState(player)
+
+    assertThat(state.isEnabled).isFalse()
+    assertThrows(IllegalStateException::class.java) { state.onClick() }
   }
 
   @Test

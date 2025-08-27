@@ -22,6 +22,7 @@ import androidx.media3.common.Player
 import androidx.media3.test.utils.TestSimpleBasePlayer
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
+import org.junit.Assert.assertThrows
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -59,6 +60,16 @@ class PlaybackSpeedStateTest {
     composeTestRule.waitForIdle()
 
     assertThat(state.isEnabled).isFalse()
+  }
+
+  @Test
+  fun updatePlaybackSpeed_whenCommandNotAvailable_throwsException() {
+    val player = TestSimpleBasePlayer()
+    player.removeCommands(Player.COMMAND_SET_SPEED_AND_PITCH)
+    val state = PlaybackSpeedState(player)
+
+    assertThat(state.isEnabled).isFalse()
+    assertThrows(IllegalStateException::class.java) { state.updatePlaybackSpeed(1.5f) }
   }
 
   @Test
