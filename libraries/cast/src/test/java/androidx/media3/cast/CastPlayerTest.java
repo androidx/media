@@ -15,7 +15,6 @@
  */
 package androidx.media3.cast;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
@@ -26,14 +25,12 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.MockitoAnnotations.openMocks;
 
-import android.os.Looper;
 import androidx.media3.common.C;
 import androidx.media3.common.DeviceInfo;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
-import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.Player;
-import androidx.media3.common.SimpleBasePlayer;
+import androidx.media3.test.utils.TestSimpleBasePlayer;
 import androidx.test.core.app.ApplicationProvider;
 import com.google.android.gms.cast.MediaInfo;
 import com.google.android.gms.cast.MediaLoadRequestData;
@@ -48,8 +45,6 @@ import com.google.android.gms.cast.framework.media.MediaQueue;
 import com.google.android.gms.cast.framework.media.RemoteMediaClient;
 import com.google.android.gms.common.api.PendingResult;
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
 import java.util.List;
 import org.junit.After;
 import org.junit.Before;
@@ -71,7 +66,7 @@ public final class CastPlayerTest {
   private CastPlayer castPlayer;
   private RemoteCastPlayer remoteCastPlayer;
   private SessionManagerListener<CastSession> castSessionListener;
-  private StateHolderPlayer localPlayer;
+  private TestSimpleBasePlayer localPlayer;
   @Mock private RemoteMediaClient mockRemoteMediaClient;
   @Mock private PendingResult<RemoteMediaClient.MediaChannelResult> mockPendingResult;
   @Mock private MediaStatus mockMediaStatus;
@@ -85,7 +80,7 @@ public final class CastPlayerTest {
   @Before
   public void setUp() {
     mock = openMocks(this);
-    localPlayer = new StateHolderPlayer();
+    localPlayer = new TestSimpleBasePlayer();
     when(mockCastContext.getSessionManager()).thenReturn(mockSessionManager);
     when(mockCastSession.getRemoteMediaClient()).thenReturn(mockRemoteMediaClient);
     when(mockRemoteMediaClient.getMediaStatus()).thenReturn(mockMediaStatus);
@@ -273,112 +268,5 @@ public final class CastPlayerTest {
     castSessionListener.onSessionEnded(mockCastSession, /* error= */ 0);
 
     assertThat(localPlayer.getPlaybackState()).isEqualTo(Player.STATE_IDLE);
-  }
-
-  /** A {@link Player} that holds state and supports its modification through setters. */
-  private static final class StateHolderPlayer extends SimpleBasePlayer {
-
-    private State state;
-    public boolean released;
-
-    private static final Commands AVAILABLE_COMMANDS =
-        new Commands.Builder()
-            .addAll(
-                COMMAND_PREPARE,
-                COMMAND_PLAY_PAUSE,
-                COMMAND_SET_REPEAT_MODE,
-                COMMAND_SET_SHUFFLE_MODE,
-                COMMAND_SET_SPEED_AND_PITCH,
-                COMMAND_GET_CURRENT_MEDIA_ITEM,
-                COMMAND_GET_TIMELINE,
-                COMMAND_SET_MEDIA_ITEM,
-                COMMAND_CHANGE_MEDIA_ITEMS,
-                COMMAND_SEEK_TO_MEDIA_ITEM,
-                COMMAND_RELEASE)
-            .build();
-
-    private StateHolderPlayer() {
-      super(Looper.getMainLooper());
-      state =
-          new State.Builder()
-              .setAvailableCommands(AVAILABLE_COMMANDS)
-              .setDeviceInfo(DEVICE_INFO_LOCAL)
-              .build();
-    }
-
-    @Override
-    protected State getState() {
-      return state;
-    }
-
-    @Override
-    protected ListenableFuture<?> handlePrepare() {
-      state = state.buildUpon().setPlaybackState(STATE_BUFFERING).build();
-      return Futures.immediateVoidFuture();
-    }
-
-    @Override
-    protected ListenableFuture<?> handleSetPlayWhenReady(boolean playWhenReady) {
-      state =
-          state
-              .buildUpon()
-              .setPlayWhenReady(playWhenReady, PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
-              .build();
-      return Futures.immediateVoidFuture();
-    }
-
-    @Override
-    protected ListenableFuture<?> handleSetRepeatMode(int repeatMode) {
-      state = state.buildUpon().setRepeatMode(repeatMode).build();
-      return Futures.immediateVoidFuture();
-    }
-
-    @Override
-    protected ListenableFuture<?> handleSetShuffleModeEnabled(boolean shuffleModeEnabled) {
-      state = state.buildUpon().setShuffleModeEnabled(shuffleModeEnabled).build();
-      return Futures.immediateVoidFuture();
-    }
-
-    @Override
-    protected ListenableFuture<?> handleSetPlaybackParameters(
-        PlaybackParameters playbackParameters) {
-      state = state.buildUpon().setPlaybackParameters(playbackParameters).build();
-
-      return Futures.immediateVoidFuture();
-    }
-
-    @Override
-    protected ListenableFuture<?> handleSetMediaItems(
-        List<MediaItem> mediaItems, int startIndex, long startPositionMs) {
-      ImmutableList<MediaItemData> mediaItemDatas =
-          mediaItems.stream()
-              .map(it -> new MediaItemData.Builder(/* uid= */ it).setMediaItem(it).build())
-              .collect(toImmutableList());
-      state =
-          state
-              .buildUpon()
-              .setPlaylist(mediaItemDatas)
-              .setContentPositionMs(startPositionMs)
-              .setCurrentMediaItemIndex(startIndex)
-              .build();
-      return Futures.immediateVoidFuture();
-    }
-
-    @Override
-    protected ListenableFuture<?> handleSeek(int mediaItemIndex, long positionMs, int seekCommand) {
-      state =
-          state
-              .buildUpon()
-              .setContentPositionMs(positionMs)
-              .setCurrentMediaItemIndex(mediaItemIndex)
-              .build();
-      return Futures.immediateVoidFuture();
-    }
-
-    @Override
-    protected ListenableFuture<?> handleRelease() {
-      released = true;
-      return Futures.immediateVoidFuture();
-    }
   }
 }

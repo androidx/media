@@ -18,6 +18,8 @@ package androidx.media3.test.utils
 
 import android.os.Looper
 import androidx.media3.common.C
+import androidx.media3.common.DeviceInfo
+import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.SimpleBasePlayer
@@ -55,7 +57,11 @@ open class TestSimpleBasePlayer(
       .setPlayWhenReady(playWhenReady, PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
       .setPlaylist(playlist)
       .setPlaybackParameters(PlaybackParameters(playbackSpeed))
+      .setDeviceInfo(DeviceInfo.Builder(DeviceInfo.PLAYBACK_TYPE_LOCAL).build())
       .build()
+
+  /** Whether the player is released */
+  @JvmField var released: Boolean = false
 
   /** Current video output */
   var videoOutput: Any? = null
@@ -86,6 +92,34 @@ open class TestSimpleBasePlayer(
   override fun handlePrepare() = handleStateUpdate {
     setPlayerError(null)
       .setPlaybackState(if (state.timeline.isEmpty) STATE_ENDED else STATE_BUFFERING)
+  }
+
+  override fun handleRelease(): ListenableFuture<*> {
+    released = true
+    return Futures.immediateVoidFuture()
+  }
+
+  override fun handleStop() = handleStateUpdate {
+    setPlaybackState(STATE_IDLE)
+      .setTotalBufferedDurationMs(PositionSupplier.ZERO)
+      .setAdBufferedPositionMs(state.adPositionMsSupplier)
+      .setIsLoading(false)
+  }
+
+  override fun handleSetMediaItems(
+    mediaItems: MutableList<MediaItem>,
+    startIndex: Int,
+    startPositionMs: Long,
+  ) = handleStateUpdate {
+    if (mediaItems.isEmpty() && playbackState != STATE_IDLE) {
+      // We transition into ENDED because the player was not IDLE, and it's illegal
+      // for the playlist to be empty while the state is not IDLE or ENDED.
+      setPlaybackState(STATE_ENDED)
+    }
+
+    setPlaylist(mediaItems.map { MediaItemData.Builder(it.mediaId).setMediaItem(it).build() })
+      .setContentPositionMs(startPositionMs)
+      .setCurrentMediaItemIndex(startIndex)
   }
 
   override fun handleSeek(mediaItemIndex: Int, positionMs: Long, seekCommand: @Player.Command Int) =
