@@ -53,6 +53,7 @@ import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoGraph;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.util.Clock;
+import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.Log;
@@ -432,6 +433,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
 
   private static final String TAG = "CompositionPlayer";
   private static final String BLANK_FRAMES_MEDIA_SOURCE_TYPE = "composition_player_blank_frames";
+  private static final long SURFACE_DESTROY_TIMEOUT_MS = 2_000;
 
   private final Context context;
   private final Clock clock;
@@ -1449,10 +1451,16 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     compositionPlayerInternal.setOutputSurfaceInfo(surface, new Size(width, height));
   }
 
+  /**
+   * This method blocks the calling thread until the internal player has removed the surface from
+   * use.
+   */
   private void clearVideoSurfaceInternal() {
     displaySurface = null;
     if (compositionPlayerInternal != null) {
-      compositionPlayerInternal.clearOutputSurface();
+      ConditionVariable surfaceCleared = new ConditionVariable();
+      compositionPlayerInternal.clearOutputSurface(surfaceCleared);
+      surfaceCleared.blockUninterruptible(SURFACE_DESTROY_TIMEOUT_MS);
     }
   }
 

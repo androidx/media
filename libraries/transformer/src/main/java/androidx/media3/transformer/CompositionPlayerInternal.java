@@ -126,8 +126,8 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
   }
 
   /** Clears the output surface from the video pipeline. */
-  public void clearOutputSurface() {
-    handler.sendEmptyMessage(MSG_CLEAR_OUTPUT_SURFACE);
+  public void clearOutputSurface(ConditionVariable surfaceCleared) {
+    handler.obtainMessage(MSG_CLEAR_OUTPUT_SURFACE, surfaceCleared).sendToTarget();
   }
 
   /** Sets a new {@link PlaybackAudioGraphWrapper}. */
@@ -191,7 +191,7 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
               /* outputSurfaceInfo= */ (OutputSurfaceInfo) message.obj);
           break;
         case MSG_CLEAR_OUTPUT_SURFACE:
-          clearOutputSurfaceInternal();
+          clearOutputSurfaceInternal((ConditionVariable) message.obj);
           break;
         case MSG_START_SEEK:
           // Video seeking is currently handled by the video renderers, specifically in
@@ -261,9 +261,10 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
     playbackVideoGraphWrapper.stopRendering();
   }
 
-  private void clearOutputSurfaceInternal() {
+  private void clearOutputSurfaceInternal(ConditionVariable surfaceCleared) {
     try {
       playbackVideoGraphWrapper.clearOutputSurfaceInfo();
+      surfaceCleared.open();
     } catch (RuntimeException e) {
       maybeRaiseError(
           /* message= */ "error clearing video output",

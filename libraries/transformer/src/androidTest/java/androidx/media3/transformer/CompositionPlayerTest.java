@@ -21,6 +21,7 @@ import static androidx.media3.test.utils.AssetInfo.MP4_ASSET;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static org.junit.Assert.assertThrows;
 
 import android.app.Instrumentation;
@@ -30,10 +31,14 @@ import android.graphics.BitmapFactory;
 import android.opengl.EGLContext;
 import android.opengl.EGLDisplay;
 import android.opengl.EGLSurface;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Pair;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.TextureView;
+import android.view.View;
+import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.DebugViewProvider;
@@ -43,8 +48,10 @@ import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackException;
+import androidx.media3.common.SurfaceInfo;
 import androidx.media3.common.VideoGraph;
 import androidx.media3.common.audio.AudioProcessor;
+import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.SystemClock;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.AssetDataSource;
@@ -208,6 +215,104 @@ public class CompositionPlayerTest {
         });
 
     listener.waitUntilFirstFrameRendered();
+  }
+
+  @Test
+  public void videoSurfaceHolderDestroyed_releaseBlocksMainThread() throws Exception {
+    // Note this method tests that the main thread is blocked via a customized VideoGraph, but it
+    // doesn't check that the main thread is blocked until all operations involved in clearing the
+    // surface are done.
+    PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
+    ConditionVariable surfaceClearStarted = new ConditionVariable();
+    ConditionVariable allowSurfaceClearToComplete = new ConditionVariable();
+
+    instrumentation.runOnMainSync(
+        () -> {
+          compositionPlayer =
+              new CompositionPlayer.Builder(applicationContext)
+                  .setVideoGraphFactory(
+                      /* videoGraphFactory= */ new VideoGraph.Factory() {
+                        @Override
+                        public VideoGraph create(
+                            Context context,
+                            ColorInfo outputColorInfo,
+                            DebugViewProvider debugViewProvider,
+                            VideoGraph.Listener listener,
+                            Executor listenerExecutor,
+                            long initialTimestampOffsetUs,
+                            boolean renderFramesAutomatically) {
+                          return new SingleInputVideoGraph(
+                              applicationContext,
+                              new DefaultVideoFrameProcessor.Factory.Builder().build(),
+                              ColorInfo.SDR_BT709_LIMITED,
+                              new VideoGraph.Listener() {},
+                              DebugViewProvider.NONE,
+                              directExecutor(),
+                              /* renderFramesAutomatically= */ true) {
+
+                            @Override
+                            public void setOutputSurfaceInfo(
+                                @Nullable SurfaceInfo outputSurfaceInfo) {
+                              if (outputSurfaceInfo == null) {
+                                // Signal that the surface clearing has started on the playback
+                                // thread.
+                                surfaceClearStarted.open();
+                                // Wait for the test thread to allow completion.
+                                boolean allowSurfaceClearToCompleteOpened = false;
+                                try {
+                                  allowSurfaceClearToCompleteOpened =
+                                      allowSurfaceClearToComplete.block(TEST_TIMEOUT_MS);
+                                } catch (InterruptedException e) {
+                                  Thread.currentThread().interrupt();
+                                }
+                                assertThat(allowSurfaceClearToCompleteOpened).isTrue();
+                              }
+                              super.setOutputSurfaceInfo(outputSurfaceInfo);
+                            }
+                          };
+                        }
+
+                        @Override
+                        public boolean supportsMultipleInputs() {
+                          return false;
+                        }
+                      })
+                  .build();
+          compositionPlayer.addListener(listener);
+          compositionPlayer.setComposition(
+              new Composition.Builder(
+                      new EditedMediaItemSequence.Builder(
+                              new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
+                                  .setDurationUs(MP4_ASSET.videoDurationUs)
+                                  .build())
+                          .build())
+                  .build());
+          compositionPlayer.setVideoSurfaceHolder(surfaceHolder);
+          compositionPlayer.prepare();
+        });
+
+    listener.waitUntilPlayerReady();
+
+    ConditionVariable mainThreadBlocked = new ConditionVariable();
+    Handler mainThreadHandler = new Handler(Looper.getMainLooper());
+    instrumentation.runOnMainSync(
+        () -> {
+          // Triggers surfaceDestroyed to run. Note this method returns after
+          // SurfaceHolder.surfaceDestroyed returns
+          mainThreadHandler.post(() -> surfaceView.setVisibility(View.GONE));
+          // If the main thread is not blocked when clearing the surface, this line would run
+          // immediately, and the assertion on the ConditionalVariable would block.
+          mainThreadHandler.post(mainThreadBlocked::open);
+        });
+
+    // Wait until clearing the surface begins.
+    assertThat(surfaceClearStarted.block(TEST_TIMEOUT_MS)).isTrue();
+    // This should be still in the closed state because the VideoGraph has not released the surface.
+    assertThat(mainThreadBlocked.isOpen()).isFalse();
+    // Continue releasing, this should eventually unblock the main thread.
+    allowSurfaceClearToComplete.open();
+    // Asserts that the main thread is opened after clearing the surface.
+    assertThat(mainThreadBlocked.block(TEST_TIMEOUT_MS)).isTrue();
   }
 
   @Test
