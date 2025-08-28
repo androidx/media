@@ -36,7 +36,6 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
@@ -66,11 +65,8 @@ import androidx.media3.test.utils.robolectric.TestPlayerRunHelper;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Test;
@@ -661,24 +657,7 @@ public class CompositionPlayerTest {
   public void addListener_callsSupportedCallbacks() throws Exception {
     CompositionPlayer player = createTestCompositionPlayer();
     Composition composition = buildComposition();
-    List<Integer> playbackStates = new ArrayList<>();
-    AtomicBoolean playing = new AtomicBoolean();
-    Player.Listener listener =
-        spy(
-            new Player.Listener() {
-              @Override
-              public void onPlaybackStateChanged(int playbackState) {
-                if (playbackStates.isEmpty()
-                    || Iterables.getLast(playbackStates) != playbackState) {
-                  playbackStates.add(playbackState);
-                }
-              }
-
-              @Override
-              public void onIsPlayingChanged(boolean isPlaying) {
-                playing.set(isPlaying);
-              }
-            });
+    Player.Listener listener = mock(Player.Listener.class);
     InOrder inOrder = Mockito.inOrder(listener);
 
     player.setComposition(composition);
@@ -694,8 +673,6 @@ public class CompositionPlayerTest {
 
     player.setPlayWhenReady(true);
 
-    // Ensure that Player.Listener.onIsPlayingChanged(true) is called.
-    runMainLooperUntil(playing::get);
     inOrder
         .verify(listener)
         .onPlayWhenReadyChanged(true, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST);
@@ -709,7 +686,9 @@ public class CompositionPlayerTest {
     inOrder.verify(listener).onPlaybackStateChanged(STATE_IDLE);
     player.release();
 
-    assertThat(playbackStates)
+    ArgumentCaptor<Integer> playbackStateCaptor = ArgumentCaptor.forClass(Integer.class);
+    verify(listener, atLeastOnce()).onPlaybackStateChanged(playbackStateCaptor.capture());
+    assertThat(playbackStateCaptor.getAllValues())
         .containsExactly(STATE_BUFFERING, STATE_READY, STATE_ENDED, STATE_IDLE)
         .inOrder();
   }
