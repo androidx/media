@@ -18,17 +18,17 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.effect.DebugTraceUtil.EVENT_SURFACE_TEXTURE_TRANSFORM_FIX;
+import static androidx.media3.test.utils.AssetInfo.BT601_MOV_ASSET;
+import static androidx.media3.test.utils.AssetInfo.JPG_ASSET;
+import static androidx.media3.test.utils.AssetInfo.JPG_PORTRAIT_ASSET;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_AV1_VIDEO;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_CHECKERBOARD_VIDEO;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S;
+import static androidx.media3.test.utils.AssetInfo.MP4_PORTRAIT_ASSET;
+import static androidx.media3.test.utils.AssetInfo.PNG_ASSET_LINES_1080P;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmap;
-import static androidx.media3.test.utils.TestUtil.BT601_MOV_ASSET;
-import static androidx.media3.test.utils.TestUtil.JPG_ASSET;
-import static androidx.media3.test.utils.TestUtil.JPG_PORTRAIT_ASSET;
-import static androidx.media3.test.utils.TestUtil.MP4_ASSET;
-import static androidx.media3.test.utils.TestUtil.MP4_ASSET_AV1_VIDEO;
-import static androidx.media3.test.utils.TestUtil.MP4_ASSET_CHECKERBOARD_VIDEO;
-import static androidx.media3.test.utils.TestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS;
-import static androidx.media3.test.utils.TestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S;
-import static androidx.media3.test.utils.TestUtil.MP4_PORTRAIT_ASSET;
-import static androidx.media3.test.utils.TestUtil.PNG_ASSET_LINES_1080P;
 import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
 import static androidx.media3.transformer.AndroidTestUtil.extractBitmapsFromVideo;
 import static androidx.media3.transformer.SequenceEffectTestUtil.NO_EFFECT;

@@ -16,9 +16,9 @@
 
 package androidx.media3.transformer.mh.analysis;
 
-import static androidx.media3.test.utils.TestUtil.MP4_ASSET_1080P_5_SECOND_HLG10;
-import static androidx.media3.test.utils.TestUtil.MP4_ASSET_H264_1080P_10SEC_VIDEO;
-import static androidx.media3.test.utils.TestUtil.MP4_ASSET_H264_4K_10SEC_VIDEO;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_1080P_5_SECOND_HLG10;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_H264_1080P_10SEC_VIDEO;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_H264_4K_10SEC_VIDEO;
 import static androidx.media3.transformer.VideoEncoderSettings.NO_VALUE;
 import static androidx.media3.transformer.VideoEncoderSettings.RATE_UNSET;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -26,7 +26,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import android.content.Context;
 import android.net.Uri;
 import androidx.media3.common.MediaItem;
-import androidx.media3.test.utils.TestUtil.AssetInfo;
+import androidx.media3.test.utils.AssetInfo;
 import androidx.media3.transformer.AndroidTestUtil;
 import androidx.media3.transformer.DefaultEncoderFactory;
 import androidx.media3.transformer.EditedMediaItem;

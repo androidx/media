@@ -17,10 +17,10 @@
 
 package androidx.media3.transformer.mh;
 
-import static androidx.media3.test.utils.TestUtil.MP4_ASSET_1080P_5_SECOND_HLG10;
-import static androidx.media3.test.utils.TestUtil.MP4_ASSET_720P_4_SECOND_HDR10;
-import static androidx.media3.test.utils.TestUtil.MP4_ASSET_AV1_2_SECOND_HDR10;
-import static androidx.media3.test.utils.TestUtil.MP4_PORTRAIT_ASSET;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_1080P_5_SECOND_HLG10;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_720P_4_SECOND_HDR10;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_AV1_2_SECOND_HDR10;
+import static androidx.media3.test.utils.AssetInfo.MP4_PORTRAIT_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
 import static androidx.media3.transformer.AndroidTestUtil.extractBitmapsFromVideo;
 import static androidx.media3.transformer.SequenceEffectTestUtil.NO_EFFECT;

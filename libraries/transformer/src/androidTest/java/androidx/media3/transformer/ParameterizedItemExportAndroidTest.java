@@ -16,10 +16,10 @@
  */
 package androidx.media3.transformer;
 
-import static androidx.media3.test.utils.TestUtil.BT601_MP4_ASSET;
-import static androidx.media3.test.utils.TestUtil.JPG_ASSET;
-import static androidx.media3.test.utils.TestUtil.MP4_ASSET;
-import static androidx.media3.test.utils.TestUtil.PNG_ASSET;
+import static androidx.media3.test.utils.AssetInfo.BT601_MP4_ASSET;
+import static androidx.media3.test.utils.AssetInfo.JPG_ASSET;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET;
+import static androidx.media3.test.utils.AssetInfo.PNG_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
 import static androidx.media3.transformer.AndroidTestUtil.getMuxerFactoryBasedOnApi;
 import static com.google.common.truth.Truth.assertThat;

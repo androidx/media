@@ -15,9 +15,9 @@
  */
 package androidx.media3.transformer.mh.analysis;
 
-import static androidx.media3.test.utils.TestUtil.MP4_ASSET_1080P_5_SECOND_HLG10;
-import static androidx.media3.test.utils.TestUtil.MP4_ASSET_H264_1080P_10SEC_VIDEO;
-import static androidx.media3.test.utils.TestUtil.MP4_ASSET_H264_4K_10SEC_VIDEO;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_1080P_5_SECOND_HLG10;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_H264_1080P_10SEC_VIDEO;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_H264_4K_10SEC_VIDEO;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 import android.content.Context;
@@ -26,7 +26,7 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.effect.Presentation;
 import androidx.media3.exoplayer.SeekParameters;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
-import androidx.media3.test.utils.TestUtil.AssetInfo;
+import androidx.media3.test.utils.AssetInfo;
 import androidx.media3.transformer.AndroidTestUtil;
 import androidx.media3.transformer.ExperimentalFrameExtractor;
 import androidx.media3.transformer.ExperimentalFrameExtractor.Frame;

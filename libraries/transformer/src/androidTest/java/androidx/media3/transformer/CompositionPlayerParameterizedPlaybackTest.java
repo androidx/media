@@ -17,11 +17,11 @@ package androidx.media3.transformer;
 
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.common.util.Util.usToMs;
-import static androidx.media3.test.utils.TestUtil.MP4_ASSET;
-import static androidx.media3.test.utils.TestUtil.MP4_ASSET_SRGB;
-import static androidx.media3.test.utils.TestUtil.MP4_VIDEO_ONLY_ASSET;
-import static androidx.media3.test.utils.TestUtil.PNG_ASSET;
-import static androidx.media3.test.utils.TestUtil.WAV_ASSET;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_SRGB;
+import static androidx.media3.test.utils.AssetInfo.MP4_VIDEO_ONLY_ASSET;
+import static androidx.media3.test.utils.AssetInfo.PNG_ASSET;
+import static androidx.media3.test.utils.AssetInfo.WAV_ASSET;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.TruthJUnit.assume;
