@@ -15,7 +15,6 @@
  */
 package androidx.media3.effect;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -24,7 +23,6 @@ import static org.junit.Assert.fail;
 import android.opengl.EGLContext;
 import android.opengl.EGLDisplay;
 import android.opengl.EGLSurface;
-import androidx.annotation.Nullable;
 import androidx.media3.common.C.ColorTransfer;
 import androidx.media3.common.Format;
 import androidx.media3.common.GlObjectsProvider;
@@ -32,12 +30,12 @@ import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.GlUtil.GlException;
+import androidx.media3.effect.EffectsTestUtil.FakeFrameConsumer;
+import androidx.media3.effect.EffectsTestUtil.FakeGlShaderProgram;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
@@ -300,114 +298,6 @@ public final class GlShaderProgramFrameProcessorTest {
         new GlTextureFrame.Metadata(id * 1000L, new Format.Builder().build()),
         directExecutor(),
         (texInfo) -> {});
-  }
-
-  private static class FakeGlShaderProgram implements GlShaderProgram {
-
-    public static class QueuedFrameInfo {
-      final GlTextureInfo textureInfo;
-      final long presentationTimeUs;
-
-      QueuedFrameInfo(GlTextureInfo textureInfo, long presentationTimeUs) {
-        this.textureInfo = textureInfo;
-        this.presentationTimeUs = presentationTimeUs;
-      }
-    }
-
-    public InputListener inputListener = new InputListener() {};
-    public OutputListener outputListener = new OutputListener() {};
-    public ErrorListener errorListener = e -> {};
-    public final List<QueuedFrameInfo> queuedFrames = new ArrayList<>();
-    @Nullable public CountDownLatch queuedFramesLatch;
-
-    @Override
-    public void setInputListener(InputListener inputListener) {
-      this.inputListener = inputListener;
-      inputListener.onReadyToAcceptInputFrame();
-    }
-
-    @Override
-    public void setOutputListener(OutputListener outputListener) {
-      this.outputListener = outputListener;
-    }
-
-    @Override
-    public void setErrorListener(Executor executor, ErrorListener errorListener) {
-      this.errorListener = errorListener;
-    }
-
-    @Override
-    public void queueInputFrame(
-        GlObjectsProvider glObjectsProvider, GlTextureInfo inputTexture, long presentationTimeUs) {
-      queuedFrames.add(new QueuedFrameInfo(inputTexture, presentationTimeUs));
-      if (queuedFramesLatch != null) {
-        queuedFramesLatch.countDown();
-      }
-    }
-
-    @Override
-    public void releaseOutputFrame(GlTextureInfo outputTexture) {}
-
-    @Override
-    public void signalEndOfCurrentInputStream() {
-      outputListener.onCurrentOutputStreamEnded();
-    }
-
-    @Override
-    public void flush() {
-      inputListener.onFlush();
-    }
-
-    @Override
-    public void release() {}
-  }
-
-  /** A fake {@link FrameProcessor} for capturing output frames. */
-  public static final class FakeFrameConsumer<I extends Frame> implements FrameConsumer<I> {
-    public boolean acceptFrames;
-    private final CountDownLatch queueFrameLatch;
-    public final List<I> receivedFrames;
-    @Nullable private Runnable onCapacityAvailableCallback;
-    @Nullable private Executor onCapacityAvailableExecutor;
-
-    public FakeFrameConsumer(int expectedNumberOfFrames) {
-      this.acceptFrames = true;
-      this.queueFrameLatch = new CountDownLatch(expectedNumberOfFrames);
-      this.receivedFrames = new ArrayList<>();
-    }
-
-    @Override
-    public boolean queueFrame(I frame) {
-      if (!acceptFrames) {
-        return false;
-      }
-      receivedFrames.add(frame);
-      queueFrameLatch.countDown();
-      return true;
-    }
-
-    @Override
-    public void setOnCapacityAvailableCallback(
-        Executor executor, Runnable onCapacityAvailableCallback) {
-      this.onCapacityAvailableCallback = onCapacityAvailableCallback;
-      this.onCapacityAvailableExecutor = executor;
-    }
-
-    @Override
-    public void clearOnCapacityAvailableCallback() {
-      this.onCapacityAvailableCallback = null;
-      this.onCapacityAvailableExecutor = null;
-    }
-
-    public void notifyCallbackListener() {
-      checkNotNull(onCapacityAvailableExecutor).execute(checkNotNull(onCapacityAvailableCallback));
-    }
-
-    public void awaitFrame(long timeoutMs) throws InterruptedException {
-      if (!queueFrameLatch.await(timeoutMs, MILLISECONDS)) {
-        fail("Timeout waiting for output frame");
-      }
-    }
   }
 
   private static final class FakeCapacityListener {
