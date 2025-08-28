@@ -57,7 +57,6 @@ import java.util.Objects;
           .build();
 
   public static final String XMP_SAMPLE_DATA = "media/xmp/sample_datetime_xmp.xmp";
-  public static final String MP4_FILE_ASSET_DIRECTORY = "asset:///media/mp4/";
 
   private static final byte[] FAKE_H264_SAMPLE =
       BaseEncoding.base16()
@@ -82,12 +81,12 @@ import java.util.Objects;
     return new Pair<>(sampleDirectBuffer, bufferInfo);
   }
 
-  public static void feedInputDataToMuxer(Context context, Muxer muxer, String inputFileName)
+  public static void feedInputDataToMuxer(Context context, Muxer muxer, String inputFilePath)
       throws IOException, MuxerException {
     feedInputDataToMuxer(
         context,
         muxer,
-        inputFileName,
+        inputFilePath,
         /* removeInitializationData= */ false,
         /* removeAudioSampleFlags= */ false);
   }
@@ -95,12 +94,12 @@ import java.util.Objects;
   public static void feedInputDataToMuxer(
       Context context,
       Muxer muxer,
-      String inputFileName,
+      String inputFilePath,
       boolean removeInitializationData,
       boolean removeAudioSampleFlags)
       throws IOException, MuxerException {
     MediaExtractorCompat extractor = new MediaExtractorCompat(context);
-    Uri fileUri = Uri.parse(MP4_FILE_ASSET_DIRECTORY + inputFileName);
+    Uri fileUri = Uri.parse(inputFilePath);
     extractor.setDataSource(fileUri, /* offset= */ 0);
 
     List<Integer> trackMapping = new ArrayList<>();

@@ -74,6 +74,8 @@ public class FragmentedMp4MuxerEndToEndTest {
   private static final String VORBIS_OGG = "bbb_1ch_16kHz_q10_vorbis.ogg";
   private static final String RAW_WAV = "bbb_2ch_44kHz.wav";
 
+  public static final String MP4_FILE_ASSET_DIRECTORY = "asset:///media/mp4/";
+
   @Parameters(name = "{0}")
   public static ImmutableList<String> mediaSamples() {
     return ImmutableList.of(
@@ -128,7 +130,8 @@ public class FragmentedMp4MuxerEndToEndTest {
           new Mp4TimestampData(
               /* creationTimestampSeconds= */ 100_000_000L,
               /* modificationTimestampSeconds= */ 500_000_000L));
-      feedInputDataToMuxer(context, fragmentedMp4Muxer, checkNotNull(inputFile));
+      feedInputDataToMuxer(
+          context, fragmentedMp4Muxer, checkNotNull(MP4_FILE_ASSET_DIRECTORY + inputFile));
     } finally {
       if (fragmentedMp4Muxer != null) {
         fragmentedMp4Muxer.close();
@@ -156,7 +159,7 @@ public class FragmentedMp4MuxerEndToEndTest {
           new Mp4TimestampData(
               /* creationTimestampSeconds= */ 100_000_000L,
               /* modificationTimestampSeconds= */ 500_000_000L));
-      feedInputDataToMuxer(context, fragmentedMp4Muxer, H265_HDR10_MP4);
+      feedInputDataToMuxer(context, fragmentedMp4Muxer, MP4_FILE_ASSET_DIRECTORY + H265_HDR10_MP4);
     } finally {
       if (fragmentedMp4Muxer != null) {
         fragmentedMp4Muxer.close();
@@ -184,7 +187,7 @@ public class FragmentedMp4MuxerEndToEndTest {
           new Mp4TimestampData(
               /* creationTimestampSeconds= */ 100_000_000L,
               /* modificationTimestampSeconds= */ 500_000_000L));
-      feedInputDataToMuxer(context, fragmentedMp4Muxer, AUDIO_ONLY_MP4);
+      feedInputDataToMuxer(context, fragmentedMp4Muxer, MP4_FILE_ASSET_DIRECTORY + AUDIO_ONLY_MP4);
     } finally {
       if (fragmentedMp4Muxer != null) {
         fragmentedMp4Muxer.close();
@@ -215,7 +218,7 @@ public class FragmentedMp4MuxerEndToEndTest {
       feedInputDataToMuxer(
           context,
           mp4Muxer,
-          AV1_MP4,
+          MP4_FILE_ASSET_DIRECTORY + AV1_MP4,
           /* removeInitializationData= */ true,
           /* removeAudioSampleFlags= */ false);
     } finally {
@@ -249,7 +252,7 @@ public class FragmentedMp4MuxerEndToEndTest {
       feedInputDataToMuxer(
           context,
           mp4Muxer,
-          H264_MP4,
+          MP4_FILE_ASSET_DIRECTORY + H264_MP4,
           /* removeInitializationData= */ false,
           /* removeAudioSampleFlags= */ true);
     } finally {

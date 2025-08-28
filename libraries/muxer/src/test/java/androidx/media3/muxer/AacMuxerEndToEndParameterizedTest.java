@@ -45,6 +45,8 @@ public class AacMuxerEndToEndParameterizedTest {
   private static final String AAC_MP4 = "bbb_1ch_16kHz_aac.mp4";
   private static final String RAW_AAC = "bbb_1ch_8kHz_aac_lc.aac";
 
+  public static final String MP4_FILE_ASSET_DIRECTORY = "asset:///media/mp4/";
+
   @Parameters(name = "{0}")
   public static ImmutableList<String> mediaSamples() {
     return ImmutableList.of(AAC_M4A, AAC_MP4, RAW_AAC);
@@ -71,7 +73,7 @@ public class AacMuxerEndToEndParameterizedTest {
   @Test
   public void createAacFile_fromInputFileSampleData_matchesExpected() throws Exception {
     try (AacMuxer muxer = new AacMuxer(checkNotNull(outputStream))) {
-      feedInputDataToMuxer(context, muxer, checkNotNull(inputFile));
+      feedInputDataToMuxer(context, muxer, checkNotNull(MP4_FILE_ASSET_DIRECTORY + inputFile));
     }
 
     FakeExtractorOutput fakeExtractorOutput =

@@ -54,6 +54,8 @@ import org.junit.runner.RunWith;
 public class Mp4MuxerEndToEndTest {
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
+  public static final String MP4_FILE_ASSET_DIRECTORY = "asset:///media/mp4/";
+
   private static final String H265_HDR10_MP4 = "hdr10-720p.mp4";
   private static final String AV1_MP4 = "sample_av1.mp4";
   private final Context context = ApplicationProvider.getApplicationContext();
@@ -139,7 +141,7 @@ public class Mp4MuxerEndToEndTest {
       feedInputDataToMuxer(
           context,
           mp4Muxer,
-          AV1_MP4,
+          MP4_FILE_ASSET_DIRECTORY + AV1_MP4,
           /* removeInitializationData= */ true,
           /* removeAudioSampleFlags= */ false);
     } finally {
@@ -165,7 +167,7 @@ public class Mp4MuxerEndToEndTest {
         new Mp4TimestampData(
             /* creationTimestampSeconds= */ 100_000_000L,
             /* modificationTimestampSeconds= */ 500_000_000L));
-    feedInputDataToMuxer(context, mp4Muxer, H265_HDR10_MP4);
+    feedInputDataToMuxer(context, mp4Muxer, MP4_FILE_ASSET_DIRECTORY + H265_HDR10_MP4);
 
     // Muxer not closed.
 
@@ -907,7 +909,8 @@ public class Mp4MuxerEndToEndTest {
             /* creationTimestampSeconds= */ 100_000_000L,
             /* modificationTimestampSeconds= */ 500_000_000L));
     try {
-      feedInputDataToMuxer(context, mp4Muxer, checkNotNull(H265_HDR10_MP4));
+      feedInputDataToMuxer(
+          context, mp4Muxer, checkNotNull(MP4_FILE_ASSET_DIRECTORY + H265_HDR10_MP4));
     } finally {
       mp4Muxer.close();
     }
@@ -936,7 +939,8 @@ public class Mp4MuxerEndToEndTest {
             /* creationTimestampSeconds= */ 100_000_000L,
             /* modificationTimestampSeconds= */ 500_000_000L));
     try {
-      feedInputDataToMuxer(context, mp4Muxer, checkNotNull(H265_HDR10_MP4));
+      feedInputDataToMuxer(
+          context, mp4Muxer, checkNotNull(MP4_FILE_ASSET_DIRECTORY + H265_HDR10_MP4));
     } finally {
       mp4Muxer.close();
     }

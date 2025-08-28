@@ -71,6 +71,8 @@ public class Mp4MuxerEndToEndParameterizedTest {
   private static final String VORBIS_OGG = "bbb_1ch_16kHz_q10_vorbis.ogg";
   private static final String RAW_WAV = "bbb_2ch_44kHz.wav";
 
+  public static final String MP4_FILE_ASSET_DIRECTORY = "asset:///media/mp4/";
+
   @Parameters(name = "{0}")
   public static ImmutableList<String> mediaSamples() {
     return ImmutableList.of(
@@ -126,7 +128,7 @@ public class Mp4MuxerEndToEndParameterizedTest {
           new Mp4TimestampData(
               /* creationTimestampSeconds= */ 100_000_000L,
               /* modificationTimestampSeconds= */ 500_000_000L));
-      feedInputDataToMuxer(context, mp4Muxer, checkNotNull(inputFile));
+      feedInputDataToMuxer(context, mp4Muxer, checkNotNull(MP4_FILE_ASSET_DIRECTORY + inputFile));
     } finally {
       if (mp4Muxer != null) {
         mp4Muxer.close();
