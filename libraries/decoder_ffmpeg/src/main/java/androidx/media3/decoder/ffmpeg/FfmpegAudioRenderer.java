@@ -111,11 +111,6 @@ public final class FfmpegAudioRenderer extends DecoderAudioRenderer<FfmpegAudioD
     return ADAPTIVE_NOT_SEAMLESS;
   }
 
-  /**
-   * {@inheritDoc}
-   *
-   * @hide
-   */
   @Override
   protected FfmpegAudioDecoder createDecoder(Format format, @Nullable CryptoConfig cryptoConfig)
       throws FfmpegDecoderException {
@@ -129,11 +124,6 @@ public final class FfmpegAudioRenderer extends DecoderAudioRenderer<FfmpegAudioD
     return decoder;
   }
 
-  /**
-   * {@inheritDoc}
-   *
-   * @hide
-   */
   @Override
   protected Format getOutputFormat(FfmpegAudioDecoder decoder) {
     checkNotNull(decoder);

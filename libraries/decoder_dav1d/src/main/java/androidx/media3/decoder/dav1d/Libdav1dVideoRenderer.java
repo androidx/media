@@ -158,11 +158,6 @@ public class Libdav1dVideoRenderer extends DecoderVideoRenderer {
         C.FORMAT_HANDLED, ADAPTIVE_SEAMLESS, TUNNELING_NOT_SUPPORTED);
   }
 
-  /**
-   * {@inheritDoc}
-   *
-   * @hide
-   */
   @Override
   protected final Dav1dDecoder createDecoder(Format format, @Nullable CryptoConfig cryptoConfig)
       throws Dav1dDecoderException {
