@@ -80,6 +80,7 @@ import com.google.common.primitives.Bytes;
 import com.google.common.primitives.UnsignedBytes;
 import com.google.common.truth.Correspondence;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.errorprone.annotations.Immutable;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -116,18 +117,30 @@ import org.mockito.Mockito;
 @UnstableApi
 public class TestUtil {
   /** Information about a test asset. */
+  @Immutable
   public static final class AssetInfo {
     private static final class Builder {
       private final String uri;
+      private int trackCount;
       private @MonotonicNonNull Format videoFormat;
       private int videoFrameCount;
+      private int audioSampleCount;
       private long videoDurationUs;
       private @MonotonicNonNull ImmutableList<Long> videoTimestampsUs;
 
       public Builder(String uri) {
         this.uri = uri;
+        trackCount = C.LENGTH_UNSET;
         videoFrameCount = C.LENGTH_UNSET;
+        audioSampleCount = C.LENGTH_UNSET;
         videoDurationUs = C.TIME_UNSET;
+      }
+
+      /** See {@link AssetInfo#trackCount}. */
+      @CanIgnoreReturnValue
+      public Builder setTrackCount(int trackCount) {
+        this.trackCount = trackCount;
+        return this;
       }
 
       /** See {@link AssetInfo#videoFormat}. */
@@ -143,6 +156,13 @@ public class TestUtil {
         // Frame count can be found using the following command for a given file:
         // ffprobe -count_frames -select_streams v:0 -show_entries stream=nb_read_frames <file>
         this.videoFrameCount = frameCount;
+        return this;
+      }
+
+      /** See {@link AssetInfo#audioSampleCount}. */
+      @CanIgnoreReturnValue
+      public Builder setAudioSampleCount(int audioSampleCount) {
+        this.audioSampleCount = audioSampleCount;
         return this;
       }
 
@@ -167,15 +187,28 @@ public class TestUtil {
               videoFrameCount == C.LENGTH_UNSET || videoFrameCount == videoTimestampsUs.size());
           videoFrameCount = videoTimestampsUs.size();
         }
-        return new AssetInfo(uri, videoFormat, videoDurationUs, videoFrameCount, videoTimestampsUs);
+        return new AssetInfo(
+            uri,
+            trackCount,
+            videoFormat,
+            videoDurationUs,
+            videoFrameCount,
+            audioSampleCount,
+            videoTimestampsUs);
       }
     }
 
     /** Asset uri string. */
     public final String uri;
 
+    /** Total number of tracks, or {@link C#LENGTH_UNSET}. */
+    public final int trackCount;
+
     /** Video {@link Format}, or {@code null}. */
-    @Nullable public final Format videoFormat;
+    // Format object is not deeply immutable but it is meant to be immutable.
+    @SuppressWarnings("Immutable")
+    @Nullable
+    public final Format videoFormat;
 
     /** Video duration in microseconds, or {@link C#TIME_UNSET}. */
     public final long videoDurationUs;
@@ -183,19 +216,26 @@ public class TestUtil {
     /** Video frame count, or {@link C#LENGTH_UNSET}. */
     public final int videoFrameCount;
 
+    /** Audio sample count, or {@link C#LENGTH_UNSET}. */
+    public final int audioSampleCount;
+
     /** Video frame timestamps in microseconds, or {@code null}. */
     @Nullable public final ImmutableList<Long> videoTimestampsUs;
 
     private AssetInfo(
         String uri,
+        int trackCount,
         @Nullable Format videoFormat,
         long videoDurationUs,
         int videoFrameCount,
+        int audioSampleCount,
         @Nullable ImmutableList<Long> videoTimestampsUs) {
       this.uri = uri;
+      this.trackCount = trackCount;
       this.videoFormat = videoFormat;
       this.videoDurationUs = videoDurationUs;
       this.videoFrameCount = videoFrameCount;
+      this.audioSampleCount = audioSampleCount;
       this.videoTimestampsUs = videoTimestampsUs;
     }
 
@@ -367,8 +407,10 @@ public class TestUtil {
                   .setFrameRate(29.97f)
                   .setCodecs("avc1.64001F")
                   .build())
+          .setTrackCount(2)
           .setVideoDurationUs(1_024_000L)
           .setVideoFrameCount(30)
+          .setAudioSampleCount(45)
           .setVideoTimestampsUs(
               ImmutableList.of(
                   0L, 33_366L, 66_733L, 100_100L, 133_466L, 166_833L, 200_200L, 233_566L, 266_933L,
@@ -504,6 +546,9 @@ public class TestUtil {
                   .setHeight(720)
                   .setFrameRate(30.0f)
                   .build())
+          .setTrackCount(2)
+          .setVideoFrameCount(30)
+          .setAudioSampleCount(45)
           .build();
 
   public static final AssetInfo MP4_ASSET_CHECKERBOARD_VIDEO =
@@ -527,7 +572,10 @@ public class TestUtil {
                   .setFrameRate(30.00f)
                   .setCodecs("avc1.42C033")
                   .build())
+          .setTrackCount(2)
           .setVideoDurationUs(1_000_000L)
+          .setVideoFrameCount(30)
+          .setAudioSampleCount(47)
           .build();
 
   public static final AssetInfo MP4_LONG_ASSET_WITH_INCREASING_TIMESTAMPS =
@@ -745,6 +793,9 @@ public class TestUtil {
                           .setColorSpace(C.COLOR_SPACE_BT2020)
                           .build())
                   .build())
+          .setTrackCount(3)
+          .setVideoFrameCount(5)
+          .setAudioSampleCount(7)
           .build();
 
   public static final AssetInfo MP4_ASSET_4K60_PORTRAIT =
@@ -796,6 +847,9 @@ public class TestUtil {
                   .setFrameRate(24.00f)
                   .setCodecs("hvc1.1.6.L183")
                   .build())
+          .setTrackCount(2)
+          .setVideoFrameCount(8)
+          .setAudioSampleCount(15)
           .build();
 
   // From b/357743907.
@@ -1180,6 +1234,36 @@ public class TestUtil {
 
   public static final AssetInfo FLAC_STEREO_ASSET =
       new AssetInfo.Builder("asset:///media/flac/bear.flac").build();
+
+  public static final AssetInfo AMR_NB_3GP_ASSET =
+      new AssetInfo.Builder("asset:///media/mp4/bbb_mono_8kHz_12.2kbps_amrnb.3gp")
+          .setTrackCount(1)
+          .setAudioSampleCount(151)
+          .build();
+
+  public static final AssetInfo AMR_WB_3GP_ASSET =
+      new AssetInfo.Builder("asset:///media/mp4/bbb_mono_16kHz_23.05kbps_amrwb.3gp")
+          .setTrackCount(1)
+          .setAudioSampleCount(150)
+          .build();
+
+  public static final AssetInfo H263_3GP_ASSET =
+      new AssetInfo.Builder("asset:///media/mp4/bbb_176x144_128kbps_15fps_h263.3gp")
+          .setTrackCount(1)
+          .setVideoFrameCount(15)
+          .build();
+
+  public static final AssetInfo MPEG4_MP4_ASSET =
+      new AssetInfo.Builder("asset:///media/mp4/bbb_176x144_192kbps_15fps_mpeg4.mp4")
+          .setTrackCount(1)
+          .setVideoFrameCount(15)
+          .build();
+
+  public static final AssetInfo VORBIS_OGG_ASSET =
+      new AssetInfo.Builder("asset:///media/mp4/bbb_1ch_16kHz_q10_vorbis.ogg")
+          .setTrackCount(1)
+          .setAudioSampleCount(103)
+          .build();
 
   /**
    * Luma PSNR values between 30 and 50 are considered good for lossy compression (See <a

@@ -504,6 +504,10 @@ public final class Mp4Muxer implements Muxer {
   @Override
   public void writeSampleData(int trackId, ByteBuffer byteBuffer, BufferInfo bufferInfo)
       throws MuxerException {
+    checkArgument(trackId < trackIdToTrack.size(), "Track id is invalid");
+    checkNotNull(byteBuffer);
+    checkNotNull(bufferInfo);
+    checkArgument(byteBuffer.remaining() == bufferInfo.size);
     Track track = trackIdToTrack.get(trackId);
     try {
       if (auxiliaryTracks.contains(track)) {

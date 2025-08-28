@@ -19,6 +19,7 @@ import static androidx.media3.common.util.Util.getBufferFlagsFromMediaCodecFlags
 import static androidx.media3.container.MdtaMetadataEntry.AUXILIARY_TRACKS_SAMPLES_INTERLEAVED;
 import static androidx.media3.container.MdtaMetadataEntry.AUXILIARY_TRACKS_SAMPLES_NOT_INTERLEAVED;
 import static androidx.media3.container.MdtaMetadataEntry.TYPE_INDICATOR_8_BIT_UNSIGNED_INT;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.media.MediaCodec;
 import androidx.media3.common.C;
@@ -55,6 +56,7 @@ public final class MuxerUtil {
   /** Returns {@link BufferInfo} corresponding to the {@link MediaCodec.BufferInfo}. */
   public static BufferInfo getMuxerBufferInfoFromMediaCodecBufferInfo(
       MediaCodec.BufferInfo mediaCodecBufferInfo) {
+    checkNotNull(mediaCodecBufferInfo);
     return new BufferInfo(
         mediaCodecBufferInfo.presentationTimeUs,
         mediaCodecBufferInfo.size,
