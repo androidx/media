@@ -43,8 +43,10 @@ import com.google.common.util.concurrent.ListenableFuture
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.mockito.AdditionalAnswers.delegatesTo
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.inOrder
+import org.mockito.Mockito.mock
 import org.mockito.Mockito.spy
 import org.mockito.Mockito.verify
 
@@ -108,8 +110,8 @@ class PlayerSurfaceTest {
   fun playerSurface_withNewPlayer_unsetsSurfaceOnOldPlayerFirst() {
     val player0 = TestSimpleBasePlayer()
     val player1 = TestSimpleBasePlayer()
-    val spyPlayer0 = spy(ForwardingPlayer(player0))
-    val spyPlayer1 = spy(ForwardingPlayer(player1))
+    val spyPlayer0 = mock(Player::class.java, delegatesTo<Player>(player0))
+    val spyPlayer1 = mock(Player::class.java, delegatesTo<Player>(player1))
 
     lateinit var playerIndex: MutableIntState
     composeTestRule.setContent {

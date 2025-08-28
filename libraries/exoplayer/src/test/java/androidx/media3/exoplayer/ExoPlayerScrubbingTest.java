@@ -19,6 +19,7 @@ import static androidx.media3.test.utils.FakeTimeline.TimelineWindowDefinition.D
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
+import static org.mockito.AdditionalAnswers.delegatesTo;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -28,7 +29,6 @@ import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
@@ -48,7 +48,6 @@ import androidx.media3.common.Timeline;
 import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.exoplayer.analytics.AnalyticsListener;
-import androidx.media3.exoplayer.mediacodec.ForwardingMediaCodecAdapter;
 import androidx.media3.exoplayer.mediacodec.MediaCodecAdapter;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.media3.exoplayer.video.MediaCodecVideoRenderer;
@@ -454,7 +453,7 @@ public final class ExoPlayerScrubbingTest {
             return configuration -> {
               MediaCodecAdapter codecAdapter = codecAdapterFactory.createAdapter(configuration);
               if (MimeTypes.isVideo(configuration.codecInfo.mimeType)) {
-                codecAdapter = spy(new ForwardingMediaCodecAdapter(codecAdapter));
+                codecAdapter = mock(MediaCodecAdapter.class, delegatesTo(codecAdapter));
                 checkState(
                     spyVideoMediaCodecAdapter.compareAndSet(
                         /* expectedValue= */ null, /* newValue= */ codecAdapter));
@@ -507,7 +506,7 @@ public final class ExoPlayerScrubbingTest {
             return configuration -> {
               MediaCodecAdapter codecAdapter = codecAdapterFactory.createAdapter(configuration);
               if (MimeTypes.isVideo(configuration.codecInfo.mimeType)) {
-                codecAdapter = spy(new ForwardingMediaCodecAdapter(codecAdapter));
+                codecAdapter = mock(MediaCodecAdapter.class, delegatesTo(codecAdapter));
                 checkState(
                     spyVideoMediaCodecAdapter.compareAndSet(
                         /* expectedValue= */ null, /* newValue= */ codecAdapter));
