@@ -41,7 +41,6 @@ import kotlinx.coroutines.test.TestCoroutineScheduler
  * @param playWhenReady Whether playback should start automatically when ready.
  * @param playlist The initial list of media items to play. Default is 2 items (1s and 2s duration).
  * @param playbackSpeed The initial playback speed.
- * @hide
  */
 @UnstableApi
 open class TestSimpleBasePlayer(
