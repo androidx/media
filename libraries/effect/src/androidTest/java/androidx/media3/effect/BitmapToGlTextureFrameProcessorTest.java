@@ -79,9 +79,15 @@ public final class BitmapToGlTextureFrameProcessorTest {
 
   @After
   public void tearDown() throws Exception {
-    processor.release();
+    processor.releaseAsync().get(TEST_TIMEOUT_MS, MILLISECONDS);
+    glThreadExecutorService
+        .submit(
+            () -> {
+              glObjectsProvider.release(eglDisplay);
+              return null;
+            })
+        .get(TEST_TIMEOUT_MS, MILLISECONDS);
     glThreadExecutorService.shutdownNow();
-    glObjectsProvider.release(eglDisplay);
   }
 
   @Test

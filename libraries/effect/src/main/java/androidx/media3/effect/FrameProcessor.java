@@ -18,6 +18,7 @@ package androidx.media3.effect;
 import androidx.annotation.Nullable;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.Consumer;
+import com.google.common.util.concurrent.ListenableFuture;
 import java.util.concurrent.Executor;
 
 /**
@@ -50,8 +51,12 @@ import java.util.concurrent.Executor;
    */
   void setOutput(@Nullable FrameConsumer<O> output);
 
-  /** Releases all resources. */
-  void release();
+  /**
+   * Releases all resources.
+   *
+   * @return A {@link ListenableFuture} that completes when the processor has been released.
+   */
+  ListenableFuture<Void> releaseAsync();
 
   /**
    * Sets a {@linkplain Consumer<VideoFrameProcessingException> callback} to be run when an

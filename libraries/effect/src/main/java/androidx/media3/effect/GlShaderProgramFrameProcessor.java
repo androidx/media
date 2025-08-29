@@ -27,6 +27,7 @@ import androidx.media3.common.util.NullableType;
 import androidx.media3.effect.GlTextureFrame.Metadata;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -118,18 +119,7 @@ import java.util.concurrent.atomic.AtomicReference;
     Futures.addCallback(
         glThreadExecutorService.submit(
             () -> {
-              @Nullable FrameConsumer<GlTextureFrame> oldConsumer = this.downstreamConsumer;
-              if (oldConsumer == nextOutputConsumer) {
-                return null;
-              }
-              if (oldConsumer != null) {
-                oldConsumer.clearOnCapacityAvailableCallback();
-              }
-              this.downstreamConsumer = nextOutputConsumer;
-              if (downstreamConsumer != null) {
-                downstreamConsumer.setOnCapacityAvailableCallback(
-                    glThreadExecutorService, this::maybeForwardProcessedFrame);
-              }
+              setOutputInternal(nextOutputConsumer);
               return null;
             }),
         new FutureCallback<Object>() {
@@ -145,27 +135,12 @@ import java.util.concurrent.atomic.AtomicReference;
   }
 
   @Override
-  public void release() {
-    Futures.addCallback(
-        glThreadExecutorService.submit(
-            () -> {
-              try {
-                shaderProgram.release();
-              } catch (VideoFrameProcessingException e) {
-                onError(e);
-              }
-              return null;
-            }),
-        new FutureCallback<Object>() {
-          @Override
-          public void onSuccess(Object result) {}
-
-          @Override
-          public void onFailure(Throwable t) {
-            onError(new VideoFrameProcessingException(t));
-          }
-        },
-        glThreadExecutorService);
+  public ListenableFuture<Void> releaseAsync() {
+    return glThreadExecutorService.submit(
+        () -> {
+          releaseInternal();
+          return null;
+        });
   }
 
   @Override
@@ -188,8 +163,6 @@ import java.util.concurrent.atomic.AtomicReference;
     if (errorCallbackPair != null) {
       errorCallbackPair.first.execute(() -> errorCallbackPair.second.accept(e));
     }
-    // Once an error occurs, no more processing should happen.
-    release();
   }
 
   @Override
@@ -231,6 +204,31 @@ import java.util.concurrent.atomic.AtomicReference;
             glThreadExecutorService,
             shaderProgram::releaseOutputFrame);
     maybeForwardProcessedFrame();
+  }
+
+  private void setOutputInternal(@Nullable FrameConsumer<GlTextureFrame> nextOutputConsumer) {
+    @Nullable FrameConsumer<GlTextureFrame> oldConsumer = this.downstreamConsumer;
+    if (oldConsumer == nextOutputConsumer) {
+      return;
+    }
+    if (oldConsumer != null) {
+      oldConsumer.clearOnCapacityAvailableCallback();
+    }
+    this.downstreamConsumer = nextOutputConsumer;
+    if (downstreamConsumer != null) {
+      downstreamConsumer.setOnCapacityAvailableCallback(
+          glThreadExecutorService, this::maybeForwardProcessedFrame);
+    }
+  }
+
+  private void releaseInternal() throws VideoFrameProcessingException {
+    if (currentInputFrame != null) {
+      currentInputFrame.release();
+    }
+    if (currentProcessedFrame != null) {
+      currentProcessedFrame.release();
+    }
+    shaderProgram.release();
   }
 
   private void maybeForwardProcessedFrame() {

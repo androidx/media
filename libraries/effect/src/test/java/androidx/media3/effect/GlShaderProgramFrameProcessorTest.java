@@ -130,8 +130,8 @@ public final class GlShaderProgramFrameProcessorTest {
   }
 
   @After
-  public void tearDown() {
-    processor.release();
+  public void tearDown() throws ExecutionException, InterruptedException, TimeoutException {
+    processor.releaseAsync().get(TEST_TIMEOUT, MILLISECONDS);
     glThreadExecutorService.shutdownNow();
   }
 

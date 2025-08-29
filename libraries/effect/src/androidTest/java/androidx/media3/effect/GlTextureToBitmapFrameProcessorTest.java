@@ -91,7 +91,7 @@ public final class GlTextureToBitmapFrameProcessorTest {
   @After
   public void tearDown() throws Exception {
     if (processor != null) {
-      processor.release();
+      processor.releaseAsync().get(TEST_TIMEOUT_MS, MILLISECONDS);
     }
     if (glObjectsProvider != null) {
       glObjectsProvider.release(eglDisplay);

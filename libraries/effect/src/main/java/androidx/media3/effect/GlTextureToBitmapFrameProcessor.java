@@ -44,6 +44,7 @@ import androidx.media3.common.util.NullableType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -149,18 +150,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     Futures.addCallback(
         glThreadExecutorService.submit(
             () -> {
-              @Nullable FrameConsumer<BitmapFrame> oldConsumer = this.downstreamConsumer;
-              if (oldConsumer == nextOutputConsumer) {
-                return null;
-              }
-              if (oldConsumer != null) {
-                oldConsumer.clearOnCapacityAvailableCallback();
-              }
-              this.downstreamConsumer = nextOutputConsumer;
-              if (this.downstreamConsumer != null) {
-                this.downstreamConsumer.setOnCapacityAvailableCallback(
-                    glThreadExecutorService, this::maybeDrainProcessedFrames);
-              }
+              setOutputInternal(nextOutputConsumer);
               return null;
             }),
         new FutureCallback<Object>() {
@@ -176,12 +166,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   @Override
-  public void release() {
-    @Nullable BitmapFrame nextFrame = processedFrames.poll();
-    while (nextFrame != null) {
-      nextFrame.release();
-      nextFrame = processedFrames.poll();
-    }
+  public ListenableFuture<Void> releaseAsync() {
+    return glThreadExecutorService.submit(
+        () -> {
+          releaseInternal();
+          return null;
+        });
   }
 
   @Override
@@ -196,6 +186,29 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   // Methods called on the GL thread.
+
+  private void setOutputInternal(@Nullable FrameConsumer<BitmapFrame> nextOutputConsumer) {
+    @Nullable FrameConsumer<BitmapFrame> oldConsumer = this.downstreamConsumer;
+    if (oldConsumer == nextOutputConsumer) {
+      return;
+    }
+    if (oldConsumer != null) {
+      oldConsumer.clearOnCapacityAvailableCallback();
+    }
+    this.downstreamConsumer = nextOutputConsumer;
+    if (this.downstreamConsumer != null) {
+      this.downstreamConsumer.setOnCapacityAvailableCallback(
+          glThreadExecutorService, this::maybeDrainProcessedFrames);
+    }
+  }
+
+  private void releaseInternal() {
+    @Nullable BitmapFrame nextFrame = processedFrames.poll();
+    while (nextFrame != null) {
+      nextFrame.release();
+      nextFrame = processedFrames.poll();
+    }
+  }
 
   private void processFrameInternal(GlTextureFrame inputFrame) {
     GlTextureInfo inputTexture = inputFrame.getGlTextureInfo();
@@ -322,8 +335,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     if (errorCallbackPair != null) {
       errorCallbackPair.first.execute(() -> errorCallbackPair.second.accept(e));
     }
-    // Once an error occurs, no more processing should happen.
-    release();
   }
 
   private final class InputConsumer implements FrameConsumer<GlTextureFrame> {

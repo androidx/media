@@ -38,7 +38,9 @@ import com.google.common.util.concurrent.MoreExecutors;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeoutException;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.After;
 import org.junit.Before;
@@ -82,8 +84,8 @@ public final class BitmapToGlTextureFrameProcessorTest {
   }
 
   @After
-  public void tearDown() {
-    processor.release();
+  public void tearDown() throws ExecutionException, InterruptedException, TimeoutException {
+    processor.releaseAsync().get(TEST_TIMEOUT, MILLISECONDS);
     glThreadExecutorService.shutdownNow();
   }
 
