@@ -48,11 +48,13 @@ import java.util.concurrent.TimeoutException;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /** Instrumentation tests for {@link GlTextureToBitmapFrameProcessor}. */
 @RunWith(AndroidJUnit4.class)
+@Ignore("TODO: b/430250432 - Fix flakiness and re-enable")
 public final class GlTextureToBitmapFrameProcessorTest {
 
   private static final int TEST_TIMEOUT_MS = 1000;

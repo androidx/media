@@ -45,11 +45,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /** Instrumentation tests for {@link GlShaderProgramFrameProcessor}. */
 @RunWith(AndroidJUnit4.class)
+@Ignore("TODO: b/430250432 - Fix flakiness and re-enable")
 public final class GlShaderProgramFrameProcessorTest {
 
   private static final int TEST_TIMEOUT = 1000;

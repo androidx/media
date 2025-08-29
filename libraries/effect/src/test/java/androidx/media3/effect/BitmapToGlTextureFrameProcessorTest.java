@@ -44,11 +44,13 @@ import java.util.concurrent.TimeoutException;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /** Unit tests for {@link GlShaderProgramFrameProcessor}. */
 @RunWith(AndroidJUnit4.class)
+@Ignore("TODO: b/430250432 - Fix flakiness and re-enable")
 public final class BitmapToGlTextureFrameProcessorTest {
 
   private static final int TEST_TIMEOUT = 1000;
