@@ -144,6 +144,21 @@ public final class DefaultAudioSink implements AudioSink {
   private static final int AUDIO_TRACK_VOLUME_RAMP_TIME_MS = 20;
 
   /**
+   * @see Builder#setPcmEncodingRestrictionLifted(boolean)
+   */
+  private static final int PCM_ENCODING_ANY = 0;
+
+  /**
+   * @see Builder#setPcmEncodingRestrictionLifted(boolean)
+   */
+  private static final int PCM_ENCODING_INT16_ONLY = 1;
+
+  /**
+   * @see Builder#setEnableFloatOutput(boolean)
+   */
+  private static final int PCM_ENCODING_INT16_FLOAT32_ONLY = 2;
+
+  /**
    * Thrown when the audio track has provided a spurious timestamp, if {@link
    * #failOnSpuriousAudioTimestamp} is set.
    */
@@ -168,10 +183,12 @@ public final class DefaultAudioSink implements AudioSink {
   /**
    * The default audio processor chain, which applies a (possibly empty) chain of user-defined audio
    * processors followed by {@link SilenceSkippingAudioProcessor} and {@link SonicAudioProcessor}.
+   * No audio processors will be applied for PCM encodings other than 16-bit integer.
    */
   @SuppressWarnings("deprecation")
   public static class DefaultAudioProcessorChain implements AudioProcessorChain {
 
+    private boolean formatSupported = false;
     private final AudioProcessor[] audioProcessors;
     private final SilenceSkippingAudioProcessor silenceSkippingAudioProcessor;
     private final SonicAudioProcessor sonicAudioProcessor;
@@ -208,12 +225,20 @@ public final class DefaultAudioSink implements AudioSink {
     }
 
     @Override
-    public AudioProcessor[] getAudioProcessors() {
+    public AudioProcessor[] getAudioProcessors(Format inputFormat) {
+      if (inputFormat.pcmEncoding != C.ENCODING_PCM_16BIT) {
+        formatSupported = false;
+        return new AudioProcessor[0];
+      }
+      formatSupported = true;
       return audioProcessors;
     }
 
     @Override
     public PlaybackParameters applyPlaybackParameters(PlaybackParameters playbackParameters) {
+      if (!formatSupported) {
+        return PlaybackParameters.DEFAULT;
+      }
       sonicAudioProcessor.setSpeed(playbackParameters.speed);
       sonicAudioProcessor.setPitch(playbackParameters.pitch);
       return playbackParameters;
@@ -221,20 +246,23 @@ public final class DefaultAudioSink implements AudioSink {
 
     @Override
     public boolean applySkipSilenceEnabled(boolean skipSilenceEnabled) {
+      if (!formatSupported) {
+        return false;
+      }
       silenceSkippingAudioProcessor.setEnabled(skipSilenceEnabled);
       return skipSilenceEnabled;
     }
 
     @Override
     public long getMediaDuration(long playoutDuration) {
-      return sonicAudioProcessor.isActive()
+      return formatSupported && sonicAudioProcessor.isActive()
           ? sonicAudioProcessor.getMediaDuration(playoutDuration)
           : playoutDuration;
     }
 
     @Override
     public long getSkippedOutputFrameCount() {
-      return silenceSkippingAudioProcessor.getSkippedFrames();
+      return formatSupported ? silenceSkippingAudioProcessor.getSkippedFrames() : 0;
     }
   }
 
@@ -298,7 +326,7 @@ public final class DefaultAudioSink implements AudioSink {
     @Nullable private final Context context;
     private AudioCapabilities audioCapabilities;
     @Nullable private androidx.media3.common.audio.AudioProcessorChain audioProcessorChain;
-    private boolean enableFloatOutput;
+    private int pcmEncodingRestrictionMode;
     private boolean enableAudioTrackPlaybackParams;
 
     private boolean buildCalled;
@@ -317,6 +345,7 @@ public final class DefaultAudioSink implements AudioSink {
       audioCapabilities = DEFAULT_AUDIO_CAPABILITIES;
       audioTrackBufferSizeProvider = AudioTrackBufferSizeProvider.DEFAULT;
       audioTrackProvider = AudioTrackProvider.DEFAULT;
+      pcmEncodingRestrictionMode = PCM_ENCODING_INT16_ONLY;
     }
 
     /**
@@ -329,6 +358,7 @@ public final class DefaultAudioSink implements AudioSink {
       audioCapabilities = DEFAULT_AUDIO_CAPABILITIES;
       audioTrackBufferSizeProvider = AudioTrackBufferSizeProvider.DEFAULT;
       audioTrackProvider = AudioTrackProvider.DEFAULT;
+      pcmEncodingRestrictionMode = PCM_ENCODING_INT16_ONLY;
     }
 
     /**
@@ -376,14 +406,37 @@ public final class DefaultAudioSink implements AudioSink {
     /**
      * Sets whether to enable 32-bit float output or integer output. Where possible, 32-bit float
      * output will be used if the input is 32-bit float, and also if the input is high resolution
-     * (24-bit or 32-bit) integer PCM. Audio processing (for example, speed adjustment) will not be
-     * available when float output is in use.
+     * (24-bit or 32-bit) integer PCM. Parts of the default audio processing chain (for example,
+     * speed adjustment) will not be available when output formats other than 16-bit integer are in
+     * use.
+     *
+     * <p>The default value is {@code false}.
+     *
+     * @deprecated Use {@link #setPcmEncodingRestrictionLifted} instead to allow any encoding, not
+     *     just 32-bit float.
+     */
+    @Deprecated
+    @CanIgnoreReturnValue
+    public Builder setEnableFloatOutput(boolean enableFloatOutput) {
+      this.pcmEncodingRestrictionMode =
+          enableFloatOutput ? PCM_ENCODING_INT16_FLOAT32_ONLY : PCM_ENCODING_INT16_ONLY;
+      return this;
+    }
+
+    /**
+     * Sets whether to enable outputting samples in any platform-supported format (such as 32-bit
+     * float, 32-bit integer, 24-bit integer, 16-bit integer or 8-bit integer) instead of
+     * restricting output to 16-bit integers. Where possible, the input sample format will be used,
+     * otherwise high-resolution formats will be output as 32-bit float. Parts of the default audio
+     * processing chain (for example, speed adjustment) will not be available when output formats
+     * other than 16-bit integer are in use.
      *
      * <p>The default value is {@code false}.
      */
     @CanIgnoreReturnValue
-    public Builder setEnableFloatOutput(boolean enableFloatOutput) {
-      this.enableFloatOutput = enableFloatOutput;
+    public Builder setPcmEncodingRestrictionLifted(boolean pcmEncodingRestrictionLifted) {
+      this.pcmEncodingRestrictionMode =
+          pcmEncodingRestrictionLifted ? PCM_ENCODING_ANY : PCM_ENCODING_INT16_ONLY;
       return this;
     }
 
@@ -550,7 +603,7 @@ public final class DefaultAudioSink implements AudioSink {
 
   @Nullable private final Context context;
   private final androidx.media3.common.audio.AudioProcessorChain audioProcessorChain;
-  private final boolean enableFloatOutput;
+  private final int pcmEncodingRestrictionMode;
   private final ChannelMappingAudioProcessor channelMappingAudioProcessor;
   private final TrimmingAudioProcessor trimmingAudioProcessor;
   private final ToInt16PcmAudioProcessor toInt16PcmAudioProcessor;
@@ -630,7 +683,7 @@ public final class DefaultAudioSink implements AudioSink {
     audioAttributes = AudioAttributes.DEFAULT;
     audioCapabilities = context != null ? null : builder.audioCapabilities;
     audioProcessorChain = builder.audioProcessorChain;
-    enableFloatOutput = builder.enableFloatOutput;
+    pcmEncodingRestrictionMode = builder.pcmEncodingRestrictionMode;
     preferAudioTrackPlaybackParams = builder.enableAudioTrackPlaybackParams;
     offloadMode = OFFLOAD_MODE_DISABLED;
     audioTrackBufferSizeProvider = builder.audioTrackBufferSizeProvider;
@@ -692,13 +745,24 @@ public final class DefaultAudioSink implements AudioSink {
         Log.w(TAG, "Invalid PCM encoding: " + format.pcmEncoding);
         return SINK_FORMAT_UNSUPPORTED;
       }
-      if (format.pcmEncoding == C.ENCODING_PCM_16BIT
-          || (enableFloatOutput && format.pcmEncoding == C.ENCODING_PCM_FLOAT)) {
-        return SINK_FORMAT_SUPPORTED_DIRECTLY;
+      if (format.pcmEncoding != C.ENCODING_PCM_16BIT) {
+        if (pcmEncodingRestrictionMode == PCM_ENCODING_INT16_FLOAT32_ONLY
+            && format.pcmEncoding != C.ENCODING_PCM_FLOAT) {
+          // PCM_ENCODING_INT16_FLOAT32_ONLY is deprecated and kept for backwards compatibility.
+          return SINK_FORMAT_SUPPORTED_WITH_TRANSCODING;
+        }
+        if (pcmEncodingRestrictionMode == PCM_ENCODING_INT16_ONLY) {
+          // We will forcibly transcode to 16-bit PCM to allow the full audio processor chain to
+          // operate.
+          return SINK_FORMAT_SUPPORTED_WITH_TRANSCODING;
+        }
       }
-      // We can resample all linear PCM encodings to 16-bit integer PCM, which AudioTrack is
-      // guaranteed to support.
-      return SINK_FORMAT_SUPPORTED_WITH_TRANSCODING;
+      if (SDK_INT < Util.getApiLevelThatAudioFormatIntroducedAudioEncoding(format.pcmEncoding)) {
+        // We can resample all linear PCM encodings to 16-bit integer PCM, which AudioTrack is
+        // guaranteed to support.
+        return SINK_FORMAT_SUPPORTED_WITH_TRANSCODING;
+      }
+      return SINK_FORMAT_SUPPORTED_DIRECTLY;
     }
     if (audioCapabilities.isPassthroughPlaybackSupported(format, audioAttributes)) {
       return SINK_FORMAT_SUPPORTED_DIRECTLY;
@@ -745,12 +809,32 @@ public final class DefaultAudioSink implements AudioSink {
 
       ImmutableList.Builder<AudioProcessor> pipelineProcessors = new ImmutableList.Builder<>();
       pipelineProcessors.addAll(availableAudioProcessors);
-      if (shouldUseFloatOutput(inputFormat.pcmEncoding)) {
-        pipelineProcessors.add(toFloatPcmAudioProcessor);
+      // We need to convert sample formats either if we don't support it, or if:
+      // - there is some pcm encoding restriction, and
+      // - the format isn't 16-bit integer (which is always allowed), and
+      // - the format isn't 32-bit float OR 32-bit float isn't allowed
+      Format afterConversionFormat;
+      if (SDK_INT < Util.getApiLevelThatAudioFormatIntroducedAudioEncoding(inputFormat.pcmEncoding)
+          || (pcmEncodingRestrictionMode != PCM_ENCODING_ANY
+              && inputFormat.pcmEncoding != C.ENCODING_PCM_16BIT
+              && (inputFormat.pcmEncoding != C.ENCODING_PCM_FLOAT
+                  || pcmEncodingRestrictionMode == PCM_ENCODING_INT16_ONLY))) {
+        if (Util.isEncodingHighResolutionPcm(inputFormat.pcmEncoding)
+            && pcmEncodingRestrictionMode != PCM_ENCODING_INT16_ONLY) {
+          pipelineProcessors.add(toFloatPcmAudioProcessor);
+          afterConversionFormat =
+              Util.getPcmFormat(
+                  C.ENCODING_PCM_FLOAT, inputFormat.channelCount, inputFormat.sampleRate);
+        } else {
+          pipelineProcessors.add(toInt16PcmAudioProcessor);
+          afterConversionFormat =
+              Util.getPcmFormat(
+                  C.ENCODING_PCM_16BIT, inputFormat.channelCount, inputFormat.sampleRate);
+        }
       } else {
-        pipelineProcessors.add(toInt16PcmAudioProcessor);
-        pipelineProcessors.add(audioProcessorChain.getAudioProcessors());
+        afterConversionFormat = inputFormat;
       }
+      pipelineProcessors.add(audioProcessorChain.getAudioProcessors(afterConversionFormat));
       audioProcessingPipeline = new AudioProcessingPipeline(pipelineProcessors.build());
 
       // If the underlying processors of the new pipeline are the same as the existing pipeline,
@@ -1782,23 +1866,12 @@ public final class DefaultAudioSink implements AudioSink {
     //   frame presentation times are currently not modified (see also
     //   https://github.com/google/ExoPlayer/issues/4803);
     // - when playing encoded audio via passthrough/offload, because modifying the audio stream
-    //   would require decoding/re-encoding; and
-    // - when outputting float PCM audio, because SonicAudioProcessor outputs 16-bit integer PCM.
-    return !tunneling
-        && configuration.outputMode == OUTPUT_MODE_PCM
-        && !shouldUseFloatOutput(configuration.inputFormat.pcmEncoding);
+    //   would require decoding/re-encoding.
+    return !tunneling && configuration.outputMode == OUTPUT_MODE_PCM;
   }
 
   private boolean useAudioTrackPlaybackParams() {
     return configuration != null && configuration.enableAudioTrackPlaybackParams;
-  }
-
-  /**
-   * Returns whether audio in the specified PCM encoding should be written to the audio track as
-   * float PCM.
-   */
-  private boolean shouldUseFloatOutput(@C.PcmEncoding int pcmEncoding) {
-    return enableFloatOutput && Util.isEncodingHighResolutionPcm(pcmEncoding);
   }
 
   /**
