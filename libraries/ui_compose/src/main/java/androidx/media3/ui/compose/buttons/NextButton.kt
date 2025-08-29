@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 The Android Open Source Project
+ * Copyright 2025 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,25 +14,25 @@
  * limitations under the License.
  */
 
-package androidx.media3.demo.compose.buttons
+package androidx.media3.ui.compose.buttons
 
-import androidx.compose.foundation.clickable
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.SkipNext
-import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
 import androidx.media3.common.Player
-import androidx.media3.demo.compose.R
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.ui.compose.state.NextButtonState
 import androidx.media3.ui.compose.state.rememberNextButtonState
 
+/**
+ * A state container for a button that seeks to the next media item.
+ *
+ * This composable manages the enabled state and click handling of a next button. The UI is provided
+ * by the [content] lambda, which has access to the [NextButtonState].
+ *
+ * @param player The [Player] to control.
+ * @param content The composable content to be displayed for the button.
+ */
+@UnstableApi
 @Composable
-internal fun NextButton(player: Player, modifier: Modifier = Modifier) {
-  val state = rememberNextButtonState(player)
-  Icon(
-    Icons.Default.SkipNext,
-    contentDescription = stringResource(R.string.next_button),
-    modifier = modifier.clickable(enabled = state.isEnabled, onClick = state::onClick),
-  )
+fun NextButton(player: Player, content: @Composable NextButtonState.() -> Unit) {
+  rememberNextButtonState(player).content()
 }

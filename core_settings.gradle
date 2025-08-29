@@ -54,6 +54,8 @@ include modulePrefix + 'lib-ui-leanback'
 project(modulePrefix + 'lib-ui-leanback').projectDir = new File(rootDir, 'libraries/ui_leanback')
 include modulePrefix + 'lib-ui-compose'
 project(modulePrefix + 'lib-ui-compose').projectDir = new File(rootDir, 'libraries/ui_compose')
+include modulePrefix + 'lib-ui-compose-material3'
+project(modulePrefix + 'lib-ui-compose-material3').projectDir = new File(rootDir, 'libraries/ui_compose_material3')
 
 include modulePrefix + 'lib-database'
 project(modulePrefix + 'lib-database').projectDir = new File(rootDir, 'libraries/database')

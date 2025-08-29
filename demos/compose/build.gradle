@@ -76,7 +76,7 @@ dependencies {
     implementation 'com.google.android.material:material:' + androidxMaterialVersion
 
     implementation project(modulePrefix + 'lib-exoplayer')
-    implementation project(modulePrefix + 'lib-ui-compose')
+    implementation project(modulePrefix + 'lib-ui-compose-material3')
     debugImplementation 'androidx.compose.ui:ui-tooling'
 
     // For detecting and debugging leaks only. LeakCanary is not needed for demo app to work.
