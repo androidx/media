@@ -52,14 +52,19 @@ import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.SpeedChangingAudioProcessor;
+import androidx.media3.common.audio.SpeedProvider;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.NullableType;
+import androidx.media3.effect.AlphaScale;
+import androidx.media3.effect.SpeedChangeEffect;
+import androidx.media3.effect.TimestampAdjustment;
 import androidx.media3.exoplayer.DefaultLoadControl;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.audio.AudioSink;
 import androidx.media3.exoplayer.audio.DefaultAudioSink;
 import androidx.media3.exoplayer.audio.ForwardingAudioSink;
+import androidx.media3.exoplayer.audio.TrimmingAudioProcessor;
 import androidx.media3.test.utils.TestSpeedProvider;
 import androidx.media3.test.utils.robolectric.TestPlayerRunHelper;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -79,6 +84,19 @@ import org.mockito.Mockito;
 @RunWith(AndroidJUnit4.class)
 public class CompositionPlayerTest {
   private static final long TEST_TIMEOUT_MS = 1_000;
+
+  private static final SpeedProvider TEST_SPEED_PROVIDER =
+      new SpeedProvider() {
+        @Override
+        public float getSpeed(long timeUs) {
+          return 1f;
+        }
+
+        @Override
+        public long getNextSpeedChangeTimeUs(long timeUs) {
+          return C.TIME_UNSET;
+        }
+      };
 
   @Test
   public void builder_buildCalledTwice_throws() {
@@ -988,6 +1006,87 @@ public class CompositionPlayerTest {
     assertThat(customLoadControl.prepared).isTrue();
 
     player.release();
+  }
+
+  @Test
+  public void setComposition_withCompositionLevelSpeedChangingAudioProcessor_throws() {
+    CompositionPlayer player = createTestCompositionPlayer();
+    Effects effects =
+        new Effects(
+            ImmutableList.of(new SpeedChangingAudioProcessor(TEST_SPEED_PROVIDER)),
+            ImmutableList.of());
+    Composition composition = buildComposition().buildUpon().setEffects(effects).build();
+
+    assertThrows(IllegalArgumentException.class, () -> player.setComposition(composition));
+  }
+
+  @Test
+  public void setComposition_withCompositionLevelTimestampAdjustment_throws() {
+    CompositionPlayer player = createTestCompositionPlayer();
+    Effects effects =
+        new Effects(
+            ImmutableList.of(),
+            ImmutableList.of(
+                new TimestampAdjustment(
+                    (inputTimeUs, outputTimeConsumer) -> {}, TEST_SPEED_PROVIDER)));
+    Composition composition = buildComposition().buildUpon().setEffects(effects).build();
+
+    assertThrows(IllegalArgumentException.class, () -> player.setComposition(composition));
+  }
+
+  @Test
+  public void setComposition_withNonFirstSpeedChangingAudioProcessor_throws() {
+    CompositionPlayer player = createTestCompositionPlayer();
+    Effects effects =
+        new Effects(
+            ImmutableList.of(
+                new TrimmingAudioProcessor(), new SpeedChangingAudioProcessor(TEST_SPEED_PROVIDER)),
+            ImmutableList.of());
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(MediaItem.EMPTY)
+            .setDurationUs(1_000_000L)
+            .setEffects(effects)
+            .build();
+    Composition composition =
+        new Composition.Builder(new EditedMediaItemSequence.Builder(item).build()).build();
+
+    assertThrows(IllegalArgumentException.class, () -> player.setComposition(composition));
+  }
+
+  @Test
+  public void setComposition_withNonFirstTimestampAdjustment_throws() {
+    CompositionPlayer player = createTestCompositionPlayer();
+    Effects effects =
+        new Effects(
+            ImmutableList.of(),
+            ImmutableList.of(
+                new AlphaScale(1f),
+                new TimestampAdjustment(
+                    (inputTimeUs, outputTimeConsumer) -> {}, TEST_SPEED_PROVIDER)));
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(MediaItem.EMPTY)
+            .setDurationUs(1_000_000L)
+            .setEffects(effects)
+            .build();
+    Composition composition =
+        new Composition.Builder(new EditedMediaItemSequence.Builder(item).build()).build();
+
+    assertThrows(IllegalArgumentException.class, () -> player.setComposition(composition));
+  }
+
+  @Test
+  public void setComposition_withSpeedChangeEffectInFirstPosition_throws() {
+    CompositionPlayer player = createTestCompositionPlayer();
+    Effects effects = new Effects(ImmutableList.of(), ImmutableList.of(new SpeedChangeEffect(1f)));
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(MediaItem.EMPTY)
+            .setDurationUs(1_000_000L)
+            .setEffects(effects)
+            .build();
+    Composition composition =
+        new Composition.Builder(new EditedMediaItemSequence.Builder(item).build()).build();
+
+    assertThrows(IllegalArgumentException.class, () -> player.setComposition(composition));
   }
 
   private static Composition buildComposition() {

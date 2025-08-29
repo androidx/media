@@ -19,6 +19,7 @@ import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
 import static androidx.media3.common.util.Util.constrainValue;
 import static androidx.media3.common.util.Util.usToMs;
 import static androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper.LATE_US_TO_DROP_INPUT_FRAME;
+import static androidx.media3.transformer.TransformerUtil.containsSpeedChangingEffects;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -551,6 +552,12 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     verifyApplicationThread();
     checkArgument(!composition.sequences.isEmpty());
     checkArgument(startPositionMs >= 0, "Invalid start position %s", startPositionMs);
+    checkArgument(
+        !compositionContainsIllegalSpeedChangingEffects(composition),
+        "CompositionPlayer only allows speed changing effects created from"
+            + " Effects#createExperimentalSpeedChangingEffect() placed as first effects within an"
+            + " EditedMediaItem.");
+
     composition = deactivateSpeedAdjustingVideoEffects(composition);
 
     if (composition.sequences.size() > 1 && !videoGraphFactory.supportsMultipleInputs()) {
@@ -1514,6 +1521,28 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     }
     checkState(compositionDurationUs > 0, String.valueOf(compositionDurationUs));
     return compositionDurationUs;
+  }
+
+  /**
+   * Returns whether the provided {@link Composition} contains any speed changing effect in an
+   * unsupported configuration.
+   *
+   * <p>Speed changing effects are only supported as the first effect of an {@link EditedMediaItem}.
+   */
+  private static boolean compositionContainsIllegalSpeedChangingEffects(Composition composition) {
+    if (containsSpeedChangingEffects(composition.effects, /* ignoreFirstEffect= */ false)) {
+      return true;
+    }
+
+    for (EditedMediaItemSequence sequence : composition.sequences) {
+      for (EditedMediaItem item : sequence.editedMediaItems) {
+        if (containsSpeedChangingEffects(item.effects, /* ignoreFirstEffect= */ true)) {
+          return true;
+        }
+      }
+    }
+
+    return false;
   }
 
   /**

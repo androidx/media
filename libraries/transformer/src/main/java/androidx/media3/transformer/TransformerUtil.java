@@ -40,9 +40,12 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.audio.SpeedChangingAudioProcessor;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.ScaleAndRotateTransformation;
+import androidx.media3.effect.SpeedChangeEffect;
+import androidx.media3.effect.TimestampAdjustment;
 import androidx.media3.extractor.metadata.mp4.SlowMotionData;
 import androidx.media3.transformer.Composition.HdrMode;
 import com.google.common.base.Ascii;
@@ -331,6 +334,34 @@ public final class TransformerUtil {
       }
     }
     return mimeType;
+  }
+
+  /**
+   * Returns whether {@link Effects} contains speed changing effects.
+   *
+   * <p>{@code ignoreFirstEffect} controls whether {@link TimestampAdjustment} and {@link
+   * SpeedChangingAudioProcessor} are ignored as first elements of the video and audio pipelines,
+   * respectively.
+   */
+  public static boolean containsSpeedChangingEffects(Effects effects, boolean ignoreFirstEffect) {
+    for (int i = ignoreFirstEffect ? 1 : 0; i < effects.audioProcessors.size(); i++) {
+      if (effects.audioProcessors.get(i) instanceof SpeedChangingAudioProcessor) {
+        return true;
+      }
+    }
+
+    for (int i = 0; i < effects.videoEffects.size(); i++) {
+      Effect effect = effects.videoEffects.get(i);
+      if (effect instanceof SpeedChangeEffect) {
+        return true;
+      }
+
+      if (effect instanceof TimestampAdjustment && (!ignoreFirstEffect || i > 0)) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   @Nullable
