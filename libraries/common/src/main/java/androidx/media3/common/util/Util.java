@@ -2354,6 +2354,18 @@ public final class Util {
         } else {
           return AudioFormat.CHANNEL_INVALID;
         }
+      case 14:
+        if (Build.VERSION.SDK_INT >= 32) {
+          return AudioFormat.CHANNEL_OUT_9POINT1POINT4;
+        } else {
+          return AudioFormat.CHANNEL_INVALID;
+        }
+      case 16:
+        if (Build.VERSION.SDK_INT >= 32) {
+          return AudioFormat.CHANNEL_OUT_9POINT1POINT6;
+        } else {
+          return AudioFormat.CHANNEL_INVALID;
+        }
       case 24:
         if (Build.VERSION.SDK_INT >= 32) {
           return AudioFormat.CHANNEL_OUT_7POINT1POINT4
