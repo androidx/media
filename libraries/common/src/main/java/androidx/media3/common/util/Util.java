@@ -2334,6 +2334,26 @@ public final class Util {
         }
       case 12:
         return AudioFormat.CHANNEL_OUT_7POINT1POINT4;
+      case 13:
+        if (Build.VERSION.SDK_INT >= 32) {
+          // TODO(b/238402306): Replace with the public AudioFormat.CHANNEL_OUT_13POINT0 constant
+          // once it is released.
+          return AudioFormat.CHANNEL_OUT_FRONT_LEFT
+              | AudioFormat.CHANNEL_OUT_FRONT_CENTER
+              | AudioFormat.CHANNEL_OUT_FRONT_RIGHT
+              | AudioFormat.CHANNEL_OUT_SIDE_LEFT
+              | AudioFormat.CHANNEL_OUT_SIDE_RIGHT
+              | AudioFormat.CHANNEL_OUT_TOP_FRONT_LEFT
+              | AudioFormat.CHANNEL_OUT_TOP_FRONT_CENTER
+              | AudioFormat.CHANNEL_OUT_TOP_FRONT_RIGHT
+              | AudioFormat.CHANNEL_OUT_TOP_BACK_LEFT
+              | AudioFormat.CHANNEL_OUT_TOP_BACK_RIGHT
+              | AudioFormat.CHANNEL_OUT_BOTTOM_FRONT_LEFT
+              | AudioFormat.CHANNEL_OUT_BOTTOM_FRONT_CENTER
+              | AudioFormat.CHANNEL_OUT_BOTTOM_FRONT_RIGHT;
+        } else {
+          return AudioFormat.CHANNEL_INVALID;
+        }
       case 24:
         if (Build.VERSION.SDK_INT >= 32) {
           return AudioFormat.CHANNEL_OUT_7POINT1POINT4
