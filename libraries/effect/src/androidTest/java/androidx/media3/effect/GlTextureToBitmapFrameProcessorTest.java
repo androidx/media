@@ -19,7 +19,6 @@ import static androidx.media3.test.utils.BitmapPixelTestUtil.getBitmapAveragePix
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeTrue;
 
 import android.graphics.Bitmap;
@@ -38,6 +37,7 @@ import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.effect.EffectsTestUtil.FakeFrameConsumer;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -64,15 +64,12 @@ public final class GlTextureToBitmapFrameProcessorTest {
   private @MonotonicNonNull Consumer<VideoFrameProcessingException> errorListener;
   private @MonotonicNonNull GlTextureToBitmapFrameProcessor processor;
   private @MonotonicNonNull EGLDisplay eglDisplay;
+  private @MonotonicNonNull GlTextureFrameProcessorFactory factory;
 
   @Before
   public void setUp() throws Exception {
     glThreadExecutorService = MoreExecutors.listeningDecorator(Executors.newSingleThreadExecutor());
     glObjectsProvider = new DefaultGlObjectsProvider();
-    errorListener =
-        exception -> {
-          fail("OpenGL error during test: " + exception);
-        };
     glThreadExecutorService
         .submit(
             () -> {
@@ -82,6 +79,13 @@ public final class GlTextureToBitmapFrameProcessorTest {
               return null;
             })
         .get(TEST_TIMEOUT_MS, MILLISECONDS);
+    errorListener =
+        exception -> {
+          throw new AssertionError(exception);
+        };
+    factory =
+        new GlTextureFrameProcessorFactory(
+            getApplicationContext(), glThreadExecutorService, glObjectsProvider);
   }
 
   @After
@@ -89,11 +93,11 @@ public final class GlTextureToBitmapFrameProcessorTest {
     if (processor != null) {
       processor.release();
     }
-    if (glThreadExecutorService != null) {
-      glThreadExecutorService.shutdownNow();
-    }
     if (glObjectsProvider != null) {
       glObjectsProvider.release(eglDisplay);
+    }
+    if (glThreadExecutorService != null) {
+      glThreadExecutorService.shutdownNow();
     }
   }
 
@@ -323,14 +327,8 @@ public final class GlTextureToBitmapFrameProcessorTest {
   private void setUpProcessor(FrameConsumer<BitmapFrame> frameConsumer, boolean useHdr)
       throws ExecutionException, InterruptedException, TimeoutException {
     processor =
-        glThreadExecutorService
-            .submit(
-                () ->
-                    new GlTextureToBitmapFrameProcessor(
-                        getApplicationContext(),
-                        useHdr,
-                        glThreadExecutorService,
-                        glObjectsProvider))
+        Futures.submit(
+                () -> factory.buildGlTextureToBitmapFrameProcessor(useHdr), glThreadExecutorService)
             .get(TEST_TIMEOUT_MS, MILLISECONDS);
     processor.setOutput(frameConsumer);
     processor.setOnErrorCallback(glThreadExecutorService, errorListener);

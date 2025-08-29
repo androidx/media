@@ -50,9 +50,10 @@ public final class BitmapToGlTextureFrameProcessorTest {
   private static final int HEIGHT = 10;
   private ListeningExecutorService glThreadExecutorService;
   private GlObjectsProvider glObjectsProvider;
+  private EGLDisplay eglDisplay;
   private Consumer<VideoFrameProcessingException> errorListener;
   private BitmapToGlTextureFrameProcessor processor;
-  private EGLDisplay eglDisplay;
+  private GlTextureFrameProcessorFactory factory;
 
   @Before
   public void setUp() throws Exception {
@@ -71,6 +72,9 @@ public final class BitmapToGlTextureFrameProcessorTest {
               return null;
             })
         .get(TEST_TIMEOUT_MS, MILLISECONDS);
+    factory =
+        new GlTextureFrameProcessorFactory(
+            getApplicationContext(), glThreadExecutorService, glObjectsProvider);
   }
 
   @After
@@ -113,18 +117,13 @@ public final class BitmapToGlTextureFrameProcessorTest {
 
   private void setUpSdrProcessor(FakeFrameConsumer<GlTextureFrame> fakeFrameConsumer)
       throws ExecutionException, InterruptedException, TimeoutException {
-    ColorInfo inputColorInfo = ColorInfo.SRGB_BT709_FULL;
-    ColorInfo outputColorInfo = ColorInfo.SDR_BT709_LIMITED;
     processor =
         glThreadExecutorService
             .submit(
                 () ->
-                    BitmapToGlTextureFrameProcessor.create(
-                        getApplicationContext(),
-                        glThreadExecutorService,
-                        glObjectsProvider,
-                        inputColorInfo,
-                        outputColorInfo,
+                    factory.buildBitmapToGlTextureFrameProcessor(
+                        /* inputColorInfo= */ ColorInfo.SRGB_BT709_FULL,
+                        /* outputColorInfo= */ ColorInfo.SDR_BT709_LIMITED,
                         errorListener))
             .get(TEST_TIMEOUT_MS, MILLISECONDS);
     processor.setOutput(fakeFrameConsumer);
