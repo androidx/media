@@ -1825,7 +1825,9 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     String mimeType = checkNotNull(format.sampleMimeType);
     boolean isVorbis = mimeType.equals(MimeTypes.AUDIO_VORBIS);
     ByteBuffer csdByteBuffer =
-        isVorbis ? getVorbisInitializationData(format) : ByteBuffer.wrap(csd0);
+        isVorbis
+            ? CodecSpecificDataUtil.getVorbisInitializationData(format)
+            : ByteBuffer.wrap(csd0);
 
     int peakBitrate = format.peakBitrate;
     int averageBitrate = format.averageBitrate;
@@ -1892,35 +1894,6 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     }
     sizeBuffer.flip();
     return sizeBuffer;
-  }
-
-  /* Returns csd wrapped in ByteBuffer in vorbis codec initialization data format. */
-  private static ByteBuffer getVorbisInitializationData(Format format) {
-    checkArgument(
-        format.initializationData.size() > 1, "csd-1 should contain setup header for Vorbis.");
-    byte[] csd0 = format.initializationData.get(0); // identification Header
-
-    // csd0Size is represented using "Xiph lacing" style.
-    // The lacing size is split into 255 values, stored as unsigned octets – for example, 500 is
-    // coded 255;245 or [0xFF 0xF5]. A frame with a size multiple of 255 is coded with a 0 at the
-    // end of the size – for example, 765 is coded 255;255;255;0 or [0xFF 0xFF 0xFF 0x00].
-    byte[] csd0Size = new byte[csd0.length / 255 + 1];
-    Arrays.fill(csd0Size, (byte) 0xFF);
-    csd0Size[csd0Size.length - 1] = (byte) (csd0.length % 255);
-
-    byte[] csd1 = format.initializationData.get(1); // setUp Header
-    checkArgument(csd1.length > 0, "csd-1 should be present and contain setup header for Vorbis.");
-
-    // Add 2 bytes - 1 for Vorbis audio and 1 for comment header length.
-    ByteBuffer csd = ByteBuffer.allocate(csd0Size.length + csd0.length + csd1.length + 2);
-    csd.put((byte) 0x02); // Vorbis audio
-    csd.put(csd0Size); // Size of identification header
-    csd.put((byte) 0); // Length of comment header
-    csd.put(csd0);
-    csd.put(csd1);
-    csd.flip();
-
-    return csd;
   }
 
   /** Returns the audio damr box. */

@@ -26,7 +26,9 @@ import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import com.google.common.collect.ImmutableList;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -223,6 +225,90 @@ public final class CodecSpecificDataUtil {
           bitDepthId, length, bitDepth,
           chromaSubsamplingId, length, chromaSubsampling
         });
+  }
+
+  /**
+   * Creates the Vorbis initialization data (CodecPrivate).
+   *
+   * <p>The format is as follows:
+   *
+   * <ul>
+   *   <li>Byte 1: The number of packets minus one. This is 2 for Vorbis, representing the
+   *       Identification, Comment, and Setup headers.
+   *   <li>Bytes 2..n: The lengths of the first two packets (Identification and Comment headers),
+   *       encoded using Xiph lacing. The length of the final packet (Setup header) is not
+   *       explicitly stored.
+   *   <li>Bytes n+1 onwards: The Vorbis identification header, Vorbis comment header and the codec
+   *       setup header.
+   * </ul>
+   *
+   * See <a href="https://www.matroska.org/technical/codec_specs.html">A_VORBIS</a> for CodecPrivate
+   * format of Vorbis.
+   *
+   * @param format The {@link Format}.
+   * @return A {@link ByteBuffer} containing the assembled Vorbis CodecPrivate data.
+   */
+  public static ByteBuffer getVorbisInitializationData(Format format) {
+    checkArgument(
+        format.initializationData.size() > 1, "csd-0 and csd-1 must be present for Vorbis.");
+
+    byte[] identificationHeader = format.initializationData.get(0);
+    byte[] setupHeader = format.initializationData.get(1);
+    byte[] commentHeader =
+        new byte[] {
+          3, 'v', 'o', 'r', 'b', 'i', 's', 7, 0, 0, 0, 'a', 'n', 'd', 'r', 'o', 'i', 'd', 0, 0, 0,
+          0, 1
+        };
+
+    int identificationHeaderSize = identificationHeader.length;
+    int commentHeaderSize = commentHeader.length;
+    int setupHeaderSize = setupHeader.length;
+
+    byte[] identificationHeaderLaced = xiphLaceEnc(identificationHeaderSize);
+    byte[] commentHeaderLaced = xiphLaceEnc(commentHeaderSize);
+
+    int codecPrivateSize =
+        /* headers count size */ 1
+            + identificationHeaderLaced.length
+            + commentHeaderLaced.length
+            + identificationHeaderSize
+            + commentHeaderSize
+            + setupHeaderSize;
+
+    ByteBuffer codecPrivateBuf = ByteBuffer.allocate(codecPrivateSize);
+
+    codecPrivateBuf.put((byte) 0x02); // Number of headers - 1 (Id, Comment, Setup)
+
+    // Encode and put Xiph laced lengths
+    codecPrivateBuf.put(identificationHeaderLaced);
+    codecPrivateBuf.put(commentHeaderLaced);
+
+    codecPrivateBuf.put(identificationHeader);
+    codecPrivateBuf.put(commentHeader);
+    codecPrivateBuf.put(setupHeader);
+
+    codecPrivateBuf.flip();
+
+    return codecPrivateBuf;
+  }
+
+  /**
+   * Encodes size into a byte array using Xiph lacing.
+   *
+   * <p>The lacing size is split into 255 values, stored as unsigned octets – for example, 500 is
+   * coded 255;245 or [0xFF 0xF5]. A frame with a size multiple of 255 is coded with a 0 at the end
+   * of the size – for example, 765 is coded 255;255;255;0 or [0xFF 0xFF 0xFF 0x00].
+   *
+   * @param size The size to encode.
+   * @return A byte array containing the Xiph-laced representation of {@code size}.
+   */
+  private static byte[] xiphLaceEnc(int size) {
+    byte[] xiphLacedSizeArray = new byte[(size / 255) + 1];
+
+    Arrays.fill(xiphLacedSizeArray, (byte) 0xFF);
+
+    xiphLacedSizeArray[xiphLacedSizeArray.length - 1] = (byte) (size % 255);
+    return xiphLacedSizeArray;
   }
 
   /**
