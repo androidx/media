@@ -15,6 +15,10 @@
     *   Add a `Player.listenTo` suspending extension function in the
         `media3-common-ktx` library that specifies the particular
         `Player.Events` that should be acted upon.
+    *   Fix a crash in `BasePlayer.getBufferedPercentage` resulting from integer
+        overflow when the reported buffered position is implausibly much larger
+        than the reported duration
+        ([#2750](https://github.com/androidx/media/issues/2750)).
 *   ExoPlayer:
     *   Add a stuck buffering and stuck playing detection that triggers a
         `StuckPlayerException` player error after 10 minutes of

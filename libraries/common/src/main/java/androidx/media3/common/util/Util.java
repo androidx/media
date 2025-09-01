@@ -1222,6 +1222,9 @@ public final class Util {
   /**
    * Returns the integer percentage of {@code numerator} divided by {@code denominator}. This uses
    * integer arithmetic (round down).
+   *
+   * <p>The result is cast from {@code long} to {@code int} following the rules of {@link
+   * Ints#saturatedCast(long)}.
    */
   @UnstableApi
   public static int percentInt(long numerator, long denominator) {
@@ -1230,7 +1233,7 @@ public final class Util {
         numeratorTimes100 != Long.MAX_VALUE && numeratorTimes100 != Long.MIN_VALUE
             ? numeratorTimes100 / denominator
             : (numerator / (denominator / 100));
-    return Ints.checkedCast(result);
+    return Ints.saturatedCast(result);
   }
 
   /**
