@@ -412,9 +412,7 @@ public final class AdPlaybackState {
           this.mediaItems.length == states.length
               ? this.mediaItems
               : Arrays.copyOf(this.mediaItems, states.length);
-      @NullableType
-      String[] ids =
-          this.ids.length == states.length ? this.ids : Arrays.copyOf(this.ids, states.length);
+      @NullableType String[] ids = Arrays.copyOf(this.ids, states.length);
       ids[index] = adId;
       return new AdGroup(
           timeUs,

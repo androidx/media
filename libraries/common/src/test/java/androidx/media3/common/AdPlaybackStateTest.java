@@ -433,6 +433,34 @@ public class AdPlaybackStateTest {
   }
 
   @Test
+  public void withAvailableAdMediaItem_initialAdPlaybackStateNotChanged() {
+    AdPlaybackState adPlaybackState = new AdPlaybackState("adsId", 0L);
+    adPlaybackState = adPlaybackState.withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 3);
+
+    AdPlaybackState newAdPlaybackState =
+        adPlaybackState.withAvailableAdMediaItem(
+            /* adGroupIndex= */ 0,
+            /* adIndexInAdGroup= */ 1,
+            MediaItem.fromUri("http://example.com"));
+
+    assertThat(newAdPlaybackState.getAdGroup(/* adGroupIndex= */ 0).mediaItems[1]).isNotNull();
+    assertThat(adPlaybackState.getAdGroup(/* adGroupIndex= */ 0).mediaItems[1]).isNull();
+  }
+
+  @Test
+  public void withAdId_initialAdPlaybackStateNotChanged() {
+    AdPlaybackState adPlaybackState = new AdPlaybackState("adsId", 0L);
+    adPlaybackState = adPlaybackState.withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 3);
+
+    AdPlaybackState newAdPlaybackState =
+        adPlaybackState.withAdId(
+            /* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 1, /* adId= */ "0/1");
+
+    assertThat(newAdPlaybackState.getAdGroup(/* adGroupIndex= */ 0).ids[1]).isEqualTo("0/1");
+    assertThat(adPlaybackState.getAdGroup(/* adGroupIndex= */ 0).ids[1]).isNull();
+  }
+
+  @Test
   public void withLastAdGroupRemoved() {
     AdPlaybackState state = new AdPlaybackState(TEST_ADS_ID, /* adGroupTimesUs...= */ 5_000_000);
     state =
