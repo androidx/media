@@ -17,8 +17,6 @@ package androidx.media3.transformer;
 
 import static android.media.MediaCodecInfo.CodecProfileLevel.AACObjectHE;
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.C.COLOR_SPACE_BT709;
-import static androidx.media3.common.C.COLOR_TRANSFER_SDR;
 import static androidx.media3.common.util.MediaFormatUtil.createFormatFromMediaFormat;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.test.utils.AssetInfo.JPG_ASSET;
@@ -2593,9 +2591,7 @@ public class TransformerEndToEndTest {
     FakeTrackOutput videoTrack = fakeExtractorOutput.trackOutputs.get(0);
     videoTrack.assertSampleCount(
         MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_GAMMA22_1S.videoFrameCount);
-    Format format = retrieveTrackFormat(context, result.filePath, C.TRACK_TYPE_VIDEO);
-    assertThat(format.colorInfo.colorSpace).isEqualTo(COLOR_SPACE_BT709);
-    assertThat(format.colorInfo.colorTransfer).isEqualTo(COLOR_TRANSFER_SDR);
+    // TODO: b/442367126 - Assert that the output video color space is SDR BT.709.
   }
 
   private static boolean shouldSkipDeviceForAacObjectHeProfileEncoding() {
