@@ -1106,7 +1106,8 @@ import java.util.Objects;
     playWhenReadyChangeReason =
         updatePlayWhenReadyChangeReason(playerCommand, playWhenReadyChangeReason);
     playbackSuppressionReason =
-        updatePlaybackSuppressionReason(playerCommand, playbackSuppressionReason);
+        updatePlaybackSuppressionReason(
+            playerCommand, playbackSuppressionReason, scrubbingModeEnabled);
     if (playbackInfo.playWhenReady == playWhenReady
         && playbackInfo.playbackSuppressionReason == playbackSuppressionReason
         && playbackInfo.playWhenReadyChangeReason == playWhenReadyChangeReason) {
@@ -3957,13 +3958,16 @@ import java.util.Objects;
 
   private static @Player.PlaybackSuppressionReason int updatePlaybackSuppressionReason(
       @AudioFocusManager.PlayerCommand int playerCommand,
-      @Player.PlaybackSuppressionReason int playbackSuppressionReason) {
+      @Player.PlaybackSuppressionReason int playbackSuppressionReason,
+      boolean isScrubbingModeEnabled) {
     if (playerCommand == AudioFocusManager.PLAYER_COMMAND_WAIT_FOR_CALLBACK) {
       return Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS;
     }
     if (playbackSuppressionReason
         == Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS) {
-      return Player.PLAYBACK_SUPPRESSION_REASON_NONE;
+      return isScrubbingModeEnabled
+          ? Player.PLAYBACK_SUPPRESSION_REASON_SCRUBBING
+          : Player.PLAYBACK_SUPPRESSION_REASON_NONE;
     }
     return playbackSuppressionReason;
   }

@@ -46,11 +46,6 @@ public class ExoPlayerScrubbingModeContractTest extends ScrubbingModeContractTes
   public void
       disableScrubbing_audioFocusLostWhileScrubbingWhenPreviouslyPlaying_playsWithGrantedAudioFocus() {}
 
-  @Test
-  @Ignore("Re-enable once b/439575600 is fixed.")
-  @Override
-  public void recoverAudioFocus_afterTransientLossWhileScrubbing_returnsToScrubbingSuppression() {}
-
   private static final class ExoPlayerInfo implements PlayerInfo {
     private final ExoPlayer player;
 
