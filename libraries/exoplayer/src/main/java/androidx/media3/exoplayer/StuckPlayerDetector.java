@@ -43,6 +43,7 @@ import java.util.Objects;
 
   private static final int MSG_STUCK_BUFFERING_TIMEOUT = 1;
   private static final int MSG_STUCK_PLAYING_TIMEOUT = 2;
+  private static final int MSG_STUCK_PLAYING_NOT_ENDING_TIMEOUT = 3;
 
   private final Player player;
   private final Callback callback;
@@ -51,6 +52,7 @@ import java.util.Objects;
   private final HandlerWrapper handler;
   private final StuckBufferingDetector stuckBufferingDetector;
   private final StuckPlayingDetector stuckPlayingDetector;
+  private final StuckPlayingNotEndingDetector stuckPlayingNotEndingDetector;
 
   /**
    * Creates the stuck player detector.
@@ -64,13 +66,16 @@ import java.util.Objects;
    *     it's buffering and no loading progress is made, in milliseconds.
    * @param stuckPlayingTimeoutMs The timeout after which the player is assumed stuck playing if
    *     it's playing and no position progress is made, in milliseconds.
+   * @param stuckPlayingNotEndingTimeoutMs The timeout after which the player is assumed stuck
+   *     playing if it's playing and it should have ended, in milliseconds.
    */
   public StuckPlayerDetector(
       Player player,
       Callback callback,
       Clock clock,
       int stuckBufferingTimeoutMs,
-      int stuckPlayingTimeoutMs) {
+      int stuckPlayingTimeoutMs,
+      int stuckPlayingNotEndingTimeoutMs) {
     this.player = player;
     this.callback = callback;
     this.clock = clock;
@@ -78,6 +83,8 @@ import java.util.Objects;
     this.handler = clock.createHandler(player.getApplicationLooper(), /* callback= */ this);
     this.stuckBufferingDetector = new StuckBufferingDetector(stuckBufferingTimeoutMs);
     this.stuckPlayingDetector = new StuckPlayingDetector(stuckPlayingTimeoutMs);
+    this.stuckPlayingNotEndingDetector =
+        new StuckPlayingNotEndingDetector(stuckPlayingNotEndingTimeoutMs);
     player.addListener(this);
   }
 
@@ -91,6 +98,7 @@ import java.util.Objects;
   public void onEvents(Player player, Player.Events events) {
     stuckBufferingDetector.update();
     stuckPlayingDetector.update();
+    stuckPlayingNotEndingDetector.update();
   }
 
   @Override
@@ -101,6 +109,9 @@ import java.util.Objects;
         return true;
       case MSG_STUCK_PLAYING_TIMEOUT:
         stuckPlayingDetector.update();
+        return true;
+      case MSG_STUCK_PLAYING_NOT_ENDING_TIMEOUT:
+        stuckPlayingNotEndingDetector.update();
         return true;
       default:
         return false;
@@ -234,6 +245,80 @@ import java.util.Objects;
         this.currentPositionInPeriodMs = currentPositionInPeriodMs;
         handler.removeMessages(MSG_STUCK_PLAYING_TIMEOUT);
         handler.sendEmptyMessageDelayed(MSG_STUCK_PLAYING_TIMEOUT, stuckPlayingTimeoutMs);
+      }
+    }
+  }
+
+  private final class StuckPlayingNotEndingDetector {
+
+    private final int stuckPlayingNotEndingTimeoutMs;
+
+    @Nullable private Object periodUid;
+    private int adGroupIndex;
+    private int adIndexInAdGroup;
+    private boolean isPlayingAndReachedDuration;
+    private long startRealtimeMs;
+
+    public StuckPlayingNotEndingDetector(int stuckPlayingNotEndingTimeoutMs) {
+      this.stuckPlayingNotEndingTimeoutMs = stuckPlayingNotEndingTimeoutMs;
+    }
+
+    public void update() {
+      Timeline timeline = player.getCurrentTimeline();
+      @Nullable
+      Object periodUid =
+          timeline.isEmpty() ? null : timeline.getUidOfPeriod(player.getCurrentPeriodIndex());
+      int adGroupIndex = player.getCurrentAdGroupIndex();
+      int adIndexInAdGroup = player.getCurrentAdIndexInAdGroup();
+      long currentPositionInPeriodOrAdMs = player.getCurrentPosition();
+      long durationOfPeriodOrAdMs = C.TIME_UNSET;
+      if (periodUid != null && adGroupIndex == C.INDEX_UNSET) {
+        timeline.getPeriodByUid(periodUid, period);
+        currentPositionInPeriodOrAdMs -= period.getPositionInWindowMs();
+        durationOfPeriodOrAdMs = period.getDurationMs();
+      } else if (adGroupIndex != C.INDEX_UNSET) {
+        durationOfPeriodOrAdMs = player.getDuration();
+      }
+      boolean isPlaying = player.isPlaying();
+      if (!isPlaying
+          || durationOfPeriodOrAdMs == C.TIME_UNSET
+          || currentPositionInPeriodOrAdMs < durationOfPeriodOrAdMs) {
+        // Preconditions for stuck playing not ending not met.
+        // Clear any pending previous update or timeout.
+        handler.removeMessages(MSG_STUCK_PLAYING_NOT_ENDING_TIMEOUT);
+        if (isPlaying && durationOfPeriodOrAdMs != C.TIME_UNSET) {
+          // Reschedule update for when the duration is likely reached.
+          float realtimeUntilDurationReachedMs =
+              (durationOfPeriodOrAdMs - currentPositionInPeriodOrAdMs)
+                  / player.getPlaybackParameters().speed;
+          handler.sendEmptyMessageDelayed(
+              MSG_STUCK_PLAYING_NOT_ENDING_TIMEOUT,
+              (int) Math.ceil(realtimeUntilDurationReachedMs));
+        }
+        this.isPlayingAndReachedDuration = false;
+        return;
+      }
+      long nowRealtimeMs = clock.elapsedRealtime();
+      if (this.isPlayingAndReachedDuration
+          && Objects.equals(periodUid, this.periodUid)
+          && adGroupIndex == this.adGroupIndex
+          && adIndexInAdGroup == this.adIndexInAdGroup) {
+        // Still the same state, keep current timeout.
+        if (nowRealtimeMs - startRealtimeMs >= stuckPlayingNotEndingTimeoutMs) {
+          callback.onStuckPlayerDetected(
+              new StuckPlayerException(
+                  StuckPlayerException.STUCK_PLAYING_NOT_ENDING, stuckPlayingNotEndingTimeoutMs));
+        }
+      } else {
+        // Restart the timeout from the current time.
+        isPlayingAndReachedDuration = true;
+        startRealtimeMs = nowRealtimeMs;
+        this.periodUid = periodUid;
+        this.adGroupIndex = adGroupIndex;
+        this.adIndexInAdGroup = adIndexInAdGroup;
+        handler.removeMessages(MSG_STUCK_PLAYING_NOT_ENDING_TIMEOUT);
+        handler.sendEmptyMessageDelayed(
+            MSG_STUCK_PLAYING_NOT_ENDING_TIMEOUT, stuckPlayingNotEndingTimeoutMs);
       }
     }
   }

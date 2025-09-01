@@ -50,18 +50,30 @@ public final class StuckPlayerException extends IllegalStateException {
   public static final int STUCK_PLAYING_NO_PROGRESS = 2;
 
   /**
+   * The player is stuck because it's in {@link Player#STATE_READY}, but it's not able to end
+   * playback despite exceeding the declared duration.
+   */
+  public static final int STUCK_PLAYING_NOT_ENDING = 3;
+
+  /**
    * The type of stuck playback. One of:
    *
    * <ul>
    *   <li>{@link #STUCK_BUFFERING_NOT_LOADING}
    *   <li>{@link #STUCK_BUFFERING_NO_PROGRESS}
    *   <li>{@link #STUCK_PLAYING_NO_PROGRESS}
+   *   <li>{@link #STUCK_PLAYING_NOT_ENDING}
    * </ul>
    */
   @Documented
   @Retention(RetentionPolicy.SOURCE)
   @Target(TYPE_USE)
-  @IntDef({STUCK_BUFFERING_NOT_LOADING, STUCK_BUFFERING_NO_PROGRESS, STUCK_PLAYING_NO_PROGRESS})
+  @IntDef({
+    STUCK_BUFFERING_NOT_LOADING,
+    STUCK_BUFFERING_NO_PROGRESS,
+    STUCK_PLAYING_NO_PROGRESS,
+    STUCK_PLAYING_NOT_ENDING
+  })
   public @interface StuckType {}
 
   /** The type of stuck playback. */
@@ -110,6 +122,8 @@ public final class StuckPlayerException extends IllegalStateException {
         return "Player stuck buffering with no progress for " + timeoutMs + " ms";
       case STUCK_PLAYING_NO_PROGRESS:
         return "Player stuck playing with no progress for " + timeoutMs + " ms";
+      case STUCK_PLAYING_NOT_ENDING:
+        return "Player stuck playing without ending for " + timeoutMs + " ms";
       default:
         throw new IllegalStateException();
     }

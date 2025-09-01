@@ -20,11 +20,16 @@
         than the reported duration
         ([#2750](https://github.com/androidx/media/issues/2750)).
 *   ExoPlayer:
-    *   Add a stuck buffering and stuck playing detection that triggers a
-        `StuckPlayerException` player error after 10 minutes of
-        `STATE_BUFFERING` while trying to play and no buffering progress, or 10
-        seconds of `STATE_READY` while trying to play and no playback progress.
-        These timeouts are configurable in `ExoPlayer.Builder` if required.
+    *   Add a stuck player detection that triggers a `StuckPlayerException`
+        player error if the player seems stuck. This happens in the following
+        cases, where each default timeout can be configured in
+        `ExoPlayer.Builder` if required:
+        *   After 10 minutes of `STATE_BUFFERING` while trying to play and no
+            buffering progress.
+        *   After 10 seconds of `STATE_READY` while trying to play and no
+            playback progress.
+        *   After 1 minute of `STATE_READY` beyond the declared duration without
+            reaching the end of the item.
     *   Ensure renderers don't consume data from the next playlist item more
         than 10 seconds before the end of the current item.
     *   Add pre-caching functionality in `DefaultPreloadManager`. Apps now can

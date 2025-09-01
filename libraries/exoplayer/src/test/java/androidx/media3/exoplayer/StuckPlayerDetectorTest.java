@@ -42,6 +42,7 @@ public final class StuckPlayerDetectorTest {
 
   private static final int TEST_STUCK_BUFFERING_TIMEOUT_MS = 600_000;
   private static final int TEST_STUCK_PLAYING_TIMEOUT_MS = 200_000;
+  private static final int TEST_STUCK_PLAYING_NOT_ENDING_TIMEOUT_MS = 400_000;
 
   private StuckPlayerDetector.Callback callback;
   private TestPlayer player;
@@ -59,7 +60,8 @@ public final class StuckPlayerDetectorTest {
             callback,
             clock,
             TEST_STUCK_BUFFERING_TIMEOUT_MS,
-            TEST_STUCK_PLAYING_TIMEOUT_MS);
+            TEST_STUCK_PLAYING_TIMEOUT_MS,
+            TEST_STUCK_PLAYING_NOT_ENDING_TIMEOUT_MS);
   }
 
   @After
@@ -596,6 +598,320 @@ public final class StuckPlayerDetectorTest {
                 StuckPlayerException.STUCK_PLAYING_NO_PROGRESS, customTimeoutMs));
   }
 
+  @Test
+  public void stuckPlayingNotEnding_unknownDuration_doesNotTriggerTimeout() {
+    player.setState(
+        player
+            .buildUponState()
+            .setPlaybackState(Player.STATE_READY)
+            .setPlayWhenReady(true, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
+            .setPlaylist(
+                ImmutableList.of(new SimpleBasePlayer.MediaItemData.Builder("uid").build()))
+            .setContentPositionMs(10_000)
+            .build());
+
+    advanceTimeAndIdleMainLooper(clock, TEST_STUCK_PLAYING_NOT_ENDING_TIMEOUT_MS);
+
+    verify(callback, never()).onStuckPlayerDetected(any());
+  }
+
+  @Test
+  public void stuckPlayingNotEnding_playbackProgressBeyondDuration_triggersTimeout() {
+    player.setState(
+        player
+            .buildUponState()
+            .setPlaybackState(Player.STATE_READY)
+            .setPlayWhenReady(true, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
+            .setPlaylist(
+                ImmutableList.of(
+                    new SimpleBasePlayer.MediaItemData.Builder("uid")
+                        .setDurationUs(10_000_000)
+                        .build()))
+            .setContentPositionMs(10_000)
+            .build());
+
+    advanceTimeAndIdleMainLooper(clock, TEST_STUCK_PLAYING_NOT_ENDING_TIMEOUT_MS);
+
+    verify(callback)
+        .onStuckPlayerDetected(
+            new StuckPlayerException(
+                StuckPlayerException.STUCK_PLAYING_NOT_ENDING,
+                TEST_STUCK_PLAYING_NOT_ENDING_TIMEOUT_MS));
+  }
+
+  @Test
+  public void
+      stuckPlayingNotEnding_playbackBeforeDuration_doesOnlyTriggerTimeoutForTimeAfterDuration() {
+    player.setState(
+        player
+            .buildUponState()
+            .setPlaybackState(Player.STATE_READY)
+            .setPlayWhenReady(true, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
+            .setPlaylist(
+                ImmutableList.of(
+                    new SimpleBasePlayer.MediaItemData.Builder("uid")
+                        .setDurationUs(10_000_000)
+                        .build()))
+            .setContentPositionMs(5_000)
+            .build());
+
+    advanceTimeAndIdleMainLooper(clock, TEST_STUCK_PLAYING_NOT_ENDING_TIMEOUT_MS);
+
+    verify(callback, never()).onStuckPlayerDetected(any());
+
+    advanceTimeAndIdleMainLooper(clock, TEST_STUCK_PLAYING_NOT_ENDING_TIMEOUT_MS);
+
+    verify(callback)
+        .onStuckPlayerDetected(
+            new StuckPlayerException(
+                StuckPlayerException.STUCK_PLAYING_NOT_ENDING,
+                TEST_STUCK_PLAYING_NOT_ENDING_TIMEOUT_MS));
+  }
+
+  @Test
+  public void stuckPlayingNotEnding_notPlayWhenReady_cancelsTimeout() {
+    player.setState(
+        player
+            .buildUponState()
+            .setPlaybackState(Player.STATE_READY)
+            .setPlayWhenReady(true, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
+            .setPlaylist(
+                ImmutableList.of(
+                    new SimpleBasePlayer.MediaItemData.Builder("uid")
+                        .setDurationUs(10_000_000)
+                        .build()))
+            .setContentPositionMs(11_000)
+            .build());
+
+    advanceTimeAndIdleMainLooper(clock, TEST_STUCK_PLAYING_NOT_ENDING_TIMEOUT_MS / 2);
+    player.setState(
+        player
+            .buildUponState()
+            .setPlayWhenReady(false, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
+            .build());
+    advanceTimeAndIdleMainLooper(clock, TEST_STUCK_PLAYING_NOT_ENDING_TIMEOUT_MS);
+
+    verify(callback, never()).onStuckPlayerDetected(any());
+  }
+
+  @Test
+  public void stuckPlayingNotEnding_playbackSuppressed_cancelsTimeout() {
+    player.setState(
+        player
+            .buildUponState()
+            .setPlaybackState(Player.STATE_READY)
+            .setPlayWhenReady(true, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
+            .setPlaylist(
+                ImmutableList.of(
+                    new SimpleBasePlayer.MediaItemData.Builder("uid")
+                        .setDurationUs(10_000_000)
+                        .build()))
+            .setContentPositionMs(11_000)
+            .build());
+
+    advanceTimeAndIdleMainLooper(clock, TEST_STUCK_PLAYING_NOT_ENDING_TIMEOUT_MS / 2);
+    player.setState(
+        player
+            .buildUponState()
+            .setPlaybackSuppressionReason(Player.PLAYBACK_SUPPRESSION_REASON_SCRUBBING)
+            .build());
+    advanceTimeAndIdleMainLooper(clock, TEST_STUCK_PLAYING_NOT_ENDING_TIMEOUT_MS);
+
+    verify(callback, never()).onStuckPlayerDetected(any());
+  }
+
+  @Test
+  public void stuckPlayingNotEnding_buffering_cancelsTimeout() {
+    player.setState(
+        player
+            .buildUponState()
+            .setPlaybackState(Player.STATE_READY)
+            .setPlayWhenReady(true, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
+            .setPlaylist(
+                ImmutableList.of(
+                    new SimpleBasePlayer.MediaItemData.Builder("uid")
+                        .setDurationUs(10_000_000)
+                        .build()))
+            .setContentPositionMs(11_000)
+            .build());
+
+    advanceTimeAndIdleMainLooper(clock, TEST_STUCK_PLAYING_NOT_ENDING_TIMEOUT_MS / 2);
+    player.setState(player.buildUponState().setPlaybackState(Player.STATE_BUFFERING).build());
+    advanceTimeAndIdleMainLooper(clock, TEST_STUCK_PLAYING_NOT_ENDING_TIMEOUT_MS);
+
+    verify(callback, never()).onStuckPlayerDetected(any());
+  }
+
+  @Test
+  public void stuckPlayingNotEnding_ended_cancelsTimeout() {
+    player.setState(
+        player
+            .buildUponState()
+            .setPlaybackState(Player.STATE_READY)
+            .setPlayWhenReady(true, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
+            .setPlaylist(
+                ImmutableList.of(
+                    new SimpleBasePlayer.MediaItemData.Builder("uid")
+                        .setDurationUs(10_000_000)
+                        .build()))
+            .setContentPositionMs(11_000)
+            .build());
+
+    advanceTimeAndIdleMainLooper(clock, TEST_STUCK_PLAYING_NOT_ENDING_TIMEOUT_MS / 2);
+    player.setState(player.buildUponState().setPlaybackState(Player.STATE_ENDED).build());
+    advanceTimeAndIdleMainLooper(clock, TEST_STUCK_PLAYING_NOT_ENDING_TIMEOUT_MS);
+
+    verify(callback, never()).onStuckPlayerDetected(any());
+  }
+
+  @Test
+  public void stuckPlayingNotEnding_idle_cancelsTimeout() {
+    player.setState(
+        player
+            .buildUponState()
+            .setPlaybackState(Player.STATE_READY)
+            .setPlayWhenReady(true, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
+            .setPlaylist(
+                ImmutableList.of(
+                    new SimpleBasePlayer.MediaItemData.Builder("uid")
+                        .setDurationUs(10_000_000)
+                        .build()))
+            .setContentPositionMs(11_000)
+            .build());
+
+    advanceTimeAndIdleMainLooper(clock, TEST_STUCK_PLAYING_NOT_ENDING_TIMEOUT_MS / 2);
+    player.setState(player.buildUponState().setPlaybackState(Player.STATE_IDLE).build());
+    advanceTimeAndIdleMainLooper(clock, TEST_STUCK_PLAYING_NOT_ENDING_TIMEOUT_MS);
+
+    verify(callback, never()).onStuckPlayerDetected(any());
+  }
+
+  @Test
+  public void stuckPlayingNotEnding_updatedLongerDuration_cancelsTimeout() {
+    player.setState(
+        player
+            .buildUponState()
+            .setPlaybackState(Player.STATE_READY)
+            .setPlayWhenReady(true, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
+            .setPlaylist(
+                ImmutableList.of(
+                    new SimpleBasePlayer.MediaItemData.Builder("uid")
+                        .setDurationUs(10_000_000)
+                        .build()))
+            .setContentPositionMs(11_000)
+            .build());
+
+    advanceTimeAndIdleMainLooper(clock, TEST_STUCK_PLAYING_NOT_ENDING_TIMEOUT_MS / 2);
+    player.setState(
+        player
+            .buildUponState()
+            .setPlaylist(
+                ImmutableList.of(
+                    new SimpleBasePlayer.MediaItemData.Builder("uid")
+                        .setDurationUs(999_000_000_000L)
+                        .build()))
+            .build());
+    advanceTimeAndIdleMainLooper(clock, TEST_STUCK_PLAYING_NOT_ENDING_TIMEOUT_MS);
+
+    verify(callback, never()).onStuckPlayerDetected(any());
+  }
+
+  @Test
+  public void stuckPlayingNotEnding_periodTransition_doesNotTriggerTimeout() {
+    player.setState(
+        player
+            .buildUponState()
+            .setPlaybackState(Player.STATE_READY)
+            .setPlayWhenReady(true, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
+            .setPlaylist(
+                ImmutableList.of(
+                    new SimpleBasePlayer.MediaItemData.Builder("uid1")
+                        .setPeriods(
+                            ImmutableList.of(
+                                new SimpleBasePlayer.PeriodData.Builder("periodUid1")
+                                    .setDurationUs(10_000_000)
+                                    .build()))
+                        .build(),
+                    new SimpleBasePlayer.MediaItemData.Builder("uid2")
+                        .setPeriods(
+                            ImmutableList.of(
+                                new SimpleBasePlayer.PeriodData.Builder("periodUid2")
+                                    .setDurationUs(10_000_000)
+                                    .build()))
+                        .build()))
+            .setCurrentMediaItemIndex(0)
+            .setContentPositionMs(11_000)
+            .build());
+
+    advanceTimeAndIdleMainLooper(clock, TEST_STUCK_PLAYING_NOT_ENDING_TIMEOUT_MS / 2);
+    player.setState(
+        player.buildUponState().setCurrentMediaItemIndex(1).setContentPositionMs(2_000).build());
+    advanceTimeAndIdleMainLooper(clock, TEST_STUCK_PLAYING_NOT_ENDING_TIMEOUT_MS);
+
+    verify(callback, never()).onStuckPlayerDetected(any());
+  }
+
+  @Test
+  public void stuckPlayingNotEnding_adDurationExceeded_triggersTimeout() {
+    player.setState(
+        player
+            .buildUponState()
+            .setPlaybackState(Player.STATE_READY)
+            .setPlayWhenReady(true, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
+            .setPlaylist(
+                ImmutableList.of(
+                    new SimpleBasePlayer.MediaItemData.Builder("uid")
+                        .setPeriods(
+                            ImmutableList.of(
+                                new SimpleBasePlayer.PeriodData.Builder("periodUid")
+                                    .setAdPlaybackState(
+                                        new AdPlaybackState(
+                                                "adsId", /* adGroupTimesUs...= */ 5_000_000)
+                                            .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1)
+                                            .withAdDurationsUs(
+                                                /* adGroupIndex= */ 0, /* adDurationsUs...= */
+                                                5_000_000))
+                                    .build()))
+                        .build()))
+            .setCurrentAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0)
+            .setContentPositionMs(8_000)
+            .setAdPositionMs(6000)
+            .build());
+
+    advanceTimeAndIdleMainLooper(clock, TEST_STUCK_PLAYING_NOT_ENDING_TIMEOUT_MS);
+
+    verify(callback)
+        .onStuckPlayerDetected(
+            new StuckPlayerException(
+                StuckPlayerException.STUCK_PLAYING_NOT_ENDING,
+                TEST_STUCK_PLAYING_NOT_ENDING_TIMEOUT_MS));
+  }
+
+  @Test
+  public void stuckPlayingNotEnding_customTimeoutIsRespected() {
+    int customTimeoutMs = TEST_STUCK_PLAYING_NOT_ENDING_TIMEOUT_MS / 2;
+    configureDetectorWithCustomPlayingNotEndingTimeoutMs(customTimeoutMs);
+    player.setState(
+        player
+            .buildUponState()
+            .setPlaybackState(Player.STATE_READY)
+            .setPlayWhenReady(true, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
+            .setPlaylist(
+                ImmutableList.of(
+                    new SimpleBasePlayer.MediaItemData.Builder("uid")
+                        .setDurationUs(10_000_000)
+                        .build()))
+            .setContentPositionMs(11_000)
+            .build());
+
+    advanceTimeAndIdleMainLooper(clock, customTimeoutMs);
+
+    verify(callback)
+        .onStuckPlayerDetected(
+            new StuckPlayerException(
+                StuckPlayerException.STUCK_PLAYING_NOT_ENDING, customTimeoutMs));
+  }
+
   private static final class TestPlayer extends SimpleBasePlayer {
 
     private State state;
@@ -631,14 +947,36 @@ public final class StuckPlayerDetectorTest {
     detector.release();
     detector =
         new StuckPlayerDetector(
-            player, callback, clock, customTimeoutMs, TEST_STUCK_PLAYING_TIMEOUT_MS);
+            player,
+            callback,
+            clock,
+            customTimeoutMs,
+            TEST_STUCK_PLAYING_TIMEOUT_MS,
+            TEST_STUCK_PLAYING_NOT_ENDING_TIMEOUT_MS);
   }
 
   private void configureDetectorWithCustomPlayingTimeoutMs(int customTimeoutMs) {
     detector.release();
     detector =
         new StuckPlayerDetector(
-            player, callback, clock, TEST_STUCK_BUFFERING_TIMEOUT_MS, customTimeoutMs);
+            player,
+            callback,
+            clock,
+            TEST_STUCK_BUFFERING_TIMEOUT_MS,
+            customTimeoutMs,
+            TEST_STUCK_PLAYING_NOT_ENDING_TIMEOUT_MS);
+  }
+
+  private void configureDetectorWithCustomPlayingNotEndingTimeoutMs(int customTimeoutMs) {
+    detector.release();
+    detector =
+        new StuckPlayerDetector(
+            player,
+            callback,
+            clock,
+            TEST_STUCK_BUFFERING_TIMEOUT_MS,
+            TEST_STUCK_PLAYING_TIMEOUT_MS,
+            customTimeoutMs);
   }
 
   private static void advanceTimeAndIdleMainLooper(FakeClock clock, long timeMs) {
