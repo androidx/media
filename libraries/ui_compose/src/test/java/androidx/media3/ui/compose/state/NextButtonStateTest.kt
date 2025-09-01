@@ -20,11 +20,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import androidx.media3.common.Player.STATE_ENDED
+import androidx.media3.common.SimpleBasePlayer.MediaItemData
 import androidx.media3.test.utils.TestSimpleBasePlayer
+import androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance
 import androidx.media3.ui.compose.testutils.createReadyPlayerWithTwoItems
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
-import com.google.common.util.concurrent.ListenableFuture
 import org.junit.Assert.assertThrows
 import org.junit.Rule
 import org.junit.Test
@@ -106,41 +108,34 @@ class NextButtonStateTest {
 
   @Test
   fun playerInEndedState_singleDynamicLiveItem_onClickToDefaultPosition() {
-    val nonBufferingPlayer: TestSimpleBasePlayer =
-      object :
-        TestSimpleBasePlayer(
-          playbackState = STATE_ENDED,
-          playWhenReady = true,
-          playlist =
-            listOf(
-              MediaItemData.Builder("SingleItem")
-                .setDurationUs(10_000)
-                .setIsDynamic(true)
-                .setLiveConfiguration(
-                  MediaItem.LiveConfiguration.Builder().setTargetOffsetMs(2000).build()
-                )
-                .build()
-            ),
-        ) {
-        override fun handleSeek(
-          mediaItemIndex: Int,
-          positionMs: Long,
-          seekCommand: @Player.Command Int,
-        ): ListenableFuture<*> {
-          val future = super.handleSeek(mediaItemIndex, positionMs, seekCommand)
-          updateState { setPlaybackState(STATE_READY) }
-          return future
-        }
-      }
-    nonBufferingPlayer.setPosition(10_000)
-    val state = NextButtonState(nonBufferingPlayer)
-    assertThat(nonBufferingPlayer.currentPosition).isEqualTo(10_000)
-    assertThat(nonBufferingPlayer.isPlaying).isFalse()
+    val player =
+      TestSimpleBasePlayer(
+        playbackState = STATE_ENDED,
+        playWhenReady = true,
+        playlist =
+          listOf(
+            MediaItemData.Builder("SingleItem")
+              .setDurationUs(10_000)
+              .setIsDynamic(true)
+              .setLiveConfiguration(
+                MediaItem.LiveConfiguration.Builder().setTargetOffsetMs(2000).build()
+              )
+              .build()
+          ),
+      )
+    player.setPosition(10_000)
+    val state = NextButtonState(player)
+    assertThat(player.currentPosition).isEqualTo(10_000)
+    assertThat(player.isPlaying).isFalse()
 
     state.onClick()
 
-    assertThat(nonBufferingPlayer.currentPosition).isEqualTo(0)
-    assertThat(nonBufferingPlayer.isPlaying).isTrue()
+    // Position is masked immediately
+    assertThat(player.currentPosition).isEqualTo(0)
+
+    advance(player).untilState(Player.STATE_READY)
+    // Player starts playing once the buffering from the seek is complete.
+    assertThat(player.isPlaying).isTrue()
   }
 
   @Test

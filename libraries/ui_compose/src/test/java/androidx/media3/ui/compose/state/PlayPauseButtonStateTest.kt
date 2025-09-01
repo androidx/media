@@ -19,11 +19,12 @@ package androidx.media3.ui.compose.state
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.media3.common.Player
+import androidx.media3.common.SimpleBasePlayer.MediaItemData
 import androidx.media3.test.utils.TestSimpleBasePlayer
+import androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance
 import androidx.media3.ui.compose.testutils.createReadyPlayerWithTwoItems
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
-import com.google.common.util.concurrent.ListenableFuture
 import org.junit.Assert.assertThrows
 import org.junit.Rule
 import org.junit.Test
@@ -106,31 +107,24 @@ class PlayPauseButtonStateTest {
 
   @Test
   fun playerInEndedState_buttonClicked_playerPlaysFromBeginning() {
-    val nonBufferingPlayer: TestSimpleBasePlayer =
-      object :
-        TestSimpleBasePlayer(
-          playbackState = STATE_ENDED,
-          playlist = listOf(MediaItemData.Builder("SingleItem").setDurationUs(456).build()),
-        ) {
-        override fun handleSeek(
-          mediaItemIndex: Int,
-          positionMs: Long,
-          seekCommand: @Player.Command Int,
-        ): ListenableFuture<*> {
-          val future = super.handleSeek(mediaItemIndex, positionMs, seekCommand)
-          updateState { setPlaybackState(STATE_READY) }
-          return future
-        }
-      }
-    nonBufferingPlayer.setPosition(456)
-    val state = PlayPauseButtonState(nonBufferingPlayer)
+    val player =
+      TestSimpleBasePlayer(
+        playbackState = Player.STATE_ENDED,
+        playlist = listOf(MediaItemData.Builder("SingleItem").setDurationUs(456).build()),
+      )
+    player.setPosition(456)
+    val state = PlayPauseButtonState(player)
 
     assertThat(state.showPlay).isTrue()
 
     state.onClick() // Player seeks to default position and plays
 
-    assertThat(nonBufferingPlayer.contentPosition).isEqualTo(0)
-    assertThat(nonBufferingPlayer.isPlaying).isTrue()
+    // The position is masked immediately
+    assertThat(player.contentPosition).isEqualTo(0)
+
+    advance(player).untilState(Player.STATE_READY)
+    // The player starts playing when the buffering from the seek is complete
+    assertThat(player.isPlaying).isTrue()
   }
 
   @Test

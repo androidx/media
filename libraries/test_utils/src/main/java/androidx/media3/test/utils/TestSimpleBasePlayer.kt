@@ -25,6 +25,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.SimpleBasePlayer
 import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.common.util.Util
 import androidx.media3.common.util.Util.getAvailableCommands
 import androidx.media3.common.util.Util.msToUs
 import com.google.common.base.Preconditions.checkState
@@ -41,14 +42,20 @@ import kotlinx.coroutines.test.TestCoroutineScheduler
  * @param playWhenReady Whether playback should start automatically when ready.
  * @param playlist The initial list of media items to play. Default is 2 items (1s and 2s duration).
  * @param playbackSpeed The initial playback speed.
+ * @param bufferingDelayMs The time spent in [Player#STATE_BUFFERING] when preparing or seeking, in
+ *   milliseconds. A value of zero will result in the player transitioning directly to
+ *   [Player#STATE_READY] without entering [Player#STATE_BUFFERING]. Must not be negative.
  */
 @UnstableApi
-open class TestSimpleBasePlayer(
+class TestSimpleBasePlayer(
   playbackState: @Player.State Int = STATE_IDLE,
   playWhenReady: Boolean = false,
   playlist: List<MediaItemData> = ImmutableList.of(),
   playbackSpeed: Float = 1f,
+  private val bufferingDelayMs: Long = 100,
 ) : SimpleBasePlayer(Looper.myLooper()!!) {
+  private val handler = Util.createHandlerForCurrentLooper()
+
   private var state =
     State.Builder()
       .setAvailableCommands(Player.Commands.Builder().addAllCommands().build())
@@ -67,16 +74,11 @@ open class TestSimpleBasePlayer(
     private set
 
   init {
+    require(bufferingDelayMs >= 0)
     updateAvailableSeekCommands()
   }
 
-  /**
-   * Allow subclasses to have more control over the state to make use of this player's
-   * implementation of handle* methods, but add customization
-   *
-   * @param block The block to be applied to the local [state].
-   */
-  protected fun updateState(block: State.Builder.() -> Unit) {
+  private fun updateState(block: State.Builder.() -> Unit) {
     state = state.buildUpon().apply(block).build()
     invalidateState() // propagate the change from `block` to SimpleBasePlayer.state
     updateAvailableSeekCommands() // operates on Player (SimpleBasePlayer.state), not local state
@@ -89,8 +91,16 @@ open class TestSimpleBasePlayer(
   }
 
   override fun handlePrepare() = handleStateUpdate {
-    setPlayerError(null)
-      .setPlaybackState(if (state.timeline.isEmpty) STATE_ENDED else STATE_BUFFERING)
+    val resultingState: @Player.State Int
+    if (state.timeline.isEmpty) {
+      resultingState = STATE_ENDED
+    } else if (bufferingDelayMs > 0) {
+      resultingState = STATE_BUFFERING
+      handler.postDelayed({ updateState { setPlaybackState(STATE_READY) } }, bufferingDelayMs)
+    } else {
+      resultingState = STATE_READY
+    }
+    setPlayerError(null).setPlaybackState(resultingState)
   }
 
   override fun handleRelease(): ListenableFuture<*> {
@@ -123,7 +133,14 @@ open class TestSimpleBasePlayer(
 
   override fun handleSeek(mediaItemIndex: Int, positionMs: Long, seekCommand: @Player.Command Int) =
     handleStateUpdate {
-      setPlaybackState(STATE_BUFFERING)
+      val resultingState: @Player.State Int
+      if (bufferingDelayMs > 0) {
+        resultingState = STATE_BUFFERING
+        handler.postDelayed({ updateState { setPlaybackState(STATE_READY) } }, bufferingDelayMs)
+      } else {
+        resultingState = STATE_READY
+      }
+      setPlaybackState(resultingState)
         .setCurrentMediaItemIndex(mediaItemIndex)
         .setContentPositionMs(positionMs)
     }

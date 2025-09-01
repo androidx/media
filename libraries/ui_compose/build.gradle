@@ -59,6 +59,7 @@ dependencies {
     testImplementation 'androidx.compose.ui:ui-test'
     testImplementation 'androidx.compose.ui:ui-test-junit4'
     testImplementation project(modulePrefix + 'test-utils')
+    testImplementation project(modulePrefix + 'test-utils-robolectric')
     testImplementation 'org.robolectric:robolectric:' + robolectricVersion
 }
 
