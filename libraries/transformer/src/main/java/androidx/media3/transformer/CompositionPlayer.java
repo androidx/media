@@ -754,13 +754,24 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     for (int i = 0; i < playerHolders.size(); i++) {
       playerHolders.get(i).player.release();
     }
-    checkNotNull(compositionPlayerInternal).release();
+    playerHolders.clear();
+    boolean internalPlayerSuccessfullyReleased = checkNotNull(compositionPlayerInternal).release();
     removeSurfaceCallbacks();
     // Remove any queued callback from the internal player.
     compositionInternalListenerHandler.removeCallbacksAndMessages(/* token= */ null);
     displaySurface = null;
     checkNotNull(playbackThread).quitSafely();
     applicationHandler.removeCallbacksAndMessages(/* token= */ null);
+    if (!internalPlayerSuccessfullyReleased) {
+      // The parent class will call getState() after this method returns, where the exception will
+      // surface.
+      playbackException =
+          new PlaybackException(
+              "InternalPlayer release timeout",
+              /* cause= */ null,
+              PlaybackException.ERROR_CODE_TIMEOUT);
+      updatePlaybackState();
+    }
     return Futures.immediateVoidFuture();
   }
 

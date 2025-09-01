@@ -48,6 +48,9 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
     void onError(String message, Exception cause, @PlaybackException.ErrorCode int errorCode);
   }
 
+  /** Timeout for {@link #release()}. */
+  public static final long RELEASE_TIMEOUT_MS = 500;
+
   private static final String TAG = "CompPlayerInternal";
   private static final int MSG_SET_COMPOSITION = 0;
   private static final int MSG_START_RENDERING = 1;
@@ -147,21 +150,17 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
 
   /**
    * Releases internal components on the playback thread and blocks the current thread until the
-   * components are released.
+   * components are released, with a {@linkplain #RELEASE_TIMEOUT_MS timeout}.
+   *
+   * @return Whether the internal components are released correctly before timing out.
    */
-  public void release() {
+  public boolean release() {
     checkState(!released);
     // Set released to true now to silence any pending listener callback.
     released = true;
-    ConditionVariable conditionVariable = new ConditionVariable();
+    ConditionVariable conditionVariable = new ConditionVariable(clock);
     handler.obtainMessage(MSG_RELEASE, conditionVariable).sendToTarget();
-    clock.onThreadBlocked();
-    try {
-      conditionVariable.block();
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      throw new IllegalStateException(e);
-    }
+    return conditionVariable.blockUninterruptible(RELEASE_TIMEOUT_MS);
   }
 
   public void setAudioAttributes(AudioAttributes attributes) {

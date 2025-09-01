@@ -73,6 +73,7 @@ import androidx.test.platform.app.InstrumentationRegistry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import java.io.IOException;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
@@ -579,6 +580,59 @@ public class CompositionPlayerTest {
     instrumentation.runOnMainSync(compositionPlayer::release);
   }
 
+  @Test
+  public void release_videoGraphWrapperBlockedDuringRelease_doesNotBlockCallingThreadIndefinitely()
+      throws Exception {
+    PlayerTestListener playerTestListener = new PlayerTestListener(TEST_TIMEOUT_MS);
+    EditedMediaItem video =
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
+            .setDurationUs(MP4_ASSET.videoDurationUs)
+            .build();
+    CountDownLatch blockingLatch = new CountDownLatch(1);
+    instrumentation.runOnMainSync(
+        () -> {
+          compositionPlayer =
+              new CompositionPlayer.Builder(applicationContext)
+                  .setVideoGraphFactory(
+                      new VideoGraph.Factory() {
+                        @Override
+                        public VideoGraph create(
+                            Context context,
+                            ColorInfo outputColorInfo,
+                            DebugViewProvider debugViewProvider,
+                            VideoGraph.Listener listener,
+                            Executor listenerExecutor,
+                            long initialTimestampOffsetUs,
+                            boolean renderFramesAutomatically) {
+                          return new BlockingReleaseVideoGraph(
+                              context,
+                              outputColorInfo,
+                              debugViewProvider,
+                              listener,
+                              listenerExecutor,
+                              renderFramesAutomatically,
+                              blockingLatch);
+                        }
+
+                        @Override
+                        public boolean supportsMultipleInputs() {
+                          return false;
+                        }
+                      })
+                  .build();
+          compositionPlayer.addListener(playerTestListener);
+          compositionPlayer.setComposition(
+              new Composition.Builder(new EditedMediaItemSequence.Builder(video).build()).build());
+          compositionPlayer.prepare();
+          compositionPlayer.play();
+        });
+    // Wait until the player is ended to make sure the VideoGraph has been created.
+    playerTestListener.waitUntilPlayerEnded();
+
+    instrumentation.runOnMainSync(compositionPlayer::release);
+    assertThat(playerTestListener.getException()).isNotNull();
+  }
+
   private static final class TestExternallyLoadedBitmapResolver
       implements ExternallyLoadedImageDecoder.BitmapResolver {
     @Override
@@ -618,6 +672,40 @@ public class CompositionPlayerTest {
     public void release() {
       super.release();
       throw new RuntimeException("VideoGraph release error");
+    }
+  }
+
+  private static final class BlockingReleaseVideoGraph extends SingleInputVideoGraph {
+
+    private final CountDownLatch blockingLatch;
+
+    public BlockingReleaseVideoGraph(
+        Context context,
+        ColorInfo outputColorInfo,
+        DebugViewProvider debugViewProvider,
+        Listener listener,
+        Executor listenerExecutor,
+        boolean renderFramesAutomatically,
+        CountDownLatch blockingLatch) {
+      super(
+          context,
+          new DefaultVideoFrameProcessor.Factory.Builder().build(),
+          outputColorInfo,
+          listener,
+          debugViewProvider,
+          listenerExecutor,
+          renderFramesAutomatically);
+      this.blockingLatch = blockingLatch;
+    }
+
+    @Override
+    public void release() {
+      super.release();
+      try {
+        blockingLatch.await();
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+      }
     }
   }
 }
