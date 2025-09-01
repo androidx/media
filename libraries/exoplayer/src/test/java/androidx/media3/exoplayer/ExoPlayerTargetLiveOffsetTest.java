@@ -15,7 +15,6 @@
  */
 package androidx.media3.exoplayer;
 
-import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLooperUntil;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.play;
 import static com.google.common.truth.Truth.assertThat;
@@ -26,14 +25,12 @@ import static org.mockito.Mockito.verify;
 
 import android.content.Context;
 import android.net.Uri;
-import android.os.Looper;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
-import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.source.SinglePeriodTimeline;
 import androidx.media3.test.utils.FakeClock;
@@ -45,8 +42,6 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Range;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicLong;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -54,8 +49,6 @@ import org.junit.runner.RunWith;
 /** Unit test for {@link ExoPlayer} testing the logic to adjust the target live offset. */
 @RunWith(AndroidJUnit4.class)
 public final class ExoPlayerTargetLiveOffsetTest {
-
-  private static final long TIMEOUT_MS = 30_000;
 
   private Context context;
 
@@ -102,7 +95,8 @@ public final class ExoPlayerTargetLiveOffsetTest {
     assertThat(liveOffsetAtStart).isIn(Range.closed(11_900L, 12_100L));
 
     // Play until close to the end of the available live window.
-    long liveOffsetAtEnd = playAndGetLiveOffsetAfterPosition(player, /* positionMs= */ 999_000);
+    play(player).untilPositionAtLeast(999_000);
+    long liveOffsetAtEnd = player.getCurrentLiveOffset();
     player.release();
 
     // Assert that player adjusted live offset to the media value.
@@ -147,7 +141,8 @@ public final class ExoPlayerTargetLiveOffsetTest {
     advance(player).untilState(Player.STATE_READY);
     long liveOffsetAtStart = player.getCurrentLiveOffset();
     // Play until close to the end of the available live window.
-    long liveOffsetAtEnd = playAndGetLiveOffsetAfterPosition(player, /* positionMs= */ 999_000);
+    play(player).untilPositionAtLeast(999_000);
+    long liveOffsetAtEnd = player.getCurrentLiveOffset();
     player.release();
 
     // Target should have been permanently adjusted to 2 seconds.
@@ -194,7 +189,8 @@ public final class ExoPlayerTargetLiveOffsetTest {
     // Seek to a live offset of 2 seconds.
     player.seekTo(18_000);
     // Play until close to the end of the available live window.
-    long liveOffsetAtEnd = playAndGetLiveOffsetAfterPosition(player, /* positionMs= */ 999_000);
+    play(player).untilPositionAtLeast(999_000);
+    long liveOffsetAtEnd = player.getCurrentLiveOffset();
     player.release();
 
     // Assert the live offset adjustment was permanent.
@@ -243,7 +239,8 @@ public final class ExoPlayerTargetLiveOffsetTest {
     // Seek to a live offset of 15 seconds (outside of declared max offset of 10 seconds).
     player.seekTo(5_000);
     // Play until close to the end of the available live window.
-    long liveOffsetAtEnd = playAndGetLiveOffsetAfterPosition(player, /* positionMs= */ 999_000);
+    play(player).untilPositionAtLeast(999_000);
+    long liveOffsetAtEnd = player.getCurrentLiveOffset();
     player.release();
 
     // Assert the live offset adjustment was permanent.
@@ -312,7 +309,8 @@ public final class ExoPlayerTargetLiveOffsetTest {
         .send();
     player.play();
     // Play until close to the end of the available live window.
-    long liveOffsetAtEnd = playAndGetLiveOffsetAfterPosition(player, /* positionMs= */ 999_000);
+    play(player).untilPositionAtLeast(999_000);
+    long liveOffsetAtEnd = player.getCurrentLiveOffset();
     player.release();
 
     // Assert that adjustment uses target offset from the updated timeline.
@@ -359,7 +357,8 @@ public final class ExoPlayerTargetLiveOffsetTest {
 
     player.setPlaybackParameters(new PlaybackParameters(/* speed= */ 2.0f));
     // Play until close to the end of the available live window.
-    long liveOffsetAtEnd = playAndGetLiveOffsetAfterPosition(player, /* positionMs= */ 999_000);
+    play(player).untilPositionAtLeast(999_000);
+    long liveOffsetAtEnd = player.getCurrentLiveOffset();
     player.release();
 
     // Assert that the player didn't adjust the live offset to the media value (9 seconds) and
@@ -407,7 +406,8 @@ public final class ExoPlayerTargetLiveOffsetTest {
 
     // Play until close to the end of the available live window.
     play(player).untilMediaItemIndex(1);
-    long liveOffsetAtEnd = playAndGetLiveOffsetAfterPosition(player, /* positionMs= */ 999_000);
+    play(player).untilPositionAtLeast(999_000);
+    long liveOffsetAtEnd = player.getCurrentLiveOffset();
     player.release();
 
     // Assert that player adjusted live offset to the media value.
@@ -472,7 +472,8 @@ public final class ExoPlayerTargetLiveOffsetTest {
     // Seek to default position in second stream.
     player.seekToNextMediaItem();
     // Play until close to the end of the available live window.
-    long liveOffsetAtEnd = playAndGetLiveOffsetAfterPosition(player, /* positionMs= */ 999_000);
+    play(player).untilPositionAtLeast(999_000);
+    long liveOffsetAtEnd = player.getCurrentLiveOffset();
     player.release();
 
     // Assert that player adjusted live offset to the media value.
@@ -537,7 +538,8 @@ public final class ExoPlayerTargetLiveOffsetTest {
     // Seek to specific position in second stream (at 2 seconds live offset).
     player.seekTo(/* mediaItemIndex= */ 1, /* positionMs= */ 18_000);
     // Play until close to the end of the available live window.
-    long liveOffsetAtEnd = playAndGetLiveOffsetAfterPosition(player, /* positionMs= */ 999_000);
+    play(player).untilPositionAtLeast(999_000);
+    long liveOffsetAtEnd = player.getCurrentLiveOffset();
     player.release();
 
     // Assert that player adjusted live offset to the seek.
@@ -618,23 +620,11 @@ public final class ExoPlayerTargetLiveOffsetTest {
     assertThat(liveOffsetAtStart).isIn(Range.closed(11_900L, 12_100L));
 
     // Play until close to the end of the available live window.
-    long liveOffsetAtEnd = playAndGetLiveOffsetAfterPosition(player, /* positionMs= */ 999_000);
+    play(player).untilPositionAtLeast(999_000);
+    long liveOffsetAtEnd = player.getCurrentLiveOffset();
     player.release();
 
     // Assert that live offset is still the same (i.e. unadjusted).
     assertThat(liveOffsetAtEnd).isIn(Range.closed(11_900L, 12_100L));
-  }
-
-  private long playAndGetLiveOffsetAfterPosition(ExoPlayer player, long positionMs)
-      throws TimeoutException {
-    AtomicLong liveOffset = new AtomicLong(C.TIME_UNSET);
-    player
-        .createMessage((messageType, message) -> liveOffset.set(player.getCurrentLiveOffset()))
-        .setPosition(positionMs)
-        .setLooper(Looper.getMainLooper())
-        .send();
-    player.play();
-    runMainLooperUntil(() -> liveOffset.get() != C.TIME_UNSET, TIMEOUT_MS, Clock.DEFAULT);
-    return liveOffset.get();
   }
 }

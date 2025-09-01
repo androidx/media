@@ -459,7 +459,13 @@ public final class TestPlayerRunHelper {
      */
     public void untilPositionAtLeast(int mediaItemIndex, long positionMs)
         throws PlaybackException, TimeoutException {
-      untilBackgroundThreadCondition(
+      player
+          .createMessage((messageType, message) -> {})
+          .setPosition(mediaItemIndex, positionMs)
+          .setLooper(Looper.getMainLooper())
+          .send();
+      player.play();
+      runUntil(
           () ->
               player.getCurrentMediaItemIndex() == mediaItemIndex
                   && player.getContentPosition() >= positionMs);
