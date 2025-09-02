@@ -27,8 +27,11 @@ import android.system.ErrnoException;
 import android.system.Os;
 import androidx.annotation.FloatRange;
 import androidx.annotation.Nullable;
+import androidx.media3.common.C;
 import androidx.media3.common.util.MediaFormatUtil;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.common.util.Util;
+import androidx.media3.container.MdtaMetadataEntry;
 import androidx.media3.container.Mp4LocationData;
 import androidx.media3.container.Mp4OrientationData;
 import java.io.FileDescriptor;
@@ -131,6 +134,9 @@ public class MediaMuxerCompat {
    *
    * <p>All tracks must be added before any samples are written to any track.
    *
+   * <p>{@link MediaFormat#KEY_CAPTURE_RATE} is used to write {@link
+   * MdtaMetadataEntry#KEY_ANDROID_CAPTURE_FPS} metadata in the MP4 file.
+   *
    * @see MediaMuxer#addTrack(MediaFormat)
    * @param format The {@link MediaFormat} of the track.
    * @return A track index for this track, which should be passed to {@link #writeSampleData(int,
@@ -139,6 +145,17 @@ public class MediaMuxerCompat {
   public int addTrack(MediaFormat format) {
     checkState(!startedMuxer);
     try {
+      float captureFps =
+          MediaFormatUtil.getFloatFromIntOrFloat(
+              format, MediaFormat.KEY_CAPTURE_RATE, C.RATE_UNSET);
+      if (captureFps != C.RATE_UNSET) {
+        MdtaMetadataEntry captureFpsMetadata =
+            new MdtaMetadataEntry(
+                MdtaMetadataEntry.KEY_ANDROID_CAPTURE_FPS,
+                /* value= */ Util.toByteArray(captureFps),
+                MdtaMetadataEntry.TYPE_INDICATOR_FLOAT32);
+        muxer.addMetadataEntry(captureFpsMetadata);
+      }
       return muxer.addTrack(MediaFormatUtil.createFormatFromMediaFormat(format));
     } catch (MuxerException e) {
       throw new RuntimeException(e);

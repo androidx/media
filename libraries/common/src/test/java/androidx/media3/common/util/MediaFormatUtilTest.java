@@ -17,6 +17,7 @@ package androidx.media3.common.util;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import android.media.AudioFormat;
 import android.media.MediaFormat;
@@ -252,5 +253,49 @@ public class MediaFormatUtilTest {
     MediaFormat mediaFormat = MediaFormatUtil.createMediaFormatFromFormat(format);
 
     assertThat(mediaFormat.containsKey(MediaFormat.KEY_TRACK_ID)).isFalse();
+  }
+
+  @Test
+  public void getFloatFromIntOrFloat_withValueSetAsInt_returnsExpectedValue() {
+    String key = "RandomKey";
+    int value = 100;
+    MediaFormat mediaFormat = new MediaFormat();
+    mediaFormat.setInteger(key, value);
+
+    assertThat(MediaFormatUtil.getFloatFromIntOrFloat(mediaFormat, key, C.RATE_UNSET))
+        .isEqualTo(value);
+  }
+
+  @Test
+  public void getFloatFromIntOrFloat_withValueSetAsFloat_returnsExpectedValue() {
+    String key = "RandomKey";
+    float value = 100.0f;
+    MediaFormat mediaFormat = new MediaFormat();
+    mediaFormat.setFloat(key, value);
+
+    assertThat(MediaFormatUtil.getFloatFromIntOrFloat(mediaFormat, key, C.RATE_UNSET))
+        .isEqualTo(value);
+  }
+
+  @Test
+  public void getFloatFromIntOrFloat_withUnsetKey_returnsDefaultValue() {
+    String key = "RandomKey";
+    float defaultValue = 100.0f;
+    MediaFormat mediaFormat = new MediaFormat();
+
+    assertThat(MediaFormatUtil.getFloatFromIntOrFloat(mediaFormat, key, defaultValue))
+        .isEqualTo(defaultValue);
+  }
+
+  @Test
+  public void getFloatFromIntOrFloat_withValueSetAsString_throws() {
+    String key = "RandomKey";
+    String value = "RandomValue";
+    MediaFormat mediaFormat = new MediaFormat();
+    mediaFormat.setString(key, value);
+
+    assertThrows(
+        ClassCastException.class,
+        () -> MediaFormatUtil.getFloatFromIntOrFloat(mediaFormat, key, C.RATE_UNSET));
   }
 }
