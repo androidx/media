@@ -120,10 +120,7 @@ public class Mp4MuxerEndToEndParameterizedTest {
     @Nullable Mp4Muxer mp4Muxer = null;
 
     try {
-      mp4Muxer =
-          new Mp4Muxer.Builder(
-                  new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(checkNotNull(outputStream))))
-              .build();
+      mp4Muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(checkNotNull(outputStream))).build();
       mp4Muxer.addMetadataEntry(
           new Mp4TimestampData(
               /* creationTimestampSeconds= */ 100_000_000L,

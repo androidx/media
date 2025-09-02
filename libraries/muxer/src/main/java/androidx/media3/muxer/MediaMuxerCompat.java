@@ -241,24 +241,6 @@ public class MediaMuxerCompat {
 
   private static Muxer createMuxer(FileOutputStream fileOutputStream, @FileFormat int fileFormat) {
     checkArgument(fileFormat == FILE_FORMAT_MP4);
-    return new Mp4Muxer.Builder(createMuxerOutputFactory(fileOutputStream)).build();
-  }
-
-  private static MuxerOutputFactory createMuxerOutputFactory(FileOutputStream fileOutputStream) {
-    return new MuxerOutputFactory() {
-      private boolean returnedOutput;
-
-      @Override
-      public SeekableMuxerOutput getSeekableMuxerOutput() {
-        checkState(!returnedOutput);
-        returnedOutput = true;
-        return SeekableMuxerOutput.of(fileOutputStream);
-      }
-
-      @Override
-      public String getCacheFilePath() {
-        throw new UnsupportedOperationException("Cache file is not supported");
-      }
-    };
+    return new Mp4Muxer.Builder(SeekableMuxerOutput.of(fileOutputStream)).build();
   }
 }

@@ -55,9 +55,7 @@ public class Mp4MuxerMetadataTest {
   @Test
   public void writeMp4File_orientationNotSet_setsOrientationTo0() throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
-    Mp4Muxer muxer =
-        new Mp4Muxer.Builder(new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath)))
-            .build();
+    Mp4Muxer muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build();
 
     try {
       muxer.addMetadataEntry(
@@ -83,9 +81,7 @@ public class Mp4MuxerMetadataTest {
   @Test
   public void writeMp4File_setOrientationTo90_setsOrientationTo90() throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
-    Mp4Muxer muxer =
-        new Mp4Muxer.Builder(new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath)))
-            .build();
+    Mp4Muxer muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build();
 
     try {
       muxer.addMetadataEntry(
@@ -113,9 +109,7 @@ public class Mp4MuxerMetadataTest {
   @Test
   public void writeMp4File_setOrientationTo180_setsOrientationTo180() throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
-    Mp4Muxer muxer =
-        new Mp4Muxer.Builder(new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath)))
-            .build();
+    Mp4Muxer muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build();
 
     try {
       muxer.addMetadataEntry(
@@ -143,9 +137,7 @@ public class Mp4MuxerMetadataTest {
   @Test
   public void writeMp4File_setOrientationTo270_setsOrientationTo270() throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
-    Mp4Muxer muxer =
-        new Mp4Muxer.Builder(new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath)))
-            .build();
+    Mp4Muxer muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build();
 
     try {
       muxer.addMetadataEntry(
@@ -173,9 +165,7 @@ public class Mp4MuxerMetadataTest {
   @Test
   public void writeMp4File_setLocation_setsSameLocation() throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
-    Mp4Muxer muxer =
-        new Mp4Muxer.Builder(new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath)))
-            .build();
+    Mp4Muxer muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build();
 
     try {
       muxer.addMetadataEntry(
@@ -202,9 +192,7 @@ public class Mp4MuxerMetadataTest {
   @Test
   public void writeMp4File_locationNotSet_setsLocationToNull() throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
-    Mp4Muxer muxer =
-        new Mp4Muxer.Builder(new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath)))
-            .build();
+    Mp4Muxer muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build();
 
     try {
       muxer.addMetadataEntry(
@@ -230,9 +218,7 @@ public class Mp4MuxerMetadataTest {
   @Test
   public void writeMp4File_setFrameRate_setsSameFrameRate() throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
-    Mp4Muxer muxer =
-        new Mp4Muxer.Builder(new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath)))
-            .build();
+    Mp4Muxer muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build();
 
     try {
       muxer.addMetadataEntry(
@@ -262,9 +248,7 @@ public class Mp4MuxerMetadataTest {
   @Test
   public void writeMp4File_addStringMetadata_matchesExpected() throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
-    Mp4Muxer muxer =
-        new Mp4Muxer.Builder(new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath)))
-            .build();
+    Mp4Muxer muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build();
 
     try {
       muxer.addMetadataEntry(
@@ -293,9 +277,7 @@ public class Mp4MuxerMetadataTest {
   @Test
   public void writeMp4File_addManyLargeStringMetadata_doesNotThrow() throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
-    Mp4Muxer muxer =
-        new Mp4Muxer.Builder(new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath)))
-            .build();
+    Mp4Muxer muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build();
 
     String metadataKey = "SomeStringKey";
     byte[] metadataValue = Util.getUtf8Bytes("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
@@ -315,9 +297,7 @@ public class Mp4MuxerMetadataTest {
   @Test
   public void writeMp4File_addFloatMetadata_matchesExpected() throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
-    Mp4Muxer muxer =
-        new Mp4Muxer.Builder(new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath)))
-            .build();
+    Mp4Muxer muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build();
 
     try {
       muxer.addMetadataEntry(
@@ -347,9 +327,7 @@ public class Mp4MuxerMetadataTest {
   @Test
   public void writeMp4File_addXmp_matchesExpected() throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
-    Mp4Muxer muxer =
-        new Mp4Muxer.Builder(new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath)))
-            .build();
+    Mp4Muxer muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build();
 
     try {
       muxer.addMetadataEntry(

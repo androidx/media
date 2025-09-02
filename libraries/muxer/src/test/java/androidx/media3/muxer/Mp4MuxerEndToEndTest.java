@@ -63,9 +63,7 @@ public class Mp4MuxerEndToEndTest {
   @Test
   public void writeMp4File_withSampleAndMetadata_matchedExpectedBoxStructure() throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
-    Mp4Muxer muxer =
-        new Mp4Muxer.Builder(new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath)))
-            .build();
+    Mp4Muxer muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build();
     Pair<ByteBuffer, BufferInfo> sampleAndSampleInfo =
         getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 0L);
     byte[] xmpBytes = TestUtil.getByteArray(context, XMP_SAMPLE_DATA);
@@ -106,9 +104,7 @@ public class Mp4MuxerEndToEndTest {
   @Test
   public void createMp4File_addTrackAndMetadataButNoSamples_createsEmptyFile() throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
-    Mp4Muxer mp4Muxer =
-        new Mp4Muxer.Builder(new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath)))
-            .build();
+    Mp4Muxer mp4Muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build();
 
     try {
       mp4Muxer.addTrack(/* sortKey= */ 0, FAKE_VIDEO_FORMAT);
@@ -129,9 +125,7 @@ public class Mp4MuxerEndToEndTest {
   @Test
   public void createAv1Mp4File_withoutCsd_matchesExpected() throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
-    Mp4Muxer mp4Muxer =
-        new Mp4Muxer.Builder(new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath)))
-            .build();
+    Mp4Muxer mp4Muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build();
 
     try {
       mp4Muxer.addMetadataEntry(
@@ -160,9 +154,7 @@ public class Mp4MuxerEndToEndTest {
   @Test
   public void createMp4File_muxerNotClosed_createsPartiallyWrittenValidFile() throws Exception {
     String outputPath = temporaryFolder.newFile().getPath();
-    Mp4Muxer mp4Muxer =
-        new Mp4Muxer.Builder(new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputPath)))
-            .build();
+    Mp4Muxer mp4Muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputPath)).build();
     mp4Muxer.addMetadataEntry(
         new Mp4TimestampData(
             /* creationTimestampSeconds= */ 100_000_000L,
@@ -188,9 +180,7 @@ public class Mp4MuxerEndToEndTest {
   @Test
   public void createMp4File_withSameTracksOffset_matchesExpected() throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
-    Mp4Muxer mp4Muxer =
-        new Mp4Muxer.Builder(new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath)))
-            .build();
+    Mp4Muxer mp4Muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build();
     mp4Muxer.addMetadataEntry(
         new Mp4TimestampData(
             /* creationTimestampSeconds= */ 100_000_000L,
@@ -234,9 +224,7 @@ public class Mp4MuxerEndToEndTest {
   @Test
   public void createMp4File_withDifferentTracksOffset_matchesExpected() throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
-    Mp4Muxer mp4Muxer =
-        new Mp4Muxer.Builder(new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath)))
-            .build();
+    Mp4Muxer mp4Muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build();
     mp4Muxer.addMetadataEntry(
         new Mp4TimestampData(
             /* creationTimestampSeconds= */ 100_000_000L,
@@ -276,9 +264,7 @@ public class Mp4MuxerEndToEndTest {
   @Test
   public void createMp4File_withNegativeTracksOffset_matchesExpected() throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
-    Mp4Muxer mp4Muxer =
-        new Mp4Muxer.Builder(new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath)))
-            .build();
+    Mp4Muxer mp4Muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build();
     mp4Muxer.addMetadataEntry(
         new Mp4TimestampData(
             /* creationTimestampSeconds= */ 100_000_000L,
@@ -315,9 +301,7 @@ public class Mp4MuxerEndToEndTest {
   @Test
   public void createMp4File_withOutOfOrderBframes_matchesExpected() throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
-    Mp4Muxer mp4Muxer =
-        new Mp4Muxer.Builder(new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath)))
-            .build();
+    Mp4Muxer mp4Muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build();
     mp4Muxer.addMetadataEntry(
         new Mp4TimestampData(
             /* creationTimestampSeconds= */ 100_000_000L,
@@ -353,9 +337,7 @@ public class Mp4MuxerEndToEndTest {
   public void createMp4File_withOutOfOrderBframesLargePresentationTimestamps_matchesExpected()
       throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
-    Mp4Muxer mp4Muxer =
-        new Mp4Muxer.Builder(new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath)))
-            .build();
+    Mp4Muxer mp4Muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build();
     mp4Muxer.addMetadataEntry(
         new Mp4TimestampData(
             /* creationTimestampSeconds= */ 100_000_000L,
@@ -403,9 +385,7 @@ public class Mp4MuxerEndToEndTest {
   @Test
   public void createMp4File_withOneTrackEmpty_doesNotWriteEmptyTrack() throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
-    Mp4Muxer mp4Muxer =
-        new Mp4Muxer.Builder(new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath)))
-            .build();
+    Mp4Muxer mp4Muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build();
     mp4Muxer.addMetadataEntry(
         new Mp4TimestampData(
             /* creationTimestampSeconds= */ 100_000_000L,
@@ -438,9 +418,7 @@ public class Mp4MuxerEndToEndTest {
   public void writeMp4File_withLargeNumberOfSamples_writesMoovBoxAtTheEndAndFreeBoxAtStart()
       throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
-    Mp4Muxer muxer =
-        new Mp4Muxer.Builder(new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath)))
-            .build();
+    Mp4Muxer muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build();
     try {
       muxer.addMetadataEntry(
           new Mp4TimestampData(
@@ -470,7 +448,7 @@ public class Mp4MuxerEndToEndTest {
       throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
     Mp4Muxer muxer =
-        new Mp4Muxer.Builder(new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath)))
+        new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath))
             .setAttemptStreamableOutputEnabled(false)
             .build();
     try {
@@ -505,7 +483,7 @@ public class Mp4MuxerEndToEndTest {
     assertThrows(
         IllegalArgumentException.class,
         () ->
-            new Mp4Muxer.Builder(new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath)))
+            new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath))
                 .setOutputFileFormat(FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION)
                 .build());
   }
@@ -517,8 +495,8 @@ public class Mp4MuxerEndToEndTest {
     String outputFilePath = temporaryFolder.newFile().getPath();
     String cacheFilePath = temporaryFolder.newFile().getPath();
     Mp4Muxer muxer =
-        new Mp4Muxer.Builder(
-                new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath), cacheFilePath))
+        new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath))
+            .setCacheFileSupplier(() -> cacheFilePath)
             .setOutputFileFormat(FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION)
             .setMp4AtFileParameters(
                 new Mp4Muxer.Mp4AtFileParameters(/* shouldInterleaveSamples= */ false))
@@ -564,9 +542,7 @@ public class Mp4MuxerEndToEndTest {
   public void writeMp4File_withDefaultFileFormatAndAuxiliaryTracks_doesNotWriteAxteBox()
       throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
-    Mp4Muxer muxer =
-        new Mp4Muxer.Builder(new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath)))
-            .build();
+    Mp4Muxer muxer = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath)).build();
 
     try {
       muxer.addMetadataEntry(
@@ -611,8 +587,8 @@ public class Mp4MuxerEndToEndTest {
     String outputFilePath = temporaryFolder.newFile().getPath();
     String cacheFilePath = temporaryFolder.newFile().getPath();
     Mp4Muxer muxer =
-        new Mp4Muxer.Builder(
-                new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath), cacheFilePath))
+        new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath))
+            .setCacheFileSupplier(() -> cacheFilePath)
             .setOutputFileFormat(FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION)
             .setMp4AtFileParameters(
                 new Mp4Muxer.Mp4AtFileParameters(/* shouldInterleaveSamples= */ false))
@@ -662,8 +638,8 @@ public class Mp4MuxerEndToEndTest {
     String outputFilePath = temporaryFolder.newFile().getPath();
     String cacheFilePath = temporaryFolder.newFile().getPath();
     Mp4Muxer muxer =
-        new Mp4Muxer.Builder(
-                new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath), cacheFilePath))
+        new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath))
+            .setCacheFileSupplier(() -> cacheFilePath)
             .setOutputFileFormat(FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION)
             .setMp4AtFileParameters(
                 new Mp4Muxer.Mp4AtFileParameters(/* shouldInterleaveSamples= */ false))
@@ -713,7 +689,7 @@ public class Mp4MuxerEndToEndTest {
           throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
     Mp4Muxer muxer =
-        new Mp4Muxer.Builder(new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath)))
+        new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath))
             .setOutputFileFormat(FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION)
             .setMp4AtFileParameters(
                 new Mp4Muxer.Mp4AtFileParameters(/* shouldInterleaveSamples= */ true))
@@ -763,7 +739,7 @@ public class Mp4MuxerEndToEndTest {
           throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
     Mp4Muxer muxer =
-        new Mp4Muxer.Builder(new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath)))
+        new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath))
             .setOutputFileFormat(FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION)
             .setMp4AtFileParameters(
                 new Mp4Muxer.Mp4AtFileParameters(/* shouldInterleaveSamples= */ true))
@@ -814,7 +790,7 @@ public class Mp4MuxerEndToEndTest {
           throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
     Mp4Muxer mp4Muxer =
-        new Mp4Muxer.Builder(new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath)))
+        new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath))
             .setLastSampleDurationBehavior(
                 LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER_OR_DUPLICATE_PREVIOUS)
             .build();
@@ -862,7 +838,7 @@ public class Mp4MuxerEndToEndTest {
           throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
     Mp4Muxer mp4Muxer =
-        new Mp4Muxer.Builder(new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath)))
+        new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath))
             .setLastSampleDurationBehavior(
                 LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER_OR_DUPLICATE_PREVIOUS)
             .build();
@@ -901,7 +877,7 @@ public class Mp4MuxerEndToEndTest {
     String outputPath = temporaryFolder.newFile().getPath();
 
     Mp4Muxer mp4Muxer =
-        new Mp4Muxer.Builder(new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputPath)))
+        new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputPath))
             .setSampleBatchingEnabled(false)
             .build();
     mp4Muxer.addMetadataEntry(
@@ -930,7 +906,7 @@ public class Mp4MuxerEndToEndTest {
     String outputPath = temporaryFolder.newFile().getPath();
 
     Mp4Muxer mp4Muxer =
-        new Mp4Muxer.Builder(new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputPath)))
+        new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputPath))
             .setSampleBatchingEnabled(false)
             .setAttemptStreamableOutputEnabled(false)
             .build();
@@ -961,7 +937,7 @@ public class Mp4MuxerEndToEndTest {
           throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
     Mp4Muxer muxer =
-        new Mp4Muxer.Builder(new MuxerOutputFactoryImpl(SeekableMuxerOutput.of(outputFilePath)))
+        new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputFilePath))
             .experimentalSetFreeSpaceAfterFileTypeBox(500)
             .setAttemptStreamableOutputEnabled(false)
             .build();

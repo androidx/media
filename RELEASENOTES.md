@@ -112,10 +112,6 @@
 *   DRM:
 *   Effect:
 *   Muxers:
-    *   Deprecate `Mp4Muxer#Builder(FileOutputStream)` constructor. Use
-        `Mp4Muxer#Builder(MuxerOutputFactory)` instead.
-    *   Deprecate `FragmentedMp4Muxer#Builder(OutputStream)` constructor. Use
-        `FragmentedMp4Muxer#Builder(WritableByteChannel)` instead.
     *   Add `MediaMuxerCompat`, a drop-in replacement for framework
         `MediaMuxer`.
 *   IMA extension:
