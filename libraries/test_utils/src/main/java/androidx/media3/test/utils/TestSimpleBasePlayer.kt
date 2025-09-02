@@ -40,7 +40,7 @@ import kotlinx.coroutines.test.TestCoroutineScheduler
  *
  * @param playbackState The initial playback state of the player.
  * @param playWhenReady Whether playback should start automatically when ready.
- * @param playlist The initial list of media items to play. Default is 2 items (1s and 2s duration).
+ * @param playlist The initial list of media items to play.
  * @param playbackSpeed The initial playback speed.
  * @param bufferingDelayMs The time spent in [Player#STATE_BUFFERING] when preparing or seeking, in
  *   milliseconds. A value of zero will result in the player transitioning directly to
