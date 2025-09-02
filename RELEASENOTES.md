@@ -114,6 +114,8 @@
 *   Muxers:
     *   Add `MediaMuxerCompat`, a drop-in replacement for framework
         `MediaMuxer`.
+    *   Add `MuxerUtil.createMotionPhotoFromJpegImageAndBmffVideo()` to allow
+        Motion Photo creation.
 *   IMA extension:
     *   Removal of custom proguard rules, so that apps can use those released in
         IMA android archive instead.

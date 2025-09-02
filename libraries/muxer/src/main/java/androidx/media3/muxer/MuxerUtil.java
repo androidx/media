@@ -19,26 +19,45 @@ import static androidx.media3.common.util.Util.getBufferFlagsFromMediaCodecFlags
 import static androidx.media3.container.MdtaMetadataEntry.AUXILIARY_TRACKS_SAMPLES_INTERLEAVED;
 import static androidx.media3.container.MdtaMetadataEntry.AUXILIARY_TRACKS_SAMPLES_NOT_INTERLEAVED;
 import static androidx.media3.container.MdtaMetadataEntry.TYPE_INDICATOR_8_BIT_UNSIGNED_INT;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.media.MediaCodec;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.common.util.Util;
 import androidx.media3.container.MdtaMetadataEntry;
 import androidx.media3.container.Mp4LocationData;
 import androidx.media3.container.Mp4OrientationData;
 import androidx.media3.container.Mp4TimestampData;
 import androidx.media3.container.XmpData;
 import com.google.common.primitives.Longs;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.MappedByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.channels.WritableByteChannel;
 import java.util.List;
+import java.util.Locale;
 
 /** Utility methods for muxer. */
 @UnstableApi
 public final class MuxerUtil {
   /** The maximum value of a 32-bit unsigned int. */
   public static final long UNSIGNED_INT_MAX_VALUE = 4_294_967_295L;
+
+  private static final int SEGMENT_MARKER_LENGTH = 2;
+  private static final int SEGMENT_SIZE_LENGTH = 2;
+  private static final short SOI_MARKER = (short) 0xFFD8;
+  private static final short APP1_MARKER = (short) 0xFFE1;
+  private static final short SOS_MARKER = (short) 0xFFDA;
+  private static final short EOI_MARKER = (short) 0xFFD9;
+  private static final String JPEG_XMP_IDENTIFIER = "http://ns.adobe.com/xap/1.0/\u0000";
 
   private MuxerUtil() {}
 
@@ -61,6 +80,50 @@ public final class MuxerUtil {
         mediaCodecBufferInfo.presentationTimeUs,
         mediaCodecBufferInfo.size,
         getBufferFlagsFromMediaCodecFlags(mediaCodecBufferInfo.flags));
+  }
+
+  /**
+   * Creates a Motion Photo from a JPEG image and a BMFF video as per the <a
+   * href="https://developer.android.com/media/platform/motion-photo-format">Motion Photo spec</a>.
+   *
+   * @param imageInputStream A {@link FileInputStream} containing the image data. The caller is
+   *     responsible for closing the stream once this method returns.
+   * @param imagePresentationTimestampUs The presentation timestamp of the image in the video (in
+   *     microseconds).
+   * @param videoInputStream A {@link FileInputStream} containing the video data. The caller is
+   *     responsible for closing the stream once this method returns.
+   * @param videoContainerMimeType The container mime type of the video. Must be {@link
+   *     MimeTypes#VIDEO_MP4} or {@link MimeTypes#VIDEO_QUICK_TIME}.
+   * @param outputChannel A {@link WritableByteChannel} to write output to. The caller is
+   *     responsible for closing the channel once this method returns.
+   * @throws IOException If an error occurs when creating the Motion Photo.
+   */
+  public static void createMotionPhotoFromJpegImageAndBmffVideo(
+      FileInputStream imageInputStream,
+      long imagePresentationTimestampUs,
+      FileInputStream videoInputStream,
+      String videoContainerMimeType,
+      WritableByteChannel outputChannel)
+      throws IOException {
+    checkArgument(
+        videoContainerMimeType.equals(MimeTypes.VIDEO_MP4)
+            || videoContainerMimeType.equals(MimeTypes.VIDEO_QUICK_TIME),
+        "Only MP4 and QUICKTIME container mime types supported");
+
+    FileChannel imageFileChannel = imageInputStream.getChannel();
+    MappedByteBuffer imageData =
+        imageFileChannel.map(
+            FileChannel.MapMode.READ_ONLY, /* position= */ 0, imageFileChannel.size());
+    FileChannel videoFileChannel = videoInputStream.getChannel();
+    writeImageDataToOutput(
+        imageData,
+        imagePresentationTimestampUs,
+        MimeTypes.IMAGE_JPEG,
+        videoFileChannel.size(),
+        videoContainerMimeType,
+        outputChannel);
+    // Write video data to output.
+    videoFileChannel.transferTo(/* position= */ 0, videoFileChannel.size(), outputChannel);
   }
 
   /**
@@ -174,5 +237,113 @@ public final class MuxerUtil {
   private static boolean isMp4TimestampDataSupported(Mp4TimestampData timestampData) {
     return timestampData.creationTimestampSeconds <= UNSIGNED_INT_MAX_VALUE
         && timestampData.modificationTimestampSeconds <= UNSIGNED_INT_MAX_VALUE;
+  }
+
+  private static void writeImageDataToOutput(
+      ByteBuffer imageData,
+      long imagePresentationTimestampUs,
+      String imageMimeType,
+      long videoSize,
+      String videoContainerMimeType,
+      WritableByteChannel outputChannel)
+      throws IOException {
+    int lastApp1SegmentEndIndex = findLastApp1SegmentEndIndexFromImageData(imageData);
+    // Write image data till end of last APP1 segment.
+    int imageStartIndex = imageData.position();
+    int imageEndIndex = imageData.limit();
+    imageData.limit(lastApp1SegmentEndIndex);
+    outputChannel.write(imageData);
+    // Restore imageData indexes.
+    imageData.position(imageStartIndex);
+    imageData.limit(imageEndIndex);
+    byte[] motionPhotoXmp =
+        generateMotionPhotoXmp(
+            imagePresentationTimestampUs, imageMimeType, videoContainerMimeType, videoSize);
+    ByteBuffer app1SegmentWithMotionPhotoXmp = getApp1SegmentWithMotionPhotoXmpDate(motionPhotoXmp);
+    outputChannel.write(app1SegmentWithMotionPhotoXmp);
+    // Write image data after the last APP1 segment.
+    imageData.position(lastApp1SegmentEndIndex);
+    outputChannel.write(imageData);
+  }
+
+  private static int findLastApp1SegmentEndIndexFromImageData(ByteBuffer imageData) {
+    int lastApp1SegmentEndIndex = -1;
+    imageData.mark();
+    short marker = imageData.getShort();
+    checkArgument(marker == SOI_MARKER, "SOI marker not found");
+    while (imageData.remaining() > SEGMENT_MARKER_LENGTH) {
+      marker = imageData.getShort();
+      // Segment length includes the 2 bytes for the length itself, so we need to subtract it to
+      // get the length of the segment data.
+      int segmentLength = imageData.getShort() - SEGMENT_SIZE_LENGTH;
+      if (marker == SOS_MARKER || marker == EOI_MARKER) {
+        break;
+      }
+      if (marker == APP1_MARKER) {
+        lastApp1SegmentEndIndex = imageData.position() + segmentLength;
+      }
+      // Move to the end of the current segment, to read the next marker.
+      imageData.position(imageData.position() + segmentLength);
+    }
+    imageData.reset();
+    checkState(lastApp1SegmentEndIndex != -1, "Existing APP1 segment not found");
+    return lastApp1SegmentEndIndex;
+  }
+
+  private static byte[] generateMotionPhotoXmp(
+      long imagePresentationTimestampUs,
+      String imageMimeType,
+      String videoContainerMimeType,
+      long videoSize) {
+    String motionPhotoXmp =
+        String.format(
+            Locale.US,
+            "<x:xmpmeta xmlns:x=\"adobe:ns:meta/\" x:xmptk=\"Adobe XMP Core 5.1.0-jc003\">\n"
+                + "  <rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\">\n"
+                + "    <rdf:Description rdf:about=\"\"\n"
+                + "        xmlns:GCamera=\"http://ns.google.com/photos/1.0/camera/\"\n"
+                + "        xmlns:Container=\"http://ns.google.com/photos/1.0/container/\"\n"
+                + "        xmlns:Item=\"http://ns.google.com/photos/1.0/container/item/\"\n"
+                + "      GCamera:MotionPhoto=\"1\"\n"
+                + "      GCamera:MotionPhotoVersion=\"1\"\n"
+                + "      GCamera:MotionPhotoPresentationTimestampUs=\"%d\">\n"
+                + "        <Container:Directory>\n"
+                + "          <rdf:Seq>\n"
+                + "            <rdf:li rdf:parseType=\"Resource\">\n"
+                + "              <Container:Item\n"
+                + "                Item:Mime=\"%s\"\n"
+                + "                Item:Semantic=\"Primary\"\n"
+                + "                Item:Length=\"0\"\n"
+                + "                Item:Padding=\"0\"/>\n"
+                + "            </rdf:li>\n"
+                + "            <rdf:li rdf:parseType=\"Resource\">\n"
+                + "              <Container:Item\n"
+                + "                Item:Mime=\"%s\"\n"
+                + "                Item:Semantic=\"MotionPhoto\"\n"
+                + "                Item:Length=\"%d\"\n"
+                + "                Item:Padding=\"0\"/>\n"
+                + "            </rdf:li>\n"
+                + "          </rdf:Seq>\n"
+                + "        </Container:Directory>\n"
+                + "      </rdf:Description>\n"
+                + "    </rdf:RDF>\n"
+                + "  </x:xmpmeta>\n",
+            imagePresentationTimestampUs,
+            imageMimeType,
+            videoContainerMimeType,
+            videoSize);
+    return Util.getUtf8Bytes(motionPhotoXmp);
+  }
+
+  private static ByteBuffer getApp1SegmentWithMotionPhotoXmpDate(byte[] motionPhotoXmp) {
+    short totalSegmentLength =
+        (short) (SEGMENT_SIZE_LENGTH + JPEG_XMP_IDENTIFIER.length() + motionPhotoXmp.length);
+    ByteBuffer byteBuffer = ByteBuffer.allocateDirect(SEGMENT_MARKER_LENGTH + totalSegmentLength);
+    byteBuffer.putShort(APP1_MARKER);
+    byteBuffer.putShort(totalSegmentLength);
+    byteBuffer.put(Util.getUtf8Bytes(JPEG_XMP_IDENTIFIER));
+    byteBuffer.put(motionPhotoXmp);
+    byteBuffer.flip();
+    return byteBuffer;
   }
 }
