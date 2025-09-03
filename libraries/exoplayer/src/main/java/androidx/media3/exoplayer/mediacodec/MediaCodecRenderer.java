@@ -746,15 +746,18 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   protected void onPositionReset(
       long positionUs, boolean joining, boolean sampleStreamIsResetToKeyFrame)
       throws ExoPlaybackException {
+    if (!sampleStreamIsResetToKeyFrame) {
+      // onPositionReset is not resetting the sample stream and so codec-related state will not
+      // be reset.
+      return;
+    }
     inputStreamEnded = false;
     outputStreamEnded = false;
     pendingOutputEndOfStream = false;
-    if (sampleStreamIsResetToKeyFrame) {
-      if (bypassEnabled) {
-        resetBypassState();
-      } else {
-        flushOrReinitializeCodec();
-      }
+    if (bypassEnabled) {
+      resetBypassState();
+    } else {
+      flushOrReinitializeCodec();
     }
     // If there is a format change on the input side still pending propagation to the output, we
     // need to queue a format next time a buffer is read. This is because we may not read a new
