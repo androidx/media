@@ -106,12 +106,10 @@ import com.google.common.collect.ImmutableList;
     if (mdtaMetadata != null) {
       for (MdtaMetadataEntry mdtaMetadataEntry :
           mdtaMetadata.getEntriesOfType(MdtaMetadataEntry.class)) {
-        // This key is present in the moov.meta box.
-        if (mdtaMetadataEntry.key.equals(MdtaMetadataEntry.KEY_ANDROID_CAPTURE_FPS)) {
-          if (trackType == C.TRACK_TYPE_VIDEO) {
-            formatMetadata = formatMetadata.copyWithAppendedEntries(mdtaMetadataEntry);
-          }
-        } else {
+        // If KEY_ANDROID_CAPTURE_FPS key is present in the moov.meta box it should only be exposed
+        // in video track metadata. All other mdta entries can be added to all tracks.
+        if (!mdtaMetadataEntry.key.equals(MdtaMetadataEntry.KEY_ANDROID_CAPTURE_FPS)
+            || trackType == C.TRACK_TYPE_VIDEO) {
           formatMetadata = formatMetadata.copyWithAppendedEntries(mdtaMetadataEntry);
         }
       }
