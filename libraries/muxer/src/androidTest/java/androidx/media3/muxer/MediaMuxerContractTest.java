@@ -42,11 +42,9 @@ import android.media.MediaFormat;
 import android.media.MediaMuxer;
 import android.net.Uri;
 import android.system.Os;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
-import androidx.media3.common.Metadata;
 import androidx.media3.common.util.MediaFormatUtil;
 import androidx.media3.container.Mp4LocationData;
 import androidx.media3.exoplayer.MediaExtractorCompat;
@@ -506,8 +504,8 @@ public final class MediaMuxerContractTest {
     Format videoTrackFormat =
         Iterables.getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_VIDEO))
             .lastFormat;
-    @Nullable Mp4LocationData actualLocationData = getMp4LocationData(videoTrackFormat);
-    assertThat(actualLocationData).isNotNull();
+    Mp4LocationData actualLocationData =
+        videoTrackFormat.metadata.getFirstEntryOfType(Mp4LocationData.class);
     assertThat(actualLocationData.latitude).isEqualTo(latitude);
     assertThat(actualLocationData.longitude).isEqualTo(longitude);
   }
@@ -536,8 +534,8 @@ public final class MediaMuxerContractTest {
     Format videoTrackFormat =
         Iterables.getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_VIDEO))
             .lastFormat;
-    @Nullable Mp4LocationData actualLocationData = getMp4LocationData(videoTrackFormat);
-    assertThat(actualLocationData).isNotNull();
+    Mp4LocationData actualLocationData =
+        videoTrackFormat.metadata.getFirstEntryOfType(Mp4LocationData.class);
     assertThat(actualLocationData.latitude).isEqualTo(latitude);
     assertThat(actualLocationData.longitude).isEqualTo(longitude);
   }
@@ -582,21 +580,6 @@ public final class MediaMuxerContractTest {
         Iterables.getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_VIDEO))
             .lastFormat;
     assertThat(videoTrackFormat.rotationDegrees).isEqualTo(orientation);
-  }
-
-  @Nullable
-  private static Mp4LocationData getMp4LocationData(Format format) {
-    if (format.metadata == null) {
-      return null;
-    }
-
-    for (int i = 0; i < format.metadata.length(); i++) {
-      Metadata.Entry metadataEntry = format.metadata.get(i);
-      if (metadataEntry instanceof Mp4LocationData) {
-        return (Mp4LocationData) metadataEntry;
-      }
-    }
-    return null;
   }
 
   private static void feedDataToMuxer(Context context, MediaMuxerProxy muxer, String inputFilePath)

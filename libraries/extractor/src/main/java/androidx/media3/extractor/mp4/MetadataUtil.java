@@ -33,6 +33,7 @@ import androidx.media3.extractor.metadata.id3.Id3Frame;
 import androidx.media3.extractor.metadata.id3.Id3Util;
 import androidx.media3.extractor.metadata.id3.InternalFrame;
 import androidx.media3.extractor.metadata.id3.TextInformationFrame;
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 
 /** Utilities for handling metadata in MP4. */
@@ -102,20 +103,16 @@ import com.google.common.collect.ImmutableList;
       @Nullable Metadata existingMetadata,
       @NullableType Metadata... additionalMetadata) {
     Metadata formatMetadata = existingMetadata != null ? existingMetadata : new Metadata();
-
     if (mdtaMetadata != null) {
-      for (int i = 0; i < mdtaMetadata.length(); i++) {
-        Metadata.Entry entry = mdtaMetadata.get(i);
-        if (entry instanceof MdtaMetadataEntry) {
-          MdtaMetadataEntry mdtaMetadataEntry = (MdtaMetadataEntry) entry;
-          // This key is present in the moov.meta box.
-          if (mdtaMetadataEntry.key.equals(MdtaMetadataEntry.KEY_ANDROID_CAPTURE_FPS)) {
-            if (trackType == C.TRACK_TYPE_VIDEO) {
-              formatMetadata = formatMetadata.copyWithAppendedEntries(mdtaMetadataEntry);
-            }
-          } else {
+      for (MdtaMetadataEntry mdtaMetadataEntry :
+          mdtaMetadata.getEntriesOfType(MdtaMetadataEntry.class)) {
+        // This key is present in the moov.meta box.
+        if (mdtaMetadataEntry.key.equals(MdtaMetadataEntry.KEY_ANDROID_CAPTURE_FPS)) {
+          if (trackType == C.TRACK_TYPE_VIDEO) {
             formatMetadata = formatMetadata.copyWithAppendedEntries(mdtaMetadataEntry);
           }
+        } else {
+          formatMetadata = formatMetadata.copyWithAppendedEntries(mdtaMetadataEntry);
         }
       }
     }
@@ -255,13 +252,10 @@ import com.google.common.collect.ImmutableList;
   }
 
   /**
-   * Returns the {@link MdtaMetadataEntry} for a given key, or {@code null} if the key is not
-   * present.
-   *
-   * @param metadata The {@link Metadata} to retrieve the {@link MdtaMetadataEntry} from.
-   * @param key The metadata key to search.
+   * @deprecated Use {@link Metadata#getFirstMatchingEntry(Class, Predicate)} instead.
    */
   @Nullable
+  @Deprecated
   public static MdtaMetadataEntry findMdtaMetadataEntryWithKey(Metadata metadata, String key) {
     for (int i = 0; i < metadata.length(); i++) {
       Metadata.Entry entry = metadata.get(i);

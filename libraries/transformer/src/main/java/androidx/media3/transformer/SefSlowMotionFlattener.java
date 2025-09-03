@@ -296,22 +296,17 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     if (metadata == null) {
       return metadataInfo;
     }
-
-    for (int i = 0; i < metadata.length(); i++) {
-      Metadata.Entry entry = metadata.get(i);
-      if (entry instanceof SmtaMetadataEntry) {
-        SmtaMetadataEntry smtaMetadataEntry = (SmtaMetadataEntry) entry;
-        metadataInfo.captureFrameRate = smtaMetadataEntry.captureFrameRate;
-        metadataInfo.inputMaxLayer = smtaMetadataEntry.svcTemporalLayerCount - 1;
-      } else if (entry instanceof SlowMotionData) {
-        metadataInfo.slowMotionData = (SlowMotionData) entry;
-      }
-    }
-
-    if (metadataInfo.slowMotionData == null) {
+    @Nullable SlowMotionData slowMotionData = metadata.getFirstEntryOfType(SlowMotionData.class);
+    if (slowMotionData == null) {
       return metadataInfo;
     }
-
+    metadataInfo.slowMotionData = slowMotionData;
+    @Nullable
+    SmtaMetadataEntry smtaMetadataEntry = metadata.getFirstEntryOfType(SmtaMetadataEntry.class);
+    if (smtaMetadataEntry != null) {
+      metadataInfo.captureFrameRate = smtaMetadataEntry.captureFrameRate;
+      metadataInfo.inputMaxLayer = smtaMetadataEntry.svcTemporalLayerCount - 1;
+    }
     checkState(metadataInfo.inputMaxLayer != C.INDEX_UNSET, "SVC temporal layer count not found.");
     checkState(metadataInfo.captureFrameRate != C.RATE_UNSET, "Capture frame rate not found.");
     checkState(

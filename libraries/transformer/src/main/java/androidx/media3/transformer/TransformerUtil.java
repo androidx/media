@@ -128,15 +128,7 @@ public final class TransformerUtil {
    */
   private static boolean containsSlowMotionData(Format format) {
     @Nullable Metadata metadata = format.metadata;
-    if (metadata == null) {
-      return false;
-    }
-    for (int i = 0; i < metadata.length(); i++) {
-      if (metadata.get(i) instanceof SlowMotionData) {
-        return true;
-      }
-    }
-    return false;
+    return metadata != null && metadata.getFirstEntryOfType(SlowMotionData.class) != null;
   }
 
   /** Returns whether the video track should be transcoded. */

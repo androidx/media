@@ -59,21 +59,22 @@ public final class GaplessInfoHolder {
    * @return Whether the holder was populated.
    */
   public boolean setFromMetadata(Metadata metadata) {
-    for (int i = 0; i < metadata.length(); i++) {
-      Metadata.Entry entry = metadata.get(i);
-      if (entry instanceof CommentFrame) {
-        CommentFrame commentFrame = (CommentFrame) entry;
-        if (GAPLESS_DESCRIPTION.equals(commentFrame.description)
-            && setFromComment(commentFrame.text)) {
-          return true;
-        }
-      } else if (entry instanceof InternalFrame) {
-        InternalFrame internalFrame = (InternalFrame) entry;
-        if (GAPLESS_DOMAIN.equals(internalFrame.domain)
-            && GAPLESS_DESCRIPTION.equals(internalFrame.description)
-            && setFromComment(internalFrame.text)) {
-          return true;
-        }
+    for (CommentFrame gaplessCommentFrame :
+        metadata.getMatchingEntries(
+            CommentFrame.class,
+            commentFrame -> commentFrame.description.equals(GAPLESS_DESCRIPTION))) {
+      if (setFromComment(gaplessCommentFrame.text)) {
+        return true;
+      }
+    }
+    for (InternalFrame gaplessInternalFrame :
+        metadata.getMatchingEntries(
+            InternalFrame.class,
+            internalFrame ->
+                internalFrame.domain.equals(GAPLESS_DOMAIN)
+                    && internalFrame.description.equals(GAPLESS_DESCRIPTION))) {
+      if (setFromComment(gaplessInternalFrame.text)) {
+        return true;
       }
     }
     return false;

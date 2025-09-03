@@ -21,7 +21,6 @@ import static androidx.media3.common.C.AUXILIARY_TRACK_TYPE_ORIGINAL;
 import static androidx.media3.common.C.AUXILIARY_TRACK_TYPE_UNDEFINED;
 import static androidx.media3.container.MdtaMetadataEntry.AUXILIARY_TRACKS_SAMPLES_NOT_INTERLEAVED;
 import static androidx.media3.extractor.mp4.BoxParser.parseTraks;
-import static androidx.media3.extractor.mp4.MetadataUtil.findMdtaMetadataEntryWithKey;
 import static androidx.media3.extractor.mp4.MimeTypeResolver.getContainerMimeType;
 import static androidx.media3.extractor.mp4.Sniffer.BRAND_HEIC;
 import static androidx.media3.extractor.mp4.Sniffer.BRAND_QUICKTIME;
@@ -734,22 +733,23 @@ public final class Mp4Extractor implements Extractor {
   }
 
   private boolean shouldSeekToAxteAtom(@Nullable Metadata mdtaMetadata) {
-    if (mdtaMetadata == null) {
+    if (mdtaMetadata == null || (flags & FLAG_READ_AUXILIARY_TRACKS) == 0) {
       return false;
     }
-    if ((flags & FLAG_READ_AUXILIARY_TRACKS) != 0) {
-      @Nullable
-      MdtaMetadataEntry axteAtomOffsetMetadata =
-          findMdtaMetadataEntryWithKey(mdtaMetadata, MdtaMetadataEntry.KEY_AUXILIARY_TRACKS_OFFSET);
-      if (axteAtomOffsetMetadata != null) {
-        long offset = new ParsableByteArray(axteAtomOffsetMetadata.value).readUnsignedLongToLong();
-        if (offset > 0) {
-          axteAtomOffset = offset;
-          return true;
-        }
-      }
+    @Nullable
+    MdtaMetadataEntry axteAtomOffsetMetadata =
+        mdtaMetadata.getFirstMatchingEntry(
+            MdtaMetadataEntry.class,
+            mdtaEntry -> mdtaEntry.key.equals(MdtaMetadataEntry.KEY_AUXILIARY_TRACKS_OFFSET));
+    if (axteAtomOffsetMetadata == null) {
+      return false;
     }
-    return false;
+    long offset = new ParsableByteArray(axteAtomOffsetMetadata.value).readUnsignedLongToLong();
+    if (offset <= 0) {
+      return false;
+    }
+    axteAtomOffset = offset;
+    return true;
   }
 
   /**
@@ -759,11 +759,12 @@ public final class Mp4Extractor implements Extractor {
   private void maybeSetDefaultSampleOffsetForAuxiliaryTracks(Metadata metadata) {
     @Nullable
     MdtaMetadataEntry samplesInterleavedMetadata =
-        findMdtaMetadataEntryWithKey(metadata, MdtaMetadataEntry.KEY_AUXILIARY_TRACKS_INTERLEAVED);
-    if (samplesInterleavedMetadata != null) {
-      if (samplesInterleavedMetadata.value[0] == AUXILIARY_TRACKS_SAMPLES_NOT_INTERLEAVED) {
-        sampleOffsetForAuxiliaryTracks = axteAtomOffset + 16; // 16 bits for axte atom header
-      }
+        metadata.getFirstMatchingEntry(
+            MdtaMetadataEntry.class,
+            mdtaEntry -> mdtaEntry.key.equals(MdtaMetadataEntry.KEY_AUXILIARY_TRACKS_INTERLEAVED));
+    if (samplesInterleavedMetadata != null
+        && samplesInterleavedMetadata.value[0] == AUXILIARY_TRACKS_SAMPLES_NOT_INTERLEAVED) {
+      sampleOffsetForAuxiliaryTracks = axteAtomOffset + 16; // 16 bits for axte atom header
     }
   }
 
@@ -771,7 +772,9 @@ public final class Mp4Extractor implements Extractor {
       Metadata metadata) {
     MdtaMetadataEntry trackTypesMetadata =
         checkNotNull(
-            findMdtaMetadataEntryWithKey(metadata, MdtaMetadataEntry.KEY_AUXILIARY_TRACKS_MAP));
+            metadata.getFirstMatchingEntry(
+                MdtaMetadataEntry.class,
+                mdtaEntry -> mdtaEntry.key.equals(MdtaMetadataEntry.KEY_AUXILIARY_TRACKS_MAP)));
     List<Integer> auxiliaryTrackTypesFromMap = trackTypesMetadata.getAuxiliaryTrackTypesFromMap();
     List<@C.AuxiliaryTrackType Integer> auxiliaryTrackTypes =
         new ArrayList<>(auxiliaryTrackTypesFromMap.size());

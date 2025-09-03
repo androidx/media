@@ -735,29 +735,25 @@ public final class Mp3Extractor implements Extractor {
   @Nullable
   private static MlltSeeker maybeHandleSeekMetadata(
       @Nullable Metadata metadata, long firstFramePosition) {
-    if (metadata != null) {
-      int length = metadata.length();
-      for (int i = 0; i < length; i++) {
-        Metadata.Entry entry = metadata.get(i);
-        if (entry instanceof MlltFrame) {
-          return MlltSeeker.create(firstFramePosition, (MlltFrame) entry, getId3TlenUs(metadata));
-        }
-      }
+    if (metadata == null) {
+      return null;
     }
-    return null;
+    MlltFrame mlltFrame = metadata.getFirstEntryOfType(MlltFrame.class);
+    if (mlltFrame == null) {
+      return null;
+    }
+    return MlltSeeker.create(firstFramePosition, mlltFrame, getId3TlenUs(metadata));
   }
 
   private static long getId3TlenUs(@Nullable Metadata metadata) {
-    if (metadata != null) {
-      int length = metadata.length();
-      for (int i = 0; i < length; i++) {
-        Metadata.Entry entry = metadata.get(i);
-        if (entry instanceof TextInformationFrame
-            && ((TextInformationFrame) entry).id.equals("TLEN")) {
-          return Util.msToUs(Long.parseLong(((TextInformationFrame) entry).values.get(0)));
-        }
-      }
+    if (metadata == null) {
+      return C.TIME_UNSET;
     }
-    return C.TIME_UNSET;
+    TextInformationFrame tlenFrame =
+        metadata.getFirstMatchingEntry(TextInformationFrame.class, tif -> tif.id.equals("TLEN"));
+    if (tlenFrame == null) {
+      return C.TIME_UNSET;
+    }
+    return Util.msToUs(Long.parseLong(tlenFrame.values.get(0)));
   }
 }
