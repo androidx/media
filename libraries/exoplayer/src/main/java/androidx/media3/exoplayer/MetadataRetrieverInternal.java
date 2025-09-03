@@ -59,6 +59,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * MediaSource} just enough to extract information like track groups and timeline without performing
  * a full playback.
  */
+// TODO(b/442827020): Move this class to the androidx.media3.inspector package and make it
+// package-private.
 @UnstableApi
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public final class MetadataRetrieverInternal implements AutoCloseable {
@@ -431,6 +433,9 @@ public final class MetadataRetrieverInternal implements AutoCloseable {
   public static final class SharedWorkerThread {
 
     /** The maximum number of parallel metadata retrieval operations. */
+    // TODO(b/442827020): When MetadataRetrieverInternal is moved to the inspector module, update
+    // this to use a DEFAULT_MAXIMUM_PARALLEL_RETRIEVALS constant defined within
+    // androidx.media3.inspector.MetadataRetriever.
     public static final AtomicInteger MAX_PARALLEL_RETRIEVALS =
         new AtomicInteger(MetadataRetriever.DEFAULT_MAXIMUM_PARALLEL_RETRIEVALS);
 
