@@ -80,7 +80,7 @@ public final class Mp4ExtractorParameterizedTest {
 
   @Test
   public void mp4SampleWithMetadata() throws Exception {
-    assertExtractorBehavior("media/mp4/sample_with_metadata.mp4", /* peekLimit= */ 2700);
+    assertExtractorBehavior("media/mp4/sample_with_metadata.mp4", /* peekLimit= */ 2715);
   }
 
   @Test

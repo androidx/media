@@ -86,6 +86,10 @@
     *   Fix an issue in `MatroskaExtractor` where seeking could be inaccurate
         for files with multiple tracks. Cue points are now correctly associated
         with their respective tracks, leading to more precise seeking.
+    *   MP4: Add support for `©mvn` (movement name) and `©mvi` (movement index)
+        metadata, these are now emitted as `TextInformationFrame` objects in
+        `Format.metadata` with IDs of `MVNM` and `MVIN` respectively
+        ([#2754](https://github.com/androidx/media/issues/2754)).
 *   DataSource:
 *   Audio:
     *   Make `AudioProcessor` instances aware of seeking.

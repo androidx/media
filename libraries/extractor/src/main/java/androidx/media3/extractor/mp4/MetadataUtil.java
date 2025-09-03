@@ -52,6 +52,8 @@ import com.google.common.collect.ImmutableList;
   private static final int SHORT_TYPE_COMPOSER_2 = 0x00777274;
   private static final int SHORT_TYPE_LYRICS = 0x006c7972;
   private static final int SHORT_TYPE_GENRE = 0x0067656e;
+  private static final int SHORT_TYPE_MOVEMENT_NAME = 0x006d766e; // ©mvn
+  private static final int SHORT_TYPE_MOVEMENT_INDEX = 0x006d7669; // ©mvi
 
   // Codes that have equivalent ID3 frames.
   private static final int TYPE_COVER_ART = 0x636f7672;
@@ -177,6 +179,10 @@ import com.google.common.collect.ImmutableList;
           return parseTextAttribute(type, "TCON", ilst);
         } else if (shortType == TYPE_GROUPING) {
           return parseTextAttribute(type, "TIT1", ilst);
+        } else if (shortType == SHORT_TYPE_MOVEMENT_NAME) {
+          return parseTextAttribute(type, "MVNM", ilst);
+        } else if (shortType == SHORT_TYPE_MOVEMENT_INDEX) {
+          return parseIntegerAttribute(type, "MVIN", ilst, true, false);
         }
       } else if (type == TYPE_GENRE) {
         return parseStandardGenreAttribute(ilst);
