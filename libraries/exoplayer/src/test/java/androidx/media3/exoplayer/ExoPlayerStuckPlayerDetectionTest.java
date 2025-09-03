@@ -23,8 +23,6 @@ import android.content.Context;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.PlaybackException;
-import androidx.media3.common.PlaybackParameters;
-import androidx.media3.common.Player;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.datasource.TransferListener;
@@ -42,10 +40,8 @@ import androidx.media3.test.utils.FakeAdaptiveMediaSource;
 import androidx.media3.test.utils.FakeChunkSource;
 import androidx.media3.test.utils.FakeClock;
 import androidx.media3.test.utils.FakeDataSource;
-import androidx.media3.test.utils.FakeMediaClockRenderer;
 import androidx.media3.test.utils.FakeMediaPeriod;
 import androidx.media3.test.utils.FakeMediaSource;
-import androidx.media3.test.utils.FakeRenderer;
 import androidx.media3.test.utils.FakeTimeline;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -269,9 +265,7 @@ public class ExoPlayerStuckPlayerDetectionTest {
     assertThat(error.errorCode).isEqualTo(PlaybackException.ERROR_CODE_TIMEOUT);
     assertThat(error)
         .hasCauseThat()
-        .isEqualTo(
-            new StuckPlayerException(
-                StuckPlayerException.STUCK_BUFFERING_NO_PROGRESS, /* timeoutMs= */ 45_000));
+        .isEqualTo(new StuckPlayerException(StuckPlayerException.STUCK_BUFFERING_NO_PROGRESS));
     assertThat(elapsedRealtimeAtErrorMs).isAtLeast(45_000);
   }
 
@@ -311,150 +305,7 @@ public class ExoPlayerStuckPlayerDetectionTest {
     assertThat(error.errorCode).isEqualTo(PlaybackException.ERROR_CODE_TIMEOUT);
     assertThat(error)
         .hasCauseThat()
-        .isEqualTo(
-            new StuckPlayerException(
-                StuckPlayerException.STUCK_BUFFERING_NO_PROGRESS, /* timeoutMs= */ 45_000));
+        .isEqualTo(new StuckPlayerException(StuckPlayerException.STUCK_BUFFERING_NO_PROGRESS));
     assertThat(elapsedRealtimeAtErrorMs).isAtLeast(45_000);
-  }
-
-  @Test
-  public void stuckPlayingDetectionTimeoutMs_triggersPlayerErrorWhenStuckPlaying()
-      throws Exception {
-    ExoPlayer player =
-        new ExoPlayer.Builder(context)
-            .setClock(new FakeClock(/* initialTimeMs= */ 0, /* isAutoAdvancing= */ true))
-            .setStuckPlayingDetectionTimeoutMs(45_000)
-            .setRenderersFactory(
-                (eventHandler,
-                    videoRendererEventListener,
-                    audioRendererEventListener,
-                    textRendererOutput,
-                    metadataRendererOutput) ->
-                    new Renderer[] {
-                      new FakeMediaClockRenderer(C.TRACK_TYPE_VIDEO) {
-                        @Override
-                        public long getPositionUs() {
-                          // Always return 0 to not make playback progress.
-                          return 0;
-                        }
-
-                        @Override
-                        public boolean isEnded() {
-                          // Avoid marking the renderer as ended so that its clock keeps being
-                          // used.
-                          return false;
-                        }
-
-                        @Override
-                        public void setPlaybackParameters(PlaybackParameters playbackParameters) {}
-
-                        @Override
-                        public PlaybackParameters getPlaybackParameters() {
-                          return PlaybackParameters.DEFAULT;
-                        }
-                      }
-                    })
-            .build();
-    player.setMediaSource(
-        new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT));
-    player.prepare();
-    player.play();
-
-    ExoPlaybackException error = advance(player).untilPlayerError();
-    long elapsedRealtimeAtErrorMs = player.getClock().elapsedRealtime();
-    player.release();
-
-    assertThat(error.errorCode).isEqualTo(PlaybackException.ERROR_CODE_TIMEOUT);
-    assertThat(error)
-        .hasCauseThat()
-        .isEqualTo(
-            new StuckPlayerException(
-                StuckPlayerException.STUCK_PLAYING_NO_PROGRESS, /* timeoutMs= */ 45_000));
-    assertThat(elapsedRealtimeAtErrorMs).isAtLeast(45_000);
-  }
-
-  @Test
-  public void stuckPlayingDetectionTimeoutMs_triggersPlayerErrorWhenPlaybackThreadUnresponsive()
-      throws Exception {
-    FakeClock clock =
-        new FakeClock.Builder()
-            .setInitialTimeMs(0)
-            .setIsAutoAdvancing(true)
-            .setMaxAutoAdvancingTimeDiffMs(100_000)
-            .build();
-    ExoPlayer player =
-        new ExoPlayer.Builder(context)
-            .setClock(clock)
-            .setStuckPlayingDetectionTimeoutMs(45_000)
-            .build();
-    player.setMediaSource(new FakeMediaSource());
-    player.prepare();
-    player.play();
-    advance(player).untilState(Player.STATE_READY);
-    ConditionVariable blockPlaybackThread = new ConditionVariable();
-
-    player
-        .createMessage(
-            (what, payload) -> {
-              clock.onThreadBlocked();
-              blockPlaybackThread.blockUninterruptible();
-            })
-        .send();
-    ExoPlaybackException error = advance(player).untilPlayerError();
-    long elapsedRealtimeAtErrorMs = clock.elapsedRealtime();
-    blockPlaybackThread.open();
-    player.release();
-
-    assertThat(error.errorCode).isEqualTo(PlaybackException.ERROR_CODE_TIMEOUT);
-    assertThat(error)
-        .hasCauseThat()
-        .isEqualTo(
-            new StuckPlayerException(
-                StuckPlayerException.STUCK_PLAYING_NO_PROGRESS, /* timeoutMs= */ 45_000));
-    assertThat(elapsedRealtimeAtErrorMs).isAtLeast(45_000);
-  }
-
-  @Test
-  public void stuckPlayingNotEndedDetectionTimeoutMs_triggersPlayerErrorWhenStuckPlayingNotEnding()
-      throws Exception {
-    ExoPlayer player =
-        new ExoPlayer.Builder(context)
-            .setClock(new FakeClock(/* initialTimeMs= */ 0, /* isAutoAdvancing= */ true))
-            .setStuckPlayingNotEndingTimeoutMs(45_000)
-            .setRenderersFactory(
-                (eventHandler,
-                    videoRendererEventListener,
-                    audioRendererEventListener,
-                    textRendererOutput,
-                    metadataRendererOutput) ->
-                    new Renderer[] {
-                      new FakeRenderer(C.TRACK_TYPE_VIDEO) {
-                        @Override
-                        public boolean isEnded() {
-                          // Avoid marking the renderer as ended so that we keep increasing the
-                          // playback time waiting for this renderer to end.
-                          return false;
-                        }
-                      }
-                    })
-            .build();
-    player.setMediaSource(
-        new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT));
-    player.prepare();
-    player.play();
-    advance(player).untilState(Player.STATE_READY);
-    long durationMs = player.getDuration();
-
-    ExoPlaybackException error = advance(player).untilPlayerError();
-    long elapsedRealtimeAtErrorMs = player.getClock().elapsedRealtime();
-    player.release();
-
-    assertThat(error.errorCode).isEqualTo(PlaybackException.ERROR_CODE_TIMEOUT);
-    assertThat(error)
-        .hasCauseThat()
-        .isEqualTo(
-            new StuckPlayerException(
-                StuckPlayerException.STUCK_PLAYING_NOT_ENDING, /* timeoutMs= */ 45_000));
-    assertThat(elapsedRealtimeAtErrorMs).isAtLeast(durationMs + 45_000);
   }
 }
