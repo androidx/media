@@ -23,7 +23,8 @@ import android.util.Base64
 import android.util.Log
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.scale
-import androidx.core.util.Preconditions
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.effect.LottieOverlay
 import com.airbnb.lottie.ImageAssetDelegate
 import com.airbnb.lottie.LottieComposition
 import com.airbnb.lottie.LottieImageAsset
@@ -36,7 +37,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
 /**
- * A demo implementation of [LottieAssetProvider].
+ * A demo implementation of [LottieOverlay.LottieProvider].
  *
  * <p>This provider caches bitmaps in memory and loads fonts from the assets directory. It assumes a
  * specific asset structure:
@@ -47,33 +48,37 @@ import kotlinx.coroutines.launch
  *
  * @param context The application context.
  */
-internal class DemoLottieAssetProvider(private val context: Context) :
-  LottieAssetProvider, ImageAssetDelegate {
+@UnstableApi
+internal class DemoLottieProvider(
+  private val context: Context,
+  private val composition: LottieComposition,
+) : LottieOverlay.LottieProvider, ImageAssetDelegate {
 
   private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-  private var composition: LottieComposition? = null
   private val bitmapCache = ConcurrentHashMap<String, Bitmap>()
 
-  override fun setComposition(composition: LottieComposition) {
-    this.composition = composition
-    scope.launch {
-      composition.images.values.forEach { asset ->
-        if (!bitmapCache.containsKey(asset.id)) {
-          loadAndScaleBitmap(asset)?.let { bitmapCache[asset.id] = it }
+  init {
+    if (composition.images.isNotEmpty()) {
+      scope.launch {
+        composition.images.values.forEach { asset ->
+          if (!bitmapCache.containsKey(asset.id)) {
+            loadAndScaleBitmap(asset)?.let { bitmapCache[asset.id] = it }
+          }
         }
       }
     }
   }
 
+  override fun getLottieComposition(): LottieComposition {
+    return composition
+  }
+
   /**
    * Returns an [ImageAssetDelegate] to handle image loading.
    *
-   * [setComposition] must be called before this method.
-   *
-   * @throws IllegalStateException if [setComposition] has not been called.
+   * [getLottieComposition] must be called before this method.
    */
   override fun getImageAssetDelegate(): ImageAssetDelegate {
-    Preconditions.checkState(composition != null)
     return this
   }
 
@@ -87,15 +92,10 @@ internal class DemoLottieAssetProvider(private val context: Context) :
    *
    * <p>If a font cannot be loaded from the assets, this method will fall back to creating a system
    * font that matches the family name and style as closely as possible.
-   *
-   * @throws IllegalStateException if [setComposition] has not been called.
    */
   override fun getFontMap(): Map<String, Typeface> {
-    val currentComposition =
-      composition
-        ?: throw IllegalStateException("setComposition must be called before getFontMap().")
     val fontMap = mutableMapOf<String, Typeface>()
-    for (font in currentComposition.fonts.keys) {
+    for (font in composition.fonts.keys) {
       var typeface: Typeface
 
       try {

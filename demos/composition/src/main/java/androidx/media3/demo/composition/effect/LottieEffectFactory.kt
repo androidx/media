@@ -19,9 +19,10 @@ import android.content.Context
 import androidx.media3.common.Effect
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.demo.composition.R
-import androidx.media3.demo.composition.effect.LottieOverlay.LottieScaleMode
-import androidx.media3.demo.composition.effect.LottieOverlay.LottieSpeed
+import androidx.media3.effect.LottieOverlay
 import androidx.media3.effect.OverlayEffect
+import androidx.media3.effect.StaticOverlaySettings
+import com.airbnb.lottie.LottieCompositionFactory
 
 /**
  * Factory for creating pre-configured Lottie animation effects.
@@ -42,32 +43,70 @@ internal object LottieEffectFactory {
   fun buildAvailableEffects(context: Context): Map<String, Effect> {
     return mapOf(
         context.getString(R.string.lottie_effect_name_counter) to
-          LottieOverlay.Builder(R.raw.counter).setScaleMode(LottieScaleMode.Fill),
+          run {
+            val composition =
+              checkNotNull(LottieCompositionFactory.fromRawResSync(context, R.raw.counter).value)
+            val provider = DemoLottieProvider(context, composition)
+            LottieOverlay.Builder(provider)
+              .setOverlaySettings(StaticOverlaySettings.Builder().setScale(0.5f, 0.5f).build())
+          },
         context.getString(R.string.lottie_effect_name_counter_fast) to
-          LottieOverlay.Builder(R.raw.counter)
-            .setScaleMode(LottieScaleMode.Fill)
-            .setSpeed(LottieSpeed.Multiplier(2f)),
+          run {
+            val composition =
+              checkNotNull(LottieCompositionFactory.fromRawResSync(context, R.raw.counter).value)
+            val provider = DemoLottieProvider(context, composition)
+            LottieOverlay.Builder(provider)
+              .setOverlaySettings(StaticOverlaySettings.Builder().setScale(0.5f, 0.5f).build())
+              .setSpeed(2f)
+          },
         context.getString(R.string.lottie_effect_name_swoosh) to
-          LottieOverlay.Builder(R.raw.swoosh)
-            .setScaleMode(LottieScaleMode.FitToWidth)
-            .setOpacity(0.75f)
-            .setSpeed(LottieSpeed.Multiplier(0.5f)),
+          run {
+            val composition =
+              checkNotNull(LottieCompositionFactory.fromRawResSync(context, R.raw.swoosh).value)
+            val provider = DemoLottieProvider(context, composition)
+            LottieOverlay.Builder(provider)
+              .setOverlaySettings(StaticOverlaySettings.Builder().setAlphaScale(0.75f).build())
+              .setSpeed(0.5f)
+          },
         context.getString(R.string.lottie_effect_name_heart) to
-          LottieOverlay.Builder(R.raw.heart)
-            .setScaleMode(LottieScaleMode.Custom(0.1f, 0.1f))
-            .setAnchor(0.5f, 0.5f)
-            .setSpeed(LottieSpeed.Multiplier(2.0f)),
-        "Lottie: Asset from folder with System Font(monospace, bold)" to
-          LottieOverlay.Builder(R.raw.text_with_asset_from_folder)
-            .setScaleMode(LottieScaleMode.FitToHeight)
-            .setAssetProvider(DemoLottieAssetProvider(context)),
-        "Lottie: Assets encoded with Imported Font(Playwrite, regular)" to
-          LottieOverlay.Builder(R.raw.text_with_asset_encoded)
-            .setScaleMode(LottieScaleMode.FitToHeight)
-            .setAssetProvider(DemoLottieAssetProvider(context)),
+          run {
+            val composition =
+              checkNotNull(LottieCompositionFactory.fromRawResSync(context, R.raw.heart).value)
+            val provider = DemoLottieProvider(context, composition)
+            LottieOverlay.Builder(provider)
+              .setOverlaySettings(
+                StaticOverlaySettings.Builder()
+                  .setScale(0.25f, 0.25f)
+                  .setBackgroundFrameAnchor(0.5f, 0.5f)
+                  .build()
+              )
+              .setSpeed(2.0f)
+          },
+        context.getString(R.string.lottie_effect_name_asset_folder) to
+          run {
+            val composition =
+              checkNotNull(
+                LottieCompositionFactory.fromRawResSync(context, R.raw.text_with_asset_from_folder)
+                  .value
+              )
+            val provider = DemoLottieProvider(context, composition)
+            LottieOverlay.Builder(provider)
+              .setOverlaySettings(StaticOverlaySettings.Builder().setScale(0.5f, 0.5f).build())
+          },
+        context.getString(R.string.lottie_effect_name_asset_encoded) to
+          run {
+            val composition =
+              checkNotNull(
+                LottieCompositionFactory.fromRawResSync(context, R.raw.text_with_asset_encoded)
+                  .value
+              )
+            val provider = DemoLottieProvider(context, composition)
+            LottieOverlay.Builder(provider)
+              .setOverlaySettings(StaticOverlaySettings.Builder().setScale(0.5f, 0.5f).build())
+          },
       )
       .mapValues { entry ->
-        val lottieOverlay = entry.value.build(context)
+        val lottieOverlay = entry.value.build()
         OverlayEffect(listOf(lottieOverlay))
       }
   }

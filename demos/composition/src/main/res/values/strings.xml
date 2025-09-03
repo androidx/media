@@ -47,4 +47,6 @@
   <string name="lottie_effect_name_counter_fast">Lottie: 10s Counter (2x Speed)</string>
   <string name="lottie_effect_name_swoosh">Lottie: Swoosh</string>
   <string name="lottie_effect_name_heart">Lottie: Heart</string>
+  <string name="lottie_effect_name_asset_folder">Lottie: Asset from folder</string>
+  <string name="lottie_effect_name_asset_encoded">Lottie: Assets encoded</string>
 </resources>

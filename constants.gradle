@@ -58,6 +58,7 @@ project.ext {
     androidxTestRunnerVersion = '1.5.2'
     androidxTestRulesVersion = '1.5.0'
     androidxTestTruthVersion = '1.5.0'
+    lottieVersion = '6.6.0'
     truthVersion = '1.4.0'
     okhttpVersion = '4.12.0'
     modulePrefix = ':'
