@@ -90,6 +90,13 @@
         metadata, these are now emitted as `TextInformationFrame` objects in
         `Format.metadata` with IDs of `MVNM` and `MVIN` respectively
         ([#2754](https://github.com/androidx/media/issues/2754)).
+*   Inspector:
+    *   Introduced a new `:media3-inspector` module to serve as the dedicated
+        home for media inspection utilities. This module now houses a new
+        `androidx.media3.inspector.MetadataRetriever`, which will provide a
+        unified API for both metadata and frame extraction. The existing
+        `androidx.media3.exoplayer.MetadataRetriever` is now deprecated in favor
+        of this new version.
 *   DataSource:
 *   Audio:
     *   Make `AudioProcessor` instances aware of seeking.

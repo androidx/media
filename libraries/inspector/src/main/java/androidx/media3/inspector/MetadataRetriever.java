@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 The Android Open Source Project
+ * Copyright 2025 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.exoplayer;
+package androidx.media3.inspector;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -21,12 +21,12 @@ import static com.google.common.base.Preconditions.checkState;
 
 import android.content.Context;
 import androidx.annotation.Nullable;
-import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.exoplayer.MetadataRetrieverInternal;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.TrackGroupArray;
@@ -37,9 +37,12 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
 /**
- * @deprecated Use {@code androidx.media3.inspector.MetadataRetriever} instead.
+ * Retrieves information from a {@link MediaItem} without playback.
+ *
+ * <p>An instance is created for a single {@link MediaItem} via a {@link Builder}. It provides
+ * methods to asynchronously retrieve metadata. The instance must be {@link #close() closed} after
+ * use to release resources.
  */
-@Deprecated
 @UnstableApi
 public final class MetadataRetriever implements AutoCloseable {
 
@@ -142,47 +145,6 @@ public final class MetadataRetriever implements AutoCloseable {
    */
   public ListenableFuture<Long> retrieveDurationUs() {
     return internalRetriever.retrieveDurationUs();
-  }
-
-  /**
-   * @deprecated Use {@link Builder} to create an instance and call {@link #retrieveTrackGroups()}
-   *     instead.
-   */
-  @Deprecated
-  public static ListenableFuture<TrackGroupArray> retrieveMetadata(
-      Context context, MediaItem mediaItem) {
-    return retrieveMetadata(context, mediaItem, Clock.DEFAULT);
-  }
-
-  /**
-   * @deprecated Use {@link Builder} to create an instance and call {@link #retrieveTrackGroups()}
-   *     instead.
-   */
-  @Deprecated
-  public static ListenableFuture<TrackGroupArray> retrieveMetadata(
-      MediaSource.Factory mediaSourceFactory, MediaItem mediaItem) {
-    return retrieveMetadata(mediaSourceFactory, mediaItem, Clock.DEFAULT);
-  }
-
-  @VisibleForTesting
-  @Deprecated
-  /* package */ static ListenableFuture<TrackGroupArray> retrieveMetadata(
-      Context context, MediaItem mediaItem, Clock clock) {
-    try (MetadataRetriever retriever = new Builder(context, mediaItem).setClock(clock).build()) {
-      return retriever.retrieveTrackGroups();
-    }
-  }
-
-  @Deprecated
-  private static ListenableFuture<TrackGroupArray> retrieveMetadata(
-      MediaSource.Factory mediaSourceFactory, MediaItem mediaItem, Clock clock) {
-    try (MetadataRetriever retriever =
-        new Builder(/* context= */ null, mediaItem)
-            .setMediaSourceFactory(mediaSourceFactory)
-            .setClock(clock)
-            .build()) {
-      return retriever.retrieveTrackGroups();
-    }
   }
 
   /**
