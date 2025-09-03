@@ -284,6 +284,7 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
             .setTrackSelector(trackSelector)
             .setLoadControl(loadControl)
             .setLooper(looper)
+            .setStuckBufferingDetectionTimeoutMs(Integer.MAX_VALUE)
             .setUsePlatformDiagnostics(false);
     if (decoderFactory instanceof DefaultDecoderFactory) {
       playerBuilder.experimentalSetDynamicSchedulingEnabled(
