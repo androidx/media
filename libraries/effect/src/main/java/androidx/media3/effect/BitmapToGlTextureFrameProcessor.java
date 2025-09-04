@@ -33,13 +33,13 @@ import androidx.media3.common.util.ConstantRateTimestampIterator;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.TimestampIterator;
-import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import java.util.ArrayDeque;
 import java.util.Queue;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -100,7 +100,6 @@ import java.util.concurrent.atomic.AtomicReference;
     bitmapTextureManager.setSamplingGlShaderProgram(samplingGlShaderProgram);
     samplingGlShaderProgram.setOutputListener(processor);
     samplingGlShaderProgram.setInputListener(bitmapTextureManager);
-    bitmapTextureManager.onReadyToAcceptInputFrame();
     return processor;
   }
 
@@ -113,6 +112,7 @@ import java.util.concurrent.atomic.AtomicReference;
   private final AtomicReference<
           @NullableType Pair<Executor, Consumer<VideoFrameProcessingException>>>
       onErrorCallback;
+  private final AtomicBoolean isReleased;
 
   /**
    * Atomic because this is set on thread that calls {@link InputConsumer#queueFrame}, but read on
@@ -140,36 +140,27 @@ import java.util.concurrent.atomic.AtomicReference;
     this.processedFrames = new ArrayDeque<>();
     this.currentInputFrame = new AtomicReference<>();
     this.onErrorCallback = new AtomicReference<>();
-    textureManager.onReadyToAcceptInputFrame();
+    this.isReleased = new AtomicBoolean();
   }
 
   @Override
   public FrameConsumer<BitmapFrame> getInput() {
+    checkState(!isReleased.get());
     return inputConsumer;
   }
 
   @Override
-  public void setOutput(@Nullable FrameConsumer<GlTextureFrame> nextOutputConsumer) {
-    Futures.addCallback(
-        glThreadExecutorService.submit(
-            () -> {
-              setOutputInternal(nextOutputConsumer);
-              return null;
-            }),
-        new FutureCallback<Object>() {
-          @Override
-          public void onSuccess(Object result) {}
-
-          @Override
-          public void onFailure(Throwable t) {
-            onError(new VideoFrameProcessingException(t));
-          }
-        },
-        glThreadExecutorService);
+  public ListenableFuture<Void> setOutputAsync(
+      @Nullable FrameConsumer<GlTextureFrame> nextOutputConsumer) {
+    checkState(!isReleased.get());
+    return Futures.submit(() -> setOutputInternal(nextOutputConsumer), glThreadExecutorService);
   }
 
   @Override
   public ListenableFuture<Void> releaseAsync() {
+    if (!isReleased.compareAndSet(false, true)) {
+      return Futures.immediateVoidFuture();
+    }
     return glThreadExecutorService.submit(
         () -> {
           releaseInternal();
@@ -180,7 +171,7 @@ import java.util.concurrent.atomic.AtomicReference;
   @Override
   public void setOnErrorCallback(
       Executor executor, Consumer<VideoFrameProcessingException> onErrorCallback) {
-    this.onErrorCallback.set(Pair.create(executor, onErrorCallback));
+    this.onErrorCallback.set(new Pair<>(executor, onErrorCallback));
   }
 
   @Override
@@ -212,7 +203,7 @@ import java.util.concurrent.atomic.AtomicReference;
             outputTexture,
             metadata,
             glThreadExecutorService,
-            samplingGlShaderProgram::releaseOutputFrame);
+            /* releaseTextureCallback= */ samplingGlShaderProgram::releaseOutputFrame);
     processedFrames.add(outputFrame);
     maybeDrainProcessedFrames();
   }
@@ -247,6 +238,9 @@ import java.util.concurrent.atomic.AtomicReference;
   }
 
   private void maybeDrainProcessedFrames() {
+    if (isReleased.get()) {
+      return;
+    }
     @Nullable GlTextureFrame nextFrame = processedFrames.peek();
     while (nextFrame != null) {
       if (downstreamConsumer == null || !downstreamConsumer.queueFrame(nextFrame)) {
@@ -277,6 +271,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
     @Override
     public boolean queueFrame(BitmapFrame frame) {
+      checkState(!isReleased.get());
       if (!currentInputFrame.compareAndSet(null, frame)) {
         return false;
       }
@@ -297,7 +292,7 @@ import java.util.concurrent.atomic.AtomicReference;
     public void setOnCapacityAvailableCallback(
         Executor onCapacityAvailableExecutor, Runnable onCapacityAvailableCallback) {
       if (!onCapacityAvailableCallbackReference.compareAndSet(
-          null, Pair.create(onCapacityAvailableExecutor, onCapacityAvailableCallback))) {
+          null, new Pair<>(onCapacityAvailableExecutor, onCapacityAvailableCallback))) {
         throw new IllegalStateException("onCapacityAvailableCallback already set");
       }
     }
@@ -309,6 +304,9 @@ import java.util.concurrent.atomic.AtomicReference;
 
     // Called on the GL thread.
     private void notifyCapacityListener() {
+      if (isReleased.get()) {
+        return;
+      }
       @Nullable
       Pair<Executor, Runnable> onCapacityAvailableCallbackPair =
           onCapacityAvailableCallbackReference.get();

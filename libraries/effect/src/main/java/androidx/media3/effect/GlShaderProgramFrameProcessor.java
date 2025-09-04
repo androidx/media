@@ -79,6 +79,7 @@ import java.util.concurrent.atomic.AtomicReference;
   private final AtomicReference<
           @NullableType Pair<Executor, Consumer<VideoFrameProcessingException>>>
       onErrorCallbackReference;
+  private final AtomicBoolean isReleased;
 
   /** Only accessed on the GL thread. */
   @Nullable private FrameConsumer<GlTextureFrame> downstreamConsumer;
@@ -107,35 +108,27 @@ import java.util.concurrent.atomic.AtomicReference;
     this.inputConsumer = new InputConsumer();
     this.canAcceptInput = new AtomicBoolean(false);
     this.onErrorCallbackReference = new AtomicReference<>(null);
+    this.isReleased = new AtomicBoolean();
   }
 
   @Override
   public FrameConsumer<GlTextureFrame> getInput() {
+    checkState(!isReleased.get());
     return inputConsumer;
   }
 
   @Override
-  public void setOutput(@Nullable FrameConsumer<GlTextureFrame> nextOutputConsumer) {
-    Futures.addCallback(
-        glThreadExecutorService.submit(
-            () -> {
-              setOutputInternal(nextOutputConsumer);
-              return null;
-            }),
-        new FutureCallback<Object>() {
-          @Override
-          public void onSuccess(Object result) {}
-
-          @Override
-          public void onFailure(Throwable t) {
-            onError(new VideoFrameProcessingException(t));
-          }
-        },
-        glThreadExecutorService);
+  public ListenableFuture<Void> setOutputAsync(
+      @Nullable FrameConsumer<GlTextureFrame> nextOutputConsumer) {
+    checkState(!isReleased.get());
+    return Futures.submit(() -> setOutputInternal(nextOutputConsumer), glThreadExecutorService);
   }
 
   @Override
   public ListenableFuture<Void> releaseAsync() {
+    if (!isReleased.compareAndSet(false, true)) {
+      return Futures.immediateVoidFuture();
+    }
     return glThreadExecutorService.submit(
         () -> {
           releaseInternal();
@@ -146,7 +139,7 @@ import java.util.concurrent.atomic.AtomicReference;
   @Override
   public void setOnErrorCallback(
       Executor executor, Consumer<VideoFrameProcessingException> onErrorCallback) {
-    onErrorCallbackReference.set(new Pair<>(executor, onErrorCallback));
+    onErrorCallbackReference.set(Pair.create(executor, onErrorCallback));
   }
 
   @Override
@@ -179,6 +172,8 @@ import java.util.concurrent.atomic.AtomicReference;
   @Override
   public void onOutputFrameAvailable(GlTextureInfo outputTexture, long presentationTimeUs) {
     if (currentProcessedFrame != null) {
+      currentProcessedFrame.release();
+      shaderProgram.releaseOutputFrame(outputTexture);
       onError(
           new VideoFrameProcessingException(
               new IllegalStateException(
@@ -187,6 +182,7 @@ import java.util.concurrent.atomic.AtomicReference;
                       + presentationTimeUs)));
     }
     if (currentInputMetadata == null) {
+      shaderProgram.releaseOutputFrame(outputTexture);
       onError(
           new VideoFrameProcessingException(
               new IllegalStateException(
@@ -202,7 +198,7 @@ import java.util.concurrent.atomic.AtomicReference;
             outputTexture,
             outputFrameMetadata,
             glThreadExecutorService,
-            shaderProgram::releaseOutputFrame);
+            /* releaseTextureCallback= */ shaderProgram::releaseOutputFrame);
     maybeForwardProcessedFrame();
   }
 
@@ -232,6 +228,9 @@ import java.util.concurrent.atomic.AtomicReference;
   }
 
   private void maybeForwardProcessedFrame() {
+    if (isReleased.get()) {
+      return;
+    }
     if (currentProcessedFrame != null
         && downstreamConsumer != null
         && downstreamConsumer.queueFrame(currentProcessedFrame)) {
@@ -252,6 +251,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
     @Override
     public boolean queueFrame(GlTextureFrame inputFrame) {
+      checkState(!isReleased.get());
       if (!canAcceptInput.compareAndSet(true, false)) {
         return false;
       }
@@ -286,7 +286,7 @@ import java.util.concurrent.atomic.AtomicReference;
     public void setOnCapacityAvailableCallback(
         Executor onCapacityAvailableExecutor, Runnable onCapacityAvailableCallback) {
       if (!onCapacityAvailableCallbackReference.compareAndSet(
-          null, new Pair<>(onCapacityAvailableExecutor, onCapacityAvailableCallback))) {
+          null, Pair.create(onCapacityAvailableExecutor, onCapacityAvailableCallback))) {
         throw new IllegalStateException("onCapacityAvailableCallback already set");
       }
     }
@@ -298,6 +298,9 @@ import java.util.concurrent.atomic.AtomicReference;
 
     // Called on the GL thread.
     private void notifyCapacityListener() {
+      if (isReleased.get()) {
+        return;
+      }
       @Nullable
       Pair<Executor, Runnable> onCapacityAvailableCallbackPair =
           onCapacityAvailableCallbackReference.get();

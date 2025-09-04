@@ -48,8 +48,9 @@ import java.util.concurrent.Executor;
    * that the {@code output} will be set when the frame is processed.
    *
    * @param output The {@link FrameConsumer} to which output frames will be sent.
+   * @return A {@link ListenableFuture} that completes when output processor has been set.
    */
-  void setOutput(@Nullable FrameConsumer<O> output);
+  ListenableFuture<Void> setOutputAsync(@Nullable FrameConsumer<O> output);
 
   /**
    * Releases all resources.

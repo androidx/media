@@ -19,6 +19,7 @@ import static androidx.media3.common.ColorInfo.SDR_BT709_LIMITED;
 import static androidx.media3.common.ColorInfo.SRGB_BT709_FULL;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.junit.Assert.assertThrows;
 
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
@@ -33,6 +34,7 @@ import androidx.media3.effect.BitmapFrame.Metadata;
 import androidx.media3.effect.EffectsTestUtil.FakeFrameConsumer;
 import androidx.media3.effect.EffectsTestUtil.FakeGlShaderProgram;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import java.util.ArrayList;
@@ -44,13 +46,11 @@ import java.util.concurrent.TimeoutException;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /** Unit tests for {@link GlShaderProgramFrameProcessor}. */
 @RunWith(AndroidJUnit4.class)
-@Ignore("TODO: b/430250432 - Fix flakiness and re-enable")
 public final class BitmapToGlTextureFrameProcessorTest {
 
   private static final int TEST_TIMEOUT = 1000;
@@ -59,12 +59,12 @@ public final class BitmapToGlTextureFrameProcessorTest {
   private BitmapToGlTextureFrameProcessor processor;
   private ListeningExecutorService glThreadExecutorService;
   private Consumer<VideoFrameProcessingException> errorListener;
-  private FakeGlShaderProgram fakseSampler;
+  private FakeGlShaderProgram fakeSampler;
   private FakeTextureManager fakeTextureManager;
   private FakeFrameConsumer<GlTextureFrame> fakeFrameConsumer;
 
   @Before
-  public void setUp() {
+  public void setUp() throws Exception {
     glThreadExecutorService = MoreExecutors.listeningDecorator(Executors.newSingleThreadExecutor());
     errorListener =
         exception -> {
@@ -76,13 +76,13 @@ public final class BitmapToGlTextureFrameProcessorTest {
             /* shouldShutdownExecutorService= */ false,
             errorListener::accept);
     fakeTextureManager = new FakeTextureManager(taskExecutor);
-    fakseSampler = new FakeGlShaderProgram();
+    fakeSampler = new FakeGlShaderProgram();
     fakeFrameConsumer = new FakeFrameConsumer<>(1);
     processor =
         BitmapToGlTextureFrameProcessor.create(
-            glThreadExecutorService, fakeTextureManager, fakseSampler, SDR_BT709_LIMITED);
+            glThreadExecutorService, fakeTextureManager, fakeSampler, SDR_BT709_LIMITED);
     processor.setOnErrorCallback(glThreadExecutorService, errorListener);
-    processor.setOutput(fakeFrameConsumer);
+    processor.setOutputAsync(fakeFrameConsumer).get(TEST_TIMEOUT, MILLISECONDS);
   }
 
   @After
@@ -93,9 +93,9 @@ public final class BitmapToGlTextureFrameProcessorTest {
 
   @Test
   public void create_chainsListeners() {
-    assertThat(fakeTextureManager.samplingGlShaderProgram).isSameInstanceAs(fakseSampler);
-    assertThat(fakseSampler.inputListener).isSameInstanceAs(fakeTextureManager);
-    assertThat(fakseSampler.outputListener).isSameInstanceAs(processor);
+    assertThat(fakeTextureManager.samplingGlShaderProgram).isSameInstanceAs(fakeSampler);
+    assertThat(fakeSampler.inputListener).isSameInstanceAs(fakeTextureManager);
+    assertThat(fakeSampler.outputListener).isSameInstanceAs(processor);
   }
 
   @Test
@@ -131,8 +131,9 @@ public final class BitmapToGlTextureFrameProcessorTest {
     GlTextureInfo outputTextureInfo = new GlTextureInfo(1, -1, -1, WIDTH, HEIGHT);
     processor.getInput().queueFrame(inputFrame);
 
-    fakseSampler.outputListener.onOutputFrameAvailable(outputTextureInfo, 2000L);
+    fakeSampler.outputListener.onOutputFrameAvailable(outputTextureInfo, 2000L);
 
+    fakeFrameConsumer.awaitFrame(TEST_TIMEOUT);
     assertThat(fakeFrameConsumer.receivedFrames).hasSize(1);
     GlTextureFrame outputFrame = fakeFrameConsumer.receivedFrames.get(0);
     assertThat(outputFrame.getGlTextureInfo()).isSameInstanceAs(outputTextureInfo);
@@ -147,7 +148,7 @@ public final class BitmapToGlTextureFrameProcessorTest {
     assertThat(processor.getInput().queueFrame(inputFrame)).isTrue();
     assertThat(processor.getInput().queueFrame(inputFrame)).isFalse();
 
-    fakseSampler.outputListener.onCurrentOutputStreamEnded();
+    fakeSampler.outputListener.onCurrentOutputStreamEnded();
 
     assertThat(processor.getInput().queueFrame(inputFrame)).isTrue();
   }
@@ -166,7 +167,7 @@ public final class BitmapToGlTextureFrameProcessorTest {
     assertThat(processor.getInput().queueFrame(inputFrame)).isTrue();
     assertThat(processor.getInput().queueFrame(inputFrame)).isFalse();
 
-    fakseSampler.outputListener.onCurrentOutputStreamEnded();
+    fakeSampler.outputListener.onCurrentOutputStreamEnded();
 
     assertThat(onCapacityAvailableLatch.await(TEST_TIMEOUT, MILLISECONDS)).isTrue();
   }
@@ -177,7 +178,7 @@ public final class BitmapToGlTextureFrameProcessorTest {
     BitmapFrame inputFrame = createTestFrame(SRGB_BT709_FULL);
     GlTextureInfo outputTextureInfo = new GlTextureInfo(1, -1, -1, WIDTH, HEIGHT);
     processor.getInput().queueFrame(inputFrame);
-    fakseSampler.outputListener.onOutputFrameAvailable(outputTextureInfo, 2000L);
+    fakeSampler.outputListener.onOutputFrameAvailable(outputTextureInfo, 2000L);
     assertThat(fakeFrameConsumer.receivedFrames).isEmpty();
 
     fakeFrameConsumer.acceptFrames = true;
@@ -189,6 +190,29 @@ public final class BitmapToGlTextureFrameProcessorTest {
     assertThat(outputFrame.getGlTextureInfo()).isSameInstanceAs(outputTextureInfo);
     assertThat(outputFrame.getMetadata().getPresentationTimeUs()).isEqualTo(2000L);
     assertThat(outputFrame.getMetadata().getFormat().colorInfo).isEqualTo(SDR_BT709_LIMITED);
+  }
+
+  @Test
+  public void getInput_afterReleaseStarted_throwsIllegalStateException() throws Exception {
+    ListenableFuture<Void> unused = processor.releaseAsync();
+
+    assertThrows(IllegalStateException.class, () -> processor.getInput());
+  }
+
+  @Test
+  public void queueFrame_afterReleaseStarted_throwsIllegalStateException() throws Exception {
+    FrameConsumer<BitmapFrame> consumer = processor.getInput();
+    ListenableFuture<Void> unused = processor.releaseAsync();
+
+    assertThrows(
+        IllegalStateException.class, () -> consumer.queueFrame(createTestFrame(SRGB_BT709_FULL)));
+  }
+
+  @Test
+  public void setOutput_afterReleaseStarted_throwsIllegalStateException() throws Exception {
+    ListenableFuture<Void> unused = processor.releaseAsync();
+
+    assertThrows(IllegalStateException.class, () -> processor.setOutputAsync(fakeFrameConsumer));
   }
 
   private BitmapFrame createTestFrame(ColorInfo colorInfo) {

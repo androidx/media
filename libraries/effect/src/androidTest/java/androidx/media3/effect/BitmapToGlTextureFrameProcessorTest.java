@@ -38,13 +38,11 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeoutException;
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /** Instrumentation tests for {@link BitmapToGlTextureFrameProcessor}. */
 @RunWith(AndroidJUnit4.class)
-@Ignore("TODO: b/430250432 - Fix flakiness and re-enable")
 public final class BitmapToGlTextureFrameProcessorTest {
 
   private static final int TEST_TIMEOUT_MS = 10_000;
@@ -134,7 +132,7 @@ public final class BitmapToGlTextureFrameProcessorTest {
                         /* outputColorInfo= */ ColorInfo.SDR_BT709_LIMITED,
                         errorListener))
             .get(TEST_TIMEOUT_MS, MILLISECONDS);
-    processor.setOutput(fakeFrameConsumer);
+    processor.setOutputAsync(fakeFrameConsumer).get(TEST_TIMEOUT_MS, MILLISECONDS);
     processor.setOnErrorCallback(glThreadExecutorService, errorListener);
   }
 }

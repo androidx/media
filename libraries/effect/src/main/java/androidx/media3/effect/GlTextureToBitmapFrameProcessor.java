@@ -89,6 +89,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final AtomicReference<
           @NullableType Pair<Executor, Consumer<VideoFrameProcessingException>>>
       onErrorCallback;
+  private final AtomicBoolean isReleased;
   private final int bytesPerPixel;
   private final boolean useHdr;
   private final boolean hdrUses16BitFloat;
@@ -116,6 +117,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.processedFrames = new ArrayDeque<>();
     this.canAcceptInput = new AtomicBoolean(true);
     this.onErrorCallback = new AtomicReference<>();
+    this.isReleased = new AtomicBoolean();
     // RGBA_1010102 Bitmaps cannot be saved to file prior to API 36. See b/438163272.
     hdrUses16BitFloat = SDK_INT <= 35;
     bytesPerPixel = useHdr && hdrUses16BitFloat ? 8 : 4;
@@ -142,31 +144,22 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Override
   public FrameConsumer<GlTextureFrame> getInput() {
+    checkState(!isReleased.get());
     return inputConsumer;
   }
 
   @Override
-  public void setOutput(@Nullable FrameConsumer<BitmapFrame> nextOutputConsumer) {
-    Futures.addCallback(
-        glThreadExecutorService.submit(
-            () -> {
-              setOutputInternal(nextOutputConsumer);
-              return null;
-            }),
-        new FutureCallback<Object>() {
-          @Override
-          public void onSuccess(Object result) {}
-
-          @Override
-          public void onFailure(Throwable t) {
-            onError(new VideoFrameProcessingException(t));
-          }
-        },
-        glThreadExecutorService);
+  public ListenableFuture<Void> setOutputAsync(
+      @Nullable FrameConsumer<BitmapFrame> nextOutputConsumer) {
+    checkState(!isReleased.get());
+    return Futures.submit(() -> setOutputInternal(nextOutputConsumer), glThreadExecutorService);
   }
 
   @Override
   public ListenableFuture<Void> releaseAsync() {
+    if (!isReleased.compareAndSet(false, true)) {
+      return Futures.immediateVoidFuture();
+    }
     return glThreadExecutorService.submit(
         () -> {
           releaseInternal();
@@ -318,6 +311,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   private void maybeDrainProcessedFrames() {
+    if (isReleased.get()) {
+      return;
+    }
     @Nullable BitmapFrame nextFrame = processedFrames.peek();
     while (nextFrame != null) {
       if (downstreamConsumer == null || !downstreamConsumer.queueFrame(nextFrame)) {
@@ -350,6 +346,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     @Override
     public boolean queueFrame(GlTextureFrame frame) {
+      checkState(!isReleased.get());
       if (!canAcceptInput.compareAndSet(true, false)) {
         return false;
       }
@@ -388,6 +385,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     // Called on the GL thread.
     private void notifyCapacityListener() {
+      if (isReleased.get()) {
+        return;
+      }
       @Nullable
       Pair<Executor, Runnable> onCapacityAvailableCallbackPair =
           onCapacityAvailableCallbackReference.get();

@@ -18,6 +18,7 @@ package androidx.media3.effect;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import android.opengl.EGLContext;
@@ -34,6 +35,7 @@ import androidx.media3.effect.EffectsTestUtil.FakeFrameConsumer;
 import androidx.media3.effect.EffectsTestUtil.FakeGlShaderProgram;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import java.util.concurrent.CountDownLatch;
@@ -45,16 +47,14 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /** Instrumentation tests for {@link GlShaderProgramFrameProcessor}. */
 @RunWith(AndroidJUnit4.class)
-@Ignore("TODO: b/430250432 - Fix flakiness and re-enable")
 public final class GlShaderProgramFrameProcessorTest {
 
-  private static final int TEST_TIMEOUT = 1000;
+  private static final int TEST_TIMEOUT_MS = 1000;
   private static final int ITEM_ID = 1;
   private GlShaderProgramFrameProcessor processor;
   private ListeningExecutorService glThreadExecutorService;
@@ -118,7 +118,7 @@ public final class GlShaderProgramFrameProcessorTest {
                 () ->
                     GlShaderProgramFrameProcessor.create(
                         glThreadExecutorService, fakeGlShaderProgram, glObjectsProvider))
-            .get(TEST_TIMEOUT, MILLISECONDS);
+            .get(TEST_TIMEOUT_MS, MILLISECONDS);
     processor.setOnErrorCallback(glThreadExecutorService, errorListener);
 
     fakeCapacityListener = new FakeCapacityListener();
@@ -128,12 +128,12 @@ public final class GlShaderProgramFrameProcessorTest {
             glThreadExecutorService, fakeCapacityListener::onCapacityAvailable);
 
     fakeFrameConsumer = new FakeFrameConsumer<>(/* expectedNumberOfFrames= */ 1);
-    processor.setOutput(fakeFrameConsumer);
+    processor.setOutputAsync(fakeFrameConsumer).get(TEST_TIMEOUT_MS, MILLISECONDS);
   }
 
   @After
   public void tearDown() throws ExecutionException, InterruptedException, TimeoutException {
-    processor.releaseAsync().get(TEST_TIMEOUT, MILLISECONDS);
+    processor.releaseAsync().get(TEST_TIMEOUT_MS, MILLISECONDS);
     glThreadExecutorService.shutdownNow();
   }
 
@@ -146,7 +146,7 @@ public final class GlShaderProgramFrameProcessorTest {
     glThreadExecutorService
         .invokeAll(ImmutableList.of(() -> null))
         .get(0)
-        .get(TEST_TIMEOUT, MILLISECONDS);
+        .get(TEST_TIMEOUT_MS, MILLISECONDS);
 
     assertThat(fakeGlShaderProgram.queuedFrames).hasSize(1);
     FakeGlShaderProgram.QueuedFrameInfo info = fakeGlShaderProgram.queuedFrames.get(0);
@@ -164,7 +164,7 @@ public final class GlShaderProgramFrameProcessorTest {
     assertThat(processor.getInput().queueFrame(inputFrame1)).isTrue();
     assertThat(processor.getInput().queueFrame(inputFrame2)).isFalse();
 
-    assertThat(queuedFramesLatch.await(TEST_TIMEOUT, MILLISECONDS)).isTrue();
+    assertThat(queuedFramesLatch.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(fakeGlShaderProgram.queuedFrames).hasSize(1);
     FakeGlShaderProgram.QueuedFrameInfo info = fakeGlShaderProgram.queuedFrames.get(0);
     assertThat(info.textureInfo).isEqualTo(inputFrame1.getGlTextureInfo());
@@ -179,7 +179,7 @@ public final class GlShaderProgramFrameProcessorTest {
 
     glThreadExecutorService
         .submit(() -> fakeGlShaderProgram.inputListener.onReadyToAcceptInputFrame())
-        .get(TEST_TIMEOUT, MILLISECONDS);
+        .get(TEST_TIMEOUT_MS, MILLISECONDS);
     glThreadExecutorService
         .invokeAll(
             ImmutableList.of(
@@ -187,7 +187,7 @@ public final class GlShaderProgramFrameProcessorTest {
                   return null;
                 }))
         .get(0)
-        .get(TEST_TIMEOUT, MILLISECONDS);
+        .get(TEST_TIMEOUT_MS, MILLISECONDS);
 
     assertThat(fakeCapacityListener.onCapacityAvailableCount.get()).isEqualTo(1);
   }
@@ -199,7 +199,7 @@ public final class GlShaderProgramFrameProcessorTest {
 
     glThreadExecutorService
         .submit(() -> fakeGlShaderProgram.inputListener.onReadyToAcceptInputFrame())
-        .get(TEST_TIMEOUT, MILLISECONDS);
+        .get(TEST_TIMEOUT_MS, MILLISECONDS);
     glThreadExecutorService
         .invokeAll(
             ImmutableList.of(
@@ -207,7 +207,7 @@ public final class GlShaderProgramFrameProcessorTest {
                   return null;
                 }))
         .get(0)
-        .get(TEST_TIMEOUT, MILLISECONDS);
+        .get(TEST_TIMEOUT_MS, MILLISECONDS);
 
     assertThat(inputFrame.isReleased()).isTrue();
   }
@@ -221,7 +221,7 @@ public final class GlShaderProgramFrameProcessorTest {
     long outputTimeUs = 12345L;
 
     processor.getInput().queueFrame(inputFrame);
-    assertThat(queuedFramesLatch.await(TEST_TIMEOUT, MILLISECONDS)).isTrue();
+    assertThat(queuedFramesLatch.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
 
     glThreadExecutorService
         .invokeAll(
@@ -232,7 +232,7 @@ public final class GlShaderProgramFrameProcessorTest {
                   return null;
                 }))
         .get(0)
-        .get(TEST_TIMEOUT, MILLISECONDS);
+        .get(TEST_TIMEOUT_MS, MILLISECONDS);
 
     assertThat(fakeFrameConsumer.receivedFrames).hasSize(1);
     GlTextureFrame outputFrame = fakeFrameConsumer.receivedFrames.get(0);
@@ -251,7 +251,7 @@ public final class GlShaderProgramFrameProcessorTest {
     long outputTimeUs = 12345L;
 
     processor.getInput().queueFrame(inputFrame);
-    assertThat(queuedFramesLatch.await(TEST_TIMEOUT, MILLISECONDS)).isTrue();
+    assertThat(queuedFramesLatch.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
     glThreadExecutorService
         .invokeAll(
             ImmutableList.of(
@@ -261,13 +261,13 @@ public final class GlShaderProgramFrameProcessorTest {
                   return null;
                 }))
         .get(0)
-        .get(TEST_TIMEOUT, MILLISECONDS);
+        .get(TEST_TIMEOUT_MS, MILLISECONDS);
     assertThat(fakeFrameConsumer.receivedFrames).isEmpty();
 
     fakeFrameConsumer.acceptFrames = true;
     fakeFrameConsumer.notifyCallbackListener();
 
-    fakeFrameConsumer.awaitFrame(TEST_TIMEOUT);
+    fakeFrameConsumer.awaitFrame(TEST_TIMEOUT_MS);
     assertThat(fakeFrameConsumer.receivedFrames).hasSize(1);
     GlTextureFrame outputFrame = fakeFrameConsumer.receivedFrames.get(0);
     assertThat(outputFrame.getGlTextureInfo().texId).isEqualTo(outputTexture.texId);
@@ -289,9 +289,31 @@ public final class GlShaderProgramFrameProcessorTest {
                   return null;
                 }))
         .get(0)
-        .get(TEST_TIMEOUT, MILLISECONDS);
+        .get(TEST_TIMEOUT_MS, MILLISECONDS);
 
     assertThat(caughtException.get()).isEqualTo(testException);
+  }
+
+  @Test
+  public void getInput_afterReleaseStarted_throwsIllegalStateException() throws Exception {
+    ListenableFuture<Void> unused = processor.releaseAsync();
+
+    assertThrows(IllegalStateException.class, () -> processor.getInput());
+  }
+
+  @Test
+  public void queueFrame_afterReleaseStarted_throwsIllegalStateException() throws Exception {
+    FrameConsumer<GlTextureFrame> consumer = processor.getInput();
+    ListenableFuture<Void> unused = processor.releaseAsync();
+
+    assertThrows(IllegalStateException.class, () -> consumer.queueFrame(createTestFrame(ITEM_ID)));
+  }
+
+  @Test
+  public void setOutput_afterReleaseStarted_throwsIllegalStateException() throws Exception {
+    ListenableFuture<Void> unused = processor.releaseAsync();
+
+    assertThrows(IllegalStateException.class, () -> processor.setOutputAsync(fakeFrameConsumer));
   }
 
   private TestGlTextureFrame createTestFrame(int id) {

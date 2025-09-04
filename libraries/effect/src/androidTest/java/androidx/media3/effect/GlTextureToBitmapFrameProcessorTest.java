@@ -19,6 +19,7 @@ import static androidx.media3.test.utils.BitmapPixelTestUtil.getBitmapAveragePix
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assume.assumeTrue;
 
 import android.graphics.Bitmap;
@@ -48,13 +49,11 @@ import java.util.concurrent.TimeoutException;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /** Instrumentation tests for {@link GlTextureToBitmapFrameProcessor}. */
 @RunWith(AndroidJUnit4.class)
-@Ignore("TODO: b/430250432 - Fix flakiness and re-enable")
 public final class GlTextureToBitmapFrameProcessorTest {
 
   private static final int TEST_TIMEOUT_MS = 1000;
@@ -326,13 +325,44 @@ public final class GlTextureToBitmapFrameProcessorTest {
         .isEqualTo(0);
   }
 
+  @Test
+  public void getInput_afterReleaseStarted_throwsIllegalStateException() throws Exception {
+    FakeFrameConsumer<BitmapFrame> fakeFrameConsumer = new FakeFrameConsumer<>(() -> {});
+    setUpProcessor(fakeFrameConsumer, /* useHdr= */ false);
+
+    ListenableFuture<Void> unused = processor.releaseAsync();
+    assertThrows(IllegalStateException.class, () -> processor.getInput());
+  }
+
+  @Test
+  public void queueFrame_afterReleaseStarted_throwsIllegalStateException() throws Exception {
+    FakeFrameConsumer<BitmapFrame> fakeFrameConsumer = new FakeFrameConsumer<>(() -> {});
+    setUpProcessor(fakeFrameConsumer, /* useHdr= */ false);
+    FrameConsumer<GlTextureFrame> consumer = processor.getInput();
+    GlTextureFrame frame =
+        createTestGlTextureFrame(
+            createGlTextureWithColor(Color.RED), /* presentationTimeUs= */ 1000);
+
+    ListenableFuture<Void> unused = processor.releaseAsync();
+    assertThrows(IllegalStateException.class, () -> consumer.queueFrame(frame));
+  }
+
+  @Test
+  public void setOutput_afterReleaseStarted_throwsIllegalStateException() throws Exception {
+    FakeFrameConsumer<BitmapFrame> fakeFrameConsumer = new FakeFrameConsumer<>(() -> {});
+    setUpProcessor(fakeFrameConsumer, /* useHdr= */ false);
+
+    ListenableFuture<Void> unused = processor.releaseAsync();
+    assertThrows(IllegalStateException.class, () -> processor.setOutputAsync(fakeFrameConsumer));
+  }
+
   private void setUpProcessor(FrameConsumer<BitmapFrame> frameConsumer, boolean useHdr)
       throws ExecutionException, InterruptedException, TimeoutException {
     processor =
         Futures.submit(
                 () -> factory.buildGlTextureToBitmapFrameProcessor(useHdr), glThreadExecutorService)
             .get(TEST_TIMEOUT_MS, MILLISECONDS);
-    processor.setOutput(frameConsumer);
+    processor.setOutputAsync(frameConsumer).get(TEST_TIMEOUT_MS, MILLISECONDS);
     processor.setOnErrorCallback(glThreadExecutorService, errorListener);
   }
 
