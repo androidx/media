@@ -18,6 +18,11 @@ package androidx.media3.transformer;
 import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
 import static androidx.media3.common.util.Util.constrainValue;
 import static androidx.media3.common.util.Util.usToMs;
+import static androidx.media3.effect.DebugTraceUtil.COMPONENT_COMPOSITION_PLAYER;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_RELEASE;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_SEEK_TO;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_SET_COMPOSITION;
+import static androidx.media3.effect.DebugTraceUtil.EVENT_SET_VIDEO_OUTPUT;
 import static androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper.LATE_US_TO_DROP_INPUT_FRAME;
 import static androidx.media3.transformer.TransformerUtil.containsSpeedChangingEffects;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -61,6 +66,7 @@ import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Size;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.effect.DefaultGlObjectsProvider;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.SingleInputVideoGraph;
@@ -557,6 +563,11 @@ public final class CompositionPlayer extends SimpleBasePlayer {
         "CompositionPlayer only allows speed changing effects created from"
             + " Effects#createExperimentalSpeedChangingEffect() placed as first effects within an"
             + " EditedMediaItem.");
+    DebugTraceUtil.logEvent(
+        COMPONENT_COMPOSITION_PLAYER,
+        EVENT_SET_COMPOSITION,
+        /* presentationTimeUs= */ C.TIME_UNSET,
+        composition.toJsonObject());
 
     composition = deactivateSpeedAdjustingVideoEffects(composition);
 
@@ -745,6 +756,8 @@ public final class CompositionPlayer extends SimpleBasePlayer {
 
   @Override
   protected ListenableFuture<?> handleRelease() {
+    DebugTraceUtil.logEvent(
+        COMPONENT_COMPOSITION_PLAYER, EVENT_RELEASE, /* presentationTimeUs= */ C.TIME_UNSET);
     if (composition == null) {
       return Futures.immediateVoidFuture();
     }
@@ -790,6 +803,12 @@ public final class CompositionPlayer extends SimpleBasePlayer {
 
   @Override
   protected ListenableFuture<?> handleSetVideoOutput(Object videoOutput) {
+    DebugTraceUtil.logEvent(
+        COMPONENT_COMPOSITION_PLAYER,
+        EVENT_SET_VIDEO_OUTPUT,
+        /* presentationTimeUs= */ C.TIME_UNSET,
+        "%s",
+        videoOutput);
     if (!(videoOutput instanceof SurfaceHolder || videoOutput instanceof SurfaceView)) {
       throw new UnsupportedOperationException(
           videoOutput.getClass() + ". Use CompositionPlayer.setVideoSurface() for Surface output.");
@@ -812,6 +831,12 @@ public final class CompositionPlayer extends SimpleBasePlayer {
   protected ListenableFuture<?> handleSeek(
       int mediaItemIndex, long positionMs, @Command int seekCommand) {
     resetLivePositionSuppliers();
+    DebugTraceUtil.logEvent(
+        COMPONENT_COMPOSITION_PLAYER,
+        EVENT_SEEK_TO,
+        /* presentationTimeUs= */ C.TIME_UNSET,
+        "positionMs=%d",
+        positionMs);
     CompositionPlayerInternal compositionPlayerInternal =
         checkNotNull(this.compositionPlayerInternal);
     compositionPlayerInternal.startSeek(positionMs);

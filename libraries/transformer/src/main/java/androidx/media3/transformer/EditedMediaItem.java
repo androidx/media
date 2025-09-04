@@ -16,6 +16,7 @@
 package androidx.media3.transformer;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 
@@ -24,12 +25,15 @@ import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.audio.AudioProcessor;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Objects;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 /** A {@link MediaItem} with the transformations to apply to it. */
 @UnstableApi
@@ -298,6 +302,28 @@ public final class EditedMediaItem {
     presentationDurationUs = C.TIME_UNSET;
   }
 
+  /** Returns a {@link JSONObject} that represents the {@code EditedMediaItem}. */
+  public JSONObject toJsonObject() {
+    JSONObject jsonObject = new JSONObject();
+    try {
+      jsonObject.put("mediaItem", jsonObjectFrom(mediaItem));
+      jsonObject.put("effects", effects.toJsonObject());
+      jsonObject.put("removeAudio", removeAudio);
+      jsonObject.put("removeVideo", removeVideo);
+      jsonObject.put("durationUs", durationUs);
+      jsonObject.put("presentationDuration", getPresentationDurationUs());
+    } catch (JSONException e) {
+      Log.w(/* tag= */ "EditedMediaItem", "JSON conversion failed.", e);
+      return new JSONObject();
+    }
+    return jsonObject;
+  }
+
+  @Override
+  public String toString() {
+    return toJsonObject().toString();
+  }
+
   /** Returns a {@link Builder} initialized with the values of this instance. */
   public Builder buildUpon() {
     return new Builder(this);
@@ -355,5 +381,34 @@ public final class EditedMediaItem {
 
   private static boolean isGap(MediaItem mediaItem) {
     return Objects.equals(mediaItem.mediaId, GAP_MEDIA_ID);
+  }
+
+  private static JSONObject jsonObjectFrom(MediaItem mediaItem) throws JSONException {
+    JSONObject jsonObject = new JSONObject();
+    String extension = "UNSET";
+    if (mediaItem.localConfiguration != null) {
+      String uri = checkNotNull(mediaItem.localConfiguration).uri.toString();
+      int dotIndex = uri.lastIndexOf('.');
+      if (dotIndex > 0 && dotIndex < uri.length() - 1) {
+        extension = uri.substring(dotIndex + 1);
+      }
+    }
+    jsonObject.put("extension", extension);
+
+    if (mediaItem.clippingConfiguration.equals(MediaItem.ClippingConfiguration.UNSET)) {
+      jsonObject.put("clipping", "UNSET");
+      return jsonObject;
+    }
+
+    MediaItem.ClippingConfiguration clippingConfiguration = mediaItem.clippingConfiguration;
+    String endPositionValue;
+    if (clippingConfiguration.endPositionMs == C.TIME_END_OF_SOURCE) {
+      endPositionValue = "END_OF_SOURCE";
+    } else {
+      endPositionValue = String.valueOf(clippingConfiguration.endPositionMs);
+    }
+    jsonObject.put("clippingStartMs", clippingConfiguration.startPositionMs);
+    jsonObject.put("clippingEndMs", endPositionValue);
+    return jsonObject;
   }
 }

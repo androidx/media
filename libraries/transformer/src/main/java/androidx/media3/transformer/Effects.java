@@ -21,11 +21,15 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.SpeedChangingAudioProcessor;
 import androidx.media3.common.audio.SpeedProvider;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.effect.SpeedChangeEffect;
 import androidx.media3.effect.TimestampAdjustment;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 /** Effects to apply to a {@link MediaItem} or to a {@link Composition}. */
 @UnstableApi
@@ -83,5 +87,36 @@ public final class Effects {
         new TimestampAdjustment(
             speedChangingAudioProcessor::getSpeedAdjustedTimeAsync, speedProvider);
     return Pair.create(speedChangingAudioProcessor, audioDrivenVideoEffect);
+  }
+
+  /** Returns a {@link JSONObject} that represents the {@code Effects}. */
+  public JSONObject toJsonObject() {
+    JSONObject jsonObject = new JSONObject();
+
+    if (audioProcessors.isEmpty() && videoEffects.isEmpty()) {
+      return jsonObject;
+    }
+
+    JSONArray audioProcessorArray = new JSONArray();
+    for (int i = 0; i < audioProcessors.size(); i++) {
+      audioProcessorArray.put(audioProcessors.get(i).getClass().getSimpleName());
+    }
+    try {
+      jsonObject.put("audio", audioProcessorArray);
+      JSONArray videoEffectsArray = new JSONArray();
+      for (int i = 0; i < videoEffects.size(); i++) {
+        videoEffectsArray.put(videoEffects.get(i).getClass().getSimpleName());
+      }
+      jsonObject.put("video", videoEffectsArray);
+    } catch (JSONException e) {
+      Log.w(/* tag= */ "Effects", "JSON conversion failed.", e);
+      return new JSONObject();
+    }
+    return jsonObject;
+  }
+
+  @Override
+  public String toString() {
+    return toJsonObject().toString();
   }
 }

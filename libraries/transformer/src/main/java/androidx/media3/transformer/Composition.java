@@ -22,6 +22,7 @@ import static java.lang.annotation.RetentionPolicy.SOURCE;
 import androidx.annotation.IntDef;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.VideoCompositorSettings;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -29,6 +30,9 @@ import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 import java.util.List;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 /**
  * A composition of {@link MediaItem} instances, with transformations to apply to them.
@@ -422,6 +426,32 @@ public final class Composition {
     this.forceAudioTrack = forceAudioTrack;
     this.hdrMode = hdrMode;
     this.retainHdrFromUltraHdrImage = retainHdrFromUltraHdrImage;
+  }
+
+  /** Returns a {@link JSONObject} that represents the {@code Composition}. */
+  public JSONObject toJsonObject() {
+    JSONObject jsonObject = new JSONObject();
+    try {
+      JSONArray sequencesJsonArray = new JSONArray();
+      for (int i = 0; i < sequences.size(); i++) {
+        sequencesJsonArray.put(sequences.get(i).toJsonObject());
+      }
+      jsonObject.put("sequences", sequencesJsonArray);
+      jsonObject.put("effects", effects.toJsonObject());
+      jsonObject.put("transmuxAudio", transmuxAudio);
+      jsonObject.put("transmuxVideo", transmuxVideo);
+      jsonObject.put("hdrMode", hdrMode);
+      jsonObject.put("retainHdrFromUltraHdrImage", retainHdrFromUltraHdrImage);
+      return jsonObject;
+    } catch (JSONException e) {
+      Log.w(/* tag= */ "Composition", "JSON conversion failed.", e);
+      return new JSONObject();
+    }
+  }
+
+  @Override
+  public String toString() {
+    return toJsonObject().toString();
   }
 
   /**

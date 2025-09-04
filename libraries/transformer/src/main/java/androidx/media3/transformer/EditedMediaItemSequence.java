@@ -19,11 +19,15 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.audio.AudioProcessor;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.effect.Presentation;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 /**
  * A sequence of {@link EditedMediaItem} instances.
@@ -276,6 +280,30 @@ public final class EditedMediaItemSequence {
       EditedMediaItemSequence sequence, int index) {
     int mediaItemIndex = getEditedMediaItemIndex(sequence, index);
     return sequence.editedMediaItems.get(mediaItemIndex);
+  }
+
+  /** Returns a {@link JSONObject} that represents the {@code EditedMediaItemSequence}. */
+  public JSONObject toJsonObject() {
+    JSONObject jsonObject = new JSONObject();
+    try {
+      JSONArray editedMediaItemsJsonArray = new JSONArray();
+      for (int i = 0; i < editedMediaItems.size(); i++) {
+        editedMediaItemsJsonArray.put(editedMediaItems.get(i).toJsonObject());
+      }
+      jsonObject.put("mediaItems", editedMediaItemsJsonArray);
+      jsonObject.put("isLooping", isLooping);
+      jsonObject.put("forceAudioTrack", forceAudioTrack);
+      jsonObject.put("forceVideoTrack", forceVideoTrack);
+      return jsonObject;
+    } catch (JSONException e) {
+      Log.w(/* tag= */ "EditedSequence", "JSON conversion failed.", e);
+      return new JSONObject();
+    }
+  }
+
+  @Override
+  public String toString() {
+    return toJsonObject().toString();
   }
 
   private EditedMediaItemSequence(EditedMediaItemSequence.Builder builder) {
