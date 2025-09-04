@@ -16,6 +16,9 @@
 package androidx.media3.exoplayer.hls;
 
 import static androidx.media3.common.AdPlaybackState.AD_STATE_AVAILABLE;
+import static androidx.media3.common.AdPlaybackState.AD_STATE_ERROR;
+import static androidx.media3.common.AdPlaybackState.AD_STATE_PLAYED;
+import static androidx.media3.common.AdPlaybackState.AD_STATE_SKIPPED;
 import static androidx.media3.common.AdPlaybackState.AD_STATE_UNAVAILABLE;
 import static androidx.media3.common.Player.DISCONTINUITY_REASON_AUTO_TRANSITION;
 import static androidx.media3.common.Player.DISCONTINUITY_REASON_REMOVE;
@@ -43,6 +46,7 @@ import android.os.Bundle;
 import android.os.Looper;
 import androidx.annotation.Nullable;
 import androidx.media3.common.AdPlaybackState;
+import androidx.media3.common.AdPlaybackState.AdGroup;
 import androidx.media3.common.AdViewProvider;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
@@ -96,7 +100,7 @@ import java.util.TreeMap;
  * ads media sources}. These ad media source can be added to the same playlist as far as each of the
  * sources have a different ads IDs.
  */
-@SuppressWarnings("PatternMatchingInstanceof")
+@SuppressWarnings({"PatternMatchingInstanceof", "EffectivelyPrivate"})
 @UnstableApi
 public final class HlsInterstitialsAdsLoader implements AdsLoader {
 
@@ -752,6 +756,172 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
   /** Clears all ad resumptions states. */
   public void clearAllAdResumptionStates() {
     resumptionStates.clear();
+  }
+
+  /**
+   * Skips the ad currently being played.
+   *
+   * <p>Does nothing if no ad is playing or the ad is not managed by this ads loader.
+   */
+  public void skipCurrentAd() {
+    checkNotNull(this.player);
+    if (!player.isPlayingAd()) {
+      return;
+    }
+    setWithSkippedAd(player.getCurrentAdGroupIndex(), player.getCurrentAdIndexInAdGroup());
+  }
+
+  /**
+   * Skips the ad group of the ad currently being played.
+   *
+   * <p>Does nothing if no ad is playing or the ad is not managed by this ads loader.
+   */
+  public void skipCurrentAdGroup() {
+    checkNotNull(this.player);
+    if (!player.isPlayingAd()) {
+      return;
+    }
+    setWithSkippedAdGroup(player.getCurrentAdGroupIndex());
+  }
+
+  /**
+   * Sets the given ad to {@link AdPlaybackState#AD_STATE_SKIPPED}.
+   *
+   * <p>Ads that are already in state {@link AdPlaybackState#AD_STATE_PLAYED}, {@link
+   * AdPlaybackState#AD_STATE_SKIPPED} or {@link AdPlaybackState#AD_STATE_ERROR} are left unchanged.
+   *
+   * @param adGroupIndex The index of the ad group in the ad playback state.
+   * @param adIndexInAdGroup The index of the ad in the ad group in the ad playback state.
+   * @throws IllegalArgumentException if there is no ad group or ad available for the given indices.
+   * @throws IllegalStateException if called when the player {@linkplain #setPlayer(Player) is not
+   *     set}.
+   */
+  public void setWithSkippedAd(int adGroupIndex, int adIndexInAdGroup) {
+    checkState(this.player != null);
+    AdPlaybackState adPlaybackState = getAdPlaybackState();
+    if (adPlaybackState != null) {
+      checkArgument(adGroupIndex < adPlaybackState.adGroupCount);
+      AdGroup adGroup = adPlaybackState.getAdGroup(adGroupIndex);
+      checkArgument(adIndexInAdGroup < adGroup.count);
+      if (adGroup.states[adIndexInAdGroup] == AD_STATE_PLAYED
+          || adGroup.states[adIndexInAdGroup] == AD_STATE_ERROR) {
+        Log.w(
+            TAG,
+            "ignoring request to set ad for state AD_STATE_SKIPPED for played or failed ad "
+                + "at adGroupIndex="
+                + adGroupIndex
+                + ", adIndexInAgGroup="
+                + adIndexInAdGroup);
+        return;
+      }
+      if (adGroup.states[adIndexInAdGroup] != AD_STATE_SKIPPED) {
+        adPlaybackState = adPlaybackState.withSkippedAd(adGroupIndex, adIndexInAdGroup);
+        putAndNotifyAdPlaybackStateUpdate(checkNotNull(adPlaybackState.adsId), adPlaybackState);
+      }
+    }
+  }
+
+  /**
+   * Sets the given ad group to {@link AdPlaybackState#AD_STATE_SKIPPED}.
+   *
+   * <p>Ads that are already in state {@link AdPlaybackState#AD_STATE_PLAYED}, {@link
+   * AdPlaybackState#AD_STATE_SKIPPED} or {@link AdPlaybackState#AD_STATE_ERROR} are left unchanged.
+   *
+   * @param adGroupIndex The index of the ad group in the ad playback state.
+   * @throws IllegalArgumentException if there is no ad group available for the given index.
+   * @throws IllegalStateException if called when the player {@linkplain #setPlayer(Player) is not
+   *     set}.
+   */
+  public void setWithSkippedAdGroup(int adGroupIndex) {
+    checkState(this.player != null);
+    AdPlaybackState adPlaybackState = getAdPlaybackState();
+    if (adPlaybackState != null) {
+      checkArgument(adGroupIndex < adPlaybackState.adGroupCount);
+      adPlaybackState = adPlaybackState.withSkippedAdGroup(adGroupIndex);
+      putAndNotifyAdPlaybackStateUpdate(checkNotNull(adPlaybackState.adsId), adPlaybackState);
+    }
+  }
+
+  /**
+   * Sets the given ad to {@link AdPlaybackState#AD_STATE_AVAILABLE}.
+   *
+   * @param adGroupIndex The index of the ad group in the ad playback state.
+   * @param adIndexInAdGroup The index of the ad in the ad group in the ad playback state.
+   * @param mediaItem The optional media item. If not set the same ad media item is played again.
+   * @throws IllegalArgumentException if there is no ad group or ad available for the given indices
+   *     or if the provided {@link MediaItem} is not an HLS media item.
+   * @throws IllegalStateException if the media item that was passed in is null, and the given ad
+   *     doesn't have a media item set already, or if called when the player {@linkplain
+   *     #setPlayer(Player) is not set}.
+   */
+  public void setWithAvailableAdMediaItem(
+      int adGroupIndex, int adIndexInAdGroup, @Nullable MediaItem mediaItem) {
+    checkState(this.player != null);
+    if (mediaItem != null) {
+      checkArgument(isHlsMediaItem(mediaItem));
+    }
+    AdPlaybackState adPlaybackState = getAdPlaybackState();
+    if (adPlaybackState != null) {
+      checkArgument(adGroupIndex < adPlaybackState.adGroupCount);
+      AdGroup adGroup = adPlaybackState.getAdGroup(adGroupIndex);
+      checkArgument(adIndexInAdGroup < adGroup.count);
+      if (mediaItem == null) {
+        mediaItem = adGroup.mediaItems[adIndexInAdGroup];
+        checkState(mediaItem != null);
+      }
+      if (adGroup.states[adIndexInAdGroup] != AD_STATE_AVAILABLE) {
+        adPlaybackState =
+            adPlaybackState.withAvailableAdMediaItem(adGroupIndex, adIndexInAdGroup, mediaItem);
+        putAndNotifyAdPlaybackStateUpdate(checkNotNull(adPlaybackState.adsId), adPlaybackState);
+      }
+    }
+  }
+
+  /**
+   * Sets the given ad group to {@link AdPlaybackState#AD_STATE_AVAILABLE}. Ads that are in state
+   * {@link AdPlaybackState#AD_STATE_UNAVAILABLE} or {@link AdPlaybackState#AD_STATE_ERROR} are left
+   * unchanged.
+   *
+   * @param adGroupIndex The index of the ad group in the ad playback state.
+   * @throws IllegalArgumentException if there is no ad group available for the given index.
+   * @throws IllegalStateException if called when the player {@linkplain #setPlayer(Player) is not
+   *     set} or if any ad in the group doesn't have a media item for the ad stream assigned.
+   */
+  public void setWithAvailableAdGroup(int adGroupIndex) {
+    checkState(this.player != null);
+    AdPlaybackState adPlaybackState = getAdPlaybackState();
+    if (adPlaybackState != null) {
+      checkArgument(adGroupIndex < adPlaybackState.adGroupCount);
+      AdGroup adGroup = adPlaybackState.getAdGroup(adGroupIndex);
+      for (int adIndexInAdGroup = 0; adIndexInAdGroup < adGroup.states.length; adIndexInAdGroup++) {
+        if ((adGroup.states[adIndexInAdGroup] == AD_STATE_PLAYED
+                || adGroup.states[adIndexInAdGroup] == AD_STATE_SKIPPED)
+            && adGroup.mediaItems[adIndexInAdGroup] != null) {
+          @Nullable MediaItem mediaItem = adGroup.mediaItems[adIndexInAdGroup];
+          checkState(mediaItem != null);
+          adPlaybackState =
+              adPlaybackState.withAvailableAdMediaItem(adGroupIndex, adIndexInAdGroup, mediaItem);
+        }
+      }
+      putAndNotifyAdPlaybackStateUpdate(checkNotNull(adPlaybackState.adsId), adPlaybackState);
+    }
+  }
+
+  @Nullable
+  private AdPlaybackState getAdPlaybackState() {
+    if (player == null) {
+      return null;
+    }
+    Player player = this.player;
+    Timeline timeline = player.getCurrentTimeline();
+    if (timeline.isEmpty()) {
+      return null;
+    }
+    int periodIndex = player.getCurrentPeriodIndex();
+    Period period = timeline.getPeriod(periodIndex, new Period());
+    return period.adPlaybackState.adsId != null
+        ? contentMediaSourceAdDataHolder.getAdPlaybackState(period.adPlaybackState.adsId)
+        : null;
   }
 
   @Override
