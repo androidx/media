@@ -68,7 +68,7 @@ class SeekForwardButtonState(private val player: Player) {
    * @see [Player.COMMAND_SEEK_FORWARD]
    */
   fun onClick() {
-    checkState(isSeekForwardEnabled(player)) { "COMMAND_SEEK_FORWARD is not available." }
+    checkState(isSeekForwardEnabled(player), "COMMAND_SEEK_FORWARD is not available.")
     player.seekForward()
   }
 

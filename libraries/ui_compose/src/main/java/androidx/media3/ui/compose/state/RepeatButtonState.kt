@@ -82,7 +82,7 @@ class RepeatButtonState(
    * @see [Player.COMMAND_SET_REPEAT_MODE]
    */
   fun onClick() {
-    checkState(isRepeatModeEnabled(player)) { "COMMAND_SET_REPEAT_MODE is not available." }
+    checkState(isRepeatModeEnabled(player), "COMMAND_SET_REPEAT_MODE is not available.")
     player.repeatMode = getNextRepeatModeInSequence()
   }
 

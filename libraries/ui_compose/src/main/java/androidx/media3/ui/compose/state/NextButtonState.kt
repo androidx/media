@@ -65,7 +65,7 @@ class NextButtonState(private val player: Player) {
    * @see [Player.COMMAND_SEEK_TO_NEXT]
    */
   fun onClick() {
-    checkState(isNextEnabled(player)) { "COMMAND_SEEK_TO_NEXT is not available" }
+    checkState(isNextEnabled(player), "COMMAND_SEEK_TO_NEXT is not available.")
     player.seekToNext()
   }
 

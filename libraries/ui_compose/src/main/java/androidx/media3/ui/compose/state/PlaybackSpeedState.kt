@@ -69,9 +69,10 @@ class PlaybackSpeedState(private val player: Player) {
    * @see [Player.COMMAND_SET_SPEED_AND_PITCH]
    */
   fun updatePlaybackSpeed(speed: Float) {
-    checkState(arePlaybackParametersEnabled(player)) {
-      "COMMAND_SET_SPEED_AND_PITCH is not available."
-    }
+    checkState(
+      arePlaybackParametersEnabled(player),
+      "COMMAND_SET_SPEED_AND_PITCH is not available.",
+    )
     player.playbackParameters = player.playbackParameters.withSpeed(speed)
   }
 

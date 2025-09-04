@@ -65,7 +65,7 @@ class PreviousButtonState(private val player: Player) {
    * @see [Player.COMMAND_SEEK_TO_PREVIOUS]
    */
   fun onClick() {
-    checkState(isPreviousEnabled(player)) { "COMMAND_SEEK_TO_PREVIOUS is not available" }
+    checkState(isPreviousEnabled(player), "COMMAND_SEEK_TO_PREVIOUS is not available.")
     player.seekToPrevious()
   }
 
