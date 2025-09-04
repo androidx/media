@@ -70,8 +70,16 @@ class NextButtonStateTest {
   }
 
   @Test
-  fun onClick_stateIsDisabled_throwsException() {
+  fun stateIsDisabledStraightAway() {
     val player = TestSimpleBasePlayer()
+    val state = NextButtonState(player)
+
+    assertThat(state.isEnabled).isFalse()
+  }
+
+  @Test
+  fun onClick_stateIsDisabled_throwsException() {
+    val player = createReadyPlayerWithTwoItems()
     player.removeCommands(Player.COMMAND_SEEK_TO_NEXT)
     val state = NextButtonState(player)
 

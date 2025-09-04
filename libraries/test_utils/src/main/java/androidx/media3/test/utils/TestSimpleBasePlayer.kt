@@ -76,6 +76,7 @@ class TestSimpleBasePlayer(
   init {
     require(bufferingDelayMs >= 0)
     updateAvailableSeekCommands()
+    invalidateState()
   }
 
   private fun updateState(block: State.Builder.() -> Unit) {

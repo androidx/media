@@ -53,7 +53,7 @@ class SeekForwardButtonStateTest {
 
   @Test
   fun removeSeekForwardCommandToPlayer_buttonStateTogglesFromEnabledToDisabled() {
-    val player = TestSimpleBasePlayer()
+    val player = createReadyPlayerWithTwoItems()
     lateinit var state: SeekForwardButtonState
     composeTestRule.setContent { state = rememberSeekForwardButtonState(player = player) }
 
