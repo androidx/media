@@ -188,7 +188,7 @@ import java.util.Objects;
    * not be ready, there must be more media available to load, and the LoadControl must be refusing
    * to load it.
    */
-  private static final long PLAYBACK_STUCK_AFTER_MS = 4000;
+  private static final int PLAYBACK_STUCK_AFTER_MS = 4000;
 
   /**
    * Threshold under which a buffered duration is assumed to be empty. We cannot use zero to account
@@ -1455,7 +1455,8 @@ import java.util.Objects;
     } else if (playbackMaybeBecameStuckAtMs == C.TIME_UNSET) {
       playbackMaybeBecameStuckAtMs = clock.elapsedRealtime();
     } else if (clock.elapsedRealtime() - playbackMaybeBecameStuckAtMs >= PLAYBACK_STUCK_AFTER_MS) {
-      throw new StuckPlayerException(StuckPlayerException.STUCK_BUFFERING_NOT_LOADING);
+      throw new StuckPlayerException(
+          StuckPlayerException.STUCK_BUFFERING_NOT_LOADING, PLAYBACK_STUCK_AFTER_MS);
     }
 
     boolean isPlaying = shouldPlayWhenReady() && playbackInfo.playbackState == Player.STATE_READY;

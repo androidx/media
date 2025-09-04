@@ -245,6 +245,8 @@ public interface ExoPlayer extends Player {
     /* package */ long releaseTimeoutMs;
     /* package */ long detachSurfaceTimeoutMs;
     /* package */ int stuckBufferingDetectionTimeoutMs;
+    /* package */ int stuckPlayingDetectionTimeoutMs;
+    /* package */ int stuckPlayingNotEndingTimeoutMs;
     /* package */ boolean pauseAtEndOfMediaItems;
     /* package */ boolean usePlatformDiagnostics;
     @Nullable /* package */ PlaybackLooperProvider playbackLooperProvider;
@@ -296,6 +298,10 @@ public interface ExoPlayer extends Player {
      *   <li>{@code detachSurfaceTimeoutMs}: {@link #DEFAULT_DETACH_SURFACE_TIMEOUT_MS}
      *   <li>{@code stuckBufferingDetectionTimeoutMs}: {@link
      *       #DEFAULT_STUCK_BUFFERING_DETECTION_TIMEOUT_MS}
+     *   <li>{@code stuckPlayingDetectionTimeoutMs}: {@link
+     *       #DEFAULT_STUCK_PLAYING_DETECTION_TIMEOUT_MS}
+     *   <li>{@code stuckPlayingNotEndingTimeoutMs}: {@link
+     *       #DEFAULT_STUCK_PLAYING_NOT_ENDING_TIMEOUT_MS}
      *   <li>{@code pauseAtEndOfMediaItems}: {@code false}
      *   <li>{@code usePlatformDiagnostics}: {@code true}
      *   <li>{@link Clock}: {@link Clock#DEFAULT}
@@ -461,6 +467,8 @@ public interface ExoPlayer extends Player {
       releaseTimeoutMs = DEFAULT_RELEASE_TIMEOUT_MS;
       detachSurfaceTimeoutMs = DEFAULT_DETACH_SURFACE_TIMEOUT_MS;
       stuckBufferingDetectionTimeoutMs = DEFAULT_STUCK_BUFFERING_DETECTION_TIMEOUT_MS;
+      stuckPlayingDetectionTimeoutMs = DEFAULT_STUCK_PLAYING_DETECTION_TIMEOUT_MS;
+      stuckPlayingNotEndingTimeoutMs = DEFAULT_STUCK_PLAYING_NOT_ENDING_TIMEOUT_MS;
       usePlatformDiagnostics = true;
       playerName = "";
       priority = C.PRIORITY_PLAYBACK;
@@ -970,7 +978,51 @@ public interface ExoPlayer extends Player {
     @UnstableApi
     public Builder setStuckBufferingDetectionTimeoutMs(int stuckBufferingDetectionTimeoutMs) {
       checkState(!buildCalled);
+      checkArgument(stuckBufferingDetectionTimeoutMs > 0);
       this.stuckBufferingDetectionTimeoutMs = stuckBufferingDetectionTimeoutMs;
+      return this;
+    }
+
+    /**
+     * Sets the timeout after which the player is assumed stuck playing if it's in {@link
+     * Player#STATE_READY} and no playback progress is made, in milliseconds.
+     *
+     * <p>If this timeout is triggered, the player will transition to an error state with a {@link
+     * StuckPlayerException} using {@link StuckPlayerException#STUCK_PLAYING_NO_PROGRESS}.
+     *
+     * @param stuckPlayingDetectionTimeoutMs The timeout after which the player is assumed stuck
+     *     playing, in milliseconds.
+     * @return This builder.
+     * @throws IllegalStateException If {@link #build()} has already been called.
+     */
+    @CanIgnoreReturnValue
+    @UnstableApi
+    public Builder setStuckPlayingDetectionTimeoutMs(int stuckPlayingDetectionTimeoutMs) {
+      checkState(!buildCalled);
+      checkArgument(stuckPlayingDetectionTimeoutMs > 0);
+      this.stuckPlayingDetectionTimeoutMs = stuckPlayingDetectionTimeoutMs;
+      return this;
+    }
+
+    /**
+     * Sets the timeout after which the player is assumed stuck playing if it's in {@link
+     * Player#STATE_READY} and the playback is not ending despite exceeding the declared duration,
+     * in milliseconds.
+     *
+     * <p>If this timeout is triggered, the player will transition to an error state with a {@link
+     * StuckPlayerException} using {@link StuckPlayerException#STUCK_PLAYING_NOT_ENDING}.
+     *
+     * @param stuckPlayingNotEndingTimeoutMs The timeout after which the player is assumed stuck
+     *     playing and not ending, in milliseconds.
+     * @return This builder.
+     * @throws IllegalStateException If {@link #build()} has already been called.
+     */
+    @CanIgnoreReturnValue
+    @UnstableApi
+    public Builder setStuckPlayingNotEndingTimeoutMs(int stuckPlayingNotEndingTimeoutMs) {
+      checkState(!buildCalled);
+      checkArgument(stuckPlayingNotEndingTimeoutMs > 0);
+      this.stuckPlayingNotEndingTimeoutMs = stuckPlayingNotEndingTimeoutMs;
       return this;
     }
 
@@ -1152,11 +1204,14 @@ public interface ExoPlayer extends Player {
   /** The default timeout for detecting whether playback is stuck buffering, in milliseconds. */
   @UnstableApi int DEFAULT_STUCK_BUFFERING_DETECTION_TIMEOUT_MS = 600_000;
 
+  /** The default timeout for detecting whether playback is stuck playing, in milliseconds. */
+  @UnstableApi int DEFAULT_STUCK_PLAYING_DETECTION_TIMEOUT_MS = Integer.MAX_VALUE;
+
   /**
    * The default timeout for detecting whether playback is stuck playing but not ending, in
    * milliseconds.
    */
-  @UnstableApi int DEFAULT_STUCK_PLAYING_NOT_ENDING_TIMEOUT_MS = 60_000;
+  @UnstableApi int DEFAULT_STUCK_PLAYING_NOT_ENDING_TIMEOUT_MS = Integer.MAX_VALUE;
 
   /**
    * Equivalent to {@link Player#getPlayerError()}, except the exception is guaranteed to be an

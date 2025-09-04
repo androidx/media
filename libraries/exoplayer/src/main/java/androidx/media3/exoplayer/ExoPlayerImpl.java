@@ -455,7 +455,9 @@ import java.util.concurrent.CopyOnWriteArraySet;
               /* player= */ this,
               componentListener,
               clock,
-              builder.stuckBufferingDetectionTimeoutMs);
+              builder.stuckBufferingDetectionTimeoutMs,
+              builder.stuckPlayingDetectionTimeoutMs,
+              builder.stuckPlayingNotEndingTimeoutMs);
 
       internalPlayer.setScrubbingModeParameters(scrubbingModeParameters);
       internalPlayer.setAudioAttributes(audioAttributes, builder.handleAudioFocus);

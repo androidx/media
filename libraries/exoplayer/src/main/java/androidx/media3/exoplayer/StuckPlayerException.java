@@ -46,31 +46,52 @@ public final class StuckPlayerException extends IllegalStateException {
    */
   public static final int STUCK_BUFFERING_NO_PROGRESS = 1;
 
+  /** The player is stuck because it's in {@link Player#STATE_READY}, but no progress is made. */
+  public static final int STUCK_PLAYING_NO_PROGRESS = 2;
+
+  /**
+   * The player is stuck because it's in {@link Player#STATE_READY}, but it's not able to end
+   * playback despite exceeding the declared duration.
+   */
+  public static final int STUCK_PLAYING_NOT_ENDING = 3;
+
   /**
    * The type of stuck playback. One of:
    *
    * <ul>
    *   <li>{@link #STUCK_BUFFERING_NOT_LOADING}
    *   <li>{@link #STUCK_BUFFERING_NO_PROGRESS}
+   *   <li>{@link #STUCK_PLAYING_NO_PROGRESS}
+   *   <li>{@link #STUCK_PLAYING_NOT_ENDING}
    * </ul>
    */
   @Documented
   @Retention(RetentionPolicy.SOURCE)
   @Target(TYPE_USE)
-  @IntDef({STUCK_BUFFERING_NOT_LOADING, STUCK_BUFFERING_NO_PROGRESS})
+  @IntDef({
+    STUCK_BUFFERING_NOT_LOADING,
+    STUCK_BUFFERING_NO_PROGRESS,
+    STUCK_PLAYING_NO_PROGRESS,
+    STUCK_PLAYING_NOT_ENDING
+  })
   public @interface StuckType {}
 
   /** The type of stuck playback. */
   public final @StuckType int stuckType;
 
+  /** The timeout after which the exception was triggered, in milliseconds. */
+  public final int timeoutMs;
+
   /**
    * Creates an instance.
    *
    * @param stuckType The {@linkplain StuckType type of stuck playback}.
+   * @param timeoutMs The timeout after which the exception was triggered, in milliseconds.
    */
-  public StuckPlayerException(@StuckType int stuckType) {
-    super(getMessage(stuckType));
+  public StuckPlayerException(@StuckType int stuckType, int timeoutMs) {
+    super(getMessage(stuckType, timeoutMs));
     this.stuckType = stuckType;
+    this.timeoutMs = timeoutMs;
   }
 
   @Override
@@ -82,20 +103,27 @@ public final class StuckPlayerException extends IllegalStateException {
       return false;
     }
     StuckPlayerException other = (StuckPlayerException) obj;
-    return this.stuckType == other.stuckType;
+    return this.stuckType == other.stuckType && timeoutMs == other.timeoutMs;
   }
 
   @Override
   public int hashCode() {
-    return stuckType;
+    int hashCode = 17;
+    hashCode = 31 * hashCode + stuckType;
+    hashCode = 31 * hashCode + timeoutMs;
+    return hashCode;
   }
 
-  private static String getMessage(@StuckType int stuckType) {
+  private static String getMessage(@StuckType int stuckType, int timeoutMs) {
     switch (stuckType) {
       case STUCK_BUFFERING_NOT_LOADING:
-        return "Player stuck buffering and not loading";
+        return "Player stuck buffering and not loading for " + timeoutMs + " ms";
       case STUCK_BUFFERING_NO_PROGRESS:
-        return "Player stuck buffering with no progress";
+        return "Player stuck buffering with no progress for " + timeoutMs + " ms";
+      case STUCK_PLAYING_NO_PROGRESS:
+        return "Player stuck playing with no progress for " + timeoutMs + " ms";
+      case STUCK_PLAYING_NOT_ENDING:
+        return "Player stuck playing without ending for " + timeoutMs + " ms";
       default:
         throw new IllegalStateException();
     }
