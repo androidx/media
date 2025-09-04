@@ -407,7 +407,7 @@ public class TestExoPlayerBuilder {
                 };
           };
     }
-
+    ExoPlayer.Builder.experimentalEnableStuckPlayingDetection = true;
     ExoPlayer.Builder builder =
         new ExoPlayer.Builder(context, playerRenderersFactory)
             .setTrackSelector(trackSelector)

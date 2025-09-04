@@ -68,6 +68,7 @@ public class ExoPlayerStuckPlayerDetectionTest {
   @Before
   public void setUp() {
     context = ApplicationProvider.getApplicationContext();
+    ExoPlayer.Builder.experimentalEnableStuckPlayingDetection = true;
   }
 
   @Test

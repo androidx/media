@@ -16,6 +16,7 @@
 package androidx.media3.exoplayer;
 
 import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -213,6 +214,16 @@ public interface ExoPlayer extends Player {
    * <p>See {@link #Builder(Context)} for the list of default values.
    */
   final class Builder {
+
+    /**
+     * Static override to allow stuck playing detection. If {@code false}, the provided timeouts
+     * default to {@link Integer#MAX_VALUE} instead of {@link
+     * #DEFAULT_STUCK_PLAYING_DETECTION_TIMEOUT_MS} and {@link
+     * #DEFAULT_STUCK_PLAYING_NOT_ENDING_TIMEOUT_MS}.
+     *
+     * <p>This value is experimental and will be removed in a future release.
+     */
+    @UnstableApi public static boolean experimentalEnableStuckPlayingDetection = true;
 
     /* package */ final Context context;
 
@@ -467,8 +478,14 @@ public interface ExoPlayer extends Player {
       releaseTimeoutMs = DEFAULT_RELEASE_TIMEOUT_MS;
       detachSurfaceTimeoutMs = DEFAULT_DETACH_SURFACE_TIMEOUT_MS;
       stuckBufferingDetectionTimeoutMs = DEFAULT_STUCK_BUFFERING_DETECTION_TIMEOUT_MS;
-      stuckPlayingDetectionTimeoutMs = DEFAULT_STUCK_PLAYING_DETECTION_TIMEOUT_MS;
-      stuckPlayingNotEndingTimeoutMs = DEFAULT_STUCK_PLAYING_NOT_ENDING_TIMEOUT_MS;
+      stuckPlayingDetectionTimeoutMs =
+          experimentalEnableStuckPlayingDetection
+              ? DEFAULT_STUCK_PLAYING_DETECTION_TIMEOUT_MS
+              : Integer.MAX_VALUE;
+      stuckPlayingNotEndingTimeoutMs =
+          experimentalEnableStuckPlayingDetection
+              ? DEFAULT_STUCK_PLAYING_NOT_ENDING_TIMEOUT_MS
+              : Integer.MAX_VALUE;
       usePlatformDiagnostics = true;
       playerName = "";
       priority = C.PRIORITY_PLAYBACK;
@@ -1205,13 +1222,14 @@ public interface ExoPlayer extends Player {
   @UnstableApi int DEFAULT_STUCK_BUFFERING_DETECTION_TIMEOUT_MS = 600_000;
 
   /** The default timeout for detecting whether playback is stuck playing, in milliseconds. */
-  @UnstableApi int DEFAULT_STUCK_PLAYING_DETECTION_TIMEOUT_MS = Integer.MAX_VALUE;
+  @UnstableApi
+  int DEFAULT_STUCK_PLAYING_DETECTION_TIMEOUT_MS = isRunningOnEmulator() ? 30_000 : 10_000;
 
   /**
    * The default timeout for detecting whether playback is stuck playing but not ending, in
    * milliseconds.
    */
-  @UnstableApi int DEFAULT_STUCK_PLAYING_NOT_ENDING_TIMEOUT_MS = Integer.MAX_VALUE;
+  @UnstableApi int DEFAULT_STUCK_PLAYING_NOT_ENDING_TIMEOUT_MS = 60_000;
 
   /**
    * Equivalent to {@link Player#getPlayerError()}, except the exception is guaranteed to be an

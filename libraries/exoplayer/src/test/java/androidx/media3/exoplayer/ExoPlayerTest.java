@@ -270,6 +270,7 @@ public final class ExoPlayerTest {
     placeholderTimeline =
         new MaskingMediaSource.PlaceholderTimeline(
             FakeTimeline.FAKE_MEDIA_ITEM.buildUpon().setTag(0).build());
+    ExoPlayer.Builder.experimentalEnableStuckPlayingDetection = true;
   }
 
   private TestExoPlayerBuilder parameterizeTestExoPlayerBuilder(TestExoPlayerBuilder builder) {
