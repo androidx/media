@@ -263,8 +263,11 @@ public interface LoadControl {
     throw new IllegalStateException("onReleased not implemented");
   }
 
-  /** Returns the {@link Allocator} that should be used to obtain media buffer allocations. */
-  Allocator getAllocator();
+  /**
+   * Returns the {@link Allocator} that should be used to obtain media buffer allocations for the
+   * specified {@link PlayerId}.
+   */
+  Allocator getAllocator(PlayerId playerId);
 
   /**
    * Returns the duration of media to retain in the buffer prior to the current playback position,
@@ -360,6 +363,7 @@ public interface LoadControl {
    * Called to determine whether preloading should be continued. If this method returns true, the
    * presented period will continue to load media.
    *
+   * @param playerId The {@linkplain PlayerId ID of the player} that wants to continue preloading.
    * @param timeline The Timeline containing the preload period that can be looked up with
    *     MediaPeriodId.periodUid.
    * @param mediaPeriodId The MediaPeriodId of the preloading period.
@@ -367,7 +371,7 @@ public interface LoadControl {
    * @return Whether the preloading should continue for the given period.
    */
   default boolean shouldContinuePreloading(
-      Timeline timeline, MediaPeriodId mediaPeriodId, long bufferedDurationUs) {
+      PlayerId playerId, Timeline timeline, MediaPeriodId mediaPeriodId, long bufferedDurationUs) {
     Log.w(
         "LoadControl",
         "shouldContinuePreloading needs to be implemented when playlist preloading is enabled");

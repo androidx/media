@@ -1533,7 +1533,7 @@ public class DefaultPreloadManagerTest {
           MediaPeriod mediaPeriod =
               source.createPeriod(
                   new MediaSource.MediaPeriodId(periodPosition.first),
-                  loadControl.getAllocator(),
+                  loadControl.getAllocator(PlayerId.UNSET),
                   periodPosition.second);
           mediaPeriod.prepare(mediaPeriodCallback, periodPosition.second);
           shadowOf(preloadThread.getLooper()).idle();

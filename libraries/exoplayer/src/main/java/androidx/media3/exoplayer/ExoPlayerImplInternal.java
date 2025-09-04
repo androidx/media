@@ -380,7 +380,7 @@ import java.util.Objects;
         rendererCapabilities,
         rendererPositionOffsetUs,
         trackSelector,
-        loadControl.getAllocator(),
+        loadControl.getAllocator(playerId),
         mediaSourceList,
         mediaPeriodInfo,
         emptyTrackSelectorResult,
@@ -2892,6 +2892,7 @@ import java.util.Objects;
         || (preloading.prepareCalled && !preloading.prepared)
         || preloading.mediaPeriod.isLoading()
         || !loadControl.shouldContinuePreloading(
+            playerId,
             playbackInfo.timeline,
             preloading.info.id,
             preloading.prepared ? preloading.mediaPeriod.getBufferedPositionUs() : 0L)) {

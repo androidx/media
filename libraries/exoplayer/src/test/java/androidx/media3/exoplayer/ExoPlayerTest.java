@@ -7183,7 +7183,10 @@ public final class ExoPlayerTest {
                 new DefaultLoadControl() {
                   @Override
                   public boolean shouldContinuePreloading(
-                      Timeline timeline, MediaPeriodId mediaPeriodId, long bufferedDurationUs) {
+                      PlayerId playerId,
+                      Timeline timeline,
+                      MediaPeriodId mediaPeriodId,
+                      long bufferedDurationUs) {
                     return true;
                   }
                 })

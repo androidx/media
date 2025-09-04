@@ -62,6 +62,11 @@
             index.
     *   Add capability to skip keyframe reset for forward seeks within the same
         group of pictures while in scrubbing mode.
+    *   Add `DefaultLoadControl.Builder.setPlayerTargetBufferBytes(String, int)`
+        for apps to set a value of target buffer bytes for a player with the
+        specified `playerName`. The `DefaultLoadControl` can now make decisions
+        of each player separately based on its own allocated bytes and target
+        buffer bytes.
 *   Transformer:
     *   Add support for `COMMAND_SET_AUDIO_ATTRIBUTES` and audio focus handling
         in `CompositionPlayer`.
