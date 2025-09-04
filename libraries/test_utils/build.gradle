@@ -49,6 +49,7 @@ dependencies {
     compileOnly 'org.jetbrains.kotlin:kotlin-annotations-jvm:' + kotlinAnnotationsVersion
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-test:' + kotlinxCoroutinesVersion
+    implementation project(modulePrefix + 'lib-inspector')
     api project(modulePrefix + 'lib-exoplayer')
     api project(modulePrefix + 'lib-transformer')
     testImplementation project(modulePrefix + 'test-utils-robolectric')
