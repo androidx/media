@@ -243,7 +243,8 @@ public abstract class DecoderAudioRenderer<
 
   @Override
   public long getDurationToProgressUs(long positionUs, long elapsedRealtimeUs) {
-    boolean audioSinkBufferFull = nextBufferToWritePresentationTimeUs != C.TIME_UNSET;
+    boolean audioSinkBufferFull =
+        audioSink.hasPendingData() && nextBufferToWritePresentationTimeUs != C.TIME_UNSET;
     if (!isStarted) {
       // When not started we can only make further progress if the audio track buffer isn't filled
       // yet and there is more data to fill it.
