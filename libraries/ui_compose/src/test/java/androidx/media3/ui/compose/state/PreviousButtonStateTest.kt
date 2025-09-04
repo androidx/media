@@ -76,6 +76,18 @@ class PreviousButtonStateTest {
   }
 
   @Test
+  fun onClick_stateBecomesDisabledAfterFirstClick_throwsException() {
+    val player = createReadyPlayerWithTwoItems()
+    val state = PreviousButtonState(player)
+
+    state.onClick()
+    // simulate state becoming disabled atomically, i.e. without yet receiving the relevant event
+    player.removeCommands(Player.COMMAND_SEEK_TO_PREVIOUS)
+
+    assertThrows(IllegalStateException::class.java) { state.onClick() }
+  }
+
+  @Test
   fun playerInReadyState_prevButtonClicked_sameItemPlayingFromBeginning() {
     val player = createReadyPlayerWithTwoItems()
     val state = PreviousButtonState(player)

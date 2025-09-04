@@ -71,6 +71,18 @@ class RepeatButtonStateTest {
   }
 
   @Test
+  fun onClick_stateBecomesDisabledAfterFirstClick_throwsException() {
+    val player = TestSimpleBasePlayer()
+    val state = RepeatButtonState(player)
+
+    state.onClick()
+    // simulate state becoming disabled atomically, i.e. without yet receiving the relevant event
+    player.removeCommands(Player.COMMAND_SET_REPEAT_MODE)
+
+    assertThrows(IllegalStateException::class.java) { state.onClick() }
+  }
+
+  @Test
   fun playerSetRepeatModeAndOnClick_inTheSameHandlerMessage_uiStateSynchronises() {
     // The UDF model of Compose relies on holding the Player as the single source of truth with
     // RepeatButtonState changing its state in sync with the relevant Player events. This means that

@@ -66,7 +66,7 @@ class ShuffleButtonState(private val player: Player) {
    * @see [Player.COMMAND_SET_SHUFFLE_MODE]
    */
   fun onClick() {
-    checkState(isEnabled) { "COMMAND_SET_SHUFFLE_MODE is not available " }
+    checkState(isShuffleEnabled(player)) { "COMMAND_SET_SHUFFLE_MODE is not available " }
     player.shuffleModeEnabled = !player.shuffleModeEnabled
   }
 

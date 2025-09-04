@@ -68,7 +68,7 @@ class SeekBackButtonState(private val player: Player) {
    * @see [Player.COMMAND_SEEK_BACK]
    */
   fun onClick() {
-    checkState(isEnabled) { "COMMAND_SEEK_BACK is not available." }
+    checkState(isSeekBackEnabled(player)) { "COMMAND_SEEK_BACK is not available." }
     player.seekBack()
   }
 

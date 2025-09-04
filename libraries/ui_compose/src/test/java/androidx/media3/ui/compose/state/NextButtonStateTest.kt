@@ -73,10 +73,19 @@ class NextButtonStateTest {
   fun onClick_stateIsDisabled_throwsException() {
     val player = TestSimpleBasePlayer()
     player.removeCommands(Player.COMMAND_SEEK_TO_NEXT)
-    lateinit var state: NextButtonState
-    composeTestRule.setContent { state = rememberNextButtonState(player = player) }
+    val state = NextButtonState(player)
 
     assertThat(state.isEnabled).isFalse()
+    assertThrows(IllegalStateException::class.java) { state.onClick() }
+  }
+
+  @Test
+  fun onClick_stateBecomesDisabledAfterFirstClick_throwsException() {
+    val player = createReadyPlayerWithTwoItems()
+    val state = NextButtonState(player)
+
+    state.onClick()
+
     assertThrows(IllegalStateException::class.java) { state.onClick() }
   }
 

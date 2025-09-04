@@ -70,7 +70,7 @@ class MuteButtonState(private val player: Player) {
    * @see [Player.COMMAND_SET_VOLUME]
    */
   fun onClick() {
-    checkState(isEnabled) { "This Player does not support change volume" }
+    checkState(isMutingEnabled(player)) { "This Player does not support change volume" }
     if (player.volume == 0f) player.unmute() else player.mute()
   }
 

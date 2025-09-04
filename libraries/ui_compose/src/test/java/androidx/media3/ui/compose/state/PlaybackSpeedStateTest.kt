@@ -73,6 +73,19 @@ class PlaybackSpeedStateTest {
   }
 
   @Test
+  fun updatePlaybackSpeed_stateBecomesDisabled_throwsException() {
+    val player = TestSimpleBasePlayer()
+    lateinit var state: PlaybackSpeedState
+    composeTestRule.setContent { state = rememberPlaybackSpeedState(player = player) }
+
+    state.updatePlaybackSpeed(1.5f)
+    // simulate state becoming disabled atomically, i.e. without yet receiving the relevant event
+    player.removeCommands(Player.COMMAND_SET_SPEED_AND_PITCH)
+
+    assertThrows(IllegalStateException::class.java) { state.updatePlaybackSpeed(2.5f) }
+  }
+
+  @Test
   fun playerPlaybackSpeedChanged_statePlaybackSpeedChanged() {
     val player = TestSimpleBasePlayer()
 

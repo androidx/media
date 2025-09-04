@@ -77,7 +77,7 @@ class PlayPauseButtonState(private val player: Player) {
    * @see [androidx.media3.common.Player.COMMAND_GET_TIMELINE]
    */
   fun onClick() {
-    checkState(isEnabled) { "PlayPauseButtonState is not enabled" }
+    checkState(shouldEnablePlayPauseButton(player)) { "PlayPauseButtonState is not enabled" }
     handlePlayPauseButtonAction(player)
   }
 
