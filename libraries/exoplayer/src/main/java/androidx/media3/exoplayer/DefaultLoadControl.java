@@ -983,26 +983,24 @@ public class DefaultLoadControl implements LoadControl {
     }
 
     @Override
-    public Allocation allocate() {
+    public synchronized Allocation allocate() {
       Allocation allocation = allocator.allocate();
-      synchronized (this) {
-        allocationPlayerIdMap.put(allocation, playerId);
-        @Nullable PlayerLoadingState playerLoadingState = loadingStates.get(playerId);
-        if (playerLoadingState != null) {
-          playerLoadingState.increaseAllocatedCounts();
-        }
+      allocationPlayerIdMap.put(allocation, playerId);
+      @Nullable PlayerLoadingState playerLoadingState = loadingStates.get(playerId);
+      if (playerLoadingState != null) {
+        playerLoadingState.increaseAllocatedCounts();
       }
       return allocation;
     }
 
     @Override
-    public void release(Allocation allocation) {
+    public synchronized void release(Allocation allocation) {
       allocator.release(allocation);
       releaseInternal(allocation);
     }
 
     @Override
-    public void release(@Nullable AllocationNode allocationNode) {
+    public synchronized void release(@Nullable AllocationNode allocationNode) {
       allocator.release(allocationNode);
       while (allocationNode != null) {
         releaseInternal(allocationNode.getAllocation());
@@ -1011,7 +1009,7 @@ public class DefaultLoadControl implements LoadControl {
     }
 
     @Override
-    public void trim() {
+    public synchronized void trim() {
       allocator.trim();
     }
 
@@ -1021,11 +1019,12 @@ public class DefaultLoadControl implements LoadControl {
     }
 
     @Override
-    public int getIndividualAllocationLength() {
+    public synchronized int getIndividualAllocationLength() {
       return allocator.getIndividualAllocationLength();
     }
 
-    private synchronized void releaseInternal(Allocation allocation) {
+    @GuardedBy("this")
+    private void releaseInternal(Allocation allocation) {
       PlayerId playerId = checkNotNull(allocationPlayerIdMap.remove(allocation));
       @Nullable PlayerLoadingState playerLoadingState = loadingStates.get(playerId);
       if (playerLoadingState != null) {
