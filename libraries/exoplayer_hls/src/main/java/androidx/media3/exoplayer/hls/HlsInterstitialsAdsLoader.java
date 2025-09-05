@@ -47,6 +47,7 @@ import android.os.Looper;
 import androidx.annotation.Nullable;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.AdPlaybackState.AdGroup;
+import androidx.media3.common.AdPlaybackState.SkipInfo;
 import androidx.media3.common.AdViewProvider;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
@@ -108,7 +109,7 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
   public static final class AssetList {
 
     /* package */ static final AssetList EMPTY =
-        new AssetList(ImmutableList.of(), ImmutableList.of(), /* skipControl= */ null);
+        new AssetList(ImmutableList.of(), ImmutableList.of(), /* skipInfo= */ null);
 
     /** The list of assets. */
     public final ImmutableList<Asset> assets;
@@ -117,16 +118,16 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
     public final ImmutableList<StringAttribute> stringAttributes;
 
     /** The skip control information, or {@code null} if not specified. */
-    @Nullable public final SkipControl skipControl;
+    @Nullable public final SkipInfo skipInfo;
 
     /** Creates an instance. */
     /* package */ AssetList(
         ImmutableList<Asset> assets,
         ImmutableList<StringAttribute> stringAttributes,
-        @Nullable SkipControl skipControl) {
+        @Nullable SkipInfo skipInfo) {
       this.assets = assets;
       this.stringAttributes = stringAttributes;
-      this.skipControl = skipControl;
+      this.skipInfo = skipInfo;
     }
 
     @Override
@@ -140,12 +141,12 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
       AssetList assetList = (AssetList) o;
       return Objects.equals(assets, assetList.assets)
           && Objects.equals(stringAttributes, assetList.stringAttributes)
-          && Objects.equals(skipControl, assetList.skipControl);
+          && Objects.equals(skipInfo, assetList.skipInfo);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(assets, stringAttributes, skipControl);
+      return Objects.hash(assets, stringAttributes, skipInfo);
     }
   }
 
@@ -216,49 +217,6 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
     @Override
     public int hashCode() {
       return Objects.hash(name, value);
-    }
-  }
-
-  /**
-   * Holds skip control information for an asset list.
-   *
-   * <p>See RFC 8216bis, appendix D.3, SKIP-CONTROL.
-   */
-  public static final class SkipControl {
-
-    /** The offset, in microseconds. */
-    public final long offsetUs;
-
-    /** The duration, in microseconds. */
-    public final long durationUs;
-
-    /** The label ID. */
-    @Nullable public final String labelId;
-
-    /** Creates an instance. */
-    /* package */ SkipControl(long offsetUs, long durationUs, @Nullable String labelId) {
-      this.offsetUs = offsetUs;
-      this.durationUs = durationUs;
-      this.labelId = labelId;
-    }
-
-    @Override
-    public boolean equals(@Nullable Object o) {
-      if (this == o) {
-        return true;
-      }
-      if (!(o instanceof SkipControl)) {
-        return false;
-      }
-      SkipControl that = (SkipControl) o;
-      return offsetUs == that.offsetUs
-          && durationUs == that.durationUs
-          && Objects.equals(labelId, that.labelId);
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(offsetUs, durationUs, labelId);
     }
   }
 
@@ -1450,6 +1408,21 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
             .withAdId(adGroupIndex, adIndexInAdGroup, interstitial.id)
             .withAdDurationsUs(adGroupIndex, adDurations)
             .withContentResumeOffsetUs(adGroupIndex, resumeOffsetUs);
+    if (interstitial.skipControlDurationUs != C.TIME_UNSET
+        || interstitial.skipControlOffsetUs != C.TIME_UNSET
+        || interstitial.skipControlLabelId != null) {
+      // if any of the skip control properties is set, then we consider the interstitials as
+      // skippable by applying the default values of the other properties defined in the spec.
+      adPlaybackState =
+          adPlaybackState.withAdSkipInfo(
+              adGroupIndex,
+              adIndexInAdGroup,
+              new SkipInfo(
+                  interstitial.skipControlOffsetUs,
+                  interstitial.skipControlDurationUs,
+                  interstitial.skipControlLabelId));
+    }
+
     if (interstitial.assetUri != null) {
       adPlaybackState =
           adPlaybackState.withAvailableAdMediaItem(
@@ -1820,6 +1793,11 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
         adPlaybackState =
             adPlaybackState.withAvailableAdMediaItem(
                 assetListData.adGroupIndex, adIndex, mediaItem);
+        if (assetList.skipInfo != null) {
+          adPlaybackState =
+              adPlaybackState.withAdSkipInfo(
+                  assetListData.adGroupIndex, adIndex, assetList.skipInfo);
+        }
       }
       adPlaybackState =
           adPlaybackState.withAdDurationsUs(assetListData.adGroupIndex, newDurationsUs);

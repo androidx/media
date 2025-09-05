@@ -874,6 +874,7 @@ public final class AdPlaybackState {
 
   /** Information about skipping an ad. */
   public static final class SkipInfo {
+
     /** The time after which the ad is skippable, in microseconds. */
     public final long skipOffsetUs;
 
@@ -888,7 +889,9 @@ public final class AdPlaybackState {
 
     /** Creates an instance. */
     public SkipInfo(long skipOffsetUs, long skipDurationUs, @Nullable String labelId) {
-      this.skipOffsetUs = skipOffsetUs;
+      checkArgument(
+          skipOffsetUs != C.TIME_UNSET || skipDurationUs != C.TIME_UNSET || labelId != null);
+      this.skipOffsetUs = skipOffsetUs != C.TIME_UNSET ? skipOffsetUs : 0;
       this.skipDurationUs = skipDurationUs;
       this.labelId = labelId;
     }

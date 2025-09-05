@@ -39,6 +39,7 @@ import android.net.Uri;
 import android.os.Looper;
 import androidx.annotation.Nullable;
 import androidx.media3.common.AdPlaybackState;
+import androidx.media3.common.AdPlaybackState.SkipInfo;
 import androidx.media3.common.AdViewProvider;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
@@ -122,6 +123,18 @@ public class HlsInterstitialsAdsLoaderTest {
                           return getJsonAssetList(/* assetCount= */ 0);
                         case "http://three-assets":
                           return getJsonAssetList(/* assetCount= */ 3);
+                        case "http://three-assets-skip-info":
+                          return getJsonAssetListWithSkipInformation(
+                              /* assetCount= */ 3,
+                              /* skipInfoOffsetSeconds= */ 5.5f,
+                              /* skipInfoDurationSeconds= */ 6.5f,
+                              /* skipInfoLabelId= */ null);
+                        case "http://three-assets-skip-info-label-only":
+                          return getJsonAssetListWithSkipInformation(
+                              /* assetCount= */ 3,
+                              /* skipInfoOffsetSeconds= */ null,
+                              /* skipInfoDurationSeconds= */ null,
+                              /* skipInfoLabelId= */ "skip_label_from_json");
                         default:
                           return getJsonAssetList(/* assetCount= */ 1);
                       }
@@ -2389,7 +2402,7 @@ public class HlsInterstitialsAdsLoaderTest {
             new AssetList(
                 ImmutableList.of(new Asset(Uri.parse("http://0"), /* durationUs= */ 10_123_000L)),
                 ImmutableList.of(),
-                /* skipControl= */ null));
+                /* skipInfo= */ null));
     ArgumentCaptor<AdPlaybackState> adPlaybackStateCaptor =
         ArgumentCaptor.forClass(AdPlaybackState.class);
     verify(mockEventListener, times(2)).onAdPlaybackState(adPlaybackStateCaptor.capture());
@@ -2899,6 +2912,318 @@ public class HlsInterstitialsAdsLoaderTest {
   }
 
   @Test
+  public void
+      handleContentTimelineChanged_playlistWithSkipInformation_adPlaybackStateCorrectlyPopulated()
+          throws IOException {
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:9\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:00:00.000Z\n"
+            + "#EXTINF:9,\n"
+            + "main0.0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad0-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "DURATION=3.246,"
+            + "START-DATE=\"2020-01-02T22:00:00.000Z\","
+            + "CUE=\"PRE\","
+            + "X-SKIP-CONTROL-OFFSET=4.5,"
+            + "X-SKIP-CONTROL-DURATION=5.5,"
+            + "X-SKIP-CONTROL-LABEL-ID=\"skip_label_from_playlist\","
+            + "X-ASSET-URI=\"http://example.com/media-0-0.ts\""
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad0-1\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "DURATION=3.246,"
+            + "START-DATE=\"2020-01-02T22:00:00.000Z\","
+            + "CUE=\"PRE\","
+            + "X-SKIP-CONTROL-OFFSET=6.5,"
+            + "X-ASSET-URI=\"http://example.com/media-0-1.ts\""
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad0-2\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "DURATION=3.246,"
+            + "START-DATE=\"2020-01-02T22:00:00.000Z\","
+            + "CUE=\"PRE\","
+            + "X-SKIP-CONTROL-DURATION=7.5,"
+            + "X-ASSET-URI=\"http://example.com/media-0-2.ts\""
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad0-3\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "DURATION=3.246,"
+            + "START-DATE=\"2020-01-02T22:00:00.000Z\","
+            + "CUE=\"PRE\","
+            + "X-SKIP-CONTROL-LABEL-ID=\"skip_label_from_playlist\","
+            + "X-ASSET-URI=\"http://example.com/media-0-3.ts\""
+            + "\n";
+    when(mockPlayer.getContentPosition()).thenReturn(0L);
+    AdPlaybackState expectedAdPlaybackStateAtTimelineChange =
+        new AdPlaybackState("adsId", 0L)
+            .withAdCount(/* adGroupIndex= */ 0, 4)
+            .withAdId(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0, "ad0-0")
+            .withAdId(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 1, "ad0-1")
+            .withAdId(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 2, "ad0-2")
+            .withAdId(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 3, "ad0-3")
+            .withAdDurationsUs(
+                /* adGroupIndex= */ 0, 3_246_000L, 3_246_000L, 3_246_000L, 3_246_000L)
+            .withContentResumeOffsetUs(/* adGroupIndex= */ 0, 4 * 3_246_000L)
+            .withAvailableAdMediaItem(
+                /* adGroupIndex= */ 0,
+                /* adIndexInAdGroup= */ 0,
+                new MediaItem.Builder()
+                    .setUri("http://example.com/media-0-0.ts")
+                    .setMimeType("application/x-mpegURL")
+                    .build())
+            .withAdSkipInfo(
+                /* adGroupIndex= */ 0,
+                /* adIndexInAdGroup= */ 0,
+                new SkipInfo(
+                    /* skipOffsetUs= */ 4_500_000L,
+                    /* skipDurationUs= */ 5_500_000L,
+                    /* labelId= */ "skip_label_from_playlist"))
+            .withAvailableAdMediaItem(
+                /* adGroupIndex= */ 0,
+                /* adIndexInAdGroup= */ 1,
+                new MediaItem.Builder()
+                    .setUri("http://example.com/media-0-1.ts")
+                    .setMimeType("application/x-mpegURL")
+                    .build())
+            .withAdSkipInfo(
+                /* adGroupIndex= */ 0,
+                /* adIndexInAdGroup= */ 1,
+                new SkipInfo(
+                    /* skipOffsetUs= */ 6_500_000L,
+                    /* skipDurationUs= */ C.TIME_UNSET,
+                    /* labelId= */ null))
+            .withAvailableAdMediaItem(
+                /* adGroupIndex= */ 0,
+                /* adIndexInAdGroup= */ 2,
+                new MediaItem.Builder()
+                    .setUri("http://example.com/media-0-2.ts")
+                    .setMimeType("application/x-mpegURL")
+                    .build())
+            .withAdSkipInfo(
+                /* adGroupIndex= */ 0,
+                /* adIndexInAdGroup= */ 2,
+                new SkipInfo(
+                    /* skipOffsetUs= */ 0L, /* skipDurationUs= */ 7_500_000L, /* labelId= */ null))
+            .withAvailableAdMediaItem(
+                /* adGroupIndex= */ 0,
+                /* adIndexInAdGroup= */ 3,
+                new MediaItem.Builder()
+                    .setUri("http://example.com/media-0-3.ts")
+                    .setMimeType("application/x-mpegURL")
+                    .build())
+            .withAdSkipInfo(
+                /* adGroupIndex= */ 0,
+                /* adIndexInAdGroup= */ 3,
+                new SkipInfo(
+                    /* skipOffsetUs= */ 0L,
+                    /* skipDurationUs= */ C.TIME_UNSET,
+                    /* labelId= */ "skip_label_from_playlist"));
+
+    callHandleContentTimelineChangedAndCaptureAdPlaybackState(
+        playlistString,
+        adsLoader,
+        /* windowIndex= */ 0,
+        /* windowPositionInPeriodUs= */ 0,
+        /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE);
+
+    ArgumentCaptor<AdPlaybackState> adPlaybackStateCaptor =
+        ArgumentCaptor.forClass(AdPlaybackState.class);
+    verify(mockEventListener).onAdPlaybackState(adPlaybackStateCaptor.capture());
+    assertThat(adPlaybackStateCaptor.getAllValues())
+        .containsExactly(expectedAdPlaybackStateAtTimelineChange);
+  }
+
+  @Test
+  public void
+      handleContentTimelineChanged_assetListWithSkipInformation_resolvesAndSetsSkipInfoOnEveryAd()
+          throws IOException, TimeoutException {
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:9\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:00:00.000Z\n"
+            + "#EXTINF:9,\n"
+            + "main0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad0-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T22:00:00.000Z\","
+            + "CUE=\"PRE\","
+            + "X-ASSET-LIST=\"http://three-assets-skip-info\""
+            + "\n";
+    when(mockPlayer.getContentPosition()).thenReturn(0L);
+    AdPlaybackState expectedAdPlaybackStateAtTimelineChange =
+        new AdPlaybackState("adsId", 0L)
+            .withAdCount(/* adGroupIndex= */ 0, 1)
+            .withAdId(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0, "ad0-0");
+    SkipInfo expectedSkipInfo =
+        new SkipInfo(
+            /* skipOffsetUs= */ 5_500_000L, /* skipDurationUs= */ 6_500_000L, /* labelId= */ null);
+
+    assertThat(
+            callHandleContentTimelineChangedAndCaptureAdPlaybackState(
+                playlistString,
+                adsLoader,
+                /* windowIndex= */ 0,
+                /* windowPositionInPeriodUs= */ 0,
+                /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE))
+        .isEqualTo(expectedAdPlaybackStateAtTimelineChange);
+
+    runMainLooperUntil(assetListLoadingListener::completed, TIMEOUT_MS, Clock.DEFAULT);
+    ArgumentCaptor<AdPlaybackState> adPlaybackStateCaptor =
+        ArgumentCaptor.forClass(AdPlaybackState.class);
+    verify(mockEventListener, times(2)).onAdPlaybackState(adPlaybackStateCaptor.capture());
+    assertThat(adPlaybackStateCaptor.getAllValues())
+        .containsExactly(
+            expectedAdPlaybackStateAtTimelineChange,
+            expectedAdPlaybackStateAtTimelineChange
+                .withAdCount(/* adGroupIndex= */ 0, 3)
+                .withAdDurationsUs(/* adGroupIndex= */ 0, 10_123_000L, 11_123_000L, 12_123_000L)
+                .withAvailableAdMediaItem(
+                    /* adGroupIndex= */ 0,
+                    /* adIndexInAdGroup= */ 0,
+                    new MediaItem.Builder()
+                        .setUri("http://0")
+                        .setMimeType(MimeTypes.APPLICATION_M3U8)
+                        .build())
+                .withAdSkipInfo(
+                    /* adGroupIndex= */ 0,
+                    /* adIndexInAdGroup= */ 0,
+                    /* skipInfo= */ expectedSkipInfo)
+                .withAvailableAdMediaItem(
+                    /* adGroupIndex= */ 0,
+                    /* adIndexInAdGroup= */ 1,
+                    new MediaItem.Builder()
+                        .setUri("http://1")
+                        .setMimeType(MimeTypes.APPLICATION_M3U8)
+                        .build())
+                .withAdSkipInfo(
+                    /* adGroupIndex= */ 0,
+                    /* adIndexInAdGroup= */ 1,
+                    /* skipInfo= */ expectedSkipInfo)
+                .withAvailableAdMediaItem(
+                    /* adGroupIndex= */ 0,
+                    /* adIndexInAdGroup= */ 2,
+                    new MediaItem.Builder()
+                        .setUri("http://2")
+                        .setMimeType(MimeTypes.APPLICATION_M3U8)
+                        .build())
+                .withAdSkipInfo(
+                    /* adGroupIndex= */ 0,
+                    /* adIndexInAdGroup= */ 2,
+                    /* skipInfo= */ expectedSkipInfo)
+                .withContentResumeOffsetUs(
+                    /* adGroupIndex= */ 0, 10_123_000L + 11_123_000L + 12_123_000L))
+        .inOrder();
+    InOrder inOrder = inOrder(mockPlayer);
+    inOrder.verify(mockPlayer).addListener(any());
+    verifyTimelineUpdate(inOrder, mockPlayer, /* verifyMessageScheduled= */ false);
+    verifyAssetListLoadCompleted(inOrder, mockPlayer, /* verifyMessageScheduled= */ false);
+    inOrder.verifyNoMoreInteractions();
+  }
+
+  @Test
+  public void
+      handleContentTimelineChanged_assetListWithSkipInfoDefaults_resolvesAndSetsSkipInfoOnEveryAd()
+          throws IOException, TimeoutException {
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:9\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:00:00.000Z\n"
+            + "#EXTINF:9,\n"
+            + "main0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad0-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T22:00:00.000Z\","
+            + "CUE=\"PRE\","
+            + "X-ASSET-LIST=\"http://three-assets-skip-info-label-only\""
+            + "\n";
+    when(mockPlayer.getContentPosition()).thenReturn(0L);
+    AdPlaybackState expectedAdPlaybackStateAtTimelineChange =
+        new AdPlaybackState("adsId", 0L)
+            .withAdCount(/* adGroupIndex= */ 0, 1)
+            .withAdId(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0, "ad0-0");
+    SkipInfo expectedSkipInfo =
+        new SkipInfo(
+            /* skipOffsetUs= */ 0,
+            /* skipDurationUs= */ C.TIME_UNSET,
+            /* labelId= */ "skip_label_from_json");
+
+    assertThat(
+            callHandleContentTimelineChangedAndCaptureAdPlaybackState(
+                playlistString,
+                adsLoader,
+                /* windowIndex= */ 0,
+                /* windowPositionInPeriodUs= */ 0,
+                /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE))
+        .isEqualTo(expectedAdPlaybackStateAtTimelineChange);
+
+    runMainLooperUntil(assetListLoadingListener::completed, TIMEOUT_MS, Clock.DEFAULT);
+    ArgumentCaptor<AdPlaybackState> adPlaybackStateCaptor =
+        ArgumentCaptor.forClass(AdPlaybackState.class);
+    verify(mockEventListener, times(2)).onAdPlaybackState(adPlaybackStateCaptor.capture());
+    assertThat(adPlaybackStateCaptor.getAllValues())
+        .containsExactly(
+            expectedAdPlaybackStateAtTimelineChange,
+            expectedAdPlaybackStateAtTimelineChange
+                .withAdCount(/* adGroupIndex= */ 0, 3)
+                .withAdDurationsUs(/* adGroupIndex= */ 0, 10_123_000L, 11_123_000L, 12_123_000L)
+                .withAvailableAdMediaItem(
+                    /* adGroupIndex= */ 0,
+                    /* adIndexInAdGroup= */ 0,
+                    new MediaItem.Builder()
+                        .setUri("http://0")
+                        .setMimeType(MimeTypes.APPLICATION_M3U8)
+                        .build())
+                .withAdSkipInfo(
+                    /* adGroupIndex= */ 0,
+                    /* adIndexInAdGroup= */ 0,
+                    /* skipInfo= */ expectedSkipInfo)
+                .withAvailableAdMediaItem(
+                    /* adGroupIndex= */ 0,
+                    /* adIndexInAdGroup= */ 1,
+                    new MediaItem.Builder()
+                        .setUri("http://1")
+                        .setMimeType(MimeTypes.APPLICATION_M3U8)
+                        .build())
+                .withAdSkipInfo(
+                    /* adGroupIndex= */ 0,
+                    /* adIndexInAdGroup= */ 1,
+                    /* skipInfo= */ expectedSkipInfo)
+                .withAvailableAdMediaItem(
+                    /* adGroupIndex= */ 0,
+                    /* adIndexInAdGroup= */ 2,
+                    new MediaItem.Builder()
+                        .setUri("http://2")
+                        .setMimeType(MimeTypes.APPLICATION_M3U8)
+                        .build())
+                .withAdSkipInfo(
+                    /* adGroupIndex= */ 0,
+                    /* adIndexInAdGroup= */ 2,
+                    /* skipInfo= */ expectedSkipInfo)
+                .withContentResumeOffsetUs(
+                    /* adGroupIndex= */ 0, 10_123_000L + 11_123_000L + 12_123_000L))
+        .inOrder();
+    InOrder inOrder = inOrder(mockPlayer);
+    inOrder.verify(mockPlayer).addListener(any());
+    verifyTimelineUpdate(inOrder, mockPlayer, /* verifyMessageScheduled= */ false);
+    verifyAssetListLoadCompleted(inOrder, mockPlayer, /* verifyMessageScheduled= */ false);
+    inOrder.verifyNoMoreInteractions();
+  }
+
+  @Test
   public void timelineChange_mediaItemsClearedWithoutPositionDiscontinuity_cancelsPendingMessage()
       throws IOException {
     String playlistString =
@@ -3188,15 +3513,15 @@ public class HlsInterstitialsAdsLoaderTest {
             new AssetList(
                 ImmutableList.of(new Asset(Uri.parse("http://0"), 10_123_000L)),
                 ImmutableList.of(),
-                /* skipControl= */ null),
+                /* skipInfo= */ null),
             new AssetList(
                 ImmutableList.of(new Asset(Uri.parse("http://0"), 10_123_000L)),
                 ImmutableList.of(),
-                /* skipControl= */ null),
+                /* skipInfo= */ null),
             new AssetList(
                 ImmutableList.of(new Asset(Uri.parse("http://0"), 10_123_000L)),
                 ImmutableList.of(),
-                /* skipControl= */ null))
+                /* skipInfo= */ null))
         .inOrder();
     // Timeline change immediately starts asset list resolution.
     verifyTimelineUpdate(inOrder, mockPlayer, /* verifyMessageScheduled= */ false);
@@ -5257,6 +5582,37 @@ public class HlsInterstitialsAdsLoaderTest {
       }
     }
     return assetList.append("]}\n").toString().getBytes(Charset.defaultCharset());
+  }
+
+  private byte[] getJsonAssetListWithSkipInformation(
+      int assetCount,
+      @Nullable Float skipInfoOffsetSeconds,
+      @Nullable Float skipInfoDurationSeconds,
+      @Nullable String skipInfoLabelId) {
+    StringBuilder assetList = new StringBuilder("{\"ASSETS\": [");
+    for (int i = 0; i < assetCount; i++) {
+      assetList.append(getJsonAsset(/* uri= */ "http://" + i, /* durationSec= */ 10.123d + i));
+      if (i < assetCount - 1) {
+        assetList.append(",");
+      }
+    }
+    assetList.append("],\n");
+    assetList.append("\"SKIP-CONTROL\": {");
+    if (skipInfoOffsetSeconds != null) {
+      assetList.append("   \"OFFSET\": ").append(skipInfoOffsetSeconds).append(",");
+    }
+    if (skipInfoDurationSeconds != null) {
+      assetList.append("   \"DURATION\": ").append(skipInfoDurationSeconds);
+      if (skipInfoLabelId != null) {
+        assetList.append(",");
+      }
+    }
+    if (skipInfoLabelId != null) {
+      assetList.append("   \"LABEL-ID\": \"").append(skipInfoLabelId).append("\"");
+    }
+    assetList.append("}"); // end of SKIP_CONTROL
+    assetList.append("}"); // end of document
+    return assetList.toString().getBytes(Charset.defaultCharset());
   }
 
   private static String getJsonAsset(String uri, double durationSec) {
