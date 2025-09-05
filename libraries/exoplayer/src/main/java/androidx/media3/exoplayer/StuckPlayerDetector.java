@@ -44,6 +44,7 @@ import java.util.Objects;
   private static final int MSG_STUCK_BUFFERING_TIMEOUT = 1;
   private static final int MSG_STUCK_PLAYING_TIMEOUT = 2;
   private static final int MSG_STUCK_PLAYING_NOT_ENDING_TIMEOUT = 3;
+  private static final int MSG_STUCK_SUPPRESSED_TIMEOUT = 4;
 
   private final Player player;
   private final Callback callback;
@@ -53,6 +54,7 @@ import java.util.Objects;
   private final StuckBufferingDetector stuckBufferingDetector;
   private final StuckPlayingDetector stuckPlayingDetector;
   private final StuckPlayingNotEndingDetector stuckPlayingNotEndingDetector;
+  private final StuckSuppressedDetector stuckSuppressedDetector;
 
   /**
    * Creates the stuck player detector.
@@ -68,6 +70,8 @@ import java.util.Objects;
    *     it's playing and no position progress is made, in milliseconds.
    * @param stuckPlayingNotEndingTimeoutMs The timeout after which the player is assumed stuck
    *     playing if it's playing and it should have ended, in milliseconds.
+   * @param stuckSuppressedTimeoutMs The timeout after which the player is assumed stuck in a
+   *     suppression state, in milliseconds.
    */
   public StuckPlayerDetector(
       Player player,
@@ -75,7 +79,8 @@ import java.util.Objects;
       Clock clock,
       int stuckBufferingTimeoutMs,
       int stuckPlayingTimeoutMs,
-      int stuckPlayingNotEndingTimeoutMs) {
+      int stuckPlayingNotEndingTimeoutMs,
+      int stuckSuppressedTimeoutMs) {
     this.player = player;
     this.callback = callback;
     this.clock = clock;
@@ -85,6 +90,7 @@ import java.util.Objects;
     this.stuckPlayingDetector = new StuckPlayingDetector(stuckPlayingTimeoutMs);
     this.stuckPlayingNotEndingDetector =
         new StuckPlayingNotEndingDetector(stuckPlayingNotEndingTimeoutMs);
+    this.stuckSuppressedDetector = new StuckSuppressedDetector(stuckSuppressedTimeoutMs);
     player.addListener(this);
   }
 
@@ -99,6 +105,7 @@ import java.util.Objects;
     stuckBufferingDetector.update();
     stuckPlayingDetector.update();
     stuckPlayingNotEndingDetector.update();
+    stuckSuppressedDetector.update();
   }
 
   @Override
@@ -112,6 +119,9 @@ import java.util.Objects;
         return true;
       case MSG_STUCK_PLAYING_NOT_ENDING_TIMEOUT:
         stuckPlayingNotEndingDetector.update();
+        return true;
+      case MSG_STUCK_SUPPRESSED_TIMEOUT:
+        stuckSuppressedDetector.update();
         return true;
       default:
         return false;
@@ -319,6 +329,52 @@ import java.util.Objects;
         handler.removeMessages(MSG_STUCK_PLAYING_NOT_ENDING_TIMEOUT);
         handler.sendEmptyMessageDelayed(
             MSG_STUCK_PLAYING_NOT_ENDING_TIMEOUT, stuckPlayingNotEndingTimeoutMs);
+      }
+    }
+  }
+
+  private final class StuckSuppressedDetector {
+
+    private final int stuckSuppressedTimeoutMs;
+
+    private @Player.PlaybackSuppressionReason int suppressionReason;
+    private boolean isSuppressed;
+    private long startRealtimeMs;
+
+    public StuckSuppressedDetector(int stuckSuppressedTimeoutMs) {
+      this.stuckSuppressedTimeoutMs = stuckSuppressedTimeoutMs;
+    }
+
+    public void update() {
+      @Player.PlaybackSuppressionReason
+      int suppressionReason = player.getPlaybackSuppressionReason();
+      if (!player.getPlayWhenReady()
+          || player.getPlaybackState() == Player.STATE_IDLE
+          || player.getPlaybackState() == Player.STATE_ENDED
+          || suppressionReason == Player.PLAYBACK_SUPPRESSION_REASON_NONE
+          || suppressionReason == Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS) {
+        // Preconditions for stuck suppressed not met. Clear any pending timeout and ignore.
+        if (isSuppressed) {
+          handler.removeMessages(MSG_STUCK_SUPPRESSED_TIMEOUT);
+        }
+        isSuppressed = false;
+        return;
+      }
+      long nowRealtimeMs = clock.elapsedRealtime();
+      if (isSuppressed && this.suppressionReason == suppressionReason) {
+        // Still the same state, keep current timeout.
+        if (nowRealtimeMs - startRealtimeMs >= stuckSuppressedTimeoutMs) {
+          callback.onStuckPlayerDetected(
+              new StuckPlayerException(
+                  StuckPlayerException.STUCK_SUPPRESSED, stuckSuppressedTimeoutMs));
+        }
+      } else {
+        // Restart the timeout from the current time.
+        isSuppressed = true;
+        startRealtimeMs = nowRealtimeMs;
+        this.suppressionReason = suppressionReason;
+        handler.removeMessages(MSG_STUCK_SUPPRESSED_TIMEOUT);
+        handler.sendEmptyMessageDelayed(MSG_STUCK_SUPPRESSED_TIMEOUT, stuckSuppressedTimeoutMs);
       }
     }
   }

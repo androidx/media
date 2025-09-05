@@ -18,8 +18,12 @@ package androidx.media3.exoplayer;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
+import static org.robolectric.Shadows.shadowOf;
 
 import android.content.Context;
+import android.content.pm.PackageManager;
+import android.media.AudioDeviceInfo;
+import android.media.AudioManager;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.PlaybackException;
@@ -56,6 +60,10 @@ import java.util.Random;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.annotation.Config;
+import org.robolectric.shadows.AudioDeviceInfoBuilder;
+import org.robolectric.shadows.ShadowAudioManager;
+import org.robolectric.shadows.ShadowPackageManager;
 
 /** Unit test for stuck player detection logic in {@link ExoPlayer}. */
 @RunWith(AndroidJUnit4.class)
@@ -457,5 +465,45 @@ public class ExoPlayerStuckPlayerDetectionTest {
             new StuckPlayerException(
                 StuckPlayerException.STUCK_PLAYING_NOT_ENDING, /* timeoutMs= */ 45_000));
     assertThat(elapsedRealtimeAtErrorMs).isAtLeast(durationMs + 45_000);
+  }
+
+  // TODO: remove maxSdk once Robolectric supports MediaRouter2 (b/382017156)
+  @Config(minSdk = Config.OLDEST_SDK, maxSdk = 34)
+  @Test
+  public void stuckSuppressedDetectionTimeoutMs_triggersPlayerErrorWhenStuckSuppressed()
+      throws Exception {
+    ShadowPackageManager shadowPackageManager = shadowOf(context.getPackageManager());
+    shadowPackageManager.setSystemFeature(PackageManager.FEATURE_WATCH, /* supported= */ true);
+    ShadowAudioManager shadowAudioManager = shadowOf(context.getSystemService(AudioManager.class));
+    shadowAudioManager.setOutputDevices(
+        ImmutableList.of(
+            AudioDeviceInfoBuilder.newBuilder()
+                .setType(AudioDeviceInfo.TYPE_BUILTIN_SPEAKER)
+                .build()));
+    FakeClock fakeClock = new FakeClock(/* initialTimeMs= */ 0, /* isAutoAdvancing= */ true);
+    ExoPlayer player =
+        new ExoPlayer.Builder(context)
+            .setClock(fakeClock)
+            .setStuckSuppressedDetectionTimeoutMs(45_000)
+            .setSuppressPlaybackOnUnsuitableOutput(true)
+            .build();
+    player.setMediaSource(
+        new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT));
+    player.prepare();
+    player.play();
+    advance(player).untilPendingCommandsAreFullyHandled();
+
+    fakeClock.advanceTime(45_000);
+    ExoPlaybackException error = advance(player).untilPlayerError();
+    long elapsedRealtimeAtErrorMs = player.getClock().elapsedRealtime();
+    player.release();
+
+    assertThat(error.errorCode).isEqualTo(PlaybackException.ERROR_CODE_TIMEOUT);
+    assertThat(error)
+        .hasCauseThat()
+        .isEqualTo(
+            new StuckPlayerException(
+                StuckPlayerException.STUCK_SUPPRESSED, /* timeoutMs= */ 45_000));
+    assertThat(elapsedRealtimeAtErrorMs).isAtLeast(45_000);
   }
 }

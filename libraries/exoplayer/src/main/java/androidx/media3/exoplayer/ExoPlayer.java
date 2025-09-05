@@ -258,6 +258,7 @@ public interface ExoPlayer extends Player {
     /* package */ int stuckBufferingDetectionTimeoutMs;
     /* package */ int stuckPlayingDetectionTimeoutMs;
     /* package */ int stuckPlayingNotEndingTimeoutMs;
+    /* package */ int stuckSuppressedDetectionTimeoutMs;
     /* package */ boolean pauseAtEndOfMediaItems;
     /* package */ boolean usePlatformDiagnostics;
     @Nullable /* package */ PlaybackLooperProvider playbackLooperProvider;
@@ -313,6 +314,8 @@ public interface ExoPlayer extends Player {
      *       #DEFAULT_STUCK_PLAYING_DETECTION_TIMEOUT_MS}
      *   <li>{@code stuckPlayingNotEndingTimeoutMs}: {@link
      *       #DEFAULT_STUCK_PLAYING_NOT_ENDING_TIMEOUT_MS}
+     *   <li>{@code stuckSuppressedDetectionTimeoutMs}: {@link
+     *       #DEFAULT_STUCK_SUPPRESSED_DETECTION_TIMEOUT_MS}
      *   <li>{@code pauseAtEndOfMediaItems}: {@code false}
      *   <li>{@code usePlatformDiagnostics}: {@code true}
      *   <li>{@link Clock}: {@link Clock#DEFAULT}
@@ -486,6 +489,7 @@ public interface ExoPlayer extends Player {
           experimentalEnableStuckPlayingDetection
               ? DEFAULT_STUCK_PLAYING_NOT_ENDING_TIMEOUT_MS
               : Integer.MAX_VALUE;
+      stuckSuppressedDetectionTimeoutMs = DEFAULT_STUCK_SUPPRESSED_DETECTION_TIMEOUT_MS;
       usePlatformDiagnostics = true;
       playerName = "";
       priority = C.PRIORITY_PLAYBACK;
@@ -1044,6 +1048,28 @@ public interface ExoPlayer extends Player {
     }
 
     /**
+     * Sets the timeout after which the player is assumed stuck in a suppressed state if it has a
+     * {@link #getPlaybackSuppressionReason()} other than {@link #PLAYBACK_SUPPRESSION_REASON_NONE}
+     * or {@link #PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS}, in milliseconds.
+     *
+     * <p>If this timeout is triggered, the player will transition to an error state with a {@link
+     * StuckPlayerException} using {@link StuckPlayerException#STUCK_SUPPRESSED}.
+     *
+     * @param stuckSuppressedDetectionTimeoutMs The timeout after which the player is assumed stuck
+     *     in a suppressed state, in milliseconds.
+     * @return This builder.
+     * @throws IllegalStateException If {@link #build()} has already been called.
+     */
+    @CanIgnoreReturnValue
+    @UnstableApi
+    public Builder setStuckSuppressedDetectionTimeoutMs(int stuckSuppressedDetectionTimeoutMs) {
+      checkState(!buildCalled);
+      checkArgument(stuckSuppressedDetectionTimeoutMs > 0);
+      this.stuckSuppressedDetectionTimeoutMs = stuckSuppressedDetectionTimeoutMs;
+      return this;
+    }
+
+    /**
      * Sets whether to pause playback at the end of each media item.
      *
      * <p>This means the player will pause at the end of each window in the current {@link
@@ -1230,6 +1256,12 @@ public interface ExoPlayer extends Player {
    * milliseconds.
    */
   @UnstableApi int DEFAULT_STUCK_PLAYING_NOT_ENDING_TIMEOUT_MS = 60_000;
+
+  /**
+   * The default timeout for detecting whether playback is stuck in a suppressed state, in
+   * milliseconds.
+   */
+  @UnstableApi int DEFAULT_STUCK_SUPPRESSED_DETECTION_TIMEOUT_MS = 600_000;
 
   /**
    * Equivalent to {@link Player#getPlayerError()}, except the exception is guaranteed to be an

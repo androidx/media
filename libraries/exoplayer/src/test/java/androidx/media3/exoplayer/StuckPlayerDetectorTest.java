@@ -43,6 +43,7 @@ public final class StuckPlayerDetectorTest {
   private static final int TEST_STUCK_BUFFERING_TIMEOUT_MS = 600_000;
   private static final int TEST_STUCK_PLAYING_TIMEOUT_MS = 200_000;
   private static final int TEST_STUCK_PLAYING_NOT_ENDING_TIMEOUT_MS = 400_000;
+  private static final int TEST_STUCK_SUPPRESSED_TIMEOUT_MS = 300_000;
 
   private StuckPlayerDetector.Callback callback;
   private TestPlayer player;
@@ -61,7 +62,8 @@ public final class StuckPlayerDetectorTest {
             clock,
             TEST_STUCK_BUFFERING_TIMEOUT_MS,
             TEST_STUCK_PLAYING_TIMEOUT_MS,
-            TEST_STUCK_PLAYING_NOT_ENDING_TIMEOUT_MS);
+            TEST_STUCK_PLAYING_NOT_ENDING_TIMEOUT_MS,
+            TEST_STUCK_SUPPRESSED_TIMEOUT_MS);
   }
 
   @After
@@ -482,6 +484,8 @@ public final class StuckPlayerDetectorTest {
 
   @Test
   public void stuckPlayingDetection_playbackSuppressed_doesNotTriggerTimeout() {
+    // Disable suppressed timeout to not trigger it when suppressed in this test.
+    configureDetectorWithCustomSuppressedTimeoutMs(Integer.MAX_VALUE);
     player.setState(
         player
             .buildUponState()
@@ -696,6 +700,8 @@ public final class StuckPlayerDetectorTest {
 
   @Test
   public void stuckPlayingNotEnding_playbackSuppressed_cancelsTimeout() {
+    // Disable suppressed timeout to not trigger it when suppressed in this test.
+    configureDetectorWithCustomSuppressedTimeoutMs(Integer.MAX_VALUE);
     player.setState(
         player
             .buildUponState()
@@ -912,6 +918,181 @@ public final class StuckPlayerDetectorTest {
                 StuckPlayerException.STUCK_PLAYING_NOT_ENDING, customTimeoutMs));
   }
 
+  @Test
+  public void stuckSuppressed_ready_triggersTimeout() {
+    player.setState(
+        player
+            .buildUponState()
+            .setPlaybackState(Player.STATE_READY)
+            .setPlayWhenReady(true, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
+            .setPlaybackSuppressionReason(
+                Player.PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT)
+            .build());
+
+    advanceTimeAndIdleMainLooper(clock, TEST_STUCK_SUPPRESSED_TIMEOUT_MS);
+
+    verify(callback)
+        .onStuckPlayerDetected(
+            new StuckPlayerException(
+                StuckPlayerException.STUCK_SUPPRESSED, TEST_STUCK_SUPPRESSED_TIMEOUT_MS));
+  }
+
+  @Test
+  public void stuckSuppressed_buffering_triggersTimeout() {
+    player.setState(
+        player
+            .buildUponState()
+            .setPlaybackState(Player.STATE_BUFFERING)
+            .setPlayWhenReady(true, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
+            .setPlaybackSuppressionReason(
+                Player.PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT)
+            .build());
+
+    advanceTimeAndIdleMainLooper(clock, TEST_STUCK_SUPPRESSED_TIMEOUT_MS);
+
+    verify(callback)
+        .onStuckPlayerDetected(
+            new StuckPlayerException(
+                StuckPlayerException.STUCK_SUPPRESSED, TEST_STUCK_SUPPRESSED_TIMEOUT_MS));
+  }
+
+  @Test
+  public void stuckSuppressed_transientAudioFocusLoss_doesNotTriggerTimeout() {
+    player.setState(
+        player
+            .buildUponState()
+            .setPlaybackState(Player.STATE_READY)
+            .setPlayWhenReady(true, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
+            .setPlaybackSuppressionReason(
+                Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS)
+            .build());
+
+    advanceTimeAndIdleMainLooper(clock, TEST_STUCK_SUPPRESSED_TIMEOUT_MS);
+
+    verify(callback, never()).onStuckPlayerDetected(any());
+  }
+
+  @Test
+  public void stuckSuppressed_notPlayWhenReady_doesNotTriggerTimeout() {
+    player.setState(
+        player
+            .buildUponState()
+            .setPlaybackState(Player.STATE_READY)
+            .setPlayWhenReady(false, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
+            .setPlaybackSuppressionReason(
+                Player.PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT)
+            .build());
+
+    advanceTimeAndIdleMainLooper(clock, TEST_STUCK_SUPPRESSED_TIMEOUT_MS);
+
+    verify(callback, never()).onStuckPlayerDetected(any());
+  }
+
+  @Test
+  public void stuckSuppressed_ended_doesNotTriggerTimeout() {
+    player.setState(
+        player
+            .buildUponState()
+            .setPlaybackState(Player.STATE_ENDED)
+            .setPlayWhenReady(true, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
+            .setPlaybackSuppressionReason(
+                Player.PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT)
+            .build());
+
+    advanceTimeAndIdleMainLooper(clock, TEST_STUCK_SUPPRESSED_TIMEOUT_MS);
+
+    verify(callback, never()).onStuckPlayerDetected(any());
+  }
+
+  @Test
+  public void stuckSuppressed_idle_doesNotTriggerTimeout() {
+    player.setState(
+        player
+            .buildUponState()
+            .setPlaybackState(Player.STATE_IDLE)
+            .setPlayWhenReady(true, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
+            .setPlaybackSuppressionReason(
+                Player.PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT)
+            .build());
+
+    advanceTimeAndIdleMainLooper(clock, TEST_STUCK_SUPPRESSED_TIMEOUT_MS);
+
+    verify(callback, never()).onStuckPlayerDetected(any());
+  }
+
+  @Test
+  public void stuckSuppressed_suppressionEnds_cancelsTimeout() {
+    player.setState(
+        player
+            .buildUponState()
+            .setPlayWhenReady(true, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
+            .setPlaybackSuppressionReason(
+                Player.PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT)
+            .build());
+
+    advanceTimeAndIdleMainLooper(clock, TEST_STUCK_SUPPRESSED_TIMEOUT_MS / 2);
+
+    // Remove suppression reason
+    player.setState(
+        player
+            .buildUponState()
+            .setPlaybackSuppressionReason(Player.PLAYBACK_SUPPRESSION_REASON_NONE)
+            .build());
+
+    advanceTimeAndIdleMainLooper(clock, TEST_STUCK_SUPPRESSED_TIMEOUT_MS);
+
+    verify(callback, never()).onStuckPlayerDetected(any());
+  }
+
+  @Test
+  public void stuckSuppressed_suppressionReasonChanges_restartsTimeout() {
+    player.setState(
+        player
+            .buildUponState()
+            .setPlaybackState(Player.STATE_READY)
+            .setPlayWhenReady(true, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
+            .setPlaybackSuppressionReason(
+                Player.PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT)
+            .build());
+
+    advanceTimeAndIdleMainLooper(clock, TEST_STUCK_SUPPRESSED_TIMEOUT_MS / 2);
+
+    player.setState(
+        player
+            .buildUponState()
+            .setPlaybackSuppressionReason(Player.PLAYBACK_SUPPRESSION_REASON_SCRUBBING)
+            .build());
+    advanceTimeAndIdleMainLooper(clock, TEST_STUCK_SUPPRESSED_TIMEOUT_MS / 2);
+    // Should not have triggered yet
+    verify(callback, never()).onStuckPlayerDetected(any());
+    advanceTimeAndIdleMainLooper(clock, TEST_STUCK_SUPPRESSED_TIMEOUT_MS / 2);
+
+    verify(callback)
+        .onStuckPlayerDetected(
+            new StuckPlayerException(
+                StuckPlayerException.STUCK_SUPPRESSED, TEST_STUCK_SUPPRESSED_TIMEOUT_MS));
+  }
+
+  @Test
+  public void stuckSuppressed_customTimeoutIsRespected() {
+    int customTimeoutMs = TEST_STUCK_SUPPRESSED_TIMEOUT_MS / 2;
+    configureDetectorWithCustomSuppressedTimeoutMs(customTimeoutMs);
+    player.setState(
+        player
+            .buildUponState()
+            .setPlaybackState(Player.STATE_READY)
+            .setPlayWhenReady(true, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
+            .setPlaybackSuppressionReason(
+                Player.PLAYBACK_SUPPRESSION_REASON_UNSUITABLE_AUDIO_OUTPUT)
+            .build());
+
+    advanceTimeAndIdleMainLooper(clock, customTimeoutMs);
+
+    verify(callback)
+        .onStuckPlayerDetected(
+            new StuckPlayerException(StuckPlayerException.STUCK_SUPPRESSED, customTimeoutMs));
+  }
+
   private static final class TestPlayer extends SimpleBasePlayer {
 
     private State state;
@@ -952,7 +1133,8 @@ public final class StuckPlayerDetectorTest {
             clock,
             customTimeoutMs,
             TEST_STUCK_PLAYING_TIMEOUT_MS,
-            TEST_STUCK_PLAYING_NOT_ENDING_TIMEOUT_MS);
+            TEST_STUCK_PLAYING_NOT_ENDING_TIMEOUT_MS,
+            TEST_STUCK_SUPPRESSED_TIMEOUT_MS);
   }
 
   private void configureDetectorWithCustomPlayingTimeoutMs(int customTimeoutMs) {
@@ -964,7 +1146,8 @@ public final class StuckPlayerDetectorTest {
             clock,
             TEST_STUCK_BUFFERING_TIMEOUT_MS,
             customTimeoutMs,
-            TEST_STUCK_PLAYING_NOT_ENDING_TIMEOUT_MS);
+            TEST_STUCK_PLAYING_NOT_ENDING_TIMEOUT_MS,
+            TEST_STUCK_SUPPRESSED_TIMEOUT_MS);
   }
 
   private void configureDetectorWithCustomPlayingNotEndingTimeoutMs(int customTimeoutMs) {
@@ -976,6 +1159,20 @@ public final class StuckPlayerDetectorTest {
             clock,
             TEST_STUCK_BUFFERING_TIMEOUT_MS,
             TEST_STUCK_PLAYING_TIMEOUT_MS,
+            customTimeoutMs,
+            TEST_STUCK_SUPPRESSED_TIMEOUT_MS);
+  }
+
+  private void configureDetectorWithCustomSuppressedTimeoutMs(int customTimeoutMs) {
+    detector.release();
+    detector =
+        new StuckPlayerDetector(
+            player,
+            callback,
+            clock,
+            TEST_STUCK_BUFFERING_TIMEOUT_MS,
+            TEST_STUCK_PLAYING_TIMEOUT_MS,
+            TEST_STUCK_PLAYING_NOT_ENDING_TIMEOUT_MS,
             customTimeoutMs);
   }
 

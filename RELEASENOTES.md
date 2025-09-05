@@ -30,6 +30,8 @@
             playback progress.
         *   After 1 minute of `STATE_READY` beyond the declared duration without
             reaching the end of the item.
+        *   After 10 minutes with a playback suppression reason while trying to
+            play.
     *   Ensure renderers don't consume data from the next playlist item more
         than 10 seconds before the end of the current item.
     *   Add pre-caching functionality in `DefaultPreloadManager`. Apps now can

@@ -56,6 +56,13 @@ public final class StuckPlayerException extends IllegalStateException {
   public static final int STUCK_PLAYING_NOT_ENDING = 3;
 
   /**
+   * The player is stuck with a suppression reason other than {@link
+   * Player#PLAYBACK_SUPPRESSION_REASON_NONE} or {@link
+   * Player#PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS}.
+   */
+  public static final int STUCK_SUPPRESSED = 4;
+
+  /**
    * The type of stuck playback. One of:
    *
    * <ul>
@@ -63,6 +70,7 @@ public final class StuckPlayerException extends IllegalStateException {
    *   <li>{@link #STUCK_BUFFERING_NO_PROGRESS}
    *   <li>{@link #STUCK_PLAYING_NO_PROGRESS}
    *   <li>{@link #STUCK_PLAYING_NOT_ENDING}
+   *   <li>{@link #STUCK_SUPPRESSED}
    * </ul>
    */
   @Documented
@@ -72,7 +80,8 @@ public final class StuckPlayerException extends IllegalStateException {
     STUCK_BUFFERING_NOT_LOADING,
     STUCK_BUFFERING_NO_PROGRESS,
     STUCK_PLAYING_NO_PROGRESS,
-    STUCK_PLAYING_NOT_ENDING
+    STUCK_PLAYING_NOT_ENDING,
+    STUCK_SUPPRESSED
   })
   public @interface StuckType {}
 
@@ -124,6 +133,8 @@ public final class StuckPlayerException extends IllegalStateException {
         return "Player stuck playing with no progress for " + timeoutMs + " ms";
       case STUCK_PLAYING_NOT_ENDING:
         return "Player stuck playing without ending for " + timeoutMs + " ms";
+      case STUCK_SUPPRESSED:
+        return "Player stuck suppressed for " + timeoutMs + " ms";
       default:
         throw new IllegalStateException();
     }
