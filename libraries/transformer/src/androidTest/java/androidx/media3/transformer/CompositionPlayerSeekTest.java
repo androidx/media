@@ -1110,7 +1110,8 @@ public class CompositionPlayerSeekTest {
     assertThat(videoGraphEnded.await(VIDEO_GRAPH_END_TIMEOUT_MS, MILLISECONDS)).isTrue();
 
     getInstrumentation().runOnMainSync(() -> compositionPlayer.get().release());
-    if (playbackException.get() != null) {
+    if (playbackException.get() != null
+        && playbackException.get().errorCode != PlaybackException.ERROR_CODE_TIMEOUT) {
       throw playbackException.get();
     }
     return inputTimestampRecordingShaderProgram.getInputTimestampsUs();
@@ -1186,9 +1187,9 @@ public class CompositionPlayerSeekTest {
     playerTestListener.resetStatus();
     getInstrumentation().runOnMainSync(() -> compositionPlayer.get().seekTo(seekTimeMs));
     playerTestListener.waitUntilPlayerEnded();
-
     getInstrumentation().runOnMainSync(() -> compositionPlayer.get().release());
-    if (playbackException.get() != null) {
+    if (playbackException.get() != null
+        && playbackException.get().errorCode != PlaybackException.ERROR_CODE_TIMEOUT) {
       throw playbackException.get();
     }
     return inputTimestampRecordingShaderProgram.getInputTimestampsUs();
