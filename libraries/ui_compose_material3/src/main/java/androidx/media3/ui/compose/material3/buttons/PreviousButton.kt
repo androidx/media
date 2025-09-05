@@ -38,7 +38,7 @@ import androidx.media3.ui.compose.state.PreviousButtonState
  *
  * @param player The [Player] to control.
  * @param modifier The [Modifier] to be applied to the button.
- * @param painter The [Painter] used for the icon displayed on the button. Defaults to
+ * @param painter The supplier for [Painter] used for the icon displayed on the button. Defaults to
  *   [R.drawable.media3_icon_previous].
  * @param contentDescription The content description for accessibility purposes. Defaults to
  *   [R.string.previous_button].
@@ -58,8 +58,12 @@ import androidx.media3.ui.compose.state.PreviousButtonState
 fun PreviousButton(
   player: Player,
   modifier: Modifier = Modifier,
-  painter: Painter = painterResource(R.drawable.media3_icon_previous),
-  contentDescription: String = stringResource(R.string.previous_button),
+  painter: @Composable PreviousButtonState.() -> Painter = {
+    painterResource(R.drawable.media3_icon_previous)
+  },
+  contentDescription: @Composable PreviousButtonState.() -> String = {
+    stringResource(R.string.previous_button)
+  },
   onClick: PreviousButtonState.() -> Unit = PreviousButtonState::onClick,
 ) {
   // Capture the onClick *parameter* in a local variable.
@@ -70,8 +74,8 @@ fun PreviousButton(
     ClickableIconButton(
       modifier,
       isEnabled,
-      icon = painter,
-      contentDescription = contentDescription,
+      icon = painter(),
+      contentDescription = contentDescription(),
       onClick = { customOnClick() },
     )
   }
@@ -87,7 +91,7 @@ fun PreviousButton(
  *
  * @param player The [Player] to control.
  * @param modifier The [Modifier] to be applied to the button.
- * @param imageVector The [ImageVector] used for the icon displayed on the button.
+ * @param imageVector The supplier for [ImageVector] used for the icon displayed on the button.
  * @param contentDescription The content description for accessibility purposes. Defaults to
  *   [R.string.previous_button].
  * @param onClick The action to be performed when the button is clicked. This lambda has
@@ -103,11 +107,14 @@ fun PreviousButton(
  */
 @UnstableApi
 @Composable
+@JvmName("PreviousButtonWithImageVector")
 fun PreviousButton(
   player: Player,
   modifier: Modifier = Modifier,
-  imageVector: ImageVector,
-  contentDescription: String = stringResource(R.string.previous_button),
+  imageVector: @Composable PreviousButtonState.() -> ImageVector,
+  contentDescription: @Composable PreviousButtonState.() -> String = {
+    stringResource(R.string.previous_button)
+  },
   onClick: PreviousButtonState.() -> Unit = PreviousButtonState::onClick,
 ) {
   // Capture the onClick *parameter* in a local variable.
@@ -118,8 +125,8 @@ fun PreviousButton(
     ClickableIconButton(
       modifier,
       isEnabled,
-      icon = imageVector,
-      contentDescription = contentDescription,
+      icon = imageVector(),
+      contentDescription = contentDescription(),
       onClick = { customOnClick() },
     )
   }

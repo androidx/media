@@ -38,7 +38,7 @@ import androidx.media3.ui.compose.state.NextButtonState
  *
  * @param player The [Player] to control.
  * @param modifier The [Modifier] to be applied to the button.
- * @param painter The [Painter] used for the icon displayed on the button. Defaults to
+ * @param painter The supplier for [Painter] used for the icon displayed on the button. Defaults to
  *   [R.drawable.media3_icon_next].
  * @param contentDescription The content description for accessibility purposes. Defaults to
  *   [R.string.next_button].
@@ -57,8 +57,12 @@ import androidx.media3.ui.compose.state.NextButtonState
 fun NextButton(
   player: Player,
   modifier: Modifier = Modifier,
-  painter: Painter = painterResource(R.drawable.media3_icon_next),
-  contentDescription: String = stringResource(R.string.next_button),
+  painter: @Composable NextButtonState.() -> Painter = {
+    painterResource(R.drawable.media3_icon_next)
+  },
+  contentDescription: @Composable NextButtonState.() -> String = {
+    stringResource(R.string.next_button)
+  },
   onClick: NextButtonState.() -> Unit = NextButtonState::onClick,
 ) {
   // Capture the onClick *parameter* in a local variable.
@@ -69,8 +73,8 @@ fun NextButton(
     ClickableIconButton(
       modifier,
       isEnabled,
-      icon = painter,
-      contentDescription = contentDescription,
+      icon = painter(),
+      contentDescription = contentDescription(),
       onClick = { customOnClick() },
     )
   }
@@ -86,7 +90,7 @@ fun NextButton(
  *
  * @param player The [Player] to control.
  * @param modifier The [Modifier] to be applied to the button.
- * @param imageVector The [ImageVector] used for the icon displayed on the button.
+ * @param imageVector The supplier for [ImageVector] used for the icon displayed on the button.
  * @param contentDescription The content description for accessibility purposes. Defaults to
  *   [R.string.next_button].
  * @param onClick The action to be performed when the button is clicked. This lambda has
@@ -99,13 +103,16 @@ fun NextButton(
  *   `this.onClick()`. Note that in this case, the button might still be enabled based on the player
  *   state, so ensure your custom logic handles cases where advancing is not possible.
  */
+@JvmName("NextButtonWithImageVector")
 @UnstableApi
 @Composable
 fun NextButton(
   player: Player,
   modifier: Modifier = Modifier,
-  imageVector: ImageVector,
-  contentDescription: String = stringResource(R.string.next_button),
+  imageVector: @Composable NextButtonState.() -> ImageVector,
+  contentDescription: @Composable NextButtonState.() -> String = {
+    stringResource(R.string.next_button)
+  },
   onClick: NextButtonState.() -> Unit = NextButtonState::onClick,
 ) {
   // Capture the onClick *parameter* in a local variable.
@@ -116,8 +123,8 @@ fun NextButton(
     ClickableIconButton(
       modifier,
       isEnabled,
-      icon = imageVector,
-      contentDescription = contentDescription,
+      icon = imageVector(),
+      contentDescription = contentDescription(),
       onClick = { customOnClick() },
     )
   }

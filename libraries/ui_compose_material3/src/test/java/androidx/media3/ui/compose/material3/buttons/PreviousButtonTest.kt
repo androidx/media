@@ -84,7 +84,7 @@ class PreviousButtonTest {
     val player = TestSimpleBasePlayer()
 
     composeRule.setContent {
-      PreviousButton(player, Modifier.testTag("previousButton"), contentDescription = "Go back")
+      PreviousButton(player, Modifier.testTag("previousButton"), contentDescription = { "Go back" })
     }
 
     composeRule.onNodeWithTag("previousButton").assertContentDescriptionEquals("Go back")
