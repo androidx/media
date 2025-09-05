@@ -16,60 +16,82 @@
 
 package androidx.media3.ui.compose.material3.buttons
 
-import androidx.annotation.VisibleForTesting
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.SkipPrevious
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.compose.buttons.PreviousButton as PreviousButtonContainer
 import androidx.media3.ui.compose.material3.R
 
 /**
- * A Material3 [IconButton] that seeks to the previous media item.
+ * A Material3 [IconButton][androidx.compose.material3.IconButton] that seeks to the previous media
+ * item.
+ *
+ * When clicked, it attempts to advance the [player] to the previous media item in its current
+ * playlist. The button's state (e.g., whether it's enabled) is managed by a
+ * [PreviousButtonState][androidx.media3.ui.compose.state.PreviousButtonState] instance derived from
+ * the provided [player].
  *
  * @param player The [Player] to control.
  * @param modifier The [Modifier] to be applied to the button.
- * @param icon The icon to be displayed on the button.
- * @param contentDescription The content description for accessibility.
+ * @param painter The [Painter] used for the icon displayed on the button. Defaults to
+ *   [R.drawable.media3_icon_previous].
+ * @param contentDescription The content description for accessibility purposes. Defaults to
+ *   [R.string.previous_button].
  */
 @UnstableApi
 @Composable
 fun PreviousButton(
   player: Player,
   modifier: Modifier = Modifier,
-  icon: ImageVector = Icons.Default.SkipPrevious,
+  painter: Painter = painterResource(R.drawable.media3_icon_previous),
   contentDescription: String = stringResource(R.string.previous_button),
 ) {
   PreviousButtonContainer(player) {
-    PreviousButton(modifier, icon, contentDescription, isEnabled, ::onClick)
+    ClickableIconButton(
+      modifier,
+      isEnabled,
+      icon = painter,
+      contentDescription = contentDescription,
+      onClick = ::onClick,
+    )
   }
 }
 
 /**
- * A stateless Material3 [IconButton] for seeking to the previous media item.
+ * A Material3 [IconButton][androidx.compose.material3.IconButton] that seeks to the previous media
+ * item.
  *
+ * When clicked, it attempts to advance the [player] to the previous media item in its current
+ * playlist. The button's state (e.g., whether it's enabled) is managed by a
+ * [PreviousButtonState][androidx.media3.ui.compose.state.PreviousButtonState] instance derived from
+ * the provided [player].
+ *
+ * @param player The [Player] to control.
  * @param modifier The [Modifier] to be applied to the button.
- * @param icon The icon to be displayed on the button.
- * @param contentDescription The content description for accessibility.
- * @param enabled Whether the button is enabled.
- * @param onClick The action to be performed when the button is clicked.
+ * @param imageVector The [ImageVector] used for the icon displayed on the button.
+ * @param contentDescription The content description for accessibility purposes. Defaults to
+ *   [R.string.previous_button].
  */
-@VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
-@Preview
+@UnstableApi
 @Composable
 fun PreviousButton(
+  player: Player,
   modifier: Modifier = Modifier,
-  icon: ImageVector = Icons.Default.SkipPrevious,
+  imageVector: ImageVector,
   contentDescription: String = stringResource(R.string.previous_button),
-  enabled: Boolean = true,
-  onClick: () -> Unit = {},
 ) {
-  IconButton(onClick, modifier, enabled) { Icon(icon, contentDescription) }
+  PreviousButtonContainer(player) {
+    ClickableIconButton(
+      modifier,
+      isEnabled,
+      icon = imageVector,
+      contentDescription = contentDescription,
+      onClick = ::onClick,
+    )
+  }
 }

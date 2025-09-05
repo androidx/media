@@ -16,13 +16,9 @@
 
 package androidx.media3.ui.compose.material3.buttons
 
-import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assertContentDescriptionEquals
-import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -88,21 +84,5 @@ class NextButtonTest {
     }
 
     composeRule.onNodeWithTag("nextButton").assertContentDescriptionEquals("Go back")
-  }
-
-  @Test
-  fun enabled_flipsFromTrueToFalse_buttonDisabled() {
-    lateinit var isEnabled: MutableState<Boolean>
-    composeRule.setContent {
-      isEnabled = remember { mutableStateOf(true) }
-      NextButton(Modifier.testTag("nextButton"), enabled = isEnabled.value)
-    }
-
-    composeRule.onNodeWithTag("nextButton").assertIsEnabled()
-
-    isEnabled.value = false
-    composeRule.waitForIdle()
-
-    composeRule.onNodeWithTag("nextButton").assertIsNotEnabled()
   }
 }
