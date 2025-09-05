@@ -28,14 +28,17 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.Looper;
 import android.service.notification.StatusBarNotification;
 import android.support.v4.media.session.MediaControllerCompat;
 import android.support.v4.media.session.MediaSessionCompat;
 import android.support.v4.media.session.PlaybackStateCompat;
 import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
 import androidx.media3.common.ForwardingPlayer;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.exoplayer.ExoPlayer;
@@ -51,6 +54,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.MediumTest;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import java.util.ArrayList;
@@ -246,6 +251,70 @@ public class MediaSessionServiceTest {
     mediaItemsAdded.block(TIMEOUT_MS);
     assertThat(controllerBoundWhenMediaItemsAdded.get()).isEqualTo(true);
     service.blockUntilAllControllersUnbind(TIMEOUT_MS);
+  }
+
+  @Test
+  public void onPlayRequested_doesNotCauseDeadlock_ifPlaybackThreadIsNotMain() throws Exception {
+    HandlerThread ht = new HandlerThread("MSSTest:PlaybackThread");
+    ht.start();
+    TestServiceRegistry testServiceRegistry = TestServiceRegistry.getInstance();
+    ConditionVariable playerToldToSpeedUp = new ConditionVariable();
+    AtomicReference<MediaController> mediaController = new AtomicReference<>();
+    AtomicReference<MediaSession> mediaSession = new AtomicReference<>();
+    testServiceRegistry.setOnGetSessionHandler(
+        controllerInfo -> {
+          MockMediaSessionService service =
+              (MockMediaSessionService) testServiceRegistry.getServiceInstance();
+          Player player = new ExoPlayer.Builder(service).setLooper(ht.getLooper()).build();
+          player.addListener(
+              new Player.Listener() {
+                @Override
+                public void onPlaybackParametersChanged(PlaybackParameters playbackParameters) {
+                  if (playbackParameters.speed == 2f) {
+                    playerToldToSpeedUp.open();
+                  }
+                }
+              });
+          mediaSession.set(new MediaSession.Builder(service, player).build());
+          return mediaSession.get();
+        });
+    TestHandler handler = new TestHandler(Looper.getMainLooper());
+    TestHandler bgHandler = new TestHandler(ht.getLooper());
+    handler.post(
+        () -> {
+          ListenableFuture<MediaController> controllerFuture =
+              new MediaController.Builder(context, token).buildAsync();
+          Futures.addCallback(
+              controllerFuture,
+              new FutureCallback<MediaController>() {
+                @Override
+                public void onSuccess(MediaController controller) {
+                  controller.addMediaItem(new MediaItem.Builder().setMediaId("media_id").build());
+                  controller.play();
+                  bgHandler.post(
+                      () ->
+                          handler.post(
+                              () -> {
+                                controller.setPlaybackSpeed(2f);
+                                mediaController.set(controller);
+                              }));
+                }
+
+                @Override
+                public void onFailure(Throwable t) {
+                  throw new RuntimeException(t);
+                }
+              },
+              ContextCompat.getMainExecutor(context));
+        });
+    playerToldToSpeedUp.block(TIMEOUT_MS);
+    if (!playerToldToSpeedUp.isOpen()) {
+      ht.interrupt(); // avoid deadlocking the test forever.
+    }
+    assertThat(playerToldToSpeedUp.isOpen()).isTrue();
+    handler.postAndSync(() -> mediaController.get().release());
+    mediaSession.get().release();
+    ht.quitSafely();
   }
 
   @Test
