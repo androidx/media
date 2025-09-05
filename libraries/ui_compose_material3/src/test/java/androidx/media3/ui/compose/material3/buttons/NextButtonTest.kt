@@ -85,4 +85,31 @@ class NextButtonTest {
 
     composeRule.onNodeWithTag("nextButton").assertContentDescriptionEquals("Go back")
   }
+
+  @Test
+  fun customizeOnClick() {
+    val player =
+      TestSimpleBasePlayer(
+        playlist =
+          listOf(
+            MediaItemData.Builder("First").setDurationUs(1_000_000L).build(),
+            MediaItemData.Builder("Second").setDurationUs(2_000_000L).build(),
+          )
+      )
+    var onClickCalled = false
+    composeRule.setContent {
+      NextButton(
+        player,
+        Modifier.testTag("nextButton"),
+        onClick = {
+          this.onClick()
+          onClickCalled = true
+        },
+      )
+    }
+
+    composeRule.onNodeWithTag("nextButton").performClick()
+
+    assertThat(onClickCalled).isTrue()
+  }
 }

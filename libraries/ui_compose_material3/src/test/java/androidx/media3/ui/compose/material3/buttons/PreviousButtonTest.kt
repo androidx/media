@@ -24,6 +24,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.media3.common.Player.COMMAND_SEEK_TO_PREVIOUS
+import androidx.media3.common.Player.STATE_READY
 import androidx.media3.common.SimpleBasePlayer.MediaItemData
 import androidx.media3.test.utils.TestSimpleBasePlayer
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -87,5 +88,30 @@ class PreviousButtonTest {
     }
 
     composeRule.onNodeWithTag("previousButton").assertContentDescriptionEquals("Go back")
+  }
+
+  @Test
+  fun customizeOnClick() {
+    val player =
+      TestSimpleBasePlayer(
+        playbackState = STATE_READY,
+        playWhenReady = false,
+        playlist = listOf(MediaItemData.Builder("SingleItem").build()),
+      )
+    var onClickCalled = false
+    composeRule.setContent {
+      PreviousButton(
+        player,
+        Modifier.testTag("previousButton"),
+        onClick = {
+          this.onClick()
+          onClickCalled = true
+        },
+      )
+    }
+
+    composeRule.onNodeWithTag("previousButton").performClick()
+
+    assertThat(onClickCalled).isTrue()
   }
 }

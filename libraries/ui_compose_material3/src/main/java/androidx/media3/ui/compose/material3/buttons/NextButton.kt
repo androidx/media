@@ -26,15 +26,15 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.compose.buttons.NextButton as NextButtonStateContainer
 import androidx.media3.ui.compose.material3.R
+import androidx.media3.ui.compose.state.NextButtonState
 
 /**
  * A Material3 [IconButton][androidx.compose.material3.IconButton] that seeks to the next media
  * item.
  *
  * When clicked, it attempts to advance the [player] to the next media item in its current playlist.
- * The button's state (e.g., whether it's enabled) is managed by a
- * [NextButtonState][androidx.media3.ui.compose.state.NextButtonState] instance derived from the
- * provided [player].
+ * The button's state (e.g., whether it's enabled) is managed by a [NextButtonState] instance
+ * derived from the provided [player].
  *
  * @param player The [Player] to control.
  * @param modifier The [Modifier] to be applied to the button.
@@ -42,6 +42,15 @@ import androidx.media3.ui.compose.material3.R
  *   [R.drawable.media3_icon_next].
  * @param contentDescription The content description for accessibility purposes. Defaults to
  *   [R.string.next_button].
+ * @param onClick The action to be performed when the button is clicked. This lambda has
+ *   [NextButtonState] as its receiver, providing access to the button's current state (e.g.,
+ *   [NextButtonState.isEnabled]). The default behavior is to call [NextButtonState.onClick], which
+ *   advances the [player] to the next item if available. Consumers can customize this behavior:
+ * * To add custom logic while still performing the default next action, call `this.onClick()`
+ *   within your lambda.
+ * * To completely override the default behavior, implement your custom logic without calling
+ *   `this.onClick()`. Note that in this case, the button might still be enabled based on the player
+ *   state, so ensure your custom logic handles cases where advancing is not possible.
  */
 @UnstableApi
 @Composable
@@ -50,14 +59,19 @@ fun NextButton(
   modifier: Modifier = Modifier,
   painter: Painter = painterResource(R.drawable.media3_icon_next),
   contentDescription: String = stringResource(R.string.next_button),
+  onClick: NextButtonState.() -> Unit = NextButtonState::onClick,
 ) {
+  // Capture the onClick *parameter* in a local variable.
+  // This avoids shadowing the NextButtonState's onClick() *member function*
+  // inside the NextButtonStateContainer's lambda.
+  val customOnClick: NextButtonState.() -> Unit = onClick
   NextButtonStateContainer(player) {
     ClickableIconButton(
       modifier,
       isEnabled,
       icon = painter,
       contentDescription = contentDescription,
-      onClick = ::onClick,
+      onClick = { customOnClick() },
     )
   }
 }
@@ -67,15 +81,23 @@ fun NextButton(
  * item.
  *
  * When clicked, it attempts to advance the [player] to the next media item in its current playlist.
- * The button's state (e.g., whether it's enabled) is managed by a
- * [NextButtonState][androidx.media3.ui.compose.state.NextButtonState] instance derived from the
- * provided [player].
+ * The button's state (e.g., whether it's enabled) is managed by a [NextButtonState] instance
+ * derived from the provided [player].
  *
  * @param player The [Player] to control.
  * @param modifier The [Modifier] to be applied to the button.
  * @param imageVector The [ImageVector] used for the icon displayed on the button.
  * @param contentDescription The content description for accessibility purposes. Defaults to
  *   [R.string.next_button].
+ * @param onClick The action to be performed when the button is clicked. This lambda has
+ *   [NextButtonState] as its receiver, providing access to the button's current state (e.g.,
+ *   [NextButtonState.isEnabled]). The default behavior is to call [NextButtonState.onClick], which
+ *   advances the [player] to the next item if available. Consumers can customize this behavior:
+ * * To add custom logic while still performing the default next action, call `this.onClick()`
+ *   within your lambda.
+ * * To completely override the default behavior, implement your custom logic without calling
+ *   `this.onClick()`. Note that in this case, the button might still be enabled based on the player
+ *   state, so ensure your custom logic handles cases where advancing is not possible.
  */
 @UnstableApi
 @Composable
@@ -84,14 +106,19 @@ fun NextButton(
   modifier: Modifier = Modifier,
   imageVector: ImageVector,
   contentDescription: String = stringResource(R.string.next_button),
+  onClick: NextButtonState.() -> Unit = NextButtonState::onClick,
 ) {
+  // Capture the onClick *parameter* in a local variable.
+  // This avoids shadowing the NextButtonState's onClick() *member function*
+  // inside the NextButtonStateContainer's lambda.
+  val customOnClick: NextButtonState.() -> Unit = onClick
   NextButtonStateContainer(player) {
     ClickableIconButton(
       modifier,
       isEnabled,
       icon = imageVector,
       contentDescription = contentDescription,
-      onClick = ::onClick,
+      onClick = { customOnClick() },
     )
   }
 }
