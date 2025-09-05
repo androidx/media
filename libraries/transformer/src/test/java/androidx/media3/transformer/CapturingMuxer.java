@@ -43,6 +43,8 @@ import java.util.Comparator;
  * A {@link Dumpable} {@link Muxer} implementation that supports dumping information about all
  * interactions (for testing purposes) and forwards method calls to the underlying {@link Muxer}.
  */
+// TODO: b/430251254 - Delete CapturingMuxer and directly validate output file once InAppMp4Muxer is
+// default.
 public final class CapturingMuxer implements Muxer, Dumpable {
 
   /**
@@ -61,7 +63,7 @@ public final class CapturingMuxer implements Muxer, Dumpable {
      *     dumping}, where PCM audio is captured in batches of a fixed size.
      */
     public Factory(boolean handleAudioAsPcm) {
-      this(handleAudioAsPcm, new DefaultMuxer.Factory());
+      this(handleAudioAsPcm, new InAppMp4Muxer.Factory());
     }
 
     /**

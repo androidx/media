@@ -153,7 +153,7 @@ public final class MediaItemExportTest {
 
   @Test
   public void start_gapOnlyExport_outputsSilence() throws Exception {
-    shadowMediaCodecConfig.addEncoders(CODEC_INFO_AAC);
+    shadowMediaCodecConfig.addEncoders(CODEC_INFO_RAW);
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
     Transformer transformer =
         new TestTransformerBuilder(context).setMuxerFactory(muxerFactory).build();
@@ -286,7 +286,7 @@ public final class MediaItemExportTest {
 
   @Test
   public void start_trimOptimizationEnabled_fileNotMp4_fallbackToNormalExport() throws Exception {
-    shadowMediaCodecConfig.addEncoders(CODEC_INFO_AAC);
+    shadowMediaCodecConfig.addEncoders(CODEC_INFO_RAW);
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
     Transformer transformer =
         new TestTransformerBuilder(context)
@@ -453,7 +453,7 @@ public final class MediaItemExportTest {
   @Test
   public void start_forceAudioTrackAndRemoveAudioWithEffects_generatesSilentAudio()
       throws Exception {
-    shadowMediaCodecConfig.addEncoders(CODEC_INFO_AAC);
+    shadowMediaCodecConfig.addEncoders(CODEC_INFO_RAW);
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
     Transformer transformer =
         new TestTransformerBuilder(context).setMuxerFactory(muxerFactory).build();
@@ -510,7 +510,7 @@ public final class MediaItemExportTest {
 
   @Test
   public void start_forceAudioTrackOnVideoOnly_generatesSilentAudio() throws Exception {
-    shadowMediaCodecConfig.addEncoders(CODEC_INFO_AAC);
+    shadowMediaCodecConfig.addEncoders(CODEC_INFO_RAW);
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
     Transformer transformer =
         new TestTransformerBuilder(context).setMuxerFactory(muxerFactory).build();
@@ -535,7 +535,7 @@ public final class MediaItemExportTest {
 
   @Test
   public void exportAudio_muxerReceivesExpectedNumberOfBytes() throws Exception {
-    shadowMediaCodecConfig.addEncoders(CODEC_INFO_AAC);
+    shadowMediaCodecConfig.addEncoders(CODEC_INFO_RAW);
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
     AtomicInteger bytesSeenByEffect = new AtomicInteger();
     Transformer transformer =
@@ -555,7 +555,7 @@ public final class MediaItemExportTest {
 
   @Test
   public void start_adjustSampleRate_completesSuccessfully() throws Exception {
-    shadowMediaCodecConfig.addEncoders(CODEC_INFO_AAC);
+    shadowMediaCodecConfig.addEncoders(CODEC_INFO_RAW);
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
     SonicAudioProcessor sonicAudioProcessor = new SonicAudioProcessor();
     sonicAudioProcessor.setOutputSampleRateHz(48000);
@@ -585,7 +585,7 @@ public final class MediaItemExportTest {
 
   @Test
   public void adjustAudioSpeed_toDoubleSpeed_returnsExpectedNumberOfSamples() throws Exception {
-    shadowMediaCodecConfig.addEncoders(CODEC_INFO_AAC);
+    shadowMediaCodecConfig.addEncoders(CODEC_INFO_RAW);
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
     SonicAudioProcessor sonicAudioProcessor = new SonicAudioProcessor();
     sonicAudioProcessor.setSpeed(2f);
@@ -616,7 +616,7 @@ public final class MediaItemExportTest {
 
   @Test
   public void start_withRawBigEndianAudioInput_completesSuccessfully() throws Exception {
-    shadowMediaCodecConfig.addEncoders(CODEC_INFO_AAC);
+    shadowMediaCodecConfig.addEncoders(CODEC_INFO_RAW);
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
     ToInt16PcmAudioProcessor toInt16PcmAudioProcessor = new ToInt16PcmAudioProcessor();
     Transformer transformer =
@@ -640,7 +640,7 @@ public final class MediaItemExportTest {
 
   @Test
   public void start_singleMediaItemAndTransmux_ignoresTransmux() throws Exception {
-    shadowMediaCodecConfig.addEncoders(CODEC_INFO_AAC);
+    shadowMediaCodecConfig.addEncoders(CODEC_INFO_RAW);
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
     SonicAudioProcessor sonicAudioProcessor = new SonicAudioProcessor();
     sonicAudioProcessor.setOutputSampleRateHz(48000);
@@ -720,6 +720,7 @@ public final class MediaItemExportTest {
   }
 
   @Test
+  @Ignore("TODO: b/430251254 - Move this test to instrumental to make it work with InAppMp4Muxer")
   public void start_withMultipleListeners_callsEachOnFallback() throws Exception {
     shadowMediaCodecConfig.addEncoders(CODEC_INFO_AAC);
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ false);
@@ -868,6 +869,9 @@ public final class MediaItemExportTest {
   }
 
   @Test
+  @Ignore(
+      "TODO: b/430251254 - InAppMp4Muxer supports RAW audio so fallback is not applied. Move this"
+          + " test to instrumental to enable transcoding of an unsupported format.")
   public void
       start_withAudioFormatUnsupportedByMuxer_ignoresDisabledFallbackAndCompletesSuccessfully()
           throws Exception {
@@ -902,6 +906,9 @@ public final class MediaItemExportTest {
   }
 
   @Test
+  @Ignore(
+      "TODO: b/430251254 - InAppMp4Muxer supports RAW audio so fallback is not applied. Move this"
+          + " test to instrumental to enable transcoding of an unsupported format.")
   public void start_withAudioFormatUnsupportedByMuxer_fallsBackAndCompletesSuccessfully()
       throws Exception {
     // RAW supported by encoder, unsupported by muxer.

@@ -50,14 +50,17 @@ import org.junit.runner.RunWith;
 public class MuxerWrapperTest {
   private static final byte[] SPS_TEST_DATA =
       createByteArray(
-          0x00, 0x00, 0x00, 0x01, 0x67, 0x4D, 0x40, 0x16, 0xEC, 0xA0, 0x50, 0x17, 0xFC, 0xB8, 0x0A,
-          0x90, 0x91, 0x00, 0x03, 0x00, 0x80, 0x00, 0x00, 0x0F, 0x47, 0x8B, 0x16, 0xCB);
+          0x00, 0x00, 0x00, 0x01, 0x67, 0x64, 0x00, 0x1F, 0xAC, 0xD9, 0x40, 0x44, 0x05, 0xBE, 0x5F,
+          0x01, 0x10, 0x00, 0x00, 0x3E, 0x90, 0x00, 0x0E, 0xA6, 0x00, 0xF1, 0x83, 0x19, 0x60);
   private static final Format FAKE_VIDEO_TRACK_FORMAT =
       new Format.Builder()
           .setSampleMimeType(VIDEO_H264)
           .setWidth(1080)
           .setHeight(720)
-          .setInitializationData(ImmutableList.of(SPS_TEST_DATA, new byte[] {1, 2, 3, 4}))
+          .setInitializationData(
+              ImmutableList.of(
+                  SPS_TEST_DATA,
+                  createByteArray(0x00, 0x00, 0x00, 0x01, 0x68, 0xEB, 0xE3, 0xCB, 0x22, 0xC0)))
           .setColorInfo(ColorInfo.SDR_BT709_LIMITED)
           .build();
   private static final Format FAKE_AUDIO_TRACK_FORMAT =
@@ -65,9 +68,16 @@ public class MuxerWrapperTest {
           .setSampleMimeType(AUDIO_AAC)
           .setSampleRate(40000)
           .setChannelCount(2)
+          .setInitializationData(ImmutableList.of(createByteArray(0x12, 0x08)))
           .build();
 
-  private static final ByteBuffer FAKE_SAMPLE = ByteBuffer.wrap(new byte[] {1, 2, 3, 4});
+  private static final ByteBuffer FAKE_SAMPLE =
+      ByteBuffer.wrap(
+          createByteArray(
+              0x00, 0x00, 0x00, 0x01, 0x67, 0xF4, 0x00, 0x0A, 0x91, 0x9B, 0x2B, 0xF3, 0xCB, 0x36,
+              0x40, 0x00, 0x00, 0x03, 0x00, 0x40, 0x00, 0x00, 0x0C, 0x83, 0xC4, 0x89, 0x65, 0x80,
+              0x00, 0x00, 0x00, 0x01, 0x68, 0xEB, 0xE3, 0xC4, 0x48, 0x00, 0x00, 0x01, 0x65, 0x88,
+              0x84, 0x00, 0x2B, 0xFF, 0xFE, 0xF5, 0xDB, 0xF3, 0x2C, 0xAE, 0x4A, 0x43, 0xFF));
 
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
   @Rule public final TestName testName = new TestName();
@@ -335,20 +345,42 @@ public class MuxerWrapperTest {
     muxerWrapper.addTrackFormat(FAKE_AUDIO_TRACK_FORMAT);
     muxerWrapper.addTrackFormat(FAKE_VIDEO_TRACK_FORMAT);
 
+    // TODO: b/443253158 - Maybe remove duplicating the sample.
     muxerWrapper.writeSample(
-        C.TRACK_TYPE_AUDIO, FAKE_SAMPLE, /* isKeyFrame= */ true, /* presentationTimeUs= */ 0);
+        C.TRACK_TYPE_AUDIO,
+        FAKE_SAMPLE.duplicate(),
+        /* isKeyFrame= */ true,
+        /* presentationTimeUs= */ 0);
     muxerWrapper.writeSample(
-        C.TRACK_TYPE_VIDEO, FAKE_SAMPLE, /* isKeyFrame= */ true, /* presentationTimeUs= */ 10);
+        C.TRACK_TYPE_VIDEO,
+        FAKE_SAMPLE.duplicate(),
+        /* isKeyFrame= */ true,
+        /* presentationTimeUs= */ 10);
     muxerWrapper.writeSample(
-        C.TRACK_TYPE_AUDIO, FAKE_SAMPLE, /* isKeyFrame= */ true, /* presentationTimeUs= */ 5);
+        C.TRACK_TYPE_AUDIO,
+        FAKE_SAMPLE.duplicate(),
+        /* isKeyFrame= */ true,
+        /* presentationTimeUs= */ 5);
     muxerWrapper.writeSample(
-        C.TRACK_TYPE_AUDIO, FAKE_SAMPLE, /* isKeyFrame= */ true, /* presentationTimeUs= */ 10);
+        C.TRACK_TYPE_AUDIO,
+        FAKE_SAMPLE.duplicate(),
+        /* isKeyFrame= */ true,
+        /* presentationTimeUs= */ 10);
     muxerWrapper.writeSample(
-        C.TRACK_TYPE_AUDIO, FAKE_SAMPLE, /* isKeyFrame= */ true, /* presentationTimeUs= */ 12);
+        C.TRACK_TYPE_AUDIO,
+        FAKE_SAMPLE.duplicate(),
+        /* isKeyFrame= */ true,
+        /* presentationTimeUs= */ 12);
     muxerWrapper.writeSample(
-        C.TRACK_TYPE_VIDEO, FAKE_SAMPLE, /* isKeyFrame= */ true, /* presentationTimeUs= */ 15);
+        C.TRACK_TYPE_VIDEO,
+        FAKE_SAMPLE.duplicate(),
+        /* isKeyFrame= */ true,
+        /* presentationTimeUs= */ 15);
     muxerWrapper.writeSample(
-        C.TRACK_TYPE_AUDIO, FAKE_SAMPLE, /* isKeyFrame= */ true, /* presentationTimeUs= */ 17);
+        C.TRACK_TYPE_AUDIO,
+        FAKE_SAMPLE.duplicate(),
+        /* isKeyFrame= */ true,
+        /* presentationTimeUs= */ 17);
     muxerWrapper.endTrack(C.TRACK_TYPE_AUDIO);
     muxerWrapper.endTrack(C.TRACK_TYPE_VIDEO);
     muxerWrapper.finishWritingAndMaybeRelease(MuxerWrapper.MUXER_RELEASE_REASON_COMPLETED);

@@ -15,7 +15,6 @@
  */
 package androidx.media3.transformer;
 
-import static androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig.CODEC_INFO_AAC;
 import static androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig.CODEC_INFO_RAW;
 import static androidx.media3.transformer.TestUtil.ASSET_URI_PREFIX;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_ONLY;
@@ -59,7 +58,7 @@ public class CompositionExportTest {
   public ShadowMediaCodecConfig shadowMediaCodecConfig =
       ShadowMediaCodecConfig.withCodecs(
           /* decoders= */ ImmutableList.of(CODEC_INFO_RAW),
-          /* encoders= */ ImmutableList.of(CODEC_INFO_AAC));
+          /* encoders= */ ImmutableList.of(CODEC_INFO_RAW));
 
   @Test
   public void start_audioVideoTransmuxedFromDifferentSequences_matchesSingleSequenceResult()
@@ -185,7 +184,7 @@ public class CompositionExportTest {
     // FILE_AUDIO_RAW duration is 1000ms. Input 32 times to cover the 31_053ms duration.
     assertThat(exportResult.processedInputs).hasSize(34);
     assertThat(exportResult.channelCount).isEqualTo(1);
-    assertThat(exportResult.fileSizeBytes).isEqualTo(5292662);
+    assertThat(exportResult.fileSizeBytes).isEqualTo(5_692_714);
   }
 
   @Test
@@ -722,9 +721,10 @@ public class CompositionExportTest {
 
     transformer.start(composition, outputDir.newFile().getPath());
     TransformerTestRunner.runLooper(transformer);
-
     DumpFileAsserts.assertOutput(
-        context, muxerFactory.getCreatedMuxer(), getDumpFileName(FILE_AUDIO_RAW));
+        context,
+        muxerFactory.getCreatedMuxer(),
+        getCompositionDumpFilePath("seq-" + getFileName(FILE_AUDIO_RAW) + "+seq-gap_1000ms"));
   }
 
   @Test

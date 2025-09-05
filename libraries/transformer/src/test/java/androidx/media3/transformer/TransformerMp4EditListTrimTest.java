@@ -185,8 +185,7 @@ public class TransformerMp4EditListTrimTest {
   @Test
   public void trimAndExport_audioEditListWithMp4EditListTrimEnabled_completesWithCorrectTimestamps()
       throws Exception {
-    CapturingMuxer.Factory muxerFactory =
-        new CapturingMuxer.Factory(false, new InAppMp4Muxer.Factory());
+    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(false);
     Transformer transformer =
         new TestTransformerBuilder(context)
             .experimentalSetMp4EditListTrimEnabled(true)
@@ -382,8 +381,7 @@ public class TransformerMp4EditListTrimTest {
   public void
       trimAndExport_withClippingStartAtKeyFrameAndMp4EditListTrimmingEnabled_matchesNonOptimizedExport()
           throws Exception {
-    CapturingMuxer.Factory muxerFactory =
-        new CapturingMuxer.Factory(/* handleAudioAsPcm= */ false, new InAppMp4Muxer.Factory());
+    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ false);
     Transformer transformer =
         new TestTransformerBuilder(context)
             .setMuxerFactory(muxerFactory)
