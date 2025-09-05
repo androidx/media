@@ -14,6 +14,10 @@
      limitations under the License.
 -->
 <resources>
+  <!-- Accessibility description for a media control button that causes playback to be started. [CHAR LIMIT=NONE] -->
+  <string name="playpause_button_play">Play</string>
+  <!-- Accessibility description for a media control button that causes playback to be paused. [CHAR LIMIT=NONE] -->
+  <string name="playpause_button_pause">Pause</string>
   <!-- Accessibility description for a media control button that causes the next track to be played. [CHAR LIMIT=NONE] -->
   <string name="next_button">Next</string>
   <!-- Accessibility description for a media control button that causes the previous track to be played. [CHAR LIMIT=NONE] -->

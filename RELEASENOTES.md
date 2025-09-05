@@ -188,9 +188,9 @@
     *   Add `ContentFrame` Composable to `media3-ui-compose` which combines
         `PlayerSurface` management with aspect ratio resizing and covering with
         a shutter.
-    *   Create a new `media3-ui-compose-material3` module that will house
-        Material3-themed Composables.
-    *   Add NextButton and PreviousButton to `media3-ui-compose-material3`.
+    *   Create a new `media3-ui-compose-material3` module and add
+        Material3-themed Composables (PlayPauseButton, NextButton, and
+        PreviousButton) to it.
 *   Downloads:
 *   OkHttp extension:
 *   Cronet extension:
