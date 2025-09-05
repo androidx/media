@@ -305,6 +305,7 @@ public class DefaultLoadControlTest {
                 /* maxBufferMs= */ (int) Util.usToMs(MAX_BUFFER_US),
                 /* bufferForPlaybackMs= */ 0,
                 /* bufferForPlaybackAfterRebufferMs= */ 0)
+            .setPrioritizeTimeOverSizeThresholds(true)
             .setPlayerTargetBufferBytes(
                 playerName1,
                 /* playerTargetBufferBytes= */ allocator.getIndividualAllocationLength())
@@ -1529,6 +1530,107 @@ public class DefaultLoadControlTest {
     loadControl.onReleased(playerId2);
 
     assertThat(loadControl.calculateTotalTargetBufferBytes()).isEqualTo(0);
+  }
+
+  @Test
+  public void build_withOnlyGenericSetBufferDurationsMs_usesStreamingDefaultForPrioritizeTime() {
+    builder.setBufferDurationsMs(
+        /* minBufferMs= */ 1000,
+        /* maxBufferMs= */ 2000,
+        /* bufferForPlaybackMs= */ 300,
+        /* bufferForPlaybackAfterRebufferMs= */ 600);
+    build();
+
+    // PrioritizeTimeOverSizeThresholdsForLocalPlayback should now be the same as the streaming
+    // default (false), not the local playback default (true).
+    // We verify this by checking that loading stops when the target buffer is reached, even if the
+    // time-based buffer goals are not met.
+    makeSureTargetBufferBytesReached(playerId);
+    assertThat(
+            loadControl.shouldContinueLoading(
+                new LoadControl.Parameters(
+                    playerId,
+                    timelineLocal,
+                    mediaPeriodIdLocal,
+                    /* playbackPositionUs= */ 0L,
+                    /* bufferedDurationUs= */ 0L,
+                    SPEED,
+                    /* playWhenReady= */ false,
+                    /* rebuffering= */ false,
+                    /* targetLiveOffsetUs= */ C.TIME_UNSET,
+                    /* lastRebufferRealtimeMs= */ C.TIME_UNSET)))
+        .isFalse();
+  }
+
+  @Test
+  public void
+      build_withOnlyGenericSetPrioritizeTimeOverSizeThresholds_usesStreamingBufferDefaults() {
+    builder.setPrioritizeTimeOverSizeThresholds(true);
+    build();
+
+    // Local playback should use the streaming default for minBufferMs (50000) instead of the
+    // local playback default (1000). So, with a buffer of 49999ms, loading should continue.
+    assertThat(
+            loadControl.shouldContinueLoading(
+                new LoadControl.Parameters(
+                    playerId,
+                    timelineLocal,
+                    mediaPeriodIdLocal,
+                    /* playbackPositionUs= */ 0L,
+                    /* bufferedDurationUs= */ 49999_999, // 49,999ms
+                    SPEED,
+                    /* playWhenReady= */ true,
+                    /* rebuffering= */ false,
+                    /* targetLiveOffsetUs= */ C.TIME_UNSET,
+                    /* lastRebufferRealtimeMs= */ C.TIME_UNSET)))
+        .isTrue();
+
+    // With a buffer of 50000ms, loading should stop.
+    assertThat(
+            loadControl.shouldContinueLoading(
+                new LoadControl.Parameters(
+                    playerId,
+                    timelineLocal,
+                    mediaPeriodIdLocal,
+                    /* playbackPositionUs= */ 0L,
+                    /* bufferedDurationUs= */ 50000_000, // 50,000ms
+                    SPEED,
+                    /* playWhenReady= */ true,
+                    /* rebuffering= */ false,
+                    /* targetLiveOffsetUs= */ C.TIME_UNSET,
+                    /* lastRebufferRealtimeMs= */ C.TIME_UNSET)))
+        .isFalse();
+
+    // Local playback should also use the streaming default for bufferForPlaybackAfterRebufferMs
+    // (2000) instead of the local playback default (1000).
+    assertThat(
+            loadControl.shouldStartPlayback(
+                new LoadControl.Parameters(
+                    playerId,
+                    timelineLocal,
+                    mediaPeriodIdLocal,
+                    /* playbackPositionUs= */ 0,
+                    /* bufferedDurationUs= */ 1999_999, // 1,999ms
+                    SPEED,
+                    /* playWhenReady= */ true,
+                    /* rebuffering= */ true,
+                    /* targetLiveOffsetUs= */ C.TIME_UNSET,
+                    /* lastRebufferRealtimeMs= */ C.TIME_UNSET)))
+        .isFalse();
+    assertThat(
+            loadControl.shouldStartPlayback(
+                new LoadControl.Parameters(
+                    playerId,
+                    timelineLocal,
+                    mediaPeriodIdLocal,
+                    /* playbackPositionUs= */ 0,
+                    /* bufferedDurationUs= */ 2000_000, // 2,000ms
+                    SPEED,
+                    /* playWhenReady= */ true,
+                    /* rebuffering= */ true,
+                    /* targetLiveOffsetUs= */ C.TIME_UNSET,
+                    /* lastRebufferRealtimeMs= */ C.TIME_UNSET)))
+        .isTrue();
   }
 
   private void build() {

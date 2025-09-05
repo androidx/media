@@ -195,6 +195,12 @@ public class DefaultLoadControl implements LoadControl {
     private boolean retainBackBufferFromKeyframe;
     private boolean buildCalled;
 
+    // For backwards-compatibility, calling only one of the generic setBufferDurationsMs or
+    // setPrioritizeTimeOverSizeThresholds methods should not use local playback specific defaults
+    // for the other setter to avoid unintended side effects of changing one default but keeping the
+    // manual override for the other.
+    @Nullable private Boolean onlyGenericConfigurationMethodsCalled;
+
     /** Constructs a new instance. */
     public Builder() {
       playerTargetBufferBytes = new HashMap<>();
@@ -272,6 +278,9 @@ public class DefaultLoadControl implements LoadControl {
       this.maxBufferForLocalPlaybackMs = maxBufferMs;
       this.bufferForPlaybackForLocalPlaybackMs = bufferForPlaybackMs;
       this.bufferForPlaybackAfterRebufferForLocalPlaybackMs = bufferForPlaybackAfterRebufferMs;
+      if (onlyGenericConfigurationMethodsCalled == null) {
+        onlyGenericConfigurationMethodsCalled = true;
+      }
       return this;
     }
 
@@ -314,6 +323,7 @@ public class DefaultLoadControl implements LoadControl {
       this.maxBufferMs = maxBufferMs;
       this.bufferForPlaybackMs = bufferForPlaybackMs;
       this.bufferForPlaybackAfterRebufferMs = bufferForPlaybackAfterRebufferMs;
+      onlyGenericConfigurationMethodsCalled = false;
       return this;
     }
 
@@ -356,6 +366,7 @@ public class DefaultLoadControl implements LoadControl {
       this.maxBufferForLocalPlaybackMs = maxBufferMs;
       this.bufferForPlaybackForLocalPlaybackMs = bufferForPlaybackMs;
       this.bufferForPlaybackAfterRebufferForLocalPlaybackMs = bufferForPlaybackAfterRebufferMs;
+      onlyGenericConfigurationMethodsCalled = false;
       return this;
     }
 
@@ -415,6 +426,9 @@ public class DefaultLoadControl implements LoadControl {
       checkState(!buildCalled);
       this.prioritizeTimeOverSizeThresholds = prioritizeTimeOverSizeThresholds;
       this.prioritizeTimeOverSizeThresholdsForLocalPlayback = prioritizeTimeOverSizeThresholds;
+      if (onlyGenericConfigurationMethodsCalled == null) {
+        onlyGenericConfigurationMethodsCalled = true;
+      }
       return this;
     }
 
@@ -435,6 +449,7 @@ public class DefaultLoadControl implements LoadControl {
         boolean prioritizeTimeOverSizeThresholds) {
       checkState(!buildCalled);
       this.prioritizeTimeOverSizeThresholds = prioritizeTimeOverSizeThresholds;
+      onlyGenericConfigurationMethodsCalled = false;
       return this;
     }
 
@@ -455,6 +470,7 @@ public class DefaultLoadControl implements LoadControl {
         boolean prioritizeTimeOverSizeThresholds) {
       checkState(!buildCalled);
       this.prioritizeTimeOverSizeThresholdsForLocalPlayback = prioritizeTimeOverSizeThresholds;
+      onlyGenericConfigurationMethodsCalled = false;
       return this;
     }
 
@@ -483,6 +499,15 @@ public class DefaultLoadControl implements LoadControl {
       buildCalled = true;
       if (allocator == null) {
         allocator = new DefaultAllocator(/* trimOnReset= */ true, C.DEFAULT_BUFFER_SEGMENT_SIZE);
+      }
+      if (onlyGenericConfigurationMethodsCalled != null && onlyGenericConfigurationMethodsCalled) {
+        // For backwards-compatibility, if only generic setters were called, ensure the local
+        // playback values are equivalent to the streaming ones even if not explicitly specified.
+        minBufferForLocalPlaybackMs = minBufferMs;
+        maxBufferForLocalPlaybackMs = maxBufferMs;
+        bufferForPlaybackForLocalPlaybackMs = bufferForPlaybackMs;
+        bufferForPlaybackAfterRebufferForLocalPlaybackMs = bufferForPlaybackAfterRebufferMs;
+        prioritizeTimeOverSizeThresholdsForLocalPlayback = prioritizeTimeOverSizeThresholds;
       }
       return new DefaultLoadControl(
           allocator,
