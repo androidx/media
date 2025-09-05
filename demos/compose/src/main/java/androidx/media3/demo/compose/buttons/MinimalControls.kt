@@ -30,11 +30,13 @@ import androidx.media3.common.Player
 import androidx.media3.ui.compose.material3.buttons.NextButton
 import androidx.media3.ui.compose.material3.buttons.PlayPauseButton
 import androidx.media3.ui.compose.material3.buttons.PreviousButton
+import androidx.media3.ui.compose.material3.buttons.SeekBackButton
+import androidx.media3.ui.compose.material3.buttons.SeekForwardButton
 
 /**
  * Minimal playback controls for a [Player].
  *
- * Includes buttons for seeking to a previous/next items, skipping back/forward a couple of seconds,
+ * Includes buttons for seeking to a previous/next items, seeking back/forward a couple of seconds,
  * or playing/pausing the playback.
  */
 @Composable

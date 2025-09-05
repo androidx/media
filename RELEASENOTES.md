@@ -189,8 +189,8 @@
         `PlayerSurface` management with aspect ratio resizing and covering with
         a shutter.
     *   Create a new `media3-ui-compose-material3` module and add
-        Material3-themed Composables (PlayPauseButton, NextButton, and
-        PreviousButton) to it.
+        Material3-themed Composables (PlayPauseButton, NextButton,
+        PreviousButton, SeekBackButton, and SeekForwardButton) to it.
 *   Downloads:
 *   OkHttp extension:
 *   Cronet extension:
