@@ -231,8 +231,7 @@ public class CompositionPlayerParameterizedPlaybackTest {
             new InputSequence(VIDEO_INPUT_WITHOUT_AUDIO, VIDEO_INPUT, VIDEO_INPUT_WITHOUT_AUDIO)));
     configs.add(
         new TestConfig(new InputSequence(VIDEO_INPUT, VIDEO_INPUT_WITHOUT_AUDIO, VIDEO_INPUT)));
-    // TODO: b/414777457 - Enable once sequences ending with audio is fixed.
-    // configs.add(new TestConfig(new InputSequence(VIDEO_INPUT, AUDIO_INPUT)));
+    configs.add(new TestConfig(new InputSequence(VIDEO_INPUT, AUDIO_INPUT)));
     // TODO: b/412585977 - Enable once implicit gaps are implemented.
     // configs.add(new TestConfig(new InputSequence(AUDIO_INPUT,
     // VIDEO_INPUT).withForceVideoTrack()));

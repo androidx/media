@@ -386,6 +386,12 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
   }
 
   public void setTotalVideoInputCount(int totalVideoInputCount) {
+    if (totalVideoInputCount < this.totalVideoInputCount) {
+      // Currently we don't allow removing video from a sequence.
+      // TODO: b/430250222 - Track types should be fixed after this, and this method could be
+      //  removed.
+      return;
+    }
     this.totalVideoInputCount = totalVideoInputCount;
   }
 
