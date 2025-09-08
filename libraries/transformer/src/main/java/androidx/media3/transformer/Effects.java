@@ -89,8 +89,13 @@ public final class Effects {
     return Pair.create(speedChangingAudioProcessor, audioDrivenVideoEffect);
   }
 
+  @Override
+  public String toString() {
+    return toJsonObject().toString();
+  }
+
   /** Returns a {@link JSONObject} that represents the {@code Effects}. */
-  public JSONObject toJsonObject() {
+  /* package */ JSONObject toJsonObject() {
     JSONObject jsonObject = new JSONObject();
 
     if (audioProcessors.isEmpty() && videoEffects.isEmpty()) {
@@ -113,10 +118,5 @@ public final class Effects {
       return new JSONObject();
     }
     return jsonObject;
-  }
-
-  @Override
-  public String toString() {
-    return toJsonObject().toString();
   }
 }

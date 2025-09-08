@@ -283,7 +283,7 @@ public final class EditedMediaItemSequence {
   }
 
   /** Returns a {@link JSONObject} that represents the {@code EditedMediaItemSequence}. */
-  public JSONObject toJsonObject() {
+  /* package */ JSONObject toJsonObject() {
     JSONObject jsonObject = new JSONObject();
     try {
       JSONArray editedMediaItemsJsonArray = new JSONArray();

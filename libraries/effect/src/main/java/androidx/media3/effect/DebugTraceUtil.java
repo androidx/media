@@ -89,6 +89,7 @@ public final class DebugTraceUtil {
   @Target(TYPE_USE)
   public @interface Event {}
 
+  // TODO: b/443718535 - Remove excessive debug trace logging.
   public static final String EVENT_SET_COMPOSITION = "SetComposition";
   public static final String EVENT_SEEK_TO = "SeekTo";
   public static final String EVENT_SET_VIDEO_OUTPUT = "SetVideoOutput";

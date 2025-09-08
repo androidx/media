@@ -428,8 +428,26 @@ public final class Composition {
     this.retainHdrFromUltraHdrImage = retainHdrFromUltraHdrImage;
   }
 
+  @Override
+  public String toString() {
+    return toJsonObject().toString();
+  }
+
+  /**
+   * Return whether any {@linkplain EditedMediaItemSequence sequences} contain a {@linkplain
+   * EditedMediaItemSequence.Builder#addGap(long) gap}.
+   */
+  /* package */ boolean hasGaps() {
+    for (int i = 0; i < sequences.size(); i++) {
+      if (sequences.get(i).hasGaps()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   /** Returns a {@link JSONObject} that represents the {@code Composition}. */
-  public JSONObject toJsonObject() {
+  /* package */ JSONObject toJsonObject() {
     JSONObject jsonObject = new JSONObject();
     try {
       JSONArray sequencesJsonArray = new JSONArray();
@@ -447,24 +465,6 @@ public final class Composition {
       Log.w(/* tag= */ "Composition", "JSON conversion failed.", e);
       return new JSONObject();
     }
-  }
-
-  @Override
-  public String toString() {
-    return toJsonObject().toString();
-  }
-
-  /**
-   * Return whether any {@linkplain EditedMediaItemSequence sequences} contain a {@linkplain
-   * EditedMediaItemSequence.Builder#addGap(long) gap}.
-   */
-  /* package */ boolean hasGaps() {
-    for (int i = 0; i < sequences.size(); i++) {
-      if (sequences.get(i).hasGaps()) {
-        return true;
-      }
-    }
-    return false;
   }
 
   private static boolean hasNonLoopingSequence(List<EditedMediaItemSequence> sequences) {

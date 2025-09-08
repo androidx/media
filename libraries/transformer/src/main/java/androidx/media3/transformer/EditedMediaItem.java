@@ -302,23 +302,6 @@ public final class EditedMediaItem {
     presentationDurationUs = C.TIME_UNSET;
   }
 
-  /** Returns a {@link JSONObject} that represents the {@code EditedMediaItem}. */
-  public JSONObject toJsonObject() {
-    JSONObject jsonObject = new JSONObject();
-    try {
-      jsonObject.put("mediaItem", jsonObjectFrom(mediaItem));
-      jsonObject.put("effects", effects.toJsonObject());
-      jsonObject.put("removeAudio", removeAudio);
-      jsonObject.put("removeVideo", removeVideo);
-      jsonObject.put("durationUs", durationUs);
-      jsonObject.put("presentationDuration", getPresentationDurationUs());
-    } catch (JSONException e) {
-      Log.w(/* tag= */ "EditedMediaItem", "JSON conversion failed.", e);
-      return new JSONObject();
-    }
-    return jsonObject;
-  }
-
   @Override
   public String toString() {
     return toJsonObject().toString();
@@ -349,6 +332,23 @@ public final class EditedMediaItem {
       presentationDurationUs = getDurationAfterEffectsApplied(presentationDurationUs);
     }
     return presentationDurationUs;
+  }
+
+  /** Returns a {@link JSONObject} that represents the {@code EditedMediaItem}. */
+  /* package */ JSONObject toJsonObject() {
+    JSONObject jsonObject = new JSONObject();
+    try {
+      jsonObject.put("mediaItem", jsonObjectFrom(mediaItem));
+      jsonObject.put("effects", effects.toJsonObject());
+      jsonObject.put("removeAudio", removeAudio);
+      jsonObject.put("removeVideo", removeVideo);
+      jsonObject.put("durationUs", durationUs);
+      jsonObject.put("presentationDuration", getPresentationDurationUs());
+    } catch (JSONException e) {
+      Log.w(/* tag= */ "EditedMediaItem", "JSON conversion failed.", e);
+      return new JSONObject();
+    }
+    return jsonObject;
   }
 
   /* package */ long getDurationAfterEffectsApplied(long durationUs) {
