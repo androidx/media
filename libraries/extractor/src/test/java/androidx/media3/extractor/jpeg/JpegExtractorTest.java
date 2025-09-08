@@ -38,6 +38,7 @@ public final class JpegExtractorTest {
     ExtractorAsserts.assertBehavior(
         () -> new JpegExtractor(JpegExtractor.FLAG_READ_IMAGE),
         "media/jpeg/non-motion-photo-shortened.jpg",
+        /* peekLimit= */ 2,
         new ExtractorAsserts.AssertionConfig.Builder()
             .setDumpFilesPrefix(
                 "extractordumps/jpeg/non-motion-photo-shortened.jpg_JpegExtractor.FLAG_READ_IMAGE")
@@ -50,6 +51,7 @@ public final class JpegExtractorTest {
     ExtractorAsserts.assertBehavior(
         () -> new JpegExtractor(JpegExtractor.FLAG_READ_IMAGE),
         "media/jpeg/pixel-motion-photo-shortened.jpg",
+        /* peekLimit= */ 2,
         new ExtractorAsserts.AssertionConfig.Builder()
             .setDumpFilesPrefix(
                 "extractordumps/jpeg/pixel-motion-photo-shortened.jpg_JpegExtractor.FLAG_READ_IMAGE")
@@ -60,13 +62,19 @@ public final class JpegExtractorTest {
   @Test
   public void sampleNonMotionPhotoShortened_extractMotionPhoto() throws Exception {
     ExtractorAsserts.assertBehavior(
-        JpegExtractor::new, "media/jpeg/non-motion-photo-shortened.jpg", simulationConfig);
+        JpegExtractor::new,
+        "media/jpeg/non-motion-photo-shortened.jpg",
+        /* peekLimit= */ 4,
+        simulationConfig);
   }
 
   @Test
   public void samplePixelMotionPhotoShortened_extractMotionPhoto() throws Exception {
     ExtractorAsserts.assertBehavior(
-        JpegExtractor::new, "media/jpeg/pixel-motion-photo-shortened.jpg", simulationConfig);
+        JpegExtractor::new,
+        "media/jpeg/pixel-motion-photo-shortened.jpg",
+        /* peekLimit= */ 40,
+        simulationConfig);
   }
 
   @Test
@@ -74,6 +82,7 @@ public final class JpegExtractorTest {
     ExtractorAsserts.assertBehavior(
         JpegMotionPhotoExtractor::new,
         "media/jpeg/pixel-motion-photo-jfif-segment-shortened.jpg",
+        /* peekLimit= */ 4596,
         simulationConfig);
   }
 
@@ -82,6 +91,7 @@ public final class JpegExtractorTest {
     ExtractorAsserts.assertBehavior(
         JpegMotionPhotoExtractor::new,
         "media/jpeg/pixel-motion-photo-video-removed-shortened.jpg",
+        /* peekLimit= */ 8,
         simulationConfig);
   }
 
@@ -90,6 +100,7 @@ public final class JpegExtractorTest {
     ExtractorAsserts.assertBehavior(
         JpegMotionPhotoExtractor::new,
         "media/jpeg/pixel-motion-photo-without-exif-shortened.jpg",
+        /* peekLimit= */ 40,
         simulationConfig);
   }
 
@@ -98,6 +109,7 @@ public final class JpegExtractorTest {
     ExtractorAsserts.assertBehavior(
         JpegMotionPhotoExtractor::new,
         "media/jpeg/ss-motion-photo-shortened.jpg",
+        /* peekLimit= */ 2546,
         simulationConfig);
   }
 
@@ -107,6 +119,7 @@ public final class JpegExtractorTest {
     ExtractorAsserts.assertBehavior(
         JpegMotionPhotoExtractor::new,
         "media/jpeg/pixel-motion-photo-2-hevc-tracks.jpg",
+        /* peekLimit= */ 44,
         simulationConfig);
   }
 }
