@@ -109,12 +109,14 @@ public final class ReorderingBufferQueue {
    * <p>buffers with matching timestamps must be added consecutively (this will naturally happen
    * when parsing buffers from a container).
    *
-   * @param presentationTimeUs The presentation time of the buffer.
+   * @param presentationTimeUs The presentation time of the buffer. {@link C#TIME_UNSET} will cause
+   *     the buffer to be emitted immediately.
    * @param buffer The buffer data. The data will be copied, so the provided object can be re-used
    *     after this method returns.
    */
   public void add(long presentationTimeUs, ParsableByteArray buffer) {
-    if (reorderingQueueSize == 0
+    if (presentationTimeUs == C.TIME_UNSET
+        || reorderingQueueSize == 0
         || (reorderingQueueSize != C.LENGTH_UNSET
             && pendingBuffers.size() >= reorderingQueueSize
             && presentationTimeUs < castNonNull(pendingBuffers.peek()).presentationTimeUs)) {

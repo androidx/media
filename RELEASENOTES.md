@@ -105,6 +105,9 @@
         metadata, these are now emitted as `TextInformationFrame` objects in
         `Format.metadata` with IDs of `MVNM` and `MVIN` respectively
         ([#2754](https://github.com/androidx/media/issues/2754)).
+    *   MPEG-TS: Fix `IllegalArgumentException` from `ReorderingBufferQueue`
+        caused by PES packets with no timestamp
+        ([#2764](https://github.com/androidx/media/issues/2764)).
 *   Inspector:
     *   Introduced a new `:media3-inspector` module to serve as the dedicated
         home for media inspection utilities. This module now houses a new
