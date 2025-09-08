@@ -24,12 +24,12 @@ import static androidx.media3.test.utils.BitmapPixelTestUtil.MAXIMUM_AVERAGE_PIX
 import static androidx.media3.test.utils.BitmapPixelTestUtil.MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE_DIFFERENT_DEVICE_FP16;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmap;
+import static androidx.media3.test.utils.FormatSupportAssumptions.assumeFormatsSupported;
+import static androidx.media3.test.utils.HdrCapabilitiesUtil.assumeDeviceSupportsHdrEditing;
+import static androidx.media3.test.utils.TestSummaryLogger.recordTestSkipped;
 import static androidx.media3.test.utils.TestUtil.assertBitmapsAreSimilar;
 import static androidx.media3.test.utils.VideoFrameProcessorTestRunner.VIDEO_FRAME_PROCESSING_WAIT_MS;
-import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
-import static androidx.media3.transformer.AndroidTestUtil.recordTestSkipped;
 import static androidx.media3.transformer.SequenceEffectTestUtil.PSNR_THRESHOLD;
-import static androidx.media3.transformer.mh.HdrCapabilitiesUtil.assumeDeviceSupportsHdrEditing;
 import static androidx.media3.transformer.mh.UnoptimizedGlEffect.NO_OP_EFFECT;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.base.Preconditions.checkNotNull;

@@ -17,7 +17,7 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.MimeTypes.VIDEO_H265;
-import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
+import static androidx.media3.test.utils.FormatSupportAssumptions.assumeFormatsSupported;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 

@@ -24,7 +24,7 @@ import static androidx.media3.test.utils.BitmapPixelTestUtil.MAXIMUM_AVERAGE_PIX
 import static androidx.media3.test.utils.BitmapPixelTestUtil.getBitmapAveragePixelAbsoluteDifferenceArgb8888;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.maybeSaveTestBitmap;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmap;
-import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
+import static androidx.media3.test.utils.FormatSupportAssumptions.assumeFormatsSupported;
 import static androidx.media3.transformer.AndroidTestUtil.extractBitmapsFromVideo;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;

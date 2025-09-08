@@ -34,7 +34,7 @@ import static androidx.media3.test.utils.AssetInfo.MP4_REMOTE_3840W_2160H_32_SEC
 import static androidx.media3.test.utils.AssetInfo.MP4_REMOTE_3840W_2160H_5_SECOND_HIGHMOTION;
 import static androidx.media3.test.utils.AssetInfo.MP4_REMOTE_640W_480H_31_SECOND_ROOF_SONYXPERIAXZ3;
 import static androidx.media3.test.utils.AssetInfo.MP4_REMOTE_7680W_4320H_31_SECOND_ROOF_SAMSUNGS20ULTRA5G;
-import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
+import static androidx.media3.test.utils.FormatSupportAssumptions.assumeFormatsSupported;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.content.Context;

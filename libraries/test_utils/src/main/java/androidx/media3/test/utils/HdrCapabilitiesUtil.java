@@ -13,11 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.transformer.mh;
+package androidx.media3.test.utils;
 
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
-import static androidx.media3.transformer.AndroidTestUtil.recordTestSkipped;
+import static androidx.media3.test.utils.FormatSupportAssumptions.assumeFormatsSupported;
+import static androidx.media3.test.utils.TestSummaryLogger.recordTestSkipped;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -28,6 +28,7 @@ import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.GlUtil.GlException;
+import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil;
 import androidx.media3.transformer.EncoderUtil;
 import java.io.IOException;
@@ -35,6 +36,7 @@ import org.json.JSONException;
 import org.junit.AssumptionViolatedException;
 
 /** Utility class for checking HDR capabilities. */
+@UnstableApi
 public final class HdrCapabilitiesUtil {
   private static final String SKIP_REASON_NO_OPENGL_UNDER_API_29 =
       "OpenGL-based HDR to SDR tone mapping is unsupported below API 29.";
@@ -67,7 +69,8 @@ public final class HdrCapabilitiesUtil {
   public static void assumeDeviceSupportsHdrEditing(String testId, Format format)
       throws JSONException, IOException {
     checkState(ColorInfo.isTransferHdr(format.colorInfo));
-    if (EncoderUtil.getSupportedEncodersForHdrEditing(format.sampleMimeType, format.colorInfo)
+    if (EncoderUtil.getSupportedEncodersForHdrEditing(
+            checkNotNull(format.sampleMimeType), format.colorInfo)
         .isEmpty()) {
       String skipReason =
           "No HDR editing supported for sample mime type "
@@ -87,7 +90,8 @@ public final class HdrCapabilitiesUtil {
   public static void assumeDeviceDoesNotSupportHdrEditing(String testId, Format format)
       throws JSONException, IOException {
     checkState(ColorInfo.isTransferHdr(format.colorInfo));
-    if (!EncoderUtil.getSupportedEncodersForHdrEditing(format.sampleMimeType, format.colorInfo)
+    if (!EncoderUtil.getSupportedEncodersForHdrEditing(
+            checkNotNull(format.sampleMimeType), format.colorInfo)
         .isEmpty()) {
       String skipReason =
           "HDR editing supported for sample mime type "

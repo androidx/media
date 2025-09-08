@@ -29,7 +29,7 @@ import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIM
 import static androidx.media3.test.utils.AssetInfo.MP4_PORTRAIT_ASSET;
 import static androidx.media3.test.utils.AssetInfo.PNG_ASSET_LINES_1080P;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmap;
-import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
+import static androidx.media3.test.utils.FormatSupportAssumptions.assumeFormatsSupported;
 import static androidx.media3.transformer.AndroidTestUtil.extractBitmapsFromVideo;
 import static androidx.media3.transformer.SequenceEffectTestUtil.NO_EFFECT;
 import static androidx.media3.transformer.SequenceEffectTestUtil.PSNR_THRESHOLD;

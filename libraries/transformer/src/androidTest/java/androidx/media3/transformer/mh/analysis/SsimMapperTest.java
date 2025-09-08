@@ -40,7 +40,7 @@ import static androidx.media3.test.utils.AssetInfo.MP4_REMOTE_640W_480H_31_SECON
 import static androidx.media3.test.utils.AssetInfo.MP4_REMOTE_7680W_4320H_31_SECOND_ROOF_SAMSUNGS20ULTRA5G;
 import static androidx.media3.test.utils.AssetInfo.MP4_REMOTE_854W_480H_30_SECOND_ROOF_ONEPLUSNORD2_DOWNSAMPLED;
 import static androidx.media3.test.utils.AssetInfo.MP4_REMOTE_854W_480H_30_SECOND_ROOF_REDMINOTE9_DOWNSAMPLED;
-import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
+import static androidx.media3.test.utils.FormatSupportAssumptions.assumeFormatsSupported;
 import static androidx.media3.transformer.ExportTestResult.SSIM_UNSET;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;

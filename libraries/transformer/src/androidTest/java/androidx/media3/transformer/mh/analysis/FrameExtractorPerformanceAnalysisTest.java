@@ -27,7 +27,7 @@ import androidx.media3.effect.Presentation;
 import androidx.media3.exoplayer.SeekParameters;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.media3.test.utils.AssetInfo;
-import androidx.media3.transformer.AndroidTestUtil;
+import androidx.media3.test.utils.TestSummaryLogger;
 import androidx.media3.transformer.ExperimentalFrameExtractor;
 import androidx.media3.transformer.ExperimentalFrameExtractor.Frame;
 import androidx.test.core.app.ApplicationProvider;
@@ -126,7 +126,7 @@ public class FrameExtractorPerformanceAnalysisTest {
     JSONObject resultJson = testConfig.toJsonObject();
     resultJson.put("elapsed_time_ms", elapsedTimeMs);
     resultJson.put("frames_extracted", frameFutures.size());
-    AndroidTestUtil.writeTestSummaryToFile(
+    TestSummaryLogger.writeTestSummaryToFile(
         ApplicationProvider.getApplicationContext(),
         /* testId= */ testName.getMethodName(),
         resultJson);
@@ -156,7 +156,7 @@ public class FrameExtractorPerformanceAnalysisTest {
     JSONObject resultJson = testConfig.toJsonObject();
     resultJson.put("elapsed_time_ms", elapsedTimeMs);
     resultJson.put("frames_extracted", frameFutures.size());
-    AndroidTestUtil.writeTestSummaryToFile(
+    TestSummaryLogger.writeTestSummaryToFile(
         ApplicationProvider.getApplicationContext(),
         /* testId= */ testName.getMethodName(),
         resultJson);

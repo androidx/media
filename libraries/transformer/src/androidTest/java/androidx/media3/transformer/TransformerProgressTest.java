@@ -19,6 +19,7 @@ import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET;
 import static androidx.media3.test.utils.AssetInfo.MP4_TRIM_OPTIMIZATION;
+import static androidx.media3.test.utils.TestUtil.createExternalCacheFile;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_AVAILABLE;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_NOT_STARTED;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_UNAVAILABLE;
@@ -126,8 +127,7 @@ public class TransformerProgressTest {
                             .build())
                     .build();
             File outputVideoFile =
-                AndroidTestUtil.createExternalCacheFile(
-                    context, /* fileName= */ testId + "-output.mp4");
+                createExternalCacheFile(context, /* fileName= */ testId + "-output.mp4");
             Transformer transformer = new Transformer.Builder(context).build();
             transformer.addListener(listener);
             transformer.start(composition, outputVideoFile.getPath());
@@ -206,8 +206,7 @@ public class TransformerProgressTest {
                   }
                 })
             .build();
-    File outputVideoFile =
-        AndroidTestUtil.createExternalCacheFile(context, /* fileName= */ testId + "-output.mp4");
+    File outputVideoFile = createExternalCacheFile(context, /* fileName= */ testId + "-output.mp4");
 
     InstrumentationRegistry.getInstrumentation()
         .runOnMainSync(
@@ -287,8 +286,7 @@ public class TransformerProgressTest {
                   }
                 })
             .build();
-    File outputVideoFile =
-        AndroidTestUtil.createExternalCacheFile(context, /* fileName= */ testId + "-output.mp4");
+    File outputVideoFile = createExternalCacheFile(context, /* fileName= */ testId + "-output.mp4");
 
     InstrumentationRegistry.getInstrumentation()
         .runOnMainSync(

@@ -17,8 +17,6 @@ package androidx.media3.transformer;
 
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.test.utils.TestUtil.retrieveTrackFormat;
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -31,7 +29,6 @@ import android.media.MediaCodecInfo;
 import android.media.metrics.LogSessionId;
 import android.opengl.EGLContext;
 import android.opengl.EGLDisplay;
-import android.os.Build;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
@@ -45,10 +42,8 @@ import androidx.media3.common.VideoGraph;
 import androidx.media3.common.VideoGraph.Listener;
 import androidx.media3.common.util.GlRect;
 import androidx.media3.common.util.GlUtil;
-import androidx.media3.common.util.Log;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Size;
-import androidx.media3.common.util.Util;
 import androidx.media3.effect.ByteBufferGlEffect;
 import androidx.media3.effect.DefaultGlObjectsProvider;
 import androidx.media3.effect.GlEffect;
@@ -57,7 +52,6 @@ import androidx.media3.effect.PassthroughShaderProgram;
 import androidx.media3.effect.ScaleAndRotateTransformation;
 import androidx.media3.effect.SingleInputVideoGraph;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
-import androidx.media3.exoplayer.mediacodec.MediaCodecUtil;
 import androidx.media3.exoplayer.video.MediaCodecVideoRenderer;
 import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
 import androidx.media3.exoplayer.video.VideoFrameReleaseControl;
@@ -67,22 +61,16 @@ import androidx.media3.muxer.MuxerException;
 import androidx.media3.test.utils.BitmapPixelTestUtil;
 import androidx.media3.test.utils.VideoDecodingWrapper;
 import androidx.test.platform.app.InstrumentationRegistry;
-import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
-import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import org.json.JSONException;
-import org.json.JSONObject;
 import org.junit.AssumptionViolatedException;
 
 /** Utilities for instrumentation tests. */
@@ -244,23 +232,6 @@ public final class AndroidTestUtil {
    */
   public static int generateTextureFromBitmap(Bitmap bitmap) throws GlUtil.GlException {
     return GlUtil.createTexture(bitmap);
-  }
-
-  /**
-   * Log in logcat and in an analysis file that this test was skipped.
-   *
-   * <p>Analysis file is a JSON summarising the test, saved to the application cache.
-   *
-   * <p>The analysis json will contain a {@code skipReason} key, with the reason for skipping the
-   * test case.
-   */
-  public static void recordTestSkipped(Context context, String testId, String reason)
-      throws JSONException, IOException {
-    Log.i(TAG, testId + ": " + reason);
-    JSONObject testJson = new JSONObject();
-    testJson.put("skipReason", reason);
-
-    writeTestSummaryToFile(context, testId, testJson);
   }
 
   public static void assertSdrColors(Context context, String filePath)
@@ -553,92 +524,6 @@ public final class AndroidTestUtil {
   }
 
   /**
-   * Writes the summary of a test run to the application cache file.
-   *
-   * <p>The cache filename follows the pattern {@code <testId>-result.txt}.
-   *
-   * @param context The {@link Context}.
-   * @param testId A unique identifier for the transformer test run.
-   * @param testJson A {@link JSONObject} containing a summary of the test run.
-   */
-  public static void writeTestSummaryToFile(Context context, String testId, JSONObject testJson)
-      throws IOException, JSONException {
-    testJson.put("testId", testId).put("device", JsonUtil.getDeviceDetailsAsJsonObject());
-
-    String analysisContents = testJson.toString(/* indentSpaces= */ 2);
-
-    // Log contents as well as writing to file, for easier visibility on individual device testing.
-    for (String line : Util.split(analysisContents, "\n")) {
-      Log.i(TAG, testId + ": " + line);
-    }
-
-    File analysisFile =
-        createExternalCacheFile(
-            context, /* directoryName= */ "analysis", /* fileName= */ testId + "-result.txt");
-    try (FileWriter fileWriter = new FileWriter(analysisFile)) {
-      fileWriter.write(analysisContents);
-    }
-  }
-
-  /**
-   * Assumes that the device supports decoding the input format, and encoding/muxing the output
-   * format if needed.
-   *
-   * <p>This is equivalent to calling {@link #assumeFormatsSupported(Context, String, Format,
-   * Format, boolean)} with {@code isPortraitEncodingEnabled} set to {@code false}.
-   */
-  public static void assumeFormatsSupported(
-      Context context, String testId, @Nullable Format inputFormat, @Nullable Format outputFormat)
-      throws IOException, JSONException, MediaCodecUtil.DecoderQueryException {
-    assumeFormatsSupported(
-        context, testId, inputFormat, outputFormat, /* isPortraitEncodingEnabled= */ false);
-  }
-
-  /**
-   * Assumes that the device supports decoding the input format, and encoding/muxing the output
-   * format if needed.
-   *
-   * @param context The {@link Context context}.
-   * @param testId The test ID.
-   * @param inputFormat The {@link Format format} to decode, or the input is not produced by
-   *     MediaCodec, like an image.
-   * @param outputFormat The {@link Format format} to encode/mux or {@code null} if the output won't
-   *     be encoded or muxed.
-   * @param isPortraitEncodingEnabled Whether portrait encoding is enabled.
-   * @throws AssumptionViolatedException If the device does not support the formats. In this case,
-   *     the reason for skipping the test is logged.
-   */
-  public static void assumeFormatsSupported(
-      Context context,
-      String testId,
-      @Nullable Format inputFormat,
-      @Nullable Format outputFormat,
-      boolean isPortraitEncodingEnabled)
-      throws IOException, JSONException, MediaCodecUtil.DecoderQueryException {
-    boolean canDecode = inputFormat == null || canDecode(inputFormat);
-
-    boolean canEncode = outputFormat == null || canEncode(outputFormat, isPortraitEncodingEnabled);
-    boolean canMux = outputFormat == null || canMux(outputFormat);
-    if (canDecode && canEncode && canMux) {
-      return;
-    }
-
-    StringBuilder skipReasonBuilder = new StringBuilder();
-    if (!canDecode) {
-      skipReasonBuilder.append("Cannot decode ").append(inputFormat).append('\n');
-    }
-    if (!canEncode) {
-      skipReasonBuilder.append("Cannot encode ").append(outputFormat).append('\n');
-    }
-    if (!canMux) {
-      skipReasonBuilder.append("Cannot mux ").append(outputFormat);
-    }
-    String skipReason = skipReasonBuilder.toString();
-    recordTestSkipped(context, testId, skipReason);
-    throw new AssumptionViolatedException(skipReason);
-  }
-
-  /**
    * Assumes that the device supports encoding with the given MIME type and profile.
    *
    * @param mimeType The {@linkplain MimeTypes MIME type}.
@@ -664,119 +549,6 @@ public final class AndroidTestUtil {
   public static Muxer.Factory getMuxerFactoryBasedOnApi() {
     // MediaMuxer supports B-frame from API > 24.
     return SDK_INT > 24 ? new DefaultMuxer.Factory() : new InAppMp4Muxer.Factory();
-  }
-
-  private static boolean canDecode(Format format) throws MediaCodecUtil.DecoderQueryException {
-    if (MimeTypes.isImage(format.sampleMimeType)) {
-      return Util.isBitmapFactorySupportedMimeType(format.sampleMimeType);
-    }
-
-    // Check decoding capability in the same way as the default decoder factory.
-    return findDecoderForFormat(format) != null && !deviceNeedsDisable8kWorkaround(format);
-  }
-
-  @Nullable
-  private static String findDecoderForFormat(Format format)
-      throws MediaCodecUtil.DecoderQueryException {
-    List<androidx.media3.exoplayer.mediacodec.MediaCodecInfo> decoderInfoList =
-        MediaCodecUtil.getDecoderInfosSortedByFullFormatSupport(
-            MediaCodecUtil.getDecoderInfosSoftMatch(
-                MediaCodecSelector.DEFAULT,
-                format,
-                /* requiresSecureDecoder= */ false,
-                /* requiresTunnelingDecoder= */ false),
-            format);
-
-    for (int i = 0; i < decoderInfoList.size(); i++) {
-      androidx.media3.exoplayer.mediacodec.MediaCodecInfo decoderInfo = decoderInfoList.get(i);
-      // On some devices this method can return false even when the format can be decoded. For
-      // example, Pixel 6a can decode an 8K video but this method returns false. The
-      // DefaultDecoderFactory does not rely on this method rather it directly initialize the
-      // decoder. See b/222095724#comment9.
-      if (decoderInfo.isFormatSupported(format)) {
-        return decoderInfo.name;
-      }
-    }
-
-    return null;
-  }
-
-  private static boolean deviceNeedsDisable8kWorkaround(Format format) {
-    // Fixed on API 31+. See http://b/278234847#comment40 for more information.
-    // Duplicate of DefaultDecoderFactory#deviceNeedsDisable8kWorkaround.
-    return SDK_INT < 31
-        && format.width >= 7680
-        && format.height >= 4320
-        && format.sampleMimeType != null
-        && format.sampleMimeType.equals(MimeTypes.VIDEO_H265)
-        && (Ascii.equalsIgnoreCase(Build.MODEL, "SM-F711U1")
-            || Ascii.equalsIgnoreCase(Build.MODEL, "SM-F926U1"));
-  }
-
-  private static boolean canEncode(Format format, boolean isPortraitEncodingEnabled) {
-    String mimeType = checkNotNull(format.sampleMimeType);
-    ImmutableList<android.media.MediaCodecInfo> supportedEncoders =
-        EncoderUtil.getSupportedEncoders(mimeType);
-    if (supportedEncoders.isEmpty()) {
-      return false;
-    }
-
-    android.media.MediaCodecInfo encoder = supportedEncoders.get(0);
-    // VideoSampleExporter rotates videos into landscape before encoding if portrait encoding is not
-    // enabled.
-    int width = format.width;
-    int height = format.height;
-    if (!isPortraitEncodingEnabled && width < height) {
-      width = format.height;
-      height = format.width;
-    }
-    boolean sizeSupported = EncoderUtil.isSizeSupported(encoder, mimeType, width, height);
-    boolean bitrateSupported =
-        format.averageBitrate == Format.NO_VALUE
-            || EncoderUtil.getSupportedBitrateRange(encoder, mimeType)
-                .contains(format.averageBitrate);
-    return sizeSupported && bitrateSupported;
-  }
-
-  private static boolean canMux(Format format) {
-    String mimeType = checkNotNull(format.sampleMimeType);
-    return new DefaultMuxer.Factory()
-        .getSupportedSampleMimeTypes(MimeTypes.getTrackType(mimeType))
-        .contains(mimeType);
-  }
-
-  /**
-   * Creates a {@link File} of the {@code fileName} in the application cache directory.
-   *
-   * <p>If a file of that name already exists, it is overwritten.
-   *
-   * @param context The {@link Context}.
-   * @param fileName The filename to save to the cache.
-   */
-  /* package */ static File createExternalCacheFile(Context context, String fileName)
-      throws IOException {
-    return createExternalCacheFile(context, /* directoryName= */ "", fileName);
-  }
-
-  /**
-   * Creates a {@link File} of the {@code fileName} in a directory {@code directoryName} within the
-   * application cache directory.
-   *
-   * <p>If a file of that name already exists, it is overwritten.
-   *
-   * @param context The {@link Context}.
-   * @param directoryName The directory name within the external cache to save the file in.
-   * @param fileName The filename to save to the cache.
-   */
-  /* package */ static File createExternalCacheFile(
-      Context context, String directoryName, String fileName) throws IOException {
-    File fileDirectory = new File(context.getExternalCacheDir(), directoryName);
-    fileDirectory.mkdirs();
-    File file = new File(fileDirectory, fileName);
-    checkState(
-        !file.exists() || file.delete(), "Could not delete file: %s", file.getAbsolutePath());
-    checkState(file.createNewFile(), "Could not create file: %s", file.getAbsolutePath());
-    return file;
   }
 
   private AndroidTestUtil() {}

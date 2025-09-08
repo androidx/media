@@ -23,10 +23,10 @@ import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_COLOR_TEST_1080P_HL
 import static androidx.media3.test.utils.AssetInfo.MP4_TRIM_OPTIMIZATION_270;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.maybeSaveTestBitmap;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmap;
+import static androidx.media3.test.utils.HdrCapabilitiesUtil.assumeDeviceDoesNotSupportHdrColorTransfer;
+import static androidx.media3.test.utils.HdrCapabilitiesUtil.assumeDeviceSupportsHdrColorTransfer;
+import static androidx.media3.test.utils.HdrCapabilitiesUtil.assumeDeviceSupportsOpenGlToneMapping;
 import static androidx.media3.test.utils.TestUtil.assertBitmapsAreSimilar;
-import static androidx.media3.transformer.mh.HdrCapabilitiesUtil.assumeDeviceDoesNotSupportHdrColorTransfer;
-import static androidx.media3.transformer.mh.HdrCapabilitiesUtil.assumeDeviceSupportsHdrColorTransfer;
-import static androidx.media3.transformer.mh.HdrCapabilitiesUtil.assumeDeviceSupportsOpenGlToneMapping;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.file.Files.newInputStream;
 import static java.nio.file.Files.newOutputStream;

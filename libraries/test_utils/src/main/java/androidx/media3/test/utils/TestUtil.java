@@ -1066,6 +1066,39 @@ public class TestUtil {
     return list.build();
   }
 
+  /**
+   * Creates a {@link File} of the {@code fileName} in the application cache directory.
+   *
+   * <p>If a file of that name already exists, it is overwritten.
+   *
+   * @param context The {@link Context}.
+   * @param fileName The filename to save to the cache.
+   */
+  public static File createExternalCacheFile(Context context, String fileName) throws IOException {
+    return createExternalCacheFile(context, /* directoryName= */ "", fileName);
+  }
+
+  /**
+   * Creates a {@link File} of the {@code fileName} in a directory {@code directoryName} within the
+   * application cache directory.
+   *
+   * <p>If a file of that name already exists, it is overwritten.
+   *
+   * @param context The {@link Context}.
+   * @param directoryName The directory name within the external cache to save the file in.
+   * @param fileName The filename to save to the cache.
+   */
+  public static File createExternalCacheFile(Context context, String directoryName, String fileName)
+      throws IOException {
+    File fileDirectory = new File(context.getExternalCacheDir(), directoryName);
+    fileDirectory.mkdirs();
+    File file = new File(fileDirectory, fileName);
+    checkState(
+        !file.exists() || file.delete(), "Could not delete file: %s", file.getAbsolutePath());
+    checkState(file.createNewFile(), "Could not create file: %s", file.getAbsolutePath());
+    return file;
+  }
+
   private static final class NoUidOrShufflingTimeline extends Timeline {
 
     private final Timeline delegate;

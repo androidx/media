@@ -19,7 +19,7 @@ import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.MimeTypes.VIDEO_H264;
 import static androidx.media3.test.utils.AssetInfo.JPG_ULTRA_HDR_ASSET;
 import static androidx.media3.test.utils.AssetInfo.MP4_LONG_ASSET_WITH_INCREASING_TIMESTAMPS;
-import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
+import static androidx.media3.test.utils.FormatSupportAssumptions.assumeFormatsSupported;
 import static androidx.media3.transformer.AndroidTestUtil.createFrameCountingEffect;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
