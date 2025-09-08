@@ -48,6 +48,7 @@ dependencies {
     compileOnly 'com.google.errorprone:error_prone_annotations:' + errorProneVersion
     compileOnly 'org.checkerframework:checker-qual:' + checkerframeworkVersion
     testImplementation project(modulePrefix + 'lib-extractor')
+    testImplementation 'com.google.testparameterinjector:test-parameter-injector:1.18'
     testImplementation project(modulePrefix + 'test-utils-robolectric')
     testImplementation project(modulePrefix + 'test-utils')
     testImplementation project(modulePrefix + 'test-data')

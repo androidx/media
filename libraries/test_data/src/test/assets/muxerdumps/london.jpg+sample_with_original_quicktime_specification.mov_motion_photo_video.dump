@@ -1,10 +1,10 @@
 seekMap:
   isSeekable = true
   duration = 2741666
-  getPosition(0) = [[timeUs=0, position=242097]]
-  getPosition(1) = [[timeUs=0, position=242097], [timeUs=471666, position=936141]]
-  getPosition(1370833) = [[timeUs=1081666, position=1776105], [timeUs=1691666, position=2840786]]
-  getPosition(2741666) = [[timeUs=2438333, position=4261316]]
+  getPosition(0) = [[timeUs=0, position=242096]]
+  getPosition(1) = [[timeUs=0, position=242096], [timeUs=471666, position=936140]]
+  getPosition(1370833) = [[timeUs=1081666, position=1776104], [timeUs=1691666, position=2840785]]
+  getPosition(2741666) = [[timeUs=2438333, position=4261315]]
 numberOfTracks = 3
 track 0:
   total output bytes = 4478284
@@ -491,5 +491,5 @@ track 1024:
   sample count = 0
   format 0:
     containerMimeType = image/jpeg
-    metadata = entries=[Motion photo metadata: photoStartPosition=0, photoSize=242081, photoPresentationTimestampUs=1250000, videoStartPosition=242081, videoSize=4728530]
+    metadata = entries=[Motion photo metadata: photoStartPosition=0, photoSize=242080, photoPresentationTimestampUs=500500, videoStartPosition=242080, videoSize=4728530]
 tracksEnded = true

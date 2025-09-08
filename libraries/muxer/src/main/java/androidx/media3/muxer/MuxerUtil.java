@@ -21,7 +21,6 @@ import static androidx.media3.container.MdtaMetadataEntry.AUXILIARY_TRACKS_SAMPL
 import static androidx.media3.container.MdtaMetadataEntry.TYPE_INDICATOR_8_BIT_UNSIGNED_INT;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 
 import android.media.MediaCodec;
 import androidx.media3.common.C;
@@ -54,6 +53,7 @@ public final class MuxerUtil {
   private static final int SEGMENT_MARKER_LENGTH = 2;
   private static final int SEGMENT_SIZE_LENGTH = 2;
   private static final short SOI_MARKER = (short) 0xFFD8;
+  private static final short APP0_MARKER = (short) 0xFFE0;
   private static final short APP1_MARKER = (short) 0xFFE1;
   private static final short SOS_MARKER = (short) 0xFFDA;
   private static final short EOI_MARKER = (short) 0xFFD9;
@@ -247,47 +247,49 @@ public final class MuxerUtil {
       String videoContainerMimeType,
       WritableByteChannel outputChannel)
       throws IOException {
-    int lastApp1SegmentEndIndex = findLastApp1SegmentEndIndexFromImageData(imageData);
-    // Write image data till end of last APP1 segment.
+    int indexForNewApp1Segment = findIndexForNewApp1Segment(imageData);
+    // Write image data till start on new APP1 segment.
     int imageStartIndex = imageData.position();
     int imageEndIndex = imageData.limit();
-    imageData.limit(lastApp1SegmentEndIndex);
+    imageData.limit(indexForNewApp1Segment);
     outputChannel.write(imageData);
     // Restore imageData indexes.
     imageData.position(imageStartIndex);
     imageData.limit(imageEndIndex);
+    // Insert new APP1 segment.
     byte[] motionPhotoXmp =
         generateMotionPhotoXmp(
             imagePresentationTimestampUs, imageMimeType, videoContainerMimeType, videoSize);
     ByteBuffer app1SegmentWithMotionPhotoXmp = getApp1SegmentWithMotionPhotoXmpDate(motionPhotoXmp);
     outputChannel.write(app1SegmentWithMotionPhotoXmp);
-    // Write image data after the last APP1 segment.
-    imageData.position(lastApp1SegmentEndIndex);
+    // Write image data after the new APP1 segment index.
+    imageData.position(indexForNewApp1Segment);
     outputChannel.write(imageData);
   }
 
-  private static int findLastApp1SegmentEndIndexFromImageData(ByteBuffer imageData) {
-    int lastApp1SegmentEndIndex = -1;
+  private static int findIndexForNewApp1Segment(ByteBuffer imageData) {
     imageData.mark();
     short marker = imageData.getShort();
     checkArgument(marker == SOI_MARKER, "SOI marker not found");
+    // The new APP1 segment can be placed at the start if APP0 or APP1 segments are not present.
+    int indexForNewApp1Segment = imageData.position();
     while (imageData.remaining() > SEGMENT_MARKER_LENGTH) {
       marker = imageData.getShort();
-      // Segment length includes the 2 bytes for the length itself, so we need to subtract it to
-      // get the length of the segment data.
-      int segmentLength = imageData.getShort() - SEGMENT_SIZE_LENGTH;
       if (marker == SOS_MARKER || marker == EOI_MARKER) {
         break;
       }
-      if (marker == APP1_MARKER) {
-        lastApp1SegmentEndIndex = imageData.position() + segmentLength;
+      // Segment length includes the 2 bytes for the length itself, so we need to subtract it to
+      // get the length of the segment data.
+      int segmentLength = imageData.getShort() - SEGMENT_SIZE_LENGTH;
+      // The new APP1 segment can be placed after existing APP0 and APP1 segments.
+      if (marker == APP0_MARKER || marker == APP1_MARKER) {
+        indexForNewApp1Segment = imageData.position() + segmentLength;
       }
       // Move to the end of the current segment, to read the next marker.
       imageData.position(imageData.position() + segmentLength);
     }
     imageData.reset();
-    checkState(lastApp1SegmentEndIndex != -1, "Existing APP1 segment not found");
-    return lastApp1SegmentEndIndex;
+    return indexForNewApp1Segment;
   }
 
   private static byte[] generateMotionPhotoXmp(

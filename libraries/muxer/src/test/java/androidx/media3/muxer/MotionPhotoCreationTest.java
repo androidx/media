@@ -24,7 +24,7 @@ import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.FakeExtractorOutput;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
-import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.testing.junit.testparameterinjector.TestParameter;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -32,34 +32,55 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestParameterInjector;
 
-/** Tests for {@link MuxerUtil}. */
-@RunWith(AndroidJUnit4.class)
-public final class MuxerUtilTest {
+/** Tests for {@link MuxerUtil#createMotionPhotoFromJpegImageAndBmffVideo}. */
+@RunWith(RobolectricTestParameterInjector.class)
+public final class MotionPhotoCreationTest {
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
   private static final String IMAGE_ASSET_DIRECTORY = "media/jpeg/";
   private static final String VIDEO_ASSET_DIRECTORY = "media/mp4/";
   private static final String JPEG_IMAGE = "london.jpg";
+  private static final String JPEG_IMAGE_WITHOUT_APP1_SEGMENT = "london_without_app1_segment.jpg";
   private static final String MP4_VIDEO = "sample_no_bframes.mp4";
   private static final String QUICK_TIME_VIDEO = "sample_with_original_quicktime_specification.mov";
 
   private final Context context = ApplicationProvider.getApplicationContext();
 
+  private enum ImageAndVideoEnum {
+    JPEG_IMAGE_AND_MP4_VIDEO(JPEG_IMAGE, MP4_VIDEO, MimeTypes.VIDEO_MP4),
+    JPEG_IMAGE_AND_QUICK_TIME_VIDEO(JPEG_IMAGE, QUICK_TIME_VIDEO, MimeTypes.VIDEO_QUICK_TIME),
+    JPEG_IMAGE_WITHOUT_APP1_SEGMENT_AND_MP4_VIDEO(
+        JPEG_IMAGE_WITHOUT_APP1_SEGMENT, MP4_VIDEO, MimeTypes.VIDEO_MP4);
+
+    private final String imageName;
+    private final String videoName;
+    private final String videoContainerMimeType;
+
+    ImageAndVideoEnum(String imageName, String videoName, String videoContainerMimeType) {
+      this.imageName = imageName;
+      this.videoName = videoName;
+      this.videoContainerMimeType = videoContainerMimeType;
+    }
+  }
+
+  @TestParameter private ImageAndVideoEnum imageAndVideoEnum;
+
   @Test
-  public void createMotionPhoto_withImageAndMp4Video_writesExpectedFile() throws Exception {
+  public void createMotionPhoto_withImageAndVideo_writesExpectedFile() throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
 
     try (FileInputStream imageInputStream =
-            getFileInputStreamFromAssetFile(IMAGE_ASSET_DIRECTORY + JPEG_IMAGE);
+            getFileInputStreamFromAssetFile(IMAGE_ASSET_DIRECTORY + imageAndVideoEnum.imageName);
         FileInputStream videoInputStream =
-            getFileInputStreamFromAssetFile(VIDEO_ASSET_DIRECTORY + MP4_VIDEO);
+            getFileInputStreamFromAssetFile(VIDEO_ASSET_DIRECTORY + imageAndVideoEnum.videoName);
         FileOutputStream outputStream = new FileOutputStream(outputFilePath)) {
       MuxerUtil.createMotionPhotoFromJpegImageAndBmffVideo(
           imageInputStream,
           /* imagePresentationTimestampUs= */ 500_500L,
           videoInputStream,
-          MimeTypes.VIDEO_MP4,
+          imageAndVideoEnum.videoContainerMimeType,
           outputStream.getChannel());
     }
 
@@ -69,47 +90,16 @@ public final class MuxerUtilTest {
         context,
         imageOutput,
         MuxerTestUtil.getExpectedDumpFilePath(
-            getMotionPhotoDumpFileName(JPEG_IMAGE, MP4_VIDEO, "image")));
+            getMotionPhotoDumpFileName(
+                imageAndVideoEnum.imageName, imageAndVideoEnum.videoName, "image")));
     FakeExtractorOutput videoOutput =
         TestUtil.extractAllSamplesFromFilePath(new JpegExtractor(), outputFilePath);
     DumpFileAsserts.assertOutput(
         context,
         videoOutput,
         MuxerTestUtil.getExpectedDumpFilePath(
-            getMotionPhotoDumpFileName(JPEG_IMAGE, MP4_VIDEO, "video")));
-  }
-
-  @Test
-  public void createMotionPhoto_withImageAndQuickTimeVideo_writesExpectedFile() throws Exception {
-    String outputFilePath = temporaryFolder.newFile().getPath();
-
-    try (FileInputStream imageInputStream =
-            getFileInputStreamFromAssetFile(IMAGE_ASSET_DIRECTORY + JPEG_IMAGE);
-        FileInputStream videoInputStream =
-            getFileInputStreamFromAssetFile(VIDEO_ASSET_DIRECTORY + QUICK_TIME_VIDEO);
-        FileOutputStream outputStream = new FileOutputStream(outputFilePath)) {
-      MuxerUtil.createMotionPhotoFromJpegImageAndBmffVideo(
-          imageInputStream,
-          /* imagePresentationTimestampUs= */ 1_250_000L,
-          videoInputStream,
-          MimeTypes.VIDEO_QUICK_TIME,
-          outputStream.getChannel());
-    }
-
-    FakeExtractorOutput imageOutput =
-        TestUtil.extractAllSamplesFromFilePath(new JpegExtractor(FLAG_READ_IMAGE), outputFilePath);
-    DumpFileAsserts.assertOutput(
-        context,
-        imageOutput,
-        MuxerTestUtil.getExpectedDumpFilePath(
-            getMotionPhotoDumpFileName(JPEG_IMAGE, QUICK_TIME_VIDEO, "image")));
-    FakeExtractorOutput videoOutput =
-        TestUtil.extractAllSamplesFromFilePath(new JpegExtractor(), outputFilePath);
-    DumpFileAsserts.assertOutput(
-        context,
-        videoOutput,
-        MuxerTestUtil.getExpectedDumpFilePath(
-            getMotionPhotoDumpFileName(JPEG_IMAGE, QUICK_TIME_VIDEO, "video")));
+            getMotionPhotoDumpFileName(
+                imageAndVideoEnum.imageName, imageAndVideoEnum.videoName, "video")));
   }
 
   private static String getMotionPhotoDumpFileName(
