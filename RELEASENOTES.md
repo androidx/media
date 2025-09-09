@@ -193,8 +193,8 @@
         a shutter.
     *   Create a new `media3-ui-compose-material3` module and add
         Material3-themed Composables (PlayPauseButton, NextButton,
-        PreviousButton, SeekBackButton, SeekForwardButton, RepeatButton, and
-        ShuffleButton) to it.
+        PreviousButton, SeekBackButton, SeekForwardButton, RepeatButton,
+        ShuffleButton, MuteButton) to it.
 *   Downloads:
 *   OkHttp extension:
 *   Cronet extension:

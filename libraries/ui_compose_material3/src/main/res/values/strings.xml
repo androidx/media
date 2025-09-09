@@ -46,4 +46,8 @@
   <string name="shuffle_button_shuffle_on">Shuffle mode enabled.</string>
   <!-- Accessibility description for a button that controls the shuffle mode of media playback. In this mode shuffle is off. If the user clicks the button, shuffle mode will be turned on. [CHAR LIMIT=NONE] -->
   <string name="shuffle_button_shuffle_off">Shuffle mode disabled.</string>
+  <!-- Accessibility description for a mute button in the unmuted state. If a user clicks it, the player's volume will be changed to zero. [CHAR_LIMIT=NONE] -->
+  <string name="mute_button_shown_unmuted">Mute</string>
+  <!-- Accessibility description for a mute button in the muted state. If a user clicks it, the player's volume will be changed to whatever it was previously before muting. [CHAR_LIMIT=NONE] -->
+  <string name="mute_button_shown_muted">Unmute</string>
 </resources>
