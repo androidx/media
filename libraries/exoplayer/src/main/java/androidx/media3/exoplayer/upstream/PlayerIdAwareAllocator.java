@@ -18,14 +18,12 @@ package androidx.media3.exoplayer.upstream;
 import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
 
 import androidx.annotation.RestrictTo;
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.analytics.PlayerId;
 
 /**
  * An {@link Allocator} that is aware of the {@link PlayerId} which it will make allocations for.
  */
 @RestrictTo(LIBRARY_GROUP)
-@UnstableApi
 public interface PlayerIdAwareAllocator extends Allocator {
 
   /** Sets the {@link PlayerId} which the {@link Allocator} will make allocations for. */

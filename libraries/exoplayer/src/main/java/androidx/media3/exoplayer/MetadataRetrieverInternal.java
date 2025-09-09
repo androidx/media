@@ -32,7 +32,6 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.HandlerWrapper;
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.source.MediaPeriod;
 import androidx.media3.exoplayer.source.MediaSource;
@@ -61,7 +60,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  */
 // TODO(b/442827020): Move this class to the androidx.media3.inspector package and make it
 // package-private.
-@UnstableApi
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public final class MetadataRetrieverInternal implements AutoCloseable {
 
