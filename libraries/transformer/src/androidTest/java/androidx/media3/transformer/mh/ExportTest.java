@@ -32,6 +32,7 @@ import static androidx.media3.test.utils.AssetInfo.MP4_TRIM_OPTIMIZATION_PIXEL;
 import static androidx.media3.test.utils.FormatSupportAssumptions.assumeFormatsSupported;
 import static androidx.media3.test.utils.TestSummaryLogger.recordTestSkipped;
 import static androidx.media3.transformer.AndroidTestUtil.FORCE_TRANSCODE_VIDEO_EFFECTS;
+import static androidx.media3.transformer.AndroidTestUtil.mainlineAacEncoderDrainsAllSamplesAtEos;
 import static androidx.media3.transformer.ExportResult.CONVERSION_PROCESS_TRANSMUXED_AND_TRANSCODED;
 import static androidx.media3.transformer.ExportResult.OPTIMIZATION_SUCCEEDED;
 import static com.google.common.base.Preconditions.checkState;
@@ -307,6 +308,8 @@ public class ExportTest {
   @Test
   public void exportSef() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
+    // TODO: b/407690979 - Implement AAC encoder delay instead of skipping tests.
+    assumeFalse(mainlineAacEncoderDrainsAllSamplesAtEos(context));
     if (SDK_INT < 25) {
       // TODO: b/210593256 - Remove test skipping after using an in-app muxer that supports B-frames
       //  before API 25.

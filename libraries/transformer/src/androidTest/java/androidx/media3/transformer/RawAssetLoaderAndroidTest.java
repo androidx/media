@@ -18,7 +18,9 @@ package androidx.media3.transformer;
 import static androidx.media3.test.utils.AssetInfo.PNG_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.createOpenGlObjects;
 import static androidx.media3.transformer.AndroidTestUtil.generateTextureFromBitmap;
+import static androidx.media3.transformer.AndroidTestUtil.mainlineAacEncoderDrainsAllSamplesAtEos;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assume.assumeFalse;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -76,6 +78,8 @@ public class RawAssetLoaderAndroidTest {
 
   @Test
   public void audioTranscoding_withRawAudio_completesWithCorrectDuration() throws Exception {
+    // TODO: b/407690979 - Implement AAC encoder delay instead of skipping tests.
+    assumeFalse(mainlineAacEncoderDrainsAllSamplesAtEos(context));
     SettableFuture<RawAssetLoader> rawAssetLoaderFuture = SettableFuture.create();
     Transformer transformer =
         new Transformer.Builder(context)
@@ -107,6 +111,8 @@ public class RawAssetLoaderAndroidTest {
   @Test
   public void audioTranscoding_withRawAudioAndUnsetDuration_completesWithCorrectDuration()
       throws Exception {
+    // TODO: b/407690979 - Implement AAC encoder delay instead of skipping tests.
+    assumeFalse(mainlineAacEncoderDrainsAllSamplesAtEos(context));
     SettableFuture<RawAssetLoader> rawAssetLoaderFuture = SettableFuture.create();
     Transformer transformer =
         new Transformer.Builder(context)
@@ -225,6 +231,8 @@ public class RawAssetLoaderAndroidTest {
   @Test
   public void audioAndVideoTranscoding_withRawData_completesWithCorrectFrameCountAndDuration()
       throws Exception {
+    // TODO: b/407690979 - Implement AAC encoder delay instead of skipping tests.
+    assumeFalse(mainlineAacEncoderDrainsAllSamplesAtEos(context));
     Bitmap bitmap = new DataSourceBitmapLoader(context).loadBitmap(Uri.parse(PNG_ASSET.uri)).get();
     DefaultVideoFrameProcessor.Factory videoFrameProcessorFactory =
         new DefaultVideoFrameProcessor.Factory.Builder()
