@@ -615,10 +615,12 @@ public final class MediaMuxerContractTest {
     @Immutable
     interface Factory {
       @RequiresApi(26) // MediaMuxer(FileDescriptor fd, int format) added in API 26.
-      MediaMuxerProxy create(FileDescriptor fileDescriptor, @FileFormat int fileFormat)
+      MediaMuxerProxy create(
+          FileDescriptor fileDescriptor, @MediaMuxerCompat.OutputFormat int outputFormat)
           throws IOException;
 
-      MediaMuxerProxy create(String filePath, @FileFormat int fileFormat) throws IOException;
+      MediaMuxerProxy create(String filePath, @MediaMuxerCompat.OutputFormat int outputFormat)
+          throws IOException;
     }
 
     void start();
@@ -642,15 +644,16 @@ public final class MediaMuxerContractTest {
     private static class Factory implements MediaMuxerProxy.Factory {
       @Override
       @RequiresApi(26) // MediaMuxer(FileDescriptor fd, int format) added in API 26.
-      public MediaMuxerProxy create(FileDescriptor fileDescriptor, @FileFormat int fileFormat)
+      public MediaMuxerProxy create(
+          FileDescriptor fileDescriptor, @MediaMuxerCompat.OutputFormat int outputFormat)
           throws IOException {
-        return new FrameworkMediaMuxerProxy(fileDescriptor, fileFormat);
+        return new FrameworkMediaMuxerProxy(fileDescriptor, outputFormat);
       }
 
       @Override
-      public MediaMuxerProxy create(String filePath, @FileFormat int fileFormat)
-          throws IOException {
-        return new FrameworkMediaMuxerProxy(filePath, fileFormat);
+      public MediaMuxerProxy create(
+          String filePath, @MediaMuxerCompat.OutputFormat int outputFormat) throws IOException {
+        return new FrameworkMediaMuxerProxy(filePath, outputFormat);
       }
     }
 
@@ -708,27 +711,30 @@ public final class MediaMuxerContractTest {
     @Immutable
     private static class Factory implements MediaMuxerProxy.Factory {
       @Override
-      public MediaMuxerProxy create(FileDescriptor fileDescriptor, @FileFormat int fileFormat)
+      public MediaMuxerProxy create(
+          FileDescriptor fileDescriptor, @MediaMuxerCompat.OutputFormat int outputFormat)
           throws IOException {
-        return new CompatMediaMuxerProxy(fileDescriptor, fileFormat);
+        return new CompatMediaMuxerProxy(fileDescriptor, outputFormat);
       }
 
       @Override
-      public MediaMuxerProxy create(String filePath, @FileFormat int fileFormat)
-          throws IOException {
-        return new CompatMediaMuxerProxy(filePath, fileFormat);
+      public MediaMuxerProxy create(
+          String filePath, @MediaMuxerCompat.OutputFormat int outputFormat) throws IOException {
+        return new CompatMediaMuxerProxy(filePath, outputFormat);
       }
     }
 
     private final MediaMuxerCompat mediaMuxerCompat;
 
-    public CompatMediaMuxerProxy(FileDescriptor fileDescriptor, @FileFormat int fileFormat)
+    public CompatMediaMuxerProxy(
+        FileDescriptor fileDescriptor, @MediaMuxerCompat.OutputFormat int outputFormat)
         throws IOException {
-      mediaMuxerCompat = new MediaMuxerCompat(fileDescriptor, fileFormat);
+      mediaMuxerCompat = new MediaMuxerCompat(fileDescriptor, outputFormat);
     }
 
-    public CompatMediaMuxerProxy(String filePath, @FileFormat int fileFormat) throws IOException {
-      mediaMuxerCompat = new MediaMuxerCompat(filePath, fileFormat);
+    public CompatMediaMuxerProxy(String filePath, @MediaMuxerCompat.OutputFormat int outputFormat)
+        throws IOException {
+      mediaMuxerCompat = new MediaMuxerCompat(filePath, outputFormat);
     }
 
     @Override

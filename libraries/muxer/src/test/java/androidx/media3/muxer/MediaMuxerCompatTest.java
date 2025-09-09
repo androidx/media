@@ -17,7 +17,7 @@ package androidx.media3.muxer;
 
 import static android.media.MediaFormat.KEY_CAPTURE_RATE;
 import static android.media.MediaFormat.KEY_MIME;
-import static androidx.media3.muxer.FileFormat.FILE_FORMAT_MP4;
+import static androidx.media3.muxer.MediaMuxerCompat.OUTPUT_FORMAT_MP4;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
@@ -62,7 +62,7 @@ public final class MediaMuxerCompatTest {
     String outputFilePath = tempFolder.newFile().getAbsolutePath();
     float captureFps = 60.0f;
 
-    MediaMuxerCompat mediaMuxerCompat = new MediaMuxerCompat(outputFilePath, FILE_FORMAT_MP4);
+    MediaMuxerCompat mediaMuxerCompat = new MediaMuxerCompat(outputFilePath, OUTPUT_FORMAT_MP4);
     try {
       feedDataToMuxer(
           context, mediaMuxerCompat, MP4_ASSET_WITH_INCREASING_TIMESTAMPS.uri, captureFps);

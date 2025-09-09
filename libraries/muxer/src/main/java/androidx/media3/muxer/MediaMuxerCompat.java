@@ -15,10 +15,10 @@
  */
 package androidx.media3.muxer;
 
-import static androidx.media3.muxer.FileFormat.FILE_FORMAT_MP4;
 import static androidx.media3.muxer.MuxerUtil.getMuxerBufferInfoFromMediaCodecBufferInfo;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.media.MediaCodec;
 import android.media.MediaFormat;
@@ -26,6 +26,7 @@ import android.media.MediaMuxer;
 import android.system.ErrnoException;
 import android.system.Os;
 import androidx.annotation.FloatRange;
+import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.MediaFormatUtil;
@@ -37,6 +38,10 @@ import androidx.media3.container.Mp4OrientationData;
 import java.io.FileDescriptor;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.lang.annotation.Documented;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 import java.nio.ByteBuffer;
 
 /**
@@ -76,6 +81,17 @@ import java.nio.ByteBuffer;
  */
 @UnstableApi
 public class MediaMuxerCompat {
+  /** The output file format. */
+  @Documented
+  @Retention(RetentionPolicy.SOURCE)
+  @Target(TYPE_USE)
+  @IntDef({OUTPUT_FORMAT_MP4})
+  @UnstableApi
+  public @interface OutputFormat {}
+
+  /** The MP4 file format. */
+  public static final int OUTPUT_FORMAT_MP4 = MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4;
+
   @Nullable private final FileDescriptor fileDescriptor;
   private final Muxer muxer;
 
@@ -90,29 +106,29 @@ public class MediaMuxerCompat {
    *
    * @param fileDescriptor A {@link FileDescriptor} for the output media file. It must represent a
    *     local file that is open in read-write mode.
-   * @param fileFormat The {@link FileFormat} of the output media file.
+   * @param outputFormat The {@link OutputFormat}.
    * @throws IOException If an error occurs while performing an I/O operation.
    */
-  public MediaMuxerCompat(FileDescriptor fileDescriptor, @FileFormat int fileFormat)
+  public MediaMuxerCompat(FileDescriptor fileDescriptor, @OutputFormat int outputFormat)
       throws IOException {
     try {
       this.fileDescriptor = Os.dup(fileDescriptor);
     } catch (ErrnoException e) {
       throw new IOException("Failed to create a copy of FileDescriptor", e);
     }
-    muxer = createMuxer(new FileOutputStream(this.fileDescriptor), fileFormat);
+    muxer = createMuxer(new FileOutputStream(this.fileDescriptor), outputFormat);
   }
 
   /**
    * Creates an instance.
    *
    * @param filePath The path of the output media file.
-   * @param fileFormat The {@link FileFormat} of the output media file.
+   * @param outputFormat The {@link OutputFormat}.
    * @throws IOException If an error occurs while performing an I/O operation.
    */
-  public MediaMuxerCompat(String filePath, @FileFormat int fileFormat) throws IOException {
+  public MediaMuxerCompat(String filePath, @OutputFormat int outputFormat) throws IOException {
     fileDescriptor = null;
-    muxer = createMuxer(new FileOutputStream(filePath), fileFormat);
+    muxer = createMuxer(new FileOutputStream(filePath), outputFormat);
   }
 
   /**
@@ -256,8 +272,9 @@ public class MediaMuxerCompat {
     }
   }
 
-  private static Muxer createMuxer(FileOutputStream fileOutputStream, @FileFormat int fileFormat) {
-    checkArgument(fileFormat == FILE_FORMAT_MP4);
+  private static Muxer createMuxer(
+      FileOutputStream fileOutputStream, @OutputFormat int outputFormat) {
+    checkArgument(outputFormat == OUTPUT_FORMAT_MP4);
     return new Mp4Muxer.Builder(SeekableMuxerOutput.of(fileOutputStream)).build();
   }
 }
