@@ -364,10 +364,13 @@ public final class TransformerSequenceEffectTest {
     if (Ascii.equalsIgnoreCase(Build.MODEL, "mi a2 lite")
         || Ascii.equalsIgnoreCase(Build.MODEL, "redmi 8")
         || Ascii.equalsIgnoreCase(Build.MODEL, "sm-f711u1")
+        || Ascii.equalsIgnoreCase(Build.MODEL, "sm-t870")
         || Ascii.equalsIgnoreCase(Build.MODEL, "sm-f916u1")
         || Ascii.equalsIgnoreCase(Build.MODEL, "sm-f926u1")
         || Ascii.equalsIgnoreCase(Build.MODEL, "sm-g981u1")
-        || Ascii.equalsIgnoreCase(Build.MODEL, "tb-q706")) {
+        || Ascii.equalsIgnoreCase(Build.MODEL, "tb-q706")
+        || Ascii.equalsIgnoreCase(Build.MODEL, "moto g04")
+        || Ascii.equalsIgnoreCase(Build.MODEL, "moto e13")) {
       // And some devices need a lower bitrate because VideoDecodingWrapper fails to decode high
       // bitrate output, or FrameworkMuxer fails to mux.
       bitrate = 10_000_000;
