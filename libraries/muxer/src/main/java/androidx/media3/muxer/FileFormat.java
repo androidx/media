@@ -19,6 +19,7 @@ import static androidx.media3.muxer.FileFormat.FILE_FORMAT_MP4;
 import static androidx.media3.muxer.FileFormat.FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
+import android.media.MediaMuxer;
 import androidx.annotation.IntDef;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -36,7 +37,7 @@ import java.lang.annotation.Target;
 @UnstableApi
 public @interface FileFormat {
   /** The MP4 file format. */
-  int FILE_FORMAT_MP4 = 0;
+  int FILE_FORMAT_MP4 = MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4;
 
   /**
    * The MP4 With Auxiliary Tracks Extension (MP4-AT) file format. In this file format all the
@@ -47,5 +48,5 @@ public @interface FileFormat {
    *
    * <p>See the file format at https://developer.android.com/media/platform/mp4-at-file-format.
    */
-  int FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION = 1;
+  int FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION = 1000;
 }
