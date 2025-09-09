@@ -1931,8 +1931,8 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     }
 
     clearSurfacesAndCallbacks();
-    /* surface= */ dispatchRemoteSessionTaskWithPlayerCommandAndWaitForFuture(
-        (iSession, seq) -> iSession.setVideoSurface(controllerStub, seq, null));
+    dispatchRemoteSessionTaskWithPlayerCommandAndWaitForFuture(
+        (iSession, seq) -> iSession.setVideoSurface(controllerStub, seq, /* surface= */ null));
     maybeNotifySurfaceSizeChanged(/* width= */ 0, /* height= */ 0);
   }
 
@@ -1989,8 +1989,8 @@ import org.checkerframework.checker.nullness.qual.NonNull;
       maybeNotifySurfaceSizeChanged(surfaceSize.width(), surfaceSize.height());
     } else {
       videoSurface = null;
-      /* surface= */ dispatchRemoteSessionTaskWithPlayerCommandAndWaitForFuture(
-          (iSession, seq) -> iSession.setVideoSurface(controllerStub, seq, null));
+      dispatchRemoteSessionTaskWithPlayerCommandAndWaitForFuture(
+          (iSession, seq) -> iSession.setVideoSurface(controllerStub, seq, /* surface= */ null));
       maybeNotifySurfaceSizeChanged(/* width= */ 0, /* height= */ 0);
     }
   }
@@ -2048,8 +2048,8 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 
     @Nullable SurfaceTexture surfaceTexture = textureView.getSurfaceTexture();
     if (surfaceTexture == null) {
-      /* surface= */ dispatchRemoteSessionTaskWithPlayerCommandAndWaitForFuture(
-          (iSession, seq) -> iSession.setVideoSurface(controllerStub, seq, null));
+      dispatchRemoteSessionTaskWithPlayerCommandAndWaitForFuture(
+          (iSession, seq) -> iSession.setVideoSurface(controllerStub, seq, /* surface= */ null));
       maybeNotifySurfaceSizeChanged(/* width= */ 0, /* height= */ 0);
     } else {
       videoSurface = new Surface(surfaceTexture);
@@ -3687,8 +3687,8 @@ import org.checkerframework.checker.nullness.qual.NonNull;
         return;
       }
       videoSurface = null;
-      /* surface= */ dispatchRemoteSessionTaskWithPlayerCommandAndWaitForFuture(
-          (iSession, seq) -> iSession.setVideoSurface(controllerStub, seq, null));
+      dispatchRemoteSessionTaskWithPlayerCommandAndWaitForFuture(
+          (iSession, seq) -> iSession.setVideoSurface(controllerStub, seq, /* surface= */ null));
       maybeNotifySurfaceSizeChanged(/* width= */ 0, /* height= */ 0);
     }
 
@@ -3719,8 +3719,8 @@ import org.checkerframework.checker.nullness.qual.NonNull;
         return true;
       }
       videoSurface = null;
-      /* surface= */ dispatchRemoteSessionTaskWithPlayerCommandAndWaitForFuture(
-          (iSession, seq) -> iSession.setVideoSurface(controllerStub, seq, null));
+      dispatchRemoteSessionTaskWithPlayerCommandAndWaitForFuture(
+          (iSession, seq) -> iSession.setVideoSurface(controllerStub, seq, /* surface= */ null));
       maybeNotifySurfaceSizeChanged(/* width= */ 0, /* height= */ 0);
       return true;
     }
