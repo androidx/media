@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package androidx.media3.ui.compose.material3.buttons
+package androidx.media3.ui.compose.material3.button
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier

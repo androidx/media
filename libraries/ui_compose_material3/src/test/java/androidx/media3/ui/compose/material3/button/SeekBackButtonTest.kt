@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package androidx.media3.ui.compose.material3.buttons
+package androidx.media3.ui.compose.material3.button
 
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -23,7 +23,7 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
-import androidx.media3.common.Player.COMMAND_SEEK_TO_NEXT
+import androidx.media3.common.Player.COMMAND_SEEK_BACK
 import androidx.media3.common.SimpleBasePlayer.MediaItemData
 import androidx.media3.test.utils.TestSimpleBasePlayer
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -32,47 +32,45 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** Unit test for [NextButton]. */
+/** Unit test for [SeekBackButton]. */
 @RunWith(AndroidJUnit4::class)
-class NextButtonTest {
+class SeekBackButtonTest {
 
   @get:Rule val composeRule = createComposeRule()
 
   @Test
-  fun onClick_callsNext() {
+  fun onClick_callsSeekBack() {
     val player =
       TestSimpleBasePlayer(
         playlist =
           listOf(
-            MediaItemData.Builder("First").setDurationUs(1_000_000L).build(),
-            MediaItemData.Builder("Second").setDurationUs(2_000_000L).build(),
+            MediaItemData.Builder("SingleItem")
+              .setDurationUs(10_000_000)
+              .setIsSeekable(true)
+              .build()
           )
       )
-    composeRule.setContent { NextButton(player, Modifier.testTag("nextButton")) }
+    player.setPosition(5_000)
+    player.setSeekBackIncrementMs(1_000)
+    composeRule.setContent { SeekBackButton(player, Modifier.testTag("seekBackButton")) }
 
-    composeRule.onNodeWithTag("nextButton").performClick()
+    composeRule.onNodeWithTag("seekBackButton").performClick()
 
-    assertThat(player.currentMediaItemIndex).isEqualTo(1)
+    assertThat(player.currentPosition).isEqualTo(4_000)
   }
 
   @Test
   fun onClick_commandNotAvailable_buttonDisabledClickNotPerformed() {
-    val player =
-      TestSimpleBasePlayer(
-        playlist =
-          listOf(
-            MediaItemData.Builder("First").setDurationUs(1_000_000L).build(),
-            MediaItemData.Builder("Second").setDurationUs(2_000_000L).build(),
-          )
-      )
-    player.removeCommands(COMMAND_SEEK_TO_NEXT)
+    val player = TestSimpleBasePlayer()
+    player.setPosition(5_000)
+    player.removeCommands(COMMAND_SEEK_BACK)
 
-    composeRule.setContent { NextButton(player, Modifier.testTag("nextButton")) }
+    composeRule.setContent { SeekBackButton(player, Modifier.testTag("seekBackButton")) }
 
-    composeRule.onNodeWithTag("nextButton").performClick()
+    composeRule.onNodeWithTag("seekBackButton").performClick()
 
-    composeRule.onNodeWithTag("nextButton").assertIsNotEnabled()
-    assertThat(player.currentMediaItemIndex).isEqualTo(0)
+    composeRule.onNodeWithTag("seekBackButton").assertIsNotEnabled()
+    assertThat(player.currentPosition).isEqualTo(5_000)
   }
 
   @Test
@@ -80,10 +78,10 @@ class NextButtonTest {
     val player = TestSimpleBasePlayer()
 
     composeRule.setContent {
-      NextButton(player, Modifier.testTag("nextButton"), contentDescription = { "Go next" })
+      SeekBackButton(player, Modifier.testTag("seekBackButton"), contentDescription = { "Go Back" })
     }
 
-    composeRule.onNodeWithTag("nextButton").assertContentDescriptionEquals("Go next")
+    composeRule.onNodeWithTag("seekBackButton").assertContentDescriptionEquals("Go Back")
   }
 
   @Test
@@ -92,15 +90,17 @@ class NextButtonTest {
       TestSimpleBasePlayer(
         playlist =
           listOf(
-            MediaItemData.Builder("First").setDurationUs(1_000_000L).build(),
-            MediaItemData.Builder("Second").setDurationUs(2_000_000L).build(),
+            MediaItemData.Builder("SingleItem")
+              .setDurationUs(10_000_000)
+              .setIsSeekable(true)
+              .build()
           )
       )
     var onClickCalled = false
     composeRule.setContent {
-      NextButton(
+      SeekBackButton(
         player,
-        Modifier.testTag("nextButton"),
+        Modifier.testTag("seekBackButton"),
         onClick = {
           this.onClick()
           onClickCalled = true
@@ -108,7 +108,7 @@ class NextButtonTest {
       )
     }
 
-    composeRule.onNodeWithTag("nextButton").performClick()
+    composeRule.onNodeWithTag("seekBackButton").performClick()
 
     assertThat(onClickCalled).isTrue()
   }

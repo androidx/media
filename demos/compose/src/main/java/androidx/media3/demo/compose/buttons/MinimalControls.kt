@@ -27,11 +27,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.Player
-import androidx.media3.ui.compose.material3.buttons.NextButton
-import androidx.media3.ui.compose.material3.buttons.PlayPauseButton
-import androidx.media3.ui.compose.material3.buttons.PreviousButton
-import androidx.media3.ui.compose.material3.buttons.SeekBackButton
-import androidx.media3.ui.compose.material3.buttons.SeekForwardButton
+import androidx.media3.ui.compose.material3.button.NextButton
+import androidx.media3.ui.compose.material3.button.PlayPauseButton
+import androidx.media3.ui.compose.material3.button.PreviousButton
+import androidx.media3.ui.compose.material3.button.SeekBackButton
+import androidx.media3.ui.compose.material3.button.SeekForwardButton
 
 /**
  * Minimal playback controls for a [Player].
