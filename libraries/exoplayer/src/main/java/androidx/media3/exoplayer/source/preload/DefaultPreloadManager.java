@@ -43,7 +43,6 @@ import androidx.media3.exoplayer.LoadControl;
 import androidx.media3.exoplayer.PlaybackLooperProvider;
 import androidx.media3.exoplayer.RendererCapabilitiesList;
 import androidx.media3.exoplayer.RenderersFactory;
-import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.SampleQueue;
@@ -499,7 +498,7 @@ public final class DefaultPreloadManager
             trackSelector,
             bandwidthMeter,
             rendererCapabilitiesList.getRendererCapabilities(),
-            builder.loadControlSupplier.get().getAllocator(PlayerId.UNSET),
+            builder.loadControlSupplier.get(),
             preloadLooper);
     @Nullable Cache cache = builder.cache;
     if (cache != null) {

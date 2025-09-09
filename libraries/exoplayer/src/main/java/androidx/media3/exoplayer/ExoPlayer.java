@@ -1199,19 +1199,24 @@ public interface ExoPlayer extends Player {
     }
 
     /**
-     * Sets the player name that is included in the {@link PlayerId} for informational purpose to
-     * recognize the player by its {@link PlayerId}.
+     * Sets the player name that is included in the {@link PlayerId} to recognize the player by its
+     * {@link PlayerId}.
+     *
+     * <p>This must not be equal to the {@code name} of {@link PlayerId#PRELOAD} ("preload").
      *
      * <p>The default is an empty string.
      *
      * @param playerName A name for the player in the {@link PlayerId}.
      * @return This builder.
      * @throws IllegalStateException If {@link #build()} has already been called.
+     * @throws IllegalArgumentException If the passed {@code playerName} is equal to the {@code
+     *     name} of {@link PlayerId#PRELOAD} ("preload").
      */
     @CanIgnoreReturnValue
     @UnstableApi
     public Builder setName(String playerName) {
       checkState(!buildCalled);
+      checkArgument(!playerName.equals(PlayerId.PRELOAD.name));
       this.playerName = playerName;
       return this;
     }

@@ -682,8 +682,11 @@ public class DefaultLoadControl implements LoadControl {
         "Players that share the same LoadControl must share the same playback thread. See"
             + " ExoPlayer.Builder.setPlaybackLooper(Looper).");
     threadId = currentThreadId;
-    if (!loadingStates.containsKey(playerId)) {
+    @Nullable PlayerLoadingState playerLoadingState = loadingStates.get(playerId);
+    if (playerLoadingState == null) {
       loadingStates.put(playerId, new PlayerLoadingState());
+    } else {
+      playerLoadingState.referenceCount++;
     }
     resetPlayerLoadingState(playerId);
   }
@@ -731,11 +734,14 @@ public class DefaultLoadControl implements LoadControl {
 
   @Override
   public boolean shouldContinueLoading(Parameters parameters) {
-    PlayerLoadingState playerLoadingState = checkNotNull(loadingStates.get(parameters.playerId));
-    boolean isLocalPlayback = isLocalPlayback(parameters);
+    PlayerId playerId = parameters.playerId;
+    PlayerLoadingState playerLoadingState = checkNotNull(loadingStates.get(playerId));
     boolean targetBufferSizeReached =
-        getTotalBufferBytesAllocated(parameters.playerId)
-            >= getTargetBufferBytes(parameters.playerId);
+        getTotalBufferBytesAllocated(playerId) >= getTargetBufferBytes(playerId);
+    if (playerId.equals(PlayerId.PRELOAD)) {
+      return !targetBufferSizeReached;
+    }
+    boolean isLocalPlayback = isLocalPlayback(parameters);
     long minBufferUs = getMinBufferUs(isLocalPlayback);
     long maxBufferUs = getMaxBufferUs(isLocalPlayback);
     if (parameters.playbackSpeed > 1) {
@@ -857,8 +863,13 @@ public class DefaultLoadControl implements LoadControl {
   }
 
   private void removePlayer(PlayerId playerId) {
-    if (loadingStates.remove(playerId) != null) {
-      updateAllocator();
+    @Nullable PlayerLoadingState playerLoadingState = loadingStates.get(playerId);
+    if (playerLoadingState != null) {
+      playerLoadingState.referenceCount--;
+      if (playerLoadingState.referenceCount == 0) {
+        loadingStates.remove(playerId);
+        updateAllocator();
+      }
     }
   }
 
@@ -946,11 +957,16 @@ public class DefaultLoadControl implements LoadControl {
   }
 
   private static class PlayerLoadingState {
+    public int referenceCount;
     public boolean isLoading;
     public int targetBufferBytes;
 
     @GuardedBy("this")
     private int allocatedCounts;
+
+    public PlayerLoadingState() {
+      referenceCount = 1;
+    }
 
     public synchronized void increaseAllocatedCounts() {
       allocatedCounts++;

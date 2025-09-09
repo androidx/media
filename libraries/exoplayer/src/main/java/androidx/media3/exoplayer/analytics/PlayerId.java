@@ -36,6 +36,12 @@ public final class PlayerId {
   public static final PlayerId UNSET = new PlayerId(/* playerName= */ "");
 
   /**
+   * A player identifier that is used when we preload media outside of a player but have to pass a
+   * {@link PlayerId} to the components requiring one.
+   */
+  public static final PlayerId PRELOAD = new PlayerId("preload");
+
+  /**
    * A name to identify the player. Use {@link Builder#setName(String)} to set the name, otherwise
    * an empty string is used as the default.
    */

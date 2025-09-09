@@ -18,10 +18,12 @@ package androidx.media3.exoplayer.source.preload;
 import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLooperUntil;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
+import static org.mockito.AdditionalAnswers.delegatesTo;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -42,6 +44,8 @@ import androidx.media3.common.util.SystemClock;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DefaultDataSource;
 import androidx.media3.datasource.TransferListener;
+import androidx.media3.exoplayer.DefaultLoadControl;
+import androidx.media3.exoplayer.LoadControl;
 import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.RendererCapabilities;
 import androidx.media3.exoplayer.RendererConfiguration;
@@ -64,7 +68,6 @@ import androidx.media3.exoplayer.trackselection.TrackSelector;
 import androidx.media3.exoplayer.trackselection.TrackSelectorResult;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.BandwidthMeter;
-import androidx.media3.exoplayer.upstream.DefaultAllocator;
 import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
@@ -94,15 +97,24 @@ public final class PreloadMediaSourceTest {
 
   private static final int LOADING_CHECK_INTERVAL_BYTES = 32;
   private static final int TARGET_PRELOAD_DURATION_US = 10000;
+  private static final int LARGE_TARGET_BUFFER_BYTES_FOR_PRELOAD = Integer.MAX_VALUE;
+  private static final int SMALL_TARGET_BUFFER_BYTES_FOR_PRELOAD = 1024;
 
-  private Allocator allocator;
+  private LoadControl loadControl;
   private BandwidthMeter bandwidthMeter;
   private RenderersFactory renderersFactory;
   private MediaItem mediaItem;
 
   @Before
   public void setUp() {
-    allocator = new DefaultAllocator(/* trimOnReset= */ true, C.DEFAULT_BUFFER_SEGMENT_SIZE);
+    loadControl =
+        mock(
+            LoadControl.class,
+            delegatesTo(
+                new DefaultLoadControl.Builder()
+                    .setPlayerTargetBufferBytes(
+                        PlayerId.PRELOAD.name, LARGE_TARGET_BUFFER_BYTES_FOR_PRELOAD)
+                    .build()));
     bandwidthMeter =
         new DefaultBandwidthMeter.Builder(ApplicationProvider.getApplicationContext()).build();
     renderersFactory =
@@ -151,17 +163,19 @@ public final class PreloadMediaSourceTest {
             trackSelector,
             bandwidthMeter,
             getRendererCapabilities(renderersFactory),
-            allocator,
+            loadControl,
             Util.getCurrentOrMainLooper());
     PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
 
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
     runMainLooperUntil(() -> preloadMediaSourceReference.get() != null);
 
+    verify(loadControl).onPrepared(PlayerId.PRELOAD);
     assertThat(preloadControl.onSourcePreparedCalledCount).isEqualTo(1);
     assertThat(preloadControl.onTrackSelectedCalled).isTrue();
     assertThat(preloadControl.onContinueLoadingRequestedCalled).isTrue();
     assertThat(preloadControl.onUsedByPlayerCalled).isFalse();
+    assertThat(preloadControl.onLoadingUnableToContinueCalledCount).isEqualTo(0);
     assertThat(preloadControl.onPreloadErrorCalled).isFalse();
     assertThat(preloadMediaSourceReference.get()).isSameInstanceAs(preloadMediaSource);
   }
@@ -192,13 +206,14 @@ public final class PreloadMediaSourceTest {
             trackSelector,
             bandwidthMeter,
             getRendererCapabilities(renderersFactory),
-            allocator,
+            loadControl,
             Util.getCurrentOrMainLooper());
     PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
 
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
     runMainLooperUntil(() -> preloadMediaSourceReference.get() != null);
 
+    verify(loadControl).onPrepared(PlayerId.PRELOAD);
     assertThat(preloadControl.onSourcePreparedCalledCount).isEqualTo(1);
     assertThat(preloadControl.onTrackSelectedCalled).isTrue();
     assertThat(preloadMediaSourceReference.get()).isSameInstanceAs(preloadMediaSource);
@@ -232,13 +247,14 @@ public final class PreloadMediaSourceTest {
             trackSelector,
             bandwidthMeter,
             getRendererCapabilities(renderersFactory),
-            allocator,
+            loadControl,
             Util.getCurrentOrMainLooper());
     PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
 
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
     shadowOf(Looper.getMainLooper()).idle();
 
+    verify(loadControl).onPrepared(PlayerId.PRELOAD);
     assertThat(preloadMediaSourceReference.get()).isSameInstanceAs(preloadMediaSource);
     assertThat(preloadControl.onSourcePreparedCalledCount).isEqualTo(1);
     assertThat(preloadControl.onTrackSelectedCalled).isFalse();
@@ -259,7 +275,7 @@ public final class PreloadMediaSourceTest {
             trackSelector,
             bandwidthMeter,
             getRendererCapabilities(renderersFactory),
-            allocator,
+            loadControl,
             Util.getCurrentOrMainLooper());
     PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
 
@@ -272,6 +288,7 @@ public final class PreloadMediaSourceTest {
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
     shadowOf(Looper.getMainLooper()).idle();
 
+    verify(loadControl, never()).onPrepared(PlayerId.PRELOAD);
     assertThat(externalCallerMediaSourceReference.get()).isSameInstanceAs(preloadMediaSource);
     assertThat(preloadControl.onSourcePreparedCalledCount).isEqualTo(0);
     assertThat(preloadControl.onTrackSelectedCalled).isFalse();
@@ -286,7 +303,6 @@ public final class PreloadMediaSourceTest {
           @Override
           public void onLoadedToTheEndOfSource(PreloadMediaSource mediaSource) {
             super.onLoadedToTheEndOfSource(mediaSource);
-            onLoadedToTheEndOfSourceCalled = true;
             preloadMediaSourceReference.set(mediaSource);
           }
         };
@@ -304,7 +320,7 @@ public final class PreloadMediaSourceTest {
             trackSelector,
             bandwidthMeter,
             getRendererCapabilities(renderersFactory),
-            allocator,
+            loadControl,
             Util.getCurrentOrMainLooper());
     PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
 
@@ -321,6 +337,53 @@ public final class PreloadMediaSourceTest {
     assertThat(preloadControl.onContinueLoadingRequestedCalled).isTrue();
     assertThat(preloadControl.onLoadedToTheEndOfSourceCalled).isTrue();
     assertThat(preloadControl.onUsedByPlayerCalled).isFalse();
+    assertThat(preloadControl.onLoadingUnableToContinueCalledCount).isEqualTo(0);
+  }
+
+  @Test
+  public void preload_withSmallTargetBufferBytesThreshold_onLoadingUnableToContinueCalled() {
+    TestPreloadControl preloadControl = new TestPreloadControl();
+    ProgressiveMediaSource.Factory mediaSourceFactory =
+        new ProgressiveMediaSource.Factory(
+            new DefaultDataSource.Factory(ApplicationProvider.getApplicationContext()));
+    mediaSourceFactory.setContinueLoadingCheckIntervalBytes(LOADING_CHECK_INTERVAL_BYTES);
+    TrackSelector trackSelector =
+        new DefaultTrackSelector(ApplicationProvider.getApplicationContext());
+    trackSelector.init(() -> {}, bandwidthMeter);
+    LoadControl loadControl =
+        mock(
+            LoadControl.class,
+            delegatesTo(
+                new DefaultLoadControl.Builder()
+                    .setPlayerTargetBufferBytes(
+                        PlayerId.PRELOAD.name, SMALL_TARGET_BUFFER_BYTES_FOR_PRELOAD)
+                    .build()));
+    PreloadMediaSource.Factory preloadMediaSourceFactory =
+        new PreloadMediaSource.Factory(
+            mediaSourceFactory,
+            preloadControl,
+            trackSelector,
+            bandwidthMeter,
+            getRendererCapabilities(renderersFactory),
+            loadControl,
+            Util.getCurrentOrMainLooper());
+    PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
+
+    preloadMediaSource.preload(/* startPositionUs= */ 0L);
+
+    assertThrows(
+        TimeoutException.class,
+        () -> runMainLooperUntil(() -> preloadControl.onLoadedToTheEndOfSourceCalled));
+    assertThat(preloadControl.onSourcePreparedCalledCount).isEqualTo(1);
+    assertThat(preloadControl.onTrackSelectedCalled).isTrue();
+    // In fact, PreloadControl.onContinueLoadingRequested is not necessarily to be called if the
+    // LOADING_CHECK_INTERVAL_BYTES set for the ProgressiveMediaSource.Factory is large
+    // enough to have the media load to the end in one round. However, since we explicitly
+    // set with a small value below, we will still expect this method to be called for at
+    // least once.
+    assertThat(preloadControl.onContinueLoadingRequestedCalled).isTrue();
+    assertThat(preloadControl.onUsedByPlayerCalled).isFalse();
+    assertThat(preloadControl.onLoadingUnableToContinueCalledCount).isEqualTo(1);
   }
 
   @Test
@@ -373,7 +436,7 @@ public final class PreloadMediaSourceTest {
             trackSelector,
             bandwidthMeter,
             getRendererCapabilities(renderersFactory),
-            allocator,
+            loadControl,
             Util.getCurrentOrMainLooper());
     PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
 
@@ -453,7 +516,7 @@ public final class PreloadMediaSourceTest {
             trackSelector,
             bandwidthMeter,
             getRendererCapabilities(renderersFactory),
-            allocator,
+            loadControl,
             Util.getCurrentOrMainLooper());
     PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
 
@@ -560,7 +623,7 @@ public final class PreloadMediaSourceTest {
             trackSelector,
             bandwidthMeter,
             getRendererCapabilities(renderersFactory),
-            allocator,
+            loadControl,
             Util.getCurrentOrMainLooper());
     PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
 
@@ -587,7 +650,7 @@ public final class PreloadMediaSourceTest {
             trackSelector,
             bandwidthMeter,
             getRendererCapabilities(renderersFactory),
-            allocator,
+            loadControl,
             preloadThread.getLooper());
     PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
 
@@ -613,7 +676,7 @@ public final class PreloadMediaSourceTest {
             trackSelector,
             bandwidthMeter,
             getRendererCapabilities(renderersFactory),
-            allocator,
+            loadControl,
             preloadThread.getLooper());
     PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
     preloadMediaSource.preload(/* startPositionUs= */ C.TIME_UNSET);
@@ -642,7 +705,7 @@ public final class PreloadMediaSourceTest {
             trackSelector,
             bandwidthMeter,
             getRendererCapabilities(renderersFactory),
-            allocator,
+            loadControl,
             Util.getCurrentOrMainLooper());
     PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
     FakeMediaSource wrappedMediaSource = mediaSourceFactory.getLastCreatedSource();
@@ -676,7 +739,7 @@ public final class PreloadMediaSourceTest {
             trackSelector,
             bandwidthMeter,
             getRendererCapabilities(renderersFactory),
-            allocator,
+            loadControl,
             Util.getCurrentOrMainLooper());
     PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
 
@@ -746,7 +809,7 @@ public final class PreloadMediaSourceTest {
             mockTrackSelector,
             bandwidthMeter,
             getRendererCapabilities(renderersFactory),
-            allocator,
+            loadControl,
             Util.getCurrentOrMainLooper());
     PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
 
@@ -766,7 +829,8 @@ public final class PreloadMediaSourceTest {
                 /* windowIndex= */ 0,
                 /* windowPositionUs= */ 0L);
     MediaSource.MediaPeriodId mediaPeriodId = new MediaSource.MediaPeriodId(periodPosition.first);
-    preloadMediaSource.createPeriod(mediaPeriodId, allocator, periodPosition.second);
+    preloadMediaSource.createPeriod(
+        mediaPeriodId, loadControl.getAllocator(PlayerId.UNSET), periodPosition.second);
 
     verify(internalSourceReference.get()).createPeriod(any(), any(), anyLong());
   }
@@ -823,7 +887,7 @@ public final class PreloadMediaSourceTest {
             mockTrackSelector,
             bandwidthMeter,
             getRendererCapabilities(renderersFactory),
-            allocator,
+            loadControl,
             Util.getCurrentOrMainLooper());
     PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
 
@@ -844,7 +908,8 @@ public final class PreloadMediaSourceTest {
                 /* windowIndex= */ 0,
                 /* windowPositionUs= */ 1L);
     MediaSource.MediaPeriodId mediaPeriodId = new MediaSource.MediaPeriodId(periodPosition.first);
-    preloadMediaSource.createPeriod(mediaPeriodId, allocator, periodPosition.second);
+    preloadMediaSource.createPeriod(
+        mediaPeriodId, loadControl.getAllocator(PlayerId.UNSET), periodPosition.second);
 
     verify(internalSourceReference.get(), times(2)).createPeriod(any(), any(), anyLong());
   }
@@ -887,7 +952,7 @@ public final class PreloadMediaSourceTest {
             trackSelector,
             bandwidthMeter,
             getRendererCapabilities(renderersFactory),
-            allocator,
+            loadControl,
             Util.getCurrentOrMainLooper());
     PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
@@ -930,7 +995,7 @@ public final class PreloadMediaSourceTest {
             trackSelector,
             bandwidthMeter,
             getRendererCapabilities(renderersFactory),
-            allocator,
+            loadControl,
             Util.getCurrentOrMainLooper());
     PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
     AtomicBoolean externalCallerSourceInfoRefreshedCalled = new AtomicBoolean();
@@ -941,6 +1006,8 @@ public final class PreloadMediaSourceTest {
     shadowOf(Looper.getMainLooper()).idle();
     preloadMediaSource.releaseSource(externalCaller);
 
+    verify(loadControl, never()).onPrepared(PlayerId.PRELOAD);
+    verify(loadControl, never()).onReleased(PlayerId.PRELOAD);
     assertThat(externalCallerSourceInfoRefreshedCalled.get()).isTrue();
     MediaSource internalSource = internalSourceReference.get();
     assertThat(internalSource).isNotNull();
@@ -979,7 +1046,7 @@ public final class PreloadMediaSourceTest {
             trackSelector,
             bandwidthMeter,
             getRendererCapabilities(renderersFactory),
-            allocator,
+            loadControl,
             Util.getCurrentOrMainLooper());
     PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
     AtomicBoolean externalCallerSourceInfoRefreshedCalled = new AtomicBoolean();
@@ -991,6 +1058,8 @@ public final class PreloadMediaSourceTest {
         externalCaller, bandwidthMeter.getTransferListener(), PlayerId.UNSET);
     preloadMediaSource.releaseSource(externalCaller);
 
+    verify(loadControl).onPrepared(PlayerId.PRELOAD);
+    verify(loadControl, never()).onReleased(PlayerId.PRELOAD);
     assertThat(preloadControl.onSourcePreparedCalledCount).isGreaterThan(0);
     assertThat(externalCallerSourceInfoRefreshedCalled.get()).isTrue();
     MediaSource internalSource = internalSourceReference.get();
@@ -1030,7 +1099,7 @@ public final class PreloadMediaSourceTest {
             trackSelector,
             bandwidthMeter,
             getRendererCapabilities(renderersFactory),
-            allocator,
+            loadControl,
             Util.getCurrentOrMainLooper());
     PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
     AtomicBoolean externalCaller1SourceInfoRefreshedCalled = new AtomicBoolean();
@@ -1046,6 +1115,8 @@ public final class PreloadMediaSourceTest {
     // Only releaseSource by externalCaller1.
     preloadMediaSource.releaseSource(externalCaller1);
 
+    verify(loadControl, never()).onPrepared(PlayerId.PRELOAD);
+    verify(loadControl, never()).onReleased(PlayerId.PRELOAD);
     assertThat(externalCaller1SourceInfoRefreshedCalled.get()).isTrue();
     assertThat(externalCaller2SourceInfoRefreshedCalled.get()).isTrue();
     MediaSource internalSource = internalSourceReference.get();
@@ -1085,7 +1156,7 @@ public final class PreloadMediaSourceTest {
             trackSelector,
             bandwidthMeter,
             getRendererCapabilities(renderersFactory),
-            allocator,
+            loadControl,
             Util.getCurrentOrMainLooper());
     PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
     preloadMediaSource.preload(/* startPositionUs= */ 0L);
@@ -1093,6 +1164,8 @@ public final class PreloadMediaSourceTest {
     preloadMediaSource.releasePreloadMediaSource();
     shadowOf(Looper.getMainLooper()).idle();
 
+    verify(loadControl).onPrepared(PlayerId.PRELOAD);
+    verify(loadControl).onReleased(PlayerId.PRELOAD);
     assertThat(preloadControl.onSourcePreparedCalledCount).isGreaterThan(0);
     MediaSource internalSource = internalSourceReference.get();
     assertThat(internalSource).isNotNull();
@@ -1131,7 +1204,7 @@ public final class PreloadMediaSourceTest {
             trackSelector,
             bandwidthMeter,
             getRendererCapabilities(renderersFactory),
-            allocator,
+            loadControl,
             Util.getCurrentOrMainLooper());
     PreloadMediaSource preloadMediaSource = preloadMediaSourceFactory.createMediaSource(mediaItem);
     AtomicBoolean externalCallerSourceInfoRefreshedCalled = new AtomicBoolean();
@@ -1145,6 +1218,8 @@ public final class PreloadMediaSourceTest {
     preloadMediaSource.releasePreloadMediaSource();
     shadowOf(Looper.getMainLooper()).idle();
 
+    verify(loadControl).onPrepared(PlayerId.PRELOAD);
+    verify(loadControl).onReleased(PlayerId.PRELOAD);
     assertThat(preloadControl.onSourcePreparedCalledCount).isGreaterThan(0);
     assertThat(externalCallerSourceInfoRefreshedCalled.get()).isTrue();
     MediaSource internalSource = internalSourceReference.get();
@@ -1159,6 +1234,7 @@ public final class PreloadMediaSourceTest {
     public boolean onContinueLoadingRequestedCalled;
     public boolean onUsedByPlayerCalled;
     public boolean onLoadedToTheEndOfSourceCalled;
+    public int onLoadingUnableToContinueCalledCount;
     public boolean onPreloadErrorCalled;
 
     @Override
@@ -1188,6 +1264,11 @@ public final class PreloadMediaSourceTest {
     @Override
     public void onLoadedToTheEndOfSource(PreloadMediaSource mediaSource) {
       onLoadedToTheEndOfSourceCalled = true;
+    }
+
+    @Override
+    public void onLoadingUnableToContinue(PreloadMediaSource mediaSource) {
+      onLoadingUnableToContinueCalledCount++;
     }
 
     @Override

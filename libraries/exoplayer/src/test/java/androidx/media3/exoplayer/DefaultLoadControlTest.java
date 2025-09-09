@@ -1514,16 +1514,25 @@ public class DefaultLoadControlTest {
   }
 
   @Test
-  public void onRelease_removesLoadingStateOfPlayer() {
+  public void onReleased_removesLoadingStateOfPlayerWhenReferenceCountIsZero() {
     PlayerId playerId2 = new PlayerId(/* playerName= */ "");
     loadControl = builder.setAllocator(allocator).build();
     loadControl.onPrepared(playerId);
+    // Call onPrepared() for playerId2 twice.
+    loadControl.onPrepared(playerId2);
     loadControl.onPrepared(playerId2);
     assertThat(loadControl.calculateTotalTargetBufferBytes())
         .isEqualTo(2 * DefaultLoadControl.DEFAULT_MIN_BUFFER_SIZE);
 
     loadControl.onReleased(playerId);
 
+    assertThat(loadControl.calculateTotalTargetBufferBytes())
+        .isEqualTo(DefaultLoadControl.DEFAULT_MIN_BUFFER_SIZE);
+
+    loadControl.onReleased(playerId2);
+
+    // The playerId2 shouldn't be unregistered from DefaultLoadControl because its reference count
+    // hasn't been back to zero. The onReleased() needs to be called twice for playerId2
     assertThat(loadControl.calculateTotalTargetBufferBytes())
         .isEqualTo(DefaultLoadControl.DEFAULT_MIN_BUFFER_SIZE);
 
