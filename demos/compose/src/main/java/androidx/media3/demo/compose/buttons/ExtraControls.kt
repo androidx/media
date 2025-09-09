@@ -24,6 +24,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.media3.common.Player
 import androidx.media3.demo.compose.indicator.TextProgressIndicator
+import androidx.media3.ui.compose.material3.button.RepeatButton
+import androidx.media3.ui.compose.material3.button.ShuffleButton
 
 @Composable
 internal fun ExtraControls(player: Player, modifier: Modifier = Modifier) {
