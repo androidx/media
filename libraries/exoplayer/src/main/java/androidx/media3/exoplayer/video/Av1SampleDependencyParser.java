@@ -83,7 +83,21 @@ public final class Av1SampleDependencyParser {
     return sample.position();
   }
 
-  /** Updates the parser state with the next sample data. */
+  /**
+   * Updates the parser state with the next sample data from a random access temporal unit.
+   *
+   * <p>In order to identify non-reference frames, the parser needs a sequence header. The relevant
+   * sequence headers fields cannot change within a coded video sequence. And a new coded video
+   * sequence is defined to begin with a temporal unit where:
+   *
+   * <ul>
+   *   <li>A sequence header OBU appears before the first frame header.
+   *   <li>The first frame header has frame_type equal to KEY_FRAME.
+   * </ul>
+   *
+   * <p>These requirements are the same as the requirements for random access points. See <a
+   * href=https://aomediacodec.github.io/av1-spec/#ordering-of-obus>Ordering of OBUs</a>
+   */
   public void queueInputBuffer(ByteBuffer sample) {
     updateSequenceHeaders(split(sample));
   }

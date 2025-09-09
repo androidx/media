@@ -1570,6 +1570,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   protected void onQueueInputBuffer(DecoderInputBuffer buffer) throws ExoPlaybackException {
     if (av1SampleDependencyParser != null
         && checkNotNull(getCodecInfo()).mimeType.equals(MimeTypes.VIDEO_AV1)
+        && buffer.isKeyFrame()
         && buffer.data != null) {
       av1SampleDependencyParser.queueInputBuffer(buffer.data);
     }
