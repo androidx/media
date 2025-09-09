@@ -1495,6 +1495,23 @@ package androidx.media3.exoplayer.util {
 
 }
 
+package androidx.media3.muxer {
+
+  public final class MediaMuxerCompat {
+    ctor public MediaMuxerCompat(java.io.FileDescriptor, int) throws java.io.IOException;
+    ctor public MediaMuxerCompat(String, int) throws java.io.IOException;
+    method public int addTrack(android.media.MediaFormat);
+    method public void release();
+    method public void setLocation(@FloatRange(from=-90.0, to=90.0) float, @FloatRange(from=-180.0, to=180.0) float);
+    method public void setOrientationHint(int);
+    method public void start();
+    method public void stop();
+    method public void writeSampleData(int, java.nio.ByteBuffer, android.media.MediaCodec.BufferInfo);
+    field public static final int OUTPUT_FORMAT_MP4 = 0; // 0x0
+  }
+
+}
+
 package androidx.media3.session {
 
   public final class CommandButton {

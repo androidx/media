@@ -79,8 +79,7 @@ import java.nio.ByteBuffer;
  *
  * <p>All the operations are performed on the caller thread.
  */
-@UnstableApi
-public class MediaMuxerCompat {
+public final class MediaMuxerCompat {
   /** The output file format. */
   @Documented
   @Retention(RetentionPolicy.SOURCE)
