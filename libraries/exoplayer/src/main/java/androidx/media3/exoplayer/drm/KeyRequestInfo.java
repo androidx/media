@@ -1,25 +1,26 @@
 package androidx.media3.exoplayer.drm;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import androidx.annotation.Nullable;
 import androidx.media3.common.DrmInitData.SchemeData;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.exoplayer.source.LoadEventInfo;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.List;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
-/**
- * Encapsulates info for the sequence of load requests ({@link LoadEventInfo}, which were required
- * to complete loading a DRM key
- */
-public class KeyRequestInfo {
+/** Information related to a completed DRM key request operation. */
+// TODO: #1001 - Add sessionId field.
+public final class KeyRequestInfo {
 
-  public static class Builder {
+  /** Builder for {@link KeyRequestInfo}. */
+  public static final class Builder {
     @MonotonicNonNull private LoadEventInfo loadEventInfo;
     private final List<LoadEventInfo> retriedLoadRequests;
     @Nullable private final List<SchemeData> schemeDatas;
 
+    /** Constructs an instance. */
     public Builder(@Nullable List<SchemeData> schemeDatas) {
       this.schemeDatas = schemeDatas;
       retriedLoadRequests = new ArrayList<>();
@@ -36,8 +37,9 @@ public class KeyRequestInfo {
       return this;
     }
 
+    /** Builds a {@link KeyRequestInfo} instance. */
     public KeyRequestInfo build() {
-      Assertions.checkNotNull(loadEventInfo, "build() called before setMainLoadRequest()");
+      checkNotNull(loadEventInfo, "build() called before setMainLoadRequest()");
       return new KeyRequestInfo(this);
     }
   }
@@ -52,7 +54,7 @@ public class KeyRequestInfo {
 
   /**
    * The DRM {@link SchemeData} that identifies the loaded key, or null if this session uses offline
-   * keys. // TODO add sessionId to the KeyLoadInfo maybe?
+   * keys.
    */
   @Nullable public final ImmutableList<SchemeData> schemeDatas;
 

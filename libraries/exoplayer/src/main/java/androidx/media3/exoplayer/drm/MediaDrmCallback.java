@@ -25,17 +25,16 @@ import java.util.UUID;
 @UnstableApi
 public interface MediaDrmCallback {
 
-  /**
-   * Response data from the {@link MediaDrmCallback} requests.
-   *
-   * <p>Encapsulates the license server response data {@link #responseData} along with information
-   * ({@link #loadEventInfo} about the network transfer (if any) that was issued to gather the
-   * response.
-   */
-  public class KeyResponse {
+  /** Response data from the {@link MediaDrmCallback} requests. */
+  final class KeyResponse {
+
+    /** The response from the license or provisioning server. */
     public final byte[] responseData;
+
+    /** Information about the loading of {@link #responseData}. */
     public final LoadEventInfo loadEventInfo;
 
+    /** Constructs an instance. */
     public KeyResponse(byte[] responseData, LoadEventInfo loadEventInfo) {
       this.responseData = responseData;
       this.loadEventInfo = loadEventInfo;

@@ -148,11 +148,15 @@ public final class DrmUtil {
    *
    * <p>Note that this method is executing the request synchronously and blocks until finished.
    *
+   * <p>The {@link LoadEventInfo} returned inside the {@link KeyResponse} will have an unset {@code
+   * taskId}, which must be {@linkplain LoadEventInfo#copyWithTaskId(long) updated} by the caller
+   * before the {@link LoadEventInfo} is used elsewhere.
+   *
    * @param dataSource A {@link DataSource}.
    * @param url The requested URL.
    * @param httpBody The HTTP request payload.
    * @param requestProperties A keyed map of HTTP header request properties.
-   * @return A {@link KeyResponse} that holds the response payload, and LoadEventInfo
+   * @return A {@link KeyResponse} that holds the response payload, and {@link LoadEventInfo}.
    * @throws MediaDrmCallbackException if an exception was encountered during the download.
    */
   public static KeyResponse executePost(
@@ -180,13 +184,13 @@ public final class DrmUtil {
           byte[] response = ByteStreams.toByteArray(inputStream);
           LoadEventInfo loadEventInfo =
               new LoadEventInfo(
-                  -1, // note this is replaced with the actual taskId from the request
+                  -1, // This will be replaced with the actual taskId from the request.
                   originalDataSpec,
                   statsDataSource.getLastOpenedUri(),
                   statsDataSource.getLastResponseHeaders(),
                   SystemClock.elapsedRealtime(),
                   /* loadDurationMs= */ SystemClock.elapsedRealtime() - startTimeMs,
-                  ((byte[]) response).length);
+                  response.length);
           return new KeyResponse(response, loadEventInfo);
         } catch (HttpDataSource.InvalidResponseCodeException e) {
           @Nullable String redirectUrl = getRedirectUrl(e, manualRedirectCount);

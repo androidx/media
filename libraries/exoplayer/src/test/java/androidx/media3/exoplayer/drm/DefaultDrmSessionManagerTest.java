@@ -436,7 +436,9 @@ public class DefaultDrmSessionManagerTest {
         new DrmSessionEventListener() {
           @Override
           public void onDrmKeysLoaded(
-              int windowIndex, @Nullable MediaSource.MediaPeriodId mediaPeriodId) {
+              int windowIndex,
+              @Nullable MediaSource.MediaPeriodId mediaPeriodId,
+              @Nullable KeyRequestInfo keyRequestInfo) {
             keyLoadCount.incrementAndGet();
           }
         });

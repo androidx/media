@@ -33,13 +33,17 @@ import java.util.UUID;
 @UnstableApi
 public final class LocalMediaDrmCallback implements MediaDrmCallback {
 
-  private final byte[] keyResponse;
+  private final KeyResponse keyResponse;
 
   /**
    * @param keyResponse The fixed response for all key requests.
    */
   public LocalMediaDrmCallback(byte[] keyResponse) {
-    this.keyResponse = checkNotNull(keyResponse);
+    this.keyResponse =
+        new KeyResponse(
+            checkNotNull(keyResponse),
+            new LoadEventInfo(
+                /* loadTaskId= */ -1, new DataSpec.Builder().build(), /* elapsedRealtimeMs= */ 0));
   }
 
   @Override
@@ -49,6 +53,6 @@ public final class LocalMediaDrmCallback implements MediaDrmCallback {
 
   @Override
   public KeyResponse executeKeyRequest(UUID uuid, KeyRequest request) {
-    return new KeyResponse(keyResponse, new LoadEventInfo(-1, new DataSpec.Builder().build(), 0));
+    return keyResponse;
   }
 }
