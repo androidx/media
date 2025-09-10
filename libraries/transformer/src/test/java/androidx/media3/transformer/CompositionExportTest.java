@@ -180,7 +180,8 @@ public class CompositionExportTest {
     transformer.start(composition, outputDir.newFile().getPath());
     ExportResult exportResult = TransformerTestRunner.runLooper(transformer);
 
-    assertThat(exportResult.durationMs).isEqualTo(31_053);
+    // TODO: b/443998866 - Use MetadataRetriever to get exact duration.
+    assertThat(exportResult.approximateDurationMs).isEqualTo(31_053);
     // FILE_AUDIO_RAW duration is 1000ms. Input 32 times to cover the 31_053ms duration.
     assertThat(exportResult.processedInputs).hasSize(34);
     assertThat(exportResult.channelCount).isEqualTo(1);
@@ -209,8 +210,9 @@ public class CompositionExportTest {
     transformer.start(composition, outputDir.newFile().getPath());
     ExportResult exportResult = TransformerTestRunner.runLooper(transformer);
 
+    // TODO: b/443998866 - Use MetadataRetriever to get exact duration.
     // Video file duration is 1001 ms and audio file duration is 1044 ms.
-    assertThat(exportResult.durationMs).isLessThan(1_001);
+    assertThat(exportResult.approximateDurationMs).isLessThan(1_001);
   }
 
   @Test

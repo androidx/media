@@ -50,6 +50,7 @@ import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 
 /** Unit tests for MP4 edit list trimming in {@link Transformer}. */
+// TODO: b/443998866 - Use MetadataRetriever to get exact duration in all tests.
 @RunWith(AndroidJUnit4.class)
 public class TransformerMp4EditListTrimTest {
 
@@ -90,7 +91,7 @@ public class TransformerMp4EditListTrimTest {
     ExportResult exportResult = TransformerTestRunner.runLooper(transformer);
 
     assertThat(exportResult.fileSizeBytes).isGreaterThan(0);
-    assertThat(exportResult.durationMs).isEqualTo(10007);
+    assertThat(exportResult.approximateDurationMs).isEqualTo(10007);
     assertThat(exportResult.videoEncoderName).isNull();
     assertThat(exportResult.audioEncoderName).isNull();
     List<Long> videoTimestampsUs = getVideoSampleTimesUs(outputPath);
@@ -130,7 +131,7 @@ public class TransformerMp4EditListTrimTest {
     ExportResult exportResult = TransformerTestRunner.runLooper(transformer);
 
     assertThat(exportResult.fileSizeBytes).isGreaterThan(0);
-    assertThat(exportResult.durationMs).isAtMost(2000);
+    assertThat(exportResult.approximateDurationMs).isAtMost(2000);
     assertThat(exportResult.videoEncoderName).isNull();
     assertThat(exportResult.audioEncoderName).isNull();
     List<Long> videoTimestampsUs = getVideoSampleTimesUs(outputPath);
@@ -171,7 +172,7 @@ public class TransformerMp4EditListTrimTest {
     ExportResult exportResult = TransformerTestRunner.runLooper(transformer);
 
     assertThat(exportResult.fileSizeBytes).isGreaterThan(0);
-    assertThat(exportResult.durationMs).isAtMost(2000);
+    assertThat(exportResult.approximateDurationMs).isAtMost(2000);
     assertThat(exportResult.videoEncoderName).isNull();
     assertThat(exportResult.audioEncoderName).isNull();
     List<Long> videoTimestampsUs = getVideoSampleTimesUs(outputPath);
@@ -236,7 +237,7 @@ public class TransformerMp4EditListTrimTest {
     ExportResult exportResult = TransformerTestRunner.runLooper(transformer);
 
     assertThat(exportResult.fileSizeBytes).isGreaterThan(0);
-    assertThat(exportResult.durationMs).isAtMost(983_333);
+    assertThat(exportResult.approximateDurationMs).isAtMost(983_333);
     assertThat(exportResult.videoEncoderName).isNull();
     assertThat(exportResult.audioEncoderName).isNull();
     List<Long> videoTimestampsUs = getVideoSampleTimesUs(checkNotNull(outputPath));
@@ -271,7 +272,7 @@ public class TransformerMp4EditListTrimTest {
     ExportResult exportResult = TransformerTestRunner.runLooper(transformer);
 
     assertThat(exportResult.fileSizeBytes).isGreaterThan(0);
-    assertThat(exportResult.durationMs).isEqualTo(1_016);
+    assertThat(exportResult.approximateDurationMs).isEqualTo(1_016);
     assertThat(exportResult.videoEncoderName).isNull();
     assertThat(exportResult.audioEncoderName).isNull();
     List<Long> videoTimestampsUs = getVideoSampleTimesUs(checkNotNull(outputPath));
@@ -307,7 +308,7 @@ public class TransformerMp4EditListTrimTest {
     ExportResult exportResult = TransformerTestRunner.runLooper(transformer);
 
     assertThat(exportResult.fileSizeBytes).isGreaterThan(0);
-    assertThat(exportResult.durationMs).isEqualTo(9905);
+    assertThat(exportResult.approximateDurationMs).isEqualTo(9905);
     assertThat(exportResult.videoEncoderName).isNull();
     assertThat(exportResult.audioEncoderName).isNull();
     List<Long> videoTimestampsUs = getVideoSampleTimesUs(checkNotNull(outputPath));
@@ -340,7 +341,7 @@ public class TransformerMp4EditListTrimTest {
     transformer.start(editedMediaItem, outputPath);
     ExportResult exportResult = TransformerTestRunner.runLooper(transformer);
 
-    assertThat(exportResult.durationMs).isAtMost(2000);
+    assertThat(exportResult.approximateDurationMs).isAtMost(2000);
     assertThat(exportResult.videoEncoderName).isNull();
     assertThat(exportResult.audioEncoderName).isNull();
     Format format = retrieveTrackFormat(context, outputPath, C.TRACK_TYPE_VIDEO);
@@ -370,7 +371,7 @@ public class TransformerMp4EditListTrimTest {
     transformer.start(editedMediaItem, outputPath);
     ExportResult exportResult = TransformerTestRunner.runLooper(transformer);
 
-    assertThat(exportResult.durationMs).isAtMost(2000);
+    assertThat(exportResult.approximateDurationMs).isAtMost(2000);
     assertThat(exportResult.videoEncoderName).isNull();
     assertThat(exportResult.audioEncoderName).isNull();
     Format format = retrieveTrackFormat(context, outputPath, C.TRACK_TYPE_VIDEO);

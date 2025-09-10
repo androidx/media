@@ -130,7 +130,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     void onSampleWrittenOrDropped();
 
-    void onEnded(long durationMs, long fileSizeBytes);
+    void onEnded(long approximateDurationMs, long fileSizeBytes);
 
     void onError(ExportException exportException);
   }
@@ -577,7 +577,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
     trackInfo.sampleCount++;
     trackInfo.bytesWritten += data.remaining();
-    trackInfo.timeUs = max(trackInfo.timeUs, presentationTimeUs);
+    trackInfo.endTimeUs = max(trackInfo.endTimeUs, presentationTimeUs);
     listener.onSampleWrittenOrDropped();
     checkNotNull(muxer);
     BufferInfo bufferInfo =
@@ -610,13 +610,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     TrackInfo trackInfo = trackTypeToInfo.get(trackType);
     minEndedTrackTimeUs = max(0, min(minEndedTrackTimeUs, trackInfo.startTimeUs));
-    maxEndedTrackTimeUs = max(maxEndedTrackTimeUs, trackInfo.timeUs);
+    maxEndedTrackTimeUs = max(maxEndedTrackTimeUs, trackInfo.endTimeUs);
     listener.onTrackEnded(
         trackType, trackInfo.format, trackInfo.getAverageBitrate(), trackInfo.sampleCount);
     DebugTraceUtil.logEvent(
         COMPONENT_MUXER,
         EVENT_INPUT_ENDED,
-        trackInfo.timeUs,
+        trackInfo.endTimeUs,
         /* extraFormat= */ "%s",
         /* extraArgs...= */ Util.getTrackTypeString(trackType));
 
@@ -634,16 +634,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       }
     }
 
-    long durationMs = usToMs(maxEndedTrackTimeUs - minEndedTrackTimeUs);
+    long approximateDurationMs = usToMs(maxEndedTrackTimeUs - minEndedTrackTimeUs);
     if (muxerMode == MUXER_MODE_MUX_PARTIAL
         && muxedPartialVideo
         && (muxedPartialAudio || trackCount == 1)) {
-      listener.onEnded(durationMs, getCurrentOutputSizeBytes());
+      listener.onEnded(approximateDurationMs, getCurrentOutputSizeBytes());
       return;
     }
 
     if (isEnded) {
-      listener.onEnded(durationMs, getCurrentOutputSizeBytes());
+      listener.onEnded(approximateDurationMs, getCurrentOutputSizeBytes());
     }
   }
 
@@ -709,7 +709,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     if (trackTypeToInfo.size() == 1) {
       return true;
     }
-    if (presentationTimeUs - trackTypeToInfo.get(trackType).timeUs > MAX_TRACK_WRITE_AHEAD_US) {
+    if (presentationTimeUs - trackTypeToInfo.get(trackType).endTimeUs > MAX_TRACK_WRITE_AHEAD_US) {
       TrackInfo trackInfoWithMinTimeUs = checkNotNull(getTrackInfoWithMinTimeUs(trackTypeToInfo));
       if (MimeTypes.getTrackType(trackInfoWithMinTimeUs.format.sampleMimeType) == trackType) {
         // Unstuck the muxer if consecutive timestamps from the same track are more than
@@ -718,7 +718,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       }
     }
     if (trackType != previousTrackType) {
-      minTrackTimeUs = checkNotNull(getTrackInfoWithMinTimeUs(trackTypeToInfo)).timeUs;
+      minTrackTimeUs = checkNotNull(getTrackInfoWithMinTimeUs(trackTypeToInfo)).endTimeUs;
     }
     return presentationTimeUs - minTrackTimeUs <= MAX_TRACK_WRITE_AHEAD_US;
   }
@@ -745,7 +745,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     TrackInfo trackInfoWithMinTimeUs = trackTypeToInfo.valueAt(0);
     for (int i = 1; i < trackTypeToInfo.size(); i++) {
       TrackInfo trackInfo = trackTypeToInfo.valueAt(i);
-      if (trackInfo.timeUs < trackInfoWithMinTimeUs.timeUs) {
+      if (trackInfo.endTimeUs < trackInfoWithMinTimeUs.endTimeUs) {
         trackInfoWithMinTimeUs = trackInfo;
       }
     }
@@ -759,7 +759,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     public long startTimeUs;
     public long bytesWritten;
     public int sampleCount;
-    public long timeUs;
+    public long endTimeUs;
 
     public TrackInfo(Format format, int trackId) {
       this.format = format;
@@ -771,7 +771,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
      * there is no track data.
      */
     public int getAverageBitrate() {
-      if (timeUs <= 0 || bytesWritten <= 0 || timeUs == startTimeUs) {
+      if (endTimeUs <= 0 || bytesWritten <= 0 || endTimeUs == startTimeUs) {
         return C.RATE_UNSET_INT;
       }
 
@@ -781,7 +781,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           Util.scaleLargeTimestamp(
               /* timestamp= */ bytesWritten,
               /* multiplier= */ C.BITS_PER_BYTE * C.MICROS_PER_SECOND,
-              /* divisor= */ timeUs - startTimeUs);
+              /* divisor= */ endTimeUs - startTimeUs);
     }
   }
 }

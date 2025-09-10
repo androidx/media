@@ -167,9 +167,9 @@ public final class MediaItemExportTest {
     transformer.start(new Composition.Builder(gapSequence).build(), outputDir.newFile().getPath());
     ExportResult result = TransformerTestRunner.runLooper(transformer);
 
-    // TODO: b/355201372 - Assert 500ms duration.
-    assertThat(result.durationMs).isAtLeast(487);
-    assertThat(result.durationMs).isAtMost(500);
+    // TODO: b/443998866 - Use MetadataRetriever to get exact duration.
+    assertThat(result.approximateDurationMs).isAtLeast(487);
+    assertThat(result.approximateDurationMs).isAtMost(500);
 
     DumpFileAsserts.assertOutput(
         context, muxerFactory.getCreatedMuxer(), getDumpFileName("gap", "500ms"));
@@ -1509,10 +1509,10 @@ public final class MediaItemExportTest {
     transformer.start(mediaItem, outputDir.newFile().getPath());
     ExportResult result = TransformerTestRunner.runLooper(transformer);
 
-    // TODO: b/324245196 - Update this test when bugs are fixed.
+    // TODO: b/443998866 - Use MetadataRetriever to get exact duration.
     //  Duration is actually 68267 / 44100 = 1548ms.
     //  Last frame PTS is 67866 / 44100 = 1.53891 which rounds down to 1538ms.
-    assertThat(result.durationMs).isEqualTo(1538);
+    assertThat(result.approximateDurationMs).isEqualTo(1538);
     // TODO: b/325020444 - Update this test when bugs are fixed.
     //  Dump incorrectly includes the last clipped audio sample from input file.
     DumpFileAsserts.assertOutput(
@@ -1536,10 +1536,8 @@ public final class MediaItemExportTest {
     transformer.start(mediaItem, outputDir.newFile().getPath());
     ExportResult result = TransformerTestRunner.runLooper(transformer);
 
-    // TODO: b/324842222 - Update this test when bugs are fixed.
-    //  The result.durationMs is incorrect in this test because
-    //  FrameworkMuxer workaround doesn't propagate changed timestamps to MuxerWrapper.
-    assertThat(result.durationMs).isEqualTo(1538);
+    // TODO: b/443998866 - Use MetadataRetriever to get exact duration.
+    assertThat(result.approximateDurationMs).isEqualTo(1538);
     assertThat(result.exportException).isNull();
   }
 
@@ -1556,9 +1554,9 @@ public final class MediaItemExportTest {
     transformer.start(mediaItem, outputDir.newFile().getPath());
     ExportResult result = TransformerTestRunner.runLooper(transformer);
 
-    // TODO: b/324245196 - Update this test when bugs are fixed.
+    // TODO: b/443998866 - Use MetadataRetriever to get exact duration.
     //  Duration is actually 12_500. Last frame PTS is 11_500.
-    assertThat(result.durationMs).isEqualTo(11_500);
+    assertThat(result.approximateDurationMs).isEqualTo(11_500);
     int inputFrameCount = 13;
     assertThat(result.videoFrameCount).isEqualTo(inputFrameCount);
     DumpFileAsserts.assertOutput(

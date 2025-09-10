@@ -219,7 +219,10 @@ public class TransformerPauseResumeTest {
     // TODO: b/306595508 - Remove this expected difference once inconsistent behaviour of audio
     //  encoder is fixed.
     int maxDiffExpectedInDurationMs = 2;
-    assertThat(exportResultWithResume.durationMs - exportResultWithoutResume.durationMs)
+    // TODO: b/443998866 - Use MetadataRetriever to get exact duration.
+    assertThat(
+            exportResultWithResume.approximateDurationMs
+                - exportResultWithoutResume.approximateDurationMs)
         .isLessThan(maxDiffExpectedInDurationMs);
     assertThat(new File(resultWithResume.filePath).length()).isGreaterThan(0);
   }
@@ -276,7 +279,10 @@ public class TransformerPauseResumeTest {
         .isWithin(2)
         .of(exportResultWithoutResume.videoFrameCount);
     int maxDiffExpectedInDurationMs = 2;
-    assertThat(exportResultWithResume.durationMs - exportResultWithoutResume.durationMs)
+    // TODO: b/443998866 - Use MetadataRetriever to get exact duration.
+    assertThat(
+            exportResultWithResume.approximateDurationMs
+                - exportResultWithoutResume.approximateDurationMs)
         .isLessThan(maxDiffExpectedInDurationMs);
     assertThat(new File(resultWithResume.filePath).length()).isGreaterThan(0);
   }
@@ -389,7 +395,10 @@ public class TransformerPauseResumeTest {
         .isWithin(2)
         .of(exportResultWithoutResume.videoFrameCount);
     int maxDiffExpectedInDurationMs = 2;
-    assertThat(exportResultWithResume.durationMs - exportResultWithoutResume.durationMs)
+    // TODO: b/443998866 - Use MetadataRetriever to get exact duration.
+    assertThat(
+            exportResultWithResume.approximateDurationMs
+                - exportResultWithoutResume.approximateDurationMs)
         .isLessThan(maxDiffExpectedInDurationMs);
     assertThat(new File(resultWithResume.filePath).length()).isGreaterThan(0);
   }

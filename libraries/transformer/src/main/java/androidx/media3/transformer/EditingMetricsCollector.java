@@ -411,8 +411,8 @@ import java.util.List;
 
   private static MediaItemInfo getOutputMediaItemInfo(ExportResult exportResult) {
     MediaItemInfo.Builder mediaItemInfoBuilder = new MediaItemInfo.Builder();
-    if (exportResult.durationMs != C.TIME_UNSET) {
-      mediaItemInfoBuilder.setDurationMillis(exportResult.durationMs);
+    if (exportResult.approximateDurationMs != C.TIME_UNSET) {
+      mediaItemInfoBuilder.setDurationMillis(exportResult.approximateDurationMs);
     }
     if (exportResult.audioMimeType != null) {
       mediaItemInfoBuilder.addSampleMimeType(exportResult.audioMimeType);

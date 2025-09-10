@@ -326,9 +326,9 @@ public class ExportTest {
         new TransformerAndroidTestRunner.Builder(context, transformer)
             .build()
             .run(testId, editedMediaItem);
-
-    assertThat(result.exportResult.durationMs).isGreaterThan(800);
-    assertThat(result.exportResult.durationMs).isLessThan(950);
+    // TODO: b/443998866 - Use MetadataRetriever to get exact duration.
+    assertThat(result.exportResult.approximateDurationMs).isGreaterThan(800);
+    assertThat(result.exportResult.approximateDurationMs).isLessThan(950);
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
@@ -448,7 +448,8 @@ public class ExportTest {
     // Skip 7 bytes: NAL unit start code (4) and NAL unit type, profile, and reserved fields.
     int spsLevelIndex = 7;
     assertThat(result.exportResult.optimizationResult).isEqualTo(OPTIMIZATION_SUCCEEDED);
-    assertThat(result.exportResult.durationMs).isAtMost(700);
+    // TODO: b/443998866 - Use MetadataRetriever to get exact duration.
+    assertThat(result.exportResult.approximateDurationMs).isAtMost(700);
     assertThat(result.exportResult.videoConversionProcess)
         .isEqualTo(CONVERSION_PROCESS_TRANSMUXED_AND_TRANSCODED);
     int inputVideoLevel = 41;

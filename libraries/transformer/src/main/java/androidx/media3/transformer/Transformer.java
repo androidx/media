@@ -1912,8 +1912,10 @@ public final class Transformer {
     }
 
     @Override
-    public void onEnded(long durationMs, long fileSizeBytes) {
-      exportResultBuilder.setDurationMs(durationMs).setFileSizeBytes(fileSizeBytes);
+    public void onEnded(long approximateDurationMs, long fileSizeBytes) {
+      exportResultBuilder
+          .setApproximateDurationMs(approximateDurationMs)
+          .setFileSizeBytes(fileSizeBytes);
       checkNotNull(transformerInternal).endWithCompletion();
     }
 

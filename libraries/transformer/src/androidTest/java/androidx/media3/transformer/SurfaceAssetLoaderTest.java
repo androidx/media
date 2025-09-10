@@ -133,7 +133,8 @@ public class SurfaceAssetLoaderTest {
     assertThat(exportResult.videoFrameCount).isEqualTo(inputFrameCount);
     assertThat(exportResult.width).isEqualTo(bitmap.getWidth());
     assertThat(exportResult.height).isEqualTo(bitmap.getHeight());
-    assertThat(exportResult.durationMs).isEqualTo(300);
+    // TODO: b/443998866 - Use MetadataRetriever to get exact duration.
+    assertThat(exportResult.approximateDurationMs).isEqualTo(300);
   }
 
   @Test
@@ -206,6 +207,7 @@ public class SurfaceAssetLoaderTest {
     assertThat(exportResult.videoFrameCount).isEqualTo(inputFrameCount);
     assertThat(exportResult.width).isEqualTo(bitmap.getWidth());
     assertThat(exportResult.height).isEqualTo(bitmap.getHeight());
-    assertThat(exportResult.durationMs).isEqualTo(300);
+    // TODO: b/443998866 - Use MetadataRetriever to get exact duration.
+    assertThat(exportResult.approximateDurationMs).isEqualTo(300);
   }
 }

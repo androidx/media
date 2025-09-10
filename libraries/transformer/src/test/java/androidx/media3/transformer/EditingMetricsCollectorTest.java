@@ -91,7 +91,7 @@ public final class EditingMetricsCollectorTest {
             VIDEO_DECODER_NAME));
     ExportResult exportResult =
         new ExportResult.Builder()
-            .setDurationMs(usToMs(MEDIA_DURATION_US))
+            .setApproximateDurationMs(usToMs(MEDIA_DURATION_US))
             .setAudioMimeType(AUDIO_MIME_TYPE)
             .setVideoMimeType(VIDEO_MIME_TYPE)
             .setChannelCount(AUDIO_CHANNEL_COUNT)
@@ -160,7 +160,8 @@ public final class EditingMetricsCollectorTest {
     // Assert output media item information
     MediaItemInfo outputMediaItemInfo = editingEndedEvent.getOutputMediaItemInfo();
     assertThat(outputMediaItemInfo).isNotNull();
-    assertThat(outputMediaItemInfo.getDurationMillis()).isEqualTo(exportResult.durationMs);
+    assertThat(outputMediaItemInfo.getDurationMillis())
+        .isEqualTo(exportResult.approximateDurationMs);
     assertThat(outputMediaItemInfo.getSampleMimeTypes()).hasSize(2);
     assertThat(outputMediaItemInfo.getSampleMimeTypes().get(0))
         .isAnyOf(exportResult.audioMimeType, exportResult.videoMimeType);
@@ -195,7 +196,7 @@ public final class EditingMetricsCollectorTest {
             VIDEO_DECODER_NAME));
     ExportResult exportResult =
         new ExportResult.Builder()
-            .setDurationMs(usToMs(MEDIA_DURATION_US))
+            .setApproximateDurationMs(usToMs(MEDIA_DURATION_US))
             .setAudioMimeType(AUDIO_MIME_TYPE)
             .setVideoMimeType(VIDEO_MIME_TYPE)
             .setChannelCount(AUDIO_CHANNEL_COUNT)
@@ -270,7 +271,8 @@ public final class EditingMetricsCollectorTest {
     // Assert output media item information
     MediaItemInfo outputMediaItemInfo = editingEndedEvent.getOutputMediaItemInfo();
     assertThat(outputMediaItemInfo).isNotNull();
-    assertThat(outputMediaItemInfo.getDurationMillis()).isEqualTo(exportResult.durationMs);
+    assertThat(outputMediaItemInfo.getDurationMillis())
+        .isEqualTo(exportResult.approximateDurationMs);
     assertThat(outputMediaItemInfo.getSampleMimeTypes()).hasSize(2);
     assertThat(outputMediaItemInfo.getSampleMimeTypes().get(0))
         .isAnyOf(exportResult.audioMimeType, exportResult.videoMimeType);

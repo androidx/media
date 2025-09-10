@@ -134,6 +134,7 @@ import org.junit.runner.RunWith;
  * End-to-end instrumentation test for {@link Transformer} for cases that cannot be tested using
  * robolectric.
  */
+// TODO: b/443998866 - Use MetadataRetriever to get exact duration in all tests.
 @RunWith(AndroidJUnit4.class)
 public class TransformerEndToEndTest {
 
@@ -262,8 +263,8 @@ public class TransformerEndToEndTest {
 
     // Image asset duration is ~0.5s.
     // loopingAudioSequence: Matches other sequence (~0.5s) and is cut short.
-    assertThat(result.exportResult.durationMs).isAtLeast(450);
-    assertThat(result.exportResult.durationMs).isAtMost(500);
+    assertThat(result.exportResult.approximateDurationMs).isAtLeast(450);
+    assertThat(result.exportResult.approximateDurationMs).isAtMost(500);
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
@@ -291,7 +292,7 @@ public class TransformerEndToEndTest {
 
     assertThat(result.exportResult.videoFrameCount).isEqualTo(expectedFrameCount);
     // Expected timestamp of the last frame.
-    assertThat(result.exportResult.durationMs)
+    assertThat(result.exportResult.approximateDurationMs)
         .isEqualTo((C.MILLIS_PER_SECOND / expectedFrameCount) * (expectedFrameCount - 1));
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
@@ -316,7 +317,7 @@ public class TransformerEndToEndTest {
 
     assertThat(result.exportResult.videoFrameCount).isEqualTo(expectedFrameCount);
     // Expected timestamp of the last frame.
-    assertThat(result.exportResult.durationMs)
+    assertThat(result.exportResult.approximateDurationMs)
         .isEqualTo((C.MILLIS_PER_SECOND / expectedFrameCount) * (expectedFrameCount - 1));
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
@@ -344,7 +345,7 @@ public class TransformerEndToEndTest {
 
     assertThat(result.exportResult.videoFrameCount).isEqualTo(expectedFrameCount);
     // Expected timestamp of the last frame.
-    assertThat(result.exportResult.durationMs)
+    assertThat(result.exportResult.approximateDurationMs)
         .isEqualTo((C.MILLIS_PER_SECOND / expectedFrameCount) * (expectedFrameCount - 1));
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
@@ -399,7 +400,7 @@ public class TransformerEndToEndTest {
 
     assertThat(result.exportResult.videoFrameCount).isEqualTo(expectedFrameCount);
     // Expected timestamp of the last frame.
-    assertThat(result.exportResult.durationMs).isEqualTo(C.MILLIS_PER_SECOND / 2);
+    assertThat(result.exportResult.approximateDurationMs).isEqualTo(C.MILLIS_PER_SECOND / 2);
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
@@ -450,7 +451,7 @@ public class TransformerEndToEndTest {
 
     assertThat(result.exportResult.videoFrameCount).isEqualTo(expectedFrameCount);
     // Expected timestamp of the last frame.
-    assertThat(result.exportResult.durationMs).isEqualTo(C.MILLIS_PER_SECOND / 2);
+    assertThat(result.exportResult.approximateDurationMs).isEqualTo(C.MILLIS_PER_SECOND / 2);
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
@@ -650,7 +651,7 @@ public class TransformerEndToEndTest {
     assertThat(result.exportResult.videoFrameCount)
         .isEqualTo(25 * image1FrameCount + 25 * image2FrameCount);
     // 25 100ms-images and 25 200ms-images
-    assertThat(result.exportResult.durationMs).isEqualTo(7_466);
+    assertThat(result.exportResult.approximateDurationMs).isEqualTo(7_466);
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
@@ -775,7 +776,7 @@ public class TransformerEndToEndTest {
             .build()
             .run(testId, editedMediaItem);
 
-    assertThat(result.exportResult.durationMs).isEqualTo(expectedDurationMs);
+    assertThat(result.exportResult.approximateDurationMs).isEqualTo(expectedDurationMs);
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
@@ -804,7 +805,7 @@ public class TransformerEndToEndTest {
             .build()
             .run(testId, mediaItem);
 
-    assertThat(result.exportResult.durationMs).isAtMost(clippingEndMs - clippingStartMs);
+    assertThat(result.exportResult.approximateDurationMs).isAtMost(clippingEndMs - clippingStartMs);
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
@@ -842,7 +843,7 @@ public class TransformerEndToEndTest {
             .build()
             .run(testId, editedMediaItem);
 
-    assertThat(result.exportResult.durationMs).isAtMost(clippingEndMs - clippingStartMs);
+    assertThat(result.exportResult.approximateDurationMs).isAtMost(clippingEndMs - clippingStartMs);
     Format format = retrieveTrackFormat(context, result.filePath, C.TRACK_TYPE_VIDEO);
     // The output video is portrait, but Transformer's default setup encodes videos landscape.
     assertThat(format.rotationDegrees).isEqualTo(90);
@@ -886,7 +887,7 @@ public class TransformerEndToEndTest {
 
     assertThat(result.exportResult.optimizationResult)
         .isEqualTo(OPTIMIZATION_ABANDONED_KEYFRAME_PLACEMENT_OPTIMAL_FOR_TRIM);
-    assertThat(result.exportResult.durationMs).isAtMost(clippingEndMs - clippingStartMs);
+    assertThat(result.exportResult.approximateDurationMs).isAtMost(clippingEndMs - clippingStartMs);
     assertThat(result.exportResult.videoConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSMUXED);
     assertThat(result.exportResult.audioConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSMUXED);
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
@@ -923,7 +924,7 @@ public class TransformerEndToEndTest {
 
     assertThat(result.exportResult.optimizationResult)
         .isEqualTo(OPTIMIZATION_FAILED_FORMAT_MISMATCH);
-    assertThat(result.exportResult.durationMs).isAtMost(clippingEndMs - clippingStartMs);
+    assertThat(result.exportResult.approximateDurationMs).isAtMost(clippingEndMs - clippingStartMs);
     assertThat(result.exportResult.videoConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSCODED);
     assertThat(result.exportResult.audioConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSMUXED);
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
@@ -968,7 +969,7 @@ public class TransformerEndToEndTest {
 
     assertThat(result.exportResult.optimizationResult)
         .isEqualTo(OPTIMIZATION_FAILED_FORMAT_MISMATCH);
-    assertThat(result.exportResult.durationMs).isAtMost(clippingEndMs - clippingStartMs);
+    assertThat(result.exportResult.approximateDurationMs).isAtMost(clippingEndMs - clippingStartMs);
     Format format = retrieveTrackFormat(context, result.filePath, C.TRACK_TYPE_VIDEO);
     // The video is transcoded, so the rotation is performed in the VideoFrameProcessor.
     // The output video is portrait, but Transformer's default setup encodes videos landscape.
@@ -1005,7 +1006,7 @@ public class TransformerEndToEndTest {
 
     assertThat(result.exportResult.optimizationResult)
         .isEqualTo(OPTIMIZATION_ABANDONED_KEYFRAME_PLACEMENT_OPTIMAL_FOR_TRIM);
-    assertThat(result.exportResult.durationMs).isAtMost(clippingEndMs - clippingStartMs);
+    assertThat(result.exportResult.approximateDurationMs).isAtMost(clippingEndMs - clippingStartMs);
     assertThat(result.exportResult.videoConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSCODED);
     assertThat(result.exportResult.audioConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSMUXED);
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
@@ -1040,7 +1041,7 @@ public class TransformerEndToEndTest {
     assertThat(result.exportResult.optimizationResult)
         .isEqualTo(OPTIMIZATION_ABANDONED_KEYFRAME_PLACEMENT_OPTIMAL_FOR_TRIM);
     // The asset is 15 s 537 ms long.
-    assertThat(result.exportResult.durationMs).isAtMost(1_017);
+    assertThat(result.exportResult.approximateDurationMs).isAtMost(1_017);
     assertThat(result.exportResult.videoConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSCODED);
     assertThat(result.exportResult.audioConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSMUXED);
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
@@ -1138,7 +1139,7 @@ public class TransformerEndToEndTest {
             .run(testId, editedMediaItem);
 
     assertThat(result.exportResult.optimizationResult).isEqualTo(OPTIMIZATION_SUCCEEDED);
-    assertThat(result.exportResult.durationMs).isAtMost(2000);
+    assertThat(result.exportResult.approximateDurationMs).isAtMost(2000);
     assertThat(result.exportResult.videoConversionProcess)
         .isEqualTo(CONVERSION_PROCESS_TRANSMUXED_AND_TRANSCODED);
     assertThat(result.exportResult.audioConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSMUXED);
@@ -1174,7 +1175,7 @@ public class TransformerEndToEndTest {
             .run(testId, editedMediaItem);
 
     assertThat(result.exportResult.optimizationResult).isEqualTo(OPTIMIZATION_SUCCEEDED);
-    assertThat(result.exportResult.durationMs).isAtMost(2000);
+    assertThat(result.exportResult.approximateDurationMs).isAtMost(2000);
     assertThat(result.exportResult.videoConversionProcess)
         .isEqualTo(CONVERSION_PROCESS_TRANSMUXED_AND_TRANSCODED);
     assertThat(result.exportResult.audioConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSMUXED);
@@ -1211,7 +1212,7 @@ public class TransformerEndToEndTest {
             .run(testId, editedMediaItem);
 
     assertThat(result.exportResult.optimizationResult).isEqualTo(OPTIMIZATION_SUCCEEDED);
-    assertThat(result.exportResult.durationMs).isAtMost(2000);
+    assertThat(result.exportResult.approximateDurationMs).isAtMost(2000);
     assertThat(result.exportResult.videoConversionProcess)
         .isEqualTo(CONVERSION_PROCESS_TRANSMUXED_AND_TRANSCODED);
     assertThat(result.exportResult.audioConversionProcess).isEqualTo(CONVERSION_PROCESS_TRANSMUXED);
@@ -1255,7 +1256,7 @@ public class TransformerEndToEndTest {
             .run(testId, editedMediaItem);
 
     assertThat(result.exportResult.optimizationResult).isEqualTo(OPTIMIZATION_SUCCEEDED);
-    assertThat(result.exportResult.durationMs).isAtMost(2000);
+    assertThat(result.exportResult.approximateDurationMs).isAtMost(2000);
     assertThat(result.exportResult.videoConversionProcess)
         .isEqualTo(CONVERSION_PROCESS_TRANSMUXED_AND_TRANSCODED);
     assertThat(result.exportResult.audioConversionProcess).isEqualTo(CONVERSION_PROCESS_NA);
@@ -1338,8 +1339,8 @@ public class TransformerEndToEndTest {
 
     // The input video is 15.537 seconds.
     // 3 / 0.5 + 3 / 0.75 + 3 + 3 / 1.5 + 3.537 / 2 rounds up to 16_770
-    assertThat(result.exportResult.durationMs).isAtLeast(16_750);
-    assertThat(result.exportResult.durationMs).isAtMost(16_770);
+    assertThat(result.exportResult.approximateDurationMs).isAtLeast(16_750);
+    assertThat(result.exportResult.approximateDurationMs).isAtMost(16_770);
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
@@ -1384,8 +1385,8 @@ public class TransformerEndToEndTest {
 
     // The input video is 15.537 seconds.
     // 3 / 0.5 + 3 / 0.75 + 3 + 3 / 1.5 + 3.537 / 2 rounds up to 16_770
-    assertThat(result.exportResult.durationMs).isAtLeast(16_720);
-    assertThat(result.exportResult.durationMs).isAtMost(16_770);
+    assertThat(result.exportResult.approximateDurationMs).isAtLeast(16_720);
+    assertThat(result.exportResult.approximateDurationMs).isAtMost(16_770);
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
@@ -1444,7 +1445,7 @@ public class TransformerEndToEndTest {
             .build()
             .run(testId, composition);
 
-    assertThat(result.exportResult.durationMs).isEqualTo(10_351L);
+    assertThat(result.exportResult.approximateDurationMs).isEqualTo(10_351L);
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
@@ -1478,7 +1479,7 @@ public class TransformerEndToEndTest {
             .build()
             .run(testId, composition);
 
-    assertThat(result.exportResult.durationMs).isAtMost(20_720L);
+    assertThat(result.exportResult.approximateDurationMs).isAtMost(20_720L);
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
@@ -1527,7 +1528,8 @@ public class TransformerEndToEndTest {
         .isEqualTo(expectedResult.exportResult.channelCount);
     assertThat(result.exportResult.videoFrameCount)
         .isEqualTo(expectedResult.exportResult.videoFrameCount);
-    assertThat(result.exportResult.durationMs).isEqualTo(expectedResult.exportResult.durationMs);
+    assertThat(result.exportResult.approximateDurationMs)
+        .isEqualTo(expectedResult.exportResult.approximateDurationMs);
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
@@ -1570,8 +1572,8 @@ public class TransformerEndToEndTest {
     // seen in this check as the duration is determined by the last video frame.
     // However, if the audio track is roughly as long as the video track, this API difference
     // will be seen in result.exportResult.durationMs.
-    assertThat(result.exportResult.durationMs).isAtLeast(2970);
-    assertThat(result.exportResult.durationMs).isAtMost(3020);
+    assertThat(result.exportResult.approximateDurationMs).isAtLeast(2970);
+    assertThat(result.exportResult.approximateDurationMs).isAtMost(3020);
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
@@ -1613,8 +1615,8 @@ public class TransformerEndToEndTest {
     // seen in this check as the duration is determined by the last video frame.
     // However, if the audio track is roughly as long as the video track, this API difference
     // will be seen in result.exportResult.durationMs.
-    assertThat(result.exportResult.durationMs).isAtLeast(3100);
-    assertThat(result.exportResult.durationMs).isAtMost(3150);
+    assertThat(result.exportResult.approximateDurationMs).isAtLeast(3100);
+    assertThat(result.exportResult.approximateDurationMs).isAtMost(3150);
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
@@ -1653,8 +1655,8 @@ public class TransformerEndToEndTest {
     // seen in this check as the duration is determined by the last video frame.
     // However, if the audio track is roughly as long as the video track, this API difference
     // will be seen in result.exportResult.durationMs.
-    assertThat(result.exportResult.durationMs).isAtLeast(3120);
-    assertThat(result.exportResult.durationMs).isAtMost(3140);
+    assertThat(result.exportResult.approximateDurationMs).isAtLeast(3120);
+    assertThat(result.exportResult.approximateDurationMs).isAtMost(3140);
     assertThat(result.exportResult.videoFrameCount).isEqualTo(95);
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
@@ -1692,8 +1694,8 @@ public class TransformerEndToEndTest {
     // seen in this check as the duration is determined by the last video frame.
     // However, if the audio track is roughly as long as the video track, this API difference
     // will be seen in result.exportResult.durationMs.
-    assertThat(result.exportResult.durationMs).isAtLeast(1000);
-    assertThat(result.exportResult.durationMs).isAtMost(1050);
+    assertThat(result.exportResult.approximateDurationMs).isAtLeast(1000);
+    assertThat(result.exportResult.approximateDurationMs).isAtMost(1050);
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
@@ -2099,7 +2101,7 @@ public class TransformerEndToEndTest {
         retrieveTrackFormat(context, exportTestResult.filePath, C.TRACK_TYPE_VIDEO).sampleMimeType;
     assertThat(actualMimeType).isEqualTo(MimeTypes.VIDEO_AV1);
     assertThat(exportResult.exportException).isNull();
-    assertThat(exportResult.durationMs).isGreaterThan(0);
+    assertThat(exportResult.approximateDurationMs).isGreaterThan(0);
     assertThat(exportResult.videoMimeType).isEqualTo(MimeTypes.VIDEO_AV1);
   }
 
@@ -2120,7 +2122,7 @@ public class TransformerEndToEndTest {
         retrieveTrackFormat(context, exportTestResult.filePath, C.TRACK_TYPE_AUDIO).sampleMimeType;
     assertThat(actualMimeType).isEqualTo(MimeTypes.AUDIO_AAC);
     assertThat(exportResult.exportException).isNull();
-    assertThat(exportResult.durationMs).isGreaterThan(0);
+    assertThat(exportResult.approximateDurationMs).isGreaterThan(0);
     assertThat(exportResult.audioMimeType).isEqualTo(MimeTypes.AUDIO_AAC);
   }
 
@@ -2372,8 +2374,8 @@ public class TransformerEndToEndTest {
     // seen in this check as the duration is determined by the last video frame.
     // However, if the audio track is roughly as long as the video track, this API difference
     // will be seen in result.exportResult.durationMs.
-    assertThat(result.exportResult.durationMs).isAtLeast(1_360);
-    assertThat(result.exportResult.durationMs).isAtMost(1_400);
+    assertThat(result.exportResult.approximateDurationMs).isAtLeast(1_360);
+    assertThat(result.exportResult.approximateDurationMs).isAtMost(1_400);
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
@@ -2462,7 +2464,7 @@ public class TransformerEndToEndTest {
             .run(testId, editedMediaItem);
 
     // The original clip is 1 second long.
-    assertThat(result.exportResult.durationMs).isWithin(50).of(1_000);
+    assertThat(result.exportResult.approximateDurationMs).isWithin(50).of(1_000);
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
@@ -2505,7 +2507,7 @@ public class TransformerEndToEndTest {
       throw e;
     }
     // Each original clip is 1 second long.
-    assertThat(result.exportResult.durationMs).isWithin(150).of(3_000);
+    assertThat(result.exportResult.approximateDurationMs).isWithin(150).of(3_000);
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 
@@ -2540,8 +2542,8 @@ public class TransformerEndToEndTest {
     ExportTestResult result =
         new TransformerAndroidTestRunner.Builder(context, transformer).build().run(testId, item);
 
-    // Tolerance required due to bug in durationMs (b/355201372).
-    assertThat(result.exportResult.durationMs).isWithin(40).of(1000);
+    // TODO: b/443998866 - Use MetadataRetriever to get exact duration.
+    assertThat(result.exportResult.approximateDurationMs).isWithin(40).of(1000);
     assertThat(new File(result.filePath).length()).isGreaterThan(0);
   }
 

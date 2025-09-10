@@ -101,11 +101,11 @@ public class RawAssetLoaderAndroidTest {
     feedRawAudioDataToAssetLoader(rawAssetLoader, AUDIO_FORMAT, mediaDurationUs);
 
     ExportResult exportResult = exportCompletionFuture.get();
+    // TODO: b/443998866 - Use MetadataRetriever to get exact duration.
     // The durationMs is the timestamp of the last sample and not the total duration.
-    // See b/324245196.
     // Audio encoders on different API versions seems to output slightly different durations, so add
     // 50ms tolerance.
-    assertThat(exportResult.durationMs).isWithin(25).of(1000);
+    assertThat(exportResult.approximateDurationMs).isWithin(25).of(1000);
   }
 
   @Test
@@ -132,11 +132,11 @@ public class RawAssetLoaderAndroidTest {
         rawAssetLoader, AUDIO_FORMAT, /* durationUs= */ C.MICROS_PER_SECOND);
 
     ExportResult exportResult = exportCompletionFuture.get();
+    // TODO: b/443998866 - Use MetadataRetriever to get exact duration.
     // The durationMs is the timestamp of the last sample and not the total duration.
-    // See b/324245196.
     // Audio encoders on different API versions seems to output slightly different durations, so add
     // 50ms tolerance.
-    assertThat(exportResult.durationMs).isWithin(25).of(1000);
+    assertThat(exportResult.approximateDurationMs).isWithin(25).of(1000);
   }
 
   @Test
@@ -177,9 +177,9 @@ public class RawAssetLoaderAndroidTest {
 
     ExportResult exportResult = exportCompletionFuture.get();
     assertThat(exportResult.videoFrameCount).isEqualTo(2);
+    // TODO: b/443998866 - Use MetadataRetriever to get exact duration.
     // The durationMs is the timestamp of the last sample and not the total duration.
-    // See b/324245196.
-    assertThat(exportResult.durationMs).isEqualTo(lastSampleTimestampUs / 1_000);
+    assertThat(exportResult.approximateDurationMs).isEqualTo(lastSampleTimestampUs / 1_000);
   }
 
   @Test
@@ -223,9 +223,9 @@ public class RawAssetLoaderAndroidTest {
 
     ExportResult exportResult = exportCompletionFuture.get();
     assertThat(exportResult.videoFrameCount).isEqualTo(2);
+    // TODO: b/443998866 - Use MetadataRetriever to get exact duration.
     // The durationMs is the timestamp of the last sample and not the total duration.
-    // See b/324245196.
-    assertThat(exportResult.durationMs).isEqualTo(lastSampleTimestampUs / 1_000);
+    assertThat(exportResult.approximateDurationMs).isEqualTo(lastSampleTimestampUs / 1_000);
   }
 
   @Test
@@ -274,11 +274,11 @@ public class RawAssetLoaderAndroidTest {
 
     ExportResult exportResult = exportCompletionFuture.get();
     assertThat(exportResult.videoFrameCount).isEqualTo(2);
-    // The durationMs is the timestamp of the last audio sample and not the total duration.
-    // See b/324245196.
+    // TODO: b/443998866 - Use MetadataRetriever to get exact duration.
+    // The durationMs is the timestamp of the last sample and not the total duration.
     // Audio encoders on different API versions seems to output slightly different durations, so add
     // 50ms tolerance.
-    assertThat(exportResult.durationMs).isWithin(25).of(1000);
+    assertThat(exportResult.approximateDurationMs).isWithin(25).of(1000);
   }
 
   private void feedRawAudioDataToAssetLoader(

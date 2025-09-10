@@ -236,7 +236,7 @@ public class EditingMetricsCollectorTest {
     MediaItemInfo outputMediaItemInfo = editingEndedEvent.getOutputMediaItemInfo();
     assertThat(outputMediaItemInfo).isNotNull();
     assertThat(outputMediaItemInfo.getDurationMillis())
-        .isEqualTo(exportTestResult.exportResult.durationMs);
+        .isEqualTo(exportTestResult.exportResult.approximateDurationMs);
     assertThat(outputMediaItemInfo.getSampleMimeTypes()).isNotEmpty();
     assertThat(outputMediaItemInfo.getAudioChannelCount())
         .isEqualTo(exportTestResult.exportResult.channelCount);
