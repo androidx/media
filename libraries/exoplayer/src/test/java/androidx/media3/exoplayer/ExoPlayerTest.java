@@ -5508,13 +5508,10 @@ public final class ExoPlayerTest {
     adPlaybackState = adPlaybackState.withAdDurationsUs(durationsUs);
     Timeline adTimeline =
         new FakeTimeline(
-            new TimelineWindowDefinition(
-                /* periodCount= */ 1,
-                /* id= */ 0,
-                /* isSeekable= */ true,
-                /* isDynamic= */ false,
-                /* durationUs= */ Util.msToUs(contentDurationMs),
-                adPlaybackState));
+            new TimelineWindowDefinition.Builder()
+                .setDurationUs(Util.msToUs(contentDurationMs))
+                .setAdPlaybackStates(ImmutableList.of(adPlaybackState))
+                .build());
     FakeMediaSource adsMediaSource = new FakeMediaSource(adTimeline);
     int[] mediaItemIndex = new int[] {C.INDEX_UNSET, C.INDEX_UNSET, C.INDEX_UNSET};
     long[] positionMs = new long[] {C.TIME_UNSET, C.TIME_UNSET, C.INDEX_UNSET};
@@ -5564,6 +5561,43 @@ public final class ExoPlayerTest {
     assertThat(positionMs[2]).isEqualTo(8000);
     assertThat(bufferedPositionMs[2]).isEqualTo(contentDurationMs);
     assertThat(totalBufferedDurationMs[2]).isAtLeast(contentDurationMs - positionMs[2]);
+  }
+
+  @Test
+  public void removeMediaSources_whilePlayingPostrollAd_correctMasking() throws Exception {
+    // Covers bug reported in: https://github.com/androidx/media/issues/2746
+    long contentDurationMs = 10_000;
+    long adDurationMs = 5_000;
+    AdPlaybackState adPlaybackState =
+        new AdPlaybackState(
+            /* adsId= */ new Object(), /* adGroupTimesUs...= */ C.TIME_END_OF_SOURCE);
+    adPlaybackState = adPlaybackState.withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1);
+    adPlaybackState =
+        adPlaybackState.withAvailableAdMediaItem(
+            /* adGroupIndex= */ 0,
+            /* adIndexInAdGroup= */ 0,
+            MediaItem.fromUri("https://google.com/ad"));
+    long[][] durationsUs = new long[1][];
+    durationsUs[0] = new long[] {Util.msToUs(adDurationMs)};
+    adPlaybackState = adPlaybackState.withAdDurationsUs(durationsUs);
+    Timeline adTimeline =
+        new FakeTimeline(
+            new TimelineWindowDefinition.Builder()
+                .setDurationUs(Util.msToUs(contentDurationMs))
+                .setAdPlaybackStates(ImmutableList.of(adPlaybackState))
+                .build());
+    FakeMediaSource adsMediaSource = new FakeMediaSource(adTimeline);
+    ExoPlayer player = parameterizeTestExoPlayerBuilder(new TestExoPlayerBuilder(context)).build();
+    player.setMediaSources(
+        ImmutableList.of(adsMediaSource, new FakeMediaSource(), new FakeMediaSource()));
+    player.prepare();
+    player.play();
+    advance(player).untilPlayingAdIs(true);
+
+    player.removeMediaItems(/* fromIndex= */ 1, /* toIndex= */ player.getMediaItemCount());
+
+    assertThat(player.getMediaItemCount()).isEqualTo(1);
+    player.release();
   }
 
   @Test

@@ -2607,6 +2607,14 @@ import java.util.concurrent.CopyOnWriteArraySet;
     if (!oldTimeline.isEmpty()) {
       oldContentPositionUs -=
           oldTimeline.getPeriodByUid(oldPeriodUid, period).getPositionInWindowUs();
+      if (!playingPeriodChanged && oldContentPositionUs - newContentPositionUs == 1) {
+        long oldDurationUs = oldTimeline.getPeriodByUid(oldPeriodUid, period).durationUs;
+        boolean endOfSameStream = oldContentPositionUs == oldDurationUs;
+        if (endOfSameStream) {
+          // Correct the old position to be durationUs - 1.
+          oldContentPositionUs -= 1;
+        }
+      }
     }
 
     if (playingPeriodChanged || newContentPositionUs < oldContentPositionUs) {

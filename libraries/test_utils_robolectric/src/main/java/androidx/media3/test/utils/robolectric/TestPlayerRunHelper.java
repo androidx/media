@@ -160,6 +160,22 @@ public final class TestPlayerRunHelper {
     }
 
     /**
+     * Runs tasks of the main {@link Looper} until {@link Player#isPlayingAd()} ()} matches the
+     * expected value or an error occurs.
+     *
+     * @throws PlaybackException If a playback error occurs.
+     * @throws IllegalStateException If non-fatal playback errors occur, and aren't {@linkplain
+     *     #ignoringNonFatalErrors() ignored} (the non-fatal exceptions will be attached with {@link
+     *     Throwable#addSuppressed(Throwable)}).
+     * @throws TimeoutException If the {@linkplain RobolectricUtil#DEFAULT_TIMEOUT_MS default
+     *     timeout} is exceeded.
+     */
+    public final void untilPlayingAdIs(boolean expectedIsPlayingAd)
+        throws PlaybackException, TimeoutException {
+      runUntil(() -> player.isPlayingAd() == expectedIsPlayingAd);
+    }
+
+    /**
      * Runs tasks of the main {@link Looper} until a timeline change or an error occurs.
      *
      * @throws PlaybackException If a playback error occurs.
