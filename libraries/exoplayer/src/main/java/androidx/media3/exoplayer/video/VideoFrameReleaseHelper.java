@@ -61,7 +61,7 @@ public final class VideoFrameReleaseHelper {
    * The minimum change in media frame rate that will trigger a change in surface frame rate, given
    * a high confidence estimate.
    */
-  private static final float MINIMUM_MEDIA_FRAME_RATE_CHANGE_FOR_UPDATE_HIGH_CONFIDENCE = 0.02f;
+  private static final float MINIMUM_MEDIA_FRAME_RATE_CHANGE_FOR_UPDATE_HIGH_CONFIDENCE = 0.1f;
 
   /**
    * The minimum change in media frame rate that will trigger a change in surface frame rate, given
