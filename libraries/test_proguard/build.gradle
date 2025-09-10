@@ -18,9 +18,8 @@ android {
     namespace 'androidx.media3.test.proguard'
 
     sourceSets {
-        configureEach {
-            assets.srcDir '../test_data/src/test/assets'
-        }
+        androidTest.assets.srcDir '../test_data/src/test/assets/'
+        test.assets.srcDir '../test_data/src/test/assets/'
     }
 
     compileSdk project.ext.compileSdkVersion
