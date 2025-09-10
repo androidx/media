@@ -491,7 +491,10 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
   private void postKeyRequest(byte[] scope, int type, boolean allowRetry) {
     try {
-      currentKeyRequestInfo = new KeyRequestInfo.Builder(schemeDatas);
+      currentKeyRequestInfo = new KeyRequestInfo.Builder();
+      if (schemeDatas != null) {
+        currentKeyRequestInfo.setSchemeDatas(schemeDatas);
+      }
       currentKeyRequest = mediaDrm.getKeyRequest(scope, schemeDatas, type, keyRequestParameters);
       Util.castNonNull(requestHandler).post(MSG_KEYS, checkNotNull(currentKeyRequest), allowRetry);
     } catch (Exception | NoSuchMethodError e) {
@@ -672,7 +675,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
             if (currentKeyRequestInfo != null) {
               LoadEventInfo loadEventInfo =
                   keyResponse.loadEventInfo.copyWithTaskId(requestTask.taskId);
-              currentKeyRequestInfo.setMainLoadRequest(loadEventInfo);
+              currentKeyRequestInfo.addLoadInfo(loadEventInfo);
             }
             break;
           default:
@@ -730,7 +733,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
         return false;
       }
       if (currentKeyRequestInfo != null) {
-        currentKeyRequestInfo.addRetryLoadRequest(loadEventInfo);
+        currentKeyRequestInfo.addLoadInfo(loadEventInfo);
       }
       synchronized (this) {
         if (!isReleased) {

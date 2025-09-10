@@ -1,12 +1,12 @@
 package androidx.media3.exoplayer.drm;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.DrmInitData.SchemeData;
 import androidx.media3.exoplayer.source.LoadEventInfo;
 import com.google.common.collect.ImmutableList;
-import java.util.ArrayList;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
@@ -14,43 +14,45 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 // TODO: #1001 - Add sessionId field.
 public final class KeyRequestInfo {
 
-  /** Builder for {@link KeyRequestInfo}. */
+  /** Builder for {@link KeyRequestInfo} instances. */
   public static final class Builder {
-    @MonotonicNonNull private LoadEventInfo loadEventInfo;
-    private final List<LoadEventInfo> retriedLoadRequests;
-    @Nullable private final List<SchemeData> schemeDatas;
+    private final ImmutableList.Builder<LoadEventInfo> loadEventInfos;
+    private @MonotonicNonNull ImmutableList<SchemeData> schemeDatas;
 
     /** Constructs an instance. */
-    public Builder(@Nullable List<SchemeData> schemeDatas) {
-      this.schemeDatas = schemeDatas;
-      retriedLoadRequests = new ArrayList<>();
-      loadEventInfo = null;
+    public Builder() {
+      loadEventInfos = ImmutableList.builder();
     }
 
-    public Builder setMainLoadRequest(LoadEventInfo loadEventInfo) {
-      this.loadEventInfo = loadEventInfo;
+    /** Set the {@link SchemeData} instances associated with the key request. */
+    @CanIgnoreReturnValue
+    public Builder setSchemeDatas(List<SchemeData> schemeDatas) {
+      this.schemeDatas = ImmutableList.copyOf(schemeDatas);
       return this;
     }
 
-    public Builder addRetryLoadRequest(LoadEventInfo loadEventInfo) {
-      retriedLoadRequests.add(loadEventInfo);
+    /**
+     * Adds info for a load associated with this key request. May be called again to add info for
+     * any retry requests. At least one load info must be provided.
+     */
+    @CanIgnoreReturnValue
+    public Builder addLoadInfo(LoadEventInfo loadEventInfo) {
+      this.loadEventInfos.add(loadEventInfo);
       return this;
     }
 
     /** Builds a {@link KeyRequestInfo} instance. */
     public KeyRequestInfo build() {
-      checkNotNull(loadEventInfo, "build() called before setMainLoadRequest()");
       return new KeyRequestInfo(this);
     }
   }
 
   /**
-   * The {@link LoadEventInfo} for the initial request to laod the key, or null if no load required
+   * The {@link LoadEventInfo} instances for the requests used to load the key. Guaranteed to have
+   * at least one entry (representing the first request), followed by entries for any retries needed
+   * to load the key.
    */
-  public final LoadEventInfo loadEventInfo;
-
-  /** If the load required multiple retries, the {@link LoadEventInfo} for each retry */
-  public final ImmutableList<LoadEventInfo> retriedLoadRequests;
+  public final ImmutableList<LoadEventInfo> loadInfos;
 
   /**
    * The DRM {@link SchemeData} that identifies the loaded key, or null if this session uses offline
@@ -59,9 +61,8 @@ public final class KeyRequestInfo {
   @Nullable public final ImmutableList<SchemeData> schemeDatas;
 
   private KeyRequestInfo(Builder builder) {
-    retriedLoadRequests =
-        new ImmutableList.Builder<LoadEventInfo>().addAll(builder.retriedLoadRequests).build();
-    loadEventInfo = builder.loadEventInfo;
-    schemeDatas = builder.schemeDatas == null ? null : ImmutableList.copyOf(builder.schemeDatas);
+    loadInfos = builder.loadEventInfos.build();
+    checkState(!loadInfos.isEmpty());
+    schemeDatas = builder.schemeDatas;
   }
 }
