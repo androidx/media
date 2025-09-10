@@ -672,7 +672,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
             response = keyResponse;
             if (currentKeyRequestInfo != null) {
               LoadEventInfo loadEventInfo =
-                  keyResponse.loadEventInfo.copyWithTaskId(requestTask.taskId);
+                  keyResponse.loadEventInfo.copyWithTaskIdAndDurationMs(
+                      requestTask.taskId, SystemClock.elapsedRealtime() - requestTask.startTimeMs);
               currentKeyRequestInfo.addLoadInfo(loadEventInfo);
             }
             break;

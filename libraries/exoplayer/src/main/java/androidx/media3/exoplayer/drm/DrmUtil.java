@@ -147,9 +147,14 @@ public final class DrmUtil {
    *
    * <p>Note that this method is executing the request synchronously and blocks until finished.
    *
-   * <p>The {@link LoadEventInfo} returned inside the {@link KeyResponse} will have an unset {@code
-   * taskId}, which must be {@linkplain LoadEventInfo#copyWithTaskId(long) updated} by the caller
-   * before the {@link LoadEventInfo} is used elsewhere.
+   * <p>The {@link LoadEventInfo} returned inside the {@link KeyResponse} will have the following
+   * fields unset, and they must be updated by caller before the {@link LoadEventInfo} is used
+   * elsewhere:
+   *
+   * <ul>
+   *   <li>{@link LoadEventInfo#loadTaskId}
+   *   <li>{@link LoadEventInfo#elapsedRealtimeMs}
+   * </ul>
    *
    * @param dataSource A {@link DataSource}.
    * @param url The requested URL.
@@ -175,7 +180,6 @@ public final class DrmUtil {
             .setFlags(DataSpec.FLAG_ALLOW_GZIP)
             .build();
     DataSpec originalDataSpec = dataSpec;
-    long startTimeMs = SystemClock.elapsedRealtime();
     try {
       while (true) {
         DataSourceInputStream inputStream = new DataSourceInputStream(statsDataSource, dataSpec);
@@ -188,7 +192,7 @@ public final class DrmUtil {
                   statsDataSource.getLastOpenedUri(),
                   statsDataSource.getLastResponseHeaders(),
                   SystemClock.elapsedRealtime(),
-                  /* loadDurationMs= */ SystemClock.elapsedRealtime() - startTimeMs,
+                  /* loadDurationMs= */ 0,
                   response.length);
           return new MediaDrmCallback.Response(response, loadEventInfo);
         } catch (HttpDataSource.InvalidResponseCodeException e) {

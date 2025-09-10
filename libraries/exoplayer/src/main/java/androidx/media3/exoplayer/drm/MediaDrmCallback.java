@@ -45,6 +45,15 @@ public interface MediaDrmCallback {
   /**
    * Executes a provisioning request.
    *
+   * <p>The {@link LoadEventInfo} returned inside the {@link KeyResponse} will have the following
+   * fields unset, and they must be updated by caller before the {@link LoadEventInfo} is used
+   * elsewhere:
+   *
+   * <ul>
+   *   <li>{@link LoadEventInfo#loadTaskId}
+   *   <li>{@link LoadEventInfo#loadDurationMs}
+   * </ul>
+   *
    * @param uuid The UUID of the content protection scheme.
    * @param request The request.
    * @return A {@link Response} that holds the response payload, and LoadEventInfo
@@ -55,6 +64,15 @@ public interface MediaDrmCallback {
 
   /**
    * Executes a key request.
+   *
+   * <p>The {@link LoadEventInfo} returned inside the {@link KeyResponse} will have the following
+   * fields unset, and they must be updated by caller before the {@link LoadEventInfo} is used
+   * elsewhere:
+   *
+   * <ul>
+   *   <li>{@link LoadEventInfo#loadTaskId}
+   *   <li>{@link LoadEventInfo#loadDurationMs}
+   * </ul>
    *
    * @param uuid The UUID of the content protection scheme.
    * @param request The request.

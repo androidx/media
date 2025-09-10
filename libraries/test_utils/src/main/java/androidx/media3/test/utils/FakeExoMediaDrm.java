@@ -30,6 +30,7 @@ import android.net.Uri;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.os.PersistableBundle;
+import android.os.SystemClock;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
@@ -181,15 +182,11 @@ public final class FakeExoMediaDrm implements ExoMediaDrm {
   public static final ImmutableList<Byte> VALID_PROVISION_RESPONSE =
       TestUtil.createByteList(4, 5, 6);
 
-  private static final LoadEventInfo LOAD_EVENT_INFO =
-      new LoadEventInfo(
-          /* loadTaskId= */ 1,
-          new DataSpec.Builder().setUri(Uri.EMPTY).build(),
-          Uri.EMPTY,
-          /* responseHeaders= */ ImmutableMap.of(),
-          /* elapsedRealtimeMs= */ 1000,
-          /* loadDurationMs= */ 2000,
-          /* bytesLoaded= */ 8192);
+  /**
+   * The license server URL used in the return value from {@link #getKeyRequest(byte[], List, int,
+   * HashMap)}.
+   */
+  public static final Uri LICENSE_SERVER_URI = Uri.parse("foo://license-server.test");
 
   /** Key for use with the Map returned from {@link FakeExoMediaDrm#queryKeyStatus(byte[])}. */
   public static final String KEY_STATUS_KEY = "KEY_STATUS";
@@ -341,7 +338,7 @@ public final class FakeExoMediaDrm implements ExoMediaDrm {
         sessionIdsWithValidKeys.contains(toByteList(scope))
             ? KeyRequest.REQUEST_TYPE_RENEWAL
             : KeyRequest.REQUEST_TYPE_INITIAL;
-    return new KeyRequest(requestData.toByteArray(), /* licenseServerUrl= */ "", requestType);
+    return new KeyRequest(requestData.toByteArray(), LICENSE_SERVER_URI.toString(), requestType);
   }
 
   @Override
@@ -515,38 +512,76 @@ public final class FakeExoMediaDrm implements ExoMediaDrm {
   /** An license server implementation to interact with {@link FakeExoMediaDrm}. */
   public static class LicenseServer implements MediaDrmCallback {
 
+    /** Builder for {@link LicenseServer} instances. */
+    public static final class Builder {
+
+      private final ImmutableSet.Builder<ImmutableList<DrmInitData.SchemeData>> allowedSchemeDatas;
+
+      private boolean requiresProvisioning;
+      private int failedRequestCount;
+
+      public Builder() {
+        allowedSchemeDatas = ImmutableSet.builder();
+      }
+
+      @CanIgnoreReturnValue
+      public Builder addAllowedSchemeDatas(List<DrmInitData.SchemeData> schemeDatas) {
+        allowedSchemeDatas.add(ImmutableList.copyOf(schemeDatas));
+        return this;
+      }
+
+      @CanIgnoreReturnValue
+      public Builder setRequiresProvisioning(boolean requiresProvisioning) {
+        this.requiresProvisioning = requiresProvisioning;
+        return this;
+      }
+
+      @CanIgnoreReturnValue
+      public Builder setFailedRequestCount(int failedRequestCount) {
+        this.failedRequestCount = failedRequestCount;
+        return this;
+      }
+
+      public LicenseServer build() {
+        return new LicenseServer(this);
+      }
+    }
+
     private final ImmutableSet<ImmutableList<DrmInitData.SchemeData>> allowedSchemeDatas;
 
     private final List<ImmutableList<Byte>> receivedProvisionRequests;
     private final List<ImmutableList<DrmInitData.SchemeData>> receivedSchemeDatas;
 
     private boolean nextResponseIndicatesProvisioningRequired;
+    private int remainingFailedRequestCount;
 
     @SafeVarargs
     public static LicenseServer allowingSchemeDatas(List<DrmInitData.SchemeData>... schemeDatas) {
-      ImmutableSet.Builder<ImmutableList<DrmInitData.SchemeData>> schemeDatasBuilder =
-          ImmutableSet.builder();
+      Builder licenseServer = new Builder();
       for (List<DrmInitData.SchemeData> schemeData : schemeDatas) {
-        schemeDatasBuilder.add(ImmutableList.copyOf(schemeData));
+        licenseServer.addAllowedSchemeDatas(schemeData);
       }
-      return new LicenseServer(schemeDatasBuilder.build());
+      return licenseServer.build();
     }
 
+    /**
+     * @deprecated Use {link Builder} instead.
+     */
     @SafeVarargs
+    @Deprecated
     public static LicenseServer requiringProvisioningThenAllowingSchemeDatas(
         List<DrmInitData.SchemeData>... schemeDatas) {
-      ImmutableSet.Builder<ImmutableList<DrmInitData.SchemeData>> schemeDatasBuilder =
-          ImmutableSet.builder();
+      Builder licenseServer = new Builder();
       for (List<DrmInitData.SchemeData> schemeData : schemeDatas) {
-        schemeDatasBuilder.add(ImmutableList.copyOf(schemeData));
+        licenseServer.addAllowedSchemeDatas(schemeData);
       }
-      LicenseServer licenseServer = new LicenseServer(schemeDatasBuilder.build());
-      licenseServer.nextResponseIndicatesProvisioningRequired = true;
-      return licenseServer;
+      return licenseServer.setRequiresProvisioning(true).build();
     }
 
-    private LicenseServer(ImmutableSet<ImmutableList<DrmInitData.SchemeData>> allowedSchemeDatas) {
-      this.allowedSchemeDatas = allowedSchemeDatas;
+    private LicenseServer(Builder builder) {
+      this.allowedSchemeDatas = builder.allowedSchemeDatas.build();
+      nextResponseIndicatesProvisioningRequired = builder.requiresProvisioning;
+      remainingFailedRequestCount = builder.failedRequestCount;
 
       receivedProvisionRequests = new ArrayList<>();
       receivedSchemeDatas = new ArrayList<>();
@@ -563,17 +598,32 @@ public final class FakeExoMediaDrm implements ExoMediaDrm {
     @Override
     public Response executeProvisionRequest(UUID uuid, ProvisionRequest request)
         throws MediaDrmCallbackException {
+      checkFailedRequestCounter(request.getDefaultUrl());
       receivedProvisionRequests.add(ImmutableList.copyOf(Bytes.asList(request.getData())));
+      Uri uri = Uri.parse(request.getDefaultUrl());
       if (Arrays.equals(request.getData(), FAKE_PROVISION_REQUEST.getData())) {
-        return new Response(Bytes.toArray(VALID_PROVISION_RESPONSE), LOAD_EVENT_INFO);
+        return new Response(
+            Bytes.toArray(VALID_PROVISION_RESPONSE),
+            new LoadEventInfo(
+                /* loadTaskId= */ -1,
+                new DataSpec(uri),
+                uri,
+                /* responseHeaders= */ ImmutableMap.of(),
+                SystemClock.elapsedRealtime(),
+                /* loadDurationMs= */ 0,
+                /* bytesLoaded= */ VALID_PROVISION_RESPONSE.size()));
       } else {
-        return new Response(Util.EMPTY_BYTE_ARRAY, LOAD_EVENT_INFO);
+        return new Response(
+            Util.EMPTY_BYTE_ARRAY,
+            new LoadEventInfo(
+                /* loadTaskId= */ -1, new DataSpec(uri), SystemClock.elapsedRealtime()));
       }
     }
 
     @Override
     public Response executeKeyRequest(UUID uuid, KeyRequest request)
         throws MediaDrmCallbackException {
+      checkFailedRequestCounter(request.getLicenseServerUrl());
       ImmutableList<DrmInitData.SchemeData> schemeDatas =
           KeyRequestData.fromByteArray(request.getData()).schemeDatas;
       receivedSchemeDatas.add(schemeDatas);
@@ -587,7 +637,30 @@ public final class FakeExoMediaDrm implements ExoMediaDrm {
       } else {
         response = KEY_DENIED_RESPONSE;
       }
-      return new Response(Bytes.toArray(response), LOAD_EVENT_INFO);
+      Uri uri = Uri.parse(request.getLicenseServerUrl());
+      return new Response(
+          Bytes.toArray(response),
+          new LoadEventInfo(
+              /* loadTaskId= */ -1,
+              new DataSpec(uri),
+              uri,
+              /* responseHeaders= */ ImmutableMap.of(),
+              SystemClock.elapsedRealtime(),
+              /* loadDurationMs= */ 0,
+              /* bytesLoaded= */ response.size()));
+    }
+
+    private void checkFailedRequestCounter(String url) throws MediaDrmCallbackException {
+      if (remainingFailedRequestCount > 0) {
+        remainingFailedRequestCount--;
+        Uri uri = Uri.parse(url);
+        throw new MediaDrmCallbackException(
+            new DataSpec(uri),
+            /* uriAfterRedirects= */ uri,
+            /* responseHeaders= */ ImmutableMap.of(),
+            /* bytesLoaded= */ 0,
+            new Exception());
+      }
     }
   }
 
