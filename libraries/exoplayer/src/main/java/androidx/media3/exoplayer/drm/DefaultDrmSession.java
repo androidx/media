@@ -39,7 +39,6 @@ import androidx.media3.decoder.CryptoConfig;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.drm.ExoMediaDrm.KeyRequest;
 import androidx.media3.exoplayer.drm.ExoMediaDrm.ProvisionRequest;
-import androidx.media3.exoplayer.drm.KeyRequestInfo.Builder;
 import androidx.media3.exoplayer.source.LoadEventInfo;
 import androidx.media3.exoplayer.source.MediaLoadData;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
@@ -491,7 +490,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
   private void postKeyRequest(byte[] scope, int type, boolean allowRetry) {
     try {
-      currentKeyRequestInfo = new Builder(schemeDatas);
+      currentKeyRequestInfo = new KeyRequestInfo.Builder(schemeDatas);
       currentKeyRequest = mediaDrm.getKeyRequest(scope, schemeDatas, type, keyRequestParameters);
       Util.castNonNull(requestHandler).post(MSG_KEYS, checkNotNull(currentKeyRequest), allowRetry);
     } catch (Exception | NoSuchMethodError e) {
@@ -517,7 +516,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       currentKeyRequestInfo = null;
       if (mode == DefaultDrmSessionManager.MODE_RELEASE) {
         mediaDrm.provideKeyResponse(Util.castNonNull(offlineLicenseKeySetId), responseData);
-        // TODO plumb the KeyLoadInfo up into drmKeysRemoved
+        // TODO: #1001 - Plumb the KeyLoadInfo up into drmKeysRemoved.
         dispatchEvent(DrmSessionEventListener.EventDispatcher::drmKeysRemoved);
       } else {
         byte[] keySetId = mediaDrm.provideKeyResponse(sessionId, responseData);

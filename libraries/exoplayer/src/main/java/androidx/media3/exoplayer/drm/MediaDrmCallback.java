@@ -27,15 +27,12 @@ public interface MediaDrmCallback {
 
   /**
    * Response data from the {@link MediaDrmCallback} requests.
-   *
-   * <p>Encapsulates the license server response data {@link #responseData} along with information
-   * ({@link #loadEventInfo} about the network transfer (if any) that was issued to gather the
-   * response.
    */
   final class Response {
 
     /** The response from the license or provisioning server. */
     public final byte[] data;
+    /** Information about the loading of {@link #data}. */
     public final LoadEventInfo loadEventInfo;
 
     /** Constructs an instance. */
