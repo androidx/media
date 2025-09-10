@@ -208,7 +208,6 @@ public final class DefaultAnalyticsCollectorTest {
   private EventWindowAndPeriodId window0Period1Seq0;
   private EventWindowAndPeriodId window1Period0Seq1;
 
-
   /**
    * Verify that {@link DefaultAnalyticsCollector} explicitly overrides all {@link Player.Listener}
    * methods.
