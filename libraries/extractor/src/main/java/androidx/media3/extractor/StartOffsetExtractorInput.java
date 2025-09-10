@@ -13,12 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.extractor.jpeg;
+package androidx.media3.extractor;
 
+import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
 import static com.google.common.base.Preconditions.checkArgument;
 
-import androidx.media3.extractor.ExtractorInput;
-import androidx.media3.extractor.ForwardingExtractorInput;
+import androidx.annotation.RestrictTo;
 
 /**
  * An extractor input that wraps another extractor input and exposes data starting at a given start
@@ -28,7 +28,8 @@ import androidx.media3.extractor.ForwardingExtractorInput;
  * but where the container's extractor doesn't handle a non-zero start offset (for example, because
  * it seeks to absolute positions read from the container data).
  */
-/* package */ final class StartOffsetExtractorInput extends ForwardingExtractorInput {
+@RestrictTo(LIBRARY_GROUP)
+public final class StartOffsetExtractorInput extends ForwardingExtractorInput {
 
   private final long startOffset;
 

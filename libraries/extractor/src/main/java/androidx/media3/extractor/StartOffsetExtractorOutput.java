@@ -13,14 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.extractor.jpeg;
+package androidx.media3.extractor;
 
-import androidx.media3.common.util.UnstableApi;
-import androidx.media3.extractor.ExtractorOutput;
-import androidx.media3.extractor.ForwardingSeekMap;
-import androidx.media3.extractor.SeekMap;
-import androidx.media3.extractor.SeekPoint;
-import androidx.media3.extractor.TrackOutput;
+import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
+
+import androidx.annotation.RestrictTo;
 
 /**
  * An extractor output that wraps another extractor output and applies a give start byte offset to
@@ -30,7 +27,7 @@ import androidx.media3.extractor.TrackOutput;
  * where the container's extractor doesn't handle a non-zero start offset (for example, because it
  * seeks to absolute positions read from the container data).
  */
-@UnstableApi
+@RestrictTo(LIBRARY_GROUP)
 public final class StartOffsetExtractorOutput implements ExtractorOutput {
 
   private final long startOffset;
