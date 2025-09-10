@@ -379,6 +379,10 @@ public class RemoteMediaSession {
       binder.notifyAudioAttributesChanged(sessionId, audioAttributes.toBundle());
     }
 
+    public void notifyAudioSessionIdChanged(int audioSessionId) throws RemoteException {
+      binder.notifyAudioSessionIdChanged(sessionId, audioSessionId);
+    }
+
     public void notifyAvailableCommandsChanged(Player.Commands commands) throws RemoteException {
       binder.notifyAvailableCommandsChanged(sessionId, commands.toBundle());
     }

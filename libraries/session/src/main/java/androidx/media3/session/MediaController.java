@@ -1074,6 +1074,16 @@ public class MediaController implements Player {
     return impl.getAudioAttributes();
   }
 
+  @UnstableApi
+  @Override
+  public final int getAudioSessionId() {
+    verifyApplicationThread();
+    if (!isConnected()) {
+      return C.AUDIO_SESSION_ID_UNSET;
+    }
+    return impl.getAudioSessionId();
+  }
+
   /**
    * Requests that the connected {@link MediaSession} rates the media. This will cause the rating to
    * be set for the current user. The rating style must follow the user rating style from the
@@ -2307,6 +2317,8 @@ public class MediaController implements Player {
     PlaybackParameters getPlaybackParameters();
 
     AudioAttributes getAudioAttributes();
+
+    int getAudioSessionId();
 
     ListenableFuture<SessionResult> setRating(String mediaId, Rating rating);
 

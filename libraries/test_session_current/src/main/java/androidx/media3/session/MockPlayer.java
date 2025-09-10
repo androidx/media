@@ -273,6 +273,7 @@ public class MockPlayer implements Player {
 
   @Nullable PlaybackException playerError;
   public AudioAttributes audioAttributes;
+  public int audioSessionId;
   public long seekPositionMs;
   public int seekMediaItemIndex;
   public long currentPosition;
@@ -343,6 +344,7 @@ public class MockPlayer implements Player {
 
     // Sets default audio attributes to prevent setVolume() from being called with the play().
     audioAttributes = AudioAttributes.DEFAULT;
+    audioSessionId = C.AUDIO_SESSION_ID_UNSET;
 
     playlistMetadata = MediaMetadata.EMPTY;
     index = C.INDEX_UNSET;
@@ -687,6 +689,16 @@ public class MockPlayer implements Player {
   public void notifyAudioAttributesChanged(AudioAttributes attrs) {
     for (Listener listener : listeners) {
       listener.onAudioAttributesChanged(attrs);
+    }
+  }
+
+  public void notifyAudioSessionIdChanged(int audioSessionId) {
+    if (this.audioSessionId == audioSessionId) {
+      return;
+    }
+    this.audioSessionId = audioSessionId;
+    for (Listener listener : listeners) {
+      listener.onAudioSessionIdChanged(audioSessionId);
     }
   }
 

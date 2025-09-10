@@ -725,6 +725,11 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   }
 
   @Override
+  public int getAudioSessionId() {
+    return playerInfo.audioSessionId;
+  }
+
+  @Override
   public ListenableFuture<SessionResult> setRating(String mediaId, Rating rating) {
     return dispatchRemoteSessionTaskWithSessionCommand(
         SessionCommand.COMMAND_CODE_SESSION_SET_RATING,
@@ -2558,6 +2563,11 @@ import org.checkerframework.checker.nullness.qual.NonNull;
       listeners.queueEvent(
           /* eventFlag= */ Player.EVENT_AUDIO_ATTRIBUTES_CHANGED,
           listener -> listener.onAudioAttributesChanged(newPlayerInfo.audioAttributes));
+    }
+    if (oldPlayerInfo.audioSessionId != newPlayerInfo.audioSessionId) {
+      listeners.queueEvent(
+          /* eventFlag= */ Player.EVENT_AUDIO_SESSION_ID,
+          listener -> listener.onAudioSessionIdChanged(newPlayerInfo.audioSessionId));
     }
     if (!oldPlayerInfo.cueGroup.cues.equals(newPlayerInfo.cueGroup.cues)) {
       listeners.queueEvent(

@@ -69,6 +69,7 @@ interface IRemoteMediaSession {
   void notifyPlaybackParametersChanged(String sessionId, in Bundle playbackParametersBundle);
   void notifyMediaItemTransition(String sessionId, int index, int reason);
   void notifyAudioAttributesChanged(String sessionId, in Bundle audioAttributes);
+  void notifyAudioSessionIdChanged(String sessionId, int audioSessionId);
   void notifyVideoSizeChanged(String sessionId, in Bundle videoSize);
   void notifyAvailableCommandsChanged(String sessionId, in Bundle commandsBundle);
   boolean surfaceExists(String sessionId);

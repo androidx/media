@@ -1190,6 +1190,17 @@ public class MediaSessionProviderService extends Service {
     }
 
     @Override
+    public void notifyAudioSessionIdChanged(String sessionId, int audioSessionId)
+        throws RemoteException {
+      runOnHandler(
+          () -> {
+            MediaSession session = sessionMap.get(sessionId);
+            MockPlayer player = (MockPlayer) session.getPlayer();
+            player.notifyAudioSessionIdChanged(audioSessionId);
+          });
+    }
+
+    @Override
     public void notifyAudioAttributesChanged(String sessionId, Bundle audioAttributesBundle)
         throws RemoteException {
       AudioAttributes audioAttributes = AudioAttributes.fromBundle(audioAttributesBundle);

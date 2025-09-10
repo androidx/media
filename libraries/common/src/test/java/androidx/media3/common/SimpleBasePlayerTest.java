@@ -931,6 +931,7 @@ public class SimpleBasePlayerTest {
         TrackSelectionParameters.DEFAULT.buildUpon().setMaxVideoBitrate(1000).build();
     AudioAttributes audioAttributes =
         new AudioAttributes.Builder().setContentType(C.AUDIO_CONTENT_TYPE_MOVIE).build();
+    int audioSessionId = 1234;
     VideoSize videoSize = new VideoSize(/* width= */ 200, /* height= */ 400);
     CueGroup cueGroup =
         new CueGroup(
@@ -1006,6 +1007,7 @@ public class SimpleBasePlayerTest {
             .setPlaybackParameters(playbackParameters)
             .setTrackSelectionParameters(trackSelectionParameters)
             .setAudioAttributes(audioAttributes)
+            .setAudioSessionId(audioSessionId)
             .setVolume(0.5f)
             .setVideoSize(videoSize)
             .setCurrentCues(cueGroup)
@@ -1059,6 +1061,7 @@ public class SimpleBasePlayerTest {
     assertThat(player.getContentPosition()).isEqualTo(456);
     assertThat(player.getContentBufferedPosition()).isEqualTo(499);
     assertThat(player.getAudioAttributes()).isEqualTo(audioAttributes);
+    assertThat(player.getAudioSessionId()).isEqualTo(audioSessionId);
     assertThat(player.getVolume()).isEqualTo(0.5f);
     assertThat(player.getVideoSize()).isEqualTo(videoSize);
     assertThat(player.getCurrentCues()).isEqualTo(cueGroup);
