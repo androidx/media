@@ -27,24 +27,6 @@ import org.junit.runner.RunWith;
 public final class UiModuleProguardTest {
 
   @Test
-  public void legacyPlayerView_inflateSphericalGLSurfaceView_succeeds() {
-    getInstrumentation()
-        .runOnMainSync(
-            () ->
-                UiModuleProguard.inflateLegacyPlayerViewWithSphericalGLSurfaceView(
-                    getApplicationContext()));
-  }
-
-  @Test
-  public void legacyPlayerView_inflateVideoDecoderGLSurfaceView_succeeds() {
-    getInstrumentation()
-        .runOnMainSync(
-            () ->
-                UiModuleProguard.inflateLegacyPlayerViewWithVideoDecoderGLSurfaceView(
-                    getApplicationContext()));
-  }
-
-  @Test
   public void playerView_inflateSphericalGLSurfaceView_succeeds() {
     getInstrumentation()
         .runOnMainSync(

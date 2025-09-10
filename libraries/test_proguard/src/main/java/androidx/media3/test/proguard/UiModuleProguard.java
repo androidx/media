@@ -46,7 +46,6 @@ import androidx.media3.transformer.Composition;
 import androidx.media3.transformer.CompositionPlayer;
 import androidx.media3.transformer.EditedMediaItem;
 import androidx.media3.transformer.EditedMediaItemSequence;
-import androidx.media3.ui.LegacyPlayerView;
 import androidx.media3.ui.PlayerControlView;
 import androidx.media3.ui.PlayerView;
 import androidx.media3.ui.TimeBar;
@@ -68,20 +67,6 @@ import java.util.concurrent.atomic.AtomicReference;
 public final class UiModuleProguard {
 
   private UiModuleProguard() {}
-
-  /** Inflates a {@link LegacyPlayerView} using {@link SphericalGLSurfaceView}. */
-  @SuppressWarnings("deprecation") // Testing deprecated class
-  public static void inflateLegacyPlayerViewWithSphericalGLSurfaceView(Context context) {
-    LayoutInflater.from(context)
-        .inflate(R.layout.spherical_gl_surface_view_legacy_player_view, /* root= */ null);
-  }
-
-  /** Inflates a {@link LegacyPlayerView} using {@link VideoDecoderGLSurfaceView}. */
-  @SuppressWarnings("deprecation") // Testing deprecated class
-  public static void inflateLegacyPlayerViewWithVideoDecoderGLSurfaceView(Context context) {
-    LayoutInflater.from(context)
-        .inflate(R.layout.video_decoder_gl_surface_view_legacy_player_view, /* root= */ null);
-  }
 
   /** Inflates a {@link PlayerView} using {@link SphericalGLSurfaceView}. */
   public static void inflatePlayerViewWithSphericalGLSurfaceView(Context context) {
