@@ -21,38 +21,21 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
-import androidx.media3.demo.compose.buttons.ExtraControls
-import androidx.media3.demo.compose.buttons.MinimalControls
 import androidx.media3.demo.compose.data.videos
-import androidx.media3.demo.compose.indicator.HorizontalLinearProgressIndicator
-import androidx.media3.demo.compose.layout.CONTENT_SCALES
-import androidx.media3.demo.compose.layout.noRippleClickable
+import androidx.media3.demo.compose.layout.MainScreen
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.ui.compose.ContentFrame
-import androidx.media3.ui.compose.SURFACE_TYPE_SURFACE_VIEW
 
 class MainActivity : ComponentActivity() {
 
@@ -95,7 +78,7 @@ fun ComposeDemoApp(modifier: Modifier = Modifier) {
     }
   }
 
-  player?.let { MediaPlayerScreen(player = it, modifier = modifier.fillMaxSize()) }
+  player?.let { MainScreen(player = it, modifier = modifier.fillMaxSize()) }
 }
 
 private fun initializePlayer(context: Context): Player =
@@ -107,37 +90,3 @@ private fun initializePlayer(context: Context): Player =
     )
     prepare()
   }
-
-@Composable
-private fun MediaPlayerScreen(player: Player, modifier: Modifier = Modifier) {
-  var showControls by remember { mutableStateOf(true) }
-  var currentContentScaleIndex by remember { mutableIntStateOf(0) }
-  val contentScale = CONTENT_SCALES[currentContentScaleIndex].second
-
-  // Only use MediaPlayerScreen's modifier once for the top level Composable
-  Box(modifier) {
-    ContentFrame(
-      player = player,
-      surfaceType = SURFACE_TYPE_SURFACE_VIEW,
-      modifier = Modifier.noRippleClickable { showControls = !showControls },
-      keepContentOnReset = true,
-      contentScale = contentScale,
-    )
-
-    if (showControls) {
-      // drawn on top of a potential shutter
-      MinimalControls(player, Modifier.fillMaxWidth().align(Alignment.Center))
-      Column(Modifier.fillMaxWidth().align(Alignment.BottomCenter)) {
-        HorizontalLinearProgressIndicator(player, Modifier.fillMaxWidth())
-        ExtraControls(player, Modifier.fillMaxWidth().background(Color.Gray.copy(alpha = 0.4f)))
-      }
-    }
-
-    Button(
-      onClick = { currentContentScaleIndex = currentContentScaleIndex.inc() % CONTENT_SCALES.size },
-      modifier = Modifier.align(Alignment.TopCenter).padding(top = 48.dp),
-    ) {
-      Text("ContentScale is ${CONTENT_SCALES[currentContentScaleIndex].first}")
-    }
-  }
-}
