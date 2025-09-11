@@ -3076,6 +3076,96 @@ public class MediaCodecVideoRendererTest {
   }
 
   @Test
+  public void
+      render_withSeekAfterReplaceStreamAndSkipKeyFrameReset_doesNotRenderFirstFrameOfNewStream()
+          throws Exception {
+    ArgumentCaptor<DecoderCounters> argumentDecoderCounters =
+        ArgumentCaptor.forClass(DecoderCounters.class);
+    ShadowLooper shadowLooper = shadowOf(testMainLooper);
+    FakeSampleStream fakeSampleStream1 =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ VIDEO_H264,
+            ImmutableList.of(
+                oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME),
+                oneByteSample(/* timeUs= */ 300_000),
+                END_OF_STREAM_ITEM));
+    fakeSampleStream1.writeData(/* startPositionUs= */ 0);
+    FakeSampleStream fakeSampleStream2 =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ VIDEO_H264,
+            ImmutableList.of(
+                oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME),
+                oneByteSample(/* timeUs= */ 300_000),
+                oneByteSample(/* timeUs= */ 600_000),
+                END_OF_STREAM_ITEM));
+    fakeSampleStream2.writeData(/* startPositionUs= */ 0);
+    MediaSource.MediaPeriodId mediaPeriodId1 = new MediaSource.MediaPeriodId(new Object());
+    MediaSource.MediaPeriodId mediaPeriodId2 = new MediaSource.MediaPeriodId(new Object());
+    mediaCodecVideoRenderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {VIDEO_H264},
+        fakeSampleStream1,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        mediaPeriodId1);
+    mediaCodecVideoRenderer.start();
+    boolean replacedStream = false;
+    for (int i = 0; i < 8; i++) {
+      mediaCodecVideoRenderer.render(
+          /* positionUs= */ i * 100_000, SystemClock.elapsedRealtime() * 1000);
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
+      if (!replacedStream && mediaCodecVideoRenderer.hasReadStreamToEnd()) {
+        mediaCodecVideoRenderer.replaceStream(
+            new Format[] {VIDEO_H264},
+            fakeSampleStream2,
+            /* startPositionUs= */ 2_000_000,
+            /* offsetUs= */ 2_000_000,
+            mediaPeriodId2);
+        replacedStream = true;
+      }
+    }
+
+    shadowLooper.idle();
+    verify(eventListener).onRenderedFirstFrame(eq(surface), /* renderTimeMs= */ anyLong());
+
+    // Skip keyframe reset to ensure first frames of new stream are decode-only.
+    ScrubbingModeParameters scrubbingModeParameters =
+        new ScrubbingModeParameters.Builder()
+            .setAllowSkippingMediaCodecFlush(false)
+            .setAllowSkippingKeyFrameReset(true)
+            .build();
+    mediaCodecVideoRenderer.handleMessage(Renderer.MSG_SET_SCRUBBING_MODE, scrubbingModeParameters);
+    seekToUs(
+        mediaCodecVideoRenderer,
+        scrubbingModeParameters,
+        fakeSampleStream2,
+        /* positionUs= */ 2_600_000);
+    for (int i = 0; i < 6; i++) {
+      mediaCodecVideoRenderer.render(
+          /* positionUs= */ 2_600_000, SystemClock.elapsedRealtime() * 1000);
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
+    }
+
+    shadowLooper.idle();
+    verify(eventListener).onVideoEnabled(argumentDecoderCounters.capture());
+    assertThat(argumentDecoderCounters.getValue().renderedOutputBufferCount).isEqualTo(3);
+    assertThat(argumentDecoderCounters.getValue().skippedOutputBufferCount).isEqualTo(2);
+    verify(eventListener, times(2))
+        .onRenderedFirstFrame(eq(surface), /* renderTimeMs= */ anyLong());
+  }
+
+  @Test
   public void supportsResetPositionWithoutKeyFrameReset_withEarlierPosition_returnsFalse()
       throws Exception {
     FakeSampleStream fakeSampleStream =

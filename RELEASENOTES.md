@@ -74,6 +74,8 @@
     *   Fix bug where calling `removeMediaItems(List)` during playing a
         post-roll created a crash
         ([#2746](https://github.com/androidx/media/issues/2746)).
+    *   Fix some stuttering in playlist playback where frames were mistakenly
+        always set as the last sample and rendered.
 *   Transformer:
     *   Add support for `COMMAND_SET_AUDIO_ATTRIBUTES` and audio focus handling
         in `CompositionPlayer`.
