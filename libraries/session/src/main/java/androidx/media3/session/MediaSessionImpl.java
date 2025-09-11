@@ -33,14 +33,18 @@ import static androidx.media3.session.SessionError.ERROR_SESSION_DISCONNECTED;
 import static androidx.media3.session.SessionError.ERROR_UNKNOWN;
 import static androidx.media3.session.SessionError.INFO_CANCELLED;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.lang.Math.max;
+import static java.lang.Math.min;
 
 import android.app.PendingIntent;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.res.Resources;
 import android.media.session.MediaSession.Token;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.DeadObjectException;
 import android.os.Handler;
@@ -83,6 +87,8 @@ import androidx.media3.session.MediaSession.MediaItemsWithStartPosition;
 import androidx.media3.session.SequencedFutureManager.SequencedFuture;
 import androidx.media3.session.legacy.MediaBrowserServiceCompat;
 import androidx.media3.session.legacy.MediaSessionCompat;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -2184,5 +2190,44 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         sendEmptyMessage(MSG_PLAYER_INFO_CHANGED);
       }
     }
+  }
+
+  private static final Supplier<Integer> mediaMetadataBitmapMaxSize =
+      Suppliers.memoize(MediaSessionImpl::getMediaMetadataBitmapMaxSize);
+
+  @SuppressWarnings("DiscouragedApi") // Using Resources.getIdentifier() is less efficient
+  private static int getMediaMetadataBitmapMaxSize() {
+    Resources res = Resources.getSystem();
+    int maxSize = res.getDisplayMetrics().widthPixels;
+    try {
+      int id = res.getIdentifier("config_mediaMetadataBitmapMaxSize", "dimen", "android");
+      maxSize = res.getDimensionPixelSize(id);
+    } catch (Resources.NotFoundException e) {
+      // do nothing
+    }
+    return maxSize;
+  }
+
+  /** Returns the maximum dimension of the bitmap (either width or height) that can be used */
+  public static int getBitmapDimensionLimit(Context context) {
+    int maxSize = mediaMetadataBitmapMaxSize.get();
+
+    // NotificationCompat will scale the bitmaps on API < 27
+    if (Build.VERSION.SDK_INT < 27) {
+      try {
+        int maxWidth =
+            context
+                .getResources()
+                .getDimensionPixelSize(R.dimen.compat_notification_large_icon_max_width);
+        int maxHeight =
+            context
+                .getResources()
+                .getDimensionPixelSize(R.dimen.compat_notification_large_icon_max_height);
+        maxSize = max(maxSize, min(maxWidth, maxHeight));
+      } catch (Resources.NotFoundException e) {
+        // keep maxSize as is
+      }
+    }
+    return maxSize;
   }
 }

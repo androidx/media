@@ -1094,6 +1094,13 @@ public class MediaSessionTest {
     return intent;
   }
 
+  @Test
+  public void testGetBitmapDimensionLimit() {
+    int limit = MediaSessionImpl.getBitmapDimensionLimit(context);
+    assertThat(limit).isGreaterThan(0);
+    assertThat(limit).isAtMost(4096);
+  }
+
   /**
    * Returns the expected {@link MediaSessionManager.RemoteUserInfo#getPackageName()} of a
    * controller hosted in the test companion app.

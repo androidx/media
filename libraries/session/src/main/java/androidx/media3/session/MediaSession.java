@@ -483,7 +483,9 @@ public class MediaSession {
     @Override
     public MediaSession build() {
       if (bitmapLoader == null) {
-        bitmapLoader = new CacheBitmapLoader(new DataSourceBitmapLoader(context));
+        bitmapLoader =
+            new CacheBitmapLoader(
+                new DataSourceBitmapLoader(context, MediaSession.getBitmapDimensionLimit(context)));
       }
       return new MediaSession(
           context,
@@ -812,6 +814,17 @@ public class MediaSession {
 
   /* package */ MediaSessionImpl getImpl() {
     return impl;
+  }
+
+  /**
+   * Returns the bitmap dimension limit in pixels. Bitmaps with width or height larger than this
+   * will be scaled down to fit within the limit.
+   *
+   * @param context The context in which the bitmap dimension limit is defined.
+   * @return The bitmap dimension limit in pixels.
+   */
+  public static int getBitmapDimensionLimit(Context context) {
+    return MediaSessionImpl.getBitmapDimensionLimit(context);
   }
 
   @Nullable
