@@ -18,7 +18,7 @@ package androidx.media3.extractor.jpeg;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MimeTypes;
-import androidx.media3.extractor.metadata.mp4.MotionPhotoMetadata;
+import androidx.media3.extractor.metadata.MotionPhotoMetadata;
 import java.util.List;
 
 /** Describes the layout and metadata of a motion photo file. */

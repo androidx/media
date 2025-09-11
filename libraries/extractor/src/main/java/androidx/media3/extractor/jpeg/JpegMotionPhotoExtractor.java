@@ -35,7 +35,7 @@ import androidx.media3.extractor.SeekMap;
 import androidx.media3.extractor.StartOffsetExtractorInput;
 import androidx.media3.extractor.StartOffsetExtractorOutput;
 import androidx.media3.extractor.TrackOutput;
-import androidx.media3.extractor.metadata.mp4.MotionPhotoMetadata;
+import androidx.media3.extractor.metadata.MotionPhotoMetadata;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import androidx.media3.extractor.text.SubtitleParser;
 import java.io.IOException;
