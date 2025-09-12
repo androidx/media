@@ -15,7 +15,9 @@
  */
 package androidx.media3.demo.composition
 
+import android.Manifest
 import android.content.pm.ActivityInfo
+import android.content.pm.PackageManager
 import android.os.Build.VERSION.SDK_INT
 import android.os.Bundle
 import android.os.LocaleList
@@ -88,6 +90,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
+import androidx.core.app.ActivityCompat
 import androidx.media3.common.MimeTypes
 import androidx.media3.demo.composition.CompositionPreviewViewModel.Companion.COMPOSITION_LAYOUT
 import androidx.media3.demo.composition.CompositionPreviewViewModel.Companion.HDR_MODE_DESCRIPTIONS
@@ -119,6 +122,18 @@ class CompositionPreviewActivity : AppCompatActivity() {
     enableEdgeToEdge()
     if (SDK_INT >= 26) {
       window.setColorMode(ActivityInfo.COLOR_MODE_HDR)
+    }
+
+    // Request permission in case the file is local. This is for manual testing only.
+    val permission =
+      if (SDK_INT >= 33) Manifest.permission.READ_MEDIA_VIDEO
+      else Manifest.permission.READ_EXTERNAL_STORAGE
+    if (ActivityCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED) {
+      ActivityCompat.requestPermissions(
+        this,
+        /* permissions= */ arrayOf(permission),
+        /* requestCode= */ 1,
+      )
     }
 
     val compositionLayout = intent.getStringExtra(LAYOUT_EXTRA) ?: COMPOSITION_LAYOUT[0]

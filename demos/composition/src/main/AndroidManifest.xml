@@ -17,6 +17,16 @@
   xmlns:tools="http://schemas.android.com/tools"
   package="androidx.media3.demo.composition">
 
+  <uses-permission android:name="android.permission.INTERNET"/>
+  <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+  <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
+  <uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/>
+  <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+
+  <!-- For media projection. -->
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION"/>
+
   <application
     android:allowBackup="false"
     android:icon="@mipmap/ic_launcher"
