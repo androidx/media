@@ -147,9 +147,9 @@ public final class DrmUtil {
    *
    * <p>Note that this method is executing the request synchronously and blocks until finished.
    *
-   * <p>The {@link LoadEventInfo} returned inside the {@link KeyResponse} will have the following
-   * fields unset, and they must be updated by caller before the {@link LoadEventInfo} is used
-   * elsewhere:
+   * <p>The {@link LoadEventInfo} returned inside the {@link MediaDrmCallback.Response} will have
+   * the following fields unset, and they must be updated by caller before the {@link LoadEventInfo}
+   * is used elsewhere:
    *
    * <ul>
    *   <li>{@link LoadEventInfo#loadTaskId}
@@ -160,7 +160,8 @@ public final class DrmUtil {
    * @param url The requested URL.
    * @param httpBody The HTTP request payload.
    * @param requestProperties A keyed map of HTTP header request properties.
-   * @return A {@link MediaDrmCallback.Response} that holds the response payload, and {@link LoadEventInfo}.
+   * @return A {@link MediaDrmCallback.Response} that holds the response payload, and {@link
+   *     LoadEventInfo}.
    * @throws MediaDrmCallbackException if an exception was encountered during the download.
    */
   public static MediaDrmCallback.Response executePost(

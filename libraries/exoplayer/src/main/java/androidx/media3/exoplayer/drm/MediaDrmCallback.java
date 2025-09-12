@@ -25,13 +25,12 @@ import java.util.UUID;
 @UnstableApi
 public interface MediaDrmCallback {
 
-  /**
-   * Response data from the {@link MediaDrmCallback} requests.
-   */
+  /** Response data from the {@link MediaDrmCallback} requests. */
   final class Response {
 
     /** The response from the license or provisioning server. */
     public final byte[] data;
+
     /** Information about the loading of {@link #data}. */
     public final LoadEventInfo loadEventInfo;
 
@@ -45,7 +44,7 @@ public interface MediaDrmCallback {
   /**
    * Executes a provisioning request.
    *
-   * <p>The {@link LoadEventInfo} returned inside the {@link KeyResponse} will have the following
+   * <p>The {@link LoadEventInfo} returned inside the {@link Response} will have the following
    * fields unset, and they must be updated by caller before the {@link LoadEventInfo} is used
    * elsewhere:
    *
@@ -65,7 +64,7 @@ public interface MediaDrmCallback {
   /**
    * Executes a key request.
    *
-   * <p>The {@link LoadEventInfo} returned inside the {@link KeyResponse} will have the following
+   * <p>The {@link LoadEventInfo} returned inside the {@link Response} will have the following
    * fields unset, and they must be updated by caller before the {@link LoadEventInfo} is used
    * elsewhere:
    *

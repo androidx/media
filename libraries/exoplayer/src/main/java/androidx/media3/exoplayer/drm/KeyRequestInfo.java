@@ -19,6 +19,7 @@ import static com.google.common.base.Preconditions.checkState;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.DrmInitData.SchemeData;
+import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.source.LoadEventInfo;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -27,6 +28,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** Information related to a completed DRM key request operation. */
 // TODO: #1001 - Add sessionId field.
+@UnstableApi
 public final class KeyRequestInfo {
 
   /** Builder for {@link KeyRequestInfo} instances. */
