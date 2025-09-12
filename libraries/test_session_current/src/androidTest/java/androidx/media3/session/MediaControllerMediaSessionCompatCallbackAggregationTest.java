@@ -228,8 +228,7 @@ public class MediaControllerMediaSessionCompatCallbackAggregationTest {
   @Test
   public void getters_withValidQueueAndMetadataButWithInvalidQueueId() throws Exception {
     int testSize = 3;
-    List<MediaItem> testMediaItems =
-        MediaTestUtils.createMediaItems(testSize, /* buildWithUri= */ false);
+    List<MediaItem> testMediaItems = MediaTestUtils.createMediaItems(testSize);
     List<QueueItem> testQueue = MediaTestUtils.convertToQueueItemsWithoutBitmap(testMediaItems);
     MediaMetadataCompat testMediaMetadataCompat =
         new MediaMetadataCompat.Builder()
@@ -345,8 +344,7 @@ public class MediaControllerMediaSessionCompatCallbackAggregationTest {
   @Test
   public void getters_withValidQueueAndQueueIdWithoutMetadata() throws Exception {
     int testSize = 3;
-    List<MediaItem> testMediaItems =
-        MediaTestUtils.createMediaItems(testSize, /* buildWithUri= */ false);
+    List<MediaItem> testMediaItems = MediaTestUtils.createMediaItems(testSize);
     List<QueueItem> testQueue = MediaTestUtils.convertToQueueItemsWithoutBitmap(testMediaItems);
     @RatingCompat.Style int testRatingType = RatingCompat.RATING_HEART;
     Events testEvents =

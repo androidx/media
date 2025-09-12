@@ -388,7 +388,7 @@ public class MediaControllerProviderService extends Service {
             for (int i = 0; i < size; i++) {
               // Make media ID of each item same with its index.
               String mediaId = TestUtils.getMediaIdInFakeTimeline(i);
-              itemList.add(MediaTestUtils.createMediaItem(mediaId, /* buildWithUri= */ true));
+              itemList.add(MediaTestUtils.createMediaItem(mediaId));
             }
             controller.setMediaItems(itemList);
           });

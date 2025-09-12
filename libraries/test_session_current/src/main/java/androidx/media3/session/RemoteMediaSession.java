@@ -417,15 +417,6 @@ public class RemoteMediaSession {
       binder.setCurrentMediaItemIndex(sessionId, index);
     }
 
-    public void setCurrentMediaItemIndexAndPeriodIndex(int mediaItemIndex, int periodIndex)
-        throws RemoteException {
-      binder.setCurrentMediaItemIndexAndPeriodIndex(sessionId, mediaItemIndex, periodIndex);
-    }
-
-    public void setCurrentPeriodIndex(int index) throws RemoteException {
-      binder.setCurrentPeriodIndex(sessionId, index);
-    }
-
     public void setTrackSelectionParameters(TrackSelectionParameters parameters)
         throws RemoteException {
       binder.setTrackSelectionParameters(sessionId, parameters.toBundle());

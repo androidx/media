@@ -362,8 +362,7 @@ public class MediaLibrarySessionCallbackTest {
   public void
       onGetChildren_systemUiCallForRecentItemsWhenIdle_callsOnPlaybackResumptionWithForPlaybackFalse()
           throws Exception {
-    ArrayList<MediaItem> mediaItems =
-        MediaTestUtils.createMediaItems(/* size= */ 3, /* buildWithUri= */ false);
+    ArrayList<MediaItem> mediaItems = MediaTestUtils.createMediaItems(/* size= */ 3);
     MockMediaLibraryService service = new MockMediaLibraryService();
     service.attachBaseContext(context);
     CountDownLatch latch = new CountDownLatch(2);
@@ -460,8 +459,7 @@ public class MediaLibrarySessionCallbackTest {
   public void
       onGetChildren_systemUiCallForRecentItemsWhenIdleStartIndexTooHigh_setToLastItemItemInList()
           throws Exception {
-    ArrayList<MediaItem> mediaItems =
-        MediaTestUtils.createMediaItems(/* size= */ 3, /* buildWithUri= */ true);
+    ArrayList<MediaItem> mediaItems = MediaTestUtils.createMediaItems(/* size= */ 3);
     MockMediaLibraryService service = new MockMediaLibraryService();
     service.attachBaseContext(context);
     CountDownLatch latch = new CountDownLatch(1);
@@ -500,8 +498,7 @@ public class MediaLibrarySessionCallbackTest {
   @Test
   public void onGetChildren_systemUiCallForRecentItemsWhenIdleStartIndexNegative_setToZero()
       throws Exception {
-    ArrayList<MediaItem> mediaItems =
-        MediaTestUtils.createMediaItems(/* size= */ 3, /* buildWithUri= */ true);
+    ArrayList<MediaItem> mediaItems = MediaTestUtils.createMediaItems(/* size= */ 3);
     MockMediaLibraryService service = new MockMediaLibraryService();
     service.attachBaseContext(context);
     CountDownLatch latch = new CountDownLatch(1);
@@ -540,8 +537,7 @@ public class MediaLibrarySessionCallbackTest {
   @Test
   public void onGetChildren_systemUiCallForRecentItemsWhenNotIdle_returnsRecentItems()
       throws Exception {
-    ArrayList<MediaItem> mediaItems =
-        MediaTestUtils.createMediaItems(/* size= */ 3, /* buildWithUri= */ false);
+    ArrayList<MediaItem> mediaItems = MediaTestUtils.createMediaItems(/* size= */ 3);
     MockMediaLibraryService service = new MockMediaLibraryService();
     service.attachBaseContext(context);
     CountDownLatch latch = new CountDownLatch(1);

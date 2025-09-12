@@ -654,7 +654,7 @@ public class MediaSessionCallbackTest {
 
   @Test
   public void onAddMediaItems_withSetMediaItem() throws Exception {
-    MediaItem mediaItem = createMediaItem("mediaId", /* buildWithUri= */ true);
+    MediaItem mediaItem = createMediaItem("mediaId");
     AtomicReference<List<MediaItem>> requestedMediaItems = new AtomicReference<>();
     MediaSession.Callback callback =
         new MediaSession.Callback() {
@@ -683,8 +683,7 @@ public class MediaSessionCallbackTest {
   public void
       onAddMediaItemsDefault_withSetMediaItemIncludeLocalConfiguration_mediaItemDoesntContainLocalConfiguration_noItemsSet()
           throws Exception {
-    MediaItem mediaItemWithoutLocalConfiguration =
-        createMediaItem("mediaId", /* buildWithUri= */ false);
+    MediaItem mediaItemWithoutLocalConfiguration = createMediaItem("mediaId");
     MediaSession session =
         sessionTestRule.ensureReleaseAfterTest(new MediaSession.Builder(context, player).build());
     RemoteMediaController controller =
@@ -703,10 +702,8 @@ public class MediaSessionCallbackTest {
   public void
       onAddMediaItemsDefault_withSetMediaItemsIncludeLocalConfiguration_mediaItemsDontContainLocalConfiguration_noItemsSet()
           throws Exception {
-    MediaItem mediaItemWithoutLocalConfiguration1 =
-        createMediaItem("mediaId1", /* buildWithUri= */ false);
-    MediaItem mediaItemWithoutLocalConfiguration2 =
-        createMediaItem("mediaId2", /* buildWithUri= */ false);
+    MediaItem mediaItemWithoutLocalConfiguration1 = createMediaItem("mediaId1");
+    MediaItem mediaItemWithoutLocalConfiguration2 = createMediaItem("mediaId2");
     List<MediaItem> mediaItemsWithoutLocalConfiguration =
         ImmutableList.of(mediaItemWithoutLocalConfiguration1, mediaItemWithoutLocalConfiguration2);
     MediaSession session =
@@ -727,7 +724,7 @@ public class MediaSessionCallbackTest {
   public void
       onAddMediaItemsDefault_withSetMediaItemIncludeLocalConfiguration_mediaItemContainsLocalConfiguration_itemSet()
           throws Exception {
-    MediaItem mediaItem = createMediaItem("mediaId", /* buildWithUri= */ true);
+    MediaItem mediaItem = createMediaItem("mediaId");
     MediaItem mediaItemWithLocalConfiguration = updateMediaItemWithLocalConfiguration(mediaItem);
     MediaSession session =
         sessionTestRule.ensureReleaseAfterTest(new MediaSession.Builder(context, player).build());
@@ -745,8 +742,8 @@ public class MediaSessionCallbackTest {
   public void
       onAddMediaItemsDefault_withSetMediaItemsIncludeLocalConfiguration_mediaItemsContainLocalConfiguration_itemsSet()
           throws Exception {
-    MediaItem mediaItem1 = createMediaItem("mediaId1", /* buildWithUri= */ true);
-    MediaItem mediaItem2 = createMediaItem("mediaId2", /* buildWithUri= */ true);
+    MediaItem mediaItem1 = createMediaItem("mediaId1");
+    MediaItem mediaItem2 = createMediaItem("mediaId2");
     List<MediaItem> fullMediaItems =
         updateMediaItemsWithLocalConfiguration(ImmutableList.of(mediaItem1, mediaItem2));
     MediaSession session =
@@ -763,7 +760,7 @@ public class MediaSessionCallbackTest {
 
   @Test
   public void onAddMediaItems_withSetMediaItemWithStartPosition() throws Exception {
-    MediaItem mediaItem = createMediaItem("mediaId", /* buildWithUri= */ true);
+    MediaItem mediaItem = createMediaItem("mediaId");
     AtomicReference<List<MediaItem>> requestedMediaItems = new AtomicReference<>();
     MediaSession.Callback callback =
         new MediaSession.Callback() {
@@ -792,7 +789,7 @@ public class MediaSessionCallbackTest {
 
   @Test
   public void onAddMediaItems_withSetMediaItemWithResetPosition() throws Exception {
-    MediaItem mediaItem = createMediaItem("mediaId", /* buildWithUri= */ true);
+    MediaItem mediaItem = createMediaItem("mediaId");
     AtomicReference<List<MediaItem>> requestedMediaItems = new AtomicReference<>();
     MediaSession.Callback callback =
         new MediaSession.Callback() {
@@ -820,8 +817,7 @@ public class MediaSessionCallbackTest {
 
   @Test
   public void onAddMediaItems_withSetMediaItems() throws Exception {
-    List<MediaItem> mediaItems =
-        MediaTestUtils.createMediaItems(/* size= */ 3, /* buildWithUri= */ true);
+    List<MediaItem> mediaItems = MediaTestUtils.createMediaItems(/* size= */ 3);
     AtomicReference<List<MediaItem>> requestedMediaItems = new AtomicReference<>();
     MediaSession.Callback callback =
         new MediaSession.Callback() {
@@ -850,8 +846,7 @@ public class MediaSessionCallbackTest {
 
   @Test
   public void onAddMediaItems_withSetMediaItemsWithStartIndex() throws Exception {
-    List<MediaItem> mediaItems =
-        MediaTestUtils.createMediaItems(/* size= */ 3, /* buildWithUri= */ true);
+    List<MediaItem> mediaItems = MediaTestUtils.createMediaItems(/* size= */ 3);
     AtomicReference<List<MediaItem>> requestedMediaItems = new AtomicReference<>();
     MediaSession.Callback callback =
         new MediaSession.Callback() {
@@ -882,8 +877,7 @@ public class MediaSessionCallbackTest {
 
   @Test
   public void onAddMediaItems_withSetMediaItemsWithResetPosition() throws Exception {
-    List<MediaItem> mediaItems =
-        MediaTestUtils.createMediaItems(/* size= */ 3, /* buildWithUri= */ true);
+    List<MediaItem> mediaItems = MediaTestUtils.createMediaItems(/* size= */ 3);
     AtomicReference<List<MediaItem>> requestedMediaItems = new AtomicReference<>();
     MediaSession.Callback callback =
         new MediaSession.Callback() {
@@ -913,7 +907,7 @@ public class MediaSessionCallbackTest {
 
   @Test
   public void onAddMediaItems_withAddMediaItem() throws Exception {
-    MediaItem mediaItem = createMediaItem("mediaId", /* buildWithUri= */ true);
+    MediaItem mediaItem = createMediaItem("mediaId");
     AtomicReference<List<MediaItem>> requestedMediaItems = new AtomicReference<>();
     MediaSession.Callback callback =
         new MediaSession.Callback() {
@@ -942,8 +936,7 @@ public class MediaSessionCallbackTest {
   public void
       onAddMediaItems_withAddMediaItemIncludeLocalConfiguration_mediaItemDoesntContainLocalConfiguration_noItemsAdded()
           throws Exception {
-    MediaItem mediaItemWithoutLocalConfiguration =
-        createMediaItem("mediaId", /* buildWithUri= */ false);
+    MediaItem mediaItemWithoutLocalConfiguration = createMediaItem("mediaId");
     MediaSession session =
         sessionTestRule.ensureReleaseAfterTest(new MediaSession.Builder(context, player).build());
     RemoteMediaController controller =
@@ -961,10 +954,8 @@ public class MediaSessionCallbackTest {
   public void
       onAddMediaItems_withAddMediaItemsIncludeLocalConfiguration_mediaItemsDontContainLocalConfiguration_noItemsAdded()
           throws Exception {
-    MediaItem mediaItemWithoutLocalConfiguration1 =
-        createMediaItem("mediaId1", /* buildWithUri= */ false);
-    MediaItem mediaItemWithoutLocalConfiguration2 =
-        createMediaItem("mediaId2", /* buildWithUri= */ false);
+    MediaItem mediaItemWithoutLocalConfiguration1 = createMediaItem("mediaId1");
+    MediaItem mediaItemWithoutLocalConfiguration2 = createMediaItem("mediaId2");
     List<MediaItem> mediaItemsWithoutLocalConfiguration =
         ImmutableList.of(mediaItemWithoutLocalConfiguration1, mediaItemWithoutLocalConfiguration2);
     MediaSession session =
@@ -984,7 +975,7 @@ public class MediaSessionCallbackTest {
   public void
       onAddMediaItems_withAddMediaItemIncludeLocalConfiguration_mediaItemContainsLocalConfiguration_itemAdded()
           throws Exception {
-    MediaItem mediaItem = createMediaItem("mediaId", /* buildWithUri= */ true);
+    MediaItem mediaItem = createMediaItem("mediaId");
     MediaItem mediaItemWithLocalConfiguration = updateMediaItemWithLocalConfiguration(mediaItem);
     MediaSession session =
         sessionTestRule.ensureReleaseAfterTest(new MediaSession.Builder(context, player).build());
@@ -1002,8 +993,8 @@ public class MediaSessionCallbackTest {
   public void
       onAddMediaItems_withAddMediaItemsIncludeLocalConfiguration_mediaItemsContainLocalConfiguration_itemsAdded()
           throws Exception {
-    MediaItem mediaItem1 = createMediaItem("mediaId1", /* buildWithUri= */ true);
-    MediaItem mediaItem2 = createMediaItem("mediaId2", /* buildWithUri= */ true);
+    MediaItem mediaItem1 = createMediaItem("mediaId1");
+    MediaItem mediaItem2 = createMediaItem("mediaId2");
     List<MediaItem> fullMediaItems =
         updateMediaItemsWithLocalConfiguration(ImmutableList.of(mediaItem1, mediaItem2));
     MediaSession session =
@@ -1020,8 +1011,8 @@ public class MediaSessionCallbackTest {
 
   @Test
   public void onAddMediaItems_withAddMediaItemWithIndex() throws Exception {
-    MediaItem existingItem = createMediaItem("existingItem", /* buildWithUri= */ true);
-    MediaItem mediaItem = createMediaItem("mediaId", /* buildWithUri= */ true);
+    MediaItem existingItem = createMediaItem("existingItem");
+    MediaItem mediaItem = createMediaItem("mediaId");
     AtomicReference<List<MediaItem>> requestedMediaItems = new AtomicReference<>();
     MediaSession.Callback callback =
         new MediaSession.Callback() {
@@ -1053,8 +1044,7 @@ public class MediaSessionCallbackTest {
 
   @Test
   public void onAddMediaItems_withAddMediaItems() throws Exception {
-    List<MediaItem> mediaItems =
-        MediaTestUtils.createMediaItems(/* size= */ 3, /* buildWithUri= */ true);
+    List<MediaItem> mediaItems = MediaTestUtils.createMediaItems(/* size= */ 3);
     AtomicReference<List<MediaItem>> requestedMediaItems = new AtomicReference<>();
     MediaSession.Callback callback =
         new MediaSession.Callback() {
@@ -1083,9 +1073,8 @@ public class MediaSessionCallbackTest {
 
   @Test
   public void onAddMediaItems_withAddMediaItemsWithIndex() throws Exception {
-    MediaItem existingItem = createMediaItem("existingItem", true);
-    List<MediaItem> mediaItems =
-        MediaTestUtils.createMediaItems(/* size= */ 3, /* buildWithUri= */ true);
+    MediaItem existingItem = createMediaItem("existingItem");
+    List<MediaItem> mediaItems = MediaTestUtils.createMediaItems(/* size= */ 3);
     AtomicReference<List<MediaItem>> requestedMediaItems = new AtomicReference<>();
     MediaSession.Callback callback =
         new MediaSession.Callback() {
@@ -1120,7 +1109,7 @@ public class MediaSessionCallbackTest {
   @Test
   public void onSetMediaItems_withSetMediaItemWithStartPosition_callsPlayerWithStartIndex()
       throws Exception {
-    MediaItem mediaItem = createMediaItem("mediaId", /* buildWithUri= */ true);
+    MediaItem mediaItem = createMediaItem("mediaId");
     AtomicReference<List<MediaItem>> requestedMediaItems = new AtomicReference<>();
     MediaSession.Callback callback =
         new MediaSession.Callback() {
@@ -1158,8 +1147,7 @@ public class MediaSessionCallbackTest {
   @Test
   public void onSetMediaItems_withSetMediaItemsWithStartIndex_callsPlayerWithStartIndex()
       throws Exception {
-    List<MediaItem> mediaItems =
-        MediaTestUtils.createMediaItems(/* size= */ 3, /* buildWithUri= */ true);
+    List<MediaItem> mediaItems = MediaTestUtils.createMediaItems(/* size= */ 3);
     AtomicReference<List<MediaItem>> requestedMediaItems = new AtomicReference<>();
     MediaSession.Callback callback =
         new MediaSession.Callback() {
@@ -1199,8 +1187,7 @@ public class MediaSessionCallbackTest {
   @Test
   public void onSetMediaItems_withIndexPositionUnset_callsPlayerWithResetPosition()
       throws Exception {
-    List<MediaItem> mediaItems =
-        MediaTestUtils.createMediaItems(/* size= */ 3, /* buildWithUri= */ true);
+    List<MediaItem> mediaItems = MediaTestUtils.createMediaItems(/* size= */ 3);
     AtomicReference<List<MediaItem>> requestedMediaItems = new AtomicReference<>();
     MediaSession.Callback callback =
         new MediaSession.Callback() {
@@ -1239,8 +1226,7 @@ public class MediaSessionCallbackTest {
   @Test
   public void onSetMediaItems_withStartIndexUnset_callsPlayerWithCurrentIndexAndPosition()
       throws Exception {
-    List<MediaItem> mediaItems =
-        MediaTestUtils.createMediaItems(/* size= */ 3, /* buildWithUri= */ true);
+    List<MediaItem> mediaItems = MediaTestUtils.createMediaItems(/* size= */ 3);
     AtomicReference<List<MediaItem>> requestedMediaItems = new AtomicReference<>();
     MediaSession.Callback callback =
         new MediaSession.Callback() {
@@ -1270,7 +1256,6 @@ public class MediaSessionCallbackTest {
 
     // Model that player played to next item. Current media item index and position have changed
     player.currentMediaItemIndex = 1;
-    player.currentPeriodIndex = 1;
     player.currentPosition = 200;
 
     // Re-set media items with start index and position as current index and position
@@ -1278,7 +1263,9 @@ public class MediaSessionCallbackTest {
     player.awaitMethodCalled(MockPlayer.METHOD_SET_MEDIA_ITEMS_WITH_START_INDEX, TIMEOUT_MS);
 
     assertThat(requestedMediaItems.get()).containsExactlyElementsIn(mediaItems).inOrder();
-    assertThat(player.mediaItems).containsExactlyElementsIn(mediaItems).inOrder();
+    assertThat(player.mediaItems)
+        .containsExactlyElementsIn(updateMediaItemsWithLocalConfiguration(mediaItems))
+        .inOrder();
     assertThat(player.startMediaItemIndex).isEqualTo(1);
     assertThat(player.startPositionMs).isEqualTo(200);
   }
@@ -1286,8 +1273,7 @@ public class MediaSessionCallbackTest {
   @Test
   public void onPlay_withEmptyTimeline_callsOnGetPlaybackResumptionWithForPlaybackTrue()
       throws Exception {
-    List<MediaItem> mediaItems =
-        MediaTestUtils.createMediaItems(/* size= */ 3, /* buildWithUri= */ true);
+    List<MediaItem> mediaItems = MediaTestUtils.createMediaItems(/* size= */ 3);
     AtomicBoolean isForPlaybackParameter = new AtomicBoolean();
     MediaSession.Callback callback =
         new MediaSession.Callback() {
@@ -1372,8 +1358,7 @@ public class MediaSessionCallbackTest {
             .addAllCommands()
             .remove(Player.COMMAND_CHANGE_MEDIA_ITEMS)
             .build();
-    List<MediaItem> mediaItems =
-        MediaTestUtils.createMediaItems(/* size= */ 3, /* buildWithUri= */ true);
+    List<MediaItem> mediaItems = MediaTestUtils.createMediaItems(/* size= */ 3);
     MediaSession.Callback callback =
         new MediaSession.Callback() {
           @Override
@@ -1434,10 +1419,8 @@ public class MediaSessionCallbackTest {
 
   @Test
   public void onPlay_withNonEmptyTimeline_callsHandlePlayButtonAction() throws Exception {
-    player.timeline =
-        new PlaylistTimeline(
-            MediaTestUtils.createMediaItems(/* size= */ 3, /* buildWithUri= */ true));
-    player.mediaItems = MediaTestUtils.createMediaItems(/* size= */ 3, /* buildWithUri= */ true);
+    player.timeline = new PlaylistTimeline(MediaTestUtils.createMediaItems(/* size= */ 3));
+    player.mediaItems = MediaTestUtils.createMediaItems(/* size= */ 3);
     player.startMediaItemIndex = 1;
     player.startPositionMs = 321L;
     MediaSession.Callback callback =
@@ -1448,7 +1431,7 @@ public class MediaSessionCallbackTest {
             fail();
             return Futures.immediateFuture(
                 new MediaSession.MediaItemsWithStartPosition(
-                    MediaTestUtils.createMediaItems(/* size= */ 10, /* buildWithUri= */ true),
+                    MediaTestUtils.createMediaItems(/* size= */ 10),
                     /* startIndex= */ 9,
                     /* startPositionMs= */ C.TIME_UNSET));
           }
@@ -1691,6 +1674,7 @@ public class MediaSessionCallbackTest {
     postToPlayerAndSync(testPlayer::seekToNextMediaItem);
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(currentMediaIdsOfController).containsExactly("id1", "id2", "id2", "id2").inOrder();
     assertThat(eventOrder)
         .containsExactly(
             "player.onMediaItemTransition",
@@ -1698,7 +1682,6 @@ public class MediaSessionCallbackTest {
             "controller.onEvents",
             "player.onEvents")
         .inOrder();
-    assertThat(currentMediaIdsOfController).containsExactly("id1", "id2", "id2", "id2").inOrder();
   }
 
   @Test
@@ -1785,7 +1768,7 @@ public class MediaSessionCallbackTest {
               MediaSession mediaSession, ControllerInfo controller, boolean isForPlayback) {
             return Futures.immediateFuture(
                 new MediaSession.MediaItemsWithStartPosition(
-                    MediaTestUtils.createMediaItems(/* size= */ 2, /* buildWithUri= */ true),
+                    MediaTestUtils.createMediaItems(2),
                     /* startIndex= */ 1,
                     /* startPositionMs= */ 123L));
           }

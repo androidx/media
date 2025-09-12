@@ -186,7 +186,6 @@ public class MediaSessionPlayerTest {
             .setMediaItems(/* itemCount= */ 5)
             .build();
     player.currentMediaItemIndex = 3;
-    player.currentPeriodIndex = 3;
     MediaSession session =
         new MediaSession.Builder(ApplicationProvider.getApplicationContext(), player)
             .setCallback(
@@ -249,7 +248,6 @@ public class MediaSessionPlayerTest {
             .setMediaItems(/* itemCount= */ 5)
             .build();
     player.currentMediaItemIndex = 3;
-    player.currentPeriodIndex = 3;
     MediaSession session =
         new MediaSession.Builder(ApplicationProvider.getApplicationContext(), player)
             .setCallback(
@@ -306,7 +304,7 @@ public class MediaSessionPlayerTest {
 
   @Test
   public void setMediaItem() throws Exception {
-    MediaItem item = MediaTestUtils.createMediaItem("setMediaItem", /* buildWithUri= */ true);
+    MediaItem item = MediaTestUtils.createMediaItem("setMediaItem");
     long startPositionMs = 333L;
     boolean resetPosition = true;
     player.startPositionMs = startPositionMs;
@@ -322,8 +320,7 @@ public class MediaSessionPlayerTest {
 
   @Test
   public void setMediaItem_withStartPosition() throws Exception {
-    MediaItem item =
-        MediaTestUtils.createMediaItem("setMediaItem_withStartPosition", /* buildWithUri= */ true);
+    MediaItem item = MediaTestUtils.createMediaItem("setMediaItem_withStartPosition");
     long startPositionMs = 333L;
     boolean resetPosition = true;
     player.startPositionMs = startPositionMs;
@@ -339,8 +336,7 @@ public class MediaSessionPlayerTest {
 
   @Test
   public void setMediaItem_withResetPosition() throws Exception {
-    MediaItem item =
-        MediaTestUtils.createMediaItem("setMediaItem_withResetPosition", /* buildWithUri= */ true);
+    MediaItem item = MediaTestUtils.createMediaItem("setMediaItem_withResetPosition");
     long startPositionMs = 333L;
     boolean resetPosition = true;
     player.startPositionMs = startPositionMs;
@@ -356,8 +352,7 @@ public class MediaSessionPlayerTest {
 
   @Test
   public void setMediaItems() throws Exception {
-    List<MediaItem> items =
-        MediaTestUtils.createMediaItems(/* size= */ 2, /* buildWithUri= */ true);
+    List<MediaItem> items = MediaTestUtils.createMediaItems(/* size= */ 2);
 
     controller.setMediaItems(items);
 
@@ -368,8 +363,7 @@ public class MediaSessionPlayerTest {
 
   @Test
   public void setMediaItems_withResetPosition() throws Exception {
-    List<MediaItem> items =
-        MediaTestUtils.createMediaItems(/* size= */ 2, /* buildWithUri= */ true);
+    List<MediaItem> items = MediaTestUtils.createMediaItems(/* size= */ 2);
 
     controller.setMediaItems(items, /* resetPosition= */ true);
 
@@ -380,8 +374,7 @@ public class MediaSessionPlayerTest {
 
   @Test
   public void setMediaItems_withStartMediaItemIndex() throws Exception {
-    List<MediaItem> items =
-        MediaTestUtils.createMediaItems(/* size= */ 2, /* buildWithUri= */ true);
+    List<MediaItem> items = MediaTestUtils.createMediaItems(/* size= */ 2);
     int startMediaItemIndex = 1;
     long startPositionMs = 1234;
 
@@ -396,7 +389,7 @@ public class MediaSessionPlayerTest {
   @Test
   public void setMediaItems_withDuplicatedItems() throws Exception {
     int listSize = 4;
-    List<MediaItem> list = MediaTestUtils.createMediaItems(listSize, /* buildWithUri= */ true);
+    List<MediaItem> list = MediaTestUtils.createMediaItems(listSize);
     list.set(2, list.get(1));
 
     controller.setMediaItems(list);
@@ -435,7 +428,7 @@ public class MediaSessionPlayerTest {
 
   @Test
   public void addMediaItem() throws Exception {
-    MediaItem mediaItem = MediaTestUtils.createMediaItem("addMediaItem", /* buildWithUri= */ true);
+    MediaItem mediaItem = MediaTestUtils.createMediaItem("addMediaItem");
 
     controller.addMediaItem(mediaItem);
 
@@ -446,8 +439,7 @@ public class MediaSessionPlayerTest {
   @Test
   public void addMediaItem_withIndex() throws Exception {
     int index = 2;
-    MediaItem mediaItem =
-        MediaTestUtils.createMediaItem("addMediaItem_withIndex", /* buildWithUri= */ true);
+    MediaItem mediaItem = MediaTestUtils.createMediaItem("addMediaItem_withIndex");
 
     controller.addMediaItem(index, mediaItem);
 
@@ -464,7 +456,6 @@ public class MediaSessionPlayerTest {
             .setMediaItems(/* itemCount= */ 5)
             .build();
     player.currentMediaItemIndex = 3;
-    player.currentPeriodIndex = 3;
     MediaSession session =
         new MediaSession.Builder(ApplicationProvider.getApplicationContext(), player)
             .setCallback(
@@ -494,8 +485,7 @@ public class MediaSessionPlayerTest {
             .build();
     RemoteMediaController controller =
         remoteControllerTestRule.createRemoteController(session.getToken());
-    MediaItem mediaItem =
-        MediaTestUtils.createMediaItem("addMediaItem_withIndex", /* buildWithUri= */ true);
+    MediaItem mediaItem = MediaTestUtils.createMediaItem("addMediaItem_withIndex");
 
     // The controller should only be able to see the current item without Timeline access.
     controller.addMediaItem(/* index= */ 1, mediaItem);
@@ -510,7 +500,7 @@ public class MediaSessionPlayerTest {
   @Test
   public void addMediaItems() throws Exception {
     int size = 2;
-    List<MediaItem> mediaItems = MediaTestUtils.createMediaItems(size, /* buildWithUri= */ true);
+    List<MediaItem> mediaItems = MediaTestUtils.createMediaItems(size);
 
     controller.addMediaItems(mediaItems);
 
@@ -522,7 +512,7 @@ public class MediaSessionPlayerTest {
   public void addMediaItems_withIndex() throws Exception {
     int index = 0;
     int size = 2;
-    List<MediaItem> mediaItems = MediaTestUtils.createMediaItems(size, /* buildWithUri= */ true);
+    List<MediaItem> mediaItems = MediaTestUtils.createMediaItems(size);
 
     controller.addMediaItems(index, mediaItems);
 
@@ -539,7 +529,6 @@ public class MediaSessionPlayerTest {
             .setMediaItems(/* itemCount= */ 5)
             .build();
     player.currentMediaItemIndex = 3;
-    player.currentPeriodIndex = 3;
     MediaSession session =
         new MediaSession.Builder(ApplicationProvider.getApplicationContext(), player)
             .setCallback(
@@ -569,8 +558,7 @@ public class MediaSessionPlayerTest {
             .build();
     RemoteMediaController controller =
         remoteControllerTestRule.createRemoteController(session.getToken());
-    MediaItem mediaItem =
-        MediaTestUtils.createMediaItem("addMediaItem_withIndex", /* buildWithUri= */ true);
+    MediaItem mediaItem = MediaTestUtils.createMediaItem("addMediaItem_withIndex");
 
     // The controller should only be able to see the current item without Timeline access.
     controller.addMediaItems(/* index= */ 1, ImmutableList.of(mediaItem, mediaItem));
@@ -600,7 +588,6 @@ public class MediaSessionPlayerTest {
             .setMediaItems(/* itemCount= */ 5)
             .build();
     player.currentMediaItemIndex = 3;
-    player.currentPeriodIndex = 3;
     MediaSession session =
         new MediaSession.Builder(ApplicationProvider.getApplicationContext(), player)
             .setCallback(
@@ -653,7 +640,6 @@ public class MediaSessionPlayerTest {
             .setMediaItems(/* itemCount= */ 5)
             .build();
     player.currentMediaItemIndex = 3;
-    player.currentPeriodIndex = 3;
     MediaSession session =
         new MediaSession.Builder(ApplicationProvider.getApplicationContext(), player)
             .setCallback(
@@ -722,9 +708,8 @@ public class MediaSessionPlayerTest {
 
   @Test
   public void replaceMediaItem() throws Exception {
-    player.setMediaItems(MediaTestUtils.createMediaItems(4, true));
-    MediaItem mediaItem =
-        MediaTestUtils.createMediaItem("replaceMediaItem", /* buildWithUri= */ true);
+    player.setMediaItems(MediaTestUtils.createMediaItems(4));
+    MediaItem mediaItem = MediaTestUtils.createMediaItem("replaceMediaItem");
 
     controller.replaceMediaItem(/* index= */ 2, mediaItem);
 
@@ -736,8 +721,8 @@ public class MediaSessionPlayerTest {
 
   @Test
   public void replaceMediaItems() throws Exception {
-    player.setMediaItems(MediaTestUtils.createMediaItems(4, /* buildWithUri= */ true));
-    List<MediaItem> mediaItems = MediaTestUtils.createMediaItems(2, /* buildWithUri= */ true);
+    player.setMediaItems(MediaTestUtils.createMediaItems(4));
+    List<MediaItem> mediaItems = MediaTestUtils.createMediaItems(2);
 
     controller.replaceMediaItems(/* fromIndex= */ 1, /* toIndex= */ 2, mediaItems);
 
@@ -887,10 +872,8 @@ public class MediaSessionPlayerTest {
 
   @Test
   public void mixedAsyncAndSyncCommands_calledInCorrectOrder() throws Exception {
-    List<MediaItem> initialItems =
-        MediaTestUtils.createMediaItems(/* size= */ 2, /* buildWithUri= */ true);
-    List<MediaItem> addedItems =
-        MediaTestUtils.createMediaItems(/* size= */ 3, /* buildWithUri= */ true);
+    List<MediaItem> initialItems = MediaTestUtils.createMediaItems(/* size= */ 2);
+    List<MediaItem> addedItems = MediaTestUtils.createMediaItems(/* size= */ 3);
 
     controller.setMediaItemsPreparePlayAddItemsSeek(initialItems, addedItems, /* seekIndex= */ 3);
     player.awaitMethodCalled(MockPlayer.METHOD_PREPARE, TIMEOUT_MS);

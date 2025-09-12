@@ -20,7 +20,6 @@ import static androidx.media3.test.session.common.CommonConstants.METADATA_ARTIS
 import static androidx.media3.test.session.common.CommonConstants.METADATA_ARTWORK_URI;
 import static androidx.media3.test.session.common.CommonConstants.METADATA_DESCRIPTION;
 import static androidx.media3.test.session.common.CommonConstants.METADATA_EXTRAS;
-import static androidx.media3.test.session.common.CommonConstants.METADATA_MEDIA_URI;
 import static androidx.media3.test.session.common.CommonConstants.METADATA_SUBTITLE;
 import static androidx.media3.test.session.common.CommonConstants.METADATA_TITLE;
 import static androidx.media3.test.session.common.CommonConstants.SUPPORT_APP_PACKAGE_NAME;
@@ -101,16 +100,14 @@ public final class MediaTestUtils {
   }
 
   /** Create a media item with the mediaId for testing purpose. */
-  public static MediaItem createMediaItem(String mediaId, boolean buildWithUri) {
+  public static MediaItem createMediaItem(String mediaId) {
     MediaMetadata mediaMetadata =
         new MediaMetadata.Builder()
             .setMediaType(MediaMetadata.MEDIA_TYPE_PLAYLIST)
             .setIsBrowsable(false)
             .setIsPlayable(true)
             .build();
-    MediaItem.Builder mediaItem =
-        new MediaItem.Builder().setMediaId(mediaId).setMediaMetadata(mediaMetadata);
-    return buildWithUri ? mediaItem.setUri(METADATA_MEDIA_URI).build() : mediaItem.build();
+    return new MediaItem.Builder().setMediaId(mediaId).setMediaMetadata(mediaMetadata).build();
   }
 
   public static MediaItem createMediaItemWithArtworkData(String mediaId) {
@@ -131,10 +128,10 @@ public final class MediaTestUtils {
     return new MediaItem.Builder().setMediaId(mediaId).setMediaMetadata(mediaMetadata).build();
   }
 
-  public static ArrayList<MediaItem> createMediaItems(int size, boolean buildWithUri) {
+  public static ArrayList<MediaItem> createMediaItems(int size) {
     ArrayList<MediaItem> list = new ArrayList<>();
     for (int i = 0; i < size; i++) {
-      list.add(createMediaItem("mediaItem_" + (i + 1), buildWithUri));
+      list.add(createMediaItem("mediaItem_" + (i + 1)));
     }
     return list;
   }
@@ -147,10 +144,10 @@ public final class MediaTestUtils {
     return list;
   }
 
-  public static List<MediaItem> createMediaItems(boolean buildWithUri, String... mediaIds) {
+  public static List<MediaItem> createMediaItems(String... mediaIds) {
     List<MediaItem> list = new ArrayList<>();
     for (int i = 0; i < mediaIds.length; i++) {
-      list.add(createMediaItem(mediaIds[i], buildWithUri));
+      list.add(createMediaItem(mediaIds[i]));
     }
     return list;
   }
@@ -265,8 +262,8 @@ public final class MediaTestUtils {
     return list;
   }
 
-  public static Timeline createTimeline(int windowCount, boolean buildWithUri) {
-    return new PlaylistTimeline(createMediaItems(/* size= */ windowCount, buildWithUri));
+  public static Timeline createTimeline(int windowCount) {
+    return new PlaylistTimeline(createMediaItems(/* size= */ windowCount));
   }
 
   public static Timeline createTimeline(List<MediaItem> mediaItems) {
@@ -275,7 +272,7 @@ public final class MediaTestUtils {
 
   public static Timeline createTimelineWithPeriodSizes(int[] periodSizesPerWindow) {
     return new MultiplePeriodsPerWindowTimeline(
-        createMediaItems(/* size= */ periodSizesPerWindow.length, /* buildWithUri= */ true),
+        createMediaItems(/* size= */ periodSizesPerWindow.length),
         periodSizesPerWindow,
         /* defaultPeriodDurationMs= */ 10_000);
   }
@@ -283,7 +280,7 @@ public final class MediaTestUtils {
   public static Timeline createTimelineWithPeriodSizes(
       int[] periodSizesPerWindow, long defaultPeriodDuration) {
     return new MultiplePeriodsPerWindowTimeline(
-        createMediaItems(/* size= */ periodSizesPerWindow.length, /* buildWithUri= */ true),
+        createMediaItems(/* size= */ periodSizesPerWindow.length),
         periodSizesPerWindow,
         defaultPeriodDuration);
   }

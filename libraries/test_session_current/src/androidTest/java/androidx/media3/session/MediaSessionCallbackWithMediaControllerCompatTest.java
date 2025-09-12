@@ -544,8 +544,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
 
     handler.postAndSync(
         () -> {
-          List<MediaItem> mediaItems =
-              MediaTestUtils.createMediaItems(/* size= */ 10, /* buildWithUri= */ true);
+          List<MediaItem> mediaItems = MediaTestUtils.createMediaItems(/* size= */ 10);
           player.setMediaItems(mediaItems);
           player.timeline = MediaTestUtils.createTimeline(mediaItems);
           player.notifyTimelineChanged(Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);
@@ -593,8 +592,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
 
     handler.postAndSync(
         () -> {
-          List<MediaItem> mediaItems =
-              MediaTestUtils.createMediaItems(/* size= */ 10, /* buildWithUri= */ true);
+          List<MediaItem> mediaItems = MediaTestUtils.createMediaItems(/* size= */ 10);
           player.setMediaItems(mediaItems);
           player.timeline = MediaTestUtils.createTimeline(mediaItems);
           player.notifyTimelineChanged(Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);
@@ -642,8 +640,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
 
     handler.postAndSync(
         () -> {
-          List<MediaItem> mediaItems =
-              MediaTestUtils.createMediaItems(/* size= */ 10, /* buildWithUri= */ true);
+          List<MediaItem> mediaItems = MediaTestUtils.createMediaItems(/* size= */ 10);
           player.setMediaItems(mediaItems);
           player.timeline = MediaTestUtils.createTimeline(mediaItems);
           player.notifyTimelineChanged(Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);
@@ -675,8 +672,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
             /* waitForConnection= */ true);
 
-    List<MediaItem> mediaItems =
-        MediaTestUtils.createMediaItems(/* size= */ 10, /* buildWithUri= */ true);
+    List<MediaItem> mediaItems = MediaTestUtils.createMediaItems(/* size= */ 10);
     handler.postAndSync(
         () -> {
           player.setMediaItems(mediaItems);
@@ -787,7 +783,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
 
     handler.postAndSync(
         () -> {
-          player.timeline = MediaTestUtils.createTimeline(/* windowCount= */ 10, true);
+          player.timeline = MediaTestUtils.createTimeline(/* windowCount= */ 10);
           player.notifyTimelineChanged(Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);
         });
 
@@ -818,7 +814,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             /* waitForConnection= */ true);
     handler.postAndSync(
         () -> {
-          player.timeline = MediaTestUtils.createTimeline(/* windowCount= */ 10, true);
+          player.timeline = MediaTestUtils.createTimeline(/* windowCount= */ 10);
           player.notifyTimelineChanged(Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);
         });
 
@@ -833,8 +829,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
   @Test
   public void dispatchMediaButtonEvent_playWithEmptyTimeline_callsPlaybackResumptionPrepareAndPlay()
       throws Exception {
-    ArrayList<MediaItem> mediaItems =
-        MediaTestUtils.createMediaItems(/* size= */ 3, /* buildWithUri= */ true);
+    ArrayList<MediaItem> mediaItems = MediaTestUtils.createMediaItems(/* size= */ 3);
     AtomicReference<MediaSession> session = new AtomicReference<>();
     AtomicBoolean isForPlaybackParameter = new AtomicBoolean();
     CallerCollectorPlayer callerCollectorPlayer = new CallerCollectorPlayer(session, player);
@@ -947,8 +942,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             .addAllCommands()
             .remove(Player.COMMAND_CHANGE_MEDIA_ITEMS)
             .build();
-    List<MediaItem> mediaItems =
-        MediaTestUtils.createMediaItems(/* size= */ 3, /* buildWithUri= */ true);
+    List<MediaItem> mediaItems = MediaTestUtils.createMediaItems(/* size= */ 3);
     MediaSession.Callback callback =
         new MediaSession.Callback() {
           @Override
@@ -988,8 +982,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
   public void
       dispatchMediaButtonEvent_playWithEmptyTimelineWithMediaNotificationController_callsPlaybackResumptionPrepareAndPlay()
           throws Exception {
-    ArrayList<MediaItem> mediaItems =
-        MediaTestUtils.createMediaItems(/* size= */ 3, /* buildWithUri= */ true);
+    ArrayList<MediaItem> mediaItems = MediaTestUtils.createMediaItems(/* size= */ 3);
     AtomicReference<MediaSession> session = new AtomicReference<>();
     CallerCollectorPlayer callerCollectorPlayer = new CallerCollectorPlayer(session, player);
     session.set(
@@ -1045,7 +1038,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
   public void
       dispatchMediaButtonEvent_playWithEmptyTimelinePlaybackResumptionFailure_callsHandlePlayButtonAction()
           throws Exception {
-    player.mediaItems = MediaTestUtils.createMediaItems(/* size= */ 3, /* buildWithUri= */ true);
+    player.mediaItems = MediaTestUtils.createMediaItems(/* size= */ 3);
     player.startMediaItemIndex = 1;
     player.startPositionMs = 321L;
     MediaSession.Callback callback =
@@ -1085,7 +1078,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
   public void dispatchMediaButtonEvent_playWithNonEmptyTimeline_callsHandlePlayButtonAction()
       throws Exception {
     KeyEvent keyEvent = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY);
-    player.mediaItems = MediaTestUtils.createMediaItems(/* size= */ 3, /* buildWithUri= */ true);
+    player.mediaItems = MediaTestUtils.createMediaItems(/* size= */ 3);
     player.timeline = new PlaylistTimeline(player.mediaItems);
     player.startMediaItemIndex = 1;
     player.startPositionMs = 321L;
@@ -1124,7 +1117,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
       dispatchMediaButtonEvent_playWithNonEmptyTimelineWithMediaNotificationController_callsHandlePlayButtonAction()
           throws Exception {
     KeyEvent keyEvent = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY);
-    player.mediaItems = MediaTestUtils.createMediaItems(/* size= */ 3, /* buildWithUri= */ true);
+    player.mediaItems = MediaTestUtils.createMediaItems(/* size= */ 3);
     player.timeline = new PlaylistTimeline(player.mediaItems);
     AtomicReference<MediaSession> session = new AtomicReference<>();
     CallerCollectorPlayer callerCollectorPlayer = new CallerCollectorPlayer(session, player);
@@ -2070,8 +2063,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
         };
     handler.postAndSync(
         () -> {
-          List<MediaItem> mediaItems =
-              MediaTestUtils.createMediaItems(/* buildWithUri= */ true, mediaId);
+          List<MediaItem> mediaItems = MediaTestUtils.createMediaItems(mediaId);
           player.timeline = MediaTestUtils.createTimeline(mediaItems);
         });
     session =
@@ -2249,7 +2241,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
               MediaSession mediaSession, ControllerInfo controller, boolean isForPlayback) {
             return Futures.immediateFuture(
                 new MediaSession.MediaItemsWithStartPosition(
-                    MediaTestUtils.createMediaItems(2, /* buildWithUri= */ true),
+                    MediaTestUtils.createMediaItems(2),
                     /* startIndex= */ 1,
                     /* startPositionMs= */ 123L));
           }
@@ -2293,8 +2285,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
           @Override
           public ListenableFuture<List<MediaItem>> onAddMediaItems(
               MediaSession mediaSession, ControllerInfo controller, List<MediaItem> mediaItems) {
-            return Futures.immediateFuture(
-                MediaTestUtils.createMediaItems(2, /* buildWithUri= */ true));
+            return Futures.immediateFuture(MediaTestUtils.createMediaItems(2));
           }
 
           @Override
@@ -2339,8 +2330,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
           @Override
           public ListenableFuture<List<MediaItem>> onAddMediaItems(
               MediaSession mediaSession, ControllerInfo controller, List<MediaItem> mediaItems) {
-            return Futures.immediateFuture(
-                MediaTestUtils.createMediaItems(2, /* buildWithUri= */ true));
+            return Futures.immediateFuture(MediaTestUtils.createMediaItems(2));
           }
 
           @Override
@@ -2383,8 +2373,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
           @Override
           public ListenableFuture<List<MediaItem>> onAddMediaItems(
               MediaSession mediaSession, ControllerInfo controller, List<MediaItem> mediaItems) {
-            return Futures.immediateFuture(
-                MediaTestUtils.createMediaItems(2, /* buildWithUri= */ true));
+            return Futures.immediateFuture(MediaTestUtils.createMediaItems(2));
           }
 
           @Override

@@ -22,13 +22,10 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.Player;
-import androidx.media3.common.Timeline;
 import androidx.media3.common.TrackSelectionParameters;
-import androidx.media3.common.util.Util;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SmallTest;
 import java.util.List;
-import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -43,25 +40,6 @@ public class MockPlayerTest {
   @Before
   public void setUp() {
     player = new MockPlayer.Builder().build();
-  }
-
-  @After
-  public void tearDown() {
-    // Assert that the current period index has a valid value after the test.
-    Timeline timeline = player.getCurrentTimeline();
-    if (!timeline.isEmpty()) {
-      Timeline.Window window =
-          timeline.getWindow(player.getCurrentMediaItemIndex(), new Timeline.Window());
-      assertThat(
-              Util.constrainValue(
-                  player.currentPeriodIndex,
-                  /* min= */ window.firstPeriodIndex,
-                  /* max= */ window.lastPeriodIndex))
-          .isEqualTo(player.currentPeriodIndex);
-    } else {
-      assertThat(player.getCurrentMediaItemIndex()).isEqualTo(0);
-      assertThat(player.getCurrentPeriodIndex()).isEqualTo(0);
-    }
   }
 
   @Test
@@ -154,7 +132,7 @@ public class MockPlayerTest {
 
   @Test
   public void setMediaItem() {
-    MediaItem mediaItem = MediaTestUtils.createMediaItem("setMediaItem", /* buildWithUri= */ true);
+    MediaItem mediaItem = MediaTestUtils.createMediaItem("setMediaItem");
 
     player.setMediaItem(mediaItem);
 
@@ -164,7 +142,7 @@ public class MockPlayerTest {
 
   @Test
   public void setMediaItem_withStartPosition() {
-    MediaItem mediaItem = MediaTestUtils.createMediaItem("setMediaItem", /* buildWithUri= */ true);
+    MediaItem mediaItem = MediaTestUtils.createMediaItem("setMediaItem");
     long startPositionMs = 321L;
 
     player.setMediaItem(mediaItem, startPositionMs);
@@ -177,7 +155,7 @@ public class MockPlayerTest {
 
   @Test
   public void setMediaItem_withResetPosition() {
-    MediaItem mediaItem = MediaTestUtils.createMediaItem("setMediaItem", /* buildWithUri= */ true);
+    MediaItem mediaItem = MediaTestUtils.createMediaItem("setMediaItem");
     boolean resetPosition = true;
 
     player.setMediaItem(mediaItem, resetPosition);
@@ -190,7 +168,7 @@ public class MockPlayerTest {
 
   @Test
   public void setMediaItems() {
-    List<MediaItem> list = MediaTestUtils.createMediaItems(/* size= */ 2, /* buildWithUri= */ true);
+    List<MediaItem> list = MediaTestUtils.createMediaItems(/* size= */ 2);
 
     player.setMediaItems(list);
 
@@ -200,7 +178,7 @@ public class MockPlayerTest {
 
   @Test
   public void setMediaItems_withResetPosition() {
-    List<MediaItem> list = MediaTestUtils.createMediaItems(/* size= */ 2, /* buildWithUri= */ true);
+    List<MediaItem> list = MediaTestUtils.createMediaItems(/* size= */ 2);
     boolean resetPosition = true;
 
     player.setMediaItems(list, resetPosition);
@@ -213,7 +191,7 @@ public class MockPlayerTest {
 
   @Test
   public void setMediaItems_withStartWindowIndex() {
-    List<MediaItem> list = MediaTestUtils.createMediaItems(/* size= */ 2, /* buildWithUri= */ true);
+    List<MediaItem> list = MediaTestUtils.createMediaItems(/* size= */ 2);
     int startWindowIndex = 3;
     long startPositionMs = 132L;
 
@@ -228,7 +206,7 @@ public class MockPlayerTest {
 
   @Test
   public void setMediaItems_withDuplicatedItems() {
-    List<MediaItem> list = MediaTestUtils.createMediaItems(/* size= */ 4, /* buildWithUri= */ true);
+    List<MediaItem> list = MediaTestUtils.createMediaItems(/* size= */ 4);
     list.set(2, list.get(1));
 
     player.setMediaItems(list);
@@ -249,8 +227,8 @@ public class MockPlayerTest {
 
   @Test
   public void addMediaItem() {
-    MediaItem existingItem = MediaTestUtils.createMediaItem("existing", /* buildWithUri= */ true);
-    MediaItem mediaItem = MediaTestUtils.createMediaItem("item", /* buildWithUri= */ true);
+    MediaItem existingItem = MediaTestUtils.createMediaItem("existing");
+    MediaItem mediaItem = MediaTestUtils.createMediaItem("item");
     player.setMediaItem(existingItem);
 
     player.addMediaItem(mediaItem);
@@ -262,9 +240,8 @@ public class MockPlayerTest {
   @Test
   public void addMediaItem_withIndex() {
     int index = 1;
-    List<MediaItem> existingItems =
-        MediaTestUtils.createMediaItems(/* size= */ 2, /* buildWithUri= */ true);
-    MediaItem mediaItem = MediaTestUtils.createMediaItem("item", /* buildWithUri= */ true);
+    List<MediaItem> existingItems = MediaTestUtils.createMediaItems(/* size= */ 2);
+    MediaItem mediaItem = MediaTestUtils.createMediaItem("item");
     player.setMediaItems(existingItems);
 
     player.addMediaItem(index, mediaItem);
@@ -279,7 +256,7 @@ public class MockPlayerTest {
   @Test
   public void addMediaItems() {
     int size = 4;
-    List<MediaItem> mediaItems = MediaTestUtils.createMediaItems(size, /* buildWithUri= */ true);
+    List<MediaItem> mediaItems = MediaTestUtils.createMediaItems(size);
     player.setMediaItems(mediaItems.subList(/* fromIndex= */ 0, /* toIndex= */ 2));
 
     player.addMediaItems(mediaItems.subList(/* fromIndex= */ 2, /* toIndex= */ 4));
@@ -292,7 +269,7 @@ public class MockPlayerTest {
   public void addMediaItems_withIndex() {
     int index = 1;
     int size = 4;
-    List<MediaItem> mediaItems = MediaTestUtils.createMediaItems(size, /* buildWithUri= */ true);
+    List<MediaItem> mediaItems = MediaTestUtils.createMediaItems(size);
     player.setMediaItems(mediaItems.subList(/* fromIndex= */ 0, /* toIndex= */ 2));
 
     player.addMediaItems(index, mediaItems.subList(/* fromIndex= */ 2, /* toIndex= */ 4));
@@ -307,8 +284,7 @@ public class MockPlayerTest {
   @Test
   public void removeMediaItem() {
     int index = 3;
-    List<MediaItem> mediaItems =
-        MediaTestUtils.createMediaItems(/* size= */ 5, /* buildWithUri= */ true);
+    List<MediaItem> mediaItems = MediaTestUtils.createMediaItems(/* size= */ 5);
     player.addMediaItems(mediaItems);
 
     player.removeMediaItem(index);
@@ -324,8 +300,7 @@ public class MockPlayerTest {
   public void removeMediaItems() {
     int fromIndex = 1;
     int toIndex = 3;
-    List<MediaItem> mediaItems =
-        MediaTestUtils.createMediaItems(/* size= */ 5, /* buildWithUri= */ true);
+    List<MediaItem> mediaItems = MediaTestUtils.createMediaItems(/* size= */ 5);
     player.addMediaItems(mediaItems);
 
     player.removeMediaItems(fromIndex, toIndex);
@@ -340,8 +315,7 @@ public class MockPlayerTest {
 
   @Test
   public void clearMediaItems() {
-    List<MediaItem> mediaItems =
-        MediaTestUtils.createMediaItems(/* size= */ 5, /* buildWithUri= */ true);
+    List<MediaItem> mediaItems = MediaTestUtils.createMediaItems(/* size= */ 5);
     player.addMediaItems(mediaItems);
 
     player.clearMediaItems();
@@ -354,8 +328,7 @@ public class MockPlayerTest {
   public void moveMediaItem() {
     int index = 2;
     int newIndex = 3;
-    List<MediaItem> mediaItems =
-        MediaTestUtils.createMediaItems(/* size= */ 5, /* buildWithUri= */ true);
+    List<MediaItem> mediaItems = MediaTestUtils.createMediaItems(/* size= */ 5);
     player.addMediaItems(mediaItems);
 
     player.moveMediaItem(index, newIndex);
@@ -378,8 +351,7 @@ public class MockPlayerTest {
     int fromIndex = 1;
     int toIndex = 3;
     int newIndex = 3;
-    List<MediaItem> mediaItems =
-        MediaTestUtils.createMediaItems(/* size= */ 5, /* buildWithUri= */ true);
+    List<MediaItem> mediaItems = MediaTestUtils.createMediaItems(/* size= */ 5);
     player.addMediaItems(mediaItems);
 
     player.moveMediaItems(fromIndex, toIndex, newIndex);
@@ -400,10 +372,9 @@ public class MockPlayerTest {
 
   @Test
   public void replaceMediaItem() {
-    List<MediaItem> mediaItems =
-        MediaTestUtils.createMediaItems(/* size= */ 3, /* buildWithUri= */ true);
+    List<MediaItem> mediaItems = MediaTestUtils.createMediaItems(/* size= */ 3);
     player.addMediaItems(mediaItems);
-    MediaItem mediaItem = MediaTestUtils.createMediaItem("item", true);
+    MediaItem mediaItem = MediaTestUtils.createMediaItem("item");
 
     player.replaceMediaItem(/* index= */ 1, mediaItem);
 
@@ -414,11 +385,9 @@ public class MockPlayerTest {
 
   @Test
   public void replaceMediaItems() {
-    List<MediaItem> mediaItems =
-        MediaTestUtils.createMediaItems(/* size= */ 4, /* buildWithUri= */ true);
+    List<MediaItem> mediaItems = MediaTestUtils.createMediaItems(/* size= */ 4);
     player.addMediaItems(mediaItems);
-    List<MediaItem> newMediaItems =
-        MediaTestUtils.createMediaItems(/* size= */ 3, /* buildWithUri= */ true);
+    List<MediaItem> newMediaItems = MediaTestUtils.createMediaItems(/* size= */ 3);
 
     player.replaceMediaItems(/* fromIndex= */ 1, /* toIndex= */ 3, newMediaItems);
 
