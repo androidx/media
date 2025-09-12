@@ -76,6 +76,9 @@
         ([#2746](https://github.com/androidx/media/issues/2746)).
     *   Fix some stuttering in playlist playback where frames were mistakenly
         always set as the last sample and rendered.
+    *   Enable retry path if player fails to generate audio session ID
+        ([#2382](https://github.com/androidx/media/issues/2382),
+        [#2678](https://github.com/google/ExoPlayer/issues/2678)).
 *   Transformer:
     *   Add support for `COMMAND_SET_AUDIO_ATTRIBUTES` and audio focus handling
         in `CompositionPlayer`.

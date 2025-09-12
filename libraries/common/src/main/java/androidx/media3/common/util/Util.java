@@ -2568,14 +2568,15 @@ public final class Util {
   }
 
   /**
-   * Returns a newly generated audio session identifier, or {@link AudioManager#ERROR} if an error
-   * occurred in which case audio playback may fail.
+   * Returns a newly generated audio session identifier, or {@link C#AUDIO_SESSION_ID_UNSET} if
+   * failed to generate an identifier and in which case audio playback may fail.
    *
    * @see AudioManager#generateAudioSessionId()
    */
   @UnstableApi
   public static int generateAudioSessionIdV21(Context context) {
-    return AudioManagerCompat.getAudioManager(context).generateAudioSessionId();
+    int audioSessionId = AudioManagerCompat.getAudioManager(context).generateAudioSessionId();
+    return audioSessionId != AudioManager.ERROR ? audioSessionId : C.AUDIO_SESSION_ID_UNSET;
   }
 
   /**
