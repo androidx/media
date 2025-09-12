@@ -265,9 +265,9 @@ public final class Mp4Muxer implements Muxer {
      * to reuse them immediately. Otherwise, the muxer takes ownership of the {@link ByteBuffer} and
      * the {@link BufferInfo} and the caller must not modify them.
      *
-     * <p>When {@linkplain #setSampleBatchingEnabled(boolean) sample batching} is disabled, samples
-     * are written as they {@linkplain #writeSampleData(int, ByteBuffer, BufferInfo) arrive} and
-     * sample copying is disabled.
+     * <p>Note: Sample copying is only effective when {@link #setSampleBatchingEnabled(boolean)
+     * sample batching} is also enabled. If sample batching is disabled, samples are written
+     * immediately upon arrival, and copying is not performed, regardless of this setting.
      *
      * <p>The default value is {@code false}.
      */
@@ -285,10 +285,11 @@ public final class Mp4Muxer implements Muxer {
      * arrive}.
      *
      * <p>When sample batching is enabled, and {@linkplain #setSampleCopyingEnabled(boolean) sample
-     * copying} is disabled the {@link ByteBuffer} contents provided to {@link #writeSampleData(int,
-     * ByteBuffer, BufferInfo)} should not be modified. Otherwise, if sample batching is disabled or
-     * sample copying is enabled, the {@linkplain ByteBuffer sample data} contents can be modified
-     * after calling {@link #writeSampleData(int, ByteBuffer, BufferInfo)}.
+     * copying} is disabled the {@link ByteBuffer} and {@link BufferInfo} provided to {@link
+     * #writeSampleData(int, ByteBuffer, BufferInfo)} must not be modified. Otherwise, if sample
+     * batching is disabled or sample copying is enabled, the {@link ByteBuffer} and {@link
+     * BufferInfo} can be modified after calling {@link #writeSampleData(int, ByteBuffer,
+     * BufferInfo)}.
      *
      * <p>The default value is {@code false}.
      */
@@ -526,10 +527,28 @@ public final class Mp4Muxer implements Muxer {
   /**
    * {@inheritDoc}
    *
+   * <p>The muxer's handling of sample {@link ByteBuffer} and {@link BufferInfo} depends on the
+   * {@link Builder#setSampleBatchingEnabled(boolean) sample batching} and {@link
+   * Builder#setSampleCopyingEnabled(boolean) sample copying} settings:
+   *
+   * <ul>
+   *   <li>If {@linkplain Builder#setSampleBatchingEnabled(boolean) sample batching} is disabled:
+   *       Samples are written immediately upon arrival. The caller can safely modify or reuse these
+   *       objects immediately after this method returns.
+   *   <li>If {@linkplain Builder#setSampleBatchingEnabled(boolean) sample batching} is enabled:
+   *       <ul>
+   *         <li>If {@linkplain Builder#setSampleCopyingEnabled(boolean) sample copying} is enabled:
+   *             The muxer makes internal copies of the provided {@link ByteBuffer} and {@link
+   *             BufferInfo}. The caller can safely modify or reuse these objects immediately after
+   *             this method returns.
+   *         <li>If {@linkplain Builder#setSampleCopyingEnabled(boolean) sample copying} is
+   *             disabled: The muxer takes ownership of the {@link ByteBuffer} and {@link
+   *             BufferInfo}. The caller must not modify these objects after this method returns.
+   *       </ul>
+   * </ul>
+   *
    * @param trackId The track id for which this sample is being written.
-   * @param byteBuffer The encoded sample. The muxer takes ownership of the buffer if {@link
-   *     Builder#setSampleCopyingEnabled(boolean) sample copying} is disabled. Otherwise, the
-   *     position of the buffer is updated but the caller retains ownership.
+   * @param byteBuffer The encoded sample.
    * @param bufferInfo The {@link BufferInfo} related to this sample.
    * @throws MuxerException If an error occurs while writing data to the output file.
    */
