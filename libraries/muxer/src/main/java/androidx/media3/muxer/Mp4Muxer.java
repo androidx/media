@@ -17,8 +17,6 @@ package androidx.media3.muxer;
 
 import static androidx.media3.muxer.Boxes.LARGE_SIZE_BOX_HEADER_SIZE;
 import static androidx.media3.muxer.Boxes.getAxteBoxHeader;
-import static androidx.media3.muxer.FileFormat.FILE_FORMAT_MP4;
-import static androidx.media3.muxer.FileFormat.FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION;
 import static androidx.media3.muxer.MuxerUtil.getAuxiliaryTracksLengthMetadata;
 import static androidx.media3.muxer.MuxerUtil.getAuxiliaryTracksOffsetMetadata;
 import static androidx.media3.muxer.MuxerUtil.isAuxiliaryTrack;
@@ -112,7 +110,7 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
  */
 @UnstableApi
 public final class Mp4Muxer implements Muxer {
-  /** Parameters for {@link FileFormat#FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION}. */
+  /** Parameters for {@link #FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION}. */
   public static final class Mp4AtFileParameters {
     public final boolean shouldInterleaveSamples;
 
@@ -158,6 +156,27 @@ public final class Mp4Muxer implements Muxer {
   public static final int
       LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER_OR_DUPLICATE_PREVIOUS = 1;
 
+  /** The specific MP4 file format. */
+  @Documented
+  @Retention(RetentionPolicy.SOURCE)
+  @Target(TYPE_USE)
+  @IntDef({FILE_FORMAT_DEFAULT, FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION})
+  public @interface FileFormat {}
+
+  /** The default MP4 format. */
+  public static final int FILE_FORMAT_DEFAULT = 0;
+
+  /**
+   * The MP4 With Auxiliary Tracks Extension (MP4-AT) file format. In this file format all the
+   * tracks with {@linkplain Format#auxiliaryTrackType} set to {@link
+   * C#AUXILIARY_TRACK_TYPE_ORIGINAL}, {@link C#AUXILIARY_TRACK_TYPE_DEPTH_LINEAR}, {@link
+   * C#AUXILIARY_TRACK_TYPE_DEPTH_INVERSE}, or {@link C#AUXILIARY_TRACK_TYPE_DEPTH_METADATA} are
+   * written in the Auxiliary Tracks MP4 (axte box). The rest of the tracks are written as usual.
+   *
+   * <p>See the file format at https://developer.android.com/media/platform/mp4-at-file-format.
+   */
+  public static final int FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION = 1;
+
   /** A builder for {@link Mp4Muxer} instances. */
   public static final class Builder {
     private final SeekableMuxerOutput seekableMuxerOutput;
@@ -192,7 +211,7 @@ public final class Mp4Muxer implements Muxer {
       lastSampleDurationBehavior =
           LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER_OR_DUPLICATE_PREVIOUS;
       attemptStreamableOutputEnabled = true;
-      outputFileFormat = FILE_FORMAT_MP4;
+      outputFileFormat = FILE_FORMAT_DEFAULT;
     }
 
     /**
@@ -297,11 +316,10 @@ public final class Mp4Muxer implements Muxer {
     /**
      * Sets the specific MP4 file format.
      *
-     * <p>The default value is {@link FileFormat#FILE_FORMAT_MP4}.
+     * <p>The default value is {@link #FILE_FORMAT_DEFAULT}.
      *
-     * <p>For {@link FileFormat#FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION}, {@link
-     * Mp4AtFileParameters} must also be {@linkplain #setMp4AtFileParameters(Mp4AtFileParameters)}
-     * set}.
+     * <p>For {@link #FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION}, {@link Mp4AtFileParameters}
+     * must also be {@linkplain #setMp4AtFileParameters(Mp4AtFileParameters)} set}.
      */
     @CanIgnoreReturnValue
     public Mp4Muxer.Builder setOutputFileFormat(@FileFormat int fileFormat) {

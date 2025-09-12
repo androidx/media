@@ -15,7 +15,7 @@
  */
 package androidx.media3.muxer;
 
-import static androidx.media3.muxer.FileFormat.FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION;
+import static androidx.media3.muxer.Mp4Muxer.FILE_FORMAT_MP4_WITH_AUXILIARY_TRACKS_EXTENSION;
 import static androidx.media3.muxer.Mp4Muxer.LAST_SAMPLE_DURATION_BEHAVIOR_SET_FROM_END_OF_STREAM_BUFFER_OR_DUPLICATE_PREVIOUS;
 import static androidx.media3.muxer.MuxerTestUtil.FAKE_VIDEO_FORMAT;
 import static androidx.media3.muxer.MuxerTestUtil.XMP_SAMPLE_DATA;

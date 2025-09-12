@@ -20,7 +20,7 @@ import static android.media.MediaFormat.KEY_MIME;
 import static android.media.MediaFormat.KEY_SAMPLE_RATE;
 import static androidx.media3.common.MimeTypes.AUDIO_AAC;
 import static androidx.media3.common.util.MediaFormatUtil.createMediaFormatFromFormat;
-import static androidx.media3.muxer.FileFormat.FILE_FORMAT_MP4;
+import static androidx.media3.muxer.MediaMuxerCompat.OUTPUT_FORMAT_MP4;
 import static androidx.media3.test.utils.AssetInfo.AMR_NB_3GP_ASSET;
 import static androidx.media3.test.utils.AssetInfo.AMR_WB_3GP_ASSET;
 import static androidx.media3.test.utils.AssetInfo.H263_3GP_ASSET;
@@ -127,7 +127,7 @@ public final class MediaMuxerContractTest {
     AssetInfo testAssetInfo = testAssetEnum.value;
 
     MediaMuxerProxy mediaMuxerProxy =
-        muxerFactoryEnum.value.create(outputFilePath, FILE_FORMAT_MP4);
+        muxerFactoryEnum.value.create(outputFilePath, OUTPUT_FORMAT_MP4);
     try {
       feedDataToMuxer(context, mediaMuxerProxy, testAssetInfo.uri);
     } finally {
@@ -159,7 +159,7 @@ public final class MediaMuxerContractTest {
     FileDescriptor outputFileDescriptor = new FileOutputStream(outputFilePath).getFD();
 
     MediaMuxerProxy mediaMuxerProxy =
-        muxerFactoryEnum.value.create(outputFileDescriptor, FILE_FORMAT_MP4);
+        muxerFactoryEnum.value.create(outputFileDescriptor, OUTPUT_FORMAT_MP4);
     Os.close(outputFileDescriptor);
     try {
       feedDataToMuxer(context, mediaMuxerProxy, MP4_ASSET_WITH_INCREASING_TIMESTAMPS.uri);
@@ -186,7 +186,7 @@ public final class MediaMuxerContractTest {
     audioFormat.setInteger(KEY_SAMPLE_RATE, 40000);
     audioFormat.setInteger(KEY_CHANNEL_COUNT, 2);
     MediaMuxerProxy mediaMuxerProxy =
-        muxerFactoryEnum.value.create(outputFilePath, FILE_FORMAT_MP4);
+        muxerFactoryEnum.value.create(outputFilePath, OUTPUT_FORMAT_MP4);
     try {
       mediaMuxerProxy.addTrack(audioFormat);
       mediaMuxerProxy.start();
@@ -217,7 +217,7 @@ public final class MediaMuxerContractTest {
         /* newTimeUs= */ 0,
         MediaCodec.BUFFER_FLAG_KEY_FRAME);
     MediaMuxerProxy mediaMuxerProxy =
-        muxerFactoryEnum.value.create(outputFilePath, FILE_FORMAT_MP4);
+        muxerFactoryEnum.value.create(outputFilePath, OUTPUT_FORMAT_MP4);
     try {
       mediaMuxerProxy.addTrack(
           createMediaFormatFromFormat(MP4_ASSET_WITH_INCREASING_TIMESTAMPS.videoFormat));
@@ -245,7 +245,7 @@ public final class MediaMuxerContractTest {
         /* newTimeUs= */ 0,
         MediaCodec.BUFFER_FLAG_KEY_FRAME);
     MediaMuxerProxy mediaMuxerProxy =
-        muxerFactoryEnum.value.create(outputFilePath, FILE_FORMAT_MP4);
+        muxerFactoryEnum.value.create(outputFilePath, OUTPUT_FORMAT_MP4);
     try {
       int trackIndex =
           mediaMuxerProxy.addTrack(
@@ -274,7 +274,7 @@ public final class MediaMuxerContractTest {
         /* newTimeUs= */ 0,
         MediaCodec.BUFFER_FLAG_KEY_FRAME);
     MediaMuxerProxy mediaMuxerProxy =
-        muxerFactoryEnum.value.create(outputFilePath, FILE_FORMAT_MP4);
+        muxerFactoryEnum.value.create(outputFilePath, OUTPUT_FORMAT_MP4);
     try {
       int trackIndex =
           mediaMuxerProxy.addTrack(
@@ -307,7 +307,7 @@ public final class MediaMuxerContractTest {
     String outputFilePath = tempFolder.newFile().getAbsolutePath();
     ByteBuffer fakeSample = ByteBuffer.wrap(BaseEncoding.base16().decode(FAKE_SAMPLE));
     MediaMuxerProxy mediaMuxerProxy =
-        muxerFactoryEnum.value.create(outputFilePath, FILE_FORMAT_MP4);
+        muxerFactoryEnum.value.create(outputFilePath, OUTPUT_FORMAT_MP4);
     try {
       int trackIndex =
           mediaMuxerProxy.addTrack(
@@ -345,7 +345,7 @@ public final class MediaMuxerContractTest {
         /* newTimeUs= */ 0,
         MediaCodec.BUFFER_FLAG_KEY_FRAME);
     MediaMuxerProxy mediaMuxerProxy =
-        muxerFactoryEnum.value.create(outputFilePath, FILE_FORMAT_MP4);
+        muxerFactoryEnum.value.create(outputFilePath, OUTPUT_FORMAT_MP4);
     try {
       int trackIndex =
           mediaMuxerProxy.addTrack(
@@ -368,7 +368,7 @@ public final class MediaMuxerContractTest {
   public void setLocation_afterCallingStart_throws() throws Exception {
     String outputFilePath = tempFolder.newFile().getAbsolutePath();
     MediaMuxerProxy mediaMuxerProxy =
-        muxerFactoryEnum.value.create(outputFilePath, FILE_FORMAT_MP4);
+        muxerFactoryEnum.value.create(outputFilePath, OUTPUT_FORMAT_MP4);
     try {
       mediaMuxerProxy.addTrack(
           createMediaFormatFromFormat(MP4_ASSET_WITH_INCREASING_TIMESTAMPS.videoFormat));
@@ -390,7 +390,7 @@ public final class MediaMuxerContractTest {
   public void setOrientationHint_afterCallingStart_throws() throws Exception {
     String outputFilePath = tempFolder.newFile().getAbsolutePath();
     MediaMuxerProxy mediaMuxerProxy =
-        muxerFactoryEnum.value.create(outputFilePath, FILE_FORMAT_MP4);
+        muxerFactoryEnum.value.create(outputFilePath, OUTPUT_FORMAT_MP4);
     try {
       mediaMuxerProxy.addTrack(
           createMediaFormatFromFormat(MP4_ASSET_WITH_INCREASING_TIMESTAMPS.videoFormat));
@@ -410,7 +410,7 @@ public final class MediaMuxerContractTest {
   public void stop_beforeCallingStart_throws() throws Exception {
     String outputFilePath = tempFolder.newFile().getAbsolutePath();
     MediaMuxerProxy mediaMuxerProxy =
-        muxerFactoryEnum.value.create(outputFilePath, FILE_FORMAT_MP4);
+        muxerFactoryEnum.value.create(outputFilePath, OUTPUT_FORMAT_MP4);
     try {
       mediaMuxerProxy.addTrack(
           createMediaFormatFromFormat(MP4_ASSET_WITH_INCREASING_TIMESTAMPS.videoFormat));
@@ -429,7 +429,7 @@ public final class MediaMuxerContractTest {
   public void start_afterCallingStart_throws() throws Exception {
     String outputFilePath = tempFolder.newFile().getAbsolutePath();
     MediaMuxerProxy mediaMuxerProxy =
-        muxerFactoryEnum.value.create(outputFilePath, FILE_FORMAT_MP4);
+        muxerFactoryEnum.value.create(outputFilePath, OUTPUT_FORMAT_MP4);
     try {
       mediaMuxerProxy.addTrack(
           createMediaFormatFromFormat(MP4_ASSET_WITH_INCREASING_TIMESTAMPS.videoFormat));
@@ -449,7 +449,7 @@ public final class MediaMuxerContractTest {
   public void restartMuxer_throws() throws Exception {
     String outputFilePath = tempFolder.newFile().getAbsolutePath();
     MediaMuxerProxy mediaMuxerProxy =
-        muxerFactoryEnum.value.create(outputFilePath, FILE_FORMAT_MP4);
+        muxerFactoryEnum.value.create(outputFilePath, OUTPUT_FORMAT_MP4);
     try {
       feedDataToMuxer(context, mediaMuxerProxy, MP4_ASSET_WITH_INCREASING_TIMESTAMPS.uri);
 
@@ -469,7 +469,7 @@ public final class MediaMuxerContractTest {
     float latitude = 100.0f;
     float longitude = -120f;
     MediaMuxerProxy mediaMuxerProxy =
-        muxerFactoryEnum.value.create(outputFilePath, FILE_FORMAT_MP4);
+        muxerFactoryEnum.value.create(outputFilePath, OUTPUT_FORMAT_MP4);
 
     try {
       assertThrows(
@@ -490,7 +490,7 @@ public final class MediaMuxerContractTest {
     float longitude = 120f;
 
     MediaMuxerProxy mediaMuxerProxy =
-        muxerFactoryEnum.value.create(outputFilePath, FILE_FORMAT_MP4);
+        muxerFactoryEnum.value.create(outputFilePath, OUTPUT_FORMAT_MP4);
     try {
       mediaMuxerProxy.setLocation(latitude, longitude);
       feedDataToMuxer(context, mediaMuxerProxy, MP4_ASSET_WITH_INCREASING_TIMESTAMPS.uri);
@@ -520,7 +520,7 @@ public final class MediaMuxerContractTest {
     float longitude = -120f;
 
     MediaMuxerProxy mediaMuxerProxy =
-        muxerFactoryEnum.value.create(outputFilePath, FILE_FORMAT_MP4);
+        muxerFactoryEnum.value.create(outputFilePath, OUTPUT_FORMAT_MP4);
     try {
       mediaMuxerProxy.setLocation(latitude, longitude);
       feedDataToMuxer(context, mediaMuxerProxy, MP4_ASSET_WITH_INCREASING_TIMESTAMPS.uri);
@@ -545,7 +545,7 @@ public final class MediaMuxerContractTest {
     String outputFilePath = tempFolder.newFile().getAbsolutePath();
     int orientation = 45;
     MediaMuxerProxy mediaMuxerProxy =
-        muxerFactoryEnum.value.create(outputFilePath, FILE_FORMAT_MP4);
+        muxerFactoryEnum.value.create(outputFilePath, OUTPUT_FORMAT_MP4);
 
     try {
       assertThrows(
@@ -565,7 +565,7 @@ public final class MediaMuxerContractTest {
     int orientation = 180;
 
     MediaMuxerProxy mediaMuxerProxy =
-        muxerFactoryEnum.value.create(outputFilePath, FILE_FORMAT_MP4);
+        muxerFactoryEnum.value.create(outputFilePath, OUTPUT_FORMAT_MP4);
     try {
       mediaMuxerProxy.setOrientationHint(orientation);
       feedDataToMuxer(context, mediaMuxerProxy, MP4_ASSET_WITH_INCREASING_TIMESTAMPS.uri);
@@ -660,14 +660,15 @@ public final class MediaMuxerContractTest {
     private final MediaMuxer mediaMuxer;
 
     @RequiresApi(26) // MediaMuxer(FileDescriptor fd, int format) added in API 26.
-    public FrameworkMediaMuxerProxy(FileDescriptor fileDescriptor, @FileFormat int fileFormat)
+    public FrameworkMediaMuxerProxy(
+        FileDescriptor fileDescriptor, @MediaMuxerCompat.OutputFormat int outputFormat)
         throws IOException {
-      mediaMuxer = new MediaMuxer(fileDescriptor, fileFormat);
+      mediaMuxer = new MediaMuxer(fileDescriptor, outputFormat);
     }
 
-    public FrameworkMediaMuxerProxy(String filePath, @FileFormat int fileFormat)
-        throws IOException {
-      mediaMuxer = new MediaMuxer(filePath, fileFormat);
+    public FrameworkMediaMuxerProxy(
+        String filePath, @MediaMuxerCompat.OutputFormat int outputFormat) throws IOException {
+      mediaMuxer = new MediaMuxer(filePath, outputFormat);
     }
 
     @Override
