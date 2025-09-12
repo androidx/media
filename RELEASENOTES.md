@@ -141,6 +141,11 @@
 *   Image:
 *   DataSource:
 *   DRM:
+    *   Change the return type of `MediaDrmCallback` methods from `byte[]` to a
+        new `MediaDrmCallback.Response` type, to allow returning extra optional
+        information. This is a source breaking change, but breakages can be
+        easily resolved by wrapping the previous `byte[]` return value with `new
+        Response` before returning.
 *   Effect:
 *   Muxers:
     *   Add `MediaMuxerCompat`, a drop-in replacement for framework

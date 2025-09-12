@@ -2506,13 +2506,13 @@ public final class DefaultAnalyticsCollectorTest {
    */
   private static final class EmptyDrmCallback implements MediaDrmCallback {
     @Override
-    public byte[] executeProvisionRequest(UUID uuid, ExoMediaDrm.ProvisionRequest request) {
-      return new byte[0];
+    public Response executeProvisionRequest(UUID uuid, ExoMediaDrm.ProvisionRequest request) {
+      return new Response(new byte[0]);
     }
 
     @Override
-    public byte[] executeKeyRequest(UUID uuid, ExoMediaDrm.KeyRequest request) {
-      return new byte[0];
+    public Response executeKeyRequest(UUID uuid, ExoMediaDrm.KeyRequest request) {
+      return new Response(new byte[0]);
     }
   }
 
@@ -2546,26 +2546,26 @@ public final class DefaultAnalyticsCollectorTest {
     }
 
     @Override
-    public byte[] executeProvisionRequest(UUID uuid, ExoMediaDrm.ProvisionRequest request)
+    public Response executeProvisionRequest(UUID uuid, ExoMediaDrm.ProvisionRequest request)
         throws MediaDrmCallbackException {
       provisionCondition.blockUninterruptible();
       provisionCondition.close();
       if (alwaysFail) {
         throw new RuntimeException("executeProvisionRequest failed");
       } else {
-        return new byte[0];
+        return new Response(new byte[0]);
       }
     }
 
     @Override
-    public byte[] executeKeyRequest(UUID uuid, ExoMediaDrm.KeyRequest request)
+    public Response executeKeyRequest(UUID uuid, ExoMediaDrm.KeyRequest request)
         throws MediaDrmCallbackException {
       keyCondition.blockUninterruptible();
       keyCondition.close();
       if (alwaysFail) {
         throw new RuntimeException("executeKeyRequest failed");
       } else {
-        return new byte[0];
+        return new Response(new byte[0]);
       }
     }
   }

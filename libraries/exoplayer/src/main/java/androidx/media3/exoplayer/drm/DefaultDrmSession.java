@@ -415,7 +415,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     }
 
     try {
-      mediaDrm.provideProvisionResponse((byte[]) response);
+      mediaDrm.provideProvisionResponse(((MediaDrmCallback.Response) response).data);
     } catch (Exception e) {
       provisioningManager.onProvisionError(e, /* thrownByExoMediaDrm= */ true);
       return;
@@ -509,7 +509,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     }
 
     try {
-      byte[] responseData = (byte[]) response;
+      byte[] responseData = ((MediaDrmCallback.Response) response).data;
       if (mode == DefaultDrmSessionManager.MODE_RELEASE) {
         mediaDrm.provideKeyResponse(Util.castNonNull(offlineLicenseKeySetId), responseData);
         dispatchEvent(DrmSessionEventListener.EventDispatcher::drmKeysRemoved);

@@ -24,6 +24,18 @@ import java.util.UUID;
 @UnstableApi
 public interface MediaDrmCallback {
 
+  /** Response data from the {@link MediaDrmCallback} requests. */
+  final class Response {
+
+    /** The response from the license or provisioning server. */
+    public final byte[] data;
+
+    /** Constructs an instance. */
+    public Response(byte[] data) {
+      this.data = data;
+    }
+  }
+
   /**
    * Executes a provisioning request.
    *
@@ -32,7 +44,7 @@ public interface MediaDrmCallback {
    * @return The response data.
    * @throws MediaDrmCallbackException If an error occurred executing the request.
    */
-  byte[] executeProvisionRequest(UUID uuid, ProvisionRequest request)
+  Response executeProvisionRequest(UUID uuid, ProvisionRequest request)
       throws MediaDrmCallbackException;
 
   /**
@@ -43,5 +55,5 @@ public interface MediaDrmCallback {
    * @return The response data.
    * @throws MediaDrmCallbackException If an error occurred executing the request.
    */
-  byte[] executeKeyRequest(UUID uuid, KeyRequest request) throws MediaDrmCallbackException;
+  Response executeKeyRequest(UUID uuid, KeyRequest request) throws MediaDrmCallbackException;
 }

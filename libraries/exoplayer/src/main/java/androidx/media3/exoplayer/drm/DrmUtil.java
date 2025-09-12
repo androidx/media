@@ -152,7 +152,7 @@ public final class DrmUtil {
    * @return A byte array that holds the response payload.
    * @throws MediaDrmCallbackException if an exception was encountered during the download.
    */
-  public static byte[] executePost(
+  public static MediaDrmCallback.Response executePost(
       DataSource dataSource,
       String url,
       @Nullable byte[] httpBody,
@@ -173,7 +173,7 @@ public final class DrmUtil {
       while (true) {
         DataSourceInputStream inputStream = new DataSourceInputStream(statsDataSource, dataSpec);
         try {
-          return ByteStreams.toByteArray(inputStream);
+          return new MediaDrmCallback.Response(ByteStreams.toByteArray(inputStream));
         } catch (HttpDataSource.InvalidResponseCodeException e) {
           @Nullable String redirectUrl = getRedirectUrl(e, manualRedirectCount);
           if (redirectUrl == null) {

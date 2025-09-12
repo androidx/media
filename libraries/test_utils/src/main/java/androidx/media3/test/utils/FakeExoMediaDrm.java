@@ -548,18 +548,18 @@ public final class FakeExoMediaDrm implements ExoMediaDrm {
     }
 
     @Override
-    public byte[] executeProvisionRequest(UUID uuid, ProvisionRequest request)
+    public Response executeProvisionRequest(UUID uuid, ProvisionRequest request)
         throws MediaDrmCallbackException {
       receivedProvisionRequests.add(ImmutableList.copyOf(Bytes.asList(request.getData())));
       if (Arrays.equals(request.getData(), FAKE_PROVISION_REQUEST.getData())) {
-        return Bytes.toArray(VALID_PROVISION_RESPONSE);
+        return new Response(Bytes.toArray(VALID_PROVISION_RESPONSE));
       } else {
-        return Util.EMPTY_BYTE_ARRAY;
+        return new Response(Util.EMPTY_BYTE_ARRAY);
       }
     }
 
     @Override
-    public byte[] executeKeyRequest(UUID uuid, KeyRequest request)
+    public Response executeKeyRequest(UUID uuid, KeyRequest request)
         throws MediaDrmCallbackException {
       ImmutableList<DrmInitData.SchemeData> schemeDatas =
           KeyRequestData.fromByteArray(request.getData()).schemeDatas;
@@ -574,7 +574,7 @@ public final class FakeExoMediaDrm implements ExoMediaDrm {
       } else {
         response = KEY_DENIED_RESPONSE;
       }
-      return Bytes.toArray(response);
+      return new Response(Bytes.toArray(response));
     }
   }
 
