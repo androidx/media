@@ -54,6 +54,7 @@ def addMissingAarTypeToXml(xml) {
         "com.google.android.gms:play-services-cronet",
         "com.google.android.material:material",
         "io.antmedia:rtmp-client",
+        "com.airbnb.android:lottie"
     ]
     xml.asNode().children().stream()
         .filter { it.name().toString().endsWith("dependencies") }
