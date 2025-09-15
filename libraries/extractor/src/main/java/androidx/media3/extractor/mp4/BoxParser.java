@@ -378,8 +378,10 @@ public final class BoxParser {
     MdhdData mdhdData = parseMdhd(checkNotNull(mdia.getLeafBoxOfType(Mp4Box.TYPE_mdhd)).data);
     LeafBox stsd = stbl.getLeafBoxOfType(Mp4Box.TYPE_stsd);
     if (stsd == null) {
-      throw ParserException.createForMalformedContainer(
-          "Malformed sample table (stbl) missing sample description (stsd)", /* cause= */ null);
+      Log.w(
+          TAG,
+          "Ignoring track where sample table (stbl) box is missing a sample description (stsd).");
+      return null;
     }
     StsdData stsdData = parseStsd(stsd.data, tkhdData, mdhdData.language, drmInitData, isQuickTime);
     @Nullable long[] editListDurations = null;

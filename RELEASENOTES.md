@@ -116,6 +116,8 @@
     *   MPEG-TS: Fix `IllegalArgumentException` from `ReorderingBufferQueue`
         caused by PES packets with no timestamp
         ([#2764](https://github.com/androidx/media/issues/2764)).
+    *   MP4: Ignore tracks with missing `stsd` box (instead of failing to parse
+        the whole file).
 *   Inspector:
     *   Introduced a new `:media3-inspector` module to serve as the dedicated
         home for media inspection utilities. This module now houses a new

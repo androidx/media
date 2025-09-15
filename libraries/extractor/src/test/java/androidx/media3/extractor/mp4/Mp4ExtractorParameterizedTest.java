@@ -313,6 +313,13 @@ public final class Mp4ExtractorParameterizedTest {
     assertExtractorBehavior("media/mp4/sample_fixed_rechunk_no_elst.mp4", /* peekLimit= */ 44);
   }
 
+  // Checks that an invalid file with a missing stsd results in only that track being skipped,
+  // instead of the whole file failing to parse (b/441971769).
+  @Test
+  public void mp4SampleWithMissingStsd() throws Exception {
+    assertExtractorBehavior("media/mp4/sample_missing_stsd.mp4", /* peekLimit= */ 2300);
+  }
+
   private void assertExtractorBehavior(String file, int peekLimit) throws IOException {
     ExtractorAsserts.AssertionConfig.Builder assertionConfigBuilder =
         new ExtractorAsserts.AssertionConfig.Builder();
