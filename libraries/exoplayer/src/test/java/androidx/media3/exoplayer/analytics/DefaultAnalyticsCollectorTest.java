@@ -75,7 +75,6 @@ import static org.robolectric.shadows.ShadowLooper.idleMainLooper;
 import static org.robolectric.shadows.ShadowLooper.runMainLooperToNextTask;
 
 import android.graphics.SurfaceTexture;
-import android.net.Uri;
 import android.os.Looper;
 import android.util.SparseArray;
 import android.view.Surface;
@@ -97,7 +96,6 @@ import androidx.media3.common.VideoSize;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.HandlerWrapper;
-import androidx.media3.datasource.DataSpec;
 import androidx.media3.exoplayer.DecoderCounters;
 import androidx.media3.exoplayer.DecoderReuseEvaluation;
 import androidx.media3.exoplayer.ExoPlaybackException;
@@ -130,7 +128,6 @@ import androidx.media3.test.utils.robolectric.TestPlayerRunHelper;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -153,16 +150,6 @@ public final class DefaultAnalyticsCollectorTest {
   private static final long EVENT_PLAYER_STATE_CHANGED = Long.MIN_VALUE;
   private static final long EVENT_SEEK_STARTED = Long.MIN_VALUE + 1;
   private static final long DEPRECATED_EVENT_LOAD_STARTED = Long.MIN_VALUE + 2;
-
-  private static final LoadEventInfo LOAD_EVENT_INFO =
-      new LoadEventInfo(
-          /* loadTaskId= */ 1,
-          new DataSpec.Builder().setUri(Uri.EMPTY).build(),
-          Uri.EMPTY,
-          /* responseHeaders= */ ImmutableMap.of(),
-          /* elapsedRealtimeMs= */ 1000,
-          /* loadDurationMs= */ 2000,
-          /* bytesLoaded= */ 8192);
 
   private static final UUID DRM_SCHEME_UUID =
       UUID.nameUUIDFromBytes(TestUtil.createByteArray(7, 8, 9));
@@ -2520,12 +2507,12 @@ public final class DefaultAnalyticsCollectorTest {
   private static final class EmptyDrmCallback implements MediaDrmCallback {
     @Override
     public Response executeProvisionRequest(UUID uuid, ExoMediaDrm.ProvisionRequest request) {
-      return new Response(new byte[0], LOAD_EVENT_INFO);
+      return new Response(new byte[0]);
     }
 
     @Override
     public Response executeKeyRequest(UUID uuid, ExoMediaDrm.KeyRequest request) {
-      return new Response(new byte[0], LOAD_EVENT_INFO);
+      return new Response(new byte[0]);
     }
   }
 
@@ -2566,7 +2553,7 @@ public final class DefaultAnalyticsCollectorTest {
       if (alwaysFail) {
         throw new RuntimeException("executeProvisionRequest failed");
       } else {
-        return new Response(new byte[0], LOAD_EVENT_INFO);
+        return new Response(new byte[0]);
       }
     }
 
@@ -2578,7 +2565,7 @@ public final class DefaultAnalyticsCollectorTest {
       if (alwaysFail) {
         throw new RuntimeException("executeKeyRequest failed");
       } else {
-        return new Response(new byte[0], LOAD_EVENT_INFO);
+        return new Response(new byte[0]);
       }
     }
   }

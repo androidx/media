@@ -602,21 +602,19 @@ public final class FakeExoMediaDrm implements ExoMediaDrm {
       receivedProvisionRequests.add(ImmutableList.copyOf(Bytes.asList(request.getData())));
       Uri uri = Uri.parse(request.getDefaultUrl());
       if (Arrays.equals(request.getData(), FAKE_PROVISION_REQUEST.getData())) {
-        return new Response(
-            Bytes.toArray(VALID_PROVISION_RESPONSE),
-            new LoadEventInfo(
-                /* loadTaskId= */ -1,
-                new DataSpec(uri),
-                uri,
-                /* responseHeaders= */ ImmutableMap.of(),
-                SystemClock.elapsedRealtime(),
-                /* loadDurationMs= */ 0,
-                /* bytesLoaded= */ VALID_PROVISION_RESPONSE.size()));
+        return new Response.Builder(Bytes.toArray(VALID_PROVISION_RESPONSE))
+            .setLoadEventInfo(
+                new LoadEventInfo(
+                    /* loadTaskId= */ -1,
+                    new DataSpec(uri),
+                    uri,
+                    /* responseHeaders= */ ImmutableMap.of(),
+                    SystemClock.elapsedRealtime(),
+                    /* loadDurationMs= */ 0,
+                    /* bytesLoaded= */ VALID_PROVISION_RESPONSE.size()))
+            .build();
       } else {
-        return new Response(
-            Util.EMPTY_BYTE_ARRAY,
-            new LoadEventInfo(
-                /* loadTaskId= */ -1, new DataSpec(uri), SystemClock.elapsedRealtime()));
+        return new Response(Util.EMPTY_BYTE_ARRAY);
       }
     }
 
@@ -638,16 +636,17 @@ public final class FakeExoMediaDrm implements ExoMediaDrm {
         response = KEY_DENIED_RESPONSE;
       }
       Uri uri = Uri.parse(request.getLicenseServerUrl());
-      return new Response(
-          Bytes.toArray(response),
-          new LoadEventInfo(
-              /* loadTaskId= */ -1,
-              new DataSpec(uri),
-              uri,
-              /* responseHeaders= */ ImmutableMap.of(),
-              SystemClock.elapsedRealtime(),
-              /* loadDurationMs= */ 0,
-              /* bytesLoaded= */ response.size()));
+      return new Response.Builder(Bytes.toArray(response))
+          .setLoadEventInfo(
+              new LoadEventInfo(
+                  /* loadTaskId= */ -1,
+                  new DataSpec(uri),
+                  uri,
+                  /* responseHeaders= */ ImmutableMap.of(),
+                  SystemClock.elapsedRealtime(),
+                  /* loadDurationMs= */ 0,
+                  /* bytesLoaded= */ response.size()))
+          .build();
     }
 
     private void checkFailedRequestCounter(String url) throws MediaDrmCallbackException {

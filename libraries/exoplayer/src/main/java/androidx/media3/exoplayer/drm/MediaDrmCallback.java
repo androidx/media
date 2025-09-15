@@ -15,10 +15,12 @@
  */
 package androidx.media3.exoplayer.drm;
 
+import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.drm.ExoMediaDrm.KeyRequest;
 import androidx.media3.exoplayer.drm.ExoMediaDrm.ProvisionRequest;
 import androidx.media3.exoplayer.source.LoadEventInfo;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.UUID;
 
 /** Performs {@link ExoMediaDrm} key and provisioning requests. */
@@ -28,16 +30,45 @@ public interface MediaDrmCallback {
   /** Response data from the {@link MediaDrmCallback} requests. */
   final class Response {
 
+    /** Builder for {@link Response} instances. */
+    public static final class Builder {
+
+      private final byte[] data;
+
+      @Nullable private LoadEventInfo loadEventInfo;
+
+      /** Constructs an instance. */
+      public Builder(byte[] data) {
+        this.data = data;
+      }
+
+      /** Sets the optional {@link LoadEventInfo} associated with this response. */
+      @CanIgnoreReturnValue
+      public Builder setLoadEventInfo(LoadEventInfo loadEventInfo) {
+        this.loadEventInfo = loadEventInfo;
+        return this;
+      }
+
+      public Response build() {
+        return new Response(this);
+      }
+    }
+
     /** The response from the license or provisioning server. */
     public final byte[] data;
 
-    /** Information about the loading of {@link #data}. */
-    public final LoadEventInfo loadEventInfo;
+    /** The optional load info associated with this response. */
+    @Nullable public final LoadEventInfo loadEventInfo;
 
     /** Constructs an instance. */
-    public Response(byte[] data, LoadEventInfo loadEventInfo) {
+    public Response(byte[] data) {
       this.data = data;
-      this.loadEventInfo = loadEventInfo;
+      this.loadEventInfo = null;
+    }
+
+    private Response(Builder builder) {
+      this.data = builder.data;
+      this.loadEventInfo = builder.loadEventInfo;
     }
   }
 
@@ -55,7 +86,7 @@ public interface MediaDrmCallback {
    *
    * @param uuid The UUID of the content protection scheme.
    * @param request The request.
-   * @return A {@link Response} that holds the response payload, and LoadEventInfo
+   * @return The response data.
    * @throws MediaDrmCallbackException If an error occurred executing the request.
    */
   Response executeProvisionRequest(UUID uuid, ProvisionRequest request)
@@ -75,7 +106,7 @@ public interface MediaDrmCallback {
    *
    * @param uuid The UUID of the content protection scheme.
    * @param request The request.
-   * @return A {@link Response} that holds the response payload, and LoadEventInfo
+   * @return The response data.
    * @throws MediaDrmCallbackException If an error occurred executing the request.
    */
   Response executeKeyRequest(UUID uuid, KeyRequest request) throws MediaDrmCallbackException;

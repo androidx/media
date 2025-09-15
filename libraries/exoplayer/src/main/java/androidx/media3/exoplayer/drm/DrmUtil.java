@@ -195,7 +195,9 @@ public final class DrmUtil {
                   SystemClock.elapsedRealtime(),
                   /* loadDurationMs= */ 0,
                   response.length);
-          return new MediaDrmCallback.Response(response, loadEventInfo);
+          return new MediaDrmCallback.Response.Builder(response)
+              .setLoadEventInfo(loadEventInfo)
+              .build();
         } catch (HttpDataSource.InvalidResponseCodeException e) {
           @Nullable String redirectUrl = getRedirectUrl(e, manualRedirectCount);
           if (redirectUrl == null) {

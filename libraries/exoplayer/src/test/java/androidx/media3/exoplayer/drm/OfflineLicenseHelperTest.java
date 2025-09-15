@@ -21,18 +21,14 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.when;
 
-import android.net.Uri;
 import android.util.Pair;
 import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.DrmInitData.SchemeData;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.Util;
-import androidx.media3.datasource.DataSpec;
 import androidx.media3.exoplayer.drm.ExoMediaDrm.KeyRequest;
-import androidx.media3.exoplayer.source.LoadEventInfo;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import com.google.common.collect.ImmutableMap;
 import java.util.HashMap;
 import org.junit.After;
 import org.junit.Before;
@@ -44,16 +40,6 @@ import org.mockito.MockitoAnnotations;
 /** Tests {@link OfflineLicenseHelper}. */
 @RunWith(AndroidJUnit4.class)
 public class OfflineLicenseHelperTest {
-
-  private static final LoadEventInfo LOAD_EVENT_INFO =
-      new LoadEventInfo(
-          /* loadTaskId= */ 1,
-          new DataSpec.Builder().setUri(Uri.EMPTY).build(),
-          Uri.EMPTY,
-          /* responseHeaders= */ ImmutableMap.of(),
-          /* elapsedRealtimeMs= */ 1000,
-          /* loadDurationMs= */ 2000,
-          /* bytesLoaded= */ 8192);
 
   private OfflineLicenseHelper offlineLicenseHelper;
   @Mock private MediaDrmCallback mediaDrmCallback;
@@ -70,7 +56,7 @@ public class OfflineLicenseHelperTest {
                 /* licenseServerUrl= */ "",
                 KeyRequest.REQUEST_TYPE_INITIAL));
     when(mediaDrmCallback.executeKeyRequest(any(), any()))
-        .thenReturn(new MediaDrmCallback.Response(Util.EMPTY_BYTE_ARRAY, LOAD_EVENT_INFO));
+        .thenReturn(new MediaDrmCallback.Response(Util.EMPTY_BYTE_ARRAY));
     offlineLicenseHelper =
         new OfflineLicenseHelper(
             new DefaultDrmSessionManager.Builder()

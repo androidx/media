@@ -670,11 +670,10 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
             MediaDrmCallback.Response keyResponse =
                 callback.executeKeyRequest(uuid, (KeyRequest) requestTask.request);
             response = keyResponse;
-            if (currentKeyRequestInfo != null) {
-              LoadEventInfo loadEventInfo =
+            if (currentKeyRequestInfo != null && keyResponse.loadEventInfo != null) {
+              currentKeyRequestInfo.addLoadInfo(
                   keyResponse.loadEventInfo.copyWithTaskIdAndDurationMs(
-                      requestTask.taskId, SystemClock.elapsedRealtime() - requestTask.startTimeMs);
-              currentKeyRequestInfo.addLoadInfo(loadEventInfo);
+                      requestTask.taskId, SystemClock.elapsedRealtime() - requestTask.startTimeMs));
             }
             break;
           default:

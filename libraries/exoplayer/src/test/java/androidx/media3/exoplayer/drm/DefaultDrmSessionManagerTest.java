@@ -176,6 +176,9 @@ public class DefaultDrmSessionManagerTest {
                 .distinct()
                 .collect(onlyElement()))
         .isEqualTo(FakeExoMediaDrm.LICENSE_SERVER_URI);
+
+    drmSession.release(eventDispatcher);
+    drmSessionManager.release();
   }
 
   @Test(timeout = 10_000)

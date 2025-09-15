@@ -15,8 +15,6 @@
  */
 package androidx.media3.exoplayer.drm;
 
-import static com.google.common.base.Preconditions.checkState;
-
 import androidx.annotation.Nullable;
 import androidx.media3.common.DrmInitData.SchemeData;
 import androidx.media3.common.util.UnstableApi;
@@ -50,7 +48,7 @@ public final class KeyRequestInfo {
 
     /**
      * Adds info for a load associated with this key request. May be called again to add info for
-     * any retry requests. At least one load info must be provided.
+     * any retry requests.
      */
     @CanIgnoreReturnValue
     public Builder addLoadInfo(LoadEventInfo loadEventInfo) {
@@ -65,9 +63,13 @@ public final class KeyRequestInfo {
   }
 
   /**
-   * The {@link LoadEventInfo} instances for the requests used to load the key. Guaranteed to have
-   * at least one entry (representing the first request), followed by entries for any retries needed
-   * to load the key.
+   * The {@link LoadEventInfo} instances for the requests used to load the key.
+   *
+   * <p>This list will be empty if the {@link MediaDrmCallback} used to serve the request doesn't
+   * populate {@link MediaDrmCallback.Response#loadEventInfo}.
+   *
+   * <p>Entries in this list are in ascending order by timestamp with the first request first in the
+   * list, followed by entries for any retries needed to load the key.
    */
   public final ImmutableList<LoadEventInfo> loadInfos;
 
@@ -79,7 +81,6 @@ public final class KeyRequestInfo {
 
   private KeyRequestInfo(Builder builder) {
     loadInfos = builder.loadEventInfos.build();
-    checkState(!loadInfos.isEmpty());
     schemeDatas = builder.schemeDatas;
   }
 }
