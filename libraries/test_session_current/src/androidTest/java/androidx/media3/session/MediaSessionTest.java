@@ -16,6 +16,7 @@
 package androidx.media3.session;
 
 import static android.os.Build.VERSION.SDK_INT;
+import static android.view.KeyEvent.KEYCODE_HEADSETHOOK;
 import static android.view.KeyEvent.KEYCODE_MEDIA_FAST_FORWARD;
 import static android.view.KeyEvent.KEYCODE_MEDIA_NEXT;
 import static android.view.KeyEvent.KEYCODE_MEDIA_PAUSE;
@@ -632,6 +633,14 @@ public class MediaSessionTest {
                       impl.onMediaButtonEvent(
                           controllerInfo, getMediaButtonIntent(KEYCODE_MEDIA_STOP)))
                   .isTrue();
+              assertThat(
+                      impl.onMediaButtonEvent(
+                          controllerInfo, getMediaButtonIntent(KEYCODE_MEDIA_PLAY_PAUSE)))
+                  .isTrue();
+              assertThat(
+                      impl.onMediaButtonEvent(
+                          controllerInfo, getMediaButtonIntent(KEYCODE_HEADSETHOOK)))
+                  .isTrue();
             });
 
     player.awaitMethodCalled(MockPlayer.METHOD_PLAY, TIMEOUT_MS);
@@ -641,7 +650,7 @@ public class MediaSessionTest {
     player.awaitMethodCalled(MockPlayer.METHOD_SEEK_TO_NEXT, TIMEOUT_MS);
     player.awaitMethodCalled(MockPlayer.METHOD_SEEK_TO_PREVIOUS, TIMEOUT_MS);
     player.awaitMethodCalled(MockPlayer.METHOD_STOP, TIMEOUT_MS);
-    assertThat(callerCollectorPlayer.callingControllers).hasSize(7);
+    assertThat(callerCollectorPlayer.callingControllers).hasSize(9);
     for (ControllerInfo controllerInfo : callerCollectorPlayer.callingControllers) {
       assertThat(session.get().isMediaNotificationController(controllerInfo)).isTrue();
     }

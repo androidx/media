@@ -15,6 +15,7 @@
  */
 package androidx.media3.session;
 
+import static android.view.KeyEvent.KEYCODE_HEADSETHOOK;
 import static android.view.KeyEvent.KEYCODE_MEDIA_FAST_FORWARD;
 import static android.view.KeyEvent.KEYCODE_MEDIA_NEXT;
 import static android.view.KeyEvent.KEYCODE_MEDIA_PAUSE;
@@ -1463,6 +1464,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       keyCode = KEYCODE_MEDIA_NEXT;
     }
     switch (keyCode) {
+      case KeyEvent.KEYCODE_HEADSETHOOK:// Fall through.
       case KEYCODE_MEDIA_PLAY_PAUSE:
         command =
             getPlayerWrapper().getPlayWhenReady()
