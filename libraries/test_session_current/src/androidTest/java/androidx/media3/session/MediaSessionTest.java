@@ -650,6 +650,8 @@ public class MediaSessionTest {
     player.awaitMethodCalled(MockPlayer.METHOD_SEEK_TO_NEXT, TIMEOUT_MS);
     player.awaitMethodCalled(MockPlayer.METHOD_SEEK_TO_PREVIOUS, TIMEOUT_MS);
     player.awaitMethodCalled(MockPlayer.METHOD_STOP, TIMEOUT_MS);
+    player.awaitMethodCalled(MockPlayer.METHOD_PLAY, TIMEOUT_MS);
+    player.awaitMethodCalled(MockPlayer.METHOD_PLAY, TIMEOUT_MS);
     assertThat(callerCollectorPlayer.callingControllers).hasSize(9);
     for (ControllerInfo controllerInfo : callerCollectorPlayer.callingControllers) {
       assertThat(session.get().isMediaNotificationController(controllerInfo)).isTrue();
