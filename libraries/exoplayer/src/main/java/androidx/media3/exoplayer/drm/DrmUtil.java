@@ -153,7 +153,7 @@ public final class DrmUtil {
    *
    * <ul>
    *   <li>{@link LoadEventInfo#loadTaskId}
-   *   <li>{@link LoadEventInfo#elapsedRealtimeMs}
+   *   <li>{@link LoadEventInfo#loadDurationMs}
    * </ul>
    *
    * @param dataSource A {@link DataSource}.
