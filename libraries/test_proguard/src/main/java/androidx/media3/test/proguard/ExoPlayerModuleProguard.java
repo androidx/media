@@ -70,17 +70,6 @@ public final class ExoPlayerModuleProguard {
     throw new IllegalStateException();
   }
 
-  /** Creates a Libgav1VideoRenderer with {@link DefaultRenderersFactory}. */
-  public static void createLibgav1VideoRendererWithDefaultRenderersFactory(Context context) {
-    for (Renderer renderer : createDefaultRenderersFactoryRenderers(context)) {
-      // Don't use instanceof to prevent including the class in the apk directly.
-      if ("Libgav1VideoRenderer".equals(renderer.getName())) {
-        return;
-      }
-    }
-    throw new IllegalStateException();
-  }
-
   /** Creates a Libdav1dVideoRenderer with {@link DefaultRenderersFactory}. */
   public static void createLibdav1dVideoRendererWithDefaultRenderersFactory(Context context) {
     for (Renderer renderer : createDefaultRenderersFactoryRenderers(context)) {

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 The Android Open Source Project
+ * Copyright 2024 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,15 +18,26 @@ package androidx.media3.decoder.av1;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.decoder.DecoderException;
 
-/** Thrown when a libgav1 decoder error occurs. */
+/** Thrown when a libdav1d decoder error occurs. */
 @UnstableApi
-public final class Gav1DecoderException extends DecoderException {
+public final class Dav1dDecoderException extends DecoderException {
 
-  /* package */ Gav1DecoderException(String message) {
+  /**
+   * Constructs a {@code Dav1dDecoderException} with the specified message.
+   *
+   * @param message The error message.
+   */
+  public Dav1dDecoderException(String message) {
     super(message);
   }
 
-  /* package */ Gav1DecoderException(String message, Throwable cause) {
+  /**
+   * Constructs a {@code Dav1dDecoderException} with the specified message and cause.
+   *
+   * @param message The error message.
+   * @param cause The cause of the exception.
+   */
+  public Dav1dDecoderException(String message, Throwable cause) {
     super(message, cause);
   }
 }

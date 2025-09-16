@@ -18,14 +18,14 @@
 
 set -eu
 
-DAV1D_MODULE_PATH="$1"
-echo "DAV1D_MODULE_PATH is ${DAV1D_MODULE_PATH}"
+AV1_MODULE_PATH="$1"
+echo "AV1_MODULE_PATH is ${AV1_MODULE_PATH}"
 NDK_PATH="$2"
 echo "NDK_PATH is ${NDK_PATH}"
 HOST_PLATFORM="$3"
 echo "Host platform is ${HOST_PLATFORM}"
 
-DAV1D_SOURCE_PATH="${DAV1D_MODULE_PATH}/jni/dav1d"
+DAV1D_SOURCE_PATH="${AV1_MODULE_PATH}/jni/dav1d"
 if [[ ! -d "${DAV1D_SOURCE_PATH}" ]]
 then
     echo "dav1d source directory not found at ${DAV1D_SOURCE_PATH}"
@@ -43,7 +43,7 @@ then
     exit 1
 fi
 
-rm -rf "${DAV1D_MODULE_PATH}/jni/nativelib"
+rm -rf "${AV1_MODULE_PATH}/jni/nativelib"
 echo "Cleaned old pre-built libraries."
 
 # Map Android ABIs to their NDK toolchain prefix.
@@ -96,7 +96,7 @@ for android_abi in "${!ABI_MAP[@]}"; do
     meson setup "${ABI_BUILD_DIR}" --cross-file="${TEMP_CROSS_FILE}" --default-library=static
     ninja -C "${ABI_BUILD_DIR}"
 
-    OUTPUT_DIR="${DAV1D_MODULE_PATH}/jni/nativelib/${android_abi}"
+    OUTPUT_DIR="${AV1_MODULE_PATH}/jni/nativelib/${android_abi}"
     mkdir -p "$OUTPUT_DIR"
     cp "${ABI_BUILD_DIR}/src/libdav1d.a" "$OUTPUT_DIR/"
     echo "Successfully built and copied libdav1d.a to ${OUTPUT_DIR}"

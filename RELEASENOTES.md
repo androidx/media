@@ -239,6 +239,9 @@
         for H264 and H265
         ([#2613](https://github.com/androidx/media/issues/2613)).
 *   Decoder extensions (FFmpeg, VP9, AV1, etc.):
+    *   AV1 Extension: The AV1 software decoder now uses the high-performance
+        `dav1d` library, replacing the previous `libgav1` implementation for
+        improved decoding speed.
 *   MIDI extension:
 *   Leanback extension:
 *   Cast extension:

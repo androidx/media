@@ -24,7 +24,7 @@ import org.junit.runner.RunWith;
 public final class Av1ModuleProguardTest {
 
   @Test
-  public void gav1Decoder_create_succeeds() throws Exception {
-    Av1ModuleProguard.createGav1Decoder();
+  public void dav1dDecoder_create_succeeds() throws Exception {
+    Av1ModuleProguard.createDav1dDecoder();
   }
 }

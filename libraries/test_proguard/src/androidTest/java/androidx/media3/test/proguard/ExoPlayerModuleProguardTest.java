@@ -20,7 +20,6 @@ import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentat
 
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -49,13 +48,6 @@ public final class ExoPlayerModuleProguardTest {
   }
 
   @Test
-  public void defaultRenderersFactory_createLibgav1VideoRenderer_succeeds() {
-    ExoPlayerModuleProguard.createLibgav1VideoRendererWithDefaultRenderersFactory(
-        ApplicationProvider.getApplicationContext());
-  }
-
-  @Test
-  @Ignore("TODO: b/300264022 - Fix this test and re-enable it")
   public void defaultRenderersFactory_createLibdav1dVideoRenderer_succeeds() {
     ExoPlayerModuleProguard.createLibdav1dVideoRendererWithDefaultRenderersFactory(
         ApplicationProvider.getApplicationContext());

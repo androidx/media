@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 The Android Open Source Project
+ * Copyright 2024 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,24 +21,28 @@ import androidx.media3.common.util.UnstableApi;
 
 /** Configures and queries the underlying native library. */
 @UnstableApi
-public final class Gav1Library {
+public final class Dav1dLibrary {
 
   static {
-    MediaLibraryInfo.registerModule("media3.decoder.av1");
+    MediaLibraryInfo.registerModule("media3.decoder.dav1d");
   }
 
   private static final LibraryLoader LOADER =
-      new LibraryLoader("gav1JNI") {
+      new LibraryLoader("dav1dJNI") {
         @Override
         protected void loadLibrary(String name) {
           System.loadLibrary(name);
         }
       };
 
-  private Gav1Library() {}
+  private Dav1dLibrary() {}
 
   /** Returns whether the underlying library is available, loading it if necessary. */
   public static boolean isAvailable() {
-    return LOADER.isAvailable();
+    try {
+      return LOADER.isAvailable();
+    } catch (Exception e) {
+      return false;
+    }
   }
 }

@@ -749,7 +749,7 @@ public final class C {
   @UnstableApi public static final int VIDEO_OUTPUT_MODE_SURFACE_YUV = 1;
 
   // LINT.ThenChange(
-  //     ../../../../../../../decoder_av1/src/main/jni/gav1_jni.cc,
+  //     ../../../../../../../decoder_av1/src/main/jni/dav1d_jni.cc,
   //     ../../../../../../../decoder_vp9/src/main/jni/vpx_jni.cc
   // )
 

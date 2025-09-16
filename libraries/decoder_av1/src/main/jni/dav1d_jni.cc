@@ -58,15 +58,12 @@
 #define LOGE(...) \
   ((void)__android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__))
 
-#define DECODER_FUNC(RETURN_TYPE, NAME, ...)                             \
-  extern "C" {                                                           \
-  JNIEXPORT RETURN_TYPE                                                  \
-  Java_androidx_media3_decoder_dav1d_Dav1dDecoder_##NAME(JNIEnv* env,    \
-                                                         jobject thiz,   \
-                                                         ##__VA_ARGS__); \
-  }                                                                      \
-  JNIEXPORT RETURN_TYPE                                                  \
-  Java_androidx_media3_decoder_dav1d_Dav1dDecoder_##NAME(                \
+#define DECODER_FUNC(RETURN_TYPE, NAME, ...)                                  \
+  extern "C" {                                                                \
+  JNIEXPORT RETURN_TYPE Java_androidx_media3_decoder_av1_Dav1dDecoder_##NAME( \
+      JNIEnv* env, jobject thiz, ##__VA_ARGS__);                              \
+  }                                                                           \
+  JNIEXPORT RETURN_TYPE Java_androidx_media3_decoder_av1_Dav1dDecoder_##NAME( \
       JNIEnv* env, jobject thiz, ##__VA_ARGS__)
 
 // If ANDROID_NATIVE_LIB_MERGING is set, rename JNI_OnLoad to
@@ -118,14 +115,14 @@ const int kStatusError = 0;
 const int kStatusOk = 1;
 const int kStatusDecodeOnly = 2;
 const int kStatusEagain = 3;
-// LINT.ThenChange(../java/androidx/media3/decoder/dav1d/Dav1dDecoder.java)
+// LINT.ThenChange(../java/androidx/media3/decoder/av1/Dav1dDecoder.java)
 
 // LINT.IfChange
 // Dav1d thread count settings
 const int kDav1dThreadCountDefault = 0;
 const int kDav1dThreadCountPerformanceCores = -1;
 const int kDav1dThreadCountExperimental = -2;
-// LINT.ThenChange(../java/androidx/media3/decoder/dav1d/Libdav1dVideoRenderer.java)
+// LINT.ThenChange(../java/androidx/media3/decoder/av1/Libdav1dVideoRenderer.java)
 
 // Status codes specific to the JNI wrapper code.
 enum JniStatusCode {
@@ -487,7 +484,7 @@ DECODER_FUNC(jlong, dav1dInit, jint threads, jint max_frame_delay,
   const jclass outputBufferClass =
       env->FindClass("androidx/media3/decoder/VideoDecoderOutputBuffer");
   const jclass decoderClass =
-      env->FindClass("androidx/media3/decoder/dav1d/Dav1dDecoder");
+      env->FindClass("androidx/media3/decoder/av1/Dav1dDecoder");
   const jclass byteBufferClass = env->FindClass("java/nio/ByteBuffer");
 
   context->input_buffer_class = env->NewGlobalRef(inputBufferClass);
