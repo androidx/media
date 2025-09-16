@@ -30,12 +30,16 @@ import androidx.media3.ui.compose.ContentFrame
 
 /** PlayerView equivalent - content frame with aspect ratio plus centre and bottom controls */
 @Composable
-internal fun BoxScope.MediaPlayer(player: Player, contentScale: ContentScale) {
+internal fun BoxScope.MediaPlayer(
+  player: Player,
+  contentScale: ContentScale,
+  keepContentOnReset: Boolean,
+) {
   var showControls by remember { mutableStateOf(true) }
   ContentFrame(
     player = player,
     modifier = Modifier.noRippleClickable { showControls = !showControls },
-    keepContentOnReset = true,
+    keepContentOnReset = keepContentOnReset,
     contentScale = contentScale,
   )
 

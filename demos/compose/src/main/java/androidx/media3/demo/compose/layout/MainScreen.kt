@@ -23,6 +23,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -33,15 +34,34 @@ import androidx.media3.common.Player
 @Composable
 internal fun MainScreen(player: Player, modifier: Modifier = Modifier) {
   var currentContentScaleIndex by remember { mutableIntStateOf(0) }
+  var keepContentOnReset by remember { mutableStateOf(false) } // Shutter is on by default
 
   Box(modifier) {
-    MediaPlayer(player, contentScale = CONTENT_SCALES[currentContentScaleIndex].second)
+    MediaPlayer(
+      player,
+      contentScale = CONTENT_SCALES[currentContentScaleIndex].second,
+      keepContentOnReset = keepContentOnReset,
+    )
     ContentScaleButton(
       currentContentScaleIndex,
       Modifier.align(Alignment.TopCenter).padding(top = 48.dp),
       onClick = { currentContentScaleIndex = currentContentScaleIndex.inc() % CONTENT_SCALES.size },
     )
+    ShutterToggleButton(
+      keepContentOnReset,
+      Modifier.align(Alignment.TopEnd).padding(top = 48.dp),
+      onClick = { keepContentOnReset = !keepContentOnReset },
+    )
   }
+}
+
+@Composable
+private fun ShutterToggleButton(
+  keepContentOnReset: Boolean,
+  modifier: Modifier,
+  onClick: () -> Unit,
+) {
+  Button(onClick, modifier) { Text("Shutter ${if (keepContentOnReset) "OFF" else "ON"}") }
 }
 
 @Composable
