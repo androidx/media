@@ -17,8 +17,6 @@ package androidx.media3.extractor;
 
 import static androidx.media3.common.FileTypes.inferFileTypeFromResponseHeaders;
 import static androidx.media3.common.FileTypes.inferFileTypeFromUri;
-import static androidx.media3.extractor.mp4.Mp4Extractor.FLAG_READ_MOTION_PHOTO_METADATA;
-import static androidx.media3.extractor.mp4.Mp4Extractor.FLAG_READ_SEF_DATA;
 
 import android.net.Uri;
 import androidx.annotation.GuardedBy;
@@ -586,10 +584,7 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
         extractors.add(new BmpExtractor());
         break;
       case FileTypes.HEIF:
-        if ((mp4Flags & FLAG_READ_MOTION_PHOTO_METADATA) == 0
-            && (mp4Flags & FLAG_READ_SEF_DATA) == 0) {
-          extractors.add(new HeifExtractor(heifFlags));
-        }
+        extractors.add(new HeifExtractor(heifFlags));
         break;
       case FileTypes.AVIF:
         extractors.add(new AvifExtractor());

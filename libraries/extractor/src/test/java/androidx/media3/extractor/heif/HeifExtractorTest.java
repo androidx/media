@@ -46,7 +46,7 @@ public final class HeifExtractorTest {
       throws Exception {
     ExtractorAsserts.assertBehavior(
         () -> new HeifExtractor(HeifExtractor.FLAG_READ_IMAGE),
-        "media/mp4/sample_still_photo.heic",
+        "media/heif/sample_still_photo.heic",
         new ExtractorAsserts.AssertionConfig.Builder()
             .setDumpFilesPrefix(
                 "extractordumps/heif/sample_still_photo.heic_HeifExtractor.FLAG_READ_IMAGE")
@@ -111,7 +111,7 @@ public final class HeifExtractorTest {
             .setData(
                 TestUtil.getByteArray(
                     ApplicationProvider.getApplicationContext(),
-                    "media/mp4/sample_still_photo.heic"))
+                    "media/heif/sample_still_photo.heic"))
             .build();
 
     assertThat(extractor.sniff(input)).isFalse();
@@ -125,7 +125,7 @@ public final class HeifExtractorTest {
             .setData(
                 TestUtil.getByteArray(
                     ApplicationProvider.getApplicationContext(),
-                    "media/mp4/sample_still_photo.heic"))
+                    "media/heif/sample_still_photo.heic"))
             .build();
 
     assertThat(extractor.sniff(input)).isTrue();

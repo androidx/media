@@ -115,13 +115,9 @@ public final class Mp4Extractor implements Extractor {
   public static final int FLAG_WORKAROUND_IGNORE_EDIT_LISTS = 1;
 
   /**
-   * Flag to extract {@link MotionPhotoMetadata} from HEIC motion photos following the Google Photos
-   * Motion Photo File Format V1.1.
-   *
-   * <p>As playback is not supported for motion photos, this flag should only be used for metadata
-   * retrieval use cases.
+   * @deprecated Use {@code HeifExtractor} to extract {@link MotionPhotoMetadata} from HEIC files.
    */
-  public static final int FLAG_READ_MOTION_PHOTO_METADATA = 1 << 1;
+  @Deprecated public static final int FLAG_READ_MOTION_PHOTO_METADATA = 1 << 1;
 
   /**
    * Flag to extract {@link SlowMotionData} metadata from Samsung Extension Format (SEF) slow motion
