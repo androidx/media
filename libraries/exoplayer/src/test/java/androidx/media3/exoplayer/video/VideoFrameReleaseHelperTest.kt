@@ -232,7 +232,6 @@ class VideoFrameReleaseHelperTest {
     assertPullDownPattern(testData, releaseTimesNs, pattern = listOf(1))
   }
 
-  @Ignore // TODO: b/444152533 - Make frame release logic more reliable
   @Test
   fun adjustReleaseTime_smallReleaseTimeDriftWithOccasionalOutlier_releasesFramesSmoothly() {
     updateDisplayRefreshRate(context, refreshRate = 60f)
@@ -631,7 +630,12 @@ class VideoFrameReleaseHelperTest {
         nextVsyncUpdateTimeNs += VideoFrameReleaseHelper.VSYNC_SAMPLE_UPDATE_PERIOD_MS * 1_000_000
       }
       videoFrameReleaseHelper.onNextFrame(testData.frameTimeUs[i])
-      add(videoFrameReleaseHelper.adjustReleaseTime(testData.releaseTimeNs[i]))
+      add(
+        videoFrameReleaseHelper.adjustReleaseTime(
+          testData.releaseTimeNs[i],
+          testData.frameTimeUs[i],
+        )
+      )
       onFrameAdjusted(i)
     }
   }

@@ -397,7 +397,8 @@ public final class VideoFrameReleaseControl {
     // Calculate release time and adjust earlyUs to screen vsync.
     long systemTimeNs = clock.nanoTime();
     frameReleaseInfo.releaseTimeNs =
-        frameReleaseHelper.adjustReleaseTime(systemTimeNs + (frameReleaseInfo.earlyUs * 1_000));
+        frameReleaseHelper.adjustReleaseTime(
+            systemTimeNs + (frameReleaseInfo.earlyUs * 1_000), presentationTimeUs);
     frameReleaseInfo.earlyUs = (frameReleaseInfo.releaseTimeNs - systemTimeNs) / 1_000;
     // While joining, late frames are skipped while we catch up with the playback position.
     boolean treatDropAsSkip =

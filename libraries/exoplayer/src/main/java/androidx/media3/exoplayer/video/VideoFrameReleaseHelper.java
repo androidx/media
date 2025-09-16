@@ -122,8 +122,10 @@ public final class VideoFrameReleaseHelper {
   private long frameIndex;
   private long pendingLastAdjustedFrameIndex;
   private long pendingLastAdjustedReleaseTimeNs;
+  private long pendingLastPresentationTimeUs;
   private long lastAdjustedFrameIndex;
   private long lastAdjustedReleaseTimeNs;
+  private long lastAdjustedPresentationTimeUs;
 
   /**
    * Constructs an instance.
@@ -217,6 +219,7 @@ public final class VideoFrameReleaseHelper {
     if (pendingLastAdjustedFrameIndex != C.INDEX_UNSET) {
       lastAdjustedFrameIndex = pendingLastAdjustedFrameIndex;
       lastAdjustedReleaseTimeNs = pendingLastAdjustedReleaseTimeNs;
+      lastAdjustedPresentationTimeUs = pendingLastPresentationTimeUs;
     }
     frameIndex++;
     frameRateEstimator.onNextFrame(framePresentationTimeUs * 1000);
@@ -246,18 +249,26 @@ public final class VideoFrameReleaseHelper {
    *
    * @param releaseTimeNs The frame's unadjusted release time, in nanoseconds and in the same time
    *     base as {@link System#nanoTime()}.
+   * @param presentationTimeUs The frame's presentation timestamp in microsecond.
    * @return The adjusted frame release timestamp, in nanoseconds and in the same time base as
    *     {@link System#nanoTime()}.
    */
-  public long adjustReleaseTime(long releaseTimeNs) {
+  public long adjustReleaseTime(long releaseTimeNs, long presentationTimeUs) {
     // Until we know better, the adjustment will be a no-op.
     long adjustedReleaseTimeNs = releaseTimeNs;
 
-    if (lastAdjustedFrameIndex != C.INDEX_UNSET && frameRateEstimator.isSynced()) {
-      long frameDurationNs = frameRateEstimator.getFrameDurationNs();
+    if (lastAdjustedFrameIndex != C.INDEX_UNSET) {
+      long elapsedReleaseTimeSinceLastFrameNs;
+      if (frameRateEstimator.isSynced()) {
+        long frameDurationNs = frameRateEstimator.getFrameDurationNs();
+        elapsedReleaseTimeSinceLastFrameNs =
+            (long) ((frameDurationNs * (frameIndex - lastAdjustedFrameIndex)) / playbackSpeed);
+      } else {
+        elapsedReleaseTimeSinceLastFrameNs =
+            (long) ((presentationTimeUs - lastAdjustedPresentationTimeUs) * 1000 / playbackSpeed);
+      }
       long candidateAdjustedReleaseTimeNs =
-          lastAdjustedReleaseTimeNs
-              + (long) ((frameDurationNs * (frameIndex - lastAdjustedFrameIndex)) / playbackSpeed);
+          lastAdjustedReleaseTimeNs + elapsedReleaseTimeSinceLastFrameNs;
       if (adjustmentAllowed(releaseTimeNs, candidateAdjustedReleaseTimeNs)) {
         adjustedReleaseTimeNs = candidateAdjustedReleaseTimeNs;
       } else {
@@ -266,6 +277,7 @@ public final class VideoFrameReleaseHelper {
     }
     pendingLastAdjustedFrameIndex = frameIndex;
     pendingLastAdjustedReleaseTimeNs = adjustedReleaseTimeNs;
+    pendingLastPresentationTimeUs = presentationTimeUs;
 
     if (vsyncSampler == null || vsyncDurationNs == C.TIME_UNSET) {
       return adjustedReleaseTimeNs;
