@@ -29,7 +29,6 @@ import androidx.media3.common.VideoSize
 import androidx.media3.test.utils.TestSimpleBasePlayer
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
-import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -207,7 +206,6 @@ class PresentationStateTest {
     assertThat(state.keepContentOnReset).isFalse()
   }
 
-  @Ignore("Internal ref: b/445384212")
   @Test
   fun keepContentOnReset_toggleValue_affectsCoveringSurfaceWithShutter() {
     val player = TestSimpleBasePlayer(playbackState = Player.STATE_IDLE)
