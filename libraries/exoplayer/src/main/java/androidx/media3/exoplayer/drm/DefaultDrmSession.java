@@ -137,6 +137,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   private final UUID uuid;
   private final Looper playbackLooper;
   private final ResponseHandler responseHandler;
+  /** Lock object for {@link #currentKeyRequestInfo}*/
+  private final Object keyRequestInfoLock;
 
   private @DrmSession.State int state;
   private int referenceCount;
@@ -148,6 +150,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   private byte @MonotonicNonNull [] offlineLicenseKeySetId;
 
   @Nullable private KeyRequest currentKeyRequest;
+  @GuardedBy("keyRequestInfoLock")
   @Nullable private KeyRequestInfo.Builder currentKeyRequestInfo;
   @Nullable private ProvisionRequest currentProvisionRequest;
 
@@ -210,6 +213,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     state = STATE_OPENING;
     this.playbackLooper = playbackLooper;
     responseHandler = new ResponseHandler(playbackLooper);
+    keyRequestInfoLock = new Object();
   }
 
   public boolean hasSessionId(byte[] sessionId) {
@@ -490,9 +494,11 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
   private void postKeyRequest(byte[] scope, int type, boolean allowRetry) {
     try {
-      currentKeyRequestInfo = new KeyRequestInfo.Builder();
-      if (schemeDatas != null) {
-        currentKeyRequestInfo.setSchemeDatas(schemeDatas);
+      synchronized (keyRequestInfoLock) {
+        currentKeyRequestInfo = new KeyRequestInfo.Builder();
+        if (schemeDatas != null) {
+          currentKeyRequestInfo.setSchemeDatas(schemeDatas);
+        }
       }
       currentKeyRequest = mediaDrm.getKeyRequest(scope, schemeDatas, type, keyRequestParameters);
       Util.castNonNull(requestHandler).post(MSG_KEYS, checkNotNull(currentKeyRequest), allowRetry);
@@ -515,8 +521,11 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
     try {
       byte[] responseData = ((MediaDrmCallback.Response) response).data;
-      KeyRequestInfo keyRequestInfo = currentKeyRequestInfo.build();
-      currentKeyRequestInfo = null;
+      KeyRequestInfo keyRequestInfo;
+      synchronized (keyRequestInfoLock) {
+        keyRequestInfo = currentKeyRequestInfo.build();
+        currentKeyRequestInfo = null;
+      }
       if (mode == DefaultDrmSessionManager.MODE_RELEASE) {
         mediaDrm.provideKeyResponse(Util.castNonNull(offlineLicenseKeySetId), responseData);
         // TODO: #1001 - Plumb the KeyLoadInfo up into drmKeysRemoved.
@@ -670,10 +679,13 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
             MediaDrmCallback.Response keyResponse =
                 callback.executeKeyRequest(uuid, (KeyRequest) requestTask.request);
             response = keyResponse;
-            if (currentKeyRequestInfo != null && keyResponse.loadEventInfo != null) {
-              currentKeyRequestInfo.addLoadInfo(
-                  keyResponse.loadEventInfo.copyWithTaskIdAndDurationMs(
-                      requestTask.taskId, SystemClock.elapsedRealtime() - requestTask.startTimeMs));
+            synchronized (keyRequestInfoLock) {
+              if (currentKeyRequestInfo != null && keyResponse.loadEventInfo != null) {
+                currentKeyRequestInfo.addLoadInfo(
+                    keyResponse.loadEventInfo.copyWithTaskIdAndDurationMs(
+                        requestTask.taskId,
+                        SystemClock.elapsedRealtime() - requestTask.startTimeMs));
+              }
             }
             break;
           default:
@@ -730,8 +742,10 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
         // The error is fatal.
         return false;
       }
-      if (currentKeyRequestInfo != null) {
-        currentKeyRequestInfo.addLoadInfo(loadEventInfo);
+      synchronized (keyRequestInfoLock) {
+        if (currentKeyRequestInfo != null) {
+          currentKeyRequestInfo.addLoadInfo(loadEventInfo);
+        }
       }
       synchronized (this) {
         if (!isReleased) {
