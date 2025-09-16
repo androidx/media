@@ -231,6 +231,7 @@ public final class VideoFrameReleaseControl {
       default:
         throw new IllegalStateException();
     }
+    frameReleaseHelper.onPositionReset();
   }
 
   /** Called when rendering starts. */
