@@ -52,6 +52,7 @@ import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MediaItem.ClippingConfiguration;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.SimpleBasePlayer;
@@ -1247,7 +1248,9 @@ public final class CompositionPlayer extends SimpleBasePlayer {
 
       MediaSource itemMediaSource =
           wrapWithVideoEffectsBasedMediaSources(
-              blankFramesAndSilenceGeneratedMediaSource, editedMediaItem.effects.videoEffects);
+              blankFramesAndSilenceGeneratedMediaSource,
+              editedMediaItem.effects.videoEffects,
+              editedMediaItem.mediaItem.clippingConfiguration);
       mediaSourceBuilder.add(
           itemMediaSource,
           /* initialPlaceholderDurationMs= */ usToMs(editedMediaItem.getPresentationDurationUs()));
@@ -1362,13 +1365,17 @@ public final class CompositionPlayer extends SimpleBasePlayer {
   }
 
   private static MediaSource wrapWithVideoEffectsBasedMediaSources(
-      MediaSource mediaSource, ImmutableList<Effect> videoEffects) {
+      MediaSource mediaSource,
+      ImmutableList<Effect> videoEffects,
+      ClippingConfiguration clippingConfiguration) {
     MediaSource newMediaSource = mediaSource;
     for (Effect videoEffect : videoEffects) {
       if (videoEffect instanceof InactiveTimestampAdjustment) {
         newMediaSource =
             new SpeedChangingMediaSource(
-                newMediaSource, ((InactiveTimestampAdjustment) videoEffect).speedProvider);
+                newMediaSource,
+                ((InactiveTimestampAdjustment) videoEffect).speedProvider,
+                clippingConfiguration);
       }
     }
     return newMediaSource;

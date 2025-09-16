@@ -62,6 +62,7 @@ dependencies {
     testImplementation project(modulePrefix + 'test-utils')
     testImplementation project(modulePrefix + 'test-data')
     testImplementation 'org.robolectric:robolectric:' + robolectricVersion
+    testImplementation 'com.google.testparameterinjector:test-parameter-injector:' + testParameterInjectorVersion
     testImplementation 'com.google.truth:truth:' + truthVersion
     androidTestImplementation 'junit:junit:' + junitVersion
     androidTestImplementation 'androidx.test:runner:' + androidxTestRunnerVersion
