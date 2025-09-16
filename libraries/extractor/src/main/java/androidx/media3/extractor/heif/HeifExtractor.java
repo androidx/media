@@ -15,9 +15,11 @@
  */
 package androidx.media3.extractor.heif;
 
+import static java.lang.annotation.ElementType.TYPE_USE;
+
+import androidx.annotation.IntDef;
 import androidx.media3.common.C;
 import androidx.media3.common.MimeTypes;
-import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorInput;
@@ -25,57 +27,82 @@ import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.SingleSampleExtractor;
 import java.io.IOException;
+import java.lang.annotation.Documented;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
-/** Extracts data from the HEIF (.heic) container format. */
+/** Extracts data from the HEIF/HEIC container format. */
 @UnstableApi
 public final class HeifExtractor implements Extractor {
+  /**
+   * Flags controlling the behavior of the extractor. Possible flag value is {@link
+   * #FLAG_READ_IMAGE}.
+   */
+  @Documented
+  @Retention(RetentionPolicy.SOURCE)
+  @Target(TYPE_USE)
+  @IntDef(
+      flag = true,
+      value = {
+        FLAG_READ_IMAGE,
+      })
+  public @interface Flags {}
 
-  // Specification reference: ISO/IEC 23008-12:2022
-  private static final int HEIF_FILE_SIGNATURE_PART_1 = 0x66747970;
-  private static final int HEIF_FILE_SIGNATURE_PART_2 = 0x68656963;
-  private static final int FILE_SIGNATURE_SEGMENT_LENGTH = 4;
+  /** Flag to load the image track instead of the video and metadata track. */
+  public static final int FLAG_READ_IMAGE = 1;
 
-  private final ParsableByteArray scratch;
-  private final SingleSampleExtractor imageExtractor;
+  private final Extractor extractor;
+  private final boolean extractImage;
 
-  /** Creates an instance. */
+  /** Creates an instance reading the video and metadata track. */
   public HeifExtractor() {
-    scratch = new ParsableByteArray(FILE_SIGNATURE_SEGMENT_LENGTH);
-    imageExtractor = new SingleSampleExtractor(C.INDEX_UNSET, C.LENGTH_UNSET, MimeTypes.IMAGE_HEIF);
+    this(/* flags= */ 0);
+  }
+
+  /**
+   * Creates an instance, configured to extract either the still image or the motion photo content
+   * based on the provided flags.
+   *
+   * @param flags The {@link Flags} to control extractor behavior. Use {@link #FLAG_READ_IMAGE} to
+   *     extract only the still image, otherwise it defaults to extracting motion photo content
+   *     (video and audio tracks).
+   */
+  public HeifExtractor(@Flags int flags) {
+    extractImage = (flags & FLAG_READ_IMAGE) != 0;
+    if (extractImage) {
+      extractor = new SingleSampleExtractor(C.INDEX_UNSET, C.LENGTH_UNSET, MimeTypes.IMAGE_HEIF);
+    } else {
+      extractor = new HeicMotionPhotoExtractor();
+    }
   }
 
   @Override
   public boolean sniff(ExtractorInput input) throws IOException {
-    input.advancePeekPosition(4);
-    return readAndCompareFourBytes(input, HEIF_FILE_SIGNATURE_PART_1)
-        && readAndCompareFourBytes(input, HEIF_FILE_SIGNATURE_PART_2);
+    if (extractImage) {
+      return HeifSniffer.sniff(input, /* sniffMotionPhoto= */ false);
+    }
+    return extractor.sniff(input);
   }
 
   @Override
   public void init(ExtractorOutput output) {
-    imageExtractor.init(output);
+    extractor.init(output);
   }
 
   @Override
   public @ReadResult int read(ExtractorInput input, PositionHolder seekPosition)
       throws IOException {
-    return imageExtractor.read(input, seekPosition);
+    return extractor.read(input, seekPosition);
   }
 
   @Override
   public void seek(long position, long timeUs) {
-    imageExtractor.seek(position, timeUs);
+    extractor.seek(position, timeUs);
   }
 
   @Override
   public void release() {
-    // Do nothing.
-  }
-
-  private boolean readAndCompareFourBytes(ExtractorInput input, int bytesToCompare)
-      throws IOException {
-    scratch.reset(/* limit= */ FILE_SIGNATURE_SEGMENT_LENGTH);
-    input.peekFully(scratch.getData(), /* offset= */ 0, FILE_SIGNATURE_SEGMENT_LENGTH);
-    return scratch.readUnsignedInt() == bytesToCompare;
+    extractor.release();
   }
 }

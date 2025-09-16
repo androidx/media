@@ -42,9 +42,10 @@ public class MotionPhotoPlaybackTest {
   @ParameterizedRobolectricTestRunner.Parameters(name = "{0}")
   public static ImmutableList<String> mediaSamples() {
     return ImmutableList.of(
-        "pixel-motion-photo-jfif-segment-shortened.jpg",
+        "jpeg/pixel-motion-photo-jfif-segment-shortened.jpg",
         // TODO: b/301025983 - Update default handling to play the 'real' video track in this file.
-        "pixel-motion-photo-2-hevc-tracks.jpg");
+        "jpeg/pixel-motion-photo-2-hevc-tracks.jpg",
+        "heif/sample_MP.heic");
   }
 
   @ParameterizedRobolectricTestRunner.Parameter public String inputFile;
@@ -70,16 +71,18 @@ public class MotionPhotoPlaybackTest {
     player.setVideoSurface(surface);
     PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
 
-    player.setMediaItem(MediaItem.fromUri("asset:///media/jpeg/" + inputFile));
+    player.setMediaItem(MediaItem.fromUri("asset:///media/" + inputFile));
     player.prepare();
     player.play();
     TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
     player.release();
     surface.release();
 
+    String dumpFolder = inputFile.startsWith("heif/") ? "heif-motion-photo/" : "jpeg-motion-photo/";
+    String inputFileName = inputFile.substring(inputFile.indexOf('/') + 1);
     DumpFileAsserts.assertOutput(
         applicationContext,
         playbackOutput,
-        "playbackdumps/jpeg-motion-photo/" + inputFile + ".dump");
+        "playbackdumps/" + dumpFolder + inputFileName + ".dump");
   }
 }
