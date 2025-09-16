@@ -61,7 +61,6 @@ class VideoFrameReleaseHelperTest {
     assertPullDownPattern(testData, releaseTimesNs, pattern = listOf(2))
   }
 
-  @Ignore // TODO: b/444152533 - Make frame release logic more reliable
   @Test
   fun adjustReleaseTime_60Fps90Hz_releasesFramesSmoothly() {
     updateDisplayRefreshRate(context, refreshRate = 90f)
@@ -74,7 +73,6 @@ class VideoFrameReleaseHelperTest {
     assertPullDownPattern(testData, releaseTimesNs, pattern = listOf(1, 2))
   }
 
-  @Ignore // TODO: b/444152533 - Make frame release logic more reliable
   @Test
   fun adjustReleaseTime_24Fps60Hz_releasesFramesSmoothly() {
     updateDisplayRefreshRate(context, refreshRate = 60f)
@@ -99,7 +97,6 @@ class VideoFrameReleaseHelperTest {
     assertPullDownPattern(testData, releaseTimesNs, pattern = listOf(1, 1, 1, 1, 2))
   }
 
-  @Ignore // TODO: b/444152533 - Make frame release logic more reliable
   @Test
   fun adjustReleaseTime_smallFrameTimeVariationAtVsyncBoundary_releasesFramesSmoothly() {
     val random = Random(/* seed= */ 1234)
@@ -368,7 +365,6 @@ class VideoFrameReleaseHelperTest {
     assertThat(pulldownPattern.count { it == 1 }).isEqualTo(pulldownPattern.size - 1)
   }
 
-  @Ignore // TODO: b/444152533 - Make frame release logic more reliable
   @Test
   fun adjustReleaseTime_smallVsyncTimeVariationWithFramesAtVsyncBoundary_releasesFramesSmoothly() {
     val random = Random(/* seed= */ 1234)
@@ -389,7 +385,6 @@ class VideoFrameReleaseHelperTest {
     assertPullDownPattern(testData, releaseTimesNs, pattern = listOf(1))
   }
 
-  @Ignore // TODO: b/444152533 - Make frame release logic more reliable
   @Test
   fun adjustReleaseTime_2Speed_releasesFramesSmoothly() {
     updateDisplayRefreshRate(context, refreshRate = 60f)

@@ -17,6 +17,7 @@ package androidx.media3.exoplayer.video;
 
 import static android.os.Build.VERSION.SDK_INT;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static java.lang.Math.abs;
 
 import android.content.Context;
 import android.hardware.display.DisplayManager;
@@ -118,6 +119,8 @@ public final class VideoFrameReleaseHelper {
 
   private long vsyncDurationNs;
   private long vsyncOffsetNs;
+  private long lastVsyncHysteresisOffsetNs;
+  private long pendingVsyncHysteresisOffsetNs;
 
   private long frameIndex;
   private long pendingLastAdjustedFrameIndex;
@@ -220,6 +223,7 @@ public final class VideoFrameReleaseHelper {
       lastAdjustedFrameIndex = pendingLastAdjustedFrameIndex;
       lastAdjustedReleaseTimeNs = pendingLastAdjustedReleaseTimeNs;
       lastAdjustedPresentationTimeUs = pendingLastPresentationTimeUs;
+      lastVsyncHysteresisOffsetNs = pendingVsyncHysteresisOffsetNs;
     }
     frameIndex++;
     frameRateEstimator.onNextFrame(framePresentationTimeUs * 1000);
@@ -287,7 +291,8 @@ public final class VideoFrameReleaseHelper {
       return adjustedReleaseTimeNs;
     }
     // Find the timestamp of the closest vsync. This is the vsync that we're targeting.
-    long snappedTimeNs = closestVsync(adjustedReleaseTimeNs, sampledVsyncTimeNs, vsyncDurationNs);
+    long snappedTimeNs =
+        findClosestVsyncAndUpdateHysteresis(adjustedReleaseTimeNs, sampledVsyncTimeNs);
     // Apply an offset so that we release before the target vsync, but after the previous one.
     return snappedTimeNs - vsyncOffsetNs;
   }
@@ -301,11 +306,13 @@ public final class VideoFrameReleaseHelper {
     frameIndex = 0;
     lastAdjustedFrameIndex = C.INDEX_UNSET;
     pendingLastAdjustedFrameIndex = C.INDEX_UNSET;
+    lastVsyncHysteresisOffsetNs = 0;
+    pendingVsyncHysteresisOffsetNs = 0;
   }
 
   private static boolean adjustmentAllowed(
       long unadjustedReleaseTimeNs, long adjustedReleaseTimeNs) {
-    return Math.abs(unadjustedReleaseTimeNs - adjustedReleaseTimeNs) <= MAX_ALLOWED_ADJUSTMENT_NS;
+    return abs(unadjustedReleaseTimeNs - adjustedReleaseTimeNs) <= MAX_ALLOWED_ADJUSTMENT_NS;
   }
 
   // Surface frame rate adjustment.
@@ -338,7 +345,7 @@ public final class VideoFrameReleaseHelper {
           candidateIsHighConfidence
               ? MINIMUM_MEDIA_FRAME_RATE_CHANGE_FOR_UPDATE_HIGH_CONFIDENCE
               : MINIMUM_MEDIA_FRAME_RATE_CHANGE_FOR_UPDATE_LOW_CONFIDENCE;
-      shouldUpdate = Math.abs(candidateFrameRate - surfaceMediaFrameRate) >= minimumChangeForUpdate;
+      shouldUpdate = abs(candidateFrameRate - surfaceMediaFrameRate) >= minimumChangeForUpdate;
     } else if (candidateFrameRate != Format.NO_VALUE) {
       shouldUpdate = true;
     } else {
@@ -414,21 +421,46 @@ public final class VideoFrameReleaseHelper {
     }
   }
 
-  private static long closestVsync(long releaseTime, long sampledVsyncTime, long vsyncDuration) {
-    long vsyncCount = (releaseTime - sampledVsyncTime) / vsyncDuration;
-    long snappedTimeNs = sampledVsyncTime + (vsyncDuration * vsyncCount);
+  private long findClosestVsyncAndUpdateHysteresis(long releaseTimeNs, long sampledVsyncTimeNs) {
+    long vsyncCount = (releaseTimeNs - sampledVsyncTimeNs) / vsyncDurationNs;
+    long snappedTimeNs = sampledVsyncTimeNs + (vsyncDurationNs * vsyncCount);
     long snappedBeforeNs;
     long snappedAfterNs;
-    if (releaseTime <= snappedTimeNs) {
-      snappedBeforeNs = snappedTimeNs - vsyncDuration;
+    if (releaseTimeNs <= snappedTimeNs) {
+      snappedBeforeNs = snappedTimeNs - vsyncDurationNs;
       snappedAfterNs = snappedTimeNs;
     } else {
       snappedBeforeNs = snappedTimeNs;
-      snappedAfterNs = snappedTimeNs + vsyncDuration;
+      snappedAfterNs = snappedTimeNs + vsyncDurationNs;
     }
-    long snappedAfterDiff = snappedAfterNs - releaseTime;
-    long snappedBeforeDiff = releaseTime - snappedBeforeNs;
-    return snappedAfterDiff < snappedBeforeDiff ? snappedAfterNs : snappedBeforeNs;
+    long snappedAfterDiffNs = snappedAfterNs - releaseTimeNs;
+    long snappedBeforeDiffNs = releaseTimeNs - snappedBeforeNs;
+
+    // Many frame rates oscillate between a clear match and an ambiguous match (e.g. 60fps on 90Hz).
+    // Only evaluate hysteresis if the diffs are sufficiently close for it to matter and ignore the
+    // clearer matches in between.
+    long snappedDiffsDiffNs = abs(snappedAfterDiffNs - snappedBeforeDiffNs);
+    boolean shouldEvaluateHysteresis = snappedDiffsDiffNs < vsyncDurationNs / 2;
+    if (shouldEvaluateHysteresis) {
+      // Apply hysteresis logic: Clear if outside of range, initialize if newly within range.
+      long hysteresisRangeNs = vsyncDurationNs / 4;
+      boolean isInHysteresisRange = snappedDiffsDiffNs < hysteresisRangeNs;
+      if (isInHysteresisRange) {
+        if (lastVsyncHysteresisOffsetNs != 0) {
+          pendingVsyncHysteresisOffsetNs = lastVsyncHysteresisOffsetNs;
+        } else {
+          pendingVsyncHysteresisOffsetNs =
+              snappedAfterDiffNs < snappedBeforeDiffNs ? -hysteresisRangeNs : hysteresisRangeNs;
+        }
+      } else {
+        pendingVsyncHysteresisOffsetNs = 0;
+      }
+    } else {
+      pendingVsyncHysteresisOffsetNs = lastVsyncHysteresisOffsetNs;
+    }
+    return snappedAfterDiffNs + pendingVsyncHysteresisOffsetNs < snappedBeforeDiffNs
+        ? snappedAfterNs
+        : snappedBeforeNs;
   }
 
   @Nullable
