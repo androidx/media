@@ -18,7 +18,9 @@ package androidx.media3.ui.compose.state
 
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableIntState
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -27,6 +29,7 @@ import androidx.media3.common.VideoSize
 import androidx.media3.test.utils.TestSimpleBasePlayer
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
+import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -202,5 +205,32 @@ class PresentationStateTest {
     assertThat(state.player).isEqualTo(player1)
     assertThat(state.coverSurface).isTrue()
     assertThat(state.keepContentOnReset).isFalse()
+  }
+
+  @Ignore("Internal ref: b/445384212")
+  @Test
+  fun keepContentOnReset_toggleValue_affectsCoveringSurfaceWithShutter() {
+    val player = TestSimpleBasePlayer(playbackState = Player.STATE_IDLE)
+
+    lateinit var keepContentOnReset: MutableState<Boolean>
+    lateinit var state: PresentationState
+    composeTestRule.setContent {
+      keepContentOnReset = remember { mutableStateOf(true) }
+      state = rememberPresentationState(player, keepContentOnReset = keepContentOnReset.value)
+    }
+    assertThat(state.keepContentOnReset).isTrue()
+    assertThat(state.coverSurface).isTrue()
+
+    player.renderFirstFrame(true)
+    composeTestRule.waitForIdle()
+
+    assertThat(state.keepContentOnReset).isTrue()
+    assertThat(state.coverSurface).isFalse()
+
+    keepContentOnReset.value = false
+    composeTestRule.waitForIdle()
+
+    assertThat(state.keepContentOnReset).isFalse()
+    assertThat(state.coverSurface).isTrue()
   }
 }
