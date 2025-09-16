@@ -16,7 +16,10 @@
 
 package androidx.media3.demo.compose.layout
 
+import android.content.Context
+import android.os.Build
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
@@ -28,8 +31,48 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleResumeEffect
+import androidx.lifecycle.compose.LifecycleStartEffect
+import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import androidx.media3.exoplayer.ExoPlayer
+
+@Composable
+fun MainScreen(mediaItems: List<MediaItem>, modifier: Modifier = Modifier) {
+  val context = LocalContext.current
+  var player by remember { mutableStateOf<Player?>(null) }
+
+  // See the following resources
+  // https://developer.android.com/topic/libraries/architecture/lifecycle#onStop-and-savedState
+  // https://developer.android.com/develop/ui/views/layout/support-multi-window-mode#multi-window_mode_configuration
+  // https://developer.android.com/develop/ui/compose/layouts/adaptive/support-multi-window-mode#android_9
+
+  if (Build.VERSION.SDK_INT > 23) {
+    // Initialize/release in onStart()/onStop() only because in a multi-window environment multiple
+    // apps can be visible at the same time. The apps that are out-of-focus are paused, but video
+    // playback should continue.
+    LifecycleStartEffect(Unit) {
+      player = initializePlayer(context, mediaItems)
+      onStopOrDispose {
+        player?.apply { release() }
+        player = null
+      }
+    }
+  } else {
+    // Call to onStop() is not guaranteed, hence we release the Player in onPause() instead
+    LifecycleResumeEffect(Unit) {
+      player = initializePlayer(context, mediaItems)
+      onPauseOrDispose {
+        player?.apply { release() }
+        player = null
+      }
+    }
+  }
+
+  player?.let { MainScreen(player = it, modifier = modifier.fillMaxSize()) }
+}
 
 @Composable
 internal fun MainScreen(player: Player, modifier: Modifier = Modifier) {
@@ -74,3 +117,9 @@ private fun ContentScaleButton(
     Text("ContentScale is ${CONTENT_SCALES[currentContentScaleIndex].first}")
   }
 }
+
+private fun initializePlayer(context: Context, mediaItems: List<MediaItem>): Player =
+  ExoPlayer.Builder(context).build().apply {
+    setMediaItems(mediaItems)
+    prepare()
+  }

@@ -15,78 +15,53 @@
  */
 package androidx.media3.demo.compose
 
-import android.content.Context
-import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.compose.LifecycleResumeEffect
-import androidx.lifecycle.compose.LifecycleStartEffect
-import androidx.media3.common.MediaItem
-import androidx.media3.common.Player
-import androidx.media3.demo.compose.data.videos
 import androidx.media3.demo.compose.layout.MainScreen
-import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.demo.compose.layout.SampleChooserScreen
+import androidx.media3.demo.compose.viewmodel.ComposeDemoViewModel
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 
 class MainActivity : ComponentActivity() {
+  private val sharedViewModel: ComposeDemoViewModel by viewModels()
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     enableEdgeToEdge()
-    setContent { ComposeDemoApp() }
+    setContent { ComposeDemoApp(modifier = Modifier.fillMaxSize(), viewModel = sharedViewModel) }
   }
 }
 
 @Composable
-fun ComposeDemoApp(modifier: Modifier = Modifier) {
-  val context = LocalContext.current
-  var player by remember { mutableStateOf<Player?>(null) }
-
-  // See the following resources
-  // https://developer.android.com/topic/libraries/architecture/lifecycle#onStop-and-savedState
-  // https://developer.android.com/develop/ui/views/layout/support-multi-window-mode#multi-window_mode_configuration
-  // https://developer.android.com/develop/ui/compose/layouts/adaptive/support-multi-window-mode#android_9
-
-  if (Build.VERSION.SDK_INT > 23) {
-    // Initialize/release in onStart()/onStop() only because in a multi-window environment multiple
-    // apps can be visible at the same time. The apps that are out-of-focus are paused, but video
-    // playback should continue.
-    LifecycleStartEffect(Unit) {
-      player = initializePlayer(context)
-      onStopOrDispose {
-        player?.apply { release() }
-        player = null
-      }
+private fun ComposeDemoApp(modifier: Modifier = Modifier, viewModel: ComposeDemoViewModel) {
+  val navController = rememberNavController()
+  NavHost(navController = navController, startDestination = ROUTE_SAMPLE_CHOOSER) {
+    composable(ROUTE_SAMPLE_CHOOSER) {
+      SampleChooserScreen(
+        onPlaylistClick = { selectedMedia ->
+          viewModel.selectMediaItems(selectedMedia)
+          navController.navigate(ROUTE_PLAYER)
+        },
+        modifier = modifier.statusBarsPadding(),
+      )
     }
-  } else {
-    // Call to onStop() is not guaranteed, hence we release the Player in onPause() instead
-    LifecycleResumeEffect(Unit) {
-      player = initializePlayer(context)
-      onPauseOrDispose {
-        player?.apply { release() }
-        player = null
-      }
+    composable(ROUTE_PLAYER) {
+      val mediaItems by viewModel.mediaItems.collectAsState()
+      MainScreen(mediaItems)
     }
   }
-
-  player?.let { MainScreen(player = it, modifier = modifier.fillMaxSize()) }
 }
 
-private fun initializePlayer(context: Context): Player =
-  ExoPlayer.Builder(context).build().apply {
-    setMediaItems(
-      videos.mapIndexed { idx, uri ->
-        MediaItem.Builder().setUri(uri).setMediaId(idx.toString()).build()
-      }
-    )
-    prepare()
-  }
+private const val ROUTE_SAMPLE_CHOOSER = "sample_chooser"
+private const val ROUTE_PLAYER = "player"
