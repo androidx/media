@@ -344,8 +344,8 @@ public final class EventLoggerTest {
             /* bufferSize= */ 123000));
     assertThat(onlyLogMessage())
         .isEqualTo(
-            "audioTrackInit [eventTime=0.02, mediaPos=0.46, window=0, period=0,"
-                + " 21,252,44100,false,false,123000]");
+            "audioTrackInit [eventTime=0.02, mediaPos=0.46, window=0, period=0, enc=pcm-24,"
+                + " channelConf=5.1, sampleRate=44100, bufferSize=123000]");
   }
 
   @Test
@@ -361,8 +361,8 @@ public final class EventLoggerTest {
             /* bufferSize= */ 123000));
     assertThat(onlyLogMessage())
         .isEqualTo(
-            "audioTrackReleased [eventTime=0.02, mediaPos=0.46, window=0, period=0,"
-                + " 21,252,44100,false,false,123000]");
+            "audioTrackReleased [eventTime=0.02, mediaPos=0.46, window=0, period=0, enc=pcm-24,"
+                + " channelConf=5.1, sampleRate=44100, bufferSize=123000]");
   }
 
   @Test
