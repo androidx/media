@@ -20,8 +20,8 @@ To use the module you need to clone this GitHub project and depend on its
 modules locally. Instructions for doing this can be found in the
 [top level README][].
 
-In addition, it's necessary to fetch `cpu_features` library and manually build
-the `dav1d` library, so that gradle can bundle the `dav1d` binaries in the APK:
+In addition, it's necessary to fetch `cpu_features` library and `dav1d` with its
+dependencies as follows:
 
 *   Set the following environment variables:
 
@@ -30,7 +30,20 @@ cd "<path to project checkout>"
 DAV1D_MODULE_PATH="$(pwd)/libraries/decoder_dav1d/src/main"
 ```
 
-*   Fetch `cpu_features` library:
+*   Download the [Android NDK][] and set its location in a shell variable. This
+    build configuration has been tested with NDK r27.
+
+```
+NDK_PATH="<path to Android NDK>"
+```
+
+*   Set the host platform (e.g., "darwin-x86_64" for macOS):
+
+```
+HOST_PLATFORM="linux-x86_64"
+```
+
+*   Fetch the `cpu_features` library:
 
 ```
 cd "${DAV1D_MODULE_PATH}/jni" && \
@@ -40,41 +53,26 @@ git clone https://github.com/google/cpu_features
 *   Install [Meson][] (0.49 or higher), [Ninja][], and, for x86* targets,
     [nasm][] (2.14 or higher)
 
-*   Fetch `dav1d` library and enter it:
+*   Fetch the `dav1d` library:
 
 ```
 cd "${DAV1D_MODULE_PATH}/jni" && \
-git clone https://code.videolan.org/videolan/dav1d.git && \
-cd dav1d
+git clone https://code.videolan.org/videolan/dav1d.git
 ```
 
-*   Set path to your cross-compilation architecture file from the
-    `package/crossfiles` directory:
+*   Execute `build_dav1d.sh` to build `libdav1d.a` for all supported
+    architectures (`armeabi-v7a`, `arm64-v8a`, `x86` and `x86_64`).
 
 ```
-CROSS_FILE_PATH="$(pwd)/package/crossfiles/<file name>
+cd "${DAV1D_MODULE_PATH}/jni" && \
+./build_dav1d.sh \
+  "${DAV1D_MODULE_PATH}" \
+  "${NDK_PATH}" \
+  "${HOST_PLATFORM}"
 ```
-
-Note: Binary name formats may differ between distributions. Verify the names,
-and use alias if certain binaries cannot be found.
-
-*   Create and enter the build directory:
-
-```
-mkdir build && \
-cd build
-```
-
-*   Compile the library:
-
-```
-meson setup .. --cross-file="${CROSS_FILE_PATH}" --default-library=static && \
-ninja
-```
-
-*   The resulting `.a` static library will be located inside `build/src`
 
 [top level README]: ../../README.md
+[Android NDK]: https://developer.android.com/tools/sdk/ndk/index.html
 [Meson]: https://mesonbuild.com/
 [Ninja]: https://ninja-build.org/
 [nasm]: https://nasm.us/

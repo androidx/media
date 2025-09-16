@@ -43,7 +43,7 @@ add_subdirectory("${libdav1d_jni_root}/cpu_features"
                  EXCLUDE_FROM_ALL)
 
 # Path to compiled static libdav1d.
-set(DAV1D_LIB_PATH "${libdav1d_jni_root}/dav1d/build/src/libdav1d.a")
+set(DAV1D_LIB_PATH "${libdav1d_jni_root}/nativelib/${ANDROID_ABI}/libdav1d.a")
 
 # Add the include directory from dav1d.
 include_directories ("${libdav1d_jni_root}/dav1d/include")
