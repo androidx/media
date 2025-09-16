@@ -19,7 +19,6 @@ import static androidx.media3.muxer.MuxerTestUtil.feedInputDataToMuxer;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.content.Context;
-import androidx.annotation.Nullable;
 import androidx.media3.container.Mp4TimestampData;
 import androidx.media3.extractor.mp4.FragmentedMp4Extractor;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
@@ -30,11 +29,8 @@ import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import com.google.common.collect.ImmutableList;
 import java.io.FileOutputStream;
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
-import org.junit.After;
-import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -105,37 +101,19 @@ public class FragmentedMp4MuxerEndToEndTest {
   @Parameter public @MonotonicNonNull String inputFile;
 
   private final Context context = ApplicationProvider.getApplicationContext();
-  private @MonotonicNonNull String outputPath;
-  private @MonotonicNonNull FileOutputStream outputStream;
-
-  @Before
-  public void setUp() throws Exception {
-    outputPath = temporaryFolder.newFile("muxeroutput.mp4").getPath();
-    outputStream = new FileOutputStream(outputPath);
-  }
-
-  @After
-  public void tearDown() throws IOException {
-    checkNotNull(outputStream).close();
-  }
 
   @Test
   public void createFragmentedMp4File_fromInputFileSampleData_matchesExpected() throws Exception {
-    @Nullable FragmentedMp4Muxer fragmentedMp4Muxer = null;
+    String outputPath = temporaryFolder.newFile("muxeroutput.mp4").getPath();
 
-    try {
-      fragmentedMp4Muxer =
-          new FragmentedMp4Muxer.Builder(checkNotNull(outputStream).getChannel()).build();
+    try (FragmentedMp4Muxer fragmentedMp4Muxer =
+        new FragmentedMp4Muxer.Builder(new FileOutputStream(outputPath).getChannel()).build()) {
       fragmentedMp4Muxer.addMetadataEntry(
           new Mp4TimestampData(
               /* creationTimestampSeconds= */ 100_000_000L,
               /* modificationTimestampSeconds= */ 500_000_000L));
       feedInputDataToMuxer(
           context, fragmentedMp4Muxer, checkNotNull(MP4_FILE_ASSET_DIRECTORY + inputFile));
-    } finally {
-      if (fragmentedMp4Muxer != null) {
-        fragmentedMp4Muxer.close();
-      }
     }
 
     FakeExtractorOutput fakeExtractorOutput =
@@ -150,20 +128,15 @@ public class FragmentedMp4MuxerEndToEndTest {
   @Test
   public void createFragmentedMp4File_fromInputFileSampleData_matchesExpectedBoxStructure()
       throws Exception {
-    @Nullable FragmentedMp4Muxer fragmentedMp4Muxer = null;
+    String outputPath = temporaryFolder.newFile("muxeroutput.mp4").getPath();
 
-    try {
-      fragmentedMp4Muxer =
-          new FragmentedMp4Muxer.Builder(checkNotNull(outputStream).getChannel()).build();
+    try (FragmentedMp4Muxer fragmentedMp4Muxer =
+        new FragmentedMp4Muxer.Builder(new FileOutputStream(outputPath).getChannel()).build()) {
       fragmentedMp4Muxer.addMetadataEntry(
           new Mp4TimestampData(
               /* creationTimestampSeconds= */ 100_000_000L,
               /* modificationTimestampSeconds= */ 500_000_000L));
       feedInputDataToMuxer(context, fragmentedMp4Muxer, MP4_FILE_ASSET_DIRECTORY + H265_HDR10_MP4);
-    } finally {
-      if (fragmentedMp4Muxer != null) {
-        fragmentedMp4Muxer.close();
-      }
     }
 
     DumpableMp4Box dumpableMp4Box =
@@ -178,20 +151,15 @@ public class FragmentedMp4MuxerEndToEndTest {
   @Test
   public void createFragmentedMp4File_fromAudioOnlyInputFile_writesExpectedFragments()
       throws Exception {
-    @Nullable FragmentedMp4Muxer fragmentedMp4Muxer = null;
+    String outputPath = temporaryFolder.newFile("muxeroutput.mp4").getPath();
 
-    try {
-      fragmentedMp4Muxer =
-          new FragmentedMp4Muxer.Builder(checkNotNull(outputStream).getChannel()).build();
+    try (FragmentedMp4Muxer fragmentedMp4Muxer =
+        new FragmentedMp4Muxer.Builder(new FileOutputStream(outputPath).getChannel()).build()) {
       fragmentedMp4Muxer.addMetadataEntry(
           new Mp4TimestampData(
               /* creationTimestampSeconds= */ 100_000_000L,
               /* modificationTimestampSeconds= */ 500_000_000L));
       feedInputDataToMuxer(context, fragmentedMp4Muxer, MP4_FILE_ASSET_DIRECTORY + AUDIO_ONLY_MP4);
-    } finally {
-      if (fragmentedMp4Muxer != null) {
-        fragmentedMp4Muxer.close();
-      }
     }
 
     DumpableMp4Box dumpableMp4Box =
@@ -207,24 +175,19 @@ public class FragmentedMp4MuxerEndToEndTest {
   @Test
   public void createAv1FragmentedMp4File_withoutCsd_matchesExpected() throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
-    FragmentedMp4Muxer mp4Muxer =
-        new FragmentedMp4Muxer.Builder(new FileOutputStream(outputFilePath).getChannel()).build();
 
-    try {
-      mp4Muxer.addMetadataEntry(
+    try (FragmentedMp4Muxer fragmentedMp4Muxer =
+        new FragmentedMp4Muxer.Builder(new FileOutputStream(outputFilePath).getChannel()).build()) {
+      fragmentedMp4Muxer.addMetadataEntry(
           new Mp4TimestampData(
               /* creationTimestampSeconds= */ 100_000_000L,
               /* modificationTimestampSeconds= */ 500_000_000L));
       feedInputDataToMuxer(
           context,
-          mp4Muxer,
+          fragmentedMp4Muxer,
           MP4_FILE_ASSET_DIRECTORY + AV1_MP4,
           /* removeInitializationData= */ true,
           /* removeAudioSampleFlags= */ false);
-    } finally {
-      if (mp4Muxer != null) {
-        mp4Muxer.close();
-      }
     }
 
     FakeExtractorOutput fakeExtractorOutput =
@@ -241,24 +204,19 @@ public class FragmentedMp4MuxerEndToEndTest {
   public void createFragmentedMp4File_withoutAudioSampleFlags_writesAudioSamplesAsSyncSamples()
       throws Exception {
     String outputFilePath = temporaryFolder.newFile().getPath();
-    FragmentedMp4Muxer mp4Muxer =
-        new FragmentedMp4Muxer.Builder(new FileOutputStream(outputFilePath).getChannel()).build();
 
-    try {
-      mp4Muxer.addMetadataEntry(
+    try (FragmentedMp4Muxer fragmentedMp4Muxer =
+        new FragmentedMp4Muxer.Builder(new FileOutputStream(outputFilePath).getChannel()).build()) {
+      fragmentedMp4Muxer.addMetadataEntry(
           new Mp4TimestampData(
               /* creationTimestampSeconds= */ 100_000_000L,
               /* modificationTimestampSeconds= */ 500_000_000L));
       feedInputDataToMuxer(
           context,
-          mp4Muxer,
+          fragmentedMp4Muxer,
           MP4_FILE_ASSET_DIRECTORY + H264_MP4,
           /* removeInitializationData= */ false,
           /* removeAudioSampleFlags= */ true);
-    } finally {
-      if (mp4Muxer != null) {
-        mp4Muxer.close();
-      }
     }
 
     FakeExtractorOutput fakeExtractorOutput =

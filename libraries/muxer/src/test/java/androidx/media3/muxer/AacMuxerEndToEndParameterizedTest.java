@@ -26,10 +26,7 @@ import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import com.google.common.collect.ImmutableList;
 import java.io.FileOutputStream;
-import java.io.IOException;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
-import org.junit.After;
-import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -56,23 +53,12 @@ public class AacMuxerEndToEndParameterizedTest {
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
   private final Context context = ApplicationProvider.getApplicationContext();
-  private @MonotonicNonNull String outputPath;
-  private @MonotonicNonNull FileOutputStream outputStream;
-
-  @Before
-  public void setUp() throws Exception {
-    outputPath = temporaryFolder.newFile("muxeroutput.aac").getPath();
-    outputStream = new FileOutputStream(outputPath);
-  }
-
-  @After
-  public void tearDown() throws IOException {
-    checkNotNull(outputStream).close();
-  }
 
   @Test
   public void createAacFile_fromInputFileSampleData_matchesExpected() throws Exception {
-    try (AacMuxer muxer = new AacMuxer(checkNotNull(outputStream))) {
+    String outputPath = temporaryFolder.newFile("muxeroutput.aac").getPath();
+
+    try (AacMuxer muxer = new AacMuxer(new FileOutputStream(outputPath))) {
       feedInputDataToMuxer(context, muxer, checkNotNull(MP4_FILE_ASSET_DIRECTORY + inputFile));
     }
 
