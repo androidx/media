@@ -29,6 +29,7 @@ import android.view.Display;
 import android.view.Surface;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
+import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.Log;
@@ -77,7 +78,7 @@ public final class VideoFrameReleaseHelper {
       2 * FixedFrameRateEstimator.CONSECUTIVE_MATCHING_FRAME_DURATIONS_FOR_SYNC;
 
   /** The period between sampling display VSYNC timestamps, in milliseconds. */
-  private static final long VSYNC_SAMPLE_UPDATE_PERIOD_MS = 500;
+  @VisibleForTesting public static final long VSYNC_SAMPLE_UPDATE_PERIOD_MS = 500;
 
   /**
    * The maximum adjustment that can be made to a frame release timestamp, in nanoseconds, excluding
@@ -277,6 +278,11 @@ public final class VideoFrameReleaseHelper {
     long snappedTimeNs = closestVsync(adjustedReleaseTimeNs, sampledVsyncTimeNs, vsyncDurationNs);
     // Apply an offset so that we release before the target vsync, but after the previous one.
     return snappedTimeNs - vsyncOffsetNs;
+  }
+
+  @VisibleForTesting
+  public void setVsyncSampleTimeNs(long vsyncSampleTimeNs) {
+    checkNotNull(vsyncSampler).sampledVsyncTimeNs = vsyncSampleTimeNs;
   }
 
   private void resetAdjustment() {
