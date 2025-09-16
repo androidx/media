@@ -50,7 +50,7 @@ public class Mp4MuxerMetadataTest {
 
   private final Context context = ApplicationProvider.getApplicationContext();
   private final Pair<ByteBuffer, BufferInfo> sampleAndSampleInfo =
-      MuxerTestUtil.getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 0L);
+      MuxerTestUtil.getFakeSampleAndSampleInfo(/* presentationTimeUs= */ 0L, /* isVideo= */ true);
 
   @Test
   public void writeMp4File_orientationNotSet_setsOrientationTo0() throws Exception {

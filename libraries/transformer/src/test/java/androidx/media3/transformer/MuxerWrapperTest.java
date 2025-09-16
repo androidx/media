@@ -345,7 +345,6 @@ public class MuxerWrapperTest {
     muxerWrapper.addTrackFormat(FAKE_AUDIO_TRACK_FORMAT);
     muxerWrapper.addTrackFormat(FAKE_VIDEO_TRACK_FORMAT);
 
-    // TODO: b/443253158 - Maybe remove duplicating the sample.
     muxerWrapper.writeSample(
         C.TRACK_TYPE_AUDIO,
         FAKE_SAMPLE.duplicate(),
