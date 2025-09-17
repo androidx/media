@@ -198,7 +198,6 @@ public final class VideoFrameReleaseHelper {
    */
   public void onPlaybackSpeed(float playbackSpeed) {
     this.playbackSpeed = playbackSpeed;
-    resetAdjustment();
     updateSurfacePlaybackFrameRate(/* forceUpdate= */ false);
   }
 

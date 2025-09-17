@@ -24,7 +24,6 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
 import java.util.Random
-import org.junit.Ignore
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RuntimeEnvironment
@@ -429,7 +428,6 @@ class VideoFrameReleaseHelperTest {
     assertPullDownPattern(testData, releaseTimesNs, pattern = listOf(2))
   }
 
-  @Ignore // TODO: b/444152533 - Make frame release logic more reliable
   @Test
   fun adjustReleaseTime_speedChange_releasesFramesSmoothly() {
     updateDisplayRefreshRate(context, refreshRate = 60f)
@@ -482,7 +480,6 @@ class VideoFrameReleaseHelperTest {
     )
   }
 
-  @Ignore // TODO: b/444152533 - Make frame release logic more reliable
   @Test
   fun adjustReleaseTime_tinySpeedChangeAndSmallReleaseTimeDrift_releasesFramesSmoothly() {
     updateDisplayRefreshRate(context, refreshRate = 60f)
