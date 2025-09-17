@@ -28,7 +28,7 @@ import java.util.UUID;
 public interface MediaDrmCallback {
 
   /** Response data from the {@link MediaDrmCallback} requests. */
-  final class Response {
+  public final class Response {
 
     /** Builder for {@link Response} instances. */
     public static final class Builder {
@@ -49,6 +49,7 @@ public interface MediaDrmCallback {
         return this;
       }
 
+      /** Builds the response. */
       public Response build() {
         return new Response(this);
       }

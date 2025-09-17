@@ -855,9 +855,7 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
   @Override
   @SuppressWarnings("deprecation") // Calls deprecated listener method.
   public void onDrmKeysLoaded(
-      int windowIndex,
-      @Nullable MediaPeriodId mediaPeriodId,
-      @Nullable KeyRequestInfo keyRequestInfo) {
+      int windowIndex, @Nullable MediaPeriodId mediaPeriodId, KeyRequestInfo keyRequestInfo) {
     EventTime eventTime = generateMediaPeriodEventTime(windowIndex, mediaPeriodId);
     sendEvent(
         eventTime,

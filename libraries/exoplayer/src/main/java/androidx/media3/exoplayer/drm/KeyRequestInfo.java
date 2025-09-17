@@ -23,9 +23,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.checkerframework.dataflow.qual.SideEffectFree;
 
 /** Information related to a completed DRM key request operation. */
-// TODO: #1001 - Add sessionId field.
+// TODO: http://github.com/androidx/media/issues/1001 - Add sessionId field.
 @UnstableApi
 public final class KeyRequestInfo {
 
@@ -39,7 +40,7 @@ public final class KeyRequestInfo {
       loadEventInfos = ImmutableList.builder();
     }
 
-    /** Set the {@link SchemeData} instances associated with the key request. */
+    /** Sets the {@link SchemeData} instances associated with the key request. */
     @CanIgnoreReturnValue
     public Builder setSchemeDatas(List<SchemeData> schemeDatas) {
       this.schemeDatas = ImmutableList.copyOf(schemeDatas);
@@ -57,6 +58,7 @@ public final class KeyRequestInfo {
     }
 
     /** Builds a {@link KeyRequestInfo} instance. */
+    @SideEffectFree
     public KeyRequestInfo build() {
       return new KeyRequestInfo(this);
     }

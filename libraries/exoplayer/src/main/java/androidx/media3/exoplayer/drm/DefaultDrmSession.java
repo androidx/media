@@ -137,7 +137,6 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   private final UUID uuid;
   private final Looper playbackLooper;
   private final ResponseHandler responseHandler;
-  /** Lock object for {@link #currentKeyRequestInfo}*/
   private final Object keyRequestInfoLock;
 
   private @DrmSession.State int state;
@@ -150,8 +149,11 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   private byte @MonotonicNonNull [] offlineLicenseKeySetId;
 
   @Nullable private KeyRequest currentKeyRequest;
+
   @GuardedBy("keyRequestInfoLock")
-  @Nullable private KeyRequestInfo.Builder currentKeyRequestInfo;
+  @Nullable
+  private KeyRequestInfo.Builder currentKeyRequestInfo;
+
   @Nullable private ProvisionRequest currentProvisionRequest;
 
   /**
@@ -353,6 +355,9 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       cryptoConfig = null;
       lastException = null;
       currentKeyRequest = null;
+      synchronized (keyRequestInfoLock) {
+        currentKeyRequestInfo = null;
+      }
       currentProvisionRequest = null;
       if (sessionId != null) {
         mediaDrm.closeSession(sessionId);
@@ -513,6 +518,13 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       return;
     }
     currentKeyRequest = null;
+    KeyRequestInfo keyRequestInfo;
+    synchronized (keyRequestInfoLock) {
+      // currentKeyRequest and currentKeyRequestInfo are assigned together, and nulled-out together,
+      // so it must be non-null here.
+      keyRequestInfo = checkNotNull(currentKeyRequestInfo).build();
+      currentKeyRequestInfo = null;
+    }
 
     if (response instanceof Exception || response instanceof NoSuchMethodError) {
       onKeysError((Throwable) response, /* thrownByExoMediaDrm= */ false);
@@ -521,14 +533,11 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
     try {
       byte[] responseData = ((MediaDrmCallback.Response) response).data;
-      KeyRequestInfo keyRequestInfo;
-      synchronized (keyRequestInfoLock) {
-        keyRequestInfo = currentKeyRequestInfo.build();
-        currentKeyRequestInfo = null;
-      }
+
       if (mode == DefaultDrmSessionManager.MODE_RELEASE) {
         mediaDrm.provideKeyResponse(Util.castNonNull(offlineLicenseKeySetId), responseData);
-        // TODO: #1001 - Plumb the KeyLoadInfo up into drmKeysRemoved.
+        // TODO: http://github.com/androidx/media/issues/1001 - Plumb the KeyLoadInfo up into
+        //  drmKeysRemoved.
         dispatchEvent(DrmSessionEventListener.EventDispatcher::drmKeysRemoved);
       } else {
         byte[] keySetId = mediaDrm.provideKeyResponse(sessionId, responseData);

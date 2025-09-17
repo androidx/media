@@ -1374,14 +1374,11 @@ public interface AnalyticsListener {
   /**
    * Called each time drm keys are loaded.
    *
-   * <p>Includes a {@link KeyRequestInfo} with details on the loaded key and any network request[s]
-   * required to complete the load
-   *
    * @param eventTime The event time.
    * @param keyRequestInfo information for any required load operation, null if none
    */
   @UnstableApi
-  default void onDrmKeysLoaded(EventTime eventTime, @Nullable KeyRequestInfo keyRequestInfo) {}
+  default void onDrmKeysLoaded(EventTime eventTime, KeyRequestInfo keyRequestInfo) {}
 
   /**
    * Called when a drm error occurs.

@@ -517,7 +517,7 @@ public class EventLogger implements AnalyticsListener {
 
   @UnstableApi
   @Override
-  public void onDrmKeysLoaded(EventTime eventTime, @Nullable KeyRequestInfo keyRequestInfo) {
+  public void onDrmKeysLoaded(EventTime eventTime, KeyRequestInfo keyRequestInfo) {
     logd(eventTime, "drmKeysLoaded");
   }
 

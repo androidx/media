@@ -51,12 +51,10 @@ public interface DrmSessionEventListener {
    *
    * @param windowIndex The window index in the timeline this media period belongs to.
    * @param mediaPeriodId The {@link MediaPeriodId} associated with the drm session.
-   * @param keyRequestInfo The {@link KeyRequestInfo} with load info for the drm server request[s]
+   * @param keyRequestInfo The {@link KeyRequestInfo} with load info for the drm server requests
    */
   default void onDrmKeysLoaded(
-      int windowIndex,
-      @Nullable MediaPeriodId mediaPeriodId,
-      @Nullable KeyRequestInfo keyRequestInfo) {}
+      int windowIndex, @Nullable MediaPeriodId mediaPeriodId, KeyRequestInfo keyRequestInfo) {}
 
   /**
    * Called when a drm error occurs.
@@ -180,7 +178,7 @@ public interface DrmSessionEventListener {
      * Dispatches {@link #onDrmKeysLoaded(int, MediaPeriodId)}. and {@link #onDrmKeysLoaded(int,
      * MediaPeriodId, KeyRequestInfo)}
      */
-    public void drmKeysLoaded(@Nullable KeyRequestInfo keyRequestInfo) {
+    public void drmKeysLoaded(KeyRequestInfo keyRequestInfo) {
       for (ListenerAndHandler listenerAndHandler : listenerAndHandlers) {
         DrmSessionEventListener listener = listenerAndHandler.listener;
         postOrRun(
