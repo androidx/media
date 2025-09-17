@@ -149,7 +149,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final boolean dropSamplesBeforeFirstVideoSample;
   private final SparseArray<TrackInfo> trackTypeToInfo;
   @Nullable private final Format appendVideoFormat;
-  private final boolean writeNegativeTimestampsToEditList;
 
   private boolean isReady;
   private boolean isEnded;
@@ -181,8 +180,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    *     presentation timestamps before the first video sample.
    * @param appendVideoFormat The format which will be used to write samples after transitioning
    *     from {@link #MUXER_MODE_MUX_PARTIAL} to {@link #MUXER_MODE_APPEND}.
-   * @param writeNegativeTimestampsToEditList Whether the {@link Muxer} should write negative
-   *     timestamps to an edit list.
    */
   public MuxerWrapper(
       String outputPath,
@@ -190,15 +187,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       Listener listener,
       @MuxerMode int muxerMode,
       boolean dropSamplesBeforeFirstVideoSample,
-      @Nullable Format appendVideoFormat,
-      boolean writeNegativeTimestampsToEditList) {
+      @Nullable Format appendVideoFormat) {
     this.outputPath = outputPath;
     this.muxerFactory = muxerFactory;
     this.listener = listener;
     checkArgument(muxerMode == MUXER_MODE_DEFAULT || muxerMode == MUXER_MODE_MUX_PARTIAL);
     this.muxerMode = muxerMode;
     this.dropSamplesBeforeFirstVideoSample = dropSamplesBeforeFirstVideoSample;
-    this.writeNegativeTimestampsToEditList = writeNegativeTimestampsToEditList;
     checkArgument(
         (muxerMode == MUXER_MODE_DEFAULT && appendVideoFormat == null)
             || (muxerMode == MUXER_MODE_MUX_PARTIAL && appendVideoFormat != null),
@@ -553,24 +548,17 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       return false;
     }
 
+    // Set the presentation timestamp of the first video frame to zero so that an edit list is not
+    // added and the first video frame
+    // is presented when playback starts cross-platform.
+    // Only apply this when there is audio track added, i.e. when not recording screen.
     if (trackInfo.sampleCount == 0) {
       if (trackType == C.TRACK_TYPE_VIDEO
           && contains(trackTypeToInfo, C.TRACK_TYPE_AUDIO)
           && !dropSamplesBeforeFirstVideoSample
-          // When writeNegativeTimestampsToEditList is true and the first timestamp is
-          // negative, skip this optimization.
-          && (!writeNegativeTimestampsToEditList || presentationTimeUs > 0)) {
+          && presentationTimeUs > 0) {
         checkState(firstVideoPresentationTimeUs != C.TIME_UNSET);
-        // Set the presentation timestamp of the first video to zero so that the first video frame
-        // is presented when playback starts cross-platform. Moreover, MediaMuxer shifts all video
-        // sample times to zero under API30 and it breaks A/V sync.
-        // Only apply this when there is audio track added, i.e. when not recording screen.
-        // TODO: b/376217254 - Consider removing after switching to InAppMuxer.
-        // TODO: b/376217254 - Remove audio dropping logic, use video frame shifting instead.
-        Log.w(
-            TAG,
-            "Applying workarounds for edit list: shifting only the first video timestamp to"
-                + " zero.");
+        Log.w(TAG, "Shifting first video timestamp from " + presentationTimeUs + " to zero.");
         presentationTimeUs = 0;
       }
       trackInfo.startTimeUs = presentationTimeUs;

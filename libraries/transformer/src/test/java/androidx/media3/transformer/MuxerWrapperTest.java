@@ -102,8 +102,7 @@ public class MuxerWrapperTest {
             new NoOpMuxerListenerImpl(),
             MUXER_MODE_DEFAULT,
             /* dropSamplesBeforeFirstVideoSample= */ false,
-            /* appendVideoFormat= */ null,
-            /* writeNegativeTimestampsToEditList= */ false);
+            /* appendVideoFormat= */ null);
     muxerWrapper.setAdditionalRotationDegrees(90);
     muxerWrapper.setTrackCount(1);
     muxerWrapper.setAdditionalRotationDegrees(180);
@@ -121,8 +120,7 @@ public class MuxerWrapperTest {
             new NoOpMuxerListenerImpl(),
             MUXER_MODE_DEFAULT,
             /* dropSamplesBeforeFirstVideoSample= */ false,
-            /* appendVideoFormat= */ null,
-            /* writeNegativeTimestampsToEditList= */ false);
+            /* appendVideoFormat= */ null);
     muxerWrapper.setAdditionalRotationDegrees(90);
     muxerWrapper.setTrackCount(1);
     muxerWrapper.setAdditionalRotationDegrees(180);
@@ -140,8 +138,7 @@ public class MuxerWrapperTest {
             new NoOpMuxerListenerImpl(),
             MUXER_MODE_DEFAULT,
             /* dropSamplesBeforeFirstVideoSample= */ false,
-            /* appendVideoFormat= */ null,
-            /* writeNegativeTimestampsToEditList= */ false);
+            /* appendVideoFormat= */ null);
 
     assertThrows(IllegalStateException.class, muxerWrapper::changeToAppendMode);
   }
@@ -158,8 +155,7 @@ public class MuxerWrapperTest {
                     new NoOpMuxerListenerImpl(),
                     MUXER_MODE_MUX_PARTIAL,
                     /* dropSamplesBeforeFirstVideoSample= */ false,
-                    /* appendVideoFormat= */ null,
-                    /* writeNegativeTimestampsToEditList= */ false));
+                    /* appendVideoFormat= */ null));
   }
 
   @Test
@@ -171,8 +167,7 @@ public class MuxerWrapperTest {
             new NoOpMuxerListenerImpl(),
             MUXER_MODE_MUX_PARTIAL,
             /* dropSamplesBeforeFirstVideoSample= */ false,
-            /* appendVideoFormat= */ FAKE_VIDEO_TRACK_FORMAT,
-            /* writeNegativeTimestampsToEditList= */ false);
+            /* appendVideoFormat= */ FAKE_VIDEO_TRACK_FORMAT);
 
     muxerWrapper.setTrackCount(1);
     muxerWrapper.addTrackFormat(FAKE_VIDEO_TRACK_FORMAT);
@@ -195,8 +190,7 @@ public class MuxerWrapperTest {
             new NoOpMuxerListenerImpl(),
             MUXER_MODE_MUX_PARTIAL,
             /* dropSamplesBeforeFirstVideoSample= */ false,
-            /* appendVideoFormat= */ FAKE_VIDEO_TRACK_FORMAT,
-            /* writeNegativeTimestampsToEditList= */ false);
+            /* appendVideoFormat= */ FAKE_VIDEO_TRACK_FORMAT);
     muxerWrapper.setTrackCount(1);
     muxerWrapper.addTrackFormat(FAKE_AUDIO_TRACK_FORMAT);
     muxerWrapper.writeSample(
@@ -219,8 +213,7 @@ public class MuxerWrapperTest {
             new NoOpMuxerListenerImpl(),
             MUXER_MODE_MUX_PARTIAL,
             /* dropSamplesBeforeFirstVideoSample= */ false,
-            /* appendVideoFormat= */ differentVideoFormat,
-            /* writeNegativeTimestampsToEditList= */ false);
+            /* appendVideoFormat= */ differentVideoFormat);
     muxerWrapper.setTrackCount(1);
     muxerWrapper.addTrackFormat(FAKE_VIDEO_TRACK_FORMAT);
     muxerWrapper.writeSample(
@@ -255,8 +248,7 @@ public class MuxerWrapperTest {
             new NoOpMuxerListenerImpl(),
             MUXER_MODE_MUX_PARTIAL,
             /* dropSamplesBeforeFirstVideoSample= */ false,
-            /* appendVideoFormat= */ differentVideoFormat,
-            /* writeNegativeTimestampsToEditList= */ false);
+            /* appendVideoFormat= */ differentVideoFormat);
     muxerWrapper.setTrackCount(1);
     muxerWrapper.addTrackFormat(FAKE_VIDEO_TRACK_FORMAT);
     muxerWrapper.writeSample(
@@ -282,8 +274,7 @@ public class MuxerWrapperTest {
             new NoOpMuxerListenerImpl(),
             MUXER_MODE_MUX_PARTIAL,
             /* dropSamplesBeforeFirstVideoSample= */ false,
-            /* appendVideoFormat= */ FAKE_VIDEO_TRACK_FORMAT,
-            /* writeNegativeTimestampsToEditList= */ false);
+            /* appendVideoFormat= */ FAKE_VIDEO_TRACK_FORMAT);
     muxerWrapper.setTrackCount(1);
     muxerWrapper.addTrackFormat(FAKE_AUDIO_TRACK_FORMAT);
     muxerWrapper.writeSample(
@@ -310,8 +301,7 @@ public class MuxerWrapperTest {
             new NoOpMuxerListenerImpl(),
             MUXER_MODE_DEFAULT,
             /* dropSamplesBeforeFirstVideoSample= */ true,
-            /* appendVideoFormat= */ null,
-            /* writeNegativeTimestampsToEditList= */ false);
+            /* appendVideoFormat= */ null);
     muxerWrapper.setTrackCount(2);
     muxerWrapper.addTrackFormat(FAKE_AUDIO_TRACK_FORMAT);
     muxerWrapper.addTrackFormat(FAKE_VIDEO_TRACK_FORMAT);
@@ -339,8 +329,7 @@ public class MuxerWrapperTest {
             new NoOpMuxerListenerImpl(),
             MUXER_MODE_DEFAULT,
             /* dropSamplesBeforeFirstVideoSample= */ true,
-            /* appendVideoFormat= */ null,
-            /* writeNegativeTimestampsToEditList= */ false);
+            /* appendVideoFormat= */ null);
     muxerWrapper.setTrackCount(2);
     muxerWrapper.addTrackFormat(FAKE_AUDIO_TRACK_FORMAT);
     muxerWrapper.addTrackFormat(FAKE_VIDEO_TRACK_FORMAT);
@@ -400,8 +389,7 @@ public class MuxerWrapperTest {
             new NoOpMuxerListenerImpl(),
             MUXER_MODE_MUX_PARTIAL,
             /* dropSamplesBeforeFirstVideoSample= */ false,
-            /* appendVideoFormat= */ FAKE_VIDEO_TRACK_FORMAT,
-            /* writeNegativeTimestampsToEditList= */ false);
+            /* appendVideoFormat= */ FAKE_VIDEO_TRACK_FORMAT);
     muxerWrapper.setTrackCount(1);
     muxerWrapper.addTrackFormat(FAKE_VIDEO_TRACK_FORMAT);
     muxerWrapper.writeSample(
@@ -422,8 +410,7 @@ public class MuxerWrapperTest {
             new NoOpMuxerListenerImpl(),
             MUXER_MODE_MUX_PARTIAL,
             /* dropSamplesBeforeFirstVideoSample= */ false,
-            /* appendVideoFormat= */ FAKE_VIDEO_TRACK_FORMAT,
-            /* writeNegativeTimestampsToEditList= */ false);
+            /* appendVideoFormat= */ FAKE_VIDEO_TRACK_FORMAT);
 
     muxerWrapper.setTrackCount(2);
     muxerWrapper.addTrackFormat(FAKE_VIDEO_TRACK_FORMAT);
@@ -452,8 +439,7 @@ public class MuxerWrapperTest {
             new NoOpMuxerListenerImpl(),
             MUXER_MODE_MUX_PARTIAL,
             /* dropSamplesBeforeFirstVideoSample= */ false,
-            /* appendVideoFormat= */ FAKE_VIDEO_TRACK_FORMAT,
-            /* writeNegativeTimestampsToEditList= */ false);
+            /* appendVideoFormat= */ FAKE_VIDEO_TRACK_FORMAT);
     muxerWrapper.setTrackCount(1);
     muxerWrapper.addTrackFormat(FAKE_VIDEO_TRACK_FORMAT);
     muxerWrapper.writeSample(
@@ -610,8 +596,7 @@ public class MuxerWrapperTest {
             new NoOpMuxerListenerImpl(),
             MUXER_MODE_MUX_PARTIAL,
             /* dropSamplesBeforeFirstVideoSample= */ false,
-            /* appendVideoFormat= */ FAKE_VIDEO_TRACK_FORMAT,
-            /* writeNegativeTimestampsToEditList= */ false);
+            /* appendVideoFormat= */ FAKE_VIDEO_TRACK_FORMAT);
     muxerWrapper.setTrackCount(1);
     muxerWrapper.addTrackFormat(FAKE_VIDEO_TRACK_FORMAT);
     muxerWrapper.writeSample(
@@ -637,8 +622,7 @@ public class MuxerWrapperTest {
             new NoOpMuxerListenerImpl(),
             MUXER_MODE_MUX_PARTIAL,
             /* dropSamplesBeforeFirstVideoSample= */ false,
-            /* appendVideoFormat= */ FAKE_VIDEO_TRACK_FORMAT,
-            /* writeNegativeTimestampsToEditList= */ false);
+            /* appendVideoFormat= */ FAKE_VIDEO_TRACK_FORMAT);
     muxerWrapper.setTrackCount(1);
     muxerWrapper.addTrackFormat(FAKE_VIDEO_TRACK_FORMAT);
     muxerWrapper.writeSample(
@@ -663,8 +647,7 @@ public class MuxerWrapperTest {
             new NoOpMuxerListenerImpl(),
             MUXER_MODE_MUX_PARTIAL,
             /* dropSamplesBeforeFirstVideoSample= */ false,
-            /* appendVideoFormat= */ FAKE_VIDEO_TRACK_FORMAT,
-            /* writeNegativeTimestampsToEditList= */ false);
+            /* appendVideoFormat= */ FAKE_VIDEO_TRACK_FORMAT);
     muxerWrapper.setTrackCount(1);
     muxerWrapper.addTrackFormat(FAKE_VIDEO_TRACK_FORMAT);
     muxerWrapper.writeSample(
