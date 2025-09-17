@@ -2408,6 +2408,8 @@ public class MediaSession {
     default void onMediaMetadataChanged(int seq, MediaMetadata mediaMetadata)
         throws RemoteException {}
 
+    default void onSurfaceSizeChanged(int seq, int width, int height) throws RemoteException {}
+
     default void onRenderedFirstFrame(int seq) throws RemoteException {}
 
     default void onError(int seq, SessionError sessionError) throws RemoteException {}
