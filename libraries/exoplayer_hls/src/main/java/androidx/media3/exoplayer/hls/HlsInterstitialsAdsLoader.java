@@ -775,6 +775,7 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
       if (adGroup.states[adIndexInAdGroup] != AD_STATE_SKIPPED) {
         adPlaybackState = adPlaybackState.withSkippedAd(adGroupIndex, adIndexInAdGroup);
         putAndNotifyAdPlaybackStateUpdate(checkNotNull(adPlaybackState.adsId), adPlaybackState);
+        removeUnresolvedAssetListOfAdGroup(adPlaybackState, adGroup);
       }
     }
   }
@@ -796,7 +797,9 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
     if (adPlaybackState != null) {
       checkArgument(adGroupIndex < adPlaybackState.adGroupCount);
       adPlaybackState = adPlaybackState.withSkippedAdGroup(adGroupIndex);
+      AdGroup adGroup = adPlaybackState.getAdGroup(adGroupIndex);
       putAndNotifyAdPlaybackStateUpdate(checkNotNull(adPlaybackState.adsId), adPlaybackState);
+      removeUnresolvedAssetListOfAdGroup(adPlaybackState, adGroup);
     }
   }
 
@@ -831,6 +834,7 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
         adPlaybackState =
             adPlaybackState.withAvailableAdMediaItem(adGroupIndex, adIndexInAdGroup, mediaItem);
         putAndNotifyAdPlaybackStateUpdate(checkNotNull(adPlaybackState.adsId), adPlaybackState);
+        removeUnresolvedAssetListOfAdGroup(adPlaybackState, adGroup);
       }
     }
   }
@@ -862,6 +866,19 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
         }
       }
       putAndNotifyAdPlaybackStateUpdate(checkNotNull(adPlaybackState.adsId), adPlaybackState);
+      removeUnresolvedAssetListOfAdGroup(adPlaybackState, adGroup);
+    }
+  }
+
+  private void removeUnresolvedAssetListOfAdGroup(
+      AdPlaybackState adPlaybackState, AdGroup adGroup) {
+    checkArgument(adPlaybackState.adsId != null);
+    Map<Long, AssetListData> unresolvedAssetLists =
+        contentMediaSourceAdDataHolder.getUnresolvedAssetLists(adPlaybackState.adsId);
+    if (unresolvedAssetLists != null) {
+      // remove unresolved asset list when the user manually manipulates the ad group.
+      unresolvedAssetLists.remove(
+          adGroup.timeUs == C.TIME_END_OF_SOURCE ? Long.MAX_VALUE : adGroup.timeUs);
     }
   }
 
@@ -1755,13 +1772,33 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
       @Nullable AssetList assetList = loadable.getResult();
       AdPlaybackState adPlaybackState =
           contentMediaSourceAdDataHolder.getAdPlaybackState(assetListData.adsId);
-      if (adPlaybackState == null || assetList == null || assetList.assets.isEmpty()) {
-        if (adPlaybackState != null) {
-          handleAssetResolutionFailed(new IOException("empty asset list"), /* cancelled= */ false);
-        }
+      // Get the state of the ad to validate there was no manual change since we started loading.
+      int assetListAdState =
+          adPlaybackState != null
+              ? adPlaybackState.getAdGroup(assetListData.adGroupIndex)
+                  .states[assetListData.adIndexInAdGroup]
+              : AD_STATE_ERROR;
+      if (assetListAdState != AD_STATE_UNAVAILABLE) {
+        // The ad was manipulated manually since the asset loading was started. Ignore asset list
+        // and make sure the next asset list is scheduled for loading (if any).
+        maybeContinueAssetResolution();
+        notifyListeners(
+            listener ->
+                listener.onAssetListLoadFailed(
+                    assetListData.mediaItem,
+                    assetListData.adsId,
+                    assetListData.adGroupIndex,
+                    assetListData.adIndexInAdGroup,
+                    /* ioException= */ null,
+                    /* cancelled= */ true));
+        return;
+      } else if (assetList == null || assetList.assets.isEmpty()) {
+        // Mark the ad as failed and schedule the next asset list for loading (if any).
+        handleAssetResolutionFailed(new IOException("empty asset list"), /* cancelled= */ false);
         return;
       }
-      AdPlaybackState.AdGroup adGroup = adPlaybackState.getAdGroup(assetListData.adGroupIndex);
+      AdPlaybackState.AdGroup adGroup =
+          checkNotNull(adPlaybackState).getAdGroup(assetListData.adGroupIndex);
       long oldAdDurationUs =
           adGroup.durationsUs[assetListData.adIndexInAdGroup] != C.TIME_UNSET
               ? adGroup.durationsUs[assetListData.adIndexInAdGroup]
