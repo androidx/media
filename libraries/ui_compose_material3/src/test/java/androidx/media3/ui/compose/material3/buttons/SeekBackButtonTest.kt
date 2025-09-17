@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package androidx.media3.ui.compose.material3.button
+package androidx.media3.ui.compose.material3.buttons
 
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -23,8 +23,7 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
-import androidx.media3.common.Player.COMMAND_SET_SHUFFLE_MODE
-import androidx.media3.common.Player.STATE_READY
+import androidx.media3.common.Player.COMMAND_SEEK_BACK
 import androidx.media3.common.SimpleBasePlayer.MediaItemData
 import androidx.media3.test.utils.TestSimpleBasePlayer
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -33,74 +32,75 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** Unit test for [ShuffleButton]. */
+/** Unit test for [SeekBackButton]. */
 @RunWith(AndroidJUnit4::class)
-class ShuffleButtonTest {
+class SeekBackButtonTest {
 
   @get:Rule val composeRule = createComposeRule()
 
   @Test
-  fun onClick_togglesShuffleMode() {
+  fun onClick_callsSeekBack() {
     val player =
       TestSimpleBasePlayer(
-        playbackState = STATE_READY,
-        playWhenReady = false,
-        playlist = listOf(MediaItemData.Builder("SingleItem").build()),
+        playlist =
+          listOf(
+            MediaItemData.Builder("SingleItem")
+              .setDurationUs(10_000_000)
+              .setIsSeekable(true)
+              .build()
+          )
       )
-    composeRule.setContent { ShuffleButton(player, Modifier.testTag("shuffleButton")) }
+    player.setPosition(5_000)
+    player.setSeekBackIncrementMs(1_000)
+    composeRule.setContent { SeekBackButton(player, Modifier.testTag("seekBackButton")) }
 
-    composeRule.onNodeWithTag("shuffleButton").performClick()
+    composeRule.onNodeWithTag("seekBackButton").performClick()
 
-    assertThat(player.shuffleModeEnabled).isTrue()
+    assertThat(player.currentPosition).isEqualTo(4_000)
   }
 
   @Test
   fun onClick_commandNotAvailable_buttonDisabledClickNotPerformed() {
     val player = TestSimpleBasePlayer()
-    player.removeCommands(COMMAND_SET_SHUFFLE_MODE)
-    composeRule.setContent { ShuffleButton(player, Modifier.testTag("shuffleButton")) }
+    player.setPosition(5_000)
+    player.removeCommands(COMMAND_SEEK_BACK)
 
-    composeRule.onNodeWithTag("shuffleButton").performClick()
+    composeRule.setContent { SeekBackButton(player, Modifier.testTag("seekBackButton")) }
 
-    composeRule.onNodeWithTag("shuffleButton").assertIsNotEnabled()
-    assertThat(player.shuffleModeEnabled).isFalse()
+    composeRule.onNodeWithTag("seekBackButton").performClick()
+
+    composeRule.onNodeWithTag("seekBackButton").assertIsNotEnabled()
+    assertThat(player.currentPosition).isEqualTo(5_000)
   }
 
   @Test
   fun customizeContentDescription() {
-    val player =
-      TestSimpleBasePlayer(
-        playbackState = STATE_READY,
-        playWhenReady = false,
-        playlist = listOf(MediaItemData.Builder("SingleItem").build()),
-      )
+    val player = TestSimpleBasePlayer()
+
     composeRule.setContent {
-      ShuffleButton(
-        player,
-        Modifier.testTag("shuffleButton"),
-        contentDescription = { if (shuffleOn) "on" else "off" },
-      )
+      SeekBackButton(player, Modifier.testTag("seekBackButton"), contentDescription = { "Go Back" })
     }
-    composeRule.onNodeWithTag("shuffleButton").assertContentDescriptionEquals("off")
 
-    composeRule.onNodeWithTag("shuffleButton").performClick()
-
-    composeRule.onNodeWithTag("shuffleButton").assertContentDescriptionEquals("on")
+    composeRule.onNodeWithTag("seekBackButton").assertContentDescriptionEquals("Go Back")
   }
 
   @Test
   fun customizeOnClick() {
     val player =
       TestSimpleBasePlayer(
-        playbackState = STATE_READY,
-        playWhenReady = false,
-        playlist = listOf(MediaItemData.Builder("SingleItem").build()),
+        playlist =
+          listOf(
+            MediaItemData.Builder("SingleItem")
+              .setDurationUs(10_000_000)
+              .setIsSeekable(true)
+              .build()
+          )
       )
     var onClickCalled = false
     composeRule.setContent {
-      ShuffleButton(
+      SeekBackButton(
         player,
-        Modifier.testTag("shuffleButton"),
+        Modifier.testTag("seekBackButton"),
         onClick = {
           this.onClick()
           onClickCalled = true
@@ -108,7 +108,7 @@ class ShuffleButtonTest {
       )
     }
 
-    composeRule.onNodeWithTag("shuffleButton").performClick()
+    composeRule.onNodeWithTag("seekBackButton").performClick()
 
     assertThat(onClickCalled).isTrue()
   }

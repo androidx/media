@@ -33,14 +33,14 @@ import androidx.compose.ui.unit.dp
 import androidx.media3.common.Player
 import androidx.media3.demo.compose.indicator.HorizontalLinearProgressIndicator
 import androidx.media3.demo.compose.indicator.TextProgressIndicator
-import androidx.media3.ui.compose.material3.button.MuteButton
-import androidx.media3.ui.compose.material3.button.RepeatButton
-import androidx.media3.ui.compose.material3.button.ShuffleButton
-import androidx.media3.ui.compose.material3.button.NextButton
-import androidx.media3.ui.compose.material3.button.PlayPauseButton
-import androidx.media3.ui.compose.material3.button.PreviousButton
-import androidx.media3.ui.compose.material3.button.SeekBackButton
-import androidx.media3.ui.compose.material3.button.SeekForwardButton
+import androidx.media3.ui.compose.material3.buttons.MuteButton
+import androidx.media3.ui.compose.material3.buttons.NextButton
+import androidx.media3.ui.compose.material3.buttons.PlayPauseButton
+import androidx.media3.ui.compose.material3.buttons.PreviousButton
+import androidx.media3.ui.compose.material3.buttons.RepeatButton
+import androidx.media3.ui.compose.material3.buttons.SeekBackButton
+import androidx.media3.ui.compose.material3.buttons.SeekForwardButton
+import androidx.media3.ui.compose.material3.buttons.ShuffleButton
 
 @Composable
 private fun RowControls(

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package androidx.media3.ui.compose.material3.button
+package androidx.media3.ui.compose.material3.buttons
 
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -23,7 +23,7 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
-import androidx.media3.common.Player.COMMAND_SEEK_FORWARD
+import androidx.media3.common.Player.COMMAND_SEEK_TO_NEXT
 import androidx.media3.common.SimpleBasePlayer.MediaItemData
 import androidx.media3.test.utils.TestSimpleBasePlayer
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -32,37 +32,47 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** Unit test for [SeekForwardButton]. */
+/** Unit test for [NextButton]. */
 @RunWith(AndroidJUnit4::class)
-class SeekForwardButtonTest {
+class NextButtonTest {
 
   @get:Rule val composeRule = createComposeRule()
 
   @Test
-  fun onClick_callsSeekForward() {
+  fun onClick_callsNext() {
     val player =
       TestSimpleBasePlayer(
-        playlist = listOf(MediaItemData.Builder("SingleItem").setIsSeekable(true).build())
+        playlist =
+          listOf(
+            MediaItemData.Builder("First").setDurationUs(1_000_000L).build(),
+            MediaItemData.Builder("Second").setDurationUs(2_000_000L).build(),
+          )
       )
-    player.setSeekForwardIncrementMs(1_000)
-    composeRule.setContent { SeekForwardButton(player, Modifier.testTag("seekForwardButton")) }
+    composeRule.setContent { NextButton(player, Modifier.testTag("nextButton")) }
 
-    composeRule.onNodeWithTag("seekForwardButton").performClick()
+    composeRule.onNodeWithTag("nextButton").performClick()
 
-    assertThat(player.currentPosition).isEqualTo(1_000)
+    assertThat(player.currentMediaItemIndex).isEqualTo(1)
   }
 
   @Test
   fun onClick_commandNotAvailable_buttonDisabledClickNotPerformed() {
-    val player = TestSimpleBasePlayer()
-    player.removeCommands(COMMAND_SEEK_FORWARD)
+    val player =
+      TestSimpleBasePlayer(
+        playlist =
+          listOf(
+            MediaItemData.Builder("First").setDurationUs(1_000_000L).build(),
+            MediaItemData.Builder("Second").setDurationUs(2_000_000L).build(),
+          )
+      )
+    player.removeCommands(COMMAND_SEEK_TO_NEXT)
 
-    composeRule.setContent { SeekForwardButton(player, Modifier.testTag("seekForwardButton")) }
+    composeRule.setContent { NextButton(player, Modifier.testTag("nextButton")) }
 
-    composeRule.onNodeWithTag("seekForwardButton").performClick()
+    composeRule.onNodeWithTag("nextButton").performClick()
 
-    composeRule.onNodeWithTag("seekForwardButton").assertIsNotEnabled()
-    assertThat(player.currentPosition).isEqualTo(0)
+    composeRule.onNodeWithTag("nextButton").assertIsNotEnabled()
+    assertThat(player.currentMediaItemIndex).isEqualTo(0)
   }
 
   @Test
@@ -70,27 +80,27 @@ class SeekForwardButtonTest {
     val player = TestSimpleBasePlayer()
 
     composeRule.setContent {
-      SeekForwardButton(
-        player,
-        Modifier.testTag("seekForwardButton"),
-        contentDescription = { "Go Forward" },
-      )
+      NextButton(player, Modifier.testTag("nextButton"), contentDescription = { "Go next" })
     }
 
-    composeRule.onNodeWithTag("seekForwardButton").assertContentDescriptionEquals("Go Forward")
+    composeRule.onNodeWithTag("nextButton").assertContentDescriptionEquals("Go next")
   }
 
   @Test
   fun customizeOnClick() {
     val player =
       TestSimpleBasePlayer(
-        playlist = listOf(MediaItemData.Builder("SingleItem").setIsSeekable(true).build())
+        playlist =
+          listOf(
+            MediaItemData.Builder("First").setDurationUs(1_000_000L).build(),
+            MediaItemData.Builder("Second").setDurationUs(2_000_000L).build(),
+          )
       )
     var onClickCalled = false
     composeRule.setContent {
-      SeekForwardButton(
+      NextButton(
         player,
-        Modifier.testTag("seekForwardButton"),
+        Modifier.testTag("nextButton"),
         onClick = {
           this.onClick()
           onClickCalled = true
@@ -98,7 +108,7 @@ class SeekForwardButtonTest {
       )
     }
 
-    composeRule.onNodeWithTag("seekForwardButton").performClick()
+    composeRule.onNodeWithTag("nextButton").performClick()
 
     assertThat(onClickCalled).isTrue()
   }

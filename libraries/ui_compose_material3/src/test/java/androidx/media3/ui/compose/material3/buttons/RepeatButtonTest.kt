@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package androidx.media3.ui.compose.material3.button
+package androidx.media3.ui.compose.material3.buttons
 
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -23,7 +23,8 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
-import androidx.media3.common.Player.COMMAND_SEEK_TO_PREVIOUS
+import androidx.media3.common.Player
+import androidx.media3.common.Player.COMMAND_SET_REPEAT_MODE
 import androidx.media3.common.Player.STATE_READY
 import androidx.media3.common.SimpleBasePlayer.MediaItemData
 import androidx.media3.test.utils.TestSimpleBasePlayer
@@ -33,61 +34,67 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** Unit test for [PreviousButton]. */
+/** Unit test for [RepeatButton]. */
 @RunWith(AndroidJUnit4::class)
-class PreviousButtonTest {
+class RepeatButtonTest {
 
   @get:Rule val composeRule = createComposeRule()
 
   @Test
-  fun onClick_callsPrevious() {
+  fun onClick_togglesRepeatMode() {
     val player =
       TestSimpleBasePlayer(
-        playlist =
-          listOf(
-            MediaItemData.Builder("First").setDurationUs(1_000_000L).build(),
-            MediaItemData.Builder("Second").setDurationUs(2_000_000L).build(),
-          )
+        playbackState = STATE_READY,
+        playWhenReady = false,
+        playlist = listOf(MediaItemData.Builder("SingleItem").build()),
       )
-    player.seekToNext()
+    composeRule.setContent {
+      RepeatButton(
+        player,
+        Modifier.testTag("repeatButton"),
+        toggleModeSequence =
+          listOf(Player.REPEAT_MODE_OFF, Player.REPEAT_MODE_ONE, Player.REPEAT_MODE_ALL),
+      )
+    }
 
-    composeRule.setContent { PreviousButton(player, Modifier.testTag("previousButton")) }
+    composeRule.onNodeWithTag("repeatButton").performClick()
 
-    composeRule.onNodeWithTag("previousButton").performClick()
-
-    assertThat(player.currentMediaItemIndex).isEqualTo(0)
+    assertThat(player.repeatMode).isEqualTo(Player.REPEAT_MODE_ONE)
   }
 
   @Test
   fun onClick_commandNotAvailable_buttonDisabledClickNotPerformed() {
-    val player =
-      TestSimpleBasePlayer(
-        playlist =
-          listOf(
-            MediaItemData.Builder("First").setDurationUs(1_000_000L).build(),
-            MediaItemData.Builder("Second").setDurationUs(2_000_000L).build(),
-          )
-      )
-    player.seekToNext()
-    player.removeCommands(COMMAND_SEEK_TO_PREVIOUS)
+    val player = TestSimpleBasePlayer()
+    player.removeCommands(COMMAND_SET_REPEAT_MODE)
+    composeRule.setContent { RepeatButton(player, Modifier.testTag("repeatButton")) }
 
-    composeRule.setContent { PreviousButton(player, Modifier.testTag("previousButton")) }
+    composeRule.onNodeWithTag("repeatButton").performClick()
 
-    composeRule.onNodeWithTag("previousButton").performClick()
-
-    composeRule.onNodeWithTag("previousButton").assertIsNotEnabled()
-    assertThat(player.currentMediaItemIndex).isEqualTo(1)
+    composeRule.onNodeWithTag("repeatButton").assertIsNotEnabled()
+    assertThat(player.repeatMode).isEqualTo(Player.REPEAT_MODE_OFF)
   }
 
   @Test
   fun customizeContentDescription() {
-    val player = TestSimpleBasePlayer()
-
+    val player =
+      TestSimpleBasePlayer(
+        playbackState = STATE_READY,
+        playWhenReady = false,
+        playlist = listOf(MediaItemData.Builder("SingleItem").build()),
+      )
     composeRule.setContent {
-      PreviousButton(player, Modifier.testTag("previousButton"), contentDescription = { "Go back" })
+      RepeatButton(
+        player,
+        Modifier.testTag("repeatButton"),
+        toggleModeSequence = listOf(Player.REPEAT_MODE_OFF, Player.REPEAT_MODE_ONE),
+        contentDescription = { if (repeatModeState == Player.REPEAT_MODE_OFF) "off" else "one" },
+      )
     }
+    composeRule.onNodeWithTag("repeatButton").assertContentDescriptionEquals("off")
 
-    composeRule.onNodeWithTag("previousButton").assertContentDescriptionEquals("Go back")
+    composeRule.onNodeWithTag("repeatButton").performClick()
+
+    composeRule.onNodeWithTag("repeatButton").assertContentDescriptionEquals("one")
   }
 
   @Test
@@ -100,9 +107,9 @@ class PreviousButtonTest {
       )
     var onClickCalled = false
     composeRule.setContent {
-      PreviousButton(
+      RepeatButton(
         player,
-        Modifier.testTag("previousButton"),
+        Modifier.testTag("repeatButton"),
         onClick = {
           this.onClick()
           onClickCalled = true
@@ -110,7 +117,7 @@ class PreviousButtonTest {
       )
     }
 
-    composeRule.onNodeWithTag("previousButton").performClick()
+    composeRule.onNodeWithTag("repeatButton").performClick()
 
     assertThat(onClickCalled).isTrue()
   }
