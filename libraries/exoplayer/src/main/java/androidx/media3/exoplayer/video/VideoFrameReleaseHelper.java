@@ -510,6 +510,9 @@ public final class VideoFrameReleaseHelper {
     @Override
     public void onDisplayChanged(int displayId) {
       if (displayId == Display.DEFAULT_DISPLAY) {
+        if (vsyncSampler != null) {
+          vsyncSampler.requestUpdate();
+        }
         updateDefaultDisplayRefreshRateParams(getDefaultDisplay());
       }
     }
@@ -541,11 +544,11 @@ public final class VideoFrameReleaseHelper {
     private static final int CREATE_CHOREOGRAPHER = 1;
     private static final int MSG_ADD_OBSERVER = 2;
     private static final int MSG_REMOVE_OBSERVER = 3;
+    private static final int MSG_REQUEST_UPDATE = 4;
 
     private static final VSyncSampler INSTANCE = new VSyncSampler();
 
     private final Handler handler;
-    private final HandlerThread choreographerOwnerThread;
     private @MonotonicNonNull Choreographer choreographer;
     private int observerCount;
 
@@ -555,7 +558,8 @@ public final class VideoFrameReleaseHelper {
 
     private VSyncSampler() {
       sampledVsyncTimeNs = C.TIME_UNSET;
-      choreographerOwnerThread = new HandlerThread("ExoPlayer:FrameReleaseChoreographer");
+      HandlerThread choreographerOwnerThread =
+          new HandlerThread("ExoPlayer:FrameReleaseChoreographer");
       choreographerOwnerThread.start();
       handler = Util.createHandler(choreographerOwnerThread.getLooper(), /* callback= */ this);
       handler.sendEmptyMessage(CREATE_CHOREOGRAPHER);
@@ -577,6 +581,11 @@ public final class VideoFrameReleaseHelper {
       handler.sendEmptyMessage(MSG_REMOVE_OBSERVER);
     }
 
+    /** Requests an update of the sampled vsync time as soon as possible. */
+    private void requestUpdate() {
+      handler.sendEmptyMessage(MSG_REQUEST_UPDATE);
+    }
+
     @Override
     public void doFrame(long vsyncTimeNs) {
       sampledVsyncTimeNs = vsyncTimeNs;
@@ -594,6 +603,9 @@ public final class VideoFrameReleaseHelper {
           return true;
         case MSG_REMOVE_OBSERVER:
           removeObserverInternal();
+          return true;
+        case MSG_REQUEST_UPDATE:
+          requestUpdateInternal();
           return true;
         default:
           return false;
@@ -625,6 +637,12 @@ public final class VideoFrameReleaseHelper {
           choreographer.removeFrameCallback(this);
           sampledVsyncTimeNs = C.TIME_UNSET;
         }
+      }
+    }
+
+    private void requestUpdateInternal() {
+      if (choreographer != null) {
+        choreographer.postFrameCallback(this);
       }
     }
   }

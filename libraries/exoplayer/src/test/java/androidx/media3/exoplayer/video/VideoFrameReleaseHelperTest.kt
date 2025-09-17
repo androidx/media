@@ -157,7 +157,6 @@ class VideoFrameReleaseHelperTest {
     )
   }
 
-  @Ignore // TODO: b/444152533 - Make frame release logic more reliable
   @Test
   fun adjustReleaseTime_displayRefreshRateChange_releasesFramesSmoothly() {
     updateDisplayRefreshRate(context, refreshRate = 60f)
@@ -188,7 +187,14 @@ class VideoFrameReleaseHelperTest {
       adjustReleaseTimes(
         videoFrameReleaseHelper,
         testData,
-        onFrameAdjusted = { if (it == 499) updateDisplayRefreshRate(context, refreshRate = 120f) },
+        onFrameAdjusted = {
+          if (it == 499) {
+            updateDisplayRefreshRate(context, refreshRate = 120f)
+            videoFrameReleaseHelper.setVsyncSampleTimeNs(
+              getVsyncSampleTimeNs(testData.releaseTimeNs[it], testData)
+            )
+          }
+        },
       )
 
     assertPullDownPattern(
