@@ -332,13 +332,7 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
     if (includeBackgroundAudioTrack) {
       videoSequences.add(getAudioBackgroundSequence())
     }
-    // TODO(b/417362434): Update audio processors showcased in this demo
-    val sampleRateChanger = SonicAudioProcessor()
-    sampleRateChanger.setOutputSampleRateHz(8000)
     return Composition.Builder(videoSequences)
-      .setEffects(
-        Effects(/* audioProcessors= */ listOf(sampleRateChanger), /* videoEffects= */ emptyList())
-      )
       .setVideoCompositorSettings(getVideoCompositorSettings())
       .setHdrMode(outputHdrMode)
       .build()
