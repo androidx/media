@@ -15,7 +15,9 @@
 <resources>
   <string name="app_name">Media3 short-form content Demo</string>
   <string name="open_view_pager_activity">Open view pager activity</string>
+  <string name="open_lazy_column_activity">Open lazy column activity</string>
   <string name="add_view_pager">Add view pager, please!</string>
   <string name="title_activity_view_pager">ViewPager activity</string>
+  <string name="title_activity_lazy_column">LazyColumn activity</string>
   <string name="num_of_players">How Many Players?</string>
 </resources>
