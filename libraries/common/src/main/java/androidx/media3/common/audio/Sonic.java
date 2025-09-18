@@ -22,7 +22,7 @@ import static java.lang.Math.min;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.nio.ShortBuffer;
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 
 /**
@@ -240,27 +240,33 @@ import java.util.Arrays;
    * Queues remaining data from {@code buffer}, and advances its position by the number of bytes
    * consumed.
    *
-   * @param buffer A {@link ShortBuffer} containing input data between its position and limit.
+   * @param buffer A {@link ByteBuffer} containing input data between its position and limit.
    */
-  public void queueInput(ShortBuffer buffer) {
-    int framesToWrite = buffer.remaining() / channelCount;
-    int bytesToWrite = framesToWrite * channelCount * 2;
+  public void queueInput(ByteBuffer buffer) {
+    int bytesToWrite = buffer.remaining();
+    int framesToWrite = bytesToWrite / (channelCount * BYTES_PER_SAMPLE);
     inputBuffer = ensureSpaceForAdditionalFrames(inputBuffer, inputFrameCount, framesToWrite);
-    buffer.get(inputBuffer, inputFrameCount * channelCount, bytesToWrite / 2);
+    buffer
+        .asShortBuffer()
+        .get(inputBuffer, inputFrameCount * channelCount, bytesToWrite / BYTES_PER_SAMPLE);
+    buffer.position(buffer.position() + bytesToWrite);
     inputFrameCount += framesToWrite;
     processStreamInput();
   }
 
   /**
-   * Gets available output, outputting to the start of {@code buffer}. The buffer's position will be
-   * advanced by the number of bytes written.
+   * Writes available output starting from the {@linkplain ByteBuffer#position() buffer's position}
+   * until no more output is available or the buffer's limit is reached. The buffer's position will
+   * be advanced by the number of bytes written.
    *
-   * @param buffer A {@link ShortBuffer} into which output will be written.
+   * @param buffer A {@link ByteBuffer} into which output will be written.
    */
-  public void getOutput(ShortBuffer buffer) {
+  public void getOutput(ByteBuffer buffer) {
     checkState(outputFrameCount >= 0);
-    int framesToRead = min(buffer.remaining() / channelCount, outputFrameCount);
-    buffer.put(outputBuffer, 0, framesToRead * channelCount);
+    int framesToRead =
+        min(buffer.remaining() / (channelCount * BYTES_PER_SAMPLE), outputFrameCount);
+    buffer.asShortBuffer().put(outputBuffer, 0, framesToRead * channelCount);
+    buffer.position(buffer.position() + framesToRead * BYTES_PER_SAMPLE * channelCount);
     outputFrameCount -= framesToRead;
     System.arraycopy(
         outputBuffer,
@@ -332,7 +338,7 @@ import java.util.Arrays;
     accumulatedSpeedAdjustmentError = 0;
   }
 
-  /** Returns the size of output that can be read with {@link #getOutput(ShortBuffer)}, in bytes. */
+  /** Returns the size of output that can be read with {@link #getOutput(ByteBuffer)}, in bytes. */
   public int getOutputSize() {
     checkState(outputFrameCount >= 0);
     return outputFrameCount * channelCount * BYTES_PER_SAMPLE;

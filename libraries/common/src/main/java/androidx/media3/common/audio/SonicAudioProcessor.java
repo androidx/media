@@ -27,7 +27,6 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.nio.ShortBuffer;
 
 /**
  * An {@link AudioProcessor} that uses the Sonic library to modify audio speed/pitch/sample rate.
@@ -61,7 +60,6 @@ public final class SonicAudioProcessor implements AudioProcessor {
   private boolean pendingSonicRecreation;
   @Nullable private Sonic sonic;
   private ByteBuffer buffer;
-  private ShortBuffer shortBuffer;
   private ByteBuffer outputBuffer;
   private long inputBytes;
   private long outputBytes;
@@ -87,7 +85,6 @@ public final class SonicAudioProcessor implements AudioProcessor {
     inputAudioFormat = AudioFormat.NOT_SET;
     outputAudioFormat = AudioFormat.NOT_SET;
     buffer = EMPTY_BUFFER;
-    shortBuffer = buffer.asShortBuffer();
     outputBuffer = EMPTY_BUFFER;
     pendingOutputSampleRate = SAMPLE_RATE_NO_CHANGE;
     shouldBeActiveWithDefaultParameters = keepActiveWithDefaultParameters;
@@ -230,11 +227,9 @@ public final class SonicAudioProcessor implements AudioProcessor {
       return;
     }
     Sonic sonic = checkNotNull(this.sonic);
-    ShortBuffer shortBuffer = inputBuffer.asShortBuffer();
     int inputSize = inputBuffer.remaining();
     inputBytes += inputSize;
-    sonic.queueInput(shortBuffer);
-    inputBuffer.position(inputBuffer.position() + inputSize);
+    sonic.queueInput(inputBuffer);
   }
 
   @Override
@@ -254,14 +249,12 @@ public final class SonicAudioProcessor implements AudioProcessor {
       if (outputSize > 0) {
         if (buffer.capacity() < outputSize) {
           buffer = ByteBuffer.allocateDirect(outputSize).order(ByteOrder.nativeOrder());
-          shortBuffer = buffer.asShortBuffer();
         } else {
           buffer.clear();
-          shortBuffer.clear();
         }
-        sonic.getOutput(shortBuffer);
+        sonic.getOutput(buffer);
+        buffer.flip();
         outputBytes += outputSize;
-        buffer.limit(outputSize);
         outputBuffer = buffer;
       }
     }
@@ -307,7 +300,6 @@ public final class SonicAudioProcessor implements AudioProcessor {
     inputAudioFormat = AudioFormat.NOT_SET;
     outputAudioFormat = AudioFormat.NOT_SET;
     buffer = EMPTY_BUFFER;
-    shortBuffer = buffer.asShortBuffer();
     outputBuffer = EMPTY_BUFFER;
     pendingOutputSampleRate = SAMPLE_RATE_NO_CHANGE;
     pendingSonicRecreation = false;

@@ -25,7 +25,7 @@ import com.google.common.collect.Range;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.ByteBuffer;
-import java.nio.ShortBuffer;
+import java.nio.ByteOrder;
 import java.util.Random;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -132,7 +132,8 @@ public final class RandomParameterizedSonicTest {
   @Test
   public void resampling_returnsExpectedNumberOfSamples() {
     byte[] inputBuffer = new byte[BLOCK_SIZE * BYTES_PER_SAMPLE];
-    ShortBuffer outBuffer = ShortBuffer.allocate(BLOCK_SIZE);
+    ByteBuffer outBuffer =
+        ByteBuffer.allocateDirect(BLOCK_SIZE * BYTES_PER_SAMPLE).order(ByteOrder.nativeOrder());
     // Use same speed and pitch values for Sonic to resample stream.
     Sonic sonic =
         new Sonic(
@@ -146,18 +147,16 @@ public final class RandomParameterizedSonicTest {
     for (long samplesLeft = streamLength; samplesLeft > 0; samplesLeft -= BLOCK_SIZE) {
       random.nextBytes(inputBuffer);
       if (samplesLeft >= BLOCK_SIZE) {
-        sonic.queueInput(ByteBuffer.wrap(inputBuffer).asShortBuffer());
+        sonic.queueInput(ByteBuffer.wrap(inputBuffer));
       } else {
         // The last buffer to queue might have less samples than BLOCK_SIZE, so we should only queue
         // the remaining number of samples (samplesLeft).
-        sonic.queueInput(
-            ByteBuffer.wrap(inputBuffer, 0, (int) (samplesLeft * BYTES_PER_SAMPLE))
-                .asShortBuffer());
+        sonic.queueInput(ByteBuffer.wrap(inputBuffer, 0, (int) (samplesLeft * BYTES_PER_SAMPLE)));
         sonic.queueEndOfStream();
       }
       while (sonic.getOutputSize() > 0) {
         sonic.getOutput(outBuffer);
-        readSampleCount += outBuffer.position();
+        readSampleCount += outBuffer.position() / BYTES_PER_SAMPLE;
         outBuffer.clear();
       }
       assertThat(sonic.getOutputSize()).isAtLeast(0);
@@ -172,7 +171,8 @@ public final class RandomParameterizedSonicTest {
   @Test
   public void timeStretching_returnsExpectedNumberOfSamples() {
     byte[] buf = new byte[BLOCK_SIZE * BYTES_PER_SAMPLE];
-    ShortBuffer outBuffer = ShortBuffer.allocate(BLOCK_SIZE);
+    ByteBuffer outBuffer =
+        ByteBuffer.allocateDirect(BLOCK_SIZE * BYTES_PER_SAMPLE).order(ByteOrder.nativeOrder());
     Sonic sonic =
         new Sonic(
             /* inputSampleRateHz= */ SAMPLE_RATE,
@@ -185,15 +185,14 @@ public final class RandomParameterizedSonicTest {
     for (long samplesLeft = streamLength; samplesLeft > 0; samplesLeft -= BLOCK_SIZE) {
       random.nextBytes(buf);
       if (samplesLeft >= BLOCK_SIZE) {
-        sonic.queueInput(ByteBuffer.wrap(buf).asShortBuffer());
+        sonic.queueInput(ByteBuffer.wrap(buf));
       } else {
-        sonic.queueInput(
-            ByteBuffer.wrap(buf, 0, (int) (samplesLeft * BYTES_PER_SAMPLE)).asShortBuffer());
+        sonic.queueInput(ByteBuffer.wrap(buf, 0, (int) (samplesLeft * BYTES_PER_SAMPLE)));
         sonic.queueEndOfStream();
       }
       while (sonic.getOutputSize() > 0) {
         sonic.getOutput(outBuffer);
-        readSampleCount += outBuffer.position();
+        readSampleCount += outBuffer.position() / BYTES_PER_SAMPLE;
         outBuffer.clear();
       }
       assertThat(sonic.getOutputSize()).isAtLeast(0);
