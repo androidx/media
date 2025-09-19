@@ -46,7 +46,6 @@ import static androidx.media3.transformer.AndroidTestUtil.assumeCanEncodeWithPro
 import static androidx.media3.transformer.AndroidTestUtil.createFrameCountingEffect;
 import static androidx.media3.transformer.AndroidTestUtil.createOpenGlObjects;
 import static androidx.media3.transformer.AndroidTestUtil.generateTextureFromBitmap;
-import static androidx.media3.transformer.AndroidTestUtil.getMuxerFactoryBasedOnApi;
 import static androidx.media3.transformer.AndroidTestUtil.mainlineAacEncoderDrainsAllSamplesAtEos;
 import static androidx.media3.transformer.ExportResult.CONVERSION_PROCESS_NA;
 import static androidx.media3.transformer.ExportResult.CONVERSION_PROCESS_TRANSCODED;
@@ -861,10 +860,7 @@ public class TransformerEndToEndTest {
         /* outputFormat= */ MP4_ASSET_PHOTOS_TRIM_OPTIMIZATION_VIDEO.videoFormat);
 
     Transformer transformer =
-        new Transformer.Builder(context)
-            .experimentalSetTrimOptimizationEnabled(true)
-            .setMuxerFactory(getMuxerFactoryBasedOnApi())
-            .build();
+        new Transformer.Builder(context).experimentalSetTrimOptimizationEnabled(true).build();
 
     // The previous sample is at 1137 and the next sample (which is a sync sample) is at 1171.
     long clippingStartMs = 1138;
@@ -1827,7 +1823,11 @@ public class TransformerEndToEndTest {
             .build();
 
     ExportTestResult result =
-        new TransformerAndroidTestRunner.Builder(context, new Transformer.Builder(context).build())
+        new TransformerAndroidTestRunner.Builder(
+                context,
+                new Transformer.Builder(context)
+                    .setMuxerFactory(new FrameworkMuxer.Factory())
+                    .build())
             .build()
             .run(testId, editedMediaItem);
 
@@ -1838,7 +1838,6 @@ public class TransformerEndToEndTest {
 
   @Test
   public void transmuxDolbyVisionVideo_transmuxesSuccessfully() throws Exception {
-    assumeTrue("Dolby vision support available from API 33", SDK_INT >= 33);
     Transformer transformer = new Transformer.Builder(context).build();
     MediaItem mediaItem = MediaItem.fromUri(Uri.parse(MP4_ASSET_DOLBY_VISION_HDR.uri));
 
@@ -2141,34 +2140,20 @@ public class TransformerEndToEndTest {
     Mp4Extractor mp4Extractor = new Mp4Extractor(new DefaultSubtitleParserFactory());
     FakeExtractorOutput fakeExtractorOutput =
         TestUtil.extractAllSamplesFromFilePath(mp4Extractor, exportTestResult.filePath);
-    // TODO: b/324842222 - Mp4Extractor reports incorrect duration, without considering edit lists.
-    assertThat(fakeExtractorOutput.seekMap.getDurationUs()).isEqualTo(1_579_000);
+    assertThat(fakeExtractorOutput.seekMap.getDurationUs()).isEqualTo(1_562_100);
     assertThat(fakeExtractorOutput.numberOfTracks).isEqualTo(1);
     FakeTrackOutput audioTrack = fakeExtractorOutput.trackOutputs.get(0);
     int expectedSampleCount = 68;
     audioTrack.assertSampleCount(expectedSampleCount);
-    if (SDK_INT >= 30) {
-      // TODO: b/324842222 - Mp4Extractor doesn't interpret Transformer's generated output as
-      //  "gapless" audio. The generated file should have encoderDelay = 742 and first
-      //  sample PTS of 0.
-      assertThat(audioTrack.lastFormat.encoderDelay).isEqualTo(0);
-      assertThat(audioTrack.getSampleTimeUs(/* index= */ 0)).isEqualTo(-16_825);
-      assertThat(audioTrack.getSampleTimeUs(/* index= */ expectedSampleCount - 1))
-          .isEqualTo(1_538_911);
-    } else {
-      // Edit lists are not supported b/142580952 : sample times start from zero,
-      // and output duration will be longer than input duration by encoder delay.
-      assertThat(audioTrack.lastFormat.encoderDelay).isEqualTo(0);
-      assertThat(audioTrack.getSampleTimeUs(/* index= */ 0)).isEqualTo(0);
-      assertThat(audioTrack.getSampleTimeUs(/* index= */ expectedSampleCount - 1))
-          .isEqualTo(1_555_736);
-    }
+    assertThat(audioTrack.lastFormat.encoderDelay).isEqualTo(742);
+    assertThat(audioTrack.getSampleTimeUs(/* index= */ 0)).isEqualTo(0);
+    assertThat(audioTrack.getSampleTimeUs(/* index= */ expectedSampleCount - 1))
+        .isEqualTo(1_555_736);
   }
 
   @Test
   public void transmux_videoWithEditList_trimsFirstIdrFrameDuration() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
-    assumeTrue("MediaMuxer doesn't support B frames reliably on older SDK versions", SDK_INT >= 29);
     Transformer transformer = new Transformer.Builder(context).build();
     MediaItem mediaItem =
         MediaItem.fromUri(Uri.parse("asset:///media/mp4/iibbibb_editlist_videoonly.mp4"));
@@ -2182,19 +2167,15 @@ public class TransformerEndToEndTest {
     FakeExtractorOutput fakeExtractorOutput =
         TestUtil.extractAllSamplesFromFilePath(mp4Extractor, exportTestResult.filePath);
     assertThat(fakeExtractorOutput.numberOfTracks).isEqualTo(1);
-
-    // TODO: b/324842222 - Duration isn't written correctly when transmuxing, and differs
-    //  between SDK versions. Do not assert for duration yet.
+    assertThat(fakeExtractorOutput.seekMap.getDurationUs()).isEqualTo(12_500_000);
     FakeTrackOutput videoTrack = fakeExtractorOutput.trackOutputs.get(0);
     int expectedSampleCount = 13;
     videoTrack.assertSampleCount(expectedSampleCount);
-    assertThat(videoTrack.getSampleTimeUs(/* index= */ 0)).isEqualTo(0);
+    assertThat(videoTrack.getSampleTimeUs(/* index= */ 0)).isEqualTo(-500_000);
     int sampleIndexWithLargestSampleTime = 10;
-    // TODO: b/365992945 - Address the issue of sample timeUs increasing due to negative timestamps
-    //  caused by the edit list. The correct values should be 11_500_000 and 9_500_000 respectively.
-    assertThat(videoTrack.getSampleTimeUs(sampleIndexWithLargestSampleTime)).isEqualTo(12_000_000);
+    assertThat(videoTrack.getSampleTimeUs(sampleIndexWithLargestSampleTime)).isEqualTo(11_500_000);
     assertThat(videoTrack.getSampleTimeUs(/* index= */ expectedSampleCount - 1))
-        .isEqualTo(10_000_000);
+        .isEqualTo(9_500_000);
   }
 
   @Test
@@ -2446,13 +2427,9 @@ public class TransformerEndToEndTest {
   }
 
   @Test
-  public void export_withHighSampleRateAndFallbackEnabled_exportsWithCorrectDuration()
-      throws Exception {
+  public void export_withHighSampleRate_enocdesWithCorrectDuration() throws Exception {
     Transformer transformer =
-        new Transformer.Builder(context)
-            .setEncoderFactory(
-                new DefaultEncoderFactory.Builder(context).setEnableFallback(true).build())
-            .build();
+        new Transformer.Builder(context).setAudioMimeType(MimeTypes.AUDIO_AAC).build();
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(MediaItem.fromUri(WAV_96KHZ_ASSET.uri))
             .setRemoveVideo(true)
@@ -2570,8 +2547,6 @@ public class TransformerEndToEndTest {
 
   @Test
   public void transmux_apvFile_transmuxesSuccessfully() throws Exception {
-    // MediaMuxer supports APV from API 36.
-    assumeTrue(SDK_INT >= 36);
     String apvFile = "asset:///media/mp4/sample_with_apvc.mp4";
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(apvFile))).build();

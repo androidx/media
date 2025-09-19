@@ -172,7 +172,10 @@ public class MuxerWrapperTest {
     muxerWrapper.setTrackCount(1);
     muxerWrapper.addTrackFormat(FAKE_VIDEO_TRACK_FORMAT);
     muxerWrapper.writeSample(
-        C.TRACK_TYPE_VIDEO, FAKE_SAMPLE, /* isKeyFrame= */ true, /* presentationTimeUs= */ 0);
+        C.TRACK_TYPE_VIDEO,
+        FAKE_SAMPLE.duplicate(),
+        /* isKeyFrame= */ true,
+        /* presentationTimeUs= */ 0);
     muxerWrapper.endTrack(C.TRACK_TYPE_VIDEO);
     muxerWrapper.finishWritingAndMaybeRelease(MuxerWrapper.MUXER_RELEASE_REASON_COMPLETED);
     muxerWrapper.changeToAppendMode();
@@ -194,7 +197,10 @@ public class MuxerWrapperTest {
     muxerWrapper.setTrackCount(1);
     muxerWrapper.addTrackFormat(FAKE_AUDIO_TRACK_FORMAT);
     muxerWrapper.writeSample(
-        C.TRACK_TYPE_AUDIO, FAKE_SAMPLE, /* isKeyFrame= */ true, /* presentationTimeUs= */ 0);
+        C.TRACK_TYPE_AUDIO,
+        FAKE_SAMPLE.duplicate(),
+        /* isKeyFrame= */ true,
+        /* presentationTimeUs= */ 0);
     muxerWrapper.endTrack(C.TRACK_TYPE_AUDIO);
     muxerWrapper.finishWritingAndMaybeRelease(MuxerWrapper.MUXER_RELEASE_REASON_COMPLETED);
     muxerWrapper.changeToAppendMode();
@@ -217,7 +223,10 @@ public class MuxerWrapperTest {
     muxerWrapper.setTrackCount(1);
     muxerWrapper.addTrackFormat(FAKE_VIDEO_TRACK_FORMAT);
     muxerWrapper.writeSample(
-        C.TRACK_TYPE_VIDEO, FAKE_SAMPLE, /* isKeyFrame= */ true, /* presentationTimeUs= */ 0);
+        C.TRACK_TYPE_VIDEO,
+        FAKE_SAMPLE.duplicate(),
+        /* isKeyFrame= */ true,
+        /* presentationTimeUs= */ 0);
     muxerWrapper.endTrack(C.TRACK_TYPE_VIDEO);
     muxerWrapper.finishWritingAndMaybeRelease(MuxerWrapper.MUXER_RELEASE_REASON_COMPLETED);
     muxerWrapper.changeToAppendMode();
@@ -252,7 +261,10 @@ public class MuxerWrapperTest {
     muxerWrapper.setTrackCount(1);
     muxerWrapper.addTrackFormat(FAKE_VIDEO_TRACK_FORMAT);
     muxerWrapper.writeSample(
-        C.TRACK_TYPE_VIDEO, FAKE_SAMPLE, /* isKeyFrame= */ true, /* presentationTimeUs= */ 0);
+        C.TRACK_TYPE_VIDEO,
+        FAKE_SAMPLE.duplicate(),
+        /* isKeyFrame= */ true,
+        /* presentationTimeUs= */ 0);
     muxerWrapper.endTrack(C.TRACK_TYPE_VIDEO);
     muxerWrapper.changeToAppendMode();
     muxerWrapper.setTrackCount(1);
@@ -278,7 +290,10 @@ public class MuxerWrapperTest {
     muxerWrapper.setTrackCount(1);
     muxerWrapper.addTrackFormat(FAKE_AUDIO_TRACK_FORMAT);
     muxerWrapper.writeSample(
-        C.TRACK_TYPE_AUDIO, FAKE_SAMPLE, /* isKeyFrame= */ true, /* presentationTimeUs= */ 0);
+        C.TRACK_TYPE_AUDIO,
+        FAKE_SAMPLE.duplicate(),
+        /* isKeyFrame= */ true,
+        /* presentationTimeUs= */ 0);
     muxerWrapper.endTrack(C.TRACK_TYPE_AUDIO);
     muxerWrapper.finishWritingAndMaybeRelease(MuxerWrapper.MUXER_RELEASE_REASON_COMPLETED);
     muxerWrapper.changeToAppendMode();
@@ -309,7 +324,7 @@ public class MuxerWrapperTest {
     assertThat(
             muxerWrapper.writeSample(
                 C.TRACK_TYPE_AUDIO,
-                FAKE_SAMPLE,
+                FAKE_SAMPLE.duplicate(),
                 /* isKeyFrame= */ true,
                 /* presentationTimeUs= */ 0))
         .isFalse();
@@ -393,7 +408,10 @@ public class MuxerWrapperTest {
     muxerWrapper.setTrackCount(1);
     muxerWrapper.addTrackFormat(FAKE_VIDEO_TRACK_FORMAT);
     muxerWrapper.writeSample(
-        C.TRACK_TYPE_VIDEO, FAKE_SAMPLE, /* isKeyFrame= */ true, /* presentationTimeUs= */ 0);
+        C.TRACK_TYPE_VIDEO,
+        FAKE_SAMPLE.duplicate(),
+        /* isKeyFrame= */ true,
+        /* presentationTimeUs= */ 0);
     muxerWrapper.endTrack(C.TRACK_TYPE_VIDEO);
     muxerWrapper.finishWritingAndMaybeRelease(MuxerWrapper.MUXER_RELEASE_REASON_COMPLETED);
 
@@ -416,13 +434,19 @@ public class MuxerWrapperTest {
     muxerWrapper.addTrackFormat(FAKE_VIDEO_TRACK_FORMAT);
     muxerWrapper.addTrackFormat(FAKE_AUDIO_TRACK_FORMAT);
     muxerWrapper.writeSample(
-        C.TRACK_TYPE_VIDEO, FAKE_SAMPLE, /* isKeyFrame= */ true, /* presentationTimeUs= */ 0);
+        C.TRACK_TYPE_VIDEO,
+        FAKE_SAMPLE.duplicate(),
+        /* isKeyFrame= */ true,
+        /* presentationTimeUs= */ 0);
     muxerWrapper.endTrack(C.TRACK_TYPE_VIDEO);
 
     assertThat(muxerWrapper.isEnded()).isFalse();
 
     muxerWrapper.writeSample(
-        C.TRACK_TYPE_AUDIO, FAKE_SAMPLE, /* isKeyFrame= */ true, /* presentationTimeUs= */ 0);
+        C.TRACK_TYPE_AUDIO,
+        FAKE_SAMPLE.duplicate(),
+        /* isKeyFrame= */ true,
+        /* presentationTimeUs= */ 0);
     muxerWrapper.endTrack(C.TRACK_TYPE_AUDIO);
     muxerWrapper.finishWritingAndMaybeRelease(MuxerWrapper.MUXER_RELEASE_REASON_COMPLETED);
 
@@ -443,7 +467,10 @@ public class MuxerWrapperTest {
     muxerWrapper.setTrackCount(1);
     muxerWrapper.addTrackFormat(FAKE_VIDEO_TRACK_FORMAT);
     muxerWrapper.writeSample(
-        C.TRACK_TYPE_VIDEO, FAKE_SAMPLE, /* isKeyFrame= */ true, /* presentationTimeUs= */ 0);
+        C.TRACK_TYPE_VIDEO,
+        FAKE_SAMPLE.duplicate(),
+        /* isKeyFrame= */ true,
+        /* presentationTimeUs= */ 0);
     muxerWrapper.endTrack(C.TRACK_TYPE_VIDEO);
     muxerWrapper.finishWritingAndMaybeRelease(MuxerWrapper.MUXER_RELEASE_REASON_COMPLETED);
     muxerWrapper.changeToAppendMode();
@@ -600,7 +627,10 @@ public class MuxerWrapperTest {
     muxerWrapper.setTrackCount(1);
     muxerWrapper.addTrackFormat(FAKE_VIDEO_TRACK_FORMAT);
     muxerWrapper.writeSample(
-        C.TRACK_TYPE_VIDEO, FAKE_SAMPLE, /* isKeyFrame= */ true, /* presentationTimeUs= */ 0);
+        C.TRACK_TYPE_VIDEO,
+        FAKE_SAMPLE.duplicate(),
+        /* isKeyFrame= */ true,
+        /* presentationTimeUs= */ 0);
 
     muxerWrapper.finishWritingAndMaybeRelease(MuxerWrapper.MUXER_RELEASE_REASON_COMPLETED);
 
@@ -608,7 +638,10 @@ public class MuxerWrapperTest {
     muxerWrapper.changeToAppendMode();
     boolean sampleWritten =
         muxerWrapper.writeSample(
-            C.TRACK_TYPE_VIDEO, FAKE_SAMPLE, /* isKeyFrame= */ true, /* presentationTimeUs= */ 100);
+            C.TRACK_TYPE_VIDEO,
+            FAKE_SAMPLE.duplicate(),
+            /* isKeyFrame= */ true,
+            /* presentationTimeUs= */ 100);
     assertThat(sampleWritten).isTrue();
   }
 
@@ -626,7 +659,10 @@ public class MuxerWrapperTest {
     muxerWrapper.setTrackCount(1);
     muxerWrapper.addTrackFormat(FAKE_VIDEO_TRACK_FORMAT);
     muxerWrapper.writeSample(
-        C.TRACK_TYPE_VIDEO, FAKE_SAMPLE, /* isKeyFrame= */ true, /* presentationTimeUs= */ 0);
+        C.TRACK_TYPE_VIDEO,
+        FAKE_SAMPLE.duplicate(),
+        /* isKeyFrame= */ true,
+        /* presentationTimeUs= */ 0);
 
     muxerWrapper.finishWritingAndMaybeRelease(MuxerWrapper.MUXER_RELEASE_REASON_CANCELLED);
 
@@ -634,8 +670,13 @@ public class MuxerWrapperTest {
     muxerWrapper.changeToAppendMode();
     boolean sampleWritten =
         muxerWrapper.writeSample(
-            C.TRACK_TYPE_VIDEO, FAKE_SAMPLE, /* isKeyFrame= */ true, /* presentationTimeUs= */ 100);
+            C.TRACK_TYPE_VIDEO,
+            FAKE_SAMPLE.duplicate(),
+            /* isKeyFrame= */ true,
+            /* presentationTimeUs= */ 100);
     assertThat(sampleWritten).isFalse();
+    // Set muxerWrapper to null so that its not released again in tear down.
+    muxerWrapper = null;
   }
 
   @Test
@@ -651,7 +692,10 @@ public class MuxerWrapperTest {
     muxerWrapper.setTrackCount(1);
     muxerWrapper.addTrackFormat(FAKE_VIDEO_TRACK_FORMAT);
     muxerWrapper.writeSample(
-        C.TRACK_TYPE_VIDEO, FAKE_SAMPLE, /* isKeyFrame= */ true, /* presentationTimeUs= */ 0);
+        C.TRACK_TYPE_VIDEO,
+        FAKE_SAMPLE.duplicate(),
+        /* isKeyFrame= */ true,
+        /* presentationTimeUs= */ 0);
 
     muxerWrapper.finishWritingAndMaybeRelease(MuxerWrapper.MUXER_RELEASE_REASON_ERROR);
 
@@ -659,8 +703,13 @@ public class MuxerWrapperTest {
     muxerWrapper.changeToAppendMode();
     boolean sampleWritten =
         muxerWrapper.writeSample(
-            C.TRACK_TYPE_VIDEO, FAKE_SAMPLE, /* isKeyFrame= */ true, /* presentationTimeUs= */ 100);
+            C.TRACK_TYPE_VIDEO,
+            FAKE_SAMPLE.duplicate(),
+            /* isKeyFrame= */ true,
+            /* presentationTimeUs= */ 100);
     assertThat(sampleWritten).isFalse();
+    // Set muxerWrapper to null so that its not released again in tear down.
+    muxerWrapper = null;
   }
 
   private static final class NoOpMuxerListenerImpl implements MuxerWrapper.Listener {

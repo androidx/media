@@ -33,11 +33,11 @@ public final class DefaultMuxer implements Muxer {
 
   /** A {@link Muxer.Factory} for {@link DefaultMuxer}. */
   public static final class Factory implements Muxer.Factory {
-    private final FrameworkMuxer.Factory muxerFactory;
+    private final InAppMp4Muxer.Factory muxerFactory;
 
     /** Creates an instance. */
     public Factory() {
-      this.muxerFactory = new FrameworkMuxer.Factory();
+      this.muxerFactory = new InAppMp4Muxer.Factory();
     }
 
     /**
@@ -47,7 +47,7 @@ public final class DefaultMuxer implements Muxer {
     @Deprecated
     public Factory(long videoDurationMs) {
       this.muxerFactory =
-          new FrameworkMuxer.Factory().setVideoDurationUs(Util.msToUs(videoDurationMs));
+          new InAppMp4Muxer.Factory().setVideoDurationUs(Util.msToUs(videoDurationMs));
     }
 
     /**

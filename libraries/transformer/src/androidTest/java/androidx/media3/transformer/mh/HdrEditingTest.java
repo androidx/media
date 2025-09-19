@@ -15,7 +15,6 @@
  */
 package androidx.media3.transformer.mh;
 
-import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.effect.DefaultVideoFrameProcessor.WORKING_COLOR_SPACE_ORIGINAL;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_1080P_5_SECOND_HLG10;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_720P_4_SECOND_HDR10;
@@ -98,13 +97,6 @@ public final class HdrEditingTest {
   @Test
   public void export_transmuxHdr10File() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
-
-    if (SDK_INT < 24) {
-      // TODO: b/285543404 - Remove suppression once we can transmux H.265/HEVC before API 24.
-      recordTestSkipped(context, testId, /* reason= */ "Can't transmux H.265/HEVC before API 24");
-      return;
-    }
-
     assumeFormatsSupported(
         context,
         testId,
@@ -129,13 +121,6 @@ public final class HdrEditingTest {
   @Test
   public void export_transmuxHlg10File() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
-
-    if (SDK_INT < 24) {
-      // TODO: b/285543404 - Remove suppression once we can transmux H.265/HEVC before API 24.
-      recordTestSkipped(context, testId, /* reason= */ "Can't transmux H.265/HEVC before API 24");
-      return;
-    }
-
     assumeFormatsSupported(
         context,
         testId,

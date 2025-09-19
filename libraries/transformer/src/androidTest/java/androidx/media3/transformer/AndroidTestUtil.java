@@ -15,7 +15,6 @@
  */
 package androidx.media3.transformer;
 
-import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.test.utils.TestUtil.retrieveTrackFormat;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
@@ -545,12 +544,6 @@ public final class AndroidTestUtil {
       }
     }
     throw new AssumptionViolatedException("Profile not supported");
-  }
-
-  /** Returns a {@link Muxer.Factory} depending upon the API level. */
-  public static Muxer.Factory getMuxerFactoryBasedOnApi() {
-    // MediaMuxer supports B-frame from API > 24.
-    return SDK_INT > 24 ? new DefaultMuxer.Factory() : new InAppMp4Muxer.Factory();
   }
 
   /**

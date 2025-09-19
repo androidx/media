@@ -16,7 +16,6 @@
 package androidx.media3.transformer.mh.analysis;
 
 import static android.media.MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR;
-import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.test.utils.AssetInfo.MP4_REMOTE_1280W_720H_30_SECOND_HIGHMOTION;
 import static androidx.media3.test.utils.AssetInfo.MP4_REMOTE_1280W_720H_30_SECOND_ROOF_ONEPLUSNORD2;
 import static androidx.media3.test.utils.AssetInfo.MP4_REMOTE_1280W_720H_32_SECOND_ROOF_REDMINOTE9;
@@ -118,10 +117,7 @@ public class SsimMapperTest {
     List<Object[]> parameterList = new ArrayList<>();
     for (AssetInfo assetInfo : INPUT_ASSETS) {
       parameterList.add(new Object[] {assetInfo, MimeTypes.VIDEO_H264});
-      // TODO: b/210593256 - Test pre 24 once in-app muxing implemented.
-      if (SDK_INT >= 24) {
-        parameterList.add(new Object[] {assetInfo, MimeTypes.VIDEO_H265});
-      }
+      parameterList.add(new Object[] {assetInfo, MimeTypes.VIDEO_H265});
     }
     return parameterList;
   }

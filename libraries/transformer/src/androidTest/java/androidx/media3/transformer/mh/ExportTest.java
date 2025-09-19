@@ -310,12 +310,6 @@ public class ExportTest {
     Context context = ApplicationProvider.getApplicationContext();
     // TODO: b/407690979 - Implement AAC encoder delay instead of skipping tests.
     assumeFalse(mainlineAacEncoderDrainsAllSamplesAtEos(context));
-    if (SDK_INT < 25) {
-      // TODO: b/210593256 - Remove test skipping after using an in-app muxer that supports B-frames
-      //  before API 25.
-      recordTestSkipped(context, testId, /* reason= */ "API version lacks muxing support");
-      return;
-    }
     Transformer transformer = new Transformer.Builder(context).build();
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(MP4_ASSET_SEF.uri)))
@@ -335,12 +329,6 @@ public class ExportTest {
   @Test
   public void exportSefH265() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
-    if (SDK_INT < 25) {
-      // TODO: b/210593256 - Remove test skipping after using an in-app muxer that supports B-frames
-      //  before API 25.
-      recordTestSkipped(context, testId, /* reason= */ "API version lacks muxing support");
-      return;
-    }
     Transformer transformer = new Transformer.Builder(context).build();
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(MP4_ASSET_SEF_H265.uri)))
