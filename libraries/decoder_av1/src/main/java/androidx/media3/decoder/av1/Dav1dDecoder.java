@@ -21,7 +21,6 @@ import static com.google.common.base.Preconditions.checkState;
 import android.view.Surface;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
-import androidx.media3.common.Format;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.decoder.Decoder;
@@ -340,8 +339,7 @@ public final class Dav1dDecoder
                 decodeOnly,
                 flags,
                 inputBuffer.timeUs,
-                outputMode,
-                inputBuffer.format);
+                outputMode);
         if (status == DAV1D_ERROR) {
           throw new Dav1dDecoderException(
               "dav1dDecode error: " + dav1dGetErrorMessage(dav1dDecoderContext));
@@ -505,7 +503,6 @@ public final class Dav1dDecoder
    * @param flags {@link androidx.media3.common.C#BufferFlags} Information about output buffer.
    * @param timeUs Time of input data.
    * @param outputMode Output mode for output buffer.
-   * @param format Format for output buffer.
    * @return {@link #DAV1D_OK} if successful, {@link #DAV1D_ERROR} if an error occurred, {@link
    *     #DAV1D_EAGAIN}
    */
@@ -517,8 +514,7 @@ public final class Dav1dDecoder
       boolean decodeOnly,
       @C.BufferFlags int flags,
       long timeUs,
-      @C.VideoOutputMode int outputMode,
-      @Nullable Format format);
+      @C.VideoOutputMode int outputMode);
 
   /**
    * Gets the decoded frame.

@@ -180,6 +180,10 @@ const int GetThreadCount(jint threads) {
   }
 }
 
+// TODO: b/446178978 - Refactor buffer management to remove global JNI
+// references. Remove global_ref_input_buffer and global_ref_dav1d_data from
+// Cookie. Instead, manage buffers by passing an index into a Java-side
+// DecoderInputBuffer array.
 struct Cookie {
   jobject global_ref_input_buffer;
   jobject global_ref_dav1d_data;
@@ -191,7 +195,6 @@ struct UserDataCookie {
   jint flags;
   jint output_mode;
   jlong time_us;
-  jobject format;
   jlong jni_context;
 };
 
@@ -238,7 +241,6 @@ struct JniContext {
   jobject output_buffer_class;
   jobject byte_buffer_class;
   jobject decoder_class;
-  jfieldID output_format_field;
   jfieldID display_width_field;
   jfieldID display_height_field;
   jfieldID data_field;
@@ -260,19 +262,22 @@ struct JniContext {
 
   int libdav1d_status_code = kLibdav1dDecoderStatusOk;
   JniStatusCode jni_status_code = kJniStatusOk;
+  // TODO: b/446178978 - Replace unused_cookies std::vector with a fixed-size
+  // array. The size should be bounded by the number of input buffers to avoid
+  // dynamic allocations.
   std::vector<std::unique_ptr<Cookie>> unused_cookies;
-  std::mutex unused_cookies_mutex;
-  std::vector<std::unique_ptr<const UserDataCookie>> unused_user_data_cookies;
-  std::mutex unused_user_data_cookies_mutex;
+  std::mutex unused_cookies_mutex;  // NOLINT(build/c++11)
   std::vector<std::unique_ptr<PictureAllocatorData>>
       unused_picture_allocator_data;
-  std::mutex unused_picture_allocator_data_mutex;
+  std::mutex unused_picture_allocator_data_mutex;  // NOLINT(build/c++11)
   bool use_custom_allocator;
   std::unique_ptr<PictureAllocatorCookie> picture_allocator_cookie;
   ANativeWindow* native_window = nullptr;
   jobject surface = nullptr;
   int native_window_width = 0;
   int native_window_height = 0;
+
+  JavaVM* jvm;
 };
 
 void CopyFrameToDataBuffer(const Dav1dPicture* dav1d_picture, jbyte* data) {
@@ -317,19 +322,30 @@ void Dav1dDataFreeCallback(const uint8_t* data, void* cookie) {
   Cookie* cookie_ptr = reinterpret_cast<Cookie*>(cookie);
   JniContext* const context =
       reinterpret_cast<JniContext*>(cookie_ptr->jni_context);
-  std::lock_guard<std::mutex> unused_cookies_lock(
+  std::lock_guard<std::mutex> unused_cookies_lock(  // NOLINT(build/c++11)
       context->unused_cookies_mutex);
-  context->unused_cookies.emplace_back(cookie_ptr);
+  try {
+    context->unused_cookies.emplace_back(cookie_ptr);
+  } catch (const std::bad_alloc&) {
+    // Allocation failed for unique_ptr, prevent memory leak
+    LOGE("Failed to emplace Cookie: Out of memory");
+    JNIEnv* env = nullptr;
+    // Ensure the current thread is attached to the JVM
+    jint attach_result = context->jvm->AttachCurrentThread(&env, nullptr);
+    if (attach_result == JNI_OK) {
+      env->DeleteGlobalRef(cookie_ptr->global_ref_dav1d_data);
+      env->DeleteGlobalRef(cookie_ptr->global_ref_input_buffer);
+    } else {
+      LOGE("Failed to attach current thread to JVM in Data callback.");
+    }
+    delete cookie_ptr;
+  }
 }
 
 void Dav1dUserDataFreeCallback(const uint8_t* data, void* cookie) {
   const UserDataCookie* cookie_ptr =
       reinterpret_cast<const UserDataCookie*>(data);
-  JniContext* const context =
-      reinterpret_cast<JniContext*>(cookie_ptr->jni_context);
-  std::lock_guard<std::mutex> unused_user_data_cookies_lock(
-      context->unused_user_data_cookies_mutex);
-  context->unused_user_data_cookies.emplace_back(cookie_ptr);
+  delete cookie_ptr;
 }
 
 static int dav1d_picture_allocator(Dav1dPicture* p, void* cookie) {
@@ -407,9 +423,12 @@ static void release_picture_allocator(Dav1dPicture* p, void* cookie) {
   JniContext* const context =
       reinterpret_cast<JniContext*>(allocator_cookie->jni_context);
 
-  std::lock_guard<std::mutex> unused_picture_allocator_data_lock(
-      context->unused_picture_allocator_data_mutex);
+  std::lock_guard<std::mutex>  // NOLINT(build/c++11)
+      unused_picture_allocator_data_lock(
+          context->unused_picture_allocator_data_mutex);
 
+  // TODO(b/443089644): Consider wrapping this in a try-catch (std::bad_alloc)
+  // to prevent resource leaks if emplace_back fails.
   context->unused_picture_allocator_data.emplace_back(
       reinterpret_cast<PictureAllocatorData*>(p->allocator_data));
 }
@@ -419,8 +438,9 @@ void CleanUpAllocatorData(jlong jContext, JNIEnv* env) {
     return;
   }
   JniContext* const context = reinterpret_cast<JniContext*>(jContext);
-  std::lock_guard<std::mutex> unused_picture_allocator_data_lock(
-      context->unused_picture_allocator_data_mutex);
+  std::lock_guard<std::mutex>  // NOLINT(build/c++11)
+      unused_picture_allocator_data_lock(
+          context->unused_picture_allocator_data_mutex);
   while (!context->unused_picture_allocator_data.empty()) {
     PictureAllocatorData* allocator_data =
         context->unused_picture_allocator_data.back().get();
@@ -434,6 +454,13 @@ DECODER_FUNC(jlong, dav1dInit, jint threads, jint max_frame_delay,
              jboolean use_custom_allocator) {
   JniContext* context = new (std::nothrow) JniContext();
   if (context == nullptr) {
+    return kStatusError;
+  }
+
+  // Always get and store the JVM
+  if (env->GetJavaVM(&context->jvm) != JNI_OK) {
+    LOGE("Failed to get JavaVM");
+    delete context;
     return kStatusError;
   }
 
@@ -458,9 +485,8 @@ DECODER_FUNC(jlong, dav1dInit, jint threads, jint max_frame_delay,
   context->use_custom_allocator = use_custom_allocator;
   if (use_custom_allocator) {
     PictureAllocatorCookie* cookie = new PictureAllocatorCookie();
-    JavaVM* jvm;
-    env->GetJavaVM(&jvm);
-    cookie->jvm = jvm;
+    // context->jvm is already set
+    cookie->jvm = context->jvm;
     cookie->jni_context = reinterpret_cast<jlong>(context);
     context->picture_allocator_cookie =
         std::unique_ptr<PictureAllocatorCookie>(cookie);
@@ -494,8 +520,6 @@ DECODER_FUNC(jlong, dav1dInit, jint threads, jint max_frame_delay,
 
   context->input_data_field =
       env->GetFieldID(inputBufferClass, "data", "Ljava/nio/ByteBuffer;");
-  context->output_format_field = env->GetFieldID(
-      outputBufferClass, "format", "Landroidx/media3/common/Format;");
   context->display_width_field =
       env->GetFieldID(outputBufferClass, "width", "I");
   context->display_height_field =
@@ -532,7 +556,6 @@ DECODER_FUNC(jlong, dav1dInit, jint threads, jint max_frame_delay,
   assert(context->input_buffer_class);
   assert(context->output_buffer_class);
   assert(context->input_data_field);
-  assert(context->output_format_field);
   assert(context->data_field);
   assert(context->display_width_field);
   assert(context->display_height_field);
@@ -556,30 +579,32 @@ DECODER_FUNC(void, dav1dClose, jlong jContext) {
     return;
   }
   JniContext* const context = reinterpret_cast<JniContext*>(jContext);
+
+  // Close the dav1d decoder context. This should block until all internal
+  // decoder threads are joined and resources are released, triggering
+  // any pending free callbacks.
   if (context->decoder) {
     dav1d_close(&context->decoder);
   }
-  env->DeleteGlobalRef(context->input_buffer_class);
-  env->DeleteGlobalRef(context->output_buffer_class);
-  env->DeleteGlobalRef(context->decoder_class);
+
+  // Clean up JNI global references
+  if (context->input_buffer_class)
+    env->DeleteGlobalRef(context->input_buffer_class);
+  if (context->output_buffer_class)
+    env->DeleteGlobalRef(context->output_buffer_class);
+  if (context->decoder_class) env->DeleteGlobalRef(context->decoder_class);
+  if (context->byte_buffer_class)
+    env->DeleteGlobalRef(context->byte_buffer_class);
+
+  // Clean up unused cookies
   {
-    std::lock_guard<std::mutex> unused_cookies_lock(
+    std::lock_guard<std::mutex> unused_cookies_lock(  // NOLINT(build/c++11)
         context->unused_cookies_mutex);
     while (!context->unused_cookies.empty()) {
       Cookie* cookie = context->unused_cookies.back().get();
       env->DeleteGlobalRef(cookie->global_ref_dav1d_data);
       env->DeleteGlobalRef(cookie->global_ref_input_buffer);
       context->unused_cookies.pop_back();
-    }
-  }
-  {
-    std::lock_guard<std::mutex> unused_user_data_cookies_lock(
-        context->unused_user_data_cookies_mutex);
-    while (!context->unused_user_data_cookies.empty()) {
-      const UserDataCookie* cookie =
-          context->unused_user_data_cookies.back().get();
-      env->DeleteGlobalRef(cookie->format);
-      context->unused_user_data_cookies.pop_back();
     }
   }
   {
@@ -592,7 +617,7 @@ DECODER_FUNC(void, dav1dClose, jlong jContext) {
 
 DECODER_FUNC(jint, dav1dDecode, jlong jContext, jobject jInputBuffer,
              jint offset, jint length, jboolean decodeOnly, jint flags,
-             jlong timeUs, jint outputMode, jobject format) {
+             jlong timeUs, jint outputMode) {
   if (jContext == kStatusError) {
     return kStatusError;
   }
@@ -629,7 +654,6 @@ DECODER_FUNC(jint, dav1dDecode, jlong jContext, jobject jInputBuffer,
   user_data->flags = flags;
   user_data->output_mode = outputMode;
   user_data->time_us = timeUs;
-  user_data->format = env->NewGlobalRef(format);
   user_data->jni_context = jContext;
 
   context->libdav1d_status_code = dav1d_data_wrap_user_data(
@@ -637,7 +661,6 @@ DECODER_FUNC(jint, dav1dDecode, jlong jContext, jobject jInputBuffer,
       Dav1dUserDataFreeCallback, nullptr);
   if (context->libdav1d_status_code != 0) {
     LOGE("Failed to wrap user data.");
-    env->DeleteGlobalRef(user_data->format);
     delete user_data;
     dav1d_data_unref(&data);
     return kStatusError;
@@ -715,8 +738,6 @@ DECODER_FUNC(jint, dav1dGetFrame, jlong jContext, jobject jOutputBuffer) {
           allocator_data->aligned_height);
       CleanUpAllocatorData(jContext, env);
     } else {
-      env->SetObjectField(jOutputBuffer, context->output_format_field,
-                          returned_user_data->format);
       init_result = env->CallBooleanMethod(
           jOutputBuffer, context->init_for_yuv_frame_method, dav1d_picture->p.w,
           dav1d_picture->p.h, dav1d_picture->stride[kPlaneY],
@@ -744,8 +765,6 @@ DECODER_FUNC(jint, dav1dGetFrame, jlong jContext, jobject jOutputBuffer) {
     Dav1dPicture* dav1d_picture_raw_ptr = dav1d_picture.release();
     env->SetLongField(jOutputBuffer, context->decoder_private_field,
                       (uint64_t)dav1d_picture_raw_ptr);
-    env->SetObjectField(jOutputBuffer, context->output_format_field,
-                        returned_user_data->format);
     env->CallVoidMethod(jOutputBuffer, context->init_for_private_frame_method,
                         dav1d_picture_raw_ptr->p.w, dav1d_picture_raw_ptr->p.h);
   }
@@ -893,7 +912,7 @@ DECODER_FUNC(void, releaseUnusedInputBuffers, jlong jContext, jobject decoder) {
   }
   JniContext* const context = reinterpret_cast<JniContext*>(jContext);
   {
-    std::lock_guard<std::mutex> unused_cookies_lock(
+    std::lock_guard<std::mutex> unused_cookies_lock(  // NOLINT(build/c++11)
         context->unused_cookies_mutex);
     while (!context->unused_cookies.empty()) {
       Cookie* cookie = context->unused_cookies.back().get();
@@ -907,16 +926,6 @@ DECODER_FUNC(void, releaseUnusedInputBuffers, jlong jContext, jobject decoder) {
       env->DeleteGlobalRef(cookie->global_ref_dav1d_data);
       env->DeleteGlobalRef(cookie->global_ref_input_buffer);
       context->unused_cookies.pop_back();
-    }
-  }
-  {
-    std::lock_guard<std::mutex> unused_user_data_cookies_lock(
-        context->unused_user_data_cookies_mutex);
-    while (!context->unused_user_data_cookies.empty()) {
-      const UserDataCookie* cookie =
-          context->unused_user_data_cookies.back().get();
-      env->DeleteGlobalRef(cookie->format);
-      context->unused_user_data_cookies.pop_back();
     }
   }
 }
