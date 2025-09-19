@@ -34,16 +34,12 @@ import androidx.annotation.OptIn;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
-import androidx.media3.common.CodecParameter;
-import androidx.media3.common.CodecParameters;
-import androidx.media3.common.CodecParametersChangeListener;
 import androidx.media3.common.ErrorMessageProvider;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.Tracks;
-import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSchemeDataSource;
@@ -65,7 +61,6 @@ import androidx.media3.exoplayer.util.EventLogger;
 import androidx.media3.ui.PlayerView;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
@@ -266,7 +261,6 @@ public class PlayerActivity extends AppCompatActivity
   /**
    * @return Whether initialization was successful.
    */
-  @OptIn(markerClass = UnstableApi.class)
   protected boolean initializePlayer() {
     Intent intent = getIntent();
     if (player == null) {
@@ -283,56 +277,6 @@ public class PlayerActivity extends AppCompatActivity
       setRenderersFactory(
           playerBuilder, intent.getBooleanExtra(IntentUtil.PREFER_EXTENSION_DECODERS_EXTRA, false));
       player = playerBuilder.build();
-
-      // --------------------------- TESTING CODE ONLY -- REMOVE AGAIN ----------------------------
-      player.setCodecParametersChangeListener(new CodecParametersChangeListener() {
-        @Override
-        public void onCodecParametersChanged(CodecParameters codecParameters) {
-          HashMap<String, CodecParameter> parameters = codecParameters.get();
-          for (String key : parameters.keySet()) {
-            Log.e("PlayerActivity", "key = " + key + "  value = " + parameters.get(key).value);
-          }
-        }
-
-        @Override
-        public ArrayList<String> getFilterKeys() {
-          ArrayList<String> filterKeys = new ArrayList<>();
-          if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            filterKeys.add(CodecParameter.KEY_AAC_DRC_OUTPUT_LOUDNESS);
-          }
-          return filterKeys;
-        }
-      });
-
-      CodecParameter codecParameter;
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-        // For testing set initial targetLoudness to -16 LUFS
-        codecParameter = new CodecParameter(CodecParameter.KEY_AAC_DRC_TARGET_REFERENCE_LEVEL, 64,
-            CodecParameter.VALUETYPE_INT);
-        player.setCodecParameter(codecParameter);
-        // For testing set initial BoostFactor to 32
-        codecParameter = new CodecParameter(CodecParameter.KEY_AAC_DRC_BOOST_FACTOR, 32,
-            CodecParameter.VALUETYPE_INT);
-        player.setCodecParameter(codecParameter);
-        // For testing set initial AttenuationFactor to 16
-        codecParameter = new CodecParameter(CodecParameter.KEY_AAC_DRC_ATTENUATION_FACTOR, 16,
-            CodecParameter.VALUETYPE_INT);
-        player.setCodecParameter(codecParameter);
-      }
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-        // For testing set initial EffectType to NOISY_ENVIRONMENT
-        codecParameter = new CodecParameter(CodecParameter.KEY_AAC_DRC_EFFECT_TYPE, 2,
-            CodecParameter.VALUETYPE_INT);
-        player.setCodecParameter(codecParameter);
-      }
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-        // For testing set initial AlbumMode to ENABLED
-        codecParameter = new CodecParameter(CodecParameter.KEY_AAC_DRC_ALBUM_MODE, 1,
-            CodecParameter.VALUETYPE_INT);
-        player.setCodecParameter(codecParameter);
-      }
-      // --------------------------- TESTING CODE ONLY -- REMOVE AGAIN ----------------------------
-
       player.setTrackSelectionParameters(trackSelectionParameters);
       player.addListener(new PlayerEventListener());
       player.addAnalyticsListener(new EventLogger());
@@ -354,44 +298,6 @@ public class PlayerActivity extends AppCompatActivity
       player.setRepeatMode(IntentUtil.parseRepeatModeExtra(repeatModeExtra));
     }
     updateButtonVisibility();
-
-    // --------------------------- TESTING CODE ONLY -- REMOVE AGAIN ----------------------------
-    // Simulate sleep so the MPEG-D DRC can change during runtime
-    try {
-      Thread.sleep(2000);
-    } catch (InterruptedException e) {
-      e.printStackTrace();
-    }
-
-    CodecParameter codecParameter;
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-      // Testing a change to the targetLoudness during codec runtime (set to -24 LUFS)
-      codecParameter = new CodecParameter(CodecParameter.KEY_AAC_DRC_TARGET_REFERENCE_LEVEL, 96,
-          CodecParameter.VALUETYPE_INT);
-      player.setCodecParameter(codecParameter);
-      // Testing a change to the boost factor during codec runtime (set to 96)
-      codecParameter = new CodecParameter(CodecParameter.KEY_AAC_DRC_BOOST_FACTOR, 96,
-          CodecParameter.VALUETYPE_INT);
-      player.setCodecParameter(codecParameter);
-      // Testing a change to the attenuation factor during codec runtime (set to 64)
-      codecParameter = new CodecParameter(CodecParameter.KEY_AAC_DRC_ATTENUATION_FACTOR, 64,
-          CodecParameter.VALUETYPE_INT);
-      player.setCodecParameter(codecParameter);
-    }
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-      // Testing a change to the EffectType during codec runtime (set to OFF)
-      codecParameter = new CodecParameter(CodecParameter.KEY_AAC_DRC_EFFECT_TYPE, -1,
-          CodecParameter.VALUETYPE_INT);
-      player.setCodecParameter(codecParameter);
-    }
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-      // Testing a change to the album mode during codec runtime (set to DISABLED)
-      codecParameter = new CodecParameter(CodecParameter.KEY_AAC_DRC_ALBUM_MODE, 0,
-          CodecParameter.VALUETYPE_INT);
-      player.setCodecParameter(codecParameter);
-    }
-    // --------------------------- TESTING CODE ONLY -- REMOVE AGAIN ----------------------------
-
     return true;
   }
 

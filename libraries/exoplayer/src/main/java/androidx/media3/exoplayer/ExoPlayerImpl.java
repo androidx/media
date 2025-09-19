@@ -28,13 +28,13 @@ import static androidx.media3.exoplayer.Renderer.MSG_SET_AUDIO_SESSION_ID;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_AUX_EFFECT_INFO;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_CAMERA_MOTION_LISTENER;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_CHANGE_FRAME_RATE_STRATEGY;
-import static androidx.media3.exoplayer.Renderer.MSG_SET_CODEC_PARAMETER;
-import static androidx.media3.exoplayer.Renderer.MSG_SET_CODEC_PARAMETERS_CHANGED_LISTENER;
+import static androidx.media3.exoplayer.Renderer.MSG_SET_CODEC_PARAMETERS;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_IMAGE_OUTPUT;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_PREFERRED_AUDIO_DEVICE;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_PRIORITY;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_SCALING_MODE;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_SKIP_SILENCE_ENABLED;
+import static androidx.media3.exoplayer.Renderer.MSG_SET_SUBSCRIBED_CODEC_PARAMETER_KEYS;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_VIDEO_EFFECTS;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_VIDEO_OUTPUT_RESOLUTION;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_VIRTUAL_DEVICE_ID;
@@ -64,8 +64,6 @@ import androidx.media3.common.AuxEffectInfo;
 import androidx.media3.common.BasePlayer;
 import androidx.media3.common.C;
 import androidx.media3.common.C.TrackType;
-import androidx.media3.common.CodecParameter;
-import androidx.media3.common.CodecParametersChangeListener;
 import androidx.media3.common.DeviceInfo;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
@@ -133,8 +131,12 @@ import com.google.common.collect.ImmutableSet;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.function.IntConsumer;
 
@@ -189,6 +191,8 @@ import java.util.function.IntConsumer;
   private final BackgroundThreadStateHandler<Integer> audioSessionIdState;
   private final StuckPlayerDetector stuckPlayerDetector;
   @Nullable private final VirtualDeviceIdChangeListener virtualDeviceIdChangeListener;
+  private final Map<CodecParametersChangeListener, List<String>>
+      audioCodecParametersChangeListeners;
 
   private @RepeatMode int repeatMode;
   private boolean shuffleModeEnabled;
@@ -237,6 +241,7 @@ import java.util.function.IntConsumer;
   private long seekBackIncrementMs;
   private long seekForwardIncrementMs;
   private long maxSeekToPreviousPositionMs;
+  private CodecParameters lastNotifiedAudioCodecParameters;
 
   // MediaMetadata built from static (TrackGroup Format) and dynamic (onMetadata(Metadata)) metadata
   // sources.
@@ -474,6 +479,9 @@ import java.util.function.IntConsumer;
       surfaceSize = Size.UNKNOWN;
       virtualDeviceIdChangeListener =
           SDK_INT >= 34 ? new VirtualDeviceIdChangeListener(builder.context) : null;
+
+      audioCodecParametersChangeListeners = new HashMap<>();
+      lastNotifiedAudioCodecParameters = CodecParameters.EMPTY;
 
       stuckPlayerDetector =
           new StuckPlayerDetector(
@@ -2058,21 +2066,42 @@ import java.util.function.IntConsumer;
   }
 
   @Override
-  public void setCodecParameter(CodecParameter codecParameter) {
+  public void setAudioCodecParameters(CodecParameters codecParameters) {
     verifyApplicationThread();
-    for (Renderer renderer : renderers) {
-      createMessage(renderer).setType(MSG_SET_CODEC_PARAMETER).setPayload(codecParameter).send();
-    }
+    checkNotNull(codecParameters);
+    sendRendererMessage(C.TRACK_TYPE_AUDIO, MSG_SET_CODEC_PARAMETERS, codecParameters);
   }
 
   @Override
-  public void setCodecParametersChangeListener(
-      @Nullable CodecParametersChangeListener codecParametersChangeListener) {
+  public void addAudioCodecParametersChangeListener(
+      CodecParametersChangeListener listener, List<String> keys) {
     verifyApplicationThread();
-    for (Renderer renderer : renderers) {
-      createMessage(renderer).setType(MSG_SET_CODEC_PARAMETERS_CHANGED_LISTENER)
-          .setPayload(codecParametersChangeListener).send();
+    checkNotNull(listener);
+    checkNotNull(keys);
+    audioCodecParametersChangeListeners.put(listener, keys);
+    updateAndSendSubscribedKeysToRenderer();
+    // Immediately notify the new listener with its filtered view of the last known state.
+    CodecParameters listenerInitialState =
+        createFilteredCodecParameters(lastNotifiedAudioCodecParameters, keys);
+    listener.onCodecParametersChanged(listenerInitialState);
+  }
+
+  @Override
+  public void removeAudioCodecParametersChangeListener(CodecParametersChangeListener listener) {
+    verifyApplicationThread();
+    checkNotNull(listener);
+    if (audioCodecParametersChangeListeners.remove(listener) != null) {
+      updateAndSendSubscribedKeysToRenderer();
     }
+  }
+
+  private void updateAndSendSubscribedKeysToRenderer() {
+    ImmutableSet.Builder<String> newKeysBuilder = ImmutableSet.builder();
+    for (List<String> keys : audioCodecParametersChangeListeners.values()) {
+      newKeysBuilder.addAll(keys);
+    }
+    sendRendererMessage(
+        C.TRACK_TYPE_AUDIO, MSG_SET_SUBSCRIBED_CODEC_PARAMETER_KEYS, newKeysBuilder.build());
   }
 
   @SuppressWarnings("deprecation") // Calling deprecated methods.
@@ -3171,6 +3200,18 @@ import java.util.function.IntConsumer;
     return parametersBuilder.build();
   }
 
+  private static CodecParameters createFilteredCodecParameters(
+      CodecParameters source, List<String> keys) {
+    CodecParameters.Builder builder = source.buildUpon();
+    Set<String> keysToKeep = new HashSet<>(keys);
+    for (String key : source.keySet()) {
+      if (!keysToKeep.contains(key)) {
+        builder.remove(key);
+      }
+    }
+    return builder.build();
+  }
+
   private static final class MediaSourceHolderSnapshot implements MediaSourceInfoHolder {
 
     private final Object uid;
@@ -3356,6 +3397,25 @@ import java.util.function.IntConsumer;
       audioSessionIdState.updateStateAsync(
           /* placeholderState= */ previousId -> audioSessionId,
           /* backgroundStateUpdate= */ previousId -> audioSessionId);
+    }
+
+    @Override
+    public void onAudioCodecParametersChanged(CodecParameters newParameters) {
+      for (Map.Entry<CodecParametersChangeListener, List<String>> entry :
+          new HashMap<>(audioCodecParametersChangeListeners).entrySet()) {
+        CodecParametersChangeListener listener = entry.getKey();
+        List<String> listenerKeys = entry.getValue();
+
+        CodecParameters listenerCurrentState =
+            createFilteredCodecParameters(newParameters, listenerKeys);
+        CodecParameters listenerPreviousState =
+            createFilteredCodecParameters(lastNotifiedAudioCodecParameters, listenerKeys);
+
+        if (!listenerCurrentState.equals(listenerPreviousState)) {
+          listener.onCodecParametersChanged(listenerCurrentState);
+        }
+      }
+      lastNotifiedAudioCodecParameters = newParameters;
     }
 
     // TextOutput implementation

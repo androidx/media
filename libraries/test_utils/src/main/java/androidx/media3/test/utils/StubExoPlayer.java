@@ -21,13 +21,13 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.AuxEffectInfo;
 import androidx.media3.common.C;
-import androidx.media3.common.CodecParameter;
-import androidx.media3.common.CodecParametersChangeListener;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.PriorityTaskManager;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.exoplayer.CodecParameters;
+import androidx.media3.exoplayer.CodecParametersChangeListener;
 import androidx.media3.exoplayer.DecoderCounters;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.ExoPlayer;
@@ -447,13 +447,18 @@ public class StubExoPlayer extends StubPlayer implements ExoPlayer {
   }
 
   @Override
-  public void setCodecParameter(@Nullable CodecParameter codecParameter) {
+  public void setAudioCodecParameters(CodecParameters codecParameters) {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public void setCodecParametersChangeListener(
-      CodecParametersChangeListener codecParametersChangeListener) {
+  public void addAudioCodecParametersChangeListener(
+      CodecParametersChangeListener listener, List<String> keys) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public void removeAudioCodecParametersChangeListener(CodecParametersChangeListener listener) {
     throw new UnsupportedOperationException();
   }
 }

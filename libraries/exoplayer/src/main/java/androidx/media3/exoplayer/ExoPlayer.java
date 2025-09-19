@@ -39,9 +39,6 @@ import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.AuxEffectInfo;
 import androidx.media3.common.C;
-import androidx.media3.common.CodecParameter;
-import androidx.media3.common.CodecParametersChangeListener;
-import androidx.media3.common.DeviceInfo;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
@@ -2029,11 +2026,45 @@ public interface ExoPlayer extends Player {
   @UnstableApi
   void setImageOutput(@Nullable ImageOutput imageOutput);
 
-  /** Set the CodecParameters */
+  /**
+   * Sets a collection of parameters on the underlying audio codecs.
+   *
+   * <p>This method is asynchronous. The parameters will be applied to the audio renderers on the
+   * playback thread.
+   *
+   * <p>The default {@link MediaCodec} based renderers only support this feature on API level 29 and
+   * above. If an underlying decoder does not support a parameter, it will be ignored.
+   *
+   * @param codecParameters The {@link CodecParameters} to set.
+   */
   @UnstableApi
-  void setCodecParameter(CodecParameter codecParameter);
+  void setAudioCodecParameters(CodecParameters codecParameters);
 
-  /** Set the CodecParametersChangeListener */
+  /**
+   * Adds a listener for audio codec parameter changes.
+   *
+   * <p>The listener will be called on the application thread. Upon registration, the listener will
+   * be immediately called with the last known values for the subscribed keys.
+   *
+   * <p>The default {@link MediaCodec} based renderers only support this feature on API level 29 and
+   * above.
+   *
+   * <p><b>Note:</b> When used with {@link MediaCodec}, observing vendor-specific parameter changes
+   * requires API level 31 or higher. On API levels 29 and 30, any requested vendor-specific keys
+   * will be ignored.
+   *
+   * @param listener The {@link CodecParametersChangeListener} to add.
+   * @param keys The list of parameter keys to subscribe to.
+   */
   @UnstableApi
-  void setCodecParametersChangeListener(@Nullable CodecParametersChangeListener codecParametersChangeListener);
+  void addAudioCodecParametersChangeListener(
+      CodecParametersChangeListener listener, List<String> keys);
+
+  /**
+   * Removes a listener for audio codec parameter changes.
+   *
+   * @param listener The {@link CodecParametersChangeListener} to remove.
+   */
+  @UnstableApi
+  void removeAudioCodecParametersChangeListener(CodecParametersChangeListener listener);
 }
