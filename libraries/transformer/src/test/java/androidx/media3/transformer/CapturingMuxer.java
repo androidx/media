@@ -43,8 +43,7 @@ import java.util.Comparator;
  * A {@link Dumpable} {@link Muxer} implementation that supports dumping information about all
  * interactions (for testing purposes) and forwards method calls to the underlying {@link Muxer}.
  */
-// TODO: b/430251254 - Delete CapturingMuxer and directly validate output file once InAppMp4Muxer is
-// default.
+// TODO: b/445455798 - Delete CapturingMuxer and directly validate output file.
 public final class CapturingMuxer implements Muxer, Dumpable {
 
   /**
