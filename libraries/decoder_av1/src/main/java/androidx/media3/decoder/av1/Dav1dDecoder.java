@@ -18,10 +18,8 @@ package androidx.media3.decoder.av1;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
-import android.os.Build.VERSION_CODES;
 import android.view.Surface;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.UnstableApi;
@@ -218,7 +216,6 @@ public final class Dav1dDecoder
   }
 
   @Override
-  @RequiresApi(VERSION_CODES.M)
   public void release() {
     synchronized (lock) {
       released = true;
