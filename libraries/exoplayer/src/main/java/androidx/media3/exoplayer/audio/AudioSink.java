@@ -165,6 +165,14 @@ public interface AudioSink {
      * @param audioSessionId The new audio session ID.
      */
     default void onAudioSessionIdChanged(int audioSessionId) {}
+
+    /**
+     * Called when the currently routed device changes.
+     *
+     * @param router The audio track whose routed device changed.
+     * @param routedDevice The new routed device.
+     */
+    default void onRoutingChanged(AudioTrack router, @Nullable AudioDeviceInfo routedDevice) {}
   }
 
   /** Configuration parameters used for an {@link AudioTrack}. */
