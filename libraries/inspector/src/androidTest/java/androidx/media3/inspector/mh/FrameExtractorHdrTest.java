@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.transformer.mh;
+package androidx.media3.inspector.mh;
 
 import static android.graphics.Bitmap.Config.RGBA_1010102;
 import static android.graphics.Bitmap.Config.RGBA_F16;
@@ -38,7 +38,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.ColorSpace;
 import androidx.media3.common.MediaItem;
-import androidx.media3.transformer.ExperimentalFrameExtractor;
+import androidx.media3.inspector.FrameExtractor;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
@@ -55,7 +55,7 @@ import org.junit.Test;
 import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
-/** End-to-end HDR instrumentation test for {@link ExperimentalFrameExtractor}. */
+/** End-to-end HDR instrumentation test for {@link FrameExtractor}. */
 @RunWith(AndroidJUnit4.class)
 public class FrameExtractorHdrTest {
   // This file is generated on a Pixel 7, because the emulator isn't able to decode HLG to generate
@@ -74,7 +74,7 @@ public class FrameExtractorHdrTest {
   private final Context context = ApplicationProvider.getApplicationContext();
 
   private String testId;
-  private @MonotonicNonNull ExperimentalFrameExtractor frameExtractor;
+  private @MonotonicNonNull FrameExtractor frameExtractor;
 
   @Before
   public void setUpTestId() {
@@ -92,14 +92,13 @@ public class FrameExtractorHdrTest {
   public void extractFrame_oneFrameHlg_returnsToneMappedFrame() throws Exception {
     assumeDeviceSupportsOpenGlToneMapping(testId, MP4_ASSET_COLOR_TEST_1080P_HLG10.videoFormat);
     frameExtractor =
-        new ExperimentalFrameExtractor(
-            context, new ExperimentalFrameExtractor.Configuration.Builder().build());
+        new FrameExtractor(context, new FrameExtractor.Configuration.Builder().build());
     frameExtractor.setMediaItem(
         MediaItem.fromUri(MP4_ASSET_COLOR_TEST_1080P_HLG10.uri), /* effects= */ ImmutableList.of());
 
-    ListenableFuture<ExperimentalFrameExtractor.Frame> frameFuture =
+    ListenableFuture<FrameExtractor.Frame> frameFuture =
         frameExtractor.getFrame(/* positionMs= */ 0);
-    ExperimentalFrameExtractor.Frame frame = frameFuture.get(TIMEOUT_SECONDS, SECONDS);
+    FrameExtractor.Frame frame = frameFuture.get(TIMEOUT_SECONDS, SECONDS);
     Bitmap actualBitmap = frame.bitmap;
     Bitmap expectedBitmap = readBitmap(TONE_MAP_HLG_TO_SDR_PNG_ASSET_PATH);
     maybeSaveTestBitmap(testId, /* bitmapLabel= */ "actual", actualBitmap, /* path= */ null);
@@ -115,17 +114,14 @@ public class FrameExtractorHdrTest {
     // HLG Bitmaps are only supported on API 34+.
     assumeTrue(SDK_INT >= 34);
     frameExtractor =
-        new ExperimentalFrameExtractor(
-            context,
-            new ExperimentalFrameExtractor.Configuration.Builder()
-                .setExtractHdrFrames(true)
-                .build());
+        new FrameExtractor(
+            context, new FrameExtractor.Configuration.Builder().setExtractHdrFrames(true).build());
     frameExtractor.setMediaItem(
         MediaItem.fromUri(MP4_ASSET_COLOR_TEST_1080P_HLG10.uri), /* effects= */ ImmutableList.of());
 
-    ListenableFuture<ExperimentalFrameExtractor.Frame> frameFuture =
+    ListenableFuture<FrameExtractor.Frame> frameFuture =
         frameExtractor.getFrame(/* positionMs= */ 0);
-    ExperimentalFrameExtractor.Frame frame = frameFuture.get(TIMEOUT_SECONDS, SECONDS);
+    FrameExtractor.Frame frame = frameFuture.get(TIMEOUT_SECONDS, SECONDS);
     Bitmap actualBitmap = frame.bitmap;
     Bitmap expectedBitmap =
         readBitmap(/* assetString= */ GOLDEN_ASSET_FOLDER_PATH + "hlg10-color-test_0.000.png");
@@ -146,17 +142,14 @@ public class FrameExtractorHdrTest {
     assumeTrue(SDK_INT >= 34);
     Path temporaryFilePath = new File(context.getExternalCacheDir(), testId + ".jpg").toPath();
     frameExtractor =
-        new ExperimentalFrameExtractor(
-            context,
-            new ExperimentalFrameExtractor.Configuration.Builder()
-                .setExtractHdrFrames(true)
-                .build());
+        new FrameExtractor(
+            context, new FrameExtractor.Configuration.Builder().setExtractHdrFrames(true).build());
     frameExtractor.setMediaItem(
         MediaItem.fromUri(MP4_ASSET_COLOR_TEST_1080P_HLG10.uri), /* effects= */ ImmutableList.of());
 
-    ListenableFuture<ExperimentalFrameExtractor.Frame> frameFuture =
+    ListenableFuture<FrameExtractor.Frame> frameFuture =
         frameExtractor.getFrame(/* positionMs= */ 0);
-    ExperimentalFrameExtractor.Frame frame = frameFuture.get(TIMEOUT_SECONDS, SECONDS);
+    FrameExtractor.Frame frame = frameFuture.get(TIMEOUT_SECONDS, SECONDS);
     Bitmap actualBitmap = frame.bitmap;
     try (OutputStream outputStream = newOutputStream(temporaryFilePath)) {
       actualBitmap.compress(Bitmap.CompressFormat.JPEG, /* quality= */ 60, outputStream);
@@ -181,17 +174,14 @@ public class FrameExtractorHdrTest {
     // HLG Bitmaps are only supported on API 34+.
     assumeTrue(SDK_INT >= 34);
     frameExtractor =
-        new ExperimentalFrameExtractor(
-            context,
-            new ExperimentalFrameExtractor.Configuration.Builder()
-                .setExtractHdrFrames(true)
-                .build());
+        new FrameExtractor(
+            context, new FrameExtractor.Configuration.Builder().setExtractHdrFrames(true).build());
     frameExtractor.setMediaItem(
         MediaItem.fromUri(MP4_ASSET_COLOR_TEST_1080P_HLG10.uri), /* effects= */ ImmutableList.of());
 
-    ListenableFuture<ExperimentalFrameExtractor.Frame> frameFuture =
+    ListenableFuture<FrameExtractor.Frame> frameFuture =
         frameExtractor.getFrame(/* positionMs= */ 0);
-    ExperimentalFrameExtractor.Frame frame = frameFuture.get(TIMEOUT_SECONDS, SECONDS);
+    FrameExtractor.Frame frame = frameFuture.get(TIMEOUT_SECONDS, SECONDS);
     Bitmap actualBitmap = frame.bitmap;
     Bitmap expectedBitmap = readBitmap(TONE_MAP_HLG_TO_SDR_PNG_ASSET_PATH);
     maybeSaveTestBitmap(testId, /* bitmapLabel= */ "actual", actualBitmap, /* path= */ null);
@@ -207,25 +197,22 @@ public class FrameExtractorHdrTest {
     // TODO: b/438478509 - rename assumeDeviceSupportsOpenGlToneMapping.
     assumeDeviceSupportsOpenGlToneMapping(testId, MP4_ASSET_COLOR_TEST_1080P_HLG10.videoFormat);
     frameExtractor =
-        new ExperimentalFrameExtractor(
-            context, new ExperimentalFrameExtractor.Configuration.Builder().build());
+        new FrameExtractor(context, new FrameExtractor.Configuration.Builder().build());
     frameExtractor.setMediaItem(
         MediaItem.fromUri(MP4_ASSET_COLOR_TEST_1080P_HLG10.uri), /* effects= */ ImmutableList.of());
-    ListenableFuture<ExperimentalFrameExtractor.Frame> frameFutureFirstItem =
+    ListenableFuture<FrameExtractor.Frame> frameFutureFirstItem =
         frameExtractor.getFrame(/* positionMs= */ 0);
     frameExtractor.setMediaItem(
         MediaItem.fromUri(MP4_TRIM_OPTIMIZATION_270.uri), /* effects= */ ImmutableList.of());
-    ListenableFuture<ExperimentalFrameExtractor.Frame> frameFutureSecondItem =
+    ListenableFuture<FrameExtractor.Frame> frameFutureSecondItem =
         frameExtractor.getFrame(/* positionMs= */ 0);
 
-    ExperimentalFrameExtractor.Frame frameFirstItem =
-        frameFutureFirstItem.get(TIMEOUT_SECONDS, SECONDS);
+    FrameExtractor.Frame frameFirstItem = frameFutureFirstItem.get(TIMEOUT_SECONDS, SECONDS);
     Bitmap actualBitmapFirstItem = frameFirstItem.bitmap;
     Bitmap expectedBitmapFirstItem = readBitmap(TONE_MAP_HLG_TO_SDR_PNG_ASSET_PATH);
     maybeSaveTestBitmap(
         testId, /* bitmapLabel= */ "firstItem", actualBitmapFirstItem, /* path= */ null);
-    ExperimentalFrameExtractor.Frame frameSecondItem =
-        frameFutureSecondItem.get(TIMEOUT_SECONDS, SECONDS);
+    FrameExtractor.Frame frameSecondItem = frameFutureSecondItem.get(TIMEOUT_SECONDS, SECONDS);
     Bitmap actualBitmapSecondItem = frameSecondItem.bitmap;
     Bitmap expectedBitmapSecondItem =
         readBitmap(

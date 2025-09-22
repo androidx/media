@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.transformer.mh.analysis;
+package androidx.media3.inspector.mh.analysis;
 
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_1080P_5_SECOND_HLG10;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_H264_1080P_10SEC_VIDEO;
@@ -26,10 +26,10 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.effect.Presentation;
 import androidx.media3.exoplayer.SeekParameters;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
+import androidx.media3.inspector.FrameExtractor;
+import androidx.media3.inspector.FrameExtractor.Frame;
 import androidx.media3.test.utils.AssetInfo;
 import androidx.media3.test.utils.TestSummaryLogger;
-import androidx.media3.transformer.ExperimentalFrameExtractor;
-import androidx.media3.transformer.ExperimentalFrameExtractor.Frame;
 import androidx.test.core.app.ApplicationProvider;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -74,8 +74,8 @@ public class FrameExtractorPerformanceAnalysisTest {
   @Parameters(name = "{0}")
   public static ImmutableList<TestConfig> parameters() {
     ImmutableList.Builder<TestConfig> parametersBuilder = new ImmutableList.Builder<>();
-    ExperimentalFrameExtractor.Configuration.Builder configurationBuilder =
-        new ExperimentalFrameExtractor.Configuration.Builder();
+    FrameExtractor.Configuration.Builder configurationBuilder =
+        new FrameExtractor.Configuration.Builder();
     for (int i = 0; i < INPUT_ASSETS.size(); i++) {
       for (SeekParameters seekParameters :
           new SeekParameters[] {SeekParameters.EXACT, SeekParameters.CLOSEST_SYNC}) {
@@ -97,7 +97,7 @@ public class FrameExtractorPerformanceAnalysisTest {
   }
 
   private final Context context = ApplicationProvider.getApplicationContext();
-  private @MonotonicNonNull ExperimentalFrameExtractor frameExtractor;
+  private @MonotonicNonNull FrameExtractor frameExtractor;
 
   @After
   public void tearDown() {
@@ -108,7 +108,7 @@ public class FrameExtractorPerformanceAnalysisTest {
 
   @Test
   public void analyzeFrameExtractorPerformance() throws Exception {
-    frameExtractor = new ExperimentalFrameExtractor(context, testConfig.configuration);
+    frameExtractor = new FrameExtractor(context, testConfig.configuration);
     frameExtractor.setMediaItem(MediaItem.fromUri(testConfig.uri), ImmutableList.of());
 
     List<ListenableFuture<Frame>> frameFutures = new ArrayList<>();
@@ -134,7 +134,7 @@ public class FrameExtractorPerformanceAnalysisTest {
 
   @Test
   public void analyzeFrameExtractorPerformance_fitIn640x640() throws Exception {
-    frameExtractor = new ExperimentalFrameExtractor(context, testConfig.configuration);
+    frameExtractor = new FrameExtractor(context, testConfig.configuration);
     frameExtractor.setMediaItem(
         MediaItem.fromUri(testConfig.uri),
         ImmutableList.of(
@@ -164,9 +164,9 @@ public class FrameExtractorPerformanceAnalysisTest {
 
   private static class TestConfig {
     public final String uri;
-    public final ExperimentalFrameExtractor.Configuration configuration;
+    public final FrameExtractor.Configuration configuration;
 
-    public TestConfig(String uri, ExperimentalFrameExtractor.Configuration configuration) {
+    public TestConfig(String uri, FrameExtractor.Configuration configuration) {
       this.uri = uri;
       this.configuration = configuration;
     }
