@@ -1575,14 +1575,6 @@ public interface ExoPlayer extends Player {
   @UnstableApi
   void setAudioSessionId(int audioSessionId);
 
-  /**
-   * Returns the audio session identifier, or {@link C#AUDIO_SESSION_ID_UNSET} if not set.
-   *
-   * @see Listener#onAudioSessionIdChanged(int)
-   */
-  @UnstableApi
-  int getAudioSessionId();
-
   /** Sets information on an auxiliary audio effect to attach to the underlying audio track. */
   @UnstableApi
   void setAuxEffectInfo(AuxEffectInfo auxEffectInfo);
