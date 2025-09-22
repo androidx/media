@@ -720,48 +720,6 @@ public final class MediaItemExportTest {
   }
 
   @Test
-  @Ignore("TODO: b/430251254 - Move this test to instrumental to make it work with InAppMp4Muxer")
-  public void start_withMultipleListeners_callsEachOnFallback() throws Exception {
-    shadowMediaCodecConfig.addEncoders(CODEC_INFO_AAC);
-    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ false);
-    ArgumentCaptor<Composition> compositionArgumentCaptor =
-        ArgumentCaptor.forClass(Composition.class);
-    Transformer.Listener mockListener1 = mock(Transformer.Listener.class);
-    Transformer.Listener mockListener2 = mock(Transformer.Listener.class);
-    Transformer.Listener mockListener3 = mock(Transformer.Listener.class);
-    TransformationRequest originalTransformationRequest =
-        new TransformationRequest.Builder().build();
-    TransformationRequest fallbackTransformationRequest =
-        new TransformationRequest.Builder().setAudioMimeType(MimeTypes.AUDIO_AAC).build();
-    Transformer transformer =
-        new TestTransformerBuilder(context)
-            .setMuxerFactory(muxerFactory)
-            .setFallbackEnabled(true)
-            .addListener(mockListener1)
-            .addListener(mockListener2)
-            .addListener(mockListener3)
-            .build();
-
-    // No RAW encoder/muxer support, so fallback.
-    transformer.start(
-        MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW), outputDir.newFile().getPath());
-    TransformerTestRunner.runLooper(transformer);
-
-    verify(mockListener1)
-        .onFallbackApplied(
-            compositionArgumentCaptor.capture(),
-            eq(originalTransformationRequest),
-            eq(fallbackTransformationRequest));
-    Composition composition = compositionArgumentCaptor.getValue();
-    verify(mockListener2)
-        .onFallbackApplied(
-            composition, originalTransformationRequest, fallbackTransformationRequest);
-    verify(mockListener3)
-        .onFallbackApplied(
-            composition, originalTransformationRequest, fallbackTransformationRequest);
-  }
-
-  @Test
   public void start_afterBuildUponWithListenerRemoved_onlyCallsRemainingListeners()
       throws Exception {
     CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ false);
@@ -866,79 +824,6 @@ public final class MediaItemExportTest {
     assertThat(exception).hasCauseThat().isInstanceOf(IllegalArgumentException.class);
     assertThat(exception.errorCode)
         .isEqualTo(ExportException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED);
-  }
-
-  @Test
-  @Ignore(
-      "TODO: b/430251254 - InAppMp4Muxer supports RAW audio so fallback is not applied. Move this"
-          + " test to instrumental to enable transcoding of an unsupported format.")
-  public void
-      start_withAudioFormatUnsupportedByMuxer_ignoresDisabledFallbackAndCompletesSuccessfully()
-          throws Exception {
-    // RAW supported by encoder, unsupported by muxer.
-    // AAC supported by encoder and muxer.
-    shadowMediaCodecConfig.addEncoders(CODEC_INFO_RAW, CODEC_INFO_AAC);
-
-    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
-    Transformer.Listener mockListener = mock(Transformer.Listener.class);
-    TransformationRequest originalTransformationRequest =
-        new TransformationRequest.Builder().build();
-    TransformationRequest fallbackTransformationRequest =
-        new TransformationRequest.Builder().setAudioMimeType(MimeTypes.AUDIO_AAC).build();
-    // MIME type fallback is mandatory.
-    Transformer transformer =
-        new TestTransformerBuilder(context)
-            .setMuxerFactory(muxerFactory)
-            .addListener(mockListener)
-            .build();
-    MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW);
-
-    transformer.start(mediaItem, outputDir.newFile().getPath());
-    TransformerTestRunner.runLooper(transformer);
-
-    DumpFileAsserts.assertOutput(
-        context, muxerFactory.getCreatedMuxer(), getDumpFileName(FILE_AUDIO_RAW));
-    verify(mockListener)
-        .onFallbackApplied(
-            any(Composition.class),
-            eq(originalTransformationRequest),
-            eq(fallbackTransformationRequest));
-  }
-
-  @Test
-  @Ignore(
-      "TODO: b/430251254 - InAppMp4Muxer supports RAW audio so fallback is not applied. Move this"
-          + " test to instrumental to enable transcoding of an unsupported format.")
-  public void start_withAudioFormatUnsupportedByMuxer_fallsBackAndCompletesSuccessfully()
-      throws Exception {
-    // RAW supported by encoder, unsupported by muxer.
-    // AAC supported by encoder and muxer.
-    shadowMediaCodecConfig.addEncoders(CODEC_INFO_RAW, CODEC_INFO_AAC);
-
-    CapturingMuxer.Factory muxerFactory = new CapturingMuxer.Factory(/* handleAudioAsPcm= */ true);
-    Transformer.Listener mockListener = mock(Transformer.Listener.class);
-    TransformationRequest originalTransformationRequest =
-        new TransformationRequest.Builder().build();
-    TransformationRequest fallbackTransformationRequest =
-        new TransformationRequest.Builder().setAudioMimeType(MimeTypes.AUDIO_AAC).build();
-    Transformer transformer =
-        new TestTransformerBuilder(context)
-            .setMuxerFactory(muxerFactory)
-            .setFallbackEnabled(true)
-            .addListener(mockListener)
-            .build();
-    MediaItem mediaItem = MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW);
-
-    transformer.start(mediaItem, outputDir.newFile().getPath());
-    TransformerTestRunner.runLooper(transformer);
-
-    DumpFileAsserts.assertOutput(
-        context, muxerFactory.getCreatedMuxer(), getDumpFileName(FILE_AUDIO_RAW));
-    verify(mockListener)
-        .onFallbackApplied(
-            any(Composition.class),
-            eq(originalTransformationRequest),
-            eq(fallbackTransformationRequest));
   }
 
   @Test

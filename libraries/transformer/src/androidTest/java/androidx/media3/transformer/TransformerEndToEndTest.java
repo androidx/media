@@ -109,6 +109,7 @@ import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
 import androidx.media3.test.utils.FakeExtractorOutput;
 import androidx.media3.test.utils.FakeTrackOutput;
 import androidx.media3.test.utils.TestSpeedProvider;
+import androidx.media3.test.utils.TestTransformerBuilder;
 import androidx.media3.test.utils.TestUtil;
 import androidx.media3.transformer.AssetLoader.CompositionSettings;
 import androidx.test.core.app.ApplicationProvider;
@@ -121,6 +122,7 @@ import java.nio.ByteBuffer;
 import java.nio.ShortBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.Before;
@@ -2592,6 +2594,110 @@ public class TransformerEndToEndTest {
     videoTrack.assertSampleCount(
         MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_GAMMA22_1S.videoFrameCount);
     // TODO: b/442367126 - Assert that the output video color space is SDR BT.709.
+  }
+
+  @Test
+  public void exportMp3File_withFallbackNotEnabled_ignoresDisabledFallbackAndFallbacksToAac()
+      throws Exception {
+    Composition inputComposition =
+        new Composition.Builder(
+                new EditedMediaItemSequence.Builder(
+                        new EditedMediaItem.Builder(
+                                new MediaItem.Builder().setUri(MP3_ASSET.uri).build())
+                            .build())
+                    .build())
+            .build();
+    TransformationRequest originalRequest = new TransformationRequest.Builder().build();
+    TransformationRequest fallbackRequest =
+        new TransformationRequest.Builder().setAudioMimeType(MimeTypes.AUDIO_AAC).build();
+    AtomicBoolean listenerCalled = new AtomicBoolean();
+    Transformer.Listener listener =
+        new Transformer.Listener() {
+          @Override
+          public void onFallbackApplied(
+              Composition composition,
+              TransformationRequest originalTransformationRequest,
+              TransformationRequest fallbackTransformationRequest) {
+            if (composition.equals(inputComposition)
+                && originalTransformationRequest.equals(originalRequest)
+                && fallbackTransformationRequest.equals(fallbackRequest)) {
+              listenerCalled.set(true);
+            }
+          }
+        };
+    Transformer transformer = new TestTransformerBuilder(context).addListener(listener).build();
+
+    // Muxer does not support MP3 format, so fallback.
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, inputComposition);
+
+    assertThat(result.exportResult.audioMimeType).isEqualTo(MimeTypes.AUDIO_AAC);
+    assertThat(listenerCalled.get()).isTrue();
+  }
+
+  @Test
+  public void
+      exportMp3File_withFallbackEnabledAndWithMultipleListeners_fallbacksToAacAndCallsEachOnFallback()
+          throws Exception {
+    Composition inputComposition =
+        new Composition.Builder(
+                new EditedMediaItemSequence.Builder(
+                        new EditedMediaItem.Builder(
+                                new MediaItem.Builder().setUri(MP3_ASSET.uri).build())
+                            .build())
+                    .build())
+            .build();
+    TransformationRequest originalRequest = new TransformationRequest.Builder().build();
+    TransformationRequest fallbackRequest =
+        new TransformationRequest.Builder().setAudioMimeType(MimeTypes.AUDIO_AAC).build();
+    AtomicBoolean listener1Called = new AtomicBoolean();
+    Transformer.Listener listener1 =
+        new Transformer.Listener() {
+          @Override
+          public void onFallbackApplied(
+              Composition composition,
+              TransformationRequest originalTransformationRequest,
+              TransformationRequest fallbackTransformationRequest) {
+            if (composition.equals(inputComposition)
+                && originalTransformationRequest.equals(originalRequest)
+                && fallbackTransformationRequest.equals(fallbackRequest)) {
+              listener1Called.set(true);
+            }
+          }
+        };
+    AtomicBoolean listener2Called = new AtomicBoolean();
+    Transformer.Listener listener2 =
+        new Transformer.Listener() {
+          @Override
+          public void onFallbackApplied(
+              Composition composition,
+              TransformationRequest originalTransformationRequest,
+              TransformationRequest fallbackTransformationRequest) {
+            if (composition.equals(inputComposition)
+                && originalTransformationRequest.equals(originalRequest)
+                && fallbackTransformationRequest.equals(fallbackRequest)) {
+              listener2Called.set(true);
+            }
+          }
+        };
+    Transformer transformer =
+        new TestTransformerBuilder(context)
+            .setFallbackEnabled(true)
+            .addListener(listener1)
+            .addListener(listener2)
+            .build();
+
+    // Muxer does not support MP3 format, so fallback.
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, inputComposition);
+
+    assertThat(result.exportResult.audioMimeType).isEqualTo(MimeTypes.AUDIO_AAC);
+    assertThat(listener1Called.get()).isTrue();
+    assertThat(listener2Called.get()).isTrue();
   }
 
   private static boolean shouldSkipDeviceForAacObjectHeProfileEncoding() {
