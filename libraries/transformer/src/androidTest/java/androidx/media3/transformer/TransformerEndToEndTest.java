@@ -109,7 +109,6 @@ import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
 import androidx.media3.test.utils.FakeExtractorOutput;
 import androidx.media3.test.utils.FakeTrackOutput;
 import androidx.media3.test.utils.TestSpeedProvider;
-import androidx.media3.test.utils.TestTransformerBuilder;
 import androidx.media3.test.utils.TestUtil;
 import androidx.media3.transformer.AssetLoader.CompositionSettings;
 import androidx.test.core.app.ApplicationProvider;
@@ -2625,7 +2624,7 @@ public class TransformerEndToEndTest {
             }
           }
         };
-    Transformer transformer = new TestTransformerBuilder(context).addListener(listener).build();
+    Transformer transformer = new Transformer.Builder(context).addListener(listener).build();
 
     // Muxer does not support MP3 format, so fallback.
     ExportTestResult result =
@@ -2683,8 +2682,9 @@ public class TransformerEndToEndTest {
           }
         };
     Transformer transformer =
-        new TestTransformerBuilder(context)
-            .setFallbackEnabled(true)
+        new Transformer.Builder(context)
+            .setEncoderFactory(
+                new DefaultEncoderFactory.Builder(context).setEnableFallback(true).build())
             .addListener(listener1)
             .addListener(listener2)
             .build();
