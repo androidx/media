@@ -58,6 +58,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.After;
@@ -548,5 +549,38 @@ public class FrameExtractorTest {
 
     assertThat(frame.presentationTimeMs).isEqualTo(8_531);
     assertThat(glObjectsProviderUsedByEffects.get()).isEqualTo(customObjectsProvider);
+  }
+
+  @Test
+  public void extractFrame_onNonLooperThread_returnsFrame() throws Exception {
+    AtomicReference<Frame> frame = new AtomicReference<>();
+
+    Thread nonLooperThread =
+        new Thread(
+            () -> {
+              FrameExtractor frameExtractor =
+                  new FrameExtractor(context, new FrameExtractor.Configuration.Builder().build());
+              frameExtractor.setMediaItem(
+                  MediaItem.fromUri(FILE_PATH), /* effects= */ ImmutableList.of());
+              ListenableFuture<Frame> frameFuture =
+                  frameExtractor.getFrame(/* positionMs= */ 8_500);
+              try {
+                frame.set(frameFuture.get(TIMEOUT_SECONDS, SECONDS));
+              } catch (InterruptedException | ExecutionException | TimeoutException e) {
+                throw new IllegalStateException(e);
+              }
+              frameExtractor.release();
+            });
+    nonLooperThread.start();
+    nonLooperThread.join();
+
+    Bitmap actualBitmap = frame.get().bitmap;
+    Bitmap expectedBitmap =
+        readBitmap(
+            /* assetString= */ GOLDEN_ASSET_FOLDER_PATH
+                + "sample_with_increasing_timestamps_360p_8.531.png");
+    maybeSaveTestBitmap(testId, /* bitmapLabel= */ "actual", actualBitmap, /* path= */ null);
+    assertThat(frame.get().presentationTimeMs).isEqualTo(8_531);
+    assertBitmapsAreSimilar(expectedBitmap, actualBitmap, PSNR_THRESHOLD);
   }
 }
