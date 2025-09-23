@@ -287,7 +287,6 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     released = true;
     connectedToken = null;
     fallbackPlaybackInfoUpdateHandler.removeCallbacksAndMessages(null);
-    clearSurfacesAndCallbacks();
     flushCommandQueueHandler.release();
     this.iSession = null;
     if (iSession != null) {
@@ -1937,8 +1936,9 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     }
 
     clearSurfacesAndCallbacks();
-    setVideoSurfaceWithSize(/* surface= */ null, /* width= */ 0, /* height= */ 0);
-    onSurfaceSizeChanged(/* width= */ 0, /* height= */ 0);
+    dispatchRemoteSessionTaskWithPlayerCommandAndWaitForFuture(
+        (iSession, seq) -> iSession.setVideoSurface(controllerStub, seq, /* surface= */ null));
+    maybeNotifySurfaceSizeChanged(/* width= */ 0, /* height= */ 0);
   }
 
   @Override
@@ -1961,9 +1961,10 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 
     clearSurfacesAndCallbacks();
     videoSurface = surface;
+    dispatchRemoteSessionTaskWithPlayerCommandAndWaitForFuture(
+        (iSession, seq) -> iSession.setVideoSurface(controllerStub, seq, surface));
     int newSurfaceSize = surface == null ? 0 : C.LENGTH_UNSET;
-    setVideoSurfaceWithSize(surface, newSurfaceSize, newSurfaceSize);
-    onSurfaceSizeChanged(/* width= */ newSurfaceSize, /* height= */ newSurfaceSize);
+    maybeNotifySurfaceSizeChanged(/* width= */ newSurfaceSize, /* height= */ newSurfaceSize);
   }
 
   @Override
@@ -1987,13 +1988,15 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     @Nullable Surface surface = surfaceHolder.getSurface();
     if (surface != null && surface.isValid()) {
       videoSurface = surface;
+      dispatchRemoteSessionTaskWithPlayerCommandAndWaitForFuture(
+          (iSession, seq) -> iSession.setVideoSurface(controllerStub, seq, surface));
       Rect surfaceSize = surfaceHolder.getSurfaceFrame();
-      setVideoSurfaceWithSize(surface, surfaceSize.width(), surfaceSize.height());
-      onSurfaceSizeChanged(surfaceSize.width(), surfaceSize.height());
+      maybeNotifySurfaceSizeChanged(surfaceSize.width(), surfaceSize.height());
     } else {
       videoSurface = null;
-      setVideoSurfaceWithSize(/* surface= */ null, /* width= */ 0, /* height= */ 0);
-      onSurfaceSizeChanged(/* width= */ 0, /* height= */ 0);
+      dispatchRemoteSessionTaskWithPlayerCommandAndWaitForFuture(
+          (iSession, seq) -> iSession.setVideoSurface(controllerStub, seq, /* surface= */ null));
+      maybeNotifySurfaceSizeChanged(/* width= */ 0, /* height= */ 0);
     }
   }
 
@@ -2050,12 +2053,14 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 
     @Nullable SurfaceTexture surfaceTexture = textureView.getSurfaceTexture();
     if (surfaceTexture == null) {
-      setVideoSurfaceWithSize(/* surface= */ null, /* width= */ 0, /* height= */ 0);
-      onSurfaceSizeChanged(/* width= */ 0, /* height= */ 0);
+      dispatchRemoteSessionTaskWithPlayerCommandAndWaitForFuture(
+          (iSession, seq) -> iSession.setVideoSurface(controllerStub, seq, /* surface= */ null));
+      maybeNotifySurfaceSizeChanged(/* width= */ 0, /* height= */ 0);
     } else {
       videoSurface = new Surface(surfaceTexture);
-      setVideoSurfaceWithSize(videoSurface, textureView.getWidth(), textureView.getHeight());
-      onSurfaceSizeChanged(textureView.getWidth(), textureView.getHeight());
+      dispatchRemoteSessionTaskWithPlayerCommandAndWaitForFuture(
+          (iSession, seq) -> iSession.setVideoSurface(controllerStub, seq, videoSurface));
+      maybeNotifySurfaceSizeChanged(textureView.getWidth(), textureView.getHeight());
     }
   }
 
@@ -2069,20 +2074,6 @@ import org.checkerframework.checker.nullness.qual.NonNull;
       return;
     }
     clearVideoSurface();
-  }
-
-  private void setVideoSurfaceWithSize(@Nullable Surface surface, int width, int height) {
-    if (!isConnected()) {
-      return;
-    }
-    if (checkNotNull(connectedToken).getInterfaceVersion() >= 8) {
-      dispatchRemoteSessionTaskWithPlayerCommandAndWaitForFuture(
-          (iSession, seq) ->
-              iSession.setVideoSurfaceWithSize(controllerStub, seq, surface, width, height));
-    } else {
-      dispatchRemoteSessionTaskWithPlayerCommandAndWaitForFuture(
-          (iSession, seq) -> iSession.setVideoSurface(controllerStub, seq, surface));
-    }
   }
 
   @Override
@@ -2697,6 +2688,15 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     }
   }
 
+  private void maybeNotifySurfaceSizeChanged(int width, int height) {
+    if (surfaceSize.getWidth() != width || surfaceSize.getHeight() != height) {
+      surfaceSize = new Size(width, height);
+      listeners.sendEvent(
+          /* eventFlag= */ Player.EVENT_SURFACE_SIZE_CHANGED,
+          listener -> listener.onSurfaceSizeChanged(width, height));
+    }
+  }
+
   /** Returns session interface if the controller can send the predefined command. */
   @Nullable
   IMediaSession getSessionInterfaceWithSessionCommandIfAble(
@@ -3221,15 +3221,6 @@ import org.checkerframework.checker.nullness.qual.NonNull;
         .notifyControllerListener(listener -> listener.onError(getInstance(), sessionError));
   }
 
-  public void onSurfaceSizeChanged(int width, int height) {
-    if (surfaceSize.getWidth() != width || surfaceSize.getHeight() != height) {
-      surfaceSize = new Size(width, height);
-      listeners.sendEvent(
-          /* eventFlag= */ Player.EVENT_SURFACE_SIZE_CHANGED,
-          listener -> listener.onSurfaceSizeChanged(width, height));
-    }
-  }
-
   public void onRenderedFirstFrame() {
     listeners.sendEvent(
         /* eventFlag= */ Player.EVENT_RENDERED_FIRST_FRAME, Listener::onRenderedFirstFrame);
@@ -3686,21 +3677,18 @@ import org.checkerframework.checker.nullness.qual.NonNull;
         return;
       }
       videoSurface = holder.getSurface();
+      dispatchRemoteSessionTaskWithPlayerCommandAndWaitForFuture(
+          (iSession, seq) -> iSession.setVideoSurface(controllerStub, seq, videoSurface));
       Rect surfaceSize = holder.getSurfaceFrame();
-      setVideoSurfaceWithSize(videoSurface, surfaceSize.width(), surfaceSize.height());
-      onSurfaceSizeChanged(surfaceSize.width(), surfaceSize.height());
+      maybeNotifySurfaceSizeChanged(surfaceSize.width(), surfaceSize.height());
     }
 
     @Override
     public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
-      if (videoSurfaceHolder != holder || !isConnected()) {
+      if (videoSurfaceHolder != holder) {
         return;
       }
-      if (checkNotNull(connectedToken).getInterfaceVersion() >= 8) {
-        dispatchRemoteSessionTaskWithPlayerCommandAndWaitForFuture(
-            (iSession, seq) -> iSession.onSurfaceSizeChanged(controllerStub, seq, width, height));
-      }
-      onSurfaceSizeChanged(width, height);
+      maybeNotifySurfaceSizeChanged(width, height);
     }
 
     @Override
@@ -3709,8 +3697,9 @@ import org.checkerframework.checker.nullness.qual.NonNull;
         return;
       }
       videoSurface = null;
-      setVideoSurfaceWithSize(/* surface= */ null, /* width= */ 0, /* height= */ 0);
-      onSurfaceSizeChanged(/* width= */ 0, /* height= */ 0);
+      dispatchRemoteSessionTaskWithPlayerCommandAndWaitForFuture(
+          (iSession, seq) -> iSession.setVideoSurface(controllerStub, seq, /* surface= */ null));
+      maybeNotifySurfaceSizeChanged(/* width= */ 0, /* height= */ 0);
     }
 
     // TextureView.SurfaceTextureListener implementation
@@ -3721,22 +3710,17 @@ import org.checkerframework.checker.nullness.qual.NonNull;
         return;
       }
       videoSurface = new Surface(surfaceTexture);
-      setVideoSurfaceWithSize(videoSurface, width, height);
-      onSurfaceSizeChanged(width, height);
+      dispatchRemoteSessionTaskWithPlayerCommandAndWaitForFuture(
+          (iSession, seq) -> iSession.setVideoSurface(controllerStub, seq, videoSurface));
+      maybeNotifySurfaceSizeChanged(width, height);
     }
 
     @Override
     public void onSurfaceTextureSizeChanged(SurfaceTexture surfaceTexture, int width, int height) {
-      if (videoTextureView == null
-          || videoTextureView.getSurfaceTexture() != surfaceTexture
-          || !isConnected()) {
+      if (videoTextureView == null || videoTextureView.getSurfaceTexture() != surfaceTexture) {
         return;
       }
-      if (checkNotNull(connectedToken).getInterfaceVersion() >= 8) {
-        dispatchRemoteSessionTaskWithPlayerCommandAndWaitForFuture(
-            (iSession, seq) -> iSession.onSurfaceSizeChanged(controllerStub, seq, width, height));
-      }
-      onSurfaceSizeChanged(width, height);
+      maybeNotifySurfaceSizeChanged(width, height);
     }
 
     @Override
@@ -3745,8 +3729,9 @@ import org.checkerframework.checker.nullness.qual.NonNull;
         return true;
       }
       videoSurface = null;
-      setVideoSurfaceWithSize(/* surface= */ null, /* width= */ 0, /* height= */ 0);
-      onSurfaceSizeChanged(/* width= */ 0, /* height= */ 0);
+      dispatchRemoteSessionTaskWithPlayerCommandAndWaitForFuture(
+          (iSession, seq) -> iSession.setVideoSurface(controllerStub, seq, /* surface= */ null));
+      maybeNotifySurfaceSizeChanged(/* width= */ 0, /* height= */ 0);
       return true;
     }
 

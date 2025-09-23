@@ -325,11 +325,6 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   }
 
   @Override
-  public void onSurfaceSizeChanged(int seq, int width, int height) {
-    dispatchControllerTaskOnHandler(controller -> controller.onSurfaceSizeChanged(width, height));
-  }
-
-  @Override
   public void onRenderedFirstFrame(int seq) {
     dispatchControllerTaskOnHandler(MediaControllerImplBase::onRenderedFirstFrame);
   }

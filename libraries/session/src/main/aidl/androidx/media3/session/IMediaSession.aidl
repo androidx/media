@@ -122,8 +122,6 @@ oneway interface IMediaSession {
   void seekToPreviousMediaItem(IMediaController caller, int seq) = 3041;
   void seekToNextMediaItem(IMediaController caller, int seq) = 3042;
   void setVideoSurface(IMediaController caller, int seq, in Surface surface) = 3043;
-  void setVideoSurfaceWithSize(IMediaController caller, int seq, in Surface surface, int width, int height) = 3060;
-  void onSurfaceSizeChanged(IMediaController caller, int seq, int width, int height) = 3061;
   void flushCommandQueue(IMediaController caller) = 3044;
   void seekToPrevious(IMediaController caller, int seq) = 3045;
   void seekToNext(IMediaController caller, int seq) = 3046;
@@ -133,7 +131,7 @@ oneway interface IMediaSession {
        IMediaController caller, int seq, String mediaId, in Bundle rating) = 3048;
   void setRating(IMediaController caller, int seq, in Bundle rating) = 3049;
   // LINT.IfChange
-  // Next Id for MediaSession: 3062
+  // Next Id for MediaSession: 3060
   // LINT.ThenChange(../../../../java/androidx/media3/session/MediaSessionStub.java:version_int)
 
   void getLibraryRoot(IMediaController caller, int seq, in Bundle libraryParams) = 4000;

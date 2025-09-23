@@ -2056,21 +2056,6 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     }
 
     @Override
-    public void onSurfaceSizeChanged(int width, int height) {
-      @Nullable MediaSessionImpl session = getSession();
-      if (session == null) {
-        return;
-      }
-      session.verifyApplicationThread();
-      @Nullable PlayerWrapper player = this.player.get();
-      if (player == null) {
-        return;
-      }
-      session.dispatchRemoteControllerTaskWithoutReturn(
-          (controller, seq) -> controller.onSurfaceSizeChanged(seq, width, height));
-    }
-
-    @Override
     public void onRenderedFirstFrame() {
       @Nullable MediaSessionImpl session = getSession();
       if (session == null) {

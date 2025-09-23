@@ -197,9 +197,6 @@
     *   Implemented `onAudioSessionIdChanged` to notify media controllers when
         an audio session ID is set by the session
         ([#244](https://github.com/androidx/media/issues/244)).
-    *   Fix a bug where Surface size was not communicated between the session
-        and the controller, resulting in the failure to apply video effects in
-        demo-session.
 *   UI:
     *   Add `ProgressStateWithTickInterval` class and the corresponding
         `rememberProgressStateWithTickInterval` Composable to

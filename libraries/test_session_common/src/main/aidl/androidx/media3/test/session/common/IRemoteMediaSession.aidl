@@ -73,7 +73,6 @@ interface IRemoteMediaSession {
   void notifyVideoSizeChanged(String sessionId, in Bundle videoSize);
   void notifyAvailableCommandsChanged(String sessionId, in Bundle commandsBundle);
   boolean surfaceExists(String sessionId);
-  Bundle getSurfaceSize(String sessionId);
 
   void setTimeline(String sessionId, in Bundle timeline);
   void createAndSetFakeTimeline(String sessionId, int windowCount);
