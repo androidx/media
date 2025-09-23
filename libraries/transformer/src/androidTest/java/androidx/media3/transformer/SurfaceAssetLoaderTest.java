@@ -92,7 +92,7 @@ public class SurfaceAssetLoaderTest {
         new EditedMediaItem.Builder(
                 MediaItem.fromUri(SurfaceAssetLoader.MEDIA_ITEM_URI_SCHEME + ":"))
             .build();
-    ListenableFuture<ExportResult> exportCompletionFuture =
+    ListenableFuture<ExportTestResult> exportCompletionFuture =
         new TransformerAndroidTestRunner.Builder(context, transformer)
             .build()
             .runAsync(testId, editedMediaItem);
@@ -129,7 +129,7 @@ public class SurfaceAssetLoaderTest {
     }
     surfaceAssetLoader.signalEndOfInput();
 
-    ExportResult exportResult = exportCompletionFuture.get();
+    ExportResult exportResult = exportCompletionFuture.get().exportResult;
     assertThat(exportResult.videoFrameCount).isEqualTo(inputFrameCount);
     assertThat(exportResult.width).isEqualTo(bitmap.getWidth());
     assertThat(exportResult.height).isEqualTo(bitmap.getHeight());
@@ -164,7 +164,7 @@ public class SurfaceAssetLoaderTest {
         new EditedMediaItem.Builder(
                 MediaItem.fromUri(SurfaceAssetLoader.MEDIA_ITEM_URI_SCHEME + ":"))
             .build();
-    ListenableFuture<ExportResult> exportCompletionFuture =
+    ListenableFuture<ExportTestResult> exportCompletionFuture =
         new TransformerAndroidTestRunner.Builder(context, transformer)
             .build()
             .runAsync(testId, editedMediaItem);
@@ -203,7 +203,7 @@ public class SurfaceAssetLoaderTest {
     }
     surfaceAssetLoader.signalEndOfInput();
 
-    ExportResult exportResult = exportCompletionFuture.get();
+    ExportResult exportResult = exportCompletionFuture.get().exportResult;
     assertThat(exportResult.videoFrameCount).isEqualTo(inputFrameCount);
     assertThat(exportResult.width).isEqualTo(bitmap.getWidth());
     assertThat(exportResult.height).isEqualTo(bitmap.getHeight());

@@ -92,7 +92,7 @@ public class RawAssetLoaderAndroidTest {
         new EditedMediaItem.Builder(MediaItem.fromUri(Uri.EMPTY))
             .setDurationUs(mediaDurationUs)
             .build();
-    ListenableFuture<ExportResult> exportCompletionFuture =
+    ListenableFuture<ExportTestResult> exportCompletionFuture =
         new TransformerAndroidTestRunner.Builder(context, transformer)
             .build()
             .runAsync(testId, editedMediaItem);
@@ -100,7 +100,7 @@ public class RawAssetLoaderAndroidTest {
     RawAssetLoader rawAssetLoader = rawAssetLoaderFuture.get();
     feedRawAudioDataToAssetLoader(rawAssetLoader, AUDIO_FORMAT, mediaDurationUs);
 
-    ExportResult exportResult = exportCompletionFuture.get();
+    ExportResult exportResult = exportCompletionFuture.get().exportResult;
     // TODO: b/443998866 - Use MetadataRetriever to get exact duration.
     // The durationMs is the timestamp of the last sample and not the total duration.
     // Audio encoders on different API versions seems to output slightly different durations, so add
@@ -122,7 +122,7 @@ public class RawAssetLoaderAndroidTest {
             .build();
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(MediaItem.fromUri(Uri.EMPTY)).build();
-    ListenableFuture<ExportResult> exportCompletionFuture =
+    ListenableFuture<ExportTestResult> exportCompletionFuture =
         new TransformerAndroidTestRunner.Builder(context, transformer)
             .build()
             .runAsync(testId, editedMediaItem);
@@ -131,7 +131,7 @@ public class RawAssetLoaderAndroidTest {
     feedRawAudioDataToAssetLoader(
         rawAssetLoader, AUDIO_FORMAT, /* durationUs= */ C.MICROS_PER_SECOND);
 
-    ExportResult exportResult = exportCompletionFuture.get();
+    ExportResult exportResult = exportCompletionFuture.get().exportResult;
     // TODO: b/443998866 - Use MetadataRetriever to get exact duration.
     // The durationMs is the timestamp of the last sample and not the total duration.
     // Audio encoders on different API versions seems to output slightly different durations, so add
@@ -162,7 +162,7 @@ public class RawAssetLoaderAndroidTest {
         new EditedMediaItem.Builder(MediaItem.fromUri(Uri.EMPTY))
             .setDurationUs(mediaDurationUs)
             .build();
-    ListenableFuture<ExportResult> exportCompletionFuture =
+    ListenableFuture<ExportTestResult> exportCompletionFuture =
         new TransformerAndroidTestRunner.Builder(context, transformer)
             .build()
             .runAsync(testId, editedMediaItem);
@@ -175,7 +175,7 @@ public class RawAssetLoaderAndroidTest {
     while (!rawAssetLoader.queueInputTexture(secondTextureId, lastSampleTimestampUs)) {}
     rawAssetLoader.signalEndOfVideoInput();
 
-    ExportResult exportResult = exportCompletionFuture.get();
+    ExportResult exportResult = exportCompletionFuture.get().exportResult;
     assertThat(exportResult.videoFrameCount).isEqualTo(2);
     // TODO: b/443998866 - Use MetadataRetriever to get exact duration.
     // The durationMs is the timestamp of the last sample and not the total duration.
@@ -208,7 +208,7 @@ public class RawAssetLoaderAndroidTest {
             .setDurationUs(mediaDurationUs)
             .setEffects(new Effects(/* audioProcessors= */ ImmutableList.of(), videoEffects))
             .build();
-    ListenableFuture<ExportResult> exportCompletionFuture =
+    ListenableFuture<ExportTestResult> exportCompletionFuture =
         new TransformerAndroidTestRunner.Builder(context, transformer)
             .build()
             .runAsync(testId, editedMediaItem);
@@ -221,7 +221,7 @@ public class RawAssetLoaderAndroidTest {
     while (!rawAssetLoader.queueInputTexture(secondTextureId, lastSampleTimestampUs)) {}
     rawAssetLoader.signalEndOfVideoInput();
 
-    ExportResult exportResult = exportCompletionFuture.get();
+    ExportResult exportResult = exportCompletionFuture.get().exportResult;
     assertThat(exportResult.videoFrameCount).isEqualTo(2);
     // TODO: b/443998866 - Use MetadataRetriever to get exact duration.
     // The durationMs is the timestamp of the last sample and not the total duration.
@@ -252,7 +252,7 @@ public class RawAssetLoaderAndroidTest {
         new EditedMediaItem.Builder(MediaItem.fromUri(Uri.EMPTY))
             .setDurationUs(mediaDurationUs)
             .build();
-    ListenableFuture<ExportResult> exportCompletionFuture =
+    ListenableFuture<ExportTestResult> exportCompletionFuture =
         new TransformerAndroidTestRunner.Builder(context, transformer)
             .build()
             .runAsync(testId, editedMediaItem);
@@ -272,7 +272,7 @@ public class RawAssetLoaderAndroidTest {
         secondTextureId, /* presentationTimeUs= */ mediaDurationUs / 2)) {}
     rawAssetLoader.signalEndOfVideoInput();
 
-    ExportResult exportResult = exportCompletionFuture.get();
+    ExportResult exportResult = exportCompletionFuture.get().exportResult;
     assertThat(exportResult.videoFrameCount).isEqualTo(2);
     // TODO: b/443998866 - Use MetadataRetriever to get exact duration.
     // The durationMs is the timestamp of the last sample and not the total duration.
