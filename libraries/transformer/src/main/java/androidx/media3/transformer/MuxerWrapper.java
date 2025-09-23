@@ -53,6 +53,7 @@ import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
@@ -161,6 +162,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private boolean muxedPartialVideo;
   private boolean muxedPartialAudio;
   private long firstVideoPresentationTimeUs;
+  private long encoderDelayTimestampOffsetUs;
 
   private volatile int additionalRotationDegrees;
   private volatile int trackCount;
@@ -467,6 +469,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     ensureMuxerInitialized();
     TrackInfo trackInfo = new TrackInfo(format, muxer.addTrack(format));
+    if (trackType == C.TRACK_TYPE_AUDIO) {
+      maybeCalculateEncoderDelayTimestampOffset(format);
+    }
     trackTypeToInfo.put(trackType, trackInfo);
     DebugTraceUtil.logEvent(
         COMPONENT_MUXER,
@@ -543,6 +548,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         listener.onSampleWrittenOrDropped();
         return true;
       }
+      presentationTimeUs = presentationTimeUs - encoderDelayTimestampOffsetUs;
     }
     if (!canWriteSample) {
       return false;
@@ -680,6 +686,17 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         }
         throw e;
       }
+    }
+  }
+
+  private void maybeCalculateEncoderDelayTimestampOffset(Format audioFormat) {
+    if (audioFormat.encoderDelay > 0) {
+      encoderDelayTimestampOffsetUs =
+          Util.scaleLargeValue(
+              audioFormat.encoderDelay,
+              C.MICROS_PER_SECOND,
+              audioFormat.sampleRate,
+              RoundingMode.FLOOR);
     }
   }
 
