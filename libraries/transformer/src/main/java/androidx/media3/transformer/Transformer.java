@@ -1045,7 +1045,7 @@ public final class Transformer {
               /* appendVideoFormat= */ null),
           componentListener,
           /* initialTimestampOffsetUs= */ 0,
-          /* useDefaultAssetLoaderFactory= */ false);
+          /* useDefaultAssetLoaderFactoryForRemuxing= */ false);
     }
   }
 
@@ -1374,7 +1374,7 @@ public final class Transformer {
             /* appendVideoFormat= */ null),
         componentListener,
         /* initialTimestampOffsetUs= */ 0,
-        /* useDefaultAssetLoaderFactory= */ false);
+        /* useDefaultAssetLoaderFactoryForRemuxing= */ false);
   }
 
   private void remuxProcessedVideo() {
@@ -1413,7 +1413,7 @@ public final class Transformer {
                 checkNotNull(remuxingMuxerWrapper),
                 componentListener,
                 /* initialTimestampOffsetUs= */ 0,
-                /* useDefaultAssetLoaderFactory= */ true);
+                /* useDefaultAssetLoaderFactoryForRemuxing= */ true);
           }
 
           @Override
@@ -1442,7 +1442,7 @@ public final class Transformer {
         remuxingMuxerWrapper,
         componentListener,
         /* initialTimestampOffsetUs= */ checkNotNull(resumeMetadata).lastSyncSampleTimestampUs,
-        /* useDefaultAssetLoaderFactory= */ false);
+        /* useDefaultAssetLoaderFactoryForRemuxing= */ false);
   }
 
   private void processAudio() {
@@ -1463,7 +1463,7 @@ public final class Transformer {
         muxerWrapper,
         componentListener,
         /* initialTimestampOffsetUs= */ 0,
-        /* useDefaultAssetLoaderFactory= */ false);
+        /* useDefaultAssetLoaderFactoryForRemuxing= */ false);
   }
 
   // TODO: b/308253384 - Move copy output logic into MuxerWrapper.
@@ -1613,7 +1613,7 @@ public final class Transformer {
                 checkNotNull(remuxingMuxerWrapper),
                 componentListener,
                 /* initialTimestampOffsetUs= */ 0,
-                /* useDefaultAssetLoaderFactory= */ false);
+                /* useDefaultAssetLoaderFactoryForRemuxing= */ false);
           }
 
           @Override
@@ -1648,7 +1648,7 @@ public final class Transformer {
         componentListener,
         /* initialTimestampOffsetUs= */ mediaItemInfo.firstSyncSampleTimestampUsAfterTimeUs
             - trimStartTimeUs,
-        /* useDefaultAssetLoaderFactory= */ false);
+        /* useDefaultAssetLoaderFactoryForRemuxing= */ false);
   }
 
   private boolean isMultiAsset() {
@@ -1671,7 +1671,7 @@ public final class Transformer {
       MuxerWrapper muxerWrapper,
       ComponentListener componentListener,
       long initialTimestampOffsetUs,
-      boolean useDefaultAssetLoaderFactory) {
+      boolean useDefaultAssetLoaderFactoryForRemuxing) {
     checkState(transformerInternal == null, "There is already an export in progress.");
     TransformationRequest transformationRequest = this.transformationRequest;
     if (composition.hdrMode != Composition.HDR_MODE_KEEP_HDR) {
@@ -1691,11 +1691,6 @@ public final class Transformer {
     FallbackListener fallbackListener =
         new FallbackListener(composition, listeners, applicationHandler, transformationRequest);
     AssetLoader.Factory assetLoaderFactory = this.assetLoaderFactory;
-    if (useDefaultAssetLoaderFactory || assetLoaderFactory == null) {
-      assetLoaderFactory =
-          new DefaultAssetLoaderFactory(
-              context, new DefaultDecoderFactory.Builder(context).build(), clock, logSessionId);
-    }
     DebugTraceUtil.reset();
     transformerInternal =
         new TransformerInternal(
@@ -1716,7 +1711,8 @@ public final class Transformer {
             clock,
             initialTimestampOffsetUs,
             logSessionId,
-            shouldApplyMp4EditListTrim());
+            shouldApplyMp4EditListTrim(),
+            useDefaultAssetLoaderFactoryForRemuxing);
     transformerInternal.start();
   }
 

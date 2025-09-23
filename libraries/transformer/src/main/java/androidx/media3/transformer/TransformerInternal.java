@@ -192,7 +192,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       Context context,
       Composition composition,
       TransformationRequest transformationRequest,
-      AssetLoader.Factory assetLoaderFactory,
+      @Nullable AssetLoader.Factory assetLoaderFactory,
       AudioMixer.Factory audioMixerFactory,
       VideoFrameProcessor.Factory videoFrameProcessorFactory,
       Codec.EncoderFactory encoderFactory,
@@ -206,7 +206,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       Clock clock,
       long videoSampleTimestampOffsetUs,
       @Nullable LogSessionId logSessionId,
-      boolean applyMp4EditListTrim) {
+      boolean applyMp4EditListTrim,
+      boolean useDefaultAssetLoaderFactory) {
     this.context = context;
     this.composition = composition;
     this.encoderFactory = new CapturingEncoderFactory(encoderFactory);
@@ -237,6 +238,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     Looper internalLooper = internalHandlerThread.getLooper();
     assetLoaderLock = new Object();
     assetLoaderInputTracker = new AssetLoaderInputTracker(composition);
+    if (useDefaultAssetLoaderFactory || assetLoaderFactory == null) {
+      assetLoaderFactory =
+          new DefaultAssetLoaderFactory(
+              context, new DefaultDecoderFactory.Builder(context).build(), clock, logSessionId);
+    }
     for (int i = 0; i < composition.sequences.size(); i++) {
       SequenceAssetLoaderListener sequenceAssetLoaderListener =
           new SequenceAssetLoaderListener(
