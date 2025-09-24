@@ -332,6 +332,7 @@ public final class FrameExtractor {
                     },
                 mediaSourceFactory)
             .setSeekParameters(configuration.seekParameters)
+            .experimentalSetDynamicSchedulingEnabled(true)
             .build();
     player.addAnalyticsListener(new PlayerListener());
     playerApplicationThreadHandler = new Handler(player.getApplicationLooper());
