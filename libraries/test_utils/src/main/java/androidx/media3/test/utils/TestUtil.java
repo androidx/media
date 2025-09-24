@@ -148,6 +148,15 @@ public class TestUtil {
     return source;
   }
 
+  /** Returns an array of random floats between {@code [-1; 1]} with the specified length. */
+  public static float[] buildFloatTestSamples(int length, Random random) {
+    float[] source = new float[length];
+    for (int i = 0; i < length; i++) {
+      source[i] = (random.nextFloat() * 2f) - 1f;
+    }
+    return source;
+  }
+
   /**
    * Generates a random string with the specified length.
    *

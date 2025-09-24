@@ -195,7 +195,8 @@ public final class SonicAudioProcessor implements AudioProcessor {
 
   @Override
   public AudioFormat configure(AudioFormat inputAudioFormat) throws UnhandledAudioFormatException {
-    if (inputAudioFormat.encoding != C.ENCODING_PCM_16BIT) {
+    if (inputAudioFormat.encoding != C.ENCODING_PCM_16BIT
+        && inputAudioFormat.encoding != C.ENCODING_PCM_FLOAT) {
       throw new UnhandledAudioFormatException(inputAudioFormat);
     }
     int outputSampleRateHz =
@@ -204,7 +205,8 @@ public final class SonicAudioProcessor implements AudioProcessor {
             : pendingOutputSampleRate;
     pendingInputAudioFormat = inputAudioFormat;
     pendingOutputAudioFormat =
-        new AudioFormat(outputSampleRateHz, inputAudioFormat.channelCount, C.ENCODING_PCM_16BIT);
+        new AudioFormat(
+            outputSampleRateHz, inputAudioFormat.channelCount, inputAudioFormat.encoding);
     pendingSonicRecreation = true;
     return pendingOutputAudioFormat;
   }
@@ -280,7 +282,8 @@ public final class SonicAudioProcessor implements AudioProcessor {
                 inputAudioFormat.channelCount,
                 speed,
                 pitch,
-                outputAudioFormat.sampleRate);
+                outputAudioFormat.sampleRate,
+                inputAudioFormat.encoding == C.ENCODING_PCM_FLOAT);
       } else if (sonic != null) {
         sonic.flush();
       }
