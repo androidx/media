@@ -22,7 +22,6 @@ import android.graphics.Bitmap
 import android.os.Build.VERSION.SDK_INT
 import android.os.Bundle
 import android.os.LocaleList
-import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -111,7 +110,6 @@ import androidx.core.app.ActivityCompat
 import androidx.media3.common.MimeTypes
 import androidx.media3.demo.composition.CompositionPreviewViewModel.Companion.COMPOSITION_LAYOUT
 import androidx.media3.demo.composition.CompositionPreviewViewModel.Companion.HDR_MODE_DESCRIPTIONS
-import androidx.media3.demo.composition.CompositionPreviewViewModel.Companion.LAYOUT_EXTRA
 import androidx.media3.demo.composition.CompositionPreviewViewModel.Companion.MUXER_OPTIONS
 import androidx.media3.demo.composition.CompositionPreviewViewModel.Companion.RESOLUTION_HEIGHTS
 import androidx.media3.demo.composition.CompositionPreviewViewModel.Companion.SAME_AS_INPUT_OPTION
@@ -154,10 +152,8 @@ class CompositionPreviewActivity : AppCompatActivity() {
       )
     }
 
-    val compositionLayout = intent.getStringExtra(LAYOUT_EXTRA) ?: COMPOSITION_LAYOUT[0]
-    Log.d(TAG, "Received layout of $compositionLayout")
     val viewModel: CompositionPreviewViewModel by viewModels {
-      CompositionPreviewViewModelFactory(application, compositionLayout)
+      CompositionPreviewViewModelFactory(application)
     }
 
     setContent {
@@ -227,6 +223,7 @@ class CompositionPreviewActivity : AppCompatActivity() {
     val isOverlayPlacementActive = placementState !is PlacementState.Inactive
 
     val scrollState = rememberScrollState()
+    var isLayoutDropdownExpanded by remember { mutableStateOf(false) }
 
     Column(modifier = modifier.fillMaxSize()) {
       Text(
@@ -295,6 +292,19 @@ class CompositionPreviewActivity : AppCompatActivity() {
         } else {
           OverlayEffectsList(viewModel = viewModel)
         }
+
+        DropDownSpinner(
+          isDropDownOpen = isLayoutDropdownExpanded,
+          selectedOption = viewModel.compositionLayout,
+          dropDownOptions = COMPOSITION_LAYOUT,
+          changeDropDownOpen = { isLayoutDropdownExpanded = it },
+          changeSelectedOption = { newSelection ->
+            viewModel.onCompositionLayoutChanged(newSelection)
+            isLayoutDropdownExpanded = false
+          },
+          modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        )
+
         Row(
           verticalAlignment = Alignment.CenterVertically,
           horizontalArrangement = Arrangement.SpaceBetween,

@@ -81,7 +81,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONException
 
-class CompositionPreviewViewModel(application: Application, val compositionLayout: String) :
+class CompositionPreviewViewModel(application: Application, initialCompositionLayout: String) :
   AndroidViewModel(application) {
   data class Item(
     val title: String,
@@ -96,6 +96,9 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
     private set
 
   var snackbarMessage by mutableStateOf<String?>(null)
+
+  var compositionLayout by mutableStateOf(initialCompositionLayout)
+    private set
 
   var compositionPlayer by mutableStateOf(createCompositionPlayer())
 
@@ -181,9 +184,14 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
 
   override fun onCleared() {
     super.onCleared()
-    releasePlayer()
+    releaseAndRecreatePlayer()
     cancelExport()
     exportStopwatch.reset()
+  }
+
+  fun onCompositionLayoutChanged(newLayout: String) {
+    compositionLayout = newLayout
+    previewComposition()
   }
 
   fun enableDebugTracing(enable: Boolean) {
@@ -303,7 +311,7 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
   }
 
   fun previewComposition() {
-    releasePlayer()
+    releaseAndRecreatePlayer()
     compositionPlayer.setComposition(prepareComposition())
     compositionPlayer.prepare()
     compositionPlayer.play()
@@ -591,7 +599,7 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
     return player
   }
 
-  private fun releasePlayer() {
+  private fun releaseAndRecreatePlayer() {
     compositionPlayer.stop()
     compositionPlayer.release()
     compositionPlayer = createCompositionPlayer()
@@ -626,7 +634,6 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
 
   companion object {
     const val SAME_AS_INPUT_OPTION = "same as input"
-    const val LAYOUT_EXTRA = "composition_layout"
     private const val TAG = "CompPreviewVM"
     private const val AUDIO_URI = "https://storage.googleapis.com/exoplayer-test-media-0/play.mp3"
     private const val DEFAULT_FRAME_RATE_FPS = 30
@@ -657,16 +664,15 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
   }
 }
 
-class CompositionPreviewViewModelFactory(
-  private val application: Application,
-  private val compositionLayout: String,
-) : ViewModelProvider.Factory {
-  init {
-    Log.d(TAG, "Creating ViewModel with $compositionLayout")
-  }
+class CompositionPreviewViewModelFactory(private val application: Application) :
+  ViewModelProvider.Factory {
 
   override fun <T : ViewModel> create(modelClass: Class<T>): T {
-    return CompositionPreviewViewModel(application, compositionLayout) as T
+    return CompositionPreviewViewModel(
+      application,
+      CompositionPreviewViewModel.COMPOSITION_LAYOUT[0],
+    )
+      as T
   }
 
   companion object {
