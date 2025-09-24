@@ -257,6 +257,55 @@ public final class FakeClockTest {
   }
 
   @Test
+  public void createHandler_removeCallbacks_removesRunnables() {
+    HandlerThread handlerThread = new HandlerThread("FakeClockTest");
+    handlerThread.start();
+    FakeClock fakeClock = new FakeClock(/* initialTimeMs= */ 0);
+    TestCallback callback = new TestCallback();
+    HandlerWrapper handler = fakeClock.createHandler(handlerThread.getLooper(), callback);
+    TestRunnable testRunnable1 = new TestRunnable();
+    TestRunnable testRunnable2 = new TestRunnable();
+    handler.sendEmptyMessage(/* what= */ 1);
+    handler.sendEmptyMessageDelayed(/* what= */ 2, /* delayMs= */ 50);
+    handler.post(testRunnable1);
+    handler.postDelayed(testRunnable2, /* delayMs= */ 25);
+    handler.postDelayed(testRunnable1, /* delayMs= */ 50);
+
+    handler.removeCallbacks(testRunnable1);
+    fakeClock.advanceTime(50);
+    ShadowLooper.idleMainLooper();
+    shadowOf(handlerThread.getLooper()).idle();
+    handlerThread.quitSafely();
+
+    assertThat(callback.messages)
+        .containsExactly(
+            new MessageData(/* what= */ 1, /* arg1= */ 0, /* arg2= */ 0, /* obj= */ null),
+            new MessageData(/* what= */ 2, /* arg1= */ 0, /* arg2= */ 0, /* obj= */ null));
+    assertThat(testRunnable2.hasRun).isTrue();
+    assertThat(testRunnable1.hasRun).isFalse();
+  }
+
+  @Test
+  public void createHandler_removeCallbacks_doesNotRemoveRunnablesFromOtherHandler() {
+    HandlerThread handlerThread = new HandlerThread("FakeClockTest");
+    handlerThread.start();
+    FakeClock fakeClock = new FakeClock(/* initialTimeMs= */ 0);
+    TestCallback callback = new TestCallback();
+    HandlerWrapper handler = fakeClock.createHandler(handlerThread.getLooper(), callback);
+    TestCallback otherCallback = new TestCallback();
+    HandlerWrapper otherHandler = fakeClock.createHandler(handlerThread.getLooper(), otherCallback);
+    TestRunnable testRunnable = new TestRunnable();
+    otherHandler.post(testRunnable);
+
+    handler.removeCallbacks(testRunnable);
+    ShadowLooper.idleMainLooper();
+    shadowOf(handlerThread.getLooper()).idle();
+    handlerThread.quitSafely();
+
+    assertThat(testRunnable.hasRun).isTrue();
+  }
+
+  @Test
   public void createHandler_removeAllMessages_removesAllMessages() {
     HandlerThread handlerThread = new HandlerThread("FakeClockTest");
     handlerThread.start();

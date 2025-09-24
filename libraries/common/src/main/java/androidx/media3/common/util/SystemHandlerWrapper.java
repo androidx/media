@@ -102,6 +102,11 @@ import java.util.List;
   }
 
   @Override
+  public void removeCallbacks(Runnable runnable) {
+    handler.removeCallbacks(runnable);
+  }
+
+  @Override
   public void removeCallbacksAndMessages(@Nullable Object token) {
     handler.removeCallbacksAndMessages(token);
   }
