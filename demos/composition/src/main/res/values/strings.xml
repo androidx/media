@@ -1,4 +1,5 @@
-<?xml version="1.0" encoding="utf-8"?><!-- Copyright 2025 The Android Open Source Project
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright 2025 The Android Open Source Project
 
      Licensed under the Apache License, Version 2.0 (the "License");
      you may not use this file except in compliance with the License.
@@ -49,4 +50,11 @@
   <string name="lottie_effect_name_heart">Lottie: Heart</string>
   <string name="lottie_effect_name_asset_folder">Lottie: Asset from folder</string>
   <string name="lottie_effect_name_asset_encoded">Lottie: Assets encoded</string>
+  <string name="end_placement_mode">End Placement Mode</string>
+  <string name="overlay_preview">Overlay Preview</string>
+  <string name="placed_overlays">Placed Overlays</string>
+  <string name="delete_overlay">Delete Overlay</string>
+  <string name="add_new_overlay">Add New Overlay</string>
+  <string name="select_an_overlay_to_place">Select an Overlay to Place</string>
+  <string name="add_item">Add Item</string>
 </resources>

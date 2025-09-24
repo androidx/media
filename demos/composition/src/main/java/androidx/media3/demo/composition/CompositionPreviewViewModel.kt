@@ -16,6 +16,7 @@
 package androidx.media3.demo.composition
 
 import android.app.Application
+import android.graphics.Bitmap
 import android.os.SystemClock
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
@@ -23,9 +24,12 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size as geometrySize
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.Effect
 import androidx.media3.common.MediaItem
@@ -33,7 +37,6 @@ import androidx.media3.common.OverlaySettings
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.VideoCompositorSettings
-import androidx.media3.common.audio.SonicAudioProcessor
 import androidx.media3.common.util.Clock
 import androidx.media3.common.util.Log
 import androidx.media3.common.util.Size
@@ -41,9 +44,11 @@ import androidx.media3.common.util.Util
 import androidx.media3.common.util.Util.usToMs
 import androidx.media3.demo.composition.MatrixTransformationFactory.createDizzyCropEffect
 import androidx.media3.demo.composition.effect.LottieEffectFactory
+import androidx.media3.effect.BitmapOverlay
 import androidx.media3.effect.DebugTraceUtil
 import androidx.media3.effect.LanczosResample
 import androidx.media3.effect.MultipleInputVideoGraph
+import androidx.media3.effect.OverlayEffect
 import androidx.media3.effect.Presentation
 import androidx.media3.effect.RgbFilter
 import androidx.media3.effect.StaticOverlaySettings
@@ -62,13 +67,18 @@ import com.google.common.base.Stopwatch
 import com.google.common.base.Ticker
 import java.io.File
 import java.io.IOException
+import java.util.UUID
 import java.util.concurrent.TimeUnit
 import kotlin.math.cos
+import kotlin.math.roundToInt
 import kotlin.math.sin
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONException
 
 class CompositionPreviewViewModel(application: Application, val compositionLayout: String) :
@@ -79,6 +89,11 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
     val durationUs: Long,
     var selectedEffects: MutableState<Set<String>>,
   )
+
+  val committedOverlays = mutableStateListOf<PlacedOverlay>()
+
+  var overlayPlacementState by mutableStateOf<PlacementState>(PlacementState.Inactive)
+    private set
 
   var snackbarMessage by mutableStateOf<String?>(null)
 
@@ -99,6 +114,10 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
   val EXPORT_STARTED_MESSAGE = application.resources.getString(R.string.export_started)
 
   private val _enableDebugTracing = MutableStateFlow(false)
+
+  var renderSize by mutableStateOf(geometrySize.Zero)
+    private set
+
   val enableDebugTracing: StateFlow<Boolean> = _enableDebugTracing.asStateFlow()
 
   private var transformer: Transformer? = null
@@ -111,6 +130,8 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
         }
       }
     )
+
+  var placeableEffectsOptions = mutableListOf<OverlayAsset>()
 
   private val effectOptions: Map<String, Effect> by lazy {
     buildMap {
@@ -138,6 +159,19 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
         Item(titles[i], uris[i], durations[i].toLong(), mutableStateOf(emptySet()))
       )
     }
+
+    // Load drag and drop placeable overlay effects
+    val placeableOverlayEffectsNames =
+      application.resources.getStringArray(/* id= */ R.array.placeable_effects_names)
+    val placeableEffectsUris =
+      application.resources.getStringArray(/* id= */ R.array.placeable_effects_uris)
+
+    for (i in placeableOverlayEffectsNames.indices) {
+      placeableEffectsOptions.add(
+        OverlayAsset(placeableOverlayEffectsNames[i], placeableEffectsUris[i])
+      )
+    }
+
     // Load initial media item selections. No need to show the Snackbar message at this point
     addItem(0, showSnackbarMessage = false)
     addItem(0, showSnackbarMessage = false)
@@ -155,6 +189,100 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
   fun enableDebugTracing(enable: Boolean) {
     _enableDebugTracing.update { _ -> enable }
     DebugTraceUtil.enableTracing = enable
+  }
+
+  fun onRenderSizeChanged(newSize: geometrySize) {
+    renderSize = newSize
+  }
+
+  fun onPlaceNewOverlayClicked(asset: OverlayAsset) {
+    if (overlayPlacementState !is PlacementState.Inactive) return
+    compositionPlayer.pause()
+    placeNewOverlay(asset)
+  }
+
+  fun placeNewOverlay(asset: OverlayAsset) {
+    viewModelScope.launch(Dispatchers.IO) {
+      try {
+        val inputStream = getApplication<Application>().assets.open(asset.assetPath)
+        val previewBitmap = android.graphics.BitmapFactory.decodeStream(inputStream)
+        withContext(Dispatchers.Main) {
+          val newOverlay = PlacedOverlay(assetName = asset.name, bitmap = previewBitmap)
+          overlayPlacementState = PlacementState.Placing(newOverlay, UiTransform())
+        }
+      } catch (e: IOException) {
+        Log.e(TAG, "Error loading overlay bitmap from assets", e)
+        withContext(Dispatchers.Main) { snackbarMessage = "Could not load overlay image." }
+      }
+    }
+  }
+
+  fun onPlaceExistingOverlayClicked(overlayId: UUID) {
+    if (overlayPlacementState !is PlacementState.Inactive) return
+    compositionPlayer.pause()
+
+    placeExistingOverlay(overlayId)
+
+    compositionPlayer.setComposition(prepareComposition(), compositionPlayer.currentPosition)
+    compositionPlayer.prepare()
+  }
+
+  fun placeExistingOverlay(overlayId: UUID) {
+    val overlayToEdit = committedOverlays.find { it.id == overlayId } ?: return
+    committedOverlays.remove(overlayToEdit)
+    overlayPlacementState = PlacementState.Placing(overlayToEdit, overlayToEdit.uiTransform)
+  }
+
+  fun onOverlayDrag(dragAmount: Offset) {
+    val currentState = overlayPlacementState as? PlacementState.Placing ?: return
+    val newOffset = currentState.currentUiTransform.offset + dragAmount
+    val overlayBitmap = currentState.overlay.bitmap
+    val clampedX = newOffset.x.coerceIn(0f, renderSize.width - overlayBitmap.width)
+    val clampedY = newOffset.y.coerceIn(0f, renderSize.height - overlayBitmap.height)
+    val newTransform = currentState.currentUiTransform.copy(offset = Offset(clampedX, clampedY))
+    overlayPlacementState = currentState.copy(currentUiTransform = newTransform)
+  }
+
+  fun onEndPlacementClicked() {
+    endPlacementMode()
+
+    compositionPlayer.setComposition(prepareComposition(), compositionPlayer.currentPosition)
+    compositionPlayer.prepare()
+
+    compositionPlayer.play()
+  }
+
+  fun endPlacementMode() {
+    val currentState = overlayPlacementState as? PlacementState.Placing ?: return
+    val finalTransform = currentState.currentUiTransform
+    val finalPlacedObject = currentState.overlay.copy(uiTransform = finalTransform)
+    finalPlacedObject.overlay = createBitmapOverlay(finalPlacedObject.bitmap, finalTransform)
+    committedOverlays.add(finalPlacedObject)
+    overlayPlacementState = PlacementState.Inactive
+  }
+
+  private fun createBitmapOverlay(bitmap: Bitmap, transform: UiTransform): BitmapOverlay {
+    if (renderSize == geometrySize.Zero) {
+      return BitmapOverlay.createStaticBitmapOverlay(bitmap)
+    }
+
+    // Converts the bitmap's center from UI pixel coordinates (origin at top-left) to the normalized
+    // [-1, 1] coordinate space anchors (origin at the center) that the overlay requires.
+    val boxCenterXpx = transform.offset.x + (bitmap.width / 2f)
+    val boxCenterYpx = transform.offset.y + (bitmap.height / 2f)
+
+    val anchorX = -1f + (boxCenterXpx / renderSize.width) * 2f
+    val anchorY = 1f - (boxCenterYpx / renderSize.height) * 2f
+
+    val overlaySettings =
+      StaticOverlaySettings.Builder().setBackgroundFrameAnchor(anchorX, anchorY).build()
+    return BitmapOverlay.createStaticBitmapOverlay(bitmap, overlaySettings)
+  }
+
+  fun removeOverlay(overlayId: UUID) {
+    committedOverlays.removeAll { it.id == overlayId }
+    compositionPlayer.setComposition(prepareComposition(), compositionPlayer.currentPosition)
+    compositionPlayer.prepare()
   }
 
   fun addItem(index: Int, showSnackbarMessage: Boolean = true) {
@@ -176,9 +304,7 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
 
   fun previewComposition() {
     releasePlayer()
-    val composition = prepareComposition()
-
-    compositionPlayer.setComposition(composition)
+    compositionPlayer.setComposition(prepareComposition())
     compositionPlayer.prepare()
     compositionPlayer.play()
   }
@@ -332,7 +458,33 @@ class CompositionPreviewViewModel(application: Application, val compositionLayou
     if (includeBackgroundAudioTrack) {
       videoSequences.add(getAudioBackgroundSequence())
     }
+
+    val allOverlays = committedOverlays.map { it.overlay!! }
+
+    val finalVideoEffects = globalVideoEffects.toMutableList()
+
+    if (renderSize != geometrySize.Zero) {
+      val presentation =
+        Presentation.createForWidthAndHeight(
+          renderSize.width.roundToInt(),
+          renderSize.height.roundToInt(),
+          Presentation.LAYOUT_SCALE_TO_FIT,
+        )
+      finalVideoEffects.add(presentation)
+    }
+
+    val overlayEffectList = mutableListOf<Effect>()
+    if (allOverlays.isNotEmpty()) {
+      val effect = OverlayEffect(allOverlays)
+      overlayEffectList.add(effect)
+    }
+
+    finalVideoEffects.addAll(overlayEffectList)
+
     return Composition.Builder(videoSequences)
+      .setEffects(
+        Effects(/* audioProcessors= */ emptyList(), /* videoEffects= */ finalVideoEffects)
+      )
       .setVideoCompositorSettings(getVideoCompositorSettings())
       .setHdrMode(outputHdrMode)
       .build()
