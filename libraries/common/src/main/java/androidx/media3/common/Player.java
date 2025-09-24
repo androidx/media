@@ -2116,6 +2116,8 @@ public interface Player {
    *   <li>{@link #clearVideoSurfaceHolder(SurfaceHolder)}
    *   <li>{@link #setVideoSurfaceView(SurfaceView)}
    *   <li>{@link #clearVideoSurfaceView(SurfaceView)}
+   *   <li>{@link #setVideoTextureView(TextureView)}
+   *   <li>{@link #clearVideoTextureView(TextureView)}
    * </ul>
    */
   int COMMAND_SET_VIDEO_SURFACE = 27;
