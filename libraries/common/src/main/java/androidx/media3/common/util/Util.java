@@ -802,6 +802,29 @@ public final class Util {
 
   /**
    * Posts the {@link Runnable} if the calling thread differs with the {@link Looper} of the {@link
+   * HandlerWrapper}. Otherwise, runs the {@link Runnable} directly.
+   *
+   * @param handler The {@link HandlerWrapper} to which the {@link Runnable} will be posted.
+   * @param runnable The runnable to either post or run.
+   * @return {@code true} if the {@link Runnable} was successfully posted to the {@link
+   *     HandlerWrapper} or run. {@code false} otherwise.
+   */
+  @UnstableApi
+  public static boolean postOrRun(HandlerWrapper handler, Runnable runnable) {
+    Looper looper = handler.getLooper();
+    if (!looper.getThread().isAlive()) {
+      return false;
+    }
+    if (looper == Looper.myLooper()) {
+      runnable.run();
+      return true;
+    } else {
+      return handler.post(runnable);
+    }
+  }
+
+  /**
+   * Posts the {@link Runnable} if the calling thread differs with the {@link Looper} of the {@link
    * Handler}. Otherwise, runs the {@link Runnable} directly. Also returns a {@link
    * ListenableFuture} for when the {@link Runnable} has run.
    *

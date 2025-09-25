@@ -22,14 +22,16 @@ import static java.lang.Math.abs;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.content.Context;
-import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Process;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.util.Clock;
+import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DefaultDataSource;
@@ -80,6 +82,7 @@ public final class DefaultPreloadManager
     private Supplier<LoadControl> loadControlSupplier;
     @Nullable private Cache cache;
     private Executor cachingExecutor;
+    private Clock clock;
     private boolean buildCalled;
     private boolean buildExoPlayerCalled;
 
@@ -103,6 +106,7 @@ public final class DefaultPreloadManager
       this.renderersFactorySupplier = Suppliers.memoize(() -> new DefaultRenderersFactory(context));
       this.loadControlSupplier = Suppliers.memoize(DefaultLoadControl::new);
       this.cachingExecutor = Runnable::run;
+      this.clock = Clock.DEFAULT;
     }
 
     /**
@@ -255,6 +259,19 @@ public final class DefaultPreloadManager
     public Builder setCachingExecutor(Executor executor) {
       checkState(!buildCalled && !buildExoPlayerCalled);
       this.cachingExecutor = executor;
+      return this;
+    }
+
+    /**
+     * Sets the {@link Clock} that will be used the {@link DefaultPreloadManager}. Should only be
+     * set for testing purposes.
+     *
+     * @return This builder.
+     */
+    @VisibleForTesting
+    @CanIgnoreReturnValue
+    public Builder setClock(Clock clock) {
+      this.clock = clock;
       return this;
     }
 
@@ -475,7 +492,7 @@ public final class DefaultPreloadManager
   private final PreloadMediaSource.Factory preloadMediaSourceFactory;
   @Nullable private final HandlerThread preCacheThread;
   @Nullable private final PreCacheHelper.Factory preCacheHelperFactory;
-  private final Handler preloadHandler;
+  private final HandlerWrapper preloadHandler;
   private boolean releaseCalled;
 
   private DefaultPreloadManager(Builder builder) {
@@ -493,13 +510,14 @@ public final class DefaultPreloadManager
     Looper preloadLooper = preloadLooperProvider.obtainLooper();
     preloadMediaSourceFactory =
         new PreloadMediaSource.Factory(
-            builder.mediaSourceFactorySupplier.get(),
-            new PreloadMediaSourceControl(),
-            trackSelector,
-            bandwidthMeter,
-            rendererCapabilitiesList.getRendererCapabilities(),
-            builder.loadControlSupplier.get(),
-            preloadLooper);
+                builder.mediaSourceFactorySupplier.get(),
+                new PreloadMediaSourceControl(),
+                trackSelector,
+                bandwidthMeter,
+                rendererCapabilitiesList.getRendererCapabilities(),
+                builder.loadControlSupplier.get(),
+                preloadLooper)
+            .setClock(builder.clock);
     @Nullable Cache cache = builder.cache;
     if (cache != null) {
       preCacheThread = new HandlerThread("DefaultPreloadManager:PreCacheHelper");
@@ -512,7 +530,7 @@ public final class DefaultPreloadManager
       preCacheThread = null;
       preCacheHelperFactory = null;
     }
-    preloadHandler = Util.createHandler(preloadLooper, /* callback= */ null);
+    preloadHandler = builder.clock.createHandler(preloadLooper, /* callback= */ null);
   }
 
   /**
@@ -769,6 +787,19 @@ public final class DefaultPreloadManager
       }
       DefaultPreloadManager.this.onError(
           error, mediaSource, preloadStatus -> preloadStatus.equals(targetPreloadStatus));
+    }
+
+    @Override
+    public boolean onLoadingUnableToContinue(PreloadMediaSource mediaSource) {
+      @Nullable MediaSourceHolder sourceHolder = getMediaSourceHolderToClear();
+      if (sourceHolder != null) {
+        PreloadMediaSource lowestPriorityPreloadMediaSource =
+            (PreloadMediaSource) sourceHolder.getMediaSource();
+        lowestPriorityPreloadMediaSource.clear();
+        DefaultPreloadManager.this.onSourceCleared();
+        return true;
+      }
+      return false;
     }
 
     private boolean continueOrCompletePreloading(

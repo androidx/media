@@ -82,6 +82,14 @@
     *   Enable retry path if player fails to generate audio session ID
         ([#2382](https://github.com/androidx/media/issues/2382),
         [#2678](https://github.com/google/ExoPlayer/issues/2678)).
+    *   Add support to control the total buffer bytes for the sources in
+        `DefaultPreloadManager` to avoid total buffer bytes for preloading from
+        growing arbitrarily. To use the default control logic, Apps can set the
+        target buffer bytes for preloading via
+        `DefaultLoadControl.Builder.setPlayerTargetBufferBytes(String, int)` for
+        a `playerName` of `PlayerId.Preload.name` ("preload"), and inject the
+        created `DefaultLoadControl` via
+        `DefaultPreloadManager.Builder.setLoadControl(LoadControl)`.
 *   Transformer:
     *   Add support for `COMMAND_SET_AUDIO_ATTRIBUTES` and audio focus handling
         in `CompositionPlayer`.

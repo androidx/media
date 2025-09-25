@@ -175,7 +175,7 @@ public final class PreloadMediaSourceTest {
     assertThat(preloadControl.onTrackSelectedCalled).isTrue();
     assertThat(preloadControl.onContinueLoadingRequestedCalled).isTrue();
     assertThat(preloadControl.onUsedByPlayerCalled).isFalse();
-    assertThat(preloadControl.onLoadingUnableToContinueCalledCount).isEqualTo(0);
+    assertThat(preloadControl.onLoadingUnableToContinueCalled).isFalse();
     assertThat(preloadControl.onPreloadErrorCalled).isFalse();
     assertThat(preloadMediaSourceReference.get()).isSameInstanceAs(preloadMediaSource);
   }
@@ -337,7 +337,7 @@ public final class PreloadMediaSourceTest {
     assertThat(preloadControl.onContinueLoadingRequestedCalled).isTrue();
     assertThat(preloadControl.onLoadedToTheEndOfSourceCalled).isTrue();
     assertThat(preloadControl.onUsedByPlayerCalled).isFalse();
-    assertThat(preloadControl.onLoadingUnableToContinueCalledCount).isEqualTo(0);
+    assertThat(preloadControl.onLoadingUnableToContinueCalled).isFalse();
   }
 
   @Test
@@ -383,7 +383,7 @@ public final class PreloadMediaSourceTest {
     // least once.
     assertThat(preloadControl.onContinueLoadingRequestedCalled).isTrue();
     assertThat(preloadControl.onUsedByPlayerCalled).isFalse();
-    assertThat(preloadControl.onLoadingUnableToContinueCalledCount).isEqualTo(1);
+    assertThat(preloadControl.onLoadingUnableToContinueCalled).isTrue();
   }
 
   @Test
@@ -1234,7 +1234,7 @@ public final class PreloadMediaSourceTest {
     public boolean onContinueLoadingRequestedCalled;
     public boolean onUsedByPlayerCalled;
     public boolean onLoadedToTheEndOfSourceCalled;
-    public int onLoadingUnableToContinueCalledCount;
+    public boolean onLoadingUnableToContinueCalled;
     public boolean onPreloadErrorCalled;
 
     @Override
@@ -1267,8 +1267,9 @@ public final class PreloadMediaSourceTest {
     }
 
     @Override
-    public void onLoadingUnableToContinue(PreloadMediaSource mediaSource) {
-      onLoadingUnableToContinueCalledCount++;
+    public boolean onLoadingUnableToContinue(PreloadMediaSource mediaSource) {
+      onLoadingUnableToContinueCalled = true;
+      return false;
     }
 
     @Override
