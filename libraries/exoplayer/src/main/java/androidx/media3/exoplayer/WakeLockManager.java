@@ -20,10 +20,10 @@ import android.content.Context;
 import android.os.Looper;
 import android.os.PowerManager;
 import android.os.PowerManager.WakeLock;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.Log;
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
  * Handles a {@link WakeLock}.
@@ -35,9 +35,11 @@ import androidx.media3.common.util.Log;
 
   private static final String TAG = "WakeLockManager";
   private static final String WAKE_LOCK_TAG = "ExoPlayer:WakeLockManager";
+  private static final int UNREACTIVE_WAKELOCK_HANDLER_RELEASE_DELAY_MS = 1000;
 
   private final WakeLockManagerInternal wakeLockManagerInternal;
   private final HandlerWrapper wakeLockHandler;
+  private final HandlerWrapper mainHandler;
 
   private boolean enabled;
   private boolean stayAwake;
@@ -52,6 +54,7 @@ import androidx.media3.common.util.Log;
   public WakeLockManager(Context context, Looper wakeLockLooper, Clock clock) {
     wakeLockManagerInternal = new WakeLockManagerInternal(context.getApplicationContext());
     wakeLockHandler = clock.createHandler(wakeLockLooper, /* callback= */ null);
+    mainHandler = clock.createHandler(Looper.getMainLooper(), /* callback= */ null);
   }
 
   /**
@@ -69,8 +72,7 @@ import androidx.media3.common.util.Log;
       return;
     }
     this.enabled = enabled;
-    boolean stayAwakeCurrent = stayAwake;
-    wakeLockHandler.post(() -> wakeLockManagerInternal.updateWakeLock(enabled, stayAwakeCurrent));
+    postUpdateWakeLock(enabled, stayAwake);
   }
 
   /**
@@ -88,9 +90,28 @@ import androidx.media3.common.util.Log;
     }
     this.stayAwake = stayAwake;
     if (enabled) {
-      wakeLockHandler.post(
-          () -> wakeLockManagerInternal.updateWakeLock(/* enabled= */ true, stayAwake));
+      postUpdateWakeLock(/* enabled= */ true, stayAwake);
     }
+  }
+
+  private void postUpdateWakeLock(boolean enabled, boolean stayAwake) {
+    if (shouldAcquireWakelock(enabled, stayAwake)) {
+      wakeLockHandler.post(() -> wakeLockManagerInternal.updateWakeLock(enabled, stayAwake));
+    } else {
+      // When we are about to release a wakelock, add emergency safeguard on main thread in case
+      // the wakelock handler thread is unresponsive.
+      Runnable emergencyRelease = wakeLockManagerInternal::forceReleaseWakeLock;
+      mainHandler.postDelayed(emergencyRelease, UNREACTIVE_WAKELOCK_HANDLER_RELEASE_DELAY_MS);
+      wakeLockHandler.post(
+          () -> {
+            mainHandler.removeCallbacks(emergencyRelease);
+            wakeLockManagerInternal.updateWakeLock(enabled, stayAwake);
+          });
+    }
+  }
+
+  private static boolean shouldAcquireWakelock(boolean enabled, boolean stayAwake) {
+    return enabled && stayAwake;
   }
 
   /** Internal methods called on the wifi lock Looper. */
@@ -98,7 +119,7 @@ import androidx.media3.common.util.Log;
 
     private final Context applicationContext;
 
-    @Nullable private WakeLock wakeLock;
+    private @MonotonicNonNull WakeLock wakeLock;
 
     public WakeLockManagerInternal(Context applicationContext) {
       this.applicationContext = applicationContext;
@@ -108,7 +129,7 @@ import androidx.media3.common.util.Log;
     // listening to radio with screen off for multiple hours), therefore we can not determine a
     // reasonable timeout that would not affect the user.
     @SuppressLint("WakelockTimeout")
-    public void updateWakeLock(boolean enabled, boolean stayAwake) {
+    private synchronized void updateWakeLock(boolean enabled, boolean stayAwake) {
       if (enabled && wakeLock == null) {
         PowerManager powerManager =
             (PowerManager) applicationContext.getSystemService(Context.POWER_SERVICE);
@@ -124,9 +145,15 @@ import androidx.media3.common.util.Log;
         return;
       }
 
-      if (enabled && stayAwake) {
+      if (shouldAcquireWakelock(enabled, stayAwake)) {
         wakeLock.acquire();
       } else {
+        wakeLock.release();
+      }
+    }
+
+    private synchronized void forceReleaseWakeLock() {
+      if (wakeLock != null) {
         wakeLock.release();
       }
     }

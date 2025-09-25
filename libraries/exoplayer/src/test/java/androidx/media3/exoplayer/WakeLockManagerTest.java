@@ -19,16 +19,20 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.robolectric.Shadows.shadowOf;
 
 import android.content.Context;
+import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.PowerManager.WakeLock;
 import androidx.media3.common.util.Clock;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import java.time.Duration;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.shadows.ShadowLooper;
 import org.robolectric.shadows.ShadowPowerManager;
+import org.robolectric.shadows.ShadowSystemClock;
 
 /** Unit tests for {@link WakeLockManager} */
 @RunWith(AndroidJUnit4.class)
@@ -80,6 +84,30 @@ public class WakeLockManagerTest {
 
     wakeLockManager.setEnabled(false);
     shadowOf(handlerThread.getLooper()).idle();
+
+    assertThat(wakeLock.isHeld()).isFalse();
+  }
+
+  @Test
+  public void blockedWakeLockThread_wakeLockIsStillReleasedAfterTimeout() {
+    WakeLockManager wakeLockManager =
+        new WakeLockManager(context, handlerThread.getLooper(), Clock.DEFAULT);
+    wakeLockManager.setEnabled(true);
+    wakeLockManager.setStayAwake(true);
+    shadowOf(handlerThread.getLooper()).idle();
+    WakeLock wakeLock = ShadowPowerManager.getLatestWakeLock();
+
+    // Block the wake lock thread to prevent any progress.
+    new Handler(handlerThread.getLooper())
+        .post(
+            () -> {
+              while (true) {}
+            });
+    wakeLockManager.setEnabled(false);
+    ShadowLooper.idleMainLooper();
+    assertThat(wakeLock.isHeld()).isTrue(); // Verify it didn't work.
+    ShadowSystemClock.advanceBy(Duration.ofSeconds(5));
+    ShadowLooper.idleMainLooper();
 
     assertThat(wakeLock.isHeld()).isFalse();
   }
