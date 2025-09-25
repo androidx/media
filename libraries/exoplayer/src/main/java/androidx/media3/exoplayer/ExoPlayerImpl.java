@@ -442,10 +442,20 @@ import java.util.concurrent.CopyOnWriteArraySet;
       } else {
         streamVolumeManager = null;
       }
+      int wakeMode = builder.wakeMode;
+      if (!builder.wakeModeSet) {
+        wakeMode =
+            builder.stuckBufferingDetectionTimeoutMs == Integer.MAX_VALUE
+                    || builder.stuckPlayingDetectionTimeoutMs == Integer.MAX_VALUE
+                    || builder.stuckPlayingNotEndingTimeoutMs == Integer.MAX_VALUE
+                    || builder.stuckSuppressedDetectionTimeoutMs == Integer.MAX_VALUE
+                ? C.WAKE_MODE_NONE
+                : C.WAKE_MODE_LOCAL;
+      }
       wakeLockManager = new WakeLockManager(builder.context, playbackLooper, clock);
-      wakeLockManager.setEnabled(builder.wakeMode != C.WAKE_MODE_NONE);
+      wakeLockManager.setEnabled(wakeMode != C.WAKE_MODE_NONE);
       wifiLockManager = new WifiLockManager(builder.context, playbackLooper, clock);
-      wifiLockManager.setEnabled(builder.wakeMode == C.WAKE_MODE_NETWORK);
+      wifiLockManager.setEnabled(wakeMode == C.WAKE_MODE_NETWORK);
       deviceInfo = DeviceInfo.UNKNOWN;
       videoSize = VideoSize.UNKNOWN;
       surfaceSize = Size.UNKNOWN;

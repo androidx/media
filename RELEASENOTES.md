@@ -32,6 +32,9 @@
             reaching the end of the item.
         *   After 10 minutes with a playback suppression reason while trying to
             play.
+    *   Enable wake lock handling by default to fix issues with buffering during
+        background playback. This is equivalent to setting
+        `ExoPlayer.Builder.setWakeMode` to `C.WAKE_MODE_LOCAL`.
     *   Ensure renderers don't consume data from the next playlist item more
         than 10 seconds before the end of the current item.
     *   Add pre-caching functionality in `DefaultPreloadManager`. Apps now can
