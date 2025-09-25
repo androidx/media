@@ -822,6 +822,15 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
 
     if (isDecodeOnlyBuffer) {
       if (codec != null) {
+        if (DEBUG_LOG_ENABLED) {
+          Log.d(
+              DEBUG_LOG_TAG,
+              "audio, release output, pts="
+                  + bufferPresentationTimeUs
+                  + ", pos="
+                  + positionUs
+                  + ", decode-only");
+        }
         codec.releaseOutputBuffer(bufferIndex, false);
       }
       decoderCounters.skippedOutputBufferCount += sampleCount;
@@ -854,6 +863,15 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
 
     if (fullyConsumed) {
       if (codec != null) {
+        if (DEBUG_LOG_ENABLED) {
+          Log.d(
+              DEBUG_LOG_TAG,
+              "audio, release output, pts="
+                  + bufferPresentationTimeUs
+                  + ", pos="
+                  + positionUs
+                  + (isLastBuffer ? ", last-buffer" : ""));
+        }
         codec.releaseOutputBuffer(bufferIndex, false);
       }
       decoderCounters.renderedOutputBufferCount += sampleCount;

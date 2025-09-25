@@ -115,6 +115,12 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 @UnstableApi
 public abstract class MediaCodecRenderer extends BaseRenderer {
 
+  /** Compile-time flag to enable detailed logging for codec interactions. */
+  protected static final boolean DEBUG_LOG_ENABLED = false;
+
+  /** Logging tag that should be used for all {@link #DEBUG_LOG_ENABLED} logs. */
+  protected static final String DEBUG_LOG_TAG = "MCRdebug";
+
   /** Thrown when a failure occurs instantiating a decoder. */
   public static class DecoderInitializationException extends Exception {
 
@@ -676,6 +682,13 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       outputFormatChanged = true;
     }
     if (outputFormatChanged || (codecOutputMediaFormatChanged && outputFormat != null)) {
+      if (DEBUG_LOG_ENABLED) {
+        Log.d(
+            DEBUG_LOG_TAG,
+            Util.getTrackTypeString(getTrackType())
+                + ", output format changed="
+                + checkNotNull(outputFormat));
+      }
       onOutputFormatChanged(checkNotNull(outputFormat), codecOutputMediaFormat);
       codecOutputMediaFormatChanged = false;
       needToNotifyOutputFormatChangeAfterStreamChange = false;
@@ -715,6 +728,15 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       long offsetUs,
       MediaSource.MediaPeriodId mediaPeriodId)
       throws ExoPlaybackException {
+    if (DEBUG_LOG_ENABLED) {
+      Log.d(
+          DEBUG_LOG_TAG,
+          Util.getTrackTypeString(getTrackType())
+              + ", input stream change, start="
+              + startPositionUs
+              + ", offset="
+              + offsetUs);
+    }
     if (outputStreamInfo.streamOffsetUs == C.TIME_UNSET) {
       // This is the first stream.
       setOutputStreamInfo(
@@ -1007,6 +1029,9 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
 
   /** Flushes the codec. */
   private void flushCodec() {
+    if (DEBUG_LOG_ENABLED) {
+      Log.d(DEBUG_LOG_TAG, Util.getTrackTypeString(getTrackType()) + ", flush codec");
+    }
     try {
       checkNotNull(codec).flush();
     } finally {
@@ -1313,6 +1338,13 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     decoderCounters.decoderInitCount++;
     long elapsed = codecInitializedTimestamp - codecInitializingTimestamp;
     onCodecInitialized(codecName, configuration, codecInitializedTimestamp, elapsed);
+    if (DEBUG_LOG_ENABLED) {
+      int trackType = getTrackType();
+      Log.d(DEBUG_LOG_TAG, Util.getTrackTypeString(trackType) + ", new codec, " + codecName);
+      if (trackType == C.TRACK_TYPE_VIDEO) {
+        Log.d(DEBUG_LOG_TAG, "video, codec surface=" + configuration.surface);
+      }
+    }
   }
 
   private boolean shouldContinueRendering(long renderStartTimeMs) {
@@ -1372,6 +1404,9 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       if (codecNeedsEosPropagation) {
         // Do nothing.
       } else {
+        if (DEBUG_LOG_ENABLED) {
+          Log.d(DEBUG_LOG_TAG, Util.getTrackTypeString(getTrackType()) + ", queue input, flag=EOS");
+        }
         codecReceivedEos = true;
         codec.queueInputBuffer(inputIndex, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM);
         resetInputBuffer();
@@ -1450,6 +1485,9 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       if (codecNeedsEosPropagation) {
         // Do nothing.
       } else {
+        if (DEBUG_LOG_ENABLED) {
+          Log.d(DEBUG_LOG_TAG, Util.getTrackTypeString(getTrackType()) + ", queue input, flag=EOS");
+        }
         codecReceivedEos = true;
         codec.queueInputBuffer(
             inputIndex,
@@ -1478,7 +1516,14 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       return true;
     }
 
+    long presentationTimeUs = buffer.timeUs;
+
     if (shouldDiscardDecoderInputBuffer(buffer)) {
+      if (DEBUG_LOG_ENABLED) {
+        Log.d(
+            DEBUG_LOG_TAG,
+            Util.getTrackTypeString(getTrackType()) + ", discard input, pts=" + presentationTimeUs);
+      }
       return true;
     }
 
@@ -1486,8 +1531,6 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     if (bufferEncrypted) {
       buffer.cryptoInfo.increaseClearDataFirstSubSampleBy(adaptiveReconfigurationBytes);
     }
-
-    long presentationTimeUs = buffer.timeUs;
 
     if (waitingForFirstSampleInFormat) {
       getLastOutputStreamInfo().formatQueue.add(presentationTimeUs, checkNotNull(inputFormat));
@@ -1526,6 +1569,14 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
               checkNotNull(buffer.data).limit(),
               presentationTimeUs,
               flags);
+    }
+    if (DEBUG_LOG_ENABLED) {
+      Log.d(
+          DEBUG_LOG_TAG,
+          Util.getTrackTypeString(getTrackType())
+              + ", queue input, pts="
+              + presentationTimeUs
+              + (((flags & MediaCodec.BUFFER_FLAG_DECODE_ONLY) != 0) ? ", flag=DECODE_ONLY" : ""));
     }
 
     resetInputBuffer();
@@ -1604,6 +1655,13 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   @Nullable
   protected DecoderReuseEvaluation onInputFormatChanged(FormatHolder formatHolder)
       throws ExoPlaybackException {
+    if (DEBUG_LOG_ENABLED) {
+      Log.d(
+          DEBUG_LOG_TAG,
+          Util.getTrackTypeString(getTrackType())
+              + ", input format changed="
+              + formatHolder.format);
+    }
     waitingForFirstSampleInFormat = true;
     Format newFormat = checkNotNull(formatHolder.format);
     if (newFormat.sampleMimeType == null) {
@@ -2097,6 +2155,13 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
         outputBuffer.limit(outputBufferInfo.offset + outputBufferInfo.size);
       }
       updateOutputFormatForTime(outputBufferInfo.presentationTimeUs);
+      if (DEBUG_LOG_ENABLED) {
+        Log.d(
+            DEBUG_LOG_TAG,
+            Util.getTrackTypeString(getTrackType())
+                + ", dequeue output, pts="
+                + outputBufferInfo.presentationTimeUs);
+      }
     }
 
     isDecodeOnlyOutputBuffer =
@@ -2220,6 +2285,9 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
    * @throws ExoPlaybackException If an error occurs processing the signal.
    */
   private void processEndOfStream() throws ExoPlaybackException {
+    if (DEBUG_LOG_ENABLED) {
+      Log.d(DEBUG_LOG_TAG, Util.getTrackTypeString(getTrackType()) + ", output process EOS");
+    }
     switch (codecDrainAction) {
       case DRAIN_ACTION_REINITIALIZE:
         reinitializeCodec();
@@ -2274,6 +2342,15 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   }
 
   private void setOutputStreamInfo(OutputStreamInfo outputStreamInfo) {
+    if (DEBUG_LOG_ENABLED && outputStreamInfo.streamOffsetUs != C.TIME_UNSET) {
+      Log.d(
+          DEBUG_LOG_TAG,
+          Util.getTrackTypeString(getTrackType())
+              + ", output stream change, start="
+              + outputStreamInfo.startPositionUs
+              + ", offset="
+              + outputStreamInfo.streamOffsetUs);
+    }
     this.outputStreamInfo = outputStreamInfo;
     if (outputStreamInfo.streamOffsetUs != C.TIME_UNSET) {
       needToNotifyOutputFormatChangeAfterStreamChange = true;
