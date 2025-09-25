@@ -15,8 +15,10 @@
  */
 package androidx.media3.exoplayer;
 
+import android.Manifest;
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.os.Looper;
 import android.os.PowerManager;
 import android.os.PowerManager.WakeLock;
@@ -131,6 +133,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     @SuppressLint("WakelockTimeout")
     private synchronized void updateWakeLock(boolean enabled, boolean stayAwake) {
       if (enabled && wakeLock == null) {
+        if (applicationContext.checkSelfPermission(Manifest.permission.WAKE_LOCK)
+            != PackageManager.PERMISSION_GRANTED) {
+          Log.w(TAG, "WAKE_LOCK permission not granted, can't acquire wake lock for playback");
+          return;
+        }
         PowerManager powerManager =
             (PowerManager) applicationContext.getSystemService(Context.POWER_SERVICE);
         if (powerManager == null) {

@@ -18,7 +18,8 @@ package androidx.media3.exoplayer;
 import static com.google.common.truth.Truth.assertThat;
 import static org.robolectric.Shadows.shadowOf;
 
-import android.content.Context;
+import android.Manifest;
+import android.app.Application;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.PowerManager.WakeLock;
@@ -38,12 +39,13 @@ import org.robolectric.shadows.ShadowSystemClock;
 @RunWith(AndroidJUnit4.class)
 public class WakeLockManagerTest {
 
-  private Context context;
+  private Application context;
   private HandlerThread handlerThread;
 
   @Before
   public void setUp() {
     context = ApplicationProvider.getApplicationContext();
+    shadowOf(context).grantPermissions(Manifest.permission.WAKE_LOCK);
     handlerThread = new HandlerThread("wakeLockManagerTest");
     handlerThread.start();
   }
