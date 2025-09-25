@@ -1025,7 +1025,9 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     if (!compositionPlayerInternalPrepared) {
       return;
     }
-    if (playWhenReady) {
+    // This method is also called on sequence player state change, so rendering will be started once
+    // CompositionPlayer is ready.
+    if (playbackState == STATE_READY && playWhenReady) {
       checkNotNull(compositionPlayerInternal).startRendering();
     } else {
       checkNotNull(compositionPlayerInternal).stopRendering();

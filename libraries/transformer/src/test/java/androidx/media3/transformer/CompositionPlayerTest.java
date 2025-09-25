@@ -22,6 +22,7 @@ import static androidx.media3.common.Player.STATE_READY;
 import static androidx.media3.test.utils.TestUtil.getCommandsAsList;
 import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLooperUntil;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
+import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.play;
 import static androidx.media3.transformer.TestUtil.ASSET_URI_PREFIX;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_RAW;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_RAW_STEREO_48000KHZ;
@@ -79,6 +80,7 @@ import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.Mockito;
+import org.robolectric.shadows.ShadowLooper;
 
 /** Unit tests for {@link CompositionPlayer}. */
 @RunWith(AndroidJUnit4.class)
@@ -768,6 +770,29 @@ public class CompositionPlayerTest {
         .isEqualTo(1_348_000L);
     assertThat(timelineChangeReasonCaptor.getValue())
         .isEqualTo(Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);
+  }
+
+  @Test
+  public void play_audioSinkPlayNotCalledUntilReady() throws Exception {
+    AudioSink mockAudioSink = mock(AudioSink.class);
+    CompositionPlayer player =
+        createTestCompositionPlayerBuilder().setAudioSink(mockAudioSink).build();
+    player.setComposition(buildComposition());
+    player.prepare();
+    player.play();
+
+    play(player).untilPendingCommandsAreFullyHandled();
+
+    // AudioSink.play() should not be called before the player is ready.
+    verify(mockAudioSink, never()).play();
+
+    advance(player).untilState(STATE_READY);
+    ShadowLooper.idleMainLooper();
+    advance(player).untilPendingCommandsAreFullyHandled();
+
+    verify(mockAudioSink).play();
+
+    player.release();
   }
 
   @Test
