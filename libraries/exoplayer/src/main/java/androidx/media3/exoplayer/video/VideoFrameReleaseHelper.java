@@ -118,7 +118,6 @@ public final class VideoFrameReleaseHelper {
   private @C.VideoChangeFrameRateStrategy int changeFrameRateStrategy;
 
   private long vsyncDurationNs;
-  private long vsyncOffsetNs;
   private long lastVsyncHysteresisOffsetNs;
   private long pendingVsyncHysteresisOffsetNs;
 
@@ -140,7 +139,6 @@ public final class VideoFrameReleaseHelper {
     displayHelper = maybeBuildDisplayHelper(context);
     vsyncSampler = displayHelper != null ? VSyncSampler.getInstance() : null;
     vsyncDurationNs = C.TIME_UNSET;
-    vsyncOffsetNs = C.TIME_UNSET;
     formatFrameRate = Format.NO_VALUE;
     playbackSpeed = 1f;
     changeFrameRateStrategy = C.VIDEO_CHANGE_FRAME_RATE_STRATEGY_ONLY_IF_SEAMLESS;
@@ -293,7 +291,7 @@ public final class VideoFrameReleaseHelper {
     long snappedTimeNs =
         findClosestVsyncAndUpdateHysteresis(adjustedReleaseTimeNs, sampledVsyncTimeNs);
     // Apply an offset so that we release before the target vsync, but after the previous one.
-    return snappedTimeNs - vsyncOffsetNs;
+    return snappedTimeNs - (vsyncDurationNs * VSYNC_OFFSET_PERCENTAGE) / 100;
   }
 
   @VisibleForTesting
@@ -412,11 +410,9 @@ public final class VideoFrameReleaseHelper {
     if (defaultDisplay != null) {
       double defaultDisplayRefreshRate = defaultDisplay.getRefreshRate();
       vsyncDurationNs = (long) (C.NANOS_PER_SECOND / defaultDisplayRefreshRate);
-      vsyncOffsetNs = (vsyncDurationNs * VSYNC_OFFSET_PERCENTAGE) / 100;
     } else {
       Log.w(TAG, "Unable to query display refresh rate");
       vsyncDurationNs = C.TIME_UNSET;
-      vsyncOffsetNs = C.TIME_UNSET;
     }
   }
 
