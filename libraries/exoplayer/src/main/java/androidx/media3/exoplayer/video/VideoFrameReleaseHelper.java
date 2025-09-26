@@ -21,9 +21,6 @@ import static java.lang.Math.abs;
 
 import android.content.Context;
 import android.hardware.display.DisplayManager;
-import android.os.Handler;
-import android.os.HandlerThread;
-import android.os.Message;
 import android.view.Choreographer;
 import android.view.Choreographer.FrameCallback;
 import android.view.Display;
@@ -36,7 +33,6 @@ import androidx.media3.common.Format;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
-import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
  * A helper to release video frames to a {@link Surface}. This helper:
@@ -134,10 +130,10 @@ public final class VideoFrameReleaseHelper {
    *
    * @param context A context from which information about the default display can be retrieved.
    */
-  public VideoFrameReleaseHelper(@Nullable Context context) {
+  public VideoFrameReleaseHelper(Context context) {
     frameRateEstimator = new FixedFrameRateEstimator();
     displayHelper = maybeBuildDisplayHelper(context);
-    vsyncSampler = displayHelper != null ? VSyncSampler.getInstance() : null;
+    vsyncSampler = displayHelper != null ? VSyncSampler.maybeBuildInstance() : null;
     vsyncDurationNs = C.TIME_UNSET;
     formatFrameRate = Format.NO_VALUE;
     playbackSpeed = 1f;
@@ -164,8 +160,10 @@ public final class VideoFrameReleaseHelper {
     started = true;
     resetAdjustment();
     if (displayHelper != null) {
-      checkNotNull(vsyncSampler).addObserver();
       displayHelper.register();
+    }
+    if (vsyncSampler != null) {
+      vsyncSampler.register();
     }
     updateSurfacePlaybackFrameRate(/* forceUpdate= */ false);
   }
@@ -232,7 +230,9 @@ public final class VideoFrameReleaseHelper {
     started = false;
     if (displayHelper != null) {
       displayHelper.unregister();
-      checkNotNull(vsyncSampler).removeObserver();
+    }
+    if (vsyncSampler != null) {
+      vsyncSampler.unregister();
     }
     clearSurfaceFrameRate();
   }
@@ -459,10 +459,7 @@ public final class VideoFrameReleaseHelper {
   }
 
   @Nullable
-  private DisplayHelper maybeBuildDisplayHelper(@Nullable Context context) {
-    if (context == null) {
-      return null;
-    }
+  private DisplayHelper maybeBuildDisplayHelper(Context context) {
     DisplayManager displayManager =
         (DisplayManager) context.getSystemService(Context.DISPLAY_SERVICE);
     return displayManager != null ? new DisplayHelper(displayManager) : null;
@@ -527,118 +524,55 @@ public final class VideoFrameReleaseHelper {
     }
   }
 
-  /**
-   * Samples display vsync timestamps. A single instance using a single {@link Choreographer} is
-   * shared by all {@link VideoFrameReleaseHelper} instances. This is done to avoid a resource leak
-   * in the platform on API levels prior to 23. See [Internal: b/12455729].
-   */
-  private static final class VSyncSampler implements FrameCallback, Handler.Callback {
+  /** Samples display vsync timestamps. */
+  private static final class VSyncSampler implements FrameCallback {
 
-    public volatile long sampledVsyncTimeNs;
-
-    private static final int CREATE_CHOREOGRAPHER = 1;
-    private static final int MSG_ADD_OBSERVER = 2;
-    private static final int MSG_REMOVE_OBSERVER = 3;
-    private static final int MSG_REQUEST_UPDATE = 4;
-
-    private static final VSyncSampler INSTANCE = new VSyncSampler();
-
-    private final Handler handler;
-    private @MonotonicNonNull Choreographer choreographer;
-    private int observerCount;
-
-    public static VSyncSampler getInstance() {
-      return INSTANCE;
+    @Nullable
+    private static VSyncSampler maybeBuildInstance() {
+      try {
+        return new VSyncSampler(Choreographer.getInstance());
+      } catch (RuntimeException e) {
+        // See [Internal: b/213926330].
+        Log.w(TAG, "Vsync sampling disabled due to platform error", e);
+        return null;
+      }
     }
 
-    private VSyncSampler() {
+    private final Choreographer choreographer;
+
+    private volatile long sampledVsyncTimeNs;
+
+    private VSyncSampler(Choreographer choreographer) {
+      this.choreographer = choreographer;
       sampledVsyncTimeNs = C.TIME_UNSET;
-      HandlerThread choreographerOwnerThread =
-          new HandlerThread("ExoPlayer:FrameReleaseChoreographer");
-      choreographerOwnerThread.start();
-      handler = Util.createHandler(choreographerOwnerThread.getLooper(), /* callback= */ this);
-      handler.sendEmptyMessage(CREATE_CHOREOGRAPHER);
     }
 
     /**
      * Notifies the sampler that a {@link VideoFrameReleaseHelper} is observing {@link
      * #sampledVsyncTimeNs}, and hence that the value should be periodically updated.
      */
-    public void addObserver() {
-      handler.sendEmptyMessage(MSG_ADD_OBSERVER);
+    private void register() {
+      choreographer.postFrameCallback(this);
     }
 
     /**
      * Notifies the sampler that a {@link VideoFrameReleaseHelper} is no longer observing {@link
      * #sampledVsyncTimeNs}.
      */
-    public void removeObserver() {
-      handler.sendEmptyMessage(MSG_REMOVE_OBSERVER);
+    private void unregister() {
+      choreographer.removeFrameCallback(this);
+      sampledVsyncTimeNs = C.TIME_UNSET;
     }
 
     /** Requests an update of the sampled vsync time as soon as possible. */
     private void requestUpdate() {
-      handler.sendEmptyMessage(MSG_REQUEST_UPDATE);
+      choreographer.postFrameCallback(this);
     }
 
     @Override
     public void doFrame(long vsyncTimeNs) {
       sampledVsyncTimeNs = vsyncTimeNs;
-      checkNotNull(choreographer).postFrameCallbackDelayed(this, VSYNC_SAMPLE_UPDATE_PERIOD_MS);
-    }
-
-    @Override
-    public boolean handleMessage(Message message) {
-      switch (message.what) {
-        case CREATE_CHOREOGRAPHER:
-          createChoreographerInstanceInternal();
-          return true;
-        case MSG_ADD_OBSERVER:
-          addObserverInternal();
-          return true;
-        case MSG_REMOVE_OBSERVER:
-          removeObserverInternal();
-          return true;
-        case MSG_REQUEST_UPDATE:
-          requestUpdateInternal();
-          return true;
-        default:
-          return false;
-      }
-    }
-
-    private void createChoreographerInstanceInternal() {
-      try {
-        choreographer = Choreographer.getInstance();
-      } catch (RuntimeException e) {
-        // See [Internal: b/213926330].
-        Log.w(TAG, "Vsync sampling disabled due to platform error", e);
-      }
-    }
-
-    private void addObserverInternal() {
-      if (choreographer != null) {
-        observerCount++;
-        if (observerCount == 1) {
-          choreographer.postFrameCallback(this);
-        }
-      }
-    }
-
-    private void removeObserverInternal() {
-      if (choreographer != null) {
-        observerCount--;
-        if (observerCount == 0) {
-          choreographer.removeFrameCallback(this);
-          sampledVsyncTimeNs = C.TIME_UNSET;
-        }
-      }
-    }
-
-    private void requestUpdateInternal() {
-      if (choreographer != null) {
-        choreographer.postFrameCallback(this);
-      }
+      choreographer.postFrameCallbackDelayed(this, VSYNC_SAMPLE_UPDATE_PERIOD_MS);
     }
   }
 }
