@@ -32,7 +32,6 @@ import static androidx.media3.test.utils.AssetInfo.MP4_TRIM_OPTIMIZATION_PIXEL;
 import static androidx.media3.test.utils.FormatSupportAssumptions.assumeFormatsSupported;
 import static androidx.media3.test.utils.TestSummaryLogger.recordTestSkipped;
 import static androidx.media3.transformer.AndroidTestUtil.FORCE_TRANSCODE_VIDEO_EFFECTS;
-import static androidx.media3.transformer.AndroidTestUtil.mainlineAacEncoderDrainsAllSamplesAtEos;
 import static androidx.media3.transformer.ExportResult.CONVERSION_PROCESS_TRANSMUXED_AND_TRANSCODED;
 import static androidx.media3.transformer.ExportResult.OPTIMIZATION_SUCCEEDED;
 import static com.google.common.base.Preconditions.checkState;
@@ -54,6 +53,7 @@ import androidx.media3.effect.ScaleAndRotateTransformation;
 import androidx.media3.exoplayer.MediaExtractorCompat;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
+import androidx.media3.inspector.MetadataRetriever;
 import androidx.media3.test.utils.FakeExtractorOutput;
 import androidx.media3.test.utils.FakeTrackOutput;
 import androidx.media3.test.utils.TestUtil;
@@ -308,8 +308,6 @@ public class ExportTest {
   @Test
   public void exportSef() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
-    // TODO: b/407690979 - Implement AAC encoder delay instead of skipping tests.
-    assumeFalse(mainlineAacEncoderDrainsAllSamplesAtEos(context));
     Transformer transformer = new Transformer.Builder(context).build();
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(MP4_ASSET_SEF.uri)))
@@ -320,10 +318,11 @@ public class ExportTest {
         new TransformerAndroidTestRunner.Builder(context, transformer)
             .build()
             .run(testId, editedMediaItem);
-    // TODO: b/443998866 - Use MetadataRetriever to get exact duration.
-    assertThat(result.exportResult.approximateDurationMs).isGreaterThan(800);
-    assertThat(result.exportResult.approximateDurationMs).isLessThan(950);
-    assertThat(new File(result.filePath).length()).isGreaterThan(0);
+
+    MetadataRetriever metadataRetriever =
+        new MetadataRetriever.Builder(context, MediaItem.fromUri(result.filePath)).build();
+    long actualDurationUs = metadataRetriever.retrieveDurationUs().get();
+    assertThat(actualDurationUs).isWithin(170_000).of(950_000);
   }
 
   @Test

@@ -21,8 +21,6 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 import android.content.Context;
-import android.content.pm.PackageInfo;
-import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
 import android.media.Image;
@@ -544,24 +542,6 @@ public final class AndroidTestUtil {
       }
     }
     throw new AssumptionViolatedException("Profile not supported");
-  }
-
-  /**
-   * Returns whether the software AAC encoder part of media mainline modules drains all samples from
-   * the encoder at EOS. That is, returns if http://aosp/3392607 has landed. See b/375055097 for
-   * details.
-   */
-  public static boolean mainlineAacEncoderDrainsAllSamplesAtEos(Context context) {
-    PackageManager pm = context.getPackageManager();
-    String mainlineModule = "com.google.android.media.swcodec";
-    PackageInfo packageInfo;
-    try {
-      packageInfo = pm.getPackageInfo(mainlineModule, /* flags= */ PackageManager.MATCH_APEX);
-    } catch (PackageManager.NameNotFoundException e) {
-      // No mainline module found. Assume no AAC encoder update.
-      return false;
-    }
-    return packageInfo.getLongVersionCode() >= 351504020;
   }
 
   private AndroidTestUtil() {}

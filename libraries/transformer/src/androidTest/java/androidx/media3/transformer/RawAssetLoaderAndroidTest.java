@@ -18,9 +18,8 @@ package androidx.media3.transformer;
 import static androidx.media3.test.utils.AssetInfo.PNG_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.createOpenGlObjects;
 import static androidx.media3.transformer.AndroidTestUtil.generateTextureFromBitmap;
-import static androidx.media3.transformer.AndroidTestUtil.mainlineAacEncoderDrainsAllSamplesAtEos;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assume.assumeFalse;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -42,9 +41,16 @@ import androidx.media3.datasource.DataSourceBitmapLoader;
 import androidx.media3.effect.DefaultGlObjectsProvider;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.Presentation;
+import androidx.media3.extractor.mp4.Mp4Extractor;
+import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
+import androidx.media3.inspector.MetadataRetriever;
+import androidx.media3.test.utils.FakeExtractorOutput;
+import androidx.media3.test.utils.FakeTrackOutput;
+import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import java.nio.ByteBuffer;
@@ -78,8 +84,6 @@ public class RawAssetLoaderAndroidTest {
 
   @Test
   public void audioTranscoding_withRawAudio_completesWithCorrectDuration() throws Exception {
-    // TODO: b/407690979 - Implement AAC encoder delay instead of skipping tests.
-    assumeFalse(mainlineAacEncoderDrainsAllSamplesAtEos(context));
     SettableFuture<RawAssetLoader> rawAssetLoaderFuture = SettableFuture.create();
     Transformer transformer =
         new Transformer.Builder(context)
@@ -100,19 +104,18 @@ public class RawAssetLoaderAndroidTest {
     RawAssetLoader rawAssetLoader = rawAssetLoaderFuture.get();
     feedRawAudioDataToAssetLoader(rawAssetLoader, AUDIO_FORMAT, mediaDurationUs);
 
-    ExportResult exportResult = exportCompletionFuture.get().exportResult;
-    // TODO: b/443998866 - Use MetadataRetriever to get exact duration.
-    // The durationMs is the timestamp of the last sample and not the total duration.
+    ExportTestResult exportResult = exportCompletionFuture.get();
+    MetadataRetriever metadataRetriever =
+        new MetadataRetriever.Builder(context, MediaItem.fromUri(exportResult.filePath)).build();
+    long actualDurationUs = metadataRetriever.retrieveDurationUs().get();
     // Audio encoders on different API versions seems to output slightly different durations, so add
     // 50ms tolerance.
-    assertThat(exportResult.approximateDurationMs).isWithin(25).of(1000);
+    assertThat(actualDurationUs).isWithin(50_000).of(1_000_000);
   }
 
   @Test
   public void audioTranscoding_withRawAudioAndUnsetDuration_completesWithCorrectDuration()
       throws Exception {
-    // TODO: b/407690979 - Implement AAC encoder delay instead of skipping tests.
-    assumeFalse(mainlineAacEncoderDrainsAllSamplesAtEos(context));
     SettableFuture<RawAssetLoader> rawAssetLoaderFuture = SettableFuture.create();
     Transformer transformer =
         new Transformer.Builder(context)
@@ -131,12 +134,13 @@ public class RawAssetLoaderAndroidTest {
     feedRawAudioDataToAssetLoader(
         rawAssetLoader, AUDIO_FORMAT, /* durationUs= */ C.MICROS_PER_SECOND);
 
-    ExportResult exportResult = exportCompletionFuture.get().exportResult;
-    // TODO: b/443998866 - Use MetadataRetriever to get exact duration.
-    // The durationMs is the timestamp of the last sample and not the total duration.
+    ExportTestResult exportResult = exportCompletionFuture.get();
+    MetadataRetriever metadataRetriever =
+        new MetadataRetriever.Builder(context, MediaItem.fromUri(exportResult.filePath)).build();
+    long actualDurationUs = metadataRetriever.retrieveDurationUs().get();
     // Audio encoders on different API versions seems to output slightly different durations, so add
     // 50ms tolerance.
-    assertThat(exportResult.approximateDurationMs).isWithin(25).of(1000);
+    assertThat(actualDurationUs).isWithin(50_000).of(1_000_000);
   }
 
   @Test
@@ -231,8 +235,6 @@ public class RawAssetLoaderAndroidTest {
   @Test
   public void audioAndVideoTranscoding_withRawData_completesWithCorrectFrameCountAndDuration()
       throws Exception {
-    // TODO: b/407690979 - Implement AAC encoder delay instead of skipping tests.
-    assumeFalse(mainlineAacEncoderDrainsAllSamplesAtEos(context));
     Bitmap bitmap = new DataSourceBitmapLoader(context).loadBitmap(Uri.parse(PNG_ASSET.uri)).get();
     DefaultVideoFrameProcessor.Factory videoFrameProcessorFactory =
         new DefaultVideoFrameProcessor.Factory.Builder()
@@ -272,13 +274,15 @@ public class RawAssetLoaderAndroidTest {
         secondTextureId, /* presentationTimeUs= */ mediaDurationUs / 2)) {}
     rawAssetLoader.signalEndOfVideoInput();
 
-    ExportResult exportResult = exportCompletionFuture.get().exportResult;
-    assertThat(exportResult.videoFrameCount).isEqualTo(2);
-    // TODO: b/443998866 - Use MetadataRetriever to get exact duration.
-    // The durationMs is the timestamp of the last sample and not the total duration.
-    // Audio encoders on different API versions seems to output slightly different durations, so add
-    // 50ms tolerance.
-    assertThat(exportResult.approximateDurationMs).isWithin(25).of(1000);
+    ExportTestResult exportResult = exportCompletionFuture.get();
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(
+            new Mp4Extractor(new DefaultSubtitleParserFactory()),
+            checkNotNull(exportResult.filePath));
+    assertThat(fakeExtractorOutput.seekMap.getDurationUs()).isWithin(50_000).of(mediaDurationUs);
+    FakeTrackOutput videoTrackOutput =
+        Iterables.getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_VIDEO));
+    assertThat(videoTrackOutput.getSampleCount()).isEqualTo(2);
   }
 
   private void feedRawAudioDataToAssetLoader(

@@ -46,7 +46,6 @@ import static androidx.media3.transformer.AndroidTestUtil.assumeCanEncodeWithPro
 import static androidx.media3.transformer.AndroidTestUtil.createFrameCountingEffect;
 import static androidx.media3.transformer.AndroidTestUtil.createOpenGlObjects;
 import static androidx.media3.transformer.AndroidTestUtil.generateTextureFromBitmap;
-import static androidx.media3.transformer.AndroidTestUtil.mainlineAacEncoderDrainsAllSamplesAtEos;
 import static androidx.media3.transformer.ExportResult.CONVERSION_PROCESS_NA;
 import static androidx.media3.transformer.ExportResult.CONVERSION_PROCESS_TRANSCODED;
 import static androidx.media3.transformer.ExportResult.CONVERSION_PROCESS_TRANSMUXED;
@@ -106,6 +105,7 @@ import androidx.media3.exoplayer.MediaExtractorCompat;
 import androidx.media3.exoplayer.audio.TeeAudioProcessor;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
+import androidx.media3.inspector.MetadataRetriever;
 import androidx.media3.test.utils.FakeExtractorOutput;
 import androidx.media3.test.utils.FakeTrackOutput;
 import androidx.media3.test.utils.TestSpeedProvider;
@@ -113,6 +113,7 @@ import androidx.media3.test.utils.TestUtil;
 import androidx.media3.transformer.AssetLoader.CompositionSettings;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.filters.SdkSuppress;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -224,8 +225,6 @@ public class TransformerEndToEndTest {
 
   @Test
   public void compositionEditing_withLongLoopingSequence_completes() throws Exception {
-    // TODO: b/407690979 - Implement AAC encoder delay instead of skipping tests.
-    assumeFalse(mainlineAacEncoderDrainsAllSamplesAtEos(context));
     Transformer transformer = new Transformer.Builder(context).build();
     assumeFormatsSupported(
         context,
@@ -263,9 +262,10 @@ public class TransformerEndToEndTest {
 
     // Image asset duration is ~0.5s.
     // loopingAudioSequence: Matches other sequence (~0.5s) and is cut short.
-    assertThat(result.exportResult.approximateDurationMs).isAtLeast(450);
-    assertThat(result.exportResult.approximateDurationMs).isAtMost(500);
-    assertThat(new File(result.filePath).length()).isGreaterThan(0);
+    MetadataRetriever metadataRetriever =
+        new MetadataRetriever.Builder(context, MediaItem.fromUri(result.filePath)).build();
+    long actualDurationUs = metadataRetriever.retrieveDurationUs().get();
+    assertThat(actualDurationUs).isWithin(50_000).of(500_000);
   }
 
   @Test
@@ -1305,8 +1305,6 @@ public class TransformerEndToEndTest {
 
   @Test
   public void speedAdjustedMedia_completesWithCorrectDuration() throws Exception {
-    // TODO: b/407690979 - Implement AAC encoder delay instead of skipping tests.
-    assumeFalse(mainlineAacEncoderDrainsAllSamplesAtEos(context));
     Transformer transformer = new Transformer.Builder(context).build();
     SpeedProvider speedProvider =
         TestSpeedProvider.createWithStartTimes(
@@ -1335,17 +1333,16 @@ public class TransformerEndToEndTest {
             .run(testId, editedMediaItem);
 
     // The input video is 15.537 seconds.
-    // 3 / 0.5 + 3 / 0.75 + 3 + 3 / 1.5 + 3.537 / 2 rounds up to 16_770
-    assertThat(result.exportResult.approximateDurationMs).isAtLeast(16_750);
-    assertThat(result.exportResult.approximateDurationMs).isAtMost(16_770);
-    assertThat(new File(result.filePath).length()).isGreaterThan(0);
+    // 3 / 0.5 + 3 / 0.75 + 3 + 3 / 1.5 + 3.537 / 2 rounds up to 16_770ms
+    MetadataRetriever metadataRetriever =
+        new MetadataRetriever.Builder(context, MediaItem.fromUri(result.filePath)).build();
+    long actualDurationUs = metadataRetriever.retrieveDurationUs().get();
+    assertThat(actualDurationUs).isWithin(50_000).of(16_770_000);
   }
 
   @Test
   public void speedAdjustedMedia_removingAudioAndForcingAudioTrack_completesWithCorrectDuration()
       throws Exception {
-    // TODO: b/407690979 - Implement AAC encoder delay instead of skipping tests.
-    assumeFalse(mainlineAacEncoderDrainsAllSamplesAtEos(context));
     Transformer transformer = new Transformer.Builder(context).build();
     SpeedProvider speedProvider =
         TestSpeedProvider.createWithStartTimes(
@@ -1381,10 +1378,11 @@ public class TransformerEndToEndTest {
             .run(testId, composition);
 
     // The input video is 15.537 seconds.
-    // 3 / 0.5 + 3 / 0.75 + 3 + 3 / 1.5 + 3.537 / 2 rounds up to 16_770
-    assertThat(result.exportResult.approximateDurationMs).isAtLeast(16_720);
-    assertThat(result.exportResult.approximateDurationMs).isAtMost(16_770);
-    assertThat(new File(result.filePath).length()).isGreaterThan(0);
+    // 3 / 0.5 + 3 / 0.75 + 3 + 3 / 1.5 + 3.537 / 2 rounds up to 16_770ms
+    MetadataRetriever metadataRetriever =
+        new MetadataRetriever.Builder(context, MediaItem.fromUri(result.filePath)).build();
+    long actualDurationUs = metadataRetriever.retrieveDurationUs().get();
+    assertThat(actualDurationUs).isWithin(50_000).of(16_770_000);
   }
 
   @Test
@@ -1449,8 +1447,6 @@ public class TransformerEndToEndTest {
   @Test
   public void durationAdjustedSequence_withForcedAudioTrack_completesWithCorrectDuration()
       throws Exception {
-    // TODO: b/407690979 - Implement AAC encoder delay instead of skipping tests.
-    assumeFalse(mainlineAacEncoderDrainsAllSamplesAtEos(context));
     Transformer transformer = new Transformer.Builder(context).build();
     assumeFormatsSupported(
         context,
@@ -1476,8 +1472,10 @@ public class TransformerEndToEndTest {
             .build()
             .run(testId, composition);
 
-    assertThat(result.exportResult.approximateDurationMs).isAtMost(20_720L);
-    assertThat(new File(result.filePath).length()).isGreaterThan(0);
+    MetadataRetriever metadataRetriever =
+        new MetadataRetriever.Builder(context, MediaItem.fromUri(result.filePath)).build();
+    long actualDurationUs = metadataRetriever.retrieveDurationUs().get();
+    assertThat(actualDurationUs).isWithin(50_000).of(20_720_000);
   }
 
   @Test
@@ -1561,23 +1559,26 @@ public class TransformerEndToEndTest {
             .run(testId, composition);
 
     assertThat(result.exportResult.processedInputs).hasSize(6);
-    assertThat(result.exportResult.channelCount).isEqualTo(1);
-    assertThat(result.exportResult.videoFrameCount).isEqualTo(90);
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(
+            new Mp4Extractor(new DefaultSubtitleParserFactory()), checkNotNull(result.filePath));
     // Audio encoders on different API levels output different audio durations for the same input.
     // On emulator, API 26 always outputs one access unit (23ms) of audio more than API 33.
     // If the video track is a lot longer than the audio track, then this API difference wouldn't be
     // seen in this check as the duration is determined by the last video frame.
     // However, if the audio track is roughly as long as the video track, this API difference
     // will be seen in result.exportResult.durationMs.
-    assertThat(result.exportResult.approximateDurationMs).isAtLeast(2970);
-    assertThat(result.exportResult.approximateDurationMs).isAtMost(3020);
-    assertThat(new File(result.filePath).length()).isGreaterThan(0);
+    assertThat(fakeExtractorOutput.seekMap.getDurationUs()).isWithin(50_000).of(3_020_000);
+    FakeTrackOutput audioTrackOutput =
+        Iterables.getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_AUDIO));
+    assertThat(audioTrackOutput.lastFormat.channelCount).isEqualTo(1);
+    FakeTrackOutput videoTrackOutput =
+        Iterables.getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_VIDEO));
+    assertThat(videoTrackOutput.getSampleCount()).isEqualTo(90);
   }
 
   @Test
   public void loopingTranscodedVideo_producesExpectedResult() throws Exception {
-    // TODO: b/407690979 - Implement AAC encoder delay instead of skipping tests.
-    assumeFalse(mainlineAacEncoderDrainsAllSamplesAtEos(context));
     Transformer transformer = new Transformer.Builder(context).build();
     assumeFormatsSupported(
         context,
@@ -1604,23 +1605,26 @@ public class TransformerEndToEndTest {
             .run(testId, composition);
 
     assertThat(result.exportResult.processedInputs).hasSize(7);
-    assertThat(result.exportResult.channelCount).isEqualTo(1);
-    assertThat(result.exportResult.videoFrameCount).isEqualTo(92);
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(
+            new Mp4Extractor(new DefaultSubtitleParserFactory()), checkNotNull(result.filePath));
     // Audio encoders on different API levels output different audio durations for the same input.
     // On emulator, API 26 always outputs one access unit (23ms) of audio more than API 33.
     // If the video track is a lot longer than the audio track, then this API difference wouldn't be
     // seen in this check as the duration is determined by the last video frame.
     // However, if the audio track is roughly as long as the video track, this API difference
     // will be seen in result.exportResult.durationMs.
-    assertThat(result.exportResult.approximateDurationMs).isAtLeast(3100);
-    assertThat(result.exportResult.approximateDurationMs).isAtMost(3150);
-    assertThat(new File(result.filePath).length()).isGreaterThan(0);
+    assertThat(fakeExtractorOutput.seekMap.getDurationUs()).isWithin(50_000).of(3_150_000);
+    FakeTrackOutput audioTrackOutput =
+        Iterables.getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_AUDIO));
+    assertThat(audioTrackOutput.lastFormat.channelCount).isEqualTo(1);
+    FakeTrackOutput videoTrackOutput =
+        Iterables.getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_VIDEO));
+    assertThat(videoTrackOutput.getSampleCount()).isEqualTo(92);
   }
 
   @Test
   public void loopingImage_producesExpectedResult() throws Exception {
-    // TODO: b/407690979 - Implement AAC encoder delay instead of skipping tests.
-    assumeFalse(mainlineAacEncoderDrainsAllSamplesAtEos(context));
     Transformer transformer = new Transformer.Builder(context).build();
     EditedMediaItem audioEditedMediaItem =
         new EditedMediaItem.Builder(MediaItem.fromUri(MP3_ASSET.uri)).build();
@@ -1645,23 +1649,26 @@ public class TransformerEndToEndTest {
             .run(testId, composition);
 
     assertThat(result.exportResult.processedInputs).hasSize(7);
-    assertThat(result.exportResult.channelCount).isEqualTo(1);
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(
+            new Mp4Extractor(new DefaultSubtitleParserFactory()), checkNotNull(result.filePath));
     // Audio encoders on different API levels output different audio durations for the same input.
     // On emulator, API 26 always outputs one access unit (23ms) of audio more than API 33.
     // If the video track is a lot longer than the audio track, then this API difference wouldn't be
     // seen in this check as the duration is determined by the last video frame.
     // However, if the audio track is roughly as long as the video track, this API difference
     // will be seen in result.exportResult.durationMs.
-    assertThat(result.exportResult.approximateDurationMs).isAtLeast(3120);
-    assertThat(result.exportResult.approximateDurationMs).isAtMost(3140);
-    assertThat(result.exportResult.videoFrameCount).isEqualTo(95);
-    assertThat(new File(result.filePath).length()).isGreaterThan(0);
+    assertThat(fakeExtractorOutput.seekMap.getDurationUs()).isWithin(50_000).of(3_140_000);
+    FakeTrackOutput audioTrackOutput =
+        Iterables.getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_AUDIO));
+    assertThat(audioTrackOutput.lastFormat.channelCount).isEqualTo(1);
+    FakeTrackOutput videoTrackOutput =
+        Iterables.getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_VIDEO));
+    assertThat(videoTrackOutput.getSampleCount()).isEqualTo(95);
   }
 
   @Test
   public void loopingImage_loopingSequenceIsLongest_producesExpectedResult() throws Exception {
-    // TODO: b/407690979 - Implement AAC encoder delay instead of skipping tests.
-    assumeFalse(mainlineAacEncoderDrainsAllSamplesAtEos(context));
     Transformer transformer = new Transformer.Builder(context).build();
     EditedMediaItem audioEditedMediaItem =
         new EditedMediaItem.Builder(MediaItem.fromUri(MP3_ASSET.uri)).build();
@@ -1684,16 +1691,19 @@ public class TransformerEndToEndTest {
             .run(testId, composition);
 
     assertThat(result.exportResult.processedInputs).hasSize(3);
-    assertThat(result.exportResult.channelCount).isEqualTo(1);
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(
+            new Mp4Extractor(new DefaultSubtitleParserFactory()), checkNotNull(result.filePath));
     // Audio encoders on different API levels output different audio durations for the same input.
     // On emulator, API 26 always outputs one access unit (23ms) of audio more than API 33.
     // If the video track is a lot longer than the audio track, then this API difference wouldn't be
     // seen in this check as the duration is determined by the last video frame.
     // However, if the audio track is roughly as long as the video track, this API difference
     // will be seen in result.exportResult.durationMs.
-    assertThat(result.exportResult.approximateDurationMs).isAtLeast(1000);
-    assertThat(result.exportResult.approximateDurationMs).isAtMost(1050);
-    assertThat(new File(result.filePath).length()).isGreaterThan(0);
+    assertThat(fakeExtractorOutput.seekMap.getDurationUs()).isWithin(50_000).of(1_050_000);
+    FakeTrackOutput audioTrackOutput =
+        Iterables.getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_AUDIO));
+    assertThat(audioTrackOutput.lastFormat.channelCount).isEqualTo(1);
   }
 
   @Test
@@ -2181,8 +2191,6 @@ public class TransformerEndToEndTest {
 
   @Test
   public void transcode_shorterAudio_extendsAudioTrack() throws Exception {
-    // TODO: b/407690979 - Implement AAC encoder delay instead of skipping tests.
-    assumeFalse(mainlineAacEncoderDrainsAllSamplesAtEos(context));
     assumeFormatsSupported(
         context,
         testId,
@@ -2203,8 +2211,7 @@ public class TransformerEndToEndTest {
     Mp4Extractor mp4Extractor = new Mp4Extractor(new DefaultSubtitleParserFactory());
     FakeExtractorOutput fakeExtractorOutput =
         TestUtil.extractAllSamplesFromFilePath(mp4Extractor, exportTestResult.filePath);
-    assertThat(fakeExtractorOutput.seekMap.getDurationUs()).isAtLeast(1_150_000);
-    assertThat(fakeExtractorOutput.seekMap.getDurationUs()).isAtMost(1_250_000);
+    assertThat(fakeExtractorOutput.seekMap.getDurationUs()).isWithin(50_000).of(1_250_000);
     assertThat(fakeExtractorOutput.numberOfTracks).isEqualTo(2);
     for (int i = 0; i < fakeExtractorOutput.numberOfTracks; ++i) {
       FakeTrackOutput trackOutput = fakeExtractorOutput.trackOutputs.get(i);
@@ -2217,16 +2224,15 @@ public class TransformerEndToEndTest {
         // Audio encoders on different API levels output different audio durations for the same
         // input.
         // E.g. on emulator, API 26 always outputs one access unit (23ms) of audio more than API 33.
-        assertThat(trackOutput.getSampleTimeUs(/* index= */ sampleCount - 1)).isAtLeast(1_150_000);
-        assertThat(trackOutput.getSampleTimeUs(/* index= */ sampleCount - 1)).isAtMost(1_250_000);
+        assertThat(trackOutput.getSampleTimeUs(/* index= */ sampleCount - 1))
+            .isWithin(100_000)
+            .of(1_250_000);
       }
     }
   }
 
   @Test
   public void transcode_shorterAudioSequence_extendsAudioTrack() throws Exception {
-    // TODO: b/407690979 - Implement AAC encoder delay instead of skipping tests.
-    assumeFalse(mainlineAacEncoderDrainsAllSamplesAtEos(context));
     assumeFormatsSupported(
         context,
         testId,
@@ -2252,7 +2258,7 @@ public class TransformerEndToEndTest {
     Mp4Extractor mp4Extractor = new Mp4Extractor(new DefaultSubtitleParserFactory());
     FakeExtractorOutput fakeExtractorOutput =
         TestUtil.extractAllSamplesFromFilePath(mp4Extractor, exportTestResult.filePath);
-    assertThat(fakeExtractorOutput.seekMap.getDurationUs()).isEqualTo(2_400_000);
+    assertThat(fakeExtractorOutput.seekMap.getDurationUs()).isWithin(50_000).of(2_400_000);
     assertThat(fakeExtractorOutput.numberOfTracks).isEqualTo(2);
     // Check that both video and audio tracks have duration close to 1 second.
     for (int i = 0; i < fakeExtractorOutput.numberOfTracks; ++i) {
@@ -2266,8 +2272,9 @@ public class TransformerEndToEndTest {
         // Audio encoders on different API levels output different audio durations for the same
         // input.
         // On emulator, API 26 always outputs one access unit (23ms) of audio more than API 33.
-        assertThat(trackOutput.getSampleTimeUs(/* index= */ sampleCount - 1)).isAtLeast(2_300_000);
-        assertThat(trackOutput.getSampleTimeUs(/* index= */ sampleCount - 1)).isAtMost(2_400_000);
+        assertThat(trackOutput.getSampleTimeUs(/* index= */ sampleCount - 1))
+            .isWithin(50_000)
+            .of(2_400_000);
       }
     }
   }
@@ -2322,8 +2329,6 @@ public class TransformerEndToEndTest {
 
   @Test
   public void speedAdjustedMedia_shorterAudioTrack_completesWithCorrectDuration() throws Exception {
-    // TODO: b/407690979 - Implement AAC encoder delay instead of skipping tests.
-    assumeFalse(mainlineAacEncoderDrainsAllSamplesAtEos(context));
     assumeFormatsSupported(
         context,
         testId,
@@ -2356,9 +2361,10 @@ public class TransformerEndToEndTest {
     // seen in this check as the duration is determined by the last video frame.
     // However, if the audio track is roughly as long as the video track, this API difference
     // will be seen in result.exportResult.durationMs.
-    assertThat(result.exportResult.approximateDurationMs).isAtLeast(1_360);
-    assertThat(result.exportResult.approximateDurationMs).isAtMost(1_400);
-    assertThat(new File(result.filePath).length()).isGreaterThan(0);
+    MetadataRetriever metadataRetriever =
+        new MetadataRetriever.Builder(context, MediaItem.fromUri(result.filePath)).build();
+    long actualDurationUs = metadataRetriever.retrieveDurationUs().get();
+    assertThat(actualDurationUs).isWithin(50_000).of(1_400_000);
   }
 
   @Test
@@ -2442,8 +2448,10 @@ public class TransformerEndToEndTest {
             .run(testId, editedMediaItem);
 
     // The original clip is 1 second long.
-    assertThat(result.exportResult.approximateDurationMs).isWithin(50).of(1_000);
-    assertThat(new File(result.filePath).length()).isGreaterThan(0);
+    MetadataRetriever metadataRetriever =
+        new MetadataRetriever.Builder(context, MediaItem.fromUri(result.filePath)).build();
+    long actualDurationUs = metadataRetriever.retrieveDurationUs().get();
+    assertThat(actualDurationUs).isWithin(70_000).of(1_000_000);
   }
 
   @Test
@@ -2485,14 +2493,14 @@ public class TransformerEndToEndTest {
       throw e;
     }
     // Each original clip is 1 second long.
-    assertThat(result.exportResult.approximateDurationMs).isWithin(150).of(3_000);
-    assertThat(new File(result.filePath).length()).isGreaterThan(0);
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(
+            new Mp4Extractor(new DefaultSubtitleParserFactory()), checkNotNull(result.filePath));
+    assertThat(fakeExtractorOutput.seekMap.getDurationUs()).isWithin(150_000).of(3_000_000);
   }
 
   @Test
   public void export_withMutingGainProvider_processesMutedAudio() throws Exception {
-    // TODO: b/407690979 - Implement AAC encoder delay instead of skipping tests.
-    assumeFalse(mainlineAacEncoderDrainsAllSamplesAtEos(context));
     Transformer transformer = new Transformer.Builder(context).build();
     DefaultGainProvider provider = new DefaultGainProvider.Builder(/* defaultGain= */ 0f).build();
     GainProcessor gainProcessor = new GainProcessor(provider);
@@ -2510,7 +2518,6 @@ public class TransformerEndToEndTest {
                 }
               }
             });
-
     EditedMediaItem item =
         new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
             .setEffects(
@@ -2520,9 +2527,10 @@ public class TransformerEndToEndTest {
     ExportTestResult result =
         new TransformerAndroidTestRunner.Builder(context, transformer).build().run(testId, item);
 
-    // TODO: b/443998866 - Use MetadataRetriever to get exact duration.
-    assertThat(result.exportResult.approximateDurationMs).isWithin(40).of(1000);
-    assertThat(new File(result.filePath).length()).isGreaterThan(0);
+    MetadataRetriever metadataRetriever =
+        new MetadataRetriever.Builder(context, MediaItem.fromUri(result.filePath)).build();
+    long actualDurationUs = metadataRetriever.retrieveDurationUs().get();
+    assertThat(actualDurationUs).isWithin(50_000).of(1_000_000);
   }
 
   @Test
@@ -2698,6 +2706,39 @@ public class TransformerEndToEndTest {
     assertThat(result.exportResult.audioMimeType).isEqualTo(MimeTypes.AUDIO_AAC);
     assertThat(listener1Called.get()).isTrue();
     assertThat(listener2Called.get()).isTrue();
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 30) // c2.android.aac.encoder was added in newer android versions.
+  public void export_audioWithForceEncoding_encoderDelayIsPreserved() throws Exception {
+    Composition inputComposition =
+        new Composition.Builder(
+                new EditedMediaItemSequence.Builder(
+                        new EditedMediaItem.Builder(
+                                new MediaItem.Builder().setUri(MP4_ASSET.uri).build())
+                            .setRemoveVideo(true)
+                            .build())
+                    .build())
+            .build();
+    Transformer transformer =
+        new Transformer.Builder(context)
+            .setEncoderFactory(new AndroidTestUtil.ForceEncodeEncoderFactory(context))
+            .setAudioMimeType(MimeTypes.AUDIO_AAC)
+            .build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, inputComposition);
+
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(
+            new Mp4Extractor(new DefaultSubtitleParserFactory()), result.filePath);
+    assertThat(fakeExtractorOutput.numberOfTracks).isEqualTo(1);
+    FakeTrackOutput audioTrack = fakeExtractorOutput.trackOutputs.get(0);
+    // The encoder-delay for AAC is 1600 PCM samples.
+    assertThat(audioTrack.lastFormat.encoderDelay).isEqualTo(1600);
+    assertThat(audioTrack.getSampleTimeUs(/* index= */ 0)).isEqualTo(0);
   }
 
   private static boolean shouldSkipDeviceForAacObjectHeProfileEncoding() {
