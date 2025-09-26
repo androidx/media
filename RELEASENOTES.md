@@ -169,6 +169,8 @@
         `MediaMuxer`.
     *   Add `MuxerUtil.createMotionPhotoFromJpegImageAndBmffVideo()` to allow
         Motion Photo creation.
+    *   Add `WebmMuxer` to allow muxing of `OPUS`, `VORBIS`, `VP8` and `VP9`
+        media streams into a `webm` file format.
 *   IMA extension:
     *   Removal of custom proguard rules, so that apps can use those released in
         IMA android archive instead.
