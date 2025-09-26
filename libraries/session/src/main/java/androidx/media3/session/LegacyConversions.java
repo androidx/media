@@ -738,6 +738,10 @@ import java.util.concurrent.TimeoutException;
       builder.putText(MediaMetadataCompat.METADATA_KEY_DISPLAY_TITLE, metadata.displayTitle);
     }
 
+    if (metadata.displayTitle != null) {
+      builder.putText(MediaMetadataCompat.METADATA_KEY_DISPLAY_TITLE, metadata.displayTitle);
+    }
+
     if (metadata.subtitle != null) {
       builder.putText(MediaMetadataCompat.METADATA_KEY_DISPLAY_SUBTITLE, metadata.subtitle);
     }
