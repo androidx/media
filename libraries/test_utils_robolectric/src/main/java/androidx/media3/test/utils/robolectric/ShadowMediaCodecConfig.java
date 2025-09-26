@@ -395,7 +395,7 @@ public final class ShadowMediaCodecConfig extends ExternalResource {
     public void configure() {
       // TODO: Update ShadowMediaCodec to consider the MediaFormat.KEY_MAX_INPUT_SIZE value passed
       // to configure() so we don't have to specify large buffers here.
-      int bufferSize = codecInfo.mimeType.equals(MimeTypes.VIDEO_H265) ? 250_000 : 150_000;
+      int bufferSize = MimeTypes.isVideo(codecInfo.mimeType) ? 250_000 : 20_000;
       configureShadowMediaCodec(
           codecInfo.codecName,
           codecInfo.mimeType,

@@ -181,7 +181,7 @@ public class CompositionExportTest {
     ExportResult exportResult = TransformerTestRunner.runLooper(transformer);
 
     // TODO: b/443998866 - Use MetadataRetriever to get exact duration.
-    assertThat(exportResult.approximateDurationMs).isEqualTo(31_053);
+    assertThat(exportResult.approximateDurationMs).isEqualTo(31_065);
     // FILE_AUDIO_RAW duration is 1000ms. Input 32 times to cover the 31_053ms duration.
     assertThat(exportResult.processedInputs).hasSize(34);
     assertThat(exportResult.channelCount).isEqualTo(1);

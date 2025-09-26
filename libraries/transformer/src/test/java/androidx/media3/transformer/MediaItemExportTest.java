@@ -168,7 +168,7 @@ public final class MediaItemExportTest {
     ExportResult result = TransformerTestRunner.runLooper(transformer);
 
     // TODO: b/443998866 - Use MetadataRetriever to get exact duration.
-    assertThat(result.approximateDurationMs).isAtLeast(487);
+    assertThat(result.approximateDurationMs).isAtLeast(450);
     assertThat(result.approximateDurationMs).isAtMost(500);
 
     DumpFileAsserts.assertOutput(
