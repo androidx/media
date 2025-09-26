@@ -137,6 +137,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   private final UUID uuid;
   private final Looper playbackLooper;
   private final ResponseHandler responseHandler;
+  private final Object keyRequestInfoLock;
 
   private @DrmSession.State int state;
   private int referenceCount;
@@ -148,6 +149,11 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   private byte @MonotonicNonNull [] offlineLicenseKeySetId;
 
   @Nullable private KeyRequest currentKeyRequest;
+
+  @GuardedBy("keyRequestInfoLock")
+  @Nullable
+  private KeyRequestInfo.Builder currentKeyRequestInfo;
+
   @Nullable private ProvisionRequest currentProvisionRequest;
 
   /**
@@ -209,6 +215,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     state = STATE_OPENING;
     this.playbackLooper = playbackLooper;
     responseHandler = new ResponseHandler(playbackLooper);
+    keyRequestInfoLock = new Object();
   }
 
   public boolean hasSessionId(byte[] sessionId) {
@@ -348,6 +355,9 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       cryptoConfig = null;
       lastException = null;
       currentKeyRequest = null;
+      synchronized (keyRequestInfoLock) {
+        currentKeyRequestInfo = null;
+      }
       currentProvisionRequest = null;
       if (sessionId != null) {
         mediaDrm.closeSession(sessionId);
@@ -489,6 +499,12 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
   private void postKeyRequest(byte[] scope, int type, boolean allowRetry) {
     try {
+      synchronized (keyRequestInfoLock) {
+        currentKeyRequestInfo = new KeyRequestInfo.Builder();
+        if (schemeDatas != null) {
+          currentKeyRequestInfo.setSchemeDatas(schemeDatas);
+        }
+      }
       currentKeyRequest = mediaDrm.getKeyRequest(scope, schemeDatas, type, keyRequestParameters);
       Util.castNonNull(requestHandler).post(MSG_KEYS, checkNotNull(currentKeyRequest), allowRetry);
     } catch (Exception | NoSuchMethodError e) {
@@ -502,6 +518,13 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       return;
     }
     currentKeyRequest = null;
+    KeyRequestInfo keyRequestInfo;
+    synchronized (keyRequestInfoLock) {
+      // currentKeyRequest and currentKeyRequestInfo are assigned together, and nulled-out together,
+      // so it must be non-null here.
+      keyRequestInfo = checkNotNull(currentKeyRequestInfo).build();
+      currentKeyRequestInfo = null;
+    }
 
     if (response instanceof Exception || response instanceof NoSuchMethodError) {
       onKeysError((Throwable) response, /* thrownByExoMediaDrm= */ false);
@@ -510,8 +533,11 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
     try {
       byte[] responseData = ((MediaDrmCallback.Response) response).data;
+
       if (mode == DefaultDrmSessionManager.MODE_RELEASE) {
         mediaDrm.provideKeyResponse(Util.castNonNull(offlineLicenseKeySetId), responseData);
+        // TODO: http://github.com/androidx/media/issues/1001 - Plumb the KeyLoadInfo up into
+        //  drmKeysRemoved.
         dispatchEvent(DrmSessionEventListener.EventDispatcher::drmKeysRemoved);
       } else {
         byte[] keySetId = mediaDrm.provideKeyResponse(sessionId, responseData);
@@ -523,7 +549,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
           offlineLicenseKeySetId = keySetId;
         }
         state = STATE_OPENED_WITH_KEYS;
-        dispatchEvent(DrmSessionEventListener.EventDispatcher::drmKeysLoaded);
+        dispatchEvent(eventDispatcher -> eventDispatcher.drmKeysLoaded(keyRequestInfo));
       }
     } catch (Exception | NoSuchMethodError e) {
       onKeysError(e, /* thrownByExoMediaDrm= */ true);
@@ -659,7 +685,17 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
                 callback.executeProvisionRequest(uuid, (ProvisionRequest) requestTask.request);
             break;
           case MSG_KEYS:
-            response = callback.executeKeyRequest(uuid, (KeyRequest) requestTask.request);
+            MediaDrmCallback.Response keyResponse =
+                callback.executeKeyRequest(uuid, (KeyRequest) requestTask.request);
+            response = keyResponse;
+            synchronized (keyRequestInfoLock) {
+              if (currentKeyRequestInfo != null && keyResponse.loadEventInfo != null) {
+                currentKeyRequestInfo.addLoadInfo(
+                    keyResponse.loadEventInfo.copyWithTaskIdAndDurationMs(
+                        requestTask.taskId,
+                        SystemClock.elapsedRealtime() - requestTask.startTimeMs));
+              }
+            }
             break;
           default:
             throw new RuntimeException();
@@ -714,6 +750,11 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       if (retryDelayMs == C.TIME_UNSET) {
         // The error is fatal.
         return false;
+      }
+      synchronized (keyRequestInfoLock) {
+        if (currentKeyRequestInfo != null) {
+          currentKeyRequestInfo.addLoadInfo(loadEventInfo);
+        }
       }
       synchronized (this) {
         if (!isReleased) {

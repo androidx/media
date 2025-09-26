@@ -163,6 +163,9 @@
         information. This is a source breaking change, but breakages can be
         easily resolved by wrapping the previous `byte[]` return value with `new
         Response` before returning.
+    *   Add key request info like URL and latency to
+        `AnalyticsListener.onDrmKeysLoaded`
+        ([#1001](https://github.com/androidx/media/issues/1001)).
 *   Effect:
 *   Muxers:
     *   Add `MediaMuxerCompat`, a drop-in replacement for framework

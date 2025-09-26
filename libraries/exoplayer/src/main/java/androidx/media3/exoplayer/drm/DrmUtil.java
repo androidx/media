@@ -27,6 +27,7 @@ import android.media.MediaDrm;
 import android.media.MediaDrmResetException;
 import android.media.NotProvisionedException;
 import android.media.ResourceBusyException;
+import android.os.SystemClock;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.PlaybackException;
@@ -37,6 +38,7 @@ import androidx.media3.datasource.DataSourceInputStream;
 import androidx.media3.datasource.DataSpec;
 import androidx.media3.datasource.HttpDataSource;
 import androidx.media3.datasource.StatsDataSource;
+import androidx.media3.exoplayer.source.LoadEventInfo;
 import com.google.common.io.ByteStreams;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
@@ -145,11 +147,21 @@ public final class DrmUtil {
    *
    * <p>Note that this method is executing the request synchronously and blocks until finished.
    *
+   * <p>The {@link LoadEventInfo} returned inside the {@link MediaDrmCallback.Response} will have
+   * the following fields unset, and they must be updated by caller before the {@link LoadEventInfo}
+   * is used elsewhere:
+   *
+   * <ul>
+   *   <li>{@link LoadEventInfo#loadTaskId}
+   *   <li>{@link LoadEventInfo#loadDurationMs}
+   * </ul>
+   *
    * @param dataSource A {@link DataSource}.
    * @param url The requested URL.
    * @param httpBody The HTTP request payload.
    * @param requestProperties A keyed map of HTTP header request properties.
-   * @return A byte array that holds the response payload.
+   * @return A {@link MediaDrmCallback.Response} that holds the response payload, and {@link
+   *     LoadEventInfo}.
    * @throws MediaDrmCallbackException if an exception was encountered during the download.
    */
   public static MediaDrmCallback.Response executePost(
@@ -173,7 +185,19 @@ public final class DrmUtil {
       while (true) {
         DataSourceInputStream inputStream = new DataSourceInputStream(statsDataSource, dataSpec);
         try {
-          return new MediaDrmCallback.Response(ByteStreams.toByteArray(inputStream));
+          byte[] response = ByteStreams.toByteArray(inputStream);
+          LoadEventInfo loadEventInfo =
+              new LoadEventInfo(
+                  -1, // This will be replaced with the actual taskId from the request.
+                  originalDataSpec,
+                  statsDataSource.getLastOpenedUri(),
+                  statsDataSource.getLastResponseHeaders(),
+                  SystemClock.elapsedRealtime(),
+                  /* loadDurationMs= */ 0,
+                  response.length);
+          return new MediaDrmCallback.Response.Builder(response)
+              .setLoadEventInfo(loadEventInfo)
+              .build();
         } catch (HttpDataSource.InvalidResponseCodeException e) {
           @Nullable String redirectUrl = getRedirectUrl(e, manualRedirectCount);
           if (redirectUrl == null) {
