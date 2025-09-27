@@ -39,6 +39,9 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.AuxEffectInfo;
 import androidx.media3.common.C;
+import androidx.media3.common.CodecParameter;
+import androidx.media3.common.CodecParameters;
+import androidx.media3.common.CodecParametersChangeListener;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackException;
@@ -113,6 +116,14 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
   private final AudioSink audioSink;
   @Nullable private final LoudnessCodecController loudnessCodecController;
 
+  /**
+   * A holder for codec parameters that are persistently applied to the underlying {@link
+   * MediaCodec}.
+   *
+   * @see ExoPlayer#setCodecParameter(CodecParameter)
+   */
+  private final CodecParameters codecParameters;
+
   private int codecMaxInputSize;
   private boolean codecNeedsDiscardChannelsWorkaround;
   private boolean codecNeedsVorbisToAndroidChannelMappingWorkaround;
@@ -128,6 +139,13 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
   private int rendererPriority;
   private boolean isStarted;
   private long nextBufferToWritePresentationTimeUs;
+
+  /**
+   * A listener for codec parameter changes.
+   *
+   * @see ExoPlayer#setCodecParametersChangeListener(CodecParametersChangeListener)
+   */
+  @Nullable private CodecParametersChangeListener codecParametersChangeListener;
 
   /**
    * @param context A context.
@@ -308,6 +326,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
     eventDispatcher = new EventDispatcher(eventHandler, eventListener);
     nextBufferToWritePresentationTimeUs = C.TIME_UNSET;
     audioSink.setListener(new AudioSinkListener());
+    codecParameters = new CodecParameters();
   }
 
   @Override
@@ -598,6 +617,11 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
   @Override
   protected void onOutputFormatChanged(Format format, @Nullable MediaFormat mediaFormat)
       throws ExoPlaybackException {
+    if (codecParametersChangeListener != null && mediaFormat != null) {
+      CodecParameters params = new CodecParameters();
+      params.setFromMediaFormat(mediaFormat, codecParametersChangeListener.getFilterKeys());
+      codecParametersChangeListener.onCodecParametersChanged(params);
+    }
     Format audioSinkInputFormat;
     @Nullable int[] channelMap = null;
     if (decryptOnlyCodecFormat != null) { // Direct playback with a codec for decryption.
@@ -936,6 +960,20 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
         rendererPriority = (int) checkNotNull(message);
         updateCodecImportance();
         break;
+      case MSG_SET_CODEC_PARAMETER:
+        if (message == null) {
+          this.codecParameters.clear();
+        } else {
+          this.codecParameters.set((CodecParameter) message);
+        }
+        @Nullable MediaCodecAdapter codec = getCodec();
+        if (codec != null) {
+          codec.setParameters(codecParameters.toBundle());
+        }
+        break;
+      case MSG_SET_CODEC_PARAMETERS_CHANGED_LISTENER:
+        this.codecParametersChangeListener = (CodecParametersChangeListener) message;
+        break;
       default:
         super.handleMessage(messageType, message);
         break;
@@ -1055,6 +1093,8 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
     if (SDK_INT >= 35) {
       mediaFormat.setInteger(MediaFormat.KEY_IMPORTANCE, max(0, -rendererPriority));
     }
+
+    codecParameters.addToMediaFormat(mediaFormat);
     return mediaFormat;
   }
 
