@@ -151,6 +151,10 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   private final boolean playIfSuppressed;
   private final HandlerThread compatSessionInteractionThread;
   private final Handler compatSessionInteractionHandler;
+  private final Runnable callOnNotificationRefreshRequiredRunnable =
+      this::callOnNotificationRefreshRequiredIfNeeded;
+  private final Runnable requestNotificationRefreshRunnable =
+      () -> notificationRefreshRequiredPending = true;
 
   private volatile long connectionTimeoutMs;
   @Nullable private FutureCallback<Bitmap> pendingBitmapLoadCallback;
@@ -158,6 +162,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   private int sessionFlags;
   @Nullable private LegacyError legacyError;
   private Bundle legacyExtras;
+  private boolean notificationRefreshRequiredPending;
   private ImmutableList<CommandButton> customLayout;
   private ImmutableList<CommandButton> mediaButtonPreferences;
   private SessionCommands availableSessionCommands;
@@ -1172,9 +1177,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
           postOrRunForCompatSession(
               () -> {
                 sessionCompat.setPlaybackState(playbackStateCompat);
-                if (notify) {
-                  sessionImpl.onNotificationRefreshRequired();
-                }
+                requestNotificationRefresh(notify);
               });
         });
   }
@@ -1315,6 +1318,29 @@ import org.checkerframework.checker.initialization.qual.Initialized;
           receiver.send(result.resultCode, result.extras);
         },
         MoreExecutors.directExecutor());
+  }
+
+  private void callOnNotificationRefreshRequiredIfNeeded() {
+    if (notificationRefreshRequiredPending) {
+      sessionImpl.onNotificationRefreshRequired();
+      notificationRefreshRequiredPending = false;
+    }
+  }
+
+  private void requestNotificationRefresh(boolean postRunnable) {
+    if (compatSessionInteractionHandler.getLooper().isCurrentThread()) {
+      notificationRefreshRequiredPending = true;
+    } else {
+      compatSessionInteractionHandler.post(requestNotificationRefreshRunnable);
+    }
+    if (postRunnable) {
+      postOnNotificationRefreshRequiredRunnable();
+    }
+  }
+
+  private void postOnNotificationRefreshRequiredRunnable() {
+    compatSessionInteractionHandler.removeCallbacks(callOnNotificationRefreshRequiredRunnable);
+    compatSessionInteractionHandler.post(callOnNotificationRefreshRequiredRunnable);
   }
 
   private static <T> void ignoreFuture(@Nullable Future<T> unused) {
@@ -1695,7 +1721,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
                   LegacyConversions.getRatingCompatStyle(mediaItem.mediaMetadata.userRating));
             }
             sessionCompat.setPlaybackState(playbackStateCompat);
-            sessionImpl.onNotificationRefreshRequired();
+            requestNotificationRefresh(true);
           });
     }
 
@@ -1723,9 +1749,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         postOrRunForCompatSession(
             () -> {
               setQueue(/* queue= */ null);
-              if (notify) {
-                sessionImpl.onNotificationRefreshRequired();
-              }
+              requestNotificationRefresh(notify);
             });
         return;
       }
@@ -1777,9 +1801,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       // Framework MediaSession#setQueue() uses ParceledListSlice,
       // which means we can safely send long lists.
       setQueue(queueItemList);
-      if (notify) {
-        sessionImpl.onNotificationRefreshRequired();
-      }
+      requestNotificationRefresh(notify);
     }
 
     @Override
@@ -1896,7 +1918,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
           && Objects.equals(lastMediaUri, newMediaUri)
           && lastDurationMs == newDurationMs) {
         if (notify) {
-          sessionImpl.onNotificationRefreshRequired();
+          postOnNotificationRefreshRequiredRunnable();
         }
         return;
       }
@@ -1934,7 +1956,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
                                 newMediaUri,
                                 newDurationMs,
                                 /* artworkBitmap= */ result));
-                        sessionImpl.onNotificationRefreshRequired();
+                        requestNotificationRefresh(true);
                       });
                 }
 
@@ -1958,9 +1980,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
             setMetadata(
                 LegacyConversions.convertToMediaMetadataCompat(
                     newMediaMetadata, newMediaId, newMediaUri, newDurationMs, artworkBitmapFinal));
-            if (notify) {
-              sessionImpl.onNotificationRefreshRequired();
-            }
+            requestNotificationRefresh(notify);
           });
     }
   }
