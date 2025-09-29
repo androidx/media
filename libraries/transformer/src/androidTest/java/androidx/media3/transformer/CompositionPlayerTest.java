@@ -22,6 +22,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.junit.Assert.assertThrows;
 
 import android.app.Instrumentation;
@@ -58,6 +59,9 @@ import androidx.media3.datasource.AssetDataSource;
 import androidx.media3.datasource.DataSourceUtil;
 import androidx.media3.datasource.DataSpec;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
+import androidx.media3.effect.GlEffect;
+import androidx.media3.effect.GlShaderProgram;
+import androidx.media3.effect.PassthroughShaderProgram;
 import androidx.media3.effect.SingleInputVideoGraph;
 import androidx.media3.exoplayer.image.ExternallyLoadedImageDecoder;
 import androidx.media3.exoplayer.image.ExternallyLoadedImageDecoder.ExternalImageRequest;
@@ -75,6 +79,9 @@ import com.google.common.util.concurrent.ListenableFuture;
 import java.io.IOException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Before;
@@ -631,6 +638,59 @@ public class CompositionPlayerTest {
 
     instrumentation.runOnMainSync(compositionPlayer::release);
     assertThat(playerTestListener.getException()).isNotNull();
+  }
+
+  @Test
+  public void setGlExecutorService_runsEffectsPipelineOnExecutorService()
+      throws PlaybackException, TimeoutException, InterruptedException {
+    AtomicReference<Thread> testGlThread = new AtomicReference<>();
+    CountDownLatch frameQueuedLatch = new CountDownLatch(1);
+    ExecutorService executorService =
+        Executors.newSingleThreadScheduledExecutor(
+            runnable -> {
+              testGlThread.set(new Thread(runnable, /* threadName= */ "TestThread"));
+              return testGlThread.get();
+            });
+    GlShaderProgram threadCheckinghaderProgram =
+        new PassthroughShaderProgram() {
+          @Override
+          public void queueInputFrame(
+              GlObjectsProvider glObjectsProvider,
+              GlTextureInfo inputTexture,
+              long presentationTimeUs) {
+            assertThat(Thread.currentThread()).isEqualTo(testGlThread.get());
+            frameQueuedLatch.countDown();
+            super.queueInputFrame(glObjectsProvider, inputTexture, presentationTimeUs);
+          }
+        };
+    ImmutableList<Effect> effects =
+        ImmutableList.of((GlEffect) (context, useHdr) -> threadCheckinghaderProgram);
+
+    PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
+    instrumentation.runOnMainSync(
+        () -> {
+          compositionPlayer =
+              new CompositionPlayer.Builder(applicationContext)
+                  .setGlThreadExecutorService(executorService)
+                  .build();
+          compositionPlayer.setVideoSurfaceView(surfaceView);
+          compositionPlayer.addListener(listener);
+          compositionPlayer.setComposition(
+              new Composition.Builder(
+                      new EditedMediaItemSequence.Builder(
+                              new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
+                                  .setDurationUs(MP4_ASSET.videoDurationUs)
+                                  .setEffects(
+                                      new Effects(
+                                          /* audioProcessors= */ ImmutableList.of(), effects))
+                                  .build())
+                          .build())
+                  .build());
+          compositionPlayer.prepare();
+        });
+
+    listener.waitUntilFirstFrameRendered();
+    assertThat(frameQueuedLatch.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
   }
 
   private static final class TestExternallyLoadedBitmapResolver

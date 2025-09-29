@@ -105,6 +105,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.ExecutorService;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
@@ -140,6 +141,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     private Supplier<MediaSource.Factory> mediaSourceFactorySupplier;
     private Supplier<ImageDecoder.Factory> imageDecoderFactorySupplier;
     private Supplier<GlObjectsProvider> glObjectsProviderSupplier;
+    @Nullable private ExecutorService glExecutorService;
     private Supplier<LoadControl> loadControlSupplier;
     private AudioAttributes audioAttributes;
     private boolean handleAudioFocus;
@@ -293,9 +295,12 @@ public final class CompositionPlayer extends SimpleBasePlayer {
      *
      * @param videoGraphFactory The {@link VideoGraph.Factory}.
      * @return This builder, for convenience.
+     * @throws IllegalStateException if an {@link ExecutorService} is {@linkplain
+     *     #setGlThreadExecutorService set}.
      */
     @CanIgnoreReturnValue
     public Builder setVideoGraphFactory(VideoGraph.Factory videoGraphFactory) {
+      checkState(glExecutorService == null);
       this.videoGraphFactory = videoGraphFactory;
       return this;
     }
@@ -314,6 +319,29 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     public Builder setGlObjectsProvider(GlObjectsProvider glObjectsProvider) {
       checkNotNull(glObjectsProvider);
       this.glObjectsProviderSupplier = () -> glObjectsProvider;
+      return this;
+    }
+
+    /**
+     * Sets the {@link ExecutorService} to execute GL commands from.
+     *
+     * <p>By default, a {@link Util#newSingleThreadScheduledExecutor}, owned and {@link
+     * ExecutorService#shutdown} by the effects pipeline is used.
+     *
+     * <p>If set, the {@link ExecutorService} must be {@linkplain ExecutorService#shutdown shut
+     * down} by the caller after {@linkplain CompositionPlayer} has been {@linkplain #release
+     * released}.
+     *
+     * @param glExecutorService The {@link ExecutorService}.
+     * @return This builder, for convenience.
+     * @throws IllegalStateException if a {@link VideoGraph.Factory} is {@linkplain
+     *     #setVideoGraphFactory set}.
+     */
+    @CanIgnoreReturnValue
+    public Builder setGlThreadExecutorService(ExecutorService glExecutorService) {
+      checkNotNull(glExecutorService);
+      checkState(videoGraphFactory == null);
+      this.glExecutorService = glExecutorService;
       return this;
     }
 
@@ -400,6 +428,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
             new DefaultVideoFrameProcessor.Factory.Builder()
                 .setEnableReplayableCache(enableReplayableCache)
                 .setGlObjectsProvider(glObjectsProviderSupplier.get())
+                .setExecutorService(glExecutorService)
                 .build();
         videoGraphFactory = new SingleInputVideoGraph.Factory(videoFrameProcessorFactory);
       }
