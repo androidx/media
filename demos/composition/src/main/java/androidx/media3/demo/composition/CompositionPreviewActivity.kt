@@ -83,7 +83,6 @@ import androidx.compose.material3.adaptive.layout.ThreePaneScaffoldRole
 import androidx.compose.material3.adaptive.navigation.rememberSupportingPaneScaffoldNavigator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -107,12 +106,20 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.core.app.ActivityCompat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.MimeTypes
-import androidx.media3.demo.composition.CompositionPreviewViewModel.Companion.COMPOSITION_LAYOUT
 import androidx.media3.demo.composition.CompositionPreviewViewModel.Companion.HDR_MODE_DESCRIPTIONS
 import androidx.media3.demo.composition.CompositionPreviewViewModel.Companion.MUXER_OPTIONS
 import androidx.media3.demo.composition.CompositionPreviewViewModel.Companion.RESOLUTION_HEIGHTS
 import androidx.media3.demo.composition.CompositionPreviewViewModel.Companion.SAME_AS_INPUT_OPTION
+import androidx.media3.demo.composition.data.CompositionPreviewState
+import androidx.media3.demo.composition.data.ExportState
+import androidx.media3.demo.composition.data.Item
+import androidx.media3.demo.composition.data.MediaState
+import androidx.media3.demo.composition.data.OutputSettingsState
+import androidx.media3.demo.composition.data.OverlayAsset
+import androidx.media3.demo.composition.data.OverlayState
+import androidx.media3.demo.composition.data.PlacementState
 import androidx.media3.demo.composition.ui.DropDownSpinner
 import androidx.media3.demo.composition.ui.theme.CompositionDemoTheme
 import androidx.media3.demo.composition.ui.theme.spacing
@@ -120,6 +127,7 @@ import androidx.media3.demo.composition.ui.theme.textPadding
 import androidx.media3.transformer.Composition
 import androidx.media3.ui.PlayerView
 import java.util.Locale
+import java.util.UUID
 import kotlin.math.roundToInt
 import kotlin.time.DurationUnit
 import kotlin.time.toDuration
@@ -157,13 +165,14 @@ class CompositionPreviewActivity : AppCompatActivity() {
     }
 
     setContent {
+      val uiState by viewModel.uiState.collectAsStateWithLifecycle()
       val snackbarHostState = remember { SnackbarHostState() }
-      val snackbarMessage = viewModel.snackbarMessage
 
-      LaunchedEffect(snackbarMessage) {
-        if (snackbarMessage != null) {
-          snackbarHostState.showSnackbar(snackbarMessage)
-          viewModel.snackbarMessage = null
+      LaunchedEffect(uiState.snackbarMessage) {
+        val message = uiState.snackbarMessage
+        if (message != null) {
+          snackbarHostState.showSnackbar(message)
+          viewModel.onSnackbarMessageShown()
         }
       }
 
@@ -189,13 +198,21 @@ class CompositionPreviewActivity : AppCompatActivity() {
                     scope.launch { navigator.navigateTo(ThreePaneScaffoldRole.Secondary) }
                   },
                   viewModel,
+                  uiState = uiState,
                 )
               }
             },
             supportingPane = {
               AnimatedPane {
                 ExportOptionsPane(
-                  viewModel,
+                  outputSettings = uiState.outputSettingsState,
+                  exportState = uiState.exportState,
+                  isDebugTracingEnabled = uiState.isDebugTracingEnabled,
+                  onAudioMimeTypeChanged = viewModel::onAudioMimeTypeChanged,
+                  onVideoMimeTypeChanged = viewModel::onVideoMimeTypeChanged,
+                  onMuxerOptionChanged = viewModel::onMuxerOptionChanged,
+                  onDebugTracingChanged = viewModel::enableDebugTracing,
+                  onExport = viewModel::exportComposition,
                   shouldShowBackButton = navigator.scaffoldValue.primary == PaneAdaptedValue.Hidden,
                   onBack = { scope.launch { navigator.navigateBack() } },
                 )
@@ -216,18 +233,19 @@ class CompositionPreviewActivity : AppCompatActivity() {
     shouldShowSupportingPaneButton: Boolean,
     onNavigateToSupportingPane: () -> Unit,
     viewModel: CompositionPreviewViewModel,
+    uiState: CompositionPreviewState,
     modifier: Modifier = Modifier,
   ) {
 
-    val placementState = viewModel.overlayPlacementState
-    val isOverlayPlacementActive = placementState !is PlacementState.Inactive
+    val placementState = uiState.overlayState.placementState
+    val isOverlayPlacementActive = placementState is PlacementState.Placing
 
     val scrollState = rememberScrollState()
     var isLayoutDropdownExpanded by remember { mutableStateOf(false) }
 
     Column(modifier = modifier.fillMaxSize()) {
       Text(
-        text = "${viewModel.compositionLayout} ${stringResource(R.string.preview_composition)}",
+        text = "${uiState.compositionLayout} ${stringResource(R.string.preview_composition)}",
         fontWeight = FontWeight.Bold,
       )
 
@@ -259,7 +277,7 @@ class CompositionPreviewActivity : AppCompatActivity() {
 
           DraggableOverlay(
             bitmap = placementState.overlay.bitmap,
-            offset = placementState.currentUiTransform.offset,
+            offset = placementState.currentUiTransformOffset,
             onDrag = { dragAmount -> viewModel.onOverlayDrag(dragAmount) },
             modifier = Modifier.size(width = maxWidth, height = maxHeight),
           )
@@ -278,7 +296,13 @@ class CompositionPreviewActivity : AppCompatActivity() {
         Box(
           modifier = Modifier.graphicsLayer { alpha = if (isOverlayPlacementActive) 0.5f else 1.0f }
         ) {
-          VideoSequenceList(viewModel, isEnabled = !isOverlayPlacementActive)
+          VideoSequenceList(
+            mediaState = uiState.mediaState,
+            isEnabled = !isOverlayPlacementActive,
+            onAddItem = { index -> viewModel.addItem(index) },
+            onRemoveItem = { index -> viewModel.removeItem(index) },
+            onUpdateEffects = { index, effects -> viewModel.updateEffectsForItem(index, effects) },
+          )
         }
         if (isOverlayPlacementActive) {
           Row(
@@ -290,13 +314,18 @@ class CompositionPreviewActivity : AppCompatActivity() {
             }
           }
         } else {
-          OverlayEffectsList(viewModel = viewModel)
+          OverlayEffectsList(
+            overlayState = uiState.overlayState,
+            onPlaceNewOverlay = { asset -> viewModel.onPlaceNewOverlayClicked(asset) },
+            onEditOverlay = { id -> viewModel.onPlaceExistingOverlayClicked(id) },
+            onRemoveOverlay = { id -> viewModel.removeOverlay(id) },
+          )
         }
 
         DropDownSpinner(
           isDropDownOpen = isLayoutDropdownExpanded,
-          selectedOption = viewModel.compositionLayout,
-          dropDownOptions = COMPOSITION_LAYOUT,
+          selectedOption = uiState.compositionLayout,
+          dropDownOptions = uiState.availableLayouts,
           changeDropDownOpen = { isLayoutDropdownExpanded = it },
           changeSelectedOption = { newSelection ->
             viewModel.onCompositionLayoutChanged(newSelection)
@@ -315,11 +344,15 @@ class CompositionPreviewActivity : AppCompatActivity() {
             modifier = Modifier.textPadding(),
           )
           Switch(
-            viewModel.includeBackgroundAudioTrack,
-            { checked -> viewModel.includeBackgroundAudioTrack = checked },
+            checked = uiState.outputSettingsState.includeBackgroundAudio,
+            onCheckedChange = { isEnabled -> viewModel.onIncludeBackgroundAudioChanged(isEnabled) },
           )
         }
-        OutputSettings(viewModel)
+        OutputSettings(
+          outputSettings = uiState.outputSettingsState,
+          onResolutionChanged = viewModel::onOutputResolutionChanged,
+          onHdrModeChanged = viewModel::onHdrModeChanged,
+        )
       }
       HorizontalDivider(
         thickness = 2.dp,
@@ -362,15 +395,20 @@ class CompositionPreviewActivity : AppCompatActivity() {
   }
 
   @Composable
-  fun OverlayEffectsList(viewModel: CompositionPreviewViewModel) {
+  fun OverlayEffectsList(
+    overlayState: OverlayState,
+    onPlaceNewOverlay: (OverlayAsset) -> Unit,
+    onEditOverlay: (UUID) -> Unit,
+    onRemoveOverlay: (UUID) -> Unit,
+  ) {
     var showAssetSelectionDialog by remember { mutableStateOf(false) }
 
     if (showAssetSelectionDialog) {
       AssetSelectionDialog(
         onDismissRequest = { showAssetSelectionDialog = false },
-        assetOptions = viewModel.placeableEffectsOptions,
+        assetOptions = overlayState.availableOverlays,
         onAssetSelected = { asset ->
-          viewModel.onPlaceNewOverlayClicked(asset)
+          onPlaceNewOverlay(asset)
           showAssetSelectionDialog = false
         },
       )
@@ -392,19 +430,17 @@ class CompositionPreviewActivity : AppCompatActivity() {
       HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.secondary)
 
       LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 120.dp)) {
-        items(viewModel.committedOverlays, key = { it.id }) { placedOverlay ->
+        items(overlayState.committedOverlays, key = { it.id }) { placedOverlay ->
           Row(
             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
           ) {
             Text(text = placedOverlay.assetName, modifier = Modifier.weight(1f))
-            OutlinedButton(
-              onClick = { viewModel.onPlaceExistingOverlayClicked(placedOverlay.id) }
-            ) {
+            OutlinedButton(onClick = { onEditOverlay(placedOverlay.id) }) {
               Text(stringResource(R.string.edit))
             }
-            IconButton(onClick = { viewModel.removeOverlay(placedOverlay.id) }) {
+            IconButton(onClick = { onRemoveOverlay(placedOverlay.id) }) {
               Icon(
                 Icons.TwoTone.Delete,
                 contentDescription = stringResource(R.string.delete_overlay),
@@ -458,7 +494,14 @@ class CompositionPreviewActivity : AppCompatActivity() {
   @OptIn(ExperimentalMaterial3AdaptiveApi::class)
   @Composable
   fun ExportOptionsPane(
-    viewModel: CompositionPreviewViewModel,
+    outputSettings: OutputSettingsState,
+    exportState: ExportState,
+    isDebugTracingEnabled: Boolean,
+    onAudioMimeTypeChanged: (String) -> Unit,
+    onVideoMimeTypeChanged: (String) -> Unit,
+    onMuxerOptionChanged: (String) -> Unit,
+    onDebugTracingChanged: (Boolean) -> Unit,
+    onExport: () -> Unit,
     shouldShowBackButton: Boolean,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
@@ -481,7 +524,7 @@ class CompositionPreviewActivity : AppCompatActivity() {
         )
         DropDownSpinner(
           isDropDownOpen = isAudioTypeExpanded,
-          selectedOption = viewModel.outputAudioMimeType,
+          selectedOption = outputSettings.audioMimeType,
           dropDownOptions =
             listOf(
               SAME_AS_INPUT_OPTION,
@@ -490,7 +533,7 @@ class CompositionPreviewActivity : AppCompatActivity() {
               MimeTypes.AUDIO_AMR_WB,
             ),
           changeDropDownOpen = { expanded -> isAudioTypeExpanded = expanded },
-          changeSelectedOption = { selection -> viewModel.outputAudioMimeType = selection },
+          changeSelectedOption = onAudioMimeTypeChanged,
         )
       }
       Row(
@@ -504,7 +547,7 @@ class CompositionPreviewActivity : AppCompatActivity() {
         )
         DropDownSpinner(
           isDropDownOpen = isVideoTypeExpanded,
-          selectedOption = viewModel.outputVideoMimeType,
+          selectedOption = outputSettings.videoMimeType,
           dropDownOptions =
             listOf(
               SAME_AS_INPUT_OPTION,
@@ -515,7 +558,7 @@ class CompositionPreviewActivity : AppCompatActivity() {
               MimeTypes.VIDEO_AV1,
             ),
           changeDropDownOpen = { expanded -> isVideoTypeExpanded = expanded },
-          changeSelectedOption = { selection -> viewModel.outputVideoMimeType = selection },
+          changeSelectedOption = onVideoMimeTypeChanged,
         )
       }
       Row(
@@ -527,8 +570,10 @@ class CompositionPreviewActivity : AppCompatActivity() {
           text = stringResource(R.string.enable_debug_tracing),
           modifier = Modifier.textPadding(),
         )
-        val debugTracingEnabled by viewModel.enableDebugTracing.collectAsState()
-        Switch(debugTracingEnabled, { checked -> viewModel.enableDebugTracing(checked) })
+        Switch(
+          checked = isDebugTracingEnabled,
+          onCheckedChange = { checked -> onDebugTracingChanged(checked) },
+        )
       }
       Column(Modifier.selectableGroup()) {
         MUXER_OPTIONS.forEach { text ->
@@ -536,14 +581,14 @@ class CompositionPreviewActivity : AppCompatActivity() {
             horizontalArrangement = Arrangement.SpaceBetween,
             modifier =
               Modifier.selectable(
-                  selected = text == viewModel.muxerOption,
-                  onClick = { viewModel.muxerOption = text },
+                  selected = text == outputSettings.muxerOption,
+                  onClick = { onMuxerOptionChanged(text) },
                   role = Role.RadioButton,
                 )
                 .fillMaxWidth(),
           ) {
             Text(text = text, modifier = Modifier.textPadding())
-            RadioButton(selected = (text == viewModel.muxerOption), onClick = null)
+            RadioButton(selected = (text == outputSettings.muxerOption), onClick = null)
           }
         }
       }
@@ -556,9 +601,9 @@ class CompositionPreviewActivity : AppCompatActivity() {
           OutlinedButton({ onBack() }) { Text(text = stringResource(R.string.cancel)) }
         }
         Spacer(Modifier.weight(1f))
-        Button({ viewModel.exportComposition() }) { Text(text = stringResource(R.string.export)) }
+        Button(onClick = onExport) { Text(text = stringResource(R.string.export)) }
       }
-      viewModel.exportResultInformation?.let {
+      exportState.exportResultInfo?.let {
         HorizontalDivider(
           thickness = 2.dp,
           modifier = Modifier.padding(0.dp, MaterialTheme.spacing.mini),
@@ -569,25 +614,31 @@ class CompositionPreviewActivity : AppCompatActivity() {
   }
 
   @Composable
-  fun VideoSequenceList(viewModel: CompositionPreviewViewModel, isEnabled: Boolean) {
+  fun VideoSequenceList(
+    mediaState: MediaState,
+    isEnabled: Boolean,
+    onAddItem: (Int) -> Unit,
+    onRemoveItem: (Int) -> Unit,
+    onUpdateEffects: (index: Int, effects: Set<String>) -> Unit,
+  ) {
     var selectedMediaItemIndex by remember { mutableStateOf<Int?>(null) }
     var showEditMediaItemsDialog by remember { mutableStateOf(false) }
 
     if (showEditMediaItemsDialog) {
       VideoSequenceDialog(
         onDismissRequest = { showEditMediaItemsDialog = false },
-        itemOptions = viewModel.mediaItemOptions,
-        addSelectedVideo = { index -> viewModel.addItem(index) },
+        itemOptions = mediaState.availableItems,
+        addSelectedVideo = { index -> onAddItem(index) },
       )
     }
 
     selectedMediaItemIndex?.let { index ->
-      val item = viewModel.selectedMediaItems[index]
+      val item = mediaState.selectedItems[index]
       EffectSelectionDialog(
         onDismissRequest = { selectedMediaItemIndex = null },
-        effectOptions = viewModel.availableEffectNames,
-        currentSelections = item.selectedEffects.value,
-        onEffectsSelected = { newEffects -> viewModel.updateEffectsForItem(index, newEffects) },
+        effectOptions = mediaState.availableEffects,
+        currentSelections = item.selectedEffects,
+        onEffectsSelected = { newEffects -> onUpdateEffects(index, newEffects) },
       )
     }
 
@@ -612,7 +663,7 @@ class CompositionPreviewActivity : AppCompatActivity() {
         )
         HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.secondary)
         LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 200.dp)) {
-          itemsIndexed(viewModel.selectedMediaItems) { index, item ->
+          itemsIndexed(mediaState.selectedItems) { index, item ->
             Row(
               horizontalArrangement = Arrangement.SpaceBetween,
               verticalAlignment = Alignment.CenterVertically,
@@ -623,7 +674,7 @@ class CompositionPreviewActivity : AppCompatActivity() {
             ) {
               Column(modifier = Modifier.textPadding().weight(1f)) {
                 Text(text = "${index + 1}. ${item.title}")
-                val effectsText = item.selectedEffects.value.joinToString().ifEmpty { "None" }
+                val effectsText = item.selectedEffects.joinToString().ifEmpty { "None" }
                 Text(
                   text = "Effect: $effectsText",
                   fontSize = 12.sp,
@@ -631,7 +682,7 @@ class CompositionPreviewActivity : AppCompatActivity() {
                   color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f),
                 )
               }
-              IconButton({ viewModel.removeItem(index) }, enabled = isEnabled) {
+              IconButton({ onRemoveItem(index) }, enabled = isEnabled) {
                 Icon(Icons.TwoTone.Delete, contentDescription = "Remove item ${index + 1}")
               }
             }
@@ -652,7 +703,7 @@ class CompositionPreviewActivity : AppCompatActivity() {
   @Composable
   fun VideoSequenceDialog(
     onDismissRequest: () -> Unit,
-    itemOptions: List<CompositionPreviewViewModel.Item>,
+    itemOptions: List<Item>,
     addSelectedVideo: (Int) -> Unit,
   ) {
     Dialog(onDismissRequest) {
@@ -707,10 +758,15 @@ class CompositionPreviewActivity : AppCompatActivity() {
   }
 
   @Composable
-  fun OutputSettings(viewModel: CompositionPreviewViewModel) {
+  fun OutputSettings(
+    outputSettings: OutputSettingsState,
+    onResolutionChanged: (String) -> Unit,
+    onHdrModeChanged: (Int) -> Unit,
+  ) {
     var resolutionExpanded by remember { mutableStateOf(false) }
     var hdrExpanded by remember { mutableStateOf(false) }
-    var selectedHdrMode by remember { mutableStateOf(HDR_MODE_DESCRIPTIONS.keys.first()) }
+    val selectedHdrKey =
+      HDR_MODE_DESCRIPTIONS.entries.find { it.value == outputSettings.hdrMode }?.key
 
     Column(verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.mini)) {
       Row(
@@ -724,10 +780,10 @@ class CompositionPreviewActivity : AppCompatActivity() {
         )
         DropDownSpinner(
           isDropDownOpen = resolutionExpanded,
-          selectedOption = viewModel.outputResolution,
+          selectedOption = outputSettings.resolutionHeight,
           dropDownOptions = RESOLUTION_HEIGHTS,
           changeDropDownOpen = { newExpanded -> resolutionExpanded = newExpanded },
-          changeSelectedOption = { newSelection -> viewModel.outputResolution = newSelection },
+          changeSelectedOption = { newSelection -> onResolutionChanged(newSelection) },
         )
       }
       Row(
@@ -738,13 +794,12 @@ class CompositionPreviewActivity : AppCompatActivity() {
         Text(text = stringResource(R.string.hdr_mode), modifier = Modifier.textPadding())
         DropDownSpinner(
           isDropDownOpen = hdrExpanded,
-          selectedOption = selectedHdrMode,
+          selectedOption = selectedHdrKey ?: HDR_MODE_DESCRIPTIONS.keys.first(),
           dropDownOptions = HDR_MODE_DESCRIPTIONS.keys.toList(),
           changeDropDownOpen = { newExpanded -> hdrExpanded = newExpanded },
           changeSelectedOption = { newSelection ->
-            selectedHdrMode = newSelection
-            viewModel.outputHdrMode =
-              HDR_MODE_DESCRIPTIONS[newSelection] ?: Composition.HDR_MODE_KEEP_HDR
+            val newMode = HDR_MODE_DESCRIPTIONS[newSelection] ?: Composition.HDR_MODE_KEEP_HDR
+            onHdrModeChanged(newMode)
           },
         )
       }

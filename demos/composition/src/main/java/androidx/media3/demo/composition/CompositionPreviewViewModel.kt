@@ -17,11 +17,9 @@ package androidx.media3.demo.composition
 
 import android.app.Application
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.os.SystemClock
-import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
@@ -43,6 +41,15 @@ import androidx.media3.common.util.Size
 import androidx.media3.common.util.Util
 import androidx.media3.common.util.Util.usToMs
 import androidx.media3.demo.composition.MatrixTransformationFactory.createDizzyCropEffect
+import androidx.media3.demo.composition.data.CompositionPreviewState
+import androidx.media3.demo.composition.data.ExportState
+import androidx.media3.demo.composition.data.Item
+import androidx.media3.demo.composition.data.MediaState
+import androidx.media3.demo.composition.data.OutputSettingsState
+import androidx.media3.demo.composition.data.OverlayAsset
+import androidx.media3.demo.composition.data.OverlayState
+import androidx.media3.demo.composition.data.PlacedOverlay
+import androidx.media3.demo.composition.data.PlacementState
 import androidx.media3.demo.composition.effect.LottieEffectFactory
 import androidx.media3.effect.BitmapOverlay
 import androidx.media3.effect.DebugTraceUtil
@@ -81,48 +88,14 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONException
 
-class CompositionPreviewViewModel(application: Application, initialCompositionLayout: String) :
-  AndroidViewModel(application) {
-  data class Item(
-    val title: String,
-    val uri: String,
-    val durationUs: Long,
-    var selectedEffects: MutableState<Set<String>>,
-  )
+class CompositionPreviewViewModel(application: Application) : AndroidViewModel(application) {
 
-  val committedOverlays = mutableStateListOf<PlacedOverlay>()
-
-  var overlayPlacementState by mutableStateOf<PlacementState>(PlacementState.Inactive)
-    private set
-
-  var snackbarMessage by mutableStateOf<String?>(null)
-
-  var compositionLayout by mutableStateOf(initialCompositionLayout)
-    private set
+  private val _uiState = MutableStateFlow(createInitialState())
+  val uiState: StateFlow<CompositionPreviewState> = _uiState.asStateFlow()
 
   var compositionPlayer by mutableStateOf(createCompositionPlayer())
-
-  var mediaItemOptions = mutableStateListOf<Item>()
-  var selectedMediaItems = mutableStateListOf<Item>()
-
-  var includeBackgroundAudioTrack by mutableStateOf(false)
-  var outputResolution by mutableStateOf(RESOLUTION_HEIGHTS[0])
-  var outputHdrMode by mutableIntStateOf(Composition.HDR_MODE_KEEP_HDR)
-  var outputAudioMimeType by mutableStateOf(SAME_AS_INPUT_OPTION)
-  var outputVideoMimeType by mutableStateOf(SAME_AS_INPUT_OPTION)
-  var muxerOption by mutableStateOf(MUXER_OPTIONS[0])
-  var exportResultInformation by mutableStateOf<String?>(null)
-
   val EXPORT_ERROR_MESSAGE = application.resources.getString(R.string.export_error)
   val EXPORT_STARTED_MESSAGE = application.resources.getString(R.string.export_started)
-
-  private val _enableDebugTracing = MutableStateFlow(false)
-
-  var renderSize by mutableStateOf(geometrySize.Zero)
-    private set
-
-  val enableDebugTracing: StateFlow<Boolean> = _enableDebugTracing.asStateFlow()
-
   private var transformer: Transformer? = null
   private var outputFile: File? = null
   private var exportStopwatch: Stopwatch =
@@ -133,8 +106,6 @@ class CompositionPreviewViewModel(application: Application, initialCompositionLa
         }
       }
     )
-
-  var placeableEffectsOptions = mutableListOf<OverlayAsset>()
 
   private val effectOptions: Map<String, Effect> by lazy {
     buildMap {
@@ -150,36 +121,58 @@ class CompositionPreviewViewModel(application: Application, initialCompositionLa
     }
   }
 
-  val availableEffectNames: List<String> = effectOptions.keys.toList()
+  private fun createInitialState(): CompositionPreviewState {
+    return CompositionPreviewState(
+      availableLayouts = COMPOSITION_LAYOUT,
+      compositionLayout = COMPOSITION_LAYOUT[0],
+      mediaState = MediaState(),
+      overlayState = OverlayState(),
+      outputSettingsState =
+        OutputSettingsState(
+          resolutionHeight = SAME_AS_INPUT_OPTION,
+          hdrMode = Composition.HDR_MODE_KEEP_HDR,
+          audioMimeType = SAME_AS_INPUT_OPTION,
+          videoMimeType = SAME_AS_INPUT_OPTION,
+          muxerOption = MUXER_OPTIONS[0],
+        ),
+      exportState = ExportState(),
+    )
+  }
 
   init {
     // Load media items
+    val initialMediaItems = mutableListOf<Item>()
     val titles = application.resources.getStringArray(/* id= */ R.array.preset_descriptions)
     val uris = application.resources.getStringArray(/* id= */ R.array.preset_uris)
     val durations = application.resources.getIntArray(/* id= */ R.array.preset_durations)
     for (i in titles.indices) {
-      mediaItemOptions.add(
-        Item(titles[i], uris[i], durations[i].toLong(), mutableStateOf(emptySet()))
-      )
+      initialMediaItems.add(Item(titles[i], uris[i], durations[i].toLong(), emptySet()))
     }
 
     // Load drag and drop placeable overlay effects
+    val initialPlaceableEffects = mutableListOf<OverlayAsset>()
     val placeableOverlayEffectsNames =
       application.resources.getStringArray(/* id= */ R.array.placeable_effects_names)
     val placeableEffectsUris =
       application.resources.getStringArray(/* id= */ R.array.placeable_effects_uris)
 
     for (i in placeableOverlayEffectsNames.indices) {
-      placeableEffectsOptions.add(
+      initialPlaceableEffects.add(
         OverlayAsset(placeableOverlayEffectsNames[i], placeableEffectsUris[i])
       )
     }
 
-    // Load initial media item selections. No need to show the Snackbar message at this point
-    addItem(0, showSnackbarMessage = false)
-    addItem(0, showSnackbarMessage = false)
-    addItem(0, showSnackbarMessage = false)
-    addItem(0, showSnackbarMessage = false)
+    _uiState.update { currentState ->
+      currentState.copy(
+        mediaState =
+          currentState.mediaState.copy(
+            availableItems = initialMediaItems,
+            selectedItems = List(4) { initialMediaItems[0].copy() },
+            availableEffects = effectOptions.keys.toList(),
+          ),
+        overlayState = currentState.overlayState.copy(availableOverlays = initialPlaceableEffects),
+      )
+    }
   }
 
   override fun onCleared() {
@@ -189,22 +182,64 @@ class CompositionPreviewViewModel(application: Application, initialCompositionLa
     exportStopwatch.reset()
   }
 
+  fun onSnackbarMessageShown() {
+    _uiState.update { currentState -> currentState.copy(snackbarMessage = null) }
+  }
+
   fun onCompositionLayoutChanged(newLayout: String) {
-    compositionLayout = newLayout
+    _uiState.update { currentState -> currentState.copy(compositionLayout = newLayout) }
     previewComposition()
   }
 
   fun enableDebugTracing(enable: Boolean) {
-    _enableDebugTracing.update { _ -> enable }
+    _uiState.update { it.copy(isDebugTracingEnabled = enable) }
     DebugTraceUtil.enableTracing = enable
   }
 
+  fun onIncludeBackgroundAudioChanged(isEnabled: Boolean) {
+    _uiState.update {
+      it.copy(outputSettingsState = it.outputSettingsState.copy(includeBackgroundAudio = isEnabled))
+    }
+  }
+
+  fun onOutputResolutionChanged(resolution: String) {
+    _uiState.update {
+      it.copy(outputSettingsState = it.outputSettingsState.copy(resolutionHeight = resolution))
+    }
+  }
+
+  fun onHdrModeChanged(hdrMode: Int) {
+    _uiState.update {
+      it.copy(outputSettingsState = it.outputSettingsState.copy(hdrMode = hdrMode))
+    }
+  }
+
+  fun onAudioMimeTypeChanged(mimeType: String) {
+    _uiState.update {
+      it.copy(outputSettingsState = it.outputSettingsState.copy(audioMimeType = mimeType))
+    }
+  }
+
+  fun onVideoMimeTypeChanged(mimeType: String) {
+    _uiState.update {
+      it.copy(outputSettingsState = it.outputSettingsState.copy(videoMimeType = mimeType))
+    }
+  }
+
+  fun onMuxerOptionChanged(option: String) {
+    _uiState.update {
+      it.copy(outputSettingsState = it.outputSettingsState.copy(muxerOption = option))
+    }
+  }
+
   fun onRenderSizeChanged(newSize: geometrySize) {
-    renderSize = newSize
+    _uiState.update {
+      it.copy(outputSettingsState = it.outputSettingsState.copy(renderSize = newSize))
+    }
   }
 
   fun onPlaceNewOverlayClicked(asset: OverlayAsset) {
-    if (overlayPlacementState !is PlacementState.Inactive) return
+    if (_uiState.value.overlayState.placementState is PlacementState.Placing) return
     compositionPlayer.pause()
     placeNewOverlay(asset)
   }
@@ -213,20 +248,31 @@ class CompositionPreviewViewModel(application: Application, initialCompositionLa
     viewModelScope.launch(Dispatchers.IO) {
       try {
         val inputStream = getApplication<Application>().assets.open(asset.assetPath)
-        val previewBitmap = android.graphics.BitmapFactory.decodeStream(inputStream)
+        val previewBitmap = BitmapFactory.decodeStream(inputStream)
         withContext(Dispatchers.Main) {
           val newOverlay = PlacedOverlay(assetName = asset.name, bitmap = previewBitmap)
-          overlayPlacementState = PlacementState.Placing(newOverlay, UiTransform())
+          _uiState.update {
+            it.copy(
+              overlayState =
+                it.overlayState.copy(
+                  placementState = PlacementState.Placing(newOverlay, Offset.Zero)
+                )
+            )
+          }
         }
       } catch (e: IOException) {
         Log.e(TAG, "Error loading overlay bitmap from assets", e)
-        withContext(Dispatchers.Main) { snackbarMessage = "Could not load overlay image." }
+        withContext(Dispatchers.Main) {
+          _uiState.update { currentState ->
+            currentState.copy(snackbarMessage = "Could not load overlay image.")
+          }
+        }
       }
     }
   }
 
   fun onPlaceExistingOverlayClicked(overlayId: UUID) {
-    if (overlayPlacementState !is PlacementState.Inactive) return
+    if (_uiState.value.overlayState.placementState is PlacementState.Placing) return
     compositionPlayer.pause()
 
     placeExistingOverlay(overlayId)
@@ -236,19 +282,59 @@ class CompositionPreviewViewModel(application: Application, initialCompositionLa
   }
 
   fun placeExistingOverlay(overlayId: UUID) {
-    val overlayToEdit = committedOverlays.find { it.id == overlayId } ?: return
-    committedOverlays.remove(overlayToEdit)
-    overlayPlacementState = PlacementState.Placing(overlayToEdit, overlayToEdit.uiTransform)
+    _uiState.update { currentState ->
+      val overlayToEdit = currentState.overlayState.committedOverlays.find { it.id == overlayId }
+
+      if (overlayToEdit == null) {
+        return@update currentState
+      }
+
+      val newCommittedOverlays =
+        currentState.overlayState.committedOverlays.filter { it.id != overlayId }
+
+      val newPlacementState = PlacementState.Placing(overlayToEdit, overlayToEdit.uiTransformOffset)
+
+      currentState.copy(
+        overlayState =
+          currentState.overlayState.copy(
+            committedOverlays = newCommittedOverlays,
+            placementState = newPlacementState,
+          )
+      )
+    }
   }
 
   fun onOverlayDrag(dragAmount: Offset) {
-    val currentState = overlayPlacementState as? PlacementState.Placing ?: return
-    val newOffset = currentState.currentUiTransform.offset + dragAmount
-    val overlayBitmap = currentState.overlay.bitmap
-    val clampedX = newOffset.x.coerceIn(0f, renderSize.width - overlayBitmap.width)
-    val clampedY = newOffset.y.coerceIn(0f, renderSize.height - overlayBitmap.height)
-    val newTransform = currentState.currentUiTransform.copy(offset = Offset(clampedX, clampedY))
-    overlayPlacementState = currentState.copy(currentUiTransform = newTransform)
+    _uiState.update { currentState ->
+      val currentPlacement =
+        currentState.overlayState.placementState as? PlacementState.Placing
+          ?: return@update currentState
+
+      val overlayBitmap = currentPlacement.overlay.bitmap
+      val newOffset = currentPlacement.currentUiTransformOffset + dragAmount
+      val clampedX =
+        newOffset.x.coerceIn(
+          0f,
+          currentState.outputSettingsState.renderSize.width - overlayBitmap.width,
+        )
+      val clampedY =
+        newOffset.y.coerceIn(
+          0f,
+          currentState.outputSettingsState.renderSize.height - overlayBitmap.height,
+        )
+      val finalOffset = Offset(clampedX, clampedY)
+
+      currentState.copy(
+        overlayState =
+          currentState.overlayState.copy(
+            placementState =
+              PlacementState.Placing(
+                overlay = currentPlacement.overlay,
+                currentUiTransformOffset = finalOffset,
+              )
+          )
+      )
+    }
   }
 
   fun onEndPlacementClicked() {
@@ -261,23 +347,44 @@ class CompositionPreviewViewModel(application: Application, initialCompositionLa
   }
 
   fun endPlacementMode() {
-    val currentState = overlayPlacementState as? PlacementState.Placing ?: return
-    val finalTransform = currentState.currentUiTransform
-    val finalPlacedObject = currentState.overlay.copy(uiTransform = finalTransform)
-    finalPlacedObject.overlay = createBitmapOverlay(finalPlacedObject.bitmap, finalTransform)
-    committedOverlays.add(finalPlacedObject)
-    overlayPlacementState = PlacementState.Inactive
+    _uiState.update { currentState ->
+      val currentPlacement =
+        currentState.overlayState.placementState as? PlacementState.Placing
+          ?: return@update currentState
+      val finalOverlay =
+        currentPlacement.overlay.copy(
+          overlay =
+            createBitmapOverlay(
+              currentPlacement.overlay.bitmap,
+              currentPlacement.currentUiTransformOffset,
+              currentState.outputSettingsState.renderSize,
+            ),
+          uiTransformOffset = currentPlacement.currentUiTransformOffset,
+        )
+      val newCommittedOverlays = currentState.overlayState.committedOverlays + finalOverlay
+      currentState.copy(
+        overlayState =
+          currentState.overlayState.copy(
+            committedOverlays = newCommittedOverlays,
+            placementState = PlacementState.Inactive,
+          )
+      )
+    }
   }
 
-  private fun createBitmapOverlay(bitmap: Bitmap, transform: UiTransform): BitmapOverlay {
+  private fun createBitmapOverlay(
+    bitmap: Bitmap,
+    transformOffset: Offset,
+    renderSize: geometrySize,
+  ): BitmapOverlay {
     if (renderSize == geometrySize.Zero) {
       return BitmapOverlay.createStaticBitmapOverlay(bitmap)
     }
 
     // Converts the bitmap's center from UI pixel coordinates (origin at top-left) to the normalized
     // [-1, 1] coordinate space anchors (origin at the center) that the overlay requires.
-    val boxCenterXpx = transform.offset.x + (bitmap.width / 2f)
-    val boxCenterYpx = transform.offset.y + (bitmap.height / 2f)
+    val boxCenterXpx = transformOffset.x + (bitmap.width / 2f)
+    val boxCenterYpx = transformOffset.y + (bitmap.height / 2f)
 
     val anchorX = -1f + (boxCenterXpx / renderSize.width) * 2f
     val anchorY = 1f - (boxCenterYpx / renderSize.height) * 2f
@@ -288,26 +395,52 @@ class CompositionPreviewViewModel(application: Application, initialCompositionLa
   }
 
   fun removeOverlay(overlayId: UUID) {
-    committedOverlays.removeAll { it.id == overlayId }
+    _uiState.update { currentState ->
+      val newCommittedOverlays =
+        currentState.overlayState.committedOverlays.filter { it.id != overlayId }
+      currentState.copy(
+        overlayState = currentState.overlayState.copy(committedOverlays = newCommittedOverlays)
+      )
+    }
     compositionPlayer.setComposition(prepareComposition(), compositionPlayer.currentPosition)
     compositionPlayer.prepare()
   }
 
   fun addItem(index: Int, showSnackbarMessage: Boolean = true) {
-    selectedMediaItems.add(
-      mediaItemOptions[index].copy(selectedEffects = mutableStateOf(emptySet()))
-    )
-    if (showSnackbarMessage) {
-      snackbarMessage = "Added item: ${mediaItemOptions[index].title}"
+    _uiState.update { currentState ->
+      val itemToAdd = currentState.mediaState.availableItems[index].copy()
+      val newSelectedItems = currentState.mediaState.selectedItems + itemToAdd
+      currentState.copy(
+        mediaState = currentState.mediaState.copy(selectedItems = newSelectedItems),
+        snackbarMessage =
+          if (showSnackbarMessage) "Added item: ${itemToAdd.title}"
+          else currentState.snackbarMessage,
+      )
     }
   }
 
   fun removeItem(index: Int) {
-    selectedMediaItems.removeAt(index)
+    _uiState.update { currentState ->
+      val currentItems = currentState.mediaState.selectedItems
+      val newSelectedItems = currentItems.filterIndexed { i, _ -> i != index }
+      currentState.copy(mediaState = currentState.mediaState.copy(selectedItems = newSelectedItems))
+    }
   }
 
   fun updateEffectsForItem(index: Int, newEffects: Set<String>) {
-    selectedMediaItems[index].selectedEffects.value = newEffects
+    _uiState.update { currentState ->
+      val currentItems = currentState.mediaState.selectedItems
+
+      val newSelectedItems =
+        currentItems.mapIndexed { i, item ->
+          if (i == index) {
+            item.copy(selectedEffects = newEffects)
+          } else {
+            item
+          }
+        }
+      currentState.copy(mediaState = currentState.mediaState.copy(selectedItems = newSelectedItems))
+    }
   }
 
   fun previewComposition() {
@@ -322,12 +455,15 @@ class CompositionPreviewViewModel(application: Application, initialCompositionLa
     cancelExport()
 
     val composition = prepareComposition()
+    val settings = uiState.value.outputSettingsState
 
     try {
       outputFile =
         createExternalCacheFile("composition-preview-" + Clock.DEFAULT.elapsedRealtime() + ".mp4")
     } catch (e: IOException) {
-      snackbarMessage = "Aborting export! Unable to create output file: $e"
+      _uiState.update { currentState ->
+        currentState.copy(snackbarMessage = "Aborting export! Unable to create output file: $e")
+      }
       Log.e(TAG, "Aborting export! Unable to create output file: ", e)
       return
     }
@@ -335,15 +471,15 @@ class CompositionPreviewViewModel(application: Application, initialCompositionLa
 
     val transformerBuilder = Transformer.Builder(/* context= */ getApplication())
 
-    if (SAME_AS_INPUT_OPTION != outputAudioMimeType) {
-      transformerBuilder.setAudioMimeType(outputAudioMimeType)
+    if (SAME_AS_INPUT_OPTION != settings.audioMimeType) {
+      transformerBuilder.setAudioMimeType(settings.audioMimeType)
     }
 
-    if (SAME_AS_INPUT_OPTION != outputVideoMimeType) {
-      transformerBuilder.setVideoMimeType(outputVideoMimeType)
+    if (SAME_AS_INPUT_OPTION != settings.videoMimeType) {
+      transformerBuilder.setVideoMimeType(settings.videoMimeType)
     }
 
-    when (muxerOption) {
+    when (settings.muxerOption) {
       MUXER_OPTIONS[0] -> {}
       MUXER_OPTIONS[1] -> {
         transformerBuilder.setMuxerFactory(InAppMp4Muxer.Factory())
@@ -367,7 +503,12 @@ class CompositionPreviewViewModel(application: Application, initialCompositionLa
                   .getString(R.string.export_completed, elapsedTimeMs / 1000f, filePath)
               Log.d(TAG, DebugTraceUtil.generateTraceSummary())
               Log.i(TAG, details)
-              exportResultInformation = details
+
+              _uiState.update {
+                it.copy(
+                  exportState = it.exportState.copy(isExporting = false, exportResultInfo = details)
+                )
+              }
 
               try {
                 val resultJson =
@@ -388,16 +529,29 @@ class CompositionPreviewViewModel(application: Application, initialCompositionLa
               exportException: ExportException,
             ) {
               exportStopwatch.stop()
-              snackbarMessage = "Export error: $exportException"
+              _uiState.update {
+                it.copy(
+                  snackbarMessage = "Export error: $exportException",
+                  exportState =
+                    it.exportState.copy(
+                      isExporting = false,
+                      exportResultInfo = EXPORT_ERROR_MESSAGE,
+                    ),
+                )
+              }
               Log.e(TAG, "Export error", exportException)
               Log.d(TAG, DebugTraceUtil.generateTraceSummary())
-              exportResultInformation = EXPORT_ERROR_MESSAGE
             }
           }
         )
         .build()
 
-    exportResultInformation = EXPORT_STARTED_MESSAGE
+    _uiState.update {
+      it.copy(
+        exportState =
+          it.exportState.copy(isExporting = true, exportResultInfo = EXPORT_STARTED_MESSAGE)
+      )
+    }
     exportStopwatch.reset()
     exportStopwatch.start()
     transformer!!.start(composition, filePath)
@@ -406,23 +560,24 @@ class CompositionPreviewViewModel(application: Application, initialCompositionLa
 
   private fun prepareComposition(): Composition {
     val editedMediaItems = mutableListOf<EditedMediaItem>()
+    val settings = uiState.value.outputSettingsState
 
     val globalVideoEffects = mutableListOf<Effect>()
-    if (outputResolution != SAME_AS_INPUT_OPTION) {
-      val resolutionHeight = outputResolution.toInt()
+    if (settings.resolutionHeight != SAME_AS_INPUT_OPTION) {
+      val resolutionHeight = settings.resolutionHeight.toInt()
       globalVideoEffects.add(
         LanczosResample.scaleToFitWithFlexibleOrientation(10000, resolutionHeight)
       )
       globalVideoEffects.add(Presentation.createForShortSide(resolutionHeight))
     }
-    for (item in selectedMediaItems) {
+    for (item in uiState.value.mediaState.selectedItems) {
       val mediaItem =
         MediaItem.Builder()
           .setUri(item.uri)
           .setImageDurationMs(usToMs(item.durationUs)) // Ignored for audio/video
           .build()
       val effectsForItem = mutableListOf<Effect>()
-      for (effectName in item.selectedEffects.value) {
+      for (effectName in item.selectedEffects) {
         // TODO(b/433484977): Order of applied effects should be more clear in the UI
         effectOptions[effectName]?.let { effect -> effectsForItem.add(effect) }
       }
@@ -440,7 +595,7 @@ class CompositionPreviewViewModel(application: Application, initialCompositionLa
       editedMediaItems.add(itemBuilder.build())
     }
     val numSequences =
-      when (compositionLayout) {
+      when (uiState.value.compositionLayout) {
         COMPOSITION_LAYOUT[1] -> 4 // 2x2 Grid
         COMPOSITION_LAYOUT[2] -> 2 // PiP Overlay
         else -> 1 // Sequence
@@ -463,19 +618,19 @@ class CompositionPreviewViewModel(application: Application, initialCompositionLa
         )
       }
     }
-    if (includeBackgroundAudioTrack) {
+    if (settings.includeBackgroundAudio) {
       videoSequences.add(getAudioBackgroundSequence())
     }
 
-    val allOverlays = committedOverlays.map { it.overlay!! }
+    val allOverlays = _uiState.value.overlayState.committedOverlays.map { it.overlay!! }
 
     val finalVideoEffects = globalVideoEffects.toMutableList()
 
-    if (renderSize != geometrySize.Zero) {
+    if (settings.renderSize != geometrySize.Zero) {
       val presentation =
         Presentation.createForWidthAndHeight(
-          renderSize.width.roundToInt(),
-          renderSize.height.roundToInt(),
+          settings.renderSize.width.roundToInt(),
+          settings.renderSize.height.roundToInt(),
           Presentation.LAYOUT_SCALE_TO_FIT,
         )
       finalVideoEffects.add(presentation)
@@ -494,13 +649,13 @@ class CompositionPreviewViewModel(application: Application, initialCompositionLa
         Effects(/* audioProcessors= */ emptyList(), /* videoEffects= */ finalVideoEffects)
       )
       .setVideoCompositorSettings(getVideoCompositorSettings())
-      .setHdrMode(outputHdrMode)
+      .setHdrMode(settings.hdrMode)
       .build()
   }
 
   // TODO(b/417362922): Improve accuracy of VideoCompositorSettings implementation
   private fun getVideoCompositorSettings(): VideoCompositorSettings {
-    return when (compositionLayout) {
+    return when (uiState.value.compositionLayout) {
       COMPOSITION_LAYOUT[1] -> {
         // 2x2 Grid
         object : VideoCompositorSettings {
@@ -583,7 +738,7 @@ class CompositionPreviewViewModel(application: Application, initialCompositionLa
 
   private fun createCompositionPlayer(): CompositionPlayer {
     val playerBuilder = CompositionPlayer.Builder(getApplication())
-    if (compositionLayout != COMPOSITION_LAYOUT[0]) {
+    if (uiState.value.compositionLayout != COMPOSITION_LAYOUT[0]) {
       playerBuilder.setVideoGraphFactory(MultipleInputVideoGraph.Factory())
     }
     playerBuilder.setAudioAttributes(AudioAttributes.DEFAULT, /* handleAudioFocus= */ true)
@@ -591,7 +746,9 @@ class CompositionPreviewViewModel(application: Application, initialCompositionLa
     player.addListener(
       object : Player.Listener {
         override fun onPlayerError(error: PlaybackException) {
-          snackbarMessage = "Preview error: $error"
+          _uiState.update { currentState ->
+            currentState.copy(snackbarMessage = "Preview error: $error")
+          }
           Log.e(TAG, "Preview error", error)
         }
       }
@@ -611,7 +768,7 @@ class CompositionPreviewViewModel(application: Application, initialCompositionLa
     transformer = null
     outputFile?.apply { delete() }
     outputFile = null
-    exportResultInformation = null
+    _uiState.update { it.copy(exportState = ExportState()) }
   }
 
   /**
@@ -668,11 +825,7 @@ class CompositionPreviewViewModelFactory(private val application: Application) :
   ViewModelProvider.Factory {
 
   override fun <T : ViewModel> create(modelClass: Class<T>): T {
-    return CompositionPreviewViewModel(
-      application,
-      CompositionPreviewViewModel.COMPOSITION_LAYOUT[0],
-    )
-      as T
+    return CompositionPreviewViewModel(application) as T
   }
 
   companion object {
