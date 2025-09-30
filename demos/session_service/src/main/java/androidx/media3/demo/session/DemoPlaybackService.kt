@@ -137,12 +137,7 @@ open class DemoPlaybackService : MediaLibraryService() {
 
   @OptIn(UnstableApi::class) // Player.listen
   private fun initializeSessionAndPlayer() {
-    val exoPlayer =
-      ExoPlayer.Builder(this)
-        .setAudioAttributes(AudioAttributes.DEFAULT, /* handleAudioFocus= */ true)
-        .build()
-    exoPlayer.addAnalyticsListener(EventLogger())
-    val player = CastPlayer.Builder(/* context= */ this).setLocalPlayer(exoPlayer).build()
+    val player = buildPlayer()
     CoroutineScope(Dispatchers.Unconfined).launch {
       player.listenTo(Player.EVENT_IS_PLAYING_CHANGED, Player.EVENT_MEDIA_ITEM_TRANSITION) {
         storeCurrentMediaItem()
@@ -153,6 +148,16 @@ open class DemoPlaybackService : MediaLibraryService() {
       MediaLibrarySession.Builder(this, player, createLibrarySessionCallback())
         .also { builder -> getSingleTopActivity()?.let { builder.setSessionActivity(it) } }
         .build()
+  }
+
+  @OptIn(UnstableApi::class)
+  protected open fun buildPlayer(): Player {
+    val exoPlayer =
+      ExoPlayer.Builder(this)
+        .setAudioAttributes(AudioAttributes.DEFAULT, /* handleAudioFocus= */ true)
+        .build()
+    exoPlayer.addAnalyticsListener(EventLogger())
+    return CastPlayer.Builder(/* context= */ this).setLocalPlayer(exoPlayer).build()
   }
 
   @OptIn(UnstableApi::class) // BitmapLoader
