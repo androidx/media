@@ -32,7 +32,6 @@ import static androidx.media3.common.util.GlUtil.createTexture;
 import static androidx.media3.common.util.Util.usToMs;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.util.concurrent.Futures.immediateCancelledFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import android.content.Context;
@@ -49,7 +48,6 @@ import android.widget.ImageView;
 import androidx.annotation.CallSuper;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
-import androidx.annotation.RestrictTo;
 import androidx.annotation.VisibleForTesting;
 import androidx.concurrent.futures.CallbackToFutureAdapter;
 import androidx.media3.common.C;
@@ -62,10 +60,10 @@ import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoGraph;
-import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.GlProgram;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.NullableType;
+import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.DefaultGlObjectsProvider;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
@@ -109,8 +107,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 /**
  * Extracts decoded frames from {@link MediaItem}.
  *
- * <p>This class is experimental and will be renamed or removed in a future release.
- *
  * <p>Frame extractor instances must be accessed from a single application thread.
  *
  * <p>This class may produce incorrect or washed out colors, or images that have too high contrast
@@ -132,129 +128,120 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  *       appropriate {@link RgbMatrix} effect.
  * </ul>
  */
-@RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-// TODO: b/446213345 - Make this class package-private after transformer.ExperimentalFrameExtractor
-// is deleted.
-public final class FrameExtractor {
+@UnstableApi
+public final class FrameExtractor implements AutoCloseable {
 
-  /** Configuration for the frame extractor. */
-  @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-  public static final class Configuration {
+  /** A builder for {@link FrameExtractor} instances. */
+  public static final class Builder {
+    private final Context context;
+    private final MediaItem mediaItem;
+    private List<Effect> effects;
+    private SeekParameters seekParameters;
+    private MediaCodecSelector mediaCodecSelector;
+    private boolean extractHdrFrames;
+    @Nullable private GlObjectsProvider glObjectsProvider;
 
-    /** A builder for {@link Configuration} instances. */
-    public static final class Builder {
-      private SeekParameters seekParameters;
-      private MediaCodecSelector mediaCodecSelector;
-      private boolean extractHdrFrames;
-      @Nullable private GlObjectsProvider glObjectsProvider;
-
-      /** Creates a new instance with default values. */
-      public Builder() {
-        seekParameters = SeekParameters.DEFAULT;
-        // TODO: b/350498258 - Consider a switch to MediaCodecSelector.DEFAULT. Some hardware
-        // MediaCodec decoders crash when flushing (seeking) and setVideoEffects is used. See also
-        // b/362904942.
-        mediaCodecSelector = MediaCodecSelector.PREFER_SOFTWARE;
-        extractHdrFrames = false;
-      }
-
-      /**
-       * Sets the parameters that control how seek operations are performed. Defaults to {@link
-       * SeekParameters#DEFAULT}.
-       *
-       * @param seekParameters The {@link SeekParameters}.
-       * @return This builder.
-       */
-      @CanIgnoreReturnValue
-      public Builder setSeekParameters(SeekParameters seekParameters) {
-        this.seekParameters = seekParameters;
-        return this;
-      }
-
-      /**
-       * Sets the {@linkplain MediaCodecSelector selector} of {@link MediaCodec} instances. Defaults
-       * to {@link MediaCodecSelector#PREFER_SOFTWARE}.
-       *
-       * @param mediaCodecSelector The {@link MediaCodecSelector}.
-       * @return This builder.
-       */
-      @CanIgnoreReturnValue
-      public Builder setMediaCodecSelector(MediaCodecSelector mediaCodecSelector) {
-        this.mediaCodecSelector = mediaCodecSelector;
-        return this;
-      }
-
-      /**
-       * Sets whether HDR {@link Frame#bitmap} should be extracted from HDR videos.
-       *
-       * <p>When set to {@code false}, extracted HDR frames will be tone-mapped to {@link
-       * ColorSpace.Named#BT709}.
-       *
-       * <p>When set to {@code true}, extracted HDR frames will have a high bit depth {@link
-       * Bitmap.Config} and {@link ColorSpace.Named#BT2020_HLG}. Extracting HDR frames is only
-       * supported on API 34+.
-       *
-       * <p>This flag has no effect when the input is SDR.
-       *
-       * <p>Defaults to {@code false}.
-       *
-       * @param extractHdrFrames Whether HDR frames should be returned.
-       * @return This builder.
-       */
-      @CanIgnoreReturnValue
-      @RequiresApi(34)
-      public Builder setExtractHdrFrames(boolean extractHdrFrames) {
-        this.extractHdrFrames = extractHdrFrames;
-        return this;
-      }
-
-      /**
-       * Sets the {@link GlObjectsProvider} to be used by the effect processing pipeline.
-       *
-       * <p>By default, a {@link DefaultGlObjectsProvider} is used.
-       *
-       * @param glObjectsProvider The {@link GlObjectsProvider}.
-       * @return This builder.
-       */
-      @CanIgnoreReturnValue
-      public Builder setGlObjectsProvider(GlObjectsProvider glObjectsProvider) {
-        this.glObjectsProvider = glObjectsProvider;
-        return this;
-      }
-
-      /** Builds a new {@link Configuration} instance. */
-      public Configuration build() {
-        return new Configuration(
-            seekParameters, mediaCodecSelector, extractHdrFrames, glObjectsProvider);
-      }
+    /**
+     * Creates a new instance.
+     *
+     * @param context The {@link Context}.
+     * @param mediaItem The {@link MediaItem} from which to extract frames.
+     */
+    public Builder(Context context, MediaItem mediaItem) {
+      this.context = context;
+      this.mediaItem = mediaItem;
+      this.effects = ImmutableList.of();
+      seekParameters = SeekParameters.DEFAULT;
+      // TODO: b/350498258 - Consider a switch to MediaCodecSelector.DEFAULT. Some hardware
+      // MediaCodec decoders crash when flushing (seeking) and setVideoEffects is used. See also
+      // b/362904942.
+      mediaCodecSelector = MediaCodecSelector.PREFER_SOFTWARE;
+      extractHdrFrames = false;
     }
 
-    /** The {@link SeekParameters}. */
-    public final SeekParameters seekParameters;
+    /**
+     * Sets the {@link Effect Effects} to apply to the extracted video frames.
+     *
+     * @param effects The {@link List} of {@linkplain Effect video effects}.
+     * @return This builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setEffects(List<Effect> effects) {
+      this.effects = effects;
+      return this;
+    }
 
-    /** The {@link MediaCodecSelector}. */
-    public final MediaCodecSelector mediaCodecSelector;
-
-    /** Whether extracting HDR frames is requested. */
-    public final boolean extractHdrFrames;
-
-    /** The {@link GlObjectsProvider}. */
-    @Nullable public final GlObjectsProvider glObjectsProvider;
-
-    private Configuration(
-        SeekParameters seekParameters,
-        MediaCodecSelector mediaCodecSelector,
-        boolean extractHdrFrames,
-        @Nullable GlObjectsProvider glObjectsProvider) {
+    /**
+     * Sets the parameters that control how seek operations are performed. Defaults to {@link
+     * SeekParameters#DEFAULT}.
+     *
+     * @param seekParameters The {@link SeekParameters}.
+     * @return This builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setSeekParameters(SeekParameters seekParameters) {
       this.seekParameters = seekParameters;
+      return this;
+    }
+
+    /**
+     * Sets the {@linkplain MediaCodecSelector selector} of {@link MediaCodec} instances. Defaults
+     * to {@link MediaCodecSelector#PREFER_SOFTWARE}.
+     *
+     * @param mediaCodecSelector The {@link MediaCodecSelector}.
+     * @return This builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setMediaCodecSelector(MediaCodecSelector mediaCodecSelector) {
       this.mediaCodecSelector = mediaCodecSelector;
+      return this;
+    }
+
+    /**
+     * Sets whether HDR {@link Frame#bitmap} should be extracted from HDR videos.
+     *
+     * <p>When set to {@code false}, extracted HDR frames will be tone-mapped to {@link
+     * ColorSpace.Named#BT709}.
+     *
+     * <p>When set to {@code true}, extracted HDR frames will have a high bit depth {@link
+     * Bitmap.Config} and {@link ColorSpace.Named#BT2020_HLG}. Extracting HDR frames is only
+     * supported on API 34+.
+     *
+     * <p>This flag has no effect when the input is SDR.
+     *
+     * <p>Defaults to {@code false}.
+     *
+     * @param extractHdrFrames Whether HDR frames should be returned.
+     * @return This builder.
+     */
+    @CanIgnoreReturnValue
+    @RequiresApi(34)
+    public Builder setExtractHdrFrames(boolean extractHdrFrames) {
       this.extractHdrFrames = extractHdrFrames;
+      return this;
+    }
+
+    /**
+     * Sets the {@link GlObjectsProvider} to be used by the effect processing pipeline.
+     *
+     * <p>By default, a {@link DefaultGlObjectsProvider} is used.
+     *
+     * @param glObjectsProvider The {@link GlObjectsProvider}.
+     * @return This builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setGlObjectsProvider(GlObjectsProvider glObjectsProvider) {
       this.glObjectsProvider = glObjectsProvider;
+      return this;
+    }
+
+    /** Builds a new {@link FrameExtractor} instance. */
+    public FrameExtractor build() {
+      return new FrameExtractor(this);
     }
   }
 
   /** Stores an extracted and decoded video frame. */
-  @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
   public static final class Frame {
 
     /** The presentation timestamp of the extracted frame, in milliseconds. */
@@ -269,7 +256,6 @@ public final class FrameExtractor {
     }
   }
 
-  private final Configuration configuration;
   private final ExoPlayer player;
   private final Handler playerApplicationThreadHandler;
 
@@ -302,21 +288,14 @@ public final class FrameExtractor {
    */
   @Nullable private Frame lastExtractedFrame;
 
-  /**
-   * Creates an instance.
-   *
-   * @param context {@link Context}.
-   * @param configuration The {@link Configuration} for this frame extractor.
-   */
-  public FrameExtractor(Context context, Configuration configuration) {
-    this.configuration = configuration;
+  private FrameExtractor(Builder builder) {
     MediaSource.Factory mediaSourceFactory =
-        new DefaultMediaSourceFactory(context, new DefaultExtractorsFactory())
+        new DefaultMediaSourceFactory(builder.context, new DefaultExtractorsFactory())
             .experimentalSetCodecsToParseWithinGopSampleDependencies(
                 C.VIDEO_CODEC_FLAG_H264 | C.VIDEO_CODEC_FLAG_H265);
     player =
         new ExoPlayer.Builder(
-                context,
+                builder.context,
                 /* renderersFactory= */ (eventHandler,
                     videoRendererEventListener,
                     audioRendererEventListener,
@@ -324,76 +303,50 @@ public final class FrameExtractor {
                     metadataRendererOutput) ->
                     new Renderer[] {
                       new FrameExtractorRenderer(
-                          context,
-                          configuration.mediaCodecSelector,
+                          builder.context,
+                          builder.mediaCodecSelector,
                           videoRendererEventListener,
-                          /* toneMapHdrToSdr= */ !configuration.extractHdrFrames,
-                          configuration.glObjectsProvider)
+                          !builder.extractHdrFrames,
+                          builder.glObjectsProvider)
                     },
                 mediaSourceFactory)
-            .setSeekParameters(configuration.seekParameters)
+            .setSeekParameters(builder.seekParameters)
             .experimentalSetDynamicSchedulingEnabled(true)
             .build();
     player.addAnalyticsListener(new PlayerListener());
     playerApplicationThreadHandler = new Handler(player.getApplicationLooper());
     extractedFrameNeedsRendering = new AtomicBoolean();
     frameBeingExtractedCompleterAtomicReference = new AtomicReference<>(null);
-    lastRequestedFrameFuture = immediateCancelledFuture();
-  }
 
-  /**
-   * Sets a new {@link MediaItem}.
-   *
-   * <p>Changing between SDR and HDR {@link MediaItem}s is not supported when {@link
-   * Configuration#extractHdrFrames} is true.
-   *
-   * @param mediaItem The {@link MediaItem} from which frames will be extracted.
-   * @param effects The {@link List} of {@linkplain Effect video effects} to apply to the extracted
-   *     video frames.
-   */
-  public void setMediaItem(MediaItem mediaItem, List<Effect> effects) {
-    ListenableFuture<Frame> previousRequestedFrame = lastRequestedFrameFuture;
+    ImmutableList<Effect> videoEffects =
+        buildVideoEffects(
+            builder.effects, new FrameReader(frameBeingExtractedCompleterAtomicReference));
+
     // TODO: b/350498258 - Extracting the first frame is a workaround for ExoPlayer.setVideoEffects
     // returning incorrect timestamps if we seek the player before rendering starts from zero.
     lastRequestedFrameFuture =
         CallbackToFutureAdapter.getFuture(
             completer -> {
-              previousRequestedFrame.addListener(
+              playerApplicationThreadHandler.post(
                   () -> {
                     frameBeingExtractedCompleterAtomicReference.set(completer);
-                    lastExtractedFrame = null;
-                    player.setVideoEffects(buildVideoEffects(effects));
-                    player.setMediaItem(mediaItem);
+                    player.setVideoEffects(videoEffects);
+                    player.setMediaItem(builder.mediaItem);
                     player.setPlayWhenReady(false);
                     player.prepare();
-                  },
-                  playerApplicationThreadHandler::post);
-              return "FrameExtractor.setMediaItem";
+                  });
+              return "FrameExtractor.prepare";
             });
   }
 
   /**
-   * Extracts a representative {@link Frame} for the specified video position using the {@link
-   * SeekParameters} specified in the {@link Configuration}.
+   * Extracts a representative {@link Frame} for the specified video position.
    *
    * @param positionMs The time position in the {@link MediaItem} for which a frame is extracted, in
    *     milliseconds.
    * @return A {@link ListenableFuture} of the result.
    */
   public ListenableFuture<Frame> getFrame(long positionMs) {
-    return getFrame(positionMs, configuration.seekParameters);
-  }
-
-  /**
-   * Extracts a representative {@link Frame} for the specified video position using the requested
-   * {@link SeekParameters}.
-   *
-   * @param positionMs The time position in the {@link MediaItem} for which a frame is extracted, in
-   *     milliseconds.
-   * @param seekParameters The {@link SeekParameters}.
-   * @return A {@link ListenableFuture} of the result.
-   */
-  public ListenableFuture<Frame> getFrame(long positionMs, SeekParameters seekParameters) {
     ListenableFuture<Frame> previousRequestedFrame = lastRequestedFrameFuture;
     ListenableFuture<Frame> frameListenableFuture =
         CallbackToFutureAdapter.getFuture(
@@ -404,12 +357,12 @@ public final class FrameExtractor {
                     @Override
                     public void onSuccess(Frame result) {
                       lastExtractedFrame = result;
-                      processNext(positionMs, seekParameters, completer);
+                      processNext(positionMs, completer);
                     }
 
                     @Override
                     public void onFailure(Throwable t) {
-                      processNext(positionMs, seekParameters, completer);
+                      processNext(positionMs, completer);
                     }
                   },
                   playerApplicationThreadHandler::post);
@@ -421,10 +374,7 @@ public final class FrameExtractor {
     return frameListenableFuture;
   }
 
-  private void processNext(
-      long positionMs,
-      SeekParameters seekParameters,
-      CallbackToFutureAdapter.Completer<Frame> completer) {
+  private void processNext(long positionMs, CallbackToFutureAdapter.Completer<Frame> completer) {
     // Cancellation listener is invoked instantaneously if the returned future is already cancelled.
     AtomicBoolean cancelled = new AtomicBoolean(false);
     completer.addCancellationListener(() -> cancelled.set(true), directExecutor());
@@ -450,7 +400,6 @@ public final class FrameExtractor {
     } else {
       checkState(frameBeingExtractedCompleterAtomicReference.compareAndSet(null, completer));
       extractedFrameNeedsRendering.set(false);
-      player.setSeekParameters(seekParameters);
       player.seekTo(positionMs);
     }
   }
@@ -459,19 +408,17 @@ public final class FrameExtractor {
    * Releases the underlying resources. This method must be called when the frame extractor is no
    * longer required. The frame extractor must not be used after calling this method.
    */
-  public void release() {
-    if (player.getApplicationLooper() == Looper.myLooper()) {
-      player.release();
-      return;
-    }
-    ConditionVariable waitForRelease = new ConditionVariable();
-    playerApplicationThreadHandler.removeCallbacksAndMessages(null);
-    playerApplicationThreadHandler.post(
+  @Override
+  public void close() {
+    lastRequestedFrameFuture.addListener(
         () -> {
-          player.release();
-          waitForRelease.open();
-        });
-    waitForRelease.blockUninterruptible();
+          if (player.getApplicationLooper() == Looper.myLooper()) {
+            player.release();
+          } else {
+            playerApplicationThreadHandler.post(player::release);
+          }
+        },
+        directExecutor());
   }
 
   @VisibleForTesting
@@ -483,7 +430,8 @@ public final class FrameExtractor {
     return decoderCountersSettableFuture;
   }
 
-  private ImmutableList<Effect> buildVideoEffects(List<Effect> effects) {
+  private static ImmutableList<Effect> buildVideoEffects(
+      List<Effect> effects, FrameReader frameReader) {
     ImmutableList.Builder<Effect> listBuilder = new ImmutableList.Builder<>();
     listBuilder.addAll(effects);
     listBuilder.add(
@@ -493,7 +441,7 @@ public final class FrameExtractor {
               mirrorY.setScale(/* sx= */ 1, /* sy= */ -1);
               return mirrorY;
             });
-    listBuilder.add(new FrameReader());
+    listBuilder.add(frameReader);
     return listBuilder.build();
   }
 
@@ -526,18 +474,31 @@ public final class FrameExtractor {
     }
   }
 
-  private final class FrameReader implements GlEffect {
+  private static final class FrameReader implements GlEffect {
+    private final AtomicReference<CallbackToFutureAdapter.@NullableType Completer<Frame>>
+        frameBeingExtractedCompleterAtomicReference;
+
+    private FrameReader(
+        AtomicReference<CallbackToFutureAdapter.@NullableType Completer<Frame>>
+            frameBeingExtractedCompleterAtomicReference) {
+      this.frameBeingExtractedCompleterAtomicReference =
+          frameBeingExtractedCompleterAtomicReference;
+    }
+
     @Override
     public GlShaderProgram toGlShaderProgram(Context context, boolean useHdr)
         throws VideoFrameProcessingException {
-      return new FrameReadingGlShaderProgram(context, useHdr);
+      return new FrameReadingGlShaderProgram(
+          context, useHdr, frameBeingExtractedCompleterAtomicReference);
     }
   }
 
-  private final class FrameReadingGlShaderProgram extends PassthroughShaderProgram {
+  private static final class FrameReadingGlShaderProgram extends PassthroughShaderProgram {
     private final int bytesPerPixel;
     private final boolean useHdr;
     private final boolean hdrUses16BitFloat;
+    private final AtomicReference<CallbackToFutureAdapter.@NullableType Completer<Frame>>
+        frameBeingExtractedCompleterAtomicReference;
 
     /** The visible portion of the frame. */
     private final ImmutableList<float[]> visiblePolygon =
@@ -552,10 +513,16 @@ public final class FrameExtractor {
 
     private ByteBuffer byteBuffer;
 
-    public FrameReadingGlShaderProgram(Context context, boolean useHdr)
+    private FrameReadingGlShaderProgram(
+        Context context,
+        boolean useHdr,
+        AtomicReference<CallbackToFutureAdapter.@NullableType Completer<Frame>>
+            frameBeingExtractedCompleterAtomicReference)
         throws VideoFrameProcessingException {
       byteBuffer = ByteBuffer.allocateDirect(0);
       this.useHdr = useHdr;
+      this.frameBeingExtractedCompleterAtomicReference =
+          frameBeingExtractedCompleterAtomicReference;
       if (useHdr) {
         checkState(SDK_INT >= 34);
         String vertexShaderFilePath = "shaders/vertex_shader_transformation_es3.glsl";

@@ -16,6 +16,8 @@
 
 package androidx.media3.transformer;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import android.content.Context;
@@ -23,8 +25,6 @@ import android.graphics.Bitmap;
 import android.graphics.ColorSpace;
 import android.media.MediaCodec;
 import android.os.Build;
-import android.view.SurfaceView;
-import android.widget.ImageView;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.Effect;
@@ -32,7 +32,6 @@ import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.effect.DefaultGlObjectsProvider;
-import androidx.media3.effect.RgbMatrix;
 import androidx.media3.exoplayer.SeekParameters;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.media3.inspector.FrameExtractor;
@@ -40,33 +39,12 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
- * Extracts decoded frames from {@link MediaItem}.
- *
- * <p>This class is experimental and will be renamed or removed in a future release.
- *
- * <p>Frame extractor instances must be accessed from a single application thread.
- *
- * <p>This class may produce incorrect or washed out colors, or images that have too high contrast
- * for inputs not covered by <a
- * href="https://cs.android.com/android/_/android/platform/cts/+/aaa242e5c26466cf245fa85ff8a7750378de9d72:tests/media/src/android/mediav2/cts/DecodeGlAccuracyTest.java;drc=d0d5ff338f8b84adf9066358bac435b1be3bbe61;l=534">testDecodeGlAccuracyRGB
- * CTS test</a>. That is:
- *
- * <ul>
- *   <li>Inputs of BT.601 limited range are likely to produce accurate output with either
- *       {@linkplain MediaCodecSelector#PREFER_SOFTWARE software} or {@linkplain
- *       MediaCodecSelector#DEFAULT hardware} decoders across a wide range of devices.
- *   <li>Other inputs are likely to produce accurate output when using {@linkplain
- *       MediaCodecSelector#DEFAULT hardware} decoders on devices that are launched with API 33 or
- *       later.
- *   <li>HDR inputs will produce a {@link Bitmap} with {@link ColorSpace.Named#BT2020_HLG}. There
- *       are no guarantees that an HLG {@link Bitmap} displayed in {@link ImageView} and an HLG
- *       video displayed in {@link SurfaceView} will look the same.
- *   <li>Depending on the device and input video, color inaccuracies can be mitigated with an
- *       appropriate {@link RgbMatrix} effect.
- * </ul>
+ * @deprecated Use {@link androidx.media3.inspector.FrameExtractor} instead.
  */
+@Deprecated
 @UnstableApi
 public final class ExperimentalFrameExtractor {
 
@@ -200,7 +178,12 @@ public final class ExperimentalFrameExtractor {
     }
   }
 
-  private final FrameExtractor inspectorFrameExtractor;
+  private final Context context;
+  private final Configuration configuration;
+  private @MonotonicNonNull FrameExtractor inspectorFrameExtractor;
+  private @MonotonicNonNull MediaItem mediaItem;
+  private @MonotonicNonNull List<Effect> effects;
+  private ListenableFuture<?> lastFrameFuture;
 
   /**
    * Creates an instance.
@@ -209,17 +192,9 @@ public final class ExperimentalFrameExtractor {
    * @param configuration The {@link Configuration} for this frame extractor.
    */
   public ExperimentalFrameExtractor(Context context, Configuration configuration) {
-    FrameExtractor.Configuration.Builder inspectorConfigBuilder =
-        new FrameExtractor.Configuration.Builder()
-            .setSeekParameters(configuration.seekParameters)
-            .setMediaCodecSelector(configuration.mediaCodecSelector);
-    if (configuration.glObjectsProvider != null) {
-      inspectorConfigBuilder.setGlObjectsProvider(configuration.glObjectsProvider);
-    }
-    if (Build.VERSION.SDK_INT >= 34) {
-      inspectorConfigBuilder.setExtractHdrFrames(configuration.extractHdrFrames);
-    }
-    inspectorFrameExtractor = new FrameExtractor(context, inspectorConfigBuilder.build());
+    this.context = context;
+    this.configuration = configuration;
+    this.lastFrameFuture = Futures.immediateVoidFuture();
   }
 
   /**
@@ -233,7 +208,20 @@ public final class ExperimentalFrameExtractor {
    *     video frames.
    */
   public void setMediaItem(MediaItem mediaItem, List<Effect> effects) {
-    inspectorFrameExtractor.setMediaItem(mediaItem, effects);
+    ListenableFuture<?> previousFrameFuture = lastFrameFuture;
+    lastFrameFuture =
+        Futures.whenAllComplete(previousFrameFuture)
+            .call(
+                () -> {
+                  this.mediaItem = mediaItem;
+                  this.effects = effects;
+                  if (inspectorFrameExtractor != null) {
+                    inspectorFrameExtractor.close();
+                  }
+                  inspectorFrameExtractor = createFrameExtractor(configuration.seekParameters);
+                  return "ExperimentalFrameExtractor.setMediaItem";
+                },
+                directExecutor());
   }
 
   /**
@@ -245,7 +233,16 @@ public final class ExperimentalFrameExtractor {
    * @return A {@link ListenableFuture} of the result.
    */
   public ListenableFuture<Frame> getFrame(long positionMs) {
-    return convertFuture(inspectorFrameExtractor.getFrame(positionMs));
+    ListenableFuture<Frame> frameFuture =
+        Futures.transformAsync(
+            lastFrameFuture,
+            unused -> {
+              checkState(inspectorFrameExtractor != null, "setMediaItem must be called first.");
+              return convertFuture(inspectorFrameExtractor.getFrame(positionMs));
+            },
+            directExecutor());
+    lastFrameFuture = frameFuture;
+    return frameFuture;
   }
 
   /**
@@ -258,7 +255,36 @@ public final class ExperimentalFrameExtractor {
    * @return A {@link ListenableFuture} of the result.
    */
   public ListenableFuture<Frame> getFrame(long positionMs, SeekParameters seekParameters) {
-    return convertFuture(inspectorFrameExtractor.getFrame(positionMs, seekParameters));
+    ListenableFuture<Frame> frameFuture =
+        Futures.transformAsync(
+            lastFrameFuture,
+            unused -> {
+              checkState(
+                  mediaItem != null && effects != null, "setMediaItem must be called first.");
+              FrameExtractor temporaryFrameExtractor = createFrameExtractor(seekParameters);
+              ListenableFuture<FrameExtractor.Frame> future =
+                  temporaryFrameExtractor.getFrame(positionMs);
+              future.addListener(temporaryFrameExtractor::close, directExecutor());
+              return convertFuture(future);
+            },
+            directExecutor());
+    lastFrameFuture = frameFuture;
+    return frameFuture;
+  }
+
+  private FrameExtractor createFrameExtractor(SeekParameters seekParameters) {
+    FrameExtractor.Builder builder =
+        new FrameExtractor.Builder(context, checkNotNull(mediaItem))
+            .setEffects(checkNotNull(effects))
+            .setSeekParameters(seekParameters)
+            .setMediaCodecSelector(configuration.mediaCodecSelector);
+    if (configuration.glObjectsProvider != null) {
+      builder.setGlObjectsProvider(configuration.glObjectsProvider);
+    }
+    if (Build.VERSION.SDK_INT >= 34) {
+      builder.setExtractHdrFrames(configuration.extractHdrFrames);
+    }
+    return builder.build();
   }
 
   private ListenableFuture<Frame> convertFuture(
@@ -274,6 +300,12 @@ public final class ExperimentalFrameExtractor {
    * longer required. The frame extractor must not be used after calling this method.
    */
   public void release() {
-    inspectorFrameExtractor.release();
+    lastFrameFuture.addListener(
+        () -> {
+          if (inspectorFrameExtractor != null) {
+            inspectorFrameExtractor.close();
+          }
+        },
+        directExecutor());
   }
 }

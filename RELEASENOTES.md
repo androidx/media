@@ -139,6 +139,11 @@
         unified API for both metadata and frame extraction. The existing
         `androidx.media3.exoplayer.MetadataRetriever` is now deprecated in favor
         of this new version.
+    *   Introduced `androidx.media3.inspector.FrameExtractor`, a new public API
+        for frame extraction. This `AutoCloseable` class provides a way to
+        extract frames with support for HDR video, video effects, and custom
+        decoder selection. It should be created via its `Builder` for a specific
+        `MediaItem`.
 *   DataSource:
 *   Audio:
     *   Make `AudioProcessor` instances aware of seeking.
