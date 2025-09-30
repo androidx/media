@@ -15,6 +15,10 @@
  */
 package androidx.media3.effect;
 
+import androidx.annotation.RestrictTo;
+import androidx.annotation.RestrictTo.Scope;
+import androidx.media3.common.util.UnstableApi;
+
 /**
  * An interface that represents a single frame of data.
  *
@@ -24,7 +28,9 @@ package androidx.media3.effect;
  * Implementations should wrap the underlying data objects, such as a {@link
  * android.graphics.Bitmap} or a GL texture.
  */
-/* package */ interface Frame {
+@UnstableApi
+@RestrictTo(Scope.LIBRARY_GROUP)
+public interface Frame {
 
   /** A marker interface for storing arbitrary metadata associated with a {@link Frame}. */
   interface Metadata {}
