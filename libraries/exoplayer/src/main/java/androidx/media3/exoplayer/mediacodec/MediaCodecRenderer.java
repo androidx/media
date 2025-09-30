@@ -85,6 +85,7 @@ import java.nio.ByteOrder;
 import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
@@ -335,6 +336,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   private final MediaCodec.BufferInfo outputBufferInfo;
   private final ArrayDeque<OutputStreamInfo> pendingOutputStreamChanges;
   private final OggOpusAudioPacketizer oggOpusAudioPacketizer;
+  private final AtomicInteger readDataResultHolder;
 
   @Nullable private Format inputFormat;
   private @MonotonicNonNull Format outputFormat;
@@ -426,6 +428,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     this.mediaCodecSelector = checkNotNull(mediaCodecSelector);
     this.enableDecoderFallback = enableDecoderFallback;
     this.assumedMinimumCodecOperatingRate = assumedMinimumCodecOperatingRate;
+    readDataResultHolder = new AtomicInteger();
     noDataBuffer = DecoderInputBuffer.newNoDataInstance();
     buffer = new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_DISABLED);
     bypassSampleBuffer = new DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_DIRECT);
@@ -1436,10 +1439,9 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
     int adaptiveReconfigurationBytes = checkNotNull(buffer.data).position();
 
     FormatHolder formatHolder = getFormatHolder();
-
-    @SampleStream.ReadDataResult int result;
     try {
-      result = readSource(formatHolder, buffer, /* readFlags= */ 0);
+      codec.useInputBuffer(
+          () -> readDataResultHolder.set(readSource(formatHolder, buffer, /* readFlags= */ 0)));
     } catch (InsufficientCapacityException e) {
       onCodecError(e);
       // Skip the sample that's too large by reading it without its data. Then flush the codec so
@@ -1448,6 +1450,7 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
       flushCodec();
       return true;
     }
+    @SampleStream.ReadDataResult int result = readDataResultHolder.get();
 
     if (result == C.RESULT_NOTHING_READ) {
       if (hasReadStreamToEnd()) {

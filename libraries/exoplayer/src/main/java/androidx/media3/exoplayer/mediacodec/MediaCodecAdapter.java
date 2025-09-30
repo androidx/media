@@ -207,6 +207,18 @@ public interface MediaCodecAdapter {
   ByteBuffer getInputBuffer(int index);
 
   /**
+   * Uses an acquired input buffer (e.g. to write data to it).
+   *
+   * <p>This can be used for error handling, e.g. to guarantee no operation can invalidate the
+   * buffer while it's being used.
+   *
+   * @param runnable The {@link Runnable} using an acquired input buffer.
+   */
+  default void useInputBuffer(Runnable runnable) {
+    runnable.run();
+  }
+
+  /**
    * Returns a read-only ByteBuffer for a dequeued output buffer index.
    *
    * @see MediaCodec#getOutputBuffer(int)
