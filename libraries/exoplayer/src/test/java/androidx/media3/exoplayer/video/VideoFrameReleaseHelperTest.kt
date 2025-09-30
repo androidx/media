@@ -16,8 +16,6 @@
 package androidx.media3.exoplayer.video
 
 import android.content.Context
-import android.hardware.display.DisplayManager
-import android.view.Display
 import androidx.media3.common.C
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -26,9 +24,6 @@ import com.google.common.truth.Truth.assertWithMessage
 import java.util.Random
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.robolectric.RuntimeEnvironment
-import org.robolectric.Shadows.shadowOf
-import org.robolectric.shadows.ShadowDisplayManager
 
 /** Unit tests for {@link VideoFrameReleaseHelper}. */
 @RunWith(AndroidJUnit4::class)
@@ -38,7 +33,6 @@ class VideoFrameReleaseHelperTest {
 
   @Test
   fun adjustReleaseTime_60Fps60Hz_releasesFramesSmoothly() {
-    updateDisplayRefreshRate(context, refreshRate = 60f)
     val videoFrameReleaseHelper = VideoFrameReleaseHelper(context)
     videoFrameReleaseHelper.onStarted()
     val testData = generateTestData(sampleFrameRate = 60f, screenRefreshRate = 60f)
@@ -50,7 +44,6 @@ class VideoFrameReleaseHelperTest {
 
   @Test
   fun adjustReleaseTime_30Fps60Hz_releasesFramesSmoothly() {
-    updateDisplayRefreshRate(context, refreshRate = 60f)
     val videoFrameReleaseHelper = VideoFrameReleaseHelper(context)
     videoFrameReleaseHelper.onStarted()
     val testData = generateTestData(sampleFrameRate = 30f, screenRefreshRate = 60f)
@@ -62,7 +55,6 @@ class VideoFrameReleaseHelperTest {
 
   @Test
   fun adjustReleaseTime_60Fps90Hz_releasesFramesSmoothly() {
-    updateDisplayRefreshRate(context, refreshRate = 90f)
     val videoFrameReleaseHelper = VideoFrameReleaseHelper(context)
     videoFrameReleaseHelper.onStarted()
     val testData = generateTestData(sampleFrameRate = 60f, screenRefreshRate = 90f)
@@ -74,7 +66,6 @@ class VideoFrameReleaseHelperTest {
 
   @Test
   fun adjustReleaseTime_24Fps60Hz_releasesFramesSmoothly() {
-    updateDisplayRefreshRate(context, refreshRate = 60f)
     val videoFrameReleaseHelper = VideoFrameReleaseHelper(context)
     videoFrameReleaseHelper.onStarted()
     val testData = generateTestData(sampleFrameRate = 24f, screenRefreshRate = 60f)
@@ -86,7 +77,6 @@ class VideoFrameReleaseHelperTest {
 
   @Test
   fun adjustReleaseTime_50Fps60Hz_releasesFramesSmoothly() {
-    updateDisplayRefreshRate(context, refreshRate = 60f)
     val videoFrameReleaseHelper = VideoFrameReleaseHelper(context)
     videoFrameReleaseHelper.onStarted()
     val testData = generateTestData(sampleFrameRate = 50f, screenRefreshRate = 60f)
@@ -99,7 +89,6 @@ class VideoFrameReleaseHelperTest {
   @Test
   fun adjustReleaseTime_smallFrameTimeVariationAtVsyncBoundary_releasesFramesSmoothly() {
     val random = Random(/* seed= */ 1234)
-    updateDisplayRefreshRate(context, refreshRate = 50f)
     val videoFrameReleaseHelper = VideoFrameReleaseHelper(context)
     videoFrameReleaseHelper.onStarted()
     // Choose a vsync offset of 10ms = half a screen refresh
@@ -118,7 +107,6 @@ class VideoFrameReleaseHelperTest {
 
   @Test
   fun adjustReleaseTime_frameRateChange_releasesFramesSmoothly() {
-    updateDisplayRefreshRate(context, refreshRate = 60f)
     val videoFrameReleaseHelper = VideoFrameReleaseHelper(context)
     videoFrameReleaseHelper.onStarted()
     // Change to 30 Hz after 500 samples by doubling the difference between frame times.
@@ -158,7 +146,6 @@ class VideoFrameReleaseHelperTest {
 
   @Test
   fun adjustReleaseTime_displayRefreshRateChange_releasesFramesSmoothly() {
-    updateDisplayRefreshRate(context, refreshRate = 60f)
     val videoFrameReleaseHelper = VideoFrameReleaseHelper(context)
     videoFrameReleaseHelper.onStarted()
     // Change vsync times to 120 Hz after 500 samples by updating the time differences.
@@ -188,9 +175,9 @@ class VideoFrameReleaseHelperTest {
         testData,
         onFrameAdjusted = {
           if (it == 499) {
-            updateDisplayRefreshRate(context, refreshRate = 120f)
-            videoFrameReleaseHelper.setVsyncSampleTimeNs(
-              getVsyncSampleTimeNs(testData.releaseTimeNs[it], testData)
+            videoFrameReleaseHelper.setVsyncData(
+              /* vsyncSampleTimeNs= */ getVsyncSampleTimeNs(testData.releaseTimeNs[it], testData),
+              /* vsyncDurationNs= */ getVsyncDurationNs(testData.releaseTimeNs[it], testData),
             )
           }
         },
@@ -212,7 +199,6 @@ class VideoFrameReleaseHelperTest {
 
   @Test
   fun adjustReleaseTime_smallReleaseTimeDrift_releasesFramesSmoothly() {
-    updateDisplayRefreshRate(context, refreshRate = 60f)
     val videoFrameReleaseHelper = VideoFrameReleaseHelper(context)
     videoFrameReleaseHelper.onStarted()
     // Let release time drift up to 15ms, clearly closer to the next vsync
@@ -236,7 +222,6 @@ class VideoFrameReleaseHelperTest {
 
   @Test
   fun adjustReleaseTime_smallReleaseTimeDriftWithOccasionalOutlier_releasesFramesSmoothly() {
-    updateDisplayRefreshRate(context, refreshRate = 60f)
     val videoFrameReleaseHelper = VideoFrameReleaseHelper(context)
     videoFrameReleaseHelper.onStarted()
     // Let release time drift up to 15ms, clearly closer to the next vsync.
@@ -272,7 +257,6 @@ class VideoFrameReleaseHelperTest {
 
   @Test
   fun adjustReleaseTime_largerIncrementalReleaseTimeDrift_freezesSingleFrameDuringReset() {
-    updateDisplayRefreshRate(context, refreshRate = 60f)
     val videoFrameReleaseHelper = VideoFrameReleaseHelper(context)
     videoFrameReleaseHelper.onStarted()
     // Let release time drift up continuously (up to 1000 * 30us = 30ms in total), which should
@@ -298,7 +282,6 @@ class VideoFrameReleaseHelperTest {
 
   @Test
   fun adjustReleaseTime_suddenReleaseTimeJump_freezesSingleFrameAtJump() {
-    updateDisplayRefreshRate(context, refreshRate = 60f)
     val videoFrameReleaseHelper = VideoFrameReleaseHelper(context)
     videoFrameReleaseHelper.onStarted()
     var frameIndex = 0
@@ -322,7 +305,6 @@ class VideoFrameReleaseHelperTest {
 
   @Test
   fun adjustReleaseTime_positiveVsyncTimeDrift_skipsSingleFrameAtRollover() {
-    updateDisplayRefreshRate(context, refreshRate = 60f)
     val videoFrameReleaseHelper = VideoFrameReleaseHelper(context)
     videoFrameReleaseHelper.onStarted()
     // Let the vsync time drift slowly, rolling after 800 samples
@@ -347,7 +329,6 @@ class VideoFrameReleaseHelperTest {
 
   @Test
   fun adjustReleaseTime_negativeVsyncTimeDrift_freezesSingleFrameAtRollover() {
-    updateDisplayRefreshRate(context, refreshRate = 60f)
     val videoFrameReleaseHelper = VideoFrameReleaseHelper(context)
     videoFrameReleaseHelper.onStarted()
     // Let the vsync time drift slowly, rolling after 800 samples
@@ -373,7 +354,6 @@ class VideoFrameReleaseHelperTest {
   @Test
   fun adjustReleaseTime_smallVsyncTimeVariationWithFramesAtVsyncBoundary_releasesFramesSmoothly() {
     val random = Random(/* seed= */ 1234)
-    updateDisplayRefreshRate(context, refreshRate = 50f)
     val videoFrameReleaseHelper = VideoFrameReleaseHelper(context)
     videoFrameReleaseHelper.onStarted()
     // Choose a vsync offset of 10ms = half a screen refresh
@@ -382,7 +362,7 @@ class VideoFrameReleaseHelperTest {
         sampleFrameRate = 50f,
         screenRefreshRate = 50f,
         vsyncOffsetToFirstReleaseTimeNs = 10_000_000,
-        vsyncTimeNsModifier = { it + ((random.nextGaussian() - 0.5) * 500_000).toLong() },
+        vsyncTimeNsModifier = { it + ((random.nextGaussian() - 0.5) * 10_000).toLong() },
       )
 
     val releaseTimesNs = adjustReleaseTimes(videoFrameReleaseHelper, testData)
@@ -392,7 +372,6 @@ class VideoFrameReleaseHelperTest {
 
   @Test
   fun adjustReleaseTime_2Speed_releasesFramesSmoothly() {
-    updateDisplayRefreshRate(context, refreshRate = 60f)
     val videoFrameReleaseHelper = VideoFrameReleaseHelper(context)
     videoFrameReleaseHelper.onStarted()
     // Adjust release times to account for the faster playing audio.
@@ -411,7 +390,6 @@ class VideoFrameReleaseHelperTest {
 
   @Test
   fun adjustReleaseTime_point5Speed_releasesFramesSmoothly() {
-    updateDisplayRefreshRate(context, refreshRate = 60f)
     val videoFrameReleaseHelper = VideoFrameReleaseHelper(context)
     videoFrameReleaseHelper.onStarted()
     // Adjust release times to account for the slower playing audio.
@@ -430,7 +408,6 @@ class VideoFrameReleaseHelperTest {
 
   @Test
   fun adjustReleaseTime_speedChange_releasesFramesSmoothly() {
-    updateDisplayRefreshRate(context, refreshRate = 60f)
     val videoFrameReleaseHelper = VideoFrameReleaseHelper(context)
     videoFrameReleaseHelper.onStarted()
     // Adjust release times to account for the faster and then slower playing audio.
@@ -482,7 +459,6 @@ class VideoFrameReleaseHelperTest {
 
   @Test
   fun adjustReleaseTime_tinySpeedChangeAndSmallReleaseTimeDrift_releasesFramesSmoothly() {
-    updateDisplayRefreshRate(context, refreshRate = 60f)
     val videoFrameReleaseHelper = VideoFrameReleaseHelper(context)
     videoFrameReleaseHelper.onStarted()
     // Adjust release times to account for slower playing audio in the second half. Also add a small
@@ -529,7 +505,6 @@ class VideoFrameReleaseHelperTest {
 
   @Test
   fun onPositionReset_largerIncrementalReleaseTimeDrift_freezesSingleFrameAtTheReset() {
-    updateDisplayRefreshRate(context, refreshRate = 60f)
     val videoFrameReleaseHelper = VideoFrameReleaseHelper(context)
     videoFrameReleaseHelper.onStarted()
     // Let release time drift up continuously (up to 1000 * 30us = 30ms in total), which should
@@ -622,8 +597,9 @@ class VideoFrameReleaseHelperTest {
     var nextVsyncUpdateTimeNs = testData.releaseTimeNs.first()
     for (i in 0..<testData.releaseTimeNs.size) {
       if (testData.releaseTimeNs[i] >= nextVsyncUpdateTimeNs) {
-        videoFrameReleaseHelper.setVsyncSampleTimeNs(
-          getVsyncSampleTimeNs(testData.releaseTimeNs[i], testData)
+        videoFrameReleaseHelper.setVsyncData(
+          /* vsyncSampleTimeNs= */ getVsyncSampleTimeNs(testData.releaseTimeNs[i], testData),
+          /* vsyncDurationNs= */ getVsyncDurationNs(testData.releaseTimeNs[i], testData),
         )
         nextVsyncUpdateTimeNs += VideoFrameReleaseHelper.VSYNC_SAMPLE_UPDATE_PERIOD_MS * 1_000_000
       }
@@ -678,6 +654,11 @@ class VideoFrameReleaseHelperTest {
   private fun getVsyncSampleTimeNs(releaseTimeNs: Long, testData: TestData): Long =
     testData.vsyncTimesNs[getVsyncIndexBefore(releaseTimeNs, testData)]
 
+  private fun getVsyncDurationNs(releaseTimeNs: Long, testData: TestData): Long {
+    val vsyncIndex = getVsyncIndexBefore(releaseTimeNs, testData)
+    return testData.vsyncTimesNs[vsyncIndex + 1] - testData.vsyncTimesNs[vsyncIndex]
+  }
+
   private fun getVsyncIndexBefore(releaseTimeNs: Long, testData: TestData): Int {
     val binarySearchResult = testData.vsyncTimesNs.binarySearch(releaseTimeNs)
     return if (binarySearchResult > 0) binarySearchResult - 1 else -(binarySearchResult + 2)
@@ -699,14 +680,6 @@ class VideoFrameReleaseHelperTest {
       }
     }
     return true
-  }
-
-  private fun updateDisplayRefreshRate(context: Context, refreshRate: Float) {
-    val displayManager = context.getSystemService(DisplayManager::class.java)
-    val defaultDisplay = displayManager.getDisplay(Display.DEFAULT_DISPLAY)
-    shadowOf(defaultDisplay).setRefreshRate(refreshRate)
-    // This call is needed to trigger DisplayListener.onDisplayChanged.
-    ShadowDisplayManager.changeDisplay(Display.DEFAULT_DISPLAY, RuntimeEnvironment.getQualifiers())
   }
 
   data class TestData(
