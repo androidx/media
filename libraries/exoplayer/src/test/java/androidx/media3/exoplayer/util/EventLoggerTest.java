@@ -36,6 +36,7 @@ import androidx.media3.datasource.DataSpec;
 import androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime;
 import androidx.media3.exoplayer.audio.AudioSink.AudioTrackConfig;
 import androidx.media3.exoplayer.drm.DrmSession;
+import androidx.media3.exoplayer.drm.KeyRequestInfo;
 import androidx.media3.exoplayer.source.LoadEventInfo;
 import androidx.media3.exoplayer.source.MediaLoadData;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
@@ -540,7 +541,7 @@ public final class EventLoggerTest {
 
   @Test
   public void onDrmKeysLoaded() {
-    eventLogger.onDrmKeysLoaded(EVENT_TIME);
+    eventLogger.onDrmKeysLoaded(EVENT_TIME, new KeyRequestInfo.Builder().build());
     assertThat(onlyLogMessage())
         .isEqualTo("drmKeysLoaded [eventTime=0.02, mediaPos=0.46, window=0, period=0]");
   }
