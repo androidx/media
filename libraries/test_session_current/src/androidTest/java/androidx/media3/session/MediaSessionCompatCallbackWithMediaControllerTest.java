@@ -115,7 +115,8 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
 
   @Test
   public void play() throws Exception {
-    List<MediaItem> testList = MediaTestUtils.createMediaItems(/* size= */ 2);
+    List<MediaItem> testList =
+        MediaTestUtils.createMediaItems(/* size= */ 2, /* buildWithUri= */ true);
     List<QueueItem> testQueue = MediaTestUtils.convertToQueueItemsWithoutBitmap(testList);
     session.setQueue(testQueue);
     session.setFlags(FLAG_HANDLES_QUEUE_COMMANDS);
@@ -130,7 +131,8 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
 
   @Test
   public void pause() throws Exception {
-    List<MediaItem> testList = MediaTestUtils.createMediaItems(/* size= */ 2);
+    List<MediaItem> testList =
+        MediaTestUtils.createMediaItems(/* size= */ 2, /* buildWithUri= */ true);
     List<QueueItem> testQueue = MediaTestUtils.convertToQueueItemsWithoutBitmap(testList);
     session.setQueue(testQueue);
     session.setFlags(FLAG_HANDLES_QUEUE_COMMANDS);
@@ -145,7 +147,8 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
 
   @Test
   public void prepare() throws Exception {
-    List<MediaItem> testList = MediaTestUtils.createMediaItems(/* size= */ 2);
+    List<MediaItem> testList =
+        MediaTestUtils.createMediaItems(/* size= */ 2, /* buildWithUri= */ true);
     List<QueueItem> testQueue = MediaTestUtils.convertToQueueItemsWithoutBitmap(testList);
     session.setQueue(testQueue);
     session.setFlags(FLAG_HANDLES_QUEUE_COMMANDS);
@@ -160,7 +163,8 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
 
   @Test
   public void stop() throws Exception {
-    List<MediaItem> testList = MediaTestUtils.createMediaItems(/* size= */ 2);
+    List<MediaItem> testList =
+        MediaTestUtils.createMediaItems(/* size= */ 2, /* buildWithUri= */ true);
     List<QueueItem> testQueue = MediaTestUtils.convertToQueueItemsWithoutBitmap(testList);
     session.setQueue(testQueue);
     session.setFlags(FLAG_HANDLES_QUEUE_COMMANDS);
@@ -348,7 +352,8 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
 
   @Test
   public void removeMediaItems() throws Exception {
-    List<MediaItem> testList = MediaTestUtils.createMediaItems(/* size= */ 4);
+    List<MediaItem> testList =
+        MediaTestUtils.createMediaItems(/* size= */ 4, /* buildWithUri= */ true);
     int fromIndex = 1;
     int toIndex = 3;
     int count = toIndex - fromIndex;
@@ -440,7 +445,7 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
   @Test
   public void setMediaItems_emptyList() throws Exception {
     int size = 3;
-    List<MediaItem> testList = MediaTestUtils.createMediaItems(size);
+    List<MediaItem> testList = MediaTestUtils.createMediaItems(size, /* buildWithUri= */ true);
     List<QueueItem> testQueue = MediaTestUtils.convertToQueueItemsWithoutBitmap(testList);
 
     session.setQueue(testQueue);

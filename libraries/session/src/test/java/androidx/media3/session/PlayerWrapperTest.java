@@ -16,6 +16,7 @@
 package androidx.media3.session;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.when;
 
@@ -110,8 +111,9 @@ public class PlayerWrapperTest {
     long testContentDurationMs = 6000;
     long testContentPositionMs = 333;
     long testContentBufferedPositionMs = 2223;
-    int testmediaItemIndex = 7;
-    int testPeriodIndex = 8;
+    int testMediaItemIndex = 7;
+    int testPeriodIndex = 7;
+    when(player.getCurrentTimeline()).thenReturn(new FakeTimeline(/* windowCount= */ 8));
     when(player.getCurrentAdGroupIndex()).thenReturn(testAdGroupIndex);
     when(player.getCurrentAdIndexInAdGroup()).thenReturn(testAdIndexInAdGroup);
     when(player.isPlayingAd()).thenReturn(testIsPlayingAd);
@@ -124,7 +126,7 @@ public class PlayerWrapperTest {
     when(player.getContentDuration()).thenReturn(testContentDurationMs);
     when(player.getContentPosition()).thenReturn(testContentPositionMs);
     when(player.getContentBufferedPosition()).thenReturn(testContentBufferedPositionMs);
-    when(player.getCurrentMediaItemIndex()).thenReturn(testmediaItemIndex);
+    when(player.getCurrentMediaItemIndex()).thenReturn(testMediaItemIndex);
     when(player.getCurrentPeriodIndex()).thenReturn(testPeriodIndex);
 
     SessionPositionInfo sessionPositionInfo = playerWrapper.createSessionPositionInfo();
@@ -133,7 +135,7 @@ public class PlayerWrapperTest {
     assertThat(sessionPositionInfo.positionInfo.contentPositionMs).isEqualTo(testContentPositionMs);
     assertThat(sessionPositionInfo.positionInfo.adGroupIndex).isEqualTo(testAdGroupIndex);
     assertThat(sessionPositionInfo.positionInfo.adIndexInAdGroup).isEqualTo(testAdIndexInAdGroup);
-    assertThat(sessionPositionInfo.positionInfo.mediaItemIndex).isEqualTo(testmediaItemIndex);
+    assertThat(sessionPositionInfo.positionInfo.mediaItemIndex).isEqualTo(testMediaItemIndex);
     assertThat(sessionPositionInfo.positionInfo.periodIndex).isEqualTo(testPeriodIndex);
     assertThat(sessionPositionInfo.isPlayingAd).isEqualTo(testIsPlayingAd);
     assertThat(sessionPositionInfo.durationMs).isEqualTo(testDurationMs);
@@ -144,5 +146,43 @@ public class PlayerWrapperTest {
     assertThat(sessionPositionInfo.contentDurationMs).isEqualTo(testContentDurationMs);
     assertThat(sessionPositionInfo.contentBufferedPositionMs)
         .isEqualTo(testContentBufferedPositionMs);
+  }
+
+  @Test
+  public void
+      createPositionInfo_periodIndexNotMatchingWindowPeriodIndices_throwsIllegalStateException() {
+    when(player.getCurrentTimeline()).thenReturn(new FakeTimeline(/* windowCount= */ 8));
+    when(player.getCurrentMediaItemIndex()).thenReturn(0);
+    when(player.getCurrentPeriodIndex()).thenReturn(1);
+
+    assertThrows(IllegalStateException.class, playerWrapper::createPositionInfo);
+  }
+
+  @Test
+  public void
+      createPositionInfo_currentMediaItemIndexNotZeroWithEmptyTimelineInEnded_correctPositionInfo() {
+    when(player.getCurrentTimeline()).thenReturn(Timeline.EMPTY);
+    when(player.getPlaybackState()).thenReturn(Player.STATE_ENDED);
+    when(player.getCurrentMediaItemIndex()).thenReturn(1);
+    when(player.getCurrentPeriodIndex()).thenReturn(1);
+
+    Player.PositionInfo positionInfo = playerWrapper.createPositionInfo();
+
+    assertThat(positionInfo.mediaItemIndex).isEqualTo(1);
+    assertThat(positionInfo.periodIndex).isEqualTo(1);
+  }
+
+  @Test
+  public void createPositionInfo_withEmptyTimelineWhenIdle_everythingGoes() {
+    when(player.getCurrentTimeline()).thenReturn(Timeline.EMPTY);
+    when(player.getPlaybackState()).thenReturn(Player.STATE_IDLE);
+    when(player.getCurrentMediaItemIndex()).thenReturn(11);
+    when(player.getCurrentPeriodIndex()).thenReturn(111);
+
+    Player.PositionInfo positionInfo = playerWrapper.createPositionInfo();
+
+    assertThat(positionInfo).isNotNull();
+    assertThat(positionInfo.mediaItemIndex).isEqualTo(11);
+    assertThat(positionInfo.periodIndex).isEqualTo(111);
   }
 }

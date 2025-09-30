@@ -141,7 +141,8 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
     int testBufferingPosition = 1500;
     float testSpeed = 1.5f;
     int testItemIndex = 0;
-    List<MediaItem> testMediaItems = MediaTestUtils.createMediaItems(/* size= */ 3);
+    List<MediaItem> testMediaItems =
+        MediaTestUtils.createMediaItems(/* size= */ 3, /* buildWithUri= */ true);
     testMediaItems.set(
         testItemIndex,
         new MediaItem.Builder()
@@ -813,7 +814,8 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
     long testBufferedPositionMs = 100;
     PlaybackParameters playbackParameters = new PlaybackParameters(/* speed= */ 1.5f);
     int testItemIndex = 0;
-    List<MediaItem> testMediaItems = MediaTestUtils.createMediaItems(/* size= */ 3);
+    List<MediaItem> testMediaItems =
+        MediaTestUtils.createMediaItems(/* size= */ 3, /* buildWithUri= */ true);
     testMediaItems.set(
         testItemIndex,
         new MediaItem.Builder()
@@ -1819,7 +1821,8 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
     String testTitle = "title";
     String testDisplayTitle = "displayTitle";
     long testDurationMs = 30_000;
-    List<MediaItem> testMediaItems = MediaTestUtils.createMediaItems(/* size= */ 5);
+    List<MediaItem> testMediaItems =
+        MediaTestUtils.createMediaItems(/* size= */ 5, /* buildWithUri= */ true);
     String testCurrentMediaId = testMediaItems.get(testItemIndex).mediaId;
     MediaMetadata testMediaMetadata =
         new MediaMetadata.Builder().setTitle(testTitle).setDisplayTitle(testDisplayTitle).build();
@@ -1831,6 +1834,7 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
             .build());
     session.getMockPlayer().setTimeline(new PlaylistTimeline(testMediaItems));
     session.getMockPlayer().setCurrentMediaItemIndex(testItemIndex);
+    session.getMockPlayer().setCurrentPeriodIndex(testItemIndex);
     session.getMockPlayer().setCurrentPosition(testPosition);
     session.getMockPlayer().setDuration(testDurationMs);
     session.getMockPlayer().setMediaMetadata(testMediaMetadata);
@@ -1895,7 +1899,8 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
     String testTitle = "title";
     String testDisplayTitle = "displayTitle";
     long testDurationMs = 30_000;
-    List<MediaItem> testMediaItems = MediaTestUtils.createMediaItems(/* size= */ 5);
+    List<MediaItem> testMediaItems =
+        MediaTestUtils.createMediaItems(/* size= */ 5, /* buildWithUri= */ true);
     String testCurrentMediaId = testMediaItems.get(testItemIndex).mediaId;
     MediaMetadata testMediaMetadata =
         new MediaMetadata.Builder().setTitle(testTitle).setDisplayTitle(testDisplayTitle).build();
@@ -1952,7 +1957,8 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
     int testItemIndex = 3;
     String testTitle = "title";
     String testDisplayTitle = "title";
-    List<MediaItem> testMediaItems = MediaTestUtils.createMediaItems(/* size= */ 5);
+    List<MediaItem> testMediaItems =
+        MediaTestUtils.createMediaItems(/* size= */ 5, /* buildWithUri= */ true);
     MediaMetadata testMediaMetadata =
         new MediaMetadata.Builder().setTitle(testTitle).setDisplayTitle(testDisplayTitle).build();
     testMediaItems.set(
@@ -2101,7 +2107,8 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
           }
         };
     controllerCompat.registerCallback(callback, handler);
-    Timeline timeline = MediaTestUtils.createTimeline(/* windowCount= */ 5);
+    Timeline timeline =
+        MediaTestUtils.createTimeline(/* windowCount= */ 5, /* buildWithUri= */ true);
 
     session.getMockPlayer().setTimeline(timeline);
     session.getMockPlayer().notifyTimelineChanged(Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);

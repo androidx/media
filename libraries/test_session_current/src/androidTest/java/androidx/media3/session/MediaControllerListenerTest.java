@@ -850,7 +850,8 @@ public class MediaControllerListenerTest {
   @Test
   public void setPlayer_notifiesChangedValues() throws Exception {
     @Player.State int testState = Player.STATE_BUFFERING;
-    Timeline testTimeline = MediaTestUtils.createTimeline(/* windowCount= */ 3);
+    Timeline testTimeline =
+        MediaTestUtils.createTimeline(/* windowCount= */ 3, /* buildWithUri= */ true);
     MediaMetadata testPlaylistMetadata = new MediaMetadata.Builder().setTitle("title").build();
     AudioAttributes testAudioAttributes =
         new AudioAttributes.Builder()
@@ -978,7 +979,7 @@ public class MediaControllerListenerTest {
     int testCurrentAdGroupIndex = 2;
     int testCurrentAdIndexInAdGroup = 6;
     int testMediaItemIndex = 1;
-    int testPeriodIndex = 2;
+    int testPeriodIndex = 1;
     MediaController controller = controllerTestRule.createController(remoteSession.getToken());
     CountDownLatch latch = new CountDownLatch(2);
     AtomicLong currentPositionMsRef = new AtomicLong();
@@ -1063,6 +1064,10 @@ public class MediaControllerListenerTest {
     Bundle playerConfig =
         new RemoteMediaSession.MockPlayerConfigBuilder()
             .setPlaybackState(Player.STATE_READY)
+            .setTimeline(
+                MediaTestUtils.createTimeline(
+                    MediaTestUtils.createMediaItems(
+                        /* buildWithUri= */ true, "mediaItem1", "mediaItem2")))
             .setCurrentPosition(testCurrentPositionMs)
             .setContentPosition(testContentPositionMs)
             .setDuration(testDurationMs)
@@ -1115,7 +1120,8 @@ public class MediaControllerListenerTest {
   @Test
   public void onMediaItemTransition() throws Exception {
     int currentIndex = 0;
-    Timeline timeline = MediaTestUtils.createTimeline(/* windowCount= */ 5);
+    Timeline timeline =
+        MediaTestUtils.createTimeline(/* windowCount= */ 5, /* buildWithUri= */ false);
     remoteSession.getMockPlayer().setTimeline(timeline);
     remoteSession
         .getMockPlayer()
@@ -1159,6 +1165,7 @@ public class MediaControllerListenerTest {
     int testReason = Player.MEDIA_ITEM_TRANSITION_REASON_SEEK;
 
     remoteSession.getMockPlayer().setCurrentMediaItemIndex(testIndex);
+    remoteSession.getMockPlayer().setCurrentPeriodIndex(testIndex);
     remoteSession.getMockPlayer().notifyMediaItemTransition(testIndex, testReason);
 
     Timeline.Window window = new Timeline.Window();
@@ -1173,7 +1180,8 @@ public class MediaControllerListenerTest {
 
   @Test
   public void onMediaItemTransition_withNullMediaItem() throws Exception {
-    Timeline timeline = MediaTestUtils.createTimeline(/* windowCount= */ 1);
+    Timeline timeline =
+        MediaTestUtils.createTimeline(/* windowCount= */ 1, /* buildWithUri= */ true);
     remoteSession.getMockPlayer().setTimeline(timeline);
     remoteSession.getMockPlayer().setCurrentMediaItemIndex(0);
     remoteSession
@@ -1390,7 +1398,8 @@ public class MediaControllerListenerTest {
         };
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
 
-    Timeline timeline = MediaTestUtils.createTimeline(/* windowCount= */ 2);
+    Timeline timeline =
+        MediaTestUtils.createTimeline(/* windowCount= */ 2, /* buildWithUri= */ true);
     @Player.TimelineChangeReason int reason = Player.TIMELINE_CHANGE_REASON_SOURCE_UPDATE;
     remoteSession.getMockPlayer().setTimeline(timeline);
     remoteSession.getMockPlayer().notifyTimelineChanged(reason);
@@ -1744,11 +1753,12 @@ public class MediaControllerListenerTest {
     RemoteMediaSession.RemoteMockPlayer player = remoteSession.getMockPlayer();
     Timeline timeline =
         new PlaylistTimeline(
-            MediaTestUtils.createMediaItems(/* size= */ 3),
+            MediaTestUtils.createMediaItems(/* size= */ 3, /* buildWithUri= */ true),
             /* shuffledIndices= */ new int[] {0, 2, 1});
     player.setTimeline(timeline);
     player.notifyTimelineChanged(Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);
     player.setCurrentMediaItemIndex(2);
+    player.setCurrentPeriodIndex(2);
     player.setShuffleModeEnabled(false);
     player.notifyShuffleModeEnabledChanged();
     MediaController controller = controllerTestRule.createController(remoteSession.getToken());
@@ -1802,10 +1812,12 @@ public class MediaControllerListenerTest {
   @Test
   public void onRepeatModeChanged() throws Exception {
     RemoteMediaSession.RemoteMockPlayer player = remoteSession.getMockPlayer();
-    Timeline timeline = MediaTestUtils.createTimeline(/* windowCount= */ 3);
+    Timeline timeline =
+        MediaTestUtils.createTimeline(/* windowCount= */ 3, /* buildWithUri= */ true);
     player.setTimeline(timeline);
     player.notifyTimelineChanged(Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);
     player.setCurrentMediaItemIndex(2);
+    player.setCurrentPeriodIndex(2);
     player.setRepeatMode(Player.REPEAT_MODE_OFF);
     player.notifyRepeatModeChanged();
     MediaController controller = controllerTestRule.createController(remoteSession.getToken());
@@ -2809,7 +2821,8 @@ public class MediaControllerListenerTest {
   public void onTimelineChanged_playerCommandUnavailable_reducesTimelineToOneItem()
       throws Exception {
     int testMediaItemsSize = 2;
-    List<MediaItem> testMediaItemList = MediaTestUtils.createMediaItems(testMediaItemsSize);
+    List<MediaItem> testMediaItemList =
+        MediaTestUtils.createMediaItems(testMediaItemsSize, /* buildWithUri= */ true);
     Timeline testTimeline = new PlaylistTimeline(testMediaItemList);
     Bundle playerConfig =
         new RemoteMediaSession.MockPlayerConfigBuilder().setTimeline(testTimeline).build();
@@ -2856,7 +2869,8 @@ public class MediaControllerListenerTest {
   public void onTimelineChanged_sessionCommandUnavailable_reducesTimelineToOneItem()
       throws Exception {
     int testMediaItemsSize = 2;
-    List<MediaItem> testMediaItemList = MediaTestUtils.createMediaItems(testMediaItemsSize);
+    List<MediaItem> testMediaItemList =
+        MediaTestUtils.createMediaItems(testMediaItemsSize, /* buildWithUri= */ true);
     Timeline testTimeline = new PlaylistTimeline(testMediaItemList);
     Bundle playerConfig =
         new RemoteMediaSession.MockPlayerConfigBuilder().setTimeline(testTimeline).build();
@@ -4076,7 +4090,7 @@ public class MediaControllerListenerTest {
    */
   @Test
   public void timelineIsPreserved_whenUnrelatedListenerMethodIsCalled() throws Exception {
-    Timeline testTimeline = createTimeline(1);
+    Timeline testTimeline = createTimeline(1, /* buildWithUri= */ true);
 
     Bundle playerConfig =
         new RemoteMediaSession.MockPlayerConfigBuilder().setTimeline(testTimeline).build();
