@@ -66,11 +66,14 @@ import androidx.media3.extractor.SeekMap.SeekPoints;
 import androidx.media3.extractor.SeekMap.Unseekable;
 import androidx.media3.extractor.TrackOutput;
 import androidx.media3.extractor.metadata.icy.IcyHeaders;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.net.HttpHeaders;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -1089,7 +1092,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       this.positionHolder = new PositionHolder();
       this.pendingExtractorSeek = true;
       loadTaskId = LoadEventInfo.getNewId();
-      dataSpec = buildDataSpec(/* position= */ 0);
+      dataSpec = buildDataSpec(/* position= */ 0, /* etag= */ null);
     }
 
     // Loadable implementation.
@@ -1102,14 +1105,17 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     @Override
     public void load() throws IOException {
       int result = Extractor.RESULT_CONTINUE;
+      String etag = null;
       while (result == Extractor.RESULT_CONTINUE && !loadCanceled) {
         try {
           long position = positionHolder.position;
-          dataSpec = buildDataSpec(position);
+          dataSpec = buildDataSpec(position, etag);
           long length = dataSource.open(dataSpec);
           if (loadCanceled) {
             break;
           }
+          @Nullable List<String> etags = dataSource.getResponseHeaders().get(HttpHeaders.ETAG);
+          etag = etags != null && !etags.isEmpty() ? etags.get(0) : null;
           if (length != C.LENGTH_UNSET) {
             length += position;
             onLengthKnown();
@@ -1182,16 +1188,24 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     // Internal methods.
 
-    private DataSpec buildDataSpec(long position) {
-      // Disable caching if the content length cannot be resolved, since this is indicative of a
-      // progressive live stream.
+    private DataSpec buildDataSpec(long position, @Nullable String etag) {
+      Map<String, String> requestHeaders = ICY_METADATA_HEADERS;
+      if (etag != null && !etag.startsWith("W/")) {
+        requestHeaders =
+            ImmutableMap.<String, String>builder()
+                .putAll(requestHeaders)
+                .put(HttpHeaders.IF_RANGE, etag)
+                .buildKeepingLast();
+      }
       return new DataSpec.Builder()
           .setUri(uri)
           .setPosition(position)
           .setKey(customCacheKey)
+          // Disable caching if the content length cannot be resolved, since this is indicative of a
+          // progressive live stream.
           .setFlags(
               DataSpec.FLAG_DONT_CACHE_IF_LENGTH_UNKNOWN | DataSpec.FLAG_ALLOW_CACHE_FRAGMENTATION)
-          .setHttpRequestHeaders(ICY_METADATA_HEADERS)
+          .setHttpRequestHeaders(requestHeaders)
           .build();
     }
 

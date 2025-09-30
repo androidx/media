@@ -31,6 +31,7 @@ import androidx.media3.test.utils.WebServerDispatcher;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.net.HttpHeaders;
 import java.io.IOException;
 import okhttp3.mockwebserver.MockWebServer;
@@ -44,10 +45,11 @@ public final class HttpProgressivePlaybackTest {
 
   /**
    * {@code sample.mkv} has a {@code Cues} element near the end of the file, so we expect to see a
-   * second range request to efficiently access this data.
+   * second range request to efficiently access this data. This second request should include an
+   * {@code If-Range} header containing the {@code ETag} value provided by the first response.
    */
   @Test
-  public void rangeRequest() throws Exception {
+  public void rangeRequest_propagatesEtagFromResponseToRequest() throws Exception {
     MockWebServer mockWebServer = new MockWebServer();
     mockWebServer.start();
     WebServerDispatcher.Resource resource =
@@ -55,6 +57,7 @@ public final class HttpProgressivePlaybackTest {
             .setPath("sample.mkv")
             .setData(loadAsset("asset:///media/mkv/sample.mkv"))
             .supportsRangeRequests(true)
+            .setExtraResponseHeaders(ImmutableSetMultimap.of(HttpHeaders.ETAG, "\"foo\""))
             .build();
     mockWebServer.setDispatcher(WebServerDispatcher.forResources(ImmutableList.of(resource)));
 
@@ -73,7 +76,39 @@ public final class HttpProgressivePlaybackTest {
 
     RecordedRequest secondRequest = mockWebServer.takeRequest();
     assertThat(secondRequest.getHeader(HttpHeaders.RANGE)).isEqualTo("bytes=107445-");
+    assertThat(secondRequest.getHeader(HttpHeaders.IF_RANGE)).isEqualTo("\"foo\"");
+    mockWebServer.close();
+  }
 
+  @Test
+  public void rangeRequest_weakEtagNotPropagated() throws Exception {
+    MockWebServer mockWebServer = new MockWebServer();
+    mockWebServer.start();
+    WebServerDispatcher.Resource resource =
+        new WebServerDispatcher.Resource.Builder()
+            .setPath("sample.mkv")
+            .setData(loadAsset("asset:///media/mkv/sample.mkv"))
+            .supportsRangeRequests(true)
+            .setExtraResponseHeaders(ImmutableSetMultimap.of(HttpHeaders.ETAG, "W/\"foo\""))
+            .build();
+    mockWebServer.setDispatcher(WebServerDispatcher.forResources(ImmutableList.of(resource)));
+
+    ExoPlayer player =
+        new ExoPlayer.Builder(ApplicationProvider.getApplicationContext())
+            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .build();
+    player.setMediaItem(MediaItem.fromUri(mockWebServer.url("sample.mkv").toString()));
+    player.prepare();
+    player.play();
+    advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+
+    RecordedRequest initialRequest = mockWebServer.takeRequest();
+    assertThat(initialRequest.getHeader(HttpHeaders.RANGE)).isNull();
+
+    RecordedRequest secondRequest = mockWebServer.takeRequest();
+    assertThat(secondRequest.getHeader(HttpHeaders.RANGE)).isEqualTo("bytes=107445-");
+    assertThat(secondRequest.getHeader(HttpHeaders.IF_RANGE)).isNull();
     mockWebServer.close();
   }
 
