@@ -26,7 +26,6 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
-import android.media.AudioTimestamp;
 import android.media.AudioTrack;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
@@ -44,11 +43,9 @@ import java.lang.reflect.Method;
  * AudioTrack#getPlaybackHeadPosition()} and {@link AudioTrack#getTimestamp(AudioTimestamp)}.
  *
  * <p>Call {@link #setAudioTrack(AudioTrack, int, int, int, boolean)} to set the audio track to
- * wrap. Call {@link #mayHandleBuffer(long)} if there is input data to write to the track. If it
- * returns false, the audio track position is stabilizing and no data may be written. Call {@link
- * #start()} immediately before calling {@link AudioTrack#play()}. Call {@link #pause()} when
- * pausing the track. Call {@link #handleEndOfStream(long)} when no more data will be written to the
- * track. When the audio track will no longer be used, call {@link #reset()}.
+ * wrap. Call {@link #start()} immediately before calling {@link AudioTrack#play()}. Call {@link
+ * #pause()} when pausing the track. Call {@link #handleEndOfStream(long)} when no more data will be
+ * written to the track. When the audio track will no longer be used, call {@link #reset()}.
  */
 /* package */ final class AudioTrackPositionTracker {
 
