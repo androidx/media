@@ -2513,12 +2513,8 @@ import java.util.function.IntConsumer;
     int currentWindowIndex = getCurrentWindowIndexInternal(playbackInfo);
     long currentPositionMs = getCurrentPosition();
     pendingOperationAcks++;
-    if (!mediaSourceHolderSnapshots.isEmpty()) {
-      removeMediaSourceHolders(
-          /* fromIndex= */ 0, /* toIndexExclusive= */ mediaSourceHolderSnapshots.size());
-    }
     List<MediaSourceList.MediaSourceHolder> holders =
-        addMediaSourceHolders(/* index= */ 0, mediaSources);
+        setMediaSourceHolders(mediaSources, startWindowIndex);
     Timeline timeline = createMaskingTimeline();
     if (!timeline.isEmpty() && startWindowIndex >= timeline.getWindowCount()) {
       throw new IllegalSeekPositionException(timeline, startWindowIndex, startPositionMs);
@@ -2562,6 +2558,21 @@ import java.util.function.IntConsumer;
         /* discontinuityWindowStartPositionUs= */ getCurrentPositionUsInternal(newPlaybackInfo),
         /* ignored */ C.INDEX_UNSET,
         /* repeatCurrentMediaItem= */ false);
+  }
+
+  private List<MediaSourceList.MediaSourceHolder> setMediaSourceHolders(
+      List<MediaSource> mediaSources, int startIndex) {
+    mediaSourceHolderSnapshots.clear();
+    List<MediaSourceList.MediaSourceHolder> holders = new ArrayList<>();
+    for (int i = 0; i < mediaSources.size(); i++) {
+      MediaSourceList.MediaSourceHolder holder =
+          new MediaSourceList.MediaSourceHolder(mediaSources.get(i), useLazyPreparation);
+      holders.add(holder);
+      mediaSourceHolderSnapshots.add(
+          i, new MediaSourceHolderSnapshot(holder.uid, holder.mediaSource));
+    }
+    shuffleOrder = shuffleOrder.cloneAndSet(/* insertionCount= */ holders.size(), startIndex);
+    return holders;
   }
 
   private List<MediaSourceList.MediaSourceHolder> addMediaSourceHolders(
