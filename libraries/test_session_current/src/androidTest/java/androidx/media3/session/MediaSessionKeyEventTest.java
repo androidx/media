@@ -281,7 +281,23 @@ public class MediaSessionKeyEventTest {
           player.playbackState = Player.STATE_READY;
         });
 
-    dispatchMediaKeyEvent(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, false);
+    dispatchMediaKeyEvent(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, /* doubleTap= */ false);
+
+    player.awaitMethodCalled(MockPlayer.METHOD_PLAY, TIMEOUT_MS);
+  }
+
+  @Test
+  public void headsetHookKeyEvent_paused_play() throws Exception {
+    // We don't receive media key events when we are not playing on API < 26, so we can't test this
+    // case as it's not supported.
+    assumeTrue(SDK_INT >= 26);
+
+    handler.postAndSync(
+        () -> {
+          player.playbackState = Player.STATE_READY;
+        });
+
+    dispatchMediaKeyEvent(KeyEvent.KEYCODE_HEADSETHOOK, /* doubleTap= */ false);
 
     player.awaitMethodCalled(MockPlayer.METHOD_PLAY, TIMEOUT_MS);
   }
@@ -297,7 +313,24 @@ public class MediaSessionKeyEventTest {
           player.playbackState = Player.STATE_IDLE;
         });
 
-    dispatchMediaKeyEvent(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, false);
+    dispatchMediaKeyEvent(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, /* doubleTap= */ false);
+
+    player.awaitMethodCalled(MockPlayer.METHOD_PREPARE, TIMEOUT_MS);
+    player.awaitMethodCalled(MockPlayer.METHOD_PLAY, TIMEOUT_MS);
+  }
+
+  @Test
+  public void headesetHookKeyEvent_fromIdle_prepareAndPlay() throws Exception {
+    // We don't receive media key events when we are not playing on API < 26, so we can't test this
+    // case as it's not supported.
+    assumeTrue(SDK_INT >= 26);
+
+    handler.postAndSync(
+        () -> {
+          player.playbackState = Player.STATE_IDLE;
+        });
+
+    dispatchMediaKeyEvent(KeyEvent.KEYCODE_HEADSETHOOK, /* doubleTap= */ false);
 
     player.awaitMethodCalled(MockPlayer.METHOD_PREPARE, TIMEOUT_MS);
     player.awaitMethodCalled(MockPlayer.METHOD_PLAY, TIMEOUT_MS);
@@ -315,7 +348,25 @@ public class MediaSessionKeyEventTest {
           player.playbackState = STATE_ENDED;
         });
 
-    dispatchMediaKeyEvent(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, false);
+    dispatchMediaKeyEvent(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, /* doubleTap= */ false);
+
+    player.awaitMethodCalled(MockPlayer.METHOD_SEEK_TO_DEFAULT_POSITION, TIMEOUT_MS);
+    player.awaitMethodCalled(MockPlayer.METHOD_PLAY, TIMEOUT_MS);
+  }
+
+  @Test
+  public void headsetHookKeyEvent_playWhenReadyAndEnded_seekAndPlay() throws Exception {
+    // We don't receive media key events when we are not playing on API < 26, so we can't test this
+    // case as it's not supported.
+    assumeTrue(SDK_INT >= 26);
+
+    handler.postAndSync(
+        () -> {
+          player.playWhenReady = true;
+          player.playbackState = STATE_ENDED;
+        });
+
+    dispatchMediaKeyEvent(KeyEvent.KEYCODE_HEADSETHOOK, /* doubleTap= */ false);
 
     player.awaitMethodCalled(MockPlayer.METHOD_SEEK_TO_DEFAULT_POSITION, TIMEOUT_MS);
     player.awaitMethodCalled(MockPlayer.METHOD_PLAY, TIMEOUT_MS);
@@ -329,7 +380,20 @@ public class MediaSessionKeyEventTest {
           player.playbackState = Player.STATE_READY;
         });
 
-    dispatchMediaKeyEvent(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, false);
+    dispatchMediaKeyEvent(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, /* doubleTap= */ false);
+
+    player.awaitMethodCalled(MockPlayer.METHOD_PAUSE, TIMEOUT_MS);
+  }
+
+  @Test
+  public void headsetHookKeyEvent_playing_pause() throws Exception {
+    handler.postAndSync(
+        () -> {
+          player.playWhenReady = true;
+          player.playbackState = Player.STATE_READY;
+        });
+
+    dispatchMediaKeyEvent(KeyEvent.KEYCODE_HEADSETHOOK, /* doubleTap= */ false);
 
     player.awaitMethodCalled(MockPlayer.METHOD_PAUSE, TIMEOUT_MS);
   }
