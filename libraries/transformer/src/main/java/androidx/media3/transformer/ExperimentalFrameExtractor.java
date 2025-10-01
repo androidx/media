@@ -16,6 +16,7 @@
 
 package androidx.media3.transformer;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
@@ -23,6 +24,7 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.ColorSpace;
 import android.media.MediaCodec;
+import android.os.Build;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.Effect;
@@ -33,12 +35,10 @@ import androidx.media3.effect.DefaultGlObjectsProvider;
 import androidx.media3.exoplayer.SeekParameters;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.media3.inspector.FrameExtractor;
-import androidx.media3.inspector.FrameExtractorInternal;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
@@ -180,9 +180,10 @@ public final class ExperimentalFrameExtractor {
 
   private final Context context;
   private final Configuration configuration;
-  private final AtomicBoolean released;
+  private @MonotonicNonNull FrameExtractor inspectorFrameExtractor;
   private @MonotonicNonNull MediaItem mediaItem;
   private @MonotonicNonNull List<Effect> effects;
+  private ListenableFuture<?> lastFrameFuture;
 
   /**
    * Creates an instance.
@@ -193,8 +194,7 @@ public final class ExperimentalFrameExtractor {
   public ExperimentalFrameExtractor(Context context, Configuration configuration) {
     this.context = context;
     this.configuration = configuration;
-    released = new AtomicBoolean(false);
-    FrameExtractorInternal.getInstance().addReference();
+    this.lastFrameFuture = Futures.immediateVoidFuture();
   }
 
   /**
@@ -208,8 +208,20 @@ public final class ExperimentalFrameExtractor {
    *     video frames.
    */
   public void setMediaItem(MediaItem mediaItem, List<Effect> effects) {
-    this.mediaItem = mediaItem;
-    this.effects = effects;
+    ListenableFuture<?> previousFrameFuture = lastFrameFuture;
+    lastFrameFuture =
+        Futures.whenAllComplete(previousFrameFuture)
+            .call(
+                () -> {
+                  this.mediaItem = mediaItem;
+                  this.effects = effects;
+                  if (inspectorFrameExtractor != null) {
+                    inspectorFrameExtractor.close();
+                  }
+                  inspectorFrameExtractor = createFrameExtractor(configuration.seekParameters);
+                  return "ExperimentalFrameExtractor.setMediaItem";
+                },
+                directExecutor());
   }
 
   /**
@@ -221,7 +233,16 @@ public final class ExperimentalFrameExtractor {
    * @return A {@link ListenableFuture} of the result.
    */
   public ListenableFuture<Frame> getFrame(long positionMs) {
-    return getFrame(positionMs, configuration.seekParameters);
+    ListenableFuture<Frame> frameFuture =
+        Futures.transformAsync(
+            lastFrameFuture,
+            unused -> {
+              checkState(inspectorFrameExtractor != null, "setMediaItem must be called first.");
+              return convertFuture(inspectorFrameExtractor.getFrame(positionMs));
+            },
+            directExecutor());
+    lastFrameFuture = frameFuture;
+    return frameFuture;
   }
 
   /**
@@ -234,28 +255,43 @@ public final class ExperimentalFrameExtractor {
    * @return A {@link ListenableFuture} of the result.
    */
   public ListenableFuture<Frame> getFrame(long positionMs, SeekParameters seekParameters) {
-    if (released.get()) {
-      return Futures.immediateFailedFuture(
-          new IllegalStateException("getFrame() called on a released ExperimentalFrameExtractor."));
+    ListenableFuture<Frame> frameFuture =
+        Futures.transformAsync(
+            lastFrameFuture,
+            unused -> {
+              checkState(
+                  mediaItem != null && effects != null, "setMediaItem must be called first.");
+              FrameExtractor temporaryFrameExtractor = createFrameExtractor(seekParameters);
+              ListenableFuture<FrameExtractor.Frame> future =
+                  temporaryFrameExtractor.getFrame(positionMs);
+              future.addListener(temporaryFrameExtractor::close, directExecutor());
+              return convertFuture(future);
+            },
+            directExecutor());
+    lastFrameFuture = frameFuture;
+    return frameFuture;
+  }
+
+  private FrameExtractor createFrameExtractor(SeekParameters seekParameters) {
+    FrameExtractor.Builder builder =
+        new FrameExtractor.Builder(context, checkNotNull(mediaItem))
+            .setEffects(checkNotNull(effects))
+            .setSeekParameters(seekParameters)
+            .setMediaCodecSelector(configuration.mediaCodecSelector);
+    if (configuration.glObjectsProvider != null) {
+      builder.setGlObjectsProvider(configuration.glObjectsProvider);
     }
-    checkState(mediaItem != null && effects != null, "setMediaItem must be called first.");
-    FrameExtractorInternal.FrameExtractionRequest request =
-        new FrameExtractorInternal.FrameExtractionRequest(
-            context,
-            mediaItem,
-            effects,
-            seekParameters,
-            configuration.mediaCodecSelector,
-            configuration.glObjectsProvider,
-            configuration.extractHdrFrames,
-            positionMs);
+    if (Build.VERSION.SDK_INT >= 34) {
+      builder.setExtractHdrFrames(configuration.extractHdrFrames);
+    }
+    return builder.build();
+  }
 
-    ListenableFuture<FrameExtractor.Frame> internalFrameFuture =
-        FrameExtractorInternal.getInstance().submitTask(request);
-
+  private ListenableFuture<Frame> convertFuture(
+      ListenableFuture<FrameExtractor.Frame> inspectorFuture) {
     return Futures.transform(
-        internalFrameFuture,
-        internalFrame -> new Frame(internalFrame.presentationTimeMs, internalFrame.bitmap),
+        inspectorFuture,
+        inspectorFrame -> new Frame(inspectorFrame.presentationTimeMs, inspectorFrame.bitmap),
         directExecutor());
   }
 
@@ -264,9 +300,12 @@ public final class ExperimentalFrameExtractor {
    * longer required. The frame extractor must not be used after calling this method.
    */
   public void release() {
-    if (released.getAndSet(true)) {
-      return;
-    }
-    FrameExtractorInternal.getInstance().releaseReference();
+    lastFrameFuture.addListener(
+        () -> {
+          if (inspectorFrameExtractor != null) {
+            inspectorFrameExtractor.close();
+          }
+        },
+        directExecutor());
   }
 }
