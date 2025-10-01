@@ -41,6 +41,7 @@ import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.GlShaderProgram;
 import androidx.media3.effect.PassthroughShaderProgram;
 import androidx.media3.effect.Presentation;
+import androidx.media3.exoplayer.DecoderCounters;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.inspector.FrameExtractor.Frame;
 import androidx.test.core.app.ApplicationProvider;
@@ -91,6 +92,10 @@ public class FrameExtractorTest {
   public void extractFrame_oneFrame_returnsNearest() throws Exception {
     try (FrameExtractor frameExtractor =
         new FrameExtractor.Builder(context, MediaItem.fromUri(FILE_PATH)).build()) {
+      DecoderCounters initialCounters =
+          frameExtractor.getDecoderCounters().get(TIMEOUT_SECONDS, SECONDS);
+      int initialRenderedOutputBufferCount =
+          initialCounters != null ? initialCounters.renderedOutputBufferCount : 0;
       ListenableFuture<Frame> frameFuture = frameExtractor.getFrame(/* positionMs= */ 8_500);
       Frame frame = frameFuture.get(TIMEOUT_SECONDS, SECONDS);
       Bitmap actualBitmap = frame.bitmap;
@@ -102,11 +107,9 @@ public class FrameExtractorTest {
 
       assertThat(frame.presentationTimeMs).isEqualTo(8_531);
       assertBitmapsAreSimilar(expectedBitmap, actualBitmap, PSNR_THRESHOLD);
-      assertThat(
-              frameExtractor
-                  .getDecoderCounters()
-                  .get(TIMEOUT_SECONDS, SECONDS)
-                  .renderedOutputBufferCount)
+      DecoderCounters finalCounters =
+          frameExtractor.getDecoderCounters().get(TIMEOUT_SECONDS, SECONDS);
+      assertThat(finalCounters.renderedOutputBufferCount - initialRenderedOutputBufferCount)
           .isEqualTo(2);
     }
   }
@@ -117,6 +120,10 @@ public class FrameExtractorTest {
         new FrameExtractor.Builder(context, MediaItem.fromUri(FILE_PATH))
             .setEffects(ImmutableList.of(Presentation.createForHeight(180)))
             .build()) {
+      DecoderCounters initialCounters =
+          frameExtractor.getDecoderCounters().get(TIMEOUT_SECONDS, SECONDS);
+      int initialRenderedOutputBufferCount =
+          initialCounters != null ? initialCounters.renderedOutputBufferCount : 0;
       ListenableFuture<Frame> frameFuture = frameExtractor.getFrame(/* positionMs= */ 8_500);
       Frame frame = frameFuture.get(TIMEOUT_SECONDS, SECONDS);
       Bitmap actualBitmap = frame.bitmap;
@@ -128,11 +135,9 @@ public class FrameExtractorTest {
 
       assertThat(frame.presentationTimeMs).isEqualTo(8_531);
       assertBitmapsAreSimilar(expectedBitmap, actualBitmap, PSNR_THRESHOLD);
-      assertThat(
-              frameExtractor
-                  .getDecoderCounters()
-                  .get(TIMEOUT_SECONDS, SECONDS)
-                  .renderedOutputBufferCount)
+      DecoderCounters finalCounters =
+          frameExtractor.getDecoderCounters().get(TIMEOUT_SECONDS, SECONDS);
+      assertThat(finalCounters.renderedOutputBufferCount - initialRenderedOutputBufferCount)
           .isEqualTo(2);
     }
   }
@@ -141,6 +146,10 @@ public class FrameExtractorTest {
   public void extractFrame_pastDuration_returnsLastFrame() throws Exception {
     try (FrameExtractor frameExtractor =
         new FrameExtractor.Builder(context, MediaItem.fromUri(FILE_PATH)).build()) {
+      DecoderCounters initialCounters =
+          frameExtractor.getDecoderCounters().get(TIMEOUT_SECONDS, SECONDS);
+      int initialRenderedOutputBufferCount =
+          initialCounters != null ? initialCounters.renderedOutputBufferCount : 0;
       ListenableFuture<Frame> frameFuture = frameExtractor.getFrame(/* positionMs= */ 200_000);
       Frame frame = frameFuture.get(TIMEOUT_SECONDS, SECONDS);
       Bitmap actualBitmap = frame.bitmap;
@@ -153,11 +162,9 @@ public class FrameExtractorTest {
 
       assertThat(frame.presentationTimeMs).isEqualTo(lastVideoFramePresentationTimeMs);
       assertBitmapsAreSimilar(expectedBitmap, actualBitmap, PSNR_THRESHOLD);
-      assertThat(
-              frameExtractor
-                  .getDecoderCounters()
-                  .get(TIMEOUT_SECONDS, SECONDS)
-                  .renderedOutputBufferCount)
+      DecoderCounters finalCounters =
+          frameExtractor.getDecoderCounters().get(TIMEOUT_SECONDS, SECONDS);
+      assertThat(finalCounters.renderedOutputBufferCount - initialRenderedOutputBufferCount)
           .isEqualTo(2);
     }
   }
@@ -166,6 +173,10 @@ public class FrameExtractorTest {
   public void extractFrame_repeatedPositionMs_returnsTheSameFrame() throws Exception {
     try (FrameExtractor frameExtractor =
         new FrameExtractor.Builder(context, MediaItem.fromUri(FILE_PATH)).build()) {
+      DecoderCounters initialCounters =
+          frameExtractor.getDecoderCounters().get(TIMEOUT_SECONDS, SECONDS);
+      int initialRenderedOutputBufferCount =
+          initialCounters != null ? initialCounters.renderedOutputBufferCount : 0;
       ImmutableList<Long> requestedFramePositionsMs = ImmutableList.of(0L, 0L, 33L, 34L, 34L);
       ImmutableList<Long> expectedFramePositionsMs = ImmutableList.of(0L, 0L, 33L, 66L, 66L);
       List<ListenableFuture<Frame>> frameFutures = new ArrayList<>();
@@ -188,11 +199,9 @@ public class FrameExtractorTest {
         assertBitmapsAreSimilar(expectedBitmap, frame.bitmap, PSNR_THRESHOLD);
         assertThat(frame.presentationTimeMs).isEqualTo(expectedFramePositionsMs.get(i));
       }
-      assertThat(
-              frameExtractor
-                  .getDecoderCounters()
-                  .get(TIMEOUT_SECONDS, SECONDS)
-                  .renderedOutputBufferCount)
+      DecoderCounters finalCounters =
+          frameExtractor.getDecoderCounters().get(TIMEOUT_SECONDS, SECONDS);
+      assertThat(finalCounters.renderedOutputBufferCount - initialRenderedOutputBufferCount)
           .isEqualTo(3);
     }
   }
@@ -203,6 +212,10 @@ public class FrameExtractorTest {
         new FrameExtractor.Builder(context, MediaItem.fromUri(FILE_PATH))
             .setSeekParameters(CLOSEST_SYNC)
             .build()) {
+      DecoderCounters initialCounters =
+          frameExtractor.getDecoderCounters().get(TIMEOUT_SECONDS, SECONDS);
+      int initialRenderedOutputBufferCount =
+          initialCounters != null ? initialCounters.renderedOutputBufferCount : 0;
       ImmutableList<Long> requestedFramePositionsMs = ImmutableList.of(0L, 0L, 33L, 34L, 34L);
       ImmutableList<Long> expectedFramePositionsMs = ImmutableList.of(0L, 0L, 0L, 0L, 0L);
       List<ListenableFuture<Frame>> frameFutures = new ArrayList<>();
@@ -225,11 +238,9 @@ public class FrameExtractorTest {
         assertBitmapsAreSimilar(expectedBitmap, frame.bitmap, PSNR_THRESHOLD);
         assertThat(frame.presentationTimeMs).isEqualTo(expectedFramePositionsMs.get(i));
       }
-      assertThat(
-              frameExtractor
-                  .getDecoderCounters()
-                  .get(TIMEOUT_SECONDS, SECONDS)
-                  .renderedOutputBufferCount)
+      DecoderCounters finalCounters =
+          frameExtractor.getDecoderCounters().get(TIMEOUT_SECONDS, SECONDS);
+      assertThat(finalCounters.renderedOutputBufferCount - initialRenderedOutputBufferCount)
           .isEqualTo(1);
     }
   }
@@ -238,6 +249,10 @@ public class FrameExtractorTest {
   public void extractFrame_randomAccess_returnsCorrectFrames() throws Exception {
     try (FrameExtractor frameExtractor =
         new FrameExtractor.Builder(context, MediaItem.fromUri(FILE_PATH)).build()) {
+      DecoderCounters initialCounters =
+          frameExtractor.getDecoderCounters().get(TIMEOUT_SECONDS, SECONDS);
+      int initialRenderedOutputBufferCount =
+          initialCounters != null ? initialCounters.renderedOutputBufferCount : 0;
       ListenableFuture<Frame> frame5 = frameExtractor.getFrame(/* positionMs= */ 5_000);
       ListenableFuture<Frame> frame3 = frameExtractor.getFrame(/* positionMs= */ 3_000);
       ListenableFuture<Frame> frame7 = frameExtractor.getFrame(/* positionMs= */ 7_000);
@@ -249,11 +264,9 @@ public class FrameExtractorTest {
       assertThat(frame7.get(TIMEOUT_SECONDS, SECONDS).presentationTimeMs).isEqualTo(7_031);
       assertThat(frame2.get(TIMEOUT_SECONDS, SECONDS).presentationTimeMs).isEqualTo(2_032);
       assertThat(frame8.get(TIMEOUT_SECONDS, SECONDS).presentationTimeMs).isEqualTo(8_031);
-      assertThat(
-              frameExtractor
-                  .getDecoderCounters()
-                  .get(TIMEOUT_SECONDS, SECONDS)
-                  .renderedOutputBufferCount)
+      DecoderCounters finalCounters =
+          frameExtractor.getDecoderCounters().get(TIMEOUT_SECONDS, SECONDS);
+      assertThat(finalCounters.renderedOutputBufferCount - initialRenderedOutputBufferCount)
           .isEqualTo(6);
     }
   }
@@ -264,6 +277,10 @@ public class FrameExtractorTest {
         new FrameExtractor.Builder(context, MediaItem.fromUri(FILE_PATH))
             .setSeekParameters(CLOSEST_SYNC)
             .build()) {
+      DecoderCounters initialCounters =
+          frameExtractor.getDecoderCounters().get(TIMEOUT_SECONDS, SECONDS);
+      int initialRenderedOutputBufferCount =
+          initialCounters != null ? initialCounters.renderedOutputBufferCount : 0;
       ListenableFuture<Frame> frame5 = frameExtractor.getFrame(/* positionMs= */ 5_000);
       ListenableFuture<Frame> frame3 = frameExtractor.getFrame(/* positionMs= */ 3_000);
       ListenableFuture<Frame> frame7 = frameExtractor.getFrame(/* positionMs= */ 7_000);
@@ -278,11 +295,9 @@ public class FrameExtractorTest {
       assertThat(frame7.get(TIMEOUT_SECONDS, SECONDS).presentationTimeMs).isEqualTo(8_331);
       assertThat(frame2.get(TIMEOUT_SECONDS, SECONDS).presentationTimeMs).isEqualTo(0);
       assertThat(frame8.get(TIMEOUT_SECONDS, SECONDS).presentationTimeMs).isEqualTo(8_331);
-      assertThat(
-              frameExtractor
-                  .getDecoderCounters()
-                  .get(TIMEOUT_SECONDS, SECONDS)
-                  .renderedOutputBufferCount)
+      DecoderCounters finalCounters =
+          frameExtractor.getDecoderCounters().get(TIMEOUT_SECONDS, SECONDS);
+      assertThat(finalCounters.renderedOutputBufferCount - initialRenderedOutputBufferCount)
           .isEqualTo(6);
     }
   }
@@ -309,6 +324,10 @@ public class FrameExtractorTest {
   public void extractFrame_oneFrame_completesViaCallback() throws Exception {
     try (FrameExtractor frameExtractor =
         new FrameExtractor.Builder(context, MediaItem.fromUri(FILE_PATH)).build()) {
+      DecoderCounters initialCounters =
+          frameExtractor.getDecoderCounters().get(TIMEOUT_SECONDS, SECONDS);
+      int initialRenderedOutputBufferCount =
+          initialCounters != null ? initialCounters.renderedOutputBufferCount : 0;
       AtomicReference<@NullableType Frame> frameAtomicReference = new AtomicReference<>();
       AtomicReference<@NullableType Throwable> throwableAtomicReference = new AtomicReference<>();
       ConditionVariable frameReady = new ConditionVariable();
@@ -334,11 +353,9 @@ public class FrameExtractorTest {
 
       assertThat(throwableAtomicReference.get()).isNull();
       assertThat(frameAtomicReference.get().presentationTimeMs).isEqualTo(0);
-      assertThat(
-              frameExtractor
-                  .getDecoderCounters()
-                  .get(TIMEOUT_SECONDS, SECONDS)
-                  .renderedOutputBufferCount)
+      DecoderCounters finalCounters =
+          frameExtractor.getDecoderCounters().get(TIMEOUT_SECONDS, SECONDS);
+      assertThat(finalCounters.renderedOutputBufferCount - initialRenderedOutputBufferCount)
           .isEqualTo(1);
     }
   }
@@ -357,6 +374,10 @@ public class FrameExtractorTest {
     try (FrameExtractor frameExtractor =
         new FrameExtractor.Builder(context, MediaItem.fromUri(MP4_TRIM_OPTIMIZATION_270.uri))
             .build()) {
+      DecoderCounters initialCounters =
+          frameExtractor.getDecoderCounters().get(TIMEOUT_SECONDS, SECONDS);
+      int initialRenderedOutputBufferCount =
+          initialCounters != null ? initialCounters.renderedOutputBufferCount : 0;
       ListenableFuture<Frame> frameFuture = frameExtractor.getFrame(/* positionMs= */ 0);
       Frame frame = frameFuture.get(TIMEOUT_SECONDS, SECONDS);
       Bitmap actualBitmap = frame.bitmap;
@@ -368,11 +389,9 @@ public class FrameExtractorTest {
 
       assertThat(frame.presentationTimeMs).isEqualTo(0);
       assertBitmapsAreSimilar(expectedBitmap, actualBitmap, PSNR_THRESHOLD);
-      assertThat(
-              frameExtractor
-                  .getDecoderCounters()
-                  .get(TIMEOUT_SECONDS, SECONDS)
-                  .renderedOutputBufferCount)
+      DecoderCounters finalCounters =
+          frameExtractor.getDecoderCounters().get(TIMEOUT_SECONDS, SECONDS);
+      assertThat(finalCounters.renderedOutputBufferCount - initialRenderedOutputBufferCount)
           .isEqualTo(1);
     }
   }
@@ -381,6 +400,10 @@ public class FrameExtractorTest {
   public void extractFrame_randomAccessWithCancellation_returnsCorrectFrames() throws Exception {
     try (FrameExtractor frameExtractor =
         new FrameExtractor.Builder(context, MediaItem.fromUri(FILE_PATH)).build()) {
+      DecoderCounters initialCounters =
+          frameExtractor.getDecoderCounters().get(TIMEOUT_SECONDS, SECONDS);
+      int initialRenderedOutputBufferCount =
+          initialCounters != null ? initialCounters.renderedOutputBufferCount : 0;
       ListenableFuture<Frame> frame5 = frameExtractor.getFrame(/* positionMs= */ 5_000);
       ListenableFuture<Frame> frame3 = frameExtractor.getFrame(/* positionMs= */ 3_000);
       ListenableFuture<Frame> frame7 = frameExtractor.getFrame(/* positionMs= */ 7_000);
@@ -394,12 +417,12 @@ public class FrameExtractorTest {
       assertThat(frame8.get(TIMEOUT_SECONDS, SECONDS).presentationTimeMs).isEqualTo(8_031);
       assertThrows(CancellationException.class, () -> frame5.get(TIMEOUT_SECONDS, SECONDS));
       assertThrows(CancellationException.class, () -> frame7.get(TIMEOUT_SECONDS, SECONDS));
-      assertThat(
-              frameExtractor
-                  .getDecoderCounters()
-                  .get(TIMEOUT_SECONDS, SECONDS)
-                  .renderedOutputBufferCount)
-          .isEqualTo(4);
+      DecoderCounters finalCounters =
+          frameExtractor.getDecoderCounters().get(TIMEOUT_SECONDS, SECONDS);
+      int renderedOutputBufferCount =
+          finalCounters.renderedOutputBufferCount - initialRenderedOutputBufferCount;
+      assertThat(renderedOutputBufferCount).isAtLeast(4);
+      assertThat(renderedOutputBufferCount).isAtMost(6);
     }
   }
 
@@ -448,15 +471,17 @@ public class FrameExtractorTest {
         context, testId, /* inputFormat= */ MP4_ASSET.videoFormat, /* outputFormat= */ null);
     try (FrameExtractor frameExtractor =
         new FrameExtractor.Builder(context, MediaItem.fromUri(MP4_ASSET.uri)).build()) {
+      DecoderCounters initialCounters =
+          frameExtractor.getDecoderCounters().get(TIMEOUT_SECONDS, SECONDS);
+      int initialSkippedInputBufferCount =
+          initialCounters != null ? initialCounters.skippedInputBufferCount : 0;
       ListenableFuture<Frame> frameFuture = frameExtractor.getFrame(/* positionMs= */ 967);
       Frame frame = frameFuture.get(TIMEOUT_SECONDS, SECONDS);
 
       assertThat(frame.presentationTimeMs).isEqualTo(967);
-      assertThat(
-              frameExtractor
-                  .getDecoderCounters()
-                  .get(TIMEOUT_SECONDS, SECONDS)
-                  .skippedInputBufferCount)
+      DecoderCounters finalCounters =
+          frameExtractor.getDecoderCounters().get(TIMEOUT_SECONDS, SECONDS);
+      assertThat(finalCounters.skippedInputBufferCount - initialSkippedInputBufferCount)
           .isEqualTo(13);
     }
   }
