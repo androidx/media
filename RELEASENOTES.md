@@ -219,6 +219,8 @@
     *   Implemented `onAudioSessionIdChanged` to notify media controllers when
         an audio session ID is set by the session
         ([#244](https://github.com/androidx/media/issues/244)).
+    *   Handle `KEYCODE_HEADSETHOOK` just like the key code for play
+        ([#2816](https://github.com/androidx/media/pull/2816)).
 *   UI:
     *   Add `ProgressStateWithTickInterval` class and the corresponding
         `rememberProgressStateWithTickInterval` Composable to
