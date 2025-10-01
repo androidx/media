@@ -24,6 +24,7 @@ android {
 }
 
 dependencies {
+    implementation 'androidx.mediarouter:mediarouter:' + androidxMediaRouterVersion
     api 'com.google.android.gms:play-services-cast-framework:22.1.0'
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
     api project(modulePrefix + 'lib-common')
