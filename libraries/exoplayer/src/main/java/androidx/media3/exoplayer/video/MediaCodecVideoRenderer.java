@@ -115,6 +115,17 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
  *   <li>Message with type {@link #MSG_SET_VIDEO_FRAME_METADATA_LISTENER} to set a listener for
  *       metadata associated with frames being rendered. The message payload should be the {@link
  *       VideoFrameMetadataListener}, or null.
+ *   <li>Message with type {@link #MSG_SET_AUDIO_SESSION_ID} to set the audio session ID for
+ *       tunneling. The message payload should be an {@link Integer}.
+ *   <li>Message with type {@link #MSG_SET_VIDEO_EFFECTS} to set the video effects to apply. The
+ *       message payload should be a {@link java.util.List} of {@link Effect} instances.
+ *   <li>Message with type {@link #MSG_SET_PRIORITY} to set the priority of the renderer. The
+ *       message payload should be an {@link Integer}.
+ *   <li>Message with type {@link #MSG_TRANSFER_RESOURCES} to transfer the video output surface to
+ *       another {@link MediaCodecVideoRenderer} instance. The message payload should be the target
+ *       renderer.
+ *   <li>Message with type {@link #MSG_SET_SCRUBBING_MODE} to enable or disable scrubbing mode. The
+ *       message payload should be a {@link ScrubbingModeParameters} instance, or null to disable.
  * </ul>
  */
 @UnstableApi
