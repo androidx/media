@@ -58,17 +58,6 @@ import org.robolectric.shadows.ShadowLooper;
 @RunWith(RobolectricTestParameterInjector.class)
 public class MediaSessionServiceTest {
 
-  private enum PlayPauseEvent {
-    MEDIA_PLAY_PAUSE(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE),
-    HEADSETHOOK(KeyEvent.KEYCODE_HEADSETHOOK);
-
-    final int keyCode;
-
-    PlayPauseEvent(int keyCode) {
-      this.keyCode = keyCode;
-    }
-  }
-
   private static final int TIMEOUT_MS = 500;
 
   private Context context;
@@ -765,7 +754,7 @@ public class MediaSessionServiceTest {
       throws InterruptedException, ExecutionException, TimeoutException {
     Intent playIntent = new Intent(Intent.ACTION_MEDIA_BUTTON);
     playIntent.putExtra(
-        Intent.EXTRA_KEY_EVENT, new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY));
+        Intent.EXTRA_KEY_EVENT, new KeyEvent(KeyEvent.ACTION_DOWN, playPauseEvent.keyCode));
     ServiceController<TestServiceWithPlaybackResumption> serviceController =
         Robolectric.buildService(TestServiceWithPlaybackResumption.class, playIntent);
     TestServiceWithPlaybackResumption service = serviceController.create().get();
@@ -1022,6 +1011,18 @@ public class MediaSessionServiceTest {
         session = null;
       }
       super.onDestroy();
+    }
+  }
+
+  private enum PlayPauseEvent {
+    MEDIA_PLAY_PAUSE(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE),
+    MEDIA_PLAY(KeyEvent.KEYCODE_MEDIA_PLAY),
+    HEADSETHOOK(KeyEvent.KEYCODE_HEADSETHOOK);
+
+    final int keyCode;
+
+    PlayPauseEvent(int keyCode) {
+      this.keyCode = keyCode;
     }
   }
 }

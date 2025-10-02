@@ -323,7 +323,7 @@ public class MediaSessionKeyEventTest {
   }
 
   @Test
-  public void playPauseKeyEvent_playing_pause(@TestParameter PlayPauseEvent playPauseEvent)
+  public void playPauseKeyEvent_playing_pause()
       throws Exception {
     handler.postAndSync(
         () -> {
@@ -331,21 +331,47 @@ public class MediaSessionKeyEventTest {
           player.playbackState = Player.STATE_READY;
         });
 
-    dispatchMediaKeyEvent(playPauseEvent.keyCode, /* doubleTap= */ false);
+    dispatchMediaKeyEvent(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, /* doubleTap= */ false);
 
     player.awaitMethodCalled(MockPlayer.METHOD_PAUSE, TIMEOUT_MS);
   }
 
   @Test
-  public void playPauseKeyEvent_doubleTapOnPlayPause_seekNext(
-      @TestParameter PlayPauseEvent playPauseEvent) throws Exception {
+  public void headsetHookKeyEvent_playing_pause()
+      throws Exception {
     handler.postAndSync(
         () -> {
           player.playWhenReady = true;
           player.playbackState = Player.STATE_READY;
         });
 
-    dispatchMediaKeyEvent(playPauseEvent.keyCode, /* doubleTap= */ true);
+    dispatchMediaKeyEvent(KeyEvent.KEYCODE_HEADSETHOOK, /* doubleTap= */ false);
+
+    player.awaitMethodCalled(MockPlayer.METHOD_PAUSE, TIMEOUT_MS);
+  }
+
+  @Test
+  public void playPauseKeyEvent_doubleTapOnPlayPause_seekNext() throws Exception {
+    handler.postAndSync(
+        () -> {
+          player.playWhenReady = true;
+          player.playbackState = Player.STATE_READY;
+        });
+
+    dispatchMediaKeyEvent(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, /* doubleTap= */ true);
+
+    player.awaitMethodCalled(MockPlayer.METHOD_SEEK_TO_NEXT, TIMEOUT_MS);
+  }
+
+  @Test
+  public void headsetHookKeyEvent_doubleTapOnPlayPause_seekNext() throws Exception {
+    handler.postAndSync(
+        () -> {
+          player.playWhenReady = true;
+          player.playbackState = Player.STATE_READY;
+        });
+
+    dispatchMediaKeyEvent(KeyEvent.KEYCODE_HEADSETHOOK, /* doubleTap= */ true);
 
     player.awaitMethodCalled(MockPlayer.METHOD_SEEK_TO_NEXT, TIMEOUT_MS);
   }
@@ -509,6 +535,7 @@ public class MediaSessionKeyEventTest {
 
   private enum PlayPauseEvent {
     MEDIA_PLAY_PAUSE(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE),
+    MEDIA_PLAY(KeyEvent.KEYCODE_MEDIA_PLAY),
     HEADSETHOOK(KeyEvent.KEYCODE_HEADSETHOOK);
 
     final int keyCode;
