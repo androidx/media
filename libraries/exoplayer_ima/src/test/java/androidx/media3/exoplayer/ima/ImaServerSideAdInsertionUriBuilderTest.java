@@ -37,7 +37,6 @@ public final class ImaServerSideAdInsertionUriBuilderTest {
   private static final String API_KEY = "testApiKey";
   private static final String CONTENT_SOURCE_ID = "testContentSourceId";
   private static final String VIDEO_ID = "testVideoId";
-  private static final String NETWORK_CODE = "1234567890";
   private static final String MANIFEST_SUFFIX = "testManifestSuffix";
   private static final String CONTENT_URL =
       "http://google.com/contentUrl?queryParamName=queryParamValue";
@@ -59,7 +58,6 @@ public final class ImaServerSideAdInsertionUriBuilderTest {
     builder.setApiKey(API_KEY);
     builder.setManifestSuffix(MANIFEST_SUFFIX);
     builder.setContentUrl(CONTENT_URL);
-    builder.setNetworkCode(NETWORK_CODE);
     builder.setAuthToken(AUTH_TOKEN);
     builder.setStreamActivityMonitorId(STREAM_ACTIVITY_MONITOR_ID);
     builder.setFormat(C.CONTENT_TYPE_HLS);
@@ -70,7 +68,6 @@ public final class ImaServerSideAdInsertionUriBuilderTest {
     StreamRequest streamRequest = ImaServerSideAdInsertionUriBuilder.createStreamRequest(uri);
     assertThat(streamRequest.getAssetKey()).isEqualTo(ASSET_KEY);
     assertThat(streamRequest.getApiKey()).isEqualTo(API_KEY);
-    assertThat(streamRequest.getNetworkCode()).isEqualTo(NETWORK_CODE);
     assertThat(streamRequest.getManifestSuffix()).isEqualTo(MANIFEST_SUFFIX);
     assertThat(streamRequest.getContentUrl()).isEqualTo(CONTENT_URL);
     assertThat(streamRequest.getAuthToken()).isEqualTo(AUTH_TOKEN);
@@ -95,7 +92,6 @@ public final class ImaServerSideAdInsertionUriBuilderTest {
     builder.setApiKey(API_KEY);
     builder.setContentSourceId(CONTENT_SOURCE_ID);
     builder.setVideoId(VIDEO_ID);
-    builder.setNetworkCode(NETWORK_CODE);
     builder.setManifestSuffix(MANIFEST_SUFFIX);
     builder.setContentUrl(CONTENT_URL);
     builder.setAuthToken(AUTH_TOKEN);
@@ -109,7 +105,6 @@ public final class ImaServerSideAdInsertionUriBuilderTest {
     assertThat(streamRequest.getApiKey()).isEqualTo(API_KEY);
     assertThat(streamRequest.getContentSourceId()).isEqualTo(CONTENT_SOURCE_ID);
     assertThat(streamRequest.getVideoId()).isEqualTo(VIDEO_ID);
-    assertThat(streamRequest.getNetworkCode()).isEqualTo(NETWORK_CODE);
     assertThat(streamRequest.getManifestSuffix()).isEqualTo(MANIFEST_SUFFIX);
     assertThat(streamRequest.getContentUrl()).isEqualTo(CONTENT_URL);
     assertThat(streamRequest.getAuthToken()).isEqualTo(AUTH_TOKEN);
