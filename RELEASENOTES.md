@@ -157,6 +157,7 @@
     *   Allow codec reuse for EAC3, EAC3-JOC and AC-4 formats
         ([#1346](https://github.com/androidx/media/pull/1346)).
     *   Add support for float PCM samples in `Sonic`.
+    *   Add support for 16 bit PCM samples in `ToFloatPcmAudioProcessor`.
 *   Video:
 *   Text:
 *   Metadata:
