@@ -15,6 +15,7 @@
  */
 package androidx.media3.session;
 
+import static android.view.KeyEvent.KEYCODE_HEADSETHOOK;
 import static android.view.KeyEvent.KEYCODE_MEDIA_FAST_FORWARD;
 import static android.view.KeyEvent.KEYCODE_MEDIA_NEXT;
 import static android.view.KeyEvent.KEYCODE_MEDIA_PAUSE;
@@ -1431,6 +1432,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     if (keyEvent.getAction() != KeyEvent.ACTION_DOWN) {
       switch (keyEvent.getKeyCode()) {
         case KEYCODE_MEDIA_PLAY_PAUSE:
+        case KEYCODE_HEADSETHOOK:
         case KEYCODE_MEDIA_PLAY:
         case KEYCODE_MEDIA_PAUSE:
         case KEYCODE_MEDIA_NEXT:
@@ -1453,8 +1455,8 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     boolean isTvApp = context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK);
     boolean doubleTapCompleted = false;
     switch (keyCode) {
-      case KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE:
-      case KeyEvent.KEYCODE_HEADSETHOOK:
+      case KEYCODE_MEDIA_PLAY_PAUSE:
+      case KEYCODE_HEADSETHOOK:
         if (isTvApp
             || callerInfo.getControllerVersion() != ControllerInfo.LEGACY_CONTROLLER_VERSION
             || keyEvent.getRepeatCount() != 0) {
@@ -1479,7 +1481,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     }
 
     if (!isMediaNotificationControllerConnected()) {
-      if ((keyCode == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE || keyCode == KeyEvent.KEYCODE_HEADSETHOOK)
+      if ((keyCode == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE || keyCode == KEYCODE_HEADSETHOOK)
           && doubleTapCompleted) {
         // Double tap completion for legacy when media notification controller is disabled.
         sessionLegacyStub.onSkipToNext();
@@ -1505,12 +1507,13 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     ControllerInfo controllerInfo = checkNotNull(instance.getMediaNotificationControllerInfo());
     Runnable command;
     int keyCode = keyEvent.getKeyCode();
-    if ((keyCode == KEYCODE_MEDIA_PLAY_PAUSE || keyCode == KeyEvent.KEYCODE_HEADSETHOOK)
+    if ((keyCode == KEYCODE_MEDIA_PLAY_PAUSE || keyCode == KEYCODE_HEADSETHOOK)
         && doubleTapCompleted) {
       keyCode = KEYCODE_MEDIA_NEXT;
     }
     switch (keyCode) {
       case KEYCODE_MEDIA_PLAY_PAUSE:
+      case KEYCODE_HEADSETHOOK:
         command =
             getPlayerWrapper().getPlayWhenReady()
                 ? () -> sessionStub.pauseForControllerInfo(controllerInfo, UNKNOWN_SEQUENCE_NUMBER)

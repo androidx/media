@@ -226,6 +226,10 @@
     *   Implemented `onAudioSessionIdChanged` to notify media controllers when
         an audio session ID is set by the session
         ([#244](https://github.com/androidx/media/issues/244)).
+    *   Fix bug where `KEYCODE_HEADSETHOOK` did not start the player upon and
+        media key event `Intent` arriving in `onStartCommand()`. This is fixed
+        by handling 'KEYCODE_HEADSETHOOK' just like `KEYCODE_MEDIA_PLAY_PAUSE`
+        ([#2816](https://github.com/androidx/media/pull/2816)).
 *   UI:
     *   Add `ProgressStateWithTickInterval` class and the corresponding
         `rememberProgressStateWithTickInterval` Composable to
