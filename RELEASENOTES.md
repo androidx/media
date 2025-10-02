@@ -183,6 +183,12 @@
 *   IMA extension:
     *   Removal of custom proguard rules, so that apps can use those released in
         IMA android archive instead.
+    *   Add ImaServerSideAdInsertionUriBuilder.setNetworkCode, a new API for
+        setting the Google Ad Manager network code for the IMA SDK to handle ads
+        identifiers as specified in Google Ad Manager settings. Network codes
+        are optional but recommended for Full service stream requests. To find
+        the network code, see
+        [this article](http://support.google.com/admanager/answer/7674889).
 *   Session:
     *   Add new parameter to `MediaSession.Callback.onPlaybackResumption` to
         indicate if the call happens to gather information only or to start
