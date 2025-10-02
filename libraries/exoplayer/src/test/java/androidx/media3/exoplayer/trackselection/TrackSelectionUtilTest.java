@@ -47,6 +47,10 @@ public class TrackSelectionUtilTest {
 
   @Test
   public void buildTrackInfos_withTestValues_isAsExpected() {
+    // The @Capabilities array constructed below is valid because it's made from @FormatSupport
+    // constants, but the @Capabilities list of valid int values is deliberately empty, so lint
+    // complains.
+    @SuppressWarnings("WrongConstant")
     MappingTrackSelector.MappedTrackInfo mappedTrackInfo =
         new MappingTrackSelector.MappedTrackInfo(
             new String[] {"rendererName1", "rendererName2"},
@@ -104,6 +108,10 @@ public class TrackSelectionUtilTest {
   @Test
   @SuppressWarnings({"unchecked", "rawtypes"}) // Initialization of array of Lists.
   public void buildTrackInfos_withMultipleSelectionForRenderer_isAsExpected() {
+    // The @Capabilities array constructed below is valid because it's made from @FormatSupport
+    // constants, but the @Capabilities list of valid int values is deliberately empty, so lint
+    // complains.
+    @SuppressWarnings("WrongConstant")
     MappingTrackSelector.MappedTrackInfo mappedTrackInfo =
         new MappingTrackSelector.MappedTrackInfo(
             new String[] {"rendererName1", "rendererName2"},
