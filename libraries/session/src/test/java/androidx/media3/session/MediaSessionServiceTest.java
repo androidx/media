@@ -36,10 +36,10 @@ import androidx.media3.common.Player;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.test.utils.TestExoPlayerBuilder;
 import androidx.test.core.app.ApplicationProvider;
-import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.testing.junit.testparameterinjector.TestParameter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -51,11 +51,23 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.Robolectric;
+import org.robolectric.RobolectricTestParameterInjector;
 import org.robolectric.android.controller.ServiceController;
 import org.robolectric.shadows.ShadowLooper;
 
-@RunWith(AndroidJUnit4.class)
+@RunWith(RobolectricTestParameterInjector.class)
 public class MediaSessionServiceTest {
+
+  private enum PlayPauseEvent {
+    MEDIA_PLAY_PAUSE(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE),
+    HEADSETHOOK(KeyEvent.KEYCODE_HEADSETHOOK);
+
+    final int keyCode;
+
+    PlayPauseEvent(int keyCode) {
+      this.keyCode = keyCode;
+    }
+  }
 
   private static final int TIMEOUT_MS = 500;
 
@@ -748,56 +760,12 @@ public class MediaSessionServiceTest {
   }
 
   @Test
-  public void onStartCommand_playbackResumption_calledByMediaNotificationController()
+  public void onStartCommand_playbackResumption_calledByMediaNotificationController(
+      @TestParameter PlayPauseEvent playPauseEvent)
       throws InterruptedException, ExecutionException, TimeoutException {
     Intent playIntent = new Intent(Intent.ACTION_MEDIA_BUTTON);
     playIntent.putExtra(
         Intent.EXTRA_KEY_EVENT, new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY));
-    ServiceController<TestServiceWithPlaybackResumption> serviceController =
-        Robolectric.buildService(TestServiceWithPlaybackResumption.class, playIntent);
-    TestServiceWithPlaybackResumption service = serviceController.create().get();
-    service.setMediaItems(
-        ImmutableList.of(
-            new MediaItem.Builder()
-                .setMediaId("media-id-0")
-                .setUri("asset:///media/mp4/sample.mp4")
-                .build()));
-    MediaController controller =
-        new MediaController.Builder(context, service.session.getToken())
-            .buildAsync()
-            .get(TIMEOUT_MS, MILLISECONDS);
-    CountDownLatch latch = new CountDownLatch(1);
-    controller.addListener(
-        new Player.Listener() {
-          @Override
-          public void onEvents(Player player, Player.Events events) {
-            if (events.contains(Player.EVENT_TIMELINE_CHANGED)
-                && player.getMediaItemCount() == 1
-                && player.getCurrentMediaItem().mediaId.equals("media-id-0")
-                && events.contains(Player.EVENT_PLAY_WHEN_READY_CHANGED)
-                && player.getPlayWhenReady()
-                && events.contains(Player.EVENT_PLAYBACK_STATE_CHANGED)
-                && player.getPlaybackState() == Player.STATE_BUFFERING) {
-              latch.countDown();
-            }
-          }
-        });
-
-    serviceController.startCommand(/* flags= */ 0, /* startId= */ 0);
-
-    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
-    assertThat(service.callers).hasSize(1);
-    assertThat(service.session.isMediaNotificationController(service.callers.get(0))).isTrue();
-    controller.release();
-    serviceController.destroy();
-  }
-
-  @Test
-  public void onStartCommand_playbackResumptionWithHeadsetHookKey_calledByMediaNotificationController()
-      throws InterruptedException, ExecutionException, TimeoutException {
-    Intent playIntent = new Intent(Intent.ACTION_MEDIA_BUTTON);
-    playIntent.putExtra(
-        Intent.EXTRA_KEY_EVENT, new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_HEADSETHOOK));
     ServiceController<TestServiceWithPlaybackResumption> serviceController =
         Robolectric.buildService(TestServiceWithPlaybackResumption.class, playIntent);
     TestServiceWithPlaybackResumption service = serviceController.create().get();
