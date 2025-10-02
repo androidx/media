@@ -149,4 +149,17 @@
 
   </LinearLayout>
 
+  <LinearLayout
+      android:id="@+id/exo_top_controls"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:layout_gravity="top|end"
+      android:background="@android:color/transparent">
+    <View
+        android:id="@+id/exo_media_route_button_placeholder"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:visibility="gone"/>
+  </LinearLayout>
+
 </merge>
