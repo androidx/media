@@ -160,6 +160,8 @@
     *   Add support for 16 bit PCM samples in `ToFloatPcmAudioProcessor`.
 *   Video:
 *   Text:
+    *   Fix parsing of CEA-6/708 subtitles in Dolby Vision content
+        ([#2775](https://github.com/androidx/media/issues/2775)).
 *   Metadata:
 *   Image:
 *   DataSource:
