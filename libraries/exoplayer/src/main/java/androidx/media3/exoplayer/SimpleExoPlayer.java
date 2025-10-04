@@ -29,6 +29,8 @@ import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.AuxEffectInfo;
 import androidx.media3.common.BasePlayer;
 import androidx.media3.common.C;
+import androidx.media3.common.CodecParameter;
+import androidx.media3.common.CodecParametersChangeListener;
 import androidx.media3.common.DeviceInfo;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
@@ -1347,6 +1349,19 @@ public class SimpleExoPlayer extends BasePlayer implements ExoPlayer {
   public void setImageOutput(@Nullable ImageOutput imageOutput) {
     blockUntilConstructorFinished();
     player.setImageOutput(imageOutput);
+  }
+
+  @Override
+  public void setCodecParameter(@Nullable CodecParameter codecParameter) {
+    blockUntilConstructorFinished();
+    player.setCodecParameter(codecParameter);
+  }
+
+  @Override
+  public void setCodecParametersChangeListener(
+      @Nullable CodecParametersChangeListener codecParametersChangeListener) {
+    blockUntilConstructorFinished();
+    player.setCodecParametersChangeListener(codecParametersChangeListener);
   }
 
   /* package */ void setThrowsWhenUsingWrongThread(boolean throwsWhenUsingWrongThread) {
