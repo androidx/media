@@ -192,9 +192,14 @@ import java.util.regex.Pattern;
     }
 
     // The Uri must include a "@" if the user info is non-null.
-    String authorityWithUserInfo = checkNotNull(uri.getEncodedAuthority());
-    checkArgument(authorityWithUserInfo.contains("@"));
-    String authority = Util.split(authorityWithUserInfo, "@")[1];
+    String authorityWithUserInfo = uri.getAuthority();
+    checkArgument(authorityWithUserInfo != null && authorityWithUserInfo.contains("@"),
+        "Invalid URI: userInfo is non-null but '@' delimiter is missing");
+
+    String host = uri.getHost();
+    checkNotNull(host, "Invalid URI: missing host after user info");
+    int port = uri.getPort();
+    String authority = port != -1 ? host + ":" + port : host;
     return uri.buildUpon().encodedAuthority(authority).build();
   }
 
