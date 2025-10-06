@@ -351,6 +351,14 @@ public final class EditedMediaItem {
     return jsonObject;
   }
 
+  /**
+   * Returns the adjusted duration in microseconds after processing {@code durationUs} input with
+   * the {@link EditedMediaItem}'s {@link Effects}.
+   *
+   * <p>If the audio and video durations do not match, the method returns the maximum duration.
+   *
+   * @param durationUs The input duration in microseconds.
+   */
   /* package */ long getDurationAfterEffectsApplied(long durationUs) {
     long audioDurationUs = durationUs;
     long videoDurationUs = durationUs;
