@@ -192,7 +192,7 @@ import java.util.regex.Pattern;
     }
 
     // The Uri must include a "@" if the user info is non-null.
-    String authorityWithUserInfo = uri.getAuthority();
+    String authorityWithUserInfo = uri.getEncodedAuthority();
     checkArgument(authorityWithUserInfo != null && authorityWithUserInfo.contains("@"),
         "Invalid URI: userInfo is non-null but '@' delimiter is missing");
 
