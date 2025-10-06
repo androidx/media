@@ -16,6 +16,7 @@
 
 package androidx.media3.transformer;
 
+import static androidx.media3.test.utils.TestUtil.createByteCountingAudioProcessor;
 import static androidx.media3.test.utils.robolectric.RobolectricUtil.runLooperUntil;
 import static androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig.CODEC_INFO_AAC;
 import static androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig.CODEC_INFO_AMR_NB;
@@ -71,13 +72,11 @@ import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
-import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.SonicAudioProcessor;
 import androidx.media3.common.audio.ToInt16PcmAudioProcessor;
 import androidx.media3.effect.Contrast;
 import androidx.media3.effect.Presentation;
 import androidx.media3.effect.ScaleAndRotateTransformation;
-import androidx.media3.exoplayer.audio.TeeAudioProcessor;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.extractor.DefaultExtractorsFactory;
@@ -1450,19 +1449,6 @@ public final class MediaItemExportTest {
         getDumpFileName(
             /* originalFileName= */ FILE_VIDEO_ELST_TRIM_IDR_DURATION,
             /* modifications...= */ "transmuxed"));
-  }
-
-  private static AudioProcessor createByteCountingAudioProcessor(AtomicInteger byteCount) {
-    return new TeeAudioProcessor(
-        new TeeAudioProcessor.AudioBufferSink() {
-          @Override
-          public void flush(int sampleRateHz, int channelCount, @C.PcmEncoding int encoding) {}
-
-          @Override
-          public void handleBuffer(ByteBuffer buffer) {
-            byteCount.addAndGet(buffer.remaining());
-          }
-        });
   }
 
   private Pair<ImmutableList<@Transformer.ProgressState Integer>, ImmutableList<Integer>>

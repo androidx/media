@@ -43,6 +43,7 @@ import androidx.media3.common.Player;
 import androidx.media3.common.StreamKey;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.TrackGroup;
+import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -51,6 +52,7 @@ import androidx.media3.database.DefaultDatabaseProvider;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DataSourceUtil;
 import androidx.media3.datasource.DataSpec;
+import androidx.media3.exoplayer.audio.TeeAudioProcessor;
 import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.extractor.DefaultExtractorInput;
 import androidx.media3.extractor.Extractor;
@@ -97,6 +99,7 @@ import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.junit.function.ThrowingRunnable;
@@ -1009,6 +1012,20 @@ public class TestUtil {
     }
     buffer.rewind();
     return buffer;
+  }
+
+  /** Returns an {@link AudioProcessor} that counts the number of bytes input to it. */
+  public static AudioProcessor createByteCountingAudioProcessor(AtomicInteger byteCount) {
+    return new TeeAudioProcessor(
+        new TeeAudioProcessor.AudioBufferSink() {
+          @Override
+          public void flush(int sampleRateHz, int channelCount, @C.PcmEncoding int encoding) {}
+
+          @Override
+          public void handleBuffer(ByteBuffer buffer) {
+            byteCount.addAndGet(buffer.remaining());
+          }
+        });
   }
 
   /**

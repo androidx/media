@@ -41,6 +41,7 @@ import static androidx.media3.test.utils.AssetInfo.WAV_ASSET;
 import static androidx.media3.test.utils.AssetInfo.WEBP_LARGE;
 import static androidx.media3.test.utils.FormatSupportAssumptions.assumeFormatsSupported;
 import static androidx.media3.test.utils.TestSummaryLogger.recordTestSkipped;
+import static androidx.media3.test.utils.TestUtil.createByteCountingAudioProcessor;
 import static androidx.media3.test.utils.TestUtil.retrieveTrackFormat;
 import static androidx.media3.transformer.AndroidTestUtil.assumeCanEncodeWithProfile;
 import static androidx.media3.transformer.AndroidTestUtil.createFrameCountingEffect;
@@ -2749,19 +2750,6 @@ public class TransformerEndToEndTest {
     SonicAudioProcessor sonic = new SonicAudioProcessor();
     sonic.setPitch(pitch);
     return sonic;
-  }
-
-  private static AudioProcessor createByteCountingAudioProcessor(AtomicInteger byteCount) {
-    return new TeeAudioProcessor(
-        new TeeAudioProcessor.AudioBufferSink() {
-          @Override
-          public void flush(int sampleRateHz, int channelCount, @C.PcmEncoding int encoding) {}
-
-          @Override
-          public void handleBuffer(ByteBuffer buffer) {
-            byteCount.addAndGet(buffer.remaining());
-          }
-        });
   }
 
   private final class TestTextureAssetLoaderFactory implements AssetLoader.Factory {
