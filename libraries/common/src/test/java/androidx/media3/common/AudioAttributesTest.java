@@ -38,6 +38,7 @@ public class AudioAttributesTest {
             .setAllowedCapturePolicy(C.ALLOW_CAPTURE_BY_SYSTEM)
             .setSpatializationBehavior(C.SPATIALIZATION_BEHAVIOR_NEVER)
             .setIsContentSpatialized(true)
+            .setHapticChannelsMuted(false)
             .build();
 
     assertThat(AudioAttributes.fromBundle(audioAttributes.toBundle())).isEqualTo(audioAttributes);
@@ -66,12 +67,14 @@ public class AudioAttributesTest {
     android.media.AudioAttributes platformAttributes =
         new android.media.AudioAttributes.Builder()
             .setAllowedCapturePolicy(android.media.AudioAttributes.ALLOW_CAPTURE_BY_SYSTEM)
+            .setHapticChannelsMuted(false)
             .build();
 
     AudioAttributes audioAttributes =
         AudioAttributes.fromPlatformAudioAttributes(platformAttributes);
 
     assertThat(audioAttributes.allowedCapturePolicy).isEqualTo(C.ALLOW_CAPTURE_BY_SYSTEM);
+    assertThat(audioAttributes.hapticChannelsMuted).isFalse();
   }
 
   @Config(minSdk = 32)
@@ -99,7 +102,8 @@ public class AudioAttributesTest {
             .setFlags(C.FLAG_AUDIBILITY_ENFORCED)
             .setAllowedCapturePolicy(C.ALLOW_CAPTURE_BY_SYSTEM)
             .setIsContentSpatialized(true)
-            .setSpatializationBehavior(C.SPATIALIZATION_BEHAVIOR_NEVER);
+            .setSpatializationBehavior(C.SPATIALIZATION_BEHAVIOR_NEVER)
+            .setHapticChannelsMuted(false);
 
     AudioAttributes audioAttributes = builder.build();
 
@@ -109,6 +113,7 @@ public class AudioAttributesTest {
     assertThat(audioAttributes.allowedCapturePolicy).isEqualTo(C.ALLOW_CAPTURE_BY_SYSTEM);
     assertThat(audioAttributes.spatializationBehavior).isEqualTo(C.SPATIALIZATION_BEHAVIOR_NEVER);
     assertThat(audioAttributes.isContentSpatialized).isTrue();
+    assertThat(audioAttributes.hapticChannelsMuted).isFalse();
   }
 
   @Test
