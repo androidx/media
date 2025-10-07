@@ -736,10 +736,13 @@ public interface ExoPlayer extends Player {
     /**
      * Sets the {@link C.WakeMode} that will be used by the player.
      *
-     * <p>Enabling this feature requires the {@link android.Manifest.permission#WAKE_LOCK}
-     * permission. It should be used together with a foreground {@link android.app.Service} for use
-     * cases where playback occurs and the screen is off (e.g. background audio playback). It is not
-     * useful when the screen will be kept on during playback (e.g. foreground video playback).
+     * <p>{@link C#WAKE_MODE_LOCAL} should be used together with a foreground {@link
+     * android.app.Service} for use cases where playback occurs and the screen is off (e.g.
+     * background audio playback).
+     *
+     * <p>{@link C#WAKE_MODE_NETWORK} is only required for uses cases requiring low-latency Wifi
+     * access during screen on playback, or to work around some Wifi stability issues on older
+     * devices while the screen is off.
      *
      * <p>When enabled, the locks ({@link android.os.PowerManager.WakeLock} / {@link
      * android.net.wifi.WifiManager.WifiLock}) will be held whenever the player is in the {@link
