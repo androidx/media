@@ -59,6 +59,7 @@ import androidx.media3.extractor.TrackAwareSeekMap;
 import androidx.media3.extractor.TrackOutput;
 import androidx.media3.extractor.TrueHdSampleRechunker;
 import androidx.media3.extractor.metadata.MotionPhotoMetadata;
+import androidx.media3.extractor.metadata.ThumbnailMetadata;
 import androidx.media3.extractor.metadata.mp4.SlowMotionData;
 import androidx.media3.extractor.text.SubtitleParser;
 import androidx.media3.extractor.text.SubtitleTranscodingExtractorOutput;
@@ -175,6 +176,12 @@ public final class Mp4Extractor implements Extractor {
    * retrieval scenarios where individual sample data is not required.
    */
   public static final int FLAG_OMIT_TRACK_SAMPLE_TABLE = 1 << 8;
+
+  /** The maximum number of sync samples to scan when searching for a thumbnail. */
+  private static final int MAX_SYNC_SAMPLES_TO_SCAN_FOR_THUMBNAIL = 20;
+
+  /** The maximum duration to scan for a thumbnail, in microseconds. */
+  private static final long MAX_DURATION_US_TO_SCAN_FOR_THUMBNAIL = 10_000_000L;
 
   /**
    * @deprecated Use {@link #newFactory(SubtitleParser.Factory)} instead.
@@ -693,6 +700,13 @@ public final class Mp4Extractor implements Extractor {
         formatBuilder.setRoleFlags(roleFlags);
       }
 
+      @Nullable Metadata thumbnailMetadata = null;
+      long thumbnailPresentationTimeUs =
+          findBestThumbnailPresentationTimeUs(trackSampleTable, trackDurationUs);
+      if (thumbnailPresentationTimeUs != C.TIME_UNSET) {
+        thumbnailMetadata = new Metadata(new ThumbnailMetadata(thumbnailPresentationTimeUs));
+      }
+
       MetadataUtil.setFormatGaplessInfo(track.type, gaplessInfoHolder, formatBuilder);
       MetadataUtil.setFormatMetadata(
           track.type,
@@ -701,7 +715,8 @@ public final class Mp4Extractor implements Extractor {
           track.format.metadata,
           slowMotionMetadataEntries.isEmpty() ? null : new Metadata(slowMotionMetadataEntries),
           udtaMetadata,
-          mvhdMetadata);
+          mvhdMetadata,
+          thumbnailMetadata);
       formatBuilder.setContainerMimeType(containerMimeType);
       if (Objects.equals(track.format.sampleMimeType, MimeTypes.AUDIO_MPEG)) {
         // The moov and esds boxes don't contain enough information to distinguish between MPEG
@@ -726,6 +741,41 @@ public final class Mp4Extractor implements Extractor {
 
     extractorOutput.endTracks();
     extractorOutput.seekMap(new Mp4SeekMap(durationUs, this.tracks, firstVideoTrackIndex));
+  }
+
+  private static long findBestThumbnailPresentationTimeUs(
+      TrackSampleTable sampleTable, long durationUs) {
+    if (!MimeTypes.isVideo(sampleTable.track.format.sampleMimeType)) {
+      return C.TIME_UNSET;
+    }
+
+    int syncSamplesScanned = 0;
+    int bestSampleIndex = -1;
+    int maxSampleSize = 0;
+
+    checkState(durationUs != C.TIME_UNSET);
+    long maxDurationUsToScan = min(durationUs, MAX_DURATION_US_TO_SCAN_FOR_THUMBNAIL);
+
+    for (int i = 0; i < sampleTable.flags.length; i++) {
+      long timestampUs = sampleTable.timestampsUs[i];
+      if ((sampleTable.flags[i] & C.BUFFER_FLAG_KEY_FRAME) != 0 && timestampUs >= 0) {
+
+        if (timestampUs > maxDurationUsToScan) {
+          break;
+        }
+
+        if (sampleTable.sizes[i] > maxSampleSize) {
+          maxSampleSize = sampleTable.sizes[i];
+          bestSampleIndex = i;
+        }
+        syncSamplesScanned++;
+        if (syncSamplesScanned >= MAX_SYNC_SAMPLES_TO_SCAN_FOR_THUMBNAIL) {
+          break;
+        }
+      }
+    }
+
+    return bestSampleIndex == -1 ? C.TIME_UNSET : sampleTable.timestampsUs[bestSampleIndex];
   }
 
   private boolean shouldSeekToAxteAtom(@Nullable Metadata mdtaMetadata) {
