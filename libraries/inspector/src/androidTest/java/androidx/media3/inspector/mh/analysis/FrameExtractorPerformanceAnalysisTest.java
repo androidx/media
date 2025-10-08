@@ -15,6 +15,7 @@
  */
 package androidx.media3.inspector.mh.analysis;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_1080P_5_SECOND_HLG10;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_H264_1080P_10SEC_VIDEO;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_H264_4K_10SEC_VIDEO;
@@ -79,9 +80,14 @@ public class FrameExtractorPerformanceAnalysisTest {
             new MediaCodecSelector[] {
               MediaCodecSelector.DEFAULT, MediaCodecSelector.PREFER_SOFTWARE
             }) {
-          for (boolean extractHdrFrames : new boolean[] {true, false}) {
+          parametersBuilder.add(
+              new TestConfig(
+                  assetInfo, seekParameters, mediaCodecSelector, /* extractHdrFrames= */ false));
+          // Only add the HDR test case on API 34+
+          if (SDK_INT >= 34) {
             parametersBuilder.add(
-                new TestConfig(assetInfo, seekParameters, mediaCodecSelector, extractHdrFrames));
+                new TestConfig(
+                    assetInfo, seekParameters, mediaCodecSelector, /* extractHdrFrames= */ true));
           }
         }
       }
@@ -93,12 +99,15 @@ public class FrameExtractorPerformanceAnalysisTest {
 
   @Test
   public void analyzeFrameExtractorPerformance() throws Exception {
-    try (FrameExtractor frameExtractor =
+    FrameExtractor.Builder builder =
         new FrameExtractor.Builder(context, MediaItem.fromUri(testConfig.assetInfo.uri))
             .setSeekParameters(testConfig.seekParameters)
-            .setMediaCodecSelector(testConfig.mediaCodecSelector)
-            .setExtractHdrFrames(testConfig.extractHdrFrames)
-            .build()) {
+            .setMediaCodecSelector(testConfig.mediaCodecSelector);
+    if (SDK_INT >= 34) {
+      builder.setExtractHdrFrames(testConfig.extractHdrFrames);
+    }
+
+    try (FrameExtractor frameExtractor = builder.build()) {
       List<ListenableFuture<Frame>> frameFutures = new ArrayList<>();
       long startTimeMs = System.currentTimeMillis();
       long positionMs = 0;
@@ -123,16 +132,18 @@ public class FrameExtractorPerformanceAnalysisTest {
 
   @Test
   public void analyzeFrameExtractorPerformance_fitIn640x640() throws Exception {
-    try (FrameExtractor frameExtractor =
+    FrameExtractor.Builder builder =
         new FrameExtractor.Builder(context, MediaItem.fromUri(testConfig.assetInfo.uri))
             .setEffects(
                 ImmutableList.of(
                     Presentation.createForWidthAndHeight(
                         /* width= */ 640, /* height= */ 640, Presentation.LAYOUT_SCALE_TO_FIT)))
             .setSeekParameters(testConfig.seekParameters)
-            .setMediaCodecSelector(testConfig.mediaCodecSelector)
-            .setExtractHdrFrames(testConfig.extractHdrFrames)
-            .build()) {
+            .setMediaCodecSelector(testConfig.mediaCodecSelector);
+    if (SDK_INT >= 34) {
+      builder.setExtractHdrFrames(testConfig.extractHdrFrames);
+    }
+    try (FrameExtractor frameExtractor = builder.build()) {
       List<ListenableFuture<Frame>> frameFutures = new ArrayList<>();
       long startTimeMs = System.currentTimeMillis();
       long positionMs = 0;

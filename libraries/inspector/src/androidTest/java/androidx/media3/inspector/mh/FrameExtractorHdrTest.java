@@ -18,7 +18,6 @@ package androidx.media3.inspector.mh;
 import static android.graphics.Bitmap.Config.RGBA_1010102;
 import static android.graphics.Bitmap.Config.RGBA_F16;
 import static android.graphics.ColorSpace.Named.BT2020_HLG;
-import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_COLOR_TEST_1080P_HLG10;
 import static androidx.media3.test.utils.AssetInfo.MP4_TRIM_OPTIMIZATION_270;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.maybeSaveTestBitmap;
@@ -31,7 +30,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static java.nio.file.Files.newInputStream;
 import static java.nio.file.Files.newOutputStream;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -41,6 +39,7 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.inspector.FrameExtractor;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.filters.SdkSuppress;
 import com.google.common.util.concurrent.ListenableFuture;
 import java.io.File;
 import java.io.InputStream;
@@ -97,11 +96,10 @@ public class FrameExtractorHdrTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 34) // HLG Bitmaps are only supported on API 34+.
   public void extractFrame_oneFrameHlgWithHdrOutput_returnsHlgFrame() throws Exception {
     assumeDeviceSupportsOpenGlToneMapping(testId, MP4_ASSET_COLOR_TEST_1080P_HLG10.videoFormat);
     assumeDeviceSupportsHdrColorTransfer(testId, MP4_ASSET_COLOR_TEST_1080P_HLG10.videoFormat);
-    // HLG Bitmaps are only supported on API 34+.
-    assumeTrue(SDK_INT >= 34);
     try (FrameExtractor frameExtractor =
         new FrameExtractor.Builder(context, MediaItem.fromUri(MP4_ASSET_COLOR_TEST_1080P_HLG10.uri))
             .setExtractHdrFrames(true)
@@ -124,12 +122,11 @@ public class FrameExtractorHdrTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 34) // HLG Bitmaps are only supported on API 34+.
   public void extractFrameAndSaveToJpeg_oneFrameHlgWithHdrOutput_succeeds() throws Exception {
     // TODO: b/438478509 - rename assumeDeviceSupportsOpenGlToneMapping.
     assumeDeviceSupportsOpenGlToneMapping(testId, MP4_ASSET_COLOR_TEST_1080P_HLG10.videoFormat);
     assumeDeviceSupportsHdrColorTransfer(testId, MP4_ASSET_COLOR_TEST_1080P_HLG10.videoFormat);
-    // HLG Bitmaps are only supported on API 34+.
-    assumeTrue(SDK_INT >= 34);
     Path temporaryFilePath = new File(context.getExternalCacheDir(), testId + ".jpg").toPath();
     try (FrameExtractor frameExtractor =
         new FrameExtractor.Builder(context, MediaItem.fromUri(MP4_ASSET_COLOR_TEST_1080P_HLG10.uri))
@@ -157,12 +154,11 @@ public class FrameExtractorHdrTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 34) // HLG Bitmaps are only supported on API 34+.
   public void extractFrame_oneFrameHlgWithHdrDisplayUnsupported_returnsSdrFrame() throws Exception {
     assumeDeviceSupportsOpenGlToneMapping(testId, MP4_ASSET_COLOR_TEST_1080P_HLG10.videoFormat);
     assumeDeviceDoesNotSupportHdrColorTransfer(
         testId, MP4_ASSET_COLOR_TEST_1080P_HLG10.videoFormat);
-    // HLG Bitmaps are only supported on API 34+.
-    assumeTrue(SDK_INT >= 34);
     try (FrameExtractor frameExtractor =
         new FrameExtractor.Builder(context, MediaItem.fromUri(MP4_ASSET_COLOR_TEST_1080P_HLG10.uri))
             .setExtractHdrFrames(true)
