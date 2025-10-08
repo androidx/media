@@ -793,7 +793,7 @@ MediaCodecAdapter (media3.audio.aac):
       rendered = false
 MediaCodecAdapter (media3.video.hevc):
   inputBuffers:
-    count = 86
+    count = 87
     input buffer #0:
       timeUs = 999999545000
       contents = length 78829, hash 9265686F
@@ -1050,11 +1050,14 @@ MediaCodecAdapter (media3.video.hevc):
       timeUs = 1000002546666
       contents = length 33333, hash 567D33D6
     input buffer #85:
+      timeUs = 1000002513333
+      contents = length 18272, hash 73F2C3BC
+    input buffer #86:
       timeUs = 0
       flags = 4
       contents = length 0, hash 1
   outputBuffers:
-    count = 85
+    count = 86
     output buffer #0:
       timeUs = 999999545000
       size = 78829
@@ -1394,6 +1397,10 @@ MediaCodecAdapter (media3.video.hevc):
     output buffer #84:
       timeUs = 1000002546666
       size = 33333
+      rendered = true
+    output buffer #85:
+      timeUs = 1000002513333
+      size = 18272
       rendered = true
 AudioSink:
   buffer count = 112

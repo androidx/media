@@ -826,37 +826,57 @@ public final class BoxParser {
         long editDuration =
             Util.scaleLargeTimestamp(
                 track.editListDurations[i], track.timescale, track.movieTimescale);
-        // The timestamps array is in the order read from the media, which might not be strictly
-        // sorted. However, all sync frames are guaranteed to be in order, and any out-of-order
-        // frames appear after their respective sync frames. This ensures that although the result
-        // of the binary search might not be entirely accurate (due to the out-of-order timestamps),
-        // the following logic ensures correctness for both start and end indices.
+        long editEndTime = editMediaTime + editDuration;
 
-        // The startIndices calculation finds the largest timestamp that is less than or equal to
-        // editMediaTime. It then walks backward to ensure the index points to a sync frame, since
-        // decoding must start from a keyframe. If a sync frame is not found by walking backward, it
-        // walks forward from the initially found index to find a sync frame.
+        // The timestamps array is in the order read from the media, which might not be strictly
+        // sorted. However, all sync frames are guaranteed to be in order. The logic below
+        // searches for the true start and end of the edit, accounting for out-of-order frames.
+
+        // The startIndices calculation finds the sample at or just before the edit start time.
+        // It then walks backward to ensure the index points to a sync frame, since
+        // decoding must start from a keyframe.
         startIndices[i] =
             Util.binarySearchFloor(
                 timestamps, editMediaTime, /* inclusive= */ true, /* stayInBounds= */ true);
 
-        // The endIndices calculation finds the smallest timestamp that is greater than
-        // editMediaTime + editDuration, except when omitZeroDurationClippedSample is true, in which
-        // case it finds the smallest timestamp that is greater than or equal to editMediaTime +
-        // editDuration.
-        endIndices[i] =
+        // The endIndices calculation finds the true end of the edit by searching past the
+        // naive end point for any out-of-order frames that belong in the clip.
+        int firstSampleAfterEdit =
             Util.binarySearchCeil(
                 timestamps,
-                editMediaTime + editDuration,
+                editEndTime,
                 /* inclusive= */ omitZeroDurationClippedSample,
                 /* stayInBounds= */ false);
 
+        // To account for out-of-order frames, we use a search that continues until we have seen
+        // more out-of-boundary frames than the reorder limit (maxNumReorderSamples), which
+        // guarantees no more valid frames will be found.
+        int samplesSeenAfterEnd = 0;
+        int maxValidIndexInWindow = firstSampleAfterEdit - 1;
+        for (int j = firstSampleAfterEdit; j < timestamps.length; j++) {
+          if (timestamps[j] < editEndTime) {
+            // This is an out-of-order frame that belongs in the edit. Update our max index.
+            maxValidIndexInWindow = j;
+          } else {
+            // This frame is outside the edit. Increment our counter of seen "post-roll" frames.
+            samplesSeenAfterEnd++;
+            if (samplesSeenAfterEnd > track.format.maxNumReorderSamples) {
+              // We've exhausted our search budget. We can be sure no more valid frames will appear.
+              break;
+            }
+          }
+        }
+        endIndices[i] = maxValidIndexInWindow + 1;
+
+        // Ensure we start decoding from a sync frame by searching backwards.
         int initialStartIndex = startIndices[i];
-        while (startIndices[i] >= 0 && (flags[startIndices[i]] & C.BUFFER_FLAG_KEY_FRAME) == 0) {
+        while (startIndices[i] > 0 && (flags[startIndices[i]] & C.BUFFER_FLAG_KEY_FRAME) == 0) {
           startIndices[i]--;
         }
 
-        if (startIndices[i] < 0) {
+        // If we searched all the way back and didn't find a sync frame, search forward from the
+        // original start.
+        if (startIndices[i] == 0 && (flags[0] & C.BUFFER_FLAG_KEY_FRAME) == 0) {
           startIndices[i] = initialStartIndex;
           while (startIndices[i] < endIndices[i]
               && (flags[startIndices[i]] & C.BUFFER_FLAG_KEY_FRAME) == 0) {
@@ -864,16 +884,6 @@ public final class BoxParser {
           }
         }
 
-        if (track.type == C.TRACK_TYPE_VIDEO && startIndices[i] != endIndices[i]) {
-          // To account for out-of-order video frames that may have timestamps smaller than or equal
-          // to editMediaTime + editDuration, but still fall within the valid range, the loop walks
-          // forward through the timestamps array to ensure all frames with timestamps within the
-          // edit duration are included.
-          while (endIndices[i] < timestamps.length - 1
-              && timestamps[endIndices[i] + 1] <= (editMediaTime + editDuration)) {
-            endIndices[i]++;
-          }
-        }
         editedSampleCount += endIndices[i] - startIndices[i];
         copyMetadata |= nextSampleIndex != startIndices[i];
         nextSampleIndex = endIndices[i];
