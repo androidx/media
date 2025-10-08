@@ -197,7 +197,10 @@ import java.util.concurrent.atomic.AtomicReference;
     Format inputFormat = inputFrame.getMetadata().getFormat();
     Format outputFormat = inputFormat.buildUpon().setColorInfo(outputColorInfo).build();
     GlTextureFrame.Metadata metadata =
-        new GlTextureFrame.Metadata(presentationTimeUs, outputFormat);
+        new GlTextureFrame.Metadata.Builder()
+            .setPresentationTimeUs(presentationTimeUs)
+            .setFormat(outputFormat)
+            .build();
     GlTextureFrame outputFrame =
         new GlTextureFrame(
             outputTexture,

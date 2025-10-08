@@ -25,7 +25,6 @@ import android.opengl.EGLContext;
 import android.opengl.EGLDisplay;
 import android.opengl.EGLSurface;
 import androidx.media3.common.C.ColorTransfer;
-import androidx.media3.common.Format;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.VideoFrameProcessingException;
@@ -319,7 +318,7 @@ public final class GlShaderProgramFrameProcessorTest {
   private TestGlTextureFrame createTestFrame(int id) {
     return new TestGlTextureFrame(
         new GlTextureInfo(id, -1, -1, 100, 100),
-        new GlTextureFrame.Metadata(id * 1000L, new Format.Builder().build()),
+        new GlTextureFrame.Metadata.Builder().setPresentationTimeUs(id * 1000L).build(),
         directExecutor(),
         (texInfo) -> {});
   }

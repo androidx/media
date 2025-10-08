@@ -30,7 +30,6 @@ import android.opengl.EGLDisplay;
 import android.opengl.GLES20;
 import android.os.Build;
 import androidx.annotation.ColorInt;
-import androidx.media3.common.Format;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.VideoFrameProcessingException;
@@ -164,7 +163,7 @@ public final class GlTextureToBitmapFrameProcessorTest {
     GlTextureFrame inputFrame =
         new GlTextureFrame(
             inputTextureInfo,
-            new GlTextureFrame.Metadata(2000, new Format.Builder().build()),
+            new GlTextureFrame.Metadata.Builder().setPresentationTimeUs(2000).build(),
             glThreadExecutorService,
             /* releaseTextureCallback= */ (texInfo) -> {
               assertThat(texInfo).isSameInstanceAs(inputTextureInfo);
@@ -394,7 +393,7 @@ public final class GlTextureToBitmapFrameProcessorTest {
       GlTextureInfo glTextureInfo, long presentationTimeUs) {
     return new GlTextureFrame(
         glTextureInfo,
-        new GlTextureFrame.Metadata(presentationTimeUs, new Format.Builder().build()),
+        new GlTextureFrame.Metadata.Builder().setPresentationTimeUs(presentationTimeUs).build(),
         glThreadExecutorService,
         /* releaseTextureCallback= */ (unused) -> {});
   }

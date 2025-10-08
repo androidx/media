@@ -19,7 +19,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static org.junit.Assert.assertThrows;
 
-import androidx.media3.common.Format;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.effect.GlTextureFrame;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -209,7 +208,7 @@ public class FrameAggregatorTest {
             /* width= */ 100,
             /* height= */ 100);
     GlTextureFrame.Metadata metadata =
-        new GlTextureFrame.Metadata(presentationTimeUs, new Format.Builder().build());
+        new GlTextureFrame.Metadata.Builder().setPresentationTimeUs(presentationTimeUs).build();
 
     return new GlTextureFrame(
         glTextureInfo,

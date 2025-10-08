@@ -15,6 +15,7 @@
  */
 package androidx.media3.effect;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import android.util.Pair;
@@ -192,7 +193,10 @@ import java.util.concurrent.atomic.AtomicReference;
     }
     // Use the presentationTimeUs from the GlShaderProgram in case it has modified it.
     GlTextureFrame.Metadata outputFrameMetadata =
-        new Metadata(presentationTimeUs, currentInputMetadata.getFormat());
+        new Metadata.Builder()
+            .setPresentationTimeUs(presentationTimeUs)
+            .setFormat(checkNotNull(currentInputMetadata).getFormat())
+            .build();
     currentProcessedFrame =
         new GlTextureFrame(
             outputTexture,
