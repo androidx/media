@@ -40,6 +40,7 @@ import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.exoplayer.BaseRenderer;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.Renderer;
+import androidx.media3.exoplayer.RendererCapabilities;
 import androidx.media3.exoplayer.video.VideoDecoderGLSurfaceView;
 import androidx.media3.exoplayer.video.spherical.SphericalGLSurfaceView;
 import androidx.media3.transformer.Composition;
@@ -306,7 +307,7 @@ public final class UiModuleProguard {
 
                                   @Override
                                   public @Capabilities int supportsFormat(Format format) {
-                                    return 0;
+                                    return RendererCapabilities.create(C.FORMAT_UNSUPPORTED_TYPE);
                                   }
 
                                   @Override
