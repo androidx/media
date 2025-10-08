@@ -469,6 +469,8 @@ public final class BoxParser {
           /* maximumSize= */ 0,
           /* timestampsUs= */ new long[0],
           /* flags= */ new int[0],
+          /* syncSampleIndices= */ new int[0],
+          /* hasOnlySyncSamples= */ false,
           /* durationUs= */ 0,
           /* sampleCount= */ 0);
     }
@@ -546,6 +548,8 @@ public final class BoxParser {
     int maximumSize = 0;
     long[] timestamps;
     int[] flags;
+    List<Integer> syncSampleIndicesList = new ArrayList<>();
+    boolean hasOnlySyncSamples = stss == null;
     long timestampTimeUnits = 0;
     long duration;
     long totalSize = 0;
@@ -624,6 +628,7 @@ public final class BoxParser {
           flags[i] = stss == null ? C.BUFFER_FLAG_KEY_FRAME : 0;
           if (i == nextSynchronizationSampleIndex) {
             flags[i] = C.BUFFER_FLAG_KEY_FRAME;
+            syncSampleIndicesList.add(i);
           }
         }
 
@@ -705,23 +710,23 @@ public final class BoxParser {
     }
 
     long durationUs = Util.scaleLargeTimestamp(duration, C.MICROS_PER_SECOND, track.timescale);
+    int[] syncSampleIndices = Ints.toArray(syncSampleIndicesList);
 
     if (track.editListDurations == null) {
       if (!omitTrackSampleTable) {
         Util.scaleLargeTimestampsInPlace(timestamps, C.MICROS_PER_SECOND, track.timescale);
-        return new TrackSampleTable(
-            track, offsets, sizes, maximumSize, timestamps, flags, durationUs, sampleCount);
-      } else {
-        return new TrackSampleTable(
-            track,
-            /* offsets= */ new long[0],
-            /* sizes= */ new int[0],
-            maximumSize,
-            /* timestampsUs= */ new long[0],
-            /* flags= */ new int[0],
-            durationUs,
-            sampleCount);
       }
+      return new TrackSampleTable(
+          track,
+          offsets,
+          sizes,
+          maximumSize,
+          timestamps,
+          flags,
+          syncSampleIndices,
+          hasOnlySyncSamples,
+          durationUs,
+          sampleCount);
     }
 
     if (omitTrackSampleTable) {
@@ -743,11 +748,13 @@ public final class BoxParser {
       }
       return new TrackSampleTable(
           track,
-          /* offsets= */ new long[0],
-          /* sizes= */ new int[0],
+          offsets,
+          sizes,
           maximumSize,
-          /* timestampsUs= */ new long[0],
-          /* flags= */ new int[0],
+          timestamps,
+          flags,
+          syncSampleIndices,
+          hasOnlySyncSamples,
           editedDurationUs,
           sampleCount);
     }
@@ -786,7 +793,16 @@ public final class BoxParser {
               Util.scaleLargeTimestamp(
                   track.editListDurations[0], C.MICROS_PER_SECOND, track.movieTimescale);
           return new TrackSampleTable(
-              track, offsets, sizes, maximumSize, timestamps, flags, editedDurationUs, sampleCount);
+              track,
+              offsets,
+              sizes,
+              maximumSize,
+              timestamps,
+              flags,
+              syncSampleIndices,
+              hasOnlySyncSamples,
+              editedDurationUs,
+              sampleCount);
         }
       }
     }
@@ -804,7 +820,16 @@ public final class BoxParser {
       durationUs =
           Util.scaleLargeTimestamp(duration - editStartTime, C.MICROS_PER_SECOND, track.timescale);
       return new TrackSampleTable(
-          track, offsets, sizes, maximumSize, timestamps, flags, durationUs, sampleCount);
+          track,
+          offsets,
+          sizes,
+          maximumSize,
+          timestamps,
+          flags,
+          syncSampleIndices,
+          hasOnlySyncSamples,
+          durationUs,
+          sampleCount);
     }
 
     // When applying edit lists, we need to include any partial clipped samples at the end to ensure
@@ -896,6 +921,8 @@ public final class BoxParser {
     int[] editedSizes = copyMetadata ? new int[editedSampleCount] : sizes;
     int editedMaximumSize = copyMetadata ? 0 : maximumSize;
     int[] editedFlags = copyMetadata ? new int[editedSampleCount] : flags;
+    List<Integer> editedSyncSampleIndicesList =
+        copyMetadata ? new ArrayList<>() : syncSampleIndicesList;
     long[] editedTimestamps = new long[editedSampleCount];
     long pts = 0;
     int sampleIndex = 0;
@@ -922,6 +949,11 @@ public final class BoxParser {
         if (copyMetadata && editedSizes[sampleIndex] > editedMaximumSize) {
           editedMaximumSize = sizes[j];
         }
+        if (copyMetadata
+            && !hasOnlySyncSamples
+            && (editedFlags[sampleIndex] & C.BUFFER_FLAG_KEY_FRAME) != 0) {
+          editedSyncSampleIndicesList.add(sampleIndex);
+        }
         sampleIndex++;
       }
       pts += track.editListDurations[i];
@@ -939,6 +971,8 @@ public final class BoxParser {
         editedMaximumSize,
         editedTimestamps,
         editedFlags,
+        Ints.toArray(editedSyncSampleIndicesList),
+        hasOnlySyncSamples,
         editedDurationUs,
         editedOffsets.length);
   }

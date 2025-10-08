@@ -749,29 +749,28 @@ public final class Mp4Extractor implements Extractor {
       return C.TIME_UNSET;
     }
 
-    int syncSamplesScanned = 0;
     int bestSampleIndex = -1;
     int maxSampleSize = 0;
 
+    int syncSampleCount =
+        sampleTable.hasOnlySyncSamples
+            ? sampleTable.sampleCount
+            : sampleTable.syncSampleIndices.length;
+    int scanLimit = min(syncSampleCount, MAX_SYNC_SAMPLES_TO_SCAN_FOR_THUMBNAIL);
     checkState(durationUs != C.TIME_UNSET);
     long maxDurationUsToScan = min(durationUs, MAX_DURATION_US_TO_SCAN_FOR_THUMBNAIL);
 
-    for (int i = 0; i < sampleTable.flags.length; i++) {
-      long timestampUs = sampleTable.timestampsUs[i];
-      if ((sampleTable.flags[i] & C.BUFFER_FLAG_KEY_FRAME) != 0 && timestampUs >= 0) {
+    for (int i = 0; i < scanLimit; i++) {
+      int sampleIndex = sampleTable.hasOnlySyncSamples ? i : sampleTable.syncSampleIndices[i];
+      long timestampUs = sampleTable.timestampsUs[sampleIndex];
 
-        if (timestampUs > maxDurationUsToScan) {
-          break;
-        }
+      if (timestampUs > maxDurationUsToScan) {
+        break;
+      }
 
-        if (sampleTable.sizes[i] > maxSampleSize) {
-          maxSampleSize = sampleTable.sizes[i];
-          bestSampleIndex = i;
-        }
-        syncSamplesScanned++;
-        if (syncSamplesScanned >= MAX_SYNC_SAMPLES_TO_SCAN_FOR_THUMBNAIL) {
-          break;
-        }
+      if (timestampUs >= 0 && sampleTable.sizes[sampleIndex] > maxSampleSize) {
+        maxSampleSize = sampleTable.sizes[sampleIndex];
+        bestSampleIndex = sampleIndex;
       }
     }
 

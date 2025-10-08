@@ -46,8 +46,17 @@ public final class TrackSampleTable {
   /** Sample flags. */
   public final int[] flags;
 
+  /**
+   * The indices of sync samples, sorted in ascending order. This array is only populated if {@link
+   * #hasOnlySyncSamples} is {@code false}.
+   */
+  public final int[] syncSampleIndices;
+
   /** The duration of the track sample table in microseconds. */
   public final long durationUs;
+
+  /** Whether all samples in the track are sync samples. */
+  public final boolean hasOnlySyncSamples;
 
   public TrackSampleTable(
       Track track,
@@ -56,6 +65,8 @@ public final class TrackSampleTable {
       int maximumSize,
       long[] timestampsUs,
       int[] flags,
+      int[] syncSampleIndices,
+      boolean hasOnlySyncSamples,
       long durationUs,
       int sampleCount) {
     checkArgument(sizes.length == timestampsUs.length);
@@ -68,6 +79,8 @@ public final class TrackSampleTable {
     this.maximumSize = maximumSize;
     this.timestampsUs = timestampsUs;
     this.flags = flags;
+    this.syncSampleIndices = syncSampleIndices;
+    this.hasOnlySyncSamples = hasOnlySyncSamples;
     this.durationUs = durationUs;
     this.sampleCount = sampleCount;
     if (flags.length > 0) {
@@ -83,15 +96,40 @@ public final class TrackSampleTable {
    * @return Index of the synchronization sample, or {@link C#INDEX_UNSET} if none.
    */
   public int getIndexOfEarlierOrEqualSynchronizationSample(long timeUs) {
-    // Video frame timestamps may not be sorted, so the behavior of this call can be undefined.
-    // Frames are not reordered past synchronization samples so this works in practice.
-    int startIndex = Util.binarySearchFloor(timestampsUs, timeUs, true, false);
-    for (int i = startIndex; i >= 0; i--) {
-      if ((flags[i] & C.BUFFER_FLAG_KEY_FRAME) != 0) {
-        return i;
+    if (hasOnlySyncSamples) {
+      return Util.binarySearchFloor(
+          timestampsUs, timeUs, /* inclusive= */ true, /* stayInBounds= */ false);
+    }
+
+    int low = 0;
+    int high = syncSampleIndices.length - 1;
+    int index = C.INDEX_UNSET;
+
+    while (low <= high) {
+      int mid = low + ((high - low) / 2);
+      long currentTimestamp = timestampsUs[syncSampleIndices[mid]];
+
+      if (currentTimestamp <= timeUs) {
+        index = mid;
+        low = mid + 1;
+      } else {
+        high = mid - 1;
       }
     }
-    return C.INDEX_UNSET;
+
+    if (index == C.INDEX_UNSET) {
+      return C.INDEX_UNSET;
+    }
+
+    long targetTimestamp = timestampsUs[syncSampleIndices[index]];
+    // Only scan backwards if the found sample is an EXACT match for the search time.
+    if (targetTimestamp == timeUs) {
+      while (index > 0 && timestampsUs[syncSampleIndices[index - 1]] == targetTimestamp) {
+        index--;
+      }
+    }
+
+    return syncSampleIndices[index];
   }
 
   /**
@@ -102,12 +140,40 @@ public final class TrackSampleTable {
    * @return index Index of the synchronization sample, or {@link C#INDEX_UNSET} if none.
    */
   public int getIndexOfLaterOrEqualSynchronizationSample(long timeUs) {
-    int startIndex = Util.binarySearchCeil(timestampsUs, timeUs, true, false);
-    for (int i = startIndex; i < timestampsUs.length; i++) {
-      if ((flags[i] & C.BUFFER_FLAG_KEY_FRAME) != 0) {
-        return i;
+    if (hasOnlySyncSamples) {
+      return Util.binarySearchCeil(
+          timestampsUs, timeUs, /* inclusive= */ true, /* stayInBounds= */ false);
+    }
+
+    int low = 0;
+    int high = syncSampleIndices.length - 1;
+    int index = C.INDEX_UNSET;
+
+    while (low <= high) {
+      int mid = low + ((high - low) / 2);
+      long currentTimestamp = timestampsUs[syncSampleIndices[mid]];
+
+      if (currentTimestamp >= timeUs) {
+        index = mid;
+        high = mid - 1;
+      } else {
+        low = mid + 1;
       }
     }
-    return C.INDEX_UNSET;
+
+    if (index == C.INDEX_UNSET) {
+      return C.INDEX_UNSET;
+    }
+
+    long targetTimestamp = timestampsUs[syncSampleIndices[index]];
+    // Only scan forwards if the found sample is an EXACT match for the search time.
+    if (targetTimestamp == timeUs) {
+      while (index < syncSampleIndices.length - 1
+          && timestampsUs[syncSampleIndices[index + 1]] == targetTimestamp) {
+        index++;
+      }
+    }
+
+    return syncSampleIndices[index];
   }
 }
