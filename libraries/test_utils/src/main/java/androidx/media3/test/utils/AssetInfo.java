@@ -216,6 +216,21 @@ public final class AssetInfo {
           .build();
 
   /**
+   * An MP4 file containing an edit list that makes its only sync sample a preroll sample (i.e.,
+   * have a negative presentation timestamp).
+   */
+  public static final AssetInfo MP4_ONLY_PREROLL_SYNC_SAMPLE_EDIT_LIST =
+      new AssetInfo.Builder("asset:///media/mp4/sample_edit_list_only_preroll_sync_sample.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(640)
+                  .setHeight(360)
+                  .setFrameRate(30.0f)
+                  .build())
+          .build();
+
+  /**
    * This file has been edited to show a visual stopwatch to make it easier to know when frames were
    * presented in the original video.
    */

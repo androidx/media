@@ -144,6 +144,9 @@
         extract frames with support for HDR video, video effects, and custom
         decoder selection. It should be created via its `Builder` for a specific
         `MediaItem`.
+    *   FrameExtractor: Add `getThumbnail()` to extract a representative
+        thumbnail frame from a media file without requiring a specific
+        timestamp.
 *   DataSource:
 *   Audio:
     *   Make `AudioProcessor` instances aware of seeking.

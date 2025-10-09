@@ -49,6 +49,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.VideoFrameProcessingException;
@@ -56,6 +57,7 @@ import androidx.media3.common.VideoGraph;
 import androidx.media3.common.util.GlProgram;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.NullableType;
+import androidx.media3.common.util.Util;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.GlShaderProgram;
@@ -80,6 +82,7 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
 import androidx.media3.exoplayer.video.VideoFrameReleaseControl;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
 import androidx.media3.extractor.DefaultExtractorsFactory;
+import androidx.media3.extractor.metadata.ThumbnailMetadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ExecutionSequencer;
 import com.google.common.util.concurrent.Futures;
@@ -134,6 +137,22 @@ public final class FrameExtractorInternal {
       this.extractHdrFrames = extractHdrFrames;
       this.positionMs = positionMs;
     }
+
+    /** Creates a copy of this request with a new position. */
+    public FrameExtractionRequest copyWithPositionMs(long positionMs) {
+      if (this.positionMs == positionMs) {
+        return this;
+      }
+      return new FrameExtractionRequest(
+          this.context,
+          this.mediaItem,
+          this.effects,
+          this.seekParameters,
+          this.mediaCodecSelector,
+          this.glObjectsProvider,
+          this.extractHdrFrames,
+          positionMs);
+    }
   }
 
   private static final Object LOCK = new Object();
@@ -161,6 +180,7 @@ public final class FrameExtractorInternal {
   private boolean currentExtractHdrFrames;
 
   @Nullable private GlObjectsProvider currentGlObjectsProvider;
+  private long thumbnailPresentationTimeMs;
 
   private FrameExtractorInternal() {
     referenceCount = new AtomicInteger(0);
@@ -169,6 +189,7 @@ public final class FrameExtractorInternal {
     activeTaskCompleter = new AtomicReference<>();
     this.playerHandler = new Handler(Looper.getMainLooper());
     this.currentMediaCodecSelector = MediaCodecSelector.DEFAULT;
+    thumbnailPresentationTimeMs = C.TIME_UNSET;
   }
 
   public static FrameExtractorInternal getInstance() {
@@ -199,6 +220,7 @@ public final class FrameExtractorInternal {
                 currentExtractHdrFrames = false;
                 currentGlObjectsProvider = null;
                 lastSeekDedupeFrame = null;
+                thumbnailPresentationTimeMs = C.TIME_UNSET;
               }
               return null;
             },
@@ -220,16 +242,35 @@ public final class FrameExtractorInternal {
                   || !request.mediaItem.equals(checkNotNull(player).getCurrentMediaItem())
                   || checkNotNull(player).getPlayerError() != null;
 
-          if (needsPrepare && request.positionMs != 0) {
+          boolean isThumbnailRequest = request.positionMs == C.TIME_UNSET;
+
+          if (needsPrepare) {
             ListenableFuture<FrameExtractor.Frame> prepareFuture =
-                processTask(request, needsNewPlayer, /* needsPrepare= */ true);
+                processTask(
+                    request.copyWithPositionMs(/* positionMs= */ 0),
+                    needsNewPlayer,
+                    /* needsPrepare= */ true);
+
             return Futures.transformAsync(
                 prepareFuture,
-                (prepareResult) ->
-                    processTask(request, /* needsNewPlayer= */ false, /* needsPrepare= */ false),
+                (prepareResult) -> {
+                  long timestampToExtractMs =
+                      isThumbnailRequest ? getThumbnailPresentationTimeMs() : request.positionMs;
+                  if (prepareResult.presentationTimeMs == timestampToExtractMs) {
+                    return Futures.immediateFuture(prepareResult);
+                  } else {
+                    return processTask(
+                        request.copyWithPositionMs(timestampToExtractMs),
+                        /* needsNewPlayer= */ false,
+                        /* needsPrepare= */ false);
+                  }
+                },
                 playerHandler::post);
           } else {
-            return processTask(request, needsNewPlayer, needsPrepare);
+            long timestampToExtractMs =
+                isThumbnailRequest ? getThumbnailPresentationTimeMs() : request.positionMs;
+            return processTask(
+                request.copyWithPositionMs(timestampToExtractMs), needsNewPlayer, needsPrepare);
           }
         },
         playerHandler::post);
@@ -252,6 +293,10 @@ public final class FrameExtractorInternal {
         });
   }
 
+  private long getThumbnailPresentationTimeMs() {
+    return thumbnailPresentationTimeMs != C.TIME_UNSET ? thumbnailPresentationTimeMs : 0;
+  }
+
   private ListenableFuture<FrameExtractor.Frame> processTask(
       FrameExtractionRequest request, boolean needsNewPlayer, boolean needsPrepare) {
     return CallbackToFutureAdapter.getFuture(
@@ -269,6 +314,7 @@ public final class FrameExtractorInternal {
           ExoPlayer player = checkNotNull(this.player);
           if (needsPrepare) {
             lastSeekDedupeFrame = null;
+            thumbnailPresentationTimeMs = C.TIME_UNSET;
             player.setVideoEffects(videoEffects);
             player.setMediaItem(request.mediaItem);
             player.setSeekParameters(request.seekParameters);
@@ -314,7 +360,8 @@ public final class FrameExtractorInternal {
                             videoRendererEventListener,
                             !request.extractHdrFrames,
                             request.glObjectsProvider,
-                            extractedFrameNeedsRendering)
+                            extractedFrameNeedsRendering,
+                            this)
                       },
                   mediaSourceFactory)
               .setLooper(playerHandler.getLooper())
@@ -555,6 +602,7 @@ public final class FrameExtractorInternal {
     private final boolean toneMapHdrToSdr;
     @Nullable private final GlObjectsProvider glObjectsProvider;
     private final AtomicBoolean extractedFrameNeedsRendering;
+    private final FrameExtractorInternal internal;
 
     private boolean frameRenderedSinceLastPositionReset;
     private List<Effect> effectsFromPlayer;
@@ -567,7 +615,8 @@ public final class FrameExtractorInternal {
         VideoRendererEventListener videoRendererEventListener,
         boolean toneMapHdrToSdr,
         @Nullable GlObjectsProvider glObjectsProvider,
-        AtomicBoolean extractedFrameNeedsRendering) {
+        AtomicBoolean extractedFrameNeedsRendering,
+        FrameExtractorInternal internal) {
       super(
           new Builder(context)
               .setMediaCodecSelector(mediaCodecSelector)
@@ -578,6 +627,7 @@ public final class FrameExtractorInternal {
       this.toneMapHdrToSdr = toneMapHdrToSdr;
       this.glObjectsProvider = glObjectsProvider;
       this.extractedFrameNeedsRendering = extractedFrameNeedsRendering;
+      this.internal = internal;
       effectsFromPlayer = ImmutableList.of();
     }
 
@@ -609,6 +659,21 @@ public final class FrameExtractorInternal {
       super.onStreamChanged(formats, startPositionUs, offsetUs, mediaPeriodId);
       frameRenderedSinceLastPositionReset = false;
       setRotation(null);
+
+      for (Format format : formats) {
+        if (MimeTypes.isVideo(format.sampleMimeType)) {
+          if (format.metadata != null) {
+            @Nullable
+            ThumbnailMetadata thumbnailMetadata =
+                format.metadata.getFirstEntryOfType(ThumbnailMetadata.class);
+            if (thumbnailMetadata != null && thumbnailMetadata.presentationTimeUs >= 0) {
+              internal.thumbnailPresentationTimeMs =
+                  Util.usToMs(thumbnailMetadata.presentationTimeUs);
+              break;
+            }
+          }
+        }
+      }
     }
 
     @Override
