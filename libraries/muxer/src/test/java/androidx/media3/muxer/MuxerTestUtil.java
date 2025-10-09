@@ -18,6 +18,7 @@ package androidx.media3.muxer;
 import static androidx.media3.common.MimeTypes.AUDIO_AAC;
 import static androidx.media3.common.MimeTypes.VIDEO_H264;
 import static androidx.media3.common.util.Util.getBufferFlagsFromMediaCodecFlags;
+import static androidx.media3.test.utils.TestUtil.createByteArray;
 
 import android.content.Context;
 import android.net.Uri;
@@ -28,7 +29,6 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.MediaFormatUtil;
 import androidx.media3.exoplayer.MediaExtractorCompat;
 import com.google.common.collect.ImmutableList;
-import com.google.common.io.BaseEncoding;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -39,14 +39,18 @@ import java.util.Objects;
 /* package */ class MuxerTestUtil {
 
   public static final byte[] FAKE_CSD_0 =
-      BaseEncoding.base16().decode("0000000167F4000A919B2BF3CB3640000003004000000C83C4896580");
-  public static final byte[] FAKE_CSD_1 = BaseEncoding.base16().decode("0000000168EBE3C448");
+      createByteArray(
+          0x00, 0x00, 0x00, 0x01, 0x67, 0xF4, 0x00, 0x0A, 0x91, 0x9B, 0x2B, 0xF3, 0xCB, 0x36, 0x40,
+          0x00, 0x00, 0x03, 0x00, 0x40, 0x00, 0x00, 0x0C, 0x83, 0xC4, 0x89, 0x65, 0x80);
+  public static final byte[] FAKE_CSD_1 =
+      createByteArray(0x00, 0x00, 0x00, 0x01, 0x68, 0xEB, 0xE3, 0xC4, 0x48);
   public static final Format FAKE_AUDIO_FORMAT =
       new Format.Builder()
           .setSampleMimeType(AUDIO_AAC)
           .setCodecs("mp4a.40.2")
           .setSampleRate(40000)
           .setChannelCount(2)
+          .setInitializationData(ImmutableList.of(createByteArray(0x12, 0x08)))
           .build();
   public static final Format FAKE_VIDEO_FORMAT =
       new Format.Builder()
@@ -57,12 +61,15 @@ import java.util.Objects;
           .build();
 
   public static final String XMP_SAMPLE_DATA = "media/xmp/sample_datetime_xmp.xmp";
-  public static final String MP4_FILE_ASSET_DIRECTORY = "asset:///media/mp4/";
 
+  private static final byte[] FAKE_AUDIO_SAMPLE =
+      createByteArray(0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a);
   private static final byte[] FAKE_H264_SAMPLE =
-      BaseEncoding.base16()
-          .decode(
-              "0000000167F4000A919B2BF3CB3640000003004000000C83C48965800000000168EBE3C448000001658884002BFFFEF5DBF32CAE4A43FF");
+      createByteArray(
+          0x00, 0x00, 0x00, 0x01, 0x67, 0xf4, 0x00, 0x0a, 0x91, 0x9b, 0x2b, 0xf3, 0xcb, 0x36, 0x40,
+          0x00, 0x00, 0x03, 0x00, 0x40, 0x00, 0x00, 0x0c, 0x83, 0xc4, 0x89, 0x65, 0x80, 0x00, 0x00,
+          0x00, 0x01, 0x68, 0xeb, 0xe3, 0xc4, 0x48, 0x00, 0x00, 0x01, 0x65, 0x88, 0x84, 0x00, 0x2b,
+          0xff, 0xfe, 0xf5, 0xdb, 0xf3, 0x2c, 0xae, 0x4a, 0x43, 0xff);
 
   private static final String DUMP_FILE_OUTPUT_DIRECTORY = "muxerdumps";
   private static final String DUMP_FILE_EXTENSION = "dump";
@@ -71,23 +78,25 @@ import java.util.Objects;
     return DUMP_FILE_OUTPUT_DIRECTORY + '/' + originalFileName + '.' + DUMP_FILE_EXTENSION;
   }
 
-  public static Pair<ByteBuffer, BufferInfo> getFakeSampleAndSampleInfo(long presentationTimeUs) {
-    ByteBuffer sampleDirectBuffer = ByteBuffer.allocateDirect(FAKE_H264_SAMPLE.length);
-    sampleDirectBuffer.put(FAKE_H264_SAMPLE);
+  public static Pair<ByteBuffer, BufferInfo> getFakeSampleAndSampleInfo(
+      long presentationTimeUs, boolean isVideo) {
+    byte[] sampleData = isVideo ? FAKE_H264_SAMPLE : FAKE_AUDIO_SAMPLE;
+    ByteBuffer sampleDirectBuffer = ByteBuffer.allocateDirect(sampleData.length);
+    sampleDirectBuffer.put(sampleData);
     sampleDirectBuffer.rewind();
 
     BufferInfo bufferInfo =
-        new BufferInfo(presentationTimeUs, FAKE_H264_SAMPLE.length, C.BUFFER_FLAG_KEY_FRAME);
+        new BufferInfo(presentationTimeUs, sampleData.length, C.BUFFER_FLAG_KEY_FRAME);
 
     return new Pair<>(sampleDirectBuffer, bufferInfo);
   }
 
-  public static void feedInputDataToMuxer(Context context, Muxer muxer, String inputFileName)
+  public static void feedInputDataToMuxer(Context context, Muxer muxer, String inputFilePath)
       throws IOException, MuxerException {
     feedInputDataToMuxer(
         context,
         muxer,
-        inputFileName,
+        inputFilePath,
         /* removeInitializationData= */ false,
         /* removeAudioSampleFlags= */ false);
   }
@@ -95,12 +104,12 @@ import java.util.Objects;
   public static void feedInputDataToMuxer(
       Context context,
       Muxer muxer,
-      String inputFileName,
+      String inputFilePath,
       boolean removeInitializationData,
       boolean removeAudioSampleFlags)
       throws IOException, MuxerException {
     MediaExtractorCompat extractor = new MediaExtractorCompat(context);
-    Uri fileUri = Uri.parse(MP4_FILE_ASSET_DIRECTORY + inputFileName);
+    Uri fileUri = Uri.parse(inputFilePath);
     extractor.setDataSource(fileUri, /* offset= */ 0);
 
     List<Integer> trackMapping = new ArrayList<>();

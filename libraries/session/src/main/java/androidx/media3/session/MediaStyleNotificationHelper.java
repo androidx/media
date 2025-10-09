@@ -18,7 +18,7 @@ package androidx.media3.session;
 import static android.Manifest.permission.MEDIA_CONTENT_CONTROL;
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.core.app.NotificationCompat.COLOR_DEFAULT;
-import static androidx.media3.common.util.Assertions.checkArgument;
+import static com.google.common.base.Preconditions.checkArgument;
 
 import android.annotation.SuppressLint;
 import android.app.Notification;

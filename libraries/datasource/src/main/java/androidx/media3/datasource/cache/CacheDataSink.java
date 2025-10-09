@@ -15,13 +15,13 @@
  */
 package androidx.media3.datasource.cache;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Util.castNonNull;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.min;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -166,7 +166,7 @@ public final class CacheDataSink implements DataSink {
    *     value disables buffering.
    */
   public CacheDataSink(Cache cache, long fragmentSize, int bufferSize) {
-    Assertions.checkState(
+    checkState(
         fragmentSize > 0 || fragmentSize == C.LENGTH_UNSET,
         "fragmentSize must be positive or C.LENGTH_UNSET.");
     if (fragmentSize != C.LENGTH_UNSET && fragmentSize < MIN_RECOMMENDED_FRAGMENT_SIZE) {

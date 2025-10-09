@@ -15,12 +15,13 @@
  */
 package androidx.media3.extractor.ts;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import android.util.SparseArray;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.ParsableBitArray;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.TimestampAdjuster;
@@ -173,7 +174,8 @@ public final class PsExtractor implements Extractor {
 
   @Override
   public int read(ExtractorInput input, PositionHolder seekPosition) throws IOException {
-    Assertions.checkStateNotNull(output); // Asserts init has been called.
+    // Asserts init has been called.
+    checkNotNull(output);
 
     long inputLength = input.getLength();
     boolean canReadDuration = inputLength != C.LENGTH_UNSET;

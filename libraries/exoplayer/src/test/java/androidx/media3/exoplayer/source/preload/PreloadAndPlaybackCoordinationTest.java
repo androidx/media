@@ -15,17 +15,18 @@
  */
 package androidx.media3.exoplayer.source.preload;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
 import android.util.Pair;
-import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.SystemClock;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.TransferListener;
+import androidx.media3.exoplayer.DefaultLoadControl;
+import androidx.media3.exoplayer.LoadControl;
 import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.RendererCapabilities;
 import androidx.media3.exoplayer.RenderersFactory;
@@ -35,9 +36,7 @@ import androidx.media3.exoplayer.source.MediaPeriod;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
 import androidx.media3.exoplayer.trackselection.TrackSelector;
-import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.BandwidthMeter;
-import androidx.media3.exoplayer.upstream.DefaultAllocator;
 import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
 import androidx.media3.test.utils.FakeAudioRenderer;
@@ -79,8 +78,7 @@ public class PreloadAndPlaybackCoordinationTest {
     Context context = ApplicationProvider.getApplicationContext();
     bandwidthMeter = new DefaultBandwidthMeter.Builder(context).build();
     FakeMediaSourceFactory mediaSourceFactory = new FakeMediaSourceFactory();
-    Allocator allocator =
-        new DefaultAllocator(/* trimOnReset= */ true, C.DEFAULT_BUFFER_SEGMENT_SIZE);
+    LoadControl loadControl = new DefaultLoadControl();
     TrackSelector trackSelector = new DefaultTrackSelector(context);
     trackSelector.init(() -> {}, bandwidthMeter);
     RenderersFactory renderersFactory =
@@ -135,7 +133,7 @@ public class PreloadAndPlaybackCoordinationTest {
             trackSelector,
             bandwidthMeter,
             getRendererCapabilities(renderersFactory),
-            allocator,
+            loadControl,
             /* preloadLooper= */ Util.getCurrentOrMainLooper());
     preloadMediaSource =
         preloadMediaSourceFactory.createMediaSource(
@@ -164,7 +162,8 @@ public class PreloadAndPlaybackCoordinationTest {
           MediaSource.MediaPeriodId mediaPeriodId =
               new MediaSource.MediaPeriodId(periodPosition.first);
           MediaPeriod mediaPeriod =
-              source.createPeriod(mediaPeriodId, allocator, periodPosition.second);
+              source.createPeriod(
+                  mediaPeriodId, loadControl.getAllocator(PlayerId.UNSET), periodPosition.second);
           preloadMediaPeriodReference.set(mediaPeriod);
           mediaPeriod.prepare(playbackMediaPeriodCallback, /* positionUs= */ 0L);
         };

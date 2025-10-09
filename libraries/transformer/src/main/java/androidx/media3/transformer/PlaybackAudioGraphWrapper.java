@@ -16,10 +16,11 @@
 
 package androidx.media3.transformer;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Util.sampleCountToDurationUs;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import androidx.annotation.Nullable;
+import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.audio.AudioProcessor;
@@ -178,8 +179,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
     stopRendering();
     checkNotNull(audioGraph).blockInput();
-    checkNotNull(audioGraph).setPendingStartTimeUs(positionUs);
-    checkNotNull(audioGraph).flush();
+    checkNotNull(audioGraph).flush(positionUs);
     finalAudioSink.flush();
     outputFramesWritten = 0;
     seekPositionUs = positionUs;
@@ -188,6 +188,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   /** Handles the steps that need to be executed for a seek after seeking the upstream players. */
   public void endSeek() {
     checkNotNull(audioGraph).unblockInput();
+  }
+
+  /** Updates the {@link AudioAttributes} on the {@linkplain #finalAudioSink final audio sink}. */
+  public void setAudioAttributes(AudioAttributes attributes) {
+    finalAudioSink.setAudioAttributes(attributes);
   }
 
   private final class SinkController implements AudioGraphInputAudioSink.Controller {

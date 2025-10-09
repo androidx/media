@@ -23,6 +23,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
 import androidx.annotation.Nullable;
+import androidx.media3.common.C;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.ReorderingBufferQueue.OutputConsumer;
@@ -172,6 +173,22 @@ public final class ReorderingBufferQueueTest {
     reorderingQueue.add(/* presentationTimeUs= */ 123, scratchData);
 
     verify(mockOutputConsumer).consume(eq(123L), same(scratchData));
+  }
+
+  // https://github.com/androidx/media/issues/2764
+  @Test
+  public void unsetTimestamp_emittedImmediately() {
+    ArrayList<Buffer> emittedMessages = new ArrayList<>();
+    ReorderingBufferQueue reorderingQueue =
+        new ReorderingBufferQueue(
+            (presentationTimeUs, buffer) ->
+                emittedMessages.add(new Buffer(presentationTimeUs, buffer)));
+
+    byte[] data = TestUtil.buildTestData(5);
+    reorderingQueue.add(/* presentationTimeUs= */ C.TIME_UNSET, new ParsableByteArray(data));
+
+    assertThat(emittedMessages)
+        .containsExactly(new Buffer(/* presentationTimeUs= */ C.TIME_UNSET, data));
   }
 
   private static final class Buffer {

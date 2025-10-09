@@ -15,12 +15,12 @@
  */
 package androidx.media3.exoplayer.rtsp;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.exoplayer.rtsp.RtspRequest.METHOD_DESCRIBE;
 import static androidx.media3.exoplayer.rtsp.RtspRequest.METHOD_OPTIONS;
 import static androidx.media3.exoplayer.rtsp.RtspRequest.METHOD_PLAY;
 import static androidx.media3.exoplayer.rtsp.RtspRequest.METHOD_SETUP;
 import static androidx.media3.exoplayer.rtsp.RtspRequest.METHOD_TEARDOWN;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.net.Uri;
 import android.os.Handler;

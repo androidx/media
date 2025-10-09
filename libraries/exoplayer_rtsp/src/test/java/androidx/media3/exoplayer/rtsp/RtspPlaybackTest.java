@@ -15,10 +15,9 @@
  */
 package androidx.media3.exoplayer.rtsp;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.play;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static java.lang.Math.min;
 import static org.mockito.Mockito.mock;
@@ -38,9 +37,9 @@ import androidx.media3.common.util.Util;
 import androidx.media3.datasource.BaseDataSource;
 import androidx.media3.datasource.DataSpec;
 import androidx.media3.exoplayer.ExoPlayer;
-import androidx.media3.test.utils.CapturingRenderersFactory;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.FakeClock;
+import androidx.media3.test.utils.robolectric.CapturingRenderersFactory;
 import androidx.media3.test.utils.robolectric.PlaybackOutput;
 import androidx.media3.test.utils.robolectric.RobolectricUtil;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
@@ -90,8 +89,8 @@ public final class RtspPlaybackTest {
   @Before
   public void setUp() throws Exception {
     applicationContext = ApplicationProvider.getApplicationContext();
-    capturingRenderersFactory = new CapturingRenderersFactory(applicationContext);
     clock = new FakeClock(/* isAutoAdvancing= */ true);
+    capturingRenderersFactory = new CapturingRenderersFactory(applicationContext, clock);
     aacRtpPacketStreamDump = RtspTestUtils.readRtpPacketStreamDump("media/rtsp/aac-dump.json");
     mpeg2tsRtpPacketStreamDump =
         RtspTestUtils.readRtpPacketStreamDump("media/rtsp/mpeg2ts-dump.json");
@@ -405,7 +404,7 @@ public final class RtspPlaybackTest {
 
     @Override
     public RtspResponse getPlayResponse() {
-      checkStateNotNull(packetTransmitter);
+      checkNotNull(packetTransmitter);
       packetTransmitter.startTransmitting(binaryDataListener);
 
       return new RtspResponse(

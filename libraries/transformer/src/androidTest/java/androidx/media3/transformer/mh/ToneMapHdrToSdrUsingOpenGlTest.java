@@ -15,11 +15,11 @@
  */
 package androidx.media3.transformer.mh;
 
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_1080P_5_SECOND_HLG10;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_720P_4_SECOND_HDR10;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_DOLBY_VISION_HDR;
+import static androidx.media3.test.utils.HdrCapabilitiesUtil.assumeDeviceSupportsOpenGlToneMapping;
 import static androidx.media3.test.utils.TestUtil.retrieveTrackFormat;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_1080P_5_SECOND_HLG10;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_720P_4_SECOND_HDR10;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_DOLBY_VISION_HDR;
-import static androidx.media3.transformer.mh.HdrCapabilitiesUtil.assumeDeviceSupportsOpenGlToneMapping;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;

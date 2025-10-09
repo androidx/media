@@ -16,8 +16,8 @@
 
 package androidx.media3.exoplayer.mediacodec;
 
-import static androidx.media3.common.util.Assertions.checkState;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.media.MediaCodec;
 import android.media.MediaFormat;
@@ -25,14 +25,12 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.collection.CircularIntArray;
 import androidx.media3.common.util.Util;
 import java.util.ArrayDeque;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** A {@link MediaCodec.Callback} that routes callbacks on a separate thread. */
-@RequiresApi(23)
 /* package */ final class AsynchronousMediaCodecCallback extends MediaCodec.Callback {
   private final Object lock;
   private final HandlerThread callbackThread;
@@ -130,6 +128,23 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   /**
+   * Uses an acquired input buffer (e.g. to write data to it).
+   *
+   * <p>This can be used for error handling, e.g. to guarantee no operation can invalidate the
+   * buffer while it's being used.
+   *
+   * @param runnable The {@link Runnable} using an acquired input buffer.
+   */
+  public void useInputBuffer(Runnable runnable) {
+    synchronized (lock) {
+      // Run the Runnable under the buffer lock to ensure no new error callback can be handled
+      // while the buffer is used (under the assumption that error callbacks invalidate the buffer).
+      maybeThrowException();
+      runnable.run();
+    }
+  }
+
+  /**
    * Returns the next available input buffer index or {@link MediaCodec#INFO_TRY_AGAIN_LATER} if no
    * such buffer exists.
    */
@@ -163,7 +178,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         } else {
           int bufferIndex = availableOutputBuffers.popFirst();
           if (bufferIndex >= 0) {
-            checkStateNotNull(currentFormat);
+            checkNotNull(currentFormat);
             MediaCodec.BufferInfo nextBufferInfo = bufferInfos.remove();
             bufferInfo.set(
                 nextBufferInfo.offset,

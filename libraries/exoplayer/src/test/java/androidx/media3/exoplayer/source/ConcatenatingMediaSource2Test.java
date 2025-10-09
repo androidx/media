@@ -16,7 +16,9 @@
 package androidx.media3.exoplayer.source;
 
 import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLooperUntil;
+import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.runUntilPlaybackState;
+import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.truth.Truth.assertThat;
 import static java.lang.Math.max;
 import static org.mockito.ArgumentMatchers.any;
@@ -24,10 +26,10 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
-import android.os.ConditionVariable;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Pair;
@@ -39,26 +41,29 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
+import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.TransferListener;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.LoadingInfo;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.util.EventLogger;
+import androidx.media3.test.utils.FakeClock;
 import androidx.media3.test.utils.FakeMediaSource;
 import androidx.media3.test.utils.FakeTimeline;
 import androidx.media3.test.utils.TestExoPlayerBuilder;
 import androidx.media3.test.utils.TestUtil;
 import androidx.media3.test.utils.robolectric.RobolectricUtil;
 import androidx.test.core.app.ApplicationProvider;
-import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.ParameterizedRobolectricTestRunner;
@@ -308,6 +313,15 @@ public final class ConcatenatingMediaSource2Test {
                 /* defaultPositionMs= */ 123,
                 /* periodDurationsMs= */ new long[] {C.TIME_UNSET, C.TIME_UNSET},
                 /* periodOffsetsInWindowMs= */ new long[] {-50, 420},
+                /* periodIsPlaceholder= */ new boolean[] {false, true},
+                /* windowDurationMs= */ 840,
+                /* manifest= */ null),
+            new ExpectedTimelineData(
+                /* isSeekable= */ true,
+                /* isDynamic= */ true,
+                /* defaultPositionMs= */ 123,
+                /* periodDurationsMs= */ new long[] {C.TIME_UNSET, C.TIME_UNSET},
+                /* periodOffsetsInWindowMs= */ new long[] {-50, 420},
                 /* periodIsPlaceholder= */ new boolean[] {false, false},
                 /* windowDurationMs= */ 840,
                 /* manifest= */ null)));
@@ -316,7 +330,7 @@ public final class ConcatenatingMediaSource2Test {
     builder.add(
         new TestConfig(
             "duplicated_and_nested_sources",
-            () -> {
+            clock -> {
               MediaSource duplicateSource =
                   buildMediaSource(
                           buildWindow(
@@ -324,8 +338,8 @@ public final class ConcatenatingMediaSource2Test {
                               /* isSeekable= */ true,
                               /* isDynamic= */ false,
                               /* durationMs= */ 1000))
-                      .get();
-              Supplier<MediaSource> duplicateSourceSupplier = () -> duplicateSource;
+                      .apply(clock);
+              Function<Clock, MediaSource> duplicateSourceSupplier = unused -> duplicateSource;
               return buildConcatenatingMediaSource(
                       duplicateSourceSupplier,
                       buildConcatenatingMediaSource(
@@ -333,7 +347,7 @@ public final class ConcatenatingMediaSource2Test {
                       buildConcatenatingMediaSource(
                           duplicateSourceSupplier, duplicateSourceSupplier),
                       duplicateSourceSupplier)
-                  .get();
+                  .apply(clock);
             },
             /* expectedAdDiscontinuities= */ 0,
             new ExpectedTimelineData(
@@ -457,6 +471,15 @@ public final class ConcatenatingMediaSource2Test {
                 /* windowDurationMs= */ 15000,
                 /* manifest= */ null),
             new ExpectedTimelineData(
+                /* isSeekable= */ true,
+                /* isDynamic= */ true,
+                /* defaultPositionMs= */ 123,
+                /* periodDurationsMs= */ new long[] {4050, C.TIME_UNSET, C.TIME_UNSET},
+                /* periodOffsetsInWindowMs= */ new long[] {-50, 4000, 9000},
+                /* periodIsPlaceholder= */ new boolean[] {false, true, true},
+                /* windowDurationMs= */ 14000,
+                /* manifest= */ null),
+            new ExpectedTimelineData(
                 /* isSeekable= */ false,
                 /* isDynamic= */ true,
                 /* defaultPositionMs= */ 123,
@@ -481,9 +504,16 @@ public final class ConcatenatingMediaSource2Test {
 
   private static final String TEST_MEDIA_ITEM_ID = "test_media_item_id";
 
+  private Clock testClock;
+
+  @Before
+  public void setUp() {
+    testClock = new FakeClock(/* isAutoAdvancing= */ true);
+  }
+
   @Test
   public void prepareSource_reportsExpectedTimelines() throws Exception {
-    MediaSource mediaSource = config.mediaSourceSupplier.get();
+    MediaSource mediaSource = config.mediaSourceSupplier.apply(testClock);
     ArrayList<Timeline> timelines = new ArrayList<>();
     mediaSource.prepareSource(
         (source, timeline) -> timelines.add(timeline),
@@ -536,7 +566,7 @@ public final class ConcatenatingMediaSource2Test {
   @Test
   public void prepareSource_afterRelease_reportsSameFinalTimeline() throws Exception {
     // Fully prepare source once.
-    MediaSource mediaSource = config.mediaSourceSupplier.get();
+    MediaSource mediaSource = config.mediaSourceSupplier.apply(testClock);
     ArrayList<Timeline> timelines = new ArrayList<>();
     MediaSource.MediaSourceCaller caller = (source, timeline) -> timelines.add(timeline);
     mediaSource.prepareSource(caller, /* mediaTransferListener= */ null, PlayerId.UNSET);
@@ -549,13 +579,13 @@ public final class ConcatenatingMediaSource2Test {
     mediaSource.prepareSource(secondCaller, /* mediaTransferListener= */ null, PlayerId.UNSET);
 
     // Assert that we receive the same final timeline.
-    runMainLooperUntil(() -> Iterables.getLast(timelines).equals(secondTimeline.get()));
+    runMainLooperUntil(() -> getLast(timelines).equals(secondTimeline.get()));
   }
 
   @Test
   public void preparePeriod_reportsExpectedPeriodLoadEvents() throws Exception {
     // Prepare source and register listener.
-    MediaSource mediaSource = config.mediaSourceSupplier.get();
+    MediaSource mediaSource = config.mediaSourceSupplier.apply(testClock);
     MediaSourceEventListener eventListener = mock(MediaSourceEventListener.class);
     mediaSource.addEventListener(new Handler(Looper.myLooper()), eventListener);
     ArrayList<Timeline> timelines = new ArrayList<>();
@@ -569,7 +599,7 @@ public final class ConcatenatingMediaSource2Test {
     // should support creating the same period more than once.
     ArrayList<MediaPeriod> mediaPeriods = new ArrayList<>();
     ArrayList<MediaSource.MediaPeriodId> mediaPeriodIds = new ArrayList<>();
-    Timeline timeline = Iterables.getLast(timelines);
+    Timeline timeline = getLast(timelines);
     for (int i = 0; i < timeline.getPeriodCount(); i++) {
       Timeline.Period period =
           timeline.getPeriod(/* periodIndex= */ i, new Timeline.Period(), /* setIds= */ true);
@@ -641,8 +671,10 @@ public final class ConcatenatingMediaSource2Test {
   public void playback_fromDefaultPosition_startsFromCorrectPositionAndPlaysToEnd()
       throws Exception {
     ExoPlayer player =
-        new TestExoPlayerBuilder(ApplicationProvider.getApplicationContext()).build();
-    player.setMediaSource(config.mediaSourceSupplier.get());
+        new TestExoPlayerBuilder(ApplicationProvider.getApplicationContext())
+            .setClock(testClock)
+            .build();
+    player.setMediaSource(config.mediaSourceSupplier.apply(testClock));
     Player.Listener eventListener = mock(Player.Listener.class);
     player.addListener(eventListener);
     player.addAnalyticsListener(new EventLogger());
@@ -658,7 +690,7 @@ public final class ConcatenatingMediaSource2Test {
     }
     player.release();
 
-    ExpectedTimelineData expectedData = Iterables.getLast(config.expectedTimelineData);
+    ExpectedTimelineData expectedData = getLast(config.expectedTimelineData);
     assertThat(positionAfterPrepareMs).isEqualTo(expectedData.defaultPositionMs);
     if (!isDynamic) {
       verify(
@@ -673,8 +705,10 @@ public final class ConcatenatingMediaSource2Test {
       playback_fromSpecificPeriodPositionInFirstPeriod_startsFromCorrectPositionAndPlaysToEnd()
           throws Exception {
     ExoPlayer player =
-        new TestExoPlayerBuilder(ApplicationProvider.getApplicationContext()).build();
-    MediaSource mediaSource = config.mediaSourceSupplier.get();
+        new TestExoPlayerBuilder(ApplicationProvider.getApplicationContext())
+            .setClock(testClock)
+            .build();
+    MediaSource mediaSource = config.mediaSourceSupplier.apply(testClock);
     player.setMediaSource(mediaSource);
     Player.Listener eventListener = mock(Player.Listener.class);
     player.addListener(eventListener);
@@ -693,7 +727,7 @@ public final class ConcatenatingMediaSource2Test {
     }
     player.release();
 
-    ExpectedTimelineData expectedData = Iterables.getLast(config.expectedTimelineData);
+    ExpectedTimelineData expectedData = getLast(config.expectedTimelineData);
     assertThat(windowPositionAfterPrepareMs).isEqualTo(startWindowPositionMs);
     if (!isDynamic) {
       verify(
@@ -710,8 +744,10 @@ public final class ConcatenatingMediaSource2Test {
     Timeline.Period period = new Timeline.Period();
     Timeline.Window window = new Timeline.Window();
     ExoPlayer player =
-        new TestExoPlayerBuilder(ApplicationProvider.getApplicationContext()).build();
-    MediaSource mediaSource = config.mediaSourceSupplier.get();
+        new TestExoPlayerBuilder(ApplicationProvider.getApplicationContext())
+            .setClock(testClock)
+            .build();
+    MediaSource mediaSource = config.mediaSourceSupplier.apply(testClock);
     player.setMediaSource(mediaSource);
     Player.Listener eventListener = mock(Player.Listener.class);
     player.addListener(eventListener);
@@ -739,7 +775,7 @@ public final class ConcatenatingMediaSource2Test {
     }
     player.release();
 
-    ExpectedTimelineData expectedData = Iterables.getLast(config.expectedTimelineData);
+    ExpectedTimelineData expectedData = getLast(config.expectedTimelineData);
     assertThat(periodPositionAfterPrepareMs).isEqualTo(startPeriodPositionMs);
     if (timeline.getPeriod(periodIndexAfterPrepare, period).getAdGroupCount() == 0) {
       assertThat(periodIndexAfterPrepare).isEqualTo(startPeriodIndex);
@@ -759,10 +795,73 @@ public final class ConcatenatingMediaSource2Test {
   }
 
   @Test
+  public void playback_fromPositionBeyondDuration_startsFromEndAndPlaysToEnd() throws Exception {
+    Timeline.Period period = new Timeline.Period();
+    Timeline.Window window = new Timeline.Window();
+    ExoPlayer player =
+        new TestExoPlayerBuilder(ApplicationProvider.getApplicationContext())
+            .setClock(testClock)
+            .build();
+    MediaSource mediaSource = config.mediaSourceSupplier.apply(testClock);
+    player.setMediaSource(mediaSource);
+    Player.Listener eventListener = mock(Player.Listener.class);
+    player.addListener(eventListener);
+    player.addAnalyticsListener(new EventLogger());
+
+    player.seekTo(999_999_999_999L);
+    player.prepare();
+    AtomicBoolean longWaitTimeUntilAllTimelinesUpdatesAreDone = new AtomicBoolean();
+    testClock
+        .createHandler(Looper.getMainLooper(), /* callback= */ null)
+        .postDelayed(() -> longWaitTimeUntilAllTimelinesUpdatesAreDone.set(true), 5_000);
+    advance(player)
+        .untilBackgroundThreadCondition(longWaitTimeUntilAllTimelinesUpdatesAreDone::get);
+    Timeline timeline = player.getCurrentTimeline();
+    long windowPositionAfterPrepareMs = player.getContentPosition();
+    boolean isPlayingAd = player.isPlayingAd();
+    Pair<Object, Long> periodPositionUs =
+        timeline.getPeriodPositionUs(window, period, 0, Util.msToUs(windowPositionAfterPrepareMs));
+    int periodIndexAfterPrepare = timeline.getIndexOfPeriod(periodPositionUs.first);
+    long periodPositionAfterPrepareMs = Util.usToMs(periodPositionUs.second);
+    boolean isDynamic = player.isCurrentMediaItemDynamic();
+    if (!isDynamic) {
+      // Dynamic streams never enter the ENDED state.
+      player.play();
+      runUntilPlaybackState(player, Player.STATE_ENDED);
+    }
+    player.release();
+
+    ExpectedTimelineData expectedData = getLast(config.expectedTimelineData);
+    int lastPeriodIndex = expectedData.periodDurationsMs.length - 1;
+    long lastPeriodDurationMs =
+        expectedData.periodDurationsMs[expectedData.periodDurationsMs.length - 1];
+    long lastPeriodOffsetInWindowMs =
+        expectedData.periodOffsetsInWindowMs[expectedData.periodOffsetsInWindowMs.length - 1];
+    if (!isPlayingAd) {
+      assertThat(periodIndexAfterPrepare).isEqualTo(lastPeriodIndex);
+      if (lastPeriodDurationMs == C.TIME_UNSET) {
+        assertThat(windowPositionAfterPrepareMs).isEqualTo(999_999_999_999L);
+        assertThat(periodPositionAfterPrepareMs)
+            .isEqualTo(999_999_999_999L - lastPeriodOffsetInWindowMs);
+      } else {
+        assertThat(windowPositionAfterPrepareMs).isEqualTo(expectedData.windowDurationMs - 1);
+        assertThat(periodPositionAfterPrepareMs).isEqualTo(lastPeriodDurationMs - 1);
+      }
+      verify(eventListener, never())
+          .onPositionDiscontinuity(any(), any(), eq(Player.DISCONTINUITY_REASON_AUTO_TRANSITION));
+    } else {
+      // Seek beyond ad period: assert roll forward to un-played ad period.
+      assertThat(periodIndexAfterPrepare).isLessThan(lastPeriodIndex);
+      verify(eventListener, atLeast(1))
+          .onPositionDiscontinuity(any(), any(), eq(Player.DISCONTINUITY_REASON_AUTO_TRANSITION));
+    }
+  }
+
+  @Test
   public void canUpdateMediaItem_withFieldsChanged_returnsTrue() {
     MediaItem updatedMediaItem =
         TestUtil.buildFullyCustomizedMediaItem().buildUpon().setUri("http://test.test").build();
-    MediaSource mediaSource = config.mediaSourceSupplier.get();
+    MediaSource mediaSource = config.mediaSourceSupplier.apply(testClock);
 
     boolean canUpdateMediaItem = mediaSource.canUpdateMediaItem(updatedMediaItem);
 
@@ -772,7 +871,7 @@ public final class ConcatenatingMediaSource2Test {
   @Test
   public void updateMediaItem_createsTimelineWithUpdatedItem() throws Exception {
     MediaItem updatedMediaItem = new MediaItem.Builder().setUri("http://test.test").build();
-    MediaSource mediaSource = config.mediaSourceSupplier.get();
+    MediaSource mediaSource = config.mediaSourceSupplier.apply(testClock);
     AtomicReference<Timeline> timelineReference = new AtomicReference<>();
 
     mediaSource.updateMediaItem(updatedMediaItem);
@@ -790,13 +889,13 @@ public final class ConcatenatingMediaSource2Test {
         .isEqualTo(updatedMediaItem);
   }
 
-  private static void blockingPrepareMediaPeriod(MediaPeriod mediaPeriod) {
-    ConditionVariable mediaPeriodPrepared = new ConditionVariable();
+  private static void blockingPrepareMediaPeriod(MediaPeriod mediaPeriod) throws TimeoutException {
+    AtomicBoolean mediaPeriodPrepared = new AtomicBoolean();
     mediaPeriod.prepare(
         new MediaPeriod.Callback() {
           @Override
           public void onPrepared(MediaPeriod mediaPeriod) {
-            mediaPeriodPrepared.open();
+            mediaPeriodPrepared.set(true);
           }
 
           @Override
@@ -805,50 +904,50 @@ public final class ConcatenatingMediaSource2Test {
           }
         },
         /* positionUs= */ 0);
-    mediaPeriodPrepared.block();
+    runMainLooperUntil(mediaPeriodPrepared::get);
   }
 
-  private static Supplier<MediaSource> buildConcatenatingMediaSource(
-      Supplier<MediaSource>... sources) {
+  private static Function<Clock, MediaSource> buildConcatenatingMediaSource(
+      Function<Clock, MediaSource>... sources) {
     return buildConcatenatingMediaSource(/* placeholderDurationMs= */ C.TIME_UNSET, sources);
   }
 
-  private static Supplier<MediaSource> buildConcatenatingMediaSource(
-      long placeholderDurationMs, Supplier<MediaSource>... sources) {
-    return () -> {
+  private static Function<Clock, MediaSource> buildConcatenatingMediaSource(
+      long placeholderDurationMs, Function<Clock, MediaSource>... sources) {
+    return clock -> {
       ConcatenatingMediaSource2.Builder builder = new ConcatenatingMediaSource2.Builder();
       builder.setMediaItem(new MediaItem.Builder().setMediaId(TEST_MEDIA_ITEM_ID).build());
-      for (Supplier<MediaSource> source : sources) {
-        builder.add(source.get(), placeholderDurationMs);
+      for (Function<Clock, MediaSource> source : sources) {
+        builder.add(source.apply(clock), placeholderDurationMs);
       }
       return builder.build();
     };
   }
 
-  private static Supplier<MediaSource> buildMediaSource(
+  private static Function<Clock, MediaSource> buildMediaSource(
       FakeTimeline.TimelineWindowDefinition... windows) {
     return buildMediaSource(/* preparationDelayCount= */ 0, windows);
   }
 
-  private static Supplier<MediaSource> buildMediaSource(
+  private static Function<Clock, MediaSource> buildMediaSource(
       int preparationDelayCount, FakeTimeline.TimelineWindowDefinition... windows) {
     return buildMediaSource(preparationDelayCount, /* manifests= */ null, windows);
   }
 
-  private static Supplier<MediaSource> buildMediaSource(
+  private static Function<Clock, MediaSource> buildMediaSource(
       Object[] manifests, FakeTimeline.TimelineWindowDefinition... windows) {
     return buildMediaSource(/* preparationDelayCount= */ 0, manifests, windows);
   }
 
-  private static Supplier<MediaSource> buildMediaSource(
+  private static Function<Clock, MediaSource> buildMediaSource(
       int preparationDelayCount,
       @Nullable Object[] manifests,
       FakeTimeline.TimelineWindowDefinition... windows) {
 
-    return () -> {
-      // Simulate delay by repeatedly sending messages to self. This ensures that all other message
-      // handling trigger by source preparation finishes before the new timeline update arrives.
-      AtomicInteger delayCount = new AtomicInteger(10 * preparationDelayCount);
+    return clock -> {
+      // Add some delay according to the preparationDelayCount value. This ensures that all other
+      // message handling triggered by source preparation finishes before the new timeline update
+      // arrives.
       return new FakeMediaSource(
           /* timeline= */ null,
           new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H264).build()) {
@@ -856,22 +955,15 @@ public final class ConcatenatingMediaSource2Test {
         public synchronized void prepareSourceInternal(
             @Nullable TransferListener mediaTransferListener) {
           super.prepareSourceInternal(mediaTransferListener);
-          Handler delayHandler = new Handler(Looper.myLooper());
-          Runnable handleDelay =
-              new Runnable() {
-                @Override
-                public void run() {
-                  if (delayCount.getAndDecrement() == 0) {
-                    setNewSourceInfo(
-                        manifests != null
-                            ? new FakeTimeline(manifests, windows)
-                            : new FakeTimeline(windows));
-                  } else {
-                    delayHandler.post(this);
-                  }
-                }
-              };
-          delayHandler.post(handleDelay);
+          clock
+              .createHandler(Looper.myLooper(), /* callback= */ null)
+              .postDelayed(
+                  () ->
+                      setNewSourceInfo(
+                          manifests != null
+                              ? new FakeTimeline(manifests, windows)
+                              : new FakeTimeline(windows)),
+                  10 * preparationDelayCount);
         }
       };
     };
@@ -945,7 +1037,7 @@ public final class ConcatenatingMediaSource2Test {
 
   private static final class TestConfig {
 
-    public final Supplier<MediaSource> mediaSourceSupplier;
+    public final Function<Clock, MediaSource> mediaSourceSupplier;
     public final ImmutableList<ExpectedTimelineData> expectedTimelineData;
 
     private final int expectedAdDiscontinuities;
@@ -953,7 +1045,7 @@ public final class ConcatenatingMediaSource2Test {
 
     public TestConfig(
         String tag,
-        Supplier<MediaSource> mediaSourceSupplier,
+        Function<Clock, MediaSource> mediaSourceSupplier,
         int expectedAdDiscontinuities,
         ExpectedTimelineData... expectedTimelineData) {
       this.tag = tag;

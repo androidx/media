@@ -23,8 +23,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.media3.common.Player
-import androidx.media3.common.listen
+import androidx.media3.common.listenTo
 import androidx.media3.common.util.UnstableApi
+import com.google.common.base.Preconditions.checkState
 
 /**
  * Remembers the value of [PreviousButtonState] created based on the passed [Player] and launch a
@@ -52,7 +53,19 @@ class PreviousButtonState(private val player: Player) {
   var isEnabled by mutableStateOf(isPreviousEnabled(player))
     private set
 
+  /**
+   * Handles the interaction with the PreviousButton by seeking to a later position in the current
+   * or next MediaItem (if available).
+   *
+   * This method must only be programmatically called if the [state is enabled][isEnabled]. However,
+   * it can be freely provided into containers that take care of skipping the [onClick] if a
+   * particular UI node is not enabled (see Compose Clickable Modifier).
+   *
+   * @see [Player.seekToPrevious]
+   * @see [Player.COMMAND_SEEK_TO_PREVIOUS]
+   */
   fun onClick() {
+    checkState(isPreviousEnabled(player), "COMMAND_SEEK_TO_PREVIOUS is not available.")
     player.seekToPrevious()
   }
 
@@ -63,11 +76,7 @@ class PreviousButtonState(private val player: Player) {
    */
   suspend fun observe(): Nothing {
     isEnabled = isPreviousEnabled(player)
-    player.listen { events ->
-      if (events.contains(Player.EVENT_AVAILABLE_COMMANDS_CHANGED)) {
-        isEnabled = isPreviousEnabled(this)
-      }
-    }
+    player.listenTo(Player.EVENT_AVAILABLE_COMMANDS_CHANGED) { isEnabled = isPreviousEnabled(this) }
   }
 
   private fun isPreviousEnabled(player: Player) =

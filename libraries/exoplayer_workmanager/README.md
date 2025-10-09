@@ -8,7 +8,7 @@ This module provides a `Scheduler` implementation that uses [WorkManager][].
 
 The easiest way to get the module is to add it as a gradle dependency:
 
-```gradle
+```groovy
 implementation 'androidx.media3:media3-exoplayer-workmanager:1.X.X'
 ```
 

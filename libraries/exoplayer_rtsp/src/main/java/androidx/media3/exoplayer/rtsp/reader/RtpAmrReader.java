@@ -15,10 +15,9 @@
  */
 package androidx.media3.exoplayer.rtsp.reader;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.exoplayer.rtsp.reader.RtpReaderUtils.toSampleTimeUs;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import androidx.media3.common.C;
 import androidx.media3.common.MimeTypes;
@@ -124,7 +123,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @Override
   public void consume(
       ParsableByteArray data, long timestamp, int sequenceNumber, boolean rtpMarker) {
-    checkStateNotNull(trackOutput);
+    checkNotNull(trackOutput);
     // Check that this packet is in the sequence of the previous packet.
     if (previousSequenceNumber != C.INDEX_UNSET) {
       int expectedSequenceNumber = RtpPacket.getNextSequenceNumber(previousSequenceNumber);
@@ -179,7 +178,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     checkArgument(
         // Valid frame types are defined in RFC4867 Section 4.3.1.
         (frameType >= 0 && frameType <= 8) || frameType == 15,
-        "Illegal AMR " + (isWideBand ? "WB" : "NB") + " frame type " + frameType);
+        "Illegal AMR %s frame type %s",
+        (isWideBand ? "WB" : "NB"),
+        frameType);
 
     return isWideBand
         ? AMR_WB_FRAME_TYPE_INDEX_TO_FRAME_SIZE[frameType]

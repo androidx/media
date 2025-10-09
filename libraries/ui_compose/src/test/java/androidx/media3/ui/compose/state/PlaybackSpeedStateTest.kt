@@ -19,9 +19,10 @@ package androidx.media3.ui.compose.state
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.media3.common.Player
-import androidx.media3.ui.compose.utils.TestPlayer
+import androidx.media3.test.utils.TestSimpleBasePlayer
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
+import org.junit.Assert.assertThrows
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -34,11 +35,8 @@ class PlaybackSpeedStateTest {
 
   @Test
   fun addSetSpeedAndPitchCommandToPlayer_stateTogglesFromDisabledToEnabled() {
-    val player = TestPlayer()
-    player.playbackState = Player.STATE_READY
-    player.playWhenReady = true
+    val player = TestSimpleBasePlayer()
     player.removeCommands(Player.COMMAND_SET_SPEED_AND_PITCH)
-
     lateinit var state: PlaybackSpeedState
     composeTestRule.setContent { state = rememberPlaybackSpeedState(player = player) }
 
@@ -52,10 +50,7 @@ class PlaybackSpeedStateTest {
 
   @Test
   fun removeSetSpeedAndPitchCommandToPlayer_stateTogglesFromEnabledToDisabled() {
-    val player = TestPlayer()
-    player.playbackState = Player.STATE_READY
-    player.playWhenReady = true
-
+    val player = TestSimpleBasePlayer()
     lateinit var state: PlaybackSpeedState
     composeTestRule.setContent { state = rememberPlaybackSpeedState(player = player) }
 
@@ -68,8 +63,31 @@ class PlaybackSpeedStateTest {
   }
 
   @Test
+  fun updatePlaybackSpeed_whenCommandNotAvailable_throwsException() {
+    val player = TestSimpleBasePlayer()
+    player.removeCommands(Player.COMMAND_SET_SPEED_AND_PITCH)
+    val state = PlaybackSpeedState(player)
+
+    assertThat(state.isEnabled).isFalse()
+    assertThrows(IllegalStateException::class.java) { state.updatePlaybackSpeed(1.5f) }
+  }
+
+  @Test
+  fun updatePlaybackSpeed_stateBecomesDisabled_throwsException() {
+    val player = TestSimpleBasePlayer()
+    lateinit var state: PlaybackSpeedState
+    composeTestRule.setContent { state = rememberPlaybackSpeedState(player = player) }
+
+    state.updatePlaybackSpeed(1.5f)
+    // simulate state becoming disabled atomically, i.e. without yet receiving the relevant event
+    player.removeCommands(Player.COMMAND_SET_SPEED_AND_PITCH)
+
+    assertThrows(IllegalStateException::class.java) { state.updatePlaybackSpeed(2.5f) }
+  }
+
+  @Test
   fun playerPlaybackSpeedChanged_statePlaybackSpeedChanged() {
-    val player = TestPlayer()
+    val player = TestSimpleBasePlayer()
 
     lateinit var state: PlaybackSpeedState
     composeTestRule.setContent { state = rememberPlaybackSpeedState(player = player) }
@@ -84,7 +102,7 @@ class PlaybackSpeedStateTest {
 
   @Test
   fun stateUpdatePlaybackSpeed_playerPlaybackSpeedChanged() {
-    val player = TestPlayer()
+    val player = TestSimpleBasePlayer()
     val state = PlaybackSpeedState(player)
     assertThat(state.playbackSpeed).isEqualTo(1f)
 
@@ -95,7 +113,7 @@ class PlaybackSpeedStateTest {
 
   @Test
   fun playerIncreasesPlaybackSpeedBeforeEventListenerRegisters_observeGetsTheLatestValues_uiIconInSync() {
-    val player = TestPlayer()
+    val player = TestSimpleBasePlayer()
 
     lateinit var state: PlaybackSpeedState
     composeTestRule.setContent {

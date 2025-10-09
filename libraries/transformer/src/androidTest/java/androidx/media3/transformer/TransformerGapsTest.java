@@ -15,9 +15,8 @@
  */
 package androidx.media3.transformer;
 
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
-import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
-import static androidx.media3.transformer.AndroidTestUtil.getTrackOutput;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET;
+import static androidx.media3.test.utils.FormatSupportAssumptions.assumeFormatsSupported;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
@@ -34,6 +33,7 @@ import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -124,7 +124,8 @@ public class TransformerGapsTest {
     FakeExtractorOutput fakeExtractorOutput =
         TestUtil.extractAllSamplesFromFilePath(
             new Mp4Extractor(new DefaultSubtitleParserFactory()), result.filePath);
-    FakeTrackOutput videoTrackOutput = getTrackOutput(fakeExtractorOutput, C.TRACK_TYPE_VIDEO);
+    FakeTrackOutput videoTrackOutput =
+        Iterables.getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_VIDEO));
     // The video gap is for 1024 ms with 30 fps.
     int expectedBlankFrames = 31;
     assertThat(videoTrackOutput.getSampleCount())
@@ -153,7 +154,8 @@ public class TransformerGapsTest {
     FakeExtractorOutput fakeExtractorOutput =
         TestUtil.extractAllSamplesFromFilePath(
             new Mp4Extractor(new DefaultSubtitleParserFactory()), result.filePath);
-    FakeTrackOutput videoTrackOutput = getTrackOutput(fakeExtractorOutput, C.TRACK_TYPE_VIDEO);
+    FakeTrackOutput videoTrackOutput =
+        Iterables.getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_VIDEO));
     // The gap is for 1024 ms with 30 fps.
     int expectedBlankFrames = 31;
     assertThat(videoTrackOutput.getSampleCount())
@@ -182,7 +184,8 @@ public class TransformerGapsTest {
     FakeExtractorOutput fakeExtractorOutput =
         TestUtil.extractAllSamplesFromFilePath(
             new Mp4Extractor(new DefaultSubtitleParserFactory()), result.filePath);
-    FakeTrackOutput videoTrackOutput = getTrackOutput(fakeExtractorOutput, C.TRACK_TYPE_VIDEO);
+    FakeTrackOutput videoTrackOutput =
+        Iterables.getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_VIDEO));
     // The gap is for 1024 ms with 30 fps.
     int expectedBlankFrames = 31;
     assertThat(videoTrackOutput.getSampleCount())
@@ -232,7 +235,8 @@ public class TransformerGapsTest {
     FakeExtractorOutput fakeExtractorOutput =
         TestUtil.extractAllSamplesFromFilePath(
             new Mp4Extractor(new DefaultSubtitleParserFactory()), result.filePath);
-    FakeTrackOutput videoTrackOutput = getTrackOutput(fakeExtractorOutput, C.TRACK_TYPE_VIDEO);
+    FakeTrackOutput videoTrackOutput =
+        Iterables.getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_VIDEO));
     // The gap is for 1 sec with 30 fps.
     int expectedBlankFrames = 30;
     assertThat(videoTrackOutput.getSampleCount())
@@ -265,7 +269,8 @@ public class TransformerGapsTest {
     FakeExtractorOutput fakeExtractorOutput =
         TestUtil.extractAllSamplesFromFilePath(
             new Mp4Extractor(new DefaultSubtitleParserFactory()), result.filePath);
-    FakeTrackOutput videoTrackOutput = getTrackOutput(fakeExtractorOutput, C.TRACK_TYPE_VIDEO);
+    FakeTrackOutput videoTrackOutput =
+        Iterables.getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_VIDEO));
     // The gap is for 1 sec with 30 fps.
     int expectedBlankFrames = 30;
     assertThat(videoTrackOutput.getSampleCount())
@@ -298,7 +303,8 @@ public class TransformerGapsTest {
     FakeExtractorOutput fakeExtractorOutput =
         TestUtil.extractAllSamplesFromFilePath(
             new Mp4Extractor(new DefaultSubtitleParserFactory()), result.filePath);
-    FakeTrackOutput videoTrackOutput = getTrackOutput(fakeExtractorOutput, C.TRACK_TYPE_VIDEO);
+    FakeTrackOutput videoTrackOutput =
+        Iterables.getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_VIDEO));
     // The gap is for 1 sec with 30 fps.
     int expectedBlankFrames = 30;
     assertThat(videoTrackOutput.getSampleCount())
@@ -380,12 +386,14 @@ public class TransformerGapsTest {
     FakeExtractorOutput fakeExtractorOutput =
         TestUtil.extractAllSamplesFromFilePath(
             new Mp4Extractor(new DefaultSubtitleParserFactory()), result.filePath);
-    FakeTrackOutput videoTrackOutput = getTrackOutput(fakeExtractorOutput, C.TRACK_TYPE_VIDEO);
+    FakeTrackOutput videoTrackOutput =
+        Iterables.getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_VIDEO));
     // The gap is for 1 sec with 30 fps.
     int expectedBlankFrames = 30;
     assertThat(videoTrackOutput.getSampleCount())
         .isEqualTo(2 * MP4_ASSET.videoFrameCount + expectedBlankFrames);
-    FakeTrackOutput audioTrackOutput = getTrackOutput(fakeExtractorOutput, C.TRACK_TYPE_AUDIO);
+    FakeTrackOutput audioTrackOutput =
+        Iterables.getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_AUDIO));
     long lastAudioSampleTimestampUs =
         audioTrackOutput.getSampleTimeUs(audioTrackOutput.getSampleCount() - 1);
     // 1000 ms gap + 1024 ms audio + 1024 ms audio.
@@ -418,7 +426,8 @@ public class TransformerGapsTest {
     FakeExtractorOutput fakeExtractorOutput =
         TestUtil.extractAllSamplesFromFilePath(
             new Mp4Extractor(new DefaultSubtitleParserFactory()), result.filePath);
-    FakeTrackOutput videoTrackOutput = getTrackOutput(fakeExtractorOutput, C.TRACK_TYPE_VIDEO);
+    FakeTrackOutput videoTrackOutput =
+        Iterables.getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_VIDEO));
     // The gap is for 1 sec with 30 fps.
     int expectedBlankFrames = 30;
     assertThat(videoTrackOutput.getSampleCount())
@@ -450,7 +459,8 @@ public class TransformerGapsTest {
     FakeExtractorOutput fakeExtractorOutput =
         TestUtil.extractAllSamplesFromFilePath(
             new Mp4Extractor(new DefaultSubtitleParserFactory()), result.filePath);
-    FakeTrackOutput videoTrackOutput = getTrackOutput(fakeExtractorOutput, C.TRACK_TYPE_VIDEO);
+    FakeTrackOutput videoTrackOutput =
+        Iterables.getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_VIDEO));
     // The gap is for 1 sec with 30 fps.
     int expectedBlankFrames = 30;
     assertThat(videoTrackOutput.getSampleCount())
@@ -483,7 +493,8 @@ public class TransformerGapsTest {
     FakeExtractorOutput fakeExtractorOutput =
         TestUtil.extractAllSamplesFromFilePath(
             new Mp4Extractor(new DefaultSubtitleParserFactory()), result.filePath);
-    FakeTrackOutput videoTrackOutput = getTrackOutput(fakeExtractorOutput, C.TRACK_TYPE_VIDEO);
+    FakeTrackOutput videoTrackOutput =
+        Iterables.getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_VIDEO));
     // The gap is for 1024 ms with 30 fps.
     int expectedBlankFramesForAudioOnlyItem = 31;
     // The gap is for 1 sec with 30 fps.

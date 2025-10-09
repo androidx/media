@@ -16,22 +16,20 @@
 package androidx.media3.container;
 
 import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.castNonNull;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 
 import androidx.annotation.Nullable;
 import androidx.annotation.RestrictTo;
 import androidx.media3.common.C;
 import androidx.media3.common.util.ParsableByteArray;
-import androidx.media3.common.util.UnstableApi;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.PriorityQueue;
 
 /** A queue of buffers, ordered by presentation timestamp. */
-@UnstableApi
 @RestrictTo(LIBRARY_GROUP)
 public final class ReorderingBufferQueue {
 
@@ -111,12 +109,14 @@ public final class ReorderingBufferQueue {
    * <p>buffers with matching timestamps must be added consecutively (this will naturally happen
    * when parsing buffers from a container).
    *
-   * @param presentationTimeUs The presentation time of the buffer.
+   * @param presentationTimeUs The presentation time of the buffer. {@link C#TIME_UNSET} will cause
+   *     the buffer to be emitted immediately.
    * @param buffer The buffer data. The data will be copied, so the provided object can be re-used
    *     after this method returns.
    */
   public void add(long presentationTimeUs, ParsableByteArray buffer) {
-    if (reorderingQueueSize == 0
+    if (presentationTimeUs == C.TIME_UNSET
+        || reorderingQueueSize == 0
         || (reorderingQueueSize != C.LENGTH_UNSET
             && pendingBuffers.size() >= reorderingQueueSize
             && presentationTimeUs < castNonNull(pendingBuffers.peek()).presentationTimeUs)) {

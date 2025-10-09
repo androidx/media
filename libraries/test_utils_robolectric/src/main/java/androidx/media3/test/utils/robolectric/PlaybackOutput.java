@@ -15,7 +15,7 @@
  */
 package androidx.media3.test.utils.robolectric;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.max;
 
 import android.graphics.Bitmap;
@@ -35,19 +35,18 @@ import androidx.media3.common.text.CueGroup;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.container.MdtaMetadataEntry;
 import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.extractor.metadata.MotionPhotoMetadata;
 import androidx.media3.extractor.metadata.dvbsi.AppInfoTable;
 import androidx.media3.extractor.metadata.emsg.EventMessage;
 import androidx.media3.extractor.metadata.flac.PictureFrame;
 import androidx.media3.extractor.metadata.icy.IcyHeaders;
 import androidx.media3.extractor.metadata.icy.IcyInfo;
 import androidx.media3.extractor.metadata.id3.Id3Frame;
-import androidx.media3.extractor.metadata.mp4.MotionPhotoMetadata;
 import androidx.media3.extractor.metadata.mp4.SlowMotionData;
 import androidx.media3.extractor.metadata.mp4.SmtaMetadataEntry;
 import androidx.media3.extractor.metadata.scte35.SpliceCommand;
 import androidx.media3.extractor.metadata.vorbis.VorbisComment;
 import androidx.media3.test.utils.CapturingImageOutput;
-import androidx.media3.test.utils.CapturingRenderersFactory;
 import androidx.media3.test.utils.Dumper;
 import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;

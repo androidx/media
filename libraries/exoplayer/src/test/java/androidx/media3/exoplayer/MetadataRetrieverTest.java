@@ -24,9 +24,11 @@ import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.robolectric.Shadows.shadowOf;
 
 import android.content.Context;
 import android.net.Uri;
+import android.os.Looper;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Metadata;
@@ -37,11 +39,12 @@ import androidx.media3.container.MdtaMetadataEntry;
 import androidx.media3.container.Mp4TimestampData;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.TrackGroupArray;
-import androidx.media3.extractor.metadata.mp4.MotionPhotoMetadata;
+import androidx.media3.extractor.metadata.MotionPhotoMetadata;
 import androidx.media3.extractor.metadata.mp4.SlowMotionData;
 import androidx.media3.extractor.metadata.mp4.SmtaMetadataEntry;
 import androidx.media3.test.utils.FakeClock;
 import androidx.media3.test.utils.FakeMediaSource;
+import androidx.media3.test.utils.FakeTimeline;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
@@ -57,6 +60,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.annotation.LooperMode;
+import org.robolectric.shadows.ShadowLooper;
 
 /** Tests for {@link MetadataRetriever}. */
 @LooperMode(LooperMode.Mode.INSTRUMENTATION_TEST)
@@ -76,6 +80,15 @@ public class MetadataRetrieverTest {
 
   @After
   public void tearDown() throws Exception {
+    // Drain loopers to ensure async cleanup tasks complete before the test ends.
+    // This prevents state leakage between tests.
+    for (Looper looper : ShadowLooper.getAllLoopers()) {
+      try {
+        shadowOf(looper).idle();
+      } catch (IllegalStateException e) {
+        // Looper was already quit, safe to ignore.
+      }
+    }
     MetadataRetriever.setMaximumParallelRetrievals(
         MetadataRetriever.DEFAULT_MAXIMUM_PARALLEL_RETRIEVALS);
   }
@@ -133,7 +146,7 @@ public class MetadataRetrieverTest {
   @Test
   public void retrieveMetadata_heicMotionPhoto_outputsExpectedMetadata() throws Exception {
     MediaItem mediaItem =
-        MediaItem.fromUri(Uri.parse("asset://android_asset/media/mp4/sample_MP.heic"));
+        MediaItem.fromUri(Uri.parse("asset://android_asset/media/heif/sample_MP.heic"));
     MotionPhotoMetadata expectedMotionPhotoMetadata =
         new MotionPhotoMetadata(
             /* photoStartPosition= */ 0,
@@ -146,7 +159,7 @@ public class MetadataRetrieverTest {
         retrieveMetadata(context, mediaItem, clock);
     TrackGroupArray trackGroups = trackGroupsFuture.get(TEST_TIMEOUT_SEC, TimeUnit.SECONDS);
 
-    assertThat(trackGroups.length).isEqualTo(1);
+    assertThat(trackGroups.length).isEqualTo(3);
     assertThat(trackGroups.get(0).length).isEqualTo(1);
     assertThat(trackGroups.get(0).getFormat(0).metadata.length()).isEqualTo(1);
     assertThat(trackGroups.get(0).getFormat(0).metadata.get(0))
@@ -154,9 +167,13 @@ public class MetadataRetrieverTest {
   }
 
   @Test
-  public void retrieveMetadata_heicStillPhoto_outputsEmptyMetadata() throws Exception {
+  public void retrieveMetadata_heicStillPhotoWithImageDuration_outputsEmptyMetadata()
+      throws Exception {
     MediaItem mediaItem =
-        MediaItem.fromUri(Uri.parse("asset://android_asset/media/mp4/sample_still_photo.heic"));
+        new MediaItem.Builder()
+            .setUri("asset://android_asset/media/heif/sample_still_photo.heic")
+            .setImageDurationMs(3000L)
+            .build();
 
     ListenableFuture<TrackGroupArray> trackGroupsFuture =
         retrieveMetadata(context, mediaItem, clock);
@@ -372,7 +389,7 @@ public class MetadataRetrieverTest {
   @Test
   public void retrieveUsingInstance_heicMotionPhoto_outputsExpectedResult() throws Exception {
     MediaItem mediaItem =
-        MediaItem.fromUri(Uri.parse("asset://android_asset/media/mp4/sample_MP.heic"));
+        MediaItem.fromUri(Uri.parse("asset://android_asset/media/heif/sample_MP.heic"));
     MotionPhotoMetadata expectedMotionPhotoMetadata =
         new MotionPhotoMetadata(
             /* photoStartPosition= */ 0,
@@ -391,21 +408,25 @@ public class MetadataRetrieverTest {
       Timeline timeline = timelineFuture.get(TEST_TIMEOUT_SEC, TimeUnit.SECONDS);
       long durationUs = durationFuture.get(TEST_TIMEOUT_SEC, TimeUnit.SECONDS);
 
-      assertThat(trackGroups.length).isEqualTo(1);
+      assertThat(trackGroups.length).isEqualTo(3);
       assertThat(trackGroups.get(0).length).isEqualTo(1);
       assertThat(trackGroups.get(0).getFormat(0).metadata.length()).isEqualTo(1);
       assertThat(trackGroups.get(0).getFormat(0).metadata.get(0))
           .isEqualTo(expectedMotionPhotoMetadata);
       assertThat(timeline.getWindowCount()).isEqualTo(1);
-      assertThat(durationUs).isEqualTo(C.TIME_UNSET);
+      assertThat(durationUs).isEqualTo(1_231_000);
     }
   }
 
   @Test
-  public void retrieveUsingInstance_heicStillPhoto_outputsEmptyMetadataAndUnsetDuration()
-      throws Exception {
+  public void
+      retrieveUsingInstance_heicStillPhotoWithImageDuration_outputsEmptyMetadataAndImageDuration()
+          throws Exception {
     MediaItem mediaItem =
-        MediaItem.fromUri(Uri.parse("asset://android_asset/media/mp4/sample_still_photo.heic"));
+        new MediaItem.Builder()
+            .setUri("asset://android_asset/media/heif/sample_still_photo.heic")
+            .setImageDurationMs(3000L)
+            .build();
 
     try (MetadataRetriever retriever =
         new MetadataRetriever.Builder(context, mediaItem).setClock(clock).build()) {
@@ -421,7 +442,7 @@ public class MetadataRetrieverTest {
       assertThat(trackGroups.get(0).length).isEqualTo(1);
       assertThat(trackGroups.get(0).getFormat(0).metadata).isNull();
       assertThat(timeline.getWindowCount()).isEqualTo(1);
-      assertThat(durationUs).isEqualTo(C.TIME_UNSET);
+      assertThat(durationUs).isEqualTo(3_000_000);
     }
   }
 
@@ -612,6 +633,7 @@ public class MetadataRetrieverTest {
   @Test
   public void retrieveUsingInstance_releasesMediaSource_afterCancellation() throws Exception {
     FakeMediaSource fakeMediaSource = new FakeMediaSource();
+    fakeMediaSource.setAllowPreparation(false);
     MediaSource.Factory mediaSourceFactory = mock(MediaSource.Factory.class);
     when(mediaSourceFactory.createMediaSource(any(MediaItem.class))).thenReturn(fakeMediaSource);
     MediaItem mediaItem =
@@ -651,20 +673,33 @@ public class MetadataRetrieverTest {
 
   @Test
   public void retrieveUsingInstance_cancelOneFuture_doesNotAffectOthers() throws Exception {
+    Timeline timeline =
+        new FakeTimeline(
+            new FakeTimeline.TimelineWindowDefinition.Builder().setPeriodCount(1).build());
+    FakeMediaSource fakeMediaSource = new FakeMediaSource(timeline);
+    fakeMediaSource.setAllowPreparation(false);
+    MediaSource.Factory mediaSourceFactory = mock(MediaSource.Factory.class);
+    when(mediaSourceFactory.createMediaSource(any(MediaItem.class))).thenReturn(fakeMediaSource);
     MediaItem mediaItem =
         MediaItem.fromUri(Uri.parse("asset://android_asset/media/mp4/sample.mp4"));
 
     try (MetadataRetriever retriever =
-        new MetadataRetriever.Builder(context, mediaItem).setClock(clock).build()) {
+        new MetadataRetriever.Builder(context, mediaItem)
+            .setClock(clock)
+            .setMediaSourceFactory(mediaSourceFactory)
+            .build()) {
       ListenableFuture<TrackGroupArray> trackGroupsFuture = retriever.retrieveTrackGroups();
       ListenableFuture<Timeline> timelineFuture = retriever.retrieveTimeline();
 
+      assertThat(trackGroupsFuture.isDone()).isFalse();
+      assertThat(timelineFuture.isDone()).isFalse();
       assertThat(trackGroupsFuture.cancel(true)).isTrue();
       assertThrows(CancellationException.class, trackGroupsFuture::get);
+      fakeMediaSource.setAllowPreparation(true);
       // The other future should still complete successfully.
-      Timeline timeline = timelineFuture.get(TEST_TIMEOUT_SEC, TimeUnit.SECONDS);
-      assertThat(timeline).isNotNull();
-      assertThat(timeline.getWindowCount()).isEqualTo(1);
+      Timeline retrievedTimeline = timelineFuture.get(TEST_TIMEOUT_SEC, TimeUnit.SECONDS);
+      assertThat(retrievedTimeline).isNotNull();
+      assertThat(retrievedTimeline.getPeriodCount()).isEqualTo(1);
     }
   }
 

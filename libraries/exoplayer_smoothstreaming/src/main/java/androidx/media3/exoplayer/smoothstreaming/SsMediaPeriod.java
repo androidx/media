@@ -15,7 +15,7 @@
  */
 package androidx.media3.exoplayer.smoothstreaming;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -41,6 +41,8 @@ import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.CmcdConfiguration;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
 import androidx.media3.exoplayer.upstream.LoaderErrorThrower;
+import androidx.media3.exoplayer.util.ReleasableExecutor;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import java.io.IOException;
@@ -62,6 +64,7 @@ import java.util.List;
   private final Allocator allocator;
   private final TrackGroupArray trackGroups;
   private final CompositeSequenceableLoaderFactory compositeSequenceableLoaderFactory;
+  @Nullable private final Supplier<ReleasableExecutor> downloadExecutorSupplier;
 
   @Nullable private Callback callback;
   private SsManifest manifest;
@@ -79,7 +82,8 @@ import java.util.List;
       LoadErrorHandlingPolicy loadErrorHandlingPolicy,
       MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
       LoaderErrorThrower manifestLoaderErrorThrower,
-      Allocator allocator) {
+      Allocator allocator,
+      @Nullable Supplier<ReleasableExecutor> downloadExecutorSupplier) {
     this.manifest = manifest;
     this.chunkSourceFactory = chunkSourceFactory;
     this.transferListener = transferListener;
@@ -91,6 +95,7 @@ import java.util.List;
     this.mediaSourceEventDispatcher = mediaSourceEventDispatcher;
     this.allocator = allocator;
     this.compositeSequenceableLoaderFactory = compositeSequenceableLoaderFactory;
+    this.downloadExecutorSupplier = downloadExecutorSupplier;
     trackGroups = buildTrackGroups(manifest, drmSessionManager, chunkSourceFactory);
     sampleStreams = newSampleStreamArray(0);
     compositeSequenceableLoader = compositeSequenceableLoaderFactory.empty();
@@ -266,7 +271,7 @@ import java.util.List;
         loadErrorHandlingPolicy,
         mediaSourceEventDispatcher,
         /* canReportInitialDiscontinuity= */ false,
-        /* downloadExecutor= */ null);
+        downloadExecutorSupplier != null ? downloadExecutorSupplier.get() : null);
   }
 
   private static TrackGroupArray buildTrackGroups(

@@ -15,8 +15,8 @@
  */
 package androidx.media3.transformer;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.min;
 
 import android.content.Context;
@@ -34,6 +34,7 @@ import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.SeekMap;
+import androidx.media3.extractor.TrackAwareSeekMap;
 import androidx.media3.extractor.TrackOutput;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import androidx.media3.extractor.text.SubtitleParser;
@@ -59,7 +60,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    */
   public final long lastSyncSampleTimestampUs;
 
-  /** The prestation timestamp of the first video frame, in microseconds. */
+  /** The presentation timestamp of the first video frame, in microseconds. */
   public final long firstVideoSampleTimestampUs;
 
   /**
@@ -151,7 +152,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         }
       }
 
-      long durationUs = mp4Extractor.getDurationUs();
+      TrackAwareSeekMap seekMap = checkNotNull(extractorOutput.seekMap);
+      long durationUs = seekMap.getDurationUs();
       long firstVideoSampleTimestampUs = C.TIME_UNSET;
       long lastSyncSampleTimestampUs = C.TIME_UNSET;
       long firstSyncSampleTimestampUsAfterTimeUs = C.TIME_UNSET;
@@ -164,12 +166,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
         checkState(durationUs != C.TIME_UNSET);
         SeekMap.SeekPoints lastSyncSampleSeekPoints =
-            mp4Extractor.getSeekPoints(durationUs, extractorOutput.videoTrackId);
+            seekMap.getSeekPoints(durationUs, extractorOutput.videoTrackId);
         lastSyncSampleTimestampUs = lastSyncSampleSeekPoints.first.timeUs;
 
         if (timeUs != C.TIME_UNSET) {
           SeekMap.SeekPoints firstSyncSampleSeekPoints =
-              mp4Extractor.getSeekPoints(timeUs, extractorOutput.videoTrackId);
+              seekMap.getSeekPoints(timeUs, extractorOutput.videoTrackId);
           if (timeUs == firstSyncSampleSeekPoints.first.timeUs) {
             firstSyncSampleTimestampUsAfterTimeUs = firstSyncSampleSeekPoints.first.timeUs;
           } else if (timeUs <= firstSyncSampleSeekPoints.second.timeUs) {
@@ -223,6 +225,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     public int videoTrackId;
     public int audioTrackId;
     public boolean seekMapInitialized;
+    @Nullable public TrackAwareSeekMap seekMap;
 
     final Map<Integer, TrackOutputImpl> trackTypeToTrackOutput;
 
@@ -253,6 +256,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     @Override
     public void seekMap(SeekMap seekMap) {
+      this.seekMap = (TrackAwareSeekMap) seekMap;
       seekMapInitialized = true;
     }
 

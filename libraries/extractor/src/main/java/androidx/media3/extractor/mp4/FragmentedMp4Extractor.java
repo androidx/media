@@ -15,12 +15,12 @@
  */
 package androidx.media3.extractor.mp4;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.castNonNull;
 import static androidx.media3.common.util.Util.nullSafeArrayCopy;
 import static androidx.media3.extractor.mp4.BoxParser.parseTraks;
 import static androidx.media3.extractor.mp4.MimeTypeResolver.getContainerMimeType;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
@@ -496,7 +496,10 @@ public class FragmentedMp4Extractor implements Extractor {
                   /* maximumSize= */ 0,
                   /* timestampsUs= */ new long[0],
                   /* flags= */ new int[0],
-                  /* durationUs= */ 0),
+                  /* syncSampleIndices= */ new int[0],
+                  /* hasOnlySyncSamples= */ false,
+                  /* durationUs= */ 0,
+                  /* sampleCount= */ 0),
               new DefaultSampleValues(
                   /* sampleDescriptionIndex= */ 0,
                   /* duration= */ 0,
@@ -595,8 +598,14 @@ public class FragmentedMp4Extractor implements Extractor {
     }
 
     if (atomSize < atomHeaderBytesRead) {
-      throw ParserException.createForUnsupportedContainerFeature(
-          "Atom size less than header length (unsupported).");
+      if (atomType == Mp4Box.TYPE_free && atomHeaderBytesRead == Mp4Box.HEADER_SIZE) {
+        // Workaround for writers that could create a malformed 'free' box with a size less than
+        // its header, causing file corruption. [See internal: b/438187097].
+        atomSize = atomHeaderBytesRead;
+      } else {
+        throw ParserException.createForUnsupportedContainerFeature(
+            "Atom size less than header length (unsupported).");
+      }
     }
 
     if (seekPositionBeforeSidxProcessing != C.INDEX_UNSET) {
@@ -782,7 +791,8 @@ public class FragmentedMp4Extractor implements Extractor {
             drmInitData,
             /* ignoreEditLists= */ (flags & FLAG_WORKAROUND_IGNORE_EDIT_LISTS) != 0,
             /* isQuickTime= */ false,
-            this::modifyTrack);
+            this::modifyTrack,
+            /* omitTrackSampleTable= */ false);
 
     int trackCount = sampleTables.size();
     if (trackBundles.size() == 0) {

@@ -31,6 +31,8 @@ public class MediaBrowserConstants {
 
   public static final String COMMAND_PLAYLIST_ADD = "androidx.media3.commands.playlist_add";
   public static final String COMMAND_RADIO = "androidx.media3.commands.radio";
+  public static final String COMMAND_NOT_A_CUSTOM_SESSION_ACTION =
+      "androidx.media3.commands.not_a_session_custom_action";
 
   public static final String MEDIA_ID_GET_BROWSABLE_ITEM = "media_id_get_browsable_item";
   public static final String MEDIA_ID_GET_PLAYABLE_ITEM = "media_id_get_playable_item";
@@ -85,6 +87,8 @@ public class MediaBrowserConstants {
   public static final Bundle CUSTOM_ACTION_EXTRAS = new Bundle();
 
   public static final String CUSTOM_ACTION_ASSERT_PARAMS = "assertParams";
+
+  public static final float EXTRAS_VALUE_PARTIAL_PROGRESS = 0.3f;
 
   static {
     ROOT_EXTRAS.putInt(ROOT_EXTRAS_KEY, ROOT_EXTRAS_VALUE);

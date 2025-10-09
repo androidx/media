@@ -20,7 +20,6 @@ import static java.lang.Math.min;
 import android.media.MediaDataSource;
 import android.net.Uri;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.util.UnstableApi;
@@ -32,7 +31,6 @@ import java.io.IOException;
  * <p>An adapter that allows to read media data supplied by an implementation of {@link
  * MediaDataSource}.
  */
-@RequiresApi(23)
 @UnstableApi
 public class MediaDataSourceAdapter extends BaseDataSource {
 

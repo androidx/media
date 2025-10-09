@@ -22,6 +22,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.view.LayoutInflater
+import android.view.Menu
 import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
@@ -36,6 +37,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.session.LibraryResult
 import androidx.media3.session.MediaBrowser
 import androidx.media3.session.SessionToken
+import com.google.android.gms.cast.framework.CastButtonFactory
 import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
 import com.google.common.util.concurrent.ListenableFuture
 
@@ -93,6 +95,13 @@ class MainActivity : AppCompatActivity() {
     ) {
       requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), /* requestCode= */ 0)
     }
+  }
+
+  override fun onCreateOptionsMenu(menu: Menu): Boolean {
+    super.onCreateOptionsMenu(menu)
+    getMenuInflater().inflate(R.menu.menu, menu)
+    CastButtonFactory.setUpMediaRouteButton(this, menu, R.id.cast_menu_item)
+    return true
   }
 
   override fun onOptionsItemSelected(item: MenuItem): Boolean {

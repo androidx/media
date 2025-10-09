@@ -69,6 +69,7 @@ interface IRemoteMediaSession {
   void notifyPlaybackParametersChanged(String sessionId, in Bundle playbackParametersBundle);
   void notifyMediaItemTransition(String sessionId, int index, int reason);
   void notifyAudioAttributesChanged(String sessionId, in Bundle audioAttributes);
+  void notifyAudioSessionIdChanged(String sessionId, int audioSessionId);
   void notifyVideoSizeChanged(String sessionId, in Bundle videoSize);
   void notifyAvailableCommandsChanged(String sessionId, in Bundle commandsBundle);
   boolean surfaceExists(String sessionId);
@@ -80,6 +81,8 @@ interface IRemoteMediaSession {
   void setShuffleModeEnabled(String sessionId, boolean shuffleMode);
   void setRepeatMode(String sessionId, int repeatMode);
   void setCurrentMediaItemIndex(String sessionId, int index);
+  void setCurrentMediaItemIndexAndPeriodIndex(String sessionId, int mediaItemIndex, int periodIndex);
+  void setCurrentPeriodIndex(String sessionId, int index);
   void setTrackSelectionParameters(String sessionId, in Bundle parameters);
   void notifyTimelineChanged(String sessionId, int reason);
   void notifyPlaylistMetadataChanged(String sessionId);

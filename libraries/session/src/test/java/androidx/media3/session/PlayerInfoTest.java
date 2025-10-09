@@ -204,6 +204,7 @@ public class PlayerInfoTest {
     assertThat(infoAfterBundling.mediaMetadata.title.toString()).isEqualTo("title");
     assertThat(infoAfterBundling.playlistMetadata.artist.toString()).isEqualTo("artist");
     assertThat(infoAfterBundling.volume).isEqualTo(0.5f);
+    assertThat(infoAfterBundling.unmuteVolume).isEqualTo(0.5f);
     assertThat(infoAfterBundling.deviceVolume).isEqualTo(10);
     assertThat(infoAfterBundling.deviceMuted).isTrue();
     assertThat(infoAfterBundling.audioAttributes.contentType)

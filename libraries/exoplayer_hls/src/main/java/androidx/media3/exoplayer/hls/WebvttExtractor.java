@@ -15,13 +15,14 @@
  */
 package androidx.media3.exoplayer.hls;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import android.text.TextUtils;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.TimestampAdjuster;
 import androidx.media3.common.util.UnstableApi;
@@ -138,7 +139,7 @@ public final class WebvttExtractor implements Extractor {
   @Override
   public int read(ExtractorInput input, PositionHolder seekPosition) throws IOException {
     // output == null suggests init() hasn't been called
-    Assertions.checkNotNull(output);
+    checkNotNull(output);
     int currentFileSize = (int) input.getLength();
 
     // Increase the size of sampleData if necessary.
@@ -190,11 +191,9 @@ public final class WebvttExtractor implements Extractor {
               "X-TIMESTAMP-MAP doesn't contain media timestamp: " + line, /* cause= */ null);
         }
         vttTimestampUs =
-            WebvttParserUtil.parseTimestampUs(
-                Assertions.checkNotNull(localTimestampMatcher.group(1)));
+            WebvttParserUtil.parseTimestampUs(checkNotNull(localTimestampMatcher.group(1)));
         tsTimestampUs =
-            TimestampAdjuster.ptsToUs(
-                Long.parseLong(Assertions.checkNotNull(mediaTimestampMatcher.group(1))));
+            TimestampAdjuster.ptsToUs(Long.parseLong(checkNotNull(mediaTimestampMatcher.group(1))));
       }
     }
 
@@ -207,7 +206,7 @@ public final class WebvttExtractor implements Extractor {
     }
 
     long firstCueTimeUs =
-        WebvttParserUtil.parseTimestampUs(Assertions.checkNotNull(cueHeaderMatcher.group(1)));
+        WebvttParserUtil.parseTimestampUs(checkNotNull(cueHeaderMatcher.group(1)));
     long sampleTimeUs =
         timestampAdjuster.adjustTsTimestamp(
             TimestampAdjuster.usToWrappedPts(firstCueTimeUs + tsTimestampUs - vttTimestampUs));

@@ -18,6 +18,7 @@ package androidx.media3.decoder.midi;
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.Mockito.mock;
 
+import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.ParsableByteArray;
@@ -36,7 +37,7 @@ public class TrackChunkTest {
    */
   @Test
   public void testMidNoteTempoChanges() throws IOException {
-    FakeTrackOutput fakeTrackOutput = new FakeTrackOutput(false);
+    FakeTrackOutput fakeTrackOutput = new FakeTrackOutput(C.TRACK_TYPE_AUDIO, false);
     fakeTrackOutput.format(new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_MIDI).build());
     // Chunk format:
     // Note ON at absolute ticks 0.

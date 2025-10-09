@@ -19,9 +19,13 @@ package androidx.media3.ui.compose.state
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.media3.common.Player
-import androidx.media3.ui.compose.utils.TestPlayer
+import androidx.media3.common.SimpleBasePlayer.MediaItemData
+import androidx.media3.test.utils.TestSimpleBasePlayer
+import androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance
+import androidx.media3.ui.compose.testutils.createReadyPlayerWithTwoItems
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
+import org.junit.Assert.assertThrows
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -34,10 +38,8 @@ class PlayPauseButtonStateTest {
 
   @Test
   fun playerIsBuffering_pausePlayer_playIconShowing() {
-    val player = TestPlayer()
+    val player = createReadyPlayerWithTwoItems()
     player.playbackState = Player.STATE_BUFFERING
-    player.play()
-
     lateinit var state: PlayPauseButtonState
     composeTestRule.setContent { state = rememberPlayPauseButtonState(player = player) }
 
@@ -51,10 +53,8 @@ class PlayPauseButtonStateTest {
 
   @Test
   fun playerIsIdling_preparePlayer_pauseIconShowing() {
-    val player = TestPlayer()
+    val player = createReadyPlayerWithTwoItems()
     player.playbackState = Player.STATE_IDLE
-    player.play()
-
     lateinit var state: PlayPauseButtonState
     composeTestRule.setContent { state = rememberPlayPauseButtonState(player = player) }
 
@@ -67,10 +67,30 @@ class PlayPauseButtonStateTest {
   }
 
   @Test
+  fun onClick_whenCommandNotAvailable_throwsIllegalStateException() {
+    val player = createReadyPlayerWithTwoItems()
+    player.removeCommands(Player.COMMAND_PLAY_PAUSE)
+    val state = PlayPauseButtonState(player)
+
+    assertThat(state.isEnabled).isFalse()
+    assertThrows(IllegalStateException::class.java) { state.onClick() }
+  }
+
+  @Test
+  fun onClick_stateBecomesDisabledAfterFirstClick_throwsException() {
+    val player = createReadyPlayerWithTwoItems()
+    val state = PlayPauseButtonState(player)
+
+    state.onClick()
+    // simulate state becoming disabled atomically, i.e. without yet receiving the relevant event
+    player.removeCommands(Player.COMMAND_PLAY_PAUSE)
+
+    assertThrows(IllegalStateException::class.java) { state.onClick() }
+  }
+
+  @Test
   fun addPlayPauseCommandToPlayer_buttonStateTogglesFromDisabledToEnabled() {
-    val player = TestPlayer()
-    player.playbackState = Player.STATE_READY
-    player.play()
+    val player = createReadyPlayerWithTwoItems()
     player.removeCommands(Player.COMMAND_PLAY_PAUSE)
 
     lateinit var state: PlayPauseButtonState
@@ -86,10 +106,7 @@ class PlayPauseButtonStateTest {
 
   @Test
   fun playerInReadyState_buttonClicked_playerPaused() {
-    val player = TestPlayer()
-    player.playbackState = Player.STATE_READY
-    player.play()
-
+    val player = createReadyPlayerWithTwoItems()
     val state = PlayPauseButtonState(player)
 
     assertThat(state.showPlay).isFalse()
@@ -101,9 +118,12 @@ class PlayPauseButtonStateTest {
   }
 
   @Test
-  fun playerInEndedState_buttonClicked_playerBuffersAndPlays() {
-    val player = TestPlayer()
-    player.playbackState = Player.STATE_ENDED
+  fun playerInEndedState_buttonClicked_playerPlaysFromBeginning() {
+    val player =
+      TestSimpleBasePlayer(
+        playbackState = Player.STATE_ENDED,
+        playlist = listOf(MediaItemData.Builder("SingleItem").setDurationUs(456).build()),
+      )
     player.setPosition(456)
     val state = PlayPauseButtonState(player)
 
@@ -111,14 +131,17 @@ class PlayPauseButtonStateTest {
 
     state.onClick() // Player seeks to default position and plays
 
+    // The position is masked immediately
     assertThat(player.contentPosition).isEqualTo(0)
-    assertThat(player.playWhenReady).isTrue()
-    assertThat(player.playbackState).isEqualTo(Player.STATE_BUFFERING)
+
+    advance(player).untilState(Player.STATE_READY)
+    // The player starts playing when the buffering from the seek is complete
+    assertThat(player.isPlaying).isTrue()
   }
 
   @Test
-  fun playerInIdleState_buttonClicked_playerBuffersAndPlays() {
-    val player = TestPlayer()
+  fun playerInIdleState_buttonClicked_playerBuffersButDoesntPlay() {
+    val player = createReadyPlayerWithTwoItems()
     player.playbackState = Player.STATE_IDLE
     val state = PlayPauseButtonState(player)
 
@@ -128,13 +151,13 @@ class PlayPauseButtonStateTest {
 
     assertThat(player.playWhenReady).isTrue()
     assertThat(player.playbackState).isEqualTo(Player.STATE_BUFFERING)
+    assertThat(player.isPlaying).isFalse()
   }
 
   @Test
   fun playerIsScheduledToPlayBeforeEventListenerRegisters_observeGetsTheLatestValues_uiIconInSync() {
-    val player = TestPlayer()
+    val player = createReadyPlayerWithTwoItems()
     player.playbackState = Player.STATE_BUFFERING
-    player.pause()
 
     lateinit var state: PlayPauseButtonState
     composeTestRule.setContent {

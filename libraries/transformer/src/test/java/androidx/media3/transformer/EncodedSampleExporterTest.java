@@ -15,10 +15,10 @@
  */
 package androidx.media3.transformer;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.transformer.EncodedSampleExporter.ALLOCATION_SIZE_TARGET_BYTES;
 import static androidx.media3.transformer.EncodedSampleExporter.MAX_INPUT_BUFFER_COUNT;
 import static androidx.media3.transformer.EncodedSampleExporter.MIN_INPUT_BUFFER_COUNT;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.Mockito.mock;
 
@@ -70,8 +70,7 @@ public final class EncodedSampleExporterTest {
                 mock(MuxerWrapper.Listener.class),
                 MuxerWrapper.MUXER_MODE_DEFAULT,
                 /* dropSamplesBeforeFirstVideoSample= */ false,
-                /* appendVideoFormat= */ null,
-                /* writeNegativeTimestampsToEditList= */ false),
+                /* appendVideoFormat= */ null),
             fallbackListener,
             /* initialTimestampOffsetUs= */ 0);
   }

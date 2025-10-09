@@ -15,9 +15,9 @@
  */
 package androidx.media3.exoplayer.source;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Util.castNonNull;
 import static androidx.media3.common.util.Util.msToUs;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.content.Context;
 import android.net.Uri;
@@ -27,7 +27,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -39,6 +38,7 @@ import androidx.media3.exoplayer.source.ads.AdsLoader;
 import androidx.media3.exoplayer.source.ads.AdsMediaSource;
 import androidx.media3.exoplayer.upstream.CmcdConfiguration;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
+import androidx.media3.exoplayer.util.ReleasableExecutor;
 import androidx.media3.extractor.DefaultExtractorsFactory;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorInput;
@@ -47,6 +47,7 @@ import androidx.media3.extractor.ExtractorsFactory;
 import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.SeekMap;
 import androidx.media3.extractor.TrackOutput;
+import androidx.media3.extractor.heif.HeifExtractor;
 import androidx.media3.extractor.jpeg.JpegExtractor;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
 import androidx.media3.extractor.text.SubtitleExtractor;
@@ -456,6 +457,14 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
   }
 
   @UnstableApi
+  @CanIgnoreReturnValue
+  @Override
+  public MediaSource.Factory setDownloadExecutor(Supplier<ReleasableExecutor> downloadExecutor) {
+    delegateFactoryLoader.setDownloadExecutor(downloadExecutor);
+    return this;
+  }
+
+  @UnstableApi
   @Override
   public @C.ContentType int[] getSupportedTypes() {
     return delegateFactoryLoader.getSupportedTypes();
@@ -464,7 +473,7 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
   @UnstableApi
   @Override
   public MediaSource createMediaSource(MediaItem mediaItem) {
-    Assertions.checkNotNull(mediaItem.localConfiguration);
+    checkNotNull(mediaItem.localConfiguration);
     @Nullable String scheme = mediaItem.localConfiguration.uri.getScheme();
     if (scheme != null && scheme.equals(C.SSAI_SCHEME)) {
       return checkNotNull(serverSideAdInsertionMediaSourceFactory).createMediaSource(mediaItem);
@@ -482,6 +491,7 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
             mediaItem.localConfiguration.uri, mediaItem.localConfiguration.mimeType);
     if (mediaItem.localConfiguration.imageDurationMs != C.TIME_UNSET) {
       delegateFactoryLoader.setJpegExtractorFlags(JpegExtractor.FLAG_READ_IMAGE);
+      delegateFactoryLoader.setHeifExtractorFlags(HeifExtractor.FLAG_READ_IMAGE);
     }
 
     MediaSource.Factory mediaSourceFactory;
@@ -640,6 +650,7 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
     @Nullable private CmcdConfiguration.Factory cmcdConfigurationFactory;
     @Nullable private DrmSessionManagerProvider drmSessionManagerProvider;
     @Nullable private LoadErrorHandlingPolicy loadErrorHandlingPolicy;
+    @Nullable private Supplier<ReleasableExecutor> downloadExecutorSupplier;
 
     public DelegateFactoryLoader(
         ExtractorsFactory extractorsFactory, SubtitleParser.Factory subtitleParserFactory) {
@@ -673,6 +684,9 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
       }
       if (loadErrorHandlingPolicy != null) {
         mediaSourceFactory.setLoadErrorHandlingPolicy(loadErrorHandlingPolicy);
+      }
+      if (downloadExecutorSupplier != null) {
+        mediaSourceFactory.setDownloadExecutor(downloadExecutorSupplier);
       }
       mediaSourceFactory.setSubtitleParserFactory(subtitleParserFactory);
       mediaSourceFactory.experimentalParseSubtitlesDuringExtraction(parseSubtitlesDuringExtraction);
@@ -740,6 +754,19 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
     public void setJpegExtractorFlags(@JpegExtractor.Flags int flags) {
       if (this.extractorsFactory instanceof DefaultExtractorsFactory) {
         ((DefaultExtractorsFactory) this.extractorsFactory).setJpegExtractorFlags(flags);
+      }
+    }
+
+    private void setHeifExtractorFlags(@HeifExtractor.Flags int flags) {
+      if (this.extractorsFactory instanceof DefaultExtractorsFactory) {
+        ((DefaultExtractorsFactory) this.extractorsFactory).setHeifExtractorFlags(flags);
+      }
+    }
+
+    public void setDownloadExecutor(Supplier<ReleasableExecutor> downloadExecutor) {
+      this.downloadExecutorSupplier = downloadExecutor;
+      for (MediaSource.Factory mediaSourceFactory : mediaSourceFactories.values()) {
+        mediaSourceFactory.setDownloadExecutor(downloadExecutor);
       }
     }
 

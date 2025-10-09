@@ -15,8 +15,9 @@
  */
 package androidx.media3.extractor.metadata.emsg;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import androidx.media3.common.Metadata;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.extractor.metadata.MetadataInputBuffer;
@@ -35,8 +36,8 @@ public final class EventMessageDecoder extends SimpleMetadataDecoder {
   }
 
   public EventMessage decode(ParsableByteArray emsgData) {
-    String schemeIdUri = Assertions.checkNotNull(emsgData.readNullTerminatedString());
-    String value = Assertions.checkNotNull(emsgData.readNullTerminatedString());
+    String schemeIdUri = checkNotNull(emsgData.readNullTerminatedString());
+    String value = checkNotNull(emsgData.readNullTerminatedString());
     long durationMs = emsgData.readLong();
     long id = emsgData.readLong();
     byte[] messageData =

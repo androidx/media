@@ -15,10 +15,16 @@
  */
 package androidx.media3.exoplayer.drm;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.atLeast;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 import android.os.Looper;
 import androidx.annotation.Nullable;
@@ -37,11 +43,14 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowLooper;
+import org.robolectric.shadows.ShadowSystemClock;
 
 /** Tests for {@link DefaultDrmSessionManager} and {@link DefaultDrmSession}. */
 // TODO: Test more branches:
@@ -80,6 +89,96 @@ public class DefaultDrmSessionManagerTest {
     assertThat(drmSession.getState()).isEqualTo(DrmSession.STATE_OPENED_WITH_KEYS);
     assertThat(drmSession.queryKeyStatus())
         .containsExactly(FakeExoMediaDrm.KEY_STATUS_KEY, FakeExoMediaDrm.KEY_STATUS_AVAILABLE);
+  }
+
+  @Test(timeout = 10_000)
+  public void acquireSession_retries_reportsMultipleLoadEvents() {
+    FakeExoMediaDrm.LicenseServer licenseServer =
+        new FakeExoMediaDrm.LicenseServer.Builder()
+            .addAllowedSchemeDatas(DRM_SCHEME_DATAS)
+            .setFailedRequestCount(1)
+            .build();
+    MediaDrmCallback clockAdvancingLicenseServer =
+        new MediaDrmCallback() {
+          private long requestDurationMs = 100;
+
+          @Override
+          public Response executeProvisionRequest(UUID uuid, ExoMediaDrm.ProvisionRequest request)
+              throws MediaDrmCallbackException {
+            ShadowSystemClock.advanceBy(requestDurationMs, TimeUnit.MILLISECONDS);
+            requestDurationMs += 100;
+            return licenseServer.executeProvisionRequest(uuid, request);
+          }
+
+          @Override
+          public Response executeKeyRequest(UUID uuid, ExoMediaDrm.KeyRequest request)
+              throws MediaDrmCallbackException {
+            ShadowSystemClock.advanceBy(requestDurationMs, TimeUnit.MILLISECONDS);
+            requestDurationMs += 100;
+            return licenseServer.executeKeyRequest(uuid, request);
+          }
+        };
+
+    DrmSessionEventListener.EventDispatcher eventDispatcher =
+        new DrmSessionEventListener.EventDispatcher();
+    DrmSessionEventListener drmSessionEventListener = mock(DrmSessionEventListener.class);
+    eventDispatcher.addEventListener(Util.createHandlerForCurrentLooper(), drmSessionEventListener);
+
+    DefaultDrmSessionManager drmSessionManager =
+        new DefaultDrmSessionManager.Builder()
+            .setUuidAndExoMediaDrmProvider(
+                DRM_SCHEME_UUID, uuid -> new FakeExoMediaDrm.Builder().build())
+            .build(/* mediaDrmCallback= */ clockAdvancingLicenseServer);
+    drmSessionManager.setPlayer(/* playbackLooper= */ Looper.myLooper(), PlayerId.UNSET);
+    drmSessionManager.prepare();
+    DrmSession drmSession =
+        checkNotNull(
+            drmSessionManager.acquireSession(
+                /* eventDispatcher= */ eventDispatcher, FORMAT_WITH_DRM_INIT_DATA));
+
+    ArgumentCaptor<KeyRequestInfo> keyRequestInfoCaptor =
+        ArgumentCaptor.forClass(KeyRequestInfo.class);
+    // Wait for the key load event to propagate
+    while (keyRequestInfoCaptor.getAllValues().isEmpty()) {
+      ShadowLooper.idleMainLooper();
+      verify(drmSessionEventListener, atLeast(0))
+          .onDrmKeysLoaded(
+              /* windowIndex= */ anyInt(),
+              /* mediaPeriodId= */ any(),
+              keyRequestInfoCaptor.capture());
+    }
+
+    assertThat(keyRequestInfoCaptor.getValue().loadInfos).hasSize(2);
+    assertThat(keyRequestInfoCaptor.getValue().loadInfos.get(0).bytesLoaded).isEqualTo(0);
+    assertThat(keyRequestInfoCaptor.getValue().loadInfos.get(0).loadDurationMs).isEqualTo(100);
+    assertThat(keyRequestInfoCaptor.getValue().loadInfos.get(1).bytesLoaded).isGreaterThan(0);
+    // First request takes 100ms, and the retry 200ms, so 300ms in total.
+    assertThat(keyRequestInfoCaptor.getValue().loadInfos.get(1).loadDurationMs).isEqualTo(300);
+
+    // Assert the retry is 'immediate'
+    assertThat(
+            keyRequestInfoCaptor.getValue().loadInfos.get(0).elapsedRealtimeMs
+                - keyRequestInfoCaptor.getValue().loadInfos.get(0).loadDurationMs)
+        .isEqualTo(
+            keyRequestInfoCaptor.getValue().loadInfos.get(1).elapsedRealtimeMs
+                - keyRequestInfoCaptor.getValue().loadInfos.get(1).loadDurationMs);
+
+    // Assert that the load task IDs and URIs are the same for each retry.
+    assertThat(
+            keyRequestInfoCaptor.getValue().loadInfos.stream()
+                .map(eventInfo -> eventInfo.loadTaskId)
+                .distinct()
+                .collect(onlyElement()))
+        .isAtLeast(0);
+    assertThat(
+            keyRequestInfoCaptor.getValue().loadInfos.stream()
+                .map(eventInfo -> eventInfo.dataSpec.uri)
+                .distinct()
+                .collect(onlyElement()))
+        .isEqualTo(FakeExoMediaDrm.LICENSE_SERVER_URI);
+
+    drmSession.release(eventDispatcher);
+    drmSessionManager.release();
   }
 
   @Test(timeout = 10_000)
@@ -436,7 +535,9 @@ public class DefaultDrmSessionManagerTest {
         new DrmSessionEventListener() {
           @Override
           public void onDrmKeysLoaded(
-              int windowIndex, @Nullable MediaSource.MediaPeriodId mediaPeriodId) {
+              int windowIndex,
+              @Nullable MediaSource.MediaPeriodId mediaPeriodId,
+              KeyRequestInfo keyRequestInfo) {
             keyLoadCount.incrementAndGet();
           }
         });
@@ -811,8 +912,10 @@ public class DefaultDrmSessionManagerTest {
   private static void keyResponseIndicatesProvisioningRequiredProvisioningDone(
       boolean throwNoSuchMethodErrorForNotProvisioned) {
     FakeExoMediaDrm.LicenseServer licenseServer =
-        FakeExoMediaDrm.LicenseServer.requiringProvisioningThenAllowingSchemeDatas(
-            DRM_SCHEME_DATAS);
+        new FakeExoMediaDrm.LicenseServer.Builder()
+            .addAllowedSchemeDatas(DRM_SCHEME_DATAS)
+            .setRequiresProvisioning(true)
+            .build();
 
     DefaultDrmSessionManager drmSessionManager =
         new DefaultDrmSessionManager.Builder()

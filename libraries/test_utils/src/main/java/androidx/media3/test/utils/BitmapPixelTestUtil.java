@@ -15,11 +15,11 @@
  */
 package androidx.media3.test.utils;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 import static java.lang.Math.abs;
 import static java.lang.Math.max;
@@ -436,7 +436,9 @@ public class BitmapPixelTestUtil {
     if (path != null) {
       File folder = new File(path);
       checkState(
-          folder.exists() || folder.mkdirs(), "Could not create directory to save images: " + path);
+          folder.exists() || folder.mkdirs(),
+          "Could not create directory to save images: %s",
+          path);
       file = new File(path, fileName);
     } else {
       file = new File(getApplicationContext().getExternalCacheDir(), fileName);

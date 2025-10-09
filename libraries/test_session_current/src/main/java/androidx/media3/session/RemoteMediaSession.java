@@ -379,6 +379,10 @@ public class RemoteMediaSession {
       binder.notifyAudioAttributesChanged(sessionId, audioAttributes.toBundle());
     }
 
+    public void notifyAudioSessionIdChanged(int audioSessionId) throws RemoteException {
+      binder.notifyAudioSessionIdChanged(sessionId, audioSessionId);
+    }
+
     public void notifyAvailableCommandsChanged(Player.Commands commands) throws RemoteException {
       binder.notifyAvailableCommandsChanged(sessionId, commands.toBundle());
     }
@@ -411,6 +415,15 @@ public class RemoteMediaSession {
 
     public void setCurrentMediaItemIndex(int index) throws RemoteException {
       binder.setCurrentMediaItemIndex(sessionId, index);
+    }
+
+    public void setCurrentMediaItemIndexAndPeriodIndex(int mediaItemIndex, int periodIndex)
+        throws RemoteException {
+      binder.setCurrentMediaItemIndexAndPeriodIndex(sessionId, mediaItemIndex, periodIndex);
+    }
+
+    public void setCurrentPeriodIndex(int index) throws RemoteException {
+      binder.setCurrentPeriodIndex(sessionId, index);
     }
 
     public void setTrackSelectionParameters(TrackSelectionParameters parameters)

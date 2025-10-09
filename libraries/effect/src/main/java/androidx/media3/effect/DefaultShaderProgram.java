@@ -19,9 +19,9 @@ import static android.opengl.GLES20.GL_FALSE;
 import static android.opengl.GLES20.GL_TRUE;
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.VideoFrameProcessor.INPUT_TYPE_BITMAP;
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.effect.DefaultVideoFrameProcessor.WORKING_COLOR_SPACE_LINEAR;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 
 import android.content.Context;

@@ -15,10 +15,9 @@
  */
 package androidx.media3.extractor.mkv;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.annotation.ElementType.TYPE_USE;
@@ -36,7 +35,6 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.util.Log;
-import androidx.media3.common.util.LongArray;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
@@ -46,6 +44,8 @@ import androidx.media3.container.NalUnitUtil;
 import androidx.media3.extractor.AacUtil;
 import androidx.media3.extractor.AvcConfig;
 import androidx.media3.extractor.ChunkIndex;
+import androidx.media3.extractor.ChunkIndexProvider;
+import androidx.media3.extractor.DtsUtil;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.ExtractorOutput;
@@ -54,6 +54,8 @@ import androidx.media3.extractor.HevcConfig;
 import androidx.media3.extractor.MpegAudioUtil;
 import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.SeekMap;
+import androidx.media3.extractor.SeekPoint;
+import androidx.media3.extractor.TrackAwareSeekMap;
 import androidx.media3.extractor.TrackOutput;
 import androidx.media3.extractor.TrueHdSampleRechunker;
 import androidx.media3.extractor.text.SubtitleParser;
@@ -177,7 +179,6 @@ public class MatroskaExtractor implements Extractor {
   private static final int VORBIS_MAX_INPUT_SIZE = 8192;
   private static final int OPUS_MAX_INPUT_SIZE = 5760;
   private static final int ENCRYPTION_IV_SIZE = 8;
-  private static final int TRACK_TYPE_AUDIO = 2;
 
   private static final int ID_EBML = 0x1A45DFA3;
   private static final int ID_EBML_READ_VERSION = 0x42F7;
@@ -245,6 +246,7 @@ public class MatroskaExtractor implements Extractor {
   private static final int ID_CUES = 0x1C53BB6B;
   private static final int ID_CUE_POINT = 0xBB;
   private static final int ID_CUE_TIME = 0xB3;
+  private static final int ID_CUE_TRACK = 0xF7;
   private static final int ID_CUE_TRACK_POSITIONS = 0xB7;
   private static final int ID_CUE_CLUSTER_POSITION = 0xF1;
   private static final int ID_LANGUAGE = 0x22B59C;
@@ -444,6 +446,7 @@ public class MatroskaExtractor implements Extractor {
   private long durationTimecode = C.TIME_UNSET;
   private long durationUs = C.TIME_UNSET;
   private boolean isWebm;
+  private boolean pendingEndTracks;
 
   // The track corresponding to the current TrackEntry element, or null.
   @Nullable private Track currentTrack;
@@ -456,13 +459,16 @@ public class MatroskaExtractor implements Extractor {
   private long seekEntryPosition;
 
   // Cue related elements.
+  private final SparseArray<List<MatroskaSeekMap.CuePointData>> perTrackCues;
+  private boolean inCuesElement;
+  private long currentCueTimeUs = C.TIME_UNSET;
+  private int currentCueTrackNumber = C.INDEX_UNSET;
+  private long currentCueClusterPosition = C.INDEX_UNSET;
+  private int primarySeekTrackNumber = C.INDEX_UNSET;
   private boolean seekForCues;
   private long cuesContentPosition = C.INDEX_UNSET;
   private long seekPositionAfterBuildingCues = C.INDEX_UNSET;
   private long clusterTimecodeUs = C.TIME_UNSET;
-  @Nullable private LongArray cueTimesUs;
-  @Nullable private LongArray cueClusterPositions;
-  private boolean seenClusterPositionForCurrentCuePoint;
 
   // Reading state.
   private boolean haveOutputSample;
@@ -540,6 +546,7 @@ public class MatroskaExtractor implements Extractor {
     this.reader = reader;
     this.reader.init(new InnerEbmlProcessor());
     this.subtitleParserFactory = subtitleParserFactory;
+    this.perTrackCues = new SparseArray<>();
     seekForCuesEnabled = (flags & FLAG_DISABLE_SEEK_FOR_CUES) == 0;
     parseSubtitlesDuringExtraction = (flags & FLAG_EMIT_RAW_SUBTITLE_DATA) == 0;
     varintReader = new VarintReader();
@@ -555,6 +562,7 @@ public class MatroskaExtractor implements Extractor {
     encryptionSubsampleData = new ParsableByteArray();
     supplementalData = new ParsableByteArray();
     blockSampleSizes = new int[1];
+    pendingEndTracks = true;
   }
 
   @Override
@@ -578,6 +586,10 @@ public class MatroskaExtractor implements Extractor {
     reader.reset();
     varintReader.reset();
     resetWriteSampleData();
+    inCuesElement = false;
+    currentCueTimeUs = C.TIME_UNSET;
+    currentCueTrackNumber = C.INDEX_UNSET;
+    currentCueClusterPosition = C.INDEX_UNSET;
     for (int i = 0; i < tracks.size(); i++) {
       tracks.valueAt(i).reset();
     }
@@ -673,6 +685,7 @@ public class MatroskaExtractor implements Extractor {
       case ID_CONTENT_ENCRYPTION_AES_SETTINGS_CIPHER_MODE:
       case ID_CUE_TIME:
       case ID_CUE_CLUSTER_POSITION:
+      case ID_CUE_TRACK:
       case ID_REFERENCE_BLOCK:
       case ID_STEREO_MODE:
       case ID_COLOUR_BITS_PER_CHANNEL:
@@ -753,11 +766,16 @@ public class MatroskaExtractor implements Extractor {
         seekEntryPosition = C.INDEX_UNSET;
         break;
       case ID_CUES:
-        cueTimesUs = new LongArray();
-        cueClusterPositions = new LongArray();
+        inCuesElement = true;
         break;
       case ID_CUE_POINT:
-        seenClusterPositionForCurrentCuePoint = false;
+        assertInCues(id);
+        currentCueTimeUs = C.TIME_UNSET;
+        break;
+      case ID_CUE_TRACK_POSITIONS:
+        assertInCues(id);
+        currentCueTrackNumber = C.INDEX_UNSET;
+        currentCueClusterPosition = C.INDEX_UNSET;
         break;
       case ID_CLUSTER:
         if (!sentSeekMap) {
@@ -824,13 +842,47 @@ public class MatroskaExtractor implements Extractor {
         break;
       case ID_CUES:
         if (!sentSeekMap) {
-          extractorOutput.seekMap(buildSeekMap(cueTimesUs, cueClusterPositions));
+          boolean hasAnyCues = false;
+          for (int i = 0; i < perTrackCues.size(); i++) {
+            if (!perTrackCues.valueAt(i).isEmpty()) {
+              hasAnyCues = true;
+              break;
+            }
+          }
+          if (!hasAnyCues || durationUs == C.TIME_UNSET) {
+            // Cues are missing, empty, or duration is unknown.
+            extractorOutput.seekMap(new SeekMap.Unseekable(durationUs));
+          } else {
+            for (int i = 0; i < perTrackCues.size(); i++) {
+              Collections.sort(perTrackCues.valueAt(i));
+            }
+            MatroskaSeekMap seekMap =
+                new MatroskaSeekMap(
+                    perTrackCues,
+                    durationUs,
+                    primarySeekTrackNumber,
+                    segmentContentPosition,
+                    segmentContentSize);
+            extractorOutput.seekMap(seekMap);
+          }
           sentSeekMap = true;
-        } else {
-          // We have already built the cues. Ignore.
         }
-        this.cueTimesUs = null;
-        this.cueClusterPositions = null;
+        inCuesElement = false;
+        break;
+      case ID_CUE_TRACK_POSITIONS:
+        assertInCues(id);
+        if (currentCueTimeUs != C.TIME_UNSET
+            && currentCueTrackNumber != C.INDEX_UNSET
+            && currentCueClusterPosition != C.INDEX_UNSET) {
+          List<MatroskaSeekMap.CuePointData> trackCues = perTrackCues.get(currentCueTrackNumber);
+          if (trackCues == null) {
+            trackCues = new ArrayList<>();
+            perTrackCues.put(currentCueTrackNumber, trackCues);
+          }
+          trackCues.add(
+              new MatroskaSeekMap.CuePointData(
+                  currentCueTimeUs, segmentContentPosition + currentCueClusterPosition));
+        }
         break;
       case ID_BLOCK_GROUP:
         if (blockState != BLOCK_STATE_DATA) {
@@ -888,7 +940,7 @@ public class MatroskaExtractor implements Extractor {
         }
         break;
       case ID_TRACK_ENTRY:
-        Track currentTrack = checkStateNotNull(this.currentTrack);
+        Track currentTrack = checkNotNull(this.currentTrack);
         if (currentTrack.codecId == null) {
           throw ParserException.createForMalformedContainer(
               "CodecId is missing in TrackEntry element", /* cause= */ null);
@@ -905,7 +957,44 @@ public class MatroskaExtractor implements Extractor {
           throw ParserException.createForMalformedContainer(
               "No valid tracks were found", /* cause= */ null);
         }
-        extractorOutput.endTracks();
+        // Determine the track to use for default seeking.
+        int defaultVideoTrackNumber = C.INDEX_UNSET;
+        int firstVideoTrackNumber = C.INDEX_UNSET;
+        int defaultAudioTrackNumber = C.INDEX_UNSET;
+        int firstAudioTrackNumber = C.INDEX_UNSET;
+
+        for (int i = 0; i < tracks.size(); i++) {
+          Track trackItem = tracks.valueAt(i);
+          @C.TrackType int trackType = trackItem.type;
+          if (trackType == C.TRACK_TYPE_VIDEO) {
+            if (trackItem.flagDefault) {
+              defaultVideoTrackNumber = trackItem.number;
+            }
+            if (firstVideoTrackNumber == C.INDEX_UNSET) {
+              firstVideoTrackNumber = trackItem.number;
+            }
+          } else if (trackType == C.TRACK_TYPE_AUDIO) {
+            if (trackItem.flagDefault) {
+              defaultAudioTrackNumber = trackItem.number;
+            }
+            if (firstAudioTrackNumber == C.INDEX_UNSET) {
+              firstAudioTrackNumber = trackItem.number;
+            }
+          }
+        }
+
+        if (defaultVideoTrackNumber != C.INDEX_UNSET) {
+          primarySeekTrackNumber = defaultVideoTrackNumber;
+        } else if (firstVideoTrackNumber != C.INDEX_UNSET) {
+          primarySeekTrackNumber = firstVideoTrackNumber;
+        } else if (defaultAudioTrackNumber != C.INDEX_UNSET) {
+          primarySeekTrackNumber = defaultAudioTrackNumber;
+        } else if (firstAudioTrackNumber != C.INDEX_UNSET) {
+          primarySeekTrackNumber = firstAudioTrackNumber;
+        } else {
+          primarySeekTrackNumber = tracks.size() > 0 ? tracks.valueAt(0).number : C.INDEX_UNSET;
+        }
+        maybeEndTracks();
         break;
       default:
         break;
@@ -967,7 +1056,24 @@ public class MatroskaExtractor implements Extractor {
         getCurrentTrack(id).flagForced = value == 1;
         break;
       case ID_TRACK_TYPE:
-        getCurrentTrack(id).type = (int) value;
+        int matroskaTrackType = (int) value;
+        switch (matroskaTrackType) {
+          case 1: // Matroska video
+            getCurrentTrack(id).type = C.TRACK_TYPE_VIDEO;
+            break;
+          case 2: // Matroska audio
+            getCurrentTrack(id).type = C.TRACK_TYPE_AUDIO;
+            break;
+          case 17: // Matroska subtitle
+            getCurrentTrack(id).type = C.TRACK_TYPE_TEXT;
+            break;
+          case 33: // Matroska metadata
+            getCurrentTrack(id).type = C.TRACK_TYPE_METADATA;
+            break;
+          default:
+            getCurrentTrack(id).type = C.TRACK_TYPE_UNKNOWN;
+            break;
+        }
         break;
       case ID_DEFAULT_DURATION:
         getCurrentTrack(id).defaultSampleDurationNs = (int) value;
@@ -1033,16 +1139,16 @@ public class MatroskaExtractor implements Extractor {
         break;
       case ID_CUE_TIME:
         assertInCues(id);
-        cueTimesUs.add(scaleTimecodeToUs(value));
+        currentCueTimeUs = scaleTimecodeToUs(value);
+        break;
+      case ID_CUE_TRACK:
+        assertInCues(id);
+        currentCueTrackNumber = (int) value;
         break;
       case ID_CUE_CLUSTER_POSITION:
-        if (!seenClusterPositionForCurrentCuePoint) {
-          assertInCues(id);
-          // If there's more than one video/audio track, then there could be more than one
-          // CueTrackPositions within a single CuePoint. In such a case, ignore all but the first
-          // one (since the cluster position will be quite close for all the tracks).
-          cueClusterPositions.add(value);
-          seenClusterPositionForCurrentCuePoint = true;
+        assertInCues(id);
+        if (currentCueClusterPosition == C.INDEX_UNSET) {
+          currentCueClusterPosition = value;
         }
         break;
       case ID_TIME_CODE:
@@ -1375,7 +1481,7 @@ public class MatroskaExtractor implements Extractor {
           int timecode = (scratch.getData()[0] << 8) | (scratch.getData()[1] & 0xFF);
           blockTimeUs = clusterTimecodeUs + scaleTimecodeToUs(timecode);
           boolean isKeyframe =
-              track.type == TRACK_TYPE_AUDIO
+              track.type == C.TRACK_TYPE_AUDIO
                   || (id == ID_SIMPLE_BLOCK && (scratch.getData()[2] & 0x80) == 0x80);
           blockFlags = isKeyframe ? C.BUFFER_FLAG_KEY_FRAME : 0;
           blockState = BLOCK_STATE_DATA;
@@ -1456,9 +1562,8 @@ public class MatroskaExtractor implements Extractor {
     }
   }
 
-  @EnsuresNonNull({"cueTimesUs", "cueClusterPositions"})
   private void assertInCues(int id) throws ParserException {
-    if (cueTimesUs == null || cueClusterPositions == null) {
+    if (!inCuesElement) {
       throw ParserException.createForMalformedContainer(
           "Element " + id + " must be in a Cues", /* cause= */ null);
     }
@@ -1562,6 +1667,16 @@ public class MatroskaExtractor implements Extractor {
     } else if (CODEC_ID_VTT.equals(track.codecId)) {
       writeSubtitleSampleData(input, VTT_PREFIX, size);
       return finishWriteSampleData();
+    }
+
+    if (track.waitingForDtsAnalysis) {
+      checkNotNull(track.format);
+      if (DtsUtil.isSampleDtsHd(input, size)) {
+        track.format = track.format.buildUpon().setSampleMimeType(MimeTypes.AUDIO_DTS_HD).build();
+      }
+      track.output.format(track.format);
+      track.waitingForDtsAnalysis = false;
+      maybeEndTracks();
     }
 
     TrackOutput output = track.output;
@@ -1876,60 +1991,6 @@ public class MatroskaExtractor implements Extractor {
   }
 
   /**
-   * Builds a {@link SeekMap} from the recently gathered Cues information.
-   *
-   * @return The built {@link SeekMap}. The returned {@link SeekMap} may be unseekable if cues
-   *     information was missing or incomplete.
-   */
-  private SeekMap buildSeekMap(
-      @Nullable LongArray cueTimesUs, @Nullable LongArray cueClusterPositions) {
-    if (segmentContentPosition == C.INDEX_UNSET
-        || durationUs == C.TIME_UNSET
-        || cueTimesUs == null
-        || cueTimesUs.size() == 0
-        || cueClusterPositions == null
-        || cueClusterPositions.size() != cueTimesUs.size()) {
-      // Cues information is missing or incomplete.
-      return new SeekMap.Unseekable(durationUs);
-    }
-    int cuePointsSize = cueTimesUs.size();
-    int[] sizes = new int[cuePointsSize];
-    long[] offsets = new long[cuePointsSize];
-    long[] durationsUs = new long[cuePointsSize];
-    long[] timesUs = new long[cuePointsSize];
-    for (int i = 0; i < cuePointsSize; i++) {
-      timesUs[i] = cueTimesUs.get(i);
-      offsets[i] = segmentContentPosition + cueClusterPositions.get(i);
-    }
-    for (int i = 0; i < cuePointsSize - 1; i++) {
-      sizes[i] = (int) (offsets[i + 1] - offsets[i]);
-      durationsUs[i] = timesUs[i + 1] - timesUs[i];
-    }
-
-    // Start from the last cue point and move backward until a valid duration is found.
-    int lastValidIndex = cuePointsSize - 1;
-    while (lastValidIndex > 0 && timesUs[lastValidIndex] > durationUs) {
-      lastValidIndex--;
-    }
-
-    // Calculate sizes and durations for the last valid index
-    sizes[lastValidIndex] =
-        (int) (segmentContentPosition + segmentContentSize - offsets[lastValidIndex]);
-    durationsUs[lastValidIndex] = durationUs - timesUs[lastValidIndex];
-
-    // If the last valid index is not the last cue point, truncate the arrays
-    if (lastValidIndex < cuePointsSize - 1) {
-      Log.w(TAG, "Discarding trailing cue points with timestamps greater than total duration");
-      sizes = Arrays.copyOf(sizes, lastValidIndex + 1);
-      offsets = Arrays.copyOf(offsets, lastValidIndex + 1);
-      durationsUs = Arrays.copyOf(durationsUs, lastValidIndex + 1);
-      timesUs = Arrays.copyOf(timesUs, lastValidIndex + 1);
-    }
-
-    return new ChunkIndex(sizes, offsets, durationsUs, timesUs);
-  }
-
-  /**
    * Updates the position of the holder to Cues element's position if the extractor configuration
    * permits use of master seek entry. After building Cues sets the holder's position back to where
    * it was before.
@@ -2022,7 +2083,20 @@ public class MatroskaExtractor implements Extractor {
 
   @EnsuresNonNull("extractorOutput")
   private void assertInitialized() {
-    checkStateNotNull(extractorOutput);
+    checkNotNull(extractorOutput);
+  }
+
+  private void maybeEndTracks() {
+    if (!pendingEndTracks) {
+      return;
+    }
+    for (int i = 0; i < tracks.size(); i++) {
+      if (tracks.valueAt(i).waitingForDtsAnalysis) {
+        return;
+      }
+    }
+    checkNotNull(extractorOutput).endTracks();
+    pendingEndTracks = false;
   }
 
   /** Passes events through to the outer {@link MatroskaExtractor}. */
@@ -2087,7 +2161,7 @@ public class MatroskaExtractor implements Extractor {
     public @MonotonicNonNull String name;
     public @MonotonicNonNull String codecId;
     public int number;
-    public int type;
+    public @C.TrackType int type;
     public int defaultSampleDurationNs;
     public int maxBlockAdditionId;
     private int blockAddIdType;
@@ -2135,14 +2209,18 @@ public class MatroskaExtractor implements Extractor {
     public long codecDelayNs = 0;
     public long seekPreRollNs = 0;
     public @MonotonicNonNull TrueHdSampleRechunker trueHdSampleRechunker;
+    public boolean waitingForDtsAnalysis = false;
 
     // Text elements.
     public boolean flagForced;
+
+    // Common track elements.
     public boolean flagDefault = true;
     private String language = "eng";
 
     // Set when the output is initialized. nalUnitLengthFieldLength is only set for H264/H265.
     public @MonotonicNonNull TrackOutput output;
+    public @MonotonicNonNull Format format;
     public int nalUnitLengthFieldLength;
 
     /** Initializes the track with an output. */
@@ -2246,7 +2324,8 @@ public class MatroskaExtractor implements Extractor {
           break;
         case CODEC_ID_DTS:
         case CODEC_ID_DTS_EXPRESS:
-          mimeType = MimeTypes.AUDIO_DTS;
+          mimeType = MimeTypes.AUDIO_DTS; // temporary
+          waitingForDtsAnalysis = true;
           break;
         case CODEC_ID_DTS_LOSSLESS:
           mimeType = MimeTypes.AUDIO_DTS_HD;
@@ -2445,7 +2524,7 @@ public class MatroskaExtractor implements Extractor {
         formatBuilder.setLabel(name);
       }
 
-      Format format =
+      format =
           formatBuilder
               .setId(trackId)
               .setContainerMimeType(isWebm ? MimeTypes.VIDEO_WEBM : MimeTypes.VIDEO_MATROSKA)
@@ -2459,7 +2538,9 @@ public class MatroskaExtractor implements Extractor {
               .build();
 
       this.output = output.track(number, type);
-      this.output.format(format);
+      if (!waitingForDtsAnalysis) {
+        this.output.format(format);
+      }
     }
 
     /** Forces any pending sample metadata to be flushed to the output. */
@@ -2670,6 +2751,181 @@ public class MatroskaExtractor implements Extractor {
             "Missing CodecPrivate for codec " + codecId, /* cause= */ null);
       }
       return codecPrivate;
+    }
+  }
+
+  private static final class MatroskaSeekMap implements TrackAwareSeekMap, ChunkIndexProvider {
+
+    @Nullable private final ChunkIndex chunkIndex;
+    private final SparseArray<List<CuePointData>> perTrackCues;
+    private final long durationUs;
+    private final int primarySeekTrackNumber;
+
+    public MatroskaSeekMap(
+        SparseArray<List<CuePointData>> perTrackCues,
+        long durationUs,
+        int primarySeekTrackNumber,
+        long segmentContentPosition,
+        long segmentContentSize) {
+      this.perTrackCues = perTrackCues;
+      this.durationUs = durationUs;
+      this.primarySeekTrackNumber = primarySeekTrackNumber;
+      this.chunkIndex =
+          buildChunkIndex(
+              perTrackCues,
+              durationUs,
+              primarySeekTrackNumber,
+              segmentContentPosition,
+              segmentContentSize);
+    }
+
+    @Override
+    public boolean isSeekable() {
+      // The media is seekable overall only if the primary seek track has cue points.
+      return isSeekable(primarySeekTrackNumber);
+    }
+
+    @Override
+    public boolean isSeekable(int trackId) {
+      List<CuePointData> cuePoints = perTrackCues.get(trackId);
+      return cuePoints != null && !cuePoints.isEmpty();
+    }
+
+    @Override
+    public long getDurationUs() {
+      return durationUs;
+    }
+
+    @Override
+    public SeekPoints getSeekPoints(long timeUs) {
+      if (chunkIndex != null) {
+        return chunkIndex.getSeekPoints(timeUs);
+      }
+      return new SeekPoints(SeekPoint.START);
+    }
+
+    @Override
+    public SeekPoints getSeekPoints(long timeUs, int trackId) {
+      List<CuePointData> cuePoints = perTrackCues.get(trackId);
+      if ((cuePoints == null || cuePoints.isEmpty()) && trackId != primarySeekTrackNumber) {
+        cuePoints = perTrackCues.get(primarySeekTrackNumber);
+      }
+      if (cuePoints == null || cuePoints.isEmpty()) {
+        return new SeekPoints(SeekPoint.START);
+      }
+
+      int bestIndex =
+          Util.binarySearchFloor(
+              cuePoints,
+              new CuePointData(timeUs, C.INDEX_UNSET),
+              /* inclusive= */ true,
+              /* stayInBounds= */ false);
+
+      if (bestIndex != -1) {
+        CuePointData bestCue = cuePoints.get(bestIndex);
+        SeekPoint firstPoint = new SeekPoint(bestCue.timeUs, bestCue.clusterPosition);
+
+        if (bestCue.timeUs < timeUs && bestIndex + 1 < cuePoints.size()) {
+          CuePointData nextCue = cuePoints.get(bestIndex + 1);
+          SeekPoint secondPoint = new SeekPoint(nextCue.timeUs, nextCue.clusterPosition);
+          return new SeekPoints(firstPoint, secondPoint);
+        } else {
+          return new SeekPoints(firstPoint);
+        }
+      } else {
+        CuePointData firstCue = cuePoints.get(0);
+        return new SeekPoints(new SeekPoint(firstCue.timeUs, firstCue.clusterPosition));
+      }
+    }
+
+    @Override
+    @Nullable
+    public ChunkIndex getChunkIndex() {
+      return chunkIndex;
+    }
+
+    @Nullable
+    private static ChunkIndex buildChunkIndex(
+        SparseArray<List<CuePointData>> perTrackCues,
+        long durationUs,
+        int primarySeekTrackNumber,
+        long segmentContentPosition,
+        long segmentContentSize) {
+      List<CuePointData> primaryTrackCuePoints = perTrackCues.get(primarySeekTrackNumber);
+      if (primaryTrackCuePoints == null || primaryTrackCuePoints.isEmpty()) {
+        return null;
+      }
+
+      int cuePointsSize = primaryTrackCuePoints.size();
+      int[] sizes = new int[cuePointsSize];
+      long[] offsets = new long[cuePointsSize];
+      long[] durationsUs = new long[cuePointsSize];
+      long[] timesUs = new long[cuePointsSize];
+
+      for (int i = 0; i < cuePointsSize; i++) {
+        CuePointData cue = primaryTrackCuePoints.get(i);
+        timesUs[i] = cue.timeUs;
+        offsets[i] = cue.clusterPosition;
+      }
+
+      for (int i = 0; i < cuePointsSize - 1; i++) {
+        sizes[i] = (int) (offsets[i + 1] - offsets[i]);
+        durationsUs[i] = timesUs[i + 1] - timesUs[i];
+      }
+
+      // Start from the last cue point and move backward until a valid duration is found.
+      int lastValidIndex = cuePointsSize - 1;
+      while (lastValidIndex > 0 && timesUs[lastValidIndex] >= durationUs) {
+        lastValidIndex--;
+      }
+
+      // Calculate sizes and durations for the last valid index
+      sizes[lastValidIndex] =
+          (int) (segmentContentPosition + segmentContentSize - offsets[lastValidIndex]);
+      durationsUs[lastValidIndex] = durationUs - timesUs[lastValidIndex];
+
+      // If trailing cue points were found, truncate the arrays to the last valid index.
+      if (lastValidIndex < cuePointsSize - 1) {
+        Log.w(TAG, "Discarding trailing cue points with timestamps greater than total duration.");
+        sizes = Arrays.copyOf(sizes, lastValidIndex + 1);
+        offsets = Arrays.copyOf(offsets, lastValidIndex + 1);
+        durationsUs = Arrays.copyOf(durationsUs, lastValidIndex + 1);
+        timesUs = Arrays.copyOf(timesUs, lastValidIndex + 1);
+      }
+
+      return new ChunkIndex(sizes, offsets, durationsUs, timesUs);
+    }
+
+    private static final class CuePointData implements Comparable<CuePointData> {
+      public final long timeUs;
+      public final long clusterPosition;
+
+      public CuePointData(long timeUs, long clusterPosition) {
+        this.timeUs = timeUs;
+        this.clusterPosition = clusterPosition;
+      }
+
+      @Override
+      public int compareTo(CuePointData other) {
+        return Long.compare(timeUs, other.timeUs);
+      }
+
+      @Override
+      public boolean equals(@Nullable Object obj) {
+        if (this == obj) {
+          return true;
+        }
+        if (!(obj instanceof CuePointData)) {
+          return false;
+        }
+        CuePointData other = (CuePointData) obj;
+        return this.timeUs == other.timeUs && this.clusterPosition == other.clusterPosition;
+      }
+
+      @Override
+      public int hashCode() {
+        return Objects.hash(timeUs, clusterPosition);
+      }
     }
   }
 }

@@ -15,8 +15,9 @@
  */
 package androidx.media3.session;
 
-import static androidx.media3.common.util.Assertions.checkState;
+import static androidx.media3.common.util.Util.constrainValue;
 import static androidx.media3.common.util.Util.msToUs;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.os.Looper;
 import android.os.SystemClock;
@@ -487,10 +488,8 @@ import java.util.List;
   public Timeline getCurrentTimelineWithCommandCheck() {
     if (isCommandAvailable(COMMAND_GET_TIMELINE)) {
       return getCurrentTimeline();
-    } else if (isCommandAvailable(COMMAND_GET_CURRENT_MEDIA_ITEM)) {
-      return getCurrentTimeline().isEmpty()
-          ? Timeline.EMPTY
-          : new CurrentMediaItemOnlyTimeline(this);
+    } else if (getCurrentMediaItemWithCommandCheck() != null) {
+      return new CurrentMediaItemOnlyTimeline(/* player= */ this);
     }
     return Timeline.EMPTY;
   }
@@ -599,6 +598,18 @@ import java.util.List;
   public void setVolume(float volume) {
     verifyApplicationThread();
     super.setVolume(volume);
+  }
+
+  @Override
+  public void mute() {
+    verifyApplicationThread();
+    super.mute();
+  }
+
+  @Override
+  public void unmute() {
+    verifyApplicationThread();
+    super.unmute();
   }
 
   @Override
@@ -854,12 +865,31 @@ import java.util.List;
   public PositionInfo createPositionInfo() {
     boolean canAccessCurrentMediaItem = isCommandAvailable(COMMAND_GET_CURRENT_MEDIA_ITEM);
     boolean canAccessTimeline = isCommandAvailable(COMMAND_GET_TIMELINE);
+    int currentMediaItemIndex = canAccessTimeline ? getCurrentMediaItemIndex() : 0;
+    checkState(currentMediaItemIndex >= 0);
+    int currentPeriodIndex = canAccessTimeline ? getCurrentPeriodIndex() : 0;
+    checkState(currentPeriodIndex >= 0);
+    if (canAccessTimeline) {
+      Timeline currentTimeline = getCurrentTimeline();
+      if (!currentTimeline.isEmpty()) {
+        int windowCount = currentTimeline.getWindowCount();
+        checkState(currentMediaItemIndex < windowCount);
+        Timeline.Window window =
+            currentTimeline.getWindow(currentMediaItemIndex, new Timeline.Window());
+        checkState(
+            currentPeriodIndex
+                == constrainValue(
+                    currentPeriodIndex,
+                    /* min= */ window.firstPeriodIndex,
+                    /* max= */ window.lastPeriodIndex));
+      }
+    }
     return new PositionInfo(
         /* windowUid= */ null,
-        canAccessTimeline ? getCurrentMediaItemIndex() : 0,
+        currentMediaItemIndex,
         canAccessCurrentMediaItem ? getCurrentMediaItem() : null,
         /* periodUid= */ null,
-        canAccessTimeline ? getCurrentPeriodIndex() : 0,
+        currentPeriodIndex,
         canAccessCurrentMediaItem ? getCurrentPosition() : 0,
         canAccessCurrentMediaItem ? getContentPosition() : 0,
         canAccessCurrentMediaItem ? getCurrentAdGroupIndex() : C.INDEX_UNSET,
@@ -906,7 +936,9 @@ import java.util.List;
         PlayerInfo.TIMELINE_CHANGE_REASON_DEFAULT,
         getPlaylistMetadataWithCommandCheck(),
         getVolumeWithCommandCheck(),
+        /* unmuteVolume= */ 1f,
         getAudioAttributesWithCommandCheck(),
+        C.AUDIO_SESSION_ID_UNSET,
         getCurrentCuesWithCommandCheck(),
         getDeviceInfo(),
         getDeviceVolumeWithCommandCheck(),
@@ -944,13 +976,7 @@ import java.util.List;
       mediaItem = player.getCurrentMediaItem();
       isSeekable = player.isCurrentMediaItemSeekable();
       isDynamic = player.isCurrentMediaItemDynamic();
-      Timeline timeline = player.getCurrentTimeline();
-      isPlaceholder =
-          !timeline.isEmpty()
-              && player
-                  .getCurrentTimeline()
-                  .getWindow(player.getCurrentMediaItemIndex(), new Window())
-                  .isPlaceholder;
+      isPlaceholder = false;
       liveConfiguration =
           player.isCurrentMediaItemLive() ? MediaItem.LiveConfiguration.UNSET : null;
       durationUs = msToUs(player.getContentDuration());

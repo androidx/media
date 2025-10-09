@@ -15,11 +15,12 @@
  */
 package androidx.media3.exoplayer;
 
+import static com.google.common.base.Preconditions.checkState;
+
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Timeline;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.analytics.PlayerId;
@@ -79,17 +80,17 @@ public abstract class NoSampleRenderer implements Renderer, RendererCapabilities
       long offsetUs,
       MediaSource.MediaPeriodId mediaPeriodId)
       throws ExoPlaybackException {
-    Assertions.checkState(state == STATE_DISABLED);
+    checkState(state == STATE_DISABLED);
     this.configuration = configuration;
     state = STATE_ENABLED;
     onEnabled(joining);
     replaceStream(formats, stream, startPositionUs, offsetUs, mediaPeriodId);
-    onPositionReset(positionUs, joining);
+    onPositionReset(positionUs, joining, /* sampleStreamIsResetToKeyFrame= */ true);
   }
 
   @Override
   public final void start() throws ExoPlaybackException {
-    Assertions.checkState(state == STATE_ENABLED);
+    checkState(state == STATE_ENABLED);
     state = STATE_STARTED;
     onStarted();
   }
@@ -102,7 +103,7 @@ public abstract class NoSampleRenderer implements Renderer, RendererCapabilities
       long offsetUs,
       MediaSource.MediaPeriodId mediaPeriodId)
       throws ExoPlaybackException {
-    Assertions.checkState(!streamIsFinal);
+    checkState(!streamIsFinal);
     this.stream = stream;
     onRendererOffsetChanged(offsetUs);
   }
@@ -137,21 +138,22 @@ public abstract class NoSampleRenderer implements Renderer, RendererCapabilities
   public final void maybeThrowStreamError() throws IOException {}
 
   @Override
-  public final void resetPosition(long positionUs) throws ExoPlaybackException {
+  public final void resetPosition(long positionUs, boolean sampleStreamIsResetToKeyFrame)
+      throws ExoPlaybackException {
     streamIsFinal = false;
-    onPositionReset(positionUs, false);
+    onPositionReset(positionUs, false, sampleStreamIsResetToKeyFrame);
   }
 
   @Override
   public final void stop() {
-    Assertions.checkState(state == STATE_STARTED);
+    checkState(state == STATE_STARTED);
     state = STATE_ENABLED;
     onStopped();
   }
 
   @Override
   public final void disable() {
-    Assertions.checkState(state == STATE_ENABLED);
+    checkState(state == STATE_ENABLED);
     state = STATE_DISABLED;
     stream = null;
     streamIsFinal = false;
@@ -160,7 +162,7 @@ public abstract class NoSampleRenderer implements Renderer, RendererCapabilities
 
   @Override
   public final void reset() {
-    Assertions.checkState(state == STATE_DISABLED);
+    checkState(state == STATE_DISABLED);
     onReset();
   }
 
@@ -235,9 +237,12 @@ public abstract class NoSampleRenderer implements Renderer, RendererCapabilities
    *
    * @param positionUs The new playback position in microseconds.
    * @param joining Whether this renderer is being enabled to join an ongoing playback.
+   * @param sampleStreamIsResetToKeyFrame Whether the sample stream is reset to a key frame.
    * @throws ExoPlaybackException If an error occurs.
    */
-  protected void onPositionReset(long positionUs, boolean joining) throws ExoPlaybackException {
+  protected void onPositionReset(
+      long positionUs, boolean joining, boolean sampleStreamIsResetToKeyFrame)
+      throws ExoPlaybackException {
     // Do nothing.
   }
 

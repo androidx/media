@@ -27,9 +27,9 @@ import android.media.MediaDrm;
 import android.media.MediaDrmResetException;
 import android.media.NotProvisionedException;
 import android.media.ResourceBusyException;
+import android.os.SystemClock;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -38,6 +38,7 @@ import androidx.media3.datasource.DataSourceInputStream;
 import androidx.media3.datasource.DataSpec;
 import androidx.media3.datasource.HttpDataSource;
 import androidx.media3.datasource.StatsDataSource;
+import androidx.media3.exoplayer.source.LoadEventInfo;
 import com.google.common.io.ByteStreams;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
@@ -91,7 +92,7 @@ public final class DrmUtil {
       String diagnosticsInfo = ((MediaDrm.MediaDrmStateException) exception).getDiagnosticInfo();
       int drmErrorCode = Util.getErrorCodeFromPlatformDiagnosticsInfo(diagnosticsInfo);
       return Util.getErrorCodeForMediaDrmErrorCode(drmErrorCode);
-    } else if (SDK_INT >= 23 && Api23.isMediaDrmResetException(exception)) {
+    } else if (exception instanceof MediaDrmResetException) {
       return PlaybackException.ERROR_CODE_DRM_SYSTEM_ERROR;
     } else if (exception instanceof NotProvisionedException
         || isFailureToConstructNotProvisionedException(exception)) {
@@ -146,14 +147,24 @@ public final class DrmUtil {
    *
    * <p>Note that this method is executing the request synchronously and blocks until finished.
    *
+   * <p>The {@link LoadEventInfo} returned inside the {@link MediaDrmCallback.Response} will have
+   * the following fields unset, and they must be updated by caller before the {@link LoadEventInfo}
+   * is used elsewhere:
+   *
+   * <ul>
+   *   <li>{@link LoadEventInfo#loadTaskId}
+   *   <li>{@link LoadEventInfo#loadDurationMs}
+   * </ul>
+   *
    * @param dataSource A {@link DataSource}.
    * @param url The requested URL.
    * @param httpBody The HTTP request payload.
    * @param requestProperties A keyed map of HTTP header request properties.
-   * @return A byte array that holds the response payload.
+   * @return A {@link MediaDrmCallback.Response} that holds the response payload, and {@link
+   *     LoadEventInfo}.
    * @throws MediaDrmCallbackException if an exception was encountered during the download.
    */
-  public static byte[] executePost(
+  public static MediaDrmCallback.Response executePost(
       DataSource dataSource,
       String url,
       @Nullable byte[] httpBody,
@@ -174,7 +185,19 @@ public final class DrmUtil {
       while (true) {
         DataSourceInputStream inputStream = new DataSourceInputStream(statsDataSource, dataSpec);
         try {
-          return ByteStreams.toByteArray(inputStream);
+          byte[] response = ByteStreams.toByteArray(inputStream);
+          LoadEventInfo loadEventInfo =
+              new LoadEventInfo(
+                  -1, // This will be replaced with the actual taskId from the request.
+                  originalDataSpec,
+                  statsDataSource.getLastOpenedUri(),
+                  statsDataSource.getLastResponseHeaders(),
+                  SystemClock.elapsedRealtime(),
+                  /* loadDurationMs= */ 0,
+                  response.length);
+          return new MediaDrmCallback.Response.Builder(response)
+              .setLoadEventInfo(loadEventInfo)
+              .build();
         } catch (HttpDataSource.InvalidResponseCodeException e) {
           @Nullable String redirectUrl = getRedirectUrl(e, manualRedirectCount);
           if (redirectUrl == null) {
@@ -217,15 +240,6 @@ public final class DrmUtil {
     return null;
   }
 
-  @RequiresApi(23)
-  private static final class Api23 {
-
-    public static boolean isMediaDrmResetException(@Nullable Throwable throwable) {
-      return throwable instanceof MediaDrmResetException;
-    }
-  }
-
   // Prevent instantiation.
-
   private DrmUtil() {}
 }

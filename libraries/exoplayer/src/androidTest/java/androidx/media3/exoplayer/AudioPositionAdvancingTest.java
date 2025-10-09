@@ -18,10 +18,14 @@ package androidx.media3.exoplayer;
 import static androidx.media3.test.utils.TestUtil.repeatFlakyTest;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 
 import android.os.Looper;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.PlaybackException;
+import androidx.media3.common.Player;
+import androidx.media3.common.Player.Listener;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.exoplayer.analytics.AnalyticsListener;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -59,6 +63,15 @@ public class AudioPositionAdvancingTest {
             onAdvancingCalled.open();
           }
         };
+    AtomicReference<PlaybackException> playbackException = new AtomicReference<>();
+    Player.Listener playerListener =
+        new Listener() {
+          @Override
+          public void onPlayerError(PlaybackException error) {
+            playbackException.set(error);
+            onAdvancingCalled.open();
+          }
+        };
     AtomicReference<ExoPlayer> player = new AtomicReference<>();
     AtomicLong playbackTriggeredSystemTimeMs = new AtomicLong(C.TIME_UNSET);
     getInstrumentation()
@@ -66,6 +79,7 @@ public class AudioPositionAdvancingTest {
             () -> {
               player.set(new ExoPlayer.Builder(getInstrumentation().getContext()).build());
               player.get().addAnalyticsListener(analyticsListener);
+              player.get().addListener(playerListener);
               player.get().setMediaItem(mediaItem);
               player.get().prepare();
               playbackTriggeredSystemTimeMs.set(System.currentTimeMillis());
@@ -73,6 +87,9 @@ public class AudioPositionAdvancingTest {
             });
 
     assertThat(onAdvancingCalled.block(TIMEOUT_MS)).isTrue();
+    assertWithMessage("Unexpected playback exception thrown: ")
+        .that(playbackException.get())
+        .isNull();
     long currentTimeMs = System.currentTimeMillis();
     long playoutStartSystemTimeMs = Iterables.getOnlyElement(playoutStartSystemTimes);
     assertThat(playoutStartSystemTimeMs).isAtLeast(playbackTriggeredSystemTimeMs.get());
@@ -83,6 +100,9 @@ public class AudioPositionAdvancingTest {
 
     // Expect the callback to *not* be called.
     assertThat(onAdvancingCalled.block(50)).isFalse();
+    assertWithMessage("Unexpected playback exception thrown: ")
+        .that(playbackException.get())
+        .isNull();
 
     getInstrumentation()
         .runOnMainSync(
@@ -91,6 +111,9 @@ public class AudioPositionAdvancingTest {
               player.get().play();
             });
     assertThat(onAdvancingCalled.block(TIMEOUT_MS)).isTrue();
+    assertWithMessage("Unexpected playback exception thrown: ")
+        .that(playbackException.get())
+        .isNull();
     currentTimeMs = System.currentTimeMillis();
     playoutStartSystemTimeMs = Iterables.getLast(playoutStartSystemTimes);
     assertThat(playoutStartSystemTimeMs).isAtLeast(playbackTriggeredSystemTimeMs.get());
@@ -112,18 +135,31 @@ public class AudioPositionAdvancingTest {
             onAdvancingCalled.open();
           }
         };
+    AtomicReference<PlaybackException> playbackException = new AtomicReference<>();
+    Player.Listener playerListener =
+        new Listener() {
+          @Override
+          public void onPlayerError(PlaybackException error) {
+            playbackException.set(error);
+            onAdvancingCalled.open();
+          }
+        };
     AtomicReference<ExoPlayer> player = new AtomicReference<>();
     getInstrumentation()
         .runOnMainSync(
             () -> {
               player.set(new ExoPlayer.Builder(getInstrumentation().getContext()).build());
               player.get().addAnalyticsListener(analyticsListener);
+              player.get().addListener(playerListener);
               player.get().setMediaItem(mediaItem);
               player.get().prepare();
               player.get().play();
             });
 
     assertThat(onAdvancingCalled.block(TIMEOUT_MS)).isTrue();
+    assertWithMessage("Unexpected playback exception thrown: ")
+        .that(playbackException.get())
+        .isNull();
     onAdvancingCalled.close();
 
     AtomicLong playbackTriggeredSystemTimeMs = new AtomicLong(C.TIME_UNSET);
@@ -136,6 +172,9 @@ public class AudioPositionAdvancingTest {
             });
 
     assertThat(onAdvancingCalled.block(TIMEOUT_MS)).isTrue();
+    assertWithMessage("Unexpected playback exception thrown: ")
+        .that(playbackException.get())
+        .isNull();
     long currentTimeMs = System.currentTimeMillis();
     assertThat(playoutStartSystemTimes).hasSize(2);
     long playoutStartSystemTimeMs = playoutStartSystemTimes.get(1);
@@ -164,6 +203,15 @@ public class AudioPositionAdvancingTest {
                   onAdvancingCalled.open();
                 }
               };
+          AtomicReference<PlaybackException> playbackException = new AtomicReference<>();
+          Player.Listener playerListener =
+              new Listener() {
+                @Override
+                public void onPlayerError(PlaybackException error) {
+                  playbackException.set(error);
+                  onAdvancingCalled.open();
+                }
+              };
           AtomicReference<ExoPlayer> playerRef = new AtomicReference<>();
           AtomicLong calculatedStartSystemTimeMs = new AtomicLong();
           ConditionVariable calculationMessageHandled = new ConditionVariable();
@@ -174,6 +222,7 @@ public class AudioPositionAdvancingTest {
                         new ExoPlayer.Builder(getInstrumentation().getContext()).build();
                     playerRef.set(player);
                     player.addAnalyticsListener(analyticsListener);
+                    player.addListener(playerListener);
                     player.setMediaItem(mediaItem);
                     player.prepare();
                     // Assume that after 1 second, the playback position is reliable enough to
@@ -192,6 +241,9 @@ public class AudioPositionAdvancingTest {
                   });
 
           assertThat(onAdvancingCalled.block(TIMEOUT_MS)).isTrue();
+          assertWithMessage("Unexpected playback exception thrown: ")
+              .that(playbackException.get())
+              .isNull();
           assertThat(calculationMessageHandled.block(TIMEOUT_MS)).isTrue();
           assertThat(reportedStartSystemTimeMs.get())
               .isWithin(10)

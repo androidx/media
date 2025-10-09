@@ -15,15 +15,19 @@
  */
 package androidx.media3.transformer;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
+import static com.google.common.base.Preconditions.checkArgument;
 
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.audio.AudioProcessor;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.effect.Presentation;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 /**
  * A sequence of {@link EditedMediaItem} instances.
@@ -172,21 +176,24 @@ public final class EditedMediaItemSequence {
     /**
      * Forces blank frames in the {@linkplain EditedMediaItemSequence sequence}.
      *
-     * <p>This flag is necessary when:
+     * <p>This flag is essential for proper behavior with both {@link Transformer} and {@link
+     * CompositionPlayer} sequences that include {@linkplain #addGap(long) gaps}.
      *
      * <ul>
-     *   <li>The first {@link EditedMediaItem} in the sequence does not contain video, but
-     *       subsequent items do.
-     *   <li>The first item in the sequence is a {@linkplain #addGap(long) gap} and the subsequent
-     *       {@linkplain EditedMediaItem media items} contain video.
+     *   <li>For {@link Transformer}, you must set this flag if:
+     *       <ul>
+     *         <li>The first {@link EditedMediaItem} in the sequence does not contain video, but
+     *             subsequent items do.
+     *         <li>The first item in the sequence is a {@linkplain #addGap(long) gap} and the
+     *             subsequent {@linkplain EditedMediaItem media items} contain video.
+     *       </ul>
+     *       Failing to set it appropriately will cause the export to {@linkplain
+     *       Transformer.Listener#onError(Composition, ExportResult, ExportException) fail}.
+     *   <li>For {@link CompositionPlayer}, you must set this flag whenever the sequence contains
+     *       any gaps, regardless of their position in the sequence.
      * </ul>
      *
-     * <p>If the flag is not set appropriately, then the export will {@linkplain
-     * Transformer.Listener#onError(Composition, ExportResult, ExportException) fail}.
-     *
-     * <p>If the first {@link EditedMediaItem} already contains video, this flag has no effect.
-     *
-     * <p>The MIME type of the output's video track can be set using {@link
+     * <p>For export, the MIME type of the output's video track can be set using {@link
      * Transformer.Builder#setVideoMimeType(String)}.
      *
      * <p>The output resolution must be set using a {@link Presentation} effect on the {@link
@@ -245,31 +252,6 @@ public final class EditedMediaItemSequence {
   /** Forces blank frames in the {@linkplain EditedMediaItemSequence sequence}. */
   public final boolean forceVideoTrack;
 
-  /**
-   * @deprecated Use {@link Builder}.
-   */
-  @Deprecated
-  public EditedMediaItemSequence(
-      EditedMediaItem editedMediaItem, EditedMediaItem... editedMediaItems) {
-    this(new Builder().addItem(editedMediaItem).addItems(editedMediaItems));
-  }
-
-  /**
-   * @deprecated Use {@link Builder}.
-   */
-  @Deprecated
-  public EditedMediaItemSequence(List<EditedMediaItem> editedMediaItems) {
-    this(new Builder().addItems(editedMediaItems));
-  }
-
-  /**
-   * @deprecated Use {@link Builder}.
-   */
-  @Deprecated
-  public EditedMediaItemSequence(List<EditedMediaItem> editedMediaItems, boolean isLooping) {
-    this(new Builder().addItems(editedMediaItems).setIsLooping(isLooping));
-  }
-
   /** Returns a {@link Builder} initialized with the values of this instance. */
   public Builder buildUpon() {
     return new Builder(this);
@@ -298,6 +280,30 @@ public final class EditedMediaItemSequence {
       EditedMediaItemSequence sequence, int index) {
     int mediaItemIndex = getEditedMediaItemIndex(sequence, index);
     return sequence.editedMediaItems.get(mediaItemIndex);
+  }
+
+  /** Returns a {@link JSONObject} that represents the {@code EditedMediaItemSequence}. */
+  /* package */ JSONObject toJsonObject() {
+    JSONObject jsonObject = new JSONObject();
+    try {
+      JSONArray editedMediaItemsJsonArray = new JSONArray();
+      for (int i = 0; i < editedMediaItems.size(); i++) {
+        editedMediaItemsJsonArray.put(editedMediaItems.get(i).toJsonObject());
+      }
+      jsonObject.put("mediaItems", editedMediaItemsJsonArray);
+      jsonObject.put("isLooping", isLooping);
+      jsonObject.put("forceAudioTrack", forceAudioTrack);
+      jsonObject.put("forceVideoTrack", forceVideoTrack);
+      return jsonObject;
+    } catch (JSONException e) {
+      Log.w(/* tag= */ "EditedSequence", "JSON conversion failed.", e);
+      return new JSONObject();
+    }
+  }
+
+  @Override
+  public String toString() {
+    return toJsonObject().toString();
   }
 
   private EditedMediaItemSequence(EditedMediaItemSequence.Builder builder) {

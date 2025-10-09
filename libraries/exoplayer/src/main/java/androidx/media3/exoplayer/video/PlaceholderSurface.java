@@ -18,6 +18,8 @@ package androidx.media3.exoplayer.video;
 import static androidx.media3.common.util.EGLSurfaceTexture.SECURE_MODE_NONE;
 import static androidx.media3.common.util.EGLSurfaceTexture.SECURE_MODE_PROTECTED_PBUFFER;
 import static androidx.media3.common.util.EGLSurfaceTexture.SECURE_MODE_SURFACELESS_CONTEXT;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.content.Context;
 import android.graphics.SurfaceTexture;
@@ -26,10 +28,10 @@ import android.os.HandlerThread;
 import android.os.Message;
 import android.view.Surface;
 import androidx.annotation.Nullable;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.EGLSurfaceTexture;
 import androidx.media3.common.util.EGLSurfaceTexture.SecureMode;
 import androidx.media3.common.util.GlUtil;
+import androidx.media3.common.util.GlUtil.GlException;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import com.google.errorprone.annotations.InlineMe;
@@ -86,7 +88,7 @@ public final class PlaceholderSurface extends Surface {
    *     #isSecureSupported(Context)} returns {@code false}.
    */
   public static PlaceholderSurface newInstance(Context context, boolean secure) {
-    Assertions.checkState(!secure || isSecureSupported(context));
+    checkState(!secure || isSecureSupported(context));
     PlaceholderSurfaceThread thread = new PlaceholderSurfaceThread();
     return thread.init(secure ? secureMode : SECURE_MODE_NONE);
   }
@@ -114,17 +116,22 @@ public final class PlaceholderSurface extends Surface {
   }
 
   private static @SecureMode int getSecureMode(Context context) {
-    if (GlUtil.isProtectedContentExtensionSupported(context)) {
-      if (GlUtil.isSurfacelessContextExtensionSupported()) {
-        return SECURE_MODE_SURFACELESS_CONTEXT;
+    try {
+      if (GlUtil.isProtectedContentExtensionSupported(context)) {
+        if (GlUtil.isSurfacelessContextExtensionSupported()) {
+          return SECURE_MODE_SURFACELESS_CONTEXT;
+        } else {
+          // If we can't use surfaceless contexts, we use a protected 1 * 1 pixel buffer surface.
+          // This may require support for EXT_protected_surface, but in practice it works on some
+          // devices that don't have that extension. See also
+          // https://github.com/google/ExoPlayer/issues/3558.
+          return SECURE_MODE_PROTECTED_PBUFFER;
+        }
       } else {
-        // If we can't use surfaceless contexts, we use a protected 1 * 1 pixel buffer surface.
-        // This may require support for EXT_protected_surface, but in practice it works on some
-        // devices that don't have that extension. See also
-        // https://github.com/google/ExoPlayer/issues/3558.
-        return SECURE_MODE_PROTECTED_PBUFFER;
+        return SECURE_MODE_NONE;
       }
-    } else {
+    } catch (GlException e) {
+      Log.e(TAG, "Failed to determine secure mode due to GL error: " + e.getMessage());
       return SECURE_MODE_NONE;
     }
   }
@@ -168,12 +175,12 @@ public final class PlaceholderSurface extends Surface {
       } else if (initError != null) {
         throw initError;
       } else {
-        return Assertions.checkNotNull(surface);
+        return checkNotNull(surface);
       }
     }
 
     public void release() {
-      Assertions.checkNotNull(handler);
+      checkNotNull(handler);
       handler.sendEmptyMessage(MSG_RELEASE);
     }
 
@@ -213,7 +220,7 @@ public final class PlaceholderSurface extends Surface {
     }
 
     private void initInternal(@SecureMode int secureMode) throws GlUtil.GlException {
-      Assertions.checkNotNull(eglSurfaceTexture);
+      checkNotNull(eglSurfaceTexture);
       eglSurfaceTexture.init(secureMode);
       this.surface =
           new PlaceholderSurface(
@@ -221,7 +228,7 @@ public final class PlaceholderSurface extends Surface {
     }
 
     private void releaseInternal() {
-      Assertions.checkNotNull(eglSurfaceTexture);
+      checkNotNull(eglSurfaceTexture);
       eglSurfaceTexture.release();
     }
   }

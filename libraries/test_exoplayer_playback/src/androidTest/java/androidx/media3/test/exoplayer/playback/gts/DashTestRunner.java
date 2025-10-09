@@ -17,6 +17,8 @@ package androidx.media3.test.exoplayer.playback.gts;
 
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.C.WIDEVINE_UUID;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.media.MediaDrm;
 import android.media.UnsupportedSchemeException;
@@ -27,7 +29,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.TrackGroup;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DefaultDataSource;
@@ -270,7 +271,7 @@ import java.util.List;
         DataSource.Factory dataSourceFactory,
         String... videoFormats) {
       super(tag, fullPlaybackNoSeeking);
-      Assertions.checkArgument(!(isCddLimitedRetry && canIncludeAdditionalVideoFormats));
+      checkArgument(!(isCddLimitedRetry && canIncludeAdditionalVideoFormats));
       this.streamName = streamName;
       this.manifestUrl = manifestUrl;
       this.metricsLogger = metricsLogger;
@@ -437,14 +438,12 @@ import java.util.List;
         int[][][] rendererFormatSupports,
         int[] rendererMixedMimeTypeAdaptationSupports,
         Parameters parameters) {
-      Assertions.checkState(
-          mappedTrackInfo.getRendererType(VIDEO_RENDERER_INDEX) == C.TRACK_TYPE_VIDEO);
-      Assertions.checkState(
-          mappedTrackInfo.getRendererType(AUDIO_RENDERER_INDEX) == C.TRACK_TYPE_AUDIO);
+      checkState(mappedTrackInfo.getRendererType(VIDEO_RENDERER_INDEX) == C.TRACK_TYPE_VIDEO);
+      checkState(mappedTrackInfo.getRendererType(AUDIO_RENDERER_INDEX) == C.TRACK_TYPE_AUDIO);
       TrackGroupArray videoTrackGroups = mappedTrackInfo.getTrackGroups(VIDEO_RENDERER_INDEX);
       TrackGroupArray audioTrackGroups = mappedTrackInfo.getTrackGroups(AUDIO_RENDERER_INDEX);
-      Assertions.checkState(videoTrackGroups.length == 1);
-      Assertions.checkState(audioTrackGroups.length == 1);
+      checkState(videoTrackGroups.length == 1);
+      checkState(audioTrackGroups.length == 1);
       ExoTrackSelection.Definition[] definitions =
           new ExoTrackSelection.Definition[mappedTrackInfo.getRendererCount()];
       definitions[VIDEO_RENDERER_INDEX] =

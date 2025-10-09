@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.source;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.max;
 
 import android.util.Pair;
@@ -25,7 +26,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.Timeline.Window;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.upstream.Allocator;
 import java.util.Objects;
@@ -203,8 +203,7 @@ public final class MaskingMediaSource extends WrappingMediaSource {
     isPrepared = true;
     refreshSourceInfo(this.timeline);
     if (idForMaskingPeriodPreparation != null) {
-      Assertions.checkNotNull(unpreparedMaskingMediaPeriod)
-          .createPeriod(idForMaskingPeriodPreparation);
+      checkNotNull(unpreparedMaskingMediaPeriod).createPeriod(idForMaskingPeriodPreparation);
     }
   }
 

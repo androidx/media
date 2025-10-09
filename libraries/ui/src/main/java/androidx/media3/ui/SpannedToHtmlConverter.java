@@ -16,6 +16,8 @@
  */
 package androidx.media3.ui;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import android.graphics.Typeface;
 import android.text.Html;
 import android.text.Spanned;
@@ -33,7 +35,6 @@ import androidx.media3.common.text.HorizontalTextInVerticalContextSpan;
 import androidx.media3.common.text.RubySpan;
 import androidx.media3.common.text.TextAnnotation;
 import androidx.media3.common.text.TextEmphasisSpan;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Util;
 import com.google.common.collect.ImmutableMap;
 import java.util.ArrayList;
@@ -135,7 +136,7 @@ import java.util.regex.Pattern;
       int spanStart = spanned.getSpanStart(span);
       int spanEnd = spanned.getSpanEnd(span);
       if (openingTag != null) {
-        Assertions.checkNotNull(closingTag);
+        checkNotNull(closingTag);
         SpanInfo spanInfo = new SpanInfo(spanStart, spanEnd, openingTag, closingTag);
         getOrCreate(spanTransitions, spanStart).spansAdded.add(spanInfo);
         getOrCreate(spanTransitions, spanEnd).spansRemoved.add(spanInfo);

@@ -31,8 +31,8 @@ dependencies {
     api project(modulePrefix + 'lib-extractor')
     api project(modulePrefix + 'lib-common')
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
-    // Jsyn v17.1.0
-    implementation 'com.github.philburk:jsyn:40a41092cbab558d7d410ec43d93bb1e4121e86a'
+    // Jsyn v17.2.0
+    implementation 'com.github.philburk:jsyn:3f6b44b853bccc0d2e3027104d575fcc5ccb6d4e'
     compileOnly 'org.checkerframework:checker-qual:' + checkerframeworkVersion
     testImplementation 'androidx.test:core:' + androidxTestCoreVersion
     testImplementation 'androidx.test.ext:junit:' + androidxTestJUnitVersion

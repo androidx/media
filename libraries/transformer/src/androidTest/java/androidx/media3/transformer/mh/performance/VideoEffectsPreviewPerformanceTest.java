@@ -15,8 +15,8 @@
  */
 package androidx.media3.transformer.mh.performance;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_LONG_ASSET_WITH_INCREASING_TIMESTAMPS;
+import static androidx.media3.test.utils.AssetInfo.MP4_LONG_ASSET_WITH_INCREASING_TIMESTAMPS;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.app.Instrumentation;

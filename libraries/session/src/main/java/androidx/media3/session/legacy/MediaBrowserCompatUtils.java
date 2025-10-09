@@ -16,31 +16,29 @@
 package androidx.media3.session.legacy;
 
 import static androidx.annotation.RestrictTo.Scope.LIBRARY;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.os.Bundle;
 import androidx.annotation.Nullable;
 import androidx.annotation.RestrictTo;
-import androidx.media3.common.util.UnstableApi;
 
 /** */
-@UnstableApi
 @RestrictTo(LIBRARY)
 public class MediaBrowserCompatUtils {
   public static boolean areSameOptions(@Nullable Bundle options1, @Nullable Bundle options2) {
     if (options1 == options2) {
       return true;
     } else if (options1 == null) {
-      checkStateNotNull(options2);
+      checkNotNull(options2);
       return options2.getInt(MediaBrowserCompat.EXTRA_PAGE, -1) == -1
           && options2.getInt(MediaBrowserCompat.EXTRA_PAGE_SIZE, -1) == -1;
     } else if (options2 == null && options1 != null) {
-      checkStateNotNull(options1);
+      checkNotNull(options1);
       return options1.getInt(MediaBrowserCompat.EXTRA_PAGE, -1) == -1
           && options1.getInt(MediaBrowserCompat.EXTRA_PAGE_SIZE, -1) == -1;
     } else {
-      checkStateNotNull(options1);
-      checkStateNotNull(options2);
+      checkNotNull(options1);
+      checkNotNull(options2);
       return options1.getInt(MediaBrowserCompat.EXTRA_PAGE, -1)
               == options2.getInt(MediaBrowserCompat.EXTRA_PAGE, -1)
           && options1.getInt(MediaBrowserCompat.EXTRA_PAGE_SIZE, -1)

@@ -16,11 +16,10 @@
 package androidx.media3.session.legacy;
 
 import static androidx.annotation.RestrictTo.Scope.LIBRARY;
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.annotation.SuppressLint;
 import android.media.session.PlaybackState;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
@@ -29,9 +28,7 @@ import android.text.TextUtils;
 import androidx.annotation.IntDef;
 import androidx.annotation.LongDef;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
-import androidx.media3.common.util.UnstableApi;
 import com.google.common.collect.ImmutableList;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -43,7 +40,6 @@ import java.util.List;
  * PlaybackStateCompat#STATE_PLAYING}, the current playback position, and the current control
  * capabilities.
  */
-@UnstableApi
 @RestrictTo(LIBRARY)
 @SuppressLint("BanParcelableUsage")
 public final class PlaybackStateCompat implements Parcelable {
@@ -810,13 +806,8 @@ public final class PlaybackStateCompat implements Parcelable {
           customActions.add(CustomAction.fromCustomAction(customActionFwk));
         }
       }
-      Bundle extras;
-      if (Build.VERSION.SDK_INT >= 22) {
-        extras = Api22Impl.getExtras(stateFwk);
-        MediaSessionCompat.ensureClassLoader(extras);
-      } else {
-        extras = null;
-      }
+      Bundle extras = stateFwk.getExtras();
+      MediaSessionCompat.ensureClassLoader(extras);
       PlaybackStateCompat stateCompat =
           new PlaybackStateCompat(
               stateFwk.getState(),
@@ -858,9 +849,7 @@ public final class PlaybackStateCompat implements Parcelable {
         }
       }
       builder.setActiveQueueItemId(activeItemId);
-      if (Build.VERSION.SDK_INT >= 22) {
-        Api22Impl.setExtras(builder, extras);
-      }
+      builder.setExtras(extras);
       stateFwk = builder.build();
     }
     return stateFwk;
@@ -1338,21 +1327,6 @@ public final class PlaybackStateCompat implements Parcelable {
           customActions,
           activeItemId,
           extras);
-    }
-  }
-
-  @RequiresApi(22)
-  private static class Api22Impl {
-    private Api22Impl() {}
-
-    @SuppressWarnings("argument.type.incompatible") // Platform class not annotated as nullable
-    static void setExtras(PlaybackState.Builder builder, @Nullable Bundle extras) {
-      builder.setExtras(extras);
-    }
-
-    @Nullable
-    static Bundle getExtras(PlaybackState state) {
-      return state.getExtras();
     }
   }
 }

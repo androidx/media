@@ -15,7 +15,8 @@
  */
 package androidx.media3.exoplayer;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 
 import androidx.annotation.GuardedBy;
@@ -24,7 +25,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Timeline;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.decoder.DecoderInputBuffer;
@@ -143,18 +143,18 @@ public abstract class BaseRenderer implements Renderer, RendererCapabilities {
       long offsetUs,
       MediaSource.MediaPeriodId mediaPeriodId)
       throws ExoPlaybackException {
-    Assertions.checkState(state == STATE_DISABLED);
+    checkState(state == STATE_DISABLED);
     this.configuration = configuration;
     this.mediaPeriodId = mediaPeriodId;
     state = STATE_ENABLED;
     onEnabled(joining, mayRenderStartOfStream);
     replaceStream(formats, stream, startPositionUs, offsetUs, mediaPeriodId);
-    resetPosition(startPositionUs, joining);
+    resetPosition(startPositionUs, joining, /* sampleStreamIsResetToKeyFrame= */ true);
   }
 
   @Override
   public final void start() throws ExoPlaybackException {
-    Assertions.checkState(state == STATE_ENABLED);
+    checkState(state == STATE_ENABLED);
     state = STATE_STARTED;
     onStarted();
   }
@@ -167,7 +167,7 @@ public abstract class BaseRenderer implements Renderer, RendererCapabilities {
       long offsetUs,
       MediaSource.MediaPeriodId mediaPeriodId)
       throws ExoPlaybackException {
-    Assertions.checkState(!streamIsFinal);
+    checkState(!streamIsFinal);
     this.stream = stream;
     this.mediaPeriodId = mediaPeriodId;
     if (readingPositionUs == C.TIME_END_OF_SOURCE) {
@@ -206,7 +206,7 @@ public abstract class BaseRenderer implements Renderer, RendererCapabilities {
 
   @Override
   public final void maybeThrowStreamError() throws IOException {
-    Assertions.checkNotNull(stream).maybeThrowError();
+    checkNotNull(stream).maybeThrowError();
   }
 
   @Override
@@ -218,27 +218,33 @@ public abstract class BaseRenderer implements Renderer, RendererCapabilities {
   }
 
   @Override
-  public final void resetPosition(long positionUs) throws ExoPlaybackException {
-    resetPosition(positionUs, /* joining= */ false);
+  public final void resetPosition(long positionUs, boolean sampleStreamIsResetToKeyFrame)
+      throws ExoPlaybackException {
+    resetPosition(positionUs, /* joining= */ false, sampleStreamIsResetToKeyFrame);
   }
 
-  private void resetPosition(long positionUs, boolean joining) throws ExoPlaybackException {
+  private void resetPosition(
+      long positionUs, boolean joining, boolean sampleStreamIsResetToKeyFrame)
+      throws ExoPlaybackException {
     streamIsFinal = false;
     lastResetPositionUs = positionUs;
     readingPositionUs = positionUs;
-    onPositionReset(positionUs, joining);
+    if (!sampleStreamIsResetToKeyFrame) {
+      sampleStreamIsResetToKeyFrame = skipSource(positionUs) != 0;
+    }
+    onPositionReset(positionUs, joining, sampleStreamIsResetToKeyFrame);
   }
 
   @Override
   public final void stop() {
-    Assertions.checkState(state == STATE_STARTED);
+    checkState(state == STATE_STARTED);
     state = STATE_ENABLED;
     onStopped();
   }
 
   @Override
   public final void disable() {
-    Assertions.checkState(state == STATE_ENABLED);
+    checkState(state == STATE_ENABLED);
     formatHolder.clear();
     state = STATE_DISABLED;
     stream = null;
@@ -250,14 +256,14 @@ public abstract class BaseRenderer implements Renderer, RendererCapabilities {
 
   @Override
   public final void reset() {
-    Assertions.checkState(state == STATE_DISABLED);
+    checkState(state == STATE_DISABLED);
     formatHolder.clear();
     onReset();
   }
 
   @Override
   public final void release() {
-    Assertions.checkState(state == STATE_DISABLED);
+    checkState(state == STATE_DISABLED);
     onRelease();
   }
 
@@ -342,15 +348,22 @@ public abstract class BaseRenderer implements Renderer, RendererCapabilities {
    * when a position discontinuity is encountered.
    *
    * <p>After a position reset, the renderer's {@link SampleStream} is guaranteed to provide samples
-   * starting from a key frame.
+   * starting from a key frame if {@code sampleStreamIsResetToKeyFrame} is {@code true}. {@code
+   * sampleStreamIsResetToKeyFrame} is guaranteed to be {@code true} unless the implementation
+   * overrides {@link #supportsResetPositionWithoutKeyFrameReset(long positionUs)} to return {@code
+   * true}.
    *
    * <p>The default implementation is a no-op.
    *
    * @param positionUs The new playback position in microseconds.
    * @param joining Whether this renderer is being enabled to join an ongoing playback.
+   * @param sampleStreamIsResetToKeyFrame Whether the renderer's {@link SampleStream} is guaranteed
+   *     to provide samples starting from a key frame.
    * @throws ExoPlaybackException If an error occurs.
    */
-  protected void onPositionReset(long positionUs, boolean joining) throws ExoPlaybackException {
+  protected void onPositionReset(
+      long positionUs, boolean joining, boolean sampleStreamIsResetToKeyFrame)
+      throws ExoPlaybackException {
     // Do nothing.
   }
 
@@ -444,7 +457,7 @@ public abstract class BaseRenderer implements Renderer, RendererCapabilities {
    * #STATE_ENABLED}, {@link #STATE_STARTED}.
    */
   protected final Format[] getStreamFormats() {
-    return Assertions.checkNotNull(streamFormats);
+    return checkNotNull(streamFormats);
   }
 
   /**
@@ -454,7 +467,7 @@ public abstract class BaseRenderer implements Renderer, RendererCapabilities {
    * #STATE_ENABLED}, {@link #STATE_STARTED}.
    */
   protected final RendererConfiguration getConfiguration() {
-    return Assertions.checkNotNull(configuration);
+    return checkNotNull(configuration);
   }
 
   /**
@@ -573,8 +586,7 @@ public abstract class BaseRenderer implements Renderer, RendererCapabilities {
    */
   protected final @ReadDataResult int readSource(
       FormatHolder formatHolder, DecoderInputBuffer buffer, @ReadFlags int readFlags) {
-    @ReadDataResult
-    int result = Assertions.checkNotNull(stream).readData(formatHolder, buffer, readFlags);
+    @ReadDataResult int result = checkNotNull(stream).readData(formatHolder, buffer, readFlags);
     if (result == C.RESULT_BUFFER_READ) {
       if (buffer.isEndOfStream()) {
         readingPositionUs = C.TIME_END_OF_SOURCE;
@@ -583,7 +595,7 @@ public abstract class BaseRenderer implements Renderer, RendererCapabilities {
       buffer.timeUs += streamOffsetUs;
       readingPositionUs = max(readingPositionUs, buffer.timeUs);
     } else if (result == C.RESULT_FORMAT_READ) {
-      Format format = Assertions.checkNotNull(formatHolder.format);
+      Format format = checkNotNull(formatHolder.format);
       if (format.subsampleOffsetUs != Format.OFFSET_SAMPLE_RELATIVE) {
         format =
             format
@@ -607,7 +619,7 @@ public abstract class BaseRenderer implements Renderer, RendererCapabilities {
    * @return The number of samples that were skipped.
    */
   protected int skipSource(long positionUs) {
-    return Assertions.checkNotNull(stream).skipData(positionUs - streamOffsetUs);
+    return checkNotNull(stream).skipData(positionUs - streamOffsetUs);
   }
 
   /**
@@ -617,7 +629,7 @@ public abstract class BaseRenderer implements Renderer, RendererCapabilities {
    * #STATE_ENABLED}, {@link #STATE_STARTED}.
    */
   protected final boolean isSourceReady() {
-    return hasReadStreamToEnd() ? streamIsFinal : Assertions.checkNotNull(stream).isReady();
+    return hasReadStreamToEnd() ? streamIsFinal : checkNotNull(stream).isReady();
   }
 
   /** Called when the renderer capabilities are changed. */

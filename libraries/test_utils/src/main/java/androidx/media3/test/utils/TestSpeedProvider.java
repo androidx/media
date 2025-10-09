@@ -15,8 +15,8 @@
  */
 package androidx.media3.test.utils;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Util.sampleCountToDurationUs;
+import static com.google.common.base.Preconditions.checkArgument;
 
 import androidx.media3.common.C;
 import androidx.media3.common.audio.AudioProcessor.AudioFormat;

@@ -16,7 +16,7 @@
 
 package androidx.media3.test.utils;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.os.SystemClock;
 import androidx.annotation.Nullable;
@@ -100,8 +100,10 @@ public class FakeVideoRenderer extends FakeRenderer {
   }
 
   @Override
-  protected void onPositionReset(long positionUs, boolean joining) throws ExoPlaybackException {
-    super.onPositionReset(positionUs, joining);
+  protected void onPositionReset(
+      long positionUs, boolean joining, boolean sampleStreamIsResetToKeyFrame)
+      throws ExoPlaybackException {
+    super.onPositionReset(positionUs, joining, sampleStreamIsResetToKeyFrame);
     renderedFirstFrameAfterReset = false;
   }
 

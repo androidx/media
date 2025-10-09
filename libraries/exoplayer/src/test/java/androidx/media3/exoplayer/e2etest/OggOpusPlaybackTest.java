@@ -16,6 +16,7 @@
 package androidx.media3.exoplayer.e2etest;
 
 import static androidx.media3.common.TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_REQUIRED;
+import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
 
 import android.content.Context;
 import androidx.annotation.Nullable;
@@ -34,7 +35,6 @@ import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.Dumper;
 import androidx.media3.test.utils.FakeClock;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
-import androidx.media3.test.utils.robolectric.TestPlayerRunHelper;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.nio.ByteBuffer;
@@ -83,9 +83,10 @@ public final class OggOpusPlaybackTest {
             .build();
     player.setMediaItem(MediaItem.fromUri("asset:///media/ogg/" + INPUT_FILE));
     player.prepare();
+    advance(player).untilState(Player.STATE_READY);
     player.play();
 
-    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+    advance(player).untilState(Player.STATE_ENDED);
     player.release();
 
     DumpFileAsserts.assertOutput(
@@ -104,9 +105,10 @@ public final class OggOpusPlaybackTest {
     player.setMediaItem(MediaItem.fromUri("asset:///media/ogg/" + INPUT_FILE));
     player.prepare();
     player.seekTo(/* positionMs= */ 1415);
+    advance(player).untilState(Player.STATE_READY);
     player.play();
 
-    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+    advance(player).untilState(Player.STATE_ENDED);
     player.release();
 
     DumpFileAsserts.assertOutput(

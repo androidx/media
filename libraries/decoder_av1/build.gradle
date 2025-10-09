@@ -19,19 +19,15 @@ android {
     defaultConfig {
         externalNativeBuild {
             cmake {
-                // Debug CMake build type causes video frames to drop,
-                // so native library should always use Release build type.
-                arguments "-DCMAKE_BUILD_TYPE=Release"
-                arguments "-DBUILD_TESTING=OFF"
-                targets "gav1JNI"
+                targets "dav1dJNI"
             }
         }
     }
 }
 
-// Configure the native build only if libgav1 is present to avoid gradle sync
-// failures if libgav1 hasn't been built according to the README instructions.
-if (project.file('src/main/jni/libgav1').exists()) {
+// Configure the native build only if dav1d is present to avoid gradle sync
+// failures if dav1d hasn't been built according to the README instructions.
+if (project.file('src/main/jni/dav1d').exists()) {
     android.externalNativeBuild.cmake {
         path = 'src/main/jni/CMakeLists.txt'
         version = '3.21.0+'
@@ -51,6 +47,7 @@ dependencies {
     implementation project(modulePrefix + 'lib-exoplayer')
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
     compileOnly 'org.jetbrains.kotlin:kotlin-annotations-jvm:' + kotlinAnnotationsVersion
+    compileOnly 'com.google.errorprone:error_prone_annotations:' + errorProneVersion
     testImplementation project(modulePrefix + 'test-utils')
     testImplementation 'org.robolectric:robolectric:' + robolectricVersion
     androidTestImplementation project(modulePrefix + 'test-utils')

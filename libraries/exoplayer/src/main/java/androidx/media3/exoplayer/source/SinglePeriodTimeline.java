@@ -15,14 +15,14 @@
  */
 package androidx.media3.exoplayer.source;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkElementIndex;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.net.Uri;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Timeline;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 
 /** A {@link Timeline} consisting of a single period and static window. */
@@ -310,7 +310,7 @@ public final class SinglePeriodTimeline extends Timeline {
   // Provide backwards compatibility.
   @Override
   public Window getWindow(int windowIndex, Window window, long defaultPositionProjectionUs) {
-    Assertions.checkIndex(windowIndex, 0, 1);
+    checkElementIndex(windowIndex, 1);
     long windowDefaultStartPositionUs = this.windowDefaultStartPositionUs;
     if (isDynamic && !suppressPositionProjection && defaultPositionProjectionUs != 0) {
       if (windowDurationUs == C.TIME_UNSET) {
@@ -348,7 +348,7 @@ public final class SinglePeriodTimeline extends Timeline {
 
   @Override
   public Period getPeriod(int periodIndex, Period period, boolean setIds) {
-    Assertions.checkIndex(periodIndex, 0, 1);
+    checkElementIndex(periodIndex, 1);
     @Nullable Object uid = setIds ? UID : null;
     return period.set(/* id= */ null, uid, 0, periodDurationUs, -windowPositionInPeriodUs);
   }
@@ -360,7 +360,7 @@ public final class SinglePeriodTimeline extends Timeline {
 
   @Override
   public Object getUidOfPeriod(int periodIndex) {
-    Assertions.checkIndex(periodIndex, 0, 1);
+    checkElementIndex(periodIndex, 1);
     return UID;
   }
 }

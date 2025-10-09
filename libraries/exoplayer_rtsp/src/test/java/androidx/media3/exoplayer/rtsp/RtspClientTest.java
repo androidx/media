@@ -15,7 +15,7 @@
  */
 package androidx.media3.exoplayer.rtsp;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.net.Uri;

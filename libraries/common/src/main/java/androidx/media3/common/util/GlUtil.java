@@ -19,8 +19,8 @@ import static android.opengl.EGL14.EGL_CONTEXT_CLIENT_VERSION;
 import static android.opengl.GLU.gluErrorString;
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkState;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.content.Context;
 import android.content.pm.PackageManager;
@@ -182,7 +182,7 @@ public final class GlUtil {
    *
    * <p>If {@code true}, the device supports a protected output path for DRM content when using GL.
    */
-  public static boolean isProtectedContentExtensionSupported(Context context) {
+  public static boolean isProtectedContentExtensionSupported(Context context) throws GlException {
     if (SDK_INT < 24) {
       return false;
     }
@@ -211,7 +211,7 @@ public final class GlUtil {
    * surfaces in a call to {@link EGL14#eglMakeCurrent(EGLDisplay, EGLSurface, EGLSurface,
    * EGLContext)}.
    */
-  public static boolean isSurfacelessContextExtensionSupported() {
+  public static boolean isSurfacelessContextExtensionSupported() throws GlException {
     return isExtensionSupported(EXTENSION_SURFACELESS_CONTEXT);
   }
 
@@ -242,7 +242,8 @@ public final class GlUtil {
   }
 
   /** Returns whether the given {@link C.ColorTransfer} is supported. */
-  public static boolean isColorTransferSupported(@C.ColorTransfer int colorTransfer) {
+  public static boolean isColorTransferSupported(@C.ColorTransfer int colorTransfer)
+      throws GlException {
     if (colorTransfer == C.COLOR_TRANSFER_ST2084) {
       return GlUtil.isBt2020PqExtensionSupported();
     } else if (colorTransfer == C.COLOR_TRANSFER_HLG) {
@@ -252,14 +253,14 @@ public final class GlUtil {
   }
 
   /** Returns whether {@link #EXTENSION_COLORSPACE_BT2020_PQ} is supported. */
-  public static boolean isBt2020PqExtensionSupported() {
+  public static boolean isBt2020PqExtensionSupported() throws GlException {
     // On API<33, the system cannot display PQ content correctly regardless of whether BT2020 PQ
     // GL extension is supported. Context: http://b/252537203#comment5.
     return SDK_INT >= 33 && isExtensionSupported(EXTENSION_COLORSPACE_BT2020_PQ);
   }
 
   /** Returns whether {@link #EXTENSION_COLORSPACE_BT2020_HLG} is supported. */
-  public static boolean isBt2020HlgExtensionSupported() {
+  public static boolean isBt2020HlgExtensionSupported() throws GlException {
     return isExtensionSupported(EXTENSION_COLORSPACE_BT2020_HLG);
   }
 
@@ -843,6 +844,10 @@ public final class GlUtil {
       EGL14.eglDestroyContext(eglDisplay, eglContext);
       checkEglException("Error destroying context");
     }
+  }
+
+  /** Terminates the {@link EGLDisplay} connection. */
+  public static void terminate(EGLDisplay eglDisplay) throws GlException {
     EGL14.eglReleaseThread();
     checkEglException("Error releasing thread");
     EGL14.eglTerminate(eglDisplay);
@@ -1081,8 +1086,8 @@ public final class GlUtil {
     return eglConfigs[0];
   }
 
-  private static boolean isExtensionSupported(String extensionName) {
-    EGLDisplay display = EGL14.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY);
+  private static boolean isExtensionSupported(String extensionName) throws GlException {
+    EGLDisplay display = getDefaultEglDisplay();
     @Nullable String eglExtensions = EGL14.eglQueryString(display, EGL10.EGL_EXTENSIONS);
     return eglExtensions != null && eglExtensions.contains(extensionName);
   }

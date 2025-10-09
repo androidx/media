@@ -15,7 +15,7 @@
  */
 package androidx.media3.exoplayer.hls;
 
-import static androidx.media3.common.util.Assertions.checkState;
+import static com.google.common.base.Preconditions.checkState;
 
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.Format;
@@ -123,7 +123,8 @@ public final class BundledHlsMediaChunkExtractor implements HlsMediaChunkExtract
     checkState(!isReusable());
     checkState(
         extractor.getUnderlyingImplementation() == extractor,
-        "Can't recreate wrapped extractors. Outer type: " + extractor.getClass());
+        "Can't recreate wrapped extractors. Outer type: %s",
+        extractor.getClass());
     Extractor newExtractorInstance;
     // LINT.IfChange(extractor_instantiation)
     if (extractor instanceof WebvttExtractor) {

@@ -31,7 +31,6 @@ import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
 import androidx.core.util.ObjectsCompat;
-import androidx.media3.common.util.UnstableApi;
 
 /**
  * Provides support for interacting with {@link MediaSessionCompat media sessions} that applications
@@ -40,7 +39,6 @@ import androidx.media3.common.util.UnstableApi;
  * @see MediaSessionCompat
  * @see MediaControllerCompat
  */
-@UnstableApi
 @RestrictTo(LIBRARY)
 public final class MediaSessionManager {
   static final String TAG = "MediaSessionManager";
@@ -264,6 +262,7 @@ public final class MediaSessionManager {
       return isPermissionGranted(userInfo, PERMISSION_STATUS_BAR_SERVICE)
           || isPermissionGranted(userInfo, PERMISSION_MEDIA_CONTENT_CONTROL)
           || userInfo.getUid() == Process.SYSTEM_UID
+          || userInfo.getUid() == Process.myUid()
           || isEnabledNotificationListener(userInfo);
     }
 

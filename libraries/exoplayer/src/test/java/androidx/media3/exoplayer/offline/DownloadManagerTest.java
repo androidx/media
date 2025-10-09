@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.offline;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.Arrays.asList;
 
@@ -22,7 +23,6 @@ import android.net.Uri;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.media3.common.StreamKey;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.exoplayer.scheduler.Requirements;
 import androidx.media3.test.utils.DownloadBuilder;
 import androidx.media3.test.utils.DummyMainThread;
@@ -814,7 +814,7 @@ public class DownloadManagerTest {
   }
 
   private FakeDownloader getDownloaderAt(int index) throws InterruptedException {
-    return Assertions.checkNotNull(getDownloaderInternal(index, TIMEOUT_MS));
+    return checkNotNull(getDownloaderInternal(index, TIMEOUT_MS));
   }
 
   private void assertNoDownloaderAt(int index) throws InterruptedException {

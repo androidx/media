@@ -16,15 +16,18 @@
 
 package androidx.media3.transformer.mh.analysis;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_1080P_5_SECOND_HLG10;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_H264_1080P_10SEC_VIDEO;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_H264_4K_10SEC_VIDEO;
 import static androidx.media3.transformer.VideoEncoderSettings.NO_VALUE;
 import static androidx.media3.transformer.VideoEncoderSettings.RATE_UNSET;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.content.Context;
 import android.net.Uri;
 import androidx.media3.common.MediaItem;
+import androidx.media3.test.utils.AssetInfo;
 import androidx.media3.transformer.AndroidTestUtil;
-import androidx.media3.transformer.AndroidTestUtil.AssetInfo;
 import androidx.media3.transformer.DefaultEncoderFactory;
 import androidx.media3.transformer.EditedMediaItem;
 import androidx.media3.transformer.Transformer;
@@ -52,9 +55,9 @@ public class EncoderPerformanceAnalysisTest {
 
   private static final ImmutableList<AssetInfo> INPUT_ASSETS =
       ImmutableList.of(
-          AndroidTestUtil.MP4_ASSET_H264_4K_10SEC_VIDEO,
-          AndroidTestUtil.MP4_ASSET_H264_1080P_10SEC_VIDEO,
-          AndroidTestUtil.MP4_ASSET_1080P_5_SECOND_HLG10);
+          MP4_ASSET_H264_4K_10SEC_VIDEO,
+          MP4_ASSET_H264_1080P_10SEC_VIDEO,
+          MP4_ASSET_1080P_5_SECOND_HLG10);
 
   private static final ImmutableList<Integer> OPERATING_RATE_AND_PRIORITIES =
       ImmutableList.of(RATE_UNSET, NO_VALUE);

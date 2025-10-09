@@ -15,8 +15,8 @@
  */
 package androidx.media3.test.utils;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.os.Build;
 import android.os.Handler;
@@ -31,6 +31,7 @@ import androidx.media3.common.util.UnstableApi;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -55,6 +56,95 @@ import org.checkerframework.checker.initialization.qual.UnknownInitialization;
 @UnstableApi
 public class FakeClock implements Clock {
 
+  /** A builder for {@link FakeClock} instances. */
+  public static final class Builder {
+    private long bootTimeMs;
+    private long initialTimeMs;
+    private boolean isAutoAdvancing;
+    private long maxAutoAdvancingTimeDiffMs;
+
+    /** Creates a new builder for {@link FakeClock} instances. */
+    public Builder() {
+      bootTimeMs = 0;
+      initialTimeMs = 0;
+      isAutoAdvancing = false;
+      maxAutoAdvancingTimeDiffMs = DEFAULT_MAX_AUTO_ADVANCING_TIME_DIFF_MS;
+    }
+
+    /**
+     * Sets the time the system was booted since the Unix Epoch, in milliseconds.
+     *
+     * <p>The default value is 0.
+     *
+     * @param bootTimeMs The time the system was booted since the Unix Epoch, in milliseconds.
+     * @return This builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setBootTimeMs(long bootTimeMs) {
+      this.bootTimeMs = bootTimeMs;
+      return this;
+    }
+
+    /**
+     * Sets the initial elapsed time since the boot time, in milliseconds.
+     *
+     * <p>The default value is 0.
+     *
+     * @param initialTimeMs The initial elapsed time since the boot time, in milliseconds.
+     * @return This builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setInitialTimeMs(long initialTimeMs) {
+      this.initialTimeMs = initialTimeMs;
+      return this;
+    }
+
+    /**
+     * Sets whether the clock should automatically advance the time to the time of the next message
+     * that is due to be sent.
+     *
+     * <p>The default value is false.
+     *
+     * @param isAutoAdvancing Whether the clock should automatically advance the time.
+     * @return This builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setIsAutoAdvancing(boolean isAutoAdvancing) {
+      this.isAutoAdvancing = isAutoAdvancing;
+      return this;
+    }
+
+    /**
+     * Sets the maximum time difference between two messages that the fake clock will automatically
+     * advance.
+     *
+     * <p>The default value is {@link #DEFAULT_MAX_AUTO_ADVANCING_TIME_DIFF_MS}.
+     *
+     * @param maxAutoAdvancingTimeDiffMs The maximum time difference in milliseconds.
+     * @return This builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setMaxAutoAdvancingTimeDiffMs(long maxAutoAdvancingTimeDiffMs) {
+      this.maxAutoAdvancingTimeDiffMs = maxAutoAdvancingTimeDiffMs;
+      return this;
+    }
+
+    /**
+     * Builds a {@link FakeClock} instance.
+     *
+     * @return The built {@link FakeClock} instance.
+     */
+    public FakeClock build() {
+      return new FakeClock(/* builder= */ this);
+    }
+  }
+
+  /**
+   * The default maximum time difference between two messages that the fake clock will automatically
+   * advance.
+   */
+  public static final long DEFAULT_MAX_AUTO_ADVANCING_TIME_DIFF_MS = 1000;
+
   private static final ImmutableSet<String> UI_INTERACTION_TEST_CLASSES =
       ImmutableSet.of(
           "org.robolectric.android.internal.LocalControlledLooper",
@@ -69,6 +159,7 @@ public class FakeClock implements Clock {
   private final boolean isRobolectric;
   private final boolean isAutoAdvancing;
   private final Handler mainHandler;
+  private final long maxAutoAdvancingTimeDiffMs;
 
   @GuardedBy("this")
   private final List<HandlerMessage> handlerMessages;
@@ -129,15 +220,24 @@ public class FakeClock implements Clock {
    *     next message that is due to be sent.
    */
   public FakeClock(long bootTimeMs, long initialTimeMs, boolean isAutoAdvancing) {
-    this.bootTimeMs = bootTimeMs;
-    this.timeSinceBootMs = initialTimeMs;
-    this.isAutoAdvancing = isAutoAdvancing;
+    this(
+        new Builder()
+            .setBootTimeMs(bootTimeMs)
+            .setInitialTimeMs(initialTimeMs)
+            .setIsAutoAdvancing(isAutoAdvancing));
+  }
+
+  private FakeClock(Builder builder) {
+    this.bootTimeMs = builder.bootTimeMs;
+    this.timeSinceBootMs = builder.initialTimeMs;
+    this.isAutoAdvancing = builder.isAutoAdvancing;
+    this.maxAutoAdvancingTimeDiffMs = builder.maxAutoAdvancingTimeDiffMs;
     this.handlerMessages = new ArrayList<>();
     this.busyLoopers = new HashSet<>();
     this.mainHandler = new Handler(Looper.getMainLooper());
     this.isRobolectric = "robolectric".equals(Build.FINGERPRINT);
     if (isRobolectric) {
-      SystemClock.setCurrentTimeMillis(initialTimeMs);
+      SystemClock.setCurrentTimeMillis(builder.initialTimeMs);
     }
   }
 
@@ -219,6 +319,16 @@ public class FakeClock implements Clock {
     handler.handler.removeMessages(what);
   }
 
+  private synchronized void removePendingHandlerMessages(ClockHandler handler, Runnable runnable) {
+    for (int i = handlerMessages.size() - 1; i >= 0; i--) {
+      HandlerMessage message = handlerMessages.get(i);
+      if (message.handler.equals(handler) && message.runnable == runnable) {
+        handlerMessages.remove(i);
+      }
+    }
+    handler.handler.removeCallbacks(runnable);
+  }
+
   private synchronized void removePendingHandlerMessages(
       ClockHandler handler, @Nullable Object token) {
     for (int i = handlerMessages.size() - 1; i >= 0; i--) {
@@ -271,8 +381,9 @@ public class FakeClock implements Clock {
       return;
     }
     if (message.timeMs > timeSinceBootMs) {
-      if (isAutoAdvancing) {
-        advanceTimeInternal(message.timeMs - timeSinceBootMs);
+      long timeDiff = message.timeMs - timeSinceBootMs;
+      if (isAutoAdvancing && timeDiff <= maxAutoAdvancingTimeDiffMs) {
+        advanceTimeInternal(timeDiff);
       } else {
         return;
       }
@@ -476,6 +587,11 @@ public class FakeClock implements Clock {
       // Using what==0 when removing messages is dangerous as it also removes all pending Runnables.
       checkArgument(what != 0);
       removePendingHandlerMessages(/* handler= */ this, what);
+    }
+
+    @Override
+    public void removeCallbacks(Runnable runnable) {
+      removePendingHandlerMessages(/* handler= */ this, runnable);
     }
 
     @Override

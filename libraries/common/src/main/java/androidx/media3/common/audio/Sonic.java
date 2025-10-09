@@ -16,14 +16,15 @@
  */
 package androidx.media3.common.audio;
 
-import static androidx.media3.common.util.Assertions.checkState;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.nio.ShortBuffer;
+import java.nio.ByteBuffer;
 import java.util.Arrays;
+import org.checkerframework.checker.nullness.qual.NonNull;
 
 /**
  * Sonic audio stream processor for time/pitch stretching.
@@ -35,7 +36,6 @@ import java.util.Arrays;
   private static final int MINIMUM_PITCH = 65;
   private static final int MAXIMUM_PITCH = 400;
   private static final int AMDF_FREQUENCY = 4000;
-  private static final int BYTES_PER_SAMPLE = 2;
 
   private static final float MINIMUM_SPEEDUP_RATE = 1.00001f;
   private static final float MINIMUM_SLOWDOWN_RATE = 0.99999f;
@@ -48,32 +48,26 @@ import java.util.Arrays;
   private final int minPeriod;
   private final int maxPeriod;
   private final int maxRequiredFrameCount;
-  private final short[] downSampleBuffer;
+  private final SonicImpl<?> impl;
 
-  private short[] inputBuffer;
   private int inputFrameCount;
-  private short[] outputBuffer;
   private int outputFrameCount;
-  private short[] pitchBuffer;
   private int pitchFrameCount;
   private int oldRatePosition;
   private int newRatePosition;
 
   /**
-   * Number of frames pending to be copied from {@link #inputBuffer} directly to {@link
-   * #outputBuffer}.
+   * Number of frames pending to be copied from {@link SonicImpl#getInputBuffer()} directly to
+   * {@link SonicImpl#getOutputBuffer()}.
    *
    * <p>This field is only relevant to time-stretching or pitch-shifting in {@link
    * #changeSpeed(double)}, particularly when more frames need to be copied to the {@link
-   * #outputBuffer} than are available in {@link #inputBuffer} and Sonic must wait until the next
-   * buffer (or EOS) is queued.
+   * SonicImpl#getOutputBuffer()} than are available in {@link SonicImpl#getInputBuffer()} and Sonic
+   * must wait until the next buffer (or EOS) is queued.
    */
   private int remainingInputToCopyFrameCount;
 
   private int prevPeriod;
-  private int prevMinDiff;
-  private int minDiff;
-  private int maxDiff;
   private double accumulatedSpeedAdjustmentError;
 
   /**
@@ -211,9 +205,16 @@ import java.util.Arrays;
    * @param speed The speedup factor for output audio.
    * @param pitch The pitch factor for output audio.
    * @param outputSampleRateHz The sample rate for output audio, in hertz.
+   * @param useFloatSamples Whether the input stream contains float PCM samples or 16 bit PCM
+   *     samples.
    */
   public Sonic(
-      int inputSampleRateHz, int channelCount, float speed, float pitch, int outputSampleRateHz) {
+      int inputSampleRateHz,
+      int channelCount,
+      float speed,
+      float pitch,
+      int outputSampleRateHz,
+      boolean useFloatSamples) {
     this.inputSampleRateHz = inputSampleRateHz;
     this.channelCount = channelCount;
     this.speed = speed;
@@ -222,10 +223,7 @@ import java.util.Arrays;
     minPeriod = inputSampleRateHz / MAXIMUM_PITCH;
     maxPeriod = inputSampleRateHz / MINIMUM_PITCH;
     maxRequiredFrameCount = 2 * maxPeriod;
-    downSampleBuffer = new short[maxRequiredFrameCount];
-    inputBuffer = new short[maxRequiredFrameCount * channelCount];
-    outputBuffer = new short[maxRequiredFrameCount * channelCount];
-    pitchBuffer = new short[maxRequiredFrameCount * channelCount];
+    impl = useFloatSamples ? new SonicFloatImpl() : new SonicShortImpl();
   }
 
   /**
@@ -233,39 +231,41 @@ import java.util.Arrays;
    * data is provided.
    */
   public int getPendingInputBytes() {
-    return inputFrameCount * channelCount * BYTES_PER_SAMPLE;
+    return inputFrameCount * channelCount * impl.bytesPerSample();
   }
 
   /**
    * Queues remaining data from {@code buffer}, and advances its position by the number of bytes
    * consumed.
    *
-   * @param buffer A {@link ShortBuffer} containing input data between its position and limit.
+   * @param buffer A {@link ByteBuffer} containing input data between its position and limit.
    */
-  public void queueInput(ShortBuffer buffer) {
-    int framesToWrite = buffer.remaining() / channelCount;
-    int bytesToWrite = framesToWrite * channelCount * 2;
-    inputBuffer = ensureSpaceForAdditionalFrames(inputBuffer, inputFrameCount, framesToWrite);
-    buffer.get(inputBuffer, inputFrameCount * channelCount, bytesToWrite / 2);
+  public void queueInput(ByteBuffer buffer) {
+    int bytesToWrite = buffer.remaining();
+    int framesToWrite = bytesToWrite / (channelCount * impl.bytesPerSample());
+    impl.ensureAdditionalFramesInInputBuffer(framesToWrite);
+    impl.copyBufferToInputBuffer(buffer, bytesToWrite);
     inputFrameCount += framesToWrite;
     processStreamInput();
   }
 
   /**
-   * Gets available output, outputting to the start of {@code buffer}. The buffer's position will be
-   * advanced by the number of bytes written.
+   * Writes available output starting from the {@linkplain ByteBuffer#position() buffer's position}
+   * until no more output is available or the buffer's limit is reached. The buffer's position will
+   * be advanced by the number of bytes written.
    *
-   * @param buffer A {@link ShortBuffer} into which output will be written.
+   * @param buffer A {@link ByteBuffer} into which output will be written.
    */
-  public void getOutput(ShortBuffer buffer) {
+  public void getOutput(ByteBuffer buffer) {
     checkState(outputFrameCount >= 0);
-    int framesToRead = min(buffer.remaining() / channelCount, outputFrameCount);
-    buffer.put(outputBuffer, 0, framesToRead * channelCount);
+    int framesToRead =
+        min(buffer.remaining() / (channelCount * impl.bytesPerSample()), outputFrameCount);
+    impl.copyOutputToByteBuffer(buffer, framesToRead);
     outputFrameCount -= framesToRead;
     System.arraycopy(
-        outputBuffer,
+        impl.getOutputBuffer(),
         framesToRead * channelCount,
-        outputBuffer,
+        impl.getOutputBuffer(),
         0,
         outputFrameCount * channelCount);
   }
@@ -298,12 +298,8 @@ import java.util.Arrays;
     accumulatedSpeedAdjustmentError = 0;
 
     // Add enough silence to flush both input and pitch buffers.
-    inputBuffer =
-        ensureSpaceForAdditionalFrames(
-            inputBuffer, inputFrameCount, remainingFrameCount + 2 * maxRequiredFrameCount);
-    for (int xSample = 0; xSample < 2 * maxRequiredFrameCount * channelCount; xSample++) {
-      inputBuffer[remainingFrameCount * channelCount + xSample] = 0;
-    }
+    impl.ensureAdditionalFramesInInputBuffer(remainingFrameCount + 2 * maxRequiredFrameCount);
+    impl.zeroInputBuffer(remainingFrameCount * channelCount, 2 * maxRequiredFrameCount);
     inputFrameCount += 2 * maxRequiredFrameCount;
     processStreamInput();
     // Throw away any extra frames we generated due to the silence we added.
@@ -326,54 +322,24 @@ import java.util.Arrays;
     newRatePosition = 0;
     remainingInputToCopyFrameCount = 0;
     prevPeriod = 0;
-    prevMinDiff = 0;
-    minDiff = 0;
-    maxDiff = 0;
     accumulatedSpeedAdjustmentError = 0;
+    impl.flush();
   }
 
-  /** Returns the size of output that can be read with {@link #getOutput(ShortBuffer)}, in bytes. */
+  /** Returns the size of output that can be read with {@link #getOutput(ByteBuffer)}, in bytes. */
   public int getOutputSize() {
     checkState(outputFrameCount >= 0);
-    return outputFrameCount * channelCount * BYTES_PER_SAMPLE;
+    return outputFrameCount * channelCount * impl.bytesPerSample();
   }
 
   // Internal methods.
 
-  /**
-   * Returns {@code buffer} or a copy of it, such that there is enough space in the returned buffer
-   * to store {@code newFrameCount} additional frames.
-   *
-   * @param buffer The buffer.
-   * @param frameCount The number of frames already in the buffer.
-   * @param additionalFrameCount The number of additional frames that need to be stored in the
-   *     buffer.
-   * @return A buffer with enough space for the additional frames.
-   */
-  private short[] ensureSpaceForAdditionalFrames(
-      short[] buffer, int frameCount, int additionalFrameCount) {
-    int currentCapacityFrames = buffer.length / channelCount;
-    if (frameCount + additionalFrameCount <= currentCapacityFrames) {
-      return buffer;
-    } else {
-      int newCapacityFrames = 3 * currentCapacityFrames / 2 + additionalFrameCount;
-      return Arrays.copyOf(buffer, newCapacityFrames * channelCount);
-    }
-  }
-
-  private void removeProcessedInputFrames(int positionFrames) {
-    int remainingFrames = inputFrameCount - positionFrames;
+  private void copyToOutput(int positionFrames, int frameCount) {
+    impl.ensureAdditionalFramesInOutputBuffer(frameCount);
     System.arraycopy(
-        inputBuffer, positionFrames * channelCount, inputBuffer, 0, remainingFrames * channelCount);
-    inputFrameCount = remainingFrames;
-  }
-
-  private void copyToOutput(short[] samples, int positionFrames, int frameCount) {
-    outputBuffer = ensureSpaceForAdditionalFrames(outputBuffer, outputFrameCount, frameCount);
-    System.arraycopy(
-        samples,
+        impl.getInputBuffer(),
         positionFrames * channelCount,
-        outputBuffer,
+        impl.getOutputBuffer(),
         outputFrameCount * channelCount,
         frameCount * channelCount);
     outputFrameCount += frameCount;
@@ -381,79 +347,12 @@ import java.util.Arrays;
 
   private int copyInputToOutput(int positionFrames) {
     int frameCount = min(maxRequiredFrameCount, remainingInputToCopyFrameCount);
-    copyToOutput(inputBuffer, positionFrames, frameCount);
+    copyToOutput(positionFrames, frameCount);
     remainingInputToCopyFrameCount -= frameCount;
     return frameCount;
   }
 
-  private void downSampleInput(short[] samples, int position, int skip) {
-    // If skip is greater than one, average skip samples together and write them to the down-sample
-    // buffer. If channelCount is greater than one, mix the channels together as we down sample.
-    int frameCount = maxRequiredFrameCount / skip;
-    int samplesPerValue = channelCount * skip;
-    position *= channelCount;
-    for (int i = 0; i < frameCount; i++) {
-      int value = 0;
-      for (int j = 0; j < samplesPerValue; j++) {
-        value += samples[position + i * samplesPerValue + j];
-      }
-      value /= samplesPerValue;
-      downSampleBuffer[i] = (short) value;
-    }
-  }
-
-  private int findPitchPeriodInRange(short[] samples, int position, int minPeriod, int maxPeriod) {
-    // Find the best frequency match in the range, and given a sample skip multiple. For now, just
-    // find the pitch of the first channel.
-    int bestPeriod = 0;
-    int worstPeriod = 255;
-    int minDiff = 1;
-    int maxDiff = 0;
-    position *= channelCount;
-    for (int period = minPeriod; period <= maxPeriod; period++) {
-      int diff = 0;
-      for (int i = 0; i < period; i++) {
-        short sVal = samples[position + i];
-        short pVal = samples[position + period + i];
-        diff += Math.abs(sVal - pVal);
-      }
-      // Note that the highest number of samples we add into diff will be less than 256, since we
-      // skip samples. Thus, diff is a 24 bit number, and we can safely multiply by numSamples
-      // without overflow.
-      if (diff * bestPeriod < minDiff * period) {
-        minDiff = diff;
-        bestPeriod = period;
-      }
-      if (diff * worstPeriod > maxDiff * period) {
-        maxDiff = diff;
-        worstPeriod = period;
-      }
-    }
-    this.minDiff = minDiff / bestPeriod;
-    this.maxDiff = maxDiff / worstPeriod;
-    return bestPeriod;
-  }
-
-  /**
-   * Returns whether the previous pitch period estimate is a better approximation, which can occur
-   * at the abrupt end of voiced words.
-   */
-  private boolean previousPeriodBetter(int minDiff, int maxDiff) {
-    if (minDiff == 0 || prevPeriod == 0) {
-      return false;
-    }
-    if (maxDiff > minDiff * 3) {
-      // Got a reasonable match this period.
-      return false;
-    }
-    if (minDiff * 2 <= prevMinDiff * 3) {
-      // Mismatch is not that much greater this period.
-      return false;
-    }
-    return true;
-  }
-
-  private int findPitchPeriod(short[] samples, int position) {
+  private int findPitchPeriod(int positionFrames) {
     // Find the pitch period. This is a critical step, and we may have to try multiple ways to get a
     // good answer. This version uses AMDF. To improve speed, we down sample by an integer factor
     // get in the 11 kHz range, and then do it again with a narrower frequency range without down
@@ -462,10 +361,11 @@ import java.util.Arrays;
     int retPeriod;
     int skip = inputSampleRateHz > AMDF_FREQUENCY ? inputSampleRateHz / AMDF_FREQUENCY : 1;
     if (channelCount == 1 && skip == 1) {
-      period = findPitchPeriodInRange(samples, position, minPeriod, maxPeriod);
+      period = impl.findPitchPeriodInRangeWithInputBuffer(positionFrames, minPeriod, maxPeriod);
     } else {
-      downSampleInput(samples, position, skip);
-      period = findPitchPeriodInRange(downSampleBuffer, 0, minPeriod / skip, maxPeriod / skip);
+      impl.downSampleInput(positionFrames, skip);
+      period =
+          impl.findPitchPeriodInRangeWithDownsampleBuffer(0, minPeriod / skip, maxPeriod / skip);
       if (skip != 1) {
         period *= skip;
         int minP = period - (skip * 4);
@@ -477,58 +377,21 @@ import java.util.Arrays;
           maxP = maxPeriod;
         }
         if (channelCount == 1) {
-          period = findPitchPeriodInRange(samples, position, minP, maxP);
+          period = impl.findPitchPeriodInRangeWithInputBuffer(positionFrames, minP, maxP);
         } else {
-          downSampleInput(samples, position, 1);
-          period = findPitchPeriodInRange(downSampleBuffer, 0, minP, maxP);
+          impl.downSampleInput(positionFrames, 1);
+          period = impl.findPitchPeriodInRangeWithDownsampleBuffer(0, minP, maxP);
         }
       }
     }
-    if (previousPeriodBetter(minDiff, maxDiff)) {
+    if (impl.isPreviousPeriodBetter()) {
       retPeriod = prevPeriod;
     } else {
       retPeriod = period;
     }
-    prevMinDiff = minDiff;
+    impl.updatePreviousMinDiff();
     prevPeriod = period;
     return retPeriod;
-  }
-
-  private void moveNewSamplesToPitchBuffer(int originalOutputFrameCount) {
-    int frameCount = outputFrameCount - originalOutputFrameCount;
-    pitchBuffer = ensureSpaceForAdditionalFrames(pitchBuffer, pitchFrameCount, frameCount);
-    System.arraycopy(
-        outputBuffer,
-        originalOutputFrameCount * channelCount,
-        pitchBuffer,
-        pitchFrameCount * channelCount,
-        frameCount * channelCount);
-    outputFrameCount = originalOutputFrameCount;
-    pitchFrameCount += frameCount;
-  }
-
-  private void removePitchFrames(int frameCount) {
-    if (frameCount == 0) {
-      return;
-    }
-    System.arraycopy(
-        pitchBuffer,
-        frameCount * channelCount,
-        pitchBuffer,
-        0,
-        (pitchFrameCount - frameCount) * channelCount);
-    pitchFrameCount -= frameCount;
-  }
-
-  private short interpolate(short[] in, int inPos, long oldSampleRate, long newSampleRate) {
-    short left = in[inPos];
-    short right = in[inPos + channelCount];
-    long position = newRatePosition * oldSampleRate;
-    long leftPosition = oldRatePosition * newSampleRate;
-    long rightPosition = (oldRatePosition + 1) * newSampleRate;
-    long ratio = rightPosition - position;
-    long width = rightPosition - leftPosition;
-    return (short) ((ratio * left + (width - ratio) * right) / width);
   }
 
   private void adjustRate(float rate, int originalOutputFrameCount) {
@@ -553,13 +416,8 @@ import java.util.Arrays;
     for (int position = 0; position < pitchFrameCount - 1; position++) {
       // Cast to long to avoid overflow.
       while ((oldRatePosition + 1) * newSampleRate > newRatePosition * oldSampleRate) {
-        outputBuffer =
-            ensureSpaceForAdditionalFrames(
-                outputBuffer, outputFrameCount, /* additionalFrameCount= */ 1);
-        for (int i = 0; i < channelCount; i++) {
-          outputBuffer[outputFrameCount * channelCount + i] =
-              interpolate(pitchBuffer, position * channelCount + i, oldSampleRate, newSampleRate);
-        }
+        impl.ensureAdditionalFramesInOutputBuffer(/* additionalFrameCount= */ 1);
+        impl.interpolateFrame(position, oldSampleRate, newSampleRate);
         newRatePosition++;
         outputFrameCount++;
       }
@@ -573,7 +431,33 @@ import java.util.Arrays;
     removePitchFrames(pitchFrameCount - 1);
   }
 
-  private int skipPitchPeriod(short[] samples, int position, double speed, int period) {
+  private void moveNewSamplesToPitchBuffer(int originalOutputFrameCount) {
+    int frameCount = outputFrameCount - originalOutputFrameCount;
+    impl.ensureAdditionalFramesInPitchBuffer(frameCount);
+    System.arraycopy(
+        impl.getOutputBuffer(),
+        originalOutputFrameCount * channelCount,
+        impl.getPitchBuffer(),
+        pitchFrameCount * channelCount,
+        frameCount * channelCount);
+    outputFrameCount = originalOutputFrameCount;
+    pitchFrameCount += frameCount;
+  }
+
+  private void removePitchFrames(int frameCount) {
+    if (frameCount == 0) {
+      return;
+    }
+    System.arraycopy(
+        impl.getPitchBuffer(),
+        frameCount * channelCount,
+        impl.getPitchBuffer(),
+        0,
+        (pitchFrameCount - frameCount) * channelCount);
+    pitchFrameCount -= frameCount;
+  }
+
+  private int skipPitchPeriod(int position, double speed, int period) {
     // Skip over a pitch period, and copy period/speed samples to the output.
     int newFrameCount;
     if (speed >= 2.0f) {
@@ -587,21 +471,13 @@ import java.util.Arrays;
       remainingInputToCopyFrameCount = (int) Math.round(expectedInputToCopy);
       accumulatedSpeedAdjustmentError = expectedInputToCopy - remainingInputToCopyFrameCount;
     }
-    outputBuffer = ensureSpaceForAdditionalFrames(outputBuffer, outputFrameCount, newFrameCount);
-    overlapAdd(
-        newFrameCount,
-        channelCount,
-        outputBuffer,
-        outputFrameCount,
-        samples,
-        position,
-        samples,
-        position + period);
+    impl.ensureAdditionalFramesInOutputBuffer(newFrameCount);
+    impl.overlapAdd(newFrameCount, channelCount, outputFrameCount, position, position + period);
     outputFrameCount += newFrameCount;
     return newFrameCount;
   }
 
-  private int insertPitchPeriod(short[] samples, int position, double speed, int period) {
+  private int insertPitchPeriod(int position, double speed, int period) {
     // Insert a pitch period, and determine how much input to copy directly.
     int newFrameCount;
     if (speed < 0.5f) {
@@ -615,23 +491,15 @@ import java.util.Arrays;
       remainingInputToCopyFrameCount = (int) Math.round(expectedInputToCopy);
       accumulatedSpeedAdjustmentError = expectedInputToCopy - remainingInputToCopyFrameCount;
     }
-    outputBuffer =
-        ensureSpaceForAdditionalFrames(outputBuffer, outputFrameCount, period + newFrameCount);
+    impl.ensureAdditionalFramesInOutputBuffer(period + newFrameCount);
     System.arraycopy(
-        samples,
+        impl.getInputBuffer(),
         position * channelCount,
-        outputBuffer,
+        impl.getOutputBuffer(),
         outputFrameCount * channelCount,
         period * channelCount);
-    overlapAdd(
-        newFrameCount,
-        channelCount,
-        outputBuffer,
-        outputFrameCount + period,
-        samples,
-        position + period,
-        samples,
-        position);
+    impl.overlapAdd(
+        newFrameCount, channelCount, outputFrameCount + period, position + period, position);
     outputFrameCount += period + newFrameCount;
     return newFrameCount;
   }
@@ -646,15 +514,26 @@ import java.util.Arrays;
       if (remainingInputToCopyFrameCount > 0) {
         positionFrames += copyInputToOutput(positionFrames);
       } else {
-        int period = findPitchPeriod(inputBuffer, positionFrames);
+        int period = findPitchPeriod(positionFrames);
         if (speed > 1.0) {
-          positionFrames += period + skipPitchPeriod(inputBuffer, positionFrames, speed, period);
+          positionFrames += period + skipPitchPeriod(positionFrames, speed, period);
         } else {
-          positionFrames += insertPitchPeriod(inputBuffer, positionFrames, speed, period);
+          positionFrames += insertPitchPeriod(positionFrames, speed, period);
         }
       }
     } while (positionFrames + maxRequiredFrameCount <= frameCount);
     removeProcessedInputFrames(positionFrames);
+  }
+
+  private void removeProcessedInputFrames(int positionFrames) {
+    int remainingFrames = inputFrameCount - positionFrames;
+    System.arraycopy(
+        impl.getInputBuffer(),
+        positionFrames * channelCount,
+        impl.getInputBuffer(),
+        0,
+        remainingFrames * channelCount);
+    inputFrameCount = remainingFrames;
   }
 
   private void processStreamInput() {
@@ -665,7 +544,7 @@ import java.util.Arrays;
     if (s > MINIMUM_SPEEDUP_RATE || s < MINIMUM_SLOWDOWN_RATE) {
       changeSpeed(s);
     } else {
-      copyToOutput(inputBuffer, 0, inputFrameCount);
+      copyToOutput(0, inputFrameCount);
       inputFrameCount = 0;
     }
     if (r != 1.0f) {
@@ -673,24 +552,612 @@ import java.util.Arrays;
     }
   }
 
-  private static void overlapAdd(
-      int frameCount,
-      int channelCount,
-      short[] out,
-      int outPosition,
-      short[] rampDown,
-      int rampDownPosition,
-      short[] rampUp,
-      int rampUpPosition) {
-    for (int i = 0; i < channelCount; i++) {
-      int o = outPosition * channelCount + i;
-      int u = rampUpPosition * channelCount + i;
-      int d = rampDownPosition * channelCount + i;
-      for (int t = 0; t < frameCount; t++) {
-        out[o] = (short) ((rampDown[d] * (frameCount - t) + rampUp[u] * t) / frameCount);
-        o += channelCount;
-        d += channelCount;
-        u += channelCount;
+  /** Interface that exposes sample format-specific operations to {@link Sonic}. */
+  private interface SonicImpl<T extends @NonNull Object> {
+
+    /** Returns the number of bytes in a sample. */
+    int bytesPerSample();
+
+    /**
+     * Interpolates two contiguous frames in the {@linkplain #getPitchBuffer() pitch buffer} at
+     * {@code positionFrames} and writes the result to the {@linkplain #getOutputBuffer() output
+     * buffer}.
+     *
+     * @param positionFrames The position in frames of the first frame to interpolate from the pitch
+     *     buffer.
+     * @param oldSampleRate The old sample rate.
+     * @param newSampleRate The new sample rate.
+     */
+    void interpolateFrame(int positionFrames, long oldSampleRate, long newSampleRate);
+
+    /**
+     * Returns whether the previous pitch period estimate is a better approximation, which can occur
+     * at the abrupt end of voiced words.
+     */
+    boolean isPreviousPeriodBetter();
+
+    /**
+     * Downsamples {@link #maxRequiredFrameCount} / {@code skip} frames from the input buffer onto
+     * the downsampling buffer.
+     *
+     * @param positionFrames The position in frames from which to start downsampling the input
+     *     buffer.
+     * @param skip The number of frames to skip per downsampled frame.
+     */
+    void downSampleInput(int positionFrames, int skip);
+
+    /**
+     * Returns the pitch period within {@code [minPeriod; maxPeriod]} at {@code positionFrames} of
+     * the downsample buffer.
+     */
+    int findPitchPeriodInRangeWithDownsampleBuffer(
+        int positionFrames, int minPeriod, int maxPeriod);
+
+    /**
+     * Returns the pitch period within {@code [minPeriod; maxPeriod]} at {@code positionFrames} of
+     * the input buffer.
+     */
+    int findPitchPeriodInRangeWithInputBuffer(int positionFrames, int minPeriod, int maxPeriod);
+
+    /** Clears state in preparation for receiving a new stream of input buffers. */
+    void flush();
+
+    /**
+     * Overlap-adds {@code frameCount} frames to the output buffer from {@code rampDownPosition} and
+     * {@code rampUpPosition} in the input buffer.
+     *
+     * @param frameCount The number of frames to overlap-add.
+     * @param channelCount The number of channels in a frame.
+     * @param outPosition The starting position in the output buffer to write to.
+     * @param rampDownPosition The starting position in the input buffer to ramp down.
+     * @param rampUpPosition The starting position in the input buffer to ramp up.
+     */
+    void overlapAdd(
+        int frameCount,
+        int channelCount,
+        int outPosition,
+        int rampDownPosition,
+        int rampUpPosition);
+
+    /**
+     * Updates the previous minimum diff with the current diff.
+     *
+     * @see #findPitchPeriod(int)
+     */
+    void updatePreviousMinDiff();
+
+    /**
+     * Adds {@code additionalFrameCount} frames to the input buffer if there are less than {@code
+     * additionalFrameCount} available frames.
+     */
+    void ensureAdditionalFramesInInputBuffer(int additionalFrameCount);
+
+    /**
+     * Adds {@code additionalFrameCount} frames to the output buffer if there are less than {@code
+     * additionalFrameCount} available frames.
+     */
+    void ensureAdditionalFramesInOutputBuffer(int additionalFrameCount);
+
+    /**
+     * Adds {@code additionalFrameCount} frames to the pitch buffer if there are less than {@code
+     * additionalFrameCount} available frames.
+     */
+    void ensureAdditionalFramesInPitchBuffer(int additionalFrameCount);
+
+    /** Zeroes the input buffer from {@code startPosition} to {@code startPosition + length}. */
+    void zeroInputBuffer(int startPosition, int length);
+
+    /** Copies {@code bytesToWrite} bytes from {@code buffer} onto the input buffer. */
+    void copyBufferToInputBuffer(ByteBuffer buffer, int bytesToWrite);
+
+    /** Copies {@code framesToRead} frames from the output buffer onto {@code buffer}. */
+    void copyOutputToByteBuffer(ByteBuffer buffer, int framesToRead);
+
+    /** Returns the input buffer. */
+    T getInputBuffer();
+
+    /** Returns the output buffer. */
+    T getOutputBuffer();
+
+    /** Returns the pitch buffer. */
+    T getPitchBuffer();
+  }
+
+  private final class SonicFloatImpl implements SonicImpl<float[]> {
+    private final float[] downSampleBuffer;
+
+    private float[] inputBuffer;
+    private float[] outputBuffer;
+    private float[] pitchBuffer;
+
+    private double minDiff;
+    private double maxDiff;
+    private double prevMinDiff;
+
+    /** Implementation of {@link SonicImpl} for float PCM samples. */
+    SonicFloatImpl() {
+      downSampleBuffer = new float[maxRequiredFrameCount];
+      inputBuffer = new float[maxRequiredFrameCount * channelCount];
+      outputBuffer = new float[maxRequiredFrameCount * channelCount];
+      pitchBuffer = new float[maxRequiredFrameCount * channelCount];
+    }
+
+    @Override
+    public int bytesPerSample() {
+      return 4;
+    }
+
+    @Override
+    public void interpolateFrame(int positionFrame, long oldSampleRate, long newSampleRate) {
+      for (int i = 0; i < channelCount; i++) {
+        outputBuffer[outputFrameCount * channelCount + i] =
+            interpolate(
+                pitchBuffer, positionFrame * channelCount + i, oldSampleRate, newSampleRate);
+      }
+    }
+
+    @Override
+    public boolean isPreviousPeriodBetter() {
+      if (minDiff == 0 || prevPeriod == 0) {
+        return false;
+      }
+      if (maxDiff > minDiff * 3) {
+        // Got a reasonable match this period.
+        return false;
+      }
+      if (minDiff * 2 <= prevMinDiff * 3) {
+        // Mismatch is not that much greater this period.
+        return false;
+      }
+      return true;
+    }
+
+    @Override
+    public void downSampleInput(int positionFrames, int skip) {
+      // If skip is greater than one, average skip samples together and write them to the
+      // down-sample
+      // buffer. If channelCount is greater than one, mix the channels together as we down sample.
+      int frameCount = maxRequiredFrameCount / skip;
+      int samplesPerValue = channelCount * skip;
+      positionFrames *= channelCount;
+      for (int i = 0; i < frameCount; i++) {
+        double value = 0;
+        for (int j = 0; j < samplesPerValue; j++) {
+          value += inputBuffer[positionFrames + i * samplesPerValue + j];
+        }
+        value /= samplesPerValue;
+        downSampleBuffer[i] = (float) value;
+      }
+    }
+
+    @Override
+    public int findPitchPeriodInRangeWithDownsampleBuffer(
+        int positionFrames, int minPeriod, int maxPeriod) {
+      return findPitchPeriodInRange(downSampleBuffer, positionFrames, minPeriod, maxPeriod);
+    }
+
+    @Override
+    public int findPitchPeriodInRangeWithInputBuffer(
+        int positionFrames, int minPeriod, int maxPeriod) {
+      return findPitchPeriodInRange(inputBuffer, positionFrames, minPeriod, maxPeriod);
+    }
+
+    @Override
+    public void flush() {
+      prevMinDiff = 0;
+      minDiff = 0;
+      maxDiff = 0;
+    }
+
+    @Override
+    public void overlapAdd(
+        int frameCount,
+        int channelCount,
+        int outPosition,
+        int rampDownPosition,
+        int rampUpPosition) {
+      overlapAdd(
+          frameCount,
+          channelCount,
+          outputBuffer,
+          outPosition,
+          inputBuffer,
+          rampDownPosition,
+          inputBuffer,
+          rampUpPosition);
+    }
+
+    private void overlapAdd(
+        int frameCount,
+        int channelCount,
+        float[] out,
+        int outPosition,
+        float[] rampDown,
+        int rampDownPosition,
+        float[] rampUp,
+        int rampUpPosition) {
+      for (int i = 0; i < channelCount; i++) {
+        int o = outPosition * channelCount + i;
+        int u = rampUpPosition * channelCount + i;
+        int d = rampDownPosition * channelCount + i;
+        for (int t = 0; t < frameCount; t++) {
+          out[o] = (rampDown[d] * (frameCount - t) + rampUp[u] * t) / frameCount;
+          o += channelCount;
+          d += channelCount;
+          u += channelCount;
+        }
+      }
+    }
+
+    @Override
+    public void updatePreviousMinDiff() {
+      prevMinDiff = minDiff;
+    }
+
+    @Override
+    public void ensureAdditionalFramesInInputBuffer(int additionalFrameCount) {
+      inputBuffer =
+          ensureSpaceForAdditionalFrames(inputBuffer, inputFrameCount, additionalFrameCount);
+    }
+
+    @Override
+    public void ensureAdditionalFramesInOutputBuffer(int additionalFrameCount) {
+      outputBuffer =
+          ensureSpaceForAdditionalFrames(outputBuffer, outputFrameCount, additionalFrameCount);
+    }
+
+    @Override
+    public void ensureAdditionalFramesInPitchBuffer(int additionalFrameCount) {
+      pitchBuffer =
+          ensureSpaceForAdditionalFrames(pitchBuffer, pitchFrameCount, additionalFrameCount);
+    }
+
+    @Override
+    public void zeroInputBuffer(int startPosition, int length) {
+      for (int i = 0; i < length * channelCount; i++) {
+        inputBuffer[startPosition + i] = 0;
+      }
+    }
+
+    @Override
+    public void copyBufferToInputBuffer(ByteBuffer buffer, int bytesToWrite) {
+      buffer
+          .asFloatBuffer()
+          .get(inputBuffer, inputFrameCount * channelCount, bytesToWrite / bytesPerSample());
+      buffer.position(buffer.position() + bytesToWrite);
+    }
+
+    @Override
+    public void copyOutputToByteBuffer(ByteBuffer buffer, int framesToRead) {
+      buffer.asFloatBuffer().put(outputBuffer, 0, framesToRead * channelCount);
+      buffer.position(buffer.position() + framesToRead * bytesPerSample() * channelCount);
+    }
+
+    @Override
+    public float[] getInputBuffer() {
+      return inputBuffer;
+    }
+
+    @Override
+    public float[] getOutputBuffer() {
+      return outputBuffer;
+    }
+
+    @Override
+    public float[] getPitchBuffer() {
+      return pitchBuffer;
+    }
+
+    private float interpolate(float[] in, int inPos, long oldSampleRate, long newSampleRate) {
+      float left = in[inPos];
+      float right = in[inPos + channelCount];
+      long position = newRatePosition * oldSampleRate;
+      long leftPosition = oldRatePosition * newSampleRate;
+      long rightPosition = (oldRatePosition + 1) * newSampleRate;
+      long ratio = rightPosition - position;
+      long width = rightPosition - leftPosition;
+      return (ratio * left + (width - ratio) * right) / width;
+    }
+
+    private int findPitchPeriodInRange(
+        float[] samples, int positionFrames, int minPeriod, int maxPeriod) {
+      // Find the best frequency match in the range, and given a sample skip multiple. For now, just
+      // find the pitch of the first channel.
+      int bestPeriod = 0;
+      int worstPeriod = 255;
+      double minDiff = 1;
+      double maxDiff = 0;
+      positionFrames *= channelCount;
+      for (int period = minPeriod; period <= maxPeriod; period++) {
+        double diff = 0;
+        for (int i = 0; i < period; i++) {
+          float sVal = samples[positionFrames + i];
+          float pVal = samples[positionFrames + period + i];
+          diff += Math.abs(sVal - pVal);
+        }
+        if (diff * bestPeriod < minDiff * period) {
+          minDiff = diff;
+          bestPeriod = period;
+        }
+        if (diff * worstPeriod > maxDiff * period) {
+          maxDiff = diff;
+          worstPeriod = period;
+        }
+      }
+      this.minDiff = minDiff / bestPeriod;
+      this.maxDiff = maxDiff / worstPeriod;
+      return bestPeriod;
+    }
+
+    /**
+     * Returns {@code buffer} or a copy of it, such that there is enough space in the returned
+     * buffer to store {@code newFrameCount} additional frames.
+     *
+     * @param buffer The buffer.
+     * @param frameCount The number of frames already in the buffer.
+     * @param additionalFrameCount The number of additional frames that need to be stored in the
+     *     buffer.
+     * @return A buffer with enough space for the additional frames.
+     */
+    private float[] ensureSpaceForAdditionalFrames(
+        float[] buffer, int frameCount, int additionalFrameCount) {
+      int currentCapacityFrames = buffer.length / channelCount;
+      if (frameCount + additionalFrameCount <= currentCapacityFrames) {
+        return buffer;
+      } else {
+        int newCapacityFrames = 3 * currentCapacityFrames / 2 + additionalFrameCount;
+        return Arrays.copyOf(buffer, newCapacityFrames * channelCount);
+      }
+    }
+  }
+
+  /** Implementation of {@link SonicImpl} for 16 bit PCM samples. */
+  private final class SonicShortImpl implements SonicImpl<short[]> {
+
+    private final short[] downSampleBuffer;
+
+    private short[] inputBuffer;
+    private short[] outputBuffer;
+    private short[] pitchBuffer;
+
+    private int minDiff;
+    private int maxDiff;
+    private int prevMinDiff;
+
+    SonicShortImpl() {
+      downSampleBuffer = new short[maxRequiredFrameCount];
+      inputBuffer = new short[maxRequiredFrameCount * channelCount];
+      outputBuffer = new short[maxRequiredFrameCount * channelCount];
+      pitchBuffer = new short[maxRequiredFrameCount * channelCount];
+    }
+
+    @Override
+    public int bytesPerSample() {
+      return 2;
+    }
+
+    @Override
+    public void interpolateFrame(int positionFrames, long oldSampleRate, long newSampleRate) {
+      for (int i = 0; i < channelCount; i++) {
+        outputBuffer[outputFrameCount * channelCount + i] =
+            interpolate(
+                pitchBuffer, positionFrames * channelCount + i, oldSampleRate, newSampleRate);
+      }
+    }
+
+    @Override
+    public boolean isPreviousPeriodBetter() {
+      if (minDiff == 0 || prevPeriod == 0) {
+        return false;
+      }
+      if (maxDiff > minDiff * 3) {
+        // Got a reasonable match this period.
+        return false;
+      }
+      if (minDiff * 2 <= prevMinDiff * 3) {
+        // Mismatch is not that much greater this period.
+        return false;
+      }
+      return true;
+    }
+
+    @Override
+    public void downSampleInput(int positionFrames, int skip) {
+      short[] samples = inputBuffer;
+      // If skip is greater than one, average skip samples together and write them to the
+      // down-sample
+      // buffer. If channelCount is greater than one, mix the channels together as we down sample.
+      int frameCount = maxRequiredFrameCount / skip;
+      int samplesPerValue = channelCount * skip;
+      positionFrames *= channelCount;
+      for (int i = 0; i < frameCount; i++) {
+        int value = 0;
+        for (int j = 0; j < samplesPerValue; j++) {
+          value += samples[positionFrames + i * samplesPerValue + j];
+        }
+        value /= samplesPerValue;
+        downSampleBuffer[i] = (short) value;
+      }
+    }
+
+    @Override
+    public int findPitchPeriodInRangeWithDownsampleBuffer(
+        int positionFrames, int minPeriod, int maxPeriod) {
+      return findPitchPeriodInRange(downSampleBuffer, positionFrames, minPeriod, maxPeriod);
+    }
+
+    @Override
+    public int findPitchPeriodInRangeWithInputBuffer(
+        int positionFrames, int minPeriod, int maxPeriod) {
+      return findPitchPeriodInRange(inputBuffer, positionFrames, minPeriod, maxPeriod);
+    }
+
+    @Override
+    public void flush() {
+      prevMinDiff = 0;
+      minDiff = 0;
+      maxDiff = 0;
+    }
+
+    @Override
+    public void overlapAdd(
+        int frameCount,
+        int channelCount,
+        int outPosition,
+        int rampDownPosition,
+        int rampUpPosition) {
+      overlapAdd(
+          frameCount,
+          channelCount,
+          outputBuffer,
+          outPosition,
+          inputBuffer,
+          rampDownPosition,
+          inputBuffer,
+          rampUpPosition);
+    }
+
+    private void overlapAdd(
+        int frameCount,
+        int channelCount,
+        short[] out,
+        int outPosition,
+        short[] rampDown,
+        int rampDownPosition,
+        short[] rampUp,
+        int rampUpPosition) {
+      for (int i = 0; i < channelCount; i++) {
+        int o = outPosition * channelCount + i;
+        int u = rampUpPosition * channelCount + i;
+        int d = rampDownPosition * channelCount + i;
+        for (int t = 0; t < frameCount; t++) {
+          out[o] = (short) ((rampDown[d] * (frameCount - t) + rampUp[u] * t) / frameCount);
+          o += channelCount;
+          d += channelCount;
+          u += channelCount;
+        }
+      }
+    }
+
+    @Override
+    public void updatePreviousMinDiff() {
+      prevMinDiff = minDiff;
+    }
+
+    @Override
+    public void ensureAdditionalFramesInInputBuffer(int additionalFrameCount) {
+      inputBuffer =
+          ensureSpaceForAdditionalFrames(inputBuffer, inputFrameCount, additionalFrameCount);
+    }
+
+    @Override
+    public void ensureAdditionalFramesInOutputBuffer(int additionalFrameCount) {
+      outputBuffer =
+          ensureSpaceForAdditionalFrames(outputBuffer, outputFrameCount, additionalFrameCount);
+    }
+
+    @Override
+    public void ensureAdditionalFramesInPitchBuffer(int additionalFrameCount) {
+      pitchBuffer =
+          ensureSpaceForAdditionalFrames(pitchBuffer, pitchFrameCount, additionalFrameCount);
+    }
+
+    @Override
+    public void zeroInputBuffer(int startPosition, int length) {
+      for (int i = 0; i < length * channelCount; i++) {
+        inputBuffer[startPosition + i] = 0;
+      }
+    }
+
+    @Override
+    public void copyBufferToInputBuffer(ByteBuffer buffer, int bytesToWrite) {
+      buffer.asShortBuffer().get(inputBuffer, inputFrameCount * channelCount, bytesToWrite / 2);
+      buffer.position(buffer.position() + bytesToWrite);
+    }
+
+    @Override
+    public void copyOutputToByteBuffer(ByteBuffer buffer, int framesToRead) {
+      buffer.asShortBuffer().put(outputBuffer, 0, framesToRead * channelCount);
+      buffer.position(buffer.position() + framesToRead * bytesPerSample() * channelCount);
+    }
+
+    @Override
+    public short[] getInputBuffer() {
+      return inputBuffer;
+    }
+
+    @Override
+    public short[] getOutputBuffer() {
+      return outputBuffer;
+    }
+
+    @Override
+    public short[] getPitchBuffer() {
+      return pitchBuffer;
+    }
+
+    private int findPitchPeriodInRange(
+        short[] samples, int positionFrames, int minPeriod, int maxPeriod) {
+      // Find the best frequency match in the range, and given a sample skip multiple. For now, just
+      // find the pitch of the first channel.
+      int bestPeriod = 0;
+      int worstPeriod = 255;
+      int minDiff = 1;
+      int maxDiff = 0;
+      positionFrames *= channelCount;
+      for (int period = minPeriod; period <= maxPeriod; period++) {
+        int diff = 0;
+        for (int i = 0; i < period; i++) {
+          short sVal = samples[positionFrames + i];
+          short pVal = samples[positionFrames + period + i];
+          diff += Math.abs(sVal - pVal);
+        }
+        // Note that the highest number of samples we add into diff will be less than 256, since we
+        // skip samples. Thus, diff is a 24 bit number, and we can safely multiply by numSamples
+        // without overflow.
+        if (diff * bestPeriod < minDiff * period) {
+          minDiff = diff;
+          bestPeriod = period;
+        }
+        if (diff * worstPeriod > maxDiff * period) {
+          maxDiff = diff;
+          worstPeriod = period;
+        }
+      }
+      this.minDiff = minDiff / bestPeriod;
+      this.maxDiff = maxDiff / worstPeriod;
+      return bestPeriod;
+    }
+
+    private short interpolate(short[] in, int inPos, long oldSampleRate, long newSampleRate) {
+      short left = in[inPos];
+      short right = in[inPos + channelCount];
+      long position = newRatePosition * oldSampleRate;
+      long leftPosition = oldRatePosition * newSampleRate;
+      long rightPosition = (oldRatePosition + 1) * newSampleRate;
+      long ratio = rightPosition - position;
+      long width = rightPosition - leftPosition;
+      return (short) ((ratio * left + (width - ratio) * right) / width);
+    }
+
+    /**
+     * Returns {@code buffer} or a copy of it, such that there is enough space in the returned
+     * buffer to store {@code newFrameCount} additional frames.
+     *
+     * @param buffer The buffer.
+     * @param frameCount The number of frames already in the buffer.
+     * @param additionalFrameCount The number of additional frames that need to be stored in the
+     *     buffer.
+     * @return A buffer with enough space for the additional frames.
+     */
+    private short[] ensureSpaceForAdditionalFrames(
+        short[] buffer, int frameCount, int additionalFrameCount) {
+      int currentCapacityFrames = buffer.length / channelCount;
+      if (frameCount + additionalFrameCount <= currentCapacityFrames) {
+        return buffer;
+      } else {
+        int newCapacityFrames = 3 * currentCapacityFrames / 2 + additionalFrameCount;
+        return Arrays.copyOf(buffer, newCapacityFrames * channelCount);
       }
     }
   }

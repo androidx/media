@@ -15,6 +15,7 @@
  */
 package androidx.media3.common.util;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.graphics.SurfaceTexture;
@@ -165,7 +166,7 @@ public final class EGLSurfaceTexture implements SurfaceTexture.OnFrameAvailableL
    * Returns the wrapped {@link SurfaceTexture}. This can only be called after {@link #init(int)}.
    */
   public SurfaceTexture getSurfaceTexture() {
-    return Assertions.checkNotNull(texture);
+    return checkNotNull(texture);
   }
 
   // SurfaceTexture.OnFrameAvailableListener

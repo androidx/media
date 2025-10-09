@@ -15,7 +15,7 @@
  */
 package androidx.media3.exoplayer.source;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.net.Uri;
 import android.os.Looper;
@@ -259,8 +259,15 @@ public final class ProgressiveMediaSource extends BaseMediaSource
     @CanIgnoreReturnValue
     public <T extends Executor> Factory setDownloadExecutor(
         Supplier<T> downloadExecutor, Consumer<T> downloadExecutorReleaser) {
-      this.downloadExecutorSupplier =
-          () -> ReleasableExecutor.from(downloadExecutor.get(), downloadExecutorReleaser);
+      setDownloadExecutor(
+          () -> ReleasableExecutor.from(downloadExecutor.get(), downloadExecutorReleaser));
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    @Override
+    public MediaSource.Factory setDownloadExecutor(Supplier<ReleasableExecutor> downloadExecutor) {
+      this.downloadExecutorSupplier = downloadExecutor;
       return this;
     }
 

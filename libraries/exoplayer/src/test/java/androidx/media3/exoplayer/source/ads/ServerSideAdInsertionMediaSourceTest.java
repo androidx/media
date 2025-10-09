@@ -16,7 +16,6 @@
 package androidx.media3.exoplayer.source.ads;
 
 import static androidx.media3.common.C.DATA_TYPE_MEDIA;
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.exoplayer.source.ads.ServerSideAdInsertionUtil.addAdGroupToAdPlaybackState;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.END_OF_STREAM_ITEM;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.oneByteSample;
@@ -24,6 +23,7 @@ import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLoop
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.runUntilPendingCommandsAreFullyHandled;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.runUntilPlaybackState;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -74,13 +74,13 @@ import androidx.media3.exoplayer.trackselection.FixedTrackSelection;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.DefaultAllocator;
 import androidx.media3.test.utils.CapturingAudioSink;
-import androidx.media3.test.utils.CapturingRenderersFactory;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.FakeClock;
 import androidx.media3.test.utils.FakeMediaPeriod;
 import androidx.media3.test.utils.FakeMediaSource;
 import androidx.media3.test.utils.FakeSampleStream;
 import androidx.media3.test.utils.FakeTimeline;
+import androidx.media3.test.utils.robolectric.CapturingRenderersFactory;
 import androidx.media3.test.utils.robolectric.PlaybackOutput;
 import androidx.media3.test.utils.robolectric.RobolectricUtil;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
@@ -398,11 +398,9 @@ public final class ServerSideAdInsertionMediaSourceTest {
   @Test
   public void playbackWithPredefinedAds_playsSuccessfulWithoutRendererResets() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
-    CapturingRenderersFactory renderersFactory = new CapturingRenderersFactory(context);
-    ExoPlayer player =
-        new ExoPlayer.Builder(context, renderersFactory)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
-            .build();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
+    CapturingRenderersFactory renderersFactory = new CapturingRenderersFactory(context, clock);
+    ExoPlayer player = new ExoPlayer.Builder(context, renderersFactory).setClock(clock).build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
     PlaybackOutput playbackOutput = PlaybackOutput.register(player, renderersFactory);
@@ -473,12 +471,11 @@ public final class ServerSideAdInsertionMediaSourceTest {
   public void playbackWithNewlyInsertedAds_playsSuccessfulWithoutRendererResets() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
     AtomicReference<Object> periodUid = new AtomicReference<>();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory renderersFactory =
-        new CapturingRenderersFactory(context, DiscontinuitySkippingCapturingAudioSink.create());
-    ExoPlayer player =
-        new ExoPlayer.Builder(context, renderersFactory)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
-            .build();
+        new CapturingRenderersFactory(
+            context, clock, DiscontinuitySkippingCapturingAudioSink.create());
+    ExoPlayer player = new ExoPlayer.Builder(context, renderersFactory).setClock(clock).build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
     PlaybackOutput playbackOutput = PlaybackOutput.register(player, renderersFactory);
@@ -554,12 +551,11 @@ public final class ServerSideAdInsertionMediaSourceTest {
       throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
     AtomicReference<Object> periodUid = new AtomicReference<>();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory renderersFactory =
-        new CapturingRenderersFactory(context, DiscontinuitySkippingCapturingAudioSink.create());
-    ExoPlayer player =
-        new ExoPlayer.Builder(context, renderersFactory)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
-            .build();
+        new CapturingRenderersFactory(
+            context, clock, DiscontinuitySkippingCapturingAudioSink.create());
+    ExoPlayer player = new ExoPlayer.Builder(context, renderersFactory).setClock(clock).build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
     PlaybackOutput playbackOutput = PlaybackOutput.register(player, renderersFactory);

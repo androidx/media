@@ -55,6 +55,24 @@ import org.xmlpull.v1.XmlPullParserFactory;
     }
   }
 
+  /**
+   * Returns whether the given XMP string contains metadata indicating that it is a motion photo.
+   *
+   * @param xmpString The XMP XML string to check.
+   * @return Whether the XMP string indicates a motion photo.
+   */
+  public static boolean isMotionPhotoXmp(@Nullable String xmpString) {
+    if (xmpString == null) {
+      return false;
+    }
+    for (String attributeName : MOTION_PHOTO_ATTRIBUTE_NAMES) {
+      if (xmpString.contains(attributeName + "=\"1\"")) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   private static final String TAG = "MotionPhotoXmpParser";
 
   private static final String[] MOTION_PHOTO_ATTRIBUTE_NAMES =

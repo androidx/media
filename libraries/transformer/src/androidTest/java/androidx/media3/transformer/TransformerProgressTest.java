@@ -16,13 +16,15 @@
 package androidx.media3.transformer;
 
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_TRIM_OPTIMIZATION;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET;
+import static androidx.media3.test.utils.AssetInfo.MP4_TRIM_OPTIMIZATION;
+import static androidx.media3.test.utils.TestUtil.createExternalCacheFile;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_AVAILABLE;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_NOT_STARTED;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_UNAVAILABLE;
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_WAITING_FOR_AVAILABILITY;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
@@ -60,6 +62,7 @@ import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
 /** End-to-end instrumentation test for {@link Transformer#getProgress}. */
+// TODO: b/438552229 - Use BatchProgressReportingMuxer to remove Thread.sleep().
 @RunWith(AndroidJUnit4.class)
 public class TransformerProgressTest {
   private static final long DELAY_MS = 50;
@@ -114,8 +117,7 @@ public class TransformerProgressTest {
             Composition composition =
                 new Composition.Builder(
                         new EditedMediaItemSequence.Builder(
-                                new EditedMediaItem.Builder(
-                                        MediaItem.fromUri(AndroidTestUtil.MP4_ASSET.uri))
+                                new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
                                     .setEffects(
                                         new Effects(
                                             /* audioProcessors= */ ImmutableList.of(),
@@ -125,8 +127,7 @@ public class TransformerProgressTest {
                             .build())
                     .build();
             File outputVideoFile =
-                AndroidTestUtil.createExternalCacheFile(
-                    context, /* fileName= */ testId + "-output.mp4");
+                createExternalCacheFile(context, /* fileName= */ testId + "-output.mp4");
             Transformer transformer = new Transformer.Builder(context).build();
             transformer.addListener(listener);
             transformer.start(composition, outputVideoFile.getPath());
@@ -142,7 +143,7 @@ public class TransformerProgressTest {
     while (!completed.get()) {
       instrumentation.runOnMainSync(
           () -> {
-            Transformer transformer = checkStateNotNull(transformerRef.get());
+            Transformer transformer = checkNotNull(transformerRef.get());
             ProgressHolder progressHolder = new ProgressHolder();
             if (transformer.getProgress(progressHolder) == PROGRESS_STATE_AVAILABLE
                 && (progresses.isEmpty()
@@ -205,8 +206,7 @@ public class TransformerProgressTest {
                   }
                 })
             .build();
-    File outputVideoFile =
-        AndroidTestUtil.createExternalCacheFile(context, /* fileName= */ testId + "-output.mp4");
+    File outputVideoFile = createExternalCacheFile(context, /* fileName= */ testId + "-output.mp4");
 
     InstrumentationRegistry.getInstrumentation()
         .runOnMainSync(
@@ -286,8 +286,7 @@ public class TransformerProgressTest {
                   }
                 })
             .build();
-    File outputVideoFile =
-        AndroidTestUtil.createExternalCacheFile(context, /* fileName= */ testId + "-output.mp4");
+    File outputVideoFile = createExternalCacheFile(context, /* fileName= */ testId + "-output.mp4");
 
     InstrumentationRegistry.getInstrumentation()
         .runOnMainSync(

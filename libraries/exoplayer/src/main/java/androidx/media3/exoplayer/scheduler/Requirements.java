@@ -16,6 +16,7 @@
 package androidx.media3.exoplayer.scheduler;
 
 import static android.os.Build.VERSION.SDK_INT;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.ElementType.LOCAL_VARIABLE;
 import static java.lang.annotation.ElementType.METHOD;
@@ -35,7 +36,6 @@ import android.os.Parcelable;
 import android.os.PowerManager;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
@@ -170,8 +170,7 @@ public final class Requirements implements Parcelable {
     }
 
     ConnectivityManager connectivityManager =
-        (ConnectivityManager)
-            Assertions.checkNotNull(context.getSystemService(Context.CONNECTIVITY_SERVICE));
+        (ConnectivityManager) checkNotNull(context.getSystemService(Context.CONNECTIVITY_SERVICE));
     @Nullable NetworkInfo networkInfo = connectivityManager.getActiveNetworkInfo();
     if (networkInfo == null
         || !networkInfo.isConnected()
@@ -201,8 +200,8 @@ public final class Requirements implements Parcelable {
 
   private boolean isDeviceIdle(Context context) {
     PowerManager powerManager =
-        (PowerManager) Assertions.checkNotNull(context.getSystemService(Context.POWER_SERVICE));
-    return SDK_INT >= 23 ? powerManager.isDeviceIdleMode() : !powerManager.isInteractive();
+        (PowerManager) checkNotNull(context.getSystemService(Context.POWER_SERVICE));
+    return powerManager.isDeviceIdleMode();
   }
 
   private boolean isStorageNotLow(Context context) {

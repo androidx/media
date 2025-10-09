@@ -17,11 +17,11 @@
 package androidx.media3.extractor.text.ssa;
 
 import static androidx.media3.extractor.text.ssa.SsaParser.FORMAT_LINE_PREFIX;
+import static com.google.common.base.Preconditions.checkArgument;
 
 import android.text.TextUtils;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
-import androidx.media3.common.util.Assertions;
 import com.google.common.base.Ascii;
 
 /**
@@ -66,7 +66,7 @@ import com.google.common.base.Ascii;
     int endTimeIndex = C.INDEX_UNSET;
     int styleIndex = C.INDEX_UNSET;
     int textIndex = C.INDEX_UNSET;
-    Assertions.checkArgument(formatLine.startsWith(FORMAT_LINE_PREFIX));
+    checkArgument(formatLine.startsWith(FORMAT_LINE_PREFIX));
     String[] keys = TextUtils.split(formatLine.substring(FORMAT_LINE_PREFIX.length()), ",");
     for (int i = 0; i < keys.length; i++) {
       switch (Ascii.toLowerCase(keys[i].trim())) {

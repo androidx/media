@@ -15,8 +15,8 @@
  */
 package androidx.media3.datasource;
 
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.isBitmapFactorySupportedMimeType;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -59,7 +59,23 @@ public final class DataSourceBitmapLoader implements BitmapLoader {
    * loading tasks to a {@link Executors#newSingleThreadExecutor()}.
    */
   public DataSourceBitmapLoader(Context context) {
-    this(checkStateNotNull(DEFAULT_EXECUTOR_SERVICE.get()), new DefaultDataSource.Factory(context));
+    this(checkNotNull(DEFAULT_EXECUTOR_SERVICE.get()), new DefaultDataSource.Factory(context));
+  }
+
+  /**
+   * Creates an instance that uses a {@link DefaultHttpDataSource} for image loading and delegates
+   * loading tasks to a {@link Executors#newSingleThreadExecutor()} with specified maximum output
+   * dimension.
+   *
+   * @param context The context
+   * @param maximumOutputDimension The maximum dimension of the output Bitmap.
+   */
+  public DataSourceBitmapLoader(Context context, int maximumOutputDimension) {
+    this(
+        checkNotNull(DEFAULT_EXECUTOR_SERVICE.get()),
+        new DefaultDataSource.Factory(context),
+        /* options= */ null,
+        maximumOutputDimension);
   }
 
   /**

@@ -16,7 +16,7 @@
 
 package androidx.media3.transformer;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
+import static com.google.common.base.Preconditions.checkArgument;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -77,7 +77,8 @@ public final class TransformationRequest {
       videoMimeType = MimeTypes.normalizeMimeType(videoMimeType);
       checkArgument(
           videoMimeType == null || MimeTypes.isVideo(videoMimeType),
-          "Not a video MIME type: " + videoMimeType);
+          "Not a video MIME type: %s",
+          videoMimeType);
       this.videoMimeType = videoMimeType;
       return this;
     }
@@ -104,7 +105,8 @@ public final class TransformationRequest {
       audioMimeType = MimeTypes.normalizeMimeType(audioMimeType);
       checkArgument(
           audioMimeType == null || MimeTypes.isAudio(audioMimeType),
-          "Not an audio MIME type: " + audioMimeType);
+          "Not an audio MIME type: %s",
+          audioMimeType);
       this.audioMimeType = audioMimeType;
       return this;
     }

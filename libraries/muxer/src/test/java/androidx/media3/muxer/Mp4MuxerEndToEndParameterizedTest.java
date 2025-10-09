@@ -15,11 +15,10 @@
  */
 package androidx.media3.muxer;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.muxer.MuxerTestUtil.feedInputDataToMuxer;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.content.Context;
-import androidx.annotation.Nullable;
 import androidx.media3.container.Mp4TimestampData;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import androidx.media3.test.utils.DumpFileAsserts;
@@ -28,10 +27,7 @@ import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import com.google.common.collect.ImmutableList;
 import java.io.FileOutputStream;
-import java.io.IOException;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
-import org.junit.After;
-import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -71,6 +67,8 @@ public class Mp4MuxerEndToEndParameterizedTest {
   private static final String VORBIS_OGG = "bbb_1ch_16kHz_q10_vorbis.ogg";
   private static final String RAW_WAV = "bbb_2ch_44kHz.wav";
 
+  public static final String MP4_FILE_ASSET_DIRECTORY = "asset:///media/mp4/";
+
   @Parameters(name = "{0}")
   public static ImmutableList<String> mediaSamples() {
     return ImmutableList.of(
@@ -99,35 +97,18 @@ public class Mp4MuxerEndToEndParameterizedTest {
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
   private final Context context = ApplicationProvider.getApplicationContext();
-  private @MonotonicNonNull String outputPath;
-  private @MonotonicNonNull FileOutputStream outputStream;
-
-  @Before
-  public void setUp() throws Exception {
-    outputPath = temporaryFolder.newFile("muxeroutput.mp4").getPath();
-    outputStream = new FileOutputStream(outputPath);
-  }
-
-  @After
-  public void tearDown() throws IOException {
-    checkNotNull(outputStream).close();
-  }
 
   @Test
   public void createMp4File_fromInputFileSampleData_matchesExpected() throws Exception {
-    @Nullable Mp4Muxer mp4Muxer = null;
+    String outputPath = temporaryFolder.newFile("muxeroutput.mp4").getPath();
 
-    try {
-      mp4Muxer = new Mp4Muxer.Builder(checkNotNull(outputStream)).build();
+    try (Mp4Muxer mp4Muxer =
+        new Mp4Muxer.Builder(SeekableMuxerOutput.of(new FileOutputStream(outputPath))).build()) {
       mp4Muxer.addMetadataEntry(
           new Mp4TimestampData(
               /* creationTimestampSeconds= */ 100_000_000L,
               /* modificationTimestampSeconds= */ 500_000_000L));
-      feedInputDataToMuxer(context, mp4Muxer, checkNotNull(inputFile));
-    } finally {
-      if (mp4Muxer != null) {
-        mp4Muxer.close();
-      }
+      feedInputDataToMuxer(context, mp4Muxer, checkNotNull(MP4_FILE_ASSET_DIRECTORY + inputFile));
     }
 
     FakeExtractorOutput fakeExtractorOutput =

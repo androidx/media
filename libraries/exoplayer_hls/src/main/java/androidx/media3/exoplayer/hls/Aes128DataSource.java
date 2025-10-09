@@ -15,10 +15,11 @@
  */
 package androidx.media3.exoplayer.hls;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import android.net.Uri;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DataSourceInputStream;
 import androidx.media3.datasource.DataSpec;
@@ -66,7 +67,7 @@ import javax.crypto.spec.SecretKeySpec;
 
   @Override
   public final void addTransferListener(TransferListener transferListener) {
-    Assertions.checkNotNull(transferListener);
+    checkNotNull(transferListener);
     upstream.addTransferListener(transferListener);
   }
 
@@ -97,7 +98,7 @@ import javax.crypto.spec.SecretKeySpec;
 
   @Override
   public final int read(byte[] buffer, int offset, int length) throws IOException {
-    Assertions.checkNotNull(cipherInputStream);
+    checkNotNull(cipherInputStream);
     int bytesRead = cipherInputStream.read(buffer, offset, length);
     if (bytesRead < 0) {
       return C.RESULT_END_OF_INPUT;

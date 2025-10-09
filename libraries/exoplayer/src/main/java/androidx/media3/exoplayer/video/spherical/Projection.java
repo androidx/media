@@ -15,12 +15,12 @@
  */
 package androidx.media3.exoplayer.video.spherical;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import androidx.annotation.IntDef;
 import androidx.media3.common.C;
 import androidx.media3.common.C.StereoMode;
-import androidx.media3.common.util.Assertions;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -86,11 +86,11 @@ import java.lang.annotation.Target;
       float verticalFovDegrees,
       float horizontalFovDegrees,
       @C.StereoMode int stereoMode) {
-    Assertions.checkArgument(radius > 0);
-    Assertions.checkArgument(latitudes >= 1);
-    Assertions.checkArgument(longitudes >= 1);
-    Assertions.checkArgument(verticalFovDegrees > 0 && verticalFovDegrees <= 180);
-    Assertions.checkArgument(horizontalFovDegrees > 0 && horizontalFovDegrees <= 360);
+    checkArgument(radius > 0);
+    checkArgument(latitudes >= 1);
+    checkArgument(longitudes >= 1);
+    checkArgument(verticalFovDegrees > 0 && verticalFovDegrees <= 180);
+    checkArgument(horizontalFovDegrees > 0 && horizontalFovDegrees <= 360);
 
     // Compute angular size in radians of each UV quad.
     float verticalFovRads = (float) Math.toRadians(verticalFovDegrees);
@@ -215,7 +215,7 @@ import java.lang.annotation.Target;
 
     public SubMesh(int textureId, float[] vertices, float[] textureCoords, @DrawMode int mode) {
       this.textureId = textureId;
-      Assertions.checkArgument(
+      checkArgument(
           vertices.length * (long) TEXTURE_COORDS_PER_VERTEX
               == textureCoords.length * (long) POSITION_COORDS_PER_VERTEX);
       this.vertices = vertices;

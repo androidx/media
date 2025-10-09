@@ -16,11 +16,11 @@
 
 package androidx.media3.transformer;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.container.NalUnitUtil.H264_NAL_UNIT_TYPE_PREFIX;
 import static androidx.media3.container.NalUnitUtil.NAL_START_CODE;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.min;
 
 import androidx.annotation.Nullable;
@@ -124,7 +124,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     if (slowMotionData != null) {
       checkArgument(
           mimeType.equals(MimeTypes.VIDEO_H264) || mimeType.equals(MimeTypes.VIDEO_H265),
-          "Unsupported MIME type for SEF slow motion video track: " + mimeType);
+          "Unsupported MIME type for SEF slow motion video track: %s",
+          mimeType);
     }
     List<SlowMotionData.Segment> segments =
         slowMotionData != null ? slowMotionData.segments : ImmutableList.of();
@@ -295,28 +296,24 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     if (metadata == null) {
       return metadataInfo;
     }
-
-    for (int i = 0; i < metadata.length(); i++) {
-      Metadata.Entry entry = metadata.get(i);
-      if (entry instanceof SmtaMetadataEntry) {
-        SmtaMetadataEntry smtaMetadataEntry = (SmtaMetadataEntry) entry;
-        metadataInfo.captureFrameRate = smtaMetadataEntry.captureFrameRate;
-        metadataInfo.inputMaxLayer = smtaMetadataEntry.svcTemporalLayerCount - 1;
-      } else if (entry instanceof SlowMotionData) {
-        metadataInfo.slowMotionData = (SlowMotionData) entry;
-      }
-    }
-
-    if (metadataInfo.slowMotionData == null) {
+    @Nullable SlowMotionData slowMotionData = metadata.getFirstEntryOfType(SlowMotionData.class);
+    if (slowMotionData == null) {
       return metadataInfo;
     }
-
+    metadataInfo.slowMotionData = slowMotionData;
+    @Nullable
+    SmtaMetadataEntry smtaMetadataEntry = metadata.getFirstEntryOfType(SmtaMetadataEntry.class);
+    if (smtaMetadataEntry != null) {
+      metadataInfo.captureFrameRate = smtaMetadataEntry.captureFrameRate;
+      metadataInfo.inputMaxLayer = smtaMetadataEntry.svcTemporalLayerCount - 1;
+    }
     checkState(metadataInfo.inputMaxLayer != C.INDEX_UNSET, "SVC temporal layer count not found.");
     checkState(metadataInfo.captureFrameRate != C.RATE_UNSET, "Capture frame rate not found.");
     checkState(
         metadataInfo.captureFrameRate % 1 == 0
             && metadataInfo.captureFrameRate % TARGET_OUTPUT_FRAME_RATE == 0,
-        "Invalid capture frame rate: " + metadataInfo.captureFrameRate);
+        "Invalid capture frame rate: %s",
+        metadataInfo.captureFrameRate);
 
     int frameCountDivisor = (int) metadataInfo.captureFrameRate / TARGET_OUTPUT_FRAME_RATE;
     int normalSpeedMaxLayer = metadataInfo.inputMaxLayer;
@@ -327,8 +324,8 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
         // divides the number of frames by 2.
         checkState(
             frameCountDivisor >> 1 == 0,
-            "Could not compute normal speed max SVC layer for capture frame rate  "
-                + metadataInfo.captureFrameRate);
+            "Could not compute normal speed max SVC layer for capture frame rate %s",
+            metadataInfo.captureFrameRate);
         metadataInfo.normalSpeedMaxLayer = normalSpeedMaxLayer;
         break;
       }
@@ -403,7 +400,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       int shiftedSpeedDivisor = speedDivisor;
       while (shiftedSpeedDivisor > 0) {
         if ((shiftedSpeedDivisor & 1) == 1) {
-          checkState(shiftedSpeedDivisor >> 1 == 0, "Invalid speed divisor: " + speedDivisor);
+          checkState(shiftedSpeedDivisor >> 1 == 0, "Invalid speed divisor: %s", speedDivisor);
           break;
         }
         maxLayer++;

@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.video;
 
+import static androidx.media3.common.ColorInfo.SDR_BT709_LIMITED;
 import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_IMMEDIATELY;
 import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED;
 import static com.google.common.truth.Truth.assertThat;
@@ -38,6 +39,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
@@ -159,7 +162,7 @@ public final class PlaybackVideoGraphWrapperTest {
 
     testVideoGraphFactory.verifyRegisterInputStream(/* invocationTimes= */ 1);
     Format bt709ColorInfoInputFormat =
-        inputFormat.buildUpon().setColorInfo(ColorInfo.SDR_BT709_LIMITED).build();
+        inputFormat.buildUpon().setColorInfo(SDR_BT709_LIMITED).build();
     assertThat(testVideoGraphFactory.getCapturedFormats())
         .containsExactly(bt709ColorInfoInputFormat);
   }
@@ -191,6 +194,154 @@ public final class PlaybackVideoGraphWrapperTest {
 
     testVideoGraphFactory.verifyRegisterInputStream(/* invocationTimes= */ 1);
     assertThat(testVideoGraphFactory.getCapturedFormats()).containsExactly(inputFormat);
+  }
+
+  @Test
+  public void inputSinkInitialized_withGamma22_createsGraphWithBT709()
+      throws VideoSink.VideoSinkException {
+    TestVideoGraphFactory testVideoGraphFactory = new TestVideoGraphFactory();
+    PlaybackVideoGraphWrapper playbackVideoGraphWrapper =
+        createPlaybackVideoGraphWrapper(testVideoGraphFactory);
+    ColorInfo gamma22ColorInfo =
+        new ColorInfo.Builder()
+            .setColorRange(C.COLOR_RANGE_LIMITED)
+            .setColorSpace(C.COLOR_SPACE_BT709)
+            .setColorTransfer(C.COLOR_TRANSFER_GAMMA_2_2)
+            .build();
+    Format inputFormat = new Format.Builder().setColorInfo(gamma22ColorInfo).build();
+    VideoSink sink = playbackVideoGraphWrapper.getSink(/* inputIndex= */ 0);
+
+    sink.initialize(inputFormat);
+
+    assertThat(testVideoGraphFactory.outputColorInfo).isEqualTo(SDR_BT709_LIMITED);
+  }
+
+  @Test
+  public void handleInputFrame_withSlightlyDelayedForecaster_doesNotProcessOrDropInputFrame()
+      throws VideoSink.VideoSinkException {
+    TestVideoGraphFactory testVideoGraphFactory = new TestVideoGraphFactory();
+    VideoFrameReleaseEarlyTimeForecaster forecaster =
+        new VideoFrameReleaseEarlyTimeForecaster(/* playbackSpeed= */ 1f);
+    AtomicBoolean frameDropped = new AtomicBoolean(false);
+    VideoSink.VideoFrameHandler videoFrameHandler =
+        new VideoSink.VideoFrameHandler() {
+          @Override
+          public void render(long renderTimestampNs) {}
+
+          @Override
+          public void skip() {
+            frameDropped.set(true);
+          }
+        };
+    Context context = ApplicationProvider.getApplicationContext();
+    PlaybackVideoGraphWrapper playbackVideoGraphWrapper =
+        new PlaybackVideoGraphWrapper.Builder(context, createVideoFrameReleaseControl())
+            .setVideoGraphFactory(testVideoGraphFactory)
+            .setVideoFrameReleaseEarlyTimeForecaster(forecaster)
+            .build();
+    Format inputFormat = new Format.Builder().build();
+    VideoSink sink = playbackVideoGraphWrapper.getSink(/* inputIndex= */ 0);
+    // The only processed frame is 10ms late -- and the next frame should be dropped.
+    forecaster.onVideoFrameProcessed(/* framePresentationTimeUs= */ 0, /* earlyUs= */ -10_000);
+
+    sink.initialize(inputFormat);
+    boolean frameHandled =
+        sink.handleInputFrame(/* bufferPresentationTimeUs= */ 100, videoFrameHandler);
+
+    assertThat(frameHandled).isFalse();
+    assertThat(frameDropped.get()).isFalse();
+  }
+
+  @Test
+  public void handleInputFrame_withMoreDelayedForecaster_dropsInputFrame()
+      throws VideoSink.VideoSinkException {
+    TestVideoGraphFactory testVideoGraphFactory = new TestVideoGraphFactory();
+    VideoFrameReleaseEarlyTimeForecaster forecaster =
+        new VideoFrameReleaseEarlyTimeForecaster(/* playbackSpeed= */ 1f);
+    AtomicBoolean frameDropped = new AtomicBoolean(false);
+    VideoSink.VideoFrameHandler videoFrameHandler =
+        new VideoSink.VideoFrameHandler() {
+          @Override
+          public void render(long renderTimestampNs) {}
+
+          @Override
+          public void skip() {
+            frameDropped.set(true);
+          }
+        };
+    Context context = ApplicationProvider.getApplicationContext();
+    PlaybackVideoGraphWrapper playbackVideoGraphWrapper =
+        new PlaybackVideoGraphWrapper.Builder(context, createVideoFrameReleaseControl())
+            .setVideoGraphFactory(testVideoGraphFactory)
+            .setVideoFrameReleaseEarlyTimeForecaster(forecaster)
+            .build();
+    Format inputFormat = new Format.Builder().build();
+    VideoSink sink = playbackVideoGraphWrapper.getSink(/* inputIndex= */ 0);
+    // The only processed frame is 20ms late -- and the next frame should be dropped.
+    forecaster.onVideoFrameProcessed(/* framePresentationTimeUs= */ 0, /* earlyUs= */ -20_000);
+
+    sink.initialize(inputFormat);
+    boolean frameHandled =
+        sink.handleInputFrame(/* bufferPresentationTimeUs= */ 100, videoFrameHandler);
+
+    assertThat(frameHandled).isTrue();
+    assertThat(frameDropped.get()).isTrue();
+  }
+
+  @Test
+  public void handleInputFrame_withDelayedForecaster_dropsUpTo2ConsecutiveFrames()
+      throws VideoSink.VideoSinkException {
+    TestVideoGraphFactory testVideoGraphFactory = new TestVideoGraphFactory();
+    VideoFrameReleaseEarlyTimeForecaster forecaster =
+        new VideoFrameReleaseEarlyTimeForecaster(/* playbackSpeed= */ 1f);
+    AtomicInteger droppedFramesCount = new AtomicInteger();
+    VideoSink.VideoFrameHandler videoFrameHandler =
+        new VideoSink.VideoFrameHandler() {
+          @Override
+          public void render(long renderTimestampNs) {}
+
+          @Override
+          public void skip() {
+            droppedFramesCount.incrementAndGet();
+          }
+        };
+    Context context = ApplicationProvider.getApplicationContext();
+    PlaybackVideoGraphWrapper playbackVideoGraphWrapper =
+        new PlaybackVideoGraphWrapper.Builder(context, createVideoFrameReleaseControl())
+            .setVideoGraphFactory(testVideoGraphFactory)
+            .setVideoFrameReleaseEarlyTimeForecaster(forecaster)
+            .build();
+    Format inputFormat = new Format.Builder().build();
+    VideoSink sink = playbackVideoGraphWrapper.getSink(/* inputIndex= */ 0);
+    // The only processed frame is 20ms late -- and the next frames should be dropped.
+    forecaster.onVideoFrameProcessed(/* framePresentationTimeUs= */ 0, /* earlyUs= */ -20_000);
+
+    sink.initialize(inputFormat);
+    sink.handleInputFrame(/* bufferPresentationTimeUs= */ 98, videoFrameHandler);
+    sink.handleInputFrame(/* bufferPresentationTimeUs= */ 99, videoFrameHandler);
+    boolean thirdFrameHandled =
+        sink.handleInputFrame(/* bufferPresentationTimeUs= */ 100, videoFrameHandler);
+
+    assertThat(thirdFrameHandled).isFalse();
+    assertThat(droppedFramesCount.get()).isEqualTo(2);
+  }
+
+  @Test
+  public void setPlaybackSpeed_updatesForecaster() throws VideoSink.VideoSinkException {
+    TestVideoGraphFactory testVideoGraphFactory = new TestVideoGraphFactory();
+    VideoFrameReleaseEarlyTimeForecaster forecaster =
+        Mockito.mock(VideoFrameReleaseEarlyTimeForecaster.class);
+    Context context = ApplicationProvider.getApplicationContext();
+    PlaybackVideoGraphWrapper playbackVideoGraphWrapper =
+        new PlaybackVideoGraphWrapper.Builder(context, createVideoFrameReleaseControl())
+            .setVideoGraphFactory(testVideoGraphFactory)
+            .setVideoFrameReleaseEarlyTimeForecaster(forecaster)
+            .build();
+    VideoSink sink = playbackVideoGraphWrapper.getSink(/* inputIndex= */ 0);
+
+    sink.setPlaybackSpeed(2f);
+
+    verify(forecaster).setPlaybackSpeed(2f);
   }
 
   private static PlaybackVideoGraphWrapper createPlaybackVideoGraphWrapper(
@@ -240,6 +391,8 @@ public final class PlaybackVideoGraphWrapperTest {
 
     private final ArgumentCaptor<Format> formatCaptor = ArgumentCaptor.forClass(Format.class);
 
+    public ColorInfo outputColorInfo;
+
     @Override
     public VideoGraph create(
         Context context,
@@ -249,6 +402,7 @@ public final class PlaybackVideoGraphWrapperTest {
         Executor listenerExecutor,
         long initialTimestampOffsetUs,
         boolean renderFramesAutomatically) {
+      this.outputColorInfo = outputColorInfo;
 
       when(videoGraph.registerInputFrame(anyInt())).thenReturn(true);
       return videoGraph;

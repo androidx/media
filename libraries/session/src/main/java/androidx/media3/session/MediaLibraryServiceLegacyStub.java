@@ -15,8 +15,6 @@
  */
 package androidx.media3.session;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.castNonNull;
 import static androidx.media3.common.util.Util.postOrRun;
 import static androidx.media3.session.LegacyConversions.extractMaxCommandsForMediaItemFromRootHints;
@@ -26,6 +24,7 @@ import static androidx.media3.session.legacy.MediaBrowserCompat.EXTRA_PAGE;
 import static androidx.media3.session.legacy.MediaBrowserCompat.EXTRA_PAGE_SIZE;
 import static androidx.media3.session.legacy.MediaConstants.BROWSER_SERVICE_EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ROOT_LIST;
 import static androidx.media3.session.legacy.MediaConstants.BROWSER_SERVICE_EXTRAS_KEY_SEARCH_SUPPORTED;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.annotation.SuppressLint;
 import android.graphics.Bitmap;
@@ -237,17 +236,17 @@ import java.util.concurrent.atomic.AtomicReference;
             result.sendResult(/* result= */ null);
             return;
           }
+          @Nullable LibraryParams params = null;
           if (options != null) {
             options.setClassLoader(librarySessionImpl.getContext().getClassLoader());
             try {
               int page = options.getInt(EXTRA_PAGE);
               int pageSize = options.getInt(EXTRA_PAGE_SIZE);
+              params =
+                  LegacyConversions.convertToLibraryParams(
+                      librarySessionImpl.getContext(), options);
               if (page >= 0 && pageSize > 0) {
                 // Requesting the list of children through pagination.
-                @Nullable
-                LibraryParams params =
-                    LegacyConversions.convertToLibraryParams(
-                        librarySessionImpl.getContext(), options);
                 ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> future =
                     librarySessionImpl.onGetChildrenOnHandler(
                         controller, parentId, page, pageSize, params);
@@ -268,11 +267,7 @@ import java.util.concurrent.atomic.AtomicReference;
           // A MediaBrowserCompat called loadChildren with no pagination option.
           ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> future =
               librarySessionImpl.onGetChildrenOnHandler(
-                  controller,
-                  parentId,
-                  /* page= */ 0,
-                  /* pageSize= */ Integer.MAX_VALUE,
-                  /* params= */ null);
+                  controller, parentId, /* page= */ 0, /* pageSize= */ Integer.MAX_VALUE, params);
           ListenableFuture<@NullableType List<MediaBrowserCompat.MediaItem>> browserItemsFuture =
               Util.transformFutureAsync(future, createMediaItemsToBrowserItemsAsyncFunction());
           sendLibraryResultWithMediaItemsWhenReady(result, browserItemsFuture);
@@ -334,7 +329,7 @@ import java.util.concurrent.atomic.AtomicReference;
             result.sendResult(/* result= */ null);
             return;
           }
-          BrowserLegacyCb cb = (BrowserLegacyCb) checkStateNotNull(controller.getControllerCb());
+          BrowserLegacyCb cb = (BrowserLegacyCb) checkNotNull(controller.getControllerCb());
           cb.registerSearchRequest(controller, query, extras, result);
           @Nullable
           LibraryParams params =
@@ -360,8 +355,11 @@ import java.util.concurrent.atomic.AtomicReference;
             result.sendError(/* extras= */ null);
             return;
           }
+          ProgressReporter progressReporter = new ProgressReporter(librarySessionImpl, result);
           ListenableFuture<SessionResult> future =
-              librarySessionImpl.onCustomCommandOnHandler(controller, command, extras);
+              librarySessionImpl.onCustomCommandOnHandler(
+                  controller, progressReporter, command, extras);
+          progressReporter.setFuture(future);
           sendCustomActionResultWhenReady(result, future);
         });
   }
@@ -375,7 +373,8 @@ import java.util.concurrent.atomic.AtomicReference;
         getMediaSessionManager().isTrustedForMediaControl(remoteUserInfo),
         new BrowserLegacyCb(remoteUserInfo),
         /* connectionHints= */ rootHints,
-        extractMaxCommandsForMediaItemFromRootHints(rootHints));
+        extractMaxCommandsForMediaItemFromRootHints(rootHints),
+        /* isPackageNameVerified= */ true);
   }
 
   public ControllerCb getBrowserLegacyCbForBroadcast() {
@@ -723,6 +722,29 @@ import java.util.concurrent.atomic.AtomicReference;
       // {@link MediaLibrarySessionCallback#onSearchResultChanged}. However, for
       // BrowserCompat, it should be done by {@link Result#sendResult} from
       // {@link MediaLibraryServiceLegacyStub#onSearch} instead.
+    }
+  }
+
+  private static class ProgressReporter implements MediaSession.ProgressReporter {
+
+    private final MediaLibrarySessionImpl session;
+    private final Result<Bundle> result;
+    @Nullable private ListenableFuture<SessionResult> future;
+
+    public ProgressReporter(MediaLibrarySessionImpl session, Result<Bundle> result) {
+      this.session = session;
+      this.result = result;
+    }
+
+    @Override
+    public void sendProgressUpdate(Bundle progressData) {
+      if ((future == null || !future.isDone()) && !session.isReleased()) {
+        result.sendProgressUpdate(progressData);
+      }
+    }
+
+    public void setFuture(ListenableFuture<SessionResult> future) {
+      this.future = future;
     }
   }
 }

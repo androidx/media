@@ -15,7 +15,7 @@
  */
 package androidx.media3.muxer;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
+import static com.google.common.base.Preconditions.checkArgument;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -109,8 +109,7 @@ import java.util.List;
   }
 
   public int videoUnitTimebase() {
-    return MimeTypes.isAudio(format.sampleMimeType)
-        ? 48_000 // TODO: b/270583563 - Update these with actual values from mediaFormat.
-        : 90_000;
+    // TODO: b/270583563 - Use frame rate for video tracks.
+    return MimeTypes.isAudio(format.sampleMimeType) ? format.sampleRate : 90_000;
   }
 }

@@ -16,11 +16,11 @@
 
 package androidx.media3.test.utils;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.MediaFormatUtil.createMediaFormatFromFormat;
 import static androidx.media3.common.util.Util.postOrRun;
 import static androidx.media3.test.utils.TestUtil.buildAssetUri;
 import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.content.Context;
 import android.media.MediaFormat;

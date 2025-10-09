@@ -47,8 +47,10 @@ android {
 
 dependencies {
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
+    implementation 'androidx.concurrent:concurrent-futures:' + androidxConcurrentFuturesVersion
     api project(modulePrefix + 'lib-common')
     implementation project(modulePrefix + 'lib-datasource')
+    api 'com.airbnb.android:lottie:' + lottieVersion
     compileOnly 'com.google.errorprone:error_prone_annotations:' + errorProneVersion
     compileOnly 'org.checkerframework:checker-qual:' + checkerframeworkVersion
     compileOnly 'org.jetbrains.kotlin:kotlin-annotations-jvm:' + kotlinAnnotationsVersion

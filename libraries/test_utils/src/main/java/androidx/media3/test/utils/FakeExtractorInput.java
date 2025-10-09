@@ -15,17 +15,21 @@
  */
 package androidx.media3.test.utils;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
+import static java.lang.Math.max;
 import static java.lang.Math.min;
 
-import android.util.SparseBooleanArray;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.extractor.ExtractorInput;
+import com.google.common.primitives.Booleans;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.EOFException;
 import java.io.IOException;
+import java.util.Arrays;
 
 /**
  * A fake {@link ExtractorInput} capable of simulating various scenarios.
@@ -63,38 +67,53 @@ public final class FakeExtractorInput implements ExtractorInput {
   private final boolean simulateUnknownLength;
   private final boolean simulatePartialReads;
   private final boolean simulateIOErrors;
+  private final int peekLimit;
+  private final boolean[] failedReadPositions;
+  private final boolean[] failedPeekPositions;
 
   private int readPosition;
   private int peekPosition;
-
-  private final SparseBooleanArray partiallySatisfiedTargetReadPositions;
-  private final SparseBooleanArray partiallySatisfiedTargetPeekPositions;
-  private final SparseBooleanArray failedReadPositions;
-  private final SparseBooleanArray failedPeekPositions;
+  private int maxPeekLimit;
+  private boolean[] partiallySatisfiedTargetReadPositions;
+  private boolean[] partiallySatisfiedTargetPeekPositions;
 
   private FakeExtractorInput(
       byte[] data,
       boolean simulateUnknownLength,
       boolean simulatePartialReads,
-      boolean simulateIOErrors) {
+      boolean simulateIOErrors,
+      int peekLimit) {
     this.data = data;
     this.simulateUnknownLength = simulateUnknownLength;
     this.simulatePartialReads = simulatePartialReads;
     this.simulateIOErrors = simulateIOErrors;
-    partiallySatisfiedTargetReadPositions = new SparseBooleanArray();
-    partiallySatisfiedTargetPeekPositions = new SparseBooleanArray();
-    failedReadPositions = new SparseBooleanArray();
-    failedPeekPositions = new SparseBooleanArray();
+    this.peekLimit = peekLimit;
+    if (simulatePartialReads) {
+      partiallySatisfiedTargetReadPositions = new boolean[data.length];
+      partiallySatisfiedTargetPeekPositions = new boolean[data.length];
+    } else {
+      partiallySatisfiedTargetReadPositions = new boolean[0];
+      partiallySatisfiedTargetPeekPositions = partiallySatisfiedTargetReadPositions;
+    }
+    if (simulateIOErrors) {
+      // Reading just beyond the length of the array is permitted (in order to generate
+      // EOFException).
+      failedReadPositions = new boolean[data.length + 1];
+      failedPeekPositions = new boolean[data.length + 1];
+    } else {
+      failedReadPositions = new boolean[0];
+      failedPeekPositions = failedReadPositions;
+    }
   }
 
   /** Resets the input to its initial state. */
   public void reset() {
     readPosition = 0;
     peekPosition = 0;
-    partiallySatisfiedTargetReadPositions.clear();
-    partiallySatisfiedTargetPeekPositions.clear();
-    failedReadPositions.clear();
-    failedPeekPositions.clear();
+    Arrays.fill(partiallySatisfiedTargetReadPositions, false);
+    Arrays.fill(partiallySatisfiedTargetPeekPositions, false);
+    Arrays.fill(failedReadPositions, false);
+    Arrays.fill(failedPeekPositions, false);
   }
 
   /**
@@ -109,10 +128,14 @@ public final class FakeExtractorInput implements ExtractorInput {
     peekPosition = position;
   }
 
+  public int getMaxPeekLimit() {
+    return maxPeekLimit;
+  }
+
   @Override
   public int read(byte[] buffer, int offset, int length) throws IOException {
     checkIOException(readPosition, failedReadPositions);
-    length = getLengthToRead(readPosition, length, partiallySatisfiedTargetReadPositions);
+    length = getLengthToRead(readPosition, length, /* isPeek= */ false);
     return readFullyInternal(buffer, offset, length, true) ? length : C.RESULT_END_OF_INPUT;
   }
 
@@ -131,7 +154,7 @@ public final class FakeExtractorInput implements ExtractorInput {
   @Override
   public int skip(int length) throws IOException {
     checkIOException(readPosition, failedReadPositions);
-    length = getLengthToRead(readPosition, length, partiallySatisfiedTargetReadPositions);
+    length = getLengthToRead(readPosition, length, /* isPeek= */ false);
     return skipFullyInternal(length, true) ? length : C.RESULT_END_OF_INPUT;
   }
 
@@ -149,7 +172,7 @@ public final class FakeExtractorInput implements ExtractorInput {
   @Override
   public int peek(byte[] target, int offset, int length) throws IOException {
     checkIOException(peekPosition, failedPeekPositions);
-    length = getLengthToRead(peekPosition, length, partiallySatisfiedTargetPeekPositions);
+    length = getLengthToRead(peekPosition, length, /* isPeek= */ true);
     return peekFullyInternal(target, offset, length, true) ? length : C.RESULT_END_OF_INPUT;
   }
 
@@ -171,6 +194,7 @@ public final class FakeExtractorInput implements ExtractorInput {
     if (!checkXFully(allowEndOfInput, peekPosition, length)) {
       return false;
     }
+    checkPeekLimit(length);
     peekPosition += length;
     return true;
   }
@@ -207,10 +231,10 @@ public final class FakeExtractorInput implements ExtractorInput {
     throw e;
   }
 
-  private void checkIOException(int position, SparseBooleanArray failedPositions)
+  private void checkIOException(int position, boolean[] failedPositions)
       throws SimulatedIOException {
-    if (simulateIOErrors && !failedPositions.get(position)) {
-      failedPositions.put(position, true);
+    if (simulateIOErrors && !failedPositions[position]) {
+      failedPositions[position] = true;
       peekPosition = readPosition;
       throw new SimulatedIOException("Simulated IO error at position: " + position);
     }
@@ -236,17 +260,28 @@ public final class FakeExtractorInput implements ExtractorInput {
     return true;
   }
 
-  private int getLengthToRead(
-      int position, int requestedLength, SparseBooleanArray partiallySatisfiedTargetPositions) {
+  private int getLengthToRead(int position, int requestedLength, boolean isPeek) {
     if (position == data.length) {
       // If the requested length is non-zero, the end of the input will be read.
       return requestedLength == 0 ? 0 : Integer.MAX_VALUE;
     }
     int targetPosition = position + requestedLength;
+    boolean[] partiallySatisfiedTargetPositions =
+        isPeek ? partiallySatisfiedTargetPeekPositions : partiallySatisfiedTargetReadPositions;
+    if (targetPosition >= partiallySatisfiedTargetPositions.length) {
+      partiallySatisfiedTargetPositions =
+          Booleans.ensureCapacity(
+              partiallySatisfiedTargetPositions, targetPosition + 1, /* padding= */ 0);
+      if (isPeek) {
+        partiallySatisfiedTargetPeekPositions = partiallySatisfiedTargetPositions;
+      } else {
+        partiallySatisfiedTargetReadPositions = partiallySatisfiedTargetPositions;
+      }
+    }
     if (simulatePartialReads
         && requestedLength > 1
-        && !partiallySatisfiedTargetPositions.get(targetPosition)) {
-      partiallySatisfiedTargetPositions.put(targetPosition, true);
+        && !partiallySatisfiedTargetPositions[targetPosition]) {
+      partiallySatisfiedTargetPositions[targetPosition] = true;
       return 1;
     }
     return min(requestedLength, data.length - position);
@@ -277,9 +312,24 @@ public final class FakeExtractorInput implements ExtractorInput {
     if (!checkXFully(allowEndOfInput, peekPosition, length)) {
       return false;
     }
+    checkPeekLimit(length);
     System.arraycopy(data, peekPosition, target, offset, length);
     peekPosition += length;
     return true;
+  }
+
+  private void checkPeekLimit(int length) {
+    int targetPeekOffset = peekPosition + length - readPosition;
+    maxPeekLimit = max(maxPeekLimit, targetPeekOffset);
+    checkState(
+        peekLimit == C.LENGTH_UNSET || targetPeekOffset <= peekLimit,
+        "Peeking %s bytes would increase the peek offset to %s and exceed the peek limit of %s"
+            + " (readPosition=%s, peekPosition=%s)",
+        length,
+        targetPeekOffset,
+        peekLimit,
+        readPosition,
+        peekPosition);
   }
 
   /** Builder of {@link FakeExtractorInput} instances. */
@@ -289,9 +339,11 @@ public final class FakeExtractorInput implements ExtractorInput {
     private boolean simulateUnknownLength;
     private boolean simulatePartialReads;
     private boolean simulateIOErrors;
+    private int peekLimit;
 
     public Builder() {
       data = Util.EMPTY_BYTE_ARRAY;
+      peekLimit = C.LENGTH_UNSET;
     }
 
     @CanIgnoreReturnValue
@@ -318,9 +370,16 @@ public final class FakeExtractorInput implements ExtractorInput {
       return this;
     }
 
+    @CanIgnoreReturnValue
+    public Builder setPeekLimit(int peekLimit) {
+      checkArgument(peekLimit == C.LENGTH_UNSET || peekLimit >= 0);
+      this.peekLimit = peekLimit;
+      return this;
+    }
+
     public FakeExtractorInput build() {
       return new FakeExtractorInput(
-          data, simulateUnknownLength, simulatePartialReads, simulateIOErrors);
+          data, simulateUnknownLength, simulatePartialReads, simulateIOErrors, peekLimit);
     }
   }
 }

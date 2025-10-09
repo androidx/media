@@ -15,10 +15,11 @@
  */
 package androidx.media3.exoplayer;
 
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.test.utils.FakeTimeline.TimelineWindowDefinition.DEFAULT_WINDOW_DURATION_US;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
+import static org.mockito.AdditionalAnswers.delegatesTo;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -28,7 +29,6 @@ import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
@@ -48,7 +48,6 @@ import androidx.media3.common.Timeline;
 import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.exoplayer.analytics.AnalyticsListener;
-import androidx.media3.exoplayer.mediacodec.ForwardingMediaCodecAdapter;
 import androidx.media3.exoplayer.mediacodec.MediaCodecAdapter;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.media3.exoplayer.video.MediaCodecVideoRenderer;
@@ -103,29 +102,6 @@ public final class ExoPlayerScrubbingTest {
   }
 
   @Test
-  public void scrubbingMode_suppressesPlayback() throws Exception {
-    ExoPlayer player =
-        new TestExoPlayerBuilder(ApplicationProvider.getApplicationContext()).build();
-    Player.Listener mockListener = mock(Player.Listener.class);
-    player.addListener(mockListener);
-    player.setMediaSource(
-        new FakeMediaSource(new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT));
-    player.prepare();
-    player.play();
-    advance(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 2000);
-
-    player.setScrubbingModeEnabled(true);
-    verify(mockListener)
-        .onPlaybackSuppressionReasonChanged(Player.PLAYBACK_SUPPRESSION_REASON_SCRUBBING);
-
-    player.setScrubbingModeEnabled(false);
-    verify(mockListener)
-        .onPlaybackSuppressionReasonChanged(Player.PLAYBACK_SUPPRESSION_REASON_NONE);
-
-    player.release();
-  }
-
-  @Test
   public void scrubbingMode_pendingSeekIsNotPreempted() throws Exception {
     ExoPlayer player =
         new TestExoPlayerBuilder(ApplicationProvider.getApplicationContext()).build();
@@ -133,6 +109,8 @@ public final class ExoPlayerScrubbingTest {
     player.setVideoSurface(surface);
     Player.Listener mockListener = mock(Player.Listener.class);
     player.addListener(mockListener);
+    AnalyticsListener mockAnalyticsListener = mock(AnalyticsListener.class);
+    player.addAnalyticsListener(mockAnalyticsListener);
     player.setMediaSource(create30Fps2sGop10sDurationVideoSource());
     player.prepare();
     player.play();
@@ -148,6 +126,8 @@ public final class ExoPlayerScrubbingTest {
     player.seekTo(3500);
     // Allow the 2500 and 3500 seeks to complete (the 3000 seek should be dropped).
     advance(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 3500);
+    // The dropped seek won't be reported immediately, only after exiting scrubbing mode.
+    verify(mockAnalyticsListener, never()).onDroppedSeeksWhileScrubbing(any(), anyInt());
 
     player.seekTo(4000);
     player.seekTo(4500);
@@ -178,6 +158,9 @@ public final class ExoPlayerScrubbingTest {
     assertThat(newPositionCaptor.getAllValues().stream().map(p -> p.positionMs))
         .containsExactly(2500L, 3000L, 3500L, 4000L, 4500L)
         .inOrder();
+
+    // Check the dropped 3000 and 4000 seeks are reported
+    verify(mockAnalyticsListener).onDroppedSeeksWhileScrubbing(any(), eq(2));
   }
 
   @Test
@@ -470,7 +453,7 @@ public final class ExoPlayerScrubbingTest {
             return configuration -> {
               MediaCodecAdapter codecAdapter = codecAdapterFactory.createAdapter(configuration);
               if (MimeTypes.isVideo(configuration.codecInfo.mimeType)) {
-                codecAdapter = spy(new ForwardingMediaCodecAdapter(codecAdapter));
+                codecAdapter = mock(MediaCodecAdapter.class, delegatesTo(codecAdapter));
                 checkState(
                     spyVideoMediaCodecAdapter.compareAndSet(
                         /* expectedValue= */ null, /* newValue= */ codecAdapter));
@@ -523,7 +506,7 @@ public final class ExoPlayerScrubbingTest {
             return configuration -> {
               MediaCodecAdapter codecAdapter = codecAdapterFactory.createAdapter(configuration);
               if (MimeTypes.isVideo(configuration.codecInfo.mimeType)) {
-                codecAdapter = spy(new ForwardingMediaCodecAdapter(codecAdapter));
+                codecAdapter = mock(MediaCodecAdapter.class, delegatesTo(codecAdapter));
                 checkState(
                     spyVideoMediaCodecAdapter.compareAndSet(
                         /* expectedValue= */ null, /* newValue= */ codecAdapter));

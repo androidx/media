@@ -26,6 +26,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
 import androidx.media3.common.DrmInitData.SchemeData;
 import androidx.media3.common.Format;
+import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.drm.ExoMediaDrm.KeyRequest;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.util.HashMap;
@@ -54,6 +55,8 @@ public class OfflineLicenseHelperTest {
                 /* data= */ new byte[0],
                 /* licenseServerUrl= */ "",
                 KeyRequest.REQUEST_TYPE_INITIAL));
+    when(mediaDrmCallback.executeKeyRequest(any(), any()))
+        .thenReturn(new MediaDrmCallback.Response(Util.EMPTY_BYTE_ARRAY));
     offlineLicenseHelper =
         new OfflineLicenseHelper(
             new DefaultDrmSessionManager.Builder()

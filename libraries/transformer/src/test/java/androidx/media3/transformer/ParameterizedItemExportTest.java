@@ -16,7 +16,6 @@
 
 package androidx.media3.transformer;
 
-import static androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig.CODEC_INFO_AAC;
 import static androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig.CODEC_INFO_RAW;
 import static androidx.media3.transformer.TestUtil.ASSET_URI_PREFIX;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_AMR_NB;
@@ -51,10 +50,12 @@ import org.robolectric.ParameterizedRobolectricTestRunner.Parameters;
  * and asserting on the dump (golden) files.
  *
  * <ul>
- *   <li>Video can not be transcoded, due to OpenGL not being supported with Robolectric.
+ *   <li>Video can not be transcoded, because decoder do not decode and OpenGL is not supported with
+ *       Robolectric.
  *   <li>Non RAW audio can not be transcoded, because AudioGraph requires decoded data but
  *       Robolectric decoders do not decode.
- *   <li>RAW audio will always be transcoded, because the muxer does not support RAW audio as input.
+ *   <li>RAW audio can be transcoded (like apply effects) but the output will remain RAW audio
+ *       because Robolectric encoders do not encode.
  * </ul>
  */
 @RunWith(ParameterizedRobolectricTestRunner.class)
@@ -96,7 +97,7 @@ public final class ParameterizedItemExportTest {
   public ShadowMediaCodecConfig shadowMediaCodecConfig =
       ShadowMediaCodecConfig.withCodecs(
           /* decoders= */ ImmutableList.of(CODEC_INFO_RAW),
-          /* encoders= */ ImmutableList.of(CODEC_INFO_AAC));
+          /* encoders= */ ImmutableList.of(CODEC_INFO_RAW));
 
   @Test
   public void export() throws Exception {

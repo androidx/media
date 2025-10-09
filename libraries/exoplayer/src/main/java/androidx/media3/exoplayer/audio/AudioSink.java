@@ -194,7 +194,8 @@ public interface AudioSink {
      * @param encoding The {@link C.Encoding} of the audio data
      * @param sampleRate The sample rate of the audio data.
      * @param channelConfig The channel configuration of the track. See {@code
-     *     AudioTrack.CHANNEL_OUT_XXX} constants.
+     *     AudioFormat.CHANNEL_OUT_XXX} constants like {@link
+     *     android.media.AudioFormat#CHANNEL_OUT_5POINT1}.
      * @param tunneling Whether tunneling is enabled for this track.
      * @param offload Whether offload is enabled for this track.
      * @param bufferSize The buffer size of the track in bytes.
@@ -600,7 +601,6 @@ public interface AudioSink {
    * @param audioDeviceInfo The preferred {@linkplain AudioDeviceInfo audio device}, or null to
    *     restore the default.
    */
-  @RequiresApi(23)
   default void setPreferredDevice(@Nullable AudioDeviceInfo audioDeviceInfo) {}
 
   /**

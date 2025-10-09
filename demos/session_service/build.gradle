@@ -71,6 +71,7 @@ dependencies {
     implementation 'androidx.datastore:datastore:1.1.5'
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-guava:1.9.0'
     implementation 'com.google.protobuf:protobuf-java:4.31.1'
+    implementation project(modulePrefix + 'lib-cast')
     implementation project(modulePrefix + 'lib-common-ktx')
     implementation project(modulePrefix + 'lib-exoplayer')
     implementation project(modulePrefix + 'lib-exoplayer-dash')

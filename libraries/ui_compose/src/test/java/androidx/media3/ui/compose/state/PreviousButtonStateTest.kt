@@ -19,9 +19,11 @@ package androidx.media3.ui.compose.state
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.media3.common.Player
-import androidx.media3.ui.compose.utils.TestPlayer
+import androidx.media3.test.utils.TestSimpleBasePlayer
+import androidx.media3.ui.compose.testutils.createReadyPlayerWithTwoItems
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
+import org.junit.Assert.assertThrows
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -34,9 +36,7 @@ class PreviousButtonStateTest {
 
   @Test
   fun addSeekPrevCommandToPlayer_buttonStateTogglesFromDisabledToEnabled() {
-    val player = TestPlayer()
-    player.playbackState = Player.STATE_READY
-    player.playWhenReady = true
+    val player = createReadyPlayerWithTwoItems()
     player.removeCommands(Player.COMMAND_SEEK_TO_PREVIOUS)
 
     lateinit var state: PreviousButtonState
@@ -52,9 +52,7 @@ class PreviousButtonStateTest {
 
   @Test
   fun removeSeekPrevCommandToPlayer_buttonStateTogglesFromEnabledToDisabled() {
-    val player = TestPlayer()
-    player.playbackState = Player.STATE_READY
-    player.playWhenReady = true
+    val player = createReadyPlayerWithTwoItems()
 
     lateinit var state: PreviousButtonState
     composeTestRule.setContent { state = rememberPreviousButtonState(player = player) }
@@ -68,10 +66,30 @@ class PreviousButtonStateTest {
   }
 
   @Test
+  fun onClick_whenCommandNotAvailable_throwsIllegalStateException() {
+    val player = createReadyPlayerWithTwoItems()
+    player.removeCommands(Player.COMMAND_SEEK_TO_PREVIOUS)
+    val state = PreviousButtonState(player)
+
+    assertThat(state.isEnabled).isFalse()
+    assertThrows(IllegalStateException::class.java) { state.onClick() }
+  }
+
+  @Test
+  fun onClick_stateBecomesDisabledAfterFirstClick_throwsException() {
+    val player = createReadyPlayerWithTwoItems()
+    val state = PreviousButtonState(player)
+
+    state.onClick()
+    // simulate state becoming disabled atomically, i.e. without yet receiving the relevant event
+    player.removeCommands(Player.COMMAND_SEEK_TO_PREVIOUS)
+
+    assertThrows(IllegalStateException::class.java) { state.onClick() }
+  }
+
+  @Test
   fun playerInReadyState_prevButtonClicked_sameItemPlayingFromBeginning() {
-    val player = TestPlayer()
-    player.playbackState = Player.STATE_READY
-    player.playWhenReady = true
+    val player = createReadyPlayerWithTwoItems()
     val state = PreviousButtonState(player)
 
     assertThat(player.currentMediaItemIndex).isEqualTo(0)
@@ -83,7 +101,7 @@ class PreviousButtonStateTest {
 
   @Test
   fun playerChangesAvailableCommandsBeforeEventListenerRegisters_observeGetsTheLatestValues_uiIconInSync() {
-    val player = TestPlayer()
+    val player = TestSimpleBasePlayer()
 
     lateinit var state: PreviousButtonState
     composeTestRule.setContent {

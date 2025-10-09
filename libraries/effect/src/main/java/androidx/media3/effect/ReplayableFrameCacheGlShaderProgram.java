@@ -15,8 +15,8 @@
  */
 package androidx.media3.effect;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.content.Context;
 import androidx.media3.common.C;
@@ -27,6 +27,10 @@ import androidx.media3.common.VideoFrameProcessingException;
 /**
  * A shader program that caches the input frames, and {@linkplain #replayFrame replays} the oldest
  * input frame when instructed.
+ *
+ * <p>This class doesn't strictly follow the {@link OutputListener} contract. If {@link
+ * #replayFrame()} is called after calling {@link #signalEndOfCurrentInputStream()}, it will {@link
+ * OutputListener#onOutputFrameAvailable produce further frames}.
  */
 /* package */ final class ReplayableFrameCacheGlShaderProgram extends FrameCacheGlShaderProgram {
   private static final int CAPACITY = 2;
@@ -66,15 +70,16 @@ import androidx.media3.common.VideoFrameProcessingException;
     super.flush();
   }
 
-  @Override
-  public void signalEndOfCurrentInputStream() {
-    // TODO: b/391109625 - Support mixed size buffers in the output texture pool to allow
-    //  replaying the last frame in a sequence.
+  /**
+   * Signals a new input stream.
+   *
+   * <p>This method should be called before chaining shader programs.
+   */
+  public void onNewInputStream() {
     for (int i = 0; i < cacheSize; i++) {
       super.releaseOutputFrame(cachedFrames[i].glTextureInfo);
     }
     cacheSize = 0;
-    super.signalEndOfCurrentInputStream();
   }
 
   /** Returns whether there is no cached frame. */

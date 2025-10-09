@@ -23,7 +23,6 @@ import static androidx.media3.common.Player.COMMAND_SET_MEDIA_ITEM;
 import static androidx.media3.common.Player.STATE_ENDED;
 import static androidx.media3.common.Player.STATE_IDLE;
 import static androidx.media3.common.Player.STATE_READY;
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.session.SessionError.ERROR_INVALID_STATE;
 import static androidx.media3.session.SessionResult.RESULT_SUCCESS;
 import static androidx.media3.test.session.common.CommonConstants.SUPPORT_APP_PACKAGE_NAME;
@@ -31,6 +30,7 @@ import static androidx.media3.test.session.common.TestUtils.LONG_TIMEOUT_MS;
 import static androidx.media3.test.session.common.TestUtils.NO_RESPONSE_TIMEOUT_MS;
 import static androidx.media3.test.session.common.TestUtils.TIMEOUT_MS;
 import static androidx.media3.test.session.common.TestUtils.VOLUME_CHANGE_TIMEOUT_MS;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -75,6 +75,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Before;
@@ -543,7 +544,8 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
 
     handler.postAndSync(
         () -> {
-          List<MediaItem> mediaItems = MediaTestUtils.createMediaItems(/* size= */ 10);
+          List<MediaItem> mediaItems =
+              MediaTestUtils.createMediaItems(/* size= */ 10, /* buildWithUri= */ true);
           player.setMediaItems(mediaItems);
           player.timeline = MediaTestUtils.createTimeline(mediaItems);
           player.notifyTimelineChanged(Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);
@@ -591,7 +593,8 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
 
     handler.postAndSync(
         () -> {
-          List<MediaItem> mediaItems = MediaTestUtils.createMediaItems(/* size= */ 10);
+          List<MediaItem> mediaItems =
+              MediaTestUtils.createMediaItems(/* size= */ 10, /* buildWithUri= */ true);
           player.setMediaItems(mediaItems);
           player.timeline = MediaTestUtils.createTimeline(mediaItems);
           player.notifyTimelineChanged(Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);
@@ -639,7 +642,8 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
 
     handler.postAndSync(
         () -> {
-          List<MediaItem> mediaItems = MediaTestUtils.createMediaItems(/* size= */ 10);
+          List<MediaItem> mediaItems =
+              MediaTestUtils.createMediaItems(/* size= */ 10, /* buildWithUri= */ true);
           player.setMediaItems(mediaItems);
           player.timeline = MediaTestUtils.createTimeline(mediaItems);
           player.notifyTimelineChanged(Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);
@@ -671,7 +675,8 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             MediaSessionCompat.Token.fromToken(session.getPlatformToken()),
             /* waitForConnection= */ true);
 
-    List<MediaItem> mediaItems = MediaTestUtils.createMediaItems(/* size= */ 10);
+    List<MediaItem> mediaItems =
+        MediaTestUtils.createMediaItems(/* size= */ 10, /* buildWithUri= */ true);
     handler.postAndSync(
         () -> {
           player.setMediaItems(mediaItems);
@@ -782,7 +787,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
 
     handler.postAndSync(
         () -> {
-          player.timeline = MediaTestUtils.createTimeline(/* windowCount= */ 10);
+          player.timeline = MediaTestUtils.createTimeline(/* windowCount= */ 10, true);
           player.notifyTimelineChanged(Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);
         });
 
@@ -813,7 +818,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             /* waitForConnection= */ true);
     handler.postAndSync(
         () -> {
-          player.timeline = MediaTestUtils.createTimeline(/* windowCount= */ 10);
+          player.timeline = MediaTestUtils.createTimeline(/* windowCount= */ 10, true);
           player.notifyTimelineChanged(Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);
         });
 
@@ -828,8 +833,10 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
   @Test
   public void dispatchMediaButtonEvent_playWithEmptyTimeline_callsPlaybackResumptionPrepareAndPlay()
       throws Exception {
-    ArrayList<MediaItem> mediaItems = MediaTestUtils.createMediaItems(/* size= */ 3);
+    ArrayList<MediaItem> mediaItems =
+        MediaTestUtils.createMediaItems(/* size= */ 3, /* buildWithUri= */ true);
     AtomicReference<MediaSession> session = new AtomicReference<>();
+    AtomicBoolean isForPlaybackParameter = new AtomicBoolean();
     CallerCollectorPlayer callerCollectorPlayer = new CallerCollectorPlayer(session, player);
     session.set(
         mediaSessionTestRule.ensureReleaseAfterTest(
@@ -840,7 +847,10 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
                       @Override
                       public ListenableFuture<MediaSession.MediaItemsWithStartPosition>
                           onPlaybackResumption(
-                              MediaSession mediaSession, ControllerInfo controller) {
+                              MediaSession mediaSession,
+                              ControllerInfo controller,
+                              boolean isForPlayback) {
+                        isForPlaybackParameter.set(isForPlayback);
                         return Futures.immediateFuture(
                             new MediaSession.MediaItemsWithStartPosition(
                                 mediaItems, /* startIndex= */ 1, /* startPositionMs= */ 123L));
@@ -869,6 +879,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
     for (ControllerInfo controllerInfo : callerCollectorPlayer.callers) {
       assertThat(session.get().isMediaNotificationController(controllerInfo)).isFalse();
     }
+    assertThat(isForPlaybackParameter.get()).isTrue();
   }
 
   @Test
@@ -936,12 +947,13 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
             .addAllCommands()
             .remove(Player.COMMAND_CHANGE_MEDIA_ITEMS)
             .build();
-    List<MediaItem> mediaItems = MediaTestUtils.createMediaItems(/* size= */ 3);
+    List<MediaItem> mediaItems =
+        MediaTestUtils.createMediaItems(/* size= */ 3, /* buildWithUri= */ true);
     MediaSession.Callback callback =
         new MediaSession.Callback() {
           @Override
           public ListenableFuture<MediaSession.MediaItemsWithStartPosition> onPlaybackResumption(
-              MediaSession mediaSession, ControllerInfo controller) {
+              MediaSession mediaSession, ControllerInfo controller, boolean isForPlayback) {
             return Futures.immediateFuture(
                 new MediaSession.MediaItemsWithStartPosition(
                     mediaItems, /* startIndex= */ 1, /* startPositionMs= */ 123L));
@@ -976,7 +988,8 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
   public void
       dispatchMediaButtonEvent_playWithEmptyTimelineWithMediaNotificationController_callsPlaybackResumptionPrepareAndPlay()
           throws Exception {
-    ArrayList<MediaItem> mediaItems = MediaTestUtils.createMediaItems(/* size= */ 3);
+    ArrayList<MediaItem> mediaItems =
+        MediaTestUtils.createMediaItems(/* size= */ 3, /* buildWithUri= */ true);
     AtomicReference<MediaSession> session = new AtomicReference<>();
     CallerCollectorPlayer callerCollectorPlayer = new CallerCollectorPlayer(session, player);
     session.set(
@@ -988,7 +1001,9 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
                       @Override
                       public ListenableFuture<MediaSession.MediaItemsWithStartPosition>
                           onPlaybackResumption(
-                              MediaSession mediaSession, ControllerInfo controller) {
+                              MediaSession mediaSession,
+                              ControllerInfo controller,
+                              boolean isForPlayback) {
                         return Futures.immediateFuture(
                             new MediaSession.MediaItemsWithStartPosition(
                                 mediaItems, /* startIndex= */ 1, /* startPositionMs= */ 123L));
@@ -1030,14 +1045,14 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
   public void
       dispatchMediaButtonEvent_playWithEmptyTimelinePlaybackResumptionFailure_callsHandlePlayButtonAction()
           throws Exception {
-    player.mediaItems = MediaTestUtils.createMediaItems(/* size= */ 3);
+    player.mediaItems = MediaTestUtils.createMediaItems(/* size= */ 3, /* buildWithUri= */ true);
     player.startMediaItemIndex = 1;
     player.startPositionMs = 321L;
     MediaSession.Callback callback =
         new MediaSession.Callback() {
           @Override
           public ListenableFuture<MediaSession.MediaItemsWithStartPosition> onPlaybackResumption(
-              MediaSession mediaSession, ControllerInfo controller) {
+              MediaSession mediaSession, ControllerInfo controller, boolean isForPlayback) {
             return Futures.immediateFailedFuture(new UnsupportedOperationException());
           }
         };
@@ -1070,7 +1085,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
   public void dispatchMediaButtonEvent_playWithNonEmptyTimeline_callsHandlePlayButtonAction()
       throws Exception {
     KeyEvent keyEvent = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY);
-    player.mediaItems = MediaTestUtils.createMediaItems(/* size= */ 3);
+    player.mediaItems = MediaTestUtils.createMediaItems(/* size= */ 3, /* buildWithUri= */ true);
     player.timeline = new PlaylistTimeline(player.mediaItems);
     player.startMediaItemIndex = 1;
     player.startPositionMs = 321L;
@@ -1109,7 +1124,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
       dispatchMediaButtonEvent_playWithNonEmptyTimelineWithMediaNotificationController_callsHandlePlayButtonAction()
           throws Exception {
     KeyEvent keyEvent = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY);
-    player.mediaItems = MediaTestUtils.createMediaItems(/* size= */ 3);
+    player.mediaItems = MediaTestUtils.createMediaItems(/* size= */ 3, /* buildWithUri= */ true);
     player.timeline = new PlaylistTimeline(player.mediaItems);
     AtomicReference<MediaSession> session = new AtomicReference<>();
     CallerCollectorPlayer callerCollectorPlayer = new CallerCollectorPlayer(session, player);
@@ -2055,7 +2070,8 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
         };
     handler.postAndSync(
         () -> {
-          List<MediaItem> mediaItems = MediaTestUtils.createMediaItems(mediaId);
+          List<MediaItem> mediaItems =
+              MediaTestUtils.createMediaItems(/* buildWithUri= */ true, mediaId);
           player.timeline = MediaTestUtils.createTimeline(mediaItems);
         });
     session =
@@ -2080,7 +2096,6 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
           @Override
           public int onPlayerCommandRequest(
               MediaSession session, ControllerInfo controllerInfo, @Player.Command int command) {
-            assertThat(controllerInfo.isTrusted()).isFalse();
             commands.add(command);
             if (command == COMMAND_PLAY_PAUSE) {
               latchForPause.countDown();
@@ -2231,10 +2246,10 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
         new TestSessionCallback() {
           @Override
           public ListenableFuture<MediaSession.MediaItemsWithStartPosition> onPlaybackResumption(
-              MediaSession mediaSession, ControllerInfo controller) {
+              MediaSession mediaSession, ControllerInfo controller, boolean isForPlayback) {
             return Futures.immediateFuture(
                 new MediaSession.MediaItemsWithStartPosition(
-                    MediaTestUtils.createMediaItems(2),
+                    MediaTestUtils.createMediaItems(2, /* buildWithUri= */ true),
                     /* startIndex= */ 1,
                     /* startPositionMs= */ 123L));
           }
@@ -2278,7 +2293,8 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
           @Override
           public ListenableFuture<List<MediaItem>> onAddMediaItems(
               MediaSession mediaSession, ControllerInfo controller, List<MediaItem> mediaItems) {
-            return Futures.immediateFuture(MediaTestUtils.createMediaItems(2));
+            return Futures.immediateFuture(
+                MediaTestUtils.createMediaItems(2, /* buildWithUri= */ true));
           }
 
           @Override
@@ -2323,7 +2339,8 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
           @Override
           public ListenableFuture<List<MediaItem>> onAddMediaItems(
               MediaSession mediaSession, ControllerInfo controller, List<MediaItem> mediaItems) {
-            return Futures.immediateFuture(MediaTestUtils.createMediaItems(2));
+            return Futures.immediateFuture(
+                MediaTestUtils.createMediaItems(2, /* buildWithUri= */ true));
           }
 
           @Override
@@ -2366,7 +2383,8 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
           @Override
           public ListenableFuture<List<MediaItem>> onAddMediaItems(
               MediaSession mediaSession, ControllerInfo controller, List<MediaItem> mediaItems) {
-            return Futures.immediateFuture(MediaTestUtils.createMediaItems(2));
+            return Futures.immediateFuture(
+                MediaTestUtils.createMediaItems(2, /* buildWithUri= */ true));
           }
 
           @Override

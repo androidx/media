@@ -16,13 +16,13 @@
 package androidx.media3.exoplayer.ima;
 
 import static androidx.media3.common.Player.COMMAND_GET_VOLUME;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.msToUs;
 import static androidx.media3.exoplayer.ima.ImaUtil.BITRATE_UNSET;
 import static androidx.media3.exoplayer.ima.ImaUtil.TIMEOUT_UNSET;
 import static androidx.media3.exoplayer.ima.ImaUtil.getAdGroupTimesUsForCuePoints;
 import static androidx.media3.exoplayer.ima.ImaUtil.getImaLooper;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
@@ -104,12 +104,6 @@ import java.util.Objects;
    */
   private static final long THRESHOLD_END_OF_CONTENT_MS = 5000;
 
-  /**
-   * Threshold before the start of an ad at which IMA is expected to be able to preload the ad, in
-   * milliseconds.
-   */
-  private static final long THRESHOLD_AD_PRELOAD_MS = 4000;
-
   /** The threshold below which ad cue points are treated as matching, in microseconds. */
   private static final long THRESHOLD_AD_MATCH_US = 1000;
 
@@ -144,7 +138,6 @@ import java.util.Objects;
   private final Handler handler;
   private final ComponentListener componentListener;
   private final ContentPlaybackAdapter contentPlaybackAdapter;
-  private final VideoAdPlayerImpl videoAdPlayerImpl;
   private final List<EventListener> eventListeners;
   private final List<VideoAdPlayer.VideoAdPlayerCallback> adCallbacks;
   private final Runnable updateAdProgressRunnable;
@@ -265,7 +258,6 @@ import java.util.Objects;
     handler = Util.createHandler(getImaLooper(), /* callback= */ null);
     componentListener = new ComponentListener();
     contentPlaybackAdapter = new ContentPlaybackAdapter();
-    videoAdPlayerImpl = new VideoAdPlayerImpl();
     eventListeners = new ArrayList<>();
     adCallbacks = new ArrayList<>(/* initialCapacity= */ 1);
     if (configuration.applicationVideoAdPlayerCallback != null) {
@@ -283,6 +275,7 @@ import java.util.Objects;
     timeline = Timeline.EMPTY;
     adPlaybackState = AdPlaybackState.NONE;
     adLoadTimeoutRunnable = this::handleAdLoadTimeout;
+    VideoAdPlayerImpl videoAdPlayerImpl = new VideoAdPlayerImpl();
     if (adViewGroup != null) {
       adDisplayContainer =
           imaFactory.createAdDisplayContainer(adViewGroup, /* player= */ videoAdPlayerImpl);
@@ -1375,7 +1368,7 @@ import java.util.Objects;
         // may be stuck. Detect this case and signal an error if applicable.
         long stuckElapsedRealtimeMs =
             SystemClock.elapsedRealtime() - waitingForPreloadElapsedRealtimeMs;
-        if (stuckElapsedRealtimeMs >= THRESHOLD_AD_PRELOAD_MS) {
+        if (stuckElapsedRealtimeMs >= configuration.adPreloadTimeoutMs) {
           waitingForPreloadElapsedRealtimeMs = C.TIME_UNSET;
           handleAdGroupLoadError(new IOException("Ad preloading timed out"));
           maybeNotifyPendingAdLoadError();

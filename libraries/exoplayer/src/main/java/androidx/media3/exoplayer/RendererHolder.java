@@ -18,12 +18,12 @@ package androidx.media3.exoplayer;
 import static androidx.media3.common.C.TRACK_TYPE_AUDIO;
 import static androidx.media3.common.C.TRACK_TYPE_IMAGE;
 import static androidx.media3.common.C.TRACK_TYPE_VIDEO;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.exoplayer.Renderer.MSG_TRANSFER_RESOURCES;
 import static androidx.media3.exoplayer.Renderer.STATE_DISABLED;
 import static androidx.media3.exoplayer.Renderer.STATE_ENABLED;
 import static androidx.media3.exoplayer.Renderer.STATE_STARTED;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.min;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
@@ -648,7 +648,7 @@ import java.util.Objects;
         disableRenderer(renderer, mediaClock);
       } else if (streamReset) {
         // The renderer will continue to consume from its current stream, but needs to be reset.
-        renderer.resetPosition(rendererPositionUs);
+        renderer.resetPosition(rendererPositionUs, /* sampleStreamIsResetToKeyFrame= */ true);
       }
     }
   }
@@ -680,12 +680,26 @@ import java.util.Objects;
    *
    * @see Renderer#resetPosition
    */
-  public void resetPosition(MediaPeriodHolder playingPeriod, long positionUs)
+  public void resetPosition(
+      MediaPeriodHolder playingPeriod, long positionUs, boolean sampleStreamIsResetToKeyFrame)
       throws ExoPlaybackException {
     Renderer renderer = getRendererReadingFromPeriod(playingPeriod);
     if (renderer != null) {
-      renderer.resetPosition(positionUs);
+      renderer.resetPosition(positionUs, sampleStreamIsResetToKeyFrame);
     }
+  }
+
+  /**
+   * Returns {@code true} if a {@link Renderer} is enabled on the provided {@link MediaPeriodHolder
+   * media period} and if it will support a {@link Renderer#resetPosition} invocation without
+   * resetting the sample stream to a key frame.
+   *
+   * @see Renderer#supportsResetPositionWithoutKeyFrameReset
+   */
+  public boolean supportsResetPositionWithoutKeyFrameReset(
+      MediaPeriodHolder playingPeriod, long positionUs) {
+    Renderer renderer = getRendererReadingFromPeriod(playingPeriod);
+    return renderer != null && renderer.supportsResetPositionWithoutKeyFrameReset(positionUs);
   }
 
   /**

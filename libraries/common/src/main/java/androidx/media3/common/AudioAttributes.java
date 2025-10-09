@@ -38,25 +38,15 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
  */
 public final class AudioAttributes {
 
-  /** A direct wrapper around {@link android.media.AudioAttributes}. */
+  /**
+   * @deprecated Use {@link android.media.AudioAttributes}.
+   */
+  @Deprecated
   public static final class AudioAttributesV21 {
     public final android.media.AudioAttributes audioAttributes;
 
-    private AudioAttributesV21(AudioAttributes audioAttributes) {
-      @SuppressLint("WrongConstant") // Setting C.AudioContentType and C.AudioUsage to platform API.
-      android.media.AudioAttributes.Builder builder =
-          new android.media.AudioAttributes.Builder()
-              .setContentType(audioAttributes.contentType)
-              .setFlags(audioAttributes.flags)
-              .setUsage(audioAttributes.usage);
-      if (SDK_INT >= 29) {
-        Api29.setAllowedCapturePolicy(builder, audioAttributes.allowedCapturePolicy);
-      }
-      if (SDK_INT >= 32) {
-        Api32.setSpatializationBehavior(builder, audioAttributes.spatializationBehavior);
-        Api32.setIsContentSpatialized(builder, audioAttributes.isContentSpatialized);
-      }
-      this.audioAttributes = builder.build();
+    private AudioAttributesV21(android.media.AudioAttributes audioAttributes) {
+      this.audioAttributes = audioAttributes;
     }
   }
 
@@ -147,6 +137,25 @@ public final class AudioAttributes {
     }
   }
 
+  /** Creates a new instance from the provided {@link android.media.AudioAttributes}. */
+  @SuppressLint("WrongConstant") // Assigning platform constants as C.AudioAllowedCapturePolicy
+  public static AudioAttributes fromPlatformAudioAttributes(
+      android.media.AudioAttributes audioAttributes) {
+    Builder builder =
+        new Builder()
+            .setContentType(audioAttributes.getContentType())
+            .setFlags(audioAttributes.getFlags())
+            .setUsage(audioAttributes.getUsage());
+    if (SDK_INT >= 29) {
+      builder.setAllowedCapturePolicy(audioAttributes.getAllowedCapturePolicy());
+    }
+    if (SDK_INT >= 32) {
+      builder.setSpatializationBehavior(audioAttributes.getSpatializationBehavior());
+      builder.setIsContentSpatialized(audioAttributes.isContentSpatialized());
+    }
+    return builder.build();
+  }
+
   /** The {@link C.AudioContentType}. */
   public final @C.AudioContentType int contentType;
 
@@ -165,7 +174,7 @@ public final class AudioAttributes {
   /** Whether the content is spatialized. */
   @UnstableApi public final boolean isContentSpatialized;
 
-  @Nullable private AudioAttributesV21 audioAttributesV21;
+  @Nullable private android.media.AudioAttributes platformAudioAttributes;
 
   private AudioAttributes(
       @C.AudioContentType int contentType,
@@ -183,16 +192,38 @@ public final class AudioAttributes {
   }
 
   /**
-   * Returns a {@link AudioAttributesV21} from this instance.
+   * @deprecated Use {@link #getPlatformAudioAttributes()}
+   */
+  @Deprecated
+  @SuppressWarnings("deprecation") // Creating deprecated class.
+  public AudioAttributesV21 getAudioAttributesV21() {
+    return new AudioAttributesV21(getPlatformAudioAttributes());
+  }
+
+  /**
+   * Returns a {@link android.media.AudioAttributes} from this instance.
    *
    * <p>Some fields are ignored if the corresponding {@link android.media.AudioAttributes.Builder}
    * setter is not available on the current API level.
    */
-  public AudioAttributesV21 getAudioAttributesV21() {
-    if (audioAttributesV21 == null) {
-      audioAttributesV21 = new AudioAttributesV21(this);
+  public android.media.AudioAttributes getPlatformAudioAttributes() {
+    if (platformAudioAttributes == null) {
+      @SuppressLint("WrongConstant") // Setting C.AudioContentType and C.AudioUsage to platform API.
+      android.media.AudioAttributes.Builder builder =
+          new android.media.AudioAttributes.Builder()
+              .setContentType(contentType)
+              .setFlags(flags)
+              .setUsage(usage);
+      if (SDK_INT >= 29) {
+        Api29.setAllowedCapturePolicy(builder, allowedCapturePolicy);
+      }
+      if (SDK_INT >= 32) {
+        Api32.setSpatializationBehavior(builder, spatializationBehavior);
+        Api32.setIsContentSpatialized(builder, isContentSpatialized);
+      }
+      platformAudioAttributes = builder.build();
     }
-    return audioAttributesV21;
+    return platformAudioAttributes;
   }
 
   /** Returns the {@link C.StreamType} corresponding to these audio attributes. */

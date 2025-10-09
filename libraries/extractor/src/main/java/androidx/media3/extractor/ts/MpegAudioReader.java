@@ -15,13 +15,13 @@
  */
 package androidx.media3.extractor.ts;
 
-import static androidx.media3.common.util.Assertions.checkState;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.min;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.extractor.ExtractorOutput;
@@ -103,7 +103,8 @@ public final class MpegAudioReader implements ElementaryStreamReader {
 
   @Override
   public void consume(ParsableByteArray data) {
-    Assertions.checkStateNotNull(output); // Asserts that createTracks has been called.
+    // Asserts that createTracks has been called.
+    checkNotNull(output);
     while (data.bytesLeft() > 0) {
       switch (state) {
         case STATE_FINDING_HEADER:

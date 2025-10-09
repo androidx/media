@@ -15,7 +15,6 @@
  */
 package androidx.media3.session;
 
-import static android.os.Build.VERSION.SDK_INT;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.app.PendingIntent;
@@ -53,7 +52,7 @@ public class ConnectionStateTest {
                 context,
                 /* requestCode= */ 0,
                 new Intent(),
-                /* flags= */ SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0),
+                /* flags= */ PendingIntent.FLAG_IMMUTABLE),
             /* customLayout= */ ImmutableList.of(
                 new CommandButton.Builder(CommandButton.ICON_ARTIST)
                     .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)

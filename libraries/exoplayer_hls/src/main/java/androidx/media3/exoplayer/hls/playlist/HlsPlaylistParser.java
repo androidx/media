@@ -15,14 +15,14 @@
  */
 package androidx.media3.exoplayer.hls.playlist;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.castNonNull;
 import static androidx.media3.common.util.Util.msToUs;
 import static androidx.media3.common.util.Util.parseXsDateTime;
 import static androidx.media3.exoplayer.hls.playlist.HlsMediaPlaylist.Interstitial.CUE_TRIGGER_ONCE;
 import static androidx.media3.exoplayer.hls.playlist.HlsMediaPlaylist.Interstitial.CUE_TRIGGER_POST;
 import static androidx.media3.exoplayer.hls.playlist.HlsMediaPlaylist.Interstitial.CUE_TRIGGER_PRE;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.net.Uri;
 import android.text.TextUtils;
@@ -35,7 +35,6 @@ import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.UriUtil;
@@ -284,6 +283,12 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
       Pattern.compile("X-TIMELINE-OCCUPIES=" + ATTR_QUOTED_STRING_VALUE_PATTERN);
   private static final Pattern REGEX_TIMELINE_STYLE =
       Pattern.compile("X-TIMELINE-STYLE=" + ATTR_QUOTED_STRING_VALUE_PATTERN);
+  private static final Pattern REGEX_SKIP_CONTROL_OFFSET =
+      Pattern.compile("X-SKIP-CONTROL-OFFSET=([\\d\\.]+)\\b");
+  private static final Pattern REGEX_SKIP_CONTROL_DURATION =
+      Pattern.compile("X-SKIP-CONTROL-DURATION=([\\d\\.]+)\\b");
+  private static final Pattern REGEX_SKIP_CONTROL_LABEL_ID =
+      Pattern.compile("X-SKIP-CONTROL-LABEL-ID=" + ATTR_QUOTED_STRING_VALUE_PATTERN);
   private static final Pattern REGEX_VARIABLE_REFERENCE =
       Pattern.compile("\\{\\$([a-zA-Z0-9\\-_]+)\\}");
   private static final Pattern REGEX_CLIENT_DEFINED_ATTRIBUTE_PREFIX =
@@ -567,7 +572,7 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
     for (int i = 0; i < variants.size(); i++) {
       Variant variant = variants.get(i);
       if (urlsInDeduplicatedVariants.add(variant.url)) {
-        Assertions.checkState(variant.format.metadata == null);
+        checkState(variant.format.metadata == null);
         HlsTrackMetadataEntry hlsMetadataEntry =
             new HlsTrackMetadataEntry(
                 /* groupId= */ null,
@@ -1201,6 +1206,22 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
           }
         }
 
+        double skipControlOffsetSec =
+            parseOptionalDoubleAttr(line, REGEX_SKIP_CONTROL_OFFSET, -1.0d);
+        long skipControlOffsetUs = C.TIME_UNSET;
+        if (skipControlOffsetSec >= 0) {
+          skipControlOffsetUs = (long) (skipControlOffsetSec * C.MICROS_PER_SECOND);
+        }
+        double skipControlDurationSec =
+            parseOptionalDoubleAttr(line, REGEX_SKIP_CONTROL_DURATION, -1.0d);
+        long skipControlDurationUs = C.TIME_UNSET;
+        if (skipControlDurationSec >= 0) {
+          skipControlDurationUs = (long) (skipControlDurationSec * C.MICROS_PER_SECOND);
+        }
+        @Nullable
+        String skipControlLabelId =
+            parseOptionalStringAttr(line, REGEX_SKIP_CONTROL_LABEL_ID, variableDefinitions);
+
         List<HlsMediaPlaylist.ClientDefinedAttribute> clientDefinedAttributes = new ArrayList<>();
         String attributes = line.substring("#EXT-X-DATERANGE:".length());
         Matcher matcher = REGEX_CLIENT_DEFINED_ATTRIBUTE_PREFIX.matcher(attributes);
@@ -1216,6 +1237,9 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
             case "X-CONTENT-MAY-VARY=": // fall through
             case "X-TIMELINE-OCCUPIES=": // fall through
             case "X-TIMELINE-STYLE=": // fall through
+            case "X-SKIP-CONTROL-OFFSET=": // fall through
+            case "X-SKIP-CONTROL-DURATION=": // fall through
+            case "X-SKIP-CONTROL-LABEL-ID=":
               // ignore interstitial attributes
               break;
             default:
@@ -1247,7 +1271,10 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
                 .setClientDefinedAttributes(clientDefinedAttributes)
                 .setContentMayVary(contentMayVary)
                 .setTimelineOccupies(timelineOccupies)
-                .setTimelineStyle(timelineStyle);
+                .setTimelineStyle(timelineStyle)
+                .setSkipControlOffsetUs(skipControlOffsetUs)
+                .setSkipControlDurationUs(skipControlDurationUs)
+                .setSkipControlLabelId(skipControlLabelId);
         interstitialBuilderMap.put(id, interstitialBuilder);
       } else if (!line.startsWith("#")) {
         @Nullable
@@ -1342,6 +1369,12 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
       }
     }
 
+    if (playlistStartTimeUs == 0 && previousMediaPlaylist != null) {
+      // An EXT-X-PROGRAM-DATE-TIME can be removed from the new playlist if the segment it belonged
+      // to was removed. Make sure we propagate the start time from the previous playlist in such a
+      // case.
+      playlistStartTimeUs = previousMediaPlaylist.startTimeUs;
+    }
     return new HlsMediaPlaylist(
         playlistType,
         baseUri,

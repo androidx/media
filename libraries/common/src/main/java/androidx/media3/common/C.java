@@ -416,6 +416,35 @@ public final class C {
   public static final int VOLUME_FLAG_VIBRATE = AudioManager.FLAG_VIBRATE;
 
   /**
+   * Volume operation type. One of:
+   *
+   * <ul>
+   *   <li>{@link #VOLUME_OPERATION_TYPE_SET_VOLUME}
+   *   <li>{@link #VOLUME_OPERATION_TYPE_MUTE}
+   *   <li>{@link #VOLUME_OPERATION_TYPE_UNMUTE}
+   * </ul>
+   */
+  @UnstableApi
+  @Documented
+  @Retention(RetentionPolicy.SOURCE)
+  @Target({TYPE_USE})
+  @IntDef({
+    VOLUME_OPERATION_TYPE_SET_VOLUME,
+    VOLUME_OPERATION_TYPE_MUTE,
+    VOLUME_OPERATION_TYPE_UNMUTE,
+  })
+  public @interface VolumeOperationType {}
+
+  /** A volume operation type constant for direct setting of the Player volume. */
+  @UnstableApi public static final int VOLUME_OPERATION_TYPE_SET_VOLUME = 0;
+
+  /** A volume operation type constant for muting. */
+  @UnstableApi public static final int VOLUME_OPERATION_TYPE_MUTE = 1;
+
+  /** A volume operation type constant for unmuting. */
+  @UnstableApi public static final int VOLUME_OPERATION_TYPE_UNMUTE = 2;
+
+  /**
    * Content types for audio attributes. One of:
    *
    * <ul>
@@ -720,7 +749,7 @@ public final class C {
   @UnstableApi public static final int VIDEO_OUTPUT_MODE_SURFACE_YUV = 1;
 
   // LINT.ThenChange(
-  //     ../../../../../../../decoder_av1/src/main/jni/gav1_jni.cc,
+  //     ../../../../../../../decoder_av1/src/main/jni/dav1d_jni.cc,
   //     ../../../../../../../decoder_vp9/src/main/jni/vpx_jni.cc
   // )
 
@@ -1448,7 +1477,8 @@ public final class C {
   /**
    * A wake mode that will not cause the player to hold any locks.
    *
-   * <p>This is suitable for applications that do not play media with the screen off.
+   * <p>This is suitable for applications that only play media with the screen on and do not require
+   * low-latency Wifi access.
    */
   public static final int WAKE_MODE_NONE = 0;
 
@@ -1456,8 +1486,8 @@ public final class C {
    * A wake mode that will cause the player to hold a {@link android.os.PowerManager.WakeLock}
    * during playback.
    *
-   * <p>This is suitable for applications that play media with the screen off and do not load media
-   * over wifi.
+   * <p>This is suitable for applications that play media with the screen off, but do not require
+   * low-latency Wifi access while the screen is on.
    */
   public static final int WAKE_MODE_LOCAL = 1;
 
@@ -1465,8 +1495,11 @@ public final class C {
    * A wake mode that will cause the player to hold a {@link android.os.PowerManager.WakeLock} and a
    * {@link android.net.wifi.WifiManager.WifiLock} during playback.
    *
-   * <p>This is suitable for applications that play media with the screen off and may load media
-   * over wifi.
+   * <p>This is suitable for applications that play media with the screen off or require low-latency
+   * Wifi access while the screen is on.
+   *
+   * <p>Note that on API 33 and below, this mode also puts the Wifi in "high-power" mode, which may
+   * help maintain a steady Wifi connection during screen off playback on some devices.
    */
   public static final int WAKE_MODE_NETWORK = 2;
 

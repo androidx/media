@@ -21,6 +21,7 @@ import androidx.core.net.toUri
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.demo.session.service.R
 import androidx.media3.session.CommandButton
@@ -30,6 +31,7 @@ import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSession.MediaItemsWithStartPosition
 import androidx.media3.session.SessionCommand
+import androidx.media3.session.SessionCommands
 import androidx.media3.session.SessionError
 import androidx.media3.session.SessionResult
 import com.google.common.collect.ImmutableList
@@ -62,7 +64,7 @@ open class DemoMediaLibrarySessionCallback(val service: DemoPlaybackService) :
     )
 
   @OptIn(UnstableApi::class) // MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS
-  val mediaNotificationSessionCommands =
+  private val sessionCommandsWithCustomCommands =
     MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS.buildUpon()
       .also { builder ->
         // Put all custom session commands in the list that may be used by the notification.
@@ -72,27 +74,35 @@ open class DemoMediaLibrarySessionCallback(val service: DemoPlaybackService) :
       }
       .build()
 
-  // ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS
-  // ConnectionResult.AcceptedResultBuilder
-  @OptIn(UnstableApi::class)
+  @OptIn(UnstableApi::class) // Player.Commands.Builder
+  private val restrictedAccessPlayerCommands =
+    Player.Commands.Builder()
+      .addAll(
+        Player.COMMAND_GET_CURRENT_MEDIA_ITEM,
+        Player.COMMAND_GET_TRACKS,
+        Player.COMMAND_GET_METADATA,
+      )
+      .build()
+
+  @OptIn(UnstableApi::class) // ConnectionResult.AcceptedResultBuilder
   override fun onConnect(
     session: MediaSession,
     controller: MediaSession.ControllerInfo,
   ): MediaSession.ConnectionResult {
-    if (
-      session.isMediaNotificationController(controller) ||
-        session.isAutomotiveController(controller) ||
-        session.isAutoCompanionController(controller)
-    ) {
-      // Select the button to display.
+    if (controller.isTrusted) {
+      // Provide full information and specify media button preferences.
       val customButton = commandButtons[if (session.player.shuffleModeEnabled) 1 else 0]
       return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
-        .setAvailableSessionCommands(mediaNotificationSessionCommands)
+        .setAvailableSessionCommands(sessionCommandsWithCustomCommands)
         .setMediaButtonPreferences(ImmutableList.of(customButton))
         .build()
+    } else {
+      // Restricted read-only view on currently playing item only.
+      return MediaSession.ConnectionResult.accept(
+        SessionCommands.EMPTY,
+        restrictedAccessPlayerCommands,
+      )
     }
-    // Default commands without media button preferences for common controllers.
-    return MediaSession.ConnectionResult.AcceptedResultBuilder(session).build()
   }
 
   @OptIn(UnstableApi::class) // MediaSession.isMediaNotificationController
@@ -106,19 +116,13 @@ open class DemoMediaLibrarySessionCallback(val service: DemoPlaybackService) :
       // Enable shuffling.
       session.player.shuffleModeEnabled = true
       // Change the media button preferences to contain the `Disable shuffling` button.
-      session.setMediaButtonPreferences(
-        session.mediaNotificationControllerInfo!!,
-        ImmutableList.of(commandButtons[1]),
-      )
+      session.setMediaButtonPreferences(ImmutableList.of(commandButtons[1]))
       return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
     } else if (CUSTOM_COMMAND_TOGGLE_SHUFFLE_MODE_OFF == customCommand.customAction) {
       // Disable shuffling.
       session.player.shuffleModeEnabled = false
       // Change the media button preferences to contain the `Enable shuffling` button.
-      session.setMediaButtonPreferences(
-        session.mediaNotificationControllerInfo!!,
-        ImmutableList.of(commandButtons[0]),
-      )
+      session.setMediaButtonPreferences(ImmutableList.of(commandButtons[0]))
       return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
     }
     return Futures.immediateFuture(SessionResult(SessionError.ERROR_NOT_SUPPORTED))
@@ -191,39 +195,55 @@ open class DemoMediaLibrarySessionCallback(val service: DemoPlaybackService) :
   override fun onPlaybackResumption(
     mediaSession: MediaSession,
     controller: MediaSession.ControllerInfo,
+    isForPlayback: Boolean,
   ): ListenableFuture<MediaItemsWithStartPosition> {
     return CoroutineScope(Dispatchers.Unconfined).future {
-      service.retrieveLastStoredMediaItem()?.let {
-        var extras: Bundle? = null
-        if (it.durationMs != C.TIME_UNSET) {
-          extras = Bundle()
-          extras.putInt(
-            MediaConstants.EXTRAS_KEY_COMPLETION_STATUS,
-            MediaConstants.EXTRAS_VALUE_COMPLETION_STATUS_PARTIALLY_PLAYED,
-          )
-          extras.putDouble(
-            MediaConstants.EXTRAS_KEY_COMPLETION_PERCENTAGE,
-            max(0.0, min(1.0, it.positionMs.toDouble() / it.durationMs)),
-          )
-        }
-        maybeExpandSingleItemToPlaylist(
-            mediaItem =
-              MediaItem.Builder()
-                .setMediaId(it.mediaId)
+      service.retrieveLastStoredMediaItem()?.apply {
+        if (isForPlayback) {
+          maybeExpandSingleItemToPlaylist(
+              mediaItem = MediaItem.Builder().setMediaId(this.mediaId).build(),
+              startIndex = 0,
+              startPositionMs = this.positionMs,
+            )
+            ?.also {
+              return@future it
+            }
+        } else {
+          MediaItemTree.getItem(this.mediaId)?.also {
+            var extras: Bundle? = null
+            if (this.durationMs != C.TIME_UNSET) {
+              extras = Bundle()
+              extras.putInt(
+                MediaConstants.EXTRAS_KEY_COMPLETION_STATUS,
+                MediaConstants.EXTRAS_VALUE_COMPLETION_STATUS_PARTIALLY_PLAYED,
+              )
+              extras.putDouble(
+                MediaConstants.EXTRAS_KEY_COMPLETION_PERCENTAGE,
+                max(0.0, min(1.0, this.positionMs.toDouble() / this.durationMs)),
+              )
+            }
+            val updatedItem =
+              it
+                .buildUpon()
                 .setMediaMetadata(
-                  MediaMetadata.Builder()
-                    .setArtworkUri(it.artworkOriginalUri.toUri())
-                    .setArtworkData(it.artworkData.toByteArray(), MediaMetadata.PICTURE_TYPE_MEDIA)
+                  it.mediaMetadata
+                    .buildUpon()
+                    .setArtworkUri(this.artworkOriginalUri.toUri())
+                    .setArtworkData(
+                      this.artworkData.toByteArray(),
+                      MediaMetadata.PICTURE_TYPE_MEDIA,
+                    )
                     .setExtras(extras)
                     .build()
                 )
-                .build(),
-            startIndex = 0,
-            startPositionMs = it.positionMs,
-          )
-          ?.let {
-            return@future it
+                .build()
+            return@future MediaItemsWithStartPosition(
+              listOf(updatedItem),
+              /* startIndex= */ 0,
+              /* startPositionMs= */ C.TIME_UNSET,
+            )
           }
+        }
       }
       throw IllegalStateException("previous media id not found")
     }

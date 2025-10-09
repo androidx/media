@@ -16,9 +16,9 @@
 
 package androidx.media3.transformer;
 
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.getPcmFormat;
 import static androidx.media3.transformer.TestUtil.createSpeedChangingAudioProcessor;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.Collections.max;
 import static java.util.Collections.min;
@@ -27,15 +27,18 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.audio.AudioProcessor.AudioFormat;
+import androidx.media3.common.audio.AudioProcessor.UnhandledAudioFormatException;
 import androidx.media3.common.util.Util;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.test.utils.TestUtil;
+import androidx.media3.transformer.TestUtil.PassthroughAudioProcessor;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Bytes;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -125,7 +128,7 @@ public class AudioGraphInputTest {
             /* editedMediaItem= */ FAKE_ITEM,
             /* inputFormat= */ getPcmFormat(MONO_48000));
 
-    audioGraphInput.flush();
+    audioGraphInput.flush(/* positionOffsetUs= */ 0);
 
     assertThat(audioGraphInput.getOutputAudioFormat()).isEqualTo(STEREO_44100);
   }
@@ -143,7 +146,8 @@ public class AudioGraphInputTest {
         /* editedMediaItem= */ FAKE_ITEM,
         /* durationUs= */ 1_000_000,
         /* decodedFormat= */ getPcmFormat(STEREO_44100),
-        /* isLast= */ true);
+        /* isLast= */ true,
+        /* positionOffsetUs= */ 0);
 
     // Force the media item change to be processed.
     checkState(!audioGraphInput.getOutput().hasRemaining());
@@ -153,7 +157,7 @@ public class AudioGraphInputTest {
     inputBuffer.ensureSpaceForWrite(inputData.length);
     inputBuffer.data.put(inputData).flip();
 
-    audioGraphInput.flush();
+    audioGraphInput.flush(/* positionOffsetUs= */ 0);
 
     assertThat(audioGraphInput.getInputBuffer().data.remaining()).isEqualTo(0);
   }
@@ -182,7 +186,8 @@ public class AudioGraphInputTest {
         /* editedMediaItem= */ FAKE_ITEM,
         /* durationUs= */ 0,
         /* decodedFormat= */ getPcmFormat(MONO_44100),
-        /* isLast= */ false);
+        /* isLast= */ false,
+        /* positionOffsetUs= */ 0);
 
     checkState(!audioGraphInput.getOutput().hasRemaining());
     assertThat(audioGraphInput.isEnded()).isFalse();
@@ -210,7 +215,8 @@ public class AudioGraphInputTest {
         /* editedMediaItem= */ FAKE_ITEM,
         /* durationUs= */ 0,
         /* decodedFormat= */ getPcmFormat(MONO_44100),
-        /* isLast= */ true);
+        /* isLast= */ true,
+        /* positionOffsetUs= */ 0);
 
     checkState(!audioGraphInput.getOutput().hasRemaining());
     assertThat(audioGraphInput.isEnded()).isFalse();
@@ -238,7 +244,8 @@ public class AudioGraphInputTest {
         /* editedMediaItem= */ FAKE_ITEM,
         /* durationUs= */ 500_000,
         /* decodedFormat= */ getPcmFormat(MONO_44100),
-        /* isLast= */ false);
+        /* isLast= */ false,
+        /* positionOffsetUs= */ 0);
 
     checkState(!audioGraphInput.getOutput().hasRemaining());
     assertThat(audioGraphInput.isEnded()).isFalse();
@@ -274,7 +281,8 @@ public class AudioGraphInputTest {
         /* editedMediaItem= */ FAKE_ITEM,
         /* durationUs= */ C.TIME_UNSET,
         /* decodedFormat= */ getPcmFormat(MONO_44100),
-        /* isLast= */ false);
+        /* isLast= */ false,
+        /* positionOffsetUs= */ 0);
 
     checkState(!audioGraphInput.getOutput().hasRemaining());
     assertThat(audioGraphInput.isEnded()).isFalse();
@@ -299,7 +307,8 @@ public class AudioGraphInputTest {
         /* editedMediaItem= */ FAKE_ITEM,
         /* durationUs= */ C.TIME_UNSET,
         /* decodedFormat= */ getPcmFormat(MONO_44100),
-        /* isLast= */ true);
+        /* isLast= */ true,
+        /* positionOffsetUs= */ 0);
 
     // Force the media item change to be processed.
     checkState(!audioGraphInput.getOutput().hasRemaining());
@@ -311,7 +320,7 @@ public class AudioGraphInputTest {
     drainAudioGraphInputUntilEnded(audioGraphInput);
     checkState(audioGraphInput.isEnded());
 
-    audioGraphInput.flush();
+    audioGraphInput.flush(/* positionOffsetUs= */ 0);
 
     assertThat(audioGraphInput.isEnded()).isFalse();
   }
@@ -358,7 +367,8 @@ public class AudioGraphInputTest {
         /* editedMediaItem= */ FAKE_ITEM,
         /* durationUs= */ 2267,
         /* decodedFormat= */ getPcmFormat(STEREO_44100),
-        /* isLast= */ true);
+        /* isLast= */ true,
+        /* positionOffsetUs= */ 0);
 
     // Force the media item change to be processed.
     checkState(!audioGraphInput.getOutput().hasRemaining());
@@ -390,7 +400,8 @@ public class AudioGraphInputTest {
         /* editedMediaItem= */ FAKE_ITEM,
         /* durationUs= */ 1_000_000,
         /* decodedFormat= */ getPcmFormat(STEREO_44100),
-        /* isLast= */ true);
+        /* isLast= */ true,
+        /* positionOffsetUs= */ 0);
 
     // Force the media item change to be processed.
     checkState(!audioGraphInput.getOutput().hasRemaining());
@@ -431,7 +442,8 @@ public class AudioGraphInputTest {
         /* editedMediaItem= */ FAKE_ITEM_WITH_DOUBLE_SPEED,
         /* durationUs= */ 1_000_000,
         /* decodedFormat= */ getPcmFormat(STEREO_44100),
-        /* isLast= */ true);
+        /* isLast= */ true,
+        /* positionOffsetUs= */ 0);
 
     // Force the media item change to be processed.
     checkState(!audioGraphInput.getOutput().hasRemaining());
@@ -471,7 +483,8 @@ public class AudioGraphInputTest {
         /* editedMediaItem= */ FAKE_ITEM,
         /* durationUs= */ 1_000_000,
         /* decodedFormat= */ null,
-        /* isLast= */ true);
+        /* isLast= */ true,
+        /* positionOffsetUs= */ 0);
 
     List<Byte> bytesOutput = drainAudioGraphInputUntilEnded(audioGraphInput);
     long expectedSampleCount = Util.durationUsToSampleCount(1_000_000, STEREO_44100.sampleRate);
@@ -493,17 +506,20 @@ public class AudioGraphInputTest {
         /* editedMediaItem= */ FAKE_ITEM,
         /* durationUs= */ 200_000,
         /* decodedFormat= */ null,
-        /* isLast= */ false);
+        /* isLast= */ false,
+        /* positionOffsetUs= */ 0);
     audioGraphInput.onMediaItemChanged(
         /* editedMediaItem= */ FAKE_ITEM,
         /* durationUs= */ 300_000,
         /* decodedFormat= */ null,
-        /* isLast= */ false);
+        /* isLast= */ false,
+        /* positionOffsetUs= */ 0);
     audioGraphInput.onMediaItemChanged(
         /* editedMediaItem= */ FAKE_ITEM,
         /* durationUs= */ 500_000,
         /* decodedFormat= */ null,
-        /* isLast= */ true);
+        /* isLast= */ true,
+        /* positionOffsetUs= */ 0);
 
     List<Byte> bytesOutput = drainAudioGraphInputUntilEnded(audioGraphInput);
     long expectedSampleCount = Util.durationUsToSampleCount(1_000_000, STEREO_44100.sampleRate);
@@ -525,7 +541,8 @@ public class AudioGraphInputTest {
         /* editedMediaItem= */ FAKE_ITEM_WITH_DOUBLE_SPEED,
         /* durationUs= */ 1_000_000,
         /* decodedFormat= */ null,
-        /* isLast= */ true);
+        /* isLast= */ true,
+        /* positionOffsetUs= */ 0);
 
     List<Byte> bytesOutput = drainAudioGraphInputUntilEnded(audioGraphInput);
     long expectedSampleCount = Util.durationUsToSampleCount(500_000, STEREO_44100.sampleRate);
@@ -547,7 +564,8 @@ public class AudioGraphInputTest {
         /* editedMediaItem= */ FAKE_ITEM,
         /* durationUs= */ 1_000_000,
         /* decodedFormat= */ getPcmFormat(STEREO_44100),
-        /* isLast= */ true);
+        /* isLast= */ true,
+        /* positionOffsetUs= */ 0);
 
     // Force the media item change to be processed.
     checkState(!audioGraphInput.getOutput().hasRemaining());
@@ -558,7 +576,7 @@ public class AudioGraphInputTest {
     inputBuffer.data.put(inputData).flip();
     checkState(audioGraphInput.queueInputBuffer());
 
-    audioGraphInput.flush();
+    audioGraphInput.flush(/* positionOffsetUs= */ 0);
 
     // Queue EOS.
     audioGraphInput.getInputBuffer().setFlags(C.BUFFER_FLAG_END_OF_STREAM);
@@ -581,7 +599,8 @@ public class AudioGraphInputTest {
         /* editedMediaItem= */ FAKE_ITEM,
         /* durationUs= */ 1_000_000,
         /* decodedFormat= */ getPcmFormat(STEREO_44100),
-        /* isLast= */ true);
+        /* isLast= */ true,
+        /* positionOffsetUs= */ 0);
 
     // Force the media item change to be processed.
     checkState(!audioGraphInput.getOutput().hasRemaining());
@@ -592,7 +611,7 @@ public class AudioGraphInputTest {
     inputBuffer.data.put(inputData).flip();
     checkState(audioGraphInput.queueInputBuffer());
 
-    audioGraphInput.flush();
+    audioGraphInput.flush(/* positionOffsetUs= */ 0);
 
     // Queue inputData.
     inputBuffer = audioGraphInput.getInputBuffer();
@@ -621,7 +640,8 @@ public class AudioGraphInputTest {
         /* editedMediaItem= */ FAKE_ITEM,
         /* durationUs= */ 1_000_000,
         /* decodedFormat= */ getPcmFormat(STEREO_44100),
-        /* isLast= */ true);
+        /* isLast= */ true,
+        /* positionOffsetUs= */ 0);
 
     // Force the media item change to be processed.
     checkState(!audioGraphInput.getOutput().hasRemaining());
@@ -650,7 +670,8 @@ public class AudioGraphInputTest {
         /* editedMediaItem= */ FAKE_ITEM,
         /* durationUs= */ 1_000_000,
         /* decodedFormat= */ getPcmFormat(STEREO_44100),
-        /* isLast= */ true);
+        /* isLast= */ true,
+        /* positionOffsetUs= */ 0);
 
     // Force the media item change to be processed.
     checkState(!audioGraphInput.getOutput().hasRemaining());
@@ -664,6 +685,61 @@ public class AudioGraphInputTest {
     audioGraphInput.unblockInput();
 
     assertThat(audioGraphInput.queueInputBuffer()).isTrue();
+  }
+
+  @Test
+  public void onMediaItemChanged_propagatesPositionOffsetToAudioProcessors()
+      throws UnhandledAudioFormatException {
+    AtomicLong lastPositionOffsetUs = new AtomicLong(C.TIME_UNSET);
+    PassthroughAudioProcessor fakeProcessor =
+        new PassthroughAudioProcessor() {
+          @Override
+          protected void onFlush(StreamMetadata streamMetadata) {
+            lastPositionOffsetUs.set(streamMetadata.positionOffsetUs);
+          }
+        };
+    AudioGraphInput audioGraphInput =
+        new AudioGraphInput(
+            /* requestedOutputAudioFormat= */ AudioFormat.NOT_SET,
+            /* editedMediaItem= */ new EditedMediaItem.Builder(MediaItem.EMPTY)
+                .setEffects(new Effects(ImmutableList.of(fakeProcessor), ImmutableList.of()))
+                .build(),
+            /* inputFormat= */ getPcmFormat(STEREO_44100));
+
+    audioGraphInput.onMediaItemChanged(
+        /* editedMediaItem= */ FAKE_ITEM,
+        /* durationUs= */ C.TIME_UNSET,
+        /* decodedFormat= */ getPcmFormat(STEREO_44100),
+        /* isLast= */ true,
+        /* positionOffsetUs= */ 500_000);
+    // Get output to force media item change.
+    audioGraphInput.getOutput();
+
+    assertThat(lastPositionOffsetUs.get()).isEqualTo(/* positionOffsetUs */ 500_000);
+  }
+
+  @Test
+  public void flush_propagatesPositionOffsetToAudioProcessors()
+      throws UnhandledAudioFormatException {
+    AtomicLong lastPositionOffsetUs = new AtomicLong(C.TIME_UNSET);
+    PassthroughAudioProcessor fakeProcessor =
+        new PassthroughAudioProcessor() {
+          @Override
+          protected void onFlush(StreamMetadata streamMetadata) {
+            lastPositionOffsetUs.set(streamMetadata.positionOffsetUs);
+          }
+        };
+    AudioGraphInput audioGraphInput =
+        new AudioGraphInput(
+            /* requestedOutputAudioFormat= */ AudioFormat.NOT_SET,
+            /* editedMediaItem= */ new EditedMediaItem.Builder(MediaItem.EMPTY)
+                .setEffects(new Effects(ImmutableList.of(fakeProcessor), ImmutableList.of()))
+                .build(),
+            /* inputFormat= */ getPcmFormat(STEREO_44100));
+
+    audioGraphInput.flush(/* positionOffsetUs= */ 500_000);
+
+    assertThat(lastPositionOffsetUs.get()).isEqualTo(/* positionOffsetUs */ 500_000);
   }
 
   /** Drains the graph and returns the bytes output. */

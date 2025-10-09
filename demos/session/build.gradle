@@ -66,6 +66,7 @@ dependencies {
     implementation 'androidx.appcompat:appcompat:' + androidxAppCompatVersion
     implementation 'com.google.android.material:material:' + androidxMaterialVersion
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-guava:' + kotlinxCoroutinesVersion
+    implementation project(modulePrefix + 'lib-cast')
     implementation project(modulePrefix + 'lib-ui')
     implementation project(modulePrefix + 'lib-session')
     implementation project(modulePrefix + 'demo-session-service')

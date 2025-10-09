@@ -15,6 +15,10 @@
  */
 package androidx.media3.extractor.text.cea;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkElementIndex;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.text.Layout.Alignment;
@@ -30,7 +34,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.text.Cue;
 import androidx.media3.common.text.Cue.AnchorType;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ParsableBitArray;
@@ -211,13 +214,13 @@ public final class Cea708Decoder extends CeaDecoder {
   @Override
   protected Subtitle createSubtitle() {
     lastCues = cues;
-    return new CeaSubtitle(Assertions.checkNotNull(cues));
+    return new CeaSubtitle(checkNotNull(cues));
   }
 
   @Override
   protected void decode(SubtitleInputBuffer inputBuffer) {
     // Subtitle input buffers are non-direct and the position is zero, so calling array() is safe.
-    ByteBuffer subtitleData = Assertions.checkNotNull(inputBuffer.data);
+    ByteBuffer subtitleData = checkNotNull(inputBuffer.data);
     @SuppressWarnings("ByteBufferBackingArray")
     byte[] inputBufferData = subtitleData.array();
     ccData.reset(inputBufferData, subtitleData.limit());
@@ -264,7 +267,7 @@ public final class Cea708Decoder extends CeaDecoder {
         currentDtvCcPacket.packetData[currentDtvCcPacket.currentIndex++] = ccData2;
       } else {
         // The only remaining valid packet type is DTVCC_PACKET_DATA
-        Assertions.checkArgument(ccType == DTVCC_PACKET_DATA);
+        checkArgument(ccType == DTVCC_PACKET_DATA);
 
         if (currentDtvCcPacket == null) {
           Log.e(TAG, "Encountered DTVCC_PACKET_DATA before DTVCC_PACKET_START");
@@ -1370,10 +1373,10 @@ public final class Cea708Decoder extends CeaDecoder {
     }
 
     public static int getArgbColorFromCeaColor(int red, int green, int blue, int opacity) {
-      Assertions.checkIndex(red, 0, 4);
-      Assertions.checkIndex(green, 0, 4);
-      Assertions.checkIndex(blue, 0, 4);
-      Assertions.checkIndex(opacity, 0, 4);
+      checkElementIndex(red, 4);
+      checkElementIndex(green, 4);
+      checkElementIndex(blue, 4);
+      checkElementIndex(opacity, 4);
 
       int alpha;
       switch (opacity) {

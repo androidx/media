@@ -17,8 +17,8 @@ package androidx.media3.effect;
 
 import static androidx.media3.common.C.TEXTURE_MIN_FILTER_LINEAR;
 import static androidx.media3.common.C.TEXTURE_MIN_FILTER_LINEAR_MIPMAP_LINEAR;
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.annotation.ElementType.TYPE_USE;
 import static java.lang.annotation.RetentionPolicy.SOURCE;
 
@@ -110,7 +110,8 @@ public final class Presentation implements MatrixTransformation {
         layout == LAYOUT_SCALE_TO_FIT
             || layout == LAYOUT_SCALE_TO_FIT_WITH_CROP
             || layout == LAYOUT_STRETCH_TO_FIT,
-        "invalid layout " + layout);
+        "invalid layout %s",
+        layout);
   }
 
   /**
@@ -124,7 +125,7 @@ public final class Presentation implements MatrixTransformation {
    */
   public static Presentation createForAspectRatio(
       @FloatRange(from = 0, fromInclusive = false) float aspectRatio, @Layout int layout) {
-    checkArgument(aspectRatio > 0, "aspect ratio " + aspectRatio + " must be positive");
+    checkArgument(aspectRatio > 0, "aspect ratio %s must be positive", aspectRatio);
     checkLayout(layout);
     return new Presentation(
         /* width= */ C.LENGTH_UNSET,
@@ -165,8 +166,8 @@ public final class Presentation implements MatrixTransformation {
    * @param layout The layout of the output frame.
    */
   public static Presentation createForWidthAndHeight(int width, int height, @Layout int layout) {
-    checkArgument(width > 0, "width " + width + " must be positive");
-    checkArgument(height > 0, "height " + height + " must be positive");
+    checkArgument(width > 0, "width %s must be positive", width);
+    checkArgument(height > 0, "height %s must be positive", height);
     checkLayout(layout);
     return new Presentation(
         width,
@@ -187,7 +188,7 @@ public final class Presentation implements MatrixTransformation {
    * @param shortSide The length of the short side of the output frame, in pixels.
    */
   public static Presentation createForShortSide(int shortSide) {
-    checkArgument(shortSide > 0, "shortSide " + shortSide + " must be positive");
+    checkArgument(shortSide > 0, "shortSide %s must be positive", shortSide);
     return new Presentation(
         /* width= */ C.LENGTH_UNSET,
         /* height= */ shortSide,
@@ -290,13 +291,13 @@ public final class Presentation implements MatrixTransformation {
 
   @Override
   public Matrix getMatrix(long presentationTimeUs) {
-    return checkStateNotNull(transformationMatrix, "configure must be called first");
+    return checkNotNull(transformationMatrix, "configure must be called first");
   }
 
   @Override
   public boolean isNoOp(int inputWidth, int inputHeight) {
     configure(inputWidth, inputHeight);
-    return checkStateNotNull(transformationMatrix).isIdentity()
+    return checkNotNull(transformationMatrix).isIdentity()
         && inputWidth == Math.round(outputWidth)
         && inputHeight == Math.round(outputHeight);
   }

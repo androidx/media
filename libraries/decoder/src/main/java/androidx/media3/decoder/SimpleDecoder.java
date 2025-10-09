@@ -15,10 +15,12 @@
  */
 package androidx.media3.decoder;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
+
 import androidx.annotation.CallSuper;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import java.util.ArrayDeque;
 
@@ -89,7 +91,7 @@ public abstract class SimpleDecoder<
    * @param size The required input buffer size.
    */
   protected final void setInitialInputBufferSize(int size) {
-    Assertions.checkState(availableInputBufferCount == availableInputBuffers.length);
+    checkState(availableInputBufferCount == availableInputBuffers.length);
     for (I inputBuffer : availableInputBuffers) {
       inputBuffer.ensureSpaceForWrite(size);
     }
@@ -114,7 +116,7 @@ public abstract class SimpleDecoder<
   @Override
   public final void setOutputStartTimeUs(long outputStartTimeUs) {
     synchronized (lock) {
-      Assertions.checkState(availableInputBufferCount == availableInputBuffers.length || flushed);
+      checkState(availableInputBufferCount == availableInputBuffers.length || flushed);
       this.outputStartTimeUs = outputStartTimeUs;
     }
   }
@@ -124,7 +126,7 @@ public abstract class SimpleDecoder<
   public final I dequeueInputBuffer() throws E {
     synchronized (lock) {
       maybeThrowException();
-      Assertions.checkState(dequeuedInputBuffer == null);
+      checkState(dequeuedInputBuffer == null);
       dequeuedInputBuffer =
           availableInputBufferCount == 0
               ? null
@@ -137,7 +139,7 @@ public abstract class SimpleDecoder<
   public final void queueInputBuffer(I inputBuffer) throws E {
     synchronized (lock) {
       maybeThrowException();
-      Assertions.checkArgument(inputBuffer == dequeuedInputBuffer);
+      checkArgument(inputBuffer == dequeuedInputBuffer);
       queuedInputBuffers.addLast(inputBuffer);
       maybeNotifyDecodeLoop();
       dequeuedInputBuffer = null;

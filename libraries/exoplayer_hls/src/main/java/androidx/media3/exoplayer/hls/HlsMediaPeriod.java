@@ -15,6 +15,9 @@
  */
 package androidx.media3.exoplayer.hls;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+
 import android.net.Uri;
 import android.text.TextUtils;
 import androidx.annotation.Nullable;
@@ -26,7 +29,6 @@ import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.StreamKey;
 import androidx.media3.common.TrackGroup;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
@@ -51,7 +53,9 @@ import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.CmcdConfiguration;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
+import androidx.media3.exoplayer.util.ReleasableExecutor;
 import androidx.media3.extractor.Extractor;
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.primitives.Ints;
@@ -89,6 +93,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private final PlayerId playerId;
   private final HlsSampleStreamWrapper.Callback sampleStreamWrapperCallback;
   private final long timestampAdjusterInitializationTimeoutMs;
+  @Nullable private final Supplier<ReleasableExecutor> downloadExecutorSupplier;
 
   @Nullable private MediaPeriod.Callback mediaPeriodCallback;
   private int pendingPrepareCount;
@@ -126,6 +131,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * @param timestampAdjusterInitializationTimeoutMs The timeout for the loading thread to wait for
    *     the timestamp adjuster to initialize, in milliseconds. A timeout of zero is interpreted as
    *     an infinite timeout.
+   * @param downloadExecutorSupplier A supplier for a {@link ReleasableExecutor} that is used for
+   *     loading the media.
    */
   public HlsMediaPeriod(
       HlsExtractorFactory extractorFactory,
@@ -143,7 +150,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       @HlsMediaSource.MetadataType int metadataType,
       boolean useSessionKeys,
       PlayerId playerId,
-      long timestampAdjusterInitializationTimeoutMs) {
+      long timestampAdjusterInitializationTimeoutMs,
+      @Nullable Supplier<ReleasableExecutor> downloadExecutorSupplier) {
     this.extractorFactory = extractorFactory;
     this.playlistTracker = playlistTracker;
     this.dataSourceFactory = dataSourceFactory;
@@ -160,6 +168,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.useSessionKeys = useSessionKeys;
     this.playerId = playerId;
     this.timestampAdjusterInitializationTimeoutMs = timestampAdjusterInitializationTimeoutMs;
+    this.downloadExecutorSupplier = downloadExecutorSupplier;
     sampleStreamWrapperCallback = new SampleStreamWrapperCallback();
     compositeSequenceableLoader = compositeSequenceableLoaderFactory.empty();
     streamWrapperIndices = new IdentityHashMap<>();
@@ -194,7 +203,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @Override
   public TrackGroupArray getTrackGroups() {
     // trackGroups will only be null if period hasn't been prepared or has been released.
-    return Assertions.checkNotNull(trackGroups);
+    return checkNotNull(trackGroups);
   }
 
   // TODO: When the multivariant playlist does not de-duplicate variants by URL and allows
@@ -204,7 +213,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   public List<StreamKey> getStreamKeys(List<ExoTrackSelection> trackSelections) {
     // See HlsMultivariantPlaylist.copy for interpretation of StreamKeys.
     HlsMultivariantPlaylist multivariantPlaylist =
-        Assertions.checkNotNull(playlistTracker.getMultivariantPlaylist());
+        checkNotNull(playlistTracker.getMultivariantPlaylist());
     boolean hasVariants = !multivariantPlaylist.variants.isEmpty();
     int audioWrapperOffset = hasVariants ? 1 : 0;
 
@@ -335,13 +344,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         SampleStream childStream = childStreams[j];
         if (selectionChildIndices[j] == i) {
           // Assert that the child provided a stream for the selection.
-          Assertions.checkNotNull(childStream);
+          checkNotNull(childStream);
           newStreams[j] = childStream;
           wrapperEnabled = true;
           streamWrapperIndices.put(childStream, i);
         } else if (streamChildIndices[j] == i) {
           // Assert that the child cleared any previous stream.
-          Assertions.checkState(childStream == null);
+          checkState(childStream == null);
         }
       }
       if (wrapperEnabled) {
@@ -484,7 +493,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   private void buildAndPrepareSampleStreamWrappers(long positionUs) {
     HlsMultivariantPlaylist multivariantPlaylist =
-        Assertions.checkNotNull(playlistTracker.getMultivariantPlaylist());
+        checkNotNull(playlistTracker.getMultivariantPlaylist());
     Map<String, DrmInitData> overridingDrmInitData =
         useSessionKeys
             ? deriveOverridingDrmInitData(multivariantPlaylist.sessionKeyDrmInitData)
@@ -856,7 +865,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         drmEventDispatcher,
         loadErrorHandlingPolicy,
         eventDispatcher,
-        metadataType);
+        metadataType,
+        downloadExecutorSupplier != null ? downloadExecutorSupplier.get() : null);
   }
 
   private static Map<String, DrmInitData> deriveOverridingDrmInitData(

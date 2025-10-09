@@ -21,6 +21,8 @@ import static androidx.media3.session.MediaConstants.EXTRAS_VALUE_COMPLETION_STA
 import static androidx.media3.session.MediaConstants.EXTRA_KEY_ROOT_CHILDREN_BROWSABLE_ONLY;
 import static androidx.media3.session.MockMediaBrowserServiceCompat.EXTRAS_KEY_SEND_ROOT_HINTS_AS_SESSION_EXTRAS;
 import static androidx.media3.test.session.common.CommonConstants.MOCK_MEDIA_BROWSER_SERVICE_COMPAT;
+import static androidx.media3.test.session.common.MediaBrowserConstants.CUSTOM_ACTION;
+import static androidx.media3.test.session.common.MediaBrowserConstants.EXTRAS_VALUE_PARTIAL_PROGRESS;
 import static androidx.media3.test.session.common.MediaBrowserConstants.PARENT_ID;
 import static androidx.media3.test.session.common.MediaBrowserConstants.ROOT_EXTRAS_KEY;
 import static androidx.media3.test.session.common.MediaBrowserConstants.ROOT_EXTRAS_VALUE;
@@ -36,7 +38,10 @@ import static androidx.media3.test.session.common.MediaBrowserServiceCompatConst
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_MEDIA_ITEMS_WITH_BROWSE_ACTIONS;
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_ON_CHILDREN_CHANGED_SUBSCRIBE_AND_UNSUBSCRIBE;
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_SEND_CUSTOM_COMMAND;
+import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_SEND_CUSTOM_COMMAND_WITH_PROGRESS_UPDATE;
 import static androidx.media3.test.session.common.MediaBrowserServiceCompatConstants.TEST_SUBSCRIBE_THEN_REJECT_ON_LOAD_CHILDREN;
+import static androidx.media3.test.session.common.MediaSessionConstants.KEY_CUSTOM_COMMAND_RECEIVED_CONFIRMATION;
+import static androidx.media3.test.session.common.MediaSessionConstants.VALUE_CUSTOM_COMMAND_RECEIVED_CONFIRMATION;
 import static androidx.media3.test.session.common.TestUtils.TIMEOUT_MS;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -56,6 +61,7 @@ import androidx.media3.common.Player;
 import androidx.media3.session.MediaLibraryService.LibraryParams;
 import androidx.media3.test.session.common.HandlerThreadTestRule;
 import androidx.media3.test.session.common.MediaBrowserConstants;
+import androidx.media3.test.session.common.TestUtils;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.LargeTest;
@@ -171,19 +177,20 @@ public class MediaBrowserListenerWithMediaBrowserServiceCompatTest {
   @Test
   public void getLibraryRoot_browseActionsAvailable() throws Exception {
     remoteService.setProxyForTest(TEST_MEDIA_ITEMS_WITH_BROWSE_ACTIONS);
-    CommandButton playlistAddButton =
+    CommandButton downloadButton =
         new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
-            .setDisplayName("Add to playlist")
-            .setIconUri(Uri.parse("content://playlist_add"))
+            .setDisplayName("Download")
+            .setIconUri(Uri.parse("content://download"))
             .setSessionCommand(
-                new SessionCommand(MediaBrowserConstants.COMMAND_PLAYLIST_ADD, Bundle.EMPTY))
+                new SessionCommand(MediaConstants.CUSTOM_COMMAND_DOWNLOAD, Bundle.EMPTY))
             .build();
     CommandButton radioButton =
         new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
-            .setDisplayName("Radio station")
-            .setIconUri(Uri.parse("content://radio"))
+            .setDisplayName("Some action")
+            .setIconUri(Uri.parse("content://some_action"))
             .setSessionCommand(
-                new SessionCommand(MediaBrowserConstants.COMMAND_RADIO, Bundle.EMPTY))
+                new SessionCommand(
+                    MediaBrowserConstants.COMMAND_NOT_A_CUSTOM_SESSION_ACTION, Bundle.EMPTY))
             .build();
     MediaItem mediaItem =
         new MediaItem.Builder()
@@ -192,8 +199,8 @@ public class MediaBrowserListenerWithMediaBrowserServiceCompatTest {
                 new MediaMetadata.Builder()
                     .setSupportedCommands(
                         ImmutableList.of(
-                            MediaBrowserConstants.COMMAND_PLAYLIST_ADD,
-                            MediaBrowserConstants.COMMAND_RADIO,
+                            MediaConstants.CUSTOM_COMMAND_DOWNLOAD,
+                            MediaBrowserConstants.COMMAND_NOT_A_CUSTOM_SESSION_ACTION,
                             "invalid"))
                     .build())
             .build();
@@ -211,9 +218,9 @@ public class MediaBrowserListenerWithMediaBrowserServiceCompatTest {
     ImmutableList<CommandButton> commandButtons =
         mediaBrowser.getCommandButtonsForMediaItem(mediaItem);
 
-    assertThat(commandButtons).containsExactly(playlistAddButton, radioButton).inOrder();
-    assertThat(commandButtons.get(0).extras.getString("key-1")).isEqualTo("playlist_add");
-    assertThat(commandButtons.get(1).extras.getString("key-1")).isEqualTo("radio");
+    assertThat(commandButtons).containsExactly(downloadButton, radioButton).inOrder();
+    assertThat(commandButtons.get(0).extras.getString("key-1")).isEqualTo("download");
+    assertThat(commandButtons.get(1).extras.getString("key-1")).isEqualTo("some_action");
   }
 
   @Test
@@ -221,12 +228,12 @@ public class MediaBrowserListenerWithMediaBrowserServiceCompatTest {
     remoteService.setProxyForTest(TEST_MEDIA_ITEMS_WITH_BROWSE_ACTIONS);
     MediaBrowser mediaBrowser =
         createBrowser(Bundle.EMPTY, /* maxCommandsForMediaItems= */ 1, /* listener= */ null);
-    CommandButton playlistAddButton =
+    CommandButton downloadButton =
         new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
-            .setDisplayName("Add to playlist")
-            .setIconUri(Uri.parse("content://playlist_add"))
+            .setDisplayName("Download")
+            .setIconUri(Uri.parse("content://download"))
             .setSessionCommand(
-                new SessionCommand(MediaBrowserConstants.COMMAND_PLAYLIST_ADD, Bundle.EMPTY))
+                new SessionCommand(MediaConstants.CUSTOM_COMMAND_DOWNLOAD, Bundle.EMPTY))
             .build();
     // When connected to a legacy browser service, the library root needs to be requested
     // before media item commands are available.
@@ -245,8 +252,8 @@ public class MediaBrowserListenerWithMediaBrowserServiceCompatTest {
             .postAndSync(
                 () -> mediaBrowser.getCommandButtonsForMediaItem(requireNonNull(mediaItem)));
 
-    assertThat(commandButtons).containsExactly(playlistAddButton);
-    assertThat(commandButtons.get(0).extras.getString("key-1")).isEqualTo("playlist_add");
+    assertThat(commandButtons).containsExactly(downloadButton);
+    assertThat(commandButtons.get(0).extras.getString("key-1")).isEqualTo("download");
   }
 
   @Test
@@ -273,7 +280,9 @@ public class MediaBrowserListenerWithMediaBrowserServiceCompatTest {
             .postAndSync(
                 () ->
                     mediaBrowser.sendCustomCommand(
-                        new SessionCommand(MediaBrowserConstants.COMMAND_RADIO, Bundle.EMPTY),
+                        new SessionCommand(
+                            MediaBrowserConstants.COMMAND_NOT_A_CUSTOM_SESSION_ACTION,
+                            Bundle.EMPTY),
                         mediaItem,
                         /* args= */ Bundle.EMPTY))
             .get(TIMEOUT_MS, MILLISECONDS);
@@ -283,7 +292,7 @@ public class MediaBrowserListenerWithMediaBrowserServiceCompatTest {
   }
 
   @Test
-  public void sendCustomCommandWithMediaItem_commandButtonNotAvailable_permissionDenied()
+  public void sendCustomCommandWithMediaItem_commandButtonNotAvailable_sentToServiceEitherWay()
       throws Exception {
     remoteService.setProxyForTest(TEST_MEDIA_ITEMS_WITH_BROWSE_ACTIONS);
     MediaBrowser mediaBrowser =
@@ -307,12 +316,13 @@ public class MediaBrowserListenerWithMediaBrowserServiceCompatTest {
             .postAndSync(
                 () ->
                     mediaBrowser.sendCustomCommand(
-                        new SessionCommand(MediaBrowserConstants.COMMAND_RADIO, Bundle.EMPTY),
+                        new SessionCommand(MediaConstants.CUSTOM_COMMAND_DOWNLOAD, Bundle.EMPTY),
                         mediaItem,
                         /* args= */ Bundle.EMPTY))
             .get(TIMEOUT_MS, MILLISECONDS);
 
-    assertThat(sessionResult.resultCode).isEqualTo(SessionResult.RESULT_ERROR_PERMISSION_DENIED);
+    assertThat(sessionResult.resultCode).isEqualTo(SessionResult.RESULT_SUCCESS);
+    assertThat(sessionResult.extras.getString("key-1")).isEqualTo("success-from-service");
   }
 
   @Test
@@ -596,10 +606,22 @@ public class MediaBrowserListenerWithMediaBrowserServiceCompatTest {
   }
 
   @Test
-  public void sendCustomCommand_success_correctAsyncResult() throws Exception {
+  public void sendCustomCommand_commandDeclaredInPlaybackStateCompat_successFromSession()
+      throws Exception {
     remoteService.setProxyForTest(TEST_SEND_CUSTOM_COMMAND);
-    MediaBrowser browser = createBrowser(/* listener= */ null);
-    CountDownLatch latch = new CountDownLatch(/* count= */ 1);
+    CountDownLatch latch = new CountDownLatch(/* count= */ 2);
+    MediaBrowser browser =
+        createBrowser(
+            /* listener= */ new MediaBrowser.Listener() {
+              @Override
+              public void onExtrasChanged(MediaController controller, Bundle extras) {
+                // Legacy session can't send a result on custom commands. Using the extras as a
+                // workaround to get an update from the session when an custom action is processed.
+                if (extras.containsKey(KEY_CUSTOM_COMMAND_RECEIVED_CONFIRMATION)) {
+                  latch.countDown();
+                }
+              }
+            });
     AtomicReference<SessionResult> sessionResultRef = new AtomicReference<>();
 
     ListenableFuture<SessionResult> resultFuture =
@@ -607,6 +629,130 @@ public class MediaBrowserListenerWithMediaBrowserServiceCompatTest {
             .getHandler()
             .postAndSync(
                 () ->
+                    browser.sendCustomCommand(
+                        new SessionCommand(
+                            MediaBrowserConstants.COMMAND_PLAYLIST_ADD, /* extras= */ Bundle.EMPTY),
+                        /* args= */ Bundle.EMPTY));
+    Futures.addCallback(
+        resultFuture,
+        new FutureCallback<SessionResult>() {
+          @Override
+          public void onSuccess(SessionResult result) {
+            // We always get a success because this action goes to the session that can't respond.
+            sessionResultRef.set(result);
+            latch.countDown();
+          }
+
+          @Override
+          public void onFailure(Throwable t) {}
+        },
+        directExecutor());
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(sessionResultRef.get()).isNotNull();
+    assertThat(sessionResultRef.get().resultCode).isEqualTo(SessionResult.RESULT_SUCCESS);
+    assertThat(sessionResultRef.get().extras.getString("key-1")).isNull();
+  }
+
+  @Test
+  public void sendCustomCommand_commandNotDeclaredInPlaybackStateCompat_successFromService()
+      throws Exception {
+    remoteService.setProxyForTest(TEST_SEND_CUSTOM_COMMAND);
+    CountDownLatch latch = new CountDownLatch(/* count= */ 1);
+    MediaBrowser browser = createBrowser(/* listener= */ null);
+    AtomicReference<SessionResult> sessionResultRef = new AtomicReference<>();
+
+    ListenableFuture<SessionResult> resultFuture =
+        threadTestRule
+            .getHandler()
+            .postAndSync(
+                () ->
+                    browser.sendCustomCommand(
+                        new SessionCommand(
+                            MediaConstants.CUSTOM_COMMAND_DOWNLOAD, /* extras= */ Bundle.EMPTY),
+                        /* args= */ Bundle.EMPTY));
+    Futures.addCallback(
+        resultFuture,
+        new FutureCallback<SessionResult>() {
+          @Override
+          public void onSuccess(SessionResult result) {
+            // We always get a success because this action goes to the session that can't respond.
+            sessionResultRef.set(result);
+            latch.countDown();
+          }
+
+          @Override
+          public void onFailure(Throwable t) {}
+        },
+        directExecutor());
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(sessionResultRef.get()).isNotNull();
+    assertThat(sessionResultRef.get().resultCode).isEqualTo(SessionResult.RESULT_SUCCESS);
+    assertThat(sessionResultRef.get().extras.getString("key-1")).isEqualTo("success-from-service");
+  }
+
+  @Test
+  public void sendCustomCommand_failureFromService_correctAsyncResult() throws Exception {
+    remoteService.setProxyForTest(TEST_SEND_CUSTOM_COMMAND);
+    MediaBrowser browser = createBrowser(/* listener= */ null);
+    CountDownLatch latch = new CountDownLatch(/* count= */ 1);
+    AtomicReference<SessionResult> sessionResultRef = new AtomicReference<>();
+    Bundle args = new Bundle();
+    args.putBoolean("request_error", true);
+
+    ListenableFuture<SessionResult> resultFuture =
+        threadTestRule
+            .getHandler()
+            .postAndSync(
+                () ->
+                    browser.sendCustomCommand(
+                        new SessionCommand(
+                            MediaConstants.CUSTOM_COMMAND_DOWNLOAD, /* extras= */ Bundle.EMPTY),
+                        args));
+    Futures.addCallback(
+        resultFuture,
+        new FutureCallback<SessionResult>() {
+          @Override
+          public void onSuccess(SessionResult result) {
+            sessionResultRef.set(result);
+            latch.countDown();
+          }
+
+          @Override
+          public void onFailure(Throwable t) {}
+        },
+        directExecutor());
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(sessionResultRef.get()).isNotNull();
+    assertThat(sessionResultRef.get().resultCode).isEqualTo(SessionResult.RESULT_ERROR_UNKNOWN);
+    assertThat(sessionResultRef.get().extras.getString("key-1")).isEqualTo("error-from-service");
+  }
+
+  @Test
+  public void sendCustomCommand_successFromSession_correctAsyncResultReceivalConfirmed()
+      throws Exception {
+    remoteService.setProxyForTest(TEST_SEND_CUSTOM_COMMAND);
+    List<Bundle> capturedExtras = new ArrayList<>();
+    CountDownLatch latch = new CountDownLatch(/* count= */ 2);
+    MediaBrowser browser =
+        createBrowser(
+            /* listener= */ new MediaBrowser.Listener() {
+              @Override
+              public void onExtrasChanged(MediaController controller, Bundle extras) {
+                capturedExtras.add(extras);
+                latch.countDown();
+              }
+            });
+    AtomicReference<SessionResult> sessionResultRef = new AtomicReference<>();
+
+    ListenableFuture<SessionResult> resultFuture =
+        threadTestRule
+            .getHandler()
+            .postAndSync(
+                () ->
+                    // Not using a ProgressListener sends the action to the session.
                     browser.sendCustomCommand(
                         new SessionCommand(
                             MediaBrowserConstants.COMMAND_PLAYLIST_ADD, /* extras= */ Bundle.EMPTY),
@@ -628,27 +774,36 @@ public class MediaBrowserListenerWithMediaBrowserServiceCompatTest {
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(sessionResultRef.get()).isNotNull();
     assertThat(sessionResultRef.get().resultCode).isEqualTo(SessionResult.RESULT_SUCCESS);
-    assertThat(sessionResultRef.get().extras.getString("key-1")).isEqualTo("success-from-service");
+    assertThat(capturedExtras.get(0).getString(KEY_CUSTOM_COMMAND_RECEIVED_CONFIRMATION))
+        .isEqualTo(VALUE_CUSTOM_COMMAND_RECEIVED_CONFIRMATION);
   }
 
   @Test
-  public void sendCustomCommand_failure_correctAsyncResult() throws Exception {
-    remoteService.setProxyForTest(TEST_SEND_CUSTOM_COMMAND);
+  public void sendCustomCommand_withProgressUpdate_correctAsyncResultAndProgressUpdates()
+      throws Exception {
+    remoteService.setProxyForTest(TEST_SEND_CUSTOM_COMMAND_WITH_PROGRESS_UPDATE);
     MediaBrowser browser = createBrowser(/* listener= */ null);
-    CountDownLatch latch = new CountDownLatch(/* count= */ 1);
+    CountDownLatch latch = new CountDownLatch(/* count= */ 3);
     AtomicReference<SessionResult> sessionResultRef = new AtomicReference<>();
+    List<SessionCommand> progressCommands = new ArrayList<>();
+    List<Bundle> progressArgs = new ArrayList<>();
+    List<Bundle> progressDataList = new ArrayList<>();
+    MediaController.ProgressListener progressListener =
+        (mediaController, sessionCommand, args, progressData) -> {
+          progressCommands.add(sessionCommand);
+          progressArgs.add(args);
+          progressDataList.add(progressData);
+          latch.countDown();
+        };
+    SessionCommand sessionCommand =
+        new SessionCommand(MediaConstants.CUSTOM_COMMAND_DOWNLOAD, /* extras= */ Bundle.EMPTY);
     Bundle args = new Bundle();
-    args.putBoolean("request_error", true);
+    args.putBoolean("isTrue", true);
 
     ListenableFuture<SessionResult> resultFuture =
         threadTestRule
             .getHandler()
-            .postAndSync(
-                () ->
-                    browser.sendCustomCommand(
-                        new SessionCommand(
-                            MediaBrowserConstants.COMMAND_PLAYLIST_ADD, /* extras= */ Bundle.EMPTY),
-                        args));
+            .postAndSync(() -> browser.sendCustomCommand(sessionCommand, args, progressListener));
     Futures.addCallback(
         resultFuture,
         new FutureCallback<SessionResult>() {
@@ -664,9 +819,20 @@ public class MediaBrowserListenerWithMediaBrowserServiceCompatTest {
         directExecutor());
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
-    assertThat(sessionResultRef.get()).isNotNull();
-    assertThat(sessionResultRef.get().resultCode).isEqualTo(SessionResult.RESULT_ERROR_UNKNOWN);
-    assertThat(sessionResultRef.get().extras.getString("key-1")).isEqualTo("error-from-service");
+    assertThat(sessionResultRef.get().resultCode).isEqualTo(SessionResult.RESULT_SUCCESS);
+    assertThat(sessionResultRef.get().extras.getBoolean("isTrue")).isTrue();
+    assertThat(sessionResultRef.get().extras.getString(CUSTOM_ACTION)).isEqualTo(CUSTOM_ACTION);
+    assertThat(progressArgs).hasSize(2);
+    assertThat(TestUtils.equals(args, progressArgs.get(0))).isTrue();
+    assertThat(TestUtils.equals(args, progressArgs.get(1))).isTrue();
+    assertThat(progressDataList).hasSize(2);
+    assertThat(progressDataList.get(0).getInt("percent")).isEqualTo(30);
+    assertThat(progressDataList.get(1).getInt("percent")).isEqualTo(100);
+    assertThat(progressDataList.get(0).getFloat(MediaConstants.EXTRAS_KEY_DOWNLOAD_PROGRESS))
+        .isEqualTo(EXTRAS_VALUE_PARTIAL_PROGRESS);
+    assertThat(progressDataList.get(1).getFloat(MediaConstants.EXTRAS_KEY_DOWNLOAD_PROGRESS))
+        .isEqualTo(1.0f);
+    assertThat(progressCommands).containsExactly(sessionCommand, sessionCommand);
   }
 
   @Test

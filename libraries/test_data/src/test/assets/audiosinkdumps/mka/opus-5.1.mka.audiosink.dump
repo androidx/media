@@ -33,7 +33,7 @@ AudioSink:
   buffer #3:
     time = 1000000061000
     channel[0] = 781156182
-    channel[1] = -831531702
+    channel[1] = 26090281
     channel[2] = 707087905
     channel[3] = 1959099830
     channel[4] = -503566461
@@ -41,7 +41,7 @@ AudioSink:
   buffer #4:
     time = 1000000081000
     channel[0] = 1068454791
-    channel[1] = 621949340
+    channel[1] = 1588846523
     channel[2] = -269267428
     channel[3] = 2106462467
     channel[4] = -577385301
@@ -49,7 +49,7 @@ AudioSink:
   buffer #5:
     time = 1000000101000
     channel[0] = -1385409700
-    channel[1] = -517404913
+    channel[1] = -1808056722
     channel[2] = -1110613195
     channel[3] = -1521989000
     channel[4] = 2009212503
@@ -65,7 +65,7 @@ AudioSink:
   buffer #7:
     time = 1000000141000
     channel[0] = 534659881
-    channel[1] = -1848923057
+    channel[1] = 1064271214
     channel[2] = 486025536
     channel[3] = -503982529
     channel[4] = -1549186296
@@ -73,7 +73,7 @@ AudioSink:
   buffer #8:
     time = 1000000161000
     channel[0] = 20331515
-    channel[1] = 456716544
+    channel[1] = 41668959
     channel[2] = -252600538
     channel[3] = 1406833107
     channel[4] = -2033085242
@@ -81,7 +81,7 @@ AudioSink:
   buffer #9:
     time = 1000000181000
     channel[0] = 491968596
-    channel[1] = 1510409009
+    channel[1] = 1985830447
     channel[2] = -597446476
     channel[3] = -364422126
     channel[4] = -490528825
@@ -89,7 +89,7 @@ AudioSink:
   buffer #10:
     time = 1000000201000
     channel[0] = 889567342
-    channel[1] = -1743243590
+    channel[1] = 693598780
     channel[2] = 994985789
     channel[3] = 795561491
     channel[4] = 180181840
@@ -129,7 +129,7 @@ AudioSink:
   buffer #15:
     time = 1000000301000
     channel[0] = -21909217
-    channel[1] = -214241049
+    channel[1] = -1504779256
     channel[2] = 870033264
     channel[3] = -1898073940
     channel[4] = -223034857
@@ -185,7 +185,7 @@ AudioSink:
   buffer #22:
     time = 1000000441000
     channel[0] = -191136102
-    channel[1] = -402618701
+    channel[1] = 1794996467
     channel[2] = -1330003230
     channel[3] = 451102267
     channel[4] = -2022037075
@@ -193,99 +193,99 @@ AudioSink:
   buffer #23:
     time = 1000000461000
     channel[0] = 53645696
-    channel[1] = 1916964901
-    channel[2] = -745497136
-    channel[3] = 425872981
-    channel[4] = 316832514
-    channel[5] = -1554211926
+    channel[1] = 2053709830
+    channel[2] = -834583408
+    channel[3] = 727404212
+    channel[4] = -750785664
+    channel[5] = 368324167
   buffer #24:
     time = 1000000481000
     channel[0] = -377521884
-    channel[1] = 2144799434
-    channel[2] = -619032927
-    channel[3] = -385204720
-    channel[4] = -1157818270
-    channel[5] = 1718123678
+    channel[1] = 626554473
+    channel[2] = 705618240
+    channel[3] = 990567118
+    channel[4] = -1528407582
+    channel[5] = 269826332
   buffer #25:
     time = 1000000501000
     channel[0] = -71723027
-    channel[1] = -1865100211
+    channel[1] = -801764756
     channel[2] = -114065016
-    channel[3] = -282785287
+    channel[3] = -1306510568
     channel[4] = -1059383712
-    channel[5] = 1307257430
+    channel[5] = 476564791
   buffer #26:
     time = 1000000521000
     channel[0] = 625054311
     channel[1] = 664039968
-    channel[2] = 536026375
-    channel[3] = 534181491
-    channel[4] = 1655546312
+    channel[2] = -493248474
+    channel[3] = -1536480814
+    channel[4] = 562699401
     channel[5] = 247277137
   buffer #27:
     time = 1000000541000
     channel[0] = 818624109
-    channel[1] = -282221330
-    channel[2] = 1496149913
+    channel[1] = 213051279
+    channel[2] = 1744309911
     channel[3] = -1343671064
-    channel[4] = -1503256154
-    channel[5] = 468421301
+    channel[4] = -1842364473
+    channel[5] = -410302093
   buffer #28:
     time = 1000000561000
     channel[0] = -2025656110
-    channel[1] = 899679785
-    channel[2] = -573316569
-    channel[3] = -407053993
+    channel[1] = 907060106
+    channel[2] = 1487374216
+    channel[3] = -1752808200
     channel[4] = 1846239111
     channel[5] = -893118817
   buffer #29:
     time = 1000000581000
     channel[0] = 1243385744
-    channel[1] = -1956719883
-    channel[2] = -1937261043
-    channel[3] = -1178415475
-    channel[4] = -738830097
-    channel[5] = 105902859
+    channel[1] = 776004246
+    channel[2] = -1396524948
+    channel[3] = -1212759731
+    channel[4] = 1447494127
+    channel[5] = -866120695
   buffer #30:
     time = 1000000601000
     channel[0] = -1504556123
-    channel[1] = -628071947
-    channel[2] = -1881396210
+    channel[1] = -1198028941
+    channel[2] = -1225066515
     channel[3] = -601930810
-    channel[4] = -161687879
-    channel[5] = -228916293
+    channel[4] = 1163329149
+    channel[5] = -1116953830
   buffer #31:
     time = 1000000621000
     channel[0] = 1868715409
     channel[1] = 717898558
     channel[2] = -661018256
     channel[3] = 850004604
-    channel[4] = 2026153508
-    channel[5] = -1926869651
+    channel[4] = -222959995
+    channel[5] = 1354798412
   buffer #32:
     time = 1000000641000
     channel[0] = -222147290
     channel[1] = -1242445274
-    channel[2] = -1923668989
-    channel[3] = 1590358621
-    channel[4] = -839888942
-    channel[5] = -451452348
+    channel[2] = 1989243393
+    channel[3] = 780871164
+    channel[4] = -1324834191
+    channel[5] = 604124292
   buffer #33:
     time = 1000000661000
     channel[0] = -741116295
-    channel[1] = -978545906
-    channel[2] = 64041460
-    channel[3] = -484574384
-    channel[4] = -2116272340
-    channel[5] = 644269614
+    channel[1] = 2082357103
+    channel[2] = 278870613
+    channel[3] = -76294415
+    channel[4] = -770518133
+    channel[5] = -917973553
   buffer #34:
     time = 1000000681000
     channel[0] = -693761716
-    channel[1] = 855483607
+    channel[1] = 1151526392
     channel[2] = 1043660517
     channel[3] = -1101828567
-    channel[4] = -1182101404
-    channel[5] = -675017539
+    channel[4] = -758359838
+    channel[5] = -1014274534
   buffer #35:
     time = 1000000701000
     channel[0] = 537983340
@@ -298,129 +298,129 @@ AudioSink:
     time = 1000000721000
     channel[0] = -1503136653
     channel[1] = -1965140987
-    channel[2] = 905846243
-    channel[3] = 38937653
-    channel[4] = 449804561
-    channel[5] = 409487036
+    channel[2] = -1725704446
+    channel[3] = -2023064395
+    channel[4] = 1841908016
+    channel[5] = 1950721949
   buffer #37:
     time = 1000000741000
     channel[0] = -546428693
     channel[1] = -1798002343
-    channel[2] = 1883024341
-    channel[3] = 1670563835
-    channel[4] = -1186023248
-    channel[5] = -1647757068
+    channel[2] = -1652673418
+    channel[3] = -719944131
+    channel[4] = -2139318926
+    channel[5] = 1529763312
   buffer #38:
     time = 1000000761000
     channel[0] = 176926434
-    channel[1] = 1451710218
-    channel[2] = 5745206
-    channel[3] = -1852703578
-    channel[4] = 1866658117
-    channel[5] = -1811712790
+    channel[1] = 316361738
+    channel[2] = 1638549205
+    channel[3] = 207987207
+    channel[4] = -1608309978
+    channel[5] = -187731604
   buffer #39:
     time = 1000000781000
     channel[0] = -45697520
     channel[1] = 696825944
-    channel[2] = -291383713
+    channel[2] = -982586816
     channel[3] = 740904663
-    channel[4] = -1297282288
-    channel[5] = 861726827
+    channel[4] = -1706870737
+    channel[5] = 402089930
   buffer #40:
     time = 1000000801000
     channel[0] = -1465152931
-    channel[1] = -530603959
+    channel[1] = 926286952
     channel[2] = -1678558534
     channel[3] = 606083168
-    channel[4] = 1474109461
-    channel[5] = -1750934105
+    channel[4] = -1541370508
+    channel[5] = -595272184
   buffer #41:
     time = 1000000821000
     channel[0] = 581257619
-    channel[1] = 1027571085
+    channel[1] = -1582662643
     channel[2] = 102490083
-    channel[3] = 221291244
+    channel[3] = 663018573
     channel[4] = 1737516030
-    channel[5] = 914693897
+    channel[5] = -748275191
   buffer #42:
     time = 1000000841000
     channel[0] = 1031383876
-    channel[1] = 1239555043
-    channel[2] = -944583113
+    channel[1] = -1909080603
+    channel[2] = 5413239
     channel[3] = -2134774454
     channel[4] = -1442207451
-    channel[5] = -2012106279
+    channel[5] = 612729530
   buffer #43:
     time = 1000000861000
     channel[0] = 408287874
     channel[1] = 1096875390
-    channel[2] = 1627848532
-    channel[3] = 1874371156
+    channel[2] = -742823245
+    channel[3] = -1148851529
     channel[4] = -751357917
-    channel[5] = -555382926
+    channel[5] = 1817175280
   buffer #44:
     time = 1000000881000
     channel[0] = 845663814
-    channel[1] = -795085904
-    channel[2] = -947924213
-    channel[3] = -1143947602
-    channel[4] = 1741699965
+    channel[1] = -508329009
+    channel[2] = -2059063861
+    channel[3] = 1208567951
+    channel[4] = 557444219
     channel[5] = -475107762
   buffer #45:
     time = 1000000901000
     channel[0] = 1121731133
     channel[1] = 1891126662
-    channel[2] = 699204310
+    channel[2] = -1983098154
     channel[3] = -1211108787
-    channel[4] = 362452288
-    channel[5] = -1674168007
+    channel[4] = 100833311
+    channel[5] = -198467688
   buffer #46:
     time = 1000000921000
     channel[0] = 92604362
     channel[1] = 652156347
     channel[2] = -655372785
-    channel[3] = -1037751677
+    channel[3] = -808464189
     channel[4] = -1673548546
-    channel[5] = -2043942640
+    channel[5] = -1144743984
   buffer #47:
     time = 1000000941000
     channel[0] = 32162868
     channel[1] = -1803567596
-    channel[2] = -1502186102
-    channel[3] = -786723809
+    channel[2] = 1208058921
+    channel[3] = -150002946
     channel[4] = -1444978047
-    channel[5] = -319963508
+    channel[5] = 801803499
   buffer #48:
     time = 1000000961000
     channel[0] = 769618874
     channel[1] = -652411273
-    channel[2] = -394555499
+    channel[2] = 1890307956
     channel[3] = -1346993658
-    channel[4] = 658786686
-    channel[5] = 473682097
+    channel[4] = 2017928799
+    channel[5] = -610475407
   buffer #49:
     time = 1000000981000
     channel[0] = 656941538
-    channel[1] = 1221000298
+    channel[1] = 43987019
     channel[2] = 1924996688
     channel[3] = -1017666989
-    channel[4] = -1583780692
-    channel[5] = 1520915553
+    channel[4] = -170979445
+    channel[5] = 2144412831
   buffer #50:
     time = 1000001001000
     channel[0] = 1971331152
     channel[1] = -1632500571
-    channel[2] = -482023660
-    channel[3] = 1679006755
+    channel[2] = -1177840300
+    channel[3] = -92715134
     channel[4] = -411840414
     channel[5] = -2013244432
   buffer #51:
     time = 1000001021000
     channel[0] = 135739587
-    channel[1] = -1814152325
-    channel[2] = -1806604779
+    channel[1] = 1632209211
+    channel[2] = -378487434
     channel[3] = 1791155454
-    channel[4] = -999104265
+    channel[4] = 774600854
     channel[5] = -1264414799
   buffer #52:
     time = 1000001041000
@@ -437,62 +437,62 @@ AudioSink:
     channel[2] = -1405773996
     channel[3] = 1116544197
     channel[4] = -105469495
-    channel[5] = -1155421496
+    channel[5] = -2122318679
   buffer #54:
     time = 1000001081000
     channel[0] = 1415630491
-    channel[1] = 414492972
-    channel[2] = -1314725173
+    channel[1] = 2068430477
+    channel[2] = 1689590314
     channel[3] = 1330664879
     channel[4] = -693030243
     channel[5] = -981484799
   buffer #55:
     time = 1000001101000
     channel[0] = 1684734557
-    channel[1] = -1376890801
+    channel[1] = -1835981650
     channel[2] = 15037829
     channel[3] = -2142541324
-    channel[4] = 1070151873
-    channel[5] = -2013584527
+    channel[4] = 1323657250
+    channel[5] = 842959632
   buffer #56:
     time = 1000001121000
     channel[0] = -988955844
     channel[1] = 1256489074
     channel[2] = -1428680833
     channel[3] = -2045311433
-    channel[4] = -1103403116
-    channel[5] = 1456588466
+    channel[4] = -273754123
+    channel[5] = -1404594605
   buffer #57:
     time = 1000001141000
     channel[0] = 1306850676
-    channel[1] = 819435837
-    channel[2] = 1163975102
-    channel[3] = -1829905504
+    channel[1] = 248206494
+    channel[2] = 1636047453
+    channel[3] = 20702046
     channel[4] = 587662443
-    channel[5] = -1498194727
+    channel[5] = -1503247432
   buffer #58:
     time = 1000001161000
     channel[0] = 287992176
     channel[1] = 1816532714
     channel[2] = 1750873750
-    channel[3] = -1823208259
-    channel[4] = 1736045075
-    channel[5] = -555495636
+    channel[3] = 256433599
+    channel[4] = 1316528244
+    channel[5] = 1155176845
   buffer #59:
     time = 1000001181000
     channel[0] = 1922314136
-    channel[1] = 165562624
+    channel[1] = 380164990
     channel[2] = 820321165
-    channel[3] = -1487393755
-    channel[4] = 540266848
+    channel[3] = -1649553850
+    channel[4] = -1833274497
     channel[5] = 1369900588
   buffer #60:
     time = 1000001201000
     channel[0] = 2049212530
     channel[1] = -458037050
-    channel[2] = -431904051
-    channel[3] = -1042622189
-    channel[4] = 729779607
+    channel[2] = 820320750
+    channel[3] = -481173260
+    channel[4] = 1728581240
     channel[5] = -634187324
   buffer #61:
     time = 1000001221000
@@ -500,230 +500,230 @@ AudioSink:
     channel[1] = -956056764
     channel[2] = 1370964533
     channel[3] = 1482375255
-    channel[4] = -610194440
-    channel[5] = -1975841101
+    channel[4] = -830417257
+    channel[5] = -136373550
   buffer #62:
     time = 1000001241000
     channel[0] = 2041624955
-    channel[1] = -1190625546
-    channel[2] = 217054357
+    channel[1] = 1454204951
+    channel[2] = -1786338954
     channel[3] = 1191481836
-    channel[4] = 802780314
-    channel[5] = -1472446466
+    channel[4] = -144386629
+    channel[5] = 438539935
   buffer #63:
     time = 1000001261000
     channel[0] = -1871231138
     channel[1] = -578123465
     channel[2] = -127021058
-    channel[3] = -1966804719
-    channel[4] = -1047878118
+    channel[3] = -1361115918
+    channel[4] = -1008497252
     channel[5] = -368485762
   buffer #64:
     time = 1000001281000
     channel[0] = 1170424731
     channel[1] = 1302899373
-    channel[2] = 700801869
+    channel[2] = -1891872020
     channel[3] = 1095626730
-    channel[4] = 2113726138
+    channel[4] = -782617862
     channel[5] = -1186290067
   buffer #65:
     time = 1000001301000
     channel[0] = -671064340
-    channel[1] = -1520543467
+    channel[1] = -1755716331
     channel[2] = 1178321776
     channel[3] = -632702248
-    channel[4] = -1034125539
-    channel[5] = 875419084
+    channel[4] = -2005025313
+    channel[5] = 248204492
   buffer #66:
     time = 1000001321000
-    channel[0] = -462597381
-    channel[1] = 962004797
-    channel[2] = -85277804
+    channel[0] = -659110886
+    channel[1] = 91183198
+    channel[2] = 438195699
     channel[3] = 1754141737
     channel[4] = -2061446912
     channel[5] = -1672868204
   buffer #67:
     time = 1000001341000
     channel[0] = 461036198
-    channel[1] = 1600607255
-    channel[2] = -121097278
-    channel[3] = 916760731
-    channel[4] = 1948383422
-    channel[5] = -138741510
+    channel[1] = -1060577162
+    channel[2] = -1928944799
+    channel[3] = -1063397574
+    channel[4] = -930323041
+    channel[5] = -1457390437
   buffer #68:
     time = 1000001361000
     channel[0] = -1638999443
-    channel[1] = -73816656
+    channel[1] = 2023973073
     channel[2] = -803960562
     channel[3] = -985159165
-    channel[4] = -843309552
-    channel[5] = -1899816264
+    channel[4] = -471931250
+    channel[5] = 2127773754
   buffer #69:
     time = 1000001381000
     channel[0] = -121123003
-    channel[1] = 1520512718
-    channel[2] = 1516650563
-    channel[3] = -1223593323
-    channel[4] = 655577791
+    channel[1] = 45255791
+    channel[2] = 630874243
+    channel[3] = -1891396393
+    channel[4] = -1386518723
     channel[5] = 1763018091
   buffer #70:
     time = 1000001401000
     channel[0] = 621169430
-    channel[1] = 1238168211
-    channel[2] = -286931733
-    channel[3] = 2039414217
-    channel[4] = -1448733480
-    channel[5] = -64242572
+    channel[1] = 701036082
+    channel[2] = 843157898
+    channel[3] = -483139381
+    channel[4] = -534088616
+    channel[5] = 1606860468
   buffer #71:
     time = 1000001421000
     channel[0] = 601871428
     channel[1] = -1124017722
     channel[2] = 829543600
-    channel[3] = -1485752477
+    channel[3] = 693361121
     channel[4] = -360437670
     channel[5] = -1587351188
   buffer #72:
     time = 1000001441000
     channel[0] = -625084081
-    channel[1] = -718906678
-    channel[2] = -285059533
-    channel[3] = -875639576
-    channel[4] = -2068642939
+    channel[1] = -1057334935
+    channel[2] = 2126996946
+    channel[3] = 1295744296
+    channel[4] = 1567941478
     channel[5] = -1909619570
   buffer #73:
     time = 1000001461000
     channel[0] = 1756761306
-    channel[1] = 973134488
-    channel[2] = 1387771245
+    channel[1] = -629290538
+    channel[2] = -2113657780
     channel[3] = -1658421554
-    channel[4] = 1690995768
-    channel[5] = 1912356741
+    channel[4] = 1561913049
+    channel[5] = 1840568071
   buffer #74:
     time = 1000001481000
     channel[0] = 285158655
     channel[1] = -98632555
     channel[2] = 2042716954
     channel[3] = 1301573461
-    channel[4] = 379528000
-    channel[5] = 486004936
+    channel[4] = -540537953
+    channel[5] = 150959626
   buffer #75:
     time = 1000001501000
     channel[0] = -1424936350
-    channel[1] = 2137415512
+    channel[1] = 503632633
     channel[2] = -1433376947
-    channel[3] = -1577260798
+    channel[3] = 2094861824
     channel[4] = 2081259341
-    channel[5] = -1911856035
+    channel[5] = -1363093380
   buffer #76:
     time = 1000001521000
     channel[0] = -1105699850
-    channel[1] = 109858143
-    channel[2] = 1847821856
-    channel[3] = 1707128782
-    channel[4] = -376694190
-    channel[5] = -796125962
+    channel[1] = 545987297
+    channel[2] = -606559999
+    channel[3] = -1312229651
+    channel[4] = 1034164754
+    channel[5] = -604526982
   buffer #77:
     time = 1000001541000
     channel[0] = -633693673
-    channel[1] = 208128944
-    channel[2] = -847643101
+    channel[1] = 2073273297
+    channel[2] = -1999651547
     channel[3] = 233548544
     channel[4] = 1650226634
-    channel[5] = -380340863
+    channel[5] = 1500371556
   buffer #78:
     time = 1000001561000
     channel[0] = -606014294
     channel[1] = 1008658917
-    channel[2] = 1812531729
-    channel[3] = 746255797
+    channel[2] = 1940328306
+    channel[3] = -396708235
     channel[4] = -660089644
     channel[5] = 1879314975
   buffer #79:
     time = 1000001581000
     channel[0] = 953245878
-    channel[1] = 1714867791
+    channel[1] = 2029258511
     channel[2] = 393313219
-    channel[3] = -33285060
-    channel[4] = 34530741
+    channel[3] = 1295099516
+    channel[4] = 76996147
     channel[5] = -1529838664
   buffer #80:
     time = 1000001601000
     channel[0] = -1985337021
     channel[1] = -1097033463
-    channel[2] = 1810520815
+    channel[2] = 572143120
     channel[3] = -92265727
     channel[4] = -982421951
-    channel[5] = -1301405397
+    channel[5] = -1593082998
   buffer #81:
     time = 1000001621000
     channel[0] = 981788170
-    channel[1] = -787334080
+    channel[1] = 204984512
     channel[2] = -212048436
-    channel[3] = 2082777846
+    channel[3] = -159702474
     channel[4] = -1111074171
-    channel[5] = 1288518780
+    channel[5] = -706786209
   buffer #82:
     time = 1000001641000
     channel[0] = 498624490
-    channel[1] = 1151837464
-    channel[2] = 1274029029
-    channel[3] = 660151633
-    channel[4] = -243197124
+    channel[1] = 1156890169
+    channel[2] = -2105041082
+    channel[3] = -499606990
+    channel[4] = 52845661
     channel[5] = 2074205254
   buffer #83:
     time = 1000001661000
     channel[0] = 53582565
-    channel[1] = 1831703638
+    channel[1] = -1662196297
     channel[2] = -1721996530
-    channel[3] = -1166858191
-    channel[4] = -2015680366
-    channel[5] = -1625529254
+    channel[3] = 518453138
+    channel[4] = 399760307
+    channel[5] = 585979835
   buffer #84:
     time = 1000001681000
     channel[0] = 779115422
-    channel[1] = -1838295994
-    channel[2] = -1341297571
-    channel[3] = 1788262613
-    channel[4] = -2064732521
-    channel[5] = 528044783
+    channel[1] = 1372211173
+    channel[2] = 1869209596
+    channel[3] = 1631684982
+    channel[4] = -1613257992
+    channel[5] = -1844052400
   buffer #85:
     time = 1000001701000
     channel[0] = -202761408
     channel[1] = -628685408
-    channel[2] = -1414502770
+    channel[2] = -918321171
     channel[3] = 269628713
     channel[4] = 1407867903
-    channel[5] = 963725872
+    channel[5] = 1877816529
   buffer #86:
     time = 1000001721000
     channel[0] = 308389902
     channel[1] = 1263596453
     channel[2] = -99131878
     channel[3] = -306703569
-    channel[4] = 1966859090
-    channel[5] = -1854678614
+    channel[4] = 929260019
+    channel[5] = -1633588085
   buffer #87:
     time = 1000001741000
     channel[0] = 790360068
     channel[1] = -176877639
-    channel[2] = -586758889
+    channel[2] = 2039164342
     channel[3] = 1581196664
     channel[4] = 1514348540
-    channel[5] = 1709089141
+    channel[5] = -241211114
   buffer #88:
     time = 1000001761000
     channel[0] = -988638678
-    channel[1] = -1312923935
+    channel[1] = 243551168
     channel[2] = -799087212
-    channel[3] = 1811181994
+    channel[3] = -2090786357
     channel[4] = -1120986064
-    channel[5] = -1125355374
+    channel[5] = 165296435
   buffer #89:
     time = 1000001781000
     channel[0] = 1138105933
-    channel[1] = 1432394922
-    channel[2] = 1480635479
-    channel[3] = -1762566114
+    channel[1] = 1216800203
+    channel[2] = 406870966
+    channel[3] = -754449442
     channel[4] = 1235086532
     channel[5] = -775568103
   buffer #90:
@@ -733,38 +733,38 @@ AudioSink:
     channel[2] = -162788141
     channel[3] = -2115053534
     channel[4] = -1108888145
-    channel[5] = -1708161785
+    channel[5] = -1644239382
   buffer #91:
     time = 1000001821000
     channel[0] = 1500952305
     channel[1] = -1238921395
-    channel[2] = 1912069326
-    channel[3] = 523315261
+    channel[2] = -860406227
+    channel[3] = 1338840476
     channel[4] = 1561458777
-    channel[5] = -1719336562
+    channel[5] = -785114674
   buffer #92:
     time = 1000001841000
     channel[0] = -1327812285
-    channel[1] = -1549457886
-    channel[2] = 1086977052
+    channel[1] = -998692958
+    channel[2] = -1584274371
     channel[3] = 1679242010
     channel[4] = -2029316716
     channel[5] = -497520956
   buffer #93:
     time = 1000001861000
     channel[0] = -25954256
-    channel[1] = 1510798874
+    channel[1] = 1156725338
     channel[2] = -1622086905
-    channel[3] = 454502151
+    channel[3] = 590128038
     channel[4] = -1877161133
-    channel[5] = -89353505
+    channel[5] = -1610369247
   buffer #94:
     time = 1000001881000
     channel[0] = 323712315
-    channel[1] = -946679794
-    channel[2] = 592103978
+    channel[1] = 1390406798
+    channel[2] = -1963720534
     channel[3] = -506148549
-    channel[4] = -818060540
+    channel[4] = -548960157
     channel[5] = -1389661515
   buffer #95:
     time = 1000001901000
@@ -772,47 +772,47 @@ AudioSink:
     channel[1] = -1829144203
     channel[2] = 2020461326
     channel[3] = -1882817200
-    channel[4] = -953656179
-    channel[5] = 220113775
+    channel[4] = -326300562
+    channel[5] = 1004788366
   buffer #96:
     time = 1000001921000
     channel[0] = -767443953
     channel[1] = -1454422692
     channel[2] = 2128241158
-    channel[3] = -1116689451
-    channel[4] = -379496328
+    channel[3] = -2083586634
+    channel[4] = -1333951593
     channel[5] = 918130671
   buffer #97:
     time = 1000001941000
     channel[0] = -1935587510
-    channel[1] = 1180190511
+    channel[1] = 796014862
     channel[2] = -1696728040
     channel[3] = 1026438502
     channel[4] = 1230576348
-    channel[5] = 984627538
+    channel[5] = 1937829171
   buffer #98:
     time = 1000001961000
     channel[0] = 1469704320
-    channel[1] = 2004240002
+    channel[1] = 145127810
     channel[2] = 578705961
-    channel[3] = 1435451573
-    channel[4] = 1806763668
-    channel[5] = 234172943
+    channel[3] = 444045332
+    channel[4] = -1323710190
+    channel[5] = -207700432
   buffer #99:
     time = 1000001981000
     channel[0] = 152807738
-    channel[1] = -1279549441
-    channel[2] = -775951588
+    channel[1] = 1497172894
+    channel[2] = 2138094746
     channel[3] = -71914003
-    channel[4] = -92893564
-    channel[5] = 1350339028
+    channel[4] = 1022729699
+    channel[5] = -808453771
   buffer #100:
     time = 1000002001000
     channel[0] = -1011134531
     channel[1] = 1415874580
-    channel[2] = -1227916991
+    channel[2] = -933198044
     channel[3] = -136065369
-    channel[4] = 194552397
+    channel[4] = -571364116
     channel[5] = 128499790
   buffer #101:
     time = 1000002021000
@@ -820,87 +820,87 @@ AudioSink:
     channel[1] = -68974687
     channel[2] = 568867780
     channel[3] = 1133857048
-    channel[4] = 636704503
-    channel[5] = -1618993132
+    channel[4] = 306330776
+    channel[5] = -447754922
   buffer #102:
     time = 1000002041000
     channel[0] = -1840418320
-    channel[1] = 166504514
+    channel[1] = 135946149
     channel[2] = -891788608
     channel[3] = -362877473
-    channel[4] = 502202775
+    channel[4] = -1877283336
     channel[5] = 465535928
   buffer #103:
     time = 1000002061000
     channel[0] = -817167290
     channel[1] = -398811406
     channel[2] = -66987460
-    channel[3] = 148265815
-    channel[4] = -1216109039
-    channel[5] = -1964477976
+    channel[3] = -933272010
+    channel[4] = 1333294291
+    channel[5] = 1128352329
   buffer #104:
     time = 1000002081000
     channel[0] = -2082477864
     channel[1] = -1603277129
-    channel[2] = -815262119
-    channel[3] = -1809979596
-    channel[4] = -768946368
+    channel[2] = 1556835064
+    channel[3] = 546448403
+    channel[4] = 197950815
     channel[5] = -1522971566
   buffer #105:
     time = 1000002101000
     channel[0] = -244187553
-    channel[1] = 444116980
+    channel[1] = 486448882
     channel[2] = 642287656
     channel[3] = 665588634
-    channel[4] = 1900692621
+    channel[4] = 858451308
     channel[5] = 1503554382
   buffer #106:
     time = 1000002121000
     channel[0] = -120558123
-    channel[1] = 1606564731
-    channel[2] = 2068310295
-    channel[3] = 211288850
-    channel[4] = -2144560323
-    channel[5] = -1188628830
+    channel[1] = -10959045
+    channel[2] = 154410038
+    channel[3] = -172886799
+    channel[4] = -1606098594
+    channel[5] = -1031873246
   buffer #107:
     time = 1000002141000
     channel[0] = -1858158897
-    channel[1] = 1523033491
+    channel[1] = 1751596468
     channel[2] = 65435888
-    channel[3] = -896209510
-    channel[4] = -811818816
+    channel[3] = 1304952571
+    channel[4] = 2021312929
     channel[5] = -1928645953
   buffer #108:
     time = 1000002161000
     channel[0] = -762934124
     channel[1] = 1035453648
-    channel[2] = -1995813544
-    channel[3] = -1756297248
-    channel[4] = 307146292
+    channel[2] = -880190281
+    channel[3] = -1652012095
+    channel[4] = 179349715
     channel[5] = 1063374030
   buffer #109:
     time = 1000002181000
     channel[0] = -1068888068
     channel[1] = 118857679
-    channel[2] = -704775963
-    channel[3] = 2040642831
-    channel[4] = 1125008713
-    channel[5] = -884818448
+    channel[2] = 1668765382
+    channel[3] = -1741754578
+    channel[4] = 2106902219
+    channel[5] = 1035321644
   buffer #110:
     time = 1000002201000
     channel[0] = 1379918921
     channel[1] = 1411066251
     channel[2] = 1677359486
-    channel[3] = -1243574634
-    channel[4] = 1857920452
-    channel[5] = -2122722053
+    channel[3] = -467109513
+    channel[4] = -1176048605
+    channel[5] = -803502215
   buffer #111:
     time = 1000002221000
     channel[0] = 58410036
     channel[1] = 844391761
-    channel[2] = -1824372833
-    channel[3] = -1916032066
-    channel[4] = 1279797763
+    channel[2] = 1777903773
+    channel[3] = 1554061343
+    channel[4] = -823793564
     channel[5] = -501749158
   buffer #112:
     time = 1000002241000
@@ -913,42 +913,42 @@ AudioSink:
   buffer #113:
     time = 1000002261000
     channel[0] = 1567775898
-    channel[1] = -2088064438
-    channel[2] = 1681600934
+    channel[1] = -742310231
+    channel[2] = -902715515
     channel[3] = 1351462128
-    channel[4] = -1229039519
-    channel[5] = 1253614928
+    channel[4] = -2035173087
+    channel[5] = -552369425
   buffer #114:
     time = 1000002281000
     channel[0] = -734630467
     channel[1] = -1420131780
-    channel[2] = -486835032
-    channel[3] = -1830502894
-    channel[4] = -259973965
-    channel[5] = 1353712874
+    channel[2] = 1671957767
+    channel[3] = 1497567219
+    channel[4] = -314969580
+    channel[5] = -1509720150
   buffer #115:
     time = 1000002301000
     channel[0] = 1105889930
     channel[1] = 519614479
     channel[2] = 1382311712
-    channel[3] = 775797707
-    channel[4] = -777934221
-    channel[5] = -605553608
+    channel[3] = 1440508972
+    channel[4] = -934511852
+    channel[5] = 1297393658
   buffer #116:
     time = 1000002321000
     channel[0] = 52932249
-    channel[1] = 150283521
+    channel[1] = -1657990238
     channel[2] = 1746241083
     channel[3] = -107875656
-    channel[4] = -2097941980
-    channel[5] = -913451541
+    channel[4] = 1752948163
+    channel[5] = -1580233846
   buffer #117:
     time = 1000002341000
     channel[0] = 1327738970
     channel[1] = 195651095
     channel[2] = 1716185039
-    channel[3] = 1842394321
-    channel[4] = -803148123
+    channel[3] = 601127953
+    channel[4] = -714001340
     channel[5] = -449006448
   buffer #118:
     time = 1000002361000
@@ -957,35 +957,35 @@ AudioSink:
     channel[2] = -591042170
     channel[3] = 2063698452
     channel[4] = 1776417158
-    channel[5] = 369662864
+    channel[5] = 563604884
   buffer #119:
     time = 1000002381000
     channel[0] = -357929303
-    channel[1] = 245338797
-    channel[2] = -1615905674
+    channel[1] = 2132690733
+    channel[2] = 510163221
     channel[3] = 189185023
-    channel[4] = -388887856
-    channel[5] = -157807505
+    channel[4] = 2088139474
+    channel[5] = 1050997741
   buffer #120:
     time = 1000002401000
     channel[0] = 1276357907
-    channel[1] = -1080876811
-    channel[2] = 28319562
+    channel[1] = 121260180
+    channel[2] = 608618601
     channel[3] = 1049628196
-    channel[4] = 1766220141
+    channel[4] = 1713317646
     channel[5] = 476478017
   buffer #121:
     time = 1000002421000
     channel[0] = -1444298656
-    channel[1] = 1535438767
-    channel[2] = -263055909
-    channel[3] = -1266052944
+    channel[1] = -822694834
+    channel[2] = -255966212
+    channel[3] = 233560847
     channel[4] = -1627771087
-    channel[5] = 1977489722
+    channel[5] = -1661650436
   buffer #122:
     time = 1000002441000
     channel[0] = -1069127471
-    channel[1] = -1971493666
+    channel[1] = -1978873987
     channel[2] = -685593172
     channel[3] = -913208579
     channel[4] = 1288930971
@@ -993,23 +993,23 @@ AudioSink:
   buffer #123:
     time = 1000002461000
     channel[0] = -1585286996
-    channel[1] = -783974377
+    channel[1] = -1464006377
     channel[2] = 1579637380
-    channel[3] = 844443447
-    channel[4] = -735376234
+    channel[3] = 803488086
+    channel[4] = 515447991
     channel[5] = -1108404427
   buffer #124:
     time = 1000002481000
     channel[0] = -2019447652
-    channel[1] = -918994238
+    channel[1] = -1505688252
     channel[2] = 2085133622
-    channel[3] = 987712321
+    channel[3] = -2137355680
     channel[4] = 2141688231
     channel[5] = 4538991
   buffer #125:
     time = 1000002501000
     channel[0] = 1501452382
-    channel[1] = -633559900
+    channel[1] = 802040899
     channel[2] = 369726733
     channel[3] = 1691006378
     channel[4] = -379330685
@@ -1017,91 +1017,91 @@ AudioSink:
   buffer #126:
     time = 1000002521000
     channel[0] = -35741626
-    channel[1] = 1018954074
+    channel[1] = -724103367
     channel[2] = 46347828
     channel[3] = 1780365855
-    channel[4] = 39731010
-    channel[5] = -1894317654
+    channel[4] = 2128175106
+    channel[5] = -1843964595
   buffer #127:
     time = 1000002541000
     channel[0] = 1215279959
     channel[1] = -1772749622
     channel[2] = 1528190647
     channel[3] = -1586678538
-    channel[4] = 1407495335
-    channel[5] = 449793460
+    channel[4] = -1141210104
+    channel[5] = 1981014741
   buffer #128:
     time = 1000002561000
     channel[0] = -323929315
-    channel[1] = -1822451564
-    channel[2] = 279408621
-    channel[3] = -825424408
-    channel[4] = 2065469460
+    channel[1] = -1808201419
+    channel[2] = -205536628
+    channel[3] = 119617033
+    channel[4] = -1758709583
     channel[5] = -882576307
   buffer #129:
     time = 1000002581000
     channel[0] = 1464736205
     channel[1] = 370510798
-    channel[2] = -644444740
-    channel[3] = -590341011
-    channel[4] = -1849404628
-    channel[5] = -755345730
+    channel[2] = 1232824155
+    channel[3] = -16135604
+    channel[4] = -806525235
+    channel[5] = -1790628131
   buffer #130:
     time = 1000002601000
     channel[0] = 1193935411
-    channel[1] = -569383453
-    channel[2] = 1842606933
+    channel[1] = -407223358
+    channel[2] = 489852439
     channel[3] = 1449979691
-    channel[4] = 2066816258
+    channel[4] = -1240580447
     channel[5] = -2118618989
   buffer #131:
     time = 1000002621000
     channel[0] = -1314608050
     channel[1] = 1515435936
     channel[2] = 1006626784
-    channel[3] = 850364658
-    channel[4] = -232191673
-    channel[5] = 1722655463
+    channel[3] = 1101887827
+    channel[4] = -1611976986
+    channel[5] = 135657096
   buffer #132:
     time = 1000002641000
     channel[0] = -500786887
-    channel[1] = 1152757244
-    channel[2] = -1617191827
-    channel[3] = 766508082
-    channel[4] = 1565470743
-    channel[5] = -1966281980
+    channel[1] = -1223220195
+    channel[2] = -54948660
+    channel[3] = -90410126
+    channel[4] = 502582772
+    channel[5] = 1358988899
   buffer #133:
     time = 1000002661000
     channel[0] = 1013550993
-    channel[1] = -1453877675
-    channel[2] = -1921759709
-    channel[3] = 937144502
-    channel[4] = 1406968675
-    channel[5] = -2040754216
+    channel[1] = -1095673612
+    channel[2] = -603934204
+    channel[3] = -2126600906
+    channel[4] = -444384445
+    channel[5] = -1663406630
   buffer #134:
     time = 1000002681000
     channel[0] = 1927578266
     channel[1] = 1383952139
     channel[2] = 1018093644
-    channel[3] = -1050422788
-    channel[4] = 327742997
-    channel[5] = 1278618670
+    channel[3] = -1045641187
+    channel[4] = -709373580
+    channel[5] = -2106793684
   buffer #135:
     time = 1000002701000
     channel[0] = -913257048
-    channel[1] = -1646573034
+    channel[1] = -229398089
     channel[2] = -1738637077
     channel[3] = 648948267
-    channel[4] = 165286828
+    channel[4] = 1221070285
     channel[5] = -1872923756
   buffer #136:
     time = 1000002721000
     channel[0] = -465404155
     channel[1] = -736480851
-    channel[2] = 1899893630
-    channel[3] = -1627981403
-    channel[4] = 1809233828
-    channel[5] = -312659011
+    channel[2] = 904273309
+    channel[3] = 964692486
+    channel[4] = 189214211
+    channel[5] = -1408232484
   buffer #137:
     time = 1000002741000
     channel[0] = 952522854

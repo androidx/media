@@ -16,6 +16,7 @@
 package androidx.media3.exoplayer.video.spherical;
 
 import static androidx.media3.common.util.GlUtil.checkGlError;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.graphics.SurfaceTexture;
 import android.media.MediaFormat;
@@ -24,7 +25,6 @@ import android.opengl.Matrix;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.TimedValueQueue;
@@ -122,7 +122,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
 
     if (frameAvailable.compareAndSet(true, false)) {
-      Assertions.checkNotNull(surfaceTexture).updateTexImage();
+      checkNotNull(surfaceTexture).updateTexImage();
       try {
         checkGlError();
       } catch (GlUtil.GlException e) {

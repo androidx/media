@@ -17,20 +17,19 @@
 
 package androidx.media3.transformer;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.effect.DebugTraceUtil.EVENT_SURFACE_TEXTURE_TRANSFORM_FIX;
+import static androidx.media3.test.utils.AssetInfo.BT601_MOV_ASSET;
+import static androidx.media3.test.utils.AssetInfo.JPG_ASSET;
+import static androidx.media3.test.utils.AssetInfo.JPG_PORTRAIT_ASSET;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_AV1_VIDEO;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_CHECKERBOARD_VIDEO;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S;
+import static androidx.media3.test.utils.AssetInfo.MP4_PORTRAIT_ASSET;
+import static androidx.media3.test.utils.AssetInfo.PNG_ASSET_LINES_1080P;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmap;
-import static androidx.media3.transformer.AndroidTestUtil.BT601_MOV_ASSET;
-import static androidx.media3.transformer.AndroidTestUtil.JPG_ASSET;
-import static androidx.media3.transformer.AndroidTestUtil.JPG_PORTRAIT_ASSET;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_AV1_VIDEO;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_CHECKERBOARD_VIDEO;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_PORTRAIT_ASSET;
-import static androidx.media3.transformer.AndroidTestUtil.PNG_ASSET_LINES_1080P;
-import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
+import static androidx.media3.test.utils.FormatSupportAssumptions.assumeFormatsSupported;
 import static androidx.media3.transformer.AndroidTestUtil.extractBitmapsFromVideo;
 import static androidx.media3.transformer.SequenceEffectTestUtil.NO_EFFECT;
 import static androidx.media3.transformer.SequenceEffectTestUtil.PSNR_THRESHOLD;
@@ -43,6 +42,7 @@ import static androidx.media3.transformer.SequenceEffectTestUtil.createCompositi
 import static androidx.media3.transformer.SequenceEffectTestUtil.decoderProducesWashedOutColours;
 import static androidx.media3.transformer.SequenceEffectTestUtil.oneFrameFromImage;
 import static androidx.media3.transformer.SequenceEffectTestUtil.tryToExportCompositionWithDecoder;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
@@ -364,10 +364,13 @@ public final class TransformerSequenceEffectTest {
     if (Ascii.equalsIgnoreCase(Build.MODEL, "mi a2 lite")
         || Ascii.equalsIgnoreCase(Build.MODEL, "redmi 8")
         || Ascii.equalsIgnoreCase(Build.MODEL, "sm-f711u1")
+        || Ascii.equalsIgnoreCase(Build.MODEL, "sm-t870")
         || Ascii.equalsIgnoreCase(Build.MODEL, "sm-f916u1")
         || Ascii.equalsIgnoreCase(Build.MODEL, "sm-f926u1")
         || Ascii.equalsIgnoreCase(Build.MODEL, "sm-g981u1")
-        || Ascii.equalsIgnoreCase(Build.MODEL, "tb-q706")) {
+        || Ascii.equalsIgnoreCase(Build.MODEL, "tb-q706")
+        || Ascii.equalsIgnoreCase(Build.MODEL, "moto g04")
+        || Ascii.equalsIgnoreCase(Build.MODEL, "moto e13")) {
       // And some devices need a lower bitrate because VideoDecodingWrapper fails to decode high
       // bitrate output, or FrameworkMuxer fails to mux.
       bitrate = 10_000_000;

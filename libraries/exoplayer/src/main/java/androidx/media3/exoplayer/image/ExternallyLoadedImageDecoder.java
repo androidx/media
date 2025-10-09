@@ -15,8 +15,8 @@
  */
 package androidx.media3.exoplayer.image;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.graphics.Bitmap;
 import android.net.Uri;

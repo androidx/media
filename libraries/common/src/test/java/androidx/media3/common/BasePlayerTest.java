@@ -302,18 +302,35 @@ public class BasePlayerTest {
         /* isRepeatingCurrentItem= */ false);
   }
 
+  @Test
+  public void getBufferedPercentage_commandAvailable() {
+    TestBasePlayer player = new TestBasePlayer();
+
+    assertThat(player.getBufferedPercentage()).isEqualTo(30);
+  }
+
+  @Test
+  public void getBufferedPercentage_commandUnavailable() {
+    TestBasePlayer player = new TestBasePlayer();
+    player.removeAvailableCommand(Player.COMMAND_GET_CURRENT_MEDIA_ITEM);
+
+    assertThat(player.getBufferedPercentage()).isEqualTo(0);
+  }
+
   private static class TestBasePlayer extends StubPlayer {
 
     private int mediaItemIndex;
     private long positionMs;
     private @Player.Command int seekCommand;
     private boolean isRepeatingCurrentItem;
+    private Player.Commands availableCommands;
 
     public TestBasePlayer() {
       mediaItemIndex = C.INDEX_UNSET;
       positionMs = C.TIME_UNSET;
       seekCommand = Player.COMMAND_INVALID;
       isRepeatingCurrentItem = false;
+      availableCommands = new Commands.Builder().addAllCommands().build();
     }
 
     public void assertSeekToCall(
@@ -370,6 +387,11 @@ public class BasePlayerTest {
     }
 
     @Override
+    public long getBufferedPosition() {
+      return getCurrentPosition() + 1000;
+    }
+
+    @Override
     public long getDuration() {
       return 20000;
     }
@@ -387,6 +409,18 @@ public class BasePlayerTest {
     @Override
     public boolean getShuffleModeEnabled() {
       return false;
+    }
+
+    @Override
+    public Commands getAvailableCommands() {
+      return availableCommands;
+    }
+
+    /**
+     * This does <b>not</b> trigger {@link Player.Listener#onAvailableCommandsChanged(Commands)}.
+     */
+    public void removeAvailableCommand(@Player.Command int command) {
+      availableCommands = availableCommands.buildUpon().remove(command).build();
     }
   }
 }

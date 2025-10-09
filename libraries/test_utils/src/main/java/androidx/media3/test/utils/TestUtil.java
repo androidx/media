@@ -16,9 +16,9 @@
 package androidx.media3.test.utils;
 
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.putInt24;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -39,9 +39,11 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
+import androidx.media3.common.Player;
 import androidx.media3.common.StreamKey;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.TrackGroup;
+import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -50,7 +52,7 @@ import androidx.media3.database.DefaultDatabaseProvider;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DataSourceUtil;
 import androidx.media3.datasource.DataSpec;
-import androidx.media3.exoplayer.MetadataRetriever;
+import androidx.media3.exoplayer.audio.TeeAudioProcessor;
 import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.extractor.DefaultExtractorInput;
 import androidx.media3.extractor.Extractor;
@@ -58,6 +60,7 @@ import androidx.media3.extractor.ExtractorInput;
 import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.SeekMap;
 import androidx.media3.extractor.metadata.MetadataInputBuffer;
+import androidx.media3.inspector.MetadataRetriever;
 import androidx.test.platform.app.InstrumentationRegistry;
 import com.google.common.base.Function;
 import com.google.common.collect.BoundType;
@@ -96,6 +99,7 @@ import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.junit.function.ThrowingRunnable;
@@ -144,6 +148,15 @@ public class TestUtil {
   public static byte[] buildTestData(int length, Random random) {
     byte[] source = new byte[length];
     random.nextBytes(source);
+    return source;
+  }
+
+  /** Returns an array of random floats between {@code [-1; 1]} with the specified length. */
+  public static float[] buildFloatTestSamples(int length, Random random) {
+    float[] source = new float[length];
+    for (int i = 0; i < length; i++) {
+      source[i] = (random.nextFloat() * 2f) - 1f;
+    }
     return source;
   }
 
@@ -1001,6 +1014,20 @@ public class TestUtil {
     return buffer;
   }
 
+  /** Returns an {@link AudioProcessor} that counts the number of bytes input to it. */
+  public static AudioProcessor createByteCountingAudioProcessor(AtomicInteger byteCount) {
+    return new TeeAudioProcessor(
+        new TeeAudioProcessor.AudioBufferSink() {
+          @Override
+          public void flush(int sampleRateHz, int channelCount, @C.PcmEncoding int encoding) {}
+
+          @Override
+          public void handleBuffer(ByteBuffer buffer) {
+            byteCount.addAndGet(buffer.remaining());
+          }
+        });
+  }
+
   /**
    * Creates a {@link SurfaceView} for tests where the creation is moved to the main thread if run
    * on a non-Looper thread. This is needed on API &lt; 26 where {@link SurfaceView} cannot be
@@ -1037,6 +1064,65 @@ public class TestUtil {
         }
       }
     }
+  }
+
+  /**
+   * Returns an {@link ImmutableList} with the {@linkplain Player.Event Events} contained in {@code
+   * events}. The contents of the list are in matching order with the {@linkplain Player.Event
+   * Events} returned by {@link Player.Events#get(int)}.
+   */
+  public static ImmutableList<@Player.Event Integer> getEventsAsList(Player.Events events) {
+    ImmutableList.Builder<@Player.Event Integer> list = new ImmutableList.Builder<>();
+    for (int i = 0; i < events.size(); i++) {
+      list.add(events.get(i));
+    }
+    return list.build();
+  }
+
+  /**
+   * Returns an {@link ImmutableList} with the {@linkplain Player.Command Commands} contained in
+   * {@code commands}. The contents of the list are in matching order with the {@linkplain
+   * Player.Command Commands} returned by {@link Player.Commands#get(int)}.
+   */
+  public static ImmutableList<@Player.Command Integer> getCommandsAsList(Player.Commands commands) {
+    ImmutableList.Builder<@Player.Command Integer> list = new ImmutableList.Builder<>();
+    for (int i = 0; i < commands.size(); i++) {
+      list.add(commands.get(i));
+    }
+    return list.build();
+  }
+
+  /**
+   * Creates a {@link File} of the {@code fileName} in the application cache directory.
+   *
+   * <p>If a file of that name already exists, it is overwritten.
+   *
+   * @param context The {@link Context}.
+   * @param fileName The filename to save to the cache.
+   */
+  public static File createExternalCacheFile(Context context, String fileName) throws IOException {
+    return createExternalCacheFile(context, /* directoryName= */ "", fileName);
+  }
+
+  /**
+   * Creates a {@link File} of the {@code fileName} in a directory {@code directoryName} within the
+   * application cache directory.
+   *
+   * <p>If a file of that name already exists, it is overwritten.
+   *
+   * @param context The {@link Context}.
+   * @param directoryName The directory name within the external cache to save the file in.
+   * @param fileName The filename to save to the cache.
+   */
+  public static File createExternalCacheFile(Context context, String directoryName, String fileName)
+      throws IOException {
+    File fileDirectory = new File(context.getExternalCacheDir(), directoryName);
+    fileDirectory.mkdirs();
+    File file = new File(fileDirectory, fileName);
+    checkState(
+        !file.exists() || file.delete(), "Could not delete file: %s", file.getAbsolutePath());
+    checkState(file.createNewFile(), "Could not create file: %s", file.getAbsolutePath());
+    return file;
   }
 
   private static final class NoUidOrShufflingTimeline extends Timeline {

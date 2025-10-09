@@ -22,9 +22,12 @@ import androidx.media3.common.Metadata;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.primitives.Longs;
 
-/** Metadata of a motion photo file. */
+/**
+ * @deprecated Use {@link androidx.media3.extractor.metadata.MotionPhotoMetadata} instead.
+ */
+@Deprecated
 @UnstableApi
-public final class MotionPhotoMetadata implements Metadata.Entry {
+public class MotionPhotoMetadata implements Metadata.Entry {
 
   /** The start offset of the photo data, in bytes. */
   public final long photoStartPosition;

@@ -15,11 +15,12 @@
  */
 package androidx.media3.extractor.ts;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.container.ReorderingBufferQueue;
 import androidx.media3.extractor.CeaUtil;
@@ -57,10 +58,11 @@ import java.util.List;
       TrackOutput output = extractorOutput.track(idGenerator.getTrackId(), C.TRACK_TYPE_TEXT);
       Format channelFormat = closedCaptionFormats.get(i);
       @Nullable String channelMimeType = channelFormat.sampleMimeType;
-      Assertions.checkArgument(
+      checkArgument(
           MimeTypes.APPLICATION_CEA608.equals(channelMimeType)
               || MimeTypes.APPLICATION_CEA708.equals(channelMimeType),
-          "Invalid closed caption MIME type provided: " + channelMimeType);
+          "Invalid closed caption MIME type provided: %s",
+          channelMimeType);
       output.format(
           new Format.Builder()
               .setId(idGenerator.getFormatId())

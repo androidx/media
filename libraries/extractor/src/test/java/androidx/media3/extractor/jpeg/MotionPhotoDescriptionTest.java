@@ -19,7 +19,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.MimeTypes;
-import androidx.media3.extractor.metadata.mp4.MotionPhotoMetadata;
+import androidx.media3.extractor.metadata.MotionPhotoMetadata;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import org.junit.Test;

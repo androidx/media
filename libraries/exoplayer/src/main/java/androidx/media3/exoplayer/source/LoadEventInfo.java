@@ -104,4 +104,9 @@ public final class LoadEventInfo {
     this.loadDurationMs = loadDurationMs;
     this.bytesLoaded = bytesLoaded;
   }
+
+  public LoadEventInfo copyWithTaskIdAndDurationMs(long loadTaskId, long loadDurationMs) {
+    return new LoadEventInfo(
+        loadTaskId, dataSpec, uri, responseHeaders, elapsedRealtimeMs, loadDurationMs, bytesLoaded);
+  }
 }

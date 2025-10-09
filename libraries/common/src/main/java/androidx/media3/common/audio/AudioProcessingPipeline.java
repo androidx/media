@@ -16,10 +16,11 @@
 package androidx.media3.common.audio;
 
 import static androidx.media3.common.audio.AudioProcessor.EMPTY_BUFFER;
-import static androidx.media3.common.util.Assertions.checkState;
+import static com.google.common.base.Preconditions.checkState;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.audio.AudioProcessor.AudioFormat;
+import androidx.media3.common.audio.AudioProcessor.StreamMetadata;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -150,18 +151,43 @@ public final class AudioProcessingPipeline {
    *
    * <p>{@link #configure(AudioFormat)} must have been called at least once since the last call to
    * {@link #reset()} before calling this.
+   *
+   * <p>This method is equivalent to {@code flush(new StreamMetadata(C.TIME_UNSET))}.
+   *
+   * @deprecated Use {@link #flush(StreamMetadata)} instead.
    */
+  @Deprecated
+  // TODO: b/369509881 - Migrate calls to new overload.
   public void flush() {
+    flush(StreamMetadata.DEFAULT);
+  }
+
+  /**
+   * Clears any buffered data and pending output. If any underlying audio processors are {@linkplain
+   * AudioProcessor#isActive() active}, this also prepares them to receive a new stream of input in
+   * the last {@linkplain #configure(AudioFormat) configured} (pending) format.
+   *
+   * <p>{@link #configure(AudioFormat)} must have been called at least once since the last call to
+   * {@link #reset()} before calling this.
+   *
+   * @param streamMetadata Information about the input stream to be processed after the flush.
+   */
+  public void flush(StreamMetadata streamMetadata) {
     activeAudioProcessors.clear();
     outputAudioFormat = pendingOutputAudioFormat;
     inputEnded = false;
+    long previousProcessorPositionOffsetUs = streamMetadata.positionOffsetUs;
 
     for (int i = 0; i < audioProcessors.size(); i++) {
       AudioProcessor audioProcessor = audioProcessors.get(i);
-      audioProcessor.flush();
-      if (audioProcessor.isActive()) {
-        activeAudioProcessors.add(audioProcessor);
+      audioProcessor.flush(new StreamMetadata(previousProcessorPositionOffsetUs));
+      if (!audioProcessor.isActive()) {
+        continue;
       }
+      previousProcessorPositionOffsetUs =
+          audioProcessor.getDurationAfterProcessorApplied(previousProcessorPositionOffsetUs);
+      checkState(previousProcessorPositionOffsetUs >= 0);
+      activeAudioProcessors.add(audioProcessor);
     }
 
     outputBuffers = new ByteBuffer[activeAudioProcessors.size()];
@@ -269,7 +295,7 @@ public final class AudioProcessingPipeline {
   public void reset() {
     for (int i = 0; i < audioProcessors.size(); i++) {
       AudioProcessor audioProcessor = audioProcessors.get(i);
-      audioProcessor.flush();
+      audioProcessor.flush(StreamMetadata.DEFAULT);
       audioProcessor.reset();
     }
     outputBuffers = new ByteBuffer[0];

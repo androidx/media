@@ -15,8 +15,9 @@
  */
 package androidx.media3.transformer;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkState;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 
 import androidx.annotation.IntRange;
@@ -24,12 +25,15 @@ import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.audio.AudioProcessor;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.extractor.mp4.Mp4Extractor;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Objects;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 /** A {@link MediaItem} with the transformations to apply to it. */
 @UnstableApi
@@ -217,14 +221,7 @@ public final class EditedMediaItem {
 
     /** Builds an {@link EditedMediaItem} instance. */
     public EditedMediaItem build() {
-      return new EditedMediaItem(
-          mediaItem,
-          removeAudio,
-          removeVideo,
-          flattenForSlowMotion,
-          durationUs,
-          frameRate,
-          effects);
+      return new EditedMediaItem(this);
     }
 
     /**
@@ -285,27 +282,29 @@ public final class EditedMediaItem {
   /** The duration for which this {@code EditedMediaItem} should be presented, in microseconds. */
   private long presentationDurationUs;
 
-  private EditedMediaItem(
-      MediaItem mediaItem,
-      boolean removeAudio,
-      boolean removeVideo,
-      boolean flattenForSlowMotion,
-      long durationUs,
-      int frameRate,
-      Effects effects) {
-    checkState(!removeAudio || !removeVideo, "Audio and video cannot both be removed");
-    if (isGap(mediaItem)) {
-      checkArgument(durationUs != C.TIME_UNSET);
-      checkArgument(!removeAudio && !flattenForSlowMotion && effects.audioProcessors.isEmpty());
+  private EditedMediaItem(Builder builder) {
+    checkState(
+        !builder.removeAudio || !builder.removeVideo, "Audio and video cannot both be removed");
+    if (isGap(builder.mediaItem)) {
+      checkArgument(builder.durationUs != C.TIME_UNSET);
+      checkArgument(
+          !builder.removeAudio
+              && !builder.flattenForSlowMotion
+              && builder.effects.audioProcessors.isEmpty());
     }
-    this.mediaItem = mediaItem;
-    this.removeAudio = removeAudio;
-    this.removeVideo = removeVideo;
-    this.flattenForSlowMotion = flattenForSlowMotion;
-    this.durationUs = durationUs;
-    this.frameRate = frameRate;
-    this.effects = effects;
+    this.mediaItem = builder.mediaItem;
+    this.removeAudio = builder.removeAudio;
+    this.removeVideo = builder.removeVideo;
+    this.flattenForSlowMotion = builder.flattenForSlowMotion;
+    this.durationUs = builder.durationUs;
+    this.frameRate = builder.frameRate;
+    this.effects = builder.effects;
     presentationDurationUs = C.TIME_UNSET;
+  }
+
+  @Override
+  public String toString() {
+    return toJsonObject().toString();
   }
 
   /** Returns a {@link Builder} initialized with the values of this instance. */
@@ -335,6 +334,31 @@ public final class EditedMediaItem {
     return presentationDurationUs;
   }
 
+  /** Returns a {@link JSONObject} that represents the {@code EditedMediaItem}. */
+  /* package */ JSONObject toJsonObject() {
+    JSONObject jsonObject = new JSONObject();
+    try {
+      jsonObject.put("mediaItem", jsonObjectFrom(mediaItem));
+      jsonObject.put("effects", effects.toJsonObject());
+      jsonObject.put("removeAudio", removeAudio);
+      jsonObject.put("removeVideo", removeVideo);
+      jsonObject.put("durationUs", durationUs);
+      jsonObject.put("presentationDuration", getPresentationDurationUs());
+    } catch (JSONException e) {
+      Log.w(/* tag= */ "EditedMediaItem", "JSON conversion failed.", e);
+      return new JSONObject();
+    }
+    return jsonObject;
+  }
+
+  /**
+   * Returns the adjusted duration in microseconds after processing {@code durationUs} input with
+   * the {@link EditedMediaItem}'s {@link Effects}.
+   *
+   * <p>If the audio and video durations do not match, the method returns the maximum duration.
+   *
+   * @param durationUs The input duration in microseconds.
+   */
   /* package */ long getDurationAfterEffectsApplied(long durationUs) {
     long audioDurationUs = durationUs;
     long videoDurationUs = durationUs;
@@ -365,5 +389,34 @@ public final class EditedMediaItem {
 
   private static boolean isGap(MediaItem mediaItem) {
     return Objects.equals(mediaItem.mediaId, GAP_MEDIA_ID);
+  }
+
+  private static JSONObject jsonObjectFrom(MediaItem mediaItem) throws JSONException {
+    JSONObject jsonObject = new JSONObject();
+    String extension = "UNSET";
+    if (mediaItem.localConfiguration != null) {
+      String uri = checkNotNull(mediaItem.localConfiguration).uri.toString();
+      int dotIndex = uri.lastIndexOf('.');
+      if (dotIndex > 0 && dotIndex < uri.length() - 1) {
+        extension = uri.substring(dotIndex + 1);
+      }
+    }
+    jsonObject.put("extension", extension);
+
+    if (mediaItem.clippingConfiguration.equals(MediaItem.ClippingConfiguration.UNSET)) {
+      jsonObject.put("clipping", "UNSET");
+      return jsonObject;
+    }
+
+    MediaItem.ClippingConfiguration clippingConfiguration = mediaItem.clippingConfiguration;
+    String endPositionValue;
+    if (clippingConfiguration.endPositionMs == C.TIME_END_OF_SOURCE) {
+      endPositionValue = "END_OF_SOURCE";
+    } else {
+      endPositionValue = String.valueOf(clippingConfiguration.endPositionMs);
+    }
+    jsonObject.put("clippingStartMs", clippingConfiguration.startPositionMs);
+    jsonObject.put("clippingEndMs", endPositionValue);
+    return jsonObject;
   }
 }

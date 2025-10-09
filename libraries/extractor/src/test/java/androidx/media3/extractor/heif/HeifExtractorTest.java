@@ -15,27 +15,119 @@
  */
 package androidx.media3.extractor.heif;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import androidx.media3.test.utils.ExtractorAsserts;
+import androidx.media3.test.utils.FakeExtractorInput;
+import androidx.media3.test.utils.TestUtil;
+import androidx.test.core.app.ApplicationProvider;
 import com.google.common.collect.ImmutableList;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterValuesProvider;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.robolectric.ParameterizedRobolectricTestRunner;
+import org.robolectric.RobolectricTestParameterInjector;
 
 /** Unit tests for {@link HeifExtractor}. */
-@RunWith(ParameterizedRobolectricTestRunner.class)
+@RunWith(RobolectricTestParameterInjector.class)
 public final class HeifExtractorTest {
 
-  @ParameterizedRobolectricTestRunner.Parameters(name = "{0}")
-  public static ImmutableList<ExtractorAsserts.SimulationConfig> params() {
-    return ExtractorAsserts.configs();
+  private static final class SimulationConfigProvider extends TestParameterValuesProvider {
+    @Override
+    protected ImmutableList<ExtractorAsserts.SimulationConfig> provideValues(Context context) {
+      return ExtractorAsserts.configs();
+    }
   }
 
-  @ParameterizedRobolectricTestRunner.Parameter
-  public ExtractorAsserts.SimulationConfig simulationConfig;
+  @Test
+  public void sampleStillPhoto_extractImage(
+      @TestParameter(valuesProvider = SimulationConfigProvider.class)
+          ExtractorAsserts.SimulationConfig simulationConfig)
+      throws Exception {
+    ExtractorAsserts.assertBehavior(
+        () -> new HeifExtractor(HeifExtractor.FLAG_READ_IMAGE),
+        "media/heif/sample_still_photo.heic",
+        new ExtractorAsserts.AssertionConfig.Builder()
+            .setDumpFilesPrefix(
+                "extractordumps/heif/sample_still_photo.heic_HeifExtractor.FLAG_READ_IMAGE")
+            .build(),
+        simulationConfig);
+  }
 
   @Test
-  public void sampleHeic() throws Exception {
+  public void sampleMotionPhoto_extractImage(
+      @TestParameter(valuesProvider = SimulationConfigProvider.class)
+          ExtractorAsserts.SimulationConfig simulationConfig)
+      throws Exception {
+    ExtractorAsserts.assertBehavior(
+        () -> new HeifExtractor(HeifExtractor.FLAG_READ_IMAGE),
+        "media/heif/sample_MP.heic",
+        new ExtractorAsserts.AssertionConfig.Builder()
+            .setDumpFilesPrefix("extractordumps/heif/sample_MP.heic_HeifExtractor.FLAG_READ_IMAGE")
+            .build(),
+        simulationConfig);
+  }
+
+  @Test
+  public void sampleMotionPhoto_extractMotionPhoto(
+      @TestParameter(valuesProvider = SimulationConfigProvider.class)
+          ExtractorAsserts.SimulationConfig simulationConfig)
+      throws Exception {
     ExtractorAsserts.assertBehavior(
         HeifExtractor::new, "media/heif/sample_MP.heic", simulationConfig);
+  }
+
+  @Test
+  public void sniff_onMotionPhotoWithDefaultFlags_returnsTrue() throws Exception {
+    HeifExtractor extractor = new HeifExtractor();
+    FakeExtractorInput input =
+        new FakeExtractorInput.Builder()
+            .setData(
+                TestUtil.getByteArray(
+                    ApplicationProvider.getApplicationContext(), "media/heif/sample_MP.heic"))
+            .build();
+
+    assertThat(extractor.sniff(input)).isTrue();
+  }
+
+  @Test
+  public void sniff_onMotionPhotoWithReadImageFlag_returnsTrue() throws Exception {
+    HeifExtractor extractor = new HeifExtractor(HeifExtractor.FLAG_READ_IMAGE);
+    FakeExtractorInput input =
+        new FakeExtractorInput.Builder()
+            .setData(
+                TestUtil.getByteArray(
+                    ApplicationProvider.getApplicationContext(), "media/heif/sample_MP.heic"))
+            .build();
+
+    assertThat(extractor.sniff(input)).isTrue();
+  }
+
+  @Test
+  public void sniff_onStillPhotoWithDefaultFlags_returnsFalse() throws Exception {
+    HeifExtractor extractor = new HeifExtractor();
+    FakeExtractorInput input =
+        new FakeExtractorInput.Builder()
+            .setData(
+                TestUtil.getByteArray(
+                    ApplicationProvider.getApplicationContext(),
+                    "media/heif/sample_still_photo.heic"))
+            .build();
+
+    assertThat(extractor.sniff(input)).isFalse();
+  }
+
+  @Test
+  public void sniff_onStillPhotoWithReadImageFlag_returnsTrue() throws Exception {
+    HeifExtractor extractor = new HeifExtractor(HeifExtractor.FLAG_READ_IMAGE);
+    FakeExtractorInput input =
+        new FakeExtractorInput.Builder()
+            .setData(
+                TestUtil.getByteArray(
+                    ApplicationProvider.getApplicationContext(),
+                    "media/heif/sample_still_photo.heic"))
+            .build();
+
+    assertThat(extractor.sniff(input)).isTrue();
   }
 }

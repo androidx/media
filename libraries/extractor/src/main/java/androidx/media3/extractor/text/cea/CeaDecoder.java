@@ -15,10 +15,12 @@
  */
 package androidx.media3.extractor.text.cea;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
+
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Util;
 import androidx.media3.extractor.text.Subtitle;
 import androidx.media3.extractor.text.SubtitleDecoder;
@@ -72,7 +74,7 @@ import java.util.ArrayDeque;
   @Override
   @Nullable
   public SubtitleInputBuffer dequeueInputBuffer() throws SubtitleDecoderException {
-    Assertions.checkState(dequeuedInputBuffer == null);
+    checkState(dequeuedInputBuffer == null);
     if (availableInputBuffers.isEmpty()) {
       return null;
     }
@@ -82,7 +84,7 @@ import java.util.ArrayDeque;
 
   @Override
   public void queueInputBuffer(SubtitleInputBuffer inputBuffer) throws SubtitleDecoderException {
-    Assertions.checkArgument(inputBuffer == dequeuedInputBuffer);
+    checkArgument(inputBuffer == dequeuedInputBuffer);
     CeaInputBuffer ceaInputBuffer = (CeaInputBuffer) inputBuffer;
     if (!ceaInputBuffer.isEndOfStream()
         && ceaInputBuffer.timeUs != C.TIME_END_OF_SOURCE

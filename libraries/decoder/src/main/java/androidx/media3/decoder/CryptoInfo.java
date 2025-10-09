@@ -16,11 +16,11 @@
 package androidx.media3.decoder;
 
 import static android.os.Build.VERSION.SDK_INT;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 
 /**
@@ -123,7 +123,7 @@ public final class CryptoInfo {
     frameworkCryptoInfo.iv = iv;
     frameworkCryptoInfo.mode = mode;
     if (SDK_INT >= 24) {
-      Assertions.checkNotNull(patternHolder).set(encryptedBlocks, clearBlocks);
+      checkNotNull(patternHolder).set(encryptedBlocks, clearBlocks);
     }
   }
 

@@ -15,10 +15,11 @@
  */
 package androidx.media3.exoplayer.source.chunk;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DataSpec;
@@ -58,7 +59,7 @@ public abstract class MediaChunk extends Chunk {
         trackSelectionData,
         startTimeUs,
         endTimeUs);
-    Assertions.checkNotNull(trackFormat);
+    checkNotNull(trackFormat);
     this.chunkIndex = chunkIndex;
   }
 

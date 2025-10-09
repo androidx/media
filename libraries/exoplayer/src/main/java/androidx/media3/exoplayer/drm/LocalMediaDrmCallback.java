@@ -15,7 +15,8 @@
  */
 package androidx.media3.exoplayer.drm;
 
-import androidx.media3.common.util.Assertions;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.drm.ExoMediaDrm.KeyRequest;
 import androidx.media3.exoplayer.drm.ExoMediaDrm.ProvisionRequest;
@@ -30,22 +31,22 @@ import java.util.UUID;
 @UnstableApi
 public final class LocalMediaDrmCallback implements MediaDrmCallback {
 
-  private final byte[] keyResponse;
+  private final Response keyResponse;
 
   /**
    * @param keyResponse The fixed response for all key requests.
    */
   public LocalMediaDrmCallback(byte[] keyResponse) {
-    this.keyResponse = Assertions.checkNotNull(keyResponse);
+    this.keyResponse = new Response(checkNotNull(keyResponse));
   }
 
   @Override
-  public byte[] executeProvisionRequest(UUID uuid, ProvisionRequest request) {
+  public Response executeProvisionRequest(UUID uuid, ProvisionRequest request) {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public byte[] executeKeyRequest(UUID uuid, KeyRequest request) {
+  public Response executeKeyRequest(UUID uuid, KeyRequest request) {
     return keyResponse;
   }
 }

@@ -18,12 +18,11 @@ package androidx.media3.transformer;
 
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.ColorInfo.isTransferHdr;
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.MediaFormatUtil.createMediaFormatFromFormat;
 import static androidx.media3.transformer.EncoderUtil.getCodecProfilesForHdrFormat;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.abs;
 import static java.lang.Math.floor;
 import static java.lang.Math.max;
@@ -286,7 +285,7 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
     checkArgument(format.height != Format.NO_VALUE);
     checkArgument(format.rotationDegrees == 0);
 
-    checkStateNotNull(videoEncoderSelector);
+    checkNotNull(videoEncoderSelector);
 
     @Nullable
     VideoEncoderQueryResult encoderAndClosestFormatSupport =
@@ -406,18 +405,15 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
 
     int operatingRate = supportedVideoEncoderSettings.operatingRate;
     int priority = supportedVideoEncoderSettings.priority;
-    // Setting operating rate and priority is supported from API 23.
-    if (SDK_INT >= 23) {
-      if (operatingRate == VideoEncoderSettings.NO_VALUE
-          && priority == VideoEncoderSettings.NO_VALUE) {
-        adjustMediaFormatForEncoderPerformanceSettings(mediaFormat);
-      } else {
-        if (operatingRate != VideoEncoderSettings.RATE_UNSET) {
-          mediaFormat.setInteger(MediaFormat.KEY_OPERATING_RATE, operatingRate);
-        }
-        if (priority != VideoEncoderSettings.RATE_UNSET) {
-          mediaFormat.setInteger(MediaFormat.KEY_PRIORITY, priority);
-        }
+    if (operatingRate == VideoEncoderSettings.NO_VALUE
+        && priority == VideoEncoderSettings.NO_VALUE) {
+      adjustMediaFormatForEncoderPerformanceSettings(mediaFormat);
+    } else {
+      if (operatingRate != VideoEncoderSettings.RATE_UNSET) {
+        mediaFormat.setInteger(MediaFormat.KEY_OPERATING_RATE, operatingRate);
+      }
+      if (priority != VideoEncoderSettings.RATE_UNSET) {
+        mediaFormat.setInteger(MediaFormat.KEY_PRIORITY, priority);
       }
     }
 
@@ -749,8 +745,7 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
    */
   private static void adjustMediaFormatForH264EncoderSettings(
       @Nullable ColorInfo colorInfo, MediaCodecInfo encoderInfo, MediaFormat mediaFormat) {
-    // TODO: b/210593256 - Remove overriding profile/level (before API 29) after switching to in-app
-    //  muxing.
+    // TODO: b/445454172 - Remove overriding profile/level (before API 29).
     String mimeType = MimeTypes.VIDEO_H264;
     if (SDK_INT >= 29) {
       int expectedEncodingProfile = MediaCodecInfo.CodecProfileLevel.AVCProfileHigh;
@@ -787,8 +782,7 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
         if (!mediaFormat.containsKey(MediaFormat.KEY_LEVEL)) {
           mediaFormat.setInteger(MediaFormat.KEY_LEVEL, supportedEncodingLevel);
         }
-        // TODO: b/210593256 - Set KEY_LATENCY to 2 to enable B-frame production after in-app muxing
-        //  is the default and it supports B-frames.
+        // TODO: b/445616792 - Set KEY_LATENCY to 2 to enable B-frame production.
         mediaFormat.setInteger(MediaFormat.KEY_LATENCY, 1);
       }
     } else if (SDK_INT >= 24) {

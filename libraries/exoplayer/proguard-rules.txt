@@ -5,12 +5,8 @@
 -keepclassmembers class androidx.media3.decoder.vp9.LibvpxVideoRenderer {
   <init>(long, android.os.Handler, androidx.media3.exoplayer.video.VideoRendererEventListener, int);
 }
--dontnote androidx.media3.decoder.av1.Libgav1VideoRenderer
--keepclassmembers class androidx.media3.decoder.av1.Libgav1VideoRenderer {
-  <init>(long, android.os.Handler, androidx.media3.exoplayer.video.VideoRendererEventListener, int);
-}
--dontnote androidx.media3.decoder.dav1d.Libdav1dVideoRenderer
--keepclassmembers class androidx.media3.decoder.dav1d.Libdav1dVideoRenderer {
+-dontnote androidx.media3.decoder.av1.Libdav1dVideoRenderer
+-keepclassmembers class androidx.media3.decoder.av1.Libdav1dVideoRenderer {
   <init>(long, android.os.Handler, androidx.media3.exoplayer.video.VideoRendererEventListener, int);
 }
 -dontnote androidx.media3.decoder.ffmpeg.ExperimentalFfmpegVideoRenderer
@@ -81,6 +77,7 @@
 }
 -dontnote androidx.media3.effect.DefaultVideoFrameProcessor$Factory$Builder
 -keepclasseswithmembers class androidx.media3.effect.DefaultVideoFrameProcessor$Factory$Builder {
+  <init>();
   androidx.media3.effect.DefaultVideoFrameProcessor$Factory build();
   androidx.media3.effect.DefaultVideoFrameProcessor$Factory$Builder setEnableReplayableCache(boolean);
 }

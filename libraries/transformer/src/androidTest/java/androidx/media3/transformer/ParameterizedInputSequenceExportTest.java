@@ -16,10 +16,10 @@
  */
 package androidx.media3.transformer;
 
-import static androidx.media3.transformer.AndroidTestUtil.BT601_MP4_ASSET;
-import static androidx.media3.transformer.AndroidTestUtil.JPG_ASSET;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
-import static androidx.media3.transformer.AndroidTestUtil.PNG_ASSET;
+import static androidx.media3.test.utils.AssetInfo.BT601_MP4_ASSET;
+import static androidx.media3.test.utils.AssetInfo.JPG_ASSET;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET;
+import static androidx.media3.test.utils.AssetInfo.PNG_ASSET;
 import static androidx.media3.transformer.ParameterizedAndroidTestUtil.assumeSequenceFormatsSupported;
 import static com.google.common.truth.Truth.assertThat;
 

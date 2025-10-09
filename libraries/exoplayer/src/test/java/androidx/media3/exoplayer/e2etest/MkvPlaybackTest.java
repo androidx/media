@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.e2etest;
 
+import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
 import static org.robolectric.annotation.GraphicsMode.Mode.NATIVE;
 
 import android.content.Context;
@@ -24,12 +25,11 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
-import androidx.media3.test.utils.CapturingRenderersFactory;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.FakeClock;
+import androidx.media3.test.utils.robolectric.CapturingRenderersFactory;
 import androidx.media3.test.utils.robolectric.PlaybackOutput;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
-import androidx.media3.test.utils.robolectric.TestPlayerRunHelper;
 import androidx.test.core.app.ApplicationProvider;
 import com.google.common.collect.ImmutableList;
 import org.junit.Rule;
@@ -69,13 +69,14 @@ public final class MkvPlaybackTest {
   @Test
   public void test() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory capturingRenderersFactory =
-        new CapturingRenderersFactory(applicationContext);
+        new CapturingRenderersFactory(applicationContext, clock);
     DefaultMediaSourceFactory mediaSourceFactory =
         new DefaultMediaSourceFactory(applicationContext);
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory, mediaSourceFactory)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setClock(clock)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -83,8 +84,9 @@ public final class MkvPlaybackTest {
 
     player.setMediaItem(MediaItem.fromUri("asset:///media/mkv/" + inputFile));
     player.prepare();
+    advance(player).untilState(Player.STATE_READY);
     player.play();
-    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+    advance(player).untilState(Player.STATE_ENDED);
     player.release();
     surface.release();
 

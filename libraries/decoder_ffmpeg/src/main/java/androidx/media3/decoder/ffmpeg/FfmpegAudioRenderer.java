@@ -18,6 +18,7 @@ package androidx.media3.decoder.ffmpeg;
 import static androidx.media3.exoplayer.audio.AudioSink.SINK_FORMAT_SUPPORTED_DIRECTLY;
 import static androidx.media3.exoplayer.audio.AudioSink.SINK_FORMAT_SUPPORTED_WITH_TRANSCODING;
 import static androidx.media3.exoplayer.audio.AudioSink.SINK_FORMAT_UNSUPPORTED;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.os.Handler;
 import androidx.annotation.Nullable;
@@ -25,7 +26,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.audio.AudioProcessor;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.TraceUtil;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -92,7 +92,7 @@ public final class FfmpegAudioRenderer extends DecoderAudioRenderer<FfmpegAudioD
 
   @Override
   protected @C.FormatSupport int supportsFormatInternal(Format format) {
-    String mimeType = Assertions.checkNotNull(format.sampleMimeType);
+    String mimeType = checkNotNull(format.sampleMimeType);
     if (!FfmpegLibrary.isAvailable() || !MimeTypes.isAudio(mimeType)) {
       return C.FORMAT_UNSUPPORTED_TYPE;
     } else if (!FfmpegLibrary.supportsFormat(mimeType)
@@ -111,11 +111,6 @@ public final class FfmpegAudioRenderer extends DecoderAudioRenderer<FfmpegAudioD
     return ADAPTIVE_NOT_SEAMLESS;
   }
 
-  /**
-   * {@inheritDoc}
-   *
-   * @hide
-   */
   @Override
   protected FfmpegAudioDecoder createDecoder(Format format, @Nullable CryptoConfig cryptoConfig)
       throws FfmpegDecoderException {
@@ -129,14 +124,9 @@ public final class FfmpegAudioRenderer extends DecoderAudioRenderer<FfmpegAudioD
     return decoder;
   }
 
-  /**
-   * {@inheritDoc}
-   *
-   * @hide
-   */
   @Override
   protected Format getOutputFormat(FfmpegAudioDecoder decoder) {
-    Assertions.checkNotNull(decoder);
+    checkNotNull(decoder);
     return new Format.Builder()
         .setSampleMimeType(MimeTypes.AUDIO_RAW)
         .setChannelCount(decoder.getChannelCount())

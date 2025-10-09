@@ -15,6 +15,8 @@
  */
 package androidx.media3.exoplayer.offline;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.ElementType.LOCAL_VARIABLE;
 import static java.lang.annotation.ElementType.METHOD;
@@ -23,7 +25,6 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 
 import androidx.annotation.IntDef;
 import androidx.media3.common.C;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
@@ -159,10 +160,10 @@ public final class Download {
       int stopReason,
       @FailureReason int failureReason,
       DownloadProgress progress) {
-    Assertions.checkNotNull(progress);
-    Assertions.checkArgument((failureReason == FAILURE_REASON_NONE) == (state != STATE_FAILED));
+    checkNotNull(progress);
+    checkArgument((failureReason == FAILURE_REASON_NONE) == (state != STATE_FAILED));
     if (stopReason != 0) {
-      Assertions.checkArgument(state != STATE_DOWNLOADING && state != STATE_QUEUED);
+      checkArgument(state != STATE_DOWNLOADING && state != STATE_QUEUED);
     }
     this.request = request;
     this.state = state;

@@ -17,11 +17,11 @@ package androidx.media3.extractor.metadata.id3;
 
 import static androidx.media3.test.utils.TestUtil.createByteArray;
 import static androidx.media3.test.utils.TestUtil.createMetadataInputBuffer;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import androidx.media3.common.Metadata;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Util;
 import androidx.media3.extractor.metadata.MetadataInputBuffer;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -514,7 +514,7 @@ public final class Id3DecoderTest {
       byte[] frameData = frame.frameData;
       String frameId = frame.frameId;
       byte[] frameIdBytes = frameId.getBytes(StandardCharsets.UTF_8);
-      Assertions.checkState(frameIdBytes.length == 4);
+      checkState(frameIdBytes.length == 4);
 
       // Fill in the frame header.
       tagData[offset++] = frameIdBytes[0];

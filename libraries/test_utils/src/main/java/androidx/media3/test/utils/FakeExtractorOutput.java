@@ -15,14 +15,17 @@
  */
 package androidx.media3.test.utils;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.util.SparseArray;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.common.util.Util;
 import androidx.media3.extractor.ExtractorOutput;
 import androidx.media3.extractor.SeekMap;
+import com.google.common.collect.ImmutableList;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** A fake {@link ExtractorOutput}. */
@@ -46,13 +49,20 @@ public final class FakeExtractorOutput implements ExtractorOutput, Dumper.Dumpab
   }
 
   @Override
-  public FakeTrackOutput track(int id, int type) {
+  public FakeTrackOutput track(int id, @C.TrackType int type) {
     @Nullable FakeTrackOutput output = trackOutputs.get(id);
     if (output == null) {
       assertThat(tracksEnded).isFalse();
       numberOfTracks++;
       output = trackOutputFactory.create(id, type);
       trackOutputs.put(id, output);
+    } else {
+      checkArgument(
+          type == output.getType(),
+          "Track with id=%s previously registered with type=%s, which doesn't match type=%s.",
+          id,
+          Util.getTrackTypeString(output.getType()),
+          Util.getTrackTypeString(type));
     }
     return output;
   }
@@ -107,5 +117,22 @@ public final class FakeExtractorOutput implements ExtractorOutput, Dumper.Dumpab
       dumper.startBlock("track " + trackOutputs.keyAt(i)).add(trackOutputs.valueAt(i)).endBlock();
     }
     dumper.add("tracksEnded", tracksEnded);
+  }
+
+  /**
+   * Returns a list of {@link FakeTrackOutput} of given {@link C.TrackType}.
+   *
+   * @param trackType The {@link C.TrackType}.
+   * @return A list of {@link FakeTrackOutput}.
+   */
+  public ImmutableList<FakeTrackOutput> getTrackOutputsForType(@C.TrackType int trackType) {
+    ImmutableList.Builder<FakeTrackOutput> trackOutputList = new ImmutableList.Builder<>();
+    for (int i = 0; i < numberOfTracks; i++) {
+      FakeTrackOutput trackOutput = trackOutputs.valueAt(i);
+      if (trackType == trackOutput.getType()) {
+        trackOutputList.add(trackOutput);
+      }
+    }
+    return trackOutputList.build();
   }
 }

@@ -17,9 +17,6 @@
 package androidx.media3.transformer;
 
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.extractor.AacUtil.AAC_LC_AUDIO_SAMPLE_COUNT;
 import static androidx.media3.transformer.ExportException.ERROR_CODE_MUXING_APPEND;
@@ -32,6 +29,9 @@ import static androidx.media3.transformer.TransformerUtil.maybeSetMuxerWrapperAd
 import static androidx.media3.transformer.TransformerUtil.shouldTranscodeAudio;
 import static androidx.media3.transformer.TransformerUtil.shouldTranscodeVideo;
 import static androidx.media3.transformer.TransmuxTranscodeHelper.buildUponCompositionForTrimOptimization;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.round;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
@@ -40,6 +40,7 @@ import android.media.metrics.LogSessionId;
 import android.os.Looper;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.DebugViewProvider;
@@ -62,6 +63,7 @@ import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.muxer.Muxer;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -213,7 +215,7 @@ public final class Transformer {
     @CanIgnoreReturnValue
     public Builder setAudioMimeType(String audioMimeType) {
       audioMimeType = MimeTypes.normalizeMimeType(audioMimeType);
-      checkArgument(MimeTypes.isAudio(audioMimeType), "Not an audio MIME type: " + audioMimeType);
+      checkArgument(MimeTypes.isAudio(audioMimeType), "Not an audio MIME type: %s", audioMimeType);
       this.audioMimeType = audioMimeType;
       return this;
     }
@@ -245,7 +247,7 @@ public final class Transformer {
     @CanIgnoreReturnValue
     public Builder setVideoMimeType(String videoMimeType) {
       videoMimeType = MimeTypes.normalizeMimeType(videoMimeType);
-      checkArgument(MimeTypes.isVideo(videoMimeType), "Not a video MIME type: " + videoMimeType);
+      checkArgument(MimeTypes.isVideo(videoMimeType), "Not a video MIME type: %s", videoMimeType);
       this.videoMimeType = videoMimeType;
       return this;
     }
@@ -671,7 +673,8 @@ public final class Transformer {
           muxerFactory
               .getSupportedSampleMimeTypes(MimeTypes.getTrackType(sampleMimeType))
               .contains(sampleMimeType),
-          "Unsupported sample MIME type " + sampleMimeType);
+          "Unsupported sample MIME type %s",
+          sampleMimeType);
     }
   }
 
@@ -1039,11 +1042,10 @@ public final class Transformer {
               componentListener,
               MuxerWrapper.MUXER_MODE_DEFAULT,
               /* dropSamplesBeforeFirstVideoSample= */ fileStartsOnVideoFrameEnabled,
-              /* appendVideoFormat= */ null,
-              /* writeNegativeTimestampsToEditList= */ shouldApplyMp4EditListTrim()),
+              /* appendVideoFormat= */ null),
           componentListener,
           /* initialTimestampOffsetUs= */ 0,
-          /* useDefaultAssetLoaderFactory= */ false);
+          /* forceRemuxing= */ false);
     }
   }
 
@@ -1141,8 +1143,7 @@ public final class Transformer {
   public @ProgressState int getProgress(ProgressHolder progressHolder) {
     verifyApplicationThread();
     if (isExportResumed()) {
-      // Progress updates are unavailable for resumed exports.
-      return PROGRESS_STATE_UNAVAILABLE;
+      return getResumeProgress(progressHolder);
     }
 
     if (isExportTrimOptimization()) {
@@ -1186,6 +1187,34 @@ public final class Transformer {
         || transformerState == TRANSFORMER_STATE_REMUX_REMAINING_MEDIA;
   }
 
+  private @ProgressState int getResumeProgress(ProgressHolder progressHolder) {
+    float remuxProcessedVideoProgressWeight = 0.15f;
+    float processRemainingVideoProgressWeight = 0.40f;
+    float processAudioProgressWeight = 0.30f;
+    // Remaining 15% progress is for copying the output to the final location.
+
+    float progressSoFar = 0f;
+    if (transformerState == TRANSFORMER_STATE_REMUX_PROCESSED_VIDEO) {
+      return getNextAccumulatedProgress(
+          progressSoFar, remuxProcessedVideoProgressWeight, progressHolder);
+    }
+    progressSoFar = remuxProcessedVideoProgressWeight * 100;
+    if (transformerState == TRANSFORMER_STATE_PROCESS_REMAINING_VIDEO) {
+      return getNextAccumulatedProgress(
+          progressSoFar, processRemainingVideoProgressWeight, progressHolder);
+    }
+    progressSoFar += processRemainingVideoProgressWeight * 100;
+    if (transformerState == TRANSFORMER_STATE_PROCESS_AUDIO) {
+      return getNextAccumulatedProgress(progressSoFar, processAudioProgressWeight, progressHolder);
+    }
+    progressSoFar += processAudioProgressWeight * 100;
+
+    // Progress for copying the output can not be determined. After this, the export should complete
+    // soon indicating 100% progress.
+    progressHolder.progress = round(progressSoFar);
+    return PROGRESS_STATE_AVAILABLE;
+  }
+
   private @ProgressState int getTrimOptimizationProgress(ProgressHolder progressHolder) {
     if (mediaItemInfo == null) {
       return PROGRESS_STATE_WAITING_FOR_AVAILABILITY;
@@ -1196,42 +1225,33 @@ public final class Transformer {
     long transcodeDuration = mediaItemInfo.firstSyncSampleTimestampUsAfterTimeUs - trimStartTimeUs;
     float transcodeWeighting = (float) transcodeDuration / mediaItemInfo.durationUs;
 
+    float progressSoFar = 0f;
     if (transformerState == TRANSFORMER_STATE_PROCESS_MEDIA_START) {
-      if (transformerInternal == null) {
-        return PROGRESS_STATE_WAITING_FOR_AVAILABILITY;
-      }
-      @ProgressState
-      int processMediaStartProgressState = transformerInternal.getProgress(progressHolder);
-      switch (processMediaStartProgressState) {
-        case PROGRESS_STATE_NOT_STARTED:
-        case PROGRESS_STATE_WAITING_FOR_AVAILABILITY:
-          return PROGRESS_STATE_WAITING_FOR_AVAILABILITY;
-        case PROGRESS_STATE_AVAILABLE:
-          progressHolder.progress = round(progressHolder.progress * transcodeWeighting);
-          return PROGRESS_STATE_AVAILABLE;
-        case PROGRESS_STATE_UNAVAILABLE:
-          return PROGRESS_STATE_UNAVAILABLE;
-        default:
-          throw new IllegalStateException();
-      }
+      return getNextAccumulatedProgress(progressSoFar, transcodeWeighting, progressHolder);
     }
+    progressSoFar = 100 * transcodeWeighting;
+    return getNextAccumulatedProgress(progressSoFar, (1 - transcodeWeighting), progressHolder);
+  }
 
-    float fullTranscodeProgress = 100 * transcodeWeighting;
+  private @ProgressState int getNextAccumulatedProgress(
+      float progressSoFar, float nextProgressWeight, ProgressHolder progressHolder) {
     if (transformerInternal == null) {
-      // Transformer has not started remuxing the remaining media yet.
-      progressHolder.progress = round(fullTranscodeProgress);
-      return PROGRESS_STATE_AVAILABLE;
+      progressHolder.progress = round(progressSoFar);
+      return progressSoFar == 0
+          ? PROGRESS_STATE_WAITING_FOR_AVAILABILITY
+          : PROGRESS_STATE_AVAILABLE;
     }
-    @ProgressState
-    int remuxRemainingMediaProgressState = transformerInternal.getProgress(progressHolder);
-    switch (remuxRemainingMediaProgressState) {
+    @ProgressState int ongoingProgressState = transformerInternal.getProgress(progressHolder);
+    switch (ongoingProgressState) {
       case PROGRESS_STATE_NOT_STARTED:
       case PROGRESS_STATE_WAITING_FOR_AVAILABILITY:
-        progressHolder.progress = round(fullTranscodeProgress);
-        return PROGRESS_STATE_AVAILABLE;
+        progressHolder.progress = round(progressSoFar);
+        return progressSoFar == 0
+            ? PROGRESS_STATE_WAITING_FOR_AVAILABILITY
+            : PROGRESS_STATE_AVAILABLE;
       case PROGRESS_STATE_AVAILABLE:
         progressHolder.progress =
-            round(fullTranscodeProgress + (1 - transcodeWeighting) * progressHolder.progress);
+            round(progressSoFar + (progressHolder.progress * nextProgressWeight));
         return PROGRESS_STATE_AVAILABLE;
       case PROGRESS_STATE_UNAVAILABLE:
         return PROGRESS_STATE_UNAVAILABLE;
@@ -1351,11 +1371,10 @@ public final class Transformer {
             componentListener,
             MuxerWrapper.MUXER_MODE_DEFAULT,
             /* dropSamplesBeforeFirstVideoSample= */ false,
-            /* appendVideoFormat= */ null,
-            /* writeNegativeTimestampsToEditList= */ false),
+            /* appendVideoFormat= */ null),
         componentListener,
         /* initialTimestampOffsetUs= */ 0,
-        /* useDefaultAssetLoaderFactory= */ false);
+        /* forceRemuxing= */ false);
   }
 
   private void remuxProcessedVideo() {
@@ -1385,8 +1404,7 @@ public final class Transformer {
                     componentListener,
                     MuxerWrapper.MUXER_MODE_MUX_PARTIAL,
                     /* dropSamplesBeforeFirstVideoSample= */ false,
-                    /* appendVideoFormat= */ resumeMetadata.videoFormat,
-                    /* writeNegativeTimestampsToEditList= */ false);
+                    /* appendVideoFormat= */ resumeMetadata.videoFormat);
 
             startInternal(
                 TransmuxTranscodeHelper.createVideoOnlyComposition(
@@ -1395,7 +1413,7 @@ public final class Transformer {
                 checkNotNull(remuxingMuxerWrapper),
                 componentListener,
                 /* initialTimestampOffsetUs= */ 0,
-                /* useDefaultAssetLoaderFactory= */ true);
+                /* forceRemuxing= */ true);
           }
 
           @Override
@@ -1424,7 +1442,7 @@ public final class Transformer {
         remuxingMuxerWrapper,
         componentListener,
         /* initialTimestampOffsetUs= */ checkNotNull(resumeMetadata).lastSyncSampleTimestampUs,
-        /* useDefaultAssetLoaderFactory= */ false);
+        /* forceRemuxing= */ false);
   }
 
   private void processAudio() {
@@ -1437,8 +1455,7 @@ public final class Transformer {
             componentListener,
             MuxerWrapper.MUXER_MODE_DEFAULT,
             /* dropSamplesBeforeFirstVideoSample= */ false,
-            /* appendVideoFormat= */ null,
-            /* writeNegativeTimestampsToEditList= */ shouldApplyMp4EditListTrim());
+            /* appendVideoFormat= */ null);
 
     startInternal(
         TransmuxTranscodeHelper.createAudioTranscodeAndVideoTransmuxComposition(
@@ -1446,7 +1463,7 @@ public final class Transformer {
         muxerWrapper,
         componentListener,
         /* initialTimestampOffsetUs= */ 0,
-        /* useDefaultAssetLoaderFactory= */ false);
+        /* forceRemuxing= */ false);
   }
 
   // TODO: b/308253384 - Move copy output logic into MuxerWrapper.
@@ -1555,8 +1572,7 @@ public final class Transformer {
                     componentListener,
                     MuxerWrapper.MUXER_MODE_MUX_PARTIAL,
                     /* dropSamplesBeforeFirstVideoSample= */ false,
-                    mp4Info.videoFormat,
-                    /* writeNegativeTimestampsToEditList= */ false);
+                    mp4Info.videoFormat);
             if (shouldTranscodeVideo(
                     checkNotNull(mp4Info.videoFormat),
                     composition,
@@ -1597,7 +1613,7 @@ public final class Transformer {
                 checkNotNull(remuxingMuxerWrapper),
                 componentListener,
                 /* initialTimestampOffsetUs= */ 0,
-                /* useDefaultAssetLoaderFactory= */ false);
+                /* forceRemuxing= */ false);
           }
 
           @Override
@@ -1632,7 +1648,7 @@ public final class Transformer {
         componentListener,
         /* initialTimestampOffsetUs= */ mediaItemInfo.firstSyncSampleTimestampUsAfterTimeUs
             - trimStartTimeUs,
-        /* useDefaultAssetLoaderFactory= */ false);
+        /* forceRemuxing= */ false);
   }
 
   private boolean isMultiAsset() {
@@ -1655,7 +1671,7 @@ public final class Transformer {
       MuxerWrapper muxerWrapper,
       ComponentListener componentListener,
       long initialTimestampOffsetUs,
-      boolean useDefaultAssetLoaderFactory) {
+      boolean forceRemuxing) {
     checkState(transformerInternal == null, "There is already an export in progress.");
     TransformationRequest transformationRequest = this.transformationRequest;
     if (composition.hdrMode != Composition.HDR_MODE_KEEP_HDR) {
@@ -1664,31 +1680,17 @@ public final class Transformer {
     }
     LogSessionId logSessionId = null;
     if (canCollectEditingMetrics()) {
-      @Nullable String muxerName = null;
-      if (muxerFactory instanceof InAppMp4Muxer.Factory) {
-        muxerName = InAppMp4Muxer.MUXER_NAME;
-      } else if (muxerFactory instanceof InAppFragmentedMp4Muxer.Factory) {
-        muxerName = InAppFragmentedMp4Muxer.MUXER_NAME;
-      } else if (muxerFactory instanceof DefaultMuxer.Factory) {
-        muxerName = DefaultMuxer.MUXER_NAME;
-      }
       EditingMetricsCollector.MetricsReporter metricsReporter =
           checkNotNull(metricsReporterFactory).create();
       if (metricsReporter instanceof EditingMetricsCollector.DefaultMetricsReporter) {
         logSessionId =
             ((EditingMetricsCollector.DefaultMetricsReporter) metricsReporter).getLogSessionId();
       }
-      editingMetricsCollector =
-          new EditingMetricsCollector(metricsReporter, EXPORTER_NAME, muxerName);
+      editingMetricsCollector = prepareEditingMetricsCollector(metricsReporter);
     }
     FallbackListener fallbackListener =
         new FallbackListener(composition, listeners, applicationHandler, transformationRequest);
     AssetLoader.Factory assetLoaderFactory = this.assetLoaderFactory;
-    if (useDefaultAssetLoaderFactory || assetLoaderFactory == null) {
-      assetLoaderFactory =
-          new DefaultAssetLoaderFactory(
-              context, new DefaultDecoderFactory.Builder(context).build(), clock, logSessionId);
-    }
     DebugTraceUtil.reset();
     transformerInternal =
         new TransformerInternal(
@@ -1698,7 +1700,9 @@ public final class Transformer {
             assetLoaderFactory,
             audioMixerFactory,
             videoFrameProcessorFactory,
-            encoderFactory,
+            forceRemuxing
+                ? new DefaultEncoderFactory.Builder(this.context).build()
+                : encoderFactory,
             allowedEncodingRotationDegrees,
             maxFramesInEncoder,
             muxerWrapper,
@@ -1709,7 +1713,8 @@ public final class Transformer {
             clock,
             initialTimestampOffsetUs,
             logSessionId,
-            shouldApplyMp4EditListTrim());
+            shouldApplyMp4EditListTrim(),
+            forceRemuxing);
     transformerInternal.start();
   }
 
@@ -1721,7 +1726,7 @@ public final class Transformer {
         listener -> listener.onCompleted(checkNotNull(composition), exportResult));
     listeners.flushEvents();
     if (canCollectEditingMetrics()) {
-      checkNotNull(editingMetricsCollector).onExportSuccess(exportResult);
+      checkNotNull(editingMetricsCollector).onExportSuccess(exportResult, isExportResumed());
     }
     transformerState = TRANSFORMER_STATE_PROCESS_FULL_INPUT;
   }
@@ -1741,9 +1746,49 @@ public final class Transformer {
               ? progressHolder.progress
               : C.PERCENTAGE_UNSET;
       checkNotNull(editingMetricsCollector)
-          .onExportError(progressPercentage, exception, exportResult);
+          .onExportError(progressPercentage, exception, exportResult, isExportResumed());
     }
     transformerState = TRANSFORMER_STATE_PROCESS_FULL_INPUT;
+  }
+
+  // This method is safe to have because it's called inside a canCollectEditingMetrics() check which
+  // checks for the API level
+  @RequiresApi(35)
+  private EditingMetricsCollector prepareEditingMetricsCollector(
+      EditingMetricsCollector.MetricsReporter metricsReporter) {
+    @Nullable String muxerName = null;
+    if (muxerFactory instanceof InAppMp4Muxer.Factory) {
+      muxerName = InAppMp4Muxer.MUXER_NAME;
+    } else if (muxerFactory instanceof InAppFragmentedMp4Muxer.Factory) {
+      muxerName = InAppFragmentedMp4Muxer.MUXER_NAME;
+    } else if (muxerFactory instanceof DefaultMuxer.Factory) {
+      muxerName = DefaultMuxer.MUXER_NAME;
+    }
+
+    boolean compositionHasAudioProcessors =
+        !checkNotNull(composition).effects.audioProcessors.isEmpty()
+            || Iterables.any(
+                checkNotNull(composition).sequences,
+                sequence ->
+                    Iterables.any(
+                        sequence.editedMediaItems,
+                        editedMediaItem -> !editedMediaItem.effects.audioProcessors.isEmpty()));
+
+    boolean compositionHasVideoEffects =
+        !checkNotNull(composition).effects.videoEffects.isEmpty()
+            || Iterables.any(
+                checkNotNull(composition).sequences,
+                sequence ->
+                    Iterables.any(
+                        sequence.editedMediaItems,
+                        editedMediaItem -> !editedMediaItem.effects.videoEffects.isEmpty()));
+
+    return new EditingMetricsCollector(
+        metricsReporter,
+        EXPORTER_NAME,
+        muxerName,
+        compositionHasAudioProcessors,
+        compositionHasVideoEffects);
   }
 
   private final class ComponentListener
@@ -1860,8 +1905,10 @@ public final class Transformer {
     }
 
     @Override
-    public void onEnded(long durationMs, long fileSizeBytes) {
-      exportResultBuilder.setDurationMs(durationMs).setFileSizeBytes(fileSizeBytes);
+    public void onEnded(long approximateDurationMs, long fileSizeBytes) {
+      exportResultBuilder
+          .setApproximateDurationMs(approximateDurationMs)
+          .setFileSizeBytes(fileSizeBytes);
       checkNotNull(transformerInternal).endWithCompletion();
     }
 

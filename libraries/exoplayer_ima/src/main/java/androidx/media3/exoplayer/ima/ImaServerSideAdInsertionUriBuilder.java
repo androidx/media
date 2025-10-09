@@ -15,9 +15,9 @@
  */
 package androidx.media3.exoplayer.ima;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.net.Uri;
 import android.text.TextUtils;
@@ -50,6 +50,7 @@ public final class ImaServerSideAdInsertionUriBuilder {
   private static final String API_KEY = "apiKey";
   private static final String CONTENT_SOURCE_ID = "contentSourceId";
   private static final String VIDEO_ID = "videoId";
+  private static final String NETWORK_CODE = "networkCode";
   private static final String AD_TAG_PARAMETERS = "adTagParameters";
   private static final String MANIFEST_SUFFIX = "manifestSuffix";
   private static final String CONTENT_URL = "contentUrl";
@@ -63,6 +64,7 @@ public final class ImaServerSideAdInsertionUriBuilder {
   @Nullable private String apiKey;
   @Nullable private String contentSourceId;
   @Nullable private String videoId;
+  @Nullable private String networkCode;
   @Nullable private String manifestSuffix;
   @Nullable private String contentUrl;
   @Nullable private String authToken;
@@ -139,6 +141,18 @@ public final class ImaServerSideAdInsertionUriBuilder {
   @CanIgnoreReturnValue
   public ImaServerSideAdInsertionUriBuilder setVideoId(@Nullable String videoId) {
     this.videoId = videoId;
+    return this;
+  }
+
+  /**
+   * The stream request network code.
+   *
+   * @param networkCode The request's network code.
+   * @return This instance, for convenience.
+   */
+  @CanIgnoreReturnValue
+  public ImaServerSideAdInsertionUriBuilder setNetworkCode(@Nullable String networkCode) {
+    this.networkCode = networkCode;
     return this;
   }
 
@@ -283,6 +297,9 @@ public final class ImaServerSideAdInsertionUriBuilder {
     if (videoId != null) {
       dataUriBuilder.appendQueryParameter(VIDEO_ID, videoId);
     }
+    if (networkCode != null) {
+      dataUriBuilder.appendQueryParameter(NETWORK_CODE, networkCode);
+    }
     if (manifestSuffix != null) {
       dataUriBuilder.appendQueryParameter(MANIFEST_SUFFIX, manifestSuffix);
     }
@@ -337,12 +354,15 @@ public final class ImaServerSideAdInsertionUriBuilder {
     @Nullable String apiKey = uri.getQueryParameter(API_KEY);
     @Nullable String contentSourceId = uri.getQueryParameter(CONTENT_SOURCE_ID);
     @Nullable String videoId = uri.getQueryParameter(VIDEO_ID);
+    @Nullable String networkCode = uri.getQueryParameter(NETWORK_CODE);
     if (!TextUtils.isEmpty(assetKey)) {
-      streamRequest = ImaSdkFactory.getInstance().createLiveStreamRequest(assetKey, apiKey);
+      streamRequest =
+          ImaSdkFactory.getInstance().createLiveStreamRequest(assetKey, apiKey, networkCode);
     } else {
       streamRequest =
           ImaSdkFactory.getInstance()
-              .createVodStreamRequest(checkNotNull(contentSourceId), checkNotNull(videoId), apiKey);
+              .createVodStreamRequest(
+                  checkNotNull(contentSourceId), checkNotNull(videoId), apiKey, networkCode);
     }
     int format = Integer.parseInt(uri.getQueryParameter(FORMAT));
     if (format == C.CONTENT_TYPE_DASH) {
