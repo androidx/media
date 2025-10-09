@@ -42,6 +42,10 @@ import androidx.media3.effect.SingleInputVideoGraph;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import com.google.testing.junit.testparameterinjector.TestParameterValuesProvider;
+import java.util.List;
 import java.util.concurrent.TimeoutException;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.After;
@@ -49,12 +53,9 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameter;
-import org.junit.runners.Parameterized.Parameters;
 
 /** Parameterized playback tests for {@link CompositionPlayer}. */
-@RunWith(Parameterized.class)
+@RunWith(TestParameterInjector.class)
 public class CompositionPlayerParameterizedPlaybackTest {
 
   private static final long TEST_TIMEOUT_MS = isRunningOnEmulator() ? 30_000 : 20_000;
@@ -203,89 +204,91 @@ public class CompositionPlayerParameterizedPlaybackTest {
   private @MonotonicNonNull CompositionPlayer player;
   private @MonotonicNonNull PlayerTestListener playerTestListener;
   private @MonotonicNonNull SurfaceView surfaceView;
-  @Parameter public @MonotonicNonNull TestConfig testConfig;
 
-  @Parameters(name = "{0}")
-  public static ImmutableList<TestConfig> params() {
-    ImmutableList.Builder<TestConfig> configs = new ImmutableList.Builder<>();
-    // Single asset.
-    configs.add(new TestConfig(new InputSequence(VIDEO_INPUT)));
-    configs.add(new TestConfig(new InputSequence(VIDEO_INPUT_SRGB)));
-    configs.add(new TestConfig(new InputSequence(IMAGE_INPUT)));
-    configs.add(new TestConfig(new InputSequence(AUDIO_INPUT)));
+  private static final ImmutableList<TestConfig> singleSequenceConfigs =
+      ImmutableList.of(
+          new TestConfig(new InputSequence(VIDEO_INPUT)),
+          new TestConfig(new InputSequence(VIDEO_INPUT_SRGB)),
+          new TestConfig(new InputSequence(IMAGE_INPUT)),
+          new TestConfig(new InputSequence(AUDIO_INPUT)),
+          new TestConfig(
+              new InputSequence(
+                  VIDEO_INPUT, VIDEO_INPUT, VIDEO_INPUT, IMAGE_INPUT, IMAGE_INPUT, IMAGE_INPUT)),
+          new TestConfig(
+              new InputSequence(
+                  IMAGE_INPUT, VIDEO_INPUT, IMAGE_INPUT, VIDEO_INPUT, IMAGE_INPUT, VIDEO_INPUT)),
+          new TestConfig(
+              new InputSequence(VIDEO_INPUT, AUDIO_INPUT, IMAGE_INPUT, AUDIO_INPUT, VIDEO_INPUT)),
+          new TestConfig(
+              new InputSequence(VIDEO_INPUT_WITHOUT_AUDIO, VIDEO_INPUT, VIDEO_INPUT_WITHOUT_AUDIO)),
+          new TestConfig(new InputSequence(VIDEO_INPUT, VIDEO_INPUT_WITHOUT_AUDIO, VIDEO_INPUT)),
+          new TestConfig(new InputSequence(VIDEO_INPUT, AUDIO_INPUT)),
+          // TODO: b/412585977 - Enable once implicit gaps are implemented.
+          // configs.add(new TestConfig(new InputSequence(AUDIO_INPUT,
+          // VIDEO_INPUT).withForceVideoTrack()));
+          new TestConfig(new InputSequence(VIDEO_ONLY_CLIPPED_HALF_SPEED)),
+          new TestConfig(new InputSequence(VIDEO_ONLY_CLIPPED_TWICE_SPEED)),
+          new TestConfig(
+              new InputSequence(VIDEO_ONLY_CLIPPED_TWICE_SPEED, VIDEO_ONLY_CLIPPED_TWICE_SPEED)),
+          new TestConfig(
+              new InputSequence(VIDEO_ONLY_CLIPPED_TWICE_SPEED, VIDEO_ONLY_CLIPPED_HALF_SPEED)),
+          new TestConfig(
+              new InputSequence(VIDEO_ONLY_CLIPPED_HALF_SPEED, VIDEO_ONLY_CLIPPED_TWICE_SPEED)),
+          new TestConfig(
+              new InputSequence(VIDEO_ONLY_CLIPPED_HALF_SPEED, VIDEO_ONLY_CLIPPED_HALF_SPEED)),
+          new TestConfig(
+              new InputSequence(
+                  VIDEO_INPUT, VIDEO_INPUT_SRGB, VIDEO_INPUT, IMAGE_INPUT, VIDEO_INPUT_SRGB)));
 
-    // Single sequence.
-    configs.add(
-        new TestConfig(
-            new InputSequence(
-                VIDEO_INPUT, VIDEO_INPUT, VIDEO_INPUT, IMAGE_INPUT, IMAGE_INPUT, IMAGE_INPUT)));
-    configs.add(
-        new TestConfig(
-            new InputSequence(
-                IMAGE_INPUT, VIDEO_INPUT, IMAGE_INPUT, VIDEO_INPUT, IMAGE_INPUT, VIDEO_INPUT)));
-    configs.add(
-        new TestConfig(
-            new InputSequence(VIDEO_INPUT, AUDIO_INPUT, IMAGE_INPUT, AUDIO_INPUT, VIDEO_INPUT)));
-    configs.add(
-        new TestConfig(
-            new InputSequence(VIDEO_INPUT_WITHOUT_AUDIO, VIDEO_INPUT, VIDEO_INPUT_WITHOUT_AUDIO)));
-    configs.add(
-        new TestConfig(new InputSequence(VIDEO_INPUT, VIDEO_INPUT_WITHOUT_AUDIO, VIDEO_INPUT)));
-    configs.add(new TestConfig(new InputSequence(VIDEO_INPUT, AUDIO_INPUT)));
-    // TODO: b/412585977 - Enable once implicit gaps are implemented.
-    // configs.add(new TestConfig(new InputSequence(AUDIO_INPUT,
-    // VIDEO_INPUT).withForceVideoTrack()));
-    configs.add(new TestConfig(new InputSequence(VIDEO_ONLY_CLIPPED_HALF_SPEED)));
-    configs.add(new TestConfig(new InputSequence(VIDEO_ONLY_CLIPPED_TWICE_SPEED)));
-    configs.add(
-        new TestConfig(
-            new InputSequence(VIDEO_ONLY_CLIPPED_TWICE_SPEED, VIDEO_ONLY_CLIPPED_TWICE_SPEED)));
-    configs.add(
-        new TestConfig(
-            new InputSequence(VIDEO_ONLY_CLIPPED_TWICE_SPEED, VIDEO_ONLY_CLIPPED_HALF_SPEED)));
-    configs.add(
-        new TestConfig(
-            new InputSequence(VIDEO_ONLY_CLIPPED_HALF_SPEED, VIDEO_ONLY_CLIPPED_TWICE_SPEED)));
-    configs.add(
-        new TestConfig(
-            new InputSequence(VIDEO_ONLY_CLIPPED_HALF_SPEED, VIDEO_ONLY_CLIPPED_HALF_SPEED)));
-    configs.add(
-        new TestConfig(
-            new InputSequence(
-                VIDEO_INPUT, VIDEO_INPUT_SRGB, VIDEO_INPUT, IMAGE_INPUT, VIDEO_INPUT_SRGB)));
+  private static final ImmutableList<TestConfig> multiSequenceImageConfigs =
+      ImmutableList.of(
+          new TestConfig(
+              new InputSequence(IMAGE_INPUT, IMAGE_INPUT, IMAGE_INPUT),
+              new InputSequence(IMAGE_INPUT, IMAGE_INPUT, IMAGE_INPUT)));
 
-    // Multiple sequence.
-    configs.add(
-        new TestConfig(
-            new InputSequence(IMAGE_INPUT, IMAGE_INPUT, IMAGE_INPUT),
-            new InputSequence(IMAGE_INPUT, IMAGE_INPUT, IMAGE_INPUT)));
-    // TODO: b/405966202 - Enable after propagating an EOS signal after each MediaItem.
-    // configs.add(
-    //     new TestConfig(
-    //         new InputSequence(VIDEO_INPUT, VIDEO_INPUT, VIDEO_INPUT),
-    //         new InputSequence(VIDEO_INPUT, VIDEO_INPUT, VIDEO_INPUT)));
-    configs.add(
-        new TestConfig(
-            new InputSequence(VIDEO_INPUT, AUDIO_INPUT, VIDEO_INPUT),
-            new InputSequence(IMAGE_INPUT)));
-    // TODO: b/418785194 - Enable once fixed.
-    // configs.add(
-    //     new TestConfig(
-    //         new InputSequence(AUDIO_INPUT), new InputSequence(VIDEO_INPUT)));
-    // TODO: b/421358098 - Enable once fixed.
-    // configs.add(
-    //     new TestConfig(
-    //         new InputSequence(VIDEO_INPUT), new InputSequence(VIDEO_INPUT, VIDEO_INPUT)));
-    configs.add(
-        new TestConfig(
-            new InputSequence(VIDEO_INPUT, VIDEO_INPUT),
-            new InputSequence(/* isLooping= */ false, AUDIO_INPUT)));
-    // TODO: b/419479048 - Enable once looping videos are supported.
-    // configs.add(
-    //     new TestConfig(
-    //         new InputSequence(VIDEO_INPUT, VIDEO_INPUT),
-    //         new InputSequence(VIDEO_INPUT).withIsLooping()));
-    return configs.build();
+  // TODO: b/449957503 - Enable in FrameConsumer test.
+  // private static final ImmutableList<TestConfig> multiSequenceVideoConfigs =
+  //     ImmutableList.of(
+  //         new TestConfig(
+  //             new InputSequence(VIDEO_INPUT, VIDEO_INPUT, VIDEO_INPUT),
+  //             new InputSequence(VIDEO_INPUT, VIDEO_INPUT, VIDEO_INPUT)));
+
+  private static final ImmutableList<TestConfig> multiSequenceMismatchedSequenceDurationConfigs =
+      ImmutableList.of(
+          new TestConfig(
+              new InputSequence(VIDEO_INPUT, AUDIO_INPUT, VIDEO_INPUT),
+              new InputSequence(IMAGE_INPUT)),
+          // TODO: b/418785194 - Enable once fixed.
+          //     new TestConfig(
+          //         new InputSequence(AUDIO_INPUT), new InputSequence(VIDEO_INPUT)),
+          // TODO: b/421358098 - Enable once fixed.
+          //     new TestConfig(
+          //         new InputSequence(VIDEO_INPUT), new InputSequence(VIDEO_INPUT, VIDEO_INPUT)),
+          new TestConfig(
+              new InputSequence(VIDEO_INPUT, VIDEO_INPUT),
+              new InputSequence(/* isLooping= */ false, AUDIO_INPUT))
+          // TODO: b/419479048 - Enable once looping videos are supported.
+          //     new TestConfig(
+          //         new InputSequence(VIDEO_INPUT, VIDEO_INPUT),
+          //         new InputSequence(VIDEO_INPUT).withIsLooping()),
+          );
+
+  private static class SingleInputVideoGraphConfigsProvider extends TestParameterValuesProvider {
+    @Override
+    protected List<TestConfig> provideValues(TestParameterValuesProvider.Context context) {
+      return singleSequenceConfigs;
+    }
+  }
+
+  private static class MultipleInputVideoGraphConfigsProvider extends TestParameterValuesProvider {
+    @Override
+    protected List<TestConfig> provideValues(TestParameterValuesProvider.Context context) {
+      return new ImmutableList.Builder<TestConfig>()
+          .addAll(singleSequenceConfigs)
+          .addAll(multiSequenceImageConfigs)
+          .addAll(multiSequenceMismatchedSequenceDurationConfigs)
+          .build();
+    }
   }
 
   @Before
@@ -307,17 +310,16 @@ public class CompositionPlayerParameterizedPlaybackTest {
   }
 
   @Test
-  public void playback_singleInputVideoGraph() throws Exception {
+  public void playback_singleInputVideoGraph(
+      @TestParameter(valuesProvider = SingleInputVideoGraphConfigsProvider.class)
+          TestConfig testConfig)
+      throws Exception {
     // The MediaCodec decoder's output surface is sometimes dropping frames on emulator despite
     // using MediaFormat.KEY_ALLOW_FRAME_DROP.
     assume()
         .withMessage("Skipped on emulator due to surface dropping frames")
         .that(isRunningOnEmulator())
         .isFalse();
-    assume()
-        .withMessage("Skipped due to input containing multiple sequences")
-        .that(testConfig.inputSequences.size())
-        .isEqualTo(1);
     InputTimestampRecordingShaderProgram inputTimestampRecordingShaderProgram =
         new InputTimestampRecordingShaderProgram();
     Composition composition =
@@ -338,7 +340,10 @@ public class CompositionPlayerParameterizedPlaybackTest {
   }
 
   @Test
-  public void playback_multipleInputVideoGraph() throws Exception {
+  public void playback_multipleInputVideoGraph(
+      @TestParameter(valuesProvider = MultipleInputVideoGraphConfigsProvider.class)
+          TestConfig testConfig)
+      throws Exception {
     // The MediaCodec decoder's output surface is sometimes dropping frames on emulator despite
     // using MediaFormat.KEY_ALLOW_FRAME_DROP.
     assume()
