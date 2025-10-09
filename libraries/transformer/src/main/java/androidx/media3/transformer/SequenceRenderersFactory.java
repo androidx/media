@@ -24,7 +24,6 @@ import static androidx.media3.exoplayer.DefaultRenderersFactory.MAX_DROPPED_VIDE
 import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_IMMEDIATELY;
 import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED;
 import static androidx.media3.exoplayer.video.VideoSink.RELEASE_FIRST_FRAME_WHEN_STARTED;
-import static androidx.media3.transformer.EditedMediaItemSequence.getEditedMediaItem;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -140,22 +139,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     this.videoPrewarmingEnabled = videoPrewarmingEnabled;
   }
 
-  /** Sets the {@link EditedMediaItemSequence} to render. */
-  public void setSequence(EditedMediaItemSequence sequence) {
-    if (audioRenderer != null) {
-      audioRenderer.setSequence(sequence);
-    }
-    if (primaryVideoRenderer != null) {
-      primaryVideoRenderer.setSequence(sequence);
-    }
-    if (secondaryVideoRenderer != null) {
-      secondaryVideoRenderer.setSequence(sequence);
-    }
-    if (imageRenderer != null) {
-      imageRenderer.setSequence(sequence);
-    }
-  }
-
   public void setRequestMediaCodecToneMapping(boolean requestMediaCodecToneMapping) {
     if (primaryVideoRenderer != null) {
       primaryVideoRenderer.setRequestMediaCodecToneMapping(requestMediaCodecToneMapping);
@@ -267,10 +250,19 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   private static boolean isLastInSequence(
-      Timeline timeline, EditedMediaItemSequence sequence, EditedMediaItem mediaItem) {
+      Timeline timeline, MediaSource.MediaPeriodId mediaPeriodId, EditedMediaItem mediaItem) {
     // TODO: b/419479048 - Investigate whether this should always be false for looping sequences.
     int lastEditedMediaItemIndex = timeline.getPeriodCount() - 1;
-    return mediaItem == getEditedMediaItem(sequence, lastEditedMediaItemIndex);
+    return mediaItem == getEditedMediaItem(timeline, mediaPeriodId, lastEditedMediaItemIndex);
+  }
+
+  private static EditedMediaItem getEditedMediaItem(
+      Timeline timeline, MediaSource.MediaPeriodId mediaPeriodId, int index) {
+    Timeline.Period period =
+        timeline.getPeriodByUid(mediaPeriodId.periodUid, new Timeline.Period());
+    checkState(period.id instanceof EditedMediaItemSequence);
+    EditedMediaItemSequence sequence = (EditedMediaItemSequence) period.id;
+    return EditedMediaItemSequence.getEditedMediaItem(sequence, index);
   }
 
   private static final class SequenceAudioRenderer extends MediaCodecAudioRenderer {
@@ -278,7 +270,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     private final PlaybackAudioGraphWrapper playbackAudioGraphWrapper;
 
     @Nullable private EditedMediaItem pendingEditedMediaItem;
-    private @MonotonicNonNull EditedMediaItemSequence sequence;
     private @MonotonicNonNull CompositionRendererListener compositionRendererListener;
     private long streamStartPositionUs;
     private long pendingOffsetToCompositionTimeUs;
@@ -297,10 +288,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
 
     // MediaCodecAudioRenderer methods
-
-    public void setSequence(EditedMediaItemSequence sequence) {
-      this.sequence = sequence;
-    }
 
     @Override
     public void render(long positionUs, long elapsedRealtimeUs) throws ExoPlaybackException {
@@ -330,15 +317,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         throws ExoPlaybackException {
       checkState(getTimeline().getWindowCount() == 1);
 
+      streamStartPositionUs = startPositionUs;
       // TODO: b/331392198 - Repeat only looping sequences, after sequences can be of arbitrary
       //  length.
       // The media item might have been repeated in the sequence.
       int periodIndex = getTimeline().getIndexOfPeriod(mediaPeriodId.periodUid);
       // We must first update the pending media item state before calling super.onStreamChanged()
       // because the super method will call onProcessedStreamChange()
-      checkNotNull(sequence);
-      streamStartPositionUs = startPositionUs;
-      pendingEditedMediaItem = getEditedMediaItem(sequence, periodIndex);
+      pendingEditedMediaItem = getEditedMediaItem(getTimeline(), mediaPeriodId, periodIndex);
       pendingOffsetToCompositionTimeUs =
           getOffsetToCompositionTimeUs(getTimeline(), mediaPeriodId, offsetUs);
       super.onStreamChanged(formats, startPositionUs, offsetUs, mediaPeriodId);
@@ -361,12 +347,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     // Other methods
 
     private void onMediaItemChanged() {
-      checkNotNull(sequence);
       EditedMediaItem currentEditedMediaItem = checkNotNull(pendingEditedMediaItem);
       audioSink.onMediaItemChanged(
           currentEditedMediaItem,
           pendingOffsetToCompositionTimeUs,
-          isLastInSequence(getTimeline(), sequence, currentEditedMediaItem));
+          isLastInSequence(
+              getTimeline(), checkNotNull(getMediaPeriodId()), currentEditedMediaItem));
     }
 
     private void setOnRenderListener(CompositionRendererListener compositionRendererListener) {
@@ -381,7 +367,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     private ImmutableList<Effect> pendingEffects;
     @Nullable private EditedMediaItem currentEditedMediaItem;
     @Nullable private CompositionRendererListener compositionRendererListener;
-    private @MonotonicNonNull EditedMediaItemSequence sequence;
     private long streamStartPositionUs;
     private long offsetToCompositionTimeUs;
     private boolean requestMediaCodecToneMapping;
@@ -404,10 +389,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               .setVideoSink(bufferingVideoSink));
       this.bufferingVideoSink = bufferingVideoSink;
       this.pendingEffects = ImmutableList.of();
-    }
-
-    public void setSequence(EditedMediaItemSequence sequence) {
-      this.sequence = sequence;
     }
 
     public void setRequestMediaCodecToneMapping(boolean requestMediaCodecToneMapping) {
@@ -463,13 +444,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         long offsetUs,
         MediaSource.MediaPeriodId mediaPeriodId)
         throws ExoPlaybackException {
-      checkNotNull(sequence);
       checkState(getTimeline().getWindowCount() == 1);
       // The media item might have been repeated in the sequence.
       int periodIndex = getTimeline().getIndexOfPeriod(mediaPeriodId.periodUid);
       // The renderer has started processing this item, VideoGraph might still be processing the
       // previous one.
-      currentEditedMediaItem = getEditedMediaItem(sequence, periodIndex);
+      currentEditedMediaItem = getEditedMediaItem(getTimeline(), mediaPeriodId, periodIndex);
       streamStartPositionUs = startPositionUs;
       offsetToCompositionTimeUs =
           getOffsetToCompositionTimeUs(getTimeline(), mediaPeriodId, offsetUs);
@@ -529,9 +509,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     @Override
     protected void renderToEndOfStream() {
-      checkNotNull(sequence);
       super.renderToEndOfStream();
-      if (isLastInSequence(getTimeline(), sequence, checkNotNull(currentEditedMediaItem))) {
+      if (isLastInSequence(
+          getTimeline(), checkNotNull(getMediaPeriodId()), checkNotNull(currentEditedMediaItem))) {
         bufferingVideoSink.signalEndOfInput();
       }
     }
@@ -596,7 +576,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     private final VideoSink videoSink;
 
     private ImmutableList<Effect> videoEffects;
-    private @MonotonicNonNull EditedMediaItemSequence sequence;
     private @MonotonicNonNull ConstantRateTimestampIterator timestampIterator;
     private @MonotonicNonNull EditedMediaItem currentEditedMediaItem;
     @Nullable private ExoPlaybackException pendingExoPlaybackException;
@@ -613,10 +592,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       this.videoSink = videoSink;
       videoEffects = ImmutableList.of();
       streamStartPositionUs = C.TIME_UNSET;
-    }
-
-    public void setSequence(EditedMediaItemSequence sequence) {
-      this.sequence = sequence;
     }
 
     // ImageRenderer methods
@@ -700,12 +675,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         long offsetUs,
         MediaSource.MediaPeriodId mediaPeriodId)
         throws ExoPlaybackException {
-      checkNotNull(sequence);
       checkState(getTimeline().getWindowCount() == 1);
       streamStartPositionUs = startPositionUs;
       // The media item might have been repeated in the sequence.
       int periodIndex = getTimeline().getIndexOfPeriod(mediaPeriodId.periodUid);
-      currentEditedMediaItem = getEditedMediaItem(sequence, periodIndex);
+      currentEditedMediaItem = getEditedMediaItem(getTimeline(), mediaPeriodId, periodIndex);
       offsetToCompositionTimeUs =
           getOffsetToCompositionTimeUs(getTimeline(), mediaPeriodId, offsetUs);
       videoSink.setBufferTimestampAdjustmentUs(offsetToCompositionTimeUs);
@@ -762,7 +736,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       }
       videoSink.signalEndOfCurrentInputStream();
       if (isLastInSequence(
-          getTimeline(), checkNotNull(sequence), checkNotNull(currentEditedMediaItem))) {
+          getTimeline(), checkNotNull(getMediaPeriodId()), checkNotNull(currentEditedMediaItem))) {
         videoSink.signalEndOfInput();
       }
       return true;

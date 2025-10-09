@@ -62,6 +62,7 @@ import androidx.media3.common.MediaItem.ClippingConfiguration;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.SimpleBasePlayer;
+import androidx.media3.common.Timeline;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoGraph;
 import androidx.media3.common.VideoSize;
@@ -101,9 +102,11 @@ import androidx.media3.exoplayer.source.ClippingMediaSource;
 import androidx.media3.exoplayer.source.ConcatenatingMediaSource2;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.exoplayer.source.ExternallyLoadedMediaSource;
+import androidx.media3.exoplayer.source.ForwardingTimeline;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.MergingMediaSource;
 import androidx.media3.exoplayer.source.SilenceMediaSource;
+import androidx.media3.exoplayer.source.WrappingMediaSource;
 import androidx.media3.exoplayer.util.EventLogger;
 import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
 import androidx.media3.exoplayer.video.VideoFrameMetadataListener;
@@ -1295,7 +1298,6 @@ public final class CompositionPlayer extends SimpleBasePlayer {
             sequenceIndex,
             newComposition.hdrMode == Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC);
     playerHolders.add(playerHolder);
-    playerHolder.setSequence(sequence);
     ExoPlayer player = playerHolder.player;
 
     // Starts from zero - internal player will discard current progress, re-preparing it by
@@ -1382,7 +1384,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
           itemMediaSource,
           /* initialPlaceholderDurationMs= */ usToMs(editedMediaItem.getPresentationDurationUs()));
     }
-    return mediaSourceBuilder.build();
+    return wrapMediaSourceWithCompositionForwardingTimeline(sequence, mediaSourceBuilder.build());
   }
 
   private static MediaSource createMediaSourceWithBlankFramesAndSilence(
@@ -1444,7 +1446,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
             /* initialPlaceholderDurationMs= */ usToMs(
                 editedMediaItem.getPresentationDurationUs()));
       }
-      return mediaSourceBuilder.build();
+      return wrapMediaSourceWithCompositionForwardingTimeline(sequence, mediaSourceBuilder.build());
     }
 
     long accumulatedDurationUs = 0;
@@ -1470,7 +1472,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
       }
       i = (i + 1) % sequence.editedMediaItems.size();
     }
-    return mediaSourceBuilder.build();
+    return wrapMediaSourceWithCompositionForwardingTimeline(sequence, mediaSourceBuilder.build());
   }
 
   private static EditedMediaItem clipToDuration(EditedMediaItem editedMediaItem, long durationUs) {
@@ -1506,6 +1508,26 @@ public final class CompositionPlayer extends SimpleBasePlayer {
       }
     }
     return newMediaSource;
+  }
+
+  private static MediaSource wrapMediaSourceWithCompositionForwardingTimeline(
+      EditedMediaItemSequence sequence, MediaSource mediaSource) {
+    return new WrappingMediaSource(mediaSource) {
+      @Nullable
+      @Override
+      public Timeline getInitialTimeline() {
+        Timeline initialTimeline = mediaSource.getInitialTimeline();
+        if (initialTimeline == null) {
+          return null;
+        }
+        return new CompositionForwardingTimeline(initialTimeline, sequence);
+      }
+
+      @Override
+      protected void onChildSourceInfoRefreshed(Timeline newTimeline) {
+        super.onChildSourceInfoRefreshed(new CompositionForwardingTimeline(newTimeline, sequence));
+      }
+    };
   }
 
   private ListenableFuture<?> maybeSetVideoOutput() {
@@ -1839,6 +1861,51 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     }
   }
 
+  /**
+   * A {@link ForwardingTimeline} which sets CompositionPlayer-specific properties on the {@link
+   * Period}.
+   *
+   * <p>The {@linkplain SequenceRenderersFactory renderers} running on the playback thread need to
+   * know the {@link EditedMediaItem} corresponding to the content being displayed. And the {@link
+   * #setComposition(Composition, long)} call updates the content on the application thread.
+   *
+   * <p>This class attaches CompositionPlayer metadata to the {@linkplain
+   * #wrapMediaSourceWithCompositionForwardingTimeline media source} when changing the {@linkplain
+   * SequencePlayerHolder sequence players} content.
+   */
+  private static final class CompositionForwardingTimeline extends ForwardingTimeline {
+
+    private final EditedMediaItemSequence sequence;
+
+    /**
+     * Creates an instance.
+     *
+     * <p>Called on the application thread.
+     */
+    CompositionForwardingTimeline(Timeline newTimeline, EditedMediaItemSequence sequence) {
+      super(newTimeline);
+      this.sequence = sequence;
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>The {@link Period#id} is set to the {@link EditedMediaItemSequence}. Period ids are not
+     * required by {@link ExoPlayer}, and can be optionally used to carry application-specific
+     * metadata associated with the logical piece of media defined by the {@link Period}.
+     *
+     * <p>Can be called on any thread.
+     */
+    @Override
+    public Period getPeriod(int periodIndex, Period period, boolean setIds) {
+      super.getPeriod(periodIndex, period, setIds);
+      // TODO: b/450496133 - Investigate alternative ways to map application-specific data to the
+      // Timeline Period.
+      period.id = sequence;
+      return period;
+    }
+  }
+
   private final class PlayerListener implements Listener {
     private final int playerIndex;
 
@@ -1921,11 +1988,6 @@ public final class CompositionPlayer extends SimpleBasePlayer {
       playerBuilder.setTrackSelector(trackSelector);
       player = playerBuilder.build();
       this.renderersFactory = renderersFactory;
-    }
-
-    public void setSequence(EditedMediaItemSequence sequence) {
-      renderersFactory.setSequence(sequence);
-      trackSelector.setSequence(sequence);
     }
   }
 
