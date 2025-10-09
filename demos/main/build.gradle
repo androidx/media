@@ -71,7 +71,7 @@ android {
 }
 
 dependencies {
-    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
+    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:" + desugarJdkLibsVersion
     compileOnly 'org.checkerframework:checker-qual:' + checkerframeworkVersion
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
     implementation 'androidx.appcompat:appcompat:' + androidxAppCompatVersion
