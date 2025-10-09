@@ -78,7 +78,9 @@ public final class Effects {
    *
    * @param speedProvider The {@link SpeedProvider} determining the speed for the media at specific
    *     timestamps.
+   * @deprecated Use {@link EditedMediaItem.Builder#setSpeed(SpeedProvider)} instead.
    */
+  @Deprecated
   public static Pair<AudioProcessor, Effect> createExperimentalSpeedChangingEffect(
       SpeedProvider speedProvider) {
     SpeedChangingAudioProcessor speedChangingAudioProcessor =

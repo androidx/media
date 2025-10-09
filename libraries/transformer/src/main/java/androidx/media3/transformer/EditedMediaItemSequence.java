@@ -328,4 +328,16 @@ public final class EditedMediaItemSequence {
     }
     return false;
   }
+
+  /**
+   * Returns a copy of this sequence replacing its {@link EditedMediaItem} list with {@code items}.
+   */
+  /* package */ EditedMediaItemSequence copyWithEditedMediaItems(List<EditedMediaItem> items) {
+    checkArgument(!items.isEmpty());
+    return new EditedMediaItemSequence.Builder(items)
+        .setIsLooping(this.isLooping)
+        .experimentalSetForceAudioTrack(this.forceAudioTrack)
+        .experimentalSetForceVideoTrack(this.forceVideoTrack)
+        .build();
+  }
 }

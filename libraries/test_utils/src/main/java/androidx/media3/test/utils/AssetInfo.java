@@ -353,6 +353,9 @@ public final class AssetInfo {
                   834_166L, 867_533L, 900_900L, 934_266L, 967_633L))
           .build();
 
+  public static final AssetInfo MOV_WITH_PCM_AUDIO =
+      new AssetInfo.Builder("asset:///media/mp4/sowt-with-video.mov").build();
+
   public static final AssetInfo BT601_MOV_ASSET =
       new AssetInfo.Builder("asset:///media/mp4/bt601.mov")
           .setVideoFormat(

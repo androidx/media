@@ -94,6 +94,8 @@
     *   Add support for `COMMAND_SET_AUDIO_ATTRIBUTES` and audio focus handling
         in `CompositionPlayer`.
     *   Use `InAppMp4Muxer` as default muxer.
+    *   Add `EditedMediaItem.Builder#setSpeed()` and deprecate
+        `Effects#createExperimentalSpeedChangingEffects()`.
 *   Track Selection:
     *   Add `TrackSelectionParameters.selectTextByDefault` to prefer the
         selection of any text track without specifying other more specific

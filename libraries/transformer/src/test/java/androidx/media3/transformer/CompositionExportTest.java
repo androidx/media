@@ -29,10 +29,14 @@ import static androidx.media3.transformer.TestUtil.createVolumeScalingAudioProce
 import static androidx.media3.transformer.TestUtil.getCompositionDumpFilePath;
 import static androidx.media3.transformer.TestUtil.getDumpFileName;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import android.content.Context;
+import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.audio.SonicAudioProcessor;
+import androidx.media3.common.audio.SpeedChangingAudioProcessor;
+import androidx.media3.common.audio.SpeedProvider;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.TestTransformerBuilder;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
@@ -751,6 +755,59 @@ public class CompositionExportTest {
 
     DumpFileAsserts.assertOutput(
         context, muxerFactory.getCreatedMuxer(), getDumpFileName("gap", "500ms"));
+  }
+
+  @Test
+  public void resume_withSpeedChangingEffects_throws() {
+    SpeedProvider provider =
+        new SpeedProvider() {
+          @Override
+          public float getSpeed(long timeUs) {
+            return 2f;
+          }
+
+          @Override
+          public long getNextSpeedChangeTimeUs(long timeUs) {
+            return C.TIME_UNSET;
+          }
+        };
+    Effects speedChangingEffects =
+        new Effects(
+            ImmutableList.of(new SpeedChangingAudioProcessor(provider)), ImmutableList.of());
+    EditedMediaItem item = new EditedMediaItem.Builder(MediaItem.EMPTY).build();
+    EditedMediaItem itemWithSpeedProvider = item.buildUpon().setSpeed(provider).build();
+    Transformer transformer = new Transformer.Builder(context).build();
+    EditedMediaItem itemWithEffects = item.buildUpon().setEffects(speedChangingEffects).build();
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            transformer.resume(
+                new Composition.Builder(
+                        new EditedMediaItemSequence.Builder(itemWithSpeedProvider).build())
+                    .build(),
+                /* outputFilePath= */ "fakePath",
+                /* oldFilePath= */ "fakePath"));
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            transformer.resume(
+                new Composition.Builder(
+                        new EditedMediaItemSequence.Builder(itemWithEffects).build())
+                    .build(),
+                /* outputFilePath= */ "fakePath",
+                /* oldFilePath= */ "fakePath"));
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            transformer.resume(
+                new Composition.Builder(new EditedMediaItemSequence.Builder(item).build())
+                    .setEffects(speedChangingEffects)
+                    .build(),
+                /* outputFilePath= */ "fakePath",
+                /* oldFilePath= */ "fakePath"));
   }
 
   private static String getFileName(String filePath) {

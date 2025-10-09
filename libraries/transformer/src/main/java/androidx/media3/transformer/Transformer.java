@@ -25,6 +25,7 @@ import static androidx.media3.transformer.ExportResult.OPTIMIZATION_ABANDONED_OT
 import static androidx.media3.transformer.ExportResult.OPTIMIZATION_ABANDONED_TRIM_AND_TRANSCODING_TRANSFORMATION_REQUESTED;
 import static androidx.media3.transformer.ExportResult.OPTIMIZATION_FAILED_EXTRACTION_FAILED;
 import static androidx.media3.transformer.ExportResult.OPTIMIZATION_FAILED_FORMAT_MISMATCH;
+import static androidx.media3.transformer.TransformerUtil.containsSpeedChangingEffects;
 import static androidx.media3.transformer.TransformerUtil.maybeSetMuxerWrapperAdditionalRotationDegrees;
 import static androidx.media3.transformer.TransformerUtil.shouldTranscodeAudio;
 import static androidx.media3.transformer.TransformerUtil.shouldTranscodeVideo;
@@ -52,6 +53,8 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.ChannelMixingAudioProcessor;
+import androidx.media3.common.audio.SpeedChangingAudioProcessor;
+import androidx.media3.common.audio.SpeedProvider;
 import androidx.media3.common.audio.ToInt16PcmAudioProcessor;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.HandlerWrapper;
@@ -60,6 +63,7 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
+import androidx.media3.effect.TimestampAdjustment;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.muxer.Muxer;
 import com.google.common.collect.ImmutableList;
@@ -74,6 +78,9 @@ import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import java.util.ArrayList;
+import java.util.List;
+import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
@@ -862,6 +869,7 @@ public final class Transformer {
   @Nullable private TransformerInternal transformerInternal;
   @Nullable private MuxerWrapper remuxingMuxerWrapper;
   private @MonotonicNonNull Composition composition;
+  private @MonotonicNonNull Composition originalComposition;
   private @MonotonicNonNull String outputFilePath;
   private @MonotonicNonNull String oldFilePath;
   private @TransformerState int transformerState;
@@ -1035,9 +1043,9 @@ public final class Transformer {
       processMediaBeforeFirstSyncSampleAfterTrimStartTime();
     } else {
       startInternal(
-          composition,
+          this.composition,
           new MuxerWrapper(
-              path,
+              outputFilePath,
               muxerFactory,
               componentListener,
               MuxerWrapper.MUXER_MODE_DEFAULT,
@@ -1307,6 +1315,8 @@ public final class Transformer {
    *   <li>The {@link Composition} contains a single {@link EditedMediaItemSequence} having
    *       continuous audio and video tracks.
    *   <li>The output is an MP4 file.
+   *   <li>The {@link Composition} and {@link EditedMediaItem} instances do not contain speed
+   *       changing effects.
    * </ul>
    *
    * <p>Note that export optimizations (such as {@linkplain
@@ -1318,11 +1328,48 @@ public final class Transformer {
    *     of the cancelled export.
    * @param oldFilePath The output path of the the cancelled export.
    */
+  // TODO: b/450253391 - Add support for resumption with #setSpeed().
   public void resume(Composition composition, String outputFilePath, String oldFilePath) {
     verifyApplicationThread();
+    checkArgument(!compositionContainsSpeedChangingEffects(composition));
     initialize(composition, outputFilePath);
     this.oldFilePath = oldFilePath;
     remuxProcessedVideo();
+  }
+
+  private static boolean compositionContainsSpeedChangingEffects(Composition composition) {
+    for (EditedMediaItemSequence sequence : composition.sequences) {
+      for (EditedMediaItem item : sequence.editedMediaItems) {
+        if (item.speedProvider != SpeedProvider.DEFAULT
+            || containsSpeedChangingEffects(item.effects, /* ignoreFirstEffect= */ false)) {
+          return true;
+        }
+      }
+    }
+    return containsSpeedChangingEffects(composition.effects, /* ignoreFirstEffect= */ false);
+  }
+
+  private static Composition maybeAddSpeedChangingEffects(Composition composition) {
+    List<EditedMediaItemSequence> newSequences = new ArrayList<>();
+    for (EditedMediaItemSequence sequence : composition.sequences) {
+      List<EditedMediaItem> updatedItems = new ArrayList<>();
+      for (EditedMediaItem item : sequence.editedMediaItems) {
+        if (item.speedProvider == SpeedProvider.DEFAULT) {
+          updatedItems.add(item);
+        } else {
+          updatedItems.add(addSpeedChangingEffects(item));
+        }
+      }
+      newSequences.add(sequence.copyWithEditedMediaItems(updatedItems));
+    }
+    return composition.buildUpon().setSequences(newSequences).build();
+  }
+
+  private static EditedMediaItem addSpeedChangingEffects(EditedMediaItem item) {
+    SpeedChangingAudioProcessor processor = new SpeedChangingAudioProcessor(item.speedProvider);
+    TimestampAdjustment effect =
+        new TimestampAdjustment(processor::getSpeedAdjustedTimeAsync, item.speedProvider);
+    return item.buildUpon().setSpeedChangingEffects(processor, effect).build();
   }
 
   private void maybeInitializeExportWatchdogTimer() {
@@ -1354,9 +1401,11 @@ public final class Transformer {
     }
   }
 
+  @EnsuresNonNull({"this.composition", "this.outputFilePath", "this.originalComposition"})
   private void initialize(Composition composition, String outputFilePath) {
     maybeInitializeExportWatchdogTimer();
-    this.composition = composition;
+    this.originalComposition = composition;
+    this.composition = maybeAddSpeedChangingEffects(composition);
     this.outputFilePath = outputFilePath;
     exportResultBuilder.reset();
   }
@@ -1689,7 +1738,11 @@ public final class Transformer {
       editingMetricsCollector = prepareEditingMetricsCollector(metricsReporter);
     }
     FallbackListener fallbackListener =
-        new FallbackListener(composition, listeners, applicationHandler, transformationRequest);
+        new FallbackListener(
+            checkNotNull(this.originalComposition),
+            listeners,
+            applicationHandler,
+            transformationRequest);
     AssetLoader.Factory assetLoaderFactory = this.assetLoaderFactory;
     DebugTraceUtil.reset();
     transformerInternal =

@@ -66,6 +66,9 @@ import androidx.media3.common.Timeline;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoGraph;
 import androidx.media3.common.VideoSize;
+import androidx.media3.common.audio.AudioProcessor;
+import androidx.media3.common.audio.SpeedChangingAudioProcessor;
+import androidx.media3.common.audio.SpeedProvider;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.Consumer;
@@ -669,7 +672,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
         /* presentationTimeUs= */ C.TIME_UNSET,
         composition.toJsonObject());
 
-    composition = deactivateSpeedAdjustingVideoEffects(composition);
+    composition = transformSpeedChangingEffects(composition);
 
     if (composition.sequences.size() > 1 && !videoGraphFactory.supportsMultipleInputs()) {
       Log.w(TAG, "Setting multi-sequence Composition with single input video graph.");
@@ -1003,35 +1006,56 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     return Player.PLAYBACK_SUPPRESSION_REASON_NONE;
   }
 
-  private static Composition deactivateSpeedAdjustingVideoEffects(Composition composition) {
+  /**
+   * Modifies speed changing effects within each {@link EditedMediaItem} to a representation
+   * supported by {@link CompositionPlayer}.
+   *
+   * <p>If the {@link EditedMediaItem} has a set {@link SpeedProvider}, this method adds a {@link
+   * SpeedChangingAudioProcessor} as the item's first {@link AudioProcessor}. Otherwise, the method
+   * swaps any {@link TimestampAdjustment} instance for {@link InactiveTimestampAdjustment}.
+   *
+   * @return The modified {@link Composition}.
+   */
+  private static Composition transformSpeedChangingEffects(Composition composition) {
     List<EditedMediaItemSequence> newSequences = new ArrayList<>();
     for (EditedMediaItemSequence sequence : composition.sequences) {
       List<EditedMediaItem> newEditedMediaItems = new ArrayList<>();
-      for (EditedMediaItem editedMediaItem : sequence.editedMediaItems) {
-        ImmutableList<Effect> videoEffects = editedMediaItem.effects.videoEffects;
-        List<Effect> newVideoEffects = new ArrayList<>();
-        for (Effect videoEffect : videoEffects) {
-          if (videoEffect instanceof TimestampAdjustment) {
-            newVideoEffects.add(
-                new InactiveTimestampAdjustment(((TimestampAdjustment) videoEffect).speedProvider));
-          } else {
-            newVideoEffects.add(videoEffect);
-          }
+      for (EditedMediaItem item : sequence.editedMediaItems) {
+        if (item.speedProvider != SpeedProvider.DEFAULT) {
+          newEditedMediaItems.add(
+              item.buildUpon()
+                  .setSpeedChangingEffects(
+                      new SpeedChangingAudioProcessor(item.speedProvider), /* effect= */ null)
+                  .build());
+        } else {
+          newEditedMediaItems.add(deactivateSpeedAdjustingVideoEffects(item));
         }
-        newEditedMediaItems.add(
-            editedMediaItem
-                .buildUpon()
-                .setEffects(new Effects(editedMediaItem.effects.audioProcessors, newVideoEffects))
-                .build());
       }
-      newSequences.add(
-          new EditedMediaItemSequence.Builder(newEditedMediaItems)
-              .setIsLooping(sequence.isLooping)
-              .experimentalSetForceAudioTrack(sequence.forceAudioTrack)
-              .experimentalSetForceVideoTrack(sequence.forceVideoTrack)
-              .build());
+      newSequences.add(sequence.copyWithEditedMediaItems(newEditedMediaItems));
     }
     return composition.buildUpon().setSequences(newSequences).build();
+  }
+
+  /**
+   * Returns a copy of {@code item} with any {@link TimestampAdjustment} effect converted into
+   * {@link InactiveTimestampAdjustment}.
+   */
+  // TODO: b/449937111 - Delete this once Effects#createExperimentalSpeedAdjustingEffect() is
+  // removed.
+  private static EditedMediaItem deactivateSpeedAdjustingVideoEffects(EditedMediaItem item) {
+    ImmutableList<Effect> videoEffects = item.effects.videoEffects;
+    List<Effect> newVideoEffects = new ArrayList<>();
+    for (Effect videoEffect : videoEffects) {
+      if (videoEffect instanceof TimestampAdjustment) {
+        newVideoEffects.add(
+            new InactiveTimestampAdjustment(((TimestampAdjustment) videoEffect).speedProvider));
+      } else {
+        newVideoEffects.add(videoEffect);
+      }
+    }
+    return item.buildUpon()
+        .setEffects(new Effects(item.effects.audioProcessors, newVideoEffects))
+        .build();
   }
 
   private void updatePlaybackState() {
@@ -1375,11 +1399,20 @@ public final class CompositionPlayer extends SimpleBasePlayer {
           createMediaSourceWithBlankFramesAndSilence(
               mediaSourceFactory, editedMediaItem, shouldGenerateBlankFrames);
 
-      MediaSource itemMediaSource =
-          wrapWithVideoEffectsBasedMediaSources(
-              blankFramesAndSilenceGeneratedMediaSource,
-              editedMediaItem.effects.videoEffects,
-              editedMediaItem.mediaItem.clippingConfiguration);
+      MediaSource itemMediaSource;
+      if (editedMediaItem.speedProvider != SpeedProvider.DEFAULT) {
+        itemMediaSource =
+            new SpeedChangingMediaSource(
+                blankFramesAndSilenceGeneratedMediaSource,
+                editedMediaItem.speedProvider,
+                editedMediaItem.mediaItem.clippingConfiguration);
+      } else {
+        itemMediaSource =
+            wrapWithVideoEffectsBasedMediaSources(
+                blankFramesAndSilenceGeneratedMediaSource,
+                editedMediaItem.effects.videoEffects,
+                editedMediaItem.mediaItem.clippingConfiguration);
+      }
       mediaSourceBuilder.add(
           itemMediaSource,
           /* initialPlaceholderDurationMs= */ usToMs(editedMediaItem.getPresentationDurationUs()));
@@ -1493,6 +1526,8 @@ public final class CompositionPlayer extends SimpleBasePlayer {
         .build();
   }
 
+  // TODO: b/449937111 - Delete this once Effects#createExperimentalSpeedAdjustingEffect() is
+  // removed.
   private static MediaSource wrapWithVideoEffectsBasedMediaSources(
       MediaSource mediaSource,
       ImmutableList<Effect> videoEffects,

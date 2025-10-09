@@ -228,6 +228,11 @@ public final class SpeedChangingAudioProcessor implements AudioProcessor {
     sonicAudioProcessor.reset();
   }
 
+  /** Returns the {@link SpeedProvider} set for this instance. */
+  public SpeedProvider getSpeedProvider() {
+    return this.speedProvider;
+  }
+
   /**
    * Calculates the time at which the {@code inputTimeUs} is outputted at after the speed changes
    * has been applied.
