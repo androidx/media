@@ -15,7 +15,10 @@
     limitations under the License.
   -->
 <resources>
-    <color name="media_route_button_background">#ffffff</color>
-    <color name="dialog_color_primary">#d3d3d3</color>
-    <color name="dialog_color_primary_dark">#636363</color>
+    <!-- Content description for the media route button when it is in the disconnected state. [CHAR LIMIT=60] -->
+    <string name="media_route_button_disconnected">Cast. Disconnected</string>
+    <!-- Content description for the media route button when it is in the connecting state. [CHAR LIMIT=60] -->
+    <string name="media_route_button_connecting">Cast. Connecting</string>
+    <!-- Content description for the media route button when it is in the connected state. [CHAR LIMIT=60] -->
+    <string name="media_route_button_connected">Cast. Connected</string>
 </resources>
