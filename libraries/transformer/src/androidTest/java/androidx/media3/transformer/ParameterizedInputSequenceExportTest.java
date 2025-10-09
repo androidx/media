@@ -24,7 +24,7 @@ import static androidx.media3.transformer.ParameterizedAndroidTestUtil.assumeSeq
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
-import android.util.Log;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.C;
 import androidx.media3.effect.Presentation;
 import androidx.media3.transformer.ParameterizedAndroidTestUtil.SdrImageItemConfig;

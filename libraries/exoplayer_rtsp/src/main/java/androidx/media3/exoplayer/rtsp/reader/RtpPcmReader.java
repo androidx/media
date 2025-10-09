@@ -18,8 +18,8 @@ package androidx.media3.exoplayer.rtsp.reader;
 import static androidx.media3.exoplayer.rtsp.reader.RtpReaderUtils.toSampleTimeUs;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import android.util.Log;
 import androidx.media3.common.C;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;

@@ -27,12 +27,12 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.os.Build;
-import android.util.Log;
 import android.view.KeyEvent;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
 import androidx.core.content.ContextCompat;
+import androidx.media3.common.util.Log;
 import java.util.List;
 
 /**
