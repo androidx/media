@@ -247,6 +247,8 @@ public class MediaSession {
    */
   public static final class Builder extends BuilderBase<MediaSession, Builder, Callback> {
 
+    private boolean useLegacySurfaceHandling;
+
     /**
      * Creates a builder for {@link MediaSession}.
      *
@@ -474,6 +476,25 @@ public class MediaSession {
     }
 
     /**
+     * Sets whether to use the legacy surface handling logic by ignoring the surface size.
+     *
+     * <p>When set to {@code true}, the session will call {@link Player#setVideoSurface(Surface)}
+     * directly, which may not work correctly with video effects. This is intended as a temporary
+     * opt-out for applications that experience issues with the new SurfaceHolder-based approach.
+     *
+     * <p>This method is experimental and may be removed in a future release.
+     *
+     * @param useLegacySurfaceHandling Whether to use the legacy surface handling logic.
+     * @return This builder.
+     */
+    @CanIgnoreReturnValue
+    @UnstableApi
+    public Builder setExperimentalSetUseLegacySurfaceHandling(boolean useLegacySurfaceHandling) {
+      this.useLegacySurfaceHandling = useLegacySurfaceHandling;
+      return this;
+    }
+
+    /**
      * Builds a {@link MediaSession}.
      *
      * @return A new session.
@@ -501,7 +522,8 @@ public class MediaSession {
           checkNotNull(bitmapLoader),
           playIfSuppressed,
           isPeriodicPositionUpdateEnabled,
-          MediaLibrarySession.LIBRARY_ERROR_REPLICATION_MODE_NONE);
+          MediaLibrarySession.LIBRARY_ERROR_REPLICATION_MODE_NONE,
+          useLegacySurfaceHandling);
     }
   }
 
@@ -755,7 +777,8 @@ public class MediaSession {
       BitmapLoader bitmapLoader,
       boolean playIfSuppressed,
       boolean isPeriodicPositionUpdateEnabled,
-      @MediaLibrarySession.LibraryErrorReplicationMode int libraryErrorReplicationMode) {
+      @MediaLibrarySession.LibraryErrorReplicationMode int libraryErrorReplicationMode,
+      boolean useLegacySurfaceHandling) {
     synchronized (STATIC_LOCK) {
       if (SESSION_ID_TO_SESSION_MAP.containsKey(id)) {
         throw new IllegalStateException("Session ID must be unique. ID=" + id);
@@ -777,7 +800,8 @@ public class MediaSession {
             bitmapLoader,
             playIfSuppressed,
             isPeriodicPositionUpdateEnabled,
-            libraryErrorReplicationMode);
+            libraryErrorReplicationMode,
+            useLegacySurfaceHandling);
   }
 
   /* package */ MediaSessionImpl createImpl(
@@ -794,7 +818,8 @@ public class MediaSession {
       BitmapLoader bitmapLoader,
       boolean playIfSuppressed,
       boolean isPeriodicPositionUpdateEnabled,
-      @MediaLibrarySession.LibraryErrorReplicationMode int libraryErrorReplicationMode) {
+      @MediaLibrarySession.LibraryErrorReplicationMode int libraryErrorReplicationMode,
+      boolean useLegacySurfaceHandling) {
     return new MediaSessionImpl(
         this,
         context,
@@ -809,7 +834,8 @@ public class MediaSession {
         sessionExtras,
         bitmapLoader,
         playIfSuppressed,
-        isPeriodicPositionUpdateEnabled);
+        isPeriodicPositionUpdateEnabled,
+        useLegacySurfaceHandling);
   }
 
   /* package */ MediaSessionImpl getImpl() {
@@ -2407,6 +2433,8 @@ public class MediaSession {
 
     default void onMediaMetadataChanged(int seq, MediaMetadata mediaMetadata)
         throws RemoteException {}
+
+    default void onSurfaceSizeChanged(int seq, int width, int height) throws RemoteException {}
 
     default void onRenderedFirstFrame(int seq) throws RemoteException {}
 

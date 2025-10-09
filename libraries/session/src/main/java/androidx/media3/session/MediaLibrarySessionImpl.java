@@ -96,7 +96,8 @@ import java.util.concurrent.Future;
         sessionExtras,
         bitmapLoader,
         playIfSuppressed,
-        isPeriodicPositionUpdateEnabled);
+        isPeriodicPositionUpdateEnabled,
+        /* useLegacySurfaceHandling= */ false);
     this.instance = instance;
     this.callback = callback;
     this.libraryErrorReplicationMode = libraryErrorReplicationMode;

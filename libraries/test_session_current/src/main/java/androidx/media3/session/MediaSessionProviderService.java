@@ -1450,6 +1450,16 @@ public class MediaSessionProviderService extends Service {
     }
 
     @Override
+    public Bundle getSurfaceSize(String sessionId) throws RemoteException {
+      return runOnHandler(
+          () -> {
+            MediaSession session = sessionMap.get(sessionId);
+            MockPlayer player = (MockPlayer) session.getPlayer();
+            return player.getSurfaceSize().toBundle();
+          });
+    }
+
+    @Override
     public void notifyVolumeChanged(String sessionId) throws RemoteException {
       runOnHandler(
           () -> {

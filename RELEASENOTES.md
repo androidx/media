@@ -238,6 +238,10 @@
         media key event `Intent` arriving in `onStartCommand()`. This is fixed
         by handling 'KEYCODE_HEADSETHOOK' just like `KEYCODE_MEDIA_PLAY_PAUSE`
         ([#2816](https://github.com/androidx/media/pull/2816)).
+    *   Fix a bug where Surface size was not communicated between the session
+        and the controller, resulting in the failure to apply video effects in
+        demo-session. If you are using a controller, this might be a breaking
+        change if your player cannot handle a `setVideoSurfaceHolder` call.
 *   UI:
     *   Add `ProgressStateWithTickInterval` class and the corresponding
         `rememberProgressStateWithTickInterval` Composable to

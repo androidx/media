@@ -19,6 +19,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
+import android.graphics.PixelFormat;
 import android.graphics.Rect;
 import android.os.Looper;
 import android.view.Surface;
@@ -270,7 +271,7 @@ public class MockPlayer implements Player {
   private final ArraySet<Listener> listeners = new ArraySet<>();
   private final ImmutableMap<@Method Integer, ConditionVariable> conditionVariables =
       createMethodConditionVariables();
-
+  private final SurfaceCallback surfaceCallback;
   @Nullable PlaybackException playerError;
   public AudioAttributes audioAttributes;
   public int audioSessionId;
@@ -380,6 +381,7 @@ public class MockPlayer implements Player {
 
     currentTracks = Tracks.EMPTY;
     trackSelectionParameters = TrackSelectionParameters.DEFAULT;
+    surfaceCallback = new SurfaceCallback();
   }
 
   @Override
@@ -1266,12 +1268,18 @@ public class MockPlayer implements Player {
 
   @Override
   public void setVideoSurfaceHolder(@Nullable SurfaceHolder surfaceHolder) {
+    if (this.surfaceHolder != null) {
+      this.surfaceHolder.removeCallback(surfaceCallback);
+    }
     this.surfaceHolder = surfaceHolder;
     if (surfaceHolder == null || surfaceHolder.getSurfaceFrame() == null) {
       maybeUpdateSurfaceSize(/* width= */ 0, /* height= */ 0);
     } else {
+      surfaceHolder.addCallback(surfaceCallback);
       Rect rect = surfaceHolder.getSurfaceFrame();
       maybeUpdateSurfaceSize(rect.width(), rect.height());
+      surfaceCallback.surfaceChanged(
+          surfaceHolder, PixelFormat.RGBA_8888, rect.width(), rect.height());
     }
   }
 
@@ -1337,7 +1345,7 @@ public class MockPlayer implements Player {
   }
 
   public boolean surfaceExists() {
-    return surface != null;
+    return surface != null || surfaceHolder != null;
   }
 
   public void notifyDeviceVolumeChanged() {
@@ -1516,6 +1524,32 @@ public class MockPlayer implements Player {
 
     public MockPlayer build() {
       return new MockPlayer(this);
+    }
+  }
+
+  private class SurfaceCallback implements SurfaceHolder.Callback {
+
+    @Override
+    public void surfaceCreated(SurfaceHolder holder) {
+      // Leave as no-op
+    }
+
+    @Override
+    public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+      if (surfaceSize.getWidth() != width || surfaceSize.getHeight() != height) {
+        surfaceSize = new Size(width, height);
+        for (Listener listener : listeners) {
+          listener.onSurfaceSizeChanged(surfaceSize.getWidth(), surfaceSize.getHeight());
+        }
+      }
+    }
+
+    @Override
+    public void surfaceDestroyed(SurfaceHolder holder) {
+      surfaceSize = Size.UNKNOWN;
+      for (Listener listener : listeners) {
+        listener.onSurfaceSizeChanged(surfaceSize.getWidth(), surfaceSize.getHeight());
+      }
     }
   }
 }

@@ -65,6 +65,9 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import android.app.PendingIntent;
+import android.graphics.Canvas;
+import android.graphics.PixelFormat;
+import android.graphics.Rect;
 import android.media.session.MediaSession.Token;
 import android.os.Binder;
 import android.os.Bundle;
@@ -72,7 +75,9 @@ import android.os.IBinder;
 import android.os.RemoteException;
 import android.text.TextUtils;
 import android.view.Surface;
+import android.view.SurfaceHolder;
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 import androidx.core.util.ObjectsCompat;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.BundleListRetriever;
@@ -126,7 +131,7 @@ import java.util.concurrent.ExecutionException;
 
   // LINT.IfChange(version_int)
   /** The version of the IMediaSession interface. */
-  public static final int VERSION_INT = 7;
+  public static final int VERSION_INT = 8;
 
   // LINT.ThenChange()
 
@@ -142,6 +147,7 @@ import java.util.concurrent.ExecutionException;
 
   private ImmutableBiMap<TrackGroup, String> trackGroupIdMap;
   private int nextUniqueTrackGroupIdPrefix;
+  @Nullable private SurfaceHolderWithSize surfaceHolderWithSize;
 
   public MediaSessionStub(MediaSessionImpl sessionImpl) {
     // Initialize members with params.
@@ -1572,7 +1578,69 @@ import java.util.concurrent.ExecutionException;
         caller,
         sequenceNumber,
         COMMAND_SET_VIDEO_SURFACE,
-        sendSessionResultSuccess(player -> player.setVideoSurface(surface)));
+        sendSessionResultSuccess(
+            player -> {
+              if (checkNotNull(sessionImpl.get()).shouldUseLegacySurfaceHandling()) {
+                player.setVideoSurface(surface);
+              } else {
+                if (surface == null) {
+                  player.setVideoSurfaceHolder(null);
+                  surfaceHolderWithSize = null;
+                } else {
+                  surfaceHolderWithSize = new SurfaceHolderWithSize(surface);
+                  player.setVideoSurfaceHolder(surfaceHolderWithSize);
+                }
+              }
+            }));
+  }
+
+  @Override
+  public void setVideoSurfaceWithSize(
+      @Nullable IMediaController caller,
+      int sequenceNumber,
+      @Nullable Surface surface,
+      int width,
+      int height) {
+    if (caller == null) {
+      return;
+    }
+    queueSessionTaskWithPlayerCommand(
+        caller,
+        sequenceNumber,
+        COMMAND_SET_VIDEO_SURFACE,
+        sendSessionResultSuccess(
+            player -> {
+              if (checkNotNull(sessionImpl.get()).shouldUseLegacySurfaceHandling()) {
+                player.setVideoSurface(surface);
+              } else {
+                if (surface == null) {
+                  player.setVideoSurfaceHolder(null);
+                  surfaceHolderWithSize = null;
+                } else {
+                  surfaceHolderWithSize = new SurfaceHolderWithSize(surface, width, height);
+                  player.setVideoSurfaceHolder(surfaceHolderWithSize);
+                }
+              }
+            }));
+  }
+
+  @Override
+  public void onSurfaceSizeChanged(
+      @Nullable IMediaController caller, int sequenceNumber, int width, int height) {
+    if (caller == null) {
+      return;
+    }
+    queueSessionTaskWithPlayerCommand(
+        caller,
+        sequenceNumber,
+        COMMAND_SET_VIDEO_SURFACE,
+        sendSessionResultSuccess(
+            player -> {
+              if (!checkNotNull(sessionImpl.get()).shouldUseLegacySurfaceHandling()
+                  && surfaceHolderWithSize != null) {
+                surfaceHolderWithSize.setFixedSize(width, height);
+              }
+            }));
   }
 
   @Override
@@ -2244,6 +2312,12 @@ import java.util.concurrent.ExecutionException;
     }
 
     @Override
+    public void onSurfaceSizeChanged(int sequenceNumber, int width, int height)
+        throws RemoteException {
+      iController.onSurfaceSizeChanged(sequenceNumber, width, height);
+    }
+
+    @Override
     public void onRenderedFirstFrame(int sequenceNumber) throws RemoteException {
       iController.onRenderedFirstFrame(sequenceNumber);
     }
@@ -2310,5 +2384,83 @@ import java.util.concurrent.ExecutionException;
     public void setFuture(ListenableFuture<SessionResult> future) {
       this.future = future;
     }
+  }
+
+  @VisibleForTesting
+  /* package */ static class SurfaceHolderWithSize implements SurfaceHolder {
+    private final Surface surface;
+    private final Rect surfaceFrame = new Rect();
+    @Nullable private SurfaceHolder.Callback callback;
+
+    SurfaceHolderWithSize(Surface surface) {
+      this.surface = surface;
+    }
+
+    SurfaceHolderWithSize(Surface surface, int width, int height) {
+      this.surface = surface;
+      surfaceFrame.set(0, 0, width, height);
+    }
+
+    @Override
+    public void setFixedSize(int width, int height) {
+      surfaceFrame.set(0, 0, width, height);
+      if (callback != null) {
+        // doesn't allow PixelFormat.UNKNOWN
+        callback.surfaceChanged(this, /* format= */ PixelFormat.RGBA_8888, width, height);
+      }
+    }
+
+    @Override
+    public void addCallback(Callback callback) {
+      this.callback = callback;
+    }
+
+    @Override
+    public void removeCallback(Callback callback) {
+      if (this.callback == callback) {
+        this.callback = null;
+      }
+    }
+
+    @Override
+    public Surface getSurface() {
+      return surface;
+    }
+
+    @Override
+    public Rect getSurfaceFrame() {
+      return surfaceFrame;
+    }
+
+    // Can be left as stubs.
+    @Override
+    public boolean isCreating() {
+      return false;
+    }
+
+    @Override
+    public void setType(int type) {}
+
+    @Override
+    public void setSizeFromLayout() {}
+
+    @Override
+    public void setFormat(int format) {}
+
+    @Override
+    public void setKeepScreenOn(boolean screenOn) {}
+
+    @Override
+    public Canvas lockCanvas() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Canvas lockCanvas(Rect dirty) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void unlockCanvasAndPost(Canvas canvas) {}
   }
 }
