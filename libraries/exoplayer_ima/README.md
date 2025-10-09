@@ -18,6 +18,9 @@ implementation 'androidx.media3:media3-exoplayer-ima:1.X.X'
 where `1.X.X` is the version, which must match the version of the other media
 modules being used.
 
+For version `1.9.0` and greater you must also enable
+[core library desugaring](https://developer.android.com/studio/write/java8-support#library-desugaring).
+
 Alternatively, you can clone this GitHub project and depend on the module
 locally. Instructions for doing this can be found in the [top level README][].
 

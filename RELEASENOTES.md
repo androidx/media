@@ -191,6 +191,9 @@
         are optional but recommended for Full service stream requests. To find
         the network code, see
         [this article](http://support.google.com/admanager/answer/7674889).
+    *   Bump IMA dependency to 3.37.0 which requires enabling core library
+        desugaring. This must also be enabled by dependent apps too. See IMA's
+        [config notes](https://developers.google.com/interactive-media-ads/docs/sdks/android/client-side/get-started#2.-add-the-ima-sdk-to-your-project).
 *   Session:
     *   Add new parameter to `MediaSession.Callback.onPlaybackResumption` to
         indicate if the call happens to gather information only or to start
