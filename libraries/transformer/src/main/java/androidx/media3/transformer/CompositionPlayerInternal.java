@@ -22,6 +22,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.view.Surface;
+import androidx.annotation.Nullable;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.util.Clock;
@@ -75,6 +76,7 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
 
   private final Listener listener;
   private final HandlerWrapper listenerHandler;
+  @Nullable private final CompositionVideoPacketReleaseControl videoPacketReleaseControl;
 
   private boolean released;
 
@@ -94,13 +96,15 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
       PlaybackAudioGraphWrapper playbackAudioGraphWrapper,
       PlaybackVideoGraphWrapper playbackVideoGraphWrapper,
       Listener listener,
-      HandlerWrapper listenerHandler) {
+      HandlerWrapper listenerHandler,
+      @Nullable CompositionVideoPacketReleaseControl videoPacketReleaseControl) {
     this.clock = clock;
     this.handler = clock.createHandler(playbackLooper, /* callback= */ this);
     this.playbackAudioGraphWrapper = playbackAudioGraphWrapper;
     this.playbackVideoGraphWrapper = playbackVideoGraphWrapper;
     this.listener = listener;
     this.listenerHandler = listenerHandler;
+    this.videoPacketReleaseControl = videoPacketReleaseControl;
   }
 
   // Public methods
@@ -253,11 +257,17 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
   public void startRenderingInternal() {
     playbackAudioGraphWrapper.startRendering();
     playbackVideoGraphWrapper.startRendering();
+    if (videoPacketReleaseControl != null) {
+      videoPacketReleaseControl.onStarted();
+    }
   }
 
   public void stopRenderingInternal() {
     playbackAudioGraphWrapper.stopRendering();
     playbackVideoGraphWrapper.stopRendering();
+    if (videoPacketReleaseControl != null) {
+      videoPacketReleaseControl.onStopped();
+    }
   }
 
   private void clearOutputSurfaceInternal(ConditionVariable surfaceCleared) {
@@ -274,6 +284,9 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
 
   private void setOutputSurfaceInfoOnInternalThread(OutputSurfaceInfo outputSurfaceInfo) {
     try {
+      if (videoPacketReleaseControl != null) {
+        videoPacketReleaseControl.setOutputSurface(outputSurfaceInfo.surface);
+      }
       playbackVideoGraphWrapper.setOutputSurfaceInfo(
           outputSurfaceInfo.surface, outputSurfaceInfo.size);
     } catch (RuntimeException e) {

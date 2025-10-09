@@ -68,7 +68,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 /** A {@link RenderersFactory} for an {@link EditedMediaItemSequence}. */
 /* package */ final class SequenceRenderersFactory implements RenderersFactory {
 
-  interface OnRenderListener {
+  interface CompositionRendererListener {
 
     /**
      * Called on {@link Renderer#render}.
@@ -78,14 +78,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
      * <p>This method should return quickly, and should not block if the renderer is unable to make
      * useful progress.
      *
-     * @param positionUs The current media time in microseconds, measured at the start of the
-     *     current iteration of the rendering loop.
+     * @param compositionTimePositionUs The current media time in the {@link Composition} timescale
+     *     in microseconds, measured at the start of the current iteration of the rendering loop.
      * @param elapsedRealtimeUs {@link android.os.SystemClock#elapsedRealtime()} in microseconds,
      *     measured at the start of the current iteration of the rendering loop.
-     * @param outputStreamStartPositionUs The start position of the buffer presentation timestamps
-     *     of the stream, in microseconds.
+     * @param compositionTimeOutputStreamStartPositionUs The start position of the buffer
+     *     presentation timestamps of the stream, in the {@link Composition} timescale, in
+     *     microseconds.
      */
-    void onRender(long positionUs, long elapsedRealtimeUs, long outputStreamStartPositionUs)
+    void onRender(
+        long compositionTimePositionUs,
+        long elapsedRealtimeUs,
+        long compositionTimeOutputStreamStartPositionUs)
         throws ExoPlaybackException;
   }
 
@@ -102,7 +106,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private @MonotonicNonNull SequenceVideoRenderer primaryVideoRenderer;
   private @MonotonicNonNull SequenceVideoRenderer secondaryVideoRenderer;
   private @MonotonicNonNull SequenceImageRenderer imageRenderer;
-  private @MonotonicNonNull OnRenderListener onRenderListener;
+  private @MonotonicNonNull CompositionRendererListener compositionRendererListener;
 
   /** Creates a renderers factory for a player that will play video, image and audio. */
   public static SequenceRenderersFactory create(
@@ -161,8 +165,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
   }
 
-  public void setOnRenderListener(OnRenderListener listener) {
-    this.onRenderListener = listener;
+  public void setOnRenderListener(CompositionRendererListener listener) {
+    this.compositionRendererListener = listener;
     if (primaryVideoRenderer != null) {
       primaryVideoRenderer.setOnRenderListener(listener);
     }
@@ -194,8 +198,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               /* audioSink= */ playbackAudioGraphWrapper.createInput(inputIndex),
               playbackAudioGraphWrapper);
     }
-    if (onRenderListener != null) {
-      audioRenderer.setOnRenderListener(onRenderListener);
+    if (compositionRendererListener != null) {
+      audioRenderer.setOnRenderListener(compositionRendererListener);
     }
     renderers.add(audioRenderer);
 
@@ -205,12 +209,15 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             new SequenceVideoRenderer(
                 context, eventHandler, videoRendererEventListener, new BufferingVideoSink(context));
       }
-      if (onRenderListener != null) {
-        primaryVideoRenderer.setOnRenderListener(onRenderListener);
+      if (compositionRendererListener != null) {
+        primaryVideoRenderer.setOnRenderListener(compositionRendererListener);
       }
       renderers.add(primaryVideoRenderer);
       if (imageRenderer == null) {
         imageRenderer = new SequenceImageRenderer(checkNotNull(imageDecoderFactory), videoSink);
+      }
+      if (compositionRendererListener != null) {
+        imageRenderer.setOnRenderListener(compositionRendererListener);
       }
       renderers.add(imageRenderer);
     }
@@ -232,8 +239,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
             new SequenceVideoRenderer(
                 context, eventHandler, videoRendererEventListener, new BufferingVideoSink(context));
       }
-      if (onRenderListener != null) {
-        secondaryVideoRenderer.setOnRenderListener(onRenderListener);
+      if (compositionRendererListener != null) {
+        secondaryVideoRenderer.setOnRenderListener(compositionRendererListener);
       }
       return secondaryVideoRenderer;
     }
@@ -272,7 +279,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     @Nullable private EditedMediaItem pendingEditedMediaItem;
     private @MonotonicNonNull EditedMediaItemSequence sequence;
-    private @MonotonicNonNull OnRenderListener onRenderListener;
+    private @MonotonicNonNull CompositionRendererListener compositionRendererListener;
+    private long streamStartPositionUs;
     private long pendingOffsetToCompositionTimeUs;
 
     // TODO: b/320007703 - Revisit the abstractions needed here (editedMediaItemProvider and
@@ -297,11 +305,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     @Override
     public void render(long positionUs, long elapsedRealtimeUs) throws ExoPlaybackException {
       super.render(positionUs, elapsedRealtimeUs);
-      if (onRenderListener != null) {
-        onRenderListener.onRender(
-            positionUs,
+      if (compositionRendererListener != null) {
+        compositionRendererListener.onRender(
+            positionUs + pendingOffsetToCompositionTimeUs,
             elapsedRealtimeUs,
-            /* outputStreamStartPositionUs= */ pendingOffsetToCompositionTimeUs);
+            streamStartPositionUs + pendingOffsetToCompositionTimeUs);
       }
       try {
         while (playbackAudioGraphWrapper.processData()) {}
@@ -329,6 +337,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       // We must first update the pending media item state before calling super.onStreamChanged()
       // because the super method will call onProcessedStreamChange()
       checkNotNull(sequence);
+      streamStartPositionUs = startPositionUs;
       pendingEditedMediaItem = getEditedMediaItem(sequence, periodIndex);
       pendingOffsetToCompositionTimeUs =
           getOffsetToCompositionTimeUs(getTimeline(), mediaPeriodId, offsetUs);
@@ -360,8 +369,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           isLastInSequence(getTimeline(), sequence, currentEditedMediaItem));
     }
 
-    private void setOnRenderListener(OnRenderListener onRenderListener) {
-      this.onRenderListener = onRenderListener;
+    private void setOnRenderListener(CompositionRendererListener compositionRendererListener) {
+      this.compositionRendererListener = compositionRendererListener;
     }
   }
 
@@ -371,8 +380,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     private ImmutableList<Effect> pendingEffects;
     @Nullable private EditedMediaItem currentEditedMediaItem;
-    @Nullable private OnRenderListener onRenderListener;
+    @Nullable private CompositionRendererListener compositionRendererListener;
     private @MonotonicNonNull EditedMediaItemSequence sequence;
+    private long streamStartPositionUs;
     private long offsetToCompositionTimeUs;
     private boolean requestMediaCodecToneMapping;
 
@@ -407,11 +417,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     @Override
     public void render(long positionUs, long elapsedRealtimeUs) throws ExoPlaybackException {
       super.render(positionUs, elapsedRealtimeUs);
-      if (onRenderListener != null) {
-        onRenderListener.onRender(
-            positionUs,
+      if (compositionRendererListener != null) {
+        compositionRendererListener.onRender(
+            positionUs + offsetToCompositionTimeUs,
             elapsedRealtimeUs,
-            /* outputStreamStartPositionUs= */ offsetToCompositionTimeUs);
+            streamStartPositionUs + offsetToCompositionTimeUs);
       }
     }
 
@@ -460,6 +470,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       // The renderer has started processing this item, VideoGraph might still be processing the
       // previous one.
       currentEditedMediaItem = getEditedMediaItem(sequence, periodIndex);
+      streamStartPositionUs = startPositionUs;
       offsetToCompositionTimeUs =
           getOffsetToCompositionTimeUs(getTimeline(), mediaPeriodId, offsetUs);
       pendingEffects = checkNotNull(currentEditedMediaItem).effects.videoEffects;
@@ -575,8 +586,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       }
     }
 
-    private void setOnRenderListener(OnRenderListener onRenderListener) {
-      this.onRenderListener = onRenderListener;
+    private void setOnRenderListener(CompositionRendererListener compositionRendererListener) {
+      this.compositionRendererListener = compositionRendererListener;
     }
   }
 
@@ -591,10 +602,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     @Nullable private ExoPlaybackException pendingExoPlaybackException;
     private boolean inputStreamPending;
     private long streamStartPositionUs;
+    private long offsetToCompositionTimeUs;
     private boolean mayRenderStartOfStream;
     private @VideoSink.FirstFrameReleaseInstruction int nextFirstFrameReleaseInstruction;
     private @MonotonicNonNull WakeupListener wakeupListener;
-    private @MonotonicNonNull OnRenderListener onRenderListener;
+    private @MonotonicNonNull CompositionRendererListener compositionRendererListener;
 
     public SequenceImageRenderer(ImageDecoder.Factory imageDecoderFactory, VideoSink videoSink) {
       super(imageDecoderFactory, ImageOutput.NO_OP);
@@ -694,7 +706,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       // The media item might have been repeated in the sequence.
       int periodIndex = getTimeline().getIndexOfPeriod(mediaPeriodId.periodUid);
       currentEditedMediaItem = getEditedMediaItem(sequence, periodIndex);
-      long offsetToCompositionTimeUs =
+      offsetToCompositionTimeUs =
           getOffsetToCompositionTimeUs(getTimeline(), mediaPeriodId, offsetUs);
       videoSink.setBufferTimestampAdjustmentUs(offsetToCompositionTimeUs);
       timestampIterator = createTimestampIterator(/* positionUs= */ startPositionUs);
@@ -712,8 +724,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       }
 
       super.render(positionUs, elapsedRealtimeUs);
-      if (onRenderListener != null) {
-        onRenderListener.onRender(positionUs, elapsedRealtimeUs, streamStartPositionUs);
+      if (compositionRendererListener != null) {
+        compositionRendererListener.onRender(
+            positionUs + offsetToCompositionTimeUs,
+            elapsedRealtimeUs,
+            streamStartPositionUs + offsetToCompositionTimeUs);
       }
       try {
         videoSink.render(positionUs, elapsedRealtimeUs);
@@ -778,8 +793,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           DEFAULT_FRAME_RATE);
     }
 
-    private void setOnRenderListener(OnRenderListener onRenderListener) {
-      this.onRenderListener = onRenderListener;
+    private void setOnRenderListener(CompositionRendererListener compositionRendererListener) {
+      this.compositionRendererListener = compositionRendererListener;
     }
   }
 }

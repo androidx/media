@@ -20,6 +20,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
+import android.view.Surface;
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.SystemClock;
@@ -27,7 +28,7 @@ import androidx.media3.effect.GlTextureFrame;
 import androidx.media3.effect.GlTextureFrame.Metadata;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.video.VideoFrameReleaseControl;
-import androidx.media3.transformer.SequenceRenderersFactory.OnRenderListener;
+import androidx.media3.transformer.SequenceRenderersFactory.CompositionRendererListener;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.concurrent.ConcurrentLinkedDeque;
@@ -35,7 +36,7 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 // TODO: b/430250432 - This is a placeholder implementation, revisit the threading logic to make it
 //  more robust.
 /** Computes the release time for each {@linkplain List<GlTextureFrame> packet}. */
-/* package */ class CompositionVideoPacketReleaseControl implements OnRenderListener {
+/* package */ class CompositionVideoPacketReleaseControl implements CompositionRendererListener {
 
   private final VideoFrameReleaseControl videoFrameReleaseControl;
   private final Consumer<List<GlTextureFrame>> downstreamConsumer;
@@ -63,9 +64,10 @@ import java.util.concurrent.ConcurrentLinkedDeque;
    *
    * <p>Once called, the caller must not modify the {@link GlTextureFrame}s in the packet.
    *
+   * <p>Called on the GL thread.
+   *
    * @param packet The {@link List<GlTextureFrame>} to queue.
    */
-  // Called on the GL thread.
   public void queue(List<GlTextureFrame> packet) {
     checkArgument(!packet.isEmpty());
     // The VideoFrameReleaseControl cannot currently handle a packet being queued in the past,
@@ -88,10 +90,14 @@ import java.util.concurrent.ConcurrentLinkedDeque;
    * <p>Computes the release action and release time of queued {@linkplain List<GlTextureFrame>
    * packets}, forwards them {@linkplain #downstreamConsumer downstream} if applicable or drops
    * them. Continues until a packet should be held until a later {@code positionUs}.
+   *
+   * <p>Called on the playback thread.
    */
-  // Called on the playback thread.
   @Override
-  public void onRender(long positionUs, long elapsedRealtimeUs, long outputStreamStartPositionUs)
+  public void onRender(
+      long compositionTimePositionUs,
+      long elapsedRealtimeUs,
+      long compositionTimeOutputStreamStartPositionUs)
       throws ExoPlaybackException {
     // Remove packet from the packet queue to ensure frames are not simultaneously released by
     // queueFrame and forwarded downstream.
@@ -103,9 +109,9 @@ import java.util.concurrent.ConcurrentLinkedDeque;
       int frameReleaseAction =
           videoFrameReleaseControl.getFrameReleaseAction(
               presentationTimeUs,
-              positionUs,
+              compositionTimePositionUs,
               elapsedRealtimeUs,
-              outputStreamStartPositionUs,
+              compositionTimeOutputStreamStartPositionUs,
               /* isDecodeOnlyFrame= */ false,
               /* isLastFrame= */ false,
               videoFrameReleaseInfo);
@@ -118,6 +124,24 @@ import java.util.concurrent.ConcurrentLinkedDeque;
   }
 
   /**
+   * Called when rendering starts.
+   *
+   * <p>Called on the playback thread.
+   */
+  public void onStarted() {
+    videoFrameReleaseControl.onStarted();
+  }
+
+  /**
+   * Called when rendering stops.
+   *
+   * <p>Called on the playback thread.
+   */
+  public void onStopped() {
+    videoFrameReleaseControl.onStopped();
+  }
+
+  /**
    * {@linkplain GlTextureFrame#release() Releases} all frames that have not been sent downstream,
    * and {@link VideoFrameReleaseControl#reset() resets} the release control.
    */
@@ -127,6 +151,16 @@ import java.util.concurrent.ConcurrentLinkedDeque;
       releasePacket(packet);
     }
     videoFrameReleaseControl.reset();
+  }
+
+  // TODO: b/430250432 - Make this work without setting the output Surface.
+  /**
+   * Called when the display surface changed.
+   *
+   * <p>Called on the playback thread.
+   */
+  public void setOutputSurface(@Nullable Surface outputSurface) {
+    videoFrameReleaseControl.setOutputSurface(outputSurface);
   }
 
   /**

@@ -36,7 +36,9 @@ import androidx.media3.common.PlaybackException;
 import androidx.media3.common.VideoGraph;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.SpeedProvider;
+import androidx.media3.common.util.Consumer;
 import androidx.media3.effect.GlEffect;
+import androidx.media3.effect.GlTextureFrame;
 import androidx.media3.effect.MultipleInputVideoGraph;
 import androidx.media3.effect.SingleInputVideoGraph;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
@@ -45,6 +47,7 @@ import com.google.common.collect.Iterables;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameterValuesProvider;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -246,12 +249,11 @@ public class CompositionPlayerParameterizedPlaybackTest {
               new InputSequence(IMAGE_INPUT, IMAGE_INPUT, IMAGE_INPUT),
               new InputSequence(IMAGE_INPUT, IMAGE_INPUT, IMAGE_INPUT)));
 
-  // TODO: b/449957503 - Enable in FrameConsumer test.
-  // private static final ImmutableList<TestConfig> multiSequenceVideoConfigs =
-  //     ImmutableList.of(
-  //         new TestConfig(
-  //             new InputSequence(VIDEO_INPUT, VIDEO_INPUT, VIDEO_INPUT),
-  //             new InputSequence(VIDEO_INPUT, VIDEO_INPUT, VIDEO_INPUT)));
+  private static final ImmutableList<TestConfig> multiSequenceVideoConfigs =
+      ImmutableList.of(
+          new TestConfig(
+              new InputSequence(VIDEO_INPUT, VIDEO_INPUT, VIDEO_INPUT),
+              new InputSequence(VIDEO_INPUT, VIDEO_INPUT, VIDEO_INPUT)));
 
   private static final ImmutableList<TestConfig> multiSequenceMismatchedSequenceDurationConfigs =
       ImmutableList.of(
@@ -287,6 +289,18 @@ public class CompositionPlayerParameterizedPlaybackTest {
           .addAll(singleSequenceConfigs)
           .addAll(multiSequenceImageConfigs)
           .addAll(multiSequenceMismatchedSequenceDurationConfigs)
+          .build();
+    }
+  }
+
+  private static class FrameConsumerConfigsProvider extends TestParameterValuesProvider {
+    @Override
+    protected List<TestConfig> provideValues(TestParameterValuesProvider.Context context) {
+      // TODO: b/418785194 - Expand this once mismatched sequence lengths are supported.
+      return new ImmutableList.Builder<TestConfig>()
+          .addAll(singleSequenceConfigs)
+          .addAll(multiSequenceImageConfigs)
+          .addAll(multiSequenceVideoConfigs)
           .build();
     }
   }
@@ -369,6 +383,24 @@ public class CompositionPlayerParameterizedPlaybackTest {
         .isEqualTo(testConfig.getExpectedVideoTimestampsUs());
   }
 
+  @Test
+  public void playback_frameConsumer(
+      @TestParameter(valuesProvider = FrameConsumerConfigsProvider.class) TestConfig testConfig)
+      throws Exception {
+    // The MediaCodec decoder's output surface is sometimes dropping frames on emulator despite
+    // using MediaFormat.KEY_ALLOW_FRAME_DROP.
+    assume()
+        .withMessage("Skipped on emulator due to surface dropping frames")
+        .that(isRunningOnEmulator())
+        .isFalse();
+    RecordingFrameConsumer frameConsumer = new RecordingFrameConsumer();
+
+    runCompositionPlayer(testConfig.getComposition(), frameConsumer::queue);
+
+    assertThat(frameConsumer.getInputPresentationTimesUs())
+        .isEqualTo(testConfig.getExpectedVideoTimestampsUs());
+  }
+
   private void runCompositionPlayer(Composition composition, VideoGraph.Factory videoGraphFactory)
       throws PlaybackException, TimeoutException {
     getInstrumentation()
@@ -378,6 +410,29 @@ public class CompositionPlayerParameterizedPlaybackTest {
                   new CompositionPlayer.Builder(context)
                       .setVideoGraphFactory(videoGraphFactory)
                       .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
+                      .build();
+              // Set a surface on the player even though there is no UI on this test. We need a
+              // surface otherwise the player will skip/drop video frames.
+              player.setVideoSurfaceView(surfaceView);
+              player.addListener(playerTestListener);
+              player.setComposition(composition);
+              player.prepare();
+              player.play();
+            });
+    playerTestListener.waitUntilPlayerEnded();
+  }
+
+  private void runCompositionPlayer(
+      Composition composition, Consumer<List<GlTextureFrame>> frameConsumer)
+      throws PlaybackException, TimeoutException {
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              player =
+                  new CompositionPlayer.Builder(context)
+                      .experimentalSetFrameConsumer(frameConsumer)
+                      .setGlObjectsProvider(new CompositionPlayer.SingleContextGlObjectsProvider())
+                      .experimentalSetLateThresholdToDropInputUs(200_000)
                       .build();
               // Set a surface on the player even though there is no UI on this test. We need a
               // surface otherwise the player will skip/drop video frames.
@@ -486,6 +541,29 @@ public class CompositionPlayerParameterizedPlaybackTest {
       this.expectedVideoTimestampsUs = expectedVideoTimestampsUs;
       this.durationUs = editedMediaItem.getPresentationDurationUs();
       this.inputName = inputName;
+    }
+  }
+
+  private static final class RecordingFrameConsumer {
+    private final List<List<GlTextureFrame>> queuedPackets;
+
+    private RecordingFrameConsumer() {
+      queuedPackets = new ArrayList<>();
+    }
+
+    private void queue(List<GlTextureFrame> frames) {
+      for (GlTextureFrame frame : frames) {
+        frame.release();
+      }
+      queuedPackets.add(frames);
+    }
+
+    private List<Long> getInputPresentationTimesUs() {
+      ArrayList<Long> presentationTimesUs = new ArrayList<>();
+      for (List<GlTextureFrame> frames : queuedPackets) {
+        presentationTimesUs.add(frames.get(0).getMetadata().getPresentationTimeUs());
+      }
+      return presentationTimesUs;
     }
   }
 }
