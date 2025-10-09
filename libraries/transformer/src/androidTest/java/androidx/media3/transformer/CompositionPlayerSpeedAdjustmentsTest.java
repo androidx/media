@@ -164,6 +164,44 @@ public class CompositionPlayerSpeedAdjustmentsTest {
   }
 
   @Test
+  public void setSpeed_onSecondarySequence_outputsExpectedNumberOfSamples() throws Exception {
+    AtomicInteger bytes = new AtomicInteger();
+    AudioProcessor processor = createByteCountingAudioProcessor(bytes);
+    SpeedProvider provider =
+        TestSpeedProvider.createWithStartTimes(
+            new long[] {0, 300_000L, 600_000L}, new float[] {2f, 1f, 0.5f});
+
+    EditedMediaItem primaryItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
+            .setDurationUs(1_000_000)
+            .build();
+
+    EditedMediaItem secondaryItem = primaryItem.buildUpon().setSpeed(provider).build();
+
+    EditedMediaItemSequence primarySequence =
+        new EditedMediaItemSequence.Builder(primaryItem).build();
+    EditedMediaItemSequence secondarySequence =
+        new EditedMediaItemSequence.Builder(secondaryItem).build();
+
+    instrumentation.runOnMainSync(
+        () -> {
+          compositionPlayer = new CompositionPlayer.Builder(applicationContext).build();
+          compositionPlayer.addListener(playerListener);
+          compositionPlayer.setComposition(
+              new Composition.Builder(primarySequence, secondarySequence)
+                  .setEffects(new Effects(ImmutableList.of(processor), ImmutableList.of()))
+                  .build());
+          compositionPlayer.prepare();
+          compositionPlayer.play();
+        });
+    playerListener.waitUntilPlayerEnded();
+
+    // 1250 ms @ mono 44.1 KHz = 55125 samples
+    // Allow a tolerance equal to number of speed regions.
+    assertThat(bytes.get() / 2).isWithin(3).of(55125);
+  }
+
+  @Test
   public void setSpeed_withVideoOnly_modifiesOutputCorrectly() throws Exception {
     EditedMediaItem video =
         new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))

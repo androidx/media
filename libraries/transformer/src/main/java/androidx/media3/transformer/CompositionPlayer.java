@@ -1389,6 +1389,15 @@ public final class CompositionPlayer extends SimpleBasePlayer {
       EditedMediaItemSequence sequence,
       MediaSource.Factory mediaSourceFactory,
       boolean shouldGenerateBlankFrames) {
+    return createNonLoopingMediaSource(
+        sequence, mediaSourceFactory, shouldGenerateBlankFrames, /* isPrimarySequence= */ true);
+  }
+
+  private static MediaSource createNonLoopingMediaSource(
+      EditedMediaItemSequence sequence,
+      MediaSource.Factory mediaSourceFactory,
+      boolean shouldGenerateBlankFrames,
+      boolean isPrimarySequence) {
     ConcatenatingMediaSource2.Builder mediaSourceBuilder = new ConcatenatingMediaSource2.Builder();
 
     for (int i = 0; i < sequence.editedMediaItems.size(); i++) {
@@ -1406,12 +1415,17 @@ public final class CompositionPlayer extends SimpleBasePlayer {
                 blankFramesAndSilenceGeneratedMediaSource,
                 editedMediaItem.speedProvider,
                 editedMediaItem.mediaItem.clippingConfiguration);
-      } else {
+      } else if (isPrimarySequence) {
+        // We don't support speed changing via user-set effects for secondary sequences.
+        // TODO: b/449937111 - Delete this branch once
+        // Effects#createExperimentalSpeedAdjustingEffect() is removed.
         itemMediaSource =
             wrapWithVideoEffectsBasedMediaSources(
                 blankFramesAndSilenceGeneratedMediaSource,
                 editedMediaItem.effects.videoEffects,
                 editedMediaItem.mediaItem.clippingConfiguration);
+      } else {
+        itemMediaSource = blankFramesAndSilenceGeneratedMediaSource;
       }
       mediaSourceBuilder.add(
           itemMediaSource,
@@ -1469,19 +1483,12 @@ public final class CompositionPlayer extends SimpleBasePlayer {
       MediaSource.Factory mediaSourceFactory,
       long primarySequenceDurationUs,
       boolean shouldGenerateBlankFrames) {
-    ConcatenatingMediaSource2.Builder mediaSourceBuilder = new ConcatenatingMediaSource2.Builder();
     if (!sequence.isLooping) {
-      for (int i = 0; i < sequence.editedMediaItems.size(); i++) {
-        EditedMediaItem editedMediaItem = sequence.editedMediaItems.get(i);
-        mediaSourceBuilder.add(
-            createMediaSourceWithBlankFramesAndSilence(
-                mediaSourceFactory, editedMediaItem, shouldGenerateBlankFrames),
-            /* initialPlaceholderDurationMs= */ usToMs(
-                editedMediaItem.getPresentationDurationUs()));
-      }
-      return wrapMediaSourceWithCompositionForwardingTimeline(sequence, mediaSourceBuilder.build());
+      return createNonLoopingMediaSource(
+          sequence, mediaSourceFactory, shouldGenerateBlankFrames, /* isPrimarySequence= */ false);
     }
 
+    ConcatenatingMediaSource2.Builder mediaSourceBuilder = new ConcatenatingMediaSource2.Builder();
     long accumulatedDurationUs = 0;
     int i = 0;
     while (accumulatedDurationUs < primarySequenceDurationUs) {

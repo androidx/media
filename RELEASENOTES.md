@@ -96,6 +96,8 @@
     *   Use `InAppMp4Muxer` as default muxer.
     *   Add `EditedMediaItem.Builder#setSpeed()` and deprecate
         `Effects#createExperimentalSpeedChangingEffects()`.
+    *   Add support for speed changing in secondary sequences in
+        `CompositionPlayer`.
 *   Track Selection:
     *   Add `TrackSelectionParameters.selectTextByDefault` to prefer the
         selection of any text track without specifying other more specific
