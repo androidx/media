@@ -31,6 +31,9 @@
         side when `Presentation` is created with a single side length.
 *   Muxers:
 *   IMA extension:
+    *   Fix issue where content preparation error for content after an ad would
+        be wrongly reported as an ad playback error
+        ([#2656](https://github.com/androidx/media/issues/2656)).
 *   Session:
     *   Add `CommandButton.executeAction` so that controllers can more easily
         trigger the intended action. Also allow to specify parameters for some
