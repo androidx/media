@@ -66,7 +66,7 @@ import androidx.media3.common.util.UnstableApi
  * @param backgroundColor The background color behind text cues. Defaults to fully
  *   transparent black ([Color.Black.copy(alpha = 0.0f)]).(Only affects SRT subtitles)
  *
- * @sample
+ * @sample androidx.media3.ui.compose.material3.SubtitleViewSample
  *
  * Here is a basic usage example:
  *
