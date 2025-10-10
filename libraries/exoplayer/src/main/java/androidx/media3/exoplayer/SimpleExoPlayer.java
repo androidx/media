@@ -1107,6 +1107,12 @@ public class SimpleExoPlayer extends BasePlayer implements ExoPlayer {
   }
 
   @Override
+  public Renderer getSecondaryRenderer(int index) {
+    blockUntilConstructorFinished();
+    return player.getSecondaryRenderer(index);
+  }
+
+  @Override
   public TrackSelector getTrackSelector() {
     blockUntilConstructorFinished();
     return player.getTrackSelector();

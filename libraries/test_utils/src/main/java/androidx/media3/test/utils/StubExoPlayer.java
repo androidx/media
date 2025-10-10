@@ -317,6 +317,11 @@ public class StubExoPlayer extends StubPlayer implements ExoPlayer {
   }
 
   @Override
+  public Renderer getSecondaryRenderer(int index) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
   @Nullable
   public TrackSelector getTrackSelector() {
     throw new UnsupportedOperationException();

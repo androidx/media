@@ -1355,9 +1355,7 @@ public interface ExoPlayer extends Player {
    */
   @UnstableApi
   @Nullable
-  default Renderer getSecondaryRenderer(int index) {
-    return null;
-  }
+  Renderer getSecondaryRenderer(int index);
 
   /**
    * Returns the track selector that this player uses, or null if track selection is not supported.
