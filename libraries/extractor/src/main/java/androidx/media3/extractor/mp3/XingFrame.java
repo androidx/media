@@ -17,6 +17,7 @@ package androidx.media3.extractor.mp3;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.Metadata;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.Util;
 import androidx.media3.extractor.MpegAudioUtil;
@@ -34,6 +35,9 @@ import androidx.media3.extractor.MpegAudioUtil;
    * Data size, including the XING frame, or {@link C#LENGTH_UNSET} if not present in the header.
    */
   public final long dataSize;
+
+  /** ReplayGain data. Only present if this frame is an Info or the LAME variant of a Xing frame. */
+  public final @Nullable Mp3InfoReplayGain replayGain;
 
   /**
    * The number of samples to skip at the start of the stream, or {@link C#LENGTH_UNSET} if not
@@ -58,12 +62,14 @@ import androidx.media3.extractor.MpegAudioUtil;
       long frameCount,
       long dataSize,
       @Nullable long[] tableOfContents,
+      @Nullable Mp3InfoReplayGain replayGain,
       int encoderDelay,
       int encoderPadding) {
     this.header = new MpegAudioUtil.Header(header);
     this.frameCount = frameCount;
     this.dataSize = dataSize;
     this.tableOfContents = tableOfContents;
+    this.replayGain = replayGain;
     this.encoderDelay = encoderDelay;
     this.encoderPadding = encoderPadding;
   }
@@ -98,23 +104,39 @@ import androidx.media3.extractor.MpegAudioUtil;
       frame.skipBytes(4); // Quality indicator
     }
 
+    @Nullable Mp3InfoReplayGain replayGain;
     int encoderDelay;
     int encoderPadding;
-    // Skip: version string (9), revision & VBR method (1), lowpass filter (1), replay gain (8),
-    //       encoding flags & ATH type (1), bitrate (1).
-    int bytesToSkipBeforeEncoderDelayAndPadding = 9 + 1 + 1 + 8 + 1 + 1;
-    if (frame.bytesLeft() >= bytesToSkipBeforeEncoderDelayAndPadding + 3) {
-      frame.skipBytes(bytesToSkipBeforeEncoderDelayAndPadding);
+    // Skip: version string (9), revision & VBR method (1), lowpass filter (1).
+    int bytesToSkipBeforeReplayGain = 9 + 1 + 1;
+    // Skip: encoding flags & ATH type (1), bitrate (1).
+    int bytesToSkipAfterReplayGain = 1 + 1;
+    // And account for values we parse, ReplayGain (8) and encoder delay & padding (3).
+    if (frame.bytesLeft() >= bytesToSkipBeforeReplayGain + 8 + bytesToSkipAfterReplayGain + 3) {
+      frame.skipBytes(bytesToSkipBeforeReplayGain);
+      float peak = frame.readFloat();
+      short field1 = frame.readShort();
+      short field2 = frame.readShort();
+      replayGain = new Mp3InfoReplayGain(peak, field1, field2);
+
+      frame.skipBytes(bytesToSkipAfterReplayGain);
       int encoderDelayAndPadding = frame.readUnsignedInt24();
       encoderDelay = (encoderDelayAndPadding & 0xFFF000) >> 12;
       encoderPadding = (encoderDelayAndPadding & 0xFFF);
     } else {
+      replayGain = null;
       encoderDelay = C.LENGTH_UNSET;
       encoderPadding = C.LENGTH_UNSET;
     }
 
     return new XingFrame(
-        mpegAudioHeader, frameCount, dataSize, tableOfContents, encoderDelay, encoderPadding);
+        mpegAudioHeader,
+        frameCount,
+        dataSize,
+        tableOfContents,
+        replayGain,
+        encoderDelay,
+        encoderPadding);
   }
 
   /**
@@ -131,5 +153,13 @@ import androidx.media3.extractor.MpegAudioUtil;
     // calculating the duration.
     return Util.sampleCountToDurationUs(
         (frameCount * header.samplesPerFrame) - 1, header.sampleRate);
+  }
+
+  /** Provide the metadata derived from this Xing frame, such as ReplayGain data. */
+  public @Nullable Metadata getMetadata() {
+    if (replayGain != null) {
+      return new Metadata(replayGain);
+    }
+    return null;
   }
 }

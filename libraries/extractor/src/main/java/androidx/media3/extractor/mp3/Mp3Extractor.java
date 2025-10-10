@@ -177,6 +177,7 @@ public final class Mp3Extractor implements Extractor {
   private int synchronizedHeaderData;
 
   @Nullable private Metadata metadata;
+  @Nullable private Metadata infoMetadata;
   private long basisTimeUs;
   private long samplesRead;
   private long firstSamplePosition;
@@ -293,6 +294,12 @@ public final class Mp3Extractor implements Extractor {
     if (seeker == null) {
       seeker = computeSeeker(input);
       extractorOutput.seekMap(seeker);
+      @Nullable Metadata finalMetadata = (flags & FLAG_DISABLE_ID3_METADATA) != 0 ? null : metadata;
+      if (finalMetadata != null) {
+        finalMetadata = finalMetadata.copyWithAppendedEntriesFrom(infoMetadata);
+      } else {
+        finalMetadata = infoMetadata;
+      }
       Format.Builder format =
           new Format.Builder()
               .setContainerMimeType(MimeTypes.AUDIO_MPEG)
@@ -302,7 +309,7 @@ public final class Mp3Extractor implements Extractor {
               .setSampleRate(synchronizedHeader.sampleRate)
               .setEncoderDelay(gaplessInfoHolder.encoderDelay)
               .setEncoderPadding(gaplessInfoHolder.encoderPadding)
-              .setMetadata((flags & FLAG_DISABLE_ID3_METADATA) != 0 ? null : metadata);
+              .setMetadata(finalMetadata);
       if (seeker.getAverageBitrate() != C.RATE_UNSET_INT) {
         format.setAverageBitrate(seeker.getAverageBitrate());
       }
@@ -583,6 +590,7 @@ public final class Mp3Extractor implements Extractor {
           gaplessInfoHolder.encoderDelay = xingFrame.encoderDelay;
           gaplessInfoHolder.encoderPadding = xingFrame.encoderPadding;
         }
+        infoMetadata = xingFrame.getMetadata();
         long startPosition = input.getPosition();
         if (input.getLength() != C.LENGTH_UNSET
             && xingFrame.dataSize != C.LENGTH_UNSET
