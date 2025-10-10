@@ -24,6 +24,7 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.PowerManager.WakeLock;
 import androidx.media3.common.util.Clock;
+import androidx.media3.common.util.ConditionVariable;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.time.Duration;
@@ -100,10 +101,11 @@ public class WakeLockManagerTest {
     WakeLock wakeLock = ShadowPowerManager.getLatestWakeLock();
 
     // Block the wake lock thread to prevent any progress.
+    ConditionVariable blockedWakeLockThread = new ConditionVariable();
     new Handler(handlerThread.getLooper())
         .post(
             () -> {
-              while (true) {}
+              while (!blockedWakeLockThread.isOpen()) {}
             });
     wakeLockManager.setEnabled(false);
     ShadowLooper.idleMainLooper();
@@ -111,6 +113,11 @@ public class WakeLockManagerTest {
     ShadowSystemClock.advanceBy(Duration.ofSeconds(5));
     ShadowLooper.idleMainLooper();
 
+    assertThat(wakeLock.isHeld()).isFalse();
+
+    // Verify that a slow background thread that unblocks itself can't cause any issues.
+    blockedWakeLockThread.open();
+    ShadowLooper.idleMainLooper();
     assertThat(wakeLock.isHeld()).isFalse();
   }
 }

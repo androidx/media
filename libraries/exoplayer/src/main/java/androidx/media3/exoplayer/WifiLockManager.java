@@ -15,14 +15,16 @@
  */
 package androidx.media3.exoplayer;
 
+import android.Manifest;
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.net.wifi.WifiManager;
 import android.net.wifi.WifiManager.WifiLock;
 import android.os.Looper;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.Log;
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
  * Handles a {@link WifiLock}
@@ -34,9 +36,11 @@ import androidx.media3.common.util.Log;
 
   private static final String TAG = "WifiLockManager";
   private static final String WIFI_LOCK_TAG = "ExoPlayer:WifiLockManager";
+  private static final int UNREACTIVE_WIFILOCK_HANDLER_RELEASE_DELAY_MS = 1000;
 
   private final WifiLockManagerInternal wifiLockManagerInternal;
   private final HandlerWrapper wifiLockHandler;
+  private final HandlerWrapper mainHandler;
 
   private boolean enabled;
   private boolean stayAwake;
@@ -51,6 +55,7 @@ import androidx.media3.common.util.Log;
   public WifiLockManager(Context context, Looper wifiLockLooper, Clock clock) {
     wifiLockManagerInternal = new WifiLockManagerInternal(context.getApplicationContext());
     wifiLockHandler = clock.createHandler(wifiLockLooper, /* callback= */ null);
+    mainHandler = clock.createHandler(Looper.getMainLooper(), /* callback= */ null);
   }
 
   /**
@@ -68,8 +73,7 @@ import androidx.media3.common.util.Log;
       return;
     }
     this.enabled = enabled;
-    boolean stayAwakeCurrent = stayAwake;
-    wifiLockHandler.post(() -> wifiLockManagerInternal.updateWifiLock(enabled, stayAwakeCurrent));
+    postUpdateWifiLock(enabled, stayAwake);
   }
 
   /**
@@ -87,9 +91,28 @@ import androidx.media3.common.util.Log;
     }
     this.stayAwake = stayAwake;
     if (enabled) {
-      wifiLockHandler.post(
-          () -> wifiLockManagerInternal.updateWifiLock(/* enabled= */ true, stayAwake));
+      postUpdateWifiLock(/* enabled= */ true, stayAwake);
     }
+  }
+
+  private void postUpdateWifiLock(boolean enabled, boolean stayAwake) {
+    if (shouldAcquireWifilock(enabled, stayAwake)) {
+      wifiLockHandler.post(() -> wifiLockManagerInternal.updateWifiLock(enabled, stayAwake));
+    } else {
+      // When we are about to release a Wifi lock, add emergency safeguard on main thread in case
+      // the lock handler thread is unresponsive.
+      Runnable emergencyRelease = wifiLockManagerInternal::forceReleaseWifiLock;
+      mainHandler.postDelayed(emergencyRelease, UNREACTIVE_WIFILOCK_HANDLER_RELEASE_DELAY_MS);
+      wifiLockHandler.post(
+          () -> {
+            mainHandler.removeCallbacks(emergencyRelease);
+            wifiLockManagerInternal.updateWifiLock(enabled, stayAwake);
+          });
+    }
+  }
+
+  private static boolean shouldAcquireWifilock(boolean enabled, boolean stayAwake) {
+    return enabled && stayAwake;
   }
 
   /** Internal methods called on the wifi lock Looper. */
@@ -97,7 +120,7 @@ import androidx.media3.common.util.Log;
 
     private final Context applicationContext;
 
-    @Nullable private WifiLock wifiLock;
+    private @MonotonicNonNull WifiLock wifiLock;
 
     public WifiLockManagerInternal(Context applicationContext) {
       this.applicationContext = applicationContext;
@@ -105,6 +128,11 @@ import androidx.media3.common.util.Log;
 
     public void updateWifiLock(boolean enabled, boolean stayAwake) {
       if (enabled && wifiLock == null) {
+        if (applicationContext.checkSelfPermission(Manifest.permission.WAKE_LOCK)
+            != PackageManager.PERMISSION_GRANTED) {
+          Log.w(TAG, "WAKE_LOCK permission not granted, can't acquire wake lock for playback");
+          return;
+        }
         WifiManager wifiManager =
             (WifiManager)
                 applicationContext.getApplicationContext().getSystemService(Context.WIFI_SERVICE);
@@ -120,9 +148,15 @@ import androidx.media3.common.util.Log;
         return;
       }
 
-      if (enabled && stayAwake) {
+      if (shouldAcquireWifilock(enabled, stayAwake)) {
         wifiLock.acquire();
       } else {
+        wifiLock.release();
+      }
+    }
+
+    private synchronized void forceReleaseWifiLock() {
+      if (wifiLock != null) {
         wifiLock.release();
       }
     }
