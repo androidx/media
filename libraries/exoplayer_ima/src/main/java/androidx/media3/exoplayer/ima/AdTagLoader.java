@@ -391,18 +391,15 @@ import java.util.Objects;
   /** Deactivates playback. */
   public void deactivate() {
     Player player = checkNotNull(this.player);
-    // Post release of listener behind any already queued Player.Listener events to ensure that
-    // any pending events are processed before the player is deferred.
-    handler.post(
-        () -> {
-          deactivateInternal(player);
-        });
+    // Post deactivation behind any already queued Player.Listener events to ensure that
+    // any pending events are processed before the listener is removed and the ads manager paused.
+    handler.post(() -> deactivateInternal(player));
   }
 
   /**
    * Deactivates playback internally, after the Listener.onEvents() cycle completes so the complete
-   * state change picture is clear. For example, if an error caused the deactivation, need to
-   * determine whether the error was for an ad or content.
+   * state change picture is clear. For example, if an error caused the deactivation, the error
+   * callback can be handled first.
    */
   private void deactivateInternal(Player player) {
     if (!AdPlaybackState.NONE.equals(adPlaybackState)
