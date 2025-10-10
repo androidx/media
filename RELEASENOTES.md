@@ -284,6 +284,9 @@
     *   Reset `LiveConfiguration` to the value provided by the `MediaItem` of
         the `DashMediaSource` when released and when the media item is updated
         by the user ([#2606](https://github.com/androidx/media/issues/2606)).
+    *   Avoid crashes caused by invalid manifest updates that were not reported
+        as player errors
+        ([#2805](https://github.com/androidx/media/issues/2805))).
 *   Smooth Streaming extension:
 *   RTSP extension:
     *   Handle error of missing RTP packets when processing fragmented NAL units
