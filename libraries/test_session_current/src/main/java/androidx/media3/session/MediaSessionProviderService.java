@@ -434,7 +434,7 @@ public class MediaSessionProviderService extends Service {
                       @Nullable ProgressReporter progressReporter) {
                     if (!customCommand.customAction.equals(CUSTOM_COMMAND_DOWNLOAD)) {
                       return Futures.immediateFuture(
-                          new SessionResult(SessionResult.RESULT_ERROR_NOT_SUPPORTED));
+                          new SessionResult(SessionError.ERROR_NOT_SUPPORTED));
                     }
                     SettableFuture<SessionResult> settable = SettableFuture.create();
                     if (progressReporter != null) {
