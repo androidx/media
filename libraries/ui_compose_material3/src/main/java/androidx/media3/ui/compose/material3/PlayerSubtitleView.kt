@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.mz.mzdkplayer.tool
+package androidx.media3.ui.compose.material3
 
 
 import android.annotation.SuppressLint
@@ -49,7 +49,8 @@ import androidx.media3.common.text.Cue
 import androidx.media3.common.text.CueGroup
 import androidx.media3.common.util.Log
 import androidx.media3.common.util.UnstableApi
-
+import android.util.DisplayMetrics
+import androidx.compose.ui.platform.LocalContext
 
 /**
  * A Material3 composable that renders subtitles provided by a [CueGroup] from Media3.
@@ -196,12 +197,16 @@ fun SubtitleView(
 
 /**
  * Returns the current screen dimensions in dp.
- *
+ *Fixes the accurate calculation of the app-perceived screen dimensions in dp across devices with different DPIs
+ *  (e.g., phones at 320 dpi, TVs at 240 dpi), ensuring PSG subtitles are correctly positioned.
  * @return A [Pair] of [Int] values representing the screen width and height in dp.
  */
 
 @Composable
 private fun getScreenDimensions(): Pair<Int, Int> {
-    val configuration = LocalConfiguration.current
-    return Pair(configuration.screenWidthDp, configuration.screenHeightDp)
+    val context = LocalContext.current
+    val displayMetrics: DisplayMetrics = context.resources.displayMetrics
+    val widthDp = (displayMetrics.widthPixels / displayMetrics.density).toInt()
+    val heightDp = (displayMetrics.heightPixels / displayMetrics.density).toInt()
+    return Pair(widthDp, heightDp)
 }
