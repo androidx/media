@@ -18,7 +18,7 @@
 package androidx.media3.ui.compose.material3
 
 
-import android.annotation.SuppressLint
+
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
