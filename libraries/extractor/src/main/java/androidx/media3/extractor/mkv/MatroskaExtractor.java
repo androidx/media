@@ -590,6 +590,7 @@ public class MatroskaExtractor implements Extractor {
     currentCueTimeUs = C.TIME_UNSET;
     currentCueTrackNumber = C.INDEX_UNSET;
     currentCueClusterPosition = C.INDEX_UNSET;
+    perTrackCues.clear();
     for (int i = 0; i < tracks.size(); i++) {
       tracks.valueAt(i).reset();
     }
