@@ -432,7 +432,7 @@ public class CompositionPlayerParameterizedPlaybackTest {
                   new CompositionPlayer.Builder(context)
                       .experimentalSetFrameConsumer(frameConsumer)
                       .setGlObjectsProvider(new CompositionPlayer.SingleContextGlObjectsProvider())
-                      .experimentalSetLateThresholdToDropInputUs(200_000)
+                      .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
                       .build();
               // Set a surface on the player even though there is no UI on this test. We need a
               // surface otherwise the player will skip/drop video frames.

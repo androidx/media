@@ -618,7 +618,9 @@ public final class CompositionPlayer extends SimpleBasePlayer {
               this.context,
               /* frameTimingEvaluator= */ new CompositionFrameTimingEvaluator(
                   // Convert lateThresholdToDropInputUs to early time.
-                  -lateThresholdToDropInputUs),
+                  lateThresholdToDropInputUs != C.TIME_UNSET
+                      ? -lateThresholdToDropInputUs
+                      : C.TIME_UNSET),
               /* allowedJoiningTimeMs= */ 0);
       videoFrameReleaseControl.setClock(clock);
       videoPacketReleaseControl =
@@ -1812,6 +1814,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
             .setVideoGraphFactory(singleInputVideoGraphFactory)
             .setClock(clock)
             .setEnableReplayableCache(enableReplayableCache)
+            .experimentalSetLateThresholdToDropInputUs(lateThresholdToDropInputUs)
             .build();
     singleInputVideoGraphWrapper.setTotalVideoInputCount(1);
     return singleInputVideoGraphWrapper;
@@ -1883,11 +1886,17 @@ public final class CompositionPlayer extends SimpleBasePlayer {
 
     @Override
     public boolean shouldForceReleaseFrame(long earlyUs, long elapsedSinceLastReleaseUs) {
+      if (lateThresholdUs == C.TIME_UNSET) {
+        return false;
+      }
       return earlyUs < lateThresholdUs && elapsedSinceLastReleaseUs > FRAME_RELEASE_THRESHOLD_US;
     }
 
     @Override
     public boolean shouldDropFrame(long earlyUs, long elapsedRealtimeUs, boolean isLastFrame) {
+      if (lateThresholdUs == C.TIME_UNSET) {
+        return false;
+      }
       return earlyUs < lateThresholdUs && !isLastFrame;
     }
 
