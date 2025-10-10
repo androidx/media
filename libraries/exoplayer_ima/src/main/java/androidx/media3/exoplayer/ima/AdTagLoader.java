@@ -402,7 +402,7 @@ import java.util.Objects;
    * callback can be handled first.
    */
   private void deactivateInternal(Player player) {
-    if (!AdPlaybackState.NONE.equals(adPlaybackState)
+    if (!adPlaybackState.equals(AdPlaybackState.NONE)
         && imaPausedContent
         && player.getPlayerError() == null) {
       if (adsManager != null) {
