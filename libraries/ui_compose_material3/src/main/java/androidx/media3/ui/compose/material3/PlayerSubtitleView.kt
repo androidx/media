@@ -17,8 +17,7 @@
 
 package androidx.media3.ui.compose.material3
 
-import android.annotation.SuppressLint
-import androidx.annotation.OptIn
+
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -104,7 +103,7 @@ import androidx.media3.common.util.UnstableApi
  * ```
  */
 @Composable
-@OptIn(UnstableApi::class)
+@UnstableApi
 fun SubtitleView(
     cueGroup: CueGroup?,
     modifier: Modifier = Modifier,
@@ -196,7 +195,6 @@ fun SubtitleView(
  *
  * @return A [Pair] of [Int] values representing the screen width and height in dp.
  */
-@SuppressLint("ConfigurationScreenWidthHeight")
 @Composable
 private fun getScreenDimensions(): Pair<Int, Int> {
     val configuration = LocalConfiguration.current
