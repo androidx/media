@@ -91,6 +91,7 @@ import java.util.concurrent.TimeoutException;
     mainHandler = Util.createHandler(Looper.getMainLooper(), /* callback= */ this);
     mainExecutor = (runnable) -> Util.postOrRun(mainHandler, runnable);
     startSelfIntent = new Intent(mediaSessionService, mediaSessionService.getClass());
+    startSelfIntent.setAction("androidx.media3.session.MediaNotificationManager.START_SELF_INTENT");
     controllerMap = new HashMap<>();
     startedInForeground = false;
     isUserEngagedTimeoutEnabled = true;
