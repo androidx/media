@@ -168,20 +168,20 @@ public final class EditedMediaItem {
     }
 
     /**
-     * Sets the {@link MediaItem} duration in the output, in microseconds.
+     * Sets the duration in microseconds of the source media represented by the {@link MediaItem}.
      *
-     * <p>For {@linkplain Transformer export}, this should be set for non-image inputs that don't
-     * have an intrinsic duration (e.g. raw video data). It will be ignored for inputs that do have
-     * an intrinsic duration (e.g. encoded video data from input file).
+     * <p>The provided duration should match the duration of the source media before applying any
+     * {@linkplain MediaItem.ClippingConfiguration clipping} or {@linkplain #setSpeed speed-changing
+     * effects}.
      *
-     * <p>For {@linkplain CompositionPlayer preview}, this should be set for all non-image inputs
-     * (i.e. audio and video input).
+     * <p>Setting the duration is optional in the following cases:
      *
-     * <p>This duration doesn't need to be set for images, because the default value is the {@link
-     * MediaItem}'s {@linkplain MediaItem.Builder#setImageDurationMs(long) image duration}.
-     *
-     * <p>If {@linkplain MediaItem#clippingConfiguration clipping} is applied, this should be the
-     * duration before clipping.
+     * <ul>
+     *   <li>The {@link MediaItem} represents an image. The default image duration set via {@link
+     *       MediaItem.Builder#setImageDurationMs}.
+     *   <li>On {@link Transformer}, when the {@link MediaItem} has an intrinsic duration (e.g.
+     *       encoded video/audio data from an input file).
+     * </ul>
      *
      * @param durationUs The duration, in microseconds.
      * @return This builder.
