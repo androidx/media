@@ -15,9 +15,10 @@
  * limitations under the License.
  */
 
-package androidx.media3.ui.compose.material3
+package org.mz.mzdkplayer.tool
 
 
+import android.annotation.SuppressLint
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -46,7 +47,9 @@ import androidx.compose.ui.zIndex
 import androidx.media3.common.text.Cue
 
 import androidx.media3.common.text.CueGroup
+import androidx.media3.common.util.Log
 import androidx.media3.common.util.UnstableApi
+
 
 /**
  * A Material3 composable that renders subtitles provided by a [CueGroup] from Media3.
@@ -153,24 +156,25 @@ fun SubtitleView(
                     } else {
                         bitmap.height.toFloat()
                     }
-
+                    val x =  cue.position
+                    val y =  cue.line
                     val offsetX = when (cue.positionAnchor) {
-                        Cue.ANCHOR_TYPE_START -> screenWidthDp * cue.position
-                        Cue.ANCHOR_TYPE_MIDDLE -> (screenWidthDp * cue.position) - (bitmapWidth / 2)
-                        Cue.ANCHOR_TYPE_END -> (screenWidthDp * cue.position) - bitmapWidth
-                        else -> screenWidthDp * cue.position
+                        Cue.ANCHOR_TYPE_START -> screenWidthDp * x
+                        Cue.ANCHOR_TYPE_MIDDLE -> (screenWidthDp * x) - (bitmapWidth / 2)
+                        Cue.ANCHOR_TYPE_END -> (screenWidthDp * x) - bitmapWidth
+                        else -> screenWidthDp * x
                     }
 
                     val offsetY = when (cue.lineAnchor) {
-                        Cue.ANCHOR_TYPE_START -> screenHeightDp * cue.line
-                        Cue.ANCHOR_TYPE_MIDDLE -> (screenHeightDp * cue.line) - (bitmapHeight / 2)
-                        Cue.ANCHOR_TYPE_END -> (screenHeightDp * cue.line) - bitmapHeight
-                        else -> screenHeightDp * cue.line
+                        Cue.ANCHOR_TYPE_START -> screenHeightDp * y
+                        Cue.ANCHOR_TYPE_MIDDLE -> (screenHeightDp * y) - (bitmapHeight / 2)
+                        Cue.ANCHOR_TYPE_END -> (screenHeightDp * y) - bitmapHeight
+                        else -> screenHeightDp * y
                     }
 
                     Box(
                         modifier = Modifier
-                            .offset(x = offsetX.dp , y = offsetY.dp)
+                            .offset(x = offsetX.dp-14.dp , y = offsetY.dp-8.dp) // Adjust the offset as needed
                             .fillMaxSize()
                             .zIndex(cue.zIndex.toFloat())
                     ) {
@@ -195,6 +199,7 @@ fun SubtitleView(
  *
  * @return A [Pair] of [Int] values representing the screen width and height in dp.
  */
+
 @Composable
 private fun getScreenDimensions(): Pair<Int, Int> {
     val configuration = LocalConfiguration.current
