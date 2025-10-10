@@ -17,6 +17,7 @@ track 1:
     height = 642
     selectionFlags = [default]
     language = und
+    metadata = entries=[ThumbnailMetadata: presentationTimeUs=0]
     initializationData:
       data = length 9, hash F59F6079
   sample 0:
