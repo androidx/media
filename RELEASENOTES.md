@@ -201,6 +201,9 @@
     *   Bump IMA dependency to 3.37.0 which requires enabling core library
         desugaring. This must also be enabled by dependent apps too. See IMA's
         [config notes](https://developers.google.com/interactive-media-ads/docs/sdks/android/client-side/get-started#2.-add-the-ima-sdk-to-your-project).
+    *   Fix issue where content preparation error for content after an ad would
+        be wrongly reported as an ad playback error
+        ([#2656](https://github.com/androidx/media/issues/2656)).
 *   Session:
     *   Add new parameter to `MediaSession.Callback.onPlaybackResumption` to
         indicate if the call happens to gather information only or to start
