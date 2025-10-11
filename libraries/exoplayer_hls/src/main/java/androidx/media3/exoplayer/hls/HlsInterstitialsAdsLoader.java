@@ -38,13 +38,13 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.abs;
 import static java.lang.Math.max;
-import static java.lang.Math.min;
 
 import android.content.Context;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Looper;
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.AdPlaybackState.AdGroup;
 import androidx.media3.common.AdPlaybackState.SkipInfo;
@@ -1514,18 +1514,41 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
     }
   }
 
-  private static long getClosestSegmentBoundaryUs(long unixTimeUs, HlsMediaPlaylist mediaPlaylist) {
+  @VisibleForTesting
+  /* package */ static long getClosestSegmentBoundaryUs(
+      long unixTimeUs, HlsMediaPlaylist mediaPlaylist) {
     long positionInPlaylistUs = unixTimeUs - mediaPlaylist.startTimeUs;
     if (positionInPlaylistUs <= 0 || mediaPlaylist.segments.isEmpty()) {
       return mediaPlaylist.startTimeUs;
     } else if (positionInPlaylistUs >= mediaPlaylist.durationUs) {
       return mediaPlaylist.startTimeUs + mediaPlaylist.durationUs;
     }
-    long segmentIndex =
-        min(
-            positionInPlaylistUs / mediaPlaylist.targetDurationUs,
-            mediaPlaylist.segments.size() - 1);
-    HlsMediaPlaylist.Segment segment = mediaPlaylist.segments.get((int) segmentIndex);
+
+    // Binary search to find the segment containing or closest to the position
+    int left = 0;
+    int right = mediaPlaylist.segments.size() - 1;
+    int closestIndex = 0;
+
+    while (left <= right) {
+      int mid = left + (right - left) / 2;
+      HlsMediaPlaylist.Segment midSegment = mediaPlaylist.segments.get(mid);
+      long segmentStart = midSegment.relativeStartTimeUs;
+      long segmentEnd = segmentStart + midSegment.durationUs;
+
+      if (positionInPlaylistUs >= segmentStart && positionInPlaylistUs <= segmentEnd) {
+        // Position is within this segment
+        closestIndex = mid;
+        break;
+      } else if (positionInPlaylistUs < segmentStart) {
+        closestIndex = mid;
+        right = mid - 1;
+      } else {
+        closestIndex = mid;
+        left = mid + 1;
+      }
+    }
+
+    HlsMediaPlaylist.Segment segment = mediaPlaylist.segments.get(closestIndex);
     return positionInPlaylistUs - segment.relativeStartTimeUs
             < abs(positionInPlaylistUs - (segment.relativeStartTimeUs + segment.durationUs))
         ? mediaPlaylist.startTimeUs + segment.relativeStartTimeUs

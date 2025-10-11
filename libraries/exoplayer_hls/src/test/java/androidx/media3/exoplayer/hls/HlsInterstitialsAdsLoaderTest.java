@@ -17,6 +17,8 @@ package androidx.media3.exoplayer.hls;
 
 import static androidx.media3.common.Player.DISCONTINUITY_REASON_AUTO_TRANSITION;
 import static androidx.media3.common.Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED;
+import static androidx.media3.common.util.Util.msToUs;
+import static androidx.media3.exoplayer.hls.HlsInterstitialsAdsLoader.getClosestSegmentBoundaryUs;
 import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLooperUntil;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.truth.Truth.assertThat;
@@ -5739,6 +5741,41 @@ public class HlsInterstitialsAdsLoaderTest {
 
     assertThrows(
         IllegalArgumentException.class, () -> new AdsResumptionState("5678", adPlaybackState));
+  }
+
+  @Test
+  public void getClosestSegmentBoundaryUs_vastlyVariedSegmentSize() throws IOException {
+    String interstitialStartDate = "2025-10-07T01:00:14.000Z";
+    long interstitialStartDateUs = msToUs(Util.parseXsDateTime(interstitialStartDate));
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:10\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2025-10-07T01:00:00.000Z\n"
+            + "#EXTINF:2,\n"
+            + "1.aac\n"
+            + "#EXTINF:2,\n"
+            + "2.aac\n"
+            + "#EXTINF:10,\n"
+            + "3.aac\n"
+            + "#EXT-X-DATERANGE:ID=\"1\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\""
+            + interstitialStartDate
+            + "\","
+            + "X-ASSET-LIST=\"http://example.com/assetlist-0-0.json\","
+            + "X-SNAP=\"OUT,IN\"\n"
+            + "#EXTINF:10,\n"
+            + "4.aac";
+
+    InputStream inputStream = new ByteArrayInputStream(Util.getUtf8Bytes(playlistString));
+    HlsMediaPlaylist contentMediaPlaylist =
+        (HlsMediaPlaylist) new HlsPlaylistParser().parse(Uri.EMPTY, inputStream);
+
+    long closestSegmentBoundaryUs =
+        getClosestSegmentBoundaryUs(interstitialStartDateUs, contentMediaPlaylist);
+
+    assertThat(closestSegmentBoundaryUs)
+        .isEqualTo(contentMediaPlaylist.startTimeUs + 2_000_000 + 2_000_000 + 10_000_000);
   }
 
   private List<AdPlaybackState> callHandleContentTimelineChangedForLiveAndCaptureAdPlaybackStates(
