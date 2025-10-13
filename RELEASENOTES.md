@@ -9,6 +9,11 @@
     *   Add `void mute()` and `void unmute()` methods to Player that preserve
         and consequently restore Player's volume before and after setting it to
         zero.
+    *   Publish utility classes `WakeLockManager`, `WifiLockManager`,
+        `AudioFocusManager`, `AudioBecomingNoisyManager` and
+        `StuckPlayerDetector` previously used by `ExoPlayer` internally to allow
+        reuse for other players
+        ([#1893](https://github.com/androidx/media/issues/1893)).
     *   Fix `ForwardingPlayer` listener handling when the underlying delegate
         player uses reference equality for comparing listener instances
         ([#2675](https://github.com/androidx/media/issues/2675)).

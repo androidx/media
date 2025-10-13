@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.exoplayer;
+package androidx.media3.common.util;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.robolectric.Shadows.shadowOf;
@@ -24,8 +24,6 @@ import android.content.Context;
 import android.net.wifi.WifiManager;
 import android.os.Handler;
 import android.os.HandlerThread;
-import androidx.media3.common.util.Clock;
-import androidx.media3.common.util.ConditionVariable;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.time.Duration;

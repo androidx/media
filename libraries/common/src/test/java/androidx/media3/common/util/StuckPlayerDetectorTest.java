@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.exoplayer;
+package androidx.media3.common.util;
 
 import static androidx.media3.common.SimpleBasePlayer.PositionSupplier.getConstant;
 import static org.mockito.ArgumentMatchers.any;
@@ -27,7 +27,6 @@ import android.os.Looper;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.Player;
 import androidx.media3.common.SimpleBasePlayer;
-import androidx.media3.common.util.Clock;
 import androidx.media3.test.utils.FakeClock;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;

@@ -78,6 +78,7 @@ import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.Tracks;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.VideoSize;
+import androidx.media3.common.audio.AudioBecomingNoisyManager;
 import androidx.media3.common.text.Cue;
 import androidx.media3.common.text.CueGroup;
 import androidx.media3.common.util.BackgroundThreadStateHandler;
@@ -88,7 +89,11 @@ import androidx.media3.common.util.ListenerSet;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Size;
+import androidx.media3.common.util.StuckPlayerDetector;
+import androidx.media3.common.util.StuckPlayerException;
 import androidx.media3.common.util.Util;
+import androidx.media3.common.util.WakeLockManager;
+import androidx.media3.common.util.WifiLockManager;
 import androidx.media3.exoplayer.PlayerMessage.Target;
 import androidx.media3.exoplayer.Renderer.MessageType;
 import androidx.media3.exoplayer.analytics.AnalyticsCollector;
@@ -3113,7 +3118,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
           SurfaceHolder.Callback,
           TextureView.SurfaceTextureListener,
           SphericalGLSurfaceView.VideoSurfaceListener,
-          AudioBecomingNoisyManager.EventListener,
+          AudioBecomingNoisyManager.Listener,
           StreamVolumeManager.Listener,
           AudioOffloadListener,
           StuckPlayerDetector.Callback {

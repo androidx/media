@@ -13,12 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.exoplayer;
+package androidx.media3.common.audio;
 
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.exoplayer.AudioFocusManager.PLAYER_COMMAND_DO_NOT_PLAY;
-import static androidx.media3.exoplayer.AudioFocusManager.PLAYER_COMMAND_PLAY_WHEN_READY;
-import static androidx.media3.exoplayer.AudioFocusManager.PLAYER_COMMAND_WAIT_FOR_CALLBACK;
+import static androidx.media3.common.audio.AudioFocusManager.PLAYER_COMMAND_DO_NOT_PLAY;
+import static androidx.media3.common.audio.AudioFocusManager.PLAYER_COMMAND_PLAY_WHEN_READY;
+import static androidx.media3.common.audio.AudioFocusManager.PLAYER_COMMAND_WAIT_FOR_CALLBACK;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 import static org.robolectric.Shadows.shadowOf;
@@ -256,7 +256,7 @@ public class AudioFocusManagerTest {
     Shadows.shadowOf(audioManager)
         .setNextFocusRequestResponse(AudioManager.AUDIOFOCUS_REQUEST_GRANTED);
     audioFocusManager.setAudioAttributes(AudioAttributes.DEFAULT);
-    audioFocusManager.updateAudioFocus(/* playWhenReady= */ true, Player.STATE_READY);
+    int unused = audioFocusManager.updateAudioFocus(/* playWhenReady= */ true, Player.STATE_READY);
 
     @AudioFocusManager.PlayerCommand
     int playerCommand =
@@ -270,7 +270,7 @@ public class AudioFocusManagerTest {
     Shadows.shadowOf(audioManager)
         .setNextFocusRequestResponse(AudioManager.AUDIOFOCUS_REQUEST_GRANTED);
     audioFocusManager.setAudioAttributes(AudioAttributes.DEFAULT);
-    audioFocusManager.updateAudioFocus(/* playWhenReady= */ true, Player.STATE_READY);
+    int unused = audioFocusManager.updateAudioFocus(/* playWhenReady= */ true, Player.STATE_READY);
     audioFocusManager.getFocusListener().onAudioFocusChange(AudioManager.AUDIOFOCUS_LOSS);
     shadowOf(Looper.getMainLooper()).idle();
 
@@ -286,7 +286,7 @@ public class AudioFocusManagerTest {
     Shadows.shadowOf(audioManager)
         .setNextFocusRequestResponse(AudioManager.AUDIOFOCUS_REQUEST_GRANTED);
     audioFocusManager.setAudioAttributes(AudioAttributes.DEFAULT);
-    audioFocusManager.updateAudioFocus(/* playWhenReady= */ true, Player.STATE_READY);
+    int unused = audioFocusManager.updateAudioFocus(/* playWhenReady= */ true, Player.STATE_READY);
     audioFocusManager.getFocusListener().onAudioFocusChange(AudioManager.AUDIOFOCUS_LOSS_TRANSIENT);
     shadowOf(Looper.getMainLooper()).idle();
 
@@ -303,7 +303,7 @@ public class AudioFocusManagerTest {
     Shadows.shadowOf(audioManager)
         .setNextFocusRequestResponse(AudioManager.AUDIOFOCUS_REQUEST_GRANTED);
     audioFocusManager.setAudioAttributes(AudioAttributes.DEFAULT);
-    audioFocusManager.updateAudioFocus(/* playWhenReady= */ true, Player.STATE_READY);
+    int unused = audioFocusManager.updateAudioFocus(/* playWhenReady= */ true, Player.STATE_READY);
     audioFocusManager
         .getFocusListener()
         .onAudioFocusChange(AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK);

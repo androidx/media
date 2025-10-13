@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.exoplayer;
+package androidx.media3.common.audio;
 
 import android.annotation.SuppressLint;
 import android.content.BroadcastReceiver;
@@ -24,8 +24,17 @@ import android.media.AudioManager;
 import android.os.Looper;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.HandlerWrapper;
+import androidx.media3.common.util.UnstableApi;
 
-/* package */ final class AudioBecomingNoisyManager {
+/**
+ * Utility class to detect when audio is becoming noisy.
+ *
+ * <p>The class must be used from a single thread. This can be the main thread as all blocking
+ * operations are internally handled on the background {@link Looper} thread provided in the
+ * constructor.
+ */
+@UnstableApi
+public final class AudioBecomingNoisyManager {
 
   private final Context context;
   private final AudioBecomingNoisyReceiver receiver;
@@ -33,7 +42,9 @@ import androidx.media3.common.util.HandlerWrapper;
 
   private boolean isEnabled;
 
-  public interface EventListener {
+  /** Listener for becoming noisy events. */
+  public interface Listener {
+    /** Called when audio is becoming noisy. */
     void onAudioBecomingNoisy();
   }
 
@@ -41,16 +52,16 @@ import androidx.media3.common.util.HandlerWrapper;
    * Creates the audio becoming noisy manager.
    *
    * @param context A {@link Context}.
-   * @param backgroundLooper The playback background {link Looper}.
+   * @param backgroundLooper A background {link Looper}.
    * @param eventLooper The event listener {@link Looper}.
-   * @param listener The {@link EventListener}
+   * @param listener The {@link Listener}
    * @param clock The {@link Clock} to schedule handler messages.
    */
   public AudioBecomingNoisyManager(
       Context context,
       Looper backgroundLooper,
       Looper eventLooper,
-      EventListener listener,
+      Listener listener,
       Clock clock) {
     this.context = context.getApplicationContext();
     this.backgroundHandler = clock.createHandler(backgroundLooper, /* callback= */ null);
@@ -61,7 +72,7 @@ import androidx.media3.common.util.HandlerWrapper;
 
   /**
    * Enables the {@link AudioBecomingNoisyManager} which calls {@link
-   * EventListener#onAudioBecomingNoisy()} upon receiving an intent of {@link
+   * Listener#onAudioBecomingNoisy()} upon receiving an intent of {@link
    * AudioManager#ACTION_AUDIO_BECOMING_NOISY}.
    *
    * @param enabled True if the listener should be notified when audio is becoming noisy.
@@ -84,10 +95,10 @@ import androidx.media3.common.util.HandlerWrapper;
   }
 
   private final class AudioBecomingNoisyReceiver extends BroadcastReceiver {
-    private final EventListener listener;
+    private final Listener listener;
     private final HandlerWrapper eventHandler;
 
-    public AudioBecomingNoisyReceiver(HandlerWrapper eventHandler, EventListener listener) {
+    private AudioBecomingNoisyReceiver(HandlerWrapper eventHandler, Listener listener) {
       this.eventHandler = eventHandler;
       this.listener = listener;
     }

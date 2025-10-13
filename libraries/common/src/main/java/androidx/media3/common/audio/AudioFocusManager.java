@@ -13,9 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.exoplayer;
+package androidx.media3.common.audio;
 
-import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
 import static androidx.media3.common.audio.AudioManagerCompat.AUDIOFOCUS_GAIN;
 import static androidx.media3.common.audio.AudioManagerCompat.AUDIOFOCUS_GAIN_TRANSIENT;
 import static androidx.media3.common.audio.AudioManagerCompat.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE;
@@ -32,14 +31,12 @@ import android.os.Handler;
 import android.os.Looper;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
-import androidx.annotation.RestrictTo;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.Player;
-import androidx.media3.common.audio.AudioFocusRequestCompat;
-import androidx.media3.common.audio.AudioManagerCompat;
 import androidx.media3.common.util.Log;
+import androidx.media3.common.util.UnstableApi;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import java.lang.annotation.Documented;
@@ -49,8 +46,14 @@ import java.lang.annotation.Target;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
-/** Manages requesting and responding to changes in audio focus. */
-@RestrictTo(LIBRARY_GROUP)
+/**
+ * Manages requesting and responding to changes in audio focus.
+ *
+ * <p>This class should be used on a single background thread to avoid blocking system calls. The
+ * constructor can be called on any thread, but has to specify the {@link Looper} for the background
+ * thread used for accessing the class.
+ */
+@UnstableApi
 public final class AudioFocusManager {
 
   /** Interface to allow AudioFocusManager to give commands to a player. */
@@ -142,6 +145,8 @@ public final class AudioFocusManager {
    *
    * @param context The current context.
    * @param eventLooper A {@link Looper} for the thread on which the audio focus manager is used.
+   *     This should be a background {@link Looper} to avoid calling blocking system calls on the
+   *     main thread.
    * @param playerControl A {@link PlayerControl} to handle commands from this instance.
    */
   public AudioFocusManager(Context context, Looper eventLooper, PlayerControl playerControl) {

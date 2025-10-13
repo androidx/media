@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.exoplayer;
+package androidx.media3.common.util;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
@@ -22,18 +22,20 @@ import android.content.pm.PackageManager;
 import android.os.Looper;
 import android.os.PowerManager;
 import android.os.PowerManager.WakeLock;
-import androidx.media3.common.util.Clock;
-import androidx.media3.common.util.HandlerWrapper;
-import androidx.media3.common.util.Log;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
- * Handles a {@link WakeLock}.
+ * Utility class to handle a {@link WakeLock}.
  *
  * <p>The handling of wake locks requires the {@link android.Manifest.permission#WAKE_LOCK}
  * permission.
+ *
+ * <p>The class must be used from a single thread. This can be the main thread as all blocking
+ * operations are internally handled on the background {@link Looper} thread provided in the
+ * constructor.
  */
-/* package */ final class WakeLockManager {
+@UnstableApi
+public final class WakeLockManager {
 
   private static final String TAG = "WakeLockManager";
   private static final String WAKE_LOCK_TAG = "ExoPlayer:WakeLockManager";
@@ -50,7 +52,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * Creates the wake lock manager.
    *
    * @param context A {@link Context}
-   * @param wakeLockLooper The {@link Looper} to call wake lock system calls on.
+   * @param wakeLockLooper A background {@link Looper} to call wake lock system calls on.
    * @param clock The {@link Clock} to schedule handler messages.
    */
   public WakeLockManager(Context context, Looper wakeLockLooper, Clock clock) {

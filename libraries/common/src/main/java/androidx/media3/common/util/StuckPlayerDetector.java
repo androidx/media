@@ -13,22 +13,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.exoplayer;
+package androidx.media3.common.util;
 
 import static java.lang.Math.max;
 
-import android.os.Handler;
 import android.os.Message;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
-import androidx.media3.common.util.Clock;
-import androidx.media3.common.util.HandlerWrapper;
 import java.util.Objects;
 
-/** Detection logic for stuck playbacks. */
-/* package */ final class StuckPlayerDetector implements Player.Listener, Handler.Callback {
+/**
+ * A utility class to detect whether a {@link Player} is stuck.
+ *
+ * <p>The class must be used on the thread associated with the {@link
+ * Player#getApplicationLooper()}.
+ */
+@UnstableApi
+public final class StuckPlayerDetector {
 
   /** Callback notified when the player appears stuck. */
   public interface Callback {
@@ -47,6 +50,7 @@ import java.util.Objects;
   private static final int MSG_STUCK_SUPPRESSED_TIMEOUT = 4;
 
   private final Player player;
+  private final Player.Listener playerListener;
   private final Callback callback;
   private final Clock clock;
   private final Timeline.Period period;
@@ -73,6 +77,8 @@ import java.util.Objects;
    * @param stuckSuppressedTimeoutMs The timeout after which the player is assumed stuck in a
    *     suppression state, in milliseconds.
    */
+  // Using instance methods as listeners in the constructor
+  @SuppressWarnings({"methodref.receiver.bound.invalid", "method.invocation.invalid"})
   public StuckPlayerDetector(
       Player player,
       Callback callback,
@@ -85,31 +91,37 @@ import java.util.Objects;
     this.callback = callback;
     this.clock = clock;
     this.period = new Timeline.Period();
-    this.handler = clock.createHandler(player.getApplicationLooper(), /* callback= */ this);
+    this.handler =
+        clock.createHandler(player.getApplicationLooper(), /* callback= */ this::handleMessage);
     this.stuckBufferingDetector = new StuckBufferingDetector(stuckBufferingTimeoutMs);
     this.stuckPlayingDetector = new StuckPlayingDetector(stuckPlayingTimeoutMs);
     this.stuckPlayingNotEndingDetector =
         new StuckPlayingNotEndingDetector(stuckPlayingNotEndingTimeoutMs);
     this.stuckSuppressedDetector = new StuckSuppressedDetector(stuckSuppressedTimeoutMs);
-    player.addListener(this);
+    this.playerListener =
+        new Player.Listener() {
+          @Override
+          public void onEvents(Player player, Player.Events events) {
+            onPlayerEvents();
+          }
+        };
+    player.addListener(playerListener);
   }
 
   /** Releases the stuck player detector. */
   public void release() {
     handler.removeCallbacksAndMessages(/* token= */ null);
-    player.removeListener(this);
+    player.removeListener(playerListener);
   }
 
-  @Override
-  public void onEvents(Player player, Player.Events events) {
+  private void onPlayerEvents() {
     stuckBufferingDetector.update();
     stuckPlayingDetector.update();
     stuckPlayingNotEndingDetector.update();
     stuckSuppressedDetector.update();
   }
 
-  @Override
-  public boolean handleMessage(Message message) {
+  private boolean handleMessage(Message message) {
     switch (message.what) {
       case MSG_STUCK_BUFFERING_TIMEOUT:
         stuckBufferingDetector.update();

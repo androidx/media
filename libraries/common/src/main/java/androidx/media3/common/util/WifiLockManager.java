@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.exoplayer;
+package androidx.media3.common.util;
 
 import android.Manifest;
 import android.content.Context;
@@ -21,18 +21,20 @@ import android.content.pm.PackageManager;
 import android.net.wifi.WifiManager;
 import android.net.wifi.WifiManager.WifiLock;
 import android.os.Looper;
-import androidx.media3.common.util.Clock;
-import androidx.media3.common.util.HandlerWrapper;
-import androidx.media3.common.util.Log;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
- * Handles a {@link WifiLock}
+ * Utility class to handle a {@link WifiLock}
  *
  * <p>The handling of wifi locks requires the {@link android.Manifest.permission#WAKE_LOCK}
  * permission.
+ *
+ * <p>The class must be used from a single thread. This can be the main thread as all blocking
+ * operations are internally handled on the background {@link Looper} thread provided in the
+ * constructor.
  */
-/* package */ final class WifiLockManager {
+@UnstableApi
+public final class WifiLockManager {
 
   private static final String TAG = "WifiLockManager";
   private static final String WIFI_LOCK_TAG = "ExoPlayer:WifiLockManager";
@@ -49,7 +51,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * Creates the wifi lock manager.
    *
    * @param context A {@link Context}
-   * @param wifiLockLooper The {@link Looper} to call wifi lock system calls on.
+   * @param wifiLockLooper A background {@link Looper} to call wifi lock system calls on.
    * @param clock The {@link Clock} to schedule handler messages.
    */
   public WifiLockManager(Context context, Looper wifiLockLooper, Clock clock) {
