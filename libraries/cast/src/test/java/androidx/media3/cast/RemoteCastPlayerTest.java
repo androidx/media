@@ -76,6 +76,7 @@ import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.Player;
 import androidx.media3.common.Player.Listener;
 import androidx.media3.common.Timeline;
+import androidx.media3.common.Tracks;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.android.gms.cast.Cast;
 import com.google.android.gms.cast.MediaInfo;
@@ -83,6 +84,7 @@ import com.google.android.gms.cast.MediaLoadRequestData;
 import com.google.android.gms.cast.MediaQueueData;
 import com.google.android.gms.cast.MediaQueueItem;
 import com.google.android.gms.cast.MediaStatus;
+import com.google.android.gms.cast.MediaTrack;
 import com.google.android.gms.cast.framework.CastContext;
 import com.google.android.gms.cast.framework.CastSession;
 import com.google.android.gms.cast.framework.SessionManager;
@@ -479,6 +481,47 @@ public class RemoteCastPlayerTest {
     remoteMediaClientCallback.onStatusUpdated();
     verify(mockListener).onVolumeChanged(0.75f);
     assertThat(remoteCastPlayer.getVolume()).isEqualTo(0.75f);
+  }
+
+  @Test
+  public void onStatusUpdated_withMediaTracks_updatesPlayerTracks() {
+    MediaTrack audioTrack = new MediaTrack.Builder(1, MediaTrack.TYPE_AUDIO).build();
+    MediaTrack videoTrack = new MediaTrack.Builder(2, MediaTrack.TYPE_VIDEO).build();
+    MediaTrack textTrack = new MediaTrack.Builder(3, MediaTrack.TYPE_TEXT).build();
+    List<MediaTrack> mediaTracks = Arrays.asList(audioTrack, videoTrack, textTrack);
+    MediaInfo mediaInfo = new MediaInfo.Builder("contentId").setMediaTracks(mediaTracks).build();
+    when(mockMediaStatus.getMediaInfo()).thenReturn(mediaInfo);
+    when(mockMediaStatus.getActiveTrackIds()).thenReturn(new long[] {1, 2});
+
+    remoteMediaClientCallback.onStatusUpdated();
+
+    Tracks tracks = remoteCastPlayer.getCurrentTracks();
+    assertThat(tracks.getGroups()).hasSize(3);
+    assertThat(tracks.getGroups().get(0).getType()).isEqualTo(C.TRACK_TYPE_AUDIO);
+    assertThat(tracks.getGroups().get(0).isSelected()).isTrue();
+    assertThat(tracks.getGroups().get(1).getType()).isEqualTo(C.TRACK_TYPE_VIDEO);
+    assertThat(tracks.getGroups().get(1).isSelected()).isTrue();
+    assertThat(tracks.getGroups().get(2).getType()).isEqualTo(C.TRACK_TYPE_TEXT);
+    assertThat(tracks.getGroups().get(2).isSelected()).isFalse();
+  }
+
+  @Test
+  public void onStatusUpdated_withGenericMimeType_usesCastTrackTypeToGenerateTrackGroup() {
+    MediaTrack textTrack =
+        new MediaTrack.Builder(1, MediaTrack.TYPE_TEXT)
+            .setContentType(MimeTypes.APPLICATION_MP4)
+            .build();
+    List<MediaTrack> mediaTracks = Collections.singletonList(textTrack);
+    MediaInfo mediaInfo = new MediaInfo.Builder("contentId").setMediaTracks(mediaTracks).build();
+    when(mockMediaStatus.getMediaInfo()).thenReturn(mediaInfo);
+    when(mockMediaStatus.getActiveTrackIds()).thenReturn(new long[] {1});
+
+    remoteMediaClientCallback.onStatusUpdated();
+
+    Tracks tracks = remoteCastPlayer.getCurrentTracks();
+    assertThat(tracks.getGroups()).hasSize(1);
+    assertThat(tracks.getGroups().get(0).getType()).isEqualTo(C.TRACK_TYPE_TEXT);
+    assertThat(tracks.getGroups().get(0).isSelected()).isTrue();
   }
 
   @Test
