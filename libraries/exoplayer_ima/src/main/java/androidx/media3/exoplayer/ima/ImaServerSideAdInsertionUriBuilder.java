@@ -89,7 +89,7 @@ public final class ImaServerSideAdInsertionUriBuilder {
    * @return This instance, for convenience.
    */
   @CanIgnoreReturnValue
-  public ImaServerSideAdInsertionUriBuilder setAdsId(String adsId) {
+  public ImaServerSideAdInsertionUriBuilder setAdsId(@Nullable String adsId) {
     this.adsId = adsId;
     return this;
   }
