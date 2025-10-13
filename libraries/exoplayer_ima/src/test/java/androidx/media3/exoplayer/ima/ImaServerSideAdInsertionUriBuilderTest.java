@@ -20,6 +20,8 @@ import static com.google.common.truth.Truth.assertThat;
 import android.net.Uri;
 import androidx.media3.common.C;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.ads.interactivemedia.v3.api.CustomUiOptions;
+import com.google.ads.interactivemedia.v3.api.ImaSdkFactory;
 import com.google.ads.interactivemedia.v3.api.StreamRequest;
 import com.google.ads.interactivemedia.v3.api.StreamRequest.StreamFormat;
 import java.util.HashMap;
@@ -65,6 +67,10 @@ public final class ImaServerSideAdInsertionUriBuilderTest {
     builder.setFormat(C.CONTENT_TYPE_HLS);
     builder.setAdTagParameters(adTagParameters);
     builder.setLoadVideoTimeoutMs(ADS_LOADER_TIMEOUT_MS);
+    CustomUiOptions customUiOptions = ImaSdkFactory.createCustomUiOptions();
+    customUiOptions.setSkippableSupport(true);
+    customUiOptions.setAboutThisAdSupport(true);
+    builder.setCustomUiOptions(customUiOptions);
     Uri uri = builder.build();
 
     StreamRequest streamRequest = ImaServerSideAdInsertionUriBuilder.createStreamRequest(uri);
@@ -77,6 +83,8 @@ public final class ImaServerSideAdInsertionUriBuilderTest {
     assertThat(streamRequest.getStreamActivityMonitorId()).isEqualTo(STREAM_ACTIVITY_MONITOR_ID);
     assertThat(streamRequest.getFormat()).isEqualTo(StreamFormat.HLS);
     assertThat(streamRequest.getAdTagParameters()).isEqualTo(adTagParameters);
+    assertThat(streamRequest.getCustomUiOptions().getSkippableSupport()).isTrue();
+    assertThat(streamRequest.getCustomUiOptions().getAboutThisAdSupport()).isTrue();
 
     boolean isLive = ImaServerSideAdInsertionUriBuilder.isLiveStream(uri);
     assertThat(isLive).isTrue();
@@ -103,6 +111,10 @@ public final class ImaServerSideAdInsertionUriBuilderTest {
     builder.setFormat(C.CONTENT_TYPE_DASH);
     builder.setAdTagParameters(adTagParameters);
     builder.setLoadVideoTimeoutMs(ADS_LOADER_TIMEOUT_MS);
+    CustomUiOptions customUiOptions = ImaSdkFactory.createCustomUiOptions();
+    customUiOptions.setSkippableSupport(true);
+    customUiOptions.setAboutThisAdSupport(true);
+    builder.setCustomUiOptions(customUiOptions);
     Uri uri = builder.build();
 
     StreamRequest streamRequest = ImaServerSideAdInsertionUriBuilder.createStreamRequest(uri);
@@ -116,6 +128,8 @@ public final class ImaServerSideAdInsertionUriBuilderTest {
     assertThat(streamRequest.getStreamActivityMonitorId()).isEqualTo(STREAM_ACTIVITY_MONITOR_ID);
     assertThat(streamRequest.getFormat()).isEqualTo(StreamFormat.DASH);
     assertThat(streamRequest.getAdTagParameters()).isEqualTo(adTagParameters);
+    assertThat(streamRequest.getCustomUiOptions().getSkippableSupport()).isTrue();
+    assertThat(streamRequest.getCustomUiOptions().getAboutThisAdSupport()).isTrue();
 
     boolean isLive = ImaServerSideAdInsertionUriBuilder.isLiveStream(uri);
     assertThat(isLive).isFalse();

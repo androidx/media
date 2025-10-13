@@ -31,7 +31,7 @@ android {
 
 dependencies {
     coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:" + desugarJdkLibsVersion
-    api ('com.google.ads.interactivemedia.v3:interactivemedia:3.37.0') {
+    api ('com.google.ads.interactivemedia.v3:interactivemedia:3.38.0') {
         exclude group: 'androidx.media3', module: 'media3-common'
     }
     api project(modulePrefix + 'lib-exoplayer')

@@ -209,6 +209,13 @@
     *   Bump IMA dependency to 3.37.0 which requires enabling core library
         desugaring. This must also be enabled by dependent apps too. See IMA's
         [config notes](https://developers.google.com/interactive-media-ads/docs/sdks/android/client-side/get-started#2.-add-the-ima-sdk-to-your-project).
+    *   Support IMA DAI custom UI options in SSAI URI builder. Custom UI options
+        for server side ad insertion include “Skippable” and “About This Ad”
+        rendering support. The feature is currently available for selected
+        publishers behind an allow list. This change also upgrades the IMA SDK
+        version to 3.38.0
+        ([release notes](https://developers.google.com/interactive-media-ads/docs/sdks/android/client-side/history))
+        to access the custom UI options API.
 *   Session:
     *   Add new parameter to `MediaSession.Callback.onPlaybackResumption` to
         indicate if the call happens to gather information only or to start
