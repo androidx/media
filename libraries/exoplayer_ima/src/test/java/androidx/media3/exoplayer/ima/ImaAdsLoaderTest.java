@@ -1481,6 +1481,41 @@ public final class ImaAdsLoaderTest {
     verify(mockAdsRequest).setContinuousPlayback(true);
   }
 
+  @Test
+  public void contentErrorDuringAdPlayback_doesNotMarkAdAsFailed() throws IOException {
+    // Load and play a preroll ad.
+    imaAdsLoader.start(
+        adsMediaSource, TEST_DATA_SPEC, TEST_ADS_ID, adViewProvider, adsLoaderListener);
+    adEventListener.onAdEvent(getAdEvent(AdEventType.LOADED, mockPrerollSingleAd));
+    videoAdPlayer.loadAd(TEST_AD_MEDIA_INFO, mockAdPodInfo);
+    adEventListener.onAdEvent(getAdEvent(AdEventType.CONTENT_PAUSE_REQUESTED, mockPrerollSingleAd));
+    videoAdPlayer.playAd(TEST_AD_MEDIA_INFO);
+    fakePlayer.setPlayingAdPosition(
+        /* periodIndex= */ 0,
+        /* adGroupIndex= */ 0,
+        /* adIndexInAdGroup= */ 0,
+        /* positionMs= */ 0,
+        /* contentPositionMs= */ 0);
+    fakePlayer.setState(Player.STATE_READY, /* playWhenReady= */ true);
+    adEventListener.onAdEvent(getAdEvent(AdEventType.STARTED, mockPrerollSingleAd));
+
+    // Simulate a content preparation error while the ad is playing.
+    // The player is not playing an ad from its perspective, so isPlayingAd() is false.
+    fakePlayer.setPlayingContentPosition(/* periodIndex= */ 0, /* positionMs= */ 0);
+    ExoPlaybackException error =
+        ExoPlaybackException.createForSource(
+            new IOException("Content preparation error"),
+            PlaybackException.ERROR_CODE_IO_UNSPECIFIED);
+    fakePlayer.setPlayerError(error);
+    shadowOf(Looper.getMainLooper()).runToEndOfTasks();
+
+    // Verify that the ad is not marked as failed.
+    AdPlaybackState adPlaybackState = getAdPlaybackState(0);
+    assertThat(adPlaybackState.getAdGroup(0).states[0])
+        .isNotEqualTo(AdPlaybackState.AD_STATE_ERROR);
+    verify(mockVideoAdPlayerCallback, never()).onError(any());
+  }
+
   private void setupMocks() {
     ArgumentCaptor<Object> userRequestContextCaptor = ArgumentCaptor.forClass(Object.class);
     doNothing().when(mockAdsRequest).setUserRequestContext(userRequestContextCaptor.capture());
