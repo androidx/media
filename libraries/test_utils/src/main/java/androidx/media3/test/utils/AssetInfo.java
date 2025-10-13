@@ -354,7 +354,16 @@ public final class AssetInfo {
           .build();
 
   public static final AssetInfo MOV_WITH_PCM_AUDIO =
-      new AssetInfo.Builder("asset:///media/mp4/sowt-with-video.mov").build();
+      new AssetInfo.Builder("asset:///media/mp4/sowt-with-video.mov")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(1920)
+                  .setHeight(1080)
+                  .setFrameRate(50f)
+                  .setCodecs("avc1.64002A")
+                  .build())
+          .build();
 
   public static final AssetInfo BT601_MOV_ASSET =
       new AssetInfo.Builder("asset:///media/mp4/bt601.mov")

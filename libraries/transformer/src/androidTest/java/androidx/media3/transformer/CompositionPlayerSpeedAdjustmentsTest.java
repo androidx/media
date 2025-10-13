@@ -18,6 +18,7 @@ package androidx.media3.transformer;
 import static androidx.media3.test.utils.AssetInfo.MOV_WITH_PCM_AUDIO;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET;
 import static androidx.media3.test.utils.AssetInfo.WAV_ASSET;
+import static androidx.media3.test.utils.FormatSupportAssumptions.assumeFormatsSupported;
 import static androidx.media3.test.utils.TestUtil.createByteCountingAudioProcessor;
 import static com.google.common.truth.Truth.assertThat;
 
@@ -42,6 +43,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
 /** Instrumentation tests for {@link CompositionPlayer} with Speed Adjustments. */
@@ -49,6 +51,8 @@ import org.junit.runner.RunWith;
 public class CompositionPlayerSpeedAdjustmentsTest {
   // Emulators take considerably longer to run each test.
   private static final long TEST_TIMEOUT_MS = 30_000;
+
+  @Rule public final TestName testName = new TestName();
 
   @Rule
   public ActivityScenarioRule<SurfaceTestActivity> rule =
@@ -60,16 +64,20 @@ public class CompositionPlayerSpeedAdjustmentsTest {
   private CompositionPlayer compositionPlayer;
   private PlayerTestListener playerListener;
   private SurfaceView surfaceView;
+  private String testId;
 
   @Before
   public void setup() {
+    testId = testName.getMethodName();
     playerListener = new PlayerTestListener(TEST_TIMEOUT_MS);
     rule.getScenario().onActivity(activity -> surfaceView = activity.getSurfaceView());
   }
 
   @After
   public void closeActivity() {
-    instrumentation.runOnMainSync(compositionPlayer::release);
+    if (compositionPlayer != null) {
+      instrumentation.runOnMainSync(compositionPlayer::release);
+    }
     rule.getScenario().close();
   }
 
@@ -98,6 +106,9 @@ public class CompositionPlayerSpeedAdjustmentsTest {
 
   @Test
   public void setSpeed_withAudioAndVideo_modifiesOutputCorrectly() throws Exception {
+    assumeFormatsSupported(
+        applicationContext, testId, MOV_WITH_PCM_AUDIO.videoFormat, /* outputFormat= */ null);
+
     AtomicInteger bytes = new AtomicInteger();
     AudioProcessor processor = createByteCountingAudioProcessor(bytes);
     SpeedProvider provider =
