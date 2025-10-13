@@ -49,6 +49,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -475,6 +476,24 @@ public final class MediaCodecInfo {
         // picture dimensions match but the cropped region for display differs.
         // See b/409036359.
         discardReasons |= DISCARD_REASON_WORKAROUND;
+      }
+
+      if (discardReasons == 0
+          && Objects.equals(newFormat.sampleMimeType, MimeTypes.VIDEO_DOLBY_VISION)) {
+        @Nullable
+        Pair<Integer, Integer> oldCodecProfileLevel =
+            CodecSpecificDataUtil.getCodecProfileAndLevel(oldFormat);
+        @Nullable
+        Pair<Integer, Integer> newCodecProfileLevel =
+            CodecSpecificDataUtil.getCodecProfileAndLevel(newFormat);
+        if (oldCodecProfileLevel == null
+            || newCodecProfileLevel == null
+            || !oldCodecProfileLevel.first.equals(newCodecProfileLevel.first)) {
+          // DolbyVision profiles convey specific base encodings and decoders may not be able
+          // to be reused across profiles.
+          // See b/446011738.
+          discardReasons |= DISCARD_REASON_WORKAROUND;
+        }
       }
 
       if (discardReasons == 0) {
