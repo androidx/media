@@ -40,7 +40,6 @@ import androidx.media3.common.OnInputFrameProcessedListener;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ConstantRateTimestampIterator;
 import androidx.media3.common.util.HandlerWrapper;
-import androidx.media3.common.util.Log;
 import androidx.media3.common.util.TimestampIterator;
 import androidx.media3.common.util.Util;
 import androidx.media3.decoder.DecoderInputBuffer;
@@ -421,18 +420,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               .setRemoveVideo(
                   editedMediaItem.removeVideo || !sequenceTrackTypes.contains(C.TRACK_TYPE_VIDEO))
               .build());
-      Log.e(
-          "shahd",
-          "old removeAudio = "
-              + editedMediaItem.removeAudio
-              + ", new removeAudio = "
-              + (editedMediaItem.removeAudio || !sequenceTrackTypes.contains(C.TRACK_TYPE_AUDIO)));
-      Log.e(
-          "shahd",
-          "old removeVideo = "
-              + editedMediaItem.removeVideo
-              + ", new removeVideo = "
-              + (editedMediaItem.removeVideo || !sequenceTrackTypes.contains(C.TRACK_TYPE_VIDEO)));
     }
     return updatedEditedMediaItemsBuilder.build();
   }
