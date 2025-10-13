@@ -25,6 +25,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.Util;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -36,6 +37,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 /** Utility methods used in transmux-transcode exports. */
 /* package */ final class TransmuxTranscodeHelper {
@@ -144,7 +146,8 @@ import java.util.List;
                     .build())
             .setRemoveAudio(true)
             .build();
-    EditedMediaItemSequence sequence = new EditedMediaItemSequence.Builder(editedMediaItem).build();
+    EditedMediaItemSequence sequence =
+        EditedMediaItemSequence.withVideoFrom(ImmutableList.of(editedMediaItem));
     return new Composition.Builder(sequence).build();
   }
 
@@ -157,21 +160,21 @@ import java.util.List;
    */
   public static Composition createAudioTranscodeAndVideoTransmuxComposition(
       Composition composition, String videoFilePath) {
-    Composition audioOnlyComposition =
+    Composition compositionWithAudioOnlySequences =
         TransmuxTranscodeHelper.buildUponComposition(
             checkNotNull(composition),
-            /* removeAudio= */ false,
-            /* removeVideo= */ true,
+            /* sequenceTrackTypes= */ ImmutableSet.of(C.TRACK_TYPE_AUDIO),
             /* resumeMetadata= */ null);
 
-    Composition.Builder compositionBuilder = audioOnlyComposition.buildUpon();
-    List<EditedMediaItemSequence> sequences = new ArrayList<>(audioOnlyComposition.sequences);
+    Composition.Builder compositionBuilder = compositionWithAudioOnlySequences.buildUpon();
+    List<EditedMediaItemSequence> sequences =
+        new ArrayList<>(compositionWithAudioOnlySequences.sequences);
 
     // Video stream sequence.
     EditedMediaItem videoOnlyEditedMediaItem =
         new EditedMediaItem.Builder(new MediaItem.Builder().setUri(videoFilePath).build()).build();
     EditedMediaItemSequence videoOnlySequence =
-        new EditedMediaItemSequence.Builder(videoOnlyEditedMediaItem).build();
+        EditedMediaItemSequence.withVideoFrom(ImmutableList.of(videoOnlyEditedMediaItem));
 
     sequences.add(videoOnlySequence);
     compositionBuilder.setSequences(sequences);
@@ -187,8 +190,7 @@ import java.util.List;
    */
   public static Composition buildUponComposition(
       Composition composition,
-      boolean removeAudio,
-      boolean removeVideo,
+      Set<@C.TrackType Integer> sequenceTrackTypes,
       @Nullable ResumeMetadata resumeMetadata) {
     Composition.Builder compositionBuilder = composition.buildUpon();
     ImmutableList<EditedMediaItemSequence> editedMediaItemSequenceList = composition.sequences;
@@ -238,18 +240,12 @@ import java.util.List;
                   .build());
         }
 
-        if (removeAudio) {
-          newEditedMediaItemBuilder.setRemoveAudio(true);
-        }
-        if (removeVideo) {
-          newEditedMediaItemBuilder.setRemoveVideo(true);
-        }
-
         newEditedMediaItemList.add(newEditedMediaItemBuilder.build());
       }
 
       newEditedMediaItemSequenceList.add(
-          new EditedMediaItemSequence.Builder(newEditedMediaItemList)
+          new EditedMediaItemSequence.Builder(sequenceTrackTypes)
+              .addItems(newEditedMediaItemList)
               .setIsLooping(currentEditedMediaItemSequence.isLooping)
               .build());
     }

@@ -105,6 +105,7 @@ import androidx.media3.exoplayer.source.ClippingMediaSource;
 import androidx.media3.exoplayer.source.ConcatenatingMediaSource2;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.exoplayer.source.ExternallyLoadedMediaSource;
+import androidx.media3.exoplayer.source.FilteringMediaSource;
 import androidx.media3.exoplayer.source.ForwardingTimeline;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.MergingMediaSource;
@@ -123,6 +124,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
@@ -1328,7 +1330,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
 
     // Starts from zero - internal player will discard current progress, re-preparing it by
     // setting new media sources.
-    boolean shouldGenerateBlankFrames = sequence.forceVideoTrack;
+    boolean shouldGenerateBlankFrames = sequence.trackTypes.contains(C.TRACK_TYPE_VIDEO);
     if (sequenceIndex == 0) {
       player.setMediaSource(
           createPrimarySequenceMediaSource(sequence, mediaSourceFactory, shouldGenerateBlankFrames),
@@ -1408,7 +1410,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
 
       MediaSource blankFramesAndSilenceGeneratedMediaSource =
           createMediaSourceWithBlankFramesAndSilence(
-              mediaSourceFactory, editedMediaItem, shouldGenerateBlankFrames);
+              mediaSourceFactory, editedMediaItem, sequence.trackTypes, shouldGenerateBlankFrames);
 
       MediaSource itemMediaSource;
       if (editedMediaItem.speedProvider != SpeedProvider.DEFAULT) {
@@ -1439,6 +1441,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
   private static MediaSource createMediaSourceWithBlankFramesAndSilence(
       MediaSource.Factory mediaSourceFactory,
       EditedMediaItem editedMediaItem,
+      Set<@C.TrackType Integer> sequenceTrackTypes,
       boolean shouldGenerateBlankFrames) {
     MediaSource silenceMediaSource =
         new ClippingMediaSource.Builder(new SilenceMediaSource(editedMediaItem.durationUs))
@@ -1470,7 +1473,15 @@ public final class CompositionPlayer extends SimpleBasePlayer {
       }
     } else {
       // The MediaSource that loads the MediaItem
+      // TODO: b/445884217 - Remove TRACK_TYPE_NONE logic.
       MediaSource mainMediaSource = mediaSourceFactory.createMediaSource(editedMediaItem.mediaItem);
+      // Filter the media source to only include the track types specified in the sequence. This
+      // logic is skipped if trackTypes contains TRACK_TYPE_NONE, which indicates that a
+      // deprecated EditedMediaItemSequence.Builder is being used, for which we do not want to
+      // filter any tracks.
+      if (!sequenceTrackTypes.contains(C.TRACK_TYPE_NONE)) {
+        mainMediaSource = new FilteringMediaSource(mainMediaSource, sequenceTrackTypes);
+      }
       if (shouldGenerateBlankFrames) {
         return new MergingMediaSource(silenceMediaSource, blankFramesMediaSource, mainMediaSource);
       } else {
@@ -1499,7 +1510,10 @@ public final class CompositionPlayer extends SimpleBasePlayer {
       if (accumulatedDurationUs + itemPresentationDurationUs <= primarySequenceDurationUs) {
         mediaSourceBuilder.add(
             createMediaSourceWithBlankFramesAndSilence(
-                mediaSourceFactory, editedMediaItem, shouldGenerateBlankFrames),
+                mediaSourceFactory,
+                editedMediaItem,
+                sequence.trackTypes,
+                shouldGenerateBlankFrames),
             /* initialPlaceholderDurationMs= */ usToMs(itemPresentationDurationUs));
         accumulatedDurationUs += itemPresentationDurationUs;
       } else {
@@ -1509,6 +1523,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
             createMediaSourceWithBlankFramesAndSilence(
                 mediaSourceFactory,
                 clipToDuration(editedMediaItem, remainingDurationUs),
+                sequence.trackTypes,
                 shouldGenerateBlankFrames));
         break;
       }

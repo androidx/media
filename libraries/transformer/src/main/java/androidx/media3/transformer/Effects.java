@@ -16,6 +16,7 @@
 package androidx.media3.transformer;
 
 import android.util.Pair;
+import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.audio.AudioProcessor;
@@ -66,15 +67,15 @@ public final class Effects {
 
   /**
    * Creates an interlinked {@linkplain AudioProcessor audio processor} and {@linkplain Effect video
-   * effect} that changes the speed to media samples in segments of the input file specified by the
+   * effect} that changes the speed of media samples in segments of the input file specified by the
    * given {@link SpeedProvider}.
    *
    * <p>The {@linkplain AudioProcessor audio processor} and {@linkplain Effect video effect} are
    * interlinked to help maintain A/V sync. When using Transformer, if the input file doesn't have
-   * audio, or audio is being removed, you may have to {@linkplain
-   * EditedMediaItemSequence.Builder#experimentalSetForceAudioTrack force an audio track} for the
-   * interlinked effects to function correctly. Alternatively, you can use {@link SpeedChangeEffect}
-   * when input has no audio.
+   * audio, or audio is being removed, you may have to include {@link C#TRACK_TYPE_AUDIO} in the
+   * {@code trackTypes} of the {@link EditedMediaItemSequence} for the interlinked effects to
+   * function correctly. Alternatively, you can use {@link SpeedChangeEffect} when the input has no
+   * audio.
    *
    * @param speedProvider The {@link SpeedProvider} determining the speed for the media at specific
    *     timestamps.

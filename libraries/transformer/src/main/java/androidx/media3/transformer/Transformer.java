@@ -67,6 +67,7 @@ import androidx.media3.effect.TimestampAdjustment;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.muxer.Muxer;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -1000,12 +1001,10 @@ public final class Transformer {
    * following conditions:
    *
    * <ul>
-   *   <li>If an {@link EditedMediaItem} in a sequence contains data of a given {@linkplain
-   *       C.TrackType track}, so must all items in that sequence.
-   *       <ul>
-   *         <li>For audio, this condition can be removed by setting {@link
-   *             EditedMediaItemSequence.Builder#experimentalSetForceAudioTrack(boolean)} flag.
-   *       </ul>
+   *   <li>The tracks present in the output of a sequence are determined by the {@code trackTypes}
+   *       parameter of the {@link EditedMediaItemSequence.Builder}. Tracks of types not present in
+   *       {@code trackTypes} will be dropped. If an {@link EditedMediaItem} within a sequence does
+   *       not contain a track of a declared type, silent audio or blank video will be generated.
    *   <li>If a sequence starts with an HDR {@link EditedMediaItem}, all the following items in the
    *       sequence must be HDR.
    *   <li>All {@linkplain EditedMediaItem items} containing audio data must output 16 bit PCM audio
@@ -1083,6 +1082,7 @@ public final class Transformer {
    * @throws IllegalStateException If an export is already in progress.
    */
   public void start(EditedMediaItem editedMediaItem, String path) {
+    // TODO: b/430250222 - Migrate to new Builder method.
     start(
         new Composition.Builder(new EditedMediaItemSequence.Builder(editedMediaItem).build())
             .build(),
@@ -1479,8 +1479,7 @@ public final class Transformer {
     Composition videoOnlyComposition =
         TransmuxTranscodeHelper.buildUponComposition(
             checkNotNull(composition),
-            /* removeAudio= */ true,
-            /* removeVideo= */ false,
+            /* sequenceTrackTypes= */ ImmutableSet.of(C.TRACK_TYPE_VIDEO),
             resumeMetadata);
 
     checkNotNull(remuxingMuxerWrapper);

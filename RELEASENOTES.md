@@ -98,6 +98,8 @@
         `Effects#createExperimentalSpeedChangingEffects()`.
     *   Add support for speed changing in secondary sequences in
         `CompositionPlayer`.
+    *   Replace `forceAudioTrack` and `forceVideoTrack` with `trackTypes` in
+        `EditedMediaItemSequence`.
 *   Track Selection:
     *   Add `TrackSelectionParameters.selectTextByDefault` to prefer the
         selection of any text track without specifying other more specific

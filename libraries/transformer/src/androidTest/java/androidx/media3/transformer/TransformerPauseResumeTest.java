@@ -580,7 +580,8 @@ public class TransformerPauseResumeTest {
       editedMediaItemList.add(editedMediaItem);
     }
 
-    return new Composition.Builder(new EditedMediaItemSequence.Builder(editedMediaItemList).build())
+    return new Composition.Builder(
+            EditedMediaItemSequence.withAudioAndVideoFrom(editedMediaItemList))
         .build();
   }
 
