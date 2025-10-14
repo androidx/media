@@ -104,6 +104,9 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.AdPlaybackState;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
+import androidx.media3.common.CodecParameter;
+import androidx.media3.common.CodecParameters;
+import androidx.media3.common.CodecParametersChangeListener;
 import androidx.media3.common.DeviceInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
@@ -15989,6 +15992,69 @@ public final class ExoPlayerTest {
     player.release();
 
     assertThat(stateAfterClearingPlaylist).isEqualTo(Player.STATE_ENDED);
+  }
+
+  @Test
+  public void setCodecParameter_whenReady_notifiesListener() throws Exception {
+    RenderersFactory renderersFactory =
+        new DefaultRenderersFactory(context) {
+          @Override
+          protected void buildAudioRenderers(
+              Context context,
+              @ExtensionRendererMode int extensionRendererMode,
+              MediaCodecSelector mediaCodecSelector,
+              boolean enableDecoderFallback,
+              AudioSink audioSink,
+              Handler eventHandler,
+              AudioRendererEventListener eventListener,
+              ArrayList<Renderer> out) {
+            out.add(
+                new FakeRenderer(C.TRACK_TYPE_AUDIO) {
+                  @Nullable private CodecParametersChangeListener listener;
+
+                  @Override
+                  public void handleMessage(@MessageType int messageType, @Nullable Object message)
+                      throws ExoPlaybackException {
+                    if (messageType == Renderer.MSG_SET_CODEC_PARAMETER) {
+                      if (listener != null) {
+                        CodecParameters params = new CodecParameters();
+                        if (message instanceof CodecParameter) {
+                          params.set((CodecParameter) message);
+                        }
+                        eventHandler.post(() -> listener.onCodecParametersChanged(params));
+                      }
+                    } else if (messageType == Renderer.MSG_SET_CODEC_PARAMETERS_CHANGED_LISTENER) {
+                      this.listener = (CodecParametersChangeListener) message;
+                    }
+                    super.handleMessage(messageType, message);
+                  }
+                });
+          }
+        };
+    ExoPlayer player =
+        new TestExoPlayerBuilder(context).setRenderersFactory(renderersFactory).build();
+    player.setMediaSource(new FakeMediaSource());
+    player.prepare();
+    advance(player).untilState(Player.STATE_READY);
+    CodecParametersChangeListener mockListener = mock(CodecParametersChangeListener.class);
+    player.setCodecParametersChangeListener(mockListener);
+    CodecParameter testParameter = new CodecParameter("test-key", 123, CodecParameter.TYPE_INT);
+
+    player.setCodecParameter(testParameter);
+    advance(player).untilPendingCommandsAreFullyHandled();
+    shadowOf(Looper.getMainLooper()).idle();
+
+    ArgumentCaptor<CodecParameters> paramsCaptor = ArgumentCaptor.forClass(CodecParameters.class);
+    verify(mockListener).onCodecParametersChanged(paramsCaptor.capture());
+    assertThat(paramsCaptor.getValue().get("test-key")).isSameInstanceAs(testParameter);
+
+    player.setCodecParameter(null);
+    advance(player).untilPendingCommandsAreFullyHandled();
+
+    verify(mockListener, times(2)).onCodecParametersChanged(paramsCaptor.capture());
+    assertThat(paramsCaptor.getValue().get()).isEmpty();
+
+    player.release();
   }
 
   // Internal methods.
