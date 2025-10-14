@@ -162,7 +162,8 @@ public class CompositionPlayerSpeedAdjustmentsTest {
           compositionPlayer = new CompositionPlayer.Builder(applicationContext).build();
           compositionPlayer.addListener(playerListener);
           compositionPlayer.setComposition(
-              new Composition.Builder(new EditedMediaItemSequence.Builder(item).build()).build());
+              new Composition.Builder(EditedMediaItemSequence.withAudioFrom(ImmutableList.of(item)))
+                  .build());
           compositionPlayer.prepare();
           compositionPlayer.play();
         });
@@ -190,9 +191,9 @@ public class CompositionPlayerSpeedAdjustmentsTest {
     EditedMediaItem secondaryItem = primaryItem.buildUpon().setSpeed(provider).build();
 
     EditedMediaItemSequence primarySequence =
-        new EditedMediaItemSequence.Builder(primaryItem).build();
+        EditedMediaItemSequence.withAudioFrom(ImmutableList.of(primaryItem));
     EditedMediaItemSequence secondarySequence =
-        new EditedMediaItemSequence.Builder(secondaryItem).build();
+        EditedMediaItemSequence.withAudioFrom(ImmutableList.of(secondaryItem));
 
     instrumentation.runOnMainSync(
         () -> {
@@ -255,8 +256,8 @@ public class CompositionPlayerSpeedAdjustmentsTest {
           compositionPlayer.addListener(playerListener);
           compositionPlayer.setComposition(
               new Composition.Builder(
-                      new EditedMediaItemSequence.Builder(timestampRecordingEditedMediaItems)
-                          .build())
+                      EditedMediaItemSequence.withAudioAndVideoFrom(
+                          timestampRecordingEditedMediaItems))
                   .build());
           compositionPlayer.prepare();
           compositionPlayer.play();
