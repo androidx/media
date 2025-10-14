@@ -25,12 +25,14 @@ import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
 import android.util.Log;
+import androidx.media3.common.C;
 import androidx.media3.effect.Presentation;
 import androidx.media3.transformer.ParameterizedAndroidTestUtil.SdrImageItemConfig;
 import androidx.media3.transformer.ParameterizedAndroidTestUtil.SequenceConfig;
 import androidx.media3.transformer.ParameterizedAndroidTestUtil.VideoItemConfig;
 import androidx.test.core.app.ApplicationProvider;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import java.io.File;
 import org.junit.Rule;
 import org.junit.Test;
@@ -70,32 +72,67 @@ public final class ParameterizedInputSequenceExportTest {
   @Parameters
   public static ImmutableList<SequenceConfig> params() {
     return ImmutableList.of(
-        new SequenceConfig(PNG_ITEM, PNG_ITEM),
-        new SequenceConfig(PNG_ITEM, JPG_ITEM),
-        new SequenceConfig(PNG_ITEM, BT601_ITEM),
-        new SequenceConfig(PNG_ITEM, BT709_ITEM),
-        new SequenceConfig(JPG_ITEM, PNG_ITEM),
-        new SequenceConfig(JPG_ITEM, JPG_ITEM),
-        new SequenceConfig(JPG_ITEM, BT601_ITEM),
-        new SequenceConfig(JPG_ITEM, BT709_ITEM),
-        new SequenceConfig(BT601_ITEM, PNG_ITEM),
-        new SequenceConfig(BT601_ITEM, JPG_ITEM),
-        new SequenceConfig(BT601_ITEM, BT601_ITEM),
-        new SequenceConfig(BT601_ITEM, BT709_ITEM),
-        new SequenceConfig(BT709_ITEM, PNG_ITEM),
-        new SequenceConfig(BT709_ITEM, JPG_ITEM),
-        new SequenceConfig(BT709_ITEM, BT601_ITEM),
-        new SequenceConfig(BT709_ITEM, BT709_ITEM),
+        new SequenceConfig(ImmutableSet.of(C.TRACK_TYPE_VIDEO), PNG_ITEM, PNG_ITEM),
+        new SequenceConfig(ImmutableSet.of(C.TRACK_TYPE_VIDEO), PNG_ITEM, JPG_ITEM),
+        new SequenceConfig(ImmutableSet.of(C.TRACK_TYPE_VIDEO), PNG_ITEM, BT601_ITEM),
+        new SequenceConfig(ImmutableSet.of(C.TRACK_TYPE_VIDEO), PNG_ITEM, BT709_ITEM),
+        new SequenceConfig(ImmutableSet.of(C.TRACK_TYPE_VIDEO), JPG_ITEM, PNG_ITEM),
+        new SequenceConfig(ImmutableSet.of(C.TRACK_TYPE_VIDEO), JPG_ITEM, JPG_ITEM),
+        new SequenceConfig(ImmutableSet.of(C.TRACK_TYPE_VIDEO), JPG_ITEM, BT601_ITEM),
+        new SequenceConfig(ImmutableSet.of(C.TRACK_TYPE_VIDEO), JPG_ITEM, BT709_ITEM),
+        new SequenceConfig(ImmutableSet.of(C.TRACK_TYPE_VIDEO), BT601_ITEM, PNG_ITEM),
+        new SequenceConfig(ImmutableSet.of(C.TRACK_TYPE_VIDEO), BT601_ITEM, JPG_ITEM),
+        new SequenceConfig(ImmutableSet.of(C.TRACK_TYPE_VIDEO), BT601_ITEM, BT601_ITEM),
+        new SequenceConfig(ImmutableSet.of(C.TRACK_TYPE_VIDEO), BT601_ITEM, BT709_ITEM),
+        new SequenceConfig(ImmutableSet.of(C.TRACK_TYPE_VIDEO), BT709_ITEM, PNG_ITEM),
+        new SequenceConfig(ImmutableSet.of(C.TRACK_TYPE_VIDEO), BT709_ITEM, JPG_ITEM),
+        new SequenceConfig(ImmutableSet.of(C.TRACK_TYPE_VIDEO), BT709_ITEM, BT601_ITEM),
+        new SequenceConfig(ImmutableSet.of(C.TRACK_TYPE_VIDEO), BT709_ITEM, BT709_ITEM),
         new SequenceConfig(
-            BT709_ITEM, BT709_ITEM, PNG_ITEM, JPG_ITEM, BT709_ITEM, PNG_ITEM, BT709_ITEM),
+            ImmutableSet.of(C.TRACK_TYPE_VIDEO),
+            BT709_ITEM,
+            BT709_ITEM,
+            PNG_ITEM,
+            JPG_ITEM,
+            BT709_ITEM,
+            PNG_ITEM,
+            BT709_ITEM),
         new SequenceConfig(
-            PNG_ITEM, BT709_ITEM, BT709_ITEM, PNG_ITEM, PNG_ITEM, BT709_ITEM, PNG_ITEM),
+            ImmutableSet.of(C.TRACK_TYPE_VIDEO),
+            PNG_ITEM,
+            BT709_ITEM,
+            BT709_ITEM,
+            PNG_ITEM,
+            PNG_ITEM,
+            BT709_ITEM,
+            PNG_ITEM),
         new SequenceConfig(
-            PNG_ITEM, BT709_ITEM, BT601_ITEM, PNG_ITEM, PNG_ITEM, BT601_ITEM, PNG_ITEM),
+            ImmutableSet.of(C.TRACK_TYPE_VIDEO),
+            PNG_ITEM,
+            BT709_ITEM,
+            BT601_ITEM,
+            PNG_ITEM,
+            PNG_ITEM,
+            BT601_ITEM,
+            PNG_ITEM),
         new SequenceConfig(
-            PNG_ITEM, JPG_ITEM, BT709_ITEM, BT601_ITEM, BT709_ITEM, PNG_ITEM, BT601_ITEM),
+            ImmutableSet.of(C.TRACK_TYPE_VIDEO),
+            PNG_ITEM,
+            JPG_ITEM,
+            BT709_ITEM,
+            BT601_ITEM,
+            BT709_ITEM,
+            PNG_ITEM,
+            BT601_ITEM),
         new SequenceConfig(
-            BT601_ITEM, BT709_ITEM, PNG_ITEM, JPG_ITEM, BT709_ITEM, PNG_ITEM, BT601_ITEM));
+            ImmutableSet.of(C.TRACK_TYPE_VIDEO),
+            BT601_ITEM,
+            BT709_ITEM,
+            PNG_ITEM,
+            JPG_ITEM,
+            BT709_ITEM,
+            PNG_ITEM,
+            BT601_ITEM));
   }
 
   @Rule public final TestName testName = new TestName();
