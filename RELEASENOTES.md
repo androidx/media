@@ -193,6 +193,7 @@
     *   Add key request info like URL and latency to
         `AnalyticsListener.onDrmKeysLoaded`
         ([#1001](https://github.com/androidx/media/issues/1001)).
+    *   Move provisioning request data from a URL parameter to the POST body.
 *   Effect:
 *   Muxers:
     *   Add `MediaMuxerCompat`, a drop-in replacement for framework
