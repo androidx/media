@@ -18,6 +18,7 @@ package androidx.media3.transformer;
 import static android.media.MediaCodecInfo.CodecProfileLevel.AVCLevel4;
 import static android.media.MediaCodecInfo.CodecProfileLevel.AVCProfileHigh;
 import static androidx.media3.exoplayer.mediacodec.MediaCodecUtil.createCodecProfileLevel;
+import static androidx.media3.transformer.EditedMediaItemSequence.withAudioFrom;
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -52,9 +53,9 @@ import org.robolectric.shadows.ShadowMediaCodecList;
 public final class VideoEncoderWrapperTest {
   private static final Composition FAKE_COMPOSITION =
       new Composition.Builder(
-              new EditedMediaItemSequence.Builder(
-                      new EditedMediaItem.Builder(MediaItem.fromUri(Uri.EMPTY)).build())
-                  .build())
+              withAudioFrom(
+                  ImmutableList.of(
+                      new EditedMediaItem.Builder(MediaItem.fromUri(Uri.EMPTY)).build())))
           .build();
 
   private final TransformationRequest emptyTransformationRequest =

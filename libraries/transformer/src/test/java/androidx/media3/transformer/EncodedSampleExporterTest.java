@@ -15,6 +15,7 @@
  */
 package androidx.media3.transformer;
 
+import static androidx.media3.transformer.EditedMediaItemSequence.withAudioFrom;
 import static androidx.media3.transformer.EncodedSampleExporter.ALLOCATION_SIZE_TARGET_BYTES;
 import static androidx.media3.transformer.EncodedSampleExporter.MAX_INPUT_BUFFER_COUNT;
 import static androidx.media3.transformer.EncodedSampleExporter.MIN_INPUT_BUFFER_COUNT;
@@ -32,6 +33,7 @@ import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.ListenerSet;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.ImmutableList;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -52,9 +54,8 @@ public final class EncodedSampleExporterTest {
     FallbackListener fallbackListener =
         new FallbackListener(
             new Composition.Builder(
-                    new EditedMediaItemSequence.Builder(
-                            new EditedMediaItem.Builder(MediaItem.EMPTY).build())
-                        .build())
+                    withAudioFrom(
+                        ImmutableList.of(new EditedMediaItem.Builder(MediaItem.EMPTY).build())))
                 .build(),
             new ListenerSet<>(looper, Clock.DEFAULT, mockIterationFinishedEvent),
             mockHandlerWrapper,
