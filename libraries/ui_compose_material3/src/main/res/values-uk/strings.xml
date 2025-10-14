@@ -1,24 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-  <string name="playpause_button_play">Play</string>
-  <string name="playpause_button_pause">Pause</string>
-  <string name="next_button">Next</string>
-  <string name="previous_button">Previous</string>
-  <string name="seek_back_button">Rewind</string>
+  <string name="playpause_button_play">Відтворити</string>
+  <string name="playpause_button_pause">Призупинити</string>
+  <string name="next_button">Далі</string>
+  <string name="previous_button">Назад</string>
+  <string name="seek_back_button">Перемотати назад</string>
   <plurals name="seek_back_by_amount_button">
-    <item quantity="one">Skip back %d second</item>
-    <item quantity="other">Skip back %d seconds</item>
+    <item quantity="one">Перейти на %d секунду назад</item>
+    <item quantity="few">Перейти на %d секунди назад</item>
+    <item quantity="many">Перейти на %d секунд назад</item>
+    <item quantity="other">Перейти на %d секунди назад</item>
   </plurals>
-  <string name="seek_forward_button">Skip forward</string>
+  <string name="seek_forward_button">Перейти вперед</string>
   <plurals name="seek_forward_by_amount_button">
-    <item quantity="one">Skip forward %d second</item>
-    <item quantity="other">Skip forward %d seconds</item>
+    <item quantity="one">Перейти на %d секунду вперед</item>
+    <item quantity="few">Перейти на %d секунди вперед</item>
+    <item quantity="many">Перейти на %d секунд уперед</item>
+    <item quantity="other">Перейти на %d секунди вперед</item>
   </plurals>
-  <string name="repeat_button_repeat_off">Current mode: Repeat none. Toggle repeat mode.</string>
-  <string name="repeat_button_repeat_one">Current mode: Repeat one. Toggle repeat mode.</string>
-  <string name="repeat_button_repeat_all">Current mode: Repeat all. Toggle repeat mode.</string>
-  <string name="shuffle_button_shuffle_on">Shuffle mode enabled.</string>
-  <string name="shuffle_button_shuffle_off">Shuffle mode disabled.</string>
-  <string name="mute_button_shown_unmuted">Mute</string>
-  <string name="mute_button_shown_muted">Unmute</string>
+  <string name="repeat_button_repeat_off">Поточний режим: не повторювати. Перемкнути режим повторення.</string>
+  <string name="repeat_button_repeat_one">Поточний режим: повторювати один медіафайл. Перемкнути режим повторення.</string>
+  <string name="repeat_button_repeat_all">Поточний режим: повторювати все. Перемкнути режим повторення.</string>
+  <string name="shuffle_button_shuffle_on">Режим перемішування ввімкнено.</string>
+  <string name="shuffle_button_shuffle_off">Режим перемішування вимкнено.</string>
+  <string name="mute_button_shown_unmuted">Вимкнути звук</string>
+  <string name="mute_button_shown_muted">Увімкнути звук</string>
 </resources>
