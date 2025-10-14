@@ -281,6 +281,12 @@
     *   Add `ContentFrame` Composable to `media3-ui-compose` which combines
         `PlayerSurface` management with aspect ratio resizing and covering with
         a shutter.
+    *   Work around a known API 34 platform bug causing stretched/cropped videos
+        when using `SurfaceView` inside a Compose `AndroidView` and hence
+        affecting `ContentFrame` and `PlayerSurface` Composables with
+        `SURFACE_TYPE_SURFACE_VIEW`
+        ([#1237](https://github.com/androidx/media/issues/1237),
+        [#2811](https://github.com/androidx/media/issues/2811)).
     *   Create a new `media3-ui-compose-material3` module and add
         Material3-themed Composables (PlayPauseButton, NextButton,
         PreviousButton, SeekBackButton, SeekForwardButton, RepeatButton,
