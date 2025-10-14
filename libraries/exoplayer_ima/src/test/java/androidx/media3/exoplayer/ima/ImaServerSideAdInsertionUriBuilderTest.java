@@ -24,8 +24,7 @@ import com.google.ads.interactivemedia.v3.api.CustomUiOptions;
 import com.google.ads.interactivemedia.v3.api.ImaSdkFactory;
 import com.google.ads.interactivemedia.v3.api.StreamRequest;
 import com.google.ads.interactivemedia.v3.api.StreamRequest.StreamFormat;
-import java.util.HashMap;
-import java.util.Map;
+import com.google.common.collect.ImmutableMap;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -46,12 +45,8 @@ public final class ImaServerSideAdInsertionUriBuilderTest {
   private static final String AUTH_TOKEN = "testAuthToken";
   private static final String STREAM_ACTIVITY_MONITOR_ID = "testStreamActivityMonitorId";
   private static final int ADS_LOADER_TIMEOUT_MS = 2;
-  private static final Map<String, String> adTagParameters = new HashMap<>();
-
-  static {
-    adTagParameters.put("param1", "value1");
-    adTagParameters.put("param2", "value2");
-  }
+  private static final ImmutableMap<String, String> AD_TAG_PARAMETERS =
+      ImmutableMap.of("param1", "value1", "param2", "value2");
 
   @Test
   public void build_live_correctUriParsing() {
@@ -65,7 +60,7 @@ public final class ImaServerSideAdInsertionUriBuilderTest {
     builder.setAuthToken(AUTH_TOKEN);
     builder.setStreamActivityMonitorId(STREAM_ACTIVITY_MONITOR_ID);
     builder.setFormat(C.CONTENT_TYPE_HLS);
-    builder.setAdTagParameters(adTagParameters);
+    builder.setAdTagParameters(AD_TAG_PARAMETERS);
     builder.setLoadVideoTimeoutMs(ADS_LOADER_TIMEOUT_MS);
     CustomUiOptions customUiOptions = ImaSdkFactory.createCustomUiOptions();
     customUiOptions.setSkippableSupport(true);
@@ -82,7 +77,7 @@ public final class ImaServerSideAdInsertionUriBuilderTest {
     assertThat(streamRequest.getAuthToken()).isEqualTo(AUTH_TOKEN);
     assertThat(streamRequest.getStreamActivityMonitorId()).isEqualTo(STREAM_ACTIVITY_MONITOR_ID);
     assertThat(streamRequest.getFormat()).isEqualTo(StreamFormat.HLS);
-    assertThat(streamRequest.getAdTagParameters()).isEqualTo(adTagParameters);
+    assertThat(streamRequest.getAdTagParameters()).isEqualTo(AD_TAG_PARAMETERS);
     assertThat(streamRequest.getCustomUiOptions().getSkippableSupport()).isTrue();
     assertThat(streamRequest.getCustomUiOptions().getAboutThisAdSupport()).isTrue();
 
@@ -109,7 +104,7 @@ public final class ImaServerSideAdInsertionUriBuilderTest {
     builder.setAuthToken(AUTH_TOKEN);
     builder.setStreamActivityMonitorId(STREAM_ACTIVITY_MONITOR_ID);
     builder.setFormat(C.CONTENT_TYPE_DASH);
-    builder.setAdTagParameters(adTagParameters);
+    builder.setAdTagParameters(AD_TAG_PARAMETERS);
     builder.setLoadVideoTimeoutMs(ADS_LOADER_TIMEOUT_MS);
     CustomUiOptions customUiOptions = ImaSdkFactory.createCustomUiOptions();
     customUiOptions.setSkippableSupport(true);
@@ -127,7 +122,7 @@ public final class ImaServerSideAdInsertionUriBuilderTest {
     assertThat(streamRequest.getAuthToken()).isEqualTo(AUTH_TOKEN);
     assertThat(streamRequest.getStreamActivityMonitorId()).isEqualTo(STREAM_ACTIVITY_MONITOR_ID);
     assertThat(streamRequest.getFormat()).isEqualTo(StreamFormat.DASH);
-    assertThat(streamRequest.getAdTagParameters()).isEqualTo(adTagParameters);
+    assertThat(streamRequest.getAdTagParameters()).isEqualTo(AD_TAG_PARAMETERS);
     assertThat(streamRequest.getCustomUiOptions().getSkippableSupport()).isTrue();
     assertThat(streamRequest.getCustomUiOptions().getAboutThisAdSupport()).isTrue();
 
