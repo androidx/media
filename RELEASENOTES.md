@@ -147,6 +147,11 @@
         the whole file).
     *   Add support for extracting HEIC Motion Photos. The `HeifExtractor` can
         now parse HEIC files containing embedded video and audio tracks.
+    *   MP3: Change `FLAG_ENABLE_INDEX_SEEKING` to prefer seeking information
+        from metadata headers (like Xing and VBRI) when available, falling back
+        to index-based seeking if no other seeking information is present. This
+        improves performance for files with seeking metadata
+        ([#2839](https://github.com/androidx/media/issues/2839)).
 *   Inspector:
     *   Introduced a new `:media3-inspector` module to serve as the dedicated
         home for media inspection utilities. This module now houses a new
