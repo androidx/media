@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">Afspelen</string>
+  <string name="playpause_button_pause">Pauzeren</string>
+  <string name="next_button">Volgende</string>
+  <string name="previous_button">Vorige</string>
+  <string name="seek_back_button">Terugspoelen</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">%d seconde terugspringen</item>
+    <item quantity="other">%d seconden terugspringen</item>
+  </plurals>
+  <string name="seek_forward_button">Vooruitspoelen</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">%d seconde vooruitspringen</item>
+    <item quantity="other">%d seconden vooruitspringen</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">Huidige modus: Niets herhalen. Herhaalmodus wijzigen.</string>
+  <string name="repeat_button_repeat_one">Huidige modus: 1 herhalen. Herhaalmodus wijzigen.</string>
+  <string name="repeat_button_repeat_all">Huidige modus: Alles herhalen. Herhaalmodus wijzigen.</string>
+  <string name="shuffle_button_shuffle_on">Shufflemodus aangezet.</string>
+  <string name="shuffle_button_shuffle_off">Shufflemodus uitgezet.</string>
+  <string name="mute_button_shown_unmuted">Geluid uitzetten</string>
+  <string name="mute_button_shown_muted">Geluid aanzetten</string>
+</resources>

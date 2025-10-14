@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">Redă</string>
+  <string name="playpause_button_pause">Întrerupe</string>
+  <string name="next_button">Înainte</string>
+  <string name="previous_button">Înapoi</string>
+  <string name="seek_back_button">Derulează înapoi</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">Derulează înapoi cu %d secundă</item>
+    <item quantity="few">Derulează înapoi cu %d secunde</item>
+    <item quantity="other">Derulează înapoi cu %d de secunde</item>
+  </plurals>
+  <string name="seek_forward_button">Înainte</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">Derulează înainte cu %d secundă</item>
+    <item quantity="few">Derulează înainte cu %d secunde</item>
+    <item quantity="other">Derulează înainte cu %d de secunde</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">Mod actual: nu se repetă. Comută modul repetare.</string>
+  <string name="repeat_button_repeat_one">Mod actual: se repetă unul. Comută modul repetare.</string>
+  <string name="repeat_button_repeat_all">Mod curent: se repetă tot. Comută modul repetare.</string>
+  <string name="shuffle_button_shuffle_on">Modul de redare aleatorie este activat.</string>
+  <string name="shuffle_button_shuffle_off">Modul de redare aleatorie este dezactivat.</string>
+  <string name="mute_button_shown_unmuted">Dezactivează sunetul</string>
+  <string name="mute_button_shown_muted">Activează sunetul</string>
+</resources>

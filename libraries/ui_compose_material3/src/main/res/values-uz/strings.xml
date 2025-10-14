@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">Ijro</string>
+  <string name="playpause_button_pause">Pauza</string>
+  <string name="next_button">Keyingisi</string>
+  <string name="previous_button">Avvalgisi</string>
+  <string name="seek_back_button">Orqaga surish</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">%d soniya orqaga</item>
+    <item quantity="other">%d soniya orqaga</item>
+  </plurals>
+  <string name="seek_forward_button">Oldinga surish</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">%d soniya oldinga</item>
+    <item quantity="other">%d soniya oldinga</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">Joriy rejim: Hech qaysi takrorlanmaydi. Takrorlash rejimiga oʻting.</string>
+  <string name="repeat_button_repeat_one">Joriy rejim: Bittasi takrorlanadi. Takrorlash rejimiga oʻting.</string>
+  <string name="repeat_button_repeat_all">Joriy rejim: Barchasi takrorlanadi. Takrorlash rejimiga oʻting.</string>
+  <string name="shuffle_button_shuffle_on">Aralash rejim yoqildi.</string>
+  <string name="shuffle_button_shuffle_off">Aralash rejim oʻchirildi.</string>
+  <string name="mute_button_shown_unmuted">Ovozsiz</string>
+  <string name="mute_button_shown_muted">Ovozni yoqish</string>
+</resources>

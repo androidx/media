@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">አጫውት</string>
+  <string name="playpause_button_pause">ባለበት አቁም</string>
+  <string name="next_button">ቀጣይ</string>
+  <string name="previous_button">ቀዳሚ</string>
+  <string name="seek_back_button">ወደኋላ መልስ</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">%d ሰከንድ ወደኋላ ዝለል</item>
+    <item quantity="other">%d ሰከንዶች ወደኋላ ዝለል</item>
+  </plurals>
+  <string name="seek_forward_button">ወደ ፊት ዝለል</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">%d ሰከንድ ወደፊት ዝለል</item>
+    <item quantity="other">%d ሰከንዶች ወደፊት ዝለል</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">የአሁኑ ሁነታ፦ ምንም አትድገም። የመድገም ሁነታን ቀያይር።</string>
+  <string name="repeat_button_repeat_one">የአሁን ሁነታ፦ አንዱን ድገም። የመድገም ሁነታን ቀያይር።</string>
+  <string name="repeat_button_repeat_all">የአሁን ሁነታ፦ ሁሉም ድገም። የመድገም ሁነታን ቀያይር።</string>
+  <string name="shuffle_button_shuffle_on">በውዝ ሁነታ ነቅቷል።</string>
+  <string name="shuffle_button_shuffle_off">በውዝ ሁነታ ተሰናክሏል።</string>
+  <string name="mute_button_shown_unmuted">ድምፀ-ከል አድርግ</string>
+  <string name="mute_button_shown_muted">ድምፀ-ከል አንሳ</string>
+</resources>

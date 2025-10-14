@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">Dlala</string>
+  <string name="playpause_button_pause">Misa okwesikhashana</string>
+  <string name="next_button">Okulandelayo</string>
+  <string name="previous_button">Okwangaphambili</string>
+  <string name="seek_back_button">Buyisela emuva</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">Yeqela emuva ngemizuzwana engu-%d</item>
+    <item quantity="other">Yeqela emuva ngemizuzwana engu-%d</item>
+  </plurals>
+  <string name="seek_forward_button">Yeqela phambili</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">Yeqela phambili ngemizuzwana engu-%d</item>
+    <item quantity="other">Yeqela phambili ngemizuzwana engu-%d</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">Imodi yamanje: Ungaphindi lutho. Guqula imodi yokuphinda.</string>
+  <string name="repeat_button_repeat_one">Imodi yamanje: Phinda kanye. Guqula imodi yokuphinda.</string>
+  <string name="repeat_button_repeat_all">Imodi yamanje: Phinda konke. Guqula imodi yokuphinda.</string>
+  <string name="shuffle_button_shuffle_on">Imodi yokushova ivuliwe.</string>
+  <string name="shuffle_button_shuffle_off">Imodi yokushova ivaliwe.</string>
+  <string name="mute_button_shown_unmuted">Thulisa</string>
+  <string name="mute_button_shown_muted">Susa ukuthula</string>
+</resources>
