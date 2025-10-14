@@ -15,12 +15,41 @@
 #
 
 LOCAL_PATH := $(call my-dir)
-include $(CLEAR_VARS)
 CONFIG_DIR := $(LOCAL_PATH)/libvpx_android_configs/$(TARGET_ARCH_ABI)
 libvpx_source_dir := $(LOCAL_PATH)/libvpx
 
+# generate source file list
+libvpx_codec_srcs := $(sort $(shell cat $(CONFIG_DIR)/libvpx_srcs.txt))
+
+ifeq ($(TARGET_ARCH_ABI),arm64-v8a)
+  # Filter dotprod and i8mm C files into separate variables.
+  libvpx_dotprod_c_srcs := $(filter %_neon_dotprod.c,$(libvpx_codec_srcs))
+  libvpx_i8mm_c_srcs := $(filter %_neon_i8mm.c,$(libvpx_codec_srcs))
+  libvpx_other_srcs := $(filter-out %_neon_dotprod.c %_neon_i8mm.c,$(libvpx_codec_srcs))
+else
+  libvpx_other_srcs := $(libvpx_codec_srcs)
+endif
+
+ifeq ($(TARGET_ARCH_ABI),arm64-v8a)
+include $(CLEAR_VARS)
+LOCAL_MODULE := libvpx_dotprod
+LOCAL_SRC_FILES := $(addprefix libvpx/, $(libvpx_dotprod_c_srcs))
+LOCAL_CFLAGS := -DHAVE_CONFIG_H=vpx_config.h -O3
+LOCAL_C_INCLUDES := $(CONFIG_DIR) $(libvpx_source_dir)
+LOCAL_CFLAGS += -march=armv8.2-a+dotprod
+include $(BUILD_STATIC_LIBRARY)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := libvpx_i8mm
+LOCAL_SRC_FILES := $(addprefix libvpx/, $(libvpx_i8mm_c_srcs))
+LOCAL_CFLAGS := -DHAVE_CONFIG_H=vpx_config.h -O3
+LOCAL_C_INCLUDES := $(CONFIG_DIR) $(libvpx_source_dir)
+LOCAL_CFLAGS += -march=armv8.2-a+dotprod+i8mm
+include $(BUILD_STATIC_LIBRARY)
+endif
+
+include $(CLEAR_VARS)
 LOCAL_MODULE := libvpx
-LOCAL_MODULE_CLASS := STATIC_LIBRARIES
 LOCAL_CFLAGS := -DHAVE_CONFIG_H=vpx_config.h
 LOCAL_ARM_MODE := arm
 LOCAL_CFLAGS += -O3
@@ -28,16 +57,17 @@ LOCAL_CFLAGS += -O3
 # config specific include should go first to pick up the config specific rtcd.
 LOCAL_C_INCLUDES := $(CONFIG_DIR) $(libvpx_source_dir)
 
-# generate source file list
-libvpx_codec_srcs := $(sort $(shell cat $(CONFIG_DIR)/libvpx_srcs.txt))
 LOCAL_SRC_FILES := libvpx_android_configs/$(TARGET_ARCH_ABI)/vpx_config.c
 LOCAL_SRC_FILES += $(addprefix libvpx/, $(filter-out vpx_config.c, \
-                     $(filter %.c, $(libvpx_codec_srcs))))
-
+                     $(filter %.c, $(libvpx_other_srcs))))
 # include assembly files if they exist
 # "%.asm.[sS]" covers neon assembly and "%.asm" covers x86 assembly
 LOCAL_SRC_FILES += $(addprefix libvpx/, \
-                     $(filter %.asm.s %.asm.S %.asm, $(libvpx_codec_srcs)))
+                     $(filter %.asm.s %.asm.S %.asm, $(libvpx_other_srcs)))
+
+ifeq ($(TARGET_ARCH_ABI),arm64-v8a)
+  LOCAL_WHOLE_STATIC_LIBRARIES := libvpx_dotprod libvpx_i8mm
+endif
 
 ifneq ($(findstring armeabi-v7a, $(TARGET_ARCH_ABI)),)
 # append .neon to *_neon.c and *.[sS]
