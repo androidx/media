@@ -272,6 +272,9 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
 
   private void clearOutputSurfaceInternal(ConditionVariable surfaceCleared) {
     try {
+      if (videoPacketReleaseControl != null) {
+        videoPacketReleaseControl.setOutputSurface(null);
+      }
       playbackVideoGraphWrapper.clearOutputSurfaceInfo();
       surfaceCleared.open();
     } catch (RuntimeException e) {

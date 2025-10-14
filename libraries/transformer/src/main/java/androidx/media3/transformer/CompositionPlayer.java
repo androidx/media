@@ -50,6 +50,7 @@ import android.view.SurfaceView;
 import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
 import androidx.annotation.RestrictTo;
+import androidx.annotation.RestrictTo.Scope;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
@@ -448,11 +449,11 @@ public final class CompositionPlayer extends SimpleBasePlayer {
      * @throws IllegalStateException if a {@link VideoGraph.Factory} is {@linkplain
      *     #setVideoGraphFactory set}.
      */
-    // TODO: This is a placeholder, update it with the finalised FrameConsumer interface and make
-    //  public.
+    // TODO: b/449957503 - This is a placeholder, update it with the finalised FrameConsumer
+    //  interface and make public.
+    @RestrictTo(Scope.LIBRARY)
     @CanIgnoreReturnValue
-    /* package */ Builder experimentalSetFrameConsumer(
-        Consumer<List<GlTextureFrame>> frameConsumer) {
+    public Builder experimentalSetFrameConsumer(Consumer<List<GlTextureFrame>> frameConsumer) {
       checkState(videoGraphFactory == null);
       this.frameConsumer = frameConsumer;
       return this;
@@ -613,7 +614,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
           builder.glExecutorService != null
               ? builder.glExecutorService
               : Util.newSingleThreadExecutor("CompositionPlayer:GlThread");
-      shouldShutdownExecutorService = builder.glExecutorService != null;
+      shouldShutdownExecutorService = builder.glExecutorService == null;
       frameConsumer = builder.frameConsumer;
       VideoFrameReleaseControl videoFrameReleaseControl =
           new VideoFrameReleaseControl(

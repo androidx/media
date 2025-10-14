@@ -19,9 +19,13 @@ import android.Manifest
 import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.graphics.Color
 import android.os.Build.VERSION.SDK_INT
 import android.os.Bundle
 import android.os.LocaleList
+import android.view.SurfaceView
+import android.view.View.INVISIBLE
+import android.view.View.VISIBLE
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -84,6 +88,7 @@ import androidx.compose.material3.adaptive.navigation.rememberSupportingPaneScaf
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -261,6 +266,24 @@ class CompositionPreviewActivity : AppCompatActivity() {
             playerView.player = viewModel.compositionPlayer
             playerView.setTimeBarScrubbingEnabled(!isOverlayPlacementActive)
             playerView.setUseController(!isOverlayPlacementActive)
+            // TODO: b/449957627 - Remove once internal pipeline is migrated to FrameConsumer.
+            if (viewModel.frameConsumerEnabled) {
+              playerView.setShutterBackgroundColor(Color.TRANSPARENT)
+              viewModel.outputRenderer.setOutputSurface(
+                (playerView.videoSurfaceView as SurfaceView).holder.surface
+              )
+              // Workaround to ensure the Surface is recreated when switching from CPU to GPU
+              // rendering.
+              if (SDK_INT >= 34) {
+                (playerView.videoSurfaceView as SurfaceView).setSurfaceLifecycle(
+                  SurfaceView.SURFACE_LIFECYCLE_FOLLOWS_VISIBILITY
+                )
+              }
+            } else {
+              playerView.setShutterBackgroundColor(Color.BLACK)
+            }
+            playerView.videoSurfaceView?.visibility = INVISIBLE
+            playerView.videoSurfaceView?.visibility = VISIBLE
           },
           modifier = Modifier.fillMaxSize(),
         )
@@ -333,6 +356,20 @@ class CompositionPreviewActivity : AppCompatActivity() {
           },
           modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
         )
+        Row(
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.SpaceBetween,
+          modifier = Modifier.fillMaxWidth(),
+        ) {
+          Text(
+            text = stringResource(R.string.frame_consumer_enabled),
+            modifier = Modifier.textPadding(),
+          )
+          Switch(
+            checked = uiState.outputSettingsState.frameConsumerEnabled,
+            onCheckedChange = { isEnabled -> viewModel.onFrameConsumerEnabledChanged(isEnabled) },
+          )
+        }
 
         Row(
           verticalAlignment = Alignment.CenterVertically,
