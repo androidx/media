@@ -336,6 +336,7 @@
     *   Enable remote to local transfers in `DefaultCastOptionsProvider`.
     *   Add support for Cast in the Session demo.
     *   Add support for displaying a media route button on a Composable UI.
+    *   Add support for displaying a media route button on an action bar menu.
 *   Test Utilities:
     *   Add maximum time diff for the auto-advancing behavior of `FakeClock`. It
         defaults to 1 second, but is configurable via `FakeClock.Builder`.
