@@ -42,6 +42,10 @@
         `ExoPlayer.Builder.setWakeMode` to `C.WAKE_MODE_LOCAL`.
     *   Ensure renderers don't consume data from the next playlist item more
         than 10 seconds before the end of the current item.
+    *   Add `setSeekBackIncrementMs`, `setSeekForwardIncrementMs` and
+        `setMaxSeekToPreviousPositionMs` to `ExoPlayer` to update these settings
+        after construction
+        ([#2736](https://github.com/androidx/media/issues/2736)).
     *   Add pre-caching functionality in `DefaultPreloadManager`. Apps now can
         return
         `DefaultPreloadManager.PreloadStatus.specifiedRangeCached(startPositionMs,

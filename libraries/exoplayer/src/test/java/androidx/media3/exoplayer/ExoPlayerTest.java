@@ -15991,6 +15991,50 @@ public final class ExoPlayerTest {
     assertThat(stateAfterClearingPlaylist).isEqualTo(Player.STATE_ENDED);
   }
 
+  @Test
+  public void setSeekBackIncrementMs_updatesSeekBackIncrementAndCallsListener() throws Exception {
+    ExoPlayer player = parameterizeTestExoPlayerBuilder(new TestExoPlayerBuilder(context)).build();
+    Player.Listener listener = mock(Player.Listener.class);
+    player.addListener(listener);
+
+    player.setSeekBackIncrementMs(1234);
+    long seekBackIncrement = player.getSeekBackIncrement();
+    player.release();
+
+    assertThat(seekBackIncrement).isEqualTo(1234);
+    verify(listener).onSeekBackIncrementChanged(1234);
+  }
+
+  @Test
+  public void setSeekForwardIncrementMs_updatesSeekForwardIncrementAndCallsListener()
+      throws Exception {
+    ExoPlayer player = parameterizeTestExoPlayerBuilder(new TestExoPlayerBuilder(context)).build();
+    Player.Listener listener = mock(Player.Listener.class);
+    player.addListener(listener);
+
+    player.setSeekForwardIncrementMs(1234);
+    long seekForwardIncrement = player.getSeekForwardIncrement();
+    player.release();
+
+    assertThat(seekForwardIncrement).isEqualTo(1234);
+    verify(listener).onSeekForwardIncrementChanged(1234);
+  }
+
+  @Test
+  public void setMaxSeekToPreviousPositionMs_updatesMaxSeekToPreviousPositionAndCallsListener()
+      throws Exception {
+    ExoPlayer player = parameterizeTestExoPlayerBuilder(new TestExoPlayerBuilder(context)).build();
+    Player.Listener listener = mock(Player.Listener.class);
+    player.addListener(listener);
+
+    player.setMaxSeekToPreviousPositionMs(1234);
+    long maxSeekToPreviousPosition = player.getMaxSeekToPreviousPosition();
+    player.release();
+
+    assertThat(maxSeekToPreviousPosition).isEqualTo(1234);
+    verify(listener).onMaxSeekToPreviousPositionChanged(1234);
+  }
+
   // Internal methods.
 
   private void addWatchAsSystemFeature() {

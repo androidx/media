@@ -169,9 +169,6 @@ import java.util.concurrent.CopyOnWriteArraySet;
   private final AnalyticsCollector analyticsCollector;
   private final Looper applicationLooper;
   private final BandwidthMeter bandwidthMeter;
-  private final long seekBackIncrementMs;
-  private final long seekForwardIncrementMs;
-  private final long maxSeekToPreviousPositionMs;
   private final Clock clock;
   private final ComponentListener componentListener;
   private final FrameMetadataListener frameMetadataListener;
@@ -228,6 +225,9 @@ import java.util.concurrent.CopyOnWriteArraySet;
   private boolean playerReleased;
   private DeviceInfo deviceInfo;
   private VideoSize videoSize;
+  private long seekBackIncrementMs;
+  private long seekForwardIncrementMs;
+  private long maxSeekToPreviousPositionMs;
 
   // MediaMetadata built from static (TrackGroup Format) and dynamic (onMetadata(Metadata)) metadata
   // sources.
@@ -1019,6 +1019,45 @@ import java.util.concurrent.CopyOnWriteArraySet;
   public SeekParameters getSeekParameters() {
     verifyApplicationThread();
     return seekParameters;
+  }
+
+  @Override
+  public void setMaxSeekToPreviousPositionMs(long maxSeekToPreviousPositionMs) {
+    verifyApplicationThread();
+    checkArgument(maxSeekToPreviousPositionMs >= 0);
+    if (this.maxSeekToPreviousPositionMs == maxSeekToPreviousPositionMs) {
+      return;
+    }
+    this.maxSeekToPreviousPositionMs = maxSeekToPreviousPositionMs;
+    listeners.sendEvent(
+        EVENT_MAX_SEEK_TO_PREVIOUS_POSITION_CHANGED,
+        listener -> listener.onMaxSeekToPreviousPositionChanged(maxSeekToPreviousPositionMs));
+  }
+
+  @Override
+  public void setSeekBackIncrementMs(long seekBackIncrementMs) {
+    verifyApplicationThread();
+    checkArgument(seekBackIncrementMs > 0);
+    if (this.seekBackIncrementMs == seekBackIncrementMs) {
+      return;
+    }
+    this.seekBackIncrementMs = seekBackIncrementMs;
+    listeners.sendEvent(
+        EVENT_SEEK_BACK_INCREMENT_CHANGED,
+        listener -> listener.onSeekBackIncrementChanged(seekBackIncrementMs));
+  }
+
+  @Override
+  public void setSeekForwardIncrementMs(long seekForwardIncrementMs) {
+    verifyApplicationThread();
+    checkArgument(seekForwardIncrementMs > 0);
+    if (this.seekForwardIncrementMs == seekForwardIncrementMs) {
+      return;
+    }
+    this.seekForwardIncrementMs = seekForwardIncrementMs;
+    listeners.sendEvent(
+        EVENT_SEEK_FORWARD_INCREMENT_CHANGED,
+        listener -> listener.onSeekForwardIncrementChanged(seekForwardIncrementMs));
   }
 
   @Override

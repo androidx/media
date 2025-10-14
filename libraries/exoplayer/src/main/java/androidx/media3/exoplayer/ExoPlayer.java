@@ -1785,6 +1785,34 @@ public interface ExoPlayer extends Player {
   SeekParameters getSeekParameters();
 
   /**
+   * Sets the {@link #seekBack()} increment.
+   *
+   * @param seekBackIncrementMs The seek back increment, in milliseconds.
+   * @throws IllegalArgumentException If {@code seekBackIncrementMs} is non-positive.
+   */
+  @UnstableApi
+  void setSeekBackIncrementMs(@IntRange(from = 1) long seekBackIncrementMs);
+
+  /**
+   * Sets the {@link #seekForward()} increment.
+   *
+   * @param seekForwardIncrementMs The seek forward increment, in milliseconds.
+   * @throws IllegalArgumentException If {@code seekForwardIncrementMs} is non-positive.
+   */
+  @UnstableApi
+  void setSeekForwardIncrementMs(@IntRange(from = 1) long seekForwardIncrementMs);
+
+  /**
+   * Sets the maximum position for which {@link #seekToPrevious()} seeks to the previous {@link
+   * MediaItem}.
+   *
+   * @param maxSeekToPreviousPositionMs The maximum position, in milliseconds.
+   * @throws IllegalArgumentException If {@code maxSeekToPreviousPositionMs} is negative.
+   */
+  @UnstableApi
+  void setMaxSeekToPreviousPositionMs(@IntRange(from = 0) long maxSeekToPreviousPositionMs);
+
+  /**
    * Sets whether the player is allowed to keep holding limited resources such as video decoders,
    * even when in the idle state. By doing so, the player may be able to reduce latency when
    * starting to play another piece of content for which the same resources are required.

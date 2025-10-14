@@ -1065,6 +1065,24 @@ public class SimpleExoPlayer extends BasePlayer implements ExoPlayer {
   }
 
   @Override
+  public void setMaxSeekToPreviousPositionMs(long maxSeekToPreviousPositionMs) {
+    blockUntilConstructorFinished();
+    player.setMaxSeekToPreviousPositionMs(maxSeekToPreviousPositionMs);
+  }
+
+  @Override
+  public void setSeekBackIncrementMs(long seekBackIncrementMs) {
+    blockUntilConstructorFinished();
+    player.setSeekBackIncrementMs(seekBackIncrementMs);
+  }
+
+  @Override
+  public void setSeekForwardIncrementMs(long seekForwardIncrementMs) {
+    blockUntilConstructorFinished();
+    player.setSeekForwardIncrementMs(seekForwardIncrementMs);
+  }
+
+  @Override
   public void setForegroundMode(boolean foregroundMode) {
     blockUntilConstructorFinished();
     player.setForegroundMode(foregroundMode);
