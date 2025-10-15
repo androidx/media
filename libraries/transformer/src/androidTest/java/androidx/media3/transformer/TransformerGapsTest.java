@@ -67,6 +67,8 @@ public class TransformerGapsTest {
   public void
       export_withThreeItemsHavingNoVideo_inAudioVideoSequence_insertsBlankFramesForAllItems()
           throws Exception {
+    int outputWidth = 320;
+    int outputHeight = 240;
     assumeFormatsSupported(
         context, testId, /* inputFormat= */ MP4_ASSET.videoFormat, /* outputFormat= */ null);
     Transformer transformer = new Transformer.Builder(context).build();
@@ -75,6 +77,12 @@ public class TransformerGapsTest {
                 EditedMediaItemSequence.withAudioAndVideoFrom(
                     ImmutableList.of(
                         AUDIO_ONLY_MEDIA_ITEM, AUDIO_ONLY_MEDIA_ITEM, AUDIO_ONLY_MEDIA_ITEM)))
+            .setEffects(
+                new Effects(
+                    ImmutableList.of(),
+                    ImmutableList.of(
+                        Presentation.createForWidthAndHeight(
+                            outputWidth, outputHeight, Presentation.LAYOUT_SCALE_TO_FIT))))
             .build();
 
     ExportTestResult result =
