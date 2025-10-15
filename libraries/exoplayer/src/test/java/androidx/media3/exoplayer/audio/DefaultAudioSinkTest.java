@@ -120,7 +120,7 @@ public final class DefaultAudioSinkTest {
             .setAudioProcessorChain(
                 new AudioProcessorChain() {
                   @Override
-                  public AudioProcessor[] getAudioProcessors() {
+                  public AudioProcessor[] getAudioProcessors(Format inputFormat) {
                     return new AudioProcessor[0];
                   }
 
@@ -337,7 +337,7 @@ public final class DefaultAudioSinkTest {
   }
 
   @Test
-  public void floatPcmNeedsTranscodingIfFloatOutputDisabled() {
+  public void floatPcmNeedsTranscodingIfPcmEncodingRestrictionPresent() {
     defaultAudioSink = new DefaultAudioSink.Builder().build();
     Format floatFormat =
         STEREO_44_1_FORMAT
@@ -346,6 +346,60 @@ public final class DefaultAudioSinkTest {
             .setPcmEncoding(C.ENCODING_PCM_FLOAT)
             .build();
     assertThat(defaultAudioSink.getFormatSupport(floatFormat))
+        .isEqualTo(SINK_FORMAT_SUPPORTED_WITH_TRANSCODING);
+  }
+
+  @Test
+  @Config(maxSdk = 30)
+  public void int24PcmNeedsTranscodingIfPcmEncodingRestrictionLiftedPreApi31() {
+    defaultAudioSink = new DefaultAudioSink.Builder().setPcmEncodingRestrictionLifted(true).build();
+    Format format =
+        STEREO_44_1_FORMAT
+            .buildUpon()
+            .setSampleMimeType(MimeTypes.AUDIO_RAW)
+            .setPcmEncoding(C.ENCODING_PCM_24BIT)
+            .build();
+    assertThat(defaultAudioSink.getFormatSupport(format))
+        .isEqualTo(SINK_FORMAT_SUPPORTED_WITH_TRANSCODING);
+  }
+
+  @Test
+  @Config(minSdk = 31)
+  public void int24PcmSupportedIfPcmEncodingRestrictionLiftedApi31() {
+    defaultAudioSink = new DefaultAudioSink.Builder().setPcmEncodingRestrictionLifted(true).build();
+    Format format =
+        STEREO_44_1_FORMAT
+            .buildUpon()
+            .setSampleMimeType(MimeTypes.AUDIO_RAW)
+            .setPcmEncoding(C.ENCODING_PCM_24BIT)
+            .build();
+    assertThat(defaultAudioSink.getFormatSupport(format)).isEqualTo(SINK_FORMAT_SUPPORTED_DIRECTLY);
+  }
+
+  @Test
+  public void floatPcmSupportedIfPcmEncodingRestrictionLifted() {
+    defaultAudioSink = new DefaultAudioSink.Builder().setPcmEncodingRestrictionLifted(true).build();
+    Format floatFormat =
+        STEREO_44_1_FORMAT
+            .buildUpon()
+            .setSampleMimeType(MimeTypes.AUDIO_RAW)
+            .setPcmEncoding(C.ENCODING_PCM_FLOAT)
+            .build();
+    assertThat(defaultAudioSink.getFormatSupport(floatFormat))
+        .isEqualTo(SINK_FORMAT_SUPPORTED_DIRECTLY);
+  }
+
+  @Test
+  @Config(minSdk = 31)
+  public void int24PcmNeedsTranscodingIfFloatOutputEnabledApi31() {
+    defaultAudioSink = new DefaultAudioSink.Builder().setEnableFloatOutput(true).build();
+    Format format =
+        STEREO_44_1_FORMAT
+            .buildUpon()
+            .setSampleMimeType(MimeTypes.AUDIO_RAW)
+            .setPcmEncoding(C.ENCODING_PCM_24BIT)
+            .build();
+    assertThat(defaultAudioSink.getFormatSupport(format))
         .isEqualTo(SINK_FORMAT_SUPPORTED_WITH_TRANSCODING);
   }
 
