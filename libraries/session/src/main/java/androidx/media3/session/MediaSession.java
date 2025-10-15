@@ -71,6 +71,7 @@ import com.google.errorprone.annotations.DoNotMock;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
+import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
@@ -503,11 +504,7 @@ public class MediaSession {
      */
     @Override
     public MediaSession build() {
-      if (bitmapLoader == null) {
-        bitmapLoader =
-            new CacheBitmapLoader(
-                new DataSourceBitmapLoader(context, MediaSession.getBitmapDimensionLimit(context)));
-      }
+      ensureBitmapLoaderIsSizeLimited();
       return new MediaSession(
           context,
           id,
@@ -519,7 +516,7 @@ public class MediaSession {
           callback,
           tokenExtras,
           sessionExtras,
-          checkNotNull(bitmapLoader),
+          bitmapLoader,
           playIfSuppressed,
           isPeriodicPositionUpdateEnabled,
           MediaLibrarySession.LIBRARY_ERROR_REPLICATION_MODE_NONE,
@@ -2585,6 +2582,17 @@ public class MediaSession {
     }
 
     public abstract SessionT build();
+
+    /** Updates bitmap loader to ensure its using the maximum media session size limit. */
+    @EnsuresNonNull("bitmapLoader")
+    protected final void ensureBitmapLoaderIsSizeLimited() {
+      int dimensionLimit = MediaSession.getBitmapDimensionLimit(context);
+      if (bitmapLoader == null) {
+        bitmapLoader = new CacheBitmapLoader(new DataSourceBitmapLoader(context, dimensionLimit));
+      } else {
+        bitmapLoader = new SizeLimitedBitmapLoader(bitmapLoader, dimensionLimit);
+      }
+    }
   }
 
   @RequiresApi(31)

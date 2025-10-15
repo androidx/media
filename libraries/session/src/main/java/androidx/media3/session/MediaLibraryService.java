@@ -688,9 +688,7 @@ public abstract class MediaLibraryService extends MediaSessionService {
        */
       @Override
       public MediaLibrarySession build() {
-        if (bitmapLoader == null) {
-          bitmapLoader = new CacheBitmapLoader(new DataSourceBitmapLoader(context));
-        }
+        ensureBitmapLoaderIsSizeLimited();
         return new MediaLibrarySession(
             context,
             id,
@@ -702,7 +700,7 @@ public abstract class MediaLibraryService extends MediaSessionService {
             callback,
             tokenExtras,
             sessionExtras,
-            checkNotNull(bitmapLoader),
+            bitmapLoader,
             playIfSuppressed,
             isPeriodicPositionUpdateEnabled,
             libraryErrorReplicationMode);
