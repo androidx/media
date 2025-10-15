@@ -37,7 +37,6 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
-import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** Assertion methods for {@link Extractor}. */
 @UnstableApi
@@ -148,11 +147,11 @@ public final class ExtractorAsserts {
 
     /** Builder for {@link AssertionConfig} instances. */
     public static class Builder {
-      private @MonotonicNonNull String dumpFilesPrefix;
+      @Nullable private String dumpFilesPrefix;
       private boolean deduplicateConsecutiveFormats;
 
       @CanIgnoreReturnValue
-      public Builder setDumpFilesPrefix(String dumpFilesPrefix) {
+      public Builder setDumpFilesPrefix(@Nullable String dumpFilesPrefix) {
         this.dumpFilesPrefix = dumpFilesPrefix;
         return this;
       }
