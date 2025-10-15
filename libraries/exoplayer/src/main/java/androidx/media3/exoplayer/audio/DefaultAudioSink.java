@@ -79,6 +79,7 @@ import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayDeque;
+import java.util.Objects;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import org.checkerframework.checker.nullness.qual.EnsuresNonNull;
@@ -564,7 +565,7 @@ public final class DefaultAudioSink implements AudioSink {
   @Nullable private AudioTrack audioTrack;
   private @MonotonicNonNull AudioCapabilities audioCapabilities;
   private @MonotonicNonNull AudioCapabilitiesReceiver audioCapabilitiesReceiver;
-  @Nullable private OnRoutingChangedListenerApi24 onRoutingChangedListener;
+  @Nullable private OnRoutingChangedListenerBase onRoutingChangedListener;
 
   private AudioAttributes audioAttributes;
   @Nullable private MediaPositionParameters afterDrainParameters;
@@ -892,13 +893,12 @@ public final class DefaultAudioSink implements AudioSink {
     }
     if (preferredDevice != null) {
       audioTrack.setPreferredDevice(preferredDevice);
-      if (audioCapabilitiesReceiver != null) {
-        audioCapabilitiesReceiver.setRoutedDevice(preferredDevice);
-      }
+      onRoutingChanged(audioTrack, preferredDevice);
     }
-    if (SDK_INT >= 24 && audioCapabilitiesReceiver != null) {
-      onRoutingChangedListener =
-          new OnRoutingChangedListenerApi24(audioTrack, audioCapabilitiesReceiver);
+    if (SDK_INT >= 24) {
+      onRoutingChangedListener = new OnRoutingChangedListenerApi24(audioTrack);
+    } else {
+      onRoutingChangedListener = new OnRoutingChangedListenerApi23(audioTrack);
     }
     startMediaTimeUsNeedsInit = true;
 
@@ -1607,7 +1607,7 @@ public final class DefaultAudioSink implements AudioSink {
         pendingConfiguration = null;
       }
       audioTrackPositionTracker.reset();
-      if (SDK_INT >= 24 && onRoutingChangedListener != null) {
+      if (onRoutingChangedListener != null) {
         onRoutingChangedListener.release();
         onRoutingChangedListener = null;
       }
@@ -2122,24 +2122,76 @@ public final class DefaultAudioSink implements AudioSink {
         : C.INDEX_UNSET;
   }
 
-  @RequiresApi(24)
-  private static final class OnRoutingChangedListenerApi24 {
+  private void onRoutingChanged(AudioTrack audioTrack, AudioDeviceInfo device) {
+    if (listener != null) {
+      listener.onRoutingChanged(audioTrack, device);
+    }
+    if (audioCapabilitiesReceiver != null) {
+      audioCapabilitiesReceiver.setRoutedDevice(device);
+    }
+  }
 
+  private interface OnRoutingChangedListenerBase {
+    void release();
+  }
+
+  private final class OnRoutingChangedListenerApi23 implements OnRoutingChangedListenerBase {
     private final AudioTrack audioTrack;
-    private final AudioCapabilitiesReceiver capabilitiesReceiver;
+    private final Handler playbackThreadHandler;
+
+    @Nullable private AudioTrack.OnRoutingChangedListener listener;
+
+    public OnRoutingChangedListenerApi23(AudioTrack audioTrack) {
+      this.audioTrack = audioTrack;
+      this.listener = this::onRoutingChanged;
+      playbackThreadHandler = new Handler(Objects.requireNonNull(Looper.myLooper()));
+      audioTrack.addOnRoutingChangedListener(listener, playbackThreadHandler);
+    }
+
+    @Override
+    public void release() {
+      audioTrack.removeOnRoutingChangedListener(checkNotNull(listener));
+      listener = null;
+    }
+
+    private void onRoutingChanged(AudioTrack router) {
+      if (listener == null) {
+        // Stale event.
+        return;
+      }
+      BackgroundExecutor.get()
+          .execute(
+              () -> {
+                @Nullable AudioDeviceInfo routedDevice = router.getRoutedDevice();
+                if (routedDevice != null) {
+                  playbackThreadHandler.post(
+                      () -> {
+                        if (listener == null) {
+                          // Stale event.
+                          return;
+                        }
+                        DefaultAudioSink.this.onRoutingChanged(audioTrack, routedDevice);
+                      });
+                }
+              });
+    }
+  }
+
+  @RequiresApi(24)
+  private final class OnRoutingChangedListenerApi24 implements OnRoutingChangedListenerBase {
+    private final AudioTrack audioTrack;
     private final Handler playbackThreadHandler;
 
     @Nullable private OnRoutingChangedListener listener;
 
-    public OnRoutingChangedListenerApi24(
-        AudioTrack audioTrack, AudioCapabilitiesReceiver capabilitiesReceiver) {
+    public OnRoutingChangedListenerApi24(AudioTrack audioTrack) {
       this.audioTrack = audioTrack;
-      this.capabilitiesReceiver = capabilitiesReceiver;
       this.listener = this::onRoutingChanged;
-      playbackThreadHandler = new Handler(Looper.myLooper());
+      playbackThreadHandler = new Handler(Objects.requireNonNull(Looper.myLooper()));
       audioTrack.addOnRoutingChangedListener(listener, playbackThreadHandler);
     }
 
+    @Override
     public void release() {
       audioTrack.removeOnRoutingChangedListener(checkNotNull(listener));
       listener = null;
@@ -2161,7 +2213,7 @@ public final class DefaultAudioSink implements AudioSink {
                           // Stale event.
                           return;
                         }
-                        capabilitiesReceiver.setRoutedDevice(routedDevice);
+                        DefaultAudioSink.this.onRoutingChanged(audioTrack, routedDevice);
                       });
                 }
               });
