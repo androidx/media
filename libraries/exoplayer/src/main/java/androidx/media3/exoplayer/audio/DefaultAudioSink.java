@@ -305,7 +305,6 @@ public final class DefaultAudioSink implements AudioSink {
     private AudioTrackBufferSizeProvider audioTrackBufferSizeProvider;
     private AudioTrackProvider audioTrackProvider;
     private @MonotonicNonNull AudioOffloadSupportProvider audioOffloadSupportProvider;
-    private boolean enableOnAudioPositionAdvancingFix = true;
     @Nullable private AudioOffloadListener audioOffloadListener;
 
     /**
@@ -451,19 +450,6 @@ public final class DefaultAudioSink implements AudioSink {
     @CanIgnoreReturnValue
     public Builder setAudioTrackProvider(AudioTrackProvider audioTrackProvider) {
       this.audioTrackProvider = audioTrackProvider;
-      return this;
-    }
-
-    /**
-     * Sets whether to enable the fix for audio position advancing on audio offload.
-     *
-     * @param enableOnAudioPositionAdvancingFix Whether to enable the fix for audio position
-     *     advancing on audio offload.
-     * @return This builder.
-     */
-    @CanIgnoreReturnValue
-    public Builder setEnableOnAudioPositionAdvancingFix(boolean enableOnAudioPositionAdvancingFix) {
-      this.enableOnAudioPositionAdvancingFix = enableOnAudioPositionAdvancingFix;
       return this;
     }
 
@@ -622,7 +608,6 @@ public final class DefaultAudioSink implements AudioSink {
   private long accumulatedSkippedSilenceDurationUs;
   private @MonotonicNonNull Handler reportSkippedSilenceHandler;
   @Nullable private Context contextWithDeviceId;
-  private boolean enableOnAudioPositionAdvancingFix;
   private int lastUnderrunCount;
   private boolean hasData;
 
@@ -661,7 +646,6 @@ public final class DefaultAudioSink implements AudioSink {
         SDK_INT < 34 || builder.context == null
             ? C.INDEX_UNSET
             : getDeviceIdFromContext(builder.context);
-    enableOnAudioPositionAdvancingFix = builder.enableOnAudioPositionAdvancingFix;
   }
 
   // AudioSink implementation.
@@ -897,8 +881,7 @@ public final class DefaultAudioSink implements AudioSink {
         audioTrack,
         configuration.outputEncoding,
         configuration.outputPcmFrameSize,
-        configuration.bufferSize,
-        enableOnAudioPositionAdvancingFix);
+        configuration.bufferSize);
     lastUnderrunCount = 0;
     hasData = false;
     setVolumeInternal();
