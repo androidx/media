@@ -17,6 +17,7 @@ package androidx.media3.exoplayer.audio;
 
 import static java.lang.annotation.ElementType.TYPE_USE;
 
+import android.companion.virtual.VirtualDevice;
 import android.media.AudioDeviceInfo;
 import android.media.AudioTrack;
 import androidx.annotation.IntDef;
@@ -603,6 +604,14 @@ public interface AudioSink {
    *     restore the default.
    */
   default void setPreferredDevice(@Nullable AudioDeviceInfo audioDeviceInfo) {}
+
+  /**
+   * Sets the virtual device id.
+   *
+   * @param virtualDeviceId The {@linkplain VirtualDevice#getDeviceId() virtual device id}, or
+   *     {@link C#INDEX_UNSET} if unspecified.
+   */
+  default void setVirtualDeviceId(int virtualDeviceId) {}
 
   /**
    * Sets the offset that is added to the media timestamp before it is passed as {@code

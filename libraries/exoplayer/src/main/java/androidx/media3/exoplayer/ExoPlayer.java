@@ -21,6 +21,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
+import android.companion.virtual.VirtualDevice;
 import android.content.Context;
 import android.media.AudioDeviceInfo;
 import android.media.AudioTrack;
@@ -1596,6 +1597,18 @@ public interface ExoPlayer extends Player {
    */
   @UnstableApi
   void setPreferredAudioDevice(@Nullable AudioDeviceInfo audioDeviceInfo);
+
+  /**
+   * Sets the virtual device id to be used for playback.
+   *
+   * <p>Note that the initial value is obtained from {@link Context#getDeviceId()} from the {@link
+   * Context} passed to {@link Builder#Builder(Context)}.
+   *
+   * @param virtualDeviceId The {@linkplain VirtualDevice#getDeviceId() virtual device id}, or
+   *     {@link C#INDEX_UNSET} if unspecified.
+   */
+  @UnstableApi
+  void setVirtualDeviceId(int virtualDeviceId);
 
   /**
    * Sets whether skipping silences in the audio stream is enabled.

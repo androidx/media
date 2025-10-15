@@ -591,6 +591,12 @@ public class SimpleExoPlayer extends BasePlayer implements ExoPlayer {
   }
 
   @Override
+  public void setVirtualDeviceId(int virtualDeviceId) {
+    blockUntilConstructorFinished();
+    player.setVirtualDeviceId(virtualDeviceId);
+  }
+
+  @Override
   public void setVolume(float volume) {
     blockUntilConstructorFinished();
     player.setVolume(volume);

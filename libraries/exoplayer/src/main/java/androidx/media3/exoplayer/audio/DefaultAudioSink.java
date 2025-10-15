@@ -508,7 +508,6 @@ public final class DefaultAudioSink implements AudioSink {
       initializationExceptionPendingExceptionHolder;
   private final PendingExceptionHolder<WriteException> writeExceptionPendingExceptionHolder;
   @Nullable private final AudioOffloadListener audioOffloadListener;
-  private final int virtualDeviceId;
 
   @Nullable private PlayerId playerId;
   @Nullable private Listener listener;
@@ -547,6 +546,7 @@ public final class DefaultAudioSink implements AudioSink {
   private boolean pendingAudioSessionIdChangeConfirmation;
   private AuxEffectInfo auxEffectInfo;
   @Nullable private AudioDeviceInfo preferredDevice;
+  private int virtualDeviceId;
   private boolean tunneling;
   private long lastFeedElapsedRealtimeMs;
   private boolean offloadDisabledUntilNextConfiguration;
@@ -1297,6 +1297,16 @@ public final class DefaultAudioSink implements AudioSink {
   }
 
   @Override
+  public void setVirtualDeviceId(int virtualDeviceId) {
+    virtualDeviceId = resolveDefaultVirtualDeviceIds(virtualDeviceId);
+    if (this.virtualDeviceId == virtualDeviceId) {
+      return;
+    }
+    this.virtualDeviceId = virtualDeviceId;
+    reconfigureAndFlush();
+  }
+
+  @Override
   public long getAudioTrackBufferSizeUs() {
     if (!isAudioOutputInitialized()) {
       return C.TIME_UNSET;
@@ -1763,7 +1773,10 @@ public final class DefaultAudioSink implements AudioSink {
 
   @RequiresApi(34)
   private static int getDeviceIdFromContext(Context context) {
-    int deviceId = context.getDeviceId();
+    return resolveDefaultVirtualDeviceIds(context.getDeviceId());
+  }
+
+  private static int resolveDefaultVirtualDeviceIds(int deviceId) {
     return deviceId != Context.DEVICE_ID_DEFAULT && deviceId != Context.DEVICE_ID_INVALID
         ? deviceId
         : C.INDEX_UNSET;
