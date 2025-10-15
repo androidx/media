@@ -90,7 +90,7 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
    */
   public DefaultAnalyticsCollector(Clock clock) {
     this.clock = checkNotNull(clock);
-    listeners = new ListenerSet<>(Util.getCurrentOrMainLooper(), clock, (listener, flags) -> {});
+    listeners = new ListenerSet<>(Util.getCurrentOrMainLooper(), clock);
     period = new Period();
     window = new Window();
     mediaPeriodQueueTracker = new MediaPeriodQueueTracker(period);

@@ -159,7 +159,7 @@ public final class Transformer {
       looper = Util.getCurrentOrMainLooper();
       debugViewProvider = DebugViewProvider.NONE;
       clock = Clock.DEFAULT;
-      listeners = new ListenerSet<>(looper, clock, (listener, flags) -> {});
+      listeners = new ListenerSet<>(looper, clock);
       if (SDK_INT >= 35) {
         usePlatformDiagnostics = true;
         metricsReporterFactory =
@@ -540,7 +540,7 @@ public final class Transformer {
     @CanIgnoreReturnValue
     public Builder setLooper(Looper looper) {
       this.looper = looper;
-      this.listeners = listeners.copy(looper, (listener, flags) -> {});
+      this.listeners = listeners.copy(looper);
       return this;
     }
 
@@ -573,7 +573,7 @@ public final class Transformer {
     @VisibleForTesting
     public Builder setClock(Clock clock) {
       this.clock = clock;
-      this.listeners = listeners.copy(looper, clock, (listener, flags) -> {});
+      this.listeners = listeners.copy(clock);
       return this;
     }
 
@@ -1773,10 +1773,7 @@ public final class Transformer {
   private void onExportCompletedWithSuccess() {
     maybeStopExportWatchdogTimer();
     ExportResult exportResult = exportResultBuilder.build();
-    listeners.queueEvent(
-        /* eventFlag= */ C.INDEX_UNSET,
-        listener -> listener.onCompleted(checkNotNull(composition), exportResult));
-    listeners.flushEvents();
+    listeners.sendEvent(listener -> listener.onCompleted(checkNotNull(composition), exportResult));
     if (canCollectEditingMetrics()) {
       checkNotNull(editingMetricsCollector).onExportSuccess(exportResult, isExportResumed());
     }
@@ -1786,10 +1783,8 @@ public final class Transformer {
   private void onExportCompletedWithError(ExportException exception) {
     maybeStopExportWatchdogTimer();
     ExportResult exportResult = exportResultBuilder.build();
-    listeners.queueEvent(
-        /* eventFlag= */ C.INDEX_UNSET,
+    listeners.sendEvent(
         listener -> listener.onError(checkNotNull(composition), exportResult, exception));
-    listeners.flushEvents();
     if (canCollectEditingMetrics()) {
       ProgressHolder progressHolder = new ProgressHolder();
       int progressState = getProgress(progressHolder);

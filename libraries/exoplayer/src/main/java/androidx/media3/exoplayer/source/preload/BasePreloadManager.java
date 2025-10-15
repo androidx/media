@@ -24,7 +24,6 @@ import android.os.Looper;
 import androidx.annotation.CallSuper;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
-import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ListenerSet;
@@ -99,8 +98,7 @@ public abstract class BasePreloadManager<T, PreloadStatusT> {
     this.rankingDataComparator = rankingDataComparator;
     this.targetPreloadStatusControl = targetPreloadStatusControl;
     this.mediaSourceFactory = mediaSourceFactory;
-    listeners =
-        new ListenerSet<>(applicationHandler.getLooper(), Clock.DEFAULT, (listener, flags) -> {});
+    listeners = new ListenerSet<>(applicationHandler.getLooper(), Clock.DEFAULT);
     mediaSourceHolderMap = new MediaSourceHolderMap();
     this.rankingDataComparator.setInvalidationListener(this::invalidate);
     sourceHolderPriorityList = new ArrayList<>();
@@ -361,9 +359,7 @@ public abstract class BasePreloadManager<T, PreloadStatusT> {
 
           MediaSourceHolder mediaSourceHolder = checkNotNull(mediaSourceHolderMap.get(mediaSource));
           if (shouldNotifyListenerAndAdvancePredicate.apply(targetPreloadStatus)) {
-            listeners.sendEvent(
-                /* eventFlag= */ C.INDEX_UNSET,
-                listener -> listener.onCompleted(mediaSourceHolder.mediaItem));
+            listeners.sendEvent(listener -> listener.onCompleted(mediaSourceHolder.mediaItem));
             maybeAdvanceToNextMediaSourceHolder();
           }
         });
@@ -382,9 +378,7 @@ public abstract class BasePreloadManager<T, PreloadStatusT> {
 
           MediaSourceHolder mediaSourceHolder = checkNotNull(mediaSourceHolderMap.get(mediaItem));
           if (shouldNotifyListenerAndAdvancePredicate.apply(targetPreloadStatus)) {
-            listeners.sendEvent(
-                /* eventFlag= */ C.INDEX_UNSET,
-                listener -> listener.onCompleted(mediaSourceHolder.mediaItem));
+            listeners.sendEvent(listener -> listener.onCompleted(mediaSourceHolder.mediaItem));
             maybeAdvanceToNextMediaSourceHolder();
           }
         });
@@ -404,8 +398,7 @@ public abstract class BasePreloadManager<T, PreloadStatusT> {
           }
 
           if (shouldNotifyListenerAndAdvancePredicate.apply(targetPreloadStatus)) {
-            listeners.sendEvent(
-                /* eventFlag= */ C.INDEX_UNSET, listener -> listener.onError(error));
+            listeners.sendEvent(listener -> listener.onError(error));
             maybeAdvanceToNextMediaSourceHolder();
           }
         });
@@ -425,8 +418,7 @@ public abstract class BasePreloadManager<T, PreloadStatusT> {
           }
 
           if (shouldNotifyListenerAndAdvancePredicate.apply(targetPreloadStatus)) {
-            listeners.sendEvent(
-                /* eventFlag= */ C.INDEX_UNSET, listener -> listener.onError(error));
+            listeners.sendEvent(listener -> listener.onError(error));
             maybeAdvanceToNextMediaSourceHolder();
           }
         });
