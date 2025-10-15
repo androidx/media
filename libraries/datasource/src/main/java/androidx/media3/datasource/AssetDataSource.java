@@ -16,6 +16,7 @@
 package androidx.media3.datasource;
 
 import static androidx.media3.common.util.Util.castNonNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.min;
 
 import android.content.Context;
@@ -24,7 +25,6 @@ import android.net.Uri;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.PlaybackException;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -76,7 +76,7 @@ public final class AssetDataSource extends BaseDataSource {
   public long open(DataSpec dataSpec) throws AssetDataSourceException {
     try {
       uri = dataSpec.uri;
-      String path = Assertions.checkNotNull(uri.getPath());
+      String path = checkNotNull(uri.getPath());
       if (path.startsWith("/android_asset/")) {
         path = path.substring(15);
       } else if (path.startsWith("/")) {

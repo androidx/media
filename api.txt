@@ -927,6 +927,7 @@ package androidx.media3.common {
 
   public static final class Player.Events {
     method public boolean contains(@androidx.media3.common.Player.Event int);
+    method public boolean containsAny(androidx.media3.common.Player.Events);
     method public boolean containsAny(@androidx.media3.common.Player.Event int...);
     method @androidx.media3.common.Player.Event public int get(int);
     method public int size();
@@ -1494,6 +1495,23 @@ package androidx.media3.exoplayer.util {
 
 }
 
+package androidx.media3.muxer {
+
+  public final class MediaMuxerCompat {
+    ctor public MediaMuxerCompat(java.io.FileDescriptor, int) throws java.io.IOException;
+    ctor public MediaMuxerCompat(String, int) throws java.io.IOException;
+    method public int addTrack(android.media.MediaFormat);
+    method public void release();
+    method public void setLocation(@FloatRange(from=-90.0, to=90.0) float, @FloatRange(from=-180.0, to=180.0) float);
+    method public void setOrientationHint(int);
+    method public void start();
+    method public void stop();
+    method public void writeSampleData(int, java.nio.ByteBuffer, android.media.MediaCodec.BufferInfo);
+    field public static final int OUTPUT_FORMAT_MP4 = 0; // 0x0
+  }
+
+}
+
 package androidx.media3.session {
 
   public final class CommandButton {
@@ -1857,6 +1875,7 @@ package androidx.media3.session {
 
   @com.google.errorprone.annotations.DoNotMock public class MediaSession {
     method public final void broadcastCustomCommand(androidx.media3.session.SessionCommand, android.os.Bundle);
+    method public static int getBitmapDimensionLimit(android.content.Context);
     method public final java.util.List<androidx.media3.session.MediaSession.ControllerInfo> getConnectedControllers();
     method @Nullable public final androidx.media3.session.MediaSession.ControllerInfo getControllerForCurrentRequest();
     method public final String getId();

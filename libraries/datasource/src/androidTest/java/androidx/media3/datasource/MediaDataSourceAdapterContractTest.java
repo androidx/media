@@ -23,7 +23,6 @@ import androidx.media3.common.C;
 import androidx.media3.test.utils.DataSourceContractTest;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import androidx.test.filters.SdkSuppress;
 import com.google.common.collect.ImmutableList;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -31,7 +30,6 @@ import org.junit.runner.RunWith;
 
 /** {@link DataSource} contract tests for {@link MediaDataSourceAdapter}. */
 @RunWith(AndroidJUnit4.class)
-@SdkSuppress(minSdkVersion = 23)
 public class MediaDataSourceAdapterContractTest extends DataSourceContractTest {
 
   private static final byte[] DATA = TestUtil.buildTestData(20);

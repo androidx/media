@@ -15,8 +15,8 @@
  */
 package androidx.media3.muxer;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import androidx.media3.common.Format;
 import androidx.media3.common.util.CodecSpecificDataUtil;
@@ -69,7 +69,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   public void setFormat(Format format) {
     checkArgument(
         format.channelCount >= 1 && format.channelCount <= 7,
-        "Channel count must be between 1 and 7, got " + format.channelCount);
+        "Channel count must be between 1 and 7, got %s",
+        format.channelCount);
 
     profileCode = checkNotNull(CodecSpecificDataUtil.getCodecProfileAndLevel(format)).first;
     sampleFreqIndex = checkNotNull(SAMPLE_RATE_TABLE_INDEX.get(format.sampleRate));

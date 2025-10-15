@@ -29,9 +29,10 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.datastore.core.DataStore
 import androidx.datastore.core.Serializer
 import androidx.datastore.dataStore
+import androidx.media3.cast.CastPlayer
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.Player
-import androidx.media3.common.listen
+import androidx.media3.common.listenTo
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.demo.session.service.R
 import androidx.media3.exoplayer.ExoPlayer
@@ -136,18 +137,10 @@ open class DemoPlaybackService : MediaLibraryService() {
 
   @OptIn(UnstableApi::class) // Player.listen
   private fun initializeSessionAndPlayer() {
-    val player =
-      ExoPlayer.Builder(this)
-        .setAudioAttributes(AudioAttributes.DEFAULT, /* handleAudioFocus= */ true)
-        .build()
-    player.addAnalyticsListener(EventLogger())
+    val player = buildPlayer()
     CoroutineScope(Dispatchers.Unconfined).launch {
-      player.listen { events ->
-        if (
-          events.containsAny(Player.EVENT_IS_PLAYING_CHANGED, Player.EVENT_MEDIA_ITEM_TRANSITION)
-        ) {
-          storeCurrentMediaItem()
-        }
+      player.listenTo(Player.EVENT_IS_PLAYING_CHANGED, Player.EVENT_MEDIA_ITEM_TRANSITION) {
+        storeCurrentMediaItem()
       }
     }
 
@@ -155,6 +148,16 @@ open class DemoPlaybackService : MediaLibraryService() {
       MediaLibrarySession.Builder(this, player, createLibrarySessionCallback())
         .also { builder -> getSingleTopActivity()?.let { builder.setSessionActivity(it) } }
         .build()
+  }
+
+  @OptIn(UnstableApi::class)
+  protected open fun buildPlayer(): Player {
+    val exoPlayer =
+      ExoPlayer.Builder(this)
+        .setAudioAttributes(AudioAttributes.DEFAULT, /* handleAudioFocus= */ true)
+        .build()
+    exoPlayer.addAnalyticsListener(EventLogger())
+    return CastPlayer.Builder(/* context= */ this).setLocalPlayer(exoPlayer).build()
   }
 
   @OptIn(UnstableApi::class) // BitmapLoader

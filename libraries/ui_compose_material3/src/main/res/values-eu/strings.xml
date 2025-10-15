@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">Erreproduzitu</string>
+  <string name="playpause_button_pause">Pausatu</string>
+  <string name="next_button">Hurrengoa</string>
+  <string name="previous_button">Aurrekoa</string>
+  <string name="seek_back_button">Atzeratu</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">Atzeratu %d segundo</item>
+    <item quantity="other">Atzeratu %d segundo</item>
+  </plurals>
+  <string name="seek_forward_button">Saltatu aurrerantz</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">Aurreratu %d segundo</item>
+    <item quantity="other">Aurreratu %d segundo</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">Oraingo modua: ez errepikatu. Aldatu errepikatzeko modua.</string>
+  <string name="repeat_button_repeat_one">Oraingo modua: errepikatu bat. Aldatu errepikatzeko modua.</string>
+  <string name="repeat_button_repeat_all">Oraingo modua: errepikatu guztiak. Aldatu errepikatzeko modua.</string>
+  <string name="shuffle_button_shuffle_on">Ausazko erreprodukzioa gaituta dago.</string>
+  <string name="shuffle_button_shuffle_off">Ausazko erreprodukzioa desgaituta dago.</string>
+  <string name="mute_button_shown_unmuted">Desaktibatu audioa</string>
+  <string name="mute_button_shown_muted">Aktibatu audioa</string>
+</resources>

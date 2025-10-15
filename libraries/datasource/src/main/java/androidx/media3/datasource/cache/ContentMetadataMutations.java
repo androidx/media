@@ -15,10 +15,11 @@
  */
 package androidx.media3.datasource.cache;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import android.net.Uri;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
@@ -144,7 +145,7 @@ public class ContentMetadataMutations {
 
   @CanIgnoreReturnValue
   private ContentMetadataMutations checkAndSet(String name, Object value) {
-    editedValues.put(Assertions.checkNotNull(name), Assertions.checkNotNull(value));
+    editedValues.put(checkNotNull(name), checkNotNull(value));
     removedValues.remove(name);
     return this;
   }

@@ -51,6 +51,7 @@ fun rememberPresentationState(
 ): PresentationState {
   val presentationState = remember { PresentationState(keepContentOnReset) }
   LaunchedEffect(player) { presentationState.observe(player) }
+  LaunchedEffect(keepContentOnReset) { presentationState.keepContentOnReset = keepContentOnReset }
   return presentationState
 }
 

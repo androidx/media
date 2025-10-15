@@ -15,20 +15,20 @@
  */
 package androidx.media3.exoplayer.source.preload;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.postOrRun;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
-import android.os.Handler;
 import android.os.Looper;
 import android.util.Pair;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Timeline;
+import androidx.media3.common.util.Clock;
+import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.LoadControl;
@@ -47,6 +47,8 @@ import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.BandwidthMeter;
 import androidx.media3.exoplayer.upstream.CmcdConfiguration;
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
+import androidx.media3.exoplayer.upstream.PlayerIdAwareAllocator;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.util.Arrays;
 
@@ -110,6 +112,20 @@ public final class PreloadMediaSource extends WrappingMediaSource {
     default void onLoadedToTheEndOfSource(PreloadMediaSource mediaSource) {}
 
     /**
+     * Called from {@link PreloadMediaSource} when loading is unable to continue due to fact that
+     * the target buffer bytes set for {@link PlayerId#PRELOAD} has reached.
+     *
+     * <p>The default return value is {@code false}.
+     *
+     * @param mediaSource The {@link PreloadMediaSource} whose loading is unable to continue.
+     * @return True if the allocated buffer bytes is potentially back under the limit, and the
+     *     {@code mediaSource} should expect to continue loading before triggering this event again.
+     */
+    default boolean onLoadingUnableToContinue(PreloadMediaSource mediaSource) {
+      return false;
+    }
+
+    /**
      * Called from {@link PreloadMediaSource} when an error occurs.
      *
      * @param error The {@linkplain PreloadException error}.
@@ -122,11 +138,12 @@ public final class PreloadMediaSource extends WrappingMediaSource {
   public static final class Factory implements MediaSource.Factory {
     private final MediaSource.Factory mediaSourceFactory;
     private final Looper preloadLooper;
-    private final Allocator allocator;
+    private final LoadControl loadControl;
     private final TrackSelector trackSelector;
     private final BandwidthMeter bandwidthMeter;
     private final RendererCapabilities[] rendererCapabilities;
     private final PreloadControl preloadControl;
+    private Clock clock;
 
     /**
      * Creates a new factory for {@link PreloadMediaSource}.
@@ -142,7 +159,7 @@ public final class PreloadMediaSource extends WrappingMediaSource {
      * @param rendererCapabilities The array of {@link RendererCapabilities}. It should be derived
      *     from the same {@link RenderersFactory} of the {@link ExoPlayer} that is injected by
      *     {@link ExoPlayer.Builder#setRenderersFactory(RenderersFactory)}.
-     * @param allocator The {@link Allocator}. It should be the same allocator of the {@link
+     * @param loadControl The {@link LoadControl}. It should be the same instance of the {@link
      *     ExoPlayer} that is injected by {@link ExoPlayer.Builder#setLoadControl(LoadControl)}.
      * @param preloadLooper The {@link Looper} that will be used for preloading. It should be the
      *     same looper with {@link ExoPlayer.Builder#setPlaybackLooper(Looper)} that will play the
@@ -154,23 +171,26 @@ public final class PreloadMediaSource extends WrappingMediaSource {
         TrackSelector trackSelector,
         BandwidthMeter bandwidthMeter,
         RendererCapabilities[] rendererCapabilities,
-        Allocator allocator,
+        LoadControl loadControl,
         Looper preloadLooper) {
       this.mediaSourceFactory = mediaSourceFactory;
       this.preloadControl = preloadControl;
       this.trackSelector = trackSelector;
       this.bandwidthMeter = bandwidthMeter;
       this.rendererCapabilities = Arrays.copyOf(rendererCapabilities, rendererCapabilities.length);
-      this.allocator = allocator;
+      this.loadControl = loadControl;
       this.preloadLooper = preloadLooper;
+      this.clock = Clock.DEFAULT;
     }
 
+    @CanIgnoreReturnValue
     @Override
     public Factory setCmcdConfigurationFactory(CmcdConfiguration.Factory cmcdConfigurationFactory) {
       this.mediaSourceFactory.setCmcdConfigurationFactory(cmcdConfigurationFactory);
       return this;
     }
 
+    @CanIgnoreReturnValue
     @Override
     public Factory setDrmSessionManagerProvider(
         DrmSessionManagerProvider drmSessionManagerProvider) {
@@ -178,9 +198,22 @@ public final class PreloadMediaSource extends WrappingMediaSource {
       return this;
     }
 
+    @CanIgnoreReturnValue
     @Override
     public Factory setLoadErrorHandlingPolicy(LoadErrorHandlingPolicy loadErrorHandlingPolicy) {
       this.mediaSourceFactory.setLoadErrorHandlingPolicy(loadErrorHandlingPolicy);
+      return this;
+    }
+
+    /**
+     * Sets the {@link Clock} that will be used by the {@link PreloadMediaSource}. Should only be
+     * set for testing purposes.
+     *
+     * @return This factory, for convenience.
+     */
+    @CanIgnoreReturnValue
+    public Factory setClock(Clock clock) {
+      this.clock = clock;
       return this;
     }
 
@@ -197,8 +230,9 @@ public final class PreloadMediaSource extends WrappingMediaSource {
           trackSelector,
           bandwidthMeter,
           rendererCapabilities,
-          allocator,
-          preloadLooper);
+          loadControl,
+          preloadLooper,
+          clock);
     }
 
     public PreloadMediaSource createMediaSource(MediaSource mediaSource) {
@@ -208,23 +242,28 @@ public final class PreloadMediaSource extends WrappingMediaSource {
           trackSelector,
           bandwidthMeter,
           rendererCapabilities,
-          allocator,
-          preloadLooper);
+          loadControl,
+          preloadLooper,
+          clock);
     }
   }
 
   private static final String TAG = "PreloadMediaSource";
   private static final long CHECK_FOR_PRELOAD_ERROR_INTERVAL_MS = 100;
+  private static final int CONTINUE_LOADING_RETRY_COUNT = 10;
+  private static final long MAYBE_CONTINUE_LOADING_INTERVAL_MS = 100;
 
   private final PreloadControl preloadControl;
   private final TrackSelector trackSelector;
   private final BandwidthMeter bandwidthMeter;
   private final RendererCapabilities[] rendererCapabilities;
+  private final LoadControl loadControl;
   private final Allocator allocator;
-  private final Handler preloadHandler;
-  private final Handler releaseHandler;
+  private final HandlerWrapper preloadHandler;
+  private final HandlerWrapper releaseHandler;
   private boolean preloadCalled;
   private boolean prepareChildSourceCalled;
+  private boolean releasePreloadMediaSourceCalled;
   private long startPositionUs;
   @Nullable private Timeline timeline;
   @Nullable private Pair<PreloadMediaPeriod, MediaPeriodKey> preloadingMediaPeriodAndKey;
@@ -238,17 +277,19 @@ public final class PreloadMediaSource extends WrappingMediaSource {
       TrackSelector trackSelector,
       BandwidthMeter bandwidthMeter,
       RendererCapabilities[] rendererCapabilities,
-      Allocator allocator,
-      Looper preloadLooper) {
+      LoadControl loadControl,
+      Looper preloadLooper,
+      Clock clock) {
     super(mediaSource);
     this.preloadControl = preloadControl;
     this.trackSelector = trackSelector;
     this.bandwidthMeter = bandwidthMeter;
     this.rendererCapabilities = rendererCapabilities;
-    this.allocator = allocator;
+    this.loadControl = loadControl;
+    this.allocator = loadControl.getAllocator(PlayerId.PRELOAD);
 
-    preloadHandler = Util.createHandler(preloadLooper, /* callback= */ null);
-    releaseHandler = Util.createHandler(preloadLooper, /* callback= */ null);
+    preloadHandler = clock.createHandler(preloadLooper, /* callback= */ null);
+    releaseHandler = clock.createHandler(preloadLooper, /* callback= */ null);
     startPositionUs = C.TIME_UNSET;
   }
 
@@ -263,13 +304,14 @@ public final class PreloadMediaSource extends WrappingMediaSource {
   public void preload(long startPositionUs) {
     preloadHandler.post(
         () -> {
-          preloadCalled = true;
-          this.startPositionUs = startPositionUs;
           onSourcePreparedNotified = false;
           if (isUsedByPlayer()) {
             onUsedByPlayer();
           } else {
-            setPlayerId(PlayerId.UNSET); // Set to PlayerId.UNSET as there is no ongoing playback.
+            this.preloadCalled = true;
+            this.startPositionUs = startPositionUs;
+            setPlayerId(PlayerId.PRELOAD);
+            loadControl.onPrepared(PlayerId.PRELOAD);
             prepareSourceInternal(bandwidthMeter.getTransferListener());
             checkForPreloadError();
           }
@@ -298,6 +340,7 @@ public final class PreloadMediaSource extends WrappingMediaSource {
     if (isUsedByPlayer() && !onUsedByPlayerNotified) {
       onUsedByPlayer();
     }
+    maybeSetPlayerIdForAllocator();
     if (timeline != null) {
       onChildSourceInfoRefreshed(timeline);
     } else if (!prepareChildSourceCalled) {
@@ -386,7 +429,11 @@ public final class PreloadMediaSource extends WrappingMediaSource {
   protected void releaseSourceInternal() {
     if (!isUsedByPlayer()) {
       onUsedByPlayerNotified = false;
-      if (!preloadCalled) {
+      if (preloadCalled && !releasePreloadMediaSourceCalled) {
+        // PlayerId.PRELOAD takes over this source again.
+        setPlayerId(PlayerId.PRELOAD);
+        maybeSetPlayerIdForAllocator();
+      } else {
         timeline = null;
         prepareChildSourceCalled = false;
         super.releaseSourceInternal();
@@ -402,6 +449,10 @@ public final class PreloadMediaSource extends WrappingMediaSource {
   public void releasePreloadMediaSource() {
     releaseHandler.post(
         () -> {
+          if (preloadCalled) {
+            loadControl.onReleased(PlayerId.PRELOAD);
+          }
+          releasePreloadMediaSourceCalled = true;
           preloadCalled = false;
           startPositionUs = C.TIME_UNSET;
           onSourcePreparedNotified = false;
@@ -456,13 +507,22 @@ public final class PreloadMediaSource extends WrappingMediaSource {
         && firstPeriodId.nextAdGroupIndex == secondPeriodId.nextAdGroupIndex;
   }
 
+  private void maybeSetPlayerIdForAllocator() {
+    if (allocator instanceof PlayerIdAwareAllocator) {
+      ((PlayerIdAwareAllocator) allocator).setPlayerId(getPlayerId());
+    }
+  }
+
   private class PreloadMediaPeriodCallback implements MediaPeriod.Callback {
 
     private final long periodStartPositionUs;
     private boolean prepared;
+    private int continueLoadingRetryCountBeforeCallingPreloadControlAgain;
+    @Nullable private Runnable maybeContinueLoadingRunnable;
 
     public PreloadMediaPeriodCallback(long periodStartPositionUs) {
       this.periodStartPositionUs = periodStartPositionUs;
+      continueLoadingRetryCountBeforeCallingPreloadControlAgain = C.LENGTH_UNSET;
     }
 
     @Override
@@ -477,10 +537,11 @@ public final class PreloadMediaSource extends WrappingMediaSource {
             TrackGroupArray trackGroups = preloadMediaPeriod.getTrackGroups();
             @Nullable TrackSelectorResult trackSelectorResult = null;
             MediaPeriodKey key = checkNotNull(preloadingMediaPeriodAndKey).second;
+            MediaPeriodId mediaPeriodId = key.mediaPeriodId;
             try {
               trackSelectorResult =
                   trackSelector.selectTracks(
-                      rendererCapabilities, trackGroups, key.mediaPeriodId, checkNotNull(timeline));
+                      rendererCapabilities, trackGroups, mediaPeriodId, checkNotNull(timeline));
             } catch (ExoPlaybackException e) {
               Log.e(TAG, "Failed to select tracks", e);
             }
@@ -494,8 +555,16 @@ public final class PreloadMediaSource extends WrappingMediaSource {
               stopPreloading();
               return;
             }
-            preloadMediaPeriod.continueLoading(
-                new LoadingInfo.Builder().setPlaybackPositionUs(periodStartPositionUs).build());
+            loadControl.onTracksSelected(
+                createLoadControlParameters(
+                    getPlayerId(),
+                    checkNotNull(timeline),
+                    mediaPeriodId,
+                    mediaPeriod.getBufferedPositionUs()),
+                trackGroups,
+                trackSelectorResult.selections);
+            continueLoadingRetryCountBeforeCallingPreloadControlAgain = C.LENGTH_UNSET;
+            maybeContinueLoading(preloadMediaPeriod, mediaPeriodId);
           });
     }
 
@@ -520,9 +589,75 @@ public final class PreloadMediaSource extends WrappingMediaSource {
                 return;
               }
             }
-            preloadMediaPeriod.continueLoading(
-                new LoadingInfo.Builder().setPlaybackPositionUs(periodStartPositionUs).build());
+            MediaPeriodKey key = checkNotNull(preloadingMediaPeriodAndKey).second;
+            continueLoadingRetryCountBeforeCallingPreloadControlAgain = C.LENGTH_UNSET;
+            maybeContinueLoading(preloadMediaPeriod, key.mediaPeriodId);
           });
+    }
+
+    private void maybeContinueLoading(MediaPeriod mediaPeriod, MediaPeriodId mediaPeriodId) {
+      if (preloadingMediaPeriodAndKey == null || preloadingMediaPeriodAndKey.first != mediaPeriod) {
+        return;
+      }
+      if (maybeContinueLoadingRunnable != null) {
+        // Remove other pending maybeContinueLoadingRunnable that are handled by this invocation.
+        preloadHandler.removeCallbacks(maybeContinueLoadingRunnable);
+        maybeContinueLoadingRunnable = null;
+      }
+
+      LoadControl.Parameters parameters =
+          createLoadControlParameters(
+              getPlayerId(),
+              checkNotNull(timeline),
+              mediaPeriodId,
+              prepared ? mediaPeriod.getBufferedPositionUs() : 0L);
+      if (loadControl.shouldContinueLoading(parameters)) {
+        continueLoadingRetryCountBeforeCallingPreloadControlAgain = C.LENGTH_UNSET;
+        mediaPeriod.continueLoading(
+            new LoadingInfo.Builder().setPlaybackPositionUs(periodStartPositionUs).build());
+        return;
+      }
+
+      // LoadControl refuses loading.
+      if (continueLoadingRetryCountBeforeCallingPreloadControlAgain != C.LENGTH_UNSET
+          && continueLoadingRetryCountBeforeCallingPreloadControlAgain
+              < CONTINUE_LOADING_RETRY_COUNT) {
+        // The continueLoadingRetryCountBeforeCallingPreloadControlAgain still hasn't exhausted the
+        // allowed times, we will keep retrying maybeContinueLoading before letting PreloadControl
+        // know to take more actions.
+        continueLoadingRetryCountBeforeCallingPreloadControlAgain++;
+      } else if (preloadControl.onLoadingUnableToContinue(PreloadMediaSource.this)) {
+        // The continueLoadingRetryCountBeforeCallingPreloadControlAgain has exhausted the allowed
+        // times before continue loading, and we have let the PreloadControl know to make more
+        // allocations available for this PreloadMediaSource, then we reset the retry count and
+        // start to retry again.
+        continueLoadingRetryCountBeforeCallingPreloadControlAgain = 0;
+      } else {
+        // The PreloadControl cannot do more to make allocations available for this
+        // PreloadMediaSource. Then we will still keep retrying maybeContinueLoading just in case
+        // some allocations become available by any other means.
+        continueLoadingRetryCountBeforeCallingPreloadControlAgain = C.LENGTH_UNSET;
+      }
+      maybeContinueLoadingRunnable = () -> maybeContinueLoading(mediaPeriod, mediaPeriodId);
+      preloadHandler.postDelayed(maybeContinueLoadingRunnable, MAYBE_CONTINUE_LOADING_INTERVAL_MS);
+    }
+
+    private LoadControl.Parameters createLoadControlParameters(
+        PlayerId playerId,
+        Timeline timeline,
+        MediaPeriodId mediaPeriodId,
+        long bufferedDurationUs) {
+      return new LoadControl.Parameters(
+          playerId,
+          timeline,
+          mediaPeriodId,
+          /* playbackPositionUs= */ 0L,
+          bufferedDurationUs,
+          /* playbackSpeed= */ 1f,
+          /* playWhenReady= */ false,
+          /* rebuffering= */ false,
+          /* targetLiveOffsetUs= */ C.TIME_UNSET,
+          /* lastRebufferRealtimeMs= */ C.TIME_UNSET);
     }
   }
 

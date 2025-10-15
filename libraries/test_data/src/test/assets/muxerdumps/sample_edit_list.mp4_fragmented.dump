@@ -4,8 +4,8 @@ seekMap:
   getPosition(0) = [[timeUs=0, position=1909]]
 numberOfTracks = 3
 track 0:
-  total output bytes = 3208515
-  sample count = 85
+  total output bytes = 3226787
+  sample count = 86
   format 0:
     id = 1
     containerMimeType = video/mp4
@@ -368,9 +368,13 @@ track 0:
     time = 3001666
     flags = 0
     data = length 33333, hash 567D33D6
+  sample 85:
+    time = 2968333
+    flags = 0
+    data = length 18272, hash 73F2C3BC
 track 1:
-  total output bytes = 3208515
-  sample count = 85
+  total output bytes = 3226787
+  sample count = 86
   format 0:
     id = 2
     containerMimeType = video/mp4
@@ -732,6 +736,10 @@ track 1:
     time = 3001666
     flags = 0
     data = length 33333, hash 567D33D6
+  sample 85:
+    time = 2968333
+    flags = 0
+    data = length 18272, hash 73F2C3BC
 track 2:
   total output bytes = 45765
   sample count = 112

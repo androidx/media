@@ -16,7 +16,7 @@
 package androidx.media3.transformer;
 
 import static android.hardware.display.DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR;
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.graphics.Rect;
 import android.hardware.display.VirtualDisplay;

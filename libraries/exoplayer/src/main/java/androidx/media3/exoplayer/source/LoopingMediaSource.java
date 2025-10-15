@@ -15,11 +15,13 @@
  */
 package androidx.media3.exoplayer.source;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
+
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.AbstractConcatenatedTimeline;
 import androidx.media3.exoplayer.ExoPlayer;
@@ -65,7 +67,7 @@ public final class LoopingMediaSource extends WrappingMediaSource {
    */
   public LoopingMediaSource(MediaSource childSource, int loopCount) {
     super(new MaskingMediaSource(childSource, /* useLazyPreparation= */ false));
-    Assertions.checkArgument(loopCount > 0);
+    checkArgument(loopCount > 0);
     this.loopCount = loopCount;
     childMediaPeriodIdToMediaPeriodId = new HashMap<>();
     mediaPeriodToChildMediaPeriodId = new HashMap<>();
@@ -140,7 +142,7 @@ public final class LoopingMediaSource extends WrappingMediaSource {
       childWindowCount = childTimeline.getWindowCount();
       this.loopCount = loopCount;
       if (childPeriodCount > 0) {
-        Assertions.checkState(
+        checkState(
             loopCount <= Integer.MAX_VALUE / childPeriodCount,
             "LoopingMediaSource contains too many periods");
       }

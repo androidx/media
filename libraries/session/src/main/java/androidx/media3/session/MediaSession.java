@@ -17,11 +17,11 @@ package androidx.media3.session;
 
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.annotation.VisibleForTesting.PRIVATE;
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.session.SessionError.ERROR_NOT_SUPPORTED;
 import static androidx.media3.session.SessionResult.RESULT_SUCCESS;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.app.PendingIntent;
 import android.content.Context;
@@ -246,6 +246,8 @@ public class MediaSession {
    * thread of the underlying {@link Player}.
    */
   public static final class Builder extends BuilderBase<MediaSession, Builder, Callback> {
+
+    private boolean useLegacySurfaceHandling;
 
     /**
      * Creates a builder for {@link MediaSession}.
@@ -492,6 +494,25 @@ public class MediaSession {
     }
 
     /**
+     * Sets whether to use the legacy surface handling logic by ignoring the surface size.
+     *
+     * <p>When set to {@code true}, the session will call {@link Player#setVideoSurface(Surface)}
+     * directly, which may not work correctly with video effects. This is intended as a temporary
+     * opt-out for applications that experience issues with the new SurfaceHolder-based approach.
+     *
+     * <p>This method is experimental and may be removed in a future release.
+     *
+     * @param useLegacySurfaceHandling Whether to use the legacy surface handling logic.
+     * @return This builder.
+     */
+    @CanIgnoreReturnValue
+    @UnstableApi
+    public Builder setExperimentalSetUseLegacySurfaceHandling(boolean useLegacySurfaceHandling) {
+      this.useLegacySurfaceHandling = useLegacySurfaceHandling;
+      return this;
+    }
+
+    /**
      * Builds a {@link MediaSession}.
      *
      * @return A new session.
@@ -501,7 +522,9 @@ public class MediaSession {
     @Override
     public MediaSession build() {
       if (bitmapLoader == null) {
-        bitmapLoader = new CacheBitmapLoader(new DataSourceBitmapLoader(context));
+        bitmapLoader =
+            new CacheBitmapLoader(
+                new DataSourceBitmapLoader(context, MediaSession.getBitmapDimensionLimit(context)));
       }
       return new MediaSession(
           context,
@@ -518,6 +541,7 @@ public class MediaSession {
           playIfSuppressed,
           isPeriodicPositionUpdateEnabled,
           MediaLibrarySession.LIBRARY_ERROR_REPLICATION_MODE_NONE,
+          useLegacySurfaceHandling,
           systemUiPlaybackResumptionOptIn);
     }
   }
@@ -553,6 +577,7 @@ public class MediaSession {
     @Nullable private final ControllerCb controllerCb;
     private final Bundle connectionHints;
     private final int maxCommandsForMediaItems;
+    private final boolean isPackageNameVerified;
 
     /**
      * Creates an instance.
@@ -574,7 +599,8 @@ public class MediaSession {
         boolean trusted,
         @Nullable ControllerCb cb,
         Bundle connectionHints,
-        int maxCommandsForMediaItems) {
+        int maxCommandsForMediaItems,
+        boolean isPackageNameVerified) {
       this.remoteUserInfo = remoteUserInfo;
       this.libraryVersion = libraryVersion;
       this.interfaceVersion = interfaceVersion;
@@ -582,6 +608,7 @@ public class MediaSession {
       controllerCb = cb;
       this.connectionHints = connectionHints;
       this.maxCommandsForMediaItems = maxCommandsForMediaItems;
+      this.isPackageNameVerified = isPackageNameVerified;
     }
 
     /* package */ RemoteUserInfo getRemoteUserInfo() {
@@ -611,7 +638,15 @@ public class MediaSession {
       return interfaceVersion;
     }
 
-    /** Returns the package name, or {@link #LEGACY_CONTROLLER_PACKAGE_NAME} on API &le; 24. */
+    /**
+     * Returns the package name, or {@link #LEGACY_CONTROLLER_PACKAGE_NAME} on API &le; 24.
+     *
+     * <p>In some cases the correctness of the package name cannot be verified, for example when a
+     * controller from another app connects directly with a {@link SessionToken} and the app's
+     * package is not visible from this app. Refer to the <a
+     * href="https://developer.android.com/training/package-visibility">package visibility
+     * guidelines</a> for more details and how to ensure specific packages are visible if required.
+     */
     public String getPackageName() {
       return remoteUserInfo.getPackageName();
     }
@@ -658,6 +693,15 @@ public class MediaSession {
     @UnstableApi
     public boolean isTrusted() {
       return isTrusted;
+    }
+
+    /**
+     * Returns whether the value returned from {@link #getPackageName()} has been verified to be a
+     * valid package name belonging to {@link #getUid()}.
+     */
+    @UnstableApi
+    public boolean isPackageNameVerified() {
+      return isPackageNameVerified;
     }
 
     @Override
@@ -707,7 +751,8 @@ public class MediaSession {
           /* trusted= */ false,
           /* cb= */ null,
           /* connectionHints= */ Bundle.EMPTY,
-          /* maxCommandsForMediaItems= */ 0);
+          /* maxCommandsForMediaItems= */ 0,
+          /* isPackageNameVerified= */ false);
     }
 
     /** Returns a {@link ControllerInfo} suitable for use when testing client code. */
@@ -719,7 +764,8 @@ public class MediaSession {
         int libraryVersion,
         int interfaceVersion,
         boolean trusted,
-        Bundle connectionHints) {
+        Bundle connectionHints,
+        boolean isPackageNameVerified) {
       return new MediaSession.ControllerInfo(
           new RemoteUserInfo(packageName, pid, uid),
           libraryVersion,
@@ -727,7 +773,8 @@ public class MediaSession {
           trusted,
           /* cb= */ null,
           connectionHints,
-          /* maxCommandsForMediaItems= */ 0);
+          /* maxCommandsForMediaItems= */ 0,
+          isPackageNameVerified);
     }
   }
 
@@ -750,6 +797,7 @@ public class MediaSession {
       boolean playIfSuppressed,
       boolean isPeriodicPositionUpdateEnabled,
       @MediaLibrarySession.LibraryErrorReplicationMode int libraryErrorReplicationMode,
+      boolean useLegacySurfaceHandling,
       @Nullable Boolean systemUiPlaybackResumptionOptIn) {
     synchronized (STATIC_LOCK) {
       if (SESSION_ID_TO_SESSION_MAP.containsKey(id)) {
@@ -773,6 +821,7 @@ public class MediaSession {
             playIfSuppressed,
             isPeriodicPositionUpdateEnabled,
             libraryErrorReplicationMode,
+            useLegacySurfaceHandling,
             systemUiPlaybackResumptionOptIn);
   }
 
@@ -791,6 +840,7 @@ public class MediaSession {
       boolean playIfSuppressed,
       boolean isPeriodicPositionUpdateEnabled,
       @MediaLibrarySession.LibraryErrorReplicationMode int libraryErrorReplicationMode,
+      boolean useLegacySurfaceHandling,
       @Nullable Boolean systemUiPlaybackResumptionOptIn) {
     return new MediaSessionImpl(
         this,
@@ -807,11 +857,23 @@ public class MediaSession {
         bitmapLoader,
         playIfSuppressed,
         isPeriodicPositionUpdateEnabled,
+        useLegacySurfaceHandling,
         systemUiPlaybackResumptionOptIn);
   }
 
   /* package */ MediaSessionImpl getImpl() {
     return impl;
+  }
+
+  /**
+   * Returns the bitmap dimension limit in pixels. Bitmaps with width or height larger than this
+   * will be scaled down to fit within the limit.
+   *
+   * @param context The context in which the bitmap dimension limit is defined.
+   * @return The bitmap dimension limit in pixels.
+   */
+  public static int getBitmapDimensionLimit(Context context) {
+    return MediaSessionImpl.getBitmapDimensionLimit(context);
   }
 
   @Nullable
@@ -2383,6 +2445,8 @@ public class MediaSession {
 
     default void onVolumeChanged(int seq, float volume) throws RemoteException {}
 
+    default void onAudioSessionIdChanged(int seq, int audioSessionId) throws RemoteException {}
+
     default void onAudioAttributesChanged(int seq, AudioAttributes audioAttributes)
         throws RemoteException {}
 
@@ -2392,6 +2456,8 @@ public class MediaSession {
 
     default void onMediaMetadataChanged(int seq, MediaMetadata mediaMetadata)
         throws RemoteException {}
+
+    default void onSurfaceSizeChanged(int seq, int width, int height) throws RemoteException {}
 
     default void onRenderedFirstFrame(int seq) throws RemoteException {}
 

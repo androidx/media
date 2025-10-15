@@ -16,6 +16,7 @@
 package androidx.media3.datasource;
 
 import static androidx.media3.common.util.Util.castNonNull;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.min;
 
 import android.net.Uri;
@@ -24,7 +25,6 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ParserException;
 import androidx.media3.common.PlaybackException;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import java.io.IOException;
@@ -52,7 +52,7 @@ public final class DataSchemeDataSource extends BaseDataSource {
     this.dataSpec = dataSpec;
     Uri uri = dataSpec.uri.normalizeScheme();
     String scheme = uri.getScheme();
-    Assertions.checkArgument(SCHEME_DATA.equals(scheme), "Unsupported scheme: " + scheme);
+    checkArgument(SCHEME_DATA.equals(scheme), "Unsupported scheme: %s", scheme);
     String[] uriParts = Util.split(uri.getSchemeSpecificPart(), ",");
     if (uriParts.length != 2) {
       throw ParserException.createForMalformedDataOfUnknownType(

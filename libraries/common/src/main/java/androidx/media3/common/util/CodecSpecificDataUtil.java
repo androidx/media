@@ -15,7 +15,7 @@
  */
 package androidx.media3.common.util;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
+import static com.google.common.base.Preconditions.checkArgument;
 
 import android.annotation.SuppressLint;
 import android.media.MediaCodecInfo;
@@ -26,7 +26,9 @@ import androidx.media3.common.ColorInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import com.google.common.collect.ImmutableList;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -46,6 +48,10 @@ public final class CodecSpecificDataUtil {
   private static final int VISUAL_OBJECT_LAYER_START = 0x20;
   private static final int EXTENDED_PAR = 0x0F;
   private static final int RECTANGULAR = 0x00;
+
+  // IAMF OBU types.
+  private static final int OBU_IA_CODEC_CONFIG = 0x00;
+  private static final int OBU_IA_SEQUENCE_HEADER = 0x1F;
 
   // Codecs to constant mappings.
   // H263
@@ -78,15 +84,17 @@ public final class CodecSpecificDataUtil {
    * href="https://github.com/macosforge/alac/blob/master/ALACMagicCookieDescription.txt">ALACSpecificConfig</a>).
    *
    * @param audioSpecificConfig A byte array containing the AudioSpecificConfig to parse.
-   * @return A pair consisting of the sample rate in Hz and the channel count.
+   * @return An int array consisting of the sample rate in Hz, the channel count and the bit depth.
    */
-  public static Pair<Integer, Integer> parseAlacAudioSpecificConfig(byte[] audioSpecificConfig) {
+  public static int[] parseAlacAudioSpecificConfig(byte[] audioSpecificConfig) {
     ParsableByteArray byteArray = new ParsableByteArray(audioSpecificConfig);
+    byteArray.setPosition(5);
+    int bitDepth = byteArray.readUnsignedByte();
     byteArray.setPosition(9);
     int channelCount = byteArray.readUnsignedByte();
     byteArray.setPosition(20);
     int sampleRate = byteArray.readUnsignedIntToInt();
-    return Pair.create(sampleRate, channelCount);
+    return new int[] {sampleRate, channelCount, bitDepth};
   }
 
   /**
@@ -107,38 +115,73 @@ public final class CodecSpecificDataUtil {
    * href="https://aomediacodec.github.io/iamf/#codecsparameter">IAMF Codec Parameters String</a>
    * specification.
    */
+  @Nullable
   public static String buildIamfCodecString(byte[] initializationData) {
     ParsableByteArray parsableByteArray = new ParsableByteArray(initializationData);
-    parsableByteArray.skipLeb128(); // configOBUs_size
-    // IASequenceHeaderOBU
-    parsableByteArray.skipBytes(4); // ia_code (4 bytes)
-    int primaryProfile = parsableByteArray.readUnsignedByte(); // primary_profile (1 byte)
-    int additionalProfile = parsableByteArray.readUnsignedByte(); // additional_profile (1 byte)
 
-    // OBUHeader
-    // obu_type (5 bits) + obu_redundant_copy (1 bit) + obu_trimming_status_flag  (1 bit) +
-    // obu_extension_flag (1 bit)
-    parsableByteArray.skipBytes(1);
-    parsableByteArray.skipLeb128(); // obu_size
+    @Nullable String iaSequenceHeader = null;
+    @Nullable String codecConfigCodecId = null;
 
-    // CodecConfigOBU
-    parsableByteArray.skipLeb128(); // codec_config_id
-    String codecId = parsableByteArray.readString(4); // codec_id (4 bytes)
+    while (parsableByteArray.bytesLeft() > 0
+        && (iaSequenceHeader == null || codecConfigCodecId == null)) {
+      // OBUHeader
+      // obu_type (5 bits) + obu_redundant_copy (1 bit) + obu_trimming_status_flag  (1 bit) +
+      // obu_extension_flag (1 bit)
+      int obuHeaderByte = parsableByteArray.readUnsignedByte();
+      int obuType = obuHeaderByte >> 3; // obu_type (5 bits)
+      // skip obu_redundant_copy (1 bit)
+      boolean obuTrimmingStatusFlag = (obuHeaderByte & 0x2) != 0; // obu_trimming_status (1 bit)
+      boolean obuExtensionFlag = (obuHeaderByte & 0x1) != 0; // obu_extension (1 bit)
 
-    if (codecId.equals("mp4a")) {
-      parsableByteArray.skipLeb128(); // num_samples_per_frame
-      parsableByteArray.skipBytes(2); // audio_roll_distance (2 bytes)
+      int obuSize = parsableByteArray.readUnsignedLeb128ToInt(); // obu_size
 
-      ParsableBitArray decoderConfigBitArray = new ParsableBitArray();
-      decoderConfigBitArray.reset(parsableByteArray);
-      int audioObjectType = decoderConfigBitArray.readBits(5);
-      // If audioObjectType is an escape value, then we need to read 6 bits.
-      if (audioObjectType == 0x1F) {
-        audioObjectType = 32 + decoderConfigBitArray.readBits(6);
+      if ((obuType > 4 && obuType < 24) && obuTrimmingStatusFlag) {
+        parsableByteArray.skipLeb128(); // num_samples_to_trim_at_end
+        parsableByteArray.skipLeb128(); // num_samples_to_trim_at_start
       }
-      codecId += ".40." + audioObjectType;
+      if (obuExtensionFlag) {
+        int extensionHeaderSize =
+            parsableByteArray.readUnsignedLeb128ToInt(); // extension_header_size
+        parsableByteArray.skipBytes(extensionHeaderSize); // extension_header_bytes
+      }
+
+      int nextObuPosition = parsableByteArray.getPosition() + obuSize;
+      if (obuType == OBU_IA_SEQUENCE_HEADER) { // OBU_IA_Sequence_Header
+        // IASequenceHeaderOBU
+        parsableByteArray.skipBytes(4); // ia_code (4 bytes)
+        int primaryProfile = parsableByteArray.readUnsignedByte(); // primary_profile (1 byte)
+        int additionalProfile = parsableByteArray.readUnsignedByte(); // additional_profile (1 byte)
+        iaSequenceHeader =
+            Util.formatInvariant("iamf.%03X.%03X", primaryProfile, additionalProfile);
+      } else if (obuType == OBU_IA_CODEC_CONFIG) { // OBU_IA_Codec_Config
+        // CodecConfigOBU
+        parsableByteArray.skipLeb128(); // codec_config_id
+        codecConfigCodecId = parsableByteArray.readString(4); // codec_id (4 bytes)
+
+        if (codecConfigCodecId.equals(CODEC_ID_MP4A)) {
+          parsableByteArray.skipLeb128(); // num_samples_per_frame
+          parsableByteArray.skipBytes(2); // audio_roll_distance (2 bytes)
+
+          ParsableBitArray decoderConfigBitArray = new ParsableBitArray();
+          decoderConfigBitArray.reset(parsableByteArray);
+          int audioObjectType = decoderConfigBitArray.readBits(5);
+          // If audioObjectType is an escape value, then we need to read extra 6 bits.
+          // Refer to ISO/IEC 14496-3 (2005) Table 1.14 for more details.
+          if (audioObjectType == 0x1F) {
+            audioObjectType = 32 + decoderConfigBitArray.readBits(6);
+          }
+          codecConfigCodecId += ".40." + audioObjectType;
+        }
+      }
+
+      parsableByteArray.setPosition(nextObuPosition);
     }
-    return Util.formatInvariant("iamf.%03X.%03X.%s", primaryProfile, additionalProfile, codecId);
+
+    if (iaSequenceHeader != null && codecConfigCodecId != null) {
+      return iaSequenceHeader + "." + codecConfigCodecId;
+    } else {
+      return null;
+    }
   }
 
   /**
@@ -182,6 +225,90 @@ public final class CodecSpecificDataUtil {
           bitDepthId, length, bitDepth,
           chromaSubsamplingId, length, chromaSubsampling
         });
+  }
+
+  /**
+   * Creates the Vorbis initialization data (CodecPrivate).
+   *
+   * <p>The format is as follows:
+   *
+   * <ul>
+   *   <li>Byte 1: The number of packets minus one. This is 2 for Vorbis, representing the
+   *       Identification, Comment, and Setup headers.
+   *   <li>Bytes 2..n: The lengths of the first two packets (Identification and Comment headers),
+   *       encoded using Xiph lacing. The length of the final packet (Setup header) is not
+   *       explicitly stored.
+   *   <li>Bytes n+1 onwards: The Vorbis identification header, Vorbis comment header and the codec
+   *       setup header.
+   * </ul>
+   *
+   * See <a href="https://www.matroska.org/technical/codec_specs.html">A_VORBIS</a> for CodecPrivate
+   * format of Vorbis.
+   *
+   * @param format The {@link Format}.
+   * @return A {@link ByteBuffer} containing the assembled Vorbis CodecPrivate data.
+   */
+  public static ByteBuffer getVorbisInitializationData(Format format) {
+    checkArgument(
+        format.initializationData.size() > 1, "csd-0 and csd-1 must be present for Vorbis.");
+
+    byte[] identificationHeader = format.initializationData.get(0);
+    byte[] setupHeader = format.initializationData.get(1);
+    byte[] commentHeader =
+        new byte[] {
+          3, 'v', 'o', 'r', 'b', 'i', 's', 7, 0, 0, 0, 'a', 'n', 'd', 'r', 'o', 'i', 'd', 0, 0, 0,
+          0, 1
+        };
+
+    int identificationHeaderSize = identificationHeader.length;
+    int commentHeaderSize = commentHeader.length;
+    int setupHeaderSize = setupHeader.length;
+
+    byte[] identificationHeaderLaced = xiphLaceEnc(identificationHeaderSize);
+    byte[] commentHeaderLaced = xiphLaceEnc(commentHeaderSize);
+
+    int codecPrivateSize =
+        /* headers count size */ 1
+            + identificationHeaderLaced.length
+            + commentHeaderLaced.length
+            + identificationHeaderSize
+            + commentHeaderSize
+            + setupHeaderSize;
+
+    ByteBuffer codecPrivateBuf = ByteBuffer.allocate(codecPrivateSize);
+
+    codecPrivateBuf.put((byte) 0x02); // Number of headers - 1 (Id, Comment, Setup)
+
+    // Encode and put Xiph laced lengths
+    codecPrivateBuf.put(identificationHeaderLaced);
+    codecPrivateBuf.put(commentHeaderLaced);
+
+    codecPrivateBuf.put(identificationHeader);
+    codecPrivateBuf.put(commentHeader);
+    codecPrivateBuf.put(setupHeader);
+
+    codecPrivateBuf.flip();
+
+    return codecPrivateBuf;
+  }
+
+  /**
+   * Encodes size into a byte array using Xiph lacing.
+   *
+   * <p>The lacing size is split into 255 values, stored as unsigned octets – for example, 500 is
+   * coded 255;245 or [0xFF 0xF5]. A frame with a size multiple of 255 is coded with a 0 at the end
+   * of the size – for example, 765 is coded 255;255;255;0 or [0xFF 0xFF 0xFF 0x00].
+   *
+   * @param size The size to encode.
+   * @return A byte array containing the Xiph-laced representation of {@code size}.
+   */
+  private static byte[] xiphLaceEnc(int size) {
+    byte[] xiphLacedSizeArray = new byte[(size / 255) + 1];
+
+    Arrays.fill(xiphLacedSizeArray, (byte) 0xFF);
+
+    xiphLacedSizeArray[xiphLacedSizeArray.length - 1] = (byte) (size % 255);
+    return xiphLacedSizeArray;
   }
 
   /**
@@ -355,10 +482,11 @@ public final class CodecSpecificDataUtil {
    */
   public static String buildApvCodecString(byte[] initializationData) {
     checkArgument(
-        initializationData.length >= 17, "Invalid APV CSD length: %s" + initializationData.length);
+        initializationData.length >= 17, "Invalid APV CSD length: %s", initializationData.length);
     checkArgument(
         initializationData[0] == 0x01,
-        "Invalid APV CSD version: %s" + initializationData[0]); // configurationVersion == 1
+        "Invalid APV CSD version: %s",
+        initializationData[0]); // configurationVersion == 1
 
     int profile = initializationData[5];
     int level = initializationData[6];
@@ -934,7 +1062,6 @@ public final class CodecSpecificDataUtil {
     int profileBitmask = 0x1 << (16 + primaryProfileValue);
     int versionBitmask = 0x1 << 24;
     int auxiliaryProfileValue = 0;
-
     switch (parts[3]) {
       case "Opus":
         auxiliaryProfileValue = 0x1; // Bit 0

@@ -18,7 +18,7 @@ package androidx.media3.extractor.jpeg;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MimeTypes;
-import androidx.media3.extractor.metadata.mp4.MotionPhotoMetadata;
+import androidx.media3.extractor.metadata.MotionPhotoMetadata;
 import java.util.List;
 
 /** Describes the layout and metadata of a motion photo file. */
@@ -87,14 +87,14 @@ import java.util.List;
     // non-zero length, which is the item that contains the video data.
     long photoStartPosition = C.INDEX_UNSET;
     long photoLength = C.LENGTH_UNSET;
-    long mp4StartPosition = C.INDEX_UNSET;
-    long mp4Length = C.LENGTH_UNSET;
-    boolean itemContainsMp4 = false;
+    long videoStartPosition = C.INDEX_UNSET;
+    long videoLength = C.LENGTH_UNSET;
     long itemStartPosition = motionPhotoLength;
     long itemEndPosition = motionPhotoLength;
     for (int i = items.size() - 1; i >= 0; i--) {
       MotionPhotoDescription.ContainerItem item = items.get(i);
-      itemContainsMp4 |= MimeTypes.VIDEO_MP4.equals(item.mime);
+      boolean itemContainsBmffVideo =
+          item.mime.equals(MimeTypes.VIDEO_MP4) || item.mime.equals(MimeTypes.VIDEO_QUICK_TIME);
       itemEndPosition = itemStartPosition;
       if (i == 0) {
         // Padding is only applied for the primary item.
@@ -103,24 +103,28 @@ import java.util.List;
       } else {
         itemStartPosition -= item.length;
       }
-      if (itemContainsMp4 && itemStartPosition != itemEndPosition) {
-        mp4StartPosition = itemStartPosition;
-        mp4Length = itemEndPosition - itemStartPosition;
+      if (itemContainsBmffVideo && itemStartPosition != itemEndPosition) {
+        videoStartPosition = itemStartPosition;
+        videoLength = itemEndPosition - itemStartPosition;
         // Reset in case there's another video earlier in the list.
-        itemContainsMp4 = false;
+        itemContainsBmffVideo = false;
       }
       if (i == 0) {
         photoStartPosition = itemStartPosition;
         photoLength = itemEndPosition;
       }
     }
-    if (mp4StartPosition == C.INDEX_UNSET
-        || mp4Length == C.LENGTH_UNSET
+    if (videoStartPosition == C.INDEX_UNSET
+        || videoLength == C.LENGTH_UNSET
         || photoStartPosition == C.INDEX_UNSET
         || photoLength == C.LENGTH_UNSET) {
       return null;
     }
     return new MotionPhotoMetadata(
-        photoStartPosition, photoLength, photoPresentationTimestampUs, mp4StartPosition, mp4Length);
+        photoStartPosition,
+        photoLength,
+        photoPresentationTimestampUs,
+        videoStartPosition,
+        videoLength);
   }
 }

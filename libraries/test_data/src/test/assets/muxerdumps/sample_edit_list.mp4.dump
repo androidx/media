@@ -7,11 +7,11 @@ seekMap:
   getPosition(2680000) = [[timeUs=1680000, position=429829]]
 numberOfTracks = 3
 track 0:
-  total output bytes = 3208515
-  sample count = 85
+  total output bytes = 3226787
+  sample count = 86
   track duration = 2680000
   format 0:
-    averageBitrate = 8187598
+    averageBitrate = 8234225
     id = 1
     containerMimeType = video/mp4
     sampleMimeType = video/dolby-vision
@@ -22,7 +22,7 @@ track 0:
     height = 1080
     decodedWidth = 1920
     decodedHeight = 1088
-    frameRate = 27.11
+    frameRate = 27.43
     maxSubLayers = 1
     colorInfo:
       colorSpace = 6
@@ -31,7 +31,7 @@ track 0:
       lumaBitdepth = 10
       chromaBitdepth = 10
     language = und
-    metadata = entries=[Mp4Timestamp: creation time=100000000, modification time=500000000, timescale=10000]
+    metadata = entries=[Mp4Timestamp: creation time=100000000, modification time=500000000, timescale=10000, ThumbnailMetadata: presentationTimeUs=611666]
     initializationData:
       data = length 97, hash 32FB3D18
       data = length 24, hash A31E9935
@@ -373,14 +373,18 @@ track 0:
     data = length 62711, hash EF9AC8F5
   sample 84:
     time = 2546666
-    flags = 536870912
+    flags = 0
     data = length 33333, hash 567D33D6
+  sample 85:
+    time = 2513333
+    flags = 536870912
+    data = length 18272, hash 73F2C3BC
 track 1:
-  total output bytes = 3208515
-  sample count = 85
+  total output bytes = 3226787
+  sample count = 86
   track duration = 2680000
   format 0:
-    averageBitrate = 8187598
+    averageBitrate = 8234225
     id = 2
     containerMimeType = video/mp4
     sampleMimeType = video/hevc
@@ -391,7 +395,7 @@ track 1:
     height = 1080
     decodedWidth = 1920
     decodedHeight = 1088
-    frameRate = 27.11
+    frameRate = 27.43
     maxSubLayers = 1
     colorInfo:
       colorSpace = 6
@@ -400,7 +404,7 @@ track 1:
       lumaBitdepth = 10
       chromaBitdepth = 10
     language = und
-    metadata = entries=[Mp4Timestamp: creation time=100000000, modification time=500000000, timescale=10000]
+    metadata = entries=[Mp4Timestamp: creation time=100000000, modification time=500000000, timescale=10000, ThumbnailMetadata: presentationTimeUs=611666]
     initializationData:
       data = length 97, hash 32FB3D18
   sample 0:
@@ -741,8 +745,12 @@ track 1:
     data = length 62711, hash EF9AC8F5
   sample 84:
     time = 2546666
-    flags = 536870912
+    flags = 0
     data = length 33333, hash 567D33D6
+  sample 85:
+    time = 2513333
+    flags = 536870912
+    data = length 18272, hash 73F2C3BC
 track 2:
   total output bytes = 45765
   sample count = 112

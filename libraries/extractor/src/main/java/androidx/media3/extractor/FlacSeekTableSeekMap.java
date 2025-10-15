@@ -15,8 +15,9 @@
  */
 package androidx.media3.extractor;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import androidx.media3.common.C;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 
@@ -53,7 +54,7 @@ public final class FlacSeekTableSeekMap implements SeekMap {
 
   @Override
   public SeekPoints getSeekPoints(long timeUs) {
-    Assertions.checkStateNotNull(flacStreamMetadata.seekTable);
+    checkNotNull(flacStreamMetadata.seekTable);
     long[] pointSampleNumbers = flacStreamMetadata.seekTable.pointSampleNumbers;
     long[] pointOffsets = flacStreamMetadata.seekTable.pointOffsets;
 

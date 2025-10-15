@@ -28,25 +28,27 @@ fi
 # configuration parameters common to all architectures
 common_params="--disable-examples --disable-docs --enable-realtime-only"
 common_params+=" --disable-vp8 --disable-vp9-encoder --disable-webm-io"
-common_params+=" --disable-libyuv --disable-runtime-cpu-detect"
-common_params+=" --enable-external-build"
+common_params+=" --disable-libyuv --enable-external-build"
 
 # configuration parameters for various architectures
 arch[0]="armeabi-v7a"
 config[0]="--target=armv7-android-gcc --enable-neon --enable-neon-asm"
+config[0]+=" --disable-runtime-cpu-detect"
 
 arch[1]="x86"
 config[1]="--force-target=x86-android-gcc --disable-sse2"
 config[1]+=" --disable-sse3 --disable-ssse3 --disable-sse4_1 --disable-avx"
-config[1]+=" --disable-avx2 --enable-pic"
+config[1]+=" --disable-avx2 --enable-pic --disable-runtime-cpu-detect"
 
 arch[2]="arm64-v8a"
 config[2]="--force-target=armv8-android-gcc --enable-neon"
+config[2]+=" --enable-runtime-cpu-detect"
 
 arch[3]="x86_64"
 config[3]="--force-target=x86_64-android-gcc --disable-sse2"
 config[3]+=" --disable-sse3 --disable-ssse3 --disable-sse4_1 --disable-avx"
 config[3]+=" --disable-avx2 --enable-pic --disable-neon --disable-neon-asm"
+config[3]+=" --disable-runtime-cpu-detect"
 
 limit=$((${#arch[@]} - 1))
 

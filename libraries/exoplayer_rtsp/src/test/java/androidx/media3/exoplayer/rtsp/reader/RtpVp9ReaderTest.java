@@ -99,7 +99,7 @@ public final class RtpVp9ReaderTest {
   public void setUp() {
     extractorOutput =
         new FakeExtractorOutput(
-            (id, type) -> new FakeTrackOutput(/* deduplicateConsecutiveFormats= */ true));
+            (id, type) -> new FakeTrackOutput(type, /* deduplicateConsecutiveFormats= */ true));
   }
 
   @Test

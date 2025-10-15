@@ -15,12 +15,12 @@
  */
 package androidx.media3.session;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.session.SessionError.ERROR_BAD_VALUE;
 import static androidx.media3.session.SessionError.ERROR_PERMISSION_DENIED;
 import static androidx.media3.session.SessionError.ERROR_SESSION_DISCONNECTED;
 import static androidx.media3.session.SessionError.ERROR_UNKNOWN;
 import static androidx.media3.session.legacy.MediaConstants.BROWSER_SERVICE_EXTRAS_KEY_CUSTOM_BROWSER_ACTION_ROOT_LIST;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.content.Context;
 import android.os.Bundle;
@@ -381,7 +381,11 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
       Bundle args,
       @Nullable MediaController.ProgressListener progressListener) {
     MediaBrowserCompat browserCompat = getBrowserCompat();
-    if (browserCompat != null) {
+    if (getAvailableSessionCommands().contains(command)) {
+      // All commands that are declared as custom commands in the legacy playback state are sent to
+      // the session callback.
+      return super.sendCustomCommand(command, args);
+    } else if (browserCompat != null) {
       SettableFuture<SessionResult> settable = SettableFuture.create();
       browserCompat.sendCustomAction(
           command.customAction,

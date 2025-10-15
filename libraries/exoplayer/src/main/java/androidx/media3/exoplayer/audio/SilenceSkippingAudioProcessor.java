@@ -15,8 +15,8 @@
  */
 package androidx.media3.exoplayer.audio;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkState;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.min;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
@@ -480,7 +480,8 @@ public final class SilenceSkippingAudioProcessor extends BaseAudioProcessor {
 
       checkState(
           bytesConsumed % bytesPerFrame == 0,
-          "bytesConsumed is not aligned to frame size: %s" + bytesConsumed);
+          "bytesConsumed is not aligned to frame size: %s",
+          bytesConsumed);
 
       checkState((sizeBeforeOutput >= bytesToOutput));
 
@@ -534,7 +535,7 @@ public final class SilenceSkippingAudioProcessor extends BaseAudioProcessor {
   /** Copies elements from {@code data} to populate a new output buffer from the processor. */
   private void outputRange(byte[] data, int size, @VolumeChangeType int rampType) {
     checkArgument(
-        size % bytesPerFrame == 0, "byteOutput size is not aligned to frame size " + size);
+        size % bytesPerFrame == 0, "byteOutput size is not aligned to frame size %s", size);
 
     modifyVolume(data, size, rampType);
     replaceOutputBuffer(size).put(data, 0, size).flip();
@@ -630,7 +631,8 @@ public final class SilenceSkippingAudioProcessor extends BaseAudioProcessor {
 
     checkArgument(
         sizeToOutput % bytesPerFrame == 0,
-        "sizeToOutput is not aligned to frame size: " + sizeToOutput);
+        "sizeToOutput is not aligned to frame size: %s",
+        sizeToOutput);
     checkState(maybeSilenceBufferStartIndex < maybeSilenceBuffer.length);
 
     outputRange(contiguousOutputBuffer, sizeToOutput, rampType);

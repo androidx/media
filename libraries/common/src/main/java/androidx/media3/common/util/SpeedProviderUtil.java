@@ -15,9 +15,9 @@
  */
 package androidx.media3.common.util;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
 import static androidx.media3.common.util.Util.durationUsToSampleCount;
 import static androidx.media3.common.util.Util.sampleCountToDurationUs;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.floor;
 import static java.lang.Math.min;
 

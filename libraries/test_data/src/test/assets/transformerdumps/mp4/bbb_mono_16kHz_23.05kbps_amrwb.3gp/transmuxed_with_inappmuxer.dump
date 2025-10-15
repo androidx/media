@@ -1,15 +1,15 @@
 seekMap:
   isSeekable = true
-  duration = 3000000
+  duration = 2995000
   getPosition(0) = [[timeUs=0, position=400052]]
   getPosition(1) = [[timeUs=1, position=400052]]
-  getPosition(1500000) = [[timeUs=1500000, position=404477]]
-  getPosition(3000000) = [[timeUs=3000000, position=408843]]
+  getPosition(1497500) = [[timeUs=1497500, position=404418]]
+  getPosition(2995000) = [[timeUs=2995000, position=408843]]
 numberOfTracks = 1
 track 0:
   total output bytes = 8850
   sample count = 150
-  track duration = 3000000
+  track duration = 2995000
   format 0:
     averageBitrate = 23600
     id = 1
@@ -18,6 +18,7 @@ track 0:
     maxInputSize = 89
     channelCount = 1
     sampleRate = 16000
+    encoderDelay = 80
     language = und
     metadata = entries=[Mp4Timestamp: creation time=3000000000, modification time=4000000000, timescale=10000]
   sample 0:

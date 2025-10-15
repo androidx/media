@@ -17,7 +17,7 @@
 package androidx.media3.exoplayer.mediacodec;
 
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.annotation.SuppressLint;
 import android.media.MediaCodec;
@@ -179,7 +179,6 @@ public final class SynchronousMediaCodecAdapter implements MediaCodecAdapter {
   }
 
   @Override
-  @RequiresApi(23)
   public void setOnFrameRenderedListener(OnFrameRenderedListener listener, Handler handler) {
     codec.setOnFrameRenderedListener(
         (codec, presentationTimeUs, nanoTime) ->
@@ -189,7 +188,6 @@ public final class SynchronousMediaCodecAdapter implements MediaCodecAdapter {
   }
 
   @Override
-  @RequiresApi(23)
   public void setOutputSurface(Surface surface) {
     codec.setOutputSurface(surface);
   }

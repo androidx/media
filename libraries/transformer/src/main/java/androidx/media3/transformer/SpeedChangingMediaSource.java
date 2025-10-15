@@ -16,11 +16,13 @@
 
 package androidx.media3.transformer;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
+import androidx.media3.common.MediaItem.ClippingConfiguration;
 import androidx.media3.common.StreamKey;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.audio.SpeedProvider;
@@ -49,10 +51,15 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 /* package */ final class SpeedChangingMediaSource extends WrappingMediaSource {
 
   private final SpeedProviderMapper speedProviderMapper;
+  private final long clipStartUs;
 
-  public SpeedChangingMediaSource(MediaSource mediaSource, SpeedProvider speedProvider) {
+  public SpeedChangingMediaSource(
+      MediaSource mediaSource,
+      SpeedProvider speedProvider,
+      ClippingConfiguration clippingConfiguration) {
     super(mediaSource);
-    this.speedProviderMapper = new SpeedProviderMapper(speedProvider);
+    this.clipStartUs = clippingConfiguration.startPositionUs;
+    this.speedProviderMapper = new SpeedProviderMapper(speedProvider, clipStartUs);
   }
 
   @Override
@@ -76,19 +83,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               int windowIndex, Window window, long defaultPositionProjectionUs) {
             Window wrappedWindow =
                 newTimeline.getWindow(windowIndex, window, defaultPositionProjectionUs);
-            // Adjusts the window start position accounting for the speed change. For example,
-            // for slow down 2x and start time at 3s, adjust the start position to 6s.
-            long unadjustedPositionInFirstPeriodUs = wrappedWindow.positionInFirstPeriodUs;
-            long adjustedPositionInFirstPeriodUs =
-                speedProviderMapper.getAdjustedTimeUs(unadjustedPositionInFirstPeriodUs);
-            wrappedWindow.positionInFirstPeriodUs = adjustedPositionInFirstPeriodUs;
-
+            checkState(
+                wrappedWindow.firstPeriodIndex == wrappedWindow.lastPeriodIndex,
+                "SpeedChangingMediaSource does not support multiple Period instances per Window.");
+            // If the MediaItem is clipped, durationUs is the clipped duration.
             long unadjustedWindowDurationUs = wrappedWindow.durationUs;
             if (unadjustedWindowDurationUs != C.TIME_UNSET) {
+              // The window's duration represents the speed-adjusted duration of the MediaItem over
+              // the clipped duration (if clipped).
               wrappedWindow.durationUs =
-                  speedProviderMapper.getAdjustedTimeUs(
-                          unadjustedPositionInFirstPeriodUs + unadjustedWindowDurationUs)
-                      - adjustedPositionInFirstPeriodUs;
+                  speedProviderMapper.getAdjustedTimeUs(unadjustedWindowDurationUs);
             }
             return wrappedWindow;
           }
@@ -96,12 +100,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           @Override
           public Period getPeriod(int periodIndex, Period period, boolean setIds) {
             Period wrappedPeriod = newTimeline.getPeriod(periodIndex, period, setIds);
-            long unadjustedPositionInWindowUs = wrappedPeriod.positionInWindowUs;
-            wrappedPeriod.positionInWindowUs =
-                speedProviderMapper.getAdjustedTimeUs(unadjustedPositionInWindowUs);
+            checkState(
+                wrappedPeriod.positionInWindowUs <= 0,
+                "SpeedChangingMediaSource does not support Period instances starting after their"
+                    + " Window.");
             if (wrappedPeriod.durationUs != C.TIME_UNSET) {
+              // Clip start provided to SpeedChangingMediaSource should match the actual period's
+              // clip start.
+              checkState(clipStartUs == -wrappedPeriod.positionInWindowUs);
               wrappedPeriod.durationUs =
-                  speedProviderMapper.getAdjustedTimeUs(wrappedPeriod.durationUs);
+                  speedProviderMapper.getAdjustedPeriodTimeUs(wrappedPeriod.durationUs);
             }
             return wrappedPeriod;
           }
@@ -121,7 +129,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
      * Create an instance.
      *
      * @param mediaPeriod The wrapped {@link MediaPeriod}.
-     * @param speedProviderMapper the {@link SpeedProviderMapper} to scale the original media times.
+     * @param speedProviderMapper The {@link SpeedProviderMapper} to scale the original media times.
      */
     public SpeedProviderMediaPeriod(
         MediaPeriod mediaPeriod, SpeedProviderMapper speedProviderMapper) {
@@ -137,7 +145,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     @Override
     public void prepare(Callback callback, long positionUs) {
       this.callback = callback;
-      mediaPeriod.prepare(/* callback= */ this, speedProviderMapper.getOriginalTimeUs(positionUs));
+      mediaPeriod.prepare(
+          /* callback= */ this, speedProviderMapper.getOriginalPeriodTimeUs(positionUs));
     }
 
     @Override
@@ -173,7 +182,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               mayRetainStreamFlags,
               childStreams,
               streamResetFlags,
-              speedProviderMapper.getOriginalTimeUs(positionUs));
+              speedProviderMapper.getOriginalPeriodTimeUs(positionUs));
       for (int i = 0; i < streams.length; i++) {
         @Nullable SampleStream childStream = childStreams[i];
         if (childStream == null) {
@@ -183,33 +192,36 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           streams[i] = new SpeedProviderMapperSampleStream(childStream, speedProviderMapper);
         }
       }
-      return speedProviderMapper.getAdjustedTimeUs(startPositionUs);
+      return speedProviderMapper.getAdjustedPeriodTimeUs(startPositionUs);
     }
 
     @Override
     public void discardBuffer(long positionUs, boolean toKeyframe) {
-      mediaPeriod.discardBuffer(speedProviderMapper.getOriginalTimeUs(positionUs), toKeyframe);
+      mediaPeriod.discardBuffer(
+          speedProviderMapper.getOriginalPeriodTimeUs(positionUs), toKeyframe);
     }
 
     @Override
     public long readDiscontinuity() {
       long discontinuityPositionUs = mediaPeriod.readDiscontinuity();
-      return discontinuityPositionUs == C.TIME_UNSET
-          ? C.TIME_UNSET
-          : speedProviderMapper.getAdjustedTimeUs(discontinuityPositionUs);
+      if (discontinuityPositionUs == C.TIME_UNSET) {
+        return C.TIME_UNSET;
+      }
+      return speedProviderMapper.getAdjustedPeriodTimeUs(discontinuityPositionUs);
     }
 
     @Override
     public long seekToUs(long positionUs) {
-      return speedProviderMapper.getAdjustedTimeUs(
-          mediaPeriod.seekToUs(speedProviderMapper.getOriginalTimeUs(positionUs)));
+      return speedProviderMapper.getAdjustedPeriodTimeUs(
+          mediaPeriod.seekToUs(speedProviderMapper.getOriginalPeriodTimeUs(positionUs)));
     }
 
     @Override
     public long getAdjustedSeekPositionUs(long positionUs, SeekParameters seekParameters) {
-      return speedProviderMapper.getAdjustedTimeUs(
-          mediaPeriod.getAdjustedSeekPositionUs(
-              speedProviderMapper.getOriginalTimeUs(positionUs), seekParameters));
+      long originalPositionUs = speedProviderMapper.getOriginalPeriodTimeUs(positionUs);
+      long adjustedSeekPosition =
+          mediaPeriod.getAdjustedSeekPositionUs(originalPositionUs, seekParameters);
+      return speedProviderMapper.getAdjustedPeriodTimeUs(adjustedSeekPosition);
     }
 
     @Override
@@ -217,7 +229,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       long bufferedPositionUs = mediaPeriod.getBufferedPositionUs();
       return bufferedPositionUs == C.TIME_END_OF_SOURCE
           ? C.TIME_END_OF_SOURCE
-          : speedProviderMapper.getAdjustedTimeUs(bufferedPositionUs);
+          : speedProviderMapper.getAdjustedPeriodTimeUs(bufferedPositionUs);
     }
 
     @Override
@@ -225,7 +237,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       long nextLoadPositionUs = mediaPeriod.getNextLoadPositionUs();
       return nextLoadPositionUs == C.TIME_END_OF_SOURCE
           ? C.TIME_END_OF_SOURCE
-          : speedProviderMapper.getAdjustedTimeUs(nextLoadPositionUs);
+          : speedProviderMapper.getAdjustedPeriodTimeUs(nextLoadPositionUs);
     }
 
     @Override
@@ -234,7 +246,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           loadingInfo
               .buildUpon()
               .setPlaybackPositionUs(
-                  speedProviderMapper.getOriginalTimeUs(loadingInfo.playbackPositionUs))
+                  speedProviderMapper.getOriginalPeriodTimeUs(loadingInfo.playbackPositionUs))
               .build());
     }
 
@@ -245,7 +257,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     @Override
     public void reevaluateBuffer(long positionUs) {
-      mediaPeriod.reevaluateBuffer(speedProviderMapper.getOriginalTimeUs(positionUs));
+      mediaPeriod.reevaluateBuffer(speedProviderMapper.getOriginalPeriodTimeUs(positionUs));
     }
 
     @Override
@@ -288,14 +300,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           FormatHolder formatHolder, DecoderInputBuffer buffer, @ReadFlags int readFlags) {
         int readResult = sampleStream.readData(formatHolder, buffer, readFlags);
         if (readResult == C.RESULT_BUFFER_READ) {
-          buffer.timeUs = speedProviderMapper.getAdjustedTimeUs(buffer.timeUs);
+          buffer.timeUs = speedProviderMapper.getAdjustedPeriodTimeUs(buffer.timeUs);
         }
         return readResult;
       }
 
       @Override
       public int skipData(long positionUs) {
-        return sampleStream.skipData(speedProviderMapper.getOriginalTimeUs(positionUs));
+        return sampleStream.skipData(speedProviderMapper.getOriginalPeriodTimeUs(positionUs));
       }
     }
   }
@@ -306,8 +318,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     private final long[] outputSegmentStartTimesUs;
     private final long[] inputSegmentStartTimesUs;
     private final float[] speeds;
+    private final long clipStartUs;
 
-    public SpeedProviderMapper(SpeedProvider speedProvider) {
+    public SpeedProviderMapper(SpeedProvider speedProvider, long clipStartUs) {
+      this.clipStartUs = clipStartUs;
       LongArray outputSegmentStartTimesUs = new LongArray();
       LongArray inputSegmentStartTimesUs = new LongArray();
       List<Float> speeds = new ArrayList<>();
@@ -334,6 +348,28 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       this.outputSegmentStartTimesUs = outputSegmentStartTimesUs.toArray();
       this.inputSegmentStartTimesUs = inputSegmentStartTimesUs.toArray();
       this.speeds = Floats.toArray(speeds);
+    }
+
+    /**
+     * Returns the speed-adjusted period position in microseconds.
+     *
+     * <p>This is the inverse operation of {@link #getOriginalPeriodTimeUs}.
+     *
+     * @param originalPeriodPositionUs The original period position in microseconds.
+     */
+    public long getAdjustedPeriodTimeUs(long originalPeriodPositionUs) {
+      return getAdjustedTimeUs(originalPeriodPositionUs - clipStartUs) + clipStartUs;
+    }
+
+    /**
+     * Returns the original period position in microseconds.
+     *
+     * <p>This is the inverse operation of {@link #getAdjustedPeriodTimeUs}.
+     *
+     * @param adjustedPeriodPositionUs The speed-adjusted period position in microseconds.
+     */
+    private long getOriginalPeriodTimeUs(long adjustedPeriodPositionUs) {
+      return getOriginalTimeUs(adjustedPeriodPositionUs - clipStartUs) + clipStartUs;
     }
 
     public long getAdjustedTimeUs(long originalTimeUs) {

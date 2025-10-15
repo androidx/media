@@ -15,15 +15,15 @@
  */
 package androidx.media3.session;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotEmpty;
-import static androidx.media3.common.util.Assertions.checkState;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.annotation.SuppressLint;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.SystemClock;
+import android.text.TextUtils;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.core.app.BundleCompat;
@@ -325,7 +325,7 @@ public final class LibraryResult<V> {
   }
 
   private static void verifyMediaItem(MediaItem item) {
-    checkNotEmpty(item.mediaId, "mediaId must not be empty");
+    checkArgument(!TextUtils.isEmpty(item.mediaId), "mediaId must not be empty");
     checkArgument(item.mediaMetadata.isBrowsable != null, "mediaMetadata must specify isBrowsable");
     checkArgument(item.mediaMetadata.isPlayable != null, "mediaMetadata must specify isPlayable");
   }

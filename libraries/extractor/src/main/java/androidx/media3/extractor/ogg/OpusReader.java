@@ -15,7 +15,7 @@
  */
 package androidx.media3.extractor.ogg;
 
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.Format;
@@ -87,7 +87,7 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
     } else if (peekPacketStartsWith(packet, OPUS_COMMENT_HEADER_SIGNATURE)) {
       // The comment header must come immediately after the ID header, so the format will already
       // be populated: https://datatracker.ietf.org/doc/html/rfc7845#section-3
-      checkStateNotNull(setupData.format);
+      checkNotNull(setupData.format);
       if (firstCommentHeaderSeen) {
         // Multiple comment headers are not permitted by the Opus spec [1], but have been observed
         // in real files [2], so we just ignore all subsequent ones.
@@ -117,7 +117,7 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
     } else {
       // The ID header must come at the start of the file, so the format must already be populated:
       // https://datatracker.ietf.org/doc/html/rfc7845#section-3
-      checkStateNotNull(setupData.format);
+      checkNotNull(setupData.format);
       return false;
     }
   }

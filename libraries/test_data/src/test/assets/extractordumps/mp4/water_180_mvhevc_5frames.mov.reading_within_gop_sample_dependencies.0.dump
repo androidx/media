@@ -31,7 +31,7 @@ track 0:
       lumaBitdepth = 8
       chromaBitdepth = 8
     language = und
-    metadata = entries=[Mp4Timestamp: creation time=3803488223, modification time=3803488223, timescale=11520]
+    metadata = entries=[Mp4Timestamp: creation time=3803488223, modification time=3803488223, timescale=11520, ThumbnailMetadata: presentationTimeUs=0]
     initializationData:
       data = length 124, hash CAFF1DA1
       data = length 27, hash 23A1DCCE

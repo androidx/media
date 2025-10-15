@@ -15,8 +15,8 @@
  */
 package androidx.media3.extractor.text;
 
-import static androidx.media3.common.util.Assertions.checkState;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import androidx.annotation.IntDef;
@@ -286,7 +286,7 @@ public class SubtitleExtractor implements Extractor {
   }
 
   private void writeToOutput(Sample sample) {
-    checkStateNotNull(this.trackOutput);
+    checkNotNull(this.trackOutput);
     int size = sample.data.length;
     scratchSampleArray.reset(sample.data);
     trackOutput.sampleData(scratchSampleArray, size);

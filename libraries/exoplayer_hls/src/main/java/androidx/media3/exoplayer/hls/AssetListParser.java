@@ -19,10 +19,10 @@ import android.net.Uri;
 import android.util.JsonReader;
 import android.util.JsonToken;
 import androidx.annotation.Nullable;
+import androidx.media3.common.AdPlaybackState.SkipInfo;
 import androidx.media3.common.C;
 import androidx.media3.exoplayer.hls.HlsInterstitialsAdsLoader.Asset;
 import androidx.media3.exoplayer.hls.HlsInterstitialsAdsLoader.AssetList;
-import androidx.media3.exoplayer.hls.HlsInterstitialsAdsLoader.SkipControl;
 import androidx.media3.exoplayer.hls.HlsInterstitialsAdsLoader.StringAttribute;
 import androidx.media3.exoplayer.upstream.ParsingLoadable;
 import com.google.common.collect.ImmutableList;
@@ -59,7 +59,7 @@ import java.io.InputStreamReader;
       }
       ImmutableList.Builder<Asset> assets = new ImmutableList.Builder<>();
       ImmutableList.Builder<StringAttribute> stringAttributes = new ImmutableList.Builder<>();
-      @Nullable SkipControl skipControl = null;
+      @Nullable SkipInfo skipInfo = null;
       reader.beginObject();
       while (reader.hasNext()) {
         JsonToken token = reader.peek();
@@ -70,7 +70,7 @@ import java.io.InputStreamReader;
             parseAssetArray(reader, assets);
           } else if (name.equals(ASSET_LIST_JSON_NAME_SKIP_CONTROL)
               && reader.peek() == JsonToken.BEGIN_OBJECT) {
-            skipControl = parseSkipControl(reader);
+            skipInfo = parseSkipInfo(reader);
           } else if (reader.peek() == JsonToken.STRING) {
             stringAttributes.add(new StringAttribute(name, reader.nextString()));
           } else {
@@ -79,12 +79,12 @@ import java.io.InputStreamReader;
         }
       }
       reader.endObject();
-      return new AssetList(assets.build(), stringAttributes.build(), skipControl);
+      return new AssetList(assets.build(), stringAttributes.build(), skipInfo);
     }
   }
 
   @Nullable
-  private static SkipControl parseSkipControl(JsonReader reader) throws IOException {
+  private static SkipInfo parseSkipInfo(JsonReader reader) throws IOException {
     reader.beginObject();
     long offsetUs = C.TIME_UNSET;
     long durationUs = C.TIME_UNSET;
@@ -102,7 +102,9 @@ import java.io.InputStreamReader;
       }
     }
     reader.endObject();
-    return offsetUs == C.TIME_UNSET ? null : new SkipControl(offsetUs, durationUs, labelId);
+    return offsetUs == C.TIME_UNSET && durationUs == C.TIME_UNSET && labelId == null
+        ? null
+        : new SkipInfo(offsetUs, durationUs, labelId);
   }
 
   private static void parseAssetArray(JsonReader reader, ImmutableList.Builder<Asset> assets)

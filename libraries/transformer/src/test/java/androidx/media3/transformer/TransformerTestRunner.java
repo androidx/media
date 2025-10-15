@@ -16,8 +16,8 @@
 
 package androidx.media3.transformer;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.test.utils.robolectric.RobolectricUtil.runLooperUntil;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import androidx.media3.common.util.NullableType;
 import androidx.media3.test.utils.robolectric.RobolectricUtil;

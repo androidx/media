@@ -16,7 +16,7 @@
 
 package androidx.media3.exoplayer.rtsp;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.os.SystemClock;
 import androidx.annotation.GuardedBy;

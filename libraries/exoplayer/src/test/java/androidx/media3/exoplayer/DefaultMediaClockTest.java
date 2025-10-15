@@ -430,7 +430,7 @@ public class DefaultMediaClockTest {
       this.isEnded = isEnded;
       this.positionUs = TEST_POSITION_US;
       if (!hasReadStreamToEnd) {
-        resetPosition(0);
+        resetPosition(0, /* sampleStreamIsResetToKeyFrame= */ true);
       }
     }
 

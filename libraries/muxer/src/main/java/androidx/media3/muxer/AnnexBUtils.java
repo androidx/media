@@ -15,15 +15,14 @@
  */
 package androidx.media3.muxer;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.muxer.Boxes.getDolbyVisionProfileAndLevel;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 
 /** NAL unit utilities for start codes and emulation prevention. */
 /* package */ final class AnnexBUtils {
@@ -37,15 +36,13 @@ import java.nio.ByteOrder;
    * <p>An {@link IllegalStateException} is thrown if the NAL units are invalid. The NAL units are
    * identified as per ITU-T H264 spec:Annex B.2.
    *
-   * <p>The input buffer must have position set to 0 and the position remains unchanged after
-   * calling this method.
+   * <p>The input buffer position remains unchanged after calling this method.
    */
   public static ImmutableList<ByteBuffer> findNalUnits(ByteBuffer input) {
     if (input.remaining() == 0) {
       return ImmutableList.of();
     }
     input = input.asReadOnlyBuffer();
-    input.order(ByteOrder.BIG_ENDIAN);
 
     // The algorithm always searches for 0x000001 start code but it will work for 0x00000001 start
     // code as well because the first 0 will be considered as a leading 0 and will be skipped.

@@ -15,7 +15,8 @@
  */
 package androidx.media3.cast;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.content.Context;
 import androidx.annotation.IntRange;
@@ -26,7 +27,6 @@ import androidx.media3.common.ForwardingPlayer;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
 import androidx.media3.common.PlayerTransferState;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.ExoPlayer;
 import com.google.android.gms.cast.framework.CastContext;
@@ -116,7 +116,7 @@ public final class CastPlayer extends ForwardingPlayer {
      */
     @CanIgnoreReturnValue
     public Builder setTransferCallback(TransferCallback transferCallback) {
-      Assertions.checkState(!buildCalled);
+      checkState(!buildCalled);
       this.transferCallback = checkNotNull(transferCallback);
       return this;
     }
@@ -131,7 +131,7 @@ public final class CastPlayer extends ForwardingPlayer {
      */
     @CanIgnoreReturnValue
     public Builder setLocalPlayer(Player localPlayer) {
-      Assertions.checkState(!buildCalled);
+      checkState(!buildCalled);
       this.localPlayer = checkNotNull(localPlayer);
       return this;
     }
@@ -146,7 +146,7 @@ public final class CastPlayer extends ForwardingPlayer {
      */
     @CanIgnoreReturnValue
     public Builder setRemotePlayer(RemoteCastPlayer remotePlayer) {
-      Assertions.checkState(!buildCalled);
+      checkState(!buildCalled);
       this.remotePlayer = checkNotNull(remotePlayer);
       return this;
     }
@@ -157,7 +157,7 @@ public final class CastPlayer extends ForwardingPlayer {
      * @throws IllegalStateException If this method has already been called on this instance.
      */
     public CastPlayer build() {
-      Assertions.checkState(!buildCalled);
+      checkState(!buildCalled);
       buildCalled = true;
       if (localPlayer == null) {
         localPlayer = new ExoPlayer.Builder(context).build();
@@ -189,7 +189,11 @@ public final class CastPlayer extends ForwardingPlayer {
    * seekForwardIncrementMs} is set to {@link C#DEFAULT_SEEK_FORWARD_INCREMENT_MS}.
    *
    * @param castContext The context from which the cast session is obtained.
+   * @deprecated Use {@link RemoteCastPlayer.Builder} to create a {@link Player} for playback
+   *     exclusively on Cast receivers, or {@link Builder} for a {@link Player} that works both on
+   *     Cast receivers and locally.
    */
+  @Deprecated
   public CastPlayer(CastContext castContext) {
     this(castContext, new DefaultMediaItemConverter());
   }

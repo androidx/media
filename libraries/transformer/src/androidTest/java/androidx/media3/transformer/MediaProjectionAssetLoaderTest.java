@@ -18,8 +18,8 @@ package androidx.media3.transformer;
 import static android.app.Activity.RESULT_OK;
 import static android.content.Context.MEDIA_PROJECTION_SERVICE;
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.junit.Assume.assumeTrue;
@@ -178,14 +178,14 @@ public final class MediaProjectionAssetLoaderTest {
             .build();
 
     // Run the capture operation then stop transformer.
-    ListenableFuture<ExportResult> exportResultListenableFuture =
+    ListenableFuture<ExportTestResult> exportResultListenableFuture =
         new TransformerAndroidTestRunner.Builder(getInstrumentation().getContext(), transformer)
             .build()
             .runAsync(testName.getMethodName(), editedMediaItem);
     assertThat(videoSamplesWrittenCountDownLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> mediaProjection.stop());
 
-    ExportResult exportResult = exportResultListenableFuture.get();
+    ExportResult exportResult = exportResultListenableFuture.get().exportResult;
     assertThat(exportResult.videoFrameCount).isAtLeast(MINIMUM_EXPECTED_SAMPLE_COUNT);
   }
 

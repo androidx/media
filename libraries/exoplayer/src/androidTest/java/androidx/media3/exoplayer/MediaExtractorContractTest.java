@@ -155,7 +155,6 @@ public class MediaExtractorContractTest {
   }
 
   @Test
-  @SdkSuppress(minSdkVersion = 23)
   public void setDataSource_withMediaDataSource_returnsCorrectTrackCount() throws IOException {
     byte[] fileData = TestUtil.getByteArray(context, /* fileName= */ "media/mp4/sample.mp4");
     MediaDataSource mediaDataSource =
@@ -460,8 +459,6 @@ public class MediaExtractorContractTest {
     }
 
     @Override
-    @SuppressWarnings("UseSdkSuppress") // https://issuetracker.google.com/382253664
-    @RequiresApi(23)
     public void setDataSource(MediaDataSource mediaDataSource) throws IOException {
       mediaExtractor.setDataSource(mediaDataSource);
     }
@@ -621,8 +618,6 @@ public class MediaExtractorContractTest {
     }
 
     @Override
-    @SuppressWarnings("UseSdkSuppress") // https://issuetracker.google.com/382253664
-    @RequiresApi(23)
     public void setDataSource(MediaDataSource mediaDataSource) throws IOException {
       mediaExtractorCompat.setDataSource(mediaDataSource);
     }
@@ -716,8 +711,6 @@ public class MediaExtractorContractTest {
 
     void setDataSource(FileDescriptor fileDescriptor) throws IOException;
 
-    @SuppressWarnings("UseSdkSuppress") // https://issuetracker.google.com/382253664
-    @RequiresApi(23)
     void setDataSource(MediaDataSource mediaDataSource) throws IOException;
 
     void setDataSource(Context context, Uri uri, @Nullable Map<String, String> headers)

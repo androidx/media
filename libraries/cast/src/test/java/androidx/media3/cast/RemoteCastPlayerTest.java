@@ -50,6 +50,7 @@ import static androidx.media3.common.Player.COMMAND_STOP;
 import static androidx.media3.common.Player.DISCONTINUITY_REASON_REMOVE;
 import static androidx.media3.common.Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED;
 import static androidx.media3.common.Player.STATE_IDLE;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
@@ -75,12 +76,15 @@ import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.Player;
 import androidx.media3.common.Player.Listener;
 import androidx.media3.common.Timeline;
-import androidx.media3.common.util.Assertions;
+import androidx.media3.common.Tracks;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.android.gms.cast.Cast;
 import com.google.android.gms.cast.MediaInfo;
+import com.google.android.gms.cast.MediaLoadRequestData;
+import com.google.android.gms.cast.MediaQueueData;
 import com.google.android.gms.cast.MediaQueueItem;
 import com.google.android.gms.cast.MediaStatus;
+import com.google.android.gms.cast.MediaTrack;
 import com.google.android.gms.cast.framework.CastContext;
 import com.google.android.gms.cast.framework.CastSession;
 import com.google.android.gms.cast.framework.SessionManager;
@@ -127,6 +131,7 @@ public class RemoteCastPlayerTest {
 
   @Captor private ArgumentCaptor<Cast.Listener> castListenerArgumentCaptor;
   @Captor private ArgumentCaptor<RemoteMediaClient.Callback> callbackArgumentCaptor;
+  @Captor private ArgumentCaptor<MediaLoadRequestData> loadArgumentCaptor;
   @Captor private ArgumentCaptor<MediaQueueItem[]> queueItemsArgumentCaptor;
   @Captor private ArgumentCaptor<MediaItem> mediaItemCaptor;
 
@@ -260,6 +265,17 @@ public class RemoteCastPlayerTest {
     assertThat(remoteCastPlayer.getPlayWhenReady()).isTrue();
     verify(mockListener).onIsPlayingChanged(true);
     verifyNoMoreInteractions(mockListener);
+  }
+
+  @Test
+  public void playWhenReady_whenNoMediaStatusAvailable_isMasked() {
+    when(mockRemoteMediaClient.getMediaStatus()).thenReturn(null);
+    assertThat(remoteCastPlayer.getPlayWhenReady()).isFalse(); // Verify we'll change the state.
+
+    remoteCastPlayer.play();
+
+    assertThat(remoteCastPlayer.getPlayWhenReady()).isTrue();
+    verify(mockRemoteMediaClient, never()).play();
   }
 
   @Test
@@ -468,6 +484,47 @@ public class RemoteCastPlayerTest {
   }
 
   @Test
+  public void onStatusUpdated_withMediaTracks_updatesPlayerTracks() {
+    MediaTrack audioTrack = new MediaTrack.Builder(1, MediaTrack.TYPE_AUDIO).build();
+    MediaTrack videoTrack = new MediaTrack.Builder(2, MediaTrack.TYPE_VIDEO).build();
+    MediaTrack textTrack = new MediaTrack.Builder(3, MediaTrack.TYPE_TEXT).build();
+    List<MediaTrack> mediaTracks = Arrays.asList(audioTrack, videoTrack, textTrack);
+    MediaInfo mediaInfo = new MediaInfo.Builder("contentId").setMediaTracks(mediaTracks).build();
+    when(mockMediaStatus.getMediaInfo()).thenReturn(mediaInfo);
+    when(mockMediaStatus.getActiveTrackIds()).thenReturn(new long[] {1, 2});
+
+    remoteMediaClientCallback.onStatusUpdated();
+
+    Tracks tracks = remoteCastPlayer.getCurrentTracks();
+    assertThat(tracks.getGroups()).hasSize(3);
+    assertThat(tracks.getGroups().get(0).getType()).isEqualTo(C.TRACK_TYPE_AUDIO);
+    assertThat(tracks.getGroups().get(0).isSelected()).isTrue();
+    assertThat(tracks.getGroups().get(1).getType()).isEqualTo(C.TRACK_TYPE_VIDEO);
+    assertThat(tracks.getGroups().get(1).isSelected()).isTrue();
+    assertThat(tracks.getGroups().get(2).getType()).isEqualTo(C.TRACK_TYPE_TEXT);
+    assertThat(tracks.getGroups().get(2).isSelected()).isFalse();
+  }
+
+  @Test
+  public void onStatusUpdated_withGenericMimeType_usesCastTrackTypeToGenerateTrackGroup() {
+    MediaTrack textTrack =
+        new MediaTrack.Builder(1, MediaTrack.TYPE_TEXT)
+            .setContentType(MimeTypes.APPLICATION_MP4)
+            .build();
+    List<MediaTrack> mediaTracks = Collections.singletonList(textTrack);
+    MediaInfo mediaInfo = new MediaInfo.Builder("contentId").setMediaTracks(mediaTracks).build();
+    when(mockMediaStatus.getMediaInfo()).thenReturn(mediaInfo);
+    when(mockMediaStatus.getActiveTrackIds()).thenReturn(new long[] {1});
+
+    remoteMediaClientCallback.onStatusUpdated();
+
+    Tracks tracks = remoteCastPlayer.getCurrentTracks();
+    assertThat(tracks.getGroups()).hasSize(1);
+    assertThat(tracks.getGroups().get(0).getType()).isEqualTo(C.TRACK_TYPE_TEXT);
+    assertThat(tracks.getGroups().get(0).isSelected()).isTrue();
+  }
+
+  @Test
   public void setMediaItems_callsRemoteMediaClient() {
     List<MediaItem> mediaItems = new ArrayList<>();
     String uri1 = "http://www.google.com/video1";
@@ -479,11 +536,14 @@ public class RemoteCastPlayerTest {
 
     remoteCastPlayer.setMediaItems(mediaItems, /* startIndex= */ 1, /* startPositionMs= */ 2000L);
 
-    verify(mockRemoteMediaClient)
-        .queueLoad(queueItemsArgumentCaptor.capture(), eq(1), anyInt(), eq(2000L), any());
-    MediaQueueItem[] mediaQueueItems = queueItemsArgumentCaptor.getValue();
-    assertThat(mediaQueueItems[0].getMedia().getContentId()).isEqualTo(uri1);
-    assertThat(mediaQueueItems[1].getMedia().getContentId()).isEqualTo(uri2);
+    verify(mockRemoteMediaClient).load(loadArgumentCaptor.capture());
+    MediaLoadRequestData mediaLoadRequestData = loadArgumentCaptor.getValue();
+    MediaQueueData queueData = mediaLoadRequestData.getQueueData();
+    assertThat(queueData.getStartIndex()).isEqualTo(1);
+    assertThat(queueData.getStartTime()).isEqualTo(2000L);
+    List<MediaQueueItem> mediaQueueItems = queueData.getItems();
+    assertThat(mediaQueueItems.get(0).getMedia().getContentId()).isEqualTo(uri1);
+    assertThat(mediaQueueItems.get(1).getMedia().getContentId()).isEqualTo(uri2);
   }
 
   @Test
@@ -499,12 +559,14 @@ public class RemoteCastPlayerTest {
 
     remoteCastPlayer.setMediaItems(mediaItems, startWindowIndex, startPositionMs);
 
-    verify(mockRemoteMediaClient)
-        .queueLoad(queueItemsArgumentCaptor.capture(), eq(0), anyInt(), eq(0L), any());
-
-    MediaQueueItem[] mediaQueueItems = queueItemsArgumentCaptor.getValue();
-    assertThat(mediaQueueItems[0].getMedia().getContentId()).isEqualTo(uri1);
-    assertThat(mediaQueueItems[1].getMedia().getContentId()).isEqualTo(uri2);
+    verify(mockRemoteMediaClient).load(loadArgumentCaptor.capture());
+    MediaLoadRequestData mediaLoadRequestData = loadArgumentCaptor.getValue();
+    MediaQueueData queueData = mediaLoadRequestData.getQueueData();
+    assertThat(queueData.getStartIndex()).isEqualTo(0);
+    assertThat(queueData.getStartTime()).isEqualTo(0);
+    List<MediaQueueItem> mediaQueueItems = queueData.getItems();
+    assertThat(mediaQueueItems.get(0).getMedia().getContentId()).isEqualTo(uri1);
+    assertThat(mediaQueueItems.get(1).getMedia().getContentId()).isEqualTo(uri2);
   }
 
   @Test
@@ -2105,7 +2167,7 @@ public class RemoteCastPlayerTest {
   }
 
   private void addMediaItemsAndUpdateTimeline(List<MediaItem> mediaItems, int[] mediaQueueItemIds) {
-    Assertions.checkState(mediaItems.size() == mediaQueueItemIds.length);
+    checkState(mediaItems.size() == mediaQueueItemIds.length);
     remoteCastPlayer.addMediaItems(mediaItems);
     updateTimeLine(mediaItems, mediaQueueItemIds, /* currentItemId= */ 1);
   }

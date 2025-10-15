@@ -442,7 +442,7 @@ public class MediaCodecRendererTest {
         /* offsetUs= */ 0,
         mediaPeriodId1);
     fakeSampleStream1.seekToUs(positionUs, true);
-    renderer.resetPosition(positionUs);
+    renderer.resetPosition(positionUs, /* sampleStreamIsResetToKeyFrame= */ true);
     renderer.start();
     while (!renderer.hasReadStreamToEnd()) {
       renderer.render(positionUs, SystemClock.elapsedRealtime());
@@ -470,7 +470,7 @@ public class MediaCodecRendererTest {
     inOrder.verify(renderer).onProcessedOutputBuffer(300);
     inOrder.verify(renderer).onProcessedOutputBuffer(400);
     inOrder.verify(renderer).onOutputStreamOffsetUsChanged(0);
-    inOrder.verify(renderer, times(2)).onPositionReset(100, false);
+    inOrder.verify(renderer, times(2)).onPositionReset(100, false, true);
     inOrder.verify(renderer).onOutputFormatChanged(eq(format1), any());
     inOrder.verify(renderer).onProcessedOutputBuffer(100);
     inOrder.verify(renderer).onProcessedOutputBuffer(200);
@@ -548,7 +548,7 @@ public class MediaCodecRendererTest {
         mediaPeriodId);
     renderer.start();
 
-    renderer.resetPosition(/* positionUs= */ 200);
+    renderer.resetPosition(/* positionUs= */ 200, /* sampleStreamIsResetToKeyFrame= */ true);
     renderer.setCurrentStreamFinal();
     long positionUs = 0;
     while (!renderer.isEnded()) {

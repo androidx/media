@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">ప్లే చేయండి</string>
+  <string name="playpause_button_pause">పాజ్ చేయండి</string>
+  <string name="next_button">తర్వాత</string>
+  <string name="previous_button">మునుపటి</string>
+  <string name="seek_back_button">రివైండ్ చేయండి</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">%d సెకను వెనుకకు స్కిప్ చేయండి</item>
+    <item quantity="other">%d సెకన్లు వెనుకకు స్కిప్ చేయండి</item>
+  </plurals>
+  <string name="seek_forward_button">ముందుకు స్కిప్ చేయండి</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">%d సెకను ముందుకు స్కిప్ చేయండి</item>
+    <item quantity="other">%d సెకన్లు ముందుకు దాటవేయండి</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">ప్రస్తుత మోడ్: ఏదీ రిపీట్ చేయవద్దు. రిపీట్ మోడ్‌ను టోగుల్ చేయండి.</string>
+  <string name="repeat_button_repeat_one">ప్రస్తుత మోడ్: ఒకదానిని రిపీట్ చేయండి. రిపీట్ మోడ్‌ను టోగుల్ చేయండి.</string>
+  <string name="repeat_button_repeat_all">ప్రస్తుత మోడ్: అన్నింటిని రిపీట్ చేయండి. రిపీట్ మోడ్‌ను టోగుల్ చేయండి.</string>
+  <string name="shuffle_button_shuffle_on">షఫుల్ మోడ్ ఎనేబుల్ అయింది.</string>
+  <string name="shuffle_button_shuffle_off">షఫుల్ మోడ్ డిజేబుల్ అయింది.</string>
+  <string name="mute_button_shown_unmuted">మ్యూట్ చేయండి</string>
+  <string name="mute_button_shown_muted">అన్‌మ్యూట్ చేయండి</string>
+</resources>

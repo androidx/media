@@ -16,7 +16,7 @@
 package androidx.media3.session.legacy;
 
 import static androidx.annotation.RestrictTo.Scope.LIBRARY;
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.app.ForegroundServiceStartNotAllowedException;
 import android.app.Service;
@@ -33,7 +33,6 @@ import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
 import androidx.core.content.ContextCompat;
-import androidx.media3.common.util.UnstableApi;
 import java.util.List;
 
 /**
@@ -81,7 +80,6 @@ import java.util.List;
  * deliver the received key events to the {@link MediaBrowserServiceCompat} by default. You can
  * handle them in your {@link MediaSessionCompat.Callback}.
  */
-@UnstableApi
 @RestrictTo(LIBRARY)
 public class MediaButtonReceiver extends BroadcastReceiver {
   private static final String TAG = "MediaButtonReceiver";

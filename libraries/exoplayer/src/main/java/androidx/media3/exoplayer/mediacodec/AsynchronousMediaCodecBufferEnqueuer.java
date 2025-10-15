@@ -17,8 +17,8 @@ package androidx.media3.exoplayer.mediacodec;
 
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.annotation.VisibleForTesting.NONE;
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Util.castNonNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.media.MediaCodec;
 import android.os.Bundle;
@@ -27,7 +27,6 @@ import android.os.HandlerThread;
 import android.os.Message;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.NullableType;
@@ -41,7 +40,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * Performs {@link MediaCodec} input buffer queueing on a background thread. This is required on API
  * 33 and below because queuing secure buffers blocks until decryption is complete.
  */
-@RequiresApi(23)
 /* package */ class AsynchronousMediaCodecBufferEnqueuer implements MediaCodecBufferEnqueuer {
 
   private static final int MSG_QUEUE_INPUT_BUFFER = 1;

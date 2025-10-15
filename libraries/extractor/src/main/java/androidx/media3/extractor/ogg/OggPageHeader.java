@@ -16,10 +16,10 @@
 package androidx.media3.extractor.ogg;
 
 import static androidx.media3.extractor.ExtractorUtil.peekFullyQuietly;
+import static com.google.common.base.Preconditions.checkArgument;
 
 import androidx.media3.common.C;
 import androidx.media3.common.ParserException;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.extractor.ExtractorInput;
 import java.io.IOException;
@@ -102,7 +102,7 @@ import java.io.IOException;
    * @throws IOException If reading data fails.
    */
   public boolean skipToNextPage(ExtractorInput input, long limit) throws IOException {
-    Assertions.checkArgument(input.getPosition() == input.getPeekPosition());
+    checkArgument(input.getPosition() == input.getPeekPosition());
     scratch.reset(/* limit= */ CAPTURE_PATTERN_SIZE);
     while ((limit == C.INDEX_UNSET || input.getPosition() + CAPTURE_PATTERN_SIZE < limit)
         && peekFullyQuietly(

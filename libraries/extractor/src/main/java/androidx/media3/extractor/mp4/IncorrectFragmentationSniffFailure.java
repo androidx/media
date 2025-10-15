@@ -36,4 +36,9 @@ public final class IncorrectFragmentationSniffFailure implements SniffFailure {
   private IncorrectFragmentationSniffFailure(boolean fileIsFragmented) {
     this.fileIsFragmented = fileIsFragmented;
   }
+
+  @Override
+  public String toString() {
+    return "IncorrectFragmentation{expected=" + !fileIsFragmented + "}";
+  }
 }

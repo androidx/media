@@ -75,10 +75,7 @@ class ViewPagerMediaAdapter(
     holderMap = mutableMapOf()
     preloadManager = preloadManagerBuilder.build()
     preloadManager.addListener(DefaultPreloadManagerListener())
-    for (i in 0 until MANAGED_ITEM_COUNT) {
-      addMediaItem(index = i, isAddingToRightEnd = true)
-    }
-    preloadManager.invalidate()
+    addMediaItems(startIndex = 0, MANAGED_ITEM_COUNT, isAddingToRightEnd = true)
   }
 
   override fun onDetachedFromRecyclerView(recyclerView: RecyclerView) {
@@ -117,16 +114,20 @@ class ViewPagerMediaAdapter(
 
       if (rightMostIndex - holderBindingAdapterPosition <= 2) {
         Log.d(TAG, "onViewAttachedToWindow: Approaching to the rightmost item")
-        for (i in 1 until ITEM_ADD_REMOVE_COUNT + 1) {
-          addMediaItem(index = rightMostIndex + i, isAddingToRightEnd = true)
-          removeMediaItem(isRemovingFromRightEnd = false)
-        }
+        addMediaItems(
+          startIndex = rightMostIndex + 1,
+          ITEM_ADD_REMOVE_COUNT,
+          isAddingToRightEnd = true,
+        )
+        removeMediaItems(ITEM_ADD_REMOVE_COUNT, isRemovingFromRightEnd = false)
       } else if (holderBindingAdapterPosition - leftMostIndex <= 2) {
         Log.d(TAG, "onViewAttachedToWindow: Approaching to the leftmost item")
-        for (i in 1 until ITEM_ADD_REMOVE_COUNT + 1) {
-          addMediaItem(index = leftMostIndex - i, isAddingToRightEnd = false)
-          removeMediaItem(isRemovingFromRightEnd = true)
-        }
+        addMediaItems(
+          startIndex = leftMostIndex - 1,
+          ITEM_ADD_REMOVE_COUNT,
+          isAddingToRightEnd = false,
+        )
+        removeMediaItems(ITEM_ADD_REMOVE_COUNT, isRemovingFromRightEnd = true)
       }
     }
   }
@@ -144,35 +145,53 @@ class ViewPagerMediaAdapter(
     holderMap[position]?.playIfPossible()
     targetPreloadStatusControl.currentPlayingIndex = position
     preloadManager.setCurrentPlayingIndex(position)
-    preloadManager.invalidate()
   }
 
-  private fun addMediaItem(index: Int, isAddingToRightEnd: Boolean) {
-    if (index < 0) {
-      return
-    }
-    Log.d(TAG, "addMediaItem: Adding item at index $index")
-    val mediaItem = mediaItemDatabase.get(index)
-    preloadManager.add(mediaItem, index)
+  private fun addMediaItems(startIndex: Int, count: Int, isAddingToRightEnd: Boolean) {
+    val mediaItems = mutableListOf<MediaItem>()
+    val rankingDataList = mutableListOf<Int>()
     if (isAddingToRightEnd) {
-      currentMediaItemsAndIndexes.addLast(Pair(mediaItem, index))
+      for (index in startIndex until startIndex + count) {
+        if (index < 0) {
+          break
+        }
+        val mediaItem = mediaItemDatabase.get(index)
+        mediaItems.add(mediaItem)
+        rankingDataList.add(index)
+        currentMediaItemsAndIndexes.addLast(Pair(mediaItem, index))
+        Log.d(TAG, "addMediaItems: Adding item at index $index")
+      }
     } else {
-      currentMediaItemsAndIndexes.addFirst(Pair(mediaItem, index))
+      for (index in startIndex downTo startIndex - count + 1) {
+        if (index < 0) {
+          break
+        }
+        val mediaItem = mediaItemDatabase.get(index)
+        mediaItems.add(mediaItemDatabase.get(index))
+        rankingDataList.add(startIndex)
+        currentMediaItemsAndIndexes.addFirst(Pair(mediaItem, index))
+        Log.d(TAG, "addMediaItems: Adding item at index $index")
+      }
     }
+    preloadManager.addMediaItems(mediaItems, rankingDataList)
   }
 
-  private fun removeMediaItem(isRemovingFromRightEnd: Boolean) {
-    if (currentMediaItemsAndIndexes.size <= MANAGED_ITEM_COUNT) {
-      return
-    }
-    val itemAndIndex =
-      if (isRemovingFromRightEnd) {
-        currentMediaItemsAndIndexes.removeLast()
-      } else {
-        currentMediaItemsAndIndexes.removeFirst()
+  private fun removeMediaItems(count: Int, isRemovingFromRightEnd: Boolean) {
+    val mediaItems = mutableListOf<MediaItem>()
+    for (i in 0 until count) {
+      if (currentMediaItemsAndIndexes.size <= MANAGED_ITEM_COUNT) {
+        break
       }
-    Log.d(TAG, "removeMediaItem: Removing item at index ${itemAndIndex.second}")
-    preloadManager.remove(itemAndIndex.first)
+      val itemAndIndexToRemove =
+        if (isRemovingFromRightEnd) {
+          currentMediaItemsAndIndexes.removeLast()
+        } else {
+          currentMediaItemsAndIndexes.removeFirst()
+        }
+      mediaItems.add(itemAndIndexToRemove.first)
+      Log.d(TAG, "removeMediaItems: Removing item at index ${itemAndIndexToRemove.second}")
+    }
+    preloadManager.removeMediaItems(mediaItems)
   }
 
   inner class DefaultTargetPreloadStatusControl(var currentPlayingIndex: Int = C.INDEX_UNSET) :

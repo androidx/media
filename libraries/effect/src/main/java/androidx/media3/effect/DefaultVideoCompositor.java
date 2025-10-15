@@ -15,10 +15,9 @@
  */
 package androidx.media3.effect;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.contains;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.abs;
 import static java.lang.Math.max;
 
@@ -196,7 +195,7 @@ public final class DefaultVideoCompositor implements VideoCompositor {
 
     InputSource inputSource = inputSources.get(inputIndex);
     checkState(!inputSource.isInputEnded);
-    checkStateNotNull(!ColorInfo.isTransferHdr(colorInfo), "HDR input is not supported.");
+    checkState(!ColorInfo.isTransferHdr(colorInfo), "HDR input is not supported.");
     if (configuredColorInfo == null) {
       configuredColorInfo = colorInfo;
     }

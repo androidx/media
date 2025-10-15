@@ -15,13 +15,14 @@
  */
 package androidx.media3.test.utils;
 
-import static androidx.media3.common.util.Assertions.checkState;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.fail;
 
 import android.content.Context;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.extractor.Extractor;
@@ -173,6 +174,8 @@ public final class ExtractorAsserts {
     Extractor create();
   }
 
+  public static final int PEEK_LIMIT_FAIL_WITH_MAX = -2;
+
   private static final String DUMP_EXTENSION = ".dump";
   private static final String UNKNOWN_LENGTH_EXTENSION = ".unknown_length" + DUMP_EXTENSION;
 
@@ -217,12 +220,37 @@ public final class ExtractorAsserts {
    */
   public static void assertBehavior(
       ExtractorFactory factory, String file, SimulationConfig simulationConfig) throws IOException {
-    assertBehavior(factory, file, new AssertionConfig.Builder().build(), simulationConfig);
+    assertBehavior(factory, file, /* peekLimit= */ C.LENGTH_UNSET, simulationConfig);
   }
 
   /**
-   * Asserts that an extractor consumes valid input data successfully successfully under the
-   * conditions specified by {@code simulationConfig}.
+   * Asserts that an extractor consumes valid input data successfully under the conditions specified
+   * by {@code simulationConfig}.
+   *
+   * <p>The output of the extractor is compared against prerecorded dump files whose names are
+   * derived from the {@code file} parameter as specified in the docs for {@link
+   * AssertionConfig#dumpFilesPrefix}.
+   *
+   * @param factory An {@link ExtractorFactory} which creates instances of the {@link Extractor}
+   *     class which is to be tested.
+   * @param file The path to the input sample.
+   * @param peekLimit The limit that {@link ExtractorInput#getPeekPosition()} is permitted to
+   *     advance ahead of {@link ExtractorInput#getPosition()}. {@link C#LENGTH_UNSET} disables
+   *     enforcement of this limit. {@link #PEEK_LIMIT_FAIL_WITH_MAX} forces the test to fail at the
+   *     end and print the max limit that was used (which can be helpful when setting this value).
+   * @param simulationConfig Details on the environment to simulate and behaviours to assert.
+   * @throws IOException If reading from the input fails.
+   */
+  public static void assertBehavior(
+      ExtractorFactory factory, String file, int peekLimit, SimulationConfig simulationConfig)
+      throws IOException {
+    assertBehavior(
+        factory, file, peekLimit, new AssertionConfig.Builder().build(), simulationConfig);
+  }
+
+  /**
+   * Asserts that an extractor consumes valid input data successfully under the conditions specified
+   * by {@code simulationConfig}.
    *
    * <p>The output of the extractor is compared against prerecorded dump files.
    *
@@ -236,6 +264,34 @@ public final class ExtractorAsserts {
   public static void assertBehavior(
       ExtractorFactory factory,
       String file,
+      AssertionConfig assertionConfig,
+      SimulationConfig simulationConfig)
+      throws IOException {
+    assertBehavior(
+        factory, file, /* peekLimit= */ C.LENGTH_UNSET, assertionConfig, simulationConfig);
+  }
+
+  /**
+   * Asserts that an extractor consumes valid input data successfully under the conditions specified
+   * by {@code simulationConfig}.
+   *
+   * <p>The output of the extractor is compared against prerecorded dump files.
+   *
+   * @param factory An {@link ExtractorFactory} which creates instances of the {@link Extractor}
+   *     class which is to be tested.
+   * @param file The input file to pass to the extractor.
+   * @param peekLimit The limit that {@link ExtractorInput#getPeekPosition()} is permitted to
+   *     advance ahead of {@link ExtractorInput#getPosition()}. {@link C#LENGTH_UNSET} disables
+   *     enforcement of this limit. {@link #PEEK_LIMIT_FAIL_WITH_MAX} forces the test to fail at the
+   *     end and print the max limit that was used (which can be helpful when setting this value).
+   * @param assertionConfig Details of how to read and process the source and dump files.
+   * @param simulationConfig Details on the environment to simulate and behaviours to assert.
+   * @throws IOException If reading from the input fails.
+   */
+  public static void assertBehavior(
+      ExtractorFactory factory,
+      String file,
+      int peekLimit,
       AssertionConfig assertionConfig,
       SimulationConfig simulationConfig)
       throws IOException {
@@ -255,12 +311,11 @@ public final class ExtractorAsserts {
           path.length > 0 && path[0].equals("media"),
           "AssertionConfig.dumpFilesPrefix == null but file isn't in a media/ sub-directory.\n"
               + "Expected : 'media/<path-to-file>'\n"
-              + "Found    : '"
-              + file
-              + "'\n"
+              + "Found    : '%s'\n"
               + "You need to set AssertionConfig.dumpFilesPrefix explicitly if your media and dump"
               + " file aren't located in the expected structure (see docs on"
-              + " AssertionConfig.dumpFilesPrefix)");
+              + " AssertionConfig.dumpFilesPrefix)",
+          file);
       path[0] = "extractordumps";
       dumpFilesPrefix = Joiner.on('/').join(path);
     }
@@ -274,7 +329,8 @@ public final class ExtractorAsserts {
         simulationConfig.sniffFirst,
         simulationConfig.simulateIOErrors,
         simulationConfig.simulateUnknownLength,
-        simulationConfig.simulatePartialReads);
+        simulationConfig.simulatePartialReads,
+        peekLimit);
     extractor.release();
   }
 
@@ -291,6 +347,10 @@ public final class ExtractorAsserts {
    * @param simulateIOErrors Whether to simulate IO errors.
    * @param simulateUnknownLength Whether to simulate unknown input length.
    * @param simulatePartialReads Whether to simulate partial reads.
+   * @param peekLimit The limit that {@link ExtractorInput#getPeekPosition()} is permitted to
+   *     advance ahead of {@link ExtractorInput#getPosition()}. {@link C#LENGTH_UNSET} disables
+   *     enforcement of this limit. {@link #PEEK_LIMIT_FAIL_WITH_MAX} forces the test to fail at the
+   *     end and print the max limit that was used (which can be helpful when setting this value).
    * @throws IOException If reading from the input fails.
    */
   private static void assertOutput(
@@ -302,7 +362,8 @@ public final class ExtractorAsserts {
       boolean sniffFirst,
       boolean simulateIOErrors,
       boolean simulateUnknownLength,
-      boolean simulatePartialReads)
+      boolean simulatePartialReads,
+      int peekLimit)
       throws IOException {
     FakeExtractorInput input =
         new FakeExtractorInput.Builder()
@@ -310,6 +371,7 @@ public final class ExtractorAsserts {
             .setSimulateIOErrors(simulateIOErrors)
             .setSimulateUnknownLength(simulateUnknownLength)
             .setSimulatePartialReads(simulatePartialReads)
+            .setPeekLimit(peekLimit != PEEK_LIMIT_FAIL_WITH_MAX ? peekLimit : C.LENGTH_UNSET)
             .build();
 
     if (sniffFirst) {
@@ -339,7 +401,7 @@ public final class ExtractorAsserts {
           context, extractorOutput, dumpFilesPrefix + ".0" + DUMP_EXTENSION);
     }
 
-    SeekMap seekMap = Assertions.checkNotNull(extractorOutput.seekMap);
+    SeekMap seekMap = checkNotNull(extractorOutput.seekMap);
     long durationUs = seekMap.getDurationUs();
     // Only seek to the timeUs=0 if the SeekMap is unseekable or the duration is unknown.
     int numberSeekTests = seekMap.isSeekable() && durationUs != C.TIME_UNSET ? 4 : 1;
@@ -362,6 +424,9 @@ public final class ExtractorAsserts {
             context, extractorOutput, dumpFilesPrefix + '.' + j + DUMP_EXTENSION);
       }
     }
+    if (peekLimit == PEEK_LIMIT_FAIL_WITH_MAX) {
+      fail("maxPeekLimit=" + input.getMaxPeekLimit());
+    }
   }
 
   private ExtractorAsserts() {}
@@ -374,7 +439,8 @@ public final class ExtractorAsserts {
       boolean deduplicateConsecutiveFormats)
       throws IOException {
     FakeExtractorOutput output =
-        new FakeExtractorOutput((id, type) -> new FakeTrackOutput(deduplicateConsecutiveFormats));
+        new FakeExtractorOutput(
+            (id, type) -> new FakeTrackOutput(type, deduplicateConsecutiveFormats));
     extractor.init(output);
     consumeTestData(extractor, input, timeUs, output, retryFromStartIfLive);
     return output;

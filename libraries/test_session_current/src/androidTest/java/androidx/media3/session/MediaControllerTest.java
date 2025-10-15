@@ -2093,7 +2093,7 @@ public class MediaControllerTest {
     Tracks currentTracks = new Tracks(trackGroups);
     TrackSelectionParameters trackSelectionParameters =
         TrackSelectionParameters.DEFAULT.buildUpon().setMaxVideoSizeSd().build();
-    Timeline timeline = MediaTestUtils.createTimeline(5);
+    Timeline timeline = MediaTestUtils.createTimeline(5, /* buildWithUri= */ false);
     int currentMediaItemIndex = 3;
     MediaItem currentMediaItem =
         timeline.getWindow(currentMediaItemIndex, new Timeline.Window()).mediaItem;
@@ -2126,6 +2126,7 @@ public class MediaControllerTest {
             .setCurrentTracks(currentTracks)
             .setTimeline(timeline)
             .setCurrentMediaItemIndex(currentMediaItemIndex)
+            .setCurrentPeriodIndex(currentMediaItemIndex)
             .build();
     remoteSession.setPlayer(playerConfig);
     MediaController controller = controllerTestRule.createController(remoteSession.getToken());
@@ -2404,11 +2405,13 @@ public class MediaControllerTest {
 
   @Test
   public void getPreviousMediaItemIndex() throws Exception {
-    Timeline timeline = MediaTestUtils.createTimeline(/* windowCount= */ 3);
+    Timeline timeline =
+        MediaTestUtils.createTimeline(/* windowCount= */ 3, /* buildWithUri= */ false);
     Bundle playerConfig =
         new RemoteMediaSession.MockPlayerConfigBuilder()
             .setTimeline(timeline)
             .setCurrentMediaItemIndex(1)
+            .setCurrentPeriodIndex(1)
             .setRepeatMode(Player.REPEAT_MODE_OFF)
             .setShuffleModeEnabled(false)
             .build();
@@ -2423,11 +2426,13 @@ public class MediaControllerTest {
 
   @Test
   public void getPreviousMediaItemIndex_withRepeatModeOne() throws Exception {
-    Timeline timeline = MediaTestUtils.createTimeline(/* windowCount= */ 3);
+    Timeline timeline =
+        MediaTestUtils.createTimeline(/* windowCount= */ 3, /* buildWithUri= */ true);
     Bundle playerConfig =
         new RemoteMediaSession.MockPlayerConfigBuilder()
             .setTimeline(timeline)
             .setCurrentMediaItemIndex(1)
+            .setCurrentPeriodIndex(1)
             .setRepeatMode(Player.REPEAT_MODE_ONE)
             .setShuffleModeEnabled(false)
             .build();
@@ -2442,7 +2447,8 @@ public class MediaControllerTest {
 
   @Test
   public void getPreviousMediaItemIndex_atTheFirstMediaItem() throws Exception {
-    Timeline timeline = MediaTestUtils.createTimeline(/* windowCount= */ 3);
+    Timeline timeline =
+        MediaTestUtils.createTimeline(/* windowCount= */ 3, /* buildWithUri= */ true);
     Bundle playerConfig =
         new RemoteMediaSession.MockPlayerConfigBuilder()
             .setTimeline(timeline)
@@ -2461,7 +2467,8 @@ public class MediaControllerTest {
 
   @Test
   public void getPreviousMediaItemIndex_atTheFirstMediaItemWithRepeatModeAll() throws Exception {
-    Timeline timeline = MediaTestUtils.createTimeline(/* windowCount= */ 3);
+    Timeline timeline =
+        MediaTestUtils.createTimeline(/* windowCount= */ 3, /* buildWithUri= */ true);
     Bundle playerConfig =
         new RemoteMediaSession.MockPlayerConfigBuilder()
             .setTimeline(timeline)
@@ -2482,12 +2489,13 @@ public class MediaControllerTest {
   public void getPreviousMediaItemIndex_withShuffleModeEnabled() throws Exception {
     Timeline timeline =
         new PlaylistTimeline(
-            MediaTestUtils.createMediaItems(/* size= */ 3),
+            MediaTestUtils.createMediaItems(/* size= */ 3, /* buildWithUri= */ true),
             /* shuffledIndices= */ new int[] {0, 2, 1});
     Bundle playerConfig =
         new RemoteMediaSession.MockPlayerConfigBuilder()
             .setTimeline(timeline)
             .setCurrentMediaItemIndex(2)
+            .setCurrentPeriodIndex(2)
             .setRepeatMode(Player.REPEAT_MODE_OFF)
             .setShuffleModeEnabled(true)
             .build();
@@ -2502,11 +2510,13 @@ public class MediaControllerTest {
 
   @Test
   public void getNextMediaItemIndex() throws Exception {
-    Timeline timeline = MediaTestUtils.createTimeline(/* windowCount= */ 3);
+    Timeline timeline =
+        MediaTestUtils.createTimeline(/* windowCount= */ 3, /* buildWithUri= */ true);
     Bundle playerConfig =
         new RemoteMediaSession.MockPlayerConfigBuilder()
             .setTimeline(timeline)
             .setCurrentMediaItemIndex(1)
+            .setCurrentPeriodIndex(1)
             .setRepeatMode(Player.REPEAT_MODE_OFF)
             .setShuffleModeEnabled(false)
             .build();
@@ -2521,11 +2531,13 @@ public class MediaControllerTest {
 
   @Test
   public void getNextMediaItemIndex_withRepeatModeOne() throws Exception {
-    Timeline timeline = MediaTestUtils.createTimeline(/* windowCount= */ 3);
+    Timeline timeline =
+        MediaTestUtils.createTimeline(/* windowCount= */ 3, /* buildWithUri= */ true);
     Bundle playerConfig =
         new RemoteMediaSession.MockPlayerConfigBuilder()
             .setTimeline(timeline)
             .setCurrentMediaItemIndex(1)
+            .setCurrentPeriodIndex(1)
             .setRepeatMode(Player.REPEAT_MODE_ONE)
             .setShuffleModeEnabled(false)
             .build();
@@ -2540,11 +2552,13 @@ public class MediaControllerTest {
 
   @Test
   public void getNextMediaItemIndex_atTheLastMediaItem() throws Exception {
-    Timeline timeline = MediaTestUtils.createTimeline(/* windowCount= */ 3);
+    Timeline timeline =
+        MediaTestUtils.createTimeline(/* windowCount= */ 3, /* buildWithUri= */ true);
     Bundle playerConfig =
         new RemoteMediaSession.MockPlayerConfigBuilder()
             .setTimeline(timeline)
             .setCurrentMediaItemIndex(2)
+            .setCurrentPeriodIndex(2)
             .setRepeatMode(Player.REPEAT_MODE_OFF)
             .setShuffleModeEnabled(false)
             .build();
@@ -2559,11 +2573,13 @@ public class MediaControllerTest {
 
   @Test
   public void getNextMediaItemIndex_atTheLastMediaItemWithRepeatModeAll() throws Exception {
-    Timeline timeline = MediaTestUtils.createTimeline(/* windowCount= */ 3);
+    Timeline timeline =
+        MediaTestUtils.createTimeline(/* windowCount= */ 3, /* buildWithUri= */ true);
     Bundle playerConfig =
         new RemoteMediaSession.MockPlayerConfigBuilder()
             .setTimeline(timeline)
             .setCurrentMediaItemIndex(2)
+            .setCurrentPeriodIndex(2)
             .setRepeatMode(Player.REPEAT_MODE_ALL)
             .setShuffleModeEnabled(false)
             .build();
@@ -2580,12 +2596,13 @@ public class MediaControllerTest {
   public void getNextMediaItemIndex_withShuffleModeEnabled() throws Exception {
     Timeline timeline =
         new PlaylistTimeline(
-            MediaTestUtils.createMediaItems(/* size= */ 3),
+            MediaTestUtils.createMediaItems(/* size= */ 3, /* buildWithUri= */ true),
             /* shuffledIndices= */ new int[] {0, 2, 1});
     Bundle playerConfig =
         new RemoteMediaSession.MockPlayerConfigBuilder()
             .setTimeline(timeline)
             .setCurrentMediaItemIndex(2)
+            .setCurrentPeriodIndex(2)
             .setRepeatMode(Player.REPEAT_MODE_OFF)
             .setShuffleModeEnabled(true)
             .build();
@@ -2601,7 +2618,7 @@ public class MediaControllerTest {
   @Test
   public void getMediaItemCount() throws Exception {
     int windowCount = 3;
-    Timeline timeline = MediaTestUtils.createTimeline(windowCount);
+    Timeline timeline = MediaTestUtils.createTimeline(windowCount, /* buildWithUri= */ true);
     Bundle playerConfig =
         new RemoteMediaSession.MockPlayerConfigBuilder().setTimeline(timeline).build();
     remoteSession.setPlayer(playerConfig);
@@ -2616,7 +2633,7 @@ public class MediaControllerTest {
   public void getMediaItemAt() throws Exception {
     int windowCount = 3;
     int mediaItemIndex = 1;
-    Timeline timeline = MediaTestUtils.createTimeline(windowCount);
+    Timeline timeline = MediaTestUtils.createTimeline(windowCount, /* buildWithUri= */ false);
     Bundle playerConfig =
         new RemoteMediaSession.MockPlayerConfigBuilder().setTimeline(timeline).build();
     remoteSession.setPlayer(playerConfig);
@@ -2890,7 +2907,7 @@ public class MediaControllerTest {
     // Trigger many timeline and position updates that are incompatible with any previous updates.
     for (int i = 1; i <= 100; i++) {
       remoteSession.getMockPlayer().createAndSetFakeTimeline(/* windowCount= */ i);
-      remoteSession.getMockPlayer().setCurrentMediaItemIndex(i - 1);
+      remoteSession.getMockPlayer().setCurrentMediaItemIndexAndPeriodIndex(i - 1, i - 1);
       remoteSession
           .getMockPlayer()
           .notifyMediaItemTransition(

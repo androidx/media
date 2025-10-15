@@ -63,6 +63,11 @@ public class ForwardingMediaCodecAdapter implements MediaCodecAdapter {
     return delegate.getInputBuffer(index);
   }
 
+  @Override
+  public void useInputBuffer(Runnable runnable) {
+    delegate.useInputBuffer(runnable);
+  }
+
   @Nullable
   @Override
   public ByteBuffer getOutputBuffer(int index) {
@@ -101,7 +106,6 @@ public class ForwardingMediaCodecAdapter implements MediaCodecAdapter {
     delegate.release();
   }
 
-  @RequiresApi(23)
   @Override
   public void setOnFrameRenderedListener(OnFrameRenderedListener listener, Handler handler) {
     delegate.setOnFrameRenderedListener(listener, handler);
@@ -112,7 +116,6 @@ public class ForwardingMediaCodecAdapter implements MediaCodecAdapter {
     return delegate.registerOnBufferAvailableListener(listener);
   }
 
-  @RequiresApi(23)
   @Override
   public void setOutputSurface(Surface surface) {
     delegate.setOutputSurface(surface);

@@ -18,6 +18,7 @@ package androidx.media3.exoplayer.dash.manifest;
 import static androidx.media3.exoplayer.dash.manifest.BaseUrl.DEFAULT_DVB_PRIORITY;
 import static androidx.media3.exoplayer.dash.manifest.BaseUrl.DEFAULT_WEIGHT;
 import static androidx.media3.exoplayer.dash.manifest.BaseUrl.PRIORITY_UNSET;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.net.Uri;
 import android.text.TextUtils;
@@ -32,7 +33,6 @@ import androidx.media3.common.Format;
 import androidx.media3.common.Label;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.ParserException;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
@@ -1835,7 +1835,7 @@ public class DashManifestParser extends DefaultHandler
     } else if (secondLanguage == null) {
       return firstLanguage;
     } else {
-      Assertions.checkState(firstLanguage.equals(secondLanguage));
+      checkState(firstLanguage.equals(secondLanguage));
       return firstLanguage;
     }
   }
@@ -1858,7 +1858,7 @@ public class DashManifestParser extends DefaultHandler
     } else if (secondType == C.TRACK_TYPE_UNKNOWN) {
       return firstType;
     } else {
-      Assertions.checkState(firstType == secondType);
+      checkState(firstType == secondType);
       return firstType;
     }
   }

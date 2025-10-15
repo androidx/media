@@ -15,11 +15,11 @@
  */
 package androidx.media3.test.utils;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.END_OF_STREAM_ITEM;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.oneByteSample;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 import static java.lang.Math.min;
 
@@ -438,11 +438,9 @@ public class FakeMediaPeriod implements MediaPeriod {
               syncSampleTimestampsUs, positionUs, /* inclusive= */ true, /* stayInBounds= */ false);
       checkState(
           firstSyncTimestampIndex >= 0,
-          "Seek positionUs ("
-              + positionUs
-              + ") is smaller than first sync sample timestamp ("
-              + syncSampleTimestampsUs[0]
-              + ")");
+          "Seek positionUs (%s) is smaller than first sync sample timestamp (%s)",
+          positionUs,
+          syncSampleTimestampsUs[0]);
       long firstSyncUs = syncSampleTimestampsUs[firstSyncTimestampIndex];
       long secondSyncUs =
           firstSyncTimestampIndex < syncSampleTimestampsUs.length - 1

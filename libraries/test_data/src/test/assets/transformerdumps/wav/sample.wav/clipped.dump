@@ -1,6 +1,9 @@
 format audio:
-  averageBitrate = 131072
-  sampleMimeType = audio/mp4a-latm
+  averageBitrate = 705600
+  peakBitrate = 705600
+  containerMimeType = audio/wav
+  sampleMimeType = audio/raw
+  maxInputSize = 8820
   channelCount = 1
   sampleRate = 44100
   pcmEncoding = 2

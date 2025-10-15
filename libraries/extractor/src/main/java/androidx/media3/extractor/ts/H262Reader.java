@@ -15,8 +15,7 @@
  */
 package androidx.media3.extractor.ts;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.util.Pair;
 import androidx.annotation.Nullable;
@@ -126,7 +125,8 @@ public final class H262Reader implements ElementaryStreamReader {
 
   @Override
   public void consume(ParsableByteArray data) {
-    checkStateNotNull(output); // Asserts that createTracks has been called.
+    // Asserts that createTracks has been called.
+    checkNotNull(output);
     int offset = data.getPosition();
     int limit = data.limit();
     byte[] dataArray = data.getData();
@@ -221,7 +221,8 @@ public final class H262Reader implements ElementaryStreamReader {
 
   @Override
   public void packetFinished(boolean isEndOfInput) {
-    checkStateNotNull(output); // Asserts that createTracks has been called.
+    // Asserts that createTracks has been called.
+    checkNotNull(output);
     if (isEndOfInput) {
       @C.BufferFlags int flags = sampleIsKeyframe ? C.BUFFER_FLAG_KEY_FRAME : 0;
       int size = (int) (totalBytesWritten - samplePosition);

@@ -16,6 +16,7 @@
 package androidx.media3.datasource;
 
 import static androidx.media3.common.util.Util.castNonNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.min;
 
 import android.net.Uri;
@@ -25,7 +26,6 @@ import android.text.TextUtils;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.PlaybackException;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.FileNotFoundException;
@@ -180,7 +180,7 @@ public final class FileDataSource extends BaseDataSource {
 
   private static RandomAccessFile openLocalFile(Uri uri) throws FileDataSourceException {
     try {
-      return new RandomAccessFile(Assertions.checkNotNull(uri.getPath()), "r");
+      return new RandomAccessFile(checkNotNull(uri.getPath()), "r");
     } catch (FileNotFoundException e) {
       if (!TextUtils.isEmpty(uri.getQuery()) || !TextUtils.isEmpty(uri.getFragment())) {
         throw new FileDataSourceException(

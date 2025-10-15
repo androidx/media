@@ -17,9 +17,9 @@ package androidx.media3.exoplayer.audio;
 
 import static android.media.AudioFormat.CHANNEL_OUT_5POINT1;
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.exoplayer.audio.AudioCapabilities.ALL_SURROUND_ENCODINGS_AND_MAX_CHANNELS;
 import static androidx.media3.exoplayer.audio.AudioCapabilities.getCapabilities;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static org.robolectric.Shadows.shadowOf;
 
@@ -139,10 +139,9 @@ public class AudioCapabilitiesTest {
         .isFalse();
   }
 
-  /** {@link AudioDeviceInfo#TYPE_BLUETOOTH_A2DP} is only supported from API 23. */
   @Test
-  @Config(minSdk = 23)
-  public void getCapabilities_withBluetoothA2dpAndHdmiConnectedApi23_returnsDefaultCapabilities() {
+  @Config(minSdk = Config.OLDEST_SDK)
+  public void getCapabilities_withBluetoothA2dpAndHdmiConnected_returnsDefaultCapabilities() {
     setOutputDevices(AudioDeviceInfo.TYPE_BLUETOOTH_A2DP, AudioDeviceInfo.TYPE_HDMI);
     configureHdmiConnection(/* maxChannelCount= */ 6, /* encodings...= */ AudioFormat.ENCODING_AC3);
 
@@ -255,7 +254,7 @@ public class AudioCapabilitiesTest {
   }
 
   // Fallback test for APIs before 33, TYPE_HDMI is only supported from API 23
-  @Config(minSdk = 23, maxSdk = 32)
+  @Config(minSdk = Config.OLDEST_SDK, maxSdk = 32)
   @Test
   public void
       getCapabilities_noBluetoothButGlobalSurroundSettingForced_returnsExternalSurroundCapabilitiesAndIgnoresHdmi() {
@@ -292,9 +291,9 @@ public class AudioCapabilitiesTest {
   }
 
   @Test
-  @Config(minSdk = 23) // TYPE_BLUETOOTH_A2DP detection is supported from API 23.
+  @Config(minSdk = Config.OLDEST_SDK)
   public void
-      getCapabilities_withBluetoothA2dpConnectedAndHdmiAsRoutedDeviceHintApi23_returnsHdmiCapabilities() {
+      getCapabilities_withBluetoothA2dpConnectedAndHdmiAsRoutedDeviceHint_returnsHdmiCapabilities() {
     setOutputDevices(AudioDeviceInfo.TYPE_BLUETOOTH_A2DP, AudioDeviceInfo.TYPE_HDMI);
     configureHdmiConnection(
         /* maxChannelCount= */ 10,
@@ -465,8 +464,6 @@ public class AudioCapabilitiesTest {
             ImmutableList.of(AudioDeviceInfoBuilder.newBuilder().setType(type).build()));
   }
 
-  @SuppressWarnings("UseSdkSuppress") // https://issuetracker.google.com/382253664
-  @RequiresApi(23)
   private void addDirectPlaybackSupport(
       int encoding, int channelMask, AudioAttributes audioAttributes) {
     ShadowAudioTrack.addAllowedNonPcmEncoding(AudioFormat.ENCODING_E_AC3_JOC);
@@ -517,8 +514,6 @@ public class AudioCapabilitiesTest {
     ApplicationProvider.getApplicationContext().sendStickyBroadcast(intent);
   }
 
-  @SuppressWarnings("UseSdkSuppress") // https://issuetracker.google.com/382253664
-  @RequiresApi(23)
   private List<Integer> getDeviceTypes(AudioDeviceInfo[] audioDeviceInfos) {
     List<Integer> deviceTypes = new ArrayList<>();
     for (AudioDeviceInfo audioDeviceInfo : audioDeviceInfos) {

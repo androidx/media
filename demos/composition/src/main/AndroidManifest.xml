@@ -14,43 +14,41 @@
      limitations under the License.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-  xmlns:tools="http://schemas.android.com/tools"
-  package="androidx.media3.demo.composition">
+    xmlns:tools="http://schemas.android.com/tools"
+    package="androidx.media3.demo.composition">
+
+  <uses-sdk />
+
+  <uses-permission android:name="android.permission.INTERNET" />
+  <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+  <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+  <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+  <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+
+  <!-- For media projection. -->
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
 
   <application
-    android:allowBackup="false"
-    android:icon="@mipmap/ic_launcher"
-    android:label="@string/app_name"
-    android:requestLegacyExternalStorage="true"
-    android:supportsRtl="true"
-    android:taskAffinity=""
-    tools:targetApi="29">
+      android:allowBackup="false"
+      android:icon="@mipmap/ic_launcher"
+      android:label="@string/app_name"
+      android:requestLegacyExternalStorage="true"
+      android:supportsRtl="true"
+      android:taskAffinity=""
+      tools:targetApi="29">
     <activity
-      android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|smallestScreenSize|uiMode"
-      android:exported="true"
-      android:launchMode="singleTop"
-      android:name=".MainActivity"
-      android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar">
+        android:name=".CompositionPreviewActivity"
+        android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|smallestScreenSize|uiMode"
+        android:exported="true"
+        android:launchMode="singleTop"
+        android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar">
       <intent-filter>
         <action android:name="android.intent.action.MAIN" />
 
         <category android:name="android.intent.category.LAUNCHER" />
       </intent-filter>
     </activity>
-    <activity
-      android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|smallestScreenSize|uiMode"
-      android:exported="true"
-      android:launchMode="singleTop"
-      android:name=".CompositionPreviewActivity"
-      android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar">
-    </activity>
   </application>
-
-  <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-  <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-  <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
-  <uses-permission android:name="android.permission.INTERNET" />
-
-  <uses-sdk />
 
 </manifest>

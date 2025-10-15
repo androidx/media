@@ -15,6 +15,9 @@
  */
 package androidx.media3.exoplayer.hls;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+
 import android.net.Uri;
 import android.text.TextUtils;
 import androidx.annotation.Nullable;
@@ -26,7 +29,6 @@ import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.StreamKey;
 import androidx.media3.common.TrackGroup;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
@@ -201,7 +203,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @Override
   public TrackGroupArray getTrackGroups() {
     // trackGroups will only be null if period hasn't been prepared or has been released.
-    return Assertions.checkNotNull(trackGroups);
+    return checkNotNull(trackGroups);
   }
 
   // TODO: When the multivariant playlist does not de-duplicate variants by URL and allows
@@ -211,7 +213,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   public List<StreamKey> getStreamKeys(List<ExoTrackSelection> trackSelections) {
     // See HlsMultivariantPlaylist.copy for interpretation of StreamKeys.
     HlsMultivariantPlaylist multivariantPlaylist =
-        Assertions.checkNotNull(playlistTracker.getMultivariantPlaylist());
+        checkNotNull(playlistTracker.getMultivariantPlaylist());
     boolean hasVariants = !multivariantPlaylist.variants.isEmpty();
     int audioWrapperOffset = hasVariants ? 1 : 0;
 
@@ -342,13 +344,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         SampleStream childStream = childStreams[j];
         if (selectionChildIndices[j] == i) {
           // Assert that the child provided a stream for the selection.
-          Assertions.checkNotNull(childStream);
+          checkNotNull(childStream);
           newStreams[j] = childStream;
           wrapperEnabled = true;
           streamWrapperIndices.put(childStream, i);
         } else if (streamChildIndices[j] == i) {
           // Assert that the child cleared any previous stream.
-          Assertions.checkState(childStream == null);
+          checkState(childStream == null);
         }
       }
       if (wrapperEnabled) {
@@ -491,7 +493,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   private void buildAndPrepareSampleStreamWrappers(long positionUs) {
     HlsMultivariantPlaylist multivariantPlaylist =
-        Assertions.checkNotNull(playlistTracker.getMultivariantPlaylist());
+        checkNotNull(playlistTracker.getMultivariantPlaylist());
     Map<String, DrmInitData> overridingDrmInitData =
         useSessionKeys
             ? deriveOverridingDrmInitData(multivariantPlaylist.sessionKeyDrmInitData)

@@ -479,6 +479,9 @@ public abstract class Mp4Box {
   @SuppressWarnings({"ConstantCaseForConstants", "IdentifierName"})
   public static final int TYPE_pcmC = 0x70636d43;
 
+  @SuppressWarnings({"ConstantCaseForConstants", "IdentifierName"})
+  public static final int TYPE_free = 0x66726565;
+
   public final int type;
 
   // private to only allow sub-classing from within this file.

@@ -16,12 +16,12 @@
 package androidx.media3.decoder.vp9;
 
 import static androidx.annotation.VisibleForTesting.PACKAGE_PRIVATE;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.view.Surface;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.decoder.CryptoConfig;
@@ -135,8 +135,8 @@ public final class VpxDecoder
                 inputSize,
                 cryptoConfig,
                 cryptoInfo.mode,
-                Assertions.checkNotNull(cryptoInfo.key),
-                Assertions.checkNotNull(cryptoInfo.iv),
+                checkNotNull(cryptoInfo.key),
+                checkNotNull(cryptoInfo.iv),
                 cryptoInfo.numSubSamples,
                 cryptoInfo.numBytesOfClearData,
                 cryptoInfo.numBytesOfEncryptedData)
@@ -152,7 +152,7 @@ public final class VpxDecoder
     }
 
     if (inputBuffer.hasSupplementalData()) {
-      ByteBuffer supplementalData = Assertions.checkNotNull(inputBuffer.supplementalData);
+      ByteBuffer supplementalData = checkNotNull(inputBuffer.supplementalData);
       int size = supplementalData.remaining();
       if (size > 0) {
         if (lastSupplementalData == null || lastSupplementalData.capacity() < size) {

@@ -16,9 +16,9 @@
 
 package androidx.media3.transformer;
 
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.getPcmFormat;
 import static androidx.media3.transformer.TestUtil.createSpeedChangingAudioProcessor;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.Collections.max;
 import static java.util.Collections.min;

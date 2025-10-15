@@ -32,7 +32,7 @@ track 0:
       lumaBitdepth = 10
       chromaBitdepth = 10
     language = und
-    metadata = entries=[mdta: key=com.apple.quicktime.location.accuracy.horizontal, value=35.000000, mdta: key=com.apple.quicktime.location.ISO6709, value=+51.5334-000.1255+026.756/, mdta: key=com.apple.quicktime.software, value=16.4.1, mdta: key=com.apple.quicktime.creationdate, value=2023-05-09T12:41:46+0100, mdta: key=com.apple.quicktime.make, value=Apple, mdta: key=com.apple.quicktime.model, value=iPhone 14 Pro, Mp4Timestamp: creation time=3000000000, modification time=4000000000, timescale=10000]
+    metadata = entries=[mdta: key=com.apple.quicktime.location.accuracy.horizontal, value=35.000000, mdta: key=com.apple.quicktime.location.ISO6709, value=+51.5334-000.1255+026.756/, mdta: key=com.apple.quicktime.software, value=16.4.1, mdta: key=com.apple.quicktime.creationdate, value=2023-05-09T12:41:46+0100, mdta: key=com.apple.quicktime.make, value=Apple, mdta: key=com.apple.quicktime.model, value=iPhone 14 Pro, Mp4Timestamp: creation time=3000000000, modification time=4000000000, timescale=10000, ThumbnailMetadata: presentationTimeUs=0]
     initializationData:
       data = length 97, hash 71D67547
       data = length 24, hash D98F4125
@@ -59,7 +59,7 @@ track 0:
 track 1:
   total output bytes = 2674
   sample count = 7
-  track duration = 162500
+  track duration = 114600
   format 0:
     averageBitrate = 131611
     peakBitrate = 192000
@@ -70,6 +70,8 @@ track 1:
     maxInputSize = 616
     channelCount = 2
     sampleRate = 44100
+    encoderDelay = 2112
+    encoderPadding = 3
     language = und
     metadata = entries=[mdta: key=com.apple.quicktime.location.accuracy.horizontal, value=35.000000, mdta: key=com.apple.quicktime.location.ISO6709, value=+51.5334-000.1255+026.756/, mdta: key=com.apple.quicktime.software, value=16.4.1, mdta: key=com.apple.quicktime.creationdate, value=2023-05-09T12:41:46+0100, mdta: key=com.apple.quicktime.make, value=Apple, mdta: key=com.apple.quicktime.model, value=iPhone 14 Pro, Mp4Timestamp: creation time=3000000000, modification time=4000000000, timescale=10000]
     initializationData:

@@ -15,12 +15,10 @@
  */
 package androidx.media3.session;
 
-import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.session.MediaUtils.calculateBufferedPercentage;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
@@ -32,7 +30,6 @@ import android.media.AudioManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.os.ResultReceiver;
 import android.os.SystemClock;
 import android.util.Pair;
 import android.view.Surface;
@@ -79,7 +76,6 @@ import androidx.media3.session.legacy.VolumeProviderCompat;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.SettableFuture;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -157,7 +153,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
   @Override
   public void connect(@UnderInitialization MediaControllerImplLegacy this) {
     if (this.token.getType() == SessionToken.TYPE_SESSION) {
-      connectToSession((MediaSessionCompat.Token) checkStateNotNull(this.token.getBinder()));
+      connectToSession((MediaSessionCompat.Token) checkNotNull(this.token.getBinder()));
     } else {
       connectToService();
     }
@@ -538,6 +534,11 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
   }
 
   @Override
+  public int getAudioSessionId() {
+    return controllerInfo.playerInfo.audioSessionId;
+  }
+
+  @Override
   public ListenableFuture<SessionResult> setRating(String mediaId, Rating rating) {
     @Nullable
     String currentMediaItemMediaId =
@@ -602,22 +603,13 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
 
   @Override
   public ListenableFuture<SessionResult> sendCustomCommand(SessionCommand command, Bundle args) {
-    if (controllerInfo.availableSessionCommands.contains(command)) {
+    if (controllerCompat != null) {
       controllerCompat.getTransportControls().sendCustomAction(command.customAction, args);
       return Futures.immediateFuture(new SessionResult(SessionResult.RESULT_SUCCESS));
+    } else {
+      return Futures.immediateFuture(
+          new SessionResult(SessionResult.RESULT_ERROR_SESSION_DISCONNECTED));
     }
-    SettableFuture<SessionResult> result = SettableFuture.create();
-    ResultReceiver cb =
-        new ResultReceiver(getInstance().applicationHandler) {
-          @Override
-          protected void onReceiveResult(int resultCode, Bundle resultData) {
-            result.set(
-                new SessionResult(
-                    resultCode, /* extras= */ resultData == null ? Bundle.EMPTY : resultData));
-          }
-        };
-    controllerCompat.sendCommand(command.customAction, args, cb);
-    return result;
   }
 
   @Override
@@ -1253,11 +1245,6 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
 
   @Override
   public void setDeviceMuted(boolean muted, @C.VolumeFlags int flags) {
-    if (SDK_INT < 23) {
-      Log.w(TAG, "Session doesn't support setting mute state at API level less than 23");
-      return;
-    }
-
     boolean isMuted = isDeviceMuted();
     if (muted != isMuted) {
       int volume = getDeviceVolume();
@@ -1604,7 +1591,6 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
             controllerCompat.isSessionReady(),
             controllerCompat.getRatingType(),
             getInstance().getTimeDiffMs(),
-            getRoutingControllerId(controllerCompat),
             hasPendingExtrasChange,
             context);
     Pair<@NullableType Integer, @NullableType Integer> reasons =
@@ -1782,6 +1768,13 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
           (listener) ->
               listener.onAudioAttributesChanged(newControllerInfo.playerInfo.audioAttributes));
     }
+    if (oldControllerInfo.playerInfo.audioSessionId
+        != newControllerInfo.playerInfo.audioSessionId) {
+      listeners.queueEvent(
+          Player.EVENT_AUDIO_SESSION_ID,
+          (listener) ->
+              listener.onAudioSessionIdChanged(newControllerInfo.playerInfo.audioSessionId));
+    }
     if (!oldControllerInfo.playerInfo.deviceInfo.equals(newControllerInfo.playerInfo.deviceInfo)) {
       listeners.queueEvent(
           Player.EVENT_DEVICE_INFO_CHANGED,
@@ -1831,22 +1824,6 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
               listener -> listener.onError(getInstance(), newControllerInfo.sessionError));
     }
     listeners.flushEvents();
-  }
-
-  @Nullable
-  private static String getRoutingControllerId(MediaControllerCompat controllerCompat) {
-    if (SDK_INT < 30) {
-      return null;
-    }
-    android.media.session.MediaController fwkController =
-        (android.media.session.MediaController) controllerCompat.getMediaController();
-    @Nullable
-    android.media.session.MediaController.PlaybackInfo playbackInfo =
-        fwkController.getPlaybackInfo();
-    if (playbackInfo == null) {
-      return null;
-    }
-    return playbackInfo.getVolumeControlId();
   }
 
   private static <T> void ignoreFuture(Future<T> unused) {
@@ -2030,7 +2007,6 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
       boolean isSessionReady,
       @RatingCompat.Style int ratingType,
       long timeDiffMs,
-      @Nullable String routingControllerId,
       boolean hasPendingExtrasChange,
       Context context) {
     QueueTimeline currentTimeline;
@@ -2206,8 +2182,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
     boolean isPlaying =
         LegacyConversions.convertToIsPlaying(newLegacyPlayerInfo.playbackStateCompat);
     DeviceInfo deviceInfo =
-        LegacyConversions.convertToDeviceInfo(
-            newLegacyPlayerInfo.playbackInfoCompat, routingControllerId);
+        LegacyConversions.convertToDeviceInfo(newLegacyPlayerInfo.playbackInfoCompat);
     int deviceVolume =
         LegacyConversions.convertToDeviceVolume(newLegacyPlayerInfo.playbackInfoCompat);
     boolean deviceMuted =
@@ -2279,7 +2254,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
       mediaItemTransitionReason = Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED;
     } else {
       MediaItem oldCurrentMediaItem =
-          checkStateNotNull(oldControllerInfo.playerInfo.getCurrentMediaItem());
+          checkNotNull(oldControllerInfo.playerInfo.getCurrentMediaItem());
       boolean oldCurrentMediaItemExistsInNewTimeline =
           ((QueueTimeline) newControllerInfo.playerInfo.timeline).contains(oldCurrentMediaItem);
       if (!oldCurrentMediaItemExistsInNewTimeline) {
@@ -2452,6 +2427,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
             /* volume= */ 1.0f,
             /* unmuteVolume= */ 1.0f,
             /* audioAttributes= */ audioAttributes,
+            /* audioSessionId= */ C.AUDIO_SESSION_ID_UNSET,
             /* cueGroup= */ CueGroup.EMPTY_TIME_ZERO,
             /* deviceInfo= */ deviceInfo,
             /* deviceVolume= */ deviceVolume,

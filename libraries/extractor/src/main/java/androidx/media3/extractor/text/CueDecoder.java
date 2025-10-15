@@ -15,10 +15,11 @@
  */
 package androidx.media3.extractor.text;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import android.os.Bundle;
 import android.os.Parcel;
 import androidx.media3.common.text.Cue;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.BundleCollectionUtil;
 import androidx.media3.common.util.UnstableApi;
 import java.util.ArrayList;
@@ -50,8 +51,7 @@ public final class CueDecoder {
     parcel.setDataPosition(0);
     Bundle bundle = parcel.readBundle(Bundle.class.getClassLoader());
     parcel.recycle();
-    ArrayList<Bundle> bundledCues =
-        Assertions.checkNotNull(bundle.getParcelableArrayList(BUNDLE_FIELD_CUES));
+    ArrayList<Bundle> bundledCues = checkNotNull(bundle.getParcelableArrayList(BUNDLE_FIELD_CUES));
     return new CuesWithTiming(
         BundleCollectionUtil.fromBundleList(Cue::fromBundle, bundledCues),
         startTimeUs,

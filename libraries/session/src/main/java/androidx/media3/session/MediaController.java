@@ -16,13 +16,12 @@
 package androidx.media3.session;
 
 import static androidx.annotation.VisibleForTesting.NONE;
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotEmpty;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.postOrRun;
 import static androidx.media3.session.SessionError.ERROR_NOT_SUPPORTED;
 import static androidx.media3.session.SessionError.ERROR_SESSION_DISCONNECTED;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.app.PendingIntent;
 import android.content.Context;
@@ -30,6 +29,7 @@ import android.media.session.PlaybackState;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.text.TextUtils;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
@@ -1074,6 +1074,16 @@ public class MediaController implements Player {
     return impl.getAudioAttributes();
   }
 
+  @UnstableApi
+  @Override
+  public final int getAudioSessionId() {
+    verifyApplicationThread();
+    if (!isConnected()) {
+      return C.AUDIO_SESSION_ID_UNSET;
+    }
+    return impl.getAudioSessionId();
+  }
+
   /**
    * Requests that the connected {@link MediaSession} rates the media. This will cause the rating to
    * be set for the current user. The rating style must follow the user rating style from the
@@ -1090,7 +1100,7 @@ public class MediaController implements Player {
   public final ListenableFuture<SessionResult> setRating(String mediaId, Rating rating) {
     verifyApplicationThread();
     checkNotNull(mediaId, "mediaId must not be null");
-    checkNotEmpty(mediaId, "mediaId must not be empty");
+    checkArgument(!TextUtils.isEmpty(mediaId), "mediaId must not be empty");
     checkNotNull(rating, "rating must not be null");
     if (isConnected()) {
       return impl.setRating(mediaId, rating);
@@ -1190,10 +1200,11 @@ public class MediaController implements Player {
    * <p>A command is not accepted if it is not a custom command or the command is not in the list of
    * {@linkplain #getAvailableSessionCommands() available session commands}.
    *
-   * <p>Interoperability: When connected to {@code
+   * <p>Interoperability: When sending a custom command to {@code
    * android.support.v4.media.session.MediaSessionCompat}, {@link SessionResult#resultCode} will
-   * return the custom result code from the {@code android.os.ResultReceiver#onReceiveResult(int,
-   * Bundle)} instead of the standard result codes defined in the {@link SessionResult}.
+   * always be {@link SessionResult#RESULT_SUCCESS} because the session has no way to send a result
+   * back from {@link
+   * androidx.media3.session.legacy.MediaSessionCompat.Callback#onCustomAction(String, Bundle)}.
    *
    * @param command The custom command.
    * @param mediaItem The media item for which the command is sent.
@@ -1221,10 +1232,11 @@ public class MediaController implements Player {
    * <p>A command is not accepted if it is not a custom command or the command is not in the list of
    * {@linkplain #getAvailableSessionCommands() available session commands}.
    *
-   * <p>Interoperability: When connected to {@code
+   * <p>Interoperability: When sending a custom command to {@code
    * android.support.v4.media.session.MediaSessionCompat}, {@link SessionResult#resultCode} will
-   * return the custom result code from the {@code android.os.ResultReceiver#onReceiveResult(int,
-   * Bundle)} instead of the standard result codes defined in the {@link SessionResult}.
+   * always be {@link SessionResult#RESULT_SUCCESS} because the session has no way to send a result
+   * back from {@link
+   * androidx.media3.session.legacy.MediaSessionCompat.Callback#onCustomAction(String, Bundle)}.
    *
    * @param command The custom command.
    * @param mediaItem The media item for which the command is sent.
@@ -1239,9 +1251,9 @@ public class MediaController implements Player {
       MediaItem mediaItem,
       Bundle args,
       @Nullable ProgressListener progressListener) {
-    Bundle augnentedBundle = new Bundle(args);
-    augnentedBundle.putString(MediaConstants.EXTRA_KEY_MEDIA_ID, mediaItem.mediaId);
-    return sendCustomCommand(command, augnentedBundle, progressListener);
+    Bundle augmentedBundle = new Bundle(args);
+    augmentedBundle.putString(MediaConstants.EXTRA_KEY_MEDIA_ID, mediaItem.mediaId);
+    return sendCustomCommand(command, augmentedBundle, progressListener);
   }
 
   /**
@@ -1355,7 +1367,7 @@ public class MediaController implements Player {
     verifyApplicationThread();
     checkNotNull(mediaItems, "mediaItems must not be null");
     for (int i = 0; i < mediaItems.size(); i++) {
-      checkArgument(mediaItems.get(i) != null, "items must not contain null, index=" + i);
+      checkArgument(mediaItems.get(i) != null, "items must not contain null, index=%s", i);
     }
     if (!isConnected()) {
       Log.w(TAG, "The controller is not connected. Ignoring setMediaItems().");
@@ -1369,7 +1381,7 @@ public class MediaController implements Player {
     verifyApplicationThread();
     checkNotNull(mediaItems, "mediaItems must not be null");
     for (int i = 0; i < mediaItems.size(); i++) {
-      checkArgument(mediaItems.get(i) != null, "items must not contain null, index=" + i);
+      checkArgument(mediaItems.get(i) != null, "items must not contain null, index=%s", i);
     }
     if (!isConnected()) {
       Log.w(TAG, "The controller is not connected. Ignoring setMediaItems().");
@@ -1384,7 +1396,7 @@ public class MediaController implements Player {
     verifyApplicationThread();
     checkNotNull(mediaItems, "mediaItems must not be null");
     for (int i = 0; i < mediaItems.size(); i++) {
-      checkArgument(mediaItems.get(i) != null, "items must not contain null, index=" + i);
+      checkArgument(mediaItems.get(i) != null, "items must not contain null, index=%s", i);
     }
     if (!isConnected()) {
       Log.w(TAG, "The controller is not connected. Ignoring setMediaItems().");
@@ -2305,6 +2317,8 @@ public class MediaController implements Player {
     PlaybackParameters getPlaybackParameters();
 
     AudioAttributes getAudioAttributes();
+
+    int getAudioSessionId();
 
     ListenableFuture<SessionResult> setRating(String mediaId, Rating rating);
 

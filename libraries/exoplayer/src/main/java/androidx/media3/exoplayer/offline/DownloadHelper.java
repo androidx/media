@@ -15,10 +15,11 @@
  */
 package androidx.media3.exoplayer.offline;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.castNonNull;
 import static androidx.media3.common.util.Util.getFormatSupportString;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.min;
 import static java.lang.annotation.ElementType.TYPE_USE;
 import static java.lang.annotation.RetentionPolicy.SOURCE;
@@ -39,7 +40,6 @@ import androidx.media3.common.TrackGroup;
 import androidx.media3.common.TrackSelectionOverride;
 import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.Tracks;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
@@ -220,7 +220,7 @@ public final class DownloadHelper {
      */
     public DownloadHelper create(MediaItem mediaItem) {
       boolean isProgressive = isProgressive(checkNotNull(mediaItem.localConfiguration));
-      Assertions.checkArgument(isProgressive || dataSourceFactory != null);
+      checkArgument(isProgressive || dataSourceFactory != null);
       return new DownloadHelper(
           mediaItem,
           isProgressive && dataSourceFactory == null
@@ -325,7 +325,7 @@ public final class DownloadHelper {
    */
   @Deprecated
   public static DownloadHelper forMediaItem(Context context, MediaItem mediaItem) {
-    Assertions.checkArgument(isProgressive(checkNotNull(mediaItem.localConfiguration)));
+    checkArgument(isProgressive(checkNotNull(mediaItem.localConfiguration)));
     return new DownloadHelper.Factory().create(mediaItem);
   }
 
@@ -576,7 +576,7 @@ public final class DownloadHelper {
    * @throws IllegalStateException If the download helper has already been prepared.
    */
   public void prepare(Callback callback) {
-    Assertions.checkState(this.callback == null);
+    checkState(this.callback == null);
     this.callback = callback;
     if (mode != MODE_NOT_PREPARE) {
       mediaPreparer = new MediaPreparer(checkNotNull(mediaSource), /* downloadHelper= */ this);
@@ -1117,8 +1117,8 @@ public final class DownloadHelper {
   @EnsuresNonNull({"mediaPreparer", "mediaPreparer.timeline", "mediaPreparer.mediaPeriods"})
   @SuppressWarnings("nullness:contracts.postcondition")
   private void assertPreparedWithMedia() {
-    Assertions.checkState(mode != MODE_NOT_PREPARE);
-    Assertions.checkState(isPreparedWithMedia);
+    checkState(mode != MODE_NOT_PREPARE);
+    checkState(isPreparedWithMedia);
   }
 
   @EnsuresNonNull({
@@ -1132,9 +1132,9 @@ public final class DownloadHelper {
   })
   @SuppressWarnings("nullness:contracts.postcondition")
   private void assertPreparedWithNonProgressiveSourceAndTracksSelected() {
-    Assertions.checkState(mode == MODE_PREPARE_NON_PROGRESSIVE_SOURCE_AND_SELECT_TRACKS);
-    Assertions.checkState(isPreparedWithMedia);
-    Assertions.checkState(areTracksSelected);
+    checkState(mode == MODE_PREPARE_NON_PROGRESSIVE_SOURCE_AND_SELECT_TRACKS);
+    checkState(isPreparedWithMedia);
+    checkState(areTracksSelected);
   }
 
   @EnsuresNonNull({
@@ -1145,8 +1145,8 @@ public final class DownloadHelper {
   })
   @SuppressWarnings("nullness:contracts.postcondition")
   private void assertPreparedWithProgressiveSource() {
-    Assertions.checkState(mode == MODE_PREPARE_PROGRESSIVE_SOURCE);
-    Assertions.checkState(isPreparedWithMedia);
+    checkState(mode == MODE_PREPARE_PROGRESSIVE_SOURCE);
+    checkState(isPreparedWithMedia);
   }
 
   /**

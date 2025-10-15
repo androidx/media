@@ -16,8 +16,9 @@
 
 package androidx.media3.common.util;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
+import static com.google.common.base.Preconditions.checkArgument;
 
+import android.os.Bundle;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 
@@ -84,5 +85,23 @@ public final class Size {
   public int hashCode() {
     // assuming most sizes are <2^16, doing a rotate will give us perfect hashing
     return height ^ ((width << (Integer.SIZE / 2)) | (width >>> (Integer.SIZE / 2)));
+  }
+
+  private static final String FIELD_WIDTH = Util.intToStringMaxRadix(0);
+  private static final String FIELD_HEIGHT = Util.intToStringMaxRadix(1);
+
+  @UnstableApi
+  public Bundle toBundle() {
+    Bundle bundle = new Bundle();
+    bundle.putInt(FIELD_WIDTH, width);
+    bundle.putInt(FIELD_HEIGHT, height);
+    return bundle;
+  }
+
+  @UnstableApi
+  public static Size fromBundle(Bundle bundle) {
+    int width = bundle.getInt(FIELD_WIDTH, C.LENGTH_UNSET);
+    int height = bundle.getInt(FIELD_HEIGHT, C.LENGTH_UNSET);
+    return new Size(width, height);
   }
 }

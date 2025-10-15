@@ -15,7 +15,7 @@
  */
 package androidx.media3.extractor.amr;
 
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.abs;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
@@ -472,7 +472,7 @@ public final class AmrExtractor implements Extractor {
 
   @EnsuresNonNull({"extractorOutput", "realTrackOutput"})
   private void assertInitialized() {
-    checkStateNotNull(realTrackOutput);
+    checkNotNull(realTrackOutput);
     Util.castNonNull(extractorOutput);
   }
 

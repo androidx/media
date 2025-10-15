@@ -15,11 +15,13 @@
  */
 package androidx.media3.exoplayer.dash;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.constrainValue;
 import static androidx.media3.common.util.Util.msToUs;
 import static androidx.media3.common.util.Util.usToMs;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkElementIndex;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
@@ -39,7 +41,6 @@ import androidx.media3.common.ParserException;
 import androidx.media3.common.Player;
 import androidx.media3.common.StreamKey;
 import androidx.media3.common.Timeline;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -335,7 +336,7 @@ public final class DashMediaSource extends BaseMediaSource {
      * @throws IllegalArgumentException If {@link DashManifest#dynamic} is true.
      */
     public DashMediaSource createMediaSource(DashManifest manifest, MediaItem mediaItem) {
-      Assertions.checkArgument(!manifest.dynamic);
+      checkArgument(!manifest.dynamic);
       MediaItem.Builder mediaItemBuilder =
           mediaItem.buildUpon().setMimeType(MimeTypes.APPLICATION_MPD);
       if (mediaItem.localConfiguration == null) {
@@ -515,7 +516,7 @@ public final class DashMediaSource extends BaseMediaSource {
     expiredManifestPublishTimeUs = C.TIME_UNSET;
     elapsedRealtimeOffsetMs = C.TIME_UNSET;
     if (sideloadedManifest) {
-      Assertions.checkState(!manifest.dynamic);
+      checkState(!manifest.dynamic);
       manifestCallback = null;
       refreshManifestRunnable = null;
       simulateManifestRefreshRunnable = null;
@@ -524,7 +525,7 @@ public final class DashMediaSource extends BaseMediaSource {
       manifestCallback = new ManifestCallback();
       manifestLoadErrorThrower = new ManifestLoadErrorThrower();
       refreshManifestRunnable = this::startLoadingManifest;
-      simulateManifestRefreshRunnable = () -> processManifest(false);
+      simulateManifestRefreshRunnable = this::simulateManifestRefresh;
     }
   }
 
@@ -1125,6 +1126,16 @@ public final class DashMediaSource extends BaseMediaSource {
             .build());
   }
 
+  private void simulateManifestRefresh() {
+    try {
+      processManifest(/* scheduleRefresh= */ false);
+    } catch (Exception e) {
+      // This method is run on a Handler message without the usual safety nets from ExoPlayer.
+      // Catch the exception and let it be reported via the regular player error reporting chain.
+      manifestFatalError = new IOException(/* cause= */ e);
+    }
+  }
+
   private void scheduleManifestRefresh(long delayUntilNextLoadMs) {
     handler.postDelayed(refreshManifestRunnable, delayUntilNextLoadMs);
   }
@@ -1359,7 +1370,7 @@ public final class DashMediaSource extends BaseMediaSource {
 
     @Override
     public Period getPeriod(int periodIndex, Period period, boolean setIds) {
-      Assertions.checkIndex(periodIndex, 0, getPeriodCount());
+      checkElementIndex(periodIndex, getPeriodCount());
       Object id = setIds ? manifest.getPeriod(periodIndex).id : null;
       Object uid = setIds ? (firstPeriodId + periodIndex) : null;
       return period.set(
@@ -1378,7 +1389,7 @@ public final class DashMediaSource extends BaseMediaSource {
 
     @Override
     public Window getWindow(int windowIndex, Window window, long defaultPositionProjectionUs) {
-      Assertions.checkIndex(windowIndex, 0, 1);
+      checkElementIndex(windowIndex, 1);
       long windowDefaultStartPositionUs =
           getAdjustedWindowDefaultStartPositionUs(defaultPositionProjectionUs);
       return window.set(
@@ -1453,7 +1464,7 @@ public final class DashMediaSource extends BaseMediaSource {
 
     @Override
     public Object getUidOfPeriod(int periodIndex) {
-      Assertions.checkIndex(periodIndex, 0, getPeriodCount());
+      checkElementIndex(periodIndex, getPeriodCount());
       return firstPeriodId + periodIndex;
     }
 

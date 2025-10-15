@@ -15,20 +15,21 @@
  */
 package androidx.media3.exoplayer;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.msToUs;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
 import android.content.ContentResolver;
 import android.text.TextUtils;
+import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Timeline;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
@@ -39,11 +40,16 @@ import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
+import androidx.media3.exoplayer.upstream.Allocation;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.DefaultAllocator;
+import androidx.media3.exoplayer.upstream.PlayerIdAwareAllocator;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /** The default {@link LoadControl} implementation. */
 @UnstableApi
@@ -171,6 +177,8 @@ public class DefaultLoadControl implements LoadControl {
   /** Builder for {@link DefaultLoadControl}. */
   public static final class Builder {
 
+    private final HashMap<String, Integer> playerTargetBufferBytes;
+
     @Nullable private DefaultAllocator allocator;
     private int minBufferMs;
     private int minBufferForLocalPlaybackMs;
@@ -187,8 +195,15 @@ public class DefaultLoadControl implements LoadControl {
     private boolean retainBackBufferFromKeyframe;
     private boolean buildCalled;
 
+    // For backwards-compatibility, calling only one of the generic setBufferDurationsMs or
+    // setPrioritizeTimeOverSizeThresholds methods should not use local playback specific defaults
+    // for the other setter to avoid unintended side effects of changing one default but keeping the
+    // manual override for the other.
+    @Nullable private Boolean onlyGenericConfigurationMethodsCalled;
+
     /** Constructs a new instance. */
     public Builder() {
+      playerTargetBufferBytes = new HashMap<>();
       minBufferMs = DEFAULT_MIN_BUFFER_MS;
       minBufferForLocalPlaybackMs = DEFAULT_MIN_BUFFER_FOR_LOCAL_PLAYBACK_MS;
       maxBufferMs = DEFAULT_MAX_BUFFER_MS;
@@ -263,6 +278,9 @@ public class DefaultLoadControl implements LoadControl {
       this.maxBufferForLocalPlaybackMs = maxBufferMs;
       this.bufferForPlaybackForLocalPlaybackMs = bufferForPlaybackMs;
       this.bufferForPlaybackAfterRebufferForLocalPlaybackMs = bufferForPlaybackAfterRebufferMs;
+      if (onlyGenericConfigurationMethodsCalled == null) {
+        onlyGenericConfigurationMethodsCalled = true;
+      }
       return this;
     }
 
@@ -305,6 +323,7 @@ public class DefaultLoadControl implements LoadControl {
       this.maxBufferMs = maxBufferMs;
       this.bufferForPlaybackMs = bufferForPlaybackMs;
       this.bufferForPlaybackAfterRebufferMs = bufferForPlaybackAfterRebufferMs;
+      onlyGenericConfigurationMethodsCalled = false;
       return this;
     }
 
@@ -347,14 +366,16 @@ public class DefaultLoadControl implements LoadControl {
       this.maxBufferForLocalPlaybackMs = maxBufferMs;
       this.bufferForPlaybackForLocalPlaybackMs = bufferForPlaybackMs;
       this.bufferForPlaybackAfterRebufferForLocalPlaybackMs = bufferForPlaybackAfterRebufferMs;
+      onlyGenericConfigurationMethodsCalled = false;
       return this;
     }
 
     /**
-     * Sets the target buffer size in bytes for each player. The actual overall target buffer size
-     * is this value multiplied by the number of players that use the load control simultaneously.
-     * If set to {@link C#LENGTH_UNSET}, the target buffer size of a player will be calculated based
-     * on the selected tracks of the player.
+     * Sets the target buffer size in bytes for each player. If set to {@link C#LENGTH_UNSET}, the
+     * target buffer size of a player will be calculated based on the selected tracks of the player.
+     *
+     * <p>This value will be ignored for the players with a {@code playerName} that has target
+     * buffer size set via {@link #setPlayerTargetBufferBytes(String, int)}.
      *
      * @param targetBufferBytes The target buffer size in bytes.
      * @return This builder, for convenience.
@@ -364,6 +385,26 @@ public class DefaultLoadControl implements LoadControl {
     public Builder setTargetBufferBytes(int targetBufferBytes) {
       checkState(!buildCalled);
       this.targetBufferBytes = targetBufferBytes;
+      return this;
+    }
+
+    /**
+     * Sets the target buffer size in bytes for a player with the specified {@code playerName}. When
+     * not set or set to {@link C#LENGTH_UNSET}, the target buffer size of a player will be the
+     * value set via {@link #setTargetBufferBytes(int)} if it is not {@link C#LENGTH_UNSET},
+     * otherwise it will be calculated based on the selected tracks of the player.
+     *
+     * @param playerName The name of the player. The same name must be set to the player via {@link
+     *     ExoPlayer.Builder#setName(String)} in order to be effective at the created {@link
+     *     DefaultLoadControl}.
+     * @param playerTargetBufferBytes The target buffer size in bytes for the specified player.
+     * @return This builder, for convenience.
+     * @throws IllegalStateException If {@link #build()} has already been called.
+     */
+    @CanIgnoreReturnValue
+    public Builder setPlayerTargetBufferBytes(String playerName, int playerTargetBufferBytes) {
+      checkState(!buildCalled);
+      this.playerTargetBufferBytes.put(playerName, playerTargetBufferBytes);
       return this;
     }
 
@@ -385,6 +426,9 @@ public class DefaultLoadControl implements LoadControl {
       checkState(!buildCalled);
       this.prioritizeTimeOverSizeThresholds = prioritizeTimeOverSizeThresholds;
       this.prioritizeTimeOverSizeThresholdsForLocalPlayback = prioritizeTimeOverSizeThresholds;
+      if (onlyGenericConfigurationMethodsCalled == null) {
+        onlyGenericConfigurationMethodsCalled = true;
+      }
       return this;
     }
 
@@ -405,6 +449,7 @@ public class DefaultLoadControl implements LoadControl {
         boolean prioritizeTimeOverSizeThresholds) {
       checkState(!buildCalled);
       this.prioritizeTimeOverSizeThresholds = prioritizeTimeOverSizeThresholds;
+      onlyGenericConfigurationMethodsCalled = false;
       return this;
     }
 
@@ -425,6 +470,7 @@ public class DefaultLoadControl implements LoadControl {
         boolean prioritizeTimeOverSizeThresholds) {
       checkState(!buildCalled);
       this.prioritizeTimeOverSizeThresholdsForLocalPlayback = prioritizeTimeOverSizeThresholds;
+      onlyGenericConfigurationMethodsCalled = false;
       return this;
     }
 
@@ -454,6 +500,15 @@ public class DefaultLoadControl implements LoadControl {
       if (allocator == null) {
         allocator = new DefaultAllocator(/* trimOnReset= */ true, C.DEFAULT_BUFFER_SEGMENT_SIZE);
       }
+      if (onlyGenericConfigurationMethodsCalled != null && onlyGenericConfigurationMethodsCalled) {
+        // For backwards-compatibility, if only generic setters were called, ensure the local
+        // playback values are equivalent to the streaming ones even if not explicitly specified.
+        minBufferForLocalPlaybackMs = minBufferMs;
+        maxBufferForLocalPlaybackMs = maxBufferMs;
+        bufferForPlaybackForLocalPlaybackMs = bufferForPlaybackMs;
+        bufferForPlaybackAfterRebufferForLocalPlaybackMs = bufferForPlaybackAfterRebufferMs;
+        prioritizeTimeOverSizeThresholdsForLocalPlayback = prioritizeTimeOverSizeThresholds;
+      }
       return new DefaultLoadControl(
           allocator,
           minBufferMs,
@@ -468,7 +523,8 @@ public class DefaultLoadControl implements LoadControl {
           prioritizeTimeOverSizeThresholds,
           prioritizeTimeOverSizeThresholdsForLocalPlayback,
           backBufferDurationMs,
-          retainBackBufferFromKeyframe);
+          retainBackBufferFromKeyframe,
+          playerTargetBufferBytes);
     }
   }
 
@@ -488,7 +544,8 @@ public class DefaultLoadControl implements LoadControl {
   private final boolean prioritizeTimeOverSizeThresholdsForLocalPlayback;
   private final long backBufferDurationUs;
   private final boolean retainBackBufferFromKeyframe;
-  private final HashMap<PlayerId, PlayerLoadingState> loadingStates;
+  private final ImmutableMap<String, Integer> playerTargetBufferBytesOverwrites;
+  private final ConcurrentHashMap<PlayerId, PlayerLoadingState> loadingStates;
 
   private long threadId;
 
@@ -525,7 +582,8 @@ public class DefaultLoadControl implements LoadControl {
       boolean prioritizeTimeOverSizeThresholds,
       boolean prioritizeTimeOverSizeThresholdsForLocalPlayback,
       int backBufferDurationMs,
-      boolean retainBackBufferFromKeyframe) {
+      boolean retainBackBufferFromKeyframe,
+      Map<String, Integer> playerTargetBufferBytes) {
     assertGreaterOrEqual(bufferForPlaybackMs, 0, "bufferForPlaybackMs", "0");
     assertGreaterOrEqual(
         bufferForPlaybackForLocalPlaybackMs, 0, "bufferForPlaybackForLocalPlaybackMs", "0");
@@ -578,8 +636,42 @@ public class DefaultLoadControl implements LoadControl {
         prioritizeTimeOverSizeThresholdsForLocalPlayback;
     this.backBufferDurationUs = msToUs(backBufferDurationMs);
     this.retainBackBufferFromKeyframe = retainBackBufferFromKeyframe;
-    loadingStates = new HashMap<>();
+    loadingStates = new ConcurrentHashMap<>();
+    playerTargetBufferBytesOverwrites = ImmutableMap.copyOf(playerTargetBufferBytes);
     threadId = C.INDEX_UNSET;
+  }
+
+  protected DefaultLoadControl(
+      DefaultAllocator allocator,
+      int minBufferMs,
+      int minBufferForLocalPlaybackMs,
+      int maxBufferMs,
+      int maxBufferForLocalPlaybackMs,
+      int bufferForPlaybackMs,
+      int bufferForPlaybackForLocalPlaybackMs,
+      int bufferForPlaybackAfterRebufferMs,
+      int bufferForPlaybackAfterRebufferForLocalPlaybackMs,
+      int targetBufferBytes,
+      boolean prioritizeTimeOverSizeThresholds,
+      boolean prioritizeTimeOverSizeThresholdsForLocalPlayback,
+      int backBufferDurationMs,
+      boolean retainBackBufferFromKeyframe) {
+    this(
+        allocator,
+        minBufferMs,
+        minBufferForLocalPlaybackMs,
+        maxBufferMs,
+        maxBufferForLocalPlaybackMs,
+        bufferForPlaybackMs,
+        bufferForPlaybackForLocalPlaybackMs,
+        bufferForPlaybackAfterRebufferMs,
+        bufferForPlaybackAfterRebufferForLocalPlaybackMs,
+        targetBufferBytes,
+        prioritizeTimeOverSizeThresholds,
+        prioritizeTimeOverSizeThresholdsForLocalPlayback,
+        backBufferDurationMs,
+        retainBackBufferFromKeyframe,
+        ImmutableMap.of());
   }
 
   @Override
@@ -590,8 +682,11 @@ public class DefaultLoadControl implements LoadControl {
         "Players that share the same LoadControl must share the same playback thread. See"
             + " ExoPlayer.Builder.setPlaybackLooper(Looper).");
     threadId = currentThreadId;
-    if (!loadingStates.containsKey(playerId)) {
+    @Nullable PlayerLoadingState playerLoadingState = loadingStates.get(playerId);
+    if (playerLoadingState == null) {
       loadingStates.put(playerId, new PlayerLoadingState());
+    } else {
+      playerLoadingState.referenceCount++;
     }
     resetPlayerLoadingState(playerId);
   }
@@ -601,6 +696,7 @@ public class DefaultLoadControl implements LoadControl {
       LoadControl.Parameters parameters,
       TrackGroupArray trackGroups,
       @NullableType ExoTrackSelection[] trackSelections) {
+    int targetBufferBytesOverwrite = getTargetBufferBytesOverwrite(parameters.playerId);
     checkNotNull(loadingStates.get(parameters.playerId)).targetBufferBytes =
         targetBufferBytesOverwrite == C.LENGTH_UNSET
             ? calculateTargetBufferBytes(parameters, trackSelections)
@@ -622,8 +718,8 @@ public class DefaultLoadControl implements LoadControl {
   }
 
   @Override
-  public Allocator getAllocator() {
-    return allocator;
+  public Allocator getAllocator(PlayerId playerId) {
+    return new PlayerIdFilteringAllocatorImpl(playerId);
   }
 
   @Override
@@ -638,10 +734,14 @@ public class DefaultLoadControl implements LoadControl {
 
   @Override
   public boolean shouldContinueLoading(Parameters parameters) {
-    PlayerLoadingState playerLoadingState = checkNotNull(loadingStates.get(parameters.playerId));
-    boolean isLocalPlayback = isLocalPlayback(parameters);
+    PlayerId playerId = parameters.playerId;
+    PlayerLoadingState playerLoadingState = checkNotNull(loadingStates.get(playerId));
     boolean targetBufferSizeReached =
-        allocator.getTotalBytesAllocated() >= calculateTotalTargetBufferBytes();
+        getTotalBufferBytesAllocated(playerId) >= getTargetBufferBytes(playerId);
+    if (playerId.equals(PlayerId.PRELOAD)) {
+      return !targetBufferSizeReached;
+    }
+    boolean isLocalPlayback = isLocalPlayback(parameters);
     long minBufferUs = getMinBufferUs(isLocalPlayback);
     long maxBufferUs = getMaxBufferUs(isLocalPlayback);
     if (parameters.playbackSpeed > 1) {
@@ -683,12 +783,13 @@ public class DefaultLoadControl implements LoadControl {
     return minBufferDurationUs <= 0
         || bufferedDurationUs >= minBufferDurationUs
         || (!prioritizeTimeOverSizeThresholds(isLocalPlayback)
-            && allocator.getTotalBytesAllocated() >= calculateTotalTargetBufferBytes());
+            && getTotalBufferBytesAllocated(parameters.playerId)
+                >= getTargetBufferBytes(parameters.playerId));
   }
 
   @Override
   public boolean shouldContinuePreloading(
-      Timeline timeline, MediaPeriodId mediaPeriodId, long bufferedDurationUs) {
+      PlayerId playerId, Timeline timeline, MediaPeriodId mediaPeriodId, long bufferedDurationUs) {
     for (PlayerLoadingState playerLoadingState : loadingStates.values()) {
       if (playerLoadingState.isLoading) {
         return false;
@@ -744,16 +845,31 @@ public class DefaultLoadControl implements LoadControl {
 
   private void resetPlayerLoadingState(PlayerId playerId) {
     PlayerLoadingState playerLoadingState = checkNotNull(loadingStates.get(playerId));
+    int targetBufferBytesOverwrite = getTargetBufferBytesOverwrite(playerId);
     playerLoadingState.targetBufferBytes =
-        targetBufferBytesOverwrite == C.LENGTH_UNSET
-            ? DEFAULT_MIN_BUFFER_SIZE
-            : targetBufferBytesOverwrite;
+        targetBufferBytesOverwrite != C.LENGTH_UNSET
+            ? targetBufferBytesOverwrite
+            : DEFAULT_MIN_BUFFER_SIZE;
     playerLoadingState.isLoading = false;
   }
 
+  private int getTargetBufferBytesOverwrite(PlayerId playerId) {
+    Integer playerTargetBufferBytesOverwrite = playerTargetBufferBytesOverwrites.get(playerId.name);
+    if (playerTargetBufferBytesOverwrite != null
+        && playerTargetBufferBytesOverwrite != C.LENGTH_UNSET) {
+      return playerTargetBufferBytesOverwrite;
+    }
+    return targetBufferBytesOverwrite;
+  }
+
   private void removePlayer(PlayerId playerId) {
-    if (loadingStates.remove(playerId) != null) {
-      updateAllocator();
+    @Nullable PlayerLoadingState playerLoadingState = loadingStates.get(playerId);
+    if (playerLoadingState != null) {
+      playerLoadingState.referenceCount--;
+      if (playerLoadingState.referenceCount == 0) {
+        loadingStates.remove(playerId);
+        updateAllocator();
+      }
     }
   }
 
@@ -828,11 +944,108 @@ public class DefaultLoadControl implements LoadControl {
   }
 
   private static void assertGreaterOrEqual(int value1, int value2, String name1, String name2) {
-    Assertions.checkArgument(value1 >= value2, name1 + " cannot be less than " + name2);
+    checkArgument(value1 >= value2, "%s cannot be less than %s", name1, name2);
+  }
+
+  private int getTotalBufferBytesAllocated(PlayerId playerId) {
+    return checkNotNull(loadingStates.get(playerId)).getAllocatedCounts()
+        * allocator.getIndividualAllocationLength();
+  }
+
+  private int getTargetBufferBytes(PlayerId playerId) {
+    return checkNotNull(loadingStates.get(playerId)).targetBufferBytes;
   }
 
   private static class PlayerLoadingState {
+    public int referenceCount;
     public boolean isLoading;
     public int targetBufferBytes;
+
+    @GuardedBy("this")
+    private int allocatedCounts;
+
+    public PlayerLoadingState() {
+      referenceCount = 1;
+    }
+
+    public synchronized void increaseAllocatedCounts() {
+      allocatedCounts++;
+    }
+
+    public synchronized void decreaseAllocatedCounts() {
+      allocatedCounts--;
+    }
+
+    public synchronized int getAllocatedCounts() {
+      return allocatedCounts;
+    }
+  }
+
+  private final class PlayerIdFilteringAllocatorImpl implements PlayerIdAwareAllocator {
+    @GuardedBy("this")
+    private final HashMap<Allocation, PlayerId> allocationPlayerIdMap;
+
+    @GuardedBy("this")
+    private PlayerId playerId;
+
+    public PlayerIdFilteringAllocatorImpl(PlayerId playerId) {
+      this.allocationPlayerIdMap = new HashMap<>();
+      this.playerId = playerId;
+    }
+
+    @Override
+    public synchronized void setPlayerId(PlayerId playerId) {
+      this.playerId = playerId;
+    }
+
+    @Override
+    public synchronized Allocation allocate() {
+      Allocation allocation = allocator.allocate();
+      allocationPlayerIdMap.put(allocation, playerId);
+      @Nullable PlayerLoadingState playerLoadingState = loadingStates.get(playerId);
+      if (playerLoadingState != null) {
+        playerLoadingState.increaseAllocatedCounts();
+      }
+      return allocation;
+    }
+
+    @Override
+    public synchronized void release(Allocation allocation) {
+      allocator.release(allocation);
+      releaseInternal(allocation);
+    }
+
+    @Override
+    public synchronized void release(@Nullable AllocationNode allocationNode) {
+      allocator.release(allocationNode);
+      while (allocationNode != null) {
+        releaseInternal(allocationNode.getAllocation());
+        allocationNode = allocationNode.next();
+      }
+    }
+
+    @Override
+    public synchronized void trim() {
+      allocator.trim();
+    }
+
+    @Override
+    public synchronized int getTotalBytesAllocated() {
+      return getTotalBufferBytesAllocated(playerId);
+    }
+
+    @Override
+    public synchronized int getIndividualAllocationLength() {
+      return allocator.getIndividualAllocationLength();
+    }
+
+    @GuardedBy("this")
+    private void releaseInternal(Allocation allocation) {
+      PlayerId playerId = checkNotNull(allocationPlayerIdMap.remove(allocation));
+      @Nullable PlayerLoadingState playerLoadingState = loadingStates.get(playerId);
+      if (playerLoadingState != null) {
+        playerLoadingState.decreaseAllocatedCounts();
+      }
+    }
   }
 }

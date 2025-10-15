@@ -15,6 +15,7 @@
  */
 package androidx.media3.test.utils;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.Context;
@@ -22,7 +23,6 @@ import android.os.Looper;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.C;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.UnstableApi;
@@ -62,6 +62,7 @@ public class TestExoPlayerBuilder {
   private boolean suppressPlaybackWhenUnsuitableOutput;
   @Nullable private ExoPlayer.PreloadConfiguration preloadConfiguration;
   private boolean dynamicSchedulingEnabled;
+  private int stuckPlayingDetectionTimeoutMs;
 
   public TestExoPlayerBuilder(Context context) {
     this.context = context;
@@ -77,6 +78,7 @@ public class TestExoPlayerBuilder {
     seekForwardIncrementMs = C.DEFAULT_SEEK_FORWARD_INCREMENT_MS;
     maxSeekToPreviousPositionMs = C.DEFAULT_MAX_SEEK_TO_PREVIOUS_POSITION_MS;
     deviceVolumeControlEnabled = false;
+    stuckPlayingDetectionTimeoutMs = ExoPlayer.DEFAULT_STUCK_PLAYING_DETECTION_TIMEOUT_MS;
   }
 
   /**
@@ -105,7 +107,7 @@ public class TestExoPlayerBuilder {
    */
   @CanIgnoreReturnValue
   public TestExoPlayerBuilder setTrackSelector(DefaultTrackSelector trackSelector) {
-    Assertions.checkNotNull(trackSelector);
+    checkNotNull(trackSelector);
     this.trackSelector = trackSelector;
     return this;
   }
@@ -142,7 +144,7 @@ public class TestExoPlayerBuilder {
    */
   @CanIgnoreReturnValue
   public TestExoPlayerBuilder setBandwidthMeter(BandwidthMeter bandwidthMeter) {
-    Assertions.checkNotNull(bandwidthMeter);
+    checkNotNull(bandwidthMeter);
     this.bandwidthMeter = bandwidthMeter;
     return this;
   }
@@ -383,9 +385,23 @@ public class TestExoPlayerBuilder {
     return this;
   }
 
+  /**
+   * See {@link ExoPlayer.Builder#setStuckPlayingDetectionTimeoutMs} for details.
+   *
+   * @param stuckPlayingDetectionTimeoutMs The timeout after which the player is assumed stuck
+   *     playing, in milliseconds.
+   * @return This builder.
+   */
+  @CanIgnoreReturnValue
+  public TestExoPlayerBuilder setStuckPlayingDetectionTimeoutMs(
+      int stuckPlayingDetectionTimeoutMs) {
+    this.stuckPlayingDetectionTimeoutMs = stuckPlayingDetectionTimeoutMs;
+    return this;
+  }
+
   /** Builds an {@link ExoPlayer} using the provided values or their defaults. */
   public ExoPlayer build() {
-    Assertions.checkNotNull(
+    checkNotNull(
         looper, "TestExoPlayer builder run on a thread without Looper and no Looper specified.");
     // Do not update renderersFactory and renderers here, otherwise their getters may
     // return different values before and after build() is called, making them confusing.
@@ -407,7 +423,7 @@ public class TestExoPlayerBuilder {
                 };
           };
     }
-
+    ExoPlayer.Builder.experimentalEnableStuckPlayingDetection = true;
     ExoPlayer.Builder builder =
         new ExoPlayer.Builder(context, playerRenderersFactory)
             .setTrackSelector(trackSelector)
@@ -422,7 +438,8 @@ public class TestExoPlayerBuilder {
             .setMaxSeekToPreviousPositionMs(maxSeekToPreviousPositionMs)
             .setDeviceVolumeControlEnabled(deviceVolumeControlEnabled)
             .setSuppressPlaybackOnUnsuitableOutput(suppressPlaybackWhenUnsuitableOutput)
-            .experimentalSetDynamicSchedulingEnabled(dynamicSchedulingEnabled);
+            .experimentalSetDynamicSchedulingEnabled(dynamicSchedulingEnabled)
+            .setStuckPlayingDetectionTimeoutMs(stuckPlayingDetectionTimeoutMs);
     if (suitableOutputChecker != null) {
       builder.setSuitableOutputChecker(suitableOutputChecker);
     }

@@ -24,7 +24,6 @@ import android.view.SurfaceView;
 import android.view.TextureView;
 import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.AuxEffectInfo;
@@ -585,7 +584,6 @@ public class SimpleExoPlayer extends BasePlayer implements ExoPlayer {
     player.clearAuxEffectInfo();
   }
 
-  @RequiresApi(23)
   @Override
   public void setPreferredAudioDevice(@Nullable AudioDeviceInfo audioDeviceInfo) {
     blockUntilConstructorFinished();
@@ -1067,6 +1065,24 @@ public class SimpleExoPlayer extends BasePlayer implements ExoPlayer {
   }
 
   @Override
+  public void setMaxSeekToPreviousPositionMs(long maxSeekToPreviousPositionMs) {
+    blockUntilConstructorFinished();
+    player.setMaxSeekToPreviousPositionMs(maxSeekToPreviousPositionMs);
+  }
+
+  @Override
+  public void setSeekBackIncrementMs(long seekBackIncrementMs) {
+    blockUntilConstructorFinished();
+    player.setSeekBackIncrementMs(seekBackIncrementMs);
+  }
+
+  @Override
+  public void setSeekForwardIncrementMs(long seekForwardIncrementMs) {
+    blockUntilConstructorFinished();
+    player.setSeekForwardIncrementMs(seekForwardIncrementMs);
+  }
+
+  @Override
   public void setForegroundMode(boolean foregroundMode) {
     blockUntilConstructorFinished();
     player.setForegroundMode(foregroundMode);
@@ -1106,6 +1122,12 @@ public class SimpleExoPlayer extends BasePlayer implements ExoPlayer {
   public Renderer getRenderer(int index) {
     blockUntilConstructorFinished();
     return player.getRenderer(index);
+  }
+
+  @Override
+  public Renderer getSecondaryRenderer(int index) {
+    blockUntilConstructorFinished();
+    return player.getSecondaryRenderer(index);
   }
 
   @Override

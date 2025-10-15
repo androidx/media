@@ -11,7 +11,12 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 apply from: "$gradle.ext.androidxMediaSettingsDir/common_library_config.gradle"
+apply plugin: 'kotlin-android'
+apply plugin: 'org.jetbrains.kotlin.plugin.compose'
 
 android {
     namespace 'androidx.media3.cast'
@@ -21,13 +26,23 @@ android {
             withSourcesJar()
         }
     }
+    kotlin {
+        compilerOptions {
+            jvmTarget.set(JvmTarget.JVM_1_8)
+        }
+    }
 }
 
 dependencies {
-    api 'com.google.android.gms:play-services-cast-framework:21.5.0'
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
+    implementation 'androidx.appcompat:appcompat:' + androidxAppCompatVersion
+    implementation 'androidx.mediarouter:mediarouter:' + androidxMediaRouterVersion
+    api 'com.google.android.gms:play-services-cast-framework:22.1.0'
     api project(modulePrefix + 'lib-common')
     api project(modulePrefix + 'lib-exoplayer')
+    implementation platform('androidx.compose:compose-bom:' + androidxComposeBomVersion)
+    implementation 'androidx.compose.material3:material3'
+
     compileOnly 'com.google.errorprone:error_prone_annotations:' + errorProneVersion
     compileOnly 'org.checkerframework:checker-qual:' + checkerframeworkVersion
     compileOnly 'org.jetbrains.kotlin:kotlin-annotations-jvm:' + kotlinAnnotationsVersion

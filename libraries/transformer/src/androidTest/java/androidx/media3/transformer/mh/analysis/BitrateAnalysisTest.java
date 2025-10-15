@@ -17,31 +17,31 @@ package androidx.media3.transformer.mh.analysis;
 
 import static android.media.MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR;
 import static android.media.MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_REMOTE_1280W_720H_30_SECOND_HIGHMOTION;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_REMOTE_1280W_720H_30_SECOND_ROOF_ONEPLUSNORD2;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_REMOTE_1280W_720H_32_SECOND_ROOF_REDMINOTE9;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_REMOTE_1280W_720H_5_SECOND_HIGHMOTION;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_REMOTE_1440W_1440H_31_SECOND_ROOF_SAMSUNGS20ULTRA5G;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_REMOTE_1440W_1440H_5_SECOND_HIGHMOTION;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_REMOTE_1920W_1080H_30_SECOND_HIGHMOTION;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_REMOTE_1920W_1080H_5_SECOND_HIGHMOTION;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_REMOTE_1920W_1080H_60_FPS_30_SECOND_ROOF_ONEPLUSNORD2;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_REMOTE_1920W_1080H_60_FPS_30_SECOND_ROOF_REDMINOTE9;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_REMOTE_2400W_1080H_34_SECOND_ROOF_SAMSUNGS20ULTRA5G;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_REMOTE_3840W_2160H_30_SECOND_ROOF_ONEPLUSNORD2;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_REMOTE_3840W_2160H_30_SECOND_ROOF_REDMINOTE9;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_REMOTE_3840W_2160H_32_SECOND_HIGHMOTION;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_REMOTE_3840W_2160H_5_SECOND_HIGHMOTION;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_REMOTE_640W_480H_31_SECOND_ROOF_SONYXPERIAXZ3;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_REMOTE_7680W_4320H_31_SECOND_ROOF_SAMSUNGS20ULTRA5G;
-import static androidx.media3.transformer.AndroidTestUtil.assumeFormatsSupported;
+import static androidx.media3.test.utils.AssetInfo.MP4_REMOTE_1280W_720H_30_SECOND_HIGHMOTION;
+import static androidx.media3.test.utils.AssetInfo.MP4_REMOTE_1280W_720H_30_SECOND_ROOF_ONEPLUSNORD2;
+import static androidx.media3.test.utils.AssetInfo.MP4_REMOTE_1280W_720H_32_SECOND_ROOF_REDMINOTE9;
+import static androidx.media3.test.utils.AssetInfo.MP4_REMOTE_1280W_720H_5_SECOND_HIGHMOTION;
+import static androidx.media3.test.utils.AssetInfo.MP4_REMOTE_1440W_1440H_31_SECOND_ROOF_SAMSUNGS20ULTRA5G;
+import static androidx.media3.test.utils.AssetInfo.MP4_REMOTE_1440W_1440H_5_SECOND_HIGHMOTION;
+import static androidx.media3.test.utils.AssetInfo.MP4_REMOTE_1920W_1080H_30_SECOND_HIGHMOTION;
+import static androidx.media3.test.utils.AssetInfo.MP4_REMOTE_1920W_1080H_5_SECOND_HIGHMOTION;
+import static androidx.media3.test.utils.AssetInfo.MP4_REMOTE_1920W_1080H_60_FPS_30_SECOND_ROOF_ONEPLUSNORD2;
+import static androidx.media3.test.utils.AssetInfo.MP4_REMOTE_1920W_1080H_60_FPS_30_SECOND_ROOF_REDMINOTE9;
+import static androidx.media3.test.utils.AssetInfo.MP4_REMOTE_2400W_1080H_34_SECOND_ROOF_SAMSUNGS20ULTRA5G;
+import static androidx.media3.test.utils.AssetInfo.MP4_REMOTE_3840W_2160H_30_SECOND_ROOF_ONEPLUSNORD2;
+import static androidx.media3.test.utils.AssetInfo.MP4_REMOTE_3840W_2160H_30_SECOND_ROOF_REDMINOTE9;
+import static androidx.media3.test.utils.AssetInfo.MP4_REMOTE_3840W_2160H_32_SECOND_HIGHMOTION;
+import static androidx.media3.test.utils.AssetInfo.MP4_REMOTE_3840W_2160H_5_SECOND_HIGHMOTION;
+import static androidx.media3.test.utils.AssetInfo.MP4_REMOTE_640W_480H_31_SECOND_ROOF_SONYXPERIAXZ3;
+import static androidx.media3.test.utils.AssetInfo.MP4_REMOTE_7680W_4320H_31_SECOND_ROOF_SAMSUNGS20ULTRA5G;
+import static androidx.media3.test.utils.FormatSupportAssumptions.assumeFormatsSupported;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.content.Context;
 import android.net.Uri;
 import androidx.media3.common.MediaItem;
-import androidx.media3.common.util.Assertions;
+import androidx.media3.test.utils.AssetInfo;
 import androidx.media3.transformer.AndroidTestUtil;
-import androidx.media3.transformer.AndroidTestUtil.AssetInfo;
 import androidx.media3.transformer.DefaultEncoderFactory;
 import androidx.media3.transformer.EditedMediaItem;
 import androidx.media3.transformer.Transformer;
@@ -121,9 +121,8 @@ public class BitrateAnalysisTest {
 
   @Test
   public void analyzeBitrate() throws Exception {
-    Assertions.checkNotNull(assetInfo);
-    String fileName =
-        Assertions.checkNotNull(Iterables.getLast(Splitter.on("/").split(assetInfo.uri)));
+    checkNotNull(assetInfo);
+    String fileName = checkNotNull(Iterables.getLast(Splitter.on("/").split(assetInfo.uri)));
     String testId = String.format("analyzeBitrate_ssim_%s_%d_%s", bitrate, bitrateMode, fileName);
 
     Map<String, Object> inputValues = new HashMap<>();

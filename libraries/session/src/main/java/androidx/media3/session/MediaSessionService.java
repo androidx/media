@@ -16,12 +16,11 @@
 package androidx.media3.session;
 
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.postOrRun;
 import static androidx.media3.session.SessionUtil.PACKAGE_VALID;
 import static androidx.media3.session.SessionUtil.checkPackageValidity;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.app.Activity;
@@ -505,7 +504,8 @@ public abstract class MediaSessionService extends Service {
         /* trusted= */ false,
         /* cb= */ null,
         /* connectionHints= */ Bundle.EMPTY,
-        /* maxCommandsForMediaItems= */ 0);
+        /* maxCommandsForMediaItems= */ 0,
+        /* isPackageNameVerified= */ false);
   }
 
   /**
@@ -633,6 +633,9 @@ public abstract class MediaSessionService extends Service {
   @Override
   public void onDestroy() {
     super.onDestroy();
+    if (mediaNotificationManager != null) {
+      mediaNotificationManager.disableUserEngagedTimeout();
+    }
     if (stub != null) {
       stub.release();
       stub = null;
@@ -716,7 +719,7 @@ public abstract class MediaSessionService extends Service {
   }
 
   /* package */ IBinder getServiceBinder() {
-    return checkStateNotNull(stub).asBinder();
+    return checkNotNull(stub).asBinder();
   }
 
   /**
@@ -749,7 +752,7 @@ public abstract class MediaSessionService extends Service {
       @Nullable MediaNotification.Provider initialMediaNotificationProvider) {
     if (mediaNotificationManager == null) {
       if (initialMediaNotificationProvider == null) {
-        checkStateNotNull(getBaseContext(), "Accessing service context before onCreate()");
+        checkNotNull(getBaseContext(), "Accessing service context before onCreate()");
         initialMediaNotificationProvider =
             new DefaultMediaNotificationProvider.Builder(getApplicationContext()).build();
       }
@@ -894,7 +897,8 @@ public abstract class MediaSessionService extends Service {
                         new MediaSessionStub.Controller2Cb(
                             caller, request.controllerInterfaceVersion),
                         request.connectionHints,
-                        request.maxCommandsForMediaItems);
+                        request.maxCommandsForMediaItems,
+                        /* isPackageNameVerified= */ true);
 
                 @Nullable MediaSession session = service.onGetSession(controllerInfo);
                 if (session == null) {

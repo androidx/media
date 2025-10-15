@@ -18,6 +18,9 @@ package androidx.media3.common;
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
+import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Longs;
 import java.util.Arrays;
 import java.util.List;
@@ -111,6 +114,61 @@ public final class Metadata {
    */
   public Metadata.Entry get(int index) {
     return entries[index];
+  }
+
+  /** Returns the first entry of type (or subtype of) {@code clazz}. */
+  @Nullable
+  public <T extends Entry> T getFirstEntryOfType(Class<T> clazz) {
+    return getFirstMatchingEntry(clazz, Predicates.alwaysTrue());
+  }
+
+  /**
+   * Returns the first entry of type (or subtype of) {@code clazz} that satisfies {@code predicate}.
+   */
+  @Nullable
+  public <T extends Entry> T getFirstMatchingEntry(Class<T> clazz, Predicate<T> predicate) {
+    for (Entry entry : entries) {
+      @Nullable T castEntry = entryIfMatches(entry, clazz, predicate);
+      if (castEntry != null) {
+        return castEntry;
+      }
+    }
+    return null;
+  }
+
+  /** Returns the entries of type (or subtype of) {@code clazz}. */
+  public <T extends Entry> ImmutableList<T> getEntriesOfType(Class<T> clazz) {
+    ImmutableList.Builder<T> matchingEntries = ImmutableList.builder();
+    for (Entry entry : entries) {
+      if (clazz.isAssignableFrom(entry.getClass())) {
+        matchingEntries.add(clazz.cast(entry));
+      }
+    }
+    return matchingEntries.build();
+  }
+
+  /** Returns the entries of type (or subtype of) {@code clazz} that satisfy {@code predicate}. */
+  public <T extends Entry> ImmutableList<T> getMatchingEntries(
+      Class<T> clazz, Predicate<T> predicate) {
+    ImmutableList.Builder<T> matchingEntries = ImmutableList.builder();
+    for (Entry entry : entries) {
+      T castEntry = entryIfMatches(entry, clazz, predicate);
+      if (castEntry != null) {
+        matchingEntries.add(castEntry);
+      }
+    }
+    return matchingEntries.build();
+  }
+
+  @Nullable
+  private <T extends Entry> T entryIfMatches(Entry entry, Class<T> clazz, Predicate<T> predicate) {
+    if (clazz.isAssignableFrom(entry.getClass())) {
+      T castEntry = clazz.cast(entry);
+      if (predicate.apply(castEntry)) {
+        return castEntry;
+      }
+    }
+    return null;
   }
 
   /**

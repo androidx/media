@@ -156,7 +156,7 @@ public class PlayerActivity extends AppCompatActivity
   @Override
   public void onResume() {
     super.onResume();
-    if (Build.VERSION.SDK_INT <= 23 || player == null) {
+    if (Build.VERSION.SDK_INT == 23 || player == null) {
       initializePlayer();
       if (playerView != null) {
         playerView.onResume();
@@ -167,7 +167,7 @@ public class PlayerActivity extends AppCompatActivity
   @Override
   public void onPause() {
     super.onPause();
-    if (Build.VERSION.SDK_INT <= 23) {
+    if (Build.VERSION.SDK_INT == 23) {
       if (playerView != null) {
         playerView.onPause();
       }

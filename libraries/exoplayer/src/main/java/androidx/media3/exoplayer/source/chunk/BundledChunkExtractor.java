@@ -15,8 +15,9 @@
  */
 package androidx.media3.exoplayer.source.chunk;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Util.castNonNull;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.util.SparseArray;
 import androidx.annotation.Nullable;
@@ -24,11 +25,11 @@ import androidx.media3.common.C;
 import androidx.media3.common.DataReader;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.extractor.ChunkIndex;
+import androidx.media3.extractor.ChunkIndexProvider;
 import androidx.media3.extractor.DiscardingTrackOutput;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorInput;
@@ -211,7 +212,13 @@ public final class BundledChunkExtractor implements ExtractorOutput, ChunkExtrac
   @Override
   @Nullable
   public ChunkIndex getChunkIndex() {
-    return seekMap instanceof ChunkIndex ? (ChunkIndex) seekMap : null;
+    if (seekMap instanceof ChunkIndex) {
+      return (ChunkIndex) seekMap;
+    } else if (seekMap instanceof ChunkIndexProvider) {
+      return ((ChunkIndexProvider) seekMap).getChunkIndex();
+    } else {
+      return null;
+    }
   }
 
   @Override
@@ -247,7 +254,7 @@ public final class BundledChunkExtractor implements ExtractorOutput, ChunkExtrac
   @Override
   public boolean read(ExtractorInput input) throws IOException {
     int result = extractor.read(input, POSITION_HOLDER);
-    Assertions.checkState(result != Extractor.RESULT_SEEK);
+    checkState(result != Extractor.RESULT_SEEK);
     return result == Extractor.RESULT_CONTINUE;
   }
 
@@ -258,7 +265,7 @@ public final class BundledChunkExtractor implements ExtractorOutput, ChunkExtrac
     BindingTrackOutput bindingTrackOutput = bindingTrackOutputs.get(id);
     if (bindingTrackOutput == null) {
       // Assert that if we're seeing a new track we have not seen endTracks.
-      Assertions.checkState(sampleFormats == null);
+      checkState(sampleFormats == null);
       // TODO: Manifest formats for embedded tracks should also be passed here.
       bindingTrackOutput =
           new BindingTrackOutput(
@@ -273,7 +280,7 @@ public final class BundledChunkExtractor implements ExtractorOutput, ChunkExtrac
   public void endTracks() {
     Format[] sampleFormats = new Format[bindingTrackOutputs.size()];
     for (int i = 0; i < bindingTrackOutputs.size(); i++) {
-      sampleFormats[i] = Assertions.checkStateNotNull(bindingTrackOutputs.valueAt(i).sampleFormat);
+      sampleFormats[i] = checkNotNull(bindingTrackOutputs.valueAt(i).sampleFormat);
     }
     this.sampleFormats = sampleFormats;
   }

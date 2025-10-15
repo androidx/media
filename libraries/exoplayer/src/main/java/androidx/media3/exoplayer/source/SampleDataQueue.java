@@ -15,12 +15,14 @@
  */
 package androidx.media3.exoplayer.source;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.min;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.DataReader;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.Util;
 import androidx.media3.decoder.CryptoInfo;
@@ -80,7 +82,7 @@ import java.util.Arrays;
    *     discarded, or 0 if the queue is now empty.
    */
   public void discardUpstreamSampleBytes(long totalBytesWritten) {
-    Assertions.checkArgument(totalBytesWritten <= this.totalBytesWritten);
+    checkArgument(totalBytesWritten <= this.totalBytesWritten);
     this.totalBytesWritten = totalBytesWritten;
     if (this.totalBytesWritten == 0
         || this.totalBytesWritten == firstAllocationNode.startPosition) {
@@ -95,7 +97,7 @@ import java.util.Arrays;
         lastNodeToKeep = lastNodeToKeep.next;
       }
       // Discard all subsequent nodes. lastNodeToKeep is initialized, therefore next cannot be null.
-      AllocationNode firstNodeToDiscard = Assertions.checkNotNull(lastNodeToKeep.next);
+      AllocationNode firstNodeToDiscard = checkNotNull(lastNodeToKeep.next);
       clearAllocationNodes(firstNodeToDiscard);
       // Reset the successor of the last node to be an uninitialized node.
       lastNodeToKeep.next = new AllocationNode(lastNodeToKeep.endPosition, allocationLength);
@@ -494,7 +496,7 @@ import java.util.Arrays;
      * null}.
      */
     public void reset(long startPosition, int allocationLength) {
-      Assertions.checkState(allocation == null);
+      checkState(allocation == null);
       this.startPosition = startPosition;
       this.endPosition = startPosition + allocationLength;
     }
@@ -537,7 +539,7 @@ import java.util.Arrays;
 
     @Override
     public Allocation getAllocation() {
-      return Assertions.checkNotNull(allocation);
+      return checkNotNull(allocation);
     }
 
     @Override

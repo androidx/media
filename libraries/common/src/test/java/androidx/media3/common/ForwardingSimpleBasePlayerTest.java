@@ -16,6 +16,7 @@
 package androidx.media3.common;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.mockito.AdditionalAnswers.delegatesTo;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyFloat;
@@ -24,7 +25,6 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
-import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -532,8 +532,9 @@ public final class ForwardingSimpleBasePlayerTest {
   @Test
   public void setPlayWhenReady_isForwardedToWrappedPlayer() {
     Player wrappedPlayer =
-        spy(
-            new ForwardingPlayer(
+        mock(
+            Player.class,
+            delegatesTo(
                 new SimpleBasePlayer(Looper.myLooper()) {
                   @Override
                   protected State getState() {
@@ -561,8 +562,9 @@ public final class ForwardingSimpleBasePlayerTest {
   @Test
   public void prepare_isForwardedToWrappedPlayer() {
     Player wrappedPlayer =
-        spy(
-            new ForwardingPlayer(
+        mock(
+            Player.class,
+            delegatesTo(
                 new SimpleBasePlayer(Looper.myLooper()) {
                   @Override
                   protected State getState() {
@@ -587,8 +589,9 @@ public final class ForwardingSimpleBasePlayerTest {
   @Test
   public void stop_isForwardedToWrappedPlayer() {
     Player wrappedPlayer =
-        spy(
-            new ForwardingPlayer(
+        mock(
+            Player.class,
+            delegatesTo(
                 new SimpleBasePlayer(Looper.myLooper()) {
                   @Override
                   protected State getState() {
@@ -613,8 +616,9 @@ public final class ForwardingSimpleBasePlayerTest {
   @Test
   public void release_isForwardedToWrappedPlayer() {
     Player wrappedPlayer =
-        spy(
-            new ForwardingPlayer(
+        mock(
+            Player.class,
+            delegatesTo(
                 new SimpleBasePlayer(Looper.myLooper()) {
                   @Override
                   protected State getState() {
@@ -639,8 +643,9 @@ public final class ForwardingSimpleBasePlayerTest {
   @Test
   public void setRepeatMode_isForwardedToWrappedPlayer() {
     Player wrappedPlayer =
-        spy(
-            new ForwardingPlayer(
+        mock(
+            Player.class,
+            delegatesTo(
                 new SimpleBasePlayer(Looper.myLooper()) {
                   @Override
                   protected State getState() {
@@ -666,8 +671,9 @@ public final class ForwardingSimpleBasePlayerTest {
   @Test
   public void setShuffleModeEnabled_isForwardedToWrappedPlayer() {
     Player wrappedPlayer =
-        spy(
-            new ForwardingPlayer(
+        mock(
+            Player.class,
+            delegatesTo(
                 new SimpleBasePlayer(Looper.myLooper()) {
                   @Override
                   protected State getState() {
@@ -693,8 +699,9 @@ public final class ForwardingSimpleBasePlayerTest {
   @Test
   public void setPlaybackParameters_isForwardedToWrappedPlayer() {
     Player wrappedPlayer =
-        spy(
-            new ForwardingPlayer(
+        mock(
+            Player.class,
+            delegatesTo(
                 new SimpleBasePlayer(Looper.myLooper()) {
                   @Override
                   protected State getState() {
@@ -724,8 +731,9 @@ public final class ForwardingSimpleBasePlayerTest {
   @Test
   public void setTrackSelectionParameters_isForwardedToWrappedPlayer() {
     Player wrappedPlayer =
-        spy(
-            new ForwardingPlayer(
+        mock(
+            Player.class,
+            delegatesTo(
                 new SimpleBasePlayer(Looper.myLooper()) {
                   @Override
                   protected State getState() {
@@ -757,8 +765,9 @@ public final class ForwardingSimpleBasePlayerTest {
   @Test
   public void setPlaylistMetadata_isForwardedToWrappedPlayer() {
     Player wrappedPlayer =
-        spy(
-            new ForwardingPlayer(
+        mock(
+            Player.class,
+            delegatesTo(
                 new SimpleBasePlayer(Looper.myLooper()) {
                   @Override
                   protected State getState() {
@@ -787,8 +796,9 @@ public final class ForwardingSimpleBasePlayerTest {
   @Test
   public void setVolume_isForwardedToWrappedPlayer() {
     Player wrappedPlayer =
-        spy(
-            new ForwardingPlayer(
+        mock(
+            Player.class,
+            delegatesTo(
                 new SimpleBasePlayer(Looper.myLooper()) {
                   @Override
                   protected State getState() {
@@ -814,8 +824,9 @@ public final class ForwardingSimpleBasePlayerTest {
   @Test
   public void setDeviceVolume_isForwardedToWrappedPlayer() {
     Player wrappedPlayer =
-        spy(
-            new ForwardingPlayer(
+        mock(
+            Player.class,
+            delegatesTo(
                 new SimpleBasePlayer(Looper.myLooper()) {
                   @Override
                   protected State getState() {
@@ -842,8 +853,9 @@ public final class ForwardingSimpleBasePlayerTest {
   @Test
   public void increaseDeviceVolume_isForwardedToWrappedPlayer() {
     Player wrappedPlayer =
-        spy(
-            new ForwardingPlayer(
+        mock(
+            Player.class,
+            delegatesTo(
                 new SimpleBasePlayer(Looper.myLooper()) {
                   @Override
                   protected State getState() {
@@ -871,8 +883,9 @@ public final class ForwardingSimpleBasePlayerTest {
   @Test
   public void decreaseDeviceVolume_isForwardedToWrappedPlayer() {
     Player wrappedPlayer =
-        spy(
-            new ForwardingPlayer(
+        mock(
+            Player.class,
+            delegatesTo(
                 new SimpleBasePlayer(Looper.myLooper()) {
                   @Override
                   protected State getState() {
@@ -900,8 +913,9 @@ public final class ForwardingSimpleBasePlayerTest {
   @Test
   public void setDeviceMuted_isForwardedToWrappedPlayer() {
     Player wrappedPlayer =
-        spy(
-            new ForwardingPlayer(
+        mock(
+            Player.class,
+            delegatesTo(
                 new SimpleBasePlayer(Looper.myLooper()) {
                   @Override
                   protected State getState() {
@@ -929,8 +943,9 @@ public final class ForwardingSimpleBasePlayerTest {
   @Test
   public void setAudioAttributes_isForwardedToWrappedPlayer() {
     Player wrappedPlayer =
-        spy(
-            new ForwardingPlayer(
+        mock(
+            Player.class,
+            delegatesTo(
                 new SimpleBasePlayer(Looper.myLooper()) {
                   @Override
                   protected State getState() {
@@ -958,8 +973,9 @@ public final class ForwardingSimpleBasePlayerTest {
   @Test
   public void setVideoSurface_isForwardedToWrappedPlayer() {
     Player wrappedPlayer =
-        spy(
-            new ForwardingPlayer(
+        mock(
+            Player.class,
+            delegatesTo(
                 new SimpleBasePlayer(Looper.myLooper()) {
                   @Override
                   protected State getState() {
@@ -994,8 +1010,9 @@ public final class ForwardingSimpleBasePlayerTest {
   @Test
   public void clearVideoSurface_isForwardedToWrappedPlayer() {
     Player wrappedPlayer =
-        spy(
-            new ForwardingPlayer(
+        mock(
+            Player.class,
+            delegatesTo(
                 new SimpleBasePlayer(Looper.myLooper()) {
                   @Override
                   protected State getState() {
@@ -1033,8 +1050,9 @@ public final class ForwardingSimpleBasePlayerTest {
   @Test
   public void setMediaItems_isForwardedToWrappedPlayer() {
     Player wrappedPlayer =
-        spy(
-            new ForwardingPlayer(
+        mock(
+            Player.class,
+            delegatesTo(
                 new SimpleBasePlayer(Looper.myLooper()) {
                   @Override
                   protected State getState() {
@@ -1077,8 +1095,9 @@ public final class ForwardingSimpleBasePlayerTest {
   @Test
   public void addMediaItems_isForwardedToWrappedPlayer() {
     Player wrappedPlayer =
-        spy(
-            new ForwardingPlayer(
+        mock(
+            Player.class,
+            delegatesTo(
                 new SimpleBasePlayer(Looper.myLooper()) {
                   @Override
                   protected State getState() {
@@ -1115,8 +1134,9 @@ public final class ForwardingSimpleBasePlayerTest {
   @Test
   public void moveMediaItems_isForwardedToWrappedPlayer() {
     Player wrappedPlayer =
-        spy(
-            new ForwardingPlayer(
+        mock(
+            Player.class,
+            delegatesTo(
                 new SimpleBasePlayer(Looper.myLooper()) {
                   @Override
                   protected State getState() {
@@ -1152,8 +1172,9 @@ public final class ForwardingSimpleBasePlayerTest {
   @Test
   public void replaceMediaItems_isForwardedToWrappedPlayer() {
     Player wrappedPlayer =
-        spy(
-            new ForwardingPlayer(
+        mock(
+            Player.class,
+            delegatesTo(
                 new SimpleBasePlayer(Looper.myLooper()) {
                   @Override
                   protected State getState() {
@@ -1194,8 +1215,9 @@ public final class ForwardingSimpleBasePlayerTest {
   @Test
   public void removeMediaItems_isForwardedToWrappedPlayer() {
     Player wrappedPlayer =
-        spy(
-            new ForwardingPlayer(
+        mock(
+            Player.class,
+            delegatesTo(
                 new SimpleBasePlayer(Looper.myLooper()) {
                   @Override
                   protected State getState() {
@@ -1230,8 +1252,9 @@ public final class ForwardingSimpleBasePlayerTest {
   @Test
   public void seekBack_isForwardedToWrappedPlayer() {
     Player wrappedPlayer =
-        spy(
-            new ForwardingPlayer(
+        mock(
+            Player.class,
+            delegatesTo(
                 new SimpleBasePlayer(Looper.myLooper()) {
                   @Override
                   protected State getState() {
@@ -1257,8 +1280,9 @@ public final class ForwardingSimpleBasePlayerTest {
   @Test
   public void seekForward_isForwardedToWrappedPlayer() {
     Player wrappedPlayer =
-        spy(
-            new ForwardingPlayer(
+        mock(
+            Player.class,
+            delegatesTo(
                 new SimpleBasePlayer(Looper.myLooper()) {
                   @Override
                   protected State getState() {
@@ -1284,8 +1308,9 @@ public final class ForwardingSimpleBasePlayerTest {
   @Test
   public void seekInCurrentItem_isForwardedToWrappedPlayer() {
     Player wrappedPlayer =
-        spy(
-            new ForwardingPlayer(
+        mock(
+            Player.class,
+            delegatesTo(
                 new SimpleBasePlayer(Looper.myLooper()) {
                   @Override
                   protected State getState() {
@@ -1313,8 +1338,9 @@ public final class ForwardingSimpleBasePlayerTest {
   @Test
   public void seekToDefaultPosition_isForwardedToWrappedPlayer() {
     Player wrappedPlayer =
-        spy(
-            new ForwardingPlayer(
+        mock(
+            Player.class,
+            delegatesTo(
                 new SimpleBasePlayer(Looper.myLooper()) {
                   @Override
                   protected State getState() {
@@ -1342,8 +1368,9 @@ public final class ForwardingSimpleBasePlayerTest {
   @Test
   public void seekToMediaItem_isForwardedToWrappedPlayer() {
     Player wrappedPlayer =
-        spy(
-            new ForwardingPlayer(
+        mock(
+            Player.class,
+            delegatesTo(
                 new SimpleBasePlayer(Looper.myLooper()) {
                   @Override
                   protected State getState() {
@@ -1369,8 +1396,9 @@ public final class ForwardingSimpleBasePlayerTest {
   @Test
   public void seekToNext_isForwardedToWrappedPlayer() {
     Player wrappedPlayer =
-        spy(
-            new ForwardingPlayer(
+        mock(
+            Player.class,
+            delegatesTo(
                 new SimpleBasePlayer(Looper.myLooper()) {
                   @Override
                   protected State getState() {
@@ -1396,8 +1424,9 @@ public final class ForwardingSimpleBasePlayerTest {
   @Test
   public void seekToPrevious_isForwardedToWrappedPlayer() {
     Player wrappedPlayer =
-        spy(
-            new ForwardingPlayer(
+        mock(
+            Player.class,
+            delegatesTo(
                 new SimpleBasePlayer(Looper.myLooper()) {
                   @Override
                   protected State getState() {
@@ -1423,8 +1452,9 @@ public final class ForwardingSimpleBasePlayerTest {
   @Test
   public void seekToNextMediaItem_isForwardedToWrappedPlayer() {
     Player wrappedPlayer =
-        spy(
-            new ForwardingPlayer(
+        mock(
+            Player.class,
+            delegatesTo(
                 new SimpleBasePlayer(Looper.myLooper()) {
                   @Override
                   protected State getState() {
@@ -1452,8 +1482,9 @@ public final class ForwardingSimpleBasePlayerTest {
   @Test
   public void seekToPreviousMediaItem_isForwardedToWrappedPlayer() {
     Player wrappedPlayer =
-        spy(
-            new ForwardingPlayer(
+        mock(
+            Player.class,
+            delegatesTo(
                 new SimpleBasePlayer(Looper.myLooper()) {
                   @Override
                   protected State getState() {
@@ -1481,8 +1512,9 @@ public final class ForwardingSimpleBasePlayerTest {
   @Test
   public void overrideSetters_forwardsOverriddenCallsOnly() {
     Player wrappedPlayer =
-        spy(
-            new ForwardingPlayer(
+        mock(
+            Player.class,
+            delegatesTo(
                 new SimpleBasePlayer(Looper.myLooper()) {
                   @Override
                   protected State getState() {
@@ -1955,8 +1987,9 @@ public final class ForwardingSimpleBasePlayerTest {
     // We need the ForwardingPlayer to allow the mockito spy because setRepeatMode is final in
     // SimpleBasePlayer, but not in ForwardingPlayer.
     Player player1 =
-        spy(
-            new ForwardingPlayer(
+        mock(
+            Player.class,
+            delegatesTo(
                 new SimpleBasePlayer(Looper.myLooper()) {
                   @Override
                   protected State getState() {
@@ -1969,8 +2002,9 @@ public final class ForwardingSimpleBasePlayerTest {
                   }
                 }));
     Player player2 =
-        spy(
-            new ForwardingPlayer(
+        mock(
+            Player.class,
+            delegatesTo(
                 new SimpleBasePlayer(Looper.myLooper()) {
                   @Override
                   protected State getState() {

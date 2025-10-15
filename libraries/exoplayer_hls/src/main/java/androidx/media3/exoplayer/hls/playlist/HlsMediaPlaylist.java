@@ -15,9 +15,9 @@
  */
 package androidx.media3.exoplayer.hls.playlist;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.annotation.ElementType.TYPE_USE;
@@ -773,7 +773,9 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
         if (this.assetUri != null) {
           checkArgument(
               this.assetUri.equals(assetUri),
-              "Can't change assetUri from " + this.assetUri + " to " + assetUri);
+              "Can't change assetUri from %s to %s",
+              this.assetUri,
+              assetUri);
         }
         this.assetUri = assetUri;
         return this;
@@ -793,7 +795,9 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
         if (this.assetListUri != null) {
           checkArgument(
               this.assetListUri.equals(assetListUri),
-              "Can't change assetListUri from " + this.assetListUri + " to " + assetListUri);
+              "Can't change assetListUri from %s to %s",
+              this.assetListUri,
+              assetListUri);
         }
         this.assetListUri = assetListUri;
         return this;
@@ -813,10 +817,9 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
         if (this.startDateUnixUs != C.TIME_UNSET) {
           checkArgument(
               this.startDateUnixUs == startDateUnixUs,
-              "Can't change startDateUnixUs from "
-                  + this.startDateUnixUs
-                  + " to "
-                  + startDateUnixUs);
+              "Can't change startDateUnixUs from %s to %s",
+              this.startDateUnixUs,
+              startDateUnixUs);
         }
         this.startDateUnixUs = startDateUnixUs;
         return this;
@@ -836,7 +839,9 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
         if (this.endDateUnixUs != C.TIME_UNSET) {
           checkArgument(
               this.endDateUnixUs == endDateUnixUs,
-              "Can't change endDateUnixUs from " + this.endDateUnixUs + " to " + endDateUnixUs);
+              "Can't change endDateUnixUs from %s to %s",
+              this.endDateUnixUs,
+              endDateUnixUs);
         }
         this.endDateUnixUs = endDateUnixUs;
         return this;
@@ -856,7 +861,9 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
         if (this.durationUs != C.TIME_UNSET) {
           checkArgument(
               this.durationUs == durationUs,
-              "Can't change durationUs from " + this.durationUs + " to " + durationUs);
+              "Can't change durationUs from %s to %s",
+              this.durationUs,
+              durationUs);
         }
         this.durationUs = durationUs;
         return this;
@@ -876,10 +883,9 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
         if (this.plannedDurationUs != C.TIME_UNSET) {
           checkArgument(
               this.plannedDurationUs == plannedDurationUs,
-              "Can't change plannedDurationUs from "
-                  + this.plannedDurationUs
-                  + " to "
-                  + plannedDurationUs);
+              "Can't change plannedDurationUs from %s to %s",
+              this.plannedDurationUs,
+              plannedDurationUs);
         }
         this.plannedDurationUs = plannedDurationUs;
         return this;
@@ -936,7 +942,9 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
         if (this.resumeOffsetUs != C.TIME_UNSET) {
           checkArgument(
               this.resumeOffsetUs == resumeOffsetUs,
-              "Can't change resumeOffsetUs from " + this.resumeOffsetUs + " to " + resumeOffsetUs);
+              "Can't change resumeOffsetUs from %s to %s",
+              this.resumeOffsetUs,
+              resumeOffsetUs);
         }
         this.resumeOffsetUs = resumeOffsetUs;
         return this;
@@ -956,7 +964,9 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
         if (this.playoutLimitUs != C.TIME_UNSET) {
           checkArgument(
               this.playoutLimitUs == playoutLimitUs,
-              "Can't change playoutLimitUs from " + this.playoutLimitUs + " to " + playoutLimitUs);
+              "Can't change playoutLimitUs from %s to %s",
+              this.playoutLimitUs,
+              playoutLimitUs);
         }
         this.playoutLimitUs = playoutLimitUs;
         return this;
@@ -1031,16 +1041,12 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
           if (existingAttribute != null) {
             checkArgument(
                 existingAttribute.equals(newAttribute),
-                "Can't change "
-                    + newName
-                    + " from "
-                    + existingAttribute.textValue
-                    + " "
-                    + existingAttribute.doubleValue
-                    + " to "
-                    + newAttribute.textValue
-                    + " "
-                    + newAttribute.doubleValue);
+                "Can't change %s from %s %s to %s %s",
+                newName,
+                existingAttribute.textValue,
+                existingAttribute.doubleValue,
+                newAttribute.textValue,
+                newAttribute.doubleValue);
           }
           this.clientDefinedAttributes.put(newName, newAttribute);
         }
@@ -1065,7 +1071,9 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
         if (this.contentMayVary != null) {
           checkArgument(
               this.contentMayVary.equals(contentMayVary),
-              "Can't change contentMayVary from " + this.contentMayVary + " to " + contentMayVary);
+              "Can't change contentMayVary from %s to %s",
+              this.contentMayVary,
+              contentMayVary);
         }
         this.contentMayVary = contentMayVary;
         return this;
@@ -1088,10 +1096,9 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
         if (this.timelineOccupies != null) {
           checkArgument(
               this.timelineOccupies.equals(timelineOccupies),
-              "Can't change timelineOccupies from "
-                  + this.timelineOccupies
-                  + " to "
-                  + timelineOccupies);
+              "Can't change timelineOccupies from %s to %s",
+              this.timelineOccupies,
+              timelineOccupies);
         }
         this.timelineOccupies = timelineOccupies;
         return this;
@@ -1113,7 +1120,9 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
         if (this.timelineStyle != null) {
           checkArgument(
               this.timelineStyle.equals(timelineStyle),
-              "Can't change timelineStyle from " + this.timelineStyle + " to " + timelineStyle);
+              "Can't change timelineStyle from %s to %s",
+              this.timelineStyle,
+              timelineStyle);
         }
         this.timelineStyle = timelineStyle;
         return this;
@@ -1133,10 +1142,9 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
         if (this.skipControlOffsetUs != C.TIME_UNSET) {
           checkArgument(
               this.skipControlOffsetUs == skipControlOffsetUs,
-              "Can't change skipControlOffsetUs from "
-                  + this.skipControlOffsetUs
-                  + " to "
-                  + skipControlOffsetUs);
+              "Can't change skipControlOffsetUs from %s to %s",
+              this.skipControlOffsetUs,
+              skipControlOffsetUs);
         }
         this.skipControlOffsetUs = skipControlOffsetUs;
         return this;
@@ -1156,10 +1164,9 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
         if (this.skipControlDurationUs != C.TIME_UNSET) {
           checkArgument(
               this.skipControlDurationUs == skipControlDurationUs,
-              "Can't change skipControlDurationUs from "
-                  + this.skipControlDurationUs
-                  + " to "
-                  + skipControlDurationUs);
+              "Can't change skipControlDurationUs from %s to %s",
+              this.skipControlDurationUs,
+              skipControlDurationUs);
         }
         this.skipControlDurationUs = skipControlDurationUs;
         return this;
@@ -1179,10 +1186,9 @@ public final class HlsMediaPlaylist extends HlsPlaylist {
         if (this.skipControlLabelId != null) {
           checkArgument(
               this.skipControlLabelId.equals(skipControlLabelId),
-              "Can't change skipControlLabelId from "
-                  + this.skipControlLabelId
-                  + " to "
-                  + skipControlLabelId);
+              "Can't change skipControlLabelId from %s to %s",
+              this.skipControlLabelId,
+              skipControlLabelId);
         }
         this.skipControlLabelId = skipControlLabelId;
         return this;

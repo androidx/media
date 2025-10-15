@@ -39,7 +39,7 @@ import androidx.media3.container.MdtaMetadataEntry;
 import androidx.media3.container.Mp4TimestampData;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.TrackGroupArray;
-import androidx.media3.extractor.metadata.mp4.MotionPhotoMetadata;
+import androidx.media3.extractor.metadata.MotionPhotoMetadata;
 import androidx.media3.extractor.metadata.mp4.SlowMotionData;
 import androidx.media3.extractor.metadata.mp4.SmtaMetadataEntry;
 import androidx.media3.test.utils.FakeClock;
@@ -146,7 +146,7 @@ public class MetadataRetrieverTest {
   @Test
   public void retrieveMetadata_heicMotionPhoto_outputsExpectedMetadata() throws Exception {
     MediaItem mediaItem =
-        MediaItem.fromUri(Uri.parse("asset://android_asset/media/mp4/sample_MP.heic"));
+        MediaItem.fromUri(Uri.parse("asset://android_asset/media/heif/sample_MP.heic"));
     MotionPhotoMetadata expectedMotionPhotoMetadata =
         new MotionPhotoMetadata(
             /* photoStartPosition= */ 0,
@@ -159,7 +159,7 @@ public class MetadataRetrieverTest {
         retrieveMetadata(context, mediaItem, clock);
     TrackGroupArray trackGroups = trackGroupsFuture.get(TEST_TIMEOUT_SEC, TimeUnit.SECONDS);
 
-    assertThat(trackGroups.length).isEqualTo(1);
+    assertThat(trackGroups.length).isEqualTo(3);
     assertThat(trackGroups.get(0).length).isEqualTo(1);
     assertThat(trackGroups.get(0).getFormat(0).metadata.length()).isEqualTo(1);
     assertThat(trackGroups.get(0).getFormat(0).metadata.get(0))
@@ -167,9 +167,13 @@ public class MetadataRetrieverTest {
   }
 
   @Test
-  public void retrieveMetadata_heicStillPhoto_outputsEmptyMetadata() throws Exception {
+  public void retrieveMetadata_heicStillPhotoWithImageDuration_outputsEmptyMetadata()
+      throws Exception {
     MediaItem mediaItem =
-        MediaItem.fromUri(Uri.parse("asset://android_asset/media/mp4/sample_still_photo.heic"));
+        new MediaItem.Builder()
+            .setUri("asset://android_asset/media/heif/sample_still_photo.heic")
+            .setImageDurationMs(3000L)
+            .build();
 
     ListenableFuture<TrackGroupArray> trackGroupsFuture =
         retrieveMetadata(context, mediaItem, clock);
@@ -385,7 +389,7 @@ public class MetadataRetrieverTest {
   @Test
   public void retrieveUsingInstance_heicMotionPhoto_outputsExpectedResult() throws Exception {
     MediaItem mediaItem =
-        MediaItem.fromUri(Uri.parse("asset://android_asset/media/mp4/sample_MP.heic"));
+        MediaItem.fromUri(Uri.parse("asset://android_asset/media/heif/sample_MP.heic"));
     MotionPhotoMetadata expectedMotionPhotoMetadata =
         new MotionPhotoMetadata(
             /* photoStartPosition= */ 0,
@@ -404,21 +408,25 @@ public class MetadataRetrieverTest {
       Timeline timeline = timelineFuture.get(TEST_TIMEOUT_SEC, TimeUnit.SECONDS);
       long durationUs = durationFuture.get(TEST_TIMEOUT_SEC, TimeUnit.SECONDS);
 
-      assertThat(trackGroups.length).isEqualTo(1);
+      assertThat(trackGroups.length).isEqualTo(3);
       assertThat(trackGroups.get(0).length).isEqualTo(1);
       assertThat(trackGroups.get(0).getFormat(0).metadata.length()).isEqualTo(1);
       assertThat(trackGroups.get(0).getFormat(0).metadata.get(0))
           .isEqualTo(expectedMotionPhotoMetadata);
       assertThat(timeline.getWindowCount()).isEqualTo(1);
-      assertThat(durationUs).isEqualTo(C.TIME_UNSET);
+      assertThat(durationUs).isEqualTo(1_231_000);
     }
   }
 
   @Test
-  public void retrieveUsingInstance_heicStillPhoto_outputsEmptyMetadataAndUnsetDuration()
-      throws Exception {
+  public void
+      retrieveUsingInstance_heicStillPhotoWithImageDuration_outputsEmptyMetadataAndImageDuration()
+          throws Exception {
     MediaItem mediaItem =
-        MediaItem.fromUri(Uri.parse("asset://android_asset/media/mp4/sample_still_photo.heic"));
+        new MediaItem.Builder()
+            .setUri("asset://android_asset/media/heif/sample_still_photo.heic")
+            .setImageDurationMs(3000L)
+            .build();
 
     try (MetadataRetriever retriever =
         new MetadataRetriever.Builder(context, mediaItem).setClock(clock).build()) {
@@ -434,7 +442,7 @@ public class MetadataRetrieverTest {
       assertThat(trackGroups.get(0).length).isEqualTo(1);
       assertThat(trackGroups.get(0).getFormat(0).metadata).isNull();
       assertThat(timeline.getWindowCount()).isEqualTo(1);
-      assertThat(durationUs).isEqualTo(C.TIME_UNSET);
+      assertThat(durationUs).isEqualTo(3_000_000);
     }
   }
 

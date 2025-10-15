@@ -24,8 +24,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.media3.common.Player
-import androidx.media3.common.listen
+import androidx.media3.common.listenTo
 import androidx.media3.common.util.UnstableApi
+import com.google.common.base.Preconditions.checkState
 
 /**
  * Remembers the value of [SeekForwardButtonState] created based on the passed [Player] and launch a
@@ -56,12 +57,18 @@ class SeekForwardButtonState(private val player: Player) {
     private set
 
   /**
-   * Handles the interaction with the SeekForwardButton button by seeking forward in the current
+   * Handles the interaction with the SeekForwardButton by seeking forward in the current
    * [androidx.media3.common.MediaItem] by [seekForwardAmountMs] milliseconds.
    *
+   * This method must only be programmatically called if the [state is enabled][isEnabled]. However,
+   * it can be freely provided into containers that take care of skipping the [onClick] if a
+   * particular UI node is not enabled (see Compose Clickable Modifier).
+   *
    * @see [Player.seekForward]
+   * @see [Player.COMMAND_SEEK_FORWARD]
    */
   fun onClick() {
+    checkState(isSeekForwardEnabled(player), "COMMAND_SEEK_FORWARD is not available.")
     player.seekForward()
   }
 
@@ -74,16 +81,12 @@ class SeekForwardButtonState(private val player: Player) {
   suspend fun observe(): Nothing {
     isEnabled = isSeekForwardEnabled(player)
     seekForwardAmountMs = player.seekForwardIncrement
-    player.listen { events ->
-      if (
-        events.containsAny(
-          Player.EVENT_AVAILABLE_COMMANDS_CHANGED,
-          Player.EVENT_SEEK_FORWARD_INCREMENT_CHANGED,
-        )
-      ) {
-        isEnabled = isSeekForwardEnabled(this)
-        seekForwardAmountMs = seekForwardIncrement
-      }
+    player.listenTo(
+      Player.EVENT_AVAILABLE_COMMANDS_CHANGED,
+      Player.EVENT_SEEK_FORWARD_INCREMENT_CHANGED,
+    ) {
+      isEnabled = isSeekForwardEnabled(this)
+      seekForwardAmountMs = seekForwardIncrement
     }
   }
 

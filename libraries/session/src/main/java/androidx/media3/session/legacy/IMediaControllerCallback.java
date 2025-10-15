@@ -16,17 +16,15 @@
 package androidx.media3.session.legacy;
 
 import static androidx.annotation.RestrictTo.Scope.LIBRARY;
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import androidx.annotation.Nullable;
 import androidx.annotation.RestrictTo;
-import androidx.media3.common.util.UnstableApi;
 
 /**
  * Callback interface for a MediaSessionCompat to send updates to a MediaControllerCompat. This is
  * only used on pre-Lollipop systems.
  */
-@UnstableApi
 @RestrictTo(LIBRARY)
 public interface IMediaControllerCallback extends android.os.IInterface {
   /** Local-side IPC implementation stub class. */
@@ -71,20 +69,6 @@ public interface IMediaControllerCallback extends android.os.IInterface {
         case INTERFACE_TRANSACTION:
           {
             checkNotNull(reply).writeString(descriptor);
-            return true;
-          }
-        case TRANSACTION_onEvent:
-          {
-            data.enforceInterface(descriptor);
-            String arg0;
-            arg0 = data.readString();
-            android.os.Bundle arg1;
-            if ((0 != data.readInt())) {
-              arg1 = android.os.Bundle.CREATOR.createFromParcel(data);
-            } else {
-              arg1 = null;
-            }
-            this.onEvent(arg0, arg1);
             return true;
           }
         case TRANSACTION_onPlaybackStateChanged:
@@ -150,30 +134,6 @@ public interface IMediaControllerCallback extends android.os.IInterface {
 
       public String getInterfaceDescriptor() {
         return DESCRIPTOR;
-      }
-
-      @Override
-      public void onEvent(@Nullable String event, @Nullable android.os.Bundle extras)
-          throws android.os.RemoteException {
-        android.os.Parcel data = android.os.Parcel.obtain();
-        try {
-          data.writeInterfaceToken(DESCRIPTOR);
-          data.writeString(event);
-          if ((extras != null)) {
-            data.writeInt(1);
-            extras.writeToParcel(data, 0);
-          } else {
-            data.writeInt(0);
-          }
-          boolean status =
-              remote.transact(Stub.TRANSACTION_onEvent, data, null, android.os.IBinder.FLAG_ONEWAY);
-          if (!status && getDefaultImpl() != null) {
-            checkNotNull(getDefaultImpl()).onEvent(event, extras);
-            return;
-          }
-        } finally {
-          data.recycle();
-        }
       }
 
       // These callbacks are for the TransportController
@@ -285,7 +245,6 @@ public interface IMediaControllerCallback extends android.os.IInterface {
       @Nullable public static IMediaControllerCallback defaultImpl;
     }
 
-    static final int TRANSACTION_onEvent = (android.os.IBinder.FIRST_CALL_TRANSACTION + 0);
     static final int TRANSACTION_onPlaybackStateChanged =
         (android.os.IBinder.FIRST_CALL_TRANSACTION + 2);
     static final int TRANSACTION_onRepeatModeChanged =
@@ -315,9 +274,6 @@ public interface IMediaControllerCallback extends android.os.IInterface {
       return Proxy.defaultImpl;
     }
   }
-
-  public void onEvent(@Nullable String event, @Nullable android.os.Bundle extras)
-      throws android.os.RemoteException;
 
   // These callbacks are for the TransportController
 

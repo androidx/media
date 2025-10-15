@@ -15,9 +15,10 @@
  */
 package androidx.media3.datasource.cache;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.castNonNull;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.min;
 
 import android.content.ContentValues;
@@ -30,7 +31,6 @@ import android.util.SparseBooleanArray;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.annotation.WorkerThread;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.AtomicFile;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Util;
@@ -510,7 +510,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       @Nullable Cipher cipher = null;
       @Nullable SecretKeySpec secretKeySpec = null;
       if (secretKey != null) {
-        Assertions.checkArgument(secretKey.length == 16);
+        checkArgument(secretKey.length == 16);
         try {
           cipher = Cipher.getInstance("AES/CBC/PKCS5PADDING");
           secretKeySpec = new SecretKeySpec(secretKey, "AES");
@@ -518,7 +518,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           throw new IllegalStateException(e); // Should never happen.
         }
       } else {
-        Assertions.checkArgument(!encrypt);
+        checkArgument(!encrypt);
       }
       this.encrypt = encrypt;
       this.cipher = cipher;

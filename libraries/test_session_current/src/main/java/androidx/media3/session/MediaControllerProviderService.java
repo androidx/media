@@ -15,10 +15,10 @@
  */
 package androidx.media3.session;
 
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.test.session.common.CommonConstants.ACTION_MEDIA3_CONTROLLER;
 import static androidx.media3.test.session.common.CommonConstants.KEY_COMMAND_BUTTON_LIST;
 import static androidx.media3.test.session.common.TestUtils.SERVICE_CONNECTION_TIMEOUT_MS;
+import static com.google.common.base.Preconditions.checkState;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.app.PendingIntent;
@@ -388,7 +388,7 @@ public class MediaControllerProviderService extends Service {
             for (int i = 0; i < size; i++) {
               // Make media ID of each item same with its index.
               String mediaId = TestUtils.getMediaIdInFakeTimeline(i);
-              itemList.add(MediaTestUtils.createMediaItem(mediaId));
+              itemList.add(MediaTestUtils.createMediaItem(mediaId, /* buildWithUri= */ true));
             }
             controller.setMediaItems(itemList);
           });

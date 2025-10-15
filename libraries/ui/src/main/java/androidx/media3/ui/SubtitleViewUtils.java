@@ -16,7 +16,7 @@
  */
 package androidx.media3.ui;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.text.Spannable;
 import android.text.SpannableString;

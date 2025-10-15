@@ -15,8 +15,8 @@
  */
 package androidx.media3.exoplayer.offline;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Util.percentFloat;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.net.Uri;
 import androidx.annotation.Nullable;
@@ -25,7 +25,6 @@ import androidx.media3.common.MediaItem;
 import androidx.media3.common.PriorityTaskManager;
 import androidx.media3.common.PriorityTaskManager.PriorityTooLowException;
 import androidx.media3.common.StreamKey;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.RunnableFutureTask;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -202,7 +201,7 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
     this.executor = executor;
     this.startPositionUs = startPositionUs;
     this.durationUs = durationUs;
-    cache = Assertions.checkNotNull(cacheDataSourceFactory.getCache());
+    cache = checkNotNull(cacheDataSourceFactory.getCache());
     cacheKeyFactory = cacheDataSourceFactory.getCacheKeyFactory();
     priorityTaskManager = cacheDataSourceFactory.getUpstreamPriorityTaskManager();
     activeRunnables = new ArrayList<>();
@@ -312,7 +311,7 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
               removeActiveRunnable(j);
               recycledRunnables.addLast(activeRunnable);
             } catch (ExecutionException e) {
-              Throwable cause = Assertions.checkNotNull(e.getCause());
+              Throwable cause = checkNotNull(e.getCause());
               if (cause instanceof PriorityTooLowException) {
                 // We need to schedule this segment again in a future loop iteration.
                 pendingSegments.addFirst(activeRunnable.segment);
@@ -420,7 +419,7 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
       try {
         return runnable.get();
       } catch (ExecutionException e) {
-        Throwable cause = Assertions.checkNotNull(e.getCause());
+        Throwable cause = checkNotNull(e.getCause());
         if (cause instanceof IOException) {
           throw (IOException) cause;
         } else {
@@ -442,7 +441,7 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
       try {
         return runnable.get();
       } catch (ExecutionException e) {
-        Throwable cause = Assertions.checkNotNull(e.getCause());
+        Throwable cause = checkNotNull(e.getCause());
         if (cause instanceof PriorityTooLowException) {
           // The next loop iteration will block until the task is able to proceed.
         } else if (cause instanceof IOException) {
@@ -524,9 +523,7 @@ public abstract class SegmentDownloader<M extends FilterableManifest<M>> impleme
                 ? C.LENGTH_UNSET
                 : lastSegment.dataSpec.length + segment.dataSpec.length;
         DataSpec mergedDataSpec = lastSegment.dataSpec.subrange(/* offset= */ 0, mergedLength);
-        segments.set(
-            Assertions.checkNotNull(lastIndex),
-            new Segment(lastSegment.startTimeUs, mergedDataSpec));
+        segments.set(checkNotNull(lastIndex), new Segment(lastSegment.startTimeUs, mergedDataSpec));
       }
     }
     Util.removeRange(segments, /* fromIndex= */ nextOutIndex, /* toIndex= */ segments.size());

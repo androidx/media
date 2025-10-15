@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">ಪ್ಲೇ ಮಾಡಿ</string>
+  <string name="playpause_button_pause">ವಿರಾಮಗೊಳಿಸಿ</string>
+  <string name="next_button">ಮುಂದಿನದು</string>
+  <string name="previous_button">ಹಿಂದಿನದು</string>
+  <string name="seek_back_button">ರಿವೈಂಡ್ ಮಾಡುವ ಬಟನ್</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">%d ಸೆಕೆಂಡ್‌ಗಳಷ್ಟು ಹಿಂದಕ್ಕೆ ಸ್ಕಿಪ್ ಮಾಡಿ</item>
+    <item quantity="other">%d ಸೆಕೆಂಡ್‌ಗಳಷ್ಟು ಹಿಂದಕ್ಕೆ ಸ್ಕಿಪ್ ಮಾಡಿ</item>
+  </plurals>
+  <string name="seek_forward_button">ಮುಂದಕ್ಕೆ ಸ್ಕಿಪ್ ಮಾಡಿ</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">%d ಸೆಕೆಂಡ್‌ಗಳಷ್ಟು ಮುಂದಕ್ಕೆ ಸ್ಕಿಪ್ ಮಾಡಿ</item>
+    <item quantity="other">%d ಸೆಕೆಂಡ್‌ಗಳಷ್ಟು ಮುಂದಕ್ಕೆ ಸ್ಕಿಪ್ ಮಾಡಿ</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">ಈಗಿನ ಮೋಡ್: ಯಾವುದನ್ನು ರಿಪೀಟ್ ಮಾಡಬೇಡಿ. ರಿಪೀಟ್ ಮೋಡ್ ಟಾಗಲ್ ಮಾಡಿ.</string>
+  <string name="repeat_button_repeat_one">ಈಗಿನ ಮೋಡ್: ಒಂದನ್ನು ರಿಪೀಟ್ ಮಾಡಿ. ರಿಪೀಟ್ ಮೋಡ್ ಟಾಗಲ್ ಮಾಡಿ.</string>
+  <string name="repeat_button_repeat_all">ಈಗಿನ ಮೋಡ್: ಎಲ್ಲವನ್ನೂ ರಿಪೀಟ್ ಮಾಡಿ. ರಿಪೀಟ್ ಮೋಡ್ ಟಾಗಲ್ ಮಾಡಿ.</string>
+  <string name="shuffle_button_shuffle_on">ಶಫಲ್ ಮೋಡ್ ಸಕ್ರಿಯಗೊಳಿಸಲಾಗಿದೆ.</string>
+  <string name="shuffle_button_shuffle_off">ಶಫಲ್ ಮೋಡ್ ನಿಷ್ಕ್ರಿಯಗೊಳಿಸಲಾಗಿದೆ.</string>
+  <string name="mute_button_shown_unmuted">ಮ್ಯೂಟ್ ಮಾಡಿ</string>
+  <string name="mute_button_shown_muted">ಅನ್‌ಮ್ಯೂಟ್ ಮಾಡಿ</string>
+</resources>

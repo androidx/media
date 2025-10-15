@@ -12,16 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 project.ext {
-    releaseVersion = '1.8.0-rc02'
-    releaseVersionCode = 1_008_000_2_02
-    minSdkVersion = 21
+    releaseVersion = '1.8.0'
+    releaseVersionCode = 1_008_000_3_00
+    minSdkVersion = 23
     // See https://developer.android.com/training/cars/media/automotive-os#automotive-module
     automotiveMinSdkVersion = 28
     appTargetSdkVersion = 34
     // Upgrading this requires [Internal ref: b/193254928] to be fixed, or some
     // additional robolectric config.
     targetSdkVersion = 31
-    compileSdkVersion = 36
+    compileSdkVersion = 35
     dexmakerVersion = '2.28.3'
     // Use the same JUnit version as the Android repo:
     // https://cs.android.com/android/platform/superproject/main/+/main:external/junit/METADATA
@@ -33,7 +33,7 @@ project.ext {
     kotlinxCoroutinesVersion = '1.9.0'
     leakCanaryVersion = '2.10'
     mockitoVersion = '3.12.4'
-    robolectricVersion = '4.14.1'
+    robolectricVersion = '4.15.1'
     // Keep this in sync with Google's internal Checker Framework version.
     checkerframeworkVersion = '3.13.0'
     errorProneVersion = '2.18.0'
@@ -43,13 +43,17 @@ project.ext {
     androidxAnnotationExperimentalVersion = '1.3.1'
     androidxAppCompatVersion = '1.6.1'
     androidxCollectionVersion = '1.2.0'
+    androidxComposeBomVersion = '2024.12.01'
+    androidxConcurrentFuturesVersion = '1.2.0'
     androidxConstraintLayoutVersion = '2.1.4'
     androidxCoreVersion = '1.8.0'
     androidxExifInterfaceVersion = '1.3.6'
     androidxLifecycleVersion = '2.8.7'
     androidxMediaVersion = '1.7.0'
+    androidxNavigationVersion = '2.9.4'
     androidxRecyclerViewVersion = '1.3.0'
     androidxMaterialVersion = '1.8.0'
+    androidxMediaRouterVersion = '1.8.1'
     androidxTestCoreVersion = '1.5.0'
     androidxTestUiAutomatorVersion = '2.3.0'
     androidxWindowVersion = '1.3.0'
@@ -58,8 +62,11 @@ project.ext {
     androidxTestRunnerVersion = '1.5.2'
     androidxTestRulesVersion = '1.5.0'
     androidxTestTruthVersion = '1.5.0'
+    desugarJdkLibsVersion = '2.1.5'
+    lottieVersion = '6.6.0'
     truthVersion = '1.4.0'
     okhttpVersion = '4.12.0'
+    testParameterInjectorVersion = '1.18'
     modulePrefix = ':'
     if (gradle.ext.has('androidxMediaModulePrefix')) {
         modulePrefix += gradle.ext.androidxMediaModulePrefix

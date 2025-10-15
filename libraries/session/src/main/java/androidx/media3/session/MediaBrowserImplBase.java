@@ -188,6 +188,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
       int commandCode, RemoteLibrarySessionTask task) {
     IMediaSession iSession = getSessionInterfaceWithSessionCommandIfAble(commandCode);
     if (iSession != null) {
+      notifyPlatformControllerAboutMedia3ChangeRequest();
       SequencedFuture<LibraryResult<V>> result =
           sequencedFutureManager.createSequencedFuture(LibraryResult.ofError(INFO_CANCELLED));
       try {

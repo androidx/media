@@ -15,11 +15,11 @@
  */
 package androidx.media3.common;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.common.util.Util.castNonNull;
 import static androidx.media3.common.util.Util.msToUs;
 import static androidx.media3.common.util.Util.usToMs;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
@@ -116,6 +116,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       private PlaybackParameters playbackParameters;
       private TrackSelectionParameters trackSelectionParameters;
       private AudioAttributes audioAttributes;
+      private int audioSessionId;
       private float volume;
       private float unmuteVolume;
       private VideoSize videoSize;
@@ -162,6 +163,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
         playbackParameters = PlaybackParameters.DEFAULT;
         trackSelectionParameters = TrackSelectionParameters.DEFAULT;
         audioAttributes = AudioAttributes.DEFAULT;
+        audioSessionId = C.AUDIO_SESSION_ID_UNSET;
         volume = 1f;
         unmuteVolume = 1f;
         videoSize = VideoSize.UNKNOWN;
@@ -208,6 +210,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
         this.playbackParameters = state.playbackParameters;
         this.trackSelectionParameters = state.trackSelectionParameters;
         this.audioAttributes = state.audioAttributes;
+        this.audioSessionId = state.audioSessionId;
         this.volume = state.volume;
         this.unmuteVolume = state.unmuteVolume;
         this.videoSize = state.videoSize;
@@ -425,6 +428,18 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       @CanIgnoreReturnValue
       public Builder setAudioAttributes(AudioAttributes audioAttributes) {
         this.audioAttributes = audioAttributes;
+        return this;
+      }
+
+      /**
+       * Sets the current audio session ID.
+       *
+       * @param audioSessionId The current audio session ID.
+       * @return This builder.
+       */
+      @CanIgnoreReturnValue
+      public Builder setAudioSessionId(int audioSessionId) {
+        this.audioSessionId = audioSessionId;
         return this;
       }
 
@@ -876,6 +891,9 @@ public abstract class SimpleBasePlayer extends BasePlayer {
     /** The current {@link AudioAttributes}. */
     public final AudioAttributes audioAttributes;
 
+    /** The current audio session ID. */
+    public final int audioSessionId;
+
     /** The current audio volume, with 0 being silence and 1 being unity gain (signal unchanged). */
     @FloatRange(from = 0, to = 1.0)
     public final float volume;
@@ -1094,6 +1112,7 @@ public abstract class SimpleBasePlayer extends BasePlayer {
       this.playbackParameters = builder.playbackParameters;
       this.trackSelectionParameters = builder.trackSelectionParameters;
       this.audioAttributes = builder.audioAttributes;
+      this.audioSessionId = builder.audioSessionId;
       this.volume = builder.volume;
       this.unmuteVolume = builder.unmuteVolume;
       this.videoSize = builder.videoSize;
@@ -2786,6 +2805,12 @@ public abstract class SimpleBasePlayer extends BasePlayer {
   public final AudioAttributes getAudioAttributes() {
     verifyApplicationThreadAndInitState();
     return state.audioAttributes;
+  }
+
+  @Override
+  public final int getAudioSessionId() {
+    verifyApplicationThreadAndInitState();
+    return state.audioSessionId;
   }
 
   @Override

@@ -1140,7 +1140,6 @@ public class MediaExtractorCompatTest {
   }
 
   @Test
-  @SdkSuppress(minSdkVersion = 23)
   public void getTrackFormat_withProfileAndLevelInCodecString_returnsExpectedProfileAndLevel()
       throws IOException {
     fakeExtractor.addReadAction(

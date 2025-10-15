@@ -24,8 +24,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.media3.common.Player
-import androidx.media3.common.listen
+import androidx.media3.common.listenTo
 import androidx.media3.common.util.UnstableApi
+import com.google.common.base.Preconditions.checkState
 
 /**
  * Remember the value of [RepeatButtonState] created based on the passed [Player] and launch a
@@ -72,8 +73,16 @@ class RepeatButtonState(
   /**
    * Cycles to the next repeat mode in the [toggleModeSequence]. If the current repeat mode from the
    * [Player] is not among the modes in the provided [toggleModeSequence], pick the first one.
+   *
+   * This method must only be programmatically called if the [state is enabled][isEnabled]. However,
+   * it can be freely provided into containers that take care of skipping the [onClick] if a
+   * particular UI node is not enabled (see Compose Clickable Modifier).
+   *
+   * @see [Player.setRepeatMode]
+   * @see [Player.COMMAND_SET_REPEAT_MODE]
    */
   fun onClick() {
+    checkState(isRepeatModeEnabled(player), "COMMAND_SET_REPEAT_MODE is not available.")
     player.repeatMode = getNextRepeatModeInSequence()
   }
 
@@ -86,16 +95,9 @@ class RepeatButtonState(
   suspend fun observe(): Nothing {
     repeatModeState = player.repeatMode
     isEnabled = isRepeatModeEnabled(player)
-    player.listen { events ->
-      if (
-        events.containsAny(
-          Player.EVENT_REPEAT_MODE_CHANGED,
-          Player.EVENT_AVAILABLE_COMMANDS_CHANGED,
-        )
-      ) {
-        repeatModeState = repeatMode
-        isEnabled = isRepeatModeEnabled(this)
-      }
+    player.listenTo(Player.EVENT_REPEAT_MODE_CHANGED, Player.EVENT_AVAILABLE_COMMANDS_CHANGED) {
+      repeatModeState = repeatMode
+      isEnabled = isRepeatModeEnabled(this)
     }
   }
 

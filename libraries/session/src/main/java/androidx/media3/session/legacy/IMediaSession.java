@@ -16,15 +16,13 @@
 package androidx.media3.session.legacy;
 
 import static androidx.annotation.RestrictTo.Scope.LIBRARY;
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import androidx.annotation.Nullable;
 import androidx.annotation.RestrictTo;
-import androidx.media3.common.util.UnstableApi;
 import org.checkerframework.checker.nullness.qual.PolyNull;
 
 /** Interface to a MediaSessionCompat. */
-@UnstableApi
 @RestrictTo(LIBRARY)
 public interface IMediaSession extends android.os.IInterface {
   /** Local-side IPC implementation stub class. */
@@ -98,14 +96,6 @@ public interface IMediaSession extends android.os.IInterface {
             } else {
               checkNotNull(reply).writeInt(0);
             }
-            return true;
-          }
-        case TRANSACTION_getRatingType:
-          {
-            data.enforceInterface(descriptor);
-            int result = this.getRatingType();
-            checkNotNull(reply).writeNoException();
-            checkNotNull(reply).writeInt(result);
             return true;
           }
         case TRANSACTION_isCaptioningEnabled:
@@ -238,26 +228,6 @@ public interface IMediaSession extends android.os.IInterface {
       }
 
       @Override
-      public int getRatingType() throws android.os.RemoteException {
-        android.os.Parcel data = android.os.Parcel.obtain();
-        android.os.Parcel reply = android.os.Parcel.obtain();
-        int result;
-        try {
-          data.writeInterfaceToken(DESCRIPTOR);
-          boolean status = remote.transact(Stub.TRANSACTION_getRatingType, data, reply, 0);
-          if (!status && getDefaultImpl() != null) {
-            return checkNotNull(getDefaultImpl()).getRatingType();
-          }
-          reply.readException();
-          result = reply.readInt();
-        } finally {
-          reply.recycle();
-          data.recycle();
-        }
-        return result;
-      }
-
-      @Override
       public boolean isCaptioningEnabled() throws android.os.RemoteException {
         android.os.Parcel data = android.os.Parcel.obtain();
         android.os.Parcel reply = android.os.Parcel.obtain();
@@ -351,7 +321,6 @@ public interface IMediaSession extends android.os.IInterface {
         (android.os.IBinder.FIRST_CALL_TRANSACTION + 3);
     static final int TRANSACTION_getPlaybackState =
         (android.os.IBinder.FIRST_CALL_TRANSACTION + 27);
-    static final int TRANSACTION_getRatingType = (android.os.IBinder.FIRST_CALL_TRANSACTION + 31);
     static final int TRANSACTION_isCaptioningEnabled =
         (android.os.IBinder.FIRST_CALL_TRANSACTION + 44);
     static final int TRANSACTION_getRepeatMode = (android.os.IBinder.FIRST_CALL_TRANSACTION + 36);
@@ -386,8 +355,6 @@ public interface IMediaSession extends android.os.IInterface {
 
   @Nullable
   public PlaybackStateCompat getPlaybackState() throws android.os.RemoteException;
-
-  public int getRatingType() throws android.os.RemoteException;
 
   public boolean isCaptioningEnabled() throws android.os.RemoteException;
 

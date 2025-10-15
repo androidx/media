@@ -15,9 +15,8 @@
  */
 package androidx.media3.transformer;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.transformer.TransformerUtil.getDecoderOutputColor;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.media.MediaCodec;
 import android.media.metrics.LogSessionId;
@@ -117,7 +116,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
   protected void initDecoder(Format inputFormat) throws ExportException {
     // TODO: b/278259383 - Move surface creation out of sampleConsumer. Init decoder before
     //  sampleConsumer.
-    checkStateNotNull(sampleConsumer);
+    checkNotNull(sampleConsumer);
     boolean isDecoderToneMappingRequired =
         ColorInfo.isTransferHdr(inputFormat.colorInfo)
             && hdrMode == Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC;

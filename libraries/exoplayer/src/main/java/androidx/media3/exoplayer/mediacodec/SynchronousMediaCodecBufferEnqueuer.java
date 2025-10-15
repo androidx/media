@@ -17,10 +17,8 @@ package androidx.media3.exoplayer.mediacodec;
 
 import android.media.MediaCodec;
 import android.os.Bundle;
-import androidx.annotation.RequiresApi;
 import androidx.media3.decoder.CryptoInfo;
 
-@RequiresApi(23)
 /* package */ class SynchronousMediaCodecBufferEnqueuer implements MediaCodecBufferEnqueuer {
 
   private final MediaCodec codec;

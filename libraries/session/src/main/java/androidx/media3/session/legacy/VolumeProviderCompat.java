@@ -22,7 +22,6 @@ import android.os.Build;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.annotation.RestrictTo;
-import androidx.media3.common.util.UnstableApi;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
@@ -31,7 +30,6 @@ import java.lang.annotation.RetentionPolicy;
  * updates back to the session after a request has been handled. You can set a volume provider on a
  * session by calling {@link MediaSessionCompat#setPlaybackToRemote}.
  */
-@UnstableApi
 @RestrictTo(LIBRARY)
 public abstract class VolumeProviderCompat {
 

@@ -15,7 +15,6 @@
  */
 package androidx.media3.session;
 
-import static android.os.Build.VERSION.SDK_INT;
 import static android.support.v4.media.session.MediaSessionCompat.FLAG_HANDLES_QUEUE_COMMANDS;
 import static androidx.media3.test.session.common.TestUtils.VOLUME_CHANGE_TIMEOUT_MS;
 import static com.google.common.truth.Truth.assertThat;
@@ -27,7 +26,6 @@ import android.content.Intent;
 import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.ResultReceiver;
 import android.support.v4.media.MediaDescriptionCompat;
 import android.support.v4.media.MediaMetadataCompat;
 import android.support.v4.media.RatingCompat;
@@ -51,7 +49,6 @@ import androidx.media3.test.session.common.PollingCheck;
 import androidx.media3.test.session.common.TestUtils;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import androidx.test.filters.SdkSuppress;
 import androidx.test.filters.SmallTest;
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
@@ -91,8 +88,7 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
     Intent sessionActivity = new Intent(context, MockActivity.class);
     // Create this test specific MediaSession to use our own Handler.
     PendingIntent intent =
-        PendingIntent.getActivity(
-            context, 0, sessionActivity, SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0);
+        PendingIntent.getActivity(context, 0, sessionActivity, PendingIntent.FLAG_IMMUTABLE);
 
     sessionCallback = new MediaSessionCallback();
     session = new MediaSessionCompat(context, TAG + "Compat");
@@ -119,7 +115,8 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
 
   @Test
   public void play() throws Exception {
-    List<MediaItem> testList = MediaTestUtils.createMediaItems(/* size= */ 2);
+    List<MediaItem> testList =
+        MediaTestUtils.createMediaItems(/* size= */ 2, /* buildWithUri= */ true);
     List<QueueItem> testQueue = MediaTestUtils.convertToQueueItemsWithoutBitmap(testList);
     session.setQueue(testQueue);
     session.setFlags(FLAG_HANDLES_QUEUE_COMMANDS);
@@ -134,7 +131,8 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
 
   @Test
   public void pause() throws Exception {
-    List<MediaItem> testList = MediaTestUtils.createMediaItems(/* size= */ 2);
+    List<MediaItem> testList =
+        MediaTestUtils.createMediaItems(/* size= */ 2, /* buildWithUri= */ true);
     List<QueueItem> testQueue = MediaTestUtils.convertToQueueItemsWithoutBitmap(testList);
     session.setQueue(testQueue);
     session.setFlags(FLAG_HANDLES_QUEUE_COMMANDS);
@@ -149,7 +147,8 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
 
   @Test
   public void prepare() throws Exception {
-    List<MediaItem> testList = MediaTestUtils.createMediaItems(/* size= */ 2);
+    List<MediaItem> testList =
+        MediaTestUtils.createMediaItems(/* size= */ 2, /* buildWithUri= */ true);
     List<QueueItem> testQueue = MediaTestUtils.convertToQueueItemsWithoutBitmap(testList);
     session.setQueue(testQueue);
     session.setFlags(FLAG_HANDLES_QUEUE_COMMANDS);
@@ -164,7 +163,8 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
 
   @Test
   public void stop() throws Exception {
-    List<MediaItem> testList = MediaTestUtils.createMediaItems(/* size= */ 2);
+    List<MediaItem> testList =
+        MediaTestUtils.createMediaItems(/* size= */ 2, /* buildWithUri= */ true);
     List<QueueItem> testQueue = MediaTestUtils.convertToQueueItemsWithoutBitmap(testList);
     session.setQueue(testQueue);
     session.setFlags(FLAG_HANDLES_QUEUE_COMMANDS);
@@ -352,7 +352,8 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
 
   @Test
   public void removeMediaItems() throws Exception {
-    List<MediaItem> testList = MediaTestUtils.createMediaItems(/* size= */ 4);
+    List<MediaItem> testList =
+        MediaTestUtils.createMediaItems(/* size= */ 4, /* buildWithUri= */ true);
     int fromIndex = 1;
     int toIndex = 3;
     int count = toIndex - fromIndex;
@@ -444,7 +445,7 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
   @Test
   public void setMediaItems_emptyList() throws Exception {
     int size = 3;
-    List<MediaItem> testList = MediaTestUtils.createMediaItems(size);
+    List<MediaItem> testList = MediaTestUtils.createMediaItems(size, /* buildWithUri= */ true);
     List<QueueItem> testQueue = MediaTestUtils.convertToQueueItemsWithoutBitmap(testList);
 
     session.setQueue(testQueue);
@@ -630,7 +631,6 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
   }
 
   @Test
-  @SdkSuppress(minSdkVersion = 23)
   public void setDeviceMuted_mute_forLocalPlayback_mutesStreamVolume() throws Exception {
     if (audioManager.isVolumeFixed()) {
       // This test is not eligible for this device.
@@ -659,7 +659,6 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
   }
 
   @Test
-  @SdkSuppress(minSdkVersion = 23)
   public void setDeviceMuted_unmute_forLocalPlayback_unmutesStreamVolume() throws Exception {
     if (audioManager.isVolumeFixed()) {
       // This test is not eligible for this device.
@@ -695,10 +694,11 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
     sessionCallback.reset(1);
 
     SessionResult result = controller.sendCustomCommand(testCommand, testArgs);
+
     assertThat(result.resultCode).isEqualTo(SessionResult.RESULT_SUCCESS);
     assertThat(sessionCallback.await(TIMEOUT_MS)).isTrue();
-    assertThat(sessionCallback.onCommandCalled).isTrue();
-    assertThat(sessionCallback.command).isEqualTo(command);
+    assertThat(sessionCallback.onCustomActionCalled).isTrue();
+    assertThat(sessionCallback.action).isEqualTo(command);
     assertThat(TestUtils.equals(testArgs, sessionCallback.extras)).isTrue();
   }
 
@@ -811,7 +811,6 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
     public String action;
     public String command;
     public Bundle extras;
-    public ResultReceiver commandCallback;
     public boolean captioningEnabled;
     @RepeatMode public int repeatMode;
     @ShuffleMode public int shuffleMode;
@@ -834,7 +833,6 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
     public boolean onPlayFromSearchCalled;
     public boolean onPlayFromUriCalled;
     public boolean onCustomActionCalled;
-    public boolean onCommandCalled;
     public boolean onPrepareCalled;
     public boolean onPrepareFromMediaIdCalled;
     public boolean onPrepareFromSearchCalled;
@@ -858,7 +856,6 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
       action = null;
       extras = null;
       command = null;
-      commandCallback = null;
       captioningEnabled = false;
       repeatMode = PlaybackStateCompat.REPEAT_MODE_NONE;
       shuffleMode = PlaybackStateCompat.SHUFFLE_MODE_NONE;
@@ -881,7 +878,6 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
       onPlayFromSearchCalled = false;
       onPlayFromUriCalled = false;
       onCustomActionCalled = false;
-      onCommandCalled = false;
       onPrepareCalled = false;
       onPrepareFromMediaIdCalled = false;
       onPrepareFromSearchCalled = false;
@@ -1004,16 +1000,6 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
     public void onSkipToQueueItem(long id) {
       onSkipToQueueItemCalled = true;
       queueItemId = id;
-      latch.countDown();
-    }
-
-    @Override
-    public void onCommand(String command, Bundle extras, ResultReceiver cb) {
-      onCommandCalled = true;
-      this.command = command;
-      this.extras = extras;
-      commandCallback = cb;
-      cb.send(SessionResult.RESULT_SUCCESS, /* resultData= */ null);
       latch.countDown();
     }
 

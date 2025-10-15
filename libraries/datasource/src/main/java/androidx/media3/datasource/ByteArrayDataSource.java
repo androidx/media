@@ -15,9 +15,8 @@
  */
 package androidx.media3.datasource;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.min;
 
 import android.net.Uri;
@@ -102,7 +101,7 @@ public final class ByteArrayDataSource extends BaseDataSource {
     }
 
     length = min(length, bytesRemaining);
-    System.arraycopy(checkStateNotNull(data), readPosition, buffer, offset, length);
+    System.arraycopy(checkNotNull(data), readPosition, buffer, offset, length);
     readPosition += length;
     bytesRemaining -= length;
     bytesTransferred(length);

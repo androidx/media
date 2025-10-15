@@ -104,9 +104,7 @@ public final class DashWidevineOfflineTest {
   @Ignore(
       "Needs to be reconfigured/rewritten with an offline-compatible licence [internal"
           + " b/176960595].")
-  public void widevineOfflineLicenseV22() throws Exception {
-    assumeTrue(SDK_INT >= 22);
-
+  public void widevineOfflineLicense() throws Exception {
     downloadLicense();
     testRunner.run();
 
@@ -119,8 +117,8 @@ public final class DashWidevineOfflineTest {
   @Ignore(
       "Needs to be reconfigured/rewritten with an offline-compatible licence [internal"
           + " b/176960595].")
-  public void widevineOfflineReleasedLicenseV22() throws Throwable {
-    assumeTrue(SDK_INT >= 22 && SDK_INT <= 28);
+  public void widevineOfflineReleasedLicense() throws Throwable {
+    assumeTrue(SDK_INT <= 28);
 
     downloadLicense();
     releaseLicense(); // keySetId no longer valid.
@@ -169,9 +167,7 @@ public final class DashWidevineOfflineTest {
   @Ignore(
       "Needs to be reconfigured/rewritten with an offline-compatible licence [internal"
           + " b/176960595].")
-  public void widevineOfflineExpiredLicenseV22() throws Exception {
-    assumeTrue(SDK_INT >= 22);
-
+  public void widevineOfflineExpiredLicense() throws Exception {
     downloadLicense();
 
     // Wait until the license expires
@@ -201,9 +197,7 @@ public final class DashWidevineOfflineTest {
   @Ignore(
       "Needs to be reconfigured/rewritten with an offline-compatible licence [internal"
           + " b/176960595].")
-  public void widevineOfflineLicenseExpiresOnPauseV22() throws Exception {
-    assumeTrue(SDK_INT >= 22);
-
+  public void widevineOfflineLicenseExpiresOnPause() throws Exception {
     downloadLicense();
 
     // During playback pause until the license expires then continue playback

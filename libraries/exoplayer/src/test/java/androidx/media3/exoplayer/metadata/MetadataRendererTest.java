@@ -17,6 +17,7 @@ package androidx.media3.exoplayer.metadata;
 
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.END_OF_STREAM_ITEM;
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.sample;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -25,7 +26,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.Metadata;
 import androidx.media3.common.MimeTypes;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.drm.DrmSessionEventListener;
 import androidx.media3.exoplayer.drm.DrmSessionManager;
@@ -400,8 +400,10 @@ public class MetadataRendererTest {
             TestUtil.createByteArray(0)); // String null terminator
     int frameSizeIndex = 7;
     int frameSize = id3FrameData.length - 10;
-    Assertions.checkArgument(
-        frameSize < 128, "frameSize must fit in 7 bits to avoid synch-safe encoding: " + frameSize);
+    checkArgument(
+        frameSize < 128,
+        "frameSize must fit in 7 bits to avoid synch-safe encoding: %s",
+        frameSize);
     id3FrameData[frameSizeIndex] = (byte) frameSize;
 
     byte[] id3Bytes =
@@ -413,8 +415,8 @@ public class MetadataRendererTest {
             id3FrameData);
     int tagSizeIndex = 9;
     int tagSize = id3Bytes.length - 10;
-    Assertions.checkArgument(
-        tagSize < 128, "tagSize must fit in 7 bits to avoid synch-safe encoding: " + tagSize);
+    checkArgument(
+        tagSize < 128, "tagSize must fit in 7 bits to avoid synch-safe encoding: %s", tagSize);
     id3Bytes[tagSizeIndex] = (byte) tagSize;
     return id3Bytes;
   }

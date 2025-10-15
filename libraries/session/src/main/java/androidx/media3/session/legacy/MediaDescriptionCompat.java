@@ -21,20 +21,16 @@ import android.annotation.SuppressLint;
 import android.graphics.Bitmap;
 import android.media.MediaDescription;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
-import androidx.media3.common.util.UnstableApi;
 
 /**
  * A simple set of metadata for a media item suitable for display. This can be created using the
  * Builder.
  */
-@UnstableApi
 @RestrictTo(LIBRARY)
 @SuppressLint("BanParcelableUsage")
 public final class MediaDescriptionCompat implements Parcelable {
@@ -301,28 +297,9 @@ public final class MediaDescriptionCompat implements Parcelable {
     bob.setDescription(description);
     bob.setIconBitmap(icon);
     bob.setIconUri(iconUri);
-    // Media URI was not added until API 23, so add it to the Bundle of extras to
-    // ensure the data is not lost - this ensures that
-    // fromMediaDescription(getMediaDescription(mediaDescriptionCompat)) returns
-    // an equivalent MediaDescriptionCompat on all API levels
-    if (Build.VERSION.SDK_INT < 23 && mediaUri != null) {
-      Bundle extras;
-      if (this.extras == null) {
-        extras = new Bundle();
-        extras.putBoolean(DESCRIPTION_KEY_NULL_BUNDLE_FLAG, true);
-      } else {
-        extras = new Bundle(this.extras);
-      }
-      extras.putParcelable(DESCRIPTION_KEY_MEDIA_URI, mediaUri);
-      bob.setExtras(extras);
-    } else {
-      bob.setExtras(this.extras);
-    }
-    if (Build.VERSION.SDK_INT >= 23) {
-      Api23Impl.setMediaUri(bob, mediaUri);
-    }
+    bob.setExtras(this.extras);
+    bob.setMediaUri(mediaUri);
     descriptionFwk = bob.build();
-
     return descriptionFwk;
   }
 
@@ -366,8 +343,8 @@ public final class MediaDescriptionCompat implements Parcelable {
     bob.setExtras(extras);
     if (mediaUri != null) {
       bob.setMediaUri(mediaUri);
-    } else if (Build.VERSION.SDK_INT >= 23) {
-      bob.setMediaUri(Api23Impl.getMediaUri(description));
+    } else {
+      bob.setMediaUri(description.getMediaUri());
     }
     MediaDescriptionCompat descriptionCompat = bob.build();
     descriptionCompat.descriptionFwk = description;
@@ -497,20 +474,6 @@ public final class MediaDescriptionCompat implements Parcelable {
     public MediaDescriptionCompat build() {
       return new MediaDescriptionCompat(
           mediaId, title, subtitle, description, icon, iconUri, extras, mediaUri);
-    }
-  }
-
-  @RequiresApi(23)
-  private static class Api23Impl {
-    private Api23Impl() {}
-
-    static void setMediaUri(MediaDescription.Builder builder, @Nullable Uri mediaUri) {
-      builder.setMediaUri(mediaUri);
-    }
-
-    @Nullable
-    static Uri getMediaUri(MediaDescription description) {
-      return description.getMediaUri();
     }
   }
 }

@@ -40,13 +40,41 @@ public final class Mp3ExtractorTest {
   @Test
   public void mp3SampleWithXingHeader() throws Exception {
     ExtractorAsserts.assertBehavior(
-        Mp3Extractor::new, "media/mp3/bear-vbr-xing-header.mp3", simulationConfig);
+        Mp3Extractor::new,
+        "media/mp3/bear-vbr-xing-header.mp3",
+        /* peekLimit= */ 1300,
+        simulationConfig);
+  }
+
+  @Test
+  public void mp3SampleWithXingHeader_indexSeekingFlag_usesXingSeeker() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        () -> new Mp3Extractor(Mp3Extractor.FLAG_ENABLE_INDEX_SEEKING),
+        "media/mp3/bear-vbr-xing-header.mp3",
+        /* peekLimit= */ 1300,
+        simulationConfig);
   }
 
   @Test
   public void mp3SampleWithXingHeader_noTableOfContents() throws Exception {
     ExtractorAsserts.assertBehavior(
-        Mp3Extractor::new, "media/mp3/bear-vbr-xing-header-no-toc.mp3", simulationConfig);
+        Mp3Extractor::new,
+        "media/mp3/bear-vbr-xing-header-no-toc.mp3",
+        /* peekLimit= */ 1300,
+        simulationConfig);
+  }
+
+  @Test
+  public void mp3SampleWithXingHeader_noTableOfContents_indexSeeking() throws Exception {
+    String filename = "mp3/bear-vbr-xing-header-no-toc.mp3";
+    ExtractorAsserts.assertBehavior(
+        () -> new Mp3Extractor(Mp3Extractor.FLAG_ENABLE_INDEX_SEEKING),
+        "media/" + filename,
+        /* peekLimit= */ 1300,
+        new AssertionConfig.Builder()
+            .setDumpFilesPrefix("extractordumps/" + filename + ".index-seeking")
+            .build(),
+        simulationConfig);
   }
 
   @Test
@@ -55,6 +83,7 @@ public final class Mp3ExtractorTest {
     ExtractorAsserts.assertBehavior(
         () -> new Mp3Extractor(Mp3Extractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING),
         "media/" + filename,
+        /* peekLimit= */ 1300,
         new AssertionConfig.Builder()
             .setDumpFilesPrefix("extractordumps/" + filename + ".cbr-seeking")
             .build(),
@@ -67,6 +96,7 @@ public final class Mp3ExtractorTest {
     ExtractorAsserts.assertBehavior(
         () -> new Mp3Extractor(Mp3Extractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING_ALWAYS),
         "media/" + filename,
+        /* peekLimit= */ 1300,
         new AssertionConfig.Builder()
             .setDumpFilesPrefix("extractordumps/" + filename + ".cbr-seeking-always")
             .build(),
@@ -76,14 +106,20 @@ public final class Mp3ExtractorTest {
   @Test
   public void mp3SampleWithInfoHeader() throws Exception {
     ExtractorAsserts.assertBehavior(
-        Mp3Extractor::new, "media/mp3/test-cbr-info-header.mp3", simulationConfig);
+        Mp3Extractor::new,
+        "media/mp3/test-cbr-info-header.mp3",
+        /* peekLimit= */ 1200,
+        simulationConfig);
   }
 
   // https://github.com/androidx/media/issues/1376#issuecomment-2117393653
   @Test
   public void mp3SampleWithInfoHeaderAndPcutFrame() throws Exception {
     ExtractorAsserts.assertBehavior(
-        Mp3Extractor::new, "media/mp3/test-cbr-info-header-pcut-frame.mp3", simulationConfig);
+        Mp3Extractor::new,
+        "media/mp3/test-cbr-info-header-pcut-frame.mp3",
+        /* peekLimit= */ 1200,
+        simulationConfig);
   }
 
   // https://github.com/androidx/media/issues/1480
@@ -95,6 +131,7 @@ public final class Mp3ExtractorTest {
     ExtractorAsserts.assertBehavior(
         Mp3Extractor::new,
         "media/mp3/test-cbr-info-header-trailing-garbage.mp3",
+        /* peekLimit= */ 1200,
         new AssertionConfig.Builder()
             .setDumpFilesPrefix("extractordumps/mp3/test-cbr-info-header.mp3")
             .build(),
@@ -104,14 +141,20 @@ public final class Mp3ExtractorTest {
   @Test
   public void mp3SampleWithVbriHeader() throws Exception {
     ExtractorAsserts.assertBehavior(
-        Mp3Extractor::new, "media/mp3/bear-vbr-vbri-header.mp3", simulationConfig);
+        Mp3Extractor::new,
+        "media/mp3/bear-vbr-vbri-header.mp3",
+        /* peekLimit= */ 1300,
+        simulationConfig);
   }
 
   // https://github.com/androidx/media/issues/1904
   @Test
   public void mp3SampleWithVbriHeaderWithTruncatedToC() throws Exception {
     ExtractorAsserts.assertBehavior(
-        Mp3Extractor::new, "media/mp3/bear-vbr-vbri-header-truncated-toc.mp3", simulationConfig);
+        Mp3Extractor::new,
+        "media/mp3/bear-vbr-vbri-header-truncated-toc.mp3",
+        /* peekLimit= */ 1300,
+        simulationConfig);
   }
 
   @Test
@@ -119,6 +162,7 @@ public final class Mp3ExtractorTest {
     ExtractorAsserts.assertBehavior(
         Mp3Extractor::new,
         "media/mp3/bear-cbr-variable-frame-size-no-seek-table.mp3",
+        /* peekLimit= */ 1500,
         simulationConfig);
   }
 
@@ -127,6 +171,7 @@ public final class Mp3ExtractorTest {
     ExtractorAsserts.assertBehavior(
         () -> new Mp3Extractor(Mp3Extractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING_ALWAYS),
         "media/mp3/bear-cbr-variable-frame-size-no-seek-table.mp3",
+        /* peekLimit= */ 1500,
         new AssertionConfig.Builder()
             .setDumpFilesPrefix("extractordumps/mp3/bear-cbr_cbr-seeking-always-enabled")
             .build(),
@@ -138,6 +183,7 @@ public final class Mp3ExtractorTest {
     ExtractorAsserts.assertBehavior(
         () -> new Mp3Extractor(Mp3Extractor.FLAG_ENABLE_INDEX_SEEKING),
         "media/mp3/bear-vbr-no-seek-table.mp3",
+        /* peekLimit= */ 1500,
         simulationConfig);
   }
 
@@ -150,13 +196,14 @@ public final class Mp3ExtractorTest {
     ExtractorAsserts.assertBehavior(
         Mp3Extractor::new,
         "media/mp3/bear-cbr-no-seek-table-trailing-garbage.mp3",
+        /* peekLimit= */ 1500,
         simulationConfig);
   }
 
   @Test
   public void trimmedMp3Sample() throws Exception {
     ExtractorAsserts.assertBehavior(
-        Mp3Extractor::new, "media/mp3/play-trimmed.mp3", simulationConfig);
+        Mp3Extractor::new, "media/mp3/play-trimmed.mp3", /* peekLimit= */ 1200, simulationConfig);
   }
 
   @Test
@@ -164,6 +211,7 @@ public final class Mp3ExtractorTest {
     ExtractorAsserts.assertBehavior(
         Mp3Extractor::new,
         "media/mp3/bear-id3.mp3",
+        /* peekLimit= */ 41_000,
         new AssertionConfig.Builder()
             .setDumpFilesPrefix("extractordumps/mp3/bear-id3-enabled")
             .build(),
@@ -175,6 +223,7 @@ public final class Mp3ExtractorTest {
     ExtractorAsserts.assertBehavior(
         () -> new Mp3Extractor(Mp3Extractor.FLAG_DISABLE_ID3_METADATA),
         "media/mp3/bear-id3.mp3",
+        /* peekLimit= */ 41_000,
         new AssertionConfig.Builder()
             .setDumpFilesPrefix("extractordumps/mp3/bear-id3-disabled")
             .build(),
@@ -184,6 +233,9 @@ public final class Mp3ExtractorTest {
   @Test
   public void mp3SampleWithId3NumericGenre() throws Exception {
     ExtractorAsserts.assertBehavior(
-        Mp3Extractor::new, "media/mp3/bear-id3-numeric-genre.mp3", simulationConfig);
+        Mp3Extractor::new,
+        "media/mp3/bear-id3-numeric-genre.mp3",
+        /* peekLimit= */ 41_000,
+        simulationConfig);
   }
 }

@@ -16,12 +16,13 @@
 
 package androidx.media3.common.audio;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.SpeedProviderUtil.getNextSpeedChangeSamplePosition;
 import static androidx.media3.common.util.SpeedProviderUtil.getSampleAlignedSpeed;
+import static androidx.media3.common.util.Util.durationUsToSampleCount;
 import static androidx.media3.common.util.Util.sampleCountToDurationUs;
 import static androidx.media3.common.util.Util.scaleLargeValue;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.min;
 
 import androidx.annotation.GuardedBy;
@@ -38,7 +39,6 @@ import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
 import java.util.Queue;
 import java.util.function.LongConsumer;
-import org.checkerframework.checker.initialization.qual.UnknownInitialization;
 
 /**
  * An {@link AudioProcessor} that changes the speed of audio samples depending on their timestamp.
@@ -89,7 +89,7 @@ public final class SpeedChangingAudioProcessor implements AudioProcessor {
         new SynchronizedSonicAudioProcessor(lock, /* keepActiveWithDefaultParameters= */ true);
     pendingCallbackInputTimesUs = new LongArrayQueue();
     pendingCallbacks = new ArrayDeque<>();
-    resetInternalState(/* shouldResetSpeed= */ true);
+    currentSpeed = 1f;
   }
 
   /** Returns the estimated number of samples output given the provided parameters. */
@@ -209,6 +209,8 @@ public final class SpeedChangingAudioProcessor implements AudioProcessor {
       inputAudioFormat = pendingInputAudioFormat;
       sonicAudioProcessor.flush(streamMetadata);
       processPendingCallbacks();
+      framesRead =
+          durationUsToSampleCount(streamMetadata.positionOffsetUs, inputAudioFormat.sampleRate);
     }
   }
 
@@ -224,6 +226,11 @@ public final class SpeedChangingAudioProcessor implements AudioProcessor {
     }
     resetInternalState(/* shouldResetSpeed= */ true);
     sonicAudioProcessor.reset();
+  }
+
+  /** Returns the {@link SpeedProvider} set for this instance. */
+  public SpeedProvider getSpeedProvider() {
+    return this.speedProvider;
   }
 
   /**
@@ -374,8 +381,7 @@ public final class SpeedChangingAudioProcessor implements AudioProcessor {
    *
    * @param shouldResetSpeed Whether {@link #currentSpeed} should be reset to its default value.
    */
-  private void resetInternalState(
-      @UnknownInitialization SpeedChangingAudioProcessor this, boolean shouldResetSpeed) {
+  private void resetInternalState(boolean shouldResetSpeed) {
     if (shouldResetSpeed) {
       currentSpeed = 1f;
     }

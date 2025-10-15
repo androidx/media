@@ -44,7 +44,7 @@ import static androidx.media3.test.session.common.MediaSessionConstants.TEST_WIT
 import static androidx.media3.test.session.common.TestUtils.LONG_TIMEOUT_MS;
 import static androidx.media3.test.session.common.TestUtils.NO_RESPONSE_TIMEOUT_MS;
 import static androidx.media3.test.session.common.TestUtils.TIMEOUT_MS;
-import static androidx.media3.test.session.common.TestUtils.getEventsAsList;
+import static androidx.media3.test.utils.TestUtil.getEventsAsList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -83,6 +83,7 @@ import androidx.media3.test.session.common.MainLooperTestRule;
 import androidx.media3.test.session.common.MediaSessionConstants;
 import androidx.media3.test.session.common.SurfaceActivity;
 import androidx.media3.test.session.common.TestUtils;
+import androidx.media3.test.utils.FakeTimeline;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.LargeTest;
@@ -849,7 +850,8 @@ public class MediaControllerListenerTest {
   @Test
   public void setPlayer_notifiesChangedValues() throws Exception {
     @Player.State int testState = Player.STATE_BUFFERING;
-    Timeline testTimeline = MediaTestUtils.createTimeline(/* windowCount= */ 3);
+    Timeline testTimeline =
+        MediaTestUtils.createTimeline(/* windowCount= */ 3, /* buildWithUri= */ true);
     MediaMetadata testPlaylistMetadata = new MediaMetadata.Builder().setTitle("title").build();
     AudioAttributes testAudioAttributes =
         new AudioAttributes.Builder()
@@ -977,7 +979,7 @@ public class MediaControllerListenerTest {
     int testCurrentAdGroupIndex = 2;
     int testCurrentAdIndexInAdGroup = 6;
     int testMediaItemIndex = 1;
-    int testPeriodIndex = 2;
+    int testPeriodIndex = 1;
     MediaController controller = controllerTestRule.createController(remoteSession.getToken());
     CountDownLatch latch = new CountDownLatch(2);
     AtomicLong currentPositionMsRef = new AtomicLong();
@@ -1062,6 +1064,10 @@ public class MediaControllerListenerTest {
     Bundle playerConfig =
         new RemoteMediaSession.MockPlayerConfigBuilder()
             .setPlaybackState(Player.STATE_READY)
+            .setTimeline(
+                MediaTestUtils.createTimeline(
+                    MediaTestUtils.createMediaItems(
+                        /* buildWithUri= */ true, "mediaItem1", "mediaItem2")))
             .setCurrentPosition(testCurrentPositionMs)
             .setContentPosition(testContentPositionMs)
             .setDuration(testDurationMs)
@@ -1114,7 +1120,8 @@ public class MediaControllerListenerTest {
   @Test
   public void onMediaItemTransition() throws Exception {
     int currentIndex = 0;
-    Timeline timeline = MediaTestUtils.createTimeline(/* windowCount= */ 5);
+    Timeline timeline =
+        MediaTestUtils.createTimeline(/* windowCount= */ 5, /* buildWithUri= */ false);
     remoteSession.getMockPlayer().setTimeline(timeline);
     remoteSession
         .getMockPlayer()
@@ -1158,6 +1165,7 @@ public class MediaControllerListenerTest {
     int testReason = Player.MEDIA_ITEM_TRANSITION_REASON_SEEK;
 
     remoteSession.getMockPlayer().setCurrentMediaItemIndex(testIndex);
+    remoteSession.getMockPlayer().setCurrentPeriodIndex(testIndex);
     remoteSession.getMockPlayer().notifyMediaItemTransition(testIndex, testReason);
 
     Timeline.Window window = new Timeline.Window();
@@ -1172,7 +1180,8 @@ public class MediaControllerListenerTest {
 
   @Test
   public void onMediaItemTransition_withNullMediaItem() throws Exception {
-    Timeline timeline = MediaTestUtils.createTimeline(/* windowCount= */ 1);
+    Timeline timeline =
+        MediaTestUtils.createTimeline(/* windowCount= */ 1, /* buildWithUri= */ true);
     remoteSession.getMockPlayer().setTimeline(timeline);
     remoteSession.getMockPlayer().setCurrentMediaItemIndex(0);
     remoteSession
@@ -1389,7 +1398,8 @@ public class MediaControllerListenerTest {
         };
     threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
 
-    Timeline timeline = MediaTestUtils.createTimeline(/* windowCount= */ 2);
+    Timeline timeline =
+        MediaTestUtils.createTimeline(/* windowCount= */ 2, /* buildWithUri= */ true);
     @Player.TimelineChangeReason int reason = Player.TIMELINE_CHANGE_REASON_SOURCE_UPDATE;
     remoteSession.getMockPlayer().setTimeline(timeline);
     remoteSession.getMockPlayer().notifyTimelineChanged(reason);
@@ -1743,11 +1753,12 @@ public class MediaControllerListenerTest {
     RemoteMediaSession.RemoteMockPlayer player = remoteSession.getMockPlayer();
     Timeline timeline =
         new PlaylistTimeline(
-            MediaTestUtils.createMediaItems(/* size= */ 3),
+            MediaTestUtils.createMediaItems(/* size= */ 3, /* buildWithUri= */ true),
             /* shuffledIndices= */ new int[] {0, 2, 1});
     player.setTimeline(timeline);
     player.notifyTimelineChanged(Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);
     player.setCurrentMediaItemIndex(2);
+    player.setCurrentPeriodIndex(2);
     player.setShuffleModeEnabled(false);
     player.notifyShuffleModeEnabledChanged();
     MediaController controller = controllerTestRule.createController(remoteSession.getToken());
@@ -1801,10 +1812,12 @@ public class MediaControllerListenerTest {
   @Test
   public void onRepeatModeChanged() throws Exception {
     RemoteMediaSession.RemoteMockPlayer player = remoteSession.getMockPlayer();
-    Timeline timeline = MediaTestUtils.createTimeline(/* windowCount= */ 3);
+    Timeline timeline =
+        MediaTestUtils.createTimeline(/* windowCount= */ 3, /* buildWithUri= */ true);
     player.setTimeline(timeline);
     player.notifyTimelineChanged(Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);
     player.setCurrentMediaItemIndex(2);
+    player.setCurrentPeriodIndex(2);
     player.setRepeatMode(Player.REPEAT_MODE_OFF);
     player.notifyRepeatModeChanged();
     MediaController controller = controllerTestRule.createController(remoteSession.getToken());
@@ -2808,7 +2821,8 @@ public class MediaControllerListenerTest {
   public void onTimelineChanged_playerCommandUnavailable_reducesTimelineToOneItem()
       throws Exception {
     int testMediaItemsSize = 2;
-    List<MediaItem> testMediaItemList = MediaTestUtils.createMediaItems(testMediaItemsSize);
+    List<MediaItem> testMediaItemList =
+        MediaTestUtils.createMediaItems(testMediaItemsSize, /* buildWithUri= */ true);
     Timeline testTimeline = new PlaylistTimeline(testMediaItemList);
     Bundle playerConfig =
         new RemoteMediaSession.MockPlayerConfigBuilder().setTimeline(testTimeline).build();
@@ -2855,7 +2869,8 @@ public class MediaControllerListenerTest {
   public void onTimelineChanged_sessionCommandUnavailable_reducesTimelineToOneItem()
       throws Exception {
     int testMediaItemsSize = 2;
-    List<MediaItem> testMediaItemList = MediaTestUtils.createMediaItems(testMediaItemsSize);
+    List<MediaItem> testMediaItemList =
+        MediaTestUtils.createMediaItems(testMediaItemsSize, /* buildWithUri= */ true);
     Timeline testTimeline = new PlaylistTimeline(testMediaItemList);
     Bundle playerConfig =
         new RemoteMediaSession.MockPlayerConfigBuilder().setTimeline(testTimeline).build();
@@ -3295,6 +3310,41 @@ public class MediaControllerListenerTest {
     assertThat(getEventsAsList(eventsList.get(0))).containsExactly(Player.EVENT_VIDEO_SIZE_CHANGED);
     assertThat(getEventsAsList(eventsList.get(1))).containsExactly(Player.EVENT_VIDEO_SIZE_CHANGED);
     assertThat(getEventsAsList(eventsList.get(2))).containsExactly(Player.EVENT_VIDEO_SIZE_CHANGED);
+  }
+
+  @Test
+  public void onAudioSessionIdChanged_isCalledAndUpdatesGetter() throws Exception {
+    int audioSessionId = 1234;
+    MediaController controller = controllerTestRule.createController(remoteSession.getToken());
+    CountDownLatch latch = new CountDownLatch(2);
+    AtomicReference<Integer> audioSessionIdFromParamRef = new AtomicReference<>();
+    AtomicReference<Integer> audioSessionIdFromGetterRef = new AtomicReference<>();
+    AtomicReference<Integer> audioSessionIdFromOnEventsRef = new AtomicReference<>();
+    AtomicReference<Player.Events> eventsRef = new AtomicReference<>();
+    Player.Listener listener =
+        new Player.Listener() {
+          @Override
+          public void onAudioSessionIdChanged(int audioSessionId) {
+            audioSessionIdFromParamRef.set(audioSessionId);
+            audioSessionIdFromGetterRef.set(controller.getAudioSessionId());
+            latch.countDown();
+          }
+
+          @Override
+          public void onEvents(Player player, Player.Events events) {
+            audioSessionIdFromOnEventsRef.set(player.getAudioSessionId());
+            eventsRef.set(events);
+            latch.countDown();
+          }
+        };
+    threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
+
+    remoteSession.getMockPlayer().notifyAudioSessionIdChanged(audioSessionId);
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(audioSessionIdFromParamRef.get()).isEqualTo(audioSessionId);
+    assertThat(audioSessionIdFromGetterRef.get()).isEqualTo(audioSessionId);
+    assertThat(getEventsAsList(eventsRef.get())).containsExactly(Player.EVENT_AUDIO_SESSION_ID);
   }
 
   @Test
@@ -4040,7 +4090,7 @@ public class MediaControllerListenerTest {
    */
   @Test
   public void timelineIsPreserved_whenUnrelatedListenerMethodIsCalled() throws Exception {
-    Timeline testTimeline = createTimeline(1);
+    Timeline testTimeline = createTimeline(1, /* buildWithUri= */ true);
 
     Bundle playerConfig =
         new RemoteMediaSession.MockPlayerConfigBuilder().setTimeline(testTimeline).build();
@@ -4145,6 +4195,64 @@ public class MediaControllerListenerTest {
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(listener1States).containsExactly(Player.STATE_READY, Player.STATE_IDLE).inOrder();
     assertThat(listener2States).containsExactly(Player.STATE_READY, Player.STATE_IDLE).inOrder();
+  }
+
+  @Test
+  public void
+      missingCommandGetTimeline_withCommandGetCurrentMediaItem_doesNotIncludePlaceholderFlag()
+          throws Exception {
+    MediaController controller = controllerTestRule.createController(remoteSession.getToken());
+    remoteSession
+        .getMockPlayer()
+        .setTimeline(
+            new FakeTimeline(
+                new FakeTimeline.TimelineWindowDefinition.Builder().setPlaceholder(true).build(),
+                new FakeTimeline.TimelineWindowDefinition.Builder().setPlaceholder(true).build()));
+    CountDownLatch timelineLatch = new CountDownLatch(1);
+    List<Timeline> capturedTimelines = new ArrayList<>();
+    Player.Listener timelineListener =
+        new Player.Listener() {
+          @Override
+          public void onTimelineChanged(Timeline timeline, int reason) {
+            capturedTimelines.add(timeline);
+            timelineLatch.countDown();
+          }
+        };
+    controller.addListener(timelineListener);
+    remoteSession
+        .getMockPlayer()
+        .notifyTimelineChanged(Player.TIMELINE_CHANGE_REASON_SOURCE_UPDATE);
+    assertThat(timelineLatch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    threadTestRule.getHandler().postAndSync(() -> controller.removeListener(timelineListener));
+    CountDownLatch latch = new CountDownLatch(2);
+    Player.Listener listener =
+        new Player.Listener() {
+          @Override
+          public void onAvailableCommandsChanged(Commands availableCommands) {
+            latch.countDown();
+          }
+
+          @Override
+          public void onTimelineChanged(Timeline timeline, int reason) {
+            capturedTimelines.add(timeline);
+            latch.countDown();
+          }
+        };
+    controller.addListener(listener);
+
+    remoteSession
+        .getMockPlayer()
+        .notifyAvailableCommandsChanged(
+            new Commands.Builder().addAllCommands().remove(COMMAND_GET_TIMELINE).build());
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(capturedTimelines).hasSize(2);
+    assertThat(capturedTimelines.get(0).getWindowCount()).isEqualTo(2);
+    assertThat(capturedTimelines.get(0).getWindow(0, new Timeline.Window()).isPlaceholder).isTrue();
+    assertThat(capturedTimelines.get(0).getWindow(1, new Timeline.Window()).isPlaceholder).isTrue();
+    assertThat(capturedTimelines.get(1).getWindowCount()).isEqualTo(1);
+    assertThat(capturedTimelines.get(1).getWindow(0, new Timeline.Window()).isPlaceholder)
+        .isFalse();
   }
 
   private void testControllerAfterSessionIsClosed(String id) throws Exception {

@@ -15,10 +15,11 @@
  */
 package androidx.media3.exoplayer.source;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.StreamKey;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.exoplayer.FormatHolder;
@@ -167,12 +168,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Override
   public void onPrepared(MediaPeriod mediaPeriod) {
-    Assertions.checkNotNull(callback).onPrepared(/* mediaPeriod= */ this);
+    checkNotNull(callback).onPrepared(/* mediaPeriod= */ this);
   }
 
   @Override
   public void onContinueLoadingRequested(MediaPeriod source) {
-    Assertions.checkNotNull(callback).onContinueLoadingRequested(/* source= */ this);
+    checkNotNull(callback).onContinueLoadingRequested(/* source= */ this);
   }
 
   private static final class TimeOffsetSampleStream implements SampleStream {

@@ -15,9 +15,10 @@
  */
 package androidx.media3.test.utils;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.castNonNull;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.assertThrows;
@@ -32,7 +33,6 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 import android.net.Uri;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSource;
@@ -710,7 +710,7 @@ public abstract class DataSourceContractTest {
   private void forAllTestResourcesAndDataSources(TestResourceAndDataSourceTest test)
       throws Exception {
     ImmutableList<TestResource> resources = getTestResources();
-    Assertions.checkArgument(!resources.isEmpty(), "Must provide at least one test resource.");
+    checkArgument(!resources.isEmpty(), "Must provide at least one test resource.");
     for (int i = 0; i < resources.size(); i++) {
       checkState(
           resources.get(i).expectedBytes.length >= 5,

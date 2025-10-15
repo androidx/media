@@ -16,8 +16,8 @@
 
 package androidx.media3.test.utils;
 
-import static androidx.media3.common.util.Assertions.checkState;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.graphics.Bitmap;
 import android.os.Build;
@@ -61,7 +61,7 @@ public final class TextureBitmapReader implements VideoFrameProcessorTestRunner.
 
   @Override
   public Bitmap getBitmap() {
-    return checkStateNotNull(outputBitmap);
+    return checkNotNull(outputBitmap);
   }
 
   /**
@@ -69,7 +69,7 @@ public final class TextureBitmapReader implements VideoFrameProcessorTestRunner.
    * @throws IllegalStateException If no such bitmap is produced.
    */
   public Bitmap getBitmapAtPresentationTimeUs(long presentationTimeUs) {
-    return checkStateNotNull(outputTimestampsToBitmaps.get(presentationTimeUs));
+    return checkNotNull(outputTimestampsToBitmaps.get(presentationTimeUs));
   }
 
   /** Returns the timestamps in the order they were added. */

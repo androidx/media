@@ -15,6 +15,8 @@
  */
 package androidx.media3.effect;
 
+import static com.google.common.base.Preconditions.checkState;
+
 import android.content.Context;
 import android.opengl.GLES20;
 import android.opengl.GLES30;
@@ -23,7 +25,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.VideoFrameProcessingException;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.GlProgram;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.Size;
@@ -151,7 +152,7 @@ public class SeparableConvolutionShaderProgram implements GlShaderProgram {
   @Override
   public final void queueInputFrame(
       GlObjectsProvider glObjectsProvider, GlTextureInfo inputTexture, long presentationTimeUs) {
-    Assertions.checkState(
+    checkState(
         !outputTextureInUse,
         "The shader program does not currently accept input frames. Release prior output frames"
             + " first.");

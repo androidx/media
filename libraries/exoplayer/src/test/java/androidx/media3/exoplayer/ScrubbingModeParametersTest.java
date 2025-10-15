@@ -36,6 +36,7 @@ public final class ScrubbingModeParametersTest {
     assertThat(ScrubbingModeParameters.DEFAULT.shouldIncreaseCodecOperatingRate).isTrue();
     assertThat(ScrubbingModeParameters.DEFAULT.isMediaCodecFlushEnabled).isFalse();
     assertThat(ScrubbingModeParameters.DEFAULT.allowSkippingMediaCodecFlush).isTrue();
+    assertThat(ScrubbingModeParameters.DEFAULT.allowSkippingKeyFrameReset).isTrue();
     assertThat(ScrubbingModeParameters.DEFAULT.shouldEnableDynamicScheduling).isTrue();
     assertThat(ScrubbingModeParameters.DEFAULT.useDecodeOnlyFlag).isTrue();
   }

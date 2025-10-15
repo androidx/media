@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">Phát</string>
+  <string name="playpause_button_pause">Tạm dừng</string>
+  <string name="next_button">Tiếp</string>
+  <string name="previous_button">Trước</string>
+  <string name="seek_back_button">Tua lại</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">Tua lại %d giây</item>
+    <item quantity="other">Tua lại %d giây</item>
+  </plurals>
+  <string name="seek_forward_button">Tua đi</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">Tua đi %d giây</item>
+    <item quantity="other">Tua đi %d giây</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">Chế độ hiện tại: Không lặp lại. Bật/tắt chế độ lặp lại.</string>
+  <string name="repeat_button_repeat_one">Chế độ hiện tại: Lặp lại một nội dung. Bật/tắt chế độ lặp lại.</string>
+  <string name="repeat_button_repeat_all">Chế độ hiện tại: Lặp lại tất cả nội dung. Bật/tắt chế độ lặp lại.</string>
+  <string name="shuffle_button_shuffle_on">Đã bật chế độ trộn bài.</string>
+  <string name="shuffle_button_shuffle_off">Đã tắt chế độ trộn bài.</string>
+  <string name="mute_button_shown_unmuted">Tắt tiếng</string>
+  <string name="mute_button_shown_muted">Bật tiếng</string>
+</resources>

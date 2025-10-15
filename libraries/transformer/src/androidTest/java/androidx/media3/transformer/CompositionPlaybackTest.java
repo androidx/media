@@ -20,13 +20,15 @@ import static androidx.media3.common.Player.DISCONTINUITY_REASON_AUTO_TRANSITION
 import static androidx.media3.common.Player.REPEAT_MODE_ALL;
 import static androidx.media3.common.Player.REPEAT_MODE_OFF;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
-import static androidx.media3.transformer.AndroidTestUtil.MP4_ASSET;
-import static androidx.media3.transformer.AndroidTestUtil.WAV_ASSET;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET;
+import static androidx.media3.test.utils.AssetInfo.WAV_80KHZ_MONO_20_REPEATING_1_SAMPLES_ASSET;
+import static androidx.media3.test.utils.AssetInfo.WAV_ASSET;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import android.content.Context;
+import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
@@ -35,9 +37,13 @@ import androidx.media3.common.util.NullableType;
 import androidx.media3.effect.GlEffect;
 import androidx.media3.exoplayer.audio.AudioSink;
 import androidx.media3.exoplayer.audio.DefaultAudioSink;
+import androidx.media3.exoplayer.audio.TeeAudioProcessor;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import java.nio.ByteBuffer;
+import java.nio.ShortBuffer;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -91,9 +97,11 @@ public class CompositionPlaybackTest {
         videoEditedMediaItem.buildUpon().setRemoveVideo(true).build();
     Composition composition =
         new Composition.Builder(
-                new EditedMediaItemSequence.Builder(
-                        videoEditedMediaItem, videoEditedMediaItemRemoveVideo, videoEditedMediaItem)
-                    .build())
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        videoEditedMediaItem,
+                        videoEditedMediaItemRemoveVideo,
+                        videoEditedMediaItem)))
             .build();
 
     runCompositionPlayer(composition);
@@ -120,8 +128,10 @@ public class CompositionPlaybackTest {
         videoEditedMediaItem.buildUpon().setRemoveVideo(true).build();
     Composition composition =
         new Composition.Builder(
-                new EditedMediaItemSequence.Builder(videoEditedMediaItem).build(),
-                new EditedMediaItemSequence.Builder(videoEditedMediaItemRemoveVideo).build())
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(videoEditedMediaItem)),
+                EditedMediaItemSequence.withAudioFrom(
+                    ImmutableList.of(videoEditedMediaItemRemoveVideo)))
             .build();
 
     runCompositionPlayer(composition);
@@ -135,7 +145,8 @@ public class CompositionPlaybackTest {
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(VIDEO_MEDIA_ITEM).setDurationUs(VIDEO_DURATION_US).build();
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence.Builder(editedMediaItem).build())
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioAndVideoFrom(ImmutableList.of(editedMediaItem)))
             .build();
     CountDownLatch repetitionEndedLatch = new CountDownLatch(2);
     AtomicReference<@NullableType PlaybackException> playbackException = new AtomicReference<>();
@@ -194,9 +205,8 @@ public class CompositionPlaybackTest {
             .build();
     Composition composition =
         new Composition.Builder(
-                new EditedMediaItemSequence.Builder(
-                        editedMediaItem, editedMediaItem, editedMediaItem)
-                    .build())
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(editedMediaItem, editedMediaItem, editedMediaItem)))
             .build();
     ImmutableList<Long> expectedTimestampsUs =
         new ImmutableList.Builder<Long>()
@@ -216,6 +226,51 @@ public class CompositionPlaybackTest {
   }
 
   @Test
+  public void audioOnlySingleAsset_inAudioVideoSequence_doesNotOutputSilence()
+      throws PlaybackException, TimeoutException {
+    EditedMediaItem audioClip =
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(WAV_80KHZ_MONO_20_REPEATING_1_SAMPLES_ASSET.uri))
+            .setDurationUs(250L)
+            .build();
+    EditedMediaItemSequence sequence =
+        EditedMediaItemSequence.withAudioAndVideoFrom(ImmutableList.of(audioClip));
+    AtomicInteger samplesProcessedCount = new AtomicInteger();
+    TeeAudioProcessor teeAudioProcessor =
+        new TeeAudioProcessor(
+            new TeeAudioProcessor.AudioBufferSink() {
+              @Override
+              public void flush(int sampleRateHz, int channelCount, @C.PcmEncoding int encoding) {}
+
+              @Override
+              public void handleBuffer(ByteBuffer buffer) {
+                ShortBuffer samplesBuffer = buffer.asShortBuffer();
+                while (samplesBuffer.hasRemaining()) {
+                  // The input asset is made of 20 samples of value 1.
+                  assertThat(samplesBuffer.get()).isEqualTo(1);
+                  samplesProcessedCount.getAndIncrement();
+                }
+              }
+            });
+    Composition composition =
+        new Composition.Builder(sequence)
+            .setEffects(new Effects(ImmutableList.of(teeAudioProcessor), ImmutableList.of()))
+            .build();
+
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              player = new CompositionPlayer.Builder(context).build();
+              player.addListener(playerTestListener);
+              player.setComposition(composition);
+              player.prepare();
+              player.play();
+            });
+    playerTestListener.waitUntilPlayerEnded();
+    assertThat(samplesProcessedCount.get()).isEqualTo(20);
+  }
+
+  @Test
   public void playback_singleAssetAudioSequence_doesNotUnderrun()
       throws PlaybackException, TimeoutException {
     EditedMediaItem clip =
@@ -223,7 +278,8 @@ public class CompositionPlaybackTest {
             .setDurationUs(1_000_000L)
             .build();
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence.Builder(clip).build()).build();
+        new Composition.Builder(EditedMediaItemSequence.withAudioFrom(ImmutableList.of(clip)))
+            .build();
     AtomicInteger underrunCount = new AtomicInteger();
     AudioSink.Listener sinkListener =
         new AudioSink.Listener() {
@@ -262,7 +318,11 @@ public class CompositionPlaybackTest {
             .setDurationUs(1_000_000L)
             .build();
     EditedMediaItemSequence sequence =
-        new EditedMediaItemSequence.Builder(clip).addGap(500_000).addItem(clip).build();
+        new EditedMediaItemSequence.Builder(ImmutableSet.of(C.TRACK_TYPE_AUDIO))
+            .addItem(clip)
+            .addGap(500_000)
+            .addItem(clip)
+            .build();
     Composition composition = new Composition.Builder(sequence).build();
 
     runCompositionPlayer(composition);
@@ -276,10 +336,10 @@ public class CompositionPlaybackTest {
             .setDurationUs(1_000_000L)
             .build();
     EditedMediaItemSequence sequence =
-        new EditedMediaItemSequence.Builder()
+        new EditedMediaItemSequence.Builder(ImmutableSet.of(C.TRACK_TYPE_AUDIO))
             .addGap(500_000)
             .addItem(clip)
-            .experimentalSetForceAudioTrack(true)
+            .addItem(clip)
             .build();
     Composition composition = new Composition.Builder(sequence).build();
 
@@ -294,14 +354,14 @@ public class CompositionPlaybackTest {
             .setDurationUs(1_000_000L)
             .build();
     EditedMediaItemSequence audioSequence =
-        new EditedMediaItemSequence.Builder()
+        new EditedMediaItemSequence.Builder(ImmutableSet.of(C.TRACK_TYPE_AUDIO))
             .addGap(500_000)
             .addItem(audioClip)
-            .experimentalSetForceAudioTrack(true)
             .build();
     EditedMediaItem videoClip =
         new EditedMediaItem.Builder(VIDEO_MEDIA_ITEM).setDurationUs(VIDEO_DURATION_US).build();
-    EditedMediaItemSequence videoSequence = new EditedMediaItemSequence.Builder(videoClip).build();
+    EditedMediaItemSequence videoSequence =
+        EditedMediaItemSequence.withAudioAndVideoFrom(ImmutableList.of(videoClip));
     Composition composition = new Composition.Builder(videoSequence, audioSequence).build();
 
     runCompositionPlayer(composition);
@@ -320,6 +380,7 @@ public class CompositionPlaybackTest {
               player =
                   new CompositionPlayer.Builder(context)
                       .setVideoPrewarmingEnabled(videoPrewarmingEnabled)
+                      .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
                       .build();
               player.addListener(playerTestListener);
               player.setComposition(composition);

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">Toista</string>
+  <string name="playpause_button_pause">Keskeytä</string>
+  <string name="next_button">Seuraava</string>
+  <string name="previous_button">Edellinen</string>
+  <string name="seek_back_button">Kelaus taaksepäin</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">Siirry %d sekunti taaksepäin</item>
+    <item quantity="other">Siirry %d sekuntia taaksepäin</item>
+  </plurals>
+  <string name="seek_forward_button">Siirry eteenpäin</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">Siirry eteenpäin %d sekunti</item>
+    <item quantity="other">Siirry eteenpäin %d sekuntia</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">Tila: Älä toista. Vaihda.</string>
+  <string name="repeat_button_repeat_one">Tila: Toista yksi. Vaihda.</string>
+  <string name="repeat_button_repeat_all">Tila: Toista kaikki. Vaihda.</string>
+  <string name="shuffle_button_shuffle_on">Satunnaistoisto käytössä.</string>
+  <string name="shuffle_button_shuffle_off">Satunnaistoisto poistettu käytöstä.</string>
+  <string name="mute_button_shown_unmuted">Mykistä</string>
+  <string name="mute_button_shown_muted">Poista mykistys</string>
+</resources>

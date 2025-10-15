@@ -39,8 +39,6 @@ import static androidx.media3.common.Player.COMMAND_SET_TRACK_SELECTION_PARAMETE
 import static androidx.media3.common.Player.COMMAND_SET_VIDEO_SURFACE;
 import static androidx.media3.common.Player.COMMAND_SET_VOLUME;
 import static androidx.media3.common.Player.COMMAND_STOP;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.postOrRun;
 import static androidx.media3.common.util.Util.postOrRunWithCompletion;
 import static androidx.media3.common.util.Util.transformFutureAsync;
@@ -61,9 +59,15 @@ import static androidx.media3.session.SessionError.ERROR_SESSION_DISCONNECTED;
 import static androidx.media3.session.SessionError.ERROR_UNKNOWN;
 import static androidx.media3.session.SessionError.INFO_CANCELLED;
 import static androidx.media3.session.SessionUtil.PACKAGE_INVALID;
+import static androidx.media3.session.SessionUtil.PACKAGE_VALID;
 import static androidx.media3.session.SessionUtil.checkPackageValidity;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.app.PendingIntent;
+import android.graphics.Canvas;
+import android.graphics.PixelFormat;
+import android.graphics.Rect;
 import android.media.session.MediaSession.Token;
 import android.os.Binder;
 import android.os.Bundle;
@@ -71,7 +75,9 @@ import android.os.IBinder;
 import android.os.RemoteException;
 import android.text.TextUtils;
 import android.view.Surface;
+import android.view.SurfaceHolder;
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 import androidx.core.util.ObjectsCompat;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.BundleListRetriever;
@@ -87,7 +93,6 @@ import androidx.media3.common.TrackGroup;
 import androidx.media3.common.TrackSelectionOverride;
 import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.Tracks;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.BundleCollectionUtil;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.Log;
@@ -124,8 +129,11 @@ import java.util.concurrent.ExecutionException;
 
   private static final String TAG = "MediaSessionStub";
 
+  // LINT.IfChange(version_int)
   /** The version of the IMediaSession interface. */
-  public static final int VERSION_INT = 6;
+  public static final int VERSION_INT = 8;
+
+  // LINT.ThenChange()
 
   /**
    * Sequence number used when a controller method is triggered on the session side that wasn't
@@ -139,6 +147,7 @@ import java.util.concurrent.ExecutionException;
 
   private ImmutableBiMap<TrackGroup, String> trackGroupIdMap;
   private int nextUniqueTrackGroupIdPrefix;
+  @Nullable private SurfaceHolderWithSize surfaceHolderWithSize;
 
   public MediaSessionStub(MediaSessionImpl sessionImpl) {
     // Initialize members with params.
@@ -159,7 +168,7 @@ import java.util.concurrent.ExecutionException;
       int sequenceNumber,
       SessionResult result) {
     try {
-      checkStateNotNull(controller.getControllerCb()).onSessionResult(sequenceNumber, result);
+      checkNotNull(controller.getControllerCb()).onSessionResult(sequenceNumber, result);
       // Make sure the session sends out a new PlayerInfo update in any case, even if the controller
       // command we just handled didn't change anything. This is needed to end any masking states
       // in the controllers waiting to acknowledge this command.
@@ -269,7 +278,7 @@ import java.util.concurrent.ExecutionException;
   private static void sendLibraryResult(
       ControllerInfo controller, int sequenceNumber, LibraryResult<?> result) {
     try {
-      checkStateNotNull(controller.getControllerCb()).onLibraryResult(sequenceNumber, result);
+      checkNotNull(controller.getControllerCb()).onLibraryResult(sequenceNumber, result);
     } catch (RemoteException e) {
       Log.w(TAG, "Failed to send result to browser " + controller, e);
     }
@@ -488,8 +497,7 @@ import java.util.concurrent.ExecutionException;
               return;
             }
             IBinder callbackBinder =
-                checkStateNotNull((Controller2Cb) controllerInfo.getControllerCb())
-                    .getCallbackBinder();
+                checkNotNull((Controller2Cb) controllerInfo.getControllerCb()).getCallbackBinder();
             MediaSession.ConnectionResult connectionResult =
                 sessionImpl.onConnectOnHandler(controllerInfo);
             // Don't reject connection for the request from trusted app.
@@ -643,7 +651,9 @@ import java.util.concurrent.ExecutionException;
     int uid = Binder.getCallingUid();
     int callingPid = Binder.getCallingPid();
     @Nullable String packageName = request.packageName;
-    if (checkPackageValidity(sessionImpl.getContext(), packageName, uid) == PACKAGE_INVALID) {
+    @SessionUtil.PackageValidationResult
+    int packageValidity = checkPackageValidity(sessionImpl.getContext(), packageName, uid);
+    if (packageValidity == PACKAGE_INVALID) {
       Log.w(
           TAG,
           "Ignoring connection from invalid package name " + packageName + " (uid=" + uid + ")");
@@ -669,7 +679,8 @@ import java.util.concurrent.ExecutionException;
               isTrustedForMediaControl,
               new MediaSessionStub.Controller2Cb(caller, request.controllerInterfaceVersion),
               request.connectionHints,
-              request.maxCommandsForMediaItems);
+              request.maxCommandsForMediaItems,
+              /* isPackageNameVerified= */ packageValidity == PACKAGE_VALID);
       connect(caller, controllerInfo);
     } finally {
       Binder.restoreCallingIdentity(token);
@@ -1567,7 +1578,69 @@ import java.util.concurrent.ExecutionException;
         caller,
         sequenceNumber,
         COMMAND_SET_VIDEO_SURFACE,
-        sendSessionResultSuccess(player -> player.setVideoSurface(surface)));
+        sendSessionResultSuccess(
+            player -> {
+              if (checkNotNull(sessionImpl.get()).shouldUseLegacySurfaceHandling()) {
+                player.setVideoSurface(surface);
+              } else {
+                if (surface == null) {
+                  player.setVideoSurfaceHolder(null);
+                  surfaceHolderWithSize = null;
+                } else {
+                  surfaceHolderWithSize = new SurfaceHolderWithSize(surface);
+                  player.setVideoSurfaceHolder(surfaceHolderWithSize);
+                }
+              }
+            }));
+  }
+
+  @Override
+  public void setVideoSurfaceWithSize(
+      @Nullable IMediaController caller,
+      int sequenceNumber,
+      @Nullable Surface surface,
+      int width,
+      int height) {
+    if (caller == null) {
+      return;
+    }
+    queueSessionTaskWithPlayerCommand(
+        caller,
+        sequenceNumber,
+        COMMAND_SET_VIDEO_SURFACE,
+        sendSessionResultSuccess(
+            player -> {
+              if (checkNotNull(sessionImpl.get()).shouldUseLegacySurfaceHandling()) {
+                player.setVideoSurface(surface);
+              } else {
+                if (surface == null) {
+                  player.setVideoSurfaceHolder(null);
+                  surfaceHolderWithSize = null;
+                } else {
+                  surfaceHolderWithSize = new SurfaceHolderWithSize(surface, width, height);
+                  player.setVideoSurfaceHolder(surfaceHolderWithSize);
+                }
+              }
+            }));
+  }
+
+  @Override
+  public void onSurfaceSizeChanged(
+      @Nullable IMediaController caller, int sequenceNumber, int width, int height) {
+    if (caller == null) {
+      return;
+    }
+    queueSessionTaskWithPlayerCommand(
+        caller,
+        sequenceNumber,
+        COMMAND_SET_VIDEO_SURFACE,
+        sendSessionResultSuccess(
+            player -> {
+              if (!checkNotNull(sessionImpl.get()).shouldUseLegacySurfaceHandling()
+                  && surfaceHolderWithSize != null) {
+                surfaceHolderWithSize.setFixedSize(width, height);
+              }
+            }));
   }
 
   @Override
@@ -2107,7 +2180,7 @@ import java.util.concurrent.ExecutionException;
         boolean excludeTimeline,
         boolean excludeTracks)
         throws RemoteException {
-      Assertions.checkState(controllerInterfaceVersion != 0);
+      checkState(controllerInterfaceVersion != 0);
       // The bundling exclusions merge the performance overrides with the available commands.
       boolean bundlingExclusionsTimeline =
           excludeTimeline || !availableCommands.contains(Player.COMMAND_GET_TIMELINE);
@@ -2239,6 +2312,12 @@ import java.util.concurrent.ExecutionException;
     }
 
     @Override
+    public void onSurfaceSizeChanged(int sequenceNumber, int width, int height)
+        throws RemoteException {
+      iController.onSurfaceSizeChanged(sequenceNumber, width, height);
+    }
+
+    @Override
     public void onRenderedFirstFrame(int sequenceNumber) throws RemoteException {
       iController.onRenderedFirstFrame(sequenceNumber);
     }
@@ -2305,5 +2384,83 @@ import java.util.concurrent.ExecutionException;
     public void setFuture(ListenableFuture<SessionResult> future) {
       this.future = future;
     }
+  }
+
+  @VisibleForTesting
+  /* package */ static class SurfaceHolderWithSize implements SurfaceHolder {
+    private final Surface surface;
+    private final Rect surfaceFrame = new Rect();
+    @Nullable private SurfaceHolder.Callback callback;
+
+    SurfaceHolderWithSize(Surface surface) {
+      this.surface = surface;
+    }
+
+    SurfaceHolderWithSize(Surface surface, int width, int height) {
+      this.surface = surface;
+      surfaceFrame.set(0, 0, width, height);
+    }
+
+    @Override
+    public void setFixedSize(int width, int height) {
+      surfaceFrame.set(0, 0, width, height);
+      if (callback != null) {
+        // doesn't allow PixelFormat.UNKNOWN
+        callback.surfaceChanged(this, /* format= */ PixelFormat.RGBA_8888, width, height);
+      }
+    }
+
+    @Override
+    public void addCallback(Callback callback) {
+      this.callback = callback;
+    }
+
+    @Override
+    public void removeCallback(Callback callback) {
+      if (this.callback == callback) {
+        this.callback = null;
+      }
+    }
+
+    @Override
+    public Surface getSurface() {
+      return surface;
+    }
+
+    @Override
+    public Rect getSurfaceFrame() {
+      return surfaceFrame;
+    }
+
+    // Can be left as stubs.
+    @Override
+    public boolean isCreating() {
+      return false;
+    }
+
+    @Override
+    public void setType(int type) {}
+
+    @Override
+    public void setSizeFromLayout() {}
+
+    @Override
+    public void setFormat(int format) {}
+
+    @Override
+    public void setKeepScreenOn(boolean screenOn) {}
+
+    @Override
+    public Canvas lockCanvas() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Canvas lockCanvas(Rect dirty) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void unlockCanvasAndPost(Canvas canvas) {}
   }
 }

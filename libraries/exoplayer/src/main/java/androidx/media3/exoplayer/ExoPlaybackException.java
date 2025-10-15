@@ -15,6 +15,9 @@
  */
 package androidx.media3.exoplayer;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.ElementType.LOCAL_VARIABLE;
 import static java.lang.annotation.ElementType.METHOD;
@@ -31,7 +34,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.C.FormatSupport;
 import androidx.media3.common.Format;
 import androidx.media3.common.PlaybackException;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.source.MediaSource;
@@ -299,8 +301,8 @@ public final class ExoPlaybackException extends PlaybackException {
       long timestampMs,
       boolean isRecoverable) {
     super(message, cause, errorCode, Bundle.EMPTY, timestampMs);
-    Assertions.checkArgument(!isRecoverable || type == TYPE_RENDERER);
-    Assertions.checkArgument(cause != null || type == TYPE_REMOTE);
+    checkArgument(!isRecoverable || type == TYPE_RENDERER);
+    checkArgument(cause != null || type == TYPE_REMOTE);
     this.type = type;
     this.rendererName = rendererName;
     this.rendererIndex = rendererIndex;
@@ -317,8 +319,8 @@ public final class ExoPlaybackException extends PlaybackException {
    */
   @UnstableApi
   public IOException getSourceException() {
-    Assertions.checkState(type == TYPE_SOURCE);
-    return (IOException) Assertions.checkNotNull(getCause());
+    checkState(type == TYPE_SOURCE);
+    return (IOException) checkNotNull(getCause());
   }
 
   /**
@@ -328,8 +330,8 @@ public final class ExoPlaybackException extends PlaybackException {
    */
   @UnstableApi
   public Exception getRendererException() {
-    Assertions.checkState(type == TYPE_RENDERER);
-    return (Exception) Assertions.checkNotNull(getCause());
+    checkState(type == TYPE_RENDERER);
+    return (Exception) checkNotNull(getCause());
   }
 
   /**
@@ -339,8 +341,8 @@ public final class ExoPlaybackException extends PlaybackException {
    */
   @UnstableApi
   public RuntimeException getUnexpectedException() {
-    Assertions.checkState(type == TYPE_UNEXPECTED);
-    return (RuntimeException) Assertions.checkNotNull(getCause());
+    checkState(type == TYPE_UNEXPECTED);
+    return (RuntimeException) checkNotNull(getCause());
   }
 
   @Override

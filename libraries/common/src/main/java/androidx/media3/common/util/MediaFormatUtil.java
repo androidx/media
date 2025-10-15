@@ -81,7 +81,9 @@ public final class MediaFormatUtil {
                 getInteger(
                     mediaFormat, MediaFormat.KEY_BIT_RATE, /* defaultValue= */ Format.NO_VALUE))
             .setCodecs(getCodecString(mediaFormat))
-            .setFrameRate(getFrameRate(mediaFormat, /* defaultValue= */ Format.NO_VALUE))
+            .setFrameRate(
+                getFloatFromIntOrFloat(
+                    mediaFormat, MediaFormat.KEY_FRAME_RATE, /* defaultValue= */ Format.NO_VALUE))
             .setWidth(
                 getInteger(mediaFormat, MediaFormat.KEY_WIDTH, /* defaultValue= */ Format.NO_VALUE))
             .setHeight(
@@ -151,6 +153,10 @@ public final class MediaFormatUtil {
     maybeSetInteger(result, MediaFormat.KEY_BIT_RATE, format.bitrate);
     maybeSetInteger(result, KEY_MAX_BIT_RATE, format.peakBitrate);
     maybeSetInteger(result, MediaFormat.KEY_CHANNEL_COUNT, format.channelCount);
+    int channelMask = Util.getAudioTrackChannelConfig(format.channelCount);
+    if (channelMask != AudioFormat.CHANNEL_INVALID) {
+      result.setInteger(MediaFormat.KEY_CHANNEL_MASK, channelMask);
+    }
 
     maybeSetColorInfo(result, format.colorInfo);
 
@@ -341,6 +347,37 @@ public final class MediaFormatUtil {
   }
 
   /**
+   * Returns the value of a key whose value can be set as int or float.
+   *
+   * <p>The {@code defaultValue} is returned if the key is not present in the {@link MediaFormat}.
+   *
+   * @throws ClassCastException If the stored value for the key is other than int or float.
+   */
+  public static float getFloatFromIntOrFloat(
+      MediaFormat mediaFormat, String keyName, float defaultValue) {
+    if (!mediaFormat.containsKey(keyName)) {
+      return defaultValue;
+    }
+    float value;
+    if (SDK_INT >= 29) {
+      int valueType = mediaFormat.getValueTypeForKey(keyName);
+      if (valueType == MediaFormat.TYPE_FLOAT) {
+        value = mediaFormat.getFloat(keyName);
+      } else {
+        // It should be int.
+        value = mediaFormat.getInteger(keyName);
+      }
+    } else {
+      try {
+        value = mediaFormat.getFloat(keyName);
+      } catch (ClassCastException ex) {
+        value = mediaFormat.getInteger(keyName);
+      }
+    }
+    return value;
+  }
+
+  /**
    * Returns a {@code Codecs string} of {@link MediaFormat}.
    *
    * <p>For H263 and Dolby Vision formats, builds a codec string using profile and level.
@@ -368,24 +405,6 @@ public final class MediaFormatUtil {
     } else {
       return getString(mediaFormat, MediaFormat.KEY_CODECS_STRING, /* defaultValue= */ null);
     }
-  }
-
-  /**
-   * Returns the frame rate from a {@link MediaFormat}.
-   *
-   * <p>The {@link MediaFormat#KEY_FRAME_RATE} can have both integer and float value so it returns
-   * which ever value is set.
-   */
-  private static float getFrameRate(MediaFormat mediaFormat, float defaultValue) {
-    float frameRate = defaultValue;
-    if (mediaFormat.containsKey(MediaFormat.KEY_FRAME_RATE)) {
-      try {
-        frameRate = mediaFormat.getFloat(MediaFormat.KEY_FRAME_RATE);
-      } catch (ClassCastException ex) {
-        frameRate = mediaFormat.getInteger(MediaFormat.KEY_FRAME_RATE);
-      }
-    }
-    return frameRate;
   }
 
   /** Returns the ratio between a pixel's width and height for a {@link MediaFormat}. */
@@ -515,10 +534,11 @@ public final class MediaFormatUtil {
   /** Whether this is a valid {@link C.ColorTransfer} instance. */
   private static boolean isValidColorTransfer(int colorTransfer) {
     // LINT.IfChange(color_transfer)
-    // C.COLOR_TRANSFER_GAMMA_2_2 & C.COLOR_TRANSFER_SRGB aren't valid because MediaCodec, and
-    // hence MediaFormat, do not support them.
+    // C.COLOR_TRANSFER_GAMMA_2_2 is not valid because MediaCodec, and hence MediaFormat, do not
+    // support them.
     return colorTransfer == C.COLOR_TRANSFER_LINEAR
         || colorTransfer == C.COLOR_TRANSFER_SDR
+        || colorTransfer == C.COLOR_TRANSFER_SRGB
         || colorTransfer == C.COLOR_TRANSFER_ST2084
         || colorTransfer == C.COLOR_TRANSFER_HLG
         || colorTransfer == Format.NO_VALUE;

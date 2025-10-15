@@ -15,8 +15,9 @@
  */
 package androidx.media3.datasource;
 
+import static com.google.common.base.Preconditions.checkState;
+
 import androidx.annotation.Nullable;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import java.nio.ByteBuffer;
@@ -104,11 +105,11 @@ public final class AesFlushingCipher {
     // perform the transformation manually in the case of a subsequent call to this method with
     // the real data.
     int bytesToFlush = length - written;
-    Assertions.checkState(bytesToFlush < blockSize);
+    checkState(bytesToFlush < blockSize);
     outOffset += written;
     pendingXorBytes = blockSize - bytesToFlush;
     written = nonFlushingUpdate(zerosBlock, 0, pendingXorBytes, flushedBlock, 0);
-    Assertions.checkState(written == blockSize);
+    checkState(written == blockSize);
     // The first part of xorBytes contains the flushed data, which we copy out. The remainder
     // contains the bytes that will be needed for manual transformation in a subsequent call.
     for (int i = 0; i < bytesToFlush; i++) {

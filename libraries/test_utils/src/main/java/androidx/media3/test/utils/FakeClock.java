@@ -15,8 +15,8 @@
  */
 package androidx.media3.test.utils;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.os.Build;
 import android.os.Handler;
@@ -319,6 +319,16 @@ public class FakeClock implements Clock {
     handler.handler.removeMessages(what);
   }
 
+  private synchronized void removePendingHandlerMessages(ClockHandler handler, Runnable runnable) {
+    for (int i = handlerMessages.size() - 1; i >= 0; i--) {
+      HandlerMessage message = handlerMessages.get(i);
+      if (message.handler.equals(handler) && message.runnable == runnable) {
+        handlerMessages.remove(i);
+      }
+    }
+    handler.handler.removeCallbacks(runnable);
+  }
+
   private synchronized void removePendingHandlerMessages(
       ClockHandler handler, @Nullable Object token) {
     for (int i = handlerMessages.size() - 1; i >= 0; i--) {
@@ -577,6 +587,11 @@ public class FakeClock implements Clock {
       // Using what==0 when removing messages is dangerous as it also removes all pending Runnables.
       checkArgument(what != 0);
       removePendingHandlerMessages(/* handler= */ this, what);
+    }
+
+    @Override
+    public void removeCallbacks(Runnable runnable) {
+      removePendingHandlerMessages(/* handler= */ this, runnable);
     }
 
     @Override

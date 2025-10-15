@@ -26,8 +26,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.media3.common.C
 import androidx.media3.common.Player
-import androidx.media3.common.util.Assertions.checkState
 import androidx.media3.common.util.UnstableApi
+import com.google.common.base.Preconditions.checkState
 import kotlinx.coroutines.CoroutineScope
 
 /**
@@ -113,7 +113,10 @@ class ProgressStateWithTickCount(
       player,
       scope,
       nextMediaTickMsSupplier = ::nextMediaWakeUpPositionMs,
-      shouldScheduleTask = { canCalculateTicks(totalTickCount, getDurationMsOrDefault(player)) },
+      shouldScheduleTask = {
+        isReadyOrBuffering(player) &&
+          canCalculateTicks(totalTickCount, getDurationMsOrDefault(player))
+      },
       scheduledTask = ::updateProgress,
     )
 

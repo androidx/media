@@ -15,7 +15,7 @@
  */
 package androidx.media3.exoplayer;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
+import static com.google.common.base.Preconditions.checkArgument;
 
 import android.media.MediaCodec;
 import android.media.MediaFormat;
@@ -53,6 +53,7 @@ public final class ScrubbingModeParameters {
     @Nullable private Double fractionalSeekToleranceAfter;
     private boolean shouldIncreaseCodecOperatingRate;
     private boolean allowSkippingMediaCodecFlush;
+    private boolean allowSkippingKeyFrameReset;
     private boolean shouldEnableDynamicScheduling;
     private boolean useDecodeOnlyFlag;
 
@@ -61,6 +62,7 @@ public final class ScrubbingModeParameters {
       this.disabledTrackTypes = ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_METADATA);
       shouldIncreaseCodecOperatingRate = true;
       allowSkippingMediaCodecFlush = true;
+      allowSkippingKeyFrameReset = true;
       shouldEnableDynamicScheduling = true;
       useDecodeOnlyFlag = true;
     }
@@ -72,6 +74,7 @@ public final class ScrubbingModeParameters {
       this.shouldIncreaseCodecOperatingRate =
           scrubbingModeParameters.shouldIncreaseCodecOperatingRate;
       this.allowSkippingMediaCodecFlush = scrubbingModeParameters.allowSkippingMediaCodecFlush;
+      this.allowSkippingKeyFrameReset = scrubbingModeParameters.allowSkippingKeyFrameReset;
       this.shouldEnableDynamicScheduling = scrubbingModeParameters.shouldEnableDynamicScheduling;
       this.useDecodeOnlyFlag = scrubbingModeParameters.useDecodeOnlyFlag;
     }
@@ -195,6 +198,25 @@ public final class ScrubbingModeParameters {
     }
 
     /**
+     * Sets whether to avoid resetting to a keyframe and flushing the decoder if seeking forwards
+     * within the same group of pictures(GOP).
+     *
+     * <p>Setting this to {@code true} will skip flushing the decoder and decoding previously
+     * processed frames.
+     *
+     * <p>Defaults to {@code true}.
+     *
+     * @param allowSkippingKeyFrameReset Whether to skip resetting to the keyframe when seeking
+     *     forwards in the same group of pictures in scrubbing mode.
+     * @return This builder for convenience.
+     */
+    @CanIgnoreReturnValue
+    public Builder setAllowSkippingKeyFrameReset(boolean allowSkippingKeyFrameReset) {
+      this.allowSkippingKeyFrameReset = allowSkippingKeyFrameReset;
+      return this;
+    }
+
+    /**
      * Sets whether to use {@link MediaCodec#BUFFER_FLAG_DECODE_ONLY} in scrubbing mode.
      *
      * <p>When playback is using {@link MediaCodec} on API 34+, this flag can speed up seeking by
@@ -280,6 +302,13 @@ public final class ScrubbingModeParameters {
    */
   public final boolean useDecodeOnlyFlag;
 
+  /**
+   * Whether to avoid resetting to a keyframe during a forward seek within the same GoP.
+   *
+   * <p>Defaults to {@code true}.
+   */
+  public final boolean allowSkippingKeyFrameReset;
+
   private ScrubbingModeParameters(Builder builder) {
     this.disabledTrackTypes = builder.disabledTrackTypes;
     this.fractionalSeekToleranceBefore = builder.fractionalSeekToleranceBefore;
@@ -287,6 +316,7 @@ public final class ScrubbingModeParameters {
     this.shouldIncreaseCodecOperatingRate = builder.shouldIncreaseCodecOperatingRate;
     this.isMediaCodecFlushEnabled = !builder.allowSkippingMediaCodecFlush;
     this.allowSkippingMediaCodecFlush = builder.allowSkippingMediaCodecFlush;
+    this.allowSkippingKeyFrameReset = builder.allowSkippingKeyFrameReset;
     this.shouldEnableDynamicScheduling = builder.shouldEnableDynamicScheduling;
     this.useDecodeOnlyFlag = builder.useDecodeOnlyFlag;
   }
@@ -304,6 +334,7 @@ public final class ScrubbingModeParameters {
     ScrubbingModeParameters that = (ScrubbingModeParameters) o;
     return disabledTrackTypes.equals(that.disabledTrackTypes)
         && allowSkippingMediaCodecFlush == that.allowSkippingMediaCodecFlush
+        && allowSkippingKeyFrameReset == that.allowSkippingKeyFrameReset
         && Objects.equals(fractionalSeekToleranceBefore, that.fractionalSeekToleranceBefore)
         && Objects.equals(fractionalSeekToleranceAfter, that.fractionalSeekToleranceAfter)
         && shouldIncreaseCodecOperatingRate == that.shouldIncreaseCodecOperatingRate
@@ -319,6 +350,7 @@ public final class ScrubbingModeParameters {
         fractionalSeekToleranceAfter,
         shouldIncreaseCodecOperatingRate,
         allowSkippingMediaCodecFlush,
+        allowSkippingKeyFrameReset,
         shouldEnableDynamicScheduling,
         useDecodeOnlyFlag);
   }

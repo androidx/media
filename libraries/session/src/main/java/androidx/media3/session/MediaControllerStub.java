@@ -39,8 +39,11 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 
   private static final String TAG = "MediaControllerStub";
 
+  // LINT.IfChange(version_int)
   /** The version of the IMediaController interface. */
   public static final int VERSION_INT = 8;
+
+  // LINT.ThenChange()
 
   private final WeakReference<MediaControllerImplBase> controller;
 
@@ -319,6 +322,11 @@ import org.checkerframework.checker.nullness.qual.NonNull;
       return;
     }
     dispatchControllerTaskOnHandler(controller -> controller.onError(seq, error));
+  }
+
+  @Override
+  public void onSurfaceSizeChanged(int seq, int width, int height) {
+    dispatchControllerTaskOnHandler(controller -> controller.onSurfaceSizeChanged(width, height));
   }
 
   @Override

@@ -15,13 +15,13 @@
  */
 package androidx.media3.exoplayer.source;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.TrackGroup;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.exoplayer.LoadingInfo;
 import androidx.media3.exoplayer.SeekParameters;
@@ -98,7 +98,7 @@ import java.util.IdentityHashMap;
 
   @Override
   public TrackGroupArray getTrackGroups() {
-    return Assertions.checkNotNull(trackGroups);
+    return checkNotNull(trackGroups);
   }
 
   @Override
@@ -155,13 +155,13 @@ import java.util.IdentityHashMap;
       for (int j = 0; j < selections.length; j++) {
         if (selectionChildIndices[j] == i) {
           // Assert that the child provided a stream for the selection.
-          SampleStream childStream = Assertions.checkNotNull(childStreams[j]);
+          SampleStream childStream = checkNotNull(childStreams[j]);
           newStreams[j] = childStreams[j];
           periodEnabled = true;
           streamPeriodIndices.put(childStream, i);
         } else if (streamChildIndices[j] == i) {
           // Assert that the child cleared any previous stream.
-          Assertions.checkState(childStreams[j] == null);
+          checkState(childStreams[j] == null);
         }
       }
       if (periodEnabled) {
@@ -303,12 +303,12 @@ import java.util.IdentityHashMap;
       }
     }
     trackGroups = new TrackGroupArray(trackGroupArray);
-    Assertions.checkNotNull(callback).onPrepared(this);
+    checkNotNull(callback).onPrepared(this);
   }
 
   @Override
   public void onContinueLoadingRequested(MediaPeriod ignored) {
-    Assertions.checkNotNull(callback).onContinueLoadingRequested(this);
+    checkNotNull(callback).onContinueLoadingRequested(this);
   }
 
   private static final class MergingMediaPeriodTrackSelection extends ForwardingTrackSelection {

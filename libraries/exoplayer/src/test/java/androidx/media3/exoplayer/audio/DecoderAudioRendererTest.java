@@ -83,8 +83,7 @@ public class DecoderAudioRendererTest {
 
   @Config(sdk = Config.OLDEST_SDK)
   @Test
-  public void supportsFormatAtApi21() {
-    // From API 21, tunneling is supported.
+  public void supportsFormat() {
     assertThat(audioRenderer.supportsFormat(FORMAT))
         .isEqualTo(
             ADAPTIVE_NOT_SEAMLESS | TUNNELING_SUPPORTED | FORMAT_HANDLED | DECODER_SUPPORT_PRIMARY);
@@ -232,6 +231,7 @@ public class DecoderAudioRendererTest {
     when(mockAudioSink.handleBuffer(any(), anyLong(), anyInt())).thenReturn(true);
     when(mockAudioSink.getPlaybackParameters()).thenReturn(PlaybackParameters.DEFAULT);
     when(mockAudioSink.getAudioTrackBufferSizeUs()).thenReturn(100_000L);
+    when(mockAudioSink.hasPendingData()).thenReturn(true);
     CountDownLatch latchDecode = new CountDownLatch(4);
     ForwardingAudioSinkWithCountdownLatch countdownLatchAudioSink =
         new ForwardingAudioSinkWithCountdownLatch(mockAudioSink, latchDecode);
@@ -287,6 +287,7 @@ public class DecoderAudioRendererTest {
     when(mockAudioSink.isEnded()).thenReturn(true);
     when(mockAudioSink.handleBuffer(any(), anyLong(), anyInt())).thenReturn(true);
     when(mockAudioSink.getAudioTrackBufferSizeUs()).thenReturn(100_000L);
+    when(mockAudioSink.hasPendingData()).thenReturn(true);
     PlaybackParameters playbackParametersWithDoubleSpeed =
         new PlaybackParameters(/* speed= */ 2.0f);
     when(mockAudioSink.getPlaybackParameters()).thenReturn(playbackParametersWithDoubleSpeed);
@@ -346,6 +347,7 @@ public class DecoderAudioRendererTest {
     when(mockAudioSink.handleBuffer(any(), anyLong(), anyInt())).thenReturn(true);
     when(mockAudioSink.getPlaybackParameters()).thenReturn(PlaybackParameters.DEFAULT);
     when(mockAudioSink.getAudioTrackBufferSizeUs()).thenReturn(100_000L);
+    when(mockAudioSink.hasPendingData()).thenReturn(true);
     FakeClock fakeClock = new FakeClock(/* initialTimeMs= */ 100, /* isAutoAdvancing= */ true);
     CountDownLatch latchDecode = new CountDownLatch(4);
     ForwardingAudioSinkWithCountdownLatch countdownLatchAudioSink =
@@ -405,6 +407,7 @@ public class DecoderAudioRendererTest {
     when(mockAudioSink.handleBuffer(any(), anyLong(), anyInt())).thenReturn(true);
     when(mockAudioSink.getPlaybackParameters()).thenReturn(PlaybackParameters.DEFAULT);
     when(mockAudioSink.getAudioTrackBufferSizeUs()).thenReturn(C.TIME_UNSET);
+    when(mockAudioSink.hasPendingData()).thenReturn(true);
     CountDownLatch latchDecode = new CountDownLatch(4);
     ForwardingAudioSinkWithCountdownLatch countdownLatchAudioSink =
         new ForwardingAudioSinkWithCountdownLatch(mockAudioSink, latchDecode);
@@ -493,6 +496,7 @@ public class DecoderAudioRendererTest {
             any(), longThat(presentationTimeUs -> presentationTimeUs == 150_000), anyInt()))
         .thenReturn(false);
     when(mockAudioSink.getPlaybackParameters()).thenReturn(PlaybackParameters.DEFAULT);
+    when(mockAudioSink.hasPendingData()).thenReturn(true);
     while (latchDecode.getCount() != 0) {
       audioRenderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
     }
@@ -542,6 +546,7 @@ public class DecoderAudioRendererTest {
     // Represents audio sink buffers being accepted, simulating a sink that isn't full yet.
     when(mockAudioSink.handleBuffer(any(), anyLong(), anyInt())).thenReturn(true);
     when(mockAudioSink.getPlaybackParameters()).thenReturn(PlaybackParameters.DEFAULT);
+    when(mockAudioSink.hasPendingData()).thenReturn(true);
     audioRenderer.start();
     while (latchDecode.getCount() != 0) {
       audioRenderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
@@ -592,6 +597,7 @@ public class DecoderAudioRendererTest {
     // Represents audio sink buffers being accepted, simulating a sink that isn't full yet.
     when(mockAudioSink.handleBuffer(any(), anyLong(), anyInt())).thenReturn(true);
     when(mockAudioSink.getPlaybackParameters()).thenReturn(PlaybackParameters.DEFAULT);
+    when(mockAudioSink.hasPendingData()).thenReturn(true);
     while (latchDecode.getCount() != 0) {
       audioRenderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
     }
@@ -645,6 +651,7 @@ public class DecoderAudioRendererTest {
     // Represents audio sink buffers being accepted, simulating a sink that isn't full yet.
     when(mockAudioSink.handleBuffer(any(), anyLong(), anyInt())).thenReturn(true);
     when(mockAudioSink.getPlaybackParameters()).thenReturn(PlaybackParameters.DEFAULT);
+    when(mockAudioSink.hasPendingData()).thenReturn(true);
     while (!hasCalledPlayToEndOfStream.get()) {
       audioRenderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
     }
@@ -664,6 +671,7 @@ public class DecoderAudioRendererTest {
     when(mockAudioSink.handleBuffer(any(), anyLong(), anyInt())).thenReturn(true);
     when(mockAudioSink.getPlaybackParameters()).thenReturn(PlaybackParameters.DEFAULT);
     when(mockAudioSink.getAudioTrackBufferSizeUs()).thenReturn(100_000L);
+    when(mockAudioSink.hasPendingData()).thenReturn(true);
     AtomicBoolean hasCalledPlayToEndOfStream = new AtomicBoolean();
     ForwardingAudioSink forwardingAudioSink =
         new ForwardingAudioSink(mockAudioSink) {
@@ -719,6 +727,7 @@ public class DecoderAudioRendererTest {
   public void getDurationToProgressUs_afterResetPosition_returnsDefaultDuration() throws Exception {
     when(mockAudioSink.handleBuffer(any(), anyLong(), anyInt())).thenReturn(true);
     when(mockAudioSink.getPlaybackParameters()).thenReturn(PlaybackParameters.DEFAULT);
+    when(mockAudioSink.hasPendingData()).thenReturn(true);
     CountDownLatch latchDecode = new CountDownLatch(4);
     ForwardingAudioSinkWithCountdownLatch countdownLatchAudioSink =
         new ForwardingAudioSinkWithCountdownLatch(mockAudioSink, latchDecode);
@@ -761,7 +770,7 @@ public class DecoderAudioRendererTest {
 
     // Simulate a seek through resetPosition which should flush the audio sink.
     audioRenderer.stop();
-    audioRenderer.resetPosition(/* positionUs= */ 0);
+    audioRenderer.resetPosition(/* positionUs= */ 0, /* sampleStreamIsResetToKeyFrame= */ true);
     long durationToProgressUs =
         audioRenderer.getDurationToProgressUs(
             /* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
@@ -773,6 +782,7 @@ public class DecoderAudioRendererTest {
   public void getDurationToProgressUs_afterDisable_returnsDefaultDuration() throws Exception {
     when(mockAudioSink.handleBuffer(any(), anyLong(), anyInt())).thenReturn(true);
     when(mockAudioSink.getPlaybackParameters()).thenReturn(PlaybackParameters.DEFAULT);
+    when(mockAudioSink.hasPendingData()).thenReturn(true);
     CountDownLatch latchDecode = new CountDownLatch(4);
     ForwardingAudioSinkWithCountdownLatch countdownLatchAudioSink =
         new ForwardingAudioSinkWithCountdownLatch(mockAudioSink, latchDecode);

@@ -119,11 +119,7 @@ public class EnumerateDecodersTest {
     result.append(", mimeType=").append(codecCapabilities.getMimeType());
     result.append(", profileLevels=");
     appendProfileLevels(codecCapabilities.profileLevels, result);
-    if (SDK_INT >= 23) {
-      result
-          .append(", maxSupportedInstances=")
-          .append(codecCapabilities.getMaxSupportedInstances());
-    }
+    result.append(", maxSupportedInstances=").append(codecCapabilities.getMaxSupportedInstances());
     if (isVideo) {
       result.append(", videoCapabilities=");
       appendVideoCapabilities(codecCapabilities.getVideoCapabilities(), result);

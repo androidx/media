@@ -16,10 +16,9 @@
 
 package androidx.media3.exoplayer.rtsp;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.usToMs;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.min;
 
 import android.net.Uri;
@@ -927,7 +926,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
      * @throws IllegalStateException When transport for this RTP stream is not set.
      */
     public String getTransport() {
-      checkStateNotNull(transport);
+      checkNotNull(transport);
       return transport;
     }
 

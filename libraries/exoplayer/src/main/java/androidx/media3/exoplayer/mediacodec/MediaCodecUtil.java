@@ -159,7 +159,7 @@ public final class MediaCodecUtil {
     MediaCodecListCompat mediaCodecList =
         new MediaCodecListCompatV21(secure, tunneling, specialCodec);
     ArrayList<MediaCodecInfo> decoderInfos = getDecoderInfosInternal(key, mediaCodecList);
-    if (secure && decoderInfos.isEmpty() && SDK_INT <= 23) {
+    if (secure && decoderInfos.isEmpty() && SDK_INT == 23) {
       // Some devices don't list secure decoders on API level 21 [Internal: b/18678462]. Try the
       // legacy path. We also try this path on API levels 22 and 23 as a defensive measure.
       mediaCodecList = new MediaCodecListCompatV16();
@@ -491,7 +491,7 @@ public final class MediaCodecUtil {
             return decoderInfos;
           }
         } catch (Exception e) {
-          if (SDK_INT <= 23 && !decoderInfos.isEmpty()) {
+          if (SDK_INT == 23 && !decoderInfos.isEmpty()) {
             // Suppress error querying secondary codec capabilities up to API level 23.
             Log.e(TAG, "Skipping codec " + name + " (failed to query capabilities)");
           } else {
@@ -590,7 +590,7 @@ public final class MediaCodecUtil {
     }
 
     // MTK AC3 decoder doesn't support decoding JOC streams in 2-D. See [Internal: b/69400041].
-    if (SDK_INT <= 23
+    if (SDK_INT == 23
         && MimeTypes.AUDIO_E_AC3_JOC.equals(mimeType)
         && "OMX.MTK.AUDIO.DECODER.DSPAC3".equals(name)) {
       return false;

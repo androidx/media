@@ -28,6 +28,7 @@ import static org.junit.Assert.fail;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.primitives.Bytes;
+import com.google.common.primitives.Ints;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import org.junit.Test;
@@ -1572,6 +1573,64 @@ public final class ParsableByteArrayTest {
 
     // Compare ints instead of chars for unprintable characters, so the failure messages are better.
     assertThat((int) parser.peekChar(UTF_16LE)).isEqualTo(0);
+  }
+
+  @Test
+  public void peekUnsignedInt24_doesntModifyPosition() {
+    ParsableByteArray parser =
+        new ParsableByteArray(
+            Bytes.concat(
+                TestUtil.buildTestData(3),
+                Ints.toByteArray((1 << 23) + 10),
+                TestUtil.buildTestData(2)));
+    // Skip over the first byte of Ints.toByteArray
+    parser.setPosition(4);
+    parser.setLimit(7);
+
+    assertThat(parser.peekUnsignedInt24()).isEqualTo((1 << 23) + 10);
+    assertThat(parser.getPosition()).isEqualTo(4);
+  }
+
+  @Test
+  public void peekUnsignedInt24_exceedsLimit() {
+    ParsableByteArray parser =
+        new ParsableByteArray(
+            Bytes.concat(
+                TestUtil.buildTestData(3),
+                Ints.toByteArray((1 << 23) + 10),
+                TestUtil.buildTestData(2)));
+    // Skip over the first byte of Ints.toByteArray
+    parser.setPosition(4);
+    parser.setLimit(6);
+
+    assertThrows(IndexOutOfBoundsException.class, parser::peekUnsignedInt24);
+    assertThat(parser.getPosition()).isEqualTo(4);
+  }
+
+  @Test
+  public void peekInt_doesntModifyPosition() {
+    ParsableByteArray parser =
+        new ParsableByteArray(
+            Bytes.concat(
+                TestUtil.buildTestData(3), Ints.toByteArray(-5), TestUtil.buildTestData(2)));
+    parser.setPosition(3);
+    parser.setLimit(7);
+
+    assertThat(parser.peekInt()).isEqualTo(-5);
+    assertThat(parser.getPosition()).isEqualTo(3);
+  }
+
+  @Test
+  public void peekInt_exceedsLimit() {
+    ParsableByteArray parser =
+        new ParsableByteArray(
+            Bytes.concat(
+                TestUtil.buildTestData(3), Ints.toByteArray(10), TestUtil.buildTestData(2)));
+    parser.setPosition(3);
+    parser.setLimit(6);
+
+    assertThrows(IndexOutOfBoundsException.class, parser::peekInt);
+    assertThat(parser.getPosition()).isEqualTo(3);
   }
 
   @Test

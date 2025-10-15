@@ -15,8 +15,7 @@
  */
 package androidx.media3.extractor.ogg;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
@@ -78,7 +77,7 @@ import org.checkerframework.checker.nullness.qual.EnsuresNonNullIf;
     }
 
     // ... we need to decode the block size
-    int packetBlockSize = decodeBlockSize(packet.getData()[0], checkStateNotNull(vorbisSetup));
+    int packetBlockSize = decodeBlockSize(packet.getData()[0], checkNotNull(vorbisSetup));
     // a packet contains samples produced from overlapping the previous and current frame data
     // (https://www.xiph.org/vorbis/doc/Vorbis_I_spec.html#x1-350001.3.2)
     int samplesInPacket =

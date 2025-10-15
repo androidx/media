@@ -15,6 +15,7 @@
  */
 package androidx.media3.common.util;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.nio.ByteOrder.BIG_ENDIAN;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
 
@@ -161,7 +162,7 @@ public final class ParsableByteArray {
    * @param limit The limit to set.
    */
   public void setLimit(int limit) {
-    Assertions.checkArgument(limit >= 0 && limit <= data.length);
+    checkArgument(limit >= 0 && limit <= data.length);
     this.limit = limit;
   }
 
@@ -179,7 +180,7 @@ public final class ParsableByteArray {
    */
   public void setPosition(int position) {
     // It is fine for position to be at the end of the array.
-    Assertions.checkArgument(position >= 0 && position <= limit);
+    checkArgument(position >= 0 && position <= limit);
     this.position = position;
   }
 
@@ -267,8 +268,8 @@ public final class ParsableByteArray {
    */
   @Deprecated
   public char peekChar(Charset charset) {
-    Assertions.checkArgument(
-        SUPPORTED_CHARSETS_FOR_READLINE.contains(charset), "Unsupported charset: " + charset);
+    checkArgument(
+        SUPPORTED_CHARSETS_FOR_READLINE.contains(charset), "Unsupported charset: %s", charset);
     if (bytesLeft() == 0) {
       return 0;
     }
@@ -325,6 +326,26 @@ public final class ParsableByteArray {
   public int peekCodePoint(Charset charset) {
     int codePointAndSize = peekCodePointAndSize(charset);
     return codePointAndSize != 0 ? Ints.checkedCast(codePointAndSize >>> 8) : INVALID_CODE_POINT;
+  }
+
+  /** Peeks the next three bytes as an unsigned value. */
+  public int peekUnsignedInt24() {
+    if (bytesLeft() < 3) {
+      throw new IndexOutOfBoundsException("position=" + position + ", limit=" + limit);
+    }
+    int result = readUnsignedInt24();
+    position -= 3;
+    return result;
+  }
+
+  /** Peeks the next four bytes as a signed value. */
+  public int peekInt() {
+    if (bytesLeft() < 4) {
+      throw new IndexOutOfBoundsException("position=" + position + ", limit=" + limit);
+    }
+    int result = readInt();
+    position -= 4;
+    return result;
   }
 
   /** Reads the next byte as an unsigned value. */
@@ -633,8 +654,8 @@ public final class ParsableByteArray {
    */
   @Nullable
   public String readLine(Charset charset) {
-    Assertions.checkArgument(
-        SUPPORTED_CHARSETS_FOR_READLINE.contains(charset), "Unsupported charset: " + charset);
+    checkArgument(
+        SUPPORTED_CHARSETS_FOR_READLINE.contains(charset), "Unsupported charset: %s", charset);
     if (bytesLeft() == 0) {
       return null;
     }
@@ -853,8 +874,8 @@ public final class ParsableByteArray {
    *     UTF-16BE, and UTF-16LE are supported.
    */
   private int peekCodePointAndSize(Charset charset) {
-    Assertions.checkArgument(
-        SUPPORTED_CHARSETS_FOR_READLINE.contains(charset), "Unsupported charset: " + charset);
+    checkArgument(
+        SUPPORTED_CHARSETS_FOR_READLINE.contains(charset), "Unsupported charset: %s", charset);
     if (bytesLeft() < getSmallestCodeUnitSize(charset)) {
       throw new IndexOutOfBoundsException("position=" + position + ", limit=" + limit);
     }
@@ -909,8 +930,8 @@ public final class ParsableByteArray {
   }
 
   private static int getSmallestCodeUnitSize(Charset charset) {
-    Assertions.checkArgument(
-        SUPPORTED_CHARSETS_FOR_READLINE.contains(charset), "Unsupported charset: " + charset);
+    checkArgument(
+        SUPPORTED_CHARSETS_FOR_READLINE.contains(charset), "Unsupported charset: %s", charset);
     return charset.equals(StandardCharsets.UTF_8) || charset.equals(StandardCharsets.US_ASCII)
         ? 1
         : 2;

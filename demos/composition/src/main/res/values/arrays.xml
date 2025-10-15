@@ -74,4 +74,12 @@
     <item>5000000</item>
     <item>2170000</item>
   </integer-array>
+  <string-array name="placeable_effects_names">
+    <item>Image 256x256</item>
+    <item>Lottie Asset PNG</item>
+  </string-array>
+  <string-array name="placeable_effects_uris">
+    <item>images/256_256.png</item>
+    <item>images/lottie_asset_0.png</item>
+  </string-array>
 </resources>

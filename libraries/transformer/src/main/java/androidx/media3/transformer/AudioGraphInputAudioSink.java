@@ -16,12 +16,11 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.audio.AudioProcessor.EMPTY_BUFFER;
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.getPcmFrameSize;
 import static androidx.media3.common.util.Util.sampleCountToDurationUs;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.media.AudioTrack;
 import androidx.annotation.Nullable;
@@ -138,7 +137,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   @Override
   public boolean isEnded() {
-    if (currentInputFormat == null) { // Sink not configured.
+    if (currentInputFormat == null || outputGraphInput == null) {
+      // AudioGraphInput has not been set up yet.
       return inputStreamEnded;
     }
 
@@ -151,13 +151,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       throws InitializationException {
     checkState(!inputStreamEnded);
 
-    EditedMediaItem editedMediaItem = checkStateNotNull(currentEditedMediaItemInfo).editedMediaItem;
+    EditedMediaItem editedMediaItem = checkNotNull(currentEditedMediaItemInfo).editedMediaItem;
     if (outputGraphInput == null) {
 
       AudioGraphInput outputGraphInput;
       try {
         outputGraphInput =
-            controller.getAudioGraphInput(editedMediaItem, checkStateNotNull(currentInputFormat));
+            controller.getAudioGraphInput(editedMediaItem, checkNotNull(currentInputFormat));
       } catch (ExportException e) {
         throw new InitializationException(
             "Error creating AudioGraphInput",
@@ -203,11 +203,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @Override
   public void playToEndOfStream() {
     inputStreamEnded = true;
-    if (currentInputFormat == null) { // Sink not configured.
+    if (currentInputFormat == null || outputGraphInput == null) {
+      // AudioGraphInput has not been set up yet.
       return;
     }
     // Queue end-of-stream only if playing the last media item in the sequence.
-    if (!signalledEndOfStream && checkStateNotNull(currentEditedMediaItemInfo).isLastInSequence) {
+    if (!signalledEndOfStream && checkNotNull(currentEditedMediaItemInfo).isLastInSequence) {
       signalledEndOfStream =
           handleBufferInternal(
               EMPTY_BUFFER, C.TIME_END_OF_SOURCE, /* flags= */ C.BUFFER_FLAG_END_OF_STREAM);
@@ -331,7 +332,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   private boolean handleBufferInternal(ByteBuffer buffer, long presentationTimeUs, int flags) {
-    checkStateNotNull(currentInputFormat);
+    checkNotNull(currentInputFormat);
     checkState(!signalledEndOfStream);
     AudioGraphInput outputGraphInput = checkNotNull(this.outputGraphInput);
 

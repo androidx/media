@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">เล่น</string>
+  <string name="playpause_button_pause">หยุดชั่วคราว</string>
+  <string name="next_button">ถัดไป</string>
+  <string name="previous_button">ก่อนหน้า</string>
+  <string name="seek_back_button">กรอกลับ</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">กรอกลับไป %d วินาที</item>
+    <item quantity="other">กรอกลับไป %d วินาที</item>
+  </plurals>
+  <string name="seek_forward_button">ข้ามไปข้างหน้า</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">ข้ามไปข้างหน้า %d วินาที</item>
+    <item quantity="other">ข้ามไปข้างหน้า %d วินาที</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">โหมดปัจจุบัน: ไม่เล่นซ้ำ สลับโหมดเล่นซ้ำ</string>
+  <string name="repeat_button_repeat_one">โหมดปัจจุบัน: เล่นซ้ำรายการเดียว สลับโหมดเล่นซ้ำ</string>
+  <string name="repeat_button_repeat_all">โหมดปัจจุบัน: เล่นซ้ำทั้งหมด สลับโหมดเล่นซ้ำ</string>
+  <string name="shuffle_button_shuffle_on">โหมดสุ่มเพลงเปิดใช้อยู่</string>
+  <string name="shuffle_button_shuffle_off">โหมดสุ่มเพลงปิดใช้อยู่</string>
+  <string name="mute_button_shown_unmuted">ปิดเสียง</string>
+  <string name="mute_button_shown_muted">เปิดเสียง</string>
+</resources>

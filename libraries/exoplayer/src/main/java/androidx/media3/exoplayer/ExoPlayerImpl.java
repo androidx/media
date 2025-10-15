@@ -21,9 +21,6 @@ import static androidx.media3.common.C.TRACK_TYPE_AUDIO;
 import static androidx.media3.common.C.TRACK_TYPE_CAMERA_MOTION;
 import static androidx.media3.common.C.TRACK_TYPE_IMAGE;
 import static androidx.media3.common.C.TRACK_TYPE_VIDEO;
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
 import static androidx.media3.common.util.Util.castNonNull;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_AUDIO_ATTRIBUTES;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_AUDIO_SESSION_ID;
@@ -37,6 +34,9 @@ import static androidx.media3.exoplayer.Renderer.MSG_SET_SCALING_MODE;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_SKIP_SILENCE_ENABLED;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_VIDEO_EFFECTS;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_VIDEO_OUTPUT_RESOLUTION;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
@@ -78,6 +78,7 @@ import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.Tracks;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.VideoSize;
+import androidx.media3.common.audio.AudioBecomingNoisyManager;
 import androidx.media3.common.text.Cue;
 import androidx.media3.common.text.CueGroup;
 import androidx.media3.common.util.BackgroundThreadStateHandler;
@@ -88,7 +89,11 @@ import androidx.media3.common.util.ListenerSet;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Size;
+import androidx.media3.common.util.StuckPlayerDetector;
+import androidx.media3.common.util.StuckPlayerException;
 import androidx.media3.common.util.Util;
+import androidx.media3.common.util.WakeLockManager;
+import androidx.media3.common.util.WifiLockManager;
 import androidx.media3.exoplayer.PlayerMessage.Target;
 import androidx.media3.exoplayer.Renderer.MessageType;
 import androidx.media3.exoplayer.analytics.AnalyticsCollector;
@@ -164,9 +169,6 @@ import java.util.concurrent.CopyOnWriteArraySet;
   private final AnalyticsCollector analyticsCollector;
   private final Looper applicationLooper;
   private final BandwidthMeter bandwidthMeter;
-  private final long seekBackIncrementMs;
-  private final long seekForwardIncrementMs;
-  private final long maxSeekToPreviousPositionMs;
   private final Clock clock;
   private final ComponentListener componentListener;
   private final FrameMetadataListener frameMetadataListener;
@@ -223,6 +225,9 @@ import java.util.concurrent.CopyOnWriteArraySet;
   private boolean playerReleased;
   private DeviceInfo deviceInfo;
   private VideoSize videoSize;
+  private long seekBackIncrementMs;
+  private long seekForwardIncrementMs;
+  private long maxSeekToPreviousPositionMs;
 
   // MediaMetadata built from static (TrackGroup Format) and dynamic (onMetadata(Metadata)) metadata
   // sources.
@@ -442,10 +447,20 @@ import java.util.concurrent.CopyOnWriteArraySet;
       } else {
         streamVolumeManager = null;
       }
+      int wakeMode = builder.wakeMode;
+      if (!builder.wakeModeSet) {
+        wakeMode =
+            builder.stuckBufferingDetectionTimeoutMs == Integer.MAX_VALUE
+                    || builder.stuckPlayingDetectionTimeoutMs == Integer.MAX_VALUE
+                    || builder.stuckPlayingNotEndingTimeoutMs == Integer.MAX_VALUE
+                    || builder.stuckSuppressedDetectionTimeoutMs == Integer.MAX_VALUE
+                ? C.WAKE_MODE_NONE
+                : C.WAKE_MODE_LOCAL;
+      }
       wakeLockManager = new WakeLockManager(builder.context, playbackLooper, clock);
-      wakeLockManager.setEnabled(builder.wakeMode != C.WAKE_MODE_NONE);
+      wakeLockManager.setEnabled(wakeMode != C.WAKE_MODE_NONE);
       wifiLockManager = new WifiLockManager(builder.context, playbackLooper, clock);
-      wifiLockManager.setEnabled(builder.wakeMode == C.WAKE_MODE_NETWORK);
+      wifiLockManager.setEnabled(wakeMode == C.WAKE_MODE_NETWORK);
       deviceInfo = DeviceInfo.UNKNOWN;
       videoSize = VideoSize.UNKNOWN;
       surfaceSize = Size.UNKNOWN;
@@ -455,7 +470,10 @@ import java.util.concurrent.CopyOnWriteArraySet;
               /* player= */ this,
               componentListener,
               clock,
-              builder.stuckBufferingDetectionTimeoutMs);
+              builder.stuckBufferingDetectionTimeoutMs,
+              builder.stuckPlayingDetectionTimeoutMs,
+              builder.stuckPlayingNotEndingTimeoutMs,
+              builder.stuckSuppressedDetectionTimeoutMs);
 
       internalPlayer.setScrubbingModeParameters(scrubbingModeParameters);
       internalPlayer.setAudioAttributes(audioAttributes, builder.handleAudioFocus);
@@ -1004,6 +1022,45 @@ import java.util.concurrent.CopyOnWriteArraySet;
   }
 
   @Override
+  public void setMaxSeekToPreviousPositionMs(long maxSeekToPreviousPositionMs) {
+    verifyApplicationThread();
+    checkArgument(maxSeekToPreviousPositionMs >= 0);
+    if (this.maxSeekToPreviousPositionMs == maxSeekToPreviousPositionMs) {
+      return;
+    }
+    this.maxSeekToPreviousPositionMs = maxSeekToPreviousPositionMs;
+    listeners.sendEvent(
+        EVENT_MAX_SEEK_TO_PREVIOUS_POSITION_CHANGED,
+        listener -> listener.onMaxSeekToPreviousPositionChanged(maxSeekToPreviousPositionMs));
+  }
+
+  @Override
+  public void setSeekBackIncrementMs(long seekBackIncrementMs) {
+    verifyApplicationThread();
+    checkArgument(seekBackIncrementMs > 0);
+    if (this.seekBackIncrementMs == seekBackIncrementMs) {
+      return;
+    }
+    this.seekBackIncrementMs = seekBackIncrementMs;
+    listeners.sendEvent(
+        EVENT_SEEK_BACK_INCREMENT_CHANGED,
+        listener -> listener.onSeekBackIncrementChanged(seekBackIncrementMs));
+  }
+
+  @Override
+  public void setSeekForwardIncrementMs(long seekForwardIncrementMs) {
+    verifyApplicationThread();
+    checkArgument(seekForwardIncrementMs > 0);
+    if (this.seekForwardIncrementMs == seekForwardIncrementMs) {
+      return;
+    }
+    this.seekForwardIncrementMs = seekForwardIncrementMs;
+    listeners.sendEvent(
+        EVENT_SEEK_FORWARD_INCREMENT_CHANGED,
+        listener -> listener.onSeekForwardIncrementChanged(seekForwardIncrementMs));
+  }
+
+  @Override
   public void setForegroundMode(boolean foregroundMode) {
     verifyApplicationThread();
     if (this.foregroundMode != foregroundMode) {
@@ -1549,7 +1606,6 @@ import java.util.concurrent.CopyOnWriteArraySet;
     setAuxEffectInfo(new AuxEffectInfo(AuxEffectInfo.NO_AUX_EFFECT_ID, /* sendLevel= */ 0f));
   }
 
-  @RequiresApi(23)
   @Override
   public void setPreferredAudioDevice(@Nullable AudioDeviceInfo audioDeviceInfo) {
     verifyApplicationThread();
@@ -2465,16 +2521,17 @@ import java.util.concurrent.CopyOnWriteArraySet;
             playbackInfo,
             timeline,
             maskWindowPositionMsOrGetPeriodPositionUs(timeline, startWindowIndex, startPositionMs));
-    // Mask the playback state.
-    int maskingPlaybackState = newPlaybackInfo.playbackState;
-    if (startWindowIndex != C.INDEX_UNSET && newPlaybackInfo.playbackState != STATE_IDLE) {
-      // Position reset to startWindowIndex (results in pending initial seek).
-      if (timeline.isEmpty() || startWindowIndex >= timeline.getWindowCount()) {
-        // Setting an empty timeline or invalid seek transitions to ended.
-        maskingPlaybackState = STATE_ENDED;
-      } else {
-        maskingPlaybackState = STATE_BUFFERING;
-      }
+    int maskingPlaybackState;
+    if (newPlaybackInfo.playbackState == STATE_IDLE) {
+      maskingPlaybackState = STATE_IDLE; // never move out of IDLE automatically
+    } else if (timeline.isEmpty()) {
+      maskingPlaybackState = STATE_ENDED; // ensure ENDED for empty playlist
+    } else if (startWindowIndex == C.INDEX_UNSET) {
+      maskingPlaybackState = newPlaybackInfo.playbackState; // no implicit seek, keep old state
+    } else if (startWindowIndex >= timeline.getWindowCount()) {
+      maskingPlaybackState = STATE_ENDED; // invalid seek, transition to ENDED
+    } else {
+      maskingPlaybackState = STATE_BUFFERING;
     }
     newPlaybackInfo = maskPlaybackState(newPlaybackInfo, maskingPlaybackState);
     internalPlayer.setMediaSources(
@@ -2604,6 +2661,14 @@ import java.util.concurrent.CopyOnWriteArraySet;
     if (!oldTimeline.isEmpty()) {
       oldContentPositionUs -=
           oldTimeline.getPeriodByUid(oldPeriodUid, period).getPositionInWindowUs();
+      if (!playingPeriodChanged && oldContentPositionUs - newContentPositionUs == 1) {
+        long oldDurationUs = oldTimeline.getPeriodByUid(oldPeriodUid, period).durationUs;
+        boolean endOfSameStream = oldContentPositionUs == oldDurationUs;
+        if (endOfSameStream) {
+          // Correct the old position to be durationUs - 1.
+          oldContentPositionUs -= 1;
+        }
+      }
     }
 
     if (playingPeriodChanged || newContentPositionUs < oldContentPositionUs) {
@@ -3092,7 +3157,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
           SurfaceHolder.Callback,
           TextureView.SurfaceTextureListener,
           SphericalGLSurfaceView.VideoSurfaceListener,
-          AudioBecomingNoisyManager.EventListener,
+          AudioBecomingNoisyManager.Listener,
           StreamVolumeManager.Listener,
           AudioOffloadListener,
           StuckPlayerDetector.Callback {

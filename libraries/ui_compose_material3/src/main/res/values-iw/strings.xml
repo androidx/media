@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">הפעלה</string>
+  <string name="playpause_button_pause">השהיה</string>
+  <string name="next_button">הבא</string>
+  <string name="previous_button">הקודם</string>
+  <string name="seek_back_button">הרצה אחורה</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">דילוג %d שניות אחורה</item>
+    <item quantity="two">דילוג %d שניות אחורה</item>
+    <item quantity="other">דילוג %d שניות אחורה</item>
+  </plurals>
+  <string name="seek_forward_button">דילוג קדימה</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">דילוג %d שניות קדימה</item>
+    <item quantity="two">דילוג %d שניות קדימה</item>
+    <item quantity="other">דילוג %d שניות קדימה</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">המצב הנוכחי: ללא חזרה. כפתור להחלפת מצב החזרה.</string>
+  <string name="repeat_button_repeat_one">המצב הנוכחי: חזרה על פריט אחד. כפתור להחלפת מצב החזרה.</string>
+  <string name="repeat_button_repeat_all">המצב הנוכחי: חזרה על כל הפריטים. כפתור להחלפת מצב החזרה.</string>
+  <string name="shuffle_button_shuffle_on">מצב ההשמעה האקראית מופעל.</string>
+  <string name="shuffle_button_shuffle_off">מצב ההשמעה האקראית מושבת.</string>
+  <string name="mute_button_shown_unmuted">השתקה</string>
+  <string name="mute_button_shown_muted">ביטול ההשתקה</string>
+</resources>

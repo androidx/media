@@ -15,18 +15,16 @@
  */
 package androidx.media3.transformer;
 
-import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static androidx.media3.test.utils.TestUtil.createExternalCacheFile;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
 import android.net.ConnectivityManager;
 import android.net.NetworkCapabilities;
-import android.net.NetworkInfo;
 import android.net.Uri;
-import android.os.Build;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
@@ -36,8 +34,8 @@ import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.SystemClock;
 import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.test.utils.SsimHelper;
+import androidx.media3.test.utils.TestSummaryLogger;
 import androidx.test.platform.app.InstrumentationRegistry;
-import com.google.common.base.Ascii;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -183,10 +181,10 @@ public class TransformerAndroidTestRunner {
   }
 
   /** Exports the {@link EditedMediaItem} asynchronously. */
-  public ListenableFuture<ExportResult> runAsync(String testId, EditedMediaItem editedMediaItem)
+  public ListenableFuture<ExportTestResult> runAsync(String testId, EditedMediaItem editedMediaItem)
       throws IOException {
-    SettableFuture<ExportResult> completionFuture = SettableFuture.create();
-    File outputVideoFile = createOutputFile(testId);
+    SettableFuture<ExportTestResult> completionFuture = SettableFuture.create();
+    String outputFilePath = createOutputFile(testId).getAbsolutePath();
     InstrumentationRegistry.getInstrumentation()
         .runOnMainSync(
             () -> {
@@ -194,7 +192,10 @@ public class TransformerAndroidTestRunner {
                   new Transformer.Listener() {
                     @Override
                     public void onCompleted(Composition composition, ExportResult exportResult) {
-                      completionFuture.set(exportResult);
+                      completionFuture.set(
+                          new ExportTestResult.Builder(exportResult)
+                              .setFilePath(outputFilePath)
+                              .build());
                     }
 
                     @Override
@@ -205,7 +206,7 @@ public class TransformerAndroidTestRunner {
                       completionFuture.setException(exportException);
                     }
                   });
-              transformer.start(editedMediaItem, outputVideoFile.getAbsolutePath());
+              transformer.start(editedMediaItem, outputFilePath);
             });
 
     return completionFuture;
@@ -260,7 +261,7 @@ public class TransformerAndroidTestRunner {
           "exportResult", new JSONObject().put("testException", JsonUtil.exceptionAsJsonObject(e)));
       throw e;
     } finally {
-      AndroidTestUtil.writeTestSummaryToFile(context, testId, resultJson);
+      TestSummaryLogger.writeTestSummaryToFile(context, testId, resultJson);
     }
   }
 
@@ -466,26 +467,21 @@ public class TransformerAndroidTestRunner {
       // ExportTestResult.
       throw interruptedException;
     } catch (Throwable analysisFailure) {
-      if (SDK_INT == 21 && Ascii.toLowerCase(Build.MODEL).contains("nexus")) {
-        // b/233584640, b/230093713
-        Log.i(TAG, testId + ": Skipping SSIM calculation due to known device-specific issue");
-      } else {
-        // Catch all (checked and unchecked) failures thrown by the SsimHelper and process them as
-        // part of the ExportTestResult.
-        Exception analysisException =
-            analysisFailure instanceof Exception
-                ? (Exception) analysisFailure
-                : new IllegalStateException(analysisFailure);
+      // Catch all (checked and unchecked) failures thrown by the SsimHelper and process them as
+      // part of the ExportTestResult.
+      Exception analysisException =
+          analysisFailure instanceof Exception
+              ? (Exception) analysisFailure
+              : new IllegalStateException(analysisFailure);
 
-        testResultBuilder.setAnalysisException(analysisException);
-        Log.e(TAG, testId + ": SSIM calculation failed.", analysisException);
-      }
+      testResultBuilder.setAnalysisException(analysisException);
+      Log.e(TAG, testId + ": SSIM calculation failed.", analysisException);
     }
     return testResultBuilder.build();
   }
 
   private File createOutputFile(String testId) throws IOException {
-    return AndroidTestUtil.createExternalCacheFile(
+    return createExternalCacheFile(
         context, /* fileName= */ testId + "-" + Clock.DEFAULT.elapsedRealtime() + "-output.mp4");
   }
 
@@ -496,23 +492,12 @@ public class TransformerAndroidTestRunner {
     if (connectivityManager == null) {
       return false;
     }
-    if (SDK_INT >= 23) {
-      // getActiveNetwork is available from API 23.
-      NetworkCapabilities activeNetworkCapabilities =
-          connectivityManager.getNetworkCapabilities(connectivityManager.getActiveNetwork());
-      if (activeNetworkCapabilities != null
-          && (activeNetworkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
-              || activeNetworkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR))) {
-        return true;
-      }
-    } else {
-      // getActiveNetworkInfo is deprecated from API 29.
-      NetworkInfo activeNetworkInfo = connectivityManager.getActiveNetworkInfo();
-      if (activeNetworkInfo != null
-          && (activeNetworkInfo.getType() == ConnectivityManager.TYPE_WIFI
-              || activeNetworkInfo.getType() == ConnectivityManager.TYPE_MOBILE)) {
-        return true;
-      }
+    NetworkCapabilities activeNetworkCapabilities =
+        connectivityManager.getNetworkCapabilities(connectivityManager.getActiveNetwork());
+    if (activeNetworkCapabilities != null
+        && (activeNetworkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
+            || activeNetworkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR))) {
+      return true;
     }
     return false;
   }

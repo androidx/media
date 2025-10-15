@@ -16,8 +16,8 @@
 package androidx.media3.exoplayer.analytics;
 
 import static android.os.Build.VERSION.SDK_INT;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.media.metrics.LogSessionId;
 import androidx.annotation.Nullable;
@@ -34,6 +34,12 @@ public final class PlayerId {
    * A player identifier with unset default values that can be used as a placeholder or for testing.
    */
   public static final PlayerId UNSET = new PlayerId(/* playerName= */ "");
+
+  /**
+   * A player identifier that is used when we preload media outside of a player but have to pass a
+   * {@link PlayerId} to the components requiring one.
+   */
+  public static final PlayerId PRELOAD = new PlayerId("preload");
 
   /**
    * A name to identify the player. Use {@link Builder#setName(String)} to set the name, otherwise

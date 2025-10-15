@@ -58,6 +58,14 @@ public final class MatroskaExtractorTest {
   }
 
   @Test
+  public void mkvSampleWithMultipleKeyFrames() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/mkv/sample_with_multiple_key_frames.mkv",
+        simulationConfig);
+  }
+
+  @Test
   public void mkvSample_withSubripSubtitles() throws Exception {
     ExtractorAsserts.assertBehavior(
         getExtractorFactory(subtitlesParsedDuringExtraction),
@@ -208,6 +216,30 @@ public final class MatroskaExtractorTest {
     ExtractorAsserts.assertBehavior(
         getExtractorFactory(subtitlesParsedDuringExtraction),
         "media/mkv/subsample_encrypted_altref.webm",
+        simulationConfig);
+  }
+
+  @Test
+  public void mkvSample_withDts() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/mkv/sample_with_dts.mkv",
+        simulationConfig);
+  }
+
+  @Test
+  public void mkvSample_withDtsHdMa() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/mkv/sample_with_dts_hd_ma.mkv",
+        simulationConfig);
+  }
+
+  @Test
+  public void mkvSample_withDtsX() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        getExtractorFactory(subtitlesParsedDuringExtraction),
+        "media/mkv/sample_with_dts_x.mkv",
         simulationConfig);
   }
 

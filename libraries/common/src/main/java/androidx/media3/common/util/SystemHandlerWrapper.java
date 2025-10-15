@@ -15,8 +15,8 @@
  */
 package androidx.media3.common.util;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.os.Handler;
 import android.os.Looper;
@@ -99,6 +99,11 @@ import java.util.List;
     // Using what == 0 when removing messages is dangerous as it also removes all pending Runnables.
     checkArgument(what != 0);
     handler.removeMessages(what);
+  }
+
+  @Override
+  public void removeCallbacks(Runnable runnable) {
+    handler.removeCallbacks(runnable);
   }
 
   @Override

@@ -15,10 +15,11 @@
  */
 package androidx.media3.exoplayer.upstream;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import android.os.Handler;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.TransferListener;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -57,8 +58,8 @@ public interface BandwidthMeter {
 
       /** Adds a listener to the event dispatcher. */
       public void addListener(Handler eventHandler, BandwidthMeter.EventListener eventListener) {
-        Assertions.checkNotNull(eventHandler);
-        Assertions.checkNotNull(eventListener);
+        checkNotNull(eventHandler);
+        checkNotNull(eventListener);
         removeListener(eventListener);
         listeners.add(new HandlerAndListener(eventHandler, eventListener));
       }

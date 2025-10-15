@@ -15,12 +15,11 @@
  */
 package androidx.media3.exoplayer.rtsp.reader;
 
-import static androidx.media3.common.util.Assertions.checkArgument;
-import static androidx.media3.common.util.Assertions.checkNotNull;
-import static androidx.media3.common.util.Assertions.checkState;
-import static androidx.media3.common.util.Assertions.checkStateNotNull;
 import static androidx.media3.common.util.Util.castNonNull;
 import static androidx.media3.exoplayer.rtsp.reader.RtpReaderUtils.toSampleTimeUs;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
@@ -92,7 +91,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @Override
   public void consume(
       ParsableByteArray data, long timestamp, int sequenceNumber, boolean rtpMarker) {
-    checkStateNotNull(trackOutput);
+    checkNotNull(trackOutput);
 
     int expectedSequenceNumber = RtpPacket.getNextSequenceNumber(previousSequenceNumber);
     if (fragmentedSampleSizeBytes > 0 && expectedSequenceNumber < sequenceNumber) {

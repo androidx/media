@@ -43,9 +43,9 @@ import androidx.media3.exoplayer.image.ImageDecoder;
 import androidx.media3.exoplayer.image.ImageDecoderException;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.exoplayer.source.MediaSource;
-import androidx.media3.test.utils.CapturingRenderersFactory;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.FakeClock;
+import androidx.media3.test.utils.robolectric.CapturingRenderersFactory;
 import androidx.media3.test.utils.robolectric.PlaybackOutput;
 import androidx.media3.test.utils.robolectric.TestPlayerRunHelper;
 import androidx.test.core.app.ApplicationProvider;
@@ -74,12 +74,12 @@ public final class ExternallyLoadedImagePlaybackTest {
     Context applicationContext = ApplicationProvider.getApplicationContext();
     ListeningExecutorService listeningExecutorService =
         MoreExecutors.listeningDecorator(Executors.newSingleThreadExecutor());
+    Clock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory renderersFactory =
-        new CapturingRenderersFactory(applicationContext)
+        new CapturingRenderersFactory(applicationContext, clock)
             .setImageDecoderFactory(
                 new ExternallyLoadedImageDecoder.Factory(
                     request -> listeningExecutorService.submit(() -> decode(request.uri))));
-    Clock clock = new FakeClock(/* isAutoAdvancing= */ true);
     ArrayList<Uri> externalLoaderUris = new ArrayList<>();
     MediaSource.Factory mediaSourceFactory =
         new DefaultMediaSourceFactory(applicationContext)
@@ -120,8 +120,9 @@ public final class ExternallyLoadedImagePlaybackTest {
     Context applicationContext = ApplicationProvider.getApplicationContext();
     ListeningExecutorService listeningExecutorService =
         MoreExecutors.listeningDecorator(Executors.newSingleThreadExecutor());
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory renderersFactory =
-        new CapturingRenderersFactory(applicationContext)
+        new CapturingRenderersFactory(applicationContext, clock)
             .setImageDecoderFactory(
                 new ExternallyLoadedImageDecoder.Factory(
                     request -> listeningExecutorService.submit(() -> decode(request.uri))));
@@ -136,7 +137,7 @@ public final class ExternallyLoadedImagePlaybackTest {
                         }));
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, renderersFactory)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setClock(clock)
             .setMediaSourceFactory(mediaSourceFactory)
             .build();
     player.setMediaItem(
@@ -158,8 +159,9 @@ public final class ExternallyLoadedImagePlaybackTest {
     Context applicationContext = ApplicationProvider.getApplicationContext();
     ListeningExecutorService listeningExecutorService =
         MoreExecutors.listeningDecorator(Executors.newSingleThreadExecutor());
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory renderersFactory =
-        new CapturingRenderersFactory(applicationContext)
+        new CapturingRenderersFactory(applicationContext, clock)
             .setImageDecoderFactory(
                 new ExternallyLoadedImageDecoder.Factory(
                     request -> listeningExecutorService.submit(() -> decode(request.uri))));
@@ -171,7 +173,7 @@ public final class ExternallyLoadedImagePlaybackTest {
                     listeningExecutorService.submit(() -> loadingComplete.blockUninterruptible()));
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, renderersFactory)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setClock(clock)
             .setMediaSourceFactory(mediaSourceFactory)
             .build();
     player.setMediaItem(

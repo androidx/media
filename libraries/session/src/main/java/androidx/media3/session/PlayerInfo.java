@@ -21,6 +21,7 @@ import static androidx.media3.common.Player.PLAYBACK_SUPPRESSION_REASON_NONE;
 import static androidx.media3.common.Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST;
 import static androidx.media3.common.Player.STATE_IDLE;
 import static androidx.media3.common.Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED;
+import static com.google.common.base.Preconditions.checkState;
 
 import android.os.Binder;
 import android.os.Bundle;
@@ -46,7 +47,6 @@ import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.Tracks;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.text.CueGroup;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -137,6 +137,7 @@ import java.util.Objects;
     private MediaMetadata playlistMetadata;
     private float volume;
     private float unmuteVolume;
+    private int audioSessionId;
     private AudioAttributes audioAttributes;
     private CueGroup cueGroup;
     private DeviceInfo deviceInfo;
@@ -171,6 +172,7 @@ import java.util.Objects;
       playlistMetadata = playerInfo.playlistMetadata;
       volume = playerInfo.volume;
       unmuteVolume = playerInfo.unmuteVolume;
+      audioSessionId = playerInfo.audioSessionId;
       audioAttributes = playerInfo.audioAttributes;
       cueGroup = playerInfo.cueGroup;
       deviceInfo = playerInfo.deviceInfo;
@@ -283,6 +285,12 @@ import java.util.Objects;
     }
 
     @CanIgnoreReturnValue
+    public Builder setAudioSessionId(int audioSessionId) {
+      this.audioSessionId = audioSessionId;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
     public Builder setAudioAttributes(AudioAttributes audioAttributes) {
       this.audioAttributes = audioAttributes;
       return this;
@@ -387,7 +395,7 @@ import java.util.Objects;
     }
 
     public PlayerInfo build() {
-      Assertions.checkState(
+      checkState(
           timeline.isEmpty()
               || sessionPositionInfo.positionInfo.mediaItemIndex < timeline.getWindowCount());
       return new PlayerInfo(
@@ -407,6 +415,7 @@ import java.util.Objects;
           volume,
           unmuteVolume,
           audioAttributes,
+          audioSessionId,
           cueGroup,
           deviceInfo,
           deviceVolume,
@@ -458,6 +467,7 @@ import java.util.Objects;
           /* volume= */ 1f,
           /* unmuteVolume= */ 1f,
           AudioAttributes.DEFAULT,
+          /* audioSessionId= */ C.AUDIO_SESSION_ID_UNSET,
           CueGroup.EMPTY_TIME_ZERO,
           DeviceInfo.UNKNOWN,
           /* deviceVolume= */ 0,
@@ -504,6 +514,7 @@ import java.util.Objects;
   public final float volume;
 
   public final float unmuteVolume;
+  public final int audioSessionId;
 
   public final AudioAttributes audioAttributes;
 
@@ -670,6 +681,11 @@ import java.util.Objects;
   }
 
   @CheckResult
+  public PlayerInfo copyWithAudioSessionId(int audioSessionId) {
+    return new Builder(this).setAudioSessionId(audioSessionId).build();
+  }
+
+  @CheckResult
   public PlayerInfo copyWithAudioAttributes(AudioAttributes audioAttributes) {
     return new Builder(this).setAudioAttributes(audioAttributes).build();
   }
@@ -745,6 +761,7 @@ import java.util.Objects;
       float volume,
       float unmuteVolume,
       AudioAttributes audioAttributes,
+      int audioSessionId,
       CueGroup cueGroup,
       DeviceInfo deviceInfo,
       int deviceVolume,
@@ -776,6 +793,7 @@ import java.util.Objects;
     this.playlistMetadata = playlistMetadata;
     this.volume = volume;
     this.unmuteVolume = unmuteVolume;
+    this.audioSessionId = audioSessionId;
     this.audioAttributes = audioAttributes;
     this.cueGroup = cueGroup;
     this.deviceInfo = deviceInfo;
@@ -852,8 +870,9 @@ import java.util.Objects;
   private static final String FIELD_CURRENT_TRACKS = Util.intToStringMaxRadix(30);
   private static final String FIELD_TIMELINE_CHANGE_REASON = Util.intToStringMaxRadix(31);
   private static final String FIELD_IN_PROCESS_BINDER = Util.intToStringMaxRadix(32);
+  private static final String FIELD_AUDIO_SESSION_ID = Util.intToStringMaxRadix(34);
 
-  // Next field key = 34
+  // Next field key = 35
 
   /**
    * Returns a copy of this player info, filtered by the specified available commands.
@@ -973,6 +992,9 @@ import java.util.Objects;
     if (unmuteVolume != 1) {
       bundle.putFloat(FIELD_UNMUTE_VOLUME, unmuteVolume);
     }
+    if (audioSessionId != C.AUDIO_SESSION_ID_UNSET) {
+      bundle.putInt(FIELD_AUDIO_SESSION_ID, audioSessionId);
+    }
     if (!audioAttributes.equals(AudioAttributes.DEFAULT)) {
       bundle.putBundle(FIELD_AUDIO_ATTRIBUTES, audioAttributes.toBundle());
     }
@@ -1087,6 +1109,7 @@ import java.util.Objects;
             : MediaMetadata.fromBundle(playlistMetadataBundle);
     float volume = bundle.getFloat(FIELD_VOLUME, /* defaultValue= */ 1);
     float unmuteVolume = bundle.getFloat(FIELD_UNMUTE_VOLUME, /* defaultValue= */ 1);
+    int audioSessionId = bundle.getInt(FIELD_AUDIO_SESSION_ID, C.AUDIO_SESSION_ID_UNSET);
     @Nullable Bundle audioAttributesBundle = bundle.getBundle(FIELD_AUDIO_ATTRIBUTES);
     AudioAttributes audioAttributes =
         audioAttributesBundle == null
@@ -1161,6 +1184,7 @@ import java.util.Objects;
         volume,
         unmuteVolume,
         audioAttributes,
+        audioSessionId,
         cueGroup,
         deviceInfo,
         deviceVolume,

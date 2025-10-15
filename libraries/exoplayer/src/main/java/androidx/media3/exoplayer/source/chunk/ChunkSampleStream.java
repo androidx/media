@@ -15,7 +15,8 @@
  */
 package androidx.media3.exoplayer.source.chunk;
 
-import static androidx.media3.common.util.Assertions.checkNotNull;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
@@ -23,7 +24,6 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -210,7 +210,7 @@ public class ChunkSampleStream<T extends ChunkSource>
   public EmbeddedSampleStream selectEmbeddedTrack(long positionUs, int trackType) {
     for (int i = 0; i < embeddedSampleQueues.length; i++) {
       if (embeddedTrackTypes[i] == trackType) {
-        Assertions.checkState(!embeddedTracksSelected[i]);
+        checkState(!embeddedTracksSelected[i]);
         embeddedTracksSelected[i] = true;
         embeddedSampleQueues[i].seekTo(positionUs, /* allowTimeBeyondBuffer= */ true);
         return new EmbeddedSampleStream(this, embeddedSampleQueues[i], i);
@@ -560,7 +560,7 @@ public class ChunkSampleStream<T extends ChunkSource>
         loadErrorAction = Loader.DONT_RETRY;
         if (isMediaChunk) {
           BaseMediaChunk removed = discardUpstreamMediaChunksFromIndex(lastChunkIndex);
-          Assertions.checkState(removed == loadable);
+          checkState(removed == loadable);
           if (mediaChunks.isEmpty()) {
             pendingResetPositionUs = lastSeekPositionUs;
           }
@@ -730,7 +730,7 @@ public class ChunkSampleStream<T extends ChunkSource>
    *     C#TIME_UNSET} if not known.
    */
   public void discardUpstreamSamplesForClippedDuration(long clippedDurationUs) {
-    Assertions.checkState(!loader.isLoading());
+    checkState(!loader.isLoading());
     if (isPendingReset() || clippedDurationUs == C.TIME_UNSET || mediaChunks.isEmpty()) {
       return;
     }
@@ -761,7 +761,7 @@ public class ChunkSampleStream<T extends ChunkSource>
   }
 
   private void discardUpstream(int preferredQueueSize) {
-    Assertions.checkState(!loader.isLoading());
+    checkState(!loader.isLoading());
 
     int currentQueueSize = mediaChunks.size();
     int newQueueSize = C.LENGTH_UNSET;
@@ -961,7 +961,7 @@ public class ChunkSampleStream<T extends ChunkSource>
     }
 
     public void release() {
-      Assertions.checkState(embeddedTracksSelected[index]);
+      checkState(embeddedTracksSelected[index]);
       embeddedTracksSelected[index] = false;
     }
 

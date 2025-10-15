@@ -15,11 +15,12 @@
  */
 package androidx.media3.exoplayer;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import android.util.Pair;
 import androidx.media3.common.C;
 import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
-import androidx.media3.common.util.Assertions;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.source.ShuffleOrder;
 
@@ -233,8 +234,7 @@ public abstract class AbstractConcatenatedTimeline extends Timeline {
     period.windowIndex += firstWindowIndexInChild;
     if (setIds) {
       period.uid =
-          getConcatenatedUid(
-              getChildUidByChildIndex(childIndex), Assertions.checkNotNull(period.uid));
+          getConcatenatedUid(getChildUidByChildIndex(childIndex), checkNotNull(period.uid));
     }
     return period;
   }

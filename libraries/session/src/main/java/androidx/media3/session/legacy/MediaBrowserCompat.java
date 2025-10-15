@@ -16,7 +16,6 @@
 package androidx.media3.session.legacy;
 
 import static androidx.annotation.RestrictTo.Scope.LIBRARY;
-import static androidx.media3.common.util.Assertions.checkNotNull;
 import static androidx.media3.session.legacy.MediaBrowserProtocol.CLIENT_MSG_ADD_SUBSCRIPTION;
 import static androidx.media3.session.legacy.MediaBrowserProtocol.CLIENT_MSG_GET_MEDIA_ITEM;
 import static androidx.media3.session.legacy.MediaBrowserProtocol.CLIENT_MSG_REGISTER_CALLBACK_MESSENGER;
@@ -45,6 +44,7 @@ import static androidx.media3.session.legacy.MediaBrowserProtocol.EXTRA_SERVICE_
 import static androidx.media3.session.legacy.MediaBrowserProtocol.EXTRA_SESSION_BINDER;
 import static androidx.media3.session.legacy.MediaBrowserProtocol.SERVICE_MSG_ON_LOAD_CHILDREN;
 import static androidx.media3.session.legacy.MediaBrowserProtocol.SERVICE_VERSION_2;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.annotation.SuppressLint;
 import android.content.ComponentName;
@@ -72,7 +72,6 @@ import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
 import androidx.collection.ArrayMap;
 import androidx.media3.common.util.NullableType;
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.session.legacy.MediaControllerCompat.TransportControls;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -106,7 +105,6 @@ import java.util.List;
  * <p>For information about building your media application, read the <a
  * href="{@docRoot}guide/topics/media-apps/index.html">Media Apps</a> developer guide. </div>
  */
-@UnstableApi
 @RestrictTo(LIBRARY)
 public final class MediaBrowserCompat {
   static final String TAG = "MediaBrowserCompat";
@@ -184,10 +182,8 @@ public final class MediaBrowserCompat {
     // and 25 devices, use the support library version of implementation on those devices.
     if (Build.VERSION.SDK_INT >= 26) {
       impl = new MediaBrowserImplApi26(context, serviceComponent, callback, rootHints);
-    } else if (Build.VERSION.SDK_INT >= 23) {
-      impl = new MediaBrowserImplApi23(context, serviceComponent, callback, rootHints);
     } else {
-      impl = new MediaBrowserImplApi21(context, serviceComponent, callback, rootHints);
+      impl = new MediaBrowserImplApi23(context, serviceComponent, callback, rootHints);
     }
   }
 
@@ -535,7 +531,7 @@ public final class MediaBrowserCompat {
     @Nullable ConnectionCallbackInternal connectionCallbackInternal;
 
     public ConnectionCallback() {
-      connectionCallbackFwk = new ConnectionCallbackApi21();
+      connectionCallbackFwk = new ConnectionCallbackImpl();
     }
 
     /**
@@ -577,8 +573,8 @@ public final class MediaBrowserCompat {
       void onConnectionFailed();
     }
 
-    private class ConnectionCallbackApi21 extends MediaBrowser.ConnectionCallback {
-      ConnectionCallbackApi21() {}
+    private class ConnectionCallbackImpl extends MediaBrowser.ConnectionCallback {
+      ConnectionCallbackImpl() {}
 
       @Override
       public void onConnected() {
@@ -617,7 +613,7 @@ public final class MediaBrowserCompat {
       if (Build.VERSION.SDK_INT >= 26) {
         subscriptionCallbackFwk = new SubscriptionCallbackApi26();
       } else {
-        subscriptionCallbackFwk = new SubscriptionCallbackApi21();
+        subscriptionCallbackFwk = new SubscriptionCallbackApi23();
       }
     }
 
@@ -665,8 +661,8 @@ public final class MediaBrowserCompat {
       subscriptionRef = new WeakReference<>(subscription);
     }
 
-    private class SubscriptionCallbackApi21 extends MediaBrowser.SubscriptionCallback {
-      SubscriptionCallbackApi21() {}
+    private class SubscriptionCallbackApi23 extends MediaBrowser.SubscriptionCallback {
+      SubscriptionCallbackApi23() {}
 
       @Override
       public void onChildrenLoaded(String parentId, List<MediaBrowser.MediaItem> children) {
@@ -717,7 +713,7 @@ public final class MediaBrowserCompat {
     }
 
     @RequiresApi(26)
-    private class SubscriptionCallbackApi26 extends SubscriptionCallbackApi21 {
+    private class SubscriptionCallbackApi26 extends SubscriptionCallbackApi23 {
       SubscriptionCallbackApi26() {}
 
       @Override
@@ -738,14 +734,10 @@ public final class MediaBrowserCompat {
 
   /** Callback for receiving the result of {@link #getItem}. */
   public abstract static class ItemCallback {
-    @Nullable final MediaBrowser.ItemCallback itemCallbackFwk;
+    final MediaBrowser.ItemCallback itemCallbackFwk;
 
     public ItemCallback() {
-      if (Build.VERSION.SDK_INT >= 23) {
-        itemCallbackFwk = new ItemCallbackApi23();
-      } else {
-        itemCallbackFwk = null;
-      }
+      itemCallbackFwk = new ItemCallbackImpl();
     }
 
     /**
@@ -762,9 +754,8 @@ public final class MediaBrowserCompat {
      */
     public void onError(String itemId) {}
 
-    @RequiresApi(23)
-    private class ItemCallbackApi23 extends MediaBrowser.ItemCallback {
-      ItemCallbackApi23() {}
+    private class ItemCallbackImpl extends MediaBrowser.ItemCallback {
+      ItemCallbackImpl() {}
 
       @Override
       public void onItemLoaded(MediaBrowser.MediaItem item) {
@@ -869,7 +860,7 @@ public final class MediaBrowserCompat {
         @Nullable Bundle notifyChildrenChangedOptions);
   }
 
-  static class MediaBrowserImplApi21
+  static class MediaBrowserImplApi23
       implements MediaBrowserImpl,
           MediaBrowserServiceCallbackImpl,
           ConnectionCallback.ConnectionCallbackInternal {
@@ -892,7 +883,7 @@ public final class MediaBrowserCompat {
     @Nullable private Bundle notifyChildrenChangedOptions;
 
     @SuppressWarnings("argument.type.incompatible") // Using this before constructor finishes
-    MediaBrowserImplApi21(
+    MediaBrowserImplApi23(
         Context context,
         ComponentName serviceComponent,
         ConnectionCallback callback,
@@ -1036,6 +1027,10 @@ public final class MediaBrowserCompat {
 
     @Override
     public void getItem(final String mediaId, final ItemCallback cb) {
+      if (serviceBinderWrapper == null) {
+        browserFwk.getItem(mediaId, cb.itemCallbackFwk);
+        return;
+      }
       if (TextUtils.isEmpty(mediaId)) {
         throw new IllegalArgumentException("mediaId is empty");
       }
@@ -1257,26 +1252,6 @@ public final class MediaBrowserCompat {
     @Override
     public Bundle getNotifyChildrenChangedOptions() {
       return notifyChildrenChangedOptions;
-    }
-  }
-
-  @RequiresApi(23)
-  static class MediaBrowserImplApi23 extends MediaBrowserImplApi21 {
-    MediaBrowserImplApi23(
-        Context context,
-        ComponentName serviceComponent,
-        ConnectionCallback callback,
-        @Nullable Bundle rootHints) {
-      super(context, serviceComponent, callback, rootHints);
-    }
-
-    @Override
-    public void getItem(final String mediaId, final ItemCallback cb) {
-      if (serviceBinderWrapper == null) {
-        browserFwk.getItem(mediaId, checkNotNull(cb.itemCallbackFwk));
-      } else {
-        super.getItem(mediaId, cb);
-      }
     }
   }
 
