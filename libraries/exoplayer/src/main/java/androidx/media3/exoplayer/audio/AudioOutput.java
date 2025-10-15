@@ -15,15 +15,12 @@
  */
 package androidx.media3.exoplayer.audio;
 
-import android.content.Context;
 import android.media.AudioDeviceInfo;
 import android.media.AudioTrack;
 import androidx.annotation.Nullable;
-import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.PlaybackParameters;
 import androidx.media3.exoplayer.analytics.PlayerId;
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.nio.ByteBuffer;
 
 /** An interface to wrap an object that can play audio, like an {@link AudioTrack}. */
@@ -53,153 +50,6 @@ import java.nio.ByteBuffer;
 
     /** Called when the audio output has been fully released. */
     void onReleased();
-  }
-
-  /** Configuration for an {@link AudioOutput}. */
-  final class OutputConfig {
-
-    /** The {@link C.Encoding} of the audio data. */
-    public final @C.Encoding int encoding;
-
-    /** The sample rate of the audio data. */
-    public final int sampleRate;
-
-    /**
-     * The channel configuration of the output. See {@code AudioFormat.CHANNEL_OUT_XXX} constants
-     * like {@link android.media.AudioFormat#CHANNEL_OUT_5POINT1}.
-     */
-    public final int channelConfig;
-
-    /** Whether tunneling is enabled for this output. */
-    public final boolean isTunneling;
-
-    /** Whether offload is enabled for this output. */
-    public final boolean isOffload;
-
-    /** The buffer size of the output in bytes. */
-    public final int bufferSize;
-
-    /** The {@link AudioAttributes} for the audio output. */
-    public final AudioAttributes audioAttributes;
-
-    /** The audio session ID. */
-    public final int audioSessionId;
-
-    /** The {@link Context}, or null if it should not be used to configure the output. */
-    @Nullable public final Context context;
-
-    private OutputConfig(Builder builder) {
-      this.encoding = builder.encoding;
-      this.sampleRate = builder.sampleRate;
-      this.channelConfig = builder.channelConfig;
-      this.isTunneling = builder.isTunneling;
-      this.isOffload = builder.isOffload;
-      this.bufferSize = builder.bufferSize;
-      this.audioAttributes = builder.audioAttributes;
-      this.audioSessionId = builder.audioSessionId;
-      this.context = builder.context;
-    }
-
-    /** Returns a {@link Builder} initialized with the values of this instance. */
-    public Builder buildUpon() {
-      return new Builder(this);
-    }
-
-    /** Builder for {@link OutputConfig} instances. */
-    public static final class Builder {
-      private @C.Encoding int encoding;
-      private int sampleRate;
-      private int channelConfig;
-      private boolean isTunneling;
-      private boolean isOffload;
-      private int bufferSize;
-      private AudioAttributes audioAttributes = AudioAttributes.DEFAULT;
-      private int audioSessionId;
-      @Nullable private Context context;
-
-      /** Creates a new instance. */
-      public Builder() {}
-
-      private Builder(OutputConfig config) {
-        this.encoding = config.encoding;
-        this.sampleRate = config.sampleRate;
-        this.channelConfig = config.channelConfig;
-        this.isTunneling = config.isTunneling;
-        this.isOffload = config.isOffload;
-        this.bufferSize = config.bufferSize;
-        this.audioAttributes = config.audioAttributes;
-        this.audioSessionId = config.audioSessionId;
-        this.context = config.context;
-      }
-
-      /** Sets the {@link C.Encoding} of the audio data. */
-      @CanIgnoreReturnValue
-      public Builder setEncoding(@C.Encoding int encoding) {
-        this.encoding = encoding;
-        return this;
-      }
-
-      /** Sets the sample rate of the audio data. */
-      @CanIgnoreReturnValue
-      public Builder setSampleRate(int sampleRate) {
-        this.sampleRate = sampleRate;
-        return this;
-      }
-
-      /** Sets the channel configuration of the output. */
-      @CanIgnoreReturnValue
-      public Builder setChannelConfig(int channelConfig) {
-        this.channelConfig = channelConfig;
-        return this;
-      }
-
-      /** Sets whether tunneling is enabled for this output. */
-      @CanIgnoreReturnValue
-      public Builder setIsTunneling(boolean isTunneling) {
-        this.isTunneling = isTunneling;
-        return this;
-      }
-
-      /** Sets whether offload is enabled for this output. */
-      @CanIgnoreReturnValue
-      public Builder setIsOffload(boolean isOffload) {
-        this.isOffload = isOffload;
-        return this;
-      }
-
-      /** Sets the buffer size of the output in bytes. */
-      @CanIgnoreReturnValue
-      public Builder setBufferSize(int bufferSize) {
-        this.bufferSize = bufferSize;
-        return this;
-      }
-
-      /** Sets the {@link AudioAttributes}. */
-      @CanIgnoreReturnValue
-      public Builder setAudioAttributes(AudioAttributes audioAttributes) {
-        this.audioAttributes = audioAttributes;
-        return this;
-      }
-
-      /** Sets the audio session ID. */
-      @CanIgnoreReturnValue
-      public Builder setAudioSessionId(int audioSessionId) {
-        this.audioSessionId = audioSessionId;
-        return this;
-      }
-
-      /** Sets the {@link Context}, or null if it should not be used to configure the output. */
-      @CanIgnoreReturnValue
-      public Builder setContext(@Nullable Context context) {
-        this.context = context;
-        return this;
-      }
-
-      /** Builds the {@link OutputConfig}. */
-      public OutputConfig build() {
-        return new OutputConfig(this);
-      }
-    }
   }
 
   /** Thrown when a failure occurs writing to the output. */

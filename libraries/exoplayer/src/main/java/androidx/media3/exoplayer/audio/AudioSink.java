@@ -387,16 +387,17 @@ public interface AudioSink {
   @interface SinkFormatSupport {}
 
   /** The sink supports the format directly, without the need for internal transcoding. */
-  int SINK_FORMAT_SUPPORTED_DIRECTLY = 2;
+  int SINK_FORMAT_SUPPORTED_DIRECTLY = AudioOutputProvider.FORMAT_SUPPORTED_DIRECTLY;
 
   /**
    * The sink supports the format, but needs to transcode it internally to do so. Internal
    * transcoding may result in lower quality and higher CPU load in some cases.
    */
-  int SINK_FORMAT_SUPPORTED_WITH_TRANSCODING = 1;
+  int SINK_FORMAT_SUPPORTED_WITH_TRANSCODING =
+      AudioOutputProvider.FORMAT_SUPPORTED_WITH_TRANSCODING;
 
   /** The sink does not support the format. */
-  int SINK_FORMAT_UNSUPPORTED = 0;
+  int SINK_FORMAT_UNSUPPORTED = AudioOutputProvider.FORMAT_UNSUPPORTED;
 
   /** Returned by {@link #getCurrentPositionUs(boolean)} when the position is not set. */
   long CURRENT_POSITION_NOT_SET = Long.MIN_VALUE;

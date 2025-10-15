@@ -38,6 +38,7 @@ import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.analytics.PlayerId;
+import androidx.media3.exoplayer.audio.AudioOutputProvider.OutputConfig;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.concurrent.Future;
@@ -45,6 +46,16 @@ import java.util.concurrent.ScheduledExecutorService;
 
 /** A default implementation of {@link AudioOutput} that wraps an {@link AudioTrack}. */
 /* package */ final class AudioTrackAudioOutput implements AudioOutput {
+
+  /** Listener for potential capability change events. */
+  /* package */ interface CapabilityChangeListener {
+
+    /** The audio device routing changed. */
+    void onRoutedDeviceChanged(AudioDeviceInfo routedDevice);
+
+    /** A recoverable write error occurred. */
+    void onRecoverableWriteError();
+  }
 
   private static final String TAG = "AudioTrackAudioOutput";
 
@@ -75,6 +86,7 @@ import java.util.concurrent.ScheduledExecutorService;
 
   private final AudioTrack audioTrack;
   private final OutputConfig config;
+  @Nullable private final CapabilityChangeListener capabilityChangeListener;
   @Nullable private OnRoutingChangedListenerApi24 onRoutingChangedListener;
   private final AudioTrackPositionTracker audioTrackPositionTracker;
   private final boolean isOutputPcm;
@@ -97,18 +109,19 @@ import java.util.concurrent.ScheduledExecutorService;
    *
    * @param audioTrack The audio track to wrap.
    * @param config The output configuration.
-   * @param audioCapabilitiesReceiver The audio capability receiver.
-   * @param clock The clock to use for tracking position, or {@code null} to use the default.
+   * @param capabilityChangeListener The {@link CapabilityChangeListener}.
+   * @param clock The {@link Clock}.
    */
   @UnstableApi
   @SuppressWarnings("WrongConstant") // For config encoding to pcm encoding.
   public AudioTrackAudioOutput(
       AudioTrack audioTrack,
       OutputConfig config,
-      @Nullable AudioCapabilitiesReceiver audioCapabilitiesReceiver,
+      @Nullable CapabilityChangeListener capabilityChangeListener,
       Clock clock) {
     this.audioTrack = audioTrack;
     this.config = config;
+    this.capabilityChangeListener = capabilityChangeListener;
     listeners = new ListenerSet<>(checkNotNull(Looper.myLooper()), clock);
     // TODO: b/450556896 - remove this line once threading in CompositionPlayer is fixed.
     listeners.setThrowsWhenUsingWrongThread(false);
@@ -130,9 +143,9 @@ import java.util.concurrent.ScheduledExecutorService;
             pcmFrameSize,
             config.bufferSize);
 
-    if (SDK_INT >= 24 && audioCapabilitiesReceiver != null) {
+    if (SDK_INT >= 24 && capabilityChangeListener != null) {
       onRoutingChangedListener =
-          new OnRoutingChangedListenerApi24(audioTrack, audioCapabilitiesReceiver);
+          new OnRoutingChangedListenerApi24(audioTrack, capabilityChangeListener);
     }
     offloadStreamEventCallbackV29 = isOffloadedPlayback() ? new StreamEventCallbackV29() : null;
   }
@@ -222,6 +235,9 @@ import java.util.concurrent.ScheduledExecutorService;
     if (bytesWrittenOrError < 0) {
       int error = bytesWrittenOrError;
       boolean isRecoverable = isAudioTrackDeadObject(error);
+      if (isRecoverable && capabilityChangeListener != null) {
+        capabilityChangeListener.onRecoverableWriteError();
+      }
       throw new WriteException(error, isRecoverable);
     }
     int bytesWritten = bytesWrittenOrError;
@@ -548,15 +564,15 @@ import java.util.concurrent.ScheduledExecutorService;
   private static final class OnRoutingChangedListenerApi24 {
 
     private final AudioTrack audioTrack;
-    private final AudioCapabilitiesReceiver capabilitiesReceiver;
+    private final CapabilityChangeListener capabilityChangeListener;
     private final Handler playbackThreadHandler;
 
     @Nullable private AudioRouting.OnRoutingChangedListener listener;
 
     private OnRoutingChangedListenerApi24(
-        AudioTrack audioTrack, AudioCapabilitiesReceiver capabilitiesReceiver) {
+        AudioTrack audioTrack, CapabilityChangeListener capabilityChangeListener) {
       this.audioTrack = audioTrack;
-      this.capabilitiesReceiver = capabilitiesReceiver;
+      this.capabilityChangeListener = capabilityChangeListener;
       this.playbackThreadHandler = Util.createHandlerForCurrentLooper();
       this.listener = this::onRoutingChanged;
       audioTrack.addOnRoutingChangedListener(listener, playbackThreadHandler);
@@ -583,7 +599,7 @@ import java.util.concurrent.ScheduledExecutorService;
                           // Stale event.
                           return;
                         }
-                        capabilitiesReceiver.setRoutedDevice(routedDevice);
+                        capabilityChangeListener.onRoutedDeviceChanged(routedDevice);
                       });
                 }
               });
