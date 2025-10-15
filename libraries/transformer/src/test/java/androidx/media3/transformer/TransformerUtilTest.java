@@ -16,6 +16,7 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.MimeTypes.VIDEO_H264;
+import static androidx.media3.transformer.EditedMediaItemSequence.withAudioAndVideoFrom;
 import static androidx.media3.transformer.MuxerWrapper.MUXER_MODE_DEFAULT;
 import static androidx.media3.transformer.TestUtil.ASSET_URI_PREFIX;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_VIDEO;
@@ -63,8 +64,7 @@ public final class TransformerUtilTest {
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(mediaItem).setEffects(effects).build();
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence.Builder(editedMediaItem).build())
-            .build();
+        new Composition.Builder(withAudioAndVideoFrom(ImmutableList.of(editedMediaItem))).build();
     MuxerWrapper muxerWrapper =
         new MuxerWrapper(
             temporaryFolder.newFile().getPath(),
@@ -72,8 +72,7 @@ public final class TransformerUtilTest {
             new NoOpMuxerListenerImpl(),
             MUXER_MODE_DEFAULT,
             /* dropSamplesBeforeFirstVideoSample= */ false,
-            /* appendVideoFormat= */ null,
-            /* writeNegativeTimestampsToEditList= */ false);
+            /* appendVideoFormat= */ null);
 
     assertThat(
             shouldTranscodeVideo(
@@ -98,8 +97,7 @@ public final class TransformerUtilTest {
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(mediaItem).setEffects(effects).build();
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence.Builder(editedMediaItem).build())
-            .build();
+        new Composition.Builder(withAudioAndVideoFrom(ImmutableList.of(editedMediaItem))).build();
     MuxerWrapper muxerWrapper =
         new MuxerWrapper(
             temporaryFolder.newFile().getPath(),
@@ -107,8 +105,7 @@ public final class TransformerUtilTest {
             new NoOpMuxerListenerImpl(),
             MUXER_MODE_DEFAULT,
             /* dropSamplesBeforeFirstVideoSample= */ false,
-            /* appendVideoFormat= */ null,
-            /* writeNegativeTimestampsToEditList= */ false);
+            /* appendVideoFormat= */ null);
 
     assertThat(
             shouldTranscodeVideo(
@@ -131,7 +128,7 @@ public final class TransformerUtilTest {
     public void onSampleWrittenOrDropped() {}
 
     @Override
-    public void onEnded(long durationMs, long fileSizeBytes) {}
+    public void onEnded(long approximateDurationMs, long fileSizeBytes) {}
 
     @Override
     public void onError(ExportException exportException) {}

@@ -24,10 +24,11 @@ import android.view.Surface;
 import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
+import androidx.media3.common.util.Clock;
 import androidx.media3.exoplayer.ExoPlayer;
-import androidx.media3.test.utils.CapturingRenderersFactory;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.FakeClock;
+import androidx.media3.test.utils.robolectric.CapturingRenderersFactory;
 import androidx.media3.test.utils.robolectric.PlaybackOutput;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
 import androidx.test.core.app.ApplicationProvider;
@@ -71,6 +72,7 @@ public class Mp4PlaybackTest {
         Sample.forFile("sample_with_numeric_genre.mp4"),
         Sample.forFile("sample_opus_fragmented.mp4"),
         Sample.forFile("sample_opus.mp4"),
+        Sample.forFile("sample_alac.mp4"),
         Sample.forFile("sample_partially_fragmented.mp4"),
         Sample.withSubtitles("sample_with_vobsub.mp4", "eng"),
         Sample.forFile("testvid_1022ms.mp4"),
@@ -87,11 +89,11 @@ public class Mp4PlaybackTest {
   @Test
   public void test() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
-    CapturingRenderersFactory renderersFactory = new CapturingRenderersFactory(applicationContext);
+    Clock clock = new FakeClock(/* isAutoAdvancing= */ true);
+    CapturingRenderersFactory renderersFactory =
+        new CapturingRenderersFactory(applicationContext, clock);
     ExoPlayer player =
-        new ExoPlayer.Builder(applicationContext, renderersFactory)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
-            .build();
+        new ExoPlayer.Builder(applicationContext, renderersFactory).setClock(clock).build();
     if (sample.subtitleLanguageToSelect != null) {
       player.setTrackSelectionParameters(
           player

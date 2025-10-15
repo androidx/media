@@ -553,12 +553,16 @@ public class DefaultDashChunkSource implements DashChunkSource {
       if (representationHolder.segmentIndex == null) {
         @Nullable
         ChunkIndex chunkIndex = checkNotNull(representationHolder.chunkExtractor).getChunkIndex();
-        if (chunkIndex != null) {
-          representationHolders[trackIndex] =
-              representationHolder.copyWithNewSegmentIndex(
-                  new DashWrappingSegmentIndex(
-                      chunkIndex, representationHolder.representation.presentationTimeOffsetUs));
+        if (chunkIndex == null) {
+          // A ChunkIndex is mandatory if a ChunkExtractor is being used to parse the segment.
+          throw new IllegalStateException(
+              "Extractor did not produce a ChunkIndex. This is required for playback of tracks"
+                  + " packaged in a container format (e.g. fMP4, WebM).");
         }
+        representationHolders[trackIndex] =
+            representationHolder.copyWithNewSegmentIndex(
+                new DashWrappingSegmentIndex(
+                    chunkIndex, representationHolder.representation.presentationTimeOffsetUs));
       }
     }
     if (playerTrackEmsgHandler != null) {

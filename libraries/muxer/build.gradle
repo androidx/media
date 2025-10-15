@@ -48,6 +48,7 @@ dependencies {
     compileOnly 'com.google.errorprone:error_prone_annotations:' + errorProneVersion
     compileOnly 'org.checkerframework:checker-qual:' + checkerframeworkVersion
     testImplementation project(modulePrefix + 'lib-extractor')
+    testImplementation 'com.google.testparameterinjector:test-parameter-injector:' + testParameterInjectorVersion
     testImplementation project(modulePrefix + 'test-utils-robolectric')
     testImplementation project(modulePrefix + 'test-utils')
     testImplementation project(modulePrefix + 'test-data')
@@ -55,8 +56,8 @@ dependencies {
     testImplementation 'com.google.truth:truth:' + truthVersion
     testImplementation project(modulePrefix + 'lib-exoplayer')
 
-    // These deps are used by internal-only instrumentation tests.
     androidTestImplementation 'junit:junit:' + junitVersion
+    androidTestImplementation 'com.google.testparameterinjector:test-parameter-injector:' + testParameterInjectorVersion
     androidTestImplementation 'androidx.test:runner:' + androidxTestRunnerVersion
     androidTestImplementation 'com.google.truth:truth:' + truthVersion
     androidTestImplementation project(modulePrefix + 'test-utils')

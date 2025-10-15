@@ -223,7 +223,8 @@ public final class TextRenderer extends BaseRenderer implements Callback {
   }
 
   @Override
-  protected void onPositionReset(long positionUs, boolean joining) {
+  protected void onPositionReset(
+      long positionUs, boolean joining, boolean sampleStreamIsResetToKeyFrame) {
     lastRendererPositionUs = positionUs;
     if (cuesResolver != null) {
       cuesResolver.clear();

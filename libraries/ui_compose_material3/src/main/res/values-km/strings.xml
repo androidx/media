@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">ចាក់</string>
+  <string name="playpause_button_pause">ផ្អាក</string>
+  <string name="next_button">បន្ទាប់</string>
+  <string name="previous_button">មុន</string>
+  <string name="seek_back_button">ខាថយក្រោយ</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">ខា​ថយក្រោយ %d វិនាទី</item>
+    <item quantity="other">ខា​ថយក្រោយ %d វិនាទី</item>
+  </plurals>
+  <string name="seek_forward_button">ខា​ទៅ​មុខ</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">ខា​ទៅ​មុខ %d វិនាទី</item>
+    <item quantity="other">ខា​ទៅមុខ %d វិនាទី</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">មុខងារបច្ចុប្បន្ន៖ មិនចាក់ឡើងវិញ។ បិទ/បើកមុខងារចាក់ឡើងវិញ។</string>
+  <string name="repeat_button_repeat_one">មុខងារបច្ចុប្បន្ន៖ ចាក់ឡើងវិញមួយ។ បិទ/បើកមុខងារចាក់ឡើងវិញ។</string>
+  <string name="repeat_button_repeat_all">មុខងារបច្ចុប្បន្ន៖ ចាក់ឡើងវិញទាំងអស់។ បិទ/បើកមុខងារចាក់ឡើងវិញ។</string>
+  <string name="shuffle_button_shuffle_on">បានបើកមុខងារច្របល់។</string>
+  <string name="shuffle_button_shuffle_off">បានបិទមុខងារច្របល់។</string>
+  <string name="mute_button_shown_unmuted">បិទសំឡេង</string>
+  <string name="mute_button_shown_muted">បើក​សំឡេង</string>
+</resources>

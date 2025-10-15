@@ -738,7 +738,8 @@ public abstract class MediaLibraryService extends MediaSessionService {
           bitmapLoader,
           playIfSuppressed,
           isPeriodicPositionUpdateEnabled,
-          libraryErrorReplicationMode);
+          libraryErrorReplicationMode,
+          /* useLegacySurfaceHandling= */ false);
     }
 
     @Override
@@ -756,7 +757,8 @@ public abstract class MediaLibraryService extends MediaSessionService {
         BitmapLoader bitmapLoader,
         boolean playIfSuppressed,
         boolean isPeriodicPositionUpdateEnabled,
-        @LibraryErrorReplicationMode int libraryErrorReplicationMode) {
+        @LibraryErrorReplicationMode int libraryErrorReplicationMode,
+        boolean useLegacySurfaceHandling) {
       return new MediaLibrarySessionImpl(
           this,
           context,

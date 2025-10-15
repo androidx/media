@@ -297,6 +297,21 @@ public class StubExoPlayer extends StubPlayer implements ExoPlayer {
   }
 
   @Override
+  public void setMaxSeekToPreviousPositionMs(long maxSeekToPreviousPositionMs) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public void setSeekBackIncrementMs(long seekBackIncrementMs) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public void setSeekForwardIncrementMs(long seekForwardIncrementMs) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
   public PlayerMessage createMessage(PlayerMessage.Target target) {
     throw new UnsupportedOperationException();
   }
@@ -313,6 +328,11 @@ public class StubExoPlayer extends StubPlayer implements ExoPlayer {
 
   @Override
   public Renderer getRenderer(int index) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public Renderer getSecondaryRenderer(int index) {
     throw new UnsupportedOperationException();
   }
 

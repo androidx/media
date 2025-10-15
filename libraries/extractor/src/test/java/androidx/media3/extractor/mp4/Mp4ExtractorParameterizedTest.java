@@ -80,7 +80,7 @@ public final class Mp4ExtractorParameterizedTest {
 
   @Test
   public void mp4SampleWithMetadata() throws Exception {
-    assertExtractorBehavior("media/mp4/sample_with_metadata.mp4", /* peekLimit= */ 2700);
+    assertExtractorBehavior("media/mp4/sample_with_metadata.mp4", /* peekLimit= */ 2715);
   }
 
   @Test
@@ -301,6 +301,23 @@ public final class Mp4ExtractorParameterizedTest {
   @Test
   public void mp4SampleWithRotationAndReflection() throws Exception {
     assertExtractorBehavior("media/mp4/sample_rotate_and_reflect.mp4", /* peekLimit= */ 2300);
+  }
+
+  @Test
+  public void mp4SampleWithAlac() throws Exception {
+    assertExtractorBehavior("media/mp4/sample_alac.mp4", /* peekLimit= */ 50);
+  }
+
+  @Test
+  public void mp4SampleWithFixedRechunkAndNoElst() throws Exception {
+    assertExtractorBehavior("media/mp4/sample_fixed_rechunk_no_elst.mp4", /* peekLimit= */ 44);
+  }
+
+  // Checks that an invalid file with a missing stsd results in only that track being skipped,
+  // instead of the whole file failing to parse (b/441971769).
+  @Test
+  public void mp4SampleWithMissingStsd() throws Exception {
+    assertExtractorBehavior("media/mp4/sample_missing_stsd.mp4", /* peekLimit= */ 2300);
   }
 
   private void assertExtractorBehavior(String file, int peekLimit) throws IOException {

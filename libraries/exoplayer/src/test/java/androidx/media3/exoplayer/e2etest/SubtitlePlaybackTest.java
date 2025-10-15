@@ -37,10 +37,10 @@ import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorsFactory;
 import androidx.media3.extractor.mp4.FragmentedMp4Extractor;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
-import androidx.media3.test.utils.CapturingRenderersFactory;
 import androidx.media3.test.utils.DumpFileAsserts;
 import androidx.media3.test.utils.FakeClock;
 import androidx.media3.test.utils.ThrowingSubtitleParserFactory;
+import androidx.media3.test.utils.robolectric.CapturingRenderersFactory;
 import androidx.media3.test.utils.robolectric.PlaybackOutput;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
 import androidx.test.core.app.ApplicationProvider;
@@ -79,9 +79,12 @@ public class SubtitlePlaybackTest {
             loadStartedUris.add(loadEventInfo.dataSpec.uri);
           }
         };
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
+    CapturingRenderersFactory capturingRenderersFactory =
+        new CapturingRenderersFactory(applicationContext, clock);
     ExoPlayer player =
-        new ExoPlayer.Builder(applicationContext)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+        new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
+            .setClock(clock)
             .build();
     player.addAnalyticsListener(analyticsListener);
     Uri typicalVttUri = Uri.parse("asset:///media/webvtt/typical");
@@ -115,8 +118,9 @@ public class SubtitlePlaybackTest {
   @Test
   public void cea608() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory capturingRenderersFactory =
-        new CapturingRenderersFactory(applicationContext);
+        new CapturingRenderersFactory(applicationContext, clock);
     ExtractorsFactory fragmentedMp4ExtractorFactory =
         new FragmentedMp4CaptionsExtractorsFactory(
             new Format.Builder()
@@ -127,7 +131,7 @@ public class SubtitlePlaybackTest {
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setMediaSourceFactory(
                 new DefaultMediaSourceFactory(applicationContext, fragmentedMp4ExtractorFactory))
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setClock(clock)
             .build();
     player.setTrackSelectionParameters(
         player.getTrackSelectionParameters().buildUpon().setPreferredTextLanguage("en").build());
@@ -158,11 +162,14 @@ public class SubtitlePlaybackTest {
                 .setSampleMimeType(MimeTypes.APPLICATION_CEA608)
                 .setLanguage("en")
                 .build());
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
+    CapturingRenderersFactory capturingRenderersFactory =
+        new CapturingRenderersFactory(applicationContext, clock);
     ExoPlayer player =
-        new ExoPlayer.Builder(applicationContext)
+        new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setMediaSourceFactory(
                 new DefaultMediaSourceFactory(applicationContext, fragmentedMp4ExtractorFactory))
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setClock(clock)
             .build();
     player.setTrackSelectionParameters(
         player.getTrackSelectionParameters().buildUpon().setPreferredTextLanguage("en").build());
@@ -192,8 +199,9 @@ public class SubtitlePlaybackTest {
   public void sideloadedSubtitleLoadingError_playbackContinues_errorReportedToAnalyticsListener()
       throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory capturingRenderersFactory =
-        new CapturingRenderersFactory(applicationContext);
+        new CapturingRenderersFactory(applicationContext, clock);
     AtomicReference<LoadEventInfo> loadErrorEventInfo = new AtomicReference<>();
     AnalyticsListener analyticsListener =
         new AnalyticsListener() {
@@ -209,7 +217,7 @@ public class SubtitlePlaybackTest {
         };
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setClock(clock)
             .build();
     player.addAnalyticsListener(analyticsListener);
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
@@ -246,8 +254,9 @@ public class SubtitlePlaybackTest {
   public void sideloadedSubtitleParsingError_playbackContinues_errorReportedToAnalyticsListener()
       throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory capturingRenderersFactory =
-        new CapturingRenderersFactory(applicationContext);
+        new CapturingRenderersFactory(applicationContext, clock);
     AtomicReference<LoadEventInfo> loadErrorEventInfo = new AtomicReference<>();
     AtomicReference<IOException> loadError = new AtomicReference<>();
     AnalyticsListener analyticsListener =
@@ -265,7 +274,7 @@ public class SubtitlePlaybackTest {
         };
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setClock(clock)
             .setMediaSourceFactory(
                 new DefaultMediaSourceFactory(applicationContext)
                     .setSubtitleParserFactory(
@@ -311,11 +320,12 @@ public class SubtitlePlaybackTest {
   @Test
   public void muxedSubtitleParsingError_playbackContinues() throws Exception {
     Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory capturingRenderersFactory =
-        new CapturingRenderersFactory(applicationContext);
+        new CapturingRenderersFactory(applicationContext, clock);
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setClock(clock)
             .setMediaSourceFactory(
                 new DefaultMediaSourceFactory(applicationContext)
                     .setSubtitleParserFactory(

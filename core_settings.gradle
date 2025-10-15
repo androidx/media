@@ -54,6 +54,8 @@ include modulePrefix + 'lib-ui-leanback'
 project(modulePrefix + 'lib-ui-leanback').projectDir = new File(rootDir, 'libraries/ui_leanback')
 include modulePrefix + 'lib-ui-compose'
 project(modulePrefix + 'lib-ui-compose').projectDir = new File(rootDir, 'libraries/ui_compose')
+include modulePrefix + 'lib-ui-compose-material3'
+project(modulePrefix + 'lib-ui-compose-material3').projectDir = new File(rootDir, 'libraries/ui_compose_material3')
 
 include modulePrefix + 'lib-database'
 project(modulePrefix + 'lib-database').projectDir = new File(rootDir, 'libraries/database')
@@ -71,8 +73,6 @@ include modulePrefix + 'lib-decoder'
 project(modulePrefix + 'lib-decoder').projectDir = new File(rootDir, 'libraries/decoder')
 include modulePrefix + 'lib-decoder-av1'
 project(modulePrefix + 'lib-decoder-av1').projectDir = new File(rootDir, 'libraries/decoder_av1')
-include modulePrefix + 'lib-decoder-dav1d'
-project(modulePrefix + 'lib-decoder-dav1d').projectDir = new File(rootDir, 'libraries/decoder_dav1d')
 include modulePrefix + 'lib-decoder-ffmpeg'
 project(modulePrefix + 'lib-decoder-ffmpeg').projectDir = new File(rootDir, 'libraries/decoder_ffmpeg')
 include modulePrefix + 'lib-decoder-flac'
@@ -98,6 +98,9 @@ project(modulePrefix + 'lib-cast').projectDir = new File(rootDir, 'libraries/cas
 
 include modulePrefix + 'lib-effect'
 project(modulePrefix + 'lib-effect').projectDir = new File(rootDir, 'libraries/effect')
+
+include modulePrefix + 'lib-inspector'
+project(modulePrefix + 'lib-inspector').projectDir = new File(rootDir, 'libraries/inspector')
 
 include modulePrefix + 'lib-muxer'
 project(modulePrefix + 'lib-muxer').projectDir = new File(rootDir, 'libraries/muxer')

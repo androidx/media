@@ -22,6 +22,8 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.view.Surface;
+import androidx.annotation.Nullable;
+import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ConditionVariable;
@@ -47,6 +49,9 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
     void onError(String message, Exception cause, @PlaybackException.ErrorCode int errorCode);
   }
 
+  /** Timeout for {@link #release()}. */
+  public static final long RELEASE_TIMEOUT_MS = 500;
+
   private static final String TAG = "CompPlayerInternal";
   private static final int MSG_SET_COMPOSITION = 0;
   private static final int MSG_START_RENDERING = 1;
@@ -58,6 +63,7 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
   private static final int MSG_START_SEEK = 7;
   private static final int MSG_END_SEEK = 8;
   private static final int MSG_RELEASE = 9;
+  private static final int MSG_SET_AUDIO_ATTRIBUTES = 10;
 
   private final Clock clock;
   private final HandlerWrapper handler;
@@ -70,6 +76,7 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
 
   private final Listener listener;
   private final HandlerWrapper listenerHandler;
+  @Nullable private final CompositionVideoPacketReleaseControl videoPacketReleaseControl;
 
   private boolean released;
 
@@ -89,13 +96,15 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
       PlaybackAudioGraphWrapper playbackAudioGraphWrapper,
       PlaybackVideoGraphWrapper playbackVideoGraphWrapper,
       Listener listener,
-      HandlerWrapper listenerHandler) {
+      HandlerWrapper listenerHandler,
+      @Nullable CompositionVideoPacketReleaseControl videoPacketReleaseControl) {
     this.clock = clock;
     this.handler = clock.createHandler(playbackLooper, /* callback= */ this);
     this.playbackAudioGraphWrapper = playbackAudioGraphWrapper;
     this.playbackVideoGraphWrapper = playbackVideoGraphWrapper;
     this.listener = listener;
     this.listenerHandler = listenerHandler;
+    this.videoPacketReleaseControl = videoPacketReleaseControl;
   }
 
   // Public methods
@@ -124,8 +133,8 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
   }
 
   /** Clears the output surface from the video pipeline. */
-  public void clearOutputSurface() {
-    handler.sendEmptyMessage(MSG_CLEAR_OUTPUT_SURFACE);
+  public void clearOutputSurface(ConditionVariable surfaceCleared) {
+    handler.obtainMessage(MSG_CLEAR_OUTPUT_SURFACE, surfaceCleared).sendToTarget();
   }
 
   /** Sets a new {@link PlaybackAudioGraphWrapper}. */
@@ -145,21 +154,21 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
 
   /**
    * Releases internal components on the playback thread and blocks the current thread until the
-   * components are released.
+   * components are released, with a {@linkplain #RELEASE_TIMEOUT_MS timeout}.
+   *
+   * @return Whether the internal components are released correctly before timing out.
    */
-  public void release() {
+  public boolean release() {
     checkState(!released);
     // Set released to true now to silence any pending listener callback.
     released = true;
-    ConditionVariable conditionVariable = new ConditionVariable();
+    ConditionVariable conditionVariable = new ConditionVariable(clock);
     handler.obtainMessage(MSG_RELEASE, conditionVariable).sendToTarget();
-    clock.onThreadBlocked();
-    try {
-      conditionVariable.block();
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      throw new IllegalStateException(e);
-    }
+    return conditionVariable.blockUninterruptible(RELEASE_TIMEOUT_MS);
+  }
+
+  public void setAudioAttributes(AudioAttributes attributes) {
+    handler.obtainMessage(MSG_SET_AUDIO_ATTRIBUTES, attributes).sendToTarget();
   }
 
   // Handler.Callback methods
@@ -185,7 +194,7 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
               /* outputSurfaceInfo= */ (OutputSurfaceInfo) message.obj);
           break;
         case MSG_CLEAR_OUTPUT_SURFACE:
-          clearOutputSurfaceInternal();
+          clearOutputSurfaceInternal((ConditionVariable) message.obj);
           break;
         case MSG_START_SEEK:
           // Video seeking is currently handled by the video renderers, specifically in
@@ -200,6 +209,9 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
           break;
         case MSG_SET_COMPOSITION:
           setCompositionInternal((Composition) message.obj);
+          break;
+        case MSG_SET_AUDIO_ATTRIBUTES:
+          playbackAudioGraphWrapper.setAudioAttributes((AudioAttributes) message.obj);
           break;
         default:
           maybeRaiseError(
@@ -245,16 +257,26 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
   public void startRenderingInternal() {
     playbackAudioGraphWrapper.startRendering();
     playbackVideoGraphWrapper.startRendering();
+    if (videoPacketReleaseControl != null) {
+      videoPacketReleaseControl.onStarted();
+    }
   }
 
   public void stopRenderingInternal() {
     playbackAudioGraphWrapper.stopRendering();
     playbackVideoGraphWrapper.stopRendering();
+    if (videoPacketReleaseControl != null) {
+      videoPacketReleaseControl.onStopped();
+    }
   }
 
-  private void clearOutputSurfaceInternal() {
+  private void clearOutputSurfaceInternal(ConditionVariable surfaceCleared) {
     try {
+      if (videoPacketReleaseControl != null) {
+        videoPacketReleaseControl.setOutputSurface(null);
+      }
       playbackVideoGraphWrapper.clearOutputSurfaceInfo();
+      surfaceCleared.open();
     } catch (RuntimeException e) {
       maybeRaiseError(
           /* message= */ "error clearing video output",
@@ -265,6 +287,9 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
 
   private void setOutputSurfaceInfoOnInternalThread(OutputSurfaceInfo outputSurfaceInfo) {
     try {
+      if (videoPacketReleaseControl != null) {
+        videoPacketReleaseControl.setOutputSurface(outputSurfaceInfo.surface);
+      }
       playbackVideoGraphWrapper.setOutputSurfaceInfo(
           outputSurfaceInfo.surface, outputSurfaceInfo.size);
     } catch (RuntimeException e) {

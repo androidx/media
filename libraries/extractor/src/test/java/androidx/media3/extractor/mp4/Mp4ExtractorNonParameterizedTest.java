@@ -22,6 +22,7 @@ import androidx.media3.common.Format;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.SniffFailure;
+import androidx.media3.extractor.TrackAwareSeekMap;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
 import androidx.media3.extractor.text.SubtitleParser;
 import androidx.media3.test.utils.DumpFileAsserts;
@@ -115,13 +116,14 @@ public final class Mp4ExtractorNonParameterizedTest {
       }
     }
     ImmutableList.Builder<Long> trackSeekTimesUs = ImmutableList.builder();
-    long testPositionUs = output.seekMap.getDurationUs() / 2;
+    TrackAwareSeekMap seekMap = (TrackAwareSeekMap) output.seekMap;
+    long testPositionUs = seekMap.getDurationUs() / 2;
 
     for (int i = 0; i < output.numberOfTracks; i++) {
       int trackId = output.trackOutputs.keyAt(i);
-      trackSeekTimesUs.add(extractor.getSeekPoints(testPositionUs, trackId).first.timeUs);
+      trackSeekTimesUs.add(seekMap.getSeekPoints(testPositionUs, trackId).first.timeUs);
     }
-    long extractorSeekTimeUs = extractor.getSeekPoints(testPositionUs).first.timeUs;
+    long extractorSeekTimeUs = seekMap.getSeekPoints(testPositionUs).first.timeUs;
 
     assertThat(output.numberOfTracks).isEqualTo(2);
     assertThat(extractorSeekTimeUs).isIn(trackSeekTimesUs.build());

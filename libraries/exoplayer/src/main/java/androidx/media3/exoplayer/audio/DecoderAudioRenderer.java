@@ -243,7 +243,8 @@ public abstract class DecoderAudioRenderer<
 
   @Override
   public long getDurationToProgressUs(long positionUs, long elapsedRealtimeUs) {
-    boolean audioSinkBufferFull = nextBufferToWritePresentationTimeUs != C.TIME_UNSET;
+    boolean audioSinkBufferFull =
+        audioSink.hasPendingData() && nextBufferToWritePresentationTimeUs != C.TIME_UNSET;
     if (!isStarted) {
       // When not started we can only make further progress if the audio track buffer isn't filled
       // yet and there is more data to fill it.
@@ -623,8 +624,7 @@ public abstract class DecoderAudioRenderer<
 
   @Override
   public boolean isReady() {
-    return audioSink.hasPendingData()
-        || (inputFormat != null && (isSourceReady() || outputBuffer != null));
+    return audioSink.hasPendingData();
   }
 
   @Override
@@ -667,7 +667,9 @@ public abstract class DecoderAudioRenderer<
   }
 
   @Override
-  protected void onPositionReset(long positionUs, boolean joining) throws ExoPlaybackException {
+  protected void onPositionReset(
+      long positionUs, boolean joining, boolean sampleStreamIsResetToKeyFrame)
+      throws ExoPlaybackException {
     audioSink.flush();
 
     currentPositionUs = positionUs;
@@ -768,6 +770,11 @@ public abstract class DecoderAudioRenderer<
         super.handleMessage(messageType, message);
         break;
     }
+  }
+
+  /** Returns whether the renderer is ready to start or continue decoding. */
+  protected final boolean isReadyForDecoding() {
+    return inputFormat != null && (isSourceReady() || outputBuffer != null);
   }
 
   private void maybeInitDecoder() throws ExoPlaybackException {

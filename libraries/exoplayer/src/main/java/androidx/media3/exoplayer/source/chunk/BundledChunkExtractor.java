@@ -29,6 +29,7 @@ import androidx.media3.common.util.ParsableByteArray;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.extractor.ChunkIndex;
+import androidx.media3.extractor.ChunkIndexProvider;
 import androidx.media3.extractor.DiscardingTrackOutput;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.ExtractorInput;
@@ -211,7 +212,13 @@ public final class BundledChunkExtractor implements ExtractorOutput, ChunkExtrac
   @Override
   @Nullable
   public ChunkIndex getChunkIndex() {
-    return seekMap instanceof ChunkIndex ? (ChunkIndex) seekMap : null;
+    if (seekMap instanceof ChunkIndex) {
+      return (ChunkIndex) seekMap;
+    } else if (seekMap instanceof ChunkIndexProvider) {
+      return ((ChunkIndexProvider) seekMap).getChunkIndex();
+    } else {
+      return null;
+    }
   }
 
   @Override

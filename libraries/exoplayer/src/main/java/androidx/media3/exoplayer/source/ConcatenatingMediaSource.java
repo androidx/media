@@ -534,47 +534,32 @@ public final class ConcatenatingMediaSource extends CompositeMediaSource<MediaSo
     dispatchOnCompletionActions(pendingOnCompletionActions);
   }
 
-  /**
-   * {@inheritDoc}
-   *
-   * @hide
-   */
   @Override
   protected void onChildSourceInfoRefreshed(
-      MediaSourceHolder mediaSourceHolder, MediaSource mediaSource, Timeline timeline) {
-    updateMediaSourceInternal(mediaSourceHolder, timeline);
+      MediaSourceHolder childSourceId, MediaSource mediaSource, Timeline newTimeline) {
+    updateMediaSourceInternal(childSourceId, newTimeline);
   }
 
-  /**
-   * {@inheritDoc}
-   *
-   * @hide
-   */
   @Override
   @Nullable
   protected MediaPeriodId getMediaPeriodIdForChildMediaPeriodId(
-      MediaSourceHolder mediaSourceHolder, MediaPeriodId mediaPeriodId) {
-    for (int i = 0; i < mediaSourceHolder.activeMediaPeriodIds.size(); i++) {
+      MediaSourceHolder childSourceId, MediaPeriodId mediaPeriodId) {
+    for (int i = 0; i < childSourceId.activeMediaPeriodIds.size(); i++) {
       // Ensure the reported media period id has the same window sequence number as the one created
       // by this media source. Otherwise it does not belong to this child source.
-      if (mediaSourceHolder.activeMediaPeriodIds.get(i).windowSequenceNumber
+      if (childSourceId.activeMediaPeriodIds.get(i).windowSequenceNumber
           == mediaPeriodId.windowSequenceNumber) {
-        Object periodUid = getPeriodUid(mediaSourceHolder, mediaPeriodId.periodUid);
+        Object periodUid = getPeriodUid(childSourceId, mediaPeriodId.periodUid);
         return mediaPeriodId.copyWithPeriodUid(periodUid);
       }
     }
     return null;
   }
 
-  /**
-   * {@inheritDoc}
-   *
-   * @hide
-   */
   @Override
   protected int getWindowIndexForChildWindowIndex(
-      MediaSourceHolder mediaSourceHolder, int windowIndex) {
-    return windowIndex + mediaSourceHolder.firstWindowIndexInChild;
+      MediaSourceHolder childSourceId, int windowIndex) {
+    return windowIndex + childSourceId.firstWindowIndexInChild;
   }
 
   // Internal methods. Called from any thread.

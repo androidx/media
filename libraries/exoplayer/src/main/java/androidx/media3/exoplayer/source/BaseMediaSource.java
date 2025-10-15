@@ -60,6 +60,8 @@ public abstract class BaseMediaSource implements MediaSource {
    * TransferListener, PlayerId)}. This method is called at most once until the next call to {@link
    * #releaseSourceInternal()}.
    *
+   * <p>This method is called on the playback thread.
+   *
    * @param mediaTransferListener The transfer listener which should be informed of any media data
    *     transfers. May be null if no listener is available. Note that this listener should usually
    *     be only informed of transfers related to the media loads and not of auxiliary loads for
@@ -67,15 +69,17 @@ public abstract class BaseMediaSource implements MediaSource {
    */
   protected abstract void prepareSourceInternal(@Nullable TransferListener mediaTransferListener);
 
-  /** Enables the source, see {@link #enable(MediaSourceCaller)}. */
+  /** Enables the source, see {@link MediaSource#enable(MediaSourceCaller)}. */
   protected void enableInternal() {}
 
-  /** Disables the source, see {@link #disable(MediaSourceCaller)}. */
+  /** Disables the source, see {@link MediaSource#disable(MediaSourceCaller)}. */
   protected void disableInternal() {}
 
   /**
-   * Releases the source, see {@link #releaseSource(MediaSourceCaller)}. This method is called
-   * exactly once after each call to {@link #prepareSourceInternal(TransferListener)}.
+   * Releases the source, see {@link MediaSource#releaseSource(MediaSourceCaller)}. This method is
+   * called exactly once after each call to {@link #prepareSourceInternal(TransferListener)}.
+   *
+   * <p>This method is called on the playback thread.
    */
   protected abstract void releaseSourceInternal();
 

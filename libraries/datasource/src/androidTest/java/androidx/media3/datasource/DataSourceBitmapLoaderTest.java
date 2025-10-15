@@ -18,6 +18,7 @@ package androidx.media3.datasource;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
@@ -62,18 +63,19 @@ public class DataSourceBitmapLoaderTest {
       TEST_IMAGE_FOLDER + "non-motion-photo-shortened-no-exif.jpg";
 
   private DataSource.Factory dataSourceFactory;
+  private Context context;
 
   @Before
   public void setUp() {
-    dataSourceFactory = new DefaultDataSource.Factory(ApplicationProvider.getApplicationContext());
+    context = ApplicationProvider.getApplicationContext();
+    dataSourceFactory = new DefaultDataSource.Factory(context);
   }
 
   @Test
   public void decodeBitmap_withValidData_loadsCorrectData() throws Exception {
     DataSourceBitmapLoader bitmapLoader =
         new DataSourceBitmapLoader(MoreExecutors.newDirectExecutorService(), dataSourceFactory);
-    byte[] imageData =
-        TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), TEST_IMAGE_PATH);
+    byte[] imageData = TestUtil.getByteArray(context, TEST_IMAGE_PATH);
 
     Bitmap bitmap = bitmapLoader.decodeBitmap(imageData).get();
 
@@ -88,9 +90,7 @@ public class DataSourceBitmapLoaderTest {
     DataSourceBitmapLoader bitmapLoader =
         new DataSourceBitmapLoader(MoreExecutors.newDirectExecutorService(), dataSourceFactory);
     byte[] imageData =
-        TestUtil.getByteArray(
-            ApplicationProvider.getApplicationContext(),
-            TEST_IMAGE_FOLDER + "non-motion-photo-shortened.jpg");
+        TestUtil.getByteArray(context, TEST_IMAGE_FOLDER + "non-motion-photo-shortened.jpg");
     Bitmap bitmapWithoutRotation =
         BitmapFactory.decodeByteArray(imageData, /* offset= */ 0, imageData.length);
     Matrix rotationMatrix = new Matrix();
@@ -125,8 +125,7 @@ public class DataSourceBitmapLoaderTest {
   public void loadBitmap_withHttpUri_loadsCorrectData() throws Exception {
     DataSourceBitmapLoader bitmapLoader =
         new DataSourceBitmapLoader(MoreExecutors.newDirectExecutorService(), dataSourceFactory);
-    byte[] imageData =
-        TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), TEST_IMAGE_PATH);
+    byte[] imageData = TestUtil.getByteArray(context, TEST_IMAGE_PATH);
     Buffer responseBody = new Buffer().write(imageData);
     Bitmap bitmap;
     try (MockWebServer mockWebServer = new MockWebServer()) {
@@ -160,8 +159,7 @@ public class DataSourceBitmapLoaderTest {
   public void loadBitmap_assetUri_loadsCorrectData() throws Exception {
     DataSourceBitmapLoader bitmapLoader =
         new DataSourceBitmapLoader(MoreExecutors.newDirectExecutorService(), dataSourceFactory);
-    byte[] imageData =
-        TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), TEST_IMAGE_PATH);
+    byte[] imageData = TestUtil.getByteArray(context, TEST_IMAGE_PATH);
 
     Bitmap bitmap = bitmapLoader.loadBitmap(Uri.parse("asset:///" + TEST_IMAGE_PATH)).get();
 
@@ -184,8 +182,7 @@ public class DataSourceBitmapLoaderTest {
 
   @Test
   public void loadBitmap_withFileUri_loadsCorrectData() throws Exception {
-    byte[] imageData =
-        TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), TEST_IMAGE_PATH);
+    byte[] imageData = TestUtil.getByteArray(context, TEST_IMAGE_PATH);
     File file = tempFolder.newFile();
     Files.write(imageData, file);
     Uri uri = Uri.fromFile(file);
@@ -202,8 +199,7 @@ public class DataSourceBitmapLoaderTest {
 
   @Test
   public void loadBitmap_withFileUriAndOptions_loadsDataWithRespectToOptions() throws Exception {
-    byte[] imageData =
-        TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), TEST_IMAGE_PATH);
+    byte[] imageData = TestUtil.getByteArray(context, TEST_IMAGE_PATH);
     File file = tempFolder.newFile();
     Files.write(imageData, file);
     Uri uri = Uri.fromFile(file);
@@ -221,8 +217,7 @@ public class DataSourceBitmapLoaderTest {
   @Test
   public void loadBitmap_withFileUriAndMaxOutputDimension_loadsDataWithSmallerSize()
       throws Exception {
-    byte[] imageData =
-        TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), TEST_IMAGE_PATH);
+    byte[] imageData = TestUtil.getByteArray(context, TEST_IMAGE_PATH);
     File file = tempFolder.newFile();
     Files.write(imageData, file);
     Uri uri = Uri.fromFile(file);
@@ -233,6 +228,24 @@ public class DataSourceBitmapLoaderTest {
             dataSourceFactory,
             /* options= */ null,
             maximumOutputDimension);
+
+    Bitmap bitmap = bitmapLoader.loadBitmap(uri).get();
+
+    assertThat(bitmap.getWidth()).isAtMost(maximumOutputDimension);
+    assertThat(bitmap.getHeight()).isAtMost(maximumOutputDimension);
+  }
+
+  @Test
+  public void loadBitmap_withFileUriAndMaxOutputDimension_loadsDataWithSmallerSize2()
+      throws Exception {
+    byte[] imageData = TestUtil.getByteArray(context, TEST_IMAGE_PATH);
+    File file = tempFolder.newFile();
+    Files.write(imageData, file);
+    Uri uri = Uri.fromFile(file);
+    int maximumOutputDimension = 720;
+
+    DataSourceBitmapLoader bitmapLoader =
+        new DataSourceBitmapLoader(context, maximumOutputDimension);
 
     Bitmap bitmap = bitmapLoader.loadBitmap(uri).get();
 
@@ -254,8 +267,7 @@ public class DataSourceBitmapLoaderTest {
   @Test
   public void loadBitmapFromMetadata_withArtworkDataAndArtworkUriSet_decodeFromArtworkData()
       throws Exception {
-    byte[] imageData =
-        TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), TEST_IMAGE_PATH);
+    byte[] imageData = TestUtil.getByteArray(context, TEST_IMAGE_PATH);
     DataSourceBitmapLoader bitmapLoader =
         new DataSourceBitmapLoader(MoreExecutors.newDirectExecutorService(), dataSourceFactory);
     try (MockWebServer mockWebServer = new MockWebServer()) {
@@ -278,8 +290,7 @@ public class DataSourceBitmapLoaderTest {
 
   @Test
   public void loadBitmapFromMetadata_withArtworkUriSet_loadFromArtworkUri() throws Exception {
-    byte[] imageData =
-        TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), TEST_IMAGE_PATH);
+    byte[] imageData = TestUtil.getByteArray(context, TEST_IMAGE_PATH);
     Buffer responseBody = new Buffer().write(imageData);
     DataSourceBitmapLoader bitmapLoader =
         new DataSourceBitmapLoader(MoreExecutors.newDirectExecutorService(), dataSourceFactory);

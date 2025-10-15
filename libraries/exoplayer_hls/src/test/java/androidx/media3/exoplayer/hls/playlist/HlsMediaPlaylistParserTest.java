@@ -479,6 +479,58 @@ public class HlsMediaPlaylistParserTest {
   }
 
   @Test
+  public void
+      parseMediaPlaylist_withSkippedSegments_startTimeUsPreservedWhenProgramStartTimeRemoved()
+          throws IOException {
+    Uri playlistUri = Uri.parse("https://example.com/test.m3u8");
+    String previousPlaylistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:4\n"
+            + "#EXT-X-VERSION:6\n"
+            + "#EXT-X-DISCONTINUITY-SEQUENCE:1234\n"
+            + "#EXT-X-SERVER-CONTROL:CAN-SKIP-UNTIL=24.0\n"
+            + "#EXT-X-MEDIA-SEQUENCE:264\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T20:00:00.000Z\n"
+            + "#EXT-X-PART:DURATION=2.00000,URI=\"part264.1.ts\"\n"
+            + "#EXT-X-PART:DURATION=2.00000,URI=\"part264.2.ts\"\n"
+            + "#EXTINF:4.00008,\n"
+            + "fileSequence264.mp4\n"
+            + "#EXT-X-DISCONTINUITY\n"
+            + "#EXT-X-PART:DURATION=2.00000,URI=\"part265.1.ts\"\n"
+            + "#EXT-X-PART:DURATION=2.00000,URI=\"part265.2.ts\"\n"
+            + "#EXTINF:4.00008,\n"
+            + "fileSequence265.mp4\n"
+            + "#EXT-X-PART:DURATION=2.00000,URI=\"part266.1.ts\"\n"
+            + "#EXT-X-PART:DURATION=2.00000,URI=\"part266.2.ts\"\n"
+            + "#EXTINF:4.00008,\n"
+            + "fileSequence266.mp4\n"
+            + "#EXT-X-PART:DURATION=2.00000,URI=\"part267.1.ts\"";
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:4\n"
+            + "#EXT-X-VERSION:6\n"
+            + "#EXT-X-DISCONTINUITY-SEQUENCE:1234\n"
+            + "#EXT-X-SERVER-CONTROL:CAN-SKIP-UNTIL=24.0\n"
+            + "#EXT-X-MEDIA-SEQUENCE:265\n"
+            + "#EXT-X-SKIP:SKIPPED-SEGMENTS=2\n"
+            + "#EXT-X-PART:DURATION=2.00000,URI=\"part267.1.ts\"";
+    InputStream previousInputStream =
+        new ByteArrayInputStream(Util.getUtf8Bytes(previousPlaylistString));
+    HlsMediaPlaylist previousPlaylist =
+        (HlsMediaPlaylist) new HlsPlaylistParser().parse(playlistUri, previousInputStream);
+    InputStream inputStream = new ByteArrayInputStream(Util.getUtf8Bytes(playlistString));
+
+    HlsMediaPlaylist playlist =
+        (HlsMediaPlaylist)
+            new HlsPlaylistParser(HlsMultivariantPlaylist.EMPTY, previousPlaylist)
+                .parse(playlistUri, inputStream);
+
+    assertThat(playlist.startTimeUs).isEqualTo(1_577_995_200_000_000L);
+    assertThat(previousPlaylist.startTimeUs).isEqualTo(1_577_995_200_000_000L);
+    assertThat(playlist.segments).hasSize(2);
+  }
+
+  @Test
   public void parseMediaPlaylist_withParts_parsesPartWithAllAttributes() throws IOException {
     Uri playlistUri = Uri.parse("https://example.com/test.m3u8");
     String playlistString =

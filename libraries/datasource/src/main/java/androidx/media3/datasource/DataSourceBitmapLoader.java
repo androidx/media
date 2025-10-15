@@ -63,6 +63,22 @@ public final class DataSourceBitmapLoader implements BitmapLoader {
   }
 
   /**
+   * Creates an instance that uses a {@link DefaultHttpDataSource} for image loading and delegates
+   * loading tasks to a {@link Executors#newSingleThreadExecutor()} with specified maximum output
+   * dimension.
+   *
+   * @param context The context
+   * @param maximumOutputDimension The maximum dimension of the output Bitmap.
+   */
+  public DataSourceBitmapLoader(Context context, int maximumOutputDimension) {
+    this(
+        checkNotNull(DEFAULT_EXECUTOR_SERVICE.get()),
+        new DefaultDataSource.Factory(context),
+        /* options= */ null,
+        maximumOutputDimension);
+  }
+
+  /**
    * Creates an instance that delegates loading tasks to the {@link ListeningExecutorService}.
    *
    * @param listeningExecutorService The {@link ListeningExecutorService}.

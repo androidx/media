@@ -19,9 +19,10 @@ package androidx.media3.ui.compose.state
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.media3.common.Player
-import androidx.media3.ui.compose.utils.TestPlayer
+import androidx.media3.test.utils.TestSimpleBasePlayer
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
+import org.junit.Assert.assertThrows
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -35,7 +36,7 @@ class RepeatButtonStateTest {
 
   @Test
   fun playerRepeatModeChanged_buttonRepeatModeChanged() {
-    val player = TestPlayer()
+    val player = TestSimpleBasePlayer()
 
     lateinit var state: RepeatButtonState
     composeTestRule.setContent { state = rememberRepeatButtonState(player = player) }
@@ -50,13 +51,35 @@ class RepeatButtonStateTest {
 
   @Test
   fun buttonClicked_withLimitedNumberOfModes_playerRepeatModeChangedToNextInSequence() {
-    val player = TestPlayer()
+    val player = TestSimpleBasePlayer()
     val state = RepeatButtonState(player, listOf(Player.REPEAT_MODE_OFF, Player.REPEAT_MODE_ONE))
     assertThat(state.repeatModeState).isEqualTo(Player.REPEAT_MODE_OFF)
 
     state.onClick()
 
     assertThat(player.repeatMode).isEqualTo(Player.REPEAT_MODE_ONE)
+  }
+
+  @Test
+  fun onClick_whenCommandNotAvailable_throwsIllegalStateException() {
+    val player = TestSimpleBasePlayer()
+    player.removeCommands(Player.COMMAND_SET_REPEAT_MODE)
+    val state = RepeatButtonState(player)
+
+    assertThat(state.isEnabled).isFalse()
+    assertThrows(IllegalStateException::class.java) { state.onClick() }
+  }
+
+  @Test
+  fun onClick_stateBecomesDisabledAfterFirstClick_throwsException() {
+    val player = TestSimpleBasePlayer()
+    val state = RepeatButtonState(player)
+
+    state.onClick()
+    // simulate state becoming disabled atomically, i.e. without yet receiving the relevant event
+    player.removeCommands(Player.COMMAND_SET_REPEAT_MODE)
+
+    assertThrows(IllegalStateException::class.java) { state.onClick() }
   }
 
   @Test
@@ -76,7 +99,7 @@ class RepeatButtonStateTest {
     // irrelevant because we are operating on the live mutable Player object). The expectation then
     // is that the State object and Player finally synchronise, even if it means the UI interaction
     // would have been confusing.
-    val player = TestPlayer()
+    val player = TestSimpleBasePlayer()
     lateinit var state: RepeatButtonState
     composeTestRule.setContent {
       state =
@@ -107,7 +130,7 @@ class RepeatButtonStateTest {
 
   @Test
   fun playerChangesRepeatModeCommandsBeforeEventListenerRegisters_observeGetsTheLatestValues_uiIconInSync() {
-    val player = TestPlayer()
+    val player = TestSimpleBasePlayer()
 
     lateinit var state: RepeatButtonState
     composeTestRule.setContent {

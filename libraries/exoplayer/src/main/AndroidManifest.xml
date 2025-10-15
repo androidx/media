@@ -17,5 +17,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="androidx.media3.exoplayer">
   <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+  <uses-permission android:name="android.permission.WAKE_LOCK"/>
   <uses-sdk />
 </manifest>

@@ -636,23 +636,19 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
     if (metadata == null) {
       return C.TIME_UNSET;
     }
-    int metadataLength = metadata.length();
-    for (int i = 0; i < metadataLength; i++) {
-      Metadata.Entry frame = metadata.get(i);
-      if (frame instanceof PrivFrame) {
-        PrivFrame privFrame = (PrivFrame) frame;
-        if (PRIV_TIMESTAMP_FRAME_OWNER.equals(privFrame.owner)) {
-          System.arraycopy(
-              privFrame.privateData, 0, scratchId3Data.getData(), 0, 8 /* timestamp size */);
-          scratchId3Data.setPosition(0);
-          scratchId3Data.setLimit(8);
-          // The top 31 bits should be zeros, but explicitly zero them to wrap in the case that the
-          // streaming provider forgot. See: https://github.com/google/ExoPlayer/pull/3495.
-          return scratchId3Data.readLong() & 0x1FFFFFFFFL;
-        }
-      }
+    @Nullable
+    PrivFrame privFrame =
+        metadata.getFirstMatchingEntry(
+            PrivFrame.class, frame -> frame.owner.equals(HlsMediaChunk.PRIV_TIMESTAMP_FRAME_OWNER));
+    if (privFrame == null) {
+      return C.TIME_UNSET;
     }
-    return C.TIME_UNSET;
+    System.arraycopy(privFrame.privateData, 0, scratchId3Data.getData(), 0, 8 /* timestamp size */);
+    scratchId3Data.setPosition(0);
+    scratchId3Data.setLimit(8);
+    // The top 31 bits should be zeros, but explicitly zero them to wrap in the case that the
+    // streaming provider forgot. See: https://github.com/google/ExoPlayer/pull/3495.
+    return scratchId3Data.readLong() & 0x1FFFFFFFFL;
   }
 
   // Internal methods.

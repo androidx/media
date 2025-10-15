@@ -60,6 +60,8 @@ public interface AnnexBToAvccConverter {
             outputBuffer.put(currentNalUnit);
           }
           outputBuffer.rewind();
+          // Mark input buffer as consumed.
+          inputBuffer.position(inputBuffer.limit());
           return outputBuffer;
         }
       };

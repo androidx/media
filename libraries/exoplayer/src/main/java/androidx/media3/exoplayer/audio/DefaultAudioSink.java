@@ -305,7 +305,6 @@ public final class DefaultAudioSink implements AudioSink {
     private AudioTrackBufferSizeProvider audioTrackBufferSizeProvider;
     private AudioTrackProvider audioTrackProvider;
     private @MonotonicNonNull AudioOffloadSupportProvider audioOffloadSupportProvider;
-    private boolean enableOnAudioPositionAdvancingFix = true;
     @Nullable private AudioOffloadListener audioOffloadListener;
 
     /**
@@ -451,19 +450,6 @@ public final class DefaultAudioSink implements AudioSink {
     @CanIgnoreReturnValue
     public Builder setAudioTrackProvider(AudioTrackProvider audioTrackProvider) {
       this.audioTrackProvider = audioTrackProvider;
-      return this;
-    }
-
-    /**
-     * Sets whether to enable the fix for audio position advancing on audio offload.
-     *
-     * @param enableOnAudioPositionAdvancingFix Whether to enable the fix for audio position
-     *     advancing on audio offload.
-     * @return This builder.
-     */
-    @CanIgnoreReturnValue
-    public Builder setEnableOnAudioPositionAdvancingFix(boolean enableOnAudioPositionAdvancingFix) {
-      this.enableOnAudioPositionAdvancingFix = enableOnAudioPositionAdvancingFix;
       return this;
     }
 
@@ -622,7 +608,8 @@ public final class DefaultAudioSink implements AudioSink {
   private long accumulatedSkippedSilenceDurationUs;
   private @MonotonicNonNull Handler reportSkippedSilenceHandler;
   @Nullable private Context contextWithDeviceId;
-  private boolean enableOnAudioPositionAdvancingFix;
+  private int lastUnderrunCount;
+  private boolean hasData;
 
   @RequiresNonNull("#1.audioProcessorChain")
   private DefaultAudioSink(Builder builder) {
@@ -659,7 +646,6 @@ public final class DefaultAudioSink implements AudioSink {
         SDK_INT < 34 || builder.context == null
             ? C.INDEX_UNSET
             : getDeviceIdFromContext(builder.context);
-    enableOnAudioPositionAdvancingFix = builder.enableOnAudioPositionAdvancingFix;
   }
 
   // AudioSink implementation.
@@ -895,8 +881,9 @@ public final class DefaultAudioSink implements AudioSink {
         audioTrack,
         configuration.outputEncoding,
         configuration.outputPcmFrameSize,
-        configuration.bufferSize,
-        enableOnAudioPositionAdvancingFix);
+        configuration.bufferSize);
+    lastUnderrunCount = 0;
+    hasData = false;
     setVolumeInternal();
 
     if (auxEffectInfo.effectId != AuxEffectInfo.NO_AUX_EFFECT_ID) {
@@ -1017,9 +1004,7 @@ public final class DefaultAudioSink implements AudioSink {
       }
     }
 
-    if (!audioTrackPositionTracker.mayHandleBuffer(getWrittenFrames())) {
-      return false;
-    }
+    maybeReportUnderrun(getWrittenFrames());
 
     if (inputBuffer == null) {
       // We are seeing this buffer for the first time.
@@ -1430,7 +1415,7 @@ public final class DefaultAudioSink implements AudioSink {
   public boolean hasPendingData() {
     return isAudioTrackInitialized()
         && (SDK_INT < 29 || !audioTrack.isOffloadedPlayback() || !handledOffloadOnPresentationEnded)
-        && audioTrackPositionTracker.hasPendingData(getWrittenFrames());
+        && hasAudioTrackPendingData(getWrittenFrames());
   }
 
   @Override
@@ -2031,6 +2016,56 @@ public final class DefaultAudioSink implements AudioSink {
         rampFrameCount);
   }
 
+  private void maybeReportUnderrun(long writtenFrames) {
+    if (hasPendingAudioTrackUnderruns(writtenFrames) && listener != null) {
+      long bufferSizeUs =
+          configuration.outputPcmFrameSize != C.LENGTH_UNSET
+              ? Util.sampleCountToDurationUs(
+                  configuration.bufferSize / configuration.outputPcmFrameSize,
+                  checkNotNull(audioTrack).getSampleRate())
+              : C.TIME_UNSET;
+      long elapsedSinceLastFeedMs = SystemClock.elapsedRealtime() - lastFeedElapsedRealtimeMs;
+      listener.onUnderrun(
+          configuration.bufferSize, Util.usToMs(bufferSizeUs), elapsedSinceLastFeedMs);
+    }
+  }
+
+  /**
+   * Returns whether {@link #audioTrack} has reported one or more underruns since the last call to
+   * this method.
+   */
+  private boolean hasPendingAudioTrackUnderruns(long writtenFrames) {
+    int underrunCount = getAudioTrackUnderrunCount(writtenFrames);
+    boolean result = underrunCount > lastUnderrunCount;
+
+    // If the AudioTrack unexpectedly resets the underrun count, we should update it silently.
+    lastUnderrunCount = underrunCount;
+
+    return result;
+  }
+
+  private int getAudioTrackUnderrunCount(long writtenFrames) {
+    if (SDK_INT >= 24) {
+      return checkNotNull(audioTrack).getUnderrunCount();
+    }
+    boolean hadData = hasData;
+    hasData = hasAudioTrackPendingData(writtenFrames);
+    // For API 23- AudioTrack has no underrun API so we need to infer underruns heuristically.
+    boolean emitUnderrun =
+        hadData
+            && !hasData
+            && checkNotNull(audioTrack).getPlayState() != AudioTrack.PLAYSTATE_STOPPED;
+    return emitUnderrun ? lastUnderrunCount + 1 : lastUnderrunCount;
+  }
+
+  private boolean hasAudioTrackPendingData(long writtenFrames) {
+    long currentPositionFrames =
+        Util.durationUsToSampleCount(
+            audioTrackPositionTracker.getCurrentPositionUs(),
+            checkNotNull(audioTrack).getSampleRate());
+    return writtenFrames > currentPositionFrames;
+  }
+
   private static void releaseAudioTrackAsync(
       AudioTrack audioTrack, @Nullable Listener listener, AudioTrackConfig audioTrackConfig) {
     // AudioTrack.release can take some time, so we call it on a background thread. The background
@@ -2288,14 +2323,6 @@ public final class DefaultAudioSink implements AudioSink {
     public void onPositionAdvancing(long playoutStartSystemTimeMs) {
       if (listener != null) {
         listener.onPositionAdvancing(playoutStartSystemTimeMs);
-      }
-    }
-
-    @Override
-    public void onUnderrun(int bufferSize, long bufferSizeMs) {
-      if (listener != null) {
-        long elapsedSinceLastFeedMs = SystemClock.elapsedRealtime() - lastFeedElapsedRealtimeMs;
-        listener.onUnderrun(bufferSize, bufferSizeMs, elapsedSinceLastFeedMs);
       }
     }
   }

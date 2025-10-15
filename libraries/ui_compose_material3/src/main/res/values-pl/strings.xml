@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">Odtwórz</string>
+  <string name="playpause_button_pause">Wstrzymaj</string>
+  <string name="next_button">Dalej</string>
+  <string name="previous_button">Wstecz</string>
+  <string name="seek_back_button">Przewiń do tyłu</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">Przeskocz o %d sekundę do tyłu</item>
+    <item quantity="few">Przeskocz o %d sekundy do tyłu</item>
+    <item quantity="many">Przeskocz o %d sekund do tyłu</item>
+    <item quantity="other">Przeskocz o %d sekundy do tyłu</item>
+  </plurals>
+  <string name="seek_forward_button">Przeskocz do przodu</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">Przeskocz o %d sekundę do przodu</item>
+    <item quantity="few">Przeskocz o %d sekundy do przodu</item>
+    <item quantity="many">Przeskocz o %d sekund do przodu</item>
+    <item quantity="other">Przeskocz o %d sekundy do przodu</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">Obecnie wybrany tryb: Nie powtarzaj. Przełącz się na tryb powtarzania.</string>
+  <string name="repeat_button_repeat_one">Obecnie wybrany tryb: Powtórz jeden. Przełącz się na tryb powtarzania.</string>
+  <string name="repeat_button_repeat_all">Obecnie wybrany tryb: Powtórz wszystkie. Przełącz się na tryb powtarzania.</string>
+  <string name="shuffle_button_shuffle_on">Tryb odtwarzania losowego włączony.</string>
+  <string name="shuffle_button_shuffle_off">Tryb odtwarzania losowego wyłączony.</string>
+  <string name="mute_button_shown_unmuted">Wycisz</string>
+  <string name="mute_button_shown_muted">Wyłącz wyciszenie</string>
+</resources>

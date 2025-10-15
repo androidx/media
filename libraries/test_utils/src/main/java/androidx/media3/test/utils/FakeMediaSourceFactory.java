@@ -78,7 +78,7 @@ public final class FakeMediaSourceFactory implements MediaSourceFactory {
             /* isDynamic= */ false,
             /* isLive= */ false,
             /* isPlaceholder= */ false,
-            /* durationUs= */ 1000 * C.MICROS_PER_SECOND,
+            /* durationUs= */ 10 * C.MICROS_PER_SECOND,
             /* defaultPositionUs= */ 2 * C.MICROS_PER_SECOND,
             /* windowOffsetInFirstPeriodUs= */ Util.msToUs(123456789),
             ImmutableList.of(AdPlaybackState.NONE),

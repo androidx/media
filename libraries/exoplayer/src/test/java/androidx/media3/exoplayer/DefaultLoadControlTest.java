@@ -16,6 +16,8 @@
 package androidx.media3.exoplayer;
 
 import static androidx.media3.common.util.Util.msToUs;
+import static androidx.media3.exoplayer.DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_FOR_LOCAL_PLAYBACK_MS;
+import static androidx.media3.exoplayer.DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_FOR_LOCAL_PLAYBACK_MS;
 import static com.google.common.truth.Truth.assertThat;
 
 import androidx.media3.common.C;
@@ -32,6 +34,8 @@ import androidx.media3.exoplayer.source.SinglePeriodTimeline;
 import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.trackselection.FixedTrackSelection;
+import androidx.media3.exoplayer.upstream.Allocation;
+import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.DefaultAllocator;
 import androidx.media3.test.utils.FakeTimeline;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -286,6 +290,217 @@ public class DefaultLoadControlTest {
   }
 
   @Test
+  public void
+      shouldContinueLoading_twoPlayersWithDifferentPlayerTargetBufferBytes_decisionsMadeBasedOnTheirOwnTargetBufferBytes() {
+    String playerName1 = "player1";
+    String playerName2 = "player2";
+    DefaultAllocator allocator =
+        new DefaultAllocator(
+            /* trimOnReset= */ true, /* individualAllocationSize= */ C.DEFAULT_BUFFER_SEGMENT_SIZE);
+    DefaultLoadControl loadControl =
+        builder
+            .setAllocator(allocator)
+            .setBufferDurationsMs(
+                /* minBufferMs= */ (int) Util.usToMs(MIN_BUFFER_US),
+                /* maxBufferMs= */ (int) Util.usToMs(MAX_BUFFER_US),
+                /* bufferForPlaybackMs= */ 0,
+                /* bufferForPlaybackAfterRebufferMs= */ 0)
+            .setPrioritizeTimeOverSizeThresholds(true)
+            .setPlayerTargetBufferBytes(
+                playerName1,
+                /* playerTargetBufferBytes= */ allocator.getIndividualAllocationLength())
+            .setPlayerTargetBufferBytes(
+                playerName2,
+                /* playerTargetBufferBytes= */ 2 * allocator.getIndividualAllocationLength())
+            .build();
+    PlayerId playerId1 = new PlayerId(playerName1);
+    PlayerId playerId2 = new PlayerId(playerName2);
+    loadControl.onPrepared(playerId1);
+    loadControl.onPrepared(playerId2);
+    Timeline timeline1 = new FakeTimeline();
+    MediaSource.MediaPeriodId mediaPeriodId1 =
+        new MediaSource.MediaPeriodId(
+            timeline1.getPeriod(/* periodIndex= */ 0, new Timeline.Period(), /* setIds= */ true)
+                .uid);
+    Timeline timeline2 = new FakeTimeline();
+    MediaSource.MediaPeriodId mediaPeriodId2 =
+        new MediaSource.MediaPeriodId(
+            timeline2.getPeriod(/* periodIndex= */ 0, new Timeline.Period(), /* setIds= */ true)
+                .uid);
+    loadControl.onTracksSelected(
+        new LoadControl.Parameters(
+            playerId1,
+            timeline1,
+            mediaPeriodId1,
+            /* playbackPositionUs= */ 0,
+            /* bufferedDurationUs= */ 0,
+            /* playbackSpeed= */ 1.0f,
+            /* playWhenReady= */ false,
+            /* rebuffering= */ false,
+            /* targetLiveOffsetUs= */ C.TIME_UNSET,
+            C.TIME_UNSET),
+        /* trackGroups= */ null,
+        /* trackSelections= */ null);
+    loadControl.onTracksSelected(
+        new LoadControl.Parameters(
+            playerId2,
+            timeline2,
+            mediaPeriodId2,
+            /* playbackPositionUs= */ 0,
+            /* bufferedDurationUs= */ 0,
+            /* playbackSpeed= */ 1.0f,
+            /* playWhenReady= */ false,
+            /* rebuffering= */ false,
+            /* targetLiveOffsetUs= */ C.TIME_UNSET,
+            C.TIME_UNSET),
+        /* trackGroups= */ null,
+        /* trackSelections= */ null);
+    // Start loading for player1 and player2.
+    loadControl.shouldContinueLoading(
+        new LoadControl.Parameters(
+            playerId1,
+            timeline1,
+            mediaPeriodId1,
+            /* playbackPositionUs= */ 0L,
+            /* bufferedDurationUs= */ 0L,
+            SPEED,
+            /* playWhenReady= */ false,
+            /* rebuffering= */ false,
+            /* targetLiveOffsetUs= */ C.TIME_UNSET,
+            /* lastRebufferRealtimeMs= */ C.TIME_UNSET));
+    loadControl.shouldContinueLoading(
+        new LoadControl.Parameters(
+            playerId2,
+            timeline2,
+            mediaPeriodId1,
+            /* playbackPositionUs= */ 0L,
+            /* bufferedDurationUs= */ 0L,
+            SPEED,
+            /* playWhenReady= */ false,
+            /* rebuffering= */ false,
+            /* targetLiveOffsetUs= */ C.TIME_UNSET,
+            /* lastRebufferRealtimeMs= */ C.TIME_UNSET));
+    Allocator allocator1 = loadControl.getAllocator(playerId1);
+    Allocator allocator2 = loadControl.getAllocator(playerId2);
+    Allocation allocation1 = allocator1.allocate();
+    allocator2.allocate();
+
+    boolean player1ShouldContinueLoading =
+        loadControl.shouldContinueLoading(
+            new LoadControl.Parameters(
+                playerId1,
+                timeline1,
+                mediaPeriodId1,
+                /* playbackPositionUs= */ 0L,
+                (MIN_BUFFER_US + MAX_BUFFER_US) / 2,
+                SPEED,
+                /* playWhenReady= */ false,
+                /* rebuffering= */ false,
+                /* targetLiveOffsetUs= */ C.TIME_UNSET,
+                /* lastRebufferRealtimeMs= */ C.TIME_UNSET));
+    boolean player2ShouldContinueLoading =
+        loadControl.shouldContinueLoading(
+            new LoadControl.Parameters(
+                playerId2,
+                timeline2,
+                mediaPeriodId2,
+                /* playbackPositionUs= */ 0L,
+                (MIN_BUFFER_US + MAX_BUFFER_US) / 2,
+                SPEED,
+                /* playWhenReady= */ false,
+                /* rebuffering= */ false,
+                /* targetLiveOffsetUs= */ C.TIME_UNSET,
+                /* lastRebufferRealtimeMs= */ C.TIME_UNSET));
+
+    // Allocated one allocation for player1, then player1 reached to its target buffer bytes, which
+    // is allocator.getIndividualAllocationLength(), so it should not continue loading.
+    assertThat(player1ShouldContinueLoading).isFalse();
+    // Allocated one allocation for player2, then player2 still didn't reach to its target buffer
+    // bytes, which is twice of allocator.getIndividualAllocationLength(), so it should continue
+    // loading.
+    assertThat(player2ShouldContinueLoading).isTrue();
+
+    allocator2.allocate();
+    player2ShouldContinueLoading =
+        loadControl.shouldContinueLoading(
+            new LoadControl.Parameters(
+                playerId2,
+                timeline2,
+                mediaPeriodId2,
+                /* playbackPositionUs= */ 0L,
+                MAX_BUFFER_US - 1,
+                SPEED,
+                /* playWhenReady= */ false,
+                /* rebuffering= */ false,
+                /* targetLiveOffsetUs= */ C.TIME_UNSET,
+                /* lastRebufferRealtimeMs= */ C.TIME_UNSET));
+
+    // Allocated one more allocation for player2, but player2 now reached to its target buffer
+    // bytes, so it should not continue loading.
+    assertThat(player2ShouldContinueLoading).isFalse();
+
+    // The player1 and player2 are back to load as bufferedDurationUs get consumed.
+    loadControl.shouldContinueLoading(
+        new LoadControl.Parameters(
+            playerId1,
+            timeline1,
+            mediaPeriodId1,
+            /* playbackPositionUs= */ 0L,
+            MIN_BUFFER_US - 1,
+            SPEED,
+            /* playWhenReady= */ false,
+            /* rebuffering= */ false,
+            /* targetLiveOffsetUs= */ C.TIME_UNSET,
+            /* lastRebufferRealtimeMs= */ C.TIME_UNSET));
+    loadControl.shouldContinueLoading(
+        new LoadControl.Parameters(
+            playerId2,
+            timeline2,
+            mediaPeriodId1,
+            /* playbackPositionUs= */ 0L,
+            MIN_BUFFER_US - 1,
+            SPEED,
+            /* playWhenReady= */ false,
+            /* rebuffering= */ false,
+            /* targetLiveOffsetUs= */ C.TIME_UNSET,
+            /* lastRebufferRealtimeMs= */ C.TIME_UNSET));
+    allocator1.release(allocation1);
+    player1ShouldContinueLoading =
+        loadControl.shouldContinueLoading(
+            new LoadControl.Parameters(
+                playerId1,
+                timeline1,
+                mediaPeriodId1,
+                /* playbackPositionUs= */ 0L,
+                MAX_BUFFER_US - 1,
+                SPEED,
+                /* playWhenReady= */ false,
+                /* rebuffering= */ false,
+                /* targetLiveOffsetUs= */ C.TIME_UNSET,
+                /* lastRebufferRealtimeMs= */ C.TIME_UNSET));
+    player2ShouldContinueLoading =
+        loadControl.shouldContinueLoading(
+            new LoadControl.Parameters(
+                playerId2,
+                timeline2,
+                mediaPeriodId2,
+                /* playbackPositionUs= */ 0L,
+                MAX_BUFFER_US - 1,
+                SPEED,
+                /* playWhenReady= */ false,
+                /* rebuffering= */ false,
+                /* targetLiveOffsetUs= */ C.TIME_UNSET,
+                /* lastRebufferRealtimeMs= */ C.TIME_UNSET));
+
+    // Released one allocation for player1, player1 is now back under its target buffer bytes, so
+    // it should continue loading.
+    assertThat(player1ShouldContinueLoading).isTrue();
+    // The allocations for player2 haven't been released, so the player2 should not continue
+    // loading.
+    assertThat(player2ShouldContinueLoading).isFalse();
+  }
+
+  @Test
   public void shouldContinueLoading_onceBufferingStopped_falseUntilBelowMinBuffer() {
     builder.setBufferDurationsMsForStreaming(
         /* minBufferMs= */ (int) Util.usToMs(MIN_BUFFER_US),
@@ -484,7 +699,7 @@ public class DefaultLoadControlTest {
         /* bufferForPlaybackMs= */ 0,
         /* bufferForPlaybackAfterRebufferMs= */ 0);
     build();
-    makeSureTargetBufferBytesReached();
+    makeSureTargetBufferBytesReached(playerId);
 
     assertThat(
             loadControl.shouldContinueLoading(
@@ -565,7 +780,7 @@ public class DefaultLoadControlTest {
                     /* targetLiveOffsetUs= */ C.TIME_UNSET,
                     /* lastRebufferRealtimeMs= */ C.TIME_UNSET)))
         .isTrue();
-    makeSureTargetBufferBytesReached();
+    makeSureTargetBufferBytesReached(playerId);
 
     assertThat(
             loadControl.shouldContinueLoading(
@@ -646,7 +861,7 @@ public class DefaultLoadControlTest {
                     /* targetLiveOffsetUs= */ C.TIME_UNSET,
                     /* lastRebufferRealtimeMs= */ C.TIME_UNSET)))
         .isTrue();
-    makeSureTargetBufferBytesReached();
+    makeSureTargetBufferBytesReached(playerId);
 
     assertThat(
             loadControl.shouldContinueLoading(
@@ -1080,6 +1295,135 @@ public class DefaultLoadControlTest {
   }
 
   @Test
+  public void
+      shouldStartPlayback_twoPlayersWithDifferentPlayerTargetBufferBytes_decisionsMadeBasedOnTheirOwnTargetBufferBytes() {
+    String playerName1 = "player1";
+    String playerName2 = "player2";
+    DefaultAllocator allocator =
+        new DefaultAllocator(
+            /* trimOnReset= */ true, /* individualAllocationSize= */ C.DEFAULT_BUFFER_SEGMENT_SIZE);
+    DefaultLoadControl loadControl =
+        builder
+            .setAllocator(allocator)
+            .setBufferDurationsMsForLocalPlayback(
+                /* minBufferMs= */ (int) Util.usToMs(MIN_BUFFER_US),
+                /* maxBufferMs= */ (int) Util.usToMs(MAX_BUFFER_US),
+                /* bufferForPlaybackMs= */ DEFAULT_BUFFER_FOR_PLAYBACK_FOR_LOCAL_PLAYBACK_MS,
+                /* bufferForPlaybackAfterRebufferMs= */ DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_FOR_LOCAL_PLAYBACK_MS)
+            // Set not to prioritize time over size, then DefaultLoadControl will decide whether to
+            // start playback based on the allocated byte size.
+            .setPrioritizeTimeOverSizeThresholdsForLocalPlayback(false)
+            .setPlayerTargetBufferBytes(
+                playerName1,
+                /* playerTargetBufferBytes= */ allocator.getIndividualAllocationLength())
+            .setPlayerTargetBufferBytes(
+                playerName2,
+                /* playerTargetBufferBytes= */ 2 * allocator.getIndividualAllocationLength())
+            .build();
+
+    PlayerId playerId1 = new PlayerId(playerName1);
+    PlayerId playerId2 = new PlayerId(playerName2);
+    loadControl.onPrepared(playerId1);
+    loadControl.onPrepared(playerId2);
+    Timeline timeline1 = new FakeTimeline();
+    MediaSource.MediaPeriodId mediaPeriodId1 =
+        new MediaSource.MediaPeriodId(
+            timeline1.getPeriod(/* periodIndex= */ 0, new Timeline.Period(), /* setIds= */ true)
+                .uid);
+    Timeline timeline2 = new FakeTimeline();
+    MediaSource.MediaPeriodId mediaPeriodId2 =
+        new MediaSource.MediaPeriodId(
+            timeline2.getPeriod(/* periodIndex= */ 0, new Timeline.Period(), /* setIds= */ true)
+                .uid);
+    loadControl.onTracksSelected(
+        new LoadControl.Parameters(
+            playerId1,
+            timeline1,
+            mediaPeriodId1,
+            /* playbackPositionUs= */ 0,
+            /* bufferedDurationUs= */ 0,
+            /* playbackSpeed= */ 1.0f,
+            /* playWhenReady= */ false,
+            /* rebuffering= */ false,
+            /* targetLiveOffsetUs= */ C.TIME_UNSET,
+            C.TIME_UNSET),
+        /* trackGroups= */ null,
+        /* trackSelections= */ null);
+    loadControl.onTracksSelected(
+        new LoadControl.Parameters(
+            playerId2,
+            timeline2,
+            mediaPeriodId2,
+            /* playbackPositionUs= */ 0,
+            /* bufferedDurationUs= */ 0,
+            /* playbackSpeed= */ 1.0f,
+            /* playWhenReady= */ false,
+            /* rebuffering= */ false,
+            /* targetLiveOffsetUs= */ C.TIME_UNSET,
+            C.TIME_UNSET),
+        /* trackGroups= */ null,
+        /* trackSelections= */ null);
+    Allocator allocator1 = loadControl.getAllocator(playerId1);
+    Allocator allocator2 = loadControl.getAllocator(playerId2);
+    allocator1.allocate();
+    allocator2.allocate();
+
+    boolean player1ShouldStartPlayback =
+        loadControl.shouldStartPlayback(
+            new LoadControl.Parameters(
+                playerId1,
+                timeline1,
+                mediaPeriodId1,
+                /* playbackPositionUs= */ 0L,
+                Util.msToUs(DEFAULT_BUFFER_FOR_PLAYBACK_FOR_LOCAL_PLAYBACK_MS / 2),
+                SPEED,
+                /* playWhenReady= */ false,
+                /* rebuffering= */ false,
+                /* targetLiveOffsetUs= */ C.TIME_UNSET,
+                /* lastRebufferRealtimeMs= */ C.TIME_UNSET));
+    boolean player2ShouldStartPlayback =
+        loadControl.shouldStartPlayback(
+            new LoadControl.Parameters(
+                playerId2,
+                timeline2,
+                mediaPeriodId2,
+                /* playbackPositionUs= */ 0L,
+                Util.msToUs(DEFAULT_BUFFER_FOR_PLAYBACK_FOR_LOCAL_PLAYBACK_MS / 2),
+                SPEED,
+                /* playWhenReady= */ false,
+                /* rebuffering= */ false,
+                /* targetLiveOffsetUs= */ C.TIME_UNSET,
+                /* lastRebufferRealtimeMs= */ C.TIME_UNSET));
+
+    // Allocated one allocation for player1, then player1 reached to its target buffer bytes, which
+    // is allocator.getIndividualAllocationLength(), so it should start playback.
+    assertThat(player1ShouldStartPlayback).isTrue();
+    // Allocated one allocation for player2, but player2 still didn't reach to its target buffer
+    // bytes, which is twice of allocator.getIndividualAllocationLength(), so it should not start
+    // playback.
+    assertThat(player2ShouldStartPlayback).isFalse();
+
+    allocator2.allocate();
+    player2ShouldStartPlayback =
+        loadControl.shouldStartPlayback(
+            new LoadControl.Parameters(
+                playerId2,
+                timeline2,
+                mediaPeriodId2,
+                /* playbackPositionUs= */ 0L,
+                Util.msToUs(DEFAULT_BUFFER_FOR_PLAYBACK_FOR_LOCAL_PLAYBACK_MS - 1),
+                SPEED,
+                /* playWhenReady= */ false,
+                /* rebuffering= */ false,
+                /* targetLiveOffsetUs= */ C.TIME_UNSET,
+                /* lastRebufferRealtimeMs= */ C.TIME_UNSET));
+
+    // Allocated one more allocation for player2, then player2 reached to its target buffer bytes,
+    // so it should start playback.
+    assertThat(player2ShouldStartPlayback).isTrue();
+  }
+
+  @Test
   public void onPrepared_updatesTargetBufferBytes_updatesDefaultTargetBufferSize() {
     PlayerId playerId2 = new PlayerId(/* playerName= */ "");
     loadControl = builder.setAllocator(allocator).build();
@@ -1170,10 +1514,12 @@ public class DefaultLoadControlTest {
   }
 
   @Test
-  public void onRelease_removesLoadingStateOfPlayer() {
+  public void onReleased_removesLoadingStateOfPlayerWhenReferenceCountIsZero() {
     PlayerId playerId2 = new PlayerId(/* playerName= */ "");
     loadControl = builder.setAllocator(allocator).build();
     loadControl.onPrepared(playerId);
+    // Call onPrepared() for playerId2 twice.
+    loadControl.onPrepared(playerId2);
     loadControl.onPrepared(playerId2);
     assertThat(loadControl.calculateTotalTargetBufferBytes())
         .isEqualTo(2 * DefaultLoadControl.DEFAULT_MIN_BUFFER_SIZE);
@@ -1185,7 +1531,115 @@ public class DefaultLoadControlTest {
 
     loadControl.onReleased(playerId2);
 
+    // The playerId2 shouldn't be unregistered from DefaultLoadControl because its reference count
+    // hasn't been back to zero. The onReleased() needs to be called twice for playerId2
+    assertThat(loadControl.calculateTotalTargetBufferBytes())
+        .isEqualTo(DefaultLoadControl.DEFAULT_MIN_BUFFER_SIZE);
+
+    loadControl.onReleased(playerId2);
+
     assertThat(loadControl.calculateTotalTargetBufferBytes()).isEqualTo(0);
+  }
+
+  @Test
+  public void build_withOnlyGenericSetBufferDurationsMs_usesStreamingDefaultForPrioritizeTime() {
+    builder.setBufferDurationsMs(
+        /* minBufferMs= */ 1000,
+        /* maxBufferMs= */ 2000,
+        /* bufferForPlaybackMs= */ 300,
+        /* bufferForPlaybackAfterRebufferMs= */ 600);
+    build();
+
+    // PrioritizeTimeOverSizeThresholdsForLocalPlayback should now be the same as the streaming
+    // default (false), not the local playback default (true).
+    // We verify this by checking that loading stops when the target buffer is reached, even if the
+    // time-based buffer goals are not met.
+    makeSureTargetBufferBytesReached(playerId);
+    assertThat(
+            loadControl.shouldContinueLoading(
+                new LoadControl.Parameters(
+                    playerId,
+                    timelineLocal,
+                    mediaPeriodIdLocal,
+                    /* playbackPositionUs= */ 0L,
+                    /* bufferedDurationUs= */ 0L,
+                    SPEED,
+                    /* playWhenReady= */ false,
+                    /* rebuffering= */ false,
+                    /* targetLiveOffsetUs= */ C.TIME_UNSET,
+                    /* lastRebufferRealtimeMs= */ C.TIME_UNSET)))
+        .isFalse();
+  }
+
+  @Test
+  public void
+      build_withOnlyGenericSetPrioritizeTimeOverSizeThresholds_usesStreamingBufferDefaults() {
+    builder.setPrioritizeTimeOverSizeThresholds(true);
+    build();
+
+    // Local playback should use the streaming default for minBufferMs (50000) instead of the
+    // local playback default (1000). So, with a buffer of 49999ms, loading should continue.
+    assertThat(
+            loadControl.shouldContinueLoading(
+                new LoadControl.Parameters(
+                    playerId,
+                    timelineLocal,
+                    mediaPeriodIdLocal,
+                    /* playbackPositionUs= */ 0L,
+                    /* bufferedDurationUs= */ 49999_999, // 49,999ms
+                    SPEED,
+                    /* playWhenReady= */ true,
+                    /* rebuffering= */ false,
+                    /* targetLiveOffsetUs= */ C.TIME_UNSET,
+                    /* lastRebufferRealtimeMs= */ C.TIME_UNSET)))
+        .isTrue();
+
+    // With a buffer of 50000ms, loading should stop.
+    assertThat(
+            loadControl.shouldContinueLoading(
+                new LoadControl.Parameters(
+                    playerId,
+                    timelineLocal,
+                    mediaPeriodIdLocal,
+                    /* playbackPositionUs= */ 0L,
+                    /* bufferedDurationUs= */ 50000_000, // 50,000ms
+                    SPEED,
+                    /* playWhenReady= */ true,
+                    /* rebuffering= */ false,
+                    /* targetLiveOffsetUs= */ C.TIME_UNSET,
+                    /* lastRebufferRealtimeMs= */ C.TIME_UNSET)))
+        .isFalse();
+
+    // Local playback should also use the streaming default for bufferForPlaybackAfterRebufferMs
+    // (2000) instead of the local playback default (1000).
+    assertThat(
+            loadControl.shouldStartPlayback(
+                new LoadControl.Parameters(
+                    playerId,
+                    timelineLocal,
+                    mediaPeriodIdLocal,
+                    /* playbackPositionUs= */ 0,
+                    /* bufferedDurationUs= */ 1999_999, // 1,999ms
+                    SPEED,
+                    /* playWhenReady= */ true,
+                    /* rebuffering= */ true,
+                    /* targetLiveOffsetUs= */ C.TIME_UNSET,
+                    /* lastRebufferRealtimeMs= */ C.TIME_UNSET)))
+        .isFalse();
+    assertThat(
+            loadControl.shouldStartPlayback(
+                new LoadControl.Parameters(
+                    playerId,
+                    timelineLocal,
+                    mediaPeriodIdLocal,
+                    /* playbackPositionUs= */ 0,
+                    /* bufferedDurationUs= */ 2000_000, // 2,000ms
+                    SPEED,
+                    /* playWhenReady= */ true,
+                    /* rebuffering= */ true,
+                    /* targetLiveOffsetUs= */ C.TIME_UNSET,
+                    /* lastRebufferRealtimeMs= */ C.TIME_UNSET)))
+        .isTrue();
   }
 
   private void build() {
@@ -1208,7 +1662,8 @@ public class DefaultLoadControlTest {
         /* trackSelections= */ null);
   }
 
-  private void makeSureTargetBufferBytesReached() {
+  private void makeSureTargetBufferBytesReached(PlayerId playerId) {
+    Allocator allocator = loadControl.getAllocator(playerId);
     while (allocator.getTotalBytesAllocated() < TARGET_BUFFER_BYTES) {
       allocator.allocate();
     }

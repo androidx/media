@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">再生</string>
+  <string name="playpause_button_pause">一時停止</string>
+  <string name="next_button">次へ</string>
+  <string name="previous_button">前へ</string>
+  <string name="seek_back_button">巻き戻し</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">%d 秒巻き戻し</item>
+    <item quantity="other">%d 秒巻き戻し</item>
+  </plurals>
+  <string name="seek_forward_button">早送り</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">%d 秒早送り</item>
+    <item quantity="other">%d 秒早送り</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">現在: リピートなし。モードを切り替えます。</string>
+  <string name="repeat_button_repeat_one">現在: 1 曲リピート。モードを切り替えます。</string>
+  <string name="repeat_button_repeat_all">現在: 全曲リピート。モードを切り替えます。</string>
+  <string name="shuffle_button_shuffle_on">シャッフル モードが有効になりました。</string>
+  <string name="shuffle_button_shuffle_off">シャッフル モードが無効になりました。</string>
+  <string name="mute_button_shown_unmuted">ミュート</string>
+  <string name="mute_button_shown_muted">ミュートを解除</string>
+</resources>

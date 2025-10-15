@@ -496,6 +496,8 @@ public class FragmentedMp4Extractor implements Extractor {
                   /* maximumSize= */ 0,
                   /* timestampsUs= */ new long[0],
                   /* flags= */ new int[0],
+                  /* syncSampleIndices= */ new int[0],
+                  /* hasOnlySyncSamples= */ false,
                   /* durationUs= */ 0,
                   /* sampleCount= */ 0),
               new DefaultSampleValues(

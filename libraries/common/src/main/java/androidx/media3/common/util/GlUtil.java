@@ -844,6 +844,10 @@ public final class GlUtil {
       EGL14.eglDestroyContext(eglDisplay, eglContext);
       checkEglException("Error destroying context");
     }
+  }
+
+  /** Terminates the {@link EGLDisplay} connection. */
+  public static void terminate(EGLDisplay eglDisplay) throws GlException {
     EGL14.eglReleaseThread();
     checkEglException("Error releasing thread");
     EGL14.eglTerminate(eglDisplay);

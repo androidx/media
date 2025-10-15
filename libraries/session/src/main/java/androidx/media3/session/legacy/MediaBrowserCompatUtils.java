@@ -21,10 +21,8 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import android.os.Bundle;
 import androidx.annotation.Nullable;
 import androidx.annotation.RestrictTo;
-import androidx.media3.common.util.UnstableApi;
 
 /** */
-@UnstableApi
 @RestrictTo(LIBRARY)
 public class MediaBrowserCompatUtils {
   public static boolean areSameOptions(@Nullable Bundle options1, @Nullable Bundle options2) {

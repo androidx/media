@@ -1036,18 +1036,13 @@ public final class ImaServerSideAdInsertionMediaSource extends CompositeMediaSou
       if (!isCurrentlyPlayingMediaPeriodFromThisSource(player, getMediaItem(), adsId)) {
         return;
       }
-      for (int i = 0; i < metadata.length(); i++) {
-        Metadata.Entry entry = metadata.get(i);
-        if (entry instanceof TextInformationFrame) {
-          TextInformationFrame textFrame = (TextInformationFrame) entry;
-          if ("TXXX".equals(textFrame.id)) {
-            streamPlayer.triggerUserTextReceived(textFrame.values.get(0));
-          }
-        } else if (entry instanceof EventMessage) {
-          EventMessage eventMessage = (EventMessage) entry;
-          String eventMessageValue = new String(eventMessage.messageData);
-          streamPlayer.triggerUserTextReceived(eventMessageValue);
-        }
+      for (TextInformationFrame textFrame :
+          metadata.getMatchingEntries(
+              TextInformationFrame.class, textFrame -> textFrame.id.equals("TXXX"))) {
+        streamPlayer.triggerUserTextReceived(textFrame.values.get(0));
+      }
+      for (EventMessage eventMessage : metadata.getEntriesOfType(EventMessage.class)) {
+        streamPlayer.triggerUserTextReceived(new String(eventMessage.messageData));
       }
     }
 

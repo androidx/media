@@ -381,7 +381,11 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
       Bundle args,
       @Nullable MediaController.ProgressListener progressListener) {
     MediaBrowserCompat browserCompat = getBrowserCompat();
-    if (browserCompat != null) {
+    if (getAvailableSessionCommands().contains(command)) {
+      // All commands that are declared as custom commands in the legacy playback state are sent to
+      // the session callback.
+      return super.sendCustomCommand(command, args);
+    } else if (browserCompat != null) {
       SettableFuture<SessionResult> settable = SettableFuture.create();
       browserCompat.sendCustomAction(
           command.customAction,

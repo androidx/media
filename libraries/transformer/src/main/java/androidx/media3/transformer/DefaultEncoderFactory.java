@@ -745,8 +745,7 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
    */
   private static void adjustMediaFormatForH264EncoderSettings(
       @Nullable ColorInfo colorInfo, MediaCodecInfo encoderInfo, MediaFormat mediaFormat) {
-    // TODO: b/210593256 - Remove overriding profile/level (before API 29) after switching to in-app
-    //  muxing.
+    // TODO: b/445454172 - Remove overriding profile/level (before API 29).
     String mimeType = MimeTypes.VIDEO_H264;
     if (SDK_INT >= 29) {
       int expectedEncodingProfile = MediaCodecInfo.CodecProfileLevel.AVCProfileHigh;
@@ -783,8 +782,7 @@ public final class DefaultEncoderFactory implements Codec.EncoderFactory {
         if (!mediaFormat.containsKey(MediaFormat.KEY_LEVEL)) {
           mediaFormat.setInteger(MediaFormat.KEY_LEVEL, supportedEncodingLevel);
         }
-        // TODO: b/210593256 - Set KEY_LATENCY to 2 to enable B-frame production after in-app muxing
-        //  is the default and it supports B-frames.
+        // TODO: b/445616792 - Set KEY_LATENCY to 2 to enable B-frame production.
         mediaFormat.setInteger(MediaFormat.KEY_LATENCY, 1);
       }
     } else if (SDK_INT >= 24) {

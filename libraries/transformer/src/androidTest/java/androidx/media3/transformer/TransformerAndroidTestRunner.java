@@ -15,6 +15,7 @@
  */
 package androidx.media3.transformer;
 
+import static androidx.media3.test.utils.TestUtil.createExternalCacheFile;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -33,6 +34,7 @@ import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.SystemClock;
 import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.test.utils.SsimHelper;
+import androidx.media3.test.utils.TestSummaryLogger;
 import androidx.test.platform.app.InstrumentationRegistry;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -179,10 +181,10 @@ public class TransformerAndroidTestRunner {
   }
 
   /** Exports the {@link EditedMediaItem} asynchronously. */
-  public ListenableFuture<ExportResult> runAsync(String testId, EditedMediaItem editedMediaItem)
+  public ListenableFuture<ExportTestResult> runAsync(String testId, EditedMediaItem editedMediaItem)
       throws IOException {
-    SettableFuture<ExportResult> completionFuture = SettableFuture.create();
-    File outputVideoFile = createOutputFile(testId);
+    SettableFuture<ExportTestResult> completionFuture = SettableFuture.create();
+    String outputFilePath = createOutputFile(testId).getAbsolutePath();
     InstrumentationRegistry.getInstrumentation()
         .runOnMainSync(
             () -> {
@@ -190,7 +192,10 @@ public class TransformerAndroidTestRunner {
                   new Transformer.Listener() {
                     @Override
                     public void onCompleted(Composition composition, ExportResult exportResult) {
-                      completionFuture.set(exportResult);
+                      completionFuture.set(
+                          new ExportTestResult.Builder(exportResult)
+                              .setFilePath(outputFilePath)
+                              .build());
                     }
 
                     @Override
@@ -201,7 +206,7 @@ public class TransformerAndroidTestRunner {
                       completionFuture.setException(exportException);
                     }
                   });
-              transformer.start(editedMediaItem, outputVideoFile.getAbsolutePath());
+              transformer.start(editedMediaItem, outputFilePath);
             });
 
     return completionFuture;
@@ -256,7 +261,7 @@ public class TransformerAndroidTestRunner {
           "exportResult", new JSONObject().put("testException", JsonUtil.exceptionAsJsonObject(e)));
       throw e;
     } finally {
-      AndroidTestUtil.writeTestSummaryToFile(context, testId, resultJson);
+      TestSummaryLogger.writeTestSummaryToFile(context, testId, resultJson);
     }
   }
 
@@ -476,7 +481,7 @@ public class TransformerAndroidTestRunner {
   }
 
   private File createOutputFile(String testId) throws IOException {
-    return AndroidTestUtil.createExternalCacheFile(
+    return createExternalCacheFile(
         context, /* fileName= */ testId + "-" + Clock.DEFAULT.elapsedRealtime() + "-output.mp4");
   }
 

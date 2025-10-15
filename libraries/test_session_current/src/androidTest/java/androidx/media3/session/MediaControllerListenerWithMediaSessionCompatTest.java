@@ -69,6 +69,7 @@ import org.junit.runner.RunWith;
 /** Tests for {@link MediaController.Listener} with {@link MediaSessionCompat}. */
 @RunWith(AndroidJUnit4.class)
 @LargeTest
+@SuppressWarnings("deprecation") // Using legacy API for testing against legacy session.
 public class MediaControllerListenerWithMediaSessionCompatTest {
 
   @ClassRule public static MainLooperTestRule mainLooperTestRule = new MainLooperTestRule();
@@ -863,5 +864,113 @@ public class MediaControllerListenerWithMediaSessionCompatTest {
     assertThat(mediaMetadataChanged.block(TIMEOUT_MS)).isTrue();
     assertThat(reportedPlaybackStates).containsExactly(3);
     assertThat(reportedMediaMetadata.stream().map((m) -> m.artist)).containsExactly("artist-0");
+  }
+
+  @Test
+  public void getAvailableCommands_sessionHasPlayActionOnlyWhenPaused_hasCommandPlayPause()
+      throws Exception {
+    session.setPlaybackState(
+        new PlaybackStateCompat.Builder()
+            .setActions(PlaybackStateCompat.ACTION_PLAY)
+            .setState(
+                PlaybackStateCompat.STATE_PAUSED, /* position= */ 10_000L, /* playbackSpeed= */ 0.f)
+            .build());
+    MediaController controller = controllerTestRule.createController(session.getSessionToken());
+
+    Player.Commands commands =
+        threadTestRule.getHandler().postAndSync(() -> controller.getAvailableCommands());
+
+    assertThat(commands.contains(Player.COMMAND_PLAY_PAUSE)).isTrue();
+  }
+
+  @Test
+  public void getAvailableCommands_sessionHasPlayActionOnlyWhenPlaying_doesNotHaveCommandPlayPause()
+      throws Exception {
+    session.setPlaybackState(
+        new PlaybackStateCompat.Builder()
+            .setActions(PlaybackStateCompat.ACTION_PLAY)
+            .setState(
+                PlaybackStateCompat.STATE_PLAYING,
+                /* position= */ 10_000L,
+                /* playbackSpeed= */ 1.0f)
+            .build());
+    MediaController controller = controllerTestRule.createController(session.getSessionToken());
+
+    Player.Commands commands =
+        threadTestRule.getHandler().postAndSync(() -> controller.getAvailableCommands());
+
+    assertThat(commands.contains(Player.COMMAND_PLAY_PAUSE)).isFalse();
+  }
+
+  @Test
+  public void getAvailableCommands_sessionHasPauseActionOnlyWhenPlaying_hasCommandPlayPause()
+      throws Exception {
+    session.setPlaybackState(
+        new PlaybackStateCompat.Builder()
+            .setActions(PlaybackStateCompat.ACTION_PAUSE)
+            .setState(
+                PlaybackStateCompat.STATE_PLAYING,
+                /* position= */ 10_000L,
+                /* playbackSpeed= */ 1.0f)
+            .build());
+    MediaController controller = controllerTestRule.createController(session.getSessionToken());
+
+    Player.Commands commands =
+        threadTestRule.getHandler().postAndSync(() -> controller.getAvailableCommands());
+
+    assertThat(commands.contains(Player.COMMAND_PLAY_PAUSE)).isTrue();
+  }
+
+  @Test
+  public void getAvailableCommands_sessionHasPauseActionOnlyWhenPused_doesNotHaveCommandPlayPause()
+      throws Exception {
+    session.setPlaybackState(
+        new PlaybackStateCompat.Builder()
+            .setActions(PlaybackStateCompat.ACTION_PAUSE)
+            .setState(
+                PlaybackStateCompat.STATE_PAUSED, /* position= */ 10_000L, /* playbackSpeed= */ 0.f)
+            .build());
+    MediaController controller = controllerTestRule.createController(session.getSessionToken());
+
+    Player.Commands commands =
+        threadTestRule.getHandler().postAndSync(() -> controller.getAvailableCommands());
+
+    assertThat(commands.contains(Player.COMMAND_PLAY_PAUSE)).isFalse();
+  }
+
+  @Test
+  public void getAvailableCommands_sessionHasPlayPauseActionWhenPlaying_hasCommandPlayPause()
+      throws Exception {
+    session.setPlaybackState(
+        new PlaybackStateCompat.Builder()
+            .setActions(PlaybackStateCompat.ACTION_PLAY_PAUSE)
+            .setState(
+                PlaybackStateCompat.STATE_PLAYING,
+                /* position= */ 10_000L,
+                /* playbackSpeed= */ 1.0f)
+            .build());
+    MediaController controller = controllerTestRule.createController(session.getSessionToken());
+
+    Player.Commands commands =
+        threadTestRule.getHandler().postAndSync(() -> controller.getAvailableCommands());
+
+    assertThat(commands.contains(Player.COMMAND_PLAY_PAUSE)).isTrue();
+  }
+
+  @Test
+  public void getAvailableCommands_sessionHasPlayPauseActionWhenPaused_hasCommandPlayPause()
+      throws Exception {
+    session.setPlaybackState(
+        new PlaybackStateCompat.Builder()
+            .setActions(PlaybackStateCompat.ACTION_PLAY_PAUSE)
+            .setState(
+                PlaybackStateCompat.STATE_PAUSED, /* position= */ 10_000L, /* playbackSpeed= */ 0.f)
+            .build());
+    MediaController controller = controllerTestRule.createController(session.getSessionToken());
+
+    Player.Commands commands =
+        threadTestRule.getHandler().postAndSync(() -> controller.getAvailableCommands());
+
+    assertThat(commands.contains(Player.COMMAND_PLAY_PAUSE)).isTrue();
   }
 }

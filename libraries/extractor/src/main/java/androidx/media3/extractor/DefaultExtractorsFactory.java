@@ -17,8 +17,6 @@ package androidx.media3.extractor;
 
 import static androidx.media3.common.FileTypes.inferFileTypeFromResponseHeaders;
 import static androidx.media3.common.FileTypes.inferFileTypeFromUri;
-import static androidx.media3.extractor.mp4.Mp4Extractor.FLAG_READ_MOTION_PHOTO_METADATA;
-import static androidx.media3.extractor.mp4.Mp4Extractor.FLAG_READ_SEF_DATA;
 
 import android.net.Uri;
 import androidx.annotation.GuardedBy;
@@ -157,6 +155,7 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
   private SubtitleParser.Factory subtitleParserFactory;
   private @C.VideoCodecFlags int codecsToParseWithinGopSampleDependencies;
   private @JpegExtractor.Flags int jpegFlags;
+  private @HeifExtractor.Flags int heifFlags;
 
   public DefaultExtractorsFactory() {
     tsMode = TsExtractor.MODE_SINGLE_PMT;
@@ -412,6 +411,20 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
     return this;
   }
 
+  /**
+   * Sets flags for {@link HeifExtractor} instances created by the factory.
+   *
+   * @see HeifExtractor#HeifExtractor(int)
+   * @param flags The flags to use.
+   * @return The factory, for convenience.
+   */
+  @CanIgnoreReturnValue
+  public synchronized DefaultExtractorsFactory setHeifExtractorFlags(
+      @HeifExtractor.Flags int flags) {
+    this.heifFlags = flags;
+    return this;
+  }
+
   @Override
   public synchronized Extractor[] createExtractors() {
     return createExtractors(Uri.EMPTY, new HashMap<>());
@@ -571,10 +584,7 @@ public final class DefaultExtractorsFactory implements ExtractorsFactory {
         extractors.add(new BmpExtractor());
         break;
       case FileTypes.HEIF:
-        if ((mp4Flags & FLAG_READ_MOTION_PHOTO_METADATA) == 0
-            && (mp4Flags & FLAG_READ_SEF_DATA) == 0) {
-          extractors.add(new HeifExtractor());
-        }
+        extractors.add(new HeifExtractor(heifFlags));
         break;
       case FileTypes.AVIF:
         extractors.add(new AvifExtractor());

@@ -74,7 +74,8 @@ public final class CameraMotionRenderer extends BaseRenderer {
   }
 
   @Override
-  protected void onPositionReset(long positionUs, boolean joining) {
+  protected void onPositionReset(
+      long positionUs, boolean joining, boolean sampleStreamIsResetToKeyFrame) {
     lastTimestampUs = Long.MIN_VALUE;
     resetListener();
   }

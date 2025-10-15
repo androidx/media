@@ -17,6 +17,7 @@ package androidx.media3.test.utils.robolectric;
 
 import static org.robolectric.Shadows.shadowOf;
 
+import android.annotation.SuppressLint;
 import android.os.Looper;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ConditionVariable;
@@ -202,6 +203,7 @@ public final class RobolectricUtil {
    *     Looper}.
    * @throws TimeoutException If the {@code timeoutMs timeout} is exceeded.
    */
+  @SuppressLint("NewApi") // Duration.isZero/toMillis() don't depend on API level in Robolectric.
   public static void runLooperUntil(
       Looper looper, Supplier<Boolean> condition, long timeoutMs, Clock clock, long maxTimeDiffMs)
       throws TimeoutException {

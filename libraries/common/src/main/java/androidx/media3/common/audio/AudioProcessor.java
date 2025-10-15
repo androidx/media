@@ -161,6 +161,9 @@ public interface AudioProcessor {
   /**
    * Returns the expected duration of the output stream when the processor is applied given a input
    * {@code durationUs}.
+   *
+   * <p>This method assumes {@code durationUs} of input is applied from the beginning of the stream
+   * (i.e. after a {@code flush(StreamMetadata.DEFAULT)} call).
    */
   default long getDurationAfterProcessorApplied(long durationUs) {
     return durationUs;

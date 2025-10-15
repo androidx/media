@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">Přehrát</string>
+  <string name="playpause_button_pause">Pozastavit</string>
+  <string name="next_button">Další</string>
+  <string name="previous_button">Předchozí</string>
+  <string name="seek_back_button">Přetočit zpět</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">Zpět o %d sekundu</item>
+    <item quantity="few">Zpět o %d sekundy</item>
+    <item quantity="many">Zpět o %d sekundy</item>
+    <item quantity="other">Zpět o %d sekund</item>
+  </plurals>
+  <string name="seek_forward_button">Přeskočit dopředu</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">Dopředu o %d sekundu</item>
+    <item quantity="few">Dopředu o %d sekundy</item>
+    <item quantity="many">Dopředu o %d sekundy</item>
+    <item quantity="other">Dopředu o %d sekund</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">Aktuálně: Nic neopakovat. Zapněte režim opakování.</string>
+  <string name="repeat_button_repeat_one">Aktuálně: Opakovat jednu položku. Zapněte režim opakování.</string>
+  <string name="repeat_button_repeat_all">Aktuálně: Opakovat vše. Zapněte režim opakování.</string>
+  <string name="shuffle_button_shuffle_on">Náhodné přehrávání je zapnuté.</string>
+  <string name="shuffle_button_shuffle_off">Náhodné přehrávání je vypnuté.</string>
+  <string name="mute_button_shown_unmuted">Ztlumit</string>
+  <string name="mute_button_shown_muted">Zapnout zvuk</string>
+</resources>

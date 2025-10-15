@@ -30,8 +30,6 @@ import androidx.media3.muxer.MuxerException;
 import androidx.media3.transformer.AssetLoader;
 import androidx.media3.transformer.Codec;
 import androidx.media3.transformer.Composition;
-import androidx.media3.transformer.DefaultAssetLoaderFactory;
-import androidx.media3.transformer.DefaultDecoderFactory;
 import androidx.media3.transformer.DefaultEncoderFactory;
 import androidx.media3.transformer.DefaultMuxer;
 import androidx.media3.transformer.ExportResult;
@@ -63,7 +61,7 @@ public final class TestTransformerBuilder {
   private boolean trimOptimizationEnabled;
   private boolean mp4EditListTrimEnabled;
   private long maxDelayBetweenMuxerSamplesMs;
-  private AssetLoader.Factory assetLoaderFactory;
+  private AssetLoader.@MonotonicNonNull Factory assetLoaderFactory;
   private Muxer.Factory muxerFactory;
   private boolean fallbackEnabled;
   private Looper looper;
@@ -75,12 +73,6 @@ public final class TestTransformerBuilder {
     listeners = new ArrayList<>();
     clock = new FakeClock(/* isAutoAdvancing= */ true);
     maxDelayBetweenMuxerSamplesMs = Transformer.DEFAULT_MAX_DELAY_BETWEEN_MUXER_SAMPLES_MS;
-    assetLoaderFactory =
-        new DefaultAssetLoaderFactory(
-            context,
-            new DefaultDecoderFactory.Builder(context).build(),
-            clock,
-            /* logSessionId= */ null);
     muxerFactory = new DefaultMuxer.Factory();
     looper = Util.getCurrentOrMainLooper();
   }
@@ -235,12 +227,14 @@ public final class TestTransformerBuilder {
             .experimentalSetTrimOptimizationEnabled(trimOptimizationEnabled)
             .experimentalSetMp4EditListTrimEnabled(mp4EditListTrimEnabled)
             .setMaxDelayBetweenMuxerSamplesMs(maxDelayBetweenMuxerSamplesMs)
-            .setAssetLoaderFactory(assetLoaderFactory)
             .setMuxerFactory(
                 forceTransformerToFail ? new FailingMuxer.Factory(muxerFactory) : muxerFactory)
             .setEncoderFactory(encoderFactory)
             .setLooper(looper)
             .setClock(clock);
+    if (assetLoaderFactory != null) {
+      transformerBuilder.setAssetLoaderFactory(assetLoaderFactory);
+    }
     if (audioMimeType != null) {
       transformerBuilder.setAudioMimeType(audioMimeType);
     }

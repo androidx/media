@@ -1,0 +1,228 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ~ Copyright 2025 The Android Open Source Project
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  ~ You may obtain a copy of the License at
+  ~
+  ~      https://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing, software
+  ~ distributed under the License is distributed on an "AS IS" BASIS,
+  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ See the License for the specific language governing permissions and
+  ~ limitations under the License.
+  -->
+
+<issues format="5" by="lint Narwhal 4 Feature Drop | 2025.1.4">
+
+    <issue
+        id="MissingQuantity"
+        message="For locale &quot;iw&quot; (Hebrew) the following quantity should also be defined: `many` (e.g. &quot;20 שנה&quot;)">
+        <location
+            file="src/main/res/values-iw/strings.xml"
+            line="8"/>
+    </issue>
+
+    <issue
+        id="MissingQuantity"
+        message="For locale &quot;iw&quot; (Hebrew) the following quantity should also be defined: `many` (e.g. &quot;20 שנה&quot;)">
+        <location
+            file="src/main/res/values-iw/strings.xml"
+            line="14"/>
+    </issue>
+
+    <issue
+        id="UnusedQuantity"
+        message="For language &quot;in&quot; (Indonesian) the following quantities are not relevant: `one`">
+        <location
+            file="src/main/res/values-in/strings.xml"
+            line="8"/>
+    </issue>
+
+    <issue
+        id="UnusedQuantity"
+        message="For language &quot;ja&quot; (Japanese) the following quantities are not relevant: `one`">
+        <location
+            file="src/main/res/values-ja/strings.xml"
+            line="8"/>
+    </issue>
+
+    <issue
+        id="UnusedQuantity"
+        message="For language &quot;km&quot; (Khmer) the following quantities are not relevant: `one`">
+        <location
+            file="src/main/res/values-km/strings.xml"
+            line="8"/>
+    </issue>
+
+    <issue
+        id="UnusedQuantity"
+        message="For language &quot;ko&quot; (Korean) the following quantities are not relevant: `one`">
+        <location
+            file="src/main/res/values-ko/strings.xml"
+            line="8"/>
+    </issue>
+
+    <issue
+        id="UnusedQuantity"
+        message="For language &quot;lo&quot; (Lao) the following quantities are not relevant: `one`">
+        <location
+            file="src/main/res/values-lo/strings.xml"
+            line="8"/>
+    </issue>
+
+    <issue
+        id="UnusedQuantity"
+        message="For language &quot;ms&quot; (Malay) the following quantities are not relevant: `one`">
+        <location
+            file="src/main/res/values-ms/strings.xml"
+            line="8"/>
+    </issue>
+
+    <issue
+        id="UnusedQuantity"
+        message="For language &quot;my&quot; (Burmese) the following quantities are not relevant: `one`">
+        <location
+            file="src/main/res/values-my/strings.xml"
+            line="8"/>
+    </issue>
+
+    <issue
+        id="UnusedQuantity"
+        message="For language &quot;th&quot; (Thai) the following quantities are not relevant: `one`">
+        <location
+            file="src/main/res/values-th/strings.xml"
+            line="8"/>
+    </issue>
+
+    <issue
+        id="UnusedQuantity"
+        message="For language &quot;vi&quot; (Vietnamese) the following quantities are not relevant: `one`">
+        <location
+            file="src/main/res/values-vi/strings.xml"
+            line="8"/>
+    </issue>
+
+    <issue
+        id="UnusedQuantity"
+        message="For language &quot;zh&quot; (Chinese) the following quantities are not relevant: `one`">
+        <location
+            file="src/main/res/values-zh-rCN/strings.xml"
+            line="8"/>
+    </issue>
+
+    <issue
+        id="UnusedQuantity"
+        message="For language &quot;zh&quot; (Chinese) the following quantities are not relevant: `one`">
+        <location
+            file="src/main/res/values-zh-rHK/strings.xml"
+            line="8"/>
+    </issue>
+
+    <issue
+        id="UnusedQuantity"
+        message="For language &quot;zh&quot; (Chinese) the following quantities are not relevant: `one`">
+        <location
+            file="src/main/res/values-zh-rTW/strings.xml"
+            line="8"/>
+    </issue>
+
+    <issue
+        id="UnusedQuantity"
+        message="For language &quot;in&quot; (Indonesian) the following quantities are not relevant: `one`">
+        <location
+            file="src/main/res/values-in/strings.xml"
+            line="13"/>
+    </issue>
+
+    <issue
+        id="UnusedQuantity"
+        message="For language &quot;ja&quot; (Japanese) the following quantities are not relevant: `one`">
+        <location
+            file="src/main/res/values-ja/strings.xml"
+            line="13"/>
+    </issue>
+
+    <issue
+        id="UnusedQuantity"
+        message="For language &quot;km&quot; (Khmer) the following quantities are not relevant: `one`">
+        <location
+            file="src/main/res/values-km/strings.xml"
+            line="13"/>
+    </issue>
+
+    <issue
+        id="UnusedQuantity"
+        message="For language &quot;ko&quot; (Korean) the following quantities are not relevant: `one`">
+        <location
+            file="src/main/res/values-ko/strings.xml"
+            line="13"/>
+    </issue>
+
+    <issue
+        id="UnusedQuantity"
+        message="For language &quot;lo&quot; (Lao) the following quantities are not relevant: `one`">
+        <location
+            file="src/main/res/values-lo/strings.xml"
+            line="13"/>
+    </issue>
+
+    <issue
+        id="UnusedQuantity"
+        message="For language &quot;ms&quot; (Malay) the following quantities are not relevant: `one`">
+        <location
+            file="src/main/res/values-ms/strings.xml"
+            line="13"/>
+    </issue>
+
+    <issue
+        id="UnusedQuantity"
+        message="For language &quot;my&quot; (Burmese) the following quantities are not relevant: `one`">
+        <location
+            file="src/main/res/values-my/strings.xml"
+            line="13"/>
+    </issue>
+
+    <issue
+        id="UnusedQuantity"
+        message="For language &quot;th&quot; (Thai) the following quantities are not relevant: `one`">
+        <location
+            file="src/main/res/values-th/strings.xml"
+            line="13"/>
+    </issue>
+
+    <issue
+        id="UnusedQuantity"
+        message="For language &quot;vi&quot; (Vietnamese) the following quantities are not relevant: `one`">
+        <location
+            file="src/main/res/values-vi/strings.xml"
+            line="13"/>
+    </issue>
+
+    <issue
+        id="UnusedQuantity"
+        message="For language &quot;zh&quot; (Chinese) the following quantities are not relevant: `one`">
+        <location
+            file="src/main/res/values-zh-rCN/strings.xml"
+            line="13"/>
+    </issue>
+
+    <issue
+        id="UnusedQuantity"
+        message="For language &quot;zh&quot; (Chinese) the following quantities are not relevant: `one`">
+        <location
+            file="src/main/res/values-zh-rHK/strings.xml"
+            line="13"/>
+    </issue>
+
+    <issue
+        id="UnusedQuantity"
+        message="For language &quot;zh&quot; (Chinese) the following quantities are not relevant: `one`">
+        <location
+            file="src/main/res/values-zh-rTW/strings.xml"
+            line="13"/>
+    </issue>
+
+</issues>

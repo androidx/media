@@ -63,6 +63,11 @@ public class ForwardingMediaCodecAdapter implements MediaCodecAdapter {
     return delegate.getInputBuffer(index);
   }
 
+  @Override
+  public void useInputBuffer(Runnable runnable) {
+    delegate.useInputBuffer(runnable);
+  }
+
   @Nullable
   @Override
   public ByteBuffer getOutputBuffer(int index) {

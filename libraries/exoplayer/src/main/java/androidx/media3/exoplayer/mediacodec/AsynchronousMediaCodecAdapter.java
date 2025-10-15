@@ -254,6 +254,15 @@ import java.nio.ByteBuffer;
   }
 
   @Override
+  public void useInputBuffer(Runnable runnable) {
+    asynchronousMediaCodecCallback.useInputBuffer(
+        () -> {
+          bufferEnqueuer.maybeThrowException();
+          asynchronousMediaCodecCallback.useInputBuffer(runnable);
+        });
+  }
+
+  @Override
   @Nullable
   public ByteBuffer getOutputBuffer(int index) {
     return codec.getOutputBuffer(index);

@@ -19,10 +19,8 @@ import static androidx.annotation.RestrictTo.Scope.LIBRARY;
 
 import android.os.Bundle;
 import androidx.annotation.RestrictTo;
-import androidx.media3.common.util.UnstableApi;
 
 /** Defines the communication protocol for media browsers and media browser services. */
-@UnstableApi
 @RestrictTo(LIBRARY)
 public class MediaBrowserProtocol {
 

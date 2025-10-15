@@ -26,7 +26,6 @@ import android.content.Intent;
 import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.ResultReceiver;
 import android.support.v4.media.MediaDescriptionCompat;
 import android.support.v4.media.MediaMetadataCompat;
 import android.support.v4.media.RatingCompat;
@@ -695,10 +694,11 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
     sessionCallback.reset(1);
 
     SessionResult result = controller.sendCustomCommand(testCommand, testArgs);
+
     assertThat(result.resultCode).isEqualTo(SessionResult.RESULT_SUCCESS);
     assertThat(sessionCallback.await(TIMEOUT_MS)).isTrue();
-    assertThat(sessionCallback.onCommandCalled).isTrue();
-    assertThat(sessionCallback.command).isEqualTo(command);
+    assertThat(sessionCallback.onCustomActionCalled).isTrue();
+    assertThat(sessionCallback.action).isEqualTo(command);
     assertThat(TestUtils.equals(testArgs, sessionCallback.extras)).isTrue();
   }
 
@@ -811,7 +811,6 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
     public String action;
     public String command;
     public Bundle extras;
-    public ResultReceiver commandCallback;
     public boolean captioningEnabled;
     @RepeatMode public int repeatMode;
     @ShuffleMode public int shuffleMode;
@@ -834,7 +833,6 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
     public boolean onPlayFromSearchCalled;
     public boolean onPlayFromUriCalled;
     public boolean onCustomActionCalled;
-    public boolean onCommandCalled;
     public boolean onPrepareCalled;
     public boolean onPrepareFromMediaIdCalled;
     public boolean onPrepareFromSearchCalled;
@@ -858,7 +856,6 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
       action = null;
       extras = null;
       command = null;
-      commandCallback = null;
       captioningEnabled = false;
       repeatMode = PlaybackStateCompat.REPEAT_MODE_NONE;
       shuffleMode = PlaybackStateCompat.SHUFFLE_MODE_NONE;
@@ -881,7 +878,6 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
       onPlayFromSearchCalled = false;
       onPlayFromUriCalled = false;
       onCustomActionCalled = false;
-      onCommandCalled = false;
       onPrepareCalled = false;
       onPrepareFromMediaIdCalled = false;
       onPrepareFromSearchCalled = false;
@@ -1004,16 +1000,6 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
     public void onSkipToQueueItem(long id) {
       onSkipToQueueItemCalled = true;
       queueItemId = id;
-      latch.countDown();
-    }
-
-    @Override
-    public void onCommand(String command, Bundle extras, ResultReceiver cb) {
-      onCommandCalled = true;
-      this.command = command;
-      this.extras = extras;
-      commandCallback = cb;
-      cb.send(SessionResult.RESULT_SUCCESS, /* resultData= */ null);
       latch.countDown();
     }
 

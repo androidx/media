@@ -159,6 +159,8 @@ public class UtilTest {
   @Test
   public void percentInt_smallNegativeValues() {
     assertThat(Util.percentInt(-3, -9)).isEqualTo(33);
+    assertThat(Util.percentInt(-3, 9)).isEqualTo(-33);
+    assertThat(Util.percentInt(3, -9)).isEqualTo(-33);
     assertThat(Util.percentInt(-3, -3)).isEqualTo(100);
   }
 
@@ -170,6 +172,16 @@ public class UtilTest {
   @Test
   public void percentInt_largeNegativeValuesDontOverflow() {
     assertThat(Util.percentInt(Long.MIN_VALUE / 4, Long.MIN_VALUE / 2)).isEqualTo(50);
+  }
+
+  @Test
+  public void percentInt_resultLargerThan100() {
+    assertThat(Util.percentInt(20, 5)).isEqualTo(400);
+  }
+
+  @Test
+  public void percentInt_resultOverflowsInt_saturatedCast() {
+    assertThat(Util.percentInt(Integer.MAX_VALUE * 3L, 2)).isEqualTo(Integer.MAX_VALUE);
   }
 
   @Test

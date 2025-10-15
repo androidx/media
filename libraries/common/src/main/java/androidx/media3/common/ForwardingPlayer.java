@@ -695,6 +695,12 @@ public class ForwardingPlayer implements Player {
     return player.getAudioAttributes();
   }
 
+  /** Calls {@link Player#getAudioSessionId()} on the delegate and returns the result. */
+  @Override
+  public int getAudioSessionId() {
+    return player.getAudioSessionId();
+  }
+
   /** Calls {@link Player#setVolume(float)} on the delegate. */
   @Override
   public void setVolume(float volume) {

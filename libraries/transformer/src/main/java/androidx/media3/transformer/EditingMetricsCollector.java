@@ -36,6 +36,7 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.SystemClock;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -212,6 +213,8 @@ import java.util.List;
 
   private static final int SUCCESS_PROGRESS_PERCENTAGE = 100;
   private final long startTimeMs;
+  private final boolean compositionHasAudioProcessors;
+  private final boolean compositionHasVideoEffects;
   private final String exporterName;
   @Nullable private final String muxerName;
   private final MetricsReporter metricsReporter;
@@ -231,10 +234,16 @@ import java.util.List;
    *     output file.
    */
   public EditingMetricsCollector(
-      MetricsReporter metricsReporter, String exporterName, @Nullable String muxerName) {
+      MetricsReporter metricsReporter,
+      String exporterName,
+      @Nullable String muxerName,
+      boolean compositionHasAudioProcessors,
+      boolean compositionHasVideoEffects) {
     this.metricsReporter = metricsReporter;
     this.exporterName = exporterName;
     this.muxerName = muxerName;
+    this.compositionHasAudioProcessors = compositionHasAudioProcessors;
+    this.compositionHasVideoEffects = compositionHasVideoEffects;
     startTimeMs = SystemClock.DEFAULT.elapsedRealtime();
   }
 
@@ -243,10 +252,11 @@ import java.util.List;
    *
    * @param exportResult The {@link ExportResult} of the export.
    */
-  public void onExportSuccess(ExportResult exportResult) {
+  public void onExportSuccess(ExportResult exportResult, boolean isExportResumed) {
     EditingEndedEvent.Builder editingEndedEventBuilder =
         createEditingEndedEventBuilder(EditingEndedEvent.FINAL_STATE_SUCCEEDED)
             .setFinalProgressPercent(SUCCESS_PROGRESS_PERCENTAGE);
+    populateOperationTypes(editingEndedEventBuilder, exportResult, isExportResumed);
 
     List<MediaItemInfo> inputMediaItemInfoList =
         getInputMediaItemInfos(exportResult.processedInputs);
@@ -273,13 +283,17 @@ import java.util.List;
    * @param exportResult The {@link ExportResult} of the export.
    */
   public void onExportError(
-      int progressPercentage, ExportException exportException, ExportResult exportResult) {
+      int progressPercentage,
+      ExportException exportException,
+      ExportResult exportResult,
+      boolean isExportResumed) {
     EditingEndedEvent.Builder editingEndedEventBuilder =
         createEditingEndedEventBuilder(EditingEndedEvent.FINAL_STATE_ERROR)
             .setErrorCode(getEditingEndedEventErrorCode(exportException.errorCode));
     if (progressPercentage != C.PERCENTAGE_UNSET) {
       editingEndedEventBuilder.setFinalProgressPercent(progressPercentage);
     }
+    populateOperationTypes(editingEndedEventBuilder, exportResult, isExportResumed);
 
     List<MediaItemInfo> inputMediaItemInfoList =
         getInputMediaItemInfos(exportResult.processedInputs);
@@ -308,6 +322,12 @@ import java.util.List;
         createEditingEndedEventBuilder(EditingEndedEvent.FINAL_STATE_CANCELED);
     if (progressPercentage != C.PERCENTAGE_UNSET) {
       editingEndedEventBuilder.setFinalProgressPercent(progressPercentage);
+    }
+    if (compositionHasAudioProcessors) {
+      editingEndedEventBuilder.addOperationType(EditingEndedEvent.OPERATION_TYPE_AUDIO_EDIT);
+    }
+    if (compositionHasVideoEffects) {
+      editingEndedEventBuilder.addOperationType(EditingEndedEvent.OPERATION_TYPE_VIDEO_EDIT);
     }
 
     metricsReporter.reportMetrics(editingEndedEventBuilder.build());
@@ -391,8 +411,8 @@ import java.util.List;
 
   private static MediaItemInfo getOutputMediaItemInfo(ExportResult exportResult) {
     MediaItemInfo.Builder mediaItemInfoBuilder = new MediaItemInfo.Builder();
-    if (exportResult.durationMs != C.TIME_UNSET) {
-      mediaItemInfoBuilder.setDurationMillis(exportResult.durationMs);
+    if (exportResult.approximateDurationMs != C.TIME_UNSET) {
+      mediaItemInfoBuilder.setDurationMillis(exportResult.approximateDurationMs);
     }
     if (exportResult.audioMimeType != null) {
       mediaItemInfoBuilder.addSampleMimeType(exportResult.audioMimeType);
@@ -458,5 +478,42 @@ import java.util.List;
 
   private static int getEditingEndedEventErrorCode(@ExportException.ErrorCode int errorCode) {
     return ERROR_CODE_CONVERSION_MAP.get(errorCode, EditingEndedEvent.ERROR_CODE_NONE);
+  }
+
+  private void populateOperationTypes(
+      EditingEndedEvent.Builder editingEndedEventBuilder,
+      ExportResult exportResult,
+      boolean isExportResumed) {
+    if (isExportResumed) {
+      editingEndedEventBuilder.addOperationType(EditingEndedEvent.OPERATION_TYPE_RESUMED);
+    }
+
+    boolean hasAudio =
+        Iterables.any(
+            exportResult.processedInputs, processedInput -> processedInput.audioFormat != null);
+    boolean hasVideo =
+        Iterables.any(
+            exportResult.processedInputs, processedInput -> processedInput.videoFormat != null);
+
+    if (hasAudio) {
+      if (exportResult.audioEncoderName != null) {
+        editingEndedEventBuilder.addOperationType(EditingEndedEvent.OPERATION_TYPE_AUDIO_TRANSCODE);
+      } else {
+        editingEndedEventBuilder.addOperationType(EditingEndedEvent.OPERATION_TYPE_AUDIO_TRANSMUX);
+      }
+    }
+    if (hasVideo) {
+      if (exportResult.videoEncoderName != null) {
+        editingEndedEventBuilder.addOperationType(EditingEndedEvent.OPERATION_TYPE_VIDEO_TRANSCODE);
+      } else {
+        editingEndedEventBuilder.addOperationType(EditingEndedEvent.OPERATION_TYPE_VIDEO_TRANSMUX);
+      }
+    }
+    if (compositionHasAudioProcessors) {
+      editingEndedEventBuilder.addOperationType(EditingEndedEvent.OPERATION_TYPE_AUDIO_EDIT);
+    }
+    if (compositionHasVideoEffects) {
+      editingEndedEventBuilder.addOperationType(EditingEndedEvent.OPERATION_TYPE_VIDEO_EDIT);
+    }
   }
 }

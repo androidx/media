@@ -938,6 +938,7 @@ import java.util.List;
         getVolumeWithCommandCheck(),
         /* unmuteVolume= */ 1f,
         getAudioAttributesWithCommandCheck(),
+        C.AUDIO_SESSION_ID_UNSET,
         getCurrentCuesWithCommandCheck(),
         getDeviceInfo(),
         getDeviceVolumeWithCommandCheck(),

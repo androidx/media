@@ -22,14 +22,16 @@ import static java.lang.Math.abs;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.content.Context;
-import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Process;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
+import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.util.Clock;
+import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DefaultDataSource;
@@ -48,7 +50,6 @@ import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.source.SampleQueue;
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
 import androidx.media3.exoplayer.trackselection.TrackSelector;
-import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.BandwidthMeter;
 import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter;
 import com.google.common.base.Predicate;
@@ -81,6 +82,7 @@ public final class DefaultPreloadManager
     private Supplier<LoadControl> loadControlSupplier;
     @Nullable private Cache cache;
     private Executor cachingExecutor;
+    private Clock clock;
     private boolean buildCalled;
     private boolean buildExoPlayerCalled;
 
@@ -104,6 +106,7 @@ public final class DefaultPreloadManager
       this.renderersFactorySupplier = Suppliers.memoize(() -> new DefaultRenderersFactory(context));
       this.loadControlSupplier = Suppliers.memoize(DefaultLoadControl::new);
       this.cachingExecutor = Runnable::run;
+      this.clock = Clock.DEFAULT;
     }
 
     /**
@@ -256,6 +259,19 @@ public final class DefaultPreloadManager
     public Builder setCachingExecutor(Executor executor) {
       checkState(!buildCalled && !buildExoPlayerCalled);
       this.cachingExecutor = executor;
+      return this;
+    }
+
+    /**
+     * Sets the {@link Clock} that will be used the {@link DefaultPreloadManager}. Should only be
+     * set for testing purposes.
+     *
+     * @return This builder.
+     */
+    @VisibleForTesting
+    @CanIgnoreReturnValue
+    public Builder setClock(Clock clock) {
+      this.clock = clock;
       return this;
     }
 
@@ -476,8 +492,7 @@ public final class DefaultPreloadManager
   private final PreloadMediaSource.Factory preloadMediaSourceFactory;
   @Nullable private final HandlerThread preCacheThread;
   @Nullable private final PreCacheHelper.Factory preCacheHelperFactory;
-  private final Handler preloadHandler;
-  private final boolean deprecatedConstructorCalled;
+  private final HandlerWrapper preloadHandler;
   private boolean releaseCalled;
 
   private DefaultPreloadManager(Builder builder) {
@@ -495,13 +510,14 @@ public final class DefaultPreloadManager
     Looper preloadLooper = preloadLooperProvider.obtainLooper();
     preloadMediaSourceFactory =
         new PreloadMediaSource.Factory(
-            builder.mediaSourceFactorySupplier.get(),
-            new PreloadMediaSourceControl(),
-            trackSelector,
-            bandwidthMeter,
-            rendererCapabilitiesList.getRendererCapabilities(),
-            builder.loadControlSupplier.get().getAllocator(),
-            preloadLooper);
+                builder.mediaSourceFactorySupplier.get(),
+                new PreloadMediaSourceControl(),
+                trackSelector,
+                bandwidthMeter,
+                rendererCapabilitiesList.getRendererCapabilities(),
+                builder.loadControlSupplier.get(),
+                preloadLooper)
+            .setClock(builder.clock);
     @Nullable Cache cache = builder.cache;
     if (cache != null) {
       preCacheThread = new HandlerThread("DefaultPreloadManager:PreCacheHelper");
@@ -514,41 +530,7 @@ public final class DefaultPreloadManager
       preCacheThread = null;
       preCacheHelperFactory = null;
     }
-    preloadHandler = Util.createHandler(preloadLooper, /* callback= */ null);
-    deprecatedConstructorCalled = false;
-  }
-
-  /**
-   * @deprecated Use {@link Builder} instead.
-   */
-  @Deprecated
-  public DefaultPreloadManager(
-      TargetPreloadStatusControl<Integer, PreloadStatus> targetPreloadStatusControl,
-      MediaSource.Factory mediaSourceFactory,
-      TrackSelector trackSelector,
-      BandwidthMeter bandwidthMeter,
-      RendererCapabilitiesList.Factory rendererCapabilitiesListFactory,
-      Allocator allocator,
-      Looper preloadLooper) {
-    super(new SimpleRankingDataComparator(), targetPreloadStatusControl, mediaSourceFactory);
-    this.rendererCapabilitiesList =
-        rendererCapabilitiesListFactory.createRendererCapabilitiesList();
-    this.preloadLooperProvider = new PlaybackLooperProvider(preloadLooper);
-    this.trackSelector = trackSelector;
-    Looper obtainedPreloadLooper = preloadLooperProvider.obtainLooper();
-    preloadMediaSourceFactory =
-        new PreloadMediaSource.Factory(
-            mediaSourceFactory,
-            new PreloadMediaSourceControl(),
-            trackSelector,
-            bandwidthMeter,
-            rendererCapabilitiesList.getRendererCapabilities(),
-            allocator,
-            obtainedPreloadLooper);
-    preloadHandler = Util.createHandler(obtainedPreloadLooper, /* callback= */ null);
-    preCacheThread = null;
-    preCacheHelperFactory = null;
-    deprecatedConstructorCalled = true;
+    preloadHandler = builder.clock.createHandler(preloadLooper, /* callback= */ null);
   }
 
   /**
@@ -642,11 +624,7 @@ public final class DefaultPreloadManager
     preloadHandler.post(
         () -> {
           rendererCapabilitiesList.release();
-          if (!deprecatedConstructorCalled) {
-            // TODO: Remove the property deprecatedConstructorCalled and release the TrackSelector
-            // anyway after the deprecated constructor is removed.
-            trackSelector.release();
-          }
+          trackSelector.release();
           preloadLooperProvider.releaseLooper();
         });
   }
@@ -809,6 +787,19 @@ public final class DefaultPreloadManager
       }
       DefaultPreloadManager.this.onError(
           error, mediaSource, preloadStatus -> preloadStatus.equals(targetPreloadStatus));
+    }
+
+    @Override
+    public boolean onLoadingUnableToContinue(PreloadMediaSource mediaSource) {
+      @Nullable MediaSourceHolder sourceHolder = getMediaSourceHolderToClear();
+      if (sourceHolder != null) {
+        PreloadMediaSource lowestPriorityPreloadMediaSource =
+            (PreloadMediaSource) sourceHolder.getMediaSource();
+        lowestPriorityPreloadMediaSource.clear();
+        DefaultPreloadManager.this.onSourceCleared();
+        return true;
+      }
+      return false;
     }
 
     private boolean continueOrCompletePreloading(

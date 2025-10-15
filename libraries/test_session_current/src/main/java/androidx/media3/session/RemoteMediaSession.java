@@ -85,6 +85,7 @@ import androidx.media3.common.Tracks;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.text.CueGroup;
 import androidx.media3.common.util.Log;
+import androidx.media3.common.util.Size;
 import androidx.media3.test.session.common.IRemoteMediaSession;
 import androidx.media3.test.session.common.TestUtils;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -379,6 +380,10 @@ public class RemoteMediaSession {
       binder.notifyAudioAttributesChanged(sessionId, audioAttributes.toBundle());
     }
 
+    public void notifyAudioSessionIdChanged(int audioSessionId) throws RemoteException {
+      binder.notifyAudioSessionIdChanged(sessionId, audioSessionId);
+    }
+
     public void notifyAvailableCommandsChanged(Player.Commands commands) throws RemoteException {
       binder.notifyAvailableCommandsChanged(sessionId, commands.toBundle());
     }
@@ -463,6 +468,10 @@ public class RemoteMediaSession {
 
     public boolean surfaceExists() throws RemoteException {
       return binder.surfaceExists(sessionId);
+    }
+
+    public Size getSurfaceSize() throws RemoteException {
+      return Size.fromBundle(binder.getSurfaceSize(sessionId));
     }
 
     public void notifyDeviceVolumeChanged() throws RemoteException {

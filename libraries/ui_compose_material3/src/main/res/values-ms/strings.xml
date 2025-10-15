@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">Main</string>
+  <string name="playpause_button_pause">Jeda</string>
+  <string name="next_button">Seterusnya</string>
+  <string name="previous_button">Sebelumnya</string>
+  <string name="seek_back_button">Mandir</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">Langkau ke belakang %d saat</item>
+    <item quantity="other">Langkau ke belakang %d saat</item>
+  </plurals>
+  <string name="seek_forward_button">Langkau ke hadapan</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">Langkau ke hadapan %d saat</item>
+    <item quantity="other">Langkau ke hadapan %d saat</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">Mod semasa: Tidak berulang. Togol mod ulang.</string>
+  <string name="repeat_button_repeat_one">Mod semasa: Ulang satu. Togol mod ulang.</string>
+  <string name="repeat_button_repeat_all">Mod semasa: Ulang semua. Togol mod ulang.</string>
+  <string name="shuffle_button_shuffle_on">Mod rombak didayakan.</string>
+  <string name="shuffle_button_shuffle_off">Mod rombak dilumpuhkan.</string>
+  <string name="mute_button_shown_unmuted">Redam</string>
+  <string name="mute_button_shown_muted">Nyahredam</string>
+</resources>

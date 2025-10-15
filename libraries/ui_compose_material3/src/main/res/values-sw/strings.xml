@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">Cheza</string>
+  <string name="playpause_button_pause">Sitisha</string>
+  <string name="next_button">Endelea</string>
+  <string name="previous_button">Uliotangulia</string>
+  <string name="seek_back_button">Rudisha nyuma</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">Rudi nyuma kwa sekunde %d</item>
+    <item quantity="other">Rudi nyuma kwa sekunde %d</item>
+  </plurals>
+  <string name="seek_forward_button">Ruka mbele</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">Ruka mbele kwa sekunde %d</item>
+    <item quantity="other">Ruka mbele kwa sekunde %d</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">Hali ya sasa: Usirudie yoyote. Geuza hali ya kurudia.</string>
+  <string name="repeat_button_repeat_one">Hali ya sasa: Rudia moja. Geuza hali ya kurudia.</string>
+  <string name="repeat_button_repeat_all">Hali ya sasa: Rudia yote. Geuza hali ya kurudia.</string>
+  <string name="shuffle_button_shuffle_on">Umewasha hali ya kuchanganya.</string>
+  <string name="shuffle_button_shuffle_off">Umezima hali ya kuchanganya.</string>
+  <string name="mute_button_shown_unmuted">Zima sauti</string>
+  <string name="mute_button_shown_muted">Rejesha sauti</string>
+</resources>

@@ -43,6 +43,11 @@ public class MediaSessionConstants {
   public static final String KEY_CONTROLLER = "controllerKey";
   public static final String KEY_COMMAND_GET_TASKS_UNAVAILABLE = "commandGetTasksUnavailable";
 
+  public static final String KEY_CUSTOM_COMMAND_RECEIVED_CONFIRMATION =
+      "customSessionActionResultForTest";
+  public static final String VALUE_CUSTOM_COMMAND_RECEIVED_CONFIRMATION =
+      "custom session action default test result";
+
   public static final String KEY_IS_LEGACY_CONTROLLER = "isLegacyController";
 
   public static final String BOUNCING_CUSTOM_COMMAND = "bouncingCustomCommand";

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">ચલાવો</string>
+  <string name="playpause_button_pause">થોભાવો</string>
+  <string name="next_button">આગળ</string>
+  <string name="previous_button">પાછળ</string>
+  <string name="seek_back_button">રિવાઇન્ડ કરો</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">%d સેકન્ડ પાછળ જાઓ</item>
+    <item quantity="other">%d સેકન્ડ પાછળ જાઓ</item>
+  </plurals>
+  <string name="seek_forward_button">આગળ જાઓ</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">%d સેકન્ડ આગળ જાઓ</item>
+    <item quantity="other">%d સેકન્ડ આગળ જાઓ</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">વર્તમાન મોડ: કંઈ રિપીટ ન કરો. રિપીટ મોડ ટૉગલ કરો.</string>
+  <string name="repeat_button_repeat_one">વર્તમાન મોડ: એક રિપીટ કરો. રિપીટ મોડ ટૉગલ કરો.</string>
+  <string name="repeat_button_repeat_all">વર્તમાન મોડ: બધું રિપીટ કરો. રિપીટ મોડ ટૉગલ કરો.</string>
+  <string name="shuffle_button_shuffle_on">શફલ મોડ ચાલુ છે.</string>
+  <string name="shuffle_button_shuffle_off">શફલ મોડ બંધ છે.</string>
+  <string name="mute_button_shown_unmuted">મ્યૂટ કરો</string>
+  <string name="mute_button_shown_muted">અનમ્યૂટ કરો</string>
+</resources>

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">Ойнату</string>
+  <string name="playpause_button_pause">Кідірту</string>
+  <string name="next_button">Келесі</string>
+  <string name="previous_button">Алдыңғы</string>
+  <string name="seek_back_button">Артқа айналдыру</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">%d секунд артқа өткізіп жіберу</item>
+    <item quantity="other">%d секунд артқа өткізіп жіберу</item>
+  </plurals>
+  <string name="seek_forward_button">Алға өткізіп жіберу</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">%d секунд алға өткізіп жіберу</item>
+    <item quantity="other">%d секунд алға өткізіп жіберу</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">Қазіргі режим: еш контент қайталанбайды. Қайталау режимін қосу/өшіру.</string>
+  <string name="repeat_button_repeat_one">Қазіргі режим: бір контент қайталанады. Қайталау режимін қосу/өшіру.</string>
+  <string name="repeat_button_repeat_all">Қазіргі режим: барлық контент қайталанады. Қайталау режимін қосу/өшіру.</string>
+  <string name="shuffle_button_shuffle_on">Араластыру режимі қосылған.</string>
+  <string name="shuffle_button_shuffle_off">Араластыру режимі өшірілген.</string>
+  <string name="mute_button_shown_unmuted">Дыбысты өшіру</string>
+  <string name="mute_button_shown_muted">Дыбысты қосу</string>
+</resources>

@@ -3313,6 +3313,41 @@ public class MediaControllerListenerTest {
   }
 
   @Test
+  public void onAudioSessionIdChanged_isCalledAndUpdatesGetter() throws Exception {
+    int audioSessionId = 1234;
+    MediaController controller = controllerTestRule.createController(remoteSession.getToken());
+    CountDownLatch latch = new CountDownLatch(2);
+    AtomicReference<Integer> audioSessionIdFromParamRef = new AtomicReference<>();
+    AtomicReference<Integer> audioSessionIdFromGetterRef = new AtomicReference<>();
+    AtomicReference<Integer> audioSessionIdFromOnEventsRef = new AtomicReference<>();
+    AtomicReference<Player.Events> eventsRef = new AtomicReference<>();
+    Player.Listener listener =
+        new Player.Listener() {
+          @Override
+          public void onAudioSessionIdChanged(int audioSessionId) {
+            audioSessionIdFromParamRef.set(audioSessionId);
+            audioSessionIdFromGetterRef.set(controller.getAudioSessionId());
+            latch.countDown();
+          }
+
+          @Override
+          public void onEvents(Player player, Player.Events events) {
+            audioSessionIdFromOnEventsRef.set(player.getAudioSessionId());
+            eventsRef.set(events);
+            latch.countDown();
+          }
+        };
+    threadTestRule.getHandler().postAndSync(() -> controller.addListener(listener));
+
+    remoteSession.getMockPlayer().notifyAudioSessionIdChanged(audioSessionId);
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(audioSessionIdFromParamRef.get()).isEqualTo(audioSessionId);
+    assertThat(audioSessionIdFromGetterRef.get()).isEqualTo(audioSessionId);
+    assertThat(getEventsAsList(eventsRef.get())).containsExactly(Player.EVENT_AUDIO_SESSION_ID);
+  }
+
+  @Test
   public void onAudioAttributesChanged_isCalledAndUpdatesGetter() throws Exception {
     AudioAttributes testAttributes =
         new AudioAttributes.Builder()

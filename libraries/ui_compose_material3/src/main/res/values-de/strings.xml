@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">Wiedergeben</string>
+  <string name="playpause_button_pause">Pausieren</string>
+  <string name="next_button">Weiter</string>
+  <string name="previous_button">Zurück</string>
+  <string name="seek_back_button">Zurückspulen</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">%d Sekunde zurückspulen</item>
+    <item quantity="other">%d Sekunden zurückspulen</item>
+  </plurals>
+  <string name="seek_forward_button">Vorspulen</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">%d Sekunde vorspulen</item>
+    <item quantity="other">%d Sekunden vorspulen</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">Aktueller Modus: nichts wiederholen. Wiederholungsmodus ändern.</string>
+  <string name="repeat_button_repeat_one">Aktueller Modus: einen Titel wiederholen. Wiederholungsmodus ändern.</string>
+  <string name="repeat_button_repeat_all">Aktueller Modus: alles wiederholen. Wiederholungsmodus ändern.</string>
+  <string name="shuffle_button_shuffle_on">Zufallsmix aktiviert.</string>
+  <string name="shuffle_button_shuffle_off">Zufallsmix deaktiviert.</string>
+  <string name="mute_button_shown_unmuted">Stummschalten</string>
+  <string name="mute_button_shown_muted">Stummschaltung aufheben</string>
+</resources>

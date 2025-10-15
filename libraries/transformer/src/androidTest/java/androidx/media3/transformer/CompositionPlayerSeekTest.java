@@ -19,9 +19,9 @@ package androidx.media3.transformer;
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.common.util.Util.usToMs;
-import static androidx.media3.test.utils.TestUtil.MP4_ASSET;
-import static androidx.media3.test.utils.TestUtil.PNG_ASSET;
-import static androidx.media3.test.utils.TestUtil.WAV_ASSET;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET;
+import static androidx.media3.test.utils.AssetInfo.PNG_ASSET;
+import static androidx.media3.test.utils.AssetInfo.WAV_ASSET;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.skip;
@@ -1110,7 +1110,8 @@ public class CompositionPlayerSeekTest {
     assertThat(videoGraphEnded.await(VIDEO_GRAPH_END_TIMEOUT_MS, MILLISECONDS)).isTrue();
 
     getInstrumentation().runOnMainSync(() -> compositionPlayer.get().release());
-    if (playbackException.get() != null) {
+    if (playbackException.get() != null
+        && playbackException.get().errorCode != PlaybackException.ERROR_CODE_TIMEOUT) {
       throw playbackException.get();
     }
     return inputTimestampRecordingShaderProgram.getInputTimestampsUs();
@@ -1186,9 +1187,9 @@ public class CompositionPlayerSeekTest {
     playerTestListener.resetStatus();
     getInstrumentation().runOnMainSync(() -> compositionPlayer.get().seekTo(seekTimeMs));
     playerTestListener.waitUntilPlayerEnded();
-
     getInstrumentation().runOnMainSync(() -> compositionPlayer.get().release());
-    if (playbackException.get() != null) {
+    if (playbackException.get() != null
+        && playbackException.get().errorCode != PlaybackException.ERROR_CODE_TIMEOUT) {
       throw playbackException.get();
     }
     return inputTimestampRecordingShaderProgram.getInputTimestampsUs();

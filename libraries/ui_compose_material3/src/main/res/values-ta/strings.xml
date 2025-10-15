@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">பிளே செய்யும்</string>
+  <string name="playpause_button_pause">இடைநிறுத்தும்</string>
+  <string name="next_button">அடுத்து</string>
+  <string name="previous_button">முந்தையது</string>
+  <string name="seek_back_button">ரீவைண்ட் செய்யும்</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">%d வினாடி ரீவைண்ட் செய்யும்</item>
+    <item quantity="other">%d வினாடிகள் ரீவைண்ட் செய்யும்</item>
+  </plurals>
+  <string name="seek_forward_button">ஃபார்வர்டு செய்யும்</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">%d வினாடி ஃபார்வர்டு செய்யும்</item>
+    <item quantity="other">%d வினாடிகள் ஃபார்வர்டு செய்யும்</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">தற்போதைய மோட்: எதையும் மீண்டும் பிளே செய்யாது. ரிப்பீட் மோடை நிலைமாற்றும்.</string>
+  <string name="repeat_button_repeat_one">தற்போதைய மோட்: ஒன்றை மட்டும் மீண்டும் பிளே செய்யும். ரிப்பீட் மோடை நிலைமாற்றும்.</string>
+  <string name="repeat_button_repeat_all">தற்போதைய மோட்: அனைத்தையும் மீண்டும் பிளே செய்யும். ரிப்பீட் மோடை நிலைமாற்றும்.</string>
+  <string name="shuffle_button_shuffle_on">கலைத்துப் போடும் மோட் ஆன் செய்யப்பட்டுள்ளது.</string>
+  <string name="shuffle_button_shuffle_off">கலைத்துப் போடும் மோட் ஆஃப் செய்யப்பட்டுள்ளது.</string>
+  <string name="mute_button_shown_unmuted">ஒலியடக்கும்</string>
+  <string name="mute_button_shown_muted">ஒலி எழுப்பும்</string>
+</resources>

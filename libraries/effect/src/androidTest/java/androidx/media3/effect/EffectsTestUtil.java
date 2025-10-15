@@ -40,8 +40,10 @@ import androidx.media3.test.utils.TextureBitmapReader;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.MoreExecutors;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
 
 /** Utilities for effects tests. */
@@ -205,6 +207,47 @@ import java.util.concurrent.atomic.AtomicReference;
     Exception videoFrameProcessingException = videoFrameProcessingExceptionReference.get();
     if (videoFrameProcessingException != null) {
       throw videoFrameProcessingException;
+    }
+  }
+
+  /** A fake {@link FrameProcessor} for capturing output frames. */
+  public static final class FakeFrameConsumer<I extends Frame> implements FrameConsumer<I> {
+    private Runnable onQueueFrame;
+    public final List<I> receivedFrames;
+    @Nullable private Runnable onCapacityAvailableCallback;
+    @Nullable private Executor onCapacityAvailableExecutor;
+
+    public FakeFrameConsumer(Runnable onQueueFrame) {
+      this.onQueueFrame = onQueueFrame;
+      this.receivedFrames = new ArrayList<>();
+    }
+
+    @Override
+    public boolean queueFrame(I frame) {
+      receivedFrames.add(frame);
+      onQueueFrame.run();
+      return true;
+    }
+
+    @Override
+    public void setOnCapacityAvailableCallback(
+        Executor executor, Runnable onCapacityAvailableCallback) {
+      this.onCapacityAvailableCallback = onCapacityAvailableCallback;
+      this.onCapacityAvailableExecutor = executor;
+    }
+
+    @Override
+    public void clearOnCapacityAvailableCallback() {
+      this.onCapacityAvailableCallback = null;
+      this.onCapacityAvailableExecutor = null;
+    }
+
+    public void setOnQueueFrame(Runnable onQueueFrame) {
+      this.onQueueFrame = onQueueFrame;
+    }
+
+    public void notifyCallbackListener() {
+      checkNotNull(onCapacityAvailableExecutor).execute(checkNotNull(onCapacityAvailableCallback));
     }
   }
 

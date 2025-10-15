@@ -20,11 +20,9 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import androidx.annotation.Nullable;
 import androidx.annotation.RestrictTo;
-import androidx.media3.common.util.UnstableApi;
 import org.checkerframework.checker.nullness.qual.PolyNull;
 
 /** Interface to a MediaSessionCompat. */
-@UnstableApi
 @RestrictTo(LIBRARY)
 public interface IMediaSession extends android.os.IInterface {
   /** Local-side IPC implementation stub class. */

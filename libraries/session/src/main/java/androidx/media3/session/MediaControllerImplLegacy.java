@@ -30,7 +30,6 @@ import android.media.AudioManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.os.ResultReceiver;
 import android.os.SystemClock;
 import android.util.Pair;
 import android.view.Surface;
@@ -77,7 +76,6 @@ import androidx.media3.session.legacy.VolumeProviderCompat;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.SettableFuture;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -536,6 +534,11 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
   }
 
   @Override
+  public int getAudioSessionId() {
+    return controllerInfo.playerInfo.audioSessionId;
+  }
+
+  @Override
   public ListenableFuture<SessionResult> setRating(String mediaId, Rating rating) {
     @Nullable
     String currentMediaItemMediaId =
@@ -600,22 +603,13 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
 
   @Override
   public ListenableFuture<SessionResult> sendCustomCommand(SessionCommand command, Bundle args) {
-    if (controllerInfo.availableSessionCommands.contains(command)) {
+    if (controllerCompat != null) {
       controllerCompat.getTransportControls().sendCustomAction(command.customAction, args);
       return Futures.immediateFuture(new SessionResult(SessionResult.RESULT_SUCCESS));
+    } else {
+      return Futures.immediateFuture(
+          new SessionResult(SessionResult.RESULT_ERROR_SESSION_DISCONNECTED));
     }
-    SettableFuture<SessionResult> result = SettableFuture.create();
-    ResultReceiver cb =
-        new ResultReceiver(getInstance().applicationHandler) {
-          @Override
-          protected void onReceiveResult(int resultCode, Bundle resultData) {
-            result.set(
-                new SessionResult(
-                    resultCode, /* extras= */ resultData == null ? Bundle.EMPTY : resultData));
-          }
-        };
-    controllerCompat.sendCommand(command.customAction, args, cb);
-    return result;
   }
 
   @Override
@@ -1774,6 +1768,13 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
           (listener) ->
               listener.onAudioAttributesChanged(newControllerInfo.playerInfo.audioAttributes));
     }
+    if (oldControllerInfo.playerInfo.audioSessionId
+        != newControllerInfo.playerInfo.audioSessionId) {
+      listeners.queueEvent(
+          Player.EVENT_AUDIO_SESSION_ID,
+          (listener) ->
+              listener.onAudioSessionIdChanged(newControllerInfo.playerInfo.audioSessionId));
+    }
     if (!oldControllerInfo.playerInfo.deviceInfo.equals(newControllerInfo.playerInfo.deviceInfo)) {
       listeners.queueEvent(
           Player.EVENT_DEVICE_INFO_CHANGED,
@@ -2426,6 +2427,7 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
             /* volume= */ 1.0f,
             /* unmuteVolume= */ 1.0f,
             /* audioAttributes= */ audioAttributes,
+            /* audioSessionId= */ C.AUDIO_SESSION_ID_UNSET,
             /* cueGroup= */ CueGroup.EMPTY_TIME_ZERO,
             /* deviceInfo= */ deviceInfo,
             /* deviceVolume= */ deviceVolume,

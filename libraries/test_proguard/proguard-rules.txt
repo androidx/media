@@ -1,0 +1,3 @@
+# Keep all classes of the proguard test APK so that the tests can find them.
+-keep class androidx.media3.test.proguard.** {*;}
+-keep class kotlin.** {*;}

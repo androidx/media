@@ -35,7 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.media3.common.ForwardingPlayer
 import androidx.media3.common.Player
 import androidx.media3.common.SimpleBasePlayer
-import androidx.media3.ui.compose.utils.TestPlayer
+import androidx.media3.test.utils.TestSimpleBasePlayer
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import com.google.common.util.concurrent.Futures
@@ -43,8 +43,10 @@ import com.google.common.util.concurrent.ListenableFuture
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.mockito.AdditionalAnswers.delegatesTo
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.inOrder
+import org.mockito.Mockito.mock
 import org.mockito.Mockito.spy
 import org.mockito.Mockito.verify
 
@@ -56,7 +58,7 @@ class PlayerSurfaceTest {
 
   @Test
   fun playerSurface_withSurfaceViewType_setsSurfaceViewOnPlayer() {
-    val player = TestPlayer()
+    val player = TestSimpleBasePlayer()
 
     composeTestRule.setContent {
       PlayerSurface(player = player, surfaceType = SURFACE_TYPE_SURFACE_VIEW)
@@ -67,7 +69,7 @@ class PlayerSurfaceTest {
 
   @Test
   fun playerSurface_withTextureViewType_setsTextureViewOnPlayer() {
-    val player = TestPlayer()
+    val player = TestSimpleBasePlayer()
 
     composeTestRule.setContent {
       PlayerSurface(player = player, surfaceType = SURFACE_TYPE_TEXTURE_VIEW)
@@ -78,7 +80,7 @@ class PlayerSurfaceTest {
 
   @Test
   fun playerSurface_withoutSupportedCommand_doesNotSetSurfaceOnPlayer() {
-    val player = TestPlayer()
+    val player = TestSimpleBasePlayer()
     player.removeCommands(Player.COMMAND_SET_VIDEO_SURFACE)
 
     composeTestRule.setContent {
@@ -90,7 +92,7 @@ class PlayerSurfaceTest {
 
   @Test
   fun playerSurface_withUpdateSurfaceType_setsNewSurfaceOnPlayer() {
-    val player = TestPlayer()
+    val player = TestSimpleBasePlayer()
 
     lateinit var surfaceType: MutableIntState
     composeTestRule.setContent {
@@ -106,10 +108,10 @@ class PlayerSurfaceTest {
 
   @Test
   fun playerSurface_withNewPlayer_unsetsSurfaceOnOldPlayerFirst() {
-    val player0 = TestPlayer()
-    val player1 = TestPlayer()
-    val spyPlayer0 = spy(ForwardingPlayer(player0))
-    val spyPlayer1 = spy(ForwardingPlayer(player1))
+    val player0 = TestSimpleBasePlayer()
+    val player1 = TestSimpleBasePlayer()
+    val spyPlayer0 = mock(Player::class.java, delegatesTo<Player>(player0))
+    val spyPlayer1 = mock(Player::class.java, delegatesTo<Player>(player1))
 
     lateinit var playerIndex: MutableIntState
     composeTestRule.setContent {
@@ -138,7 +140,7 @@ class PlayerSurfaceTest {
 
   @Test
   fun playerSurface_fromPlayerToNull_unsetsSurfaceOnOldPlayer() {
-    val nonNullPlayer = TestPlayer()
+    val nonNullPlayer = TestSimpleBasePlayer()
     val spyPlayer = spy(ForwardingPlayer(nonNullPlayer))
 
     lateinit var playerIndex: MutableIntState

@@ -59,5 +59,10 @@ public class ExoPlayerAudioFocusContractTest extends PlayerAudioFocusContractTes
     public Looper getPlaybackLooper() {
       return player.getPlaybackLooper();
     }
+
+    @Override
+    public Looper getAudioFocusListenerLooper() {
+      return player.getPlaybackLooper();
+    }
   }
 }

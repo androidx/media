@@ -76,7 +76,6 @@ import androidx.annotation.RestrictTo;
 import androidx.collection.ArrayMap;
 import androidx.core.util.Pair;
 import androidx.media3.common.util.NullableType;
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.session.legacy.MediaSessionManager.RemoteUserInfo;
 import java.io.FileDescriptor;
@@ -117,7 +116,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * <p>For information about building your media application, read the <a
  * href="{@docRoot}guide/topics/media-apps/index.html">Media Apps</a> developer guide. </div>
  */
-@UnstableApi
 @RestrictTo(LIBRARY)
 public abstract class MediaBrowserServiceCompat extends Service {
   static final String TAG = "MBServiceCompat";

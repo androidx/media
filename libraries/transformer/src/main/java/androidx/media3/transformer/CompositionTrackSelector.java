@@ -45,23 +45,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   private final TrackSelectorInternal trackSelectorInternal;
 
-  private @MonotonicNonNull EditedMediaItemSequence sequence;
   private @MonotonicNonNull EditedMediaItem currentEditedMediaItem;
 
   public CompositionTrackSelector(Context context, Listener listener, int sequenceIndex) {
     trackSelectorInternal = new TrackSelectorInternal(context, listener, sequenceIndex);
-  }
-
-  public void setSequence(EditedMediaItemSequence sequence) {
-    this.sequence = sequence;
-    boolean disableVideoPlayback = false;
-    for (int j = 0; j < sequence.editedMediaItems.size(); j++) {
-      disableVideoPlayback |= sequence.editedMediaItems.get(j).removeVideo;
-    }
-    trackSelectorInternal.setDisableVideoPlayback(disableVideoPlayback);
-
-    // Triggers new track selection.
-    invalidate();
   }
 
   @Override
@@ -77,9 +64,17 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       MediaSource.MediaPeriodId periodId,
       Timeline timeline)
       throws ExoPlaybackException {
+    Timeline.Period period = timeline.getPeriodByUid(periodId.periodUid, new Timeline.Period());
+    checkState(period.id instanceof EditedMediaItemSequence);
+    EditedMediaItemSequence sequence = (EditedMediaItemSequence) period.id;
     currentEditedMediaItem =
-        getEditedMediaItem(
-            checkNotNull(sequence), /* index= */ timeline.getIndexOfPeriod(periodId.periodUid));
+        getEditedMediaItem(sequence, /* index= */ timeline.getIndexOfPeriod(periodId.periodUid));
+    boolean disableVideoPlayback = false;
+    for (int j = 0; j < sequence.editedMediaItems.size(); j++) {
+      disableVideoPlayback |= sequence.editedMediaItems.get(j).removeVideo;
+    }
+    trackSelectorInternal.setDisableVideoPlayback(disableVideoPlayback);
+
     return trackSelectorInternal.selectTracks(
         rendererCapabilities, trackGroups, periodId, timeline);
   }

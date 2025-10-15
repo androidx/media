@@ -218,7 +218,7 @@ track 1:
       lumaBitdepth = 8
       chromaBitdepth = 8
     language = und
-    metadata = entries=[TSSE: description=null: values=[Lavf56.1.0], Mp4Timestamp: creation time=3790610215, modification time=3790610215, timescale=30000]
+    metadata = entries=[TSSE: description=null: values=[Lavf56.1.0], Mp4Timestamp: creation time=3790610215, modification time=3790610215, timescale=30000, ThumbnailMetadata: presentationTimeUs=0]
     initializationData:
       data = length 19, hash D3863A4C
       data = length 8, hash 9464788C

@@ -64,6 +64,8 @@ import androidx.media3.common.util.Util;
 import com.google.android.gms.cast.Cast;
 import com.google.android.gms.cast.CastStatusCodes;
 import com.google.android.gms.cast.MediaInfo;
+import com.google.android.gms.cast.MediaLoadRequestData;
+import com.google.android.gms.cast.MediaQueueData;
 import com.google.android.gms.cast.MediaQueueItem;
 import com.google.android.gms.cast.MediaStatus;
 import com.google.android.gms.cast.MediaTrack;
@@ -79,6 +81,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.InlineMe;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
@@ -552,6 +555,14 @@ public final class RemoteCastPlayer extends BasePlayer {
     setPlayerStateAndNotifyIfChanged(
         playWhenReady, PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST, playbackState);
     listeners.flushEvents();
+    if (getMediaStatus() == null) {
+      // No media status means that both play and pause will fail, causing playWhenReady to be reset
+      // to true. By not calling play/pause, the playWhenReady state holder remains populated until
+      // either:
+      // - It's overwritten by an eventual media status update.
+      // - It's used to populate autoplay when the client loads media.
+      return;
+    }
     PendingResult<MediaChannelResult> pendingResult =
         playWhenReady ? remoteMediaClient.play() : remoteMediaClient.pause();
     this.playWhenReady.pendingResultCallback =
@@ -1333,7 +1344,7 @@ public final class RemoteCastPlayer extends BasePlayer {
     for (int i = 0; i < castMediaTracks.size(); i++) {
       MediaTrack mediaTrack = castMediaTracks.get(i);
       TrackGroup trackGroup =
-          new TrackGroup(/* id= */ Integer.toString(i), CastUtils.mediaTrackToFormat(mediaTrack));
+          CastUtils.mediaTrackToTrackGroup(/* trackGroupId= */ String.valueOf(i), mediaTrack);
       @C.FormatSupport int[] trackSupport = new int[] {C.FORMAT_HANDLED};
       boolean[] trackSelected = new boolean[] {isTrackActive(mediaTrack.getId(), activeTrackIds)};
       trackGroups[i] =
@@ -1391,12 +1402,24 @@ public final class RemoteCastPlayer extends BasePlayer {
     }
     MediaQueueItem[] mediaQueueItems = toMediaQueueItems(mediaItems);
     timelineTracker.onMediaItemsSet(mediaItems, mediaQueueItems);
-    remoteMediaClient.queueLoad(
-        mediaQueueItems,
-        min(startIndex, mediaItems.size() - 1),
-        getCastRepeatMode(repeatMode),
-        startPositionMs,
-        /* customData= */ null);
+    MediaQueueData mediaQueueData =
+        new MediaQueueData.Builder()
+            .setItems(Arrays.asList(mediaQueueItems))
+            .setStartIndex(min(startIndex, mediaItems.size() - 1))
+            .setRepeatMode(getCastRepeatMode(repeatMode))
+            .setStartTime(startPositionMs)
+            .build();
+    // TODO: b/432716880 - Populate playback speed and repeat mode values.
+    // TODO: b/434761431 - Remove setCurrentTime call once setStartTime (above) is handled correctly
+    // by the Cast framework.
+    MediaLoadRequestData loadRequestData =
+        new MediaLoadRequestData.Builder()
+            .setAutoplay(getPlayWhenReady())
+            .setQueueData(mediaQueueData)
+            .setCurrentTime(startPositionMs)
+            .build();
+    // We don't use the pending result because the timeline tracker is taking care of the masking.
+    PendingResult<MediaChannelResult> unused = remoteMediaClient.load(loadRequestData);
   }
 
   private void addMediaItemsInternal(List<MediaItem> mediaItems, int uid) {

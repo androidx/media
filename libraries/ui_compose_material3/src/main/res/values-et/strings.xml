@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">Esita</string>
+  <string name="playpause_button_pause">Peata</string>
+  <string name="next_button">Järgmine</string>
+  <string name="previous_button">Eelmine</string>
+  <string name="seek_back_button">Tagasikerimine</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">Keri %d sekund tagasi</item>
+    <item quantity="other">Keri %d sekundit tagasi</item>
+  </plurals>
+  <string name="seek_forward_button">Keri edasi</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">Keri %d sekund edasi</item>
+    <item quantity="other">Keri %d sekundit edasi</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">Praegune režiim: Ära korda. Vahetage kordusrežiimi.</string>
+  <string name="repeat_button_repeat_one">Praegune režiim: Korda ühte. Vahetage kordusrežiimi.</string>
+  <string name="repeat_button_repeat_all">Praegune režiim: Korda kõiki. Vahetage kordusrežiimi.</string>
+  <string name="shuffle_button_shuffle_on">Juhuesituse režiim on lubatud.</string>
+  <string name="shuffle_button_shuffle_off">Juhuesituse režiim on keelatud.</string>
+  <string name="mute_button_shown_unmuted">Vaigista</string>
+  <string name="mute_button_shown_muted">Tühista vaigistus</string>
+</resources>

@@ -107,15 +107,17 @@ public final class Mp3Extractor implements Extractor {
   public static final int FLAG_ENABLE_CONSTANT_BITRATE_SEEKING_ALWAYS = 1 << 1;
 
   /**
-   * Flag to force index seeking, in which a time-to-byte mapping is built as the file is read.
+   * Flag to enable index seeking, in which a time-to-byte mapping is built as the file is read. If
+   * other seeking metadata (e.g., Xing, VBRI, MLLT) is present in the file, it will be preferred
+   * for performance reasons. This flag allows index seeking to be used as a fallback in cases where
+   * no other seeking metadata is available.
    *
    * <p>This seeker may require to scan a significant portion of the file to compute a seek point.
    * Therefore, it should only be used if one of the following is true:
    *
    * <ul>
    *   <li>The file is small.
-   *   <li>The bitrate is variable (or it's unknown whether it's variable) and the file does not
-   *       provide precise enough seeking metadata.
+   *   <li>The bitrate is variable (or it's unknown whether it's variable).
    * </ul>
    */
   public static final int FLAG_ENABLE_INDEX_SEEKING = 1 << 2;
@@ -479,25 +481,21 @@ public final class Mp3Extractor implements Extractor {
     }
 
     @Nullable Seeker resultSeeker = null;
-    if ((flags & FLAG_ENABLE_INDEX_SEEKING) != 0) {
-      long durationUs;
-      long dataEndPosition = C.INDEX_UNSET;
-      if (metadataSeeker != null) {
-        durationUs = metadataSeeker.getDurationUs();
-        dataEndPosition = metadataSeeker.getDataEndPosition();
-      } else if (seekFrameSeeker != null) {
-        durationUs = seekFrameSeeker.getDurationUs();
-        dataEndPosition = seekFrameSeeker.getDataEndPosition();
-      } else {
-        durationUs = getId3TlenUs(metadata);
-      }
-      resultSeeker =
-          new IndexSeeker(
-              durationUs, /* dataStartPosition= */ input.getPosition(), dataEndPosition);
-    } else if (metadataSeeker != null) {
+    if (metadataSeeker != null) {
       resultSeeker = metadataSeeker;
     } else if (seekFrameSeeker != null) {
       resultSeeker = seekFrameSeeker;
+    }
+
+    if ((flags & FLAG_ENABLE_INDEX_SEEKING) != 0
+        && (resultSeeker == null || !resultSeeker.isSeekable())) {
+      long durationUs =
+          resultSeeker != null ? resultSeeker.getDurationUs() : getId3TlenUs(metadata);
+      long dataEndPosition =
+          resultSeeker != null ? resultSeeker.getDataEndPosition() : C.INDEX_UNSET;
+      resultSeeker =
+          new IndexSeeker(
+              durationUs, /* dataStartPosition= */ input.getPosition(), dataEndPosition);
     }
 
     if (resultSeeker != null
@@ -735,29 +733,25 @@ public final class Mp3Extractor implements Extractor {
   @Nullable
   private static MlltSeeker maybeHandleSeekMetadata(
       @Nullable Metadata metadata, long firstFramePosition) {
-    if (metadata != null) {
-      int length = metadata.length();
-      for (int i = 0; i < length; i++) {
-        Metadata.Entry entry = metadata.get(i);
-        if (entry instanceof MlltFrame) {
-          return MlltSeeker.create(firstFramePosition, (MlltFrame) entry, getId3TlenUs(metadata));
-        }
-      }
+    if (metadata == null) {
+      return null;
     }
-    return null;
+    MlltFrame mlltFrame = metadata.getFirstEntryOfType(MlltFrame.class);
+    if (mlltFrame == null) {
+      return null;
+    }
+    return MlltSeeker.create(firstFramePosition, mlltFrame, getId3TlenUs(metadata));
   }
 
   private static long getId3TlenUs(@Nullable Metadata metadata) {
-    if (metadata != null) {
-      int length = metadata.length();
-      for (int i = 0; i < length; i++) {
-        Metadata.Entry entry = metadata.get(i);
-        if (entry instanceof TextInformationFrame
-            && ((TextInformationFrame) entry).id.equals("TLEN")) {
-          return Util.msToUs(Long.parseLong(((TextInformationFrame) entry).values.get(0)));
-        }
-      }
+    if (metadata == null) {
+      return C.TIME_UNSET;
     }
-    return C.TIME_UNSET;
+    TextInformationFrame tlenFrame =
+        metadata.getFirstMatchingEntry(TextInformationFrame.class, tif -> tif.id.equals("TLEN"));
+    if (tlenFrame == null) {
+      return C.TIME_UNSET;
+    }
+    return Util.msToUs(Long.parseLong(tlenFrame.values.get(0)));
   }
 }

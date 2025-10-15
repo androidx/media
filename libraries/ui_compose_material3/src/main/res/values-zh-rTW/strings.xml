@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">播放</string>
+  <string name="playpause_button_pause">暫停</string>
+  <string name="next_button">下一個</string>
+  <string name="previous_button">上一個</string>
+  <string name="seek_back_button">倒轉</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">倒轉 %d 秒</item>
+    <item quantity="other">倒轉 %d 秒</item>
+  </plurals>
+  <string name="seek_forward_button">快轉</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">快轉 %d 秒</item>
+    <item quantity="other">快轉 %d 秒</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">目前模式：不重複播放。切換重複播放模式。</string>
+  <string name="repeat_button_repeat_one">目前模式：重複播放目前媒體。切換重複播放模式。</string>
+  <string name="repeat_button_repeat_all">目前模式：重複播放所有媒體。切換重複播放模式。</string>
+  <string name="shuffle_button_shuffle_on">已啟用隨機播放模式。</string>
+  <string name="shuffle_button_shuffle_off">已停用隨機播放模式。</string>
+  <string name="mute_button_shown_unmuted">靜音</string>
+  <string name="mute_button_shown_muted">取消靜音</string>
+</resources>

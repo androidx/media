@@ -490,7 +490,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   @Override
   public void onCommand(String commandName, @Nullable Bundle args, @Nullable ResultReceiver cb) {
     checkNotNull(commandName);
-    if (commandName.equals(MediaConstants.SESSION_COMMAND_MEDIA3_PLAY_REQUEST)) {
+    if (commandName.equals(MediaConstants.SESSION_COMMAND_MEDIA3_CHANGE_REQUEST)) {
       // Only applicable to controllers on Media3 1.5, where this command was sent via sendCommand
       // instead of sendCustomAction. No need to handle this command here.
       return;
@@ -519,7 +519,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
 
   @Override
   public void onCustomAction(String action, @Nullable Bundle args) {
-    if (action.equals(MediaConstants.SESSION_COMMAND_MEDIA3_PLAY_REQUEST)) {
+    if (action.equals(MediaConstants.SESSION_COMMAND_MEDIA3_CHANGE_REQUEST)) {
       // Ignore, no need to handle the custom action.
       return;
     }

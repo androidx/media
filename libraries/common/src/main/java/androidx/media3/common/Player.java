@@ -2116,6 +2116,8 @@ public interface Player {
    *   <li>{@link #clearVideoSurfaceHolder(SurfaceHolder)}
    *   <li>{@link #setVideoSurfaceView(SurfaceView)}
    *   <li>{@link #clearVideoSurfaceView(SurfaceView)}
+   *   <li>{@link #setVideoTextureView(TextureView)}
+   *   <li>{@link #clearVideoTextureView(TextureView)}
    * </ul>
    */
   int COMMAND_SET_VIDEO_SURFACE = 27;
@@ -3205,6 +3207,16 @@ public interface Player {
    * @see Listener#onAudioAttributesChanged(AudioAttributes)
    */
   AudioAttributes getAudioAttributes();
+
+  /**
+   * Returns the audio session identifier, or {@link C#AUDIO_SESSION_ID_UNSET} if not set.
+   *
+   * @see Listener#onAudioSessionIdChanged(int)
+   */
+  @UnstableApi
+  default int getAudioSessionId() {
+    return C.AUDIO_SESSION_ID_UNSET;
+  }
 
   /**
    * Sets the audio volume, valid values are between 0 (silence) and 1 (unity gain, signal

@@ -821,6 +821,15 @@
         "name": "JPEG (Ultra HDR)",
         "uri": "https://storage.googleapis.com/exoplayer-test-media-1/jpg/ultra_hdr.jpg",
         "image_duration_ms": 2000
+      },
+      {
+        "name": "HEIC motion photo (still)",
+        "uri": "https://storage.googleapis.com/exoplayer-test-media-1/heif/sample_motion_photo.heic",
+        "image_duration_ms": 2000
+      },
+      {
+        "name": "HEIC motion photo (motion)",
+        "uri": "https://storage.googleapis.com/exoplayer-test-media-1/heif/sample_motion_photo.heic"
       }
     ]
   }

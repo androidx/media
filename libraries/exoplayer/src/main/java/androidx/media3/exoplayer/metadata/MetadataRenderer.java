@@ -156,7 +156,8 @@ public final class MetadataRenderer extends BaseRenderer implements Callback {
   }
 
   @Override
-  protected void onPositionReset(long positionUs, boolean joining) {
+  protected void onPositionReset(
+      long positionUs, boolean joining, boolean sampleStreamIsResetToKeyFrame) {
     pendingMetadata = null;
     inputStreamEnded = false;
     outputStreamEnded = false;

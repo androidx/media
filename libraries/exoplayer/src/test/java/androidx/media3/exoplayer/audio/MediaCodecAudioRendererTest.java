@@ -769,6 +769,7 @@ public class MediaCodecAudioRendererTest {
             any(), longThat(presentationTimeUs -> presentationTimeUs == 150_000), anyInt()))
         .thenReturn(false);
     when(audioSink.getPlaybackParameters()).thenReturn(PlaybackParameters.DEFAULT);
+    when(audioSink.hasPendingData()).thenReturn(true);
     mediaCodecAudioRenderer.start();
     for (int i = 0; i < 10; i++) {
       mediaCodecAudioRenderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
@@ -820,6 +821,7 @@ public class MediaCodecAudioRendererTest {
             any(), longThat(presentationTimeUs -> presentationTimeUs == 150_000), anyInt()))
         .thenReturn(false);
     when(audioSink.getPlaybackParameters()).thenReturn(playbackParametersWithDoubleSpeed);
+    when(audioSink.hasPendingData()).thenReturn(true);
     mediaCodecAudioRenderer.start();
     for (int i = 0; i < 10; i++) {
       mediaCodecAudioRenderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
@@ -889,6 +891,7 @@ public class MediaCodecAudioRendererTest {
             any(), longThat(presentationTimeUs -> presentationTimeUs == 150_000), anyInt()))
         .thenReturn(false);
     when(audioSink.getPlaybackParameters()).thenReturn(PlaybackParameters.DEFAULT);
+    when(audioSink.hasPendingData()).thenReturn(true);
     mediaCodecAudioRenderer.start();
     for (int i = 0; i < 10; i++) {
       mediaCodecAudioRenderer.render(/* positionUs= */ 0, fakeClock.elapsedRealtime() * 1000);
@@ -941,6 +944,7 @@ public class MediaCodecAudioRendererTest {
             any(), longThat(presentationTimeUs -> presentationTimeUs == 150_000), anyInt()))
         .thenReturn(false);
     when(audioSink.getPlaybackParameters()).thenReturn(PlaybackParameters.DEFAULT);
+    when(audioSink.hasPendingData()).thenReturn(true);
     mediaCodecAudioRenderer.start();
     for (int i = 0; i < 10; i++) {
       mediaCodecAudioRenderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
@@ -989,6 +993,7 @@ public class MediaCodecAudioRendererTest {
             any(), longThat(presentationTimeUs -> presentationTimeUs == 150_000), anyInt()))
         .thenReturn(false);
     when(audioSink.getPlaybackParameters()).thenReturn(PlaybackParameters.DEFAULT);
+    when(audioSink.hasPendingData()).thenReturn(true);
     for (int i = 0; i < 10; i++) {
       mediaCodecAudioRenderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
       maybeIdleAsynchronousMediaCodecAdapterThreads();
@@ -1034,6 +1039,7 @@ public class MediaCodecAudioRendererTest {
     // Represents audio sink buffers being accepted, simulating a sink that isn't full yet.
     when(audioSink.handleBuffer(any(), anyLong(), anyInt())).thenReturn(true);
     when(audioSink.getPlaybackParameters()).thenReturn(PlaybackParameters.DEFAULT);
+    when(audioSink.hasPendingData()).thenReturn(true);
     mediaCodecAudioRenderer.start();
     for (int i = 0; i < 10; i++) {
       mediaCodecAudioRenderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
@@ -1080,6 +1086,7 @@ public class MediaCodecAudioRendererTest {
     // Represents audio sink buffers being accepted, simulating a sink that isn't full yet.
     when(audioSink.handleBuffer(any(), anyLong(), anyInt())).thenReturn(true);
     when(audioSink.getPlaybackParameters()).thenReturn(PlaybackParameters.DEFAULT);
+    when(audioSink.hasPendingData()).thenReturn(true);
     for (int i = 0; i < 10; i++) {
       mediaCodecAudioRenderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
       maybeIdleAsynchronousMediaCodecAdapterThreads();
@@ -1123,6 +1130,7 @@ public class MediaCodecAudioRendererTest {
     // Represents audio sink buffers being accepted, simulating a sink that isn't full yet.
     when(audioSink.handleBuffer(any(), anyLong(), anyInt())).thenReturn(true);
     when(audioSink.getPlaybackParameters()).thenReturn(PlaybackParameters.DEFAULT);
+    when(audioSink.hasPendingData()).thenReturn(true);
     for (int i = 0; i < 10; i++) {
       mediaCodecAudioRenderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
       maybeIdleAsynchronousMediaCodecAdapterThreads();
@@ -1167,6 +1175,7 @@ public class MediaCodecAudioRendererTest {
     mediaCodecAudioRenderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
     when(audioSink.getAudioTrackBufferSizeUs()).thenReturn(100_000L);
     when(audioSink.getPlaybackParameters()).thenReturn(PlaybackParameters.DEFAULT);
+    when(audioSink.hasPendingData()).thenReturn(true);
     FakeSampleStream fakeSampleStream =
         new FakeSampleStream(
             new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
@@ -1249,6 +1258,7 @@ public class MediaCodecAudioRendererTest {
             any(), longThat(presentationTimeUs -> presentationTimeUs == 150_000), anyInt()))
         .thenReturn(false);
     when(audioSink.getPlaybackParameters()).thenReturn(PlaybackParameters.DEFAULT);
+    when(audioSink.hasPendingData()).thenReturn(true);
     mediaCodecAudioRenderer.start();
     for (int i = 0; i < 10; i++) {
       mediaCodecAudioRenderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
@@ -1257,7 +1267,8 @@ public class MediaCodecAudioRendererTest {
 
     // Simulate a seek through resetPosition which should flush the audio sink.
     mediaCodecAudioRenderer.stop();
-    mediaCodecAudioRenderer.resetPosition(/* positionUs= */ 0);
+    mediaCodecAudioRenderer.resetPosition(
+        /* positionUs= */ 0, /* sampleStreamIsResetToKeyFrame= */ true);
     long durationToProgressUs =
         mediaCodecAudioRenderer.getDurationToProgressUs(
             /* positionUs= */ 0, fakeClock.elapsedRealtime() * 1000);
@@ -1307,6 +1318,7 @@ public class MediaCodecAudioRendererTest {
             any(), longThat(presentationTimeUs -> presentationTimeUs == 150_000), anyInt()))
         .thenReturn(false);
     when(audioSink.getPlaybackParameters()).thenReturn(PlaybackParameters.DEFAULT);
+    when(audioSink.hasPendingData()).thenReturn(true);
     mediaCodecAudioRenderer.start();
     for (int i = 0; i < 10; i++) {
       mediaCodecAudioRenderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
@@ -1321,6 +1333,50 @@ public class MediaCodecAudioRendererTest {
             /* positionUs= */ 0, fakeClock.elapsedRealtime() * 1000);
 
     assertThat(durationToProgressUs).isEqualTo(10_000L);
+  }
+
+  @Test
+  public void isReady_returnsTrueOnceAudioSinkHasPendingData() throws Exception {
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ AUDIO_AAC,
+            ImmutableList.of(
+                oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME),
+                oneByteSample(/* timeUs= */ 50, C.BUFFER_FLAG_KEY_FRAME),
+                oneByteSample(/* timeUs= */ 100, C.BUFFER_FLAG_KEY_FRAME),
+                END_OF_STREAM_ITEM));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    mediaCodecAudioRenderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {AUDIO_AAC},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ false,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+
+    mediaCodecAudioRenderer.start();
+    mediaCodecAudioRenderer.setCurrentStreamFinal();
+    when(audioSink.hasPendingData()).thenReturn(false);
+
+    boolean isReadyBeforeFirstRender = mediaCodecAudioRenderer.isReady();
+    for (int i = 0; i < 3; i++) {
+      // Handle some buffers.
+      mediaCodecAudioRenderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
+    }
+    boolean isReadyAfterDecoding = mediaCodecAudioRenderer.isReady();
+    when(audioSink.hasPendingData()).thenReturn(true);
+    boolean isReadyAfterPendingData = mediaCodecAudioRenderer.isReady();
+
+    assertThat(isReadyBeforeFirstRender).isFalse();
+    assertThat(isReadyAfterDecoding).isFalse();
+    assertThat(isReadyAfterPendingData).isTrue();
   }
 
   private void maybeIdleAsynchronousMediaCodecAdapterThreads() {

@@ -18,13 +18,15 @@ package androidx.media3.ui.compose.state
 
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableIntState
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.media3.common.Player
 import androidx.media3.common.VideoSize
-import androidx.media3.ui.compose.utils.TestPlayer
+import androidx.media3.test.utils.TestSimpleBasePlayer
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import org.junit.Rule
@@ -39,8 +41,7 @@ class PresentationStateTest {
 
   @Test
   fun playerInitialized_presentationStateInitialized() {
-    val player = TestPlayer()
-    player.playbackState = Player.STATE_IDLE
+    val player = TestSimpleBasePlayer(playbackState = Player.STATE_IDLE)
 
     lateinit var state: PresentationState
     composeTestRule.setContent { state = rememberPresentationState(player) }
@@ -52,8 +53,7 @@ class PresentationStateTest {
 
   @Test
   fun playerChangesVideoSizeBeforeEventListenerRegisters_observeGetsTheLatestValues_uiInSync() {
-    val player = TestPlayer()
-    player.playbackState = Player.STATE_IDLE
+    val player = TestSimpleBasePlayer(playbackState = Player.STATE_IDLE)
 
     lateinit var state: PresentationState
     composeTestRule.setContent {
@@ -71,8 +71,7 @@ class PresentationStateTest {
 
   @Test
   fun firstFrameRendered_shutterOpens() {
-    val player = TestPlayer()
-    player.playbackState = Player.STATE_IDLE
+    val player = TestSimpleBasePlayer(playbackState = Player.STATE_IDLE)
 
     lateinit var state: PresentationState
     composeTestRule.setContent { state = rememberPresentationState(player) }
@@ -86,9 +85,8 @@ class PresentationStateTest {
 
   @Test
   fun newNonNullPlayer_keepContentOnResetAndShutterAlreadyOpen_doNotCloseShutter() {
-    val player0 = TestPlayer()
-    val player1 = TestPlayer()
-    player0.playbackState = Player.STATE_IDLE
+    val player0 = TestSimpleBasePlayer(playbackState = Player.STATE_IDLE)
+    val player1 = TestSimpleBasePlayer()
 
     lateinit var playerIndex: MutableIntState
     lateinit var state: PresentationState
@@ -112,10 +110,8 @@ class PresentationStateTest {
 
   @Test
   fun newNullPlayer_keepContentOnResetAndShutterAlreadyOpen_doNotCloseShutter() {
-    val player0 = TestPlayer()
+    val player0 = TestSimpleBasePlayer(playbackState = Player.STATE_IDLE)
     val player1 = null
-    player0.playbackState = Player.STATE_IDLE
-
     lateinit var playerIndex: MutableIntState
     lateinit var state: PresentationState
     composeTestRule.setContent {
@@ -139,7 +135,7 @@ class PresentationStateTest {
   @Test
   fun nullChangedToNonNullPlayer_keepContentOnReset_shutterStaysClosed() {
     val player0 = null
-    val player1 = TestPlayer()
+    val player1 = TestSimpleBasePlayer()
 
     lateinit var playerIndex: MutableIntState
     lateinit var state: PresentationState
@@ -162,9 +158,8 @@ class PresentationStateTest {
 
   @Test
   fun newNonNullPlayer_doNotKeepContentOnResetAndShutterAlreadyOpen_closeShutter() {
-    val player0 = TestPlayer()
-    val player1 = TestPlayer()
-    player0.playbackState = Player.STATE_IDLE
+    val player0 = TestSimpleBasePlayer(playbackState = Player.STATE_IDLE)
+    val player1 = TestSimpleBasePlayer()
 
     lateinit var playerIndex: MutableIntState
     lateinit var state: PresentationState
@@ -188,9 +183,8 @@ class PresentationStateTest {
 
   @Test
   fun newNullPlayer_doNotKeepContentOnResetAndShutterAlreadyOpen_closeShutter() {
-    val player0 = TestPlayer()
+    val player0 = TestSimpleBasePlayer(playbackState = Player.STATE_IDLE)
     val player1 = null
-    player0.playbackState = Player.STATE_IDLE
 
     lateinit var playerIndex: MutableIntState
     lateinit var state: PresentationState
@@ -210,5 +204,31 @@ class PresentationStateTest {
     assertThat(state.player).isEqualTo(player1)
     assertThat(state.coverSurface).isTrue()
     assertThat(state.keepContentOnReset).isFalse()
+  }
+
+  @Test
+  fun keepContentOnReset_toggleValue_affectsCoveringSurfaceWithShutter() {
+    val player = TestSimpleBasePlayer(playbackState = Player.STATE_IDLE)
+
+    lateinit var keepContentOnReset: MutableState<Boolean>
+    lateinit var state: PresentationState
+    composeTestRule.setContent {
+      keepContentOnReset = remember { mutableStateOf(true) }
+      state = rememberPresentationState(player, keepContentOnReset = keepContentOnReset.value)
+    }
+    assertThat(state.keepContentOnReset).isTrue()
+    assertThat(state.coverSurface).isTrue()
+
+    player.renderFirstFrame(true)
+    composeTestRule.waitForIdle()
+
+    assertThat(state.keepContentOnReset).isTrue()
+    assertThat(state.coverSurface).isFalse()
+
+    keepContentOnReset.value = false
+    composeTestRule.waitForIdle()
+
+    assertThat(state.keepContentOnReset).isFalse()
+    assertThat(state.coverSurface).isTrue()
   }
 }

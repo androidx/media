@@ -11,7 +11,8 @@
       "trackNumber": 1,
       "totalTrackCount": 13,
       "duration": 90,
-      "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/"
+      "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/",
+      "media_type": "music"
     },
     {
       "id": "wake_up_02",
@@ -24,7 +25,8 @@
       "trackNumber": 2,
       "totalTrackCount": 13,
       "duration": 267,
-      "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/"
+      "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/",
+      "media_type": "music"
     },
     {
       "id": "wake_up_03",
@@ -37,7 +39,8 @@
       "trackNumber": 3,
       "totalTrackCount": 13,
       "duration": 264,
-      "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/"
+      "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/",
+      "media_type": "music"
     },
     {
       "id": "wake_up_04",
@@ -50,7 +53,8 @@
       "trackNumber": 4,
       "totalTrackCount": 13,
       "duration": 223,
-      "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/"
+      "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/",
+      "media_type": "music"
     },
     {
       "id": "wake_up_05",
@@ -63,7 +67,8 @@
       "trackNumber": 5,
       "totalTrackCount": 13,
       "duration": 229,
-      "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/"
+      "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/",
+      "media_type": "music"
     },
     {
       "id": "wake_up_06",
@@ -76,7 +81,8 @@
       "trackNumber": 6,
       "totalTrackCount": 13,
       "duration": 304,
-      "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/"
+      "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/",
+      "media_type": "music"
     },
     {
       "id": "wake_up_07",
@@ -89,7 +95,8 @@
       "trackNumber": 7,
       "totalTrackCount": 13,
       "duration": 256,
-      "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/"
+      "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/",
+      "media_type": "music"
     },
     {
       "id": "wake_up_08",
@@ -102,7 +109,8 @@
       "trackNumber": 8,
       "totalTrackCount": 13,
       "duration": 293,
-      "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/"
+      "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/",
+      "media_type": "music"
     },
     {
       "id": "wake_up_09",
@@ -115,7 +123,8 @@
       "trackNumber": 9,
       "totalTrackCount": 13,
       "duration": 185,
-      "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/"
+      "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/",
+      "media_type": "music"
     },
     {
       "id": "wake_up_10",
@@ -128,7 +137,8 @@
       "trackNumber": 10,
       "totalTrackCount": 13,
       "duration": 251,
-      "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/"
+      "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/",
+      "media_type": "music"
     },
     {
       "id": "wake_up_11",
@@ -141,7 +151,8 @@
       "trackNumber": 11,
       "totalTrackCount": 13,
       "duration": 290,
-      "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/"
+      "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/",
+      "media_type": "music"
     },
     {
       "id": "wake_up_12",
@@ -154,7 +165,8 @@
       "trackNumber": 12,
       "totalTrackCount": 13,
       "duration": 334,
-      "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/"
+      "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/",
+      "media_type": "music"
     },
     {
       "id": "wake_up_13",
@@ -167,7 +179,8 @@
       "trackNumber": 13,
       "totalTrackCount": 13,
       "duration": 242,
-      "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/"
+      "site": "http://freemusicarchive.org/music/The_Kyoto_Connection/Wake_Up_1957/",
+      "media_type": "music"
     },
     {
       "id": "irsens_tale_01",
@@ -180,7 +193,8 @@
       "trackNumber": 1,
       "totalTrackCount": 9,
       "duration": 63,
-      "site": "http://freemusicarchive.org/music/Kai_Engel/Irsens_Tale/"
+      "site": "http://freemusicarchive.org/music/Kai_Engel/Irsens_Tale/",
+      "media_type": "music"
     },
     {
       "id": "irsens_tale_02",
@@ -193,7 +207,8 @@
       "trackNumber": 2,
       "totalTrackCount": 9,
       "duration": 170,
-      "site": "http://freemusicarchive.org/music/Kai_Engel/Irsens_Tale/"
+      "site": "http://freemusicarchive.org/music/Kai_Engel/Irsens_Tale/",
+      "media_type": "music"
     },
     {
       "id": "irsens_tale_03",
@@ -206,7 +221,8 @@
       "trackNumber": 3,
       "totalTrackCount": 9,
       "duration": 164,
-      "site": "http://freemusicarchive.org/music/Kai_Engel/Irsens_Tale/"
+      "site": "http://freemusicarchive.org/music/Kai_Engel/Irsens_Tale/",
+      "media_type": "music"
     },
     {
       "id": "irsens_tale_04",
@@ -219,7 +235,8 @@
       "trackNumber": 4,
       "totalTrackCount": 9,
       "duration": 181,
-      "site": "http://freemusicarchive.org/music/Kai_Engel/Irsens_Tale/"
+      "site": "http://freemusicarchive.org/music/Kai_Engel/Irsens_Tale/",
+      "media_type": "music"
     },
     {
       "id": "irsens_tale_05",
@@ -232,7 +249,8 @@
       "trackNumber": 5,
       "totalTrackCount": 9,
       "duration": 132,
-      "site": "http://freemusicarchive.org/music/Kai_Engel/Irsens_Tale/"
+      "site": "http://freemusicarchive.org/music/Kai_Engel/Irsens_Tale/",
+      "media_type": "music"
     },
     {
       "id": "irsens_tale_06",
@@ -245,7 +263,8 @@
       "trackNumber": 6,
       "totalTrackCount": 9,
       "duration": 104,
-      "site": "http://freemusicarchive.org/music/Kai_Engel/Irsens_Tale/"
+      "site": "http://freemusicarchive.org/music/Kai_Engel/Irsens_Tale/",
+      "media_type": "music"
     },
     {
       "id": "irsens_tale_07",
@@ -258,7 +277,8 @@
       "trackNumber": 7,
       "totalTrackCount": 9,
       "duration": 173,
-      "site": "http://freemusicarchive.org/music/Kai_Engel/Irsens_Tale/"
+      "site": "http://freemusicarchive.org/music/Kai_Engel/Irsens_Tale/",
+      "media_type": "music"
     },
     {
       "id": "irsens_tale_08",
@@ -271,7 +291,8 @@
       "trackNumber": 8,
       "totalTrackCount": 9,
       "duration": 213,
-      "site": "http://freemusicarchive.org/music/Kai_Engel/Irsens_Tale/"
+      "site": "http://freemusicarchive.org/music/Kai_Engel/Irsens_Tale/",
+      "media_type": "music"
     },
     {
       "id": "irsens_tale_09",
@@ -284,7 +305,8 @@
       "trackNumber": 9,
       "totalTrackCount": 9,
       "duration": 65,
-      "site": "http://freemusicarchive.org/music/Kai_Engel/Irsens_Tale/"
+      "site": "http://freemusicarchive.org/music/Kai_Engel/Irsens_Tale/",
+      "media_type": "music"
     },
     {
       "id": "jazz_in_paris",
@@ -297,7 +319,8 @@
       "trackNumber": 1,
       "totalTrackCount": 6,
       "duration": 103,
-      "site": "https://www.youtube.com/audiolibrary/music"
+      "site": "https://www.youtube.com/audiolibrary/music",
+      "media_type": "music"
     },
     {
       "id": "the_messenger",
@@ -310,7 +333,8 @@
       "trackNumber": 2,
       "totalTrackCount": 6,
       "duration": 132,
-      "site": "https://www.youtube.com/audiolibrary/music"
+      "site": "https://www.youtube.com/audiolibrary/music",
+      "media_type": "music"
     },
     {
       "id": "talkies",
@@ -323,7 +347,8 @@
       "trackNumber": 3,
       "totalTrackCount": 6,
       "duration": 162,
-      "site": "https://www.youtube.com/audiolibrary/music"
+      "site": "https://www.youtube.com/audiolibrary/music",
+      "media_type": "music"
     },
     {
       "id": "on_the_bach",
@@ -336,7 +361,8 @@
       "trackNumber": 4,
       "totalTrackCount": 6,
       "duration": 66,
-      "site": "https://www.youtube.com/audiolibrary/music"
+      "site": "https://www.youtube.com/audiolibrary/music",
+      "media_type": "music"
     },
     {
       "id": "the_story_unfolds",
@@ -349,7 +375,8 @@
       "trackNumber": 5,
       "totalTrackCount": 6,
       "duration": 91,
-      "site": "https://www.youtube.com/audiolibrary/music"
+      "site": "https://www.youtube.com/audiolibrary/music",
+      "media_type": "music"
     },
     {
       "id": "drop_and_roll",
@@ -362,7 +389,8 @@
       "trackNumber": 1,
       "totalTrackCount": 7,
       "duration": 121,
-      "site": "https://www.youtube.com/audiolibrary/music"
+      "site": "https://www.youtube.com/audiolibrary/music",
+      "media_type": "music"
     },
     {
       "id": "motocross",
@@ -375,7 +403,8 @@
       "trackNumber": 2,
       "totalTrackCount": 7,
       "duration": 182,
-      "site": "https://www.youtube.com/audiolibrary/music"
+      "site": "https://www.youtube.com/audiolibrary/music",
+      "media_type": "music"
     },
     {
       "id": "wish_youd_come_true",
@@ -388,7 +417,8 @@
       "trackNumber": 3,
       "totalTrackCount": 7,
       "duration": 169,
-      "site": "https://www.youtube.com/audiolibrary/music"
+      "site": "https://www.youtube.com/audiolibrary/music",
+      "media_type": "music"
     },
     {
       "id": "awakening",
@@ -401,7 +431,8 @@
       "trackNumber": 4,
       "totalTrackCount": 7,
       "duration": 220,
-      "site": "https://www.youtube.com/audiolibrary/music"
+      "site": "https://www.youtube.com/audiolibrary/music",
+      "media_type": "music"
     },
     {
       "id": "home",
@@ -414,7 +445,8 @@
       "trackNumber": 5,
       "totalTrackCount": 7,
       "duration": 213,
-      "site": "https://www.youtube.com/audiolibrary/music"
+      "site": "https://www.youtube.com/audiolibrary/music",
+      "media_type": "music"
     },
     {
       "id": "tell_the_angels",
@@ -427,7 +459,8 @@
       "trackNumber": 6,
       "totalTrackCount": 7,
       "duration": 208,
-      "site": "https://www.youtube.com/audiolibrary/music"
+      "site": "https://www.youtube.com/audiolibrary/music",
+      "media_type": "music"
     },
     {
       "id": "hey_sailor",
@@ -440,7 +473,8 @@
       "trackNumber": 7,
       "totalTrackCount": 7,
       "duration": 193,
-      "site": "https://www.youtube.com/audiolibrary/music"
+      "site": "https://www.youtube.com/audiolibrary/music",
+      "media_type": "music"
     },
     {
       "id": "keys_to_the_kingdom",
@@ -453,7 +487,8 @@
       "trackNumber": 1,
       "totalTrackCount": 2,
       "duration": 221,
-      "site": "https://www.youtube.com/audiolibrary/music"
+      "site": "https://www.youtube.com/audiolibrary/music",
+      "media_type": "music"
     },
     {
       "id": "the_coldest_shoulder",
@@ -466,7 +501,8 @@
       "trackNumber": 2,
       "totalTrackCount": 2,
       "duration": 160,
-      "site": "https://www.youtube.com/audiolibrary/music"
+      "site": "https://www.youtube.com/audiolibrary/music",
+      "media_type": "music"
     }
   ]
 }

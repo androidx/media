@@ -40,7 +40,7 @@ fun Modifier.resizeWithContentScale(
   sourceSizeDp: Size?,
   density: Density = LocalDensity.current,
 ): Modifier =
-  then(
+  this.then(
     Modifier.fillMaxSize()
       .wrapContentSize()
       .then(

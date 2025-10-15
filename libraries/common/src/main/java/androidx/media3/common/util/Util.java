@@ -802,6 +802,29 @@ public final class Util {
 
   /**
    * Posts the {@link Runnable} if the calling thread differs with the {@link Looper} of the {@link
+   * HandlerWrapper}. Otherwise, runs the {@link Runnable} directly.
+   *
+   * @param handler The {@link HandlerWrapper} to which the {@link Runnable} will be posted.
+   * @param runnable The runnable to either post or run.
+   * @return {@code true} if the {@link Runnable} was successfully posted to the {@link
+   *     HandlerWrapper} or run. {@code false} otherwise.
+   */
+  @UnstableApi
+  public static boolean postOrRun(HandlerWrapper handler, Runnable runnable) {
+    Looper looper = handler.getLooper();
+    if (!looper.getThread().isAlive()) {
+      return false;
+    }
+    if (looper == Looper.myLooper()) {
+      runnable.run();
+      return true;
+    } else {
+      return handler.post(runnable);
+    }
+  }
+
+  /**
+   * Posts the {@link Runnable} if the calling thread differs with the {@link Looper} of the {@link
    * Handler}. Otherwise, runs the {@link Runnable} directly. Also returns a {@link
    * ListenableFuture} for when the {@link Runnable} has run.
    *
@@ -1193,12 +1216,11 @@ public final class Util {
    */
   @UnstableApi
   public static long addWithOverflowDefault(long x, long y, long overflowResult) {
-    long result = x + y;
-    // See Hacker's Delight 2-13 (H. Warren Jr).
-    if (((x ^ result) & (y ^ result)) < 0) {
-      return overflowResult;
-    }
-    return result;
+    long result = LongMath.saturatedAdd(x, y);
+    return (result == Long.MIN_VALUE && x + y != Long.MIN_VALUE)
+            || (result == Long.MAX_VALUE && x + y != Long.MAX_VALUE)
+        ? overflowResult
+        : result;
   }
 
   /**
@@ -1211,17 +1233,19 @@ public final class Util {
    */
   @UnstableApi
   public static long subtractWithOverflowDefault(long x, long y, long overflowResult) {
-    long result = x - y;
-    // See Hacker's Delight 2-13 (H. Warren Jr).
-    if (((x ^ y) & (x ^ result)) < 0) {
-      return overflowResult;
-    }
-    return result;
+    long result = LongMath.saturatedSubtract(x, y);
+    return (result == Long.MIN_VALUE && x - y != Long.MIN_VALUE)
+            || (result == Long.MAX_VALUE && x - y != Long.MAX_VALUE)
+        ? overflowResult
+        : result;
   }
 
   /**
    * Returns the integer percentage of {@code numerator} divided by {@code denominator}. This uses
    * integer arithmetic (round down).
+   *
+   * <p>The result is cast from {@code long} to {@code int} following the rules of {@link
+   * Ints#saturatedCast(long)}.
    */
   @UnstableApi
   public static int percentInt(long numerator, long denominator) {
@@ -1230,7 +1254,7 @@ public final class Util {
         numeratorTimes100 != Long.MAX_VALUE && numeratorTimes100 != Long.MIN_VALUE
             ? numeratorTimes100 / denominator
             : (numerator / (denominator / 100));
-    return Ints.checkedCast(result);
+    return Ints.saturatedCast(result);
   }
 
   /**
@@ -2334,6 +2358,38 @@ public final class Util {
         }
       case 12:
         return AudioFormat.CHANNEL_OUT_7POINT1POINT4;
+      case 13:
+        if (Build.VERSION.SDK_INT >= 32) {
+          // TODO(b/238402306): Replace with the public AudioFormat.CHANNEL_OUT_13POINT0 constant
+          // once it is released.
+          return AudioFormat.CHANNEL_OUT_FRONT_LEFT
+              | AudioFormat.CHANNEL_OUT_FRONT_CENTER
+              | AudioFormat.CHANNEL_OUT_FRONT_RIGHT
+              | AudioFormat.CHANNEL_OUT_SIDE_LEFT
+              | AudioFormat.CHANNEL_OUT_SIDE_RIGHT
+              | AudioFormat.CHANNEL_OUT_TOP_FRONT_LEFT
+              | AudioFormat.CHANNEL_OUT_TOP_FRONT_CENTER
+              | AudioFormat.CHANNEL_OUT_TOP_FRONT_RIGHT
+              | AudioFormat.CHANNEL_OUT_TOP_BACK_LEFT
+              | AudioFormat.CHANNEL_OUT_TOP_BACK_RIGHT
+              | AudioFormat.CHANNEL_OUT_BOTTOM_FRONT_LEFT
+              | AudioFormat.CHANNEL_OUT_BOTTOM_FRONT_CENTER
+              | AudioFormat.CHANNEL_OUT_BOTTOM_FRONT_RIGHT;
+        } else {
+          return AudioFormat.CHANNEL_INVALID;
+        }
+      case 14:
+        if (Build.VERSION.SDK_INT >= 32) {
+          return AudioFormat.CHANNEL_OUT_9POINT1POINT4;
+        } else {
+          return AudioFormat.CHANNEL_INVALID;
+        }
+      case 16:
+        if (Build.VERSION.SDK_INT >= 32) {
+          return AudioFormat.CHANNEL_OUT_9POINT1POINT6;
+        } else {
+          return AudioFormat.CHANNEL_INVALID;
+        }
       case 24:
         if (Build.VERSION.SDK_INT >= 32) {
           return AudioFormat.CHANNEL_OUT_7POINT1POINT4
@@ -2535,14 +2591,15 @@ public final class Util {
   }
 
   /**
-   * Returns a newly generated audio session identifier, or {@link AudioManager#ERROR} if an error
-   * occurred in which case audio playback may fail.
+   * Returns a newly generated audio session identifier, or {@link C#AUDIO_SESSION_ID_UNSET} if
+   * failed to generate an identifier and in which case audio playback may fail.
    *
    * @see AudioManager#generateAudioSessionId()
    */
   @UnstableApi
   public static int generateAudioSessionIdV21(Context context) {
-    return AudioManagerCompat.getAudioManager(context).generateAudioSessionId();
+    int audioSessionId = AudioManagerCompat.getAudioManager(context).generateAudioSessionId();
+    return audioSessionId != AudioManager.ERROR ? audioSessionId : C.AUDIO_SESSION_ID_UNSET;
   }
 
   /**

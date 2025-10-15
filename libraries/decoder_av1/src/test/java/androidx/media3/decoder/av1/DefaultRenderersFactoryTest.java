@@ -21,13 +21,13 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-/** Unit test for {@link DefaultRenderersFactoryTest} with {@link Libgav1VideoRenderer}. */
+/** Unit test for {@link DefaultRenderersFactoryTest} with {@link Libdav1dVideoRenderer}. */
 @RunWith(AndroidJUnit4.class)
 public final class DefaultRenderersFactoryTest {
 
   @Test
-  public void createRenderers_instantiatesAv1Renderer() {
+  public void createRenderers_instantiatesDav1dRenderer() {
     DefaultRenderersFactoryAsserts.assertExtensionRendererCreated(
-        Libgav1VideoRenderer.class, C.TRACK_TYPE_VIDEO);
+        Libdav1dVideoRenderer.class, C.TRACK_TYPE_VIDEO);
   }
 }

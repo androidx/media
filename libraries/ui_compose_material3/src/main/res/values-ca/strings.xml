@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">Reprodueix</string>
+  <string name="playpause_button_pause">Posa en pausa</string>
+  <string name="next_button">Següent</string>
+  <string name="previous_button">Anterior</string>
+  <string name="seek_back_button">Rebobina</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">Retrocedeix %d segon</item>
+    <item quantity="other">Retrocedeix %d segons</item>
+  </plurals>
+  <string name="seek_forward_button">Avança</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">Avança %d segon</item>
+    <item quantity="other">Avança %d segons</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">Mode actual: no repeteixis. Commuta el mode de repetició.</string>
+  <string name="repeat_button_repeat_one">Mode actual: repeteix un. Commuta el mode de repetició.</string>
+  <string name="repeat_button_repeat_all">Actual: repeteix-ho tot. Commuta el mode de repetició.</string>
+  <string name="shuffle_button_shuffle_on">El mode aleatori està activat.</string>
+  <string name="shuffle_button_shuffle_off">El mode aleatori està desactivat.</string>
+  <string name="mute_button_shown_unmuted">Silencia</string>
+  <string name="mute_button_shown_muted">Deixa de silenciar</string>
+</resources>

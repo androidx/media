@@ -6,7 +6,7 @@ Provides functionality for media containers.
 
 The easiest way to get the module is to add it as a gradle dependency:
 
-```gradle
+```groovy
 implementation 'androidx.media3:media3-container:1.X.X'
 ```
 

@@ -16,16 +16,21 @@
 package androidx.media3.transformer;
 
 import android.util.Pair;
+import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.SpeedChangingAudioProcessor;
 import androidx.media3.common.audio.SpeedProvider;
+import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.effect.SpeedChangeEffect;
 import androidx.media3.effect.TimestampAdjustment;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 /** Effects to apply to a {@link MediaItem} or to a {@link Composition}. */
 @UnstableApi
@@ -62,19 +67,21 @@ public final class Effects {
 
   /**
    * Creates an interlinked {@linkplain AudioProcessor audio processor} and {@linkplain Effect video
-   * effect} that changes the speed to media samples in segments of the input file specified by the
+   * effect} that changes the speed of media samples in segments of the input file specified by the
    * given {@link SpeedProvider}.
    *
    * <p>The {@linkplain AudioProcessor audio processor} and {@linkplain Effect video effect} are
    * interlinked to help maintain A/V sync. When using Transformer, if the input file doesn't have
-   * audio, or audio is being removed, you may have to {@linkplain
-   * EditedMediaItemSequence.Builder#experimentalSetForceAudioTrack force an audio track} for the
-   * interlinked effects to function correctly. Alternatively, you can use {@link SpeedChangeEffect}
-   * when input has no audio.
+   * audio, or audio is being removed, you may have to include {@link C#TRACK_TYPE_AUDIO} in the
+   * {@code trackTypes} of the {@link EditedMediaItemSequence} for the interlinked effects to
+   * function correctly. Alternatively, you can use {@link SpeedChangeEffect} when the input has no
+   * audio.
    *
    * @param speedProvider The {@link SpeedProvider} determining the speed for the media at specific
    *     timestamps.
+   * @deprecated Use {@link EditedMediaItem.Builder#setSpeed(SpeedProvider)} instead.
    */
+  @Deprecated
   public static Pair<AudioProcessor, Effect> createExperimentalSpeedChangingEffect(
       SpeedProvider speedProvider) {
     SpeedChangingAudioProcessor speedChangingAudioProcessor =
@@ -83,5 +90,36 @@ public final class Effects {
         new TimestampAdjustment(
             speedChangingAudioProcessor::getSpeedAdjustedTimeAsync, speedProvider);
     return Pair.create(speedChangingAudioProcessor, audioDrivenVideoEffect);
+  }
+
+  @Override
+  public String toString() {
+    return toJsonObject().toString();
+  }
+
+  /** Returns a {@link JSONObject} that represents the {@code Effects}. */
+  /* package */ JSONObject toJsonObject() {
+    JSONObject jsonObject = new JSONObject();
+
+    if (audioProcessors.isEmpty() && videoEffects.isEmpty()) {
+      return jsonObject;
+    }
+
+    JSONArray audioProcessorArray = new JSONArray();
+    for (int i = 0; i < audioProcessors.size(); i++) {
+      audioProcessorArray.put(audioProcessors.get(i).getClass().getSimpleName());
+    }
+    try {
+      jsonObject.put("audio", audioProcessorArray);
+      JSONArray videoEffectsArray = new JSONArray();
+      for (int i = 0; i < videoEffects.size(); i++) {
+        videoEffectsArray.put(videoEffects.get(i).getClass().getSimpleName());
+      }
+      jsonObject.put("video", videoEffectsArray);
+    } catch (JSONException e) {
+      Log.w(/* tag= */ "Effects", "JSON conversion failed.", e);
+      return new JSONObject();
+    }
+    return jsonObject;
   }
 }

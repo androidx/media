@@ -19,6 +19,12 @@
   void onImageAvailable(long, android.graphics.Bitmap);
 }
 
+-keepnames class androidx.media3.transformer.CompositionPlayer {}
+-keepclassmembers class androidx.media3.transformer.CompositionPlayer {
+  void setScrubbingModeEnabled(boolean);
+  boolean isScrubbingModeEnabled();
+}
+
 # Constructor method accessed via reflection in TrackSelectionDialogBuilder
 -dontnote androidx.appcompat.app.AlertDialog.Builder
 -keepclassmembers class androidx.appcompat.app.AlertDialog$Builder {

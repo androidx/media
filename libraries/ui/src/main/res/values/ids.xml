@@ -58,5 +58,6 @@
   <item name="exo_extra_controls_scroll_view" type="id"/>
   <item name="exo_minimal_fullscreen" type="id"/>
   <item name="exo_minimal_controls" type="id"/>
+  <item name="exo_media_route_button_placeholder" type="id"/>
 
 </resources>

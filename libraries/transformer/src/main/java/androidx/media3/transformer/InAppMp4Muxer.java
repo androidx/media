@@ -28,7 +28,6 @@ import androidx.media3.muxer.BufferInfo;
 import androidx.media3.muxer.Mp4Muxer;
 import androidx.media3.muxer.Muxer;
 import androidx.media3.muxer.MuxerException;
-import androidx.media3.muxer.MuxerOutputFactory;
 import androidx.media3.muxer.MuxerUtil;
 import androidx.media3.muxer.SeekableMuxerOutput;
 import com.google.common.collect.ImmutableList;
@@ -109,19 +108,7 @@ public final class InAppMp4Muxer implements Muxer {
         throw new MuxerException("Error creating file output stream", e);
       }
 
-      Mp4Muxer.Builder builder =
-          new Mp4Muxer.Builder(
-              new MuxerOutputFactory() {
-                @Override
-                public SeekableMuxerOutput getSeekableMuxerOutput() {
-                  return SeekableMuxerOutput.of(outputStream);
-                }
-
-                @Override
-                public String getCacheFilePath() {
-                  return "";
-                }
-              });
+      Mp4Muxer.Builder builder = new Mp4Muxer.Builder(SeekableMuxerOutput.of(outputStream));
       Mp4Muxer muxer = builder.build();
 
       return new InAppMp4Muxer(muxer, metadataProvider, videoDurationUs);

@@ -47,6 +47,7 @@ import androidx.media3.extractor.ExtractorsFactory;
 import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.SeekMap;
 import androidx.media3.extractor.TrackOutput;
+import androidx.media3.extractor.heif.HeifExtractor;
 import androidx.media3.extractor.jpeg.JpegExtractor;
 import androidx.media3.extractor.text.DefaultSubtitleParserFactory;
 import androidx.media3.extractor.text.SubtitleExtractor;
@@ -490,6 +491,7 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
             mediaItem.localConfiguration.uri, mediaItem.localConfiguration.mimeType);
     if (mediaItem.localConfiguration.imageDurationMs != C.TIME_UNSET) {
       delegateFactoryLoader.setJpegExtractorFlags(JpegExtractor.FLAG_READ_IMAGE);
+      delegateFactoryLoader.setHeifExtractorFlags(HeifExtractor.FLAG_READ_IMAGE);
     }
 
     MediaSource.Factory mediaSourceFactory;
@@ -752,6 +754,12 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
     public void setJpegExtractorFlags(@JpegExtractor.Flags int flags) {
       if (this.extractorsFactory instanceof DefaultExtractorsFactory) {
         ((DefaultExtractorsFactory) this.extractorsFactory).setJpegExtractorFlags(flags);
+      }
+    }
+
+    private void setHeifExtractorFlags(@HeifExtractor.Flags int flags) {
+      if (this.extractorsFactory instanceof DefaultExtractorsFactory) {
+        ((DefaultExtractorsFactory) this.extractorsFactory).setHeifExtractorFlags(flags);
       }
     }
 
