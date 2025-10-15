@@ -119,6 +119,7 @@ import androidx.media3.exoplayer.video.VideoFrameReleaseControl;
 import androidx.media3.exoplayer.video.VideoSink;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -1481,6 +1482,15 @@ public final class CompositionPlayer extends SimpleBasePlayer {
       // deprecated EditedMediaItemSequence.Builder is being used, for which we do not want to
       // filter any tracks.
       if (!sequenceTrackTypes.contains(C.TRACK_TYPE_NONE)) {
+        // Add TRACK_TYPE_IMAGE to sequenceTrackTypes if it contains TRACK_TYPE_VIDEO, as
+        // FilteringMediaSource differentiates between videos and images.
+        if (sequenceTrackTypes.contains(C.TRACK_TYPE_VIDEO)) {
+          sequenceTrackTypes =
+              new ImmutableSet.Builder<Integer>()
+                  .addAll(sequenceTrackTypes)
+                  .add(C.TRACK_TYPE_IMAGE)
+                  .build();
+        }
         mainMediaSource = new FilteringMediaSource(mainMediaSource, sequenceTrackTypes);
       }
       if (shouldGenerateBlankFrames) {
