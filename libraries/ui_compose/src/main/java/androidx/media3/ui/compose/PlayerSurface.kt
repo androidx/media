@@ -18,6 +18,7 @@ package androidx.media3.ui.compose
 
 import android.content.Context
 import android.graphics.Canvas
+import android.os.Build.FINGERPRINT
 import android.os.Build.VERSION.SDK_INT
 import android.view.SurfaceControl
 import android.view.SurfaceView
@@ -79,7 +80,7 @@ fun PlayerSurface(
 
       val coroutineScope = rememberCoroutineScope()
       val onSurfaceSizeChanged: (SurfaceView) -> Unit = { surfaceView ->
-        if (SDK_INT == 34) {
+        if (SDK_INT == 34 && !FINGERPRINT.equals("robolectric", ignoreCase = true)) {
           coroutineScope.launch(Dispatchers.Main) {
             surfaceView.rootSurfaceControl?.let { rootSurfaceControl ->
               // Register a SurfaceSyncGroup to work around
