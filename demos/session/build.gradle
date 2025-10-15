@@ -63,6 +63,7 @@ dependencies {
     implementation 'androidx.core:core-ktx:' + androidxCoreVersion
     implementation 'androidx.lifecycle:lifecycle-common:' + androidxLifecycleVersion
     implementation 'androidx.lifecycle:lifecycle-runtime:' + androidxLifecycleVersion
+    implementation 'androidx.mediarouter:mediarouter:' + androidxMediaRouterVersion
     implementation 'androidx.appcompat:appcompat:' + androidxAppCompatVersion
     implementation 'com.google.android.material:material:' + androidxMaterialVersion
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-guava:' + kotlinxCoroutinesVersion

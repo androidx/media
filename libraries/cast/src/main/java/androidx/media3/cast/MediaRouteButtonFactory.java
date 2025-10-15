@@ -21,6 +21,7 @@ import android.view.MenuItem;
 import androidx.concurrent.futures.CallbackToFutureAdapter;
 import androidx.media3.common.util.BackgroundExecutor;
 import androidx.media3.common.util.UnstableApi;
+import androidx.mediarouter.app.MediaRouteButton;
 import com.google.android.gms.cast.framework.CastButtonFactory;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -110,6 +111,67 @@ public final class MediaRouteButtonFactory {
             CastButtonFactory.setUpMediaRouteButton(
                     context, BackgroundExecutor.get(), menu, menuResourceId)
                 .addOnSuccessListener(completer::set)
+                .addOnFailureListener(completer::setException));
+  }
+
+  /**
+   * Sets up a media route button with an asynchronous callback, which will not block the caller
+   * thread.
+   *
+   * <p>The application can add a {@link MediaRouteButton} to their activity layout .xml file. Then
+   * the application can set up the media route button as follows.
+   *
+   * <pre>{@code
+   * public class MyActivity extends AppCompatActivity {
+   *     ...
+   *     @Override
+   *     public void onCreate(Bundle savedInstanceState) {
+   *         ...
+   *         MediaRouteButton button = findViewById(R.id.media_route_button);
+   *         ListenableFuture<Void> setUpFuture =
+   *             MediaRouteButtonFactory.setUpMediaRouteButton(this, button);
+   *         Futures.addCallback(
+   *             setUpFuture,
+   *             new FutureCallback<Void>() {
+   *               @Override
+   *               public void onSuccess(Void unused) {
+   *                 // Indicate that the media route button is set up successfully.
+   *               }
+   *
+   *               @Override
+   *               public void onFailure(Throwable t) {
+   *                 // Handle the failure.
+   *               }
+   *             },
+   *             executor);
+   *         ...
+   *     }
+   * }
+   * }</pre>
+   *
+   * <p>If setting up the media route button succeeds, the future will resolve to null and indicate
+   * that the media route button is set up successfully.
+   *
+   * <p>If setting up the media route button fails, the future may fail with an exception. Consumers
+   * should handle the failure gracefully, for example by not showing the media route button.
+   *
+   * <p>Clicking on the media route button opens a dialog that allows the user to select a remote
+   * device for transferring media.
+   *
+   * <p>See {@link MediaRouteButton} for more details.
+   *
+   * @param context The {@link Context} for creating the media route button.
+   * @param button The {@link MediaRouteButton} to set up.
+   * @return A {@link ListenableFuture} that will resolve to null when the media route button is
+   *     successfully set up. The future may fail with {@link IllegalStateException} if this method
+   *     is not called on the main thread.
+   */
+  public static ListenableFuture<Void> setUpMediaRouteButton(
+      Context context, MediaRouteButton button) {
+    return CallbackToFutureAdapter.getFuture(
+        completer ->
+            CastButtonFactory.setUpMediaRouteButton(context, BackgroundExecutor.get(), button)
+                .addOnSuccessListener(unused -> completer.set(null))
                 .addOnFailureListener(completer::setException));
   }
 

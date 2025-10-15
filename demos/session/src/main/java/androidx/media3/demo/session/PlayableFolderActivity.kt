@@ -20,7 +20,6 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
-import android.view.Menu
 import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
@@ -39,6 +38,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaBrowser
 import androidx.media3.session.SessionToken
+import androidx.mediarouter.app.MediaRouteButton
 import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
 import com.google.android.material.snackbar.BaseTransientBottomBar
 import com.google.android.material.snackbar.Snackbar
@@ -85,7 +85,10 @@ class PlayableFolderActivity : AppCompatActivity() {
         browser.sessionActivity?.send()
       }
     }
-
+    findViewById<MediaRouteButton>(R.id.floating_media_route_button)?.also {
+      @OptIn(UnstableApi::class) // MediaRouteButtonFactory is unstable API.
+      val unused = MediaRouteButtonFactory.setUpMediaRouteButton(applicationContext, it)
+    }
     findViewById<Button>(R.id.shuffle_button).setOnClickListener {
       val browser = this.browser ?: return@setOnClickListener
       browser.setMediaItems(subItemMediaList)
@@ -111,14 +114,6 @@ class PlayableFolderActivity : AppCompatActivity() {
         // intent in the same way to start the activity from the notification.
         browser?.sessionActivity?.send()
       }
-  }
-
-  @OptIn(UnstableApi::class)
-  override fun onCreateOptionsMenu(menu: Menu): Boolean {
-    super.onCreateOptionsMenu(menu)
-    menuInflater.inflate(R.menu.menu, menu)
-    val unused = MediaRouteButtonFactory.setUpMediaRouteButton(this, menu, R.id.cast_menu_item)
-    return true
   }
 
   override fun onStart() {
