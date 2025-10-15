@@ -31,7 +31,9 @@ import androidx.test.filters.SdkSuppress;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -43,43 +45,47 @@ public class DefaultAudioSinkTest {
   @SdkSuppress(minSdkVersion = 24) // TODO: b/399130330 - Debug why this fails on API 23.
   public void audioTrackExceedsSharedMemory_retriesUntilOngoingReleasesAreDone() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
-    getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              // Create audio sinks in parallel until we exceed the device's shared audio memory.
-              ArrayList<DefaultAudioSink> audioSinks = new ArrayList<>();
-              while (true) {
-                DefaultAudioSink audioSink = new DefaultAudioSink.Builder(context).build();
-                audioSinks.add(audioSink);
-                try {
-                  configureAudioSinkAndFeedData(audioSink);
-                } catch (Exception e) {
-                  // Expected to happen once we reached the shared audio memory limit of the device.
-                  break;
-                }
-              }
+    // Create audio sinks in parallel until we exceed the device's shared audio memory.
+    ArrayList<DefaultAudioSink> audioSinks = new ArrayList<>();
+    while (true) {
+      runOnMainSync(
+          () -> {
+            DefaultAudioSink audioSink = new DefaultAudioSink.Builder(context).build();
+            audioSinks.add(audioSink);
+          });
+      try {
+        configureAudioSinkAndFeedData(getLast(audioSinks));
+      } catch (Exception e) {
+        // Expected to happen once we reached the shared audio memory limit of the device.
+        break;
+      }
+    }
+    // Trigger release of one sink and immediately try the failed sink again. This should
+    // now succeed even if the sink is released asynchronously.
+    runOnMainSync(
+        () -> {
+          audioSinks.get(0).flush();
+          audioSinks.get(0).release();
+        });
+    try {
+      configureAudioSinkAndFeedData(getLast(audioSinks));
+    } catch (Exception e) {
+      throw new IllegalStateException(e);
+    }
 
-              // Trigger release of one sink and immediately try the failed sink again. This should
-              // now succeed even if the sink is released asynchronously.
-              audioSinks.get(0).flush();
-              audioSinks.get(0).release();
-              try {
-                configureAudioSinkAndFeedData(getLast(audioSinks));
-              } catch (Exception e) {
-                throw new IllegalStateException(e);
-              }
-
-              // Clean-up
-              for (int i = 1; i < audioSinks.size(); i++) {
-                audioSinks.get(i).flush();
-                audioSinks.get(i).release();
-              }
-            });
+    // Clean-up
+    runOnMainSync(
+        () -> {
+          for (int i = 1; i < audioSinks.size(); i++) {
+            audioSinks.get(i).flush();
+            audioSinks.get(i).release();
+          }
+        });
   }
 
   @Test
   @SdkSuppress(minSdkVersion = 24) // The test depends on AudioTrack#getUnderrunCount() (API 24+).
-  public void audioTrackUnderruns_callsOnUnderrun() throws InterruptedException {
+  public void audioTrackUnderruns_callsOnUnderrun() throws Exception {
     AtomicInteger underrunCount = new AtomicInteger();
     DefaultAudioSink sink =
         new DefaultAudioSink.Builder(ApplicationProvider.getApplicationContext()).build();
@@ -113,54 +119,79 @@ public class DefaultAudioSinkTest {
         sampleCountToDurationUs(/* sampleCount= */ 25, /* sampleRate= */ 44_100);
     ByteBuffer smallBuffer = ByteBuffer.allocateDirect(50).order(ByteOrder.nativeOrder());
 
-    getInstrumentation()
-        .runOnMainSync(
-            () -> {
-              try {
-                // Set buffer size of ~1.1ms. The tiny size helps cause an underrun.
-                sink.configure(format, /* specifiedBufferSize= */ 100, /* outputChannels= */ null);
+    runOnMainSync(
+        () -> {
+          try {
+            // Set buffer size of ~1.1ms. The tiny size helps cause an underrun.
+            sink.configure(format, /* specifiedBufferSize= */ 100, /* outputChannels= */ null);
 
-                // Prime AudioTrack with buffer larger than start threshold. Otherwise, AudioTrack
-                // won't start playing.
-                sink.handleBuffer(
-                    bigBuffer, /* presentationTimeUs= */ 0, /* encodedAccessUnitCount= */ 1);
-                sink.play();
-                // Sleep until AudioTrack starts running out of queued samples.
-                Thread.sleep(usToMs(bigBufferDurationUs));
-                for (int i = 0; i < 5; i++) {
-                  smallBuffer.rewind();
-                  // Queue small buffer so that sink buffer is never filled up.
-                  sink.handleBuffer(
-                      smallBuffer,
-                      /* presentationTimeUs= */ bigBufferDurationUs + smallBufferDurationUs * i,
-                      /* encodedAccessUnitCount= */ 1);
-                  // Add additional latency so loop can never fill up sink buffer quickly enough.
-                  Thread.sleep(20);
-                }
-              } catch (Exception e) {
-                throw new RuntimeException(e);
-              }
-            });
+            // Prime AudioTrack with buffer larger than start threshold. Otherwise, AudioTrack
+            // won't start playing.
+            sink.handleBuffer(
+                bigBuffer, /* presentationTimeUs= */ 0, /* encodedAccessUnitCount= */ 1);
+            sink.play();
+            // Sleep until AudioTrack starts running out of queued samples.
+            Thread.sleep(usToMs(bigBufferDurationUs));
+            for (int i = 0; i < 5; i++) {
+              smallBuffer.rewind();
+              // Queue small buffer so that sink buffer is never filled up.
+              sink.handleBuffer(
+                  smallBuffer,
+                  /* presentationTimeUs= */ bigBufferDurationUs + smallBufferDurationUs * i,
+                  /* encodedAccessUnitCount= */ 1);
+              // Add additional latency so loop can never fill up sink buffer quickly enough.
+              Thread.sleep(20);
+            }
+          } catch (Exception e) {
+            throw new RuntimeException(e);
+          }
+        });
 
     assertThat(underrunCount.get()).isGreaterThan(0);
   }
 
   private void configureAudioSinkAndFeedData(DefaultAudioSink audioSink) throws Exception {
-    Format format =
-        new Format.Builder()
-            .setSampleMimeType(MimeTypes.AUDIO_RAW)
-            .setPcmEncoding(C.ENCODING_PCM_16BIT)
-            .setChannelCount(2)
-            .setSampleRate(44_100)
-            .build();
-    audioSink.configure(format, /* specifiedBufferSize= */ 2_000_000, /* outputChannels= */ null);
-    audioSink.play();
     ByteBuffer buffer = ByteBuffer.allocateDirect(8000).order(ByteOrder.nativeOrder());
-    boolean handledBuffer = false;
-    while (!handledBuffer) {
-      handledBuffer =
-          audioSink.handleBuffer(
-              buffer, /* presentationTimeUs= */ 0, /* encodedAccessUnitCount= */ 1);
+    runOnMainSync(
+        () -> {
+          Format format =
+              new Format.Builder()
+                  .setSampleMimeType(MimeTypes.AUDIO_RAW)
+                  .setPcmEncoding(C.ENCODING_PCM_16BIT)
+                  .setChannelCount(2)
+                  .setSampleRate(44_100)
+                  .build();
+          audioSink.configure(
+              format, /* specifiedBufferSize= */ 2_000_000, /* outputChannels= */ null);
+          audioSink.play();
+        });
+    AtomicBoolean handledBuffer = new AtomicBoolean();
+    while (!handledBuffer.get()) {
+      runOnMainSync(
+          () ->
+              handledBuffer.set(
+                  audioSink.handleBuffer(
+                      buffer, /* presentationTimeUs= */ 0, /* encodedAccessUnitCount= */ 1)));
     }
+  }
+
+  private static void runOnMainSync(ThrowingRunnable runnable) throws Exception {
+    AtomicReference<Exception> exceptionOnMain = new AtomicReference<>();
+    getInstrumentation()
+        .runOnMainSync(
+            () -> {
+              try {
+                runnable.run();
+              } catch (Exception e) {
+                exceptionOnMain.set(e);
+              }
+            });
+    if (exceptionOnMain.get() != null) {
+      throw exceptionOnMain.get();
+    }
+  }
+
+  private interface ThrowingRunnable {
+    void run() throws Exception;
   }
 }
