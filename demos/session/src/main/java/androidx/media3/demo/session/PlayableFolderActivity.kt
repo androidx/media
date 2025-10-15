@@ -29,6 +29,7 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ListView
 import android.widget.TextView
+import androidx.annotation.OptIn
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.media3.cast.MediaRouteButtonFactory
@@ -115,7 +116,7 @@ class PlayableFolderActivity : AppCompatActivity() {
   @OptIn(UnstableApi::class)
   override fun onCreateOptionsMenu(menu: Menu): Boolean {
     super.onCreateOptionsMenu(menu)
-    getMenuInflater().inflate(R.menu.menu, menu)
+    menuInflater.inflate(R.menu.menu, menu)
     val unused = MediaRouteButtonFactory.setUpMediaRouteButton(this, menu, R.id.cast_menu_item)
     return true
   }
