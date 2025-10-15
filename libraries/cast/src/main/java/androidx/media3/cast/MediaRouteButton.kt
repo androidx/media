@@ -35,12 +35,9 @@ import androidx.media3.common.util.Log
 import androidx.media3.common.util.UnstableApi
 import androidx.mediarouter.app.MediaRouteChooserDialog
 import androidx.mediarouter.app.MediaRouteControllerDialog
-import androidx.mediarouter.app.MediaRouteDynamicChooserDialog
-import androidx.mediarouter.app.MediaRouteDynamicControllerDialog
 import androidx.mediarouter.app.SystemOutputSwitcherDialogController
 import androidx.mediarouter.media.MediaRouteSelector
 import androidx.mediarouter.media.MediaRouter.RouteInfo
-import androidx.mediarouter.media.MediaRouterParams
 import androidx.mediarouter.media.MediaTransferReceiver
 import com.google.android.gms.cast.framework.CastContext
 
@@ -88,13 +85,7 @@ private fun MediaRouteButtonState.MediaRouteDialog(onDismissRequest: () -> Unit)
   if (isConnectedToRemote) {
     MediaRouteControllerDialog(onDismissRequest)
   } else {
-    val isDynamicGroupDialogEnabled =
-      mediaRouter?.routerParams?.dialogType == MediaRouterParams.DIALOG_TYPE_DYNAMIC_GROUP
-    if (isDynamicGroupDialogEnabled) {
-      MediaRouteDynamicChooserDialog(onDismissRequest)
-    } else {
-      MediaRouteChooserDialog(onDismissRequest)
-    }
+    MediaRouteChooserDialog(onDismissRequest)
   }
 }
 
@@ -124,27 +115,9 @@ private fun MediaRouteButtonState.MediaRouteChooserDialog(onDismissRequest: () -
 }
 
 @Composable
-private fun MediaRouteButtonState.MediaRouteDynamicChooserDialog(onDismissRequest: () -> Unit) {
-  DisposableEffect(Unit) {
-    val dialog = MediaRouteDynamicChooserDialog(context, R.style.AppThemeDialog)
-    dialog.routeSelector = selector
-    dialog.setOnDismissListener { onDismissRequest() }
-    dialog.show()
-    onDispose { dialog.dismiss() }
-  }
-}
-
-@Composable
 private fun MediaRouteButtonState.MediaRouteControllerDialog(onDismissRequest: () -> Unit) {
   DisposableEffect(Unit) {
-    val isDynamicGroupDialogEnabled =
-      mediaRouter?.routerParams?.dialogType == MediaRouterParams.DIALOG_TYPE_DYNAMIC_GROUP
-    val dialog =
-      if (isDynamicGroupDialogEnabled) {
-        MediaRouteDynamicControllerDialog(context, R.style.AppThemeDialog)
-      } else {
-        MediaRouteControllerDialog(context, R.style.AppThemeDialog)
-      }
+    val dialog = MediaRouteControllerDialog(context, R.style.AppThemeDialog)
     dialog.setOnDismissListener { onDismissRequest() }
     dialog.show()
     onDispose { dialog.dismiss() }
