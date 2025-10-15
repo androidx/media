@@ -15,10 +15,18 @@
  */
 package androidx.media3.extractor.mp3;
 
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assume.assumeFalse;
 
+import androidx.media3.extractor.Extractor;
+import androidx.media3.extractor.PositionHolder;
+import androidx.media3.extractor.SeekPoint;
 import androidx.media3.test.utils.ExtractorAsserts;
 import androidx.media3.test.utils.ExtractorAsserts.AssertionConfig;
+import androidx.media3.test.utils.FakeExtractorInput;
+import androidx.media3.test.utils.FakeExtractorOutput;
+import androidx.media3.test.utils.TestUtil;
+import androidx.test.core.app.ApplicationProvider;
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
 import com.google.testing.junit.testparameterinjector.TestParameter;
@@ -273,5 +281,30 @@ public final class Mp3ExtractorTest {
         "media/mp3/bear-id3-numeric-genre.mp3",
         /* peekLimit= */ 41_000,
         simulationConfig);
+  }
+
+  // https://github.com/androidx/media/issues/2818
+  @Test
+  public void cbrSeeker_seekToEndOfStreamAfterPartialRead_doesNotIncorrectlyShortenDuration()
+      throws Exception {
+    String fileName = "media/mp3/bear-cbr-variable-frame-size-no-seek-table.mp3";
+    byte[] fileBytes = TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), fileName);
+    Mp3Extractor extractor = new Mp3Extractor();
+    FakeExtractorOutput output = new FakeExtractorOutput();
+    extractor.init(output);
+    FakeExtractorInput input = new FakeExtractorInput.Builder().setData(fileBytes).build();
+    PositionHolder positionHolder = new PositionHolder();
+    // Read until the seek map is initialized, which also ensures a sample is read in Mp3Extractor.
+    while (output.seekMap == null) {
+      int unused = extractor.read(input, positionHolder);
+    }
+    long durationBeforeSeekUs = output.seekMap.getDurationUs();
+    SeekPoint seekPoint = output.seekMap.getSeekPoints(durationBeforeSeekUs).first;
+
+    extractor.seek(seekPoint.position, seekPoint.timeUs);
+    input.setPosition((int) seekPoint.position);
+    while (extractor.read(input, positionHolder) != Extractor.RESULT_END_OF_INPUT) {}
+
+    assertThat(output.seekMap.getDurationUs()).isEqualTo(durationBeforeSeekUs);
   }
 }

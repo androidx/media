@@ -240,6 +240,7 @@ public final class Mp3Extractor implements Extractor {
     basisTimeUs = C.TIME_UNSET;
     samplesRead = 0;
     sampleBytesRemaining = 0;
+    endPositionOfLastSampleRead = C.INDEX_UNSET;
     seekTimeUs = timeUs;
     if (seeker instanceof IndexSeeker && !((IndexSeeker) seeker).isTimeUsInIndex(timeUs)) {
       isSeekInProgress = true;
