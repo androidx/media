@@ -117,16 +117,19 @@ public final class TransformerMultiSequenceCompositionTest {
                 new Contrast(0.1f),
                 Presentation.createForWidthAndHeight(
                     EXPORT_WIDTH, EXPORT_HEIGHT, Presentation.LAYOUT_SCALE_TO_FIT)),
-            /* firstSequenceMediaItems= */ ImmutableList.of(
-                editedMediaItemByClippingVideo(
-                    MP4_ASSET.uri,
-                    /* effects= */ ImmutableList.of(
-                        new AlphaScale(0.5f),
-                        new ScaleAndRotateTransformation.Builder()
-                            .setRotationDegrees(180)
-                            .build()))),
-            /* secondSequenceMediaItems= */ ImmutableList.of(
-                editedMediaItemByClippingVideo(MP4_ASSET.uri, /* effects= */ ImmutableList.of())),
+            /* firstSequence= */ EditedMediaItemSequence.withVideoFrom(
+                ImmutableList.of(
+                    editedMediaItemByClippingVideo(
+                        MP4_ASSET.uri,
+                        /* effects= */ ImmutableList.of(
+                            new AlphaScale(0.5f),
+                            new ScaleAndRotateTransformation.Builder()
+                                .setRotationDegrees(180)
+                                .build())))),
+            /* secondSequence= */ EditedMediaItemSequence.withVideoFrom(
+                ImmutableList.of(
+                    editedMediaItemByClippingVideo(
+                        MP4_ASSET.uri, /* effects= */ ImmutableList.of()))),
             VideoCompositorSettings.DEFAULT);
 
     ExportTestResult result =
@@ -153,16 +156,19 @@ public final class TransformerMultiSequenceCompositionTest {
                 new Contrast(0.1f),
                 Presentation.createForWidthAndHeight(
                     EXPORT_WIDTH, EXPORT_HEIGHT, Presentation.LAYOUT_SCALE_TO_FIT)),
-            /* firstSequenceMediaItems= */ ImmutableList.of(
-                editedMediaItemByClippingVideo(
-                    MP4_ASSET.uri,
-                    /* effects= */ ImmutableList.of(
-                        new AlphaScale(0.5f),
-                        new ScaleAndRotateTransformation.Builder()
-                            .setRotationDegrees(180)
-                            .build()))),
-            /* secondSequenceMediaItems= */ ImmutableList.of(
-                editedMediaItemOfOneFrameImage(JPG_ASSET.uri, /* effects= */ ImmutableList.of())),
+            /* firstSequence= */ EditedMediaItemSequence.withVideoFrom(
+                ImmutableList.of(
+                    editedMediaItemByClippingVideo(
+                        MP4_ASSET.uri,
+                        /* effects= */ ImmutableList.of(
+                            new AlphaScale(0.5f),
+                            new ScaleAndRotateTransformation.Builder()
+                                .setRotationDegrees(180)
+                                .build())))),
+            /* secondSequence= */ EditedMediaItemSequence.withVideoFrom(
+                ImmutableList.of(
+                    editedMediaItemOfOneFrameImage(
+                        JPG_ASSET.uri, /* effects= */ ImmutableList.of()))),
             VideoCompositorSettings.DEFAULT);
 
     ExportTestResult result =
@@ -211,16 +217,19 @@ public final class TransformerMultiSequenceCompositionTest {
                 new Contrast(0.1f),
                 Presentation.createForWidthAndHeight(
                     EXPORT_WIDTH, EXPORT_HEIGHT, Presentation.LAYOUT_SCALE_TO_FIT)),
-            /* firstSequenceMediaItems= */ ImmutableList.of(
-                editedMediaItemByClippingVideo(
-                    MP4_ASSET.uri,
-                    /* effects= */ ImmutableList.of(
-                        new AlphaScale(0.5f),
-                        new ScaleAndRotateTransformation.Builder()
-                            .setRotationDegrees(180)
-                            .build()))),
-            /* secondSequenceMediaItems= */ ImmutableList.of(
-                editedMediaItemByClippingVideo(MP4_ASSET.uri, /* effects= */ ImmutableList.of())),
+            /* firstSequence= */ EditedMediaItemSequence.withVideoFrom(
+                ImmutableList.of(
+                    editedMediaItemByClippingVideo(
+                        MP4_ASSET.uri,
+                        /* effects= */ ImmutableList.of(
+                            new AlphaScale(0.5f),
+                            new ScaleAndRotateTransformation.Builder()
+                                .setRotationDegrees(180)
+                                .build())))),
+            /* secondSequence= */ EditedMediaItemSequence.withVideoFrom(
+                ImmutableList.of(
+                    editedMediaItemByClippingVideo(
+                        MP4_ASSET.uri, /* effects= */ ImmutableList.of()))),
             pictureInPictureVideoCompositorSettings);
 
     ExportTestResult result =
@@ -249,10 +258,13 @@ public final class TransformerMultiSequenceCompositionTest {
     EditedMediaItem editedMediaItem =
         new EditedMediaItem.Builder(mediaItem).setEffects(effects).build();
     Composition composition =
-        new Composition.Builder(
-                new EditedMediaItemSequence.Builder(editedMediaItem).build(),
-                new EditedMediaItemSequence.Builder(editedMediaItem).build())
-            .build();
+        createComposition(
+            /* compositionEffects= */ ImmutableList.of(),
+            /* firstSequence= */ EditedMediaItemSequence.withAudioAndVideoFrom(
+                ImmutableList.of(editedMediaItem)),
+            /* secondSequence= */ EditedMediaItemSequence.withAudioAndVideoFrom(
+                ImmutableList.of(editedMediaItem)),
+            VideoCompositorSettings.DEFAULT);
 
     ExportTestResult result =
         new TransformerAndroidTestRunner.Builder(context, buildTransformer())
@@ -303,14 +315,11 @@ public final class TransformerMultiSequenceCompositionTest {
 
   private static Composition createComposition(
       List<Effect> compositionEffects,
-      List<EditedMediaItem> firstSequenceMediaItems,
-      List<EditedMediaItem> secondSequenceMediaItems,
+      EditedMediaItemSequence firstSequence,
+      EditedMediaItemSequence secondSequence,
       VideoCompositorSettings videoCompositorSettings) {
 
-    return new Composition.Builder(
-            ImmutableList.of(
-                new EditedMediaItemSequence.Builder(firstSequenceMediaItems).build(),
-                new EditedMediaItemSequence.Builder(secondSequenceMediaItems).build()))
+    return new Composition.Builder(ImmutableList.of(firstSequence, secondSequence))
         .setEffects(
             new Effects(
                 /* audioProcessors= */ ImmutableList.of(), /* videoEffects= */ compositionEffects))
