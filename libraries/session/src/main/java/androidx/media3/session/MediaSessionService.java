@@ -167,39 +167,6 @@ public abstract class MediaSessionService extends Service {
   public static final String SERVICE_INTERFACE = "androidx.media3.session.MediaSessionService";
 
   /**
-   * The action of an {@link Intent} sent to this service by itself when it is already running, but
-   * wishes to move into the foreground state.
-   *
-   * <p>This action is not intended for starting the service from anywhere except custom foreground
-   * service handling. Most apps will never need to send this action themselves.
-   *
-   * <p>If an {@link Intent} with this action is received in a subclass' {@link
-   * #onStartCommand(Intent, int, int)} method, the intent should be passed to the superclass
-   * (MediaSessionService) implementation. No further action is required to handle it.
-   */
-  @UnstableApi
-  public static final String ACTION_START_SELF =
-      "androidx.media3.session.MediaSessionService.ACTION_START_SELF";
-
-  /**
-   * The action of an {@link Intent} sent to this service by the system when a custom notification
-   * or session action was clicked.
-   *
-   * <p>If an {@link Intent} with this action is received in a subclass' {@link
-   * #onStartCommand(Intent, int, int)} method, the intent should be passed to the superclass
-   * (MediaSessionService) implementation.
-   *
-   * <p>This {@link Intent} is not intended to be intercepted by subclasses. If subclasses wish to
-   * handle custom notification actions, {@link
-   * MediaNotification.Provider#handleCustomCommand(MediaSession, String, Bundle)} or {@link
-   * MediaSession.Callback#onCustomCommand(MediaSession, ControllerInfo, SessionCommand, Bundle)}
-   * are appropriate.
-   */
-  @UnstableApi
-  public static final String ACTION_CUSTOM_NOTIFICATION_ACTION =
-      "androidx.media3.session.CUSTOM_NOTIFICATION_ACTION";
-
-  /**
    * The default timeout for a session to stay in a foreground service state after it paused,
    * stopped, failed or ended.
    */
@@ -239,6 +206,27 @@ public abstract class MediaSessionService extends Service {
    * Player#stop} or an error, has media, and the notification wasn't explicitly dismissed.
    */
   @UnstableApi public static final int SHOW_NOTIFICATION_FOR_IDLE_PLAYER_AFTER_STOP_OR_ERROR = 3;
+
+  /**
+   * The action of an {@link Intent} sent to this service by itself when it is already running, but
+   * wishes to move into the foreground state.
+   *
+   * <p>To start the service, an app must build a {@link MediaController} or a {@link MediaBrowser}
+   * that binds to the service instead. Starting the service with {@link
+   * Context#startForegroundService(Intent)} is highly discouraged.
+   */
+  @UnstableApi
+  protected static final String ACTION_START_SELF =
+      "androidx.media3.session.MediaSessionService.ACTION_START_SELF";
+
+  /**
+   * The action of an {@link Intent} sent to this service by the system from the media controls
+   * notification in case the {@link android.app.PendingIntent} was build by {@link
+   * DefaultMediaNotificationProvider} that uses {@link DefaultActionFactory}.
+   */
+  @UnstableApi
+  protected static final String ACTION_CUSTOM_NOTIFICATION_ACTION =
+      "androidx.media3.session.CUSTOM_NOTIFICATION_ACTION";
 
   private static final String TAG = "MSessionService";
 
@@ -472,18 +460,8 @@ public abstract class MediaSessionService extends Service {
   /**
    * Called when a component calls {@link android.content.Context#startService(Intent)}.
    *
-   * <p>The default implementation handles the following events:
-   *
-   * <ul>
-   *   <li>incoming media button events with the {@link Intent} action {@link
-   *       Intent#ACTION_MEDIA_BUTTON}
-   *   <li>custom notification actions with {@link Intent} action {@link
-   *       #ACTION_CUSTOM_NOTIFICATION_ACTION}
-   *   <li>foreground service state changes with {@link Intent} action {@link #ACTION_START_SELF}
-   * </ul>
-   *
-   * <p>Override this method if this service also needs to handle actions other than those mentioned
-   * above.
+   * <p>Apps normally don't need to override this method. If you think you need to override this
+   * method, <a href="https://github.com/androidx/media/issues">file a bug on GitHub</a>.
    *
    * <p>This method will be called on the main thread.
    */
