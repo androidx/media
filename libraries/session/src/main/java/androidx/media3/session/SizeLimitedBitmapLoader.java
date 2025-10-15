@@ -20,6 +20,8 @@ import static java.lang.Math.min;
 
 import android.graphics.Bitmap;
 import android.net.Uri;
+import androidx.annotation.Nullable;
+import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.common.util.UnstableApi;
 import com.google.common.util.concurrent.Futures;
@@ -57,6 +59,15 @@ public final class SizeLimitedBitmapLoader implements BitmapLoader {
   public ListenableFuture<Bitmap> loadBitmap(Uri uri) {
     ListenableFuture<Bitmap> future = bitmapLoader.loadBitmap(uri);
     return Futures.transform(future, this::scaleIfNecessary, directExecutor());
+  }
+
+  @Nullable
+  @Override
+  public ListenableFuture<Bitmap> loadBitmapFromMetadata(MediaMetadata metadata) {
+    ListenableFuture<Bitmap> future = bitmapLoader.loadBitmapFromMetadata(metadata);
+    return future == null
+        ? null
+        : Futures.transform(future, this::scaleIfNecessary, directExecutor());
   }
 
   private Bitmap scaleIfNecessary(Bitmap bitmap) {

@@ -15,6 +15,7 @@
  */
 package androidx.media3.session;
 
+import static androidx.media3.test.utils.TestUtil.assertSubclassOverridesAllMethods;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertThrows;
@@ -25,6 +26,8 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
 import android.net.Uri;
+import androidx.media3.common.MediaMetadata;
+import androidx.media3.common.util.BitmapLoader;
 import androidx.media3.datasource.DataSourceBitmapLoader;
 import androidx.media3.datasource.HttpDataSource;
 import androidx.media3.test.utils.TestUtil;
@@ -58,6 +61,11 @@ public class SizeLimitedBitmapLoaderTest {
   @Before
   public void setUp() {
     context = ApplicationProvider.getApplicationContext();
+  }
+
+  @Test
+  public void overridesAllMethods() throws NoSuchMethodException {
+    assertSubclassOverridesAllMethods(BitmapLoader.class, SizeLimitedBitmapLoader.class);
   }
 
   @Test
@@ -139,6 +147,26 @@ public class SizeLimitedBitmapLoaderTest {
     assertThat(mockWebServer.getRequestCount()).isEqualTo(1);
   }
 
+  @Test
+  public void loadBitmapFromMetadata_forwardsCallToWrappedLoader() throws Exception {
+    int limit = MediaSession.getBitmapDimensionLimit(context);
+    byte[] imageData = TestUtil.getByteArray(context, TEST_IMAGE_PATH);
+    LoadBitmapFromMetadataOnlyBitmapLoader testBitmapLoader =
+        new LoadBitmapFromMetadataOnlyBitmapLoader(new DataSourceBitmapLoader(context));
+    SizeLimitedBitmapLoader sizeLimitedBitmapLoader =
+        new SizeLimitedBitmapLoader(testBitmapLoader, limit);
+    Buffer responseBody = new Buffer().write(imageData);
+    MockWebServer mockWebServer = new MockWebServer();
+    mockWebServer.enqueue(new MockResponse().setResponseCode(200).setBody(responseBody));
+    Uri uri = Uri.parse(mockWebServer.url("test_path").toString());
+    MediaMetadata metadata = new MediaMetadata.Builder().setArtworkUri(uri).build();
+    Bitmap expectedBitmap = getExpectedBitmap(imageData, limit);
+
+    Bitmap bitmap = sizeLimitedBitmapLoader.loadBitmapFromMetadata(metadata).get(10, SECONDS);
+
+    assertThat(bitmap.sameAs(expectedBitmap)).isTrue();
+  }
+
   private static Bitmap apply90DegreeExifRotation(Bitmap bitmap) {
     Matrix rotationMatrix = new Matrix();
     rotationMatrix.postRotate(/* degrees= */ 90);
@@ -161,5 +189,33 @@ public class SizeLimitedBitmapLoaderTest {
     int scaledWidth = (int) (rotatedBitmap.getWidth() * scale);
     int scaledHeight = (int) (rotatedBitmap.getHeight() * scale);
     return Bitmap.createScaledBitmap(rotatedBitmap, scaledWidth, scaledHeight, true/* filter= */ );
+  }
+
+  private static class LoadBitmapFromMetadataOnlyBitmapLoader implements BitmapLoader {
+    private final BitmapLoader bitmapLoader;
+
+    private LoadBitmapFromMetadataOnlyBitmapLoader(BitmapLoader bitmapLoader) {
+      this.bitmapLoader = bitmapLoader;
+    }
+
+    @Override
+    public boolean supportsMimeType(String mimeType) {
+      return true;
+    }
+
+    @Override
+    public ListenableFuture<Bitmap> decodeBitmap(byte[] data) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public ListenableFuture<Bitmap> loadBitmap(Uri uri) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public ListenableFuture<Bitmap> loadBitmapFromMetadata(MediaMetadata metadata) {
+      return bitmapLoader.loadBitmapFromMetadata(metadata);
+    }
   }
 }
