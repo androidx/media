@@ -31,9 +31,11 @@ import androidx.media3.common.util.Util;
 import androidx.media3.test.utils.AssetInfo;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import java.math.RoundingMode;
 import java.util.Objects;
+import java.util.Set;
 
 /** Test utilities for parameterized instrumentation tests. */
 /* package */ final class ParameterizedAndroidTestUtil {
@@ -61,8 +63,10 @@ import java.util.Objects;
   public static final class SequenceConfig {
     public final int totalExpectedFrameCount;
     public final ImmutableList<ItemConfig> itemConfigs;
+    public final ImmutableSet<@C.TrackType Integer> trackTypes;
 
-    public SequenceConfig(ItemConfig... itemConfigs) {
+    public SequenceConfig(Set<@C.TrackType Integer> trackTypes, ItemConfig... itemConfigs) {
+      this.trackTypes = ImmutableSet.copyOf(trackTypes);
       this.itemConfigs = ImmutableList.copyOf(itemConfigs);
       int frameCountSum = 0;
       for (ItemConfig item : itemConfigs) {
@@ -79,7 +83,9 @@ import java.util.Objects;
       }
 
       return new Composition.Builder(
-              new EditedMediaItemSequence.Builder(editedMediaItems.build()).build())
+              new EditedMediaItemSequence.Builder(trackTypes)
+                  .addItems(editedMediaItems.build())
+                  .build())
           .setEffects(compositionEffects)
           .build();
     }

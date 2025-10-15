@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 apply from: "$gradle.ext.androidxMediaSettingsDir/common_library_config.gradle"
+apply plugin: 'kotlin-android'
 android {
     namespace 'androidx.media3.effect'
 
@@ -26,6 +27,10 @@ android {
         debug {
             testCoverageEnabled = true
         }
+    }
+
+    kotlinOptions {
+        jvmTarget = '1.8'
     }
 
     sourceSets {

@@ -31,12 +31,13 @@ import android.widget.ListView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.media3.cast.MediaRouteButtonFactory
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaBrowser
 import androidx.media3.session.SessionToken
-import com.google.android.gms.cast.framework.CastButtonFactory
 import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
 import com.google.android.material.snackbar.BaseTransientBottomBar
 import com.google.android.material.snackbar.Snackbar
@@ -111,10 +112,11 @@ class PlayableFolderActivity : AppCompatActivity() {
       }
   }
 
+  @OptIn(UnstableApi::class)
   override fun onCreateOptionsMenu(menu: Menu): Boolean {
     super.onCreateOptionsMenu(menu)
     getMenuInflater().inflate(R.menu.menu, menu)
-    CastButtonFactory.setUpMediaRouteButton(this, menu, R.id.cast_menu_item)
+    val unused = MediaRouteButtonFactory.setUpMediaRouteButton(this, menu, R.id.cast_menu_item)
     return true
   }
 

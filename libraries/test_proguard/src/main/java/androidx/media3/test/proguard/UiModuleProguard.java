@@ -204,7 +204,9 @@ public final class UiModuleProguard {
                   .setDurationUs(1_000_000)
                   .build();
           player.setComposition(
-              new Composition.Builder(new EditedMediaItemSequence.Builder(video).build()).build());
+              new Composition.Builder(
+                      EditedMediaItemSequence.withAudioAndVideoFrom(ImmutableList.of(video)))
+                  .build());
           player.prepare();
           player.play();
         });

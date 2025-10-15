@@ -54,10 +54,12 @@ import androidx.media3.common.Player.DiscontinuityReason;
 import androidx.media3.common.Player.PlaybackSuppressionReason;
 import androidx.media3.common.Player.RepeatMode;
 import androidx.media3.common.Timeline;
+import androidx.media3.common.audio.AudioFocusManager;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.Log;
+import androidx.media3.common.util.StuckPlayerException;
 import androidx.media3.common.util.TraceUtil;
 import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSourceException;
@@ -1902,7 +1904,7 @@ import java.util.Objects;
         /* resetError= */ false);
     playbackInfoUpdate.incrementPendingOperationAcks(acknowledgeStop ? 1 : 0);
     loadControl.onStopped(playerId);
-    audioFocusManager.updateAudioFocus(playbackInfo.playWhenReady, Player.STATE_IDLE);
+    int unused = audioFocusManager.updateAudioFocus(playbackInfo.playWhenReady, Player.STATE_IDLE);
     setState(Player.STATE_IDLE);
   }
 

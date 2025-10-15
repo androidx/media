@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">වාදනය කරන්න</string>
+  <string name="playpause_button_pause">විරාම කරන්න</string>
+  <string name="next_button">මීළඟ</string>
+  <string name="previous_button">පෙර</string>
+  <string name="seek_back_button">පසු ධාවනය කරන්න</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">තත්පර %dක් පසුපසට මඟ හරින්න</item>
+    <item quantity="other">තත්පර %dක් පසුපසට මඟ හරින්න</item>
+  </plurals>
+  <string name="seek_forward_button">ඉදිරියට පනින්න</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">තත්පර %dක් ඉදිරියට මඟ හරින්න</item>
+    <item quantity="other">තත්පර %dක් ඉදිරියට මඟ හරින්න</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">වත්මන් ප්‍රකාරය: කිසිවක් පුනරාවර්තනය නොකරන්න. පුනරාවර්තන ප්‍රකාරය ටොගල කරන්න.</string>
+  <string name="repeat_button_repeat_one">වත්මන් ප්‍රකාරය: එකක් පුනරාවර්තනය කරන්න. පුනරාවර්තන ප්‍රකාරය ටොගල කරන්න.</string>
+  <string name="repeat_button_repeat_all">වත්මන් ප්‍රකාරය: සියල්ල පුනරාවර්තනය කරන්න. පුනරාවර්තන ප්‍රකාරය ටොගල කරන්න.</string>
+  <string name="shuffle_button_shuffle_on">කලවම් කරන්න ප්‍රකාරය සබල කර ඇත.</string>
+  <string name="shuffle_button_shuffle_off">කලවම් කරන්න ප්‍රකාරය අබල කර ඇත.</string>
+  <string name="mute_button_shown_unmuted">නිහඬ කරන්න</string>
+  <string name="mute_button_shown_muted">නිහඬ නොකරන්න</string>
+</resources>

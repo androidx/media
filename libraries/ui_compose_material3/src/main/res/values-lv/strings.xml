@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">Atskaņot</string>
+  <string name="playpause_button_pause">Pārtraukt</string>
+  <string name="next_button">Nākamais</string>
+  <string name="previous_button">Iepriekšējais</string>
+  <string name="seek_back_button">Attīt atpakaļ</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="zero">Pāriet %d sekundes atpakaļ</item>
+    <item quantity="one">Pāriet %d sekundi atpakaļ</item>
+    <item quantity="other">Pāriet %d sekundes atpakaļ</item>
+  </plurals>
+  <string name="seek_forward_button">Pāriet uz priekšu</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="zero">Pāriet %d sekundes uz priekšu</item>
+    <item quantity="one">Pāriet %d sekundi uz priekšu</item>
+    <item quantity="other">Pāriet %d sekundes uz priekšu</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">Pašreizējais režīms: neatkārtot nevienu. Pārslēdziet atkārtošanas režīmu.</string>
+  <string name="repeat_button_repeat_one">Pašreizējais režīms: atkārtot vienu. Pārslēdziet atkārtošanas režīmu.</string>
+  <string name="repeat_button_repeat_all">Pašreizējais režīms: atkārtot visu. Pārslēdziet atkārtošanas režīmu.</string>
+  <string name="shuffle_button_shuffle_on">Atskaņošana jauktā secībā ir iespējota.</string>
+  <string name="shuffle_button_shuffle_off">Atskaņošana jauktā secībā ir atspējota.</string>
+  <string name="mute_button_shown_unmuted">Izslēgt skaņu</string>
+  <string name="mute_button_shown_muted">Ieslēgt skaņu</string>
+</resources>

@@ -525,7 +525,7 @@ public final class DashMediaSource extends BaseMediaSource {
       manifestCallback = new ManifestCallback();
       manifestLoadErrorThrower = new ManifestLoadErrorThrower();
       refreshManifestRunnable = this::startLoadingManifest;
-      simulateManifestRefreshRunnable = () -> processManifest(false);
+      simulateManifestRefreshRunnable = this::simulateManifestRefresh;
     }
   }
 
@@ -1124,6 +1124,16 @@ public final class DashMediaSource extends BaseMediaSource {
             .setMinPlaybackSpeed(minPlaybackSpeed)
             .setMaxPlaybackSpeed(maxPlaybackSpeed)
             .build());
+  }
+
+  private void simulateManifestRefresh() {
+    try {
+      processManifest(/* scheduleRefresh= */ false);
+    } catch (Exception e) {
+      // This method is run on a Handler message without the usual safety nets from ExoPlayer.
+      // Catch the exception and let it be reported via the regular player error reporting chain.
+      manifestFatalError = new IOException(/* cause= */ e);
+    }
   }
 
   private void scheduleManifestRefresh(long delayUntilNextLoadMs) {

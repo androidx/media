@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">Speel</string>
+  <string name="playpause_button_pause">Onderbreek</string>
+  <string name="next_button">Volgende</string>
+  <string name="previous_button">Vorige</string>
+  <string name="seek_back_button">Spoel terug</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">Spring %d sekonde terug</item>
+    <item quantity="other">Spring %d sekondes terug</item>
+  </plurals>
+  <string name="seek_forward_button">Spring vorentoe</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">Spring %d sekonde vorentoe</item>
+    <item quantity="other">Spring %d sekondes vorentoe</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">Huidige modus: herhaal niks. Wissel herhaalmodus.</string>
+  <string name="repeat_button_repeat_one">Huidige modus: herhaal een. Wissel herhaalmodus.</string>
+  <string name="repeat_button_repeat_all">Huidige modus: herhaal alles. Wissel herhaalmodus.</string>
+  <string name="shuffle_button_shuffle_on">Skommelmodus is geaktiveer.</string>
+  <string name="shuffle_button_shuffle_off">Skommelmodus is gedeaktiveer.</string>
+  <string name="mute_button_shown_unmuted">Demp</string>
+  <string name="mute_button_shown_muted">Ontdemp</string>
+</resources>

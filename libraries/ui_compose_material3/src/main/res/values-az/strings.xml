@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">İşə salın</string>
+  <string name="playpause_button_pause">Durdurun</string>
+  <string name="next_button">Növbəti</string>
+  <string name="previous_button">Əvvəlki</string>
+  <string name="seek_back_button">Geri çəkin</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">%d saniyə geri çəkin</item>
+    <item quantity="other">%d saniyə geri çəkin</item>
+  </plurals>
+  <string name="seek_forward_button">İrəli çəkin</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">%d saniyə irəli çəkin</item>
+    <item quantity="other">%d saniyə irəli çəkin</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">Cari rejim: Heç birini təkrarlamayın. Təkrarlama rejimini aktiv/deaktiv edin.</string>
+  <string name="repeat_button_repeat_one">Cari rejim: Birini təkrarlayın. Təkrarlama rejimini aktiv/deaktiv edin.</string>
+  <string name="repeat_button_repeat_all">Cari rejim: Hamısını təkrarlayın. Təkrarlama rejimini aktiv/deaktiv edin.</string>
+  <string name="shuffle_button_shuffle_on">Qarışıq rejim aktivdir.</string>
+  <string name="shuffle_button_shuffle_off">Qarışıq rejim deaktivdir.</string>
+  <string name="mute_button_shown_unmuted">Səssiz edin</string>
+  <string name="mute_button_shown_muted">Səssiz rejimdən çıxarın</string>
+</resources>

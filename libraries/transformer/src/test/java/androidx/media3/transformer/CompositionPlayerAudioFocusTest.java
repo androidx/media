@@ -18,6 +18,7 @@ package androidx.media3.transformer;
 
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.play;
+import static androidx.media3.transformer.EditedMediaItemSequence.withAudioFrom;
 import static androidx.media3.transformer.TestUtil.ASSET_URI_PREFIX;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_RAW;
 import static androidx.media3.transformer.TestUtil.createTestCompositionPlayer;
@@ -40,6 +41,7 @@ import androidx.media3.common.Player;
 import androidx.media3.common.Player.Listener;
 import androidx.media3.exoplayer.audio.AudioSink;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.ImmutableList;
 import java.util.concurrent.TimeoutException;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.After;
@@ -281,7 +283,7 @@ public final class CompositionPlayerAudioFocusTest {
         new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW))
             .setDurationUs(1_000_000L)
             .build();
-    EditedMediaItemSequence sequence = new EditedMediaItemSequence.Builder(item).build();
+    EditedMediaItemSequence sequence = withAudioFrom(ImmutableList.of(item));
     return new Composition.Builder(sequence).build();
   }
 }

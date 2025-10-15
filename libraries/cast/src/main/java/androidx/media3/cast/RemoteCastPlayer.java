@@ -1344,7 +1344,7 @@ public final class RemoteCastPlayer extends BasePlayer {
     for (int i = 0; i < castMediaTracks.size(); i++) {
       MediaTrack mediaTrack = castMediaTracks.get(i);
       TrackGroup trackGroup =
-          new TrackGroup(/* id= */ Integer.toString(i), CastUtils.mediaTrackToFormat(mediaTrack));
+          CastUtils.mediaTrackToTrackGroup(/* trackGroupId= */ String.valueOf(i), mediaTrack);
       @C.FormatSupport int[] trackSupport = new int[] {C.FORMAT_HANDLED};
       boolean[] trackSelected = new boolean[] {isTrackActive(mediaTrack.getId(), activeTrackIds)};
       trackGroups[i] =

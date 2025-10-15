@@ -9,6 +9,11 @@
     *   Add `void mute()` and `void unmute()` methods to Player that preserve
         and consequently restore Player's volume before and after setting it to
         zero.
+    *   Publish utility classes `WakeLockManager`, `WifiLockManager`,
+        `AudioFocusManager`, `AudioBecomingNoisyManager` and
+        `StuckPlayerDetector` previously used by `ExoPlayer` internally to allow
+        reuse for other players
+        ([#1893](https://github.com/androidx/media/issues/1893)).
     *   Fix `ForwardingPlayer` listener handling when the underlying delegate
         player uses reference equality for comparing listener instances
         ([#2675](https://github.com/androidx/media/issues/2675)).
@@ -37,6 +42,10 @@
         `ExoPlayer.Builder.setWakeMode` to `C.WAKE_MODE_LOCAL`.
     *   Ensure renderers don't consume data from the next playlist item more
         than 10 seconds before the end of the current item.
+    *   Add `setSeekBackIncrementMs`, `setSeekForwardIncrementMs` and
+        `setMaxSeekToPreviousPositionMs` to `ExoPlayer` to update these settings
+        after construction
+        ([#2736](https://github.com/androidx/media/issues/2736)).
     *   Add pre-caching functionality in `DefaultPreloadManager`. Apps now can
         return
         `DefaultPreloadManager.PreloadStatus.specifiedRangeCached(startPositionMs,
@@ -94,6 +103,12 @@
     *   Add support for `COMMAND_SET_AUDIO_ATTRIBUTES` and audio focus handling
         in `CompositionPlayer`.
     *   Use `InAppMp4Muxer` as default muxer.
+    *   Add `EditedMediaItem.Builder#setSpeed()` and deprecate
+        `Effects#createExperimentalSpeedChangingEffects()`.
+    *   Add support for speed changing in secondary sequences in
+        `CompositionPlayer`.
+    *   Replace `forceAudioTrack` and `forceVideoTrack` with `trackTypes` in
+        `EditedMediaItemSequence`.
 *   Track Selection:
     *   Add `TrackSelectionParameters.selectTextByDefault` to prefer the
         selection of any text track without specifying other more specific
@@ -132,6 +147,11 @@
         the whole file).
     *   Add support for extracting HEIC Motion Photos. The `HeifExtractor` can
         now parse HEIC files containing embedded video and audio tracks.
+    *   MP3: Change `FLAG_ENABLE_INDEX_SEEKING` to prefer seeking information
+        from metadata headers (like Xing and VBRI) when available, falling back
+        to index-based seeking if no other seeking information is present. This
+        improves performance for files with seeking metadata
+        ([#2839](https://github.com/androidx/media/issues/2839)).
 *   Inspector:
     *   Introduced a new `:media3-inspector` module to serve as the dedicated
         home for media inspection utilities. This module now houses a new
@@ -144,6 +164,9 @@
         extract frames with support for HDR video, video effects, and custom
         decoder selection. It should be created via its `Builder` for a specific
         `MediaItem`.
+    *   FrameExtractor: Add `getThumbnail()` to extract a representative
+        thumbnail frame from a media file without requiring a specific
+        timestamp.
 *   DataSource:
 *   Audio:
     *   Make `AudioProcessor` instances aware of seeking.
@@ -159,6 +182,7 @@
     *   Add support for float PCM samples in `Sonic`.
     *   Add support for 16 bit PCM samples in `ToFloatPcmAudioProcessor`.
 *   Video:
+    *   Disable codec reuse for Dolby-Vision content with different profiles.
 *   Text:
     *   Fix parsing of CEA-6/708 subtitles in Dolby Vision content
         ([#2775](https://github.com/androidx/media/issues/2775)).
@@ -174,6 +198,7 @@
     *   Add key request info like URL and latency to
         `AnalyticsListener.onDrmKeysLoaded`
         ([#1001](https://github.com/androidx/media/issues/1001)).
+    *   Move provisioning request data from a URL parameter to the POST body.
 *   Effect:
 *   Muxers:
     *   Add `MediaMuxerCompat`, a drop-in replacement for framework
@@ -191,6 +216,16 @@
         are optional but recommended for Full service stream requests. To find
         the network code, see
         [this article](http://support.google.com/admanager/answer/7674889).
+    *   Bump IMA dependency to 3.37.0 which requires enabling core library
+        desugaring. This must also be enabled by dependent apps too. See IMA's
+        [config notes](https://developers.google.com/interactive-media-ads/docs/sdks/android/client-side/get-started#2.-add-the-ima-sdk-to-your-project).
+    *   Support IMA DAI custom UI options in SSAI URI builder. Custom UI options
+        for server side ad insertion include “Skippable” and “About This Ad”
+        rendering support. The feature is currently available for selected
+        publishers behind an allow list. This change also upgrades the IMA SDK
+        version to 3.38.0
+        ([release notes](https://developers.google.com/interactive-media-ads/docs/sdks/android/client-side/history))
+        to access the custom UI options API.
 *   Session:
     *   Add new parameter to `MediaSession.Callback.onPlaybackResumption` to
         indicate if the call happens to gather information only or to start
@@ -232,6 +267,10 @@
         media key event `Intent` arriving in `onStartCommand()`. This is fixed
         by handling 'KEYCODE_HEADSETHOOK' just like `KEYCODE_MEDIA_PLAY_PAUSE`
         ([#2816](https://github.com/androidx/media/pull/2816)).
+    *   Fix a bug where Surface size was not communicated between the session
+        and the controller, resulting in the failure to apply video effects in
+        demo-session. If you are using a controller, this might be a breaking
+        change if your player cannot handle a `setVideoSurfaceHolder` call.
 *   UI:
     *   Add `ProgressStateWithTickInterval` class and the corresponding
         `rememberProgressStateWithTickInterval` Composable to
@@ -247,6 +286,12 @@
     *   Add `ContentFrame` Composable to `media3-ui-compose` which combines
         `PlayerSurface` management with aspect ratio resizing and covering with
         a shutter.
+    *   Work around a known API 34 platform bug causing stretched/cropped videos
+        when using `SurfaceView` inside a Compose `AndroidView` and hence
+        affecting `ContentFrame` and `PlayerSurface` Composables with
+        `SURFACE_TYPE_SURFACE_VIEW`
+        ([#1237](https://github.com/androidx/media/issues/1237),
+        [#2811](https://github.com/androidx/media/issues/2811)).
     *   Create a new `media3-ui-compose-material3` module and add
         Material3-themed Composables (PlayPauseButton, NextButton,
         PreviousButton, SeekBackButton, SeekForwardButton, RepeatButton,
@@ -270,6 +315,9 @@
     *   Reset `LiveConfiguration` to the value provided by the `MediaItem` of
         the `DashMediaSource` when released and when the media item is updated
         by the user ([#2606](https://github.com/androidx/media/issues/2606)).
+    *   Avoid crashes caused by invalid manifest updates that were not reported
+        as player errors
+        ([#2805](https://github.com/androidx/media/issues/2805))).
 *   Smooth Streaming extension:
 *   RTSP extension:
     *   Handle error of missing RTP packets when processing fragmented NAL units
@@ -292,6 +340,8 @@
         use in `DefaultCastOptionsProvider#toMediaQueueItem`, when available.
     *   Enable remote to local transfers in `DefaultCastOptionsProvider`.
     *   Add support for Cast in the Session demo.
+    *   Add support for displaying a media route button on a Composable UI.
+    *   Add support for displaying a media route button on an action bar menu.
 *   Test Utilities:
     *   Add maximum time diff for the auto-advancing behavior of `FakeClock`. It
         defaults to 1 second, but is configurable via `FakeClock.Builder`.

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">Նվագարկել</string>
+  <string name="playpause_button_pause">Դադարեցնել</string>
+  <string name="next_button">Հաջորդ</string>
+  <string name="previous_button">Նախորդ</string>
+  <string name="seek_back_button">Հետ գնալ</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">%d վայրկյան հետ գնալ</item>
+    <item quantity="other">%d վայրկյան հետ գնալ</item>
+  </plurals>
+  <string name="seek_forward_button">Առաջ գնալ</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">%d վայրկյան առաջ գնալ</item>
+    <item quantity="other">%d վայրկյան առաջ գնալ</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">Ընթացիկ ռեժիմը՝ «Չկրկնել»։ Փոխել կրկնության ռեժիմը։</string>
+  <string name="repeat_button_repeat_one">Ընթացիկ ռեժիմը՝ «Կրկնել այս մեկը»։ Փոխել կրկնության ռեժիմը։</string>
+  <string name="repeat_button_repeat_all">Ընթացիկ ռեժիմը՝ «Կրկնել բոլորը»։ Փոխել կրկնության ռեժիմը։</string>
+  <string name="shuffle_button_shuffle_on">Խառնելու ռեժիմը միացված է։</string>
+  <string name="shuffle_button_shuffle_off">Խառնելու ռեժիմն անջատված է։</string>
+  <string name="mute_button_shown_unmuted">Անջատել ձայնը</string>
+  <string name="mute_button_shown_muted">Միացնել ձայնը</string>
+</resources>

@@ -16,6 +16,7 @@
 package androidx.media3.demo.composition.data
 
 import android.graphics.Bitmap
+import android.view.Surface
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.media3.common.util.UnstableApi
@@ -39,6 +40,7 @@ import java.util.UUID
  */
 @UnstableApi
 data class CompositionPreviewState(
+  val outputSurface: Surface? = null,
   val availableLayouts: List<String> = emptyList(),
   val compositionLayout: String,
   val snackbarMessage: String? = null,
@@ -153,6 +155,7 @@ sealed interface PlacementState {
  */
 @UnstableApi
 data class OutputSettingsState(
+  val frameConsumerEnabled: Boolean = false,
   val includeBackgroundAudio: Boolean = false,
   val resolutionHeight: String,
   val hdrMode: Int,

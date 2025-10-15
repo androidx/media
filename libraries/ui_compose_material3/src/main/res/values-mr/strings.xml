@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">प्ले करा</string>
+  <string name="playpause_button_pause">थांबवा</string>
+  <string name="next_button">पुढील</string>
+  <string name="previous_button">मागील</string>
+  <string name="seek_back_button">रिवाइंड करा</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">%d सेकंद मागे जा</item>
+    <item quantity="other">%d सेकंद मागे जा</item>
+  </plurals>
+  <string name="seek_forward_button">पुढे जा</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">%d सेकंद पुढे जा</item>
+    <item quantity="other">%d सेकंद पुढे जा</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">सद्य मोड: काहीही रिपीट करू नका. रिपीट मोड टॉगल करा.</string>
+  <string name="repeat_button_repeat_one">सद्य मोड: एक रिपीट करा. रिपीट मोड टॉगल करा.</string>
+  <string name="repeat_button_repeat_all">सद्य मोड: सर्व रिपीट करा. रिपीट मोड टॉगल करा.</string>
+  <string name="shuffle_button_shuffle_on">शफल मोड सुरू केला आहे.</string>
+  <string name="shuffle_button_shuffle_off">शफल मोड बंद केला आहे.</string>
+  <string name="mute_button_shown_unmuted">म्यूट करा</string>
+  <string name="mute_button_shown_muted">अनम्यूट करा</string>
+</resources>

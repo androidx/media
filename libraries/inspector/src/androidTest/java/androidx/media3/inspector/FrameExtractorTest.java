@@ -18,6 +18,7 @@ package androidx.media3.inspector;
 import static androidx.media3.common.PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND;
 import static androidx.media3.exoplayer.SeekParameters.CLOSEST_SYNC;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET;
+import static androidx.media3.test.utils.AssetInfo.MP4_ONLY_PREROLL_SYNC_SAMPLE_EDIT_LIST;
 import static androidx.media3.test.utils.AssetInfo.MP4_TRIM_OPTIMIZATION_270;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.maybeSaveTestBitmap;
 import static androidx.media3.test.utils.BitmapPixelTestUtil.readBitmap;
@@ -546,5 +547,88 @@ public class FrameExtractorTest {
     maybeSaveTestBitmap(testId, /* bitmapLabel= */ "actual", actualBitmap, /* path= */ null);
     assertThat(frame.get().presentationTimeMs).isEqualTo(8_531);
     assertBitmapsAreSimilar(expectedBitmap, actualBitmap, PSNR_THRESHOLD);
+  }
+
+  @Test
+  public void extractThumbnail_whenThumbnailMetadataTimestampIsZero_returnsCorrectFrame()
+      throws Exception {
+    assumeFormatsSupported(
+        context, testId, /* inputFormat= */ MP4_ASSET.videoFormat, /* outputFormat= */ null);
+    try (FrameExtractor frameExtractor =
+        new FrameExtractor.Builder(context, MediaItem.fromUri(MP4_ASSET.uri)).build()) {
+      DecoderCounters initialCounters =
+          frameExtractor.getDecoderCounters().get(TIMEOUT_SECONDS, SECONDS);
+      int initialRenderedOutputBufferCount =
+          initialCounters != null ? initialCounters.renderedOutputBufferCount : 0;
+      ListenableFuture<Frame> frameFuture = frameExtractor.getThumbnail();
+      Frame frame = frameFuture.get(TIMEOUT_SECONDS, SECONDS);
+      Bitmap actualBitmap = frame.bitmap;
+      Bitmap expectedBitmap =
+          readBitmap(/* assetString= */ GOLDEN_ASSET_FOLDER_PATH + "sample_0.000.png");
+      maybeSaveTestBitmap(testId, /* bitmapLabel= */ "actual", actualBitmap, /* path= */ null);
+
+      assertThat(frame.presentationTimeMs).isEqualTo(0);
+      assertBitmapsAreSimilar(expectedBitmap, actualBitmap, PSNR_THRESHOLD);
+      DecoderCounters finalCounters =
+          frameExtractor.getDecoderCounters().get(TIMEOUT_SECONDS, SECONDS);
+      assertThat(finalCounters.renderedOutputBufferCount - initialRenderedOutputBufferCount)
+          .isAtMost(1);
+    }
+  }
+
+  @Test
+  public void extractThumbnail_whenThumbnailMetadataTimestampIsNonZero_returnsCorrectFrame()
+      throws Exception {
+    try (FrameExtractor frameExtractor =
+        new FrameExtractor.Builder(context, MediaItem.fromUri(FILE_PATH)).build()) {
+      DecoderCounters initialCounters =
+          frameExtractor.getDecoderCounters().get(TIMEOUT_SECONDS, SECONDS);
+      int initialRenderedOutputBufferCount =
+          initialCounters != null ? initialCounters.renderedOutputBufferCount : 0;
+      ListenableFuture<Frame> frameFuture = frameExtractor.getThumbnail();
+      Frame frame = frameFuture.get(TIMEOUT_SECONDS, SECONDS);
+      Bitmap actualBitmap = frame.bitmap;
+      Bitmap expectedBitmap =
+          readBitmap(
+              /* assetString= */ GOLDEN_ASSET_FOLDER_PATH
+                  + "sample_with_increasing_timestamps_360p_8.331.png");
+      maybeSaveTestBitmap(testId, /* bitmapLabel= */ "actual", actualBitmap, /* path= */ null);
+
+      assertThat(frame.presentationTimeMs).isEqualTo(8_331);
+      assertBitmapsAreSimilar(expectedBitmap, actualBitmap, PSNR_THRESHOLD);
+      DecoderCounters finalCounters =
+          frameExtractor.getDecoderCounters().get(TIMEOUT_SECONDS, SECONDS);
+      assertThat(finalCounters.renderedOutputBufferCount - initialRenderedOutputBufferCount)
+          .isAtMost(2);
+    }
+  }
+
+  @Test
+  public void extractThumbnail_whenThumbnailMetadataIsMissing_returnsCorrectFrame()
+      throws Exception {
+    try (FrameExtractor frameExtractor =
+        new FrameExtractor.Builder(
+                context, MediaItem.fromUri(MP4_ONLY_PREROLL_SYNC_SAMPLE_EDIT_LIST.uri))
+            .build()) {
+      DecoderCounters initialCounters =
+          frameExtractor.getDecoderCounters().get(TIMEOUT_SECONDS, SECONDS);
+      int initialRenderedOutputBufferCount =
+          initialCounters != null ? initialCounters.renderedOutputBufferCount : 0;
+      ListenableFuture<Frame> frameFuture = frameExtractor.getThumbnail();
+      Frame frame = frameFuture.get(TIMEOUT_SECONDS, SECONDS);
+      Bitmap actualBitmap = frame.bitmap;
+      Bitmap expectedBitmap =
+          readBitmap(
+              /* assetString= */ GOLDEN_ASSET_FOLDER_PATH
+                  + "sample_edit_list_only_preroll_sync_sample_0.000.png");
+      maybeSaveTestBitmap(testId, /* bitmapLabel= */ "actual", actualBitmap, /* path= */ null);
+
+      assertThat(frame.presentationTimeMs).isEqualTo(0);
+      assertBitmapsAreSimilar(expectedBitmap, actualBitmap, PSNR_THRESHOLD);
+      DecoderCounters finalCounters =
+          frameExtractor.getDecoderCounters().get(TIMEOUT_SECONDS, SECONDS);
+      assertThat(finalCounters.renderedOutputBufferCount - initialRenderedOutputBufferCount)
+          .isAtMost(1);
+    }
   }
 }

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">Riproduci</string>
+  <string name="playpause_button_pause">Metti in pausa</string>
+  <string name="next_button">Avanti</string>
+  <string name="previous_button">Indietro</string>
+  <string name="seek_back_button">Torna indietro</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">Torna indietro di %d secondo</item>
+    <item quantity="other">Torna indietro di %d secondi</item>
+  </plurals>
+  <string name="seek_forward_button">Vai avanti</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">Vai avanti di %d secondo</item>
+    <item quantity="other">Vai avanti di %d secondi</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">Modalità attuale: non ripetere nulla. Attiva/disattiva modalità di ripetizione.</string>
+  <string name="repeat_button_repeat_one">Modalità attuale: ripeti uno. Attiva/disattiva modalità di ripetizione.</string>
+  <string name="repeat_button_repeat_all">Modalità attuale: ripeti tutto. Attiva/disattiva modalità di ripetizione.</string>
+  <string name="shuffle_button_shuffle_on">Modalità riproduzione casuale attivata.</string>
+  <string name="shuffle_button_shuffle_off">Modalità riproduzione casuale disattivata.</string>
+  <string name="mute_button_shown_unmuted">Disattiva audio</string>
+  <string name="mute_button_shown_muted">Riattiva audio</string>
+</resources>

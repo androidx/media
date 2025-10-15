@@ -21,6 +21,7 @@ import static androidx.media3.common.util.MediaFormatUtil.createFormatFromMediaF
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.test.utils.AssetInfo.JPG_ASSET;
 import static androidx.media3.test.utils.AssetInfo.JPG_PIXEL_MOTION_PHOTO_ASSET;
+import static androidx.media3.test.utils.AssetInfo.MOV_WITH_PCM_AUDIO;
 import static androidx.media3.test.utils.AssetInfo.MP3_ASSET;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_DOLBY_VISION_HDR;
@@ -1342,6 +1343,38 @@ public class TransformerEndToEndTest {
   }
 
   @Test
+  public void setSpeed_withAudioAndVideo_completesWithCorrectDuration() throws Exception {
+    AtomicInteger bytes = new AtomicInteger();
+    AudioProcessor byteCountingAudioProcessor = createByteCountingAudioProcessor(bytes);
+    Transformer transformer = new Transformer.Builder(context).build();
+    SpeedProvider speedProvider =
+        TestSpeedProvider.createWithStartTimes(
+            new long[] {0L, 400_000L, 800_000L, 1_200_000L, 1_600_000L},
+            new float[] {0.5f, 0.75f, 1f, 1.5f, 2f});
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(MOV_WITH_PCM_AUDIO.uri))
+            .setEffects(
+                new Effects(ImmutableList.of(byteCountingAudioProcessor), ImmutableList.of()))
+            .setSpeed(speedProvider)
+            .build();
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, editedMediaItem);
+
+    long actualDurationUs;
+    try (MetadataRetriever metadataRetriever =
+        new MetadataRetriever.Builder(context, MediaItem.fromUri(result.filePath)).build()) {
+      actualDurationUs = metadataRetriever.retrieveDurationUs().get();
+    }
+    // The input file is 2 seconds.
+    // 400ms / 0.5 + 400ms / 0.75 + 400ms + 400ms / 1.5 + 400ms / 2 = 2200ms
+    assertThat(actualDurationUs).isWithin(35_000).of(2_200_000);
+    // Allow sample tolerance equal to number of speed regions.
+    assertThat(bytes.get() / 4).isWithin(5).of(105_600);
+  }
+
+  @Test
   public void speedAdjustedMedia_removingAudioAndForcingAudioTrack_completesWithCorrectDuration()
       throws Exception {
     Transformer transformer = new Transformer.Builder(context).build();
@@ -1384,6 +1417,47 @@ public class TransformerEndToEndTest {
         new MetadataRetriever.Builder(context, MediaItem.fromUri(result.filePath)).build();
     long actualDurationUs = metadataRetriever.retrieveDurationUs().get();
     assertThat(actualDurationUs).isWithin(50_000).of(16_770_000);
+  }
+
+  @Test
+  public void setSpeed_removingAudioAndForcingAudioTrack_completesWithCorrectDuration()
+      throws Exception {
+    Transformer transformer = new Transformer.Builder(context).build();
+    SpeedProvider speedProvider =
+        TestSpeedProvider.createWithStartTimes(
+            new long[] {
+              0L,
+              3 * C.MICROS_PER_SECOND,
+              6 * C.MICROS_PER_SECOND,
+              9 * C.MICROS_PER_SECOND,
+              12 * C.MICROS_PER_SECOND
+            },
+            new float[] {0.5f, 0.75f, 1f, 1.5f, 2f});
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(
+                MediaItem.fromUri(MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_15S.uri))
+            .setSpeed(speedProvider)
+            .setRemoveAudio(true)
+            .build();
+    Composition composition =
+        new Composition.Builder(
+                new EditedMediaItemSequence.Builder(editedMediaItem)
+                    .experimentalSetForceAudioTrack(true)
+                    .build())
+            .build();
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, composition);
+
+    // The input video is 15.534 seconds.
+    // 3 / 0.5 + 3 / 0.75 + 3 + 3 / 1.5 + 3.537 / 2 rounds up to 16_770ms
+    long actualDurationUs;
+    try (MetadataRetriever metadataRetriever =
+        new MetadataRetriever.Builder(context, MediaItem.fromUri(result.filePath)).build()) {
+      actualDurationUs = metadataRetriever.retrieveDurationUs().get();
+    }
+    assertThat(actualDurationUs).isWithin(50_000).of(16_767_000);
   }
 
   @Test
@@ -2366,6 +2440,56 @@ public class TransformerEndToEndTest {
         new MetadataRetriever.Builder(context, MediaItem.fromUri(result.filePath)).build();
     long actualDurationUs = metadataRetriever.retrieveDurationUs().get();
     assertThat(actualDurationUs).isWithin(50_000).of(1_400_000);
+  }
+
+  @Test
+  public void setSpeed_shorterAudioTrack_completesWithCorrectDuration() throws Exception {
+    assumeFormatsSupported(
+        context,
+        testId,
+        /* inputFormat= */ MP4_ASSET_WITH_SHORTER_AUDIO.videoFormat,
+        /* outputFormat= */ MP4_ASSET_WITH_SHORTER_AUDIO.videoFormat);
+    Transformer transformer = new Transformer.Builder(context).build();
+    SpeedProvider speedProvider =
+        TestSpeedProvider.createWithStartTimes(new long[] {0L, 1_000_000}, new float[] {1f, 0.5f});
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET_WITH_SHORTER_AUDIO.uri))
+            .setSpeed(speedProvider)
+            .build();
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, editedMediaItem);
+
+    long actualDurationUs;
+    try (MetadataRetriever metadataRetriever =
+        new MetadataRetriever.Builder(context, MediaItem.fromUri(result.filePath)).build()) {
+      actualDurationUs = metadataRetriever.retrieveDurationUs().get();
+    }
+    assertThat(actualDurationUs).isWithin(50_000).of(1_400_000);
+  }
+
+  @Test
+  public void setSpeed_withAudioOnly_outputsExpectedNumberOfSamples() throws Exception {
+    AtomicInteger readBytes = new AtomicInteger();
+    Transformer transformer = new Transformer.Builder(context).build();
+    SpeedProvider speedProvider =
+        TestSpeedProvider.createWithStartTimes(
+            new long[] {0L, 300_000, 600_000}, new float[] {4f, 0.5f, 2f});
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
+            .setSpeed(speedProvider)
+            .setEffects(
+                new Effects(
+                    ImmutableList.of(createByteCountingAudioProcessor(readBytes)),
+                    ImmutableList.of()))
+            .build();
+    new TransformerAndroidTestRunner.Builder(context, transformer)
+        .build()
+        .run(testId, editedMediaItem);
+
+    // Allow sample tolerance equal to number of speed regions.
+    assertThat(readBytes.get() / 2).isWithin(3).of(38588);
   }
 
   @Test

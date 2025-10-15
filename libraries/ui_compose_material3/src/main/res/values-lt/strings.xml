@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">Leisti</string>
+  <string name="playpause_button_pause">Pristabdyti</string>
+  <string name="next_button">Kitas</string>
+  <string name="previous_button">Ankstesnis</string>
+  <string name="seek_back_button">Sukti atgal</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">Praleisti persukant atgal %d sekundę</item>
+    <item quantity="few">Praleisti persukant atgal %d sekundes</item>
+    <item quantity="many">Praleisti persukant atgal %d sekundės</item>
+    <item quantity="other">Praleisti persukant atgal %d sekundžių</item>
+  </plurals>
+  <string name="seek_forward_button">Praleisti persukant pirmyn</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">Praleisti persukant pirmyn %d sekundę</item>
+    <item quantity="few">Praleisti persukant pirmyn %d sekundes</item>
+    <item quantity="many">Praleisti persukant pirmyn %d sekundės</item>
+    <item quantity="other">Praleisti persukant pirmyn %d sekundžių</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">Dabartinis režimas: nekartoti nieko. Perjungti pakartojimo režimą.</string>
+  <string name="repeat_button_repeat_one">Dabartinis režimas: kartoti vieną. Perjungti pakartojimo režimą.</string>
+  <string name="repeat_button_repeat_all">Dabartinis režimas: kartoti viską. Perjungti pakartojimo režimą.</string>
+  <string name="shuffle_button_shuffle_on">Maišymo režimas įgalintas.</string>
+  <string name="shuffle_button_shuffle_off">Maišymo režimas išjungtas.</string>
+  <string name="mute_button_shown_unmuted">Nutildyti</string>
+  <string name="mute_button_shown_muted">Įjungti garsą</string>
+</resources>

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">Reprodukcija</string>
+  <string name="playpause_button_pause">Pauza</string>
+  <string name="next_button">Naprijed</string>
+  <string name="previous_button">Nazad</string>
+  <string name="seek_back_button">Premotavanje unazad</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">Preskakanje za %d sekundu unazad</item>
+    <item quantity="few">Preskakanje za %d sekunde unazad</item>
+    <item quantity="other">Preskakanje za %d sekundi unazad</item>
+  </plurals>
+  <string name="seek_forward_button">Preskakanje unaprijed</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">Preskakanje za %d sekundu unaprijed</item>
+    <item quantity="few">Preskakanje za %d sekunde unaprijed</item>
+    <item quantity="other">Preskakanje za %d sekundi unaprijed</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">Trenutni način rada: bez ponavljanja. Uključivanje/isključivanje načina rada za ponavljanje.</string>
+  <string name="repeat_button_repeat_one">Trenutni način rada: ponavljanje jednoga. Uključivanje/isključivanje načina rada za ponavljanje.</string>
+  <string name="repeat_button_repeat_all">Trenutni način rada: ponavljanje svega. Uključivanje/isključivanje načina rada za ponavljanje.</string>
+  <string name="shuffle_button_shuffle_on">Način rada za nasumičnu reprodukciju je omogućen.</string>
+  <string name="shuffle_button_shuffle_off">Način rada za nasumičnu reprodukciju je onemogućen.</string>
+  <string name="mute_button_shown_unmuted">Isključivanje zvuka</string>
+  <string name="mute_button_shown_muted">Uključivanje zvuka</string>
+</resources>

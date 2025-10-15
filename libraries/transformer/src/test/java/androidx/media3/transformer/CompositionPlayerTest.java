@@ -19,10 +19,12 @@ import static androidx.media3.common.Player.STATE_BUFFERING;
 import static androidx.media3.common.Player.STATE_ENDED;
 import static androidx.media3.common.Player.STATE_IDLE;
 import static androidx.media3.common.Player.STATE_READY;
+import static androidx.media3.test.utils.TestUtil.createByteCountingAudioProcessor;
 import static androidx.media3.test.utils.TestUtil.getCommandsAsList;
 import static androidx.media3.test.utils.robolectric.RobolectricUtil.runMainLooperUntil;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.play;
+import static androidx.media3.transformer.EditedMediaItemSequence.withAudioFrom;
 import static androidx.media3.transformer.TestUtil.ASSET_URI_PREFIX;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_RAW;
 import static androidx.media3.transformer.TestUtil.FILE_AUDIO_RAW_STEREO_48000KHZ;
@@ -330,12 +332,12 @@ public class CompositionPlayerTest {
     advance(player).untilState(STATE_READY);
     player.setComposition(
         new Composition.Builder(
-                new EditedMediaItemSequence.Builder(
+                withAudioFrom(
+                    ImmutableList.of(
                         new EditedMediaItem.Builder(
                                 MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW))
                             .setDurationUs(1_000_000L)
-                            .build())
-                    .build())
+                            .build())))
             .build());
     assertThat(player.getPlaybackState()).isEqualTo(STATE_BUFFERING);
     player.stop();
@@ -477,8 +479,7 @@ public class CompositionPlayerTest {
             .build();
     EditedMediaItem editedMediaItem1 =
         new EditedMediaItem.Builder(mediaItem).setDurationUs(1_000_000L).build();
-    EditedMediaItemSequence sequence =
-        new EditedMediaItemSequence.Builder(editedMediaItem1).build();
+    EditedMediaItemSequence sequence = withAudioFrom(ImmutableList.of(editedMediaItem1));
     Composition composition = new Composition.Builder(sequence).build();
 
     player.setComposition(composition);
@@ -506,8 +507,7 @@ public class CompositionPlayerTest {
             .build();
     EditedMediaItem editedMediaItem1 =
         new EditedMediaItem.Builder(mediaItem).setDurationUs(1_000_000L).build();
-    EditedMediaItemSequence sequence =
-        new EditedMediaItemSequence.Builder(editedMediaItem1).build();
+    EditedMediaItemSequence sequence = withAudioFrom(ImmutableList.of(editedMediaItem1));
     Composition composition = new Composition.Builder(sequence).build();
 
     player.setComposition(composition);
@@ -530,8 +530,7 @@ public class CompositionPlayerTest {
             .build();
     EditedMediaItem editedMediaItem1 =
         new EditedMediaItem.Builder(mediaItem).setDurationUs(1_000_000L).build();
-    EditedMediaItemSequence sequence =
-        new EditedMediaItemSequence.Builder(editedMediaItem1).build();
+    EditedMediaItemSequence sequence = withAudioFrom(ImmutableList.of(editedMediaItem1));
     Composition composition = new Composition.Builder(sequence).build();
 
     player.setComposition(composition);
@@ -557,8 +556,7 @@ public class CompositionPlayerTest {
             .build();
     EditedMediaItem editedMediaItem1 =
         new EditedMediaItem.Builder(mediaItem).setDurationUs(1_000_000L).build();
-    EditedMediaItemSequence sequence =
-        new EditedMediaItemSequence.Builder(editedMediaItem1).build();
+    EditedMediaItemSequence sequence = withAudioFrom(ImmutableList.of(editedMediaItem1));
     Composition composition = new Composition.Builder(sequence).build();
 
     player.setComposition(composition);
@@ -591,8 +589,7 @@ public class CompositionPlayerTest {
             .setDurationUs(1_000_000L)
             .setEffects(new Effects(audioProcessors, /* videoEffects= */ ImmutableList.of()))
             .build();
-    EditedMediaItemSequence sequence =
-        new EditedMediaItemSequence.Builder(editedMediaItem1).build();
+    EditedMediaItemSequence sequence = withAudioFrom(ImmutableList.of(editedMediaItem1));
     Composition composition = new Composition.Builder(sequence).build();
 
     player.setComposition(composition);
@@ -625,8 +622,7 @@ public class CompositionPlayerTest {
             .setDurationUs(1_000_000L)
             .setEffects(new Effects(audioProcessors, /* videoEffects= */ ImmutableList.of()))
             .build();
-    EditedMediaItemSequence sequence =
-        new EditedMediaItemSequence.Builder(editedMediaItem1).build();
+    EditedMediaItemSequence sequence = withAudioFrom(ImmutableList.of(editedMediaItem1));
     Composition composition = new Composition.Builder(sequence).build();
 
     player.setComposition(composition);
@@ -660,8 +656,7 @@ public class CompositionPlayerTest {
             .setDurationUs(1_000_000L)
             .setEffects(new Effects(audioProcessors, /* videoEffects= */ ImmutableList.of()))
             .build();
-    EditedMediaItemSequence sequence =
-        new EditedMediaItemSequence.Builder(editedMediaItem1).build();
+    EditedMediaItemSequence sequence = withAudioFrom(ImmutableList.of(editedMediaItem1));
     Composition composition = new Composition.Builder(sequence).build();
 
     player.setComposition(composition);
@@ -865,8 +860,8 @@ public class CompositionPlayerTest {
             .build();
     Composition composition =
         new Composition.Builder(
-                new EditedMediaItemSequence.Builder(editedMediaItem1).build(),
-                new EditedMediaItemSequence.Builder(editedMediaItem2, editedMediaItem2).build())
+                withAudioFrom(ImmutableList.of(editedMediaItem1)),
+                withAudioFrom(ImmutableList.of(editedMediaItem2, editedMediaItem2)))
             .build();
 
     player.setComposition(composition);
@@ -907,8 +902,8 @@ public class CompositionPlayerTest {
             .build();
     Composition composition =
         new Composition.Builder(
-                new EditedMediaItemSequence.Builder(editedMediaItem1).build(),
-                new EditedMediaItemSequence.Builder(editedMediaItem2, editedMediaItem2).build())
+                withAudioFrom(ImmutableList.of(editedMediaItem1)),
+                withAudioFrom(ImmutableList.of(editedMediaItem2, editedMediaItem2)))
             .build();
     player.setComposition(composition);
     player.prepare();
@@ -938,7 +933,7 @@ public class CompositionPlayerTest {
         new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW))
             .setDurationUs(1_000_000L)
             .build();
-    EditedMediaItemSequence sequence = new EditedMediaItemSequence.Builder(editedMediaItem).build();
+    EditedMediaItemSequence sequence = withAudioFrom(ImmutableList.of(editedMediaItem));
     Composition composition = new Composition.Builder(sequence).build();
     player.setComposition(composition);
     player.prepare();
@@ -965,7 +960,7 @@ public class CompositionPlayerTest {
                     .build())
             .setDurationUs(1_000_000L)
             .build();
-    EditedMediaItemSequence sequence = new EditedMediaItemSequence.Builder(editedMediaItem).build();
+    EditedMediaItemSequence sequence = withAudioFrom(ImmutableList.of(editedMediaItem));
     Composition composition = new Composition.Builder(sequence).build();
     player.setComposition(composition);
     player.seekTo(/* positionMs= */ 900);
@@ -990,7 +985,7 @@ public class CompositionPlayerTest {
                     .build())
             .setDurationUs(1_000_000L)
             .build();
-    EditedMediaItemSequence sequence = new EditedMediaItemSequence.Builder(editedMediaItem).build();
+    EditedMediaItemSequence sequence = withAudioFrom(ImmutableList.of(editedMediaItem));
     Composition composition = new Composition.Builder(sequence).build();
     player.setComposition(composition);
     player.seekTo(/* positionMs= */ 900);
@@ -1073,7 +1068,7 @@ public class CompositionPlayerTest {
             .setEffects(effects)
             .build();
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence.Builder(item).build()).build();
+        new Composition.Builder(withAudioFrom(ImmutableList.of(item))).build();
 
     assertThrows(IllegalArgumentException.class, () -> player.setComposition(composition));
   }
@@ -1094,7 +1089,7 @@ public class CompositionPlayerTest {
             .setEffects(effects)
             .build();
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence.Builder(item).build()).build();
+        new Composition.Builder(withAudioFrom(ImmutableList.of(item))).build();
 
     assertThrows(IllegalArgumentException.class, () -> player.setComposition(composition));
   }
@@ -1109,9 +1104,36 @@ public class CompositionPlayerTest {
             .setEffects(effects)
             .build();
     Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence.Builder(item).build()).build();
+        new Composition.Builder(withAudioFrom(ImmutableList.of(item))).build();
 
     assertThrows(IllegalArgumentException.class, () -> player.setComposition(composition));
+  }
+
+  @Test
+  public void setSpeed_onSecondarySequence_outputsExpectedNumberOfSamples() throws Exception {
+    AtomicInteger bytes = new AtomicInteger();
+    AudioProcessor processor = createByteCountingAudioProcessor(bytes);
+    CompositionPlayer player = createTestCompositionPlayer();
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(MediaItem.fromUri(ASSET_URI_PREFIX + FILE_AUDIO_RAW))
+            .setDurationUs(1_000_000L)
+            .build();
+    EditedMediaItem speedAdjustedItem =
+        item.buildUpon()
+            .setSpeed(TestSpeedProvider.createWithStartTimes(new long[] {0L}, new float[] {0.5f}))
+            .build();
+    EditedMediaItemSequence primarySequence = new EditedMediaItemSequence.Builder(item).build();
+    EditedMediaItemSequence secondarySequence =
+        new EditedMediaItemSequence.Builder(speedAdjustedItem).build();
+    player.setComposition(
+        new Composition.Builder(primarySequence, secondarySequence)
+            .setEffects(new Effects(ImmutableList.of(processor), ImmutableList.of()))
+            .build());
+    player.prepare();
+
+    play(player).untilState(STATE_ENDED);
+
+    assertThat(bytes.get() / 2).isEqualTo(88200);
   }
 
   private static Composition buildComposition() {
@@ -1126,7 +1148,7 @@ public class CompositionPlayerTest {
             .setDurationUs(348_000L)
             .build();
     EditedMediaItemSequence sequence =
-        new EditedMediaItemSequence.Builder(editedMediaItem1, editedMediaItem2).build();
+        withAudioFrom(ImmutableList.of(editedMediaItem1, editedMediaItem2));
     return new Composition.Builder(sequence).build();
   }
 

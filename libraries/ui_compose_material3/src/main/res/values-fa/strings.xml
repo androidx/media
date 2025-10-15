@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">پخش کردن</string>
+  <string name="playpause_button_pause">موقتاً متوقف کردن</string>
+  <string name="next_button">بعدی</string>
+  <string name="previous_button">قبلی</string>
+  <string name="seek_back_button">عقب بردن</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">‫%d ثانیه پرش به عقب</item>
+    <item quantity="other">‫%d ثانیه پرش به عقب</item>
+  </plurals>
+  <string name="seek_forward_button">پرش به جلو</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">‫%d ثانیه پرش به جلو</item>
+    <item quantity="other">‫%d ثانیه پرش به جلو</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">حالت کنونی: تکرار هیچ‌کدام. روشن/خاموش کردن حالت تکرار.</string>
+  <string name="repeat_button_repeat_one">حالت کنونی: تکرار یک مورد. روشن/خاموش کردن حالت تکرار.</string>
+  <string name="repeat_button_repeat_all">حالت کنونی: تکرار همه. روشن/خاموش کردن حالت تکرار.</string>
+  <string name="shuffle_button_shuffle_on">حالت درهم فعال است.</string>
+  <string name="shuffle_button_shuffle_off">حالت درهم غیرفعال است.</string>
+  <string name="mute_button_shown_unmuted">بی‌صدا کردن</string>
+  <string name="mute_button_shown_muted">باصدا کردن</string>
+</resources>

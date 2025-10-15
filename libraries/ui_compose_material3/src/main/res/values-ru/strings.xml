@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">Воспроизвести</string>
+  <string name="playpause_button_pause">Приостановить</string>
+  <string name="next_button">Воспроизвести следующий трек</string>
+  <string name="previous_button">Воспроизвести предыдущий трек</string>
+  <string name="seek_back_button">Перемотать назад</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">Перемотать на %d секунду назад</item>
+    <item quantity="few">Перемотать на %d секунды назад</item>
+    <item quantity="many">Перемотать на %d секунд назад</item>
+    <item quantity="other">Перемотать на %d секунды назад</item>
+  </plurals>
+  <string name="seek_forward_button">Перемотать вперед</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">Перемотать на %d секунду вперед</item>
+    <item quantity="few">Перемотать на %d секунды вперед</item>
+    <item quantity="many">Перемотать на %d секунд вперед</item>
+    <item quantity="other">Перемотать на %d секунды вперед</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">Выбрано: не повторять. Изменить режим повтора.</string>
+  <string name="repeat_button_repeat_one">Выбрано: повторять один трек. Изменить режим повтора.</string>
+  <string name="repeat_button_repeat_all">Выбрано: повторять все. Изменить режим повтора.</string>
+  <string name="shuffle_button_shuffle_on">Перемешивание включено.</string>
+  <string name="shuffle_button_shuffle_off">Перемешивание отключено.</string>
+  <string name="mute_button_shown_unmuted">Отключить звук</string>
+  <string name="mute_button_shown_muted">Включить звук</string>
+</resources>

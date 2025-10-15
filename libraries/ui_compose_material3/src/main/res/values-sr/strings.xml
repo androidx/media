@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">Пусти</string>
+  <string name="playpause_button_pause">Паузирај</string>
+  <string name="next_button">Следеће</string>
+  <string name="previous_button">Претходно</string>
+  <string name="seek_back_button">Премотај уназад</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">Премотајте %d секунду уназад</item>
+    <item quantity="few">Премотајте %d секунде уназад</item>
+    <item quantity="other">Премотајте %d секунди уназад</item>
+  </plurals>
+  <string name="seek_forward_button">Премотај унапред</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">Премотај %d секунду унапред</item>
+    <item quantity="few">Премотај %d секунде унапред</item>
+    <item quantity="other">Премотај %d секунди унапред</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">Актуелни режим: Без понављања. Укључите или искључите режим понављања.</string>
+  <string name="repeat_button_repeat_one">Актуелни режим: Понови једно. Укључите или искључите режим понављања.</string>
+  <string name="repeat_button_repeat_all">Актуелни режим: Понови све. Укључите или искључите режим понављања.</string>
+  <string name="shuffle_button_shuffle_on">Режим Насумично је омогућен.</string>
+  <string name="shuffle_button_shuffle_off">Режим Насумично је онемогућен.</string>
+  <string name="mute_button_shown_unmuted">Искључи звук</string>
+  <string name="mute_button_shown_muted">Укључи звук</string>
+</resources>

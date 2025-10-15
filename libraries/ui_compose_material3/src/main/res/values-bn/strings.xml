@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">চালান</string>
+  <string name="playpause_button_pause">পজ করুন</string>
+  <string name="next_button">পরবর্তী</string>
+  <string name="previous_button">পূর্ববর্তী</string>
+  <string name="seek_back_button">রিওয়াইন্ড করুন</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">%d সেকেন্ড পিছিয়ে যান</item>
+    <item quantity="other">%d সেকেন্ড পিছিয়ে যান</item>
+  </plurals>
+  <string name="seek_forward_button">এগিয়ে যান</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">%d সেকেন্ড এগিয়ে যান</item>
+    <item quantity="other">%d সেকেন্ড এগিয়ে যান</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">\'বর্তমান\' মোড: রিপিট হয় না। \'রিপিট\' মোড টগল হয়।</string>
+  <string name="repeat_button_repeat_one">\'বর্তমান\' মোড: একটি রিপিট হয়। \'রিপিট\' মোড টগল হয়।</string>
+  <string name="repeat_button_repeat_all">\'বর্তমান\' মোড: সব রিপিট হয়। \'রিপিট\' মোড টগল হয়।</string>
+  <string name="shuffle_button_shuffle_on">শাফেল মোড চালু করা আছে।</string>
+  <string name="shuffle_button_shuffle_off">শাফেল মোড বন্ধ করা আছে।</string>
+  <string name="mute_button_shown_unmuted">মিউট করুন</string>
+  <string name="mute_button_shown_muted">আনমিউট করুন</string>
+</resources>

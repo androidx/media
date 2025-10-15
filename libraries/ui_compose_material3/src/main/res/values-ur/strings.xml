@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">چلائیں</string>
+  <string name="playpause_button_pause">موقوف کریں</string>
+  <string name="next_button">اگلا</string>
+  <string name="previous_button">پچھلا</string>
+  <string name="seek_back_button">ریوائینڈ کریں</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">‫%d سیکنڈ پیچھے جائیں</item>
+    <item quantity="other">‫%d سیکنڈ پیچھے جائیں</item>
+  </plurals>
+  <string name="seek_forward_button">آگے لے جائیں</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">‫%d سیکنڈ آگے جائیں</item>
+    <item quantity="other">‫%d سیکنڈ آگے جائیں</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">موجودہ وضع: کچھ نہ دہرائیں۔ دہرائیں وضع ٹوگل کریں۔</string>
+  <string name="repeat_button_repeat_one">موجودہ وضع: ایک دہرائیں۔ دہرائیں وضع ٹوگل کریں۔</string>
+  <string name="repeat_button_repeat_all">موجودہ موڈ: سبھی دہرائیں۔ دہرائیں وضع ٹوگل کریں۔</string>
+  <string name="shuffle_button_shuffle_on">شفل وضع فعال ہے۔</string>
+  <string name="shuffle_button_shuffle_off">شفل وضع غیر فعال ہے۔</string>
+  <string name="mute_button_shown_unmuted">خاموش کریں</string>
+  <string name="mute_button_shown_muted">آواز چالو کریں</string>
+</resources>

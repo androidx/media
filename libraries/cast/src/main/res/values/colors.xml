@@ -16,4 +16,6 @@
   -->
 <resources>
     <color name="media_route_button_background">#ffffff</color>
+    <color name="dialog_color_primary">#d3d3d3</color>
+    <color name="dialog_color_primary_dark">#636363</color>
 </resources>

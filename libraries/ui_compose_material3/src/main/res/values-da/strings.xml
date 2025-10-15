@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">Afspil</string>
+  <string name="playpause_button_pause">Sæt på pause</string>
+  <string name="next_button">Næste</string>
+  <string name="previous_button">Forrige</string>
+  <string name="seek_back_button">Spol tilbage</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">Spring %d sekund tilbage</item>
+    <item quantity="other">Spring %d sekunder tilbage</item>
+  </plurals>
+  <string name="seek_forward_button">Spring frem</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">Spring %d sekund frem</item>
+    <item quantity="other">Spring %d sekunder frem</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">Tilstand: Gentag ingen. Slå Gentag til/fra.</string>
+  <string name="repeat_button_repeat_one">Aktuel tilstand: Gentag én. Slå Gentag til/fra.</string>
+  <string name="repeat_button_repeat_all">Aktuel tilstand: Gentag alle. Slå Gentag til/fra.</string>
+  <string name="shuffle_button_shuffle_on">Bland er aktiveret.</string>
+  <string name="shuffle_button_shuffle_off">Bland er deaktiveret.</string>
+  <string name="mute_button_shown_unmuted">Slå lyden fra</string>
+  <string name="mute_button_shown_muted">Slå lyden til</string>
+</resources>

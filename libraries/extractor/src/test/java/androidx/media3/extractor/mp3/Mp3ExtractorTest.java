@@ -47,11 +47,33 @@ public final class Mp3ExtractorTest {
   }
 
   @Test
+  public void mp3SampleWithXingHeader_indexSeekingFlag_usesXingSeeker() throws Exception {
+    ExtractorAsserts.assertBehavior(
+        () -> new Mp3Extractor(Mp3Extractor.FLAG_ENABLE_INDEX_SEEKING),
+        "media/mp3/bear-vbr-xing-header.mp3",
+        /* peekLimit= */ 1300,
+        simulationConfig);
+  }
+
+  @Test
   public void mp3SampleWithXingHeader_noTableOfContents() throws Exception {
     ExtractorAsserts.assertBehavior(
         Mp3Extractor::new,
         "media/mp3/bear-vbr-xing-header-no-toc.mp3",
         /* peekLimit= */ 1300,
+        simulationConfig);
+  }
+
+  @Test
+  public void mp3SampleWithXingHeader_noTableOfContents_indexSeeking() throws Exception {
+    String filename = "mp3/bear-vbr-xing-header-no-toc.mp3";
+    ExtractorAsserts.assertBehavior(
+        () -> new Mp3Extractor(Mp3Extractor.FLAG_ENABLE_INDEX_SEEKING),
+        "media/" + filename,
+        /* peekLimit= */ 1300,
+        new AssertionConfig.Builder()
+            .setDumpFilesPrefix("extractordumps/" + filename + ".index-seeking")
+            .build(),
         simulationConfig);
   }
 

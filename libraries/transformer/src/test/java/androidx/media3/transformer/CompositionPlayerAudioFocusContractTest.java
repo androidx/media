@@ -16,6 +16,7 @@
 
 package androidx.media3.transformer;
 
+import static androidx.media3.transformer.EditedMediaItemSequence.withAudioFrom;
 import static androidx.media3.transformer.TestUtil.createTestCompositionPlayer;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -25,6 +26,7 @@ import androidx.media3.common.Player;
 import androidx.media3.common.util.Clock;
 import androidx.media3.test.utils.robolectric.PlayerAudioFocusContractTest;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.ImmutableList;
 import org.junit.runner.RunWith;
 
 /**
@@ -71,8 +73,7 @@ public class CompositionPlayerAudioFocusContractTest extends PlayerAudioFocusCon
       // Duration has no effect for these tests, but is required by CompositionPlayer.
       EditedMediaItem editedMediaItem =
           new EditedMediaItem.Builder(item).setDurationUs(1_000_000).build();
-      EditedMediaItemSequence sequence =
-          new EditedMediaItemSequence.Builder(editedMediaItem).build();
+      EditedMediaItemSequence sequence = withAudioFrom(ImmutableList.of(editedMediaItem));
       player.setComposition(new Composition.Builder(sequence).build());
     }
   }

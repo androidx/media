@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">재생</string>
+  <string name="playpause_button_pause">일시중지</string>
+  <string name="next_button">다음</string>
+  <string name="previous_button">이전</string>
+  <string name="seek_back_button">되감기</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">%d초 뒤로 건너뛰기</item>
+    <item quantity="other">%d초 뒤로 건너뛰기</item>
+  </plurals>
+  <string name="seek_forward_button">앞으로 건너뛰기</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">%d초 앞으로 건너뛰기</item>
+    <item quantity="other">%d초 앞으로 건너뛰기</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">현재 모드: 반복 안 함. 반목 모드로 전환합니다.</string>
+  <string name="repeat_button_repeat_one">현재 모드: 한 개 항목 반복. 반목 모드로 전환합니다.</string>
+  <string name="repeat_button_repeat_all">현재 모드: 모두 반복. 반목 모드로 전환합니다.</string>
+  <string name="shuffle_button_shuffle_on">셔플 모드가 사용 설정되었습니다.</string>
+  <string name="shuffle_button_shuffle_off">셔플 모드가 사용 중지되었습니다.</string>
+  <string name="mute_button_shown_unmuted">음소거</string>
+  <string name="mute_button_shown_muted">음소거 해제</string>
+</resources>

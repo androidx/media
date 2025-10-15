@@ -136,6 +136,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
   private final Handler mainHandler;
   private final boolean playIfSuppressed;
   private final boolean isPeriodicPositionUpdateEnabled;
+  private final boolean useLegacySurfaceHandling;
   private final ImmutableList<CommandButton> commandButtonsForMediaItems;
 
   private PlayerInfo playerInfo;
@@ -175,7 +176,8 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       Bundle sessionExtras,
       BitmapLoader bitmapLoader,
       boolean playIfSuppressed,
-      boolean isPeriodicPositionUpdateEnabled) {
+      boolean isPeriodicPositionUpdateEnabled,
+      boolean useLegacySurfaceHandling) {
     Log.i(
         TAG,
         "Init "
@@ -197,6 +199,7 @@ import org.checkerframework.checker.initialization.qual.Initialized;
     this.bitmapLoader = bitmapLoader;
     this.playIfSuppressed = playIfSuppressed;
     this.isPeriodicPositionUpdateEnabled = isPeriodicPositionUpdateEnabled;
+    this.useLegacySurfaceHandling = useLegacySurfaceHandling;
 
     @SuppressWarnings("nullness:assignment")
     @Initialized
@@ -686,6 +689,10 @@ import org.checkerframework.checker.initialization.qual.Initialized;
 
   public boolean shouldPlayIfSuppressed() {
     return playIfSuppressed;
+  }
+
+  public boolean shouldUseLegacySurfaceHandling() {
+    return useLegacySurfaceHandling;
   }
 
   public void setAvailableCommands(
@@ -2056,6 +2063,21 @@ import org.checkerframework.checker.initialization.qual.Initialized;
           /* excludeTimeline= */ true, /* excludeTracks= */ true);
       session.dispatchRemoteControllerTaskToLegacyStub(
           (callback, seq) -> callback.onMediaMetadataChanged(seq, mediaMetadata));
+    }
+
+    @Override
+    public void onSurfaceSizeChanged(int width, int height) {
+      @Nullable MediaSessionImpl session = getSession();
+      if (session == null) {
+        return;
+      }
+      session.verifyApplicationThread();
+      @Nullable PlayerWrapper player = this.player.get();
+      if (player == null) {
+        return;
+      }
+      session.dispatchRemoteControllerTaskWithoutReturn(
+          (controller, seq) -> controller.onSurfaceSizeChanged(seq, width, height));
     }
 
     @Override

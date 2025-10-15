@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">चलाएं</string>
+  <string name="playpause_button_pause">रोकें</string>
+  <string name="next_button">आगे बढ़ाएं</string>
+  <string name="previous_button">पीछे जाएं</string>
+  <string name="seek_back_button">रिवाइंड करें</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">%d सेकंड पीछे जाएं</item>
+    <item quantity="other">%d सेकंड पीछे जाएं</item>
+  </plurals>
+  <string name="seek_forward_button">आगे बढ़ाएं</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">%d सेकंड आगे बढ़ाएं</item>
+    <item quantity="other">%d सेकंड आगे बढ़ाएं</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">मौजूदा मोड: कोई मीडिया दोहराया नहीं जाएगा. रिपीट मोड को टॉगल करें.</string>
+  <string name="repeat_button_repeat_one">मौजूदा मोड: इस मीडिया को दोहराया जाएगा. रिपीट मोड को टॉगल करें.</string>
+  <string name="repeat_button_repeat_all">मौजूदा मोड: पूरी प्लेलिस्ट दोहराई जाएगी. रिपीट मोड को टॉगल करें.</string>
+  <string name="shuffle_button_shuffle_on">शफ़ल मोड चालू है.</string>
+  <string name="shuffle_button_shuffle_off">शफ़ल मोड बंद है.</string>
+  <string name="mute_button_shown_unmuted">म्यूट करें</string>
+  <string name="mute_button_shown_muted">अनम्यूट करें</string>
+</resources>

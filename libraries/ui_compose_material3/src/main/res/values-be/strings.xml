@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">Прайграць</string>
+  <string name="playpause_button_pause">Прыпыніць</string>
+  <string name="next_button">Далей</string>
+  <string name="previous_button">Назад</string>
+  <string name="seek_back_button">Пераматаць назад</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">Пераматаць на %d секунду назад</item>
+    <item quantity="few">Пераматаць на %d секунды назад</item>
+    <item quantity="many">Пераматаць на %d секунд назад</item>
+    <item quantity="other">Пераматаць на %d секунды назад</item>
+  </plurals>
+  <string name="seek_forward_button">Пераматаць уперад</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">Пераматаць на %d секунду ўперад</item>
+    <item quantity="few">Пераматаць на %d секунды ўперад</item>
+    <item quantity="many">Пераматаць на %d секунд уперад</item>
+    <item quantity="other">Пераматаць на %d секунды ўперад</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">Уключаны рэжым: не паўтараць нічога. Пераключыць рэжым паўтору.</string>
+  <string name="repeat_button_repeat_one">Уключаны рэжым: паўтараць адзін элемент. Пераключыць рэжым паўтору.</string>
+  <string name="repeat_button_repeat_all">Уключаны рэжым: паўтараць усё. Пераключыць рэжым паўтору.</string>
+  <string name="shuffle_button_shuffle_on">Рэжым перамешвання ўключаны.</string>
+  <string name="shuffle_button_shuffle_off">Рэжым перамешвання выключаны.</string>
+  <string name="mute_button_shown_unmuted">Выключыць гук</string>
+  <string name="mute_button_shown_muted">Уключыць гук</string>
+</resources>

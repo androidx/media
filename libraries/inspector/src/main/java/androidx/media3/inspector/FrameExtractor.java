@@ -25,6 +25,7 @@ import android.widget.ImageView;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
+import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.MediaItem;
@@ -238,6 +239,24 @@ public final class FrameExtractor implements AutoCloseable {
             this.extractHdrFrames,
             positionMs);
 
+    return FrameExtractorInternal.getInstance().submitTask(request);
+  }
+
+  public ListenableFuture<Frame> getThumbnail() {
+    if (released.get()) {
+      return Futures.immediateFailedFuture(
+          new IllegalStateException("getThumbnail() called on a released FrameExtractor."));
+    }
+    FrameExtractorInternal.FrameExtractionRequest request =
+        new FrameExtractorInternal.FrameExtractionRequest(
+            context,
+            mediaItem,
+            effects,
+            SeekParameters.NEXT_SYNC,
+            mediaCodecSelector,
+            glObjectsProvider,
+            extractHdrFrames,
+            /* positionMs= */ C.TIME_UNSET);
     return FrameExtractorInternal.getInstance().submitTask(request);
   }
 

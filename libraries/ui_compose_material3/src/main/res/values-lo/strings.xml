@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">ຫຼິ້ນ</string>
+  <string name="playpause_button_pause">ຢຸດຊົ່ວຄາວ</string>
+  <string name="next_button">ຕໍ່ໄປ</string>
+  <string name="previous_button">ກ່ອນໜ້າ</string>
+  <string name="seek_back_button">ຍ້ອນກັບ</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">ຂ້າມກັບຄືນ %d ວິນາທີ</item>
+    <item quantity="other">ຂ້າມກັບຄືນ %d ວິນາທີ</item>
+  </plurals>
+  <string name="seek_forward_button">ຂ້າມໄປໜ້າ</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">ຂ້າມໄປໜ້າ %d ວິນາທີ</item>
+    <item quantity="other">ຂ້າມໄປໜ້າ %d ວິນາທີ</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">ໂໝດປັດຈຸບັນ: ບໍ່ເປີດຊ້ຳ. ສະຫຼັບໂໝດເປີດຊ້ຳ.</string>
+  <string name="repeat_button_repeat_one">ໂໝດປັດຈຸບັນ: ເປີດຊ້ຳອັນດຽວ. ສະຫຼັບໂໝດເປີດຊ້ຳ.</string>
+  <string name="repeat_button_repeat_all">ໂໝດປັດຈຸບັນ: ເປີດຊ້ຳທັງໝົດ. ສະຫຼັບໂໝດເປີດຊ້ຳ.</string>
+  <string name="shuffle_button_shuffle_on">ເປີດການນຳໃຊ້ໂໝດສັບແລ້ວ.</string>
+  <string name="shuffle_button_shuffle_off">ປິດການນຳໃຊ້ໂໝດສັບແລ້ວ.</string>
+  <string name="mute_button_shown_unmuted">ປິດສຽງ</string>
+  <string name="mute_button_shown_muted">ເຊົາປິດສຽງ</string>
+</resources>

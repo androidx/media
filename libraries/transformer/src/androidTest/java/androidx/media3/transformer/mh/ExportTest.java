@@ -200,7 +200,8 @@ public class ExportTest {
             || Ascii.equalsIgnoreCase(Build.MODEL, "sm-f916u1")
             || Ascii.equalsIgnoreCase(Build.MODEL, "sm-g981u1")
             || Ascii.equalsIgnoreCase(Build.MODEL, "le2121")
-            || Ascii.equalsIgnoreCase(Build.MODEL, "seahawk"));
+            || Ascii.equalsIgnoreCase(Build.MODEL, "seahawk")
+            || Ascii.equalsIgnoreCase(Build.MODEL, "sm-t870"));
     assumeFormatsSupported(
         context, testId, /* inputFormat= */ MP4_ASSET_8K24.videoFormat, /* outputFormat= */ null);
     Transformer transformer =

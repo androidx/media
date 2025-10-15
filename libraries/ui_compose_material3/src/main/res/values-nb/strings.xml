@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">Spill av</string>
+  <string name="playpause_button_pause">Sett på pause</string>
+  <string name="next_button">Neste</string>
+  <string name="previous_button">Forrige</string>
+  <string name="seek_back_button">Spol tilbake</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">Spol %d sekund tilbake</item>
+    <item quantity="other">Spol %d sekunder tilbake</item>
+  </plurals>
+  <string name="seek_forward_button">Hopp fremover</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">Hopp fremover %d sekund</item>
+    <item quantity="other">Hopp fremover %d sekunder</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">Modus: gjenta ingen. Endre gjentakelsesmodus.</string>
+  <string name="repeat_button_repeat_one">Modus: gjenta én. Endre gjentakelsesmodus.</string>
+  <string name="repeat_button_repeat_all">Modus: gjenta alle. Endre gjentakelsesmodus.</string>
+  <string name="shuffle_button_shuffle_on">Modus for tilfeldig rekkefølge er på.</string>
+  <string name="shuffle_button_shuffle_off">Modus for tilfeldig rekkefølge er av.</string>
+  <string name="mute_button_shown_unmuted">Kutt lyden</string>
+  <string name="mute_button_shown_muted">Slå på lyden</string>
+</resources>

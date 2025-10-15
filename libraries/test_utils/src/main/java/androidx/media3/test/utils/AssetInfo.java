@@ -216,6 +216,21 @@ public final class AssetInfo {
           .build();
 
   /**
+   * An MP4 file containing an edit list that makes its only sync sample a preroll sample (i.e.,
+   * have a negative presentation timestamp).
+   */
+  public static final AssetInfo MP4_ONLY_PREROLL_SYNC_SAMPLE_EDIT_LIST =
+      new AssetInfo.Builder("asset:///media/mp4/sample_edit_list_only_preroll_sync_sample.mp4")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(640)
+                  .setHeight(360)
+                  .setFrameRate(30.0f)
+                  .build())
+          .build();
+
+  /**
    * This file has been edited to show a visual stopwatch to make it easier to know when frames were
    * presented in the original video.
    */
@@ -336,6 +351,18 @@ public final class AssetInfo {
                   300_300L, 333_666L, 367_033L, 400_400L, 433_766L, 467_133L, 500_500L, 533_866L,
                   567_233L, 600_600L, 633_966L, 667_333L, 700_700L, 734_066L, 767_433L, 800_800L,
                   834_166L, 867_533L, 900_900L, 934_266L, 967_633L))
+          .build();
+
+  public static final AssetInfo MOV_WITH_PCM_AUDIO =
+      new AssetInfo.Builder("asset:///media/mp4/sowt-with-video.mov")
+          .setVideoFormat(
+              new Format.Builder()
+                  .setSampleMimeType(VIDEO_H264)
+                  .setWidth(1920)
+                  .setHeight(1080)
+                  .setFrameRate(50f)
+                  .setCodecs("avc1.64002A")
+                  .build())
           .build();
 
   public static final AssetInfo BT601_MOV_ASSET =

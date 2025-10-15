@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">Ойнотуу</string>
+  <string name="playpause_button_pause">Тындыруу</string>
+  <string name="next_button">Кийинки</string>
+  <string name="previous_button">Мурунку</string>
+  <string name="seek_back_button">Артка түрүү</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">%d секунд артка түрдүрүү</item>
+    <item quantity="other">%d секунд артка түрдүрүү</item>
+  </plurals>
+  <string name="seek_forward_button">Алдыга түрүү</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">%d секунд алдыга түрдүрүү</item>
+    <item quantity="other">%d секунд алдыга түрдүрүү</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">Учурдагы режим: Кайталанбасын. Кайталоо режимин өчүрүү/күйгүзүү.</string>
+  <string name="repeat_button_repeat_one">Учурдагы режим: Бир медианы кайталоо. Кайталоо режимин өчүрүү/күйгүзүү.</string>
+  <string name="repeat_button_repeat_all">Учурдагы режим: Баарын кайталоо. Кайталоо режимин өчүрүү/күйгүзүү.</string>
+  <string name="shuffle_button_shuffle_on">Аралаштыруу режими иштетилди.</string>
+  <string name="shuffle_button_shuffle_off">Аралаштыруу режими өчүрүлдү.</string>
+  <string name="mute_button_shown_unmuted">Үнүн басуу</string>
+  <string name="mute_button_shown_muted">Үнүн чыгаруу</string>
+</resources>

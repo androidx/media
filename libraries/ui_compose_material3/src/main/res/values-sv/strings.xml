@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">Spela upp</string>
+  <string name="playpause_button_pause">Pausa</string>
+  <string name="next_button">Nästa</string>
+  <string name="previous_button">Föregående</string>
+  <string name="seek_back_button">Spola tillbaka</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">Spola tillbaka %d sekund</item>
+    <item quantity="other">Spola tillbaka %d sekunder</item>
+  </plurals>
+  <string name="seek_forward_button">Spola framåt</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">Spola framåt %d sekund</item>
+    <item quantity="other">Spola framåt %d sekunder</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">Aktuellt läge: Upprepa inga. Ändra läge för upprepning.</string>
+  <string name="repeat_button_repeat_one">Aktuellt läge: Upprepa en. Ändra läge för upprepning.</string>
+  <string name="repeat_button_repeat_all">Aktuellt läge: Upprepa alla. Ändra läge för upprepning.</string>
+  <string name="shuffle_button_shuffle_on">Shuffleläget har aktiverats.</string>
+  <string name="shuffle_button_shuffle_off">Shuffleläget har inaktiverats.</string>
+  <string name="mute_button_shown_unmuted">Ljud av</string>
+  <string name="mute_button_shown_muted">Ljud på</string>
+</resources>

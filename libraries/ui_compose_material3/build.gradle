@@ -21,6 +21,10 @@ apply plugin: 'org.jetbrains.kotlin.plugin.compose'
 android {
     namespace 'androidx.media3.ui.compose.material3'
 
+    lint {
+        baseline = file("lint-baseline.xml")
+    }
+
     buildTypes {
         debug {
             testCoverageEnabled = true

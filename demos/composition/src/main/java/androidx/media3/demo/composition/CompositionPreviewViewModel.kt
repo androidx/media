@@ -30,6 +30,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.Effect
+import androidx.media3.common.GlObjectsProvider
 import androidx.media3.common.MediaItem
 import androidx.media3.common.OverlaySettings
 import androidx.media3.common.PlaybackException
@@ -50,6 +51,7 @@ import androidx.media3.demo.composition.data.OverlayAsset
 import androidx.media3.demo.composition.data.OverlayState
 import androidx.media3.demo.composition.data.PlacedOverlay
 import androidx.media3.demo.composition.data.PlacementState
+import androidx.media3.demo.composition.effect.DemoRenderingFrameConsumer
 import androidx.media3.demo.composition.effect.LottieEffectFactory
 import androidx.media3.effect.BitmapOverlay
 import androidx.media3.effect.DebugTraceUtil
@@ -75,6 +77,7 @@ import com.google.common.base.Ticker
 import java.io.File
 import java.io.IOException
 import java.util.UUID
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.TimeUnit
 import kotlin.math.cos
 import kotlin.math.roundToInt
@@ -94,8 +97,24 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
   val uiState: StateFlow<CompositionPreviewState> = _uiState.asStateFlow()
 
   var compositionPlayer by mutableStateOf(createCompositionPlayer())
+  var refreshPlayerViewKey by mutableStateOf(0)
   val EXPORT_ERROR_MESSAGE = application.resources.getString(R.string.export_error)
   val EXPORT_STARTED_MESSAGE = application.resources.getString(R.string.export_started)
+  internal var frameConsumerEnabled: Boolean = false
+  internal val outputRenderer: DemoRenderingFrameConsumer by lazy {
+    DemoRenderingFrameConsumer(glExecutorService) { error ->
+      _uiState.update { currentState ->
+        currentState.copy(snackbarMessage = "Preview error: $error")
+      }
+      Log.e(TAG, "Preview error", error)
+    }
+  }
+  private val glExecutorService: ExecutorService by lazy {
+    Util.newSingleThreadExecutor("CompositionDemo::GlThread")
+  }
+  private val glObjectsProvider: GlObjectsProvider by lazy {
+    DemoRenderingFrameConsumer.SingleContextGlObjectsProvider()
+  }
   private var transformer: Transformer? = null
   private var outputFile: File? = null
   private var exportStopwatch: Stopwatch =
@@ -194,6 +213,13 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
   fun enableDebugTracing(enable: Boolean) {
     _uiState.update { it.copy(isDebugTracingEnabled = enable) }
     DebugTraceUtil.enableTracing = enable
+  }
+
+  fun onFrameConsumerEnabledChanged(isEnabled: Boolean) {
+    _uiState.update {
+      it.copy(outputSettingsState = it.outputSettingsState.copy(frameConsumerEnabled = isEnabled))
+    }
+    previewComposition()
   }
 
   fun onIncludeBackgroundAudioChanged(isEnabled: Boolean) {
@@ -738,7 +764,13 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
 
   private fun createCompositionPlayer(): CompositionPlayer {
     val playerBuilder = CompositionPlayer.Builder(getApplication())
-    if (uiState.value.compositionLayout != COMPOSITION_LAYOUT[0]) {
+    frameConsumerEnabled = uiState.value.outputSettingsState.frameConsumerEnabled
+    if (uiState.value.outputSettingsState.frameConsumerEnabled) {
+      playerBuilder.setGlThreadExecutorService(glExecutorService)
+      playerBuilder.setGlObjectsProvider(glObjectsProvider)
+      uiState.value.outputSurface?.let { outputRenderer.setOutputSurface(it) }
+      playerBuilder.experimentalSetFrameConsumer(outputRenderer::queue)
+    } else if (uiState.value.compositionLayout != COMPOSITION_LAYOUT[0]) {
       playerBuilder.setVideoGraphFactory(MultipleInputVideoGraph.Factory())
     }
     playerBuilder.setAudioAttributes(AudioAttributes.DEFAULT, /* handleAudioFocus= */ true)

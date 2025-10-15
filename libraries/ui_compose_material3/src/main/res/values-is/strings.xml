@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="playpause_button_play">Spila</string>
+  <string name="playpause_button_pause">Gera hlé</string>
+  <string name="next_button">Áfram</string>
+  <string name="previous_button">Fyrri</string>
+  <string name="seek_back_button">Spóla til baka</string>
+  <plurals name="seek_back_by_amount_button">
+    <item quantity="one">Spóla til baka um %d sekúndu</item>
+    <item quantity="other">Spóla til baka um %d sekúndur</item>
+  </plurals>
+  <string name="seek_forward_button">Spóla áfram</string>
+  <plurals name="seek_forward_by_amount_button">
+    <item quantity="one">Spóla áfram um %d sekúndu</item>
+    <item quantity="other">Spóla áfram um %d sekúndur</item>
+  </plurals>
+  <string name="repeat_button_repeat_off">Núverandi stilling: Ekki endurtaka neitt. Breyta endurtekningastillingu.</string>
+  <string name="repeat_button_repeat_one">Núverandi stilling: Endurtaka eitt. Breyta endurtekningastillingu.</string>
+  <string name="repeat_button_repeat_all">Núverandi stilling: Endurtaka allt. Breyta endurtekningastillingu.</string>
+  <string name="shuffle_button_shuffle_on">Kveikt á stokkun.</string>
+  <string name="shuffle_button_shuffle_off">Slökkt á stokkun.</string>
+  <string name="mute_button_shown_unmuted">Slökkva á hljóði</string>
+  <string name="mute_button_shown_muted">Kveikja á hljóði</string>
+</resources>
