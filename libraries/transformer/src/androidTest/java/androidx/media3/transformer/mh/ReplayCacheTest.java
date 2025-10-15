@@ -205,14 +205,14 @@ public class ReplayCacheTest {
               });
           compositionPlayer.setComposition(
               new Composition.Builder(
-                      new EditedMediaItemSequence.Builder(
+                      EditedMediaItemSequence.withAudioAndVideoFrom(
+                          ImmutableList.of(
                               new EditedMediaItem.Builder(VIDEO_MEDIA_ITEM_1)
                                   .setDurationUs(VIDEO_MEDIA_ITEM_1_DURATION_US)
                                   .build(),
                               new EditedMediaItem.Builder(VIDEO_MEDIA_ITEM_2)
                                   .setDurationUs(VIDEO_MEDIA_ITEM_2_DURATION_US)
-                                  .build())
-                          .build())
+                                  .build())))
                   .setEffects(
                       new Effects(
                           /* audioProcessors= */ ImmutableList.of(),
@@ -255,14 +255,14 @@ public class ReplayCacheTest {
           compositionPlayer.addListener(playerTestListener);
           compositionPlayer.setComposition(
               new Composition.Builder(
-                      new EditedMediaItemSequence.Builder(
+                      EditedMediaItemSequence.withAudioAndVideoFrom(
+                          ImmutableList.of(
                               new EditedMediaItem.Builder(VIDEO_MEDIA_ITEM_1)
                                   .setDurationUs(VIDEO_MEDIA_ITEM_1_DURATION_US)
                                   .build(),
                               new EditedMediaItem.Builder(VIDEO_MEDIA_ITEM_2)
                                   .setDurationUs(VIDEO_MEDIA_ITEM_2_DURATION_US)
-                                  .build())
-                          .build())
+                                  .build())))
                   .setEffects(
                       new Effects(
                           /* audioProcessors= */ ImmutableList.of(),

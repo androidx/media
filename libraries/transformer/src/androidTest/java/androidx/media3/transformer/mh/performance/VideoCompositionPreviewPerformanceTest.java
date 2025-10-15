@@ -98,10 +98,10 @@ public class VideoCompositionPreviewPerformanceTest {
           player.addListener(listener);
           player.setComposition(
               new Composition.Builder(
-                      new EditedMediaItemSequence.Builder(
+                      EditedMediaItemSequence.withAudioAndVideoFrom(
+                          ImmutableList.of(
                               getClippedEditedMediaItem(MP4_ASSET.uri, new Contrast(.2f)),
-                              getClippedEditedMediaItem(MP4_ASSET.uri, new Contrast(-.2f)))
-                          .build())
+                              getClippedEditedMediaItem(MP4_ASSET.uri, new Contrast(-.2f)))))
                   .build());
           player.prepare();
         });

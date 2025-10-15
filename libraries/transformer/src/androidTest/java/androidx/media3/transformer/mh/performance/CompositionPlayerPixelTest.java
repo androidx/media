@@ -153,7 +153,8 @@ public class CompositionPlayerPixelTest {
                   new Size(MP4_ASSET.videoFormat.width, MP4_ASSET.videoFormat.height));
               player.setComposition(
                   new Composition.Builder(
-                          new EditedMediaItemSequence.Builder(
+                          EditedMediaItemSequence.withAudioAndVideoFrom(
+                              ImmutableList.of(
                                   new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
                                       .setEffects(
                                           new Effects(
@@ -161,8 +162,7 @@ public class CompositionPlayerPixelTest {
                                               /* videoEffects= */ ImmutableList.of(
                                                   createTimestampOverlay())))
                                       .setDurationUs(MP4_ASSET.videoDurationUs)
-                                      .build())
-                              .build())
+                                      .build())))
                       .build());
               player.addListener(
                   new Player.Listener() {
@@ -232,7 +232,8 @@ public class CompositionPlayerPixelTest {
                   new Size(MP4_ASSET.videoFormat.width, MP4_ASSET.videoFormat.height));
               player.setComposition(
                   new Composition.Builder(
-                          new EditedMediaItemSequence.Builder(
+                          EditedMediaItemSequence.withAudioAndVideoFrom(
+                              ImmutableList.of(
                                   new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
                                       .setEffects(
                                           new Effects(
@@ -240,9 +241,9 @@ public class CompositionPlayerPixelTest {
                                               /* videoEffects= */ ImmutableList.of(
                                                   createTimestampOverlay())))
                                       .setDurationUs(MP4_ASSET.videoDurationUs)
-                                      .build())
-                              .build(),
-                          new EditedMediaItemSequence.Builder(
+                                      .build())),
+                          EditedMediaItemSequence.withAudioAndVideoFrom(
+                              ImmutableList.of(
                                   new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
                                       .setEffects(
                                           new Effects(
@@ -256,8 +257,7 @@ public class CompositionPlayerPixelTest {
                                                         return rotationMatrix;
                                                       })))
                                       .setDurationUs(MP4_ASSET.videoDurationUs)
-                                      .build())
-                              .build())
+                                      .build())))
                       .setVideoCompositorSettings(TEST_COMPOSITOR_SETTINGS)
                       .build());
               player.addListener(
@@ -331,7 +331,8 @@ public class CompositionPlayerPixelTest {
                   new Size(PNG_ASSET.videoFormat.width, PNG_ASSET.videoFormat.height));
               player.setComposition(
                   new Composition.Builder(
-                          new EditedMediaItemSequence.Builder(
+                          EditedMediaItemSequence.withVideoFrom(
+                              ImmutableList.of(
                                   new EditedMediaItem.Builder(
                                           MediaItem.fromUri(PNG_ASSET.uri)
                                               .buildUpon()
@@ -344,9 +345,9 @@ public class CompositionPlayerPixelTest {
                                                   createTimestampOverlay(/* textSize= */ 30))))
                                       .setDurationUs(imageDurationUs)
                                       .setFrameRate(30)
-                                      .build())
-                              .build(),
-                          new EditedMediaItemSequence.Builder(
+                                      .build())),
+                          EditedMediaItemSequence.withVideoFrom(
+                              ImmutableList.of(
                                   new EditedMediaItem.Builder(
                                           MediaItem.fromUri(PNG_ASSET.uri)
                                               .buildUpon()
@@ -365,8 +366,7 @@ public class CompositionPlayerPixelTest {
                                                       })))
                                       .setDurationUs(imageDurationUs)
                                       .setFrameRate(30)
-                                      .build())
-                              .build())
+                                      .build())))
                       .setVideoCompositorSettings(TEST_COMPOSITOR_SETTINGS)
                       .build());
               player.addListener(

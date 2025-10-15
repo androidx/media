@@ -33,6 +33,7 @@ import androidx.media3.transformer.Transformer;
 import androidx.media3.transformer.TransformerAndroidTestRunner;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.ImmutableList;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -83,9 +84,9 @@ public class ToneMapHdrToSdrUsingOpenGlTest {
     Transformer transformer = new Transformer.Builder(context).build();
     Composition composition =
         new Composition.Builder(
-                new EditedMediaItemSequence.Builder(
-                        new EditedMediaItem.Builder(MediaItem.fromUri(fileUri)).build())
-                    .build())
+                EditedMediaItemSequence.withAudioAndVideoFrom(
+                    ImmutableList.of(
+                        new EditedMediaItem.Builder(MediaItem.fromUri(fileUri)).build())))
             .setHdrMode(Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL)
             .build();
     ExportTestResult exportTestResult =
