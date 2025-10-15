@@ -308,6 +308,8 @@
     *   Fix bug where the start time of the playlist was dropped when the
         EXT-X-PROGRAM-START-DATE tag defining the start time was removed from a
         playlist ([#2760](https://github.com/androidx/media/issues/2760)).
+    *   Use binary search to find the segment index of a given position in the
+        playlist ([#2826](https://github.com/androidx/media/pull/2826).
 *   DASH extension:
     *   Fix `UnsupportedOperationException` when playing DASH streams with a
         non-hierarchical `data:` URI manifest
