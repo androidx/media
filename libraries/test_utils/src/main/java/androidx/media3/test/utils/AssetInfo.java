@@ -527,6 +527,7 @@ public final class AssetInfo {
                   .setCodecs("avc1.42C015")
                   .build())
           .setVideoFrameCount(300)
+          .setVideoDurationUs(5_019_000L)
           .build();
 
   /** Baseline profile level 3.0 H.264 stream, which should be supported on all devices. */

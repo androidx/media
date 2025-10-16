@@ -18,6 +18,7 @@ package androidx.media3.transformer;
 import static androidx.media3.common.util.Util.isRunningOnEmulator;
 import static androidx.media3.test.utils.AssetInfo.JPG_SINGLE_PIXEL_ASSET;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET;
+import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
@@ -63,6 +64,9 @@ import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.GlShaderProgram;
 import androidx.media3.effect.PassthroughShaderProgram;
 import androidx.media3.effect.SingleInputVideoGraph;
+import androidx.media3.exoplayer.analytics.AnalyticsListener;
+import androidx.media3.exoplayer.audio.DefaultAudioSink;
+import androidx.media3.exoplayer.audio.ForwardingAudioSink;
 import androidx.media3.exoplayer.image.ExternallyLoadedImageDecoder;
 import androidx.media3.exoplayer.image.ExternallyLoadedImageDecoder.ExternalImageRequest;
 import androidx.media3.exoplayer.image.ImageDecoderException;
@@ -82,6 +86,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Before;
@@ -693,6 +698,119 @@ public class CompositionPlayerTest {
     assertThat(frameQueuedLatch.await(TEST_TIMEOUT_MS, MILLISECONDS)).isTrue();
   }
 
+  @Test
+  public void videoPlayback_dropsFrames() throws Exception {
+    PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
+    AtomicInteger droppedFramesCounter = new AtomicInteger();
+    ConditionVariable playerReleased = new ConditionVariable();
+
+    instrumentation.runOnMainSync(
+        () -> {
+          compositionPlayer =
+              new CompositionPlayer.Builder(applicationContext)
+                  .setAudioSink(new AudioSinkWithJumpingPosition(applicationContext))
+                  .build();
+          // Set a surface on the player even though there is no UI on this test. We need a surface
+          // otherwise the player will skip/drop video frames.
+          compositionPlayer.setVideoSurfaceView(surfaceView);
+          compositionPlayer.addListener(listener);
+          compositionPlayer.addAnalyticsListener(
+              new AnalyticsListener() {
+                @Override
+                public void onDroppedVideoFrames(
+                    EventTime eventTime, int droppedFrames, long elapsedMs) {
+                  droppedFramesCounter.getAndAdd(droppedFrames);
+                }
+
+                @Override
+                public void onPlayerReleased(EventTime eventTime) {
+                  playerReleased.open();
+                }
+              });
+          compositionPlayer.setComposition(
+              new Composition.Builder(
+                      EditedMediaItemSequence.withVideoFrom(
+                          ImmutableList.of(
+                              new EditedMediaItem.Builder(
+                                      MediaItem.fromUri(
+                                          MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.uri))
+                                  .setDurationUs(
+                                      MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S
+                                          .videoDurationUs)
+                                  .build())))
+                  .build());
+          compositionPlayer.prepare();
+          compositionPlayer.play();
+        });
+    listener.waitUntilPlayerEnded();
+    // Wait until the player is released so that all AnalyticsListener events are received.
+    instrumentation.runOnMainSync(
+        () -> {
+          compositionPlayer.release();
+          compositionPlayer = null;
+        });
+    playerReleased.block(TEST_TIMEOUT_MS);
+
+    assertThat(droppedFramesCounter.get()).isGreaterThan(0);
+  }
+
+  @Test
+  public void videoPlayback_withoutLateThresholdToDropInputUs_dropsFrames() throws Exception {
+    PlayerTestListener listener = new PlayerTestListener(TEST_TIMEOUT_MS);
+    AtomicInteger droppedFramesCounter = new AtomicInteger();
+    ConditionVariable playerReleased = new ConditionVariable();
+
+    instrumentation.runOnMainSync(
+        () -> {
+          compositionPlayer =
+              new CompositionPlayer.Builder(applicationContext)
+                  .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
+                  .setAudioSink(new AudioSinkWithJumpingPosition(applicationContext))
+                  .build();
+          // Set a surface on the player even though there is no UI on this test. We need a surface
+          // otherwise the player will skip/drop video frames.
+          compositionPlayer.setVideoSurfaceView(surfaceView);
+          compositionPlayer.addListener(listener);
+          compositionPlayer.addAnalyticsListener(
+              new AnalyticsListener() {
+                @Override
+                public void onDroppedVideoFrames(
+                    EventTime eventTime, int droppedFrames, long elapsedMs) {
+                  droppedFramesCounter.getAndAdd(droppedFrames);
+                }
+
+                @Override
+                public void onPlayerReleased(EventTime eventTime) {
+                  playerReleased.open();
+                }
+              });
+          compositionPlayer.setComposition(
+              new Composition.Builder(
+                      EditedMediaItemSequence.withVideoFrom(
+                          ImmutableList.of(
+                              new EditedMediaItem.Builder(
+                                      MediaItem.fromUri(
+                                          MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S.uri))
+                                  .setDurationUs(
+                                      MP4_ASSET_WITH_INCREASING_TIMESTAMPS_320W_240H_5S
+                                          .videoDurationUs)
+                                  .build())))
+                  .build());
+          compositionPlayer.prepare();
+          compositionPlayer.play();
+        });
+    listener.waitUntilPlayerEnded();
+    // Wait until the player is released so that all AnalyticsListener events are received.
+    instrumentation.runOnMainSync(
+        () -> {
+          compositionPlayer.release();
+          compositionPlayer = null;
+        });
+    playerReleased.block(TEST_TIMEOUT_MS);
+
+    assertThat(droppedFramesCounter.get()).isGreaterThan(0);
+  }
+
   private static final class TestExternallyLoadedBitmapResolver
       implements ExternallyLoadedImageDecoder.BitmapResolver {
     @Override
@@ -766,6 +884,35 @@ public class CompositionPlayerTest {
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
       }
+    }
+  }
+
+  /**
+   * A {@link ForwardingAudioSink} to {@link DefaultAudioSink}, with position that jumps forward
+   * periodically in order to force dropped video frames.
+   */
+  private static class AudioSinkWithJumpingPosition extends ForwardingAudioSink {
+    private static final long POSITION_JUMP_INTERVAL_US = 1_000_000;
+    private static final long POSITION_JUMP_AMOUNT_US = 300_000;
+
+    long nextJumpUs = C.TIME_UNSET;
+    long offsetUs = 0;
+
+    AudioSinkWithJumpingPosition(Context context) {
+      super(new DefaultAudioSink.Builder(context).build());
+    }
+
+    @Override
+    public long getCurrentPositionUs(boolean sourceEnded) {
+      long superPositionUs = super.getCurrentPositionUs(sourceEnded);
+      if (superPositionUs == CURRENT_POSITION_NOT_SET) {
+        return superPositionUs;
+      }
+      if (nextJumpUs == C.TIME_UNSET || superPositionUs >= nextJumpUs) {
+        nextJumpUs = superPositionUs + POSITION_JUMP_INTERVAL_US;
+        offsetUs += POSITION_JUMP_AMOUNT_US;
+      }
+      return superPositionUs + offsetUs;
     }
   }
 }

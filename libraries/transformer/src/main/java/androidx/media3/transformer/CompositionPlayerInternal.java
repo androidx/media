@@ -15,6 +15,7 @@
  */
 package androidx.media3.transformer;
 
+import static androidx.media3.exoplayer.DefaultRenderersFactory.MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
@@ -47,6 +48,19 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
      * @param errorCode The error code.
      */
     void onError(String message, Exception cause, @PlaybackException.ErrorCode int errorCode);
+
+    /**
+     * Reports dropped frames from the video graph wrapper. Dropped frames are reported whenever the
+     * video graph is {@linkplain #stopRendering() stopped} having dropped frames, and whenever the
+     * count reaches a specified threshold whilst the video graph is started.
+     *
+     * @param droppedFrameCount The number of dropped frames.
+     * @param elapsedMs The duration in milliseconds over which the frames were dropped. This
+     *     duration is timed from when the video graph was started or from when dropped frames were
+     *     last reported (whichever was more recent), and not from when the first of the reported
+     *     drops occurred.
+     */
+    void onDroppedVideoFrames(int droppedFrameCount, long elapsedMs);
   }
 
   /** Timeout for {@link #release()}. */
@@ -77,6 +91,9 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
   private final Listener listener;
   private final HandlerWrapper listenerHandler;
   @Nullable private final CompositionVideoPacketReleaseControl videoPacketReleaseControl;
+
+  private int droppedFrames;
+  private long droppedFrameAccumulationStartTimeMs;
 
   private boolean released;
 
@@ -171,6 +188,30 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
     handler.obtainMessage(MSG_SET_AUDIO_ATTRIBUTES, attributes).sendToTarget();
   }
 
+  /**
+   * Reports that an output frame was dropped from the video graph.
+   *
+   * <p>Must be called on the playback thread.
+   */
+  /* package */ void onFrameDropped() {
+    droppedFrames++;
+    if (droppedFrames >= MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY) {
+      maybeNotifyDroppedFrames();
+    }
+  }
+
+  private void maybeNotifyDroppedFrames() {
+    if (droppedFrames > 0) {
+      long now = clock.elapsedRealtime();
+      long elapsedMs = now - droppedFrameAccumulationStartTimeMs;
+      int droppedFramesToBeReported = droppedFrames;
+      listenerHandler.post(
+          () -> listener.onDroppedVideoFrames(droppedFramesToBeReported, elapsedMs));
+      droppedFrames = 0;
+      droppedFrameAccumulationStartTimeMs = now;
+    }
+  }
+
   // Handler.Callback methods
 
   @Override
@@ -244,6 +285,7 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
 
   private void releaseInternal(ConditionVariable conditionVariable) {
     try {
+      maybeNotifyDroppedFrames();
       playbackAudioGraphWrapper.release();
       playbackVideoGraphWrapper.clearOutputSurfaceInfo();
       playbackVideoGraphWrapper.release();
@@ -255,6 +297,7 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
   }
 
   public void startRenderingInternal() {
+    droppedFrameAccumulationStartTimeMs = clock.elapsedRealtime();
     playbackAudioGraphWrapper.startRendering();
     playbackVideoGraphWrapper.startRendering();
     if (videoPacketReleaseControl != null) {
@@ -263,6 +306,7 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
   }
 
   public void stopRenderingInternal() {
+    maybeNotifyDroppedFrames();
     playbackAudioGraphWrapper.stopRendering();
     playbackVideoGraphWrapper.stopRendering();
     if (videoPacketReleaseControl != null) {
