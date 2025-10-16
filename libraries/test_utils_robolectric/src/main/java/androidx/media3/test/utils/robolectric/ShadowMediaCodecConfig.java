@@ -17,6 +17,7 @@ package androidx.media3.test.utils.robolectric;
 
 import static androidx.media3.exoplayer.mediacodec.MediaCodecUtil.createCodecProfileLevel;
 
+import android.annotation.SuppressLint;
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecInfo.CodecProfileLevel;
 import android.media.MediaFormat;
@@ -241,6 +242,9 @@ public final class ShadowMediaCodecConfig extends ExternalResource {
    * @param codecConfig The {@link ShadowMediaCodec.CodecConfig} for the codec, specifying its
    *     behavior.
    */
+  // TODO(b/452541218): Remove this suppression once Robolectric is updated to a version that
+  //  includes the @RequiresApi(Q) annotation from ShadowMediaCodecList.addCodec().
+  @SuppressLint("NewApi") // The upstream annotation causing this warning was removed.
   public static void configureShadowMediaCodec(
       String codecName,
       String mimeType,
