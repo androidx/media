@@ -20,7 +20,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.media3.common.Player
 import androidx.media3.common.Player.COMMAND_SET_SHUFFLE_MODE
-import androidx.media3.test.utils.TestSimpleBasePlayer
+import androidx.media3.test.utils.FakePlayer
 import androidx.media3.ui.compose.testutils.createReadyPlayerWithTwoItems
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
@@ -38,7 +38,7 @@ class ShuffleButtonStateTest {
 
   @Test
   fun playerShuffleModeChanged_buttonShuffleModeChanged() {
-    val player = TestSimpleBasePlayer()
+    val player = FakePlayer()
 
     lateinit var state: ShuffleButtonState
     composeTestRule.setContent { state = rememberShuffleButtonState(player = player) }
@@ -53,7 +53,7 @@ class ShuffleButtonStateTest {
 
   @Test
   fun buttonClicked_playerShuffleModeChanged() {
-    val player = TestSimpleBasePlayer()
+    val player = FakePlayer()
     val state = ShuffleButtonState(player)
     assertThat(state.shuffleOn).isFalse()
 
@@ -64,7 +64,7 @@ class ShuffleButtonStateTest {
 
   @Test
   fun onClick_whenCommandNotAvailable_throwsIllegalStateException() {
-    val player = TestSimpleBasePlayer()
+    val player = FakePlayer()
     player.removeCommands(COMMAND_SET_SHUFFLE_MODE)
     val state = ShuffleButtonState(player)
 
@@ -101,7 +101,7 @@ class ShuffleButtonStateTest {
     // irrelevant because we are operating on the live mutable Player object). The expectation then
     // is that the State object and Player finally synchronise, even if it means the UI interaction
     // would have been confusing.
-    val player = TestSimpleBasePlayer()
+    val player = FakePlayer()
     lateinit var state: ShuffleButtonState
     composeTestRule.setContent { state = rememberShuffleButtonState(player = player) }
     assertThat(state.shuffleOn).isFalse() // Correct UI state in sync with Player
@@ -123,7 +123,7 @@ class ShuffleButtonStateTest {
 
   @Test
   fun playerChangesShuffleModeCommandsBeforeEventListenerRegisters_observeGetsTheLatestValues_uiIconInSync() {
-    val player = TestSimpleBasePlayer()
+    val player = FakePlayer()
 
     lateinit var state: ShuffleButtonState
     composeTestRule.setContent {

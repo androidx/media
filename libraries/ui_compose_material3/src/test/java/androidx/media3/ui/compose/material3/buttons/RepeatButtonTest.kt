@@ -27,7 +27,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.Player.COMMAND_SET_REPEAT_MODE
 import androidx.media3.common.Player.STATE_READY
 import androidx.media3.common.SimpleBasePlayer.MediaItemData
-import androidx.media3.test.utils.TestSimpleBasePlayer
+import androidx.media3.test.utils.FakePlayer
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import org.junit.Rule
@@ -43,7 +43,7 @@ class RepeatButtonTest {
   @Test
   fun onClick_togglesRepeatMode() {
     val player =
-      TestSimpleBasePlayer(
+      FakePlayer(
         playbackState = STATE_READY,
         playWhenReady = false,
         playlist = listOf(MediaItemData.Builder("SingleItem").build()),
@@ -64,7 +64,7 @@ class RepeatButtonTest {
 
   @Test
   fun onClick_commandNotAvailable_buttonDisabledClickNotPerformed() {
-    val player = TestSimpleBasePlayer()
+    val player = FakePlayer()
     player.removeCommands(COMMAND_SET_REPEAT_MODE)
     composeRule.setContent { RepeatButton(player, Modifier.testTag("repeatButton")) }
 
@@ -77,7 +77,7 @@ class RepeatButtonTest {
   @Test
   fun customizeContentDescription() {
     val player =
-      TestSimpleBasePlayer(
+      FakePlayer(
         playbackState = STATE_READY,
         playWhenReady = false,
         playlist = listOf(MediaItemData.Builder("SingleItem").build()),
@@ -100,7 +100,7 @@ class RepeatButtonTest {
   @Test
   fun customizeOnClick() {
     val player =
-      TestSimpleBasePlayer(
+      FakePlayer(
         playbackState = STATE_READY,
         playWhenReady = false,
         playlist = listOf(MediaItemData.Builder("SingleItem").build()),

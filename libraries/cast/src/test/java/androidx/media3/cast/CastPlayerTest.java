@@ -30,7 +30,7 @@ import androidx.media3.common.DeviceInfo;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.Player;
-import androidx.media3.test.utils.TestSimpleBasePlayer;
+import androidx.media3.test.utils.FakePlayer;
 import androidx.test.core.app.ApplicationProvider;
 import com.google.android.gms.cast.MediaInfo;
 import com.google.android.gms.cast.MediaLoadRequestData;
@@ -66,7 +66,7 @@ public final class CastPlayerTest {
   private CastPlayer castPlayer;
   private RemoteCastPlayer remoteCastPlayer;
   private SessionManagerListener<CastSession> castSessionListener;
-  private TestSimpleBasePlayer localPlayer;
+  private FakePlayer localPlayer;
   @Mock private RemoteMediaClient mockRemoteMediaClient;
   @Mock private PendingResult<RemoteMediaClient.MediaChannelResult> mockPendingResult;
   @Mock private MediaStatus mockMediaStatus;
@@ -80,7 +80,7 @@ public final class CastPlayerTest {
   @Before
   public void setUp() {
     mock = openMocks(this);
-    localPlayer = new TestSimpleBasePlayer();
+    localPlayer = new FakePlayer();
     when(mockCastContext.getSessionManager()).thenReturn(mockSessionManager);
     when(mockCastSession.getRemoteMediaClient()).thenReturn(mockRemoteMediaClient);
     when(mockRemoteMediaClient.getMediaStatus()).thenReturn(mockMediaStatus);

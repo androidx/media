@@ -26,7 +26,7 @@ import androidx.compose.ui.test.performClick
 import androidx.media3.common.Player.COMMAND_SEEK_TO_PREVIOUS
 import androidx.media3.common.Player.STATE_READY
 import androidx.media3.common.SimpleBasePlayer.MediaItemData
-import androidx.media3.test.utils.TestSimpleBasePlayer
+import androidx.media3.test.utils.FakePlayer
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import org.junit.Rule
@@ -42,7 +42,7 @@ class PreviousButtonTest {
   @Test
   fun onClick_callsPrevious() {
     val player =
-      TestSimpleBasePlayer(
+      FakePlayer(
         playlist =
           listOf(
             MediaItemData.Builder("First").setDurationUs(1_000_000L).build(),
@@ -61,7 +61,7 @@ class PreviousButtonTest {
   @Test
   fun onClick_commandNotAvailable_buttonDisabledClickNotPerformed() {
     val player =
-      TestSimpleBasePlayer(
+      FakePlayer(
         playlist =
           listOf(
             MediaItemData.Builder("First").setDurationUs(1_000_000L).build(),
@@ -81,7 +81,7 @@ class PreviousButtonTest {
 
   @Test
   fun customizeContentDescription() {
-    val player = TestSimpleBasePlayer()
+    val player = FakePlayer()
 
     composeRule.setContent {
       PreviousButton(player, Modifier.testTag("previousButton"), contentDescription = { "Go back" })
@@ -93,7 +93,7 @@ class PreviousButtonTest {
   @Test
   fun customizeOnClick() {
     val player =
-      TestSimpleBasePlayer(
+      FakePlayer(
         playbackState = STATE_READY,
         playWhenReady = false,
         playlist = listOf(MediaItemData.Builder("SingleItem").build()),

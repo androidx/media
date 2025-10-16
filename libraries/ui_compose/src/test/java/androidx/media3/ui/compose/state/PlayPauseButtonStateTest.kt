@@ -20,7 +20,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.media3.common.Player
 import androidx.media3.common.SimpleBasePlayer.MediaItemData
-import androidx.media3.test.utils.TestSimpleBasePlayer
+import androidx.media3.test.utils.FakePlayer
 import androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance
 import androidx.media3.ui.compose.testutils.createReadyPlayerWithTwoItems
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -120,7 +120,7 @@ class PlayPauseButtonStateTest {
   @Test
   fun playerInEndedState_buttonClicked_playerPlaysFromBeginning() {
     val player =
-      TestSimpleBasePlayer(
+      FakePlayer(
         playbackState = Player.STATE_ENDED,
         playlist = listOf(MediaItemData.Builder("SingleItem").setDurationUs(456).build()),
       )

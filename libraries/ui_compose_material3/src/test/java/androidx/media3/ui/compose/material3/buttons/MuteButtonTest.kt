@@ -24,7 +24,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.media3.common.Player.COMMAND_SET_VOLUME
-import androidx.media3.test.utils.TestSimpleBasePlayer
+import androidx.media3.test.utils.FakePlayer
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import org.junit.Rule
@@ -39,7 +39,7 @@ class MuteButtonTest {
 
   @Test
   fun onClick_mutesPlayer() {
-    val player = TestSimpleBasePlayer()
+    val player = FakePlayer()
     composeRule.setContent { MuteButton(player, Modifier.testTag("muteButton")) }
     assertThat(player.volume).isEqualTo(1f)
 
@@ -50,7 +50,7 @@ class MuteButtonTest {
 
   @Test
   fun onClick_unmutesPlayerToDefaultValue() {
-    val player = TestSimpleBasePlayer()
+    val player = FakePlayer()
     player.volume = 0f
     composeRule.setContent { MuteButton(player, Modifier.testTag("muteButton")) }
 
@@ -61,7 +61,7 @@ class MuteButtonTest {
 
   @Test
   fun onClick_unmutesPlayerToOriginalValue() {
-    val player = TestSimpleBasePlayer()
+    val player = FakePlayer()
     player.volume = 0.5f
 
     composeRule.setContent { MuteButton(player, Modifier.testTag("muteButton")) }
@@ -77,7 +77,7 @@ class MuteButtonTest {
 
   @Test
   fun onClick_commandNotAvailable_buttonDisabledClickNotPerformed() {
-    val player = TestSimpleBasePlayer()
+    val player = FakePlayer()
     player.removeCommands(COMMAND_SET_VOLUME)
     composeRule.setContent { MuteButton(player, Modifier.testTag("muteButton")) }
 
@@ -89,7 +89,7 @@ class MuteButtonTest {
 
   @Test
   fun customizeContentDescription() {
-    val player = TestSimpleBasePlayer()
+    val player = FakePlayer()
     composeRule.setContent {
       MuteButton(
         player,
@@ -107,7 +107,7 @@ class MuteButtonTest {
 
   @Test
   fun customizeOnClick() {
-    val player = TestSimpleBasePlayer()
+    val player = FakePlayer()
     var onClickCalled = false
     composeRule.setContent {
       MuteButton(

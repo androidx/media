@@ -25,7 +25,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.media3.common.Player.COMMAND_SEEK_FORWARD
 import androidx.media3.common.SimpleBasePlayer.MediaItemData
-import androidx.media3.test.utils.TestSimpleBasePlayer
+import androidx.media3.test.utils.FakePlayer
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import org.junit.Rule
@@ -41,9 +41,7 @@ class SeekForwardButtonTest {
   @Test
   fun onClick_callsSeekForward() {
     val player =
-      TestSimpleBasePlayer(
-        playlist = listOf(MediaItemData.Builder("SingleItem").setIsSeekable(true).build())
-      )
+      FakePlayer(playlist = listOf(MediaItemData.Builder("SingleItem").setIsSeekable(true).build()))
     player.setSeekForwardIncrementMs(1_000)
     composeRule.setContent { SeekForwardButton(player, Modifier.testTag("seekForwardButton")) }
 
@@ -54,7 +52,7 @@ class SeekForwardButtonTest {
 
   @Test
   fun onClick_commandNotAvailable_buttonDisabledClickNotPerformed() {
-    val player = TestSimpleBasePlayer()
+    val player = FakePlayer()
     player.removeCommands(COMMAND_SEEK_FORWARD)
 
     composeRule.setContent { SeekForwardButton(player, Modifier.testTag("seekForwardButton")) }
@@ -67,7 +65,7 @@ class SeekForwardButtonTest {
 
   @Test
   fun customizeContentDescription() {
-    val player = TestSimpleBasePlayer()
+    val player = FakePlayer()
 
     composeRule.setContent {
       SeekForwardButton(
@@ -83,9 +81,7 @@ class SeekForwardButtonTest {
   @Test
   fun customizeOnClick() {
     val player =
-      TestSimpleBasePlayer(
-        playlist = listOf(MediaItemData.Builder("SingleItem").setIsSeekable(true).build())
-      )
+      FakePlayer(playlist = listOf(MediaItemData.Builder("SingleItem").setIsSeekable(true).build()))
     var onClickCalled = false
     composeRule.setContent {
       SeekForwardButton(

@@ -47,7 +47,7 @@ import kotlinx.coroutines.test.TestCoroutineScheduler
  *   [Player#STATE_READY] without entering [Player#STATE_BUFFERING]. Must not be negative.
  */
 @UnstableApi
-class TestSimpleBasePlayer(
+class FakePlayer(
   playbackState: @Player.State Int = STATE_IDLE,
   playWhenReady: Boolean = false,
   playlist: List<MediaItemData> = ImmutableList.of(),

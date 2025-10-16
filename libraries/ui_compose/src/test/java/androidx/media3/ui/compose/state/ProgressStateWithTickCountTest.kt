@@ -26,7 +26,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.Player.COMMAND_GET_CURRENT_MEDIA_ITEM
 import androidx.media3.common.Player.STATE_READY
 import androidx.media3.common.SimpleBasePlayer.MediaItemData
-import androidx.media3.test.utils.TestSimpleBasePlayer
+import androidx.media3.test.utils.FakePlayer
 import androidx.media3.ui.compose.testutils.advanceTimeByInclusive
 import androidx.media3.ui.compose.testutils.createReadyPlayerWithSingleItem
 import androidx.media3.ui.compose.testutils.rememberCoroutineScopeWithBackgroundCancellation
@@ -192,7 +192,7 @@ class ProgressStateWithTickCountTest {
   fun playerReadyAndPlaying_durationKnownLater_updatePropagatesImmediatelyAsEvent() =
     runTest(testDispatcher) {
       val player =
-        TestSimpleBasePlayer(
+        FakePlayer(
           playbackState = STATE_READY,
           playWhenReady = true,
           playlist = listOf(MediaItemData.Builder("SingleItem").build()),
@@ -225,7 +225,7 @@ class ProgressStateWithTickCountTest {
   fun playerReadyAndPlaying_durationUnknown_currentPositionTickAlwaysZero() =
     runTest(testDispatcher) {
       val player =
-        TestSimpleBasePlayer(
+        FakePlayer(
           playbackState = STATE_READY,
           playWhenReady = true,
           playlist = listOf(MediaItemData.Builder("SingleItem").build()),
@@ -324,7 +324,7 @@ class ProgressStateWithTickCountTest {
   @Test
   fun playerIdle_reportsInitialPlaceholderDataAndDoesNotBlockMainThread() =
     runTest(testDispatcher) {
-      val player = TestSimpleBasePlayer(playbackState = Player.STATE_IDLE, playlist = listOf())
+      val player = FakePlayer(playbackState = Player.STATE_IDLE, playlist = listOf())
       lateinit var state: ProgressStateWithTickCount
       composeTestRule.setContent {
         state =

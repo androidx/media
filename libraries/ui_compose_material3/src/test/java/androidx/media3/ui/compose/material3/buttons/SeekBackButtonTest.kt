@@ -25,7 +25,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.media3.common.Player.COMMAND_SEEK_BACK
 import androidx.media3.common.SimpleBasePlayer.MediaItemData
-import androidx.media3.test.utils.TestSimpleBasePlayer
+import androidx.media3.test.utils.FakePlayer
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import org.junit.Rule
@@ -41,7 +41,7 @@ class SeekBackButtonTest {
   @Test
   fun onClick_callsSeekBack() {
     val player =
-      TestSimpleBasePlayer(
+      FakePlayer(
         playlist =
           listOf(
             MediaItemData.Builder("SingleItem")
@@ -61,7 +61,7 @@ class SeekBackButtonTest {
 
   @Test
   fun onClick_commandNotAvailable_buttonDisabledClickNotPerformed() {
-    val player = TestSimpleBasePlayer()
+    val player = FakePlayer()
     player.setPosition(5_000)
     player.removeCommands(COMMAND_SEEK_BACK)
 
@@ -75,7 +75,7 @@ class SeekBackButtonTest {
 
   @Test
   fun customizeContentDescription() {
-    val player = TestSimpleBasePlayer()
+    val player = FakePlayer()
 
     composeRule.setContent {
       SeekBackButton(player, Modifier.testTag("seekBackButton"), contentDescription = { "Go Back" })
@@ -87,7 +87,7 @@ class SeekBackButtonTest {
   @Test
   fun customizeOnClick() {
     val player =
-      TestSimpleBasePlayer(
+      FakePlayer(
         playlist =
           listOf(
             MediaItemData.Builder("SingleItem")

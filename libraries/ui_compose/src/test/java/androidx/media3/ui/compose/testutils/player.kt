@@ -18,10 +18,10 @@ package androidx.media3.ui.compose.testutils
 
 import androidx.media3.common.Player.STATE_READY
 import androidx.media3.common.SimpleBasePlayer.MediaItemData
-import androidx.media3.test.utils.TestSimpleBasePlayer
+import androidx.media3.test.utils.FakePlayer
 
-internal fun createReadyPlayerWithTwoItems(): TestSimpleBasePlayer =
-  TestSimpleBasePlayer(
+internal fun createReadyPlayerWithTwoItems(): FakePlayer =
+  FakePlayer(
     playbackState = STATE_READY,
     playWhenReady = true,
     playlist =
@@ -31,8 +31,8 @@ internal fun createReadyPlayerWithTwoItems(): TestSimpleBasePlayer =
       ),
   )
 
-internal fun createReadyPlayerWithSingleItem(durationUs: Long = 10_000_000L): TestSimpleBasePlayer =
-  TestSimpleBasePlayer(
+internal fun createReadyPlayerWithSingleItem(durationUs: Long = 10_000_000L): FakePlayer =
+  FakePlayer(
     playbackState = STATE_READY,
     playWhenReady = true,
     playlist = listOf(MediaItemData.Builder("SingleItem").setDurationUs(durationUs).build()),

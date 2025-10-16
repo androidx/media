@@ -31,7 +31,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.unit.height
 import androidx.compose.ui.unit.width
 import androidx.media3.common.VideoSize
-import androidx.media3.test.utils.TestSimpleBasePlayer
+import androidx.media3.test.utils.FakePlayer
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import kotlin.math.abs
@@ -47,7 +47,7 @@ class ContentFrameTest {
 
   @Test
   fun contentFrame_withSurfaceViewType_setsSurfaceViewOnPlayer() {
-    val player = TestSimpleBasePlayer()
+    val player = FakePlayer()
 
     composeTestRule.setContent {
       ContentFrame(player = player, surfaceType = SURFACE_TYPE_SURFACE_VIEW)
@@ -58,7 +58,7 @@ class ContentFrameTest {
 
   @Test
   fun contentFrame_withTextureViewType_setsTextureViewOnPlayer() {
-    val player = TestSimpleBasePlayer()
+    val player = FakePlayer()
 
     composeTestRule.setContent {
       ContentFrame(player = player, surfaceType = SURFACE_TYPE_TEXTURE_VIEW)
@@ -69,7 +69,7 @@ class ContentFrameTest {
 
   @Test
   fun contentFrame_withIdlePlayer_shutterShown() {
-    val player = TestSimpleBasePlayer()
+    val player = FakePlayer()
 
     composeTestRule.setContent { ContentFrame(player) { Box(Modifier.testTag("Shutter")) } }
 
@@ -78,7 +78,7 @@ class ContentFrameTest {
 
   @Test
   fun contentFrame_withFirstFrameRendered_shutterOpens() {
-    val player = TestSimpleBasePlayer()
+    val player = FakePlayer()
     composeTestRule.setContent { ContentFrame(player) { Box(Modifier.testTag("Shutter")) } }
     composeTestRule.onNodeWithTag("Shutter").assertExists()
 
@@ -90,7 +90,7 @@ class ContentFrameTest {
 
   @Test
   fun contentFrame_withContentScaleCrop_contentSizeIncreasesAspectRatioMaintained() {
-    val player = TestSimpleBasePlayer()
+    val player = FakePlayer()
     player.videoSize = VideoSize(360, 480)
     val aspectRatio = player.videoSize.width.toFloat() / player.videoSize.height
     lateinit var contentScale: MutableState<ContentScale>

@@ -22,7 +22,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.Player.STATE_ENDED
 import androidx.media3.common.SimpleBasePlayer.MediaItemData
-import androidx.media3.test.utils.TestSimpleBasePlayer
+import androidx.media3.test.utils.FakePlayer
 import androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance
 import androidx.media3.ui.compose.testutils.createReadyPlayerWithTwoItems
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -71,7 +71,7 @@ class NextButtonStateTest {
 
   @Test
   fun stateIsDisabledStraightAway() {
-    val player = TestSimpleBasePlayer()
+    val player = FakePlayer()
     val state = NextButtonState(player)
 
     assertThat(state.isEnabled).isFalse()
@@ -126,7 +126,7 @@ class NextButtonStateTest {
   @Test
   fun playerInEndedState_singleDynamicLiveItem_onClickToDefaultPosition() {
     val player =
-      TestSimpleBasePlayer(
+      FakePlayer(
         playbackState = STATE_ENDED,
         playWhenReady = true,
         playlist =

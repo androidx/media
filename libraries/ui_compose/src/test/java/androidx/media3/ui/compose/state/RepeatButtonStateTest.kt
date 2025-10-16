@@ -19,7 +19,7 @@ package androidx.media3.ui.compose.state
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.media3.common.Player
-import androidx.media3.test.utils.TestSimpleBasePlayer
+import androidx.media3.test.utils.FakePlayer
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import org.junit.Assert.assertThrows
@@ -36,7 +36,7 @@ class RepeatButtonStateTest {
 
   @Test
   fun playerRepeatModeChanged_buttonRepeatModeChanged() {
-    val player = TestSimpleBasePlayer()
+    val player = FakePlayer()
 
     lateinit var state: RepeatButtonState
     composeTestRule.setContent { state = rememberRepeatButtonState(player = player) }
@@ -51,7 +51,7 @@ class RepeatButtonStateTest {
 
   @Test
   fun buttonClicked_withLimitedNumberOfModes_playerRepeatModeChangedToNextInSequence() {
-    val player = TestSimpleBasePlayer()
+    val player = FakePlayer()
     val state = RepeatButtonState(player, listOf(Player.REPEAT_MODE_OFF, Player.REPEAT_MODE_ONE))
     assertThat(state.repeatModeState).isEqualTo(Player.REPEAT_MODE_OFF)
 
@@ -62,7 +62,7 @@ class RepeatButtonStateTest {
 
   @Test
   fun onClick_whenCommandNotAvailable_throwsIllegalStateException() {
-    val player = TestSimpleBasePlayer()
+    val player = FakePlayer()
     player.removeCommands(Player.COMMAND_SET_REPEAT_MODE)
     val state = RepeatButtonState(player)
 
@@ -72,7 +72,7 @@ class RepeatButtonStateTest {
 
   @Test
   fun onClick_stateBecomesDisabledAfterFirstClick_throwsException() {
-    val player = TestSimpleBasePlayer()
+    val player = FakePlayer()
     val state = RepeatButtonState(player)
 
     state.onClick()
@@ -99,7 +99,7 @@ class RepeatButtonStateTest {
     // irrelevant because we are operating on the live mutable Player object). The expectation then
     // is that the State object and Player finally synchronise, even if it means the UI interaction
     // would have been confusing.
-    val player = TestSimpleBasePlayer()
+    val player = FakePlayer()
     lateinit var state: RepeatButtonState
     composeTestRule.setContent {
       state =
@@ -130,7 +130,7 @@ class RepeatButtonStateTest {
 
   @Test
   fun playerChangesRepeatModeCommandsBeforeEventListenerRegisters_observeGetsTheLatestValues_uiIconInSync() {
-    val player = TestSimpleBasePlayer()
+    val player = FakePlayer()
 
     lateinit var state: RepeatButtonState
     composeTestRule.setContent {

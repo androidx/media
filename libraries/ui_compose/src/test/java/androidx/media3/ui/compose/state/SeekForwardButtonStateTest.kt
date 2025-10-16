@@ -20,7 +20,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.media3.common.C
 import androidx.media3.common.Player
-import androidx.media3.test.utils.TestSimpleBasePlayer
+import androidx.media3.test.utils.FakePlayer
 import androidx.media3.ui.compose.testutils.createReadyPlayerWithTwoItems
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
@@ -37,7 +37,7 @@ class SeekForwardButtonStateTest {
 
   @Test
   fun addSeekForwardCommandToPlayer_buttonStateTogglesFromDisabledToEnabled() {
-    val player = TestSimpleBasePlayer()
+    val player = FakePlayer()
     player.removeCommands(Player.COMMAND_SEEK_FORWARD)
 
     lateinit var state: SeekForwardButtonState
@@ -67,7 +67,7 @@ class SeekForwardButtonStateTest {
 
   @Test
   fun onClick_whenCommandNotAvailable_throwsIllegalStateException() {
-    val player = TestSimpleBasePlayer()
+    val player = FakePlayer()
     player.removeCommands(Player.COMMAND_SEEK_FORWARD)
     lateinit var state: SeekForwardButtonState
     composeTestRule.setContent { state = rememberSeekForwardButtonState(player = player) }
@@ -90,7 +90,7 @@ class SeekForwardButtonStateTest {
 
   @Test
   fun playerChangeSeekForwardIncrement_buttonStateGetsUpdatedValue() {
-    val player = TestSimpleBasePlayer()
+    val player = FakePlayer()
 
     lateinit var state: SeekForwardButtonState
     composeTestRule.setContent { state = rememberSeekForwardButtonState(player = player) }
@@ -145,7 +145,7 @@ class SeekForwardButtonStateTest {
 
   @Test
   fun playerChangesAvailableCommandsBeforeEventListenerRegisters_observeGetsTheLatestValues_uiIconInSync() {
-    val player = TestSimpleBasePlayer()
+    val player = FakePlayer()
 
     lateinit var state: SeekForwardButtonState
     composeTestRule.setContent {

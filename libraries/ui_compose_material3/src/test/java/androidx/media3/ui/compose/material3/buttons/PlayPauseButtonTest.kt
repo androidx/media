@@ -26,7 +26,7 @@ import androidx.compose.ui.test.performClick
 import androidx.media3.common.Player.COMMAND_PLAY_PAUSE
 import androidx.media3.common.Player.STATE_READY
 import androidx.media3.common.SimpleBasePlayer.MediaItemData
-import androidx.media3.test.utils.TestSimpleBasePlayer
+import androidx.media3.test.utils.FakePlayer
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import org.junit.Rule
@@ -42,7 +42,7 @@ class PlayPauseButtonTest {
   @Test
   fun onClick_callsPlay() {
     val player =
-      TestSimpleBasePlayer(
+      FakePlayer(
         playbackState = STATE_READY,
         playWhenReady = false,
         playlist = listOf(MediaItemData.Builder("SingleItem").build()),
@@ -57,7 +57,7 @@ class PlayPauseButtonTest {
   @Test
   fun onClick_callsPause() {
     val player =
-      TestSimpleBasePlayer(
+      FakePlayer(
         playbackState = STATE_READY,
         playWhenReady = true,
         playlist = listOf(MediaItemData.Builder("SingleItem").build()),
@@ -71,7 +71,7 @@ class PlayPauseButtonTest {
 
   @Test
   fun onClick_commandNotAvailable_buttonDisabledClickNotPerformed() {
-    val player = TestSimpleBasePlayer()
+    val player = FakePlayer()
     player.removeCommands(COMMAND_PLAY_PAUSE)
     composeRule.setContent { PlayPauseButton(player, Modifier.testTag("ppButton")) }
 
@@ -84,7 +84,7 @@ class PlayPauseButtonTest {
   @Test
   fun customizeContentDescription() {
     val player =
-      TestSimpleBasePlayer(
+      FakePlayer(
         playbackState = STATE_READY,
         playWhenReady = false,
         playlist = listOf(MediaItemData.Builder("SingleItem").build()),
@@ -106,7 +106,7 @@ class PlayPauseButtonTest {
   @Test
   fun customizeOnClick() {
     val player =
-      TestSimpleBasePlayer(
+      FakePlayer(
         playbackState = STATE_READY,
         playWhenReady = false,
         playlist = listOf(MediaItemData.Builder("SingleItem").build()),
