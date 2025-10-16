@@ -307,6 +307,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     videoFrameProcessingTaskExecutor.verifyVideoFrameProcessingThread();
     if (defaultShaderProgram != null) {
       defaultShaderProgram.release();
+      defaultShaderProgram = null;
     }
     try {
       outputTexturePool.deleteAllTextures();
@@ -426,6 +427,12 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       return;
     }
     try {
+      if (defaultShaderProgram != null) {
+        // Work around a bug where some devices crash if we first release the output EGLSurface,
+        // and then delete the GL program that was writing into it.
+        defaultShaderProgram.release();
+        defaultShaderProgram = null;
+      }
       // outputEglSurface will be destroyed only if it's not current.
       // See EGL docs. Make the placeholder surface current before destroying.
       GlUtil.focusEglSurface(
@@ -434,6 +441,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     } catch (GlUtil.GlException e) {
       videoFrameProcessorListenerExecutor.execute(
           () -> videoFrameProcessorListener.onError(VideoFrameProcessingException.from(e)));
+    } catch (VideoFrameProcessingException e) {
+      videoFrameProcessorListenerExecutor.execute(() -> videoFrameProcessorListener.onError(e));
     } finally {
       this.outputEglSurface = null;
     }
