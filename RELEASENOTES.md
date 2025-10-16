@@ -101,6 +101,8 @@
         a `playerName` of `PlayerId.Preload.name` ("preload"), and inject the
         created `DefaultLoadControl` via
         `DefaultPreloadManager.Builder.setLoadControl(LoadControl)`.
+    *   Add `cloneAndSet(int, int)` to `ShuffleOrder` with a default
+        implementation ([#2834](https://github.com/androidx/media/pull/2834)).
 *   Transformer:
     *   Add support for `COMMAND_SET_AUDIO_ATTRIBUTES` and audio focus handling
         in `CompositionPlayer`.
