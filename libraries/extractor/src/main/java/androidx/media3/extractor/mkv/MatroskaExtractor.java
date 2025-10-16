@@ -590,6 +590,12 @@ public class MatroskaExtractor implements Extractor {
     currentCueTimeUs = C.TIME_UNSET;
     currentCueTrackNumber = C.INDEX_UNSET;
     currentCueClusterPosition = C.INDEX_UNSET;
+    // To prevent creating duplicate cue points on a re-parse, clear any existing cue data if the
+    // seek map has not yet been sent. Once sent, the cue data is considered final, and subsequent
+    // Cues elements will be ignored by the parsing logic.
+    if (!sentSeekMap) {
+      perTrackCues.clear();
+    }
     for (int i = 0; i < tracks.size(); i++) {
       tracks.valueAt(i).reset();
     }
@@ -766,16 +772,22 @@ public class MatroskaExtractor implements Extractor {
         seekEntryPosition = C.INDEX_UNSET;
         break;
       case ID_CUES:
-        inCuesElement = true;
+        if (!sentSeekMap) {
+          inCuesElement = true;
+        }
         break;
       case ID_CUE_POINT:
-        assertInCues(id);
-        currentCueTimeUs = C.TIME_UNSET;
+        if (!sentSeekMap) {
+          assertInCues(id);
+          currentCueTimeUs = C.TIME_UNSET;
+        }
         break;
       case ID_CUE_TRACK_POSITIONS:
-        assertInCues(id);
-        currentCueTrackNumber = C.INDEX_UNSET;
-        currentCueClusterPosition = C.INDEX_UNSET;
+        if (!sentSeekMap) {
+          assertInCues(id);
+          currentCueTrackNumber = C.INDEX_UNSET;
+          currentCueClusterPosition = C.INDEX_UNSET;
+        }
         break;
       case ID_CLUSTER:
         if (!sentSeekMap) {
@@ -866,22 +878,24 @@ public class MatroskaExtractor implements Extractor {
             extractorOutput.seekMap(seekMap);
           }
           sentSeekMap = true;
+          inCuesElement = false;
         }
-        inCuesElement = false;
         break;
       case ID_CUE_TRACK_POSITIONS:
-        assertInCues(id);
-        if (currentCueTimeUs != C.TIME_UNSET
-            && currentCueTrackNumber != C.INDEX_UNSET
-            && currentCueClusterPosition != C.INDEX_UNSET) {
-          List<MatroskaSeekMap.CuePointData> trackCues = perTrackCues.get(currentCueTrackNumber);
-          if (trackCues == null) {
-            trackCues = new ArrayList<>();
-            perTrackCues.put(currentCueTrackNumber, trackCues);
+        if (!sentSeekMap) {
+          assertInCues(id);
+          if (currentCueTimeUs != C.TIME_UNSET
+              && currentCueTrackNumber != C.INDEX_UNSET
+              && currentCueClusterPosition != C.INDEX_UNSET) {
+            List<MatroskaSeekMap.CuePointData> trackCues = perTrackCues.get(currentCueTrackNumber);
+            if (trackCues == null) {
+              trackCues = new ArrayList<>();
+              perTrackCues.put(currentCueTrackNumber, trackCues);
+            }
+            trackCues.add(
+                new MatroskaSeekMap.CuePointData(
+                    currentCueTimeUs, segmentContentPosition + currentCueClusterPosition));
           }
-          trackCues.add(
-              new MatroskaSeekMap.CuePointData(
-                  currentCueTimeUs, segmentContentPosition + currentCueClusterPosition));
         }
         break;
       case ID_BLOCK_GROUP:
@@ -1138,17 +1152,23 @@ public class MatroskaExtractor implements Extractor {
         }
         break;
       case ID_CUE_TIME:
-        assertInCues(id);
-        currentCueTimeUs = scaleTimecodeToUs(value);
+        if (!sentSeekMap) {
+          assertInCues(id);
+          currentCueTimeUs = scaleTimecodeToUs(value);
+        }
         break;
       case ID_CUE_TRACK:
-        assertInCues(id);
-        currentCueTrackNumber = (int) value;
+        if (!sentSeekMap) {
+          assertInCues(id);
+          currentCueTrackNumber = (int) value;
+        }
         break;
       case ID_CUE_CLUSTER_POSITION:
-        assertInCues(id);
-        if (currentCueClusterPosition == C.INDEX_UNSET) {
-          currentCueClusterPosition = value;
+        if (!sentSeekMap) {
+          assertInCues(id);
+          if (currentCueClusterPosition == C.INDEX_UNSET) {
+            currentCueClusterPosition = value;
+          }
         }
         break;
       case ID_TIME_CODE:
