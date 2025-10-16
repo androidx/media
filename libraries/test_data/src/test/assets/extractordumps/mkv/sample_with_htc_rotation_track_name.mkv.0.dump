@@ -19,7 +19,6 @@ track 1:
     rotationDegrees = 90
     selectionFlags = [default]
     language = und
-    metadata = entries=[ThumbnailMetadata: presentationTimeUs=0]
     initializationData:
       data = length 30, hash F6F3D010
       data = length 10, hash 7A0D0F2B

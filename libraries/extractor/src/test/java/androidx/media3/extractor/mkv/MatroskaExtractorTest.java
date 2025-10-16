@@ -58,14 +58,6 @@ public final class MatroskaExtractorTest {
   }
 
   @Test
-  public void mkvSampleWithMultipleKeyFrames() throws Exception {
-    ExtractorAsserts.assertBehavior(
-        getExtractorFactory(subtitlesParsedDuringExtraction),
-        "media/mkv/sample_with_multiple_key_frames.mkv",
-        simulationConfig);
-  }
-
-  @Test
   public void mkvSample_withSubripSubtitles() throws Exception {
     ExtractorAsserts.assertBehavior(
         getExtractorFactory(subtitlesParsedDuringExtraction),

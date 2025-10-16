@@ -17,7 +17,6 @@ track 1:
     height = 540
     selectionFlags = [default]
     language = und
-    metadata = entries=[ThumbnailMetadata: presentationTimeUs=0]
   sample 0:
     time = 0
     flags = 1

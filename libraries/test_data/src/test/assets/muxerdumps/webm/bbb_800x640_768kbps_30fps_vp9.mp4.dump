@@ -21,7 +21,6 @@ track 1:
       colorTransfer = 3
     selectionFlags = [default]
     language = und
-    metadata = entries=[ThumbnailMetadata: presentationTimeUs=0]
     initializationData:
       data = length 12, hash 53AEAE99
   sample 0:
