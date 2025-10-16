@@ -28,9 +28,7 @@ import androidx.media3.test.utils.FakeExtractorOutput;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import com.google.common.base.Ascii;
-import com.google.common.collect.ImmutableList;
 import com.google.testing.junit.testparameterinjector.TestParameter;
-import com.google.testing.junit.testparameterinjector.TestParameterValuesProvider;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestParameterInjector;
@@ -38,13 +36,6 @@ import org.robolectric.RobolectricTestParameterInjector;
 /** Unit test for {@link Mp3Extractor}. */
 @RunWith(RobolectricTestParameterInjector.class)
 public final class Mp3ExtractorTest {
-
-  private static final class SimulationConfigProvider extends TestParameterValuesProvider {
-    @Override
-    protected ImmutableList<ExtractorAsserts.SimulationConfig> provideValues(Context context) {
-      return ExtractorAsserts.configs();
-    }
-  }
 
   private enum XingHeaderFlagConfig {
     NONE(/* flags= */ 0),
@@ -60,7 +51,7 @@ public final class Mp3ExtractorTest {
   @Test
   public void mp3SampleWithXingHeader(
       @TestParameter XingHeaderFlagConfig flagConfig,
-      @TestParameter(valuesProvider = SimulationConfigProvider.class)
+      @TestParameter(valuesProvider = ExtractorAsserts.ConfigProvider.class)
           ExtractorAsserts.SimulationConfig simulationConfig)
       throws Exception {
     ExtractorAsserts.assertBehavior(
@@ -86,7 +77,7 @@ public final class Mp3ExtractorTest {
   @Test
   public void mp3SampleWithXingHeader_noTableOfContents(
       @TestParameter XingHeaderNoTocFlagConfig flagConfig,
-      @TestParameter(valuesProvider = SimulationConfigProvider.class)
+      @TestParameter(valuesProvider = ExtractorAsserts.ConfigProvider.class)
           ExtractorAsserts.SimulationConfig simulationConfig)
       throws Exception {
     String inputFilePath = "media/mp3/bear-vbr-xing-header-no-toc.mp3";
@@ -109,7 +100,7 @@ public final class Mp3ExtractorTest {
 
   @Test
   public void mp3SampleWithInfoHeader(
-      @TestParameter(valuesProvider = SimulationConfigProvider.class)
+      @TestParameter(valuesProvider = ExtractorAsserts.ConfigProvider.class)
           ExtractorAsserts.SimulationConfig simulationConfig)
       throws Exception {
     ExtractorAsserts.assertBehavior(
@@ -122,7 +113,7 @@ public final class Mp3ExtractorTest {
   // https://github.com/androidx/media/issues/1376#issuecomment-2117393653
   @Test
   public void mp3SampleWithInfoHeaderAndPcutFrame(
-      @TestParameter(valuesProvider = SimulationConfigProvider.class)
+      @TestParameter(valuesProvider = ExtractorAsserts.ConfigProvider.class)
           ExtractorAsserts.SimulationConfig simulationConfig)
       throws Exception {
     ExtractorAsserts.assertBehavior(
@@ -135,7 +126,7 @@ public final class Mp3ExtractorTest {
   // https://github.com/androidx/media/issues/1480
   @Test
   public void mp3SampleWithInfoHeaderAndTrailingGarbage(
-      @TestParameter(valuesProvider = SimulationConfigProvider.class)
+      @TestParameter(valuesProvider = ExtractorAsserts.ConfigProvider.class)
           ExtractorAsserts.SimulationConfig simulationConfig)
       throws Exception {
     // This test file is test-cbr-info-header.mp3 with 150kB of 0xDEADBEEF garbage appended on the
@@ -153,7 +144,7 @@ public final class Mp3ExtractorTest {
 
   @Test
   public void mp3SampleWithVbriHeader(
-      @TestParameter(valuesProvider = SimulationConfigProvider.class)
+      @TestParameter(valuesProvider = ExtractorAsserts.ConfigProvider.class)
           ExtractorAsserts.SimulationConfig simulationConfig)
       throws Exception {
     ExtractorAsserts.assertBehavior(
@@ -166,7 +157,7 @@ public final class Mp3ExtractorTest {
   // https://github.com/androidx/media/issues/1904
   @Test
   public void mp3SampleWithVbriHeaderWithTruncatedToC(
-      @TestParameter(valuesProvider = SimulationConfigProvider.class)
+      @TestParameter(valuesProvider = ExtractorAsserts.ConfigProvider.class)
           ExtractorAsserts.SimulationConfig simulationConfig)
       throws Exception {
     ExtractorAsserts.assertBehavior(
@@ -190,7 +181,7 @@ public final class Mp3ExtractorTest {
   @Test
   public void mp3SampleWithCbrSeeker(
       @TestParameter CbrSeekerFlagConfig flagConfig,
-      @TestParameter(valuesProvider = SimulationConfigProvider.class)
+      @TestParameter(valuesProvider = ExtractorAsserts.ConfigProvider.class)
           ExtractorAsserts.SimulationConfig simulationConfig)
       throws Exception {
     String dumpFilePrefix =
@@ -207,7 +198,7 @@ public final class Mp3ExtractorTest {
 
   @Test
   public void mp3SampleWithIndexSeeker(
-      @TestParameter(valuesProvider = SimulationConfigProvider.class)
+      @TestParameter(valuesProvider = ExtractorAsserts.ConfigProvider.class)
           ExtractorAsserts.SimulationConfig simulationConfig)
       throws Exception {
     ExtractorAsserts.assertBehavior(
@@ -220,7 +211,7 @@ public final class Mp3ExtractorTest {
   // https://github.com/androidx/media/issues/1563
   @Test
   public void mp3CbrSampleWithNoSeekTableAndTrailingGarbage(
-      @TestParameter(valuesProvider = SimulationConfigProvider.class)
+      @TestParameter(valuesProvider = ExtractorAsserts.ConfigProvider.class)
           ExtractorAsserts.SimulationConfig simulationConfig)
       throws Exception {
     assumeFalse(
@@ -235,7 +226,7 @@ public final class Mp3ExtractorTest {
 
   @Test
   public void trimmedMp3Sample(
-      @TestParameter(valuesProvider = SimulationConfigProvider.class)
+      @TestParameter(valuesProvider = ExtractorAsserts.ConfigProvider.class)
           ExtractorAsserts.SimulationConfig simulationConfig)
       throws Exception {
     ExtractorAsserts.assertBehavior(
@@ -256,7 +247,7 @@ public final class Mp3ExtractorTest {
   @Test
   public void mp3SampleWithId3(
       @TestParameter Id3FlagConfig flagConfig,
-      @TestParameter(valuesProvider = SimulationConfigProvider.class)
+      @TestParameter(valuesProvider = ExtractorAsserts.ConfigProvider.class)
           ExtractorAsserts.SimulationConfig simulationConfig)
       throws Exception {
     String dumpFilePrefix =
@@ -273,7 +264,7 @@ public final class Mp3ExtractorTest {
 
   @Test
   public void mp3SampleWithId3NumericGenre(
-      @TestParameter(valuesProvider = SimulationConfigProvider.class)
+      @TestParameter(valuesProvider = ExtractorAsserts.ConfigProvider.class)
           ExtractorAsserts.SimulationConfig simulationConfig)
       throws Exception {
     ExtractorAsserts.assertBehavior(

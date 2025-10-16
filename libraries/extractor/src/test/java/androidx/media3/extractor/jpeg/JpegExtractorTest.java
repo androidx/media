@@ -21,9 +21,7 @@ import androidx.media3.test.utils.ExtractorAsserts;
 import androidx.media3.test.utils.FakeExtractorInput;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
-import com.google.common.collect.ImmutableList;
 import com.google.testing.junit.testparameterinjector.TestParameter;
-import com.google.testing.junit.testparameterinjector.TestParameterValuesProvider;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestParameterInjector;
@@ -32,16 +30,9 @@ import org.robolectric.RobolectricTestParameterInjector;
 @RunWith(RobolectricTestParameterInjector.class)
 public final class JpegExtractorTest {
 
-  private static final class SimulationConfigProvider extends TestParameterValuesProvider {
-    @Override
-    protected ImmutableList<ExtractorAsserts.SimulationConfig> provideValues(Context context) {
-      return ExtractorAsserts.configs();
-    }
-  }
-
   @Test
   public void sampleNonMotionPhotoShortened_extractImage(
-      @TestParameter(valuesProvider = SimulationConfigProvider.class)
+      @TestParameter(valuesProvider = ExtractorAsserts.ConfigProvider.class)
           ExtractorAsserts.SimulationConfig simulationConfig)
       throws Exception {
     ExtractorAsserts.assertBehavior(
@@ -57,7 +48,7 @@ public final class JpegExtractorTest {
 
   @Test
   public void samplePixelMotionPhotoShortened_extractImage(
-      @TestParameter(valuesProvider = SimulationConfigProvider.class)
+      @TestParameter(valuesProvider = ExtractorAsserts.ConfigProvider.class)
           ExtractorAsserts.SimulationConfig simulationConfig)
       throws Exception {
     ExtractorAsserts.assertBehavior(
@@ -73,7 +64,7 @@ public final class JpegExtractorTest {
 
   @Test
   public void samplePixelMotionPhotoShortened_extractMotionPhoto(
-      @TestParameter(valuesProvider = SimulationConfigProvider.class)
+      @TestParameter(valuesProvider = ExtractorAsserts.ConfigProvider.class)
           ExtractorAsserts.SimulationConfig simulationConfig)
       throws Exception {
     ExtractorAsserts.assertBehavior(
@@ -85,7 +76,7 @@ public final class JpegExtractorTest {
 
   @Test
   public void samplePixelMotionPhotoJfifSegmentShortened_extractMotionPhoto(
-      @TestParameter(valuesProvider = SimulationConfigProvider.class)
+      @TestParameter(valuesProvider = ExtractorAsserts.ConfigProvider.class)
           ExtractorAsserts.SimulationConfig simulationConfig)
       throws Exception {
     ExtractorAsserts.assertBehavior(
@@ -97,7 +88,7 @@ public final class JpegExtractorTest {
 
   @Test
   public void samplePixelMotionPhotoVideoRemovedShortened_extractMotionPhoto(
-      @TestParameter(valuesProvider = SimulationConfigProvider.class)
+      @TestParameter(valuesProvider = ExtractorAsserts.ConfigProvider.class)
           ExtractorAsserts.SimulationConfig simulationConfig)
       throws Exception {
     ExtractorAsserts.assertBehavior(
@@ -109,7 +100,7 @@ public final class JpegExtractorTest {
 
   @Test
   public void samplePixelMotionPhotoWithoutExifShortened_extractMotionPhoto(
-      @TestParameter(valuesProvider = SimulationConfigProvider.class)
+      @TestParameter(valuesProvider = ExtractorAsserts.ConfigProvider.class)
           ExtractorAsserts.SimulationConfig simulationConfig)
       throws Exception {
     ExtractorAsserts.assertBehavior(
@@ -121,7 +112,7 @@ public final class JpegExtractorTest {
 
   @Test
   public void sampleSsMotionPhotoShortened_extractMotionPhoto(
-      @TestParameter(valuesProvider = SimulationConfigProvider.class)
+      @TestParameter(valuesProvider = ExtractorAsserts.ConfigProvider.class)
           ExtractorAsserts.SimulationConfig simulationConfig)
       throws Exception {
     ExtractorAsserts.assertBehavior(
@@ -134,7 +125,7 @@ public final class JpegExtractorTest {
   /** Regression test for [internal b/301025983]. */
   @Test
   public void samplePixelMotionPhotoWithTwoHevcTracks_extractMotionPhoto(
-      @TestParameter(valuesProvider = SimulationConfigProvider.class)
+      @TestParameter(valuesProvider = ExtractorAsserts.ConfigProvider.class)
           ExtractorAsserts.SimulationConfig simulationConfig)
       throws Exception {
     ExtractorAsserts.assertBehavior(

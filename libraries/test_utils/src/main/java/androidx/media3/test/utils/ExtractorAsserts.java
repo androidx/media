@@ -34,6 +34,8 @@ import androidx.test.core.app.ApplicationProvider;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import com.google.testing.junit.testparameterinjector.TestParameterValuesProvider;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
@@ -41,6 +43,21 @@ import java.util.List;
 /** Assertion methods for {@link Extractor}. */
 @UnstableApi
 public final class ExtractorAsserts {
+
+  /**
+   * A {@link TestParameterValuesProvider} that provides {@link SimulationConfig} objects from
+   * {@link #configs()} to exercise different extractor paths.
+   *
+   * <p>This is intended to be used from tests using either {@link TestParameterInjector} or {@code
+   * org.robolectric.RobolectricTestParameterInjector}.
+   */
+  public static final class ConfigProvider extends TestParameterValuesProvider {
+    @Override
+    protected ImmutableList<SimulationConfig> provideValues(
+        TestParameterValuesProvider.Context context) {
+      return ExtractorAsserts.configs();
+    }
+  }
 
   /**
    * Returns a list of arrays containing {@link SimulationConfig} objects to exercise different

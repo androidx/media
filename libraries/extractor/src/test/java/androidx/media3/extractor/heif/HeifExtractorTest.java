@@ -21,9 +21,7 @@ import androidx.media3.test.utils.ExtractorAsserts;
 import androidx.media3.test.utils.FakeExtractorInput;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
-import com.google.common.collect.ImmutableList;
 import com.google.testing.junit.testparameterinjector.TestParameter;
-import com.google.testing.junit.testparameterinjector.TestParameterValuesProvider;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestParameterInjector;
@@ -32,16 +30,9 @@ import org.robolectric.RobolectricTestParameterInjector;
 @RunWith(RobolectricTestParameterInjector.class)
 public final class HeifExtractorTest {
 
-  private static final class SimulationConfigProvider extends TestParameterValuesProvider {
-    @Override
-    protected ImmutableList<ExtractorAsserts.SimulationConfig> provideValues(Context context) {
-      return ExtractorAsserts.configs();
-    }
-  }
-
   @Test
   public void sampleStillPhoto_extractImage(
-      @TestParameter(valuesProvider = SimulationConfigProvider.class)
+      @TestParameter(valuesProvider = ExtractorAsserts.ConfigProvider.class)
           ExtractorAsserts.SimulationConfig simulationConfig)
       throws Exception {
     ExtractorAsserts.assertBehavior(
@@ -56,7 +47,7 @@ public final class HeifExtractorTest {
 
   @Test
   public void sampleMotionPhoto_extractImage(
-      @TestParameter(valuesProvider = SimulationConfigProvider.class)
+      @TestParameter(valuesProvider = ExtractorAsserts.ConfigProvider.class)
           ExtractorAsserts.SimulationConfig simulationConfig)
       throws Exception {
     ExtractorAsserts.assertBehavior(
@@ -70,7 +61,7 @@ public final class HeifExtractorTest {
 
   @Test
   public void sampleMotionPhoto_extractMotionPhoto(
-      @TestParameter(valuesProvider = SimulationConfigProvider.class)
+      @TestParameter(valuesProvider = ExtractorAsserts.ConfigProvider.class)
           ExtractorAsserts.SimulationConfig simulationConfig)
       throws Exception {
     ExtractorAsserts.assertBehavior(

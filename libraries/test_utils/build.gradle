@@ -48,6 +48,7 @@ dependencies {
     compileOnly 'org.checkerframework:checker-qual:' + checkerframeworkVersion
     compileOnly 'org.jetbrains.kotlin:kotlin-annotations-jvm:' + kotlinAnnotationsVersion
     implementation 'androidx.annotation:annotation:' + androidxAnnotationVersion
+    implementation 'com.google.testparameterinjector:test-parameter-injector:' + testParameterInjectorVersion
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-test:' + kotlinxCoroutinesVersion
     implementation project(modulePrefix + 'lib-inspector')
     api project(modulePrefix + 'lib-exoplayer')
