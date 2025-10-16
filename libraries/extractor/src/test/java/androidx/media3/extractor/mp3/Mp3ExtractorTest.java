@@ -18,6 +18,7 @@ package androidx.media3.extractor.mp3;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assume.assumeFalse;
 
+import androidx.annotation.Nullable;
 import androidx.media3.extractor.Extractor;
 import androidx.media3.extractor.PositionHolder;
 import androidx.media3.extractor.SeekPoint;
@@ -80,21 +81,12 @@ public final class Mp3ExtractorTest {
       @TestParameter(valuesProvider = ExtractorAsserts.ConfigProvider.class)
           ExtractorAsserts.SimulationConfig simulationConfig)
       throws Exception {
-    String inputFilePath = "media/mp3/bear-vbr-xing-header-no-toc.mp3";
-    String dumpFilePrefix;
-    if (!flagConfig.equals(XingHeaderNoTocFlagConfig.NONE)) {
-      dumpFilePrefix =
-          inputFilePath.replaceFirst("media", "extractordumps")
-              + "."
-              + Ascii.toLowerCase(flagConfig.name()).replace('_', '-');
-    } else {
-      dumpFilePrefix = null;
-    }
+    String file = "media/mp3/bear-vbr-xing-header-no-toc.mp3";
     ExtractorAsserts.assertBehavior(
         () -> new Mp3Extractor(flagConfig.flags),
-        inputFilePath,
+        file,
         /* peekLimit= */ 1300,
-        new AssertionConfig.Builder().setDumpFilesPrefix(dumpFilePrefix).build(),
+        new AssertionConfig.Builder().setDumpFilesPrefix(getDumpFilePath(file, flagConfig)).build(),
         simulationConfig);
   }
 
@@ -168,7 +160,7 @@ public final class Mp3ExtractorTest {
   }
 
   private enum CbrSeekerFlagConfig {
-    DEFAULT(/* flags= */ 0),
+    NONE(/* flags= */ 0),
     CBR_SEEKING_ALWAYS(Mp3Extractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING_ALWAYS);
 
     private final @Mp3Extractor.Flags int flags;
@@ -184,15 +176,12 @@ public final class Mp3ExtractorTest {
       @TestParameter(valuesProvider = ExtractorAsserts.ConfigProvider.class)
           ExtractorAsserts.SimulationConfig simulationConfig)
       throws Exception {
-    String dumpFilePrefix =
-        flagConfig == CbrSeekerFlagConfig.CBR_SEEKING_ALWAYS
-            ? "extractordumps/mp3/bear-cbr_cbr-seeking-always-enabled"
-            : null;
+    String file = "media/mp3/bear-cbr-variable-frame-size-no-seek-table.mp3";
     ExtractorAsserts.assertBehavior(
         () -> new Mp3Extractor(flagConfig.flags),
-        "media/mp3/bear-cbr-variable-frame-size-no-seek-table.mp3",
+        file,
         /* peekLimit= */ 1500,
-        new AssertionConfig.Builder().setDumpFilesPrefix(dumpFilePrefix).build(),
+        new AssertionConfig.Builder().setDumpFilesPrefix(getDumpFilePath(file, flagConfig)).build(),
         simulationConfig);
   }
 
@@ -234,8 +223,8 @@ public final class Mp3ExtractorTest {
   }
 
   private enum Id3FlagConfig {
-    ENABLED(/* flags= */ 0),
-    DISABLED(Mp3Extractor.FLAG_DISABLE_ID3_METADATA);
+    ID3_ENABLED(/* flags= */ 0),
+    ID3_DISABLED(Mp3Extractor.FLAG_DISABLE_ID3_METADATA);
 
     private final @Mp3Extractor.Flags int flags;
 
@@ -250,15 +239,12 @@ public final class Mp3ExtractorTest {
       @TestParameter(valuesProvider = ExtractorAsserts.ConfigProvider.class)
           ExtractorAsserts.SimulationConfig simulationConfig)
       throws Exception {
-    String dumpFilePrefix =
-        flagConfig == Id3FlagConfig.ENABLED
-            ? "extractordumps/mp3/bear-id3-enabled"
-            : "extractordumps/mp3/bear-id3-disabled";
+    String file = "media/mp3/bear-id3.mp3";
     ExtractorAsserts.assertBehavior(
         () -> new Mp3Extractor(flagConfig.flags),
-        "media/mp3/bear-id3.mp3",
+        file,
         /* peekLimit= */ 41_000,
-        new AssertionConfig.Builder().setDumpFilesPrefix(dumpFilePrefix).build(),
+        new AssertionConfig.Builder().setDumpFilesPrefix(getDumpFilePath(file, flagConfig)).build(),
         simulationConfig);
   }
 
@@ -297,5 +283,15 @@ public final class Mp3ExtractorTest {
     while (extractor.read(input, positionHolder) != Extractor.RESULT_END_OF_INPUT) {}
 
     assertThat(output.seekMap.getDurationUs()).isEqualTo(durationBeforeSeekUs);
+  }
+
+  @Nullable
+  private static String getDumpFilePath(String inputFilePath, Enum<?> flagConfig) {
+    String configName = flagConfig.name();
+    if (configName.equals("NONE")) {
+      return null;
+    }
+    String suffix = "." + Ascii.toLowerCase(configName).replace('_', '-');
+    return inputFilePath.replaceFirst("media", "extractordumps") + suffix;
   }
 }
