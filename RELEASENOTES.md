@@ -104,14 +104,20 @@
         a `playerName` of `PlayerId.Preload.name` ("preload"), and inject the
         created `DefaultLoadControl` via
         `DefaultPreloadManager.Builder.setLoadControl(LoadControl)`.
-*   Transformer:
+*   CompositionPlayer:
+    *   Publish `CompositionPlayer` under a new `@ExperimentalApi` annotation to
+        indicate it is available for experimentation, but is still under
+        development. Some APIs are likely to change significantly in future
+        releases, and there are known issues and limitations with some use-cases
+        (some undocumented).
     *   Add support for `COMMAND_SET_AUDIO_ATTRIBUTES` and audio focus handling
         in `CompositionPlayer`.
+    *   Add support for speed changing in secondary sequences in
+        `CompositionPlayer`.
+*   Transformer:
     *   Use `InAppMp4Muxer` as default muxer.
     *   Add `EditedMediaItem.Builder#setSpeed()` and deprecate
         `Effects#createExperimentalSpeedChangingEffects()`.
-    *   Add support for speed changing in secondary sequences in
-        `CompositionPlayer`.
     *   Replace `forceAudioTrack` and `forceVideoTrack` with `trackTypes` in
         `EditedMediaItemSequence`.
 *   Track Selection:

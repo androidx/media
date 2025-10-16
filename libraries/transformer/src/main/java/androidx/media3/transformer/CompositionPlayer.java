@@ -15,7 +15,6 @@
  */
 package androidx.media3.transformer;
 
-import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
 import static androidx.media3.common.util.GlUtil.destroyEglContext;
 import static androidx.media3.common.util.Util.constrainValue;
 import static androidx.media3.common.util.Util.usToMs;
@@ -75,12 +74,12 @@ import androidx.media3.common.audio.SpeedProvider;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.Consumer;
+import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.GlUtil.GlException;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Size;
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.effect.DefaultGlObjectsProvider;
@@ -149,8 +148,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * {@linkplain Player#REPEAT_MODE_ALL all} of the {@link Composition}, or {@linkplain
  * Player#REPEAT_MODE_OFF off}.
  */
-@UnstableApi
-@RestrictTo(LIBRARY_GROUP)
+@ExperimentalApi
 public final class CompositionPlayer extends SimpleBasePlayer {
 
   /** A builder for {@link CompositionPlayer} instances. */

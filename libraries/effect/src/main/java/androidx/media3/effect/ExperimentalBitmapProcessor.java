@@ -15,7 +15,6 @@
  */
 package androidx.media3.effect;
 
-import static androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP;
 import static androidx.media3.common.util.GlUtil.EGL_CONFIG_ATTRIBUTES_RGBA_8888;
 import static androidx.media3.common.util.GlUtil.getDefaultEglDisplay;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -28,7 +27,6 @@ import android.graphics.Bitmap;
 import android.opengl.EGLContext;
 import android.opengl.EGLDisplay;
 import androidx.annotation.Nullable;
-import androidx.annotation.RestrictTo;
 import androidx.concurrent.futures.CallbackToFutureAdapter;
 import androidx.concurrent.futures.CallbackToFutureAdapter.Completer;
 import androidx.media3.common.ColorInfo;
@@ -37,9 +35,9 @@ import androidx.media3.common.Format;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.Consumer;
+import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.GlUtil.GlException;
-import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
@@ -79,8 +77,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  * <p><b>This class is NOT thread-safe.</b> All public methods must be called from the same thread
  * that instantiated the instance. This is verified by the implementation.
  */
-@UnstableApi
-@RestrictTo(LIBRARY_GROUP)
+@ExperimentalApi
 public final class ExperimentalBitmapProcessor {
 
   /** A builder for {@link ExperimentalBitmapProcessor} instances. */
