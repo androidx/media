@@ -90,7 +90,10 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 @UnstableApi
 public final class DefaultAudioSink implements AudioSink {
 
-  /** Provider for {@link AudioTrack} instances. */
+  /**
+   * @deprecated Use {@link AudioTrackAudioOutputProvider} instead.
+   */
+  @Deprecated
   public interface AudioTrackProvider {
 
     /** The default provider for {@link AudioTrack} instances. */
@@ -270,6 +273,7 @@ public final class DefaultAudioSink implements AudioSink {
   }
 
   /** A builder to create {@link DefaultAudioSink} instances. */
+  @SuppressWarnings("deprecation") // Keeping deprecated AudioTrackProvider as field.
   public static final class Builder {
 
     @Nullable private final Context context;
@@ -280,7 +284,8 @@ public final class DefaultAudioSink implements AudioSink {
 
     private boolean buildCalled;
     private AudioTrackBufferSizeProvider audioTrackBufferSizeProvider;
-    private AudioTrackProvider audioTrackProvider;
+    private @MonotonicNonNull AudioOutputProvider audioOutputProvider;
+    private @MonotonicNonNull AudioTrackProvider audioTrackProvider;
     private @MonotonicNonNull AudioOffloadSupportProvider audioOffloadSupportProvider;
     @Nullable private AudioOffloadListener audioOffloadListener;
 
@@ -291,8 +296,6 @@ public final class DefaultAudioSink implements AudioSink {
     public Builder() {
       this.context = null;
       audioCapabilities = DEFAULT_AUDIO_CAPABILITIES;
-      audioTrackBufferSizeProvider = AudioTrackBufferSizeProvider.DEFAULT;
-      audioTrackProvider = AudioTrackProvider.DEFAULT;
     }
 
     /**
@@ -303,8 +306,6 @@ public final class DefaultAudioSink implements AudioSink {
     public Builder(Context context) {
       this.context = context;
       audioCapabilities = DEFAULT_AUDIO_CAPABILITIES;
-      audioTrackBufferSizeProvider = AudioTrackBufferSizeProvider.DEFAULT;
-      audioTrackProvider = AudioTrackProvider.DEFAULT;
     }
 
     /**
@@ -382,7 +383,14 @@ public final class DefaultAudioSink implements AudioSink {
      * #configure} is called with {@code specifiedBufferSize == 0}.
      *
      * <p>The default value is {@link AudioTrackBufferSizeProvider#DEFAULT}.
+     *
+     * <p>Must not be called if {@link #setAudioOutputProvider(AudioOutputProvider)} is used.
+     *
+     * @deprecated Use {@link #setAudioOutputProvider(AudioOutputProvider)} instead and customize
+     *     {@link
+     *     AudioTrackAudioOutputProvider.Builder#setAudioTrackBufferSizeProvider(AudioTrackBufferSizeProvider)}.
      */
+    @Deprecated
     @CanIgnoreReturnValue
     public Builder setAudioTrackBufferSizeProvider(
         AudioTrackBufferSizeProvider audioTrackBufferSizeProvider) {
@@ -397,7 +405,14 @@ public final class DefaultAudioSink implements AudioSink {
      *
      * <p>If this setter is not called, then the {@link DefaultAudioSink} uses an instance of {@link
      * DefaultAudioOffloadSupportProvider}.
+     *
+     * <p>Must not be called if {@link #setAudioOutputProvider(AudioOutputProvider)} is used.
+     *
+     * @deprecated Use {@link #setAudioOutputProvider(AudioOutputProvider)} instead and customize
+     *     {@link
+     *     AudioTrackAudioOutputProvider.Builder#setAudioOffloadSupportProvider(AudioOffloadSupportProvider)}.
      */
+    @Deprecated
     @CanIgnoreReturnValue
     public Builder setAudioOffloadSupportProvider(
         AudioOffloadSupportProvider audioOffloadSupportProvider) {
@@ -421,12 +436,31 @@ public final class DefaultAudioSink implements AudioSink {
     /**
      * Sets the {@link AudioTrackProvider} used to create {@link AudioTrack} instances.
      *
+     * <p>Must not be called if {@link #setAudioOutputProvider(AudioOutputProvider)} is used.
+     *
      * @param audioTrackProvider The {@link AudioTrackProvider}.
      * @return This builder.
+     * @deprecated Use {@link #setAudioOutputProvider(AudioOutputProvider)} instead.
      */
+    @Deprecated
     @CanIgnoreReturnValue
     public Builder setAudioTrackProvider(AudioTrackProvider audioTrackProvider) {
       this.audioTrackProvider = audioTrackProvider;
+      return this;
+    }
+
+    /**
+     * Sets the {@link AudioOutputProvider} used to create {@link AudioOutput} instances.
+     *
+     * <p>Must not be used with the deprecated {@link #Builder()} constructor.
+     *
+     * @param audioOutputProvider The {@link AudioOutputProvider}.
+     * @return This builder.
+     */
+    @CanIgnoreReturnValue
+    public Builder setAudioOutputProvider(AudioOutputProvider audioOutputProvider) {
+      checkState(context != null, "Cannot set AudioTrackProvider without a Context");
+      this.audioOutputProvider = audioOutputProvider;
       return this;
     }
 
@@ -437,8 +471,24 @@ public final class DefaultAudioSink implements AudioSink {
       if (audioProcessorChain == null) {
         audioProcessorChain = new DefaultAudioProcessorChain();
       }
-      if (audioOffloadSupportProvider == null) {
-        audioOffloadSupportProvider = new DefaultAudioOffloadSupportProvider(context);
+      if (audioOutputProvider == null) {
+        if (audioOffloadSupportProvider == null) {
+          audioOffloadSupportProvider = new DefaultAudioOffloadSupportProvider(context);
+        }
+        if (audioTrackBufferSizeProvider == null) {
+          audioTrackBufferSizeProvider = AudioTrackBufferSizeProvider.DEFAULT;
+        }
+        audioOutputProvider =
+            new AudioTrackAudioOutputProvider.Builder(context)
+                .setAudioCapabilities(context != null ? null : audioCapabilities)
+                .setAudioOffloadSupportProvider(audioOffloadSupportProvider)
+                .setAudioTrackBufferSizeProvider(audioTrackBufferSizeProvider)
+                .setAudioTrackProvider(audioTrackProvider)
+                .build();
+      } else {
+        checkState(audioOffloadSupportProvider == null);
+        checkState(audioTrackBufferSizeProvider == null);
+        checkState(audioTrackProvider == null);
       }
       return new DefaultAudioSink(this);
     }
@@ -563,13 +613,7 @@ public final class DefaultAudioSink implements AudioSink {
     enableFloatOutput = builder.enableFloatOutput;
     preferAudioTrackPlaybackParams = builder.enableAudioTrackPlaybackParams;
     offloadMode = OFFLOAD_MODE_DISABLED;
-    audioOutputProvider =
-        new AudioTrackAudioOutputProvider.Builder(builder.context)
-            .setAudioCapabilities(context != null ? null : builder.audioCapabilities)
-            .setAudioOffloadSupportProvider(builder.audioOffloadSupportProvider)
-            .setAudioTrackBufferSizeProvider(builder.audioTrackBufferSizeProvider)
-            .setAudioTrackProvider(builder.audioTrackProvider)
-            .build();
+    audioOutputProvider = builder.audioOutputProvider;
     channelMappingAudioProcessor = new ChannelMappingAudioProcessor();
     trimmingAudioProcessor = new TrimmingAudioProcessor();
     toInt16PcmAudioProcessor = new ToInt16PcmAudioProcessor();

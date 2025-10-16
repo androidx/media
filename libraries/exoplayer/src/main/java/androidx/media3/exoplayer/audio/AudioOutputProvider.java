@@ -24,6 +24,7 @@ import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.util.Clock;
+import androidx.media3.common.util.UnstableApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
@@ -32,7 +33,8 @@ import java.lang.annotation.Target;
 import java.util.Objects;
 
 /** A provider for {@link AudioOutput} instances and for querying their support. */
-/* package */ interface AudioOutputProvider {
+@UnstableApi
+public interface AudioOutputProvider {
 
   /** Listener for {@link AudioOutputProvider} events. */
   interface Listener {
