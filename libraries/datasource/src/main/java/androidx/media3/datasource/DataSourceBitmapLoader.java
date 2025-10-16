@@ -102,7 +102,11 @@ public final class DataSourceBitmapLoader implements BitmapLoader {
       ListeningExecutorService listeningExecutorService,
       DataSource.Factory dataSourceFactory,
       @Nullable BitmapFactory.Options options) {
-    this(listeningExecutorService, dataSourceFactory, options, C.LENGTH_UNSET);
+    this(
+        listeningExecutorService,
+        dataSourceFactory,
+        options,
+        /* maximumOutputDimension= */ C.LENGTH_UNSET);
   }
 
   /**
