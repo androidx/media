@@ -2515,18 +2515,15 @@ public class MatroskaExtractor implements Extractor {
       selectionFlags |= flagDefault ? C.SELECTION_FLAG_DEFAULT : 0;
       selectionFlags |= flagForced ? C.SELECTION_FLAG_FORCED : 0;
 
-      int type;
       Format.Builder formatBuilder = new Format.Builder();
       // TODO: Consider reading the name elements of the tracks and, if present, incorporating them
       // into the trackId passed when creating the formats.
       if (MimeTypes.isAudio(mimeType)) {
-        type = C.TRACK_TYPE_AUDIO;
         formatBuilder
             .setChannelCount(channelCount)
             .setSampleRate(sampleRate)
             .setPcmEncoding(pcmEncoding);
       } else if (MimeTypes.isVideo(mimeType)) {
-        type = C.TRACK_TYPE_VIDEO;
         if (displayUnit == Track.DISPLAY_UNIT_PIXELS) {
           displayWidth = displayWidth == Format.NO_VALUE ? width : displayWidth;
           displayHeight = displayHeight == Format.NO_VALUE ? height : displayHeight;
@@ -2582,7 +2579,6 @@ public class MatroskaExtractor implements Extractor {
           || MimeTypes.APPLICATION_VOBSUB.equals(mimeType)
           || MimeTypes.APPLICATION_PGS.equals(mimeType)
           || MimeTypes.APPLICATION_DVBSUBS.equals(mimeType)) {
-        type = C.TRACK_TYPE_TEXT;
       } else {
         throw ParserException.createForMalformedContainer(
             "Unexpected MIME type.", /* cause= */ null);
