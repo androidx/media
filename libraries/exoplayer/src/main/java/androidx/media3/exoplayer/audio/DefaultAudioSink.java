@@ -75,6 +75,7 @@ import java.nio.ByteOrder;
 import java.util.ArrayDeque;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BiConsumer;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
@@ -440,7 +441,9 @@ public final class DefaultAudioSink implements AudioSink {
      *
      * @param audioTrackProvider The {@link AudioTrackProvider}.
      * @return This builder.
-     * @deprecated Use {@link #setAudioOutputProvider(AudioOutputProvider)} instead.
+     * @deprecated Use {@link #setAudioOutputProvider(AudioOutputProvider)} instead and customize
+     *     {@link AudioTrackAudioOutputProvider.Builder#setAudioTrackBuilderModifier(BiConsumer)} or
+     *     wrap {@link AudioTrackAudioOutputProvider} in a {@link ForwardingAudioOutputProvider}.
      */
     @Deprecated
     @CanIgnoreReturnValue
