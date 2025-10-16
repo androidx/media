@@ -78,18 +78,18 @@ public class CompositionVideoPacketReleaseControlTest {
     ImmutableList<GlTextureFrame> packet = createPacket(/* presentationTimeUs= */ 50_000);
     compositionVideoPacketReleaseControl.queue(firstPacket);
     compositionVideoPacketReleaseControl.onRender(
-        /* positionUs= */ 0,
+        /* compositionTimePositionUs= */ 0,
         /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
-        /* outputStreamStartPositionUs= */ 0);
+        /* compositionTimeOutputStreamStartPositionUs= */ 0);
     fakeClock.advanceTime(/* timeDiffMs= */ 100);
     assertOutputPackets(/* ignoreReleaseTime= */ true, firstPacket);
     fakeFrameTimingEvaluator.shouldDropFrame = true;
 
     compositionVideoPacketReleaseControl.queue(packet);
     compositionVideoPacketReleaseControl.onRender(
-        /* positionUs= */ 100,
+        /* compositionTimePositionUs= */ 100,
         /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
-        /* outputStreamStartPositionUs= */ 0);
+        /* compositionTimeOutputStreamStartPositionUs= */ 0);
 
     assertOutputPackets(/* ignoreReleaseTime= */ true, firstPacket);
     assertThat(releasedTextures).containsExactly(packet.get(0).getGlTextureInfo());
@@ -100,17 +100,17 @@ public class CompositionVideoPacketReleaseControlTest {
     ImmutableList<GlTextureFrame> packet = createPacket(/* presentationTimeUs= */ 200_000);
     compositionVideoPacketReleaseControl.queue(firstPacket);
     compositionVideoPacketReleaseControl.onRender(
-        /* positionUs= */ 0,
+        /* compositionTimePositionUs= */ 0,
         /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
-        /* outputStreamStartPositionUs= */ 0);
+        /* compositionTimeOutputStreamStartPositionUs= */ 0);
     fakeClock.advanceTime(/* timeDiffMs= */ 100);
     assertOutputPackets(/* ignoreReleaseTime= */ true, firstPacket);
 
     compositionVideoPacketReleaseControl.queue(packet);
     compositionVideoPacketReleaseControl.onRender(
-        /* positionUs= */ 100_000,
+        /* compositionTimePositionUs= */ 100_000,
         /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
-        /* outputStreamStartPositionUs= */ 0);
+        /* compositionTimeOutputStreamStartPositionUs= */ 0);
 
     assertOutputPackets(/* ignoreReleaseTime= */ true, firstPacket);
     assertThat(releasedTextures).isEmpty();
@@ -122,17 +122,17 @@ public class CompositionVideoPacketReleaseControlTest {
     ImmutableList<GlTextureFrame> packet = createPacket(/* presentationTimeUs= */ 100_000);
     compositionVideoPacketReleaseControl.queue(firstPacket);
     compositionVideoPacketReleaseControl.onRender(
-        /* positionUs= */ 0,
+        /* compositionTimePositionUs= */ 0,
         /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
-        /* outputStreamStartPositionUs= */ 0);
+        /* compositionTimeOutputStreamStartPositionUs= */ 0);
     fakeClock.advanceTime(/* timeDiffMs= */ 100);
     assertOutputPackets(/* ignoreReleaseTime= */ true, firstPacket);
 
     compositionVideoPacketReleaseControl.queue(packet);
     compositionVideoPacketReleaseControl.onRender(
-        /* positionUs= */ 100_000,
+        /* compositionTimePositionUs= */ 100_000,
         /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
-        /* outputStreamStartPositionUs= */ 0);
+        /* compositionTimeOutputStreamStartPositionUs= */ 0);
 
     assertOutputPackets(/* ignoreReleaseTime= */ true, firstPacket, packet);
     assertThat(releasedTextures).isEmpty();
@@ -146,17 +146,17 @@ public class CompositionVideoPacketReleaseControlTest {
         updatePacketWithReleaseTime(packet, /* releaseTimeNs= */ 120_000_000);
     compositionVideoPacketReleaseControl.queue(firstPacket);
     compositionVideoPacketReleaseControl.onRender(
-        /* positionUs= */ 0,
+        /* compositionTimePositionUs= */ 0,
         /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
-        /* outputStreamStartPositionUs= */ 0);
+        /* compositionTimeOutputStreamStartPositionUs= */ 0);
     fakeClock.advanceTime(/* timeDiffMs= */ 100);
     assertOutputPackets(/* ignoreReleaseTime= */ true, firstPacket);
 
     compositionVideoPacketReleaseControl.queue(packet);
     compositionVideoPacketReleaseControl.onRender(
-        /* positionUs= */ 100_000,
+        /* compositionTimePositionUs= */ 100_000,
         /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
-        /* outputStreamStartPositionUs= */ 0);
+        /* compositionTimeOutputStreamStartPositionUs= */ 0);
 
     // Update the release time of the first packet to match, to verify that scheduled release time
     // is correct.
@@ -184,9 +184,9 @@ public class CompositionVideoPacketReleaseControlTest {
     ImmutableList<GlTextureFrame> packet2 = createPacket(/* presentationTimeUs= */ 200);
     compositionVideoPacketReleaseControl.queue(firstPacket);
     compositionVideoPacketReleaseControl.onRender(
-        /* positionUs= */ 0,
+        /* compositionTimePositionUs= */ 0,
         /* elapsedRealtimeUs= */ msToUs(fakeClock.elapsedRealtime()),
-        /* outputStreamStartPositionUs= */ 0);
+        /* compositionTimeOutputStreamStartPositionUs= */ 0);
     assertOutputPackets(/* ignoreReleaseTime= */ true, firstPacket);
     compositionVideoPacketReleaseControl.queue(packet1);
     compositionVideoPacketReleaseControl.queue(packet2);
