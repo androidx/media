@@ -5413,9 +5413,11 @@ public class HlsInterstitialsAdsLoaderTest {
   @Test
   public void release_neverStarted_playerListenerNotAddedNorRemoved() {
     adsLoader.setPlayer(mockPlayer);
+    assertThat(adsLoader.isReleased()).isFalse();
 
     adsLoader.release();
 
+    assertThat(adsLoader.isReleased()).isTrue();
     verifyNoMoreInteractions(mockPlayer);
   }
 

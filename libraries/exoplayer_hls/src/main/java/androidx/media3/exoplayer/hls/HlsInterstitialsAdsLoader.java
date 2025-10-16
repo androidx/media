@@ -1104,6 +1104,15 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
     isReleased = true;
   }
 
+  /**
+   * Returns whether {@link #release()} has been called.
+   *
+   * @return True if {@link #release()} has been called, false otherwise.
+   */
+  public boolean isReleased() {
+    return isReleased;
+  }
+
   // private methods
 
   private void startLoadingAssetList(AssetListData assetListData) {
