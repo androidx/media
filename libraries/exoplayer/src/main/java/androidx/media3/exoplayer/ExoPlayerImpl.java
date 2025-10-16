@@ -125,11 +125,13 @@ import androidx.media3.exoplayer.video.spherical.CameraMotionListener;
 import androidx.media3.exoplayer.video.spherical.SphericalGLSurfaceView;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.function.IntConsumer;
 
 /** The default implementation of {@link ExoPlayer}. */
 /* package */ final class ExoPlayerImpl extends BasePlayer implements ExoPlayer {
@@ -181,6 +183,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
   @Nullable private final SuitableOutputChecker suitableOutputChecker;
   private final BackgroundThreadStateHandler<Integer> audioSessionIdState;
   private final StuckPlayerDetector stuckPlayerDetector;
+  @Nullable private final VirtualDeviceIdChangeListener virtualDeviceIdChangeListener;
 
   private @RepeatMode int repeatMode;
   private boolean shuffleModeEnabled;
@@ -465,6 +468,8 @@ import java.util.concurrent.CopyOnWriteArraySet;
       deviceInfo = DeviceInfo.UNKNOWN;
       videoSize = VideoSize.UNKNOWN;
       surfaceSize = Size.UNKNOWN;
+      virtualDeviceIdChangeListener =
+          SDK_INT >= 34 ? new VirtualDeviceIdChangeListener(builder.context) : null;
 
       stuckPlayerDetector =
           new StuckPlayerDetector(
@@ -1105,6 +1110,9 @@ import java.util.concurrent.CopyOnWriteArraySet;
     wifiLockManager.setStayAwake(false);
     if (suitableOutputChecker != null) {
       suitableOutputChecker.disable();
+    }
+    if (virtualDeviceIdChangeListener != null && SDK_INT >= 34) {
+      virtualDeviceIdChangeListener.release();
     }
     stuckPlayerDetector.release();
     if (!internalPlayer.release()) {
@@ -3559,6 +3567,41 @@ import java.util.concurrent.CopyOnWriteArraySet;
             }
             playerId.setLogSessionId(listener.getLogSessionId());
           });
+    }
+  }
+
+  @RequiresApi(34)
+  private final class VirtualDeviceIdChangeListener {
+
+    // We must not keep a strong reference to the original Context to prevent leaking it if the
+    // player outlives the Context (e.g. an Activity or Service). However, we need the original
+    // Context instance to register and unregister the listener as the application Context does not
+    // have the device ID handling.
+    private final WeakReference<Context> contextReference;
+    private final IntConsumer listener;
+
+    private VirtualDeviceIdChangeListener(Context context) {
+      contextReference = new WeakReference<>(context);
+      listener = this::onVirtualDeviceIdChanged;
+      HandlerWrapper handler = clock.createHandler(applicationLooper, /* callback= */ null);
+      context.registerDeviceIdChangeListener(handler::post, listener);
+    }
+
+    private void release() {
+      @Nullable Context context = contextReference.get();
+      if (context == null) {
+        // The original context is already garbage collected, so no need to unregister the listener.
+        return;
+      }
+      context.unregisterDeviceIdChangeListener(listener);
+    }
+
+    private void onVirtualDeviceIdChanged(int virtualDeviceId) {
+      if (playerReleased) {
+        // Stale event.
+        return;
+      }
+      sendRendererMessage(TRACK_TYPE_AUDIO, MSG_SET_VIRTUAL_DEVICE_ID, virtualDeviceId);
     }
   }
 }
