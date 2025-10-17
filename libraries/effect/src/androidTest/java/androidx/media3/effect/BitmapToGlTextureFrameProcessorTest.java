@@ -112,13 +112,12 @@ public final class BitmapToGlTextureFrameProcessorTest {
 
     assertThat(fakeFrameConsumer.receivedFrames).hasSize(1);
     GlTextureFrame outputFrame = fakeFrameConsumer.receivedFrames.get(0);
-    assertThat(outputFrame.getGlTextureInfo().width).isEqualTo(WIDTH);
-    assertThat(outputFrame.getGlTextureInfo().height).isEqualTo(HEIGHT);
-    GlTextureFrame.Metadata metadata = outputFrame.getMetadata();
-    assertThat(metadata.getPresentationTimeUs()).isEqualTo(1000);
-    assertThat(metadata.getFormat().height).isEqualTo(HEIGHT);
-    assertThat(metadata.getFormat().width).isEqualTo(WIDTH);
-    assertThat(metadata.getFormat().colorInfo).isEqualTo(ColorInfo.SDR_BT709_LIMITED);
+    assertThat(outputFrame.glTextureInfo.width).isEqualTo(WIDTH);
+    assertThat(outputFrame.glTextureInfo.height).isEqualTo(HEIGHT);
+    assertThat(outputFrame.presentationTimeUs).isEqualTo(1000);
+    assertThat(outputFrame.format.height).isEqualTo(HEIGHT);
+    assertThat(outputFrame.format.width).isEqualTo(WIDTH);
+    assertThat(outputFrame.format.colorInfo).isEqualTo(ColorInfo.SDR_BT709_LIMITED);
   }
 
   private void setUpSdrProcessor(FakeFrameConsumer<GlTextureFrame> fakeFrameConsumer)

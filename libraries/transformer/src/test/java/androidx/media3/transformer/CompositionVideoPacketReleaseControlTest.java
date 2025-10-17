@@ -92,7 +92,7 @@ public class CompositionVideoPacketReleaseControlTest {
         /* compositionTimeOutputStreamStartPositionUs= */ 0);
 
     assertOutputPackets(/* ignoreReleaseTime= */ true, firstPacket);
-    assertThat(releasedTextures).containsExactly(packet.get(0).getGlTextureInfo());
+    assertThat(releasedTextures).containsExactly(packet.get(0).glTextureInfo);
   }
 
   @Test
@@ -161,8 +161,7 @@ public class CompositionVideoPacketReleaseControlTest {
     // Update the release time of the first packet to match, to verify that scheduled release time
     // is correct.
     ImmutableList<GlTextureFrame> expectedFirstFrame =
-        updatePacketWithReleaseTime(
-            firstPacket, outputPackets.get(0).get(0).getMetadata().getReleaseTimeNs());
+        updatePacketWithReleaseTime(firstPacket, outputPackets.get(0).get(0).releaseTimeNs);
     assertOutputPackets(/* ignoreReleaseTime= */ false, expectedFirstFrame, expectedPacket);
     assertThat(releasedTextures).isEmpty();
   }
@@ -175,7 +174,7 @@ public class CompositionVideoPacketReleaseControlTest {
     compositionVideoPacketReleaseControl.queue(packet1);
     compositionVideoPacketReleaseControl.queue(packet2);
 
-    assertThat(releasedTextures).containsExactly(packet1.get(0).getGlTextureInfo());
+    assertThat(releasedTextures).containsExactly(packet1.get(0).glTextureInfo);
   }
 
   @Test
@@ -196,16 +195,16 @@ public class CompositionVideoPacketReleaseControlTest {
 
     assertThat(videoFrameReleaseControl.isReady(/* otherwiseReady= */ true)).isFalse();
     assertThat(releasedTextures)
-        .containsExactly(packet1.get(0).getGlTextureInfo(), packet2.get(0).getGlTextureInfo());
+        .containsExactly(packet1.get(0).glTextureInfo, packet2.get(0).glTextureInfo);
   }
 
   private ImmutableList<GlTextureFrame> createPacket(
       /* presentationTimeUs= */ long presentationTimeUs) {
     GlTextureInfo glTextureInfo = new GlTextureInfo((int) presentationTimeUs, 1, 1, 100, 100);
-    GlTextureFrame.Metadata metadata =
-        new GlTextureFrame.Metadata.Builder().setPresentationTimeUs(presentationTimeUs).build();
     GlTextureFrame glFrame =
-        new GlTextureFrame(glTextureInfo, metadata, directExecutor(), releasedTextures::add);
+        new GlTextureFrame.Builder(glTextureInfo, directExecutor(), releasedTextures::add)
+            .setPresentationTimeUs(presentationTimeUs)
+            .build();
     return ImmutableList.of(glFrame);
   }
 
@@ -220,14 +219,11 @@ public class CompositionVideoPacketReleaseControlTest {
       for (int j = 0; j < receivedFrames.size(); j++) {
         GlTextureFrame receivedFrame = receivedFrames.get(j);
         GlTextureFrame expectedFrame = expectedFrames.get(j);
-        GlTextureFrame.Metadata expectedMetadata =
-            ignoreReleaseTime
-                ? getMetadataWithUpdatedReleaseTime(
-                    expectedFrame, receivedFrame.getMetadata().getReleaseTimeNs())
-                : expectedFrame.getMetadata();
-
-        assertThat(receivedFrame.getMetadata()).isEqualTo(expectedMetadata);
-        assertThat(receivedFrame.getGlTextureInfo()).isEqualTo(expectedFrame.getGlTextureInfo());
+        assertThat(receivedFrame.presentationTimeUs).isEqualTo(expectedFrame.presentationTimeUs);
+        if (!ignoreReleaseTime) {
+          assertThat(receivedFrame.releaseTimeNs).isEqualTo(expectedFrame.releaseTimeNs);
+        }
+        assertThat(receivedFrame.glTextureInfo).isEqualTo(expectedFrame.glTextureInfo);
       }
     }
   }
@@ -237,20 +233,14 @@ public class CompositionVideoPacketReleaseControlTest {
     ImmutableList.Builder<GlTextureFrame> updatedPacketBuilder = new ImmutableList.Builder<>();
     for (GlTextureFrame frame : packet) {
       updatedPacketBuilder.add(
-          new GlTextureFrame(
-              frame.getGlTextureInfo(),
-              getMetadataWithUpdatedReleaseTime(frame, releaseTimeNs),
-              frame.getReleaseTextureExecutor(),
-              frame.getReleaseTextureCallback()));
+          new GlTextureFrame.Builder(
+                  frame.glTextureInfo, frame.releaseTextureExecutor, frame.releaseTextureCallback)
+              .setPresentationTimeUs(frame.presentationTimeUs)
+              .setReleaseTimeNs(releaseTimeNs)
+              .setMetadata(frame.getMetadata())
+              .build());
     }
     return updatedPacketBuilder.build();
-  }
-
-  private static GlTextureFrame.Metadata getMetadataWithUpdatedReleaseTime(
-      GlTextureFrame frame, long releaseTimeNs) {
-    return new GlTextureFrame.Metadata.Builder(frame.getMetadata())
-        .setReleaseTimeNs(releaseTimeNs)
-        .build();
   }
 
   /**

@@ -25,7 +25,6 @@ import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.NullableType;
-import androidx.media3.effect.GlTextureFrame.Metadata;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -89,7 +88,7 @@ import java.util.concurrent.atomic.AtomicReference;
   @Nullable private GlTextureFrame currentInputFrame;
 
   /** Only accessed on the GL thread. */
-  @Nullable private GlTextureFrame.Metadata currentInputMetadata;
+  @Nullable private Frame.Metadata currentInputMetadata;
 
   /** Only accessed on the GL thread. */
   @Nullable private GlTextureFrame currentProcessedFrame;
@@ -192,17 +191,15 @@ import java.util.concurrent.atomic.AtomicReference;
       return;
     }
     // Use the presentationTimeUs from the GlShaderProgram in case it has modified it.
-    GlTextureFrame.Metadata outputFrameMetadata =
-        new Metadata.Builder()
-            .setPresentationTimeUs(presentationTimeUs)
-            .setFormat(checkNotNull(currentInputMetadata).getFormat())
-            .build();
     currentProcessedFrame =
-        new GlTextureFrame(
-            outputTexture,
-            outputFrameMetadata,
-            glThreadExecutorService,
-            /* releaseTextureCallback= */ shaderProgram::releaseOutputFrame);
+        new GlTextureFrame.Builder(
+                outputTexture,
+                glThreadExecutorService,
+                /* releaseTextureCallback= */ shaderProgram::releaseOutputFrame)
+            .setPresentationTimeUs(presentationTimeUs)
+            .setFormat(checkNotNull(currentInputFrame).format)
+            .setMetadata(checkNotNull(currentInputMetadata))
+            .build();
     maybeForwardProcessedFrame();
   }
 
@@ -263,14 +260,11 @@ import java.util.concurrent.atomic.AtomicReference;
           // TODO: b/430250432 - Cancel pending tasks on release.
           glThreadExecutorService.submit(
               () -> {
-                GlTextureInfo nextFrameTextureInfo = inputFrame.getGlTextureInfo();
-                GlTextureFrame.Metadata nextFrameMetadata = inputFrame.getMetadata();
+                GlTextureInfo nextFrameTextureInfo = inputFrame.glTextureInfo;
                 currentInputFrame = inputFrame;
                 currentInputMetadata = inputFrame.getMetadata();
                 shaderProgram.queueInputFrame(
-                    glObjectsProvider,
-                    nextFrameTextureInfo,
-                    nextFrameMetadata.getPresentationTimeUs());
+                    glObjectsProvider, nextFrameTextureInfo, inputFrame.presentationTimeUs);
                 return null;
               }),
           new FutureCallback<Object>() {

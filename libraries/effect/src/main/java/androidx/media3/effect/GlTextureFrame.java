@@ -15,7 +15,6 @@
  */
 package androidx.media3.effect;
 
-import androidx.annotation.Nullable;
 import androidx.annotation.RestrictTo;
 import androidx.annotation.RestrictTo.Scope;
 import androidx.media3.common.C;
@@ -24,7 +23,6 @@ import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.UnstableApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.util.Objects;
 import java.util.concurrent.Executor;
 
 /** A {@link Frame} implementation that wraps a {@link GlTextureInfo}. */
@@ -32,138 +30,109 @@ import java.util.concurrent.Executor;
 @RestrictTo(Scope.LIBRARY_GROUP)
 public class GlTextureFrame implements Frame {
 
-  /** Metadata associated with a {@link GlTextureFrame}. */
-  public static class Metadata implements Frame.Metadata {
+  /** The {@link GlTextureInfo}. */
+  public final GlTextureInfo glTextureInfo;
 
-    /** A builder for {@link Metadata} instances. */
-    public static final class Builder {
-      private long presentationTimeUs;
-      private Format format;
-      private long releaseTimeNs;
+  /** The presentation time of the frame, in microseconds. */
+  public final long presentationTimeUs;
 
-      /** Creates a new {@link Builder}. */
-      public Builder() {
-        presentationTimeUs = C.TIME_UNSET;
-        format = new Format.Builder().build();
-        releaseTimeNs = C.TIME_UNSET;
-      }
+  /** The release time of the frame, in nanoseconds. */
+  public final long releaseTimeNs;
 
-      /** Creates a new {@link Builder} with values initialized to the given {@link Metadata}. */
-      public Builder(Metadata metadata) {
-        this.presentationTimeUs = metadata.presentationTimeUs;
-        this.format = metadata.format;
-        this.releaseTimeNs = metadata.releaseTimeNs;
-      }
+  /** The format of the frame. */
+  public final Format format;
 
-      /** Sets the {@link Metadata#presentationTimeUs}. */
-      @CanIgnoreReturnValue
-      public Builder setPresentationTimeUs(long presentationTimeUs) {
-        this.presentationTimeUs = presentationTimeUs;
-        return this;
-      }
+  private final Metadata metadata;
 
-      /** Sets the {@link Metadata#format}. */
-      @CanIgnoreReturnValue
-      public Builder setFormat(Format format) {
-        this.format = format;
-        return this;
-      }
+  /** The {@link Executor} on which the {@code releaseTextureCallback} is called. */
+  public final Executor releaseTextureExecutor;
 
-      /** Sets the {@link Metadata#releaseTimeNs}. */
-      @CanIgnoreReturnValue
-      public Builder setReleaseTimeNs(long releaseTimeNs) {
-        this.releaseTimeNs = releaseTimeNs;
-        return this;
-      }
+  /** The {@link Consumer} to call to release the texture. */
+  public final Consumer<GlTextureInfo> releaseTextureCallback;
 
-      /** Builds the {@link Metadata} instance. */
-      public Metadata build() {
-        return new Metadata(this);
-      }
+  /** A builder for {@link GlTextureFrame} instances. */
+  public static final class Builder {
+    private final GlTextureInfo glTextureInfo;
+    private final Executor releaseTextureExecutor;
+    private final Consumer<GlTextureInfo> releaseTextureCallback;
+
+    private long presentationTimeUs;
+    private Format format;
+    private long releaseTimeNs;
+    private Metadata metadata;
+
+    /**
+     * Creates a new {@link Builder}.
+     *
+     * @param glTextureInfo The {@link GlTextureInfo} to wrap.
+     * @param releaseTextureExecutor The {@link Executor} on which the {@code
+     *     releaseTextureCallback} is called.
+     * @param releaseTextureCallback The {@link Consumer} to call to release the texture.
+     */
+    public Builder(
+        GlTextureInfo glTextureInfo,
+        Executor releaseTextureExecutor,
+        Consumer<GlTextureInfo> releaseTextureCallback) {
+      this.glTextureInfo = glTextureInfo;
+      this.releaseTextureExecutor = releaseTextureExecutor;
+      this.releaseTextureCallback = releaseTextureCallback;
+      this.metadata = new Metadata() {};
+      presentationTimeUs = C.TIME_UNSET;
+      format = new Format.Builder().build();
+      releaseTimeNs = C.TIME_UNSET;
     }
 
-    private final long presentationTimeUs;
-    private final long releaseTimeNs;
-    private final Format format;
-
-    private Metadata(Builder builder) {
-      presentationTimeUs = builder.presentationTimeUs;
-      format = builder.format;
-      releaseTimeNs = builder.releaseTimeNs;
+    /** Sets the {@link GlTextureFrame#presentationTimeUs}. */
+    @CanIgnoreReturnValue
+    public Builder setPresentationTimeUs(long presentationTimeUs) {
+      this.presentationTimeUs = presentationTimeUs;
+      return this;
     }
 
-    /** Returns the {@link #presentationTimeUs} of the frame, in microseconds. */
-    public long getPresentationTimeUs() {
-      return presentationTimeUs;
+    /** Sets the {@link GlTextureFrame#format}. */
+    @CanIgnoreReturnValue
+    public Builder setFormat(Format format) {
+      this.format = format;
+      return this;
     }
 
-    /** Returns the {@link #format} of the frame. */
-    public Format getFormat() {
-      return format;
+    /** Sets the {@link GlTextureFrame#releaseTimeNs}. */
+    @CanIgnoreReturnValue
+    public Builder setReleaseTimeNs(long releaseTimeNs) {
+      this.releaseTimeNs = releaseTimeNs;
+      return this;
     }
 
-    /** Returns the {@link #releaseTimeNs} of the frame, in nanoseconds. */
-    public long getReleaseTimeNs() {
-      return releaseTimeNs;
+    /** Sets the {@link GlTextureFrame#metadata}. */
+    @CanIgnoreReturnValue
+    public Builder setMetadata(Metadata metadata) {
+      this.metadata = metadata;
+      return this;
     }
 
-    @Override
-    public boolean equals(@Nullable Object other) {
-      if (this == other) {
-        return true;
-      } else if (!(other instanceof Metadata)) {
-        return false;
-      }
-      Metadata that = (Metadata) other;
-      return presentationTimeUs == that.presentationTimeUs
-          && releaseTimeNs == that.releaseTimeNs
-          && format.equals(that.format);
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(presentationTimeUs, releaseTimeNs, format);
+    /** Builds the {@link GlTextureFrame} instance. */
+    public GlTextureFrame build() {
+      return new GlTextureFrame(this);
     }
   }
 
-  private final GlTextureInfo glTextureInfo;
-  private final GlTextureFrame.Metadata metadata;
-  private final Executor releaseTextureExecutor;
-  private final Consumer<GlTextureInfo> releaseTextureCallback;
-
-  public GlTextureFrame(
-      GlTextureInfo glTextureInfo,
-      GlTextureFrame.Metadata metadata,
-      Executor releaseTextureExecutor,
-      Consumer<GlTextureInfo> releaseTextureCallback) {
-    this.glTextureInfo = glTextureInfo;
-    this.metadata = metadata;
-    this.releaseTextureExecutor = releaseTextureExecutor;
-    this.releaseTextureCallback = releaseTextureCallback;
+  private GlTextureFrame(Builder builder) {
+    this.glTextureInfo = builder.glTextureInfo;
+    this.presentationTimeUs = builder.presentationTimeUs;
+    this.releaseTimeNs = builder.releaseTimeNs;
+    this.format = builder.format;
+    this.metadata = builder.metadata;
+    this.releaseTextureExecutor = builder.releaseTextureExecutor;
+    this.releaseTextureCallback = builder.releaseTextureCallback;
   }
 
   @Override
-  public GlTextureFrame.Metadata getMetadata() {
+  public Metadata getMetadata() {
     return metadata;
   }
 
   @Override
   public void release() {
     releaseTextureExecutor.execute(() -> releaseTextureCallback.accept(glTextureInfo));
-  }
-
-  /** Returns {@link #glTextureInfo}. */
-  public GlTextureInfo getGlTextureInfo() {
-    return glTextureInfo;
-  }
-
-  /** Returns {@link #releaseTextureExecutor}. */
-  public Executor getReleaseTextureExecutor() {
-    return releaseTextureExecutor;
-  }
-
-  /** Returns {@link #releaseTextureCallback}. */
-  public Consumer<GlTextureInfo> getReleaseTextureCallback() {
-    return releaseTextureCallback;
   }
 }

@@ -561,7 +561,7 @@ public class CompositionPlayerParameterizedPlaybackTest {
     private List<Long> getInputPresentationTimesUs() {
       ArrayList<Long> presentationTimesUs = new ArrayList<>();
       for (List<GlTextureFrame> frames : queuedPackets) {
-        presentationTimesUs.add(frames.get(0).getMetadata().getPresentationTimeUs());
+        presentationTimesUs.add(frames.get(0).presentationTimeUs);
       }
       return presentationTimesUs;
     }

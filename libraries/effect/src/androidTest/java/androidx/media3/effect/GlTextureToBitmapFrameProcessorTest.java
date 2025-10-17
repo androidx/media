@@ -161,14 +161,15 @@ public final class GlTextureToBitmapFrameProcessorTest {
     CountDownLatch releaseLatch = new CountDownLatch(1);
     GlTextureInfo inputTextureInfo = createGlTextureWithColor(Color.RED);
     GlTextureFrame inputFrame =
-        new GlTextureFrame(
-            inputTextureInfo,
-            new GlTextureFrame.Metadata.Builder().setPresentationTimeUs(2000).build(),
-            glThreadExecutorService,
-            /* releaseTextureCallback= */ (texInfo) -> {
-              assertThat(texInfo).isSameInstanceAs(inputTextureInfo);
-              releaseLatch.countDown();
-            });
+        new GlTextureFrame.Builder(
+                inputTextureInfo,
+                glThreadExecutorService,
+                /* releaseTextureCallback= */ (texInfo) -> {
+                  assertThat(texInfo).isSameInstanceAs(inputTextureInfo);
+                  releaseLatch.countDown();
+                })
+            .setPresentationTimeUs(2000)
+            .build();
 
     boolean didQueueFrame = processor.getInput().queueFrame(inputFrame);
 
@@ -391,11 +392,10 @@ public final class GlTextureToBitmapFrameProcessorTest {
   /** Creates a {@link GlTextureFrame} with a no-op release listener. */
   private GlTextureFrame createTestGlTextureFrame(
       GlTextureInfo glTextureInfo, long presentationTimeUs) {
-    return new GlTextureFrame(
-        glTextureInfo,
-        new GlTextureFrame.Metadata.Builder().setPresentationTimeUs(presentationTimeUs).build(),
-        glThreadExecutorService,
-        /* releaseTextureCallback= */ (unused) -> {});
+    return new GlTextureFrame.Builder(
+            glTextureInfo, glThreadExecutorService, /* releaseTextureCallback= */ (unused) -> {})
+        .setPresentationTimeUs(presentationTimeUs)
+        .build();
   }
 
   private Bitmap createBitmap(@ColorInt int color) {

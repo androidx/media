@@ -196,17 +196,14 @@ import java.util.concurrent.atomic.AtomicReference;
     // texture with the passed in metadata to create the final output frame.
     Format inputFormat = inputFrame.getMetadata().getFormat();
     Format outputFormat = inputFormat.buildUpon().setColorInfo(outputColorInfo).build();
-    GlTextureFrame.Metadata metadata =
-        new GlTextureFrame.Metadata.Builder()
+    GlTextureFrame outputFrame =
+        new GlTextureFrame.Builder(
+                outputTexture,
+                glThreadExecutorService,
+                /* releaseTextureCallback= */ samplingGlShaderProgram::releaseOutputFrame)
             .setPresentationTimeUs(presentationTimeUs)
             .setFormat(outputFormat)
             .build();
-    GlTextureFrame outputFrame =
-        new GlTextureFrame(
-            outputTexture,
-            metadata,
-            glThreadExecutorService,
-            /* releaseTextureCallback= */ samplingGlShaderProgram::releaseOutputFrame);
     processedFrames.add(outputFrame);
     maybeDrainProcessedFrames();
   }

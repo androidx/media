@@ -71,10 +71,10 @@ import java.util.Queue;
     if (sequenceIndex == 0) {
       // If a primary frame arrived out of order it indicates a seek backwards, flush all frames to
       // ensure aggregation continues to work correctly.
-      if (frame.getMetadata().getPresentationTimeUs() < lastQueuedPresentationTimeUs) {
+      if (frame.presentationTimeUs < lastQueuedPresentationTimeUs) {
         releaseAllFrames();
       }
-      lastQueuedPresentationTimeUs = frame.getMetadata().getPresentationTimeUs();
+      lastQueuedPresentationTimeUs = frame.presentationTimeUs;
     }
     inputFrames.get(sequenceIndex).add(frame);
     maybeAggregate();
@@ -112,8 +112,7 @@ import java.util.Queue;
       while (nextFrame != null) {
         // Release all frames from the secondary sequence that arrived before the primary sequence
         // frame.
-        if (nextFrame.getMetadata().getPresentationTimeUs()
-            < nextPrimaryFrame.getMetadata().getPresentationTimeUs()) {
+        if (nextFrame.presentationTimeUs < nextPrimaryFrame.presentationTimeUs) {
           nextFrame.release();
           nextInputFrameQueue.poll();
           nextFrame = nextInputFrameQueue.peek();

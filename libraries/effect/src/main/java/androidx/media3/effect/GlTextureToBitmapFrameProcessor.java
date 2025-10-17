@@ -204,7 +204,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   private void processFrameInternal(GlTextureFrame inputFrame) {
-    GlTextureInfo inputTexture = inputFrame.getGlTextureInfo();
+    GlTextureInfo inputTexture = inputFrame.glTextureInfo;
     Bitmap bitmap;
     try {
       ensureConfigured(glObjectsProvider, inputTexture.width, inputTexture.height);
@@ -217,8 +217,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     checkState(byteBuffer != null);
     bitmap.copyPixelsFromBuffer(byteBuffer);
     BitmapFrame.Metadata outputFrameMetadata =
-        new BitmapFrame.Metadata(
-            inputFrame.getMetadata().getPresentationTimeUs(), inputFrame.getMetadata().getFormat());
+        new BitmapFrame.Metadata(inputFrame.presentationTimeUs, inputFrame.format);
     BitmapFrame outputFrame = new BitmapFrame(bitmap, outputFrameMetadata);
     processedFrames.add(outputFrame);
     inputFrame.release();

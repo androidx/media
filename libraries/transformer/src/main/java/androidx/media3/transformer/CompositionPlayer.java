@@ -85,7 +85,6 @@ import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.effect.DefaultGlObjectsProvider;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.GlTextureFrame;
-import androidx.media3.effect.GlTextureFrame.Metadata;
 import androidx.media3.effect.GlTextureProducer;
 import androidx.media3.effect.SingleInputVideoGraph;
 import androidx.media3.effect.TimestampAdjustment;
@@ -1885,14 +1884,13 @@ public final class CompositionPlayer extends SimpleBasePlayer {
         long presentationTimeUs,
         long syncObject) {
       // TODO: b/430250432 - Add syncObject to GlTextureFrame.
-      GlTextureFrame.Metadata metadata =
-          new Metadata.Builder().setPresentationTimeUs(presentationTimeUs).build();
       GlTextureFrame textureFrame =
-          new GlTextureFrame(
-              outputTexture,
-              metadata,
-              directExecutor(),
-              (u) -> textureProducer.releaseOutputTexture(presentationTimeUs));
+          new GlTextureFrame.Builder(
+                  outputTexture,
+                  directExecutor(),
+                  (u) -> textureProducer.releaseOutputTexture(presentationTimeUs))
+              .setPresentationTimeUs(presentationTimeUs)
+              .build();
 
       checkNotNull(frameAggregator).queueFrame(textureFrame, sequenceIndex);
     }

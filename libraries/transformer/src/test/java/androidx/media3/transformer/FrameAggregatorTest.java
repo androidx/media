@@ -98,8 +98,8 @@ public class FrameAggregatorTest {
     frameAggregator.queueFrame(primaryFrame, /* sequenceIndex= */ 0);
 
     // Frames before the primary frame should be dropped and released.
-    assertThat(releasedTextures).contains(secondaryFrame1.getGlTextureInfo());
-    assertThat(releasedTextures).contains(secondaryFrame2.getGlTextureInfo());
+    assertThat(releasedTextures).contains(secondaryFrame1.glTextureInfo);
+    assertThat(releasedTextures).contains(secondaryFrame2.glTextureInfo);
     assertThat(outputFrames).isEmpty();
 
     GlTextureFrame secondaryFrame3 = createFrame(/* presentationTimeUs= */ 110);
@@ -125,7 +125,7 @@ public class FrameAggregatorTest {
 
     assertThat(outputFrames).hasSize(1);
     assertThat(outputFrames.get(0)).containsExactly(primaryFrame, secondaryFrame2);
-    assertThat(releasedTextures).contains(secondaryFrame1.getGlTextureInfo());
+    assertThat(releasedTextures).contains(secondaryFrame1.glTextureInfo);
   }
 
   @Test
@@ -144,7 +144,7 @@ public class FrameAggregatorTest {
 
     assertThat(outputFrames).hasSize(1);
     assertThat(outputFrames.get(0)).containsExactly(primaryFrame, secondaryFrame2);
-    assertThat(releasedTextures).contains(secondaryFrame1.getGlTextureInfo());
+    assertThat(releasedTextures).contains(secondaryFrame1.glTextureInfo);
   }
 
   @Test
@@ -169,8 +169,8 @@ public class FrameAggregatorTest {
     frameAggregator.releaseAllFrames();
 
     assertThat(releasedTextures).hasSize(2);
-    assertThat(releasedTextures).contains(frame3.getGlTextureInfo());
-    assertThat(releasedTextures).contains(frame4.getGlTextureInfo());
+    assertThat(releasedTextures).contains(frame3.glTextureInfo);
+    assertThat(releasedTextures).contains(frame4.glTextureInfo);
     assertThat(outputFrames).hasSize(1);
   }
 
@@ -186,15 +186,15 @@ public class FrameAggregatorTest {
     GlTextureFrame heldSecondaryFrame2 = createFrame(300);
     frameAggregator.queueFrame(heldSecondaryFrame1, 1);
     frameAggregator.queueFrame(heldSecondaryFrame2, 1);
-    assertThat(releasedTextures).doesNotContain(heldSecondaryFrame1.getGlTextureInfo());
-    assertThat(releasedTextures).doesNotContain(heldSecondaryFrame2.getGlTextureInfo());
+    assertThat(releasedTextures).doesNotContain(heldSecondaryFrame1.glTextureInfo);
+    assertThat(releasedTextures).doesNotContain(heldSecondaryFrame2.glTextureInfo);
 
     GlTextureFrame seekFrame = createFrame(50);
     frameAggregator.queueFrame(seekFrame, 0);
 
     assertThat(releasedTextures).hasSize(2);
-    assertThat(releasedTextures).contains(heldSecondaryFrame1.getGlTextureInfo());
-    assertThat(releasedTextures).contains(heldSecondaryFrame2.getGlTextureInfo());
+    assertThat(releasedTextures).contains(heldSecondaryFrame1.glTextureInfo);
+    assertThat(releasedTextures).contains(heldSecondaryFrame2.glTextureInfo);
     assertThat(outputFrames).hasSize(1);
   }
 
@@ -207,13 +207,9 @@ public class FrameAggregatorTest {
             /* rboId= */ 1,
             /* width= */ 100,
             /* height= */ 100);
-    GlTextureFrame.Metadata metadata =
-        new GlTextureFrame.Metadata.Builder().setPresentationTimeUs(presentationTimeUs).build();
-
-    return new GlTextureFrame(
-        glTextureInfo,
-        metadata,
-        directExecutor(),
-        /* releaseTextureCallback= */ releasedTextures::add);
+    return new GlTextureFrame.Builder(
+            glTextureInfo, directExecutor(), /* releaseTextureCallback= */ releasedTextures::add)
+        .setPresentationTimeUs(presentationTimeUs)
+        .build();
   }
 }

@@ -136,9 +136,9 @@ public final class BitmapToGlTextureFrameProcessorTest {
     fakeFrameConsumer.awaitFrame(TEST_TIMEOUT);
     assertThat(fakeFrameConsumer.receivedFrames).hasSize(1);
     GlTextureFrame outputFrame = fakeFrameConsumer.receivedFrames.get(0);
-    assertThat(outputFrame.getGlTextureInfo()).isSameInstanceAs(outputTextureInfo);
-    assertThat(outputFrame.getMetadata().getPresentationTimeUs()).isEqualTo(2000L);
-    assertThat(outputFrame.getMetadata().getFormat().colorInfo).isEqualTo(SDR_BT709_LIMITED);
+    assertThat(outputFrame.glTextureInfo).isSameInstanceAs(outputTextureInfo);
+    assertThat(outputFrame.presentationTimeUs).isEqualTo(2000L);
+    assertThat(outputFrame.format.colorInfo).isEqualTo(SDR_BT709_LIMITED);
   }
 
   @Test
@@ -187,9 +187,9 @@ public final class BitmapToGlTextureFrameProcessorTest {
     fakeFrameConsumer.awaitFrame(TEST_TIMEOUT);
     assertThat(fakeFrameConsumer.receivedFrames).hasSize(1);
     GlTextureFrame outputFrame = fakeFrameConsumer.receivedFrames.get(0);
-    assertThat(outputFrame.getGlTextureInfo()).isSameInstanceAs(outputTextureInfo);
-    assertThat(outputFrame.getMetadata().getPresentationTimeUs()).isEqualTo(2000L);
-    assertThat(outputFrame.getMetadata().getFormat().colorInfo).isEqualTo(SDR_BT709_LIMITED);
+    assertThat(outputFrame.glTextureInfo).isSameInstanceAs(outputTextureInfo);
+    assertThat(outputFrame.presentationTimeUs).isEqualTo(2000L);
+    assertThat(outputFrame.format.colorInfo).isEqualTo(SDR_BT709_LIMITED);
   }
 
   @Test

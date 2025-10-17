@@ -25,7 +25,6 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.SystemClock;
 import androidx.media3.effect.GlTextureFrame;
-import androidx.media3.effect.GlTextureFrame.Metadata;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.video.VideoFrameReleaseControl;
 import androidx.media3.transformer.SequenceRenderersFactory.CompositionRendererListener;
@@ -47,8 +46,8 @@ import java.util.concurrent.ConcurrentLinkedDeque;
    * Creates a new {@link CompositionVideoPacketReleaseControl}.
    *
    * @param downstreamConsumer Receives the {@linkplain List<GlTextureFrame> packet}, with each
-   *     {@link GlTextureFrame} having the same {@linkplain Metadata#getReleaseTimeNs()} release
-   *     time}.
+   *     {@link GlTextureFrame} having the same {@linkplain GlTextureFrame#getReleaseTimeNs()}
+   *     release time}.
    */
   public CompositionVideoPacketReleaseControl(
       VideoFrameReleaseControl videoFrameReleaseControl,
@@ -77,8 +76,7 @@ import java.util.concurrent.ConcurrentLinkedDeque;
     //  case, or handle queueFrame and onRender on a single internal thread to fix this.
     @Nullable ImmutableList<GlTextureFrame> nextRenderedFrames = packetQueue.peek();
     if (nextRenderedFrames != null
-        && packet.get(0).getMetadata().getPresentationTimeUs()
-            < nextRenderedFrames.get(0).getMetadata().getPresentationTimeUs()) {
+        && packet.get(0).presentationTimeUs < nextRenderedFrames.get(0).presentationTimeUs) {
       reset();
     }
     packetQueue.add(ImmutableList.copyOf(packet));
@@ -104,7 +102,7 @@ import java.util.concurrent.ConcurrentLinkedDeque;
     @Nullable ImmutableList<GlTextureFrame> packet;
     while ((packet = packetQueue.poll()) != null) {
       checkState(!packet.isEmpty());
-      long presentationTimeUs = checkNotNull(packet).get(0).getMetadata().getPresentationTimeUs();
+      long presentationTimeUs = checkNotNull(packet).get(0).presentationTimeUs;
       @VideoFrameReleaseControl.FrameReleaseAction
       int frameReleaseAction =
           videoFrameReleaseControl.getFrameReleaseAction(
@@ -223,12 +221,11 @@ import java.util.concurrent.ConcurrentLinkedDeque;
   private static GlTextureFrame updateReleaseTime(GlTextureFrame frame, long releaseTimeNs) {
     // This method only modifies the frame metadata, the downstream consumer is still responsible
     // for releasing the frame.
-    Metadata metadataWithReleaseTime =
-        new Metadata.Builder(frame.getMetadata()).setReleaseTimeNs(releaseTimeNs).build();
-    return new GlTextureFrame(
-        frame.getGlTextureInfo(),
-        metadataWithReleaseTime,
-        frame.getReleaseTextureExecutor(),
-        frame.getReleaseTextureCallback());
+    return new GlTextureFrame.Builder(
+            frame.glTextureInfo, frame.releaseTextureExecutor, frame.releaseTextureCallback)
+        .setPresentationTimeUs(frame.presentationTimeUs)
+        .setReleaseTimeNs(releaseTimeNs)
+        .setMetadata(frame.getMetadata())
+        .build();
   }
 }
