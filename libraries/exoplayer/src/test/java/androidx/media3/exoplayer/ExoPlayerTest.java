@@ -166,6 +166,7 @@ import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.exoplayer.upstream.Loader;
+import androidx.media3.exoplayer.video.MediaCodecVideoRenderer;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
 import androidx.media3.extractor.metadata.id3.BinaryFrame;
 import androidx.media3.extractor.metadata.id3.TextInformationFrame;
@@ -191,6 +192,7 @@ import androidx.media3.test.utils.FakeTrackSelection;
 import androidx.media3.test.utils.FakeTrackSelector;
 import androidx.media3.test.utils.FakeVideoRenderer;
 import androidx.media3.test.utils.TestExoPlayerBuilder;
+import androidx.media3.test.utils.robolectric.IdlingMediaCodecAdapterFactory;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
 import androidx.test.core.app.ApplicationProvider;
 import com.google.common.collect.ImmutableList;
@@ -14700,12 +14702,57 @@ public final class ExoPlayerTest {
   @Test
   public void pauseAtEndOfMediaItem_withSecondStreamDelayed_playsSuccessfully() throws Exception {
     // Set allowed video joining time to zero so that the renderer is not automatically considered
-    // ready when we re-enable it at the transition.
+    // ready when we re-enable it at the transition. Also use IdlingMediaCodecAdapterFactory to
+    // better control the timing behavior of the decoding.
+    Clock clock = new FakeClock(/* isAutoAdvancing= */ true);
     ExoPlayer player =
         new ExoPlayer.Builder(context)
             .setRenderersFactory(
-                new DefaultRenderersFactory(context).setAllowedVideoJoiningTimeMs(0))
-            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+                new DefaultRenderersFactory(context) {
+                  @Override
+                  protected void buildVideoRenderers(
+                      Context context,
+                      @DefaultRenderersFactory.ExtensionRendererMode int extensionRendererMode,
+                      MediaCodecSelector mediaCodecSelector,
+                      boolean enableDecoderFallback,
+                      Handler eventHandler,
+                      VideoRendererEventListener eventListener,
+                      long allowedVideoJoiningTimeMs,
+                      ArrayList<Renderer> out) {
+                    out.add(
+                        new MediaCodecVideoRenderer.Builder(context)
+                            .setCodecAdapterFactory(
+                                new IdlingMediaCodecAdapterFactory(context, clock))
+                            .setMediaCodecSelector(mediaCodecSelector)
+                            .setAllowedJoiningTimeMs(0)
+                            .setEnableDecoderFallback(enableDecoderFallback)
+                            .setEventHandler(eventHandler)
+                            .setEventListener(eventListener)
+                            .build());
+                  }
+
+                  @Override
+                  protected void buildAudioRenderers(
+                      Context context,
+                      @ExtensionRendererMode int extensionRendererMode,
+                      MediaCodecSelector mediaCodecSelector,
+                      boolean enableDecoderFallback,
+                      AudioSink audioSink,
+                      Handler eventHandler,
+                      AudioRendererEventListener eventListener,
+                      ArrayList<Renderer> out) {
+                    out.add(
+                        new MediaCodecAudioRenderer(
+                            context,
+                            new IdlingMediaCodecAdapterFactory(context, clock),
+                            mediaCodecSelector,
+                            enableDecoderFallback,
+                            eventHandler,
+                            eventListener,
+                            audioSink));
+                  }
+                })
+            .setClock(clock)
             .build();
     player.setPreloadConfiguration(preloadConfiguration);
     player.setPauseAtEndOfMediaItems(true);
