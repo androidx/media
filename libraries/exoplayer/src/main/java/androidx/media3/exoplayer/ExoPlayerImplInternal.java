@@ -1647,7 +1647,18 @@ import java.util.Objects;
             return;
           }
         }
-        seekIsPendingWhileScrubbing = scrubbingModeEnabled;
+
+        if (scrubbingModeEnabled) {
+          for (RendererHolder renderer : renderers) {
+            // TODO: b/451939261 - Remove video-only condition once image-playback scrubbing mode
+            //  supports skipping intermittent seeks.
+            if (renderer.isRendererEnabled() && renderer.getTrackType() == C.TRACK_TYPE_VIDEO) {
+              seekIsPendingWhileScrubbing = true;
+              break;
+            }
+          }
+        }
+
         newPeriodPositionUs =
             seekToPeriodPosition(
                 periodId,

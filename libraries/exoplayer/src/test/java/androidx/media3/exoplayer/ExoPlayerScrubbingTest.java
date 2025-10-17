@@ -15,6 +15,9 @@
  */
 package androidx.media3.exoplayer;
 
+import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.END_OF_STREAM_ITEM;
+import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.oneByteSample;
+import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.sample;
 import static androidx.media3.test.utils.FakeTimeline.TimelineWindowDefinition.DEFAULT_WINDOW_DURATION_US;
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
 import static com.google.common.base.Preconditions.checkState;
@@ -33,10 +36,13 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.Color;
 import android.graphics.SurfaceTexture;
 import android.media.MediaFormat;
 import android.os.Bundle;
 import android.os.Handler;
+import android.util.Pair;
 import android.view.Surface;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -48,6 +54,10 @@ import androidx.media3.common.Timeline;
 import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.exoplayer.analytics.AnalyticsListener;
+import androidx.media3.exoplayer.image.ExternallyLoadedImageDecoder;
+import androidx.media3.exoplayer.image.ImageDecoder;
+import androidx.media3.exoplayer.image.ImageOutput;
+import androidx.media3.exoplayer.image.ImageRenderer;
 import androidx.media3.exoplayer.mediacodec.MediaCodecAdapter;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.media3.exoplayer.video.MediaCodecVideoRenderer;
@@ -67,7 +77,9 @@ import androidx.media3.test.utils.robolectric.IdlingMediaCodecAdapterFactory;
 import androidx.media3.test.utils.robolectric.ShadowMediaCodecConfig;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.Futures;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -161,6 +173,104 @@ public final class ExoPlayerScrubbingTest {
 
     // Check the dropped 3000 and 4000 seeks are reported
     verify(mockAnalyticsListener).onDroppedSeeksWhileScrubbing(any(), eq(2));
+  }
+
+  /**
+   * TODO: b/451939261- Adjust expected test behavior when skip intermittent seeks is supported for
+   * scrubbing image playback.
+   */
+  @Test
+  public void scrubbingMode_withThumbnails_pendingSeekIsPreempted() throws Exception {
+    List<Pair<Long, Bitmap>> renderedBitmaps = new ArrayList<>();
+    ImageDecoder.Factory fakeDecoderFactory =
+        new ExternallyLoadedImageDecoder.Factory(
+            (request) -> {
+              /*
+               * Thumbnail grid image is as depicted below.
+               *    0 1 2 3 4 5 6 7 8
+               *    -----------------
+               * 0 | T0  | T1  | T2  |
+               * 1 |     |     |     |
+               *    -----------------
+               * 2 | T3  | T4  | T5  |
+               * 3 |     |     |     |
+               *    -----------------
+               */
+              Bitmap bm =
+                  Bitmap.createBitmap(/* width= */ 9, /* height= */ 4, Bitmap.Config.ARGB_8888);
+              bm.setPixel(1, 2, Color.rgb(100, 0, 0));
+              bm.setPixel(4, 3, Color.rgb(0, 100, 0));
+              return Futures.immediateFuture(bm);
+            });
+    ImageOutput queuingImageOutput =
+        new ImageOutput() {
+          @Override
+          public void onImageAvailable(long presentationTimeUs, Bitmap bitmap) {
+            renderedBitmaps.add(Pair.create(presentationTimeUs, bitmap));
+          }
+
+          @Override
+          public void onDisabled() {
+            // Do nothing.
+          }
+        };
+    ImageRenderer renderer = new ImageRenderer(fakeDecoderFactory, queuingImageOutput);
+    ExoPlayer player =
+        new TestExoPlayerBuilder(ApplicationProvider.getApplicationContext())
+            // Set to retain back buffer else thumbnail will be discarded after successful render as
+            // FakeMediaPeriod does not "reload".
+            .setLoadControl(new DefaultLoadControl.Builder().setBackBuffer(0, true).build())
+            .setRenderers(renderer)
+            .build();
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
+    Player.Listener mockListener = mock(Player.Listener.class);
+    player.addListener(mockListener);
+    AnalyticsListener mockAnalyticsListener = mock(AnalyticsListener.class);
+    player.addAnalyticsListener(mockAnalyticsListener);
+    player.setMediaSource(create60sDurationImageSource());
+    player.prepare();
+    player.play();
+    advance(player).untilBackgroundThreadCondition(() -> !renderedBitmaps.isEmpty());
+
+    player.setScrubbingModeEnabled(true);
+    advance(player).untilPendingCommandsAreFullyHandled();
+    player.seekTo(10_000L);
+    player.seekTo(20_000L);
+    player.seekTo(30_000L);
+
+    // TODO: After implementing ignore for intermittent seeks, the 10s seek will also be completed.
+    advance(player).untilBackgroundThreadCondition(() -> renderedBitmaps.size() > 1);
+
+    player.seekTo(40_000L);
+    player.seekTo(50_000L);
+    // Disabling scrubbing mode should immediately execute the last received seek (pre-empting a
+    // previous one), so we expect the 50s seek to be resolved and the 40s seek to be dropped.
+    player.setScrubbingModeEnabled(false);
+    advance(player).untilBackgroundThreadCondition(() -> renderedBitmaps.size() > 2);
+    advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+    surface.release();
+
+    // TODO: After implementing ignore for intermittent seeks, renderedBitmaps should have size 4.
+    assertThat(renderedBitmaps).hasSize(3);
+    assertThat(renderedBitmaps.get(1).first).isEqualTo(30_000_000L);
+    assertThat(renderedBitmaps.get(2).first).isEqualTo(50_000_000L);
+
+    // Confirm every seek request still resulted in a position discontinuity callback.
+    ArgumentCaptor<PositionInfo> newPositionCaptor = ArgumentCaptor.forClass(PositionInfo.class);
+    verify(mockListener, atLeastOnce())
+        .onPositionDiscontinuity(
+            /* oldPosition= */ any(),
+            newPositionCaptor.capture(),
+            eq(Player.DISCONTINUITY_REASON_SEEK));
+    assertThat(newPositionCaptor.getAllValues().stream().map(p -> p.positionMs))
+        .containsExactly(10_000L, 20_000L, 30_000L, 40_000L, 50_000L)
+        .inOrder();
+
+    // TODO: After implementing ignore for intermittent seeks, an onDroppedSeeksWhileScrubbing event
+    // will be reported.
+    verify(mockAnalyticsListener, never()).onDroppedSeeksWhileScrubbing(any(), anyInt());
   }
 
   @Test
@@ -689,6 +799,34 @@ public final class ExoPlayerScrubbingTest {
                 /* durationUs= */ DEFAULT_WINDOW_DURATION_US,
                 /* keyFrameInterval= */ 60))
         .setSyncSampleTimesUs(new long[] {0, 2_000_000, 4_000_000, 6_000_000, 8_000_000})
+        .build();
+  }
+
+  private static FakeMediaSource create60sDurationImageSource() {
+    return new FakeMediaSource.Builder()
+        .setTimeline(
+            new FakeTimeline(
+                new TimelineWindowDefinition.Builder()
+                    .setWindowPositionInFirstPeriodUs(0)
+                    .setDurationUs(60_000_000)
+                    .build()))
+        .setFormats(
+            new Format.Builder()
+                .setSampleMimeType(MimeTypes.APPLICATION_EXTERNALLY_LOADED_IMAGE)
+                .setTileCountVertical(2)
+                .setTileCountHorizontal(3)
+                .build())
+        .setTrackDataFactory(
+            (unusedFormat, unusedMediaPeriodId) ->
+                ImmutableList.of(
+                    oneByteSample(/* timeUs= */ 0L, /* flags= */ C.BUFFER_FLAG_KEY_FRAME),
+                    sample(/* timeUs= */ 10_000_000L, /* flags= */ 0, new byte[] {}),
+                    sample(/* timeUs= */ 20_000_000L, /* flags= */ 0, new byte[] {}),
+                    sample(/* timeUs= */ 30_000_000L, /* flags= */ 0, new byte[] {}),
+                    sample(/* timeUs= */ 40_000_000L, /* flags= */ 0, new byte[] {}),
+                    sample(/* timeUs= */ 50_000_000L, /* flags= */ 0, new byte[] {}),
+                    END_OF_STREAM_ITEM))
+        .setSyncSampleTimesUs(new long[] {0})
         .build();
   }
 
