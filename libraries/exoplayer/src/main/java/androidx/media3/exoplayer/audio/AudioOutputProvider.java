@@ -60,23 +60,51 @@ public interface AudioOutputProvider {
     /** Sets whether to enable high resolution PCM output with more than 16 bits. */
     public final boolean enableHighResolutionPcmOutput;
 
-    /** Whether to control the playback speed using the audio output. */
-    public final boolean enableAudioOutputPlaybackParameters;
+    /**
+     * Whether to control the playback speed using the audio output.
+     *
+     * <p>This parameter should not generally affect the outcome of {@link
+     * #getFormatSupport(FormatConfig)}.
+     */
+    public final boolean enablePlaybackParameters;
 
-    /** The {@link OffloadMode}. */
-    public final @OffloadMode int offloadMode;
+    /**
+     * Whether the audio output should enable offload.
+     *
+     * <p>This parameter should not generally affect the outcome of {@link
+     * #getFormatSupport(FormatConfig)}.
+     */
+    public final boolean enableOffload;
 
-    /** The audio session ID, or {@link C#AUDIO_SESSION_ID_UNSET} if not set. */
+    /**
+     * The audio session ID, or {@link C#AUDIO_SESSION_ID_UNSET} if not set.
+     *
+     * <p>This parameter should not generally affect the outcome of {@link
+     * #getFormatSupport(FormatConfig)}.
+     */
     public final int audioSessionId;
 
-    /** The virtual device ID, or {@link C#INDEX_UNSET} if not specified. */
+    /**
+     * The virtual device ID, or {@link C#INDEX_UNSET} if not specified.
+     *
+     * <p>This parameter should not generally affect the outcome of {@link
+     * #getFormatSupport(FormatConfig)}.
+     */
     public final int virtualDeviceId;
 
-    /** Whether tunneling is enabled. */
-    public final boolean isTunneling;
+    /**
+     * Whether tunneling is enabled.
+     *
+     * <p>This parameter should not generally affect the outcome of {@link
+     * #getFormatSupport(FormatConfig)}.
+     */
+    public final boolean enableTunneling;
 
     /**
      * The preferred buffer size in bytes, or {@link C#LENGTH_UNSET} if no preference is specified.
+     *
+     * <p>This parameter should not generally affect the outcome of {@link
+     * #getFormatSupport(FormatConfig)}.
      */
     public final int preferredBufferSize;
 
@@ -85,11 +113,11 @@ public interface AudioOutputProvider {
       this.audioAttributes = builder.audioAttributes;
       this.preferredDevice = builder.preferredDevice;
       this.enableHighResolutionPcmOutput = builder.enableHighResolutionPcmOutput;
-      this.enableAudioOutputPlaybackParameters = builder.enableAudioOutputPlaybackParameters;
-      this.offloadMode = builder.offloadMode;
+      this.enablePlaybackParameters = builder.enablePlaybackParameters;
+      this.enableOffload = builder.enableOffload;
       this.audioSessionId = builder.audioSessionId;
       this.virtualDeviceId = builder.virtualDeviceId;
-      this.isTunneling = builder.isTunneling;
+      this.enableTunneling = builder.enableTunneling;
       this.preferredBufferSize = builder.preferredBufferSize;
     }
 
@@ -104,21 +132,19 @@ public interface AudioOutputProvider {
       private AudioAttributes audioAttributes;
       @Nullable private AudioDeviceInfo preferredDevice;
       private boolean enableHighResolutionPcmOutput;
-      private boolean enableAudioOutputPlaybackParameters;
-      private @OffloadMode int offloadMode;
+      private boolean enablePlaybackParameters;
+      private boolean enableOffload;
       private int audioSessionId;
       private int virtualDeviceId;
-      private boolean isTunneling;
+      private boolean enableTunneling;
       private int preferredBufferSize;
 
       /** Creates a new builder. */
       public Builder(Format format) {
         this.format = format;
         this.audioAttributes = AudioAttributes.DEFAULT;
-        this.offloadMode = OFFLOAD_MODE_DISABLED;
         this.audioSessionId = C.AUDIO_SESSION_ID_UNSET;
         this.virtualDeviceId = C.INDEX_UNSET;
-        this.isTunneling = false;
         this.preferredBufferSize = C.LENGTH_UNSET;
       }
 
@@ -127,11 +153,11 @@ public interface AudioOutputProvider {
         this.audioAttributes = config.audioAttributes;
         this.preferredDevice = config.preferredDevice;
         this.enableHighResolutionPcmOutput = config.enableHighResolutionPcmOutput;
-        this.enableAudioOutputPlaybackParameters = config.enableAudioOutputPlaybackParameters;
-        this.offloadMode = config.offloadMode;
+        this.enablePlaybackParameters = config.enablePlaybackParameters;
+        this.enableOffload = config.enableOffload;
         this.audioSessionId = config.audioSessionId;
         this.virtualDeviceId = config.virtualDeviceId;
-        this.isTunneling = config.isTunneling;
+        this.enableTunneling = config.enableTunneling;
         this.preferredBufferSize = config.preferredBufferSize;
       }
 
@@ -159,22 +185,34 @@ public interface AudioOutputProvider {
       /**
        * Sets whether to control the playback parameters using the {@link AudioOutput}
        * implementation.
+       *
+       * <p>This parameter should not generally affect the outcome of {@link
+       * #getFormatSupport(FormatConfig)}.
        */
       @CanIgnoreReturnValue
-      public Builder setEnableAudioOutputPlaybackParameters(
-          boolean enableAudioOutputPlaybackParams) {
-        this.enableAudioOutputPlaybackParameters = enableAudioOutputPlaybackParams;
+      public Builder setEnablePlaybackParameters(boolean enablePlaybackParameters) {
+        this.enablePlaybackParameters = enablePlaybackParameters;
         return this;
       }
 
-      /** Sets the {@link OffloadMode}. */
+      /**
+       * Sets whether the audio output should enable offload.
+       *
+       * <p>This parameter should not generally affect the outcome of {@link
+       * #getFormatSupport(FormatConfig)}.
+       */
       @CanIgnoreReturnValue
-      public Builder setOffloadMode(@OffloadMode int offloadMode) {
-        this.offloadMode = offloadMode;
+      public Builder setEnableOffload(boolean enableOffload) {
+        this.enableOffload = enableOffload;
         return this;
       }
 
-      /** Sets the audio session ID. The default value is {@link C#AUDIO_SESSION_ID_UNSET}. */
+      /**
+       * Sets the audio session ID. The default value is {@link C#AUDIO_SESSION_ID_UNSET}.
+       *
+       * <p>This parameter should not generally affect the outcome of {@link
+       * #getFormatSupport(FormatConfig)}.
+       */
       @CanIgnoreReturnValue
       public Builder setAudioSessionId(int audioSessionId) {
         this.audioSessionId = audioSessionId;
@@ -184,6 +222,9 @@ public interface AudioOutputProvider {
       /**
        * Sets the virtual device ID, or {@link C#INDEX_UNSET} if not specified. The default value is
        * {@link C#INDEX_UNSET}.
+       *
+       * <p>This parameter should not generally affect the outcome of {@link
+       * #getFormatSupport(FormatConfig)}.
        */
       @CanIgnoreReturnValue
       public Builder setVirtualDeviceId(int virtualDeviceId) {
@@ -191,16 +232,24 @@ public interface AudioOutputProvider {
         return this;
       }
 
-      /** Sets whether tunneling is enabled. */
+      /**
+       * Sets whether tunneling is enabled.
+       *
+       * <p>This parameter should not generally affect the outcome of {@link
+       * #getFormatSupport(FormatConfig)}.
+       */
       @CanIgnoreReturnValue
-      public Builder setIsTunneling(boolean isTunneling) {
-        this.isTunneling = isTunneling;
+      public Builder setEnableTunneling(boolean enableTunneling) {
+        this.enableTunneling = enableTunneling;
         return this;
       }
 
       /**
        * Sets the preferred buffer size in bytes, or {@link C#LENGTH_UNSET} if no preference is
        * specified.
+       *
+       * <p>This parameter should not generally affect the outcome of {@link
+       * #getFormatSupport(FormatConfig)}.
        */
       @CanIgnoreReturnValue
       public Builder setPreferredBufferSize(int preferredBufferSize) {
@@ -563,41 +612,6 @@ public interface AudioOutputProvider {
       super(cause);
     }
   }
-
-  /**
-   * Audio offload mode configuration. One of {@link #OFFLOAD_MODE_DISABLED}, {@link
-   * #OFFLOAD_MODE_ENABLED_GAPLESS_REQUIRED} or {@link #OFFLOAD_MODE_ENABLED_GAPLESS_NOT_REQUIRED}.
-   */
-  @Documented
-  @Retention(RetentionPolicy.SOURCE)
-  @Target(TYPE_USE)
-  @IntDef({
-    OFFLOAD_MODE_DISABLED,
-    OFFLOAD_MODE_ENABLED_GAPLESS_REQUIRED,
-    OFFLOAD_MODE_ENABLED_GAPLESS_NOT_REQUIRED
-  })
-  @interface OffloadMode {}
-
-  /** The audio output will never play in offload mode. */
-  int OFFLOAD_MODE_DISABLED = 0;
-
-  /**
-   * The audio output will prefer offload playback except in the case where both the track is
-   * gapless and the device does support gapless offload playback.
-   *
-   * <p>Use this option to prioritize uninterrupted playback of consecutive audio tracks over power
-   * savings.
-   */
-  int OFFLOAD_MODE_ENABLED_GAPLESS_REQUIRED = 1;
-
-  /**
-   * The audio output will prefer offload playback even if this might result in silence gaps between
-   * tracks.
-   *
-   * <p>Use this option to prioritize battery saving at the cost of a possible non seamless
-   * transitions between tracks of the same album.
-   */
-  int OFFLOAD_MODE_ENABLED_GAPLESS_NOT_REQUIRED = 2;
 
   /**
    * The level of support the provider has for a format. One of {@link #FORMAT_SUPPORTED_DIRECTLY},
