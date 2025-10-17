@@ -2592,9 +2592,11 @@ public class MediaSession {
             new CacheBitmapLoader(
                 new DataSourceBitmapLoader.Builder(context)
                     .setMaximumOutputDimension(dimensionLimit)
+                    .setMakeShared(true)
                     .build());
       } else {
-        bitmapLoader = new SizeLimitedBitmapLoader(bitmapLoader, dimensionLimit);
+        bitmapLoader =
+            new SizeLimitedBitmapLoader(bitmapLoader, dimensionLimit, /* makeShared= */ true);
       }
     }
   }

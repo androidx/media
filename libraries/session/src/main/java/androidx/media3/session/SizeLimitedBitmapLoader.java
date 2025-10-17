@@ -15,6 +15,7 @@
  */
 package androidx.media3.session;
 
+import static androidx.media3.datasource.BitmapUtil.makeShared;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.lang.Math.min;
 
@@ -37,11 +38,20 @@ public final class SizeLimitedBitmapLoader implements BitmapLoader {
 
   private final BitmapLoader bitmapLoader;
   private final int maxBitmapSize;
+  private final boolean makeShared;
 
-  /** Creates an instance that size limits the bitmap loaded by bitmapLoader */
-  public SizeLimitedBitmapLoader(BitmapLoader bitmapLoader, int maxBitmapSize) {
+  /**
+   * Creates an instance that size limits the bitmap loaded by the {@link BitmapLoader}.
+   *
+   * @param bitmapLoader The {@link BitmapLoader}.
+   * @param maxBitmapSize The maximum size to limit the loaded {@link Bitmap} instances to.
+   * @param makeShared Whether the {@link Bitmap} should be converted to an immutable, sharable
+   *     instance that is most efficient for repeated transfer over binder interfaces.
+   */
+  public SizeLimitedBitmapLoader(BitmapLoader bitmapLoader, int maxBitmapSize, boolean makeShared) {
     this.bitmapLoader = bitmapLoader;
     this.maxBitmapSize = maxBitmapSize;
+    this.makeShared = makeShared;
   }
 
   @Override
@@ -77,7 +87,10 @@ public final class SizeLimitedBitmapLoader implements BitmapLoader {
       float scale = min((float) maxBitmapSize / width, (float) maxBitmapSize / height);
       int scaledWidth = (int) (width * scale);
       int scaledHeight = (int) (height * scale);
-      return Bitmap.createScaledBitmap(bitmap, scaledWidth, scaledHeight, /* filter= */ true);
+      bitmap = Bitmap.createScaledBitmap(bitmap, scaledWidth, scaledHeight, /* filter= */ true);
+    }
+    if (makeShared) {
+      bitmap = makeShared(bitmap);
     }
     return bitmap;
   }

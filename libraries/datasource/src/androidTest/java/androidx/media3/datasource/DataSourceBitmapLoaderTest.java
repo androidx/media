@@ -17,6 +17,7 @@ package androidx.media3.datasource;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertThrows;
 
 import android.content.Context;
@@ -359,6 +360,36 @@ public class DataSourceBitmapLoaderTest {
     ListenableFuture<Bitmap> bitmapFuture = bitmapLoader.loadBitmapFromMetadata(metadata);
 
     assertThat(bitmapFuture).isNull();
+  }
+
+  @Test
+  public void decodeBitmap_makeShared_returnsImmutableInstance() throws Exception {
+    DataSourceBitmapLoader bitmapLoader =
+        new DataSourceBitmapLoader.Builder(context).setMakeShared(true).build();
+    byte[] imageData = TestUtil.getByteArray(context, TEST_IMAGE_PATH);
+
+    Bitmap bitmap = bitmapLoader.decodeBitmap(imageData).get(10, SECONDS);
+
+    // We can't assert the shared state directly, so using the fact that sharable Bitmaps are
+    // immutable as a proxy.
+    assertThat(bitmap.isMutable()).isFalse();
+  }
+
+  @Test
+  public void loadBitmap_makeShared_returnsImmutableInstance() throws Exception {
+    DataSourceBitmapLoader bitmapLoader =
+        new DataSourceBitmapLoader.Builder(context).setMakeShared(true).build();
+    byte[] imageData = TestUtil.getByteArray(context, TEST_IMAGE_PATH);
+    Buffer responseBody = new Buffer().write(imageData);
+    MockWebServer mockWebServer = new MockWebServer();
+    mockWebServer.enqueue(new MockResponse().setResponseCode(200).setBody(responseBody));
+    Uri uri = Uri.parse(mockWebServer.url("test_path").toString());
+
+    Bitmap bitmap = bitmapLoader.loadBitmap(uri).get(10, SECONDS);
+
+    // We can't assert the shared state directly, so using the fact that sharable Bitmaps are
+    // immutable as a proxy.
+    assertThat(bitmap.isMutable()).isFalse();
   }
 
   private static void assertException(

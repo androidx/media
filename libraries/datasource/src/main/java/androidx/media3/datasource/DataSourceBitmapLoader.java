@@ -16,6 +16,7 @@
 package androidx.media3.datasource;
 
 import static androidx.media3.common.util.Util.isBitmapFactorySupportedMimeType;
+import static androidx.media3.datasource.BitmapUtil.decode;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.content.Context;
@@ -59,6 +60,7 @@ public final class DataSourceBitmapLoader implements BitmapLoader {
     @Nullable private DataSource.Factory dataSourceFactory;
     @Nullable private BitmapFactory.Options options;
     private int maximumOutputDimension;
+    private boolean makeShared;
 
     /**
      * Creates a builder.
@@ -123,6 +125,20 @@ public final class DataSourceBitmapLoader implements BitmapLoader {
       return this;
     }
 
+    /**
+     * Sets whether the {@link Bitmap} should be converted to an immutable, sharable instance that
+     * is most efficient for repeated transfer over binder interfaces.
+     *
+     * @param makeShared Whether to make the {@link Bitmap} shared.
+     * @return This builder.
+     * @see BitmapUtil#makeShared(Bitmap)
+     */
+    @CanIgnoreReturnValue
+    public Builder setMakeShared(boolean makeShared) {
+      this.makeShared = makeShared;
+      return this;
+    }
+
     /** Builds a {@link DataSourceBitmapLoader}. */
     public DataSourceBitmapLoader build() {
       return new DataSourceBitmapLoader(this);
@@ -133,6 +149,7 @@ public final class DataSourceBitmapLoader implements BitmapLoader {
   private final DataSource.Factory dataSourceFactory;
   @Nullable private final BitmapFactory.Options options;
   private final int maximumOutputDimension;
+  private final boolean makeShared;
 
   /**
    * @deprecated Use {@link Builder} instead.
@@ -189,6 +206,7 @@ public final class DataSourceBitmapLoader implements BitmapLoader {
     this.dataSourceFactory = dataSourceFactory;
     this.options = options;
     this.maximumOutputDimension = maximumOutputDimension;
+    this.makeShared = false;
   }
 
   private DataSourceBitmapLoader(Builder builder) {
@@ -202,6 +220,7 @@ public final class DataSourceBitmapLoader implements BitmapLoader {
             : checkNotNull(DEFAULT_EXECUTOR_SERVICE.get());
     this.options = builder.options;
     this.maximumOutputDimension = builder.maximumOutputDimension;
+    this.makeShared = builder.makeShared;
   }
 
   @Override
@@ -212,28 +231,41 @@ public final class DataSourceBitmapLoader implements BitmapLoader {
   @Override
   public ListenableFuture<Bitmap> decodeBitmap(byte[] data) {
     return listeningExecutorService.submit(
-        () -> BitmapUtil.decode(data, data.length, options, maximumOutputDimension));
+        () ->
+            maybeAsShared(makeShared, decode(data, data.length, options, maximumOutputDimension)));
   }
 
   @Override
   public ListenableFuture<Bitmap> loadBitmap(Uri uri) {
     return listeningExecutorService.submit(
-        () -> load(dataSourceFactory.createDataSource(), uri, options, maximumOutputDimension));
+        () ->
+            load(
+                dataSourceFactory.createDataSource(),
+                uri,
+                options,
+                maximumOutputDimension,
+                makeShared));
   }
 
   private static Bitmap load(
       DataSource dataSource,
       Uri uri,
       @Nullable BitmapFactory.Options options,
-      int maximumOutputDimension)
+      int maximumOutputDimension,
+      boolean makeShared)
       throws IOException {
     try {
       DataSpec dataSpec = new DataSpec(uri);
       dataSource.open(dataSpec);
       byte[] readData = DataSourceUtil.readToEnd(dataSource);
-      return BitmapUtil.decode(readData, readData.length, options, maximumOutputDimension);
+      return maybeAsShared(
+          makeShared, decode(readData, readData.length, options, maximumOutputDimension));
     } finally {
       dataSource.close();
     }
+  }
+
+  private static Bitmap maybeAsShared(boolean makeShared, Bitmap bitmap) {
+    return makeShared ? BitmapUtil.makeShared(bitmap) : bitmap;
   }
 }

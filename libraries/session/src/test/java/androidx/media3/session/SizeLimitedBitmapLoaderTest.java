@@ -72,7 +72,8 @@ public class SizeLimitedBitmapLoaderTest {
   public void decodeBitmapWithLimit() throws Exception {
     int limit = MediaSession.getBitmapDimensionLimit(context);
     SizeLimitedBitmapLoader sizeLimitedBitmapLoader =
-        new SizeLimitedBitmapLoader(new DataSourceBitmapLoader.Builder(context).build(), limit);
+        new SizeLimitedBitmapLoader(
+            new DataSourceBitmapLoader.Builder(context).build(), limit, /* makeShared= */ false);
     byte[] imageData = TestUtil.getByteArray(context, TEST_IMAGE_PATH);
     Bitmap expectedBitmap = getExpectedBitmap(imageData, limit);
 
@@ -85,7 +86,8 @@ public class SizeLimitedBitmapLoaderTest {
   public void loadBitmapWithLimit() throws Exception {
     int limit = MediaSession.getBitmapDimensionLimit(context);
     SizeLimitedBitmapLoader sizeLimitedBitmapLoader =
-        new SizeLimitedBitmapLoader(new DataSourceBitmapLoader.Builder(context).build(), limit);
+        new SizeLimitedBitmapLoader(
+            new DataSourceBitmapLoader.Builder(context).build(), limit, /* makeShared= */ false);
     byte[] imageData = TestUtil.getByteArray(context, TEST_IMAGE_PATH);
     Buffer responseBody = new Buffer().write(imageData);
     MockWebServer mockWebServer = new MockWebServer();
@@ -103,7 +105,8 @@ public class SizeLimitedBitmapLoaderTest {
   public void loadBitmapWithLimitWithDifferentUris() throws Exception {
     int limit = MediaSession.getBitmapDimensionLimit(context);
     SizeLimitedBitmapLoader sizeLimitedBitmapLoader =
-        new SizeLimitedBitmapLoader(new DataSourceBitmapLoader.Builder(context).build(), limit);
+        new SizeLimitedBitmapLoader(
+            new DataSourceBitmapLoader.Builder(context).build(), limit, /* makeShared= */ false);
     byte[] imageData1 = TestUtil.getByteArray(context, TEST_IMAGE_PATH);
     byte[] imageData2 = TestUtil.getByteArray(context, SECOND_TEST_IMAGE_PATH);
     Buffer responseBody1 = new Buffer().write(imageData1);
@@ -132,7 +135,8 @@ public class SizeLimitedBitmapLoaderTest {
   public void loadBitmapWithLimitWithInvalidUri() {
     int limit = MediaSession.getBitmapDimensionLimit(context);
     SizeLimitedBitmapLoader sizeLimitedBitmapLoader =
-        new SizeLimitedBitmapLoader(new DataSourceBitmapLoader.Builder(context).build(), limit);
+        new SizeLimitedBitmapLoader(
+            new DataSourceBitmapLoader.Builder(context).build(), limit, /* makeShared= */ false);
     MockWebServer mockWebServer = new MockWebServer();
     mockWebServer.enqueue(new MockResponse().setResponseCode(404));
     Uri uri = Uri.parse(mockWebServer.url("test_path").toString());
@@ -155,7 +159,7 @@ public class SizeLimitedBitmapLoaderTest {
         new LoadBitmapFromMetadataOnlyBitmapLoader(
             new DataSourceBitmapLoader.Builder(context).build());
     SizeLimitedBitmapLoader sizeLimitedBitmapLoader =
-        new SizeLimitedBitmapLoader(testBitmapLoader, limit);
+        new SizeLimitedBitmapLoader(testBitmapLoader, limit, /* makeShared= */ false);
     Buffer responseBody = new Buffer().write(imageData);
     MockWebServer mockWebServer = new MockWebServer();
     mockWebServer.enqueue(new MockResponse().setResponseCode(200).setBody(responseBody));
@@ -166,6 +170,74 @@ public class SizeLimitedBitmapLoaderTest {
     Bitmap bitmap = sizeLimitedBitmapLoader.loadBitmapFromMetadata(metadata).get(10, SECONDS);
 
     assertThat(bitmap.sameAs(expectedBitmap)).isTrue();
+  }
+
+  @Test
+  public void decodeBitmap_sizeUnderLimitAndMakeShared_returnsImmutableInstance() throws Exception {
+    int limit = 10000;
+    SizeLimitedBitmapLoader sizeLimitedBitmapLoader =
+        new SizeLimitedBitmapLoader(
+            new DataSourceBitmapLoader.Builder(context).build(), limit, /* makeShared= */ true);
+    byte[] imageData = TestUtil.getByteArray(context, TEST_IMAGE_PATH);
+
+    Bitmap bitmap = sizeLimitedBitmapLoader.decodeBitmap(imageData).get(10, SECONDS);
+
+    // We can't assert the shared state directly, so using the fact that sharable Bitmaps are
+    // immutable as a proxy.
+    assertThat(bitmap.isMutable()).isFalse();
+  }
+
+  @Test
+  public void decodeBitmap_sizeOverLimitAndMakeShared_returnsImmutableInstance() throws Exception {
+    int limit = 20;
+    SizeLimitedBitmapLoader sizeLimitedBitmapLoader =
+        new SizeLimitedBitmapLoader(
+            new DataSourceBitmapLoader.Builder(context).build(), limit, /* makeShared= */ true);
+    byte[] imageData = TestUtil.getByteArray(context, TEST_IMAGE_PATH);
+
+    Bitmap bitmap = sizeLimitedBitmapLoader.decodeBitmap(imageData).get(10, SECONDS);
+
+    // We can't assert the shared state directly, so using the fact that sharable Bitmaps are
+    // immutable as a proxy.
+    assertThat(bitmap.isMutable()).isFalse();
+  }
+
+  @Test
+  public void loadBitmap_sizeUnderLimitAndMakeShared_returnsImmutableInstance() throws Exception {
+    int limit = 10000;
+    SizeLimitedBitmapLoader sizeLimitedBitmapLoader =
+        new SizeLimitedBitmapLoader(
+            new DataSourceBitmapLoader.Builder(context).build(), limit, /* makeShared= */ true);
+    byte[] imageData = TestUtil.getByteArray(context, TEST_IMAGE_PATH);
+    Buffer responseBody = new Buffer().write(imageData);
+    MockWebServer mockWebServer = new MockWebServer();
+    mockWebServer.enqueue(new MockResponse().setResponseCode(200).setBody(responseBody));
+    Uri uri = Uri.parse(mockWebServer.url("test_path").toString());
+
+    Bitmap bitmap = sizeLimitedBitmapLoader.loadBitmap(uri).get(10, SECONDS);
+
+    // We can't assert the shared state directly, so using the fact that sharable Bitmaps are
+    // immutable as a proxy.
+    assertThat(bitmap.isMutable()).isFalse();
+  }
+
+  @Test
+  public void loadBitmap_sizeOverLimitAndMakeShared_returnsImmutableInstance() throws Exception {
+    int limit = 20;
+    SizeLimitedBitmapLoader sizeLimitedBitmapLoader =
+        new SizeLimitedBitmapLoader(
+            new DataSourceBitmapLoader.Builder(context).build(), limit, /* makeShared= */ true);
+    byte[] imageData = TestUtil.getByteArray(context, TEST_IMAGE_PATH);
+    Buffer responseBody = new Buffer().write(imageData);
+    MockWebServer mockWebServer = new MockWebServer();
+    mockWebServer.enqueue(new MockResponse().setResponseCode(200).setBody(responseBody));
+    Uri uri = Uri.parse(mockWebServer.url("test_path").toString());
+
+    Bitmap bitmap = sizeLimitedBitmapLoader.loadBitmap(uri).get(10, SECONDS);
+
+    // We can't assert the shared state directly, so using the fact that sharable Bitmaps are
+    // immutable as a proxy.
+    assertThat(bitmap.isMutable()).isFalse();
   }
 
   private static Bitmap apply90DegreeExifRotation(Bitmap bitmap) {
