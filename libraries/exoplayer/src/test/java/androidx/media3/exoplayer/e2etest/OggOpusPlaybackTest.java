@@ -131,12 +131,12 @@ public final class OggOpusPlaybackTest {
 
     @Override
     protected AudioSink buildAudioSink(
-        Context context, boolean enableFloatOutput, boolean enableAudioTrackPlaybackParams) {
+        Context context, boolean enableFloatOutput, boolean enableAudioOutputPlaybackParams) {
       dumpingAudioSink =
           new DumpingAudioSink(
               new DefaultAudioSink.Builder(context)
                   .setEnableFloatOutput(enableFloatOutput)
-                  .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+                  .setEnableAudioOutputPlaybackParameters(enableAudioOutputPlaybackParams)
                   .build());
       return dumpingAudioSink;
     }
