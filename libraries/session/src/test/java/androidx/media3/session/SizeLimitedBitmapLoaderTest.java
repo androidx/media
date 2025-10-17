@@ -72,7 +72,7 @@ public class SizeLimitedBitmapLoaderTest {
   public void decodeBitmapWithLimit() throws Exception {
     int limit = MediaSession.getBitmapDimensionLimit(context);
     SizeLimitedBitmapLoader sizeLimitedBitmapLoader =
-        new SizeLimitedBitmapLoader(new DataSourceBitmapLoader(context), limit);
+        new SizeLimitedBitmapLoader(new DataSourceBitmapLoader.Builder(context).build(), limit);
     byte[] imageData = TestUtil.getByteArray(context, TEST_IMAGE_PATH);
     Bitmap expectedBitmap = getExpectedBitmap(imageData, limit);
 
@@ -85,7 +85,7 @@ public class SizeLimitedBitmapLoaderTest {
   public void loadBitmapWithLimit() throws Exception {
     int limit = MediaSession.getBitmapDimensionLimit(context);
     SizeLimitedBitmapLoader sizeLimitedBitmapLoader =
-        new SizeLimitedBitmapLoader(new DataSourceBitmapLoader(context), limit);
+        new SizeLimitedBitmapLoader(new DataSourceBitmapLoader.Builder(context).build(), limit);
     byte[] imageData = TestUtil.getByteArray(context, TEST_IMAGE_PATH);
     Buffer responseBody = new Buffer().write(imageData);
     MockWebServer mockWebServer = new MockWebServer();
@@ -103,7 +103,7 @@ public class SizeLimitedBitmapLoaderTest {
   public void loadBitmapWithLimitWithDifferentUris() throws Exception {
     int limit = MediaSession.getBitmapDimensionLimit(context);
     SizeLimitedBitmapLoader sizeLimitedBitmapLoader =
-        new SizeLimitedBitmapLoader(new DataSourceBitmapLoader(context), limit);
+        new SizeLimitedBitmapLoader(new DataSourceBitmapLoader.Builder(context).build(), limit);
     byte[] imageData1 = TestUtil.getByteArray(context, TEST_IMAGE_PATH);
     byte[] imageData2 = TestUtil.getByteArray(context, SECOND_TEST_IMAGE_PATH);
     Buffer responseBody1 = new Buffer().write(imageData1);
@@ -132,7 +132,7 @@ public class SizeLimitedBitmapLoaderTest {
   public void loadBitmapWithLimitWithInvalidUri() {
     int limit = MediaSession.getBitmapDimensionLimit(context);
     SizeLimitedBitmapLoader sizeLimitedBitmapLoader =
-        new SizeLimitedBitmapLoader(new DataSourceBitmapLoader(context), limit);
+        new SizeLimitedBitmapLoader(new DataSourceBitmapLoader.Builder(context).build(), limit);
     MockWebServer mockWebServer = new MockWebServer();
     mockWebServer.enqueue(new MockResponse().setResponseCode(404));
     Uri uri = Uri.parse(mockWebServer.url("test_path").toString());
@@ -152,7 +152,8 @@ public class SizeLimitedBitmapLoaderTest {
     int limit = MediaSession.getBitmapDimensionLimit(context);
     byte[] imageData = TestUtil.getByteArray(context, TEST_IMAGE_PATH);
     LoadBitmapFromMetadataOnlyBitmapLoader testBitmapLoader =
-        new LoadBitmapFromMetadataOnlyBitmapLoader(new DataSourceBitmapLoader(context));
+        new LoadBitmapFromMetadataOnlyBitmapLoader(
+            new DataSourceBitmapLoader.Builder(context).build());
     SizeLimitedBitmapLoader sizeLimitedBitmapLoader =
         new SizeLimitedBitmapLoader(testBitmapLoader, limit);
     Buffer responseBody = new Buffer().write(imageData);

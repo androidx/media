@@ -206,7 +206,7 @@ public final class MediaBrowser extends MediaController {
     public ListenableFuture<MediaBrowser> buildAsync() {
       MediaControllerHolder<MediaBrowser> holder = new MediaControllerHolder<>(applicationLooper);
       if (token.isLegacySession() && bitmapLoader == null) {
-        bitmapLoader = new CacheBitmapLoader(new DataSourceBitmapLoader(context));
+        bitmapLoader = new CacheBitmapLoader(new DataSourceBitmapLoader.Builder(context).build());
       }
       MediaBrowser browser =
           new MediaBrowser(

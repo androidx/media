@@ -88,7 +88,7 @@ public class MediaControllerMediaSessionCompatCallbackAggregationTest {
   public void setUp() throws Exception {
     context = ApplicationProvider.getApplicationContext();
     session = new RemoteMediaSessionCompat(DEFAULT_TEST_NAME, context);
-    bitmapLoader = new CacheBitmapLoader(new DataSourceBitmapLoader(context));
+    bitmapLoader = new CacheBitmapLoader(new DataSourceBitmapLoader.Builder(context).build());
   }
 
   @After

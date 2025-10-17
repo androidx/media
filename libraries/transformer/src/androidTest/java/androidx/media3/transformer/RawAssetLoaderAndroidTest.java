@@ -146,7 +146,11 @@ public class RawAssetLoaderAndroidTest {
   @Test
   public void videoTranscoding_withTextureInput_completesWithCorrectFrameCountAndDuration()
       throws Exception {
-    Bitmap bitmap = new DataSourceBitmapLoader(context).loadBitmap(Uri.parse(PNG_ASSET.uri)).get();
+    Bitmap bitmap =
+        new DataSourceBitmapLoader.Builder(context)
+            .build()
+            .loadBitmap(Uri.parse(PNG_ASSET.uri))
+            .get();
     DefaultVideoFrameProcessor.Factory videoFrameProcessorFactory =
         new DefaultVideoFrameProcessor.Factory.Builder()
             .setGlObjectsProvider(new DefaultGlObjectsProvider(createOpenGlObjects()))
@@ -189,7 +193,11 @@ public class RawAssetLoaderAndroidTest {
   @Test
   public void videoEditing_withTextureInput_completesWithCorrectFrameCountAndDuration()
       throws Exception {
-    Bitmap bitmap = new DataSourceBitmapLoader(context).loadBitmap(Uri.parse(PNG_ASSET.uri)).get();
+    Bitmap bitmap =
+        new DataSourceBitmapLoader.Builder(context)
+            .build()
+            .loadBitmap(Uri.parse(PNG_ASSET.uri))
+            .get();
     EGLContext currentContext = createOpenGlObjects();
     DefaultVideoFrameProcessor.Factory videoFrameProcessorFactory =
         new DefaultVideoFrameProcessor.Factory.Builder()
@@ -235,7 +243,11 @@ public class RawAssetLoaderAndroidTest {
   @Test
   public void audioAndVideoTranscoding_withRawData_completesWithCorrectFrameCountAndDuration()
       throws Exception {
-    Bitmap bitmap = new DataSourceBitmapLoader(context).loadBitmap(Uri.parse(PNG_ASSET.uri)).get();
+    Bitmap bitmap =
+        new DataSourceBitmapLoader.Builder(context)
+            .build()
+            .loadBitmap(Uri.parse(PNG_ASSET.uri))
+            .get();
     DefaultVideoFrameProcessor.Factory videoFrameProcessorFactory =
         new DefaultVideoFrameProcessor.Factory.Builder()
             .setGlObjectsProvider(new DefaultGlObjectsProvider(createOpenGlObjects()))

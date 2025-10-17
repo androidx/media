@@ -355,7 +355,11 @@ public class TransformerEndToEndTest {
   @Test
   public void videoEditing_withTextureInput_completesWithCorrectFrameCountAndDuration()
       throws Exception {
-    Bitmap bitmap = new DataSourceBitmapLoader(context).loadBitmap(Uri.parse(PNG_ASSET.uri)).get();
+    Bitmap bitmap =
+        new DataSourceBitmapLoader.Builder(context)
+            .build()
+            .loadBitmap(Uri.parse(PNG_ASSET.uri))
+            .get();
     int expectedFrameCount = 2;
     EGLContext currentContext = createOpenGlObjects();
     DefaultVideoFrameProcessor.Factory videoFrameProcessorFactory =
@@ -409,7 +413,11 @@ public class TransformerEndToEndTest {
   @Test
   public void videoTranscoding_withTextureInput_completesWithCorrectFrameCountAndDuration()
       throws Exception {
-    Bitmap bitmap = new DataSourceBitmapLoader(context).loadBitmap(Uri.parse(PNG_ASSET.uri)).get();
+    Bitmap bitmap =
+        new DataSourceBitmapLoader.Builder(context)
+            .build()
+            .loadBitmap(Uri.parse(PNG_ASSET.uri))
+            .get();
     int expectedFrameCount = 2;
     EGLContext currentContext = createOpenGlObjects();
     DefaultVideoFrameProcessor.Factory videoFrameProcessorFactory =

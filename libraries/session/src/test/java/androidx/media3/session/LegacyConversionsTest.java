@@ -78,7 +78,7 @@ public final class LegacyConversionsTest {
   @Before
   public void setUp() {
     context = ApplicationProvider.getApplicationContext();
-    bitmapLoader = new CacheBitmapLoader(new DataSourceBitmapLoader(context));
+    bitmapLoader = new CacheBitmapLoader(new DataSourceBitmapLoader.Builder(context).build());
   }
 
   @Test

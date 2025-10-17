@@ -375,7 +375,7 @@ public class MediaController implements Player {
       MediaControllerHolder<MediaController> holder =
           new MediaControllerHolder<>(applicationLooper);
       if (token.isLegacySession() && bitmapLoader == null) {
-        bitmapLoader = new CacheBitmapLoader(new DataSourceBitmapLoader(context));
+        bitmapLoader = new CacheBitmapLoader(new DataSourceBitmapLoader.Builder(context).build());
       }
       MediaController controller =
           new MediaController(

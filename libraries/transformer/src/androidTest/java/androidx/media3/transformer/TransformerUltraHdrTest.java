@@ -190,7 +190,7 @@ public final class TransformerUltraHdrTest {
           final BitmapLoader bitmapLoader;
 
           {
-            bitmapLoader = new DataSourceBitmapLoader(context);
+            bitmapLoader = new DataSourceBitmapLoader.Builder(context).build();
           }
 
           @Override

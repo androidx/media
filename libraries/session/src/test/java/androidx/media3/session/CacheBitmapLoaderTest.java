@@ -78,7 +78,7 @@ public class CacheBitmapLoaderTest {
   @Test
   public void decodeBitmap_requestWithSameDataTwice_returnsCachedFuture() throws Exception {
     CacheBitmapLoader cacheBitmapLoader =
-        new CacheBitmapLoader(new DataSourceBitmapLoader(context));
+        new CacheBitmapLoader(new DataSourceBitmapLoader.Builder(context).build());
     byte[] imageData = TestUtil.getByteArray(context, TEST_IMAGE_PATH);
     Bitmap expectedBitmap =
         apply90DegreeExifRotation(
@@ -98,7 +98,7 @@ public class CacheBitmapLoaderTest {
   @Test
   public void decodeBitmap_requestWithDifferentData_returnsNewFuture() throws Exception {
     CacheBitmapLoader cacheBitmapLoader =
-        new CacheBitmapLoader(new DataSourceBitmapLoader(context));
+        new CacheBitmapLoader(new DataSourceBitmapLoader.Builder(context).build());
     byte[] imageData1 = TestUtil.getByteArray(context, TEST_IMAGE_PATH);
     byte[] imageData2 = TestUtil.getByteArray(context, SECOND_TEST_IMAGE_PATH);
     Bitmap expectedBitmap1 =
@@ -123,7 +123,7 @@ public class CacheBitmapLoaderTest {
   @Test
   public void decodeBitmap_requestWithSameDataTwice_throwsException() {
     CacheBitmapLoader cacheBitmapLoader =
-        new CacheBitmapLoader(new DataSourceBitmapLoader(context));
+        new CacheBitmapLoader(new DataSourceBitmapLoader.Builder(context).build());
 
     // First request, no cached bitmap load request.
     ListenableFuture<Bitmap> future1 = cacheBitmapLoader.decodeBitmap(new byte[0]);
@@ -141,7 +141,7 @@ public class CacheBitmapLoaderTest {
   @Test
   public void loadBitmap_httpUri_requestWithSameUriTwice_returnsCachedFuture() throws Exception {
     CacheBitmapLoader cacheBitmapLoader =
-        new CacheBitmapLoader(new DataSourceBitmapLoader(context));
+        new CacheBitmapLoader(new DataSourceBitmapLoader.Builder(context).build());
     byte[] imageData = TestUtil.getByteArray(context, TEST_IMAGE_PATH);
     Buffer responseBody = new Buffer().write(imageData);
     MockWebServer mockWebServer = new MockWebServer();
@@ -166,7 +166,7 @@ public class CacheBitmapLoaderTest {
   @Test
   public void loadBitmap_httpUri_requestWithDifferentUri_returnsNewFuture() throws Exception {
     CacheBitmapLoader cacheBitmapLoader =
-        new CacheBitmapLoader(new DataSourceBitmapLoader(context));
+        new CacheBitmapLoader(new DataSourceBitmapLoader.Builder(context).build());
     byte[] imageData1 = TestUtil.getByteArray(context, TEST_IMAGE_PATH);
     byte[] imageData2 = TestUtil.getByteArray(context, SECOND_TEST_IMAGE_PATH);
     Buffer responseBody1 = new Buffer().write(imageData1);
@@ -198,7 +198,7 @@ public class CacheBitmapLoaderTest {
   @Test
   public void loadBitmap_httpUri_requestWithSameUriTwice_throwsException() {
     CacheBitmapLoader cacheBitmapLoader =
-        new CacheBitmapLoader(new DataSourceBitmapLoader(context));
+        new CacheBitmapLoader(new DataSourceBitmapLoader.Builder(context).build());
     MockWebServer mockWebServer = new MockWebServer();
     mockWebServer.enqueue(new MockResponse().setResponseCode(404));
     Uri uri = Uri.parse(mockWebServer.url("test_path").toString());
@@ -227,7 +227,8 @@ public class CacheBitmapLoaderTest {
       throws Exception {
     CacheBitmapLoader cacheBitmapLoader =
         new CacheBitmapLoader(
-            new LoadBitmapFromMetadataOnlyBitmapLoader(new DataSourceBitmapLoader(context)));
+            new LoadBitmapFromMetadataOnlyBitmapLoader(
+                new DataSourceBitmapLoader.Builder(context).build()));
     byte[] imageData = TestUtil.getByteArray(context, TEST_IMAGE_PATH);
     Bitmap expectedBitmap =
         apply90DegreeExifRotation(
@@ -250,7 +251,8 @@ public class CacheBitmapLoaderTest {
   public void loadBitmapFromMetadata_requestWithDifferentData_returnsNewFuture() throws Exception {
     CacheBitmapLoader cacheBitmapLoader =
         new CacheBitmapLoader(
-            new LoadBitmapFromMetadataOnlyBitmapLoader(new DataSourceBitmapLoader(context)));
+            new LoadBitmapFromMetadataOnlyBitmapLoader(
+                new DataSourceBitmapLoader.Builder(context).build()));
     byte[] imageData1 = TestUtil.getByteArray(context, TEST_IMAGE_PATH);
     byte[] imageData2 = TestUtil.getByteArray(context, SECOND_TEST_IMAGE_PATH);
     Bitmap expectedBitmap1 =
@@ -280,7 +282,8 @@ public class CacheBitmapLoaderTest {
   public void loadBitmapFromMetadata_requestWithSameDataTwice_throwsException() {
     CacheBitmapLoader cacheBitmapLoader =
         new CacheBitmapLoader(
-            new LoadBitmapFromMetadataOnlyBitmapLoader(new DataSourceBitmapLoader(context)));
+            new LoadBitmapFromMetadataOnlyBitmapLoader(
+                new DataSourceBitmapLoader.Builder(context).build()));
     MediaMetadata metadata =
         new MediaMetadata.Builder().setArtworkData(new byte[0], PICTURE_TYPE_MEDIA).build();
 
@@ -302,7 +305,8 @@ public class CacheBitmapLoaderTest {
       throws Exception {
     CacheBitmapLoader cacheBitmapLoader =
         new CacheBitmapLoader(
-            new LoadBitmapFromMetadataOnlyBitmapLoader(new DataSourceBitmapLoader(context)));
+            new LoadBitmapFromMetadataOnlyBitmapLoader(
+                new DataSourceBitmapLoader.Builder(context).build()));
     byte[] imageData = TestUtil.getByteArray(context, TEST_IMAGE_PATH);
     Buffer responseBody = new Buffer().write(imageData);
     MockWebServer mockWebServer = new MockWebServer();
@@ -329,7 +333,8 @@ public class CacheBitmapLoaderTest {
   public void loadBitmapFromMetadata_requestWithDifferentUri_returnsNewFuture() throws Exception {
     CacheBitmapLoader cacheBitmapLoader =
         new CacheBitmapLoader(
-            new LoadBitmapFromMetadataOnlyBitmapLoader(new DataSourceBitmapLoader(context)));
+            new LoadBitmapFromMetadataOnlyBitmapLoader(
+                new DataSourceBitmapLoader.Builder(context).build()));
     byte[] imageData1 = TestUtil.getByteArray(context, TEST_IMAGE_PATH);
     byte[] imageData2 = TestUtil.getByteArray(context, SECOND_TEST_IMAGE_PATH);
     Buffer responseBody1 = new Buffer().write(imageData1);
@@ -364,7 +369,8 @@ public class CacheBitmapLoaderTest {
   public void loadBitmapFromMetadata_requestWithSameUriTwice_throwsException() {
     CacheBitmapLoader cacheBitmapLoader =
         new CacheBitmapLoader(
-            new LoadBitmapFromMetadataOnlyBitmapLoader(new DataSourceBitmapLoader(context)));
+            new LoadBitmapFromMetadataOnlyBitmapLoader(
+                new DataSourceBitmapLoader.Builder(context).build()));
     MockWebServer mockWebServer = new MockWebServer();
     mockWebServer.enqueue(new MockResponse().setResponseCode(404));
     Uri uri = Uri.parse(mockWebServer.url("test_path").toString());

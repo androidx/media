@@ -2588,7 +2588,11 @@ public class MediaSession {
     protected final void ensureBitmapLoaderIsSizeLimited() {
       int dimensionLimit = MediaSession.getBitmapDimensionLimit(context);
       if (bitmapLoader == null) {
-        bitmapLoader = new CacheBitmapLoader(new DataSourceBitmapLoader(context, dimensionLimit));
+        bitmapLoader =
+            new CacheBitmapLoader(
+                new DataSourceBitmapLoader.Builder(context)
+                    .setMaximumOutputDimension(dimensionLimit)
+                    .build());
       } else {
         bitmapLoader = new SizeLimitedBitmapLoader(bitmapLoader, dimensionLimit);
       }

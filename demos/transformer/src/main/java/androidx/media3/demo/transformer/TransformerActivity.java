@@ -827,7 +827,8 @@ public final class TransformerActivity extends AppCompatActivity {
       inputImageView.setVisibility(View.VISIBLE);
       inputTextView.setText(getString(R.string.input_image));
 
-      BitmapLoader bitmapLoader = new DataSourceBitmapLoader(getApplicationContext());
+      BitmapLoader bitmapLoader =
+          new DataSourceBitmapLoader.Builder(getApplicationContext()).build();
       ListenableFuture<Bitmap> future = bitmapLoader.loadBitmap(uri);
       try {
         Bitmap bitmap = future.get();
