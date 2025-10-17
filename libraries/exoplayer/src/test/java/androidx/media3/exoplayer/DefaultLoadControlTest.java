@@ -18,6 +18,7 @@ package androidx.media3.exoplayer;
 import static androidx.media3.common.util.Util.msToUs;
 import static androidx.media3.exoplayer.DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_FOR_LOCAL_PLAYBACK_MS;
 import static androidx.media3.exoplayer.DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_FOR_LOCAL_PLAYBACK_MS;
+import static androidx.media3.exoplayer.DefaultLoadControl.DEFAULT_TARGET_BUFFER_BYTES_FOR_PRELOAD;
 import static com.google.common.truth.Truth.assertThat;
 
 import androidx.media3.common.C;
@@ -1511,6 +1512,77 @@ public class DefaultLoadControlTest {
 
     assertThat(loadControl.calculateTotalTargetBufferBytes())
         .isEqualTo(DefaultLoadControl.DEFAULT_VIDEO_BUFFER_SIZE_FOR_LOCAL_PLAYBACK);
+  }
+
+  @Test
+  public void
+      onTrackSelected_forPreloadPlayerId_updatesTargetBufferSizeForPreloadWithDefaultValue() {
+    loadControl = builder.setAllocator(allocator).build();
+    loadControl.onPrepared(PlayerId.PRELOAD);
+    Timeline timeline = new FakeTimeline();
+    MediaSource.MediaPeriodId mediaPeriodId =
+        new MediaSource.MediaPeriodId(
+            timeline.getPeriod(/* periodIndex= */ 0, new Timeline.Period(), /* setIds= */ true)
+                .uid);
+    TrackGroup audioTrackGroup =
+        new TrackGroup(new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_AAC).build());
+    TrackGroupArray audioTrackGroupArray = new TrackGroupArray(audioTrackGroup);
+
+    loadControl.onTracksSelected(
+        new LoadControl.Parameters(
+            PlayerId.PRELOAD,
+            timeline,
+            mediaPeriodId,
+            /* playbackPositionUs= */ 0,
+            /* bufferedDurationUs= */ 0,
+            /* playbackSpeed= */ 1.0f,
+            /* playWhenReady= */ false,
+            /* rebuffering= */ false,
+            /* targetLiveOffsetUs= */ C.TIME_UNSET,
+            /* lastRebufferRealtimeMs= */ C.TIME_UNSET),
+        audioTrackGroupArray,
+        new ExoTrackSelection[] {new FixedTrackSelection(audioTrackGroup, /* track= */ 0)});
+
+    assertThat(loadControl.calculateTotalTargetBufferBytes())
+        .isEqualTo(DEFAULT_TARGET_BUFFER_BYTES_FOR_PRELOAD);
+  }
+
+  @Test
+  public void
+      onTrackSelected_forPreloadPlayerId_updatesTargetBufferSizeForPreloadWithCustomValue() {
+    int customTargetBufferBytesForPreload = 500 * C.DEFAULT_BUFFER_SEGMENT_SIZE;
+    DefaultLoadControl loadControl =
+        new DefaultLoadControl.Builder()
+            .setAllocator(allocator)
+            .setPlayerTargetBufferBytes(PlayerId.PRELOAD.name, customTargetBufferBytesForPreload)
+            .build();
+    loadControl.onPrepared(PlayerId.PRELOAD);
+    Timeline timeline = new FakeTimeline();
+    MediaSource.MediaPeriodId mediaPeriodId =
+        new MediaSource.MediaPeriodId(
+            timeline.getPeriod(/* periodIndex= */ 0, new Timeline.Period(), /* setIds= */ true)
+                .uid);
+    TrackGroup audioTrackGroup =
+        new TrackGroup(new Format.Builder().setSampleMimeType(MimeTypes.AUDIO_AAC).build());
+    TrackGroupArray audioTrackGroupArray = new TrackGroupArray(audioTrackGroup);
+
+    loadControl.onTracksSelected(
+        new LoadControl.Parameters(
+            PlayerId.PRELOAD,
+            timeline,
+            mediaPeriodId,
+            /* playbackPositionUs= */ 0,
+            /* bufferedDurationUs= */ 0,
+            /* playbackSpeed= */ 1.0f,
+            /* playWhenReady= */ false,
+            /* rebuffering= */ false,
+            /* targetLiveOffsetUs= */ C.TIME_UNSET,
+            /* lastRebufferRealtimeMs= */ C.TIME_UNSET),
+        audioTrackGroupArray,
+        new ExoTrackSelection[] {new FixedTrackSelection(audioTrackGroup, /* track= */ 0)});
+
+    assertThat(loadControl.calculateTotalTargetBufferBytes())
+        .isEqualTo(customTargetBufferBytesForPreload);
   }
 
   @Test

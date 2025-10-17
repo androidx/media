@@ -163,6 +163,13 @@ public class DefaultLoadControl implements LoadControl {
    */
   public static final int DEFAULT_MIN_BUFFER_SIZE = 200 * C.DEFAULT_BUFFER_SEGMENT_SIZE;
 
+  /**
+   * The default target buffer size in bytes that will be used for preloading media outside of
+   * player, see {@link PlayerId#PRELOAD}.
+   */
+  public static final int DEFAULT_TARGET_BUFFER_BYTES_FOR_PRELOAD =
+      DEFAULT_VIDEO_BUFFER_SIZE + DEFAULT_AUDIO_BUFFER_SIZE;
+
   /** List of URL schemes that are considered local on-device playback. */
   @SuppressWarnings("deprecation") // Accepting deprecated RawResourceDataSource.RAW_RESOURCE_SCHEME
   public static final ImmutableList<String> LOCAL_PLAYBACK_SCHEMES =
@@ -204,6 +211,7 @@ public class DefaultLoadControl implements LoadControl {
     /** Constructs a new instance. */
     public Builder() {
       playerTargetBufferBytes = new HashMap<>();
+      playerTargetBufferBytes.put(PlayerId.PRELOAD.name, DEFAULT_TARGET_BUFFER_BYTES_FOR_PRELOAD);
       minBufferMs = DEFAULT_MIN_BUFFER_MS;
       minBufferForLocalPlaybackMs = DEFAULT_MIN_BUFFER_FOR_LOCAL_PLAYBACK_MS;
       maxBufferMs = DEFAULT_MAX_BUFFER_MS;
@@ -393,6 +401,9 @@ public class DefaultLoadControl implements LoadControl {
      * not set or set to {@link C#LENGTH_UNSET}, the target buffer size of a player will be the
      * value set via {@link #setTargetBufferBytes(int)} if it is not {@link C#LENGTH_UNSET},
      * otherwise it will be calculated based on the selected tracks of the player.
+     *
+     * <p>For the {@link PlayerId#PRELOAD} with {@code PlayerId.PRELOAD.name}, the default target
+     * buffer bytes is {@link #DEFAULT_TARGET_BUFFER_BYTES_FOR_PRELOAD}.
      *
      * @param playerName The name of the player. The same name must be set to the player via {@link
      *     ExoPlayer.Builder#setName(String)} in order to be effective at the created {@link
