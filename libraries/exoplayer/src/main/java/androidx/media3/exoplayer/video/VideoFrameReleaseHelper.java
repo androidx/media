@@ -365,7 +365,8 @@ public final class VideoFrameReleaseHelper {
   private void updateSurfacePlaybackFrameRate(boolean forceUpdate) {
     if (SDK_INT < 30
         || surface == null
-        || changeFrameRateStrategy == C.VIDEO_CHANGE_FRAME_RATE_STRATEGY_OFF) {
+        || changeFrameRateStrategy == C.VIDEO_CHANGE_FRAME_RATE_STRATEGY_OFF
+        || !surface.isValid()) {
       return;
     }
 
@@ -392,7 +393,8 @@ public final class VideoFrameReleaseHelper {
     if (SDK_INT < 30
         || surface == null
         || changeFrameRateStrategy == C.VIDEO_CHANGE_FRAME_RATE_STRATEGY_OFF
-        || surfacePlaybackFrameRate == 0) {
+        || surfacePlaybackFrameRate == 0
+        || !surface.isValid()) {
       return;
     }
     surfacePlaybackFrameRate = 0;
