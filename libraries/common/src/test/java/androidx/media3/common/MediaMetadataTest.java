@@ -180,6 +180,15 @@ public class MediaMetadataTest {
     assertThat(restoredMetadata.extras.get("key")).isEqualTo("value");
   }
 
+  @Test
+  public void roundTripViaBundleForLocalProcess_yieldsSameInstance() {
+    MediaMetadata mediaMetadata = new MediaMetadata.Builder().setGenre("hi").build();
+    MediaMetadata unbundledMetadata =
+        MediaMetadata.fromBundle(mediaMetadata.toBundleForLocalProcess());
+
+    assertThat(mediaMetadata == unbundledMetadata).isTrue();
+  }
+
   @SuppressWarnings("deprecation") // Testing deprecated setter.
   @Test
   public void builderSetFolderType_toNone_setsIsBrowsableToFalse() {
