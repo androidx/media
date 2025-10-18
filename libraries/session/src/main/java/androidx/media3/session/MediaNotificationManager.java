@@ -91,6 +91,7 @@ import java.util.concurrent.TimeoutException;
     mainHandler = Util.createHandler(Looper.getMainLooper(), /* callback= */ this);
     mainExecutor = (runnable) -> Util.postOrRun(mainHandler, runnable);
     startSelfIntent = new Intent(mediaSessionService, mediaSessionService.getClass());
+    startSelfIntent.setAction(MediaSessionService.ACTION_START_SELF);
     controllerMap = new HashMap<>();
     startedInForeground = false;
     isUserEngagedTimeoutEnabled = true;
