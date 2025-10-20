@@ -336,6 +336,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           speedProvider.getNextSpeedChangeTimeUs(lastInputSegmentStartTimeUs);
 
       while (nextSpeedChangeTimeUs != C.TIME_UNSET) {
+        checkState(nextSpeedChangeTimeUs > lastInputSegmentStartTimeUs);
         lastOutputSegmentStartTimeUs +=
             (long) ((nextSpeedChangeTimeUs - lastInputSegmentStartTimeUs) / lastSpeed);
         lastInputSegmentStartTimeUs = nextSpeedChangeTimeUs;

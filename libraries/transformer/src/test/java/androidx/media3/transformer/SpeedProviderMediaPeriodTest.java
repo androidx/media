@@ -20,6 +20,7 @@ import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.E
 import static androidx.media3.test.utils.FakeSampleStream.FakeSampleStreamItem.oneByteSample;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.TruthJUnit.assume;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.spy;
@@ -378,6 +379,35 @@ public final class SpeedProviderMediaPeriodTest {
 
     assertThat(adjustedTimeline.get().getWindow(0, new Window()).durationUs).isEqualTo(3_000_000);
     assertThat(adjustedTimeline.get().getPeriod(0, new Period()).durationUs).isEqualTo(3_000_000);
+  }
+
+  @Test
+  public void speedProviderMapper_withInvalidSpeedProvider_throws() {
+    assume().that(clipStartUs).isEqualTo(0);
+    SpeedProvider speedProvider =
+        new SpeedProvider() {
+          @Override
+          public float getSpeed(long timeUs) {
+            if (timeUs >= 1_000_000) {
+              return 2f;
+            }
+            return 0.5f;
+          }
+
+          @Override
+          public long getNextSpeedChangeTimeUs(long timeUs) {
+            // If timeUs is a speed change, the next speed change time should point to the following
+            // speed change. However, the next speed change at 1_000_000 points to itself, causing
+            // an infinite loop.
+            if (timeUs > 1_000_000) {
+              return C.TIME_UNSET;
+            }
+            return 1_000_000;
+          }
+        };
+
+    assertThrows(
+        IllegalStateException.class, () -> new SpeedProviderMapper(speedProvider, clipStartUs));
   }
 
   private static FakeMediaPeriod createFakeMediaPeriod(
