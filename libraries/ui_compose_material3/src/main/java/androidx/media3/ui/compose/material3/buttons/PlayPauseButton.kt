@@ -16,8 +16,10 @@
 
 package androidx.media3.ui.compose.material3.buttons
 
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
@@ -40,6 +42,7 @@ fun PlayPauseButton(
   painter: @Composable PlayPauseButtonState.() -> Painter = defaultPlayPausePainterIcon,
   contentDescription: @Composable PlayPauseButtonState.() -> String =
     defaultPlayPauseContentDescription,
+  tint: Color = LocalContentColor.current,
   onClick: PlayPauseButtonState.() -> Unit = PlayPauseButtonState::onClick,
 ) {
   // Capture the onClick *parameter* in a local variable.
@@ -52,6 +55,7 @@ fun PlayPauseButton(
       isEnabled,
       icon = painter(),
       contentDescription = contentDescription(),
+      tint = tint,
       onClick = { customOnClick() },
     )
   }
@@ -70,6 +74,7 @@ fun PlayPauseButton(
   imageVector: PlayPauseButtonState.() -> ImageVector,
   contentDescription: @Composable PlayPauseButtonState.() -> String =
     defaultPlayPauseContentDescription,
+  tint: Color = LocalContentColor.current,
   onClick: PlayPauseButtonState.() -> Unit = PlayPauseButtonState::onClick,
 ) {
   // Capture the onClick *parameter* in a local variable.
@@ -82,6 +87,7 @@ fun PlayPauseButton(
       isEnabled,
       icon = imageVector(),
       contentDescription = contentDescription(),
+      tint = tint,
       onClick = { customOnClick() },
     )
   }

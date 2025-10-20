@@ -16,8 +16,10 @@
 
 package androidx.media3.ui.compose.material3.buttons
 
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
@@ -41,6 +43,8 @@ import androidx.media3.ui.compose.state.SeekBackButtonState
  * @param modifier The [Modifier] to be applied to the button.
  * @param painter The supplier for [Painter] used for the icon displayed on the button.
  * @param contentDescription The content description for accessibility purposes.
+ * @param tint Tint to be applied to [painter]. If [Color.Unspecified] is provided, then no tint is
+ *   applied.
  * @param onClick The action to be performed when the button is clicked. This lambda has
  *   [SeekBackButtonState] as its receiver, providing access to the button's current state (e.g.,
  *   [SeekBackButtonState.isEnabled]). The default behavior is to call
@@ -60,6 +64,7 @@ fun SeekBackButton(
   painter: @Composable SeekBackButtonState.() -> Painter = defaultSeekBackPainterIcon,
   contentDescription: @Composable SeekBackButtonState.() -> String =
     defaultSeekBackContentDescription,
+  tint: Color = LocalContentColor.current,
   onClick: SeekBackButtonState.() -> Unit = SeekBackButtonState::onClick,
 ) {
   // Capture the onClick *parameter* in a local variable.
@@ -72,6 +77,7 @@ fun SeekBackButton(
       isEnabled,
       icon = painter(),
       contentDescription = contentDescription(),
+      tint = tint,
       onClick = { customOnClick() },
     )
   }
@@ -89,6 +95,8 @@ fun SeekBackButton(
  * @param modifier The [Modifier] to be applied to the button.
  * @param imageVector The supplier for [ImageVector] used for the icon displayed on the button.
  * @param contentDescription The content description for accessibility purposes.
+ * @param tint Tint to be applied to [imageVector]. If [Color.Unspecified] is provided, then no tint
+ *   is applied.
  * @param onClick The action to be performed when the button is clicked. This lambda has
  *   [SeekBackButtonState] as its receiver, providing access to the button's current state (e.g.,
  *   [SeekBackButtonState.isEnabled]). The default behavior is to call
@@ -109,6 +117,7 @@ fun SeekBackButton(
   imageVector: SeekBackButtonState.() -> ImageVector,
   contentDescription: @Composable SeekBackButtonState.() -> String =
     defaultSeekBackContentDescription,
+  tint: Color = LocalContentColor.current,
   onClick: SeekBackButtonState.() -> Unit = SeekBackButtonState::onClick,
 ) {
   // Capture the onClick *parameter* in a local variable.
@@ -121,6 +130,7 @@ fun SeekBackButton(
       isEnabled,
       icon = imageVector(),
       contentDescription = contentDescription(),
+      tint = tint,
       onClick = { customOnClick() },
     )
   }

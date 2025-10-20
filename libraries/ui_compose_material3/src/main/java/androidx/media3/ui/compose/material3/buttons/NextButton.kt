@@ -16,8 +16,10 @@
 
 package androidx.media3.ui.compose.material3.buttons
 
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
@@ -42,6 +44,8 @@ import androidx.media3.ui.compose.state.NextButtonState
  *   [R.drawable.media3_icon_next].
  * @param contentDescription The content description for accessibility purposes. Defaults to
  *   [R.string.next_button].
+ * @param tint Tint to be applied to [painter]. If [Color.Unspecified] is provided, then no tint is
+ *   applied.
  * @param onClick The action to be performed when the button is clicked. This lambda has
  *   [NextButtonState] as its receiver, providing access to the button's current state (e.g.,
  *   [NextButtonState.isEnabled]). The default behavior is to call [NextButtonState.onClick], which
@@ -63,6 +67,7 @@ fun NextButton(
   contentDescription: @Composable NextButtonState.() -> String = {
     stringResource(R.string.next_button)
   },
+  tint: Color = LocalContentColor.current,
   onClick: NextButtonState.() -> Unit = NextButtonState::onClick,
 ) {
   // Capture the onClick *parameter* in a local variable.
@@ -75,6 +80,7 @@ fun NextButton(
       isEnabled,
       icon = painter(),
       contentDescription = contentDescription(),
+      tint = tint,
       onClick = { customOnClick() },
     )
   }
@@ -93,6 +99,8 @@ fun NextButton(
  * @param imageVector The supplier for [ImageVector] used for the icon displayed on the button.
  * @param contentDescription The content description for accessibility purposes. Defaults to
  *   [R.string.next_button].
+ * @param tint Tint to be applied to [imageVector]. If [Color.Unspecified] is provided, then no tint
+ *   is applied.
  * @param onClick The action to be performed when the button is clicked. This lambda has
  *   [NextButtonState] as its receiver, providing access to the button's current state (e.g.,
  *   [NextButtonState.isEnabled]). The default behavior is to call [NextButtonState.onClick], which
@@ -113,6 +121,7 @@ fun NextButton(
   contentDescription: @Composable NextButtonState.() -> String = {
     stringResource(R.string.next_button)
   },
+  tint: Color = LocalContentColor.current,
   onClick: NextButtonState.() -> Unit = NextButtonState::onClick,
 ) {
   // Capture the onClick *parameter* in a local variable.
@@ -125,6 +134,7 @@ fun NextButton(
       isEnabled,
       icon = imageVector(),
       contentDescription = contentDescription(),
+      tint = tint,
       onClick = { customOnClick() },
     )
   }
