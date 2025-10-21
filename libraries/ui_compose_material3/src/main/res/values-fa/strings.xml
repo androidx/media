@@ -17,8 +17,8 @@
   <string name="repeat_button_repeat_off">حالت کنونی: تکرار هیچ‌کدام. روشن/خاموش کردن حالت تکرار.</string>
   <string name="repeat_button_repeat_one">حالت کنونی: تکرار یک مورد. روشن/خاموش کردن حالت تکرار.</string>
   <string name="repeat_button_repeat_all">حالت کنونی: تکرار همه. روشن/خاموش کردن حالت تکرار.</string>
-  <string name="shuffle_button_shuffle_on">حالت درهم فعال است.</string>
-  <string name="shuffle_button_shuffle_off">حالت درهم غیرفعال است.</string>
+  <string name="shuffle_button_shuffle_on">حالت پخش درهم فعال است.</string>
+  <string name="shuffle_button_shuffle_off">حالت پخش درهم غیرفعال است.</string>
   <string name="mute_button_shown_unmuted">بی‌صدا کردن</string>
   <string name="mute_button_shown_muted">باصدا کردن</string>
 </resources>

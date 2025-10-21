@@ -2,8 +2,8 @@
 <resources>
   <string name="playpause_button_play">चलाएं</string>
   <string name="playpause_button_pause">रोकें</string>
-  <string name="next_button">आगे बढ़ाएं</string>
-  <string name="previous_button">पीछे जाएं</string>
+  <string name="next_button">अगला चलाएं</string>
+  <string name="previous_button">पिछला चलाएं</string>
   <string name="seek_back_button">रिवाइंड करें</string>
   <plurals name="seek_back_by_amount_button">
     <item quantity="one">%d सेकंड पीछे जाएं</item>

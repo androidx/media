@@ -17,8 +17,8 @@
   <string name="repeat_button_repeat_off">Oraingo modua: ez errepikatu. Aldatu errepikatzeko modua.</string>
   <string name="repeat_button_repeat_one">Oraingo modua: errepikatu bat. Aldatu errepikatzeko modua.</string>
   <string name="repeat_button_repeat_all">Oraingo modua: errepikatu guztiak. Aldatu errepikatzeko modua.</string>
-  <string name="shuffle_button_shuffle_on">Ausazko erreprodukzioa gaituta dago.</string>
-  <string name="shuffle_button_shuffle_off">Ausazko erreprodukzioa desgaituta dago.</string>
+  <string name="shuffle_button_shuffle_on">Ausazko modua gaituta dago.</string>
+  <string name="shuffle_button_shuffle_off">Ausazko modua desgaituta dago.</string>
   <string name="mute_button_shown_unmuted">Desaktibatu audioa</string>
   <string name="mute_button_shown_muted">Aktibatu audioa</string>
 </resources>

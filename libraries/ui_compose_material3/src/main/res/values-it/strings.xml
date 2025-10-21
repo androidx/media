@@ -14,9 +14,9 @@
     <item quantity="one">Vai avanti di %d secondo</item>
     <item quantity="other">Vai avanti di %d secondi</item>
   </plurals>
-  <string name="repeat_button_repeat_off">Modalità attuale: non ripetere nulla. Attiva/disattiva modalità di ripetizione.</string>
-  <string name="repeat_button_repeat_one">Modalità attuale: ripeti uno. Attiva/disattiva modalità di ripetizione.</string>
-  <string name="repeat_button_repeat_all">Modalità attuale: ripeti tutto. Attiva/disattiva modalità di ripetizione.</string>
+  <string name="repeat_button_repeat_off">Modalità attuale: Non ripetere nulla. Cambia modalità di ripetizione.</string>
+  <string name="repeat_button_repeat_one">Modalità attuale: Ripeti uno. Cambia modalità di ripetizione.</string>
+  <string name="repeat_button_repeat_all">Modalità attuale: Ripeti tutto. Cambia modalità di ripetizione.</string>
   <string name="shuffle_button_shuffle_on">Modalità riproduzione casuale attivata.</string>
   <string name="shuffle_button_shuffle_off">Modalità riproduzione casuale disattivata.</string>
   <string name="mute_button_shown_unmuted">Disattiva audio</string>

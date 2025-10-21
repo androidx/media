@@ -17,8 +17,8 @@
   <string name="repeat_button_repeat_off">Modo actual: Non repetir. Alternar modo de repetición.</string>
   <string name="repeat_button_repeat_one">Modo actual: Repetir unha pista. Alternar modo de repetición.</string>
   <string name="repeat_button_repeat_all">Modo actual: Repetir todas as pistas. Alternar modo de repetición.</string>
-  <string name="shuffle_button_shuffle_on">Activouse o modo de reprodución aleatoria.</string>
-  <string name="shuffle_button_shuffle_off">Desactivouse o modo de reprodución aleatoria.</string>
+  <string name="shuffle_button_shuffle_on">Activouse o modo aleatorio.</string>
+  <string name="shuffle_button_shuffle_off">Desactivouse o modo aleatorio.</string>
   <string name="mute_button_shown_unmuted">Silenciar</string>
   <string name="mute_button_shown_muted">Activar o son</string>
 </resources>
