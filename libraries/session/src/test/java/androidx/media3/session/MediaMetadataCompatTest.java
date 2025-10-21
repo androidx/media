@@ -15,6 +15,7 @@
  */
 package androidx.media3.session;
 
+import static androidx.media3.test.utils.truth.SpannedSubject.assertThat;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
@@ -22,6 +23,8 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.media.MediaMetadata;
+import android.text.Html;
+import android.text.Spanned;
 import androidx.media3.session.legacy.MediaMetadataCompat;
 import androidx.media3.session.legacy.RatingCompat;
 import androidx.test.core.app.ApplicationProvider;
@@ -42,6 +45,20 @@ public final class MediaMetadataCompatTest {
   }
 
   private static final String TEST_ARTWORK_PATH = "media/jpeg/london.jpg";
+
+  @Test
+  public void convertToMediaMetadata_withSpanStyledString() {
+    Spanned artist = Html.fromHtml("<em>a</em>rtist");
+    MediaMetadataCompat mediaMetadataCompat =
+        new MediaMetadataCompat.Builder()
+            .putText(MediaMetadataCompat.METADATA_KEY_ARTIST, artist)
+            .build();
+
+    MediaMetadata mediaMetadata = mediaMetadataCompat.getMediaMetadata();
+
+    assertThat((Spanned) mediaMetadata.getText(MediaMetadata.METADATA_KEY_ARTIST))
+        .hasItalicSpanBetween(0, 1);
+  }
 
   @Test
   public void convertToMediaMetadata_withBitmap_keepSameBitmapInstance() {
