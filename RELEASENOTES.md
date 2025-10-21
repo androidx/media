@@ -1,41 +1,5 @@
 # Release notes
 
-### Unreleased changes
-
-*   Common Library:
-*   ExoPlayer:
-*   CompositionPlayer:
-*   Transformer:
-*   Track Selection:
-*   Extractors:
-*   Inspector:
-*   Audio:
-*   Video:
-*   Text:
-*   Metadata:
-*   Image:
-*   DataSource:
-*   DRM:
-*   Effect:
-*   Muxers:
-*   IMA extension:
-*   Session:
-*   UI:
-*   Downloads:
-*   OkHttp extension:
-*   Cronet extension:
-*   RTMP extension:
-*   HLS extension:
-*   DASH extension:
-*   Smooth Streaming extension:
-*   RTSP extension:
-*   Decoder extensions (FFmpeg, VP9, AV1, etc.):
-*   MIDI extension:
-*   Leanback extension:
-*   Cast extension:
-*   Test Utilities:
-*   Remove deprecated symbols:
-
 ## 1.9
 
 ### 1.9.0-alpha01 (2025-10-22)
