@@ -23,6 +23,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.SimpleBasePlayer
+import androidx.media3.common.TrackSelectionParameters
 import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.util.Util
@@ -158,6 +159,10 @@ class FakePlayer(
     handleStateUpdate {
       setPlaybackParameters(playbackParameters)
     }
+
+  override fun handleSetTrackSelectionParameters(
+    trackSelectionParameters: TrackSelectionParameters
+  ) = handleStateUpdate { setTrackSelectionParameters(trackSelectionParameters) }
 
   override fun handleSetVideoOutput(videoOutput: Any): ListenableFuture<*> {
     this.videoOutput = videoOutput
