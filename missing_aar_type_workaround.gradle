@@ -60,6 +60,7 @@ def addMissingAarTypeToXml(xml) {
         "com.google.android.gms:play-services-cast-framework",
         "com.google.android.gms:play-services-cronet",
         "com.google.android.material:material",
+        "com.google.testparameterinjector:test-parameter-injector",
         "io.antmedia:rtmp-client",
         // go/keep-sorted end
     ]
