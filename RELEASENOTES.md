@@ -11,6 +11,8 @@
 *   Inspector:
 *   Audio:
 *   Video:
+    *   Re-enable workaround for wrongly reported performance points for secure
+        codecs ([#2856](https://github.com/androidx/media/issues/2856)).
 *   Text:
 *   Metadata:
 *   Image:

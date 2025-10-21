@@ -35,8 +35,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 /* package */ final class MediaCodecPerformancePointCoverageProvider {
 
   /**
-   * Whether if the device provides a PerformancePoints and coverage results should be ignored as
-   * the PerformancePoints do not cover CDD requirements.
+   * Whether PerformancePoints coverage results should be ignored as the PerformancePoints do not
+   * cover CDD requirements.
    */
   @SuppressWarnings("NonFinalStaticField")
   private static @MonotonicNonNull Boolean shouldIgnorePerformancePoints;
@@ -130,13 +130,13 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
      * Checks if the CDD-requirement to support H264 720p at 60 fps is covered by PerformancePoints.
      */
     private static boolean shouldIgnorePerformancePoints() {
-      if (SDK_INT >= 35) {
-        // The same check as below is tested in CTS and we should get reliable results from API 35.
-        return false;
-      }
+      // The same check as below is tested in CTS for non-secure codecs and we should get reliable
+      // results from API 35.
       @PerformancePointCoverageResult
       int h264RequiredSupportResult =
-          evaluateH264RequiredSupport(/* requiresSecureDecoder= */ false);
+          SDK_INT >= 35
+              ? COVERAGE_RESULT_YES
+              : evaluateH264RequiredSupport(/* requiresSecureDecoder= */ false);
       @PerformancePointCoverageResult
       int h264SecureRequiredSupportResult =
           evaluateH264RequiredSupport(/* requiresSecureDecoder= */ true);
