@@ -39,7 +39,9 @@ import androidx.media3.test.utils.FakeClock;
 import androidx.media3.test.utils.FakeDataSource;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Random;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -765,26 +767,29 @@ public final class DefaultBandwidthMeterTest {
             .setClock(clock)
             .build();
 
+    AtomicBoolean bitrateEstimateUpdated = new AtomicBoolean();
     Thread thread =
         new Thread("backgroundTransfers") {
           @Override
           public void run() {
-            simulateTransfers(bandwidthMeter, clock, /* simulatedTransferCount= */ 10000);
+            Random random = new Random(/* seed= */ 0);
+            while (!bitrateEstimateUpdated.get()) {
+              simulateTransfers(bandwidthMeter, clock, /* simulatedTransferCount= */ 100, random);
+            }
           }
         };
     thread.start();
 
     long currentBitrateEstimate = bandwidthMeter.getBitrateEstimate();
-    boolean bitrateEstimateUpdated = false;
     while (thread.isAlive()) {
       long newBitrateEstimate = bandwidthMeter.getBitrateEstimate();
       if (newBitrateEstimate != currentBitrateEstimate) {
         currentBitrateEstimate = newBitrateEstimate;
-        bitrateEstimateUpdated = true;
+        bitrateEstimateUpdated.set(true);
       }
     }
 
-    assertThat(bitrateEstimateUpdated).isTrue();
+    assertThat(bitrateEstimateUpdated.get()).isTrue();
   }
 
   private void setActiveNetworkInfo(NetworkInfo networkInfo) {
@@ -817,10 +822,20 @@ public final class DefaultBandwidthMeterTest {
     Shadows.shadowOf(telephonyManager).setNetworkCountryIso(countryIso);
   }
 
+  @CanIgnoreReturnValue
   private static long[] simulateTransfers(
       DefaultBandwidthMeter bandwidthMeter, FakeClock clock, int simulatedTransferCount) {
-    long[] bitrateEstimates = new long[simulatedTransferCount];
     Random random = new Random(/* seed= */ 0);
+    return simulateTransfers(bandwidthMeter, clock, simulatedTransferCount, random);
+  }
+
+  @CanIgnoreReturnValue
+  private static long[] simulateTransfers(
+      DefaultBandwidthMeter bandwidthMeter,
+      FakeClock clock,
+      int simulatedTransferCount,
+      Random random) {
+    long[] bitrateEstimates = new long[simulatedTransferCount];
     DataSource dataSource = new FakeDataSource();
     DataSpec dataSpec = new DataSpec(Uri.parse("https://test.com"));
     for (int i = 0; i < simulatedTransferCount; i++) {
