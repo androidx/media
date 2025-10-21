@@ -24,7 +24,6 @@ import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.ExoPlayer.Builder;
-import java.util.Objects;
 
 /** Identifier for a player instance. */
 @UnstableApi
@@ -50,11 +49,6 @@ public final class PlayerId {
   @Nullable private final LogSessionIdApi31 logSessionIdApi31;
 
   /**
-   * An object used for equals/hashCode below API 31 or when the MediaMetricsService is unavailable.
-   */
-  @Nullable private final Object equalityToken;
-
-  /**
    * Creates an instance.
    *
    * @param playerName The name of the player, for informational purpose only.
@@ -62,26 +56,6 @@ public final class PlayerId {
   public PlayerId(String playerName) {
     this.name = playerName;
     this.logSessionIdApi31 = SDK_INT >= 31 ? new LogSessionIdApi31() : null;
-    equalityToken = new Object();
-  }
-
-  @Override
-  public boolean equals(@Nullable Object o) {
-    if (this == o) {
-      return true;
-    }
-    if (!(o instanceof PlayerId)) {
-      return false;
-    }
-    PlayerId playerId = (PlayerId) o;
-    return Objects.equals(name, playerId.name)
-        && Objects.equals(logSessionIdApi31, playerId.logSessionIdApi31)
-        && Objects.equals(equalityToken, playerId.equalityToken);
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hash(name, logSessionIdApi31, equalityToken);
   }
 
   /** Returns the {@link LogSessionId} for this player instance. */
