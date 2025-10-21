@@ -93,8 +93,10 @@ public final class VideoFrameReleaseHelper {
   private static final long VSYNC_OFFSET_PERCENTAGE = 80;
 
   private final FixedFrameRateEstimator frameRateEstimator;
-  @Nullable private final VSyncSampler vsyncSampler;
+  private final Context context;
 
+  private boolean vsyncSampleBuilt;
+  @Nullable private VSyncSampler vsyncSampler;
   private boolean started;
   @Nullable private Surface surface;
 
@@ -131,8 +133,8 @@ public final class VideoFrameReleaseHelper {
    * @param context A context from which information about the default display can be retrieved.
    */
   public VideoFrameReleaseHelper(Context context) {
+    this.context = context;
     frameRateEstimator = new FixedFrameRateEstimator();
-    vsyncSampler = VSyncSampler.maybeBuildInstance(context);
     formatFrameRate = Format.NO_VALUE;
     playbackSpeed = 1f;
     changeFrameRateStrategy = C.VIDEO_CHANGE_FRAME_RATE_STRATEGY_ONLY_IF_SEAMLESS;
@@ -157,6 +159,9 @@ public final class VideoFrameReleaseHelper {
   public void onStarted() {
     started = true;
     resetAdjustment();
+    if (!vsyncSampleBuilt) {
+      vsyncSampler = VSyncSampler.maybeBuildInstance(context);
+    }
     if (vsyncSampler != null) {
       vsyncSampler.register();
     }

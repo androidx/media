@@ -16,12 +16,20 @@
 package androidx.media3.exoplayer.video
 
 import android.content.Context
+import android.view.Choreographer
 import androidx.media3.common.C
+import androidx.media3.common.Player
+import androidx.media3.common.util.Log
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.test.utils.FakeClock
+import androidx.media3.test.utils.FakeMediaSource
+import androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
 import java.util.Random
+import java.util.concurrent.atomic.AtomicReference
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -532,6 +540,60 @@ class VideoFrameReleaseHelperTest {
     val pulldownPattern = getPullDownPattern(testData, releaseTimesNs)
     assertThat(pulldownPattern.count { it == 1 }).isEqualTo(pulldownPattern.size - 1)
     assertThat(pulldownPattern.indexOfFirst { it != 1 }).isEqualTo(499)
+  }
+
+  @Test
+  fun creationViaExoPlayer_onNonLooperThread_createsChoreographerOnLooperThread() {
+    // Even if ExoPlayer is created on a non-Looper thread, the internal Choreographer should be
+    // created on the playback thread to ensure it's working correctly. As Choreographer issues are
+    // silently ignored, this tests asserts that log messages containing Choreographer exceptions
+    // are not reported.
+    val throwableFromChoreographer = AtomicReference<Throwable>()
+    val saveIfThrowableIsFromChoreographer = { throwable: Throwable? ->
+      throwable?.apply {
+        if (stackTrace.any { it.className == Choreographer::class.java.name }) {
+          throwableFromChoreographer.set(throwable)
+        }
+      }
+    }
+    Log.setLogger(
+      object : Log.Logger {
+        override fun d(tag: String, message: String, throwable: Throwable?) {
+          saveIfThrowableIsFromChoreographer(throwable)
+        }
+
+        override fun i(tag: String, message: String, throwable: Throwable?) {
+          saveIfThrowableIsFromChoreographer(throwable)
+        }
+
+        override fun w(tag: String, message: String, throwable: Throwable?) {
+          saveIfThrowableIsFromChoreographer(throwable)
+        }
+
+        override fun e(tag: String, message: String, throwable: Throwable?) {
+          saveIfThrowableIsFromChoreographer(throwable)
+        }
+      }
+    )
+    val playerReference = AtomicReference<ExoPlayer>()
+    val builderThread = Thread {
+      playerReference.set(
+        ExoPlayer.Builder(ApplicationProvider.getApplicationContext())
+          .setClock(FakeClock(/* isAutoAdvancing= */ true))
+          .build()
+      )
+    }
+    builderThread.start()
+    builderThread.join()
+    val player = playerReference.get()
+
+    player.setMediaSource(FakeMediaSource())
+    player.prepare()
+    player.play()
+    advance(player).untilState(Player.STATE_ENDED)
+    playerReference.get().release()
+
+    assertThat(throwableFromChoreographer.get()).isNull()
   }
 
   /**
