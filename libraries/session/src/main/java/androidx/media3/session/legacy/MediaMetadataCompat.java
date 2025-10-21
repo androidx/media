@@ -484,7 +484,7 @@ public final class MediaMetadataCompat implements Parcelable {
         }
         switch (type) {
           case METADATA_TYPE_TEXT:
-            builder.putText(key, bundle.getString(key));
+            builder.putText(key, bundle.getCharSequence(key));
             break;
           case METADATA_TYPE_LONG:
             builder.putLong(key, bundle.getLong(key));

@@ -288,6 +288,9 @@
         and the controller, resulting in the failure to apply video effects in
         demo-session. If you are using a controller, this might be a breaking
         change if your player cannot handle a `setVideoSurfaceHolder` call.
+    *   Fix propagation of non-`String` `CharSequence` metadata values like
+        span-styled strings
+        ([#2853](https://github.com/androidx/media/issues/2853)).
 *   UI:
     *   Add `ProgressStateWithTickInterval` class and the corresponding
         `rememberProgressStateWithTickInterval` Composable to
