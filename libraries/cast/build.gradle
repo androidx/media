@@ -41,7 +41,8 @@ dependencies {
     api project(modulePrefix + 'lib-common')
     api project(modulePrefix + 'lib-exoplayer')
     implementation platform('androidx.compose:compose-bom:' + androidxComposeBomVersion)
-    implementation 'androidx.compose.material3:material3'
+    // Remove the version number once b/385138624 is fixed, GMaven doesn't resolve the BOM above
+    implementation 'androidx.compose.material3:material3:1.3.1'
 
     compileOnly 'com.google.errorprone:error_prone_annotations:' + errorProneVersion
     compileOnly 'org.checkerframework:checker-qual:' + checkerframeworkVersion
