@@ -8,6 +8,47 @@ This release includes the following changes since
 [1.8.0 release](#180-2025-07-30):
 
 *   Common Library:
+*   ExoPlayer:
+*   CompositionPlayer:
+*   Transformer:
+*   Track Selection:
+*   Extractors:
+*   Inspector:
+*   Audio:
+*   Video:
+*   Text:
+*   Metadata:
+*   Image:
+*   DataSource:
+*   DRM:
+*   Effect:
+*   Muxers:
+*   IMA extension:
+*   Session:
+*   UI:
+*   Downloads:
+*   OkHttp extension:
+*   Cronet extension:
+*   RTMP extension:
+*   HLS extension:
+*   DASH extension:
+*   Smooth Streaming extension:
+*   RTSP extension:
+*   Decoder extensions (FFmpeg, VP9, AV1, etc.):
+*   MIDI extension:
+*   Leanback extension:
+*   Cast extension:
+*   Test Utilities:
+*   Remove deprecated symbols:
+
+## 1.9
+
+### 1.9.0-alpha01 (2025-10-22)
+
+This release includes the following changes since
+[1.8.0 release](#180-2025-07-30):
+
+*   Common Library:
     *   Update `minSdk` to `23` in line with other AndroidX libraries.
     *   Add `PlayerTransferState`, which facilitates transferring the playback
         state across `Player` instances.
