@@ -18,12 +18,12 @@ package androidx.media3.exoplayer.upstream;
 import static com.google.common.truth.Truth.assertThat;
 
 import androidx.media3.exoplayer.upstream.Loader.UnexpectedLoaderException;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests for {@link UnexpectedLoaderException}. */
-@RunWith(JUnit4.class)
+@RunWith(AndroidJUnit4.class)
 public class UnexpectedLoaderExceptionTest {
 
   @Test
