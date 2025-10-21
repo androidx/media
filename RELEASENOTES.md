@@ -3,6 +3,47 @@
 ### Unreleased changes
 
 *   Common Library:
+*   ExoPlayer:
+*   CompositionPlayer:
+*   Transformer:
+*   Track Selection:
+*   Extractors:
+*   Inspector:
+*   Audio:
+*   Video:
+*   Text:
+*   Metadata:
+*   Image:
+*   DataSource:
+*   DRM:
+*   Effect:
+*   Muxers:
+*   IMA extension:
+*   Session:
+*   UI:
+*   Downloads:
+*   OkHttp extension:
+*   Cronet extension:
+*   RTMP extension:
+*   HLS extension:
+*   DASH extension:
+*   Smooth Streaming extension:
+*   RTSP extension:
+*   Decoder extensions (FFmpeg, VP9, AV1, etc.):
+*   MIDI extension:
+*   Leanback extension:
+*   Cast extension:
+*   Test Utilities:
+*   Remove deprecated symbols:
+
+## 1.9
+
+### 1.9.0-alpha01 (2025-10-22)
+
+This release includes the following changes since
+[1.8.0 release](#180-2025-07-30):
+
+*   Common Library:
     *   Update `minSdk` to `23` in line with other AndroidX libraries.
     *   Add `PlayerTransferState`, which facilitates transferring the playback
         state across `Player` instances.
@@ -178,7 +219,6 @@
     *   FrameExtractor: Add `getThumbnail()` to extract a representative
         thumbnail frame from a media file without requiring a specific
         timestamp.
-*   DataSource:
 *   Audio:
     *   Make `AudioProcessor` instances aware of seeking.
     *   Allow injecting the new `AudioOutputProvider` interface into
@@ -200,12 +240,10 @@
 *   Text:
     *   Fix parsing of CEA-6/708 subtitles in Dolby Vision content
         ([#2775](https://github.com/androidx/media/issues/2775)).
-*   Metadata:
 *   Image:
     *   Fix ScrubbingMode issue where player gets stuck while scrubbing a DASH
         thumbnail track
         ([#2815](https://github.com/androidx/media/issues/2815)).
-*   DataSource:
 *   DRM:
     *   Change the return type of `MediaDrmCallback` methods from `byte[]` to a
         new `MediaDrmCallback.Response` type, to allow returning extra optional
@@ -216,7 +254,6 @@
         `AnalyticsListener.onDrmKeysLoaded`
         ([#1001](https://github.com/androidx/media/issues/1001)).
     *   Move provisioning request data from a URL parameter to the POST body.
-*   Effect:
 *   Muxers:
     *   Add `MediaMuxerCompat`, a drop-in replacement for framework
         `MediaMuxer`.
@@ -317,10 +354,6 @@
         PreviousButton, SeekBackButton, SeekForwardButton, RepeatButton,
         ShuffleButton, MuteButton) to it.
     *   Add support for placing a media route button in the `PlayerView`.
-*   Downloads:
-*   OkHttp extension:
-*   Cronet extension:
-*   RTMP extension:
 *   HLS extension:
     *   Parse HLS interstitial skip attributes.
     *   Map skip control attributes from the HLS playlist and the asset list
@@ -340,7 +373,6 @@
     *   Avoid crashes caused by invalid manifest updates that were not reported
         as player errors
         ([#2805](https://github.com/androidx/media/issues/2805))).
-*   Smooth Streaming extension:
 *   RTSP extension:
     *   Handle error of missing RTP packets when processing fragmented NAL units
         for H264 and H265
@@ -349,8 +381,6 @@
     *   AV1 Extension: The AV1 software decoder now uses the high-performance
         `dav1d` library, replacing the previous `libgav1` implementation for
         improved decoding speed.
-*   MIDI extension:
-*   Leanback extension:
 *   Cast extension:
     *   Add `CastPlayer.Builder`, which enables `CastPlayer` to do both local
         and Cast playback. To keep the old `CastPlayer` behavior of supporting
