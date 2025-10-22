@@ -47,6 +47,7 @@ public final class PlayerTransferState {
     private long currentPosition;
     private ImmutableList<MediaItem> mediaItems;
     private PlaybackParameters playbackParameters;
+    private TrackSelectionParameters trackSelectionParameters;
 
     /**
      * Constructs a new {@code Builder} with default values.
@@ -61,6 +62,7 @@ public final class PlayerTransferState {
       this.currentPosition = 0L;
       this.mediaItems = ImmutableList.of();
       this.playbackParameters = PlaybackParameters.DEFAULT;
+      this.trackSelectionParameters = TrackSelectionParameters.DEFAULT;
     }
 
     private Builder(PlayerTransferState state) {
@@ -71,6 +73,7 @@ public final class PlayerTransferState {
       this.currentPosition = state.currentPosition;
       this.mediaItems = state.mediaItems;
       this.playbackParameters = state.playbackParameters;
+      this.trackSelectionParameters = state.trackSelectionParameters;
     }
 
     /**
@@ -151,6 +154,18 @@ public final class PlayerTransferState {
       return this;
     }
 
+    /**
+     * Sets the {@link Player#getTrackSelectionParameters() track selection parameters}.
+     *
+     * @param trackSelectionParameters The track selection parameters.
+     * @return This {@code Builder} instance for chaining.
+     */
+    @CanIgnoreReturnValue
+    public Builder setTrackSelectionParameters(TrackSelectionParameters trackSelectionParameters) {
+      this.trackSelectionParameters = Objects.requireNonNull(trackSelectionParameters);
+      return this;
+    }
+
     /** Builds a {@link PlayerTransferState} instance. */
     public PlayerTransferState build() {
       return new PlayerTransferState(this);
@@ -164,6 +179,7 @@ public final class PlayerTransferState {
   private final long currentPosition;
   private final ImmutableList<MediaItem> mediaItems;
   private final PlaybackParameters playbackParameters;
+  private final TrackSelectionParameters trackSelectionParameters;
 
   private PlayerTransferState(Builder builder) {
     this.playWhenReady = builder.playWhenReady;
@@ -173,6 +189,7 @@ public final class PlayerTransferState {
     this.currentPosition = builder.currentPosition;
     this.mediaItems = builder.mediaItems;
     this.playbackParameters = builder.playbackParameters;
+    this.trackSelectionParameters = builder.trackSelectionParameters;
   }
 
   /**
@@ -206,7 +223,8 @@ public final class PlayerTransferState {
         .setCurrentMediaItemIndex(player.getCurrentMediaItemIndex())
         .setCurrentPosition(player.getCurrentPosition())
         .setMediaItems(mediaItems)
-        .setPlaybackParameters(player.getPlaybackParameters());
+        .setPlaybackParameters(player.getPlaybackParameters())
+        .setTrackSelectionParameters(player.getTrackSelectionParameters());
   }
 
   /**
@@ -232,6 +250,9 @@ public final class PlayerTransferState {
     }
     if (player.getAvailableCommands().contains(Player.COMMAND_SET_SPEED_AND_PITCH)) {
       player.setPlaybackParameters(this.playbackParameters);
+    }
+    if (player.getAvailableCommands().contains(Player.COMMAND_SET_TRACK_SELECTION_PARAMETERS)) {
+      player.setTrackSelectionParameters(this.trackSelectionParameters);
     }
   }
 
@@ -275,6 +296,11 @@ public final class PlayerTransferState {
     return playbackParameters;
   }
 
+  /** Returns the {@link Player#getTrackSelectionParameters() track selection parameters}. */
+  public TrackSelectionParameters getTrackSelectionParameters() {
+    return trackSelectionParameters;
+  }
+
   @Override
   public boolean equals(@Nullable Object o) {
     if (o == null || getClass() != o.getClass()) {
@@ -287,7 +313,8 @@ public final class PlayerTransferState {
         && currentMediaItemIndex == that.currentMediaItemIndex
         && currentPosition == that.currentPosition
         && Objects.equals(mediaItems, that.mediaItems)
-        && Objects.equals(playbackParameters, that.playbackParameters);
+        && Objects.equals(playbackParameters, that.playbackParameters)
+        && Objects.equals(trackSelectionParameters, that.trackSelectionParameters);
   }
 
   @Override
@@ -299,6 +326,7 @@ public final class PlayerTransferState {
         currentMediaItemIndex,
         currentPosition,
         mediaItems,
-        playbackParameters);
+        playbackParameters,
+        trackSelectionParameters);
   }
 }
