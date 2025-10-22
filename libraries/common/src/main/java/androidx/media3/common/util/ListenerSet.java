@@ -38,8 +38,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
  * <p>Events are also guaranteed to be only sent to the listeners registered at the time the event
  * was enqueued and haven't been removed since.
  *
- * <p>All methods must be called on the {@link Looper} passed to the constructor unless indicated
- * otherwise.
+ * <p>All methods must be called on the thread passed to the constructor unless indicated otherwise.
  *
  * @param <T> The listener type.
  */
@@ -77,8 +76,9 @@ public final class ListenerSet<T extends @NonNull Object> {
 
   private static final int MSG_ITERATION_FINISHED = 1;
 
-  private final Clock clock;
-  private final HandlerWrapper handler;
+  @Nullable private final Clock clock;
+  private final Thread thread;
+  @Nullable private final HandlerWrapper iterationFinishedHandler;
   @Nullable private final IterationFinishedEvent<T> iterationFinishedEvent;
   private final CopyOnWriteArraySet<ListenerHolder<T>> listeners;
   private final ArrayDeque<Runnable> flushingEvents;
@@ -98,13 +98,25 @@ public final class ListenerSet<T extends @NonNull Object> {
    *
    * @param looper A {@link Looper} used to call listeners on. The same {@link Looper} must be used
    *     to call all other methods of this class unless indicated otherwise.
-   * @param clock A {@link Clock}.
    */
-  public ListenerSet(Looper looper, Clock clock) {
+  public ListenerSet(Looper looper) {
+    this(looper.getThread());
+  }
+
+  /**
+   * Creates a new listener set.
+   *
+   * <p>This listener set will not send an {@link IterationFinishedEvent}.
+   *
+   * @param thread A {@link Thread} used to call listeners on. The same {@link Thread} must be used
+   *     to call all other methods of this class unless indicated otherwise.
+   */
+  public ListenerSet(Thread thread) {
     this(
         /* listeners= */ new CopyOnWriteArraySet<>(),
-        looper,
-        clock,
+        /* looper= */ null,
+        /* thread= */ thread,
+        /* clock= */ null,
         /* iterationFinishedEvent= */ null,
         /* throwsWhenUsingWrongThread= */ true);
   }
@@ -124,6 +136,7 @@ public final class ListenerSet<T extends @NonNull Object> {
     this(
         /* listeners= */ new CopyOnWriteArraySet<>(),
         looper,
+        /* thread= */ looper.getThread(),
         clock,
         iterationFinishedEvent,
         /* throwsWhenUsingWrongThread= */ true);
@@ -131,20 +144,26 @@ public final class ListenerSet<T extends @NonNull Object> {
 
   private ListenerSet(
       CopyOnWriteArraySet<ListenerHolder<T>> listeners,
-      Looper looper,
-      Clock clock,
+      @Nullable Looper looper,
+      Thread thread,
+      @Nullable Clock clock,
       @Nullable IterationFinishedEvent<T> iterationFinishedEvent,
       boolean throwsWhenUsingWrongThread) {
     this.clock = clock;
+    this.thread = thread;
     this.listeners = listeners;
     this.iterationFinishedEvent = iterationFinishedEvent;
     releasedLock = new Object();
     flushingEvents = new ArrayDeque<>();
     queuedEvents = new ArrayDeque<>();
-    // It's safe to use "this" because we don't send a message before exiting the constructor.
-    @SuppressWarnings("nullness:methodref.receiver.bound")
-    HandlerWrapper handler = clock.createHandler(looper, this::handleMessage);
-    this.handler = handler;
+    if (looper != null && clock != null && iterationFinishedEvent != null) {
+      // It's safe to use "this" because we don't send a message before exiting the constructor.
+      @SuppressWarnings("nullness:methodref.receiver.bound")
+      HandlerWrapper handler = clock.createHandler(looper, this::handleMessage);
+      this.iterationFinishedHandler = handler;
+    } else {
+      this.iterationFinishedHandler = null;
+    }
     this.throwsWhenUsingWrongThread = throwsWhenUsingWrongThread;
   }
 
@@ -156,7 +175,8 @@ public final class ListenerSet<T extends @NonNull Object> {
    * @param looper The new {@link Looper} for the copied listener set.
    * @param iterationFinishedEvent The new {@link IterationFinishedEvent} sent when all other events
    *     sent during one {@link Looper} message queue iteration were handled by the listeners, or
-   *     null if no such event is needed.
+   *     null if no such event is needed. Can only be non-null if the listener set was created with
+   *     a {@link Clock}.
    * @return The copied listener set.
    */
   @CheckResult
@@ -188,7 +208,16 @@ public final class ListenerSet<T extends @NonNull Object> {
    */
   @CheckResult
   public ListenerSet<T> copy(Clock clock) {
-    return copy(handler.getLooper(), clock, iterationFinishedEvent);
+    if (iterationFinishedHandler != null) {
+      return copy(iterationFinishedHandler.getLooper(), clock, iterationFinishedEvent);
+    }
+    return new ListenerSet<>(
+        listeners,
+        /* looper= */ null,
+        thread,
+        clock,
+        /* iterationFinishedEvent= */ null,
+        throwsWhenUsingWrongThread);
   }
 
   /**
@@ -200,14 +229,22 @@ public final class ListenerSet<T extends @NonNull Object> {
    * @param clock The new {@link Clock} for the copied listener set.
    * @param iterationFinishedEvent The new {@link IterationFinishedEvent} sent when all other events
    *     sent during one {@link Looper} message queue iteration were handled by the listeners, or
-   *     null if no such event is needed.
+   *     null if no such event is needed. Can only be non-null if the {@code clock} is non-null.
    * @return The copied listener set.
    */
   @CheckResult
   public ListenerSet<T> copy(
-      Looper looper, Clock clock, @Nullable IterationFinishedEvent<T> iterationFinishedEvent) {
+      Looper looper,
+      @Nullable Clock clock,
+      @Nullable IterationFinishedEvent<T> iterationFinishedEvent) {
+    checkState(clock != null || iterationFinishedEvent == null);
     return new ListenerSet<>(
-        listeners, looper, clock, iterationFinishedEvent, throwsWhenUsingWrongThread);
+        listeners,
+        looper,
+        looper.getThread(),
+        clock,
+        iterationFinishedEvent,
+        throwsWhenUsingWrongThread);
   }
 
   /**
@@ -297,8 +334,10 @@ public final class ListenerSet<T extends @NonNull Object> {
     if (queuedEvents.isEmpty()) {
       return;
     }
-    if (iterationFinishedEvent != null && !handler.hasMessages(MSG_ITERATION_FINISHED)) {
-      handler.sendMessageAtFrontOfQueue(handler.obtainMessage(MSG_ITERATION_FINISHED));
+    if (iterationFinishedEvent != null
+        && !checkNotNull(iterationFinishedHandler).hasMessages(MSG_ITERATION_FINISHED)) {
+      iterationFinishedHandler.sendMessageAtFrontOfQueue(
+          iterationFinishedHandler.obtainMessage(MSG_ITERATION_FINISHED));
     }
     boolean recursiveFlushInProgress = !flushingEvents.isEmpty();
     flushingEvents.addAll(queuedEvents);
@@ -372,7 +411,7 @@ public final class ListenerSet<T extends @NonNull Object> {
     IterationFinishedEvent<T> event = checkNotNull(iterationFinishedEvent);
     for (ListenerHolder<T> holder : listeners) {
       holder.iterationFinished(event);
-      if (handler.hasMessages(MSG_ITERATION_FINISHED)) {
+      if (checkNotNull(iterationFinishedHandler).hasMessages(MSG_ITERATION_FINISHED)) {
         // The invocation above triggered new events (and thus scheduled a new message). We need
         // to stop here because this new message will take care of informing every listener about
         // the new update (including the ones already called here).
@@ -386,7 +425,7 @@ public final class ListenerSet<T extends @NonNull Object> {
     if (!throwsWhenUsingWrongThread) {
       return;
     }
-    checkState(Thread.currentThread() == handler.getLooper().getThread());
+    checkState(Thread.currentThread() == thread);
   }
 
   private static final class ListenerHolder<T extends @NonNull Object> {

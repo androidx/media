@@ -151,7 +151,7 @@ public class FallbackListenerTest {
   }
 
   private static ListenerSet<Transformer.Listener> createListenerSet() {
-    return new ListenerSet<>(Looper.myLooper(), Clock.DEFAULT);
+    return new ListenerSet<>(Looper.myLooper());
   }
 
   private static HandlerWrapper createHandler() {
