@@ -232,7 +232,7 @@ This release includes the following changes since
         ([#2580](https://github.com/androidx/media/pull/2580)).
     *   Avoid potential delays caused by handling routing change callbacks at
         the beginning of playback
-        ([#2646]()https://github.com/androidx/media/issues/2646).
+        ([#2646](https://github.com/androidx/media/issues/2646)).
     *   Allow codec reuse for EAC3, EAC3-JOC and AC-4 formats
         ([#1346](https://github.com/androidx/media/pull/1346)).
     *   Add support for float PCM samples in `Sonic`.
@@ -266,7 +266,7 @@ This release includes the following changes since
 *   IMA extension:
     *   Removal of custom proguard rules, so that apps can use those released in
         IMA android archive instead.
-    *   Add ImaServerSideAdInsertionUriBuilder.setNetworkCode, a new API for
+    *   Add `ImaServerSideAdInsertionUriBuilder.setNetworkCode`, a new API for
         setting the Google Ad Manager network code for the IMA SDK to handle ads
         identifiers as specified in Google Ad Manager settings. Network codes
         are optional but recommended for Full service stream requests. To find
@@ -374,7 +374,7 @@ This release includes the following changes since
         by the user ([#2606](https://github.com/androidx/media/issues/2606)).
     *   Avoid crashes caused by invalid manifest updates that were not reported
         as player errors
-        ([#2805](https://github.com/androidx/media/issues/2805))).
+        ([#2805](https://github.com/androidx/media/issues/2805)).
 *   RTSP extension:
     *   Handle error of missing RTP packets when processing fragmented NAL units
         for H264 and H265
