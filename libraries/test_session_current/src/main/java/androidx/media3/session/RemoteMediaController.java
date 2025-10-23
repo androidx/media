@@ -420,6 +420,10 @@ public class RemoteMediaController {
     return binder.getSessionActivity(controllerId);
   }
 
+  public void executeCommandButtonAction(int buttonIndex) throws RemoteException {
+    binder.executeCommandButtonAction(controllerId, buttonIndex);
+  }
+
   ////////////////////////////////////////////////////////////////////////////////
   // Non-public methods
   ////////////////////////////////////////////////////////////////////////////////

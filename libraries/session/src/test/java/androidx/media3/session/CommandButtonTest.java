@@ -21,6 +21,7 @@ import static org.junit.Assert.assertThrows;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Looper;
+import androidx.media3.common.HeartRating;
 import androidx.media3.common.Player;
 import androidx.media3.common.SimpleBasePlayer;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -499,7 +500,9 @@ public class CommandButtonTest {
             .setCustomIconResId(R.drawable.media3_notification_small_icon)
             .setIconUri(Uri.parse("content://test"))
             .setExtras(extras)
-            .setSessionCommand(new SessionCommand(SessionCommand.COMMAND_CODE_SESSION_SET_RATING))
+            .setSessionCommand(
+                new SessionCommand(SessionCommand.COMMAND_CODE_SESSION_SET_RATING),
+                new HeartRating(true))
             .setSlots(CommandButton.SLOT_OVERFLOW, CommandButton.SLOT_BACK)
             .build();
     CommandButton buttonWithPlayerCommand =
@@ -509,7 +512,7 @@ public class CommandButtonTest {
             .setCustomIconResId(R.drawable.media3_notification_small_icon)
             .setIconUri(Uri.parse("content://test"))
             .setExtras(extras)
-            .setPlayerCommand(Player.COMMAND_GET_METADATA)
+            .setPlayerCommand(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM, 123L)
             .setSlots(CommandButton.SLOT_CENTRAL)
             .build();
     CommandButton buttonWithDefaultValues =
@@ -1803,6 +1806,89 @@ public class CommandButtonTest {
                 .setSlots(CommandButton.SLOT_FORWARD)
                 .build())
         .inOrder();
+  }
+
+  @Test
+  public void builder_setPlayerCommandWithIntegerForLongParameter_builds() {
+    CommandButton button =
+        new CommandButton.Builder(CommandButton.ICON_SKIP_BACK)
+            .setPlayerCommand(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM, /* parameter= */ 100)
+            .build();
+    assertThat(button.parameter).isEqualTo(100L);
+  }
+
+  @Test
+  public void builder_setPlayerCommandWithDoubleForFloatParameter_builds() {
+    CommandButton button =
+        new CommandButton.Builder(CommandButton.ICON_PLAYBACK_SPEED)
+            .setPlayerCommand(Player.COMMAND_SET_SPEED_AND_PITCH, /* parameter= */ 1.5d)
+            .build();
+    assertThat(button.parameter).isEqualTo(1.5f);
+  }
+
+  @Test
+  public void builder_setPlayerCommandWithIncorrectParameterType_throws() {
+    CommandButton.Builder builder = new CommandButton.Builder(CommandButton.ICON_SKIP_BACK);
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> builder.setPlayerCommand(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM, "incorrect"));
+  }
+
+  @Test
+  public void builder_setSessionCommandWithIncorrectParameterType_throws() {
+    CommandButton.Builder builder = new CommandButton.Builder(CommandButton.ICON_HEART_FILLED);
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            builder.setSessionCommand(
+                new SessionCommand(SessionCommand.COMMAND_CODE_SESSION_SET_RATING), "incorrect"));
+  }
+
+  @Test
+  public void canExecuteAction_forCommandsWithoutParameter_returnsTrue() {
+    CommandButton button =
+        new CommandButton.Builder(CommandButton.ICON_PLAY)
+            .setPlayerCommand(Player.COMMAND_PLAY_PAUSE)
+            .build();
+    assertThat(button.canExecuteAction()).isTrue();
+  }
+
+  @Test
+  public void canExecuteAction_forCommandWithRequiredParameter_withParameter_returnsTrue() {
+    CommandButton button =
+        new CommandButton.Builder(CommandButton.ICON_SKIP_BACK)
+            .setPlayerCommand(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM, 100L)
+            .build();
+    assertThat(button.canExecuteAction()).isTrue();
+  }
+
+  @Test
+  public void canExecuteAction_forCommandWithRequiredParameter_withoutParameter_returnsFalse() {
+    CommandButton button =
+        new CommandButton.Builder(CommandButton.ICON_SKIP_BACK)
+            .setPlayerCommand(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)
+            .build();
+    assertThat(button.canExecuteAction()).isFalse();
+  }
+
+  @Test
+  public void canExecuteAction_forSessionSetRating_withRatingParameter_returnsTrue() {
+    CommandButton button =
+        new CommandButton.Builder(CommandButton.ICON_HEART_FILLED)
+            .setSessionCommand(
+                new SessionCommand(SessionCommand.COMMAND_CODE_SESSION_SET_RATING),
+                new HeartRating(true))
+            .build();
+    assertThat(button.canExecuteAction()).isTrue();
+  }
+
+  @Test
+  public void canExecuteAction_forSessionSetRating_withoutRatingParameter_returnsFalse() {
+    CommandButton button =
+        new CommandButton.Builder(CommandButton.ICON_HEART_FILLED)
+            .setSessionCommand(new SessionCommand(SessionCommand.COMMAND_CODE_SESSION_SET_RATING))
+            .build();
+    assertThat(button.canExecuteAction()).isFalse();
   }
 
   private static Player createFixedStatePlayer() {

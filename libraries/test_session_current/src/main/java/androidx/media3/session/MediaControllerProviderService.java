@@ -792,6 +792,17 @@ public class MediaControllerProviderService extends Service {
           });
     }
 
+    @Override
+    public void executeCommandButtonAction(String controllerId, int buttonIndex)
+        throws RemoteException {
+      runOnHandler(
+          () -> {
+            MediaController controller = mediaControllerMap.get(controllerId);
+            CommandButton button = controller.getMediaButtonPreferences().get(buttonIndex);
+            button.executeAction(controller);
+          });
+    }
+
     ////////////////////////////////////////////////////////////////////////////////
     // MediaBrowser methods
     ////////////////////////////////////////////////////////////////////////////////

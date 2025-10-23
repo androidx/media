@@ -16,6 +16,7 @@
 package androidx.media3.session;
 
 import static androidx.media3.session.SessionCommand.COMMAND_CODE_CUSTOM;
+import static androidx.media3.session.SessionCommand.COMMAND_CODE_SESSION_SET_RATING;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -32,12 +33,17 @@ import androidx.annotation.DrawableRes;
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.MediaItem;
+import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.Player;
+import androidx.media3.common.Rating;
+import androidx.media3.common.TrackSelectionParameters;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.ImmutableIntArray;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.CheckReturnValue;
 import java.lang.annotation.Documented;
@@ -464,6 +470,34 @@ public final class CommandButton {
   /** A slot in a playback control UI for additional actions that don't fit into other slots. */
   @UnstableApi public static final int SLOT_OVERFLOW = 6;
 
+  @Documented
+  @Retention(RetentionPolicy.SOURCE)
+  @Target(TYPE_USE)
+  @IntDef({
+    PARAMETER_TYPE_NULL,
+    PARAMETER_TYPE_LONG,
+    PARAMETER_TYPE_INT,
+    PARAMETER_TYPE_BOOLEAN,
+    PARAMETER_TYPE_FLOAT,
+    PARAMETER_TYPE_RATING,
+    PARAMETER_TYPE_MEDIA_ITEM,
+    PARAMETER_TYPE_MEDIA_METADATA,
+    PARAMETER_TYPE_TRACK_SELECTION_PARAMETERS,
+  })
+  private @interface ParameterType {}
+
+  private static final int PARAMETER_TYPE_NULL = 0;
+  private static final int PARAMETER_TYPE_LONG = 1;
+  private static final int PARAMETER_TYPE_INT = 2;
+  private static final int PARAMETER_TYPE_BOOLEAN = 3;
+  private static final int PARAMETER_TYPE_FLOAT = 4;
+  private static final int PARAMETER_TYPE_RATING = 5;
+  private static final int PARAMETER_TYPE_MEDIA_ITEM = 6;
+  private static final int PARAMETER_TYPE_MEDIA_METADATA = 7;
+  private static final int PARAMETER_TYPE_TRACK_SELECTION_PARAMETERS = 8;
+
+  private static final String INCORRECT_PARAMETER_TYPE_MESSAGE = "Parameter has incorrect type.";
+
   /** A builder for {@link CommandButton}. */
   public static final class Builder {
 
@@ -477,6 +511,7 @@ public final class CommandButton {
     private Bundle extras;
     private boolean enabled;
     @Nullable private ImmutableIntArray slots;
+    @Nullable private Object parameter;
 
     /**
      * @deprecated Use {@link #Builder(int)} instead to define the {@link Icon} for this button. A
@@ -515,6 +550,10 @@ public final class CommandButton {
      *
      * <p>Cannot set this if a player command is already set via {@link #setPlayerCommand(int)}.
      *
+     * <p>The controller can execute the action associated with this command. See {@link
+     * #executeAction(MediaController)} for a list of supported actions. If the action requires an
+     * additional parameter, use {@link #setSessionCommand(SessionCommand, Object)} instead.
+     *
      * @param sessionCommand The {@link SessionCommand}.
      * @return This builder for chaining.
      */
@@ -526,6 +565,38 @@ public final class CommandButton {
           "playerCommands is already set. Only one of sessionCommand and playerCommand should be"
               + " set.");
       this.sessionCommand = sessionCommand;
+      this.parameter = null;
+      return this;
+    }
+
+    /**
+     * Sets the {@link SessionCommand} that is required to be {@linkplain
+     * MediaController#isSessionCommandAvailable available} when the button is clicked.
+     *
+     * <p>Cannot set this if a player command is already set via {@link #setPlayerCommand(int)}.
+     *
+     * <p>The controller can execute the action associated with this command. See {@link
+     * #executeAction(MediaController)} for a list of supported actions. If the action requires no
+     * additional parameter, use {@link #setSessionCommand(SessionCommand)} instead.
+     *
+     * @param sessionCommand The {@link SessionCommand}.
+     * @param parameter The parameter required to execute the action associated with this command.
+     *     See {@link #executeAction(MediaController)} for a list of supported actions and parameter
+     *     types.
+     * @return This builder for chaining.
+     */
+    @CanIgnoreReturnValue
+    @UnstableApi
+    public Builder setSessionCommand(SessionCommand sessionCommand, @Nullable Object parameter) {
+      checkNotNull(sessionCommand, "sessionCommand should not be null.");
+      checkArgument(
+          playerCommand == Player.COMMAND_INVALID,
+          "playerCommands is already set. Only one of sessionCommand and playerCommand should be"
+              + " set.");
+      this.sessionCommand = sessionCommand;
+      this.parameter =
+          verifyParameterType(
+              parameter, getParameterTypeForSessionCommand(sessionCommand.commandCode));
       return this;
     }
 
@@ -535,6 +606,10 @@ public final class CommandButton {
      *
      * <p>Cannot set this if a session command is already set via {@link
      * #setSessionCommand(SessionCommand)}.
+     *
+     * <p>The controller can execute the action associated with this command. See {@link
+     * #executeAction(MediaController)} for a list of supported actions. If the action requires an
+     * additional parameter, use {@link #setPlayerCommand(int, Object)} instead.
      *
      * @param playerCommand The {@link Player.Command}.
      * @return This builder for chaining.
@@ -546,6 +621,37 @@ public final class CommandButton {
           "sessionCommand is already set. Only one of sessionCommand and playerCommand should be"
               + " set.");
       this.playerCommand = playerCommand;
+      this.parameter = null;
+      return this;
+    }
+
+    /**
+     * Sets the {@link Player.Command} that is required to be {@linkplain
+     * MediaController#isCommandAvailable available} when the button is clicked.
+     *
+     * <p>Cannot set this if a session command is already set via {@link
+     * #setSessionCommand(SessionCommand)}.
+     *
+     * <p>The controller can execute the action associated with this command. See {@link
+     * #executeAction(MediaController)} for a list of supported actions. If the action requires no
+     * additional parameter, use {@link #setPlayerCommand(int)} instead.
+     *
+     * @param playerCommand The {@link Player.Command}.
+     * @param parameter The parameter required to execute the action associated with this command.
+     *     See {@link #executeAction(MediaController)} for a list of supported actions and parameter
+     *     types.
+     * @return This builder for chaining.
+     */
+    @UnstableApi
+    @CanIgnoreReturnValue
+    public Builder setPlayerCommand(@Player.Command int playerCommand, @Nullable Object parameter) {
+      checkArgument(
+          sessionCommand == null,
+          "sessionCommand is already set. Only one of sessionCommand and playerCommand should be"
+              + " set.");
+      this.playerCommand = playerCommand;
+      this.parameter =
+          verifyParameterType(parameter, getParameterTypeForPlayerCommand(playerCommand));
       return this;
     }
 
@@ -696,7 +802,8 @@ public final class CommandButton {
           displayName,
           extras,
           enabled,
-          slots);
+          slots,
+          parameter);
     }
   }
 
@@ -1152,6 +1259,12 @@ public final class CommandButton {
    */
   public final boolean isEnabled;
 
+  /**
+   * The optional parameter needed to execute the action associated with this button via {@link
+   * #executeAction(MediaController)}.
+   */
+  @UnstableApi @Nullable public final Object parameter;
+
   private CommandButton(
       @Nullable SessionCommand sessionCommand,
       @Player.Command int playerCommand,
@@ -1161,7 +1274,8 @@ public final class CommandButton {
       CharSequence displayName,
       Bundle extras,
       boolean enabled,
-      ImmutableIntArray slots) {
+      ImmutableIntArray slots,
+      @Nullable Object parameter) {
     this.sessionCommand = sessionCommand;
     this.playerCommand = playerCommand;
     this.icon = icon;
@@ -1171,6 +1285,237 @@ public final class CommandButton {
     this.extras = new Bundle(extras);
     this.isEnabled = enabled;
     this.slots = slots;
+    this.parameter = parameter;
+  }
+
+  /**
+   * Executes the intended action of the command button by calling the appropriate {@link
+   * MediaController} method.
+   *
+   * <p>The following player and session commands are supported. Whether the command button has a
+   * configuration that can be executed can also be checked with {@link #canExecuteAction()}.
+   *
+   * <p>If {@link #playerCommand} is set, the following commands are supported:
+   *
+   * <ul>
+   *   <li>{@link Player#COMMAND_PLAY_PAUSE}: Calls {@link
+   *       MediaController#setPlayWhenReady(boolean)} with {@code !controller.getPlayWhenReady()},
+   *       or with {@link #parameter} if provided via {@link Builder#setPlayerCommand(int, Object)}.
+   *   <li>{@link Player#COMMAND_PREPARE}: Calls {@link MediaController#prepare()}.
+   *   <li>{@link Player#COMMAND_STOP}: Calls {@link MediaController#stop()}.
+   *   <li>{@link Player#COMMAND_SEEK_TO_PREVIOUS}: Calls {@link MediaController#seekToPrevious()}.
+   *   <li>{@link Player#COMMAND_SEEK_TO_NEXT}: Calls {@link MediaController#seekToNext()}.
+   *   <li>{@link Player#COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM}: Calls {@link
+   *       MediaController#seekToPreviousMediaItem()}.
+   *   <li>{@link Player#COMMAND_SEEK_TO_NEXT_MEDIA_ITEM}: Calls {@link
+   *       MediaController#seekToNextMediaItem()}.
+   *   <li>{@link Player#COMMAND_SEEK_BACK}: Calls {@link MediaController#seekBack()}.
+   *   <li>{@link Player#COMMAND_SEEK_FORWARD}: Calls {@link MediaController#seekForward()}.
+   *   <li>{@link Player#COMMAND_SEEK_TO_DEFAULT_POSITION}: Calls {@link
+   *       MediaController#seekToDefaultPosition()}.
+   *   <li>{@link Player#COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM}: Calls {@link
+   *       MediaController#seekTo(long)} with {@link #parameter} if provided via {@link
+   *       Builder#setPlayerCommand(int, Object)}.
+   *   <li>{@link Player#COMMAND_SEEK_TO_MEDIA_ITEM}: Calls {@link
+   *       MediaController#seekToDefaultPosition(int)} with {@link #parameter} if provided via
+   *       {@link Builder#setPlayerCommand(int, Object)}.
+   *   <li>{@link Player#COMMAND_SET_SPEED_AND_PITCH}: Calls {@link
+   *       MediaController#setPlaybackSpeed(float)} with {@link #parameter} if provided via {@link
+   *       Builder#setPlayerCommand(int, Object)}.
+   *   <li>{@link Player#COMMAND_SET_SHUFFLE_MODE}: Calls {@link
+   *       MediaController#setShuffleModeEnabled(boolean)} with {@code
+   *       !controller.getShuffleModeEnabled()}, or with {@link #parameter} if provided via {@link
+   *       Builder#setPlayerCommand(int, Object)}.
+   *   <li>{@link Player#COMMAND_SET_REPEAT_MODE}: Calls {@link MediaController#setRepeatMode(int)}
+   *       with {@link #parameter} if provided via {@link Builder#setPlayerCommand(int, Object)}.
+   *   <li>{@link Player#COMMAND_SET_MEDIA_ITEM}: Calls {@link
+   *       MediaController#setMediaItem(MediaItem)} with {@link #parameter} if provided via {@link
+   *       Builder#setPlayerCommand(int, Object)}.
+   *   <li>{@link Player#COMMAND_SET_PLAYLIST_METADATA}: Calls {@link
+   *       MediaController#setPlaylistMetadata(MediaMetadata)} with {@link #parameter} if provided
+   *       via {@link Builder#setPlayerCommand(int, Object)}.
+   *   <li>{@link Player#COMMAND_SET_VOLUME}: Calls {@link MediaController#setVolume(float)} with
+   *       {@link #parameter} if provided via {@link Builder#setPlayerCommand(int, Object)}, or
+   *       calls {@link MediaController#mute()}/{@link MediaController#unmute()} otherwise.
+   *   <li>{@link Player#COMMAND_SET_TRACK_SELECTION_PARAMETERS}: Calls {@link
+   *       MediaController#setTrackSelectionParameters(TrackSelectionParameters)} with {@link
+   *       #parameter} if provided via {@link Builder#setPlayerCommand(int, Object)}.
+   * </ul>
+   *
+   * <p>If {@link #sessionCommand} is set, the following commands are supported:
+   *
+   * <ul>
+   *   <li>If {@code sessionCommand.commandCode} is {@link SessionCommand#COMMAND_CODE_CUSTOM},
+   *       calls {@link MediaController#sendCustomCommand(SessionCommand, Bundle)} with {@link
+   *       #sessionCommand} and {@link #extras}.
+   *   <li>If {@code sessionCommand.commandCode} is {@link
+   *       SessionCommand#COMMAND_CODE_SESSION_SET_RATING}, calls {@link
+   *       MediaController#setRating(Rating)} with {@link #parameter} if it is provided via {@link
+   *       Builder#setSessionCommand(SessionCommand, Object)}.
+   * </ul>
+   *
+   * <p>Will do nothing if {@link #isEnabled} is {@code false}.
+   */
+  @UnstableApi
+  public void executeAction(MediaController controller) {
+    if (!isEnabled) {
+      return;
+    }
+    if (sessionCommand != null) {
+      switch (sessionCommand.commandCode) {
+        case COMMAND_CODE_CUSTOM:
+          ListenableFuture<SessionResult> unused =
+              controller.sendCustomCommand(sessionCommand, extras);
+          break;
+        case COMMAND_CODE_SESSION_SET_RATING:
+          if (parameter != null) {
+            unused = controller.setRating((Rating) parameter);
+          }
+          break;
+        default:
+          // Unsupported
+          break;
+      }
+    } else {
+      switch (playerCommand) {
+        case Player.COMMAND_PLAY_PAUSE:
+          if (parameter != null) {
+            controller.setPlayWhenReady((Boolean) parameter);
+          } else {
+            controller.setPlayWhenReady(!controller.getPlayWhenReady());
+          }
+          break;
+        case Player.COMMAND_PREPARE:
+          controller.prepare();
+          break;
+        case Player.COMMAND_STOP:
+          controller.stop();
+          break;
+        case Player.COMMAND_SEEK_TO_PREVIOUS:
+          controller.seekToPrevious();
+          break;
+        case Player.COMMAND_SEEK_TO_NEXT:
+          controller.seekToNext();
+          break;
+        case Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM:
+          controller.seekToPreviousMediaItem();
+          break;
+        case Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM:
+          controller.seekToNextMediaItem();
+          break;
+        case Player.COMMAND_SEEK_BACK:
+          controller.seekBack();
+          break;
+        case Player.COMMAND_SEEK_FORWARD:
+          controller.seekForward();
+          break;
+        case Player.COMMAND_SEEK_TO_DEFAULT_POSITION:
+          controller.seekToDefaultPosition();
+          break;
+        case Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM:
+          if (parameter != null) {
+            controller.seekTo((Long) parameter);
+          }
+          break;
+        case Player.COMMAND_SEEK_TO_MEDIA_ITEM:
+          if (parameter != null) {
+            controller.seekToDefaultPosition((Integer) parameter);
+          }
+          break;
+        case Player.COMMAND_SET_SPEED_AND_PITCH:
+          if (parameter != null) {
+            controller.setPlaybackSpeed((Float) parameter);
+          }
+          break;
+        case Player.COMMAND_SET_SHUFFLE_MODE:
+          if (parameter != null) {
+            controller.setShuffleModeEnabled((Boolean) parameter);
+          } else {
+            controller.setShuffleModeEnabled(!controller.getShuffleModeEnabled());
+          }
+          break;
+        case Player.COMMAND_SET_REPEAT_MODE:
+          if (parameter != null) {
+            controller.setRepeatMode((Integer) parameter);
+          }
+          break;
+        case Player.COMMAND_SET_MEDIA_ITEM:
+          if (parameter != null) {
+            controller.setMediaItem((MediaItem) parameter);
+          }
+          break;
+        case Player.COMMAND_SET_PLAYLIST_METADATA:
+          if (parameter != null) {
+            controller.setPlaylistMetadata((MediaMetadata) parameter);
+          }
+          break;
+        case Player.COMMAND_SET_VOLUME:
+          if (parameter != null) {
+            controller.setVolume((Float) parameter);
+          } else if (controller.getVolume() == 0) {
+            controller.unmute();
+          } else {
+            controller.mute();
+          }
+          break;
+        case Player.COMMAND_SET_TRACK_SELECTION_PARAMETERS:
+          if (parameter != null) {
+            controller.setTrackSelectionParameters((TrackSelectionParameters) parameter);
+          }
+          break;
+        default:
+          // Unsupported.
+          break;
+      }
+    }
+  }
+
+  /**
+   * Returns whether the command button has a configuration that allows to execute the associated
+   * action via a {@link MediaController}. See {@link #executeAction(MediaController)} for a list of
+   * valid configurations.
+   *
+   * @return Whether {@link #executeAction(MediaController)} is successful assuming the associated
+   *     {@link Player.Command} or {@link SessionCommand} is available.
+   */
+  @UnstableApi
+  public boolean canExecuteAction() {
+    if (sessionCommand != null) {
+      switch (sessionCommand.commandCode) {
+        case COMMAND_CODE_CUSTOM:
+          return true;
+        case COMMAND_CODE_SESSION_SET_RATING:
+          return parameter != null;
+        default:
+          return false;
+      }
+    } else {
+      switch (playerCommand) {
+        case Player.COMMAND_PLAY_PAUSE:
+        case Player.COMMAND_PREPARE:
+        case Player.COMMAND_STOP:
+        case Player.COMMAND_SEEK_TO_PREVIOUS:
+        case Player.COMMAND_SEEK_TO_NEXT:
+        case Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM:
+        case Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM:
+        case Player.COMMAND_SEEK_BACK:
+        case Player.COMMAND_SEEK_FORWARD:
+        case Player.COMMAND_SEEK_TO_DEFAULT_POSITION:
+        case Player.COMMAND_SET_SHUFFLE_MODE:
+        case Player.COMMAND_SET_VOLUME:
+          return true;
+        case Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM:
+        case Player.COMMAND_SEEK_TO_MEDIA_ITEM:
+        case Player.COMMAND_SET_SPEED_AND_PITCH:
+        case Player.COMMAND_SET_REPEAT_MODE:
+        case Player.COMMAND_SET_MEDIA_ITEM:
+        case Player.COMMAND_SET_PLAYLIST_METADATA:
+        case Player.COMMAND_SET_TRACK_SELECTION_PARAMETERS:
+          return parameter != null;
+        default:
+          return false;
+      }
+    }
   }
 
   /** Returns a copy with the new {@link #isEnabled} flag. */
@@ -1191,7 +1536,8 @@ public final class CommandButton {
         displayName,
         new Bundle(extras),
         isEnabled,
-        slots);
+        slots,
+        parameter);
   }
 
   /** Returns a copy with the new {@link #slots} value. */
@@ -1209,7 +1555,8 @@ public final class CommandButton {
         displayName,
         new Bundle(extras),
         isEnabled,
-        slots);
+        slots,
+        parameter);
   }
 
   /** Checks the given command button for equality while ignoring {@link #extras}. */
@@ -1229,13 +1576,22 @@ public final class CommandButton {
         && Objects.equals(iconUri, button.iconUri)
         && TextUtils.equals(displayName, button.displayName)
         && isEnabled == button.isEnabled
-        && slots.equals(button.slots);
+        && slots.equals(button.slots)
+        && Objects.equals(parameter, button.parameter);
   }
 
   @Override
   public int hashCode() {
     return Objects.hash(
-        sessionCommand, playerCommand, icon, iconResId, displayName, isEnabled, iconUri, slots);
+        sessionCommand,
+        playerCommand,
+        icon,
+        iconResId,
+        displayName,
+        isEnabled,
+        iconUri,
+        slots,
+        parameter);
   }
 
   /**
@@ -1283,6 +1639,7 @@ public final class CommandButton {
   private static final String FIELD_ICON_URI = Util.intToStringMaxRadix(6);
   private static final String FIELD_ICON = Util.intToStringMaxRadix(7);
   private static final String FIELD_SLOTS = Util.intToStringMaxRadix(8);
+  private static final String FIELD_PARAMETER = Util.intToStringMaxRadix(9);
 
   @UnstableApi
   public Bundle toBundle() {
@@ -1313,6 +1670,14 @@ public final class CommandButton {
     }
     if (slots.length() != 1 || slots.get(0) != SLOT_OVERFLOW) {
       bundle.putIntArray(FIELD_SLOTS, slots.toArray());
+    }
+    if (parameter != null) {
+      @ParameterType
+      int type =
+          sessionCommand != null
+              ? getParameterTypeForSessionCommand(sessionCommand.commandCode)
+              : getParameterTypeForPlayerCommand(playerCommand);
+      writeParameterToBundle(bundle, parameter, type);
     }
     return bundle;
   }
@@ -1350,10 +1715,17 @@ public final class CommandButton {
     int[] slots = bundle.getIntArray(FIELD_SLOTS);
     Builder builder = new Builder(icon, iconResId);
     if (sessionCommand != null) {
-      builder.setSessionCommand(sessionCommand);
+      @Nullable
+      Object parameter =
+          getParameterFromBundle(
+              bundle, getParameterTypeForSessionCommand(sessionCommand.commandCode));
+      builder.setSessionCommand(sessionCommand, parameter);
     }
     if (playerCommand != Player.COMMAND_INVALID) {
-      builder.setPlayerCommand(playerCommand);
+      @Nullable
+      Object parameter =
+          getParameterFromBundle(bundle, getParameterTypeForPlayerCommand(playerCommand));
+      builder.setPlayerCommand(playerCommand, parameter);
     }
     if (iconUri != null
         && (Objects.equals(iconUri.getScheme(), ContentResolver.SCHEME_CONTENT)
@@ -1707,5 +2079,142 @@ public final class CommandButton {
       }
     }
     return mediaButtonPreferences.build();
+  }
+
+  private static @ParameterType int getParameterTypeForSessionCommand(
+      @SessionCommand.CommandCode int sessionCommandCode) {
+    return sessionCommandCode == COMMAND_CODE_SESSION_SET_RATING
+        ? PARAMETER_TYPE_RATING
+        : PARAMETER_TYPE_NULL;
+  }
+
+  private static @ParameterType int getParameterTypeForPlayerCommand(
+      @Player.Command int playerCommand) {
+    switch (playerCommand) {
+      case Player.COMMAND_PLAY_PAUSE:
+      case Player.COMMAND_SET_SHUFFLE_MODE:
+        return PARAMETER_TYPE_BOOLEAN;
+      case Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM:
+        return PARAMETER_TYPE_LONG;
+      case Player.COMMAND_SEEK_TO_MEDIA_ITEM:
+      case Player.COMMAND_SET_REPEAT_MODE:
+        return PARAMETER_TYPE_INT;
+      case Player.COMMAND_SET_SPEED_AND_PITCH:
+      case Player.COMMAND_SET_VOLUME:
+        return PARAMETER_TYPE_FLOAT;
+      case Player.COMMAND_SET_MEDIA_ITEM:
+        return PARAMETER_TYPE_MEDIA_ITEM;
+      case Player.COMMAND_SET_PLAYLIST_METADATA:
+        return PARAMETER_TYPE_MEDIA_METADATA;
+      case Player.COMMAND_SET_TRACK_SELECTION_PARAMETERS:
+        return PARAMETER_TYPE_TRACK_SELECTION_PARAMETERS;
+      default:
+        return PARAMETER_TYPE_NULL;
+    }
+  }
+
+  @Nullable
+  private static Object verifyParameterType(
+      @Nullable Object parameter, @ParameterType int parameterType) {
+    if (parameter == null) {
+      return null;
+    }
+    switch (parameterType) {
+      case PARAMETER_TYPE_LONG:
+        if (parameter instanceof Integer) {
+          parameter = ((Integer) parameter).longValue();
+        }
+        checkArgument(parameter instanceof Long, INCORRECT_PARAMETER_TYPE_MESSAGE);
+        return parameter;
+      case PARAMETER_TYPE_INT:
+        checkArgument(parameter instanceof Integer, INCORRECT_PARAMETER_TYPE_MESSAGE);
+        return parameter;
+      case PARAMETER_TYPE_BOOLEAN:
+        checkArgument(parameter instanceof Boolean, INCORRECT_PARAMETER_TYPE_MESSAGE);
+        return parameter;
+      case PARAMETER_TYPE_FLOAT:
+        if (parameter instanceof Double) {
+          parameter = ((Double) parameter).floatValue();
+        }
+        checkArgument(parameter instanceof Float, INCORRECT_PARAMETER_TYPE_MESSAGE);
+        return parameter;
+      case PARAMETER_TYPE_RATING:
+        checkArgument(parameter instanceof Rating, INCORRECT_PARAMETER_TYPE_MESSAGE);
+        return parameter;
+      case PARAMETER_TYPE_MEDIA_ITEM:
+        checkArgument(parameter instanceof MediaItem, INCORRECT_PARAMETER_TYPE_MESSAGE);
+        return parameter;
+      case PARAMETER_TYPE_MEDIA_METADATA:
+        checkArgument(parameter instanceof MediaMetadata, INCORRECT_PARAMETER_TYPE_MESSAGE);
+        return parameter;
+      case PARAMETER_TYPE_TRACK_SELECTION_PARAMETERS:
+        checkArgument(
+            parameter instanceof TrackSelectionParameters, INCORRECT_PARAMETER_TYPE_MESSAGE);
+        return parameter;
+      case PARAMETER_TYPE_NULL:
+      default:
+        return null;
+    }
+  }
+
+  private static void writeParameterToBundle(
+      Bundle bundle, Object parameter, @ParameterType int parameterType) {
+    switch (parameterType) {
+      case PARAMETER_TYPE_LONG:
+        bundle.putLong(FIELD_PARAMETER, (long) parameter);
+        break;
+      case PARAMETER_TYPE_INT:
+        bundle.putInt(FIELD_PARAMETER, (int) parameter);
+        break;
+      case PARAMETER_TYPE_BOOLEAN:
+        bundle.putBoolean(FIELD_PARAMETER, (boolean) parameter);
+        break;
+      case PARAMETER_TYPE_FLOAT:
+        bundle.putFloat(FIELD_PARAMETER, (float) parameter);
+        break;
+      case PARAMETER_TYPE_RATING:
+        bundle.putBundle(FIELD_PARAMETER, ((Rating) parameter).toBundle());
+        break;
+      case PARAMETER_TYPE_MEDIA_ITEM:
+        bundle.putBundle(FIELD_PARAMETER, ((MediaItem) parameter).toBundle());
+        break;
+      case PARAMETER_TYPE_MEDIA_METADATA:
+        bundle.putBundle(FIELD_PARAMETER, ((MediaMetadata) parameter).toBundle());
+        break;
+      case PARAMETER_TYPE_TRACK_SELECTION_PARAMETERS:
+        bundle.putBundle(FIELD_PARAMETER, ((TrackSelectionParameters) parameter).toBundle());
+        break;
+      case PARAMETER_TYPE_NULL:
+      default:
+        // Do nothing.
+    }
+  }
+
+  @Nullable
+  private static Object getParameterFromBundle(Bundle bundle, @ParameterType int parameterType) {
+    if (!bundle.containsKey(FIELD_PARAMETER)) {
+      return null;
+    }
+    switch (parameterType) {
+      case PARAMETER_TYPE_LONG:
+        return bundle.getLong(FIELD_PARAMETER);
+      case PARAMETER_TYPE_INT:
+        return bundle.getInt(FIELD_PARAMETER);
+      case PARAMETER_TYPE_BOOLEAN:
+        return bundle.getBoolean(FIELD_PARAMETER);
+      case PARAMETER_TYPE_FLOAT:
+        return bundle.getFloat(FIELD_PARAMETER);
+      case PARAMETER_TYPE_RATING:
+        return Rating.fromBundle(checkNotNull(bundle.getBundle(FIELD_PARAMETER)));
+      case PARAMETER_TYPE_MEDIA_ITEM:
+        return MediaItem.fromBundle(checkNotNull(bundle.getBundle(FIELD_PARAMETER)));
+      case PARAMETER_TYPE_MEDIA_METADATA:
+        return MediaMetadata.fromBundle(checkNotNull(bundle.getBundle(FIELD_PARAMETER)));
+      case PARAMETER_TYPE_TRACK_SELECTION_PARAMETERS:
+        return TrackSelectionParameters.fromBundle(checkNotNull(bundle.getBundle(FIELD_PARAMETER)));
+      case PARAMETER_TYPE_NULL:
+      default:
+        return null;
+    }
   }
 }
