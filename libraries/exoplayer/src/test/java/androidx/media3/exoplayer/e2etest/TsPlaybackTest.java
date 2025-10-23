@@ -90,8 +90,18 @@ public class TsPlaybackTest {
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
     PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
+    MediaItem mediaItem = MediaItem.fromUri("asset:///media/ts/" + inputFile);
+    if (inputFile.equals("elephants_dream.mpg")) {
+      // Shorten this sample to avoid test timeouts as it is too long.
+      mediaItem =
+          mediaItem
+              .buildUpon()
+              .setClippingConfiguration(
+                  new MediaItem.ClippingConfiguration.Builder().setEndPositionMs(10000).build())
+              .build();
+    }
 
-    player.setMediaItem(MediaItem.fromUri("asset:///media/ts/" + inputFile));
+    player.setMediaItem(mediaItem);
     player.prepare();
     advance(player).untilState(Player.STATE_READY);
     player.play();
