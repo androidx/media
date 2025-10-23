@@ -1542,6 +1542,9 @@ import java.util.concurrent.TimeoutException;
               .setSessionCommand(new SessionCommand(action, extras == null ? Bundle.EMPTY : extras))
               .setDisplayName(customAction.getName())
               .setEnabled(true);
+      if (extras != null) {
+        button.setExtras(extras);
+      }
       @Nullable
       String iconUriString =
           extras != null

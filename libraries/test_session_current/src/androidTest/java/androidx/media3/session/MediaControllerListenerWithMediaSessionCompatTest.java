@@ -800,6 +800,48 @@ public class MediaControllerListenerWithMediaSessionCompatTest {
   }
 
   @Test
+  public void getMediaButtonPreferences_containsExtrasFromCustomAction() throws Exception {
+    ConditionVariable onMediaButtonPreferencesChangedCalled = new ConditionVariable();
+    MediaController controller =
+        controllerTestRule.createController(
+            session.getSessionToken(),
+            new MediaController.Listener() {
+              @Override
+              public void onMediaButtonPreferencesChanged(
+                  MediaController controller, List<CommandButton> mediaButtonPreferences) {
+                onMediaButtonPreferencesChangedCalled.open();
+              }
+            });
+    Bundle extras = new Bundle();
+    extras.putString("key", "value");
+    PlaybackStateCompat.CustomAction customAction =
+        new PlaybackStateCompat.CustomAction.Builder(
+                "command", "button1", /* icon= */ R.drawable.media3_notification_small_icon)
+            .setExtras(extras)
+            .build();
+    PlaybackStateCompat playbackState =
+        new PlaybackStateCompat.Builder().addCustomAction(customAction).build();
+
+    session.setPlaybackState(playbackState);
+    assertThat(onMediaButtonPreferencesChangedCalled.block(TIMEOUT_MS)).isTrue();
+    ImmutableList<CommandButton> mediaButtonPreferences =
+        threadTestRule.getHandler().postAndSync(controller::getMediaButtonPreferences);
+    SessionCommands availableSessionCommands =
+        threadTestRule.getHandler().postAndSync(controller::getAvailableSessionCommands);
+    SessionCommand customCommand =
+        availableSessionCommands.commands.stream()
+            .filter(command -> command.commandCode == SessionCommand.COMMAND_CODE_CUSTOM)
+            .findFirst()
+            .get();
+
+    assertThat(mediaButtonPreferences).hasSize(1);
+    assertThat(mediaButtonPreferences.get(0).sessionCommand.customExtras.getString("key"))
+        .isEqualTo("value");
+    assertThat(mediaButtonPreferences.get(0).extras.getString("key")).isEqualTo("value");
+    assertThat(customCommand.customExtras.getString("key")).isEqualTo("value");
+  }
+
+  @Test
   public void getCurrentPosition_unknownPlaybackPosition_convertedToZero() throws Exception {
     session.setPlaybackState(
         new PlaybackStateCompat.Builder()

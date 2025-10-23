@@ -685,7 +685,8 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
   }
 
   @Test
-  public void sendCustomCommand() throws Exception {
+  public void sendCustomCommand_withExtrasAsMethodParameter_triggersOnCustomAction()
+      throws Exception {
     String command = "test_custom_command";
     Bundle testArgs = new Bundle();
     testArgs.putString("args", "test_args");
@@ -700,6 +701,53 @@ public class MediaSessionCompatCallbackWithMediaControllerTest {
     assertThat(sessionCallback.onCustomActionCalled).isTrue();
     assertThat(sessionCallback.action).isEqualTo(command);
     assertThat(TestUtils.equals(testArgs, sessionCallback.extras)).isTrue();
+  }
+
+  @Test
+  public void sendCustomCommand_withExtrasInSessionCommand_triggersOnCustomAction()
+      throws Exception {
+    String command = "test_custom_command";
+    Bundle testArgs = new Bundle();
+    testArgs.putString("args", "test_args");
+    SessionCommand testCommand = new SessionCommand(command, testArgs);
+    RemoteMediaController controller = createControllerAndWaitConnection();
+    sessionCallback.reset(1);
+
+    SessionResult result = controller.sendCustomCommand(testCommand, /* args= */ Bundle.EMPTY);
+
+    assertThat(result.resultCode).isEqualTo(SessionResult.RESULT_SUCCESS);
+    assertThat(sessionCallback.await(TIMEOUT_MS)).isTrue();
+    assertThat(sessionCallback.onCustomActionCalled).isTrue();
+    assertThat(sessionCallback.action).isEqualTo(command);
+    assertThat(TestUtils.equals(testArgs, sessionCallback.extras)).isTrue();
+  }
+
+  @Test
+  public void
+      sendCustomCommand_withExtrasInSessionCommandAndMethodParameter_triggersOnCustomAction()
+          throws Exception {
+    String command = "test_custom_command";
+    Bundle testArgsCommand = new Bundle();
+    testArgsCommand.putString("args1", "test_command");
+    testArgsCommand.putString("args2", "test_command");
+    Bundle testArgsParameter = new Bundle();
+    testArgsParameter.putString("args1", "test_parameter");
+    testArgsParameter.putString("args3", "test_parameter");
+    Bundle expectedCombinedParameters = new Bundle();
+    expectedCombinedParameters.putString("args1", "test_parameter");
+    expectedCombinedParameters.putString("args2", "test_command");
+    expectedCombinedParameters.putString("args3", "test_parameter");
+    SessionCommand testCommand = new SessionCommand(command, testArgsCommand);
+    RemoteMediaController controller = createControllerAndWaitConnection();
+    sessionCallback.reset(1);
+
+    SessionResult result = controller.sendCustomCommand(testCommand, testArgsParameter);
+
+    assertThat(result.resultCode).isEqualTo(SessionResult.RESULT_SUCCESS);
+    assertThat(sessionCallback.await(TIMEOUT_MS)).isTrue();
+    assertThat(sessionCallback.onCustomActionCalled).isTrue();
+    assertThat(sessionCallback.action).isEqualTo(command);
+    assertThat(TestUtils.equals(expectedCombinedParameters, sessionCallback.extras)).isTrue();
   }
 
   @Test

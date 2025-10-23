@@ -604,7 +604,16 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
   @Override
   public ListenableFuture<SessionResult> sendCustomCommand(SessionCommand command, Bundle args) {
     if (controllerCompat != null) {
-      controllerCompat.getTransportControls().sendCustomAction(command.customAction, args);
+      Bundle extras;
+      if (args.isEmpty()) {
+        extras = command.customExtras;
+      } else if (command.customExtras.isEmpty()) {
+        extras = args;
+      } else {
+        extras = new Bundle(command.customExtras);
+        extras.putAll(args);
+      }
+      controllerCompat.getTransportControls().sendCustomAction(command.customAction, extras);
       return Futures.immediateFuture(new SessionResult(SessionResult.RESULT_SUCCESS));
     } else {
       return Futures.immediateFuture(

@@ -523,16 +523,14 @@ import org.checkerframework.checker.initialization.qual.Initialized;
       // Ignore, no need to handle the custom action.
       return;
     }
-    SessionCommand command = new SessionCommand(action, /* extras= */ Bundle.EMPTY);
+    Bundle nonNullArgs = args != null ? args : Bundle.EMPTY;
+    SessionCommand command = new SessionCommand(action, nonNullArgs);
     dispatchSessionTaskWithSessionCommand(
         command,
         controller ->
             ignoreFuture(
                 sessionImpl.onCustomCommandOnHandler(
-                    controller,
-                    /* progressReporter= */ null,
-                    command,
-                    args != null ? args : Bundle.EMPTY)));
+                    controller, /* progressReporter= */ null, command, nonNullArgs)));
   }
 
   @Override
@@ -1854,9 +1852,12 @@ import org.checkerframework.checker.initialization.qual.Initialized;
         boolean hasIcon = commandButton.icon != CommandButton.ICON_UNDEFINED;
         boolean hasIconUri = commandButton.iconUri != null;
         Bundle actionExtras =
-            hasIcon || hasIconUri
+            hasIcon || hasIconUri || !commandButton.extras.isEmpty()
                 ? new Bundle(sessionCommand.customExtras)
                 : sessionCommand.customExtras;
+        if (!commandButton.extras.isEmpty()) {
+          actionExtras.putAll(commandButton.extras);
+        }
         if (hasIcon) {
           actionExtras.putInt(
               MediaConstants.EXTRAS_KEY_COMMAND_BUTTON_ICON_COMPAT, commandButton.icon);

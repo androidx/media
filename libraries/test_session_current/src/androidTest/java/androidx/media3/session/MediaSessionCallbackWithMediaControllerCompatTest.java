@@ -1545,7 +1545,7 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
     String testCommand = "test_custom_command";
     Bundle testArgs = new Bundle();
     testArgs.putString("args", "test_custom_args");
-    SessionCommand customCommand = new SessionCommand(testCommand, /* extras= */ Bundle.EMPTY);
+    SessionCommand customCommand = new SessionCommand(testCommand, testArgs);
     CountDownLatch latch = new CountDownLatch(1);
     MediaSession.Callback callback =
         new MediaSession.Callback() {
@@ -1572,7 +1572,8 @@ public class MediaSessionCallbackWithMediaControllerCompatTest {
               SessionCommand sessionCommand,
               Bundle args) {
             if (sessionCommand.customAction.equals(testCommand)
-                && TestUtils.equals(testArgs, args)) {
+                && TestUtils.equals(testArgs, args)
+                && TestUtils.equals(testArgs, sessionCommand.customExtras)) {
               latch.countDown();
             }
             return Futures.immediateFuture(new SessionResult(RESULT_SUCCESS));

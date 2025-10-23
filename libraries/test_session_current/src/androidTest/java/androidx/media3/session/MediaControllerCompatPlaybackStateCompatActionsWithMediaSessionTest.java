@@ -47,6 +47,7 @@ import androidx.media3.session.MediaSession.ConnectionResult;
 import androidx.media3.session.MediaSession.ConnectionResult.AcceptedResultBuilder;
 import androidx.media3.test.session.R;
 import androidx.media3.test.session.common.HandlerThreadTestRule;
+import androidx.media3.test.session.common.TestUtils;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.LargeTest;
@@ -2083,6 +2084,76 @@ public class MediaControllerCompatPlaybackStateCompatActionsWithMediaSessionTest
                 .getExtras()
                 .getString(MediaConstants.EXTRAS_KEY_COMMAND_BUTTON_ICON_URI_COMPAT))
         .isEqualTo("content://my_icon");
+    mediaSession.release();
+    releasePlayer(player);
+  }
+
+  @Test
+  public void
+      playerWithMediaButtonPreferences_withExtrasInSessionCommandAndCommandButton_forwardsExtrasToCustomAction()
+          throws Exception {
+    Player player = createDefaultPlayer();
+    Bundle testArgsCommand = new Bundle();
+    testArgsCommand.putString("args1", "test_command");
+    testArgsCommand.putString("args2", "test_command");
+    Bundle testArgsButton = new Bundle();
+    testArgsButton.putString("args1", "test_button");
+    testArgsButton.putString("args3", "test_button");
+    Bundle expectedCombinedParameters = new Bundle();
+    expectedCombinedParameters.putString("args1", "test_button");
+    expectedCombinedParameters.putString("args2", "test_command");
+    expectedCombinedParameters.putString("args3", "test_button");
+    SessionCommand command1 = new SessionCommand("command1", testArgsCommand);
+    SessionCommand command2 = new SessionCommand("command2", Bundle.EMPTY);
+    SessionCommand command3 = new SessionCommand("command3", testArgsCommand);
+    ImmutableList<CommandButton> mediaButtonPreferences =
+        ImmutableList.of(
+            new CommandButton.Builder(CommandButton.ICON_ALBUM)
+                .setSessionCommand(command1)
+                .setDisplayName("button1")
+                .build(),
+            new CommandButton.Builder(CommandButton.ICON_ALBUM)
+                .setSessionCommand(command2)
+                .setDisplayName("button2")
+                .setExtras(testArgsButton)
+                .build(),
+            new CommandButton.Builder(CommandButton.ICON_ALBUM)
+                .setSessionCommand(command3)
+                .setDisplayName("button3")
+                .setExtras(testArgsButton)
+                .build());
+    MediaSession.Callback callback =
+        new MediaSession.Callback() {
+          @Override
+          public ConnectionResult onConnect(
+              MediaSession session, MediaSession.ControllerInfo controller) {
+            return new AcceptedResultBuilder(session)
+                .setAvailableSessionCommands(
+                    ConnectionResult.DEFAULT_SESSION_COMMANDS
+                        .buildUpon()
+                        .add(command1)
+                        .add(command2)
+                        .add(command3)
+                        .build())
+                .build();
+          }
+        };
+    MediaSession mediaSession =
+        new MediaSession.Builder(ApplicationProvider.getApplicationContext(), player)
+            .setCallback(callback)
+            .setMediaButtonPreferences(mediaButtonPreferences)
+            .build();
+
+    connectMediaNotificationController(mediaSession);
+    MediaControllerCompat controllerCompat = createMediaControllerCompat(mediaSession);
+    List<PlaybackStateCompat.CustomAction> customActions =
+        controllerCompat.getPlaybackState().getCustomActions();
+
+    assertThat(customActions).hasSize(3);
+    assertThat(TestUtils.contains(customActions.get(0).getExtras(), testArgsCommand)).isTrue();
+    assertThat(TestUtils.contains(customActions.get(1).getExtras(), testArgsButton)).isTrue();
+    assertThat(TestUtils.contains(customActions.get(2).getExtras(), expectedCombinedParameters))
+        .isTrue();
     mediaSession.release();
     releasePlayer(player);
   }
