@@ -72,7 +72,8 @@ public final class AudioAttributes {
      * Creates a new builder for {@link AudioAttributes}.
      *
      * <p>By default the content type is {@link C#AUDIO_CONTENT_TYPE_UNKNOWN}, usage is {@link
-     * C#USAGE_MEDIA}, capture policy is {@link C#ALLOW_CAPTURE_BY_ALL} and no flags are set.
+     * C#USAGE_MEDIA}, capture policy is {@link C#ALLOW_CAPTURE_BY_ALL}, no flags are set and haptic
+     * channels are muted.
      */
     public Builder() {
       contentType = C.AUDIO_CONTENT_TYPE_UNKNOWN;
@@ -329,7 +330,9 @@ public final class AudioAttributes {
     bundle.putInt(FIELD_ALLOWED_CAPTURE_POLICY, allowedCapturePolicy);
     bundle.putInt(FIELD_SPATIALIZATION_BEHAVIOR, spatializationBehavior);
     bundle.putBoolean(FIELD_IS_CONTENT_SPATIALIZED, isContentSpatialized);
-    bundle.putBoolean(FIELD_HAPTIC_CHANNELS_MUTED, hapticChannelsMuted);
+    if (!hapticChannelsMuted) {
+      bundle.putBoolean(FIELD_HAPTIC_CHANNELS_MUTED, hapticChannelsMuted);
+    }
     return bundle;
   }
 
@@ -370,9 +373,8 @@ public final class AudioAttributes {
       builder.setAllowedCapturePolicy(allowedCapturePolicy);
     }
 
-    public static void setHapticChannelsMuted(
-        android.media.AudioAttributes.Builder builder,
-        boolean hapticChannelsMuted) {
+    private static void setHapticChannelsMuted(
+        android.media.AudioAttributes.Builder builder, boolean hapticChannelsMuted) {
       builder.setHapticChannelsMuted(hapticChannelsMuted);
     }
   }
