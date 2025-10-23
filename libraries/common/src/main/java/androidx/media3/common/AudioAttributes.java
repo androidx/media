@@ -324,12 +324,24 @@ public final class AudioAttributes {
   @UnstableApi
   public Bundle toBundle() {
     Bundle bundle = new Bundle();
-    bundle.putInt(FIELD_CONTENT_TYPE, contentType);
-    bundle.putInt(FIELD_FLAGS, flags);
-    bundle.putInt(FIELD_USAGE, usage);
-    bundle.putInt(FIELD_ALLOWED_CAPTURE_POLICY, allowedCapturePolicy);
-    bundle.putInt(FIELD_SPATIALIZATION_BEHAVIOR, spatializationBehavior);
-    bundle.putBoolean(FIELD_IS_CONTENT_SPATIALIZED, isContentSpatialized);
+    if (contentType != C.AUDIO_CONTENT_TYPE_UNKNOWN) {
+      bundle.putInt(FIELD_CONTENT_TYPE, contentType);
+    }
+    if (flags != 0) {
+      bundle.putInt(FIELD_FLAGS, flags);
+    }
+    if (usage != C.USAGE_MEDIA) {
+      bundle.putInt(FIELD_USAGE, usage);
+    }
+    if (allowedCapturePolicy != C.ALLOW_CAPTURE_BY_ALL) {
+      bundle.putInt(FIELD_ALLOWED_CAPTURE_POLICY, allowedCapturePolicy);
+    }
+    if (spatializationBehavior != C.SPATIALIZATION_BEHAVIOR_AUTO) {
+      bundle.putInt(FIELD_SPATIALIZATION_BEHAVIOR, spatializationBehavior);
+    }
+    if (isContentSpatialized) {
+      bundle.putBoolean(FIELD_IS_CONTENT_SPATIALIZED, isContentSpatialized);
+    }
     if (!hapticChannelsMuted) {
       bundle.putBoolean(FIELD_HAPTIC_CHANNELS_MUTED, hapticChannelsMuted);
     }

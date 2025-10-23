@@ -45,6 +45,13 @@ public class AudioAttributesTest {
   }
 
   @Test
+  public void roundTripViaBundle_usingDefaultInstance_yieldsEqualInstance() {
+    AudioAttributes audioAttributes = new AudioAttributes.Builder().build();
+
+    assertThat(AudioAttributes.fromBundle(audioAttributes.toBundle())).isEqualTo(audioAttributes);
+  }
+
+  @Test
   public void fromPlatformAudioAttributes_setsCorrectValues() {
     android.media.AudioAttributes platformAttributes =
         new android.media.AudioAttributes.Builder()
