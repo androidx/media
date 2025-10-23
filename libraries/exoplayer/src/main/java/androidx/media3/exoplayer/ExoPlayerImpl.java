@@ -2353,7 +2353,7 @@ import java.util.function.IntConsumer;
     @Nullable Object oldWindowUid = null;
     @Nullable Object oldPeriodUid = null;
     int oldMediaItemIndex = oldMaskingMediaItemIndex;
-    int oldPeriodIndex = C.INDEX_UNSET;
+    int oldPeriodIndex = oldMaskingMediaItemIndex;
     @Nullable MediaItem oldMediaItem = null;
     Timeline.Period oldPeriod = new Timeline.Period();
     if (!oldPlaybackInfo.timeline.isEmpty()) {
@@ -2407,7 +2407,7 @@ import java.util.function.IntConsumer;
     @Nullable Object newWindowUid = null;
     @Nullable Object newPeriodUid = null;
     int newMediaItemIndex = getCurrentMediaItemIndex();
-    int newPeriodIndex = C.INDEX_UNSET;
+    int newPeriodIndex = getCurrentPeriodIndex();
     @Nullable MediaItem newMediaItem = null;
     if (!playbackInfo.timeline.isEmpty()) {
       newPeriodUid = playbackInfo.periodId.periodUid;

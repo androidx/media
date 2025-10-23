@@ -4096,10 +4096,9 @@ public abstract class SimpleBasePlayer extends BasePlayer {
     @Nullable Object windowUid = null;
     @Nullable Object periodUid = null;
     int mediaItemIndex = getCurrentMediaItemIndexInternal(state);
-    int periodIndex = C.INDEX_UNSET;
+    int periodIndex = getCurrentPeriodIndexInternal(state, window, period);
     @Nullable MediaItem mediaItem = null;
     if (!state.timeline.isEmpty()) {
-      periodIndex = getCurrentPeriodIndexInternal(state, window, period);
       periodUid = state.timeline.getPeriod(periodIndex, period, /* setIds= */ true).uid;
       windowUid = state.timeline.getWindow(mediaItemIndex, window).uid;
       mediaItem = window.mediaItem;
