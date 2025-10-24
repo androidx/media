@@ -48,7 +48,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import java.util.ArrayList;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
@@ -726,20 +725,8 @@ public class DefaultMediaNotificationProviderTest {
   public void createNotification_invalidButtons_enabledSessionCommandsOnlyForGetMediaButtons() {
     DefaultActionFactory defaultActionFactory =
         new DefaultActionFactory(Robolectric.setupService(TestService.class));
-    List<CommandButton> filteredMediaButtonPreferences = new ArrayList<>();
     DefaultMediaNotificationProvider defaultMediaNotificationProvider =
-        new DefaultMediaNotificationProvider(ApplicationProvider.getApplicationContext()) {
-          @Override
-          protected ImmutableList<CommandButton> getMediaButtons(
-              MediaSession session,
-              Commands playerCommands,
-              ImmutableList<CommandButton> mediaButtonPreferences,
-              boolean showPauseButton) {
-            filteredMediaButtonPreferences.addAll(mediaButtonPreferences);
-            return super.getMediaButtons(
-                session, playerCommands, mediaButtonPreferences, showPauseButton);
-          }
-        };
+        new DefaultMediaNotificationProvider(ApplicationProvider.getApplicationContext());
     MediaSession mediaSession =
         new MediaSession.Builder(
                 ApplicationProvider.getApplicationContext(),
@@ -766,17 +753,18 @@ public class DefaultMediaNotificationProviderTest {
             .build()
             .copyWithIsEnabled(true);
 
-    defaultMediaNotificationProvider.createNotification(
-        mediaSession,
-        /* mediaButtonPreferences= */ ImmutableList.of(button1, button2, button3),
-        defaultActionFactory,
-        notification -> {
-          /* Do nothing. */
-        });
-
-    assertThat(filteredMediaButtonPreferences).containsExactly(button2);
-    mediaSession.getPlayer().release();
+    MediaNotification mediaNotification =
+        defaultMediaNotificationProvider.createNotification(
+            mediaSession,
+            /* mediaButtonPreferences= */ ImmutableList.of(button1, button2, button3),
+            defaultActionFactory,
+            notification -> {});
     mediaSession.release();
+
+    assertThat(mediaNotification.notification.actions).hasLength(2);
+    assertThat(mediaNotification.notification.actions[0].title.toString())
+        .isEqualTo(context.getString(R.string.media3_controls_play_description));
+    assertThat(mediaNotification.notification.actions[1].title.toString()).isEqualTo("button2");
   }
 
   @Test
