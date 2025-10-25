@@ -140,7 +140,7 @@ public class MediaButtonReceiver extends BroadcastReceiver {
     if (intent == null
         || !Objects.equals(intent.getAction(), Intent.ACTION_MEDIA_BUTTON)
         || !intent.hasExtra(Intent.EXTRA_KEY_EVENT)) {
-      android.util.Log.d(TAG, "Ignore unsupported intent: " + intent);
+      Log.d(TAG, "Ignore unsupported intent: " + intent);
       return;
     }
 
@@ -163,7 +163,7 @@ public class MediaButtonReceiver extends BroadcastReceiver {
         // playback is started and the MediaSessionService/MediaLibraryService is put into the
         // foreground (see https://developer.android.com/media/legacy/media-buttons and
         // https://developer.android.com/about/versions/oreo/android-8.0-changes#back-all).
-        android.util.Log.w(
+        Log.w(
             TAG,
             "Ignore key event that is not a `play` command on API 26 or above to avoid an"
                 + " 'ForegroundServiceDidNotStartInTimeException'");
