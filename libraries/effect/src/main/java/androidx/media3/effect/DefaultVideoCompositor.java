@@ -88,6 +88,9 @@ public final class DefaultVideoCompositor implements VideoCompositor {
   private final SparseArray<InputSource> inputSources;
 
   @GuardedBy("this")
+  private final SparseArray<InputFrameInfo> lastAvailableFrames = new SparseArray<>();
+
+  @GuardedBy("this")
   private boolean allInputsEnded; // Whether all inputSources have signaled end of input.
 
   private final TexturePool outputTexturePool;
@@ -325,7 +328,9 @@ public final class DefaultVideoCompositor implements VideoCompositor {
         /* textureProducer= */ this, outputTexture, outputPresentationTimestampUs, syncObject);
 
     InputSource primaryInputSource = inputSources.get(primaryInputIndex);
-    releaseFrames(primaryInputSource, /* numberOfFramesToRelease= */ 1);
+    if (!primaryInputSource.frameInfos.isEmpty()) {
+      releaseFrames(primaryInputSource, /* numberOfFramesToRelease= */ 1);
+    }
     releaseExcessFramesInAllSecondaryStreams();
 
     if (allInputsEnded && primaryInputSource.frameInfos.isEmpty()) {
@@ -344,59 +349,92 @@ public final class DefaultVideoCompositor implements VideoCompositor {
     if (outputTexturePool.freeTextureCount() == 0) {
       return ImmutableList.of();
     }
-    for (int i = 0; i < inputSources.size(); i++) {
-      if (inputSources.valueAt(i).frameInfos.isEmpty()) {
+
+    InputSource primaryInputSource = inputSources.get(primaryInputIndex);
+    if (primaryInputSource.frameInfos.isEmpty()) {
+      if (!primaryInputSource.isInputEnded) {
+        if (!contains(lastAvailableFrames, primaryInputIndex)) {
+          return ImmutableList.of();
+        }
+      } else {
         return ImmutableList.of();
       }
     }
+
     ImmutableList.Builder<InputFrameInfo> framesToComposite = new ImmutableList.Builder<>();
-    InputFrameInfo primaryFrameToComposite =
-        inputSources.get(primaryInputIndex).frameInfos.element();
+
+    InputFrameInfo primaryFrameToComposite;
+    if (!primaryInputSource.frameInfos.isEmpty()) {
+      primaryFrameToComposite = primaryInputSource.frameInfos.element();
+      lastAvailableFrames.put(primaryInputIndex, primaryFrameToComposite);
+    } else {
+      primaryFrameToComposite = lastAvailableFrames.get(primaryInputIndex);
+    }
     framesToComposite.add(primaryFrameToComposite);
 
     for (int i = 0; i < inputSources.size(); i++) {
       if (inputSources.keyAt(i) == primaryInputIndex) {
         continue;
       }
-      // Select the secondary streams' frame that would be composited next. The frame selected is
-      // the closest-timestamp frame from the primary stream's frame, if all secondary streams have:
-      //   1. One or more frames, and the secondary stream has ended, or
-      //   2. Two or more frames, and at least one frame has timestamp greater than the target
-      //      timestamp.
-      // The smaller timestamp is taken if two timestamps have the same distance from the primary.
+
+      int inputIndex = inputSources.keyAt(i);
       InputSource secondaryInputSource = inputSources.valueAt(i);
-      if (secondaryInputSource.frameInfos.size() == 1 && !secondaryInputSource.isInputEnded) {
+
+      InputFrameInfo frameToUse = selectSecondaryFrame(
+          secondaryInputSource,
+          primaryFrameToComposite.timedGlTextureInfo.presentationTimeUs);
+
+      if (frameToUse != null) {
+        framesToComposite.add(frameToUse);
+        lastAvailableFrames.put(inputIndex, frameToUse);
+      } else if (contains(lastAvailableFrames, inputIndex)) {
+        framesToComposite.add(lastAvailableFrames.get(inputIndex));
+      } else {
         return ImmutableList.of();
       }
+    }
 
-      long minTimeDiffFromPrimaryUs = Long.MAX_VALUE;
-      @Nullable InputFrameInfo secondaryFrameToComposite = null;
-      Iterator<InputFrameInfo> frameInfosIterator = secondaryInputSource.frameInfos.iterator();
-      while (frameInfosIterator.hasNext()) {
-        InputFrameInfo candidateFrame = frameInfosIterator.next();
-        long candidateTimestampUs = candidateFrame.timedGlTextureInfo.presentationTimeUs;
-        long candidateAbsDistance =
-            abs(
-                candidateTimestampUs
-                    - primaryFrameToComposite.timedGlTextureInfo.presentationTimeUs);
+    return framesToComposite.build();
+  }
 
-        if (candidateAbsDistance < minTimeDiffFromPrimaryUs) {
-          minTimeDiffFromPrimaryUs = candidateAbsDistance;
-          secondaryFrameToComposite = candidateFrame;
-        }
+  private synchronized @Nullable InputFrameInfo selectSecondaryFrame(
+      InputSource secondaryInputSource,
+      long targetTimestampUs) {
 
-        if (candidateTimestampUs > primaryFrameToComposite.timedGlTextureInfo.presentationTimeUs
-            || (!frameInfosIterator.hasNext() && secondaryInputSource.isInputEnded)) {
-          framesToComposite.add(checkNotNull(secondaryFrameToComposite));
-          break;
-        }
+    if (secondaryInputSource.frameInfos.isEmpty()) {
+      if (secondaryInputSource.isInputEnded) {
+        return null;
+      }
+      // Stream not ended but no frames - use last available
+      return null;
+    }
+
+    if (secondaryInputSource.frameInfos.size() == 1 && !secondaryInputSource.isInputEnded) {
+      return secondaryInputSource.frameInfos.element();
+    }
+
+    // Find the best matching frame for the target timestamp
+    long minTimeDiffFromPrimaryUs = Long.MAX_VALUE;
+    @Nullable InputFrameInfo secondaryFrameToComposite = null;
+    Iterator<InputFrameInfo> frameInfosIterator = secondaryInputSource.frameInfos.iterator();
+
+    while (frameInfosIterator.hasNext()) {
+      InputFrameInfo candidateFrame = frameInfosIterator.next();
+      long candidateTimestampUs = candidateFrame.timedGlTextureInfo.presentationTimeUs;
+      long candidateAbsDistance = abs(candidateTimestampUs - targetTimestampUs);
+
+      if (candidateAbsDistance < minTimeDiffFromPrimaryUs) {
+        minTimeDiffFromPrimaryUs = candidateAbsDistance;
+        secondaryFrameToComposite = candidateFrame;
+      }
+
+      if (candidateTimestampUs > targetTimestampUs ||
+          (!frameInfosIterator.hasNext() && secondaryInputSource.isInputEnded)) {
+        return secondaryFrameToComposite;
       }
     }
-    ImmutableList<InputFrameInfo> framesToCompositeList = framesToComposite.build();
-    if (framesToCompositeList.size() != inputSources.size()) {
-      return ImmutableList.of();
-    }
-    return framesToCompositeList;
+
+    return secondaryFrameToComposite;
   }
 
   private synchronized void releaseOutputTextureInternal(long presentationTimeUs)
