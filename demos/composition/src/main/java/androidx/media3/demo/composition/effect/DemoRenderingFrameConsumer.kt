@@ -24,61 +24,112 @@ import android.opengl.EGLDisplay
 import android.opengl.EGLSurface
 import android.opengl.GLES20
 import android.view.Surface
-import androidx.annotation.OptIn
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.withScale
 import androidx.core.util.Consumer
 import androidx.media3.common.C.ColorTransfer
 import androidx.media3.common.GlObjectsProvider
 import androidx.media3.common.GlTextureInfo
+import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.common.util.GlUtil
 import androidx.media3.common.util.GlUtil.GlException
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.effect.DefaultGlObjectsProvider
 import androidx.media3.effect.GlTextureFrame
+import androidx.media3.effect.PacketConsumer
+import androidx.media3.effect.PacketConsumer.Packet
 import java.nio.ByteBuffer
 import java.util.concurrent.ExecutorService
 import kotlin.math.min
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.launch
 
 // TODO: b/449957627 - Remove once pipeline has been migrated to FrameConsumer interface.
 /**
- * A simple placeholder FrameConsumer that renders frames from up to 4 simultaneous sequences in a
- * 2x2 grid on an output [Surface].
+ * A simple placeholder [PacketConsumer] that renders frames from up to 4 simultaneous sequences in
+ * a 2x2 grid on an output [Surface].
  */
-@OptIn(UnstableApi::class)
-internal class DemoRenderingFrameConsumer(
-  private val glExecutorService: ExecutorService,
+@ExperimentalApi
+@UnstableApi
+internal class DemoRenderingFrameConsumer
+private constructor(
+  glExecutorService: ExecutorService,
   private val errorListener: Consumer<Exception>,
-) {
+  private val outputSurface: Surface?,
+) : PacketConsumer<List<GlTextureFrame>> {
+
+  /** [PacketConsumer.Factory] for creating [DemoRenderingFrameConsumer] instances. */
+  class Factory(
+    private val glExecutorService: ExecutorService,
+    private val errorListener: Consumer<Exception>,
+  ) : PacketConsumer.Factory<List<GlTextureFrame>> {
+    private var outputSurface: Surface? = null
+
+    override fun create(): PacketConsumer<List<GlTextureFrame>> {
+      return DemoRenderingFrameConsumer(glExecutorService, errorListener, outputSurface)
+    }
+
+    fun setOutputSurface(outputSurface: Surface?) {
+      this.outputSurface = outputSurface
+    }
+  }
+
   private val bitmapPaint: Paint = Paint()
   private var bitmap: Bitmap? = null
   private var byteBuffer: ByteBuffer? = null
-  private var outputSurface: Surface? = null
+  private val inputChannel = Channel<Packet<List<GlTextureFrame>>>(capacity = 1)
+  private val scope = CoroutineScope(glExecutorService.asCoroutineDispatcher())
 
-  fun setOutputSurface(surface: Surface?) {
-    glExecutorService.execute {
-      if (outputSurface != surface) {
-        this.outputSurface = surface
+  init {
+    scope.launch { workerLoop() }
+  }
+
+  override fun tryQueuePacket(packet: Packet<List<GlTextureFrame>>): Boolean {
+    return inputChannel.trySend(packet).isSuccess
+  }
+
+  override suspend fun queuePacket(packet: Packet<List<GlTextureFrame>>) {
+    inputChannel.send(packet)
+  }
+
+  override suspend fun release() {
+    inputChannel.close()
+    scope.coroutineContext[Job]?.cancelAndJoin()
+  }
+
+  private suspend fun workerLoop() {
+    try {
+      for (packet in inputChannel) {
+        try {
+          render(packet.payload)
+        } catch (e: Exception) {
+          inputChannel.close(e)
+          errorListener.accept(e)
+        } finally {
+          releaseFrames(packet.payload)
+        }
+      }
+    } finally {
+      var packet = inputChannel.tryReceive().getOrNull()
+      while (packet != null) {
+        releaseFrames(packet.payload)
+        packet = inputChannel.tryReceive().getOrNull()
       }
     }
   }
 
-  fun queue(packet: List<GlTextureFrame>) {
-    glExecutorService.execute {
-      try {
-        render(packet)
-      } catch (exception: Exception) {
-        errorListener.accept(exception)
-      } finally {
-        for (frame in packet) {
-          frame.release()
-        }
-      }
+  private fun releaseFrames(frames: List<GlTextureFrame>) {
+    for (frame in frames) {
+      frame.release()
     }
   }
 
   // Must be called on the GL thread.
-  private fun render(packet: List<GlTextureFrame>) {
+  private fun render(frames: List<GlTextureFrame>) {
     val surface = outputSurface
     if (surface?.isValid != true) {
       return
@@ -96,11 +147,11 @@ internal class DemoRenderingFrameConsumer(
         Rect(w, 0, w * 2, h),
         Rect(w, h, w * 2, h * 2),
       )
-    val maxNumSequences = min(4, packet.size)
+    val maxNumSequences = min(4, frames.size)
     // Reset the background to black so transparent frames do not show the previous frame.
     canvas.drawColor(Color.BLACK)
     for (i in 0..<maxNumSequences) {
-      val outputTexture: GlTextureInfo = packet[i].glTextureInfo
+      val outputTexture: GlTextureInfo = frames[i].glTextureInfo
       val currentByteBuffer = getOrCreateByteBuffer(outputTexture)
       val currentBitmap = getOrCreateBitmap(outputTexture)
       GlUtil.focusFramebufferUsingCurrentContext(
@@ -204,8 +255,9 @@ internal class DemoRenderingFrameConsumer(
     @Throws(GlException::class)
     override fun release(eglDisplay: EGLDisplay) {
       if (singleEglContext != null) {
-        GlUtil.destroyEglContext(eglDisplay, singleEglContext)
+        glObjectsProvider.release(eglDisplay)
       }
+      singleEglContext = null
     }
   }
 }

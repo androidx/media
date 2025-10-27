@@ -15,6 +15,8 @@
  */
 package androidx.media3.effect
 
+import androidx.media3.common.util.ExperimentalApi
+
 /**
  * A consumer that accepts [Packet]s.
  *
@@ -22,7 +24,8 @@ package androidx.media3.effect
  *
  * @param T The type of [Packet.payload] being consumed.
  */
-internal interface PacketConsumer<T> {
+@ExperimentalApi
+interface PacketConsumer<T> {
 
   /**
    * Represents a data packet that wraps a [payload].
@@ -32,6 +35,23 @@ internal interface PacketConsumer<T> {
   interface Packet<T> {
     /** The data carried by this packet. */
     val payload: T
+
+    companion object {
+      /**
+       * Creates a default, immutable [Packet] implementation.
+       *
+       * @param payload The data to be carried by the packet.
+       * @return A new [Packet] instance wrapping the payload.
+       */
+      @JvmStatic fun <T> of(payload: T): Packet<T> = DefaultPacket(payload)
+    }
+  }
+
+  /** A factory for [PacketConsumer] instances. */
+  fun interface Factory<T> {
+
+    /** Creates a new [PacketConsumer] instance. */
+    fun create(): PacketConsumer<T>
   }
 
   /**
@@ -58,4 +78,6 @@ internal interface PacketConsumer<T> {
 
   /** Releases all resources. */
   suspend fun release()
+
+  private data class DefaultPacket<T>(override val payload: T) : Packet<T>
 }

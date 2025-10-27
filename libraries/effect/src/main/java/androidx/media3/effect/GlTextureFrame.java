@@ -15,19 +15,16 @@
  */
 package androidx.media3.effect;
 
-import androidx.annotation.RestrictTo;
-import androidx.annotation.RestrictTo.Scope;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.util.Consumer;
-import androidx.media3.common.util.UnstableApi;
+import androidx.media3.common.util.ExperimentalApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.concurrent.Executor;
 
 /** A {@link Frame} implementation that wraps a {@link GlTextureInfo}. */
-@UnstableApi
-@RestrictTo(Scope.LIBRARY_GROUP)
+@ExperimentalApi
 public class GlTextureFrame implements Frame {
 
   /** The {@link GlTextureInfo}. */

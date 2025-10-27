@@ -267,11 +267,9 @@ class CompositionPreviewActivity : AppCompatActivity() {
             playerView.setTimeBarScrubbingEnabled(!isOverlayPlacementActive)
             playerView.setUseController(!isOverlayPlacementActive)
             // TODO: b/449957627 - Remove once internal pipeline is migrated to FrameConsumer.
+            viewModel.outputSurface = (playerView.videoSurfaceView as SurfaceView).holder.surface
             if (viewModel.frameConsumerEnabled) {
               playerView.setShutterBackgroundColor(Color.TRANSPARENT)
-              viewModel.outputRenderer.setOutputSurface(
-                (playerView.videoSurfaceView as SurfaceView).holder.surface
-              )
               // Workaround to ensure the Surface is recreated when switching from CPU to GPU
               // rendering.
               if (SDK_INT >= 34) {

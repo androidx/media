@@ -29,6 +29,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -48,8 +49,6 @@ import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
-import androidx.annotation.RestrictTo;
-import androidx.annotation.RestrictTo.Scope;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
@@ -73,7 +72,6 @@ import androidx.media3.common.audio.SpeedChangingAudioProcessor;
 import androidx.media3.common.audio.SpeedProvider;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ConditionVariable;
-import androidx.media3.common.util.Consumer;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.GlUtil.GlException;
@@ -86,6 +84,8 @@ import androidx.media3.effect.DefaultGlObjectsProvider;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.GlTextureFrame;
 import androidx.media3.effect.GlTextureProducer;
+import androidx.media3.effect.PacketConsumer;
+import androidx.media3.effect.PacketConsumerUtil;
 import androidx.media3.effect.SingleInputVideoGraph;
 import androidx.media3.effect.TimestampAdjustment;
 import androidx.media3.exoplayer.DefaultLoadControl;
@@ -166,7 +166,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     private AudioAttributes audioAttributes;
     private boolean handleAudioFocus;
     private VideoGraph.@MonotonicNonNull Factory videoGraphFactory;
-    private @MonotonicNonNull Consumer<List<GlTextureFrame>> frameConsumer;
+    private PacketConsumer.@MonotonicNonNull Factory<List<GlTextureFrame>> packetConsumerFactory;
 
     private boolean videoPrewarmingEnabled;
     private boolean enableReplayableCache;
@@ -436,25 +436,28 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     }
 
     /**
-     * Sets the FrameConsumer that will apply effects and render the frames.
+     * Sets the {@link PacketConsumer.Factory} that will create the {@link PacketConsumer} to apply
+     * effects and render the frames.
      *
      * <p>If set, {@link #videoGraphFactory} is ignored.
+     *
+     * <p>The created {@link PacketConsumer} will be released on {@link
+     * CompositionPlayer#release()}.
      *
      * <p>The default value is {@code null}.
      *
      * <p>This method is experimental and will be renamed or removed in a future release.
      *
-     * @param frameConsumer The frameConsumer.
+     * @param packetConsumerFactory The {@link PacketConsumer.Factory}.
      * @throws IllegalStateException if a {@link VideoGraph.Factory} is {@linkplain
      *     #setVideoGraphFactory set}.
      */
-    // TODO: b/449957503 - This is a placeholder, update it with the finalised FrameConsumer
-    //  interface and make public.
-    @RestrictTo(Scope.LIBRARY)
+    @ExperimentalApi
     @CanIgnoreReturnValue
-    public Builder experimentalSetFrameConsumer(Consumer<List<GlTextureFrame>> frameConsumer) {
+    public Builder setPacketConsumerFactory(
+        PacketConsumer.Factory<List<GlTextureFrame>> packetConsumerFactory) {
       checkState(videoGraphFactory == null);
-      this.frameConsumer = frameConsumer;
+      this.packetConsumerFactory = packetConsumerFactory;
       return this;
     }
 
@@ -536,7 +539,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
   private final GlObjectsProvider glObjectsProvider;
   @Nullable private final ExecutorService executorService;
   @Nullable private final CompositionVideoPacketReleaseControl videoPacketReleaseControl;
-  @Nullable private final Consumer<List<GlTextureFrame>> frameConsumer;
+  @Nullable private final PacketConsumer<List<GlTextureFrame>> packetConsumer;
 
   /** Maps from input index to whether the video track is selected in that sequence. */
   private final SparseBooleanArray videoTracksSelected;
@@ -610,13 +613,13 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     audioFocusManager =
         new AudioFocusManager(context, applicationHandler.getLooper(), internalListener);
     glObjectsProvider = builder.glObjectsProviderSupplier.get();
-    if (builder.frameConsumer != null) {
+    if (builder.packetConsumerFactory != null) {
       executorService =
           builder.glExecutorService != null
               ? builder.glExecutorService
               : Util.newSingleThreadExecutor("CompositionPlayer:GlThread");
       shouldShutdownExecutorService = builder.glExecutorService == null;
-      frameConsumer = builder.frameConsumer;
+      packetConsumer = builder.packetConsumerFactory.create();
       VideoFrameReleaseControl videoFrameReleaseControl =
           new VideoFrameReleaseControl(
               this.context,
@@ -628,11 +631,11 @@ public final class CompositionPlayer extends SimpleBasePlayer {
               /* allowedJoiningTimeMs= */ 0);
       videoFrameReleaseControl.setClock(clock);
       videoPacketReleaseControl =
-          new CompositionVideoPacketReleaseControl(videoFrameReleaseControl, frameConsumer);
+          new CompositionVideoPacketReleaseControl(videoFrameReleaseControl, packetConsumer);
     } else {
       executorService = builder.glExecutorService;
       shouldShutdownExecutorService = false;
-      frameConsumer = null;
+      packetConsumer = null;
       frameAggregator = null;
       videoPacketReleaseControl = null;
     }
@@ -900,6 +903,13 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     playerHolders.clear();
     boolean internalPlayerSuccessfullyReleased = checkNotNull(compositionPlayerInternal).release();
     removeSurfaceCallbacks();
+    // TODO: b/449956936 - Sequence releasing PacketConsumer with other internal objects.
+    ListenableFuture<Void> releaseFuture;
+    if (packetConsumer != null) {
+      releaseFuture = PacketConsumerUtil.release(packetConsumer, checkNotNull(executorService));
+    } else {
+      releaseFuture = immediateVoidFuture();
+    }
     // Remove any queued callback from the internal player.
     compositionInternalListenerHandler.removeCallbacksAndMessages(/* token= */ null);
     displaySurface = null;
@@ -919,7 +929,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
       executorService.shutdown();
     }
     analyticsCollector.release();
-    return Futures.immediateVoidFuture();
+    return releaseFuture;
   }
 
   @Override
@@ -977,7 +987,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     for (int i = 0; i < playerHolders.size(); i++) {
       playerHolders.get(i).player.seekTo(positionMs);
     }
-    if (frameConsumer != null) {
+    if (packetConsumer != null) {
       checkNotNull(videoPacketReleaseControl).reset();
       checkNotNull(frameAggregator).releaseAllFrames();
     }
@@ -1300,7 +1310,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     }
     playerHolders.clear();
 
-    if (frameConsumer != null) {
+    if (packetConsumer != null) {
       if (frameAggregator != null) {
         frameAggregator.releaseAllFrames();
       }
@@ -1382,7 +1392,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
   private SequencePlayerHolder createSequencePlayer(
       int sequenceIndex, boolean requestMediaCodecToneMapping) {
     VideoSink inputSink =
-        frameConsumer != null
+        packetConsumer != null
             ? getFrameConsumerInputSink(sequenceIndex)
             : checkNotNull(playbackVideoGraphWrapper).getSink(sequenceIndex);
     SequenceRenderersFactory renderersFactory =
@@ -1393,7 +1403,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
             imageDecoderFactory,
             /* inputIndex= */ sequenceIndex,
             videoPrewarmingEnabled);
-    if (frameConsumer != null && sequenceIndex == 0) {
+    if (packetConsumer != null && sequenceIndex == 0) {
       renderersFactory.setOnRenderListener(checkNotNull(videoPacketReleaseControl));
     }
     SequencePlayerHolder playerHolder =
@@ -1831,7 +1841,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
   }
 
   private VideoSink getFrameConsumerInputSink(int sequenceIndex) {
-    checkState(frameConsumer != null);
+    checkState(packetConsumer != null);
     TextureListener textureListener = new TextureListener(sequenceIndex);
     PlaybackVideoGraphWrapper singleInputVideoGraphWrapper =
         buildSingleInputPlaybackVideoGraphWrapper(textureListener);

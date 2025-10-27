@@ -19,6 +19,7 @@ import android.app.Application
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.SystemClock
+import android.view.Surface
 import androidx.annotation.OptIn
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -100,17 +101,18 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
   val uiState: StateFlow<CompositionPreviewState> = _uiState.asStateFlow()
 
   var compositionPlayer by mutableStateOf(createCompositionPlayer())
-  var refreshPlayerViewKey by mutableStateOf(0)
   val EXPORT_ERROR_MESSAGE = application.resources.getString(R.string.export_error)
   val EXPORT_STARTED_MESSAGE = application.resources.getString(R.string.export_started)
   internal var frameConsumerEnabled: Boolean = false
-  internal val outputRenderer: DemoRenderingFrameConsumer by lazy {
-    DemoRenderingFrameConsumer(glExecutorService) { error ->
-      _uiState.update { currentState ->
-        currentState.copy(snackbarMessage = "Preview error: $error")
-      }
-      Log.e(TAG, "Preview error", error)
-    }
+  internal var outputSurface: Surface? = null
+  internal val packetConsumerFactory: DemoRenderingFrameConsumer.Factory by lazy {
+    DemoRenderingFrameConsumer.Factory(
+      glExecutorService,
+      errorListener = { e ->
+        Log.e(TAG, "FrameConsumer error", e)
+        _uiState.update { it.copy(snackbarMessage = "Preview error: $e") }
+      },
+    )
   }
   private val glExecutorService: ExecutorService by lazy {
     Util.newSingleThreadExecutor("CompositionDemo::GlThread")
@@ -769,10 +771,10 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     val playerBuilder = CompositionPlayer.Builder(getApplication())
     frameConsumerEnabled = uiState.value.outputSettingsState.frameConsumerEnabled
     if (uiState.value.outputSettingsState.frameConsumerEnabled) {
+      packetConsumerFactory.setOutputSurface(outputSurface)
+      playerBuilder.setPacketConsumerFactory(packetConsumerFactory)
       playerBuilder.setGlThreadExecutorService(glExecutorService)
       playerBuilder.setGlObjectsProvider(glObjectsProvider)
-      uiState.value.outputSurface?.let { outputRenderer.setOutputSurface(it) }
-      playerBuilder.experimentalSetFrameConsumer(outputRenderer::queue)
     } else if (uiState.value.compositionLayout != COMPOSITION_LAYOUT[0]) {
       playerBuilder.setVideoGraphFactory(MultipleInputVideoGraph.Factory())
     }

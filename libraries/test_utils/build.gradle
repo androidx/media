@@ -52,6 +52,7 @@ dependencies {
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-test:' + kotlinxCoroutinesVersion
     implementation project(modulePrefix + 'lib-inspector')
     api project(modulePrefix + 'lib-exoplayer')
+    api project(modulePrefix + 'lib-effect')
     api project(modulePrefix + 'lib-transformer')
     testImplementation project(modulePrefix + 'test-utils-robolectric')
     testImplementation 'androidx.test.espresso:espresso-core:' + androidxTestEspressoVersion

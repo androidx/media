@@ -36,18 +36,18 @@ import androidx.media3.common.PlaybackException;
 import androidx.media3.common.VideoGraph;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.SpeedProvider;
-import androidx.media3.common.util.Consumer;
 import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.GlTextureFrame;
 import androidx.media3.effect.MultipleInputVideoGraph;
+import androidx.media3.effect.PacketConsumer;
 import androidx.media3.effect.SingleInputVideoGraph;
+import androidx.media3.test.utils.RecordingPacketConsumer;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameterValuesProvider;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
@@ -384,7 +384,7 @@ public class CompositionPlayerParameterizedPlaybackTest {
   }
 
   @Test
-  public void playback_frameConsumer(
+  public void playback_packetConsumer(
       @TestParameter(valuesProvider = FrameConsumerConfigsProvider.class) TestConfig testConfig)
       throws Exception {
     // The MediaCodec decoder's output surface is sometimes dropping frames on emulator despite
@@ -393,11 +393,13 @@ public class CompositionPlayerParameterizedPlaybackTest {
         .withMessage("Skipped on emulator due to surface dropping frames")
         .that(isRunningOnEmulator())
         .isFalse();
-    RecordingFrameConsumer frameConsumer = new RecordingFrameConsumer();
+    RecordingPacketConsumer packetConsumer =
+        new RecordingPacketConsumer(/* releaseIncomingFrames= */ true);
 
-    runCompositionPlayer(testConfig.getComposition(), frameConsumer::queue);
+    runCompositionPlayer(
+        testConfig.getComposition(), /* packetConsumerFactory= */ () -> packetConsumer);
 
-    assertThat(frameConsumer.getInputPresentationTimesUs())
+    assertThat(packetConsumer.getPresentationTimesUs())
         .isEqualTo(testConfig.getExpectedVideoTimestampsUs());
   }
 
@@ -423,14 +425,14 @@ public class CompositionPlayerParameterizedPlaybackTest {
   }
 
   private void runCompositionPlayer(
-      Composition composition, Consumer<List<GlTextureFrame>> frameConsumer)
+      Composition composition, PacketConsumer.Factory<List<GlTextureFrame>> packetConsumerFactory)
       throws PlaybackException, TimeoutException {
     getInstrumentation()
         .runOnMainSync(
             () -> {
               player =
                   new CompositionPlayer.Builder(context)
-                      .experimentalSetFrameConsumer(frameConsumer)
+                      .setPacketConsumerFactory(packetConsumerFactory)
                       .setGlObjectsProvider(new CompositionPlayer.SingleContextGlObjectsProvider())
                       .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
                       .build();
@@ -541,29 +543,6 @@ public class CompositionPlayerParameterizedPlaybackTest {
       this.expectedVideoTimestampsUs = expectedVideoTimestampsUs;
       this.durationUs = editedMediaItem.getPresentationDurationUs();
       this.inputName = inputName;
-    }
-  }
-
-  private static final class RecordingFrameConsumer {
-    private final List<List<GlTextureFrame>> queuedPackets;
-
-    private RecordingFrameConsumer() {
-      queuedPackets = new ArrayList<>();
-    }
-
-    private void queue(List<GlTextureFrame> frames) {
-      for (GlTextureFrame frame : frames) {
-        frame.release();
-      }
-      queuedPackets.add(frames);
-    }
-
-    private List<Long> getInputPresentationTimesUs() {
-      ArrayList<Long> presentationTimesUs = new ArrayList<>();
-      for (List<GlTextureFrame> frames : queuedPackets) {
-        presentationTimesUs.add(frames.get(0).presentationTimeUs);
-      }
-      return presentationTimesUs;
     }
   }
 }
