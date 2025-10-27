@@ -278,16 +278,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @Override
   public void flush() {
     videoFrameProcessingTaskExecutor.verifyVideoFrameProcessingThread();
-    // The downstream consumer must already have been flushed, so the textureOutputListener
-    // implementation does not access its previously output textures, per its contract. However, the
-    // downstream consumer may not have called releaseOutputTexture on all these textures. Release
-    // all output textures that aren't already released.
-    if (textureOutputListener != null) {
-      outputTexturePool.freeAllTextures();
-      outputTextureTimestamps.clear();
-      syncObjects.clear();
-    }
-
     // Drops all frames that aren't rendered yet.
     availableFrames.clear();
     isInputStreamEndedWithPendingAvailableFrames = false;
@@ -315,6 +305,30 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       GlUtil.checkGlError();
     } catch (GlUtil.GlException e) {
       throw new VideoFrameProcessingException(e);
+    }
+  }
+
+  /**
+   * Finishes the flushing process.
+   *
+   * <p>In {@link DefaultVideoFrameProcessor}, a {@link #flush()} travels from the last effect to
+   * the first - the opposite direction of queueing frames. It is possible that the final shader
+   * program wrapper produces an output frame after the call to {@link #flush()}.
+   */
+  public void flushFinished() {
+    // The downstream consumer must already have been flushed, so the textureOutputListener
+    // implementation does not access its previously output textures, per its contract. However, the
+    // downstream consumer may not have called releaseOutputTexture on all these textures. Release
+    // all output textures that aren't already released.
+    if (textureOutputListener != null) {
+      outputTexturePool.freeAllTextures();
+      outputTextureTimestamps.clear();
+      syncObjects.clear();
+      try {
+        textureOutputListener.flush();
+      } catch (VideoFrameProcessingException e) {
+        videoFrameProcessorListenerExecutor.execute(() -> videoFrameProcessorListener.onError(e));
+      }
     }
   }
 

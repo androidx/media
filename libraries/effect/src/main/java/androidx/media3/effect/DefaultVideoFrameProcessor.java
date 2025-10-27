@@ -851,6 +851,7 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
       videoFrameProcessingTaskExecutor.submit(finalShaderProgramWrapper::flush);
       latch.await();
       textureManager.setOnFlushCompleteListener(null);
+      videoFrameProcessingTaskExecutor.invoke(finalShaderProgramWrapper::flushFinished);
       // Block until configurePendingInputStream returns. Ensures that any pending configuration is
       // actually submitted if the pending tasks on videoFrameProcessingTaskExecutor are flushed
       // before the configuration has a chance to take place.
