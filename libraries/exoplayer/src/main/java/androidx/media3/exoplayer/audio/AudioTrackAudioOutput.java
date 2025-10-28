@@ -45,8 +45,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 
 /** A default implementation of {@link AudioOutput} that wraps an {@link AudioTrack}. */
-@UnstableApi
-public final class AudioTrackAudioOutput implements AudioOutput {
+/* package */ final class AudioTrackAudioOutput implements AudioOutput {
 
   /** Listener for potential capability change events. */
   /* package */ interface CapabilityChangeListener {
@@ -149,11 +148,6 @@ public final class AudioTrackAudioOutput implements AudioOutput {
           new OnRoutingChangedListenerApi24(audioTrack, capabilityChangeListener);
     }
     offloadStreamEventCallbackV29 = isOffloadedPlayback() ? new StreamEventCallbackV29() : null;
-  }
-
-  /** Returns the {@link AudioTrack} instance used for audio output. */
-  public AudioTrack getAudioTrack() {
-    return audioTrack;
   }
 
   @Override

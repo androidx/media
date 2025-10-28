@@ -163,7 +163,7 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
     }
 
     /** Builds the {@link AudioTrackAudioOutputProvider}. */
-    public AudioTrackAudioOutputProvider build() {
+    public AudioOutputProvider build() {
       if (audioOffloadSupportProvider == null) {
         audioOffloadSupportProvider = new DefaultAudioOffloadSupportProvider(context);
       }
@@ -310,7 +310,7 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
 
   @SuppressWarnings("CatchingUnchecked") // Catching generic Exception from AudioTrack.release
   @Override
-  public AudioTrackAudioOutput getAudioOutput(OutputConfig config) throws InitializationException {
+  public AudioOutput getAudioOutput(OutputConfig config) throws InitializationException {
     AudioTrack audioTrack;
     try {
       @Nullable Context contextForAudioTrack = null;
