@@ -90,7 +90,7 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
    */
   public DefaultAnalyticsCollector(Clock clock) {
     this.clock = checkNotNull(clock);
-    listeners = new ListenerSet<>(Util.getCurrentOrMainLooper());
+    listeners = new ListenerSet<>(Util.getCurrentOrMainLooper(), clock);
     period = new Period();
     window = new Window();
     mediaPeriodQueueTracker = new MediaPeriodQueueTracker(period);
@@ -133,7 +133,6 @@ public class DefaultAnalyticsCollector implements AnalyticsCollector {
     listeners =
         listeners.copy(
             looper,
-            clock,
             (listener, flags) ->
                 listener.onEvents(player, new AnalyticsListener.Events(flags, eventTimes)));
   }

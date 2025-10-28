@@ -64,7 +64,7 @@ public final class VideoEncoderWrapperTest {
   private final FallbackListener fallbackListener =
       new FallbackListener(
           FAKE_COMPOSITION,
-          new ListenerSet<>(Looper.myLooper()),
+          new ListenerSet<>(Looper.myLooper(), Clock.DEFAULT),
           Clock.DEFAULT.createHandler(Looper.myLooper(), /* callback= */ null),
           emptyTransformationRequest);
   private final VideoSampleExporter.EncoderWrapper encoderWrapper =

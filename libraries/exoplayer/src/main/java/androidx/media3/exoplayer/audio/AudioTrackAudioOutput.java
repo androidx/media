@@ -25,6 +25,7 @@ import android.media.AudioTrack;
 import android.media.PlaybackParams;
 import android.media.metrics.LogSessionId;
 import android.os.Handler;
+import android.os.Looper;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
@@ -122,7 +123,7 @@ public final class AudioTrackAudioOutput implements AudioOutput {
     this.audioTrack = audioTrack;
     this.config = config;
     this.capabilityChangeListener = capabilityChangeListener;
-    listeners = new ListenerSet<>(Thread.currentThread());
+    listeners = new ListenerSet<>(checkNotNull(Looper.myLooper()), clock);
     // TODO: b/450556896 - remove this line once threading in CompositionPlayer is fixed.
     listeners.setThrowsWhenUsingWrongThread(false);
 

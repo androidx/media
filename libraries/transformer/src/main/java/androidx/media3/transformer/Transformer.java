@@ -159,7 +159,7 @@ public final class Transformer {
       looper = Util.getCurrentOrMainLooper();
       debugViewProvider = DebugViewProvider.NONE;
       clock = Clock.DEFAULT;
-      listeners = new ListenerSet<>(looper);
+      listeners = new ListenerSet<>(looper, clock);
       if (SDK_INT >= 35) {
         usePlatformDiagnostics = true;
         metricsReporterFactory =

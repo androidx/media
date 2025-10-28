@@ -25,6 +25,7 @@ import androidx.annotation.CallSuper;
 import androidx.annotation.GuardedBy;
 import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ListenerSet;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
@@ -97,7 +98,7 @@ public abstract class BasePreloadManager<T, PreloadStatusT> {
     this.rankingDataComparator = rankingDataComparator;
     this.targetPreloadStatusControl = targetPreloadStatusControl;
     this.mediaSourceFactory = mediaSourceFactory;
-    listeners = new ListenerSet<>(applicationHandler.getLooper());
+    listeners = new ListenerSet<>(applicationHandler.getLooper(), Clock.DEFAULT);
     mediaSourceHolderMap = new MediaSourceHolderMap();
     this.rankingDataComparator.setInvalidationListener(this::invalidate);
     sourceHolderPriorityList = new ArrayList<>();
