@@ -503,7 +503,7 @@ import java.util.concurrent.ScheduledExecutorService;
               + ", "
               + getWrittenFrames();
 
-      if (AudioTrackAudioOutputProvider.failOnSpuriousAudioTimestamp) {
+      if (DefaultAudioSink.failOnSpuriousAudioTimestamp) {
         throw new InvalidAudioTrackTimestampException(message);
       }
       Log.w(TAG, message);
@@ -527,7 +527,7 @@ import java.util.concurrent.ScheduledExecutorService;
               + ", "
               + getWrittenFrames();
 
-      if (AudioTrackAudioOutputProvider.failOnSpuriousAudioTimestamp) {
+      if (DefaultAudioSink.failOnSpuriousAudioTimestamp) {
         throw new InvalidAudioTrackTimestampException(message);
       }
       Log.w(TAG, message);
@@ -546,7 +546,7 @@ import java.util.concurrent.ScheduledExecutorService;
 
   /**
    * Thrown when the audio track has provided a spurious timestamp, if {@link
-   * AudioTrackAudioOutputProvider#failOnSpuriousAudioTimestamp} is set.
+   * DefaultAudioSink#failOnSpuriousAudioTimestamp} is set.
    */
   public static final class InvalidAudioTrackTimestampException extends RuntimeException {
 

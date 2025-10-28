@@ -80,7 +80,7 @@ public class AudioOffloadEndToEndTest {
         new DefaultRenderersFactory(applicationContext) {
           @Override
           protected AudioSink buildAudioSink(
-              Context context, boolean enableFloatOutput, boolean enableAudioOutputPlaybackParams) {
+              Context context, boolean enableFloatOutput, boolean enableAudioTrackPlaybackParams) {
             AudioOffloadListener audioOffloadListener =
                 new AudioOffloadListener() {
                   @Override
@@ -90,7 +90,7 @@ public class AudioOffloadEndToEndTest {
                 };
             return new DefaultAudioSink.Builder(applicationContext)
                 .setEnableFloatOutput(enableFloatOutput)
-                .setEnableAudioOutputPlaybackParameters(enableAudioOutputPlaybackParams)
+                .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
                 .setExperimentalAudioOffloadListener(audioOffloadListener)
                 .build();
           }

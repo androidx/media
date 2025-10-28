@@ -30,7 +30,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
-import androidx.media3.exoplayer.audio.AudioOutput;
 import androidx.media3.exoplayer.audio.AudioRendererEventListener;
 import androidx.media3.exoplayer.audio.AudioSink;
 import androidx.media3.exoplayer.audio.DefaultAudioSink;
@@ -112,7 +111,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
   private boolean enableDecoderFallback;
   private MediaCodecSelector mediaCodecSelector;
   private boolean enableFloatOutput;
-  private boolean enableAudioOutputPlaybackParameters;
+  private boolean enableAudioTrackPlaybackParams;
   private boolean enableMediaCodecVideoRendererPrewarming;
   private boolean parseAv1SampleDependencies;
   private long lateThresholdToDropDecoderInputUs;
@@ -236,37 +235,27 @@ public class DefaultRenderersFactory implements RenderersFactory {
   }
 
   /**
-   * @deprecated Use {@link #setEnableAudioOutputPlaybackParameters(boolean)} instead.
-   */
-  @Deprecated
-  @CanIgnoreReturnValue
-  public final DefaultRenderersFactory setEnableAudioTrackPlaybackParams(
-      boolean enableAudioTrackPlaybackParams) {
-    return setEnableAudioOutputPlaybackParameters(enableAudioTrackPlaybackParams);
-  }
-
-  /**
-   * Sets whether to enable setting playback speed via {@link AudioOutput}, using {@link
-   * android.media.AudioTrack#setPlaybackParams(PlaybackParams)} by default, rather than using
-   * application-level audio speed adjustment.
+   * Sets whether to enable setting playback speed using {@link
+   * android.media.AudioTrack#setPlaybackParams(PlaybackParams)}, which is supported from API level
+   * 23, rather than using application-level audio speed adjustment. This setting has no effect on
+   * builds before API level 23 (application-level speed adjustment will be used in all cases).
    *
    * <p>If enabled and supported, new playback speed settings will take effect more quickly because
-   * they are applied at the audio mixer, rather than at the point of writing data to the output.
-   * However, the setting is more device-dependent, less reliable and may offer fewer available
-   * speeds.
+   * they are applied at the audio mixer, rather than at the point of writing data to the track.
    *
-   * <p>If the requested speed is not supported the player's event listener will be notified twice
-   * on setting playback speed, once with the requested speed, then again with the old playback
-   * speed reflecting the fact that the requested speed was not supported.
+   * <p>When using this mode, the maximum supported playback speed is limited by the size of the
+   * audio track's buffer. If the requested speed is not supported the player's event listener will
+   * be notified twice on setting playback speed, once with the requested speed, then again with the
+   * old playback speed reflecting the fact that the requested speed was not supported.
    *
-   * @param enableAudioOutputPlaybackParameters Whether to enable setting playback speed via {@link
-   *     AudioOutput}.
+   * @param enableAudioTrackPlaybackParams Whether to enable setting playback speed using {@link
+   *     android.media.AudioTrack#setPlaybackParams(PlaybackParams)}.
    * @return This factory, for convenience.
    */
   @CanIgnoreReturnValue
-  public final DefaultRenderersFactory setEnableAudioOutputPlaybackParameters(
-      boolean enableAudioOutputPlaybackParameters) {
-    this.enableAudioOutputPlaybackParameters = enableAudioOutputPlaybackParameters;
+  public final DefaultRenderersFactory setEnableAudioTrackPlaybackParams(
+      boolean enableAudioTrackPlaybackParams) {
+    this.enableAudioTrackPlaybackParams = enableAudioTrackPlaybackParams;
     return this;
   }
 
@@ -388,7 +377,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
         renderersList);
     @Nullable
     AudioSink audioSink =
-        buildAudioSink(context, enableFloatOutput, enableAudioOutputPlaybackParameters);
+        buildAudioSink(context, enableFloatOutput, enableAudioTrackPlaybackParams);
     if (audioSink != null) {
       buildAudioRenderers(
           context,
@@ -828,20 +817,18 @@ public class DefaultRenderersFactory implements RenderersFactory {
    *
    * @param context The {@link Context} associated with the player.
    * @param enableFloatOutput Whether to enable use of floating point audio output, if available.
-   * @param enableAudioOutputPlaybackParams Whether to enable setting playback speed via the {@link
-   *     AudioOutput}, using {@link android.media.AudioTrack#setPlaybackParams(PlaybackParams)} by
-   *     default, if supported. The {@link AudioOutput} speed adjustment is lower latency, but
-   *     device-dependent, less reliable or may offer fewer available speeds.
+   * @param enableAudioTrackPlaybackParams Whether to enable setting playback speed using {@link
+   *     android.media.AudioTrack#setPlaybackParams(PlaybackParams)}, if supported.
    * @return The {@link AudioSink} to which the audio renderers will output. May be {@code null} if
    *     no audio renderers are required. If {@code null} is returned then {@link
    *     #buildAudioRenderers} will not be called.
    */
   @Nullable
   protected AudioSink buildAudioSink(
-      Context context, boolean enableFloatOutput, boolean enableAudioOutputPlaybackParams) {
+      Context context, boolean enableFloatOutput, boolean enableAudioTrackPlaybackParams) {
     return new DefaultAudioSink.Builder(context)
         .setEnableFloatOutput(enableFloatOutput)
-        .setEnableAudioOutputPlaybackParameters(enableAudioOutputPlaybackParams)
+        .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
         .build();
   }
 

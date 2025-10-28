@@ -94,6 +94,7 @@ import android.content.pm.PackageManager;
 import android.graphics.SurfaceTexture;
 import android.media.AudioDeviceInfo;
 import android.media.AudioManager;
+import android.media.AudioTrack;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
@@ -138,8 +139,8 @@ import androidx.media3.exoplayer.analytics.AnalyticsListener;
 import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.audio.AudioRendererEventListener;
 import androidx.media3.exoplayer.audio.AudioSink;
-import androidx.media3.exoplayer.audio.AudioTrackAudioOutputProvider;
 import androidx.media3.exoplayer.audio.DefaultAudioSink;
+import androidx.media3.exoplayer.audio.DefaultAudioTrackProvider;
 import androidx.media3.exoplayer.audio.ForwardingAudioSink;
 import androidx.media3.exoplayer.audio.MediaCodecAudioRenderer;
 import androidx.media3.exoplayer.drm.DrmSessionEventListener;
@@ -15492,15 +15493,18 @@ public final class ExoPlayerTest {
         new DefaultRenderersFactory(context) {
           @Override
           protected AudioSink buildAudioSink(
-              Context context, boolean enableFloatOutput, boolean enableAudioOutputPlaybackParams) {
-            // Create an AudioOutputProvider that ignores the player-provided audio
-            // session ID and always sets up playback with its own custom ID.
+              Context context, boolean enableFloatOutput, boolean enableAudioTrackPlaybackParams) {
             return new DefaultAudioSink.Builder(context)
-                .setAudioOutputProvider(
-                    new AudioTrackAudioOutputProvider.Builder(context)
-                        .setAudioTrackBuilderModifier(
-                            (builder, outputConfig) -> builder.setSessionId(1234))
-                        .build())
+                .setAudioTrackProvider(
+                    new DefaultAudioTrackProvider() {
+                      @Override
+                      protected AudioTrack.Builder customizeAudioTrackBuilder(
+                          AudioTrack.Builder audioTrackBuilder) {
+                        // Create an AudioTrackProvider that ignores the player-provided audio
+                        // session ID and always sets up playback with its own custom ID.
+                        return audioTrackBuilder.setSessionId(1234);
+                      }
+                    })
                 .build();
           }
 
@@ -15690,18 +15694,19 @@ public final class ExoPlayerTest {
         new DefaultRenderersFactory(context) {
           @Override
           protected AudioSink buildAudioSink(
-              Context context, boolean enableFloatOutput, boolean enableAudioOutputPlaybackParams) {
-            // Create an AudioOutputProvider that ignores the player-provided audio
-            // session ID and always sets up playback with its own custom ID.
+              Context context, boolean enableFloatOutput, boolean enableAudioTrackPlaybackParams) {
             return new DefaultAudioSink.Builder(context)
-                .setAudioOutputProvider(
-                    new AudioTrackAudioOutputProvider.Builder(context)
-                        .setAudioTrackBuilderModifier(
-                            (builder, outputConfig) -> {
-                              audioTrackCreateCount.incrementAndGet();
-                              builder.setSessionId(1234);
-                            })
-                        .build())
+                .setAudioTrackProvider(
+                    new DefaultAudioTrackProvider() {
+                      @Override
+                      protected AudioTrack.Builder customizeAudioTrackBuilder(
+                          AudioTrack.Builder audioTrackBuilder) {
+                        audioTrackCreateCount.incrementAndGet();
+                        // Create an AudioTrackProvider that ignores the player-provided audio
+                        // session ID and always sets up playback with its own custom ID.
+                        return audioTrackBuilder.setSessionId(1234);
+                      }
+                    })
                 .build();
           }
         };
@@ -16085,7 +16090,7 @@ public final class ExoPlayerTest {
         new DefaultRenderersFactory(context) {
           @Override
           protected AudioSink buildAudioSink(
-              Context context, boolean enableFloatOutput, boolean enableAudioOutputPlaybackParams) {
+              Context context, boolean enableFloatOutput, boolean enableAudioTrackPlaybackParams) {
             return new ForwardingAudioSink(new DefaultAudioSink.Builder(context).build()) {
               @Override
               public void setVirtualDeviceId(int virtualDeviceId) {
