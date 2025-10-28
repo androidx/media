@@ -1705,14 +1705,26 @@ public final class DefaultAudioSink implements AudioSink {
     return new FormatConfig.Builder(format)
         .setAudioAttributes(audioAttributes)
         .setEnableHighResolutionPcmOutput(enableFloatOutput)
-        .setEnablePlaybackParameters(preferAudioOutputPlaybackParameters)
-        .setEnableOffload(offloadMode != AudioSink.OFFLOAD_MODE_DISABLED)
+        .setEnableAudioOutputPlaybackParameters(preferAudioOutputPlaybackParameters)
+        .setOffloadMode(getAudioOutputProviderOffloadMode(offloadMode))
         .setPreferredDevice(preferredDevice)
         .setAudioSessionId(audioSessionId)
-        .setEnableTunneling(tunneling)
+        .setIsTunneling(tunneling)
         .setPreferredBufferSize(preferredBufferSize)
         .setVirtualDeviceId(virtualDeviceId)
         .build();
+  }
+
+  private int getAudioOutputProviderOffloadMode(@OffloadMode int audioSinkOffloadMode) {
+    switch (audioSinkOffloadMode) {
+      case AudioSink.OFFLOAD_MODE_ENABLED_GAPLESS_NOT_REQUIRED:
+        return AudioOutputProvider.OFFLOAD_MODE_ENABLED_GAPLESS_NOT_REQUIRED;
+      case AudioSink.OFFLOAD_MODE_ENABLED_GAPLESS_REQUIRED:
+        return AudioOutputProvider.OFFLOAD_MODE_ENABLED_GAPLESS_REQUIRED;
+      case AudioSink.OFFLOAD_MODE_DISABLED:
+      default:
+        return AudioOutputProvider.OFFLOAD_MODE_DISABLED;
+    }
   }
 
   /* package */ static int getFramesPerEncodedSample(@C.Encoding int encoding, ByteBuffer buffer) {

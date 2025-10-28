@@ -231,16 +231,17 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
       outputSampleRate = format.sampleRate;
       outputChannelConfig = getAudioOutputChannelConfig(format.channelCount);
       outputPcmFrameSize = Util.getPcmFrameSize(outputEncoding, format.channelCount);
-      usePlaybackParameters = formatConfig.enablePlaybackParameters;
+      usePlaybackParameters = formatConfig.enableAudioOutputPlaybackParameters;
     } else {
       outputSampleRate = format.sampleRate;
       outputPcmFrameSize = C.LENGTH_UNSET;
       AudioOffloadSupport audioOffloadSupport =
-          formatConfig.enableOffload
+          formatConfig.offloadMode != OFFLOAD_MODE_DISABLED
               ? audioOffloadSupportProvider.getAudioOffloadSupport(
                   format, formatConfig.audioAttributes)
               : AudioOffloadSupport.DEFAULT_UNSUPPORTED;
-      if (formatConfig.enableOffload && audioOffloadSupport.isFormatSupported) {
+      if (formatConfig.offloadMode != OFFLOAD_MODE_DISABLED
+          && audioOffloadSupport.isFormatSupported) {
         outputMode = OUTPUT_MODE_OFFLOAD;
         outputEncoding = MimeTypes.getEncoding(checkNotNull(format.sampleMimeType), format.codecs);
         outputChannelConfig = getAudioOutputChannelConfig(format.channelCount);
@@ -260,7 +261,7 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
         outputChannelConfig = encodingAndChannelConfig.second;
         // Passthrough only supports audio output playback parameters, but we only enable it this
         // was specifically requested by the app.
-        usePlaybackParameters = formatConfig.enablePlaybackParameters;
+        usePlaybackParameters = formatConfig.enableAudioOutputPlaybackParameters;
       }
     }
 
@@ -301,7 +302,7 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
         .setAudioSessionId(formatConfig.audioSessionId)
         .setAudioAttributes(formatConfig.audioAttributes)
         .setIsOffload(outputMode == OUTPUT_MODE_OFFLOAD)
-        .setIsTunneling(formatConfig.enableTunneling)
+        .setIsTunneling(formatConfig.isTunneling)
         .setUsePlaybackParameters(usePlaybackParameters)
         .setUseOffloadGapless(useOffloadGapless)
         .setVirtualDeviceId(formatConfig.virtualDeviceId)
@@ -310,7 +311,7 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
 
   @SuppressWarnings("CatchingUnchecked") // Catching generic Exception from AudioTrack.release
   @Override
-  public AudioOutput getAudioOutput(OutputConfig config) throws InitializationException {
+  public AudioTrackAudioOutput getAudioOutput(OutputConfig config) throws InitializationException {
     AudioTrack audioTrack;
     try {
       @Nullable Context contextForAudioTrack = null;
