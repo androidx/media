@@ -22,7 +22,7 @@ import android.media.AudioTrack;
 import androidx.annotation.Nullable;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
-import androidx.media3.exoplayer.audio.AudioOutputProvider.OutputConfig;
+import androidx.media3.exoplayer.audio.AudioOutput.OutputConfig;
 import androidx.media3.test.utils.FakeClock;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.nio.ByteBuffer;
@@ -82,7 +82,7 @@ public final class AudioTrackAudioOutputTest {
   }
 
   private void initializeAudioTrackAudioOutput(
-      @Nullable AudioTrackAudioOutput.CapabilityChangeListener listener,
+      @Nullable AudioCapabilitiesReceiver receiver,
       int audioFormatEncoding,
       int encoding,
       int channelMask,
@@ -116,7 +116,7 @@ public final class AudioTrackAudioOutputTest {
                         .setUsage(C.USAGE_MEDIA)
                         .build())
                 .build(),
-            listener,
+            receiver,
             /* clock= */ clock);
   }
 
