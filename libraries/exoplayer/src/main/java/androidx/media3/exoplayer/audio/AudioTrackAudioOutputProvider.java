@@ -264,6 +264,15 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
       }
     }
 
+    if (outputEncoding == C.ENCODING_INVALID) {
+      throw new ConfigurationException(
+          "Invalid output encoding (mode=" + outputMode + ") for: " + format);
+    }
+    if (outputChannelConfig == AudioFormat.CHANNEL_INVALID) {
+      throw new ConfigurationException(
+          "Invalid output channel config (mode=" + outputMode + ") for: " + format);
+    }
+
     // Replace unknown bitrate by maximum allowed bitrate for DTS Express to avoid allocating an
     // AudioTrack buffer for the much larger maximum bitrate of the underlying DTS-HD encoding.
     int bitrate = format.bitrate;
