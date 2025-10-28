@@ -223,9 +223,6 @@ This release includes the following changes since
         timestamp.
 *   Audio:
     *   Make `AudioProcessor` instances aware of seeking.
-    *   Allow injecting the new `AudioOutputProvider` interface into
-        `DefaultAudioSink.Builder` to support custom audio output paths. The
-        default is `AudioTrackAudioOutputProvider`.
     *   Handle seeks in `GainProcessor`.
     *   Utilize AC-4 decoder profile and level capabilities in track format
         support assessment
