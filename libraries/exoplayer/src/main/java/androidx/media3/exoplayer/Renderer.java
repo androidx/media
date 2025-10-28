@@ -373,13 +373,6 @@ public interface Renderer extends PlayerMessage.Target {
   int MSG_SET_SCRUBBING_MODE = 18;
 
   /**
-   * The type of a message that can be passed to audio renderers via {@link
-   * ExoPlayer#createMessage(PlayerMessage.Target)}. The message payload should be an {@link
-   * Integer} instance representing the virtual device id, or {@link C#INDEX_UNSET} if unspecified.
-   */
-  int MSG_SET_VIRTUAL_DEVICE_ID = 19;
-
-  /**
    * Applications or extensions may define custom {@code MSG_*} constants that can be passed to
    * renderers. These custom constants must be greater than or equal to this value.
    */

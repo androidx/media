@@ -84,11 +84,6 @@ import java.lang.annotation.RetentionPolicy;
  *   <li>Message with type {@link #MSG_SET_AUX_EFFECT_INFO} to set the auxiliary effect. The message
  *       payload should be an {@link AuxEffectInfo} instance that will configure the underlying
  *       audio track.
- *   <li>Message with type {@link #MSG_SET_PREFERRED_AUDIO_DEVICE} to set the preferred audio output
- *       device. The message payload should be an {@link AudioDeviceInfo} instance.
- *   <li>Message with type {@link #MSG_SET_VIRTUAL_DEVICE_ID} to set the virtual device id. The
- *       message payload should be an {@link Integer} for the virtual device id or {@link
- *       C#INDEX_UNSET} if unspecified.
  *   <li>Message with type {@link #MSG_SET_SKIP_SILENCE_ENABLED} to enable or disable skipping
  *       silences. The message payload should be a {@link Boolean}.
  *   <li>Message with type {@link #MSG_SET_AUDIO_SESSION_ID} to set the audio session ID. The
@@ -764,9 +759,6 @@ public abstract class DecoderAudioRenderer<
         break;
       case MSG_SET_PREFERRED_AUDIO_DEVICE:
         audioSink.setPreferredDevice((AudioDeviceInfo) message);
-        break;
-      case MSG_SET_VIRTUAL_DEVICE_ID:
-        audioSink.setVirtualDeviceId((Integer) checkNotNull(message));
         break;
       case MSG_SET_CAMERA_MOTION_LISTENER:
       case MSG_SET_CHANGE_FRAME_RATE_STRATEGY:
