@@ -33,6 +33,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
+import android.util.SparseArray;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -109,13 +110,16 @@ import java.util.PriorityQueue;
   private final boolean sampleCopyEnabled;
   private final List<Track> addedTracks;
   private final List<ByteBuffer> cuePoints;
+  // Store the previous sample presentation time of each track to calculate the duration of the last
+  // sample.
+  private final SparseArray<Long> prevPresentationTimeOfTrack;
 
   private boolean writtenSegmentHeader;
   private long trackElementStart;
   private long infoElementStart;
   private long segmentDataStart;
   private long firstSampleTimestampUs;
-  private long lastSampleTimestampUs;
+  private long lastSampleEndsAtTimestampUs;
 
   /**
    * Creates a new WebmWriter.
@@ -128,8 +132,9 @@ import java.util.PriorityQueue;
     this.sampleCopyEnabled = sampleCopyEnabled;
     addedTracks = new ArrayList<>();
     cuePoints = new ArrayList<>();
+    prevPresentationTimeOfTrack = new SparseArray<>();
     firstSampleTimestampUs = C.TIME_UNSET;
-    lastSampleTimestampUs = C.TIME_UNSET;
+    lastSampleEndsAtTimestampUs = C.TIME_UNSET;
   }
 
   /**
@@ -175,7 +180,15 @@ import java.util.PriorityQueue;
         firstSampleTimestampUs == C.TIME_UNSET
             ? bufferInfo.presentationTimeUs
             : min(firstSampleTimestampUs, bufferInfo.presentationTimeUs);
-    lastSampleTimestampUs = max(lastSampleTimestampUs, bufferInfo.presentationTimeUs);
+    long previousPresentationTimeUs =
+        prevPresentationTimeOfTrack.get(track.id, bufferInfo.presentationTimeUs);
+    // Duration of the last sample is assumed to be same as the previous sample duration.
+    lastSampleEndsAtTimestampUs =
+        max(
+            lastSampleEndsAtTimestampUs,
+            bufferInfo.presentationTimeUs
+                + (bufferInfo.presentationTimeUs - previousPresentationTimeUs));
+    prevPresentationTimeOfTrack.put(track.id, bufferInfo.presentationTimeUs);
   }
 
   /**
@@ -308,8 +321,7 @@ import java.util.PriorityQueue;
     muxerOutput.write(EbmlUtils.encodeVIntWithWidth(segmentSize, /* width= */ 8));
 
     muxerOutput.setPosition(infoElementStart);
-    // TODO(b/447591371): Update the segment duration by adding the last sample duration.
-    long durationUs = lastSampleTimestampUs - firstSampleTimestampUs;
+    long durationUs = lastSampleEndsAtTimestampUs - firstSampleTimestampUs;
     // Info element is of fixed size and is not expected to change.
     muxerOutput.write(
         createInfoElement(/* segmentDuration= */ (float) usToSegmentTicks(durationUs)));
