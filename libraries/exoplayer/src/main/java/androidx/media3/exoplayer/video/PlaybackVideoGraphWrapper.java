@@ -696,8 +696,12 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
       onOutputStreamChanged();
     }
     lastOutputFramePresentationTimeUs = C.TIME_UNSET;
-    finalFramePresentationTimeUs = C.TIME_UNSET;
-    hasSignaledEndOfVideoGraphOutputStream = false;
+    if (resetPosition) {
+      // If not resetting position, preserve the EOS state, this is necessary in operations like
+      // redraw which relies on flushing, but does not reset position.
+      finalFramePresentationTimeUs = C.TIME_UNSET;
+      hasSignaledEndOfVideoGraphOutputStream = false;
+    }
     // Handle pending video graph callbacks to ensure video size changes reach the video render
     // control.
     checkNotNull(handler).post(() -> pendingFlushCount--);
