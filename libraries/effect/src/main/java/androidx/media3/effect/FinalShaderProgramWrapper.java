@@ -287,6 +287,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     // Signal flush upstream.
     inputListener.onFlush();
+    for (int i = 0; i < getInputCapacity(); i++) {
+      inputListener.onReadyToAcceptInputFrame();
+    }
   }
 
   @Override
@@ -326,10 +329,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       } catch (VideoFrameProcessingException e) {
         videoFrameProcessorListenerExecutor.execute(() -> videoFrameProcessorListener.onError(e));
       }
-    }
-    // Allow more input once all flush operations have been completed.
-    for (int i = 0; i < getInputCapacity(); i++) {
-      inputListener.onReadyToAcceptInputFrame();
     }
   }
 
