@@ -21,9 +21,12 @@ import static androidx.media3.common.AdPlaybackState.AD_STATE_PLAYED;
 import static androidx.media3.common.AdPlaybackState.AD_STATE_SKIPPED;
 import static androidx.media3.common.AdPlaybackState.AD_STATE_UNAVAILABLE;
 import static androidx.media3.common.Player.DISCONTINUITY_REASON_AUTO_TRANSITION;
+import static androidx.media3.common.Player.DISCONTINUITY_REASON_INTERNAL;
 import static androidx.media3.common.Player.DISCONTINUITY_REASON_REMOVE;
 import static androidx.media3.common.Player.DISCONTINUITY_REASON_SEEK;
 import static androidx.media3.common.Player.DISCONTINUITY_REASON_SEEK_ADJUSTMENT;
+import static androidx.media3.common.Player.DISCONTINUITY_REASON_SILENCE_SKIP;
+import static androidx.media3.common.Player.DISCONTINUITY_REASON_SKIP;
 import static androidx.media3.common.Player.STATE_IDLE;
 import static androidx.media3.common.util.Util.castNonNull;
 import static androidx.media3.common.util.Util.msToUs;
@@ -528,8 +531,22 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
     }
 
     /**
-     * Called when an ad period has completed playback and transitioned to the following ad or
-     * content period, or the playlist ended.
+     * Called when an ad period was skipped and transitioned to the following ad or the content
+     * period.
+     *
+     * @param mediaItem The {@link MediaItem} of the content media source.
+     * @param adsId The ads identifier (see {@link AdsConfiguration#adsId}).
+     * @param adGroupIndex The index of the ad group in the ad media source.
+     * @param adIndexInAdGroup The index of the ad in the ad group.
+     */
+    default void onAdSkipped(
+        MediaItem mediaItem, Object adsId, int adGroupIndex, int adIndexInAdGroup) {
+      // Do nothing.
+    }
+
+    /**
+     * Called when an ad period has completed playback and transitioned to the following ad or the
+     * content period.
      *
      * @param mediaItem The {@link MediaItem} of the content media source.
      * @param adsId The ads identifier (see {@link AdsConfiguration#adsId}).
@@ -1615,7 +1632,9 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
       if (player == null
           || oldPosition.mediaItem == null
           || newPosition.mediaItem == null
-          || reason == DISCONTINUITY_REASON_REMOVE) {
+          || reason == DISCONTINUITY_REASON_REMOVE
+          || reason == DISCONTINUITY_REASON_SILENCE_SKIP
+          || reason == DISCONTINUITY_REASON_INTERNAL) {
         cancelPendingAssetListResolutionMessage();
         return;
       }
@@ -1668,6 +1687,14 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
                       newPosition.adGroupIndex,
                       newPosition.adIndexInAdGroup));
         }
+      } else if (oldPosition.adGroupIndex != C.INDEX_UNSET && reason == DISCONTINUITY_REASON_SKIP) {
+        notifyListeners(
+            listener ->
+                listener.onAdSkipped(
+                    checkNotNull(oldPosition.mediaItem),
+                    adsId,
+                    oldPosition.adGroupIndex,
+                    oldPosition.adIndexInAdGroup));
       }
     }
 
