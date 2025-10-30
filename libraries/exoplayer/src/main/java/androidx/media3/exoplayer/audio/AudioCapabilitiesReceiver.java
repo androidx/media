@@ -117,6 +117,10 @@ public final class AudioCapabilitiesReceiver {
    * @param audioAttributes The {@link AudioAttributes}.
    */
   public void setAudioAttributes(AudioAttributes audioAttributes) {
+    if (Objects.equals(audioAttributes, this.audioAttributes)) {
+      return;
+    }
+
     this.audioAttributes = audioAttributes;
     onNewAudioCapabilities(
         AudioCapabilities.getCapabilitiesInternal(context, audioAttributes, routedDevice));
