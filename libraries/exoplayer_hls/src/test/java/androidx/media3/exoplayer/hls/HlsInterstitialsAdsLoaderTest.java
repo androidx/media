@@ -16,6 +16,7 @@
 package androidx.media3.exoplayer.hls;
 
 import static androidx.media3.common.Player.DISCONTINUITY_REASON_AUTO_TRANSITION;
+import static androidx.media3.common.Player.STATE_READY;
 import static androidx.media3.common.Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED;
 import static androidx.media3.common.util.Util.msToUs;
 import static androidx.media3.exoplayer.hls.HlsInterstitialsAdsLoader.getClosestSegmentBoundaryUs;
@@ -3857,6 +3858,200 @@ public class HlsInterstitialsAdsLoaderTest {
   }
 
   @Test
+  public void positionDiscontinuity_reasonAutoTransitionMidRolls_callsOnAdStarted()
+      throws IOException {
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:55:40.000Z\n"
+            + "#EXTINF:6,\n"
+            + "main1.0.ts\n"
+            + "#EXTINF:6,\n"
+            + "main1.0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad0-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:55:46.000Z\","
+            + "X-ASSET-URI=\"http://example.com/media-0-0.m3u8\""
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad0-1\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:55:46.000Z\","
+            + "X-ASSET-URI=\"http://example.com/media-0-0.m3u8\""
+            + "\n";
+    AdPlaybackState initialAdPlaybackState =
+        callHandleContentTimelineChangedAndCaptureAdPlaybackState(
+            playlistString,
+            adsLoader,
+            /* windowIndex= */ 0,
+            /* windowPositionInPeriodUs= */ 0,
+            /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE);
+    Timeline timeline =
+        new FakeTimeline(
+            new TimelineWindowDefinition.Builder()
+                .setAdPlaybackStates(ImmutableList.of(initialAdPlaybackState))
+                .build());
+    when(mockPlayer.getCurrentTimeline()).thenReturn(timeline);
+    when(mockPlayer.getCurrentPeriodIndex()).thenReturn(0);
+    ArgumentCaptor<Player.Listener> listener = ArgumentCaptor.forClass(Player.Listener.class);
+    verify(mockPlayer).addListener(listener.capture());
+    Object windowUid = new Object();
+    Object periodUid = new Object();
+
+    // content to first midroll
+    when(mockPlayer.isPlayingAd()).thenReturn(true);
+    when(mockPlayer.getCurrentAdGroupIndex()).thenReturn(0);
+    when(mockPlayer.getCurrentAdIndexInAdGroup()).thenReturn(0);
+    listener
+        .getValue()
+        .onPositionDiscontinuity(
+            /* oldPosition= */ new Player.PositionInfo(
+                windowUid,
+                /* mediaItemIndex= */ 0,
+                contentMediaItem,
+                periodUid,
+                /* periodIndex= */ 0,
+                /* positionMs= */ 6_000L,
+                /* contentPositionMs= */ 6_000L,
+                /* adGroupIndex= */ C.INDEX_UNSET,
+                /* adIndexInAdGroup= */ C.INDEX_UNSET),
+            /* newPosition= */ new Player.PositionInfo(
+                windowUid,
+                /* mediaItemIndex= */ 0,
+                contentMediaItem,
+                periodUid,
+                /* periodIndex= */ 0,
+                /* positionMs= */ 0L,
+                /* contentPositionMs= */ 6_000L,
+                /* adGroupIndex= */ 0,
+                /* adIndexInAdGroup= */ 0),
+            DISCONTINUITY_REASON_AUTO_TRANSITION);
+    // first to second midroll
+    when(mockPlayer.isPlayingAd()).thenReturn(true);
+    when(mockPlayer.getCurrentAdGroupIndex()).thenReturn(0);
+    when(mockPlayer.getCurrentAdIndexInAdGroup()).thenReturn(1);
+    listener
+        .getValue()
+        .onPositionDiscontinuity(
+            /* oldPosition= */ new Player.PositionInfo(
+                windowUid,
+                /* mediaItemIndex= */ 0,
+                contentMediaItem,
+                periodUid,
+                /* periodIndex= */ 0,
+                /* positionMs= */ 10_000L,
+                /* contentPositionMs= */ 6_000L,
+                /* adGroupIndex= */ 0,
+                /* adIndexInAdGroup= */ 0),
+            /* newPosition= */ new Player.PositionInfo(
+                windowUid,
+                /* mediaItemIndex= */ 0,
+                contentMediaItem,
+                periodUid,
+                /* periodIndex= */ 0,
+                /* positionMs= */ 0L,
+                /* contentPositionMs= */ 6_000L,
+                /* adGroupIndex= */ 0,
+                /* adIndexInAdGroup= */ 1),
+            DISCONTINUITY_REASON_AUTO_TRANSITION);
+    // second to midroll to content
+    when(mockPlayer.isPlayingAd()).thenReturn(false);
+    when(mockPlayer.getCurrentAdGroupIndex()).thenReturn(C.INDEX_UNSET);
+    when(mockPlayer.getCurrentAdIndexInAdGroup()).thenReturn(C.INDEX_UNSET);
+    listener
+        .getValue()
+        .onPositionDiscontinuity(
+            new Player.PositionInfo(
+                windowUid,
+                /* mediaItemIndex= */ 0,
+                contentMediaItem,
+                periodUid,
+                /* periodIndex= */ 0,
+                /* positionMs= */ 10_000L,
+                /* contentPositionMs= */ 0L,
+                /* adGroupIndex= */ 0,
+                /* adIndexInAdGroup= */ 1),
+            new Player.PositionInfo(
+                windowUid,
+                /* mediaItemIndex= */ 0,
+                contentMediaItem,
+                periodUid,
+                /* periodIndex= */ 0,
+                /* positionMs= */ 0L,
+                /* contentPositionMs= */ 0L,
+                /* adGroupIndex= */ C.INDEX_UNSET,
+                /* adIndexInAdGroup= */ C.INDEX_UNSET),
+            DISCONTINUITY_REASON_AUTO_TRANSITION);
+
+    InOrder inOrder = inOrder(mockAdsLoaderListener);
+    inOrder
+        .verify(mockAdsLoaderListener)
+        .onAdStarted(contentMediaItem, "adsId", /* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0);
+    inOrder
+        .verify(mockAdsLoaderListener)
+        .onAdCompleted(contentMediaItem, "adsId", /* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0);
+    inOrder
+        .verify(mockAdsLoaderListener)
+        .onAdStarted(contentMediaItem, "adsId", /* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 1);
+    inOrder
+        .verify(mockAdsLoaderListener)
+        .onAdCompleted(contentMediaItem, "adsId", /* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 1);
+  }
+
+  @Test
+  public void playbackStateChanged_readyWhenAwaitingFirstAdToStart_callsOnAdStarted()
+      throws IOException {
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:55:40.000Z\n"
+            + "#EXTINF:6,\n"
+            + "main1.0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad0-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:55:46.000Z\","
+            + "CUE=\"PRE\","
+            + "X-ASSET-URI=\"http://example.com/media-0-0.m3u8\""
+            + "\n";
+    AdPlaybackState initialAdPlaybackState =
+        callHandleContentTimelineChangedAndCaptureAdPlaybackState(
+            playlistString,
+            adsLoader,
+            /* windowIndex= */ 0,
+            /* windowPositionInPeriodUs= */ 0,
+            /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE);
+    when(mockPlayer.isPlayingAd()).thenReturn(true);
+    when(mockPlayer.getCurrentAdGroupIndex()).thenReturn(0);
+    when(mockPlayer.getCurrentAdIndexInAdGroup()).thenReturn(0);
+    when(mockPlayer.getPlaybackState()).thenReturn(STATE_READY);
+    Timeline timeline =
+        new FakeTimeline(
+            new TimelineWindowDefinition.Builder()
+                .setAdPlaybackStates(ImmutableList.of(initialAdPlaybackState))
+                .build());
+    when(mockPlayer.getCurrentTimeline()).thenReturn(timeline);
+    when(mockPlayer.getCurrentPeriodIndex()).thenReturn(0);
+    ArgumentCaptor<Player.Listener> listener = ArgumentCaptor.forClass(Player.Listener.class);
+    verify(mockPlayer).addListener(listener.capture());
+
+    // When a source with a preroll is initially prepared, there is no position discontinuity to
+    // detect the ad start. In such a case, we need to detect the first STATE_READY state after an
+    // adsId was started.
+    listener.getValue().onPlaybackStateChanged(Player.STATE_READY);
+    // But once the first ad start was notified, this behaviour needs to be disabled.
+    listener.getValue().onPlaybackStateChanged(Player.STATE_READY);
+
+    verify(mockAdsLoaderListener)
+        .onAdStarted(contentMediaItem, "adsId", /* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0);
+  }
+
+  @Test
   public void skipCurrentAd_whenAdIsPlaying_adSkippedAndEventListenerNotified() throws IOException {
     String playlistString =
         "#EXTM3U\n"
@@ -5216,61 +5411,6 @@ public class HlsInterstitialsAdsLoaderTest {
         .isEqualTo(AdPlaybackState.AD_STATE_AVAILABLE);
     assertThat(adPlaybackStates.get(3).getAdGroup(/* adGroupIndex= */ 0).states[1])
         .isEqualTo(AdPlaybackState.AD_STATE_ERROR);
-  }
-
-  @Test
-  public void onPlaybackStateChanged_stateEndedWhenPlayingAd_marksAdAsPlayed() throws IOException {
-    String playlistString =
-        "#EXTM3U\n"
-            + "#EXT-X-TARGETDURATION:6\n"
-            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:55:40.000Z\n"
-            + "#EXTINF:6,\n"
-            + "main1.0.ts\n"
-            + "#EXT-X-ENDLIST"
-            + "\n"
-            + "#EXT-X-DATERANGE:"
-            + "ID=\"ad0-1\","
-            + "CLASS=\"com.apple.hls.interstitial\","
-            + "START-DATE=\"2020-01-02T21:55:40.000Z\","
-            + "CUE=\"POST\","
-            + "X-ASSET-URI=\"http://example.com/media-0-0.m3u8\""
-            + "\n";
-    callHandleContentTimelineChangedAndCaptureAdPlaybackState(
-        playlistString,
-        adsLoader,
-        /* windowIndex= */ 0,
-        /* windowPositionInPeriodUs= */ 0,
-        /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE);
-    reset(mockEventListener);
-    ArgumentCaptor<Player.Listener> listener = ArgumentCaptor.forClass(Player.Listener.class);
-    when(mockPlayer.isPlayingAd()).thenReturn(true);
-    when(mockPlayer.getCurrentAdGroupIndex()).thenReturn(0);
-    when(mockPlayer.getCurrentAdIndexInAdGroup()).thenReturn(0);
-    verify(mockPlayer).addListener(listener.capture());
-
-    listener.getValue().onPlaybackStateChanged(Player.STATE_ENDED);
-
-    verify(mockAdsLoaderListener)
-        .onAdCompleted(
-            contentMediaItem,
-            adsMediaSource.getAdsId(),
-            /* adGroupIndex= */ 0,
-            /* adIndexInAdGroup= */ 0);
-    verify(mockEventListener)
-        .onAdPlaybackState(
-            new AdPlaybackState("adsId", /* adGroupTimesUs...= */ C.TIME_END_OF_SOURCE)
-                .withAdDurationsUs(/* adGroupIndex= */ 0, C.TIME_UNSET)
-                .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1)
-                .withContentResumeOffsetUs(/* adGroupIndex= */ 0, /* contentResumeOffsetUs= */ 0)
-                .withAvailableAdMediaItem(
-                    /* adGroupIndex= */ 0,
-                    /* adIndexInAdGroup= */ 0,
-                    new MediaItem.Builder()
-                        .setUri("http://example.com/media-0-0.m3u8")
-                        .setMimeType(MimeTypes.APPLICATION_M3U8)
-                        .build())
-                .withAdId(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0, "ad0-1")
-                .withPlayedAd(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0));
   }
 
   @Test

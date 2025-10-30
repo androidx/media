@@ -31,6 +31,9 @@
 *   Cronet extension:
 *   RTMP extension:
 *   HLS extension:
+    *   Add `HlsInterstitialsAdsLoader.Listener.onAdStarted` to report the start
+        of an ad period
+        ([#2859](https://github.com/androidx/media/issues/2859)).
 *   DASH extension:
 *   Smooth Streaming extension:
 *   RTSP extension:
