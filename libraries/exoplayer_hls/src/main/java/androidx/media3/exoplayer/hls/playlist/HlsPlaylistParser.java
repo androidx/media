@@ -1369,12 +1369,6 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
       }
     }
 
-    if (playlistStartTimeUs == 0 && previousMediaPlaylist != null) {
-      // An EXT-X-PROGRAM-DATE-TIME can be removed from the new playlist if the segment it belonged
-      // to was removed. Make sure we propagate the start time from the previous playlist in such a
-      // case.
-      playlistStartTimeUs = previousMediaPlaylist.startTimeUs;
-    }
     return new HlsMediaPlaylist(
         playlistType,
         baseUri,
