@@ -34,6 +34,7 @@ import java.nio.ByteBuffer;
  *   <li>{@link C#ENCODING_PCM_32BIT}
  *   <li>{@link C#ENCODING_PCM_32BIT_BIG_ENDIAN}
  *   <li>{@link C#ENCODING_PCM_FLOAT} ({@link #isActive()} will return {@code false})
+ *   <li>{@link C#ENCODING_PCM_DOUBLE}
  * </ul>
  */
 @UnstableApi
@@ -111,6 +112,12 @@ public final class ToFloatPcmAudioProcessor extends BaseAudioProcessor {
                   | ((inputBuffer.get(i + 1) & 0xFF) << 16)
                   | ((inputBuffer.get(i) & 0xFF) << 24);
           writePcm32BitFloat(pcm32BitInteger, buffer);
+        }
+        break;
+      case C.ENCODING_PCM_DOUBLE:
+        buffer = replaceOutputBuffer(size / 2);
+        for (int i = position; i < limit; i += 8) {
+          buffer.putFloat((float) inputBuffer.getDouble(i));
         }
         break;
       case C.ENCODING_PCM_8BIT:
