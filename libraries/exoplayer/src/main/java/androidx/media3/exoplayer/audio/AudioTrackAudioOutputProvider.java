@@ -43,6 +43,7 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ListenerSet;
 import androidx.media3.common.util.Log;
+import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.audio.AudioSink.AudioTrackConfig;
 import androidx.media3.exoplayer.audio.DefaultAudioSink.AudioOffloadSupportProvider;
@@ -58,7 +59,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
 /** A default implementation of {@link AudioOutputProvider}. */
-/* package */ final class AudioTrackAudioOutputProvider implements AudioOutputProvider {
+@UnstableApi
+public final class AudioTrackAudioOutputProvider implements AudioOutputProvider {
 
   private static final String TAG = "ATAudioOutputProvider";
 
