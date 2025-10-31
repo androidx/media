@@ -28,11 +28,9 @@ import androidx.media3.common.util.Util;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
 /**
- * The default provider for {@link AudioTrack} instances.
- *
- * <p>Subclasses of this provider can customize the {@link AudioTrack.Builder} in {@link
- * #customizeAudioTrackBuilder} if required.
+ * @deprecated Use {@link AudioTrackAudioOutputProvider} instead.
  */
+@Deprecated
 @UnstableApi
 public class DefaultAudioTrackProvider implements DefaultAudioSink.AudioTrackProvider {
 

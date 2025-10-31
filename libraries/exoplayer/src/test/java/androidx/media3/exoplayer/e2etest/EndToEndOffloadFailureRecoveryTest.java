@@ -140,12 +140,12 @@ public class EndToEndOffloadFailureRecoveryTest {
 
     @Override
     protected AudioSink buildAudioSink(
-        Context context, boolean enableFloatOutput, boolean enableAudioTrackPlaybackParams) {
+        Context context, boolean enableFloatOutput, boolean enableAudioOutputPlaybackParams) {
       dumpingAudioSink =
           new DumpingAudioSink(
               new DefaultAudioSink.Builder(context)
                   .setEnableFloatOutput(enableFloatOutput)
-                  .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+                  .setEnableAudioOutputPlaybackParameters(enableAudioOutputPlaybackParams)
                   .build());
       return dumpingAudioSink;
     }
@@ -167,12 +167,12 @@ public class EndToEndOffloadFailureRecoveryTest {
 
     @Override
     protected AudioSink buildAudioSink(
-        Context context, boolean enableFloatOutput, boolean enableAudioTrackPlaybackParams) {
+        Context context, boolean enableFloatOutput, boolean enableAudioOutputPlaybackParams) {
       dumpingAudioSink =
           new DumpingAudioSinkWithOffloadInitFailure(
               new DefaultAudioSink.Builder(context)
                   .setEnableFloatOutput(enableFloatOutput)
-                  .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+                  .setEnableAudioOutputPlaybackParameters(enableAudioOutputPlaybackParams)
                   .build());
       return dumpingAudioSink;
     }
@@ -189,12 +189,12 @@ public class EndToEndOffloadFailureRecoveryTest {
 
     @Override
     protected AudioSink buildAudioSink(
-        Context context, boolean enableFloatOutput, boolean enableAudioTrackPlaybackParams) {
+        Context context, boolean enableFloatOutput, boolean enableAudioOutputPlaybackParams) {
       dumpingAudioSink =
           new DumpingAudioSinkWithOffloadWriteFailure(
               new DefaultAudioSink.Builder(context)
                   .setEnableFloatOutput(enableFloatOutput)
-                  .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+                  .setEnableAudioOutputPlaybackParameters(enableAudioOutputPlaybackParams)
                   .build());
       return dumpingAudioSink;
     }

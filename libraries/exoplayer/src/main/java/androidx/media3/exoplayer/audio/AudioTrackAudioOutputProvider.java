@@ -64,6 +64,15 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
 
   private static final String TAG = "ATAudioOutputProvider";
 
+  /**
+   * Whether to throw an {@link AudioTrackAudioOutput.InvalidAudioTrackTimestampException} when a
+   * spurious timestamp is reported from {@link AudioTrack#getTimestamp}.
+   *
+   * <p>The flag must be set before creating a player. Should be set to {@code true} for testing and
+   * debugging purposes only.
+   */
+  public static boolean failOnSpuriousAudioTimestamp = false;
+
   /** A builder to create {@link AudioTrackAudioOutputProvider} instances. */
   public static final class Builder {
 
