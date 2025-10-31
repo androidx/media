@@ -34,6 +34,7 @@ import static androidx.media3.exoplayer.Renderer.MSG_SET_SCALING_MODE;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_SKIP_SILENCE_ENABLED;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_VIDEO_EFFECTS;
 import static androidx.media3.exoplayer.Renderer.MSG_SET_VIDEO_OUTPUT_RESOLUTION;
+import static androidx.media3.exoplayer.Renderer.MSG_SET_VIRTUAL_DEVICE_ID;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -1610,6 +1611,12 @@ import java.util.concurrent.CopyOnWriteArraySet;
   public void setPreferredAudioDevice(@Nullable AudioDeviceInfo audioDeviceInfo) {
     verifyApplicationThread();
     sendRendererMessage(TRACK_TYPE_AUDIO, MSG_SET_PREFERRED_AUDIO_DEVICE, audioDeviceInfo);
+  }
+
+  @Override
+  public void setVirtualDeviceId(int virtualDeviceId) {
+    verifyApplicationThread();
+    sendRendererMessage(TRACK_TYPE_AUDIO, MSG_SET_VIRTUAL_DEVICE_ID, virtualDeviceId);
   }
 
   @Override

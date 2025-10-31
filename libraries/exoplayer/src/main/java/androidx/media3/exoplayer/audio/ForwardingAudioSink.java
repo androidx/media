@@ -157,6 +157,11 @@ public class ForwardingAudioSink implements AudioSink {
   }
 
   @Override
+  public void setVirtualDeviceId(int virtualDeviceId) {
+    sink.setVirtualDeviceId(virtualDeviceId);
+  }
+
+  @Override
   public void setOutputStreamOffsetUs(long outputStreamOffsetUs) {
     sink.setOutputStreamOffsetUs(outputStreamOffsetUs);
   }

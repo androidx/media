@@ -141,6 +141,7 @@ import androidx.media3.exoplayer.audio.AudioRendererEventListener;
 import androidx.media3.exoplayer.audio.AudioSink;
 import androidx.media3.exoplayer.audio.DefaultAudioSink;
 import androidx.media3.exoplayer.audio.DefaultAudioTrackProvider;
+import androidx.media3.exoplayer.audio.ForwardingAudioSink;
 import androidx.media3.exoplayer.audio.MediaCodecAudioRenderer;
 import androidx.media3.exoplayer.drm.DrmSessionEventListener;
 import androidx.media3.exoplayer.drm.DrmSessionManager;
@@ -16080,6 +16081,33 @@ public final class ExoPlayerTest {
 
     assertThat(maxSeekToPreviousPosition).isEqualTo(1234);
     verify(listener).onMaxSeekToPreviousPositionChanged(1234);
+  }
+
+  @Test
+  public void setVirtualDeviceId_forwardsIdToAudioSink() throws Exception {
+    AtomicInteger receivedVirtualDeviceId = new AtomicInteger(C.INDEX_UNSET);
+    RenderersFactory renderersFactory =
+        new DefaultRenderersFactory(context) {
+          @Override
+          protected AudioSink buildAudioSink(
+              Context context, boolean enableFloatOutput, boolean enableAudioTrackPlaybackParams) {
+            return new ForwardingAudioSink(new DefaultAudioSink.Builder(context).build()) {
+              @Override
+              public void setVirtualDeviceId(int virtualDeviceId) {
+                receivedVirtualDeviceId.set(virtualDeviceId);
+              }
+            };
+          }
+        };
+    ExoPlayer player =
+        new TestExoPlayerBuilder(context).setRenderersFactory(renderersFactory).build();
+    advance(player).untilPendingCommandsAreFullyHandled();
+
+    player.setVirtualDeviceId(123);
+    advance(player).untilPendingCommandsAreFullyHandled();
+    player.release();
+
+    assertThat(receivedVirtualDeviceId.get()).isEqualTo(123);
   }
 
   // Internal methods.

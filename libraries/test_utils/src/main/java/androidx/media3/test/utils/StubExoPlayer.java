@@ -212,6 +212,11 @@ public class StubExoPlayer extends StubPlayer implements ExoPlayer {
   }
 
   @Override
+  public void setVirtualDeviceId(int virtualDeviceId) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
   public void setSkipSilenceEnabled(boolean skipSilenceEnabled) {
     throw new UnsupportedOperationException();
   }
