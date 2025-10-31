@@ -52,7 +52,7 @@ import org.robolectric.shadows.ShadowAudioTrack;
 public class AudioTrackAudioOutputProviderTest {
 
   private Context context;
-  private AudioOutputProvider audioOutputProvider;
+  private AudioTrackAudioOutputProvider audioOutputProvider;
   private AudioManager audioManager;
 
   private static final AudioAttributes TEST_ATTRIBUTES =
