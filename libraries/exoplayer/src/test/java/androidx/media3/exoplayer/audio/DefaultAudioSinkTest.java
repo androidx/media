@@ -52,6 +52,7 @@ import java.nio.ByteOrder;
 import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -751,6 +752,52 @@ public final class DefaultAudioSinkTest {
     defaultAudioSinkBuilder.build();
 
     assertThrows(IllegalStateException.class, defaultAudioSinkBuilder::build);
+  }
+
+  @Test
+  public void handleBuffer_recoverableWriteError_throwsWriteException() throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    AtomicBoolean writeShouldFail = new AtomicBoolean();
+    AudioOutputProvider audioOutputProvider =
+        new ForwardingAudioOutputProvider(
+            new AudioTrackAudioOutputProvider.Builder(context).build()) {
+          @Override
+          public AudioOutput getAudioOutput(OutputConfig config) throws InitializationException {
+            return new ForwardingAudioOutput(super.getAudioOutput(config)) {
+              @Override
+              public boolean write(
+                  ByteBuffer buffer, int encodedAccessUnitCount, long presentationTimeUs)
+                  throws WriteException {
+                if (writeShouldFail.get()) {
+                  throw new WriteException(/* errorCode= */ 1234, /* isRecoverable= */ true);
+                }
+                return super.write(buffer, encodedAccessUnitCount, presentationTimeUs);
+              }
+            };
+          }
+        };
+    defaultAudioSink =
+        new DefaultAudioSink.Builder(context).setAudioOutputProvider(audioOutputProvider).build();
+    configureDefaultAudioSink(CHANNEL_COUNT_STEREO);
+    // First write succeeds
+    assertThat(
+            defaultAudioSink.handleBuffer(
+                create1Sec44100HzSilenceBuffer(),
+                /* presentationTimeUs= */ 0,
+                /* encodedAccessUnitCount= */ 1))
+        .isTrue();
+
+    // Second write fails with recoverable error
+    writeShouldFail.set(true);
+    AudioSink.WriteException e =
+        assertThrows(
+            AudioSink.WriteException.class,
+            () ->
+                defaultAudioSink.handleBuffer(
+                    create1Sec44100HzSilenceBuffer(),
+                    /* presentationTimeUs= */ 1_000_000,
+                    /* encodedAccessUnitCount= */ 1));
+    assertThat(e.isRecoverable).isTrue();
   }
 
   private void configureDefaultAudioSink(int channelCount) throws AudioSink.ConfigurationException {
