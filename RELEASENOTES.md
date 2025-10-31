@@ -89,8 +89,11 @@ This release includes the following changes since
     *   Enable wake lock handling by default to fix issues with buffering during
         background playback. This is equivalent to setting
         `ExoPlayer.Builder.setWakeMode` to `C.WAKE_MODE_LOCAL`.
-    *   Add `ExoPlayer.setVirtualDeviceId` to update the virtual device ID
-        originally obtained from the `Context` passed to `ExoPlayer.Builder`.
+    *   Add listening logic to automatically update the virtual device ID when a
+        change is reported to the `Context` originally passed to
+        `ExoPlayer.Builder`.
+    *   Add `ExoPlayer.setVirtualDeviceId` to manually update the virtual device
+        ID obtained from the `Context` passed to `ExoPlayer.Builder`.
     *   Ensure renderers don't consume data from the next playlist item more
         than 10 seconds before the end of the current item.
     *   Add `setSeekBackIncrementMs`, `setSeekForwardIncrementMs` and
