@@ -22,6 +22,7 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.util.LibraryLoader;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
+
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /** Configures and queries the underlying native library. */
@@ -95,8 +96,11 @@ public final class FfmpegLibrary {
    *
    * @param mimeType The MIME type to check.
    */
-  public static boolean supportsFormat(String mimeType) {
+  public static boolean supportsFormat(@Nullable String mimeType) {
     if (!isAvailable()) {
+      return false;
+    }
+    if (mimeType == null) {
       return false;
     }
     @Nullable String codecName = getCodecName(mimeType);
@@ -152,7 +156,42 @@ public final class FfmpegLibrary {
       case MimeTypes.VIDEO_H264:
         return "h264";
       case MimeTypes.VIDEO_H265:
+      case MimeTypes.VIDEO_DOLBY_VISION:
         return "hevc";
+      case MimeTypes.VIDEO_VP8:
+        return "vp8";
+      case MimeTypes.VIDEO_VP9:
+        return "vp9";
+      case MimeTypes.VIDEO_WEBM:
+        return "webm";
+      case MimeTypes.VIDEO_MPEG:
+        return "mpegvideo";
+      case MimeTypes.VIDEO_MP2T:
+      case MimeTypes.VIDEO_MPEG2:
+        return "mpeg2video";
+      case MimeTypes.VIDEO_ProRes:
+        return "prores";
+      case MimeTypes.VIDEO_MP4V:
+      case MimeTypes.VIDEO_DIVX:
+        return "mpeg4";
+      case MimeTypes.VIDEO_MP42:
+        return "msmpeg4v2";
+      case MimeTypes.VIDEO_MP43:
+        return "msmpeg4";
+      case MimeTypes.VIDEO_AV1:
+        return "libaom-av1";
+      case MimeTypes.VIDEO_MJPEG:
+        return "mjpeg";
+      case MimeTypes.VIDEO_H263:
+        return "h263";
+      case MimeTypes.VIDEO_FLV:
+        return "flv1";
+      case MimeTypes.VIDEO_VC1:
+        return "vc1";
+      case MimeTypes.VIDEO_OGG:
+        return "theora";
+      case MimeTypes.VIDEO_AVI:
+        return "mpeg4";
       default:
         return null;
     }
