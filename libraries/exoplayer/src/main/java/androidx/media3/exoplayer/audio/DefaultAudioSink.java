@@ -28,6 +28,7 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.content.Context;
 import android.media.AudioDeviceInfo;
+import android.media.AudioFormat;
 import android.media.AudioTrack;
 import android.media.PlaybackParams;
 import android.os.Handler;
@@ -768,6 +769,17 @@ public final class DefaultAudioSink implements AudioSink {
       outputConfig = audioOutputProvider.getOutputConfig(formatConfig);
     } catch (AudioOutputProvider.ConfigurationException e) {
       throw new ConfigurationException(e, inputFormat);
+    }
+
+    if (outputConfig.encoding == C.ENCODING_INVALID) {
+      throw new ConfigurationException(
+          "Invalid output encoding (isOffload=" + outputConfig.isOffload + ")",
+          formatConfig.format);
+    }
+    if (outputConfig.channelConfig == AudioFormat.CHANNEL_INVALID) {
+      throw new ConfigurationException(
+          "Invalid output channel config (isOffload=" + outputConfig.isOffload + ")",
+          formatConfig.format);
     }
 
     offloadDisabledUntilNextConfiguration = false;
