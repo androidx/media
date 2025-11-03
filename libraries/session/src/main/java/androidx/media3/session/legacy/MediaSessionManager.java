@@ -26,11 +26,11 @@ import android.os.Build;
 import android.os.Process;
 import android.provider.Settings;
 import android.text.TextUtils;
-import android.util.Log;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
 import androidx.core.util.ObjectsCompat;
+import androidx.media3.common.util.Log;
 
 /**
  * Provides support for interacting with {@link MediaSessionCompat media sessions} that applications
@@ -42,7 +42,6 @@ import androidx.core.util.ObjectsCompat;
 @RestrictTo(LIBRARY)
 public final class MediaSessionManager {
   static final String TAG = "MediaSessionManager";
-  static final boolean DEBUG = Log.isLoggable(TAG, Log.DEBUG);
 
   private static final Object lock = new Object();
   @Nullable private static volatile MediaSessionManager sessionManager;
@@ -218,7 +217,6 @@ public final class MediaSessionManager {
 
   private static class MediaSessionManagerImpl {
     private static final String TAG = MediaSessionManager.TAG;
-    private static final boolean DEBUG = MediaSessionManager.DEBUG;
 
     private static final String PERMISSION_STATUS_BAR_SERVICE =
         "android.permission.STATUS_BAR_SERVICE";
@@ -254,9 +252,7 @@ public final class MediaSessionManager {
           return false;
         }
       } catch (PackageManager.NameNotFoundException e) {
-        if (DEBUG) {
-          Log.d(TAG, "Package " + userInfo.getPackageName() + " doesn't exist");
-        }
+        Log.d(TAG, "Package " + userInfo.getPackageName() + " doesn't exist");
         return false;
       }
       return isPermissionGranted(userInfo, PERMISSION_STATUS_BAR_SERVICE)
