@@ -36,6 +36,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.ColorSpace;
 import androidx.media3.common.MediaItem;
+import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.media3.inspector.FrameExtractor;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -217,5 +218,38 @@ public class FrameExtractorHdrTest {
     assertBitmapsAreSimilar(expectedBitmapFirstItem, actualBitmapFirstItem, PSNR_THRESHOLD);
     assertThat(frameSecondItem.presentationTimeMs).isEqualTo(0);
     assertBitmapsAreSimilar(expectedBitmapSecondItem, actualBitmapSecondItem, PSNR_THRESHOLD);
+  }
+
+  @Test
+  @SdkSuppress(minSdkVersion = 34) // HLG Bitmaps are only supported on API 34+.
+  public void extractFrame_changeMediaItemFromHdrToSdrWithHdrOutput_succeeds() throws Exception {
+    // TODO: b/438478509 - rename assumeDeviceSupportsOpenGlToneMapping. This check verifies
+    // that HDR input can be sampled by the GL pipeline.
+    assumeDeviceSupportsOpenGlToneMapping(testId, MP4_ASSET_COLOR_TEST_1080P_HLG10.videoFormat);
+
+    FrameExtractor.Frame frameFirstItem;
+    try (FrameExtractor frameExtractor =
+        new FrameExtractor.Builder(context, MediaItem.fromUri(MP4_ASSET_COLOR_TEST_1080P_HLG10.uri))
+            .setMediaCodecSelector(MediaCodecSelector.DEFAULT)
+            .setExtractHdrFrames(true)
+            .build()) {
+      ListenableFuture<FrameExtractor.Frame> frameFutureFirstItem =
+          frameExtractor.getFrame(/* positionMs= */ 0);
+      frameFirstItem = frameFutureFirstItem.get(TIMEOUT_SECONDS, SECONDS);
+    }
+
+    FrameExtractor.Frame frameSecondItem;
+    try (FrameExtractor frameExtractor =
+        new FrameExtractor.Builder(context, MediaItem.fromUri(MP4_TRIM_OPTIMIZATION_270.uri))
+            .setMediaCodecSelector(MediaCodecSelector.DEFAULT)
+            .setExtractHdrFrames(true)
+            .build()) {
+      ListenableFuture<FrameExtractor.Frame> frameFutureSecondItem =
+          frameExtractor.getFrame(/* positionMs= */ 0);
+      frameSecondItem = frameFutureSecondItem.get(TIMEOUT_SECONDS, SECONDS);
+    }
+
+    assertThat(frameFirstItem.presentationTimeMs).isEqualTo(0);
+    assertThat(frameSecondItem.presentationTimeMs).isEqualTo(0);
   }
 }

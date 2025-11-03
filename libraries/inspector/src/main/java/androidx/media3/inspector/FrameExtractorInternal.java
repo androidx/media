@@ -233,8 +233,11 @@ public final class FrameExtractorInternal {
         () -> {
           boolean needsNewPlayer =
               player == null
+                  // TODO: b/457376636 - reuse player when switching between HDR and SDR, after the
+                  // video processing pipeline is updated.
+                  || currentExtractHdrFrames
+                  || request.extractHdrFrames
                   || request.mediaCodecSelector != currentMediaCodecSelector
-                  || request.extractHdrFrames != currentExtractHdrFrames
                   || request.glObjectsProvider != currentGlObjectsProvider;
 
           boolean needsPrepare =
