@@ -244,6 +244,9 @@ public class TransformerAndroidTestRunner {
     try {
       ExportTestResult exportTestResult = runInternal(testId, composition, oldFilePath);
       resultJson.put("exportResult", exportTestResult.asJsonObject());
+      if (DebugTraceUtil.enableTracing) {
+        resultJson.put("debugTrace", DebugTraceUtil.generateTraceSummary());
+      }
       if (exportTestResult.exportResult.exportException != null) {
         throw exportTestResult.exportResult.exportException;
       }

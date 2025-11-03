@@ -43,6 +43,7 @@ import androidx.media3.common.util.Size;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.AlphaScale;
 import androidx.media3.effect.Contrast;
+import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.Presentation;
 import androidx.media3.effect.ScaleAndRotateTransformation;
@@ -52,6 +53,7 @@ import com.google.common.collect.ImmutableList;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -99,8 +101,15 @@ public final class TransformerMultiSequenceCompositionTest {
   public int maxFramesInEncoder;
 
   @Before
-  public void setUpTestId() {
+  public void setUp() {
+    // TODO: b/456187265 - Remove this once the bug is fixed.
+    DebugTraceUtil.enableTracing = true;
     testId = testName.getMethodName();
+  }
+
+  @After
+  public void tearDown() {
+    DebugTraceUtil.enableTracing = false;
   }
 
   @Test
