@@ -40,7 +40,9 @@ import androidx.media3.ui.compose.state.ShuffleButtonState
  *
  * @param player The [Player] to control.
  * @param modifier The [Modifier] to be applied to the button.
- * @param painter The supplier for [Painter] used for the icon displayed on the button.
+ * @param painter The supplier for [Painter] used for the icon displayed on the button. This is a
+ *   composable lambda with [ShuffleButtonState] as its receiver, allowing the icon to be updated
+ *   based on the button's current state (e.g. [ShuffleButtonState.shuffleOn]).
  * @param contentDescription The content description for accessibility purposes.
  * @param tint Tint to be applied to [painter]. If [Color.Unspecified] is provided, then no tint is
  *   applied.
@@ -92,7 +94,9 @@ fun ShuffleButton(
  *
  * @param player The [Player] to control.
  * @param modifier The [Modifier] to be applied to the button.
- * @param imageVector The supplier for [ImageVector] used for the icon displayed on the button.
+ * @param imageVector The supplier for [ImageVector] used for the icon displayed on the button. This
+ *   is a composable lambda with [ShuffleButtonState] as its receiver, allowing the icon to be
+ *   updated based on the button's current state (e.g. [ShuffleButtonState.shuffleOn]).
  * @param tint Tint to be applied to [imageVector]. If [Color.Unspecified] is provided, then no tint
  *   is applied.
  * @param contentDescription The content description for accessibility purposes.

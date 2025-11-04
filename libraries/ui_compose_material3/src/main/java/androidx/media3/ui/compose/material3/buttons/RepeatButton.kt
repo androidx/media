@@ -42,7 +42,9 @@ import androidx.media3.ui.compose.state.RepeatButtonState
  * @param modifier The [Modifier] to be applied to the button.
  * @param toggleModeSequence The sequence of repeat modes to cycle through when the button is
  *   clicked.
- * @param painter The supplier for [Painter] used for the icon displayed on the button.
+ * @param painter The supplier for [Painter] used for the icon displayed on the button. This is a
+ *   composable lambda with [RepeatButtonState] as its receiver, allowing the icon to be updated
+ *   based on the button's current state (e.g. [RepeatButtonState.repeatModeState]).
  * @param contentDescription The content description for accessibility purposes.
  * @param tint Tint to be applied to [painter]. If [Color.Unspecified] is provided, then no tint is
  *   applied.
@@ -98,7 +100,9 @@ fun RepeatButton(
  * @param modifier The [Modifier] to be applied to the button.
  * @param toggleModeSequence The sequence of repeat modes to cycle through when the button is
  *   clicked.
- * @param imageVector The supplier for [ImageVector] used for the icon displayed on the button.
+ * @param imageVector The supplier for [ImageVector] used for the icon displayed on the button. This
+ *   is a composable lambda with [RepeatButtonState] as its receiver, allowing the icon to be
+ *   updated based on the button's current state (e.g. [RepeatButtonState.repeatModeState]).
  * @param contentDescription The content description for accessibility purposes.
  * @param tint Tint to be applied to [imageVector]. If [Color.Unspecified] is provided, then no tint
  *   is applied.

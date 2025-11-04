@@ -33,6 +33,28 @@ import androidx.media3.ui.compose.state.PlayPauseButtonState
 /**
  * A Material3 [IconButton][androidx.compose.material3.IconButton] that plays or pauses the current
  * media item.
+ *
+ * When clicked, it will pause the [player] if it's currently playing, or play it otherwise. The
+ * button's state (e.g., whether it's enabled and the current play/pause icon) is managed by a
+ * [PlayPauseButtonState] instance derived from the provided [player].
+ *
+ * @param player The [Player] to control.
+ * @param modifier The [Modifier] to be applied to the button.
+ * @param painter The supplier for [Painter] used for the icon displayed on the button. This is a
+ *   composable lambda with [PlayPauseButtonState] as its receiver, allowing the icon to be updated
+ *   based on the button's current state (e.g., [PlayPauseButtonState.showPlay]).
+ * @param contentDescription The content description for accessibility purposes.
+ * @param tint Tint to be applied to [painter]. If [Color.Unspecified] is provided, then no tint is
+ *   applied.
+ * @param onClick The action to be performed when the button is clicked. This lambda has
+ *   [PlayPauseButtonState] as its receiver, providing access to the button's current state (e.g.,
+ *   [PlayPauseButtonState.isEnabled]). The default behavior is to call
+ *   [PlayPauseButtonState.onClick], which toggles the [player's][player] play/pause state.
+ *   Consumers can customize this behavior:
+ * * To add custom logic while still performing the default action, call `this.onClick()` within
+ *   your lambda.
+ * * To completely override the default behavior, implement your custom logic without calling
+ *   `this.onClick()`.
  */
 @UnstableApi
 @Composable
@@ -64,6 +86,28 @@ fun PlayPauseButton(
 /**
  * A Material3 [IconButton][androidx.compose.material3.IconButton] that plays or pauses the current
  * media item.
+ *
+ * When clicked, it will pause the [player] if it's currently playing, or play it otherwise. The
+ * button's state (e.g., whether it's enabled and the current play/pause icon) is managed by a
+ * [PlayPauseButtonState] instance derived from the provided [player].
+ *
+ * @param player The [Player] to control.
+ * @param modifier The [Modifier] to be applied to the button.
+ * @param imageVector The supplier for [ImageVector] used for the icon displayed on the button. This
+ *   is a composable lambda with [PlayPauseButtonState] as its receiver, allowing the icon to be
+ *   updated based on the button's current state (e.g., [PlayPauseButtonState.showPlay]).
+ * @param contentDescription The content description for accessibility purposes.
+ * @param tint Tint to be applied to [imageVector]. If [Color.Unspecified] is provided, then no tint
+ *   is applied.
+ * @param onClick The action to be performed when the button is clicked. This lambda has
+ *   [PlayPauseButtonState] as its receiver, providing access to the button's current state (e.g.,
+ *   [PlayPauseButtonState.isEnabled]). The default behavior is to call
+ *   [PlayPauseButtonState.onClick], which toggles the [player's][player] play/pause state.
+ *   Consumers can customize this behavior:
+ * * To add custom logic while still performing the default action, call `this.onClick()` within
+ *   your lambda.
+ * * To completely override the default behavior, implement your custom logic without calling
+ *   `this.onClick()`.
  */
 @JvmName("PlayPauseButtonWithImageVector")
 @UnstableApi

@@ -22,6 +22,15 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.compose.state.ShuffleButtonState
 import androidx.media3.ui.compose.state.rememberShuffleButtonState
 
+/**
+ * A state container for a button that toggles shuffle mode on and off.
+ *
+ * This composable manages the enabled state and click handling of a shuffle button. The UI is
+ * provided by the [content] lambda, which has access to the [ShuffleButtonState].
+ *
+ * @param player The [Player] to control.
+ * @param content The composable content to be displayed for the button.
+ */
 @UnstableApi
 @Composable
 fun ShuffleButton(player: Player, content: @Composable ShuffleButtonState.() -> Unit) {
