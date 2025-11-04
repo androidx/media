@@ -312,12 +312,16 @@ import org.checkerframework.checker.initialization.qual.Initialized;
    * the platform session.
    */
   public MediaSession.ConnectionResult getPlatformConnectionResult(MediaSession mediaSession) {
-    return new MediaSession.ConnectionResult.AcceptedResultBuilder(mediaSession)
-        .setAvailableSessionCommands(availableSessionCommands)
-        .setAvailablePlayerCommands(availablePlayerCommands)
-        .setCustomLayout(customLayout)
-        .setMediaButtonPreferences(mediaButtonPreferences)
-        .build();
+    MediaSession.ConnectionResult.AcceptedResultBuilder result =
+        new MediaSession.ConnectionResult.AcceptedResultBuilder(mediaSession)
+            .setAvailableSessionCommands(availableSessionCommands)
+            .setAvailablePlayerCommands(availablePlayerCommands);
+    if (!mediaButtonPreferences.isEmpty()) {
+      result.setMediaButtonPreferences(mediaButtonPreferences);
+    } else {
+      result.setCustomLayout(customLayout);
+    }
+    return result.build();
   }
 
   /**
