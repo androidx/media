@@ -51,12 +51,12 @@ import android.util.SparseArray;
 import android.util.SparseLongArray;
 import androidx.media3.common.C;
 import androidx.media3.test.utils.TestUtil;
-import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.io.ByteStreams;
 import com.google.common.primitives.Bytes;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.testing.junit.testparameterinjector.TestParameter;
 import java.io.ByteArrayInputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -72,11 +72,12 @@ import java.util.zip.Deflater;
 import java.util.zip.GZIPInputStream;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestParameterInjector;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowLooper;
 
 /** Unit tests for {@link Util}. */
-@RunWith(AndroidJUnit4.class)
+@RunWith(RobolectricTestParameterInjector.class)
 public class UtilTest {
 
   private static final int TIMEOUT_MS = 10000;
@@ -975,14 +976,20 @@ public class UtilTest {
   }
 
   @Test
-  public void parseXsDateTime_returnsParsedDateTimeInMillis() throws Exception {
-    assertThat(parseXsDateTime("2014-06-19T23:07:42")).isEqualTo(1403219262000L);
-    assertThat(parseXsDateTime("2014-08-06T11:00:00Z")).isEqualTo(1407322800000L);
-    assertThat(parseXsDateTime("2014-08-06T11:00:00,000Z")).isEqualTo(1407322800000L);
-    assertThat(parseXsDateTime("2014-09-19T13:18:55-08:00")).isEqualTo(1411161535000L);
-    assertThat(parseXsDateTime("2014-09-19T13:18:55-0800")).isEqualTo(1411161535000L);
-    assertThat(parseXsDateTime("2014-09-19T13:18:55.000-0800")).isEqualTo(1411161535000L);
-    assertThat(parseXsDateTime("2014-09-19T13:18:55.000-800")).isEqualTo(1411161535000L);
+  public void parseXsDateTime_returnsParsedDateTimeInMillis(
+      @TestParameter({"T", "t", " "}) String separator) throws Exception {
+    assertThat(parseXsDateTime("2014-06-19" + separator + "23:07:42")).isEqualTo(1403219262000L);
+    assertThat(parseXsDateTime("2014-08-06" + separator + "11:00:00Z")).isEqualTo(1407322800000L);
+    assertThat(parseXsDateTime("2014-08-06" + separator + "11:00:00,000Z"))
+        .isEqualTo(1407322800000L);
+    assertThat(parseXsDateTime("2014-09-19" + separator + "13:18:55-08:00"))
+        .isEqualTo(1411161535000L);
+    assertThat(parseXsDateTime("2014-09-19" + separator + "13:18:55-0800"))
+        .isEqualTo(1411161535000L);
+    assertThat(parseXsDateTime("2014-09-19" + separator + "13:18:55.000-0800"))
+        .isEqualTo(1411161535000L);
+    assertThat(parseXsDateTime("2014-09-19" + separator + "13:18:55.000-800"))
+        .isEqualTo(1411161535000L);
   }
 
   @Test
