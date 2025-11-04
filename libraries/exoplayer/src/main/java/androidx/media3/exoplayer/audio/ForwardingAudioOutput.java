@@ -23,7 +23,6 @@ import androidx.media3.exoplayer.analytics.PlayerId;
 import java.nio.ByteBuffer;
 
 /** A forwarding base class that delegates all calls to the provided {@link AudioOutput}. */
-@UnstableApi
 public class ForwardingAudioOutput implements AudioOutput {
 
   private final AudioOutput audioOutput;
@@ -133,6 +132,7 @@ public class ForwardingAudioOutput implements AudioOutput {
     audioOutput.setOffloadEndOfStream();
   }
 
+  @UnstableApi
   @Override
   public void setPlayerId(PlayerId playerId) {
     audioOutput.setPlayerId(playerId);

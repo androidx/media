@@ -108,7 +108,7 @@ public final class AudioTrackAudioOutputTest {
             new OutputConfig.Builder()
                 .setEncoding(encoding)
                 .setSampleRate(sampleRate)
-                .setChannelConfig(channelMask)
+                .setChannelMask(channelMask)
                 .setBufferSize(1024)
                 .setAudioAttributes(
                     new AudioAttributes.Builder()

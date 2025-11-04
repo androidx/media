@@ -19,7 +19,6 @@ import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.UnstableApi;
 
 /** A forwarding base class that delegates all calls to the provided {@link AudioOutputProvider}. */
-@UnstableApi
 public class ForwardingAudioOutputProvider implements AudioOutputProvider {
 
   private final AudioOutputProvider audioOutputProvider;
@@ -58,6 +57,7 @@ public class ForwardingAudioOutputProvider implements AudioOutputProvider {
     audioOutputProvider.removeListener(listener);
   }
 
+  @UnstableApi
   @Override
   public void setClock(Clock clock) {
     audioOutputProvider.setClock(clock);

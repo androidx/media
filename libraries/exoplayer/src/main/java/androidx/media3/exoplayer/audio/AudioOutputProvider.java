@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer.audio;
 
+import static androidx.core.util.Preconditions.checkNotNull;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.media.AudioDeviceInfo;
@@ -33,7 +34,6 @@ import java.lang.annotation.Target;
 import java.util.Objects;
 
 /** A provider for {@link AudioOutput} instances and for querying their support. */
-@UnstableApi
 public interface AudioOutputProvider {
 
   /** Listener for {@link AudioOutputProvider} events. */
@@ -54,7 +54,7 @@ public interface AudioOutputProvider {
     /** The {@link AudioAttributes} to use for playback. */
     public final AudioAttributes audioAttributes;
 
-    /** The preferred {@link AudioDeviceInfo} for audio output. */
+    /** The preferred {@link AudioDeviceInfo} for audio output, or null for no preference. */
     @Nullable public final AudioDeviceInfo preferredDevice;
 
     /** Sets whether to enable high resolution PCM output with more than 16 bits. */
@@ -168,7 +168,7 @@ public interface AudioOutputProvider {
         return this;
       }
 
-      /** Sets the preferred {@link AudioDeviceInfo}. */
+      /** Sets the preferred {@link AudioDeviceInfo}, or null for no preference. */
       @CanIgnoreReturnValue
       public Builder setPreferredDevice(@Nullable AudioDeviceInfo preferredDevice) {
         this.preferredDevice = preferredDevice;
@@ -274,10 +274,10 @@ public interface AudioOutputProvider {
     public final int sampleRate;
 
     /**
-     * The channel configuration of the output. See {@code AudioFormat.CHANNEL_OUT_XXX} constants
-     * like {@link android.media.AudioFormat#CHANNEL_OUT_5POINT1}.
+     * The channel mask of the output. See {@code AudioFormat.CHANNEL_OUT_XXX} constants like {@link
+     * android.media.AudioFormat#CHANNEL_OUT_5POINT1}.
      */
-    public final int channelConfig;
+    public final int channelMask;
 
     /** Whether tunneling is enabled for this output. */
     public final boolean isTunneling;
@@ -309,7 +309,7 @@ public interface AudioOutputProvider {
     private OutputConfig(Builder builder) {
       this.encoding = builder.encoding;
       this.sampleRate = builder.sampleRate;
-      this.channelConfig = builder.channelConfig;
+      this.channelMask = builder.channelMask;
       this.isTunneling = builder.isTunneling;
       this.isOffload = builder.isOffload;
       this.bufferSize = builder.bufferSize;
@@ -336,7 +336,7 @@ public interface AudioOutputProvider {
       OutputConfig that = (OutputConfig) o;
       return encoding == that.encoding
           && sampleRate == that.sampleRate
-          && channelConfig == that.channelConfig
+          && channelMask == that.channelMask
           && isTunneling == that.isTunneling
           && isOffload == that.isOffload
           && bufferSize == that.bufferSize
@@ -352,7 +352,7 @@ public interface AudioOutputProvider {
       return Objects.hash(
           encoding,
           sampleRate,
-          channelConfig,
+          channelMask,
           isTunneling,
           isOffload,
           bufferSize,
@@ -367,7 +367,7 @@ public interface AudioOutputProvider {
     public static final class Builder {
       private @C.Encoding int encoding;
       private int sampleRate;
-      private int channelConfig;
+      private int channelMask;
       private boolean isTunneling;
       private boolean isOffload;
       private int bufferSize;
@@ -387,7 +387,7 @@ public interface AudioOutputProvider {
       private Builder(OutputConfig config) {
         this.encoding = config.encoding;
         this.sampleRate = config.sampleRate;
-        this.channelConfig = config.channelConfig;
+        this.channelMask = config.channelMask;
         this.isTunneling = config.isTunneling;
         this.isOffload = config.isOffload;
         this.bufferSize = config.bufferSize;
@@ -412,10 +412,15 @@ public interface AudioOutputProvider {
         return this;
       }
 
-      /** Sets the channel configuration of the output. */
+      /**
+       * Sets the channel mask of the output.
+       *
+       * <p>See {@code AudioFormat.CHANNEL_OUT_XXX} constants like {@link
+       * android.media.AudioFormat#CHANNEL_OUT_5POINT1}.
+       */
       @CanIgnoreReturnValue
-      public Builder setChannelConfig(int channelConfig) {
-        this.channelConfig = channelConfig;
+      public Builder setChannelMask(int channelMask) {
+        this.channelMask = channelMask;
         return this;
       }
 
@@ -600,15 +605,20 @@ public interface AudioOutputProvider {
 
     /** Creates a new configuration exception with the specified {@code message}. */
     public ConfigurationException(String message) {
-      super(message);
+      super(checkNotNull(message));
     }
   }
 
   /** Thrown when a failure occurs initializing the output. */
   final class InitializationException extends Exception {
 
+    /** Creates a new initialization exception with no specified cause. */
+    public InitializationException() {
+      super();
+    }
+
     /** Creates a new initialization exception with the specified {@code cause}. */
-    public InitializationException(@Nullable Throwable cause) {
+    public InitializationException(Throwable cause) {
       super(cause);
     }
   }
@@ -675,7 +685,8 @@ public interface AudioOutputProvider {
   void removeListener(Listener listener);
 
   /** Sets the {@link Clock} to use in the provider. */
-  void setClock(Clock clock);
+  @UnstableApi
+  default void setClock(Clock clock) {}
 
   /** Releases resources held by the provider. */
   void release();

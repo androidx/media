@@ -44,7 +44,6 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 
 /** A default implementation of {@link AudioOutput} that wraps an {@link AudioTrack}. */
-@UnstableApi
 public final class AudioTrackAudioOutput implements AudioOutput {
 
   /** Listener for potential capability change events. */
@@ -128,7 +127,7 @@ public final class AudioTrackAudioOutput implements AudioOutput {
 
     isOutputPcm = Util.isEncodingLinearPcm(config.encoding);
     if (isOutputPcm) {
-      int channelCount = Integer.bitCount(config.channelConfig);
+      int channelCount = Integer.bitCount(config.channelMask);
       pcmFrameSize = Util.getPcmFrameSize(config.encoding, channelCount);
     } else {
       pcmFrameSize = C.LENGTH_UNSET;
@@ -340,6 +339,7 @@ public final class AudioTrackAudioOutput implements AudioOutput {
     audioTrackPositionTracker.expectRawPlaybackHeadReset();
   }
 
+  @UnstableApi
   @Override
   public void setPlayerId(PlayerId playerId) {
     if (SDK_INT < 31) {
@@ -553,6 +553,7 @@ public final class AudioTrackAudioOutput implements AudioOutput {
    * Thrown when the audio track has provided a spurious timestamp, if {@link
    * AudioTrackAudioOutputProvider#failOnSpuriousAudioTimestamp} is set.
    */
+  @UnstableApi
   public static final class InvalidAudioTrackTimestampException extends RuntimeException {
 
     /**

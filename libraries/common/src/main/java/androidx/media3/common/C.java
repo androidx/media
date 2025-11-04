@@ -173,7 +173,6 @@ public final class C {
    * {@link #ENCODING_DTS}, {@link #ENCODING_DTS_HD}, {@link #ENCODING_DOLBY_TRUEHD} or {@link
    * #ENCODING_OPUS}.
    */
-  @UnstableApi
   @Documented
   @Retention(RetentionPolicy.SOURCE)
   @Target(TYPE_USE)
@@ -233,79 +232,79 @@ public final class C {
   public @interface PcmEncoding {}
 
   /** See {@link AudioFormat#ENCODING_INVALID}. */
-  @UnstableApi public static final int ENCODING_INVALID = AudioFormat.ENCODING_INVALID;
+  public static final int ENCODING_INVALID = AudioFormat.ENCODING_INVALID;
 
   /** See {@link AudioFormat#ENCODING_PCM_8BIT}. */
-  @UnstableApi public static final int ENCODING_PCM_8BIT = AudioFormat.ENCODING_PCM_8BIT;
+  public static final int ENCODING_PCM_8BIT = AudioFormat.ENCODING_PCM_8BIT;
 
   /** See {@link AudioFormat#ENCODING_PCM_16BIT}. */
-  @UnstableApi public static final int ENCODING_PCM_16BIT = AudioFormat.ENCODING_PCM_16BIT;
+  public static final int ENCODING_PCM_16BIT = AudioFormat.ENCODING_PCM_16BIT;
 
   /** Like {@link #ENCODING_PCM_16BIT}, but with the bytes in big endian order. */
   @UnstableApi public static final int ENCODING_PCM_16BIT_BIG_ENDIAN = 0x10000000;
 
   /** PCM encoding with 24 bits per sample. */
-  @UnstableApi public static final int ENCODING_PCM_24BIT = AudioFormat.ENCODING_PCM_24BIT_PACKED;
+  public static final int ENCODING_PCM_24BIT = AudioFormat.ENCODING_PCM_24BIT_PACKED;
 
   /** Like {@link #ENCODING_PCM_24BIT} but with the bytes in big endian order. */
   @UnstableApi public static final int ENCODING_PCM_24BIT_BIG_ENDIAN = 0x50000000;
 
   /** PCM encoding with 32 bits per sample. */
-  @UnstableApi public static final int ENCODING_PCM_32BIT = AudioFormat.ENCODING_PCM_32BIT;
+  public static final int ENCODING_PCM_32BIT = AudioFormat.ENCODING_PCM_32BIT;
 
   /** Like {@link #ENCODING_PCM_32BIT} but with the bytes in big endian order. */
   @UnstableApi public static final int ENCODING_PCM_32BIT_BIG_ENDIAN = 0x60000000;
 
   /** See {@link AudioFormat#ENCODING_PCM_FLOAT}. */
-  @UnstableApi public static final int ENCODING_PCM_FLOAT = AudioFormat.ENCODING_PCM_FLOAT;
+  public static final int ENCODING_PCM_FLOAT = AudioFormat.ENCODING_PCM_FLOAT;
 
   /** See {@link AudioFormat#ENCODING_MP3}. */
-  @UnstableApi public static final int ENCODING_MP3 = AudioFormat.ENCODING_MP3;
+  public static final int ENCODING_MP3 = AudioFormat.ENCODING_MP3;
 
   /** See {@link AudioFormat#ENCODING_AAC_LC}. */
-  @UnstableApi public static final int ENCODING_AAC_LC = AudioFormat.ENCODING_AAC_LC;
+  public static final int ENCODING_AAC_LC = AudioFormat.ENCODING_AAC_LC;
 
   /** See {@link AudioFormat#ENCODING_AAC_HE_V1}. */
-  @UnstableApi public static final int ENCODING_AAC_HE_V1 = AudioFormat.ENCODING_AAC_HE_V1;
+  public static final int ENCODING_AAC_HE_V1 = AudioFormat.ENCODING_AAC_HE_V1;
 
   /** See {@link AudioFormat#ENCODING_AAC_HE_V2}. */
-  @UnstableApi public static final int ENCODING_AAC_HE_V2 = AudioFormat.ENCODING_AAC_HE_V2;
+  public static final int ENCODING_AAC_HE_V2 = AudioFormat.ENCODING_AAC_HE_V2;
 
   /** See {@link AudioFormat#ENCODING_AAC_XHE}. */
-  @UnstableApi public static final int ENCODING_AAC_XHE = AudioFormat.ENCODING_AAC_XHE;
+  public static final int ENCODING_AAC_XHE = AudioFormat.ENCODING_AAC_XHE;
 
   /** See {@link AudioFormat#ENCODING_AAC_ELD}. */
-  @UnstableApi public static final int ENCODING_AAC_ELD = AudioFormat.ENCODING_AAC_ELD;
+  public static final int ENCODING_AAC_ELD = AudioFormat.ENCODING_AAC_ELD;
 
   /** AAC Error Resilient Bit-Sliced Arithmetic Coding. */
   @UnstableApi public static final int ENCODING_AAC_ER_BSAC = 0x40000000;
 
   /** See {@link AudioFormat#ENCODING_AC3}. */
-  @UnstableApi public static final int ENCODING_AC3 = AudioFormat.ENCODING_AC3;
+  public static final int ENCODING_AC3 = AudioFormat.ENCODING_AC3;
 
   /** See {@link AudioFormat#ENCODING_E_AC3}. */
-  @UnstableApi public static final int ENCODING_E_AC3 = AudioFormat.ENCODING_E_AC3;
+  public static final int ENCODING_E_AC3 = AudioFormat.ENCODING_E_AC3;
 
   /** See {@link AudioFormat#ENCODING_E_AC3_JOC}. */
-  @UnstableApi public static final int ENCODING_E_AC3_JOC = AudioFormat.ENCODING_E_AC3_JOC;
+  public static final int ENCODING_E_AC3_JOC = AudioFormat.ENCODING_E_AC3_JOC;
 
   /** See {@link AudioFormat#ENCODING_AC4}. */
-  @UnstableApi public static final int ENCODING_AC4 = AudioFormat.ENCODING_AC4;
+  public static final int ENCODING_AC4 = AudioFormat.ENCODING_AC4;
 
   /** See {@link AudioFormat#ENCODING_DTS}. */
-  @UnstableApi public static final int ENCODING_DTS = AudioFormat.ENCODING_DTS;
+  public static final int ENCODING_DTS = AudioFormat.ENCODING_DTS;
 
   /** See {@link AudioFormat#ENCODING_DTS_HD}. */
-  @UnstableApi public static final int ENCODING_DTS_HD = AudioFormat.ENCODING_DTS_HD;
+  public static final int ENCODING_DTS_HD = AudioFormat.ENCODING_DTS_HD;
 
   /** See {@link AudioFormat#ENCODING_DTS_UHD_P2}. */
-  @UnstableApi public static final int ENCODING_DTS_UHD_P2 = AudioFormat.ENCODING_DTS_UHD_P2;
+  public static final int ENCODING_DTS_UHD_P2 = AudioFormat.ENCODING_DTS_UHD_P2;
 
   /** See {@link AudioFormat#ENCODING_DOLBY_TRUEHD}. */
-  @UnstableApi public static final int ENCODING_DOLBY_TRUEHD = AudioFormat.ENCODING_DOLBY_TRUEHD;
+  public static final int ENCODING_DOLBY_TRUEHD = AudioFormat.ENCODING_DOLBY_TRUEHD;
 
   /** See {@link AudioFormat#ENCODING_OPUS}. */
-  @UnstableApi public static final int ENCODING_OPUS = AudioFormat.ENCODING_OPUS;
+  public static final int ENCODING_OPUS = AudioFormat.ENCODING_OPUS;
 
   /**
    * Represents the behavior affecting whether spatialization will be used. One of {@link

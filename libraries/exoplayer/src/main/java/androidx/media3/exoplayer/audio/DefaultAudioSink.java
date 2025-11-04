@@ -776,7 +776,7 @@ public final class DefaultAudioSink implements AudioSink {
           "Invalid output encoding (isOffload=" + outputConfig.isOffload + ")",
           formatConfig.format);
     }
-    if (outputConfig.channelConfig == AudioFormat.CHANNEL_INVALID) {
+    if (outputConfig.channelMask == AudioFormat.CHANNEL_INVALID) {
       throw new ConfigurationException(
           "Invalid output channel config (isOffload=" + outputConfig.isOffload + ")",
           formatConfig.format);
@@ -1061,7 +1061,7 @@ public final class DefaultAudioSink implements AudioSink {
           new InitializationException(
               AudioTrack.STATE_UNINITIALIZED,
               outputConfig.sampleRate,
-              outputConfig.channelConfig,
+              outputConfig.channelMask,
               outputConfig.encoding,
               outputConfig.bufferSize,
               configuration.inputFormat,
@@ -1904,7 +1904,7 @@ public final class DefaultAudioSink implements AudioSink {
             new AudioTrackConfig(
                 outputConfig.encoding,
                 outputConfig.sampleRate,
-                outputConfig.channelConfig,
+                outputConfig.channelMask,
                 outputConfig.isTunneling,
                 outputConfig.isOffload,
                 outputConfig.bufferSize));
@@ -1990,7 +1990,7 @@ public final class DefaultAudioSink implements AudioSink {
       return new AudioTrackConfig(
           outputConfig.encoding,
           outputConfig.sampleRate,
-          outputConfig.channelConfig,
+          outputConfig.channelMask,
           outputConfig.isTunneling,
           outputConfig.isOffload,
           outputConfig.bufferSize);

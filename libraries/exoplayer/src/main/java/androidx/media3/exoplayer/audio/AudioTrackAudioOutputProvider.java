@@ -59,7 +59,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
 /** A default implementation of {@link AudioOutputProvider}. */
-@UnstableApi
 public final class AudioTrackAudioOutputProvider implements AudioOutputProvider {
 
   private static final String TAG = "ATAudioOutputProvider";
@@ -71,6 +70,8 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
    * <p>The flag must be set before creating a player. Should be set to {@code true} for testing and
    * debugging purposes only.
    */
+  @SuppressWarnings("NonFinalStaticField") // Test-only access
+  @UnstableApi
   public static boolean failOnSpuriousAudioTimestamp = false;
 
   /** A builder to create {@link AudioTrackAudioOutputProvider} instances. */
@@ -123,6 +124,7 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
      * @param audioOffloadSupportProvider The {@link AudioOffloadSupportProvider} to use.
      * @return This builder.
      */
+    @UnstableApi
     @CanIgnoreReturnValue
     public Builder setAudioOffloadSupportProvider(
         AudioOffloadSupportProvider audioOffloadSupportProvider) {
@@ -139,6 +141,7 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
      * @param bufferSizeProvider The {@link AudioTrackBufferSizeProvider} to use.
      * @return This builder.
      */
+    @UnstableApi
     @CanIgnoreReturnValue
     public Builder setAudioTrackBufferSizeProvider(
         AudioTrackBufferSizeProvider bufferSizeProvider) {
@@ -147,6 +150,7 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
     }
 
     /** Sets the static {@link AudioCapabilities} for backwards compatibility. */
+    @UnstableApi
     @CanIgnoreReturnValue
     /* package */ Builder setAudioCapabilities(@Nullable AudioCapabilities audioCapabilities) {
       if (context == null) {
@@ -156,6 +160,7 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
     }
 
     /** Sets the {@link AudioTrackProvider} for backwards compatibility. */
+    @UnstableApi
     @CanIgnoreReturnValue
     /* package */ Builder setAudioTrackProvider(@Nullable AudioTrackProvider audioTrackProvider) {
       this.audioTrackProvider = audioTrackProvider;
@@ -286,7 +291,7 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
 
     return new OutputConfig.Builder()
         .setSampleRate(outputSampleRate)
-        .setChannelConfig(outputChannelConfig)
+        .setChannelMask(outputChannelConfig)
         .setEncoding(outputEncoding)
         .setBufferSize(bufferSize)
         .setAudioSessionId(formatConfig.audioSessionId)
@@ -324,7 +329,7 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
         AudioFormat format =
             new AudioFormat.Builder()
                 .setSampleRate(config.sampleRate)
-                .setChannelMask(config.channelConfig)
+                .setChannelMask(config.channelMask)
                 .setEncoding(config.encoding)
                 .build();
         android.media.AudioAttributes audioTrackAttributes =
@@ -357,7 +362,7 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
         // The track has already failed to initialize, so it wouldn't be that surprising if
         // release were to fail too. Swallow the exception.
       }
-      throw new InitializationException(/* cause= */ null);
+      throw new InitializationException();
     }
     return new AudioTrackAudioOutput(audioTrack, config, capabilityChangeListener, clock);
   }
@@ -380,6 +385,7 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
     }
   }
 
+  @UnstableApi
   @Override
   public void setClock(Clock clock) {
     this.clock = clock;
@@ -501,7 +507,7 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
     return new AudioTrackConfig(
         config.encoding,
         config.sampleRate,
-        config.channelConfig,
+        config.channelMask,
         config.isTunneling,
         config.isOffload,
         config.bufferSize);

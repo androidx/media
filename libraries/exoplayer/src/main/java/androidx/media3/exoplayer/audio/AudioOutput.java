@@ -25,7 +25,6 @@ import androidx.media3.exoplayer.analytics.PlayerId;
 import java.nio.ByteBuffer;
 
 /** An interface to wrap an object that can play audio, like an {@link AudioTrack}. */
-@UnstableApi
 public interface AudioOutput {
 
   /** Listener for {@link AudioOutput} events. */
@@ -168,7 +167,8 @@ public interface AudioOutput {
   void setOffloadEndOfStream();
 
   /** Sets the {@link PlayerId} on the audio output. */
-  void setPlayerId(PlayerId playerId);
+  @UnstableApi
+  default void setPlayerId(PlayerId playerId) {}
 
   /** Attaches an auxiliary effect to the output. */
   void attachAuxEffect(int effectId);
@@ -176,6 +176,6 @@ public interface AudioOutput {
   /** Sets the send level for the auxiliary effect. */
   void setAuxEffectSendLevel(float level);
 
-  /** Sets the preferred audio device for routing. */
+  /** Sets the preferred audio device for routing, or null for no preference. */
   void setPreferredDevice(@Nullable AudioDeviceInfo preferredDevice);
 }
