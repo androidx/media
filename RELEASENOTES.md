@@ -6,6 +6,9 @@
 *   ExoPlayer:
     *   Add `cloneAndSet(int, int)` to `ShuffleOrder` with a default
         implementation ([#2834](https://github.com/androidx/media/pull/2834)).
+    *   Append content resume offset when skipping ad playback after seek
+        adjustment or auto transition
+        ([2484](https://github.com/androidx/media/issues/2484)).
 *   CompositionPlayer:
 *   Transformer:
 *   Track Selection:

@@ -38,6 +38,7 @@ import android.util.Pair;
 import androidx.annotation.CheckResult;
 import androidx.annotation.Nullable;
 import androidx.media3.common.AdPlaybackState;
+import androidx.media3.common.AdPlaybackState.AdGroup;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -1607,6 +1608,9 @@ import java.util.Objects;
                 ? period.getAdResumePositionUs()
                 : 0;
         seekPositionAdjusted = true;
+        AdGroup adGroup = period.adPlaybackState.getAdGroup(periodId.adGroupIndex);
+        requestedContentPositionUs =
+            max(requestedContentPositionUs, adGroup.timeUs + adGroup.contentResumeOffsetUs);
       } else {
         periodPositionUs = resolvedContentPositionUs;
         seekPositionAdjusted = seekPosition.windowPositionUs == C.TIME_UNSET;
@@ -2536,7 +2540,7 @@ import java.util.Objects;
                 newPeriodId,
                 newPositionUs,
                 newRequestedContentPositionUs,
-                playbackInfo.discontinuityStartPositionUs,
+                reportDiscontinuity ? newPositionUs : playbackInfo.discontinuityStartPositionUs,
                 reportDiscontinuity,
                 timeline.getIndexOfPeriod(oldPeriodUid) == C.INDEX_UNSET
                     ? Player.DISCONTINUITY_REASON_REMOVE
@@ -3672,6 +3676,27 @@ import java.util.Objects;
             newPeriodId.adIndexInAdGroup == period.getFirstAdIndexToPlay(newPeriodId.adGroupIndex)
                 ? period.getAdResumePositionUs()
                 : 0;
+      }
+    } else if (sameOldAndNewPeriodUid && oldPeriodId.isAd()) {
+      // Transition to content after ad.
+      AdPlaybackState adPlaybackState =
+          timeline.getPeriodByUid(newPeriodUid, period).adPlaybackState;
+      AdGroup adGroup = adPlaybackState.getAdGroup(oldPeriodId.adGroupIndex);
+      long contentResumeOffsetUs = adGroup.contentResumeOffsetUs;
+      boolean useRequestedContentPosition =
+          playbackInfo.requestedContentPositionUs != C.TIME_UNSET
+              && adGroup.timeUs != C.TIME_END_OF_SOURCE
+              && adGroup.timeUs + contentResumeOffsetUs <= playbackInfo.requestedContentPositionUs;
+      if (!useRequestedContentPosition
+          && adGroup.count > oldPeriodId.adIndexInAdGroup
+          && adGroup.states[oldPeriodId.adIndexInAdGroup] == AdPlaybackState.AD_STATE_SKIPPED) {
+        // An ad period was skipped and playback continues on content. Apply resume offset.
+        long durationUs = timeline.getPeriodByUid(newPeriodUid, period).durationUs;
+        periodPositionUs =
+            durationUs != C.TIME_UNSET
+                ? min(durationUs - 1, periodPositionUs + contentResumeOffsetUs)
+                : periodPositionUs + contentResumeOffsetUs;
+        newContentPositionUs = periodPositionUs;
       }
     }
 
