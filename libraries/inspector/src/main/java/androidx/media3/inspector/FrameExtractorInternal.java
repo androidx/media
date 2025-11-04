@@ -237,13 +237,15 @@ public final class FrameExtractorInternal {
                   // video processing pipeline is updated.
                   || currentExtractHdrFrames
                   || request.extractHdrFrames
+                  // TODO: b/457376636 - reuse the player on error when the video frame processor
+                  // can recover from errors.
+                  || player.getPlayerError() != null
                   || request.mediaCodecSelector != currentMediaCodecSelector
                   || request.glObjectsProvider != currentGlObjectsProvider;
 
           boolean needsPrepare =
               needsNewPlayer
-                  || !request.mediaItem.equals(checkNotNull(player).getCurrentMediaItem())
-                  || checkNotNull(player).getPlayerError() != null;
+                  || !request.mediaItem.equals(checkNotNull(player).getCurrentMediaItem());
 
           boolean isThumbnailRequest = request.positionMs == C.TIME_UNSET;
 
