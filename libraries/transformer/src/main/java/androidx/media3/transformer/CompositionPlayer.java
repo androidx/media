@@ -1893,7 +1893,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
         GlTextureInfo outputTexture,
         long presentationTimeUs,
         long syncObject) {
-      // TODO: b/430250432 - Add syncObject to GlTextureFrame.
+      // TODO: b/449956936 - Add syncObject to GlTextureFrame.
       GlTextureFrame textureFrame =
           new GlTextureFrame.Builder(
                   outputTexture,

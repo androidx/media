@@ -48,21 +48,21 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 
-// TODO: b/449957627 - Remove once pipeline has been migrated to FrameConsumer interface.
+// TODO: b/449957627 - Remove once pipeline has been migrated to PacketConsumer interface.
 /**
  * A simple placeholder [PacketConsumer] that renders frames from up to 4 simultaneous sequences in
  * a 2x2 grid on an output [Surface].
  */
 @ExperimentalApi
 @UnstableApi
-internal class DemoRenderingFrameConsumer
+internal class DemoRenderingPacketConsumer
 private constructor(
   glExecutorService: ExecutorService,
   private val errorListener: Consumer<Exception>,
   private val outputSurface: Surface?,
 ) : PacketConsumer<List<GlTextureFrame>> {
 
-  /** [PacketConsumer.Factory] for creating [DemoRenderingFrameConsumer] instances. */
+  /** [PacketConsumer.Factory] for creating [DemoRenderingPacketConsumer] instances. */
   class Factory(
     private val glExecutorService: ExecutorService,
     private val errorListener: Consumer<Exception>,
@@ -70,7 +70,7 @@ private constructor(
     private var outputSurface: Surface? = null
 
     override fun create(): PacketConsumer<List<GlTextureFrame>> {
-      return DemoRenderingFrameConsumer(glExecutorService, errorListener, outputSurface)
+      return DemoRenderingPacketConsumer(glExecutorService, errorListener, outputSurface)
     }
 
     fun setOutputSurface(outputSurface: Surface?) {

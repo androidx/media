@@ -276,7 +276,7 @@ import java.util.concurrent.atomic.AtomicReference;
         return false;
       }
       FrameInfo frameInfo = new FrameInfo(frame.getMetadata().getFormat(), /* offsetToAddUs= */ 0);
-      // TODO: b/430250432 - Allow timestamp iteration to be input.
+      // TODO: b/449956936 - Allow timestamp iteration to be input.
       // Create a single frame from the input Bitmap.
       TimestampIterator timestampIterator =
           new ConstantRateTimestampIterator(

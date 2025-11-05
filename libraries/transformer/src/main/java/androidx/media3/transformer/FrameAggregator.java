@@ -28,7 +28,7 @@ import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Queue;
 
-// TODO: b/430250432 - This is a placeholder implementation, revisit the aggregation and flushing
+// TODO: b/449956936 - This is a placeholder implementation, revisit the aggregation and flushing
 //  logic to make it more robust.
 /**
  * Combines multiple sequences of {@link GlTextureFrame}s into one sequence of {@link
@@ -83,7 +83,7 @@ import java.util.Queue;
   /**
    * {@linkplain GlTextureFrame#release() Releases } all frames that have not been sent downstream.
    */
-  // TODO: b/430250432 - Ensure this does not throw away frames in the case where a new decoded
+  // TODO: b/449956936 - Ensure this does not throw away frames in the case where a new decoded
   //   frame is not forwarded from the renderer on a discontinuity.
   public void releaseAllFrames() {
     for (int i = 0; i < inputFrames.size(); i++) {
@@ -126,7 +126,7 @@ import java.util.Queue;
       outputFramesBuilder.add(nextFrame);
     }
     downstreamConsumer.accept(outputFramesBuilder.build());
-    // TODO: b/430250432 - Allow reusing frames from secondary sequences to handle different frame
+    // TODO: b/449956936 - Allow reusing frames from secondary sequences to handle different frame
     //  rates.
     for (int i = 0; i < numSequences; i++) {
       checkNotNull(inputFrames.get(i)).poll();

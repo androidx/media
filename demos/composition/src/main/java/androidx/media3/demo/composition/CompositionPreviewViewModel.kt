@@ -54,7 +54,7 @@ import androidx.media3.demo.composition.data.OverlayAsset
 import androidx.media3.demo.composition.data.OverlayState
 import androidx.media3.demo.composition.data.PlacedOverlay
 import androidx.media3.demo.composition.data.PlacementState
-import androidx.media3.demo.composition.effect.DemoRenderingFrameConsumer
+import androidx.media3.demo.composition.effect.DemoRenderingPacketConsumer
 import androidx.media3.demo.composition.effect.LottieEffectFactory
 import androidx.media3.effect.BitmapOverlay
 import androidx.media3.effect.DebugTraceUtil
@@ -105,8 +105,8 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
   val EXPORT_STARTED_MESSAGE = application.resources.getString(R.string.export_started)
   internal var frameConsumerEnabled: Boolean = false
   internal var outputSurface: Surface? = null
-  internal val packetConsumerFactory: DemoRenderingFrameConsumer.Factory by lazy {
-    DemoRenderingFrameConsumer.Factory(
+  internal val packetConsumerFactory: DemoRenderingPacketConsumer.Factory by lazy {
+    DemoRenderingPacketConsumer.Factory(
       glExecutorService,
       errorListener = { e ->
         Log.e(TAG, "FrameConsumer error", e)
@@ -118,7 +118,7 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     Util.newSingleThreadExecutor("CompositionDemo::GlThread")
   }
   private val glObjectsProvider: GlObjectsProvider by lazy {
-    DemoRenderingFrameConsumer.SingleContextGlObjectsProvider()
+    DemoRenderingPacketConsumer.SingleContextGlObjectsProvider()
   }
   private var transformer: Transformer? = null
   private var outputFile: File? = null

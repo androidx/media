@@ -34,7 +34,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.List;
 import java.util.concurrent.ConcurrentLinkedDeque;
 
-// TODO: b/430250432 - This is a placeholder implementation, revisit the threading logic to make it
+// TODO: b/449956936 - This is a placeholder implementation, revisit the threading logic to make it
 //  more robust.
 /** Computes the release time for each {@linkplain List<GlTextureFrame> packet}. */
 @ExperimentalApi
@@ -74,7 +74,7 @@ import java.util.concurrent.ConcurrentLinkedDeque;
     checkArgument(!packet.isEmpty());
     // The VideoFrameReleaseControl cannot currently handle a packet being queued in the past,
     // manually release all frames to handle this discontinuity.
-    // TODO: b/430250432 - There is still a race condition in this check that could result in an
+    // TODO: b/449956936 - There is still a race condition in this check that could result in an
     //  extra dropped frame on a seek backwards, update VideoFrameReleaseControl to handle this
     //  case, or handle queueFrame and onRender on a single internal thread to fix this.
     @Nullable ImmutableList<GlTextureFrame> nextRenderedFrames = packetQueue.peek();
@@ -154,7 +154,7 @@ import java.util.concurrent.ConcurrentLinkedDeque;
     videoFrameReleaseControl.reset();
   }
 
-  // TODO: b/430250432 - Make this work without setting the output Surface.
+  // TODO: b/449956936 - Make this work without setting the output Surface.
   /**
    * Called when the display surface changed.
    *

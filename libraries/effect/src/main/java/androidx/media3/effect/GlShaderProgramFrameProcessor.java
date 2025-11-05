@@ -257,7 +257,7 @@ import java.util.concurrent.atomic.AtomicReference;
         return false;
       }
       Futures.addCallback(
-          // TODO: b/430250432 - Cancel pending tasks on release.
+          // TODO: b/449957627 - Cancel pending tasks on release.
           glThreadExecutorService.submit(
               () -> {
                 GlTextureInfo nextFrameTextureInfo = inputFrame.glTextureInfo;
