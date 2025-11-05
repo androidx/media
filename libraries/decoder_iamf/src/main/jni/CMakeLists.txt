@@ -44,7 +44,3 @@ target_link_libraries(iamfJNI
                       PRIVATE android
                       PRIVATE iamf
                       PRIVATE ${android_log_lib})
-
-# Enable 16 KB ELF alignment.
-target_link_options(iamfJNI
-                    PRIVATE "-Wl,-z,max-page-size=16384")
