@@ -33,11 +33,11 @@ import androidx.media3.common.MediaItem.ClippingConfiguration;
 import androidx.media3.common.Player;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.audio.AudioProcessor;
-import androidx.media3.common.audio.BaseAudioProcessor;
 import androidx.media3.common.audio.SpeedProvider;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.Util;
 import androidx.media3.test.utils.AssetInfo;
+import androidx.media3.test.utils.PassthroughAudioProcessor;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
@@ -654,22 +654,6 @@ public class CompositionPlayerSetCompositionTest {
     public long getNextSpeedChangeTimeUs(long timeUs) {
       // Adjust speed for all timestamps.
       return C.TIME_UNSET;
-    }
-  }
-
-  private static class PassthroughAudioProcessor extends BaseAudioProcessor {
-    @Override
-    public void queueInput(ByteBuffer inputBuffer) {
-      if (!inputBuffer.hasRemaining()) {
-        return;
-      }
-      ByteBuffer buffer = this.replaceOutputBuffer(inputBuffer.remaining());
-      buffer.put(inputBuffer).flip();
-    }
-
-    @Override
-    protected AudioFormat onConfigure(AudioFormat inputAudioFormat) {
-      return inputAudioFormat;
     }
   }
 }

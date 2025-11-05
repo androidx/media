@@ -44,16 +44,15 @@ import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.VideoGraph;
-import androidx.media3.common.audio.BaseAudioProcessor;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.Util;
 import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.SingleInputVideoGraph;
+import androidx.media3.test.utils.PassthroughAudioProcessor;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -1333,26 +1332,6 @@ public class CompositionPlayerSeekTest {
     public MediaItemConfig(MediaItem mediaItem, long durationUs) {
       this.mediaItem = mediaItem;
       this.durationUs = durationUs;
-    }
-  }
-
-  /**
-   * {@link BaseAudioProcessor} implementation that accepts all input audio formats and outputs a
-   * copy of any received input buffer.
-   */
-  private static class PassthroughAudioProcessor extends BaseAudioProcessor {
-    @Override
-    public void queueInput(ByteBuffer inputBuffer) {
-      if (!inputBuffer.hasRemaining()) {
-        return;
-      }
-      ByteBuffer buffer = this.replaceOutputBuffer(inputBuffer.remaining());
-      buffer.put(inputBuffer).flip();
-    }
-
-    @Override
-    protected AudioFormat onConfigure(AudioFormat inputAudioFormat) {
-      return inputAudioFormat;
     }
   }
 }
