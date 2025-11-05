@@ -141,6 +141,7 @@ import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.exoplayer.ExoPlayer.PreloadConfiguration;
 import androidx.media3.exoplayer.analytics.AnalyticsListener;
 import androidx.media3.exoplayer.analytics.PlayerId;
+import androidx.media3.exoplayer.audio.AudioOutputProvider;
 import androidx.media3.exoplayer.audio.AudioRendererEventListener;
 import androidx.media3.exoplayer.audio.AudioSink;
 import androidx.media3.exoplayer.audio.AudioTrackAudioOutputProvider;
@@ -16485,6 +16486,31 @@ public final class ExoPlayerTest {
     player.release();
 
     assertThat(receivedVirtualDeviceId.get()).isEqualTo(123);
+  }
+
+  @Test
+  public void setAudioOutputProvider_forwardsProviderToAudioSink() throws Exception {
+    // Create an AudioOutputProvider that ignores the player-provided audio
+    // session ID and always sets up playback with its own custom ID.
+    AudioOutputProvider customProvider =
+        new AudioTrackAudioOutputProvider.Builder(context)
+            .setAudioTrackBuilderModifier((builder, outputConfig) -> builder.setSessionId(1234))
+            .build();
+    MediaSource source =
+        new FakeMediaSource(
+            new FakeTimeline(), ExoPlayerTestRunner.VIDEO_FORMAT, ExoPlayerTestRunner.AUDIO_FORMAT);
+
+    ExoPlayer player =
+        new ExoPlayer.Builder(context)
+            .setAudioOutputProvider(customProvider)
+            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .build();
+    player.setMediaSource(source);
+    player.prepare();
+
+    // Assert this condition becomes true because the custom provider from the builder is used.
+    runMainLooperUntil(() -> player.getAudioSessionId() == 1234);
+    player.release();
   }
 
   // Internal methods.

@@ -549,7 +549,6 @@ public final class DefaultAudioSink implements AudioSink {
   private static final AtomicInteger pendingReleaseCount = new AtomicInteger();
 
   @Nullable private final Context context;
-  private final AudioOutputProvider audioOutputProvider;
   private final androidx.media3.common.audio.AudioProcessorChain audioProcessorChain;
   private final boolean enableFloatOutput;
   private final ChannelMappingAudioProcessor channelMappingAudioProcessor;
@@ -571,6 +570,7 @@ public final class DefaultAudioSink implements AudioSink {
   @Nullable private Configuration pendingConfiguration;
   private @MonotonicNonNull Configuration configuration;
   private @MonotonicNonNull AudioProcessingPipeline audioProcessingPipeline;
+  private AudioOutputProvider audioOutputProvider;
   private AudioOutputProvider.@MonotonicNonNull Listener audioOutputProviderListener;
   @Nullable private AudioOutput audioOutput;
 
@@ -1415,6 +1415,19 @@ public final class DefaultAudioSink implements AudioSink {
         && configuration.outputConfig.useOffloadGapless) {
       audioOutput.setOffloadDelayPadding(delayInFrames, paddingInFrames);
     }
+  }
+
+  @Override
+  public void setAudioOutputProvider(AudioOutputProvider audioOutputProvider) {
+    if (audioOutputProvider.equals(this.audioOutputProvider)) {
+      return;
+    }
+    this.audioOutputProvider.release();
+    this.audioOutputProvider = audioOutputProvider;
+    if (audioOutputProviderListener != null) {
+      audioOutputProvider.addListener(audioOutputProviderListener);
+    }
+    reconfigureAndFlush();
   }
 
   @Override

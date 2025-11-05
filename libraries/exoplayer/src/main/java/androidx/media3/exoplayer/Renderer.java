@@ -33,6 +33,7 @@ import androidx.media3.common.util.Size;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.exoplayer.analytics.PlayerId;
+import androidx.media3.exoplayer.audio.AudioOutputProvider;
 import androidx.media3.exoplayer.image.ImageOutput;
 import androidx.media3.exoplayer.source.MediaPeriod;
 import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
@@ -378,6 +379,13 @@ public interface Renderer extends PlayerMessage.Target {
    * Integer} instance representing the virtual device id, or {@link C#INDEX_UNSET} if unspecified.
    */
   int MSG_SET_VIRTUAL_DEVICE_ID = 19;
+
+  /**
+   * The type of a message that can be passed to audio renderers via {@link
+   * ExoPlayer#createMessage(PlayerMessage.Target)}. The message payload should be an {@link
+   * AudioOutputProvider} instance.
+   */
+  int MSG_SET_AUDIO_OUTPUT_PROVIDER = 20;
 
   /**
    * Applications or extensions may define custom {@code MSG_*} constants that can be passed to

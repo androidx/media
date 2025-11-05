@@ -102,6 +102,8 @@ import java.util.Objects;
  *       underlying audio track.
  *   <li>Message with type {@link #MSG_SET_PRIORITY} to set the priority of the renderer. The
  *       message payload should be an {@link Integer}.
+ *   <li>Message with type {@link #MSG_SET_AUDIO_OUTPUT_PROVIDER} to set the audio output provider.
+ *       The message payload must be an {@link AudioOutputProvider} instance.
  * </ul>
  */
 @UnstableApi
@@ -945,6 +947,9 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
       case MSG_SET_PRIORITY:
         rendererPriority = (int) checkNotNull(message);
         updateCodecImportance();
+        break;
+      case MSG_SET_AUDIO_OUTPUT_PROVIDER:
+        audioSink.setAudioOutputProvider((AudioOutputProvider) checkNotNull(message));
         break;
       default:
         super.handleMessage(messageType, message);

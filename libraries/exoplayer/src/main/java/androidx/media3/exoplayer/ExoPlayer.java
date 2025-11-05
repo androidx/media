@@ -56,6 +56,7 @@ import androidx.media3.exoplayer.analytics.AnalyticsCollector;
 import androidx.media3.exoplayer.analytics.AnalyticsListener;
 import androidx.media3.exoplayer.analytics.DefaultAnalyticsCollector;
 import androidx.media3.exoplayer.analytics.PlayerId;
+import androidx.media3.exoplayer.audio.AudioOutputProvider;
 import androidx.media3.exoplayer.audio.AudioSink;
 import androidx.media3.exoplayer.audio.MediaCodecAudioRenderer;
 import androidx.media3.exoplayer.image.ImageOutput;
@@ -237,6 +238,7 @@ public interface ExoPlayer extends Player {
     /* package */ Supplier<LoadControl> loadControlSupplier;
     /* package */ Supplier<BandwidthMeter> bandwidthMeterSupplier;
     /* package */ Function<Clock, AnalyticsCollector> analyticsCollectorFunction;
+    @Nullable /* package */ AudioOutputProvider audioOutputProvider;
     /* package */ Looper looper;
     /* package */ @C.Priority int priority;
     @Nullable /* package */ PriorityTaskManager priorityTaskManager;
@@ -294,6 +296,8 @@ public interface ExoPlayer extends Player {
      *       Looper} of the application's main thread if the current thread doesn't have a {@link
      *       Looper}
      *   <li>{@link AnalyticsCollector}: {@link AnalyticsCollector} with {@link Clock#DEFAULT}
+     *   <li>{@link AudioOutputProvider}: The {@link AudioOutputProvider} configured by the {@link
+     *       RenderersFactory}.
      *   <li>{@link C.Priority}: {@link C#PRIORITY_PLAYBACK}
      *   <li>{@link PriorityTaskManager}: {@code null} (not used)
      *   <li>{@link AudioAttributes}: {@link AudioAttributes#DEFAULT}, not handling audio focus
@@ -674,6 +678,20 @@ public interface ExoPlayer extends Player {
       checkState(!buildCalled);
       checkNotNull(analyticsCollector);
       this.analyticsCollectorFunction = (clock) -> analyticsCollector;
+      return this;
+    }
+
+    /**
+     * Sets the {@link AudioOutputProvider} that will be used to play out audio data.
+     *
+     * @param audioOutputProvider An {@link AudioOutputProvider}.
+     * @return This builder.
+     * @throws IllegalStateException If {@link #build()} has already been called.
+     */
+    @CanIgnoreReturnValue
+    public Builder setAudioOutputProvider(AudioOutputProvider audioOutputProvider) {
+      checkState(!buildCalled);
+      this.audioOutputProvider = checkNotNull(audioOutputProvider);
       return this;
     }
 

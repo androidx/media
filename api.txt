@@ -1412,6 +1412,7 @@ package androidx.media3.exoplayer {
     ctor public ExoPlayer.Builder(android.content.Context);
     method public androidx.media3.exoplayer.ExoPlayer build();
     method public androidx.media3.exoplayer.ExoPlayer.Builder setAudioAttributes(androidx.media3.common.AudioAttributes, boolean);
+    method public androidx.media3.exoplayer.ExoPlayer.Builder setAudioOutputProvider(androidx.media3.exoplayer.audio.AudioOutputProvider);
     method public androidx.media3.exoplayer.ExoPlayer.Builder setHandleAudioBecomingNoisy(boolean);
     method public androidx.media3.exoplayer.ExoPlayer.Builder setMediaSourceFactory(androidx.media3.exoplayer.source.MediaSource.Factory);
     method public androidx.media3.exoplayer.ExoPlayer.Builder setSeekBackIncrementMs(@IntRange(from=1) long);

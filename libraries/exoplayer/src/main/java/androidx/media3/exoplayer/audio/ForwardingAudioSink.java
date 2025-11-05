@@ -194,6 +194,11 @@ public class ForwardingAudioSink implements AudioSink {
   }
 
   @Override
+  public void setAudioOutputProvider(AudioOutputProvider audioOutputProvider) {
+    sink.setAudioOutputProvider(audioOutputProvider);
+  }
+
+  @Override
   public void setVolume(float volume) {
     sink.setVolume(volume);
   }

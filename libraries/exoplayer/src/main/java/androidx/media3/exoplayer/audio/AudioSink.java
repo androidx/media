@@ -660,6 +660,11 @@ public interface AudioSink {
   @RequiresApi(29)
   default void setOffloadDelayPadding(int delayInFrames, int paddingInFrames) {}
 
+  /** Sets the {@link AudioOutputProvider} to use as the output path. */
+  default void setAudioOutputProvider(AudioOutputProvider audioOutputProvider) {
+    throw new UnsupportedOperationException("AudioSink doesn't support setAudioOutputProvider");
+  }
+
   /**
    * Sets the playback volume.
    *
