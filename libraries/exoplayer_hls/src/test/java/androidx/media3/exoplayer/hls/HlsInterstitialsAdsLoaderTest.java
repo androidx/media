@@ -2459,7 +2459,7 @@ public class HlsInterstitialsAdsLoaderTest {
             + "#EXT-X-DATERANGE:"
             + "ID=\"ad1-0\","
             + "CLASS=\"com.apple.hls.interstitial\","
-            + "START-DATE=\"2020-01-02T21:00:30.000Z\","
+            + "START-DATE=\"2020-01-02T21:01:21.000Z\","
             + "X-ASSET-LIST=\"http://example.com/assetlist-1-0.json\""
             + "\n";
     when(mockPlayer.getContentPosition()).thenReturn(0L);
@@ -2483,7 +2483,7 @@ public class HlsInterstitialsAdsLoaderTest {
     runMainLooperUntil(assetListLoadingListener::completed, TIMEOUT_MS, Clock.DEFAULT);
     verify(mockAdsLoaderListener)
         .onAssetListLoadCompleted(eq(contentMediaItem), eq("adsId"), eq(0), eq(0), any());
-    assertThat(midRollPlayerMessage.getPositionMs()).isEqualTo(3_000L);
+    assertThat(midRollPlayerMessage.getPositionMs()).isEqualTo(54_000L);
     assertThat(midRollPlayerMessage.getPayload()).isEqualTo(contentMediaItem);
     assertThat(midRollPlayerMessage.getLooper()).isEqualTo(Looper.myLooper());
     InOrder inOrder = inOrder(mockPlayer);
@@ -2491,6 +2491,144 @@ public class HlsInterstitialsAdsLoaderTest {
     verifyTimelineUpdate(inOrder, mockPlayer, /* verifyMessageScheduled= */ false);
     verifyAssetListLoadCompleted(inOrder, mockPlayer, /* verifyMessageScheduled= */ true);
     inOrder.verifyNoMoreInteractions();
+  }
+
+  @Test
+  public void
+      handleContentTimelineChanged_midRollCloserToPreviousAdThan3TimesTargetDuration_schedulesNextPlayerMessageAtEndOfPreviousAdGroup()
+          throws IOException, TimeoutException {
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:9\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:00:00.000Z\n"
+            + "#EXTINF:9,\n"
+            + "main0.ts\n"
+            + "#EXTINF:81,\n"
+            + "main0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            // The pre roll ad has a content resume offset equal to its duration of 10.123s.
+            // The duration is set by the asset list JSON loaded during the test.
+            + "ID=\"ad0-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T22:00:00.000Z\","
+            + "CUE=\"PRE\","
+            + "X-ASSET-LIST=\"http://example.com/assetlist-0-0.json\""
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad1-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            // trigger at 00:02.000 (29 - (3 * 9)) is within content resume offset
+            + "START-DATE=\"2020-01-02T21:00:29.000Z\","
+            + "X-ASSET-LIST=\"http://example.com/assetlist-1-0.json\""
+            + "\n";
+    when(mockPlayer.getContentPosition()).thenReturn(0L);
+    PlayerMessage midRollPlayerMessage =
+        new PlayerMessage(
+            mock(PlayerMessage.Sender.class),
+            mock(PlayerMessage.Target.class),
+            Timeline.EMPTY,
+            /* defaultMediaItemIndex= */ 0,
+            /* Clock ignored */ null,
+            /* Looper ignored */ null);
+    when(mockPlayer.createMessage(any())).thenReturn(midRollPlayerMessage);
+
+    callHandleContentTimelineChangedAndCaptureAdPlaybackState(
+        playlistString,
+        adsLoader,
+        /* windowIndex= */ 0,
+        /* windowPositionInPeriodUs= */ 0,
+        /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE);
+
+    runMainLooperUntil(assetListLoadingListener::completed, TIMEOUT_MS, Clock.DEFAULT);
+    // Assert the message is scheduled at the position right after the pre roll's resume offset.
+    assertThat(midRollPlayerMessage.getPositionMs()).isEqualTo(10_123L);
+  }
+
+  @Test
+  public void
+      handleContentTimelineChanged_liveMidRollCloserToPreviousAdThan3TimesTargetDuration_schedulesNextPlayerMessageAtEndOfPreviousAdGroup()
+          throws IOException, TimeoutException {
+    when(mockPlayer.getContentPosition()).thenReturn(0L);
+    PlayerMessage midRollPlayerMessage =
+        new PlayerMessage(
+            mock(PlayerMessage.Sender.class),
+            mock(PlayerMessage.Target.class),
+            Timeline.EMPTY,
+            /* defaultMediaItemIndex= */ 0,
+            /* Clock ignored */ null,
+            /* Looper ignored */ null);
+    when(mockPlayer.createMessage(any())).thenReturn(midRollPlayerMessage);
+    when(mockPlayer.getCurrentMediaItem()).thenReturn(contentMediaItem);
+
+    callHandleContentTimelineChangedForLiveAndCaptureAdPlaybackStates(
+        adsLoader,
+        /* startAdsLoader= */ true,
+        /* windowOffsetInFirstPeriodUs= */ 0L,
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:9\n"
+            // window.positionInFirstPeriod = 0
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:00:00.000Z\n"
+            + "#EXTINF:9,\n"
+            + "main0.ts\n"
+            + "#EXTINF:9,\n"
+            + "main0.ts\n"
+            + "#EXTINF:9,\n"
+            + "main0.ts\n"
+            + "\n",
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:9\n"
+            // window.positionInFirstPeriod = 9_000_000
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:00:09.000Z\n"
+            + "#EXTINF:9,\n"
+            + "main0.ts\n"
+            + "#EXTINF:9,\n"
+            + "main0.ts"
+            + "\n"
+            // adGroup.timeUs = 18_000_900 (window positionMs: 9_000; resumes 29_123)
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad0-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:00:18.000Z\","
+            + "DURATION=20.123,"
+            + "X-ASSET-URI=\"http://example.com/media-0-0.ts\""
+            + "\n",
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:9\n"
+            // window.positionInFirstPeriod = 18_000_000
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:00:18.000Z\n"
+            + "#EXTINF:9,\n"
+            + "main0.ts"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad0-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            // adGroup.timeUs = 18_000_000 (window positionMs: 0; resumes 20_123)
+            + "START-DATE=\"2020-01-02T21:00:18.000Z\","
+            + "DURATION=20.123,"
+            + "X-ASSET-URI=\"http://example.com/media-0-0.ts\""
+            + "\n"
+            + "#EXTINF:81,\n"
+            + "main0.ts"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad1-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            // adGroup.timeUs = 58_000_000 (window positionMs: 40_000)
+            // Message trigger at window positionMs: 40_000 - 27_000 = 13_000 which is in the resume
+            // offset of the previous ad.
+            + "START-DATE=\"2020-01-02T21:00:58.000Z\","
+            + "X-ASSET-LIST=\"http://example.com/assetlist-1-0.json\""
+            + "\n");
+
+    runMainLooperUntil(
+        () -> midRollPlayerMessage.getPositionMs() != C.TIME_UNSET, TIMEOUT_MS, Clock.DEFAULT);
+    // Assert that the message is scheduled at the position right after the mid roll's resume
+    // offset. At the moment of scheduling, the most recent timeline/playlist has not yet been
+    // published. Hence the message must be scheduled at the window position of the last published
+    // timeline, which was created with the previous playlist.
+    assertThat(midRollPlayerMessage.getPositionMs()).isEqualTo(29_123L);
   }
 
   @Test
@@ -3501,7 +3639,7 @@ public class HlsInterstitialsAdsLoaderTest {
         TIMEOUT_MS,
         Clock.DEFAULT);
     assertThat(midRoll1PlayerMessage.isCanceled()).isTrue();
-    assertThat(midRoll1PlayerMessage.getPositionMs()).isEqualTo(3_000L);
+    assertThat(midRoll1PlayerMessage.getPositionMs()).isEqualTo(10_123L);
     assertThat(midRoll1PlayerMessage.getPayload()).isEqualTo(contentMediaItem);
     assertThat(midRoll1PlayerMessage.getLooper()).isEqualTo(Looper.myLooper());
     assertThat(midRoll2PlayerMessage.isCanceled()).isTrue();
@@ -3509,7 +3647,7 @@ public class HlsInterstitialsAdsLoaderTest {
     assertThat(midRoll2PlayerMessage.getPayload()).isEqualTo(contentMediaItem);
     assertThat(midRoll1PlayerMessage.getLooper()).isEqualTo(Looper.myLooper());
     assertThat(postRollPlayerMessage.isCanceled()).isFalse();
-    assertThat(postRollPlayerMessage.getPositionMs()).isEqualTo(63_000L);
+    assertThat(postRollPlayerMessage.getPositionMs()).isEqualTo(64_123L);
     assertThat(postRollPlayerMessage.getPayload()).isEqualTo(contentMediaItem);
     assertThat(midRoll1PlayerMessage.getLooper()).isEqualTo(Looper.myLooper());
     ArgumentCaptor<AssetList> argumentCaptor = ArgumentCaptor.forClass(AssetList.class);

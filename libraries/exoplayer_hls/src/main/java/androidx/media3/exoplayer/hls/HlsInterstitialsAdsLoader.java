@@ -988,7 +988,8 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
         checkNotNull(contentMediaSourceAdDataHolder.getAdPlaybackState(adsId));
     if (!adPlaybackState.equals(AdPlaybackState.NONE)
         && !adPlaybackState.endsWithLivePostrollPlaceHolder()) {
-      // Multiple timeline updates for VOD not supported.
+      // Multiple VOD timeline updates not supported. Set the last published timeline and return.
+      contentMediaSourceAdDataHolder.setLastPublishedContentTimeline(adsId, timeline);
       return false;
     }
 
@@ -1044,6 +1045,7 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
           listener ->
               listener.onContentTimelineChanged(adsMediaSource.getMediaItem(), adsId, timeline));
     }
+    contentMediaSourceAdDataHolder.setLastPublishedContentTimeline(adsId, timeline);
     return adPlaybackStateUpdated;
   }
 
@@ -1190,7 +1192,28 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
       // Start loading immediately.
       nextAssetResolution.run();
     } else {
-      long messagePositionUs = resolutionStartTimeUs - window.positionInFirstPeriodUs;
+      long positionInFirstPeriodUs = window.positionInFirstPeriodUs;
+      Timeline referenceContentTimeline =
+          contentMediaSourceAdDataHolder.getLastPublishedContentTimeline(adsId);
+      if (referenceContentTimeline != null) {
+        // For live streams use the window of the timeline that is published already.
+        positionInFirstPeriodUs =
+            referenceContentTimeline.getWindow(/* windowIndex= */ 0, new Window())
+                .positionInFirstPeriodUs;
+      }
+      long messagePositionUs = resolutionStartTimeUs - positionInFirstPeriodUs;
+      AdPlaybackState adPlaybackState =
+          checkNotNull(contentMediaSourceAdDataHolder.getAdPlaybackState(adsId));
+      Period period = contentTimeline.getPeriod(/* periodIndex= */ 0, new Period());
+      int adGroupIndexForResolutionStartTime =
+          adPlaybackState.getAdGroupIndexForPositionUs(resolutionStartTimeUs, period.durationUs);
+      if (adGroupIndexForResolutionStartTime != C.INDEX_UNSET) {
+        AdGroup adGroup = adPlaybackState.getAdGroup(adGroupIndexForResolutionStartTime);
+        long resumePositionOfPreviousAd = adGroup.timeUs + adGroup.contentResumeOffsetUs;
+        // Ensure playback does not skip over the message position due to the content resume offset.
+        messagePositionUs =
+            max(messagePositionUs, resumePositionOfPreviousAd - positionInFirstPeriodUs);
+      }
       pendingAssetListResolutionMessage =
           checkNotNull(player)
               .createMessage((messageType, message) -> nextAssetResolution.run())
@@ -1736,6 +1759,7 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
   private static final class ContentMediaSourceAdDataHolder {
     private final Map<Object, EventListener> activeEventListeners;
     private final Map<Object, AdPlaybackState> activeAdPlaybackStates;
+    private final Map<Object, Timeline> lastPublishedTimeline;
     private final Map<Object, Set<String>> insertedInterstitialIds;
     private final Map<Object, TreeMap<Long, AssetListData>> unresolvedAssetLists;
     private final Set<Object> contentSourceAwaitingFirstAdToStart;
@@ -1745,6 +1769,7 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
     public ContentMediaSourceAdDataHolder() {
       activeEventListeners = new HashMap<>();
       activeAdPlaybackStates = new HashMap<>();
+      lastPublishedTimeline = new HashMap<>();
       insertedInterstitialIds = new HashMap<>();
       unresolvedAssetLists = new HashMap<>();
       contentSourceAwaitingFirstAdToStart = new HashSet<>();
@@ -1826,6 +1851,17 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
       return activeAdPlaybackStates.values();
     }
 
+    /** Sets the last content timeline that was published to the player. */
+    public void setLastPublishedContentTimeline(Object adsId, Timeline contentTimeline) {
+      lastPublishedTimeline.put(adsId, contentTimeline);
+    }
+
+    /** Gets the last published content timeline. */
+    @Nullable
+    public Timeline getLastPublishedContentTimeline(Object adsId) {
+      return lastPublishedTimeline.get(adsId);
+    }
+
     /** Adds an interstitial ID for the given ads ID to mark it as inserted. */
     public void addInsertedInterstitialId(Object adsId, String interstitialId) {
       Set<String> insertedInterstitialIdSet = insertedInterstitialIds.get(adsId);
@@ -1865,6 +1901,7 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
       insertedInterstitialIds.remove(adsId);
       unresolvedAssetLists.remove(adsId);
       unsupportedAdsIds.remove(adsId);
+      lastPublishedTimeline.remove(adsId);
       contentSourceAwaitingFirstAdToStart.remove(adsId);
       return activeAdPlaybackStates.remove(adsId);
     }
