@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 The Android Open Source Project
+ * Copyright 2025 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,44 +16,47 @@
  */
 package androidx.media3.ui;
 
-import static org.junit.Assert.*;
-import org.junit.Test;
-import org.robolectric.RobolectricTestRunner;
-import org.junit.runner.RunWith;
+import static androidx.media3.test.utils.truth.SpannedSubject.assertThat;
+import static com.google.common.truth.Truth.assertThat;
 
+import android.graphics.Typeface;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
 import android.text.style.StyleSpan;
+import androidx.media3.common.util.Util;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 /** Tests for {@link BidiUtils}. */
-@RunWith(RobolectricTestRunner.class)
+@RunWith(AndroidJUnit4.class)
 public class BidiUtilsTest {
 
   @Test
-  public void containsRTL_nullInput_returnsFalse() {
-    assertFalse(BidiUtils.containsRTL(null));
+  public void containsRtl_nullInput_returnsFalse() {
+    assertThat(BidiUtils.containsRtl(null)).isFalse();
   }
 
   @Test
-  public void containsRTL_emptyString_returnsFalse() {
-    assertFalse(BidiUtils.containsRTL(""));
+  public void containsRtl_emptyString_returnsFalse() {
+    assertThat(BidiUtils.containsRtl("")).isFalse();
   }
 
   @Test
-  public void containsRTL_ltrOnly_returnsFalse() {
-    assertFalse(BidiUtils.containsRTL("Hello, world!"));
+  public void containsRtl_ltrOnly_returnsFalse() {
+    assertThat(BidiUtils.containsRtl("Hello, world!")).isFalse();
   }
 
   @Test
-  public void containsRTL_rtlOnly_returnsTrue() {
+  public void containsRtl_rtlOnly_returnsTrue() {
     // Hebrew "שלום"
-    assertTrue(BidiUtils.containsRTL("שלום"));
+    assertThat(BidiUtils.containsRtl("שלום")).isTrue();
   }
 
   @Test
-  public void containsRTL_mixedText_returnsTrue() {
+  public void containsRtl_mixedText_returnsTrue() {
     // Mixed English and Arabic
-    assertTrue(BidiUtils.containsRTL("Hello مرحبا"));
+    assertThat(BidiUtils.containsRtl("Hello مرحبا")).isTrue();
   }
 
   @Test
@@ -61,49 +64,51 @@ public class BidiUtilsTest {
     String input = "להתראות.\nשלום\nשלום!";
     CharSequence wrapped = BidiUtils.wrapText(input);
 
-    String[] lines = wrapped.toString().split("\n");
+    String[] lines = Util.split(wrapped.toString(), "\n");
 
-    assertEquals(3, lines.length);
-    assertTrue(lines[0].contains("להתראות."));
-    assertTrue(lines[1].contains("שלום"));
-    assertTrue(lines[2].contains("שלום!"));
+    assertThat(lines).hasLength(3);
+    assertThat(lines[0]).contains("להתראות.");
+    assertThat(lines[1]).contains("שלום");
+    assertThat(lines[2]).contains("שלום!");
 
-    // Ensure wrapping occurred (Unicode control characters are added)
-    assertTrue(lines[0].length() > "להתראות.".length()
-        || lines[1].length() > "שלום".length()
-        || lines[2].length() > "שלום!".length());
+    // Ensure wrapping occurred (the Unicode LRM control characters are added).
+    assertThat((int) lines[0].charAt(0)).isEqualTo(0x200E);
+    assertThat((int) lines[0].charAt(lines[0].length() - 1)).isEqualTo(0x200E);
+    assertThat((int) lines[1].charAt(0)).isEqualTo(0x200E);
+    assertThat((int) lines[1].charAt(lines[1].length() - 1)).isEqualTo(0x200E);
+    assertThat((int) lines[2].charAt(0)).isEqualTo(0x200E);
+    assertThat((int) lines[2].charAt(lines[2].length() - 1)).isEqualTo(0x200E);
   }
 
   @Test
-  public void wrapText_plainText_wrapsEachLineWithUnicodeWrap_CRLF() {
-    String input = "נסיון" + "\r\n" + "בחלונות";
+  public void wrapText_plainText_wrapsEachLineWithUnicodeWrap_crlf() {
+    String input = "נסיון\r\nבחלונות";
     CharSequence wrapped = BidiUtils.wrapText(input);
 
-    String[] lines = wrapped.toString().split("\n");
+    String[] lines = Util.split(wrapped.toString(), "\n");
 
-    assertEquals(2, lines.length);
-    assertTrue(lines[0].contains("נסיון"));
-    assertTrue(lines[1].contains("בחלונות"));
+    assertThat(lines).hasLength(2);
+    assertThat(lines[0]).contains("נסיון");
+    assertThat(lines[1]).contains("בחלונות");
 
-    // Ensure wrapping occurred (Unicode control characters are added)
-    assertTrue(lines[0].length() > "נסיון".length()
-        || lines[1].length() > "בחלונות".length());
+    // Ensure wrapping occurred (the Unicode LRM control characters are added).
+    assertThat((int) lines[0].charAt(0)).isEqualTo(0x200E);
+    assertThat((int) lines[0].charAt(lines[0].length() - 1)).isEqualTo(0x200E);
+    assertThat((int) lines[1].charAt(0)).isEqualTo(0x200E);
+    assertThat((int) lines[1].charAt(lines[1].length() - 1)).isEqualTo(0x200E);
   }
 
   @Test
   public void wrapText_spansArePreserved() {
     SpannableStringBuilder builder = new SpannableStringBuilder("שלום\nעולם");
-    StyleSpan boldSpan = new StyleSpan(android.graphics.Typeface.BOLD);
+    StyleSpan boldSpan = new StyleSpan(Typeface.BOLD);
     builder.setSpan(boldSpan, 0, 7, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
 
     CharSequence wrapped = BidiUtils.wrapText(builder);
 
-    assertTrue(wrapped instanceof Spanned);
-    Spanned spanned = (Spanned) wrapped;
-
-    int start = spanned.getSpanStart(boldSpan);
-    int end = spanned.getSpanEnd(boldSpan);
-
-    assertTrue(start >= 0 && end > start);
+    // BiDi control characters are added at the start and end of each line, so the start index
+    // increments by 1 (start of first line) and end index increments by 3 (start & end of first
+    // line, start of second line).
+    assertThat((Spanned) wrapped).hasBoldSpanBetween(1, 10);
   }
 }

@@ -191,7 +191,7 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       return;
     }
 
-    this.cueText = BidiUtils.containsRTL(cue.text) ? BidiUtils.wrapText(cue.text) : cue.text;
+    this.cueText = BidiUtils.containsRtl(cue.text) ? BidiUtils.wrapText(cue.text) : cue.text;
     this.cueTextAlignment = cue.textAlignment;
     this.cueBitmap = cue.bitmap;
     this.cueLine = cue.line;
