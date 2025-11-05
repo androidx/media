@@ -39,6 +39,7 @@
     *   Add `HlsInterstitialsAdsLoader.Listener.onAdStarted` to report the start
         of an ad period
         ([#2859](https://github.com/androidx/media/issues/2859)).
+    *   Accept space as a date/time separator in ISO 8601 date-time strings.
 *   DASH extension:
 *   Smooth Streaming extension:
 *   RTSP extension:
