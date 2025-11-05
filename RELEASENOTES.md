@@ -24,6 +24,8 @@
 *   DataSource:
 *   DRM:
 *   Effect:
+    *   Add `Presentation.copyWithUnsetSideRoundedTo` to round the unset output
+        side when `Presentation` is created with a single side length.
 *   Muxers:
 *   IMA extension:
 *   Session:
