@@ -32,11 +32,6 @@ class RecordingPacketConsumer(private val releaseIncomingFrames: Boolean) :
       return _queuedPackets.toList()
     }
 
-  val presentationTimesUs: List<Long>
-    get() {
-      return _queuedPackets.map { it[0].presentationTimeUs }.toList()
-    }
-
   private val _queuedPackets: MutableList<MutableList<GlTextureFrame>> = ArrayList()
 
   override fun tryQueuePacket(packet: Packet<MutableList<GlTextureFrame>>): Boolean {

@@ -30,7 +30,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 
@@ -83,7 +82,6 @@ import androidx.media3.effect.DebugTraceUtil;
 import androidx.media3.effect.DefaultGlObjectsProvider;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.GlTextureFrame;
-import androidx.media3.effect.GlTextureProducer;
 import androidx.media3.effect.PacketConsumer;
 import androidx.media3.effect.PacketConsumerUtil;
 import androidx.media3.effect.SingleInputVideoGraph;
@@ -1355,10 +1353,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     EditedMediaItemSequence sequence = newComposition.sequences.get(sequenceIndex);
     // The underlying player needs to be recreated so that the audio renderer can use the new
     // AudioSink from the newly created PlaybackAudioGraphWrapper.
-    SequencePlayerHolder playerHolder =
-        createSequencePlayer(
-            sequenceIndex,
-            newComposition.hdrMode == Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC);
+    SequencePlayerHolder playerHolder = createSequencePlayer(newComposition, sequenceIndex);
     playerHolders.add(playerHolder);
     ExoPlayer player = playerHolder.player;
 
@@ -1389,11 +1384,19 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     }
   }
 
-  private SequencePlayerHolder createSequencePlayer(
-      int sequenceIndex, boolean requestMediaCodecToneMapping) {
+  private SequencePlayerHolder createSequencePlayer(Composition composition, int sequenceIndex) {
+    boolean requestMediaCodecToneMapping =
+        composition.hdrMode == Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_MEDIACODEC;
+    CompositionTextureListener textureListener = null;
+    if (packetConsumer != null) {
+      // TODO: b/449957106 - support component reuse, and decouple the Composition from the
+      // CompositionTextureListener.
+      textureListener =
+          new CompositionTextureListener(composition, sequenceIndex, checkNotNull(frameAggregator));
+    }
     VideoSink inputSink =
         packetConsumer != null
-            ? getFrameConsumerInputSink(sequenceIndex)
+            ? getFrameConsumerInputSink(checkNotNull(textureListener))
             : checkNotNull(playbackVideoGraphWrapper).getSink(sequenceIndex);
     SequenceRenderersFactory renderersFactory =
         SequenceRenderersFactory.create(
@@ -1405,6 +1408,9 @@ public final class CompositionPlayer extends SimpleBasePlayer {
             videoPrewarmingEnabled);
     if (packetConsumer != null && sequenceIndex == 0) {
       renderersFactory.setOnRenderListener(checkNotNull(videoPacketReleaseControl));
+    }
+    if (packetConsumer != null) {
+      renderersFactory.setCompositionTextureListener(checkNotNull(textureListener));
     }
     SequencePlayerHolder playerHolder =
         new SequencePlayerHolder(
@@ -1840,20 +1846,28 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     return false;
   }
 
-  private VideoSink getFrameConsumerInputSink(int sequenceIndex) {
+  private VideoSink getFrameConsumerInputSink(CompositionTextureListener textureListener) {
     checkState(packetConsumer != null);
-    TextureListener textureListener = new TextureListener(sequenceIndex);
     PlaybackVideoGraphWrapper singleInputVideoGraphWrapper =
         buildSingleInputPlaybackVideoGraphWrapper(textureListener);
     // This PlaybackVideoGraphWrapper can be started immediately and does not need to be stopped, as
     // frames are held by the CompositionVideoPacketReleaseControl which is started and stopped when
     // rendering is started and stopped.
     singleInputVideoGraphWrapper.startRendering();
-    return singleInputVideoGraphWrapper.getSink(/* inputIndex= */ 0);
+    VideoSink videoGraphWrapperSink = singleInputVideoGraphWrapper.getSink(/* inputIndex= */ 0);
+    return new ForwardingVideoSink(videoGraphWrapperSink) {
+      @Override
+      public void flush(boolean resetPosition) {
+        if (super.isInitialized()) {
+          textureListener.willFlush();
+        }
+        super.flush(resetPosition);
+      }
+    };
   }
 
   private PlaybackVideoGraphWrapper buildSingleInputPlaybackVideoGraphWrapper(
-      TextureListener textureListener) {
+      CompositionTextureListener textureListener) {
     DefaultVideoFrameProcessor.Factory.Builder videoFrameProcessorFactoryBuilder =
         new DefaultVideoFrameProcessor.Factory.Builder()
             .setTextureOutput(textureListener, /* textureOutputCapacity= */ 2)
@@ -1876,34 +1890,8 @@ public final class CompositionPlayer extends SimpleBasePlayer {
             .experimentalSetLateThresholdToDropInputUs(lateThresholdToDropInputUs)
             .build();
     singleInputVideoGraphWrapper.setTotalVideoInputCount(1);
+    singleInputVideoGraphWrapper.addListener(internalListener);
     return singleInputVideoGraphWrapper;
-  }
-
-  private final class TextureListener implements GlTextureProducer.Listener {
-
-    private final int sequenceIndex;
-
-    private TextureListener(int sequenceIndex) {
-      this.sequenceIndex = sequenceIndex;
-    }
-
-    @Override
-    public void onTextureRendered(
-        GlTextureProducer textureProducer,
-        GlTextureInfo outputTexture,
-        long presentationTimeUs,
-        long syncObject) {
-      // TODO: b/449956936 - Add syncObject to GlTextureFrame.
-      GlTextureFrame textureFrame =
-          new GlTextureFrame.Builder(
-                  outputTexture,
-                  directExecutor(),
-                  (u) -> textureProducer.releaseOutputTexture(presentationTimeUs))
-              .setPresentationTimeUs(presentationTimeUs)
-              .build();
-
-      checkNotNull(frameAggregator).queueFrame(textureFrame, sequenceIndex);
-    }
   }
 
   /**

@@ -32,6 +32,7 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.media.MediaFormat;
 import android.os.Handler;
+import android.os.SystemClock;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.ColorInfo;
@@ -40,6 +41,7 @@ import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.ConstantRateTimestampIterator;
+import androidx.media3.common.util.TimestampIterator;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.RenderersFactory;
@@ -79,8 +81,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
      *
      * @param compositionTimePositionUs The current media time in the {@link Composition} timescale
      *     in microseconds, measured at the start of the current iteration of the rendering loop.
-     * @param elapsedRealtimeUs {@link android.os.SystemClock#elapsedRealtime()} in microseconds,
-     *     measured at the start of the current iteration of the rendering loop.
+     * @param elapsedRealtimeUs {@link SystemClock#elapsedRealtime()} in microseconds, measured at
+     *     the start of the current iteration of the rendering loop.
      * @param compositionTimeOutputStreamStartPositionUs The start position of the buffer
      *     presentation timestamps of the stream, in the {@link Composition} timescale, in
      *     microseconds.
@@ -106,6 +108,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   private @MonotonicNonNull SequenceVideoRenderer secondaryVideoRenderer;
   private @MonotonicNonNull SequenceImageRenderer imageRenderer;
   private @MonotonicNonNull CompositionRendererListener compositionRendererListener;
+  private @MonotonicNonNull CompositionTextureListener compositionTextureListener;
 
   /** Creates a renderers factory for a player that will play video, image and audio. */
   public static SequenceRenderersFactory create(
@@ -164,6 +167,19 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     }
   }
 
+  public void setCompositionTextureListener(CompositionTextureListener compositionTextureListener) {
+    this.compositionTextureListener = compositionTextureListener;
+    if (primaryVideoRenderer != null) {
+      primaryVideoRenderer.setCompositionTextureListener(compositionTextureListener);
+    }
+    if (secondaryVideoRenderer != null) {
+      secondaryVideoRenderer.setCompositionTextureListener(compositionTextureListener);
+    }
+    if (imageRenderer != null) {
+      imageRenderer.setCompositionTextureListener(compositionTextureListener);
+    }
+  }
+
   @Override
   public Renderer[] createRenderers(
       Handler eventHandler,
@@ -195,12 +211,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       if (compositionRendererListener != null) {
         primaryVideoRenderer.setOnRenderListener(compositionRendererListener);
       }
+      if (compositionTextureListener != null) {
+        primaryVideoRenderer.setCompositionTextureListener(compositionTextureListener);
+      }
       renderers.add(primaryVideoRenderer);
       if (imageRenderer == null) {
         imageRenderer = new SequenceImageRenderer(checkNotNull(imageDecoderFactory), videoSink);
       }
       if (compositionRendererListener != null) {
         imageRenderer.setOnRenderListener(compositionRendererListener);
+      }
+      if (compositionTextureListener != null) {
+        imageRenderer.setCompositionTextureListener(compositionTextureListener);
       }
       renderers.add(imageRenderer);
     }
@@ -224,6 +246,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       }
       if (compositionRendererListener != null) {
         secondaryVideoRenderer.setOnRenderListener(compositionRendererListener);
+      }
+      if (compositionTextureListener != null) {
+        secondaryVideoRenderer.setCompositionTextureListener(compositionTextureListener);
       }
       return secondaryVideoRenderer;
     }
@@ -359,6 +384,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     private ImmutableList<Effect> pendingEffects;
     @Nullable private CompositionRendererListener compositionRendererListener;
+    private @MonotonicNonNull CompositionTextureListener compositionTextureListener;
     private long streamStartPositionUs;
     private long offsetToCompositionTimeUs;
     private boolean requestMediaCodecToneMapping;
@@ -520,6 +546,21 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           pendingEffects);
     }
 
+    @Override
+    protected void renderOutputBufferV21(
+        MediaCodecAdapter codec, int index, long presentationTimeUs, long releaseTimeNs) {
+      if (compositionTextureListener != null) {
+        // TODO: b/449957106 - support component reuse, and decouple the Composition from the
+        // CompositionTextureListener.
+        int indexOfItem =
+            getTimeline().getIndexOfPeriod(checkNotNull(getMediaPeriodId()).periodUid);
+        // releaseTimeNs is the timestamp that's carried over the Surface.
+        compositionTextureListener.willOutputFrame(
+            /* presentationTimeUs= */ releaseTimeNs / 1000, indexOfItem);
+      }
+      super.renderOutputBufferV21(codec, index, presentationTimeUs, releaseTimeNs);
+    }
+
     private void activateBufferingVideoSink() {
       if (bufferingVideoSink.getVideoSink() != null) {
         return;
@@ -559,6 +600,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     private void setOnRenderListener(CompositionRendererListener compositionRendererListener) {
       this.compositionRendererListener = compositionRendererListener;
     }
+
+    private void setCompositionTextureListener(
+        CompositionTextureListener compositionTextureListener) {
+      this.compositionTextureListener = compositionTextureListener;
+    }
   }
 
   private static final class SequenceImageRenderer extends ImageRenderer {
@@ -575,6 +621,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     private @VideoSink.FirstFrameReleaseInstruction int nextFirstFrameReleaseInstruction;
     private @MonotonicNonNull WakeupListener wakeupListener;
     private @MonotonicNonNull CompositionRendererListener compositionRendererListener;
+    private @MonotonicNonNull CompositionTextureListener compositionTextureListener;
 
     public SequenceImageRenderer(ImageDecoder.Factory imageDecoderFactory, VideoSink videoSink) {
       super(imageDecoderFactory, ImageOutput.NO_OP);
@@ -719,8 +766,26 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         nextFirstFrameReleaseInstruction = RELEASE_FIRST_FRAME_WHEN_PREVIOUS_STREAM_PROCESSED;
         inputStreamPending = false;
       }
+      TimestampIterator copiedTimestampIterator = null;
+      if (compositionTextureListener != null) {
+        copiedTimestampIterator = checkNotNull(timestampIterator).copyOf();
+      }
       if (!videoSink.handleInputBitmap(outputImage, checkNotNull(timestampIterator))) {
         return false;
+      }
+      if (compositionTextureListener != null) {
+        // TODO: b/449957106 - support component reuse, and decouple the Composition from the
+        // CompositionTextureListener.
+        int indexOfItem =
+            getTimeline().getIndexOfPeriod(checkNotNull(getMediaPeriodId()).periodUid);
+        checkNotNull(copiedTimestampIterator);
+        // TODO: b/449957106 - if performance is a concern, send a TimestampIterator to
+        // the CompositionTextureListener many individual frames.
+        while (copiedTimestampIterator.hasNext()) {
+          long timestampUs = copiedTimestampIterator.next();
+          compositionTextureListener.willOutputFrame(
+              /* presentationTimeUs= */ timestampUs + offsetToCompositionTimeUs, indexOfItem);
+        }
       }
       videoSink.signalEndOfCurrentInputStream();
       if (isLastInSequence(getTimeline(), checkNotNull(getMediaPeriodId()))) {
@@ -757,6 +822,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     private void setOnRenderListener(CompositionRendererListener compositionRendererListener) {
       this.compositionRendererListener = compositionRendererListener;
+    }
+
+    private void setCompositionTextureListener(
+        CompositionTextureListener compositionTextureListener) {
+      this.compositionTextureListener = compositionTextureListener;
     }
   }
 }

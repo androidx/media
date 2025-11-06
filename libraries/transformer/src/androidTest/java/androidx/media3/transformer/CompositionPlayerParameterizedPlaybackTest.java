@@ -36,6 +36,7 @@ import androidx.media3.common.PlaybackException;
 import androidx.media3.common.VideoGraph;
 import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.audio.SpeedProvider;
+import androidx.media3.effect.Frame;
 import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.GlTextureFrame;
 import androidx.media3.effect.MultipleInputVideoGraph;
@@ -395,12 +396,31 @@ public class CompositionPlayerParameterizedPlaybackTest {
         .isFalse();
     RecordingPacketConsumer packetConsumer =
         new RecordingPacketConsumer(/* releaseIncomingFrames= */ true);
+    ImmutableList<Long> expectedVideoTimestampsUs = testConfig.getExpectedVideoTimestampsUs();
 
-    runCompositionPlayer(
-        testConfig.getComposition(), /* packetConsumerFactory= */ () -> packetConsumer);
+    Composition composition = testConfig.getComposition();
+    runCompositionPlayer(composition, /* packetConsumerFactory= */ () -> packetConsumer);
 
-    assertThat(packetConsumer.getPresentationTimesUs())
-        .isEqualTo(testConfig.getExpectedVideoTimestampsUs());
+    List<List<GlTextureFrame>> queuedPackets = packetConsumer.getQueuedPackets();
+    for (int packetIndex = 0; packetIndex < queuedPackets.size(); packetIndex++) {
+      long presentationTimeUs = queuedPackets.get(packetIndex).get(0).presentationTimeUs;
+      assertThat(presentationTimeUs).isEqualTo(expectedVideoTimestampsUs.get(packetIndex));
+      assertThat(queuedPackets.get(0)).hasSize(composition.sequences.size());
+      for (int sequenceIndex = 0;
+          sequenceIndex < queuedPackets.get(packetIndex).size();
+          ++sequenceIndex) {
+        Frame.Metadata metadata = queuedPackets.get(packetIndex).get(sequenceIndex).getMetadata();
+        assertThat(metadata).isInstanceOf(CompositionFrameMetadata.class);
+        CompositionFrameMetadata compositionFrameMetadata = (CompositionFrameMetadata) metadata;
+        assertThat(compositionFrameMetadata.sequenceIndex).isEqualTo(sequenceIndex);
+        // CompositionPlayer replaces TimestampAdjustment effects with InactiveTimestampAdjustment.
+        // Assert on the non-edited MediaItem.
+        MediaItem itemFromMetadata = itemFromMetadata(compositionFrameMetadata);
+        MediaItem expectedItemAtTime =
+            expectedItemAtTime(composition, sequenceIndex, presentationTimeUs);
+        assertThat(itemFromMetadata).isEqualTo(expectedItemAtTime);
+      }
+    }
   }
 
   private void runCompositionPlayer(Composition composition, VideoGraph.Factory videoGraphFactory)
@@ -445,6 +465,28 @@ public class CompositionPlayerParameterizedPlaybackTest {
               player.play();
             });
     playerTestListener.waitUntilPlayerEnded();
+  }
+
+  private static MediaItem itemFromMetadata(CompositionFrameMetadata metadata) {
+    return metadata
+        .composition
+        .sequences
+        .get(metadata.sequenceIndex)
+        .editedMediaItems
+        .get(metadata.itemIndex)
+        .mediaItem;
+  }
+
+  private static MediaItem expectedItemAtTime(
+      Composition composition, int sequenceIndex, long presentationTimeUs) {
+    EditedMediaItemSequence sequence = composition.sequences.get(sequenceIndex);
+    int itemIndex = 0;
+    while (itemIndex < sequence.editedMediaItems.size()
+        && presentationTimeUs >= sequence.editedMediaItems.get(itemIndex).durationUs) {
+      presentationTimeUs -= sequence.editedMediaItems.get(itemIndex).durationUs;
+      itemIndex++;
+    }
+    return sequence.editedMediaItems.get(itemIndex).mediaItem;
   }
 
   private static final class TestConfig {
