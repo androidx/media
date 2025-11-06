@@ -33,6 +33,8 @@
         trigger the intended action. Also allow to specify parameters for some
         player and session commands to define which action to trigger.
 *   UI:
+    *   Use `BidiFormatter` to correctly display punctuation in RTL text
+        subtitles ([#11214](https://github.com/google/ExoPlayer/issues/11214)).
 *   Downloads:
 *   OkHttp extension:
 *   Cronet extension:
