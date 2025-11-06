@@ -391,7 +391,21 @@ import java.util.Objects;
   /** Deactivates playback. */
   public void deactivate() {
     Player player = checkNotNull(this.player);
-    if (!AdPlaybackState.NONE.equals(adPlaybackState) && imaPausedContent) {
+    // Post deactivation behind any already queued Player.Listener events to ensure that
+    // any pending events are processed before the listener is removed and the ads manager paused.
+    handler.post(() -> deactivateInternal(player));
+  }
+
+  /**
+   * Deactivates playback internally, after the Listener.onEvents() cycle completes so the complete
+   * state change picture is clear. For example, if an error caused the deactivation, the error
+   * callback can be handled first.
+   */
+  private void deactivateInternal(Player player) {
+    if (!adPlaybackState.equals(AdPlaybackState.NONE)
+        && imaPausedContent
+        && player.getPlayerError() == null) {
+      // Only need to pause and store resume position if not in error state.
       if (adsManager != null) {
         adsManager.pause();
       }
@@ -402,9 +416,7 @@ import java.util.Objects;
     lastVolumePercent = getPlayerVolumePercent();
     lastAdProgress = getAdVideoProgressUpdate();
     lastContentProgress = getContentVideoProgressUpdate();
-
-    // Post release of listener so that we can report any already pending errors via onPlayerError.
-    handler.post(() -> player.removeListener(this));
+    player.removeListener(this);
     this.player = null;
   }
 
@@ -539,7 +551,7 @@ import java.util.Objects;
 
   @Override
   public void onPlayerError(PlaybackException error) {
-    if (imaAdState != IMA_AD_STATE_NONE) {
+    if (imaAdState != IMA_AD_STATE_NONE && checkNotNull(player).isPlayingAd()) {
       AdMediaInfo adMediaInfo = checkNotNull(imaAdMediaInfo);
       for (int i = 0; i < adCallbacks.size(); i++) {
         adCallbacks.get(i).onError(adMediaInfo);
