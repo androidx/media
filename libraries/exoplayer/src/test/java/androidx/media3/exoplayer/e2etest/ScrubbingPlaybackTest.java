@@ -75,6 +75,9 @@ public class ScrubbingPlaybackTest {
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setClock(clock)
+            .setStuckSuppressedDetectionTimeoutMs(Integer.MAX_VALUE)
+            .setStuckPlayingDetectionTimeoutMs(Integer.MAX_VALUE)
+            .setStuckPlayingNotEndingTimeoutMs(Integer.MAX_VALUE)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -124,6 +127,8 @@ public class ScrubbingPlaybackTest {
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setClock(clock)
+            .setStuckSuppressedDetectionTimeoutMs(Integer.MAX_VALUE)
+            .setStuckPlayingNotEndingTimeoutMs(Integer.MAX_VALUE)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -167,6 +172,8 @@ public class ScrubbingPlaybackTest {
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setStuckPlayingNotEndingTimeoutMs(Integer.MAX_VALUE)
+            .setStuckSuppressedDetectionTimeoutMs(Integer.MAX_VALUE)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -215,6 +222,8 @@ public class ScrubbingPlaybackTest {
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setStuckSuppressedDetectionTimeoutMs(Integer.MAX_VALUE)
+            .setStuckPlayingNotEndingTimeoutMs(Integer.MAX_VALUE)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -265,6 +274,8 @@ public class ScrubbingPlaybackTest {
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setClock(clock)
+            .setStuckSuppressedDetectionTimeoutMs(Integer.MAX_VALUE)
+            .setStuckPlayingNotEndingTimeoutMs(Integer.MAX_VALUE)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -310,6 +321,8 @@ public class ScrubbingPlaybackTest {
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setClock(clock)
+            .setStuckSuppressedDetectionTimeoutMs(Integer.MAX_VALUE)
+            .setStuckPlayingNotEndingTimeoutMs(Integer.MAX_VALUE)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -356,6 +369,8 @@ public class ScrubbingPlaybackTest {
     ExoPlayer player =
         new ExoPlayer.Builder(applicationContext, capturingRenderersFactory)
             .setClock(clock)
+            .setStuckSuppressedDetectionTimeoutMs(Integer.MAX_VALUE)
+            .setStuckPlayingNotEndingTimeoutMs(Integer.MAX_VALUE)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);

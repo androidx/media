@@ -116,7 +116,10 @@ public final class ExoPlayerScrubbingTest {
   @Test
   public void scrubbingMode_pendingSeekIsNotPreempted() throws Exception {
     ExoPlayer player =
-        new TestExoPlayerBuilder(ApplicationProvider.getApplicationContext()).build();
+        new TestExoPlayerBuilder(ApplicationProvider.getApplicationContext())
+            .setStuckPlayingDetectionTimeoutMs(Integer.MAX_VALUE)
+            .setStuckSuppressedDetectionTimeoutMs(Integer.MAX_VALUE)
+            .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
     Player.Listener mockListener = mock(Player.Listener.class);
@@ -220,6 +223,7 @@ public final class ExoPlayerScrubbingTest {
             // Set to retain back buffer else thumbnail will be discarded after successful render as
             // FakeMediaPeriod does not "reload".
             .setLoadControl(new DefaultLoadControl.Builder().setBackBuffer(0, true).build())
+            .setStuckSuppressedDetectionTimeoutMs(Integer.MAX_VALUE)
             .setRenderers(renderer)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
@@ -277,7 +281,9 @@ public final class ExoPlayerScrubbingTest {
   public void scrubbingMode_disablesAudioTrack_masksTrackSelectionParameters() throws Exception {
     Timeline timeline = new FakeTimeline();
     ExoPlayer player =
-        new TestExoPlayerBuilder(ApplicationProvider.getApplicationContext()).build();
+        new TestExoPlayerBuilder(ApplicationProvider.getApplicationContext())
+            .setStuckSuppressedDetectionTimeoutMs(Integer.MAX_VALUE)
+            .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
     player.setMediaSource(
@@ -322,7 +328,9 @@ public final class ExoPlayerScrubbingTest {
           throws Exception {
     Timeline timeline = new FakeTimeline();
     ExoPlayer player =
-        new TestExoPlayerBuilder(ApplicationProvider.getApplicationContext()).build();
+        new TestExoPlayerBuilder(ApplicationProvider.getApplicationContext())
+            .setStuckSuppressedDetectionTimeoutMs(Integer.MAX_VALUE)
+            .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
     player.setMediaSource(
@@ -375,7 +383,8 @@ public final class ExoPlayerScrubbingTest {
           throws Exception {
     Timeline timeline = new FakeTimeline();
     TestExoPlayerBuilder playerBuilder =
-        new TestExoPlayerBuilder(ApplicationProvider.getApplicationContext());
+        new TestExoPlayerBuilder(ApplicationProvider.getApplicationContext())
+            .setStuckSuppressedDetectionTimeoutMs(Integer.MAX_VALUE);
     ExoPlayer player =
         playerBuilder
             .setRenderersFactory(
@@ -457,7 +466,9 @@ public final class ExoPlayerScrubbingTest {
   public void customizeDisabledTracks_beforeScrubbingModeEnabled() throws Exception {
     Timeline timeline = new FakeTimeline();
     ExoPlayer player =
-        new TestExoPlayerBuilder(ApplicationProvider.getApplicationContext()).build();
+        new TestExoPlayerBuilder(ApplicationProvider.getApplicationContext())
+            .setStuckSuppressedDetectionTimeoutMs(Integer.MAX_VALUE)
+            .build();
     // Prevent any tracks being disabled during scrubbing
     ScrubbingModeParameters scrubbingModeParameters =
         new ScrubbingModeParameters.Builder().setDisabledTrackTypes(ImmutableSet.of()).build();
@@ -489,7 +500,9 @@ public final class ExoPlayerScrubbingTest {
   public void customizeDisabledTracks_duringScrubbingMode() throws Exception {
     Timeline timeline = new FakeTimeline();
     ExoPlayer player =
-        new TestExoPlayerBuilder(ApplicationProvider.getApplicationContext()).build();
+        new TestExoPlayerBuilder(ApplicationProvider.getApplicationContext())
+            .setStuckSuppressedDetectionTimeoutMs(Integer.MAX_VALUE)
+            .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
     player.setMediaSource(
@@ -521,7 +534,10 @@ public final class ExoPlayerScrubbingTest {
   @Test
   public void fractionalSeekTolerance_isPropagated() throws Exception {
     ExoPlayer player =
-        new TestExoPlayerBuilder(ApplicationProvider.getApplicationContext()).build();
+        new TestExoPlayerBuilder(ApplicationProvider.getApplicationContext())
+            .setStuckPlayingDetectionTimeoutMs(Integer.MAX_VALUE)
+            .setStuckSuppressedDetectionTimeoutMs(Integer.MAX_VALUE)
+            .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
     Player.Listener mockListener = mock(Player.Listener.class);
@@ -577,6 +593,7 @@ public final class ExoPlayerScrubbingTest {
     ExoPlayer player =
         new ExoPlayer.Builder(ApplicationProvider.getApplicationContext(), renderersFactory)
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setStuckSuppressedDetectionTimeoutMs(Integer.MAX_VALUE)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -630,6 +647,7 @@ public final class ExoPlayerScrubbingTest {
     ExoPlayer player =
         new ExoPlayer.Builder(ApplicationProvider.getApplicationContext(), renderersFactory)
             .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .setStuckSuppressedDetectionTimeoutMs(Integer.MAX_VALUE)
             .build();
     Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
     player.setVideoSurface(surface);
@@ -694,6 +712,7 @@ public final class ExoPlayerScrubbingTest {
             .setRenderersFactory(renderersFactory)
             .setDynamicSchedulingEnabled(false)
             .setClock(clock)
+            .setStuckSuppressedDetectionTimeoutMs(Integer.MAX_VALUE)
             .build();
     player.setMediaSource(create30Fps2sGop10sDurationVideoSource());
     Surface surface = new Surface(new SurfaceTexture(1));
@@ -758,6 +777,7 @@ public final class ExoPlayerScrubbingTest {
             .setRenderersFactory(renderersFactory)
             .setDynamicSchedulingEnabled(false)
             .setClock(clock)
+            .setStuckSuppressedDetectionTimeoutMs(Integer.MAX_VALUE)
             .build();
     player.setMediaSource(create30Fps2sGop10sDurationVideoSource());
     Surface surface = new Surface(new SurfaceTexture(1));

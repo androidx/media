@@ -63,6 +63,7 @@ public class TestExoPlayerBuilder {
   @Nullable private ExoPlayer.PreloadConfiguration preloadConfiguration;
   private boolean dynamicSchedulingEnabled;
   private int stuckPlayingDetectionTimeoutMs;
+  private int stuckSuppressedDetectionTimeoutMs;
 
   public TestExoPlayerBuilder(Context context) {
     this.context = context;
@@ -79,6 +80,7 @@ public class TestExoPlayerBuilder {
     maxSeekToPreviousPositionMs = C.DEFAULT_MAX_SEEK_TO_PREVIOUS_POSITION_MS;
     deviceVolumeControlEnabled = false;
     stuckPlayingDetectionTimeoutMs = ExoPlayer.DEFAULT_STUCK_PLAYING_DETECTION_TIMEOUT_MS;
+    stuckSuppressedDetectionTimeoutMs = ExoPlayer.DEFAULT_STUCK_SUPPRESSED_DETECTION_TIMEOUT_MS;
   }
 
   /**
@@ -399,6 +401,20 @@ public class TestExoPlayerBuilder {
     return this;
   }
 
+  /**
+   * See {@link ExoPlayer.Builder#setStuckSuppressedDetectionTimeoutMs(int)} for details.
+   *
+   * @param stuckSuppressedDetectionTimeoutMs The timeout after which the player is assumed stuck in
+   *     a suppressed state, in milliseconds.
+   * @return This builder.
+   */
+  @CanIgnoreReturnValue
+  public TestExoPlayerBuilder setStuckSuppressedDetectionTimeoutMs(
+      int stuckSuppressedDetectionTimeoutMs) {
+    this.stuckSuppressedDetectionTimeoutMs = stuckSuppressedDetectionTimeoutMs;
+    return this;
+  }
+
   /** Builds an {@link ExoPlayer} using the provided values or their defaults. */
   public ExoPlayer build() {
     checkNotNull(
@@ -439,7 +455,8 @@ public class TestExoPlayerBuilder {
             .setDeviceVolumeControlEnabled(deviceVolumeControlEnabled)
             .setSuppressPlaybackOnUnsuitableOutput(suppressPlaybackWhenUnsuitableOutput)
             .experimentalSetDynamicSchedulingEnabled(dynamicSchedulingEnabled)
-            .setStuckPlayingDetectionTimeoutMs(stuckPlayingDetectionTimeoutMs);
+            .setStuckPlayingDetectionTimeoutMs(stuckPlayingDetectionTimeoutMs)
+            .setStuckSuppressedDetectionTimeoutMs(stuckSuppressedDetectionTimeoutMs);
     if (suitableOutputChecker != null) {
       builder.setSuitableOutputChecker(suitableOutputChecker);
     }
