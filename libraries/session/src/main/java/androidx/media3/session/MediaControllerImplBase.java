@@ -2713,7 +2713,8 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   @Nullable
   IMediaSession getSessionInterfaceWithSessionCommandIfAble(SessionCommand command) {
     checkArgument(command.commandCode == SessionCommand.COMMAND_CODE_CUSTOM);
-    if (!sessionCommands.contains(command)) {
+    if (!sessionCommands.contains(command)
+        && !CommandButton.isPredefinedCustomCommandButtonCode(command.customAction)) {
       Log.w(TAG, "Controller isn't allowed to call custom session command:" + command.customAction);
       return null;
     }

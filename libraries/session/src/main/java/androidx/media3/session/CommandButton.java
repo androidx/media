@@ -52,6 +52,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.util.List;
 import java.util.Objects;
+import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 
 /**
  * A button for a {@link SessionCommand} or {@link Player.Command} that can be displayed by
@@ -497,6 +498,13 @@ public final class CommandButton {
   private static final int PARAMETER_TYPE_TRACK_SELECTION_PARAMETERS = 8;
 
   private static final String INCORRECT_PARAMETER_TYPE_MESSAGE = "Parameter has incorrect type.";
+
+  private static final String CUSTOM_COMMAND_PARAMETER_EXTRAS_KEY =
+      "androidx.media3.session.CUSTOM_COMMAND_PARAMETER";
+  private static final String CUSTOM_COMMAND_PLAYER_COMMAND_PREFIX =
+      "androidx.media3.session.PLAYER_COMMAND_";
+  private static final String CUSTOM_COMMAND_SESSION_COMMAND_PREFIX =
+      "androidx.media3.session.SESSION_COMMAND_";
 
   /** A builder for {@link CommandButton}. */
   public static final class Builder {
@@ -1365,7 +1373,7 @@ public final class CommandButton {
       switch (sessionCommand.commandCode) {
         case COMMAND_CODE_CUSTOM:
           ListenableFuture<SessionResult> unused =
-              controller.sendCustomCommand(sessionCommand, extras);
+              controller.sendCustomCommand(checkNotNull(sessionCommand), extras);
           break;
         case COMMAND_CODE_SESSION_SET_RATING:
           if (parameter != null) {
@@ -1377,97 +1385,111 @@ public final class CommandButton {
           break;
       }
     } else {
-      switch (playerCommand) {
-        case Player.COMMAND_PLAY_PAUSE:
-          if (parameter != null) {
-            controller.setPlayWhenReady((Boolean) parameter);
-          } else {
-            controller.setPlayWhenReady(!controller.getPlayWhenReady());
-          }
-          break;
-        case Player.COMMAND_PREPARE:
-          controller.prepare();
-          break;
-        case Player.COMMAND_STOP:
-          controller.stop();
-          break;
-        case Player.COMMAND_SEEK_TO_PREVIOUS:
-          controller.seekToPrevious();
-          break;
-        case Player.COMMAND_SEEK_TO_NEXT:
-          controller.seekToNext();
-          break;
-        case Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM:
-          controller.seekToPreviousMediaItem();
-          break;
-        case Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM:
-          controller.seekToNextMediaItem();
-          break;
-        case Player.COMMAND_SEEK_BACK:
-          controller.seekBack();
-          break;
-        case Player.COMMAND_SEEK_FORWARD:
-          controller.seekForward();
-          break;
-        case Player.COMMAND_SEEK_TO_DEFAULT_POSITION:
-          controller.seekToDefaultPosition();
-          break;
-        case Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM:
-          if (parameter != null) {
-            controller.seekTo((Long) parameter);
-          }
-          break;
-        case Player.COMMAND_SEEK_TO_MEDIA_ITEM:
-          if (parameter != null) {
-            controller.seekToDefaultPosition((Integer) parameter);
-          }
-          break;
-        case Player.COMMAND_SET_SPEED_AND_PITCH:
-          if (parameter != null) {
-            controller.setPlaybackSpeed((Float) parameter);
-          }
-          break;
-        case Player.COMMAND_SET_SHUFFLE_MODE:
-          if (parameter != null) {
-            controller.setShuffleModeEnabled((Boolean) parameter);
-          } else {
-            controller.setShuffleModeEnabled(!controller.getShuffleModeEnabled());
-          }
-          break;
-        case Player.COMMAND_SET_REPEAT_MODE:
-          if (parameter != null) {
-            controller.setRepeatMode((Integer) parameter);
-          }
-          break;
-        case Player.COMMAND_SET_MEDIA_ITEM:
-          if (parameter != null) {
-            controller.setMediaItem((MediaItem) parameter);
-          }
-          break;
-        case Player.COMMAND_SET_PLAYLIST_METADATA:
-          if (parameter != null) {
-            controller.setPlaylistMetadata((MediaMetadata) parameter);
-          }
-          break;
-        case Player.COMMAND_SET_VOLUME:
-          if (parameter != null) {
-            controller.setVolume((Float) parameter);
-          } else if (controller.getVolume() == 0) {
-            controller.unmute();
-          } else {
-            controller.mute();
-          }
-          break;
-        case Player.COMMAND_SET_TRACK_SELECTION_PARAMETERS:
-          if (parameter != null) {
-            controller.setTrackSelectionParameters((TrackSelectionParameters) parameter);
-          }
-          break;
-        default:
-          // Unsupported.
-          break;
-      }
+      executePlayerAction(/* player= */ controller);
     }
+  }
+
+  /* package */ void executePlayerAction(Player player) {
+    if (!isEnabled) {
+      return;
+    }
+    switch (playerCommand) {
+      case Player.COMMAND_PLAY_PAUSE:
+        if (parameter != null) {
+          player.setPlayWhenReady((Boolean) parameter);
+        } else {
+          player.setPlayWhenReady(!player.getPlayWhenReady());
+        }
+        break;
+      case Player.COMMAND_PREPARE:
+        player.prepare();
+        break;
+      case Player.COMMAND_STOP:
+        player.stop();
+        break;
+      case Player.COMMAND_SEEK_TO_PREVIOUS:
+        player.seekToPrevious();
+        break;
+      case Player.COMMAND_SEEK_TO_NEXT:
+        player.seekToNext();
+        break;
+      case Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM:
+        player.seekToPreviousMediaItem();
+        break;
+      case Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM:
+        player.seekToNextMediaItem();
+        break;
+      case Player.COMMAND_SEEK_BACK:
+        player.seekBack();
+        break;
+      case Player.COMMAND_SEEK_FORWARD:
+        player.seekForward();
+        break;
+      case Player.COMMAND_SEEK_TO_DEFAULT_POSITION:
+        player.seekToDefaultPosition();
+        break;
+      case Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM:
+        if (parameter != null) {
+          player.seekTo((Long) parameter);
+        }
+        break;
+      case Player.COMMAND_SEEK_TO_MEDIA_ITEM:
+        if (parameter != null) {
+          player.seekToDefaultPosition((Integer) parameter);
+        }
+        break;
+      case Player.COMMAND_SET_SPEED_AND_PITCH:
+        if (parameter != null) {
+          player.setPlaybackSpeed((Float) parameter);
+        }
+        break;
+      case Player.COMMAND_SET_SHUFFLE_MODE:
+        if (parameter != null) {
+          player.setShuffleModeEnabled((Boolean) parameter);
+        } else {
+          player.setShuffleModeEnabled(!player.getShuffleModeEnabled());
+        }
+        break;
+      case Player.COMMAND_SET_REPEAT_MODE:
+        if (parameter != null) {
+          player.setRepeatMode((Integer) parameter);
+        }
+        break;
+      case Player.COMMAND_SET_MEDIA_ITEM:
+        if (parameter != null) {
+          player.setMediaItem((MediaItem) parameter);
+        }
+        break;
+      case Player.COMMAND_SET_PLAYLIST_METADATA:
+        if (parameter != null) {
+          player.setPlaylistMetadata((MediaMetadata) parameter);
+        }
+        break;
+      case Player.COMMAND_SET_VOLUME:
+        if (parameter != null) {
+          player.setVolume((Float) parameter);
+        } else if (player.getVolume() == 0) {
+          player.unmute();
+        } else {
+          player.mute();
+        }
+        break;
+      case Player.COMMAND_SET_TRACK_SELECTION_PARAMETERS:
+        if (parameter != null) {
+          player.setTrackSelectionParameters((TrackSelectionParameters) parameter);
+        }
+        break;
+      default:
+        // Unsupported.
+        break;
+    }
+  }
+
+  /* package */ boolean isPlayRequestPlayerAction(Player player) {
+    if (playerCommand != Player.COMMAND_PLAY_PAUSE) {
+      return false;
+    }
+    return parameter == null ? !player.getPlayWhenReady() : (Boolean) parameter;
   }
 
   /**
@@ -1594,6 +1616,35 @@ public final class CommandButton {
         parameter);
   }
 
+  private CommandButton convertToPredefinedCustomCommandButton(@Slot int slot) {
+    if (sessionCommand != null && sessionCommand.commandCode == COMMAND_CODE_CUSTOM) {
+      return copyWithSlots(ImmutableIntArray.of(slot));
+    }
+    Bundle customCommandExtras = Bundle.EMPTY;
+    if (parameter != null) {
+      customCommandExtras = new Bundle();
+      writeParameterToBundle(customCommandExtras, CUSTOM_COMMAND_PARAMETER_EXTRAS_KEY);
+    }
+    String customCommandName;
+    if (sessionCommand != null) {
+      customCommandName = CUSTOM_COMMAND_SESSION_COMMAND_PREFIX + sessionCommand.commandCode;
+    } else {
+      customCommandName = CUSTOM_COMMAND_PLAYER_COMMAND_PREFIX + playerCommand;
+    }
+    SessionCommand customCommand = new SessionCommand(customCommandName, customCommandExtras);
+    return new CommandButton(
+        customCommand,
+        Player.COMMAND_INVALID,
+        icon,
+        iconResId,
+        iconUri,
+        displayName,
+        extras,
+        isEnabled,
+        ImmutableIntArray.of(slot),
+        /* parameter= */ null);
+  }
+
   /**
    * Returns a list of command buttons with the {@link CommandButton#isEnabled} flag set to false if
    * the corresponding command is not available.
@@ -1672,12 +1723,7 @@ public final class CommandButton {
       bundle.putIntArray(FIELD_SLOTS, slots.toArray());
     }
     if (parameter != null) {
-      @ParameterType
-      int type =
-          sessionCommand != null
-              ? getParameterTypeForSessionCommand(sessionCommand.commandCode)
-              : getParameterTypeForPlayerCommand(playerCommand);
-      writeParameterToBundle(bundle, parameter, type);
+      writeParameterToBundle(bundle, FIELD_PARAMETER);
     }
     return bundle;
   }
@@ -1718,13 +1764,16 @@ public final class CommandButton {
       @Nullable
       Object parameter =
           getParameterFromBundle(
-              bundle, getParameterTypeForSessionCommand(sessionCommand.commandCode));
+              bundle,
+              FIELD_PARAMETER,
+              getParameterTypeForSessionCommand(sessionCommand.commandCode));
       builder.setSessionCommand(sessionCommand, parameter);
     }
     if (playerCommand != Player.COMMAND_INVALID) {
       @Nullable
       Object parameter =
-          getParameterFromBundle(bundle, getParameterTypeForPlayerCommand(playerCommand));
+          getParameterFromBundle(
+              bundle, FIELD_PARAMETER, getParameterTypeForPlayerCommand(playerCommand));
       builder.setPlayerCommand(playerCommand, parameter);
     }
     if (iconUri != null
@@ -1962,9 +2011,7 @@ public final class CommandButton {
     int forwardButtonIndex = C.INDEX_UNSET;
     for (int i = 0; i < mediaButtonPreferences.size(); i++) {
       CommandButton button = mediaButtonPreferences.get(i);
-      if (!button.isEnabled
-          || button.sessionCommand == null
-          || button.sessionCommand.commandCode != COMMAND_CODE_CUSTOM) {
+      if (!button.isEnabled || !button.canExecuteAction()) {
         continue;
       }
       for (int s = 0; s < button.slots.length(); s++) {
@@ -1988,23 +2035,21 @@ public final class CommandButton {
       customLayout.add(
           mediaButtonPreferences
               .get(backButtonIndex)
-              .copyWithSlots(ImmutableIntArray.of(SLOT_BACK)));
+              .convertToPredefinedCustomCommandButton(SLOT_BACK));
     }
     if (forwardButtonIndex != C.INDEX_UNSET) {
       customLayout.add(
           mediaButtonPreferences
               .get(forwardButtonIndex)
-              .copyWithSlots(ImmutableIntArray.of(SLOT_FORWARD)));
+              .convertToPredefinedCustomCommandButton(SLOT_FORWARD));
     }
     for (int i = 0; i < mediaButtonPreferences.size(); i++) {
       CommandButton button = mediaButtonPreferences.get(i);
-      if (!button.isEnabled
-          || button.sessionCommand == null
-          || button.sessionCommand.commandCode != COMMAND_CODE_CUSTOM) {
+      if (!button.isEnabled || !button.canExecuteAction()) {
         continue;
       }
       if (i != backButtonIndex && i != forwardButtonIndex && button.slots.contains(SLOT_OVERFLOW)) {
-        customLayout.add(button.copyWithSlots(ImmutableIntArray.of(SLOT_OVERFLOW)));
+        customLayout.add(button.convertToPredefinedCustomCommandButton(SLOT_OVERFLOW));
       }
     }
     return customLayout.build();
@@ -2079,6 +2124,56 @@ public final class CommandButton {
       }
     }
     return mediaButtonPreferences.build();
+  }
+
+  /* package */ static boolean isPredefinedCustomCommandButtonCode(String customCommandCode) {
+    return isPredefinedPlayerCustomCommandButtonCode(customCommandCode)
+        || isPredefinedSessionCustomCommandButtonCode(customCommandCode);
+  }
+
+  /* package */ static CommandButton convertFromPredefinedCustomCommand(
+      SessionCommand customCommand) {
+    if (isPredefinedPlayerCustomCommandButtonCode(customCommand.customAction)) {
+      @Player.Command
+      int playerCommand =
+          getPredefinedCustomCommandCode(
+              customCommand.customAction, CUSTOM_COMMAND_PLAYER_COMMAND_PREFIX);
+      @Nullable
+      Object parameter =
+          getParameterFromBundle(
+              customCommand.customExtras,
+              CUSTOM_COMMAND_PARAMETER_EXTRAS_KEY,
+              getParameterTypeForPlayerCommand(playerCommand));
+      return new CommandButton.Builder(ICON_UNDEFINED)
+          .setPlayerCommand(playerCommand, parameter)
+          .build();
+    } else {
+      @SessionCommand.CommandCode
+      int sessionCommand =
+          getPredefinedCustomCommandCode(
+              customCommand.customAction, CUSTOM_COMMAND_SESSION_COMMAND_PREFIX);
+      @Nullable
+      Object parameter =
+          getParameterFromBundle(
+              customCommand.customExtras,
+              CUSTOM_COMMAND_PARAMETER_EXTRAS_KEY,
+              getParameterTypeForSessionCommand(sessionCommand));
+      return new CommandButton.Builder(ICON_UNDEFINED)
+          .setSessionCommand(new SessionCommand(sessionCommand), parameter)
+          .build();
+    }
+  }
+
+  private static boolean isPredefinedPlayerCustomCommandButtonCode(String customCommandCode) {
+    return customCommandCode.startsWith(CUSTOM_COMMAND_PLAYER_COMMAND_PREFIX);
+  }
+
+  private static boolean isPredefinedSessionCustomCommandButtonCode(String customCommandCode) {
+    return customCommandCode.startsWith(CUSTOM_COMMAND_SESSION_COMMAND_PREFIX);
+  }
+
+  private static int getPredefinedCustomCommandCode(String customCommandCode, String prefix) {
+    return Integer.parseInt(customCommandCode.substring(prefix.length()));
   }
 
   private static @ParameterType int getParameterTypeForSessionCommand(
@@ -2157,32 +2252,37 @@ public final class CommandButton {
     }
   }
 
-  private static void writeParameterToBundle(
-      Bundle bundle, Object parameter, @ParameterType int parameterType) {
+  @RequiresNonNull("parameter")
+  private void writeParameterToBundle(Bundle bundle, String bundleKey) {
+    @ParameterType
+    int parameterType =
+        sessionCommand != null
+            ? getParameterTypeForSessionCommand(sessionCommand.commandCode)
+            : getParameterTypeForPlayerCommand(playerCommand);
     switch (parameterType) {
       case PARAMETER_TYPE_LONG:
-        bundle.putLong(FIELD_PARAMETER, (long) parameter);
+        bundle.putLong(bundleKey, (long) parameter);
         break;
       case PARAMETER_TYPE_INT:
-        bundle.putInt(FIELD_PARAMETER, (int) parameter);
+        bundle.putInt(bundleKey, (int) parameter);
         break;
       case PARAMETER_TYPE_BOOLEAN:
-        bundle.putBoolean(FIELD_PARAMETER, (boolean) parameter);
+        bundle.putBoolean(bundleKey, (boolean) parameter);
         break;
       case PARAMETER_TYPE_FLOAT:
-        bundle.putFloat(FIELD_PARAMETER, (float) parameter);
+        bundle.putFloat(bundleKey, (float) parameter);
         break;
       case PARAMETER_TYPE_RATING:
-        bundle.putBundle(FIELD_PARAMETER, ((Rating) parameter).toBundle());
+        bundle.putBundle(bundleKey, ((Rating) parameter).toBundle());
         break;
       case PARAMETER_TYPE_MEDIA_ITEM:
-        bundle.putBundle(FIELD_PARAMETER, ((MediaItem) parameter).toBundle());
+        bundle.putBundle(bundleKey, ((MediaItem) parameter).toBundle());
         break;
       case PARAMETER_TYPE_MEDIA_METADATA:
-        bundle.putBundle(FIELD_PARAMETER, ((MediaMetadata) parameter).toBundle());
+        bundle.putBundle(bundleKey, ((MediaMetadata) parameter).toBundle());
         break;
       case PARAMETER_TYPE_TRACK_SELECTION_PARAMETERS:
-        bundle.putBundle(FIELD_PARAMETER, ((TrackSelectionParameters) parameter).toBundle());
+        bundle.putBundle(bundleKey, ((TrackSelectionParameters) parameter).toBundle());
         break;
       case PARAMETER_TYPE_NULL:
       default:
@@ -2191,27 +2291,28 @@ public final class CommandButton {
   }
 
   @Nullable
-  private static Object getParameterFromBundle(Bundle bundle, @ParameterType int parameterType) {
-    if (!bundle.containsKey(FIELD_PARAMETER)) {
+  private static Object getParameterFromBundle(
+      Bundle bundle, String bundleKey, @ParameterType int parameterType) {
+    if (!bundle.containsKey(bundleKey)) {
       return null;
     }
     switch (parameterType) {
       case PARAMETER_TYPE_LONG:
-        return bundle.getLong(FIELD_PARAMETER);
+        return bundle.getLong(bundleKey);
       case PARAMETER_TYPE_INT:
-        return bundle.getInt(FIELD_PARAMETER);
+        return bundle.getInt(bundleKey);
       case PARAMETER_TYPE_BOOLEAN:
-        return bundle.getBoolean(FIELD_PARAMETER);
+        return bundle.getBoolean(bundleKey);
       case PARAMETER_TYPE_FLOAT:
-        return bundle.getFloat(FIELD_PARAMETER);
+        return bundle.getFloat(bundleKey);
       case PARAMETER_TYPE_RATING:
-        return Rating.fromBundle(checkNotNull(bundle.getBundle(FIELD_PARAMETER)));
+        return Rating.fromBundle(checkNotNull(bundle.getBundle(bundleKey)));
       case PARAMETER_TYPE_MEDIA_ITEM:
-        return MediaItem.fromBundle(checkNotNull(bundle.getBundle(FIELD_PARAMETER)));
+        return MediaItem.fromBundle(checkNotNull(bundle.getBundle(bundleKey)));
       case PARAMETER_TYPE_MEDIA_METADATA:
-        return MediaMetadata.fromBundle(checkNotNull(bundle.getBundle(FIELD_PARAMETER)));
+        return MediaMetadata.fromBundle(checkNotNull(bundle.getBundle(bundleKey)));
       case PARAMETER_TYPE_TRACK_SELECTION_PARAMETERS:
-        return TrackSelectionParameters.fromBundle(checkNotNull(bundle.getBundle(FIELD_PARAMETER)));
+        return TrackSelectionParameters.fromBundle(checkNotNull(bundle.getBundle(bundleKey)));
       case PARAMETER_TYPE_NULL:
       default:
         return null;

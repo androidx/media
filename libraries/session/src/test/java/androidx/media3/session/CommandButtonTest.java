@@ -23,6 +23,7 @@ import android.os.Bundle;
 import android.os.Looper;
 import androidx.media3.common.HeartRating;
 import androidx.media3.common.Player;
+import androidx.media3.common.Rating;
 import androidx.media3.common.SimpleBasePlayer;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
@@ -853,19 +854,21 @@ public class CommandButtonTest {
 
   @Test
   public void
-      getCustomLayoutFromMediaButtonPreferences_disabledAndNonCustomCommands_returnsCorrectButtons() {
+      getCustomLayoutFromMediaButtonPreferences_withDisabledCommands_returnsCorrectButtons() {
     ImmutableList<CommandButton> mediaButtonPreferences =
         ImmutableList.of(
-            new CommandButton.Builder(CommandButton.ICON_NEXT)
-                .setPlayerCommand(Player.COMMAND_PREPARE)
-                .setSlots(CommandButton.SLOT_OVERFLOW)
-                .build(),
             new CommandButton.Builder(CommandButton.ICON_ALBUM)
                 .setSessionCommand(new SessionCommand("action1", Bundle.EMPTY))
                 .setSlots(CommandButton.SLOT_OVERFLOW)
+                .setEnabled(false)
+                .build(),
+            new CommandButton.Builder(CommandButton.ICON_ALBUM)
+                .setSessionCommand(new SessionCommand("action2", Bundle.EMPTY))
+                .setSlots(CommandButton.SLOT_OVERFLOW)
+                .setEnabled(true)
                 .build(),
             new CommandButton.Builder(CommandButton.ICON_BLOCK)
-                .setSessionCommand(new SessionCommand("action2", Bundle.EMPTY))
+                .setSessionCommand(new SessionCommand("action3", Bundle.EMPTY))
                 .setSlots(CommandButton.SLOT_OVERFLOW)
                 .setEnabled(false)
                 .build());
@@ -877,9 +880,73 @@ public class CommandButtonTest {
     assertThat(customLayout)
         .containsExactly(
             new CommandButton.Builder(CommandButton.ICON_ALBUM)
-                .setSessionCommand(new SessionCommand("action1", Bundle.EMPTY))
+                .setSessionCommand(new SessionCommand("action2", Bundle.EMPTY))
                 .setSlots(CommandButton.SLOT_OVERFLOW)
                 .build());
+  }
+
+  @Test
+  public void
+      getCustomLayoutFromMediaButtonPreferences_withNonCustomCommands_returnsCorrectButtons() {
+    ImmutableList<CommandButton> mediaButtonPreferences =
+        ImmutableList.of(
+            new CommandButton.Builder(CommandButton.ICON_PREVIOUS)
+                .setPlayerCommand(Player.COMMAND_SEEK_BACK)
+                .setSlots(CommandButton.SLOT_BACK)
+                .build(),
+            new CommandButton.Builder(CommandButton.ICON_FAST_FORWARD)
+                .setPlayerCommand(Player.COMMAND_SEEK_FORWARD)
+                .setSlots(CommandButton.SLOT_FORWARD)
+                .build(),
+            new CommandButton.Builder(CommandButton.ICON_ARTIST)
+                .setPlayerCommand(Player.COMMAND_GET_AUDIO_ATTRIBUTES)
+                .setSlots(CommandButton.SLOT_OVERFLOW)
+                .build(),
+            new CommandButton.Builder(CommandButton.ICON_HEART_UNFILLED)
+                .setSessionCommand(
+                    new SessionCommand(SessionCommand.COMMAND_CODE_SESSION_SET_RATING))
+                .setSlots(CommandButton.SLOT_OVERFLOW)
+                .build(),
+            new CommandButton.Builder(CommandButton.ICON_HEART_FILLED)
+                .setSessionCommand(
+                    new SessionCommand(SessionCommand.COMMAND_CODE_SESSION_SET_RATING),
+                    new HeartRating(true))
+                .setSlots(CommandButton.SLOT_OVERFLOW)
+                .build());
+
+    ImmutableList<CommandButton> customLayout =
+        CommandButton.getCustomLayoutFromMediaButtonPreferences(
+            mediaButtonPreferences, /* backSlotAllowed= */ true, /* forwardSlotAllowed= */ true);
+
+    // Note: Intentionally using string constants of private strings to ensure they don't change in
+    // future versions without backwards-compat logic.
+    Bundle expectedRatingExtras = new Bundle();
+    expectedRatingExtras.putBundle(
+        "androidx.media3.session.CUSTOM_COMMAND_PARAMETER", new HeartRating(true).toBundle());
+    assertThat(customLayout)
+        .containsExactly(
+            new CommandButton.Builder(CommandButton.ICON_PREVIOUS)
+                .setSessionCommand(
+                    new SessionCommand("androidx.media3.session.PLAYER_COMMAND_11", Bundle.EMPTY))
+                .setSlots(CommandButton.SLOT_BACK)
+                .build(),
+            new CommandButton.Builder(CommandButton.ICON_FAST_FORWARD)
+                .setSessionCommand(
+                    new SessionCommand("androidx.media3.session.PLAYER_COMMAND_12", Bundle.EMPTY))
+                .setSlots(CommandButton.SLOT_FORWARD)
+                .build(),
+            new CommandButton.Builder(CommandButton.ICON_HEART_FILLED)
+                .setSessionCommand(
+                    new SessionCommand(
+                        "androidx.media3.session.SESSION_COMMAND_40010", expectedRatingExtras))
+                .setSlots(CommandButton.SLOT_OVERFLOW)
+                .build())
+        .inOrder();
+    Bundle actualExtrasBundle = customLayout.get(2).sessionCommand.customExtras;
+    assertThat(
+            Rating.fromBundle(
+                actualExtrasBundle.getBundle("androidx.media3.session.CUSTOM_COMMAND_PARAMETER")))
+        .isEqualTo(new HeartRating(true));
   }
 
   @Test

@@ -1022,23 +1022,16 @@ public class MediaControllerTest {
             .build();
     CommandButton button4 =
         new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
-            .setDisplayName("button4")
-            .setCustomIconResId(R.drawable.media3_notification_small_icon)
-            .setPlayerCommand(Player.COMMAND_PLAY_PAUSE)
-            .setSlots(CommandButton.SLOT_OVERFLOW)
-            .build();
-    CommandButton button5 =
-        new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
             .setDisplayName("button5")
             .setCustomIconResId(R.drawable.media3_notification_small_icon)
             .setPlayerCommand(Player.COMMAND_GET_TRACKS)
             .build();
-    setupMediaButtonPreferences(
-        session, ImmutableList.of(button1, button2, button3, button4, button5));
+    setupMediaButtonPreferences(session, ImmutableList.of(button1, button2, button3, button4));
     MediaController controller = controllerTestRule.createController(session.getToken());
 
     assertThat(threadTestRule.getHandler().postAndSync(controller::getCustomLayout))
-        .containsExactly(button1);
+        .containsExactly(button1)
+        .inOrder();
 
     session.cleanUp();
   }

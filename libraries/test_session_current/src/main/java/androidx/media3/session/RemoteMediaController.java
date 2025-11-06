@@ -424,6 +424,10 @@ public class RemoteMediaController {
     binder.executeCommandButtonAction(controllerId, buttonIndex);
   }
 
+  public void executeCustomLayoutAction(int buttonIndex) throws RemoteException {
+    binder.executeCustomLayoutAction(controllerId, buttonIndex);
+  }
+
   ////////////////////////////////////////////////////////////////////////////////
   // Non-public methods
   ////////////////////////////////////////////////////////////////////////////////

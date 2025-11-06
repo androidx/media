@@ -296,7 +296,9 @@ import org.checkerframework.checker.nullness.qual.NonNull;
     synchronized (lock) {
       info = controllerRecords.get(controllerInfo);
     }
-    return info != null && info.sessionCommands.contains(command);
+    return info != null
+        && (info.sessionCommands.contains(command)
+            || CommandButton.isPredefinedCustomCommandButtonCode(command.customAction));
   }
 
   public boolean isSessionCommandAvailable(
