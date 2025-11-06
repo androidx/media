@@ -368,8 +368,7 @@ import java.util.concurrent.TimeoutException;
         break;
       }
     }
-    if (customCommand != null
-        && mediaController.getAvailableSessionCommands().contains(customCommand)) {
+    if (customCommand != null || CommandButton.isPredefinedCustomCommandButtonCode(action)) {
       ListenableFuture<SessionResult> future =
           mediaController.sendCustomCommand(
               new SessionCommand(action, extras), /* args= */ Bundle.EMPTY);

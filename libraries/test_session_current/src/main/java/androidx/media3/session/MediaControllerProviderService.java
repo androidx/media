@@ -803,6 +803,18 @@ public class MediaControllerProviderService extends Service {
           });
     }
 
+    @Override
+    public void executeCustomLayoutAction(String controllerId, int buttonIndex)
+        throws RemoteException {
+      runOnHandler(
+          () -> {
+            MediaController controller = mediaControllerMap.get(controllerId);
+            CommandButton button = controller.getCustomLayout().get(buttonIndex);
+            ListenableFuture<SessionResult> unused =
+                controller.sendCustomCommand(button.sessionCommand, button.extras);
+          });
+    }
+
     ////////////////////////////////////////////////////////////////////////////////
     // MediaBrowser methods
     ////////////////////////////////////////////////////////////////////////////////

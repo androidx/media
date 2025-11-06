@@ -38,6 +38,10 @@
     *   Add `CommandButton.executeAction` so that controllers can more easily
         trigger the intended action. Also allow to specify parameters for some
         player and session commands to define which action to trigger.
+    *   Add backwards-compatibility for `CommandButton` instances using
+        `Player.Command` or non-custom `SessionCommand` to define their action.
+        These are now correctly represented in platform media sessions, for
+        example for System UI or Android Auto.
 *   UI:
     *   Use `BidiFormatter` to correctly display punctuation in RTL text
         subtitles ([#11214](https://github.com/google/ExoPlayer/issues/11214)).

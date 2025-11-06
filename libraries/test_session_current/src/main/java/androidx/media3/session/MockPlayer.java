@@ -412,32 +412,32 @@ public class MockPlayer implements Player {
 
   @Override
   public void play() {
-    checkNotNull(conditionVariables.get(METHOD_PLAY)).open();
     if (changePlayerStateWithTransportControl) {
       notifyPlayWhenReadyChanged(
           /* playWhenReady= */ true,
           Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
           Player.PLAYBACK_SUPPRESSION_REASON_NONE);
     }
+    checkNotNull(conditionVariables.get(METHOD_PLAY)).open();
   }
 
   @Override
   public void pause() {
-    checkNotNull(conditionVariables.get(METHOD_PAUSE)).open();
     if (changePlayerStateWithTransportControl) {
       notifyPlayWhenReadyChanged(
           /* playWhenReady= */ false,
           Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
           Player.PLAYBACK_SUPPRESSION_REASON_NONE);
     }
+    checkNotNull(conditionVariables.get(METHOD_PAUSE)).open();
   }
 
   @Override
   public void prepare() {
-    checkNotNull(conditionVariables.get(METHOD_PREPARE)).open();
     if (changePlayerStateWithTransportControl) {
       notifyPlaybackStateChanged(Player.STATE_READY);
     }
+    checkNotNull(conditionVariables.get(METHOD_PREPARE)).open();
   }
 
   @Override

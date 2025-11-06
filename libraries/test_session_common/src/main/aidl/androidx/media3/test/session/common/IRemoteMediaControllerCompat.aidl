@@ -52,6 +52,6 @@ interface IRemoteMediaControllerCompat {
   void setCaptioningEnabled(String controllerId, boolean enabled);
   void setRepeatMode(String controllerId, int repeatMode);
   void setShuffleMode(String controllerId, int shuffleMode);
-  void sendCustomAction(String controllerId, in Bundle customAction, in Bundle args);
+  void sendCustomActionByIndex(String controllerId, int customActionIndex);
   void sendCustomActionWithName(String controllerId, String action, in Bundle args);
 }

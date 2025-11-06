@@ -930,6 +930,10 @@ import java.util.concurrent.ExecutionException;
       Log.w(TAG, "Ignoring malformed Bundle for SessionCommand", e);
       return;
     }
+    if (CommandButton.isPredefinedCustomCommandButtonCode(command.customAction)) {
+      dispatchCustomCommandAsPredefinedCommand(caller, sequenceNumber, command);
+      return;
+    }
     dispatchSessionTaskWithSessionCommand(
         caller,
         sequenceNumber,
@@ -948,6 +952,82 @@ import java.util.concurrent.ExecutionException;
               }
               return future;
             }));
+  }
+
+  private void dispatchCustomCommandAsPredefinedCommand(
+      IMediaController caller, int sequenceNumber, SessionCommand command) {
+    long token = Binder.clearCallingIdentity();
+    try {
+      @Nullable MediaSessionImpl sessionImpl = this.sessionImpl.get();
+      if (sessionImpl == null || sessionImpl.isReleased()) {
+        return;
+      }
+      @Nullable
+      ControllerInfo controller = connectedControllersManager.getController(caller.asBinder());
+      if (controller == null) {
+        return;
+      }
+      postOrRun(
+          sessionImpl.getApplicationHandler(),
+          () -> {
+            if (!connectedControllersManager.isConnected(controller)) {
+              return;
+            }
+            CommandButton actualCommand;
+            try {
+              actualCommand = CommandButton.convertFromPredefinedCustomCommand(command);
+            } catch (RuntimeException e) {
+              // Catch exception caused by malformed data from a controller.
+              Log.w(TAG, "Failed to convert predefined custom command: " + command.customAction, e);
+              sendSessionResult(
+                  sessionImpl,
+                  controller,
+                  sequenceNumber,
+                  new SessionResult(SessionResult.RESULT_ERROR_BAD_VALUE));
+              return;
+            }
+            if (!actualCommand.canExecuteAction()) {
+              Log.w(TAG, "Can't execute predefined custom command: " + command.customAction);
+              sendSessionResult(
+                  sessionImpl,
+                  controller,
+                  sequenceNumber,
+                  new SessionResult(SessionResult.RESULT_ERROR_NOT_SUPPORTED));
+              return;
+            }
+            if (actualCommand.sessionCommand != null) {
+              checkState(
+                  actualCommand.sessionCommand.commandCode == COMMAND_CODE_SESSION_SET_RATING);
+              dispatchSessionTaskWithSessionCommand(
+                  caller,
+                  sequenceNumber,
+                  COMMAND_CODE_SESSION_SET_RATING,
+                  sendSessionResultWhenReady(
+                      (sessionImplInner, controllerInner, sequenceNum) ->
+                          sessionImplInner.onSetRatingOnHandler(
+                              controllerInner, (Rating) checkNotNull(actualCommand.parameter))));
+            } else {
+              if (actualCommand.isPlayRequestPlayerAction(sessionImpl.getPlayerWrapper())) {
+                playForControllerInfo(controller, sequenceNumber);
+              } else if (actualCommand.playerCommand == COMMAND_SET_MEDIA_ITEM) {
+                setMediaItemItemWithResetPositionForControllerInfo(
+                    controller,
+                    sequenceNumber,
+                    (MediaItem) checkNotNull(actualCommand.parameter),
+                    /* resetPosition= */ true);
+              } else {
+                queueSessionTaskWithPlayerCommandForControllerInfo(
+                    controller,
+                    sequenceNumber,
+                    actualCommand.playerCommand,
+                    sendSessionResultSuccess(player -> actualCommand.executePlayerAction(player)));
+              }
+              connectedControllersManager.flushCommandQueue(controller);
+            }
+          });
+    } finally {
+      Binder.restoreCallingIdentity(token);
+    }
   }
 
   @Override
@@ -1089,8 +1169,20 @@ import java.util.concurrent.ExecutionException;
       Log.w(TAG, "Ignoring malformed Bundle for MediaItem", e);
       return;
     }
-    queueSessionTaskWithPlayerCommand(
-        caller,
+    ControllerInfo controllerInfo = connectedControllersManager.getController(caller.asBinder());
+    if (controllerInfo != null) {
+      setMediaItemItemWithResetPositionForControllerInfo(
+          controllerInfo, sequenceNumber, mediaItem, resetPosition);
+    }
+  }
+
+  private void setMediaItemItemWithResetPositionForControllerInfo(
+      ControllerInfo controllerInfo,
+      int sequenceNumber,
+      MediaItem mediaItem,
+      boolean resetPosition) {
+    queueSessionTaskWithPlayerCommandForControllerInfo(
+        controllerInfo,
         sequenceNumber,
         COMMAND_SET_MEDIA_ITEM,
         sendSessionResultWhenReady(

@@ -722,7 +722,7 @@ public class DefaultMediaNotificationProviderTest {
   }
 
   @Test
-  public void createNotification_invalidButtons_enabledSessionCommandsOnlyForGetMediaButtons() {
+  public void createNotification_withCustomButtons_showsCustomButtonsWhereApplicable() {
     DefaultActionFactory defaultActionFactory =
         new DefaultActionFactory(Robolectric.setupService(TestService.class));
     DefaultMediaNotificationProvider defaultMediaNotificationProvider =
@@ -736,22 +736,20 @@ public class DefaultMediaNotificationProviderTest {
         new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
             .setDisplayName("button1")
             .setCustomIconResId(R.drawable.media3_notification_small_icon)
-            .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
+            .setSessionCommand(new SessionCommand("command1", Bundle.EMPTY))
             .build();
     CommandButton button2 =
         new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
             .setDisplayName("button2")
             .setCustomIconResId(R.drawable.media3_notification_small_icon)
-            .setSessionCommand(new SessionCommand("command2", Bundle.EMPTY))
-            .build()
-            .copyWithIsEnabled(true);
+            .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
+            .build();
     CommandButton button3 =
         new CommandButton.Builder(CommandButton.ICON_UNDEFINED)
             .setDisplayName("button3")
             .setCustomIconResId(R.drawable.media3_notification_small_icon)
             .setPlayerCommand(Player.COMMAND_PLAY_PAUSE)
-            .build()
-            .copyWithIsEnabled(true);
+            .build();
 
     MediaNotification mediaNotification =
         defaultMediaNotificationProvider.createNotification(
@@ -761,10 +759,11 @@ public class DefaultMediaNotificationProviderTest {
             notification -> {});
     mediaSession.release();
 
-    assertThat(mediaNotification.notification.actions).hasLength(2);
-    assertThat(mediaNotification.notification.actions[0].title.toString())
+    assertThat(mediaNotification.notification.actions).hasLength(3);
+    assertThat(mediaNotification.notification.actions[0].title.toString()).isEqualTo("button2");
+    assertThat(mediaNotification.notification.actions[1].title.toString())
         .isEqualTo(context.getString(R.string.media3_controls_play_description));
-    assertThat(mediaNotification.notification.actions[1].title.toString()).isEqualTo("button2");
+    assertThat(mediaNotification.notification.actions[2].title.toString()).isEqualTo("button1");
   }
 
   @Test
