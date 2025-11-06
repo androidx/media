@@ -197,6 +197,33 @@ public final class ExtractorAsserts {
 
   /**
    * Asserts that {@link Extractor#sniff(ExtractorInput)} returns the {@code expectedResult} for a
+   * given {@code file}, retrying repeatedly when {@link SimulatedIOException} is thrown.
+   *
+   * @param extractor The extractor to test.
+   * @param file The path to the input sample.
+   * @param peekLimit The limit that {@link ExtractorInput#getPeekPosition()} is permitted to
+   *     advance ahead of {@link ExtractorInput#getPosition()}. {@link C#LENGTH_UNSET} disables
+   *     enforcement of this limit. {@link #PEEK_LIMIT_FAIL_WITH_MAX} forces the test to fail at the
+   *     end and print the max limit that was used (which can be helpful when setting this value).
+   * @param expectedResult The expected return value.
+   * @throws IOException If reading from the input fails.
+   */
+  public static void assertSniff(
+      Extractor extractor, String file, int peekLimit, boolean expectedResult) throws IOException {
+    byte[] fileData = TestUtil.getByteArray(ApplicationProvider.getApplicationContext(), file);
+    FakeExtractorInput input =
+        new FakeExtractorInput.Builder()
+            .setData(fileData)
+            .setPeekLimit(peekLimit != PEEK_LIMIT_FAIL_WITH_MAX ? peekLimit : C.LENGTH_UNSET)
+            .build();
+    assertSniff(extractor, input, expectedResult);
+    if (peekLimit == PEEK_LIMIT_FAIL_WITH_MAX) {
+      fail("maxPeekLimit=" + input.getMaxPeekLimit());
+    }
+  }
+
+  /**
+   * Asserts that {@link Extractor#sniff(ExtractorInput)} returns the {@code expectedResult} for a
    * given {@code input}, retrying repeatedly when {@link SimulatedIOException} is thrown.
    *
    * @param extractor The extractor to test.

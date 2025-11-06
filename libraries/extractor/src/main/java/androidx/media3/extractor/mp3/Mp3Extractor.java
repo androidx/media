@@ -136,13 +136,11 @@ public final class Mp3Extractor implements Extractor {
           ((id0 == 'C' && id1 == 'O' && id2 == 'M' && (id3 == 'M' || majorVersion == 2))
               || (id0 == 'M' && id1 == 'L' && id2 == 'L' && (id3 == 'T' || majorVersion == 2)));
 
-  /** The maximum number of bytes to search when synchronizing, before giving up. */
-  private static final int MAX_SYNC_BYTES = 128 * 1024;
-
   /**
-   * The maximum number of bytes to peek when sniffing, excluding the ID3 header, before giving up.
+   * The maximum number of bytes to peek when synchronizing or sniffing (excluding the ID3 header)
+   * before giving up.
    */
-  private static final int MAX_SNIFF_BYTES = 32 * 1024;
+  private static final int MAX_SEARCH_BYTES = 128 * 1024;
 
   /** Maximum length of data read into {@link #scratch}. */
   private static final int SCRATCH_LENGTH = 10;
@@ -380,7 +378,6 @@ public final class Mp3Extractor implements Extractor {
     int candidateSynchronizedHeaderData = 0;
     int peekedId3Bytes = 0;
     int searchedBytes = 0;
-    int searchLimitBytes = sniffing ? MAX_SNIFF_BYTES : MAX_SYNC_BYTES;
     input.resetPeekPosition();
     if (input.getPosition() == 0) {
       // We need to parse enough ID3 metadata to retrieve any gapless/seeking playback information
@@ -388,7 +385,7 @@ public final class Mp3Extractor implements Extractor {
       boolean parseAllId3Frames = (flags & FLAG_DISABLE_ID3_METADATA) == 0;
       Id3Decoder.FramePredicate id3FramePredicate =
           parseAllId3Frames ? null : REQUIRED_ID3_FRAME_PREDICATE;
-      metadata = id3Peeker.peekId3Data(input, id3FramePredicate, searchLimitBytes);
+      metadata = id3Peeker.peekId3Data(input, id3FramePredicate, MAX_SEARCH_BYTES);
       if (metadata != null) {
         gaplessInfoHolder.setFromMetadata(metadata);
       }
@@ -413,7 +410,7 @@ public final class Mp3Extractor implements Extractor {
               && !headersMatch(headerData, candidateSynchronizedHeaderData))
           || (frameSize = MpegAudioUtil.getFrameSize(headerData)) == C.LENGTH_UNSET) {
         // The header doesn't match the candidate header or is invalid. Try the next byte offset.
-        if (searchedBytes++ == searchLimitBytes) {
+        if (searchedBytes++ == MAX_SEARCH_BYTES) {
           if (!sniffing) {
             maybeUpdateCbrDurationToLastSample();
             throw new EOFException();

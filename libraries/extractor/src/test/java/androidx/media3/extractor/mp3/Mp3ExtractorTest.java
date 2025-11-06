@@ -285,6 +285,26 @@ public final class Mp3ExtractorTest {
     assertThat(output.seekMap.getDurationUs()).isEqualTo(durationBeforeSeekUs);
   }
 
+  // https://github.com/androidx/media/issues/2713
+  @Test
+  public void sampleWith100kBGarbagePrefix_sniffsSuccessfully() throws Exception {
+    ExtractorAsserts.assertSniff(
+        new Mp3Extractor(),
+        "media/mp3/100kB-garbage-prefix.mp3",
+        /* peekLimit= */ 100_648,
+        /* expectedResult= */ true);
+  }
+
+  // https://github.com/androidx/media/issues/2713
+  @Test
+  public void sampleWith200kBGarbagePrefix_sniffingFailsAfterPeeking128kB() throws Exception {
+    ExtractorAsserts.assertSniff(
+        new Mp3Extractor(),
+        "media/mp3/200kB-garbage-prefix.mp3",
+        /* peekLimit= */ 131_082,
+        /* expectedResult= */ false);
+  }
+
   @Nullable
   private static String getDumpFilePath(String inputFilePath, Enum<?> flagConfig) {
     String configName = flagConfig.name();

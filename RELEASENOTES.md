@@ -13,6 +13,9 @@
 *   Transformer:
 *   Track Selection:
 *   Extractors:
+    *   MP3: Increase sniffing limit to 128kB to match the existing search limit
+        for a sync byte
+        ([#2713](https://github.com/androidx/media/issues/2713)).
 *   Inspector:
 *   Audio:
 *   Video:
