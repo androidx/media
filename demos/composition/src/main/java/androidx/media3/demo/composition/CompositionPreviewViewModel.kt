@@ -18,7 +18,9 @@ package androidx.media3.demo.composition
 import android.app.Application
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.net.Uri
 import android.os.SystemClock
+import android.provider.OpenableColumns
 import android.view.Surface
 import androidx.annotation.OptIn
 import androidx.compose.runtime.getValue
@@ -64,6 +66,7 @@ import androidx.media3.effect.OverlayEffect
 import androidx.media3.effect.Presentation
 import androidx.media3.effect.RgbFilter
 import androidx.media3.effect.StaticOverlaySettings
+import androidx.media3.inspector.MetadataRetriever
 import androidx.media3.transformer.Composition
 import androidx.media3.transformer.CompositionPlayer
 import androidx.media3.transformer.EditedMediaItem
@@ -90,6 +93,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.guava.await
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONException
@@ -474,6 +478,102 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     }
   }
 
+  fun addItemFromUri(uri: Uri) {
+    viewModelScope.launch {
+      val item = createItemFromUri(uri)
+      if (item == null) {
+        // Error message already shown via snackbar.
+        return@launch
+      }
+
+      _uiState.update { currentState ->
+        val newSelectedItems = currentState.mediaState.selectedItems + item
+        // Also add to available items so it can be re-selected from the edit dialog.
+        val newAvailableItems = currentState.mediaState.availableItems + item
+        currentState.copy(
+          mediaState =
+            currentState.mediaState.copy(
+              selectedItems = newSelectedItems,
+              availableItems = newAvailableItems,
+            ),
+          snackbarMessage = "Added item: ${item.title}",
+        )
+      }
+    }
+  }
+
+  private suspend fun createItemFromUri(uri: Uri): Item? =
+    withContext(Dispatchers.IO) {
+      val application = getApplication<Application>()
+      val contentResolver = application.contentResolver
+      val type = contentResolver.getType(uri)
+
+      val title = getDisplayName(uri) ?: "Item from device"
+      val durationUs: Long
+
+      if (type?.startsWith("video/") == true) {
+        val mediaItem = MediaItem.fromUri(uri)
+        val retriever = MetadataRetriever.Builder(application, mediaItem).build()
+        try {
+          durationUs = retriever.retrieveDurationUs().await()
+        } catch (e: Exception) {
+          Log.e(TAG, "Error retrieving video duration", e)
+          withContext(Dispatchers.Main) {
+            _uiState.update {
+              it.copy(snackbarMessage = "Error retrieving video duration: ${e.message}")
+            }
+          }
+          return@withContext null
+        } finally {
+          retriever.close()
+        }
+      } else if (type?.startsWith("image/") == true) {
+        durationUs = IMAGE_DURATION_US
+      } else {
+        withContext(Dispatchers.Main) {
+          _uiState.update { it.copy(snackbarMessage = "Unsupported media type: $type") }
+        }
+        return@withContext null
+      }
+
+      if (durationUs <= 0L) {
+        withContext(Dispatchers.Main) {
+          _uiState.update { it.copy(snackbarMessage = "Media has no duration.") }
+        }
+        return@withContext null
+      }
+
+      Item(
+        title = title,
+        uri = uri.toString(),
+        durationUs = durationUs,
+        selectedEffects = emptySet(),
+      )
+    }
+
+  private fun getDisplayName(uri: Uri): String? {
+    val application = getApplication<Application>()
+    var displayName: String? = null
+    application.contentResolver
+      .query(
+        /* uri= */ uri,
+        /* projection= */ null,
+        /* selection= */ null,
+        /* selectionArgs= */ null,
+        /* sortOrder= */ null,
+        /* cancellationSignal= */ null,
+      )
+      ?.use { cursor ->
+        if (cursor.moveToFirst()) {
+          val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+          if (nameIndex != -1) {
+            displayName = cursor.getString(nameIndex)
+          }
+        }
+      }
+    return displayName
+  }
+
   fun previewComposition() {
     releaseAndRecreatePlayer()
     compositionPlayer.setComposition(prepareComposition())
@@ -831,6 +931,7 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     private const val TAG = "CompPreviewVM"
     private const val AUDIO_URI = "https://storage.googleapis.com/exoplayer-test-media-0/play.mp3"
     private const val DEFAULT_FRAME_RATE_FPS = 30
+    private const val IMAGE_DURATION_US = 5_000_000L
     val HDR_MODE_DESCRIPTIONS =
       mapOf(
         Pair("Keep HDR", Composition.HDR_MODE_KEEP_HDR),
