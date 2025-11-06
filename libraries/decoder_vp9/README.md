@@ -57,7 +57,7 @@ ln -s "$LIBVPX_PATH" libvpx && \
 
 ```
 cd "${VP9_MODULE_PATH}"/jni && \
-${NDK_PATH}/ndk-build APP_ABI=all -j4
+${NDK_PATH}/ndk-build -j4
 ```
 
 [top level README]: ../../README.md
