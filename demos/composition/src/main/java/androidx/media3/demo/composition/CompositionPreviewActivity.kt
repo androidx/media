@@ -20,7 +20,6 @@ import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Color
-import android.net.Uri
 import android.os.Build.VERSION.SDK_INT
 import android.os.Bundle
 import android.os.LocaleList
@@ -28,11 +27,8 @@ import android.view.SurfaceView
 import android.view.View.INVISIBLE
 import android.view.View.VISIBLE
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.activity.result.PickVisualMediaRequest
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -68,18 +64,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.twotone.Delete
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ElevatedButton
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledIconButton
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MaterialTheme.shapes
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
@@ -121,7 +113,6 @@ import androidx.compose.ui.window.Dialog
 import androidx.core.app.ActivityCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.MimeTypes
-import androidx.media3.common.util.Log
 import androidx.media3.demo.composition.CompositionPreviewViewModel.Companion.HDR_MODE_DESCRIPTIONS
 import androidx.media3.demo.composition.CompositionPreviewViewModel.Companion.MUXER_OPTIONS
 import androidx.media3.demo.composition.CompositionPreviewViewModel.Companion.RESOLUTION_HEIGHTS
@@ -163,22 +154,13 @@ class CompositionPreviewActivity : AppCompatActivity() {
     }
 
     // Request permission in case the file is local. This is for manual testing only.
-    val permissions =
-      if (SDK_INT >= 33) {
-        arrayOf(Manifest.permission.READ_MEDIA_VIDEO, Manifest.permission.READ_MEDIA_IMAGES)
-      } else {
-        arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
-      }
-
-    val permissionsToRequest =
-      permissions.filter {
-        ActivityCompat.checkSelfPermission(this, /* permission= */ it) !=
-          PackageManager.PERMISSION_GRANTED
-      }
-    if (permissionsToRequest.isNotEmpty()) {
+    val permission =
+      if (SDK_INT >= 33) Manifest.permission.READ_MEDIA_VIDEO
+      else Manifest.permission.READ_EXTERNAL_STORAGE
+    if (ActivityCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED) {
       ActivityCompat.requestPermissions(
         this,
-        /* permissions= */ permissionsToRequest.toTypedArray(),
+        /* permissions= */ arrayOf(permission),
         /* requestCode= */ 1,
       )
     }
@@ -341,7 +323,6 @@ class CompositionPreviewActivity : AppCompatActivity() {
             onAddItem = { index -> viewModel.addItem(index) },
             onRemoveItem = { index -> viewModel.removeItem(index) },
             onUpdateEffects = { index, effects -> viewModel.updateEffectsForItem(index, effects) },
-            onAddMediaFromDevice = { uri -> viewModel.addItemFromUri(uri) },
           )
         }
         if (isOverlayPlacementActive) {
@@ -674,7 +655,6 @@ class CompositionPreviewActivity : AppCompatActivity() {
     onAddItem: (Int) -> Unit,
     onRemoveItem: (Int) -> Unit,
     onUpdateEffects: (index: Int, effects: Set<String>) -> Unit,
-    onAddMediaFromDevice: (uri: Uri) -> Unit,
   ) {
     var selectedMediaItemIndex by remember { mutableStateOf<Int?>(null) }
     var showEditMediaItemsDialog by remember { mutableStateOf(false) }
@@ -751,11 +731,6 @@ class CompositionPreviewActivity : AppCompatActivity() {
         ) {
           Text(text = stringResource(R.string.edit))
         }
-        PickVisualMedia(
-          modifier = Modifier.align(Alignment.CenterHorizontally),
-          isEnabled = isEnabled,
-          onItemAdded = onAddMediaFromDevice,
-        )
       }
     }
   }
@@ -925,37 +900,6 @@ class CompositionPreviewActivity : AppCompatActivity() {
           }
         }
       }
-    }
-  }
-
-  @OptIn(ExperimentalMaterial3ExpressiveApi::class)
-  @Composable
-  fun PickVisualMedia(
-    modifier: Modifier = Modifier,
-    isEnabled: Boolean,
-    onItemAdded: (uri: Uri) -> Unit,
-  ) {
-    val pickMedia =
-      rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri: Uri? ->
-        if (uri != null) {
-          onItemAdded(uri)
-          Log.d(TAG, "Selected: $uri")
-        } else {
-          // Nothing selected
-          Log.w(TAG, "Nothing selected")
-        }
-      }
-    FilledTonalButton(
-      onClick = {
-        pickMedia.launch(
-          PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)
-        )
-      },
-      enabled = isEnabled,
-      shapes = ButtonDefaults.shapes(),
-      modifier = modifier,
-    ) {
-      Text(text = stringResource(R.string.add_media_from_device))
     }
   }
 
