@@ -373,7 +373,6 @@ public final class VideoFrameReleaseControl {
       return FRAME_RELEASE_SKIP;
     }
     if (!hasOutputSurface) {
-      frameReadyWithoutSurface = true;
       // Skip frames in sync with playback, so we'll be at the right frame if a surface is set.
       if (frameTimingEvaluator.shouldIgnoreFrame(
           frameReleaseInfo.earlyUs,
@@ -383,9 +382,11 @@ public final class VideoFrameReleaseControl {
           /* treatDroppedBuffersAsSkipped= */ true)) {
         return FRAME_RELEASE_IGNORE;
       }
-      return started && frameReleaseInfo.earlyUs < 30_000
-          ? FRAME_RELEASE_SKIP
-          : FRAME_RELEASE_TRY_AGAIN_LATER;
+      if (started && frameReleaseInfo.earlyUs < 30_000) {
+        return FRAME_RELEASE_SKIP;
+      }
+      frameReadyWithoutSurface = true;
+      return FRAME_RELEASE_TRY_AGAIN_LATER;
     }
     if (shouldForceRelease(positionUs, frameReleaseInfo.earlyUs, outputStreamStartPositionUs)) {
       return FRAME_RELEASE_IMMEDIATELY;
