@@ -102,6 +102,7 @@ import java.util.Map;
           }
         };
     webView.setBackgroundColor(Color.TRANSPARENT);
+    webView.getSettings().setAllowContentAccess(false);
 
     addView(canvasSubtitleOutput);
     addView(webView);
