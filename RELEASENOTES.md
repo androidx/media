@@ -41,6 +41,9 @@
 *   UI:
     *   Use `BidiFormatter` to correctly display punctuation in RTL text
         subtitles ([#11214](https://github.com/google/ExoPlayer/issues/11214)).
+    *   Add `TimeText` composable to `media3-ui-compose-material3` for
+        displaying player progress in a textual form. It can be configured to
+        show the current position, duration, or remaining time.
 *   Downloads:
 *   OkHttp extension:
 *   Cronet extension:
