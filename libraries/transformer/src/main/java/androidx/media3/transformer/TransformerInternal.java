@@ -864,11 +864,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
                 || clippingRequiresTranscode(firstEditedMediaItem.mediaItem);
         checkState(
             !applyMp4EditListTrim || !shouldTranscode,
-            String.format(
-                "Transcoding is required for track %s but MP4 edit list trimming is enabled."
-                    + " Disable mp4EditListTrimEnabled or ensure this track does not require"
-                    + " transcoding.",
-                inputFormat));
+            "Transcoding is required for track %s but MP4 edit list trimming is enabled."
+                + " Disable mp4EditListTrimEnabled or ensure this track does not require"
+                + " transcoding.",
+            inputFormat);
       }
       checkState(!shouldTranscode || assetLoaderCanOutputDecoded);
 
