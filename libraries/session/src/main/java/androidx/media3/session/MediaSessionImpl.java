@@ -35,7 +35,6 @@ import static androidx.media3.session.SessionError.ERROR_UNKNOWN;
 import static androidx.media3.session.SessionError.INFO_CANCELLED;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static java.lang.Math.max;
-import static java.lang.Math.min;
 
 import android.app.PendingIntent;
 import android.content.ComponentName;
@@ -55,6 +54,7 @@ import android.os.Message;
 import android.os.Process;
 import android.os.RemoteException;
 import android.os.SystemClock;
+import android.util.TypedValue;
 import android.view.KeyEvent;
 import android.view.ViewConfiguration;
 import androidx.annotation.CheckResult;
@@ -2239,19 +2239,16 @@ import org.checkerframework.checker.initialization.qual.Initialized;
 
     // NotificationCompat will scale the bitmaps on API < 27
     if (Build.VERSION.SDK_INT < 27) {
-      try {
-        int maxWidth =
-            context
-                .getResources()
-                .getDimensionPixelSize(R.dimen.compat_notification_large_icon_max_width);
-        int maxHeight =
-            context
-                .getResources()
-                .getDimensionPixelSize(R.dimen.compat_notification_large_icon_max_height);
-        maxSize = max(maxSize, min(maxWidth, maxHeight));
-      } catch (Resources.NotFoundException e) {
-        // keep maxSize as is
-      }
+      // Hard-code the value of compat_notification_large_icon_max_width and
+      // compat_notification_large_icon_max_width as 320dp because the resource IDs are not public
+      // in
+      // https://cs.android.com/android/platform/superproject/+/androidx-main:frameworks/support/core/core/src/main/res/values/dimens.xml
+      // and therefore cannot be used from here.
+      int notificationCompatMaxSize =
+          (int)
+              TypedValue.applyDimension(
+                  TypedValue.COMPLEX_UNIT_DIP, 320, context.getResources().getDisplayMetrics());
+      maxSize = max(maxSize, notificationCompatMaxSize);
     }
     return maxSize;
   }
