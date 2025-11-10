@@ -20,7 +20,6 @@ import static com.google.common.truth.Truth.assertThat;
 
 import android.media.AudioFormat;
 import android.net.Uri;
-import android.util.Log;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -76,9 +75,6 @@ public final class EventLoggerTest {
   private final EventLogger eventLogger;
 
   public EventLoggerTest() {
-    // Ensure the logs are emitted, even when tested under a release config that strips debug logs
-    // by default.
-    ShadowLog.setLoggable(CUSTOM_TAG, Log.DEBUG);
     this.eventLogger = new EventLogger(CUSTOM_TAG);
   }
 
