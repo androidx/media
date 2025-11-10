@@ -35,6 +35,8 @@ This release includes the following changes since
         `Player.Command` or non-custom `SessionCommand` to define their action.
         These are now correctly represented in platform media sessions, for
         example for System UI or Android Auto.
+    *   Fix issue where the same `Bitmap` is compressed multiple times when
+        connecting a `MediaController` to a platform media session.
 *   UI:
     *   Use `BidiFormatter` to correctly display punctuation in RTL text
         subtitles ([#11214](https://github.com/google/ExoPlayer/issues/11214)).

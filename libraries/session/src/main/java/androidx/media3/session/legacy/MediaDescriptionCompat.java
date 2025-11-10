@@ -26,6 +26,9 @@ import android.os.Parcel;
 import android.os.Parcelable;
 import androidx.annotation.Nullable;
 import androidx.annotation.RestrictTo;
+import androidx.media3.common.util.Log;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 
 /**
  * A simple set of metadata for a media item suitable for display. This can be created using the
@@ -34,6 +37,8 @@ import androidx.annotation.RestrictTo;
 @RestrictTo(LIBRARY)
 @SuppressLint("BanParcelableUsage")
 public final class MediaDescriptionCompat implements Parcelable {
+
+  private static final String TAG = "MediaDescriptionCompat";
 
   /**
    * Used as a long extra field to indicate the bluetooth folder type of the media item as specified
@@ -159,6 +164,8 @@ public final class MediaDescriptionCompat implements Parcelable {
   /** A bitmap icon suitable for display or null. */
   @Nullable private final Bitmap icon;
 
+  @Nullable private byte[] compressedIcon;
+
   /** A Uri for an icon suitable for display or null. */
   @Nullable private final Uri iconUri;
 
@@ -279,6 +286,45 @@ public final class MediaDescriptionCompat implements Parcelable {
   @Override
   public String toString() {
     return title + ", " + subtitle + ", " + description;
+  }
+
+  /**
+   * Returns the bytes for the compressed {@link #getIconBitmap()}, or null if there is no icon
+   * bitmap or the compression fails.
+   */
+  @Nullable
+  public byte[] getIconBitmapData() {
+    if (icon == null) {
+      return null;
+    }
+    if (compressedIcon == null) {
+      try (ByteArrayOutputStream stream = new ByteArrayOutputStream()) {
+        icon.compress(Bitmap.CompressFormat.PNG, /* ignored */ 0, stream);
+        compressedIcon = stream.toByteArray();
+      } catch (IOException e) {
+        Log.w(TAG, "Failed to compress MediaDescriptionCompat artwork", e);
+      }
+    }
+    return compressedIcon;
+  }
+
+  /**
+   * Attempts to preserve existing compressed icon bitmap data from the given previous instance.
+   *
+   * <p>The data is only preserved if the original icon bitmap is the same as in the current
+   * instance.
+   *
+   * @param previousInstance A previous instance that potentially has already compressed icon data
+   *     available.
+   */
+  public void preserveIconBitmapData(MediaDescriptionCompat previousInstance) {
+    if (previousInstance.compressedIcon == null || icon == null || previousInstance.icon == null) {
+      return;
+    }
+    if (!icon.sameAs(previousInstance.icon)) {
+      return;
+    }
+    compressedIcon = previousInstance.compressedIcon;
   }
 
   /**

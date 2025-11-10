@@ -89,8 +89,6 @@ import androidx.media3.session.legacy.RatingCompat;
 import androidx.media3.session.legacy.VolumeProviderCompat;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -509,14 +507,8 @@ import java.util.concurrent.TimeoutException;
         .setArtworkUri(descriptionCompat.getIconUri())
         .setUserRating(convertToRating(RatingCompat.newUnratedRating(ratingType)));
 
-    @Nullable Bitmap iconBitmap = descriptionCompat.getIconBitmap();
-    if (iconBitmap != null) {
-      @Nullable byte[] artworkData = null;
-      try {
-        artworkData = convertToByteArray(iconBitmap);
-      } catch (IOException e) {
-        Log.w(TAG, "Failed to convert iconBitmap to artworkData", e);
-      }
+    @Nullable byte[] artworkData = descriptionCompat.getIconBitmapData();
+    if (artworkData != null) {
       builder.setArtworkData(artworkData, MediaMetadata.PICTURE_TYPE_FRONT_COVER);
     }
 
@@ -633,31 +625,14 @@ import java.util.concurrent.TimeoutException;
       builder.setRecordingYear((int) year);
     }
 
-    @Nullable
-    String artworkUriString =
-        getFirstString(
-            metadataCompat,
-            MediaMetadataCompat.METADATA_KEY_DISPLAY_ICON_URI,
-            MediaMetadataCompat.METADATA_KEY_ALBUM_ART_URI,
-            MediaMetadataCompat.METADATA_KEY_ART_URI);
-    if (artworkUriString != null) {
-      builder.setArtworkUri(Uri.parse(artworkUriString));
+    @Nullable Uri artworkUri = metadataCompat.getMostRelevantArtworkUri();
+    if (artworkUri != null) {
+      builder.setArtworkUri(artworkUri);
     }
 
-    @Nullable
-    Bitmap artworkBitmap =
-        getFirstBitmap(
-            metadataCompat,
-            MediaMetadataCompat.METADATA_KEY_DISPLAY_ICON,
-            MediaMetadataCompat.METADATA_KEY_ALBUM_ART,
-            MediaMetadataCompat.METADATA_KEY_ART);
-    if (artworkBitmap != null) {
-      try {
-        byte[] artworkData = convertToByteArray(artworkBitmap);
-        builder.setArtworkData(artworkData, MediaMetadata.PICTURE_TYPE_FRONT_COVER);
-      } catch (IOException e) {
-        Log.w(TAG, "Failed to convert artworkBitmap to artworkData", e);
-      }
+    @Nullable byte[] artworkData = metadataCompat.getMostRelevantArtworkBitmapData();
+    if (artworkData != null) {
+      builder.setArtworkData(artworkData, MediaMetadata.PICTURE_TYPE_FRONT_COVER);
     }
 
     boolean isBrowsable =
@@ -685,26 +660,6 @@ import java.util.concurrent.TimeoutException;
     }
 
     return builder.build();
-  }
-
-  @Nullable
-  private static Bitmap getFirstBitmap(MediaMetadataCompat mediaMetadataCompat, String... keys) {
-    for (String key : keys) {
-      if (mediaMetadataCompat.containsKey(key)) {
-        return mediaMetadataCompat.getBitmap(key);
-      }
-    }
-    return null;
-  }
-
-  @Nullable
-  private static String getFirstString(MediaMetadataCompat mediaMetadataCompat, String... keys) {
-    for (String key : keys) {
-      if (mediaMetadataCompat.containsKey(key)) {
-        return mediaMetadataCompat.getString(key);
-      }
-    }
-    return null;
   }
 
   /**
@@ -1732,13 +1687,6 @@ import java.util.concurrent.TimeoutException;
     long currentPositionMs =
         convertToCurrentPositionMs(playbackStateCompat, currentMediaMetadata, timeDiffMs);
     return currentPositionMs >= durationMs;
-  }
-
-  private static byte[] convertToByteArray(Bitmap bitmap) throws IOException {
-    try (ByteArrayOutputStream stream = new ByteArrayOutputStream()) {
-      bitmap.compress(Bitmap.CompressFormat.PNG, /* ignored */ 0, stream);
-      return stream.toByteArray();
-    }
   }
 
   private LegacyConversions() {}
