@@ -551,7 +551,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
   private @MonotonicNonNull Composition composition;
   private @MonotonicNonNull Size videoOutputSize;
   private @MonotonicNonNull PlaybackVideoGraphWrapper playbackVideoGraphWrapper;
-  private @MonotonicNonNull PlaybackAudioGraphWrapper playbackAudioGraphWrapper;
+  private PlaybackAudioGraphWrapper playbackAudioGraphWrapper;
   private @MonotonicNonNull VideoFrameMetadataListener videoFrameMetadataListener;
   private @MonotonicNonNull FrameAggregator frameAggregator;
 
@@ -610,6 +610,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     internalListener = new InternalListener();
     audioFocusManager =
         new AudioFocusManager(context, applicationHandler.getLooper(), internalListener);
+    playbackAudioGraphWrapper = new PlaybackAudioGraphWrapper(audioMixerFactory, finalAudioSink);
     glObjectsProvider = builder.glObjectsProviderSupplier.get();
     if (builder.packetConsumerFactory != null) {
       executorService =
@@ -1252,14 +1253,10 @@ public final class CompositionPlayer extends SimpleBasePlayer {
 
   private void prepareCompositionPlayerInternal() {
     // PlaybackAudioGraphWrapper needs to be recreated everytime a new composition is set.
-    if (playbackAudioGraphWrapper != null) {
-      playbackAudioGraphWrapper.release();
-    }
-    playbackAudioGraphWrapper =
-        new PlaybackAudioGraphWrapper(audioMixerFactory, checkNotNull(finalAudioSink));
     if (compositionPlayerInternalPrepared) {
+      playbackAudioGraphWrapper = new PlaybackAudioGraphWrapper(audioMixerFactory, finalAudioSink);
       checkNotNull(compositionPlayerInternal)
-          .setPlaybackAudioGraphWrapper(playbackAudioGraphWrapper);
+          .replacePlaybackAudioGraphWrapper(playbackAudioGraphWrapper);
       return;
     }
 
