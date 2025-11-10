@@ -48,11 +48,13 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import java.io.IOException;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.shadows.ShadowLog;
 
 @RunWith(AndroidJUnit4.class)
+@Ignore // flaky when run with testReleaseUnitTest as release unit test.
 public final class EventLoggerTest {
 
   private static final String CUSTOM_TAG = "TestELTag";

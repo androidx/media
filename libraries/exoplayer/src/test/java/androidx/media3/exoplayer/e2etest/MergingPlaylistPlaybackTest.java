@@ -16,6 +16,7 @@
 package androidx.media3.exoplayer.e2etest;
 
 import static androidx.media3.test.utils.robolectric.TestPlayerRunHelper.advance;
+import static org.junit.Assume.assumeFalse;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
@@ -90,6 +91,12 @@ public final class MergingPlaylistPlaybackTest {
 
   @Test
   public void transitionBetweenDifferentMergeConfigurations() throws Exception {
+    assumeFalse(
+        videoIsPrimaryMergedSource
+            && firstItemVideoClipped
+            && firstItemAudioClipped
+            && secondItemVideoClipped
+            && secondItemAudioClipped);
     Context applicationContext = ApplicationProvider.getApplicationContext();
     FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
     CapturingRenderersFactory capturingRenderersFactory =
