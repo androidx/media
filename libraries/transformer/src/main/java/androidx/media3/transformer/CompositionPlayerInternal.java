@@ -296,7 +296,7 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
     }
   }
 
-  public void startRenderingInternal() {
+  private void startRenderingInternal() {
     droppedFrameAccumulationStartTimeMs = clock.elapsedRealtime();
     playbackAudioGraphWrapper.startRendering();
     playbackVideoGraphWrapper.startRendering();
@@ -305,7 +305,7 @@ import androidx.media3.exoplayer.video.PlaybackVideoGraphWrapper;
     }
   }
 
-  public void stopRenderingInternal() {
+  private void stopRenderingInternal() {
     maybeNotifyDroppedFrames();
     playbackAudioGraphWrapper.stopRendering();
     playbackVideoGraphWrapper.stopRendering();
