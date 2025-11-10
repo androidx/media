@@ -78,6 +78,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CancellationException;
@@ -2028,6 +2029,8 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
     Commands availablePlayerCommands;
     ImmutableList<CommandButton> mediaButtonPreferences;
 
+    preserveExistingBitmapData(oldLegacyPlayerInfo, newLegacyPlayerInfo);
+
     boolean isQueueChanged = oldLegacyPlayerInfo.queue != newLegacyPlayerInfo.queue;
     currentTimeline =
         isQueueChanged
@@ -2500,7 +2503,31 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
         /* contentBufferedPositionMs= */ bufferedPositionMs);
   }
 
-  // Media 1.0 variables
+  private static void preserveExistingBitmapData(
+      LegacyPlayerInfo oldInfo, LegacyPlayerInfo newInfo) {
+    if (oldInfo.mediaMetadataCompat != null && newInfo.mediaMetadataCompat != null) {
+      newInfo.mediaMetadataCompat.preserveArtworkBitmapData(oldInfo.mediaMetadataCompat);
+    }
+    if (oldInfo.queue != newInfo.queue) {
+      HashMap<Long, QueueItem> oldQueueItems = new HashMap<>();
+      for (int i = 0; i < oldInfo.queue.size(); i++) {
+        QueueItem oldItem = oldInfo.queue.get(i);
+        if (oldItem.getDescription().getIconBitmap() != null) {
+          oldQueueItems.put(oldItem.getQueueId(), oldItem);
+        }
+      }
+      for (int i = 0; i < newInfo.queue.size(); i++) {
+        QueueItem newItem = newInfo.queue.get(i);
+        if (newItem.getDescription().getIconBitmap() != null) {
+          @Nullable QueueItem oldItem = oldQueueItems.get(newItem.getQueueId());
+          if (oldItem != null) {
+            newItem.getDescription().preserveIconBitmapData(oldItem.getDescription());
+          }
+        }
+      }
+    }
+  }
+
   private static final class LegacyPlayerInfo {
 
     @Nullable public final MediaControllerCompat.PlaybackInfo playbackInfoCompat;

@@ -16,8 +16,10 @@
 
 package androidx.media3.session.legacy;
 
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 
+import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Bundle;
 import androidx.media3.test.session.common.TestUtils;
@@ -61,6 +63,67 @@ public class MediaDescriptionCompatTest {
             .build();
     originalDescription.getMediaDescription();
     TestUtils.equals(createExtras(), originalDescription.getExtras());
+  }
+
+  @Test
+  public void getIconBitmapData_returnsCompressedBitmap() {
+    Bitmap testBitmap =
+        Bitmap.createBitmap(/* width= */ 10, /* height= */ 10, Bitmap.Config.ARGB_8888);
+    MediaDescriptionCompat description =
+        new MediaDescriptionCompat.Builder().setIconBitmap(testBitmap).build();
+
+    byte[] data = description.getIconBitmapData();
+
+    assertThat(data).isNotNull();
+    assertThat(data.length).isGreaterThan(0);
+  }
+
+  @Test
+  public void getIconBitmapData_calledTwice_returnsSameByteArrayInstance() {
+    Bitmap testBitmap =
+        Bitmap.createBitmap(/* width= */ 10, /* height= */ 10, Bitmap.Config.ARGB_8888);
+    MediaDescriptionCompat description =
+        new MediaDescriptionCompat.Builder().setIconBitmap(testBitmap).build();
+
+    byte[] data1 = description.getIconBitmapData();
+    byte[] data2 = description.getIconBitmapData();
+
+    assertThat(data1).isSameInstanceAs(data2);
+  }
+
+  @Test
+  public void preserveIconBitmapData_withSameBitmap_preservesIconBitmapData() {
+    Bitmap testBitmap1 =
+        Bitmap.createBitmap(/* width= */ 10, /* height= */ 10, Bitmap.Config.ARGB_8888);
+    Bitmap testBitmap2 = Bitmap.createBitmap(testBitmap1);
+    MediaDescriptionCompat description1 =
+        new MediaDescriptionCompat.Builder().setIconBitmap(testBitmap1).build();
+    MediaDescriptionCompat description2 =
+        new MediaDescriptionCompat.Builder().setIconBitmap(testBitmap2).build();
+    byte[] data1 = description1.getIconBitmapData();
+
+    description2.preserveIconBitmapData(description1);
+    byte[] data2 = description2.getIconBitmapData();
+
+    assertThat(data2).isSameInstanceAs(data1);
+  }
+
+  @Test
+  public void preserveIconBitmapData_withDifferentBitmap_doesNotPreserveIconBitmapData() {
+    Bitmap testBitmap1 =
+        Bitmap.createBitmap(/* width= */ 10, /* height= */ 10, Bitmap.Config.ARGB_8888);
+    Bitmap testBitmap2 =
+        Bitmap.createBitmap(/* width= */ 5, /* height= */ 5, Bitmap.Config.ARGB_8888);
+    MediaDescriptionCompat description1 =
+        new MediaDescriptionCompat.Builder().setIconBitmap(testBitmap1).build();
+    MediaDescriptionCompat description2 =
+        new MediaDescriptionCompat.Builder().setIconBitmap(testBitmap2).build();
+    byte[] data1 = description1.getIconBitmapData();
+
+    description2.preserveIconBitmapData(description1);
+    byte[] data2 = description2.getIconBitmapData();
+
+    assertThat(data2).isNotSameInstanceAs(data1);
   }
 
   private static Bundle createExtras() {

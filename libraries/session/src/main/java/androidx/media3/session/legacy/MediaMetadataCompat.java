@@ -31,6 +31,8 @@ import androidx.annotation.StringDef;
 import androidx.collection.ArrayMap;
 import androidx.media3.common.util.Log;
 import androidx.media3.session.legacy.MediaControllerCompat.TransportControls;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
@@ -318,8 +320,10 @@ public final class MediaMetadataCompat implements Parcelable {
     METADATA_KEY_DISPLAY_DESCRIPTION
   };
 
-  final Bundle bundle;
+  private final Bundle bundle;
+
   @Nullable private MediaMetadata metadataFwk;
+  @Nullable private byte[] compressedArtworkData;
 
   MediaMetadataCompat(Bundle bundle) {
     this.bundle = new Bundle(bundle);
@@ -396,24 +400,6 @@ public final class MediaMetadataCompat implements Parcelable {
       Log.w(TAG, "Failed to retrieve a key as Rating.", e);
     }
     return rating;
-  }
-
-  /**
-   * Return a {@link Bitmap} for the given key or null if no bitmap exists for the given key.
-   *
-   * @param key The key the value is stored under
-   * @return A {@link Bitmap} or null
-   */
-  @Nullable
-  public Bitmap getBitmap(@BitmapKey String key) {
-    Bitmap bmp = null;
-    try {
-      bmp = bundle.getParcelable(key);
-    } catch (Exception e) {
-      // ignore, value was not a bitmap
-      Log.w(TAG, "Failed to retrieve a key as Bitmap.", e);
-    }
-    return bmp;
   }
 
   @Override
@@ -512,6 +498,63 @@ public final class MediaMetadataCompat implements Parcelable {
     return metadataFwk;
   }
 
+  /**
+   * Returns the most relevant artwork URI from the available artwork metadata keys, or null if none
+   * can be found.
+   */
+  @Nullable
+  public Uri getMostRelevantArtworkUri() {
+    String uriString =
+        getFirstString(
+            METADATA_KEY_DISPLAY_ICON_URI, METADATA_KEY_ALBUM_ART_URI, METADATA_KEY_ART_URI);
+    return uriString != null ? Uri.parse(uriString) : null;
+  }
+
+  /**
+   * Returns the compressed bytes for the most relevant artwork bitmap from the available artwork
+   * metadata keys, or null if none can be found.
+   */
+  @Nullable
+  public byte[] getMostRelevantArtworkBitmapData() {
+    @Nullable Bitmap bitmap = getMostRelevantArtworkBitmap();
+    if (bitmap == null) {
+      return null;
+    }
+    if (compressedArtworkData == null) {
+      try (ByteArrayOutputStream stream = new ByteArrayOutputStream()) {
+        bitmap.compress(Bitmap.CompressFormat.PNG, /* ignored */ 0, stream);
+        compressedArtworkData = stream.toByteArray();
+      } catch (IOException e) {
+        Log.w(TAG, "Failed to compress MediaMetadataCompat artwork", e);
+      }
+    }
+    return compressedArtworkData;
+  }
+
+  /**
+   * Attempts to preserve existing compressed artwork bitmap data from the given previous instance.
+   *
+   * <p>The data is only preserved if the original most relevant artwork bitmap is the same as in
+   * the current instance.
+   *
+   * @param previousInstance A previous instance that potentially has already compressed artwork
+   *     data available.
+   */
+  public void preserveArtworkBitmapData(MediaMetadataCompat previousInstance) {
+    if (previousInstance.compressedArtworkData == null) {
+      return;
+    }
+    @Nullable Bitmap bitmap = getMostRelevantArtworkBitmap();
+    if (bitmap == null) {
+      return;
+    }
+    @Nullable Bitmap previousBitmap = previousInstance.getMostRelevantArtworkBitmap();
+    if (previousBitmap == null || !bitmap.sameAs(previousBitmap)) {
+      return;
+    }
+    compressedArtworkData = previousInstance.compressedArtworkData;
+  }
+
   public static final Parcelable.Creator<MediaMetadataCompat> CREATOR =
       new Parcelable.Creator<MediaMetadataCompat>() {
         @Override
@@ -524,6 +567,43 @@ public final class MediaMetadataCompat implements Parcelable {
           return new MediaMetadataCompat[size];
         }
       };
+
+  @Nullable
+  private Bitmap getMostRelevantArtworkBitmap() {
+    return getFirstBitmap(METADATA_KEY_DISPLAY_ICON, METADATA_KEY_ALBUM_ART, METADATA_KEY_ART);
+  }
+
+  @Nullable
+  private Bitmap getBitmap(@BitmapKey String key) {
+    Bitmap bmp = null;
+    try {
+      bmp = bundle.getParcelable(key);
+    } catch (Exception e) {
+      // ignore, value was not a bitmap
+      Log.w(TAG, "Failed to retrieve a key as Bitmap.", e);
+    }
+    return bmp;
+  }
+
+  @Nullable
+  private Bitmap getFirstBitmap(String... keys) {
+    for (String key : keys) {
+      if (containsKey(key)) {
+        return getBitmap(key);
+      }
+    }
+    return null;
+  }
+
+  @Nullable
+  private String getFirstString(String... keys) {
+    for (String key : keys) {
+      if (containsKey(key)) {
+        return getString(key);
+      }
+    }
+    return null;
+  }
 
   /**
    * Use to build MediaMetadata objects. The system defined metadata keys must use the appropriate
