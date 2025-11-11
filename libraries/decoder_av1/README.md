@@ -68,11 +68,20 @@ cd "${AV1_MODULE_PATH}/jni" && \
   "${HOST_PLATFORM}"
 ```
 
+* [Install CMake][]
+
+Having followed these steps, gradle will build the module automatically when run
+on the command line or via Android Studio, using [CMake][] and [Ninja][] to
+configure and build the module's [JNI wrapper library][].
+
 [top level README]: ../../README.md
 [Android NDK]: https://developer.android.com/tools/sdk/ndk/index.html
 [Meson]: https://mesonbuild.com/
 [Ninja]: https://ninja-build.org/
 [nasm]: https://nasm.us/
+[Install CMake]: https://developer.android.com/studio/projects/install-ndk
+[CMake]: https://cmake.org/
+[JNI wrapper library]: src/main/jni/dav1d_jni.cc
 
 ## Build instructions (Windows)
 
