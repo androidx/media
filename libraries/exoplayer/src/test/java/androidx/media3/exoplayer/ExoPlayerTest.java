@@ -12957,15 +12957,31 @@ public final class ExoPlayerTest {
   }
 
   @Test
-  public void seekTo_whenTimelineEmpty_callsOnPositionDiscontinuity() {
+  public void seekTo_whenTimelineEmpty_callsOnPositionDiscontinuityAndSetsCorrectIndices() {
     ExoPlayer player = parameterizeTestExoPlayerBuilder(new TestExoPlayerBuilder(context)).build();
     Player.Listener listener = mock(Player.Listener.class);
     player.addListener(listener);
 
+    int mediaItemIndex0 = player.getCurrentMediaItemIndex();
+    int periodIndex0 = player.getCurrentPeriodIndex();
     player.seekTo(/* positionMs= */ 7 * C.MILLIS_PER_SECOND);
+    int mediaItemIndex1 = player.getCurrentMediaItemIndex();
+    int periodIndex1 = player.getCurrentPeriodIndex();
     player.seekTo(/* mediaItemIndex= */ 1, /* positionMs= */ C.MILLIS_PER_SECOND);
+    int mediaItemIndex2 = player.getCurrentMediaItemIndex();
+    int periodIndex2 = player.getCurrentPeriodIndex();
     player.seekTo(/* positionMs= */ 5 * C.MILLIS_PER_SECOND);
+    int mediaItemIndex3 = player.getCurrentMediaItemIndex();
+    int periodIndex3 = player.getCurrentPeriodIndex();
 
+    assertThat(mediaItemIndex0).isEqualTo(0);
+    assertThat(periodIndex0).isEqualTo(0);
+    assertThat(mediaItemIndex1).isEqualTo(0);
+    assertThat(periodIndex1).isEqualTo(0);
+    assertThat(mediaItemIndex2).isEqualTo(1);
+    assertThat(periodIndex2).isEqualTo(1);
+    assertThat(mediaItemIndex3).isEqualTo(1);
+    assertThat(periodIndex3).isEqualTo(1);
     ArgumentCaptor<Player.PositionInfo> oldPosition =
         ArgumentCaptor.forClass(Player.PositionInfo.class);
     ArgumentCaptor<Player.PositionInfo> newPosition =
@@ -12980,31 +12996,37 @@ public final class ExoPlayerTest {
     // a seek from initial state to masked seek position
     assertThat(oldPositions.get(0).windowUid).isNull();
     assertThat(oldPositions.get(0).mediaItemIndex).isEqualTo(0);
+    assertThat(oldPositions.get(0).periodIndex).isEqualTo(0);
     assertThat(oldPositions.get(0).mediaItem).isNull();
     assertThat(oldPositions.get(0).positionMs).isEqualTo(0);
     assertThat(oldPositions.get(0).contentPositionMs).isEqualTo(0);
     assertThat(newPositions.get(0).mediaItemIndex).isEqualTo(0);
+    assertThat(newPositions.get(0).periodIndex).isEqualTo(0);
     assertThat(newPositions.get(0).windowUid).isNull();
     assertThat(newPositions.get(0).positionMs).isEqualTo(7_000);
     assertThat(newPositions.get(0).contentPositionMs).isEqualTo(7_000);
     // a seek from masked seek position to another masked position across windows
     assertThat(oldPositions.get(1).windowUid).isNull();
     assertThat(oldPositions.get(1).mediaItemIndex).isEqualTo(0);
+    assertThat(oldPositions.get(1).periodIndex).isEqualTo(0);
     assertThat(oldPositions.get(1).mediaItem).isNull();
     assertThat(oldPositions.get(1).positionMs).isEqualTo(7_000);
     assertThat(oldPositions.get(1).contentPositionMs).isEqualTo(7_000);
     assertThat(newPositions.get(1).windowUid).isNull();
     assertThat(newPositions.get(1).mediaItemIndex).isEqualTo(1);
+    assertThat(newPositions.get(1).periodIndex).isEqualTo(1);
     assertThat(newPositions.get(1).positionMs).isEqualTo(1_000);
     assertThat(newPositions.get(1).contentPositionMs).isEqualTo(1_000);
     // a seek from masked seek position to another masked position within media item
     assertThat(oldPositions.get(2).windowUid).isNull();
     assertThat(oldPositions.get(2).mediaItemIndex).isEqualTo(1);
+    assertThat(oldPositions.get(2).periodIndex).isEqualTo(1);
     assertThat(oldPositions.get(2).mediaItem).isNull();
     assertThat(oldPositions.get(2).positionMs).isEqualTo(1_000);
     assertThat(oldPositions.get(2).contentPositionMs).isEqualTo(1_000);
     assertThat(newPositions.get(2).windowUid).isNull();
     assertThat(newPositions.get(2).mediaItemIndex).isEqualTo(1);
+    assertThat(newPositions.get(2).periodIndex).isEqualTo(1);
     assertThat(newPositions.get(2).positionMs).isEqualTo(5_000);
     assertThat(newPositions.get(2).contentPositionMs).isEqualTo(5_000);
     player.release();
