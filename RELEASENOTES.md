@@ -1,8 +1,52 @@
 # Release notes
 
+### Unreleased changes
+
+*   Common Library:
+*   ExoPlayer:
+*   CompositionPlayer:
+*   Transformer:
+*   Track Selection:
+*   Extractors:
+*   Inspector:
+*   Audio:
+*   Video:
+*   Text:
+*   Metadata:
+*   Image:
+*   DataSource:
+*   DRM:
+*   Effect:
+*   Muxers:
+*   IMA extension:
+*   Session:
+    *   Add backwards-compatibility for `CommandButton` instances using
+        `Player.Command` or non-custom `SessionCommand` to define their action.
+        These are now correctly represented in platform media sessions, for
+        example for System UI or Android Auto.
+    *   Fix issue where the same `Bitmap` is compressed multiple times when
+        connecting a `MediaController` to a platform media session.
+*   UI:
+*   Downloads:
+*   OkHttp extension:
+*   Cronet extension:
+*   RTMP extension:
+*   HLS extension:
+    *   Properly handle fetching the next chunk for an `HlsMediaPlaylist` with
+        no segments ([#2821](https://github.com/androidx/media/issues/2821)).
+*   DASH extension:
+*   Smooth Streaming extension:
+*   RTSP extension:
+*   Decoder extensions (FFmpeg, VP9, AV1, etc.):
+*   MIDI extension:
+*   Leanback extension:
+*   Cast extension:
+*   Test Utilities:
+*   Remove deprecated symbols:
+
 ## 1.9
 
-### 1.9.0-beta01 (2025-11-13)
+### 1.9.0-beta01 (2025-11-13) {#190-beta01-2025-11-13}
 
 This release includes the following changes since
 [1.9.0-alpha01 release](#190-alpha01-2025-10-22):
@@ -52,7 +96,7 @@ This release includes the following changes since
         ([#2859](https://github.com/androidx/media/issues/2859)).
     *   Accept space as a date/time separator in ISO 8601 date-time strings.
 
-### 1.9.0-alpha01 (2025-10-22)
+### 1.9.0-alpha01 (2025-10-22) {#190-alpha01-2025-10-22}
 
 This release includes the following changes since
 [1.8.0 release](#180-2025-07-30):
