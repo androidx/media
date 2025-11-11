@@ -305,7 +305,7 @@ public final class RemoteCastPlayer extends BasePlayer {
   @Nullable private CastSession castSession;
   @Nullable private RemoteMediaClient remoteMediaClient;
   private CastTimeline currentTimeline;
-  private Tracks currentTracks;
+  private final StateHolder<Tracks> currentTracks;
   private Commands availableCommands;
   private @Player.State int playbackState;
   private int currentWindowIndex;
@@ -367,7 +367,7 @@ public final class RemoteCastPlayer extends BasePlayer {
     currentTimeline = CastTimeline.EMPTY_CAST_TIMELINE;
     mediaMetadata = MediaMetadata.EMPTY;
     playlistMetadata = MediaMetadata.EMPTY;
-    currentTracks = Tracks.EMPTY;
+    currentTracks = new StateHolder<>(Tracks.EMPTY);
     availableCommands = new Commands.Builder().addAll(PERMANENT_AVAILABLE_COMMANDS).build();
     pendingSeekWindowIndex = C.INDEX_UNSET;
     pendingSeekPositionMs = C.TIME_UNSET;
@@ -754,7 +754,7 @@ public final class RemoteCastPlayer extends BasePlayer {
 
   @Override
   public Tracks getCurrentTracks() {
-    return currentTracks;
+    return currentTracks.value;
   }
 
   @Override
@@ -1141,10 +1141,7 @@ public final class RemoteCastPlayer extends BasePlayer {
               listener.onMediaItemTransition(
                   getCurrentMediaItem(), MEDIA_ITEM_TRANSITION_REASON_AUTO));
     }
-    if (updateTracksAndSelectionsAndNotifyIfChanged()) {
-      listeners.queueEvent(
-          Player.EVENT_TRACKS_CHANGED, listener -> listener.onTracksChanged(currentTracks));
-    }
+    updateTracksAndNotifyIfChanged();
     if (!oldMediaMetadata.equals(mediaMetadata)) {
       listeners.queueEvent(
           Player.EVENT_MEDIA_METADATA_CHANGED,
@@ -1319,11 +1316,11 @@ public final class RemoteCastPlayer extends BasePlayer {
     return timelineChanged;
   }
 
-  /** Updates the internal tracks and selection and returns whether they have changed. */
-  private boolean updateTracksAndSelectionsAndNotifyIfChanged() {
+  /** Updates the internal tracks and queues a listener event if tracks have changed. */
+  private void updateTracksAndNotifyIfChanged() {
     if (remoteMediaClient == null) {
       // There is no session. We leave the state of the player as it is now.
-      return false;
+      return;
     }
 
     @Nullable MediaStatus mediaStatus = getMediaStatus();
@@ -1331,9 +1328,8 @@ public final class RemoteCastPlayer extends BasePlayer {
     @Nullable
     List<MediaTrack> castMediaTracks = mediaInfo != null ? mediaInfo.getMediaTracks() : null;
     if (castMediaTracks == null || castMediaTracks.isEmpty()) {
-      boolean hasChanged = !Tracks.EMPTY.equals(currentTracks);
-      currentTracks = Tracks.EMPTY;
-      return hasChanged;
+      setTracksAndNotifyIfChanded(Tracks.EMPTY);
+      return;
     }
     @Nullable long[] activeTrackIds = mediaStatus.getActiveTrackIds();
     if (activeTrackIds == null) {
@@ -1351,11 +1347,7 @@ public final class RemoteCastPlayer extends BasePlayer {
           new Tracks.Group(trackGroup, /* adaptiveSupported= */ false, trackSupport, trackSelected);
     }
     Tracks newTracks = new Tracks(ImmutableList.copyOf(trackGroups));
-    if (!newTracks.equals(currentTracks)) {
-      currentTracks = newTracks;
-      return true;
-    }
-    return false;
+    setTracksAndNotifyIfChanded(newTracks);
   }
 
   private void updateAvailableCommandsAndNotifyIfChanged() {
@@ -1554,6 +1546,15 @@ public final class RemoteCastPlayer extends BasePlayer {
         listeners.queueEvent(
             Player.EVENT_IS_PLAYING_CHANGED, listener -> listener.onIsPlayingChanged(isPlaying));
       }
+    }
+  }
+
+  private void setTracksAndNotifyIfChanded(Tracks tracks) {
+    if (!tracks.equals(currentTracks.value)) {
+      currentTracks.value = tracks;
+      listeners.queueEvent(
+          Player.EVENT_TRACKS_CHANGED, listener -> listener.onTracksChanged(tracks));
+      updateAvailableCommandsAndNotifyIfChanged();
     }
   }
 
