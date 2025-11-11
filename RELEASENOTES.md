@@ -4,32 +4,67 @@
 
 *   Common Library:
 *   ExoPlayer:
-    *   Add `cloneAndSet(int, int)` to `ShuffleOrder` with a default
-        implementation ([#2834](https://github.com/androidx/media/pull/2834)).
-    *   Append content resume offset when skipping ad playback after seek
-        adjustment or auto transition
-        ([2484](https://github.com/androidx/media/issues/2484)).
 *   CompositionPlayer:
 *   Transformer:
 *   Track Selection:
 *   Extractors:
-    *   MP3: Increase sniffing limit to 128kB to match the existing search limit
-        for a sync byte
-        ([#2713](https://github.com/androidx/media/issues/2713)).
 *   Inspector:
 *   Audio:
 *   Video:
-    *   Re-enable workaround for wrongly reported performance points for secure
-        codecs ([#2856](https://github.com/androidx/media/issues/2856)).
 *   Text:
 *   Metadata:
 *   Image:
 *   DataSource:
 *   DRM:
 *   Effect:
+*   Muxers:
+*   IMA extension:
+*   Session:
+    *   Add backwards-compatibility for `CommandButton` instances using
+        `Player.Command` or non-custom `SessionCommand` to define their action.
+        These are now correctly represented in platform media sessions, for
+        example for System UI or Android Auto.
+    *   Fix issue where the same `Bitmap` is compressed multiple times when
+        connecting a `MediaController` to a platform media session.
+*   UI:
+*   Downloads:
+*   OkHttp extension:
+*   Cronet extension:
+*   RTMP extension:
+*   HLS extension:
+*   DASH extension:
+*   Smooth Streaming extension:
+*   RTSP extension:
+*   Decoder extensions (FFmpeg, VP9, AV1, etc.):
+*   MIDI extension:
+*   Leanback extension:
+*   Cast extension:
+*   Test Utilities:
+*   Remove deprecated symbols:
+
+## 1.9
+
+### 1.9.0-beta01 (2025-11-13) {#190-beta01-2025-11-13}
+
+This release includes the following changes since
+[1.9.0-alpha01 release](#190-alpha01-2025-10-22):
+
+*   ExoPlayer:
+    *   Add `cloneAndSet(int, int)` to `ShuffleOrder` with a default
+        implementation ([#2834](https://github.com/androidx/media/pull/2834)).
+    *   Append content resume offset when skipping ad playback after seek
+        adjustment or auto transition
+        ([2484](https://github.com/androidx/media/issues/2484)).
+*   Extractors:
+    *   MP3: Increase sniffing limit to 128kB to match the existing search limit
+        for a sync byte
+        ([#2713](https://github.com/androidx/media/issues/2713)).
+*   Video:
+    *   Re-enable workaround for wrongly reported performance points for secure
+        codecs ([#2856](https://github.com/androidx/media/issues/2856)).
+*   Effect:
     *   Add `Presentation.copyWithUnsetSideRoundedTo` to round the unset output
         side when `Presentation` is created with a single side length.
-*   Muxers:
 *   IMA extension:
     *   Fix issue where content preparation error for content after an ad would
         be wrongly reported as an ad playback error
@@ -50,28 +85,16 @@
     *   Add `TimeText` composable to `media3-ui-compose-material3` for
         displaying player progress in a textual form. It can be configured to
         show the current position, duration, or remaining time.
-*   Downloads:
-*   OkHttp extension:
-*   Cronet extension:
-*   RTMP extension:
 *   HLS extension:
+    *   Add `HlsInterstitialsAdsLoader.skipCurrentAd()` and
+        `skipCurrentAdGroup()` and corresponding methods to skip ads and ad
+        groups by index.
     *   Add `HlsInterstitialsAdsLoader.Listener.onAdStarted` to report the start
         of an ad period
         ([#2859](https://github.com/androidx/media/issues/2859)).
     *   Accept space as a date/time separator in ISO 8601 date-time strings.
-*   DASH extension:
-*   Smooth Streaming extension:
-*   RTSP extension:
-*   Decoder extensions (FFmpeg, VP9, AV1, etc.):
-*   MIDI extension:
-*   Leanback extension:
-*   Cast extension:
-*   Test Utilities:
-*   Remove deprecated symbols:
 
-## 1.9
-
-### 1.9.0-alpha01 (2025-10-22)
+### 1.9.0-alpha01 (2025-10-22) {#190-alpha01-2025-10-22}
 
 This release includes the following changes since
 [1.8.0 release](#180-2025-07-30):
