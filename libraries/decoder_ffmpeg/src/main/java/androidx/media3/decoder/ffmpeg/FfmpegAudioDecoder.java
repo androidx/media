@@ -39,6 +39,12 @@ import java.util.List;
   private static final int AUDIO_DECODER_ERROR_INVALID_DATA = -1;
   private static final int AUDIO_DECODER_ERROR_OTHER = -2;
 
+  // FLAC parsing constants
+  private static final byte[] flacStreamMarker = {'f', 'L', 'a', 'C'};
+  private static final int FLAC_METADATA_TYPE_STREAM_INFO = 0;
+  private static final int FLAC_METADATA_BLOCK_HEADER_SIZE = 4;
+  private static final int FLAC_STREAM_INFO_DATA_SIZE = 34;
+
   private final String codecName;
   @Nullable private final byte[] extraData;
   private final @C.PcmEncoding int encoding;
@@ -198,49 +204,6 @@ import java.util.List;
     }
   }
 
-  @Nullable
-  private static byte[] getFlacExtraData(List<byte[]> initializationData) {
-    for (int i = 0; i < initializationData.size(); i++) {
-      byte[] out = extractFlacStreamInfo(initializationData.get(i));
-      if (out != null) {
-        return out;
-      }
-    }
-    return null;
-  }
-
-  @Nullable
-  private static byte[] extractFlacStreamInfo(byte[] data) {
-    final int STREAMINFO_LEN = 34;
-    int off = 0;
-
-    if (data.length >= 4
-        && data[0] == (byte) 'f'
-        && data[1] == (byte) 'L'
-        && data[2] == (byte) 'a'
-        && data[3] == (byte) 'C') {
-      off = 4;
-    }
-
-    if (data.length - off == STREAMINFO_LEN) {
-      byte[] out = new byte[STREAMINFO_LEN];
-      System.arraycopy(data, off, out, 0, STREAMINFO_LEN);
-      return out;
-    }
-
-    if (data.length >= off + 4) {
-      int type = data[off] & 0x7F;
-      int len = ((data[off + 1] & 0xFF) << 16) | ((data[off + 2] & 0xFF) << 8) | (data[off + 3] & 0xFF);
-      if (type == 0 && len == STREAMINFO_LEN && data.length >= off + 4 + STREAMINFO_LEN) {
-        byte[] out = new byte[STREAMINFO_LEN];
-        System.arraycopy(data, off + 4, out, 0, STREAMINFO_LEN);
-        return out;
-      }
-    }
-
-    return null;
-  }
-
   private static byte[] getAlacExtraData(List<byte[]> initializationData) {
     // FFmpeg's ALAC decoder expects an ALAC atom, which contains the ALAC "magic cookie", as extra
     // data. initializationData[0] contains only the magic cookie, and so we need to package it into
@@ -271,6 +234,71 @@ import java.util.List;
     System.arraycopy(header1, 0, extraData, header0.length + 6, header1.length);
     return extraData;
   }
+
+  @Nullable
+  private static byte[] getFlacExtraData(List<byte[]> initializationData) {
+    for (int i = 0; i < initializationData.size(); i++) {
+      byte[] out = extractFlacStreamInfo(initializationData.get(i));
+      if (out != null) {
+        return out;
+      }
+    }
+    return null;
+  }
+
+  @Nullable
+  private static byte[] extractFlacStreamInfo(byte[] data) {
+    int offset = 0;
+    if (arrayStartsWith(data, flacStreamMarker)) {
+      offset = flacStreamMarker.length;
+    }
+
+
+    if (data.length - offset == FLAC_STREAM_INFO_DATA_SIZE) {
+      byte[] streamInfo = new byte[FLAC_STREAM_INFO_DATA_SIZE];
+      System.arraycopy(data, offset, streamInfo, 0, FLAC_STREAM_INFO_DATA_SIZE);
+      return streamInfo;
+    }
+
+    if (data.length >= offset + FLAC_METADATA_BLOCK_HEADER_SIZE) {
+      int type = data[offset] & 0x7F;
+      int length =
+          ((data[offset + 1] & 0xFF) << 16)
+              | ((data[offset + 2] & 0xFF) << 8)
+              | (data[offset + 3] & 0xFF);
+
+      if (type == FLAC_METADATA_TYPE_STREAM_INFO
+          && length == FLAC_STREAM_INFO_DATA_SIZE
+          && data.length
+          >= offset
+          + FLAC_METADATA_BLOCK_HEADER_SIZE
+          + FLAC_STREAM_INFO_DATA_SIZE) {
+        byte[] streamInfo = new byte[FLAC_STREAM_INFO_DATA_SIZE];
+        System.arraycopy(
+            data,
+            offset + FLAC_METADATA_BLOCK_HEADER_SIZE,
+            streamInfo,
+            0,
+            FLAC_STREAM_INFO_DATA_SIZE);
+        return streamInfo;
+      }
+    }
+
+    return null;
+  }
+
+  private static boolean arrayStartsWith(byte[] data, byte[] prefix) {
+    if (data.length < prefix.length) {
+      return false;
+    }
+    for (int i = 0; i < prefix.length; i++) {
+      if (data[i] != prefix[i]) {
+        return false;
+      }
+    }
+    return true;
+  }
+
 
   private native long ffmpegInitialize(
       String codecName,
