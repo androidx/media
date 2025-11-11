@@ -15,15 +15,18 @@
  */
 package androidx.media3.exoplayer.audio;
 
+import static androidx.media3.common.util.Util.msToUs;
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.robolectric.Shadows.shadowOf;
 
 import android.media.AudioFormat;
 import android.media.AudioTrack;
+import android.os.SystemClock;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.util.Util;
@@ -31,6 +34,7 @@ import androidx.media3.test.utils.FakeClock;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.concurrent.TimeoutException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -52,6 +56,7 @@ public class AudioTrackPositionTrackerTest {
   private static final AudioFormat AUDIO_FORMAT =
       Util.getAudioFormat(
           SAMPLE_RATE, Util.getAudioTrackChannelConfig(CHANNEL_COUNT_STEREO), C.ENCODING_PCM_16BIT);
+  private static final long DEFAULT_TIMEOUT_MS = 10_000;
 
   private final FakeClock clock =
       new FakeClock(/* initialTimeMs= */ START_TIME_MS, /* isAutoAdvancing= */ true);
@@ -400,6 +405,81 @@ public class AudioTrackPositionTrackerTest {
     audioTrackPositionTracker.getCurrentPositionUs();
 
     verify(listener, times(2)).onPositionAdvancing(anyLong());
+  }
+
+  @Test
+  public void getCurrentPositionUs_beforeHandleEndOfStream_returnsCorrectValue()
+      throws TimeoutException {
+    shadowOf(audioTrack).setLatency(200);
+    AudioTrackPositionTracker audioTrackPositionTracker =
+        new AudioTrackPositionTracker(
+            mock(AudioTrackPositionTracker.Listener.class),
+            clock,
+            audioTrack,
+            C.ENCODING_PCM_16BIT,
+            OUTPUT_PCM_FRAME_SIZE,
+            MIN_BUFFER_SIZE);
+    audioTrackPositionTracker.start();
+    audioTrack.play();
+    for (int i = 0; i < 3; i++) {
+      writeBytesAndAdvanceTime(audioTrack);
+    }
+
+    // Position should be less than the total duration. The written bytes have been fully played out
+    // from the platform, but the output device hasn't played out them due to the latency.
+    assertThat(audioTrackPositionTracker.getCurrentPositionUs()).isLessThan(3_000_000);
+    // Position should finally catch up as the clock advancement should cover the latency of the
+    // bytes being played out at the output device.
+    assertSmoothlyIncrementsCurrentPositionUntilDuration(
+        audioTrackPositionTracker, /* durationUs= */ 3_000_000, /* timeToAdvanceMs= */ 100);
+  }
+
+  @Test
+  public void hasPendingData_afterHandleEndOfStream_returnsCorrectValue() throws TimeoutException {
+    shadowOf(audioTrack).setLatency(200);
+    AudioTrackPositionTracker audioTrackPositionTracker =
+        new AudioTrackPositionTracker(
+            mock(AudioTrackPositionTracker.Listener.class),
+            clock,
+            audioTrack,
+            C.ENCODING_PCM_16BIT,
+            OUTPUT_PCM_FRAME_SIZE,
+            MIN_BUFFER_SIZE);
+    audioTrackPositionTracker.start();
+    audioTrack.play();
+    for (int i = 0; i < 3; i++) {
+      writeBytesAndAdvanceTime(audioTrack);
+    }
+
+    audioTrackPositionTracker.handleEndOfStream(132_300L);
+
+    // Position should be less than the total duration. The written bytes have been fully played out
+    // from the platform, but the output device hasn't played out them due to the latency.
+    assertThat(audioTrackPositionTracker.getCurrentPositionUs()).isLessThan(3_000_000);
+    // Position should finally catch up as the clock advancement should cover the latency of the
+    // bytes being played out at the output device.
+    assertSmoothlyIncrementsCurrentPositionUntilDuration(
+        audioTrackPositionTracker, /* durationUs= */ 3_000_000, /* timeToAdvanceMs= */ 100);
+  }
+
+  private void assertSmoothlyIncrementsCurrentPositionUntilDuration(
+      AudioTrackPositionTracker audioTrackPositionTracker, long durationUs, long timeToAdvanceMs)
+      throws TimeoutException {
+    long timeoutTimeMs = SystemClock.elapsedRealtime() + DEFAULT_TIMEOUT_MS;
+    long currentPositionBeforeAdvanceUs = audioTrackPositionTracker.getCurrentPositionUs();
+    while (audioTrackPositionTracker.getCurrentPositionUs() < durationUs) {
+      if (SystemClock.elapsedRealtime() >= timeoutTimeMs) {
+        throw new TimeoutException();
+      }
+      clock.advanceTime(timeToAdvanceMs);
+      // Ensure that the AudioTrackPositionTracker increments the current position without a jump
+      // larger than timeToAdvanceMs. The increment can be less than timeToAdvanceMs though due to
+      // the logic of playback position smoothing.
+      long currentPositionAfterAdvanceUs = audioTrackPositionTracker.getCurrentPositionUs();
+      assertThat(currentPositionAfterAdvanceUs - currentPositionBeforeAdvanceUs)
+          .isAtMost(msToUs(timeToAdvanceMs));
+      currentPositionBeforeAdvanceUs = currentPositionAfterAdvanceUs;
+    }
   }
 
   private void writeBytesAndAdvanceTime(AudioTrack audioTrack) {
