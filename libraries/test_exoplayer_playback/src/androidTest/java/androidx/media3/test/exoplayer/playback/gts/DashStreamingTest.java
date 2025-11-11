@@ -196,7 +196,7 @@ public final class DashStreamingTest {
   // H265 CDD.
 
   @Test
-  public void h265Fixed() throws Exception {
+  public void h265FixedV23() throws Exception {
     if (isPc()) {
       // Pass.
       return;
@@ -263,7 +263,7 @@ public final class DashStreamingTest {
   // VP9 (CDD).
 
   @Test
-  public void vp9Fixed360p() throws Exception {
+  public void vp9Fixed360pV23() throws Exception {
     testRunner
         .setStreamName("test_vp9_fixed_360p")
         .setManifestUrl(DashTestData.VP9_MANIFEST)
@@ -328,7 +328,7 @@ public final class DashStreamingTest {
 
   // 23.976 fps.
   @Test
-  public void test23FpsH264Fixed() throws Exception {
+  public void test23FpsH264FixedV23() throws Exception {
     testRunner
         .setStreamName("test_23fps_h264_fixed")
         .setManifestUrl(DashTestData.H264_23_MANIFEST)
@@ -342,7 +342,7 @@ public final class DashStreamingTest {
 
   // 24 fps.
   @Test
-  public void test24FpsH264Fixed() throws Exception {
+  public void test24FpsH264FixedV23() throws Exception {
     testRunner
         .setStreamName("test_24fps_h264_fixed")
         .setManifestUrl(DashTestData.H264_24_MANIFEST)
@@ -356,7 +356,7 @@ public final class DashStreamingTest {
 
   // 29.97 fps.
   @Test
-  public void test29FpsH264Fixed() throws Exception {
+  public void test29FpsH264FixedV23() throws Exception {
     testRunner
         .setStreamName("test_29fps_h264_fixed")
         .setManifestUrl(DashTestData.H264_29_MANIFEST)
@@ -442,7 +442,7 @@ public final class DashStreamingTest {
   // H265 CDD.
 
   @Test
-  public void widevineH265Fixed() throws Exception {
+  public void widevineH265FixedV23() throws Exception {
     assumeFalse(shouldSkipWidevineTest(testRule.getActivity()));
     assumeFalse(isPc());
 
@@ -516,7 +516,7 @@ public final class DashStreamingTest {
   // VP9 (CDD).
 
   @Test
-  public void widevineVp9Fixed360p() throws Exception {
+  public void widevineVp9Fixed360pV23() throws Exception {
     assumeFalse(shouldSkipWidevineTest(testRule.getActivity()));
 
     testRunner
@@ -588,7 +588,7 @@ public final class DashStreamingTest {
 
   // 23.976 fps.
   @Test
-  public void widevine23FpsH264Fixed() throws Exception {
+  public void widevine23FpsH264FixedV23() throws Exception {
     assumeFalse(shouldSkipWidevineTest(testRule.getActivity()));
 
     testRunner
@@ -605,7 +605,7 @@ public final class DashStreamingTest {
 
   // 24 fps.
   @Test
-  public void widevine24FpsH264Fixed() throws Exception {
+  public void widevine24FpsH264FixedV23() throws Exception {
     assumeFalse(shouldSkipWidevineTest(testRule.getActivity()));
 
     testRunner
@@ -622,7 +622,7 @@ public final class DashStreamingTest {
 
   // 29.97 fps.
   @Test
-  public void widevine29FpsH264Fixed() throws Exception {
+  public void widevine29FpsH264FixedV23() throws Exception {
     assumeFalse(shouldSkipWidevineTest(testRule.getActivity()));
 
     testRunner
