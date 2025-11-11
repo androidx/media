@@ -197,7 +197,7 @@ public final class DashWidevineOfflineTest {
   @Ignore(
       "Needs to be reconfigured/rewritten with an offline-compatible licence [internal"
           + " b/176960595].")
-  public void widevineOfflineLicenseExpiresOnPause() throws Exception {
+  public void widevineOfflineLicenseExpiresOnPauseV22() throws Exception {
     downloadLicense();
 
     // During playback pause until the license expires then continue playback
