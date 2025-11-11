@@ -190,10 +190,55 @@ import java.util.List;
         return getAlacExtraData(initializationData);
       case MimeTypes.AUDIO_VORBIS:
         return getVorbisExtraData(initializationData);
+      case MimeTypes.AUDIO_FLAC:
+        return getFlacExtraData(initializationData);
       default:
         // Other codecs do not require extra data.
         return null;
     }
+  }
+
+  @Nullable
+  private static byte[] getFlacExtraData(List<byte[]> initializationData) {
+    for (int i = 0; i < initializationData.size(); i++) {
+      byte[] out = extractFlacStreamInfo(initializationData.get(i));
+      if (out != null) {
+        return out;
+      }
+    }
+    return null;
+  }
+
+  @Nullable
+  private static byte[] extractFlacStreamInfo(byte[] data) {
+    final int STREAMINFO_LEN = 34;
+    int off = 0;
+
+    if (data.length >= 4
+        && data[0] == (byte) 'f'
+        && data[1] == (byte) 'L'
+        && data[2] == (byte) 'a'
+        && data[3] == (byte) 'C') {
+      off = 4;
+    }
+
+    if (data.length - off == STREAMINFO_LEN) {
+      byte[] out = new byte[STREAMINFO_LEN];
+      System.arraycopy(data, off, out, 0, STREAMINFO_LEN);
+      return out;
+    }
+
+    if (data.length >= off + 4) {
+      int type = data[off] & 0x7F;
+      int len = ((data[off + 1] & 0xFF) << 16) | ((data[off + 2] & 0xFF) << 8) | (data[off + 3] & 0xFF);
+      if (type == 0 && len == STREAMINFO_LEN && data.length >= off + 4 + STREAMINFO_LEN) {
+        byte[] out = new byte[STREAMINFO_LEN];
+        System.arraycopy(data, off + 4, out, 0, STREAMINFO_LEN);
+        return out;
+      }
+    }
+
+    return null;
   }
 
   private static byte[] getAlacExtraData(List<byte[]> initializationData) {
