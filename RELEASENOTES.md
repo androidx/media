@@ -1,47 +1,5 @@
 # Release notes
 
-### Unreleased changes
-
-*   Common Library:
-*   ExoPlayer:
-*   CompositionPlayer:
-*   Transformer:
-*   Track Selection:
-*   Extractors:
-*   Inspector:
-*   Audio:
-*   Video:
-*   Text:
-*   Metadata:
-*   Image:
-*   DataSource:
-*   DRM:
-*   Effect:
-*   Muxers:
-*   IMA extension:
-*   Session:
-    *   Add backwards-compatibility for `CommandButton` instances using
-        `Player.Command` or non-custom `SessionCommand` to define their action.
-        These are now correctly represented in platform media sessions, for
-        example for System UI or Android Auto.
-    *   Fix issue where the same `Bitmap` is compressed multiple times when
-        connecting a `MediaController` to a platform media session.
-*   UI:
-*   Downloads:
-*   OkHttp extension:
-*   Cronet extension:
-*   RTMP extension:
-*   HLS extension:
-*   DASH extension:
-*   Smooth Streaming extension:
-*   RTSP extension:
-*   Decoder extensions (FFmpeg, VP9, AV1, etc.):
-*   MIDI extension:
-*   Leanback extension:
-*   Cast extension:
-*   Test Utilities:
-*   Remove deprecated symbols:
-
 ## 1.9
 
 ### 1.9.0-beta01 (2025-11-13) {#190-beta01-2025-11-13}
