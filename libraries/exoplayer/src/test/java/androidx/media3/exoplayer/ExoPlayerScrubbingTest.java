@@ -44,6 +44,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.util.Pair;
 import android.view.Surface;
+import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
@@ -52,12 +53,14 @@ import androidx.media3.common.Player;
 import androidx.media3.common.Player.PositionInfo;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.TrackSelectionParameters;
+import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.exoplayer.analytics.AnalyticsListener;
 import androidx.media3.exoplayer.image.ExternallyLoadedImageDecoder;
 import androidx.media3.exoplayer.image.ImageDecoder;
 import androidx.media3.exoplayer.image.ImageOutput;
 import androidx.media3.exoplayer.image.ImageRenderer;
+import androidx.media3.exoplayer.mediacodec.ForwardingMediaCodecAdapter;
 import androidx.media3.exoplayer.mediacodec.MediaCodecAdapter;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.media3.exoplayer.video.MediaCodecVideoRenderer;
@@ -79,9 +82,12 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.truth.Expect;
 import com.google.common.util.concurrent.Futures;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Rule;
@@ -89,6 +95,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
+import org.robolectric.annotation.Config;
 
 /** Tests for {@linkplain ExoPlayer#setScrubbingModeEnabled(boolean) scrubbing mode}. */
 @RunWith(AndroidJUnit4.class)
@@ -97,6 +104,8 @@ public final class ExoPlayerScrubbingTest {
   @Rule
   public ShadowMediaCodecConfig shadowMediaCodecConfig =
       ShadowMediaCodecConfig.withAllDefaultSupportedCodecs();
+
+  @Rule public Expect expect = Expect.create();
 
   @Test
   public void scrubbingMode_getterWorks() throws Exception {
@@ -806,6 +815,164 @@ public final class ExoPlayerScrubbingTest {
     surface.release();
   }
 
+  @Test
+  @Config(sdk = 34)
+  public void decodeOnlyInScrubbingMode_fewerOutputBuffers() throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    Clock clock = new FakeClock(/* isAutoAdvancing= */ true);
+    MediaCodecAdapter.Factory codecAdapterFactory =
+        new IdlingMediaCodecAdapterFactory(context, clock);
+    AtomicReference<BufferCountingCodecAdapter> bufferCountingCodecAdapter =
+        new AtomicReference<>();
+    DefaultRenderersFactory renderersFactory =
+        new DefaultRenderersFactory(context) {
+          @Override
+          protected MediaCodecAdapter.Factory getCodecAdapterFactory() {
+            return configuration -> {
+              MediaCodecAdapter codecAdapter = codecAdapterFactory.createAdapter(configuration);
+              if (MimeTypes.isVideo(configuration.codecInfo.mimeType)) {
+                codecAdapter = new BufferCountingCodecAdapter(codecAdapter);
+                checkState(
+                    bufferCountingCodecAdapter.compareAndSet(
+                        /* expectedValue= */ null,
+                        /* newValue= */ (BufferCountingCodecAdapter) codecAdapter));
+              }
+              return codecAdapter;
+            };
+          }
+        };
+    // This test needs to include MCVR, so we don't use TestExoPlayerBuilder (which uses
+    // FakeVideoRenderer).
+    ExoPlayer player = new ExoPlayer.Builder(context, renderersFactory).setClock(clock).build();
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
+    player.setMediaSource(create30Fps2sGop10sDurationVideoSource());
+    AtomicBoolean firstFrameRendered = new AtomicBoolean();
+    player.addListener(
+        new Player.Listener() {
+          @Override
+          public void onRenderedFirstFrame() {
+            firstFrameRendered.set(true);
+          }
+        });
+    player.prepare();
+    player.play();
+    advance(player).untilState(Player.STATE_READY);
+    advance(player).untilBackgroundThreadCondition(firstFrameRendered::get);
+    player.setScrubbingModeEnabled(true);
+    advance(player).untilPendingCommandsAreFullyHandled();
+    firstFrameRendered.set(false);
+    bufferCountingCodecAdapter.get().inputBufferQueuedCount.set(0);
+    bufferCountingCodecAdapter.get().outputBufferDequeuedCount.set(0);
+    player.seekTo(/* mediaItemIndex= */ 0, /* positionMs= */ 1900);
+    advance(player).untilBackgroundThreadCondition(firstFrameRendered::get);
+    player.setScrubbingModeEnabled(false);
+    advance(player).untilPendingCommandsAreFullyHandled();
+    player.release();
+    surface.release();
+
+    expect.that(bufferCountingCodecAdapter.get().inputBufferQueuedCount.get()).isWithin(2).of(58);
+    expect.that(bufferCountingCodecAdapter.get().outputBufferDequeuedCount.get()).isLessThan(4);
+  }
+
+  @Test
+  @Config(sdk = 34)
+  public void decodeOnlyInScrubbingMode_seekToEnd_lastFrameRendered() throws Exception {
+    // This test needs to include MCVR, so we don't use TestExoPlayerBuilder (which uses
+    // FakeVideoRenderer).
+    ExoPlayer player =
+        new ExoPlayer.Builder(ApplicationProvider.getApplicationContext())
+            .setClock(new FakeClock(/* isAutoAdvancing= */ true))
+            .build();
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
+    player.setMediaSource(create30Fps2sGop10sDurationVideoSource());
+    AtomicBoolean firstFrameRendered = new AtomicBoolean();
+    player.addListener(
+        new Player.Listener() {
+          @Override
+          public void onRenderedFirstFrame() {
+            firstFrameRendered.set(true);
+          }
+        });
+    player.prepare();
+    player.play();
+    advance(player).untilState(Player.STATE_READY);
+    advance(player).untilBackgroundThreadCondition(firstFrameRendered::get);
+    player.setScrubbingModeEnabled(true);
+    advance(player).untilPendingCommandsAreFullyHandled();
+    firstFrameRendered.set(false);
+    player.seekTo(/* mediaItemIndex= */ 0, /* positionMs= */ player.getDuration());
+    advance(player).untilBackgroundThreadCondition(firstFrameRendered::get);
+    player.release();
+    surface.release();
+  }
+
+  @Test
+  public void decodeOnlyDisabledInScrubbingMode_similarInputAndOutputBufferCount()
+      throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    Clock clock = new FakeClock(/* isAutoAdvancing= */ true);
+    MediaCodecAdapter.Factory codecAdapterFactory =
+        new IdlingMediaCodecAdapterFactory(context, clock);
+    AtomicReference<BufferCountingCodecAdapter> bufferCountingCodecAdapter =
+        new AtomicReference<>();
+    DefaultRenderersFactory renderersFactory =
+        new DefaultRenderersFactory(context) {
+          @Override
+          protected MediaCodecAdapter.Factory getCodecAdapterFactory() {
+            return configuration -> {
+              MediaCodecAdapter codecAdapter = codecAdapterFactory.createAdapter(configuration);
+              if (MimeTypes.isVideo(configuration.codecInfo.mimeType)) {
+                codecAdapter = new BufferCountingCodecAdapter(codecAdapter);
+                checkState(
+                    bufferCountingCodecAdapter.compareAndSet(
+                        /* expectedValue= */ null,
+                        /* newValue= */ (BufferCountingCodecAdapter) codecAdapter));
+              }
+              return codecAdapter;
+            };
+          }
+        };
+    // This test needs to include MCVR, so we don't use TestExoPlayerBuilder (which uses
+    // FakeVideoRenderer).
+    ExoPlayer player = new ExoPlayer.Builder(context, renderersFactory).setClock(clock).build();
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
+    player.setMediaSource(create30Fps2sGop10sDurationVideoSource());
+    player.setScrubbingModeParameters(
+        new ScrubbingModeParameters.Builder().setUseDecodeOnlyFlag(false).build());
+    AtomicBoolean firstFrameRendered = new AtomicBoolean();
+    player.addListener(
+        new Player.Listener() {
+          @Override
+          public void onRenderedFirstFrame() {
+            firstFrameRendered.set(true);
+          }
+        });
+    player.prepare();
+    player.play();
+    advance(player).untilState(Player.STATE_READY);
+    advance(player).untilBackgroundThreadCondition(firstFrameRendered::get);
+    player.setScrubbingModeEnabled(true);
+    advance(player).untilPendingCommandsAreFullyHandled();
+    firstFrameRendered.set(false);
+    bufferCountingCodecAdapter.get().inputBufferQueuedCount.set(0);
+    bufferCountingCodecAdapter.get().outputBufferDequeuedCount.set(0);
+    player.seekTo(/* mediaItemIndex= */ 0, /* positionMs= */ 1900);
+    advance(player).untilBackgroundThreadCondition(firstFrameRendered::get);
+    player.setScrubbingModeEnabled(false);
+    advance(player).untilPendingCommandsAreFullyHandled();
+    player.release();
+    surface.release();
+
+    expect.that(bufferCountingCodecAdapter.get().inputBufferQueuedCount.get()).isWithin(2).of(58);
+    expect
+        .that(bufferCountingCodecAdapter.get().outputBufferDequeuedCount.get())
+        .isWithin(2)
+        .of(58);
+  }
+
   private static FakeMediaSource create30Fps2sGop10sDurationVideoSource() {
     return new FakeMediaSource.Builder()
         .setTimeline(
@@ -862,6 +1029,33 @@ public final class ExoPlayerScrubbingTest {
     public void render(long positionUs, long elapsedRealtimeUs) throws ExoPlaybackException {
       super.render(positionUs, elapsedRealtimeUs);
       renderCounter.getAndIncrement();
+    }
+  }
+
+  private static final class BufferCountingCodecAdapter extends ForwardingMediaCodecAdapter {
+
+    private final AtomicInteger inputBufferQueuedCount;
+    private final AtomicInteger outputBufferDequeuedCount;
+
+    private BufferCountingCodecAdapter(MediaCodecAdapter delegate) {
+      super(delegate);
+      inputBufferQueuedCount = new AtomicInteger();
+      outputBufferDequeuedCount = new AtomicInteger();
+    }
+
+    @Override
+    public void queueInputBuffer(
+        int index, int offset, int size, long presentationTimeUs, int flags) {
+      super.queueInputBuffer(index, offset, size, presentationTimeUs, flags);
+      inputBufferQueuedCount.incrementAndGet();
+    }
+
+    @Nullable
+    @Override
+    public ByteBuffer getOutputBuffer(int index) {
+      ByteBuffer result = super.getOutputBuffer(index);
+      outputBufferDequeuedCount.incrementAndGet();
+      return result;
     }
   }
 }

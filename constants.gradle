@@ -33,7 +33,7 @@ project.ext {
     kotlinxCoroutinesVersion = '1.9.0'
     leakCanaryVersion = '2.10'
     mockitoVersion = '3.12.4'
-    robolectricVersion = '4.15.1'
+    robolectricVersion = '4.16'
     // Keep this in sync with Google's internal Checker Framework version.
     checkerframeworkVersion = '3.13.0'
     errorProneVersion = '2.18.0'

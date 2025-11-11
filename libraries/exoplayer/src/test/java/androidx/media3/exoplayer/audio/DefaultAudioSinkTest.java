@@ -23,6 +23,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.robolectric.Shadows.shadowOf;
+import static org.robolectric.annotation.Config.ALL_SDKS;
 
 import android.app.UiModeManager;
 import android.content.Context;
@@ -62,6 +63,7 @@ import org.robolectric.annotation.Config;
 import org.robolectric.shadows.AudioDeviceInfoBuilder;
 import org.robolectric.shadows.AudioProfileBuilder;
 import org.robolectric.shadows.ShadowAudioManager;
+import org.robolectric.shadows.ShadowAudioSystem;
 import org.robolectric.shadows.ShadowAudioTrack;
 import org.robolectric.shadows.ShadowSystemClock;
 import org.robolectric.shadows.ShadowUIModeManager;
@@ -800,6 +802,57 @@ public final class DefaultAudioSinkTest {
     assertThat(e.isRecoverable).isTrue();
   }
 
+  @Config(sdk = ALL_SDKS)
+  @Test
+  public void getAudioTrackBufferDurationUs_withPcm_calculatesCorrectValue() throws Exception {
+    configureDefaultAudioSink(/* channelCount= */ 2);
+
+    assertThat(
+            defaultAudioSink.handleBuffer(
+                create1Sec44100HzSilenceBuffer(),
+                /* presentationTimeUs= */ 0,
+                /* encodedAccessUnitCount= */ 1))
+        .isTrue();
+    assertThat(defaultAudioSink.getAudioTrackBufferSizeUs()).isEqualTo(250_000L);
+  }
+
+  @Config(minSdk = 30)
+  @Test
+  public void getAudioTrackBufferDurationUs_withNonPcm_returnsTimeUnset() throws Exception {
+    AudioFormat audioFormat =
+        new AudioFormat.Builder()
+            .setSampleRate(SAMPLE_RATE_44_1)
+            .setChannelMask(AudioFormat.CHANNEL_OUT_STEREO)
+            .setEncoding(AudioFormat.ENCODING_AAC_LC)
+            .build();
+    AudioAttributes audioAttributes =
+        new AudioAttributes.Builder()
+            .setContentType(C.AUDIO_CONTENT_TYPE_UNKNOWN)
+            .setUsage(C.USAGE_MEDIA)
+            .setAllowedCapturePolicy(C.ALLOW_CAPTURE_BY_ALL)
+            .build();
+    ShadowAudioSystem.setOffloadSupported(
+        audioFormat, audioAttributes.getPlatformAudioAttributes(), true);
+    ShadowAudioSystem.setOffloadPlaybackSupport(
+        audioFormat,
+        audioAttributes.getPlatformAudioAttributes(),
+        AudioManager.PLAYBACK_OFFLOAD_SUPPORTED);
+    ShadowAudioSystem.setDirectPlaybackSupport(
+        audioFormat,
+        audioAttributes.getPlatformAudioAttributes(),
+        AudioManager.DIRECT_PLAYBACK_OFFLOAD_SUPPORTED);
+
+    configureDefaultAudioSinkWithOffload();
+
+    assertThat(
+            defaultAudioSink.handleBuffer(
+                create1Sec44100HzSilenceBuffer(),
+                /* presentationTimeUs= */ 0,
+                /* encodedAccessUnitCount= */ 1))
+        .isTrue();
+    assertThat(defaultAudioSink.getAudioTrackBufferSizeUs()).isEqualTo(400_000_000L);
+  }
+
   private void configureDefaultAudioSink(int channelCount) throws AudioSink.ConfigurationException {
     configureDefaultAudioSink(channelCount, /* trimStartFrames= */ 0, /* trimEndFrames= */ 0);
   }
@@ -815,6 +868,19 @@ public final class DefaultAudioSinkTest {
             .setEncoderDelay(trimStartFrames)
             .setEncoderPadding(trimEndFrames)
             .build();
+    defaultAudioSink.configure(format, /* specifiedBufferSize= */ 0, /* outputChannels= */ null);
+  }
+
+  private void configureDefaultAudioSinkWithOffload() throws AudioSink.ConfigurationException {
+    Format format =
+        new Format.Builder()
+            .setSampleMimeType(MimeTypes.AUDIO_AAC)
+            .setChannelCount(/* channelCount= */ 2)
+            .setSampleRate(SAMPLE_RATE_44_1)
+            .setCodecs("mp4a.40.02")
+            .build();
+
+    defaultAudioSink.setOffloadMode(AudioSink.OFFLOAD_MODE_ENABLED_GAPLESS_NOT_REQUIRED);
     defaultAudioSink.configure(format, /* specifiedBufferSize= */ 0, /* outputChannels= */ null);
   }
 

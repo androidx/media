@@ -42,9 +42,11 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.robolectric.Shadows.shadowOf;
 
 import android.content.Context;
 import android.media.Spatializer;
+import android.view.accessibility.CaptioningManager;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -79,6 +81,7 @@ import com.google.common.collect.ImmutableSet;
 import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import org.junit.After;
 import org.junit.Before;
@@ -680,6 +683,50 @@ public final class DefaultTrackSelectorTest {
             periodId,
             TIMELINE);
     assertFixedSelection(result.selections[0], trackGroups, lessRoleFlags);
+  }
+
+  @Test
+  public void
+      selectTracks_withPreferredTextLanguagesAndRoleFlagsFromCaptioningManager_selectsCaptioningTrack()
+          throws Exception {
+    CaptioningManager captioningManager =
+        (CaptioningManager)
+            ApplicationProvider.getApplicationContext()
+                .getSystemService(Context.CAPTIONING_SERVICE);
+    shadowOf(captioningManager).setEnabled(true);
+    shadowOf(captioningManager).setLocale(Locale.JAPANESE);
+    Format audioFormat = AUDIO_FORMAT.buildUpon().setLanguage("fr").build();
+    Format noRoleFlagsDefaultLanguage = TEXT_FORMAT.buildUpon().setLanguage("fr").build();
+    Format noRoleFlagsCaptioningLanguage = TEXT_FORMAT.buildUpon().setLanguage("ja").build();
+    Format captionRoleFlagsDefaultLanguage =
+        TEXT_FORMAT.buildUpon().setRoleFlags(C.ROLE_FLAG_CAPTION).setLanguage("fr").build();
+    Format captionRoleFlagsCaptioningLanguage =
+        TEXT_FORMAT.buildUpon().setRoleFlags(C.ROLE_FLAG_CAPTION).setLanguage("ja").build();
+    TrackGroupArray trackGroups =
+        wrapFormats(
+            audioFormat,
+            noRoleFlagsDefaultLanguage,
+            noRoleFlagsCaptioningLanguage,
+            captionRoleFlagsDefaultLanguage,
+            captionRoleFlagsCaptioningLanguage);
+    trackSelector.setParameters(
+        defaultParameters
+            .buildUpon()
+            .setPreferredTextLanguageAndRoleFlagsToCaptioningManagerSettings()
+            .build());
+
+    TrackSelectorResult result =
+        trackSelector.selectTracks(
+            new RendererCapabilities[] {
+              ALL_AUDIO_FORMAT_SUPPORTED_RENDERER_CAPABILITIES,
+              ALL_TEXT_FORMAT_SUPPORTED_RENDERER_CAPABILITIES
+            },
+            trackGroups,
+            periodId,
+            TIMELINE);
+
+    assertFixedSelection(result.selections[0], trackGroups, audioFormat);
+    assertFixedSelection(result.selections[1], trackGroups, captionRoleFlagsCaptioningLanguage);
   }
 
   /**
