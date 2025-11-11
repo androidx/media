@@ -1,7 +1,7 @@
 # FFmpeg decoder module
 
-The FFmpeg module provides `FfmpegAudioRenderer`, which uses FFmpeg for decoding
-and can render audio encoded in a variety of formats.
+The FFmpeg module provides `FfmpegAudioRenderer` and `ExperimentalFfmpegVideoRenderer`, which uses FFmpeg for decoding
+and can render audio & video encoded in a variety of formats.
 
 ## License note
 
@@ -65,7 +65,7 @@ FFMPEG_PATH="$(pwd)"
   details of the available decoders, and which formats they support.
 
 ```
-ENABLED_DECODERS=(vorbis opus flac)
+ENABLED_DECODERS=(vorbis opus flac h264 hevc)
 ```
 
 *   Add a link to the FFmpeg source code in the FFmpeg module `jni` directory.
@@ -83,6 +83,34 @@ ln -s "$FFMPEG_PATH" ffmpeg
 cd "${FFMPEG_MODULE_PATH}/jni" && \
 ./build_ffmpeg.sh \
   "${FFMPEG_MODULE_PATH}" "${NDK_PATH}" "${HOST_PLATFORM}" "${ANDROID_ABI}" "${ENABLED_DECODERS[@]}"
+```
+
+
+Attempt to Rotate ``AVPixelFormat::AV_PIX_FMT_YUV420P`` & Copy the Pixels to ``ANativeWindow`` Buffer. The `libyuv` is also required. 
+
+* Fetch `libyuv` and checkout an appropriate branch:
+
+```
+cd "<preferred location for libyuv>" && \
+git clone https://chromium.googlesource.com/libyuv/libyuv && \
+YUV_PATH="$(pwd)"
+```
+
+*   Add a link to the `libyuv` source code in the `libyuv` module `jni` directory.
+
+```
+cd "${FFMPEG_MODULE_PATH}/jni" && \
+ln -s "$YUV_PATH" libyuv
+```
+
+* Execute `build_yuv.sh` to build libyuv for `armeabi-v7a`, `arm64-v8a`,
+  `x86` and `x86_64`. The script can be edited if you need to build for
+  different architectures:
+
+```
+cd "${FFMPEG_MODULE_PATH}/jni" && \
+./build_yuv.sh \
+  "${FFMPEG_MODULE_PATH}" "${NDK_PATH}" "${ANDROID_ABI}"
 ```
 
 ## Build instructions (Windows)

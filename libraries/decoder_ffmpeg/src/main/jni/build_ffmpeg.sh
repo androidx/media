@@ -30,14 +30,14 @@ JOBS="$(nproc 2> /dev/null || sysctl -n hw.ncpu 2> /dev/null || echo 4)"
 echo "Using $JOBS jobs for make"
 COMMON_OPTIONS="
     --target-os=android
-    --enable-static
-    --disable-shared
+    --disable-static
+    --enable-shared
     --disable-doc
     --disable-programs
     --disable-everything
     --disable-avdevice
-    --disable-avformat
-    --disable-swscale
+    --enable-avformat
+    --enable-swscale
     --disable-postproc
     --disable-avfilter
     --disable-symver
