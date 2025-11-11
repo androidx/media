@@ -46,7 +46,7 @@
 
 ## 1.9
 
-### 1.9.0-beta01 (2025-11-13) {#190-beta01-2025-11-13}
+### 1.9.0-beta01 (2025-11-13)
 
 This release includes the following changes since
 [1.9.0-alpha01 release](#190-alpha01-2025-10-22):
@@ -96,7 +96,7 @@ This release includes the following changes since
         ([#2859](https://github.com/androidx/media/issues/2859)).
     *   Accept space as a date/time separator in ISO 8601 date-time strings.
 
-### 1.9.0-alpha01 (2025-10-22) {#190-alpha01-2025-10-22}
+### 1.9.0-alpha01 (2025-10-22)
 
 This release includes the following changes since
 [1.8.0 release](#180-2025-07-30):
