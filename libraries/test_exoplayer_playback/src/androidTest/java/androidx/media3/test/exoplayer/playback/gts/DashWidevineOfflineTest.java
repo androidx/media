@@ -104,7 +104,7 @@ public final class DashWidevineOfflineTest {
   @Ignore(
       "Needs to be reconfigured/rewritten with an offline-compatible licence [internal"
           + " b/176960595].")
-  public void widevineOfflineLicense() throws Exception {
+  public void widevineOfflineLicenseV22() throws Exception {
     downloadLicense();
     testRunner.run();
 
@@ -117,7 +117,7 @@ public final class DashWidevineOfflineTest {
   @Ignore(
       "Needs to be reconfigured/rewritten with an offline-compatible licence [internal"
           + " b/176960595].")
-  public void widevineOfflineReleasedLicense() throws Throwable {
+  public void widevineOfflineReleasedLicenseV22() throws Throwable {
     assumeTrue(SDK_INT <= 28);
 
     downloadLicense();
@@ -167,7 +167,7 @@ public final class DashWidevineOfflineTest {
   @Ignore(
       "Needs to be reconfigured/rewritten with an offline-compatible licence [internal"
           + " b/176960595].")
-  public void widevineOfflineExpiredLicense() throws Exception {
+  public void widevineOfflineExpiredLicenseV22() throws Exception {
     downloadLicense();
 
     // Wait until the license expires
