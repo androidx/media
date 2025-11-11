@@ -32,7 +32,7 @@ def addMissingAarTypeToXml(xml) {
         "org.jetbrains.kotlin:kotlin-stdlib-jdk8",
         "org.jetbrains.kotlinx:kotlinx-coroutines-android",
         "org.jetbrains.kotlinx:kotlinx-coroutines-core",
-        "org.jetbrains.kotlinx:kotlinx-coroutines-guava"
+        "org.jetbrains.kotlinx:kotlinx-coroutines-guava",
         "org.jetbrains.kotlinx:kotlinx-coroutines-test",
         "org.mockito:mockito-core",
         "org.robolectric:robolectric",
