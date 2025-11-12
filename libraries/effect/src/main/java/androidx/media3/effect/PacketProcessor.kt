@@ -17,14 +17,14 @@
 package androidx.media3.effect
 
 /**
- * A [PacketConsumer] that forwards processed [Packet]s to to a downstream [PacketConsumer].
+ * A [PacketConsumer] that processes [Packet]s and forwards them to a downstream [PacketConsumer].
  *
  * This interface is experimental and will be renamed or removed in a future release.
  *
  * @param I The type of the input packets.
  * @param O The type of the output packets.
  */
-internal interface PacketFilter<I, O> : PacketConsumer<I> {
+internal interface PacketProcessor<I, O> : PacketConsumer<I> {
 
   /**
    * Sets the output [PacketConsumer] that will receive the processed packets.
