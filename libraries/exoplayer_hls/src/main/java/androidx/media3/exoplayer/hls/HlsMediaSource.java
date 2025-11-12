@@ -27,7 +27,6 @@ import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
-import androidx.media3.common.MediaItem.LiveConfiguration;
 import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.StreamKey;
 import androidx.media3.common.util.UnstableApi;
@@ -731,7 +730,8 @@ public final class HlsMediaSource extends BaseMediaSource
             && playlist.serverControl.holdBackUs == C.TIME_UNSET
             && playlist.serverControl.partHoldBackUs == C.TIME_UNSET;
     liveConfiguration =
-        new LiveConfiguration.Builder()
+        liveConfiguration
+            .buildUpon()
             .setTargetOffsetMs(Util.usToMs(targetLiveOffsetUs))
             .setMinPlaybackSpeed(disableSpeedAdjustment ? 1f : liveConfiguration.minPlaybackSpeed)
             .setMaxPlaybackSpeed(disableSpeedAdjustment ? 1f : liveConfiguration.maxPlaybackSpeed)
