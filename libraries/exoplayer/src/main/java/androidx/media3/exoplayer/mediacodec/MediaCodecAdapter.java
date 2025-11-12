@@ -31,6 +31,7 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.decoder.CryptoInfo;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.List;
 
 /**
  * Abstracts {@link MediaCodec} operations.
@@ -335,4 +336,23 @@ public interface MediaCodecAdapter {
    */
   @RequiresApi(26)
   PersistableBundle getMetrics();
+
+  /**
+   * Subscribe to vendor parameters, so that these parameters will be present in {@link
+   * #getOutputFormat} and changes to these parameters generate output format change event.
+   *
+   * @see MediaCodec#subscribeToVendorParameters(List)
+   */
+  @RequiresApi(31)
+  void subscribeToVendorParameters(List<String> names);
+
+  /**
+   * Unsubscribe from vendor parameters, so that these parameters will not be present in {@link
+   * #getOutputFormat} and changes to these parameters no longer generate output format change
+   * event.
+   *
+   * @see MediaCodec#unsubscribeFromVendorParameters(List)
+   */
+  @RequiresApi(31)
+  void unsubscribeFromVendorParameters(List<String> names);
 }

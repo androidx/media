@@ -4,6 +4,8 @@
 
 *   Common Library:
 *   ExoPlayer:
+    *   Add API for setting and observing `MediaCodec` parameters dynamically
+        ([#2794](https://github.com/androidx/media/pull/2794)).
 *   CompositionPlayer:
 *   Transformer:
 *   Track Selection:

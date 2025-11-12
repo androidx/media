@@ -26,6 +26,7 @@ import androidx.annotation.RequiresApi;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.decoder.CryptoInfo;
 import java.nio.ByteBuffer;
+import java.util.List;
 
 /**
  * A {@link MediaCodecAdapter} instance that forwards all calls to its delegate.
@@ -146,5 +147,17 @@ public class ForwardingMediaCodecAdapter implements MediaCodecAdapter {
   @Override
   public PersistableBundle getMetrics() {
     return delegate.getMetrics();
+  }
+
+  @Override
+  @RequiresApi(31)
+  public void subscribeToVendorParameters(List<String> names) {
+    delegate.subscribeToVendorParameters(names);
+  }
+
+  @Override
+  @RequiresApi(31)
+  public void unsubscribeFromVendorParameters(List<String> names) {
+    delegate.unsubscribeFromVendorParameters(names);
   }
 }
