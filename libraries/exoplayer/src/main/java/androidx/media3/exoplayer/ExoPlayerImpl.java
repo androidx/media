@@ -2158,12 +2158,17 @@ import java.util.function.IntConsumer;
       }
       boolean positionDiscontinuity = false;
       long discontinuityWindowStartPositionUs = C.TIME_UNSET;
+      int oldMaskingMediaItemIndex = C.INDEX_UNSET;
       if (pendingDiscontinuity) {
-        positionDiscontinuity =
-            !playbackInfoUpdate.playbackInfo.periodId.equals(playbackInfo.periodId)
-                || playbackInfoUpdate.playbackInfo.discontinuityStartPositionUs
-                    != playbackInfo.positionUs;
+        boolean oldAndNewTimelineEmpty =
+            playbackInfoUpdate.playbackInfo.timeline.isEmpty() && playbackInfo.timeline.isEmpty();
+        boolean sameMediaPeriodId =
+            playbackInfoUpdate.playbackInfo.periodId.equals(playbackInfo.periodId);
+        boolean samePositon =
+            playbackInfoUpdate.playbackInfo.discontinuityStartPositionUs == playbackInfo.positionUs;
+        positionDiscontinuity = !oldAndNewTimelineEmpty && (!sameMediaPeriodId || !samePositon);
         if (positionDiscontinuity) {
+          oldMaskingMediaItemIndex = getCurrentMediaItemIndex();
           discontinuityWindowStartPositionUs =
               newTimeline.isEmpty() || playbackInfoUpdate.playbackInfo.periodId.isAd()
                   ? playbackInfoUpdate.playbackInfo.discontinuityStartPositionUs
@@ -2180,7 +2185,7 @@ import java.util.function.IntConsumer;
           positionDiscontinuity,
           pendingDiscontinuityReason,
           discontinuityWindowStartPositionUs,
-          /* ignored */ C.INDEX_UNSET,
+          oldMaskingMediaItemIndex,
           /* repeatCurrentMediaItem= */ false);
     }
   }

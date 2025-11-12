@@ -16535,6 +16535,50 @@ public final class ExoPlayerTest {
     player.release();
   }
 
+  @Test
+  public void positionDiscontinuityFromInternalPlayer_whilePlaylistAlreadyCleared_isNotReported()
+      throws Exception {
+    FakeTimeline timeline = new FakeTimeline(/* windowCount= */ 1);
+    FakeMediaSource mediaSource =
+        new FakeMediaSource(timeline, ExoPlayerTestRunner.VIDEO_FORMAT) {
+          @Override
+          protected MediaPeriod createMediaPeriod(
+              MediaPeriodId id,
+              TrackGroupArray trackGroupArray,
+              Allocator allocator,
+              MediaSourceEventListener.EventDispatcher mediaSourceEventDispatcher,
+              DrmSessionManager drmSessionManager,
+              DrmSessionEventListener.EventDispatcher drmEventDispatcher,
+              @Nullable TransferListener transferListener) {
+            FakeMediaPeriod mediaPeriod =
+                new FakeMediaPeriod(
+                    trackGroupArray,
+                    allocator,
+                    TimelineWindowDefinition.DEFAULT_WINDOW_OFFSET_IN_FIRST_PERIOD_US,
+                    mediaSourceEventDispatcher,
+                    drmSessionManager,
+                    drmEventDispatcher,
+                    /* deferOnPrepared= */ false);
+            mediaPeriod.setSeekToUsOffset(10);
+            return mediaPeriod;
+          }
+        };
+    ExoPlayer player = parameterizeTestExoPlayerBuilder(new TestExoPlayerBuilder(context)).build();
+    Player.Listener listener = mock(Player.Listener.class);
+    player.addListener(listener);
+    player.setMediaSource(mediaSource);
+    player.prepare();
+    advance(player).untilState(Player.STATE_READY);
+
+    player.seekTo(10);
+    player.clearMediaItems();
+    advance(player).untilPendingCommandsAreFullyHandled();
+    player.release();
+
+    verify(listener, never())
+        .onPositionDiscontinuity(any(), any(), eq(DISCONTINUITY_REASON_SEEK_ADJUSTMENT));
+  }
+
   // Internal methods.
 
   private void addWatchAsSystemFeature() {
