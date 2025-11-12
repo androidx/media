@@ -240,18 +240,9 @@
         android:layout_weight="1">
         <TextView
           android:layout_gravity="center_vertical"
-          android:text="@string/use_media3_mp4_muxer" />
+          android:text="@string/produce_fragmented_mp4" />
         <CheckBox
-          android:id="@+id/use_media3_mp4_muxer_checkbox"
-          android:layout_gravity="end"/>
-      </TableRow>
-      <TableRow
-        android:layout_weight="1">
-        <TextView
-          android:layout_gravity="center_vertical"
-          android:text="@string/use_media3_fragmented_mp4_muxer" />
-        <CheckBox
-          android:id="@+id/use_media3_fragmented_mp4_muxer_checkbox"
+          android:id="@+id/produce_fragmented_mp4_checkbox"
           android:layout_gravity="end"/>
       </TableRow>
       <TableRow

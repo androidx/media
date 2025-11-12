@@ -77,8 +77,7 @@ public final class ConfigurationActivity extends AppCompatActivity {
   public static final String ENABLE_ANALYZER_MODE = "enable_analyzer_mode";
   public static final String ENABLE_DEBUG_PREVIEW = "enable_debug_preview";
   public static final String ABORT_SLOW_EXPORT = "abort_slow_export";
-  public static final String USE_MEDIA3_MP4_MUXER = "use_media3_mp4_muxer";
-  public static final String USE_MEDIA3_FRAGMENTED_MP4_MUXER = "use_media3_fragmented_mp4_muxer";
+  public static final String PRODUCE_FRAGMENTED_MP4 = "produce_fragmented_mp4";
   public static final String ENABLE_TRIM_OPTIMIZATION = "enable_trim_optimization";
   public static final String ENABLE_MP4_EDIT_LIST_TRIMMING = "enable_mp4_edit_list_trimming";
   public static final String ENABLE_CODECDB_LITE = "enable_codecdb_lite";
@@ -180,8 +179,7 @@ public final class ConfigurationActivity extends AppCompatActivity {
   private CheckBox enableDebugPreviewCheckBox;
   private CheckBox enableDebugTracingCheckBox;
   private CheckBox abortSlowExportCheckBox;
-  private CheckBox useMedia3Mp4Muxer;
-  private CheckBox useMedia3FragmentedMp4Muxer;
+  private CheckBox produceFragmentedMp4;
   private Spinner hdrModeSpinner;
   private CheckBox enableTrimOptimization;
   private CheckBox enableMp4EditListTrimming;
@@ -310,20 +308,7 @@ public final class ConfigurationActivity extends AppCompatActivity {
         (buttonView, isChecked) -> DebugTraceUtil.enableTracing = isChecked);
 
     abortSlowExportCheckBox = findViewById(R.id.abort_slow_export_checkbox);
-    useMedia3Mp4Muxer = findViewById(R.id.use_media3_mp4_muxer_checkbox);
-    useMedia3FragmentedMp4Muxer = findViewById(R.id.use_media3_fragmented_mp4_muxer_checkbox);
-    useMedia3Mp4Muxer.setOnCheckedChangeListener(
-        (buttonView, isChecked) -> {
-          if (isChecked) {
-            useMedia3FragmentedMp4Muxer.setChecked(false);
-          }
-        });
-    useMedia3FragmentedMp4Muxer.setOnCheckedChangeListener(
-        (buttonView, isChecked) -> {
-          if (isChecked) {
-            useMedia3Mp4Muxer.setChecked(false);
-          }
-        });
+    produceFragmentedMp4 = findViewById(R.id.produce_fragmented_mp4_checkbox);
     enableTrimOptimization = findViewById(R.id.enable_trim_optimization);
     enableMp4EditListTrimming = findViewById(R.id.enable_mp4_edit_list_trimming);
     enableCodecDbLite = findViewById(R.id.enable_codecdb_lite);
@@ -337,9 +322,6 @@ public final class ConfigurationActivity extends AppCompatActivity {
         (buttonView, isChecked) -> {
           if (isChecked) {
             enableTrimOptimization.setChecked(false);
-            // The experimentalSetMp4EditListTrimEnabled flag is required to be used together with
-            // Media3Mp4Muxer
-            useMedia3Mp4Muxer.setChecked(true);
           }
         });
 
@@ -432,8 +414,7 @@ public final class ConfigurationActivity extends AppCompatActivity {
     bundle.putBoolean(ENABLE_ANALYZER_MODE, enableAnalyzerModeCheckBox.isChecked());
     bundle.putBoolean(ENABLE_DEBUG_PREVIEW, enableDebugPreviewCheckBox.isChecked());
     bundle.putBoolean(ABORT_SLOW_EXPORT, abortSlowExportCheckBox.isChecked());
-    bundle.putBoolean(USE_MEDIA3_MP4_MUXER, useMedia3Mp4Muxer.isChecked());
-    bundle.putBoolean(USE_MEDIA3_FRAGMENTED_MP4_MUXER, useMedia3FragmentedMp4Muxer.isChecked());
+    bundle.putBoolean(PRODUCE_FRAGMENTED_MP4, produceFragmentedMp4.isChecked());
     bundle.putBoolean(ENABLE_TRIM_OPTIMIZATION, enableTrimOptimization.isChecked());
     bundle.putBoolean(ENABLE_MP4_EDIT_LIST_TRIMMING, enableMp4EditListTrimming.isChecked());
     bundle.putBoolean(ENABLE_CODECDB_LITE, enableCodecDbLite.isChecked());
