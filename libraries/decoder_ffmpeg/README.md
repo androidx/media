@@ -85,6 +85,12 @@ cd "${FFMPEG_MODULE_PATH}/jni" && \
   "${FFMPEG_MODULE_PATH}" "${NDK_PATH}" "${HOST_PLATFORM}" "${ANDROID_ABI}" "${ENABLED_DECODERS[@]}"
 ```
 
+* [Install CMake][]
+
+Having followed these steps, gradle will build the module automatically when run
+on the command line or via Android Studio, using [CMake][] and [Ninja][] to
+configure and build the module's [JNI wrapper library][].
+
 ## Build instructions (Windows)
 
 We do not provide support for building this module on Windows, however it should
@@ -123,6 +129,10 @@ then implement your own logic to use the renderer for a given track.
 
 [top level README]: ../../README.md
 [Android NDK]: https://developer.android.com/tools/sdk/ndk/index.html
+[Ninja]: https://ninja-build.org/
+[Install CMake]: https://developer.android.com/studio/projects/install-ndk
+[CMake]: https://cmake.org/
+[JNI wrapper library]: src/main/jni/ffmpeg_jni.cc
 [ExoPlayer issue 2781]: https://github.com/google/ExoPlayer/issues/2781
 [Supported formats]: https://developer.android.com/media/media3/exoplayer/supported-formats#ffmpeg-library
 
