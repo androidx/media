@@ -1379,6 +1379,25 @@ public class SimpleExoPlayer extends BasePlayer implements ExoPlayer {
     player.setImageOutput(imageOutput);
   }
 
+  @Override
+  public void setAudioCodecParameters(CodecParameters codecParameters) {
+    blockUntilConstructorFinished();
+    player.setAudioCodecParameters(codecParameters);
+  }
+
+  @Override
+  public void addAudioCodecParametersChangeListener(
+      CodecParametersChangeListener listener, List<String> keys) {
+    blockUntilConstructorFinished();
+    player.addAudioCodecParametersChangeListener(listener, keys);
+  }
+
+  @Override
+  public void removeAudioCodecParametersChangeListener(CodecParametersChangeListener listener) {
+    blockUntilConstructorFinished();
+    player.removeAudioCodecParametersChangeListener(listener);
+  }
+
   /* package */ void setThrowsWhenUsingWrongThread(boolean throwsWhenUsingWrongThread) {
     blockUntilConstructorFinished();
     player.setThrowsWhenUsingWrongThread(throwsWhenUsingWrongThread);

@@ -887,6 +887,16 @@ public class MediaCodecRendererTest {
     }
 
     @Override
+    public void subscribeToVendorParameters(List<String> names) {
+      throw exceptionSupplier.get();
+    }
+
+    @Override
+    public void unsubscribeFromVendorParameters(List<String> names) {
+      throw exceptionSupplier.get();
+    }
+
+    @Override
     public boolean needsReconfiguration() {
       return false;
     }

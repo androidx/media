@@ -26,12 +26,17 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.longThat;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.robolectric.Shadows.shadowOf;
 
+import android.media.MediaCodec;
 import android.media.MediaFormat;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
@@ -43,7 +48,10 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.util.Clock;
+import androidx.media3.common.util.MediaFormatUtil;
+import androidx.media3.exoplayer.CodecParameters;
 import androidx.media3.exoplayer.ExoPlaybackException;
+import androidx.media3.exoplayer.Renderer;
 import androidx.media3.exoplayer.RendererCapabilities;
 import androidx.media3.exoplayer.RendererCapabilities.Capabilities;
 import androidx.media3.exoplayer.RendererConfiguration;
@@ -51,6 +59,7 @@ import androidx.media3.exoplayer.analytics.PlayerId;
 import androidx.media3.exoplayer.drm.DrmSessionEventListener;
 import androidx.media3.exoplayer.drm.DrmSessionManager;
 import androidx.media3.exoplayer.mediacodec.DefaultMediaCodecAdapterFactory;
+import androidx.media3.exoplayer.mediacodec.MediaCodecAdapter;
 import androidx.media3.exoplayer.mediacodec.MediaCodecInfo;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.media3.exoplayer.source.MediaSource;
@@ -61,7 +70,10 @@ import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.Before;
 import org.junit.Rule;
@@ -1377,6 +1389,297 @@ public class MediaCodecAudioRendererTest {
     assertThat(isReadyBeforeFirstRender).isFalse();
     assertThat(isReadyAfterDecoding).isFalse();
     assertThat(isReadyAfterPendingData).isTrue();
+  }
+
+  @Test
+  @Config(sdk = 29)
+  public void setAudioCodecParameters_onEnabledRenderer_appliesToCodecInstance() throws Exception {
+    MediaCodecAdapter mockCodecAdapter = setUpAndEnableRenderer(AUDIO_AAC);
+    CodecParameters testParameters =
+        new CodecParameters.Builder().setInteger("test-key", 42).build();
+
+    mediaCodecAudioRenderer.handleMessage(Renderer.MSG_SET_CODEC_PARAMETERS, testParameters);
+
+    ArgumentCaptor<Bundle> bundleCaptor = ArgumentCaptor.forClass(Bundle.class);
+    verify(mockCodecAdapter).setParameters(bundleCaptor.capture());
+    assertThat(bundleCaptor.getValue().getInt("test-key")).isEqualTo(42);
+    clearInvocations(mockCodecAdapter);
+
+    mediaCodecAudioRenderer.handleMessage(Renderer.MSG_SET_CODEC_PARAMETERS, CodecParameters.EMPTY);
+
+    verify(mockCodecAdapter).setParameters(bundleCaptor.capture());
+    assertThat(bundleCaptor.getValue().isEmpty()).isTrue();
+  }
+
+  @Test
+  @Config(sdk = 29)
+  public void setAudioCodecParameters_beforeRendererEnabled_parametersAppliedDuringConfiguration()
+      throws Exception {
+    MediaCodecAdapter mockCodecAdapter = mock(MediaCodecAdapter.class);
+    MediaCodecAdapter.Factory mockCodecAdapterFactory = mock(MediaCodecAdapter.Factory.class);
+    when(mockCodecAdapterFactory.createAdapter(any())).thenReturn(mockCodecAdapter);
+    setUpRenderer(mockCodecAdapterFactory);
+    CodecParameters testParameters =
+        new CodecParameters.Builder().setInteger("test-key", 101).build();
+    mediaCodecAudioRenderer.handleMessage(Renderer.MSG_SET_CODEC_PARAMETERS, testParameters);
+
+    enableRenderer(mockCodecAdapter, AUDIO_AAC);
+
+    ArgumentCaptor<MediaCodecAdapter.Configuration> configurationCaptor =
+        ArgumentCaptor.forClass(MediaCodecAdapter.Configuration.class);
+    verify(mockCodecAdapterFactory).createAdapter(configurationCaptor.capture());
+    MediaFormat mediaFormat = configurationCaptor.getValue().mediaFormat;
+    assertThat(mediaFormat.getInteger("test-key")).isEqualTo(101);
+  }
+
+  @Test
+  @Config(sdk = 29)
+  public void onOutputFormatChanged_withValueChange_firesEventListener() throws Exception {
+    MediaCodecAdapter unused = setUpAndEnableRenderer(AUDIO_AAC);
+    mediaCodecAudioRenderer.handleMessage(
+        Renderer.MSG_SET_SUBSCRIBED_CODEC_PARAMETER_KEYS, new HashSet<>(Arrays.asList("test-key")));
+    MediaFormat mediaFormat = MediaFormatUtil.createMediaFormatFromFormat(AUDIO_AAC);
+    mediaFormat.setInteger("test-key", 100);
+
+    mediaCodecAudioRenderer.onOutputFormatChanged(AUDIO_AAC, mediaFormat);
+
+    ArgumentCaptor<CodecParameters> paramsCaptor = ArgumentCaptor.forClass(CodecParameters.class);
+    shadowOf(Looper.getMainLooper()).idle();
+    verify(audioRendererEventListener).onAudioCodecParametersChanged(paramsCaptor.capture());
+    assertThat(paramsCaptor.getValue().get("test-key")).isEqualTo(100);
+    clearInvocations(audioRendererEventListener);
+
+    mediaFormat.setInteger("test-key", 200);
+
+    mediaCodecAudioRenderer.onOutputFormatChanged(AUDIO_AAC, mediaFormat);
+
+    shadowOf(Looper.getMainLooper()).idle();
+    verify(audioRendererEventListener).onAudioCodecParametersChanged(paramsCaptor.capture());
+    assertThat(paramsCaptor.getValue().get("test-key")).isEqualTo(200);
+  }
+
+  @Test
+  @Config(sdk = 29)
+  public void onOutputFormatChanged_withKeyAdded_firesEventListener() throws Exception {
+    MediaCodecAdapter unused = setUpAndEnableRenderer(AUDIO_AAC);
+    mediaCodecAudioRenderer.handleMessage(
+        Renderer.MSG_SET_SUBSCRIBED_CODEC_PARAMETER_KEYS, new HashSet<>(Arrays.asList("test-key")));
+    MediaFormat mediaFormat = MediaFormatUtil.createMediaFormatFromFormat(AUDIO_AAC);
+
+    mediaCodecAudioRenderer.onOutputFormatChanged(AUDIO_AAC, mediaFormat);
+
+    shadowOf(Looper.getMainLooper()).idle();
+    verify(audioRendererEventListener, never()).onAudioCodecParametersChanged(any());
+
+    mediaFormat.setInteger("test-key", 100);
+
+    mediaCodecAudioRenderer.onOutputFormatChanged(AUDIO_AAC, mediaFormat);
+
+    ArgumentCaptor<CodecParameters> paramsCaptor = ArgumentCaptor.forClass(CodecParameters.class);
+    shadowOf(Looper.getMainLooper()).idle();
+    verify(audioRendererEventListener).onAudioCodecParametersChanged(paramsCaptor.capture());
+    assertThat(paramsCaptor.getValue().get("test-key")).isEqualTo(100);
+  }
+
+  @Test
+  @Config(sdk = 29)
+  public void onOutputFormatChanged_withKeyRemoved_firesEventListener() throws Exception {
+    MediaCodecAdapter unused = setUpAndEnableRenderer(AUDIO_AAC);
+    mediaCodecAudioRenderer.handleMessage(
+        Renderer.MSG_SET_SUBSCRIBED_CODEC_PARAMETER_KEYS, new HashSet<>(Arrays.asList("test-key")));
+    MediaFormat mediaFormat = MediaFormatUtil.createMediaFormatFromFormat(AUDIO_AAC);
+    mediaFormat.setInteger("test-key", 100);
+
+    mediaCodecAudioRenderer.onOutputFormatChanged(AUDIO_AAC, mediaFormat);
+
+    ArgumentCaptor<CodecParameters> paramsCaptor = ArgumentCaptor.forClass(CodecParameters.class);
+    shadowOf(Looper.getMainLooper()).idle();
+    verify(audioRendererEventListener).onAudioCodecParametersChanged(paramsCaptor.capture());
+    assertThat(paramsCaptor.getValue().get("test-key")).isEqualTo(100);
+    clearInvocations(audioRendererEventListener);
+
+    mediaFormat.removeKey("test-key");
+
+    mediaCodecAudioRenderer.onOutputFormatChanged(AUDIO_AAC, mediaFormat);
+
+    shadowOf(Looper.getMainLooper()).idle();
+    verify(audioRendererEventListener).onAudioCodecParametersChanged(paramsCaptor.capture());
+    assertThat(paramsCaptor.getValue().keySet()).doesNotContain("test-key");
+  }
+
+  @Test
+  @Config(sdk = 29)
+  public void onOutputFormatChanged_withValueNulled_firesEventListener() throws Exception {
+    MediaCodecAdapter unused = setUpAndEnableRenderer(AUDIO_AAC);
+    mediaCodecAudioRenderer.handleMessage(
+        Renderer.MSG_SET_SUBSCRIBED_CODEC_PARAMETER_KEYS, new HashSet<>(Arrays.asList("test-key")));
+    MediaFormat mediaFormat = MediaFormatUtil.createMediaFormatFromFormat(AUDIO_AAC);
+    mediaFormat.setString("test-key", "initial-value");
+
+    mediaCodecAudioRenderer.onOutputFormatChanged(AUDIO_AAC, mediaFormat);
+
+    ArgumentCaptor<CodecParameters> paramsCaptor = ArgumentCaptor.forClass(CodecParameters.class);
+    shadowOf(Looper.getMainLooper()).idle();
+    verify(audioRendererEventListener).onAudioCodecParametersChanged(paramsCaptor.capture());
+    assertThat(paramsCaptor.getValue().get("test-key")).isEqualTo("initial-value");
+    clearInvocations(audioRendererEventListener);
+
+    mediaFormat.setString("test-key", null);
+
+    mediaCodecAudioRenderer.onOutputFormatChanged(AUDIO_AAC, mediaFormat);
+
+    shadowOf(Looper.getMainLooper()).idle();
+    verify(audioRendererEventListener).onAudioCodecParametersChanged(paramsCaptor.capture());
+    assertThat(paramsCaptor.getValue().keySet()).doesNotContain("test-key");
+  }
+
+  @Test
+  @Config(sdk = 29)
+  public void onOutputFormatChanged_withNoSubscribedKeyChange_doesNotFireEventListener()
+      throws Exception {
+    MediaCodecAdapter unused = setUpAndEnableRenderer(AUDIO_AAC);
+    mediaCodecAudioRenderer.handleMessage(
+        Renderer.MSG_SET_SUBSCRIBED_CODEC_PARAMETER_KEYS, new HashSet<>(Arrays.asList("test-key")));
+    MediaFormat mediaFormat = MediaFormatUtil.createMediaFormatFromFormat(AUDIO_AAC);
+    mediaFormat.setInteger("test-key", 100);
+    mediaFormat.setString("unsubscribed-key", "value1");
+
+    mediaCodecAudioRenderer.onOutputFormatChanged(AUDIO_AAC, mediaFormat);
+
+    shadowOf(Looper.getMainLooper()).idle();
+    verify(audioRendererEventListener).onAudioCodecParametersChanged(any());
+    clearInvocations(audioRendererEventListener);
+
+    mediaFormat.setString("unsubscribed-key", "value2");
+
+    mediaCodecAudioRenderer.onOutputFormatChanged(AUDIO_AAC, mediaFormat);
+
+    shadowOf(Looper.getMainLooper()).idle();
+    verify(audioRendererEventListener, never()).onAudioCodecParametersChanged(any());
+  }
+
+  @Test
+  @Config(sdk = 31)
+  public void updateCodecSubscriptions_onApi31_callsSubscribeAndUnsubscribe() throws Exception {
+    MediaCodecAdapter mockCodecAdapter = setUpAndEnableRenderer(AUDIO_AAC);
+    @SuppressWarnings("unchecked") // Method being verified is known to take List<String>.
+    ArgumentCaptor<List<String>> stringListCaptor = ArgumentCaptor.forClass(List.class);
+
+    mediaCodecAudioRenderer.handleMessage(
+        Renderer.MSG_SET_SUBSCRIBED_CODEC_PARAMETER_KEYS,
+        new HashSet<>(Arrays.asList("key1", "key2")));
+
+    verify(mockCodecAdapter).subscribeToVendorParameters(stringListCaptor.capture());
+    assertThat(stringListCaptor.getValue()).containsExactly("key1", "key2");
+    clearInvocations(mockCodecAdapter);
+
+    mediaCodecAudioRenderer.handleMessage(
+        Renderer.MSG_SET_SUBSCRIBED_CODEC_PARAMETER_KEYS,
+        new HashSet<>(Arrays.asList("key2", "key3")));
+
+    verify(mockCodecAdapter).subscribeToVendorParameters(stringListCaptor.capture());
+    assertThat(stringListCaptor.getValue()).containsExactly("key3");
+    verify(mockCodecAdapter).unsubscribeFromVendorParameters(stringListCaptor.capture());
+    assertThat(stringListCaptor.getValue()).containsExactly("key1");
+  }
+
+  @Test
+  @Config(sdk = 31)
+  public void codecReinitialized_withSubscribedKeys_resubscribesToVendorParameters()
+      throws Exception {
+    MediaCodecAdapter mockCodecAdapter1 = mock(MediaCodecAdapter.class);
+    MediaCodecAdapter mockCodecAdapter2 = mock(MediaCodecAdapter.class);
+    MediaCodecAdapter.Factory mockCodecAdapterFactory = mock(MediaCodecAdapter.Factory.class);
+    when(mockCodecAdapterFactory.createAdapter(any()))
+        .thenReturn(mockCodecAdapter1)
+        .thenReturn(mockCodecAdapter2);
+    setUpRenderer(mockCodecAdapterFactory);
+    enableRenderer(mockCodecAdapter1, AUDIO_AAC);
+    @SuppressWarnings("unchecked") // Method being verified is known to take List<String>.
+    ArgumentCaptor<List<String>> stringListCaptor = ArgumentCaptor.forClass(List.class);
+
+    mediaCodecAudioRenderer.handleMessage(
+        Renderer.MSG_SET_SUBSCRIBED_CODEC_PARAMETER_KEYS,
+        new HashSet<>(Arrays.asList("key1", "key2")));
+
+    verify(mockCodecAdapter1).subscribeToVendorParameters(stringListCaptor.capture());
+    assertThat(stringListCaptor.getValue()).containsExactly("key1", "key2");
+
+    // Force codec re-initialization by changing the format.
+    mediaCodecAudioRenderer.stop();
+    mediaCodecAudioRenderer.disable();
+    enableRenderer(mockCodecAdapter2, AUDIO_OPUS);
+
+    // Verify that the new codec instance is subscribed to the same keys.
+    verify(mockCodecAdapter2).subscribeToVendorParameters(stringListCaptor.capture());
+    assertThat(stringListCaptor.getValue()).containsExactly("key1", "key2");
+  }
+
+  @Test
+  @Config(sdk = 29)
+  public void updateCodecSubscriptions_onApi29_doesNotCallSubscribeUnsubscribe() throws Exception {
+    MediaCodecAdapter mockCodecAdapter = setUpAndEnableRenderer(AUDIO_AAC);
+    mediaCodecAudioRenderer.handleMessage(
+        Renderer.MSG_SET_SUBSCRIBED_CODEC_PARAMETER_KEYS,
+        new HashSet<>(Arrays.asList("key1", "key2")));
+
+    mediaCodecAudioRenderer.handleMessage(
+        Renderer.MSG_SET_SUBSCRIBED_CODEC_PARAMETER_KEYS,
+        new HashSet<>(Arrays.asList("key2", "key3")));
+
+    verify(mockCodecAdapter, never()).subscribeToVendorParameters(any());
+    verify(mockCodecAdapter, never()).unsubscribeFromVendorParameters(any());
+  }
+
+  private MediaCodecAdapter setUpAndEnableRenderer(Format format) throws Exception {
+    MediaCodecAdapter mockCodecAdapter = mock(MediaCodecAdapter.class);
+    MediaCodecAdapter.Factory mockCodecAdapterFactory = configuration -> mockCodecAdapter;
+    setUpRenderer(mockCodecAdapterFactory);
+    enableRenderer(mockCodecAdapter, format);
+    return mockCodecAdapter;
+  }
+
+  private void setUpRenderer(MediaCodecAdapter.Factory mockCodecAdapterFactory) {
+    mediaCodecAudioRenderer =
+        new MediaCodecAudioRenderer(
+            ApplicationProvider.getApplicationContext(),
+            mockCodecAdapterFactory,
+            mediaCodecSelector,
+            /* enableDecoderFallback= */ false,
+            new Handler(Looper.getMainLooper()),
+            audioRendererEventListener,
+            audioSink);
+    mediaCodecAudioRenderer.init(/* index= */ 0, PlayerId.UNSET, Clock.DEFAULT);
+  }
+
+  private void enableRenderer(MediaCodecAdapter mockCodecAdapter, Format format) throws Exception {
+    when(mockCodecAdapter.dequeueInputBufferIndex()).thenReturn(MediaCodec.INFO_TRY_AGAIN_LATER);
+    when(mockCodecAdapter.dequeueOutputBufferIndex(any()))
+        .thenReturn(MediaCodec.INFO_TRY_AGAIN_LATER);
+
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            format,
+            ImmutableList.of(
+                oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME), END_OF_STREAM_ITEM));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    mediaCodecAudioRenderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {format},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ false,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        new MediaSource.MediaPeriodId(new Object()));
+    mediaCodecAudioRenderer.start();
+    mediaCodecAudioRenderer.render(/* positionUs= */ 0, SystemClock.elapsedRealtime() * 1000);
+    maybeIdleAsynchronousMediaCodecAdapterThreads();
   }
 
   private void maybeIdleAsynchronousMediaCodecAdapterThreads() {

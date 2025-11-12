@@ -44,6 +44,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import java.nio.ByteBuffer;
+import java.util.List;
 
 /**
  * A {@link MediaCodecAdapter} that operates the underlying {@link MediaCodec} in asynchronous mode,
@@ -351,6 +352,18 @@ import java.nio.ByteBuffer;
   @RequiresApi(26)
   public PersistableBundle getMetrics() {
     return codec.getMetrics();
+  }
+
+  @Override
+  @RequiresApi(31)
+  public void subscribeToVendorParameters(List<String> names) {
+    codec.subscribeToVendorParameters(names);
+  }
+
+  @Override
+  @RequiresApi(31)
+  public void unsubscribeFromVendorParameters(List<String> names) {
+    codec.unsubscribeFromVendorParameters(names);
   }
 
   @VisibleForTesting
