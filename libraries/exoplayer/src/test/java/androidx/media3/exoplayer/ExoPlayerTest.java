@@ -179,6 +179,7 @@ import androidx.media3.extractor.metadata.id3.TextInformationFrame;
 import androidx.media3.test.utils.ActionSchedule;
 import androidx.media3.test.utils.ActionSchedule.PlayerRunnable;
 import androidx.media3.test.utils.ActionSchedule.PlayerTarget;
+import androidx.media3.test.utils.EmptyMediaSource;
 import androidx.media3.test.utils.ExoPlayerTestRunner;
 import androidx.media3.test.utils.FakeAdsLoader;
 import androidx.media3.test.utils.FakeAudioRenderer;
@@ -8128,7 +8129,7 @@ public final class ExoPlayerTest {
             .build();
     parameterizeExoPlayerTestRunnerBuilder(
             new ExoPlayerTestRunner.Builder(context)
-                .setMediaSources(new ConcatenatingMediaSource())
+                .setMediaSources(new EmptyMediaSource())
                 .setActionSchedule(actionSchedule))
         .build()
         .start(/* doPrepare= */ false)
@@ -8164,7 +8165,7 @@ public final class ExoPlayerTest {
     int[] currentMediaItemIndices = {C.INDEX_UNSET, C.INDEX_UNSET, C.INDEX_UNSET};
     ExoPlayer player = parameterizeTestExoPlayerBuilder(new TestExoPlayerBuilder(context)).build();
     player.seekToDefaultPosition(/* mediaItemIndex= */ 1);
-    player.setMediaSource(new ConcatenatingMediaSource(), /* resetPosition= */ false);
+    player.setMediaSource(new EmptyMediaSource(), /* resetPosition= */ false);
 
     advance(player).untilPendingCommandsAreFullyHandled();
     currentMediaItemIndices[0] = player.getCurrentMediaItemIndex();
@@ -8186,7 +8187,7 @@ public final class ExoPlayerTest {
     int[] currentMediaItemIndices = {C.INDEX_UNSET, C.INDEX_UNSET, C.INDEX_UNSET};
     ExoPlayer player = parameterizeTestExoPlayerBuilder(new TestExoPlayerBuilder(context)).build();
     player.seekToDefaultPosition(/* mediaItemIndex= */ 4);
-    player.setMediaSource(new ConcatenatingMediaSource(), /* resetPosition= */ false);
+    player.setMediaSource(new EmptyMediaSource(), /* resetPosition= */ false);
 
     advance(player).untilPendingCommandsAreFullyHandled();
     currentMediaItemIndices[0] = player.getCurrentMediaItemIndex();
@@ -8223,8 +8224,7 @@ public final class ExoPlayerTest {
     player.addMediaSource(/* index= */ 0, concatenatingMediaSource);
     currentMediaItemIndices[2] = player.getCurrentMediaItemIndex();
     // Current media item index is unchanged when adding empty source.
-    ConcatenatingMediaSource concatenatingMediaSourceEmpty = new ConcatenatingMediaSource();
-    player.addMediaSource(/* index= */ 0, concatenatingMediaSourceEmpty);
+    player.addMediaSource(/* index= */ 0, new EmptyMediaSource());
     currentMediaItemIndices[3] = player.getCurrentMediaItemIndex();
     player.release();
 
@@ -8346,7 +8346,7 @@ public final class ExoPlayerTest {
                   @Override
                   public void run(ExoPlayer player) {
                     // Set empty media item with no seek.
-                    player.setMediaSource(new ConcatenatingMediaSource());
+                    player.setMediaSource(new EmptyMediaSource());
                     maskingPlaybackStates[0] = player.getPlaybackState();
                   }
                 })
@@ -8375,7 +8375,7 @@ public final class ExoPlayerTest {
                   public void run(ExoPlayer player) {
                     // Set empty media item with an explicit seek.
                     player.setMediaSource(
-                        new ConcatenatingMediaSource(), /* startPositionMs= */ C.TIME_UNSET);
+                        new EmptyMediaSource(), /* startPositionMs= */ C.TIME_UNSET);
                     maskingPlaybackStates[3] = player.getPlaybackState();
                   }
                 })
@@ -8421,7 +8421,7 @@ public final class ExoPlayerTest {
         });
 
     player.seekToDefaultPosition(/* mediaItemIndex= */ 1);
-    player.setMediaSource(new ConcatenatingMediaSource(), /* resetPosition= */ false);
+    player.setMediaSource(new EmptyMediaSource(), /* resetPosition= */ false);
     advance(player).untilPendingCommandsAreFullyHandled();
     // Set a media item with an implicit seek to the current position which is
     // invalid in the new timeline.
@@ -8492,7 +8492,7 @@ public final class ExoPlayerTest {
                   @Override
                   public void run(ExoPlayer player) {
                     // Set an empty media item with no seek.
-                    player.setMediaSource(new ConcatenatingMediaSource());
+                    player.setMediaSource(new EmptyMediaSource());
                     maskingPlaybackStates[0] = player.getPlaybackState();
                   }
                 })
@@ -8534,7 +8534,7 @@ public final class ExoPlayerTest {
                   @Override
                   public void run(ExoPlayer player) {
                     // Set empty media item with an implicit seek to the current position.
-                    player.setMediaSource(new ConcatenatingMediaSource());
+                    player.setMediaSource(new EmptyMediaSource());
                     maskingPlaybackStates[0] = player.getPlaybackState();
                   }
                 })
@@ -8545,7 +8545,7 @@ public final class ExoPlayerTest {
                   public void run(ExoPlayer player) {
                     // Set empty media item with an explicit seek.
                     player.setMediaSource(
-                        new ConcatenatingMediaSource(), /* startPositionMs= */ C.TIME_UNSET);
+                        new EmptyMediaSource(), /* startPositionMs= */ C.TIME_UNSET);
                     maskingPlaybackStates[1] = player.getPlaybackState();
                   }
                 })
@@ -8576,7 +8576,7 @@ public final class ExoPlayerTest {
         parameterizeExoPlayerTestRunnerBuilder(
                 new ExoPlayerTestRunner.Builder(context)
                     .setExpectedPlayerEndedCount(/* expectedPlayerEndedCount= */ 3)
-                    .setMediaSources(new ConcatenatingMediaSource())
+                    .setMediaSources(new EmptyMediaSource())
                     .setActionSchedule(actionSchedule))
             .build()
             .start()
@@ -8629,7 +8629,7 @@ public final class ExoPlayerTest {
         parameterizeExoPlayerTestRunnerBuilder(
                 new ExoPlayerTestRunner.Builder(context)
                     .initialSeek(/* mediaItemIndex= */ 1, /* positionMs= */ C.TIME_UNSET)
-                    .setMediaSources(new ConcatenatingMediaSource())
+                    .setMediaSources(new EmptyMediaSource())
                     .setActionSchedule(actionSchedule))
             .build()
             .start()
@@ -8697,7 +8697,7 @@ public final class ExoPlayerTest {
                   @Override
                   public void run(ExoPlayer player) {
                     // Set an empty media item with no seek.
-                    player.setMediaSource(new ConcatenatingMediaSource());
+                    player.setMediaSource(new EmptyMediaSource());
                     maskingPlaybackStates[0] = player.getPlaybackState();
                   }
                 })
@@ -8749,13 +8749,13 @@ public final class ExoPlayerTest {
     play(player).untilState(Player.STATE_READY);
 
     // Set empty media item with an implicit seek to current position.
-    player.setMediaSource(new ConcatenatingMediaSource(), /* resetPosition= */ false);
+    player.setMediaSource(new EmptyMediaSource(), /* resetPosition= */ false);
     // Expect masking state is ended.
     maskingPlaybackStates[0] = player.getPlaybackState();
     player.setMediaSource(firstMediaSource);
     play(player).untilState(Player.STATE_READY);
     // Set empty media item with an explicit seek.
-    player.setMediaSource(new ConcatenatingMediaSource(), /* startPositionMs= */ C.TIME_UNSET);
+    player.setMediaSource(new EmptyMediaSource(), /* startPositionMs= */ C.TIME_UNSET);
     // Expect masking state is ended.
     maskingPlaybackStates[1] = player.getPlaybackState();
     player.setMediaSource(firstMediaSource);
@@ -8850,7 +8850,7 @@ public final class ExoPlayerTest {
                 new ExoPlayerTestRunner.Builder(context)
                     .setExpectedPlayerEndedCount(/* expectedPlayerEndedCount= */ 2)
                     .initialSeek(/* mediaItemIndex= */ 1, /* positionMs= */ C.TIME_UNSET)
-                    .setMediaSources(new ConcatenatingMediaSource())
+                    .setMediaSources(new EmptyMediaSource())
                     .setActionSchedule(actionSchedule))
             .build()
             .start()
@@ -8928,7 +8928,7 @@ public final class ExoPlayerTest {
     // If the timeline is empty masking variables are used.
     currentPositions[0] = player.getCurrentPosition();
     bufferedPositions[0] = player.getBufferedPosition();
-    player.addMediaSource(/* index= */ 0, new ConcatenatingMediaSource());
+    player.addMediaSource(/* index= */ 0, new EmptyMediaSource());
     currentMediaItemIndices[1] = player.getCurrentMediaItemIndex();
     player.addMediaSource(
         /* index= */ 0, new FakeMediaSource(new FakeTimeline(/* windowCount= */ 2)));
@@ -16533,6 +16533,82 @@ public final class ExoPlayerTest {
     // Assert this condition becomes true because the custom provider from the builder is used.
     runMainLooperUntil(() -> player.getAudioSessionId() == 1234);
     player.release();
+  }
+
+  @Test
+  public void
+      seekToNonZeroMediaItemIndex_withInitialEmptyMediaSourceNoPositionReset_appliesSeekToFirstNonEmptyTimeline()
+          throws Exception {
+    ExoPlayer player = parameterizeTestExoPlayerBuilder(new TestExoPlayerBuilder(context)).build();
+    Player.Listener listener = mock(Player.Listener.class);
+    player.addListener(listener);
+
+    player.seekToDefaultPosition(/* mediaItemIndex= */ 1);
+    int mediaItemIndexAfterSeek = player.getCurrentMediaItemIndex();
+    player.setMediaSource(new EmptyMediaSource(), /* resetPosition= */ false);
+    int mediaItemIndexAfterEmptySource = player.getCurrentMediaItemIndex();
+    player.addMediaSources(
+        /* index= */ 0, ImmutableList.of(new FakeMediaSource(), new FakeMediaSource()));
+    int mediaItemIndexBeforePrepare = player.getCurrentMediaItemIndex();
+    player.prepare();
+    advance(player).untilState(Player.STATE_READY);
+    int mediaItemIndexAfterReady = player.getCurrentMediaItemIndex();
+    player.release();
+
+    // Assert there is only one seek, one playlist-change timeline change (empty->non-empty) and one
+    // initial media item transition.
+    verify(listener).onPositionDiscontinuity(any(), any(), eq(Player.DISCONTINUITY_REASON_SEEK));
+    verify(listener, never())
+        .onPositionDiscontinuity(any(), any(), not(eq(Player.DISCONTINUITY_REASON_SEEK)));
+    verify(listener).onTimelineChanged(any(), eq(Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED));
+    verify(listener).onTimelineChanged(any(), eq(Player.TIMELINE_CHANGE_REASON_SOURCE_UPDATE));
+    verify(listener)
+        .onMediaItemTransition(any(), eq(Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED));
+    verify(listener, never())
+        .onMediaItemTransition(
+            any(), not(eq(Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED)));
+    assertThat(mediaItemIndexAfterSeek).isEqualTo(1);
+    assertThat(mediaItemIndexAfterEmptySource).isEqualTo(1);
+    assertThat(mediaItemIndexBeforePrepare).isEqualTo(1);
+    assertThat(mediaItemIndexAfterReady).isEqualTo(1);
+  }
+
+  @Test
+  public void
+      seekToNonZeroMediaItemIndex_withInitialEmptyMediaSourceWithPositionReset_resetsStartIndexToZero()
+          throws Exception {
+    ExoPlayer player = parameterizeTestExoPlayerBuilder(new TestExoPlayerBuilder(context)).build();
+    Player.Listener listener = mock(Player.Listener.class);
+    player.addListener(listener);
+
+    player.seekToDefaultPosition(/* mediaItemIndex= */ 1);
+    int mediaItemIndexAfterSeek = player.getCurrentMediaItemIndex();
+    player.setMediaSource(new EmptyMediaSource(), /* resetPosition= */ true);
+    int mediaItemIndexAfterEmptySource = player.getCurrentMediaItemIndex();
+    player.addMediaSources(
+        /* index= */ 0, ImmutableList.of(new FakeMediaSource(), new FakeMediaSource()));
+    int mediaItemIndexBeforePrepare = player.getCurrentMediaItemIndex();
+    player.prepare();
+    advance(player).untilState(Player.STATE_READY);
+    int mediaItemIndexAfterReady = player.getCurrentMediaItemIndex();
+    player.release();
+
+    // Assert there is only one seek, one playlist-change timeline change (empty->non-empty) and one
+    // initial media item transition.
+    verify(listener).onPositionDiscontinuity(any(), any(), eq(Player.DISCONTINUITY_REASON_SEEK));
+    verify(listener, never())
+        .onPositionDiscontinuity(any(), any(), not(eq(Player.DISCONTINUITY_REASON_SEEK)));
+    verify(listener).onTimelineChanged(any(), eq(Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED));
+    verify(listener).onTimelineChanged(any(), eq(Player.TIMELINE_CHANGE_REASON_SOURCE_UPDATE));
+    verify(listener)
+        .onMediaItemTransition(any(), eq(Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED));
+    verify(listener, never())
+        .onMediaItemTransition(
+            any(), not(eq(Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED)));
+    assertThat(mediaItemIndexAfterSeek).isEqualTo(1);
+    assertThat(mediaItemIndexAfterEmptySource).isEqualTo(0);
+    assertThat(mediaItemIndexBeforePrepare).isEqualTo(0);
+    assertThat(mediaItemIndexAfterReady).isEqualTo(0);
   }
 
   @Test

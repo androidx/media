@@ -699,7 +699,7 @@ import java.util.function.IntConsumer;
     verifyApplicationThread();
     checkArgument(index >= 0);
     index = min(index, mediaSourceHolderSnapshots.size());
-    if (mediaSourceHolderSnapshots.isEmpty()) {
+    if (playbackInfo.timeline.isEmpty()) {
       // Handle initial items in a playlist as a set operation to ensure state changes and initial
       // position are updated correctly.
       setMediaSources(mediaSources, /* resetPosition= */ maskingWindowIndex == C.INDEX_UNSET);
@@ -791,7 +791,7 @@ import java.util.function.IntConsumer;
       return;
     }
     List<MediaSource> mediaSources = createMediaSources(mediaItems);
-    if (mediaSourceHolderSnapshots.isEmpty()) {
+    if (playbackInfo.timeline.isEmpty()) {
       // Handle initial items in a playlist as a set operation to ensure state changes and initial
       // position are updated correctly.
       setMediaSources(mediaSources, /* resetPosition= */ maskingWindowIndex == C.INDEX_UNSET);
