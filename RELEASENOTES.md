@@ -50,6 +50,7 @@
 *   HLS extension:
     *   Properly handle fetching the next chunk for an `HlsMediaPlaylist` with
         no segments ([#2821](https://github.com/androidx/media/issues/2821)).
+    *   Use the default start position for pre rolls with live streams.
 *   DASH extension:
 *   Smooth Streaming extension:
 *   RTSP extension:
