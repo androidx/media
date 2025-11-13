@@ -54,6 +54,8 @@ interface PacketConsumer<T> {
     fun create(): PacketConsumer<T>
   }
 
+  // TODO: b/449957627 - Remove this method and add a a utility class to call the suspending
+  //  queuePacket from a synchronous work loop.
   /**
    * Attempts to queue a [Packet] for processing without blocking.
    *
