@@ -707,12 +707,12 @@ import java.util.Objects;
           doSomeWork();
           break;
         case MSG_SEEK_TO:
-          seekToInternal((SeekPosition) msg.obj, /* incrementAcks= */ true);
+          seekToInternal((SeekPosition) msg.obj);
           break;
         case MSG_SEEK_COMPLETED_IN_SCRUBBING_MODE:
           seekIsPendingWhileScrubbing = false;
           if (queuedSeekWhileScrubbing != null) {
-            seekToInternal(queuedSeekWhileScrubbing, /* incrementAcks= */ false);
+            seekToInternal(queuedSeekWhileScrubbing);
             queuedSeekWhileScrubbing = null;
           }
           break;
@@ -1558,17 +1558,16 @@ import java.util.Objects;
         : BUFFERING_MAXIMUM_INTERVAL_MS;
   }
 
-  private void seekToInternal(SeekPosition seekPosition, boolean incrementAcks)
-      throws ExoPlaybackException {
-    playbackInfoUpdate.incrementPendingOperationAcks(incrementAcks ? 1 : 0);
+  private void seekToInternal(SeekPosition seekPosition) throws ExoPlaybackException {
     if (seekIsPendingWhileScrubbing) {
       if (queuedSeekWhileScrubbing != null) {
         droppedSeeksWhileScrubbing++;
+        playbackInfoUpdate.incrementPendingOperationAcks(/* operationAcks= */ 1);
       }
       queuedSeekWhileScrubbing = seekPosition;
       return;
     }
-
+    playbackInfoUpdate.incrementPendingOperationAcks(/* operationAcks= */ 1);
     MediaPeriodId periodId;
     long periodPositionUs;
     long requestedContentPositionUs;
@@ -1850,6 +1849,11 @@ import java.util.Objects;
   private void setScrubbingModeEnabledInternal(boolean scrubbingModeEnabled)
       throws ExoPlaybackException {
     if (!scrubbingModeEnabled) {
+      if (queuedSeekWhileScrubbing != null
+          && seekIsPendingWhileScrubbing
+          && !handler.hasMessages(MSG_SEEK_COMPLETED_IN_SCRUBBING_MODE)) {
+        droppedSeeksWhileScrubbing++;
+      }
       if (droppedSeeksWhileScrubbing > 0) {
         int localDroppedSeeksCount = droppedSeeksWhileScrubbing;
         applicationLooperHandler.post(
@@ -1860,8 +1864,10 @@ import java.util.Objects;
       handler.removeMessages(MSG_SEEK_COMPLETED_IN_SCRUBBING_MODE);
       if (queuedSeekWhileScrubbing != null) {
         // Immediately seek to the latest received scrub position (interrupting a pending seek).
-        seekToInternal(queuedSeekWhileScrubbing, /* incrementAcks= */ false);
+        seekToInternal(queuedSeekWhileScrubbing);
         queuedSeekWhileScrubbing = null;
+        // Set value to false as subsequent seeks should pre-empt the newly-queued seek.
+        seekIsPendingWhileScrubbing = false;
       }
     }
     this.scrubbingModeEnabled = scrubbingModeEnabled;
@@ -1949,7 +1955,10 @@ import java.util.Objects;
       boolean resetError) {
     handler.removeMessages(MSG_DO_SOME_WORK);
     seekIsPendingWhileScrubbing = false;
-    queuedSeekWhileScrubbing = null;
+    if (queuedSeekWhileScrubbing != null) {
+      playbackInfoUpdate.incrementPendingOperationAcks(/* operationAcks= */ 1);
+      queuedSeekWhileScrubbing = null;
+    }
     pendingRecoverableRendererError = null;
     updateRebufferingState(/* isRebuffering= */ false, /* resetLastRebufferRealtimeMs= */ true);
     mediaClock.stop();
