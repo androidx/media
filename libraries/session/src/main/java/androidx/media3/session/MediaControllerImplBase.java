@@ -2172,7 +2172,10 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 
     boolean correctedStartIndex = false;
     if (resetToDefaultPosition) {
-      startIndex = newTimeline.getFirstWindowIndex(playerInfo.shuffleModeEnabled);
+      startIndex =
+          newTimeline.isEmpty()
+              ? 0
+              : newTimeline.getFirstWindowIndex(playerInfo.shuffleModeEnabled);
       startPositionMs = C.TIME_UNSET;
     } else if (startIndex == C.INDEX_UNSET) {
       startIndex = playerInfo.sessionPositionInfo.positionInfo.mediaItemIndex;
@@ -3407,9 +3410,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   }
 
   private static int getCurrentMediaItemIndexInternal(PlayerInfo playerInfo) {
-    return playerInfo.sessionPositionInfo.positionInfo.mediaItemIndex == C.INDEX_UNSET
-        ? 0
-        : playerInfo.sessionPositionInfo.positionInfo.mediaItemIndex;
+    return playerInfo.sessionPositionInfo.positionInfo.mediaItemIndex;
   }
 
   private static PlayerInfo maskTimelineAndPositionInfo(
