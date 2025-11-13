@@ -6,6 +6,9 @@
 *   ExoPlayer:
     *   Add API for setting and observing `MediaCodec` parameters dynamically
         ([#2794](https://github.com/androidx/media/pull/2794)).
+    *   Fix `IllegalStateException` caused by setting an empty media source
+        after seeking to a non-zero position and then preparing the player with
+        a non-empty media source.
 *   CompositionPlayer:
 *   Transformer:
 *   Track Selection:
