@@ -1853,6 +1853,18 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     singleInputVideoGraphWrapper.startRendering();
     VideoSink videoGraphWrapperSink = singleInputVideoGraphWrapper.getSink(/* inputIndex= */ 0);
     return new ForwardingVideoSink(videoGraphWrapperSink) {
+
+      @Override
+      public boolean isReady(boolean otherwiseReady) {
+        // TODO: b/449957627- Do not use PlaybackVideoGraphWrapper or VideoSink. Instead, rely on
+        // each MediaCodecVideoRenderer's release control to determine whether the renderer is
+        // ready.
+
+        // The renderer state should not depend on effects processing. As a temporary workaround,
+        // allow playback to start as soon as the renderer has input data (otherwiseReady).
+        return otherwiseReady && isInitialized();
+      }
+
       @Override
       public void flush(boolean resetPosition) {
         if (super.isInitialized()) {
