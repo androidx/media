@@ -287,8 +287,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
     // Signal flush upstream.
     inputListener.onFlush();
-    for (int i = 0; i < getInputCapacity(); i++) {
-      inputListener.onReadyToAcceptInputFrame();
+    if (textureOutputListener == null) {
+      for (int i = 0; i < getInputCapacity(); i++) {
+        inputListener.onReadyToAcceptInputFrame();
+      }
     }
   }
 
@@ -324,6 +326,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       outputTexturePool.freeAllTextures();
       outputTextureTimestamps.clear();
       syncObjects.clear();
+      for (int i = 0; i < getInputCapacity(); i++) {
+        inputListener.onReadyToAcceptInputFrame();
+      }
       try {
         textureOutputListener.flush();
       } catch (VideoFrameProcessingException e) {
