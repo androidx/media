@@ -15,6 +15,15 @@
 *   Transformer:
 *   Track Selection:
 *   Extractors:
+    *   MP3: Change `Mp3Extractor` to default to a constant bitrate (CBR)
+        assumption when no seeking metadata (e.g., Xing, VBRI) is found, even
+        when `FLAG_ENABLE_INDEX_SEEKING` is set. This is based on the MP3
+        specification's history, where CBR was standard and VBR requires
+        explicit headers. This improves immediate seekability for files without
+        metadata at the cost of potential accuracy for VBR files lacking
+        headers. Index seeking is now used as a fallback if the CBR assumption
+        is not seekable (e.g., for streams of unknown length)
+        ([#2848](https://github.com/androidx/media/issues/2848)).
 *   Inspector:
 *   Audio:
 *   Video:

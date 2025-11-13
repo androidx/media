@@ -39,8 +39,8 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public class IndexSeekerTest {
 
-  private static final String TEST_FILE_NO_SEEK_TABLE = "media/mp3/bear-vbr-no-seek-table.mp3";
-  private static final int TEST_FILE_NO_SEEK_TABLE_DURATION = 2_808_000;
+  private static final String TEST_FILE_XING_NO_TOC = "media/mp3/bear-vbr-xing-header-no-toc.mp3";
+  private static final int TEST_FILE_XING_NO_TOC_DURATION = 2_808_000;
 
   private Mp3Extractor extractor;
   private FakeExtractorOutput extractorOutput;
@@ -57,7 +57,7 @@ public class IndexSeekerTest {
 
   @Test
   public void mp3ExtractorReads_returnsSeekableSeekMap() throws Exception {
-    Uri fileUri = TestUtil.buildAssetUri(TEST_FILE_NO_SEEK_TABLE);
+    Uri fileUri = TestUtil.buildAssetUri(TEST_FILE_XING_NO_TOC);
 
     SeekMap seekMap = TestUtil.extractSeekMap(extractor, extractorOutput, dataSource, fileUri);
 
@@ -68,16 +68,16 @@ public class IndexSeekerTest {
   public void mp3ExtractorReads_correctsInexactDuration() throws Exception {
     FakeExtractorOutput extractorOutput =
         TestUtil.extractAllSamplesFromFile(
-            extractor, ApplicationProvider.getApplicationContext(), TEST_FILE_NO_SEEK_TABLE);
+            extractor, ApplicationProvider.getApplicationContext(), TEST_FILE_XING_NO_TOC);
 
     SeekMap seekMap = extractorOutput.seekMap;
 
-    assertThat(seekMap.getDurationUs()).isEqualTo(TEST_FILE_NO_SEEK_TABLE_DURATION);
+    assertThat(seekMap.getDurationUs()).isEqualTo(TEST_FILE_XING_NO_TOC_DURATION);
   }
 
   @Test
   public void seeking_handlesSeekToZero() throws Exception {
-    String fileName = TEST_FILE_NO_SEEK_TABLE;
+    String fileName = TEST_FILE_XING_NO_TOC;
     Uri fileUri = TestUtil.buildAssetUri(fileName);
     SeekMap seekMap = TestUtil.extractSeekMap(extractor, extractorOutput, dataSource, fileUri);
     FakeTrackOutput trackOutput = extractorOutput.trackOutputs.get(0);
@@ -95,12 +95,12 @@ public class IndexSeekerTest {
 
   @Test
   public void seeking_handlesSeekToEof() throws Exception {
-    String fileName = TEST_FILE_NO_SEEK_TABLE;
+    String fileName = TEST_FILE_XING_NO_TOC;
     Uri fileUri = TestUtil.buildAssetUri(fileName);
     SeekMap seekMap = TestUtil.extractSeekMap(extractor, extractorOutput, dataSource, fileUri);
     FakeTrackOutput trackOutput = extractorOutput.trackOutputs.get(0);
 
-    long targetSeekTimeUs = TEST_FILE_NO_SEEK_TABLE_DURATION;
+    long targetSeekTimeUs = TEST_FILE_XING_NO_TOC_DURATION;
     int extractedFrameIndex =
         TestUtil.seekToTimeUs(
             extractor, seekMap, targetSeekTimeUs, dataSource, trackOutput, fileUri);
@@ -113,7 +113,7 @@ public class IndexSeekerTest {
 
   @Test
   public void seeking_handlesSeekingBackward() throws Exception {
-    String fileName = TEST_FILE_NO_SEEK_TABLE;
+    String fileName = TEST_FILE_XING_NO_TOC;
     Uri fileUri = TestUtil.buildAssetUri(fileName);
     SeekMap seekMap = TestUtil.extractSeekMap(extractor, extractorOutput, dataSource, fileUri);
     FakeTrackOutput trackOutput = extractorOutput.trackOutputs.get(0);
@@ -133,7 +133,7 @@ public class IndexSeekerTest {
 
   @Test
   public void seeking_handlesSeekingForward() throws Exception {
-    String fileName = TEST_FILE_NO_SEEK_TABLE;
+    String fileName = TEST_FILE_XING_NO_TOC;
     Uri fileUri = TestUtil.buildAssetUri(fileName);
     SeekMap seekMap = TestUtil.extractSeekMap(extractor, extractorOutput, dataSource, fileUri);
     FakeTrackOutput trackOutput = extractorOutput.trackOutputs.get(0);

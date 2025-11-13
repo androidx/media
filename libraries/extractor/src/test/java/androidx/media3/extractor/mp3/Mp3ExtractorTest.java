@@ -15,6 +15,7 @@
  */
 package androidx.media3.extractor.mp3;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assume.assumeFalse;
 
@@ -29,7 +30,9 @@ import androidx.media3.test.utils.FakeExtractorOutput;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.core.app.ApplicationProvider;
 import com.google.common.base.Ascii;
+import com.google.common.collect.ImmutableList;
 import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterValuesProvider;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestParameterInjector;
@@ -185,9 +188,19 @@ public final class Mp3ExtractorTest {
         simulationConfig);
   }
 
+  private static final class KnowLengthConfigProvider extends TestParameterValuesProvider {
+    @Override
+    protected ImmutableList<ExtractorAsserts.SimulationConfig> provideValues(
+        TestParameterValuesProvider.Context context) {
+      return ExtractorAsserts.configs().stream()
+          .filter(config -> !config.simulateUnknownLength)
+          .collect(toImmutableList());
+    }
+  }
+
   @Test
-  public void mp3SampleWithIndexSeeker(
-      @TestParameter(valuesProvider = ExtractorAsserts.ConfigProvider.class)
+  public void mp3Sample_withIndexSeekingFlag_usesCbrSeekerForKnownLength(
+      @TestParameter(valuesProvider = KnowLengthConfigProvider.class)
           ExtractorAsserts.SimulationConfig simulationConfig)
       throws Exception {
     ExtractorAsserts.assertBehavior(
