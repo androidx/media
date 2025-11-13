@@ -15,6 +15,8 @@
  */
 package androidx.media3.common;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.Math.max;
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.ElementType.LOCAL_VARIABLE;
 import static java.lang.annotation.ElementType.METHOD;
@@ -340,6 +342,8 @@ public interface Player {
         long contentPositionMs,
         int adGroupIndex,
         int adIndexInAdGroup) {
+      checkArgument(mediaItemIndex >= 0);
+      checkArgument(periodIndex >= 0);
       this.windowUid = windowUid;
       this.windowIndex = mediaItemIndex;
       this.mediaItemIndex = mediaItemIndex;
@@ -498,11 +502,11 @@ public interface Player {
     /** Restores a {@code PositionInfo} from a {@link Bundle}. */
     @UnstableApi
     public static PositionInfo fromBundle(Bundle bundle) {
-      int mediaItemIndex = bundle.getInt(FIELD_MEDIA_ITEM_INDEX, /* defaultValue= */ 0);
+      int mediaItemIndex = max(0, bundle.getInt(FIELD_MEDIA_ITEM_INDEX, /* defaultValue= */ 0));
       @Nullable Bundle mediaItemBundle = bundle.getBundle(FIELD_MEDIA_ITEM);
       @Nullable
       MediaItem mediaItem = mediaItemBundle == null ? null : MediaItem.fromBundle(mediaItemBundle);
-      int periodIndex = bundle.getInt(FIELD_PERIOD_INDEX, /* defaultValue= */ 0);
+      int periodIndex = max(0, bundle.getInt(FIELD_PERIOD_INDEX, /* defaultValue= */ 0));
       long positionMs = bundle.getLong(FIELD_POSITION_MS, /* defaultValue= */ 0);
       long contentPositionMs = bundle.getLong(FIELD_CONTENT_POSITION_MS, /* defaultValue= */ 0);
       int adGroupIndex = bundle.getInt(FIELD_AD_GROUP_INDEX, /* defaultValue= */ C.INDEX_UNSET);
