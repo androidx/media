@@ -32,8 +32,10 @@ import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.robolectric.Shadows.shadowOf;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -42,6 +44,7 @@ import android.graphics.SurfaceTexture;
 import android.media.MediaFormat;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Looper;
 import android.util.Pair;
 import android.view.Surface;
 import androidx.annotation.Nullable;
@@ -139,9 +142,20 @@ public final class ExoPlayerScrubbingTest {
     player.prepare();
     player.play();
     advance(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 1000);
-    VideoFrameMetadataListener mockVideoFrameMetadataListener =
-        mock(VideoFrameMetadataListener.class);
-    player.setVideoFrameMetadataListener(mockVideoFrameMetadataListener);
+    AtomicInteger frameRenderCounter = new AtomicInteger();
+    VideoFrameMetadataListener videoFrameMetadataListener =
+        spy(
+            new VideoFrameMetadataListener() {
+              @Override
+              public void onVideoFrameAboutToBeRendered(
+                  long presentationTimeUs,
+                  long releaseTimeNs,
+                  Format format,
+                  @Nullable MediaFormat mediaFormat) {
+                frameRenderCounter.getAndIncrement();
+              }
+            });
+    player.setVideoFrameMetadataListener(videoFrameMetadataListener);
 
     player.setScrubbingModeEnabled(true);
     advance(player).untilPendingCommandsAreFullyHandled();
@@ -149,7 +163,7 @@ public final class ExoPlayerScrubbingTest {
     player.seekTo(3000);
     player.seekTo(3500);
     // Allow the 2500 and 3500 seeks to complete (the 3000 seek should be dropped).
-    advance(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 3500);
+    advance(player).untilBackgroundThreadCondition(() -> frameRenderCounter.get() > 1);
     // The dropped seek won't be reported immediately, only after exiting scrubbing mode.
     verify(mockAnalyticsListener, never()).onDroppedSeeksWhileScrubbing(any(), anyInt());
 
@@ -159,13 +173,13 @@ public final class ExoPlayerScrubbingTest {
     // previous one), so we expect the 4500 seek to be resolved and the 4000 seek to be dropped.
     player.setScrubbingModeEnabled(false);
     advance(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 4500);
-    player.clearVideoFrameMetadataListener(mockVideoFrameMetadataListener);
+    player.clearVideoFrameMetadataListener(videoFrameMetadataListener);
     advance(player).untilState(Player.STATE_ENDED);
     player.release();
     surface.release();
 
     ArgumentCaptor<Long> presentationTimeUsCaptor = ArgumentCaptor.forClass(Long.class);
-    verify(mockVideoFrameMetadataListener, atLeastOnce())
+    verify(videoFrameMetadataListener, atLeastOnce())
         .onVideoFrameAboutToBeRendered(presentationTimeUsCaptor.capture(), anyLong(), any(), any());
     assertThat(presentationTimeUsCaptor.getAllValues())
         .containsExactly(2_500_000L, 3_500_000L, 4_500_000L)
@@ -185,6 +199,169 @@ public final class ExoPlayerScrubbingTest {
 
     // Check the dropped 3000 and 4000 seeks are reported
     verify(mockAnalyticsListener).onDroppedSeeksWhileScrubbing(any(), eq(2));
+  }
+
+  @Test
+  public void scrubbingMode_withSeeksToDifferentMediaItems_pendingSeekIsNotPreempted()
+      throws Exception {
+    ExoPlayer player =
+        new TestExoPlayerBuilder(ApplicationProvider.getApplicationContext())
+            .setStuckPlayingDetectionTimeoutMs(Integer.MAX_VALUE)
+            .setStuckSuppressedDetectionTimeoutMs(Integer.MAX_VALUE)
+            .build();
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
+    Player.Listener mockListener = mock(Player.Listener.class);
+    player.addListener(mockListener);
+    AnalyticsListener mockAnalyticsListener = mock(AnalyticsListener.class);
+    player.addAnalyticsListener(mockAnalyticsListener);
+    player.setMediaSources(
+        ImmutableList.of(
+            create30Fps2sGop10sDurationVideoSource(),
+            create30Fps2sGop10sDurationVideoSource(),
+            create30Fps2sGop10sDurationVideoSource()));
+    player.prepare();
+    player.play();
+    advance(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 1000);
+    AtomicInteger frameRenderCounter = new AtomicInteger();
+    VideoFrameMetadataListener videoFrameMetadataListener =
+        spy(
+            new VideoFrameMetadataListener() {
+              @Override
+              public void onVideoFrameAboutToBeRendered(
+                  long presentationTimeUs,
+                  long releaseTimeNs,
+                  Format format,
+                  @Nullable MediaFormat mediaFormat) {
+                frameRenderCounter.getAndIncrement();
+              }
+            });
+    player.setVideoFrameMetadataListener(videoFrameMetadataListener);
+
+    player.setScrubbingModeEnabled(true);
+    advance(player).untilPendingCommandsAreFullyHandled();
+    player.seekTo(0, 2000);
+    player.seekTo(2, 3000);
+    player.seekTo(1, 4000);
+    // Allow the 2000 and 4000 seeks to complete (the 3000 seek should be dropped).
+    advance(player).untilBackgroundThreadCondition(() -> frameRenderCounter.get() > 1);
+    // The dropped seek won't be reported immediately, only after exiting scrubbing mode.
+    verify(mockAnalyticsListener, never()).onDroppedSeeksWhileScrubbing(any(), anyInt());
+
+    player.seekTo(2, 5000);
+    player.seekTo(6000);
+    // Disabling scrubbing mode should immediately execute the last received seek (pre-empting a
+    // previous one), so we expect the 6000 seek to be resolved and the 5000 seek to be dropped.
+    player.setScrubbingModeEnabled(false);
+    advance(player).untilPosition(/* mediaItemIndex= */ 2, /* positionMs= */ 6000);
+    player.clearVideoFrameMetadataListener(videoFrameMetadataListener);
+    advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+    surface.release();
+
+    ArgumentCaptor<Long> presentationTimeUsCaptor = ArgumentCaptor.forClass(Long.class);
+    verify(videoFrameMetadataListener, atLeastOnce())
+        .onVideoFrameAboutToBeRendered(presentationTimeUsCaptor.capture(), anyLong(), any(), any());
+    assertThat(presentationTimeUsCaptor.getAllValues())
+        .containsExactly(2_000_000L, 4_000_000L, 6_000_000L)
+        .inOrder();
+
+    // Confirm that even though we dropped some intermediate seeks, every seek request still
+    // resulted in a position discontinuity callback.
+    ArgumentCaptor<PositionInfo> newPositionCaptor = ArgumentCaptor.forClass(PositionInfo.class);
+    verify(mockListener, atLeastOnce())
+        .onPositionDiscontinuity(
+            /* oldPosition= */ any(),
+            newPositionCaptor.capture(),
+            eq(Player.DISCONTINUITY_REASON_SEEK));
+    assertThat(newPositionCaptor.getAllValues().stream().map(p -> p.positionMs))
+        .containsExactly(2000L, 3000L, 4000L, 5000L, 6000L)
+        .inOrder();
+
+    verify(mockListener, times(1))
+        .onMediaItemTransition(any(), eq(Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED));
+    verify(mockListener, times(3))
+        .onMediaItemTransition(any(), eq(Player.MEDIA_ITEM_TRANSITION_REASON_SEEK));
+
+    shadowOf(Looper.getMainLooper()).idle();
+    // Check the dropped 3000 and 5000 seeks are reported
+    verify(mockAnalyticsListener).onDroppedSeeksWhileScrubbing(any(), eq(2));
+  }
+
+  @Test
+  public void scrubbingMode_seekAfterDisablingScrubbingMode_preemptsActiveSeek() throws Exception {
+    ExoPlayer player =
+        new TestExoPlayerBuilder(ApplicationProvider.getApplicationContext())
+            .setStuckPlayingDetectionTimeoutMs(Integer.MAX_VALUE)
+            .setStuckSuppressedDetectionTimeoutMs(Integer.MAX_VALUE)
+            .build();
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
+    Player.Listener mockListener = mock(Player.Listener.class);
+    player.addListener(mockListener);
+    AnalyticsListener mockAnalyticsListener = mock(AnalyticsListener.class);
+    player.addAnalyticsListener(mockAnalyticsListener);
+    player.setMediaSources(
+        ImmutableList.of(
+            create30Fps2sGop10sDurationVideoSource(), create30Fps2sGop10sDurationVideoSource()));
+    player.prepare();
+    player.play();
+    advance(player).untilPosition(/* mediaItemIndex= */ 0, /* positionMs= */ 1000);
+    AtomicInteger frameRenderCounter = new AtomicInteger();
+    VideoFrameMetadataListener videoFrameMetadataListener =
+        spy(
+            new VideoFrameMetadataListener() {
+              @Override
+              public void onVideoFrameAboutToBeRendered(
+                  long presentationTimeUs,
+                  long releaseTimeNs,
+                  Format format,
+                  @Nullable MediaFormat mediaFormat) {
+                frameRenderCounter.getAndIncrement();
+              }
+            });
+
+    player.setVideoFrameMetadataListener(videoFrameMetadataListener);
+
+    player.setScrubbingModeEnabled(true);
+    advance(player).untilPendingCommandsAreFullyHandled();
+    player.seekTo(0, 2000);
+    player.seekTo(0, 3000);
+    player.setScrubbingModeEnabled(false);
+    player.seekTo(1, 4000);
+    // The 2000 and 3000 seeks should be dropped.
+    advance(player).untilBackgroundThreadCondition(() -> frameRenderCounter.get() > 0);
+    player.clearVideoFrameMetadataListener(videoFrameMetadataListener);
+    advance(player).untilState(Player.STATE_ENDED);
+    player.release();
+    surface.release();
+
+    ArgumentCaptor<Long> presentationTimeUsCaptor = ArgumentCaptor.forClass(Long.class);
+    verify(videoFrameMetadataListener, atLeastOnce())
+        .onVideoFrameAboutToBeRendered(presentationTimeUsCaptor.capture(), anyLong(), any(), any());
+    assertThat(presentationTimeUsCaptor.getAllValues()).containsExactly(4_000_000L);
+
+    // Confirm that even though we dropped some intermediate seeks, every seek request still
+    // resulted in a position discontinuity callback.
+    ArgumentCaptor<PositionInfo> newPositionCaptor = ArgumentCaptor.forClass(PositionInfo.class);
+    verify(mockListener, atLeastOnce())
+        .onPositionDiscontinuity(
+            /* oldPosition= */ any(),
+            newPositionCaptor.capture(),
+            eq(Player.DISCONTINUITY_REASON_SEEK));
+    assertThat(newPositionCaptor.getAllValues().stream().map(p -> p.positionMs))
+        .containsExactly(2000L, 3000L, 4000L)
+        .inOrder();
+
+    verify(mockListener, times(1))
+        .onMediaItemTransition(any(), eq(Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED));
+    verify(mockListener, times(1))
+        .onMediaItemTransition(any(), eq(Player.MEDIA_ITEM_TRANSITION_REASON_SEEK));
+
+    shadowOf(Looper.getMainLooper()).idle();
+    // The 2000 seek was dropped when disabling scrubbing mode so it should be reported(the 3000
+    // seek was dropped after).
+    verify(mockAnalyticsListener).onDroppedSeeksWhileScrubbing(any(), eq(1));
   }
 
   /**

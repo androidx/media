@@ -9,6 +9,8 @@
     *   Fix `IllegalStateException` caused by setting an empty media source
         after seeking to a non-zero position and then preparing the player with
         a non-empty media source.
+    *   Fix bug where seeking into other media items while in scrubbing mode
+        could cause `IllegalStateException`.
 *   CompositionPlayer:
 *   Transformer:
 *   Track Selection:
