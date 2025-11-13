@@ -185,12 +185,10 @@ open class DemoPlaybackService : MediaLibraryService() {
           } else {
             try {
               val bitmap = mediaLibrarySession.bitmapLoader.loadBitmap(artworkUri).await()
-              if (bitmap != null) {
-                val outputStream = ByteString.newOutput()
-                bitmap.compress(Bitmap.CompressFormat.PNG, /* quality= */ 90, outputStream)
-                builder.setArtworkData(outputStream.toByteString())
-              }
-            } catch (e: Exception) {
+              val outputStream = ByteString.newOutput()
+              bitmap.compress(Bitmap.CompressFormat.PNG, /* quality= */ 90, outputStream)
+              builder.setArtworkData(outputStream.toByteString())
+            } catch (_: Exception) {
               // Bitmap loading failed. Do nothing.
             }
           }
