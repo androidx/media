@@ -609,7 +609,8 @@ public final class CompositionPlayer extends SimpleBasePlayer {
     appNeedsToPrepareCompositionPlayer = true;
     internalListener = new InternalListener();
     audioFocusManager =
-        new AudioFocusManager(context, applicationHandler.getLooper(), internalListener);
+        new AudioFocusManager(
+            context, applicationHandler.getLooper(), /* playerControl= */ internalListener);
     playbackAudioGraphWrapper = new PlaybackAudioGraphWrapper(audioMixerFactory, finalAudioSink);
     glObjectsProvider = builder.glObjectsProviderSupplier.get();
     if (builder.packetConsumerFactory != null) {
@@ -894,6 +895,7 @@ public final class CompositionPlayer extends SimpleBasePlayer {
       return Futures.immediateVoidFuture();
     }
 
+    audioFocusManager.release();
     checkState(checkNotNull(playbackThread).isAlive());
     // Release the players first so that they stop rendering.
     for (int i = 0; i < playerHolders.size(); i++) {
