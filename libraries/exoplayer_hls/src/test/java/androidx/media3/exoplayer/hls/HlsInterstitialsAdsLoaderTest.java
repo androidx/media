@@ -1783,36 +1783,35 @@ public class HlsInterstitialsAdsLoaderTest {
   public void
       handleContentTimelineChanged_snapInOutLive_snapToSameSegmentBoundaryMergedInSameAdGroup()
           throws IOException {
-    List<AdPlaybackState> playbackStates =
-        callHandleContentTimelineChangedForLiveAndCaptureAdPlaybackStates(
-            adsLoader,
-            /* startAdsLoader= */ true,
-            /* windowOffsetInFirstPeriodUs= */ 0L,
-            "#EXTM3U\n"
-                + "#EXT-X-TARGETDURATION:6\n"
-                + "#EXT-X-MEDIA-SEQUENCE:0\n"
-                + "#EXT-X-DATERANGE:"
-                + "ID=\"ad0-0\","
-                + "CLASS=\"com.apple.hls.interstitial\","
-                + "START-DATE=\"2020-01-02T21:55:45.000\"," // -> 6_111_000L
-                + "X-SNAP=\"OUT\","
-                + "DURATION=2.222,"
-                + "X-ASSET-URI=\"http://example.com/media-0-0.m3u8\""
-                + "\n"
-                + "#EXT-X-DATERANGE:"
-                + "ID=\"ad0-1\","
-                + "CLASS=\"com.apple.hls.interstitial\","
-                + "START-DATE=\"2020-01-02T21:55:47.000\"," // -> 6_111_000L
-                + "X-SNAP=\"IN\","
-                + "DURATION=6.111,"
-                + "X-ASSET-URI=\"http://example.com/media-0-1.m3u8\""
-                + "\n"
-                + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:55:40.000Z\n"
-                + "#EXTINF:6.111,\nmain1.0.ts\n"
-                + "#EXTINF:6.111,\nmain2.0.ts\n" // segment start at 6.111 -> 21:55:46.111
-                + "#EXTINF:6.111,\nmain3.0.ts\n" // segment start at 12.222 -> 21:55:52.222
-                + "\n");
-    assertThat(playbackStates)
+    assertThat(
+            callHandleContentTimelineChangedForLiveAndCaptureAdPlaybackStates(
+                adsLoader,
+                /* startAdsLoader= */ true,
+                /* windowOffsetInFirstPeriodUs= */ 0L,
+                "#EXTM3U\n"
+                    + "#EXT-X-TARGETDURATION:6\n"
+                    + "#EXT-X-MEDIA-SEQUENCE:0\n"
+                    + "#EXT-X-DATERANGE:"
+                    + "ID=\"ad0-0\","
+                    + "CLASS=\"com.apple.hls.interstitial\","
+                    + "START-DATE=\"2020-01-02T21:55:45.000\"," // -> 6_111_000L
+                    + "X-SNAP=\"OUT\","
+                    + "DURATION=2.222,"
+                    + "X-ASSET-URI=\"http://example.com/media-0-0.m3u8\""
+                    + "\n"
+                    + "#EXT-X-DATERANGE:"
+                    + "ID=\"ad0-1\","
+                    + "CLASS=\"com.apple.hls.interstitial\","
+                    + "START-DATE=\"2020-01-02T21:55:47.000\"," // -> 6_111_000L
+                    + "X-SNAP=\"IN\","
+                    + "DURATION=6.111,"
+                    + "X-ASSET-URI=\"http://example.com/media-0-1.m3u8\""
+                    + "\n"
+                    + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:55:40.000Z\n"
+                    + "#EXTINF:6.111,\nmain1.0.ts\n"
+                    + "#EXTINF:6.111,\nmain2.0.ts\n" // segment start at 6.111 -> 21:55:46.111
+                    + "#EXTINF:6.111,\nmain3.0.ts\n" // segment start at 12.222 -> 21:55:52.222
+                    + "\n"))
         .containsExactly(
             new AdPlaybackState("adsId", /* adGroupTimesUs...= */ 6_111_000L)
                 .withLivePostrollPlaceholderAppended(/* isServerSideInserted= */ false)
