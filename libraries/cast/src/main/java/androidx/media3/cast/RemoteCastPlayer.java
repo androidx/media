@@ -343,6 +343,15 @@ public final class RemoteCastPlayer extends BasePlayer {
       @IntRange(from = 0) long maxSeekToPreviousPositionMs) {
     checkArgument(seekBackIncrementMs > 0 && seekForwardIncrementMs > 0);
     checkArgument(maxSeekToPreviousPositionMs >= 0L);
+    Log.i(
+        TAG,
+        "Init "
+            + Integer.toHexString(System.identityHashCode(this))
+            + " ["
+            + MediaLibraryInfo.VERSION_SLASHY
+            + "] ["
+            + Util.DEVICE_DEBUG_INFO
+            + "]");
     this.castContext = castContext;
     this.mediaItemConverter = mediaItemConverter;
     this.seekBackIncrementMs = seekBackIncrementMs;
@@ -676,6 +685,17 @@ public final class RemoteCastPlayer extends BasePlayer {
 
   @Override
   public void release() {
+    Log.i(
+        TAG,
+        "Release "
+            + Integer.toHexString(System.identityHashCode(this))
+            + " ["
+            + MediaLibraryInfo.VERSION_SLASHY
+            + "] ["
+            + Util.DEVICE_DEBUG_INFO
+            + "] ["
+            + MediaLibraryInfo.registeredModules()
+            + "]");
     // The SDK_INT check is not necessary, but it prevents a lint error for the release call.
     if (SDK_INT >= 30 && api30Impl != null) {
       api30Impl.release();
