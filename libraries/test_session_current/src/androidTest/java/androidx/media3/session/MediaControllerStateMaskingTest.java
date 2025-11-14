@@ -1070,12 +1070,12 @@ public class MediaControllerStateMaskingTest {
         .postAndSync(
             () -> {
               controller.setTrackSelectionParameters(
-                  new TrackSelectionParameters.Builder(context).setMaxVideoBitrate(1234).build());
+                  new TrackSelectionParameters.Builder().setMaxVideoBitrate(1234).build());
               trackSelectionParametersGetterRef.set(controller.getTrackSelectionParameters());
             });
 
     TrackSelectionParameters expectedParameters =
-        new TrackSelectionParameters.Builder(context).setMaxVideoBitrate(1234).build();
+        new TrackSelectionParameters.Builder().setMaxVideoBitrate(1234).build();
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(trackSelectionParametersCallbackRef.get()).isEqualTo(expectedParameters);
     assertThat(trackSelectionParametersGetterRef.get()).isEqualTo(expectedParameters);

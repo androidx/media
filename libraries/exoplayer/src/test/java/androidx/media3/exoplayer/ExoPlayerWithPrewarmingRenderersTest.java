@@ -467,7 +467,7 @@ public class ExoPlayerWithPrewarmingRenderersTest {
         ExoPlayerTestRunner.VIDEO_FORMAT.buildUpon().setAverageBitrate(500_000).build();
     Clock fakeClock = new FakeClock(/* isAutoAdvancing= */ true);
     DefaultTrackSelector.Parameters defaultTrackSelectorParameters =
-        new DefaultTrackSelector.Parameters.Builder(context)
+        new DefaultTrackSelector.Parameters.Builder()
             .setMaxVideoBitrate(videoFormat2.averageBitrate)
             .setExceedVideoConstraintsIfNecessary(false)
             .build();
@@ -632,7 +632,7 @@ public class ExoPlayerWithPrewarmingRenderersTest {
     AtomicReference<Pair<ExoTrackSelection.Definition, Integer>> selectedAudioTrack =
         new AtomicReference<>();
     DefaultTrackSelector.Parameters trackSelectionParameters =
-        new DefaultTrackSelector.Parameters.Builder(context)
+        new DefaultTrackSelector.Parameters.Builder()
             .setExceedAudioConstraintsIfNecessary(false)
             .build();
     DefaultTrackSelector trackSelector =

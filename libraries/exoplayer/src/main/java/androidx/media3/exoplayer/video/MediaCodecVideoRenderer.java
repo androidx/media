@@ -59,6 +59,7 @@ import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.VideoSize;
+import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.MediaFormatUtil;
 import androidx.media3.common.util.Size;
@@ -1390,7 +1391,8 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       // unambiguously that it's a H.264/AV1 based profile.
       sampleMimeType = MimeTypes.VIDEO_H265;
       @Nullable
-      Pair<Integer, Integer> codecProfileAndLevel = MediaCodecUtil.getCodecProfileAndLevel(format);
+      Pair<Integer, Integer> codecProfileAndLevel =
+          CodecSpecificDataUtil.getCodecProfileAndLevel(format);
       if (codecProfileAndLevel != null) {
         int profile = codecProfileAndLevel.first;
         if (profile == CodecProfileLevel.DolbyVisionProfileDvavSe
@@ -2405,7 +2407,8 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     if (MimeTypes.VIDEO_DOLBY_VISION.equals(format.sampleMimeType)) {
       // Some phones require the profile to be set on the codec.
       // See https://github.com/google/ExoPlayer/pull/5438.
-      Pair<Integer, Integer> codecProfileAndLevel = MediaCodecUtil.getCodecProfileAndLevel(format);
+      Pair<Integer, Integer> codecProfileAndLevel =
+          CodecSpecificDataUtil.getCodecProfileAndLevel(format);
       if (codecProfileAndLevel != null) {
         MediaFormatUtil.maybeSetInteger(
             mediaFormat, MediaFormat.KEY_PROFILE, codecProfileAndLevel.first);

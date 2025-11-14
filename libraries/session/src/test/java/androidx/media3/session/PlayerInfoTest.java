@@ -35,7 +35,6 @@ import androidx.media3.common.Tracks;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.text.CueGroup;
 import androidx.media3.test.utils.FakeTimeline;
-import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import org.junit.Test;
@@ -157,9 +156,7 @@ public class PlayerInfoTest {
             .setSeekForwardIncrement(6000)
             .setShuffleModeEnabled(true)
             .setTrackSelectionParameters(
-                new TrackSelectionParameters.Builder(ApplicationProvider.getApplicationContext())
-                    .setMaxAudioBitrate(5000)
-                    .build())
+                new TrackSelectionParameters.Builder().setMaxAudioBitrate(5000).build())
             .setVideoSize(new VideoSize(/* width= */ 1024, /* height= */ 768))
             .build();
 

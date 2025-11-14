@@ -312,7 +312,8 @@ public final class MediaCodecInfo {
 
   private boolean isCodecProfileAndLevelSupported(
       Format format, boolean checkPerformanceCapabilities) {
-    Pair<Integer, Integer> codecProfileAndLevel = MediaCodecUtil.getCodecProfileAndLevel(format);
+    Pair<Integer, Integer> codecProfileAndLevel =
+        CodecSpecificDataUtil.getCodecProfileAndLevel(format);
     if (format.sampleMimeType != null && format.sampleMimeType.equals(MimeTypes.VIDEO_MV_HEVC)) {
       String normalizedCodecMimeType = MimeTypes.normalizeMimeType(codecMimeType);
       if (normalizedCodecMimeType.equals(MimeTypes.VIDEO_MV_HEVC)) {
@@ -425,7 +426,7 @@ public final class MediaCodecInfo {
     if (isVideo) {
       return adaptive;
     } else {
-      Pair<Integer, Integer> profileLevel = MediaCodecUtil.getCodecProfileAndLevel(format);
+      Pair<Integer, Integer> profileLevel = CodecSpecificDataUtil.getCodecProfileAndLevel(format);
       return profileLevel != null && profileLevel.first == CodecProfileLevel.AACObjectXHE;
     }
   }
@@ -522,10 +523,10 @@ public final class MediaCodecInfo {
           && (mimeType.equals(MimeTypes.AUDIO_AAC) || mimeType.equals(MimeTypes.AUDIO_AC4))) {
         @Nullable
         Pair<Integer, Integer> oldCodecProfileLevel =
-            MediaCodecUtil.getCodecProfileAndLevel(oldFormat);
+            CodecSpecificDataUtil.getCodecProfileAndLevel(oldFormat);
         @Nullable
         Pair<Integer, Integer> newCodecProfileLevel =
-            MediaCodecUtil.getCodecProfileAndLevel(newFormat);
+            CodecSpecificDataUtil.getCodecProfileAndLevel(newFormat);
         if (oldCodecProfileLevel != null && newCodecProfileLevel != null) {
           int oldProfile = oldCodecProfileLevel.first;
           int newProfile = newCodecProfileLevel.first;

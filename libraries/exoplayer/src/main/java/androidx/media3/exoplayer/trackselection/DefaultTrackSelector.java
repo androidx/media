@@ -153,7 +153,7 @@ public class DefaultTrackSelector extends MappingTrackSelector
      */
     @SuppressWarnings({"deprecation"}) // Supporting deprecated builder pattern
     public ParametersBuilder(Context context) {
-      delegate = new Parameters.Builder(context);
+      delegate = new Parameters.Builder();
     }
 
     @SuppressWarnings("deprecation") // Intentionally returning deprecated type

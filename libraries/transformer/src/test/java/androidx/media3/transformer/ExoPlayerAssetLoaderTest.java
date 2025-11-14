@@ -91,7 +91,7 @@ public class ExoPlayerAssetLoaderTest {
             isVideoOutputFormatSet,
             expectedOutputResolutionHeight);
     DefaultTrackSelector.Parameters trackSelectorParameters =
-        new DefaultTrackSelector.Parameters.Builder(ApplicationProvider.getApplicationContext())
+        new DefaultTrackSelector.Parameters.Builder()
             .setMaxVideoSize(
                 /* maxVideoWidth= */ Integer.MAX_VALUE,
                 /* maxVideoHeight= */ expectedOutputResolutionHeight)
@@ -137,7 +137,7 @@ public class ExoPlayerAssetLoaderTest {
             isVideoOutputFormatSet,
             expectedOutputResolutionHeight);
     DefaultTrackSelector.Parameters trackSelectorParameters =
-        new DefaultTrackSelector.Parameters.Builder(ApplicationProvider.getApplicationContext())
+        new DefaultTrackSelector.Parameters.Builder()
             .setForceHighestSupportedBitrate(true)
             .setConstrainAudioChannelCountToDeviceCapabilities(false)
             .build();

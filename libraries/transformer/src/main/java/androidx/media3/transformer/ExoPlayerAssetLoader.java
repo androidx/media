@@ -203,7 +203,7 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
       TrackSelector.Factory trackSelectorFactory = this.trackSelectorFactory;
       if (trackSelectorFactory == null) {
         DefaultTrackSelector.Parameters defaultTrackSelectorParameters =
-            new DefaultTrackSelector.Parameters.Builder(context)
+            new DefaultTrackSelector.Parameters.Builder()
                 .setForceHighestSupportedBitrate(true)
                 .setConstrainAudioChannelCountToDeviceCapabilities(false)
                 .build();

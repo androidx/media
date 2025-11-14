@@ -753,9 +753,7 @@ public final class ForwardingSimpleBasePlayerTest {
                 }));
     Player forwardingPlayer = new ForwardingSimpleBasePlayer(wrappedPlayer);
     TrackSelectionParameters parameters =
-        new TrackSelectionParameters.Builder(ApplicationProvider.getApplicationContext())
-            .setMaxVideoBitrate(1000)
-            .build();
+        new TrackSelectionParameters.Builder().setMaxVideoBitrate(1000).build();
 
     forwardingPlayer.setTrackSelectionParameters(parameters);
 
