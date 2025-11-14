@@ -154,7 +154,8 @@ public final class Id3PeekerTest {
         id3Peeker.peekId3Data(
             input,
             (majorVersion, id0, id1, id2, id3) ->
-                id0 == 'C' && id1 == 'O' && id2 == 'M' && id3 == 'M');
+                id0 == 'C' && id1 == 'O' && id2 == 'M' && id3 == 'M',
+            /* maxTagPeekBytes= */ 0);
     assertThat(metadata).isNotNull();
     assertThat(metadata.length()).isEqualTo(1);
 

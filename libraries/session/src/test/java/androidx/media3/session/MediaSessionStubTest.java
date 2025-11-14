@@ -192,7 +192,7 @@ public class MediaSessionStubTest {
     binder.setTrackSelectionParameters(
         /* caller= */ null,
         /* seq= */ 0,
-        /* trackSelectionParametersBundle= */ new TrackSelectionParameters.Builder(context)
+        /* trackSelectionParametersBundle= */ new TrackSelectionParameters.Builder()
             .build()
             .toBundle());
     binder.setRatingWithMediaId(

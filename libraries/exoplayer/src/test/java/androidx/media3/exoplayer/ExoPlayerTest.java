@@ -15497,7 +15497,7 @@ public final class ExoPlayerTest {
     // Manually seek back to zero and force to reselect tracks.
     player.seekTo(0);
     player.setTrackSelectionParameters(
-        new TrackSelectionParameters.Builder(context)
+        new TrackSelectionParameters.Builder()
             .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, /* disabled= */ true)
             .build());
     advance(player).untilPendingCommandsAreFullyHandled();

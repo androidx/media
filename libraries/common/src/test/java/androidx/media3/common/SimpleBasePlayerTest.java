@@ -44,7 +44,6 @@ import androidx.media3.extractor.metadata.icy.IcyInfo;
 import androidx.media3.test.utils.FakeMetadataEntry;
 import androidx.media3.test.utils.FakeTimeline;
 import androidx.media3.test.utils.TestUtil;
-import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
@@ -3075,9 +3074,7 @@ public class SimpleBasePlayerTest {
             .build();
     // Set a different one to the one requested to ensure the updated state is used.
     TrackSelectionParameters updatedParameters =
-        new TrackSelectionParameters.Builder(ApplicationProvider.getApplicationContext())
-            .setMaxVideoBitrate(3000)
-            .build();
+        new TrackSelectionParameters.Builder().setMaxVideoBitrate(3000).build();
     State updatedState = state.buildUpon().setTrackSelectionParameters(updatedParameters).build();
     SimpleBasePlayer player =
         new SimpleBasePlayer(Looper.myLooper()) {
@@ -3099,9 +3096,7 @@ public class SimpleBasePlayerTest {
     player.addListener(listener);
 
     player.setTrackSelectionParameters(
-        new TrackSelectionParameters.Builder(ApplicationProvider.getApplicationContext())
-            .setMaxVideoBitrate(1000)
-            .build());
+        new TrackSelectionParameters.Builder().setMaxVideoBitrate(1000).build());
 
     assertThat(player.getTrackSelectionParameters()).isEqualTo(updatedParameters);
     verify(listener).onTrackSelectionParametersChanged(updatedParameters);
@@ -3116,9 +3111,7 @@ public class SimpleBasePlayerTest {
             .build();
     // Set new parameters to see a difference between the placeholder and new state.
     TrackSelectionParameters updatedParameters =
-        new TrackSelectionParameters.Builder(ApplicationProvider.getApplicationContext())
-            .setMaxVideoBitrate(3000)
-            .build();
+        new TrackSelectionParameters.Builder().setMaxVideoBitrate(3000).build();
     State updatedState = state.buildUpon().setTrackSelectionParameters(updatedParameters).build();
     SettableFuture<?> future = SettableFuture.create();
     SimpleBasePlayer player =
@@ -3138,9 +3131,7 @@ public class SimpleBasePlayerTest {
     player.addListener(listener);
 
     TrackSelectionParameters requestedParameters =
-        new TrackSelectionParameters.Builder(ApplicationProvider.getApplicationContext())
-            .setMaxVideoBitrate(3000)
-            .build();
+        new TrackSelectionParameters.Builder().setMaxVideoBitrate(3000).build();
     player.setTrackSelectionParameters(requestedParameters);
 
     // Verify placeholder state and listener calls.
@@ -3183,9 +3174,7 @@ public class SimpleBasePlayerTest {
         };
 
     player.setTrackSelectionParameters(
-        new TrackSelectionParameters.Builder(ApplicationProvider.getApplicationContext())
-            .setMaxVideoBitrate(1000)
-            .build());
+        new TrackSelectionParameters.Builder().setMaxVideoBitrate(1000).build());
 
     assertThat(callForwarded.get()).isFalse();
   }

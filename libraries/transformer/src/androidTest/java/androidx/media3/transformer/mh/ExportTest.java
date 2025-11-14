@@ -19,7 +19,6 @@ import static android.media.MediaCodecInfo.CodecProfileLevel.AVCLevel41;
 import static android.media.MediaCodecInfo.CodecProfileLevel.AVCProfileHigh;
 import static android.os.Build.VERSION.SDK_INT;
 import static androidx.media3.common.util.MediaFormatUtil.createFormatFromMediaFormat;
-import static androidx.media3.exoplayer.mediacodec.MediaCodecUtil.getCodecProfileAndLevel;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_4K60_PORTRAIT;
 import static androidx.media3.test.utils.AssetInfo.MP4_ASSET_8K24;
@@ -48,6 +47,7 @@ import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.util.CodecSpecificDataUtil;
 import androidx.media3.effect.Presentation;
 import androidx.media3.effect.ScaleAndRotateTransformation;
 import androidx.media3.exoplayer.MediaExtractorCompat;
@@ -466,7 +466,7 @@ public class ExportTest {
     checkState(mediaExtractor.getTrackCount() == 1);
     MediaFormat mediaFormat = mediaExtractor.getTrackFormat(0);
     Format format = createFormatFromMediaFormat(mediaFormat);
-    Pair<Integer, Integer> profileAndLevel = getCodecProfileAndLevel(format);
+    Pair<Integer, Integer> profileAndLevel = CodecSpecificDataUtil.getCodecProfileAndLevel(format);
     assertThat(profileAndLevel.first).isAtMost(AVCProfileHigh);
     assertThat(profileAndLevel.second).isAtMost(AVCLevel41);
   }

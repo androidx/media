@@ -385,7 +385,9 @@ public final class MediaCodecUtil {
       // This can't be done for profile CodecProfileLevel.DolbyVisionProfileDvheStn and profile
       // CodecProfileLevel.DolbyVisionProfileDvheDtb because the first one is not backward
       // compatible and the second one is deprecated and is not always backward compatible.
-      @Nullable Pair<Integer, Integer> codecProfileAndLevel = getCodecProfileAndLevel(format);
+      @Nullable
+      Pair<Integer, Integer> codecProfileAndLevel =
+          CodecSpecificDataUtil.getCodecProfileAndLevel(format);
       if (codecProfileAndLevel != null) {
         int profile = codecProfileAndLevel.first;
         if (profile == CodecProfileLevel.DolbyVisionProfileDvheDtr
