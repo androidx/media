@@ -54,11 +54,15 @@ open class DemoMediaLibrarySessionCallback(val service: DemoPlaybackService) :
   private val commandButtons: List<CommandButton> =
     listOf(
       CommandButton.Builder(CommandButton.ICON_SHUFFLE_OFF)
-        .setDisplayName(service.getString(R.string.exo_controls_shuffle_on_description))
+        .setDisplayName(
+          service.getString(androidx.media3.ui.R.string.exo_controls_shuffle_on_description)
+        )
         .setSessionCommand(SessionCommand(CUSTOM_COMMAND_TOGGLE_SHUFFLE_MODE_ON, Bundle.EMPTY))
         .build(),
       CommandButton.Builder(CommandButton.ICON_SHUFFLE_ON)
-        .setDisplayName(service.getString(R.string.exo_controls_shuffle_off_description))
+        .setDisplayName(
+          service.getString(androidx.media3.ui.R.string.exo_controls_shuffle_off_description)
+        )
         .setSessionCommand(SessionCommand(CUSTOM_COMMAND_TOGGLE_SHUFFLE_MODE_OFF, Bundle.EMPTY))
         .build(),
     )

@@ -966,7 +966,7 @@ public final class TransformerActivity extends AppCompatActivity {
         Notification notification =
             new NotificationCompat.Builder(context, CHANNEL_ID)
                 .setOngoing(true)
-                .setSmallIcon(R.drawable.exo_icon_play)
+                .setSmallIcon(androidx.media3.ui.R.drawable.exo_icon_play)
                 .build();
         if (SDK_INT >= 26) {
           NotificationChannel channel =
