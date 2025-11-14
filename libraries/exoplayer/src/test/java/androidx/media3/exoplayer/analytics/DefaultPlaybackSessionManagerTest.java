@@ -968,6 +968,45 @@ public final class DefaultPlaybackSessionManagerTest {
   }
 
   @Test
+  public void
+      timelineUpdates_withUncreatedSessionDataForPlaceholderSession_createsRealSessionOnly() {
+    Timeline timeline = new FakeTimeline(/* windowCount= */ 2);
+    MediaPeriodId placeholderMediaPeriodIdWindow0 =
+        new MediaPeriodId(
+            timeline.getUidOfPeriod(/* periodIndex= */ 0),
+            /* windowSequenceNumber= */ C.INDEX_UNSET);
+    MediaPeriodId placeholderMediaPeriodIdWindow1 =
+        new MediaPeriodId(
+            timeline.getUidOfPeriod(/* periodIndex= */ 1),
+            /* windowSequenceNumber= */ C.INDEX_UNSET);
+    EventTime placeholderEventTimeWindow0 =
+        createEventTime(timeline, /* windowIndex= */ 0, placeholderMediaPeriodIdWindow0);
+    EventTime emptyTimelineEventTime =
+        createEventTime(Timeline.EMPTY, /* windowIndex= */ 0, /* mediaPeriodId= */ null);
+
+    // Plant data for a placeholder session with unset sequence number using windowIndex = 1
+    sessionManager.getSessionForMediaPeriodId(timeline, placeholderMediaPeriodIdWindow1);
+    // Simulate timeline update to another placeholder id using windowIndex = 0
+    sessionManager.updateSessionsWithTimelineChange(placeholderEventTimeWindow0);
+    // Clear timeline completely to verify state is cleared up correctly
+    sessionManager.updateSessionsWithTimelineChange(emptyTimelineEventTime);
+
+    InOrder inOrder = inOrder(mockListener);
+    ArgumentCaptor<String> sessionId = ArgumentCaptor.forClass(String.class);
+    inOrder
+        .verify(mockListener)
+        .onSessionCreated(eq(placeholderEventTimeWindow0), sessionId.capture());
+    inOrder.verify(mockListener).onSessionActive(placeholderEventTimeWindow0, sessionId.getValue());
+    inOrder
+        .verify(mockListener)
+        .onSessionFinished(
+            emptyTimelineEventTime,
+            sessionId.getValue(),
+            /* automaticTransitionToNextPlayback= */ false);
+    inOrder.verifyNoMoreInteractions();
+  }
+
+  @Test
   public void positionDiscontinuity_withinWindow_doesNotFinishSession() {
     Timeline timeline =
         new FakeTimeline(new TimelineWindowDefinition(/* periodCount= */ 2, /* id= */ 100));
