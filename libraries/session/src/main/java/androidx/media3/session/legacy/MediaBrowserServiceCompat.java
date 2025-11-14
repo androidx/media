@@ -15,6 +15,7 @@
  */
 package androidx.media3.session.legacy;
 
+import static android.os.Looper.myLooper;
 import static androidx.annotation.RestrictTo.Scope.LIBRARY;
 import static androidx.media3.session.legacy.MediaBrowserProtocol.CLIENT_MSG_ADD_SUBSCRIPTION;
 import static androidx.media3.session.legacy.MediaBrowserProtocol.CLIENT_MSG_GET_MEDIA_ITEM;
@@ -564,6 +565,7 @@ public abstract class MediaBrowserServiceCompat extends Service {
 
     @MainThread
     ServiceHandler(MediaBrowserServiceCompat service) {
+      super(checkNotNull(myLooper()));
       this.service = service;
     }
 
