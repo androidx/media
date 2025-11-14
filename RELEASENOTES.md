@@ -11,6 +11,8 @@
         a non-empty media source.
     *   Fix bug where seeking into other media items while in scrubbing mode
         could cause `IllegalStateException`.
+    *   Fix potential `NullPointerException` in `DefaultPlaybackSessionManager`
+        ([#2885](https://github.com/androidx/media/issues/2885)).
 *   CompositionPlayer:
 *   Transformer:
 *   Track Selection:
