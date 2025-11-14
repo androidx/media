@@ -224,7 +224,7 @@ open class DemoPlaybackService : MediaLibraryService() {
       ensureNotificationChannel(notificationManagerCompat)
       val builder =
         NotificationCompat.Builder(this@DemoPlaybackService, CHANNEL_ID)
-          .setSmallIcon(R.drawable.media3_notification_small_icon)
+          .setSmallIcon(androidx.media3.session.R.drawable.media3_notification_small_icon)
           .setContentTitle(getString(R.string.notification_content_title))
           .setStyle(
             NotificationCompat.BigTextStyle().bigText(getString(R.string.notification_content_text))

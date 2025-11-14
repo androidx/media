@@ -326,7 +326,7 @@ public class DownloadTracker {
       }
       trackSelectionDialog =
           TrackSelectionDialog.createForTracksAndParameters(
-              /* titleId= */ R.string.exo_download_description,
+              /* titleId= */ androidx.media3.exoplayer.R.string.exo_download_description,
               tracks,
               DownloadHelper.DEFAULT_TRACK_SELECTOR_PARAMETERS,
               /* allowAdaptiveSelections= */ false,
