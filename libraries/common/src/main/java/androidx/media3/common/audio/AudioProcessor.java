@@ -21,6 +21,7 @@ import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
+import androidx.media3.common.Timeline.Window;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import java.nio.ByteBuffer;
@@ -140,6 +141,12 @@ public interface AudioProcessor {
     /**
      * The position of the underlying stream in microseconds from which the processor will start
      * receiving input buffers after a call to {@link #flush(StreamMetadata)}.
+     *
+     * <p>The position offset is aligned to the {@link Window} start position.
+     *
+     * <p>The offset value is up-to-date at the time of the {@link #flush(StreamMetadata)} call, but
+     * might change due to updates to the media structure. In that case, the offset value will not
+     * be updated until the next call to {@link #flush(StreamMetadata)}.
      */
     public final long positionOffsetUs;
 

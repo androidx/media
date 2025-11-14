@@ -44,6 +44,18 @@ public class SpeedChangingAudioProcessorTest {
   private static final AudioFormat AUDIO_FORMAT_50_000HZ =
       new AudioFormat(
           /* sampleRate= */ 50_000, /* channelCount= */ 2, /* encoding= */ C.ENCODING_PCM_16BIT);
+  private static final SpeedProvider SPEED_PROVIDER_2X =
+      new SpeedProvider() {
+        @Override
+        public float getSpeed(long timeUs) {
+          return 2f;
+        }
+
+        @Override
+        public long getNextSpeedChangeTimeUs(long timeUs) {
+          return C.TIME_UNSET;
+        }
+      };
 
   @Test
   public void queueInput_noSpeedChange_doesNotOverwriteInput() throws Exception {
@@ -845,6 +857,20 @@ public class SpeedChangingAudioProcessorTest {
         getInputFrameCountForOutput(
             speedProvider, AUDIO_FORMAT_44_100HZ.sampleRate, /* outputFrameCount= */ 0L);
     assertThat(inputFrames).isEqualTo(0L);
+  }
+
+  @Test
+  public void getDurationAfterProcessorApplied_allowAdjustTimestamps_returnsAdjustedDuration() {
+    SpeedChangingAudioProcessor processor =
+        new SpeedChangingAudioProcessor(SPEED_PROVIDER_2X, /* shouldAdjustTimestamps= */ true);
+    assertThat(processor.getDurationAfterProcessorApplied(1_000_000)).isEqualTo(500_000);
+  }
+
+  @Test
+  public void getDurationAfterProcessorApplied_disallowAdjustTimestamps_returnsAdjustedDuration() {
+    SpeedChangingAudioProcessor processor =
+        new SpeedChangingAudioProcessor(SPEED_PROVIDER_2X, /* shouldAdjustTimestamps= */ false);
+    assertThat(processor.getDurationAfterProcessorApplied(1_000_000)).isEqualTo(1_000_000);
   }
 
   private static SpeedChangingAudioProcessor getConfiguredSpeedChangingAudioProcessor(

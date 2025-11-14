@@ -1061,10 +1061,14 @@ public final class CompositionPlayer extends SimpleBasePlayer {
       List<EditedMediaItem> newEditedMediaItems = new ArrayList<>();
       for (EditedMediaItem item : sequence.editedMediaItems) {
         if (item.speedProvider != SpeedProvider.DEFAULT) {
+          // SpeedChangingMediaSource already adjusts the stream's timestamps, so
+          // SpeedChangingAudioProcessor does not need to adjust them.
           newEditedMediaItems.add(
               item.buildUpon()
                   .setSpeedChangingEffects(
-                      new SpeedChangingAudioProcessor(item.speedProvider), /* effect= */ null)
+                      new SpeedChangingAudioProcessor(
+                          item.speedProvider, /* shouldAdjustTimestamps= */ false),
+                      /* effect= */ null)
                   .build());
         } else {
           newEditedMediaItems.add(deactivateSpeedAdjustingVideoEffects(item));

@@ -100,7 +100,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   @Nullable private EditedMediaItemInfo currentEditedMediaItemInfo;
   private long offsetToCompositionTimeUs;
   private long inputPositionUs;
-  private long outputStreamOffsetUs;
+  private long offsetToEditedMediaItemStartUs;
   private boolean isConfigurationPending;
   private boolean isFlushPending;
 
@@ -115,12 +115,18 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
    * @param editedMediaItem The {@link EditedMediaItem}.
    * @param offsetToCompositionTimeUs The offset to add to the audio buffer timestamps to convert
    *     them to the composition time, in microseconds.
+   * @param offsetToEditedMediaItemStartUs The position of the current {@link EditedMediaItem}'s
+   *     start relative to the audio buffer's presentation timestamp.
    * @param isLastInSequence Whether this is the last item in the sequence.
    */
   public void onMediaItemChanged(
-      EditedMediaItem editedMediaItem, long offsetToCompositionTimeUs, boolean isLastInSequence) {
+      EditedMediaItem editedMediaItem,
+      long offsetToCompositionTimeUs,
+      long offsetToEditedMediaItemStartUs,
+      boolean isLastInSequence) {
     currentEditedMediaItemInfo = new EditedMediaItemInfo(editedMediaItem, isLastInSequence);
     this.offsetToCompositionTimeUs = offsetToCompositionTimeUs;
+    this.offsetToEditedMediaItemStartUs = offsetToEditedMediaItemStartUs;
   }
 
   // AudioSink methods
@@ -183,21 +189,16 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           /* durationUs= */ C.TIME_UNSET,
           currentInputFormat,
           /* isLast= */ false,
-          /* positionOffsetUs */ presentationTimeUs - outputStreamOffsetUs);
+          /* positionOffsetUs= */ presentationTimeUs - offsetToEditedMediaItemStartUs);
       isConfigurationPending = false;
       isFlushPending = false;
     } else if (isFlushPending) {
       this.outputGraphInput.flush(
-          /* positionOffsetUs= */ presentationTimeUs - outputStreamOffsetUs);
+          /* positionOffsetUs= */ presentationTimeUs - offsetToEditedMediaItemStartUs);
       isFlushPending = false;
     }
 
     return handleBufferInternal(buffer, presentationTimeUs, /* flags= */ 0);
-  }
-
-  @Override
-  public void setOutputStreamOffsetUs(long outputStreamOffsetUs) {
-    this.outputStreamOffsetUs = outputStreamOffsetUs;
   }
 
   @Override
@@ -262,7 +263,8 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     signalledEndOfStream = false;
     currentInputFormat = null;
     currentEditedMediaItemInfo = null;
-    outputStreamOffsetUs = 0;
+    offsetToEditedMediaItemStartUs = 0;
+    offsetToCompositionTimeUs = 0;
     isConfigurationPending = false;
     isFlushPending = false;
   }

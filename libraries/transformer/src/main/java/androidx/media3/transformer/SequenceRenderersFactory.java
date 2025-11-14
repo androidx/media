@@ -297,6 +297,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     private @MonotonicNonNull CompositionRendererListener compositionRendererListener;
     private long streamStartPositionUs;
     private long pendingOffsetToCompositionTimeUs;
+    private long pendingOffsetToEditedMediaItemStartUs;
 
     // TODO: b/320007703 - Revisit the abstractions needed here (editedMediaItemProvider and
     //  Supplier<EditedMediaItem>) once we finish all the wiring to support multiple sequences.
@@ -344,6 +345,14 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       streamStartPositionUs = startPositionUs;
       pendingOffsetToCompositionTimeUs =
           getOffsetToCompositionTimeUs(getTimeline(), mediaPeriodId, offsetUs);
+      // We cannot use offsetUs for the first EditedMediaItem because the Timeline created by
+      // ConcatenatingMediaSource2 returns the original start of the period, without taking into
+      // account any clipping. For all other EditedMediaItems, offsetUs is aligned to the clipped
+      // start.
+      pendingOffsetToEditedMediaItemStartUs =
+          getTimeline().getIndexOfPeriod(mediaPeriodId.periodUid) == 0
+              ? -pendingOffsetToCompositionTimeUs
+              : offsetUs;
       super.onStreamChanged(formats, startPositionUs, offsetUs, mediaPeriodId);
     }
 
@@ -370,6 +379,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       audioSink.onMediaItemChanged(
           currentEditedMediaItem,
           pendingOffsetToCompositionTimeUs,
+          pendingOffsetToEditedMediaItemStartUs,
           isLastInSequence(getTimeline(), mediaPeriodId));
     }
 

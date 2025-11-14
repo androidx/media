@@ -27,6 +27,8 @@ import static java.lang.Math.min;
 
 import androidx.annotation.GuardedBy;
 import androidx.annotation.IntRange;
+import androidx.annotation.RestrictTo;
+import androidx.annotation.RestrictTo.Scope;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -66,6 +68,8 @@ public final class SpeedChangingAudioProcessor implements AudioProcessor {
   @GuardedBy("lock")
   private final Queue<TimestampConsumer> pendingCallbacks;
 
+  private final boolean shouldAdjustTimestamps;
+
   private float currentSpeed;
   private long framesRead;
   private boolean endOfStreamQueuedToSonic;
@@ -78,7 +82,20 @@ public final class SpeedChangingAudioProcessor implements AudioProcessor {
   private AudioFormat pendingOutputAudioFormat;
   private boolean inputEnded;
 
+  /** Creates a new instance. */
   public SpeedChangingAudioProcessor(SpeedProvider speedProvider) {
+    this(speedProvider, /* shouldAdjustTimestamps= */ true);
+  }
+
+  /**
+   * Creates a new instance.
+   *
+   * @param speedProvider The {@link SpeedProvider} to apply over the audio stream.
+   * @param shouldAdjustTimestamps Whether the processor should adjust the {@linkplain
+   *     #getDurationAfterProcessorApplied audio stream's timestamps}.
+   */
+  @RestrictTo(Scope.LIBRARY_GROUP)
+  public SpeedChangingAudioProcessor(SpeedProvider speedProvider, boolean shouldAdjustTimestamps) {
     pendingInputAudioFormat = AudioFormat.NOT_SET;
     pendingOutputAudioFormat = AudioFormat.NOT_SET;
     inputAudioFormat = AudioFormat.NOT_SET;
@@ -90,6 +107,7 @@ public final class SpeedChangingAudioProcessor implements AudioProcessor {
     pendingCallbackInputTimesUs = new LongArrayQueue();
     pendingCallbacks = new ArrayDeque<>();
     currentSpeed = 1f;
+    this.shouldAdjustTimestamps = shouldAdjustTimestamps;
   }
 
   /** Returns the estimated number of samples output given the provided parameters. */
@@ -142,7 +160,10 @@ public final class SpeedChangingAudioProcessor implements AudioProcessor {
 
   @Override
   public long getDurationAfterProcessorApplied(long durationUs) {
-    return SpeedProviderUtil.getDurationAfterSpeedProviderApplied(speedProvider, durationUs);
+    if (shouldAdjustTimestamps) {
+      return SpeedProviderUtil.getDurationAfterSpeedProviderApplied(speedProvider, durationUs);
+    }
+    return durationUs;
   }
 
   @Override
