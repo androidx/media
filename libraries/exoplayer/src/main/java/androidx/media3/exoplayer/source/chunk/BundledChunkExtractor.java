@@ -56,6 +56,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
  */
 @UnstableApi
 public final class BundledChunkExtractor implements ExtractorOutput, ChunkExtractor {
+  public interface ManifestFormatMerger {
+    Format merge(Format sampleFormat, @Nullable Format primaryTrackManifestFormat);
+  }
 
   /** {@link ChunkExtractor.Factory} for {@link BundledChunkExtractor}. */
   public static final class Factory implements ChunkExtractor.Factory {
@@ -184,6 +187,7 @@ public final class BundledChunkExtractor implements ExtractorOutput, ChunkExtrac
   private final @C.TrackType int primaryTrackType;
   private final Format primaryTrackManifestFormat;
   private final SparseArray<BindingTrackOutput> bindingTrackOutputs;
+  private final ManifestFormatMerger primaryTrackManifestFormatInfoMerger;
 
   private boolean extractorInitialized;
   @Nullable private TrackOutputProvider trackOutputProvider;
@@ -200,11 +204,26 @@ public final class BundledChunkExtractor implements ExtractorOutput, ChunkExtrac
    *     into any sample {@link Format} output from the {@link Extractor} for the primary track.
    */
   public BundledChunkExtractor(
-      Extractor extractor, @C.TrackType int primaryTrackType, Format primaryTrackManifestFormat) {
+          Extractor extractor, @C.TrackType int primaryTrackType, Format primaryTrackManifestFormat) {
+    this(extractor, primaryTrackType, primaryTrackManifestFormat, BundledChunkExtractor::mergePrimaryTrackManifestInfo);
+  }
+
+  /**
+   * Creates an instance.
+   *
+   * @param extractor The extractor to wrap.
+   * @param primaryTrackType The {@link C.TrackType type} of the primary track.
+   * @param primaryTrackManifestFormat A manifest defined {@link Format} whose data should be merged
+   *     into any sample {@link Format} output from the {@link Extractor} for the primary track.
+   * @param manifestFormatMerger A function to merge the SampleFormat with the Manifest Format for the Primary Track
+   */
+  public BundledChunkExtractor(
+      Extractor extractor, @C.TrackType int primaryTrackType, Format primaryTrackManifestFormat, ManifestFormatMerger manifestFormatMerger) {
     this.extractor = extractor;
     this.primaryTrackType = primaryTrackType;
     this.primaryTrackManifestFormat = primaryTrackManifestFormat;
     bindingTrackOutputs = new SparseArray<>();
+    primaryTrackManifestFormatInfoMerger = manifestFormatMerger;
   }
 
   // ChunkExtractor implementation.
@@ -269,7 +288,7 @@ public final class BundledChunkExtractor implements ExtractorOutput, ChunkExtrac
       // TODO: Manifest formats for embedded tracks should also be passed here.
       bindingTrackOutput =
           new BindingTrackOutput(
-              id, type, type == primaryTrackType ? primaryTrackManifestFormat : null);
+              id, type, type == primaryTrackType ? primaryTrackManifestFormat : null, primaryTrackManifestFormatInfoMerger);
       bindingTrackOutput.bind(trackOutputProvider, endTimeUs);
       bindingTrackOutputs.put(id, bindingTrackOutput);
     }
@@ -290,6 +309,10 @@ public final class BundledChunkExtractor implements ExtractorOutput, ChunkExtrac
     this.seekMap = seekMap;
   }
 
+  private static Format mergePrimaryTrackManifestInfo(Format sampleFormat, @Nullable Format primaryTrackManifestFormat) {
+    return primaryTrackManifestFormat != null ? sampleFormat.withManifestFormatInfo(primaryTrackManifestFormat) : sampleFormat;
+  }
+
   // Internal logic.
 
   private static final class BindingTrackOutput implements TrackOutput {
@@ -298,16 +321,18 @@ public final class BundledChunkExtractor implements ExtractorOutput, ChunkExtrac
     private final int type;
     @Nullable private final Format manifestFormat;
     private final DiscardingTrackOutput fakeTrackOutput;
-
+    private final ManifestFormatMerger manifestFormatMerger;
     public @MonotonicNonNull Format sampleFormat;
     private @MonotonicNonNull TrackOutput trackOutput;
     private long endTimeUs;
 
-    public BindingTrackOutput(int id, int type, @Nullable Format manifestFormat) {
+
+    public BindingTrackOutput(int id, int type, @Nullable Format manifestFormat, ManifestFormatMerger manifestFormatMerger) {
       this.id = id;
       this.type = type;
       this.manifestFormat = manifestFormat;
       fakeTrackOutput = new DiscardingTrackOutput();
+      this.manifestFormatMerger = manifestFormatMerger;
     }
 
     public void bind(@Nullable TrackOutputProvider trackOutputProvider, long endTimeUs) {
@@ -324,8 +349,7 @@ public final class BundledChunkExtractor implements ExtractorOutput, ChunkExtrac
 
     @Override
     public void format(Format format) {
-      sampleFormat =
-          manifestFormat != null ? format.withManifestFormatInfo(manifestFormat) : format;
+      sampleFormat = manifestFormatMerger.merge(sampleFormat, manifestFormat);
       castNonNull(trackOutput).format(sampleFormat);
     }
 
