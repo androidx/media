@@ -15,7 +15,10 @@
  */
 package androidx.media3.decoder.mpegh;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import android.os.Handler;
+import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
 import androidx.media3.common.MimeTypes;
@@ -23,11 +26,15 @@ import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.util.TraceUtil;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.decoder.CryptoConfig;
+import androidx.media3.exoplayer.CodecParameters;
 import androidx.media3.exoplayer.DecoderReuseEvaluation;
+import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.audio.AudioRendererEventListener;
 import androidx.media3.exoplayer.audio.AudioSink;
 import androidx.media3.exoplayer.audio.DecoderAudioRenderer;
+import java.nio.ByteBuffer;
 import java.util.Objects;
+import java.util.Set;
 
 /** Decodes and renders audio using the native MPEG-H decoder. */
 @UnstableApi
@@ -37,6 +44,9 @@ public final class MpeghAudioRenderer extends DecoderAudioRenderer<MpeghDecoder>
 
   /** The number of input and output buffers. */
   private static final int NUM_BUFFERS = 16;
+
+  /** A helper to make needed variables, etc. also available to MpeghDecoder. **/
+  private final MpeghUiCommandHelper uiHelper;
 
   /*  Creates a new instance. */
   public MpeghAudioRenderer() {
@@ -56,6 +66,8 @@ public final class MpeghAudioRenderer extends DecoderAudioRenderer<MpeghDecoder>
       AudioRendererEventListener eventListener,
       AudioProcessor... audioProcessors) {
     super(eventHandler, eventListener, audioProcessors);
+    uiHelper = new MpeghUiCommandHelper();
+    uiHelper.setEventDispatcher(new AudioRendererEventListener.EventDispatcher(eventHandler, eventListener));
   }
 
   /**
@@ -69,6 +81,8 @@ public final class MpeghAudioRenderer extends DecoderAudioRenderer<MpeghDecoder>
   public MpeghAudioRenderer(
       Handler eventHandler, AudioRendererEventListener eventListener, AudioSink audioSink) {
     super(eventHandler, eventListener, audioSink);
+    uiHelper = new MpeghUiCommandHelper();
+    uiHelper.setEventDispatcher(new AudioRendererEventListener.EventDispatcher(eventHandler, eventListener));
   }
 
   @Override
@@ -110,7 +124,7 @@ public final class MpeghAudioRenderer extends DecoderAudioRenderer<MpeghDecoder>
   protected MpeghDecoder createDecoder(Format format, CryptoConfig cryptoConfig)
       throws MpeghDecoderException {
     TraceUtil.beginSection("createMpeghDecoder");
-    MpeghDecoder decoder = new MpeghDecoder(format, NUM_BUFFERS, NUM_BUFFERS);
+    MpeghDecoder decoder = new MpeghDecoder(format, NUM_BUFFERS, NUM_BUFFERS, uiHelper);
     TraceUtil.endSection();
     return decoder;
   }
@@ -123,5 +137,35 @@ public final class MpeghAudioRenderer extends DecoderAudioRenderer<MpeghDecoder>
         .setSampleMimeType(MimeTypes.AUDIO_RAW)
         .setPcmEncoding(C.ENCODING_PCM_16BIT)
         .build();
+  }
+
+  @Override
+  public void handleMessage(@MessageType int messageType, @Nullable Object message)
+      throws ExoPlaybackException {
+    switch (messageType) {
+      case MSG_SET_CODEC_PARAMETERS:
+        CodecParameters params = (CodecParameters)message;
+        if (params != null) {
+          if (params.get("mpegh-ui-command") != null) {
+            uiHelper.addCommand((String)params.get("mpegh-ui-command"));
+          }
+          if (params.get("mpegh-ui-force-update") != null) {
+            uiHelper.setForceUiUpdate(true);
+          }
+          if (params.get("mpegh-ui-persistence-buffer") != null) {
+            ByteBuffer persistence_buffer = (ByteBuffer)params.get("mpegh-ui-persistence-buffer");
+            uiHelper.setPersistenceStorage(persistence_buffer);
+          }
+        }
+        super.handleMessage(messageType, message);
+        break;
+
+      case MSG_SET_SUBSCRIBED_CODEC_PARAMETER_KEYS:
+        uiHelper.setSubscribedCodecParameterKeys((Set<String>) checkNotNull(message));
+        break;
+      default:
+        super.handleMessage(messageType, message);
+        break;
+    }
   }
 }
