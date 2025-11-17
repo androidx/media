@@ -295,9 +295,9 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
       // RTP byte 1: repurposed as HEVC HALU byte 0, copy NALU type.
       // RTP Byte 2: repurposed as HEVC HALU byte 1, layerId required to be zero, copying only tid.
       // Set data position from byte 1 as byte 0 is ignored.
-      data.getData()[1] = (byte) ((nalUnitType << 1) & 0x7F);
-      data.getData()[2] = (byte) tid;
-      fuScratchBuffer.reset(data.getData());
+      fuScratchBuffer.reset(data.getData().clone());
+      fuScratchBuffer.getData()[1] = (byte) ((nalUnitType << 1) & 0x7F);
+      fuScratchBuffer.getData()[2] = (byte) tid;
       fuScratchBuffer.setPosition(1);
     } else {
       if (discardPacketsUntilNextNalUnit) {
