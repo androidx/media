@@ -40,7 +40,6 @@ import androidx.media3.common.Player;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.session.MediaSession.ControllerInfo;
-import androidx.media3.test.session.R;
 import androidx.media3.test.session.common.HandlerThreadTestRule;
 import androidx.media3.test.session.common.MainLooperTestRule;
 import androidx.media3.test.session.common.TestHandler;
