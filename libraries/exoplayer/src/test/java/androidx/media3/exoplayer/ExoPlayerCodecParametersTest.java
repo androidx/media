@@ -31,52 +31,71 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Player;
 import androidx.media3.exoplayer.audio.AudioRendererEventListener;
+import androidx.media3.exoplayer.video.VideoRendererEventListener;
 import androidx.media3.test.utils.FakeMediaSource;
 import androidx.media3.test.utils.FakeRenderer;
 import androidx.media3.test.utils.TestExoPlayerBuilder;
 import androidx.test.core.app.ApplicationProvider;
-import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.testing.junit.testparameterinjector.TestParameter;
 import java.util.Arrays;
 import java.util.List;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
+import org.robolectric.RobolectricTestParameterInjector;
 import org.robolectric.annotation.Config;
 
 /** Unit tests for ExoPlayer's codec parameter handling. */
-@RunWith(AndroidJUnit4.class)
+@RunWith(RobolectricTestParameterInjector.class)
 public class ExoPlayerCodecParametersTest {
 
-  private Context context;
+  private enum TestConfig {
+    AUDIO,
+    VIDEO
+  }
+
+  @SuppressWarnings("unused") // Used by TestParameterInjector
+  @TestParameter
+  private TestConfig testConfig;
+
+  private ExoPlayer player;
+  private FakeCodecRenderer fakeRenderer;
 
   @Before
-  public void setUp() {
-    context = ApplicationProvider.getApplicationContext();
+  public void setUp() throws Exception {
+    Context context = ApplicationProvider.getApplicationContext();
+    fakeRenderer =
+        testConfig == TestConfig.AUDIO ? new FakeAudioRenderer() : new FakeVideoRenderer();
+    RenderersFactory renderersFactory =
+        (eventHandler, videoListener, audioListener, textOutput, metadataOutput) -> {
+          fakeRenderer.setEventListener(
+              eventHandler, testConfig == TestConfig.AUDIO ? audioListener : videoListener);
+          return new Renderer[] {fakeRenderer};
+        };
+    player = new TestExoPlayerBuilder(context).setRenderersFactory(renderersFactory).build();
+    player.setMediaSource(new FakeMediaSource());
+    player.prepare();
+    advance(player).untilState(Player.STATE_READY);
+  }
+
+  @After
+  public void tearDown() {
+    player.release();
   }
 
   @Test
   @Config(sdk = 29)
   public void listener_receivesInitialState_whenRegistered() throws Exception {
-    FakeAudioRenderer fakeAudioRenderer = new FakeAudioRenderer();
-    RenderersFactory renderersFactory =
-        (eventHandler, videoListener, audioListener, textOutput, metadataOutput) -> {
-          fakeAudioRenderer.setEventListener(eventHandler, audioListener);
-          return new Renderer[] {fakeAudioRenderer};
-        };
-    ExoPlayer player =
-        new TestExoPlayerBuilder(context).setRenderersFactory(renderersFactory).build();
-    player.setMediaSource(new FakeMediaSource());
-    player.prepare();
-    advance(player).untilState(Player.STATE_READY);
     // Simulate renderer having an initial state for keyB.
-    fakeAudioRenderer.simulateParametersChange(
+    fakeRenderer.simulateParametersChange(
         new CodecParameters.Builder().setInteger("keyB", 200).build());
     shadowOf(Looper.getMainLooper()).idle();
     CodecParametersChangeListener mockListener = mock(CodecParametersChangeListener.class);
     List<String> keys = Arrays.asList("keyA", "keyB");
 
-    player.addAudioCodecParametersChangeListener(mockListener, keys);
+    fakeRenderer.addListener(player, mockListener, keys);
     advance(player).untilPendingCommandsAreFullyHandled();
 
     // Verify listener is immediately called with the current state of its subscribed keys.
@@ -92,25 +111,14 @@ public class ExoPlayerCodecParametersTest {
   @Test
   @Config(sdk = 29)
   public void listener_notifiedOnValueChange() throws Exception {
-    FakeAudioRenderer fakeAudioRenderer = new FakeAudioRenderer();
-    RenderersFactory renderersFactory =
-        (handler, videoListener, audioListener, textOutput, metadataOutput) -> {
-          fakeAudioRenderer.setEventListener(handler, audioListener);
-          return new Renderer[] {fakeAudioRenderer};
-        };
-    ExoPlayer player =
-        new TestExoPlayerBuilder(context).setRenderersFactory(renderersFactory).build();
-    player.setMediaSource(new FakeMediaSource());
-    player.prepare();
-    advance(player).untilState(Player.STATE_READY);
     CodecParametersChangeListener mockListener = mock(CodecParametersChangeListener.class);
-    player.addAudioCodecParametersChangeListener(mockListener, Arrays.asList("test-key"));
+    fakeRenderer.addListener(player, mockListener, Arrays.asList("test-key"));
     advance(player).untilPendingCommandsAreFullyHandled();
     shadowOf(Looper.getMainLooper()).idle();
     verify(mockListener).onCodecParametersChanged(any());
     clearInvocations(mockListener);
 
-    fakeAudioRenderer.simulateParametersChange(
+    fakeRenderer.simulateParametersChange(
         new CodecParameters.Builder().setInteger("test-key", 100).build());
 
     ArgumentCaptor<CodecParameters> paramsCaptor = ArgumentCaptor.forClass(CodecParameters.class);
@@ -122,26 +130,15 @@ public class ExoPlayerCodecParametersTest {
   @Test
   @Config(sdk = 29)
   public void listener_notNotifiedForUnsubscribedKeyChange() throws Exception {
-    FakeAudioRenderer fakeAudioRenderer = new FakeAudioRenderer();
-    RenderersFactory renderersFactory =
-        (handler, videoListener, audioListener, textOutput, metadataOutput) -> {
-          fakeAudioRenderer.setEventListener(handler, audioListener);
-          return new Renderer[] {fakeAudioRenderer};
-        };
-    ExoPlayer player =
-        new TestExoPlayerBuilder(context).setRenderersFactory(renderersFactory).build();
-    player.setMediaSource(new FakeMediaSource());
-    player.prepare();
-    advance(player).untilState(Player.STATE_READY);
     CodecParametersChangeListener mockListener = mock(CodecParametersChangeListener.class);
-    player.addAudioCodecParametersChangeListener(mockListener, Arrays.asList("keyA"));
+    fakeRenderer.addListener(player, mockListener, Arrays.asList("keyA"));
     advance(player).untilPendingCommandsAreFullyHandled();
     shadowOf(Looper.getMainLooper()).idle();
     verify(mockListener).onCodecParametersChanged(any());
     clearInvocations(mockListener);
 
     // Simulate a change to a key the listener is not subscribed to.
-    fakeAudioRenderer.simulateParametersChange(
+    fakeRenderer.simulateParametersChange(
         new CodecParameters.Builder().setInteger("keyB", 500).build());
 
     shadowOf(Looper.getMainLooper()).idle();
@@ -151,21 +148,10 @@ public class ExoPlayerCodecParametersTest {
   @Test
   @Config(sdk = 29)
   public void multipleListeners_addAndRemove_correctNotifications() throws Exception {
-    FakeAudioRenderer fakeAudioRenderer = new FakeAudioRenderer();
-    RenderersFactory renderersFactory =
-        (handler, videoListener, audioListener, textOutput, metadataOutput) -> {
-          fakeAudioRenderer.setEventListener(handler, audioListener);
-          return new Renderer[] {fakeAudioRenderer};
-        };
-    ExoPlayer player =
-        new TestExoPlayerBuilder(context).setRenderersFactory(renderersFactory).build();
-    player.setMediaSource(new FakeMediaSource());
-    player.prepare();
-    advance(player).untilState(Player.STATE_READY);
     CodecParametersChangeListener listener1 = mock(CodecParametersChangeListener.class);
     CodecParametersChangeListener listener2 = mock(CodecParametersChangeListener.class);
-    player.addAudioCodecParametersChangeListener(listener1, Arrays.asList("keyA", "keyB"));
-    player.addAudioCodecParametersChangeListener(listener2, Arrays.asList("keyB", "keyC"));
+    fakeRenderer.addListener(player, listener1, Arrays.asList("keyA", "keyB"));
+    fakeRenderer.addListener(player, listener2, Arrays.asList("keyB", "keyC"));
     advance(player).untilPendingCommandsAreFullyHandled();
     shadowOf(Looper.getMainLooper()).idle();
     clearInvocations(listener1, listener2);
@@ -177,7 +163,7 @@ public class ExoPlayerCodecParametersTest {
             .setInteger("keyB", 20)
             .setInteger("keyC", 30)
             .build();
-    fakeAudioRenderer.simulateParametersChange(params);
+    fakeRenderer.simulateParametersChange(params);
     shadowOf(Looper.getMainLooper()).idle();
 
     // Verify listener1 gets only its keys.
@@ -193,7 +179,7 @@ public class ExoPlayerCodecParametersTest {
     clearInvocations(listener1, listener2);
 
     // Remove listener2.
-    player.removeAudioCodecParametersChangeListener(listener2);
+    fakeRenderer.removeListener(player, listener2);
     advance(player).untilPendingCommandsAreFullyHandled();
 
     // Simulate change affecting keyB and keyC
@@ -203,7 +189,7 @@ public class ExoPlayerCodecParametersTest {
             .setInteger("keyB", 200)
             .setInteger("keyC", 300)
             .build();
-    fakeAudioRenderer.simulateParametersChange(nextParams);
+    fakeRenderer.simulateParametersChange(nextParams);
     shadowOf(Looper.getMainLooper()).idle();
 
     // Verify only listener1 is called, and only with keys A and B
@@ -215,25 +201,77 @@ public class ExoPlayerCodecParametersTest {
     player.release();
   }
 
-  /**
-   * A fake renderer that allows tests to simulate the {@code onAudioCodecParametersChanged} event.
-   */
-  private static class FakeAudioRenderer extends FakeRenderer {
-    @Nullable private AudioRendererEventListener eventListener;
-    @Nullable private Handler eventHandler;
+  private abstract static class FakeCodecRenderer extends FakeRenderer {
+    @Nullable Object eventListener;
+    @Nullable Handler eventHandler;
 
-    private FakeAudioRenderer() {
-      super(C.TRACK_TYPE_AUDIO);
+    private FakeCodecRenderer(int trackType) {
+      super(trackType);
     }
 
-    private void setEventListener(Handler handler, AudioRendererEventListener listener) {
+    private void setEventListener(Handler handler, Object listener) {
       this.eventHandler = handler;
       this.eventListener = listener;
     }
 
-    private void simulateParametersChange(CodecParameters newParams) {
+    abstract void addListener(
+        ExoPlayer player, CodecParametersChangeListener listener, List<String> keys);
+
+    abstract void removeListener(ExoPlayer player, CodecParametersChangeListener listener);
+
+    abstract void simulateParametersChange(CodecParameters newParams);
+  }
+
+  private static class FakeAudioRenderer extends FakeCodecRenderer {
+    private FakeAudioRenderer() {
+      super(C.TRACK_TYPE_AUDIO);
+    }
+
+    @Override
+    public void addListener(
+        ExoPlayer player, CodecParametersChangeListener listener, List<String> keys) {
+      player.addAudioCodecParametersChangeListener(listener, keys);
+    }
+
+    @Override
+    public void removeListener(ExoPlayer player, CodecParametersChangeListener listener) {
+      player.removeAudioCodecParametersChangeListener(listener);
+    }
+
+    @Override
+    public void simulateParametersChange(CodecParameters newParams) {
       if (eventHandler != null && eventListener != null) {
-        eventHandler.post(() -> eventListener.onAudioCodecParametersChanged(newParams));
+        eventHandler.post(
+            () ->
+                ((AudioRendererEventListener) eventListener)
+                    .onAudioCodecParametersChanged(newParams));
+      }
+    }
+  }
+
+  private static class FakeVideoRenderer extends FakeCodecRenderer {
+    private FakeVideoRenderer() {
+      super(C.TRACK_TYPE_VIDEO);
+    }
+
+    @Override
+    public void addListener(
+        ExoPlayer player, CodecParametersChangeListener listener, List<String> keys) {
+      player.addVideoCodecParametersChangeListener(listener, keys);
+    }
+
+    @Override
+    public void removeListener(ExoPlayer player, CodecParametersChangeListener listener) {
+      player.removeVideoCodecParametersChangeListener(listener);
+    }
+
+    @Override
+    public void simulateParametersChange(CodecParameters newParams) {
+      if (eventHandler != null && eventListener != null) {
+        eventHandler.post(
+            () ->
+                ((VideoRendererEventListener) eventListener)
+                    .onVideoCodecParametersChanged(newParams));
       }
     }
   }

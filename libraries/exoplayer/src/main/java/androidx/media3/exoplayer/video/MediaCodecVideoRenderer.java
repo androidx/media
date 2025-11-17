@@ -68,6 +68,7 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.common.util.Util;
 import androidx.media3.container.ObuParser;
 import androidx.media3.decoder.DecoderInputBuffer;
+import androidx.media3.exoplayer.CodecParameters;
 import androidx.media3.exoplayer.DecoderCounters;
 import androidx.media3.exoplayer.DecoderReuseEvaluation;
 import androidx.media3.exoplayer.DecoderReuseEvaluation.DecoderDiscardReasons;
@@ -127,6 +128,12 @@ import org.checkerframework.checker.nullness.qual.RequiresNonNull;
  *       renderer.
  *   <li>Message with type {@link #MSG_SET_SCRUBBING_MODE} to enable or disable scrubbing mode. The
  *       message payload should be a {@link ScrubbingModeParameters} instance, or null to disable.
+ *   <li>Message with type {@link #MSG_SET_CODEC_PARAMETERS} to set a collection of codec
+ *       parameters. The message payload should be a {@link CodecParameters} instance. This is only
+ *       supported on API level 29 and above.
+ *   <li>Message with type {@link #MSG_SET_SUBSCRIBED_CODEC_PARAMETER_KEYS} to set the parameter
+ *       keys that the renderer should monitor for changes. The message payload should be an {@code
+ *       ImmutableSet<String>}. This is only supported on API level 29 and above.
  * </ul>
  */
 @UnstableApi
@@ -1899,6 +1906,11 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   }
 
   @Override
+  protected void onCodecParametersChanged(CodecParameters codecParameters) {
+    eventDispatcher.videoCodecParametersChanged(codecParameters);
+  }
+
+  @Override
   protected void renderToEndOfStream() {
     if (videoSink != null) {
       videoSink.signalEndOfCurrentInputStream();
@@ -2435,6 +2447,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     if (SDK_INT >= 35) {
       mediaFormat.setInteger(MediaFormat.KEY_IMPORTANCE, max(0, -rendererPriority));
     }
+    applyCodecParametersToMediaFormat(mediaFormat);
     return mediaFormat;
   }
 

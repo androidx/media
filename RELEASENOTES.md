@@ -4,8 +4,14 @@
 
 *   Common Library:
 *   ExoPlayer:
-    *   Add API for setting and observing `MediaCodec` parameters dynamically
-        ([#2794](https://github.com/androidx/media/pull/2794)).
+    *   Add API to set and observe codec parameters for audio and video tracks.
+        This feature is implemented for `MediaCodec` based renderers and
+        requires API 29+.
+        *   Use `ExoPlayer.setAudioCodecParameters()` and
+            `ExoPlayer.setVideoCodecParameters()` to apply parameters.
+        *   Use `ExoPlayer.addAudioCodecParametersChangeListener()` and
+            `ExoPlayer.addVideoCodecParametersChangeListener()` to listen for
+            changes. Observing vendor-specific keys requires API 31+.
     *   Fix `IllegalStateException` caused by setting an empty media source
         after seeking to a non-zero position and then preparing the player with
         a non-empty media source.

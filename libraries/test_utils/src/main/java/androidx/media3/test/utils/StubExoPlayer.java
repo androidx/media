@@ -461,4 +461,20 @@ public class StubExoPlayer extends StubPlayer implements ExoPlayer {
   public void removeAudioCodecParametersChangeListener(CodecParametersChangeListener listener) {
     throw new UnsupportedOperationException();
   }
+
+  @Override
+  public void setVideoCodecParameters(CodecParameters codecParameters) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public void addVideoCodecParametersChangeListener(
+      CodecParametersChangeListener listener, List<String> keys) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public void removeVideoCodecParametersChangeListener(CodecParametersChangeListener listener) {
+    throw new UnsupportedOperationException();
+  }
 }

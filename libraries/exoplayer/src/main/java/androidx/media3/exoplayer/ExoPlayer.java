@@ -2067,4 +2067,46 @@ public interface ExoPlayer extends Player {
    */
   @UnstableApi
   void removeAudioCodecParametersChangeListener(CodecParametersChangeListener listener);
+
+  /**
+   * Sets a collection of parameters on the underlying video codecs.
+   *
+   * <p>This method is asynchronous. The parameters will be applied to the video renderers on the
+   * playback thread.
+   *
+   * <p>The default {@link MediaCodec} based renderers only support this feature on API level 29 and
+   * above. If an underlying decoder does not support a parameter, it will be ignored.
+   *
+   * @param codecParameters The {@link CodecParameters} to set.
+   */
+  @UnstableApi
+  void setVideoCodecParameters(CodecParameters codecParameters);
+
+  /**
+   * Adds a listener for video codec parameter changes.
+   *
+   * <p>The listener will be called on the application thread. Upon registration, the listener will
+   * be immediately called with the last known values for the subscribed keys.
+   *
+   * <p>The default {@link MediaCodec} based renderers only support this feature on API level 29 and
+   * above.
+   *
+   * <p><b>Note:</b> When used with {@link MediaCodec}, observing vendor-specific parameter changes
+   * requires API level 31 or higher. On API levels 29 and 30, any requested vendor-specific keys
+   * will be ignored.
+   *
+   * @param listener The {@link CodecParametersChangeListener} to add.
+   * @param keys The list of parameter keys to subscribe to.
+   */
+  @UnstableApi
+  void addVideoCodecParametersChangeListener(
+      CodecParametersChangeListener listener, List<String> keys);
+
+  /**
+   * Removes a listener for video codec parameter changes.
+   *
+   * @param listener The {@link CodecParametersChangeListener} to remove.
+   */
+  @UnstableApi
+  void removeVideoCodecParametersChangeListener(CodecParametersChangeListener listener);
 }
