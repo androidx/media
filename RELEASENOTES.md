@@ -57,6 +57,10 @@
 *   Smooth Streaming extension:
 *   RTSP extension:
 *   Decoder extensions (FFmpeg, VP9, AV1, etc.):
+    *   FFmpeg extension: Fix an issue that prevented some FLAC files from
+        playing by ensuring the `STREAMINFO` block is correctly parsed and
+        passed to the decoder
+        ([#2887](https://github.com/androidx/media/issues/2887)).
 *   MIDI extension:
 *   Leanback extension:
 *   Cast extension:
