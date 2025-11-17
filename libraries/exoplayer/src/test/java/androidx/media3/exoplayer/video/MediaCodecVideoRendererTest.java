@@ -65,6 +65,7 @@ import androidx.media3.common.TrackGroup;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.util.Clock;
 import androidx.media3.decoder.DecoderInputBuffer;
+import androidx.media3.exoplayer.CodecParameters;
 import androidx.media3.exoplayer.DecoderCounters;
 import androidx.media3.exoplayer.ExoPlaybackException;
 import androidx.media3.exoplayer.FormatHolder;
@@ -4411,6 +4412,17 @@ public class MediaCodecVideoRendererTest {
                 createMediaCodecInfo(MimeTypes.VIDEO_DIVX),
                 createFormat(MimeTypes.VIDEO_DIVX, /* width= */ 1920, /* height= */ 1080)))
         .isEqualTo(Format.NO_VALUE);
+  }
+
+  @Test
+  public void onCodecParametersChanged_dispatchesToVideoRendererEventListener() {
+    CodecParameters codecParameters =
+        new CodecParameters.Builder().setInteger("test-key", 456).build();
+
+    mediaCodecVideoRenderer.onCodecParametersChanged(codecParameters);
+
+    shadowOf(Looper.getMainLooper()).idle();
+    verify(eventListener).onVideoCodecParametersChanged(codecParameters);
   }
 
   private static MediaCodecInfo createMediaCodecInfo(String mimeType) {

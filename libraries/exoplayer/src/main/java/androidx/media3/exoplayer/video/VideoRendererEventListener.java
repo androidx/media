@@ -29,6 +29,7 @@ import androidx.media3.common.Player;
 import androidx.media3.common.VideoSize;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.decoder.DecoderException;
+import androidx.media3.exoplayer.CodecParameters;
 import androidx.media3.exoplayer.DecoderCounters;
 import androidx.media3.exoplayer.DecoderReuseEvaluation;
 import androidx.media3.exoplayer.Renderer;
@@ -149,6 +150,13 @@ public interface VideoRendererEventListener {
    */
   default void onVideoCodecError(Exception videoCodecError) {}
 
+  /**
+   * Called when the video codec parameters change.
+   *
+   * @param codecParameters The new codec parameters.
+   */
+  default void onVideoCodecParametersChanged(CodecParameters codecParameters) {}
+
   /** Dispatches events to a {@link VideoRendererEventListener}. */
   final class EventDispatcher {
 
@@ -254,6 +262,15 @@ public interface VideoRendererEventListener {
     public void videoCodecError(Exception videoCodecError) {
       if (handler != null) {
         handler.post(() -> castNonNull(listener).onVideoCodecError(videoCodecError));
+      }
+    }
+
+    /**
+     * Invokes {@link VideoRendererEventListener#onVideoCodecParametersChanged(CodecParameters)}.
+     */
+    public void videoCodecParametersChanged(CodecParameters codecParameters) {
+      if (handler != null) {
+        handler.post(() -> castNonNull(listener).onVideoCodecParametersChanged(codecParameters));
       }
     }
   }

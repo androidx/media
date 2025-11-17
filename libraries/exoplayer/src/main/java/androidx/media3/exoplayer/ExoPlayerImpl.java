@@ -191,8 +191,8 @@ import java.util.function.IntConsumer;
   private final BackgroundThreadStateHandler<Integer> audioSessionIdState;
   private final StuckPlayerDetector stuckPlayerDetector;
   @Nullable private final VirtualDeviceIdChangeListener virtualDeviceIdChangeListener;
-  private final Map<CodecParametersChangeListener, List<String>>
-      audioCodecParametersChangeListeners;
+  private final CodecParameterListenerManager audioListenerManager;
+  private final CodecParameterListenerManager videoListenerManager;
 
   private @RepeatMode int repeatMode;
   private boolean shuffleModeEnabled;
@@ -241,7 +241,6 @@ import java.util.function.IntConsumer;
   private long seekBackIncrementMs;
   private long seekForwardIncrementMs;
   private long maxSeekToPreviousPositionMs;
-  private CodecParameters lastNotifiedAudioCodecParameters;
 
   // MediaMetadata built from static (TrackGroup Format) and dynamic (onMetadata(Metadata)) metadata
   // sources.
@@ -480,8 +479,8 @@ import java.util.function.IntConsumer;
       virtualDeviceIdChangeListener =
           SDK_INT >= 34 ? new VirtualDeviceIdChangeListener(builder.context) : null;
 
-      audioCodecParametersChangeListeners = new HashMap<>();
-      lastNotifiedAudioCodecParameters = CodecParameters.EMPTY;
+      this.audioListenerManager = new CodecParameterListenerManager(C.TRACK_TYPE_AUDIO);
+      this.videoListenerManager = new CodecParameterListenerManager(C.TRACK_TYPE_VIDEO);
 
       stuckPlayerDetector =
           new StuckPlayerDetector(
@@ -2078,30 +2077,37 @@ import java.util.function.IntConsumer;
     verifyApplicationThread();
     checkNotNull(listener);
     checkNotNull(keys);
-    audioCodecParametersChangeListeners.put(listener, keys);
-    updateAndSendSubscribedKeysToRenderer();
-    // Immediately notify the new listener with its filtered view of the last known state.
-    CodecParameters listenerInitialState =
-        createFilteredCodecParameters(lastNotifiedAudioCodecParameters, keys);
-    listener.onCodecParametersChanged(listenerInitialState);
+    audioListenerManager.addListener(listener, keys);
   }
 
   @Override
   public void removeAudioCodecParametersChangeListener(CodecParametersChangeListener listener) {
     verifyApplicationThread();
     checkNotNull(listener);
-    if (audioCodecParametersChangeListeners.remove(listener) != null) {
-      updateAndSendSubscribedKeysToRenderer();
-    }
+    audioListenerManager.removeListener(listener);
   }
 
-  private void updateAndSendSubscribedKeysToRenderer() {
-    ImmutableSet.Builder<String> newKeysBuilder = ImmutableSet.builder();
-    for (List<String> keys : audioCodecParametersChangeListeners.values()) {
-      newKeysBuilder.addAll(keys);
-    }
-    sendRendererMessage(
-        C.TRACK_TYPE_AUDIO, MSG_SET_SUBSCRIBED_CODEC_PARAMETER_KEYS, newKeysBuilder.build());
+  @Override
+  public void setVideoCodecParameters(CodecParameters codecParameters) {
+    verifyApplicationThread();
+    checkNotNull(codecParameters);
+    sendRendererMessage(C.TRACK_TYPE_VIDEO, MSG_SET_CODEC_PARAMETERS, codecParameters);
+  }
+
+  @Override
+  public void addVideoCodecParametersChangeListener(
+      CodecParametersChangeListener listener, List<String> keys) {
+    verifyApplicationThread();
+    checkNotNull(listener);
+    checkNotNull(keys);
+    videoListenerManager.addListener(listener, keys);
+  }
+
+  @Override
+  public void removeVideoCodecParametersChangeListener(CodecParametersChangeListener listener) {
+    verifyApplicationThread();
+    checkNotNull(listener);
+    videoListenerManager.removeListener(listener);
   }
 
   @SuppressWarnings("deprecation") // Calling deprecated methods.
@@ -3205,16 +3211,71 @@ import java.util.function.IntConsumer;
     return parametersBuilder.build();
   }
 
-  private static CodecParameters createFilteredCodecParameters(
-      CodecParameters source, List<String> keys) {
-    CodecParameters.Builder builder = source.buildUpon();
-    Set<String> keysToKeep = new HashSet<>(keys);
-    for (String key : source.keySet()) {
-      if (!keysToKeep.contains(key)) {
-        builder.remove(key);
+  private final class CodecParameterListenerManager {
+
+    private final @C.TrackType int trackType;
+    private final Map<CodecParametersChangeListener, List<String>> listeners;
+    private CodecParameters lastNotifiedParameters;
+
+    private CodecParameterListenerManager(@C.TrackType int trackType) {
+      this.trackType = trackType;
+      this.listeners = new HashMap<>();
+      this.lastNotifiedParameters = CodecParameters.EMPTY;
+    }
+
+    private void addListener(CodecParametersChangeListener listener, List<String> keys) {
+      listeners.put(listener, keys);
+      updateAndSendSubscribedKeysToRenderer();
+      // Immediately notify the new listener with its filtered view of the last known state.
+      CodecParameters listenerInitialState =
+          createFilteredCodecParameters(lastNotifiedParameters, keys);
+      listener.onCodecParametersChanged(listenerInitialState);
+    }
+
+    private void removeListener(CodecParametersChangeListener listener) {
+      if (listeners.remove(listener) != null) {
+        updateAndSendSubscribedKeysToRenderer();
       }
     }
-    return builder.build();
+
+    private void onParametersChanged(CodecParameters newParameters) {
+      for (Map.Entry<CodecParametersChangeListener, List<String>> entry :
+          new HashMap<>(listeners).entrySet()) {
+        CodecParametersChangeListener listener = entry.getKey();
+        List<String> listenerKeys = entry.getValue();
+
+        CodecParameters listenerCurrentState =
+            createFilteredCodecParameters(newParameters, listenerKeys);
+        CodecParameters listenerPreviousState =
+            createFilteredCodecParameters(lastNotifiedParameters, listenerKeys);
+
+        if (!listenerCurrentState.equals(listenerPreviousState)) {
+          listener.onCodecParametersChanged(listenerCurrentState);
+        }
+      }
+      lastNotifiedParameters = newParameters;
+    }
+
+    private void updateAndSendSubscribedKeysToRenderer() {
+      ImmutableSet.Builder<String> newKeysBuilder = ImmutableSet.builder();
+      for (List<String> keys : listeners.values()) {
+        newKeysBuilder.addAll(keys);
+      }
+      sendRendererMessage(
+          trackType, MSG_SET_SUBSCRIBED_CODEC_PARAMETER_KEYS, newKeysBuilder.build());
+    }
+
+    private CodecParameters createFilteredCodecParameters(
+        CodecParameters source, List<String> keys) {
+      CodecParameters.Builder builder = source.buildUpon();
+      Set<String> keysToKeep = new HashSet<>(keys);
+      for (String key : source.keySet()) {
+        if (!keysToKeep.contains(key)) {
+          builder.remove(key);
+        }
+      }
+      return builder.build();
+    }
   }
 
   private static final class MediaSourceHolderSnapshot implements MediaSourceInfoHolder {
@@ -3406,21 +3467,12 @@ import java.util.function.IntConsumer;
 
     @Override
     public void onAudioCodecParametersChanged(CodecParameters newParameters) {
-      for (Map.Entry<CodecParametersChangeListener, List<String>> entry :
-          new HashMap<>(audioCodecParametersChangeListeners).entrySet()) {
-        CodecParametersChangeListener listener = entry.getKey();
-        List<String> listenerKeys = entry.getValue();
+      audioListenerManager.onParametersChanged(newParameters);
+    }
 
-        CodecParameters listenerCurrentState =
-            createFilteredCodecParameters(newParameters, listenerKeys);
-        CodecParameters listenerPreviousState =
-            createFilteredCodecParameters(lastNotifiedAudioCodecParameters, listenerKeys);
-
-        if (!listenerCurrentState.equals(listenerPreviousState)) {
-          listener.onCodecParametersChanged(listenerCurrentState);
-        }
-      }
-      lastNotifiedAudioCodecParameters = newParameters;
+    @Override
+    public void onVideoCodecParametersChanged(CodecParameters newParameters) {
+      videoListenerManager.onParametersChanged(newParameters);
     }
 
     // TextOutput implementation

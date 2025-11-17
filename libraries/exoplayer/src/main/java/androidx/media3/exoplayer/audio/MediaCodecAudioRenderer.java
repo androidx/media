@@ -36,7 +36,6 @@ import android.os.Handler;
 import android.util.Pair;
 import androidx.annotation.CallSuper;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.AuxEffectInfo;
 import androidx.media3.common.C;
@@ -74,11 +73,8 @@ import androidx.media3.extractor.VorbisUtil;
 import com.google.common.collect.ImmutableList;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 
 /**
  * Decodes and renders audio using {@link MediaCodec} and an {@link AudioSink}.
@@ -113,8 +109,8 @@ import java.util.Set;
  *       parameters. The message payload should be a {@link CodecParameters} instance. This is only
  *       supported on API level 29 and above.
  *   <li>Message with type {@link #MSG_SET_SUBSCRIBED_CODEC_PARAMETER_KEYS} to set the parameter
- *       keys that the renderer should monitor for changes. The message payload should be a {@code
- *       Set<String>}. This is only supported on API level 29 and above.
+ *       keys that the renderer should monitor for changes. The message payload should be an {@code
+ *       ImmutableSet<String>}. This is only supported on API level 29 and above.
  * </ul>
  */
 @UnstableApi
@@ -132,14 +128,11 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
   private final EventDispatcher eventDispatcher;
   private final AudioSink audioSink;
   @Nullable private final LoudnessCodecController loudnessCodecController;
-  private final Set<String> subscribedCodecParameterKeys;
 
   private int codecMaxInputSize;
   private boolean codecNeedsDiscardChannelsWorkaround;
   private boolean codecNeedsVorbisToAndroidChannelMappingWorkaround;
   @Nullable private Format inputFormat;
-  private CodecParameters activeCodecParameters;
-  private CodecParameters lastDispatchedCodecParameters;
 
   /** Codec used for DRM decryption only in passthrough and offload. */
   @Nullable private Format decryptOnlyCodecFormat;
@@ -331,9 +324,6 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
     eventDispatcher = new EventDispatcher(eventHandler, eventListener);
     nextBufferToWritePresentationTimeUs = C.TIME_UNSET;
     audioSink.setListener(new AudioSinkListener());
-    this.subscribedCodecParameterKeys = new HashSet<>();
-    this.activeCodecParameters = CodecParameters.EMPTY;
-    this.lastDispatchedCodecParameters = CodecParameters.EMPTY;
   }
 
   @Override
@@ -597,10 +587,6 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
       long initializedTimestampMs,
       long initializationDurationMs) {
     eventDispatcher.decoderInitialized(name, initializedTimestampMs, initializationDurationMs);
-    if (Build.VERSION.SDK_INT >= 31 && !subscribedCodecParameterKeys.isEmpty()) {
-      checkNotNull(getCodec())
-          .subscribeToVendorParameters(new ArrayList<>(subscribedCodecParameterKeys));
-    }
   }
 
   @Override
@@ -628,9 +614,6 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
   @Override
   protected void onOutputFormatChanged(Format format, @Nullable MediaFormat mediaFormat)
       throws ExoPlaybackException {
-    if (SDK_INT >= 29 && mediaFormat != null) {
-      checkAndNotifyCodecParameterChanges(mediaFormat);
-    }
     Format audioSinkInputFormat;
     @Nullable int[] channelMap = null;
     if (decryptOnlyCodecFormat != null) { // Direct playback with a codec for decryption.
@@ -919,6 +902,11 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
   }
 
   @Override
+  protected void onCodecParametersChanged(CodecParameters codecParameters) {
+    eventDispatcher.audioCodecParametersChanged(codecParameters);
+  }
+
+  @Override
   protected void renderToEndOfStream() throws ExoPlaybackException {
     try {
       audioSink.playToEndOfStream();
@@ -974,23 +962,6 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
         break;
       case MSG_SET_AUDIO_OUTPUT_PROVIDER:
         audioSink.setAudioOutputProvider((AudioOutputProvider) checkNotNull(message));
-        break;
-      case MSG_SET_CODEC_PARAMETERS:
-        if (Build.VERSION.SDK_INT >= 29) {
-          activeCodecParameters = (CodecParameters) checkNotNull(message);
-
-          @Nullable MediaCodecAdapter codec = getCodec();
-          if (codec != null) {
-            codec.setParameters(activeCodecParameters.toBundle());
-          }
-        }
-        break;
-      case MSG_SET_SUBSCRIBED_CODEC_PARAMETER_KEYS:
-        if (Build.VERSION.SDK_INT >= 29) {
-          @SuppressWarnings("unchecked") // Payload is always a Set.
-          Set<String> keys = (Set<String>) checkNotNull(message);
-          updateCodecSubscriptions(keys);
-        }
         break;
       default:
         super.handleMessage(messageType, message);
@@ -1111,55 +1082,8 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
     if (SDK_INT >= 35) {
       mediaFormat.setInteger(MediaFormat.KEY_IMPORTANCE, max(0, -rendererPriority));
     }
-
-    if (SDK_INT >= 29) {
-      activeCodecParameters.applyTo(mediaFormat);
-    }
+    applyCodecParametersToMediaFormat(mediaFormat);
     return mediaFormat;
-  }
-
-  @RequiresApi(29)
-  private void checkAndNotifyCodecParameterChanges(MediaFormat mediaFormat) {
-    if (subscribedCodecParameterKeys.isEmpty()) {
-      return;
-    }
-
-    CodecParameters currentValues =
-        CodecParameters.createFrom(mediaFormat, subscribedCodecParameterKeys).build();
-
-    if (currentValues.equals(lastDispatchedCodecParameters)) {
-      return;
-    }
-
-    lastDispatchedCodecParameters = currentValues;
-    eventDispatcher.audioCodecParametersChanged(currentValues);
-  }
-
-  @RequiresApi(29)
-  private void updateCodecSubscriptions(Set<String> newKeys) {
-    if (subscribedCodecParameterKeys.equals(newKeys)) {
-      return;
-    }
-
-    if (Build.VERSION.SDK_INT >= 31) {
-      Set<String> removedKeys = new HashSet<>(subscribedCodecParameterKeys);
-      removedKeys.removeAll(newKeys);
-      Set<String> addedKeys = new HashSet<>(newKeys);
-      addedKeys.removeAll(subscribedCodecParameterKeys);
-
-      @Nullable MediaCodecAdapter codec = getCodec();
-      if (codec != null) {
-        if (!removedKeys.isEmpty()) {
-          codec.unsubscribeFromVendorParameters(new ArrayList<>(removedKeys));
-        }
-        if (!addedKeys.isEmpty()) {
-          codec.subscribeToVendorParameters(new ArrayList<>(addedKeys));
-        }
-      }
-    }
-
-    subscribedCodecParameterKeys.clear();
-    subscribedCodecParameterKeys.addAll(newKeys);
   }
 
   private void setAudioSessionId(int audioSessionId) {
