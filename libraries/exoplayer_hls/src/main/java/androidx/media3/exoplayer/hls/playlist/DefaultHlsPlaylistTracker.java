@@ -267,7 +267,7 @@ public final class DefaultHlsPlaylistTracker
   public boolean excludeMediaPlaylist(Uri playlistUrl, long exclusionDurationMs) {
     @Nullable MediaPlaylistBundle bundle = playlistBundles.get(playlistUrl);
     if (bundle != null) {
-      return !bundle.excludePlaylist(exclusionDurationMs);
+      return bundle.excludePlaylist(exclusionDurationMs);
     }
     return false;
   }
@@ -923,11 +923,12 @@ public final class DefaultHlsPlaylistTracker
      *
      * @param exclusionDurationMs The number of milliseconds for which the playlist should be
      *     excluded.
-     * @return Whether the playlist is the primary, despite being excluded.
+     * @return {@code true} if the playlist is not the current primary playlist, or has just been
+     *     excluded from being the primary playlist, otherwise {@code false}.
      */
     private boolean excludePlaylist(long exclusionDurationMs) {
       excludeUntilMs = SystemClock.elapsedRealtime() + exclusionDurationMs;
-      return playlistUrl.equals(primaryMediaPlaylistUrl) && !maybeSelectNewPrimaryUrl();
+      return !playlistUrl.equals(primaryMediaPlaylistUrl) || maybeSelectNewPrimaryUrl();
     }
   }
 
@@ -970,7 +971,7 @@ public final class DefaultHlsPlaylistTracker
             && fallbackSelection.type == LoadErrorHandlingPolicy.FALLBACK_TYPE_TRACK) {
           @Nullable MediaPlaylistBundle mediaPlaylistBundle = playlistBundles.get(url);
           if (mediaPlaylistBundle != null) {
-            mediaPlaylistBundle.excludePlaylist(fallbackSelection.exclusionDurationMs);
+            return mediaPlaylistBundle.excludePlaylist(fallbackSelection.exclusionDurationMs);
           }
         }
       }
