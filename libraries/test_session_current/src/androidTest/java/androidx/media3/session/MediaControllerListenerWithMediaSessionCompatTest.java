@@ -39,7 +39,6 @@ import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.session.legacy.MediaMetadataCompat;
-import androidx.media3.test.session.R;
 import androidx.media3.test.session.common.CommonConstants;
 import androidx.media3.test.session.common.HandlerThreadTestRule;
 import androidx.media3.test.session.common.MainLooperTestRule;
