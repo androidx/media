@@ -2509,7 +2509,11 @@ public class HlsInterstitialsAdsLoaderTest {
         .inOrder();
     InOrder inOrder = inOrder(mockPlayer);
     inOrder.verify(mockPlayer).addListener(any());
-    verifyTimelineUpdate(inOrder, mockPlayer, /* verifyMessageScheduled= */ false);
+    verifyTimelineUpdate(
+        inOrder,
+        mockPlayer,
+        /* verifyMessageScheduled= */ false,
+        /* currentTimelineRequestCount= */ 1);
     verifyAssetListLoadCompleted(inOrder, mockPlayer, /* verifyMessageScheduled= */ false);
     inOrder.verifyNoMoreInteractions();
   }
@@ -2567,7 +2571,11 @@ public class HlsInterstitialsAdsLoaderTest {
     assertThat(midRollPlayerMessage.getLooper()).isEqualTo(Looper.myLooper());
     InOrder inOrder = inOrder(mockPlayer);
     inOrder.verify(mockPlayer).addListener(any());
-    verifyTimelineUpdate(inOrder, mockPlayer, /* verifyMessageScheduled= */ false);
+    verifyTimelineUpdate(
+        inOrder,
+        mockPlayer,
+        /* verifyMessageScheduled= */ false,
+        /* currentTimelineRequestCount= */ 1);
     verifyAssetListLoadCompleted(inOrder, mockPlayer, /* verifyMessageScheduled= */ true);
     inOrder.verifyNoMoreInteractions();
   }
@@ -2712,6 +2720,59 @@ public class HlsInterstitialsAdsLoaderTest {
 
   @Test
   public void
+      handleContentTimelineChanged_livePlayingOnLastSegmentWhenAdInserted_triggersAssetLoading()
+          throws Exception {
+    AssetListLoadingListener assetListLoadingListener = new AssetListLoadingListener();
+    adsLoader.addListener(assetListLoadingListener);
+    when(mockPlayer.getCurrentMediaItem()).thenReturn(contentMediaItem);
+    when(mockPlayer.getContentPosition()).thenReturn(27_000L); // content pos in first window
+
+    callHandleContentTimelineChangedForLiveAndCaptureAdPlaybackStates(
+        adsLoader,
+        /* startAdsLoader= */ true,
+        /* windowOffsetInFirstPeriodUs= */ 0L,
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:9\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:00:00.000Z\n"
+            + "#EXTINF:9,\n"
+            + "main0.ts\n"
+            + "#EXTINF:9,\n"
+            + "main0.ts\n"
+            + "#EXTINF:9,\n" // ends at pos 26_999
+            + "main0.ts"
+            + "\n",
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:9\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:00:09.000Z\n"
+            + "#EXTINF:9,\n"
+            + "main0.ts\n"
+            + "#EXTINF:9,\n"
+            + "main0.ts"
+            + "\n"
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad1-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:00:27.000Z\","
+            + "DURATION=20.123,"
+            + "X-ASSET-LIST=\"http://example.com/media-1-0.ts\""
+            + "\n"
+            + "#EXTINF:9,\n" // Starts at pos 18 in second window; at pos 27 in first window.
+            + "main0.ts"
+            + "\n");
+
+    runMainLooperUntil(assetListLoadingListener::completed, TIMEOUT_MS, Clock.DEFAULT);
+    ArgumentCaptor<AdPlaybackState> captor = ArgumentCaptor.forClass(AdPlaybackState.class);
+    verify(mockEventListener, times(3)).onAdPlaybackState(captor.capture());
+    assertThat(captor.getAllValues().get(2).getAdGroup(0).mediaItems[0])
+        .isEqualTo(
+            new MediaItem.Builder()
+                .setUri("http://0")
+                .setMimeType(MimeTypes.APPLICATION_M3U8)
+                .build());
+  }
+
+  @Test
+  public void
       handleContentTimelineChanged_startPositionAfterMidRollTimeUs_resolvesAndSchedulesMidRoll()
           throws IOException, TimeoutException {
     String playlistString =
@@ -2827,7 +2888,11 @@ public class HlsInterstitialsAdsLoaderTest {
         .inOrder();
     InOrder inOrder = inOrder(mockPlayer);
     inOrder.verify(mockPlayer).addListener(any());
-    verifyTimelineUpdate(inOrder, mockPlayer, /* verifyMessageScheduled= */ false);
+    verifyTimelineUpdate(
+        inOrder,
+        mockPlayer,
+        /* verifyMessageScheduled= */ false,
+        /* currentTimelineRequestCount= */ 1);
     verifyAssetListLoadCompleted(inOrder, mockPlayer, /* verifyMessageScheduled= */ false);
     inOrder.verifyNoMoreInteractions();
   }
@@ -2863,6 +2928,7 @@ public class HlsInterstitialsAdsLoaderTest {
             + "X-ASSET-LIST=\"http://example.com/assetlist-1-0.json\""
             + "\n";
     when(mockPlayer.getContentPosition()).thenReturn(0L);
+    when(mockPlayer.getCurrentMediaItemIndex()).thenReturn(1);
     PlayerMessage midRollPlayerMessage =
         new PlayerMessage(
             mock(PlayerMessage.Sender.class),
@@ -2899,7 +2965,11 @@ public class HlsInterstitialsAdsLoaderTest {
     assertThat(midRollPlayerMessage.getPositionMs()).isEqualTo(7_000L);
     InOrder inOrder = inOrder(mockPlayer);
     inOrder.verify(mockPlayer).addListener(any());
-    verifyTimelineUpdate(inOrder, mockPlayer, /* verifyMessageScheduled= */ false);
+    verifyTimelineUpdate(
+        inOrder,
+        mockPlayer,
+        /* verifyMessageScheduled= */ false,
+        /* currentTimelineRequestCount= */ 1);
     verifyAssetListLoadCompleted(inOrder, mockPlayer, /* verifyMessageScheduled= */ true);
     inOrder.verifyNoMoreInteractions();
   }
@@ -2978,7 +3048,11 @@ public class HlsInterstitialsAdsLoaderTest {
     assertThat(midRollPlayerMessage.getPositionMs()).isEqualTo(24_000L);
     InOrder inOrder = inOrder(mockPlayer);
     inOrder.verify(mockPlayer).addListener(any());
-    verifyTimelineUpdate(inOrder, mockPlayer, /* verifyMessageScheduled= */ false);
+    verifyTimelineUpdate(
+        inOrder,
+        mockPlayer,
+        /* verifyMessageScheduled= */ false,
+        /* currentTimelineRequestCount= */ 1);
     verifyAssetListLoadCompleted(inOrder, mockPlayer, /* verifyMessageScheduled= */ true);
     inOrder.verifyNoMoreInteractions();
   }
@@ -3351,7 +3425,11 @@ public class HlsInterstitialsAdsLoaderTest {
         .inOrder();
     InOrder inOrder = inOrder(mockPlayer);
     inOrder.verify(mockPlayer).addListener(any());
-    verifyTimelineUpdate(inOrder, mockPlayer, /* verifyMessageScheduled= */ false);
+    verifyTimelineUpdate(
+        inOrder,
+        mockPlayer,
+        /* verifyMessageScheduled= */ false,
+        /* currentTimelineRequestCount= */ 1);
     verifyAssetListLoadCompleted(inOrder, mockPlayer, /* verifyMessageScheduled= */ false);
     inOrder.verifyNoMoreInteractions();
   }
@@ -3443,7 +3521,11 @@ public class HlsInterstitialsAdsLoaderTest {
         .inOrder();
     InOrder inOrder = inOrder(mockPlayer);
     inOrder.verify(mockPlayer).addListener(any());
-    verifyTimelineUpdate(inOrder, mockPlayer, /* verifyMessageScheduled= */ false);
+    verifyTimelineUpdate(
+        inOrder,
+        mockPlayer,
+        /* verifyMessageScheduled= */ false,
+        /* currentTimelineRequestCount= */ 1);
     verifyAssetListLoadCompleted(inOrder, mockPlayer, /* verifyMessageScheduled= */ false);
     inOrder.verifyNoMoreInteractions();
   }
@@ -3490,7 +3572,11 @@ public class HlsInterstitialsAdsLoaderTest {
     ArgumentCaptor<Player.Listener> listener = ArgumentCaptor.forClass(Player.Listener.class);
     InOrder inOrder = inOrder(mockPlayer);
     inOrder.verify(mockPlayer).addListener(listener.capture());
-    verifyTimelineUpdate(inOrder, mockPlayer, /* verifyMessageScheduled= */ true);
+    verifyTimelineUpdate(
+        inOrder,
+        mockPlayer,
+        /* verifyMessageScheduled= */ true,
+        /* currentTimelineRequestCount= */ 1);
 
     listener.getValue().onTimelineChanged(Timeline.EMPTY, TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED);
 
@@ -3551,7 +3637,11 @@ public class HlsInterstitialsAdsLoaderTest {
     when(mockPlayer.getCurrentMediaItemIndex()).thenReturn(2);
     InOrder inOrder = inOrder(mockPlayer);
     // Timeline change schedules asset list resolution.
-    verifyTimelineUpdate(inOrder, mockPlayer, /* verifyMessageScheduled= */ false);
+    verifyTimelineUpdate(
+        inOrder,
+        mockPlayer,
+        /* verifyMessageScheduled= */ false,
+        /* currentTimelineRequestCount= */ 1);
     ArgumentCaptor<PlayerMessage.Target> targetCaptor =
         ArgumentCaptor.forClass(PlayerMessage.Target.class);
     inOrder.verify(mockPlayer).createMessage(targetCaptor.capture());
@@ -3749,9 +3839,12 @@ public class HlsInterstitialsAdsLoaderTest {
                 /* skipInfo= */ null))
         .inOrder();
     // Timeline change immediately starts asset list resolution.
-    verifyTimelineUpdate(inOrder, mockPlayer, /* verifyMessageScheduled= */ false);
+    verifyTimelineUpdate(
+        inOrder,
+        mockPlayer,
+        /* verifyMessageScheduled= */ false,
+        /* currentTimelineRequestCount= */ 2);
     // Position discontinuity during asset list loading.
-    inOrder.verify(mockPlayer).getCurrentTimeline();
     verifyAssetListLoadCompleted(inOrder, mockPlayer, /* verifyMessageScheduled= */ true);
     // Position discontinuity immediately starts asset list resolution.
     inOrder.verify(mockPlayer).getCurrentTimeline();
@@ -3949,7 +4042,11 @@ public class HlsInterstitialsAdsLoaderTest {
             Player.DISCONTINUITY_REASON_SEEK);
 
     assertThat(playerMessage.isCanceled()).isTrue();
-    verifyTimelineUpdate(inOrder, mockPlayer, /* verifyMessageScheduled= */ true);
+    verifyTimelineUpdate(
+        inOrder,
+        mockPlayer,
+        /* verifyMessageScheduled= */ true,
+        /* currentTimelineRequestCount= */ 1);
     // Position discontinuity to next media item cancels pending message.
     inOrder.verify(mockPlayer).getCurrentTimeline();
     inOrder.verifyNoMoreInteractions();
@@ -5112,7 +5209,11 @@ public class HlsInterstitialsAdsLoaderTest {
         .isEqualTo(AdPlaybackState.AD_STATE_SKIPPED);
     InOrder inOrder = inOrder(mockPlayer);
     inOrder.verify(mockPlayer).addListener(any());
-    verifyTimelineUpdate(inOrder, mockPlayer, /* verifyMessageScheduled= */ false);
+    verifyTimelineUpdate(
+        inOrder,
+        mockPlayer,
+        /* verifyMessageScheduled= */ false,
+        /* currentTimelineRequestCount= */ 2);
     verifyAssetListLoadCompleted(inOrder, mockPlayer, /* verifyMessageScheduled= */ false);
     inOrder.verifyNoMoreInteractions();
   }
@@ -5236,7 +5337,11 @@ public class HlsInterstitialsAdsLoaderTest {
         .isEqualTo(AdPlaybackState.AD_STATE_UNAVAILABLE);
     InOrder inOrder = inOrder(mockPlayer);
     inOrder.verify(mockPlayer).addListener(any());
-    verifyTimelineUpdate(inOrder, mockPlayer, /* verifyMessageScheduled= */ false);
+    verifyTimelineUpdate(
+        inOrder,
+        mockPlayer,
+        /* verifyMessageScheduled= */ false,
+        /* currentTimelineRequestCount= */ 2);
     verifyAssetListLoadCompleted(inOrder, mockPlayer, /* verifyMessageScheduled= */ true);
     inOrder.verifyNoMoreInteractions();
   }
@@ -5402,12 +5507,15 @@ public class HlsInterstitialsAdsLoaderTest {
               int adGroupIndex,
               int adIndexInAdGroup,
               AssetList assetList) {
-            // Skip the midroll group just before its asset list should be scheduled for resolution.
-            // Skipping then removes the pending asset list and the next mid roll is expected to be
-            // scheduled instead. The expected position when to trigger asset list loading is at
-            // position 'adGroup.timeUs - (3 * target duration)' 60_000 - 27_000 = 33_000L
-            adsLoader.setWithAvailableAdMediaItem(
-                /* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 0, availableMediaItem);
+            if (adGroupIndex == 0) {
+              // When the preroll asset resolution completes, set the midroll available just before
+              // its asset list should be scheduled. This removes the pending asset list and the
+              // post roll is expected to be scheduled instead. The expected position when to
+              // trigger asset list loading is at position
+              // 'durationUs - (3 * target duration)' 60_000 - 27_000 = 33_000L
+              adsLoader.setWithAvailableAdMediaItem(
+                  /* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 0, availableMediaItem);
+            }
           }
         });
     when(mockPlayer.getContentPosition()).thenReturn(0L);
@@ -5428,7 +5536,8 @@ public class HlsInterstitialsAdsLoaderTest {
         /* windowPositionInPeriodUs= */ 0,
         /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE);
 
-    runMainLooperUntil(assetListLoadingListener::completed, TIMEOUT_MS, Clock.DEFAULT);
+    runMainLooperUntil(
+        () -> midRollPlayerMessage.getPositionMs() != C.TIME_UNSET, TIMEOUT_MS, Clock.DEFAULT);
     verify(mockAdsLoaderListener)
         .onAssetListLoadCompleted(eq(contentMediaItem), eq("adsId"), eq(0), eq(0), any());
     // asset list load trigger position is at 'adGroup.timeUs - (3 * target duration)'
@@ -5460,7 +5569,11 @@ public class HlsInterstitialsAdsLoaderTest {
         .isEqualTo(AdPlaybackState.AD_STATE_UNAVAILABLE);
     InOrder inOrder = inOrder(mockPlayer);
     inOrder.verify(mockPlayer).addListener(any());
-    verifyTimelineUpdate(inOrder, mockPlayer, /* verifyMessageScheduled= */ false);
+    verifyTimelineUpdate(
+        inOrder,
+        mockPlayer,
+        /* verifyMessageScheduled= */ false,
+        /* currentTimelineRequestCount= */ 2);
     verifyAssetListLoadCompleted(inOrder, mockPlayer, /* verifyMessageScheduled= */ true);
     inOrder.verifyNoMoreInteractions();
   }
@@ -6407,7 +6520,6 @@ public class HlsInterstitialsAdsLoaderTest {
             .setPlaceholder(true)
             .setDynamic(true)
             .setDurationUs(C.TIME_UNSET)
-            .setDurationUs(durationUs)
             .setWindowPositionInFirstPeriodUs(windowPositionInPeriodUs)
             .build();
     when(mockPlayer.getCurrentTimeline()).thenReturn(new FakeTimeline(initialWindows));
@@ -6422,8 +6534,15 @@ public class HlsInterstitialsAdsLoaderTest {
     // Notify ads loader about the media playlist.
     HlsManifest hlsManifest =
         new HlsManifest(/* multivariantPlaylist= */ null, contentMediaPlaylist);
+    TimelineWindowDefinition contentWindowWithoutAds =
+        contentWindowDefinition
+            .buildUpon()
+            .setDurationUs(durationUs)
+            .setWindowPositionInFirstPeriodUs(windowPositionInPeriodUs)
+            .setWindowStartTimeUs(contentMediaPlaylist.startTimeUs)
+            .build();
     adsLoader.handleContentTimelineChanged(
-        adsMediaSource, new FakeTimeline(new Object[] {hlsManifest}, initialWindows[windowIndex]));
+        adsMediaSource, new FakeTimeline(new Object[] {hlsManifest}, contentWindowWithoutAds));
 
     ArgumentCaptor<AdPlaybackState> adPlaybackState =
         ArgumentCaptor.forClass(AdPlaybackState.class);
@@ -6436,11 +6555,8 @@ public class HlsInterstitialsAdsLoaderTest {
             .setMediaItem(MediaItem.fromUri("http://example.com/"))
             .build());
     windowsAfterTimelineChange[windowIndex] =
-        contentWindowDefinition
+        contentWindowWithoutAds
             .buildUpon()
-            .setDurationUs(durationUs)
-            .setWindowStartTimeUs(contentMediaPlaylist.startTimeUs)
-            .setWindowPositionInFirstPeriodUs(windowPositionInPeriodUs)
             .setAdPlaybackStates(ImmutableList.of(adPlaybackState.getValue()))
             .build();
     when(mockPlayer.getCurrentTimeline()).thenReturn(new FakeTimeline(windowsAfterTimelineChange));
@@ -6448,9 +6564,13 @@ public class HlsInterstitialsAdsLoaderTest {
   }
 
   private static void verifyTimelineUpdate(
-      InOrder inOrder, ExoPlayer mockPlayer, boolean verifyMessageScheduled) {
+      InOrder inOrder,
+      ExoPlayer mockPlayer,
+      boolean verifyMessageScheduled,
+      int currentTimelineRequestCount) {
     inOrder.verify(mockPlayer).getCurrentMediaItem();
-    inOrder.verify(mockPlayer).getContentPosition();
+    inOrder.verify(mockPlayer).getCurrentPeriodIndex();
+    inOrder.verify(mockPlayer, times(currentTimelineRequestCount)).getCurrentTimeline();
     if (verifyMessageScheduled) {
       inOrder.verify(mockPlayer).createMessage(any());
     }
@@ -6461,7 +6581,6 @@ public class HlsInterstitialsAdsLoaderTest {
     inOrder.verify(mockPlayer).getCurrentMediaItem();
     inOrder.verify(mockPlayer).getContentPosition();
     inOrder.verify(mockPlayer).getCurrentTimeline();
-    inOrder.verify(mockPlayer).getCurrentPeriodIndex();
     inOrder.verify(mockPlayer).getCurrentMediaItemIndex();
     if (verifyMessageScheduled) {
       inOrder.verify(mockPlayer).createMessage(any());
