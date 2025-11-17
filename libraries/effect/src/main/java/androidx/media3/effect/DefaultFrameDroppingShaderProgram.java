@@ -78,7 +78,6 @@ import androidx.media3.common.util.Size;
       copyTextureToPreviousFrame(glObjectsProvider, inputTexture, presentationTimeUs);
       queuePreviousFrame(glObjectsProvider);
       getInputListener().onInputFrameProcessed(inputTexture);
-      getInputListener().onReadyToAcceptInputFrame();
       return;
     }
 

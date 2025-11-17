@@ -74,6 +74,7 @@ import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Message;
 import android.util.Pair;
+import android.view.SurfaceView;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.Effect;
@@ -97,6 +98,7 @@ import androidx.media3.effect.Contrast;
 import androidx.media3.effect.DefaultGlObjectsProvider;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.FrameCache;
+import androidx.media3.effect.FrameDropEffect;
 import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.Presentation;
 import androidx.media3.effect.RgbFilter;
@@ -114,6 +116,7 @@ import androidx.media3.test.utils.TestSpeedProvider;
 import androidx.media3.test.utils.TestUtil;
 import androidx.media3.transformer.AssetLoader.CompositionSettings;
 import androidx.test.core.app.ApplicationProvider;
+import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SdkSuppress;
 import com.google.common.collect.ImmutableList;
@@ -127,6 +130,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -145,13 +149,25 @@ public class TransformerEndToEndTest {
   private final Context context = ApplicationProvider.getApplicationContext();
   @Rule public final TestName testName = new TestName();
 
+  @Rule
+  public ActivityScenarioRule<SurfaceTestActivity> rule =
+      new ActivityScenarioRule<>(SurfaceTestActivity.class);
+
+  private SurfaceView surfaceView;
+
   private String testId;
 
   private volatile @MonotonicNonNull TextureAssetLoader textureAssetLoader;
 
   @Before
-  public void setUpTestId() {
+  public void setUp() {
     testId = testName.getMethodName();
+    rule.getScenario().onActivity(activity -> surfaceView = activity.getSurfaceView());
+  }
+
+  @After
+  public void tearDown() {
+    rule.getScenario().close();
   }
 
   @Test
@@ -2664,6 +2680,42 @@ public class TransformerEndToEndTest {
         new MetadataRetriever.Builder(context, MediaItem.fromUri(result.filePath)).build();
     long actualDurationUs = metadataRetriever.retrieveDurationUs().get();
     assertThat(actualDurationUs).isWithin(50_000).of(1_000_000);
+  }
+
+  @Test
+  public void export_withDefaultFrameDroppingAndPresentation_succeeds() throws Exception {
+    Transformer transformer = new Transformer.Builder(context).build();
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
+            .setEffects(
+                new Effects(
+                    /* audioProcessors= */ ImmutableList.of(),
+                    /* videoEffects= */ ImmutableList.of(
+                        FrameDropEffect.createDefaultFrameDropEffect(30f),
+                        Presentation.createForShortSide(480))))
+            .build();
+
+    new TransformerAndroidTestRunner.Builder(context, transformer).build().run(testId, item);
+  }
+
+  @Test
+  public void export_withDefaultFrameDroppingAndPresentationWithDebugPreview_succeeds()
+      throws Exception {
+    Transformer transformer =
+        new Transformer.Builder(context)
+            .setDebugViewProvider((width, height) -> surfaceView)
+            .build();
+    EditedMediaItem item =
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
+            .setEffects(
+                new Effects(
+                    /* audioProcessors= */ ImmutableList.of(),
+                    /* videoEffects= */ ImmutableList.of(
+                        FrameDropEffect.createDefaultFrameDropEffect(30f),
+                        Presentation.createForShortSide(480))))
+            .build();
+
+    new TransformerAndroidTestRunner.Builder(context, transformer).build().run(testId, item);
   }
 
   @Test
