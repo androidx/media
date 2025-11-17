@@ -63,6 +63,7 @@ import androidx.media3.effect.MultipleInputVideoGraph
 import androidx.media3.effect.OverlayEffect
 import androidx.media3.effect.Presentation
 import androidx.media3.effect.RgbFilter
+import androidx.media3.effect.SingleContextGlObjectsProvider
 import androidx.media3.effect.StaticOverlaySettings
 import androidx.media3.transformer.Composition
 import androidx.media3.transformer.CompositionPlayer
@@ -117,9 +118,7 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
   private val glExecutorService: ExecutorService by lazy {
     Util.newSingleThreadExecutor("CompositionDemo::GlThread")
   }
-  private val glObjectsProvider: GlObjectsProvider by lazy {
-    DemoRenderingPacketConsumer.SingleContextGlObjectsProvider()
-  }
+  private val glObjectsProvider: GlObjectsProvider by lazy { SingleContextGlObjectsProvider() }
   private var transformer: Transformer? = null
   private var outputFile: File? = null
   private var exportStopwatch: Stopwatch =

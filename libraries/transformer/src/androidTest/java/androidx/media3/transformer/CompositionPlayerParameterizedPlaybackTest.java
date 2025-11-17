@@ -41,6 +41,7 @@ import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.GlTextureFrame;
 import androidx.media3.effect.MultipleInputVideoGraph;
 import androidx.media3.effect.PacketConsumer;
+import androidx.media3.effect.SingleContextGlObjectsProvider;
 import androidx.media3.effect.SingleInputVideoGraph;
 import androidx.media3.test.utils.RecordingPacketConsumer;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
@@ -453,7 +454,7 @@ public class CompositionPlayerParameterizedPlaybackTest {
               player =
                   new CompositionPlayer.Builder(context)
                       .setPacketConsumerFactory(packetConsumerFactory)
-                      .setGlObjectsProvider(new CompositionPlayer.SingleContextGlObjectsProvider())
+                      .setGlObjectsProvider(new SingleContextGlObjectsProvider())
                       .experimentalSetLateThresholdToDropInputUs(C.TIME_UNSET)
                       .build();
               // Set a surface on the player even though there is no UI on this test. We need a

@@ -15,7 +15,6 @@
  */
 package androidx.media3.transformer;
 
-import static androidx.media3.common.util.GlUtil.destroyEglContext;
 import static androidx.media3.common.util.Util.constrainValue;
 import static androidx.media3.common.util.Util.usToMs;
 import static androidx.media3.effect.DebugTraceUtil.COMPONENT_COMPOSITION_PLAYER;
@@ -36,9 +35,6 @@ import static java.lang.Math.min;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Bitmap;
-import android.opengl.EGLContext;
-import android.opengl.EGLDisplay;
-import android.opengl.EGLSurface;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Process;
@@ -54,7 +50,6 @@ import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.Format;
 import androidx.media3.common.GlObjectsProvider;
-import androidx.media3.common.GlTextureInfo;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaItem.ClippingConfiguration;
 import androidx.media3.common.PlaybackException;
@@ -73,7 +68,6 @@ import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.ConditionVariable;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.GlUtil;
-import androidx.media3.common.util.GlUtil.GlException;
 import androidx.media3.common.util.HandlerWrapper;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.Size;
@@ -2241,59 +2235,6 @@ public final class CompositionPlayer extends SimpleBasePlayer {
                   "Error processing video frames",
                   videoFrameProcessingException,
                   PlaybackException.ERROR_CODE_VIDEO_FRAME_PROCESSING_FAILED));
-    }
-  }
-
-  /**
-   * A {@link GlObjectsProvider} that reuses a single {@link EGLContext} across {@link
-   * #createEglContext} calls.
-   */
-  /* package */ static final class SingleContextGlObjectsProvider implements GlObjectsProvider {
-    private final GlObjectsProvider glObjectsProvider;
-    private @MonotonicNonNull EGLContext singleEglContext;
-
-    public SingleContextGlObjectsProvider() {
-      this.glObjectsProvider = new DefaultGlObjectsProvider();
-    }
-
-    @Override
-    public EGLContext createEglContext(
-        EGLDisplay eglDisplay, int openGlVersion, int[] configAttributes) throws GlException {
-      if (singleEglContext == null) {
-        singleEglContext =
-            glObjectsProvider.createEglContext(eglDisplay, openGlVersion, configAttributes);
-      }
-      return singleEglContext;
-    }
-
-    @Override
-    public EGLSurface createEglSurface(
-        EGLDisplay eglDisplay,
-        Object surface,
-        @C.ColorTransfer int colorTransfer,
-        boolean isEncoderInputSurface)
-        throws GlException {
-      return glObjectsProvider.createEglSurface(
-          eglDisplay, surface, colorTransfer, isEncoderInputSurface);
-    }
-
-    @Override
-    public EGLSurface createFocusedPlaceholderEglSurface(
-        EGLContext eglContext, EGLDisplay eglDisplay) throws GlException {
-      return glObjectsProvider.createFocusedPlaceholderEglSurface(eglContext, eglDisplay);
-    }
-
-    @Override
-    public GlTextureInfo createBuffersForTexture(int texId, int width, int height)
-        throws GlException {
-      return glObjectsProvider.createBuffersForTexture(texId, width, height);
-    }
-
-    @Override
-    public void release(EGLDisplay eglDisplay) throws GlException {
-      if (singleEglContext != null) {
-        destroyEglContext(eglDisplay, singleEglContext);
-      }
     }
   }
 }

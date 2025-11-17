@@ -19,22 +19,15 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Rect
-import android.opengl.EGLContext
-import android.opengl.EGLDisplay
-import android.opengl.EGLSurface
 import android.opengl.GLES20
 import android.view.Surface
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.withScale
 import androidx.core.util.Consumer
-import androidx.media3.common.C.ColorTransfer
-import androidx.media3.common.GlObjectsProvider
 import androidx.media3.common.GlTextureInfo
 import androidx.media3.common.util.ExperimentalApi
 import androidx.media3.common.util.GlUtil
-import androidx.media3.common.util.GlUtil.GlException
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.effect.DefaultGlObjectsProvider
 import androidx.media3.effect.GlTextureFrame
 import androidx.media3.effect.PacketConsumer
 import androidx.media3.effect.PacketConsumer.Packet
@@ -202,62 +195,5 @@ private constructor(
       this.bitmap = currentBitmap
     }
     return currentBitmap
-  }
-
-  /**
-   * A [GlObjectsProvider] that reuses a single [EGLContext] across [ ][.createEglContext] calls.
-   */
-  /* package */ class SingleContextGlObjectsProvider : GlObjectsProvider {
-    private val glObjectsProvider: GlObjectsProvider = DefaultGlObjectsProvider()
-    private var singleEglContext: EGLContext? = null
-
-    @Throws(GlException::class)
-    override fun createEglContext(
-      eglDisplay: EGLDisplay,
-      openGlVersion: Int,
-      configAttributes: IntArray,
-    ): EGLContext {
-      if (singleEglContext == null) {
-        singleEglContext =
-          glObjectsProvider.createEglContext(eglDisplay, openGlVersion, configAttributes)
-      }
-      return singleEglContext!!
-    }
-
-    @Throws(GlException::class)
-    override fun createEglSurface(
-      eglDisplay: EGLDisplay,
-      surface: Any,
-      colorTransfer: @ColorTransfer Int,
-      isEncoderInputSurface: Boolean,
-    ): EGLSurface {
-      return glObjectsProvider.createEglSurface(
-        eglDisplay,
-        surface,
-        colorTransfer,
-        isEncoderInputSurface,
-      )
-    }
-
-    @Throws(GlException::class)
-    override fun createFocusedPlaceholderEglSurface(
-      eglContext: EGLContext,
-      eglDisplay: EGLDisplay,
-    ): EGLSurface {
-      return glObjectsProvider.createFocusedPlaceholderEglSurface(eglContext, eglDisplay)
-    }
-
-    @Throws(GlException::class)
-    override fun createBuffersForTexture(texId: Int, width: Int, height: Int): GlTextureInfo {
-      return glObjectsProvider.createBuffersForTexture(texId, width, height)
-    }
-
-    @Throws(GlException::class)
-    override fun release(eglDisplay: EGLDisplay) {
-      if (singleEglContext != null) {
-        glObjectsProvider.release(eglDisplay)
-      }
-      singleEglContext = null
-    }
   }
 }
