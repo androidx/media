@@ -34,6 +34,7 @@ import androidx.media3.exoplayer.audio.AudioRendererEventListener;
 import androidx.media3.exoplayer.mediacodec.MediaCodecAdapter;
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
 import androidx.media3.exoplayer.metadata.MetadataOutput;
+import androidx.media3.exoplayer.source.ConcatenatingMediaSource2;
 import androidx.media3.exoplayer.text.TextOutput;
 import androidx.media3.exoplayer.video.MediaCodecVideoRenderer;
 import androidx.media3.exoplayer.video.VideoRendererEventListener;
@@ -77,6 +78,45 @@ public class ParseAv1SampleDependenciesPlaybackTest {
             .setUri(TEST_MP4_URI)
             .setClippingConfiguration(
                 new ClippingConfiguration.Builder().setStartPositionMs(200).build())
+            .build());
+
+    player.prepare();
+    player.play();
+    TestPlayerRunHelper.runUntilPlaybackState(player, Player.STATE_ENDED);
+    player.release();
+    surface.release();
+
+    DumpFileAsserts.assertOutput(
+        applicationContext,
+        playbackOutput,
+        /* dumpFile= */ "playbackdumps/av1SampleDependencies/clippedMediaItem.dump");
+  }
+
+  @Test
+  public void playback_withConcatenatedMediaSource2_skipNonReferenceInputSamples()
+      throws Exception {
+    Context applicationContext = ApplicationProvider.getApplicationContext();
+    FakeClock clock = new FakeClock(/* isAutoAdvancing= */ true);
+    CapturingRenderersFactory renderersFactory =
+        new CapturingRenderersFactory(applicationContext, clock);
+    renderersFactory.experimentalSetParseAv1SampleDependencies(true);
+    ExoPlayer player =
+        new ExoPlayer.Builder(applicationContext, renderersFactory).setClock(clock).build();
+    Surface surface = new Surface(new SurfaceTexture(/* texName= */ 1));
+    player.setVideoSurface(surface);
+    PlaybackOutput playbackOutput = PlaybackOutput.register(player, renderersFactory);
+    player.addMediaSource(
+        new ConcatenatingMediaSource2.Builder()
+            .useDefaultMediaSourceFactory(applicationContext)
+            .add(
+                new MediaItem.Builder()
+                    .setUri(TEST_MP4_URI)
+                    .setClippingConfiguration(
+                        new MediaItem.ClippingConfiguration.Builder()
+                            .setStartPositionMs(200)
+                            .build())
+                    .build(),
+                /* initialPlaceholderDurationMs= */ 1)
             .build());
 
     player.prepare();
