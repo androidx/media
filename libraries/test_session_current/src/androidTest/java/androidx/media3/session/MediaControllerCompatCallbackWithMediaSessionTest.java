@@ -1787,10 +1787,15 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
   @Test
   public void broadcastCustomCommand_cnSessionEventCalled() throws Exception {
     Bundle commandCallExtras = new Bundle();
-    commandCallExtras.putString("key-0", "value-0");
-    // Specify session command extras to see that they are NOT used.
+    commandCallExtras.putString("key-0", "value-0a");
+    commandCallExtras.putString("key-1", "value-1");
     Bundle sessionCommandExtras = new Bundle();
-    sessionCommandExtras.putString("key-0", "value-1");
+    sessionCommandExtras.putString("key-0", "value-0b");
+    sessionCommandExtras.putString("key-2", "value-2");
+    Bundle combinedExpectedExtras = new Bundle();
+    combinedExpectedExtras.putString("key-0", "value-0a");
+    combinedExpectedExtras.putString("key-1", "value-1");
+    combinedExpectedExtras.putString("key-2", "value-2");
     SessionCommand sessionCommand = new SessionCommand("custom_action", sessionCommandExtras);
     CountDownLatch latch = new CountDownLatch(1);
     AtomicReference<String> receivedCommand = new AtomicReference<>();
@@ -1810,7 +1815,7 @@ public class MediaControllerCompatCallbackWithMediaSessionTest {
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(receivedCommand.get()).isEqualTo("custom_action");
-    assertThat(TestUtils.equals(receivedCommandExtras.get(), commandCallExtras)).isTrue();
+    assertThat(TestUtils.equals(receivedCommandExtras.get(), combinedExpectedExtras)).isTrue();
   }
 
   @Test

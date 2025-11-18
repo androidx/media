@@ -1876,6 +1876,34 @@ public class MediaControllerWithMediaSessionCompatTest {
   }
 
   @Test
+  public void sendSessionEvent_callsOnCustomCommand() throws Exception {
+    CountDownLatch latch = new CountDownLatch(1);
+    AtomicReference<SessionCommand> commandRef = new AtomicReference<>();
+    AtomicReference<Bundle> argsRef = new AtomicReference<>();
+    MediaController.Listener listener =
+        new MediaController.Listener() {
+          @Override
+          public ListenableFuture<SessionResult> onCustomCommand(
+              MediaController controller, SessionCommand command, Bundle args) {
+            commandRef.set(command);
+            argsRef.set(args);
+            latch.countDown();
+            return Futures.immediateFuture(new SessionResult(RESULT_SUCCESS));
+          }
+        };
+    controllerTestRule.createController(session.getSessionToken(), listener);
+    Bundle extras = new Bundle();
+    extras.putString("key", "value");
+
+    session.sendSessionEvent("event", extras);
+
+    assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
+    assertThat(commandRef.get().customAction).isEqualTo("event");
+    TestUtils.equals(commandRef.get().customExtras, extras);
+    TestUtils.equals(argsRef.get(), extras);
+  }
+
+  @Test
   public void getCurrentPosition_byDefault_returnsZero() throws Exception {
     MediaController controller = controllerTestRule.createController(session.getSessionToken());
     long currentPositionMs =

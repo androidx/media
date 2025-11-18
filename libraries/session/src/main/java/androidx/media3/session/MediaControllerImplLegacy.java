@@ -1914,14 +1914,13 @@ import org.checkerframework.checker.initialization.qual.UnderInitialization;
       if (event == null) {
         return;
       }
+      Bundle nonNullExtras = extras == null ? Bundle.EMPTY : extras;
       getInstance()
           .notifyControllerListener(
               listener ->
                   ignoreFuture(
                       listener.onCustomCommand(
-                          getInstance(),
-                          new SessionCommand(event, /* extras= */ Bundle.EMPTY),
-                          extras == null ? Bundle.EMPTY : extras)));
+                          getInstance(), new SessionCommand(event, nonNullExtras), nonNullExtras)));
     }
 
     @Override
