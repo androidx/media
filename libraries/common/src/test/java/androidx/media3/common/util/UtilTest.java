@@ -1036,6 +1036,21 @@ public class UtilTest {
   }
 
   @Test
+  public void getBytesFromHexString_caseInsensitive() {
+    assertThat(Util.getBytesFromHexString("12fC06")).isEqualTo(createByteArray(0x12, 0xFC, 0x06));
+  }
+
+  @Test
+  public void getBytesFromHexString_invalidCharacters_throws() {
+    assertThrows(IllegalArgumentException.class, () -> Util.getBytesFromHexString("FOOBAR"));
+  }
+
+  @Test
+  public void getBytesFromHexString_oddLength_throws() {
+    assertThrows(IllegalArgumentException.class, () -> Util.getBytesFromHexString("12F"));
+  }
+
+  @Test
   public void toHexString_returnsHexString() {
     byte[] bytes = createByteArray(0x12, 0xFC, 0x06);
 

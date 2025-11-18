@@ -40,7 +40,7 @@ public class AnnexBUtilsTest {
 
   @Test
   public void findNalUnits_noNalUnit_throws() {
-    ByteBuffer buffer = ByteBuffer.wrap(getBytesFromHexString("ABCDEFABC"));
+    ByteBuffer buffer = ByteBuffer.wrap(getBytesFromHexString("ABCDEFAB"));
 
     assertThrows(IllegalStateException.class, () -> AnnexBUtils.findNalUnits(buffer));
   }
