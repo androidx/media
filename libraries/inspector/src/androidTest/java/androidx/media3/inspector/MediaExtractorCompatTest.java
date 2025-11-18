@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.exoplayer;
+package androidx.media3.inspector;
 
 import static androidx.media3.common.C.PLAYREADY_UUID;
 import static androidx.media3.common.C.WIDEVINE_UUID;
@@ -218,17 +218,17 @@ public class MediaExtractorCompatTest {
     mediaExtractorCompat.selectTrack(1);
     assertReadSample(
         /* trackIndex= */ 0, /* timeUs= */ 4, /* size= */ 1, /* sampleData...= */ (byte) 1);
-    mediaExtractorCompat.advance();
+    assertThat(mediaExtractorCompat.advance()).isTrue();
     assertReadSample(
         /* trackIndex= */ 1, /* timeUs= */ 3, /* size= */ 1, /* sampleData...= */ (byte) 4);
-    mediaExtractorCompat.advance();
+    assertThat(mediaExtractorCompat.advance()).isTrue();
     assertReadSample(
         /* trackIndex= */ 0,
         /* timeUs= */ 2,
         /* size= */ 2,
         /* sampleData...= */ (byte) 2,
         (byte) 3);
-    mediaExtractorCompat.advance();
+    assertThat(mediaExtractorCompat.advance()).isTrue();
     assertReadSample(
         /* trackIndex= */ 1,
         /* timeUs= */ 1,
@@ -265,7 +265,7 @@ public class MediaExtractorCompatTest {
 
     assertThat(mediaExtractorCompat.getTrackCount()).isEqualTo(1);
     mediaExtractorCompat.selectTrack(0);
-    mediaExtractorCompat.advance();
+    assertThat(mediaExtractorCompat.advance()).isFalse();
     // After skipping the only sample, there should be none left, and getSampleTime and
     // getSampleSize should return -1.
     assertThat(mediaExtractorCompat.getSampleTime()).isEqualTo(-1);
@@ -416,14 +416,14 @@ public class MediaExtractorCompatTest {
     assertThat(byteBuffer.position()).isEqualTo(0);
     assertThat(byteBuffer.limit()).isEqualTo(2);
 
-    mediaExtractorCompat.advance();
+    assertThat(mediaExtractorCompat.advance()).isTrue();
     assertThat(mediaExtractorCompat.getSampleTime()).isEqualTo(2);
     assertThat(mediaExtractorCompat.getSampleSize()).isEqualTo(3);
     assertThat(mediaExtractorCompat.readSampleData(byteBuffer, /* offset= */ 2)).isEqualTo(3);
     assertThat(byteBuffer.position()).isEqualTo(2);
     assertThat(byteBuffer.limit()).isEqualTo(5);
 
-    mediaExtractorCompat.advance();
+    assertThat(mediaExtractorCompat.advance()).isTrue();
     assertThat(mediaExtractorCompat.getSampleTime()).isEqualTo(3);
     assertThat(mediaExtractorCompat.getSampleSize()).isEqualTo(4);
     assertThat(mediaExtractorCompat.readSampleData(byteBuffer, /* offset= */ 5)).isEqualTo(4);
@@ -469,11 +469,11 @@ public class MediaExtractorCompatTest {
     mediaExtractorCompat.selectTrack(/* trackIndex= */ 0);
 
     assertThat(allocator.getTotalBytesAllocated()).isEqualTo(individualAllocationSize);
-    mediaExtractorCompat.advance();
+    assertThat(mediaExtractorCompat.advance()).isTrue();
     assertThat(allocator.getTotalBytesAllocated()).isEqualTo(individualAllocationSize * 2);
-    mediaExtractorCompat.advance();
+    assertThat(mediaExtractorCompat.advance()).isTrue();
     assertThat(allocator.getTotalBytesAllocated()).isEqualTo(individualAllocationSize);
-    mediaExtractorCompat.advance();
+    assertThat(mediaExtractorCompat.advance()).isFalse();
     assertThat(allocator.getTotalBytesAllocated()).isEqualTo(0);
   }
 
@@ -523,13 +523,13 @@ public class MediaExtractorCompatTest {
     mediaExtractorCompat.selectTrack(/* trackIndex= */ 0);
     assertThat(mediaExtractorCompat.getSampleTime()).isEqualTo(7);
     assertThat(mediaExtractorCompat.getSampleSize()).isEqualTo(1);
-    mediaExtractorCompat.advance();
+    assertThat(mediaExtractorCompat.advance()).isTrue();
     assertThat(mediaExtractorCompat.getSampleTime()).isEqualTo(14);
     assertThat(mediaExtractorCompat.getSampleSize()).isEqualTo(1);
-    mediaExtractorCompat.advance();
+    assertThat(mediaExtractorCompat.advance()).isTrue();
     assertThat(mediaExtractorCompat.getSampleTime()).isEqualTo(21);
     assertThat(mediaExtractorCompat.getSampleSize()).isEqualTo(1);
-    mediaExtractorCompat.advance();
+    assertThat(mediaExtractorCompat.advance()).isFalse();
     assertThat(mediaExtractorCompat.getSampleTime()).isEqualTo(-1);
     assertThat(mediaExtractorCompat.getSampleSize()).isEqualTo(-1);
 
@@ -873,19 +873,19 @@ public class MediaExtractorCompatTest {
     assertThat(mediaExtractorCompat.getCachedDuration()).isEqualTo(10_000);
     assertThat(mediaExtractorCompat.hasCacheReachedEndOfStream()).isFalse();
 
-    mediaExtractorCompat.advance();
+    assertThat(mediaExtractorCompat.advance()).isTrue();
 
     // Remaining two samples queued, first sample read.
     assertThat(mediaExtractorCompat.getCachedDuration()).isEqualTo(210_000);
     assertThat(mediaExtractorCompat.hasCacheReachedEndOfStream()).isFalse();
 
-    mediaExtractorCompat.advance();
+    assertThat(mediaExtractorCompat.advance()).isTrue();
 
     // Second sample read.
     assertThat(mediaExtractorCompat.getCachedDuration()).isEqualTo(110_000);
     assertThat(mediaExtractorCompat.hasCacheReachedEndOfStream()).isFalse();
 
-    mediaExtractorCompat.advance();
+    assertThat(mediaExtractorCompat.advance()).isFalse();
 
     // Final sample read; no remaining samples, so cached duration is zero and has reached end of
     // stream.
@@ -934,13 +934,13 @@ public class MediaExtractorCompatTest {
     assertThat(mediaExtractorCompat.getCachedDuration()).isEqualTo(10_000);
     assertThat(mediaExtractorCompat.hasCacheReachedEndOfStream()).isFalse();
 
-    mediaExtractorCompat.advance();
+    assertThat(mediaExtractorCompat.advance()).isTrue();
 
     // All samples queued, first sample read.
     assertThat(mediaExtractorCompat.getCachedDuration()).isEqualTo(310_000);
     assertThat(mediaExtractorCompat.hasCacheReachedEndOfStream()).isFalse();
 
-    mediaExtractorCompat.advance();
+    assertThat(mediaExtractorCompat.advance()).isFalse();
 
     // Second sample read; remaining samples are from an unselected track and are discarded.
     assertThat(mediaExtractorCompat.getCachedDuration()).isEqualTo(0);
@@ -989,26 +989,26 @@ public class MediaExtractorCompatTest {
     assertThat(mediaExtractorCompat.getCachedDuration()).isEqualTo(10_000);
     assertThat(mediaExtractorCompat.hasCacheReachedEndOfStream()).isFalse();
 
-    mediaExtractorCompat.advance();
-    mediaExtractorCompat.advance();
+    assertThat(mediaExtractorCompat.advance()).isTrue();
+    assertThat(mediaExtractorCompat.advance()).isTrue();
 
     // All samples queued, first and second sample read.
     assertThat(mediaExtractorCompat.getCachedDuration()).isEqualTo(310_000);
     assertThat(mediaExtractorCompat.hasCacheReachedEndOfStream()).isFalse();
 
-    mediaExtractorCompat.advance();
+    assertThat(mediaExtractorCompat.advance()).isTrue();
 
     // Third sample read.
     assertThat(mediaExtractorCompat.getCachedDuration()).isEqualTo(210_000);
     assertThat(mediaExtractorCompat.hasCacheReachedEndOfStream()).isFalse();
 
-    mediaExtractorCompat.advance();
+    assertThat(mediaExtractorCompat.advance()).isTrue();
 
     // Fourth sample read.
     assertThat(mediaExtractorCompat.getCachedDuration()).isEqualTo(110_000);
     assertThat(mediaExtractorCompat.hasCacheReachedEndOfStream()).isFalse();
 
-    mediaExtractorCompat.advance();
+    assertThat(mediaExtractorCompat.advance()).isFalse();
 
     // Final sample read; no remaining samples, so cached duration is zero and has reached end of
     // stream.

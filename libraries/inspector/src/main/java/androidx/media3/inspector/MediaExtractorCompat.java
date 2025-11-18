@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.exoplayer;
+package androidx.media3.inspector;
 
 import static androidx.annotation.VisibleForTesting.NONE;
 
@@ -35,6 +35,7 @@ import androidx.media3.common.DrmInitData;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DefaultDataSource;
+import androidx.media3.exoplayer.MediaExtractorCompatInternal;
 import androidx.media3.exoplayer.source.UnrecognizedInputFormatException;
 import androidx.media3.exoplayer.upstream.Allocator;
 import androidx.media3.extractor.DefaultExtractorsFactory;
@@ -49,9 +50,9 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * @deprecated Use {@code androidx.media3.inspector.MediaExtractorCompat} instead.
+ * A drop-in replacement for {@link MediaExtractor} that provides similar functionality, based on
+ * the {@code media3.extractor} logic.
  */
-@Deprecated
 @UnstableApi
 public final class MediaExtractorCompat {
 

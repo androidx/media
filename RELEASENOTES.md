@@ -33,6 +33,11 @@
         is not seekable (e.g., for streams of unknown length)
         ([#2848](https://github.com/androidx/media/issues/2848)).
 *   Inspector:
+    *   Add `androidx.media3.inspector.MediaExtractorCompat`, a drop-in
+        replacement for the platform's `android.media.MediaExtractor` that
+        provides a way to extract raw, encoded media samples from a media file.
+        The existing `androidx.media3.exoplayer.MediaExtractorCompat` is now
+        deprecated in favor of this new class.
 *   Audio:
 *   Video:
 *   Text:

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package androidx.media3.exoplayer;
+package androidx.media3.inspector;
 
 import static androidx.media3.common.C.CENC_TYPE_cenc;
 import static androidx.media3.common.C.WIDEVINE_UUID;
@@ -74,7 +74,7 @@ import org.junit.runners.Parameterized.Parameters;
 @RunWith(Parameterized.class)
 public class MediaExtractorContractTest {
 
-  private static final String AUTHORITY = "androidx.media3.exoplayer.test.AssetContentProvider";
+  private static final String AUTHORITY = "androidx.media3.inspector.test.AssetContentProvider";
 
   @Parameters(name = "{0}")
   public static ImmutableList<Function<Context, MediaExtractorProxy>>
