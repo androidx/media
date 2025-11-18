@@ -631,7 +631,10 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
         else -> 1 // Sequence
       }
     // TODO(b/417365294): Improve how sequences are built
-    val videoSequenceBuilders = MutableList(numSequences) { EditedMediaItemSequence.Builder() }
+    val videoSequenceBuilders =
+      MutableList(numSequences) {
+        EditedMediaItemSequence.Builder().experimentalSetForceAudioTrack(true)
+      }
     val videoSequences = mutableListOf<EditedMediaItemSequence>()
     for (sequenceIndex in 0 until numSequences) {
       var hasItem = false
