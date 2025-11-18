@@ -435,7 +435,7 @@ public class MediaExtractorCompatInternal {
    * All selected tracks seek near the requested {@code timeUs} according to the specified {@code
    * mode}.
    */
-  public void seekTo(long timeUs, @MediaExtractorCompat.SeekMode int mode) {
+  public void seekTo(long timeUs, int mode) {
     if (seekMap == null) {
       return;
     }
