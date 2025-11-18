@@ -73,15 +73,30 @@ class ShuffleButtonStateTest {
   }
 
   @Test
-  fun onClick_stateBecomesDisabledAfterFirstClick_throwsException() {
+  fun onClick_stateBecomesDisabled_throwsException() {
     val player = createReadyPlayerWithTwoItems()
-    val state = ShuffleButtonState(player)
+    lateinit var state: ShuffleButtonState
+    composeTestRule.setContent { state = rememberShuffleButtonState(player) }
 
-    state.onClick()
-    // simulate state becoming disabled atomically, i.e. without yet receiving the relevant event
     player.removeCommands(Player.COMMAND_SET_SHUFFLE_MODE)
+    composeTestRule.waitForIdle()
 
     assertThrows(IllegalStateException::class.java) { state.onClick() }
+  }
+
+  @Test
+  fun onClick_justAfterCommandRemovedWhileStillEnabled_isNoOp() {
+    val player = createReadyPlayerWithTwoItems()
+    player.shuffleModeEnabled = true
+    lateinit var state: ShuffleButtonState
+    composeTestRule.setContent { state = rememberShuffleButtonState(player) }
+
+    // Simulate command becoming disabled without yet receiving the event callback
+    player.removeCommands(Player.COMMAND_SET_SHUFFLE_MODE)
+    check(state.isEnabled)
+    state.onClick()
+
+    assertThat(player.shuffleModeEnabled).isEqualTo(true)
   }
 
   @Test

@@ -25,7 +25,6 @@ import androidx.compose.runtime.setValue
 import androidx.media3.common.Player
 import androidx.media3.common.listenTo
 import androidx.media3.common.util.UnstableApi
-import com.google.common.base.Preconditions.checkState
 
 /**
  * Remember the value of [ShuffleButtonState] created based on the passed [Player] and launch a
@@ -66,8 +65,10 @@ class ShuffleButtonState(private val player: Player) {
    * @see [Player.COMMAND_SET_SHUFFLE_MODE]
    */
   fun onClick() {
-    checkState(isShuffleEnabled(player), "COMMAND_SET_SHUFFLE_MODE is not available.")
-    player.shuffleModeEnabled = !player.shuffleModeEnabled
+    check(isEnabled)
+    if (player.isCommandAvailable(Player.COMMAND_SET_SHUFFLE_MODE)) {
+      player.shuffleModeEnabled = !player.shuffleModeEnabled
+    }
   }
 
   /**

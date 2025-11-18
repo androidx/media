@@ -25,7 +25,6 @@ import androidx.compose.runtime.setValue
 import androidx.media3.common.Player
 import androidx.media3.common.listenTo
 import androidx.media3.common.util.UnstableApi
-import com.google.common.base.Preconditions.checkState
 
 /**
  * Remembers the value of [PreviousButtonState] created based on the passed [Player] and launch a
@@ -65,8 +64,10 @@ class PreviousButtonState(private val player: Player) {
    * @see [Player.COMMAND_SEEK_TO_PREVIOUS]
    */
   fun onClick() {
-    checkState(isPreviousEnabled(player), "COMMAND_SEEK_TO_PREVIOUS is not available.")
-    player.seekToPrevious()
+    check(isEnabled)
+    if (player.isCommandAvailable(Player.COMMAND_SEEK_TO_PREVIOUS)) {
+      player.seekToPrevious()
+    }
   }
 
   /**

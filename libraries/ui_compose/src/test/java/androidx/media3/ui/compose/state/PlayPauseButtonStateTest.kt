@@ -77,15 +77,29 @@ class PlayPauseButtonStateTest {
   }
 
   @Test
-  fun onClick_stateBecomesDisabledAfterFirstClick_throwsException() {
+  fun onClick_stateBecomesDisabled_throwsException() {
     val player = createReadyPlayerWithTwoItems()
-    val state = PlayPauseButtonState(player)
+    lateinit var state: PlayPauseButtonState
+    composeTestRule.setContent { state = rememberPlayPauseButtonState(player) }
 
-    state.onClick()
-    // simulate state becoming disabled atomically, i.e. without yet receiving the relevant event
     player.removeCommands(Player.COMMAND_PLAY_PAUSE)
+    composeTestRule.waitForIdle()
 
     assertThrows(IllegalStateException::class.java) { state.onClick() }
+  }
+
+  @Test
+  fun onClick_justAfterCommandRemovedWhileStillEnabled_isNoOp() {
+    val player = createReadyPlayerWithTwoItems()
+    lateinit var state: PlayPauseButtonState
+    composeTestRule.setContent { state = rememberPlayPauseButtonState(player) }
+
+    // Simulate command becoming disabled without yet receiving the event callback
+    player.removeCommands(Player.COMMAND_PLAY_PAUSE)
+    check(state.isEnabled)
+    state.onClick()
+
+    assertThat(player.playWhenReady).isTrue()
   }
 
   @Test

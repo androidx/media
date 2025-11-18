@@ -26,7 +26,6 @@ import androidx.compose.runtime.setValue
 import androidx.media3.common.Player
 import androidx.media3.common.listenTo
 import androidx.media3.common.util.UnstableApi
-import com.google.common.base.Preconditions.checkState
 
 /**
  * Remembers the value of [SeekBackButtonState] created based on the passed [Player] and launch a
@@ -68,8 +67,10 @@ class SeekBackButtonState(private val player: Player) {
    * @see [Player.COMMAND_SEEK_BACK]
    */
   fun onClick() {
-    checkState(isSeekBackEnabled(player), "COMMAND_SEEK_BACK is not available.")
-    player.seekBack()
+    check(isEnabled)
+    if (player.isCommandAvailable(Player.COMMAND_SEEK_BACK)) {
+      player.seekBack()
+    }
   }
 
   /**
