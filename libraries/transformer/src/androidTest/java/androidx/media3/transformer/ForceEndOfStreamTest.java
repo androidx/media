@@ -44,6 +44,7 @@ import androidx.media3.transformer.AndroidTestUtil.DelayEffect;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import java.io.File;
 import java.nio.ByteBuffer;
@@ -88,7 +89,7 @@ public class ForceEndOfStreamTest {
     ExportTestResult testResult =
         new TransformerAndroidTestRunner.Builder(context, buildTransformer(context, framesToSkip))
             .build()
-            .run(testId, createComposition(MediaItem.fromUri(MP4_ASSET.uri)));
+            .run(testId, createForcedTranscodeEditedMediaItem(MediaItem.fromUri(MP4_ASSET.uri)));
 
     assertThat(testResult.exportResult.videoFrameCount)
         .isEqualTo(MP4_ASSET.videoFrameCount - framesToSkip);
@@ -110,7 +111,7 @@ public class ForceEndOfStreamTest {
         new TransformerAndroidTestRunner.Builder(
                 context, buildTransformer(context, /* framesToSkip= */ 0))
             .build()
-            .run(testId, createComposition(MediaItem.fromUri(MP4_ASSET.uri)));
+            .run(testId, createForcedTranscodeEditedMediaItem(MediaItem.fromUri(MP4_ASSET.uri)));
 
     assertThat(testResult.exportResult.videoFrameCount).isEqualTo(MP4_ASSET.videoFrameCount);
     assertThat(new File(testResult.filePath).length()).isGreaterThan(0);
@@ -138,7 +139,7 @@ public class ForceEndOfStreamTest {
             .build();
     Composition composition =
         new Composition.Builder(
-                new EditedMediaItemSequence.Builder()
+                new EditedMediaItemSequence.Builder(ImmutableSet.of(C.TRACK_TYPE_VIDEO))
                     .addItem(
                         new EditedMediaItem.Builder(mediaItemClippedTo30Frames)
                             .setRemoveAudio(true)
@@ -175,14 +176,8 @@ public class ForceEndOfStreamTest {
         .build();
   }
 
-  private static Composition createComposition(MediaItem mediaItem) {
-    return new Composition.Builder(
-            new EditedMediaItemSequence.Builder(
-                    new EditedMediaItem.Builder(mediaItem)
-                        .setEffects(FORCE_TRANSCODE_VIDEO_EFFECTS)
-                        .build())
-                .build())
-        .build();
+  private static EditedMediaItem createForcedTranscodeEditedMediaItem(MediaItem mediaItem) {
+    return new EditedMediaItem.Builder(mediaItem).setEffects(FORCE_TRANSCODE_VIDEO_EFFECTS).build();
   }
 
   private static final class FrameDroppingDecoderFactory implements Codec.DecoderFactory {
