@@ -45,7 +45,7 @@ configure and build mpeghdec and the module's [JNI wrapper library][].
 [Install CMake]: https://developer.android.com/studio/projects/install-ndk
 [CMake]: https://cmake.org/
 [Ninja]: https://ninja-build.org
-[JNI wrapper library]: src/main/jni/mpeghdec_jni.cc
+[JNI wrapper library]: src/main/jni/mpegh_jni.cpp
 
 ## Build instructions (Windows)
 
