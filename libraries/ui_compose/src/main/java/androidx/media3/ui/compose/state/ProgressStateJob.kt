@@ -37,34 +37,41 @@ internal class ProgressStateJob(
   private val scheduledTask: () -> Unit,
 ) {
   private var updateJob: Job? = null
+  private var isObserving = false
 
   /**
    * Subscribes to updates from [Player.Events] to track changes of progress-related information in
    * an asynchronous way.
    */
   internal suspend fun observeProgress(): Nothing = coroutineScope {
-    // otherwise we don't update on recomposition of UI, only on Player.Events
+    isObserving = true
     cancelPendingUpdatesAndMaybeRelaunch()
-    player.listenTo(
-      Player.EVENT_IS_PLAYING_CHANGED,
-      Player.EVENT_POSITION_DISCONTINUITY,
-      Player.EVENT_TIMELINE_CHANGED,
-      Player.EVENT_PLAYBACK_PARAMETERS_CHANGED,
-      Player.EVENT_AVAILABLE_COMMANDS_CHANGED,
-    ) {
-      scheduledTask()
-      if (player.isCommandAvailable(Player.COMMAND_GET_CURRENT_MEDIA_ITEM)) {
+    try {
+      player.listenTo(
+        Player.EVENT_IS_PLAYING_CHANGED,
+        Player.EVENT_POSITION_DISCONTINUITY,
+        Player.EVENT_TIMELINE_CHANGED,
+        Player.EVENT_PLAYBACK_PARAMETERS_CHANGED,
+        Player.EVENT_AVAILABLE_COMMANDS_CHANGED,
+      ) {
         cancelPendingUpdatesAndMaybeRelaunch()
-      } else {
-        updateJob?.cancel()
       }
+    } finally {
+      isObserving = false
+      updateJob?.cancel()
     }
   }
 
+  /**
+   * Manually restarts the continuous progress update, for example if scheduling parameters changed.
+   */
   internal fun cancelPendingUpdatesAndMaybeRelaunch() {
-    updateJob?.cancel()
     scheduledTask()
-    if (shouldScheduleTask()) {
+    if (!isObserving) {
+      return
+    }
+    updateJob?.cancel()
+    if (player.isCommandAvailable(Player.COMMAND_GET_CURRENT_MEDIA_ITEM) && shouldScheduleTask()) {
       updateJob =
         scope.launch {
           while (isActive) {

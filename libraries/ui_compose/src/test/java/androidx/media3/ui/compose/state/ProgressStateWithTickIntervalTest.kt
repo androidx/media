@@ -16,6 +16,10 @@
 
 package androidx.media3.ui.compose.state
 
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.media3.common.C
@@ -260,6 +264,7 @@ class ProgressStateWithTickIntervalTest {
       assertThat(state.durationMs).isEqualTo(C.TIME_UNSET)
 
       player.addCommands(COMMAND_GET_CURRENT_MEDIA_ITEM)
+      composeTestRule.waitForIdle()
       advanceTimeByInclusive(2345.milliseconds)
 
       assertThat(state.currentPositionMs).isEqualTo(4000)
@@ -267,6 +272,7 @@ class ProgressStateWithTickIntervalTest {
       assertThat(state.durationMs).isEqualTo(10_000)
 
       player.removeCommands(COMMAND_GET_CURRENT_MEDIA_ITEM)
+      composeTestRule.waitForIdle()
       advanceTimeByInclusive(2345.milliseconds)
 
       assertThat(state.currentPositionMs).isEqualTo(0)
@@ -422,5 +428,37 @@ class ProgressStateWithTickIntervalTest {
       assertThat(state.durationMs).isEqualTo(10_000)
       assertThat(state.currentPositionMs).isEqualTo(10_000)
       assertThat(state.bufferedPositionMs).isEqualTo(10_000)
+    }
+
+  @Test
+  fun observe_goesOutOfScope_stopsUpdatingRegularly() =
+    runTest(testDispatcher) {
+      val player = createReadyPlayerWithSingleItem()
+      player.setPositionSupplierDrivenBy(testDispatcher.scheduler)
+      lateinit var state: ProgressStateWithTickInterval
+      lateinit var observeEnabled: MutableState<Boolean>
+      composeTestRule.setContent {
+        observeEnabled = remember { mutableStateOf(true) }
+        val testScope = rememberCoroutineScopeWithBackgroundCancellation()
+        state = remember { ProgressStateWithTickInterval(player, tickIntervalMs = 1000, testScope) }
+        LaunchedEffect(observeEnabled.value) {
+          if (observeEnabled.value) {
+            state.observe()
+          }
+        }
+      }
+
+      // Assert progress if clock advances.
+      advanceTimeByInclusive(1000.milliseconds)
+      assertThat(player.currentPosition).isEqualTo(1000)
+      assertThat(state.currentPositionMs).isEqualTo(1000)
+
+      // Stop observing and verify no further updates.
+      observeEnabled.value = false
+      composeTestRule.waitForIdle()
+      advanceTimeByInclusive(1000.milliseconds)
+
+      assertThat(player.currentPosition).isAtLeast(2000)
+      assertThat(state.currentPositionMs).isEqualTo(1000)
     }
 }

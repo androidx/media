@@ -16,8 +16,11 @@
 
 package androidx.media3.ui.compose.state
 
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableIntState
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -322,6 +325,31 @@ class ProgressStateWithTickCountTest {
     }
 
   @Test
+  fun updateTickCount_withoutObserving_doesNotUpdateRegularly() =
+    runTest(testDispatcher) {
+      val player = createReadyPlayerWithSingleItem()
+      player.setPositionSupplierDrivenBy(testDispatcher.scheduler)
+      lateinit var state: ProgressStateWithTickCount
+      composeTestRule.setContent {
+        val testScope = rememberCoroutineScopeWithBackgroundCancellation()
+        state = remember { ProgressStateWithTickCount(player, totalTickCount = 10, testScope) }
+      }
+
+      // Assert no progress in state even if clock advances.
+      advanceTimeByInclusive(1000.milliseconds)
+      assertThat(player.currentPosition).isEqualTo(1000)
+      assertThat(state.currentPositionProgress).isEqualTo(0f)
+
+      // Set new tick count and assert there is just a momentary update but no automatic progress
+      state.updateTotalTickCount(100)
+      composeTestRule.waitForIdle()
+      advanceTimeByInclusive(1000.milliseconds)
+
+      assertThat(player.currentPosition).isAtLeast(2000)
+      assertThat(state.currentPositionProgress).isEqualTo(0.1f)
+    }
+
+  @Test
   fun playerIdle_reportsInitialPlaceholderDataAndDoesNotBlockMainThread() =
     runTest(testDispatcher) {
       val player = FakePlayer(playbackState = Player.STATE_IDLE, playlist = listOf())
@@ -383,5 +411,37 @@ class ProgressStateWithTickCountTest {
       // After completing any pending updates to ensure the main thread is not blocked.
       assertThat(state.currentPositionProgress).isEqualTo(1f)
       assertThat(state.bufferedPositionProgress).isEqualTo(1f)
+    }
+
+  @Test
+  fun observe_goesOutOfScope_stopsUpdatingRegularly() =
+    runTest(testDispatcher) {
+      val player = createReadyPlayerWithSingleItem()
+      player.setPositionSupplierDrivenBy(testDispatcher.scheduler)
+      lateinit var state: ProgressStateWithTickCount
+      lateinit var observeEnabled: MutableState<Boolean>
+      composeTestRule.setContent {
+        observeEnabled = remember { mutableStateOf(true) }
+        val testScope = rememberCoroutineScopeWithBackgroundCancellation()
+        state = remember { ProgressStateWithTickCount(player, totalTickCount = 10, testScope) }
+        LaunchedEffect(observeEnabled.value) {
+          if (observeEnabled.value) {
+            state.observe()
+          }
+        }
+      }
+
+      // Assert progress if clock advances.
+      advanceTimeByInclusive(1000.milliseconds)
+      assertThat(player.currentPosition).isEqualTo(1000)
+      assertThat(state.currentPositionProgress).isEqualTo(0.1f)
+
+      // Stop observing and verify no further updates.
+      observeEnabled.value = false
+      composeTestRule.waitForIdle()
+      advanceTimeByInclusive(1000.milliseconds)
+
+      assertThat(player.currentPosition).isAtLeast(2000)
+      assertThat(state.currentPositionProgress).isEqualTo(0.1f)
     }
 }
