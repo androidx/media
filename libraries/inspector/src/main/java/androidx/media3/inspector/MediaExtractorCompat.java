@@ -32,6 +32,7 @@ import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.C;
 import androidx.media3.common.DrmInitData;
+import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DefaultDataSource;
@@ -55,6 +56,10 @@ import java.util.UUID;
  */
 @UnstableApi
 public final class MediaExtractorCompat {
+
+  static {
+    MediaLibraryInfo.registerModule("media3.inspector");
+  }
 
   /**
    * The seeking mode. One of {@link #SEEK_TO_PREVIOUS_SYNC}, {@link #SEEK_TO_NEXT_SYNC}, or {@link

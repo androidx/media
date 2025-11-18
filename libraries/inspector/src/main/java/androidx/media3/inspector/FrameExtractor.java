@@ -29,6 +29,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.Effect;
 import androidx.media3.common.GlObjectsProvider;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.util.NullableType;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.effect.DefaultGlObjectsProvider;
@@ -69,6 +70,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 @UnstableApi
 public final class FrameExtractor implements AutoCloseable {
+
+  static {
+    MediaLibraryInfo.registerModule("media3.inspector");
+  }
 
   /** A builder for {@link FrameExtractor} instances. */
   public static final class Builder {
