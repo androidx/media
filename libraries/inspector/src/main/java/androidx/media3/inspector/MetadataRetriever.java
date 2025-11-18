@@ -23,6 +23,7 @@ import android.content.Context;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.Timeline;
 import androidx.media3.common.util.Clock;
 import androidx.media3.common.util.UnstableApi;
@@ -45,6 +46,10 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
  */
 @UnstableApi
 public final class MetadataRetriever implements AutoCloseable {
+
+  static {
+    MediaLibraryInfo.registerModule("media3.inspector");
+  }
 
   /** Builder for {@link MetadataRetriever} instances. */
   public static final class Builder {
