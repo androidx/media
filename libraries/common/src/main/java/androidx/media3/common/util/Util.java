@@ -102,6 +102,7 @@ import androidx.media3.common.audio.AudioManagerCompat;
 import androidx.media3.common.audio.AudioProcessor;
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
+import com.google.common.io.BaseEncoding;
 import com.google.common.io.ByteStreams;
 import com.google.common.math.DoubleMath;
 import com.google.common.math.LongMath;
@@ -2079,15 +2080,7 @@ public final class Util {
    */
   @UnstableApi
   public static byte[] getBytesFromHexString(String hexString) {
-    byte[] data = new byte[hexString.length() / 2];
-    for (int i = 0; i < data.length; i++) {
-      int stringOffset = i * 2;
-      data[i] =
-          (byte)
-              ((Character.digit(hexString.charAt(stringOffset), 16) << 4)
-                  + Character.digit(hexString.charAt(stringOffset + 1), 16));
-    }
-    return data;
+    return BaseEncoding.base16().ignoreCase().decode(hexString);
   }
 
   /**
@@ -2098,13 +2091,7 @@ public final class Util {
    */
   @UnstableApi
   public static String toHexString(byte[] bytes) {
-    StringBuilder result = new StringBuilder(bytes.length * 2);
-    for (int i = 0; i < bytes.length; i++) {
-      result
-          .append(Character.forDigit((bytes[i] >> 4) & 0xF, 16))
-          .append(Character.forDigit(bytes[i] & 0xF, 16));
-    }
-    return result.toString();
+    return BaseEncoding.base16().lowerCase().encode(bytes);
   }
 
   @UnstableApi
