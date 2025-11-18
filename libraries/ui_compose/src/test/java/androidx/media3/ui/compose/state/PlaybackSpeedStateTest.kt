@@ -20,6 +20,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.media3.common.Player
 import androidx.media3.test.utils.FakePlayer
+import androidx.media3.ui.compose.testutils.createReadyPlayerWithTwoItems
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import org.junit.Assert.assertThrows
@@ -74,15 +75,30 @@ class PlaybackSpeedStateTest {
 
   @Test
   fun updatePlaybackSpeed_stateBecomesDisabled_throwsException() {
-    val player = FakePlayer()
+    val player = createReadyPlayerWithTwoItems()
+    player.setPlaybackSpeed(2f)
     lateinit var state: PlaybackSpeedState
-    composeTestRule.setContent { state = rememberPlaybackSpeedState(player = player) }
+    composeTestRule.setContent { state = rememberPlaybackSpeedState(player) }
 
-    state.updatePlaybackSpeed(1.5f)
-    // simulate state becoming disabled atomically, i.e. without yet receiving the relevant event
     player.removeCommands(Player.COMMAND_SET_SPEED_AND_PITCH)
+    composeTestRule.waitForIdle()
 
-    assertThrows(IllegalStateException::class.java) { state.updatePlaybackSpeed(2.5f) }
+    assertThrows(IllegalStateException::class.java) { state.updatePlaybackSpeed(1.5f) }
+  }
+
+  @Test
+  fun updatePlaybackSpeed_justAfterCommandRemovedWhileStillEnabled_isNoOp() {
+    val player = createReadyPlayerWithTwoItems()
+    player.setPlaybackSpeed(2f)
+    lateinit var state: PlaybackSpeedState
+    composeTestRule.setContent { state = rememberPlaybackSpeedState(player) }
+
+    // Simulate command becoming disabled without yet receiving the event callback
+    player.removeCommands(Player.COMMAND_SET_SPEED_AND_PITCH)
+    check(state.isEnabled)
+    state.updatePlaybackSpeed(1.5f)
+
+    assertThat(player.playbackParameters.speed).isEqualTo(2f)
   }
 
   @Test

@@ -76,15 +76,31 @@ class SeekBackButtonStateTest {
   }
 
   @Test
-  fun onClick_stateBecomesDisabledAfterFirstClick_throwsException() {
+  fun onClick_stateBecomesDisabled_throwsException() {
     val player = createReadyPlayerWithTwoItems()
-    val state = SeekBackButtonState(player)
+    lateinit var state: SeekBackButtonState
+    composeTestRule.setContent { state = rememberSeekBackButtonState(player) }
 
-    state.onClick()
-    // simulate state becoming disabled atomically, i.e. without yet receiving the relevant event
     player.removeCommands(Player.COMMAND_SEEK_BACK)
+    composeTestRule.waitForIdle()
 
     assertThrows(IllegalStateException::class.java) { state.onClick() }
+  }
+
+  @Test
+  fun onClick_justAfterCommandRemovedWhileStillEnabled_isNoOp() {
+    val player = createReadyPlayerWithTwoItems()
+    player.playWhenReady = false
+    player.setPosition(1000)
+    lateinit var state: SeekBackButtonState
+    composeTestRule.setContent { state = rememberSeekBackButtonState(player) }
+
+    // Simulate command becoming disabled without yet receiving the event callback
+    player.removeCommands(Player.COMMAND_SEEK_BACK)
+    check(state.isEnabled)
+    state.onClick()
+
+    assertThat(player.currentPosition).isEqualTo(1000)
   }
 
   @Test

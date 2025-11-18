@@ -88,13 +88,29 @@ class NextButtonStateTest {
   }
 
   @Test
-  fun onClick_stateBecomesDisabledAfterFirstClick_throwsException() {
+  fun onClick_stateBecomesDisabled_throwsException() {
     val player = createReadyPlayerWithTwoItems()
-    val state = NextButtonState(player)
+    lateinit var state: NextButtonState
+    composeTestRule.setContent { state = rememberNextButtonState(player) }
 
-    state.onClick()
+    player.removeCommands(Player.COMMAND_SEEK_TO_NEXT)
+    composeTestRule.waitForIdle()
 
     assertThrows(IllegalStateException::class.java) { state.onClick() }
+  }
+
+  @Test
+  fun onClick_justAfterCommandRemovedWhileStillEnabled_isNoOp() {
+    val player = createReadyPlayerWithTwoItems()
+    lateinit var state: NextButtonState
+    composeTestRule.setContent { state = rememberNextButtonState(player) }
+
+    // Simulate command becoming disabled without yet receiving the event callback
+    player.removeCommands(Player.COMMAND_SEEK_TO_NEXT)
+    check(state.isEnabled)
+    state.onClick()
+
+    assertThat(player.currentMediaItemIndex).isEqualTo(0)
   }
 
   @Test

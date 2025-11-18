@@ -20,6 +20,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.media3.common.Player
 import androidx.media3.test.utils.FakePlayer
+import androidx.media3.ui.compose.testutils.createReadyPlayerWithTwoItems
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import org.junit.Assert.assertThrows
@@ -71,15 +72,30 @@ class RepeatButtonStateTest {
   }
 
   @Test
-  fun onClick_stateBecomesDisabledAfterFirstClick_throwsException() {
-    val player = FakePlayer()
-    val state = RepeatButtonState(player)
+  fun onClick_stateBecomesDisabled_throwsException() {
+    val player = createReadyPlayerWithTwoItems()
+    lateinit var state: RepeatButtonState
+    composeTestRule.setContent { state = rememberRepeatButtonState(player) }
 
-    state.onClick()
-    // simulate state becoming disabled atomically, i.e. without yet receiving the relevant event
     player.removeCommands(Player.COMMAND_SET_REPEAT_MODE)
+    composeTestRule.waitForIdle()
 
     assertThrows(IllegalStateException::class.java) { state.onClick() }
+  }
+
+  @Test
+  fun onClick_justAfterCommandRemovedWhileStillEnabled_isNoOp() {
+    val player = createReadyPlayerWithTwoItems()
+    player.repeatMode = Player.REPEAT_MODE_ALL
+    lateinit var state: RepeatButtonState
+    composeTestRule.setContent { state = rememberRepeatButtonState(player) }
+
+    // Simulate command becoming disabled without yet receiving the event callback
+    player.removeCommands(Player.COMMAND_SET_REPEAT_MODE)
+    check(state.isEnabled)
+    state.onClick()
+
+    assertThat(player.repeatMode).isEqualTo(Player.REPEAT_MODE_ALL)
   }
 
   @Test

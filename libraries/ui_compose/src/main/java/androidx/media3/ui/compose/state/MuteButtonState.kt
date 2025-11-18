@@ -25,7 +25,6 @@ import androidx.compose.runtime.setValue
 import androidx.media3.common.Player
 import androidx.media3.common.listenTo
 import androidx.media3.common.util.UnstableApi
-import com.google.common.base.Preconditions.checkState
 
 /**
  * Remembers the value of [MuteButtonState] created based on the passed [Player] and launch a
@@ -70,8 +69,10 @@ class MuteButtonState(private val player: Player) {
    * @see [Player.COMMAND_SET_VOLUME]
    */
   fun onClick() {
-    checkState(isMutingEnabled(player), "This Player does not support change volume.")
-    if (player.volume == 0f) player.unmute() else player.mute()
+    check(isEnabled)
+    if (player.isCommandAvailable(Player.COMMAND_SET_VOLUME)) {
+      if (player.volume == 0f) player.unmute() else player.mute()
+    }
   }
 
   /**

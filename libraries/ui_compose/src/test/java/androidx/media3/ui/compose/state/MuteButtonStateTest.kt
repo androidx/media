@@ -76,15 +76,30 @@ class MuteButtonStateTest {
   }
 
   @Test
-  fun onClick_stateBecomesDisabledAfterFirstClick_throwsException() {
+  fun onClick_stateBecomesDisabled_throwsException() {
     val player = FakePlayer()
-    val state = MuteButtonState(player)
+    lateinit var state: MuteButtonState
+    composeTestRule.setContent { state = rememberMuteButtonState(player) }
 
-    state.onClick()
-    // simulate state becoming disabled atomically, i.e. without yet receiving the relevant event
     player.removeCommands(Player.COMMAND_SET_VOLUME)
+    composeTestRule.waitForIdle()
 
     assertThrows(IllegalStateException::class.java) { state.onClick() }
+  }
+
+  @Test
+  fun onClick_justAfterCommandRemovedWhileStillEnabled_isNoOp() {
+    val player = FakePlayer()
+    player.volume = 0.7f
+    lateinit var state: MuteButtonState
+    composeTestRule.setContent { state = rememberMuteButtonState(player) }
+
+    // Simulate command becoming disabled without yet receiving the event callback
+    player.removeCommands(Player.COMMAND_SET_VOLUME)
+    check(state.isEnabled)
+    state.onClick()
+
+    assertThat(player.volume).isEqualTo(0.7f)
   }
 
   @Test

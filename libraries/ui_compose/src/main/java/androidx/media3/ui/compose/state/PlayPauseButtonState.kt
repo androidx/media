@@ -28,7 +28,6 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.util.Util.handlePlayPauseButtonAction
 import androidx.media3.common.util.Util.shouldEnablePlayPauseButton
 import androidx.media3.common.util.Util.shouldShowPlayButton
-import com.google.common.base.Preconditions.checkState
 
 /**
  * Remembers the value of [PlayPauseButtonState] created based on the passed [Player] and launch a
@@ -77,7 +76,7 @@ class PlayPauseButtonState(private val player: Player) {
    * @see [androidx.media3.common.Player.COMMAND_GET_TIMELINE]
    */
   fun onClick() {
-    checkState(shouldEnablePlayPauseButton(player), "PlayPauseButtonState is not enabled.")
+    check(isEnabled)
     handlePlayPauseButtonAction(player)
   }
 
