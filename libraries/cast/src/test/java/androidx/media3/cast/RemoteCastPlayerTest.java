@@ -167,6 +167,29 @@ public class RemoteCastPlayerTest {
     remoteMediaClientCallback = callbackArgumentCaptor.getValue();
   }
 
+  @Test
+  public void construct_nullCastContext_errorState() {
+    reset(mockListener);
+    when(mockRemoteMediaClient.play()).thenReturn(mockPendingResult);
+
+    remoteCastPlayer =
+        new RemoteCastPlayer(
+            /* context= */ null,
+            /* castContext= */ null,
+            mediaItemConverter,
+            C.DEFAULT_SEEK_BACK_INCREMENT_MS,
+            C.DEFAULT_SEEK_FORWARD_INCREMENT_MS,
+            C.DEFAULT_MAX_SEEK_TO_PREVIOUS_POSITION_MS);
+    remoteCastPlayer.addListener(mockListener);
+    remoteCastPlayer.prepare();
+
+    assertThat(remoteCastPlayer.getPlayWhenReady()).isFalse();
+    assertThat(remoteCastPlayer.getPlayerError().getErrorCodeName())
+        .isEqualTo("ERROR_CODE_REMOTE_ERROR");
+    verify(mockListener).onPlayerErrorChanged(remoteCastPlayer.getPlayerError());
+    verify(mockListener).onPlayerError(remoteCastPlayer.getPlayerError());
+  }
+
   @SuppressWarnings("deprecation")
   @Test
   public void setPlayWhenReady_masksRemoteState() {
@@ -1554,6 +1577,53 @@ public class RemoteCastPlayerTest {
     assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_SET_VIDEO_SURFACE)).isFalse();
     assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_GET_TEXT)).isFalse();
     assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_RELEASE)).isTrue();
+  }
+
+  @Test
+  public void isCommandAvailable_nullCastContext_isFalseForAllCommand() {
+    int[] mediaQueueItemIds = new int[] {1, 2};
+    List<MediaItem> mediaItems = createMediaItems(mediaQueueItemIds);
+
+    remoteCastPlayer =
+        new RemoteCastPlayer(
+            /* context= */ null,
+            /* castContext= */ null,
+            mediaItemConverter,
+            C.DEFAULT_SEEK_BACK_INCREMENT_MS,
+            C.DEFAULT_SEEK_FORWARD_INCREMENT_MS,
+            C.DEFAULT_MAX_SEEK_TO_PREVIOUS_POSITION_MS);
+    remoteCastPlayer.addMediaItems(mediaItems);
+
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_PLAY_PAUSE)).isFalse();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_PREPARE)).isFalse();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_STOP)).isFalse();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_SEEK_TO_DEFAULT_POSITION)).isFalse();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)).isFalse();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)).isFalse();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_SEEK_TO_PREVIOUS)).isFalse();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)).isFalse();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_SEEK_TO_NEXT)).isFalse();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_SEEK_TO_MEDIA_ITEM)).isFalse();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_SEEK_BACK)).isFalse();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_SEEK_FORWARD)).isFalse();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_SET_SPEED_AND_PITCH)).isFalse();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_SET_SHUFFLE_MODE)).isFalse();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_SET_REPEAT_MODE)).isFalse();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_GET_CURRENT_MEDIA_ITEM)).isFalse();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_GET_TIMELINE)).isFalse();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_GET_METADATA)).isFalse();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_SET_PLAYLIST_METADATA)).isFalse();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_CHANGE_MEDIA_ITEMS)).isFalse();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_SET_MEDIA_ITEM)).isFalse();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_GET_AUDIO_ATTRIBUTES)).isFalse();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_GET_VOLUME)).isFalse();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_GET_DEVICE_VOLUME)).isFalse();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_SET_VOLUME)).isFalse();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_SET_DEVICE_VOLUME)).isFalse();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_ADJUST_DEVICE_VOLUME)).isFalse();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_SET_VIDEO_SURFACE)).isFalse();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_GET_TEXT)).isFalse();
+    assertThat(remoteCastPlayer.isCommandAvailable(COMMAND_RELEASE)).isFalse();
   }
 
   @Test
