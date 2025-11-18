@@ -1466,7 +1466,16 @@ import org.checkerframework.checker.initialization.qual.Initialized;
 
     @Override
     public void sendCustomCommand(int seq, SessionCommand command, Bundle args) {
-      sessionCompat.sendSessionEvent(command.customAction, args);
+      Bundle extras;
+      if (args.isEmpty()) {
+        extras = command.customExtras;
+      } else if (command.customExtras.isEmpty()) {
+        extras = args;
+      } else {
+        extras = new Bundle(command.customExtras);
+        extras.putAll(args);
+      }
+      sessionCompat.sendSessionEvent(command.customAction, extras);
     }
 
     @Override
