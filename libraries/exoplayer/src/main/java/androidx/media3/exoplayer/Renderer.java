@@ -405,7 +405,7 @@ public interface Renderer extends PlayerMessage.Target {
 
   /**
    * A message to set the keys for which a renderer should report parameter changes. The message
-   * payload will be a {@code Set<String>} of keys.
+   * payload will be an {@code ImmutableSet<String>} of keys.
    */
   int MSG_SET_SUBSCRIBED_CODEC_PARAMETER_KEYS = 22;
 
