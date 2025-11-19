@@ -20,6 +20,9 @@
     *   Fix potential `NullPointerException` in `DefaultPlaybackSessionManager`
         ([#2885](https://github.com/androidx/media/issues/2885)).
     *   Enable improvements in seeking performance for eligible videos.
+    *   Re-enable use of asynchronous decryption in MediaCodec on API 36+ where
+        timeout issues with this platform API have been fixed
+        ([#1641](https://github.com/androidx/media/issues/1641)).
 *   CompositionPlayer:
 *   Transformer:
 *   Track Selection:
