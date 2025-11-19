@@ -18,11 +18,16 @@ package androidx.media3.exoplayer.image;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
 
-import android.graphics.Bitmap;
+import android.net.Uri;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.datasource.AssetDataSource;
+import androidx.media3.datasource.DataSourceUtil;
+import androidx.media3.datasource.DataSpec;
 import androidx.media3.decoder.DecoderInputBuffer;
+import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.concurrent.TimeoutException;
 import org.junit.After;
@@ -39,56 +44,64 @@ public class BitmapFactoryImageDecoderBufferQueueTest {
 
   private static final long TIMEOUT_MS = 5 * C.MICROS_PER_SECOND;
 
-  private BitmapFactoryImageDecoder fakeImageDecoder;
-  private Bitmap decodedBitmap1;
-  private Bitmap decodedBitmap2;
+  private byte[] whiteJpegBytes;
+  private byte[] londonJpegBytes;
 
-  public int decodeCallCount;
+  private BitmapFactoryImageDecoder imageDecoder;
 
   @Before
   public void setUp() throws Exception {
-    decodeCallCount = 0;
-    decodedBitmap1 = Bitmap.createBitmap(/* width= */ 1, /* height= */ 1, Bitmap.Config.ARGB_8888);
-    decodedBitmap2 = Bitmap.createBitmap(/* width= */ 2, /* height= */ 2, Bitmap.Config.ARGB_8888);
-    fakeImageDecoder =
-        new BitmapFactoryImageDecoder.Factory(
-                (data, length) -> ++decodeCallCount == 1 ? decodedBitmap1 : decodedBitmap2)
+    whiteJpegBytes = readJpegAsset("white-1x1.jpg");
+    londonJpegBytes = readJpegAsset("london-512.jpg");
+
+    imageDecoder =
+        new BitmapFactoryImageDecoder.Factory(ApplicationProvider.getApplicationContext())
             .createImageDecoder();
+  }
+
+  private byte[] readJpegAsset(String jpegName) throws IOException {
+    AssetDataSource dataSource = new AssetDataSource(ApplicationProvider.getApplicationContext());
+    try {
+      dataSource.open(new DataSpec(Uri.parse("asset:///media/jpeg/" + jpegName)));
+      return DataSourceUtil.readToEnd(dataSource);
+    } finally {
+      DataSourceUtil.closeQuietly(dataSource);
+    }
   }
 
   @After
   public void tearDown() throws Exception {
-    fakeImageDecoder.release();
+    imageDecoder.release();
   }
 
   @Test
   public void decodeIndirectly_returnBitmapAtTheCorrectTimestamp() throws Exception {
-    DecoderInputBuffer inputBuffer = checkNotNull(fakeImageDecoder.dequeueInputBuffer());
+    DecoderInputBuffer inputBuffer = checkNotNull(imageDecoder.dequeueInputBuffer());
     inputBuffer.timeUs = 2 * C.MILLIS_PER_SECOND;
-    inputBuffer.data = ByteBuffer.wrap(new byte[1]);
-    fakeImageDecoder.queueInputBuffer(inputBuffer);
+    inputBuffer.data = ByteBuffer.wrap(whiteJpegBytes);
+    imageDecoder.queueInputBuffer(inputBuffer);
     ImageOutputBuffer outputBuffer = getDecodedOutput();
 
     assertThat(outputBuffer.timeUs).isEqualTo(inputBuffer.timeUs);
-    assertThat(outputBuffer.bitmap).isEqualTo(decodedBitmap1);
+    assertThat(outputBuffer.bitmap.getWidth()).isEqualTo(1);
   }
 
   @Test
   public void decodeIndirectlyTwice_returnsSecondBitmapAtTheCorrectTimestamp() throws Exception {
-    DecoderInputBuffer inputBuffer1 = checkNotNull(fakeImageDecoder.dequeueInputBuffer());
+    DecoderInputBuffer inputBuffer1 = checkNotNull(imageDecoder.dequeueInputBuffer());
     inputBuffer1.timeUs = 0;
-    inputBuffer1.data = ByteBuffer.wrap(new byte[1]);
-    fakeImageDecoder.queueInputBuffer(inputBuffer1);
+    inputBuffer1.data = ByteBuffer.wrap(whiteJpegBytes);
+    imageDecoder.queueInputBuffer(inputBuffer1);
     checkNotNull(getDecodedOutput()).release();
-    DecoderInputBuffer inputBuffer2 = checkNotNull(fakeImageDecoder.dequeueInputBuffer());
+    DecoderInputBuffer inputBuffer2 = checkNotNull(imageDecoder.dequeueInputBuffer());
     inputBuffer2.timeUs = C.MICROS_PER_SECOND;
-    inputBuffer2.data = ByteBuffer.wrap(new byte[1]);
-    fakeImageDecoder.queueInputBuffer(inputBuffer2);
+    inputBuffer2.data = ByteBuffer.wrap(londonJpegBytes);
+    imageDecoder.queueInputBuffer(inputBuffer2);
 
     ImageOutputBuffer outputBuffer2 = checkNotNull(getDecodedOutput());
 
     assertThat(outputBuffer2.timeUs).isEqualTo(inputBuffer2.timeUs);
-    assertThat(outputBuffer2.bitmap).isEqualTo(decodedBitmap2);
+    assertThat(outputBuffer2.bitmap.getWidth()).isEqualTo(512);
   }
 
   // Polling to see whether the output is available yet since the decode thread doesn't finish
@@ -99,7 +112,7 @@ public class BitmapFactoryImageDecoderBufferQueueTest {
     long deadlineMs = System.currentTimeMillis() + TIMEOUT_MS;
     long remainingMs = TIMEOUT_MS;
     while (remainingMs > 0) {
-      outputBuffer = fakeImageDecoder.dequeueOutputBuffer();
+      outputBuffer = imageDecoder.dequeueOutputBuffer();
       if (outputBuffer != null) {
         return outputBuffer;
       }

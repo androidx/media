@@ -77,6 +77,8 @@
 *   Cast extension:
 *   Test Utilities:
 *   Remove deprecated symbols:
+    *   Remove `BitmapFactoryImageDecoder.BitmapDecoder`. Use
+        `ExternallyLoadedImageDecoder` instead.
 
 ## 1.9
 
