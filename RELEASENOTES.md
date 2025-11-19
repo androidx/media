@@ -19,6 +19,10 @@
         could cause `IllegalStateException`.
     *   Fix potential `NullPointerException` in `DefaultPlaybackSessionManager`
         ([#2885](https://github.com/androidx/media/issues/2885)).
+    *   Enable improvements in seeking performance for eligible videos.
+    *   Re-enable use of asynchronous decryption in MediaCodec on API 36+ where
+        timeout issues with this platform API have been fixed
+        ([#1641](https://github.com/androidx/media/issues/1641)).
 *   CompositionPlayer:
 *   Transformer:
 *   Track Selection:
@@ -79,10 +83,15 @@
 *   Remove deprecated symbols:
     *   Remove `BitmapFactoryImageDecoder.BitmapDecoder`. Use
         `ExternallyLoadedImageDecoder` instead.
+    *   Remove deprecated `ShadowMediaCodecConfig.forAllSupportedMimeTypes()`.
+        Use `ShadowMediaCodecConfig.withAllDefaultSupportedCodecs()` instead.
+    *   Remove deprecated
+        `ShadowMediaCodecConfig.withNoDefaultSupportedMimeTypes()`. Use
+        `ShadowMediaCodecConfig.withNoDefaultSupportedCodecs()` instead.
 
 ## 1.9
 
-### 1.9.0-beta01 (2025-11-13) {#190-beta01-2025-11-13}
+### 1.9.0-beta01 (2025-11-13)
 
 This release includes the following changes since
 [1.9.0-alpha01 release](#190-alpha01-2025-10-22):
@@ -132,7 +141,7 @@ This release includes the following changes since
         ([#2859](https://github.com/androidx/media/issues/2859)).
     *   Accept space as a date/time separator in ISO 8601 date-time strings.
 
-### 1.9.0-alpha01 (2025-10-22) {#190-alpha01-2025-10-22}
+### 1.9.0-alpha01 (2025-10-22)
 
 This release includes the following changes since
 [1.8.0 release](#180-2025-07-30):
