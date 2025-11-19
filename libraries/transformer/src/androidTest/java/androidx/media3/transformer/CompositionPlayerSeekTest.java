@@ -966,7 +966,8 @@ public class CompositionPlayerSeekTest {
             .setEffects(new Effects(ImmutableList.of(fakeProcessor), ImmutableList.of()))
             .build();
     final Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence.Builder(item).build()).build();
+        new Composition.Builder(EditedMediaItemSequence.withAudioFrom(ImmutableList.of(item)))
+            .build();
 
     getInstrumentation()
         .runOnMainSync(
@@ -1001,7 +1002,7 @@ public class CompositionPlayerSeekTest {
             .setDurationUs(1_000_000L)
             .build();
     final Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence.Builder(item).build())
+        new Composition.Builder(EditedMediaItemSequence.withAudioFrom(ImmutableList.of(item)))
             .setEffects(new Effects(ImmutableList.of(fakeProcessor), ImmutableList.of()))
             .build();
 
@@ -1045,7 +1046,8 @@ public class CompositionPlayerSeekTest {
             .setEffects(new Effects(ImmutableList.of(fakeProcessor), ImmutableList.of()))
             .build();
     final Composition composition =
-        new Composition.Builder(new EditedMediaItemSequence.Builder(firstItem, secondItem).build())
+        new Composition.Builder(
+                EditedMediaItemSequence.withAudioFrom(ImmutableList.of(firstItem, secondItem)))
             .build();
 
     getInstrumentation()
@@ -1099,11 +1101,10 @@ public class CompositionPlayerSeekTest {
 
     final Composition composition =
         new Composition.Builder(
-                new EditedMediaItemSequence.Builder(firstSequenceItem).build(),
-                new EditedMediaItemSequence.Builder()
+                EditedMediaItemSequence.withAudioFrom(ImmutableList.of(firstSequenceItem)),
+                new EditedMediaItemSequence.Builder(ImmutableSet.of(C.TRACK_TYPE_AUDIO))
                     .addGap(/* durationUs= */ 300_000)
                     .addItem(secondSequenceItem)
-                    .experimentalSetForceAudioTrack(true)
                     .build())
             .build();
 
@@ -1180,7 +1181,7 @@ public class CompositionPlayerSeekTest {
                   .get()
                   .setComposition(
                       new Composition.Builder(
-                              new EditedMediaItemSequence.Builder(editedMediaItems).build())
+                              EditedMediaItemSequence.withAudioAndVideoFrom(editedMediaItems))
                           .build());
               compositionPlayer.get().prepare();
               compositionPlayer.get().play();
@@ -1267,7 +1268,7 @@ public class CompositionPlayerSeekTest {
                   .get()
                   .setComposition(
                       new Composition.Builder(
-                              new EditedMediaItemSequence.Builder(editedMediaItems).build())
+                              EditedMediaItemSequence.withAudioAndVideoFrom(editedMediaItems))
                           .build());
               compositionPlayer.get().prepare();
               compositionPlayer.get().play();
