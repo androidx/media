@@ -270,6 +270,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       this.mediaCodecSelector = MediaCodecSelector.DEFAULT;
       this.codecAdapterFactory = MediaCodecAdapter.Factory.getDefault(context);
       this.assumedMinimumCodecOperatingRate = 30;
+      this.parseAv1SampleDependencies = true;
       this.lateThresholdToDropDecoderInputUs = C.TIME_UNSET;
     }
 
@@ -373,7 +374,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
      * is enabled. Knowing which input frames are not depended on can speed up seeking and reduce
      * dropped frames.
      *
-     * <p>Defaults to {@code false}.
+     * <p>Defaults to {@code true}.
      *
      * <p>This method is experimental and will be renamed or removed in a future release.
      */

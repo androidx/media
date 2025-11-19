@@ -175,6 +175,7 @@ public final class HlsMediaSource extends BaseMediaSource
       metadataType = METADATA_TYPE_ID3;
       elapsedRealTimeOffsetMs = C.TIME_UNSET;
       allowChunklessPreparation = true;
+      codecsToParseWithinGopSampleDependencies = C.VIDEO_CODEC_FLAG_H264 | C.VIDEO_CODEC_FLAG_H265;
       experimentalParseSubtitlesDuringExtraction(true);
     }
 

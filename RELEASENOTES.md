@@ -19,6 +19,7 @@
         could cause `IllegalStateException`.
     *   Fix potential `NullPointerException` in `DefaultPlaybackSessionManager`
         ([#2885](https://github.com/androidx/media/issues/2885)).
+    *   Enable improvements in seeking performance for eligible videos.
 *   CompositionPlayer:
 *   Transformer:
 *   Track Selection:

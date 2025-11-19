@@ -677,6 +677,7 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
       mediaSourceFactorySuppliers = new HashMap<>();
       mediaSourceFactories = new HashMap<>();
       parseSubtitlesDuringExtraction = true;
+      codecsToParseWithinGopSampleDependencies = C.VIDEO_CODEC_FLAG_H264 | C.VIDEO_CODEC_FLAG_H265;
     }
 
     public @C.ContentType int[] getSupportedTypes() {

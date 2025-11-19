@@ -66,6 +66,7 @@ public final class BundledChunkExtractor implements ExtractorOutput, ChunkExtrac
 
     public Factory() {
       subtitleParserFactory = new DefaultSubtitleParserFactory();
+      codecsToParseWithinGopSampleDependencies = C.VIDEO_CODEC_FLAG_H264 | C.VIDEO_CODEC_FLAG_H265;
     }
 
     @CanIgnoreReturnValue

@@ -127,6 +127,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
     extensionRendererMode = EXTENSION_RENDERER_MODE_OFF;
     allowedVideoJoiningTimeMs = DEFAULT_ALLOWED_VIDEO_JOINING_TIME_MS;
     mediaCodecSelector = MediaCodecSelector.DEFAULT;
+    parseAv1SampleDependencies = true;
     lateThresholdToDropDecoderInputUs = C.TIME_UNSET;
   }
 
@@ -301,7 +302,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
    * enabled. Knowing which input frames are not depended on can speed up seeking and reduce dropped
    * frames.
    *
-   * <p>Defaults to {@code false}.
+   * <p>Defaults to {@code true}.
    *
    * <p>This method is experimental and will be renamed or removed in a future release.
    *
