@@ -179,14 +179,6 @@ public final class ShadowMediaCodecConfig extends ExternalResource {
           CODEC_INFO_RAW);
 
   /**
-   * @deprecated Use {@link ShadowMediaCodecConfig#withAllDefaultSupportedCodecs()} instead.
-   */
-  @Deprecated
-  public static ShadowMediaCodecConfig forAllSupportedMimeTypes() {
-    return withAllDefaultSupportedCodecs();
-  }
-
-  /**
    * Returns a {@link ShadowMediaCodecConfig} instance populated with a default list of supported
    * decoders using a default codec configuration.
    *
@@ -196,14 +188,6 @@ public final class ShadowMediaCodecConfig extends ExternalResource {
   public static ShadowMediaCodecConfig withAllDefaultSupportedCodecs() {
     return new ShadowMediaCodecConfig(
         createDecoders(ALL_SUPPORTED_CODECS.asList(), /* forcePassthrough= */ false));
-  }
-
-  /**
-   * @deprecated Use {@link ShadowMediaCodecConfig#withNoDefaultSupportedCodecs()} instead.
-   */
-  @Deprecated
-  public static ShadowMediaCodecConfig withNoDefaultSupportedMimeTypes() {
-    return withNoDefaultSupportedCodecs();
   }
 
   /** Returns a {@link ShadowMediaCodecConfig} instance populated with no shadow codecs. */

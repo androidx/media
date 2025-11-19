@@ -79,6 +79,11 @@
 *   Remove deprecated symbols:
     *   Remove `BitmapFactoryImageDecoder.BitmapDecoder`. Use
         `ExternallyLoadedImageDecoder` instead.
+    *   Remove deprecated `ShadowMediaCodecConfig.forAllSupportedMimeTypes()`.
+        Use `ShadowMediaCodecConfig.withAllDefaultSupportedCodecs()` instead.
+    *   Remove deprecated
+        `ShadowMediaCodecConfig.withNoDefaultSupportedMimeTypes()`. Use
+        `ShadowMediaCodecConfig.withNoDefaultSupportedCodecs()` instead.
 
 ## 1.9
 
