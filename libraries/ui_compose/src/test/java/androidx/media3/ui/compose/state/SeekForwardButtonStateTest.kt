@@ -122,6 +122,7 @@ class SeekForwardButtonStateTest {
   @Test
   fun positionNonZero_buttonClicked_positionJumpsForwardBySpecifiedAmount() {
     val player = createReadyPlayerWithTwoItems()
+    player.playWhenReady = false
     player.setPosition(500)
     player.setSeekForwardIncrementMs(300)
     val state = SeekForwardButtonState(player)
@@ -149,6 +150,7 @@ class SeekForwardButtonStateTest {
   @Test
   fun positionAtTheEnd_buttonClicked_positionDoesNotMove() {
     val player = createReadyPlayerWithTwoItems()
+    player.playWhenReady = false
     player.setPosition(player.duration)
     val state = SeekForwardButtonState(player)
 

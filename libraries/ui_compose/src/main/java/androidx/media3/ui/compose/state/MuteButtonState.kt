@@ -23,7 +23,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.media3.common.Player
-import androidx.media3.common.listenTo
 import androidx.media3.common.util.UnstableApi
 
 /**
@@ -48,11 +47,20 @@ fun rememberMuteButtonState(player: Player): MuteButtonState {
  */
 @UnstableApi
 class MuteButtonState(private val player: Player) {
-  var isEnabled by mutableStateOf(isMutingEnabled(player))
+
+  var isEnabled by mutableStateOf(false)
     private set
 
-  var showMuted by mutableStateOf(isMuted(player))
+  var showMuted by mutableStateOf(false)
     private set
+
+  private val playerStateObserver =
+    player.observeState(Player.EVENT_VOLUME_CHANGED, Player.EVENT_AVAILABLE_COMMANDS_CHANGED) {
+      isEnabled =
+        player.isCommandAvailable(Player.COMMAND_GET_VOLUME) &&
+          player.isCommandAvailable(Player.COMMAND_SET_VOLUME)
+      showMuted = player.isCommandAvailable(Player.COMMAND_GET_VOLUME) && player.volume == 0f
+    }
 
   /**
    * Handles the interaction with the Mute button according to the current state of the [Player].
@@ -82,22 +90,5 @@ class MuteButtonState(private val player: Player) {
    * * [Player.EVENT_AVAILABLE_COMMANDS_CHANGED] in order to determine whether the button should be
    *   enabled, i.e. respond to user input.
    */
-  suspend fun observe(): Nothing {
-    showMuted = isMuted(player)
-    isEnabled = isMutingEnabled(player)
-    player.listenTo(Player.EVENT_VOLUME_CHANGED, Player.EVENT_AVAILABLE_COMMANDS_CHANGED) {
-      showMuted = isMuted(this)
-      isEnabled = isMutingEnabled(this)
-    }
-  }
-
-  private fun isMuted(player: Player) = getVolumeWithCommandCheck(player) == 0f
-
-  private fun getVolumeWithCommandCheck(player: Player): Float {
-    return if (player.isCommandAvailable(Player.COMMAND_GET_VOLUME)) player.volume else 1f
-  }
-
-  private fun isMutingEnabled(player: Player) =
-    player.isCommandAvailable(Player.COMMAND_GET_VOLUME) &&
-      player.isCommandAvailable(Player.COMMAND_SET_VOLUME)
+  suspend fun observe(): Nothing = playerStateObserver.observe()
 }

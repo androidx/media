@@ -133,7 +133,6 @@ class ProgressStateWithTickCount(
 
   init {
     require(totalTickCount >= 0)
-    updateProgress()
   }
 
   /**

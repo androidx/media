@@ -20,7 +20,6 @@ import androidx.annotation.VisibleForTesting
 import androidx.compose.runtime.withFrameMillis
 import androidx.media3.common.C
 import androidx.media3.common.Player
-import androidx.media3.common.listenTo
 import androidx.media3.common.util.UnstableApi
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -39,23 +38,25 @@ internal class ProgressStateJob(
   private var updateJob: Job? = null
   private var isObserving = false
 
+  private val playerStateObserver =
+    player.observeState(
+      Player.EVENT_IS_PLAYING_CHANGED,
+      Player.EVENT_POSITION_DISCONTINUITY,
+      Player.EVENT_TIMELINE_CHANGED,
+      Player.EVENT_PLAYBACK_PARAMETERS_CHANGED,
+      Player.EVENT_AVAILABLE_COMMANDS_CHANGED,
+    ) {
+      cancelPendingUpdatesAndMaybeRelaunch()
+    }
+
   /**
    * Subscribes to updates from [Player.Events] to track changes of progress-related information in
    * an asynchronous way.
    */
   internal suspend fun observeProgress(): Nothing = coroutineScope {
     isObserving = true
-    cancelPendingUpdatesAndMaybeRelaunch()
     try {
-      player.listenTo(
-        Player.EVENT_IS_PLAYING_CHANGED,
-        Player.EVENT_POSITION_DISCONTINUITY,
-        Player.EVENT_TIMELINE_CHANGED,
-        Player.EVENT_PLAYBACK_PARAMETERS_CHANGED,
-        Player.EVENT_AVAILABLE_COMMANDS_CHANGED,
-      ) {
-        cancelPendingUpdatesAndMaybeRelaunch()
-      }
+      playerStateObserver.observe()
     } finally {
       isObserving = false
       updateJob?.cancel()
