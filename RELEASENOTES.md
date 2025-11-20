@@ -27,6 +27,10 @@
         `MediaCodecVideoRenderer.experimentalSetLateThresholdToDropDecoderInputUs`
         to 15ms and enable more efficient dropping of video frames before
         decoding for eligible videos.
+    *   Add maximum memory limit to the automatic memory calculation in
+        `DefaultLoadControl`. This should only take effect if an excessive
+        number of tracks get selected
+        ([#2860](https://github.com/androidx/media/issues/2860)).
 *   CompositionPlayer:
 *   Transformer:
 *   Track Selection:
