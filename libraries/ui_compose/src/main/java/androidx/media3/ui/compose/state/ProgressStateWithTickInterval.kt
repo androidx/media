@@ -120,7 +120,6 @@ class ProgressStateWithTickInterval(
 
   init {
     require(tickIntervalMs >= 0)
-    updateProgress()
   }
 
   /**

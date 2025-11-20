@@ -133,6 +133,7 @@ class SeekBackButtonStateTest {
   @Test
   fun positionNonZero_buttonClicked_positionJumpsBackBySpecifiedAmount() {
     val player = createReadyPlayerWithTwoItems()
+    player.playWhenReady = false
     player.setPosition(700)
     player.setSeekBackIncrementMs(300)
     val state = SeekBackButtonState(player)

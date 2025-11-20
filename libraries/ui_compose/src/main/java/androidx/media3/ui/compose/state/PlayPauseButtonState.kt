@@ -23,7 +23,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.media3.common.Player
-import androidx.media3.common.listenTo
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.util.Util.handlePlayPauseButtonAction
 import androidx.media3.common.util.Util.shouldEnablePlayPauseButton
@@ -52,11 +51,21 @@ fun rememberPlayPauseButtonState(player: Player): PlayPauseButtonState {
  */
 @UnstableApi
 class PlayPauseButtonState(private val player: Player) {
-  var isEnabled by mutableStateOf(shouldEnablePlayPauseButton(player))
+  var isEnabled by mutableStateOf(false)
     private set
 
-  var showPlay by mutableStateOf(shouldShowPlayButton(player))
+  var showPlay by mutableStateOf(false)
     private set
+
+  private val playerStateObserver =
+    player.observeState(
+      Player.EVENT_PLAYBACK_STATE_CHANGED,
+      Player.EVENT_PLAY_WHEN_READY_CHANGED,
+      Player.EVENT_AVAILABLE_COMMANDS_CHANGED,
+    ) {
+      isEnabled = shouldEnablePlayPauseButton(player)
+      showPlay = shouldShowPlayButton(player)
+    }
 
   /**
    * Handles the interaction with the PlayPause button according to the current state of the
@@ -88,16 +97,5 @@ class PlayPauseButtonState(private val player: Player) {
    * * [Player.EVENT_AVAILABLE_COMMANDS_CHANGED] in order to determine whether the button should be
    *   enabled, i.e. respond to user input.
    */
-  suspend fun observe(): Nothing {
-    showPlay = shouldShowPlayButton(player)
-    isEnabled = shouldEnablePlayPauseButton(player)
-    player.listenTo(
-      Player.EVENT_PLAYBACK_STATE_CHANGED,
-      Player.EVENT_PLAY_WHEN_READY_CHANGED,
-      Player.EVENT_AVAILABLE_COMMANDS_CHANGED,
-    ) {
-      showPlay = shouldShowPlayButton(this)
-      isEnabled = shouldEnablePlayPauseButton(this)
-    }
-  }
+  suspend fun observe(): Nothing = playerStateObserver.observe()
 }

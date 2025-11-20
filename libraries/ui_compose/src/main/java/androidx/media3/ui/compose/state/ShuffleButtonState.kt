@@ -23,7 +23,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.media3.common.Player
-import androidx.media3.common.listenTo
 import androidx.media3.common.util.UnstableApi
 
 /**
@@ -48,11 +47,20 @@ fun rememberShuffleButtonState(player: Player): ShuffleButtonState {
  */
 @UnstableApi
 class ShuffleButtonState(private val player: Player) {
-  var isEnabled by mutableStateOf(isShuffleEnabled(player))
+  var isEnabled by mutableStateOf(false)
     private set
 
-  var shuffleOn by mutableStateOf(player.shuffleModeEnabled)
+  var shuffleOn by mutableStateOf(false)
     private set
+
+  private val playerStateObserver =
+    player.observeState(
+      Player.EVENT_SHUFFLE_MODE_ENABLED_CHANGED,
+      Player.EVENT_AVAILABLE_COMMANDS_CHANGED,
+    ) {
+      isEnabled = player.isCommandAvailable(Player.COMMAND_SET_SHUFFLE_MODE)
+      shuffleOn = player.shuffleModeEnabled
+    }
 
   /**
    * Handles the interaction with the ShuffleButton according to the current state of the [Player].
@@ -78,18 +86,5 @@ class ShuffleButtonState(private val player: Player) {
    * * [Player.EVENT_AVAILABLE_COMMANDS_CHANGED] in order to determine whether the button should be
    *   enabled, i.e. respond to user input.
    */
-  suspend fun observe(): Nothing {
-    shuffleOn = player.shuffleModeEnabled
-    isEnabled = isShuffleEnabled(player)
-    player.listenTo(
-      Player.EVENT_SHUFFLE_MODE_ENABLED_CHANGED,
-      Player.EVENT_AVAILABLE_COMMANDS_CHANGED,
-    ) {
-      shuffleOn = shuffleModeEnabled
-      isEnabled = isShuffleEnabled(player)
-    }
-  }
-
-  private fun isShuffleEnabled(player: Player) =
-    player.isCommandAvailable(Player.COMMAND_SET_SHUFFLE_MODE)
+  suspend fun observe(): Nothing = playerStateObserver.observe()
 }
