@@ -15,6 +15,7 @@
  */
 package androidx.media3.exoplayer;
 
+import static androidx.media3.common.util.Util.constrainValue;
 import static androidx.media3.common.util.Util.msToUs;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -158,10 +159,25 @@ public class DefaultLoadControl implements LoadControl {
       DEFAULT_VIDEO_BUFFER_SIZE + DEFAULT_AUDIO_BUFFER_SIZE + DEFAULT_TEXT_BUFFER_SIZE;
 
   /**
-   * The buffer size in bytes that will be used as a minimum target buffer in all cases. This is
-   * also the default target buffer before tracks are selected.
+   * The buffer size in bytes that will be used as a minimum target buffer in all cases unless an
+   * {@linkplain Builder#setTargetBufferBytes(int) explicit buffer size is set} or {@link
+   * #calculateTargetBufferBytes} is overridden with custom behavior.
+   *
+   * <p>This is also the default target buffer before tracks are selected.
    */
   public static final int DEFAULT_MIN_BUFFER_SIZE = 200 * C.DEFAULT_BUFFER_SEGMENT_SIZE;
+
+  /**
+   * The buffer size in bytes that will be used as a maximum target buffer in all cases unless an
+   * {@linkplain Builder#setTargetBufferBytes(int) explicit buffer size is set} or {@link
+   * #calculateTargetBufferBytes} is overridden with custom behavior.
+   */
+  // Assuming a muxed file with video, multiple audio and text languages and an image track.
+  public static final int DEFAULT_MAX_BUFFER_SIZE =
+      DEFAULT_VIDEO_BUFFER_SIZE
+          + 4 * DEFAULT_AUDIO_BUFFER_SIZE
+          + 4 * DEFAULT_TEXT_BUFFER_SIZE
+          + DEFAULT_IMAGE_BUFFER_SIZE;
 
   /**
    * The default target buffer size in bytes that will be used for preloading media outside of
@@ -842,7 +858,7 @@ public class DefaultLoadControl implements LoadControl {
             getDefaultBufferSize(exoTrackSelection.getTrackGroup().type, isLocalPlayback);
       }
     }
-    return max(DEFAULT_MIN_BUFFER_SIZE, targetBufferSize);
+    return constrainValue(targetBufferSize, DEFAULT_MIN_BUFFER_SIZE, DEFAULT_MAX_BUFFER_SIZE);
   }
 
   @VisibleForTesting

@@ -1586,6 +1586,71 @@ public class DefaultLoadControlTest {
   }
 
   @Test
+  public void onTrackSelected_withOnlySmallTracks_usesAtLeastMinimumBufferSize() {
+    PlayerId playerId = new PlayerId(/* playerName= */ "");
+    loadControl = builder.setAllocator(allocator).build();
+    loadControl.onPrepared(playerId);
+    TrackGroup textTrackGroup =
+        new TrackGroup(new Format.Builder().setSampleMimeType(MimeTypes.TEXT_VTT).build());
+    TrackGroupArray textTrackGroupArray = new TrackGroupArray(textTrackGroup);
+
+    loadControl.onTracksSelected(
+        new LoadControl.Parameters(
+            playerId,
+            timeline,
+            mediaPeriodId,
+            /* playbackPositionUs= */ 0,
+            /* bufferedDurationUs= */ 0,
+            /* playbackSpeed= */ 1.0f,
+            /* playWhenReady= */ false,
+            /* rebuffering= */ false,
+            /* targetLiveOffsetUs= */ C.TIME_UNSET,
+            /* lastRebufferRealtimeMs= */ C.TIME_UNSET),
+        textTrackGroupArray,
+        new ExoTrackSelection[] {new FixedTrackSelection(textTrackGroup, /* track= */ 0)});
+
+    assertThat(loadControl.calculateTotalTargetBufferBytes())
+        .isEqualTo(DefaultLoadControl.DEFAULT_MIN_BUFFER_SIZE);
+  }
+
+  @Test
+  public void onTrackSelected_withMultipleLargeTracks_usesAtMostMaximumBufferSize() {
+    PlayerId playerId = new PlayerId(/* playerName= */ "");
+    loadControl = builder.setAllocator(allocator).build();
+    loadControl.onPrepared(playerId);
+    TrackGroup videoTrackGroup1 =
+        new TrackGroup(new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_VP9).build());
+    TrackGroup videoTrackGroup2 =
+        new TrackGroup(new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_VP9).build());
+    TrackGroup videoTrackGroup3 =
+        new TrackGroup(new Format.Builder().setSampleMimeType(MimeTypes.VIDEO_VP9).build());
+    TrackGroupArray trackGroupArray =
+        new TrackGroupArray(videoTrackGroup1, videoTrackGroup2, videoTrackGroup3);
+
+    loadControl.onTracksSelected(
+        new LoadControl.Parameters(
+            playerId,
+            timeline,
+            mediaPeriodId,
+            /* playbackPositionUs= */ 0,
+            /* bufferedDurationUs= */ 0,
+            /* playbackSpeed= */ 1.0f,
+            /* playWhenReady= */ false,
+            /* rebuffering= */ false,
+            /* targetLiveOffsetUs= */ C.TIME_UNSET,
+            /* lastRebufferRealtimeMs= */ C.TIME_UNSET),
+        trackGroupArray,
+        new ExoTrackSelection[] {
+          new FixedTrackSelection(videoTrackGroup1, /* track= */ 0),
+          new FixedTrackSelection(videoTrackGroup2, /* track= */ 0),
+          new FixedTrackSelection(videoTrackGroup3, /* track= */ 0),
+        });
+
+    assertThat(loadControl.calculateTotalTargetBufferBytes())
+        .isEqualTo(DefaultLoadControl.DEFAULT_MAX_BUFFER_SIZE);
+  }
+
+  @Test
   public void onReleased_removesLoadingStateOfPlayerWhenReferenceCountIsZero() {
     PlayerId playerId2 = new PlayerId(/* playerName= */ "");
     loadControl = builder.setAllocator(allocator).build();
