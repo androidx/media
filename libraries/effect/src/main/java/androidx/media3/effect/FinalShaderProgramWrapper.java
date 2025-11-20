@@ -612,8 +612,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
         && (outputSurfaceInfoChanged || inputSizeChanged || matrixTransformationsChanged)) {
       defaultShaderProgram.release();
       defaultShaderProgram = null;
-      outputSurfaceInfoChanged = false;
-      matrixTransformationsChanged = false;
     }
 
     if (defaultShaderProgram == null) {
@@ -623,6 +621,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               outputWidth,
               outputHeight);
       outputSurfaceInfoChanged = false;
+      matrixTransformationsChanged = false;
     }
     return true;
   }
