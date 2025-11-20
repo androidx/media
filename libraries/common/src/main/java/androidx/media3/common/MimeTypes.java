@@ -219,6 +219,17 @@ public final class MimeTypes {
     customMimeTypes.add(customMimeType);
   }
 
+  /**
+   * Clears all previously registered custom MIME types.
+   *
+   * @see #registerCustomMimeType(String, String, int)
+   */
+  @UnstableApi
+  @VisibleForTesting
+  public static void clearRegisteredCustomMimeTypes() {
+    customMimeTypes.clear();
+  }
+
   /** Returns whether the given string is an audio MIME type. */
   @UnstableApi
   public static boolean isAudio(@Nullable String mimeType) {

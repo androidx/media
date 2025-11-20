@@ -3,6 +3,10 @@
 ### Unreleased changes
 
 *   Common Library:
+    *   Fix auto-detection of `TrackGroup` track type by not ignoring custom
+        sample MIME type and falling back to using the potentially wrong track
+        type from the container MIME type
+        ([#2860](https://github.com/androidx/media/issues/2860)).
 *   ExoPlayer:
     *   Add API to set and observe codec parameters for audio and video tracks.
         This feature is implemented for `MediaCodec` based renderers and
