@@ -264,6 +264,7 @@ public final class MetadataRetrieverInternal implements AutoCloseable {
     private final HandlerWrapper mediaSourceHandler;
     private final OnPreparedListener onPreparedListener;
     private final OnFailureListener onFailureListener;
+    private boolean sentReleaseMessage;
 
     /** A listener for successfully prepared media. */
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
@@ -314,8 +315,11 @@ public final class MetadataRetrieverInternal implements AutoCloseable {
     }
 
     /** Releases the resources used by this task. */
-    public void release() {
-      mediaSourceHandler.obtainMessage(MESSAGE_RELEASE).sendToTarget();
+    public synchronized void release() {
+      if (!sentReleaseMessage) {
+        sentReleaseMessage = true;
+        mediaSourceHandler.obtainMessage(MESSAGE_RELEASE).sendToTarget();
+      }
     }
 
     private final class MediaSourceHandlerCallback implements Handler.Callback {
@@ -356,7 +360,7 @@ public final class MetadataRetrieverInternal implements AutoCloseable {
                   MESSAGE_CHECK_FOR_FAILURE, /* delayMs= */ ERROR_POLL_INTERVAL_MS);
             } catch (IOException e) {
               onFailureListener.onFailure(e);
-              mediaSourceHandler.obtainMessage(MESSAGE_RELEASE).sendToTarget();
+              release();
             }
             return true;
           case MESSAGE_CONTINUE_LOADING:
@@ -414,7 +418,7 @@ public final class MetadataRetrieverInternal implements AutoCloseable {
           @Override
           public void onPrepared(MediaPeriod mediaPeriod) {
             onPreparedListener.onPrepared(mediaPeriod.getTrackGroups(), checkNotNull(timeline));
-            mediaSourceHandler.obtainMessage(MESSAGE_RELEASE).sendToTarget();
+            release();
           }
 
           @Override
