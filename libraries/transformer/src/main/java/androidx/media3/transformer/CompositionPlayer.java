@@ -625,7 +625,8 @@ public final class CompositionPlayer extends SimpleBasePlayer {
               /* allowedJoiningTimeMs= */ 0);
       videoFrameReleaseControl.setClock(clock);
       videoPacketReleaseControl =
-          new CompositionVideoPacketReleaseControl(videoFrameReleaseControl, packetConsumer);
+          new CompositionVideoPacketReleaseControl(
+              context, videoFrameReleaseControl, packetConsumer);
     } else {
       executorService = builder.glExecutorService;
       shouldShutdownExecutorService = false;
@@ -889,6 +890,9 @@ public final class CompositionPlayer extends SimpleBasePlayer {
       return Futures.immediateVoidFuture();
     }
 
+    if (videoPacketReleaseControl != null) {
+      videoPacketReleaseControl.release();
+    }
     audioFocusManager.release();
     checkState(checkNotNull(playbackThread).isAlive());
     // Release the players first so that they stop rendering.

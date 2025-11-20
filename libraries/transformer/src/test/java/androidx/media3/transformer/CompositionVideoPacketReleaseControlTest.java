@@ -21,8 +21,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import android.content.Context;
-import android.graphics.SurfaceTexture;
-import android.view.Surface;
 import androidx.media3.common.GlTextureInfo;
 import androidx.media3.effect.GlTextureFrame;
 import androidx.media3.exoplayer.ExoPlaybackException;
@@ -36,6 +34,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -65,11 +64,15 @@ public class CompositionVideoPacketReleaseControlTest {
         new VideoFrameReleaseControl(
             context, fakeFrameTimingEvaluator, /* allowedJoiningTimeMs= */ 0);
     videoFrameReleaseControl.setClock(fakeClock);
-    videoFrameReleaseControl.setOutputSurface(new Surface(new SurfaceTexture(1)));
     videoFrameReleaseControl.onStarted();
     outputConsumer = new RecordingPacketConsumer(/* releaseIncomingFrames= */ false);
     compositionVideoPacketReleaseControl =
-        new CompositionVideoPacketReleaseControl(videoFrameReleaseControl, outputConsumer);
+        new CompositionVideoPacketReleaseControl(context, videoFrameReleaseControl, outputConsumer);
+  }
+
+  @After
+  public void tearDown() {
+    compositionVideoPacketReleaseControl.release();
   }
 
   @Test

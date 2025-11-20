@@ -20,7 +20,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
-import android.view.Surface;
+import android.content.Context;
 import androidx.annotation.Nullable;
 import androidx.media3.common.util.ExperimentalApi;
 import androidx.media3.common.util.SystemClock;
@@ -28,6 +28,7 @@ import androidx.media3.effect.GlTextureFrame;
 import androidx.media3.effect.PacketConsumer;
 import androidx.media3.effect.PacketConsumer.Packet;
 import androidx.media3.exoplayer.ExoPlaybackException;
+import androidx.media3.exoplayer.video.PlaceholderSurface;
 import androidx.media3.exoplayer.video.VideoFrameReleaseControl;
 import androidx.media3.transformer.SequenceRenderersFactory.CompositionRendererListener;
 import com.google.common.collect.ImmutableList;
@@ -44,6 +45,7 @@ import java.util.concurrent.ConcurrentLinkedDeque;
   private final PacketConsumer<List<GlTextureFrame>> downstreamConsumer;
   private final ConcurrentLinkedDeque<ImmutableList<GlTextureFrame>> packetQueue;
   private final VideoFrameReleaseControl.FrameReleaseInfo videoFrameReleaseInfo;
+  private final PlaceholderSurface placeholderSurface;
 
   /**
    * Creates a new {@link CompositionVideoPacketReleaseControl}.
@@ -53,12 +55,20 @@ import java.util.concurrent.ConcurrentLinkedDeque;
    *     time}.
    */
   public CompositionVideoPacketReleaseControl(
+      Context context,
       VideoFrameReleaseControl videoFrameReleaseControl,
       PacketConsumer<List<GlTextureFrame>> downstreamConsumer) {
+    placeholderSurface = PlaceholderSurface.newInstance(context, /* secure= */ false);
+    videoFrameReleaseControl.setOutputSurface(placeholderSurface);
     this.videoFrameReleaseControl = videoFrameReleaseControl;
     this.downstreamConsumer = downstreamConsumer;
     packetQueue = new ConcurrentLinkedDeque<>();
     videoFrameReleaseInfo = new VideoFrameReleaseControl.FrameReleaseInfo();
+  }
+
+  /** Releases the release control. */
+  public void release() {
+    placeholderSurface.release();
   }
 
   /**
@@ -152,16 +162,6 @@ import java.util.concurrent.ConcurrentLinkedDeque;
       releasePacket(packet);
     }
     videoFrameReleaseControl.reset();
-  }
-
-  // TODO: b/449956936 - Make this work without setting the output Surface.
-  /**
-   * Called when the display surface changed.
-   *
-   * <p>Called on the playback thread.
-   */
-  public void setOutputSurface(@Nullable Surface outputSurface) {
-    videoFrameReleaseControl.setOutputSurface(outputSurface);
   }
 
   /**
