@@ -16,6 +16,7 @@
 package androidx.media3.exoplayer;
 
 import static android.os.Build.VERSION.SDK_INT;
+import static androidx.media3.exoplayer.video.MediaCodecVideoRenderer.DEFAULT_LATE_THRESHOLD_TO_DROP_DECODER_INPUT_US;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import android.content.Context;
@@ -128,7 +129,7 @@ public class DefaultRenderersFactory implements RenderersFactory {
     allowedVideoJoiningTimeMs = DEFAULT_ALLOWED_VIDEO_JOINING_TIME_MS;
     mediaCodecSelector = MediaCodecSelector.DEFAULT;
     parseAv1SampleDependencies = true;
-    lateThresholdToDropDecoderInputUs = C.TIME_UNSET;
+    lateThresholdToDropDecoderInputUs = DEFAULT_LATE_THRESHOLD_TO_DROP_DECODER_INPUT_US;
   }
 
   /**
@@ -356,12 +357,16 @@ public class DefaultRenderersFactory implements RenderersFactory {
    * Sets the late threshold for rendered output buffers, in microseconds, after which decoder input
    * buffers may be dropped.
    *
-   * <p>The default value is {@link C#TIME_UNSET} and therefore no input buffers will be dropped due
-   * to this logic.
+   * <p>The default value is {@link
+   * MediaCodecVideoRenderer#DEFAULT_LATE_THRESHOLD_TO_DROP_DECODER_INPUT_US} and therefore input
+   * buffers that are predicted to be rendered late will be dropped.
+   *
+   * <p>If {@link C#TIME_UNSET} is passed, decoder input buffers will not be dropped.
    *
    * <p>This method is experimental and will be renamed or removed in a future release.
    *
-   * @param lateThresholdToDropDecoderInputUs The threshold.
+   * @param lateThresholdToDropDecoderInputUs The threshold in microseconds to drop decoder input
+   *     buffers, or {@link C#TIME_UNSET} to disable dropping decoder input buffers.
    */
   @CanIgnoreReturnValue
   public final DefaultRenderersFactory experimentalSetLateThresholdToDropDecoderInputUs(

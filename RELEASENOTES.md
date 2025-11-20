@@ -23,6 +23,10 @@
     *   Re-enable use of asynchronous decryption in MediaCodec on API 36+ where
         timeout issues with this platform API have been fixed
         ([#1641](https://github.com/androidx/media/issues/1641)).
+    *   Change the default value of
+        `MediaCodecVideoRenderer.experimentalSetLateThresholdToDropDecoderInputUs`
+        to 15ms and enable more efficient dropping of video frames before
+        decoding for eligible videos.
 *   CompositionPlayer:
 *   Transformer:
 *   Track Selection:

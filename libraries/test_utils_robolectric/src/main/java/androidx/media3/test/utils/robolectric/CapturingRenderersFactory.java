@@ -257,7 +257,9 @@ public class CapturingRenderersFactory implements RenderersFactory, Dumper.Dumpa
               .setEventHandler(eventHandler)
               .setEventListener(eventListener)
               .setMaxDroppedFramesToNotify(maxDroppedFramesToNotify)
-              .experimentalSetParseAv1SampleDependencies(parseAv1SampleDependencies));
+              .experimentalSetParseAv1SampleDependencies(parseAv1SampleDependencies)
+              // Do not drop input buffers due to slow processing.
+              .experimentalSetLateThresholdToDropDecoderInputUs(C.TIME_UNSET));
     }
 
     @Override
