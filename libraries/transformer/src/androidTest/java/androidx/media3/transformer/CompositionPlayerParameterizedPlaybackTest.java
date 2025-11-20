@@ -46,11 +46,13 @@ import androidx.media3.effect.SingleInputVideoGraph;
 import androidx.media3.test.utils.RecordingPacketConsumer;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameterValuesProvider;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.TimeoutException;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.After;
@@ -162,7 +164,7 @@ public class CompositionPlayerParameterizedPlaybackTest {
               200450L,
               217133L,
               233816L),
-          /* inputName= */ "Video_only_clippped_half_speed");
+          /* inputName= */ "Video_only_clipped_half_speed");
   private static final Input VIDEO_ONLY_CLIPPED_HALF_SPEED =
       new Input(
           new EditedMediaItem.Builder(VIDEO_ONLY_CLIPPED)
@@ -191,7 +193,7 @@ public class CompositionPlayerParameterizedPlaybackTest {
               801800L,
               868532L,
               935266L),
-          /* inputName= */ "Video_only_clippped_half_speed");
+          /* inputName= */ "Video_only_clipped_half_speed");
   private static final Input AUDIO_INPUT =
       new Input(
           new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
@@ -199,6 +201,45 @@ public class CompositionPlayerParameterizedPlaybackTest {
               .build(),
           /* expectedVideoTimestampsUs= */ ImmutableList.of(),
           /* inputName= */ "Audio");
+
+  private static final Input AUDIO_INPUT_WITH_VIDEO_TIMESTAMPS =
+      new Input(
+          new EditedMediaItem.Builder(MediaItem.fromUri(WAV_ASSET.uri))
+              .setDurationUs(1_000_000)
+              .build(),
+          /* expectedVideoTimestampsUs= */ ImmutableList.of(
+              // These are timestamps for implicit gap for audio
+              0L,
+              33_333L,
+              66_667L,
+              100_000L,
+              133_333L,
+              166_667L,
+              200_000L,
+              233_333L,
+              266_667L,
+              300_000L,
+              333_333L,
+              366_667L,
+              400_000L,
+              433_333L,
+              466_667L,
+              500_000L,
+              533_333L,
+              566_667L,
+              600_000L,
+              633_333L,
+              666_667L,
+              700_000L,
+              733_333L,
+              766_667L,
+              800_000L,
+              833_333L,
+              866_667L,
+              900_000L,
+              933_333L,
+              966_667L),
+          /* inputName= */ "Audio_with_video_gap");
 
   @Rule
   public ActivityScenarioRule<SurfaceTestActivity> rule =
@@ -212,69 +253,152 @@ public class CompositionPlayerParameterizedPlaybackTest {
 
   private static final ImmutableList<TestConfig> singleSequenceConfigs =
       ImmutableList.of(
-          new TestConfig(new InputSequence(VIDEO_INPUT)),
-          new TestConfig(new InputSequence(VIDEO_INPUT_SRGB)),
-          new TestConfig(new InputSequence(IMAGE_INPUT)),
-          new TestConfig(new InputSequence(AUDIO_INPUT)),
           new TestConfig(
               new InputSequence(
-                  VIDEO_INPUT, VIDEO_INPUT, VIDEO_INPUT, IMAGE_INPUT, IMAGE_INPUT, IMAGE_INPUT)),
+                  ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO), VIDEO_INPUT)),
           new TestConfig(
               new InputSequence(
-                  IMAGE_INPUT, VIDEO_INPUT, IMAGE_INPUT, VIDEO_INPUT, IMAGE_INPUT, VIDEO_INPUT)),
-          new TestConfig(
-              new InputSequence(VIDEO_INPUT, AUDIO_INPUT, IMAGE_INPUT, AUDIO_INPUT, VIDEO_INPUT)),
-          new TestConfig(
-              new InputSequence(VIDEO_INPUT_WITHOUT_AUDIO, VIDEO_INPUT, VIDEO_INPUT_WITHOUT_AUDIO)),
-          new TestConfig(new InputSequence(VIDEO_INPUT, VIDEO_INPUT_WITHOUT_AUDIO, VIDEO_INPUT)),
-          new TestConfig(new InputSequence(VIDEO_INPUT, AUDIO_INPUT)),
-          // TODO: b/412585977 - Enable once implicit gaps are implemented.
-          // configs.add(new TestConfig(new InputSequence(AUDIO_INPUT,
-          // VIDEO_INPUT).withForceVideoTrack()));
-          new TestConfig(new InputSequence(VIDEO_ONLY_CLIPPED_HALF_SPEED)),
-          new TestConfig(new InputSequence(VIDEO_ONLY_CLIPPED_TWICE_SPEED)),
-          new TestConfig(
-              new InputSequence(VIDEO_ONLY_CLIPPED_TWICE_SPEED, VIDEO_ONLY_CLIPPED_TWICE_SPEED)),
-          new TestConfig(
-              new InputSequence(VIDEO_ONLY_CLIPPED_TWICE_SPEED, VIDEO_ONLY_CLIPPED_HALF_SPEED)),
-          new TestConfig(
-              new InputSequence(VIDEO_ONLY_CLIPPED_HALF_SPEED, VIDEO_ONLY_CLIPPED_TWICE_SPEED)),
-          new TestConfig(
-              new InputSequence(VIDEO_ONLY_CLIPPED_HALF_SPEED, VIDEO_ONLY_CLIPPED_HALF_SPEED)),
+                  ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO), VIDEO_INPUT_SRGB)),
+          new TestConfig(new InputSequence(ImmutableSet.of(C.TRACK_TYPE_VIDEO), IMAGE_INPUT)),
+          new TestConfig(new InputSequence(ImmutableSet.of(C.TRACK_TYPE_AUDIO), AUDIO_INPUT)),
           new TestConfig(
               new InputSequence(
-                  VIDEO_INPUT, VIDEO_INPUT_SRGB, VIDEO_INPUT, IMAGE_INPUT, VIDEO_INPUT_SRGB)));
+                  ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO),
+                  VIDEO_INPUT,
+                  VIDEO_INPUT,
+                  VIDEO_INPUT,
+                  IMAGE_INPUT,
+                  IMAGE_INPUT,
+                  IMAGE_INPUT)),
+          new TestConfig(
+              new InputSequence(
+                  ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO),
+                  IMAGE_INPUT,
+                  VIDEO_INPUT,
+                  IMAGE_INPUT,
+                  VIDEO_INPUT,
+                  IMAGE_INPUT,
+                  VIDEO_INPUT)),
+          new TestConfig(
+              new InputSequence(
+                  ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO),
+                  VIDEO_INPUT,
+                  AUDIO_INPUT_WITH_VIDEO_TIMESTAMPS,
+                  IMAGE_INPUT,
+                  AUDIO_INPUT_WITH_VIDEO_TIMESTAMPS,
+                  VIDEO_INPUT)),
+          new TestConfig(
+              new InputSequence(
+                  ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO),
+                  VIDEO_INPUT_WITHOUT_AUDIO,
+                  VIDEO_INPUT,
+                  VIDEO_INPUT_WITHOUT_AUDIO)),
+          new TestConfig(
+              new InputSequence(
+                  ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO),
+                  VIDEO_INPUT,
+                  VIDEO_INPUT_WITHOUT_AUDIO,
+                  VIDEO_INPUT)),
+          new TestConfig(
+              new InputSequence(
+                  ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO),
+                  VIDEO_INPUT,
+                  AUDIO_INPUT_WITH_VIDEO_TIMESTAMPS)),
+          new TestConfig(
+              new InputSequence(
+                  ImmutableSet.of(C.TRACK_TYPE_VIDEO), VIDEO_ONLY_CLIPPED_HALF_SPEED)),
+          new TestConfig(
+              new InputSequence(
+                  ImmutableSet.of(C.TRACK_TYPE_VIDEO), VIDEO_ONLY_CLIPPED_TWICE_SPEED)),
+          new TestConfig(
+              new InputSequence(
+                  ImmutableSet.of(C.TRACK_TYPE_VIDEO),
+                  VIDEO_ONLY_CLIPPED_TWICE_SPEED,
+                  VIDEO_ONLY_CLIPPED_TWICE_SPEED)),
+          new TestConfig(
+              new InputSequence(
+                  ImmutableSet.of(C.TRACK_TYPE_VIDEO),
+                  VIDEO_ONLY_CLIPPED_TWICE_SPEED,
+                  VIDEO_ONLY_CLIPPED_HALF_SPEED)),
+          new TestConfig(
+              new InputSequence(
+                  ImmutableSet.of(C.TRACK_TYPE_VIDEO),
+                  VIDEO_ONLY_CLIPPED_HALF_SPEED,
+                  VIDEO_ONLY_CLIPPED_TWICE_SPEED)),
+          new TestConfig(
+              new InputSequence(
+                  ImmutableSet.of(C.TRACK_TYPE_VIDEO),
+                  VIDEO_ONLY_CLIPPED_HALF_SPEED,
+                  VIDEO_ONLY_CLIPPED_HALF_SPEED)),
+          new TestConfig(
+              new InputSequence(
+                  ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO),
+                  VIDEO_INPUT,
+                  VIDEO_INPUT_SRGB,
+                  VIDEO_INPUT,
+                  IMAGE_INPUT,
+                  VIDEO_INPUT_SRGB)));
 
   private static final ImmutableList<TestConfig> multiSequenceImageConfigs =
       ImmutableList.of(
           new TestConfig(
-              new InputSequence(IMAGE_INPUT, IMAGE_INPUT, IMAGE_INPUT),
-              new InputSequence(IMAGE_INPUT, IMAGE_INPUT, IMAGE_INPUT)));
+              new InputSequence(
+                  ImmutableSet.of(C.TRACK_TYPE_VIDEO), IMAGE_INPUT, IMAGE_INPUT, IMAGE_INPUT),
+              new InputSequence(
+                  ImmutableSet.of(C.TRACK_TYPE_VIDEO), IMAGE_INPUT, IMAGE_INPUT, IMAGE_INPUT)));
 
   private static final ImmutableList<TestConfig> multiSequenceVideoConfigs =
       ImmutableList.of(
           new TestConfig(
-              new InputSequence(VIDEO_INPUT, VIDEO_INPUT, VIDEO_INPUT),
-              new InputSequence(VIDEO_INPUT, VIDEO_INPUT, VIDEO_INPUT)));
+              new InputSequence(
+                  ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO),
+                  VIDEO_INPUT,
+                  VIDEO_INPUT,
+                  VIDEO_INPUT),
+              new InputSequence(
+                  ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO),
+                  VIDEO_INPUT,
+                  VIDEO_INPUT,
+                  VIDEO_INPUT)));
 
   private static final ImmutableList<TestConfig> multiSequenceMismatchedSequenceDurationConfigs =
       ImmutableList.of(
           new TestConfig(
-              new InputSequence(VIDEO_INPUT, AUDIO_INPUT, VIDEO_INPUT),
-              new InputSequence(IMAGE_INPUT)),
+              new InputSequence(
+                  ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO),
+                  VIDEO_INPUT,
+                  AUDIO_INPUT_WITH_VIDEO_TIMESTAMPS,
+                  VIDEO_INPUT),
+              new InputSequence(ImmutableSet.of(C.TRACK_TYPE_VIDEO), IMAGE_INPUT)),
           // TODO: b/418785194 - Enable once fixed.
-          //     new TestConfig(
-          //         new InputSequence(AUDIO_INPUT), new InputSequence(VIDEO_INPUT)),
+          // new TestConfig(
+          //     new InputSequence(ImmutableSet.of(C.TRACK_TYPE_AUDIO), AUDIO_INPUT),
+          //     new InputSequence(
+          //         ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO), VIDEO_INPUT)),
           // TODO: b/421358098 - Enable once fixed.
-          //     new TestConfig(
-          //         new InputSequence(VIDEO_INPUT), new InputSequence(VIDEO_INPUT, VIDEO_INPUT)),
+          // new TestConfig(
+          //     new InputSequence(
+          //         ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO), VIDEO_INPUT),
+          //     new InputSequence(
+          //         ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO),
+          //         VIDEO_INPUT,
+          //         VIDEO_INPUT)),
           new TestConfig(
-              new InputSequence(VIDEO_INPUT, VIDEO_INPUT),
-              new InputSequence(/* isLooping= */ false, AUDIO_INPUT))
+              new InputSequence(
+                  ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO),
+                  VIDEO_INPUT,
+                  VIDEO_INPUT),
+              new InputSequence(
+                  /* isLooping= */ false, ImmutableSet.of(C.TRACK_TYPE_AUDIO), AUDIO_INPUT))
           // TODO: b/419479048 - Enable once looping videos are supported.
-          //     new TestConfig(
-          //         new InputSequence(VIDEO_INPUT, VIDEO_INPUT),
-          //         new InputSequence(VIDEO_INPUT).withIsLooping()),
+          // new TestConfig(
+          //     new InputSequence(
+          //         ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO),
+          //         VIDEO_INPUT,
+          //         VIDEO_INPUT),
+          //     new InputSequence(
+          //             ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO), VIDEO_INPUT)
+          //         .withIsLooping())
           );
 
   private static class SingleInputVideoGraphConfigsProvider extends TestParameterValuesProvider {
@@ -525,19 +649,23 @@ public class CompositionPlayerParameterizedPlaybackTest {
 
   private static final class InputSequence {
     private final ImmutableList<Input> inputs;
+    private final ImmutableSet<@C.TrackType Integer> trackTypes;
     private final boolean isLooping;
 
-    public InputSequence(Input input, Input... inputs) {
-      this(/* isLooping= */ false, input, inputs);
+    private InputSequence(Set<@C.TrackType Integer> trackTypes, Input input, Input... inputs) {
+      this(/* isLooping= */ false, trackTypes, input, inputs);
     }
 
-    public InputSequence(boolean isLooping, Input input, Input... inputs) {
+    private InputSequence(
+        boolean isLooping, Set<@C.TrackType Integer> trackTypes, Input input, Input... inputs) {
       this.inputs = new ImmutableList.Builder<Input>().add(input).add(inputs).build();
+      this.trackTypes = ImmutableSet.copyOf(trackTypes);
       this.isLooping = isLooping;
     }
 
     public EditedMediaItemSequence getEditedMediaItemSequence() {
-      EditedMediaItemSequence.Builder sequenceBuilder = new EditedMediaItemSequence.Builder();
+      EditedMediaItemSequence.Builder sequenceBuilder =
+          new EditedMediaItemSequence.Builder(trackTypes);
       for (Input input : inputs) {
         sequenceBuilder.addItem(input.editedMediaItem);
       }
