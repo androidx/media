@@ -2423,6 +2423,18 @@ public abstract class MediaCodecRenderer extends BaseRenderer {
   }
 
   /**
+   * Returns the largest presentation time of a buffer queued to the decoder.
+   *
+   * <p>If a buffer has not yet been queued to the decoder then the return value will be {@link
+   * C#TIME_UNSET}. The value is reset when the decoder is flushed or released.
+   *
+   * @return The largest presentation time of buffers queued to the decoder.
+   */
+  protected long getLargestQueuedPresentationTimeUs() {
+    return largestQueuedPresentationTimeUs;
+  }
+
+  /**
    * Returns the offset that should be subtracted from {@code bufferPresentationTimeUs} in {@link
    * #processOutputBuffer(long, long, MediaCodecAdapter, ByteBuffer, int, int, int, long, boolean,
    * boolean, Format)} to get the playback position with respect to the media.

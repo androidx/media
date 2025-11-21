@@ -225,6 +225,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
   private int consecutiveDroppedFrameCount;
   private int buffersInCodecCount;
   @Nullable private ScrubbingModeParameters scrubbingModeParameters;
+  private long lastResetToKeyFramePositionUs;
   private boolean isFlushRequired;
   private long totalVideoFrameProcessingOffsetUs;
   private int videoFrameProcessingOffsetCount;
@@ -1039,6 +1040,9 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
         videoSink.flush(/* resetPosition= */ true);
       }
     }
+    if (sampleStreamIsResetToKeyFrame) {
+      lastResetToKeyFramePositionUs = positionUs;
+    }
     super.onPositionReset(positionUs, joining, sampleStreamIsResetToKeyFrame);
     if (videoSink == null) {
       videoFrameReleaseControl.reset();
@@ -1063,6 +1067,18 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
 
   @Override
   public boolean supportsResetPositionWithoutKeyFrameReset(long positionUs) {
+    // Require a key frame if:
+    // - The decoder has not yet been supplied a key frame
+    // - The renderer has already processed output or dropped to a keyframe past the intended reset
+    // position.
+    if (getLargestQueuedPresentationTimeUs() == C.TIME_UNSET) {
+      return false;
+    }
+    long lastResetToKeyFramePositionPresentationTimeUs =
+        lastResetToKeyFramePositionUs - getOutputStreamOffsetUs();
+    if (positionUs < lastResetToKeyFramePositionPresentationTimeUs) {
+      return false;
+    }
     long lastProcessedOutputBufferTimeUs = getLastProcessedOutputBufferTimeUs();
     if (lastProcessedOutputBufferTimeUs == C.TIME_UNSET) {
       return true;
@@ -2109,6 +2125,7 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     if (droppedSourceBufferCount == 0) {
       return false;
     }
+    lastResetToKeyFramePositionUs = positionUs;
     // We dropped some buffers to catch up, so update the decoder counters and flush the codec,
     // which releases all pending buffers buffers including the current output buffer.
     if (DEBUG_LOG_ENABLED) {

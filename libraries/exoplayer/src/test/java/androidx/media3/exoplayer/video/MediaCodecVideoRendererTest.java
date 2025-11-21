@@ -3398,6 +3398,248 @@ public class MediaCodecVideoRendererTest {
   }
 
   @Test
+  public void supportsResetPositionWithoutKeyFrameReset_priorToQueuingAnyFrames_returnsFalse()
+      throws Exception {
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ VIDEO_H264,
+            ImmutableList.of(
+                oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME), // First buffer.
+                oneByteSample(/* timeUs= */ 50_000),
+                oneByteSample(/* timeUs= */ 100_000),
+                oneByteSample(/* timeUs= */ 150_000, C.BUFFER_FLAG_KEY_FRAME),
+                oneByteSample(/* timeUs= */ 200_000),
+                oneByteSample(/* timeUs= */ 250_000),
+                END_OF_STREAM_ITEM));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    FakeTimeline fakeTimeline = new FakeTimeline();
+    mediaCodecVideoRenderer.setTimeline(fakeTimeline);
+    mediaCodecVideoRenderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {VIDEO_H264},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        /* mediaPeriodId= */ new MediaSource.MediaPeriodId(fakeTimeline.getUidOfPeriod(0)));
+    mediaCodecVideoRenderer.start();
+
+    assertThat(mediaCodecVideoRenderer.supportsResetPositionWithoutKeyFrameReset(50_000L))
+        .isFalse();
+  }
+
+  @Test
+  public void
+      supportsResetPositionWithoutKeyFrameReset_withPositionPrecedingResetPosition_returnsFalse()
+          throws Exception {
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ VIDEO_H264,
+            ImmutableList.of(
+                oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME), // First buffer.
+                oneByteSample(/* timeUs= */ 50_000),
+                oneByteSample(/* timeUs= */ 100_000),
+                oneByteSample(/* timeUs= */ 150_000, C.BUFFER_FLAG_KEY_FRAME),
+                oneByteSample(/* timeUs= */ 200_000),
+                oneByteSample(/* timeUs= */ 250_000),
+                END_OF_STREAM_ITEM));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    FakeTimeline fakeTimeline = new FakeTimeline();
+    mediaCodecVideoRenderer.setTimeline(fakeTimeline);
+    mediaCodecVideoRenderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {VIDEO_H264},
+        fakeSampleStream,
+        /* positionUs= */ 50_000,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 50_000,
+        /* offsetUs= */ 0,
+        /* mediaPeriodId= */ new MediaSource.MediaPeriodId(fakeTimeline.getUidOfPeriod(0)));
+    mediaCodecVideoRenderer.start();
+    mediaCodecVideoRenderer.render(50_000, SystemClock.elapsedRealtime() * 1000);
+
+    assertThat(mediaCodecVideoRenderer.supportsResetPositionWithoutKeyFrameReset(40_000L))
+        .isFalse();
+  }
+
+  @Test
+  public void
+      supportsResetPositionWithoutKeyFrameReset_afterDroppingDueToVeryLateBufferWithPrecedingPosition_returnsFalse()
+          throws Exception {
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ VIDEO_H264,
+            ImmutableList.of(
+                oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME), // First buffer.
+                oneByteSample(/* timeUs= */ 20_000),
+                oneByteSample(/* timeUs= */ 30_000),
+                oneByteSample(/* timeUs= */ 1_020_000, C.BUFFER_FLAG_KEY_FRAME),
+                oneByteSample(/* timeUs= */ 1_200_000),
+                END_OF_STREAM_ITEM)); // Very late buffer.
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    mediaCodecVideoRenderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {VIDEO_H264},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        /* mediaPeriodId= */ new MediaSource.MediaPeriodId(new Object()));
+    shadowOf(testMainLooper).idle();
+    ArgumentCaptor<DecoderCounters> argumentDecoderCounters =
+        ArgumentCaptor.forClass(DecoderCounters.class);
+    verify(eventListener).onVideoEnabled(argumentDecoderCounters.capture());
+    DecoderCounters decoderCounters = argumentDecoderCounters.getValue();
+
+    mediaCodecVideoRenderer.start();
+    while (decoderCounters.queuedInputBufferCount < 2) {
+      mediaCodecVideoRenderer.render(0, SystemClock.elapsedRealtime() * 1000);
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
+    }
+    mediaCodecVideoRenderer.setCurrentStreamFinal();
+    // Ensure existing buffer will be really late so that renderer will drop to keyframe.
+    while (decoderCounters.queuedInputBufferCount < 3) {
+      mediaCodecVideoRenderer.render(1_020_000, SystemClock.elapsedRealtime() * 1000);
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
+    }
+
+    shadowOf(testMainLooper).idle();
+
+    assertThat(decoderCounters.droppedToKeyframeCount).isEqualTo(1);
+    assertThat(decoderCounters.queuedInputBufferCount).isEqualTo(3);
+    assertThat(mediaCodecVideoRenderer.supportsResetPositionWithoutKeyFrameReset(50_000L))
+        .isFalse();
+  }
+
+  @Test
+  public void
+      supportsResetPositionWithoutKeyFrameReset_afterDroppingDueToVeryLateBufferWithLaterPosition_returnsTrue()
+          throws Exception {
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ VIDEO_H264,
+            ImmutableList.of(
+                oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME), // First buffer.
+                oneByteSample(/* timeUs= */ 20_000),
+                oneByteSample(/* timeUs= */ 30_000),
+                oneByteSample(/* timeUs= */ 1_020_000, C.BUFFER_FLAG_KEY_FRAME),
+                oneByteSample(/* timeUs= */ 1_200_000),
+                END_OF_STREAM_ITEM)); // Very late buffer.
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    mediaCodecVideoRenderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {VIDEO_H264},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        /* mediaPeriodId= */ new MediaSource.MediaPeriodId(new Object()));
+    shadowOf(testMainLooper).idle();
+    ArgumentCaptor<DecoderCounters> argumentDecoderCounters =
+        ArgumentCaptor.forClass(DecoderCounters.class);
+    verify(eventListener).onVideoEnabled(argumentDecoderCounters.capture());
+    DecoderCounters decoderCounters = argumentDecoderCounters.getValue();
+
+    mediaCodecVideoRenderer.start();
+    while (decoderCounters.queuedInputBufferCount < 2) {
+      mediaCodecVideoRenderer.render(0, SystemClock.elapsedRealtime() * 1000);
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
+    }
+    mediaCodecVideoRenderer.setCurrentStreamFinal();
+    // Ensure existing buffer will be really late so that renderer will drop to keyframe.
+    while (decoderCounters.queuedInputBufferCount < 3) {
+      mediaCodecVideoRenderer.render(1_020_000, SystemClock.elapsedRealtime() * 1000);
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
+    }
+
+    shadowOf(testMainLooper).idle();
+
+    assertThat(decoderCounters.droppedToKeyframeCount).isEqualTo(1);
+    assertThat(decoderCounters.queuedInputBufferCount).isEqualTo(3);
+    assertThat(mediaCodecVideoRenderer.supportsResetPositionWithoutKeyFrameReset(1_200_000))
+        .isTrue();
+  }
+
+  @Test
+  public void supportsResetPositionWithoutKeyFrameReset_postFlush_returnsFalse() throws Exception {
+    FakeSampleStream fakeSampleStream =
+        new FakeSampleStream(
+            new DefaultAllocator(/* trimOnReset= */ true, /* individualAllocationSize= */ 1024),
+            /* mediaSourceEventDispatcher= */ null,
+            DrmSessionManager.DRM_UNSUPPORTED,
+            new DrmSessionEventListener.EventDispatcher(),
+            /* initialFormat= */ VIDEO_H264,
+            ImmutableList.of(
+                oneByteSample(/* timeUs= */ 0, C.BUFFER_FLAG_KEY_FRAME), // First buffer.
+                oneByteSample(/* timeUs= */ 50_000),
+                oneByteSample(/* timeUs= */ 100_000),
+                oneByteSample(/* timeUs= */ 150_000, C.BUFFER_FLAG_KEY_FRAME),
+                oneByteSample(/* timeUs= */ 200_000),
+                oneByteSample(/* timeUs= */ 250_000),
+                END_OF_STREAM_ITEM));
+    fakeSampleStream.writeData(/* startPositionUs= */ 0);
+    FakeTimeline fakeTimeline = new FakeTimeline();
+    mediaCodecVideoRenderer.setTimeline(fakeTimeline);
+    mediaCodecVideoRenderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {VIDEO_H264},
+        fakeSampleStream,
+        /* positionUs= */ 0,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        /* mediaPeriodId= */ new MediaSource.MediaPeriodId(fakeTimeline.getUidOfPeriod(0)));
+    // Render first sample and decode the second.
+    mediaCodecVideoRenderer.start();
+    mediaCodecVideoRenderer.render(0, SystemClock.elapsedRealtime() * 1000);
+    for (int i = 0; i < 5; i++) {
+      mediaCodecVideoRenderer.render(40_000, SystemClock.elapsedRealtime() * 1000);
+      codecAdapterFactory.idleQueueingAndCallbackThreads();
+    }
+
+    mediaCodecVideoRenderer.stop();
+    mediaCodecVideoRenderer.disable();
+    mediaCodecVideoRenderer.enable(
+        RendererConfiguration.DEFAULT,
+        new Format[] {VIDEO_H264},
+        fakeSampleStream,
+        /* positionUs= */ 40_000,
+        /* joining= */ false,
+        /* mayRenderStartOfStream= */ true,
+        /* startPositionUs= */ 0,
+        /* offsetUs= */ 0,
+        /* mediaPeriodId= */ new MediaSource.MediaPeriodId(fakeTimeline.getUidOfPeriod(0)));
+    mediaCodecVideoRenderer.start();
+
+    assertThat(mediaCodecVideoRenderer.supportsResetPositionWithoutKeyFrameReset(50_000L))
+        .isFalse();
+  }
+
+  @Test
   public void enable_withMayRenderStartOfStream_rendersFirstFrameBeforeStart() throws Exception {
     FakeSampleStream fakeSampleStream =
         new FakeSampleStream(
