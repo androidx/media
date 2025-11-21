@@ -116,6 +116,7 @@ public final class FrameExtractorInternal {
     public final SeekParameters seekParameters;
     public final MediaCodecSelector mediaCodecSelector;
     @Nullable public final GlObjectsProvider glObjectsProvider;
+    @Nullable public final MediaSource.Factory mediaSourceFactory;
     public final boolean extractHdrFrames;
     public final long positionMs;
 
@@ -126,6 +127,7 @@ public final class FrameExtractorInternal {
         SeekParameters seekParameters,
         MediaCodecSelector mediaCodecSelector,
         @Nullable GlObjectsProvider glObjectsProvider,
+        @Nullable MediaSource.Factory mediaSourceFactory,
         boolean extractHdrFrames,
         long positionMs) {
       this.context = context;
@@ -134,6 +136,7 @@ public final class FrameExtractorInternal {
       this.seekParameters = seekParameters;
       this.mediaCodecSelector = mediaCodecSelector;
       this.glObjectsProvider = glObjectsProvider;
+      this.mediaSourceFactory = mediaSourceFactory;
       this.extractHdrFrames = extractHdrFrames;
       this.positionMs = positionMs;
     }
@@ -150,6 +153,7 @@ public final class FrameExtractorInternal {
           this.seekParameters,
           this.mediaCodecSelector,
           this.glObjectsProvider,
+          this.mediaSourceFactory,
           this.extractHdrFrames,
           positionMs);
     }
@@ -180,6 +184,7 @@ public final class FrameExtractorInternal {
   private boolean currentExtractHdrFrames;
 
   @Nullable private GlObjectsProvider currentGlObjectsProvider;
+  @Nullable private MediaSource.Factory currentMediaSourceFactory;
   private long thumbnailPresentationTimeMs;
 
   private FrameExtractorInternal() {
@@ -219,6 +224,7 @@ public final class FrameExtractorInternal {
                 currentMediaCodecSelector = MediaCodecSelector.DEFAULT;
                 currentExtractHdrFrames = false;
                 currentGlObjectsProvider = null;
+                currentMediaSourceFactory = null;
                 lastSeekDedupeFrame = null;
                 thumbnailPresentationTimeMs = C.TIME_UNSET;
               }
@@ -241,7 +247,8 @@ public final class FrameExtractorInternal {
                   // can recover from errors.
                   || player.getPlayerError() != null
                   || request.mediaCodecSelector != currentMediaCodecSelector
-                  || request.glObjectsProvider != currentGlObjectsProvider;
+                  || request.glObjectsProvider != currentGlObjectsProvider
+                  || request.mediaSourceFactory != currentMediaSourceFactory;
 
           boolean needsPrepare =
               needsNewPlayer
@@ -343,9 +350,15 @@ public final class FrameExtractorInternal {
       currentMediaCodecSelector = request.mediaCodecSelector;
       currentExtractHdrFrames = request.extractHdrFrames;
       currentGlObjectsProvider = request.glObjectsProvider;
+      currentMediaSourceFactory = request.mediaSourceFactory;
 
-      MediaSource.Factory mediaSourceFactory =
-          new DefaultMediaSourceFactory(request.context, new DefaultExtractorsFactory());
+      MediaSource.Factory mediaSourceFactoryToUse;
+      if (request.mediaSourceFactory != null) {
+        mediaSourceFactoryToUse = request.mediaSourceFactory;
+      } else {
+        mediaSourceFactoryToUse =
+            new DefaultMediaSourceFactory(request.context, new DefaultExtractorsFactory());
+      }
 
       player =
           new ExoPlayer.Builder(
@@ -366,7 +379,7 @@ public final class FrameExtractorInternal {
                             extractedFrameNeedsRendering,
                             this)
                       },
-                  mediaSourceFactory)
+                  mediaSourceFactoryToUse)
               .setLooper(playerHandler.getLooper())
               .experimentalSetDynamicSchedulingEnabled(true)
               .build();

@@ -248,6 +248,7 @@ public final class ExperimentalFrameExtractor {
             seekParameters,
             configuration.mediaCodecSelector,
             configuration.glObjectsProvider,
+            /* mediaSourceFactory= */ null,
             configuration.extractHdrFrames,
             positionMs);
 

@@ -44,6 +44,11 @@ import androidx.media3.effect.PassthroughShaderProgram;
 import androidx.media3.effect.Presentation;
 import androidx.media3.exoplayer.DecoderCounters;
 import androidx.media3.exoplayer.ExoPlaybackException;
+import androidx.media3.exoplayer.drm.DrmSessionManagerProvider;
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
+import androidx.media3.exoplayer.source.MediaSource;
+import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy;
+import androidx.media3.extractor.DefaultExtractorsFactory;
 import androidx.media3.inspector.FrameExtractor.Frame;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -58,6 +63,7 @@ import java.util.Locale;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Before;
 import org.junit.Rule;
@@ -518,6 +524,54 @@ public class FrameExtractorTest {
       assertThat(frame.presentationTimeMs).isEqualTo(8_531);
       assertThat(glObjectsProviderUsedByEffects.get()).isEqualTo(customObjectsProvider);
     }
+  }
+
+  @Test
+  public void extractFrame_withCustomMediaSourceFactory_usesFactory() throws Exception {
+    AtomicBoolean factoryUsed = new AtomicBoolean(false);
+    MediaItem mediaItem = MediaItem.fromUri(FILE_PATH);
+    MediaSource.Factory customMediaSourceFactory =
+        new MediaSource.Factory() {
+          private final MediaSource.Factory delegate =
+              new DefaultMediaSourceFactory(context, new DefaultExtractorsFactory());
+
+          @Override
+          public MediaSource.Factory setDrmSessionManagerProvider(
+              DrmSessionManagerProvider drmSessionManagerProvider) {
+            delegate.setDrmSessionManagerProvider(drmSessionManagerProvider);
+            return this;
+          }
+
+          @Override
+          public MediaSource.Factory setLoadErrorHandlingPolicy(
+              LoadErrorHandlingPolicy loadErrorHandlingPolicy) {
+            delegate.setLoadErrorHandlingPolicy(loadErrorHandlingPolicy);
+            return this;
+          }
+
+          @Override
+          public int[] getSupportedTypes() {
+            return delegate.getSupportedTypes();
+          }
+
+          @Override
+          public MediaSource createMediaSource(MediaItem mediaItem) {
+            factoryUsed.set(true);
+            return delegate.createMediaSource(mediaItem);
+          }
+        };
+
+    try (FrameExtractor frameExtractor =
+        new FrameExtractor.Builder(context, mediaItem)
+            .setMediaSourceFactory(customMediaSourceFactory)
+            .build()) {
+      ListenableFuture<Frame> frameFuture = frameExtractor.getFrame(/* positionMs= */ 0);
+      Frame frame = frameFuture.get(TIMEOUT_SECONDS, SECONDS);
+      assertThat(frame).isNotNull();
+      assertThat(frame.bitmap).isNotNull();
+    }
+
+    assertThat(factoryUsed.get()).isTrue();
   }
 
   @Test
