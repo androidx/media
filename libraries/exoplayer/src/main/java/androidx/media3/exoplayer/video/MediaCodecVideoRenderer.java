@@ -1074,18 +1074,14 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
     if (getLargestQueuedPresentationTimeUs() == C.TIME_UNSET) {
       return false;
     }
-    long lastResetToKeyFramePositionPresentationTimeUs =
-        lastResetToKeyFramePositionUs - getOutputStreamOffsetUs();
-    if (positionUs < lastResetToKeyFramePositionPresentationTimeUs) {
+    if (positionUs < lastResetToKeyFramePositionUs) {
       return false;
     }
     long lastProcessedOutputBufferTimeUs = getLastProcessedOutputBufferTimeUs();
     if (lastProcessedOutputBufferTimeUs == C.TIME_UNSET) {
       return true;
     }
-    long lastProcessedOutputBufferPresentationTimeUs =
-        lastProcessedOutputBufferTimeUs - getOutputStreamOffsetUs();
-    return positionUs > lastProcessedOutputBufferPresentationTimeUs;
+    return positionUs > lastProcessedOutputBufferTimeUs;
   }
 
   @Override
