@@ -1798,15 +1798,16 @@ import java.util.Objects;
     return periodPositionUs;
   }
 
-  private boolean shouldSkipKeyFrameReset(MediaPeriodHolder playingPeriod, long positionUs) {
+  private boolean shouldSkipKeyFrameReset(MediaPeriodHolder playingPeriod, long periodPositionUs) {
     if (playbackInfo.timeline.isEmpty() || !playingPeriod.info.id.equals(playbackInfo.periodId)) {
       return false;
     }
+    long rendererPositionUs = playingPeriod.toRendererTime(periodPositionUs);
     boolean renderersSupportSkipKeyFrameReset = true;
     for (RendererHolder renderer : renderers) {
       if (renderer.isRendererEnabled()) {
         renderersSupportSkipKeyFrameReset &=
-            renderer.supportsResetPositionWithoutKeyFrameReset(playingPeriod, positionUs);
+            renderer.supportsResetPositionWithoutKeyFrameReset(playingPeriod, rendererPositionUs);
       }
     }
     if (!renderersSupportSkipKeyFrameReset) {
@@ -1817,7 +1818,7 @@ import java.util.Objects;
             playbackInfo.positionUs, SeekParameters.PREVIOUS_SYNC);
     long adjustedSeekPositionSyncUs =
         playingPeriod.mediaPeriod.getAdjustedSeekPositionUs(
-            positionUs, SeekParameters.PREVIOUS_SYNC);
+            periodPositionUs, SeekParameters.PREVIOUS_SYNC);
     return adjustedCurrentPositionSyncUs == adjustedSeekPositionSyncUs;
   }
 
