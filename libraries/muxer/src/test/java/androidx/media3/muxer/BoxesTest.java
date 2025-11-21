@@ -22,6 +22,7 @@ import static androidx.media3.muxer.MuxerTestUtil.FAKE_CSD_0;
 import static androidx.media3.muxer.MuxerTestUtil.FAKE_VIDEO_FORMAT;
 import static androidx.media3.muxer.MuxerTestUtil.getExpectedDumpFilePath;
 import static com.google.common.truth.Truth.assertThat;
+import static java.util.Arrays.asList;
 import static org.junit.Assert.assertThrows;
 
 import android.content.Context;
@@ -41,6 +42,7 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.BaseEncoding;
+import com.google.common.truth.Correspondence;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -530,6 +532,38 @@ public class BoxesTest {
   }
 
   @Test
+  public void convertPresentationTimestampsToDurationsVu_roundingErrorIsWithingHalfATick() {
+    int videoUnitTimescale = 90_000;
+    ImmutableList<Long> originalTimestampsUs =
+        ImmutableList.of(
+            0L, 16_683L, 33_366L, 50_050L, 66_733L, 83_416L, 100_100L, 116_783L, 133_466L, 150_150L,
+            166_833L, 183_516L, 200_200L, 216_883L, 233_566L, 250_250L, 266_933L, 283_616L,
+            300_300L, 316_983L, 333_666L, 350_350L, 367_033L, 383_716L, 400_400L, 417_083L,
+            433_766L, 450_450L, 467_133L, 483_816L, 512_000L, 528_683L, 545_366L, 562_050L,
+            578_733L, 595_416L, 612_100L, 628_783L, 645_466L, 662_150L, 678_833L, 695_516L,
+            712_200L, 728_883L, 745_566L, 762_250L, 778_933L, 795_616L, 812_300L, 828_983L,
+            845_666L, 862_350L, 879_033L, 895_716L, 912_400L, 929_083L, 945_766L, 962_450L,
+            979_133L, 995_816L);
+    List<BufferInfo> sampleBufferInfos =
+        createBufferInfoListWithSamplePresentationTimestamps(originalTimestampsUs);
+
+    List<Integer> durationsVu =
+        Boxes.convertPresentationTimestampsToDurationsVu(
+            sampleBufferInfos,
+            videoUnitTimescale,
+            LAST_SAMPLE_DURATION_BEHAVIOR_SET_TO_ZERO,
+            /* endOfStreamTimestampUs= */ 1_024_000);
+
+    List<Long> derivedTimestampUs =
+        durationsVuToPresentationTimestamps(durationsVu, videoUnitTimescale);
+    // Allow a tolerance of ~half a tick: 1000000 / 90000 = 11.1us (periodic)
+    assertThat(derivedTimestampUs)
+        .comparingElementsUsing(Correspondence.tolerance(6))
+        .containsExactlyElementsIn(originalTimestampsUs)
+        .inOrder();
+  }
+
+  @Test
   public void
       convertPresentationTimestampsToDurationsVu_singleSampleAtNonZeroTimestamp_returnsSampleLengthEqualsZero() {
     List<BufferInfo> sampleBufferInfos =
@@ -685,7 +719,7 @@ public class BoxesTest {
 
   @Test
   public void createCttsBox_withSingleSampleTimestamp_returnsEmptyBox() {
-    List<BufferInfo> sampleBufferInfos = createBufferInfoListWithSamplePresentationTimestamps(400);
+    List<BufferInfo> sampleBufferInfos = createBufferInfoListWithSamplePresentationTimestamps(400L);
     List<Integer> durationsVu =
         Boxes.convertPresentationTimestampsToDurationsVu(
             sampleBufferInfos,
@@ -720,7 +754,7 @@ public class BoxesTest {
   public void createCttsBox_withBFramesSampleTimestamps_matchesExpected() throws IOException {
     List<BufferInfo> sampleBufferInfos =
         createBufferInfoListWithSamplePresentationTimestamps(
-            0, 400, 200, 100, 300, 800, 600, 500, 700);
+            0L, 400L, 200L, 100L, 300L, 800L, 600L, 500L, 700L);
 
     List<Integer> durationsVu =
         Boxes.convertPresentationTimestampsToDurationsVu(
@@ -924,8 +958,25 @@ public class BoxesTest {
         context, dumpableBox, MuxerTestUtil.getExpectedDumpFilePath("trex_box"));
   }
 
+  private static List<Long> durationsVuToPresentationTimestamps(
+      List<Integer> durationsVu, int videoUnitTimescale) {
+    List<Long> timestampsUs = new ArrayList<>();
+    int nextSampleTimestampVu = 0;
+    for (int duration : durationsVu) {
+      timestampsUs.add(
+          Util.scaleLargeTimestamp(nextSampleTimestampVu, C.MICROS_PER_SECOND, videoUnitTimescale));
+      nextSampleTimestampVu += duration;
+    }
+    return timestampsUs;
+  }
+
   private static List<BufferInfo> createBufferInfoListWithSamplePresentationTimestamps(
-      long... timestampsUs) {
+      Long... timestampsUs) {
+    return createBufferInfoListWithSamplePresentationTimestamps(asList(timestampsUs));
+  }
+
+  private static List<BufferInfo> createBufferInfoListWithSamplePresentationTimestamps(
+      List<Long> timestampsUs) {
     List<BufferInfo> bufferInfoList = new ArrayList<>();
     for (long timestampUs : timestampsUs) {
       BufferInfo bufferInfo = new BufferInfo(timestampUs, /* size= */ 0, /* flags= */ 0);

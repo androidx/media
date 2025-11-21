@@ -905,8 +905,11 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
     long currentSampleTimeUs = presentationTimestampsUs.get(0);
     for (int nextSampleId = 1; nextSampleId < presentationTimestampsUs.size(); nextSampleId++) {
       long nextSampleTimeUs = presentationTimestampsUs.get(nextSampleId);
+      // Convert timestamps in microseconds to VU first and then calculate the duration in VU to
+      // avoid error accumulation.
       long currentSampleDurationVu =
-          vuFromUs(nextSampleTimeUs - currentSampleTimeUs, videoUnitTimescale);
+          vuFromUs(nextSampleTimeUs, videoUnitTimescale)
+              - vuFromUs(currentSampleTimeUs, videoUnitTimescale);
       checkState(
           currentSampleDurationVu <= Integer.MAX_VALUE, "Only 32-bit sample duration is allowed");
       durationsVu.add((int) currentSampleDurationVu);
