@@ -180,8 +180,30 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
   @UnstableApi
   public DefaultMediaSourceFactory(
       DataSource.Factory dataSourceFactory, ExtractorsFactory extractorsFactory) {
+    this(dataSourceFactory, extractorsFactory, new DefaultSubtitleParserFactory());
+  }
+
+  /**
+   * Creates a new instance.
+   *
+   * <p>Note that this constructor is only useful to try and ensure that ExoPlayer's {@link
+   * DefaultDataSource.Factory}, {@link DefaultExtractorsFactory} and {@link
+   * DefaultSubtitleParserFactory} can be removed by ProGuard or R8.
+   *
+   * @param dataSourceFactory A {@link DataSource.Factory} to create {@link DataSource} instances
+   *     for requesting media data.
+   * @param extractorsFactory An {@link ExtractorsFactory} used to extract progressive media from
+   *     its container.
+   * @param subtitleParserFactory A {@link SubtitleParser.Factory} to create {@link SubtitleParser}
+   *     instances used to parse subtitles.
+   */
+  @UnstableApi
+  public DefaultMediaSourceFactory(
+      DataSource.Factory dataSourceFactory,
+      ExtractorsFactory extractorsFactory,
+      SubtitleParser.Factory subtitleParserFactory) {
     this.dataSourceFactory = dataSourceFactory;
-    this.subtitleParserFactory = new DefaultSubtitleParserFactory();
+    this.subtitleParserFactory = subtitleParserFactory;
     delegateFactoryLoader = new DelegateFactoryLoader(extractorsFactory, subtitleParserFactory);
     delegateFactoryLoader.setDataSourceFactory(dataSourceFactory);
     liveTargetOffsetMs = C.TIME_UNSET;
