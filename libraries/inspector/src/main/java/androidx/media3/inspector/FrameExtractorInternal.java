@@ -345,9 +345,7 @@ public final class FrameExtractorInternal {
       currentGlObjectsProvider = request.glObjectsProvider;
 
       MediaSource.Factory mediaSourceFactory =
-          new DefaultMediaSourceFactory(request.context, new DefaultExtractorsFactory())
-              .experimentalSetCodecsToParseWithinGopSampleDependencies(
-                  C.VIDEO_CODEC_FLAG_H264 | C.VIDEO_CODEC_FLAG_H265);
+          new DefaultMediaSourceFactory(request.context, new DefaultExtractorsFactory());
 
       player =
           new ExoPlayer.Builder(
