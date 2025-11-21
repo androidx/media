@@ -29,6 +29,7 @@ import androidx.media3.common.Effect;
 import androidx.media3.common.MediaItem;
 import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.Presentation;
+import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.transformer.Composition;
 import androidx.media3.transformer.CompositionPlayer;
@@ -449,7 +450,13 @@ public class VideoTimestampConsistencyTest {
 
     instrumentation.runOnMainSync(
         () -> {
-          exoplayer = new ExoPlayer.Builder(applicationContext).build();
+          exoplayer =
+              new ExoPlayer.Builder(applicationContext)
+                  // Disable decoder input frame dropping in this test.
+                  .setRenderersFactory(
+                      new DefaultRenderersFactory(applicationContext)
+                          .experimentalSetLateThresholdToDropDecoderInputUs(C.TIME_UNSET))
+                  .build();
           // Set a surface on the player even though there is no UI on this test. We need a surface
           // otherwise the player will skip/drop video frames.
           exoplayer.setVideoSurfaceView(surfaceView);
