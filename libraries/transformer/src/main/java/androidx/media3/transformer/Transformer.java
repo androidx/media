@@ -1292,6 +1292,9 @@ public final class Transformer {
             (progressState == PROGRESS_STATE_AVAILABLE)
                 ? progressHolder.progress
                 : C.PERCENTAGE_UNSET;
+        if (editingMetricsCollector == null) {
+          LogSessionId unused = setUpMetricsCollection();
+        }
         checkNotNull(editingMetricsCollector).onExportCancelled(progressPercentage);
       }
     }
@@ -1725,16 +1728,7 @@ public final class Transformer {
       transformationRequest =
           transformationRequest.buildUpon().setHdrMode(composition.hdrMode).build();
     }
-    LogSessionId logSessionId = null;
-    if (canCollectEditingMetrics()) {
-      EditingMetricsCollector.MetricsReporter metricsReporter =
-          checkNotNull(metricsReporterFactory).create();
-      if (metricsReporter instanceof EditingMetricsCollector.DefaultMetricsReporter) {
-        logSessionId =
-            ((EditingMetricsCollector.DefaultMetricsReporter) metricsReporter).getLogSessionId();
-      }
-      editingMetricsCollector = prepareEditingMetricsCollector(metricsReporter);
-    }
+    LogSessionId logSessionId = setUpMetricsCollection();
     FallbackListener fallbackListener =
         new FallbackListener(
             checkNotNull(this.originalComposition),
@@ -1791,10 +1785,28 @@ public final class Transformer {
           (progressState == PROGRESS_STATE_AVAILABLE)
               ? progressHolder.progress
               : C.PERCENTAGE_UNSET;
+      if (editingMetricsCollector == null) {
+        LogSessionId unused = setUpMetricsCollection();
+      }
       checkNotNull(editingMetricsCollector)
           .onExportError(progressPercentage, exception, exportResult, isExportResumed());
     }
     transformerState = TRANSFORMER_STATE_PROCESS_FULL_INPUT;
+  }
+
+  @Nullable
+  private LogSessionId setUpMetricsCollection() {
+    LogSessionId logSessionId = null;
+    if (canCollectEditingMetrics()) {
+      EditingMetricsCollector.MetricsReporter metricsReporter =
+          checkNotNull(metricsReporterFactory).create();
+      if (metricsReporter instanceof EditingMetricsCollector.DefaultMetricsReporter) {
+        logSessionId =
+            ((EditingMetricsCollector.DefaultMetricsReporter) metricsReporter).getLogSessionId();
+      }
+      editingMetricsCollector = prepareEditingMetricsCollector(metricsReporter);
+    }
+    return logSessionId;
   }
 
   // This method is safe to have because it's called inside a canCollectEditingMetrics() check which
