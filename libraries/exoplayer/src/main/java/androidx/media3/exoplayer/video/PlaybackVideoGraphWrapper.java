@@ -1328,6 +1328,7 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
         VideoFrameProcessor.Listener listener)
         throws VideoFrameProcessingException {
       try {
+        // LINT.IfChange
         Class<?> defaultVideoFrameProcessorFactoryBuilderClass =
             DEFAULT_VIDEO_FRAME_PROCESSOR_FACTORY_BUILDER_CLASS.get();
         Object builder =
@@ -1342,6 +1343,7 @@ public final class PlaybackVideoGraphWrapper implements VideoGraph.Listener {
                     defaultVideoFrameProcessorFactoryBuilderClass
                         .getMethod("build")
                         .invoke(builder));
+        // LINT.ThenChange(../../../../../../../../effect/src/main/java/androidx/media3/effect/DefaultVideoFrameProcessor.java)
         return factory.create(
             context,
             debugViewProvider,
