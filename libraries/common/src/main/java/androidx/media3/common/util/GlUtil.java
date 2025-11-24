@@ -276,7 +276,6 @@ public final class GlUtil {
             /* unusedMinor */ new int[1],
             /* minorOffset= */ 0),
         "Error in eglInitialize.");
-    checkGlError();
     return eglDisplay;
   }
 
@@ -328,7 +327,6 @@ public final class GlUtil {
               + " version "
               + openGlVersion);
     }
-    checkGlError();
     return eglContext;
   }
 
