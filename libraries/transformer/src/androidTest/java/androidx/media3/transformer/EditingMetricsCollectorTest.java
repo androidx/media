@@ -145,13 +145,13 @@ public class EditingMetricsCollectorTest {
             .setFrameRate(30)
             .build();
     EditedMediaItemSequence videoImageSequence =
-        new EditedMediaItemSequence.Builder(audioVideoItem, imageItem).build();
+        EditedMediaItemSequence.withAudioAndVideoFrom(ImmutableList.of(audioVideoItem, imageItem));
     EditedMediaItemSequence audioSequence =
-        new EditedMediaItemSequence.Builder(
+        EditedMediaItemSequence.withAudioFrom(
+            ImmutableList.of(
                 new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
                     .setRemoveVideo(true)
-                    .build())
-            .build();
+                    .build()));
     Composition composition = new Composition.Builder(videoImageSequence, audioSequence).build();
 
     ExportTestResult exportTestResult =
@@ -410,9 +410,9 @@ public class EditingMetricsCollectorTest {
   private static final class TestMetricsReporter
       implements EditingMetricsCollector.MetricsReporter {
     public interface Listener {
-      default void onMetricsReporterCreated(LogSessionId logSessionId) {}
+      default void onMetricsReporterCreated(LogSessionId unused) {}
 
-      default void onMetricsReported(EditingEndedEvent editingEndedEvent) {}
+      default void onMetricsReported(EditingEndedEvent unused) {}
     }
 
     private final EditingMetricsCollector.MetricsReporter wrappedMetricsReporter;

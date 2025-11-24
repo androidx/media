@@ -799,7 +799,8 @@ public class CompositionExportTest {
         () ->
             transformer.resume(
                 new Composition.Builder(
-                        new EditedMediaItemSequence.Builder(itemWithSpeedProvider).build())
+                        EditedMediaItemSequence.withAudioFrom(
+                            ImmutableList.of(itemWithSpeedProvider)))
                     .build(),
                 /* outputFilePath= */ "fakePath",
                 /* oldFilePath= */ "fakePath"));
@@ -809,7 +810,7 @@ public class CompositionExportTest {
         () ->
             transformer.resume(
                 new Composition.Builder(
-                        new EditedMediaItemSequence.Builder(itemWithEffects).build())
+                        EditedMediaItemSequence.withAudioFrom(ImmutableList.of(itemWithEffects)))
                     .build(),
                 /* outputFilePath= */ "fakePath",
                 /* oldFilePath= */ "fakePath"));
@@ -818,7 +819,8 @@ public class CompositionExportTest {
         IllegalArgumentException.class,
         () ->
             transformer.resume(
-                new Composition.Builder(new EditedMediaItemSequence.Builder(item).build())
+                new Composition.Builder(
+                        EditedMediaItemSequence.withAudioFrom(ImmutableList.of(item)))
                     .setEffects(speedChangingEffects)
                     .build(),
                 /* outputFilePath= */ "fakePath",

@@ -1122,9 +1122,10 @@ public class CompositionPlayerTest {
         item.buildUpon()
             .setSpeed(TestSpeedProvider.createWithStartTimes(new long[] {0L}, new float[] {0.5f}))
             .build();
-    EditedMediaItemSequence primarySequence = new EditedMediaItemSequence.Builder(item).build();
+    EditedMediaItemSequence primarySequence =
+        EditedMediaItemSequence.withAudioFrom(ImmutableList.of(item));
     EditedMediaItemSequence secondarySequence =
-        new EditedMediaItemSequence.Builder(speedAdjustedItem).build();
+        EditedMediaItemSequence.withAudioFrom(ImmutableList.of(speedAdjustedItem));
     player.setComposition(
         new Composition.Builder(primarySequence, secondarySequence)
             .setEffects(new Effects(ImmutableList.of(processor), ImmutableList.of()))
