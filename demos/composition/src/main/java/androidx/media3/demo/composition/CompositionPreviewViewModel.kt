@@ -31,6 +31,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.AudioAttributes
+import androidx.media3.common.C
 import androidx.media3.common.Effect
 import androidx.media3.common.GlObjectsProvider
 import androidx.media3.common.MediaItem
@@ -633,7 +634,7 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     // TODO(b/417365294): Improve how sequences are built
     val videoSequenceBuilders =
       MutableList(numSequences) {
-        EditedMediaItemSequence.Builder().experimentalSetForceAudioTrack(true)
+        EditedMediaItemSequence.Builder(setOf(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO))
       }
     val videoSequences = mutableListOf<EditedMediaItemSequence>()
     for (sequenceIndex in 0 until numSequences) {
@@ -855,7 +856,10 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     fun getAudioBackgroundSequence(): EditedMediaItemSequence {
       val audioMediaItem: MediaItem = MediaItem.Builder().setUri(AUDIO_URI).build()
       val audioItem = EditedMediaItem.Builder(audioMediaItem).setDurationUs(59_000_000).build()
-      return EditedMediaItemSequence.Builder(audioItem).setIsLooping(true).build()
+      return EditedMediaItemSequence.Builder(setOf(C.TRACK_TYPE_AUDIO))
+        .addItem(audioItem)
+        .setIsLooping(true)
+        .build()
     }
   }
 }
