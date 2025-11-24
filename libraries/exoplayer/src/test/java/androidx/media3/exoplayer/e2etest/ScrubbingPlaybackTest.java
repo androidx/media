@@ -329,8 +329,12 @@ public class ScrubbingPlaybackTest {
     PlaybackOutput playbackOutput = PlaybackOutput.register(player, capturingRenderersFactory);
     player.addMediaItem(new MediaItem.Builder().setUri(TEST_MP4_URI).build());
     player.prepare();
-    // Play until renderer has reached the specified blocked presentation time.
-    play(player).untilBackgroundThreadCondition(hasReceivedOutputBufferPastBlockTime::get);
+    // Play until renderer has reached the specified blocked presentation time and playback position
+    // has advanced beyond the keyframe at 600 ms.
+    play(player)
+        .untilBackgroundThreadCondition(
+            () -> hasReceivedOutputBufferPastBlockTime.get() && player.getCurrentPosition() > 610);
+
     player.setScrubbingModeEnabled(true);
     TestPlayerRunHelper.runUntilPendingCommandsAreFullyHandled(player);
 
