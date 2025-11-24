@@ -38,6 +38,7 @@
     *   Fix bug where, if playing in a playlist or repeat mode, seeking in scrub
         mode near the end could cause a seek to the next media item.
 *   CompositionPlayer:
+    *   Add support for `EditedMediaItem.removeVideo`.
 *   Transformer:
 *   Track Selection:
 *   Extractors:

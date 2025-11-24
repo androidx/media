@@ -96,68 +96,6 @@ public class CompositionPlaybackTest {
   }
 
   @Test
-  public void playback_sequenceOfThreeVideosRemovingMiddleVideo_noFrameIsRendered()
-      throws Exception {
-    InputTimestampRecordingShaderProgram inputTimestampRecordingShaderProgram =
-        new InputTimestampRecordingShaderProgram();
-
-    EditedMediaItem videoEditedMediaItem =
-        new EditedMediaItem.Builder(VIDEO_MEDIA_ITEM)
-            .setDurationUs(VIDEO_DURATION_US)
-            .setEffects(
-                new Effects(
-                    /* audioProcessors= */ ImmutableList.of(),
-                    /* videoEffects= */ ImmutableList.of(
-                        (GlEffect) (context, useHdr) -> inputTimestampRecordingShaderProgram)))
-            .build();
-    EditedMediaItem videoEditedMediaItemRemoveVideo =
-        videoEditedMediaItem.buildUpon().setRemoveVideo(true).build();
-    Composition composition =
-        new Composition.Builder(
-                EditedMediaItemSequence.withAudioAndVideoFrom(
-                    ImmutableList.of(
-                        videoEditedMediaItem,
-                        videoEditedMediaItemRemoveVideo,
-                        videoEditedMediaItem)))
-            .build();
-
-    runCompositionPlayer(composition);
-
-    assertThat(inputTimestampRecordingShaderProgram.getInputTimestampsUs()).isEmpty();
-  }
-
-  @Test
-  public void playback_compositionWithSecondSequenceRemoveVideo_rendersVideoFromFirstSequence()
-      throws Exception {
-    InputTimestampRecordingShaderProgram inputTimestampRecordingShaderProgram =
-        new InputTimestampRecordingShaderProgram();
-
-    EditedMediaItem videoEditedMediaItem =
-        new EditedMediaItem.Builder(VIDEO_MEDIA_ITEM)
-            .setDurationUs(VIDEO_DURATION_US)
-            .setEffects(
-                new Effects(
-                    /* audioProcessors= */ ImmutableList.of(),
-                    /* videoEffects= */ ImmutableList.of(
-                        (GlEffect) (context, useHdr) -> inputTimestampRecordingShaderProgram)))
-            .build();
-    EditedMediaItem videoEditedMediaItemRemoveVideo =
-        videoEditedMediaItem.buildUpon().setRemoveVideo(true).build();
-    Composition composition =
-        new Composition.Builder(
-                EditedMediaItemSequence.withAudioAndVideoFrom(
-                    ImmutableList.of(videoEditedMediaItem)),
-                EditedMediaItemSequence.withAudioFrom(
-                    ImmutableList.of(videoEditedMediaItemRemoveVideo)))
-            .build();
-
-    runCompositionPlayer(composition);
-
-    assertThat(inputTimestampRecordingShaderProgram.getInputTimestampsUs())
-        .isEqualTo(VIDEO_TIMESTAMPS_US);
-  }
-
-  @Test
   public void playback_withEncodedAudioStream_signalsPositionOffsetRelativeToFile()
       throws Exception {
     PositionOffsetRecorder processor = new PositionOffsetRecorder();

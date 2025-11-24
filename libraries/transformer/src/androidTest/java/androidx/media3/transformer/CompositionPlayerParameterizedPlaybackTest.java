@@ -240,6 +240,46 @@ public class CompositionPlayerParameterizedPlaybackTest {
               933_333L,
               966_667L),
           /* inputName= */ "Audio_with_video_gap");
+  private static final Input VIDEO_INPUT_WITH_REMOVE_VIDEO =
+      new Input(
+          new EditedMediaItem.Builder(MediaItem.fromUri(MP4_ASSET.uri))
+              .setDurationUs(MP4_ASSET.videoDurationUs)
+              .setRemoveVideo(true)
+              .build(),
+          /* expectedVideoTimestampsUs= */ ImmutableList.of(
+              // These are timestamps for implicit video gap
+              0L,
+              33_333L,
+              66_667L,
+              100_000L,
+              133_333L,
+              166_667L,
+              200_000L,
+              233_333L,
+              266_667L,
+              300_000L,
+              333_333L,
+              366_667L,
+              400_000L,
+              433_333L,
+              466_667L,
+              500_000L,
+              533_333L,
+              566_667L,
+              600_000L,
+              633_333L,
+              666_667L,
+              700_000L,
+              733_333L,
+              766_667L,
+              800_000L,
+              833_333L,
+              866_667L,
+              900_000L,
+              933_333L,
+              966_667L,
+              1_000_000L),
+          /* inputName= */ "Video_with_remove_video_set");
 
   @Rule
   public ActivityScenarioRule<SurfaceTestActivity> rule =
@@ -259,6 +299,10 @@ public class CompositionPlayerParameterizedPlaybackTest {
           new TestConfig(
               new InputSequence(
                   ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO), VIDEO_INPUT_SRGB)),
+          new TestConfig(
+              new InputSequence(
+                  ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO),
+                  VIDEO_INPUT_WITH_REMOVE_VIDEO)),
           new TestConfig(new InputSequence(ImmutableSet.of(C.TRACK_TYPE_VIDEO), IMAGE_INPUT)),
           new TestConfig(new InputSequence(ImmutableSet.of(C.TRACK_TYPE_AUDIO), AUDIO_INPUT)),
           new TestConfig(
@@ -337,7 +381,19 @@ public class CompositionPlayerParameterizedPlaybackTest {
                   VIDEO_INPUT_SRGB,
                   VIDEO_INPUT,
                   IMAGE_INPUT,
-                  VIDEO_INPUT_SRGB)));
+                  VIDEO_INPUT_SRGB)),
+          new TestConfig(
+              new InputSequence(
+                  ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO),
+                  VIDEO_INPUT_WITH_REMOVE_VIDEO,
+                  VIDEO_INPUT,
+                  VIDEO_INPUT)),
+          new TestConfig(
+              new InputSequence(
+                  ImmutableSet.of(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_VIDEO),
+                  VIDEO_INPUT,
+                  VIDEO_INPUT_WITH_REMOVE_VIDEO,
+                  VIDEO_INPUT)));
 
   private static final ImmutableList<TestConfig> multiSequenceImageConfigs =
       ImmutableList.of(

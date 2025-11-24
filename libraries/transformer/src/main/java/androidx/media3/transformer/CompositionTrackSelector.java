@@ -69,11 +69,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     EditedMediaItemSequence sequence = (EditedMediaItemSequence) period.id;
     currentEditedMediaItem =
         getEditedMediaItem(sequence, /* index= */ timeline.getIndexOfPeriod(periodId.periodUid));
-    boolean disableVideoPlayback = false;
-    for (int j = 0; j < sequence.editedMediaItems.size(); j++) {
-      disableVideoPlayback |= sequence.editedMediaItems.get(j).removeVideo;
-    }
-    trackSelectorInternal.setDisableVideoPlayback(disableVideoPlayback);
 
     return trackSelectorInternal.selectTracks(
         rendererCapabilities, trackGroups, periodId, timeline);
@@ -109,8 +104,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
     private static final String BLANK_IMAGE_TRACK_GROUP_ID = "1:";
     private final Listener listener;
     private final int sequenceIndex;
-
-    private boolean disableVideoPlayback;
 
     public TrackSelectorInternal(Context context, Listener listener, int sequenceIndex) {
       super(context);
@@ -200,9 +193,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
               mixedMimeTypeSupports,
               params,
               selectedAudioLanguage);
-      if (disableVideoPlayback) {
-        trackSelection = null;
-      }
       listener.onVideoTrackSelection(/* selected= */ trackSelection != null, sequenceIndex);
       return trackSelection;
     }
@@ -227,7 +217,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       TrackGroupArray imageTrackGroups = mappedTrackInfo.getTrackGroups(imageRenderIndex);
       // If there's only one image TrackGroup, there's no need to override track selection
       if (imageTrackGroups.length > 1) {
-        // TODO(b/419255366): Support `removeVideo` full functionality
         // Check if media image is playable.
         boolean shouldUseMediaImage = false;
         int blankImageTrackGroupIndex = C.INDEX_UNSET;
@@ -255,16 +244,9 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       @Nullable
       Pair<ExoTrackSelection.Definition, Integer> trackSelection =
           super.selectImageTrack(mappedTrackInfo, rendererFormatSupports, params);
-      if (disableVideoPlayback) {
-        trackSelection = null;
-      }
       // Images are treated as video tracks.
       listener.onVideoTrackSelection(/* selected= */ trackSelection != null, sequenceIndex);
       return trackSelection;
-    }
-
-    public void setDisableVideoPlayback(boolean disableVideoPlayback) {
-      this.disableVideoPlayback = disableVideoPlayback;
     }
   }
 }
