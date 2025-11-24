@@ -15,8 +15,6 @@ implementation 'androidx.media3:media3-ui-compose:1.X.X'
 where `1.X.X` is the version, which must match the version of the other media
 modules being used.
 
-<!-- disableFinding(LINK_RELATIVE_G3DOC) -->
-
 Alternatively, you can clone this GitHub project and depend on the module
 locally. Instructions for doing this can be found in the [top level README][].
 
