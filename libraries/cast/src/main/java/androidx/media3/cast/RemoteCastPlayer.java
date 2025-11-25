@@ -39,6 +39,7 @@ import androidx.annotation.IntRange;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
+import androidx.core.util.Preconditions;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.BasePlayer;
 import androidx.media3.common.C;
@@ -71,7 +72,6 @@ import com.google.android.gms.cast.MediaStatus;
 import com.google.android.gms.cast.MediaTrack;
 import com.google.android.gms.cast.framework.CastContext;
 import com.google.android.gms.cast.framework.CastSession;
-import com.google.android.gms.cast.framework.SessionManager;
 import com.google.android.gms.cast.framework.SessionManagerListener;
 import com.google.android.gms.cast.framework.media.RemoteMediaClient;
 import com.google.android.gms.cast.framework.media.RemoteMediaClient.MediaChannelResult;
@@ -274,7 +274,7 @@ public final class RemoteCastPlayer extends BasePlayer {
   private static final long PROGRESS_REPORT_PERIOD_MS = 1000;
   private static final long[] EMPTY_TRACK_ID_ARRAY = new long[0];
 
-  private final CastContext castContext;
+  private final CastContextWrapper castContextWrapper;
   private final MediaItemConverter mediaItemConverter;
   private final long seekBackIncrementMs;
   private final long seekForwardIncrementMs;
@@ -321,7 +321,7 @@ public final class RemoteCastPlayer extends BasePlayer {
   private RemoteCastPlayer(Builder builder) {
     this(
         builder.context,
-        CastContext.getSharedInstance(builder.context),
+        CastContextWrapper.getSingletonInstance(),
         builder.mediaItemConverter,
         builder.seekBackIncrementMs,
         builder.seekForwardIncrementMs,
@@ -336,7 +336,7 @@ public final class RemoteCastPlayer extends BasePlayer {
    */
   /* package */ RemoteCastPlayer(
       @Nullable Context context,
-      CastContext castContext,
+      CastContextWrapper castContextWrapper,
       MediaItemConverter mediaItemConverter,
       @IntRange(from = 1) long seekBackIncrementMs,
       @IntRange(from = 1) long seekForwardIncrementMs,
@@ -352,7 +352,7 @@ public final class RemoteCastPlayer extends BasePlayer {
             + "] ["
             + Util.DEVICE_DEBUG_INFO
             + "]");
-    this.castContext = castContext;
+    this.castContextWrapper = castContextWrapper;
     this.mediaItemConverter = mediaItemConverter;
     this.seekBackIncrementMs = seekBackIncrementMs;
     this.seekForwardIncrementMs = seekForwardIncrementMs;
@@ -381,9 +381,13 @@ public final class RemoteCastPlayer extends BasePlayer {
     pendingSeekWindowIndex = C.INDEX_UNSET;
     pendingSeekPositionMs = C.TIME_UNSET;
 
-    SessionManager sessionManager = castContext.getSessionManager();
-    sessionManager.addSessionManagerListener(statusListener, CastSession.class);
-    setCastSession(sessionManager.getCurrentCastSession());
+    if (castContextWrapper.needsInitialization()) {
+      Preconditions.checkNotNull(
+          context, "A context is mandatory if the CastContextWrapper is not initialized.");
+      castContextWrapper.asyncInit(context, Runnable::run);
+    }
+    castContextWrapper.addSessionManagerListener(statusListener);
+    setCastSession(castContextWrapper.getCurrentCastSession());
     updateInternalStateAndNotifyIfChanged();
     if (SDK_INT >= 30 && context != null) {
       api30Impl = new Api30Impl(context);
@@ -700,9 +704,8 @@ public final class RemoteCastPlayer extends BasePlayer {
     if (SDK_INT >= 30 && api30Impl != null) {
       api30Impl.release();
     }
-    SessionManager sessionManager = castContext.getSessionManager();
-    sessionManager.removeSessionManagerListener(statusListener, CastSession.class);
-    sessionManager.endCurrentSession(false);
+    castContextWrapper.removeSessionManagerListener(statusListener);
+    castContextWrapper.endCurrentSession(false);
   }
 
   @Override

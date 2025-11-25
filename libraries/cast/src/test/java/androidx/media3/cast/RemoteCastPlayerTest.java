@@ -98,6 +98,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -155,7 +156,7 @@ public class RemoteCastPlayerTest {
     remoteCastPlayer =
         new RemoteCastPlayer(
             /* context= */ null,
-            mockCastContext,
+            CastContextWrapper.getSingletonInstance().initWithContext(mockCastContext),
             mediaItemConverter,
             C.DEFAULT_SEEK_BACK_INCREMENT_MS,
             C.DEFAULT_SEEK_FORWARD_INCREMENT_MS,
@@ -165,6 +166,12 @@ public class RemoteCastPlayerTest {
     castListener = castListenerArgumentCaptor.getValue();
     verify(mockRemoteMediaClient).registerCallback(callbackArgumentCaptor.capture());
     remoteMediaClientCallback = callbackArgumentCaptor.getValue();
+  }
+
+  @After
+  public void tearDown() {
+    remoteCastPlayer.release();
+    CastContextWrapper.reset();
   }
 
   @SuppressWarnings("deprecation")
