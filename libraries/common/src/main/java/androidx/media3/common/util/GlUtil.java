@@ -286,7 +286,7 @@ public final class GlUtil {
             /* unusedMinor */ new int[1],
             /* minorOffset= */ 0),
         "Error in eglInitialize.");
-    checkGlError();
+    checkEglException("Error in getDefaultEglDisplay");
     return eglDisplay;
   }
 
@@ -338,7 +338,7 @@ public final class GlUtil {
               + " version "
               + openGlVersion);
     }
-    checkGlError();
+    checkEglException("Error in createEglContext");
     return eglContext;
   }
 
