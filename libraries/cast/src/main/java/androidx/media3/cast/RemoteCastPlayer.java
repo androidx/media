@@ -384,7 +384,7 @@ public final class RemoteCastPlayer extends BasePlayer {
     if (castContextWrapper.needsInitialization()) {
       Preconditions.checkNotNull(
           context, "A context is mandatory if the CastContextWrapper is not initialized.");
-      castContextWrapper.asyncInit(context, Runnable::run);
+      castContextWrapper.asyncInit(context);
     }
     castContextWrapper.addSessionManagerListener(statusListener);
     setCastSession(castContextWrapper.getCurrentCastSession());

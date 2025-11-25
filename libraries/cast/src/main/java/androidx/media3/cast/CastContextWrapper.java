@@ -22,6 +22,7 @@ import androidx.annotation.MainThread;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.core.util.Preconditions;
+import androidx.media3.common.util.BackgroundExecutor;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import com.google.android.gms.cast.framework.CastContext;
@@ -32,7 +33,6 @@ import com.google.android.gms.tasks.Task;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.Executor;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
 /**
@@ -89,12 +89,12 @@ public class CastContextWrapper {
    *
    * <p>Does nothing if {@link #needsInitialization() initialization} is not needed.
    *
+   * <p>Cast context loading is offloaded to {@link BackgroundExecutor}.
+   *
    * @param context A {@link Context}.
-   * @param executor The {@link Executor} to use to load the Cast module. You can pass a background
-   *     thread executor to avoid loading the Cast module on the main thread.
    */
-  public void asyncInit(Context context, Executor executor) {
-    asyncInit(() -> CastContext.getSharedInstance(context, executor));
+  public void asyncInit(Context context) {
+    asyncInit(() -> CastContext.getSharedInstance(context, BackgroundExecutor.get()));
   }
 
   @VisibleForTesting
