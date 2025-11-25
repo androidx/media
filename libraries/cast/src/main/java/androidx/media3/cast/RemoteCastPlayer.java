@@ -71,7 +71,6 @@ import com.google.android.gms.cast.MediaStatus;
 import com.google.android.gms.cast.MediaTrack;
 import com.google.android.gms.cast.framework.CastContext;
 import com.google.android.gms.cast.framework.CastSession;
-import com.google.android.gms.cast.framework.ModuleUnavailableException;
 import com.google.android.gms.cast.framework.SessionManager;
 import com.google.android.gms.cast.framework.SessionManagerListener;
 import com.google.android.gms.cast.framework.media.RemoteMediaClient;
@@ -275,7 +274,7 @@ public final class RemoteCastPlayer extends BasePlayer {
   private static final long PROGRESS_REPORT_PERIOD_MS = 1000;
   private static final long[] EMPTY_TRACK_ID_ARRAY = new long[0];
 
-  @Nullable private final CastContext castContext;
+  private final CastContext castContext;
   private final MediaItemConverter mediaItemConverter;
   private final long seekBackIncrementMs;
   private final long seekForwardIncrementMs;
@@ -309,7 +308,6 @@ public final class RemoteCastPlayer extends BasePlayer {
   private final StateHolder<Tracks> currentTracks;
   private Commands availableCommands;
   private @Player.State int playbackState;
-  @Nullable private final PlaybackException playbackException;
   private int currentWindowIndex;
   private long lastReportedPositionMs;
   private int pendingSeekCount;
@@ -323,7 +321,7 @@ public final class RemoteCastPlayer extends BasePlayer {
   private RemoteCastPlayer(Builder builder) {
     this(
         builder.context,
-        getSharedInstantSafely(builder.context),
+        CastContext.getSharedInstance(builder.context),
         builder.mediaItemConverter,
         builder.seekBackIncrementMs,
         builder.seekForwardIncrementMs,
@@ -338,24 +336,22 @@ public final class RemoteCastPlayer extends BasePlayer {
    */
   /* package */ RemoteCastPlayer(
       @Nullable Context context,
-      @Nullable CastContext castContext,
+      CastContext castContext,
       MediaItemConverter mediaItemConverter,
       @IntRange(from = 1) long seekBackIncrementMs,
       @IntRange(from = 1) long seekForwardIncrementMs,
       @IntRange(from = 0) long maxSeekToPreviousPositionMs) {
     checkArgument(seekBackIncrementMs > 0 && seekForwardIncrementMs > 0);
     checkArgument(maxSeekToPreviousPositionMs >= 0L);
-    if (castContext != null) {
-      Log.i(
-          TAG,
-          "Init "
-              + Integer.toHexString(System.identityHashCode(this))
-              + " ["
-              + MediaLibraryInfo.VERSION_SLASHY
-              + "] ["
-              + Util.DEVICE_DEBUG_INFO
-              + "]");
-    }
+    Log.i(
+        TAG,
+        "Init "
+            + Integer.toHexString(System.identityHashCode(this))
+            + " ["
+            + MediaLibraryInfo.VERSION_SLASHY
+            + "] ["
+            + Util.DEVICE_DEBUG_INFO
+            + "]");
     this.castContext = castContext;
     this.mediaItemConverter = mediaItemConverter;
     this.seekBackIncrementMs = seekBackIncrementMs;
@@ -377,30 +373,17 @@ public final class RemoteCastPlayer extends BasePlayer {
     volume = new StateHolder<>(1f);
     playbackParameters = new StateHolder<>(PlaybackParameters.DEFAULT);
     playbackState = STATE_IDLE;
-    playbackException =
-        castContext == null
-            ? new PlaybackException(
-                "Failed to initialize Cast. This may be due to Google Play services not being"
-                    + " available, see https://support.google.com/googleplay/answer/9037938",
-                new ModuleUnavailableException(new Exception("Module Unavailable")),
-                PlaybackException.ERROR_CODE_REMOTE_ERROR)
-            : null;
     currentTimeline = CastTimeline.EMPTY_CAST_TIMELINE;
     mediaMetadata = MediaMetadata.EMPTY;
     playlistMetadata = MediaMetadata.EMPTY;
     currentTracks = new StateHolder<>(Tracks.EMPTY);
-    availableCommands =
-        castContext == null
-            ? new Commands.Builder().build()
-            : new Commands.Builder().addAll(PERMANENT_AVAILABLE_COMMANDS).build();
+    availableCommands = new Commands.Builder().addAll(PERMANENT_AVAILABLE_COMMANDS).build();
     pendingSeekWindowIndex = C.INDEX_UNSET;
     pendingSeekPositionMs = C.TIME_UNSET;
 
-    if (castContext != null) {
-      SessionManager sessionManager = castContext.getSessionManager();
-      sessionManager.addSessionManagerListener(statusListener, CastSession.class);
-      setCastSession(sessionManager.getCurrentCastSession());
-    }
+    SessionManager sessionManager = castContext.getSessionManager();
+    sessionManager.addSessionManagerListener(statusListener, CastSession.class);
+    setCastSession(sessionManager.getCurrentCastSession());
     updateInternalStateAndNotifyIfChanged();
     if (SDK_INT >= 30 && context != null) {
       api30Impl = new Api30Impl(context);
@@ -547,12 +530,7 @@ public final class RemoteCastPlayer extends BasePlayer {
 
   @Override
   public void prepare() {
-    if (playbackException != null) {
-      listeners.sendEvent(
-          Player.EVENT_PLAYER_ERROR, listener -> listener.onPlayerErrorChanged(playbackException));
-      listeners.sendEvent(
-          Player.EVENT_PLAYER_ERROR, listener -> listener.onPlayerError(playbackException));
-    }
+    // Do nothing.
   }
 
   @Override
@@ -572,7 +550,7 @@ public final class RemoteCastPlayer extends BasePlayer {
   @Override
   @Nullable
   public PlaybackException getPlayerError() {
-    return playbackException;
+    return null;
   }
 
   @Override
@@ -722,11 +700,9 @@ public final class RemoteCastPlayer extends BasePlayer {
     if (SDK_INT >= 30 && api30Impl != null) {
       api30Impl.release();
     }
-    if (castContext != null) {
-      SessionManager sessionManager = castContext.getSessionManager();
-      sessionManager.removeSessionManagerListener(statusListener, CastSession.class);
-      sessionManager.endCurrentSession(false);
-    }
+    SessionManager sessionManager = castContext.getSessionManager();
+    sessionManager.removeSessionManagerListener(statusListener, CastSession.class);
+    sessionManager.endCurrentSession(false);
   }
 
   @Override
@@ -1395,10 +1371,6 @@ public final class RemoteCastPlayer extends BasePlayer {
   }
 
   private void updateAvailableCommandsAndNotifyIfChanged() {
-    if (castContext == null) {
-      return;
-    }
-
     Commands previousAvailableCommands = availableCommands;
     availableCommands =
         Util.getAvailableCommands(/* player= */ this, PERMANENT_AVAILABLE_COMMANDS)
@@ -1648,23 +1620,6 @@ public final class RemoteCastPlayer extends BasePlayer {
   @Nullable
   private MediaStatus getMediaStatus() {
     return remoteMediaClient != null ? remoteMediaClient.getMediaStatus() : null;
-  }
-
-  @Nullable
-  private static CastContext getSharedInstantSafely(Context context) {
-    try {
-      return CastContext.getSharedInstance(context);
-    } catch (RuntimeException e) {
-      if (e instanceof IllegalStateException) {
-        throw e;
-      }
-      Log.e(
-          TAG,
-          "Failed to initialize Cast. This may be due to Google Play services not being available,"
-              + " see https://support.google.com/googleplay/answer/9037938",
-          e);
-    }
-    return null;
   }
 
   /**
