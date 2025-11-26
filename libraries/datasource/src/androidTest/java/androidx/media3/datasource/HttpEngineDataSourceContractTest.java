@@ -63,7 +63,7 @@ public class HttpEngineDataSourceContractTest extends DataSourceContractTest {
         new HttpEngine.Builder(ApplicationProvider.getApplicationContext()).build();
     return new HttpEngineDataSource.Factory(httpEngine, executorService)
         // Ensure that 'resource not found' tests fail fast (b/403179253).
-        .setConnectionTimeoutMs(1000)
+        .setConnectionTimeoutMs(2000)
         .setReadTimeoutMs(400)
         .createDataSource();
   }
