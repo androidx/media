@@ -42,9 +42,6 @@ This release includes the following changes since
         ([#2860](https://github.com/androidx/media/issues/2860)).
     *   Fix bug where, if playing in a playlist or repeat mode, seeking in scrub
         mode near the end could cause a seek to the next media item.
-*   CompositionPlayer:
-*   Transformer:
-*   Track Selection:
 *   Extractors:
     *   MP3: Change `Mp3Extractor` to default to a constant bitrate (CBR)
         assumption when no seeking metadata (e.g., Xing, VBRI) is found, even
