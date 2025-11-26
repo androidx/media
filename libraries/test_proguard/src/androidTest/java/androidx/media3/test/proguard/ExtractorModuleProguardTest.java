@@ -22,6 +22,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /** Unit test executing methods in {@link ExtractorModuleProguard}. */
+@Ignore // Can't read asset list from gradle from test-proguard (internal bug-ref: b/463675073)
 @RunWith(AndroidJUnit4.class)
 @Ignore("Fails on gradle: b/463675073")
 public final class ExtractorModuleProguardTest {

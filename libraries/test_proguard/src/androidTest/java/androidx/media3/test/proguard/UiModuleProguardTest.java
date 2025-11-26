@@ -45,6 +45,7 @@ public final class UiModuleProguardTest {
                     getApplicationContext()));
   }
 
+  @Ignore // Can't read asset list from gradle from test-proguard (internal bug-ref: b/463675073)
   @Test
   @Ignore("Fails on gradle: b/463675073")
   public void playerControlView_scrubbingWithExoPlayer_succeeds() throws Exception {
