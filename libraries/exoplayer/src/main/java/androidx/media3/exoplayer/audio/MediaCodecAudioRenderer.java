@@ -141,6 +141,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
   private boolean allowPositionDiscontinuity;
   private boolean audioSinkNeedsReset;
   private boolean hasPendingReportedSkippedSilence;
+  private boolean hasReportedAudioPositionAdvancing;
   private int rendererPriority;
   private boolean isStarted;
   private long nextBufferToWritePresentationTimeUs;
@@ -547,9 +548,11 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
           : DEFAULT_DURATION_TO_PROGRESS_US;
     }
     long audioTrackBufferDurationUs = audioSink.getAudioTrackBufferSizeUs();
-    if (!audioSinkBufferFull || audioTrackBufferDurationUs == C.TIME_UNSET) {
-      // If the AudioSink buffer is not yet full or getting the audio track buffer size is
-      // unsupported, continue calling with default duration to progress.
+    if (!hasReportedAudioPositionAdvancing
+        || !audioSinkBufferFull
+        || audioTrackBufferDurationUs == C.TIME_UNSET) {
+      // If audio has not yet advanced, the AudioSink buffer is not yet full, or getting the audio
+      // track buffer size is unsupported, continue calling with default duration to progress.
       return DEFAULT_DURATION_TO_PROGRESS_US;
     }
     // Compare written, yet-to-play content duration against the audio track buffer size.
@@ -713,6 +716,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
     currentPositionUs = positionUs;
     nextBufferToWritePresentationTimeUs = C.TIME_UNSET;
     hasPendingReportedSkippedSilence = false;
+    hasReportedAudioPositionAdvancing = false;
     allowPositionDiscontinuity = true;
   }
 
@@ -729,6 +733,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
     isStarted = false;
     audioSink.pause();
     super.onStopped();
+    hasReportedAudioPositionAdvancing = false;
   }
 
   @Override
@@ -736,6 +741,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
     audioSinkNeedsReset = true;
     inputFormat = null;
     nextBufferToWritePresentationTimeUs = C.TIME_UNSET;
+    hasReportedAudioPositionAdvancing = false;
     try {
       audioSink.flush();
     } finally {
@@ -750,6 +756,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
   @Override
   protected void onReset() {
     hasPendingReportedSkippedSilence = false;
+    hasReportedAudioPositionAdvancing = false;
     nextBufferToWritePresentationTimeUs = C.TIME_UNSET;
     try {
       super.onReset();
@@ -1170,6 +1177,7 @@ public class MediaCodecAudioRenderer extends MediaCodecRenderer implements Media
 
     @Override
     public void onPositionAdvancing(long playoutStartSystemTimeMs) {
+      hasReportedAudioPositionAdvancing = true;
       eventDispatcher.positionAdvancing(playoutStartSystemTimeMs);
     }
 

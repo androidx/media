@@ -37,6 +37,8 @@
         ([#2860](https://github.com/androidx/media/issues/2860)).
     *   Fix bug where, if playing in a playlist or repeat mode, seeking in scrub
         mode near the end could cause a seek to the next media item.
+    *   Allow dynamic scheduling to slow `doSomeWork` interval only after audio
+        starts to support smoother A/V sync at beginning of playback.
 *   CompositionPlayer:
     *   Add support for `EditedMediaItem.removeVideo`.
 *   Transformer:
