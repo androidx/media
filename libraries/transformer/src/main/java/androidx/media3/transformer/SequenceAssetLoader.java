@@ -401,6 +401,7 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 
   private static List<EditedMediaItem> applySequenceTrackTypeConstraints(
       Set<@C.TrackType Integer> sequenceTrackTypes, List<EditedMediaItem> editedMediaItems) {
+    // TODO: b/445884217 - Remove TRACK_TYPE_NONE logic.
     if (sequenceTrackTypes.contains(C.TRACK_TYPE_NONE)) {
       return editedMediaItems;
     }
