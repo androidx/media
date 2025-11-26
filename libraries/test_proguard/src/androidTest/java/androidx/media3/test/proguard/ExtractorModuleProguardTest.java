@@ -17,11 +17,13 @@ package androidx.media3.test.proguard;
 
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /** Unit test executing methods in {@link ExtractorModuleProguard}. */
 @RunWith(AndroidJUnit4.class)
+@Ignore("Fails on gradle: b/463675073")
 public final class ExtractorModuleProguardTest {
 
   @Test
