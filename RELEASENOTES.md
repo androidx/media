@@ -1,5 +1,11 @@
 # Release notes
 
+### Unreleased changes
+
+*   ExoPlayer:
+    *   Allow dynamic scheduling to slow `doSomeWork` interval only after audio
+        starts to support smoother A/V sync at beginning of playback.
+
 ## 1.9
 
 ### 1.9.0 (2025-12-17)
