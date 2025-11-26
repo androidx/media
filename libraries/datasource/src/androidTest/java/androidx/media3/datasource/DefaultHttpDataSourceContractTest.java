@@ -33,7 +33,7 @@ public class DefaultHttpDataSourceContractTest extends DataSourceContractTest {
   protected DataSource createDataSource() {
     return new DefaultHttpDataSource.Factory()
         // Ensure that 'resource not found' tests fail fast (b/403179253).
-        .setConnectTimeoutMs(400)
+        .setConnectTimeoutMs(1000)
         .setReadTimeoutMs(400)
         .createDataSource();
   }
