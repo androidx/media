@@ -34,6 +34,7 @@ import java.nio.ByteBuffer;
  *   <li>{@link C#ENCODING_PCM_32BIT}
  *   <li>{@link C#ENCODING_PCM_32BIT_BIG_ENDIAN}
  *   <li>{@link C#ENCODING_PCM_FLOAT}
+ *   <li>{@link C#ENCODING_PCM_DOUBLE}
  * </ul>
  */
 @UnstableApi
@@ -50,7 +51,8 @@ public final class ToInt16PcmAudioProcessor extends BaseAudioProcessor {
         && encoding != C.ENCODING_PCM_24BIT_BIG_ENDIAN
         && encoding != C.ENCODING_PCM_32BIT
         && encoding != C.ENCODING_PCM_32BIT_BIG_ENDIAN
-        && encoding != C.ENCODING_PCM_FLOAT) {
+        && encoding != C.ENCODING_PCM_FLOAT
+        && encoding != C.ENCODING_PCM_DOUBLE) {
       throw new UnhandledAudioFormatException(inputAudioFormat);
     }
     return encoding != C.ENCODING_PCM_16BIT
@@ -81,6 +83,9 @@ public final class ToInt16PcmAudioProcessor extends BaseAudioProcessor {
       case C.ENCODING_PCM_32BIT_BIG_ENDIAN:
       case C.ENCODING_PCM_FLOAT:
         resampledSize = size / 2;
+        break;
+      case C.ENCODING_PCM_DOUBLE:
+        resampledSize = size / 4;
         break;
       case C.ENCODING_PCM_16BIT:
       case C.ENCODING_INVALID:
@@ -143,6 +148,19 @@ public final class ToInt16PcmAudioProcessor extends BaseAudioProcessor {
           float floatValue =
               Util.constrainValue(inputBuffer.getFloat(i), /* min= */ -1, /* max= */ 1);
           short shortValue = (short) (floatValue * Short.MAX_VALUE);
+          buffer.put((byte) (shortValue & 0xFF));
+          buffer.put((byte) ((shortValue >> 8) & 0xFF));
+        }
+        break;
+      case C.ENCODING_PCM_DOUBLE:
+        // 64 bit floating point -> 16 bit resampling. Floating point values are in the range
+        // [-1.0, 1.0], so need to be scaled by Short.MAX_VALUE.
+        for (int i = position; i < limit; i += 8) {
+          // Clamp to avoid integer overflow if the floating point values exceed their nominal range
+          // [Internal ref: b/161204847].
+          double doubleValue =
+              Util.constrainValue(inputBuffer.getDouble(i), /* min= */ -1, /* max= */ 1);
+          short shortValue = (short) (doubleValue * Short.MAX_VALUE);
           buffer.put((byte) (shortValue & 0xFF));
           buffer.put((byte) ((shortValue >> 8) & 0xFF));
         }
