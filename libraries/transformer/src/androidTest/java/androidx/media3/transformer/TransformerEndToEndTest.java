@@ -1329,6 +1329,45 @@ public class TransformerEndToEndTest {
   }
 
   @Test
+  public void removeAudio_inAudioVideoSequenceAndTrimOptimizationEnabled_addsSilentAudioTrack()
+      throws Exception {
+    if (!isRunningOnEmulator() || SDK_INT < 33) {
+      // The trim optimization is only guaranteed to work on emulator for this (emulator-transcoded)
+      // file.
+      recordTestSkipped(context, testId, /* reason= */ "SDK 33+ Emulator only test");
+      assumeTrue(false);
+    }
+    Transformer transformer =
+        new Transformer.Builder(context).experimentalSetTrimOptimizationEnabled(true).build();
+    MediaItem mediaItem =
+        new MediaItem.Builder()
+            .setUri(MP4_TRIM_OPTIMIZATION.uri)
+            .setClippingConfiguration(
+                new MediaItem.ClippingConfiguration.Builder()
+                    .setStartPositionMs(500)
+                    .setEndPositionMs(2500)
+                    .build())
+            .build();
+    EditedMediaItem editedMediaItem =
+        new EditedMediaItem.Builder(mediaItem).setRemoveAudio(true).build();
+    EditedMediaItemSequence sequence =
+        EditedMediaItemSequence.withAudioAndVideoFrom(ImmutableList.of(editedMediaItem));
+    Composition composition = new Composition.Builder(sequence).build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, composition);
+
+    FakeExtractorOutput fakeExtractorOutput =
+        TestUtil.extractAllSamplesFromFilePath(
+            new Mp4Extractor(new DefaultSubtitleParserFactory()), checkNotNull(result.filePath));
+    FakeTrackOutput audioTrackOutput =
+        Iterables.getOnlyElement(fakeExtractorOutput.getTrackOutputsForType(C.TRACK_TYPE_AUDIO));
+    assertThat(audioTrackOutput).isNotNull();
+  }
+
+  @Test
   public void speedAdjustedMedia_completesWithCorrectDuration() throws Exception {
     Transformer transformer = new Transformer.Builder(context).build();
     SpeedProvider speedProvider =
