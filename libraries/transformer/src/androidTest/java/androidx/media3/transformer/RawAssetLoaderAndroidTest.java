@@ -15,6 +15,8 @@
  */
 package androidx.media3.transformer;
 
+import static androidx.media3.common.util.Util.durationUsToSampleCount;
+import static androidx.media3.common.util.Util.sampleCountToDurationUs;
 import static androidx.media3.test.utils.AssetInfo.PNG_ASSET;
 import static androidx.media3.transformer.AndroidTestUtil.createOpenGlObjects;
 import static androidx.media3.transformer.AndroidTestUtil.generateTextureFromBitmap;
@@ -36,7 +38,6 @@ import androidx.media3.common.OnInputFrameProcessedListener;
 import androidx.media3.common.VideoFrameProcessingException;
 import androidx.media3.common.audio.AudioProcessor.AudioFormat;
 import androidx.media3.common.util.GlUtil;
-import androidx.media3.common.util.Util;
 import androidx.media3.datasource.DataSourceBitmapLoader;
 import androidx.media3.effect.DefaultGlObjectsProvider;
 import androidx.media3.effect.DefaultVideoFrameProcessor;
@@ -54,6 +55,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -102,7 +104,7 @@ public class RawAssetLoaderAndroidTest {
             .runAsync(testId, editedMediaItem);
 
     RawAssetLoader rawAssetLoader = rawAssetLoaderFuture.get();
-    feedRawAudioDataToAssetLoader(rawAssetLoader, AUDIO_FORMAT, mediaDurationUs);
+    feedSilenceToAssetLoader(rawAssetLoader, AUDIO_FORMAT, mediaDurationUs);
 
     ExportTestResult exportResult = exportCompletionFuture.get();
     MetadataRetriever metadataRetriever =
@@ -131,8 +133,7 @@ public class RawAssetLoaderAndroidTest {
             .runAsync(testId, editedMediaItem);
 
     RawAssetLoader rawAssetLoader = rawAssetLoaderFuture.get();
-    feedRawAudioDataToAssetLoader(
-        rawAssetLoader, AUDIO_FORMAT, /* durationUs= */ C.MICROS_PER_SECOND);
+    feedSilenceToAssetLoader(rawAssetLoader, AUDIO_FORMAT, /* durationUs= */ C.MICROS_PER_SECOND);
 
     ExportTestResult exportResult = exportCompletionFuture.get();
     MetadataRetriever metadataRetriever =
@@ -278,7 +279,7 @@ public class RawAssetLoaderAndroidTest {
     // tracks.
     new Thread(
             () -> // Queue raw audio data.
-            feedRawAudioDataToAssetLoader(rawAssetLoader, AUDIO_FORMAT, mediaDurationUs))
+            feedSilenceToAssetLoader(rawAssetLoader, AUDIO_FORMAT, mediaDurationUs))
         .start();
     // Queue raw video data.
     while (!rawAssetLoader.queueInputTexture(firstTextureId, /* presentationTimeUs= */ 0)) {}
@@ -297,27 +298,27 @@ public class RawAssetLoaderAndroidTest {
     assertThat(videoTrackOutput.getSampleCount()).isEqualTo(2);
   }
 
-  private void feedRawAudioDataToAssetLoader(
-      RawAssetLoader rawAssetLoader, Format rawAudioFormat, long durationUs) {
-    AudioFormat audioFormat = new AudioFormat(rawAudioFormat);
-    SilentAudioGenerator silentAudioGenerator = new SilentAudioGenerator(audioFormat);
-    silentAudioGenerator.addSilence(durationUs);
-    int bytesWritten = 0;
-    while (silentAudioGenerator.hasRemaining()) {
-      ByteBuffer byteBuffer = silentAudioGenerator.getBuffer();
-      int byteBufferSize = byteBuffer.remaining();
-      while (!rawAssetLoader.queueAudioData(
-          byteBuffer,
-          /* presentationTimeUs= */ Util.sampleCountToDurationUs(
-              bytesWritten / audioFormat.bytesPerFrame, audioFormat.sampleRate),
-          /* isLast= */ false)) {}
-      bytesWritten += byteBufferSize;
+  private static void feedSilenceToAssetLoader(
+      RawAssetLoader rawAssetLoader, Format format, long durationUs) {
+    AudioFormat audioFormat = new AudioFormat(format);
+    long bytesToWrite =
+        durationUsToSampleCount(durationUs, audioFormat.sampleRate) * audioFormat.bytesPerFrame;
+    long timestampUs = 0;
+    ByteBuffer buffer =
+        ByteBuffer.allocateDirect(4096 * audioFormat.bytesPerFrame).order(ByteOrder.nativeOrder());
+    while (bytesToWrite > 0) {
+      int queuedBytes = buffer.remaining();
+      while (!rawAssetLoader.queueAudioData(buffer, timestampUs, /* isLast= */ false)) {}
+      bytesToWrite -= queuedBytes;
+      timestampUs +=
+          sampleCountToDurationUs(queuedBytes / audioFormat.bytesPerFrame, audioFormat.sampleRate);
+      buffer.clear();
+      if (bytesToWrite < buffer.capacity()) {
+        buffer.limit((int) bytesToWrite);
+      }
     }
     while (!rawAssetLoader.queueAudioData(
-        ByteBuffer.allocate(0),
-        /* presentationTimeUs= */ Util.sampleCountToDurationUs(
-            bytesWritten / audioFormat.bytesPerFrame, audioFormat.sampleRate),
-        /* isLast= */ true)) {}
+        ByteBuffer.allocate(0), timestampUs, /* isLast= */ true)) {}
   }
 
   private static final class TestRawAssetLoaderFactory implements AssetLoader.Factory {
