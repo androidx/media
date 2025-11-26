@@ -3,6 +3,48 @@
 ### Unreleased changes
 
 *   Common Library:
+*   ExoPlayer:
+*   CompositionPlayer:
+    *   Add support for `EditedMediaItem.removeVideo`.
+*   Transformer:
+*   Track Selection:
+*   Extractors:
+*   Inspector:
+*   Audio:
+*   Video:
+*   Text:
+*   Metadata:
+*   Image:
+*   DataSource:
+*   DRM:
+*   Effect:
+*   Muxers:
+*   IMA extension:
+*   Session:
+*   UI:
+*   Downloads:
+*   OkHttp extension:
+*   Cronet extension:
+*   RTMP extension:
+*   HLS extension:
+*   DASH extension:
+*   Smooth Streaming extension:
+*   RTSP extension:
+*   Decoder extensions (FFmpeg, VP9, AV1, etc.):
+*   MIDI extension:
+*   Leanback extension:
+*   Cast extension:
+*   Test Utilities:
+*   Remove deprecated symbols:
+
+## 1.9
+
+### 1.9.0-rc01 (2025-12-01)
+
+This release includes the following changes since
+[1.9.0-beta01 release](#190-beta01-2025-11-13):
+
+*   Common Library:
     *   Fix auto-detection of `TrackGroup` track type by not ignoring custom
         sample MIME type and falling back to using the potentially wrong track
         type from the container MIME type
@@ -56,16 +98,6 @@
         provides a way to extract raw, encoded media samples from a media file.
         The existing `androidx.media3.exoplayer.MediaExtractorCompat` is now
         deprecated in favor of this new class.
-*   Audio:
-*   Video:
-*   Text:
-*   Metadata:
-*   Image:
-*   DataSource:
-*   DRM:
-*   Effect:
-*   Muxers:
-*   IMA extension:
 *   Session:
     *   Add backwards-compatibility for `CommandButton` instances using
         `Player.Command` or non-custom `SessionCommand` to define their action.
@@ -73,27 +105,15 @@
         example for System UI or Android Auto.
     *   Fix issue where the same `Bitmap` is compressed multiple times when
         connecting a `MediaController` to a platform media session.
-*   UI:
-*   Downloads:
-*   OkHttp extension:
-*   Cronet extension:
-*   RTMP extension:
 *   HLS extension:
     *   Properly handle fetching the next chunk for an `HlsMediaPlaylist` with
         no segments ([#2821](https://github.com/androidx/media/issues/2821)).
     *   Use the default start position for pre rolls with live streams.
-*   DASH extension:
-*   Smooth Streaming extension:
-*   RTSP extension:
 *   Decoder extensions (FFmpeg, VP9, AV1, etc.):
     *   FFmpeg extension: Fix an issue that prevented some FLAC files from
         playing by ensuring the `STREAMINFO` block is correctly parsed and
         passed to the decoder
         ([#2887](https://github.com/androidx/media/issues/2887)).
-*   MIDI extension:
-*   Leanback extension:
-*   Cast extension:
-*   Test Utilities:
 *   Remove deprecated symbols:
     *   Remove `BitmapFactoryImageDecoder.BitmapDecoder`. Use
         `ExternallyLoadedImageDecoder` instead.
@@ -102,8 +122,6 @@
     *   Remove deprecated
         `ShadowMediaCodecConfig.withNoDefaultSupportedMimeTypes()`. Use
         `ShadowMediaCodecConfig.withNoDefaultSupportedCodecs()` instead.
-
-## 1.9
 
 ### 1.9.0-beta01 (2025-11-13)
 
