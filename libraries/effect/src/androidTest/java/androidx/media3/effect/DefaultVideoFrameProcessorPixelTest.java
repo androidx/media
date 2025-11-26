@@ -35,6 +35,7 @@ import com.google.common.collect.ImmutableList;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
@@ -138,6 +139,7 @@ public final class DefaultVideoFrameProcessorPixelTest {
     assertThat(averagePixelAbsoluteDifference).isAtMost(MAXIMUM_AVERAGE_PIXEL_ABSOLUTE_DIFFERENCE);
   }
 
+  @Ignore // Needs to run in isolation (internal bug-ref: b/463679190)
   @Test
   public void noEffects_withDisabledColorTransfers_matchesGoldenFile() throws Exception {
     videoFrameProcessorTestRunner =
