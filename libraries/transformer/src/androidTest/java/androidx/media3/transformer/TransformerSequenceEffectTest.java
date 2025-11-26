@@ -38,7 +38,7 @@ import static androidx.media3.transformer.SequenceEffectTestUtil.SINGLE_30_FPS_V
 import static androidx.media3.transformer.SequenceEffectTestUtil.assertBitmapsMatchExpectedAndSave;
 import static androidx.media3.transformer.SequenceEffectTestUtil.assertFramesMatchExpectedPsnrAndSave;
 import static androidx.media3.transformer.SequenceEffectTestUtil.clippedVideo;
-import static androidx.media3.transformer.SequenceEffectTestUtil.createComposition;
+import static androidx.media3.transformer.SequenceEffectTestUtil.createVideoOnlyComposition;
 import static androidx.media3.transformer.SequenceEffectTestUtil.decoderProducesWashedOutColours;
 import static androidx.media3.transformer.SequenceEffectTestUtil.oneFrameFromImage;
 import static androidx.media3.transformer.SequenceEffectTestUtil.tryToExportCompositionWithDecoder;
@@ -112,7 +112,7 @@ public final class TransformerSequenceEffectTest {
         /* outputFormat= */ MP4_ASSET.videoFormat);
     OverlayEffect overlayEffect = createOverlayEffect();
     Composition composition =
-        createComposition(
+        createVideoOnlyComposition(
             /* presentation= */ null,
             clippedVideo(
                 MP4_ASSET.uri,
@@ -158,7 +158,7 @@ public final class TransformerSequenceEffectTest {
             /* requiresSecureDecoder= */ false,
             /* requiresTunnelingDecoder= */ false);
     Composition composition =
-        createComposition(
+        createVideoOnlyComposition(
             /* presentation= */ null,
             clippedVideo(MP4_ASSET.uri, NO_EFFECT, /* endPositionMs= */ C.MILLIS_PER_SECOND / 4));
 
@@ -195,7 +195,7 @@ public final class TransformerSequenceEffectTest {
             /* requiresSecureDecoder= */ false,
             /* requiresTunnelingDecoder= */ false);
     Composition composition =
-        createComposition(
+        createVideoOnlyComposition(
             /* presentation= */ null,
             clippedVideo(
                 MP4_PORTRAIT_ASSET.uri, NO_EFFECT, /* endPositionMs= */ C.MILLIS_PER_SECOND / 4));
@@ -233,7 +233,7 @@ public final class TransformerSequenceEffectTest {
             /* requiresSecureDecoder= */ false,
             /* requiresTunnelingDecoder= */ false);
     Composition composition =
-        createComposition(
+        createVideoOnlyComposition(
             /* presentation= */ null,
             clippedVideo(
                 BT601_MOV_ASSET.uri, NO_EFFECT, /* endPositionMs= */ C.MILLIS_PER_SECOND / 4));
@@ -272,7 +272,7 @@ public final class TransformerSequenceEffectTest {
             /* requiresSecureDecoder= */ false,
             /* requiresTunnelingDecoder= */ false);
     Composition composition =
-        createComposition(
+        createVideoOnlyComposition(
             /* presentation= */ null,
             clippedVideo(
                 MP4_ASSET_AV1_VIDEO.uri, NO_EFFECT, /* endPositionMs= */ C.MILLIS_PER_SECOND / 4));
@@ -310,7 +310,7 @@ public final class TransformerSequenceEffectTest {
             /* requiresSecureDecoder= */ false,
             /* requiresTunnelingDecoder= */ false);
     Composition composition =
-        createComposition(
+        createVideoOnlyComposition(
             Presentation.createForWidthAndHeight(
                 /* width= */ 320, /* height= */ 240, Presentation.LAYOUT_SCALE_TO_FIT),
             clippedVideo(
@@ -350,7 +350,7 @@ public final class TransformerSequenceEffectTest {
         /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS.videoFormat,
         /* outputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS.videoFormat);
     Composition composition =
-        createComposition(
+        createVideoOnlyComposition(
             /* presentation= */ null,
             new EditedMediaItem.Builder(
                     new MediaItem.Builder()
@@ -421,7 +421,7 @@ public final class TransformerSequenceEffectTest {
         /* inputFormat= */ MP4_ASSET_WITH_INCREASING_TIMESTAMPS.videoFormat,
         outputFormat);
     Composition composition =
-        createComposition(
+        createVideoOnlyComposition(
             /* presentation= */ null,
             new EditedMediaItem.Builder(
                     new MediaItem.Builder()
@@ -472,7 +472,7 @@ public final class TransformerSequenceEffectTest {
         /* inputFormat= */ MP4_ASSET.videoFormat,
         /* outputFormat= */ MP4_ASSET.videoFormat);
     Composition composition =
-        createComposition(
+        createVideoOnlyComposition(
             Presentation.createForWidthAndHeight(
                 /* width= */ SQUARE_SIZE,
                 /* height= */ SQUARE_SIZE,
@@ -514,7 +514,7 @@ public final class TransformerSequenceEffectTest {
         /* inputFormat= */ MP4_ASSET.videoFormat,
         /* outputFormat= */ MP4_ASSET.videoFormat);
     Composition composition =
-        createComposition(
+        createVideoOnlyComposition(
             Presentation.createForHeight(EXPORT_HEIGHT),
             oneFrameFromImage(JPG_ASSET.uri, NO_EFFECT),
             clippedVideo(MP4_PORTRAIT_ASSET.uri, NO_EFFECT, SINGLE_30_FPS_VIDEO_FRAME_THRESHOLD_MS),
@@ -540,7 +540,7 @@ public final class TransformerSequenceEffectTest {
         /* inputFormat= */ MP4_ASSET.videoFormat,
         /* outputFormat= */ MP4_ASSET.videoFormat);
     Composition composition =
-        createComposition(
+        createVideoOnlyComposition(
             Presentation.createForHeight(EXPORT_HEIGHT),
             clippedVideo(MP4_ASSET.uri, NO_EFFECT, SINGLE_30_FPS_VIDEO_FRAME_THRESHOLD_MS),
             clippedVideo(
@@ -568,7 +568,7 @@ public final class TransformerSequenceEffectTest {
     assumeFormatsSupported(
         context, testId, /* inputFormat= */ BT601_MOV_ASSET.videoFormat, /* outputFormat= */ null);
     Composition composition =
-        createComposition(
+        createVideoOnlyComposition(
             Presentation.createForHeight(EXPORT_HEIGHT),
             clippedVideo(
                 BT601_MOV_ASSET.uri,
@@ -596,7 +596,7 @@ public final class TransformerSequenceEffectTest {
     assumeFormatsSupported(
         context, testId, /* inputFormat= */ BT601_MOV_ASSET.videoFormat, /* outputFormat= */ null);
     Composition composition =
-        createComposition(
+        createVideoOnlyComposition(
             Presentation.createForHeight(EXPORT_HEIGHT),
             clippedVideo(
                 BT601_MOV_ASSET.uri,
