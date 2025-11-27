@@ -2279,6 +2279,39 @@ public class TransformerEndToEndTest {
   }
 
   @Test
+  @SdkSuppress(minSdkVersion = 29) // c2.android.opus.encoder was added in newer android versions.
+  public void transcode_withOutputAudioMimeTypeOpus_completesSuccessfully() throws Exception {
+    EditedMediaItem audioEditedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(MP3_ASSET.uri)).build();
+    Transformer transformer =
+        new Transformer.Builder(context)
+            .setEncoderFactory(new AndroidTestUtil.ForceEncodeEncoderFactory(context))
+            .setAudioMimeType(MimeTypes.AUDIO_OPUS)
+            .build();
+
+    ExportTestResult result =
+        new TransformerAndroidTestRunner.Builder(context, transformer)
+            .build()
+            .run(testId, audioEditedMediaItem);
+
+    // Decode and count all the bytes with Transformer's analyzer mode.
+    Transformer analyzer = ExperimentalAnalyzerModeFactory.buildAnalyzer(context);
+    AtomicInteger audioBytesSeen = new AtomicInteger(/* initialValue= */ 0);
+    audioEditedMediaItem =
+        new EditedMediaItem.Builder(MediaItem.fromUri(result.filePath))
+            .setRemoveVideo(true)
+            .setEffects(
+                new Effects(
+                    ImmutableList.of(createByteCountingAudioProcessor(audioBytesSeen)),
+                    /* videoEffects= */ ImmutableList.of()))
+            .build();
+    new TransformerAndroidTestRunner.Builder(context, analyzer)
+        .build()
+        .run(testId, audioEditedMediaItem);
+    assertThat(audioBytesSeen.get()).isEqualTo(101_760);
+  }
+
+  @Test
   public void transmux_audioWithEditList_preservesDuration() throws Exception {
     Context context = ApplicationProvider.getApplicationContext();
     Transformer transformer = new Transformer.Builder(context).build();

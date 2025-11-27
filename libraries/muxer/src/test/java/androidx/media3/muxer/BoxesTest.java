@@ -315,6 +315,26 @@ public class BoxesTest {
   }
 
   @Test
+  public void createAudioSampleEntryBox_forOpusWithAopusHdr_matchesExpected() throws Exception {
+    Format format =
+        FAKE_AUDIO_FORMAT
+            .buildUpon()
+            .setSampleMimeType(MimeTypes.AUDIO_OPUS)
+            .setInitializationData(
+                ImmutableList.of(
+                    BaseEncoding.base16()
+                        .decode(
+                            "414F5055534844521B000000000000004F7075734865616401063801401F00000000010402000401020305")))
+            .build();
+
+    ByteBuffer audioSampleEntryBox = Boxes.audioSampleEntry(format);
+
+    DumpableMp4Box dumpableBox = new DumpableMp4Box(audioSampleEntryBox);
+    DumpFileAsserts.assertOutput(
+        context, dumpableBox, getExpectedDumpFilePath("audio_sample_entry_box_opus"));
+  }
+
+  @Test
   public void createAudioSampleEntryBox_forOpus_matchesExpected() throws Exception {
     Format format =
         FAKE_AUDIO_FORMAT

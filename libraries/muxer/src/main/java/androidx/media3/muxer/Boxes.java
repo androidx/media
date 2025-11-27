@@ -1918,16 +1918,47 @@ import org.checkerframework.checker.nullness.qual.PolyNull;
   private static ByteBuffer dOpsBox(Format format) {
     checkArgument(
         !format.initializationData.isEmpty(), "csd-0 not found in the format for dOps box.");
-
-    int opusHeaderLength = 8;
+    // If csd0 starts with "AOPUSHDR", it indicates a custom CSD structure of:
+    // Marker (AOPUSHDR) | Length (Length of OpusIdentificationHeader) |
+    // OpusIdentificationHeader("OpusHead" + data).
+    //     8 bytes       |                    8 bytes                  |   Length no. of bytes
+    // Reference:
+    // https://cs.android.com/android/platform/superproject/main/+/main:frameworks/av/media/module/foundation/include/media/stagefright/foundation/OpusHeader.h;l=28
+    int aopushdrSignatureLength = 8;
+    int opusHeadSignatureLength = 8;
     byte[] csd0 = format.initializationData.get(0);
-    checkArgument(
-        csd0.length >= opusHeaderLength,
-        "As csd0 contains 'OpusHead' in first 8 bytes, csd0 length should be greater than 8");
-    ByteBuffer contents = ByteBuffer.allocate(csd0.length);
-    // Skip 8 bytes containing "OpusHead".
+    ParsableByteArray parsableCsd0 = new ParsableByteArray(csd0);
+    int payloadOffset = 0;
+    int payloadLength = csd0.length;
+    String csd0SignatureString = parsableCsd0.readString(aopushdrSignatureLength);
+    if (csd0SignatureString.equals("AOPUSHDR")) {
+      // The offset of the OpusIdentificationHeader data within the "AOPUSHDR" custom CSD.
+      int opusIdentificationHeaderOffset = 16;
+      checkArgument(csd0.length >= opusIdentificationHeaderOffset + opusHeadSignatureLength);
+      long identificationHeaderLength = parsableCsd0.readLittleEndianLong();
+      payloadOffset = opusIdentificationHeaderOffset;
+      payloadLength = (int) identificationHeaderLength;
+    } else {
+      // Otherwise, the OpusIdentificationHeader must start with "OpusHead" signature.
+      checkState(csd0SignatureString.equals("OpusHead"));
+    }
+    // Length of csd0 should be greater than opus header length.
+    checkArgument(payloadLength >= opusHeadSignatureLength);
+
+    ByteBuffer contents = ByteBuffer.allocate(payloadLength - opusHeadSignatureLength);
     contents.put(
-        /* src */ csd0, /* offset */ opusHeaderLength, /* length */ csd0.length - opusHeaderLength);
+        /* src */ csd0,
+        /* offset */ payloadOffset + opusHeadSignatureLength,
+        /* length */ payloadLength - opusHeadSignatureLength);
+
+    // For encapsulation of OPUS in MP4, the version byte (byte 0) in dOps box should be 0.
+    // (See https://opus-codec.org/docs/opus_in_isobmff.html, Section 4.3.2 Opus Specific Box).
+    // And for Ogg containers, the version byte is
+    // expected to be 1 (See https://www.rfc-editor.org/rfc/rfc7845#section-5.1, Section 5.1.2).
+    // The contents are otherwise identical.
+    checkState(contents.get(0) == 0 || contents.get(0) == 1);
+    contents.put(0, (byte) 0);
+
     contents.flip();
 
     return BoxUtils.wrapIntoBox("dOps", contents);
