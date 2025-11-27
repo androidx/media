@@ -143,8 +143,7 @@ public final class MetadataRetriever implements AutoCloseable {
   }
 
   /**
-   * @deprecated Use {@link Builder} to create an instance and call {@link #retrieveTrackGroups()}
-   *     instead.
+   * @deprecated Use {@code androidx.media3.inspector.MetadataRetriever} instead.
    */
   @Deprecated
   public static ListenableFuture<TrackGroupArray> retrieveMetadata(
@@ -153,8 +152,7 @@ public final class MetadataRetriever implements AutoCloseable {
   }
 
   /**
-   * @deprecated Use {@link Builder} to create an instance and call {@link #retrieveTrackGroups()}
-   *     instead.
+   * @deprecated Use {@code androidx.media3.inspector.MetadataRetriever} instead.
    */
   @Deprecated
   public static ListenableFuture<TrackGroupArray> retrieveMetadata(
@@ -163,7 +161,6 @@ public final class MetadataRetriever implements AutoCloseable {
   }
 
   @VisibleForTesting
-  @Deprecated
   /* package */ static ListenableFuture<TrackGroupArray> retrieveMetadata(
       Context context, MediaItem mediaItem, Clock clock) {
     try (MetadataRetriever retriever = new Builder(context, mediaItem).setClock(clock).build()) {
@@ -171,7 +168,6 @@ public final class MetadataRetriever implements AutoCloseable {
     }
   }
 
-  @Deprecated
   private static ListenableFuture<TrackGroupArray> retrieveMetadata(
       MediaSource.Factory mediaSourceFactory, MediaItem mediaItem, Clock clock) {
     try (MetadataRetriever retriever =
