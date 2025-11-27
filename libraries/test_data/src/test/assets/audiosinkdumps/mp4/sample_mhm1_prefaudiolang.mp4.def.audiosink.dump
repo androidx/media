@@ -1,0 +1,170 @@
+AudioSink:
+  buffer count = 41
+  discontinuity:
+  config:
+    pcmEncoding = 2
+    channelCount = 2
+    sampleRate = 48000
+  buffer #0:
+    time = 1000000000000
+    channel[0] = 351760715
+    channel[1] = 351760715
+  buffer #1:
+    time = 1000000021333
+    channel[0] = 216678452
+    channel[1] = 216678452
+  buffer #2:
+    time = 1000000042666
+    channel[0] = 1417564210
+    channel[1] = 1417564210
+  buffer #3:
+    time = 1000000064000
+    channel[0] = -687481792
+    channel[1] = -687481792
+  buffer #4:
+    time = 1000000085333
+    channel[0] = 1667235982
+    channel[1] = 1667235982
+  buffer #5:
+    time = 1000000106666
+    channel[0] = 476192063
+    channel[1] = 476192063
+  buffer #6:
+    time = 1000000128000
+    channel[0] = 212095369
+    channel[1] = 212095369
+  buffer #7:
+    time = 1000000149333
+    channel[0] = 244831962
+    channel[1] = 244831962
+  buffer #8:
+    time = 1000000170666
+    channel[0] = -1242702248
+    channel[1] = -1242702248
+  buffer #9:
+    time = 1000000192000
+    channel[0] = -419003357
+    channel[1] = -419003357
+  buffer #10:
+    time = 1000000213333
+    channel[0] = 1823990105
+    channel[1] = 1823990105
+  buffer #11:
+    time = 1000000234666
+    channel[0] = 1045490581
+    channel[1] = 1045490581
+  buffer #12:
+    time = 1000000256000
+    channel[0] = -1860795985
+    channel[1] = -1860795985
+  buffer #13:
+    time = 1000000277333
+    channel[0] = -386895004
+    channel[1] = -386895004
+  buffer #14:
+    time = 1000000298666
+    channel[0] = -741533628
+    channel[1] = -741533628
+  buffer #15:
+    time = 1000000320000
+    channel[0] = 434516211
+    channel[1] = 434516211
+  buffer #16:
+    time = 1000000341333
+    channel[0] = 246707910
+    channel[1] = 246707910
+  buffer #17:
+    time = 1000000362666
+    channel[0] = 657030968
+    channel[1] = 657030968
+  buffer #18:
+    time = 1000000384000
+    channel[0] = 1306739966
+    channel[1] = 1306739966
+  buffer #19:
+    time = 1000000405333
+    channel[0] = 2124937319
+    channel[1] = 2124937319
+  buffer #20:
+    time = 1000000426666
+    channel[0] = 1571058982
+    channel[1] = 1571058982
+  buffer #21:
+    time = 1000000448000
+    channel[0] = 1251366936
+    channel[1] = 1251366936
+  buffer #22:
+    time = 1000000469333
+    channel[0] = 75952462
+    channel[1] = 75952462
+  buffer #23:
+    time = 1000000490666
+    channel[0] = -1442371265
+    channel[1] = -1442371265
+  buffer #24:
+    time = 1000000512000
+    channel[0] = 1400281596
+    channel[1] = 1400281596
+  buffer #25:
+    time = 1000000533333
+    channel[0] = -1111085705
+    channel[1] = -1111085705
+  buffer #26:
+    time = 1000000554666
+    channel[0] = -1895915112
+    channel[1] = -1895915112
+  buffer #27:
+    time = 1000000576000
+    channel[0] = 1091147366
+    channel[1] = 1091147366
+  buffer #28:
+    time = 1000000597333
+    channel[0] = -1946609345
+    channel[1] = -1946609345
+  buffer #29:
+    time = 1000000618666
+    channel[0] = 542329606
+    channel[1] = 542329606
+  buffer #30:
+    time = 1000000640000
+    channel[0] = -790281396
+    channel[1] = -790281396
+  buffer #31:
+    time = 1000000661333
+    channel[0] = -856419519
+    channel[1] = -856419519
+  buffer #32:
+    time = 1000000682666
+    channel[0] = -1174523758
+    channel[1] = -1174523758
+  buffer #33:
+    time = 1000000704000
+    channel[0] = 1423095306
+    channel[1] = 1423095306
+  buffer #34:
+    time = 1000000725333
+    channel[0] = -356466960
+    channel[1] = -356466960
+  buffer #35:
+    time = 1000000746666
+    channel[0] = 1220460259
+    channel[1] = 1220460259
+  buffer #36:
+    time = 1000000768000
+    channel[0] = -1378098033
+    channel[1] = -1378098033
+  buffer #37:
+    time = 1000000789333
+    channel[0] = -1883347564
+    channel[1] = -1883347564
+  buffer #38:
+    time = 1000000810666
+    channel[0] = -1166344525
+    channel[1] = -1166344525
+  buffer #39:
+    time = 1000000832000
+    channel[0] = -51395327
+    channel[1] = -51395327
+  buffer #40:
+    time = 1000000853333
+    data = 4096 zeroes

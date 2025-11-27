@@ -3,6 +3,7 @@ package androidx.media3.decoder.mpegh;
 import androidx.annotation.Nullable;
 import java.nio.ByteBuffer;
 
+/** JNI wrapper for the libmpegh MPEG-H UI manager. */
 public class MpeghUiManagerJni {
 
   private long uiManagerHandle; // used by JNI only to hold the native context

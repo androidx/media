@@ -9,6 +9,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+/** Provides a collection of helper functionality for MPEG-H UI handling.
+ * It differentiates between MPEG-H UI system settings and MPEG-H UI commands and caches them
+ * locally.
+ * Furthermore, it provides an interface for the parameter communication between the Player and
+ * the MpeghDecoder (i.e. for MPEG-H UI Manager).
+ * */
 public class MpeghUiCommandHelper {
 
   private final Object syncObj;
