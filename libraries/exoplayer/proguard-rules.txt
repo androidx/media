@@ -70,14 +70,23 @@
   <init>();
 }
 
-# Constructors and methods accessed via reflection in PlaybackVideoGraphWrapper
--dontnote androidx.media3.effect.SingleInputVideoGraph$Factory
+# Conditional keeps for constructors and methods accessed via reflection in PlaybackVideoGraphWrapper
+-if interface androidx.media3.exoplayer.ExoPlayer {
+    public void setVideoEffects(java.util.List);
+}
 -keepclasseswithmembers class androidx.media3.effect.SingleInputVideoGraph$Factory {
   <init>(androidx.media3.common.VideoFrameProcessor$Factory);
 }
--dontnote androidx.media3.effect.DefaultVideoFrameProcessor$Factory$Builder
+
+-if interface androidx.media3.exoplayer.ExoPlayer {
+    public void setVideoEffects(java.util.List);
+}
 -keepclasseswithmembers class androidx.media3.effect.DefaultVideoFrameProcessor$Factory$Builder {
   <init>();
   androidx.media3.effect.DefaultVideoFrameProcessor$Factory build();
   androidx.media3.effect.DefaultVideoFrameProcessor$Factory$Builder setEnableReplayableCache(boolean);
 }
+
+# These notes are independent of the keep rules
+-dontnote androidx.media3.effect.SingleInputVideoGraph$Factory
+-dontnote androidx.media3.effect.DefaultVideoFrameProcessor$Factory$Builder
