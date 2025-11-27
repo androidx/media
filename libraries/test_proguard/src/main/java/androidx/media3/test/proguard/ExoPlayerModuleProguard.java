@@ -19,10 +19,10 @@ import android.content.Context;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.net.Uri;
-import android.os.Looper;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MimeTypes;
+import androidx.media3.common.VideoFrameProcessor;
 import androidx.media3.common.util.Util;
 import androidx.media3.database.DefaultDatabaseProvider;
 import androidx.media3.datasource.cache.Cache;
@@ -228,7 +228,9 @@ public final class ExoPlayerModuleProguard {
    */
   public static void createSingleInputVideoGraphWithCompositingVideoSinkProvider(Context context)
       throws VideoSink.VideoSinkException {
-    Looper.prepare();
+    ExoPlayer player = new ExoPlayer.Builder(context).build();
+    player.setVideoEffects(VideoFrameProcessor.REDRAW);
+    player.release();
     VideoFrameReleaseControl.FrameTimingEvaluator frameTimingEvaluator =
         new VideoFrameReleaseControl.FrameTimingEvaluator() {
           @Override
