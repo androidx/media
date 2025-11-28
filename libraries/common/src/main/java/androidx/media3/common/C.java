@@ -1281,9 +1281,9 @@ public final class C {
   // LINT.ThenChange(
   //   util/MediaFormatUtil.java:color_transfer,
   //   ColorInfo.java:color_transfer,
-  // ../../../../../../../effect/src/main/assets/shaders/fragment_shader_transformation_sdr_external_es2.glsl:color_transfer,
-  // ../../../../../../../effect/src/main/assets/shaders/fragment_shader_transformation_external_yuv_es3.glsl:color_transfer,
-  // ../../../../../../../effect/src/main/assets/shaders/fragment_shader_oetf_es3.glsl:color_transfer,
+  // ../../../../../../../effect/src/main/res/raw/fragment_shader_transformation_sdr_external_es2.glsl:color_transfer,
+  // ../../../../../../../effect/src/main/res/raw/fragment_shader_transformation_external_yuv_es3.glsl:color_transfer,
+  // ../../../../../../../effect/src/main/res/raw/fragment_shader_oetf_es3.glsl:color_transfer,
   // )
 
   // LINT.IfChange(color_range)

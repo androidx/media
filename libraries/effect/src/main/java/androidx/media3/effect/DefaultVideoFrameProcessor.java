@@ -143,8 +143,8 @@ public final class DefaultVideoFrameProcessor implements VideoFrameProcessor {
   public static final int WORKING_COLOR_SPACE_LINEAR = 2;
 
   // LINT.ThenChange(
-  // ../../../../../../../effect/src/main/assets/shaders/fragment_shader_transformation_sdr_external_es2.glsl:working_color_space,
-  // ../../../../../../../effect/src/main/assets/shaders/fragment_shader_transformation_sdr_internal_es2.glsl:working_color_space,
+  // ../../../../../../../effect/src/main/res/raw/fragment_shader_transformation_sdr_external_es2.glsl:working_color_space,
+  // ../../../../../../../effect/src/main/res/raw/fragment_shader_transformation_sdr_internal_es2.glsl:working_color_space,
   // )
 
   /** A factory for {@link DefaultVideoFrameProcessor} instances. */
