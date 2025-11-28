@@ -32,6 +32,7 @@ import androidx.media3.common.Player.PositionInfo;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.common.Tracks;
 import androidx.media3.common.VideoSize;
+import androidx.media3.common.util.Log;
 import androidx.media3.datasource.DataSpec;
 import androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime;
 import androidx.media3.exoplayer.audio.AudioSink.AudioTrackConfig;
@@ -75,6 +76,7 @@ public final class EventLoggerTest {
   private final EventLogger eventLogger;
 
   public EventLoggerTest() {
+    Log.setLogger(Log.Logger.DEFAULT);
     this.eventLogger = new EventLogger(CUSTOM_TAG);
   }
 

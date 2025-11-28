@@ -556,42 +556,46 @@ class VideoFrameReleaseHelperTest {
         }
       }
     }
-    Log.setLogger(
-      object : Log.Logger {
-        override fun d(tag: String, message: String, throwable: Throwable?) {
-          saveIfThrowableIsFromChoreographer(throwable)
-        }
+    try {
+      Log.setLogger(
+        object : Log.Logger {
+          override fun d(tag: String, message: String, throwable: Throwable?) {
+            saveIfThrowableIsFromChoreographer(throwable)
+          }
 
-        override fun i(tag: String, message: String, throwable: Throwable?) {
-          saveIfThrowableIsFromChoreographer(throwable)
-        }
+          override fun i(tag: String, message: String, throwable: Throwable?) {
+            saveIfThrowableIsFromChoreographer(throwable)
+          }
 
-        override fun w(tag: String, message: String, throwable: Throwable?) {
-          saveIfThrowableIsFromChoreographer(throwable)
-        }
+          override fun w(tag: String, message: String, throwable: Throwable?) {
+            saveIfThrowableIsFromChoreographer(throwable)
+          }
 
-        override fun e(tag: String, message: String, throwable: Throwable?) {
-          saveIfThrowableIsFromChoreographer(throwable)
+          override fun e(tag: String, message: String, throwable: Throwable?) {
+            saveIfThrowableIsFromChoreographer(throwable)
+          }
         }
-      }
-    )
-    val playerReference = AtomicReference<ExoPlayer>()
-    val builderThread = Thread {
-      playerReference.set(
-        ExoPlayer.Builder(ApplicationProvider.getApplicationContext())
-          .setClock(FakeClock(/* isAutoAdvancing= */ true))
-          .build()
       )
-    }
-    builderThread.start()
-    builderThread.join()
-    val player = playerReference.get()
+      val playerReference = AtomicReference<ExoPlayer>()
+      val builderThread = Thread {
+        playerReference.set(
+          ExoPlayer.Builder(ApplicationProvider.getApplicationContext())
+            .setClock(FakeClock(/* isAutoAdvancing= */ true))
+            .build()
+        )
+      }
+      builderThread.start()
+      builderThread.join()
+      val player = playerReference.get()
 
-    player.setMediaSource(FakeMediaSource())
-    player.prepare()
-    player.play()
-    advance(player).untilState(Player.STATE_ENDED)
-    playerReference.get().release()
+      player.setMediaSource(FakeMediaSource())
+      player.prepare()
+      player.play()
+      advance(player).untilState(Player.STATE_ENDED)
+      playerReference.get().release()
+    } finally {
+      Log.setLogger(Log.Logger.DEFAULT)
+    }
 
     assertThat(throwableFromChoreographer.get()).isNull()
   }
