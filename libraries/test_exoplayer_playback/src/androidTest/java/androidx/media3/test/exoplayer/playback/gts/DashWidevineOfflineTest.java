@@ -60,7 +60,10 @@ public final class DashWidevineOfflineTest {
   private OfflineLicenseHelper offlineLicenseHelper;
   private byte[] offlineLicenseKeySetId;
 
-  @Rule public ActivityTestRule<HostActivity> testRule = new ActivityTestRule<>(HostActivity.class);
+  // TODO: b/464266190 - Migrate to ActivityScenarioRule
+  @SuppressWarnings("deprecation")
+  @Rule
+  public ActivityTestRule<HostActivity> testRule = new ActivityTestRule<>(HostActivity.class);
 
   @Before
   public void setUp() throws Exception {
