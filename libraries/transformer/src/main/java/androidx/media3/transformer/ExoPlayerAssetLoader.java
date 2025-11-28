@@ -29,6 +29,7 @@ import static androidx.media3.transformer.Transformer.PROGRESS_STATE_UNAVAILABLE
 import static androidx.media3.transformer.Transformer.PROGRESS_STATE_WAITING_FOR_AVAILABILITY;
 import static androidx.media3.transformer.TransformerUtil.isImage;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Math.min;
 
 import android.content.Context;
@@ -251,6 +252,7 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
   private final ExoPlayer player;
 
   private @Transformer.ProgressState int progressState;
+  private long durationUs;
 
   private ExoPlayerAssetLoader(
       Context context,
@@ -302,6 +304,7 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
     player.addListener(new PlayerListener(listener));
 
     progressState = PROGRESS_STATE_NOT_STARTED;
+    durationUs = C.TIME_UNSET;
   }
 
   @Override
@@ -314,7 +317,7 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
   @Override
   public @Transformer.ProgressState int getProgress(ProgressHolder progressHolder) {
     if (progressState == PROGRESS_STATE_AVAILABLE) {
-      long durationMs = player.getDuration();
+      long durationMs = durationUs / 1_000;
       // The player position can become greater than the duration. This happens if the player is
       // using a StandaloneMediaClock because the renderers have ended.
       long positionMs = min(player.getCurrentPosition(), durationMs);
@@ -410,21 +413,23 @@ public final class ExoPlayerAssetLoader implements AssetLoader {
     @Override
     public void onTimelineChanged(Timeline timeline, int reason) {
       try {
-        if (progressState != PROGRESS_STATE_WAITING_FOR_AVAILABILITY) {
-          return;
-        }
         Timeline.Window window = new Timeline.Window();
         timeline.getWindow(/* windowIndex= */ 0, window);
         if (!window.isPlaceholder) {
-          long durationUs = window.durationUs;
-          // Make progress permanently unavailable if the duration is unknown, so that it doesn't
-          // jump to a high value at the end of the export if the duration is set once the media is
-          // entirely loaded.
-          progressState =
-              durationUs <= 0 || durationUs == C.TIME_UNSET
-                  ? PROGRESS_STATE_UNAVAILABLE
-                  : PROGRESS_STATE_AVAILABLE;
-          assetLoaderListener.onDurationUs(window.durationUs);
+          if (progressState == PROGRESS_STATE_WAITING_FOR_AVAILABILITY) {
+            durationUs = window.durationUs;
+            // Make progress permanently unavailable if the duration is unknown, so that it doesn't
+            // jump to a high value at the end of the export if the duration is set once the media
+            // is entirely loaded.
+            progressState =
+                durationUs <= 0 || durationUs == C.TIME_UNSET
+                    ? PROGRESS_STATE_UNAVAILABLE
+                    : PROGRESS_STATE_AVAILABLE;
+            assetLoaderListener.onDurationUs(window.durationUs);
+          } else if (durationUs != C.TIME_UNSET) {
+            // Duration once known can not change.
+            checkState(durationUs == window.durationUs);
+          }
         }
       } catch (RuntimeException e) {
         assetLoaderListener.onError(
