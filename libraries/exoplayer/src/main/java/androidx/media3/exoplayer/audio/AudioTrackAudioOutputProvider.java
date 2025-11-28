@@ -83,7 +83,10 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
     private @MonotonicNonNull AudioOffloadSupportProvider audioOffloadSupportProvider;
     private AudioTrackBufferSizeProvider bufferSizeProvider;
     @Nullable private AudioCapabilities audioCapabilities;
-    @Nullable private AudioTrackProvider audioTrackProvider;
+
+    @SuppressWarnings("deprecation") // Supporting deprecated AudioTrack customization path.
+    @Nullable
+    private AudioTrackProvider audioTrackProvider;
 
     /**
      * Creates a new builder.
@@ -162,6 +165,7 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
     /** Sets the {@link AudioTrackProvider} for backwards compatibility. */
     @UnstableApi
     @CanIgnoreReturnValue
+    @SuppressWarnings("deprecation") // Supporting deprecated AudioTrack customization path.
     /* package */ Builder setAudioTrackProvider(@Nullable AudioTrackProvider audioTrackProvider) {
       this.audioTrackProvider = audioTrackProvider;
       return this;
@@ -178,7 +182,11 @@ public final class AudioTrackAudioOutputProvider implements AudioOutputProvider 
   }
 
   @Nullable private final Context context;
-  @Nullable private final AudioTrackProvider audioTrackProvider;
+
+  @SuppressWarnings("deprecation") // Supporting deprecated AudioTrack customization path.
+  @Nullable
+  private final AudioTrackProvider audioTrackProvider;
+
   @Nullable private final BiConsumer<AudioTrack.Builder, OutputConfig> builderModifier;
   private final AudioTrackBufferSizeProvider audioTrackBufferSizeProvider;
   private final AudioOffloadSupportProvider audioOffloadSupportProvider;

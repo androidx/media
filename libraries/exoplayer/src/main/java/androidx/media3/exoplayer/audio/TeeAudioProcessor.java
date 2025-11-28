@@ -87,7 +87,7 @@ public final class TeeAudioProcessor extends BaseAudioProcessor {
   }
 
   @Override
-  protected void onFlush() {
+  protected void onFlush(StreamMetadata streamMetadata) {
     flushSinkIfActive();
   }
 

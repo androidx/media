@@ -437,7 +437,8 @@ public final class MetadataRetrieverInternal implements AutoCloseable {
     /** The maximum number of parallel metadata retrieval operations. */
     // TODO(b/442827020): When MetadataRetrieverInternal is moved to the inspector module, update
     // this to use a DEFAULT_MAXIMUM_PARALLEL_RETRIEVALS constant defined within
-    // androidx.media3.inspector.MetadataRetriever.
+    // androidx.media3.inspector.MetadataRetriever (and remove the deprecation suppression).
+    @SuppressWarnings("deprecation")
     public static final AtomicInteger MAX_PARALLEL_RETRIEVALS =
         new AtomicInteger(MetadataRetriever.DEFAULT_MAXIMUM_PARALLEL_RETRIEVALS);
 

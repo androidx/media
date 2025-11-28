@@ -67,13 +67,13 @@ import java.util.List;
  */
 @UnstableApi
 @Deprecated
+@SuppressWarnings("deprecation") // The whole class is deprecated so using deprecated things is OK.
 public class SimpleExoPlayer extends BasePlayer implements ExoPlayer {
 
   /**
    * @deprecated Use {@link ExoPlayer.Builder} instead.
    */
   @Deprecated
-  @SuppressWarnings("deprecation")
   public static final class Builder {
 
     private final ExoPlayer.Builder wrappedBuilder;
@@ -422,7 +422,6 @@ public class SimpleExoPlayer extends BasePlayer implements ExoPlayer {
   /**
    * @param builder The {@link Builder} to obtain all construction parameters.
    */
-  @SuppressWarnings("deprecation") // Supporting deprecated builder.
   protected SimpleExoPlayer(Builder builder) {
     this(builder.wrappedBuilder);
   }
@@ -824,7 +823,6 @@ public class SimpleExoPlayer extends BasePlayer implements ExoPlayer {
    */
   @Deprecated
   @Override
-  @SuppressWarnings("deprecation") // Forwarding deprecated method.
   public void prepare(MediaSource mediaSource) {
     blockUntilConstructorFinished();
     player.prepare(mediaSource);
@@ -836,7 +834,6 @@ public class SimpleExoPlayer extends BasePlayer implements ExoPlayer {
    */
   @Deprecated
   @Override
-  @SuppressWarnings("deprecation") // Forwarding deprecated method.
   public void prepare(MediaSource mediaSource, boolean resetPosition, boolean resetState) {
     blockUntilConstructorFinished();
     player.prepare(mediaSource, resetPosition, resetState);
@@ -1299,7 +1296,6 @@ public class SimpleExoPlayer extends BasePlayer implements ExoPlayer {
    */
   @Deprecated
   @Override
-  @SuppressWarnings("deprecation") // Forwarding deprecated method.
   public void setDeviceVolume(int volume) {
     blockUntilConstructorFinished();
     player.setDeviceVolume(volume);
@@ -1316,7 +1312,6 @@ public class SimpleExoPlayer extends BasePlayer implements ExoPlayer {
    */
   @Deprecated
   @Override
-  @SuppressWarnings("deprecation") // Forwarding deprecated method.
   public void increaseDeviceVolume() {
     blockUntilConstructorFinished();
     player.increaseDeviceVolume();
@@ -1333,7 +1328,6 @@ public class SimpleExoPlayer extends BasePlayer implements ExoPlayer {
    */
   @Deprecated
   @Override
-  @SuppressWarnings("deprecation") // Forwarding deprecated method.
   public void decreaseDeviceVolume() {
     blockUntilConstructorFinished();
     player.decreaseDeviceVolume();
@@ -1350,7 +1344,6 @@ public class SimpleExoPlayer extends BasePlayer implements ExoPlayer {
    */
   @Deprecated
   @Override
-  @SuppressWarnings("deprecation") // Forwarding deprecated method.
   public void setDeviceMuted(boolean muted) {
     blockUntilConstructorFinished();
     player.setDeviceMuted(muted);

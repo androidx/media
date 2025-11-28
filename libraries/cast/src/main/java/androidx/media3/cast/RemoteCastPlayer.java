@@ -240,6 +240,8 @@ public final class RemoteCastPlayer extends BasePlayer {
     MediaLibraryInfo.registerModule("media3.cast");
   }
 
+  // Deprecated commands are still available, e.g. COMMAND_ADJUST_DEVICE_VOLUME
+  @SuppressWarnings("deprecation")
   @VisibleForTesting
   /* package */ static final Commands PERMANENT_AVAILABLE_COMMANDS =
       new Commands.Builder()

@@ -170,7 +170,7 @@ public final class TrimmingAudioProcessor extends BaseAudioProcessor {
   }
 
   @Override
-  protected void onFlush() {
+  protected void onFlush(StreamMetadata streamMetadata) {
     if (reconfigurationPending) {
       // Flushing activates the new configuration, so prepare to trim bytes from the start/end.
       reconfigurationPending = false;

@@ -304,7 +304,7 @@ public final class SilenceSkippingAudioProcessor extends BaseAudioProcessor {
   }
 
   @Override
-  public void onFlush() {
+  public void onFlush(StreamMetadata streamMetadata) {
     if (isActive()) {
       bytesPerFrame = inputAudioFormat.channelCount * 2;
       // Divide by 2 to allow the buffer to be split into two bytesPerFrame aligned parts.

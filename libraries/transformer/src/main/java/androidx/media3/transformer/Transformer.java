@@ -1080,8 +1080,9 @@ public final class Transformer {
    * @throws IllegalStateException If this method is called from the wrong thread.
    * @throws IllegalStateException If an export is already in progress.
    */
+  // TODO: b/430250222 - Migrate to new Builder method.
+  @SuppressWarnings("deprecation")
   public void start(EditedMediaItem editedMediaItem, String path) {
-    // TODO: b/430250222 - Migrate to new Builder method.
     start(
         new Composition.Builder(new EditedMediaItemSequence.Builder(editedMediaItem).build())
             .build(),
