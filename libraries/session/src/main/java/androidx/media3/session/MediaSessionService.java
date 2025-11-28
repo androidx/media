@@ -500,7 +500,7 @@ public abstract class MediaSessionService extends Service {
             MediaSessionManager.RemoteUserInfo.UNKNOWN_PID,
             MediaSessionManager.RemoteUserInfo.UNKNOWN_UID),
         MediaLibraryInfo.VERSION_INT,
-        MediaControllerStub.VERSION_INT,
+        MediaLibraryInfo.INTERFACE_VERSION,
         /* trusted= */ false,
         /* cb= */ null,
         /* connectionHints= */ Bundle.EMPTY,

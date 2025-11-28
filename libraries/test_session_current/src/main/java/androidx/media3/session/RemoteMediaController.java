@@ -34,6 +34,7 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.Player;
@@ -395,7 +396,7 @@ public class RemoteMediaController {
     ArrayList<Bundle> list = customLayoutBundle.getParcelableArrayList(KEY_COMMAND_BUTTON_LIST);
     ImmutableList.Builder<CommandButton> customLayout = new ImmutableList.Builder<>();
     for (Bundle bundle : list) {
-      customLayout.add(CommandButton.fromBundle(bundle, MediaSessionStub.VERSION_INT));
+      customLayout.add(CommandButton.fromBundle(bundle, MediaLibraryInfo.INTERFACE_VERSION));
     }
     return customLayout.build();
   }
@@ -406,7 +407,8 @@ public class RemoteMediaController {
         mediaButtonPreferencesBundle.getParcelableArrayList(KEY_COMMAND_BUTTON_LIST);
     ImmutableList.Builder<CommandButton> mediaButtonPreferences = new ImmutableList.Builder<>();
     for (Bundle bundle : list) {
-      mediaButtonPreferences.add(CommandButton.fromBundle(bundle, MediaSessionStub.VERSION_INT));
+      mediaButtonPreferences.add(
+          CommandButton.fromBundle(bundle, MediaLibraryInfo.INTERFACE_VERSION));
     }
     return mediaButtonPreferences.build();
   }

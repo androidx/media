@@ -129,12 +129,6 @@ import java.util.concurrent.ExecutionException;
 
   private static final String TAG = "MediaSessionStub";
 
-  // LINT.IfChange(version_int)
-  /** The version of the IMediaSession interface. */
-  public static final int VERSION_INT = 8;
-
-  // LINT.ThenChange()
-
   /**
    * Sequence number used when a controller method is triggered on the session side that wasn't
    * initiated by the controller itself.
@@ -560,7 +554,7 @@ import java.util.concurrent.ExecutionException;
             ConnectionState state =
                 new ConnectionState(
                     MediaLibraryInfo.VERSION_INT,
-                    MediaSessionStub.VERSION_INT,
+                    MediaLibraryInfo.INTERFACE_VERSION,
                     MediaSessionStub.this,
                     connectionResult.sessionActivity != null
                         ? connectionResult.sessionActivity

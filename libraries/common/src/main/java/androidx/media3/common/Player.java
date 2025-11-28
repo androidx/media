@@ -460,25 +460,25 @@ public interface Player {
      * {@link #periodUid} of an instance restored by {@link #fromBundle(Bundle)} will always be
      * {@code null}.
      *
-     * @param controllerInterfaceVersion The interface version of the media controller this Bundle
-     *     will be sent to.
+     * @param interfaceVersion The {@link MediaLibraryInfo#INTERFACE_VERSION} of the receiving
+     *     process.
      */
     @UnstableApi
-    public Bundle toBundle(int controllerInterfaceVersion) {
+    public Bundle toBundle(int interfaceVersion) {
       Bundle bundle = new Bundle();
-      if (controllerInterfaceVersion < 3 || mediaItemIndex != 0) {
+      if (interfaceVersion < 3 || mediaItemIndex != 0) {
         bundle.putInt(FIELD_MEDIA_ITEM_INDEX, mediaItemIndex);
       }
       if (mediaItem != null) {
         bundle.putBundle(FIELD_MEDIA_ITEM, mediaItem.toBundle());
       }
-      if (controllerInterfaceVersion < 3 || periodIndex != 0) {
+      if (interfaceVersion < 3 || periodIndex != 0) {
         bundle.putInt(FIELD_PERIOD_INDEX, periodIndex);
       }
-      if (controllerInterfaceVersion < 3 || positionMs != 0) {
+      if (interfaceVersion < 3 || positionMs != 0) {
         bundle.putLong(FIELD_POSITION_MS, positionMs);
       }
-      if (controllerInterfaceVersion < 3 || contentPositionMs != 0) {
+      if (interfaceVersion < 3 || contentPositionMs != 0) {
         bundle.putLong(FIELD_CONTENT_POSITION_MS, contentPositionMs);
       }
       if (adGroupIndex != C.INDEX_UNSET) {

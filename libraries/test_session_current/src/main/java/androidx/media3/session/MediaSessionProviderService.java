@@ -95,6 +95,7 @@ import androidx.media3.common.C;
 import androidx.media3.common.DeviceInfo;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.PlaybackParameters;
@@ -755,7 +756,7 @@ public class MediaSessionProviderService extends Service {
           () -> {
             ImmutableList.Builder<CommandButton> builder = new ImmutableList.Builder<>();
             for (Bundle bundle : layout) {
-              builder.add(CommandButton.fromBundle(bundle, MediaSessionStub.VERSION_INT));
+              builder.add(CommandButton.fromBundle(bundle, MediaLibraryInfo.INTERFACE_VERSION));
             }
             MediaSession session = sessionMap.get(sessionId);
             session.setCustomLayout(builder.build());
@@ -773,7 +774,7 @@ public class MediaSessionProviderService extends Service {
           () -> {
             ImmutableList.Builder<CommandButton> builder = new ImmutableList.Builder<>();
             for (Bundle bundle : mediaButtonPreferences) {
-              builder.add(CommandButton.fromBundle(bundle, MediaSessionStub.VERSION_INT));
+              builder.add(CommandButton.fromBundle(bundle, MediaLibraryInfo.INTERFACE_VERSION));
             }
             MediaSession session = sessionMap.get(sessionId);
             session.setMediaButtonPreferences(builder.build());

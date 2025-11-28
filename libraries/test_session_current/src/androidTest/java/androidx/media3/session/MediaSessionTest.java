@@ -1137,7 +1137,7 @@ public class MediaSessionTest {
         MediaSessionManager.RemoteUserInfo.UNKNOWN_PID,
         MediaSessionManager.RemoteUserInfo.UNKNOWN_UID,
         MediaLibraryInfo.VERSION_INT,
-        MediaControllerStub.VERSION_INT,
+        MediaLibraryInfo.INTERFACE_VERSION,
         /* trusted= */ false,
         /* connectionHints= */ Bundle.EMPTY,
         /* isPackageNameVerified= */ false);

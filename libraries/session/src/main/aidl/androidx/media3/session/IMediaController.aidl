@@ -62,5 +62,5 @@ oneway interface IMediaController {
       int seq, String query, int itemCount, in @nullable Bundle libraryParams) = 4001;
   // LINT.IfChange
   // Next Id for MediaBrowser: 4002
-  // LINT.ThenChange( ../../../../java/androidx/media3/session/MediaControllerStub.java:version_int)
+  // LINT.ThenChange(../../../../../../../common/src/main/java/androidx/media3/common/MediaLibraryInfo.java:interface_version)
 }

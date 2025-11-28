@@ -199,10 +199,10 @@ import java.util.Objects;
         canAccessCurrentMediaItem ? contentBufferedPositionMs : 0);
   }
 
-  public Bundle toBundle(int controllerInterfaceVersion) {
+  public Bundle toBundle(int interfaceVersion) {
     Bundle bundle = new Bundle();
-    if (controllerInterfaceVersion < 3 || !DEFAULT_POSITION_INFO.equalsForBundling(positionInfo)) {
-      bundle.putBundle(FIELD_POSITION_INFO, positionInfo.toBundle(controllerInterfaceVersion));
+    if (interfaceVersion < 3 || !DEFAULT_POSITION_INFO.equalsForBundling(positionInfo)) {
+      bundle.putBundle(FIELD_POSITION_INFO, positionInfo.toBundle(interfaceVersion));
     }
     if (isPlayingAd) {
       bundle.putBoolean(FIELD_IS_PLAYING_AD, isPlayingAd);
@@ -213,7 +213,7 @@ import java.util.Objects;
     if (durationMs != C.TIME_UNSET) {
       bundle.putLong(FIELD_DURATION_MS, durationMs);
     }
-    if (controllerInterfaceVersion < 3 || bufferedPositionMs != 0) {
+    if (interfaceVersion < 3 || bufferedPositionMs != 0) {
       bundle.putLong(FIELD_BUFFERED_POSITION_MS, bufferedPositionMs);
     }
     if (bufferedPercentage != 0) {
@@ -228,7 +228,7 @@ import java.util.Objects;
     if (contentDurationMs != C.TIME_UNSET) {
       bundle.putLong(FIELD_CONTENT_DURATION_MS, contentDurationMs);
     }
-    if (controllerInterfaceVersion < 3 || contentBufferedPositionMs != 0) {
+    if (interfaceVersion < 3 || contentBufferedPositionMs != 0) {
       bundle.putLong(FIELD_CONTENT_BUFFERED_POSITION_MS, contentBufferedPositionMs);
     }
     return bundle;

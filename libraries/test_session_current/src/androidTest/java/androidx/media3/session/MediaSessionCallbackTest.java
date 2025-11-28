@@ -151,7 +151,7 @@ public class MediaSessionCallbackTest {
 
     assertThat(latch.await(TIMEOUT_MS, MILLISECONDS)).isTrue();
     assertThat(controllerVersion.get()).isEqualTo(MediaLibraryInfo.VERSION_INT);
-    assertThat(controllerInterfaceVersion.get()).isEqualTo(MediaControllerStub.VERSION_INT);
+    assertThat(controllerInterfaceVersion.get()).isEqualTo(MediaLibraryInfo.INTERFACE_VERSION);
   }
 
   @Test

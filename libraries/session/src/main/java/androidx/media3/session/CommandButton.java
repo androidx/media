@@ -34,6 +34,7 @@ import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.common.Player;
 import androidx.media3.common.Rating;
@@ -1734,12 +1735,12 @@ public final class CommandButton {
   @Deprecated
   @UnstableApi
   public static CommandButton fromBundle(Bundle bundle) {
-    return fromBundle(bundle, MediaSessionStub.VERSION_INT);
+    return fromBundle(bundle, MediaLibraryInfo.INTERFACE_VERSION);
   }
 
   /** Restores a {@code CommandButton} from a {@link Bundle}. */
   @UnstableApi
-  public static CommandButton fromBundle(Bundle bundle, int sessionInterfaceVersion) {
+  public static CommandButton fromBundle(Bundle bundle, int interfaceVersion) {
     @Nullable Bundle sessionCommandBundle = bundle.getBundle(FIELD_SESSION_COMMAND);
     @Nullable
     SessionCommand sessionCommand =
@@ -1750,10 +1751,10 @@ public final class CommandButton {
     int iconResId = bundle.getInt(FIELD_ICON_RES_ID, /* defaultValue= */ 0);
     CharSequence displayName = bundle.getCharSequence(FIELD_DISPLAY_NAME, /* defaultValue= */ "");
     @Nullable Bundle extras = bundle.getBundle(FIELD_EXTRAS);
-    // Before sessionInterfaceVersion == 3, the session expected this value to be meaningless and we
+    // Before interfaceVersion == 3, the session expected this value to be meaningless and we
     // can only assume it was meant to be true.
     boolean enabled =
-        sessionInterfaceVersion < 3 || bundle.getBoolean(FIELD_ENABLED, /* defaultValue= */ true);
+        interfaceVersion < 3 || bundle.getBoolean(FIELD_ENABLED, /* defaultValue= */ true);
     @Nullable Uri iconUri = bundle.getParcelable(FIELD_ICON_URI);
     @Icon int icon = bundle.getInt(FIELD_ICON, /* defaultValue= */ ICON_UNDEFINED);
     @Nullable

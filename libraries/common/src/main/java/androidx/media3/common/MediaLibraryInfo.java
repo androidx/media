@@ -51,6 +51,19 @@ public final class MediaLibraryInfo {
   /** Whether the library was compiled with {@link TraceUtil} trace enabled. */
   public static final boolean TRACE_ENABLED = true;
 
+  // LINT.IfChange(interface_version)
+  /**
+   * The version of the interfaces and behaviors offered to other processes.
+   *
+   * <p>This value is monotonically increasing. Its main purpose is to signal which version is
+   * running when two versions of the library need to communicate with another across process
+   * boundaries. If any cross-process interaction requires an incompatible change, this number
+   * should be increased to allow the other process to offer backwards-compatible behavior.
+   */
+  public static final int INTERFACE_VERSION = 8;
+
+  // LINT.ThenChange()
+
   private static final HashSet<String> registeredModules = new HashSet<>();
   private static String registeredModulesString = "media3.common";
 

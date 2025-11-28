@@ -606,7 +606,7 @@ public class MediaSession {
     }
 
     /**
-     * Returns the interface version of the controller, or {@link
+     * Returns the {@link MediaLibraryInfo#INTERFACE_VERSION} of the controller, or {@link
      * #LEGACY_CONTROLLER_INTERFACE_VERSION} if the controller is a platform {@link
      * android.media.session.MediaController} or legacy {@code
      * android.support.v4.media.session.MediaControllerCompat}.

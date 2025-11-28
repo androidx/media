@@ -249,7 +249,7 @@ public class MediaControllerListenerTest {
     MediaController controller = controllerTestRule.createController(token);
 
     assertThat(controller.getConnectedToken().getInterfaceVersion())
-        .isEqualTo(MediaSessionStub.VERSION_INT);
+        .isEqualTo(MediaLibraryInfo.INTERFACE_VERSION);
     assertThat(controller.getConnectedToken().getSessionVersion())
         .isEqualTo(MediaLibraryInfo.VERSION_INT);
   }

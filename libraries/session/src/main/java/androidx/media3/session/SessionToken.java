@@ -284,7 +284,10 @@ public final class SessionToken {
     return impl.getLibraryVersion();
   }
 
-  /** Returns the interface version of the session or {@link #UNKNOWN_INTERFACE_VERSION}. */
+  /**
+   * Returns the {@link MediaLibraryInfo#INTERFACE_VERSION} of the session or {@link
+   * #UNKNOWN_INTERFACE_VERSION}.
+   */
   @UnstableApi
   public int getInterfaceVersion() {
     return impl.getInterfaceVersion();

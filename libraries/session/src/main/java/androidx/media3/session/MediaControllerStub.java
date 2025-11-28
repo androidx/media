@@ -25,6 +25,7 @@ import android.os.RemoteException;
 import android.text.TextUtils;
 import androidx.annotation.Nullable;
 import androidx.media3.common.C;
+import androidx.media3.common.MediaLibraryInfo;
 import androidx.media3.common.Player.Commands;
 import androidx.media3.common.util.BundleCollectionUtil;
 import androidx.media3.common.util.Log;
@@ -38,12 +39,6 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 /* package */ class MediaControllerStub extends IMediaController.Stub {
 
   private static final String TAG = "MediaControllerStub";
-
-  // LINT.IfChange(version_int)
-  /** The version of the IMediaController interface. */
-  public static final int VERSION_INT = 8;
-
-  // LINT.ThenChange()
 
   private final WeakReference<MediaControllerImplBase> controller;
 
@@ -260,7 +255,8 @@ import org.checkerframework.checker.nullness.qual.NonNull;
   }
 
   /**
-   * @deprecated Use {@link #onPlayerInfoChangedWithExclusions} from {@link #VERSION_INT} 2.
+   * @deprecated Use {@link #onPlayerInfoChangedWithExclusions} from {@link
+   *     MediaLibraryInfo#INTERFACE_VERSION} 2.
    */
   @Override
   @Deprecated
@@ -273,7 +269,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
             .toBundle());
   }
 
-  /** Added in {@link #VERSION_INT} 2. */
+  /** Added in {@link MediaLibraryInfo#INTERFACE_VERSION} 2. */
   @Override
   public void onPlayerInfoChangedWithExclusions(
       int seq, @Nullable Bundle playerInfoBundle, @Nullable Bundle playerInfoExclusions) {

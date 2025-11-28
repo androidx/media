@@ -113,7 +113,7 @@ import java.util.List;
 
   // Next field key = 15
 
-  public Bundle toBundleForRemoteProcess(int controllerInterfaceVersion) {
+  public Bundle toBundleForRemoteProcess(int interfaceVersion) {
     Bundle bundle = new Bundle();
     bundle.putInt(FIELD_LIBRARY_VERSION, libraryVersion);
     BundleCompat.putBinder(bundle, FIELD_SESSION_BINDER, sessionBinder.asBinder());
@@ -124,7 +124,7 @@ import java.util.List;
           BundleCollectionUtil.toBundleArrayList(customLayout, CommandButton::toBundle));
     }
     if (!mediaButtonPreferences.isEmpty()) {
-      if (controllerInterfaceVersion >= 7) {
+      if (interfaceVersion >= 7) {
         bundle.putParcelableArrayList(
             FIELD_MEDIA_BUTTON_PREFERENCES,
             BundleCollectionUtil.toBundleArrayList(
@@ -161,7 +161,7 @@ import java.util.List;
         playerInfo
             .filterByAvailableCommands(
                 intersectedCommands, /* excludeTimeline= */ false, /* excludeTracks= */ false)
-            .toBundleForRemoteProcess(controllerInterfaceVersion));
+            .toBundleForRemoteProcess(interfaceVersion));
     bundle.putInt(FIELD_SESSION_INTERFACE_VERSION, sessionInterfaceVersion);
     if (platformToken != null) {
       bundle.putParcelable(FIELD_PLATFORM_TOKEN, platformToken);

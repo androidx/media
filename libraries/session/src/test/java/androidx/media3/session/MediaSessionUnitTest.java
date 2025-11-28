@@ -82,7 +82,7 @@ public class MediaSessionUnitTest { // Avoid naming collision with session_curre
         new MediaSession.ControllerInfo(
             remoteUserInfo,
             MediaLibraryInfo.VERSION_INT,
-            MediaControllerStub.VERSION_INT,
+            MediaLibraryInfo.INTERFACE_VERSION,
             /* trusted= */ true,
             /* cb= */ null,
             /* connectionHints= */ Bundle.EMPTY,
@@ -139,7 +139,7 @@ public class MediaSessionUnitTest { // Avoid naming collision with session_curre
         new MediaSession.ControllerInfo(
             remoteUserInfo,
             MediaLibraryInfo.VERSION_INT,
-            MediaControllerStub.VERSION_INT,
+            MediaLibraryInfo.INTERFACE_VERSION,
             /* trusted= */ true,
             /* cb= */ null,
             /* connectionHints= */ Bundle.EMPTY,
@@ -162,7 +162,7 @@ public class MediaSessionUnitTest { // Avoid naming collision with session_curre
         new MediaSession.ControllerInfo(
             remoteUserInfo,
             MediaLibraryInfo.VERSION_INT,
-            MediaControllerStub.VERSION_INT,
+            MediaLibraryInfo.INTERFACE_VERSION,
             /* trusted= */ true,
             /* cb= */ null,
             connectionHints,
@@ -185,7 +185,7 @@ public class MediaSessionUnitTest { // Avoid naming collision with session_curre
         new MediaSession.ControllerInfo(
             remoteUserInfo,
             MediaLibraryInfo.VERSION_INT,
-            MediaControllerStub.VERSION_INT,
+            MediaLibraryInfo.INTERFACE_VERSION,
             /* trusted= */ false,
             /* cb= */ null,
             connectionHints,
@@ -206,7 +206,7 @@ public class MediaSessionUnitTest { // Avoid naming collision with session_curre
         new MediaSession.ControllerInfo(
             remoteUserInfo,
             MediaLibraryInfo.VERSION_INT,
-            MediaControllerStub.VERSION_INT,
+            MediaLibraryInfo.INTERFACE_VERSION,
             /* trusted= */ true,
             /* cb= */ null,
             /* connectionHints= */ Bundle.EMPTY,
