@@ -36,6 +36,7 @@ import androidx.media3.exoplayer.source.MediaSource.MediaPeriodId;
 import androidx.media3.test.utils.FakeTimeline;
 import androidx.media3.test.utils.FakeTimeline.TimelineWindowDefinition;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.common.collect.ImmutableList;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -176,14 +177,13 @@ public final class DefaultPlaybackSessionManagerTest {
   public void updateSessions_ofSameWindow_withoutMediaPeriodId_afterAd_doesNotCreateNewSession() {
     Timeline timeline =
         new FakeTimeline(
-            new TimelineWindowDefinition(
-                /* periodCount= */ 1,
-                /* id= */ new Object(),
-                /* isSeekable= */ true,
-                /* isDynamic= */ false,
-                /* durationUs= */ 10_000_000,
-                FakeTimeline.createAdPlaybackState(
-                    /* adsPerAdGroup= */ 1, /* adGroupTimesUs... */ 0)));
+            new TimelineWindowDefinition.Builder()
+                .setUid(new Object())
+                .setAdPlaybackStates(
+                    ImmutableList.of(
+                        FakeTimeline.createAdPlaybackState(
+                            /* adsPerAdGroup= */ 1, /* adGroupTimesUs... */ 0)))
+                .build());
     MediaPeriodId adMediaPeriodId =
         new MediaPeriodId(
             timeline.getUidOfPeriod(/* periodIndex= */ 0),
@@ -424,18 +424,16 @@ public final class DefaultPlaybackSessionManagerTest {
       updateSessions_withNewAd_afterDiscontinuitiesFromContentToAdAndBack_doesNotActivateNewAd() {
     Timeline adTimeline =
         new FakeTimeline(
-            new TimelineWindowDefinition(
-                /* periodCount= */ 1,
-                /* id= */ 0,
-                /* isSeekable= */ true,
-                /* isDynamic= */ false,
-                /* durationUs= */ 10 * C.MICROS_PER_SECOND,
-                new AdPlaybackState(
-                        /* adsId= */ new Object(),
-                        /* adGroupTimesUs=... */ 2 * C.MICROS_PER_SECOND,
-                        5 * C.MICROS_PER_SECOND)
-                    .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1)
-                    .withAdCount(/* adGroupIndex= */ 1, /* adCount= */ 1)));
+            new TimelineWindowDefinition.Builder()
+                .setAdPlaybackStates(
+                    ImmutableList.of(
+                        new AdPlaybackState(
+                                /* adsId= */ new Object(),
+                                /* adGroupTimesUs=... */ 2 * C.MICROS_PER_SECOND,
+                                5 * C.MICROS_PER_SECOND)
+                            .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1)
+                            .withAdCount(/* adGroupIndex= */ 1, /* adCount= */ 1)))
+                .build());
     EventTime adEventTime1 =
         createEventTime(
             adTimeline,
@@ -665,14 +663,13 @@ public final class DefaultPlaybackSessionManagerTest {
   public void belongsToSession_withAd_returnsFalse() {
     Timeline timeline =
         new FakeTimeline(
-            new TimelineWindowDefinition(
-                /* periodCount= */ 1,
-                /* id= */ new Object(),
-                /* isSeekable= */ true,
-                /* isDynamic= */ false,
-                /* durationUs= */ 10_000_000,
-                FakeTimeline.createAdPlaybackState(
-                    /* adsPerAdGroup= */ 1, /* adGroupTimesUs... */ 0)));
+            new TimelineWindowDefinition.Builder()
+                .setUid(new Object())
+                .setAdPlaybackStates(
+                    ImmutableList.of(
+                        FakeTimeline.createAdPlaybackState(
+                            /* adsPerAdGroup= */ 1, /* adGroupTimesUs... */ 0)))
+                .build());
     MediaPeriodId contentMediaPeriodId =
         new MediaPeriodId(
             timeline.getUidOfPeriod(/* periodIndex= */ 0), /* windowSequenceNumber= */ 0);
@@ -815,15 +812,14 @@ public final class DefaultPlaybackSessionManagerTest {
   public void timelineUpdate_withContent_doesNotFinishFuturePostrollAd() {
     Timeline adTimeline =
         new FakeTimeline(
-            new TimelineWindowDefinition(
-                /* periodCount= */ 1,
-                /* id= */ 0,
-                /* isSeekable= */ true,
-                /* isDynamic= */ false,
-                /* durationUs= */ 10 * C.MICROS_PER_SECOND,
-                new AdPlaybackState(
-                        /* adsId= */ new Object(), /* adGroupTimesUs=... */ C.TIME_END_OF_SOURCE)
-                    .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1)));
+            new TimelineWindowDefinition.Builder()
+                .setAdPlaybackStates(
+                    ImmutableList.of(
+                        new AdPlaybackState(
+                                /* adsId= */ new Object(), /* adGroupTimesUs=... */
+                                C.TIME_END_OF_SOURCE)
+                            .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1)))
+                .build());
     EventTime adEventTime =
         createEventTime(
             adTimeline,
@@ -1202,18 +1198,16 @@ public final class DefaultPlaybackSessionManagerTest {
   public void positionDiscontinuity_fromAdToContent_finishesAd() {
     Timeline adTimeline =
         new FakeTimeline(
-            new TimelineWindowDefinition(
-                /* periodCount= */ 1,
-                /* id= */ 0,
-                /* isSeekable= */ true,
-                /* isDynamic= */ false,
-                /* durationUs= */ 10 * C.MICROS_PER_SECOND,
-                new AdPlaybackState(
-                        /* adsId= */ new Object(), /* adGroupTimesUs=... */
-                        0,
-                        5 * C.MICROS_PER_SECOND)
-                    .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1)
-                    .withAdCount(/* adGroupIndex= */ 1, /* adCount= */ 1)));
+            new TimelineWindowDefinition.Builder()
+                .setAdPlaybackStates(
+                    ImmutableList.of(
+                        new AdPlaybackState(
+                                /* adsId= */ new Object(), /* adGroupTimesUs=... */
+                                0,
+                                5 * C.MICROS_PER_SECOND)
+                            .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1)
+                            .withAdCount(/* adGroupIndex= */ 1, /* adCount= */ 1)))
+                .build());
     EventTime adEventTime1 =
         createEventTime(
             adTimeline,
@@ -1284,18 +1278,16 @@ public final class DefaultPlaybackSessionManagerTest {
   public void positionDiscontinuity_fromContentToAd_doesNotFinishSessions() {
     Timeline adTimeline =
         new FakeTimeline(
-            new TimelineWindowDefinition(
-                /* periodCount= */ 1,
-                /* id= */ 0,
-                /* isSeekable= */ true,
-                /* isDynamic= */ false,
-                /* durationUs= */ 10 * C.MICROS_PER_SECOND,
-                new AdPlaybackState(
-                        /* adsId= */ new Object(), /* adGroupTimesUs=... */
-                        2 * C.MICROS_PER_SECOND,
-                        5 * C.MICROS_PER_SECOND)
-                    .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1)
-                    .withAdCount(/* adGroupIndex= */ 1, /* adCount= */ 1)));
+            new TimelineWindowDefinition.Builder()
+                .setAdPlaybackStates(
+                    ImmutableList.of(
+                        new AdPlaybackState(
+                                /* adsId= */ new Object(), /* adGroupTimesUs=... */
+                                2 * C.MICROS_PER_SECOND,
+                                5 * C.MICROS_PER_SECOND)
+                            .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1)
+                            .withAdCount(/* adGroupIndex= */ 1, /* adCount= */ 1)))
+                .build());
     EventTime adEventTime1 =
         createEventTime(
             adTimeline,
@@ -1336,18 +1328,16 @@ public final class DefaultPlaybackSessionManagerTest {
   public void positionDiscontinuity_fromAdToAd_finishesPastAds_andNotifiesAdPlaybackStated() {
     Timeline adTimeline =
         new FakeTimeline(
-            new TimelineWindowDefinition(
-                /* periodCount= */ 1,
-                /* id= */ 0,
-                /* isSeekable= */ true,
-                /* isDynamic= */ false,
-                /* durationUs= */ 10 * C.MICROS_PER_SECOND,
-                new AdPlaybackState(
-                        /* adsId= */ new Object(), /* adGroupTimesUs=... */
-                        0,
-                        5 * C.MICROS_PER_SECOND)
-                    .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1)
-                    .withAdCount(/* adGroupIndex= */ 1, /* adCount= */ 1)));
+            new TimelineWindowDefinition.Builder()
+                .setAdPlaybackStates(
+                    ImmutableList.of(
+                        new AdPlaybackState(
+                                /* adsId= */ new Object(), /* adGroupTimesUs=... */
+                                0,
+                                5 * C.MICROS_PER_SECOND)
+                            .withAdCount(/* adGroupIndex= */ 0, /* adCount= */ 1)
+                            .withAdCount(/* adGroupIndex= */ 1, /* adCount= */ 1)))
+                .build());
     EventTime adEventTime1 =
         createEventTime(
             adTimeline,
