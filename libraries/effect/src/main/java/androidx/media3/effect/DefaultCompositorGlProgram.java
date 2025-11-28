@@ -50,8 +50,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
   }
 
   private static final String TAG = "CompositorGlProgram";
-  private static final String VERTEX_SHADER_PATH = "shaders/vertex_shader_transformation_es2.glsl";
-  private static final String FRAGMENT_SHADER_PATH = "shaders/fragment_shader_alpha_scale_es2.glsl";
 
   private final Context context;
   private final OverlayMatrixProvider overlayMatrixProvider;
@@ -120,7 +118,11 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       return;
     }
     try {
-      glProgram = new GlProgram(context, VERTEX_SHADER_PATH, FRAGMENT_SHADER_PATH);
+      glProgram =
+          new GlProgram(
+              context,
+              /* vertexShaderResId= */ R.raw.vertex_shader_transformation_es2,
+              /* fragmentShaderResId= */ R.raw.fragment_shader_alpha_scale_es2);
       glProgram.setBufferAttribute(
           "aFramePosition",
           GlUtil.getNormalizedCoordinateBounds(),

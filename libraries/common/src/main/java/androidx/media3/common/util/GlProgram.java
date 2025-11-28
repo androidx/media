@@ -56,6 +56,21 @@ public final class GlProgram {
    * Compiles a GL shader program from vertex and fragment shader GLSL GLES20 code.
    *
    * @param context The {@link Context}.
+   * @param vertexShaderResId The resource ID of a vertex shader program.
+   * @param fragmentShaderResId The resource ID of a fragment shader program.
+   * @throws IOException When failing to read shader files.
+   */
+  public GlProgram(Context context, int vertexShaderResId, int fragmentShaderResId)
+      throws IOException, GlUtil.GlException {
+    this(
+        Util.loadRawResource(context, vertexShaderResId),
+        Util.loadRawResource(context, fragmentShaderResId));
+  }
+
+  /**
+   * Compiles a GL shader program from vertex and fragment shader GLSL GLES20 code.
+   *
+   * @param context The {@link Context}.
    * @param vertexShaderFilePath The path to a vertex shader program.
    * @param fragmentShaderFilePath The path to a fragment shader program.
    * @throws IOException When failing to read shader files.

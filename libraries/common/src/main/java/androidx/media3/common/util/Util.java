@@ -1060,6 +1060,29 @@ public final class Util {
   }
 
   /**
+   * Loads a file from a raw resource.
+   *
+   * <p>This should only be used for known-small files.
+   *
+   * <p>The file is assumed to be encoded in UTF-8.
+   *
+   * @param context The {@link Context}.
+   * @param resId The resource ID of the file to load.
+   * @return The content of the file to load.
+   * @throws IOException If the file couldn't be read.
+   */
+  @UnstableApi
+  public static String loadRawResource(Context context, int resId) throws IOException {
+    @Nullable InputStream inputStream = null;
+    try {
+      inputStream = context.getResources().openRawResource(resId);
+      return Util.fromUtf8Bytes(ByteStreams.toByteArray(inputStream));
+    } finally {
+      Util.closeQuietly(inputStream);
+    }
+  }
+
+  /**
    * Returns a new {@link String} constructed by decoding UTF-8 encoded bytes.
    *
    * @param bytes The UTF-8 encoded bytes to decode.

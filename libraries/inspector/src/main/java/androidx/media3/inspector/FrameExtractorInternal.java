@@ -63,6 +63,7 @@ import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.GlShaderProgram;
 import androidx.media3.effect.MatrixTransformation;
 import androidx.media3.effect.PassthroughShaderProgram;
+import androidx.media3.effect.R;
 import androidx.media3.effect.ScaleAndRotateTransformation;
 import androidx.media3.effect.SingleInputVideoGraph;
 import androidx.media3.exoplayer.DecoderCounters;
@@ -478,10 +479,12 @@ public final class FrameExtractorInternal {
 
       if (useHdr) {
         checkState(SDK_INT >= 34);
-        String vertexShaderFilePath = "shaders/vertex_shader_transformation_es3.glsl";
-        String fragmentShaderFilePath = "shaders/fragment_shader_oetf_es3.glsl";
         try {
-          glProgram = new GlProgram(context, vertexShaderFilePath, fragmentShaderFilePath);
+          glProgram =
+              new GlProgram(
+                  context,
+                  /* vertexShaderResId= */ R.raw.vertex_shader_transformation_es3,
+                  /* fragmentShaderResId= */ R.raw.fragment_shader_oetf_es3);
         } catch (IOException | GlUtil.GlException e) {
           throw new VideoFrameProcessingException(e);
         }

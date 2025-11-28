@@ -76,11 +76,6 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
           new float[] {1, 1, 0, 1},
           new float[] {1, -1, 0, 1});
 
-  private static final String HDR_VERTEX_SHADER_FILE_PATH =
-      "shaders/vertex_shader_transformation_es3.glsl";
-  private static final String HDR_FRAGMENT_SHADER_FILE_PATH =
-      "shaders/fragment_shader_oetf_es3.glsl";
-
   private final ListeningExecutorService glThreadExecutorService;
   private final GlObjectsProvider glObjectsProvider;
   private final InputConsumer inputConsumer;
@@ -125,7 +120,10 @@ import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
       checkState(SDK_INT >= 34);
       try {
         glProgram =
-            new GlProgram(context, HDR_VERTEX_SHADER_FILE_PATH, HDR_FRAGMENT_SHADER_FILE_PATH);
+            new GlProgram(
+                context,
+                /* vertexShaderResId= */ R.raw.vertex_shader_transformation_es3,
+                /* fragmentShaderResId= */ R.raw.fragment_shader_oetf_es3);
       } catch (IOException | GlUtil.GlException e) {
         throw new VideoFrameProcessingException(e);
       }
