@@ -755,24 +755,22 @@ import java.util.concurrent.ExecutionException;
     @Nullable
     ControllerInfo controller = connectedControllersManager.getController(caller.asBinder());
     if (controller != null) {
-      playForControllerInfo(controller, sequenceNumber);
+      playForControllerInfo(controller, sequenceNumber, /* mustStartForegroundService= */ false);
     }
   }
 
-  public void playForControllerInfo(ControllerInfo controller, int sequenceNumber) {
+  public void playForControllerInfo(
+      ControllerInfo controller, int sequenceNumber, boolean mustStartForegroundService) {
     queueSessionTaskWithPlayerCommandForControllerInfo(
         controller,
         sequenceNumber,
         COMMAND_PLAY_PAUSE,
-        sendSessionResultSuccess(
-            player -> {
-              @Nullable MediaSessionImpl impl = sessionImpl.get();
-              if (impl == null || impl.isReleased()) {
-                return;
-              }
-              impl.handleMediaControllerPlayRequest(
-                  controller, /* callOnPlayerInteractionFinished= */ false);
-            }));
+        sendSessionResultWhenReady(
+            (session, theController, sequenceId) ->
+                session.handleMediaControllerPlayRequest(
+                    theController,
+                    /* callOnPlayerInteractionFinished= */ false,
+                    /* mustStartForegroundService= */ mustStartForegroundService)));
   }
 
   @Override
