@@ -54,7 +54,6 @@ import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.MockitoAnnotations;
 
 /** Tests {@link DownloadManager}. */
 @RunWith(AndroidJUnit4.class)
@@ -82,7 +81,6 @@ public class DownloadManagerDashTest {
     cache =
         new SimpleCache(
             cacheFolder, new NoOpCacheEvictor(), TestUtil.getInMemoryDatabaseProvider());
-    MockitoAnnotations.initMocks(this);
     fakeDataSet =
         new FakeDataSet()
             .setData(TEST_MPD_URI, TEST_MPD)

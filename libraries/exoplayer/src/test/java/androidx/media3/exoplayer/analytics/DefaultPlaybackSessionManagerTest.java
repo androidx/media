@@ -37,12 +37,14 @@ import androidx.media3.test.utils.FakeTimeline;
 import androidx.media3.test.utils.FakeTimeline.TimelineWindowDefinition;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.junit.MockitoJUnit;
+import org.mockito.junit.MockitoRule;
 
 /** Unit test for {@link DefaultPlaybackSessionManager}. */
 @RunWith(AndroidJUnit4.class)
@@ -50,11 +52,11 @@ public final class DefaultPlaybackSessionManagerTest {
 
   private DefaultPlaybackSessionManager sessionManager;
 
+  @Rule public final MockitoRule mockito = MockitoJUnit.rule();
   @Mock private PlaybackSessionManager.Listener mockListener;
 
   @Before
   public void setUp() {
-    MockitoAnnotations.initMocks(this);
     sessionManager = new DefaultPlaybackSessionManager();
     sessionManager.setListener(mockListener);
   }

@@ -17,7 +17,6 @@ package androidx.media3.exoplayer.trackselection;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.Mockito.when;
-import static org.mockito.MockitoAnnotations.initMocks;
 
 import androidx.media3.common.C;
 import androidx.media3.common.Format;
@@ -40,9 +39,12 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
+import org.mockito.junit.MockitoJUnit;
+import org.mockito.junit.MockitoRule;
 
 /** Unit test for {@link AdaptiveTrackSelection}. */
 @RunWith(AndroidJUnit4.class)
@@ -50,12 +52,12 @@ public final class AdaptiveTrackSelectionTest {
 
   private static final long TEST_CHUNK_DURATION_US = 2_000_000;
 
+  @Rule public final MockitoRule mockito = MockitoJUnit.rule();
   @Mock private BandwidthMeter mockBandwidthMeter;
   private FakeClock fakeClock;
 
   @Before
   public void setUp() {
-    initMocks(this);
     fakeClock = new FakeClock(0);
     when(mockBandwidthMeter.getTimeToFirstByteEstimateUs()).thenReturn(C.TIME_UNSET);
   }

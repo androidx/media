@@ -32,22 +32,24 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import java.util.HashMap;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.junit.MockitoJUnit;
+import org.mockito.junit.MockitoRule;
 
 /** Tests {@link OfflineLicenseHelper}. */
 @RunWith(AndroidJUnit4.class)
 public class OfflineLicenseHelperTest {
 
+  @Rule public final MockitoRule mockito = MockitoJUnit.rule();
   private OfflineLicenseHelper offlineLicenseHelper;
   @Mock private MediaDrmCallback mediaDrmCallback;
   @Mock private ExoMediaDrm mediaDrm;
 
   @Before
   public void setUp() throws Exception {
-    MockitoAnnotations.initMocks(this);
     when(mediaDrm.openSession()).thenReturn(new byte[] {1, 2, 3});
     when(mediaDrm.getKeyRequest(any(), any(), anyInt(), any()))
         .thenReturn(

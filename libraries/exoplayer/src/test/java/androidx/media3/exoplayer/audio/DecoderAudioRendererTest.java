@@ -59,11 +59,13 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.InOrder;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.junit.MockitoJUnit;
+import org.mockito.junit.MockitoRule;
 import org.robolectric.annotation.Config;
 
 /** Unit test for {@link DecoderAudioRenderer}. */
@@ -75,12 +77,12 @@ public class DecoderAudioRendererTest {
 
   private final AtomicReference<AudioSink.Listener> audioSinkListener = new AtomicReference<>();
 
+  @Rule public final MockitoRule mockito = MockitoJUnit.rule();
   @Mock private AudioSink mockAudioSink;
   private DecoderAudioRenderer<FakeDecoder> audioRenderer;
 
   @Before
   public void setUp() throws Exception {
-    MockitoAnnotations.initMocks(this);
     doAnswer(
             invocation -> {
               audioSinkListener.set(invocation.getArgument(0, AudioSink.Listener.class));

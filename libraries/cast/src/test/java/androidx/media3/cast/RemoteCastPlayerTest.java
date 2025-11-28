@@ -64,7 +64,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
-import static org.mockito.MockitoAnnotations.initMocks;
 
 import android.net.Uri;
 import androidx.media3.common.C;
@@ -100,6 +99,7 @@ import java.util.Collections;
 import java.util.List;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
@@ -107,10 +107,13 @@ import org.mockito.Captor;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.Mockito;
+import org.mockito.junit.MockitoJUnit;
+import org.mockito.junit.MockitoRule;
 
 /** Tests for {@link RemoteCastPlayer}. */
 @RunWith(AndroidJUnit4.class)
 public class RemoteCastPlayerTest {
+  @Rule public final MockitoRule mockito = MockitoJUnit.rule();
 
   private RemoteCastPlayer remoteCastPlayer;
   private DefaultMediaItemConverter mediaItemConverter;
@@ -139,7 +142,6 @@ public class RemoteCastPlayerTest {
   @SuppressWarnings("deprecation")
   @Before
   public void setUp() {
-    initMocks(this);
     when(mockCastContext.getSessionManager()).thenReturn(mockSessionManager);
     when(mockSessionManager.getCurrentCastSession()).thenReturn(mockCastSession);
     when(mockCastSession.getRemoteMediaClient()).thenReturn(mockRemoteMediaClient);
