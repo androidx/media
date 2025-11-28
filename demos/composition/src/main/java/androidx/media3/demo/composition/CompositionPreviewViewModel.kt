@@ -19,7 +19,7 @@ import android.app.Application
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.SystemClock
-import android.view.Surface
+import android.view.SurfaceHolder
 import androidx.annotation.OptIn
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -55,8 +55,8 @@ import androidx.media3.demo.composition.data.OverlayAsset
 import androidx.media3.demo.composition.data.OverlayState
 import androidx.media3.demo.composition.data.PlacedOverlay
 import androidx.media3.demo.composition.data.PlacementState
-import androidx.media3.demo.composition.effect.DemoRenderingPacketConsumer
 import androidx.media3.demo.composition.effect.LottieEffectFactory
+import androidx.media3.demo.composition.effect.ProcessAndRenderToSurfaceConsumer
 import androidx.media3.effect.BitmapOverlay
 import androidx.media3.effect.DebugTraceUtil
 import androidx.media3.effect.LanczosResample
@@ -106,10 +106,12 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
   val EXPORT_ERROR_MESSAGE = application.resources.getString(R.string.export_error)
   val EXPORT_STARTED_MESSAGE = application.resources.getString(R.string.export_started)
   internal var frameConsumerEnabled: Boolean = false
-  internal var outputSurface: Surface? = null
-  internal val packetConsumerFactory: DemoRenderingPacketConsumer.Factory by lazy {
-    DemoRenderingPacketConsumer.Factory(
+  internal var holder: SurfaceHolder? = null
+  internal val packetConsumerFactory: ProcessAndRenderToSurfaceConsumer.Factory by lazy {
+    ProcessAndRenderToSurfaceConsumer.Factory(
+      getApplication(),
       glExecutorService,
+      glObjectsProvider,
       errorListener = { e ->
         Log.e(TAG, "FrameConsumer error", e)
         _uiState.update { it.copy(snackbarMessage = "Preview error: $e") }
@@ -774,7 +776,7 @@ class CompositionPreviewViewModel(application: Application) : AndroidViewModel(a
     val playerBuilder = CompositionPlayer.Builder(getApplication())
     frameConsumerEnabled = uiState.value.outputSettingsState.frameConsumerEnabled
     if (uiState.value.outputSettingsState.frameConsumerEnabled) {
-      packetConsumerFactory.setOutputSurface(outputSurface)
+      packetConsumerFactory.setOutput(holder)
       playerBuilder.setPacketConsumerFactory(packetConsumerFactory)
       playerBuilder.setGlThreadExecutorService(glExecutorService)
       playerBuilder.setGlObjectsProvider(glObjectsProvider)

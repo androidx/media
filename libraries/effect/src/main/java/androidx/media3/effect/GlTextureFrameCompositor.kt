@@ -36,7 +36,7 @@ class GlTextureFrameCompositor(
   context: Context,
   private val dispatcher: CoroutineDispatcher,
   private val glObjectsProvider: GlObjectsProvider,
-  private val videoCompositorSettings: VideoCompositorSettings,
+  @Volatile var videoCompositorSettings: VideoCompositorSettings? = null,
 ) :
   RunnablePacketConsumer<List<GlTextureFrame>>,
   PacketProcessor<List<GlTextureFrame>, GlTextureFrame> {
@@ -95,11 +95,12 @@ class GlTextureFrameCompositor(
       framesToComposite.add(
         InputFrameInfo(
           texture,
-          videoCompositorSettings.getOverlaySettings(/* inputId= */ i, frame.presentationTimeUs),
+          checkNotNull(videoCompositorSettings)
+            .getOverlaySettings(/* inputId= */ i, frame.presentationTimeUs),
         )
       )
     }
-    val outputSize = videoCompositorSettings.getOutputSize(inputSizes)
+    val outputSize = checkNotNull(videoCompositorSettings).getOutputSize(inputSizes)
     outputTexturePool.ensureConfigured(glObjectsProvider, outputSize.width, outputSize.height)
 
     val outputTexture = outputTexturePool.useTexture()
