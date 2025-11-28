@@ -673,7 +673,8 @@ public final class DefaultMediaSourceFactory implements MediaSourceFactory {
         /* adMediaSourceFactory= */ this,
         adsLoader,
         adViewProvider,
-        /* useLazyContentSourcePreparation= */ true);
+        /* useLazyContentSourcePreparation= */ true,
+        /* useAdMediaSourceClipping= */ false);
   }
 
   /** Loads media source factories lazily. */

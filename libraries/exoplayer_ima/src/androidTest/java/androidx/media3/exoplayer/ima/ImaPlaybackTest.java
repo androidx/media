@@ -242,7 +242,8 @@ public final class ImaPlaybackTest {
           new DefaultMediaSourceFactory(context),
           checkNotNull(imaAdsLoader),
           () -> overlayFrameLayout,
-          /* useLazyContentSourcePreparation= */ true);
+          /* useLazyContentSourcePreparation= */ true,
+          /* useAdMediaSourceClipping= */ false);
     }
 
     @Override

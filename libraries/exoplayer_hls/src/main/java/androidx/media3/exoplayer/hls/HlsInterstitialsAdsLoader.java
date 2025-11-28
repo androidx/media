@@ -383,7 +383,8 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
           mediaSourceFactory,
           adsLoader,
           adViewProvider,
-          /* useLazyContentSourcePreparation= */ false);
+          /* useLazyContentSourcePreparation= */ false,
+          /* useAdMediaSourceClipping= */ false);
     }
   }
 

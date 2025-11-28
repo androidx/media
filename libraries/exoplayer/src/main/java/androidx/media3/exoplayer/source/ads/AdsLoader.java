@@ -174,8 +174,8 @@ public interface AdsLoader {
    * <p>When overriding this method for the purpose of reading ad data from the timeline to populate
    * the {@link AdPlaybackState} with, false needs to be passed to the constructor of {@link
    * AdsMediaSource#AdsMediaSource(MediaSource, DataSpec, Object, MediaSource.Factory, AdsLoader,
-   * AdViewProvider, boolean) AdsMediaSource} to indicate that the content source needs to be
-   * prepared upfront. This way an ads loader can defer calling {@link
+   * AdViewProvider, boolean, boolean) AdsMediaSource} to indicate that the content source needs to
+   * be prepared upfront. This way an ads loader can defer calling {@link
    * EventListener#onAdPlaybackState(AdPlaybackState)} until the ad data from the timeline is
    * available and populate the initial ad playback state with that data before publishing.
    *

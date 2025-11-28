@@ -6,6 +6,7 @@
 *   ExoPlayer:
     *   Allow dynamic scheduling to slow `doSomeWork` interval only after audio
         starts to support smoother A/V sync at beginning of playback.
+    *   Add clipping capabilities to `AdsMediaSource`.
 *   CompositionPlayer:
     *   Add support for `EditedMediaItem.removeVideo`.
 *   Transformer:
@@ -29,6 +30,8 @@
 *   Cronet extension:
 *   RTMP extension:
 *   HLS extension:
+    *   Support X-PLAYOUT-LIMIT with HLS interstitials
+        ([#2484](https://github.com/androidx/media/issues/24884)).
 *   DASH extension:
 *   Smooth Streaming extension:
 *   RTSP extension:
