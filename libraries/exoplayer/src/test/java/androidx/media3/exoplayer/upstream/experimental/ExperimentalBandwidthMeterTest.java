@@ -38,8 +38,10 @@ import androidx.media3.datasource.DataSpec;
 import androidx.media3.test.utils.FakeDataSource;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.time.Duration;
 import java.util.Random;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -747,26 +749,29 @@ public final class ExperimentalBandwidthMeterTest {
     ExperimentalBandwidthMeter bandwidthMeter =
         new ExperimentalBandwidthMeter.Builder(ApplicationProvider.getApplicationContext()).build();
 
+    AtomicBoolean timeToFirstByteUpdated = new AtomicBoolean();
     Thread thread =
         new Thread("backgroundTransfers") {
           @Override
           public void run() {
-            simulateTransfers(bandwidthMeter, /* simulatedTransferCount= */ 10000);
+            Random random = new Random(/* seed= */ 0);
+            while (!timeToFirstByteUpdated.get()) {
+              simulateTransfers(bandwidthMeter, /* simulatedTransferCount= */ 100, random);
+            }
           }
         };
     thread.start();
 
     long currentTimeToFirstByteEstimateUs = bandwidthMeter.getTimeToFirstByteEstimateUs();
-    boolean timeToFirstByteEstimateUpdated = false;
     while (thread.isAlive()) {
       long newTimeToFirstByteEstimateUs = bandwidthMeter.getTimeToFirstByteEstimateUs();
       if (newTimeToFirstByteEstimateUs != currentTimeToFirstByteEstimateUs) {
         currentTimeToFirstByteEstimateUs = newTimeToFirstByteEstimateUs;
-        timeToFirstByteEstimateUpdated = true;
+        timeToFirstByteUpdated.set(true);
       }
     }
 
-    assertThat(timeToFirstByteEstimateUpdated).isTrue();
+    assertThat(timeToFirstByteUpdated.get()).isTrue();
   }
 
   @Test
@@ -774,26 +779,29 @@ public final class ExperimentalBandwidthMeterTest {
     ExperimentalBandwidthMeter bandwidthMeter =
         new ExperimentalBandwidthMeter.Builder(ApplicationProvider.getApplicationContext()).build();
 
+    AtomicBoolean bitrateEstimateUpdated = new AtomicBoolean();
     Thread thread =
         new Thread("backgroundTransfers") {
           @Override
           public void run() {
-            simulateTransfers(bandwidthMeter, /* simulatedTransferCount= */ 10000);
+            Random random = new Random(/* seed= */ 0);
+            while (!bitrateEstimateUpdated.get()) {
+              simulateTransfers(bandwidthMeter, /* simulatedTransferCount= */ 100, random);
+            }
           }
         };
     thread.start();
 
     long currentBitrateEstimate = bandwidthMeter.getBitrateEstimate();
-    boolean bitrateEstimateUpdated = false;
     while (thread.isAlive()) {
       long newBitrateEstimate = bandwidthMeter.getBitrateEstimate();
       if (newBitrateEstimate != currentBitrateEstimate) {
         currentBitrateEstimate = newBitrateEstimate;
-        bitrateEstimateUpdated = true;
+        bitrateEstimateUpdated.set(true);
       }
     }
 
-    assertThat(bitrateEstimateUpdated).isTrue();
+    assertThat(bitrateEstimateUpdated.get()).isTrue();
   }
 
   private void setActiveNetworkInfo(NetworkInfo networkInfo) {
@@ -826,10 +834,17 @@ public final class ExperimentalBandwidthMeterTest {
     Shadows.shadowOf(telephonyManager).setNetworkCountryIso(countryIso);
   }
 
+  @CanIgnoreReturnValue
   private static long[] simulateTransfers(
       ExperimentalBandwidthMeter bandwidthMeter, int simulatedTransferCount) {
-    long[] bitrateEstimates = new long[simulatedTransferCount];
     Random random = new Random(/* seed= */ 0);
+    return simulateTransfers(bandwidthMeter, simulatedTransferCount, random);
+  }
+
+  @CanIgnoreReturnValue
+  private static long[] simulateTransfers(
+      ExperimentalBandwidthMeter bandwidthMeter, int simulatedTransferCount, Random random) {
+    long[] bitrateEstimates = new long[simulatedTransferCount];
     DataSource dataSource = new FakeDataSource();
     DataSpec dataSpec = new DataSpec(Uri.parse("https://test.com"));
     for (int i = 0; i < simulatedTransferCount; i++) {
