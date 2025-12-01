@@ -38,7 +38,7 @@ import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-/** Test for {@link HlsMultivariantPlaylist}. */
+/** Test for {@link HlsPlaylistParser} to parse {@link HlsMultivariantPlaylist}. */
 // This is an instrumentation test to provide realistic regex behaviour for regression tests for
 // https://github.com/androidx/media/issues/2420.
 @RunWith(AndroidJUnit4.class)
