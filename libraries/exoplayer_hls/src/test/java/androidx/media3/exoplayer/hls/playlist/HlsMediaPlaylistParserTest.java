@@ -51,7 +51,7 @@ import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-/** Test for {@link HlsMediaPlaylistParserTest}. */
+/** Test for {@link HlsPlaylistParser} to parse {@link HlsMediaPlaylist}. */
 @RunWith(AndroidJUnit4.class)
 public class HlsMediaPlaylistParserTest {
 
