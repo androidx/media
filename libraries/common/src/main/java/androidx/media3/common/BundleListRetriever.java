@@ -15,7 +15,6 @@
  */
 package androidx.media3.common;
 
-import static android.os.Build.VERSION.SDK_INT;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import android.os.Binder;
@@ -54,10 +53,6 @@ import java.util.List;
 @UnstableApi
 public final class BundleListRetriever extends Binder {
 
-  // Soft limit of an IPC buffer size
-  private static final int SUGGESTED_MAX_IPC_SIZE =
-      SDK_INT >= 30 ? IBinder.getSuggestedMaxIpcSizeBytes() : 64 * 1024;
-
   private static final int REPLY_END_OF_LIST = 0;
   private static final int REPLY_CONTINUE = 1;
   private static final int REPLY_BREAK = 2;
@@ -82,7 +77,7 @@ public final class BundleListRetriever extends Binder {
 
     int count = list.size();
     int index = data.readInt();
-    while (index < count && reply.dataSize() < SUGGESTED_MAX_IPC_SIZE) {
+    while (index < count && reply.dataSize() < C.SUGGESTED_MAX_IPC_SIZE) {
       reply.writeInt(REPLY_CONTINUE);
       reply.writeBundle(list.get(index));
       index++;

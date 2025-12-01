@@ -15,6 +15,7 @@
  */
 package androidx.media3.common;
 
+import static android.os.Build.VERSION.SDK_INT;
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.ElementType.LOCAL_VARIABLE;
 import static java.lang.annotation.ElementType.METHOD;
@@ -31,6 +32,7 @@ import android.media.MediaCrypto;
 import android.media.MediaFormat;
 import android.net.Uri;
 import android.opengl.GLES20;
+import android.os.IBinder;
 import android.view.Surface;
 import androidx.annotation.IntDef;
 import androidx.media3.common.util.UnstableApi;
@@ -103,6 +105,14 @@ public final class C {
 
   /** The {@link Uri#getScheme() URI scheme} used for content with server side ad insertion. */
   @UnstableApi public static final String SSAI_SCHEME = "ssai";
+
+  /**
+   * The suggested maximum size in bytes of data to be transferred for inter-process communication
+   * using the {@link IBinder} interface.
+   */
+  @UnstableApi
+  public static final int SUGGESTED_MAX_IPC_SIZE =
+      SDK_INT >= 30 ? IBinder.getSuggestedMaxIpcSizeBytes() : 64 * 1024;
 
   /**
    * Types of crypto implementation. May be one of {@link #CRYPTO_TYPE_NONE}, {@link
