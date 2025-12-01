@@ -2545,4 +2545,173 @@ public class HlsMediaPlaylistParserTest {
       assertThat(playlist.segments.get(i - 1).url).isEqualTo("long_path" + i + ".ts");
     }
   }
+
+  @Test
+  public void queryParamSubstitution() throws IOException {
+    Uri playlistUri =
+        Uri.parse(
+            "https://example.com/substitution.m3u8?queryparam_1=replaced_value.ts&param-2=22");
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-VERSION:8\n"
+            + "#EXT-X-DEFINE:QUERYPARAM=\"queryparam_1\",VALUE=\"\"\n"
+            + "#EXT-X-DEFINE:QUERYPARAM=\"param-2\",VALUE=\"\"\n"
+            + "#EXT-X-TARGETDURATION:5\n"
+            + "#EXT-X-MEDIA-SEQUENCE:10\n"
+            + "#EXTINF:5.005,\n"
+            + "segment1.ts\n"
+            + "#EXT-X-MAP:URI=\"{$queryparam_1}\""
+            + "#EXTINF:5.005,\n"
+            + "segment{$param-2}$name_1}\n";
+    InputStream inputStream = new ByteArrayInputStream(Util.getUtf8Bytes(playlistString));
+
+    HlsMediaPlaylist playlist =
+        (HlsMediaPlaylist) new HlsPlaylistParser().parse(playlistUri, inputStream);
+
+    Segment segment = playlist.segments.get(1);
+    assertThat(segment.initializationSegment.url).isEqualTo("replaced_value.ts");
+    assertThat(segment.url).isEqualTo("segment22$name_1}");
+  }
+
+  @Test
+  public void queryParamSubstitution_queryParam_isCaseSensitiveOrThrows() {
+    Uri playlistUri =
+        Uri.parse("https://example.com/substitution.m3u8?queryparam_1=replaced_value.ts");
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-VERSION:8\n"
+            + "#EXT-X-DEFINE:QUERYPARAM=\"Queryparam_1\",VALUE=\"\"\n"
+            + "#EXT-X-TARGETDURATION:5\n"
+            + "#EXT-X-MEDIA-SEQUENCE:10\n"
+            + "#EXTINF:5.005,\n"
+            + "segment1.ts\n"
+            + "#EXT-X-MAP:URI=\"{$queryparam_1}\""
+            + "#EXTINF:5.005,\n"
+            + "segment2.ts\n";
+    InputStream inputStream = new ByteArrayInputStream(Util.getUtf8Bytes(playlistString));
+
+    ParserException parserException =
+        assertThrows(
+            ParserException.class, () -> new HlsPlaylistParser().parse(playlistUri, inputStream));
+
+    assertThat(parserException)
+        .hasMessageThat()
+        .contains("QUERYPARAM \"Queryparam_1\" not found in playlist URI");
+  }
+
+  @Test
+  public void queryParamSubstitution_missingQueryParam_throws() {
+    Uri playlistUri = Uri.parse("https://example.com/substitution.m3u8");
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-VERSION:8\n"
+            + "#EXT-X-DEFINE:QUERYPARAM=\"queryparam_1\",VALUE=\"\"\n"
+            + "#EXT-X-DEFINE:QUERYPARAM=\"param-2\",VALUE=\"\"\n"
+            + "#EXT-X-TARGETDURATION:5\n"
+            + "#EXT-X-MEDIA-SEQUENCE:10\n"
+            + "#EXTINF:5.005,\n"
+            + "segment1.ts\n"
+            + "#EXT-X-MAP:URI=\"{$queryparam_1}\""
+            + "#EXTINF:5.005,\n"
+            + "segment{$param-2}$name_1}\n";
+    InputStream inputStream = new ByteArrayInputStream(Util.getUtf8Bytes(playlistString));
+
+    ParserException parserException =
+        assertThrows(
+            ParserException.class, () -> new HlsPlaylistParser().parse(playlistUri, inputStream));
+
+    assertThat(parserException)
+        .hasMessageThat()
+        .contains("QUERYPARAM \"queryparam_1\" not found in playlist URI");
+  }
+
+  @Test
+  public void queryParamSubstitution_duplicateVariableName_throws() {
+    Uri playlistUri = Uri.parse("https://example.com/substitution.m3u8?queryparam_1=foo");
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-VERSION:8\n"
+            + "#EXT-X-DEFINE:NAME=\"name_1\",VALUE=\"value_1\"\n"
+            + "#EXT-X-DEFINE:NAME=\"name_1\",VALUE=\"value_1\"\n"
+            + "#EXT-X-TARGETDURATION:5\n"
+            + "#EXT-X-MEDIA-SEQUENCE:10\n"
+            + "#EXT-X-MAP:URI=\"{name_1}\""
+            + "#EXTINF:5.005,\n"
+            + "segment1.ts\n";
+    InputStream inputStream = new ByteArrayInputStream(Util.getUtf8Bytes(playlistString));
+
+    ParserException parserException =
+        assertThrows(
+            ParserException.class, () -> new HlsPlaylistParser().parse(playlistUri, inputStream));
+
+    assertThat(parserException).hasMessageThat().contains("duplicate variable name \"name_1\"");
+  }
+
+  @Test
+  public void queryParamSubstitution_duplicateVariableAndQueryParamName_throws() {
+    Uri playlistUri = Uri.parse("https://example.com/substitution.m3u8?queryparam_1=foo");
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-VERSION:8\n"
+            + "#EXT-X-DEFINE:NAME=\"queryparam_1\",VALUE=\"value_1\"\n"
+            + "#EXT-X-DEFINE:QUERYPARAM=\"queryparam_1\",VALUE=\"\"\n"
+            + "#EXT-X-TARGETDURATION:5\n"
+            + "#EXT-X-MEDIA-SEQUENCE:10\n"
+            + "#EXT-X-MAP:URI=\"{$queryparam_1}\""
+            + "#EXTINF:5.005,\n"
+            + "segment1.ts\n";
+    InputStream inputStream = new ByteArrayInputStream(Util.getUtf8Bytes(playlistString));
+
+    ParserException parserException =
+        assertThrows(
+            ParserException.class, () -> new HlsPlaylistParser().parse(playlistUri, inputStream));
+
+    assertThat(parserException)
+        .hasMessageThat()
+        .contains("duplicate variable name \"queryparam_1\"");
+  }
+
+  @Test
+  public void queryParamSubstitution_duplicateVariableAndImportName_throws() {
+    Uri playlistUri = Uri.parse("https://example.com/substitution.m3u8");
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-VERSION:8\n"
+            + "#EXT-X-DEFINE:NAME=\"import_1\",VALUE=\"value_1\"\n"
+            + "#EXT-X-DEFINE:IMPORT=\"import_1\",VALUE=\"\"\n"
+            + "#EXT-X-TARGETDURATION:5\n"
+            + "#EXT-X-MEDIA-SEQUENCE:10\n"
+            + "#EXT-X-MAP:URI=\"{$import_1}\""
+            + "#EXTINF:5.005,\n"
+            + "segment1.ts\n";
+    InputStream inputStream = new ByteArrayInputStream(Util.getUtf8Bytes(playlistString));
+
+    ParserException parserException =
+        assertThrows(
+            ParserException.class, () -> new HlsPlaylistParser().parse(playlistUri, inputStream));
+
+    assertThat(parserException).hasMessageThat().contains("duplicate variable name \"import_1\"");
+  }
+
+  @Test
+  public void queryParamSubstitution_duplicateQueryParamAndImportName_throws() {
+    Uri playlistUri = Uri.parse("https://example.com/substitution.m3u8?import_1=value_1");
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-VERSION:8\n"
+            + "#EXT-X-DEFINE:QUERYPARAM=\"import_1\",VALUE=\"\"\n"
+            + "#EXT-X-DEFINE:IMPORT=\"import_1\",VALUE=\"\"\n"
+            + "#EXT-X-TARGETDURATION:5\n"
+            + "#EXT-X-MEDIA-SEQUENCE:10\n"
+            + "#EXT-X-MAP:URI=\"{$import_1}\""
+            + "#EXTINF:5.005,\n"
+            + "segment1.ts\n";
+    InputStream inputStream = new ByteArrayInputStream(Util.getUtf8Bytes(playlistString));
+
+    ParserException parserException =
+        assertThrows(
+            ParserException.class, () -> new HlsPlaylistParser().parse(playlistUri, inputStream));
+
+    assertThat(parserException).hasMessageThat().contains("duplicate variable name \"import_1\"");
+  }
 }

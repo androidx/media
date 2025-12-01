@@ -236,6 +236,8 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
       Pattern.compile("LANGUAGE=" + ATTR_QUOTED_STRING_VALUE_PATTERN);
   private static final Pattern REGEX_NAME =
       Pattern.compile("NAME=" + ATTR_QUOTED_STRING_VALUE_PATTERN);
+  private static final Pattern REGEX_QUERY_PARAM =
+      Pattern.compile("QUERYPARAM=" + ATTR_QUOTED_STRING_VALUE_PATTERN);
   private static final Pattern REGEX_GROUP_ID =
       Pattern.compile("GROUP-ID=" + ATTR_QUOTED_STRING_VALUE_PATTERN);
   private static final Pattern REGEX_CHARACTERISTICS =
@@ -339,7 +341,7 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
           // Do nothing.
         } else if (line.startsWith(TAG_STREAM_INF)) {
           extraLines.add(line);
-          return parseMultivariantPlaylist(new LineIterator(extraLines, reader), uri.toString());
+          return parseMultivariantPlaylist(new LineIterator(extraLines, reader), uri);
         } else if (line.startsWith(TAG_TARGET_DURATION)
             || line.startsWith(TAG_MEDIA_SEQUENCE)
             || line.startsWith(TAG_MEDIA_DURATION)
@@ -353,7 +355,7 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
               multivariantPlaylist,
               previousMediaPlaylist,
               new LineIterator(extraLines, reader),
-              uri.toString());
+              uri);
         } else {
           extraLines.add(line);
         }
@@ -419,7 +421,7 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
   }
 
   private static HlsMultivariantPlaylist parseMultivariantPlaylist(
-      LineIterator iterator, String baseUri) throws IOException {
+      LineIterator iterator, Uri playlistUri) throws IOException {
     HashMap<Uri, ArrayList<VariantInfo>> urlToVariantInfos = new HashMap<>();
     HashMap<String, String> variableDefinitions = new HashMap<>();
     ArrayList<Variant> variants = new ArrayList<>();
@@ -446,9 +448,23 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
       boolean isIFrameOnlyVariant = line.startsWith(TAG_I_FRAME_STREAM_INF);
 
       if (line.startsWith(TAG_DEFINE)) {
-        variableDefinitions.put(
-            /* key= */ parseStringAttr(line, REGEX_NAME, variableDefinitions),
-            /* value= */ parseStringAttr(line, REGEX_VALUE, variableDefinitions));
+        @Nullable
+        String variableName = parseOptionalStringAttr(line, REGEX_NAME, variableDefinitions);
+        if (variableName != null) {
+          verifyVariableNameNotContainedOrThrow(variableName, variableDefinitions);
+          variableDefinitions.put(
+              /* key= */ variableName,
+              /* value= */ parseStringAttr(line, REGEX_VALUE, variableDefinitions));
+        } else {
+          variableName = parseStringAttr(line, REGEX_QUERY_PARAM, variableDefinitions);
+          verifyVariableNameNotContainedOrThrow(variableName, variableDefinitions);
+          @Nullable String value = playlistUri.getQueryParameter(variableName);
+          if (value == null) {
+            throw ParserException.createForMalformedManifest(
+                "QUERYPARAM \"" + variableName + "\" not found in playlist URI", /* cause= */ null);
+          }
+          variableDefinitions.put(/* key= */ variableName, value);
+        }
       } else if (line.equals(TAG_INDEPENDENT_SEGMENTS)) {
         hasIndependentSegmentsTag = true;
       } else if (line.startsWith(TAG_MEDIA)) {
@@ -524,14 +540,15 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
         Uri uri;
         if (isIFrameOnlyVariant) {
           uri =
-              UriUtil.resolveToUri(baseUri, parseStringAttr(line, REGEX_URI, variableDefinitions));
+              UriUtil.resolveToUri(
+                  playlistUri.toString(), parseStringAttr(line, REGEX_URI, variableDefinitions));
         } else if (!iterator.hasNext()) {
           throw ParserException.createForMalformedManifest(
               "#EXT-X-STREAM-INF must be followed by another line", /* cause= */ null);
         } else {
           // The following line contains #EXT-X-STREAM-INF's URI.
           line = replaceVariableReferences(iterator.next(), variableDefinitions);
-          uri = UriUtil.resolveToUri(baseUri, line);
+          uri = UriUtil.resolveToUri(playlistUri.toString(), line);
         }
 
         Format format =
@@ -598,7 +615,11 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
               .setLanguage(parseOptionalStringAttr(line, REGEX_LANGUAGE, variableDefinitions));
 
       @Nullable String referenceUri = parseOptionalStringAttr(line, REGEX_URI, variableDefinitions);
-      @Nullable Uri uri = referenceUri == null ? null : UriUtil.resolveToUri(baseUri, referenceUri);
+      @Nullable
+      Uri uri =
+          referenceUri == null
+              ? null
+              : UriUtil.resolveToUri(/* baseUri= */ playlistUri.toString(), referenceUri);
       Metadata metadata =
           new Metadata(new HlsTrackMetadataEntry(groupId, name, Collections.emptyList()));
       switch (parseStringAttr(line, REGEX_TYPE, variableDefinitions)) {
@@ -700,7 +721,7 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
     }
 
     return new HlsMultivariantPlaylist(
-        baseUri,
+        /* baseUri= */ playlistUri.toString(),
         tags,
         deduplicatedVariants,
         videos,
@@ -751,7 +772,7 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
       HlsMultivariantPlaylist multivariantPlaylist,
       @Nullable HlsMediaPlaylist previousMediaPlaylist,
       LineIterator iterator,
-      String baseUri)
+      Uri playlistUri)
       throws IOException {
     @HlsMediaPlaylist.PlaylistType int playlistType = HlsMediaPlaylist.PLAYLIST_TYPE_UNKNOWN;
     long startOffsetUs = C.TIME_UNSET;
@@ -868,18 +889,29 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
       } else if (line.startsWith(TAG_VERSION)) {
         version = parseIntAttr(line, REGEX_VERSION);
       } else if (line.startsWith(TAG_DEFINE)) {
-        String importName = parseOptionalStringAttr(line, REGEX_IMPORT, variableDefinitions);
-        if (importName != null) {
+        String variableName = parseOptionalStringAttr(line, REGEX_NAME, variableDefinitions);
+        String queryParam = parseOptionalStringAttr(line, REGEX_QUERY_PARAM, variableDefinitions);
+        if (variableName != null) {
+          verifyVariableNameNotContainedOrThrow(variableName, variableDefinitions);
+          variableDefinitions.put(
+              variableName, parseStringAttr(line, REGEX_VALUE, variableDefinitions));
+        } else if (queryParam != null) {
+          verifyVariableNameNotContainedOrThrow(queryParam, variableDefinitions);
+          @Nullable String value = playlistUri.getQueryParameter(queryParam);
+          if (value == null) {
+            throw ParserException.createForMalformedManifest(
+                "QUERYPARAM \"" + queryParam + "\" not found in playlist URI", /* cause= */ null);
+          }
+          variableDefinitions.put(queryParam, value);
+        } else {
+          String importName = parseStringAttr(line, REGEX_IMPORT, variableDefinitions);
+          verifyVariableNameNotContainedOrThrow(importName, variableDefinitions);
           String value = multivariantPlaylist.variableDefinitions.get(importName);
           if (value != null) {
             variableDefinitions.put(importName, value);
           } else {
             // The multivariant playlist does not declare the imported variable. Ignore.
           }
-        } else {
-          variableDefinitions.put(
-              parseStringAttr(line, REGEX_NAME, variableDefinitions),
-              parseStringAttr(line, REGEX_VALUE, variableDefinitions));
         }
       } else if (line.startsWith(TAG_MEDIA_DURATION)) {
         segmentDurationUs = parseTimeSecondsToUs(line, REGEX_MEDIA_DURATION);
@@ -979,8 +1011,11 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
         long lastMediaSequence = parseOptionalLongAttr(line, REGEX_LAST_MSN, C.INDEX_UNSET);
         int lastPartIndex = parseOptionalIntAttr(line, REGEX_LAST_PART, C.INDEX_UNSET);
         String uri = parseStringAttr(line, REGEX_URI, variableDefinitions);
-        Uri playlistUri = Uri.parse(UriUtil.resolve(baseUri, uri));
-        renditionReports.add(new RenditionReport(playlistUri, lastMediaSequence, lastPartIndex));
+        renditionReports.add(
+            new RenditionReport(
+                Uri.parse(UriUtil.resolve(/* baseUri= */ playlistUri.toString(), uri)),
+                lastMediaSequence,
+                lastPartIndex));
       } else if (line.startsWith(TAG_PRELOAD_HINT)) {
         if (preloadPart != null) {
           continue;
@@ -1379,7 +1414,7 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
     }
     return new HlsMediaPlaylist(
         playlistType,
-        baseUri,
+        /* baseUri= */ playlistUri.toString(),
         tags,
         startOffsetUs,
         preciseStart,
@@ -1634,6 +1669,14 @@ public final class HlsPlaylistParser implements ParsingLoadable.Parser<HlsPlayli
     }
     matcher.appendTail(stringWithReplacements);
     return stringWithReplacements.toString();
+  }
+
+  private static void verifyVariableNameNotContainedOrThrow(
+      String variableName, Map<String, String> variableDefinitions) throws ParserException {
+    if (variableDefinitions.containsKey(variableName)) {
+      throw ParserException.createForMalformedManifest(
+          "duplicate variable name \"" + variableName + "\"", /* cause= */ null);
+    }
   }
 
   private static boolean parseOptionalBooleanAttribute(
