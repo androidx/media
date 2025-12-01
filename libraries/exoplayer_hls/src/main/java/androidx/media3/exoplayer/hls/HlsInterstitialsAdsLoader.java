@@ -384,7 +384,7 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
           adsLoader,
           adViewProvider,
           /* useLazyContentSourcePreparation= */ false,
-          /* useAdMediaSourceClipping= */ false);
+          /* useAdMediaSourceClipping= */ true);
     }
   }
 
@@ -1530,7 +1530,7 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
       adDurations = new long[previousDurations.length + 1];
       System.arraycopy(previousDurations, 0, adDurations, 0, previousDurations.length);
     }
-    adDurations[adDurations.length - 1] = interstitialDurationUs;
+    adDurations[adDurations.length - 1] = interstitial.playoutLimitUs;
     long resumeOffsetIncrementUs =
         interstitial.resumeOffsetUs != C.TIME_UNSET
             ? interstitial.resumeOffsetUs
@@ -1993,10 +1993,6 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
       }
       AdPlaybackState.AdGroup adGroup =
           checkNotNull(adPlaybackState).getAdGroup(assetListData.adGroupIndex);
-      long oldAdDurationUs =
-          adGroup.durationsUs[assetListData.adIndexInAdGroup] != C.TIME_UNSET
-              ? adGroup.durationsUs[assetListData.adIndexInAdGroup]
-              : 0;
       int oldAdCount = adGroup.count;
       long sumOfAssetListAdDurationUs = 0L;
       if (assetList.assets.size() > 1) {
@@ -2034,8 +2030,10 @@ public final class HlsInterstitialsAdsLoader implements AdsLoader {
           adPlaybackState.withAdDurationsUs(assetListData.adGroupIndex, newDurationsUs);
       if (assetListData.interstitial.resumeOffsetUs == C.TIME_UNSET) {
         adGroup = adPlaybackState.getAdGroup(assetListData.adGroupIndex);
+        long oldAdContentResumeOffset =
+            resolveInterstitialDurationUs(assetListData.interstitial, /* defaultDurationUs= */ 0);
         long newContentResumeOffsetUs =
-            adGroup.contentResumeOffsetUs - oldAdDurationUs + sumOfAssetListAdDurationUs;
+            adGroup.contentResumeOffsetUs - oldAdContentResumeOffset + sumOfAssetListAdDurationUs;
         adPlaybackState =
             adPlaybackState.withContentResumeOffsetUs(
                 assetListData.adGroupIndex, newContentResumeOffsetUs);

@@ -810,21 +810,18 @@ public class HlsInterstitialsAdsLoaderTest {
             + "ID=\"ad0-0\","
             + "CLASS=\"com.apple.hls.interstitial\","
             + "START-DATE=\"2020-01-02T21:55:44.000Z\","
-            + "END-DATE=\"2020-01-02T21:55:46.000Z\"," // adds to resume offset
             + "X-ASSET-URI=\"http://example.com/media-0-0.m3u8\""
             + "\n"
             + "#EXT-X-DATERANGE:"
             + "ID=\"ad0-1\","
             + "CLASS=\"com.apple.hls.interstitial\","
             + "START-DATE=\"2020-01-02T21:55:44.000Z\","
-            + "DURATION=1.1," // adds to resume offset
             + "X-ASSET-URI=\"http://example.com/media-0-1.m3u8\""
             + "\n"
             + "#EXT-X-DATERANGE:"
             + "ID=\"ad0-2\","
             + "CLASS=\"com.apple.hls.interstitial\","
             + "START-DATE=\"2020-01-02T21:55:44.000Z\","
-            + "PLANNED-DURATION=1.2," // adds to resume offset
             + "X-ASSET-URI=\"http://example.com/media-0-2.m3u8\""
             + "\n";
 
@@ -837,9 +834,7 @@ public class HlsInterstitialsAdsLoaderTest {
                 /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE))
         .isEqualTo(
             new AdPlaybackState("adsId", /* adGroupTimesUs...= */ 4_000_000L)
-                .withAdDurationsUs(/* adGroupIndex= */ 0, 2_000_000L, 1_100_000L, 1_200_000L)
                 .withAdCount(/* adGroupIndex= */ 0, 3)
-                .withContentResumeOffsetUs(/* adGroupIndex= */ 0, 4_300_000L)
                 .withAdId(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0, "ad0-0")
                 .withAdId(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 1, "ad0-1")
                 .withAdId(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 2, "ad0-2")
@@ -954,21 +949,21 @@ public class HlsInterstitialsAdsLoaderTest {
             + "CLASS=\"com.apple.hls.interstitial\","
             + "START-DATE=\"2020-01-02T21:55:40.500Z\","
             + "CUE=\"POST\","
-            + "DURATION=3,"
+            + "X-PLAYOUT-LIMIT=3,"
             + "X-ASSET-URI=\"http://example.com/media-2-0.m3u8\""
             + "\n"
             + "#EXT-X-DATERANGE:"
             + "ID=\"ad1-0\","
             + "CLASS=\"com.apple.hls.interstitial\","
             + "START-DATE=\"2020-01-02T21:55:42.000Z\","
-            + "DURATION=2.0,"
+            + "X-PLAYOUT-LIMIT=2.0,"
             + "X-ASSET-URI=\"http://example.com/media-1-0.m3u8\""
             + "\n"
             + "#EXT-X-DATERANGE:"
             + "ID=\"ad0-0\","
             + "CLASS=\"com.apple.hls.interstitial\","
             + "START-DATE=\"2020-01-02T21:55:41.000Z\","
-            + "DURATION=1,"
+            + "X-PLAYOUT-LIMIT=1,"
             + "X-ASSET-URI=\"http://example.com/media-0-0.m3u8\""
             + "\n";
 
@@ -1032,7 +1027,7 @@ public class HlsInterstitialsAdsLoaderTest {
             + "ID=\"ad0-0\","
             + "CLASS=\"com.apple.hls.interstitial\","
             + "START-DATE=\"2020-01-02T21:55:41.123Z\","
-            + "DURATION=1.0,"
+            + "X-PLAYOUT-LIMIT=1.0,"
             + "CUE=\"PRE\","
             + "X-RESUME-OFFSET=0.0,"
             + "X-ASSET-URI=\"http://example.com/media-0-0.m3u8\""
@@ -1041,7 +1036,7 @@ public class HlsInterstitialsAdsLoaderTest {
             + "ID=\"ad0-1\","
             + "CLASS=\"com.apple.hls.interstitial\","
             + "START-DATE=\"2020-01-02T21:55:41.123Z\","
-            + "DURATION=1.0,"
+            + "X-PLAYOUT-LIMIT=1.0,"
             + "CUE=\"PRE\","
             + "X-ASSET-URI=\"http://example.com/media-0-1.m3u8\""
             + "\n";
@@ -1091,7 +1086,7 @@ public class HlsInterstitialsAdsLoaderTest {
             + "ID=\"ad0-0\","
             + "CLASS=\"com.apple.hls.interstitial\","
             + "START-DATE=\"2020-01-02T21:55:41.123Z\","
-            + "DURATION=1.0,"
+            + "X-PLAYOUT-LIMIT=1.0,"
             + "CUE=\"PRE\","
             + "X-RESUME-OFFSET=0.0,"
             + "X-ASSET-URI=\"http://example.com/media-0-0.m3u8\""
@@ -1135,7 +1130,122 @@ public class HlsInterstitialsAdsLoaderTest {
   }
 
   @Test
-  public void handleContentTimelineChanged_playoutLimitSet_durationSetCorrectly()
+  public void handleContentTimelineChanged_durationPlayouLimitAndContentOffset_correctPrecendence()
+      throws IOException {
+    String playlistString =
+        "#EXTM3U\n"
+            + "#EXT-X-TARGETDURATION:6\n"
+            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:55:40.000Z\n"
+            + "#EXTINF:6,\n"
+            + "main1.0.ts\n"
+            + "#EXT-X-ENDLIST"
+            + "\n"
+            // no duration, no resume offset, no playout limit
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad0-0\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:55:44.000Z\","
+            + "X-ASSET-URI=\"http://example.com/media-0-0.m3u8\""
+            + "\n"
+            // duration set, no playout limit, no resume offset
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad0-1\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:55:44.000Z\","
+            + "DURATION=1.0," // added to resume offset
+            + "X-ASSET-URI=\"http://example.com/media-0-1.m3u8\""
+            + "\n"
+            // duration set, playout limit set, no resume offset
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad0-2\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:55:44.000Z\","
+            + "DURATION=1.0,"
+            + "X-PLAYOUT-LIMIT=2.1," // added to resume offset
+            + "X-ASSET-URI=\"http://example.com/media-0-2.m3u8\""
+            + "\n"
+            // duration set, playout limit set, resume offset set
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad0-3\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:55:44.000Z\","
+            + "DURATION=1.0,"
+            + "X-PLAYOUT-LIMIT=2.1,"
+            + "X-RESUME-OFFSET=3.2," // added to resume offset
+            + "X-ASSET-URI=\"http://example.com/media-0-3.m3u8\""
+            + "\n"
+            // duration set, no playout limit, resume offset set
+            + "#EXT-X-DATERANGE:"
+            + "ID=\"ad0-4\","
+            + "CLASS=\"com.apple.hls.interstitial\","
+            + "START-DATE=\"2020-01-02T21:55:44.000Z\","
+            + "DURATION=1.0,"
+            + "X-RESUME-OFFSET=3.2," // added to resume offset
+            + "X-ASSET-URI=\"http://example.com/media-0-4.m3u8\""
+            + "\n";
+
+    assertThat(
+            callHandleContentTimelineChangedAndCaptureAdPlaybackState(
+                playlistString,
+                adsLoader,
+                /* windowIndex= */ 0,
+                /* windowPositionInPeriodUs= */ 0,
+                /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE))
+        .isEqualTo(
+            new AdPlaybackState("adsId", /* adGroupTimesUs...= */ 4_000_000L)
+                .withAdDurationsUs(
+                    /* adGroupIndex= */ 0,
+                    C.TIME_UNSET,
+                    C.TIME_UNSET,
+                    2_100_000L,
+                    2_100_000L,
+                    C.TIME_UNSET)
+                .withAdCount(/* adGroupIndex= */ 0, 5)
+                .withContentResumeOffsetUs(/* adGroupIndex= */ 0, 9_500_000L)
+                .withAdId(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0, "ad0-0")
+                .withAdId(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 1, "ad0-1")
+                .withAdId(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 2, "ad0-2")
+                .withAdId(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 3, "ad0-3")
+                .withAdId(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 4, "ad0-4")
+                .withAvailableAdMediaItem(
+                    /* adGroupIndex= */ 0,
+                    /* adIndexInAdGroup= */ 0,
+                    new MediaItem.Builder()
+                        .setUri("http://example.com/media-0-0.m3u8")
+                        .setMimeType(MimeTypes.APPLICATION_M3U8)
+                        .build())
+                .withAvailableAdMediaItem(
+                    /* adGroupIndex= */ 0,
+                    /* adIndexInAdGroup= */ 1,
+                    new MediaItem.Builder()
+                        .setUri("http://example.com/media-0-1.m3u8")
+                        .setMimeType(MimeTypes.APPLICATION_M3U8)
+                        .build())
+                .withAvailableAdMediaItem(
+                    /* adGroupIndex= */ 0,
+                    /* adIndexInAdGroup= */ 2,
+                    new MediaItem.Builder()
+                        .setUri("http://example.com/media-0-2.m3u8")
+                        .setMimeType(MimeTypes.APPLICATION_M3U8)
+                        .build())
+                .withAvailableAdMediaItem(
+                    /* adGroupIndex= */ 0,
+                    /* adIndexInAdGroup= */ 3,
+                    new MediaItem.Builder()
+                        .setUri("http://example.com/media-0-3.m3u8")
+                        .setMimeType(MimeTypes.APPLICATION_M3U8)
+                        .build())
+                .withAvailableAdMediaItem(
+                    /* adGroupIndex= */ 0,
+                    /* adIndexInAdGroup= */ 4,
+                    new MediaItem.Builder()
+                        .setUri("http://example.com/media-0-4.m3u8")
+                        .setMimeType(MimeTypes.APPLICATION_M3U8)
+                        .build()));
+  }
+
+  @Test
+  public void handleContentTimelineChanged_playoutLimitSet_playoutLimitUsedAsDuration()
       throws IOException {
     String playlistString =
         "#EXTM3U\n"
@@ -1179,7 +1289,7 @@ public class HlsInterstitialsAdsLoaderTest {
   }
 
   @Test
-  public void handleContentTimelineChanged_withDurationSet_durationSetCorrectly()
+  public void handleContentTimelineChanged_endDateSet_durationAndContentResumeOffsetSetCorrectly()
       throws IOException {
     String playlistString =
         "#EXTM3U\n"
@@ -1194,8 +1304,6 @@ public class HlsInterstitialsAdsLoaderTest {
             + "CLASS=\"com.apple.hls.interstitial\","
             + "START-DATE=\"2020-01-02T21:55:41.123Z\","
             + "END-DATE=\"2020-01-02T21:55:42.246Z\","
-            + "PLANNED-DURATION=2.000,"
-            + "DURATION=3.456,"
             + "X-ASSET-URI=\"http://example.com/media-0-0.m3u8\""
             + "\n";
 
@@ -1208,48 +1316,6 @@ public class HlsInterstitialsAdsLoaderTest {
                 /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE))
         .isEqualTo(
             new AdPlaybackState("adsId", /* adGroupTimesUs...= */ 1_123_000L)
-                .withAdDurationsUs(/* adGroupIndex= */ 0, 3_456_000L)
-                .withAdCount(/* adGroupIndex= */ 0, 1)
-                .withContentResumeOffsetUs(/* adGroupIndex= */ 0, 3_456_000L)
-                .withAdId(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0, "ad0-0")
-                .withAvailableAdMediaItem(
-                    /* adGroupIndex= */ 0,
-                    /* adIndexInAdGroup= */ 0,
-                    new MediaItem.Builder()
-                        .setUri("http://example.com/media-0-0.m3u8")
-                        .setMimeType(MimeTypes.APPLICATION_M3U8)
-                        .build()));
-  }
-
-  @Test
-  public void handleContentTimelineChanged_endDateSet_durationSetCorrectly() throws IOException {
-    String playlistString =
-        "#EXTM3U\n"
-            + "#EXT-X-TARGETDURATION:6\n"
-            + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:55:40.000Z\n"
-            + "#EXTINF:6,\n"
-            + "main1.0.ts\n"
-            + "#EXT-X-ENDLIST"
-            + "\n"
-            + "#EXT-X-DATERANGE:"
-            + "ID=\"ad0-0\","
-            + "CLASS=\"com.apple.hls.interstitial\","
-            + "START-DATE=\"2020-01-02T21:55:41.123Z\","
-            + "END-DATE=\"2020-01-02T21:55:42.246Z\","
-            + "PLANNED-DURATION=2.0,"
-            + "X-ASSET-URI=\"http://example.com/media-0-0.m3u8\""
-            + "\n";
-
-    assertThat(
-            callHandleContentTimelineChangedAndCaptureAdPlaybackState(
-                playlistString,
-                adsLoader,
-                /* windowIndex= */ 0,
-                /* windowPositionInPeriodUs= */ 0,
-                /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE))
-        .isEqualTo(
-            new AdPlaybackState("adsId", /* adGroupTimesUs...= */ 1_123_000L)
-                .withAdDurationsUs(/* adGroupIndex= */ 0, 1_123_000L)
                 .withAdCount(/* adGroupIndex= */ 0, 1)
                 .withContentResumeOffsetUs(/* adGroupIndex= */ 0, 1_123_000L)
                 .withAdId(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0, "ad0-0")
@@ -1263,8 +1329,9 @@ public class HlsInterstitialsAdsLoaderTest {
   }
 
   @Test
-  public void handleContentTimelineChanged_withPlannedDurationSet_durationSetCorrectly()
-      throws IOException {
+  public void
+      handleContentTimelineChanged_withPlannedDurationSet_durationUnsetAndContentResumeOffsetSetCorrectly()
+          throws IOException {
     String playlistString =
         "#EXTM3U\n"
             + "#EXT-X-TARGETDURATION:6\n"
@@ -1277,7 +1344,7 @@ public class HlsInterstitialsAdsLoaderTest {
             + "ID=\"ad0-0\","
             + "CLASS=\"com.apple.hls.interstitial\","
             + "START-DATE=\"2020-01-02T21:55:41.123Z\","
-            + "PLANNED-DURATION=2.234,"
+            + "PLANNED-DURATION=2.234," // used as duration fallback to calculate the resume offset
             + "X-ASSET-URI=\"http://example.com/media-0-0.m3u8\""
             + "\n";
 
@@ -1290,7 +1357,7 @@ public class HlsInterstitialsAdsLoaderTest {
                 /* windowEndPositionInPeriodUs= */ C.TIME_END_OF_SOURCE))
         .isEqualTo(
             new AdPlaybackState("adsId", /* adGroupTimesUs...= */ 1_123_000L)
-                .withAdDurationsUs(/* adGroupIndex= */ 0, 2_234_000L)
+                .withAdDurationsUs(/* adGroupIndex= */ 0, /* adDurationsUs...= */ C.TIME_UNSET)
                 .withAdCount(/* adGroupIndex= */ 0, 1)
                 .withContentResumeOffsetUs(/* adGroupIndex= */ 0, 2_234_000L)
                 .withAdId(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0, "ad0-0")
@@ -1460,7 +1527,7 @@ public class HlsInterstitialsAdsLoaderTest {
                     + "CLASS=\"com.apple.hls.interstitial\","
                     + "START-DATE=\"2020-01-02T21:55:39.900\"," // snap to 12.222 - 12.222 -> 0L
                     + "X-SNAP=\"IN\","
-                    + "DURATION=12.222,"
+                    + "X-PLAYOUT-LIMIT=12.222,"
                     + "X-ASSET-URI=\"http://example.com/media-0-0.m3u8\""
                     + "\n"
                     + "#EXT-X-DATERANGE:"
@@ -1468,7 +1535,7 @@ public class HlsInterstitialsAdsLoaderTest {
                     + "CLASS=\"com.apple.hls.interstitial\","
                     + "START-DATE=\"2020-01-02T21:55:51.222\"," // aligned 12.222 - 3.222 -> 9_000L
                     + "X-SNAP=\"IN\","
-                    + "DURATION=3.222,"
+                    + "X-PLAYOUT-LIMIT=3.222,"
                     + "X-ASSET-URI=\"http://example.com/media-1-0.m3u8\""
                     + "\n"
                     + "#EXT-X-DATERANGE:"
@@ -1476,7 +1543,7 @@ public class HlsInterstitialsAdsLoaderTest {
                     + "CLASS=\"com.apple.hls.interstitial\","
                     + "START-DATE=\"2020-01-02T21:55:54.678\"," // snap to end of window - 4.333
                     + "X-SNAP=\"IN\","
-                    + "DURATION=4.333,"
+                    + "X-PLAYOUT-LIMIT=4.333,"
                     + "X-ASSET-URI=\"http://example.com/media-2-0.m3u8\""
                     + "\n",
                 adsLoader,
@@ -1569,7 +1636,6 @@ public class HlsInterstitialsAdsLoaderTest {
                 .withContentResumeOffsetUs(/* adGroupIndex= */ 0, 12_222_000L)
                 .withContentResumeOffsetUs(/* adGroupIndex= */ 1, 3_222_000L)
                 .withContentResumeOffsetUs(/* adGroupIndex= */ 2, 4_333_000L)
-                .withAdDurationsUs(/* adGroupIndex= */ 2, 4_333_000L)
                 .withAdId(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 0, "ad0-0")
                 .withAdId(/* adGroupIndex= */ 1, /* adIndexInAdGroup= */ 0, "ad1-0")
                 .withAdId(/* adGroupIndex= */ 2, /* adIndexInAdGroup= */ 0, "ad2-0")
@@ -1612,7 +1678,7 @@ public class HlsInterstitialsAdsLoaderTest {
                     + "ID=\"ad0-0\"," // pre roll
                     + "CLASS=\"com.apple.hls.interstitial\","
                     + "START-DATE=\"1990-01-02T00:00:00.000\"," // snap to start of window.
-                    + "DURATION=1.0,"
+                    + "X-PLAYOUT-LIMIT=1.0,"
                     + "X-RESUME-OFFSET=0.0," // with no offset SNAP_IN => SNAP_OUT
                     + "X-SNAP=\"IN\","
                     + "X-ASSET-URI=\"http://example.com/media-0-0.m3u8\""
@@ -1675,7 +1741,7 @@ public class HlsInterstitialsAdsLoaderTest {
                     + "ID=\"ad0-0\"," // pre roll
                     + "CLASS=\"com.apple.hls.interstitial\","
                     + "START-DATE=\"1990-01-02T00:00:00.000\"," // snap to start of window
-                    + "DURATION=1.0,"
+                    + "X-PLAYOUT-LIMIT=1.0,"
                     + "X-RESUME-OFFSET=0.0," // with no offset SNAP_IN => SNAP_OUT
                     + "X-SNAP=\"IN\","
                     + "X-ASSET-URI=\"http://example.com/media-0-0.m3u8\""
@@ -1749,7 +1815,7 @@ public class HlsInterstitialsAdsLoaderTest {
                     + "CLASS=\"com.apple.hls.interstitial\","
                     + "START-DATE=\"2020-01-02T21:55:47.000\"," // snap to 6_111_000
                     + "X-SNAP=\"IN\","
-                    + "DURATION=6.111," // ends at 21:55:53.111 -> 21:55:52.222 - 6.111
+                    + "X-PLAYOUT-LIMIT=6.111," // ends at 21:55:53.111 -> 21:55:52.222 - 6.111
                     + "X-ASSET-URI=\"http://example.com/media-0-1.m3u8\""
                     + "\n",
                 adsLoader,
@@ -1796,7 +1862,7 @@ public class HlsInterstitialsAdsLoaderTest {
                     + "CLASS=\"com.apple.hls.interstitial\","
                     + "START-DATE=\"2020-01-02T21:55:45.000\"," // -> 6_111_000L
                     + "X-SNAP=\"OUT\","
-                    + "DURATION=2.222,"
+                    + "X-PLAYOUT-LIMIT=2.222,"
                     + "X-ASSET-URI=\"http://example.com/media-0-0.m3u8\""
                     + "\n"
                     + "#EXT-X-DATERANGE:"
@@ -1804,7 +1870,7 @@ public class HlsInterstitialsAdsLoaderTest {
                     + "CLASS=\"com.apple.hls.interstitial\","
                     + "START-DATE=\"2020-01-02T21:55:47.000\"," // -> 6_111_000L
                     + "X-SNAP=\"IN\","
-                    + "DURATION=6.111,"
+                    + "X-PLAYOUT-LIMIT=6.111,"
                     + "X-ASSET-URI=\"http://example.com/media-0-1.m3u8\""
                     + "\n"
                     + "#EXT-X-PROGRAM-DATE-TIME:2020-01-02T21:55:40.000Z\n"
@@ -3136,7 +3202,7 @@ public class HlsInterstitialsAdsLoaderTest {
             + "#EXT-X-DATERANGE:"
             + "ID=\"ad1-0\","
             + "CLASS=\"com.apple.hls.interstitial\","
-            + "DURATION=3.246,"
+            + "X-PLAYOUT-LIMIT=3.246,"
             + "START-DATE=\"2020-01-02T22:00:00.000Z\","
             + "CUE=\"PRE\","
             + "X-ASSET-URI=\"http://example.com/media-1-0.ts\""
@@ -3225,7 +3291,6 @@ public class HlsInterstitialsAdsLoaderTest {
             + "#EXT-X-DATERANGE:"
             + "ID=\"ad0-0\","
             + "CLASS=\"com.apple.hls.interstitial\","
-            + "DURATION=3.246,"
             + "START-DATE=\"2020-01-02T22:00:00.000Z\","
             + "CUE=\"PRE\","
             + "X-SKIP-CONTROL-OFFSET=4.5,"
@@ -3236,7 +3301,6 @@ public class HlsInterstitialsAdsLoaderTest {
             + "#EXT-X-DATERANGE:"
             + "ID=\"ad0-1\","
             + "CLASS=\"com.apple.hls.interstitial\","
-            + "DURATION=3.246,"
             + "START-DATE=\"2020-01-02T22:00:00.000Z\","
             + "CUE=\"PRE\","
             + "X-SKIP-CONTROL-OFFSET=6.5,"
@@ -3245,7 +3309,6 @@ public class HlsInterstitialsAdsLoaderTest {
             + "#EXT-X-DATERANGE:"
             + "ID=\"ad0-2\","
             + "CLASS=\"com.apple.hls.interstitial\","
-            + "DURATION=3.246,"
             + "START-DATE=\"2020-01-02T22:00:00.000Z\","
             + "CUE=\"PRE\","
             + "X-SKIP-CONTROL-DURATION=7.5,"
@@ -3254,7 +3317,6 @@ public class HlsInterstitialsAdsLoaderTest {
             + "#EXT-X-DATERANGE:"
             + "ID=\"ad0-3\","
             + "CLASS=\"com.apple.hls.interstitial\","
-            + "DURATION=3.246,"
             + "START-DATE=\"2020-01-02T22:00:00.000Z\","
             + "CUE=\"PRE\","
             + "X-SKIP-CONTROL-LABEL-ID=\"skip_label_from_playlist\","
@@ -3268,9 +3330,6 @@ public class HlsInterstitialsAdsLoaderTest {
             .withAdId(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 1, "ad0-1")
             .withAdId(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 2, "ad0-2")
             .withAdId(/* adGroupIndex= */ 0, /* adIndexInAdGroup= */ 3, "ad0-3")
-            .withAdDurationsUs(
-                /* adGroupIndex= */ 0, 3_246_000L, 3_246_000L, 3_246_000L, 3_246_000L)
-            .withContentResumeOffsetUs(/* adGroupIndex= */ 0, 4 * 3_246_000L)
             .withAvailableAdMediaItem(
                 /* adGroupIndex= */ 0,
                 /* adIndexInAdGroup= */ 0,
