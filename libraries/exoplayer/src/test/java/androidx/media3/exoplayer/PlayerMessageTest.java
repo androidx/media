@@ -63,7 +63,7 @@ public class PlayerMessageTest {
             sender,
             target,
             Timeline.EMPTY,
-            /* defaultWindowIndex= */ 0,
+            /* defaultMediaItemIndex= */ 0,
             clock,
             handlerThread.getLooper());
   }

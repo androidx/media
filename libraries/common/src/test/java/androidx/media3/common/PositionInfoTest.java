@@ -113,8 +113,7 @@ public class PositionInfoTest {
             /* adGroupIndex= */ C.INDEX_UNSET,
             /* adIndexInAdGroup= */ C.INDEX_UNSET);
 
-    Bundle bundle =
-        defaultPositionInfo.toBundle(/* controllerInterfaceVersion= */ Integer.MAX_VALUE);
+    Bundle bundle = defaultPositionInfo.toBundle(/* interfaceVersion= */ Integer.MAX_VALUE);
 
     assertThat(bundle.isEmpty()).isTrue();
   }
@@ -135,7 +134,7 @@ public class PositionInfoTest {
             /* adGroupIndex= */ C.INDEX_UNSET,
             /* adIndexInAdGroup= */ C.INDEX_UNSET);
 
-    Bundle bundle = defaultPositionInfo.toBundle(/* controllerInterfaceVersion= */ 2);
+    Bundle bundle = defaultPositionInfo.toBundle(/* interfaceVersion= */ 2);
 
     assertThat(bundle.keySet())
         .containsAtLeast(

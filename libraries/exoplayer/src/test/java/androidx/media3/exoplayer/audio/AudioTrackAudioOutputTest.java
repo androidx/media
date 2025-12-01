@@ -74,7 +74,7 @@ public final class AudioTrackAudioOutputTest {
 
   private void initializeAudioTrackAudioOutput() {
     initializeAudioTrackAudioOutput(
-        /* receiver= */ null,
+        /* listener= */ null,
         /* audioFormatEncoding= */ AudioFormat.ENCODING_PCM_16BIT,
         /* encoding= */ C.ENCODING_PCM_16BIT,
         /* channelMask= */ AudioFormat.CHANNEL_OUT_STEREO,

@@ -194,7 +194,7 @@ public final class TsExtractor implements Extractor {
         /* extractorFlags= */ FLAG_EMIT_RAW_SUBTITLE_DATA,
         SubtitleParser.Factory.UNSUPPORTED,
         new TimestampAdjuster(0),
-        new DefaultTsPayloadReaderFactory(/* defaultTsPayloadReaderFlags= */ 0),
+        new DefaultTsPayloadReaderFactory(/* flags= */ 0),
         DEFAULT_TIMESTAMP_SEARCH_BYTES);
   }
 
@@ -210,7 +210,7 @@ public final class TsExtractor implements Extractor {
         /* extractorFlags= */ 0,
         subtitleParserFactory,
         new TimestampAdjuster(0),
-        new DefaultTsPayloadReaderFactory(/* defaultTsPayloadReaderFlags= */ 0),
+        new DefaultTsPayloadReaderFactory(/* flags= */ 0),
         DEFAULT_TIMESTAMP_SEARCH_BYTES);
   }
 
@@ -227,7 +227,7 @@ public final class TsExtractor implements Extractor {
         extractorFlags,
         subtitleParserFactory,
         new TimestampAdjuster(0),
-        new DefaultTsPayloadReaderFactory(/* defaultTsPayloadReaderFlags= */ 0),
+        new DefaultTsPayloadReaderFactory(/* flags= */ 0),
         DEFAULT_TIMESTAMP_SEARCH_BYTES);
   }
 

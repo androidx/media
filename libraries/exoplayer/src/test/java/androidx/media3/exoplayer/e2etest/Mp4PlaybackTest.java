@@ -133,7 +133,7 @@ public class Mp4PlaybackTest {
     }
 
     public static Sample withSubtitles(String filename, String subtitleLanguageToSelect) {
-      return new Sample(filename, /* enableSubtitles= */ subtitleLanguageToSelect);
+      return new Sample(filename, /* subtitleLanguageToSelect= */ subtitleLanguageToSelect);
     }
 
     @Override
