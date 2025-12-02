@@ -12798,11 +12798,14 @@ public final class ExoPlayerTest {
     play(player).untilPositionAtLeast(/* mediaItemIndex= */ 1, /* positionMs= */ 500);
     player.pause();
     concatenatingMediaSource.removeMediaSource(1);
+    // Let the removal propagate through the internals of ConcatenatingMediaSource. We can't wait
+    // for a signal on the player itself as we want this update to overlap with the seek below.
+    Thread.sleep(100);
+    advance(player).untilPendingCommandsAreFullyHandled();
     player.seekTo(/* mediaItemIndex= */ 0, /* positionMs= */ 123);
     advance(player).untilPendingCommandsAreFullyHandled();
     concatenatingMediaSource.removeMediaSource(0);
-    player.play();
-    advance(player).untilState(Player.STATE_ENDED);
+    advance(player).untilTimelineChanges();
 
     ArgumentCaptor<Player.PositionInfo> oldPosition =
         ArgumentCaptor.forClass(Player.PositionInfo.class);
@@ -12821,16 +12824,14 @@ public final class ExoPlayerTest {
         .verify(listener)
         .onPositionDiscontinuity(
             oldPosition.capture(), newPosition.capture(), eq(Player.DISCONTINUITY_REASON_REMOVE));
-    // This fails once out of a hundred test runs due to a race condition whether the seek or the
-    // removal arrives first in EPI.
-    // inOrder.verify(listener, never()).onPositionDiscontinuity(any(), any(), anyInt());
+    inOrder.verify(listener, never()).onPositionDiscontinuity(any(), any(), anyInt());
     List<Player.PositionInfo> oldPositions = oldPosition.getAllValues();
     List<Player.PositionInfo> newPositions = newPosition.getAllValues();
     assertThat(player.getCurrentTimeline().getWindowCount()).isEqualTo(1);
     // seek discontinuity
     assertThat(oldPositions.get(0).mediaItemIndex).isEqualTo(1);
-    assertThat(oldPositions.get(0).positionMs).isEqualTo(500);
-    assertThat(oldPositions.get(0).contentPositionMs).isEqualTo(500);
+    assertThat(oldPositions.get(0).positionMs).isEqualTo(0);
+    assertThat(oldPositions.get(0).contentPositionMs).isEqualTo(0);
     assertThat(newPositions.get(0).mediaItemIndex).isEqualTo(0);
     assertThat(newPositions.get(0).positionMs).isEqualTo(123); // seek wins over remove
     assertThat(newPositions.get(0).contentPositionMs).isEqualTo(123);
