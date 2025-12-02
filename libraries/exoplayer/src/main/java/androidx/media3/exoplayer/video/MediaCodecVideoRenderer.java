@@ -1031,14 +1031,10 @@ public class MediaCodecVideoRenderer extends MediaCodecRenderer
       periodDurationUs = C.TIME_UNSET;
       return;
     }
-    int periodIndex = timeline.getIndexOfPeriod(mediaPeriodId.periodUid);
-    // TODO: b/460354805 - Remove this workaround. The mediaPeriodId should always be inside the
-    // Timeline.
-    if (periodIndex == C.INDEX_UNSET) {
-      periodDurationUs = C.TIME_UNSET;
-      return;
-    }
-    periodDurationUs = timeline.getPeriod(periodIndex, new Timeline.Period()).getDurationUs();
+    periodDurationUs =
+        timeline
+            .getPeriodByUid(checkNotNull(mediaPeriodId).periodUid, new Timeline.Period())
+            .getDurationUs();
   }
 
   @Override
