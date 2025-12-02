@@ -57,6 +57,7 @@ dependencies {
     testImplementation project(modulePrefix + 'test-utils-robolectric')
     testImplementation 'androidx.test.espresso:espresso-core:' + androidxTestEspressoVersion
     testImplementation 'org.robolectric:robolectric:' + robolectricVersion
+    testImplementation 'com.google.guava:guava-testlib:' + guavaVersion
 }
 
 ext {
