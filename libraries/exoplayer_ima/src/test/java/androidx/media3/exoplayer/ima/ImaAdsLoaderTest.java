@@ -72,6 +72,7 @@ import com.google.ads.interactivemedia.v3.api.AdsRenderingSettings;
 import com.google.ads.interactivemedia.v3.api.AdsRequest;
 import com.google.ads.interactivemedia.v3.api.FriendlyObstruction;
 import com.google.ads.interactivemedia.v3.api.ImaSdkSettings;
+import com.google.ads.interactivemedia.v3.api.VideoOrientation;
 import com.google.ads.interactivemedia.v3.api.player.AdMediaInfo;
 import com.google.ads.interactivemedia.v3.api.player.ContentProgressProvider;
 import com.google.ads.interactivemedia.v3.api.player.VideoAdPlayer;
@@ -1148,6 +1149,33 @@ public final class ImaAdsLoaderTest {
         adsMediaSource, TEST_DATA_SPEC, TEST_ADS_ID, adViewProvider, adsLoaderListener);
 
     verify(mockAdsRequest).setAdTagUrl(TEST_DATA_SPEC.uri.toString());
+  }
+
+  @Test
+  public void requestAdTagWithImaAdTagUriBuilderUri_requestsWithAdTagUrlAndOrientation()
+      throws Exception {
+    DataSpec imaAdTagBuilderDataSpec =
+        new DataSpec(
+            new ImaAdTagUriBuilder(TEST_URI)
+                .setPreferredLinearOrientation(ImaAdTagUriBuilder.IMA_ORIENTATION_PORTRAIT)
+                .build());
+    imaAdsLoader.start(
+        adsMediaSource, imaAdTagBuilderDataSpec, TEST_ADS_ID, adViewProvider, adsLoaderListener);
+
+    verify(mockAdsRequest).setAdTagUrl(TEST_URI.toString());
+    verify(mockAdsRequest).setPreferredLinearOrientation(VideoOrientation.PORTRAIT);
+  }
+
+  @Test
+  public void requestAdTagWithJustVoParamInUri_requestsWithAdTagUrlWithoutOrientation()
+      throws Exception {
+    Uri voUri = TEST_URI.buildUpon().appendQueryParameter("vo", "1").build();
+    DataSpec csaiDataSpec = new DataSpec(voUri);
+    imaAdsLoader.start(
+        adsMediaSource, csaiDataSpec, TEST_ADS_ID, adViewProvider, adsLoaderListener);
+
+    verify(mockAdsRequest).setAdTagUrl(voUri.toString());
+    verify(mockAdsRequest, never()).setPreferredLinearOrientation(any());
   }
 
   @Test
