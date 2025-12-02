@@ -17,7 +17,9 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.util.Util.getPcmFormat;
+import static androidx.media3.test.utils.TestUtil.buildTestData;
 import static androidx.media3.transformer.TestUtil.createSpeedChangingAudioProcessor;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 import static java.util.Collections.max;
@@ -31,7 +33,6 @@ import androidx.media3.common.audio.AudioProcessor.UnhandledAudioFormatException
 import androidx.media3.common.util.Util;
 import androidx.media3.decoder.DecoderInputBuffer;
 import androidx.media3.test.utils.PassthroughAudioProcessor;
-import androidx.media3.test.utils.TestUtil;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Bytes;
@@ -45,6 +46,7 @@ import org.junit.runner.RunWith;
 /** Unit tests for {@link AudioGraphInput}. */
 @RunWith(AndroidJUnit4.class)
 public class AudioGraphInputTest {
+
   private static final EditedMediaItem FAKE_ITEM =
       new EditedMediaItem.Builder(MediaItem.EMPTY).build();
   private static final EditedMediaItem FAKE_ITEM_WITH_DOUBLE_SPEED =
@@ -140,7 +142,7 @@ public class AudioGraphInputTest {
             /* requestedOutputAudioFormat= */ AudioFormat.NOT_SET,
             /* editedMediaItem= */ FAKE_ITEM,
             /* inputFormat= */ getPcmFormat(STEREO_44100));
-    byte[] inputData = TestUtil.buildTestData(/* length= */ 100 * STEREO_44100.bytesPerFrame);
+    byte[] inputData = buildTestData(/* length= */ 100 * STEREO_44100.bytesPerFrame);
 
     audioGraphInput.onMediaItemChanged(
         /* editedMediaItem= */ FAKE_ITEM,
@@ -270,7 +272,8 @@ public class AudioGraphInputTest {
   }
 
   @Test
-  public void isEnded_withEndOfStreamQueued_whenDurationIsUnset_returnsTrue() throws Exception {
+  public void queueEndOfStream_withUnsetDurationAndNoInput_doesNotGenerateSilence()
+      throws Exception {
     AudioGraphInput audioGraphInput =
         new AudioGraphInput(
             /* requestedOutputAudioFormat= */ AudioFormat.NOT_SET,
@@ -293,6 +296,40 @@ public class AudioGraphInputTest {
 
     assertThat(audioGraphInput.getOutput().hasRemaining()).isFalse();
     assertThat(audioGraphInput.isEnded()).isTrue();
+  }
+
+  @Test
+  public void queueEndOfStream_withInputQueuedAndUnsetDuration_onlyOutputsQueuedInput()
+      throws Exception {
+    AudioGraphInput audioGraphInput =
+        new AudioGraphInput(
+            /* requestedOutputAudioFormat= */ AudioFormat.NOT_SET,
+            /* editedMediaItem= */ FAKE_ITEM,
+            /* inputFormat= */ getPcmFormat(STEREO_44100));
+    audioGraphInput.onMediaItemChanged(
+        /* editedMediaItem= */ FAKE_ITEM,
+        /* durationUs= */ C.TIME_UNSET,
+        /* decodedFormat= */ getPcmFormat(STEREO_44100),
+        /* isLast= */ true,
+        /* positionOffsetUs= */ 0);
+
+    byte[] input = buildTestData(1000 * STEREO_44100.bytesPerFrame);
+
+    // Force the media item change to be processed.
+    checkState(!audioGraphInput.getOutput().hasRemaining());
+
+    // Queue inputData.
+    DecoderInputBuffer inputBuffer = checkNotNull(audioGraphInput.getInputBuffer());
+    inputBuffer.ensureSpaceForWrite(input.length);
+    inputBuffer.data.put(input).flip();
+    checkState(audioGraphInput.queueInputBuffer());
+
+    // Queue EOS.
+    audioGraphInput.getInputBuffer().setFlags(C.BUFFER_FLAG_END_OF_STREAM);
+    checkState(audioGraphInput.queueInputBuffer());
+
+    List<Byte> outputBytes = drainAudioGraphInputUntilEnded(audioGraphInput);
+    assertThat(outputBytes).containsExactlyElementsIn(Bytes.asList(input)).inOrder();
   }
 
   @Test
@@ -332,7 +369,7 @@ public class AudioGraphInputTest {
             /* requestedOutputAudioFormat= */ AudioFormat.NOT_SET,
             /* editedMediaItem= */ FAKE_ITEM,
             /* inputFormat= */ getPcmFormat(STEREO_44100));
-    byte[] inputData = TestUtil.buildTestData(/* length= */ 100 * STEREO_44100.bytesPerFrame);
+    byte[] inputData = buildTestData(/* length= */ 100 * STEREO_44100.bytesPerFrame);
 
     // Force processing side to progress.
     checkState(!audioGraphInput.getOutput().hasRemaining());
@@ -355,13 +392,13 @@ public class AudioGraphInputTest {
   }
 
   @Test
-  public void getOutput_withNoEffects_returnsInputData() throws Exception {
+  public void getOutput_withNoEffectsAndSetDuration_returnsInputData() throws Exception {
     AudioGraphInput audioGraphInput =
         new AudioGraphInput(
             /* requestedOutputAudioFormat= */ AudioFormat.NOT_SET,
             /* editedMediaItem= */ FAKE_ITEM,
             /* inputFormat= */ getPcmFormat(STEREO_44100));
-    byte[] inputData = TestUtil.buildTestData(/* length= */ 100 * STEREO_44100.bytesPerFrame);
+    byte[] inputData = buildTestData(/* length= */ 100 * STEREO_44100.bytesPerFrame);
     // Pass in duration approximately equal to raw data duration ~ 100 / 44100 ~ 2267us.
     audioGraphInput.onMediaItemChanged(
         /* editedMediaItem= */ FAKE_ITEM,
@@ -388,13 +425,13 @@ public class AudioGraphInputTest {
   }
 
   @Test
-  public void getOutput_withNoEffects_returnsInputDataAndSilence() throws Exception {
+  public void getOutput_withNoEffectsAndSetDuration_returnsInputDataAndSilence() throws Exception {
     AudioGraphInput audioGraphInput =
         new AudioGraphInput(
             /* requestedOutputAudioFormat= */ AudioFormat.NOT_SET,
             /* editedMediaItem= */ FAKE_ITEM,
             /* inputFormat= */ getPcmFormat(STEREO_44100));
-    byte[] inputData = TestUtil.buildTestData(/* length= */ 100 * STEREO_44100.bytesPerFrame);
+    byte[] inputData = buildTestData(/* length= */ 100 * STEREO_44100.bytesPerFrame);
 
     audioGraphInput.onMediaItemChanged(
         /* editedMediaItem= */ FAKE_ITEM,
@@ -419,9 +456,8 @@ public class AudioGraphInputTest {
     checkState(audioGraphInput.queueInputBuffer());
 
     List<Byte> outputBytes = drainAudioGraphInputUntilEnded(audioGraphInput);
-    long expectedSampleCount = Util.durationUsToSampleCount(1_000_000, STEREO_44100.sampleRate);
-    // Silent audio generator rounds up duration.
-    assertThat(outputBytes).hasSize((int) ((expectedSampleCount + 1) * STEREO_44100.bytesPerFrame));
+
+    assertThat(outputBytes).hasSize(44101 * STEREO_44100.bytesPerFrame);
     assertThat(outputBytes.subList(0, inputData.length))
         .containsExactlyElementsIn(Bytes.asList(inputData))
         .inOrder();
@@ -430,13 +466,13 @@ public class AudioGraphInputTest {
   }
 
   @Test
-  public void getOutput_withEffects_returnsInputDataAndSilence() throws Exception {
+  public void getOutput_withEffectsAndSetDuration_returnsInputDataAndSilence() throws Exception {
     AudioGraphInput audioGraphInput =
         new AudioGraphInput(
             /* requestedOutputAudioFormat= */ AudioFormat.NOT_SET,
             /* editedMediaItem= */ FAKE_ITEM_WITH_DOUBLE_SPEED,
             /* inputFormat= */ getPcmFormat(STEREO_44100));
-    byte[] inputData = TestUtil.buildTestData(/* length= */ 4096 * STEREO_44100.bytesPerFrame);
+    byte[] inputData = buildTestData(/* length= */ 4096 * STEREO_44100.bytesPerFrame);
 
     audioGraphInput.onMediaItemChanged(
         /* editedMediaItem= */ FAKE_ITEM_WITH_DOUBLE_SPEED,
@@ -461,7 +497,7 @@ public class AudioGraphInputTest {
     checkState(audioGraphInput.queueInputBuffer());
 
     List<Byte> outputBytes = drainAudioGraphInputUntilEnded(audioGraphInput);
-    long expectedSampleCount = Util.durationUsToSampleCount(500_000, STEREO_44100.sampleRate);
+    long expectedSampleCount = 22050;
     // Silent audio generator rounds up duration.
     assertThat(outputBytes).hasSize((int) ((expectedSampleCount + 1) * STEREO_44100.bytesPerFrame));
     // Sonic takes a while to zero-out the input.
@@ -552,17 +588,17 @@ public class AudioGraphInputTest {
   }
 
   @Test
-  public void getOutput_afterFlush_returnsEmptyBuffer() throws Exception {
+  public void getOutput_afterFlushWithUnsetDuration_returnsEmptyBuffer() throws Exception {
     AudioGraphInput audioGraphInput =
         new AudioGraphInput(
             /* requestedOutputAudioFormat= */ AudioFormat.NOT_SET,
             /* editedMediaItem= */ FAKE_ITEM,
             /* inputFormat= */ getPcmFormat(STEREO_44100));
-    byte[] inputData = TestUtil.buildTestData(/* length= */ 100 * STEREO_44100.bytesPerFrame);
+    byte[] inputData = buildTestData(/* length= */ 100 * STEREO_44100.bytesPerFrame);
 
     audioGraphInput.onMediaItemChanged(
         /* editedMediaItem= */ FAKE_ITEM,
-        /* durationUs= */ 1_000_000,
+        /* durationUs= */ C.TIME_UNSET,
         /* decodedFormat= */ getPcmFormat(STEREO_44100),
         /* isLast= */ true,
         /* positionOffsetUs= */ 0);
@@ -587,17 +623,18 @@ public class AudioGraphInputTest {
   }
 
   @Test
-  public void getOutput_afterFlushAndInput_returnsCorrectAmountOfBytes() throws Exception {
+  public void getOutput_afterFlushAndInputWithUnsetDuration_returnsCorrectAmountOfBytes()
+      throws Exception {
     AudioGraphInput audioGraphInput =
         new AudioGraphInput(
             /* requestedOutputAudioFormat= */ AudioFormat.NOT_SET,
             /* editedMediaItem= */ FAKE_ITEM,
             /* inputFormat= */ getPcmFormat(STEREO_44100));
-    byte[] inputData = TestUtil.buildTestData(/* length= */ 100 * STEREO_44100.bytesPerFrame);
+    byte[] inputData = buildTestData(/* length= */ 100 * STEREO_44100.bytesPerFrame);
 
     audioGraphInput.onMediaItemChanged(
         /* editedMediaItem= */ FAKE_ITEM,
-        /* durationUs= */ 1_000_000,
+        /* durationUs= */ C.TIME_UNSET,
         /* decodedFormat= */ getPcmFormat(STEREO_44100),
         /* isLast= */ true,
         /* positionOffsetUs= */ 0);
@@ -634,7 +671,7 @@ public class AudioGraphInputTest {
             /* requestedOutputAudioFormat= */ AudioFormat.NOT_SET,
             /* editedMediaItem= */ FAKE_ITEM,
             /* inputFormat= */ getPcmFormat(STEREO_44100));
-    byte[] inputData = TestUtil.buildTestData(/* length= */ 100 * STEREO_44100.bytesPerFrame);
+    byte[] inputData = buildTestData(/* length= */ 100 * STEREO_44100.bytesPerFrame);
 
     audioGraphInput.onMediaItemChanged(
         /* editedMediaItem= */ FAKE_ITEM,
@@ -664,7 +701,7 @@ public class AudioGraphInputTest {
             /* requestedOutputAudioFormat= */ AudioFormat.NOT_SET,
             /* editedMediaItem= */ FAKE_ITEM,
             /* inputFormat= */ getPcmFormat(STEREO_44100));
-    byte[] inputData = TestUtil.buildTestData(/* length= */ 100 * STEREO_44100.bytesPerFrame);
+    byte[] inputData = buildTestData(/* length= */ 100 * STEREO_44100.bytesPerFrame);
 
     audioGraphInput.onMediaItemChanged(
         /* editedMediaItem= */ FAKE_ITEM,

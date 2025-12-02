@@ -16,6 +16,9 @@
 package androidx.media3.transformer;
 
 import static androidx.media3.common.util.Util.getPcmFormat;
+import static androidx.media3.test.utils.TestUtil.buildTestData;
+import static androidx.media3.test.utils.TestUtil.createByteArray;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
@@ -32,6 +35,8 @@ import androidx.media3.test.utils.PassthroughAudioProcessor;
 import androidx.media3.test.utils.TestUtil;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.primitives.Bytes;
 import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.Test;
@@ -54,7 +59,7 @@ public class AudioGraphTest {
       new AudioFormat(/* sampleRate= */ 50_000, /* channelCount= */ 6, C.ENCODING_PCM_16BIT);
 
   @Test
-  public void silentItem_outputsCorrectAmountOfBytes() throws Exception {
+  public void gap_outputsExpectedSilenceDuration() throws Exception {
     AudioGraph audioGraph =
         new AudioGraph(new DefaultAudioMixer.Factory(), /* effects= */ ImmutableList.of());
 
@@ -65,15 +70,15 @@ public class AudioGraphTest {
         /* decodedFormat= */ null,
         /* isLast= */ true,
         /* positionOffsetUs= */ 0);
-    int bytesOutput = drainAudioGraph(audioGraph);
+    ImmutableList<Byte> outputBytes = drainAudioGraph(audioGraph);
 
     // 3 second stream with 50_000 frames per second.
-    // 16 bit PCM has 2 bytes per channel.
-    assertThat(bytesOutput).isEqualTo(3 * 50_000 * 2 * 6);
+    assertThat(outputBytes).hasSize(3 * 50_000 * SURROUND_50000.bytesPerFrame);
+    assertThat(ImmutableSet.copyOf(outputBytes)).containsExactly((byte) 0);
   }
 
   @Test
-  public void silentItem_withSampleRateChange_outputsCorrectAmountOfBytes() throws Exception {
+  public void gap_withSampleRateChange_outputsExpectedSilenceDuration() throws Exception {
     SonicAudioProcessor changeTo100000Hz = new SonicAudioProcessor();
     changeTo100000Hz.setOutputSampleRateHz(100_000);
     AudioGraph audioGraph =
@@ -87,11 +92,106 @@ public class AudioGraphTest {
         /* decodedFormat= */ null,
         /* isLast= */ true,
         /* positionOffsetUs= */ 0);
-    int bytesOutput = drainAudioGraph(audioGraph);
+    ImmutableList<Byte> outputBytes = drainAudioGraph(audioGraph);
 
     // 3 second stream with 100_000 frames per second.
-    // 16 bit PCM has 2 bytes per channel.
-    assertThat(bytesOutput).isEqualTo(3 * 100_000 * 2 * 6);
+    assertThat(outputBytes).hasSize(3 * 100_000 * SURROUND_50000.bytesPerFrame);
+    assertThat(ImmutableSet.copyOf(outputBytes)).containsExactly((byte) 0);
+  }
+
+  @Test
+  public void onMediaItemChanged_withExactDurationAndNoInput_outputsSilence() throws Exception {
+    AudioGraph audioGraph =
+        new AudioGraph(new DefaultAudioMixer.Factory(), /* effects= */ ImmutableList.of());
+
+    AudioGraphInput input = audioGraph.registerInput(FAKE_ITEM, getPcmFormat(SURROUND_50000));
+    input.onMediaItemChanged(
+        FAKE_ITEM,
+        /* durationUs= */ 3_000_000,
+        /* decodedFormat= */ getPcmFormat(SURROUND_50000),
+        /* isLast= */ true,
+        /* positionOffsetUs= */ 0);
+
+    assertThat(input.getOutput().hasRemaining()).isFalse();
+    DecoderInputBuffer inputBuffer = checkNotNull(input.getInputBuffer());
+    inputBuffer.setFlags(C.BUFFER_FLAG_END_OF_STREAM);
+    assertThat(input.queueInputBuffer()).isTrue();
+
+    ImmutableList<Byte> outputBytes = drainAudioGraph(audioGraph);
+
+    // 3 second stream with 50_000 frames per second.
+    assertThat(outputBytes).hasSize(3 * 50_000 * SURROUND_50000.bytesPerFrame);
+    assertThat(ImmutableSet.copyOf(outputBytes)).containsExactly((byte) 0);
+    assertThat(audioGraph.isEnded()).isTrue();
+  }
+
+  @Test
+  public void onMediaItemChanged_withExactDurationAndQueuedInput_outputsInputAndSilence()
+      throws Exception {
+    AudioGraph audioGraph =
+        new AudioGraph(new DefaultAudioMixer.Factory(), /* effects= */ ImmutableList.of());
+    AudioGraphInput audioGraphInput =
+        audioGraph.registerInput(FAKE_ITEM, getPcmFormat(SURROUND_50000));
+    byte[] input = buildTestData(50_000 * SURROUND_50000.bytesPerFrame);
+    audioGraphInput.onMediaItemChanged(
+        FAKE_ITEM,
+        /* durationUs= */ 3_000_000,
+        /* decodedFormat= */ getPcmFormat(SURROUND_50000),
+        /* isLast= */ true,
+        /* positionOffsetUs= */ 0);
+
+    assertThat(audioGraphInput.getOutput().hasRemaining()).isFalse();
+    DecoderInputBuffer inputBuffer = checkNotNull(audioGraphInput.getInputBuffer());
+    inputBuffer.ensureSpaceForWrite(input.length);
+    inputBuffer.data.put(input).flip();
+    assertThat(audioGraphInput.queueInputBuffer()).isTrue();
+
+    inputBuffer = checkNotNull(audioGraphInput.getInputBuffer());
+    inputBuffer.setFlags(C.BUFFER_FLAG_END_OF_STREAM);
+    assertThat(audioGraphInput.queueInputBuffer()).isTrue();
+
+    ImmutableList<Byte> outputBytes = drainAudioGraph(audioGraph);
+
+    // 3 second stream with 50_000 frames per second.
+    assertThat(outputBytes).hasSize(3 * 50_000 * SURROUND_50000.bytesPerFrame);
+    assertThat(outputBytes.subList(0, input.length))
+        .containsExactlyElementsIn(Bytes.asList(input))
+        .inOrder();
+    assertThat(ImmutableSet.copyOf(outputBytes.subList(input.length, outputBytes.size())))
+        .containsExactly((byte) 0);
+    assertThat(audioGraph.isEnded()).isTrue();
+  }
+
+  @Test
+  public void onMediaItemChanged_withUnsetDurationAndQueuedInput_outputsInput() throws Exception {
+    AudioGraph audioGraph =
+        new AudioGraph(new DefaultAudioMixer.Factory(), /* effects= */ ImmutableList.of());
+    AudioGraphInput audioGraphInput =
+        audioGraph.registerInput(FAKE_ITEM, getPcmFormat(SURROUND_50000));
+    byte[] input = buildTestData(50_000 * SURROUND_50000.bytesPerFrame);
+    audioGraphInput.onMediaItemChanged(
+        FAKE_ITEM,
+        /* durationUs= */ C.TIME_UNSET,
+        /* decodedFormat= */ getPcmFormat(SURROUND_50000),
+        /* isLast= */ true,
+        /* positionOffsetUs= */ 0);
+
+    assertThat(audioGraphInput.getOutput().hasRemaining()).isFalse();
+    DecoderInputBuffer inputBuffer = checkNotNull(audioGraphInput.getInputBuffer());
+    inputBuffer.ensureSpaceForWrite(input.length);
+    inputBuffer.data.put(input).flip();
+    assertThat(audioGraphInput.queueInputBuffer()).isTrue();
+
+    inputBuffer = checkNotNull(audioGraphInput.getInputBuffer());
+    inputBuffer.setFlags(C.BUFFER_FLAG_END_OF_STREAM);
+    assertThat(audioGraphInput.queueInputBuffer()).isTrue();
+
+    ImmutableList<Byte> outputBytes = drainAudioGraph(audioGraph);
+
+    // 3 second stream with 50_000 frames per second.
+    assertThat(outputBytes).hasSize(input.length);
+    assertThat(outputBytes).containsExactlyElementsIn(Bytes.asList(input)).inOrder();
+    assertThat(audioGraph.isEnded()).isTrue();
   }
 
   @Test
@@ -285,7 +385,7 @@ public class AudioGraphTest {
         audioGraph.registerInput(FAKE_ITEM, getPcmFormat(STEREO_44100));
     audioGraphInput.onMediaItemChanged(
         FAKE_ITEM,
-        /* durationUs= */ 1_000_000,
+        /* durationUs= */ C.TIME_UNSET,
         /* decodedFormat= */ getPcmFormat(STEREO_44100),
         /* isLast= */ true,
         /* positionOffsetUs= */ 0);
@@ -302,9 +402,9 @@ public class AudioGraphTest {
     audioGraphInput.getInputBuffer().setFlags(C.BUFFER_FLAG_END_OF_STREAM);
     checkState(audioGraphInput.queueInputBuffer());
     // Drain output.
-    int bytesOutput = drainAudioGraph(audioGraph);
+    ImmutableList<Byte> outputBytes = drainAudioGraph(audioGraph);
 
-    assertThat(bytesOutput).isEqualTo(0);
+    assertThat(outputBytes).isEmpty();
   }
 
   @Test
@@ -333,9 +433,9 @@ public class AudioGraphTest {
     audioGraphInput.getInputBuffer().setFlags(C.BUFFER_FLAG_END_OF_STREAM);
     checkState(audioGraphInput.queueInputBuffer());
     // Drain output.
-    int bytesOutput = drainAudioGraph(audioGraph);
+    ImmutableList<Byte> outputBytes = drainAudioGraph(audioGraph);
 
-    assertThat(bytesOutput).isGreaterThan(0);
+    assertThat(outputBytes).isNotEmpty();
   }
 
   @Test
@@ -346,7 +446,7 @@ public class AudioGraphTest {
         audioGraph.registerInput(FAKE_ITEM, getPcmFormat(STEREO_44100));
     audioGraphInput.onMediaItemChanged(
         FAKE_ITEM,
-        /* durationUs= */ 1_000_000,
+        /* durationUs= */ C.TIME_UNSET,
         /* decodedFormat= */ getPcmFormat(STEREO_44100),
         /* isLast= */ true,
         /* positionOffsetUs= */ 0);
@@ -361,9 +461,9 @@ public class AudioGraphTest {
     audioGraph.flush(/* positionOffsetUs= */ 0);
     audioGraphInput.getInputBuffer().setFlags(C.BUFFER_FLAG_END_OF_STREAM);
     checkState(audioGraphInput.queueInputBuffer()); // Queue EOS.
-    int bytesOutput = drainAudioGraph(audioGraph);
+    ImmutableList<Byte> outputBytes = drainAudioGraph(audioGraph);
 
-    assertThat(bytesOutput).isEqualTo(0);
+    assertThat(outputBytes).isEmpty();
   }
 
   @Test
@@ -377,7 +477,7 @@ public class AudioGraphTest {
         audioGraph.registerInput(FAKE_ITEM, getPcmFormat(STEREO_44100));
     audioGraphInput.onMediaItemChanged(
         FAKE_ITEM,
-        /* durationUs= */ 1_000_000,
+        /* durationUs= */ C.TIME_UNSET,
         /* decodedFormat= */ getPcmFormat(STEREO_44100),
         /* isLast= */ true,
         /* positionOffsetUs= */ 0);
@@ -392,9 +492,9 @@ public class AudioGraphTest {
     audioGraph.flush(/* positionOffsetUs= */ 0);
     audioGraphInput.getInputBuffer().setFlags(C.BUFFER_FLAG_END_OF_STREAM);
     checkState(audioGraphInput.queueInputBuffer()); // Queue EOS.
-    int bytesOutput = drainAudioGraph(audioGraph);
+    ImmutableList<Byte> outputBytes = drainAudioGraph(audioGraph);
 
-    assertThat(bytesOutput).isEqualTo(0);
+    assertThat(outputBytes).isEmpty();
   }
 
   @Test
@@ -528,13 +628,12 @@ public class AudioGraphTest {
   }
 
   /** Drains the graph and returns the number of bytes output. */
-  private static int drainAudioGraph(AudioGraph audioGraph) throws ExportException {
-    int bytesOutput = 0;
+  private static ImmutableList<Byte> drainAudioGraph(AudioGraph audioGraph) throws ExportException {
+    ImmutableList.Builder<Byte> bytes = new ImmutableList.Builder<>();
     ByteBuffer output;
     while ((output = audioGraph.getOutput()).hasRemaining() || !audioGraph.isEnded()) {
-      bytesOutput += output.remaining();
-      output.position(output.limit());
+      bytes.addAll(Bytes.asList(createByteArray(output)));
     }
-    return bytesOutput;
+    return bytes.build();
   }
 }
