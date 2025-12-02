@@ -23,7 +23,6 @@ import static java.lang.Math.min;
 import android.os.Binder;
 import android.os.Bundle;
 import android.os.IBinder;
-import android.os.Parcelable;
 import android.os.SharedMemory;
 import android.system.OsConstants;
 import androidx.annotation.Nullable;
@@ -46,7 +45,6 @@ import java.util.Arrays;
 public final class BundleableByteArray {
 
   private static final String TAG = "BundleableByteArray";
-  private static final String IN_PROCESS_BINDER_SUFFIX = "_IN_PROCESS";
 
   private final byte[] byteArray;
   private final InProcessBinder inProcessBinder;
@@ -65,39 +63,39 @@ public final class BundleableByteArray {
     this.inProcessBinder = new InProcessBinder();
   }
 
-  /**
-   * Writes a reference to the byte array to a {@link Bundle}.
-   *
-   * @param bundle The {@link Bundle} to write to.
-   * @param key The bundle key for the byte array reference.
-   */
-  public void writeToBundle(Bundle bundle, String key) {
-    bundle.putBinder(key + IN_PROCESS_BINDER_SUFFIX, inProcessBinder);
+  private static final String FIELD_IN_PROCESS_BINDER = Util.intToStringMaxRadix(0);
+  private static final String FIELD_SHARED_MEMORY = Util.intToStringMaxRadix(1);
+  private static final String FIELD_SPLIT_ARRAY_RETRIEVER = Util.intToStringMaxRadix(2);
+
+  /** Writes a reference to the byte array to a {@link Bundle}. */
+  public Bundle toBundle() {
+    Bundle bundle = new Bundle();
+    bundle.putBinder(FIELD_IN_PROCESS_BINDER, inProcessBinder);
     if (SDK_INT >= 27 && byteArray.length > 0) {
       if (sharedMemoryApi27 == null) {
         sharedMemoryApi27 = SharedMemoryApi27.create(byteArray);
       }
       if (sharedMemoryApi27 != null) {
-        sharedMemoryApi27.writeToBundle(bundle, key);
-        return;
+        sharedMemoryApi27.writeToBundle(bundle);
+        return bundle;
       }
     }
     if (splitArrayRetriever == null) {
       splitArrayRetriever = new SplitArrayRetriever(byteArray);
     }
-    splitArrayRetriever.writeToBundle(bundle, key);
+    splitArrayRetriever.writeToBundle(bundle);
+    return bundle;
   }
 
   /**
    * Reads a bundleable byte array from a {@link Bundle}.
    *
    * @param bundle The {@link Bundle} to read from.
-   * @param key The bundle key for the byte array reference.
    * @return The bundleable byte array, or null if the key is not present or malformed.
    */
   @Nullable
-  public static byte[] readFromBundle(Bundle bundle, String key) {
-    @Nullable IBinder inProcessBinder = bundle.getBinder(key + IN_PROCESS_BINDER_SUFFIX);
+  public static byte[] fromBundle(Bundle bundle) {
+    @Nullable IBinder inProcessBinder = bundle.getBinder(FIELD_IN_PROCESS_BINDER);
     if (inProcessBinder == null) {
       return null;
     }
@@ -106,12 +104,12 @@ public final class BundleableByteArray {
       return ((InProcessBinder) inProcessBinder).getByteArray();
     }
     if (SDK_INT >= 27) {
-      byte[] byteArray = SharedMemoryApi27.readFromBundle(bundle, key);
+      byte[] byteArray = SharedMemoryApi27.readFromBundle(bundle);
       if (byteArray != null) {
         return byteArray;
       }
     }
-    return SplitArrayRetriever.readFromBundle(bundle, key);
+    return SplitArrayRetriever.readFromBundle(bundle);
   }
 
   @RequiresApi(27)
@@ -142,17 +140,16 @@ public final class BundleableByteArray {
       this.sharedMemory = sharedMemory;
     }
 
-    private void writeToBundle(Bundle bundle, String key) {
-      bundle.putParcelable(key, sharedMemory);
+    private void writeToBundle(Bundle bundle) {
+      bundle.putParcelable(FIELD_SHARED_MEMORY, sharedMemory);
     }
 
     @Nullable
-    private static byte[] readFromBundle(Bundle bundle, String key) {
-      @Nullable Parcelable parcelable = bundle.getParcelable(key);
-      if (!(parcelable instanceof SharedMemory)) {
+    private static byte[] readFromBundle(Bundle bundle) {
+      @Nullable SharedMemory sharedMemory = bundle.getParcelable(FIELD_SHARED_MEMORY);
+      if (sharedMemory == null) {
         return null;
       }
-      SharedMemory sharedMemory = (SharedMemory) parcelable;
       ByteBuffer byteBuffer = null;
       try {
         byteBuffer = sharedMemory.mapReadOnly();
@@ -191,13 +188,13 @@ public final class BundleableByteArray {
       bundleListRetriever = new BundleListRetriever(splitListBuilder.build());
     }
 
-    private void writeToBundle(Bundle bundle, String key) {
-      bundle.putBinder(key, bundleListRetriever);
+    private void writeToBundle(Bundle bundle) {
+      bundle.putBinder(FIELD_SPLIT_ARRAY_RETRIEVER, bundleListRetriever);
     }
 
     @Nullable
-    private static byte[] readFromBundle(Bundle bundle, String key) {
-      @Nullable IBinder binder = bundle.getBinder(key);
+    private static byte[] readFromBundle(Bundle bundle) {
+      @Nullable IBinder binder = bundle.getBinder(FIELD_SPLIT_ARRAY_RETRIEVER);
       if (binder == null) {
         return null;
       }

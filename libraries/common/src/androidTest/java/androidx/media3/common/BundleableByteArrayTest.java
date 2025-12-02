@@ -43,8 +43,7 @@ import org.junit.runner.RunWith;
 public final class BundleableByteArrayTest {
 
   @Test
-  public void writeToBundleReadFromBundle_remoteProcessEmptyArray_returnsEmptyArray()
-      throws Exception {
+  public void toBundleFromBundle_remoteProcessEmptyArray_returnsEmptyArray() throws Exception {
     IBinder remoteService = ByteArrayTransferTestService.connectToRemoteService();
     BundleableByteArray byteArray = new BundleableByteArray(EMPTY_BYTE_ARRAY);
 
@@ -54,8 +53,7 @@ public final class BundleableByteArrayTest {
   }
 
   @Test
-  public void writeToBundleReadFromBundle_remoteProcessSmallArray_returnsSameByteArray()
-      throws Exception {
+  public void toBundleFromBundle_remoteProcessSmallArray_returnsSameByteArray() throws Exception {
     IBinder remoteService = ByteArrayTransferTestService.connectToRemoteService();
     byte[] bytes = generateByteArray(/* size= */ 100);
     BundleableByteArray byteArray = new BundleableByteArray(bytes);
@@ -66,8 +64,7 @@ public final class BundleableByteArrayTest {
   }
 
   @Test
-  public void writeToBundleReadFromBundle_remoteProcessLargeArray_returnsSameByteArray()
-      throws Exception {
+  public void toBundleFromBundle_remoteProcessLargeArray_returnsSameByteArray() throws Exception {
     IBinder remoteService = ByteArrayTransferTestService.connectToRemoteService();
     byte[] bytes = generateByteArray(/* size= */ 20_000_000);
     BundleableByteArray byteArray = new BundleableByteArray(bytes);
@@ -78,7 +75,7 @@ public final class BundleableByteArrayTest {
   }
 
   @Test
-  public void writeToBundleReadFromBundle_remoteProcessReusingInstance_returnsSameByteArray()
+  public void toBundleFromBundle_remoteProcessReusingInstance_returnsSameByteArray()
       throws Exception {
     IBinder remoteService = ByteArrayTransferTestService.connectToRemoteService();
     byte[] bytes = generateByteArray(/* size= */ 2_000_000);
@@ -92,51 +89,46 @@ public final class BundleableByteArrayTest {
   }
 
   @Test
-  public void writeToBundleReadFromBundle_inProcessEmptyArray_returnsEmptyArray() throws Exception {
+  public void toBundleFromBundle_inProcessEmptyArray_returnsEmptyArray() {
     BundleableByteArray byteArray = new BundleableByteArray(EMPTY_BYTE_ARRAY);
-    Bundle bundle = new Bundle();
 
-    byteArray.writeToBundle(bundle, "key");
-    byte[] returnedBytes = BundleableByteArray.readFromBundle(bundle, "key");
+    Bundle bundle = byteArray.toBundle();
+    byte[] returnedBytes = BundleableByteArray.fromBundle(bundle);
 
     assertThat(returnedBytes).isEqualTo(EMPTY_BYTE_ARRAY);
   }
 
   @Test
-  public void writeToBundleReadFromBundle_inProcessSmallArray_returnsSameByteArray() {
+  public void toBundleFromBundle_inProcessSmallArray_returnsSameByteArray() {
     byte[] bytes = generateByteArray(/* size= */ 100);
     BundleableByteArray byteArray = new BundleableByteArray(bytes);
-    Bundle bundle = new Bundle();
 
-    byteArray.writeToBundle(bundle, "key");
-    byte[] returnedBytes = BundleableByteArray.readFromBundle(bundle, "key");
+    Bundle bundle = byteArray.toBundle();
+    byte[] returnedBytes = BundleableByteArray.fromBundle(bundle);
 
     assertThat(returnedBytes).isEqualTo(bytes);
   }
 
   @Test
-  public void writeToBundleReadFromBundle_inProcessLargeArray_returnsSameByteArray() {
+  public void toBundleFromBundle_inProcessLargeArray_returnsSameByteArray() {
     byte[] bytes = generateByteArray(/* size= */ 20_000_000);
     BundleableByteArray byteArray = new BundleableByteArray(bytes);
-    Bundle bundle = new Bundle();
 
-    byteArray.writeToBundle(bundle, "key");
-    byte[] returnedBytes = BundleableByteArray.readFromBundle(bundle, "key");
+    Bundle bundle = byteArray.toBundle();
+    byte[] returnedBytes = BundleableByteArray.fromBundle(bundle);
 
     assertThat(returnedBytes).isEqualTo(bytes);
   }
 
   @Test
-  public void writeToBundleReadFromBundle_inProcessReusingInstance_returnsSameByteArray() {
+  public void toBundleFromBundle_inProcessReusingInstance_returnsSameByteArray() {
     byte[] bytes = generateByteArray(/* size= */ 2_000_000);
     BundleableByteArray byteArray = new BundleableByteArray(bytes);
-    Bundle bundle1 = new Bundle();
-    Bundle bundle2 = new Bundle();
 
-    byteArray.writeToBundle(bundle1, "key");
-    byte[] returnedBytes1 = BundleableByteArray.readFromBundle(bundle1, "key");
-    byteArray.writeToBundle(bundle2, "key");
-    byte[] returnedBytes2 = BundleableByteArray.readFromBundle(bundle2, "key");
+    Bundle bundle1 = byteArray.toBundle();
+    byte[] returnedBytes1 = BundleableByteArray.fromBundle(bundle1);
+    Bundle bundle2 = byteArray.toBundle();
+    byte[] returnedBytes2 = BundleableByteArray.fromBundle(bundle2);
 
     assertThat(returnedBytes1).isEqualTo(bytes);
     assertThat(returnedBytes2).isEqualTo(bytes);
@@ -159,7 +151,6 @@ public final class BundleableByteArrayTest {
             "androidx.media3.common.BundleableByteArrayTest$ByteArrayTransferTestService");
     private static final String INTENT_ACTION =
         "androidx.media3.common.test.START_BYTE_ARRAY_TRANSFER_TEST_SERVICE";
-    private static final String BUNDLE_KEY = "byte_array";
 
     private static IBinder connectToRemoteService() throws Exception {
       Intent intent = new Intent(INTENT_ACTION);
@@ -183,9 +174,8 @@ public final class BundleableByteArrayTest {
 
     private static byte[] transferBytes(IBinder binder, BundleableByteArray byteArray)
         throws RemoteException {
-      Bundle byteArrayBundle = new Bundle();
+      Bundle byteArrayBundle = byteArray.toBundle();
       Bundle replyBundle;
-      byteArray.writeToBundle(byteArrayBundle, BUNDLE_KEY);
       Parcel data = Parcel.obtain();
       Parcel reply = Parcel.obtain();
       try {
@@ -196,7 +186,7 @@ public final class BundleableByteArrayTest {
         data.recycle();
         reply.recycle();
       }
-      return BundleableByteArray.readFromBundle(replyBundle, BUNDLE_KEY);
+      return BundleableByteArray.fromBundle(replyBundle);
     }
 
     @Override
@@ -205,11 +195,8 @@ public final class BundleableByteArrayTest {
         @Override
         protected boolean onTransact(int code, Parcel data, @Nullable Parcel reply, int flags) {
           Bundle dataBundle = checkNotNull(data.readBundle());
-          @Nullable
-          byte[] byteArray =
-              checkNotNull(BundleableByteArray.readFromBundle(dataBundle, BUNDLE_KEY));
-          Bundle replyBundle = new Bundle();
-          new BundleableByteArray(byteArray).writeToBundle(replyBundle, BUNDLE_KEY);
+          @Nullable byte[] byteArray = checkNotNull(BundleableByteArray.fromBundle(dataBundle));
+          Bundle replyBundle = new BundleableByteArray(byteArray).toBundle();
           checkNotNull(reply).writeBundle(replyBundle);
           return true;
         }
